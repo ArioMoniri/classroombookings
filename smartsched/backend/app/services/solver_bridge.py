@@ -71,6 +71,14 @@ def _call_solver(inp: sm.SolverInput, progress: ProgressFn | None, choice: str =
         return fn(inp)
 
 
+def _cohort_keys(program: str | None, years: list[Any]) -> frozenset[str]:
+    """Student-cohort keys ("PROG:<programme>:Y<year>"). Unknown programme or year => no key, because a
+    row with no class year (electives, graduate pools) must not be treated as one giant cohort."""
+    if not program:
+        return frozenset()
+    return frozenset(f"PROG:{program}:Y{int(y)}" for y in years if y is not None and int(y) > 0)
+
+
 def horizon_weeks(run: ScheduleRun, term: Term) -> list[int]:
     hp = run.horizon_params or {}
     if run.horizon == "WEEK":
@@ -121,6 +129,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         }
     events: list[sm.Event] = []
     members: dict[int, list[int]] = {}
+    extra_weeks: set[int] = set()
 
     if not exam:
         q = (
@@ -152,9 +161,8 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             if mr.status == "LOCKED" and definitive and fixed_day:
                 locked = sm.Assignment(mr.id, fixed_day, mr.start_period, mr.end_period, tuple(definitive), ev_weeks)
                 forbidden_tags = frozenset()
-            cohort = frozenset(
-                f"PROG:{sec.program.canonical_name if sec.program else 'none'}:Y{y}"
-                for y in (sec.class_years or [sec.class_year or 0])
+            cohort = _cohort_keys(
+                sec.program.canonical_name if sec.program else None, sec.class_years or [sec.class_year]
             )
             instr = frozenset(f"INS:{si.instructor_id}" for si in sec.instructors)
             label = f"{sec.course.display_code}{' §' + sec.label if sec.label else ''}"
@@ -197,8 +205,10 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             week = week_index_for_date(term, head_date, list(weeks_rows))
             if week is None:
                 week = weeks[0]
-            if week not in week_set and params.get("strict_horizon", True) and run.horizon != "TERM":
-                continue
+            if week not in week_set:
+                if run.horizon != "TERM" and params.get("strict_horizon", True):
+                    continue
+                extra_weeks.add(week)  # exam dated outside the term's lecture weeks (e.g. early finals)
             size = sum(int(r.enrolment or 0) for r in rows)
             tags = {str(t) for r in rows for t in (r.requested_tags or [])}
             definitive = [int(x) for r in rows for x in (r.definitive_room_ids or []) if int(x) in room_ids]
@@ -214,10 +224,11 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     frozenset({week}),
                     head_date,
                 )
-            cohort = frozenset(
-                f"PROG:{r.program.canonical_name if r.program else 'none'}:Y{y}"
-                for r in rows
-                for y in (r.class_years or [r.class_year or 0])
+            cohort = frozenset().union(
+                *(
+                    _cohort_keys(r.program.canonical_name if r.program else None, r.class_years or [r.class_year])
+                    for r in rows
+                )
             )
             max_rooms = max(int(r.requested_room_count or 0) for r in rows) or 3
             events.append(
@@ -310,6 +321,8 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 )
             )
 
+    if exam and extra_weeks:
+        weeks = sorted(week_set | extra_weeks)
     inp = sm.SolverInput(
         rooms=rooms,
         events=tuple(events),

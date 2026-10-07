@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.db
+*.db-journal
+uploads/
+.env

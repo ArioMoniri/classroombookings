@@ -10,6 +10,7 @@ import { useTerms } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
+import { useHydrated } from "@/lib/use-hydrated";
 
 export function useActiveTerm() {
   const terms = useTerms();
@@ -20,7 +21,10 @@ export function useActiveTerm() {
 
 export function TermSwitcher({ collapsed }: { collapsed: boolean }) {
   const { t } = useI18n();
-  const { term, terms } = useActiveTerm();
+  const hydrated = useHydrated();
+  const active = useActiveTerm();
+  const term = hydrated ? active.term : undefined;
+  const terms = active.terms;
   const setTermId = useUiStore((s) => s.setTermId);
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);

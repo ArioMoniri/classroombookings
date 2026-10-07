@@ -9,6 +9,7 @@ import { useMeetings, useRuns } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
+import { useHydrated } from "@/lib/use-hydrated";
 import { LocaleToggle } from "./locale-toggle";
 import { NAV_GROUPS, type NavItem } from "./nav-config";
 import { TermSwitcher } from "./term-switcher";
@@ -35,7 +36,9 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const { t } = useI18n();
-  const badges = useNavBadges();
+  const liveBadges = useNavBadges();
+  const hydrated = useHydrated();
+  const badges = hydrated ? liveBadges : { needsReview: 0, running: 0 };
   const reduce = useReducedMotion();
   return (
     <nav aria-label="Primary" className="flex-1 overflow-y-auto px-2 py-2">

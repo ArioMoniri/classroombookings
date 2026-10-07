@@ -10,6 +10,7 @@ import { useRuns } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { useUiStore } from "@/stores/ui";
+import { useHydrated } from "@/lib/use-hydrated";
 import { ALL_NAV_ITEMS } from "./nav-config";
 import { UserMenu } from "./user-menu";
 
@@ -42,7 +43,8 @@ export function TopBar() {
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const crumbs = useBreadcrumbs();
   const runs = useRuns();
-  const recent = runs.data?.slice(0, 5) ?? [];
+  const hydrated = useHydrated();
+  const recent = hydrated ? (runs.data?.slice(0, 5) ?? []) : [];
   const unread = recent.filter((r) => r.status === "RUNNING" || r.status === "QUEUED").length;
   return (
     <header className="sticky top-0 z-30 flex h-12 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur-sm sm:px-6 lg:px-8">

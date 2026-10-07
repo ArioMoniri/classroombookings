@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from openpyxl import Workbook
@@ -106,7 +106,7 @@ async def export_ics(session: AsyncSession, run: ScheduleRun) -> str:
     assert term is not None
     rows = await _rows(session, run)
     lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//SmartSched//EN", "CALSCALE:GREGORIAN"]
-    stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     for r in rows:
         weeks = r["_weeks"] or [1]
         for wk in weeks:

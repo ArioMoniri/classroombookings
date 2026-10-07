@@ -118,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--horizon", default="TERM", choices=["WEEK", "MONTH", "TERM"])
     sv.add_argument("--time-limit", type=float, default=60.0)
     sv.add_argument("--label", default=None)
+    sv.add_argument("--solver", default="auto", choices=["auto", "cpsat", "stub"])
     sub.add_parser("seed-admin", help="create the admin user from ADMIN_EMAIL/ADMIN_PASSWORD")
     args = p.parse_args(argv)
     if args.cmd == "import":

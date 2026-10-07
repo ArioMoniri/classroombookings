@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 import traceback
+from dataclasses import replace
 from typing import Any
 
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
@@ -17,7 +18,7 @@ from app.solver.build import Prepared, build_model, hint_assignments, make_solve
 from app.solver.diagnose import diagnose, static_check
 from app.solver.evaluate import Evaluation
 from app.solver.greedy import greedy_assignments
-from app.solver.model import Assignment, Diagnosis, SolverInput, SolverResult
+from app.solver.model import Assignment, Diagnosis, Event, SolverInput, SolverResult
 from app.solver.scoring import evaluate
 
 
@@ -35,7 +36,52 @@ def _result_from_evaluation(
     )
 
 
-def solve(inp: SolverInput) -> SolverResult:
+def _complete_hint(inp: SolverInput, hints: dict[int, Assignment], budget_s: float) -> dict[int, Assignment]:
+    """Greedy left a few events unplaced: re-solve a small neighbourhood (everything else locked)
+    so the main model starts from a *complete* feasible hint.  Best effort, never raises."""
+    unplaced = [e for e in inp.events if e.id not in hints]
+    if not unplaced or len(unplaced) > max(10, len(inp.events) // 20):
+        return hints
+    try:
+        free: set[int] = set()
+        placed = list(hints.values())
+        for e in unplaced:
+            free |= neighbours_of_options(inp, placed, e)
+        events = tuple(
+            e if (e.id in free or e.id not in hints or e.locked is not None) else replace(e, locked=hints[e.id])
+            for e in inp.events
+        )
+        sub = replace(inp, events=events, previous=tuple(placed), time_limit_s=budget_s, workers=max(1, inp.workers))
+        res = solve(sub, _complete=False)
+        if res.status in ("OPTIMAL", "FEASIBLE") and res.hard_score == 100:
+            return {a.event_id: a for a in res.assignments}
+    except Exception:  # noqa: BLE001 - a hint is optional
+        return hints
+    return hints
+
+
+def neighbours_of_options(inp: SolverInput, placed: list[Assignment], e: Event) -> set[int]:
+    """Placed events that could block any option of ``e`` (same key, or a room ``e`` may use)."""
+    from app.solver.domains import TimeOption, build_domains, weeks_intersect
+
+    dom = build_domains(replace(inp, events=(e,))).domain(e.id)
+    rooms = set(dom.rooms)
+    keys = e.cohort_keys | e.instructor_keys
+    by_id = {x.id: x for x in inp.events}
+    out: set[int] = set()
+    for a in placed:
+        other = by_id.get(a.event_id)
+        if other is None or not weeks_intersect(other.weeks, e.weeks):
+            continue
+        ta = TimeOption(a.day, a.start, a.end - a.start + 1)
+        if not any(t.overlaps(ta) for t in dom.times):
+            continue
+        if (rooms & set(a.room_ids)) or (keys & (other.cohort_keys | other.instructor_keys)):
+            out.add(a.event_id)
+    return out
+
+
+def solve(inp: SolverInput, *, _complete: bool = True) -> SolverResult:
     t0 = time.perf_counter()
     stats: dict[str, Any] = {}
     try:
@@ -53,6 +99,9 @@ def solve(inp: SolverInput) -> SolverResult:
         t_greedy = time.perf_counter()
         hints = {a.event_id: a for a in greedy_assignments(prep)}
         stats["greedy_placed"] = len(hints)
+        if _complete and len(hints) < len(inp.events):
+            hints = _complete_hint(inp, hints, min(10.0, max(1.0, inp.time_limit_s * 0.15)))
+            stats["hint_completed"] = len(hints)
         hints.update({a.event_id: a for a in hint_assignments(inp)})  # previous / locked win
         stats["greedy_s"] = round(time.perf_counter() - t_greedy, 3)
         stats["hinted_events"] = ctx.add_hints([hints[e.id] for e in inp.events if e.id in hints])
