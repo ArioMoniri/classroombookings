@@ -1,0 +1,22 @@
+# Build context hygiene for smartsched/backend/Dockerfile
+.git
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+*.db
+*.db-journal
+*.sqlite*
+uploads
+tests
+.env
+.env.*
+!.env.example
+Dockerfile
+.dockerignore
