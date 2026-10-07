@@ -12,9 +12,11 @@ weeks are considered.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
+from typing import Any
 
 from app.solver.constraints._common import pairs, select_events, str_list
-from app.solver.context import Lit, ModelContext
+from app.solver.context import HintView, Lit, ModelContext
 from app.solver.domains import weeks_intersect
 from app.solver.evaluate import Evaluation
 from app.solver.model import Constraint, Event, SolverInput
@@ -61,9 +63,24 @@ def _ext(
     else:
         v = ctx.new_bool(f"ext_{eid}_{day}_{p}")
         ctx.model.AddMaxEquality(v, lits)
+        ctx.derive(v, _eval_max(ctx, list(lits)))
         res = v
     cache[key] = res
     return res
+
+
+def _eval_gap(a: Event, b: Event, day: int, gap: int) -> Callable[[HintView], int]:
+    def fn(h: HintView) -> int:
+        ta, tb = h.time(a.id), h.time(b.id)
+        if ta is None or tb is None or ta.day != day or tb.day != day:
+            return 0
+        return int(max(tb.start - ta.end - 1, ta.start - tb.end - 1) < gap)
+
+    return fn
+
+
+def _eval_max(ctx: ModelContext, lits: list[Any]) -> Callable[[HintView], int]:
+    return lambda h: max(ctx.lit_value(x, h) for x in lits)
 
 
 def apply(ctx: ModelContext, c: Constraint) -> None:
@@ -91,6 +108,7 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
                     if pen is None:
                         pen = ctx.new_bool(f"gap_{a.id}_{b.id}_{day}")
                         ctx.add_penalty("exam_gap", pen, 1, w)
+                        ctx.derive(pen, _eval_gap(a, b, day, gap))
                     if ext_a is True and occ_b is True:
                         ctx.model.Add(pen == 1)
                     elif ext_a is True:

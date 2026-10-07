@@ -72,7 +72,7 @@ async def _run_solve(args: argparse.Namespace) -> int:
             term_id=term.id,
             kind=args.kind,
             horizon=args.horizon,
-            params={"time_limit_s": args.time_limit},
+            params={"time_limit_s": args.time_limit, "solver": args.solver},
             label=args.label,
         )
         session.add(run)

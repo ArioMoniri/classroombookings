@@ -8,9 +8,11 @@ Soft: one penalty per exam above ``n``.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
+from typing import Any
 
 from app.solver.constraints._common import select_events, str_list, week_classes
-from app.solver.context import ModelContext
+from app.solver.context import HintView, ModelContext
 from app.solver.evaluate import Evaluation
 from app.solver.model import Constraint, Event, SolverInput
 from app.solver.weights import constraint_weight
@@ -32,6 +34,10 @@ def _cohorts(inp: SolverInput, c: Constraint) -> dict[str, list[Event]]:
             if not wanted or k in wanted:
                 groups[k].append(e)
     return {k: v for k, v in groups.items() if len(v) > _limit(c)}
+
+
+def _eval_excess(ctx: ModelContext, group: list[Any], n: int) -> Callable[[HintView], int]:
+    return lambda h: max(0, sum(ctx.lit_value(x, h) for x in group) - n)
 
 
 def apply(ctx: ModelContext, c: Constraint) -> None:
@@ -56,6 +62,7 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
                     continue
                 excess = ctx.new_int(f"excess_{key}_{day}_{len(ctx.terms)}", 0, len(group))
                 ctx.model.Add(excess >= sum(vars_) + consts - n)
+                ctx.derive(excess, _eval_excess(ctx, list(group), n))
                 ctx.add_penalty("max_exams_per_day", excess, 1, w)
 
 

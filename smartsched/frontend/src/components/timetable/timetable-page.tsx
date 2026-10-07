@@ -18,7 +18,7 @@ export function TimetablePage() {
   const effective = runId ?? contextRun;
   const finished = (runs.data ?? []).filter((r) => r.status !== "QUEUED" && r.status !== "RUNNING" && r.status !== "FAILED");
   return (
-    <div className="flex min-h-[calc(100dvh-120px)] flex-col">
+    <div>
       <PageHeader
         title={t("grid.title")}
         actions={
@@ -28,7 +28,7 @@ export function TimetablePage() {
         }
       />
       {effective !== null ? (
-        <Timetable runId={effective} week={params.get("week") ? Number(params.get("week")) : undefined} day={params.get("day") ? Number(params.get("day")) : undefined} zoom={params.get("zoom") === "week" ? "week" : "day"} className="min-h-0 flex-1" />
+        <Timetable runId={effective} week={params.get("week") ? Number(params.get("week")) : undefined} day={params.get("day") ? Number(params.get("day")) : undefined} zoom={params.get("zoom") === "week" ? "week" : "day"} className="h-[calc(100dvh-170px)] min-h-[480px]" />
       ) : (
         <p className="text-sm text-muted-foreground">{t("grid.emptyRun")}</p>
       )}

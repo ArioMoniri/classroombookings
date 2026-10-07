@@ -23,7 +23,7 @@ Modes: ``solve`` (objective), ``assume`` (satisfaction + assumptions, single wor
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Literal
 
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
@@ -36,6 +36,34 @@ from app.solver.weights import base_weight
 Mode = Literal["solve", "assume", "relax"]
 #: a CP-SAT Boolean literal, or the Python constant ``True`` for "always"
 Lit = Any
+
+
+class HintView:
+    """Assignments used to value every model variable when building a complete hint."""
+
+    def __init__(self, assignments: Iterable[Assignment], doms: Domains) -> None:
+        self.by_event = {a.event_id: a for a in assignments}
+        self.doms = doms
+
+    def time(self, event_id: int) -> TimeOption | None:
+        a = self.by_event.get(event_id)
+        return None if a is None else TimeOption(a.day, a.start, a.end - a.start + 1)
+
+    def rooms(self, event_id: int) -> frozenset[int]:
+        a = self.by_event.get(event_id)
+        return frozenset() if a is None else frozenset(a.room_ids)
+
+
+def _eval_placed(eid: int) -> Callable[[HintView], int]:
+    return lambda h: int(eid in h.by_event)
+
+
+def _eval_time(eid: int, topt: TimeOption) -> Callable[[HintView], int]:
+    return lambda h: int(h.time(eid) == topt)
+
+
+def _eval_room(eid: int, rid: int) -> Callable[[HintView], int]:
+    return lambda h: int(rid in h.rooms(eid))
 
 
 class ModelContext:
@@ -60,6 +88,9 @@ class ModelContext:
         self._event_interval: dict[int, Any] = {}
         self._and_cache: dict[tuple[int, int], Any] = {}
         self._week_interval: dict[tuple[int, int], Any] = {}
+        #: derived variables with an evaluator over a hinted assignment set (complete hints)
+        self._derived: list[tuple[Any, Callable[[HintView], int]]] = []
+        self._lit_eval: dict[int, Callable[[HintView], int]] = {}
         self.warnings: list[str] = []
         self.n_bools = 0
         self.n_intervals = 0
@@ -80,14 +111,16 @@ class ModelContext:
             eid = event.id
             if self.mode != "solve":
                 self.placed[eid] = self._new_bool(f"placed_{eid}")
+                self._lit_eval[self.placed[eid].Index()] = _eval_placed(eid)
             if dom.fixed_time:
                 self.y[(eid, 0)] = self.placed.get(eid, True)
             elif dom.times:
                 ys = []
-                for ti in range(len(dom.times)):
+                for ti, topt in enumerate(dom.times):
                     v = self._new_bool(f"y_{eid}_{ti}")
                     self.y[(eid, ti)] = v
                     ys.append(v)
+                    self._lit_eval[v.Index()] = _eval_time(eid, topt)
                 if self.mode == "solve":
                     m.AddExactlyOne(ys)
                 else:
@@ -117,6 +150,7 @@ class ModelContext:
                 v = self._new_bool(f"z_{eid}_{rid}")
                 self.z[(eid, rid)] = v
                 zs.append(v)
+                self._lit_eval[v.Index()] = _eval_room(eid, rid)
                 caps.append(effective_capacity(self.rooms_by_id[rid], event))
             placed = self.placed.get(eid, True)
             if not zs:
@@ -179,6 +213,7 @@ class ModelContext:
         else:
             v = self._new_bool(f"occ_{event_id}_{day}_{period}")
             self.model.Add(sum(lits) == v)
+            self.derive(v, lambda h: int((t := h.time(event_id)) is not None and t.covers(day, period)))
             res = v
         self._occ[key] = res
         return res
@@ -197,6 +232,7 @@ class ModelContext:
         else:
             v = self._new_bool(f"day_{event_id}_{day}")
             self.model.Add(sum(lits) == v)
+            self.derive(v, lambda h: int((t := h.time(event_id)) is not None and t.day == day))
             res = v
         self._on_day[key] = res
         return res
@@ -214,7 +250,25 @@ class ModelContext:
             self.model.AddBoolAnd([a, b]).OnlyEnforceIf(v)
             self.model.AddBoolOr([a.Not(), b.Not(), v])
             self._and_cache[key] = v
+            self.derive(v, lambda h: self.lit_value(a, h) & self.lit_value(b, h))
         return v
+
+    # ------------------------------------------------------------------ complete hints
+    def derive(self, var: Any, fn: Callable[[HintView], int]) -> None:
+        """Register how to value ``var`` from a hinted assignment set."""
+        self._derived.append((var, fn))
+        self._lit_eval[var.Index()] = fn
+
+    def lit_value(self, lit: Lit, h: HintView) -> int:
+        """Value of a literal / registered variable under the hint (unknown -> 0)."""
+        if lit is True:
+            return 1
+        idx = lit.Index()
+        if idx < 0:  # negated literal
+            fn = self._lit_eval.get(-idx - 1)
+            return 0 if fn is None else 1 - fn(h)
+        fn = self._lit_eval.get(idx)
+        return 0 if fn is None else fn(h)
 
     # ------------------------------------------------------------------ intervals
     def _start_expr(self, event_id: int) -> Any:
@@ -393,6 +447,7 @@ class ModelContext:
     def add_hints(self, assignments: Iterable[Assignment]) -> int:
         """Complete per-event hints from previous/locked assignments. Returns hinted event count."""
         hinted = 0
+        assignments = list(assignments)
         for a in assignments:
             if a.event_id not in self.events_by_id:
                 continue
@@ -416,6 +471,10 @@ class ModelContext:
             if a.event_id in self.placed:
                 self.model.AddHint(self.placed[a.event_id], 1)
             hinted += 1
+        if hinted:
+            view = HintView(assignments, self.doms)
+            for var, fn in self._derived:
+                self.model.AddHint(var, fn(view))
         return hinted
 
     def fix_assignment(self, a: Assignment, guard: Lit | None) -> bool:

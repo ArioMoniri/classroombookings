@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
+process.env.PLAYWRIGHT_BROWSERS_PATH ??= "/opt/pw-browsers";
 const PORT = Number(process.env.PW_PORT ?? 3100);
 
 export default defineConfig({

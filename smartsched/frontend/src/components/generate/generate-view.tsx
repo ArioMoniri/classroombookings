@@ -213,7 +213,7 @@ export function GenerateView() {
           </CardContent>
         </Card>
 
-        <div className="sticky bottom-0 -mx-4 flex items-center justify-between gap-3 border-t bg-background/90 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4">
+        <div className="sticky bottom-0 -mx-4 flex items-center justify-between gap-3 border-t bg-background/90 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:rounded-xl lg:border lg:px-4">
           <span className="text-xs text-muted-foreground">{t("generate.timeLimit")}: {timeLimit}s · {horizonWeeks.length} {t("requests.weeks").toLocaleLowerCase(locale)}</span>
           <Button size="lg" onClick={() => void submit()} disabled={create.isPending || horizonWeeks.length === 0} data-testid="generate-submit">
             {create.isPending ? <Loader2 className="animate-spin" /> : <PlayCircle />} {create.isPending ? t("generate.submitting") : t("generate.submit")}

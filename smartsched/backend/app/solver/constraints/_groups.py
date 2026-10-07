@@ -7,9 +7,15 @@ Soft: ``used[g, r] ≥ room_use(e, r)`` for every event in the group; penalty = 
 
 from __future__ import annotations
 
-from app.solver.context import ModelContext
+from collections.abc import Callable
+
+from app.solver.context import HintView, ModelContext
 from app.solver.evaluate import Evaluation
 from app.solver.model import Event
+
+
+def _eval_used(ids: list[int], rid: int) -> Callable[[HintView], int]:
+    return lambda h: int(any(rid in h.rooms(i) for i in ids))
 
 
 def apply_group(ctx: ModelContext, kind: str, name: str, events: list[Event], hard: bool, weight: int) -> None:
@@ -40,6 +46,7 @@ def apply_group(ctx: ModelContext, kind: str, name: str, events: list[Event], ha
                     ctx.model.Add(lit == first)
         return
     used_vars = []
+    ids = [e.id for e in events]
     for rid in room_ids:
         u = ctx.new_bool(f"used_{kind}_{name}_{rid}")
         for e in events:
@@ -47,11 +54,13 @@ def apply_group(ctx: ModelContext, kind: str, name: str, events: list[Event], ha
             if lit is None:
                 continue
             ctx.model.AddImplication(lit, u)
+        ctx.derive(u, _eval_used(ids, rid))
         used_vars.append(u)
     if len(used_vars) < 2:
         return
     extra = ctx.new_int(f"extra_{kind}_{name}", 0, len(used_vars))
     ctx.model.Add(extra >= sum(used_vars) - 1)
+    ctx.derive(extra, lambda h: max(0, len({r for i in ids for r in h.rooms(i)}) - 1))
     ctx.add_penalty(kind, extra, 1, weight)
 
 
