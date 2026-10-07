@@ -22,7 +22,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LEDGER = ROOT / "docs" / "PROGRESS.md"
-TERMINAL = re.compile(r"\b(done|completed|finished|handed off|hand-off)\b", re.I)
+# A row is terminal only when the status *starts* with a terminal word (e.g. "DONE: …"), or mentions a
+# hand-off; "importers done" mid-way is a milestone, not completion.
+TERMINAL = re.compile(r"^\s*(done|completed|finished)\b|\bhand(ed)?[ -]off\b", re.I)
 ROW = re.compile(r"^\|\s*(?P<ts>[^|]+?)\s*\|\s*(?P<agent>[^|]+?)\s*\|\s*(?P<phase>[^|]+?)\s*\|\s*(?P<status>[^|]+?)\s*\|\s*(?P<next>[^|]*?)\s*\|\s*$")
 
 
