@@ -5,7 +5,7 @@ Owner: design-pro (B). Routes `/login`, `/settings/{general,ai,solver,users,term
 `anthropic_model`, `solver_default_time_limit` …), `POST /settings/test-ai` (1-token verification),
 users table `email, password_hash, role ∈ {ADMIN, PLANNER, VIEWER}, is_active`, `settings` rows with
 `is_secret` encrypted via Fernet. Model default `claude-sonnet-5-5`, admins may pick `claude-opus-5-5`.
-Licences: `navigation-shell.md §9`.
+Licences: `navigation-shell.md §9`. Tokens/motion: `docs/design/tokens.md`.
 
 ---
 

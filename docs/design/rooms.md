@@ -6,7 +6,7 @@ Owner: design-pro (B). Routes `/rooms`, `/rooms/[id]`, `/buildings`. Backend:
 exam_capacity, tags [TIP, PC, LAB, AMPHI], is_bookable, notes, photo_url, legacy_crbs_room_id`.
 Data: 60 rooms across buildings A (floors 1–3), B (2, 4), C (z, 2–6), D; buckets 156 → 30 seats; TIP rooms
 A 201–203 need medicine-planner approval; exam capacity ≈ half of lecture capacity except PC labs.
-Licences: `navigation-shell.md §9`. Chart colours: run the `dataviz` skill palette when building the sparkline.
+Licences: `navigation-shell.md §9`. Tokens: `docs/design/tokens.md` — use its §2.5 sequential scale for utilisation and §2.3 categorical colours for programmes; run the `dataviz` skill before writing sparkline code.
 
 ---
 

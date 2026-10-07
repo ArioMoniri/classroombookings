@@ -8,7 +8,7 @@ Backend: `POST /runs {term_id, kind, horizon, horizon_params, params, prompt?} �
 (`move_event, swap_rooms, lock_assignment, add_constraint, remove_constraint, explain_assignment, re_solve`),
 child run via `parent_run_id`; `GET/POST /constraints` (hardness, weight, enabled, nl_text, source).
 AI layer: pre-generation `propose_constraints` tool → typed Constraint list the admin reviews.
-Licences: `navigation-shell.md §9`.
+Licences: `navigation-shell.md §9`. Tokens/motion: `docs/design/tokens.md` (segmented spring = `--spring-drop`, status-card morph ≤ `--dur-max`).
 
 ---
 

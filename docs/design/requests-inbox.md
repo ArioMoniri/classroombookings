@@ -3,7 +3,7 @@
 Owner: design-pro (B). Route `/requests?kind=meetings|exams`. Backend:
 `GET/PUT /requests/meetings`, `/requests/exams` (search, paging, filters), fields from `meeting_requests`
 / `exam_requests` (ARCHITECTURE › Domain model). Statuses `NEW · PARSED · NEEDS_REVIEW · LOCKED`.
-Licences: `navigation-shell.md §9`.
+Licences: `navigation-shell.md §9`. Tokens/motion: `docs/design/tokens.md` (springs → `--spring-drop` / `--spring-sheet`, durations → `--dur-*`).
 
 ---
 

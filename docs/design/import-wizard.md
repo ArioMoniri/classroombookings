@@ -3,7 +3,7 @@
 Owner: design-pro (B). Route `/import` (+ `/import/[jobId]`). Backend contract:
 `POST /imports/planning-list | exam-list | weekly-grid | crbs` (multipart or DSN) → `202 {job_id}`,
 `GET /imports/{job_id}` → `{status, summary:{rows, created, updated, warnings[]}}`.
-Licences: see `navigation-shell.md §9`. Tokens: `docs/design/tokens.md` if present, else shadcn semantics.
+Licences: see `navigation-shell.md §9`. Tokens/motion: `docs/design/tokens.md` (source of truth).
 
 ---
 

@@ -2,8 +2,8 @@
 
 Owner: design-pro (B). Status: v1 spec, ready for frontend-engineer. Base stack assumed:
 Next.js 15 App Router + Tailwind 4 + **shadcn/ui + Radix + motion + TanStack Table**, `lucide-react`,
-`next-intl`, `next-themes`, Zustand for UI state. Tokens: use `docs/design/tokens.md` when the other
-design agent lands it; until then the shadcn semantic tokens named below are the contract.
+`next-intl`, `next-themes`, Zustand for UI state. Tokens: `docs/design/tokens.md` is the source of truth (landed 2026-10-07); the shadcn semantic
+names used below (`bg-accent`, `text-muted-foreground`, `ring-ring` …) are its `--color-*` aliases.
 
 This document also holds the **shared component-source licence table** (§9) that the other five
 surface docs reference.
@@ -85,7 +85,7 @@ Breadcrumb = route segments resolved to labels (`Runs › #42 · Bahar W3 › Ch
 
 ### 3.5 Dark mode
 - `next-themes` with `attribute="class"`, `defaultTheme="system"`, `enableSystem`. Toggle cycles `system → light → dark`. Icon morph (sun/moon/monitor) 150 ms cross-fade.
-- Optional polish: beUI **Theme Toggle** uses the View Transition API radial reveal (≈400 ms). Only enable when `!prefers-reduced-motion && document.startViewTransition`. Keep the fallback instant.
+- Optional polish: beUI **Theme Toggle** uses the View Transition API radial reveal (cap at `--dur-max` 300 ms). Only enable when `!prefers-reduced-motion && document.startViewTransition`. Keep the fallback instant.
 - All colours via tokens; never hard-code hex in components. Charts and the timetable grid must read tokens through CSS variables (`hsl(var(--primary))`).
 
 ### 3.6 i18n (TR/EN)
@@ -156,8 +156,8 @@ Side gutters: 16 px (360), 24 px (768), 32 px (≥1280). No horizontal page scro
 - Language: `<html lang="tr|en">` updates on switch; `dir="ltr"` fixed.
 - Touch targets ≥ 44 × 44 px in drawer and top bar.
 
-## 7. Motion tokens used by this doc (align with tokens.md when it lands)
-`--dur-fast: 120ms`, `--dur-base: 180ms`, `--dur-slow: 300ms` (max), `--ease-out: cubic-bezier(.2,.8,.2,1)`, spring `{stiffness: 500, damping: 40}` for indicator, `{stiffness: 300, damping: 30}` for sheets.
+## 7. Motion tokens used by this doc (mapped to tokens.md §6)
+`--dur-fast` 120 ms (hover, chip toggle) · `--dur-base` 180 ms (indicator slide, popover) · `--dur-slow` 240 ms (sheet/drawer) · `--dur-max` 300 ms ceiling (theme View-Transition reveal is capped here, not 400 ms) · `--ease-out` for entering, `--ease-emphasized` for sheets · nav-indicator / segmented spring = `--spring-drop` (`{stiffness 520, damping 42, mass 0.8}`) · sheets/kanban = `--spring-sheet` (`{300, 30}`, settles ≤ 300 ms). Where this doc earlier said `{500,40}` / `{300,30}` / 300 ms read these tokens instead.
 
 ## 8. Open questions
 1. Does the university want SSO/LDAP in the avatar menu (ROADMAP backlog) — affects login link placement.
