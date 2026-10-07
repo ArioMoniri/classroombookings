@@ -22,3 +22,4 @@ smartsched/frontend/.env*.local
 # secrets
 smartsched/deploy/.env
 .env
+.claude/worktrees/
