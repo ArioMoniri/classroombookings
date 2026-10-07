@@ -1,6 +1,6 @@
 "use client";
 
-import { type ColumnDef, flexRender, getCoreRowModel, getSortedRowModel, type SortingState, useReactTable } from "@tanstack/react-table";
+import { type ColumnDef, getCoreRowModel, getSortedRowModel, type SortingState, useReactTable } from "@tanstack/react-table";
 import { Lock, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -10,13 +10,12 @@ import { StatusBadge, type StatusKind } from "@/components/common/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/common/data-table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useExams, useMeetings, usePrograms } from "@/lib/api/hooks";
 import type { ExamRequest, MeetingRequest, RequestStatus } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { dayName, formatDate, periodRangeLabel } from "@/lib/time";
-import { cn } from "@/lib/utils";
 import { RequestDrawer } from "./request-drawer";
 
 export const STATUS_KIND: Record<RequestStatus, StatusKind> = { NEW: "preoccupied", PARSED: "feasible", NEEDS_REVIEW: "warning", LOCKED: "locked" };
@@ -95,9 +94,9 @@ export function RequestsView() {
 
   const meetingTable = useReactTable({ data: meetings.data?.items ?? [], columns: meetingCols, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
   const examTable = useReactTable({ data: exams.data?.items ?? [], columns: examCols, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
-  const table = kind === "meetings" ? meetingTable : examTable;
   const total = kind === "meetings" ? meetings.data?.total : exams.data?.total;
   const loading = kind === "meetings" ? meetings.isLoading : exams.isLoading;
+  const shown = kind === "meetings" ? meetingTable.getRowModel().rows.length : examTable.getRowModel().rows.length;
   const selected = kind === "meetings" ? meetings.data?.items.find((m) => m.id === selectedId) ?? null : null;
   const selectedExam = kind === "exams" ? exams.data?.items.find((m) => m.id === selectedId) ?? null : null;
 
@@ -125,46 +124,15 @@ export function RequestsView() {
             {(programs.data ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </NativeSelect>
         ) : null}
-        <span className="ml-auto text-xs text-muted-foreground">{total !== undefined ? t("common.showing", { count: n(table.getRowModel().rows.length), total: n(total) }) : ""}</span>
+        <span className="ml-auto text-xs text-muted-foreground">{total !== undefined ? t("common.showing", { count: n(shown), total: n(total) }) : ""}</span>
       </div>
       <div className="overflow-x-auto rounded-lg border">
         {loading ? (
           <div className="space-y-1 p-2">{Array.from({ length: 10 }, (_, i) => <Skeleton key={i} className="h-10" />)}</div>
+        ) : kind === "meetings" ? (
+          <DataTable table={meetingTable} emptyLabel={t("common.noData")} selectedId={selectedId} getId={(r) => r.id} onSelect={(r) => set({ id: String(r.id) })} rowTestId="request-row" />
         ) : (
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((hg) => (
-                <TableRow key={hg.id}>
-                  {hg.headers.map((h) => (
-                    <TableHead key={h.id} aria-sort={h.column.getIsSorted() === "asc" ? "ascending" : h.column.getIsSorted() === "desc" ? "descending" : "none"} className="whitespace-nowrap">
-                      {h.column.getCanSort() ? (
-                        <button type="button" className="inline-flex items-center gap-1 font-medium" onClick={h.column.getToggleSortingHandler()}>
-                          {flexRender(h.column.columnDef.header, h.getContext())}
-                          <span aria-hidden className="text-muted-foreground">{{ asc: "↑", desc: "↓" }[h.column.getIsSorted() as string] ?? ""}</span>
-                        </button>
-                      ) : flexRender(h.column.columnDef.header, h.getContext())}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  tabIndex={0}
-                  data-testid="request-row"
-                  onClick={() => set({ id: String(row.original.id) })}
-                  onKeyDown={(e) => { if (e.key === "Enter") set({ id: String(row.original.id) }); }}
-                  className={cn("cursor-pointer", row.original.id === selectedId && "bg-primary-tint")}
-                  aria-selected={row.original.id === selectedId}
-                >
-                  {row.getVisibleCells().map((cell) => <TableCell key={cell.id} className="align-top">{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>)}
-                </TableRow>
-              ))}
-              {table.getRowModel().rows.length === 0 ? <TableRow><TableCell colSpan={12} className="py-8 text-center text-muted-foreground">{t("common.noData")}</TableCell></TableRow> : null}
-            </TableBody>
-          </Table>
+          <DataTable table={examTable} emptyLabel={t("common.noData")} selectedId={selectedId} getId={(r) => r.id} onSelect={(r) => set({ id: String(r.id) })} rowTestId="request-row" />
         )}
       </div>
       <RequestDrawer meeting={selected} exam={selectedExam} onClose={() => set({ id: null })} />
