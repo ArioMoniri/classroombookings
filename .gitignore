@@ -1,0 +1,24 @@
+# SmartSched (python)
+smartsched/backend/**/__pycache__/
+smartsched/backend/**/*.pyc
+smartsched/backend/.pytest_cache/
+smartsched/backend/.mypy_cache/
+smartsched/backend/.ruff_cache/
+smartsched/backend/*.db
+smartsched/backend/*.sqlite*
+smartsched/backend/.venv/
+smartsched/backend/.coverage
+smartsched/backend/htmlcov/
+smartsched/backend/uploads/
+# SmartSched (frontend)
+smartsched/frontend/node_modules/
+smartsched/frontend/.next/
+smartsched/frontend/out/
+smartsched/frontend/coverage/
+smartsched/frontend/test-results/
+smartsched/frontend/playwright-report/
+smartsched/frontend/*.tsbuildinfo
+smartsched/frontend/.env*.local
+# secrets
+smartsched/deploy/.env
+.env

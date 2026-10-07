@@ -46,18 +46,17 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
             need = _required(c, event)
             dom = ctx.domain(event.id)
             g = ctx.guard(f"capacity:{event.id}")
-            for ti in range(len(dom.times)):
-                xs = [(ctx.x[(event.id, ti, r)], effective_capacity(ctx.rooms_by_id[r], event)) for r in dom.rooms if (event.id, ti, r) in ctx.x]
-                ylit = ctx.time_lit(event.id, ti)
-                if not xs:
-                    continue
-                expr = sum(cap * v for v, cap in xs)
-                if ylit is True:
-                    ctx.add_linear_le(-expr, -need, g)
-                elif g is None:
-                    ctx.model.Add(expr >= need).OnlyEnforceIf(ylit)
-                else:
-                    ctx.model.Add(expr >= need).OnlyEnforceIf([ylit, g])
+            zs = [(ctx.z[(event.id, r)], effective_capacity(ctx.rooms_by_id[r], event)) for r in dom.rooms if (event.id, r) in ctx.z]
+            if not zs:
+                continue
+            expr = sum(cap * v for v, cap in zs)
+            placed = ctx.placed.get(event.id, True)
+            if placed is True:
+                ctx.add_linear_le(-expr, -need, g)
+            elif g is None:
+                ctx.model.Add(expr >= need).OnlyEnforceIf(placed)
+            else:
+                ctx.model.Add(expr >= need).OnlyEnforceIf([placed, g])
         return
     if c.hard:
         return  # implicit hard: handled by domain pruning / split linking

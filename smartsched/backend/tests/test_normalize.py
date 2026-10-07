@@ -684,3 +684,27 @@ def test_parse_bool_loose():
     assert n.parse_bool_loose(0) is False
     assert n.parse_bool_loose("70% derslikte") is None
     assert n.parse_bool_loose(None) is None
+
+
+@pytest.mark.parametrize(
+    "raw,name,expected",
+    [
+        ("MAT 112", None, "MAT112"),
+        ("BES 3O6", None, "BES306"),
+        ("GT' 251", None, "GT251"),
+        ("ING1 11", None, "ING111"),
+        ("ACU", "Ülkeler ve Türkiye Coğrafyası", "ACU-"),
+        ("MBG XXX", "Seçmeli", "MBG-"),
+        ("ACU", None, None),
+        (None, "x", None),
+    ],
+)
+def test_canon_course_code_loose(raw, name, expected):
+    code, warning = n.canon_course_code_loose(raw, name)
+    if expected is None:
+        assert code is None
+    elif expected.endswith("-"):
+        assert code and code.startswith(expected) and len(code) == len(expected) + 4 and warning
+    else:
+        assert code == expected
+        assert (warning is None) == (raw == "MAT 112")

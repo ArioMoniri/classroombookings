@@ -31,12 +31,11 @@ def _blocks(inp: SolverInput, c: Constraint) -> list[Block]:
         start = int(c.params.get("start", 1))
         end = int(c.params.get("end", inp.periods_per_day))
         periods = list(range(start, end + 1))
-    weeks = int_list(c.params, "weeks")
-    label = str(c.params.get("label", "room_closed"))
+    weeks: list[int | None] = list(int_list(c.params, "weeks")) or [None]
     out: list[Block] = []
     for day in days:
-        for w in weeks or [None]:  # type: ignore[list-item]
-            out.append(Block(int(rid), w, day, min(periods), max(periods), label))
+        for w in weeks:
+            out.append(Block(int(rid), w, day, min(periods), max(periods)))
     return out
 
 
@@ -52,13 +51,12 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
         return
     w = constraint_weight(ctx.inp.weights, "room_closed", c.weight)
     blocks = _blocks(ctx.inp, c)
-    for (eid, ti, rid), lit in ctx.x.items():
-        t = ctx.domain(eid).times[ti]
+    for (eid, rid), z in ctx.z.items():
+        dom = ctx.domain(eid)
         weeks = ctx.events_by_id[eid].weeks
-        for b in blocks:
-            if b.room_id == rid and b.day == t.day and t.start <= b.end and b.start <= t.end and (b.week is None or b.week in weeks):
-                ctx.add_penalty("room_closed", lit, 1, w)
-                break
+        for ti, t in enumerate(dom.times):
+            if any(b.room_id == rid and b.day == t.day and t.start <= b.end and b.start <= t.end and (b.week is None or b.week in weeks) for b in blocks):
+                ctx.add_penalty("room_closed", ctx.and_lit(ctx.time_lit(eid, ti), z), 1, w)
 
 
 def score(ev: Evaluation, c: Constraint) -> None:
@@ -74,7 +72,7 @@ def score(ev: Evaluation, c: Constraint) -> None:
         for b in blocks:
             if b.room_id in a.room_ids and b.day == t.day and t.start <= b.end and b.start <= t.end and (b.week is None or b.week in event.weeks):
                 code = ev.rooms_by_id[b.room_id].code if b.room_id in ev.rooms_by_id else str(b.room_id)
-                msg = f"{event.label} uses {code} on day {b.day} P{b.start}-P{b.end} while it is closed ({b.label})"
+                msg = f"{event.label} uses {code} on day {b.day} P{b.start}-P{b.end} while it is closed ({c.params.get('label', 'room_closed')})"
                 if c.hard:
                     ev.hard("room_closed", [eid], msg, [b.room_id])
                 else:

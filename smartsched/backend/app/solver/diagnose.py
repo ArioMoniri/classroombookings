@@ -1,0 +1,416 @@
+"""Infeasibility explanation.
+
+Three rungs, cheapest first (see README "Diagnosis"):
+
+1. **Static checker** (:func:`static_check`) — pure Python over the pruned domains: events with
+   no eligible room (size > every room, tags nobody has, pins to unknown rooms), fixed times
+   outside the grid, overlapping locked assignments, fixed-vs-fixed cohort/instructor clashes and
+   pigeonhole overloads (more fixed-time events in a slot than rooms).  Reported *before* the big
+   model is built.
+2. **Assumption core** (:func:`core_diagnosis`) — a satisfaction-only copy of the model with one
+   assumption literal per event ("placed") and per actionable constraint group (room, cohort,
+   instructor, locked event, explicit constraint).  ``SufficientAssumptionsForInfeasibility`` gives
+   a (non-minimal) core which is shrunk by deletion-based probing under a per-probe time limit.
+3. **Slack relaxation** (:func:`relaxation_diagnosis`) — the same model with ``placed[e]`` free,
+   minimising the number of unplaced events.  Every unplaced event is then explained by probing
+   its options against the placed ones (:func:`explain_event`): rooms that fit but are busy (and by
+   whom), rooms excluded by capacity/tags/pins, cohort/instructor clashes, alternative periods.
+"""
+
+from __future__ import annotations
+
+import time
+from collections import Counter, defaultdict
+from typing import Any
+
+from ortools.sat.python import cp_model  # type: ignore[import-untyped]
+
+from app.solver.build import Prepared, build_model, hint_assignments, make_solver
+from app.solver.domains import EventDomain, TimeOption, effective_capacity, room_fits_alone, weeks_intersect
+from app.solver.model import Assignment, Diagnosis, Event, Room
+
+# --------------------------------------------------------------------------- helpers
+
+
+def _label(e: Event) -> str:
+    return f"{e.label} (#{e.id})"
+
+
+def _time_str(t: TimeOption | Assignment) -> str:
+    return f"day {t.day} P{t.start}-P{t.end}"
+
+
+def _top(counter: Counter[str], n: int = 3) -> str:
+    return "; ".join(f"{k} ×{v}" if v > 1 else k for k, v in counter.most_common(n))
+
+
+# --------------------------------------------------------------------------- static checker
+
+
+def static_check(prep: Prepared) -> list[Diagnosis]:
+    inp = prep.inp
+    doms = prep.doms
+    out: list[Diagnosis] = []
+    all_tags: set[str] = set()
+    for r in inp.rooms:
+        all_tags |= set(r.tags)
+    room_ids = {r.id for r in inp.rooms}
+    for e in inp.events:
+        dom = doms.domain(e.id)
+        if e.fixed_day is not None and e.fixed_day not in inp.days:
+            out.append(Diagnosis([e.id], ["fixed_time"], f"{_label(e)} is fixed on day {e.fixed_day}, which is not in the grid {list(inp.days)}", ["correct the day of the request", "add the day to the term grid"], "error"))
+            continue
+        if e.fixed_start is not None and (e.fixed_start < 1 or e.fixed_start + max(1, e.duration) - 1 > inp.periods_per_day):
+            out.append(Diagnosis([e.id], ["fixed_time"], f"{_label(e)} is fixed at P{e.fixed_start} for {e.duration} periods, outside the {inp.periods_per_day}-period grid", ["shorten the request", "move it earlier"], "error"))
+            continue
+        if e.weeks and not weeks_intersect(e.weeks, frozenset(inp.weeks)):
+            out.append(Diagnosis([e.id], [], f"{_label(e)} has no week inside the horizon {min(inp.weeks)}..{max(inp.weeks)}; it is scheduled but never occupies a room", [], "info"))
+        if not dom.times:
+            reasons = Counter(dom.time_reasons.values())
+            out.append(Diagnosis([e.id], ["fixed_time"] + sorted({k for k in ("no_cohort_overlap", "no_instructor_overlap") if any(k.split("_")[1] in r for r in reasons)}), f"{_label(e)} has no feasible time: {_top(reasons) or 'empty window'}", ["widen the day/period window", "move the conflicting fixed-time event"], "error"))
+            continue
+        if e.needs_room and not dom.rooms:
+            out.append(_no_room_diagnosis(e, dom, inp.rooms, all_tags, room_ids))
+            continue
+        if e.needs_room and dom.option_count() == 0:
+            reasons = Counter(dom.pair_reasons.values())
+            out.append(Diagnosis([e.id], ["no_room_overlap", "room_closed"], f"{_label(e)} — every eligible room is blocked at its time(s): {_top(reasons)}", ["release one of the blocks", "move the event to another time"], "error"))
+    for kind, key, a, b in doms.static_conflicts:
+        ea, eb = doms.events_by_id[a], doms.events_by_id[b]
+        noun = "cohort" if kind == "no_cohort_overlap" else "instructor"
+        out.append(Diagnosis([a, b], [kind], f"{noun} '{key}': {_label(ea)} ({_time_str(doms.domain(a).times[0])}) and {_label(eb)} ({_time_str(doms.domain(b).times[0])}) are both fixed at overlapping times in shared weeks", [f"move {ea.label} or {eb.label} to another period", f"split the {noun} key if the two groups are really different"], "error"))
+    out.extend(_locked_conflicts(prep))
+    out.extend(_pigeonhole(prep))
+    return out
+
+
+def _no_room_diagnosis(e: Event, dom: EventDomain, rooms: tuple[Room, ...], all_tags: set[str], room_ids: set[int]) -> Diagnosis:
+    kinds: list[str] = []
+    sugg: list[str] = []
+    missing_pins = sorted(e.required_room_ids - room_ids)
+    if missing_pins:
+        kinds.append("room_pin")
+        sugg.append(f"pinned room id(s) {missing_pins} do not exist; fix the pin")
+    missing_tags = sorted(e.required_tags - all_tags)
+    if missing_tags:
+        kinds.append("room_tags")
+        sugg.append(f"no room carries tag(s) {missing_tags}; tag a room or drop the requirement")
+    eligible = [r for r in rooms if (not e.required_room_ids or r.id in e.required_room_ids) and r.id not in e.forbidden_room_ids and e.required_tags <= r.tags and not (e.forbidden_tags & r.tags)]
+    if eligible and not any(room_fits_alone(r, e) for r in eligible) and e.max_rooms <= 1:
+        kinds.append("capacity")
+        best = max(eligible, key=lambda r: effective_capacity(r, e))
+        sugg.append(f"largest eligible room is {best.code} ({effective_capacity(best, e)} seats) < {e.size}; allow splitting (max_rooms>1), reduce the group or raise the room capacity")
+        combos = sorted(eligible, key=lambda r: -effective_capacity(r, e))[:3]
+        if sum(effective_capacity(r, e) for r in combos) >= e.size:
+            sugg.append("split across " + " + ".join(f"{r.code}({effective_capacity(r, e)})" for r in combos))
+    if not kinds:
+        reasons = Counter(dom.room_reasons.values())
+        for k in ("capacity", "room_tags", "room_pin", "room_forbid"):
+            if any(k in r for r in reasons):
+                kinds.append(k)
+        sugg.append("reasons: " + _top(reasons))
+    return Diagnosis([e.id], kinds or ["capacity"], f"{_label(e)} (size {e.size}) has no eligible room", sugg, "error")
+
+
+def _locked_conflicts(prep: Prepared) -> list[Diagnosis]:
+    inp = prep.inp
+    out: list[Diagnosis] = []
+    locked = [(e, e.locked) for e in inp.events if e.locked is not None]
+    occ: dict[tuple[int, int, int], list[tuple[Event, Assignment]]] = defaultdict(list)
+    for e, a in locked:
+        for r in a.room_ids:
+            for p in range(a.start, a.end + 1):
+                occ[(r, a.day, p)].append((e, a))
+    seen: set[tuple[int, int]] = set()
+    for (r, day, p), items in sorted(occ.items()):
+        for i in range(len(items)):
+            for j in range(i + 1, len(items)):
+                ea, eb = items[i][0], items[j][0]
+                key = (min(ea.id, eb.id), max(ea.id, eb.id))
+                if key in seen or not weeks_intersect(ea.weeks, eb.weeks):
+                    continue
+                seen.add(key)
+                code = prep.doms.rooms_by_id[r].code if r in prep.doms.rooms_by_id else str(r)
+                out.append(Diagnosis([ea.id, eb.id], ["no_room_overlap", "fixed_time"], f"locked assignments overlap: {_label(ea)} and {_label(eb)} both hold {code} on day {day} P{p}", [f"unlock {ea.label} or {eb.label}"], "error"))
+    for e, a in locked:
+        dom = prep.doms.domain(e.id)
+        if not e.needs_room:
+            continue
+        bad_rooms = [r for r in a.room_ids if r not in dom.rooms]
+        if bad_rooms:
+            reasons = [dom.room_reasons.get(r, "unknown room") for r in bad_rooms]
+            out.append(Diagnosis([e.id], ["fixed_time", "capacity"], f"locked assignment of {_label(e)} uses room(s) {bad_rooms} which are not eligible: {'; '.join(reasons)}", ["unlock the event", "fix the room (capacity/tags) or the pin"], "error"))
+        elif any(not dom.is_pair_allowed(dom.times[0], r) for r in a.room_ids):
+            out.append(Diagnosis([e.id], ["room_closed", "no_room_overlap"], f"locked assignment of {_label(e)} sits on a blocked slot ({_time_str(a)})", ["release the block", "unlock the event"], "error"))
+    return out
+
+
+def _pigeonhole(prep: Prepared) -> list[Diagnosis]:
+    """More fixed-time room-needing events in a (day, period, week) than rooms they could use."""
+    inp = prep.inp
+    doms = prep.doms
+    cells: dict[tuple[int, int], list[EventDomain]] = defaultdict(list)
+    for e in inp.events:
+        dom = doms.domain(e.id)
+        if not e.needs_room or not dom.fixed_time or e.max_rooms > 1:
+            continue
+        t = dom.times[0]
+        for p in t.periods:
+            cells[(t.day, p)].append(dom)
+    out: list[Diagnosis] = []
+    reported: set[tuple[int, ...]] = set()
+    for (day, p), ds in sorted(cells.items()):
+        for w in inp.weeks:
+            group = [d for d in ds if w in d.event.weeks]
+            if len(group) < 2:
+                continue
+            rooms: set[int] = set()
+            for d in group:
+                rooms.update(r for r in d.rooms if d.is_pair_allowed(d.times[0], r))
+            if len(group) > len(rooms):
+                ids = tuple(sorted(d.event.id for d in group))
+                if ids in reported:
+                    continue
+                reported.add(ids)
+                labels = ", ".join(d.event.label for d in group[:6])
+                out.append(Diagnosis(list(ids), ["no_room_overlap", "capacity"], f"{len(group)} fixed-time events need a room on day {day} P{p} in week {w} but only {len(rooms)} eligible room(s) exist: {labels}", ["move one of them to another period", "allow a larger set of rooms (capacity/tags)", "make one of them flexible in time"], "error"))
+    return out
+
+
+# --------------------------------------------------------------------------- explanation of one event
+
+
+class _PlacedIndex:
+    def __init__(self, prep: Prepared, placed: dict[int, Assignment]) -> None:
+        self.prep = prep
+        self.placed = placed
+        self.room_occ: dict[tuple[int, int, int], list[int]] = defaultdict(list)
+        self.key_occ: dict[tuple[str, int, int], list[int]] = defaultdict(list)
+        for eid, a in placed.items():
+            e = prep.doms.events_by_id[eid]
+            for p in range(a.start, a.end + 1):
+                for r in a.room_ids:
+                    self.room_occ[(r, a.day, p)].append(eid)
+                for k in e.cohort_keys | e.instructor_keys:
+                    self.key_occ[(k, a.day, p)].append(eid)
+
+    def room_busy(self, room_id: int, t: TimeOption, weeks: frozenset[int]) -> list[int]:
+        ids: list[int] = []
+        for p in t.periods:
+            for eid in self.room_occ.get((room_id, t.day, p), []):
+                if eid not in ids and weeks_intersect(self.prep.doms.events_by_id[eid].weeks, weeks):
+                    ids.append(eid)
+        return ids
+
+    def key_busy(self, key: str, t: TimeOption, weeks: frozenset[int]) -> list[int]:
+        ids: list[int] = []
+        for p in t.periods:
+            for eid in self.key_occ.get((key, t.day, p), []):
+                if eid not in ids and weeks_intersect(self.prep.doms.events_by_id[eid].weeks, weeks):
+                    ids.append(eid)
+        return ids
+
+
+def explain_event(prep: Prepared, event_id: int, placed: dict[int, Assignment], index: _PlacedIndex | None = None) -> Diagnosis:
+    """Why can't ``event_id`` be placed next to the ``placed`` assignments?  Concrete suggestions."""
+    doms = prep.doms
+    e = doms.events_by_id[event_id]
+    dom = doms.domain(event_id)
+    idx = index or _PlacedIndex(prep, placed)
+    kinds: Counter[str] = Counter()
+    busy_rooms: list[tuple[str, int]] = []  # (text, count)
+    key_clashes: list[str] = []
+    suggestions: list[str] = []
+    free_options: list[str] = []
+    for t in dom.times:
+        clashes = [(k, idx.key_busy(k, t, e.weeks)) for k in sorted(e.cohort_keys | e.instructor_keys)]
+        clashes = [(k, ids) for k, ids in clashes if ids]
+        if clashes:
+            for k, ids in clashes[:2]:
+                kinds["no_cohort_overlap" if k in e.cohort_keys else "no_instructor_overlap"] += 1
+                names = ", ".join(_label(doms.events_by_id[i]) for i in ids[:3])
+                key_clashes.append(f"{_time_str(t)}: {'cohort' if k in e.cohort_keys else 'instructor'} '{k}' busy with {names}")
+            continue
+        if not e.needs_room:
+            free_options.append(_time_str(t))
+            continue
+        for rid in dom.rooms:
+            if not dom.is_pair_allowed(t, rid):
+                kinds["room_closed"] += 1
+                continue
+            holders = idx.room_busy(rid, t, e.weeks)
+            room = doms.rooms_by_id[rid]
+            if holders:
+                kinds["no_room_overlap"] += 1
+                names = ", ".join(_label(doms.events_by_id[i]) for i in holders[:2])
+                busy_rooms.append((f"{room.code} ({effective_capacity(room, e)}) at {_time_str(t)} held by {names}", len(holders)))
+            else:
+                free_options.append(f"{room.code} at {_time_str(t)}")
+    for reason in dom.room_reasons.values():
+        for k in ("capacity", "room_tags", "room_pin", "room_forbid"):
+            if k in reason:
+                kinds[k] += 1
+    pruned = Counter(dom.room_reasons.values())
+    parts: list[str] = []
+    if busy_rooms:
+        parts.append("rooms that fit are busy: " + "; ".join(b for b, _ in busy_rooms[:4]))
+        for b, _ in busy_rooms[:3]:
+            suggestions.append(f"release {b}")
+    if key_clashes:
+        parts.append("; ".join(key_clashes[:3]))
+        suggestions.append("move the clashing event or correct the cohort/instructor keys")
+    if pruned:
+        parts.append(f"{len(dom.room_reasons)} room(s) excluded: " + _top(pruned))
+    if free_options:
+        parts.append("free options exist: " + ", ".join(free_options[:3]) + (" ..." if len(free_options) > 3 else ""))
+        suggestions.append("use " + free_options[0])
+    if e.needs_room and e.max_rooms <= 1 and e.size > 0:
+        fitting = [r for r in prep.inp.rooms if room_fits_alone(r, e)]
+        if not fitting:
+            suggestions.append("allow splitting across rooms (max_rooms > 1) or raise a room's capacity")
+    if dom.fixed_time and e.needs_room:
+        alt = _alternative_periods(prep, e, idx)
+        if alt:
+            suggestions.append("alternative periods on the same day: " + ", ".join(alt[:4]))
+    if not parts:
+        parts.append("no option survives the hard rules")
+    msg = f"{_label(e)} (size {e.size}, {e.duration} period(s), {_time_str(dom.times[0]) if dom.fixed_time else f'{len(dom.times)} time options'}) cannot be placed: " + " | ".join(parts)
+    return Diagnosis([event_id], [k for k, _ in kinds.most_common()] or ["capacity"], msg, suggestions, "error")
+
+
+def _alternative_periods(prep: Prepared, e: Event, idx: _PlacedIndex) -> list[str]:
+    inp = prep.inp
+    dom = prep.doms.domain(e.id)
+    fixed = dom.times[0]
+    out: list[str] = []
+    for start in range(1, inp.periods_per_day - max(1, e.duration) + 2):
+        if start == fixed.start:
+            continue
+        t = TimeOption(fixed.day, start, max(1, e.duration))
+        if any(idx.key_busy(k, t, e.weeks) for k in e.cohort_keys | e.instructor_keys):
+            continue
+        for rid in dom.rooms:
+            if not idx.room_busy(rid, t, e.weeks) and not any(b.day == t.day and b.start <= t.end and t.start <= b.end and (b.week is None or b.week in e.weeks) for b in prep.doms.blocks_by_room.get(rid, [])):
+                out.append(f"P{t.start}-P{t.end} in {prep.doms.rooms_by_id[rid].code}")
+                break
+        if len(out) >= 4:
+            break
+    return out
+
+
+# --------------------------------------------------------------------------- assumption cores
+
+
+def _assumption_names(ctx: Any) -> dict[int, str]:
+    names: dict[int, str] = {}
+    for eid, lit in ctx.placed.items():
+        names[lit.Index()] = f"event:{eid}"
+    for name, lit in ctx.guards.items():
+        names[lit.Index()] = name
+    return names
+
+
+def core_diagnosis(prep: Prepared, budget_s: float) -> tuple[list[Diagnosis], dict[str, Any]]:
+    """Assumption core + deletion-based shrinking (single worker, satisfaction only)."""
+    t0 = time.perf_counter()
+    stats: dict[str, Any] = {"core_probes": 0}
+    ctx = build_model(prep, "assume")
+    names = _assumption_names(ctx)
+    lit_by_name: dict[str, Any] = {f"event:{eid}": lit for eid, lit in ctx.placed.items()}
+    lit_by_name.update(ctx.guards)
+    all_lits = [ctx.placed[e.id] for e in prep.inp.events] + [ctx.guards[n] for n in ctx.guard_order]
+    model = ctx.model
+    model.AddAssumptions(all_lits)
+    solver = make_solver(prep.inp, max(0.5, budget_s * 0.4), workers=1)
+    status = solver.Solve(model)
+    stats["core_probes"] += 1
+    stats["core_first_status"] = solver.StatusName(status)
+    if status != cp_model.INFEASIBLE:
+        stats["core_s"] = round(time.perf_counter() - t0, 3)
+        return [], stats
+    core = [names[i] for i in solver.SufficientAssumptionsForInfeasibility() if i in names]
+    stats["core_initial"] = len(core)
+    # deletion-based shrinking: drop an assumption; still infeasible -> it was not needed
+    remaining = budget_s - (time.perf_counter() - t0)
+    per_probe = max(0.3, min(3.0, remaining / max(1, len(core))))
+    ordered = sorted(core, key=lambda n: (0 if n.startswith("event:") else 1, n))
+    for name in ordered:
+        if time.perf_counter() - t0 + per_probe > budget_s or len(core) <= 1:
+            break
+        trial = [n for n in core if n != name]
+        model.ClearAssumptions()
+        model.AddAssumptions([lit_by_name[n] for n in trial])
+        probe = make_solver(prep.inp, per_probe, workers=1)
+        st = probe.Solve(model)
+        stats["core_probes"] += 1
+        if st == cp_model.INFEASIBLE:
+            core = trial
+    stats["core_final"] = len(core)
+    stats["core_s"] = round(time.perf_counter() - t0, 3)
+    event_ids = sorted(int(n.split(":", 1)[1]) for n in core if n.startswith("event:"))
+    groups = [n for n in core if not n.startswith("event:")]
+    kinds = sorted({_kind_of(n) for n in groups} | {"fixed_time" for n in groups if n.startswith("locked:")})
+    if not event_ids and not groups:
+        return [], stats
+    labels = ", ".join(_label(prep.doms.events_by_id[i]) for i in event_ids[:8])
+    group_txt = ", ".join(groups[:8])
+    msg = f"minimal conflict set: events [{labels}]" + (f" with constraint groups [{group_txt}]" if groups else "") + " cannot all be satisfied together"
+    sugg = ["relax or remove one element of the conflict set", *[f"make {g.split(':', 1)[1]} ({_kind_of(g)}) soft or release it" for g in groups[:3]]]
+    return [Diagnosis(event_ids, kinds, msg, sugg, "error")], stats
+
+
+def _kind_of(guard_name: str) -> str:
+    prefix = guard_name.split(":", 1)[0]
+    return {"room": "no_room_overlap", "cohort": "no_cohort_overlap", "instructor": "no_instructor_overlap", "locked": "fixed_time"}.get(prefix, prefix)
+
+
+# --------------------------------------------------------------------------- slack relaxation
+
+
+def relaxation_diagnosis(prep: Prepared, budget_s: float) -> tuple[list[Diagnosis], dict[str, Any], dict[int, Assignment]]:
+    t0 = time.perf_counter()
+    stats: dict[str, Any] = {}
+    ctx = build_model(prep, "relax")
+    ctx.add_hints(hint_assignments(prep.inp))
+    solver = make_solver(prep.inp, max(0.5, budget_s))
+    status = solver.Solve(ctx.model)
+    stats["relax_status"] = solver.StatusName(status)
+    stats["relax_s"] = round(time.perf_counter() - t0, 3)
+    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return [Diagnosis([], [], "the relaxation model found no partial schedule within the time budget", ["raise the time limit"], "warning")], stats, {}
+    assignments = ctx.extract(solver)
+    placed = {a.event_id: a for a in assignments}
+    unplaced = [e for e in prep.inp.events if e.id not in placed]
+    stats["unplaced"] = len(unplaced)
+    out: list[Diagnosis] = []
+    if unplaced:
+        out.append(Diagnosis([e.id for e in unplaced], [], f"{len(unplaced)} event(s) cannot be placed even when everything else is scheduled: " + ", ".join(_label(e) for e in unplaced[:10]), ["see the per-event explanations below"], "error"))
+        idx = _PlacedIndex(prep, placed)
+        for e in unplaced[:50]:
+            out.append(explain_event(prep, e.id, placed, idx))
+    return out, stats, placed
+
+
+def diagnose(prep: Prepared, budget_s: float) -> list[Diagnosis]:
+    """Full diagnosis after CP-SAT proved INFEASIBLE.  Never raises."""
+    out: list[Diagnosis] = []
+    t0 = time.perf_counter()
+    try:
+        core, cstats = core_diagnosis(prep, budget_s * 0.5)
+        prep.stats.update(cstats)
+        out.extend(core)
+    except Exception as exc:  # noqa: BLE001
+        prep.stats["core_error"] = f"{type(exc).__name__}: {exc}"
+    remaining = max(1.0, budget_s - (time.perf_counter() - t0))
+    try:
+        relax, rstats, _placed = relaxation_diagnosis(prep, remaining)
+        prep.stats.update(rstats)
+        out.extend(relax)
+    except Exception as exc:  # noqa: BLE001
+        prep.stats["relax_error"] = f"{type(exc).__name__}: {exc}"
+    if not out:
+        out.append(Diagnosis([], [], "CP-SAT proved the instance infeasible but no conflict set could be isolated within the budget", ["raise the time limit", "solve a smaller horizon"], "error"))
+    return out
+
+
+__all__ = ["core_diagnosis", "diagnose", "explain_event", "relaxation_diagnosis", "static_check"]

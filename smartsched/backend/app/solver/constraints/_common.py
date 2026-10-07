@@ -25,6 +25,17 @@ def week_classes(items: Sequence[tuple[T, frozenset[int]]]) -> list[list[T]]:
     return [[items[i][0] for i in sorted(s)] for s in maximal]
 
 
+def week_runs(weeks: frozenset[int]) -> list[tuple[int, int]]:
+    """Contiguous runs of a week set as inclusive ``(first, last)`` pairs."""
+    out: list[tuple[int, int]] = []
+    for w in sorted(weeks):
+        if out and out[-1][1] == w - 1:
+            out[-1] = (out[-1][0], w)
+        else:
+            out.append((w, w))
+    return out
+
+
 def int_list(params: Mapping[str, Any], key: str) -> list[int]:
     value = params.get(key)
     if value is None:

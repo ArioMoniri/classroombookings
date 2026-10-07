@@ -94,10 +94,40 @@ def canon_course_code(value: Any) -> str | None:
     return codes[0] if codes else None
 
 
+_LOOSE_CODE_RX = re.compile(rf"([{_TR_LETTERS}]{{2,5}})\s?(\d[\dO ]{{1,4}}\d|[\dO]{{2,4}})(?![{_TR_LETTERS}])")
+_PREFIX_ONLY_RX = re.compile(rf"^([{_TR_LETTERS}]{{2,5}})(?:\s*X{{2,4}})?$")
+
+
+def canon_course_code_loose(value: Any, name: Any = None) -> tuple[str | None, str | None]:
+    """Strict parse first; then repair typos (`BES 3O6`, `ING1 11`, `GT' 251`) or synthesise a placeholder
+    for bare department codes (`ACU`, `MBG XXX`) from the course name. Returns (code, warning)."""
+    strict = canon_course_code(value)
+    if strict:
+        return strict, None
+    text = clean_text(value)
+    if not text:
+        return None, None
+    up = tr_upper(text).replace("'", "").replace("’", "")
+    m = _LOOSE_CODE_RX.search(up)
+    if m and any(ch.isdigit() for ch in m.group(2)):
+        digits = m.group(2).replace("O", "0").replace(" ", "")
+        code = f"{m.group(1)}{digits}"
+        return code, f"course code {text!r} repaired to {code}"
+    m = _PREFIX_ONLY_RX.match(up.strip())
+    if m:
+        cname = clean_text(name)
+        if cname:
+            digest = __import__("hashlib").sha1(tr_casefold(cname).encode("utf-8")).hexdigest()[:4].upper()
+            code = f"{m.group(1)}-{digest}"
+            return code, f"course code {text!r} has no number; placeholder {code} derived from name {cname!r}"
+        return None, f"course code {text!r} has no number and no name"
+    return None, f"unrecognised course code {text!r}"
+
+
 def display_course_code(code: str) -> str:
     m = _COURSE_FULL_RX.match(code)
     if not m:
-        return code
+        return code.replace("-", " ") if "-" in code else code
     return f"{m.group(1)} {m.group(2)}{m.group(3)}"
 
 

@@ -31,6 +31,7 @@ class Section(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_row: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     source_key: Mapped[str] = mapped_column(String(255))
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)
 
     term: Mapped[Term] = relationship()
     course: Mapped[Course] = relationship()
@@ -80,6 +81,7 @@ class MeetingRequest(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     source_row_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)
 
     section: Mapped[Section] = relationship(back_populates="meeting_requests")
 
@@ -123,6 +125,7 @@ class ExamRequest(TimestampMixin, Base):
     source_row: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     source_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     source_row_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)
 
     term: Mapped[Term] = relationship()
     program: Mapped[Program | None] = relationship()
@@ -146,6 +149,7 @@ class Block(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str] = mapped_column(String(16), default="ADMIN")  # GRID_IMPORT, ADMIN, CRBS
     source_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)
 
     term: Mapped[Term] = relationship()
     room: Mapped[Room] = relationship()

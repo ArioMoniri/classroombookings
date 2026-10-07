@@ -2,20 +2,22 @@
 
 Variables (see README "Modelling"):
 
-* ``y[e, t]``  Bool: event *e* takes time option *t* (omitted and treated as the constant *true*
-  when the event has a single time option — i.e. almost every course meeting).
-* ``x[e, t, r]`` Bool: event *e* takes time option *t* in room *r*.  Only (t, r) pairs that survive
-  :mod:`app.solver.domains` exist.
-* ``placed[e]`` Bool: only in ``assume`` / ``relax`` mode; the "event is scheduled at all" literal
-  used as an assumption (core extraction) or as a slack (minimal-violation model).
+* ``y[e, t]``  Bool: event *e* takes time option *t*.  Omitted (constant ``True``) when the event
+  has a single time option — i.e. almost every course meeting.  Flexible events also get an
+  integer ``start[e]`` on the global period axis (``day_pos * periods_per_day + period - 1``)
+  linked by ``start == Σ g_t · y[e,t]``.
+* ``z[e, r]``  Bool: event *e* uses room *r* (only rooms that survive the domain pruning).
+  Single-room events: ``ExactlyOne``; split exams: ``min ≤ Σ z ≤ max`` and ``Σ cap_r·z ≥ size``.
+* Room occupancy is an optional interval per (event, room) — ``presence = z[e,r]`` — inside one
+  ``NoOverlap`` per (room, week class); cohort/instructor occupancy is a fixed-size interval per
+  event inside one ``NoOverlap`` per (key, week class).  No per-week copies, no ``x[e,t,r]``.
+* ``placed[e]`` Bool: only in ``assume`` / ``relax`` mode; "event is scheduled at all", used as an
+  assumption (core extraction) or as a slack (minimal-violation model).
 * ``guard[name]`` Bool: only in ``assume`` mode; one assumption literal per actionable group of hard
-  constraints ("room A204 double booking", "cohort PROG:X:Y1 overlap", constraint #17 ...).
+  constraints.  Interval presences become ``base ∧ guard`` so a false guard switches the group off.
 
-Modes:
-
-* ``solve``  — production model with objective.
-* ``assume`` — satisfaction-only model with assumption literals (single worker).
-* ``relax``  — slack model: minimise the number of unplaced events.
+Modes: ``solve`` (objective), ``assume`` (satisfaction + assumptions, single worker), ``relax``
+(minimise the number of unplaced events).
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from typing import Any, Literal
 
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
+from app.solver.constraints._common import week_runs
 from app.solver.domains import Domains, EventDomain, TimeOption, effective_capacity
 from app.solver.model import Assignment, Constraint, Event, Room, SolverInput
 from app.solver.weights import base_weight
@@ -43,23 +46,32 @@ class ModelContext:
         self.model = cp_model.CpModel()
         self.rooms_by_id: dict[int, Room] = doms.rooms_by_id
         self.events_by_id: dict[int, Event] = doms.events_by_id
-        self.x: dict[tuple[int, int, int], Any] = {}
-        self.y: dict[tuple[int, int], Any] = {}
+        self.day_pos: dict[int, int] = {d: i for i, d in enumerate(inp.days)}
+        self.y: dict[tuple[int, int], Lit] = {}
+        self.z: dict[tuple[int, int], Any] = {}
+        self.start: dict[int, Any] = {}  # flexible events: IntVar on the global period axis
         self.placed: dict[int, Any] = {}
         self.guards: dict[str, Any] = {}
         self.guard_order: list[str] = []
         self.terms: dict[str, list[tuple[Any, int]]] = defaultdict(list)
-        self._occ: dict[tuple[int, int, int], Lit] = {}
-        self._room_use: dict[tuple[int, int], Lit] = {}
-        self._on_day: dict[tuple[int, int], Lit] = {}
+        self._occ: dict[tuple[int, int, int], Lit | None] = {}
+        self._on_day: dict[tuple[int, int], Lit | None] = {}
+        self._room_interval: dict[tuple[int, int], Any] = {}
+        self._event_interval: dict[int, Any] = {}
+        self._and_cache: dict[tuple[int, int], Any] = {}
+        self._week_interval: dict[tuple[int, int], Any] = {}
         self.warnings: list[str] = []
         self.n_bools = 0
+        self.n_intervals = 0
         self._build_variables()
 
     # ------------------------------------------------------------------ variables
     def _new_bool(self, name: str) -> Any:
         self.n_bools += 1
         return self.model.NewBoolVar(name)
+
+    def global_start(self, t: TimeOption) -> int:
+        return self.day_pos[t.day] * self.inp.periods_per_day + t.start - 1
 
     def _build_variables(self) -> None:
         m = self.model
@@ -68,62 +80,74 @@ class ModelContext:
             eid = event.id
             if self.mode != "solve":
                 self.placed[eid] = self._new_bool(f"placed_{eid}")
-            time_lits: list[Any] = []
             if dom.fixed_time:
-                # constant time: the "time literal" is `placed` (or True in solve mode)
-                lit = self.placed.get(eid, True)
-                self.y[(eid, 0)] = lit
-                time_lits = [] if lit is True else [lit]
-            else:
+                self.y[(eid, 0)] = self.placed.get(eid, True)
+            elif dom.times:
+                ys = []
                 for ti in range(len(dom.times)):
                     v = self._new_bool(f"y_{eid}_{ti}")
                     self.y[(eid, ti)] = v
-                    time_lits.append(v)
+                    ys.append(v)
                 if self.mode == "solve":
-                    m.AddExactlyOne(time_lits)
+                    m.AddExactlyOne(ys)
                 else:
-                    m.Add(sum(time_lits) == self.placed[eid])
+                    m.Add(sum(ys) == self.placed[eid])
+                starts = sorted({self.global_start(t) for t in dom.times})
+                sv = m.NewIntVarFromDomain(cp_model.Domain.FromValues(starts), f"start_{eid}")
+                m.Add(sv == sum(self.global_start(t) * v for t, v in zip(dom.times, ys, strict=True)) + (0 if self.mode == "solve" else starts[0] * (1 - self.placed[eid])))
+                self.start[eid] = sv
+            else:
+                # no time option at all: the static checker reports it; keep the model consistent
+                if self.mode == "solve":
+                    m.AddBoolOr([])
+                else:
+                    m.Add(self.placed[eid] == 0)
+                continue
             if not event.needs_room:
                 continue
-            for ti, t in enumerate(dom.times):
-                xs: list[Any] = []
-                caps: list[int] = []
-                for rid in dom.rooms:
-                    if not dom.is_pair_allowed(t, rid):
-                        continue
-                    v = self._new_bool(f"x_{eid}_{ti}_{rid}")
-                    self.x[(eid, ti, rid)] = v
-                    xs.append(v)
-                    caps.append(effective_capacity(self.rooms_by_id[rid], event))
-                ylit = self.y[(eid, ti)]
-                if not xs:
-                    # time option without any room: cannot be chosen
-                    if ylit is True:
-                        # fixed-time event with no room at all -> model infeasible (static checker reports it)
-                        m.AddBoolOr([])
-                    else:
-                        m.Add(ylit == 0)
+            zs: list[Any] = []
+            caps: list[int] = []
+            for rid in dom.rooms:
+                if dom.fixed_time and not dom.is_pair_allowed(dom.times[0], rid):
                     continue
-                if event.max_rooms <= 1:
-                    if ylit is True:
-                        m.AddExactlyOne(xs)
-                    else:
-                        m.Add(sum(xs) == ylit)
+                v = self._new_bool(f"z_{eid}_{rid}")
+                self.z[(eid, rid)] = v
+                zs.append(v)
+                caps.append(effective_capacity(self.rooms_by_id[rid], event))
+            placed = self.placed.get(eid, True)
+            if not zs:
+                if placed is True:
+                    m.AddBoolOr([])
                 else:
-                    self._link_split(event, xs, caps, ylit)
+                    m.Add(placed == 0)
+                continue
+            if event.max_rooms <= 1:
+                if placed is True:
+                    m.AddExactlyOne(zs)
+                else:
+                    m.Add(sum(zs) == placed)
+            else:
+                self._link_split(event, zs, caps, placed)
+            if not dom.fixed_time:
+                # blocked (time, room) pairs of flexible events
+                for ti, t in enumerate(dom.times):
+                    for rid in dom.rooms:
+                        if (eid, rid) in self.z and not dom.is_pair_allowed(t, rid):
+                            m.AddBoolOr([self.y[(eid, ti)].Not(), self.z[(eid, rid)].Not()])
 
-    def _link_split(self, event: Event, xs: list[Any], caps: list[int], ylit: Lit) -> None:
+    def _link_split(self, event: Event, zs: list[Any], caps: list[int], placed: Lit) -> None:
         m = self.model
         lo = max(1, event.min_rooms)
         hi = max(lo, event.max_rooms)
-        if ylit is True:
-            m.Add(sum(xs) >= lo)
-            m.Add(sum(xs) <= hi)
-            m.Add(sum(c * v for c, v in zip(caps, xs, strict=True)) >= event.size)
+        total = sum(c * v for c, v in zip(caps, zs, strict=True))
+        if placed is True:
+            m.Add(sum(zs) >= lo)
+            m.Add(sum(zs) <= hi)
+            m.Add(total >= event.size)
         else:
-            m.Add(sum(xs) >= lo).OnlyEnforceIf(ylit)
-            m.Add(sum(xs) <= hi * ylit)
-            m.Add(sum(c * v for c, v in zip(caps, xs, strict=True)) >= event.size).OnlyEnforceIf(ylit)
+            m.Add(sum(zs) >= lo).OnlyEnforceIf(placed)
+            m.Add(sum(zs) <= hi * placed)
+            m.Add(total >= event.size).OnlyEnforceIf(placed)
 
     # ------------------------------------------------------------------ literal accessors
     def domain(self, event_id: int) -> EventDomain:
@@ -132,8 +156,9 @@ class ModelContext:
     def time_lit(self, event_id: int, ti: int) -> Lit:
         return self.y[(event_id, ti)]
 
-    def room_lit(self, event_id: int, ti: int, room_id: int) -> Lit | None:
-        return self.x.get((event_id, ti, room_id))
+    def room_use(self, event_id: int, room_id: int) -> Lit | None:
+        """Literal "event uses room r"; None if the room is not an option."""
+        return self.z.get((event_id, room_id))
 
     def occupies(self, event_id: int, day: int, period: int) -> Lit | None:
         """Literal "event occupies (day, period)" or None when impossible; ``True`` when certain."""
@@ -172,32 +197,85 @@ class ModelContext:
         self._on_day[key] = res
         return res
 
-    def room_use(self, event_id: int, room_id: int) -> Lit | None:
-        """Literal "event uses room r (at whatever time)"; None if the room is not an option."""
-        key = (event_id, room_id)
-        if key in self._room_use:
-            return self._room_use[key]
-        dom = self.domain(event_id)
-        lits = [self.x[(event_id, ti, room_id)] for ti in range(len(dom.times)) if (event_id, ti, room_id) in self.x]
-        res: Lit | None
-        if not lits:
-            res = None
-        elif len(lits) == 1:
-            res = lits[0]
-        else:
-            v = self._new_bool(f"use_{event_id}_{room_id}")
-            self.model.Add(sum(lits) == v)
-            res = v
-        self._room_use[key] = res
-        return res
+    def and_lit(self, a: Lit, b: Lit) -> Lit:
+        """Literal for ``a ∧ b`` (constants folded)."""
+        if a is True:
+            return b
+        if b is True:
+            return a
+        key = (a.Index(), b.Index()) if a.Index() <= b.Index() else (b.Index(), a.Index())
+        v = self._and_cache.get(key)
+        if v is None:
+            v = self._new_bool(f"and_{key[0]}_{key[1]}")
+            self.model.AddBoolAnd([a, b]).OnlyEnforceIf(v)
+            self.model.AddBoolOr([a.Not(), b.Not(), v])
+            self._and_cache[key] = v
+        return v
 
-    def room_lits_at(self, event_id: int, day: int, period: int, room_id: int) -> list[Any]:
+    # ------------------------------------------------------------------ intervals
+    def _start_expr(self, event_id: int) -> Any:
         dom = self.domain(event_id)
-        return [
-            self.x[(event_id, ti, room_id)]
-            for ti, t in enumerate(dom.times)
-            if t.covers(day, period) and (event_id, ti, room_id) in self.x
-        ]
+        if dom.fixed_time:
+            return self.global_start(dom.times[0])
+        return self.start[event_id]
+
+    def room_interval(self, event_id: int, room_id: int, guard: Lit | None) -> Any | None:
+        """Optional interval "event occupies room r" (presence z ∧ guard)."""
+        z = self.z.get((event_id, room_id))
+        if z is None:
+            return None
+        presence = z if guard is None else self.and_lit(z, guard)
+        key = (event_id, room_id)
+        if guard is None and key in self._room_interval:
+            return self._room_interval[key]
+        dur = max(1, self.events_by_id[event_id].duration)
+        iv = self.model.NewOptionalFixedSizeIntervalVar(self._start_expr(event_id), dur, presence, f"iv_{event_id}_{room_id}")
+        self.n_intervals += 1
+        if guard is None:
+            self._room_interval[key] = iv
+        return iv
+
+    def event_interval(self, event_id: int, guard: Lit | None) -> Any:
+        """Interval "event takes place" (presence placed ∧ guard; always present in solve mode)."""
+        base = self.placed.get(event_id, True)
+        presence = base if guard is None else self.and_lit(base, guard)
+        if presence is True and event_id in self._event_interval:
+            return self._event_interval[event_id]
+        dur = max(1, self.events_by_id[event_id].duration)
+        if presence is True:
+            iv = self.model.NewFixedSizeIntervalVar(self._start_expr(event_id), dur, f"ev_{event_id}")
+            self._event_interval[event_id] = iv
+        else:
+            iv = self.model.NewOptionalFixedSizeIntervalVar(self._start_expr(event_id), dur, presence, f"ev_{event_id}_{self.n_intervals}")
+        self.n_intervals += 1
+        return iv
+
+    def fixed_interval(self, day: int, start: int, end: int, name: str) -> Any:
+        g = self.day_pos[day] * self.inp.periods_per_day + start - 1
+        self.n_intervals += 1
+        return self.model.NewFixedSizeIntervalVar(g, end - start + 1, name)
+
+    def add_no_overlap(self, intervals: Sequence[Any]) -> None:
+        if len(intervals) >= 2:
+            self.model.AddNoOverlap(intervals)
+
+    def add_no_overlap_2d(self, items: Sequence[tuple[Any, frozenset[int]]]) -> None:
+        """Boxes (time interval × contiguous week run); the same time interval is reused for
+        every run of its week set."""
+        if len(items) < 2:
+            return
+        xs: list[Any] = []
+        ys: list[Any] = []
+        for iv, weeks in items:
+            for first, last in week_runs(weeks):
+                key = (first, last)
+                yiv = self._week_interval.get(key)
+                if yiv is None:
+                    yiv = self.model.NewFixedSizeIntervalVar(first, last - first + 1, f"weeks_{first}_{last}")
+                    self._week_interval[key] = yiv
+                xs.append(iv)
+                ys.append(yiv)
+        self.model.AddNoOverlap2D(xs, ys)
 
     # ------------------------------------------------------------------ guards (assumptions)
     def guard(self, name: str) -> Lit | None:
@@ -269,7 +347,7 @@ class ModelContext:
         return base_weight(self.inp.weights, name or c.kind) * max(0, c.weight)
 
     def add_penalty(self, name: str, expr: Lit, units: int, weight: int) -> None:
-        """Add ``units * weight`` to the objective whenever ``expr`` (a literal / linear expr) is 1."""
+        """Add ``units * weight`` to the objective whenever ``expr`` (a literal / int expr) is 1."""
         if units <= 0 or weight <= 0 or expr is None:
             return
         if expr is True:
@@ -302,8 +380,7 @@ class ModelContext:
 
     # ------------------------------------------------------------------ hints / fixing
     def _option_index(self, assignment: Assignment) -> int | None:
-        dom = self.domain(assignment.event_id)
-        return dom.time_index(assignment.day, assignment.start)
+        return self.domain(assignment.event_id).time_index(assignment.day, assignment.start)
 
     def add_hints(self, assignments: Iterable[Assignment]) -> int:
         """Complete per-event hints from previous/locked assignments. Returns hinted event count."""
@@ -316,15 +393,20 @@ class ModelContext:
             if ti is None:
                 continue
             rooms = set(a.room_ids)
-            if dom.event.needs_room and any(self.x.get((a.event_id, ti, r)) is None for r in rooms):
+            if dom.event.needs_room and any((a.event_id, r) not in self.z for r in rooms):
                 continue
             for i in range(len(dom.times)):
                 lit = self.y[(a.event_id, i)]
                 if lit is not True and lit is not self.placed.get(a.event_id):
                     self.model.AddHint(lit, 1 if i == ti else 0)
-            for (eid, i, rid), v in self.x.items():
-                if eid == a.event_id:
-                    self.model.AddHint(v, 1 if (i == ti and rid in rooms) else 0)
+            if a.event_id in self.start:
+                self.model.AddHint(self.start[a.event_id], self.global_start(dom.times[ti]))
+            for rid in dom.rooms:
+                v = self.z.get((a.event_id, rid))
+                if v is not None:
+                    self.model.AddHint(v, 1 if rid in rooms else 0)
+            if a.event_id in self.placed:
+                self.model.AddHint(self.placed[a.event_id], 1)
             hinted += 1
         return hinted
 
@@ -344,7 +426,7 @@ class ModelContext:
             return True
         ok = True
         for rid in dom.rooms:
-            v = self.x.get((a.event_id, ti, rid))
+            v = self.z.get((a.event_id, rid))
             if v is None:
                 continue
             want = 1 if rid in a.room_ids else 0
@@ -353,7 +435,7 @@ class ModelContext:
             else:
                 self.model.AddImplication(guard, v if want else v.Not())
         for rid in a.room_ids:
-            if self.x.get((a.event_id, ti, rid)) is None:
+            if (a.event_id, rid) not in self.z:
                 ok = False
                 self.add_false(guard)
         return ok
@@ -366,29 +448,20 @@ class ModelContext:
             if self.mode != "solve" and not solver.Value(self.placed[event.id]):
                 continue
             chosen: TimeOption | None = None
-            chosen_ti = 0
             for ti, t in enumerate(dom.times):
-                lit = self.y[(event.id, ti)]
+                lit = self.y.get((event.id, ti))
+                if lit is None:
+                    continue
                 if lit is True or solver.Value(lit):
-                    chosen, chosen_ti = t, ti
+                    chosen = t
                     break
             if chosen is None:
                 continue
             rooms: list[int] = []
             if event.needs_room:
                 for r in self.inp.rooms:
-                    v = self.x.get((event.id, chosen_ti, r.id))
+                    v = self.z.get((event.id, r.id))
                     if v is not None and solver.Value(v):
                         rooms.append(r.id)
-            out.append(
-                Assignment(
-                    event_id=event.id,
-                    day=chosen.day,
-                    start=chosen.start,
-                    end=chosen.end,
-                    room_ids=tuple(rooms),
-                    weeks=event.weeks,
-                    date=event.fixed_date,
-                )
-            )
+            out.append(Assignment(event.id, chosen.day, chosen.start, chosen.end, tuple(rooms), event.weeks, event.fixed_date))
         return out

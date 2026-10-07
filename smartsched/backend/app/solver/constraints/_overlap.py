@@ -1,14 +1,12 @@
 """Shared implementation for ``no_cohort_overlap`` and ``no_instructor_overlap``.
 
-Per key (cohort or instructor) and per (day, period) we collect the "event occupies this period"
-literals (``True`` for fixed-time events) and post one ``AtMostOne`` per week class.  Fixed-vs-
-fixed collisions are detected statically in ``prune`` and recorded on ``doms.static_conflicts``;
+Per key (cohort or instructor) the events' intervals (fixed start for fixed-time events, the
+``start[e]`` variable otherwise) go into one ``NoOverlap`` per week class.  Fixed-vs-fixed
+collisions are detected statically in ``prune`` and recorded on ``doms.static_conflicts``;
 fixed-vs-flexible collisions are removed from the flexible event's time options there as well.
 """
 
 from __future__ import annotations
-
-from collections import defaultdict
 
 from app.solver.constraints._common import pairs, week_classes
 from app.solver.context import ModelContext
@@ -26,24 +24,14 @@ def apply_keys(ctx: ModelContext, groups: dict[str, list[int]], kind: str, guard
         ids = groups[key]
         if len(ids) < 2:
             continue
-        cells: dict[tuple[int, int], list[tuple[object, frozenset[int]]]] = defaultdict(list)
-        for eid in ids:
-            dom = ctx.domain(eid)
-            weeks = ctx.events_by_id[eid].weeks
-            covered: set[tuple[int, int]] = set()
-            for t in dom.times:
-                for p in t.periods:
-                    covered.add((t.day, p))
-            for day, p in covered:
-                lit = ctx.occupies(eid, day, p)
-                if lit is not None:
-                    cells[(day, p)].append((lit, weeks))
         g = ctx.guard(f"{guard_prefix}:{key}")
-        for (_day, _p), items in sorted(cells.items(), key=lambda kv: kv[0]):
-            if len(items) < 2:
+        items: list[tuple[object, frozenset[int]]] = []
+        for eid in ids:
+            if not ctx.domain(eid).times:
                 continue
-            for group in week_classes(items):
-                ctx.add_at_most_one(group, g)
+            items.append((ctx.event_interval(eid, g), ctx.events_by_id[eid].weeks))
+        for group in week_classes(items):
+            ctx.add_no_overlap(group)
 
 
 def score_keys(ev: Evaluation, groups: dict[str, list[int]], kind: str, noun: str) -> None:

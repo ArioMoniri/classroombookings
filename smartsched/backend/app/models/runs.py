@@ -29,6 +29,7 @@ class ScheduleRun(Base):
     parent_run_id: Mapped[int | None] = mapped_column(ForeignKey("schedule_runs.id"), nullable=True)
     prompt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
@@ -63,6 +64,7 @@ class Assignment(Base):
     is_locked: Mapped[bool] = mapped_column(Boolean, default=False)
     origin: Mapped[str] = mapped_column(String(8), default="SOLVER")  # SOLVER, AI_EDIT, MANUAL, IMPORT
     source_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)
 
     run: Mapped[ScheduleRun] = relationship(back_populates="assignments")
 

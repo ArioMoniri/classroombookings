@@ -194,14 +194,14 @@ def _prune_block(dom: EventDomain, block: Block, inp: SolverInput) -> None:
         return
     for t in list(dom.times):
         if t.day == block.day and t.start <= block.end and block.start <= t.end:
-            label = f" ({block.label})" if block.label else ""
-            dom.exclude_pair(t, block.room_id, f"room blocked{label} on day {block.day} P{block.start}-P{block.end}")
+            wk = "every week" if block.week is None else f"week {block.week}"
+            dom.exclude_pair(t, block.room_id, f"room blocked on day {block.day} P{block.start}-P{block.end} ({wk})")
     # a room that is blocked at every time option is useless for this event
     if all(not dom.is_pair_allowed(t, block.room_id) for t in dom.times):
         for t in dom.times:
             dom.excluded_pairs.discard((t, block.room_id))
             dom.pair_reasons.pop((t, block.room_id), None)
-        dom.remove_room(block.room_id, f"room blocked at every allowed time ({block.label or 'block'})")
+        dom.remove_room(block.room_id, "room blocked at every allowed time (block)")
 
 
 def build_domains(inp: SolverInput, soft_structural: Iterable[str] = ()) -> Domains:
