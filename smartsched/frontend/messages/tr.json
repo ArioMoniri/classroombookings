@@ -1,0 +1,141 @@
+{
+  "app": { "name": "SmartSched", "tagline": "Yapay zekâ destekli derslik planlayıcı", "skip": "İçeriğe atla", "version": "v0.1" },
+  "nav": {
+    "plan": "Planlama", "results": "Sonuçlar", "master": "Ana veriler", "admin": "Yönetim",
+    "dashboard": "Özet", "import": "İçe aktar", "requests": "Talepler", "generate": "Oluştur",
+    "timetable": "Çizelge", "runs": "Çalıştırmalar", "rooms": "Derslikler", "buildings": "Binalar",
+    "programs": "Programlar", "instructors": "Öğretim elemanları", "settings": "Ayarlar", "users": "Kullanıcılar",
+    "collapse": "Kenar çubuğunu daralt", "expand": "Kenar çubuğunu genişlet", "menu": "Menüyü aç",
+    "search": "Ara…", "searchHint": "⌘K", "notifications": "Bildirimler", "account": "Hesap",
+    "logout": "Çıkış yap", "theme": "Tema", "language": "Dil", "needsReview": "{count} inceleme bekliyor",
+    "running": "{count} çalışıyor", "term": "Dönem", "switchTerm": "Dönem değiştir", "switched": "{term} dönemine geçildi"
+  },
+  "theme": { "system": "Sistem", "light": "Açık", "dark": "Koyu" },
+  "palette": {
+    "title": "Komut paleti", "placeholder": "Komut, derslik (A 206) veya ders kodu (MAT 112) yazın…",
+    "actions": "Eylemler", "goto": "Git", "rooms": "Derslikler", "runs": "Çalıştırmalar", "prefs": "Tema ve dil",
+    "empty": "\"{query}\" için sonuç yok — derslik kodu (A 206) veya ders kodu (MAT 112) deneyin",
+    "generateWeek": "Çizelge oluştur…", "importFile": "Dosya içe aktar…", "newRoom": "Yeni derslik",
+    "navigate": "Gezin", "select": "Seç", "close": "Kapat", "toggleTheme": "Temayı değiştir", "toggleLang": "Dili değiştir"
+  },
+  "auth": {
+    "title": "Giriş yap", "subtitle": "Planlama ofisi erişimi", "email": "E-posta", "password": "Şifre",
+    "submit": "Giriş yap", "signingIn": "Giriş yapılıyor…", "failed": "Giriş başarısız. Bilgilerinizi kontrol edin.",
+    "demoHint": "Demo modu: herhangi bir e-posta ile \"admin\" şifresi çalışır."
+  },
+  "common": {
+    "loading": "Yükleniyor…", "error": "Bir şeyler ters gitti", "retry": "Tekrar dene", "save": "Kaydet", "cancel": "Vazgeç",
+    "close": "Kapat", "apply": "Uygula", "undo": "Geri al", "applied": "Uygulandı", "search": "Ara", "filter": "Filtrele",
+    "all": "Tümü", "none": "Yok", "yes": "Evet", "no": "Hayır", "edit": "Düzenle", "delete": "Sil", "view": "Görüntüle",
+    "details": "Ayrıntılar", "status": "Durum", "actions": "Eylemler", "capacity": "Kapasite", "building": "Bina",
+    "room": "Derslik", "rooms": "Derslikler", "day": "Gün", "week": "Hafta", "period": "Ders saati", "periods": "Ders saatleri",
+    "students": "öğrenci", "seats": "koltuk", "noData": "Henüz veri yok", "showing": "{total} kayıttan {count} gösteriliyor",
+    "copy": "Kopyala", "copied": "Kopyalandı", "open": "Aç", "back": "Geri", "next": "İleri", "previous": "Önceki",
+    "download": "İndir", "upload": "Yükle", "lock": "Kilitle", "unlock": "Kilidi aç", "locked": "Kilitli",
+    "today": "Bugün", "offline": "Bağlantı yok · yeniden deneniyor…", "forbidden": "Bu sayfa için PLANLAYICI rolü gerekir.",
+    "errorId": "Hata kimliği"
+  },
+  "dashboard": {
+    "title": "Özet", "subtitle": "{term} · {weeks} haftanın {week}. haftası",
+    "utilisation": "Derslik doluluğu", "pending": "Bekleyen talepler", "lastRuns": "Son çalıştırmalar",
+    "rooms": "Planlanabilir derslik", "sections": "Şubeler", "conflicts": "Çakışmalar", "needsReview": "İnceleme bekleyen",
+    "viewAll": "Tümünü gör", "generate": "Çizelge oluştur", "import": "Talepleri içe aktar",
+    "byBuilding": "Binaya göre doluluk", "heatmap": "Yoğun saatler", "empty": "Başlamak için bir planlama listesi içe aktarın."
+  },
+  "import": {
+    "title": "İçe aktar", "subtitle": "Dönemin taleplerini Excel'den veya eski CRBS veritabanından alın.",
+    "stepKind": "Tür seç", "stepUpload": "Yükle", "stepPreview": "Önizle", "stepDone": "Bitti",
+    "planning": "Ders planlama listesi", "planningDesc": "Şekil A · Derslik Planlama Listesi (her şube-ders için 1 satır)",
+    "exam": "Sınav planlama listesi", "examDesc": "Şekil B · Final / Bütünleme Planlama Listesi",
+    "grid": "Haftalık derslik takvimi", "gridDesc": "Şekil C · derslikler takvimi (her hafta bir sayfa) — dolu bloklar olarak aktarılır",
+    "crbs": "Eski CRBS veritabanı", "crbsDesc": "DSN ile derslikler, saatler, oturumlar, rezervasyonlar, kullanıcılar",
+    "dropzone": ".xlsx dosyasını buraya bırakın veya seçmek için tıklayın", "dropzoneHint": "En fazla 25 MB · .xlsx · Türkçe başlıklar otomatik algılanır",
+    "dsn": "Bağlantı dizesi (DSN)", "term": "Hedef dönem", "start": "İçe aktarmayı başlat", "importing": "Aktarılıyor…",
+    "report": "Ayrıştırma raporu", "rows": "Satır", "created": "Oluşturulan", "updated": "Güncellenen", "skipped": "Atlanan",
+    "warnings": "Uyarılar", "warningsTable": "Dikkat gerektiren satırlar", "row": "Satır", "field": "Alan",
+    "value": "Değer", "message": "Mesaj", "severity": "Önem", "noWarnings": "Uyarı yok — tüm satırlar sorunsuz ayrıştırıldı.",
+    "goRequests": "Talepleri incele", "again": "Başka dosya aktar", "recent": "Son aktarımlar",
+    "filterSeverity": "Öneme göre filtrele", "error": "Hata", "warning": "Uyarı", "info": "Bilgi"
+  },
+  "requests": {
+    "title": "Talepler", "subtitle": "Oluşturmadan önce fakültelerin taleplerini inceleyin.",
+    "meetings": "Dersler", "exams": "Sınavlar", "course": "Ders", "section": "Şube", "program": "Program",
+    "enrolment": "Öğrenci", "time": "Zaman", "requested": "Talep edilen derslik", "definitive": "Kesinleşen derslik",
+    "instructor": "Öğretim elemanı", "mode": "Öğretim şekli", "weeks": "Haftalar", "date": "Tarih", "venue": "Talep edilen yer",
+    "lockRow": "Kilitle", "unlockRow": "Kilidi aç", "preferredRooms": "Tercih edilen derslikler", "flexibleDay": "Gün esnek",
+    "editTitle": "Talebi düzenle", "editDesc": "Ayrıştırılan alanları düzeltin, derslik sabitleyin veya tercih edin, atamayı kilitleyin.",
+    "parseWarnings": "Ayrıştırma uyarıları", "sourceRow": "Kaynak satır", "saved": "Talep kaydedildi", "status": {
+      "NEW": "Yeni", "PARSED": "Ayrıştırıldı", "NEEDS_REVIEW": "İnceleme bekliyor", "LOCKED": "Kilitli"
+    },
+    "filterStatus": "Durum", "filterProgram": "Program", "filterBuilding": "Bina", "searchPlaceholder": "Ders, şube, öğretim elemanı…",
+    "tags": "Gerekli etiketler", "capacity": "İstenen kapasite", "notes": "Notlar", "noExam": "Sınav yok", "onCampus": "Kampüste yazılı"
+  },
+  "rooms": {
+    "title": "Derslikler", "subtitle": "{buildings} binada {count} derslik", "cards": "Kartlar", "table": "Tablo",
+    "code": "Kod", "floor": "Kat", "examCapacity": "Sınav kapasitesi", "tags": "Etiketler", "bookable": "Planlanabilir",
+    "notBookable": "Planlanamaz", "notes": "Notlar", "photo": "Fotoğraf", "noPhoto": "Henüz fotoğraf yok", "detail": "Derslik ayrıntısı",
+    "weekUsage": "Bu haftaki doluluk", "allBuildings": "Tüm binalar", "searchPlaceholder": "A 204, PC, 72…",
+    "tag": { "TIP": "Tıp (TIP)", "PC": "Bilgisayar lab.", "LAB": "Laboratuvar", "AMPHI": "Amfi" },
+    "back": "Tüm derslikler", "notFound": "Derslik bulunamadı", "utilisation": "Doluluk", "legacyId": "CRBS kimliği"
+  },
+  "generate": {
+    "title": "Oluştur", "subtitle": "Ufku seçin, nelerin önemli olduğunu yazın, Oluştur'a basın.",
+    "term": "Dönem", "kind": "Tür", "course": "Ders çizelgesi", "exam": "Sınav çizelgesi", "horizon": "Ufuk",
+    "week": "Hafta", "month": "Ay", "wholeTerm": "Tüm dönem", "weeksRange": "{from}–{to}. haftalar",
+    "prompt": "Tercihler (Türkçe veya İngilizce)", "promptPlaceholder": "ör. TIP derslikleri sadece Tıp için; Eczacılık Pazartesi C blokta kalsın; 1. sınıf hemşirelik 17:30'dan sonra ders almasın…",
+    "chips": "Öneriler", "weights": "Yumuşak ağırlıklar", "timeLimit": "Süre sınırı", "seconds": "sn", "seed": "Tohum",
+    "stability": "Kararlılık (öncekini koru)", "submit": "Oluştur", "submitting": "Kuyruğa alındı…", "status": "Çalıştırma durumu",
+    "progress": "Çözülüyor %{pct}", "queued": "Kuyrukta", "running": "Çalışıyor", "done": "Tamamlandı", "failed": "Başarısız",
+    "openRun": "Raporu aç", "proposed": "Önerilen kısıtlar", "accept": "Kabul et", "reject": "Reddet",
+    "weight": {
+      "room_preference": "Talep edilen derslik", "building_preference": "Talep edilen bina", "min_capacity_waste": "Kapasite uyumu",
+      "same_room_across_weeks": "Her hafta aynı derslik", "stability": "Kararlılık", "exam_gap": "Sınav aralığı"
+    },
+    "chip": {
+      "tip": "TIP derslikleri sadece Tıp için", "evening": "İkinci öğretim B/C bloklarda", "sameRoom": "Her hafta aynı derslik",
+      "fit": "Küçük sınıfları amfiye koyma", "pharmacy": "Eczacılık Pazartesi C blok", "nursing": "1. sınıf hemşirelik 17:30 sonrası yok"
+    },
+    "previousRun": "Önceki çalıştırmayı temel al"
+  },
+  "runs": {
+    "title": "Çalıştırmalar", "subtitle": "Her çözücü çalıştırması, puanları ve teşhisi.", "run": "Çalıştırma", "kind": "Tür",
+    "horizon": "Ufuk", "hard": "Katı", "soft": "Yumuşak", "created": "Oluşturulma", "duration": "Süre", "open": "Aç",
+    "status": { "QUEUED": "Kuyrukta", "RUNNING": "Çalışıyor", "FEASIBLE": "Uygun", "OPTIMAL": "En iyi", "INFEASIBLE": "Uygunsuz", "FAILED": "Başarısız", "CANCELLED": "İptal" },
+    "report": "Rapor", "grid": "Çizelge", "chat": "Sohbet", "hardScore": "Katı kısıtlar", "softScore": "Yumuşak tercihler",
+    "objective": "Amaç fonksiyonu dağılımı", "diagnosis": "Teşhis", "suggestions": "Önerilen düzeltmeler", "applyFix": "Uygula",
+    "applied": "Düzeltme uygulandı — yeniden çözüm kuyruğa alındı", "noDiagnosis": "İhlal yok. Tüm katı kısıtlar sağlanıyor.",
+    "stats": "Çözücü istatistikleri", "assignments": "Atamalar", "unplaced": "Yerleşmeyen", "solveTime": "Çözüm süresi",
+    "export": "Dışa aktar", "resolve": "Yeniden çöz", "parent": "#{id} çalıştırmasına dayanır", "prompt": "İstem",
+    "severity": { "critical": "Kritik", "high": "Yüksek", "medium": "Orta", "low": "Düşük" }, "events": "Etkinlikler", "constraints": "Kısıtlar",
+    "notFound": "Çalıştırma bulunamadı"
+  },
+  "grid": {
+    "title": "Çizelge", "day": "Gün", "week": "Hafta", "zoomDay": "Gün görünümü", "zoomWeek": "Hafta görünümü", "agenda": "Ajanda",
+    "prevWeek": "Önceki hafta", "nextWeek": "Sonraki hafta", "legend": "Gösterge", "ok": "Atandı", "locked": "Kilitli",
+    "conflict": "Çakışma", "block": "Önceden dolu", "tip": "TIP dersliği", "pc": "PC lab.", "search": "Derslik filtrele…",
+    "building": "Bina", "move": "Taşı", "moveTo": "Şuraya taşı", "moving": "Taşınıyor…", "moved": "{label} → {room} {range} taşındı",
+    "moveFailed": "Taşıma reddedildi: {reason}", "conflictWith": "{labels} ile çakışıyor", "dropHere": "Taşımak için bırakın",
+    "dragHint": "Bir etkinliği başka derslik veya saate sürükleyin. Çakışmalar kırmızı görünür.", "lockEvent": "Kilitle", "unlockEvent": "Kilidi aç",
+    "eventDetails": "Etkinlik ayrıntısı", "room": "Derslik", "time": "Zaman", "size": "Mevcut", "instructor": "Öğretim elemanı",
+    "program": "Program", "capacityWarning": "Kapasite aşımı", "noEvents": "Bu gün etkinlik yok", "roomsShown": "{count} derslik",
+    "weekLabel": "H{index}", "emptyRun": "Çizelgesini görmek için bir çalıştırma seçin", "moveDialog": "Etkinliği taşı", "newRoom": "Yeni derslik",
+    "newDay": "Yeni gün", "newStart": "Başlangıç saati", "confirmMove": "Taşımayı onayla", "preview": "Önizleme"
+  },
+  "chat": {
+    "title": "Sohbet", "placeholder": "Bir değişiklik isteyin… ör. \"MAT 112'yi Salı A 204'e taşı\"", "send": "Gönder",
+    "thinking": "Düşünüyor…", "proposal": "Önerilen değişiklikler", "moves": "Taşımalar", "constraints": "Kısıtlar", "apply": "Uygula",
+    "undo": "Geri al", "appliedToast": "Değişiklikler uygulandı", "undoneToast": "Değişiklikler geri alındı", "empty": "Ne değişmesini istediğinizi yazın; planlayıcı uygulayabileceğiniz somut taşımalar önerir.",
+    "you": "Siz", "assistant": "Planlayıcı", "streaming": "Yazıyor…", "noKey": "Sohbet için Ayarlar'dan bir Anthropic API anahtarı ekleyin."
+  },
+  "settings": {
+    "title": "Ayarlar", "subtitle": "Yapay zekâ anahtarı, model, çözücü varsayılanları ve kullanıcılar.", "ai": "Yapay zekâ", "solver": "Çözücü", "users": "Kullanıcılar",
+    "general": "Genel", "apiKey": "Anthropic API anahtarı", "apiKeyHint": "Şifreli saklanır; kaydedildikten sonra bir daha gösterilmez.",
+    "apiKeyMasked": "…{tail} ile biten anahtar", "noKey": "Kayıtlı anahtar yok", "test": "Anahtarı sına", "testing": "Sınanıyor…",
+    "testOk": "Anahtar çalışıyor ({model}, {ms} ms)", "testFailed": "Anahtar sınaması başarısız: {reason}", "model": "Model",
+    "timeLimit": "Varsayılan süre sınırı (sn)", "workers": "İş parçacığı", "seed": "Tohum", "weights": "Varsayılan yumuşak ağırlıklar",
+    "saved": "Ayarlar kaydedildi", "email": "E-posta", "role": "Rol", "active": "Etkin", "inactive": "Pasif",
+    "addUser": "Kullanıcı ekle", "name": "Ad", "language": "Dil", "theme": "Tema", "replaceKey": "Anahtarı değiştir", "cancelReplace": "Mevcut anahtarı koru"
+  },
+  "shortcuts": { "title": "Klavye kısayolları", "palette": "Komut paleti", "sidebar": "Kenar çubuğunu aç/kapat", "goto": "{page} sayfasına git", "theme": "Temayı değiştir", "lang": "Dili değiştir", "help": "Bu pencere" },
+  "days": { "1": "Pazartesi", "2": "Salı", "3": "Çarşamba", "4": "Perşembe", "5": "Cuma", "6": "Cumartesi", "7": "Pazar" }
+}

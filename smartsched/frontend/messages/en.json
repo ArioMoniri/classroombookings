@@ -1,0 +1,141 @@
+{
+  "app": { "name": "SmartSched", "tagline": "AI classroom planner", "skip": "Skip to content", "version": "v0.1" },
+  "nav": {
+    "plan": "Plan", "results": "Results", "master": "Master data", "admin": "Admin",
+    "dashboard": "Dashboard", "import": "Import", "requests": "Requests", "generate": "Generate",
+    "timetable": "Timetable", "runs": "Runs", "rooms": "Rooms", "buildings": "Buildings",
+    "programs": "Programs", "instructors": "Instructors", "settings": "Settings", "users": "Users",
+    "collapse": "Collapse sidebar", "expand": "Expand sidebar", "menu": "Open menu",
+    "search": "Search…", "searchHint": "⌘K", "notifications": "Notifications", "account": "Account",
+    "logout": "Log out", "theme": "Theme", "language": "Language", "needsReview": "{count} need review",
+    "running": "{count} running", "term": "Term", "switchTerm": "Switch term", "switched": "Switched to {term}"
+  },
+  "theme": { "system": "System", "light": "Light", "dark": "Dark" },
+  "palette": {
+    "title": "Command palette", "placeholder": "Type a command, room (A 206) or course (MAT 112)…",
+    "actions": "Actions", "goto": "Go to", "rooms": "Rooms", "runs": "Runs", "prefs": "Theme & language",
+    "empty": "No results for \"{query}\" — try a room code (A 206) or course code (MAT 112)",
+    "generateWeek": "Generate schedule…", "importFile": "Import file…", "newRoom": "New room",
+    "navigate": "Navigate", "select": "Select", "close": "Close", "toggleTheme": "Toggle theme", "toggleLang": "Switch language"
+  },
+  "auth": {
+    "title": "Sign in", "subtitle": "Planning office access", "email": "E-mail", "password": "Password",
+    "submit": "Sign in", "signingIn": "Signing in…", "failed": "Sign-in failed. Check your credentials.",
+    "demoHint": "Demo mode: any e-mail with password \"admin\" works."
+  },
+  "common": {
+    "loading": "Loading…", "error": "Something went wrong", "retry": "Retry", "save": "Save", "cancel": "Cancel",
+    "close": "Close", "apply": "Apply", "undo": "Undo", "applied": "Applied", "search": "Search", "filter": "Filter",
+    "all": "All", "none": "None", "yes": "Yes", "no": "No", "edit": "Edit", "delete": "Delete", "view": "View",
+    "details": "Details", "status": "Status", "actions": "Actions", "capacity": "Capacity", "building": "Building",
+    "room": "Room", "rooms": "Rooms", "day": "Day", "week": "Week", "period": "Period", "periods": "Periods",
+    "students": "students", "seats": "seats", "noData": "Nothing here yet", "showing": "Showing {count} of {total}",
+    "copy": "Copy", "copied": "Copied", "open": "Open", "back": "Back", "next": "Next", "previous": "Previous",
+    "download": "Download", "upload": "Upload", "lock": "Lock", "unlock": "Unlock", "locked": "Locked",
+    "today": "Today", "offline": "No connection · retrying…", "forbidden": "You need the PLANNER role to view this page.",
+    "errorId": "Error id"
+  },
+  "dashboard": {
+    "title": "Dashboard", "subtitle": "{term} · week {week} of {weeks}",
+    "utilisation": "Room utilisation", "pending": "Pending requests", "lastRuns": "Last runs",
+    "rooms": "Plannable rooms", "sections": "Sections", "conflicts": "Conflicts", "needsReview": "Needs review",
+    "viewAll": "View all", "generate": "Generate schedule", "import": "Import requests",
+    "byBuilding": "Utilisation by building", "heatmap": "Peak hours", "empty": "Import a planning list to get started."
+  },
+  "import": {
+    "title": "Import", "subtitle": "Bring the term's requests in from Excel or the legacy CRBS database.",
+    "stepKind": "Choose kind", "stepUpload": "Upload", "stepPreview": "Preview", "stepDone": "Done",
+    "planning": "Course planning list", "planningDesc": "Shape A · Derslik Planlama Listesi (1 row per section meeting)",
+    "exam": "Exam planning list", "examDesc": "Shape B · Final / Bütünleme Planlama Listesi",
+    "grid": "Weekly room grid", "gridDesc": "Shape C · derslikler takvimi (one sheet per week) — imports as pre-occupied blocks",
+    "crbs": "Legacy CRBS database", "crbsDesc": "Rooms, periods, sessions, bookings, users via DSN",
+    "dropzone": "Drop the .xlsx here or click to browse", "dropzoneHint": "Up to 25 MB · .xlsx · Turkish headers detected automatically",
+    "dsn": "Connection string (DSN)", "term": "Target term", "start": "Start import", "importing": "Importing…",
+    "report": "Parse report", "rows": "Rows", "created": "Created", "updated": "Updated", "skipped": "Skipped",
+    "warnings": "Warnings", "warningsTable": "Rows that need attention", "row": "Row", "field": "Field",
+    "value": "Value", "message": "Message", "severity": "Severity", "noWarnings": "No warnings — every row parsed cleanly.",
+    "goRequests": "Review requests", "again": "Import another file", "recent": "Recent imports",
+    "filterSeverity": "Filter by severity", "error": "Error", "warning": "Warning", "info": "Info"
+  },
+  "requests": {
+    "title": "Requests", "subtitle": "Review what the faculties asked for before you generate.",
+    "meetings": "Meetings", "exams": "Exams", "course": "Course", "section": "Section", "program": "Program",
+    "enrolment": "Enrolment", "time": "Time", "requested": "Requested room", "definitive": "Definitive room",
+    "instructor": "Instructor", "mode": "Mode", "weeks": "Weeks", "date": "Date", "venue": "Requested venue",
+    "lockRow": "Lock", "unlockRow": "Unlock", "preferredRooms": "Preferred rooms", "flexibleDay": "Flexible day",
+    "editTitle": "Edit request", "editDesc": "Fix parsed fields, pin or prefer rooms, lock the assignment.",
+    "parseWarnings": "Parse warnings", "sourceRow": "Source row", "saved": "Request saved", "status": {
+      "NEW": "New", "PARSED": "Parsed", "NEEDS_REVIEW": "Needs review", "LOCKED": "Locked"
+    },
+    "filterStatus": "Status", "filterProgram": "Program", "filterBuilding": "Building", "searchPlaceholder": "Course, section, instructor…",
+    "tags": "Required tags", "capacity": "Requested capacity", "notes": "Notes", "noExam": "No exam", "onCampus": "On-campus written"
+  },
+  "rooms": {
+    "title": "Rooms", "subtitle": "{count} rooms across {buildings} buildings", "cards": "Cards", "table": "Table",
+    "code": "Code", "floor": "Floor", "examCapacity": "Exam capacity", "tags": "Tags", "bookable": "Bookable",
+    "notBookable": "Not bookable", "notes": "Notes", "photo": "Photo", "noPhoto": "No photo yet", "detail": "Room detail",
+    "weekUsage": "This week's occupancy", "allBuildings": "All buildings", "searchPlaceholder": "A 204, PC, 72…",
+    "tag": { "TIP": "Medicine (TIP)", "PC": "Computer lab", "LAB": "Lab", "AMPHI": "Amphitheatre" },
+    "back": "All rooms", "notFound": "Room not found", "utilisation": "Utilisation", "legacyId": "CRBS id"
+  },
+  "generate": {
+    "title": "Generate", "subtitle": "Pick the horizon, tell the planner what matters, press Generate.",
+    "term": "Term", "kind": "Kind", "course": "Course timetable", "exam": "Exam timetable", "horizon": "Horizon",
+    "week": "Week", "month": "Month", "wholeTerm": "Whole term", "weeksRange": "Weeks {from}–{to}",
+    "prompt": "Preferences (Turkish or English)", "promptPlaceholder": "e.g. TIP rooms only for medicine; keep pharmacy in C block on Mondays; no first-year nursing lectures after 17:30…",
+    "chips": "Suggestions", "weights": "Soft weights", "timeLimit": "Time limit", "seconds": "s", "seed": "Seed",
+    "stability": "Stability (keep previous)", "submit": "Generate", "submitting": "Queued…", "status": "Run status",
+    "progress": "Solving {pct}%", "queued": "Queued", "running": "Running", "done": "Finished", "failed": "Failed",
+    "openRun": "Open run report", "proposed": "Proposed constraints", "accept": "Accept", "reject": "Reject",
+    "weight": {
+      "room_preference": "Requested room", "building_preference": "Requested building", "min_capacity_waste": "Capacity fit",
+      "same_room_across_weeks": "Same room every week", "stability": "Stability", "exam_gap": "Exam gap"
+    },
+    "chip": {
+      "tip": "TIP rooms only for medicine", "evening": "Evening programmes in B/C blocks", "sameRoom": "Same room every week",
+      "fit": "Avoid tiny classes in amphitheatres", "pharmacy": "Pharmacy in C block Mondays", "nursing": "No first-year nursing after 17:30"
+    },
+    "previousRun": "Base on previous run"
+  },
+  "runs": {
+    "title": "Runs", "subtitle": "Every solver run with its scores and diagnosis.", "run": "Run", "kind": "Kind",
+    "horizon": "Horizon", "hard": "Hard", "soft": "Soft", "created": "Created", "duration": "Duration", "open": "Open",
+    "status": { "QUEUED": "Queued", "RUNNING": "Running", "FEASIBLE": "Feasible", "OPTIMAL": "Optimal", "INFEASIBLE": "Infeasible", "FAILED": "Failed", "CANCELLED": "Cancelled" },
+    "report": "Report", "grid": "Timetable", "chat": "Chat", "hardScore": "Hard constraints", "softScore": "Soft preferences",
+    "objective": "Objective breakdown", "diagnosis": "Diagnosis", "suggestions": "Suggested fixes", "applyFix": "Apply",
+    "applied": "Fix applied — re-solve queued", "noDiagnosis": "No violations. All hard constraints hold.",
+    "stats": "Solver stats", "assignments": "Assignments", "unplaced": "Unplaced", "solveTime": "Solve time",
+    "export": "Export", "resolve": "Re-solve", "parent": "Based on run #{id}", "prompt": "Prompt",
+    "severity": { "critical": "Critical", "high": "High", "medium": "Medium", "low": "Low" }, "events": "Events", "constraints": "Constraints",
+    "notFound": "Run not found"
+  },
+  "grid": {
+    "title": "Timetable", "day": "Day", "week": "Week", "zoomDay": "Day view", "zoomWeek": "Week view", "agenda": "Agenda",
+    "prevWeek": "Previous week", "nextWeek": "Next week", "legend": "Legend", "ok": "Assigned", "locked": "Locked",
+    "conflict": "Conflict", "block": "Pre-occupied", "tip": "TIP room", "pc": "PC lab", "search": "Filter rooms…",
+    "building": "Building", "move": "Move", "moveTo": "Move to", "moving": "Moving…", "moved": "Moved {label} to {room} {range}",
+    "moveFailed": "Move rejected: {reason}", "conflictWith": "Conflicts with {labels}", "dropHere": "Drop to move here",
+    "dragHint": "Drag an event to another room or period. Conflicts highlight red.", "lockEvent": "Lock", "unlockEvent": "Unlock",
+    "eventDetails": "Event details", "room": "Room", "time": "Time", "size": "Size", "instructor": "Instructor",
+    "program": "Program", "capacityWarning": "Over capacity", "noEvents": "No events on this day", "roomsShown": "{count} rooms",
+    "weekLabel": "W{index}", "emptyRun": "Pick a run to view its timetable", "moveDialog": "Move event", "newRoom": "New room",
+    "newDay": "New day", "newStart": "Start period", "confirmMove": "Confirm move", "preview": "Preview"
+  },
+  "chat": {
+    "title": "Chat", "placeholder": "Ask for a change… e.g. \"Move MAT 112 to A 204 on Tuesday\"", "send": "Send",
+    "thinking": "Thinking…", "proposal": "Proposed changes", "moves": "Moves", "constraints": "Constraints", "apply": "Apply",
+    "undo": "Undo", "appliedToast": "Changes applied", "undoneToast": "Changes undone", "empty": "Describe what to change and the planner proposes concrete moves you can apply.",
+    "you": "You", "assistant": "Planner", "streaming": "Streaming…", "noKey": "Add an Anthropic API key in Settings to enable chat."
+  },
+  "settings": {
+    "title": "Settings", "subtitle": "AI key, model, solver defaults and users.", "ai": "AI", "solver": "Solver", "users": "Users",
+    "general": "General", "apiKey": "Anthropic API key", "apiKeyHint": "Stored encrypted; never shown again after saving.",
+    "apiKeyMasked": "Key ending in {tail}", "noKey": "No key saved", "test": "Test key", "testing": "Testing…",
+    "testOk": "Key works ({model}, {ms} ms)", "testFailed": "Key check failed: {reason}", "model": "Model",
+    "timeLimit": "Default time limit (s)", "workers": "Workers", "seed": "Seed", "weights": "Default soft weights",
+    "saved": "Settings saved", "email": "E-mail", "role": "Role", "active": "Active", "inactive": "Inactive",
+    "addUser": "Add user", "name": "Name", "language": "Language", "theme": "Theme", "replaceKey": "Replace key", "cancelReplace": "Keep current key"
+  },
+  "shortcuts": { "title": "Keyboard shortcuts", "palette": "Command palette", "sidebar": "Toggle sidebar", "goto": "Go to {page}", "theme": "Cycle theme", "lang": "Switch language", "help": "This sheet" },
+  "days": { "1": "Monday", "2": "Tuesday", "3": "Wednesday", "4": "Thursday", "5": "Friday", "6": "Saturday", "7": "Sunday" }
+}

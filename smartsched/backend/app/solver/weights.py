@@ -41,3 +41,8 @@ def base_weight(weights: Mapping[str, int], name: str) -> int:
     if value is None:
         value = DEFAULT_WEIGHTS.get(name, 1)
     return max(0, int(value))
+
+
+def constraint_weight(weights: Mapping[str, int], kind: str, multiplier: int, name: str | None = None) -> int:
+    """Effective weight of a soft term: ``base_weight(name or kind) * Constraint.weight``."""
+    return base_weight(weights, name or kind) * max(0, int(multiplier))

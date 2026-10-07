@@ -1,8 +1,7 @@
-"""Solver contract (frozen, see docs/ARCHITECTURE.md "Solver contract").
+"""Frozen solver contract (see docs/ARCHITECTURE.md, "Solver contract").
 
-Pure dataclasses; no DB, no HTTP.  Period indexes are 1-based and inclusive:
-an event with ``start=4`` and ``duration=3`` occupies periods 4, 5 and 6 and its
-``Assignment.end`` is 6.  ``Block.end`` is inclusive as well.
+Pure Python dataclasses: no DB, no HTTP. The solver is ``solve(SolverInput) -> SolverResult``.
+Do not change field names/semantics without updating docs/ARCHITECTURE.md and all consumers.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ class Room:
     capacity: int
     exam_capacity: int
     building: str
-    tags: frozenset[str] = frozenset()
+    tags: frozenset[str]
 
 
 @dataclass(frozen=True)
@@ -36,14 +35,11 @@ class Assignment:
 
 @dataclass(frozen=True)
 class Block:
-    """A pre-occupied room slot (HAZIRLIK, UZEM, event, CRBS booking ...)."""
-
     room_id: int
-    week: int | None  # None = every week
+    week: int | None
     day: int
     start: int
-    end: int  # inclusive
-    label: str = ""
+    end: int
 
 
 @dataclass(frozen=True)
@@ -54,9 +50,9 @@ class Event:
     size: int  # enrolment
     duration: int  # number of consecutive periods
     weeks: frozenset[int]  # weeks in which the event occupies a room (course) / {week} (exam)
-    fixed_day: int | None = None  # 1..7
-    fixed_start: int | None = None  # period index 1..18
-    allowed_days: frozenset[int] = frozenset()  # when day not fixed; empty = all days of the grid
+    fixed_day: int | None  # 1..7
+    fixed_start: int | None  # period index 1..18
+    allowed_days: frozenset[int]  # when day not fixed
     earliest_start: int = 1
     latest_end: int = 18
     fixed_date: date | None = None  # exams
@@ -88,7 +84,7 @@ class Constraint:
 class SolverInput:
     rooms: tuple[Room, ...]
     events: tuple[Event, ...]
-    constraints: tuple[Constraint, ...] = ()
+    constraints: tuple[Constraint, ...]
     days: tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7)
     periods_per_day: int = 18
     weeks: tuple[int, ...] = tuple(range(1, 15))
@@ -106,7 +102,7 @@ class Diagnosis:
     constraint_kinds: list[str]
     message: str
     suggestions: list[str]
-    severity: str  # "error" | "warning" | "info"
+    severity: str
 
 
 @dataclass
@@ -118,3 +114,26 @@ class SolverResult:
     objective_breakdown: dict[str, int]
     diagnoses: list[Diagnosis]
     stats: dict[str, Any]
+
+
+CONSTRAINT_KINDS_V1: tuple[str, ...] = (
+    "capacity",
+    "no_room_overlap",
+    "no_cohort_overlap",
+    "no_instructor_overlap",
+    "fixed_time",
+    "room_tags",
+    "room_pin",
+    "room_forbid",
+    "building_preference",
+    "room_preference",
+    "same_room_across_weeks",
+    "same_room_group",
+    "min_capacity_waste",
+    "exam_gap",
+    "max_exams_per_day",
+    "stability",
+    "room_closed",
+    "day_window",
+    "evening_programs_in_buildings",
+)
