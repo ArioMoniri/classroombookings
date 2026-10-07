@@ -55,7 +55,13 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
     if (!upstream.ok) return passthrough(upstream);
     const data = (await upstream.json()) as { access_token?: string; user?: unknown };
     if (!data.access_token) return NextResponse.json({ detail: "Login response missing token" }, { status: 502 });
-    const res = NextResponse.json({ user: data.user ?? null });
+    let user: unknown = data.user ?? null;
+    if (!user) {
+      // FastAPI's TokenOut carries no user: resolve it with the fresh token.
+      const me = await resolve(new Request(new URL(`${backendBaseUrl()}/api/v1/auth/me`), { headers: { authorization: `Bearer ${data.access_token}`, accept: "application/json" } }));
+      if (me.ok) user = await me.json();
+    }
+    const res = NextResponse.json({ user });
     res.cookies.set({ name: AUTH_COOKIE, value: data.access_token, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: COOKIE_MAX_AGE });
     return res;
   }

@@ -52,6 +52,17 @@ def room_fits_alone(room: Room, event: Event) -> bool:
     return effective_capacity(room, event) >= event.size
 
 
+def shares_room(event: Event) -> bool:
+    """Sharing applies to single-room events only; split events stay exclusive."""
+    return event.share_room and event.needs_room and event.max_rooms <= 1
+
+
+def sharing_capacity(room: Room, events: Iterable[Event]) -> int:
+    """Seat budget of a room shared by several events: the exam capacity when any sharing
+    event is an exam (the Final-plan case), else the lecture capacity."""
+    return room.exam_capacity if any(e.kind == "exam" for e in events) else room.capacity
+
+
 @dataclass
 class EventDomain:
     """All options still open for one event plus the reasons for pruned ones."""

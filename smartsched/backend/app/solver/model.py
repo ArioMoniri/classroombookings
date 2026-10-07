@@ -69,6 +69,7 @@ class Event:
     same_room_group: str | None = None  # events sharing this key should share room
     locked: Assignment | None = None
     needs_room: bool = True
+    share_room: bool = False  # exams: may sit in one room with other sharing exams (Σ sizes ≤ exam capacity)
 
 
 @dataclass(frozen=True)

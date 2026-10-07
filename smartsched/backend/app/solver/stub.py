@@ -75,7 +75,9 @@ def _candidate_slots(ev: Event, inp: SolverInput) -> list[tuple[int, int]]:
     return [(d, s) for d in days for s in starts if s >= 1 and s + ev.duration - 1 <= inp.periods_per_day]
 
 
-def _pick_rooms(ev: Event, rooms: list[Room], st: _State, day: int, start: int, previous: dict[int, Assignment]) -> tuple[int, ...] | None:
+def _pick_rooms(
+    ev: Event, rooms: list[Room], st: _State, day: int, start: int, previous: dict[int, Assignment]
+) -> tuple[int, ...] | None:
     periods = _periods(start, ev.duration)
     usable = [r for r in rooms if _room_fits(r, ev) and _room_free(st, r.id, ev.weeks, day, periods)]
     if not usable:
@@ -134,7 +136,15 @@ def solve(inp: SolverInput, progress: Callable[[str, int], None] | None = None) 
         if progress and i % 50 == 0:
             progress("solving", 10 + int(80 * i / total))
         if ev.locked:
-            a = Assignment(ev.id, ev.locked.day, ev.locked.start, ev.locked.end, ev.locked.room_ids, ev.locked.weeks or ev.weeks, ev.locked.date or ev.fixed_date)
+            a = Assignment(
+                ev.id,
+                ev.locked.day,
+                ev.locked.start,
+                ev.locked.end,
+                ev.locked.room_ids,
+                ev.locked.weeks or ev.weeks,
+                ev.locked.date or ev.fixed_date,
+            )
             assignments.append(a)
             _occupy(st, ev, a)
             continue
@@ -193,7 +203,9 @@ def _diagnose(ev: Event, rooms: list[Room], st: _State, inp: SolverInput) -> Dia
         kinds.append("no_room_overlap")
         if ev.fixed_day and ev.fixed_start:
             kinds.append("fixed_time")
-            suggestions.append(f"move away from day {ev.fixed_day} P{ev.fixed_start}-P{ev.fixed_start + ev.duration - 1} or free one of {[r.code for r in fitting[:3]]}")
+            suggestions.append(
+                f"move away from day {ev.fixed_day} P{ev.fixed_start}-P{ev.fixed_start + ev.duration - 1} or free one of {[r.code for r in fitting[:3]]}"
+            )
         else:
             suggestions.append("widen allowed days/periods")
         if ev.cohort_keys or ev.instructor_keys:

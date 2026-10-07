@@ -487,8 +487,9 @@ export const handlers = [
   http.post(`${base}/runs/:id/assignments/:aid/lock`, async ({ params, request }) => {
     const a = state.assignments.get(num(params.id))?.find((x) => x.id === num(params.aid));
     if (!a) return notFound("Assignment");
-    const body = (await request.json()) as { locked: boolean };
-    a.is_locked = body.locked;
+    const q = new URL(request.url).searchParams.get("locked");
+    const body = (await request.json().catch(() => ({}))) as { locked?: boolean };
+    a.is_locked = q !== null ? q === "true" : body.locked === true;
     return json(a);
   }),
   http.get(`${base}/runs/:id/chat`, ({ params }) => json({ messages: chatFor(num(params.id)) })),

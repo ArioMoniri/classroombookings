@@ -29,7 +29,15 @@ from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
 from app.solver.build import Prepared, build_model, hint_assignments, make_solver
 from app.solver.constraints import HANDLERS
-from app.solver.domains import EventDomain, TimeOption, effective_capacity, room_fits_alone, weeks_intersect
+from app.solver.domains import (
+    EventDomain,
+    TimeOption,
+    effective_capacity,
+    room_fits_alone,
+    shares_room,
+    sharing_capacity,
+    weeks_intersect,
+)
 from app.solver.model import Assignment, Diagnosis, Event, Room
 
 # --------------------------------------------------------------------------- helpers
@@ -217,6 +225,8 @@ def _locked_conflicts(prep: Prepared) -> list[Diagnosis]:
                 key = (min(ea.id, eb.id), max(ea.id, eb.id))
                 if key in seen or not weeks_intersect(ea.weeks, eb.weeks):
                     continue
+                if shares_room(ea) and shares_room(eb):
+                    continue  # seat budget of shared rooms is checked by the model / evaluation
                 seen.add(key)
                 code = prep.doms.rooms_by_id[r].code if r in prep.doms.rooms_by_id else str(r)
                 out.append(
@@ -266,7 +276,7 @@ def _pigeonhole(prep: Prepared) -> list[Diagnosis]:
     cells: dict[tuple[int, int], list[EventDomain]] = defaultdict(list)
     for e in inp.events:
         dom = doms.domain(e.id)
-        if not e.needs_room or not dom.fixed_time or e.max_rooms > 1:
+        if not e.needs_room or not dom.fixed_time or e.max_rooms > 1 or shares_room(e):
             continue
         t = dom.times[0]
         for p in t.periods:
@@ -321,13 +331,22 @@ class _PlacedIndex:
                 for k in e.cohort_keys | e.instructor_keys:
                     self.key_occ[(k, a.day, p)].append(eid)
 
-    def room_busy(self, room_id: int, t: TimeOption, weeks: frozenset[int]) -> list[int]:
+    def room_busy(self, room_id: int, t: TimeOption, weeks: frozenset[int], event: Event | None = None) -> list[int]:
+        """Events blocking ``room_id`` at ``t``; a sharing event is only blocked by exclusive
+        occupants or when the shared seat budget would overflow."""
         ids: list[int] = []
         for p in t.periods:
             for eid in self.room_occ.get((room_id, t.day, p), []):
                 if eid not in ids and weeks_intersect(self.prep.doms.events_by_id[eid].weeks, weeks):
                     ids.append(eid)
-        return ids
+        if event is None or not shares_room(event) or not ids:
+            return ids
+        others = [self.prep.doms.events_by_id[i] for i in ids]
+        if any(not shares_room(o) for o in others):
+            return ids
+        room = self.prep.doms.rooms_by_id[room_id]
+        cap = sharing_capacity(room, [*others, event])
+        return ids if sum(o.size for o in others) + event.size > cap else []
 
     def key_busy(self, key: str, t: TimeOption, weeks: frozenset[int]) -> list[int]:
         ids: list[int] = []
@@ -369,11 +388,13 @@ def explain_event(
             if not dom.is_pair_allowed(t, rid):
                 kinds["room_closed"] += 1
                 continue
-            holders = idx.room_busy(rid, t, e.weeks)
+            holders = idx.room_busy(rid, t, e.weeks, e)
             room = doms.rooms_by_id[rid]
             if holders:
                 kinds["no_room_overlap"] += 1
                 names = ", ".join(_label(doms.events_by_id[i]) for i in holders[:2])
+                if shares_room(e) and all(shares_room(doms.events_by_id[i]) for i in holders):
+                    names += f" (shared seats exceed {sharing_capacity(room, [e])})"
                 busy_rooms.append(
                     (f"{room.code} ({effective_capacity(room, e)}) at {_time_str(t)} held by {names}", len(holders))
                 )
@@ -457,7 +478,7 @@ def _alternative_periods(prep: Prepared, e: Event, idx: _PlacedIndex) -> list[st
         if any(idx.key_busy(k, t, e.weeks) for k in e.cohort_keys | e.instructor_keys):
             continue
         for rid in dom.rooms:
-            if not idx.room_busy(rid, t, e.weeks) and not any(
+            if not idx.room_busy(rid, t, e.weeks, e) and not any(
                 b.day == t.day and b.start <= t.end and t.start <= b.end and (b.week is None or b.week in e.weeks)
                 for b in prep.doms.blocks_by_room.get(rid, [])
             ):

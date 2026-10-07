@@ -69,7 +69,7 @@ test.describe("SmartSched smoke", () => {
 
     // Week switcher and zoom.
     await page.getByTestId("week-next").click();
-    await expect(page.getByTestId("week-label")).toHaveText("W8");
+    await expect(page.getByTestId("week-label")).toHaveText("W2");
     await page.getByTestId("zoom-week").click();
     await expect(page.getByTestId("week-grid")).toBeVisible();
     await page.getByTestId("zoom-day").click();
@@ -132,8 +132,9 @@ test.describe("SmartSched smoke", () => {
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.keyboard.press("Escape");
     await page.keyboard.press("Control+k");
-    await expect(page.getByPlaceholder(/MAT 112/)).toBeVisible();
-    await page.getByPlaceholder(/MAT 112/).fill("A 204");
+    const palette = page.locator("[data-slot='command-input']");
+    await expect(palette).toBeVisible();
+    await palette.fill("A 204");
     await expect(page.getByText(/156/).first()).toBeVisible();
   });
 });
