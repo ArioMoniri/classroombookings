@@ -94,7 +94,11 @@ class ModelContext:
                     m.Add(sum(ys) == self.placed[eid])
                 starts = sorted({self.global_start(t) for t in dom.times})
                 sv = m.NewIntVarFromDomain(cp_model.Domain.FromValues(starts), f"start_{eid}")
-                m.Add(sv == sum(self.global_start(t) * v for t, v in zip(dom.times, ys, strict=True)) + (0 if self.mode == "solve" else starts[0] * (1 - self.placed[eid])))
+                m.Add(
+                    sv
+                    == sum(self.global_start(t) * v for t, v in zip(dom.times, ys, strict=True))
+                    + (0 if self.mode == "solve" else starts[0] * (1 - self.placed[eid]))
+                )
                 self.start[eid] = sv
             else:
                 # no time option at all: the static checker reports it; keep the model consistent
@@ -229,7 +233,9 @@ class ModelContext:
         if guard is None and key in self._room_interval:
             return self._room_interval[key]
         dur = max(1, self.events_by_id[event_id].duration)
-        iv = self.model.NewOptionalFixedSizeIntervalVar(self._start_expr(event_id), dur, presence, f"iv_{event_id}_{room_id}")
+        iv = self.model.NewOptionalFixedSizeIntervalVar(
+            self._start_expr(event_id), dur, presence, f"iv_{event_id}_{room_id}"
+        )
         self.n_intervals += 1
         if guard is None:
             self._room_interval[key] = iv
@@ -246,7 +252,9 @@ class ModelContext:
             iv = self.model.NewFixedSizeIntervalVar(self._start_expr(event_id), dur, f"ev_{event_id}")
             self._event_interval[event_id] = iv
         else:
-            iv = self.model.NewOptionalFixedSizeIntervalVar(self._start_expr(event_id), dur, presence, f"ev_{event_id}_{self.n_intervals}")
+            iv = self.model.NewOptionalFixedSizeIntervalVar(
+                self._start_expr(event_id), dur, presence, f"ev_{event_id}_{self.n_intervals}"
+            )
         self.n_intervals += 1
         return iv
 
@@ -463,5 +471,7 @@ class ModelContext:
                     v = self.z.get((event.id, r.id))
                     if v is not None and solver.Value(v):
                         rooms.append(r.id)
-            out.append(Assignment(event.id, chosen.day, chosen.start, chosen.end, tuple(rooms), event.weeks, event.fixed_date))
+            out.append(
+                Assignment(event.id, chosen.day, chosen.start, chosen.end, tuple(rooms), event.weeks, event.fixed_date)
+            )
         return out

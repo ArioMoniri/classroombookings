@@ -61,7 +61,10 @@ def score(ev: Evaluation, c: Constraint) -> None:
             units = _bad(room, req, forb)
             if not units:
                 continue
-            msg = f"{event.label} in {room.code} (tags {sorted(room.tags)}) needs {sorted(req)} and must avoid {sorted(forb)}"
+            msg = (
+                f"{event.label} in {room.code} (tags {sorted(room.tags)}) "
+                f"needs {sorted(req)} and must avoid {sorted(forb)}"
+            )
             if c.hard:
                 ev.hard("room_tags", [event.id], msg, [room.id])
             else:

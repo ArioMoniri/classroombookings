@@ -2,7 +2,7 @@
 
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/provider";
 
@@ -21,8 +21,7 @@ export function ThemeToggle({ className }: { className?: string }) {
   const { theme } = useTheme();
   const { t } = useI18n();
   const cycle = useCycleTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(() => () => undefined, () => true, () => false);
   const mode: Mode = mounted && (ORDER as readonly string[]).includes(theme ?? "") ? (theme as Mode) : "system";
   const Icon = mode === "dark" ? Moon : mode === "light" ? Sun : Monitor;
   return (

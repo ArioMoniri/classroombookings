@@ -133,7 +133,9 @@ def parse_sheet(ws: Any, index: int, year: int, default_kind: str = "LECTURE") -
     warnings: list[str] = []
     # 1. day blocks from row-1 merged ranges
     days: list[DayBlock] = []
-    row1_ranges = sorted((r for r in ws.merged_cells.ranges if r.min_row == 1 and r.max_row == 1), key=lambda r: r.min_col)
+    row1_ranges = sorted(
+        (r for r in ws.merged_cells.ranges if r.min_row == 1 and r.max_row == 1), key=lambda r: r.min_col
+    )
     if not row1_ranges:  # fallback: non-empty labels in row 1 extend until the next label
         labels = [(c.column, c.value) for c in ws[1] if n.clean_text(c.value)]
         for i, (col, val) in enumerate(labels):
@@ -179,7 +181,7 @@ def parse_sheet(ws: Any, index: int, year: int, default_kind: str = "LECTURE") -
         first, last = block_rows[0], block_rows[-1]
         for row in block_rows:
             period = row_period[row]
-            for col, header in col_rooms.items():
+            for col in col_rooms:
                 cell = ws.cell(row, col)
                 value = cell.value
                 if value is None or n.clean_text(value) is None:
@@ -239,7 +241,9 @@ def parse_sheet(ws: Any, index: int, year: int, default_kind: str = "LECTURE") -
                     elif h.tags and set(h.tags) - set(prev.tags):
                         prev.tags = list(dict.fromkeys([*prev.tags, *h.tags]))
                     if prev and prev.capacity and h.capacity and prev.capacity != h.capacity:
-                        warnings.append(f"room {h.code} has capacity {prev.capacity} and {h.capacity} in sheet {ws.title!r}")
+                        warnings.append(
+                            f"room {h.code} has capacity {prev.capacity} and {h.capacity} in sheet {ws.title!r}"
+                        )
             continue
         if not col_rooms:
             continue
@@ -316,11 +320,21 @@ async def import_weekly_grid(
         term.start_date = next((s.start_date for s in parsed.sheets if s.start_date), None)
 
     # weeks
-    existing_weeks = {w.index: w for w in (await session.execute(select(Week).where(Week.term_id == term.id))).scalars()}
+    existing_weeks = {
+        w.index: w for w in (await session.execute(select(Week).where(Week.term_id == term.id))).scalars()
+    }
     for s in parsed.sheets:
         w = existing_weeks.get(s.week_index)
         if w is None:
-            session.add(Week(term_id=term.id, index=s.week_index, start_date=s.start_date, kind=s.kind if s.kind != "SUMMER" else "LECTURE", label=s.name))
+            session.add(
+                Week(
+                    term_id=term.id,
+                    index=s.week_index,
+                    start_date=s.start_date,
+                    kind=s.kind if s.kind != "SUMMER" else "LECTURE",
+                    label=s.name,
+                )
+            )
             report.created["weeks"] += 1
         else:
             w.label, w.start_date = s.name, s.start_date or w.start_date
@@ -348,12 +362,27 @@ async def import_weekly_grid(
     for kind in ("COURSE", "EXAM"):
         label = f"Grid import: {filename}"
         run = (
-            await session.execute(
-                select(ScheduleRun).where(ScheduleRun.term_id == term.id, ScheduleRun.kind == kind, ScheduleRun.label == label)
+            (
+                await session.execute(
+                    select(ScheduleRun).where(
+                        ScheduleRun.term_id == term.id, ScheduleRun.kind == kind, ScheduleRun.label == label
+                    )
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         if run is None:
-            run = ScheduleRun(term_id=term.id, kind=kind, horizon="TERM", status="FEASIBLE", label=label, params={"source": "GRID_IMPORT"}, hard_score=100, soft_score=100)
+            run = ScheduleRun(
+                term_id=term.id,
+                kind=kind,
+                horizon="TERM",
+                status="FEASIBLE",
+                label=label,
+                params={"source": "GRID_IMPORT"},
+                hard_score=100,
+                soft_score=100,
+            )
             session.add(run)
             await session.flush()
             report.created["schedule_runs"] += 1
@@ -379,11 +408,15 @@ async def import_weekly_grid(
 
     existing_assign = {
         a.source_key: a
-        for a in (await session.execute(select(Assignment).where(Assignment.run_id.in_([r.id for r in runs.values()])))).scalars()
+        for a in (
+            await session.execute(select(Assignment).where(Assignment.run_id.in_([r.id for r in runs.values()])))
+        ).scalars()
     }
     existing_blocks = {
         b.source_key: b
-        for b in (await session.execute(select(Block).where(Block.term_id == term.id, Block.source == "GRID_IMPORT"))).scalars()
+        for b in (
+            await session.execute(select(Block).where(Block.term_id == term.id, Block.source == "GRID_IMPORT"))
+        ).scalars()
     }
     seen: set[str] = set()
     linked = 0
@@ -453,12 +486,12 @@ async def import_weekly_grid(
                     setattr(b, k, v)
                 report.updated["blocks"] += 1
         report.rows_imported += 1
-    for key, a in existing_assign.items():
-        if key and key not in seen and not a.archived:
+    for skey, a in existing_assign.items():
+        if skey and skey not in seen and not a.archived:
             a.archived = True
             report.updated["assignments_archived"] += 1
-    for key, b in existing_blocks.items():
-        if key and key not in seen and not b.archived:
+    for skey, b in existing_blocks.items():
+        if skey and skey not in seen and not b.archived:
             b.archived = True
             report.updated["blocks_archived"] += 1
     report.rows_total = len(parsed.entries)
@@ -467,7 +500,15 @@ async def import_weekly_grid(
         rooms=len(parsed.rooms),
         linked_assignments=linked,
         run_ids={k: r.id for k, r in runs.items()},
-        weeks=[{"index": s.week_index, "name": s.name, "kind": s.kind, "start": s.start_date.isoformat() if s.start_date else None} for s in parsed.sheets],
+        weeks=[
+            {
+                "index": s.week_index,
+                "name": s.name,
+                "kind": s.kind,
+                "start": s.start_date.isoformat() if s.start_date else None,
+            }
+            for s in parsed.sheets
+        ],
     )
     await session.commit()
     return report

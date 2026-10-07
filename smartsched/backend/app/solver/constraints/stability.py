@@ -66,15 +66,26 @@ def score(ev: Evaluation, c: Constraint) -> None:
         dropped = [r for r in a.room_ids if r not in cur.room_ids] if event.needs_room else []
         if c.hard:
             if time_changed or dropped:
-                ev.hard("stability", [a.event_id], f"{event.label} moved from day {a.day} P{a.start} rooms {list(a.room_ids)}")
+                ev.hard(
+                    "stability",
+                    [a.event_id],
+                    f"{event.label} moved from day {a.day} P{a.start} rooms {list(a.room_ids)}",
+                )
             continue
         ev.add_bound("stability_time", w_time)
         ev.add_bound("stability_room", len(a.room_ids) * w_room)
         if time_changed:
-            ev.soft("stability_time", [a.event_id], f"{event.label} moved from day {a.day} P{a.start} to day {cur.day} P{cur.start}", w_time)
+            ev.soft(
+                "stability_time",
+                [a.event_id],
+                f"{event.label} moved from day {a.day} P{a.start} to day {cur.day} P{cur.start}",
+                w_time,
+            )
         if dropped:
             names = ", ".join(ev.rooms_by_id[r].code for r in dropped if r in ev.rooms_by_id)
-            ev.soft("stability_room", [a.event_id], f"{event.label} left room(s) {names}", len(dropped) * w_room, dropped)
+            ev.soft(
+                "stability_room", [a.event_id], f"{event.label} left room(s) {names}", len(dropped) * w_room, dropped
+            )
 
 
 __all__ = ["apply", "score"]

@@ -115,9 +115,14 @@ def _get(values: tuple[Any, ...], mapping: dict[str, int], key: str) -> Any:
     return values[idx]
 
 
-def parse_planning_row(row: int, values: tuple[Any, ...], mapping: dict[str, int], headers: list[str | None], max_week: int = 14) -> PlanningRow | tuple[str, str | None]:
+def parse_planning_row(
+    row: int, values: tuple[Any, ...], mapping: dict[str, int], headers: list[str | None], max_week: int = 14
+) -> PlanningRow | tuple[str, str | None]:
     """Return a PlanningRow or (skip_reason, detail)."""
-    g = lambda k: _get(values, mapping, k)  # noqa: E731
+
+    def g(k: str) -> Any:
+        return _get(values, mapping, k)
+
     code, code_warning = n.canon_course_code_loose(g("code"), g("name"))
     if code is None:
         raw_code = n.clean_text(g("code"))
@@ -220,15 +225,12 @@ async def import_planning_list(
     term = await cat.term(term_code, name=term_name, week_count=week_count)
 
     existing_sections = {
-        s.source_key: s
-        for s in (await session.execute(select(Section).where(Section.term_id == term.id))).scalars()
+        s.source_key: s for s in (await session.execute(select(Section).where(Section.term_id == term.id))).scalars()
     }
     existing_meetings = {
         m.source_key: m
         for m in (
-            await session.execute(
-                select(MeetingRequest).join(Section).where(Section.term_id == term.id)
-            )
+            await session.execute(select(MeetingRequest).join(Section).where(Section.term_id == term.id))
         ).scalars()
     }
     seen_fp: dict[str, int] = {}

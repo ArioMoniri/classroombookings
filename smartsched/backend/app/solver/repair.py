@@ -24,7 +24,9 @@ def _touches(a: Assignment, ea: Event, b: Assignment, eb: Event) -> bool:
     tb = TimeOption(b.day, b.start, b.end - b.start + 1)
     if not ta.overlaps(tb) or not weeks_intersect(ea.weeks, eb.weeks):
         return False
-    return bool(set(a.room_ids) & set(b.room_ids) or ea.cohort_keys & eb.cohort_keys or ea.instructor_keys & eb.instructor_keys)
+    return bool(
+        set(a.room_ids) & set(b.room_ids) or ea.cohort_keys & eb.cohort_keys or ea.instructor_keys & eb.instructor_keys
+    )
 
 
 def neighbours(inp: SolverInput, assignments: Iterable[Assignment], seeds: Iterable[int], radius: int = 1) -> set[int]:

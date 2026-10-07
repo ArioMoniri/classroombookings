@@ -27,7 +27,12 @@ def evaluate(inp: SolverInput, assignments: list[Assignment] | tuple[Assignment,
         if event.needs_room and not a.room_ids:
             ev.hard("unassigned", [a.event_id], f"{event.label} has no room")
         if not event.needs_room and a.room_ids:
-            ev.hard("unassigned", [a.event_id], f"{event.label} does not need a room but occupies {list(a.room_ids)}", list(a.room_ids))
+            ev.hard(
+                "unassigned",
+                [a.event_id],
+                f"{event.label} does not need a room but occupies {list(a.room_ids)}",
+                list(a.room_ids),
+            )
     for e in inp.events:
         if e.id not in ev.by_event:
             ev.hard("unassigned", [e.id], f"{e.label} is not scheduled")

@@ -55,7 +55,9 @@ def score(ev: Evaluation, c: Constraint) -> None:
         for room in ev.rooms_of(event.id):
             if room.id in allowed:
                 continue
-            names = ", ".join(ev.rooms_by_id[r].code for r in sorted(allowed) if r in ev.rooms_by_id) or str(sorted(allowed))
+            names = ", ".join(ev.rooms_by_id[r].code for r in sorted(allowed) if r in ev.rooms_by_id) or str(
+                sorted(allowed)
+            )
             msg = f"{event.label} is in {room.code} but is pinned to {names}"
             if c.hard:
                 ev.hard("room_pin", [event.id], msg, [room.id])

@@ -52,7 +52,9 @@ class Evaluation:
     def hard(self, kind: str, event_ids: list[int], message: str, room_ids: list[int] | None = None) -> None:
         self.violations.append(Violation(kind, True, list(event_ids), message, list(room_ids or [])))
 
-    def soft(self, kind: str, event_ids: list[int], message: str, penalty: int, room_ids: list[int] | None = None) -> None:
+    def soft(
+        self, kind: str, event_ids: list[int], message: str, penalty: int, room_ids: list[int] | None = None
+    ) -> None:
         if penalty <= 0:
             return
         self.violations.append(Violation(kind, False, list(event_ids), message, list(room_ids or []), penalty))

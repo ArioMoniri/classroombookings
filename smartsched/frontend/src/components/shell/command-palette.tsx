@@ -33,9 +33,11 @@ export function CommandPalette() {
   const rooms = useRooms(roomQuery ? { q: roomQuery } : { q: "__none__" });
   const runs = useRuns();
 
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (!open) setQuery("");
-  }, [open]);
+  }
 
   const go = (href: string) => {
     setOpen(false);

@@ -38,7 +38,11 @@ def prune(doms: Domains, c: Constraint) -> None:
         dom = doms.domain(event.id)
         for rid in list(dom.rooms):
             if doms.rooms_by_id[rid].building not in buildings:
-                dom.remove_room(rid, f"evening programmes must use buildings {sorted(buildings)} (evening_programs_in_buildings #{c.id})")
+                dom.remove_room(
+                    rid,
+                    f"evening programmes must use buildings {sorted(buildings)} "
+                    f"(evening_programs_in_buildings #{c.id})",
+                )
 
 
 def apply(ctx: ModelContext, c: Constraint) -> None:
@@ -67,7 +71,10 @@ def score(ev: Evaluation, c: Constraint) -> None:
         for room in ev.rooms_of(event.id):
             if room.building in buildings:
                 continue
-            msg = f"evening programme event {event.label} is in {room.code} (building {room.building}); allowed {sorted(buildings)}"
+            msg = (
+                f"evening programme event {event.label} is in {room.code} "
+                f"(building {room.building}); allowed {sorted(buildings)}"
+            )
             if c.hard:
                 ev.hard("evening_programs_in_buildings", [event.id], msg, [room.id])
             else:

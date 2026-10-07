@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date, datetime, time
 
 import pytest
-
 from app.importers import normalize as n
 
 # --- text basics -------------------------------------------------------------
@@ -351,7 +350,13 @@ def test_parse_weeks_overflow_capped_with_warning():
 
 
 def test_parse_weeks_no_room_phrases():
-    for raw in ("Online", "UZEM", "Ders çevrimiçi işlenecektir.", "Hastanede yapılacaktır.", "Ders laboratuvarda işlenecektir."):
+    for raw in (
+        "Online",
+        "UZEM",
+        "Ders çevrimiçi işlenecektir.",
+        "Hastanede yapılacaktır.",
+        "Ders laboratuvarda işlenecektir.",
+    ):
         r = n.parse_weeks(raw)
         assert r.weeks == [] and r.needs_room is False, raw
 
@@ -383,7 +388,11 @@ def test_parse_weeks_vize():
         ("Simülasyon Eğitimi", "SIMULATION", True),
         ("Lab", "OTHER", False),
         ("14 hafta", "OTHER", True),
-        ("İlk 9 hafta ders online işlenecektir, kalan haftalarda saat değişikliği yapılarak derslikte işlenecektir.", "HYBRID", True),
+        (
+            "İlk 9 hafta ders online işlenecektir, kalan haftalarda saat değişikliği yapılarak derslikte işlenecektir.",
+            "HYBRID",
+            True,
+        ),
         ("Alttan alan öğrenciler için açılmıştır. Derslik kullanılmayacaktır.", "OTHER", False),
         (None, "F2F", True),
         ("\xa0", "F2F", True),
@@ -608,7 +617,16 @@ def test_parse_venue_request_dates_and_junk():
 
 
 def test_parse_venue_request_no_room():
-    for raw in ("Yok", "Derslik talebi yok", "Online", "UZEM", "Hastane", "Asenkron", "Yok, Acıbadem Maslak", "Laboratuvar"):
+    for raw in (
+        "Yok",
+        "Derslik talebi yok",
+        "Online",
+        "UZEM",
+        "Hastane",
+        "Asenkron",
+        "Yok, Acıbadem Maslak",
+        "Laboratuvar",
+    ):
         assert n.parse_venue_request(raw).needs_room is False, raw
 
 

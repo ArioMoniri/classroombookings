@@ -65,23 +65,64 @@ HANDLERS: dict[str, Handler] = {
     for h in (
         Handler("capacity", capacity.apply, capacity.score, capacity.prune, implicit=True),
         Handler("no_room_overlap", no_room_overlap.apply, no_room_overlap.score, implicit=True, may_soften=False),
-        Handler("no_cohort_overlap", no_cohort_overlap.apply, no_cohort_overlap.score, no_cohort_overlap.prune, implicit=True, may_soften=False),
-        Handler("no_instructor_overlap", no_instructor_overlap.apply, no_instructor_overlap.score, no_instructor_overlap.prune, implicit=True, may_soften=False),
+        Handler(
+            "no_cohort_overlap",
+            no_cohort_overlap.apply,
+            no_cohort_overlap.score,
+            no_cohort_overlap.prune,
+            implicit=True,
+            may_soften=False,
+        ),
+        Handler(
+            "no_instructor_overlap",
+            no_instructor_overlap.apply,
+            no_instructor_overlap.score,
+            no_instructor_overlap.prune,
+            implicit=True,
+            may_soften=False,
+        ),
         Handler("fixed_time", fixed_time.apply, fixed_time.score, fixed_time.prune, implicit=True),
         Handler("room_tags", room_tags.apply, room_tags.score, room_tags.prune, implicit=True),
         Handler("room_pin", room_pin.apply, room_pin.score, room_pin.prune, implicit=True),
         Handler("room_forbid", room_forbid.apply, room_forbid.score, room_forbid.prune, implicit=True),
-        Handler("building_preference", building_preference.apply, building_preference.score, building_preference.prune, implicit=True, default_hard=False),
-        Handler("room_preference", room_preference.apply, room_preference.score, room_preference.prune, implicit=True, default_hard=False),
-        Handler("same_room_across_weeks", same_room_across_weeks.apply, same_room_across_weeks.score, implicit=True, default_hard=False),
+        Handler(
+            "building_preference",
+            building_preference.apply,
+            building_preference.score,
+            building_preference.prune,
+            implicit=True,
+            default_hard=False,
+        ),
+        Handler(
+            "room_preference",
+            room_preference.apply,
+            room_preference.score,
+            room_preference.prune,
+            implicit=True,
+            default_hard=False,
+        ),
+        Handler(
+            "same_room_across_weeks",
+            same_room_across_weeks.apply,
+            same_room_across_weeks.score,
+            implicit=True,
+            default_hard=False,
+        ),
         Handler("same_room_group", same_room_group.apply, same_room_group.score, implicit=True, default_hard=False),
-        Handler("min_capacity_waste", min_capacity_waste.apply, min_capacity_waste.score, implicit=True, default_hard=False),
+        Handler(
+            "min_capacity_waste", min_capacity_waste.apply, min_capacity_waste.score, implicit=True, default_hard=False
+        ),
         Handler("exam_gap", exam_gap.apply, exam_gap.score),
         Handler("max_exams_per_day", max_exams_per_day.apply, max_exams_per_day.score),
         Handler("stability", stability.apply, stability.score, implicit=True, default_hard=False),
         Handler("room_closed", room_closed.apply, room_closed.score, room_closed.prune),
         Handler("day_window", day_window.apply, day_window.score, day_window.prune),
-        Handler("evening_programs_in_buildings", evening_programs_in_buildings.apply, evening_programs_in_buildings.score, evening_programs_in_buildings.prune),
+        Handler(
+            "evening_programs_in_buildings",
+            evening_programs_in_buildings.apply,
+            evening_programs_in_buildings.score,
+            evening_programs_in_buildings.prune,
+        ),
     )
 }
 
@@ -114,11 +155,11 @@ def effective_constraints(inp: SolverInput) -> tuple[list[Constraint], list[str]
     for kind, h in HANDLERS.items():
         if not h.implicit:
             continue
-        c = configured.get(kind)
-        if c is None:
-            c = Constraint(kind, {}, hard=h.default_hard, weight=1, id=None)
-        out.append(c)
-    soft_structural = frozenset(c.kind for c in out if c.kind in STRUCTURAL and not c.hard and not _common.is_targeted(c))
+        default = configured.get(kind)
+        out.append(default if default is not None else Constraint(kind, {}, hard=h.default_hard, weight=1, id=None))
+    soft_structural = frozenset(
+        c.kind for c in out if c.kind in STRUCTURAL and not c.hard and not _common.is_targeted(c)
+    )
     return out, warnings, soft_structural
 
 

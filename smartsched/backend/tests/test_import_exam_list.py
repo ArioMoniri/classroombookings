@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections import Counter
 from datetime import date, time
 
-from sqlalchemy import func, select
-
 from app.importers.exam_list import import_exam_list
 from app.models import ExamRequest
+from sqlalchemy import func, select
+
 from tests.conftest import EXAM_LIST
 
 
@@ -66,7 +66,9 @@ async def test_import_exam_list_idempotent_and_merges(session):
     assert (await session.execute(select(func.count(ExamRequest.id)))).scalar_one() == n1
     # merged cohort: BME 419 on 2026-05-13 13:00 sums enrolment across programmes
     rows = (
-        await session.execute(select(ExamRequest).where(ExamRequest.merge_key == "2026-FINAL:BME419:2026-05-13:1300"))
-    ).scalars().all()
+        (await session.execute(select(ExamRequest).where(ExamRequest.merge_key == "2026-FINAL:BME419:2026-05-13:1300")))
+        .scalars()
+        .all()
+    )
     assert len(rows) >= 3 and sum(r.enrolment or 0 for r in rows) >= 70
     assert all(r.status == "LOCKED" and r.definitive_room_ids for r in rows)

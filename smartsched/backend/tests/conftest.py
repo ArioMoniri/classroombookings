@@ -16,6 +16,8 @@ os.environ.setdefault("ADMIN_PASSWORD", "admin1234")
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 from app.core import db as dbmod  # noqa: E402
+
+pytest_plugins = ["tests.api_fixtures"]
 from app.models import Base  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"

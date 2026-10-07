@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date as date_
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
@@ -53,7 +54,7 @@ class Assignment(Base):
     week: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)  # null = all weeks in pattern
     weeks: Mapped[list[Any]] = mapped_column(JSON, default=list)
     day: Mapped[int] = mapped_column(Integer, index=True)
-    date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    date: Mapped[date_ | None] = mapped_column(Date, nullable=True)
     start_period: Mapped[int] = mapped_column(Integer)
     end_period: Mapped[int] = mapped_column(Integer)
     room_ids: Mapped[list[Any]] = mapped_column(JSON, default=list)  # ordered

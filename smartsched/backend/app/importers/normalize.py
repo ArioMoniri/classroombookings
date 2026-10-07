@@ -52,7 +52,9 @@ def _tr_title(s: str) -> str:
 # ---------------------------------------------------------------------------
 
 _TR_LETTERS = "A-ZÇĞİÖŞÜ"
-_COURSE_RX = re.compile(rf"(?<![{_TR_LETTERS}])([{_TR_LETTERS}]{{2,5}})\s?(\d{{2,4}})(?!\d)([A-Z](?![{_TR_LETTERS}a-z]))?")
+_COURSE_RX = re.compile(
+    rf"(?<![{_TR_LETTERS}])([{_TR_LETTERS}]{{2,5}})\s?(\d{{2,4}})(?!\d)([A-Z](?![{_TR_LETTERS}a-z]))?"
+)
 _BARE_NUMBER_RX = re.compile(r"(?<![A-Za-z0-9.])(\d{2,4})(?![0-9.])")
 _COURSE_FULL_RX = re.compile(rf"^([{_TR_LETTERS}]{{2,5}})(\d{{2,4}})([A-Z]?)$")
 
@@ -158,7 +160,17 @@ _NO_ROOM_WORDS = (
     "yeterliliğe hazırlık",
     "uzaktan",
 )
-_FLEX_WORDS = ("belirli günü yok", "danışman", "hergün", "her gün", "veya", "belirlenecek", "belirleniyor", "belirtilmemiş", "verilmemiş")
+_FLEX_WORDS = (
+    "belirli günü yok",
+    "danışman",
+    "hergün",
+    "her gün",
+    "veya",
+    "belirlenecek",
+    "belirleniyor",
+    "belirtilmemiş",
+    "verilmemiş",
+)
 
 
 @dataclass
@@ -312,7 +324,9 @@ def time_to_period(t: time, kind: str = "start") -> PeriodMatch:
         return PeriodMatch(1, f"start time {t:%H:%M} is before the grid; snapped to P1")
     for p in PERIODS:
         if _minutes(p.start) < m <= _minutes(p.end):
-            return PeriodMatch(p.index, f"start time {t:%H:%M} not on the grid; snapped to P{p.index} ({p.start:%H:%M})")
+            return PeriodMatch(
+                p.index, f"start time {t:%H:%M} not on the grid; snapped to P{p.index} ({p.start:%H:%M})"
+            )
     for p in PERIODS:
         if _minutes(p.start) > m:
             return PeriodMatch(p.index, f"start time {t:%H:%M} falls in a break; snapped to P{p.index}")
@@ -499,7 +513,7 @@ _HAFTA_SEG_RX = re.compile(r"([\d.,\s\-–]+?)\s*hafta\w*\s*([^\d]*)")
 def _expand_numbers(spec: str) -> list[int]:
     weeks: list[int] = []
     spec = spec.replace("ila", "-").replace("ile", "-")
-    consumed = set()
+    consumed: set[int] = set()
     for m in _RANGE_RX.finditer(spec):
         a, b = int(m.group(1)), int(m.group(2))
         if a <= b:
@@ -525,7 +539,9 @@ def parse_weeks(value: Any, max_week: int = 14) -> WeeksParse:
         if n <= 1:
             return WeeksParse(all_weeks, True, warnings=[f"weeks value {n}; assuming all"])
         if n < 10:
-            return WeeksParse(list(range(1, n + 1)), False, warnings=[f"ambiguous weeks value {n}; assuming first {n} weeks"])
+            return WeeksParse(
+                list(range(1, n + 1)), False, warnings=[f"ambiguous weeks value {n}; assuming first {n} weeks"]
+            )
         if n > max_week:
             return WeeksParse(all_weeks, True, warnings=[f"weeks value {n} exceeds term length {max_week}"])
         return WeeksParse(list(range(1, n + 1)), n == max_week)
@@ -609,7 +625,11 @@ def parse_mode(value: Any) -> ModeParse:
     low = tr_casefold(text)
     has_room_word = "derslik" in low or "sınıf" in low or "yüz yüze" in low or "yüzyüze" in low
     negated = "kullanılmayacak" in low or "gerek yok" in low or "istenmiyor" in low
-    if "hibrit" in low or "hybrid" in low or (("online" in low or "çevrimiçi" in low) and has_room_word and not negated):
+    if (
+        "hibrit" in low
+        or "hybrid" in low
+        or (("online" in low or "çevrimiçi" in low) and has_room_word and not negated)
+    ):
         return ModeParse("HYBRID", True, text)
     if "simülasyon" in low or "simulasyon" in low:
         return ModeParse("SIMULATION", True, text)
@@ -979,7 +999,8 @@ def parse_venue_request(value: Any) -> VenueRequest:
     has_room_word = any(w in low for w in ("derslik", "sınıf", "amfi", "anfi", "dersik", "derslk", "derlisk"))
     no_room = any(w in low for w in _VENUE_NO_ROOM)
     explicit_no = any(
-        w in low for w in ("talebi yok", "gerek yok", "istenmiyor", "ihtiyaç bulunmuyor", "kullanılmayacak", "talebimiz yok")
+        w in low
+        for w in ("talebi yok", "gerek yok", "istenmiyor", "ihtiyaç bulunmuyor", "kullanılmayacak", "talebimiz yok")
     )
     if explicit_no and not v.room_codes:
         v.confidence = "medium"

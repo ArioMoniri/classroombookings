@@ -17,7 +17,7 @@ def _make_engine(url: str) -> AsyncEngine:
     kwargs: dict[str, object] = {"future": True}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
-    engine = create_async_engine(url, **kwargs)  # type: ignore[arg-type]
+    engine = create_async_engine(url, **kwargs)
     if url.startswith("sqlite"):
 
         @event.listens_for(engine.sync_engine, "connect")

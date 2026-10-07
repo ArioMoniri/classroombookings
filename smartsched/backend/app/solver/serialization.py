@@ -45,7 +45,14 @@ def assignment_from_dict(d: Mapping[str, Any]) -> Assignment:
 
 
 def room_to_dict(r: Room) -> dict[str, Any]:
-    return {"id": r.id, "code": r.code, "capacity": r.capacity, "exam_capacity": r.exam_capacity, "building": r.building, "tags": sorted(r.tags)}
+    return {
+        "id": r.id,
+        "code": r.code,
+        "capacity": r.capacity,
+        "exam_capacity": r.exam_capacity,
+        "building": r.building,
+        "tags": sorted(r.tags),
+    }
 
 
 def room_from_dict(d: Mapping[str, Any]) -> Room:
@@ -62,7 +69,16 @@ def room_from_dict(d: Mapping[str, Any]) -> Room:
 
 def event_to_dict(e: Event) -> dict[str, Any]:
     d = asdict(e)
-    for k in ("weeks", "allowed_days", "required_tags", "forbidden_tags", "required_room_ids", "forbidden_room_ids", "cohort_keys", "instructor_keys"):
+    for k in (
+        "weeks",
+        "allowed_days",
+        "required_tags",
+        "forbidden_tags",
+        "required_room_ids",
+        "forbidden_room_ids",
+        "cohort_keys",
+        "instructor_keys",
+    ):
         d[k] = sorted(getattr(e, k))
     d["preferred_room_ids"] = list(e.preferred_room_ids)
     d["fixed_date"] = e.fixed_date.isoformat() if e.fixed_date else None
@@ -105,7 +121,13 @@ def constraint_to_dict(c: Constraint) -> dict[str, Any]:
 
 
 def constraint_from_dict(d: Mapping[str, Any]) -> Constraint:
-    return Constraint(kind=str(d["kind"]), params=dict(d.get("params", {})), hard=bool(d.get("hard", True)), weight=int(d.get("weight", 1)), id=d.get("id"))
+    return Constraint(
+        kind=str(d["kind"]),
+        params=dict(d.get("params", {})),
+        hard=bool(d.get("hard", True)),
+        weight=int(d.get("weight", 1)),
+        id=d.get("id"),
+    )
 
 
 def block_to_dict(b: Block) -> dict[str, Any]:
@@ -113,7 +135,13 @@ def block_to_dict(b: Block) -> dict[str, Any]:
 
 
 def block_from_dict(d: Mapping[str, Any]) -> Block:
-    return Block(int(d["room_id"]), None if d.get("week") is None else int(d["week"]), int(d["day"]), int(d["start"]), int(d["end"]))
+    return Block(
+        int(d["room_id"]),
+        None if d.get("week") is None else int(d["week"]),
+        int(d["day"]),
+        int(d["start"]),
+        int(d["end"]),
+    )
 
 
 def input_to_dict(inp: SolverInput) -> dict[str, Any]:
@@ -169,7 +197,16 @@ def result_from_dict(d: Mapping[str, Any]) -> SolverResult:
         hard_score=int(d.get("hard_score", 0)),
         soft_score=int(d.get("soft_score", 0)),
         objective_breakdown={str(k): int(v) for k, v in d.get("objective_breakdown", {}).items()},
-        diagnoses=[Diagnosis(list(x.get("event_ids", [])), list(x.get("constraint_kinds", [])), str(x.get("message", "")), list(x.get("suggestions", [])), str(x.get("severity", "error"))) for x in d.get("diagnoses", [])],
+        diagnoses=[
+            Diagnosis(
+                list(x.get("event_ids", [])),
+                list(x.get("constraint_kinds", [])),
+                str(x.get("message", "")),
+                list(x.get("suggestions", [])),
+                str(x.get("severity", "error")),
+            )
+            for x in d.get("diagnoses", [])
+        ],
         stats=dict(d.get("stats", {})),
     )
 

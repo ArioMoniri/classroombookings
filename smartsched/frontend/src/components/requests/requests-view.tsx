@@ -3,7 +3,7 @@
 import { type ColumnDef, getCoreRowModel, getSortedRowModel, type SortingState, useReactTable } from "@tanstack/react-table";
 import { Lock, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { NativeSelect } from "@/components/common/native-select";
 import { StatusBadge, type StatusKind } from "@/components/common/status-badge";
@@ -29,7 +29,7 @@ export function weeksLabel(weeks: number[]): string {
 
 function useDebouncedValue(value: string, ms = 200): string {
   const [v, setV] = useState(value);
-  useMemo(() => {
+  useEffect(() => {
     const id = setTimeout(() => setV(value), ms);
     return () => clearTimeout(id);
   }, [value, ms]);

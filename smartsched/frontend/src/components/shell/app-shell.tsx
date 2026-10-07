@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import { useUiStore } from "@/stores/ui";
 import { CommandPalette } from "./command-palette";
@@ -12,18 +12,18 @@ import { useGlobalShortcuts } from "./use-global-shortcuts";
 
 function OfflineBanner() {
   const { t } = useI18n();
-  const [offline, setOffline] = useState(false);
-  useEffect(() => {
-    const on = () => setOffline(false);
-    const off = () => setOffline(true);
-    setOffline(typeof navigator !== "undefined" && !navigator.onLine);
-    window.addEventListener("online", on);
-    window.addEventListener("offline", off);
-    return () => {
-      window.removeEventListener("online", on);
-      window.removeEventListener("offline", off);
-    };
-  }, []);
+  const offline = useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("online", cb);
+      window.addEventListener("offline", cb);
+      return () => {
+        window.removeEventListener("online", cb);
+        window.removeEventListener("offline", cb);
+      };
+    },
+    () => !navigator.onLine,
+    () => false,
+  );
   if (!offline) return null;
   return <div role="status" className="bg-status-warning px-4 py-1.5 text-center text-sm text-status-warning-fg">{t("common.offline")}</div>;
 }

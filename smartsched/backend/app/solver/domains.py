@@ -115,14 +115,17 @@ class Domains:
     def domain(self, event_id: int) -> EventDomain:
         return self.by_event[event_id]
 
-    def add_block(self, block: Block) -> None:
-        """Register an extra block (e.g. from ``room_closed``) and prune affected pairs."""
+    def add_block(self, block: Block, token: str = "block") -> None:
+        """Register an extra block (e.g. from ``room_closed``) and prune affected pairs.
+        ``token`` names the originating kind in the reason strings, e.g. ``"room_closed #3"``."""
         self.blocks_by_room[block.room_id].append(block)
         for dom in self.by_event.values():
-            _prune_block(dom, block, self.inp)
+            _prune_block(dom, block, self.inp, token)
 
 
-def _time_options(event: Event, inp: SolverInput, soft: frozenset[str]) -> tuple[list[TimeOption], dict[TimeOption, str]]:
+def _time_options(
+    event: Event, inp: SolverInput, soft: frozenset[str]
+) -> tuple[list[TimeOption], dict[TimeOption, str]]:
     """Enumerate (day, start) options from the event's window; locked > fixed > window.
     When ``fixed_time`` is soft, fixed day/start become preferences and the window is enumerated."""
     reasons: dict[TimeOption, str] = {}
@@ -186,7 +189,7 @@ def _room_options(event: Event, inp: SolverInput, soft: frozenset[str]) -> tuple
     return chosen, reasons
 
 
-def _prune_block(dom: EventDomain, block: Block, inp: SolverInput) -> None:
+def _prune_block(dom: EventDomain, block: Block, inp: SolverInput, token: str = "block") -> None:
     event = dom.event
     if block.room_id not in dom.rooms:
         return
@@ -195,13 +198,15 @@ def _prune_block(dom: EventDomain, block: Block, inp: SolverInput) -> None:
     for t in list(dom.times):
         if t.day == block.day and t.start <= block.end and block.start <= t.end:
             wk = "every week" if block.week is None else f"week {block.week}"
-            dom.exclude_pair(t, block.room_id, f"room blocked on day {block.day} P{block.start}-P{block.end} ({wk})")
+            dom.exclude_pair(
+                t, block.room_id, f"room blocked on day {block.day} P{block.start}-P{block.end}, {wk} ({token})"
+            )
     # a room that is blocked at every time option is useless for this event
     if all(not dom.is_pair_allowed(t, block.room_id) for t in dom.times):
         for t in dom.times:
             dom.excluded_pairs.discard((t, block.room_id))
             dom.pair_reasons.pop((t, block.room_id), None)
-        dom.remove_room(block.room_id, "room blocked at every allowed time (block)")
+        dom.remove_room(block.room_id, f"room blocked at every allowed time ({token})")
 
 
 def build_domains(inp: SolverInput, soft_structural: Iterable[str] = ()) -> Domains:
@@ -220,7 +225,14 @@ def build_domains(inp: SolverInput, soft_structural: Iterable[str] = ()) -> Doma
         rooms, rreasons = _room_options(event, inp, soft)
         dom = EventDomain(event=event, times=times, rooms=rooms, room_reasons=rreasons, time_reasons=treasons)
         by_event[event.id] = dom
-    doms = Domains(inp=inp, rooms_by_id=rooms_by_id, events_by_id=events_by_id, by_event=by_event, blocks_by_room=blocks_by_room, soft=soft)
+    doms = Domains(
+        inp=inp,
+        rooms_by_id=rooms_by_id,
+        events_by_id=events_by_id,
+        by_event=by_event,
+        blocks_by_room=blocks_by_room,
+        soft=soft,
+    )
     for room_id, blocks in list(blocks_by_room.items()):
         if room_id not in rooms_by_id:
             continue

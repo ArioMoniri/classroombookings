@@ -190,7 +190,7 @@ export function ImportWizard() {
             <CardContent><ParseWarningsTable warnings={job.summary.warnings} /></CardContent>
           </Card>
           <div className="flex flex-wrap items-center gap-2">
-            <Button render={<Link href="/requests?status=NEEDS_REVIEW" />} onClick={() => setDone(true)}>{t("import.goRequests")}</Button>
+            <Button nativeButton={false} render={<Link href="/requests?status=NEEDS_REVIEW" />} onClick={() => setDone(true)}>{t("import.goRequests")}</Button>
             <Button variant="outline" onClick={() => router.replace("/import")}>{t("import.again")}</Button>
           </div>
         </div>

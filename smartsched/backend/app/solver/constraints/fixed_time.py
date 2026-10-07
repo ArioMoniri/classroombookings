@@ -69,16 +69,43 @@ def score(ev: Evaluation, c: Constraint) -> None:
         if not targeted:
             # structural checks that are always hard
             if a.end - a.start + 1 != max(1, event.duration):
-                ev.hard("fixed_time", [event.id], f"{event.label} spans {a.end - a.start + 1} periods, expected {event.duration}")
+                ev.hard(
+                    "fixed_time",
+                    [event.id],
+                    f"{event.label} spans {a.end - a.start + 1} periods, expected {event.duration}",
+                )
             if a.day not in ev.inp.days or a.start < 1 or a.end > ev.inp.periods_per_day:
-                ev.hard("fixed_time", [event.id], f"{event.label} is outside the grid (day {a.day}, P{a.start}-P{a.end})")
-            if event.locked is not None and (event.locked.day, event.locked.start, tuple(sorted(event.locked.room_ids))) != (a.day, a.start, tuple(sorted(a.room_ids))):
-                ev.hard("fixed_time", [event.id], f"{event.label} is locked to day {event.locked.day} P{event.locked.start} rooms {list(event.locked.room_ids)}")
+                ev.hard(
+                    "fixed_time", [event.id], f"{event.label} is outside the grid (day {a.day}, P{a.start}-P{a.end})"
+                )
+            if event.locked is not None:
+                # a lock overrides the requested day/start/window (planner's explicit decision)
+                if (event.locked.day, event.locked.start, tuple(sorted(event.locked.room_ids))) != (
+                    a.day,
+                    a.start,
+                    tuple(sorted(a.room_ids)),
+                ):
+                    ev.hard(
+                        "fixed_time",
+                        [event.id],
+                        f"{event.label} is locked to day {event.locked.day} "
+                        f"P{event.locked.start} rooms {list(event.locked.room_ids)}",
+                    )
+                continue
             if c.hard:
                 if event.allowed_days and event.fixed_day is None and a.day not in event.allowed_days:
-                    ev.hard("fixed_time", [event.id], f"{event.label} is on day {a.day}, allowed {sorted(event.allowed_days)}")
+                    ev.hard(
+                        "fixed_time",
+                        [event.id],
+                        f"{event.label} is on day {a.day}, allowed {sorted(event.allowed_days)}",
+                    )
                 if a.start < event.earliest_start or a.end > event.latest_end:
-                    ev.hard("fixed_time", [event.id], f"{event.label} at P{a.start}-P{a.end} is outside its window P{event.earliest_start}-P{event.latest_end}")
+                    ev.hard(
+                        "fixed_time",
+                        [event.id],
+                        f"{event.label} at P{a.start}-P{a.end} is outside its "
+                        f"window P{event.earliest_start}-P{event.latest_end}",
+                    )
         day, start = _wanted(c, event)
         if day is None and start is None:
             continue

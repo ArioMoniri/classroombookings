@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections import Counter
 
 import pytest
-from sqlalchemy import func, select
-
 from app.importers.planning_list import import_planning_list
 from app.models import Course, MeetingRequest, Program, Section
+from sqlalchemy import func, select
+
 from tests.conftest import BAHAR_LIST, GUZ_LIST
 
 
@@ -20,8 +20,10 @@ def _summary(parsed, name):
     for r in rows:
         for w in r.warnings:
             wc["".join("#" if ch.isdigit() else ch for ch in w)] += 1
-    print(f"\n[{name}] rows_total={parsed.rows_total} parsed={len(rows)} skipped={len(parsed.skipped)} "
-          f"day+time={len(with_dt)} with_periods={len(with_p)} ({len(with_p) / max(len(with_dt), 1):.1%})")
+    print(
+        f"\n[{name}] rows_total={parsed.rows_total} parsed={len(rows)} skipped={len(parsed.skipped)} "
+        f"day+time={len(with_dt)} with_periods={len(with_p)} ({len(with_p) / max(len(with_dt), 1):.1%})"
+    )
     print(f"[{name}] skip reasons: {Counter(s[1] for s in parsed.skipped).most_common()}")
     print(f"[{name}] top warnings:")
     for w, c in wc.most_common(12):
@@ -107,7 +109,11 @@ async def test_import_bahar_into_db_is_idempotent(session, parsed_bahar_list):
     mr = (await session.execute(select(MeetingRequest).where(MeetingRequest.section_id == sec.id))).scalars().first()
     assert mr.status == "LOCKED" and mr.day == 4 and (mr.start_period, mr.end_period) == (7, 9)
     assert len(mr.definitive_room_ids) == 1
-    prog = (await session.execute(select(Program).where(Program.canonical_name.like("%bilgisayar müh%")))).scalars().first()
+    prog = (
+        (await session.execute(select(Program).where(Program.canonical_name.like("%bilgisayar müh%"))))
+        .scalars()
+        .first()
+    )
     assert prog is not None and prog.faculty_id is not None
     d = rep1.to_dict()
     assert d["rows_total"] == rep1.rows_total and "warning_summary" in d

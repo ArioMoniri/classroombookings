@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections import Counter
 from datetime import date
 
-from sqlalchemy import func, select
-
 from app.importers.weekly_grid import import_weekly_grid, sheet_kind, week_start_from_name
 from app.models import Assignment, Block, Room, Week
+from sqlalchemy import func, select
+
 from tests.conftest import BAHAR_GRID, BAHAR_LIST, FINAL_GRID, GUZ_GRID
 
 
@@ -118,5 +118,7 @@ async def test_import_bahar_grid_links_requests(session):
     assert rep_f.extra["capacity_kind"] == "exam" and rep_f.created["rooms"] == 0
     a204 = (await session.execute(select(Room).where(Room.code == "A204"))).scalar_one()
     assert a204.capacity == 156 and a204.exam_capacity == 74
-    linked = (await session.execute(select(func.count(Assignment.id)).where(Assignment.meeting_request_id.is_not(None)))).scalar_one()
+    linked = (
+        await session.execute(select(func.count(Assignment.id)).where(Assignment.meeting_request_id.is_not(None)))
+    ).scalar_one()
     assert linked > 1000

@@ -19,21 +19,25 @@ def apply_group(ctx: ModelContext, kind: str, name: str, events: list[Event], ha
     room_ids = sorted({r for e in events for r in ctx.domain(e.id).rooms})
     if hard:
         g = ctx.guard(f"{kind}:{name}")
-        for rid in room_ids:
-            lits = [ctx.room_use(e.id, rid) for e in events]
-            # all equal: lit_i == lit_0 (None = this event cannot use the room -> others must not)
-            first = lits[0]
-            for lit in lits[1:]:
+        e0 = events[0]
+        for e in events[1:]:
+            # enforced only when both events are placed (assume/relax modes) and the guard holds
+            enforce = [lit for lit in (g, ctx.placed.get(e0.id), ctx.placed.get(e.id)) if lit is not None]
+            for rid in room_ids:
+                first, lit = ctx.room_use(e0.id, rid), ctx.room_use(e.id, rid)
                 if lit is None and first is None:
                     continue
-                if lit is None:
-                    ctx.add_lit_false(first, g)
-                elif first is None:
-                    ctx.add_lit_false(lit, g)
-                elif g is None:
-                    ctx.model.Add(lit == first)
+                if lit is None or first is None:
+                    target = first if lit is None else lit
+                    assert target is not None
+                    if enforce:
+                        ctx.model.AddBoolOr([x.Not() for x in enforce] + [target.Not()])
+                    else:
+                        ctx.model.Add(target == 0)
+                elif enforce:
+                    ctx.model.Add(lit == first).OnlyEnforceIf(enforce)
                 else:
-                    ctx.model.Add(lit == first).OnlyEnforceIf(g)
+                    ctx.model.Add(lit == first)
         return
     used_vars = []
     for rid in room_ids:
@@ -63,9 +67,20 @@ def score_group(ev: Evaluation, kind: str, name: str, events: list[Event], hard:
     distinct_sets = {tuple(sorted(ev.by_event[e.id].room_ids)) for e in events}
     if hard:
         if len(distinct_sets) > 1:
-            ev.hard(kind, [e.id for e in events], f"group '{name}' uses different rooms: {sorted(distinct_sets)}", sorted(used))
+            ev.hard(
+                kind,
+                [e.id for e in events],
+                f"group '{name}' uses different rooms: {sorted(distinct_sets)}",
+                sorted(used),
+            )
         return
     extra = max(0, len(used) - 1)
     if extra:
         names = ", ".join(ev.rooms_by_id[r].code for r in sorted(used) if r in ev.rooms_by_id)
-        ev.soft(kind, [e.id for e in events], f"group '{name}' is spread over {len(used)} rooms ({names})", extra * weight, sorted(used))
+        ev.soft(
+            kind,
+            [e.id for e in events],
+            f"group '{name}' is spread over {len(used)} rooms ({names})",
+            extra * weight,
+            sorted(used),
+        )

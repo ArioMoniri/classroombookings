@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, TypeVar
+from typing import Any
 
 from app.solver.model import Constraint, Event, SolverInput
 
-T = TypeVar("T")
 
-
-def week_classes(items: Sequence[tuple[T, frozenset[int]]]) -> list[list[T]]:
+def week_classes[T](items: Sequence[tuple[T, frozenset[int]]]) -> list[list[T]]:
     """Group items by week so that two items end up in a common group iff their week sets
     intersect.  Returns only the *maximal* groups (a group that is a subset of another is implied
     by it), in a deterministic order.  Groups of size < 2 are dropped."""
@@ -100,6 +98,6 @@ def label_of(inp_events: Mapping[int, Event], eid: int) -> str:
     return f"{e.label} (#{eid})" if e is not None else f"#{eid}"
 
 
-def pairs(seq: Iterable[T]) -> list[tuple[T, T]]:
+def pairs[T](seq: Iterable[T]) -> list[tuple[T, T]]:
     items = list(seq)
     return [(items[i], items[j]) for i in range(len(items)) for j in range(i + 1, len(items))]

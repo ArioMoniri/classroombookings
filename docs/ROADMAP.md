@@ -53,3 +53,20 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Mobile room display mode (door signs)
 - [ ] SSO (LDAP, like CRBS) and role-based access
 - [ ] Multi-campus / multi-timezone
+- [ ] Solver: two-stage room-domain restriction (K nearest-capacity rooms first, full domains on fallback) to cut time-to-optimal on 1 300-event runs
+- [ ] Solver: soft "split exam rooms in the same building / adjacent" term and invigilator-count cumulative for multi-room exams
+- [ ] Solver: enumerate several MUSes / smallest MUS (QuickXplain) so the planner sees alternative fixes, not just one conflict set
+- [ ] Solver: benchmark on the real Bahar/Final fixtures through the importers once `services.solver_bridge` builds SolverInput from the DB (≥ 95 % definitive-room reproduction regression)
+- [ ] Solver: week-level room changes inside one event (an event may switch rooms mid-term) — today one room per event for all its weeks; split events by week pattern upstream
+- [ ] Solver: `stub.py` (backend fallback) has one line > 120 chars; drop the stub once the API uses `cpsat` by default
+
+### Backend Phase 1 backlog (backend-engineer, 2026-10-07)
+
+- [ ] Live MySQL CRBS import is implemented (`mysql://` DSN via optional `pymysql`) but only the SQL-dump path is covered by tests; add an integration test against a MySQL service in CI
+- [ ] `GET /runs/{id}/export?format=crbs` currently returns the generic CSV; map it to CRBS' booking import format (room name, date, period name, user/department) once the target schema is agreed
+- [ ] Venue-request parser (`parse_venue_request`) is regex-based; route the `confidence=low` rows through the AI constraint-elicitation tool (ai-engineer) and surface them in the inbox
+- [ ] "Same room as X" requests (`same_room_as`) are stored in notes but not yet turned into `same_room_group` constraints for the solver
+- [ ] Section identity uses (course, programme, şube); rows that only differ by class year collapse into one section — revisit if the planning office needs them separate
+- [ ] Weekly-grid import stores one `assignment` per cell with `course_codes` list; linking to meeting requests is by (code, day, start period) and takes the first match — add an interactive reconciliation view
+- [ ] Job queue is in-process asyncio; swap for Celery/RQ worker (interface in `app/workers/queue.py`) before horizontal scaling
+- [ ] Holidays from CRBS only mark whole-week `weeks.kind = HOLIDAY`; partial-week holidays are kept as labels

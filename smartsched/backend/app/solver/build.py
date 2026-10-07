@@ -78,8 +78,9 @@ def make_solver(inp: SolverInput, time_limit_s: float, workers: int | None = Non
     solver.parameters.num_workers = max(1, int(inp.workers if workers is None else workers))
     solver.parameters.random_seed = int(inp.seed)
     solver.parameters.log_search_progress = False
-    # probing over thousands of optional intervals burns wall time for no deterministic gain
-    solver.parameters.presolve_probing_deterministic_time_limit = 0.5
+    # presolve probing over tens of thousands of optional intervals burns minutes of wall time
+    # (its deterministic-time accounting is far off); search-time probing workers remain enabled
+    solver.parameters.cp_model_probing_level = 0
     if lns_only:
         solver.parameters.use_lns_only = True
     return solver

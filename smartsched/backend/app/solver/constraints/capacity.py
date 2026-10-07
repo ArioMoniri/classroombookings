@@ -8,7 +8,7 @@ overrides the required seats for those events (e.g. a merged exam).
 
 from __future__ import annotations
 
-from app.solver.constraints._common import int_list, is_targeted, select_events
+from app.solver.constraints._common import is_targeted, select_events
 from app.solver.context import ModelContext
 from app.solver.domains import Domains, effective_capacity
 from app.solver.evaluate import Evaluation
@@ -46,7 +46,11 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
             need = _required(c, event)
             dom = ctx.domain(event.id)
             g = ctx.guard(f"capacity:{event.id}")
-            zs = [(ctx.z[(event.id, r)], effective_capacity(ctx.rooms_by_id[r], event)) for r in dom.rooms if (event.id, r) in ctx.z]
+            zs = [
+                (ctx.z[(event.id, r)], effective_capacity(ctx.rooms_by_id[r], event))
+                for r in dom.rooms
+                if (event.id, r) in ctx.z
+            ]
             if not zs:
                 continue
             expr = sum(cap * v for v, cap in zs)
@@ -86,7 +90,12 @@ def score(ev: Evaluation, c: Constraint) -> None:
         n = len(rooms)
         if not targeted:
             if n < max(1, event.min_rooms) or n > max(1, event.max_rooms):
-                ev.hard("capacity", [event.id], f"{event.label} uses {n} room(s); allowed {max(1, event.min_rooms)}..{max(1, event.max_rooms)}", list(a.room_ids))
+                ev.hard(
+                    "capacity",
+                    [event.id],
+                    f"{event.label} uses {n} room(s); allowed {max(1, event.min_rooms)}..{max(1, event.max_rooms)}",
+                    list(a.room_ids),
+                )
                 continue
         need = _required(c, event)
         total = sum(effective_capacity(r, event) for r in rooms)

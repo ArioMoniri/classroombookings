@@ -1,0 +1,28 @@
+{
+ "rooms": [
+  {"id": 1, "code": "A101", "capacity": 58, "exam_capacity": 30, "building": "A", "tags": []},
+  {"id": 2, "code": "A204", "capacity": 156, "exam_capacity": 74, "building": "A", "tags": ["AMPHI"]},
+  {"id": 3, "code": "B207", "capacity": 60, "exam_capacity": 60, "building": "B", "tags": ["LAB", "PC"]},
+  {"id": 4, "code": "A201", "capacity": 96, "exam_capacity": 48, "building": "A", "tags": ["TIP"]},
+  {"id": 5, "code": "C301", "capacity": 72, "exam_capacity": 36, "building": "C", "tags": []}
+ ],
+ "events": [
+  {"id": 1, "kind": "course", "label": "MAT 112 §1", "size": 50, "duration": 3, "weeks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14], "fixed_day": 1, "fixed_start": 4, "allowed_days": [], "cohort_keys": ["PROG:Psikoloji:Y1"], "instructor_keys": ["INS:ayse"], "forbidden_tags": ["TIP"], "preferred_room_ids": [1]},
+  {"id": 2, "kind": "course", "label": "FIZ 101 §1", "size": 120, "duration": 2, "weeks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14], "fixed_day": 1, "fixed_start": 4, "allowed_days": [], "cohort_keys": ["PROG:Fizik:Y1"], "instructor_keys": ["INS:mehmet"], "forbidden_tags": ["TIP"]},
+  {"id": 3, "kind": "course", "label": "BIL 101 Lab", "size": 40, "duration": 2, "weeks": [1,2,3,4,5,6,7], "fixed_day": null, "fixed_start": null, "allowed_days": [1,2,3], "required_tags": ["PC"], "cohort_keys": ["PROG:Psikoloji:Y1"], "instructor_keys": ["INS:ayse"], "forbidden_tags": ["TIP"]},
+  {"id": 4, "kind": "course", "label": "TIP 201", "size": 90, "duration": 4, "weeks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14], "fixed_day": 2, "fixed_start": 1, "allowed_days": [], "cohort_keys": ["PROG:Tip:Y2"], "instructor_keys": ["INS:gozde"], "required_tags": ["TIP"]},
+  {"id": 5, "kind": "course", "label": "PSK 102 İÖ", "size": 30, "duration": 2, "weeks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14], "fixed_day": null, "fixed_start": null, "allowed_days": [1,2,3,4,5], "earliest_start": 13, "latest_end": 18, "cohort_keys": ["PROG:Psikoloji İÖ:Y1"], "instructor_keys": ["INS:ayse"], "forbidden_tags": ["TIP"], "preferred_building": "C"}
+ ],
+ "constraints": [
+  {"kind": "evening_programs_in_buildings", "params": {"buildings": ["B", "C"]}, "hard": false, "weight": 2, "id": 1}
+ ],
+ "days": [1, 2, 3, 4, 5],
+ "periods_per_day": 18,
+ "weeks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14],
+ "blocks": [{"room_id": 1, "week": null, "day": 1, "start": 1, "end": 3}],
+ "previous": [],
+ "time_limit_s": 10,
+ "seed": 0,
+ "workers": 2,
+ "weights": {}
+}

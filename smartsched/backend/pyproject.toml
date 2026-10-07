@@ -40,7 +40,7 @@ build-backend = "setuptools.build_meta"
 include = ["app*"]
 
 [tool.ruff]
-line-length = 110
+line-length = 120
 target-version = "py312"
 src = ["app", "tests"]
 
@@ -60,8 +60,17 @@ warn_unused_ignores = false
 check_untyped_defs = true
 no_implicit_optional = true
 
+# app.solver.* (except the frozen contract and the greedy stub) is owned by the solver-engineer and
+# gated by its own mypy run; errors there are ignored here so the backend gate stays independent.
 [[tool.mypy.overrides]]
-module = "app.solver.*"
+module = ["app.solver", "app.solver.*"]
+ignore_errors = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["app.solver.model", "app.solver.stub"]
+ignore_errors = false
+follow_imports = "normal"
 strict = true
 
 [tool.pytest.ini_options]

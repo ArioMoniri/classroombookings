@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date as date_
+from datetime import time
 from typing import Any
 
 from sqlalchemy import JSON, Boolean, Date, ForeignKey, Integer, String, Text, Time, UniqueConstraint
@@ -36,9 +37,7 @@ class Section(TimestampMixin, Base):
     term: Mapped[Term] = relationship()
     course: Mapped[Course] = relationship()
     program: Mapped[Program | None] = relationship()
-    instructors: Mapped[list[SectionInstructor]] = relationship(
-        back_populates="section", cascade="all, delete-orphan"
-    )
+    instructors: Mapped[list[SectionInstructor]] = relationship(back_populates="section", cascade="all, delete-orphan")
     meeting_requests: Mapped[list[MeetingRequest]] = relationship(
         back_populates="section", cascade="all, delete-orphan"
     )
@@ -100,8 +99,8 @@ class ExamRequest(TimestampMixin, Base):
     class_years: Mapped[list[Any]] = mapped_column(JSON, default=list)
     enrolment: Mapped[int | None] = mapped_column(Integer, nullable=True)
     instructor_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    date_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    date: Mapped[date_ | None] = mapped_column(Date, nullable=True)
+    date_end: Mapped[date_ | None] = mapped_column(Date, nullable=True)
     start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     start_period: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -140,7 +139,7 @@ class Block(TimestampMixin, Base):
     term_id: Mapped[int] = mapped_column(ForeignKey("terms.id", ondelete="CASCADE"), index=True)
     room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id", ondelete="CASCADE"), index=True)
     day: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    date: Mapped[date_ | None] = mapped_column(Date, nullable=True)
     start_period: Mapped[int] = mapped_column(Integer)
     end_period: Mapped[int] = mapped_column(Integer)
     weeks: Mapped[list[Any]] = mapped_column(JSON, default=list)

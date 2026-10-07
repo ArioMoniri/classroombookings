@@ -1,7 +1,7 @@
 "use client";
 
 import { Lock, Unlock } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { NativeSelect } from "@/components/common/native-select";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -22,22 +22,11 @@ import { STATUS_KIND } from "./requests-view";
 const TAGS: RoomTag[] = ["TIP", "PC", "LAB", "AMPHI"];
 
 export function RequestDrawer({ meeting, exam, onClose }: { meeting: MeetingRequest | null; exam: ExamRequest | null; onClose: () => void }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const open = meeting !== null || exam !== null;
   const update = useUpdateMeeting();
   const updateExam = useUpdateExam();
-  const rooms = useRooms();
-  const [form, setForm] = useState<Partial<MeetingRequest>>({});
-  useEffect(() => {
-    if (meeting) setForm({ day: meeting.day, start_period: meeting.start_period, end_period: meeting.end_period, enrolment: meeting.enrolment, requested_room_ids: meeting.requested_room_ids, requested_building: meeting.requested_building, requested_tags: meeting.requested_tags, requested_capacity: meeting.requested_capacity, flexible_day: meeting.flexible_day, status: meeting.status, notes: meeting.notes });
-  }, [meeting]);
 
-  const save = async () => {
-    if (!meeting) return;
-    await update.mutateAsync({ id: meeting.id, body: { ...form, status: form.status === "NEEDS_REVIEW" ? "PARSED" : form.status } });
-    toast.success(t("requests.saved"));
-    onClose();
-  };
   const toggleLock = async () => {
     if (meeting) {
       await update.mutateAsync({ id: meeting.id, body: { status: meeting.status === "LOCKED" ? "PARSED" : "LOCKED" } });
@@ -48,7 +37,6 @@ export function RequestDrawer({ meeting, exam, onClose }: { meeting: MeetingRequ
   };
   const item = meeting ?? exam;
   const warnings = item?.parse_warnings ?? [];
-  const preferred = new Set(form.requested_room_ids ?? []);
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -70,17 +58,48 @@ export function RequestDrawer({ meeting, exam, onClose }: { meeting: MeetingRequ
                 </div>
               ) : null}
               {meeting ? (
+                <MeetingForm key={meeting.id} meeting={meeting} onClose={onClose} />
+              ) : exam ? (
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                  <dt className="text-muted-foreground">{t("requests.date")}</dt><dd>{exam.date ?? "—"}</dd>
+                  <dt className="text-muted-foreground">{t("requests.time")}</dt><dd>{exam.start_time ?? "—"}–{exam.end_time ?? ""}</dd>
+                  <dt className="text-muted-foreground">{t("requests.enrolment")}</dt><dd>{exam.enrolment ?? "—"}</dd>
+                  <dt className="text-muted-foreground">{t("requests.instructor")}</dt><dd>{exam.instructor_text ?? "—"}</dd>
+                  <dt className="text-muted-foreground">{t("requests.venue")}</dt><dd>{exam.requested_venue_text ?? "—"}</dd>
+                  <dt className="text-muted-foreground">{t("requests.tags")}</dt><dd className="flex gap-1">{exam.requested_tags.map((tg) => <Badge key={tg} variant="outline">{tg}</Badge>)}</dd>
+                </dl>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function MeetingForm({ meeting, onClose }: { meeting: MeetingRequest; onClose: () => void }) {
+  const { t, locale } = useI18n();
+  const update = useUpdateMeeting();
+  const rooms = useRooms();
+  const [form, setForm] = useState<Partial<MeetingRequest>>(() => ({ day: meeting.day, start_period: meeting.start_period, end_period: meeting.end_period, enrolment: meeting.enrolment, requested_room_ids: meeting.requested_room_ids, requested_building: meeting.requested_building, requested_tags: meeting.requested_tags, requested_capacity: meeting.requested_capacity, flexible_day: meeting.flexible_day, status: meeting.status, notes: meeting.notes }));
+  const preferred = new Set(form.requested_room_ids ?? []);
+  const save = async () => {
+    await update.mutateAsync({ id: meeting.id, body: { ...form, status: form.status === "NEEDS_REVIEW" ? "PARSED" : form.status } });
+    toast.success(t("requests.saved"));
+    onClose();
+  };
+  return (
                 <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void save(); }}>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="grid gap-1"><Label htmlFor="rq-day">{t("common.day")}</Label>
                       <NativeSelect id="rq-day" value={form.day ?? ""} onChange={(e) => setForm({ ...form, day: e.target.value ? Number(e.target.value) : null })}>
                         <option value="">—</option>{[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{dayName(d, locale, "short")}</option>)}
                       </NativeSelect></div>
-                    <div className="grid gap-1"><Label htmlFor="rq-start">P{t("common.period").slice(0, 0)}start</Label>
+                    <div className="grid gap-1"><Label htmlFor="rq-start">{t("grid.newStart")}</Label>
                       <NativeSelect id="rq-start" value={form.start_period ?? ""} onChange={(e) => setForm({ ...form, start_period: e.target.value ? Number(e.target.value) : null })}>
                         <option value="">—</option>{PERIODS.map((p) => <option key={p.index} value={p.index}>P{p.index} {p.start}</option>)}
                       </NativeSelect></div>
-                    <div className="grid gap-1"><Label htmlFor="rq-end">end</Label>
+                    <div className="grid gap-1"><Label htmlFor="rq-end">{t("common.period")} (end)</Label>
                       <NativeSelect id="rq-end" value={form.end_period ?? ""} onChange={(e) => setForm({ ...form, end_period: e.target.value ? Number(e.target.value) : null })}>
                         <option value="">—</option>{PERIODS.map((p) => <option key={p.index} value={p.index}>P{p.index} {p.end}</option>)}
                       </NativeSelect></div>
@@ -115,20 +134,5 @@ export function RequestDrawer({ meeting, exam, onClose }: { meeting: MeetingRequ
                     <Button type="button" variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
                   </SheetFooter>
                 </form>
-              ) : exam ? (
-                <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-                  <dt className="text-muted-foreground">{t("requests.date")}</dt><dd>{exam.date ?? "—"}</dd>
-                  <dt className="text-muted-foreground">{t("requests.time")}</dt><dd>{exam.start_time ?? "—"}–{exam.end_time ?? ""}</dd>
-                  <dt className="text-muted-foreground">{t("requests.enrolment")}</dt><dd>{exam.enrolment ?? "—"}</dd>
-                  <dt className="text-muted-foreground">{t("requests.instructor")}</dt><dd>{exam.instructor_text ?? "—"}</dd>
-                  <dt className="text-muted-foreground">{t("requests.venue")}</dt><dd>{exam.requested_venue_text ?? "—"}</dd>
-                  <dt className="text-muted-foreground">{t("requests.tags")}</dt><dd className="flex gap-1">{exam.requested_tags.map((tg) => <Badge key={tg} variant="outline">{tg}</Badge>)}</dd>
-                </dl>
-              ) : null}
-            </div>
-          </>
-        ) : null}
-      </SheetContent>
-    </Sheet>
   );
 }

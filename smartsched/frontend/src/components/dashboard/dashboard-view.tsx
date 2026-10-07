@@ -40,8 +40,8 @@ export function DashboardView() {
         subtitle={d ? t("dashboard.subtitle", { term: d.term.name, week: d.current_week, weeks: d.term.week_count }) : undefined}
         actions={
           <>
-            <Button variant="outline" render={<Link href="/import" />}><FileUp /> {t("dashboard.import")}</Button>
-            <Button render={<Link href="/generate" />}><PlayCircle /> {t("dashboard.generate")}</Button>
+            <Button variant="outline" nativeButton={false} render={<Link href="/import" />}><FileUp /> {t("dashboard.import")}</Button>
+            <Button nativeButton={false} render={<Link href="/generate" />}><PlayCircle /> {t("dashboard.generate")}</Button>
           </>
         }
       />
@@ -126,10 +126,10 @@ export function DashboardView() {
             <CardTitle>{t("common.actions")}</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-2">
-            <Button variant="outline" className="h-12 justify-start" render={<Link href="/import" />}><FileUp /> {t("nav.import")}</Button>
-            <Button variant="outline" className="h-12 justify-start" render={<Link href="/generate" />}><PlayCircle /> {t("nav.generate")}</Button>
-            <Button variant="outline" className="h-12 justify-start" render={<Link href="/timetable" />}><Table2 /> {t("nav.timetable")}</Button>
-            <Button variant="outline" className="h-12 justify-start" render={<Link href={lastRun ? `/runs/${lastRun.id}?tab=chat` : "/runs"} />}><MessageSquare /> {t("chat.title")}</Button>
+            <Button variant="outline" className="h-12 justify-start" nativeButton={false} render={<Link href="/import" />}><FileUp /> {t("nav.import")}</Button>
+            <Button variant="outline" className="h-12 justify-start" nativeButton={false} render={<Link href="/generate" />}><PlayCircle /> {t("nav.generate")}</Button>
+            <Button variant="outline" className="h-12 justify-start" nativeButton={false} render={<Link href="/timetable" />}><Table2 /> {t("nav.timetable")}</Button>
+            <Button variant="outline" className="h-12 justify-start" nativeButton={false} render={<Link href={lastRun ? `/runs/${lastRun.id}?tab=chat` : "/runs"} />}><MessageSquare /> {t("chat.title")}</Button>
           </CardContent>
         </Card>
       </div>

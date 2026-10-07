@@ -5,10 +5,15 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from sqlalchemy import func, select
-
-from app.importers.crbs_legacy import SqliteSource, import_crbs, load_dump_into_sqlite, mysql_create_to_sqlite, split_sql_statements
+from app.importers.crbs_legacy import (
+    SqliteSource,
+    import_crbs,
+    load_dump_into_sqlite,
+    mysql_create_to_sqlite,
+    split_sql_statements,
+)
 from app.models import Block, Program, Room, Term, User, Week
+from sqlalchemy import func, select
 
 RES = Path(__file__).resolve().parents[3] / "crbs-core" / "application" / "modules" / "install" / "resources"
 STRUCTURE = RES / "structure.sql"
@@ -90,11 +95,15 @@ async def test_import_crbs_from_dump(session):
     assert admin.role == "ADMIN" and admin.password_hash is None
     teacher = (await session.execute(select(User).where(User.legacy_crbs_user_id == 2))).scalar_one()
     assert teacher.role == "VIEWER" and teacher.email.endswith("@crbs.local")
-    blocks = (await session.execute(select(Block).where(Block.source == "CRBS").order_by(Block.source_key))).scalars().all()
+    blocks = (
+        (await session.execute(select(Block).where(Block.source == "CRBS").order_by(Block.source_key))).scalars().all()
+    )
     single = [b for b in blocks if b.date is not None]
     assert len(single) == 2
     b1 = next(b for b in single if b.source_key == "CRBS:booking:1")
-    assert b1.day == 2 and (b1.start_period, b1.end_period) == (1, 1) and b1.weeks == [1] and "PSI 101 makeup" in b1.label
+    assert (
+        b1.day == 2 and (b1.start_period, b1.end_period) == (1, 1) and b1.weeks == [1] and "PSI 101 makeup" in b1.label
+    )
     b2 = next(b for b in single if b.source_key == "CRBS:booking:2")
     assert (b2.start_period, b2.end_period) == (7, 9)
     rep_b = next(b for b in blocks if b.source_key == "CRBS:repeat:1")

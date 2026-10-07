@@ -39,12 +39,18 @@ def _cohorts(inp: SolverInput, c: Constraint) -> dict[str, list[Event]]:
     return {k: v for k, v in groups.items() if len(v) >= 2}
 
 
-def _ext(ctx: ModelContext, cache: dict[tuple[int, int, int], Lit | None], eid: int, day: int, p: int, margin: int) -> Lit | None:
+def _ext(
+    ctx: ModelContext, cache: dict[tuple[int, int, int], Lit | None], eid: int, day: int, p: int, margin: int
+) -> Lit | None:
     key = (eid, day, p)
     if key in cache:
         return cache[key]
     dom = ctx.domain(eid)
-    lits = [ctx.time_lit(eid, ti) for ti, t in enumerate(dom.times) if t.day == day and t.start - margin <= p <= t.end + margin]
+    lits = [
+        ctx.time_lit(eid, ti)
+        for ti, t in enumerate(dom.times)
+        if t.day == day and t.start - margin <= p <= t.end + margin
+    ]
     res: Lit | None
     if not lits:
         res = None
@@ -110,7 +116,10 @@ def score(ev: Evaluation, c: Constraint) -> None:
             free = max(tb.start - ta.end - 1, ta.start - tb.end - 1)
             if free >= gap:
                 continue
-            msg = f"cohort '{key}': {a.label} and {b.label} are {max(0, free)} period(s) apart on day {ta.day} (minimum {gap})"
+            msg = (
+                f"cohort '{key}': {a.label} and {b.label} are {max(0, free)} "
+                f"period(s) apart on day {ta.day} (minimum {gap})"
+            )
             if c.hard:
                 ev.hard("exam_gap", [a.id, b.id], msg)
             else:

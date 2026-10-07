@@ -75,6 +75,7 @@ def row_dict(headers: list[str | None], values: tuple[Any, ...]) -> dict[str, An
     for i, v in enumerate(values):
         if v is None:
             continue
-        key = headers[i] if i < len(headers) and headers[i] else f"col_{i + 1}"
+        header = headers[i] if i < len(headers) else None
+        key = header or f"col_{i + 1}"
         out[key] = v if isinstance(v, str | int | float | bool) else str(v)
     return out

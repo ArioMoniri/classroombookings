@@ -100,7 +100,7 @@ def mysql_create_to_sqlite(stmt: str) -> str:
         up = ln.upper()
         if up.startswith(("KEY ", "UNIQUE KEY ", "CONSTRAINT ", "INDEX ", "FULLTEXT ", "SPATIAL ")):
             if up.startswith("UNIQUE KEY "):
-                cols = ln[ln.index("("):]
+                cols = ln[ln.index("(") :]
                 kept.append(f"UNIQUE {cols}")
             continue
         ln = re.sub(r"\s+CHARACTER SET \w+", "", ln, flags=re.I)
@@ -117,10 +117,23 @@ def mysql_create_to_sqlite(stmt: str) -> str:
     return f"{head} (\n  " + ",\n  ".join(kept) + "\n)"
 
 
-_SKIP_PREFIXES = ("SET ", "LOCK ", "UNLOCK ", "USE ", "DROP ", "START TRANSACTION", "COMMIT", "SELECT ", "ALTER ", "DELIMITER")
+_SKIP_PREFIXES = (
+    "SET ",
+    "LOCK ",
+    "UNLOCK ",
+    "USE ",
+    "DROP ",
+    "START TRANSACTION",
+    "COMMIT",
+    "SELECT ",
+    "ALTER ",
+    "DELIMITER",
+)
 
 
-def load_dump_into_sqlite(paths: Iterable[str | Path], conn: sqlite3.Connection | None = None) -> tuple[sqlite3.Connection, list[str]]:
+def load_dump_into_sqlite(
+    paths: Iterable[str | Path], conn: sqlite3.Connection | None = None
+) -> tuple[sqlite3.Connection, list[str]]:
     """Execute MySQL dump files against SQLite. Returns (connection, warnings about skipped statements)."""
     conn = conn or sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
@@ -179,7 +192,7 @@ class SqliteSource:
 class MysqlSource:
     def __init__(self, dsn: str):
         try:
-            import pymysql  # type: ignore[import-not-found]
+            import pymysql
         except ImportError as exc:  # pragma: no cover
             raise RuntimeError("pip install pymysql to import from a live CRBS MySQL server") from exc
         u = urlparse(dsn)
@@ -245,6 +258,10 @@ def _as_time(v: Any) -> time | None:
         return n.parse_time(v)
 
 
+def _fields(**kw: Any) -> dict[str, Any]:
+    return dict(kw)
+
+
 def term_code_for_session(name: str, session_id: int) -> str:
     slug = re.sub(r"[^A-Z0-9]+", "-", n.tr_upper(name)).strip("-")
     return f"CRBS-{slug or session_id}"
@@ -284,7 +301,7 @@ async def import_crbs(
 ) -> ImportReport:
     report = ImportReport(kind="crbs", filename=filename)
     if not hasattr(source, "rows"):
-        source, warns = open_source(source)  # type: ignore[arg-type]
+        source, warns = open_source(source)
         report.warnings.extend(warns)
     src: CrbsSource = source  # type: ignore[assignment]
     cat = Catalog(session, report)
@@ -331,7 +348,9 @@ async def import_crbs(
         room.room_group = groups.get(int(r["room_group_id"])) if r.get("room_group_id") is not None else room.room_group
         room.is_bookable = bool(r.get("bookable", 1))
         if r.get("photo"):
-            room.photo_url = f"uploads/{r['photo']}" if not str(r["photo"]).startswith(("http", "/")) else str(r["photo"])
+            room.photo_url = (
+                f"uploads/{r['photo']}" if not str(r["photo"]).startswith(("http", "/")) else str(r["photo"])
+            )
         room.custom_fields = {**(room.custom_fields or {}), **{k: v for k, v in custom.items() if v is not None}}
         if r.get("location") and not custom.get("location"):
             room.custom_fields = {**room.custom_fields, "location": r["location"]}
@@ -381,7 +400,9 @@ async def import_crbs(
         if start and end:
             monday = start - timedelta(days=start.weekday())
             idx = 0
-            existing_weeks = {w.index: w for w in (await session.execute(select(Week).where(Week.term_id == term.id))).scalars()}
+            existing_weeks = {
+                w.index: w for w in (await session.execute(select(Week).where(Week.term_id == term.id))).scalars()
+            }
             while monday <= end:
                 idx += 1
                 wk_end = monday + timedelta(days=6)
@@ -408,12 +429,12 @@ async def import_crbs(
 
     # --- departments -> programs --------------------------------------------
     prog_by_dept: dict[int, Program] = {}
-    for d in src.rows("departments"):
-        p = await cat.program(d.get("name"))
-        if p is None:
+    for dep in src.rows("departments"):
+        prog = await cat.program(dep.get("name"))
+        if prog is None:
             continue
-        p.legacy_crbs_department_id = int(d["department_id"])
-        prog_by_dept[int(d["department_id"])] = p
+        prog.legacy_crbs_department_id = int(dep["department_id"])
+        prog_by_dept[int(dep["department_id"])] = prog
 
     # --- users -----------------------------------------------------------------
     roles = {int(r["role_id"]): str(r["name"]) for r in src.rows("auth_roles")}
@@ -421,15 +442,25 @@ async def import_crbs(
     for u in src.rows("users"):
         uid = int(u["user_id"])
         email = n.clean_text(u.get("email")) or f"{u.get('username')}@crbs.local"
-        display = n.clean_text(u.get("displayname")) or " ".join(
-            x for x in (n.clean_text(u.get("firstname")), n.clean_text(u.get("lastname"))) if x
-        ) or str(u.get("username"))
+        display = (
+            n.clean_text(u.get("displayname"))
+            or " ".join(x for x in (n.clean_text(u.get("firstname")), n.clean_text(u.get("lastname"))) if x)
+            or str(u.get("username"))
+        )
         user_names[uid] = display
         role_name = roles.get(int(u["role_id"]) if u.get("role_id") is not None else -1, "")
         role = "ADMIN" if "admin" in role_name.lower() else "VIEWER"
         existing = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
         if existing is None:
-            session.add(User(email=email, full_name=display, role=role, is_active=bool(u.get("enabled", 1)), legacy_crbs_user_id=uid))
+            session.add(
+                User(
+                    email=email,
+                    full_name=display,
+                    role=role,
+                    is_active=bool(u.get("enabled", 1)),
+                    legacy_crbs_user_id=uid,
+                )
+            )
             report.created["users"] += 1
         else:
             existing.full_name = display
@@ -440,14 +471,13 @@ async def import_crbs(
     # --- bookings -> blocks ----------------------------------------------------
     if include_bookings:
         existing_blocks = {
-            b.source_key: b
-            for b in (await session.execute(select(Block).where(Block.source == "CRBS"))).scalars()
+            b.source_key: b for b in (await session.execute(select(Block).where(Block.source == "CRBS"))).scalars()
         }
         weekdates: dict[int, set[date]] = {}
         for wd in src.rows("weekdates"):
-            d = _as_date(wd.get("date"))
-            if d:
-                weekdates.setdefault(int(wd["week_id"]), set()).add(d)
+            wd_date = _as_date(wd.get("date"))
+            if wd_date:
+                weekdates.setdefault(int(wd["week_id"]), set()).add(wd_date)
         seen: set[str] = set()
 
         def _term_for_date(d: date | None, sid: Any) -> Term | None:
@@ -478,18 +508,28 @@ async def import_crbs(
                 continue
             room = room_by_legacy.get(int(b["room_id"]))
             pr = pmap.by_id.get(int(b["period_id"]))
-            d = _as_date(b.get("date"))
-            term = _term_for_date(d, b.get("session_id"))
-            if room is None or pr is None or d is None or term is None:
+            bdate = _as_date(b.get("date"))
+            term = _term_for_date(bdate, b.get("session_id"))
+            if room is None or pr is None or bdate is None or term is None:
                 report.skip(int(b["booking_id"]), "booking without room/period/date/term")
                 continue
             key = f"CRBS:booking:{b['booking_id']}"
             seen.add(key)
-            wk = _week_index(term, d)
-            fields_ = dict(
-                term_id=term.id, room_id=room.id, day=d.isoweekday(), date=d, start_period=pr[0], end_period=pr[1],
-                weeks=[wk] if wk else [], label=_label(b), tags=["CRBS"], notes=n.clean_text(b.get("notes")),
-                source="CRBS", source_key=key, archived=False,
+            wk = _week_index(term, bdate)
+            fields_ = _fields(
+                term_id=term.id,
+                room_id=room.id,
+                day=bdate.isoweekday(),
+                date=bdate,
+                start_period=pr[0],
+                end_period=pr[1],
+                weeks=[wk] if wk else [],
+                label=_label(b),
+                tags=["CRBS"],
+                notes=n.clean_text(b.get("notes")),
+                source="CRBS",
+                source_key=key,
+                archived=False,
             )
             blk = existing_blocks.get(key)
             if blk is None:
@@ -510,15 +550,35 @@ async def import_crbs(
                 report.skip(int(b["repeat_id"]), "repeat booking without room/period/term")
                 continue
             dates = weekdates.get(int(b["week_id"]), set())
-            weeks = sorted({w for w in (_week_index(term, d) for d in dates if term.start_date and term.end_date and term.start_date <= d <= term.end_date) if w})
+            weeks = sorted(
+                {
+                    w
+                    for w in (
+                        _week_index(term, d)
+                        for d in dates
+                        if term.start_date and term.end_date and term.start_date <= d <= term.end_date
+                    )
+                    if w
+                }
+            )
             if not weeks:
                 weeks = list(range(1, (term.week_count or 0) + 1))
             key = f"CRBS:repeat:{b['repeat_id']}"
             seen.add(key)
-            fields_ = dict(
-                term_id=term.id, room_id=room.id, day=int(b["weekday"]), date=None, start_period=pr[0], end_period=pr[1],
-                weeks=weeks, label=_label(b), tags=["CRBS"], notes=n.clean_text(b.get("notes")),
-                source="CRBS", source_key=key, archived=False,
+            fields_ = _fields(
+                term_id=term.id,
+                room_id=room.id,
+                day=int(b["weekday"]),
+                date=None,
+                start_period=pr[0],
+                end_period=pr[1],
+                weeks=weeks,
+                label=_label(b),
+                tags=["CRBS"],
+                notes=n.clean_text(b.get("notes")),
+                source="CRBS",
+                source_key=key,
+                archived=False,
             )
             blk = existing_blocks.get(key)
             if blk is None:
@@ -529,8 +589,8 @@ async def import_crbs(
                     setattr(blk, k, v)
                 report.updated["blocks"] += 1
             report.rows_imported += 1
-        for key, blk in existing_blocks.items():
-            if key not in seen and not blk.archived:
+        for skey, blk in existing_blocks.items():
+            if skey and skey not in seen and not blk.archived:
                 blk.archived = True
                 report.updated["blocks_archived"] += 1
     report.rows_total = report.rows_imported + report.rows_skipped_count

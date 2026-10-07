@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import date, time
+from datetime import date as date_
+from datetime import time
 from pathlib import Path
 from typing import Any
 
@@ -46,8 +47,8 @@ class ExamRow:
     class_years: list[int]
     enrolment: int | None
     instructor: str | None
-    date: date | None
-    date_end: date | None
+    date: date_ | None
+    date_end: date_ | None
     start_time: time | None
     end_time: time | None
     periods: n.PeriodRange
@@ -85,7 +86,9 @@ class ParsedExamList:
     skipped: list[tuple[int, str, str | None]]
 
 
-def parse_exam_row(row: int, values: tuple[Any, ...], mapping: dict[str, int], headers: list[str | None]) -> ExamRow | tuple[str, str | None]:
+def parse_exam_row(
+    row: int, values: tuple[Any, ...], mapping: dict[str, int], headers: list[str | None]
+) -> ExamRow | tuple[str, str | None]:
     def g(k: str) -> Any:
         idx = mapping.get(k)
         return values[idx] if idx is not None and idx < len(values) else None
@@ -250,8 +253,8 @@ async def import_exam_list(
                 setattr(ex, k, v)
             report.updated["exam_requests"] += 1
         report.rows_imported += 1
-    for key, ex in existing.items():
-        if key and key not in seen_keys and not ex.archived:
+    for skey, ex in existing.items():
+        if skey and skey not in seen_keys and not ex.archived:
             ex.archived = True
             report.updated["exam_requests_archived"] += 1
     report.extra["merge_groups"] = len(merge_groups)

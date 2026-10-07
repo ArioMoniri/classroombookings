@@ -5,7 +5,7 @@
  */
 import { PERIODS_PER_DAY, rangesOverlap } from "@/lib/time";
 
-export type EventStatus = "ok" | "locked" | "conflict" | "block" | "tip" | "pc";
+export type EventStatus = "ok" | "locked" | "conflict" | "block" | "tip" | "pc" | "warning";
 
 export interface GridSpanInput {
   id: string;

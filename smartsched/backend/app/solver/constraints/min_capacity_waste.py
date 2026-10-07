@@ -59,7 +59,8 @@ def score(ev: Evaluation, c: Constraint) -> None:
             ev.soft(
                 "min_capacity_waste",
                 [event.id],
-                f"{event.label} ({event.size}) in {'+'.join(r.code for r in rooms)} ({sum(effective_capacity(r, event) for r in rooms)} seats)",
+                f"{event.label} ({event.size}) in {'+'.join(r.code for r in rooms)} "
+                f"({sum(effective_capacity(r, event) for r in rooms)} seats)",
                 waste * w,
                 [r.id for r in rooms],
             )

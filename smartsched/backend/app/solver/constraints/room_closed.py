@@ -43,7 +43,7 @@ def prune(doms: Domains, c: Constraint) -> None:
     if not c.hard:
         return
     for b in _blocks(doms.inp, c):
-        doms.add_block(b)
+        doms.add_block(b, f"room_closed #{c.id}")
 
 
 def apply(ctx: ModelContext, c: Constraint) -> None:
@@ -55,7 +55,14 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
         dom = ctx.domain(eid)
         weeks = ctx.events_by_id[eid].weeks
         for ti, t in enumerate(dom.times):
-            if any(b.room_id == rid and b.day == t.day and t.start <= b.end and b.start <= t.end and (b.week is None or b.week in weeks) for b in blocks):
+            if any(
+                b.room_id == rid
+                and b.day == t.day
+                and t.start <= b.end
+                and b.start <= t.end
+                and (b.week is None or b.week in weeks)
+                for b in blocks
+            ):
                 ctx.add_penalty("room_closed", ctx.and_lit(ctx.time_lit(eid, ti), z), 1, w)
 
 
@@ -70,9 +77,18 @@ def score(ev: Evaluation, c: Constraint) -> None:
         event = ev.events_by_id[eid]
         t = TimeOption(a.day, a.start, a.end - a.start + 1)
         for b in blocks:
-            if b.room_id in a.room_ids and b.day == t.day and t.start <= b.end and b.start <= t.end and (b.week is None or b.week in event.weeks):
+            if (
+                b.room_id in a.room_ids
+                and b.day == t.day
+                and t.start <= b.end
+                and b.start <= t.end
+                and (b.week is None or b.week in event.weeks)
+            ):
                 code = ev.rooms_by_id[b.room_id].code if b.room_id in ev.rooms_by_id else str(b.room_id)
-                msg = f"{event.label} uses {code} on day {b.day} P{b.start}-P{b.end} while it is closed ({c.params.get('label', 'room_closed')})"
+                msg = (
+                    f"{event.label} uses {code} on day {b.day} P{b.start}-P{b.end} "
+                    f"while it is closed ({c.params.get('label', 'room_closed')})"
+                )
                 if c.hard:
                     ev.hard("room_closed", [eid], msg, [b.room_id])
                 else:

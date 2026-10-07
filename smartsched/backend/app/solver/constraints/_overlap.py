@@ -46,5 +46,6 @@ def score_keys(ev: Evaluation, groups: dict[str, list[int]], kind: str, noun: st
             ev.hard(
                 kind,
                 [a, b],
-                f"{noun} '{key}': {ev.events_by_id[a].label} and {ev.events_by_id[b].label} overlap on day {ta.day} (P{max(ta.start, tb.start)}-P{min(ta.end, tb.end)})",
+                f"{noun} '{key}': {ev.events_by_id[a].label} and {ev.events_by_id[b].label} "
+                f"overlap on day {ta.day} (P{max(ta.start, tb.start)}-P{min(ta.end, tb.end)})",
             )

@@ -33,7 +33,13 @@ class JobState:
     listeners: list[asyncio.Queue[dict[str, Any]]] = field(default_factory=list)
 
     def snapshot(self) -> dict[str, Any]:
-        return {"key": self.key, "status": self.status, "phase": self.phase, "progress": self.progress, "error": self.error}
+        return {
+            "key": self.key,
+            "status": self.status,
+            "phase": self.phase,
+            "progress": self.progress,
+            "error": self.error,
+        }
 
 
 class JobQueue:
