@@ -21,6 +21,9 @@ COPY pyproject.toml ./
 RUN mkdir -p app && touch app/__init__.py && pip install . && rm -rf app
 COPY app ./app
 RUN pip install --no-deps .
+# Optional extras, e.g. EXTRA_PIP="pymysql" for the live CRBS (MySQL) importer.
+ARG EXTRA_PIP=""
+RUN if [ -n "$EXTRA_PIP" ]; then pip install $EXTRA_PIP; fi
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime image (non-root, migrations + admin seed on start).

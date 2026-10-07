@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1.7
-# Legacy classroombookings (CRBS, CodeIgniter 3) served by Apache so the live app can be
+# Legacy classroombookings (CRBS, CodeIgniter 3; needs mysqli + intl) served by Apache so the live app can be
 # imported into SmartSched (`python -m app.cli import crbs --dsn mysql://…`).
 # Build context: the repository root (set in docker-compose.yml, profile "legacy").
-FROM php:8.3-apache
+FROM php:8.3-apache-bookworm
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends libicu-dev libzip-dev zlib1g-dev; \
-    docker-php-ext-install -j"$(nproc)" mysqli pdo_mysql intl zip; \
-    apt-get purge -y --auto-remove libicu-dev libzip-dev zlib1g-dev; \
-    apt-get install -y --no-install-recommends libicu72 libzip4; \
+    apt-get install -y --no-install-recommends libicu-dev; \
+    docker-php-ext-install -j"$(nproc)" mysqli pdo_mysql intl; \
+    apt-get purge -y --auto-remove libicu-dev; \
+    apt-get install -y --no-install-recommends libicu72; \
     rm -rf /var/lib/apt/lists/*; \
     a2enmod rewrite headers; \
     mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"; \
