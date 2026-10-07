@@ -74,6 +74,13 @@ constraint. Cohort / instructor keys use the same idea in 1-D: one `NoOverlap` p
 `SMARTSCHED_ROOM_ENCODING=classes` switches rooms to the week-class encoding too (kept for
 benchmarking: on 300 events it converges ~2× slower than the 2-D encoding).
 
+When greedy leaves a few events unplaced, `cpsat._complete_hint` re-solves a small locked
+neighbourhood first so the hint is complete (every derived variable — `occ`, `on_day`, group
+`used`/`extra`, exam `pen`/`ext` — is valued through `ctx.derive` evaluators); an incomplete hint
+on the full Bahar instance meant *no* solution within 90 s, a complete one gives the first solution
+at once (1 300 events / 60 rooms / 14 weeks / 7 days: FEASIBLE, hard 100, ≈ 100 s budget spent on
+LNS improvement, 4 cores).
+
 Benchmark history (300 Bahar-like events, 60 rooms, 14 weeks, 4 cores):
 
 | encoding | presolve | first solution | optimum (261) |
@@ -103,6 +110,17 @@ assignments, never read back from CP-SAT, so `solve()` and `validate()` agree by
 
 `hard_score` = 100 when there is no hard violation, else `100 × (1 − violated events / events)`;
 `soft_score` = `100 × (1 − penalty / worst-case penalty)` where each term reports its own bound.
+
+### Shared exam rooms (`Event.share_room`)
+
+The Final plan seats several small exams in one room under one invigilator. Events with
+`share_room=True` (single-room only; split exams stay exclusive) are not in the room's
+`NoOverlap2D`; instead each room with sharing candidates gets a `Cumulative` per week class with
+demand = event size and capacity = the room's `exam_capacity` (lecture capacity if no sharing event
+is an exam). Exclusive events and blocks enter the same cumulative with demand = capacity, so one
+non-sharing event in a room-period excludes everything else. `validate()` checks the seat budget per
+(room, day, period, week); the static checker skips sharing pairs in its lock/pigeonhole tests and
+`explain_event` reports "shared seats exceed N" when that is the blocker.
 
 ### Hard constraints that are always hard
 

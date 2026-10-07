@@ -20,7 +20,7 @@ from collections import defaultdict
 
 from app.solver.constraints._common import pairs, week_classes
 from app.solver.context import ModelContext
-from app.solver.domains import effective_capacity, shares_room, sharing_capacity, weeks_intersect
+from app.solver.domains import shares_room, sharing_capacity, weeks_intersect
 from app.solver.evaluate import Evaluation, room_occupancy
 from app.solver.model import Constraint, Event
 
@@ -63,8 +63,8 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
         cap = sharing_capacity(room, [e for _, _, e in shared])
         entries: list[tuple[tuple[object, int], frozenset[int]]] = [((iv, e.size), w) for iv, w, e in shared]
         entries += [((iv, cap), w) for iv, w in items]
-        for group in week_classes(entries):
-            ctx.model.AddCumulative([iv for iv, _ in group], [d for _, d in group], cap)
+        for cgroup in week_classes(entries):
+            ctx.model.AddCumulative([iv for iv, _ in cgroup], [d for _, d in cgroup], cap)
 
 
 def score(ev: Evaluation, c: Constraint) -> None:
@@ -77,8 +77,8 @@ def score(ev: Evaluation, c: Constraint) -> None:
         sharers = [i for i in eids if shares_room(ev.events_by_id[i])]
         if len(sharers) >= 2 and rid in ev.rooms_by_id:
             # seat budget per week among sharing events
-            room = ev.rooms_by_id[rid]
-            cap = sharing_capacity(room, [ev.events_by_id[i] for i in sharers])
+            shared_room = ev.rooms_by_id[rid]
+            cap = sharing_capacity(shared_room, [ev.events_by_id[i] for i in sharers])
             for wk in ev.inp.weeks:
                 ids = tuple(sorted(i for i in sharers if wk in ev.events_by_id[i].weeks))
                 total = sum(ev.events_by_id[i].size for i in ids)
@@ -88,7 +88,8 @@ def score(ev: Evaluation, c: Constraint) -> None:
                     ev.hard(
                         "no_room_overlap",
                         list(ids),
-                        f"shared room {room.code} on day {day} P{p} (week {wk}) seats {cap} but holds {total}: {labels}",
+                        f"shared room {shared_room.code} on day {day} P{p} (week {wk}) "
+                        f"seats {cap} but holds {total}: {labels}",
                         [rid],
                     )
         for a, b in pairs(sorted(eids)):

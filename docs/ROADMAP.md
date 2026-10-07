@@ -53,6 +53,13 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Mobile room display mode (door signs)
 - [ ] SSO (LDAP, like CRBS) and role-based access
 - [ ] Multi-campus / multi-timezone
+- [ ] Backend: add `GET /dashboard` summary, `/users` CRUD, `/runs/{id}/chat*` (proposal apply/undo), `/constraints/propose`, `/runs/{id}/diagnosis/{id}/apply` — the frontend ships these as MSW mocks only (frontend-engineer)
+- [ ] Backend: `AssignmentOut` should carry `size`/`enrolment`, `program_name`, `instructor`, `conflict` so the grid's capacity/TIP checks and tooltips work on real data (frontend adapts with defaults today)
+- [ ] Frontend: SSE run progress (`/runs/{id}/events`) instead of 1 s polling; streaming chat replies
+- [ ] Frontend: grid resize handle, context menu, move-scope popover (all weeks / this week / from week), undo/redo history (⌘Z) per timetable-grid.md §4.2–4.3
+- [ ] Frontend: requests board (kanban) view, chip editor for free-text room requests, saved views
+- [ ] Frontend: room photo upload (`POST /rooms/{id}/photo`), lightbox, capacity-range filter histogram
+- [ ] Frontend: settings/terms editor, user deactivate/reset-password, dirty-state guard, audit history
 - [ ] Solver: two-stage room-domain restriction (K nearest-capacity rooms first, full domains on fallback) to cut time-to-optimal on 1 300-event runs
 - [ ] Solver: soft "split exam rooms in the same building / adjacent" term and invigilator-count cumulative for multi-room exams
 - [ ] Solver: enumerate several MUSes / smallest MUS (QuickXplain) so the planner sees alternative fixes, not just one conflict set
