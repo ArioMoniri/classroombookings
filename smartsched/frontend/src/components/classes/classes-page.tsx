@@ -131,7 +131,14 @@ export function ClassesPage() {
   const isSystem = (SYSTEM_VIEWS as string[]).includes(viewParam);
   const savedView = saved.find((v) => v.id === viewParam);
   const baseline = useMemo<ViewState>(() => (savedView ? savedView.state : defaultView((isSystem ? viewParam : "all") as SystemView)), [savedView, isSystem, viewParam]);
-  const [drafts, setDrafts] = useState<Record<string, ViewState>>({});
+  // legacy deep links (⌘K course → /requests?q=, programme → /requests?program_id=) arrive as a draft of the view
+  const [drafts, setDrafts] = useState<Record<string, ViewState>>(() => {
+    const q = params.get("q");
+    const prog = Number(params.get("program_id") ?? params.get("program") ?? "") || null;
+    if (!q && prog === null) return {};
+    const base = defaultView((isSystem ? viewParam : "all") as SystemView);
+    return { [viewParam]: { ...base, filters: { ...base.filters, text: q ?? "", program: prog !== null ? [prog] : [] } } };
+  });
   const view = drafts[viewParam] ?? baseline;
   const setView = useCallback((patch: Partial<ViewState>) => setDrafts((d) => ({ ...d, [viewParam]: { ...(d[viewParam] ?? baseline), ...patch } })), [viewParam, baseline]);
   const modified = !sameView(view, baseline);

@@ -320,7 +320,12 @@ def _trusted_lock_warnings(prep: Prepared) -> list[Diagnosis]:
                     ["check the room requirement of the request or the room's tags (room master)"],
                     "warning",
                     "trusted_lock_tags",
-                    {"rooms": [r.id for r in rooms], "missing_tags": missing, "forbidden_tags": clash},
+                    {
+                        "rooms": [r.id for r in rooms],
+                        "room_codes": [r.code for r in rooms],
+                        "missing_tags": missing,
+                        "forbidden_tags": clash,
+                    },
                 )
             )
     return out

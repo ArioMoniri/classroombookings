@@ -59,9 +59,11 @@ export function parseSubject(v: string | null): Subject | null {
 export function parseViewState(params: URLSearchParams, defaults: Partial<ViewState> = {}): ViewState {
   const lens = params.get("lens");
   const density = params.get("density");
+  // a deep link that names a subject (⌘K instructor result, inspector links) opens that subject's week (calendar.md §4)
+  const subjectLens: Lens | undefined = params.get("subject") && !lens ? "week" : undefined;
   return {
     run: num(params.get("run")) ?? defaults.run ?? null,
-    lens: (LENSES as readonly string[]).includes(lens ?? "") ? (lens as Lens) : (defaults.lens ?? "board"),
+    lens: (LENSES as readonly string[]).includes(lens ?? "") ? (lens as Lens) : (subjectLens ?? defaults.lens ?? "board"),
     board: params.get("board") === "strip" ? "strip" : (defaults.board ?? "day"),
     week: num(params.get("week")) ?? defaults.week ?? null,
     day: Math.min(7, Math.max(1, num(params.get("day")) ?? defaults.day ?? 1)),
@@ -78,7 +80,8 @@ export function serializeViewState(s: ViewState, base?: URLSearchParams): URLSea
   const p = new URLSearchParams(base);
   const set = (k: string, v: string | null) => (v === null ? p.delete(k) : p.set(k, v));
   set("run", s.run !== null ? String(s.run) : null);
-  set("lens", s.lens !== "board" ? s.lens : null);
+  // "board" is the default lens, except when a subject is set (a subject alone means its week, see parseViewState)
+  set("lens", s.lens !== "board" || s.subject ? s.lens : null);
   set("board", s.board === "strip" ? "strip" : null);
   set("week", s.week !== null ? String(s.week) : null);
   set("day", String(s.day));

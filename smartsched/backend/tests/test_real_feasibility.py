@@ -210,6 +210,21 @@ async def test_real_bahar_week3_static_check_has_no_blockers_from_locks_or_fixed
     assert len(errors) < 20
     pc = [e for e in inp.events if "PC" in e.required_tags]
     assert pc and all(any("PC" in r.tags for r in inp.rooms) for _ in pc)
+    # planner text of the real trusted_lock_tags case (run-5 payload shape): the room code is filled in
+    from dataclasses import asdict
+
+    from app.services.data_issues import TextContext, planner_text
+
+    tags = next(asdict(d) for d in warns if d.code == "trusted_lock_tags")
+    labels = {e.id: e.label for e in inp.events}
+    codes = {r.id: r.code for r in inp.rooms}
+    text = planner_text(tags, TextContext(labels=labels, rooms=codes))
+    room = tags["params"]["room_codes"][0]
+    assert f"kilitli dersliği {room} " in text["tr"] and "  " not in text["tr"], text
+    assert f"is locked to {room}" in text["en"] and "#" not in text["tr"]
+    # without room_codes (older stored payloads) the ids are resolved through the context
+    old = {**tags, "params": {k: v for k, v in tags["params"].items() if k != "room_codes"}}
+    assert f"kilitli dersliği {room} " in planner_text(old, TextContext(labels=labels, rooms=codes))["tr"]
 
 
 @SLOW

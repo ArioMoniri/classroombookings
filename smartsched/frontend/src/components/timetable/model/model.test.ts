@@ -219,9 +219,16 @@ describe("lens switching and URL state", () => {
     const s = parseViewState(new URLSearchParams("lens=week&subject=room:12&week=7&day=3&zoom=4&sel=88&foo=1"));
     expect(s).toMatchObject({ lens: "week", subject: { kind: "room", id: "12" }, week: 7, day: 3, zoom: 4, sel: 88 });
     const back = serializeViewState({ ...s, lens: "board" }, new URLSearchParams("foo=1"));
-    expect(back.get("lens")).toBeNull();
+    expect(back.get("lens")).toBe("board");
+    expect(parseViewState(back).lens).toBe("board");
+    expect(serializeViewState({ ...s, lens: "board", subject: null }).get("lens")).toBeNull();
     expect(back.get("subject")).toBe("room:12");
     expect(back.get("foo")).toBe("1");
+  });
+  it("honours the shell's deep links (run report, ⌘K)", () => {
+    expect(parseViewState(new URLSearchParams("run=5&week=7"))).toMatchObject({ run: 5, week: 7, lens: "board" });
+    expect(parseViewState(new URLSearchParams("subject=instructor:42"))).toMatchObject({ lens: "week", subject: { kind: "instructor", id: "42" } });
+    expect(parseViewState(new URLSearchParams("lens=day&subject=instructor:42")).lens).toBe("day");
   });
   it("invalid values fall back to defaults", () => {
     const s = parseViewState(new URLSearchParams("lens=year&density=huge&zoom=99&day=9"));

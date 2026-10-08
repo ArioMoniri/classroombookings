@@ -199,7 +199,7 @@ async def _seed() -> int:
             )
         )
 
-        async def meeting(code, year, size, day, start, end, locked=None, teacher=None, tags=()):  # type: ignore[no-untyped-def]
+        async def meeting(code, year, size, day, start, end, locked=None, teacher=None, tags=(), requested=None):  # type: ignore[no-untyped-def]
             course = Course(code=code.replace(" ", ""), display_code=code, name=f"{code} name")
             s.add(course)
             await s.flush()
@@ -231,6 +231,7 @@ async def _seed() -> int:
                 definitive_room_ids=[rooms[locked].id] if locked else [],
                 needs_room=True,
                 requested_tags=list(tags),
+                requested_room_ids=[rooms[requested].id] if requested else [],
                 source_row_index=7,
             )
             s.add(mr)
@@ -247,6 +248,7 @@ async def _seed() -> int:
         await meeting("LAB 1", 8, 20, 4, 1, 2, "A701")
         await meeting("BIG 500", 9, 400, 2, 9, 10)
         await meeting("ETK 1", 10, 20, 5, 1, 2, "A101")
+        await meeting("PHAR 240", 11, 130, 5, 6, 7, requested="A101")  # usability m1: 130 students, 58 seats
         # the published board (grid import run) has MAT 112 in A207, the planning list says A204
         board = ScheduleRun(
             term_id=term.id,
@@ -314,7 +316,10 @@ async def test_data_issues_groups_with_classes_and_xlsx(client):
     assert courses("locked_room_overlap") == {"MAT 112", "HEM 236"}
     assert courses("fixed_instructor_clash") == {"MAT 101", "MAT 205"}
     assert courses("fixed_cohort_clash") >= {"FIZ 101", "KIM 101"}
-    assert courses("locked_room_too_small") == {"ACU 132"}
+    assert courses("locked_room_too_small") == {"ACU 132", "PHAR 240"}
+    phar = next(it for it in groups["locked_room_too_small"]["items"] if it["code"] == "room_capacity")
+    assert phar["message_tr"] == "PHAR 240 §1: A101 58 kişilik, bu derste 130 öğrenci var."
+    assert phar["message"] == "PHAR 240 §1: A101 has 58 seats, this class has 130."
     assert courses("missing_tags") == {"BIL 101"}
     assert courses("rooms_outside_pool") == {"LAB 1"}
     assert "BIG 500" in courses("no_free_room")
@@ -324,7 +329,7 @@ async def test_data_issues_groups_with_classes_and_xlsx(client):
         "MAT 112 §1 (Perşembe 13:30–15:50): planlama listesinde A204, yayınlanan panoda A207 (1. hafta)."
     ]
     assert board[0]["classes"][0]["board_rooms"] == "A207"
-    acu = groups["locked_room_too_small"]["items"][0]
+    acu = next(it for it in groups["locked_room_too_small"]["items"] if it["code"] == "trusted_lock_capacity")
     assert acu["message_tr"].startswith("ACU 132 §1: beklenen 122 öğrenci") and "options" not in acu["params"]
     cls = acu["classes"][0]
     assert cls["program"] == "Fizyoterapi" and cls["planner_rooms"] == "A207" and cls["time"] and cls["source_row"] == 7
@@ -346,7 +351,7 @@ async def test_data_issues_groups_with_classes_and_xlsx(client):
     col = header.index("Ders / Course")
     assert {row[col] for row in body} == {"MAT 112", "HEM 236"}
     summary = {row[1].value: row[2].value for row in wb["Özet - Summary"].iter_rows(min_row=2) if row[1].value}
-    assert summary["Locked room overlaps"] == 1 and summary["Locked rooms too small"] == 1
+    assert summary["Locked room overlaps"] == 1 and summary["Planned rooms too small"] == 2
 
     assert (await client.get("/api/v1/runs/999999/data-issues", headers=h)).status_code == 404
     assert (

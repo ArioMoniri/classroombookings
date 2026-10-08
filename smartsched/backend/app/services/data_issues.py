@@ -117,10 +117,10 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec(
         "locked_room_too_small",
         "Küçük derslik - Room too small",
-        "Kilitli derslik beklenen öğrenci sayısından küçük",
-        "Locked rooms too small",
-        "Planlayıcının dersliği beklenen öğrenci sayısından küçük; plan korunur, büyük derslik önerilir.",
-        "The planner's room seats fewer than the expected enrolment; kept as planned, bigger rooms suggested.",
+        "Planlanan derslik öğrenci sayısından küçük",
+        "Planned rooms too small",
+        "Planlayıcının (kesin ya da istenen) dersliği öğrenci sayısından küçük; kilitli plan korunur.",
+        "The planner's (definitive or requested) room seats fewer than the enrolment; locks are kept.",
     ),
     GroupSpec(
         "missing_tags",
@@ -233,6 +233,7 @@ class TextContext:
     programs: dict[str, str] = field(default_factory=dict)  # canonical programme -> display name
     stats: dict[str, Any] = field(default_factory=dict)  # run stats (placed / events_total ...)
     exam: bool = False
+    rooms: dict[int, str] = field(default_factory=dict)  # room id -> code (params with ids only)
 
 
 _ID_RX = re.compile(r" ?\(#-?\d+\)")
@@ -331,7 +332,9 @@ def planner_text(d: dict[str, Any], ctx: TextContext | None = None) -> dict[str,
         return _slot(lang, *t) if t else ""
 
     first = lab(ids[0]) if ids else ""
-    rooms = " / ".join(str(c) for c in _as_list(p.get("room_codes")))
+    rooms = " / ".join(str(c) for c in _as_list(p.get("room_codes"))) or " / ".join(
+        ctx.rooms.get(int(r), "") for r in _as_list(p.get("rooms")) if isinstance(r, int) and int(r) in ctx.rooms
+    )
     size = p.get("size")
     out: dict[str, str] | None = None
     if code == "partial":
@@ -526,9 +529,17 @@ def planner_text(d: dict[str, Any], ctx: TextContext | None = None) -> dict[str,
             }
     elif code == "trusted_lock_tags":
         tags = ", ".join(map(str, _as_list(p.get("missing_tags"))))
+        bad = ", ".join(map(str, _as_list(p.get("forbidden_tags"))))
+        where_tr = rooms or "planlayıcının dersliği"
+        where_en = rooms or "the planner's room"
+        why_tr = " ve ".join(
+            x for x in (f"{tags} özelliğine sahip değil" if tags else "", f"{bad} dersliği" if bad else "") if x
+        )
+        why_en = " and ".join(x for x in (f"lacks {tags}" if tags else "", f"is a {bad} room" if bad else "") if x)
         out = {
-            "tr": f"{first} kilitli dersliği {rooms} {tags} özelliğine sahip değil; plan korunuyor.",
-            "en": f"{first} is locked to {rooms}, which lacks {tags}; kept as planned.",
+            "tr": f"{first} kilitli dersliği {where_tr} {why_tr or 'istenen özelliklere uymuyor'}; plan korunuyor.",
+            "en": f"{first} is locked to {where_en}, which {why_en or 'does not match the requested tags'}; "
+            "kept as planned.",
         }
     elif code in ("locked_ineligible", "locked_blocked"):
         slot_tr = _slot("tr", p.get("day"), p.get("start"), p.get("end")) or (when(ids[0], "tr") if ids else "")
@@ -636,6 +647,7 @@ async def text_context(
     mem = members if members is not None else await _members(session, run, ids)
     rows = await _class_rows(session, run, {r for e in ids for r in mem.get(e, [e])})
     ctx = TextContext(stats=dict(run.stats or {}), exam=run.kind == "EXAM")
+    ctx.rooms = {int(i): str(c) for i, c in (await session.execute(select(Room.id, Room.code))).all()}
     for e in ids:
         reqs = [rows[r] for r in mem.get(e, [e]) if r in rows]
         if not reqs:
@@ -895,6 +907,64 @@ async def board_vs_list(session: AsyncSession, run: ScheduleRun) -> list[dict[st
     return out
 
 
+async def capacity_warnings(session: AsyncSession, term_id: int, kind: str = "COURSE") -> list[dict[str, Any]]:
+    """Requests whose planner room (definitive, else requested) seats fewer than the enrolment —
+    "A 206 has 92 seats, this class has 130" — straight from the data (no run needed; the studio's
+    class list can use the same check).  Exams compare with the rooms' exam capacity."""
+    exam = kind == "EXAM"
+    rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
+    found: list[tuple[int, list[int], int, int]] = []  # request, rooms, seats, enrolment
+    if exam:
+        q = select(ExamRequest).where(ExamRequest.term_id == term_id, ExamRequest.archived.is_(False))
+        for ex in (await session.execute(q)).scalars():
+            ids = [int(r) for r in (ex.definitive_room_ids or ex.requested_room_ids or []) if int(r) in rooms]
+            seats = sum(int(rooms[r].exam_capacity or rooms[r].capacity or 0) for r in ids)
+            if ids and seats and int(ex.enrolment or 0) > seats:
+                found.append((ex.id, ids, seats, int(ex.enrolment or 0)))
+    else:
+        qm = (
+            select(MeetingRequest)
+            .join(Section, Section.id == MeetingRequest.section_id)
+            .where(Section.term_id == term_id, MeetingRequest.archived.is_(False), MeetingRequest.needs_room.is_(True))
+            .options(selectinload(MeetingRequest.section))
+        )
+        for mr in (await session.execute(qm)).scalars():
+            ids = [int(r) for r in (mr.definitive_room_ids or mr.requested_room_ids or []) if int(r) in rooms]
+            seats = sum(int(rooms[r].capacity or 0) for r in ids)
+            size = int(mr.section.enrolment or mr.requested_capacity or 0)
+            if ids and seats and size > seats:
+                found.append((mr.id, ids, seats, size))
+    if not found:
+        return []
+    fake = ScheduleRun(term_id=term_id, kind=kind)
+    rows = await _class_rows(session, fake, {f[0] for f in found})
+    out: list[dict[str, Any]] = []
+    for rid, ids, seats, size in found:
+        row = rows.get(rid)
+        if row is None:
+            continue
+        name = f"{row['course_code']}{' §' + row['section'] if row['section'] else ''}"
+        codes = " / ".join(rooms[r].code for r in ids)
+        what = "sınav koltuğu" if exam else "kişilik"
+        out.append(
+            {
+                "diagnosis_index": -1,
+                "code": "room_capacity",
+                "severity": "warning",
+                "message": f"{name}: {codes} has {seats} {'exam ' if exam else ''}seats, this class has {size}.",
+                "message_tr": f"{name}: {codes} {seats} {what}, bu derste {size} öğrenci var.",
+                "detail": "",
+                "suggestions": ["check the enrolment or choose a bigger room"],
+                "event_ids": [],
+                "request_ids": [rid],
+                "unplaced": False,
+                "params": {"room_codes": [rooms[r].code for r in ids], "seats": seats, "size": size},
+                "classes": [row],
+            }
+        )
+    return out
+
+
 async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str, Any]:
     """The grouped report (JSON shape of ``GET /runs/{id}/data-issues``)."""
     diags = [d for d in (run.diagnosis or []) if isinstance(d, dict)]
@@ -909,6 +979,15 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
     rows = await _class_rows(session, run, {r for ms in members.values() for r in ms})
     ctx = await text_context(session, run, [d for items in grouped.values() for _i, d in items])
     board = await board_vs_list(session, run)
+    covered = {
+        r
+        for _i, d in grouped["locked_room_too_small"]
+        for e in d.get("event_ids") or []
+        for r in members.get(int(e), [int(e)])
+    }
+    capacity = [
+        it for it in await capacity_warnings(session, run.term_id, run.kind) if it["request_ids"][0] not in covered
+    ]
     groups_out: list[dict[str, Any]] = []
     for spec in GROUPS:
         items: list[dict[str, Any]] = []
@@ -935,6 +1014,8 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
             )
         if spec.code == "board_vs_list":
             items = board
+        if spec.code == "locked_room_too_small":
+            items = items + capacity
         title_tr, title_en = spec.title_tr, spec.title_en
         if spec.code == "locked_room_blocked" and run.kind == "EXAM":
             title_tr, title_en = EXAM_BLOCKED_TITLE
