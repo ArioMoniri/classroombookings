@@ -14,13 +14,15 @@ cpsat.py          solve(): static check → model → hints → CP-SAT → evalu
 evaluate.py       Violation / Evaluation (pure-Python scoring), scoring.py: evaluate(inp, assignments)
 diagnose.py       static checker, assumption cores + deletion shrinking, slack relaxation, explanations
 repair.py         repair() (LNS neighbourhood re-solve), validate(), score()
-generators.py     synthetic + Bahar-like instance generators (planted feasible solutions)
 serialization.py  JSON in/out of the contract
 seats.py          seat budgets of shared rooms (split exams): targets, allocation, max-flow validation
 options.py        structured suggestion options (Diagnosis.params["options"])
 weeksplit.py      week segments for term runs (blocked weeks move only those weeks), residual split, merge back
-calibrate.py      weight calibration against the planner's rooms (CLI; the only module that imports the bridge)
 ```
+
+Not shipped in the image (audit m10): `tests/solver/generators.py` (synthetic + Bahar-like instance
+generators with planted feasible solutions) and `tools/calibrate.py` (weight calibration against the
+planner's rooms on the real workbooks; the only solver code that imports the bridge and the importers).
 
 Run the tests: `cd smartsched/backend && python -m pytest tests/solver -q`
 (`SMARTSCHED_SLOW=1` adds the 1 300-event and exam scale tests). Lint: `ruff check app/solver`,
@@ -250,7 +252,7 @@ still differ between runs (use `workers=1` for bit-for-bit runs).
   exactly as with locks; before, 81 Bahar week-3 rows competed for pooled rooms they never used and
   pushed planner-roomed classes out (placed 600 → 641 of 660).
 
-`python -m app.solver.calibrate` grid-searches weight sets on Bahar week 3, Güz week 3 and the Final
+`python -m tools.calibrate` (not shipped in the image) grid-searches weight sets on Bahar week 3, Güz week 3 and the Final
 (rows + summary + choice as JSON with `--out`); results and the chosen defaults are in
 `docs/testing/2026-10-08-real-data-feasibility.md` ("Weight calibration").
 
@@ -349,7 +351,7 @@ constraint modules in pure Python (no CP-SAT) for the API's manual/AI edits.
    minimal feasible, minimal infeasible whose diagnosis names the kind and the events, and a
    soft-weight case where changing the weight changes the choice.
 
-## Generators
+## Generators (`tests/solver/generators.py`)
 
 `generators.generate(GenParams)` plants a conflict-free solution (rooms, cohorts, instructors,
 HAZIRLIK morning blocks) and derives the events from it, so instances are feasible by construction

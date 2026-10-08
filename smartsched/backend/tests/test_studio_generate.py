@@ -16,7 +16,7 @@ bahar = studio_support.bahar
 TERMINAL = {"FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL", "INFEASIBLE", "TIMEOUT", "FAILED", "ERROR"}
 
 
-async def test_generate_from_draft_with_stub_and_cpsat(bahar):
+async def test_generate_from_draft_with_stub_and_cpsat(bahar, stub_solver):
     c, h, url = bahar.client, bahar.planner, f"/api/v1/terms/{bahar.term_id}/studio"
     await c.get(url, headers=h)
     phar = await meeting_id("PHAR 240", day=1, start=1)
@@ -35,7 +35,7 @@ async def test_generate_from_draft_with_stub_and_cpsat(bahar):
         headers=h,
     )
     assert r.status_code == 200, r.text
-    r = await c.post(f"{url}/generate", json={"label": "studio week 3", "params": {"solver": "stub"}}, headers=h)
+    r = await c.post(f"{url}/generate", json={"label": "studio week 3", "params": {"solver": "cpsat"}}, headers=h)
     assert r.status_code == 202, r.text
     g = r.json()
     assert g["status"] == "QUEUED" and g["excluded"] == 1 and g["events"] > 400 and g["draft_version"] == 2
@@ -53,6 +53,7 @@ async def test_generate_from_draft_with_stub_and_cpsat(bahar):
         db_run = await s.get(ScheduleRun, g["run_id"])
         assert db_run.stats["studio_draft_id"] == g["draft_id"]
     # CP-SAT on the same draft: the real Bahar data is statically infeasible -> terminal with diagnoses
+    stub_solver.undo()
     r = await c.post(f"{url}/generate", json={"params": {"solver": "cpsat", "time_limit_s": 5}}, headers=h)
     run_id = r.json()["run_id"]
     await get_queue().wait_idle(timeout=300)

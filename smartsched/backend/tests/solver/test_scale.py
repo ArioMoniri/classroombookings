@@ -9,8 +9,8 @@ from dataclasses import replace
 
 import pytest
 from app.solver.cpsat import solve
-from app.solver.generators import from_fixture_like
 from app.solver.repair import validate
+from tests.solver.generators import from_fixture_like
 
 WORKERS = max(2, min(8, os.cpu_count() or 2))
 

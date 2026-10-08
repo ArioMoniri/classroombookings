@@ -29,7 +29,7 @@ async def _studio_run_keeping(bahar, keep_n: int = 25) -> tuple[int, set[int], l
         headers=h,
     )
     assert r.status_code == 200, r.text
-    r = await c.post(f"{url}/generate", json={"params": {"solver": "stub", "time_limit_s": 10}}, headers=h)
+    r = await c.post(f"{url}/generate", json={"params": {"solver": "cpsat", "time_limit_s": 10}}, headers=h)
     assert r.status_code == 202, r.text
     run_id = r.json()["run_id"]
     await get_queue().wait_idle(timeout=300)
@@ -45,7 +45,7 @@ async def _placed(run_id: int) -> set[int]:
         return {int(x) for x in rows if x is not None}
 
 
-async def test_b2_chat_apply_child_keeps_the_drafts_left_out_classes(bahar):
+async def test_b2_chat_apply_child_keeps_the_drafts_left_out_classes(bahar, stub_solver):
     run_id, keep, excluded = await _studio_run_keeping(bahar)
     parent = await _placed(run_id)
     assert parent and parent <= keep
@@ -79,13 +79,13 @@ async def test_b3_planner_cannot_switch_builtins_off_through_post_runs(bahar):
     }
     base = {"term_id": bahar.term_id, "kind": "COURSE", "horizon": "WEEK", "horizon_params": {"weeks": [3]}}
     for params in ({"studio": forged}, {"studio": forged, "studio_sig": "0" * 64}, {"draft_id": 1}):
-        r = await c.post("/api/v1/runs", json={**base, "params": {"solver": "stub", **params}}, headers=h)
+        r = await c.post("/api/v1/runs", json={**base, "params": {"solver": "cpsat", **params}}, headers=h)
         assert r.status_code == 422, (params.keys(), r.text)
     # even a snapshot written straight into the DB (no server seal) is ignored by the bridge
     async with get_session_factory()() as s:
         run = ScheduleRun(
             term_id=bahar.term_id, kind="COURSE", horizon="WEEK", horizon_params={"weeks": [3]},
-            params={"solver": "stub", "studio": forged, "studio_sig": "f" * 64}, status="QUEUED", stats={},
+            params={"solver": "cpsat", "studio": forged, "studio_sig": "f" * 64}, status="QUEUED", stats={},
         )  # fmt: skip
         s.add(run)
         await s.commit()
@@ -98,7 +98,7 @@ async def test_b3_planner_cannot_switch_builtins_off_through_post_runs(bahar):
         assert solver_bridge._studio_run(run) is False
 
 
-async def test_b3_sealed_studio_snapshot_survives_server_side_child_copies(bahar):
+async def test_b3_sealed_studio_snapshot_survives_server_side_child_copies(bahar, stub_solver):
     run_id, keep, _ = await _studio_run_keeping(bahar, keep_n=10)
     async with get_session_factory()() as s:
         parent = await s.get(ScheduleRun, run_id)
@@ -115,7 +115,7 @@ async def test_b3_sealed_studio_snapshot_survives_server_side_child_copies(bahar
         assert rp.trusted_studio_snapshot(tampered) is None
 
 
-async def test_m13_post_runs_params_are_whitelisted_and_bounded(bahar):
+async def test_m13_post_runs_params_are_whitelisted_and_bounded(bahar, stub_solver):
     c, h = bahar.client, bahar.planner
     base = {"term_id": bahar.term_id, "kind": "COURSE", "horizon": "WEEK", "horizon_params": {"weeks": [3]}}
     bad = [
@@ -136,7 +136,7 @@ async def test_m13_post_runs_params_are_whitelisted_and_bounded(bahar):
     assert r.status_code == 422
     r = await c.post(
         "/api/v1/runs",
-        json={**base, "params": {"solver": "stub", "time_limit_s": 5, "workers": 2, "weights": {"stability": 3}}},
+        json={**base, "params": {"solver": "cpsat", "time_limit_s": 5, "workers": 2, "weights": {"stability": 3}}},
         headers=h,
     )
     assert r.status_code == 202, r.text

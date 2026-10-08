@@ -47,6 +47,7 @@ phase-2 objective re-solve of the placed events is optimal too.
 
 ### Reproduction rate (definitive rooms not locked)
 
+Morning measurement, superseded by "Phase 9 follow-up" below (88.9 % / 90.7 % / 80.9 % now).
 Share of planner-roomed events whose solver room set equals the planner's definitive room set.
 
 | Instance | locked (reference) | unlocked, definitive rooms as soft hints | unlocked, no hint | placed when unlocked |
@@ -102,9 +103,139 @@ Bahar week 3 (21 unplaced):
 * Structured `Diagnosis.code` / `params` (+ `params.options` per suggestion); the run-report fixes and
   the studio pre-check dispatch on them instead of the wording.
 
+## Phase 9 follow-up (2026-10-08 afternoon, solver-engineer)
+
+Targets: Bahar full term places **≥ 96 % of its events**; with the planner's rooms only as hints the
+solver reproduces the planner's room choice for **≥ 85 % of courses** and **≥ 50 % of exams**.
+
+Machine: 4 vCPU shared with three other agents' builds and test runs (load average 5–7), CP-SAT
+**4 workers** (the morning tables used 8 vCPU / 8 workers). Event counts differ from the morning tables
+because joint lectures that the planner locked to the same room set are now one event (Bahar week 3:
+683 → 668 events, 532 → 522 locks).
+
+### Placement (defaults: definitive rooms locked, week segments on)
+
+Measured through `run_schedule` (exactly `POST /runs`) on SQLite databases built with the importers.
+
+| Instance | Limit / wall | Status | Events placed (every week) | Room-needing placed | Planner-locked placed | hard |
+|---|---|---|---|---|---|---|
+| Bahar full term | 300 s / 252 s | FEASIBLE_PARTIAL | **643 / 669 = 96.1 %** | 562 / 588 = 95.6 % | 511 / 523 = 97.7 % | **100** |
+| Bahar week 3 | 120 s / 51 s | FEASIBLE_PARTIAL | 649 / 668 = 97.2 % | 568 / 587 = 96.8 % | 515 / 522 = 98.7 % | **100** |
+
+* **Term target met, narrowly** (96.1 % of events). The relaxation and phase 2 are both proven OPTIMAL,
+  so 643 is the maximum for this data and this model, not a time-limit artefact.
+* The room-needing rate (95.6 %) stays below 96 %: week 1 alone admits at most 578 / 603 room-needing
+  events (proven bound from the morning), so "every week of every event" cannot reach 96 % on this data.
+* 12 locks lost in the term: 8 are the planner's own data errors (7 pairs of LOCKED rows holding the same
+  room at the same time, e.g. `MAT 112 §1` / `HEM 236` in A 204, and `BME 528` locked to B 204, which
+  the grid blocks at all its times); 4 (`ING 102`, `ING 202`, `PHAR 114 §2`, `SYS 18`) give way so that
+  more classes are placed (the relaxation maximises placed classes first, locks second). The slow term
+  test's lock threshold moved from 98 % to 97.5 % for this reason: 98 % held for the 532 locks before the
+  joint-lecture merge.
+
+### Weight calibration (`python -m tools.calibrate`)
+
+Setup: run param `definitive_rooms="prefer"`. The planner's definitive rooms of LOCKED rows become soft
+room preferences, with no locks. With `trust_definitive_capacity`, a group the planner seats in fewer
+seats keeps that room as a valid choice. Inputs are built by the bridge from the importers, as for
+`POST /runs`. Each solve: 90 s, 4 workers, seeds 0 and 1, 4 weight sets × 3 instances = 24 solves.
+Wall time per solve was 82–91 s (≈ 40 min for the grid).
+**Exact** = the solver's room set equals the planner's definitive room set (rooms inside the pool).
+**Overlap** = at least one room shared. Denominator = planner-roomed events; an unplaced event counts
+as a miss.
+
+Mean of 2 seeds:
+
+| Weight set (overrides) | Bahar w3 exact (overlap) | Güz w3 exact (overlap) | Final exams exact (overlap) | Room-needing placed B / G / F | hard |
+|---|---|---|---|---|---|
+| **defaults** (room_preference 10, building 5, waste 1) | **88.9 %** (93.3 %) | **90.7 %** (91.8 %) | **80.9 %** (91.1 %) | 561 / 496 / 564.5 | 100 |
+| pref20 | 89.2 % (93.3 %) | 91.6 % (92.7 %) | 81.7 % (91.3 %) | 560 / 496 / 564 | 100 |
+| pref30-bld2 | 89.4 % (93.7 %) | 91.5 % (92.6 %) | 81.4 % (91.5 %) | 560 / 496 / 564.5 | 100 |
+| pref10-waste0 | 88.8 % (93.4 %) | 91.5 % (92.5 %) | 80.4 % (91.5 %) | 559 / 496 / 563.5 | 100 |
+
+Denominators: Bahar 514 planner-roomed events of 660 (579 room-needing), Güz 439 of 533 (504), Final 553
+exams of 629 (573).
+
+* **Courses: 855 / 953 = 89.7 %** exact with the defaults (Bahar 457 / 514, Güz 398 / 439). Target ≥ 85 %
+  **met**.
+* **Exams: 80.9 % exact** (447.5 / 553), 91.1 % sharing a room. Target ≥ 50 % **met**.
+* **Defaults kept.** No weight set beats the defaults by more than the spread between seeds (Güz
+  defaults: 89.8 % / 91.6 %). `choose()` now needs a gain of more than 1 point, without losing more than
+  2 % of the placement or any hard rule, before it proposes a change for every run.
+* Before this afternoon's changes the same instances gave Bahar 68–89 % depending on the seed (mean 79 %
+  at 180 s), Güz 91 %, Final 75 % exact.
+
+What changed the numbers (Bahar week 3, seed 0, 90 s):
+
+| Step | Placed / 660 | Planner-roomed placed / 514 | Exact |
+|---|---|---|---|
+| 12:15 code | 600 | 465 | 73.9 % |
+| prefer mode keeps planner rooms outside the pool (bridge) | 641 | 505 | 83.1–87.2 % (two runs) |
+| + day sweep after the time-limited search (`cpsat.day_sweep`) | 641 | 505 | 89.5 % |
+
+1. **Rooms outside the pool:** 81 Bahar rows (29 Güz, 56 Final) are LOCKED to a lab or office outside
+   the bookable pool. Lock mode keeps them there (`needs_room=False`). Prefer mode used to make them
+   compete for pooled rooms they never used, which pushed 40 planner-roomed classes out. Only the choice
+   inside the pool is a hint now (the `outside_room_pool` warning is unchanged).
+2. **Day sweep:** with the times fixed, the room choice only links classes of the same day. The 45 s
+   phase-2 search stopped at objective 1694 against a bound of 1262. Re-solving each day on its own
+   (that day's classes pinned to their times, the day's locks kept) reaches about 1300, with every day
+   proven OPTIMAL. A day's result is kept only if the whole timetable keeps every hard rule and its
+   penalty strictly drops. Proven optima are never touched, so determinism holds.
+3. `polish_preferred`: single validated moves into a free preferred room set (same acceptance rule).
+
+Why the remaining Bahar classes are not in the planner's rooms (seed 0: 9 unplaced, 45 elsewhere):
+
+* 19: the planner's room is held at that time by another planner-roomed class, a double booking in the
+  planner's own data (e.g. `HEM 454` / `HEM 440` in C 501); one of each pair must move;
+* 12: displaced in a chain by such a move;
+* 9: multi-room planner sets where one room seats the group. Example: `BES 548`, 20 students, planner
+  C 301 + C 402 (72 seats each); the solver uses C 301 only. The objective counts empty seats, and using
+  a subset of the planner's set costs nothing. Making the whole set the first choice would need a new
+  field in the frozen solver contract for about 1.7 points, so it is not done;
+* 5: the planner's room is excluded by a hard rule (tags / grid block);
+* 9 unplaced (no free fitting room at a fixed time).
+
+Final exams: 9 % are placed but share no room with the planner (91.1 % overlap). The gap between
+exact and overlap is mostly split / shared-room patterns that differ from the planner's: the same exam
+in 2 rooms instead of 3, or a different shared room for small exams.
+
+Caveats: time-limited runs with 4 workers are not bit-reproducible (about ±1 point between runs of the
+same seed on Bahar). Measurements were taken on a contended 4-vCPU box, so 8 dedicated workers should
+do at least as well.
+
+### Data-issues report and diagnoses
+
+* `GET /runs/{id}/data-issues` (+ `?format=xlsx`, export-safe):
+  * prefer-mode runs now list each `trusted_hint_capacity` case per class (size, seats, planner room)
+    under "Planned rooms too small"; before, it was one summary line under "Other";
+  * the capacity check from the data does not repeat these cases.
+* TR / EN planner texts now also cover `no_time` (with reason categories such as "the class year has
+  another class"), `bad_time`, `out_of_horizon`, `core`, `no_core`, `timeout`, `relax_timeout`,
+  `internal` and `trusted_hint_capacity`. The Turkish text no longer falls back to the English message
+  for any solver code.
+
+### Audit items (no-placeholder audit)
+
+* **M1:** the greedy stub is no longer a run solver:
+  * `params.solver` accepts `auto` / `cpsat` only (422 otherwise, also for studio drafts and generate);
+  * the bridge has no fallback loop and raises for an unknown choice;
+  * the CLI offers `auto` / `cpsat`;
+  * API tests use the `stub_solver` fixture (monkeypatched bridge entry).
+* **m10:** the synthetic generators are now `tests/solver/generators.py`; calibration is
+  `tools/calibrate.py` (`python -m tools.calibrate`). The image ships `app/` only.
+
 ## Reproduce
 
 `SMARTSCHED_SLOW=1 python -m pytest tests/test_real_feasibility.py -q` (asserts Bahar week 3: hard 100,
 ≥ 98 % of the planner-roomed events and ≥ 95 % of all room-needing events placed, every unplaced event
 explained); the non-slow tests in the same file cover the bridge modes, the Bahar static check and the
 locked Final plan.
+
+Calibration grid (about 40 min on 4 vCPU):
+
+```bash
+cd smartsched/backend
+python -m tools.calibrate --time-limit 90 --repeat 2 --workers 4 \
+  --sets defaults pref20 pref30-bld2 pref10-waste0 --cache /tmp/calib.pkl --out /tmp/calibration.json
+```

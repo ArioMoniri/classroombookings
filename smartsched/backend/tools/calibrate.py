@@ -1,4 +1,4 @@
-"""Weight calibration against the planner's own rooms (``python -m app.solver.calibrate``).
+"""Weight calibration against the planner's own rooms (``python -m tools.calibrate``).
 
 With the planner's definitive rooms used as *soft hints* (bridge run param ``definitive_rooms="prefer"``,
 no locks), how often does the solver put an event back into exactly the planner's room set?  This
@@ -16,7 +16,7 @@ solve.  Deterministic per seed; with ``workers > 1`` and a time limit the number
 between runs, so the CLI reports the mean of ``--repeat`` seeds.
 
     cd smartsched/backend
-    python -m app.solver.calibrate --time-limit 90 --repeat 2 --workers 4 --out /tmp/calibration.json
+    python -m tools.calibrate --time-limit 90 --repeat 2 --workers 4 --out /tmp/calibration.json
 """
 
 from __future__ import annotations
@@ -186,8 +186,6 @@ def build_instances(
     os.environ.setdefault("PARSE_ISOLATION", "thread")
 
     async def _build() -> list[Instance]:
-        from sqlalchemy import select
-
         from app.core import db as dbmod
         from app.importers.exam_list import import_exam_list
         from app.importers.planning_list import import_planning_list
@@ -195,6 +193,7 @@ def build_instances(
         from app.importers.weekly_grid import import_weekly_grid
         from app.models import Base, ExamRequest, MeetingRequest, ScheduleRun, Term
         from app.services.solver_bridge import build_solver_input
+        from sqlalchemy import select
 
         specs = {
             "bahar_w3": ("2026-BAHAR", "COURSE", "WEEK", {"weeks": [3]}),
@@ -231,8 +230,11 @@ def build_instances(
                         params={"definitive_rooms": definitive_rooms},
                     )
                     inp, members = await build_solver_input(s, run)
-                    model = ExamRequest if kind == "EXAM" else MeetingRequest
-                    rows = {r.id: r for r in (await s.execute(select(model))).scalars()}
+                    rows: dict[int, ExamRequest | MeetingRequest] = {}
+                    if kind == "EXAM":
+                        rows.update({r.id: r for r in (await s.execute(select(ExamRequest))).scalars()})
+                    else:
+                        rows.update({r.id: r for r in (await s.execute(select(MeetingRequest))).scalars()})
                     pool = {r.id for r in inp.rooms}
                     planner: dict[int, frozenset[int]] = {}
                     for e in inp.events:
@@ -255,7 +257,7 @@ def build_instances(
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--fixtures", type=Path, default=Path(__file__).resolve().parents[2] / "tests" / "fixtures")
+    ap.add_argument("--fixtures", type=Path, default=Path(__file__).resolve().parents[1] / "tests" / "fixtures")
     ap.add_argument("--time-limit", type=float, default=90.0)
     ap.add_argument("--repeat", type=int, default=1, help="seeds 0..repeat-1 per (instance, weight set)")
     ap.add_argument("--workers", type=int, default=8)
@@ -265,9 +267,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--cache", type=Path, help="pickle of the built instances (reused when present)")
     ap.add_argument("--out", type=Path, help="write rows + summary + choice as JSON")
     args = ap.parse_args(argv)
-    # build through the importable module so a cached pickle names app.solver.calibrate.Instance, not
+    # build through the importable module so a cached pickle names tools.calibrate.Instance, not
     # __main__.Instance (loadable from tests and scripts too)
-    from app.solver import calibrate as module
+    from tools import calibrate as module
 
     if args.cache and args.cache.exists():
         import pickle

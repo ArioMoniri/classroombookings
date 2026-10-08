@@ -233,7 +233,7 @@ aws ssm get-parameter --region us-east-1 --name /smartsched/admin_password --wit
 | `/smartsched/panel_url` | String | `up` |
 | `/smartsched/github_token` | SecureString | workflow (`POD_GITHUB_TOKEN`) |
 | `/smartsched/admin_email`, `/smartsched/admin_password` | String, SecureString | pod |
-| `/smartsched/app/APP_SECRET`, `JWT_SECRET`, `AUTH_SECRET`, `POSTGRES_PASSWORD` | SecureString | pod (backup of `deploy/.env`) |
+| `/smartsched/app/APP_SECRET`, `JWT_SECRET`, `POSTGRES_PASSWORD` | SecureString | pod (backup of `deploy/.env`) |
 | `/smartsched/ci/basic_auth` | SecureString | pod (`ci:<password>` for `/ci/`) |
 
 The password is seeded once; change it in the UI after the first login (SSM keeps the initial value).

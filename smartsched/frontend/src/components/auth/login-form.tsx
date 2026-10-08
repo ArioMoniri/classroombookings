@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { ForgotPasswordLink, LoginBrand, LoginNotices } from "@/components/admin/login-extras";
 import { Button } from "@/components/ui/button";
 import { Input, useShake } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,6 +59,9 @@ export function LoginForm() {
 
   return (
     <AuthCard title={t("auth.title")}>
+      {/* CRBS Login::index: organisation logo + name, login message, maintenance banner, first-run hint */}
+      <LoginBrand />
+      <LoginNotices />
       {error ? (
         <div ref={alertRef} id="login-error" tabIndex={-1} role="alert" className="mb-4 rounded-xl bg-status-infeasible px-3 py-2 text-[13px] text-status-infeasible-fg outline-none">
           {error}
@@ -67,12 +71,12 @@ export function LoginForm() {
         <div ref={shakeRef} className="t-input space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="identifier">{t("glass.auth.identifier")}</Label>
-            <Input id="identifier" autoComplete="username" autoCapitalize="none" spellCheck={false} aria-invalid={!!form.formState.errors.identifier} placeholder={t("glass.auth.identifierHint")} {...form.register("identifier")} />
+            <Input id="identifier" autoComplete="username" autoCapitalize="none" spellCheck={false} aria-invalid={!!form.formState.errors.identifier} placeholder={t("glass.auth.identifierHint")} data-testid="login-identifier" {...form.register("identifier")} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="password">{t("auth.password")}</Label>
             <div className="relative">
-              <Input id="password" type={show ? "text" : "password"} autoComplete="current-password" className="pr-10" aria-invalid={!!form.formState.errors.password} {...form.register("password")} />
+              <Input id="password" type={show ? "text" : "password"} autoComplete="current-password" className="pr-10" aria-invalid={!!form.formState.errors.password} data-testid="login-password" {...form.register("password")} />
               <button
                 type="button"
                 aria-pressed={show}
@@ -96,6 +100,9 @@ export function LoginForm() {
           )}
         </Button>
       </form>
+      <div className="mt-4">
+        <ForgotPasswordLink />
+      </div>
     </AuthCard>
   );
 }

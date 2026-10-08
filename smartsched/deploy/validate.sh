@@ -81,7 +81,7 @@ for v in missing:
 for v in sorted(declared - used):
     print(f"  note ${v} declared in .env.example but unused by compose (read by deploy.sh)")
 print(f"  ok   {len(used)} variables used, {len(declared)} declared, {len(missing)} missing")
-secret_keys = ("APP_SECRET", "JWT_SECRET", "AUTH_SECRET", "POSTGRES_PASSWORD", "ADMIN_PASSWORD",
+secret_keys = ("APP_SECRET", "JWT_SECRET", "POSTGRES_PASSWORD", "ADMIN_PASSWORD",
                "CRBS_DB_PASSWORD", "CRBS_DB_ROOT_PASSWORD", "ANTHROPIC_API_KEY")
 leaked = [k for k, v in re.findall(r"^([A-Z_]+)=(\S*)", env_text, re.M) if k in secret_keys and v not in ("", "__GENERATE__")]
 if leaked:

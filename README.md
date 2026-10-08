@@ -319,12 +319,11 @@ scripts/dev.sh --run          # or: make -C smartsched dev
 ```
 
 This creates a Python venv in `smartsched/backend/.venv`, runs `pip install -e ".[dev]"` and `npm ci`,
-writes `.env` files, migrates a SQLite database, seeds an admin (`admin@example.com` / `admin` in
-`smartsched/backend/.env`), and starts the backend on <http://localhost:8000> (OpenAPI at `/api/docs`)
+writes `.env` files, migrates a SQLite database, seeds an admin (your `git config user.email`, or `DEV_ADMIN_EMAIL`, with a random password printed once,
+or `DEV_ADMIN_PASSWORD`), and starts the backend on <http://localhost:8000> (OpenAPI at `/api/docs` in dev only)
 and the frontend on <http://localhost:3000>.
 
-`scripts/dev.sh` alone only bootstraps. `scripts/dev.sh --mock` (or `make -C smartsched dev-mock`)
-runs the frontend against in-memory mock data, with no backend.
+`scripts/dev.sh` alone only bootstraps. There is no mock mode: the frontend always talks to the real backend.
 
 ### Import the sample data
 

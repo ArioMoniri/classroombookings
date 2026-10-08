@@ -135,7 +135,7 @@ cmd_up() {
         NEXT_TELEMETRY_DISABLED=1 npx next build >"$WORK/build.log" 2>&1) \
       || die "next build failed, see $WORK/build.log"
   fi
-  (cd "$web" && NEXT_PUBLIC_API_MOCK=0 NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" AUTH_SECRET=rec \
+  (cd "$web" && NEXT_PUBLIC_API_MOCK=0 NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" \
       NEXT_TELEMETRY_DISABLED=1 exec setsid npx next start -p "$WEB_PORT" -H 127.0.0.1 \
       >"$WORK/frontend.log" 2>&1 </dev/null) &
   echo $! >"$WORK/frontend.pid"

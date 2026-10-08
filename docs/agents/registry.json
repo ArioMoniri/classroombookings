@@ -148,7 +148,8 @@
       "goal": "close the backend and deploy findings of the no-placeholder audit. The user's rule: \"there should be no demo test or placeholder usage across the all system\". Work test-first. M2 MAJOR: production secret checks depend on ENVIRONMENT being exactly \"prod\". - In smartsched/backend/app/core/config.py, make `environment` a Literal[\"dev\",\"test\",\"prod\"]. An unknown value fails at start-up. - Run `insecur…",
       "ledger": "backend-engineer (no-placeholder backend)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 13:42"
     },
     {
       "id": "a9e52d46d4c1cdad8",

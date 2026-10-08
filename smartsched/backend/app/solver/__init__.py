@@ -3,7 +3,7 @@
 * :func:`app.solver.cpsat.solve` — CP-SAT timetabling / room assignment.
 * :func:`app.solver.repair.repair` / :func:`app.solver.repair.validate` — LNS repair, validation.
 * :mod:`app.solver.diagnose` — infeasibility explanation.
-* :mod:`app.solver.generators` — synthetic instances.
+* synthetic instance generators live in ``tests/solver/generators.py`` (not shipped).
 """
 
 from app.solver.cpsat import solve

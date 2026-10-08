@@ -94,7 +94,7 @@ async def _psi155(term_id: int) -> MeetingRequest:
     raise AssertionError("PSI 155 row not found")
 
 
-async def test_apply_move_relax_and_errors_on_real_row(client):
+async def test_apply_move_relax_and_errors_on_real_row(client, stub_solver):
     h = await login(client)
     term_id = await _import_guz()
     psi = await _psi155(term_id)
@@ -118,7 +118,7 @@ async def test_apply_move_relax_and_errors_on_real_row(client):
             horizon="WEEK",
             horizon_params={"week": 3},
             status="INFEASIBLE",
-            params={"solver": "stub"},
+            params={"solver": "cpsat"},
             diagnosis=[diag],
             stats={"progress": 100},
         )

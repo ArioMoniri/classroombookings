@@ -114,11 +114,11 @@ async def _seed(session) -> tuple[Term, dict[str, Room], list[MeetingRequest]]:
     return term, rooms, [m1, m2, m3, m4]
 
 
-async def test_build_input_and_run(engine):
+async def test_build_input_and_run(engine, stub_solver):
     factory = get_session_factory()
     async with factory() as s:
         term, rooms, mrs = await _seed(s)
-        run = ScheduleRun(term_id=term.id, kind="COURSE", horizon="TERM", params={"time_limit_s": 5, "solver": "stub"})
+        run = ScheduleRun(term_id=term.id, kind="COURSE", horizon="TERM", params={"time_limit_s": 5, "solver": "cpsat"})
         s.add(run)
         await s.commit()
         inp, members = await build_solver_input(s, run)
@@ -151,14 +151,14 @@ async def test_build_input_and_run(engine):
         assert len((await s.execute(select(Assignment).where(Assignment.run_id == run_id))).scalars().all()) == 3
 
 
-async def test_infeasible_diagnosis(engine):
+async def test_infeasible_diagnosis(engine, stub_solver):
     factory = get_session_factory()
     async with factory() as s:
         term, rooms, mrs = await _seed(s)
         sec = await s.get(Section, mrs[1].section_id)
         sec.enrolment = 500  # no room is big enough
         run = ScheduleRun(
-            term_id=term.id, kind="COURSE", horizon="WEEK", horizon_params={"week": 3}, params={"solver": "stub"}
+            term_id=term.id, kind="COURSE", horizon="WEEK", horizon_params={"week": 3}, params={"solver": "cpsat"}
         )
         s.add(run)
         await s.commit()
@@ -176,7 +176,7 @@ async def test_infeasible_diagnosis(engine):
         assert run.diagnosis[0]["suggestions"]
 
 
-async def test_exam_cohorts_merge_and_split(engine):
+async def test_exam_cohorts_merge_and_split(engine, stub_solver):
     factory = get_session_factory()
     async with factory() as s:
         term, rooms, _ = await _seed(s)
@@ -200,7 +200,7 @@ async def test_exam_cohorts_merge_and_split(engine):
                 )
             )
         await s.commit()
-        run = ScheduleRun(term_id=term.id, kind="EXAM", horizon="TERM", params={"solver": "stub"})
+        run = ScheduleRun(term_id=term.id, kind="EXAM", horizon="TERM", params={"solver": "cpsat"})
         s.add(run)
         await s.commit()
         inp, members = await build_solver_input(s, run)

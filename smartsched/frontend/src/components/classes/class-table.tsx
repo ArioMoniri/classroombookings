@@ -2,7 +2,7 @@
 /**
  * ClassTable (all-classes.md §5, §8, §17–§19): TanStack Table v8 (MIT) for columns, sorting and grouping
  * (grouped row model; groups keep their natural order), @tanstack/react-virtual over the flattened
- * group/row list, sticky glass group headers with aggregates, one tab stop with a roving cell cursor,
+ * group/row list, sticky (tint over the opaque canvas, no nested blur) group headers with aggregates, one tab stop with a roving cell cursor,
  * inline edit (double-click / Enter / F2; Esc cancels; Enter saves and moves down; Tab saves and moves right).
  * Opaque rows (no glass on data, A8); hairline separators; no zebra; numbers right-aligned.
  */
@@ -355,7 +355,7 @@ function ClassTableImpl(p: ClassTableProps) {
   }, [activeId, flat, v]);
 
   const header = (
-    <div role="row" className="glass-thick sticky top-0 z-20 flex hairline-b" style={{ width: totalW, height: HEADER_H }}>
+    <div role="row" className="cal-sticky sticky top-0 z-20 flex hairline-b" style={{ width: totalW, height: HEADER_H }}>
       {cols.map((c, i) => {
         const col = table.getColumn(c);
         const sorted = col?.getIsSorted();
@@ -365,7 +365,7 @@ function ClassTableImpl(p: ClassTableProps) {
             key={c}
             role="columnheader"
             aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : "none"}
-            className={cn("flex shrink-0 items-center px-2 text-[12px] font-semibold text-label-2", RIGHT.has(c) && "justify-end", pinned(c) && "glass-thick sticky z-10")}
+            className={cn("flex shrink-0 items-center px-2 text-[12px] font-semibold text-label-2", RIGHT.has(c) && "justify-end", pinned(c) && "cal-sticky sticky z-10")}
             style={{ width: WIDTH[c] ?? 120, left: pinned(c) ? leftOf(i) : undefined }}
           >
             {c === "select" ? (
@@ -546,7 +546,7 @@ function ClassTableImpl(p: ClassTableProps) {
                 aria-level={f.depth + 1}
                 aria-expanded={open}
                 aria-rowindex={vi.index + 2}
-                className={cn("glass-thick left-0 flex items-center gap-2 pr-3 hairline-b", focused && "outline-2 -outline-offset-2 outline-(--focus) [[role=treegrid]:not(:focus-visible):not(:has(:focus-visible))_&]:outline-0")}
+                className={cn("cal-sticky left-0 flex items-center gap-2 pr-3 hairline-b", focused && "outline-2 -outline-offset-2 outline-(--focus) [[role=treegrid]:not(:focus-visible):not(:has(:focus-visible))_&]:outline-0")}
                 style={{ ...style, width: totalW, paddingLeft: 8 + f.depth * 16 }}
                 data-testid="classes-group"
               >

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from app.solver.generators import GenParams, generate
 from app.solver.model import Assignment
 from app.solver.repair import neighbours, repair, score, validate
 from tests.solver.conftest import assigned, event, make_input, room
+from tests.solver.generators import GenParams, generate
 
 ALL = frozenset(range(1, 15))
 

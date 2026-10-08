@@ -86,6 +86,17 @@ def parsed_final_grid():
     return parse_weekly_grid(FINAL_GRID, year=2026)
 
 
+@pytest.fixture
+def stub_solver(monkeypatch):  # type: ignore[no-untyped-def]
+    """Fast greedy runs for API tests: the bridge's CP-SAT entry points at ``app.solver.stub``.  The stub is
+    no run option in production (audit M1: ``params.solver="stub"`` answers 422); call ``.undo()`` on the
+    returned monkeypatch to switch back to CP-SAT inside a test."""
+    from app.services import solver_bridge
+
+    monkeypatch.setitem(solver_bridge.SOLVER_MODULES, "cpsat", "app.solver.stub")
+    return monkeypatch
+
+
 @pytest.fixture(autouse=True)
 def _fresh_login_limiter():
     """The in-process login failure limiter (app/core/ratelimit.py) must not leak between tests."""

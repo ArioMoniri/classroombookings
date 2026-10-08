@@ -22,7 +22,7 @@ async def _stub_run(client, h, term_id: int, week: int = 3) -> int:
             "kind": "COURSE",
             "horizon": "WEEK",
             "horizon_params": {"week": week},
-            "params": {"solver": "stub"},
+            "params": {"solver": "cpsat"},
         },
         headers=h,
     )
@@ -31,7 +31,7 @@ async def _stub_run(client, h, term_id: int, week: int = 3) -> int:
     return int(r.json()["run_id"])
 
 
-async def test_enriched_assignments_grid_move_lock_and_dashboard(client):
+async def test_enriched_assignments_grid_move_lock_and_dashboard(client, stub_solver):
     h = await login(client)
     term_id = await _import_guz()
 

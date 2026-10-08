@@ -223,8 +223,10 @@ test.describe("calendar on the real backend", () => {
     // the class left this room's week
     await expect(page.locator(`[data-testid=calendar-event][data-assignment-id="${aid}"]`)).toHaveCount(0);
 
-    // undo (toast action) puts it back on the server
-    await page.locator("[data-sonner-toast]").getByRole("button", { name: "Undo" }).first().click();
+    // undo (⌘Z / Ctrl+Z, calendar.md §12; the toast's Undo may have timed out while the index refetched)
+    await page.getByTestId("calendar-title").click();
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect(page.getByTestId("calendar-live")).toContainText(/Undone/, { timeout: 20_000 });
     await expect
       .poll(async () => (await api<Index>(page, `/runs/${editable}/calendar-index`)).assignments.find((a) => a.id === aid)?.rooms, { timeout: 20_000 })
       .toEqual(original?.rooms);

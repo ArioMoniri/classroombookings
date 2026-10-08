@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 
+import pytest
 from app.core.db import get_session_factory
 from app.importers.planning_list import import_planning_list
 from app.importers.weekly_grid import import_weekly_grid
@@ -22,7 +23,7 @@ async def _import_guz() -> int:
         return term.id
 
 
-async def test_run_lifecycle_with_stub_solver(client):
+async def test_run_lifecycle_with_stub_solver(client, stub_solver):
     h = await login(client)
     term_id = await _import_guz()
     r = await client.post(
@@ -32,7 +33,7 @@ async def test_run_lifecycle_with_stub_solver(client):
             "kind": "COURSE",
             "horizon": "WEEK",
             "horizon_params": {"week": 3},
-            "params": {"solver": "stub"},
+            "params": {"solver": "cpsat"},
             "label": "week 3",
         },
         headers=h,
@@ -151,3 +152,26 @@ async def test_run_progress_events_stream(client):
     assert (await client.delete(f"/api/v1/constraints/{c['id']}", headers=h)).status_code == 204
     assert (await client.delete(f"/api/v1/runs/{run_id}", headers=h)).status_code == 204
     assert (await client.get(f"/api/v1/runs/{run_id}", headers=h)).status_code == 404
+
+
+async def test_stub_is_not_a_run_solver(client):
+    """Audit M1: the greedy stub cannot be chosen through the API (it would store a greedy result as a
+    real run); there is no silent fallback either."""
+    h = await login(client)
+    term = (await client.post("/api/v1/terms", json={"code": "2026-NOSTUB", "name": "t"}, headers=h)).json()
+    for solver in ("stub", "greedy", ""):
+        r = await client.post(
+            "/api/v1/runs", json={"term_id": term["id"], "kind": "COURSE", "params": {"solver": solver}}, headers=h
+        )
+        assert r.status_code == 422, (solver, r.text)
+    url = f"/api/v1/terms/{term['id']}/studio"
+    await client.get(url, headers=h)
+    r = await client.put(url, json={"version": 1, "params": {"solver": "stub"}}, headers=h)
+    assert r.status_code == 422, r.text
+    r = await client.post(f"{url}/generate", json={"params": {"solver": "stub"}}, headers=h)
+    assert r.status_code == 422, r.text
+    from app.services.solver_bridge import _solver_fn
+
+    assert _solver_fn("auto").__module__ == _solver_fn("cpsat").__module__ == "app.solver.cpsat"
+    with pytest.raises(ValueError, match="unknown solver 'stub'"):
+        _solver_fn("stub")

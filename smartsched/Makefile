@@ -1,5 +1,5 @@
 # SmartSched top-level targets (backend + frontend + deploy). Usage: make -C smartsched <target>
-.PHONY: help deploy deploy-legacy update down logs status dev dev-mock check check-backend check-frontend \
+.PHONY: help deploy deploy-legacy update down logs status dev check check-backend check-frontend \
         check-all e2e watchdog watchdog-check validate
 
 PY ?= python3
@@ -28,9 +28,6 @@ status:            ## container status + health
 
 dev:               ## local dev without Docker: venv, npm ci, SQLite, seeded admin, backend :8000 + frontend :3000
 	$(ROOT)/scripts/dev.sh --run
-
-dev-mock:          ## frontend only, in-memory mock API
-	$(ROOT)/scripts/dev.sh --mock
 
 check: check-backend check-frontend   ## quality gates: backend make check + frontend npm run check
 

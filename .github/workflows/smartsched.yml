@@ -73,7 +73,7 @@ jobs:
         env:
           ENVIRONMENT: prod
           DATABASE_URL: postgresql+psycopg://smartsched:ci-only-password@127.0.0.1:5432/smartsched
-          APP_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+          APP_SECRET: ci-only-app-0123456789abcdef0123456789abcdef01
           JWT_SECRET: ci-only-jwt-0123456789abcdef0123456789abcdef01
           ADMIN_EMAIL: admin@example.edu.tr
           ADMIN_PASSWORD: ci-only-admin-password
@@ -225,7 +225,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: deploy.sh (generates .env, builds, starts, waits for /api/v1/health)
-        run: ./deploy.sh
+        run: ADMIN_EMAIL=ci-admin@smartsched.invalid ./deploy.sh
       - name: Smoke checks through the proxy
         run: |
           set -euo pipefail
@@ -234,7 +234,8 @@ jobs:
           curl -fsS "$base/healthz"
           curl -fsS "$base/api/v1/health" | grep -q '"db":true'
           curl -fsS -o /dev/null "$base/login"
-          curl -fsS -o /dev/null "$base/api/docs"
+          # API docs are off in prod (no-placeholder audit m6)
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$base/api/docs")" = 404
           # imported workbooks must not be public
           test "$(curl -s -o /dev/null -w '%{http_code}' "$base/uploads/imports/x.xlsx")" = 404
           # cookie login via the Next.js route handler, then an authenticated call

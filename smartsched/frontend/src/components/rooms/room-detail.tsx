@@ -266,15 +266,18 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
     <div className="overflow-x-auto" data-testid="room-week-grid">
       <div role="grid" aria-label={t("roomsV2.weekly")} className="grid min-w-[720px] gap-[2px] text-[11px]" style={{ gridTemplateColumns: `44px repeat(${PERIODS_PER_DAY}, minmax(30px, 1fr))` }}>
         <div role="row" className="contents">
-          <span role="columnheader" />
+          <span role="columnheader" style={{ gridRow: 1, gridColumn: 1 }} />
           {PERIODS.map((p) => (
-            <span key={p.index} role="columnheader" className="pb-0.5 text-center leading-tight text-label-2 tabular-nums" title={`${p.start}–${p.end}`}>
+            <span key={p.index} role="columnheader" className="pb-0.5 text-center leading-tight text-label-2 tabular-nums" title={`${p.start}–${p.end}`} style={{ gridRow: 1, gridColumn: p.index + 1 }}>
               P{p.index}
               <span className="block text-[9px] text-label-3">{p.start}</span>
             </span>
           ))}
         </div>
-        {days.map((day) => {
+        {days.map((day, di) => {
+          // every cell gets an explicit row and column: with only the held spans placed, auto-placement put
+          // them ahead of the free cells (a Sunday block landed in the header row)
+          const gridRow = di + 2;
           const row = grid[day - 1];
           const cells = rowSegments(row).map((seg) => {
             if (seg.kind === "free") {
@@ -295,9 +298,10 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
                     onPick({ day, sp: p, ep, length: ep - p + 1 });
                   }}
                   className={cn("h-7 rounded-[4px] bg-fill-3 hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)", isPicked && "bg-tint-soft shadow-[inset_0_0_0_1.5px_var(--accent)]", isNow && "shadow-[inset_0_-2px_0_var(--now)]")}
+                  style={{ gridRow, gridColumn: p + 1 }}
                 />
               ) : (
-                <span key={p} role="gridcell" aria-label={label} className={cn("h-7 rounded-[4px] bg-fill-3", isNow && "shadow-[inset_0_-2px_0_var(--now)]")} />
+                <span key={p} role="gridcell" aria-label={label} className={cn("h-7 rounded-[4px] bg-fill-3", isNow && "shadow-[inset_0_-2px_0_var(--now)]")} style={{ gridRow, gridColumn: p + 1 }} />
               );
             }
             const { cell: c, sp, ep } = seg;
@@ -310,7 +314,7 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
                 title={label}
                 data-conflict={c.kind === "class" && c.conflict ? "true" : undefined}
                 className={cn("h-7 min-w-0 overflow-hidden rounded-[4px] font-semibold whitespace-nowrap", cellClass(c), c.kind === "class" ? "!relative justify-center" : "flex items-center px-1.5")}
-                style={{ gridColumn: `${sp + 1} / ${ep + 2}`, ...(c.kind === "class" ? chipVars(c.fac) : {}) }}
+                style={{ gridRow, gridColumn: `${sp + 1} / ${ep + 2}`, ...(c.kind === "class" ? chipVars(c.fac) : {}) }}
               >
                 <span className="truncate">{c.label}</span>
               </span>
@@ -318,7 +322,7 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
           });
           return (
             <div key={day} role="row" className="contents">
-              <span role="rowheader" className="flex items-center text-[12px] font-semibold text-label-2">{dayName(day, locale, "short")}</span>
+              <span role="rowheader" className="flex items-center text-[12px] font-semibold text-label-2" style={{ gridRow, gridColumn: 1 }}>{dayName(day, locale, "short")}</span>
               {cells}
             </div>
           );

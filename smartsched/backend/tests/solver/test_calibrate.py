@@ -1,10 +1,10 @@
-"""``app.solver.calibrate``: reproduction metrics and the weight-set choice (no DB; the real-data grid
+"""``tools.calibrate``: reproduction metrics and the weight-set choice (no DB; the real-data grid
 search itself is the CLI)."""
 
 from __future__ import annotations
 
-from app.solver.calibrate import WEIGHT_SETS, Instance, choose, metrics, run_grid, summarise
 from tests.solver.conftest import event, make_input, room
+from tools.calibrate import WEIGHT_SETS, Instance, choose, metrics, run_grid, summarise
 
 
 def _instance() -> Instance:
