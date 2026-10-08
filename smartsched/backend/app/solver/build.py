@@ -89,9 +89,9 @@ def build_model(prep: Prepared, mode: Mode = "solve") -> ModelContext:
     return ctx
 
 
-def stable_rank(*key: int) -> int:
-    """Fixed pseudo-random rank in 1..997 of an integer tuple (splitmix64 mixing: non-linear, so swapping
-    two events between two rooms does not tie; no Python ``hash`` randomisation)."""
+def stable_rank(*key: int, modulus: int = 997) -> int:
+    """Fixed pseudo-random rank in 1..``modulus`` of an integer tuple (splitmix64 mixing: non-linear, so
+    swapping two events between two rooms does not tie; no Python ``hash`` randomisation)."""
     h = 0x9E3779B97F4A7C15
     mask = (1 << 64) - 1
     for k in key:
@@ -99,7 +99,7 @@ def stable_rank(*key: int) -> int:
         h ^= h >> 31
         h = h * 0x94D049BB133111EB & mask
         h ^= h >> 29
-    return h % 997 + 1
+    return h % modulus + 1
 
 
 def week_segment_groups(inp: SolverInput) -> list[list[int]]:
@@ -154,9 +154,24 @@ def hint_assignments(inp: SolverInput) -> list[Assignment]:
     return [by_id[e.id] for e in inp.events if e.id in by_id]
 
 
-def make_solver(inp: SolverInput, time_limit_s: float, workers: int | None = None, lns_only: bool = False) -> Any:
+#: deterministic-time budget of the canonical stages (``cpsat._canonical_optimum``,
+#: ``diagnose._canonical_placement``): single worker, so the same model gives the same answer on any load
+CANONICAL_DETERMINISTIC_S = 60.0
+
+
+def make_solver(
+    inp: SolverInput,
+    time_limit_s: float,
+    workers: int | None = None,
+    lns_only: bool = False,
+    deterministic_s: float | None = None,
+) -> Any:
+    """CP-SAT solver with the run's seed.  ``deterministic_s`` adds a deterministic time limit (use it with
+    ``workers=1`` for reproducible stages; ``time_limit_s`` is then only a wall-clock safety net)."""
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = max(0.1, float(time_limit_s))
+    if deterministic_s is not None:
+        solver.parameters.max_deterministic_time = max(0.1, float(deterministic_s))
     solver.parameters.num_workers = max(1, int(inp.workers if workers is None else workers))
     solver.parameters.random_seed = int(inp.seed)
     solver.parameters.log_search_progress = False

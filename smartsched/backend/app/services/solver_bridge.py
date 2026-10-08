@@ -67,8 +67,10 @@ PARTIAL_STATUS = "FEASIBLE_PARTIAL"
 
 
 def run_status(result: sm.SolverResult) -> str:
-    """API status of a solver result: ``FEASIBLE_PARTIAL`` for a stored partial timetable."""
-    if result.status == "INFEASIBLE" and result.stats.get("partial") and result.assignments:
+    """API status of a solver result: ``FEASIBLE_PARTIAL`` for a stored partial timetable (an infeasible
+    request set, or a best-effort run whose search found no complete timetable in time: then the partial
+    diagnosis says that the rest is not proven impossible)."""
+    if result.status in ("INFEASIBLE", "TIMEOUT") and result.stats.get("partial") and result.assignments:
         return PARTIAL_STATUS
     return result.status
 
@@ -156,8 +158,10 @@ def _bridge_diag(
     code: str,
     kinds: list[str] | None = None,
     params: dict[str, Any] | None = None,
+    *,
+    severity: str = "warning",
 ) -> dict[str, Any]:
-    return asdict(sm.Diagnosis(event_ids, kinds or [], message, suggestions, "warning", code, dict(params or {})))
+    return asdict(sm.Diagnosis(event_ids, kinds or [], message, suggestions, severity, code, dict(params or {})))
 
 
 def horizon_weeks(run: ScheduleRun, term: Term) -> list[int]:
@@ -175,18 +179,29 @@ def horizon_weeks(run: ScheduleRun, term: Term) -> list[int]:
     return list(range(1, (term.week_count or 14) + 1))
 
 
-def _joinable(a: sm.Event, b: sm.Event) -> bool:
-    """Two fixed-time course requests are one physical lecture when they share an instructor or the
-    planner locked both to the same room set, at the same day/periods, in overlapping weeks."""
+def _course_code(label: str) -> str:
+    """``"MAT 112 §1 + ..."`` -> ``"MAT 112"`` (the course of a course event label)."""
+    return " ".join(label.split("§", 1)[0].split()).upper()
+
+
+def _joinable(a: sm.Event, b: sm.Event, planner_locked: set[int] | frozenset[int] = frozenset()) -> bool:
+    """Two fixed-time course requests are one physical lecture at the same day/periods in overlapping weeks
+    when the planner locked both to the same room set, or — neither of them locked by the planner — they
+    are the same course with a shared instructor (``FIZ 111 §1`` listed once per programme).  A shared
+    instructor never joins a locked row or two different courses (review B1: chains through an instructor
+    dropped the planner's rooms); such a pair stays two requests and a clash at fixed times is an input
+    conflict (D2), reported."""
     if (a.fixed_day, a.fixed_start, a.duration) != (b.fixed_day, b.fixed_start, b.duration) or a.fixed_day is None:
         return False
     if not a.weeks & b.weeks:
         return False
     ra = set(a.locked.room_ids) if a.locked else set()
     rb = set(b.locked.room_ids) if b.locked else set()
-    if ra and rb and ra != rb:
-        return False  # the planner put them in different rooms: two sessions (or a data error to report)
-    return bool(a.instructor_keys & b.instructor_keys) or (bool(ra) and ra == rb)
+    if ra or rb:
+        return bool(ra) and ra == rb  # the planner's own decision: the same rooms at the same time
+    if a.id in planner_locked or b.id in planner_locked:
+        return False  # locked to a room outside the pool: kept as the planner set it
+    return bool(a.instructor_keys & b.instructor_keys) and _course_code(a.label) == _course_code(b.label)
 
 
 def _base_label(label: str) -> str:
@@ -207,18 +222,21 @@ def merge_joint_lectures(
     members: dict[int, list[int]],
     room_capacity: dict[int, int] | None = None,
     hint_rooms: dict[int, list[int]] | None = None,
+    planner_locked: set[int] | frozenset[int] = frozenset(),
 ) -> tuple[list[sm.Event], list[dict[str, Any]]]:
-    """Merge requests that describe one joint lecture (``FIZ 111 §1`` listed once per programme,
-    ``HEM 334 / NRS 304`` taught together) into one solver event.
+    """Merge requests that describe one joint lecture (``FIZ 111 §1`` listed once per programme, two rows
+    the planner locked into one room at one time) into one solver event.
 
     The planning list has one row per programme; without merging, the planner's own definitive plan
     is infeasible (same instructor / same room twice at the same time).  The merged event seats the
-    sum of the groups, carries every cohort and instructor key, and maps back to all its requests
-    through ``members`` (one assignment per request is persisted).  When the planner locked the group
-    into rooms smaller than the summed enrolment (the list's enrolments are *expected* numbers and
-    programmes overlap), the planner's rooms win: the size is clipped to their capacity and the clip
-    is reported.  Returns (events, one summary dict per merged group).
-    """
+    **sum** of the groups (never clipped: a planner-locked group too large for its rooms is a trusted lock,
+    reported as ``trusted_lock_capacity``; definitive rooms used as hints are clipped by
+    :func:`clip_to_planner_rooms`), carries every cohort and instructor key, spans the members' periods,
+    is locked to the union of the members' locked rooms, and maps back to all its requests through
+    ``members`` (one assignment per request is persisted, each with its own periods and weeks).  A group
+    that would hold two different locked room sets is not merged (checked after the union-find).
+    Returns (events, one summary dict per merged group, incl. ``planner_rooms`` and the rejected groups
+    as ``{"rejected": [...]}``)."""
     by_slot: dict[tuple[int | None, int | None, int], list[int]] = defaultdict(list)
     for i, e in enumerate(events):
         if e.fixed_day is not None and e.fixed_start is not None:
@@ -234,7 +252,7 @@ def merge_joint_lectures(
     for idxs in by_slot.values():
         for x in range(len(idxs)):
             for y in range(x + 1, len(idxs)):
-                if _joinable(events[idxs[x]], events[idxs[y]]):
+                if _joinable(events[idxs[x]], events[idxs[y]], planner_locked):
                     parent[find(idxs[x])] = find(idxs[y])
     # the planner locked two rows into the same room set at overlapping times: one lecture listed twice
     # when both start together (cross-listed MBG 408 / MBG 598 in A 207) or it is the same course and
@@ -255,12 +273,25 @@ def merge_joint_lectures(
     merged: list[dict[str, Any]] = []
     caps = room_capacity or {}
     for idxs in groups.values():
-        if len(idxs) == 1:
-            out.append(events[idxs[0]])
-            continue
         evs = sorted((events[i] for i in idxs), key=lambda e: e.id)
+        locked_sets = {frozenset(e.locked.room_ids) for e in evs if e.locked is not None and e.locked.room_ids}
+        if len(locked_sets) > 1:
+            # the whole group is checked after the union-find: two different planner room sets are two
+            # sessions (or a data error the static checker reports), never one event in one of the sets
+            merged.append(
+                {
+                    "rejected": [e.id for e in evs],
+                    "labels": [e.label for e in evs],
+                    "room_sets": [sorted(s) for s in locked_sets],
+                }
+            )
+            out.extend(evs)
+            continue
+        if len(evs) == 1:
+            out.append(evs[0])
+            continue
         head = evs[0]
-        locked_rooms = next((e.locked.room_ids for e in evs if e.locked), None)
+        locked_rooms = tuple(dict.fromkeys(r for e in evs if e.locked is not None for r in e.locked.room_ids))
         first = min((e.locked.start if e.locked else e.fixed_start or 1) for e in evs)
         last = max((e.locked.end if e.locked else (e.fixed_start or 1) + e.duration - 1) for e in evs)
         span_changed = any(
@@ -275,15 +306,13 @@ def merge_joint_lectures(
         info: dict[str, Any] = {"event_id": head.id, "request_ids": [e.id for e in evs], "label": label, "size": size}
         if span_changed:
             info["span"] = [first, last]
-        planner_rooms: list[int] = list(locked_rooms or ())
+        planner_rooms: list[int] = list(locked_rooms)
         if not planner_rooms and hint_rooms and all(e.id in hint_rooms for e in evs):
-            # definitive rooms used as hints (D1 for hints): the planner's room set seats the joint lecture
+            # definitive rooms used as hints: the planner's room set (union) seats the joint lecture
             planner_rooms = list(dict.fromkeys(r for e in evs for r in hint_rooms[e.id]))
         if planner_rooms:
-            cap = sum(caps.get(r, 0) for r in planner_rooms)
-            if cap and size > cap:
-                info["clipped_to"] = cap
-                size = max(cap, max(e.size for e in evs))
+            info["planner_rooms"] = planner_rooms
+            info["seats"] = sum(caps.get(r, 0) for r in planner_rooms)
         merged.append(info)
         out.append(
             replace(
@@ -316,6 +345,80 @@ def merge_joint_lectures(
         )
         members[head.id] = [m for e in evs for m in members.pop(e.id, [e.id])]
     return out, merged
+
+
+def clip_to_planner_rooms(
+    events: list[sm.Event],
+    planner_rooms: dict[int, list[int]],
+    room_capacity: dict[int, int],
+    rooms: tuple[sm.Room, ...],
+) -> tuple[list[sm.Event], list[tuple[int, int, int, list[int]]]]:
+    """D1 for definitive rooms used as *hints* (``definitive_rooms="prefer"``): an event the planner seats in
+    a room set with fewer seats than its expected size may use exactly that set with the planner's seat
+    count as its size — and only that set: every other room that cannot seat the full group is forbidden,
+    so a clipped size never lets the group into somebody else's small room (review MINOR).  Returns the
+    events and ``(event id, full size, seats, planner rooms)`` per clipped event."""
+    out: list[sm.Event] = []
+    clipped: list[tuple[int, int, int, list[int]]] = []
+    for e in events:
+        planner = planner_rooms.get(e.id)
+        seats = sum(room_capacity.get(r, 0) for r in planner or [])
+        if not planner or not 0 < seats < e.size or e.locked is not None:
+            out.append(e)
+            continue
+        small = frozenset(r.id for r in rooms if r.id not in planner and room_capacity.get(r.id, 0) < e.size)
+        clipped.append((e.id, e.size, seats, list(planner)))
+        out.append(replace(e, size=seats, forbidden_room_ids=e.forbidden_room_ids | small))
+    return out, clipped
+
+
+def _median(values: list[int]) -> int:
+    vals = sorted(v for v in values if v > 0)
+    if not vals:
+        return 0
+    mid = len(vals) // 2
+    return vals[mid] if len(vals) % 2 else (vals[mid - 1] + vals[mid] + 1) // 2
+
+
+class SizeFallback:
+    """Fallback group sizes for requests without an enrolment (review M1): the median enrolment of the
+    course's other sections (exams: the course's other exam rows), else of the cohort (programme + class
+    year), else of the whole term.  ``source`` tells the planner which one was used."""
+
+    def __init__(self) -> None:
+        self.by_course: dict[Any, list[int]] = defaultdict(list)
+        self.by_cohort: dict[tuple[Any, int], list[int]] = defaultdict(list)
+        self.all: list[int] = []
+
+    def add(self, course: Any, program: Any, years: list[int], size: int) -> None:
+        if size <= 0:
+            return
+        self.by_course[course].append(size)
+        for y in years:
+            self.by_cohort[(program, y)].append(size)
+        self.all.append(size)
+
+    def size_for(self, course: Any, program: Any, years: list[int]) -> tuple[int, str]:
+        if self.by_course.get(course):
+            return _median(self.by_course[course]), "course_sections"
+        cohort = [v for y in years for v in self.by_cohort.get((program, y), [])]
+        if program is not None and cohort:
+            return _median(cohort), "cohort_median"
+        if self.all:
+            return _median(self.all), "term_median"
+        return 0, "none"
+
+
+def _years(values: list[Any] | None, single: Any) -> list[int]:
+    out = []
+    for y in values or [single]:
+        try:
+            yi = int(y)
+        except (TypeError, ValueError):
+            continue
+        if yi > 0:
+            out.append(yi)
+    return out
 
 
 async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[sm.SolverInput, dict[int, list[int]]]:
@@ -365,8 +468,11 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     all_rooms: dict[int, str] = {
         int(rid): str(code) for rid, code in (await session.execute(select(Room.id, Room.code))).all()
     }
+    tip_room_ids = {r.id for r in rooms_db if "TIP" in (r.tags or [])}
     definitive_mode = run_mode(params, "definitive_rooms")
-    outside_pool: dict[int, list[int]] = {}  # event id -> planner rooms outside the solver's room pool
+    outside_pool: dict[int, list[int]] = {}  # request id -> planner rooms outside the solver's room pool
+    #: LOCKED rows with planner rooms outside the pool: (request, rooms, day key, start, end, weeks)
+    outside_slots: list[tuple[int, list[int], Any, int, int, frozenset[int]]] = []
 
     def split_definitive(ids: list[Any]) -> tuple[list[int], list[int]]:
         ids_i = list(dict.fromkeys(int(x) for x in ids or []))
@@ -377,9 +483,12 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     extra_weeks: set[int] = set()
     room_cap = {r.id: (r.exam_capacity if exam else r.capacity) for r in rooms}
     trust_hints = run_mode(params, "trust_locked_rooms") and bool(params.get("trust_definitive_capacity", True))
-    # prefer mode: (request, expected size, planner's seats, the planner's rooms) of D1-for-hints cases
-    hint_clipped: list[tuple[int, int, int, list[int]]] = []
     hint_sets: dict[int, list[int]] = {}  # prefer mode: request -> the planner's definitive rooms (hint)
+    #: request id -> {"size", "source"}: fallback sizes of requests without an enrolment (review M1)
+    fallbacks: dict[int, dict[str, Any]] = {}
+    planner_locked: set[int] = set()  # LOCKED rows (definitive rooms in or outside the pool)
+    tip_requested: set[int] = set()  # requests asking for a medicine (TIP) room
+    tip_planned: set[int] = set()  # LOCKED requests the planner seats in a TIP room
 
     if not exam:
         q = (
@@ -392,6 +501,19 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 selectinload(MeetingRequest.section).selectinload(Section.instructors),
             )
         )
+        sizes = SizeFallback()
+        for cid, pid, cy, cys, enr in (
+            await session.execute(
+                select(
+                    Section.course_id,
+                    Section.program_id,
+                    Section.class_year,
+                    Section.class_years,
+                    Section.enrolment,
+                ).where(Section.term_id == term.id, Section.archived.is_(False))
+            )
+        ).all():
+            sizes.add(cid, pid, _years(cys, cy), int(enr or 0))
         for mr in (await session.execute(q)).scalars():
             if mr.start_period is None or mr.end_period is None:
                 continue
@@ -402,6 +524,8 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             days = [int(d) for d in (mr.days or [])] or ([mr.day] if mr.day else [])
             fixed_day = mr.day if mr.day else (days[0] if len(days) == 1 else None)
             tags = {str(t) for t in (mr.requested_tags or [])}
+            if "TIP" in tags:
+                tip_requested.add(mr.id)
             required_tags = frozenset({"PC"} & tags)
             forbidden_tags: frozenset[str] = frozenset()
             if "TIP" not in tags:
@@ -409,6 +533,10 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             locked = None
             definitive, outside = split_definitive(mr.definitive_room_ids or [])
             is_locked = mr.status == "LOCKED" and bool(definitive or outside) and bool(fixed_day)
+            if is_locked:
+                planner_locked.add(mr.id)
+                if set(definitive) & tip_room_ids:
+                    tip_planned.add(mr.id)
             needs_room = True
             preferred = [int(x) for x in (mr.requested_room_ids or []) if int(x) in room_ids]
             if is_locked and definitive_mode == "lock":
@@ -429,24 +557,19 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 # keeps it exactly as with locks (else it would compete for pooled rooms it never used)
                 needs_room = False
                 outside_pool[mr.id] = outside
+            if is_locked and outside:
+                outside_slots.append((mr.id, outside, fixed_day, mr.start_period, mr.end_period, ev_weeks))
             size = int(sec.enrolment or mr.requested_capacity or 0)
+            if size <= 0:
+                size, source = sizes.size_for(sec.course_id, sec.program_id, _years(sec.class_years, sec.class_year))
+                fallbacks[mr.id] = {"size": size, "source": source}
             hint_rooms = 1
             if is_locked and definitive_mode == "prefer":
                 preferred = list(dict.fromkeys([*definitive, *preferred]))
                 hint_rooms = max(1, len(definitive))  # the planner's room set may be used as a whole
-                seats = sum(room_cap.get(r, 0) for r in definitive)
                 if trust_hints and definitive:
                     hint_sets[mr.id] = list(definitive)
-                if trust_hints and definitive and 0 < seats < size:
-                    # D1 for hints: the planner seats this group in fewer seats (enrolments are estimates),
-                    # so a room set of that size is enough; reported per case (trusted_hint_capacity)
-                    hint_clipped.append((mr.id, size, seats, list(definitive)))
-                    size = seats
-            if (
-                is_locked
-                and definitive_mode != "lock"
-                and any(r.id in definitive and "TIP" in (r.tags or []) for r in rooms_db)
-            ):
+            if is_locked and definitive_mode != "lock" and set(definitive) & tip_room_ids:
                 forbidden_tags = frozenset()  # the planner seats this group in a medicine (TIP) room
             cohort = _cohort_keys(
                 sec.program.canonical_name if sec.program else None, sec.class_years or [sec.class_year]
@@ -477,13 +600,30 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             )
             members[mr.id] = [mr.id]
         if run_mode(params, "merge_joint_lectures"):
-            events, merged = merge_joint_lectures(events, members, {r.id: r.capacity for r in rooms}, hint_sets)
+            events, merged = merge_joint_lectures(
+                events, members, {r.id: r.capacity for r in rooms}, hint_sets, planner_locked
+            )
+            joint = [m for m in merged if "rejected" not in m]
+            rejected = [m for m in merged if "rejected" in m]
             if merged:
                 run.stats = {
                     **(run.stats or {}),
-                    "merged_joint_lectures": len(merged),
-                    "merged_joint_lectures_clipped": [m for m in merged if "clipped_to" in m][:50],
+                    "merged_joint_lectures": len(joint),
+                    "joint_lectures_rejected": len(rejected),
                 }
+            for m in rejected:
+                bridge_diags.append(
+                    _bridge_diag(
+                        list(m["rejected"]),
+                        f"{' / '.join(m['labels'])} share a slot but the planner locked them into different room "
+                        "sets: kept as separate classes",
+                        ["check whether they are one joint lecture; if so, give them one room set"],
+                        "joint_lecture_rejected",
+                        [],
+                        {"room_sets": m["room_sets"]},
+                        severity="info",
+                    )
+                )
     else:
         qe = (
             select(ExamRequest)
@@ -491,14 +631,19 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             .options(selectinload(ExamRequest.program))
         )
         groups: dict[str, list[ExamRequest]] = defaultdict(list)
+        exam_sizes = SizeFallback()
         for ex in (await session.execute(qe)).scalars():
+            exam_sizes.add(ex.course_code, ex.program_id, _years(ex.class_years, ex.class_year), int(ex.enrolment or 0))
             if ex.date is None or ex.start_period is None or ex.end_period is None:
                 continue
             groups[ex.merge_key or f"single:{ex.id}"].append(ex)
         for rows in groups.values():
             head = min(rows, key=lambda r: r.id)
-            head_date, head_start, head_end = head.date, head.start_period, head.end_period
-            assert head_date is not None and head_start is not None and head_end is not None
+            head_date, head_start = head.date, head.start_period
+            assert head_date is not None and head_start is not None
+            # the group spans its rows' periods (the end time is the latest of the group, MINOR)
+            head_end = max(int(r.end_period or head_start) for r in rows)
+            first_start = min(int(r.start_period or head_start) for r in rows)
             week = week_index_for_date(term, head_date, list(weeks_rows))
             if week is None:
                 week = weeks[0]
@@ -506,21 +651,44 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 if run.horizon != "TERM" and params.get("strict_horizon", True):
                     continue
                 extra_weeks.add(week)  # exam dated outside the term's lecture weeks (e.g. early finals)
-            size = sum(int(r.enrolment or 0) for r in rows)
+            size = 0
+            for r in rows:
+                n = int(r.enrolment or 0)
+                if n <= 0:
+                    n, source = exam_sizes.size_for(r.course_code, r.program_id, _years(r.class_years, r.class_year))
+                    fallbacks[r.id] = {"size": n, "source": source}
+                size += n
             tags = {str(t) for r in rows for t in (r.requested_tags or [])}
-            definitive, outside = split_definitive([x for r in rows for x in (r.definitive_room_ids or [])])
+            if "TIP" in tags:
+                tip_requested.add(head.id)
+            # the planner's rooms are those of the LOCKED rows; a mixed locked/unlocked group sits in them
+            # (MINOR: the locked rooms were lost when one row of the group was not locked)
+            locked_rows = [r for r in rows if r.status == "LOCKED" and r.definitive_room_ids]
+            definitive, outside = split_definitive([x for r in locked_rows for x in (r.definitive_room_ids or [])])
             locked = None
             exam_needs_room = True
-            is_locked = all(r.status == "LOCKED" for r in rows) and bool(definitive or outside)
+            is_locked = bool(locked_rows) and bool(definitive or outside)
+            if is_locked:
+                planner_locked.update(r.id for r in rows)
             exam_preferred = list(
-                dict.fromkeys(int(x) for r in rows for x in (r.requested_room_ids or []) if int(x) in room_ids)
+                dict.fromkeys(
+                    [
+                        *definitive,
+                        *(
+                            int(x)
+                            for r in rows
+                            for x in [*(r.definitive_room_ids or []), *(r.requested_room_ids or [])]
+                            if int(x) in room_ids
+                        ),
+                    ]
+                )
             )
             if is_locked and definitive_mode == "lock":
                 if definitive:
                     locked = sm.Assignment(
                         head.id,
                         head_date.isoweekday(),
-                        head_start,
+                        first_start,
                         head_end,
                         tuple(definitive),
                         frozenset({week}),
@@ -533,13 +701,13 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             elif is_locked and definitive_mode == "prefer" and not definitive:
                 exam_needs_room = False  # the planner's room is outside the pool: kept (see the course case)
                 outside_pool[head.id] = outside
-            elif is_locked and definitive_mode == "prefer":
-                exam_preferred = list(dict.fromkeys([*definitive, *exam_preferred]))
-                seats = sum(room_cap.get(r, 0) for r in definitive)
-                if trust_hints and definitive and 0 < seats < size:
-                    hint_clipped.append((head.id, size, seats, list(definitive)))  # see the course case above
-                    size = seats
-            tip_ok = is_locked and any(r.id in definitive and "TIP" in (r.tags or []) for r in rooms_db)
+            elif is_locked and definitive_mode == "prefer" and trust_hints and definitive:
+                hint_sets[head.id] = list(definitive)
+            if is_locked and outside:
+                outside_slots.append((head.id, outside, head_date, first_start, head_end, frozenset({week})))
+            tip_ok = is_locked and bool(set(definitive) & tip_room_ids)
+            if tip_ok:
+                tip_planned.add(head.id)
             cohort = frozenset().union(
                 *(
                     _cohort_keys(r.program.canonical_name if r.program else None, r.class_years or [r.class_year])
@@ -559,10 +727,10 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     kind="exam",
                     label=f"{head.course_code} ({len(rows)} prog)" if len(rows) > 1 else head.course_code,
                     size=size,
-                    duration=head_end - head_start + 1,
+                    duration=head_end - first_start + 1,
                     weeks=frozenset({week}),
                     fixed_day=head_date.isoweekday(),
-                    fixed_start=head_start,
+                    fixed_start=first_start,
                     allowed_days=frozenset({head_date.isoweekday()}),
                     fixed_date=head_date,
                     required_tags=frozenset({"PC"} & tags),
@@ -581,28 +749,73 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             )
             members[head.id] = [r.id for r in rows]
 
-    if hint_clipped:
-        # one warning per case (like trusted_lock_capacity for locks), with the facts as params, so the
-        # data-issues report lists every class next to its planner room
-        labels = {e.id: e.label for e in events}
-        head_of = {m: h for h, ms in members.items() for m in ms}
+    head_of = {m: h for h, ms in members.items() for m in ms}
+    labels = {e.id: e.label for e in events}
+
+    if hint_sets and definitive_mode == "prefer":
+        # D1 for hints, after merging: the planner's room set (union over a joint lecture) may seat fewer
+        # than the expected size; only that set may then hold the clipped size (one warning per case)
+        planner_of: dict[int, list[int]] = {}
+        for e in events:
+            ms = members.get(e.id, [e.id])
+            if all(m in hint_sets for m in ms):
+                planner_of[e.id] = list(dict.fromkeys(r for m in ms for r in hint_sets[m]))
+        events, hint_clipped = clip_to_planner_rooms(events, planner_of, room_cap, rooms)
         what = "exam seats" if exam else "seats"
-        for rid, sz, cap, planner_rooms in hint_clipped:
-            head_id = head_of.get(rid, rid)
+        for eid, sz, cap, planner_rooms in hint_clipped:
             hint_codes = [all_rooms.get(r, str(r)) for r in planner_rooms]
+            ms = members.get(eid, [eid])
+            code = "joint_lecture_clipped" if len(ms) > 1 and not exam else "trusted_hint_capacity"
             bridge_diags.append(
                 _bridge_diag(
-                    [head_id],
-                    f"{labels.get(head_id, str(head_id))} expects {sz} students; the planner's room "
-                    f"{' + '.join(hint_codes)} "
-                    f"has {cap} {what}: used as a hint with {cap} as the group size (enrolments are estimates)",
-                    ["check the enrolment estimate", "set trust_definitive_capacity=false to require full capacity"],
-                    "trusted_hint_capacity",
+                    [eid],
+                    f"{labels.get(eid, str(eid))} expects {sz} students; the planner's room "
+                    f"{' + '.join(hint_codes)} has {cap} {what}: used as a hint with {cap} as the group size "
+                    "(enrolments are estimates); any other room must seat all of them",
+                    ["check the enrolment estimate", "set trust_locked_rooms=false to require full capacity"],
+                    code,
                     ["capacity"],
-                    {"size": sz, "seats": cap, "room_codes": hint_codes, "request_id": rid},
+                    {
+                        "size": sz,
+                        "seats": cap,
+                        "room_codes": hint_codes,
+                        "request_id": ms[0],
+                        "request_ids": ms,
+                        "clipped_to": cap,
+                    },
                 )
             )
-        run.stats = {**(run.stats or {}), "trusted_hint_capacity": len(hint_clipped)}
+        if hint_clipped:
+            run.stats = {**(run.stats or {}), "trusted_hint_capacity": len(hint_clipped)}
+
+    if fallbacks:
+        # one warning per solver event with the members that have no enrolment, and the fallback used
+        by_event: dict[int, list[int]] = defaultdict(list)
+        for rid in fallbacks:
+            by_event[head_of.get(rid, rid)].append(rid)
+        for eid, rids in sorted(by_event.items()):
+            sources = sorted({str(fallbacks[r]["source"]) for r in rids})
+            fsize = sum(int(fallbacks[r]["size"]) for r in rids)
+            bridge_diags.append(
+                _bridge_diag(
+                    [eid],
+                    f"{labels.get(eid, str(eid))}: no enrolment in the data for {len(rids)} request(s); planned with "
+                    f"{fsize} students ({', '.join(_FALLBACK_TEXT.get(x, x) for x in sources)})",
+                    ["enter the enrolment in the planning list"],
+                    "missing_enrolment",
+                    ["capacity"],
+                    {
+                        "request_ids": sorted(rids),
+                        "size": fsize,
+                        "sizes": {str(r): int(fallbacks[r]["size"]) for r in sorted(rids)},
+                        "sources": sources,
+                    },
+                )
+            )
+        run.stats = {**(run.stats or {}), "enrolment_fallbacks": {str(k): v for k, v in sorted(fallbacks.items())}}
+
+    if outside_slots:
+        bridge_diags.extend(_outside_pool_overlaps(outside_slots, head_of, labels, all_rooms, exam))
 
     blocks: list[sm.Block] = []
     for b in (
@@ -648,7 +861,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     )
     from app.importers.normalize import normalize_selector_params
 
-    constraints = tuple(  # cohort / programme selectors in the one canonical form (usability U1); request ids of
+    constraints = [  # cohort / programme selectors in the one canonical form (usability U1); request ids of
         # merged joint-lecture members point at their solver event (usability U3)
         sm.Constraint(
             c.kind,
@@ -658,11 +871,13 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             c.id,
         )
         for c in cons
-    )
+    ]
+    if fallbacks:
+        constraints = _exclude_from_waste(constraints, sorted({head_of.get(r, r) for r in fallbacks}))
 
     previous: list[sm.Assignment] = []
+    carried: dict[int, str] = {}  # request id -> origin of a tool-made lock carried over from the parent run
     if run.parent_run_id:
-        head_of = {rid: head for head, ids in members.items() for rid in ids}
         events_by_id = {e.id: i for i, e in enumerate(events)}
         seen_prev: set[int] = set()
         parent_rows = list(
@@ -673,8 +888,9 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             ).scalars()
         )
         # a week-segmented parent stores one row per room set: the row covering most weeks stands for the
-        # event (a manual move collapses them into one row anyway)
-        parent_rows.sort(key=lambda a: (-len(a.weeks or []), a.id))
+        # event (a manual move collapses them into one row anyway); a member's locked (moved) row wins
+        parent_rows.sort(key=lambda a: (not a.is_locked, -len(a.weeks or []), a.id))
+        manual_lines: dict[int, str] = {}
         for a in parent_rows:
             req_id = a.meeting_request_id if not exam else a.exam_request_id
             if req_id is None:
@@ -696,26 +912,64 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 )
             )
             idx = events_by_id.get(ev_id)
-            if a.is_locked and idx is not None and all(r in room_ids for r in a_rooms):
-                # a planner-locked (e.g. manually moved) assignment of the parent run is carried over as
-                # a hard lock; ``locked`` overrides the request's fixed day/time in the solver
+            pooled_rooms = tuple(r for r in a_rooms if r in room_ids)
+            if a.is_locked and idx is not None and pooled_rooms:
+                # a locked assignment of the parent run (manual move, fix button, AI edit) is carried over
+                # as a hard lock; ``locked`` overrides the request's fixed day/time in the solver.  It is the
+                # planner's own (trusted) decision only when it is exactly the planning list's lock
                 ev = events[idx]
+                own = ev.locked
+                trusted = (
+                    own is not None
+                    and set(own.room_ids) == set(pooled_rooms)
+                    and (own.day, own.start, own.end) == (a.day, a.start_period, a.end_period)
+                )
                 events[idx] = replace(
                     ev,
                     duration=a.end_period - a.start_period + 1,
                     locked=sm.Assignment(
-                        ev.id, a.day, a.start_period, a.end_period, a_rooms, ev.weeks, a.date or ev.fixed_date
+                        ev.id, a.day, a.start_period, a.end_period, pooled_rooms, ev.weeks, a.date or ev.fixed_date
                     ),
-                    forbidden_tags=frozenset(),
-                    max_rooms=max(len(a_rooms), 1) if ev.kind == "exam" else ev.max_rooms,
+                    # a tool-made lock gets the TIP ban back unless the class asks for a medicine room or the
+                    # planner seats it in one (the planner's own lock keeps the cleared ban)
+                    forbidden_tags=(
+                        frozenset()
+                        if trusted or {ev_id, *members.get(ev_id, [])} & (tip_requested | tip_planned)
+                        else frozenset({"TIP"})
+                    ),
+                    max_rooms=max(len(pooled_rooms), 1) if ev.kind == "exam" else max(ev.max_rooms, len(pooled_rooms)),
+                    lock_trusted=trusted,
                 )
+                if not trusted:
+                    for mid in members.get(ev_id, [ev_id]):
+                        carried[mid] = str(a.origin or "MANUAL")
+                    manual_lines[ev_id] = (
+                        f"day {a.day} P{a.start_period}-P{a.end_period} in "
+                        + " + ".join(all_rooms.get(r, str(r)) for r in pooled_rooms)
+                        + f" ({str(a.origin or 'MANUAL').lower()})"
+                    )
+        for ev_id, where in sorted(manual_lines.items()):
+            bridge_diags.append(
+                _bridge_diag(
+                    [ev_id],
+                    f"{labels.get(ev_id, str(ev_id))} keeps the placement made by hand or by a fix in the parent "
+                    f"run: {where}; capacity and room tags are checked like any placement",
+                    ["unlock it in the parent run to let the solver choose again"],
+                    "manual_lock",
+                    [],
+                    {"origin": carried.get(members.get(ev_id, [ev_id])[0], "MANUAL")},
+                    severity="info",
+                )
+            )
+        if carried:
+            run.stats = {**(run.stats or {}), "carried_locks": {str(k): v for k, v in sorted(carried.items())}}
 
     if exam and extra_weeks:
         weeks = sorted(week_set | extra_weeks)
     inp = sm.SolverInput(
         rooms=rooms,
         events=tuple(events),
-        constraints=constraints,
+        constraints=tuple(constraints),
         weeks=tuple(weeks),
         blocks=tuple(blocks),
         previous=tuple(previous),
@@ -728,13 +982,12 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         best_effort=run_mode(params, "best_effort"),
     )
     if outside_pool:
-        head_of_member = {m: h for h, ms in members.items() for m in ms}
-        by_event: dict[int, list[int]] = defaultdict(list)
+        by_ev: dict[int, list[int]] = defaultdict(list)
         for rid, rooms_out in outside_pool.items():
-            by_event[head_of_member.get(rid, rid)].extend(rooms_out)
+            by_ev[head_of.get(rid, rid)].extend(rooms_out)
         ev_by_id = {e.id: e for e in inp.events}
         lines = []
-        for eid, rids in sorted(by_event.items()):
+        for eid, rids in sorted(by_ev.items()):
             held = ev_by_id.get(eid)
             if held is None:
                 continue
@@ -745,7 +998,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         if kept_out:
             bridge_diags.append(
                 _bridge_diag(
-                    [x[0] for x in kept_out][:200],
+                    [x[0] for x in kept_out],
                     f"{len(kept_out)} locked request(s) sit in the planner's room outside the bookable pool "
                     "(no capacity known) and keep it; times, cohorts and instructors still count: "
                     + "; ".join(x[1] for x in kept_out[:10])
@@ -757,7 +1010,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         if partly:
             bridge_diags.append(
                 _bridge_diag(
-                    [x[0] for x in partly][:200],
+                    [x[0] for x in partly],
                     f"{len(partly)} locked request(s) also use a room outside the bookable pool; only their pooled "
                     "rooms are checked: " + "; ".join(x[1] for x in partly[:10]) + (" ..." if len(partly) > 10 else ""),
                     ["add these rooms with a capacity to the room master"],
@@ -766,15 +1019,160 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             )
         run.stats = {
             **(run.stats or {}),
-            "outside_pool_rooms": {str(k): list(dict.fromkeys(v)) for k, v in by_event.items()},
+            "outside_pool_rooms": {str(k): list(dict.fromkeys(v)) for k, v in outside_pool.items()},
         }
     run.stats = {**(run.stats or {}), "bridge_diagnoses": bridge_diags}
     return inp, members
 
 
+_FALLBACK_TEXT = {
+    "course_sections": "median of the course's other sections",
+    "cohort_median": "median of the programme year",
+    "term_median": "median of the term",
+    "none": "no enrolment anywhere: size 0, capacity unchecked",
+}
+
+
+def _exclude_from_waste(constraints: list[sm.Constraint], event_ids: list[int]) -> list[sm.Constraint]:
+    """Events planned with a fallback size stay out of ``min_capacity_waste`` (their size is a guess):
+    added to the term's untargeted configuration of the rule, or as a new default configuration."""
+    from app.solver.constraints._common import is_targeted
+
+    out = list(constraints)
+    for i, c in enumerate(out):
+        if c.kind == "min_capacity_waste" and not is_targeted(c):
+            ids = sorted({*(int(x) for x in c.params.get("exclude_event_ids") or []), *event_ids})
+            out[i] = replace(c, params={**c.params, "exclude_event_ids": ids})
+            return out
+    out.append(sm.Constraint("min_capacity_waste", {"exclude_event_ids": event_ids}, False, 1))
+    return out
+
+
+def _outside_pool_overlaps(
+    slots: list[tuple[int, list[int], Any, int, int, frozenset[int]]],
+    head_of: dict[int, int],
+    labels: dict[int, str],
+    all_rooms: dict[int, str],
+    exam: bool,
+) -> list[dict[str, Any]]:
+    """Two LOCKED requests holding one room outside the pool at overlapping times in shared weeks: the
+    solver keeps both (it cannot check rooms it has no capacity for), so the double booking is reported as
+    a data issue (``outside_pool_overlap``, review M6)."""
+    by_room: dict[tuple[int, Any], list[tuple[int, int, int, frozenset[int]]]] = defaultdict(list)
+    for rid, outside, day, start, end, wks in slots:
+        for room in outside:
+            by_room[(room, day)].append((head_of.get(rid, rid), start, end, wks))
+    seen: set[tuple[int, int, int]] = set()
+    out: list[dict[str, Any]] = []
+    for (room, day), items in sorted(by_room.items(), key=lambda kv: (kv[0][0], str(kv[0][1]))):
+        for i in range(len(items)):
+            for j in range(i + 1, len(items)):
+                a, b = items[i], items[j]
+                if a[0] == b[0] or not (a[1] <= b[2] and b[1] <= a[2]) or not a[3] & b[3]:
+                    continue
+                key = (room, min(a[0], b[0]), max(a[0], b[0]))
+                if key in seen:
+                    continue
+                seen.add(key)
+                code = all_rooms.get(room, str(room))
+                when = str(day) if exam else f"day {day}"
+                out.append(
+                    _bridge_diag(
+                        [a[0], b[0]],
+                        f"{labels.get(a[0], a[0])} and {labels.get(b[0], b[0])} are both locked to {code} (outside "
+                        f"the bookable pool) on {when} P{max(a[1], b[1])}-P{min(a[2], b[2])}; both are kept",
+                        [f"change the room or time of {labels.get(a[0], a[0])} or {labels.get(b[0], b[0])}"],
+                        "outside_pool_overlap",
+                        ["no_room_overlap"],
+                        {
+                            "rooms": [room],
+                            "room_codes": [code],
+                            "day": day if not exam else None,
+                            "date": str(day) if exam else None,
+                            "start": max(a[1], b[1]),
+                            "end": min(a[2], b[2]),
+                            "weeks": sorted(a[3] & b[3]),
+                        },
+                    )
+                )
+    return out
+
+
+async def _member_rows(session: AsyncSession, exam: bool, ids: set[int]) -> dict[int, dict[str, Any]]:
+    """Own periods / weeks / date / status / definitive rooms of the requests behind merged events."""
+    out: dict[int, dict[str, Any]] = {}
+    if not ids:
+        return out
+    if exam:
+        for ex in (await session.execute(select(ExamRequest).where(ExamRequest.id.in_(ids)))).scalars():
+            out[ex.id] = {
+                "start": ex.start_period,
+                "end": ex.end_period,
+                "date": ex.date,
+                "weeks": None,
+                "locked": ex.status == "LOCKED",
+                "definitive": [int(x) for x in ex.definitive_room_ids or []],
+            }
+    else:
+        for mr in (await session.execute(select(MeetingRequest).where(MeetingRequest.id.in_(ids)))).scalars():
+            out[mr.id] = {
+                "start": mr.start_period,
+                "end": mr.end_period,
+                "date": None,
+                "weeks": {int(w) for w in mr.weeks or []} or None,
+                "locked": mr.status == "LOCKED",
+                "definitive": [int(x) for x in mr.definitive_room_ids or []],
+            }
+    return out
+
+
+def _member_placements(
+    a: sm.Assignment, ms: list[int], info: dict[int, dict[str, Any]], outside: dict[int, list[int]]
+) -> list[tuple[int, int, int, tuple[int, ...], frozenset[int]]]:
+    """(request, start, end, rooms, weeks) of each request behind one solver assignment.  A joint lecture /
+    exam cohort keeps one room set for the group, but every request keeps its own periods (shifted with the
+    group when it was moved) and its own weeks; a group sitting exactly in its planner's rooms gives each
+    LOCKED request back its own definitive rooms (an exam split by programme over C 301 / C 201 / C 501),
+    and a room outside the pool is only added to the request the planner put there (MINOR, review B1)."""
+    if len(ms) == 1:
+        rid = ms[0]
+        rooms = tuple(dict.fromkeys([*a.room_ids, *outside.get(rid, [])])) if a.room_ids else a.room_ids
+        return [(rid, a.start, a.end, rooms, a.weeks)]
+    own_start = [int(info[m]["start"]) for m in ms if m in info and info[m]["start"] is not None]
+    offset = a.start - min(own_start) if own_start else 0
+    pooled_of = {
+        m: [r for r in info[m]["definitive"] if r not in set(outside.get(m, []))]
+        for m in ms
+        if m in info and info[m]["locked"]
+    }
+    planner = {r for rs in pooled_of.values() for r in rs}
+    in_planner_rooms = bool(planner) and set(a.room_ids) == planner
+    out = []
+    for m in ms:
+        meta = info.get(m)
+        start, end = a.start, a.end
+        weeks = a.weeks
+        if meta is not None and meta["start"] is not None and meta["end"] is not None:
+            start = max(a.start, int(meta["start"]) + offset)
+            end = min(a.end, int(meta["end"]) + offset)
+            if meta["weeks"]:
+                weeks = frozenset(a.weeks & meta["weeks"])
+        if not weeks or end < start:
+            continue
+        rooms = tuple(pooled_of[m]) if in_planner_rooms and pooled_of.get(m) else tuple(a.room_ids)
+        if outside.get(m) and a.room_ids:
+            rooms = tuple(dict.fromkeys([*rooms, *outside[m]]))
+        out.append((m, start, end, rooms, weeks))
+    return out
+
+
 async def persist_result(
     session: AsyncSession, run: ScheduleRun, result: sm.SolverResult, members: dict[int, list[int]]
 ) -> int:
+    """Store ``result`` on ``run`` (one row per request and room set).  Returns the number of rows, or -1
+    when the run was cancelled meanwhile (nothing is stored then: the cancel wins, review MINOR)."""
+    from app.workers import run_jobs
+
     term = await session.get(Term, run.term_id)
     assert term is not None
     weeks_rows = (await session.execute(select(Week).where(Week.term_id == term.id))).scalars().all()
@@ -783,11 +1181,16 @@ async def persist_result(
     exam = run.kind == "EXAM"
     stats_in = dict(run.stats or {})
     outside = {int(k): [int(r) for r in v] for k, v in (stats_in.get("outside_pool_rooms") or {}).items()}
+    merged_ids = {m for a in result.assignments for m in members.get(a.event_id, []) if len(members[a.event_id]) > 1}
+    info = await _member_rows(session, exam, merged_ids)
     for a in result.assignments:
-        if a.event_id in outside:  # the planner's room outside the pool (kept, not checked by the solver)
-            a = replace(a, room_ids=tuple(dict.fromkeys([*a.room_ids, *outside[a.event_id]])))
-        for req_id in members.get(a.event_id, [a.event_id]):
-            weeks = sorted(a.weeks)
+        if not a.room_ids and a.event_id in outside:
+            # the planner's room outside the pool (kept, not checked by the solver)
+            a = replace(a, room_ids=tuple(dict.fromkeys(outside[a.event_id])))
+        for req_id, start, end, rooms, req_weeks in _member_placements(
+            a, members.get(a.event_id, [a.event_id]), info, outside
+        ):
+            weeks = sorted(req_weeks)
             session.add(
                 Assignment(
                     run_id=run.id,
@@ -797,14 +1200,14 @@ async def persist_result(
                     weeks=weeks,
                     day=a.day,
                     date=a.date or (date_for(term, weeks[0], a.day, list(weeks_rows)) if len(weeks) == 1 else None),
-                    start_period=a.start,
-                    end_period=a.end,
-                    room_ids=list(a.room_ids),
+                    start_period=start,
+                    end_period=end,
+                    room_ids=list(rooms),
                     origin="SOLVER",
                 )
             )
             count += 1
-    run.status = run_status(result)
+    new_status = run_status(result)
     run.hard_score = result.hard_score
     run.soft_score = result.soft_score
     run.objective_value = float(sum(result.objective_breakdown.values())) if result.objective_breakdown else None
@@ -820,6 +1223,20 @@ async def persist_result(
         "event_members": {str(k): list(v) for k, v in members.items() if len(v) > 1},
     }
     diags = [asdict(d) for d in result.diagnoses] + bridge_diags
+    # accepted exceptions of the whole run (solver, week segments and bridge) by cause; the best-effort
+    # summary lists them instead of claiming that every placed class keeps every rule (review M3)
+    from app.solver.diagnose import accepted_exceptions, partial_message
+
+    unplaced_n = int(run.stats.get("unplaced") or 0) if run.stats.get("partial") else 0
+    exceptions = accepted_exceptions(diags, unplaced_n)
+    run.stats["accepted_exceptions"] = exceptions
+    for d in diags:
+        if d.get("code") == "partial" and (d.get("params") or {}).get("reason") != "timeout":
+            placed_n = int(run.stats.get("placed") or 0)
+            total_n = int(run.stats.get("events_total") or placed_n)
+            if not any(x.get("code") == "internal" for x in diags):
+                d["message"] = partial_message(placed_n, total_n, exceptions)
+            d["params"] = {**(d.get("params") or {}), "exceptions": exceptions}
     # planner-facing report: unplaced classes first, then data errors, clashes, warnings; every
     # diagnosis carries a TR / EN text rendered from code + params (names, days, clock times; no ids)
     from app.services.data_issues import order_for_report, planner_text, text_context
@@ -858,7 +1275,8 @@ async def persist_result(
     run.stats = dict(run.stats)
     flag_modified(run, "stats")
     run.finished_at = datetime.now(UTC).replace(tzinfo=None)
-    await session.commit()
+    if not await run_jobs.commit_unless_cancelled(session, run, new_status):
+        return -1
     return count
 
 
@@ -879,6 +1297,61 @@ async def _humanize(session: AsyncSession, diags: list[dict[str, Any]]) -> list[
         )
 
     return [{**d, "message": sub(str(d.get("message", "")))} for d in diags]
+
+
+async def _finish_empty_scope(session: AsyncSession, run: ScheduleRun) -> None:
+    """The run has nothing to schedule: FAILED with an ``empty_scope`` diagnosis naming what the term has."""
+    from sqlalchemy import func
+
+    from app.workers import run_jobs
+
+    term = await session.get(Term, run.term_id)
+    n_course = (
+        await session.execute(
+            select(func.count(MeetingRequest.id))
+            .join(Section, Section.id == MeetingRequest.section_id)
+            .where(Section.term_id == run.term_id, MeetingRequest.archived.is_(False))
+        )
+    ).scalar_one()
+    n_exam = (
+        await session.execute(
+            select(func.count(ExamRequest.id)).where(
+                ExamRequest.term_id == run.term_id, ExamRequest.archived.is_(False)
+            )
+        )
+    ).scalar_one()
+    code = term.code if term else str(run.term_id)
+    other = "EXAM" if run.kind != "EXAM" else "COURSE"
+    other_n = n_exam if run.kind != "EXAM" else n_course
+    what = "exam" if run.kind == "EXAM" else "course"
+    msg = f"nothing to schedule: term {code} has no {what} requests in this run's weeks"
+    if other_n:
+        msg += f" (it has {other_n} {other.lower()} requests: start a {other} run)"
+    diag = _bridge_diag(
+        [],
+        msg,
+        [f"start a {other} run" if other_n else "import the planning list first", "check the run's weeks"],
+        "empty_scope",
+        [],
+        {"kind": run.kind, "course_requests": int(n_course), "exam_requests": int(n_exam)},
+        severity="error",
+    )
+    other_tr = "sınav" if other == "EXAM" else "ders"
+    tail_tr = f" ({other_n} {other_tr} talebi var: {other} çalışması başlatın)." if other_n else "."
+    diag["text"] = {
+        "tr": f"Planlanacak ders yok: {code} döneminde bu çalışmanın haftalarında "
+        + ("sınav" if run.kind == "EXAM" else "ders")
+        + " talebi yok"
+        + tail_tr,
+        "en": msg[0].upper() + msg[1:] + ".",
+    }
+    run.diagnosis = [diag]
+    run.error = msg
+    run.hard_score = None
+    run.soft_score = None
+    run.stats = {**(run.stats or {}), "events_total": 0, "placed": 0, "progress": 100, "phase": "done"}
+    run.finished_at = datetime.now(UTC).replace(tzinfo=None)
+    await run_jobs.commit_unless_cancelled(session, run, "FAILED")
 
 
 def _studio_run(run: ScheduleRun) -> bool:
@@ -915,6 +1388,11 @@ async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn |
             inp, members = await build_solver_input_for_run(session, run)
         else:
             inp, members = await build_solver_input(session, run)
+        if not inp.events:
+            # nothing in scope (a COURSE run on an exam term, a week without classes ...): a clear message,
+            # never "hard 100 with 0 events" (review MINOR)
+            await _finish_empty_scope(session, run)
+            return {"status": "FAILED", "assignments": 0, "solver": None}
         await session.commit()  # bridge stats are kept on the row; no transaction stays open during the solve
     report("building", 15)
     choice = str(rparams.get("solver", "auto"))
@@ -948,5 +1426,7 @@ async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn |
             "rooms": result.stats.get("rooms", len(inp.rooms)),
         }
         n = await persist_result(session, run, result, members)
+        if n < 0:
+            return {"status": "CANCELLED"}
     report("done", 100)
     return {"status": run_status(result), "assignments": n, "solver": solver_mod}

@@ -202,20 +202,35 @@ async def cancel_run(run_id: int, db: DB, user: Planner) -> RunOut:
     run = await _run(db, run_id)
     if run.status not in {"QUEUED", "RUNNING"}:
         raise HTTPException(409, f"run {run_id} is {run.status}; only QUEUED or RUNNING runs can be cancelled")
-    await _cancel(db, run, user)
-    await db.refresh(run)
+    if not await _cancel(db, run, user):
+        raise HTTPException(409, f"run {run_id} is {run.status}; it finished before the cancel")
     return (await runs_out(db, [run]))[0]
 
 
-async def _cancel(db: AsyncSession, run: ScheduleRun, user: Any) -> None:
+async def _cancel(db: AsyncSession, run: ScheduleRun, user: Any) -> bool:
+    """Cancel a QUEUED / RUNNING run.  The status is written by one conditional UPDATE, so a result that
+    was committed meanwhile is never overwritten (the run already finished: False)."""
+    from sqlalchemy import update
+
     from app.workers import cancel
 
-    run.status = "CANCELLED"
-    run.error = f"cancelled by {getattr(user, 'email', None) or 'a planner'}"
-    run.finished_at = datetime.now(UTC).replace(tzinfo=None)
-    run.stats = {**(run.stats or {}), "phase": "cancelled"}
+    res = await db.execute(
+        update(ScheduleRun)
+        .where(ScheduleRun.id == run.id, ScheduleRun.status.in_(("QUEUED", "RUNNING")))
+        .values(
+            status="CANCELLED",
+            error=f"cancelled by {getattr(user, 'email', None) or 'a planner'}",
+            finished_at=datetime.now(UTC).replace(tzinfo=None),
+            stats={**(run.stats or {}), "phase": "cancelled"},
+        )
+        .execution_options(synchronize_session=False)
+    )
     await db.commit()
+    await db.refresh(run)
+    if not getattr(res, "rowcount", 0):
+        return False
     cancel.cancel(run.id)  # this process; other processes see CANCELLED on their next heartbeat
+    return True
 
 
 async def _check_user_limit(db: AsyncSession, user_id: int) -> None:
@@ -458,14 +473,80 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, _: Planne
     conflicts = await _conflict_messages(db, conflicts)
     if conflicts and not body.force:
         return MoveOut(ok=False, assignment=(await _assignment_out(db, run, [a]))[0], conflicts=conflicts)
+    row_weeks = [int(w) for w in (a.weeks or ([a.week] if a.week else []))]
+    if body.week and len(row_weeks) > 1:
+        if body.week not in row_weeks:
+            raise HTTPException(422, f"week {body.week} is not one of this assignment's weeks {row_weeks}")
+        # a move "in week w" moves that week only: the row keeps its other weeks, a new row holds week w
+        # (review M4: the 14-week assignment was cut to one week)
+        rest = [w for w in row_weeks if w != body.week]
+        a.weeks = rest
+        a.week = rest[0] if len(rest) == 1 else None
+        if len(rest) == 1 and run.kind != "EXAM":
+            a.date = await _date_of(db, run, rest[0], a.day)
+        moved = Assignment(
+            run_id=run.id,
+            meeting_request_id=a.meeting_request_id,
+            exam_request_id=a.exam_request_id,
+            label=a.label,
+            course_codes=list(a.course_codes or []),
+            tags=list(a.tags or []),
+            notes=a.notes,
+        )
+        db.add(moved)
+        a = moved
     a.day, a.start_period, a.end_period, a.room_ids = day, sp, ep, room_ids
     a.origin = "MANUAL"
     a.is_locked = True
     if body.week:
         a.week, a.weeks = body.week, [body.week]
+        if run.kind != "EXAM":
+            a.date = await _date_of(db, run, body.week, day)
+    await db.flush()
+    check = await _rescore(db, run)
     await db.commit()
     await db.refresh(a)
-    return MoveOut(ok=True, assignment=(await _assignment_out(db, run, [a]))[0], conflicts=conflicts)
+    return MoveOut(
+        ok=True,
+        assignment=(await _assignment_out(db, run, [a]))[0],
+        conflicts=conflicts,
+        hard_score=run.hard_score,
+        status=run.status,
+        violations=[f.as_dict() for f in check.violations[:50]],
+    )
+
+
+async def _date_of(db: AsyncSession, run: ScheduleRun, week: int, day: int) -> Any:
+    from app.models import Week
+    from app.services.calendar import date_for
+
+    term = await db.get(Term, run.term_id)
+    if term is None:
+        return None
+    rows = list((await db.execute(select(Week).where(Week.term_id == term.id))).scalars())
+    return date_for(term, week, day, rows)
+
+
+async def _rescore(db: AsyncSession, run: ScheduleRun) -> Any:
+    """Re-validate ``run`` at planner level after an edit: the hard score counts the placed requests that
+    break a rule outside the reported exceptions (a manual placement is one); OPTIMAL is no longer proven;
+    a run that now places every request is no longer partial (review M4)."""
+    from app.services.planner_check import check_run
+    from app.services.run_params import trusted_studio_snapshot
+
+    check = await check_run(db, run)
+    run.hard_score = check.hard_score
+    if run.status == "OPTIMAL":
+        run.status = "FEASIBLE"
+    if run.status in ("FEASIBLE", PARTIAL_STATUS) and trusted_studio_snapshot(run) is None:
+        # (a studio run leaves the draft's excluded classes out on purpose: its placement status stays)
+        run.status = PARTIAL_STATUS if check.requests_placed < check.requests_total else "FEASIBLE"
+    run.stats = {
+        **(run.stats or {}),
+        "planner_check": check.summary(),
+        "manual_edits": int((run.stats or {}).get("manual_edits") or 0) + 1,
+    }
+    return check
 
 
 @router.post("/{run_id}/assignments/{aid}/lock", response_model=AssignmentOut)

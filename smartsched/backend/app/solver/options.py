@@ -3,7 +3,8 @@ suggestion string (same index) with the action and its arguments, so consumers (
 studio pre-check, the AI layer) never parse the wording.  The patterns below are the solver's *own*
 phrasings (diagnose.py) and live next to their producer.
 
-Actions: ``move`` (``event_id, room_code, day, start_period, end_period``), ``release_room`` (+
+Actions: ``move`` (``event_id, room_code, room_codes, day, start_period, end_period``; ``room_code`` is the
+set joined by ``+`` — ``A101+A106`` — and ``room_codes`` lists it), ``release_room`` (+
 ``holder_event_ids``), ``unlock`` (``event_ids``), ``relax`` (``kind, event_ids``), ``split``
 (``event_ids, max_rooms``), ``manual`` (no arguments: needs a human).
 """
@@ -38,6 +39,7 @@ def classify(index: int, text: str, message: str, event_ids: list[int]) -> dict[
             "action": "move",
             "event_id": target,
             "room_code": m["room"],
+            "room_codes": m["room"].split("+"),
             "day": int(m["day"]),
             "start_period": int(m["start"]),
             "end_period": int(m["end"]),
@@ -49,6 +51,7 @@ def classify(index: int, text: str, message: str, event_ids: list[int]) -> dict[
             "action": "move",
             "event_id": target,
             "room_code": m["room"],
+            "room_codes": m["room"].split("+"),
             "day": int(day["day"]) if day else None,
             "start_period": int(m["start"]),
             "end_period": int(m["end"]),
@@ -59,6 +62,7 @@ def classify(index: int, text: str, message: str, event_ids: list[int]) -> dict[
             "action": "release_room",
             "event_id": target,
             "room_code": m["room"],
+            "room_codes": [m["room"]],
             "day": int(m["day"]),
             "start_period": int(m["start"]),
             "end_period": int(m["end"]),

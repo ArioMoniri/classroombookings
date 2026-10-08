@@ -123,6 +123,16 @@ GROUPS: tuple[GroupSpec, ...] = (
         "The planner's (definitive or requested) room seats fewer than the enrolment; locks are kept.",
     ),
     GroupSpec(
+        "missing_enrolment",
+        "Öğrenci sayısı yok - Enrolment",
+        "Öğrenci sayısı girilmemiş dersler",
+        "Classes without an enrolment",
+        "Listede öğrenci sayısı yok; çözücü tahmini bir sayı kullandı (aynı dersin diğer şubeleri, sınıfın "
+        "ortancası veya dönemin ortancası). Gerçek sayıyı girin.",
+        "The list has no enrolment; the solver used an estimate (the course's other sections, the programme "
+        "year's median or the term's median). Enter the real number.",
+    ),
+    GroupSpec(
         "missing_tags",
         "Eksik özellik - Missing tags",
         "Eksik derslik özellikleri (PC, TIP ...)",
@@ -169,8 +179,12 @@ def classify(d: dict[str, Any]) -> list[str]:
     kinds = set(d.get("constraint_kinds") or [])
     if code in SKIP_CODES:
         return []
-    if code == "locked_overlap":
+    if code in ("locked_overlap", "outside_pool_overlap"):
         return ["locked_room_overlap"]
+    if code == "missing_enrolment":
+        return ["missing_enrolment"]
+    if code == "joint_lecture_clipped":  # prefer mode: a joint lecture's planner rooms seat fewer
+        return ["locked_room_too_small"]
     if code in ("input_conflict", "fixed_conflict"):
         keys = {str(k[0]) for k in params.get("keys") or [] if k}
         if params.get("kind"):
@@ -364,12 +378,34 @@ def planner_text(d: dict[str, Any], ctx: TextContext | None = None) -> dict[str,
         st = ctx.stats
         placed, total = st.get("placed"), st.get("events_total")
         un = st.get("unplaced")
-        out = {
-            "tr": f"{placed}/{total} ders yerleşti, {un} ders yerleşemedi. Yerleşen derslerin hepsi kurallara uyuyor; "
-            "yerleşemeyenlerin nedeni aşağıda.",
-            "en": f"{placed} of {total} classes placed, {un} could not be placed. Every placed class keeps every "
-            "rule; the reasons for the rest are below.",
-        }
+        exc = {str(k): int(v) for k, v in (p.get("exceptions") or st.get("accepted_exceptions") or {}).items()}
+        kept_exc = {k: v for k, v in exc.items() if k != "D3" and v}
+        n_exc = sum(kept_exc.values())
+        if p.get("reason") == "timeout":
+            out = {
+                "tr": f"Süre içinde tam bir çizelge bulunamadı; {placed}/{total} ders yerleşti ve hepsi kurallara "
+                "uyuyor. Kalanların yerleşemeyeceği kanıtlanmadı: süreyi uzatın.",
+                "en": f"No complete timetable within the time limit; {placed} of {total} classes placed, all keep "
+                "every rule. The rest is not proven impossible: raise the time limit.",
+            }
+        elif not n_exc:
+            out = {
+                "tr": f"{placed}/{total} ders yerleşti, {un} ders yerleşemedi. Yerleşen derslerin hepsi kurallara "
+                "uyuyor; yerleşemeyenlerin nedeni aşağıda.",
+                "en": f"{placed} of {total} classes placed, {un} could not be placed. Every placed class keeps every "
+                "rule; the reasons for the rest are below.",
+            }
+        else:
+            out = {
+                "tr": f"{placed}/{total} ders yerleşti, {un} ders yerleşemedi. Yerleşen dersler, listelenen {n_exc} "
+                "kabul edilmiş istisna dışında her kurala uyuyor ("
+                + "; ".join(f"{_CAUSE_TR.get(k, k)}: {v}" for k, v in kept_exc.items())
+                + "); yerleşemeyenlerin nedeni aşağıda.",
+                "en": f"{placed} of {total} classes placed, {un} could not be placed. The placed classes keep every "
+                f"rule except {n_exc} accepted exceptions (listed: "
+                + "; ".join(f"{_CAUSE_EN.get(k, k)}: {v}" for k, v in kept_exc.items())
+                + "); the reasons for the rest are below.",
+            }
     elif code == "unplaced":
         slot_tr = _slot("tr", p.get("day"), p.get("start"), p.get("end")) or when(ids[0], "tr") if ids else ""
         slot_en = _slot("en", p.get("day"), p.get("start"), p.get("end")) or when(ids[0], "en") if ids else ""
@@ -600,6 +636,44 @@ def planner_text(d: dict[str, Any], ctx: TextContext | None = None) -> dict[str,
             "tr": f"{len(ids)} ders yerleştirilemedi (nedenleri tek tek listelendi).",
             "en": f"{len(ids)} classes cannot be placed (each reason is listed).",
         }
+    elif code == "missing_enrolment":
+        src = [str(x) for x in _as_list(p.get("sources"))]
+        out = {
+            "tr": f"{first}: listede öğrenci sayısı yok; {size} öğrenci varsayıldı ("
+            + ", ".join(_FALLBACK_TR.get(x, x) for x in src)
+            + "). Gerçek öğrenci sayısını girin.",
+            "en": f"{first}: the list has no enrolment; planned with {size} students ("
+            + ", ".join(_FALLBACK_EN.get(x, x) for x in src)
+            + "). Enter the real enrolment.",
+        }
+    elif code == "joint_lecture_clipped":
+        out = {
+            "tr": f"{first} (ortak ders): beklenen {size} öğrenci, planlayıcının dersliği {rooms} {p.get('seats')} "
+            f"kişilik. Grup bu derslikte {p.get('seats')} öğrenci sayıldı; başka bir derslik tüm grubu almalı.",
+            "en": f"{first} (joint lecture) expects {size} students; the planner's room {rooms} has {p.get('seats')} "
+            f"seats. The group counts as {p.get('seats')} in that room only; any other room must seat everyone.",
+        }
+    elif code == "outside_pool_overlap" and len(ids) >= 2:
+        slot_tr = str(p.get("date") or _slot("tr", p.get("day"), p.get("start"), p.get("end")))
+        slot_en = str(p.get("date") or _slot("en", p.get("day"), p.get("start"), p.get("end")))
+        out = {
+            "tr": f"{lab(ids[0])} ve {lab(ids[1])} aynı anda havuz dışındaki {rooms} dersliğine kilitli ({slot_tr}). "
+            "Çözücü bu dersliği denetleyemez; birinin dersliğini veya saatini değiştirin.",
+            "en": f"{lab(ids[0])} and {lab(ids[1])} are both locked to {rooms}, outside the room pool, on {slot_en}. "
+            "The solver cannot check that room; change the room or time of one of them.",
+        }
+    elif code == "manual_lock":
+        out = {
+            "tr": f"{first} önceki çalışmada elle (veya bir düzeltmeyle) yerleştirildiği yerde kalıyor; kapasite ve "
+            "derslik özellikleri denetlendi.",
+            "en": f"{first} stays where it was placed by hand (or by a fix) in the parent run; capacity and room "
+            "tags are checked.",
+        }
+    elif code == "joint_lecture_rejected":
+        out = {
+            "tr": f"{first}: aynı saatteki satırlar farklı dersliklere kilitli; ayrı dersler olarak planlandı.",
+            "en": f"{first}: rows at the same time are locked to different rooms; planned as separate classes.",
+        }
     elif code == "trusted_hint_capacity":
         seats_tr = "sınav koltuğu" if ctx.exam else "kişilik"
         seats_en = "exam seats" if ctx.exam else "seats"
@@ -686,6 +760,35 @@ def planner_text(d: dict[str, Any], ctx: TextContext | None = None) -> dict[str,
     return out
 
 
+_CAUSE_TR = {
+    "D1": "planlayıcının küçük / özelliği eksik dersliği korundu",
+    "D2": "aynı saate sabitlenmiş derslerin çakışması",
+    "week_split": "kapalı haftalarda derslik değişikliği",
+    "outside_pool": "havuz dışı derslik çakışması",
+    "missing_enrolment": "öğrenci sayısı tahmini",
+    "manual": "elle yerleştirme",
+}
+_CAUSE_EN = {
+    "D1": "planner's room kept although too small / missing a tag",
+    "D2": "clashes of classes fixed at the same time",
+    "week_split": "room changes in blocked weeks",
+    "outside_pool": "overlaps in rooms outside the pool",
+    "missing_enrolment": "estimated enrolments",
+    "manual": "manual placements",
+}
+_FALLBACK_TR = {
+    "course_sections": "aynı dersin diğer şubelerinin ortancası",
+    "cohort_median": "programın o sınıfının ortancası",
+    "term_median": "dönemin ortancası",
+    "none": "hiç öğrenci sayısı yok",
+}
+_FALLBACK_EN = {
+    "course_sections": "median of the course's other sections",
+    "cohort_median": "median of the programme year",
+    "term_median": "median of the term",
+    "none": "no enrolment anywhere",
+}
+
 #: report order: unplaced classes first, then the planner's data errors, input clashes, warnings, info
 _ORDER = {
     "partial": 0,
@@ -697,6 +800,7 @@ _ORDER = {
     "locked_blocked": 1,
     "unplaced_summary": 2,
     "locked_overlap": 3,
+    "outside_pool_overlap": 3,
     "pigeonhole": 3,
     "fixed_conflict": 3,
     "core": 3,
@@ -892,6 +996,26 @@ def _norm_code(code: str) -> str:
     return code.replace("İ", "I").replace("ı", "i").replace(" ", "").upper()
 
 
+def _weeks_of_row(a: Assignment) -> set[int]:
+    return {int(w) for w in a.weeks or ([a.week] if a.week else [])}
+
+
+async def _run_weeks(session: AsyncSession, run: ScheduleRun) -> set[int] | None:
+    """The run's horizon weeks (``None`` = no limit: a run without a term)."""
+    from app.models import Term
+    from app.services.solver_bridge import horizon_weeks
+
+    if run.term_id is None:
+        return None
+    term = await session.get(Term, run.term_id)
+    if term is None:
+        return None
+    weeks = set(horizon_weeks(run, term))
+    if run.kind == "EXAM" and run.horizon == "TERM":
+        return None  # exams of a term run may sit outside the lecture weeks (early finals)
+    return weeks
+
+
 async def board_vs_list(session: AsyncSession, run: ScheduleRun) -> list[dict[str, Any]]:
     """LOCKED requests whose definitive room disagrees with the published weekly board (the grid
     import's run) at the same course, day and periods — per week, e.g. "PHAR 240 §1: list A 206, board
@@ -921,6 +1045,7 @@ async def board_vs_list(session: AsyncSession, run: ScheduleRun) -> list[dict[st
         return []
     room_codes = {int(i): str(c) for i, c in (await session.execute(select(Room.id, Room.code))).all()}
     found: list[tuple[int, list[int], list[int], list[int]]] = []  # request, list rooms, board rooms, weeks
+    run_weeks = await _run_weeks(session, run)
     if exam:
         qe = select(ExamRequest).where(
             ExamRequest.term_id == run.term_id, ExamRequest.status == "LOCKED", ExamRequest.archived.is_(False)
@@ -932,7 +1057,9 @@ async def board_vs_list(session: AsyncSession, run: ScheduleRun) -> list[dict[st
             hits = [
                 a
                 for a in cells.get((_norm_code(ex.course_code), ex.date), [])
-                if a.start_period <= ex.end_period and ex.start_period <= a.end_period
+                if a.start_period <= ex.end_period
+                and ex.start_period <= a.end_period
+                and (run_weeks is None or not _weeks_of_row(a) or _weeks_of_row(a) & run_weeks)
             ]
             if hits and not any(rooms & {int(r) for r in a.room_ids or []} for a in hits):
                 board_rooms = sorted({int(r) for a in hits for r in a.room_ids or []})
@@ -961,6 +1088,8 @@ async def board_vs_list(session: AsyncSession, run: ScheduleRun) -> list[dict[st
             by_week: dict[int, set[int]] = {}
             for a in hits:
                 for w in a.weeks or ([a.week] if a.week else []):
+                    if run_weeks is not None and int(w) not in run_weeks:
+                        continue  # the board's other weeks are not this run's business (MINOR)
                     if not req_weeks or int(w) in req_weeks:
                         by_week.setdefault(int(w), set()).update(int(r) for r in a.room_ids or [])
             bad = sorted(w for w, rs in by_week.items() if not rs & rooms)

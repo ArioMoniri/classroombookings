@@ -7,7 +7,7 @@
  * same two-line patch tests/crbs_env.py uses (`app.services.bookings.today/now_local`).
  *
  *   E2E_REAL=1 E2E_API_URL=http://127.0.0.1:8400 PW_PORT=3800 npx playwright test e2e/bookings.spec.ts
- *   (the frontend runs in real mode against the same backend: NEXT_PUBLIC_API_MOCK=0)
+ *   (the frontend runs in real mode against the same backend)
  *
  * Users are created through the real API on every run (an e2e administrator and, through the UI, a
  * teacher), so the spec can run repeatedly on the same database. Booking setup that CRBS's installer would

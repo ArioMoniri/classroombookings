@@ -114,6 +114,7 @@ def event_from_dict(d: Mapping[str, Any]) -> Event:
         locked=assignment_from_dict(d["locked"]) if d.get("locked") else None,
         needs_room=bool(d.get("needs_room", True)),
         share_room=bool(d.get("share_room", False)),
+        lock_trusted=bool(d.get("lock_trusted", True)),
     )
 
 

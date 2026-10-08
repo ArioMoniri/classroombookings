@@ -70,6 +70,10 @@ class Event:
     locked: Assignment | None = None
     needs_room: bool = True
     share_room: bool = False  # exams: may sit in one room with other sharing exams (Σ sizes ≤ exam capacity)
+    #: ``locked`` is the planner's own decision (a LOCKED planning-list row).  Only such locks are trusted by
+    #: ``trust_locked_rooms`` (D1); a lock made by a tool (the fix button, a manual move, an AI edit carried
+    #: into a child run) sets ``False`` and must satisfy capacity and tags like any placement (review B2)
+    lock_trusted: bool = True
 
 
 @dataclass(frozen=True)

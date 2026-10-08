@@ -15,6 +15,7 @@ from typing import Any
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
 from app.solver.build import (
+    CANONICAL_DETERMINISTIC_S,
     Prepared,
     build_model,
     hint_assignments,
@@ -23,7 +24,14 @@ from app.solver.build import (
     stable_rank,
     status_name,
 )
-from app.solver.diagnose import diagnose, diagnose_with_placement, explain_unplaced, static_check
+from app.solver.diagnose import (
+    accepted_exceptions,
+    diagnose,
+    diagnose_with_placement,
+    explain_unplaced,
+    partial_message,
+    static_check,
+)
 from app.solver.domains import normalize_input
 from app.solver.evaluate import Evaluation
 from app.solver.greedy import greedy_assignments, prefer_rooms
@@ -69,6 +77,10 @@ def _complete_hint(inp: SolverInput, hints: dict[int, Assignment], budget_s: flo
     return hints
 
 
+#: rank range of the canonical optimum's tie-break objective (a prime below 2**16)
+CANONICAL_RANKS = 65521
+
+
 def _canonical_optimum(
     ctx: Any, solver: Any, assignments: list[Assignment], budget_s: float
 ) -> list[Assignment] | None:
@@ -78,19 +90,24 @@ def _canonical_optimum(
     fixed input and seed give the same timetable with ``workers > 1``.  ``None`` unless proven."""
     if budget_s < 1.0:
         return None
+    # a wide rank range makes two different optima with the same rank sum (a tie the search would break by
+    # its path, i.e. by the hint) very unlikely
     parts = []
     for (eid, rid), z in ctx.z.items():
-        parts.append(stable_rank(eid, rid) * z)
+        parts.append(stable_rank(eid, rid, modulus=CANONICAL_RANKS) * z)
     for (eid, ti), y in ctx.y.items():
         if y is not True and y is not ctx.placed.get(eid):
-            parts.append(stable_rank(eid, 7919, ti) * y)
+            parts.append(stable_rank(eid, 7919, ti, modulus=CANONICAL_RANKS) * y)
     if not parts:
         return None
     ctx.model.Add(ctx.objective_expr() == int(round(solver.ObjectiveValue())))
     ctx.model.Minimize(sum(parts))
     ctx.model.ClearHints()
     ctx.add_hints(assignments)
-    stage = make_solver(ctx.inp, max(0.5, min(budget_s, 20.0)))
+    # one worker and a deterministic time budget (review M2): proving the canonical optimum, and the
+    # timetable returned, no longer depend on thread timing or machine load; the wall-clock limit only
+    # guards against a pathological stage
+    stage = make_solver(ctx.inp, max(1.0, budget_s), workers=1, deterministic_s=CANONICAL_DETERMINISTIC_S)
     if stage.Solve(ctx.model) != cp_model.OPTIMAL:
         return None
     return ctx.extract(stage)  # type: ignore[no-any-return]
@@ -300,12 +317,16 @@ def solve(
         if status == cp_model.INFEASIBLE:
             if inp.best_effort:
                 return _best_effort(inp, prep, static, stats, t0, run_core=True, hints=_hints)
-            budget = max(2.0, min(inp.time_limit_s * 0.5, 120.0))
+            budget = relax_budget(inp)
             diagnoses = static + diagnose(prep, budget)
             stats.update(prep.stats)
             stats["diagnose_s"] = round(time.perf_counter() - t0 - stats["solve_s"], 3)
             stats["wall_s"] = round(time.perf_counter() - t0, 3)
             return SolverResult("INFEASIBLE", [], 0, 0, {}, diagnoses, stats)
+        if inp.best_effort and hints:
+            partial = _timeout_partial(inp, prep, static, stats, t0, hints, name)
+            if partial is not None:
+                return partial
         stats["wall_s"] = round(time.perf_counter() - t0, 3)
         return SolverResult(
             "TIMEOUT",
@@ -342,6 +363,63 @@ def solve(
         )
 
 
+#: share of the time limit the slack relaxation (diagnosis / best effort phase 1) may use; it scales with
+#: the limit (review M5: it was capped at 120 s whatever the limit)
+RELAX_SHARE = 0.5
+
+
+def relax_budget(inp: SolverInput) -> float:
+    return max(2.0, inp.time_limit_s * RELAX_SHARE)
+
+
+def _timeout_partial(
+    inp: SolverInput,
+    prep: Prepared,
+    static: list[Diagnosis],
+    stats: dict[str, Any],
+    t0: float,
+    hints: dict[int, Assignment],
+    status_name_: str,
+) -> SolverResult | None:
+    """``best_effort`` and the search ended without any solution (UNKNOWN): return the warm start's
+    placement when it keeps every hard rule for its events (checked, never assumed), with every other
+    event explained.  Status stays ``TIMEOUT``: nothing is proven, not even that the rest cannot be placed."""
+    placed = {e.id: hints[e.id] for e in inp.events if e.id in hints}
+    if not placed:
+        return None
+    sub = replace(inp, events=tuple(e for e in inp.events if e.id in placed), best_effort=False)
+    assignments = [placed[e.id] for e in sub.events]
+    ev = evaluate(sub, assignments)
+    if ev.hard_violations():
+        return None
+    explained = {d.event_ids[0] for d in static if d.severity == "error" and len(d.event_ids) == 1}
+    unplaced_ids = [e.id for e in inp.events if e.id not in placed]
+    diags = explain_unplaced(prep, placed, explained)
+    stats.update(
+        partial=True,
+        partial_source="warm_start",
+        partial_reason="timeout",
+        placed=len(placed),
+        unplaced=len(unplaced_ids),
+        events_total=len(inp.events),
+        unplaced_ids=unplaced_ids[:500],
+        evaluated_penalty=ev.total_penalty(),
+        wall_s=round(time.perf_counter() - t0, 3),
+    )
+    summary = Diagnosis(
+        unplaced_ids[:200],
+        [],
+        f"no complete timetable found within {inp.time_limit_s:.0f}s (status {status_name_}); best effort keeps the "
+        f"warm start: {len(placed)} of {len(inp.events)} events placed, every hard rule holds for them; the rest "
+        "is not proven impossible — raise the time limit",
+        ["increase time_limit_s", "solve week by week"],
+        "warning",
+        "partial",
+        {"reason": "timeout"},
+    )
+    return _result_from_evaluation("TIMEOUT", assignments, ev, [summary, *static, *diags], stats)
+
+
 def _best_effort(
     inp: SolverInput,
     prep: Prepared,
@@ -358,7 +436,7 @@ def _best_effort(
     1).  Status stays INFEASIBLE (the full request set has no solution); ``stats.partial`` /
     ``placed`` / ``unplaced`` / ``unplaced_ids`` describe the partial timetable, and the hard/soft
     scores are those of the placed events (hard 100 = every hard rule holds for them)."""
-    budget = max(2.0, min(inp.time_limit_s * 0.5, 120.0))
+    budget = relax_budget(inp)
     explained = {d.event_ids[0] for d in static if d.severity == "error" and len(d.event_ids) == 1}
     greedy = greedy_assignments(prep)
     stats["greedy_placed"] = len(greedy)
@@ -409,7 +487,14 @@ def _best_effort(
         phase2 = solve(replace(sub, time_limit_s=remaining), _complete=False, _hints=assignments)
         stats["phase2_status"] = phase2.status
         stats["phase2_s"] = phase2.stats.get("wall_s")
-        stats.update({f"phase2_{k}": v for k, v in phase2.stats.items() if k.startswith("sweep_")})
+        # every scalar stat of phase 2 (solver status, canonical stage, objective / bound, sweep, polish ...)
+        stats.update(
+            {
+                f"phase2_{k}": v
+                for k, v in phase2.stats.items()
+                if isinstance(v, int | float | str | bool) and not k.startswith("phase2_") and k != "traceback"
+            }
+        )
         if phase2.status in ("OPTIMAL", "FEASIBLE"):
             assignments = phase2.assignments
     if phase2 is None or phase2.status != "OPTIMAL":
@@ -432,16 +517,17 @@ def _best_effort(
                 "internal",
             )
         )
+    exceptions = accepted_exceptions([*static, *diagnoses], len(unplaced_ids))
     summary = Diagnosis(
         unplaced_ids[:200],
         [],
-        f"best effort: {len(placed)} of {len(inp.events)} events placed, {len(unplaced_ids)} cannot be placed "
-        f"(reasons below); hard rules hold for every placed event"
+        partial_message(len(placed), len(inp.events), exceptions)
         if not hard
         else f"best effort: {len(placed)} of {len(inp.events)} events placed",
         ["fix the reported input problems and re-run to place the rest"],
         "warning",
         "partial",
+        {"exceptions": exceptions},
     )
     return _result_from_evaluation("INFEASIBLE", assignments, ev, [summary, *static, *diagnoses, *extra], stats)
 

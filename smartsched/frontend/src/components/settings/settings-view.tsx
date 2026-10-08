@@ -288,8 +288,8 @@ function UsersCard() {
           <TableBody>
             {(users.data ?? []).map((u) => (
               <TableRow key={u.id}>
-                <TableCell className="flex items-center gap-2"><Avatar className="size-6"><AvatarFallback className="text-[10px]">{initials(u.full_name, u.email)}</AvatarFallback></Avatar>{u.full_name ?? "—"}</TableCell>
-                <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                <TableCell className="flex items-center gap-2"><Avatar className="size-6"><AvatarFallback className="text-[10px]">{initials(u.full_name, u.email ?? "")}</AvatarFallback></Avatar>{u.full_name ?? "—"}</TableCell>
+                <TableCell className="text-muted-foreground">{u.email ?? "—"}</TableCell>
                 <TableCell className="text-label-2">{t(`glass.role.${u.role}`)}</TableCell>
                 <TableCell><span className={cn("inline-flex items-center gap-1 text-xs", u.is_active ? "text-status-feasible-fg" : "text-muted-foreground")}><span className={cn("size-1.5 rounded-full", u.is_active ? "bg-status-feasible-solid" : "bg-border-strong")} aria-hidden />{u.is_active ? t("settings.active") : t("settings.inactive")}</span></TableCell>
               </TableRow>

@@ -212,7 +212,8 @@ class ModelContext:
         m = self.model
         eid = event.id
         caps = {r: effective_capacity(self.rooms_by_id[r], event) for r in rooms}
-        if event.locked is not None and event.locked.room_ids:
+        if trusted_lock(self.inp, event):
+            assert event.locked is not None
             target = seat_target(event, event.locked.room_ids, self.rooms_by_id)
         else:
             target = event.size

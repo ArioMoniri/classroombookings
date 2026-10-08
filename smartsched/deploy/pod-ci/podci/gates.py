@@ -26,11 +26,12 @@ GATES: tuple[Gate, ...] = (
     Gate("prepare", "prepare.sh", "CI images (python CI image, Playwright image)", timeout=1200),
     Gate("validate", "validate.sh", "deploy/validate.sh", needs=("prepare",), timeout=300),
     Gate("backend", "backend.sh", "ruff + mypy + pytest + solver + migrations", needs=("prepare",), timeout=2400),
-    Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)", needs=("backend",), timeout=1800),
     Gate("infra", "infra.sh", "pod CI + AWS bootstrap tests", needs=("prepare",), timeout=600),
     Gate("frontend", "frontend.sh", "tsc + eslint + vitest", needs=("prepare",), timeout=1800),
     Gate("e2e-real", "e2e-real.sh", "Playwright (all specs) vs real backend + Bahar fixtures",
          needs=("frontend", "backend"), timeout=3600),
+    # after e2e-real so it reads this run's /w/playwright-report.json; API rows still run if e2e failed
+    Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)", needs=("backend",), timeout=1800),
     Gate("images", "images.sh", "docker build backend/frontend/crbs", needs=("prepare",), timeout=2700),
     Gate("watchdog", "watchdog.sh", "agent ledger report", blocking=False, needs=("prepare",), timeout=300),
 )

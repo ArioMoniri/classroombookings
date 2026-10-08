@@ -10,8 +10,9 @@ week, a room change only in the affected weeks.
 
 * **Locked event** whose locked room is blocked (or held by another lock) in some of its weeks: the
   original event keeps the planner's lock for the unaffected weeks; the affected weeks become unlocked
-  segments at the same time (the planner's rooms first in their preferences).  With
-  ``trust_locked_rooms`` a segment needs no more seats than the planner's room offered.
+  segments at the same time (the planner's rooms first in their preferences).  A segment needs seats
+  for the full size: the planner's room is not available in those weeks, so the trust in the planner's
+  (too small) room does not carry over to another room (review MINOR: clip only for the planner's room).
 * **Fixed-time event without a lock** for which no eligible room is free in *every* week: the weeks
   are partitioned by a greedy maximum cover (the room free in most weeks takes them, then the next), so
   the room changes only where it must.  The largest segment keeps the event id.
@@ -253,8 +254,7 @@ def split_blocked_weeks(
         moved = frozenset(bad)
         main = replace(e, weeks=kept, locked=replace(e.locked, weeks=kept))
         occ.add_lock(main, slot, kept)
-        cap = sum(rooms_by_id[r].exam_capacity if e.kind == "exam" else rooms_by_id[r].capacity for r in rooms)
-        size = min(e.size, cap) if inp.trust_locked_rooms and cap else e.size
+        size = e.size  # another room in the moved weeks must seat everyone (no trust outside the planner's room)
         proto = replace(
             e,
             locked=None,
@@ -305,7 +305,6 @@ def split_blocked_weeks(
                     "clash_ids": sorted({i for ids in clash.values() for i in ids}),
                     "uncovered_weeks": sorted(moved_uncovered),
                     "segments": [s.id for s in segs],
-                    **({"size_clipped_to": size} if size != e.size else {}),
                 },
             )
         )
@@ -389,9 +388,10 @@ def _apply(base: WeekSplit, replaced: dict[int, list[Event]], diags: list[Diagno
             continue  # rebuilt below
         params = dict(c.params)
         touched = False
-        if "event_ids" in params and any(int(i) in expand_map for i in int_list(params, "event_ids")):
-            params["event_ids"] = expand(int_list(params, "event_ids"))
-            touched = True
+        for key in ("event_ids", "exclude_event_ids"):
+            if key in params and any(int(i) in expand_map for i in int_list(params, key)):
+                params[key] = expand(int_list(params, key))
+                touched = True
         if params.get("groups") and any(int(i) in expand_map for g in params["groups"] for i in g):
             params["groups"] = [expand(g) for g in params["groups"]]
             touched = True
@@ -516,6 +516,21 @@ def residual_split(split: WeekSplit, assignments: Iterable[Assignment]) -> tuple
     if not replaced and len(hints) == len(placed):
         return None
     return _apply(split, replaced, diags), hints
+
+
+def residual_gain(split: WeekSplit, assignments: Iterable[Assignment], cand: WeekSplit, hints: list[Assignment]) -> int:
+    """How many more original events the residual round's hint places completely, counting only the
+    covering segments that keep every hard rule next to the current timetable (validated)."""
+    from app.solver.scoring import evaluate
+
+    current = list(assignments)
+    known = {e.id: e for e in cand.inp.events}
+    hint = [a for a in hints if a.event_id in known]
+    old_ids = {a.event_id for a in current}
+    sub = replace(cand.inp, events=tuple(known[a.event_id] for a in hint), best_effort=False)
+    bad = {i for v in evaluate(sub, hint).hard_violations() for i in v.event_ids} - old_ids
+    valid = [a for a in hint if a.event_id not in bad]
+    return len(fully_placed(cand, valid)) - len(fully_placed(split, current))
 
 
 def fully_placed(split: WeekSplit, assignments: Iterable[Assignment]) -> set[int]:
@@ -646,6 +661,11 @@ def solve_segmented(
         if nxt is None:
             break
         cand_split, hints = nxt
+        if residual_gain(split, res.assignments, cand_split, hints) <= 0:
+            # the covering segments clash with the placed timetable (cohort / instructor / seats) for every
+            # event they would complete: a round could not place more (review M5: one wasted 112 s)
+            res.stats["week_split_residual_skipped"] = True
+            break
         cand = solve(replace(cand_split.inp, time_limit_s=remaining), _hints=hints)
         before = len(fully_placed(split, res.assignments))
         after = len(fully_placed(cand_split, cand.assignments))

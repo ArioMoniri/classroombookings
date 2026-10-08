@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start an isolated SmartSched stack for demo recordings: FastAPI on SQLite with the real fixture
-# workbooks, and a production build of the frontend in real mode (NEXT_PUBLIC_API_MOCK=0).
+# workbooks, and a production build of the frontend against the real backend.
 #
 #   scripts/record/stack.sh up [--fresh]   start backend + frontend in the background, wait until ready
 #   scripts/record/stack.sh down           stop both
@@ -131,11 +131,11 @@ cmd_up() {
     local cfg; cfg="$(ls "$web"/next.config.* | head -1)"
     grep -q 'rec-stack' "$cfg" || sed -i 's|^export default nextConfig;|// rec-stack: shared node_modules symlink\nnextConfig.turbopack = { ...(nextConfig.turbopack ?? {}), root: "/" };\nnextConfig.outputFileTracingRoot = "/";\nexport default nextConfig;|' "$cfg"
     log "building frontend copy (real mode) in $web"
-    (cd "$web" && NEXT_PUBLIC_API_MOCK=0 NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" \
+    (cd "$web" && NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" \
         NEXT_TELEMETRY_DISABLED=1 npx next build >"$WORK/build.log" 2>&1) \
       || die "next build failed, see $WORK/build.log"
   fi
-  (cd "$web" && NEXT_PUBLIC_API_MOCK=0 NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" \
+  (cd "$web" && NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" \
       NEXT_TELEMETRY_DISABLED=1 exec setsid npx next start -p "$WEB_PORT" -H 127.0.0.1 \
       >"$WORK/frontend.log" 2>&1 </dev/null) &
   echo $! >"$WORK/frontend.pid"

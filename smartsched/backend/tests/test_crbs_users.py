@@ -92,7 +92,14 @@ async def test_csv_import_of_real_instructors(env):  # noqa: F811
     same = await env.client.post("/api/v1/auth/change-password", json={"new_password": "varsayilan-parola"}, headers=h2)
     assert same.status_code == 422  # must differ (CRBS is_not_current_password)
     ok = await env.client.post("/api/v1/auth/change-password", json={"new_password": "yeni-parola-2026"}, headers=h2)
-    assert ok.status_code == 200
+    assert ok.status_code == 200 and ok.json()["signed_out"] is True
+    # B-AUTH-11: the change ends every session, this one included; the new password signs in unrestricted
+    assert (await env.client.get("/api/v1/bookings/context", headers=h2)).status_code == 401
+    again = await env.client.post(
+        "/api/v1/auth/login", json={"username": u2["username"], "password": "yeni-parola-2026"}
+    )
+    assert again.status_code == 200 and again.json()["password_change_required"] is False
+    h2 = {"Authorization": f"Bearer {again.json()['access_token']}"}
     assert (await env.client.get("/api/v1/bookings/context", headers=h2)).status_code == 200
 
 

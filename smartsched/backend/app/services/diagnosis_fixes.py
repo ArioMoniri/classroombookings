@@ -21,7 +21,17 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Assignment, ConstraintRow, ExamRequest, MeetingRequest, Room, ScheduleRun, Term, Week
+from app.models import (
+    Assignment,
+    ConstraintRow,
+    ExamRequest,
+    MeetingRequest,
+    Room,
+    ScheduleRun,
+    Section,
+    Term,
+    Week,
+)
 from app.services.calendar import week_index_for_date
 
 # "use A101 at day 1 P4-P6"
@@ -191,7 +201,10 @@ async def _room_by_code(session: AsyncSession, code: str) -> Room:
 
 
 async def _members(session: AsyncSession, run: ScheduleRun, event_id: int) -> list[int]:
-    """Request ids behind a solver event (merged exam cohorts share the head's id)."""
+    """Request ids behind a solver event (joint lectures and merged exam cohorts share the head's id)."""
+    stored = (run.stats or {}).get("event_members") or {}
+    if str(event_id) in stored:
+        return [int(x) for x in stored[str(event_id)]]
     if run.kind != "EXAM":
         return [event_id]
     head = await session.get(ExamRequest, event_id)
@@ -211,12 +224,83 @@ async def _members(session: AsyncSession, run: ScheduleRun, event_id: int) -> li
     return sorted(set(rows) | {head.id})
 
 
+async def _room_set(session: AsyncSession, run: ScheduleRun, event_id: int, named: list[Room]) -> list[Room]:
+    """The rooms a fix places ``event_id`` in.  An option naming one room of the event's current (or its
+    planner's) multi-room set keeps the whole set (ING 302 with 135 students sits in A 101 + A 106, not in
+    A 106 alone, review B2)."""
+    if len(named) != 1:
+        return named
+    members = await _members(session, run, event_id)
+    col = Assignment.exam_request_id if run.kind == "EXAM" else Assignment.meeting_request_id
+    current = [
+        [int(r) for r in a.room_ids or []]
+        for a in (
+            await session.execute(
+                select(Assignment).where(Assignment.run_id == run.id, col.in_(members), Assignment.archived.is_(False))
+            )
+        ).scalars()
+    ]
+    planner: list[list[int]] = []
+    if run.kind == "EXAM":
+        for ex in (await session.execute(select(ExamRequest).where(ExamRequest.id.in_(members)))).scalars():
+            if ex.status == "LOCKED":
+                planner.append([int(r) for r in ex.definitive_room_ids or []])
+    else:
+        for mr in (await session.execute(select(MeetingRequest).where(MeetingRequest.id.in_(members)))).scalars():
+            if mr.status == "LOCKED":
+                planner.append([int(r) for r in mr.definitive_room_ids or []])
+    for ids in [*current, *planner]:
+        if len(ids) > 1 and named[0].id in ids:
+            rooms = list((await session.execute(select(Room).where(Room.id.in_(ids)))).scalars())
+            return sorted(rooms, key=lambda r: ids.index(r.id))
+    return named
+
+
+async def _check_fit(session: AsyncSession, run: ScheduleRun, event_id: int, rooms: list[Room]) -> None:
+    """A fix places a class only where it fits: the seats of its rooms hold every student of the event
+    (all its requests; a missing enrolment counts with the run's fallback size) and the rooms carry the
+    requested PC tag and no medicine (TIP) tag the class did not ask for.  Else 422 (review B2)."""
+    exam = run.kind == "EXAM"
+    members = await _members(session, run, event_id)
+    fallbacks = (run.stats or {}).get("enrolment_fallbacks") or {}
+    size = 0
+    tags: set[str] = set()
+    if exam:
+        for ex in (await session.execute(select(ExamRequest).where(ExamRequest.id.in_(members)))).scalars():
+            size += int(ex.enrolment or (fallbacks.get(str(ex.id)) or {}).get("size") or 0)
+            tags |= {str(t) for t in ex.requested_tags or []}
+    else:
+        q = (
+            select(MeetingRequest, Section)
+            .join(Section, Section.id == MeetingRequest.section_id)
+            .where(MeetingRequest.id.in_(members))
+        )
+        for mr, sec in (await session.execute(q)).all():
+            size += int(sec.enrolment or mr.requested_capacity or (fallbacks.get(str(mr.id)) or {}).get("size") or 0)
+            tags |= {str(t) for t in mr.requested_tags or []}
+    seats = sum(int((r.exam_capacity if exam else r.capacity) or 0) for r in rooms)
+    codes = " + ".join(r.display_name for r in rooms)
+    if seats < size:
+        raise FixError(
+            f"{codes} seat{'s' if len(rooms) == 1 else ''} {seats} {'exam ' if exam else ''}students but the class "
+            f"has {size}; choose a room set with at least {size} seats"
+        )
+    if "PC" in tags and any("PC" not in (r.tags or []) for r in rooms):
+        raise FixError(f"the class needs a PC room and {codes} is not one")
+    if "TIP" not in tags and any("TIP" in (r.tags or []) for r in rooms):
+        raise FixError(f"{codes} is a medicine (TIP) room and the class did not ask for one")
+
+
 async def _place(
-    session: AsyncSession, run: ScheduleRun, event_id: int, room: Room, day: int, start: int, end: int
+    session: AsyncSession, run: ScheduleRun, event_id: int, rooms: Room | list[Room], day: int, start: int, end: int
 ) -> list[int]:
-    """Create/replace planner-locked MANUAL assignments of ``event_id`` on ``run``."""
+    """Create/replace planner-locked MANUAL assignments of ``event_id`` on ``run`` in ``rooms`` (the event's
+    whole room set is kept when the option names one of its rooms); 422 (:class:`FixError`) when the rooms
+    cannot seat the class or lack a required tag."""
     from app.services.solver_bridge import horizon_weeks
 
+    room_list = await _room_set(session, run, event_id, rooms if isinstance(rooms, list) else [rooms])
+    await _check_fit(session, run, event_id, room_list)
     term = await session.get(Term, run.term_id)
     assert term is not None
     exam = run.kind == "EXAM"
@@ -254,7 +338,7 @@ async def _place(
         else:
             a.meeting_request_id = req_id
         a.day, a.start_period, a.end_period = day, start, end
-        a.room_ids = [room.id]
+        a.room_ids = [r.id for r in room_list]
         a.weeks = weeks
         a.week = weeks[0] if len(weeks) == 1 else None
         a.date = date
@@ -302,22 +386,29 @@ async def apply_option(session: AsyncSession, run: ScheduleRun, diag: dict[str, 
         raise FixError(f"suggestion {opt.text!r} has no structured fix; apply it by hand")
     p = opt.params
     if opt.action in {"move", "release_room"}:
-        room = await _room_by_code(session, str(p["room_code"]))
+        codes = [str(c) for c in p.get("room_codes") or str(p["room_code"]).split("+") if str(c)]
+        named = [await _room_by_code(session, c) for c in codes]
         details: dict[str, Any] = {}
         if opt.action == "release_room":
             details["unlocked_request_ids"] = await _unlock(session, run, list(p["holder_event_ids"]))
         ids = await _place(
-            session, run, int(p["event_id"]), room, int(p["day"]), int(p["start_period"]), int(p["end_period"])
+            session, run, int(p["event_id"]), named, int(p["day"]), int(p["start_period"]), int(p["end_period"])
         )
+        placed = list((await session.execute(select(Assignment).where(Assignment.id.in_(ids)))).scalars())
+        room_ids = [int(r) for r in (placed[0].room_ids if placed else [x.id for x in named])]
+        names = {
+            r.id: r.display_name for r in (await session.execute(select(Room).where(Room.id.in_(room_ids)))).scalars()
+        }
         details |= {
             "assignment_ids": ids,
-            "room_id": room.id,
+            "room_id": room_ids[0] if room_ids else None,
+            "room_ids": room_ids,
             **{k: p[k] for k in ("day", "start_period", "end_period")},
         }
         return FixResult(
             opt.action,
-            f"#{p['event_id']} placed in {room.display_name} on day {p['day']} P{p['start_period']}-P{p['end_period']}"
-            " and locked",
+            f"#{p['event_id']} placed in {' + '.join(names.get(r, str(r)) for r in room_ids)} on day {p['day']} "
+            f"P{p['start_period']}-P{p['end_period']} and locked",
             details,
         )
     if opt.action == "unlock":

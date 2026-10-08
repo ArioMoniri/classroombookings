@@ -5,7 +5,8 @@
   whole solve), bound to the run's cancel token (CP-SAT ``StopSearch``) and to a wall-clock limit
   (``time_limit_s * RUN_WALL_CLOCK_FACTOR + RUN_WALL_CLOCK_MARGIN_S``).
 * :func:`start_run` / :func:`finish_cancelled` implement ``CANCELLED`` for runs cancelled while queued or
-  while solving (the partial result is discarded).
+  while solving (the partial result is discarded); :func:`commit_unless_cancelled` writes the result's
+  status inside the commit's transaction only if no cancel landed meanwhile.
 * :func:`check_user_limit`: at most ``MAX_ACTIVE_RUNS_PER_USER`` QUEUED/RUNNING runs per user (429).
 """
 
@@ -87,6 +88,30 @@ async def finish_cancelled(session_factory: Any, run_id: int, reason: str = "can
     return {"status": "CANCELLED"}
 
 
+async def commit_unless_cancelled(session: Any, run: Any, status: str) -> bool:
+    """Write ``status`` and commit the session's pending result **only if the run was not cancelled**:
+    the status is set by one conditional ``UPDATE ... WHERE status <> 'CANCELLED'`` inside the commit's
+    transaction, so a cancel that lands while the result is being written wins (the result is rolled
+    back) instead of being overwritten (review MINOR: cancel race).  Returns False when cancelled."""
+    from sqlalchemy import update
+
+    from app.models import ScheduleRun
+
+    res = await session.execute(
+        update(ScheduleRun)
+        .where(ScheduleRun.id == run.id, ScheduleRun.status != "CANCELLED")
+        .values(status=status)
+        .execution_options(synchronize_session=False)
+    )
+    if not res.rowcount:
+        await session.rollback()
+        cancel.release(run.id)
+        return False
+    await session.commit()
+    run.status = status
+    return True
+
+
 async def check_user_limit(session: Any, user_id: int | None) -> None:
     """Raise ``HTTPException(429)`` when ``user_id`` already has the maximum of active runs."""
     from fastapi import HTTPException
@@ -110,6 +135,7 @@ __all__ = [
     "RunCancelled",
     "RunWallClockExceeded",
     "check_user_limit",
+    "commit_unless_cancelled",
     "finish_cancelled",
     "solve_off_loop",
     "start_run",

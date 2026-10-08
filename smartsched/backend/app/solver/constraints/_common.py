@@ -66,10 +66,13 @@ def select_events(inp: SolverInput, params: Mapping[str, Any]) -> list[Event]:
     match = params.get("match")
     matches = [str(m).casefold() for m in (match if isinstance(match, list) else [match]) if m]
     kinds = set(str_list(params, "kinds") + str_list(params, "kind"))
+    excluded = set(int_list(params, "exclude_event_ids"))
     has_selector = bool(ids or cohorts or programs or instructors or matches)
     out: list[Event] = []
     for e in inp.events:
         if kinds and e.kind not in kinds:
+            continue
+        if e.id in excluded:
             continue
         if not has_selector:
             out.append(e)

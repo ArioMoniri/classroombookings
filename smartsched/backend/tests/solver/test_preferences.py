@@ -38,7 +38,8 @@ def test_split_exam_reproduces_the_planners_room_pair() -> None:
     assert set(assigned(pref.assignments, 1).room_ids) == {1, 2}
     assert pref.objective_breakdown.get("room_preference", 0) == 0
     waste = solve(make_input(rooms, (ex,), weeks=W, weights={"room_preference": 0, "min_capacity_waste": 10}))
-    assert set(assigned(waste.assignments, 1).room_ids) == {3, 4}
+    # A 102 and B 101 have the same seats: either tight pair wastes as little (the canonical tie-break picks one)
+    assert set(assigned(waste.assignments, 1).room_ids) in ({3, 4}, {2, 4})
 
 
 def _two_groups():  # type: ignore[no-untyped-def]

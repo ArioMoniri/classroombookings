@@ -13,6 +13,7 @@ from datetime import date, timedelta
 
 import pytest
 
+from tests.api_fixtures import login
 from tests.crbs_support import role_id
 
 MON = date(2026, 2, 16)
@@ -203,6 +204,8 @@ async def test_booking_details_need_room_view_or_ownership(env):
     assert seen["notes"] == "Bölüm toplantısı" and seen["user_name"] is None  # Teacher rules (data.sql)
     # the owner keeps access to her booking after losing room.view
     await c.put(f"/api/v1/users/{owner_id}", json={"role_id": nobody["id"]}, headers=env.admin)
+    assert (await c.get(f"/api/v1/bookings/{b['id']}", headers=owner)).status_code == 401  # role change (B-AUTH-11)
+    owner = await login(c, "detay.sahibi@uni.edu.tr", "parola-1234")
     mine = (await c.get(f"/api/v1/bookings/{b['id']}", headers=owner)).json()
     assert mine["is_owner"] and mine["user_name"] == "Nihal Güneş"
 

@@ -74,8 +74,9 @@ def fixed_time_of(event: Event) -> TimeOption | None:
 
 
 def trusted_lock(inp: SolverInput, event: Event) -> bool:
-    """``trust_locked_rooms``: the planner's locked room set wins over the (estimated) size."""
-    return inp.trust_locked_rooms and event.locked is not None and bool(event.locked.room_ids)
+    """``trust_locked_rooms``: the planner's locked room set wins over the (estimated) size.  Only the
+    planner's own locks (``Event.lock_trusted``) are trusted; a tool-made lock is checked like any room."""
+    return inp.trust_locked_rooms and event.lock_trusted and event.locked is not None and bool(event.locked.room_ids)
 
 
 def normalize_input(inp: SolverInput) -> SolverInput:

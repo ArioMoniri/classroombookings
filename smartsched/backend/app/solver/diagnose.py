@@ -27,7 +27,14 @@ from typing import Any
 
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
-from app.solver.build import Prepared, build_model, hint_assignments, make_solver, stable_rank
+from app.solver.build import (
+    CANONICAL_DETERMINISTIC_S,
+    Prepared,
+    build_model,
+    hint_assignments,
+    make_solver,
+    stable_rank,
+)
 from app.solver.constraints import HANDLERS
 from app.solver.context import ModelContext
 from app.solver.domains import (
@@ -663,6 +670,55 @@ class _PlacedIndex:
         return ids
 
 
+def _room_free(prep: Prepared, dom: EventDomain, e: Event, t: TimeOption, rid: int, idx: _PlacedIndex) -> bool:
+    """``rid`` is free for ``e`` at ``t``: no block / closed slot and nobody holding it (shared seats fit)."""
+    if t in dom.times:
+        if not dom.is_pair_allowed(t, rid):
+            return False
+    elif any(
+        b.day == t.day and b.start <= t.end and t.start <= b.end and (b.week is None or b.week in e.weeks)
+        for b in prep.doms.blocks_by_room.get(rid, [])
+    ):
+        return False
+    return not idx.room_busy(rid, t, e.weeks, e)
+
+
+def room_set_for(prep: Prepared, e: Event, rooms: Iterable[int]) -> list[int] | None:
+    """A room set ``e`` may use among ``rooms`` (its eligible free rooms at one time): the locked set when
+    the event is locked, else the planner's / preferred set when it is free and seats the event, else the
+    fewest largest rooms (at most ``max_rooms``) whose seats add up to the size.  ``None`` if none fits."""
+    free = [r for r in dict.fromkeys(rooms) if r in prep.doms.rooms_by_id]
+    if not free:
+        return None
+    by_id = prep.doms.rooms_by_id
+    seats_needed = 0 if "capacity" in prep.doms.soft or trusted_lock(prep.inp, e) else e.size
+    if e.locked is not None and e.locked.room_ids:
+        locked = [r for r in e.locked.room_ids if r in by_id]
+        return locked if locked and all(r in free for r in locked) else None
+    k = max(1, e.max_rooms)
+    if k == 1:
+        fits = [r for r in free if effective_capacity(by_id[r], e) >= seats_needed]
+        pref = [r for r in e.preferred_room_ids if r in fits]
+        return [(pref or fits)[0]] if fits else None
+    pref = [r for r in e.preferred_room_ids[:k] if r in by_id]
+    if pref and all(r in free for r in pref) and sum(effective_capacity(by_id[r], e) for r in pref) >= seats_needed:
+        return pref
+    ordered = sorted(free, key=lambda r: (-effective_capacity(by_id[r], e), by_id[r].code))
+    chosen: list[int] = []
+    total = 0
+    for r in ordered[:k]:
+        chosen.append(r)
+        total += effective_capacity(by_id[r], e)
+        if total >= seats_needed and len(chosen) >= max(1, e.min_rooms):
+            return sorted(chosen, key=lambda x: by_id[x].code)
+    return None
+
+
+def _codes(prep: Prepared, rooms: Iterable[int]) -> str:
+    """``A101+A106``: one token (no blanks), so the structured options keep the whole set."""
+    return "+".join(prep.doms.rooms_by_id[r].code for r in rooms)
+
+
 def explain_event(
     prep: Prepared, event_id: int, placed: dict[int, Assignment], index: _PlacedIndex | None = None
 ) -> Diagnosis:
@@ -679,6 +735,8 @@ def explain_event(
     key_clashes: list[str] = []
     suggestions: list[str] = []
     free_options: list[str] = []
+    busy_keys: list[tuple[TimeOption, int]] = []  # (time, room) of each busy_rooms entry
+    free_by_time: dict[TimeOption, list[int]] = {}
     for t in dom.times:
         clashes = [(k, idx.key_busy(k, t, e.weeks, e.id)) for k in sorted(e.cohort_keys | e.instructor_keys)]
         clashes = [(k, ids) for k, ids in clashes if ids]
@@ -704,6 +762,7 @@ def explain_event(
         if not e.needs_room:
             free_options.append(_time_str(t))
             continue
+        free_here: list[int] = []
         for rid in dom.rooms:
             if not dom.is_pair_allowed(t, rid):
                 kinds["room_closed"] += 1
@@ -718,6 +777,7 @@ def explain_event(
                 busy_rooms.append(
                     (f"{room.code} ({effective_capacity(room, e)}) at {_time_str(t)} held by {names}", len(holders))
                 )
+                busy_keys.append((t, rid))
                 if rid not in busy_params and len(busy_params) < 8:
                     busy_params[rid] = {
                         "room": room.code,
@@ -728,17 +788,37 @@ def explain_event(
                         "holders": list(holders[:3]),
                     }
             else:
-                free_options.append(f"{room.code} at {_time_str(t)}")
-                if len(free_params) < 3:
-                    free_params.append({"room": room.code, "day": t.day, "start": t.start, "end": t.end})
+                free_here.append(rid)
+        free_by_time[t] = free_here
+        chosen = room_set_for(prep, e, free_here)
+        if chosen is not None:
+            free_options.append(f"{_codes(prep, chosen)} at {_time_str(t)}")
+            if len(free_params) < 3:
+                free_params.append(
+                    {
+                        "room": _codes(prep, chosen),
+                        "rooms": [doms.rooms_by_id[r].code for r in chosen],
+                        "seats": sum(effective_capacity(doms.rooms_by_id[r], e) for r in chosen),
+                        "day": t.day,
+                        "start": t.start,
+                        "end": t.end,
+                    }
+                )
     for k in kinds_in_reasons(dom.room_reasons.values()):
         kinds[k] += 1
     pruned = Counter(dom.room_reasons.values())
     parts: list[str] = []
     if busy_rooms:
         parts.append("rooms that fit are busy: " + "; ".join(b for b, _ in busy_rooms[:4]))
-        for b, _ in busy_rooms[:3]:
+        released = 0
+        for (b, _n), (t, rid) in zip(busy_rooms, busy_keys, strict=True):
+            if released >= 3:
+                break
+            # releasing one room helps only if it completes a room set that seats the event
+            if room_set_for(prep, e, [*free_by_time.get(t, []), rid]) is None:
+                continue
             suggestions.append(f"release {b}")
+            released += 1
     if key_clashes:
         parts.append("; ".join(key_clashes[:3]))
         suggestions.append("move the clashing event or correct the cohort/instructor keys")
@@ -834,13 +914,9 @@ def _alternative_periods(prep: Prepared, e: Event, idx: _PlacedIndex) -> list[st
         t = TimeOption(fixed.day, start, max(1, e.duration))
         if any(idx.key_busy(k, t, e.weeks, e.id) for k in e.cohort_keys | e.instructor_keys):
             continue
-        for rid in dom.rooms:
-            if not idx.room_busy(rid, t, e.weeks, e) and not any(
-                b.day == t.day and b.start <= t.end and t.start <= b.end and (b.week is None or b.week in e.weeks)
-                for b in prep.doms.blocks_by_room.get(rid, [])
-            ):
-                out.append(f"P{t.start}-P{t.end} in {prep.doms.rooms_by_id[rid].code}")
-                break
+        chosen = room_set_for(prep, e, [rid for rid in dom.rooms if _room_free(prep, dom, e, t, rid, idx)])
+        if chosen is not None:
+            out.append(f"P{t.start}-P{t.end} in {_codes(prep, chosen)}")
         if len(out) >= 4:
             break
     return out
@@ -882,8 +958,14 @@ def core_diagnosis(prep: Prepared, budget_s: float) -> tuple[list[Diagnosis], di
     remaining = budget_s - (time.perf_counter() - t0)
     per_probe = max(0.3, min(3.0, remaining / max(1, len(core))))
     ordered = sorted(core, key=lambda n: (0 if n.startswith("event:") else 1, n))
+    # deletion-minimal only if every element was probed and every probe was decided (INFEASIBLE: dropped,
+    # FEASIBLE: needed); a probe stopped by its time limit or the overall budget leaves the set unproven
+    minimal = True
     for name in ordered:
-        if time.perf_counter() - t0 + per_probe > budget_s or len(core) <= 1:
+        if len(core) <= 1:
+            break
+        if time.perf_counter() - t0 + per_probe > budget_s:
+            minimal = False
             break
         trial = [n for n in core if n != name]
         model.ClearAssumptions()
@@ -893,7 +975,10 @@ def core_diagnosis(prep: Prepared, budget_s: float) -> tuple[list[Diagnosis], di
         stats["core_probes"] += 1
         if st == cp_model.INFEASIBLE:
             core = trial
+        elif st not in (cp_model.FEASIBLE, cp_model.OPTIMAL):
+            minimal = False
     stats["core_final"] = len(core)
+    stats["core_minimal"] = minimal
     stats["core_s"] = round(time.perf_counter() - t0, 3)
     event_ids = sorted(int(n.split(":", 1)[1]) for n in core if n.startswith("event:"))
     groups = [n for n in core if not n.startswith("event:")]
@@ -903,15 +988,28 @@ def core_diagnosis(prep: Prepared, budget_s: float) -> tuple[list[Diagnosis], di
     labels = ", ".join(_label(prep.doms.events_by_id[i]) for i in event_ids[:8])
     group_txt = ", ".join(groups[:8])
     msg = (
-        f"minimal conflict set: events [{labels}]"
+        ("minimal conflict set" if minimal else "conflict set (not proven minimal: shrinking stopped on its budget)")
+        + f": events [{labels}]"
         + (f" with constraint groups [{group_txt}]" if groups else "")
         + " cannot all be satisfied together"
     )
-    sugg = [
-        "relax or remove one element of the conflict set",
-        *[f"make {g.split(':', 1)[1]} ({_kind_of(g)}) soft or release it" for g in groups[:3]],
-    ]
-    return [Diagnosis(event_ids, kinds, msg, sugg, "error", "core")], stats
+    sugg = ["relax or remove one element of the conflict set", *[_core_group_suggestion(g) for g in groups[:3]]]
+    return [Diagnosis(event_ids, kinds, msg, sugg, "error", "core", {"minimal": minimal})], stats
+
+
+def _core_group_suggestion(guard_name: str) -> str:
+    """What the planner can do about one constraint group of a core.  Room, cohort and instructor
+    overlaps are always hard (they cannot be made soft): move an event or correct the data instead."""
+    prefix, _sep, name = guard_name.partition(":")
+    if prefix == "room":
+        return f"move one of the events out of room {name} or free the room"
+    if prefix == "cohort":
+        return f"move one of the events of cohort '{name}' or correct its programme / class year"
+    if prefix == "instructor":
+        return f"move one of the events of instructor '{name}' or correct the instructor name"
+    if prefix == "locked":
+        return f"unlock the locked event #{name}"
+    return f"make {name} ({_kind_of(guard_name)}) soft or release it"
 
 
 def _kind_of(guard_name: str) -> str:
@@ -1010,7 +1108,9 @@ def _canonical_placement(
     ctx.model.Minimize(sum(_tie_weight(e) * (1 - ctx.placed[e.id]) for e in prep.inp.events if e.id in ctx.placed))
     ctx.model.ClearHints()
     ctx.add_hints(assignments, unplaced_rest=True)
-    stage = make_solver(prep.inp, max(0.5, min(budget_s, 30.0)))
+    # one worker and a deterministic time budget: whether the stage proves its optimum (and which placement
+    # it returns) no longer depends on thread timing or machine load (review M2)
+    stage = make_solver(prep.inp, max(1.0, budget_s), workers=1, deterministic_s=CANONICAL_DETERMINISTIC_S)
     status = stage.Solve(ctx.model)
     if status != cp_model.OPTIMAL:
         return None
@@ -1020,7 +1120,8 @@ def _canonical_placement(
 def explain_unplaced(
     prep: Prepared, placed: dict[int, Assignment], explained: set[int] | frozenset[int] = frozenset()
 ) -> list[Diagnosis]:
-    """Summary + one explanation per unplaced event (at most 50) next to the ``placed`` ones."""
+    """Summary + one explanation per unplaced event next to the ``placed`` ones (every one: a partial run
+    must give a reason for each class it leaves out, review M3)."""
     unplaced = [e for e in prep.inp.events if e.id not in placed]
     out: list[Diagnosis] = []
     if unplaced:
@@ -1037,7 +1138,7 @@ def explain_unplaced(
             )
         )
         idx = _PlacedIndex(prep, placed)
-        for e in [e for e in unplaced if e.id not in explained][:50]:
+        for e in [e for e in unplaced if e.id not in explained]:
             out.append(explain_event(prep, e.id, placed, idx))
     return out
 
@@ -1083,12 +1184,67 @@ def diagnose_with_placement(
     return out, placed
 
 
+#: accepted exceptions of a run by cause (README "Real-data modes"): diagnosis code -> cause
+EXCEPTION_CAUSES: dict[str, str] = {
+    "trusted_lock_capacity": "D1",
+    "trusted_lock_tags": "D1",
+    "trusted_hint_capacity": "D1",
+    "joint_lecture_clipped": "D1",
+    "input_conflict": "D2",
+    "week_split": "week_split",
+    "outside_pool_overlap": "outside_pool",
+    "missing_enrolment": "missing_enrolment",
+    "manual_lock": "manual",
+}
+CAUSE_ORDER: tuple[str, ...] = ("D1", "D2", "D3", "week_split", "outside_pool", "missing_enrolment", "manual")
+CAUSE_TEXT: dict[str, str] = {
+    "D1": "planner's room kept although too small / missing a tag",
+    "D2": "clashes of two classes fixed at the same time",
+    "D3": "classes not placed",
+    "week_split": "room changes in blocked weeks",
+    "outside_pool": "overlaps in rooms outside the pool",
+    "missing_enrolment": "fallback sizes for missing enrolments",
+    "manual": "planner's manual placements",
+}
+
+
+def accepted_exceptions(diagnoses: Iterable[Any], unplaced: int = 0) -> dict[str, int]:
+    """Count the accepted exceptions of a result by cause (``D3`` = ``unplaced``).  ``diagnoses`` are
+    :class:`Diagnosis` objects or their stored dicts."""
+    out: dict[str, int] = {}
+    for d in diagnoses:
+        code = d.get("code") if isinstance(d, dict) else getattr(d, "code", "")
+        cause = EXCEPTION_CAUSES.get(str(code or ""))
+        if cause is not None:
+            out[cause] = out.get(cause, 0) + 1
+    if unplaced:
+        out["D3"] = unplaced
+    return {c: out[c] for c in CAUSE_ORDER if out.get(c)}
+
+
+def partial_message(placed: int, total: int, exceptions: dict[str, int]) -> str:
+    """The best-effort summary: placement, and the rule exceptions of the placed events by cause."""
+    unplaced = total - placed
+    kept = {c: n for c, n in exceptions.items() if c != "D3"}
+    n = sum(kept.values())
+    text = f"best effort: {placed} of {total} events placed, {unplaced} cannot be placed (reasons below); "
+    if not n:
+        return text + "every placed event keeps every hard rule"
+    return (
+        text
+        + f"every placed event keeps every hard rule except {n} accepted exception(s) (listed): "
+        + "; ".join(f"{c} {CAUSE_TEXT[c]} {k}" for c, k in kept.items())
+    )
+
+
 def diagnose(prep: Prepared, budget_s: float) -> list[Diagnosis]:
     """Full diagnosis after CP-SAT proved INFEASIBLE.  Never raises."""
     return diagnose_with_placement(prep, budget_s)[0]
 
 
 __all__ = [
+    "accepted_exceptions",
+    "partial_message",
     "core_diagnosis",
     "diagnose",
     "diagnose_with_placement",

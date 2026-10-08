@@ -104,9 +104,14 @@ test.describe("SmartSched smoke (real backend)", () => {
 
     // 1. Scope: one week (W3); the scope sentence updates live and the draft saves
     await page.getByTestId("horizon-WEEK").click();
+    const saved = page.getByTestId("save-status");
+    await expect(saved).toHaveAttribute("data-state", "saved", { timeout: 15_000 });
+    // the chip shows the server's draft summary: pick W3 once the horizon change is saved, again if a save raced it
     const w3 = page.getByTestId("week-3");
-    if ((await w3.getAttribute("aria-pressed")) !== "true") await w3.click();
-    await expect(w3).toHaveAttribute("aria-pressed", "true");
+    await expect(async () => {
+      if ((await w3.getAttribute("aria-pressed")) !== "true") await w3.click();
+      await expect(w3).toHaveAttribute("aria-pressed", "true", { timeout: 5_000 });
+    }).toPass({ timeout: 30_000 });
     await expect(page.getByTestId("scope-sentence")).toContainText(/\d/);
     await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "saved", { timeout: 15_000 });
 

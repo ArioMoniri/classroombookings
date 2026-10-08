@@ -163,7 +163,8 @@
       "goal": "remove every demo, mock and placeholder path from the production frontend, and make the browser tests run against the REAL backend. The user's rule: \"there should be no demo test or placeholder usage across the all system\". Findings come from a read-only audit; the IDs are below. B1 BLOCKER: the MSW mock API ships in prod and can be switched on. - Delete the `isMockMode` branch from smartsched/fro…",
       "ledger": "frontend-engineer (no-placeholder frontend)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 14:56"
     },
     {
       "id": "a04ed316ad0ba1caa",

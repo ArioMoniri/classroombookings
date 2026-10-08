@@ -598,7 +598,7 @@ def place_of(es: list[Entry]) -> Place:
 # --------------------------------------------------------------------------- rule checks
 
 
-SKIP_INSTRUCTOR = ("anabilim", "bölüm", "koordinat", "öğretim elemanları", "hoca", "dalı")
+SKIP_INSTRUCTOR = ("anabilim", "bölüm", "koordinat", "öğretim elemanları", "hoca", "dalı", "yüz yüze", "online")
 
 
 class Rules:
@@ -664,6 +664,7 @@ def audit_board(
     reqs: dict[int, Req],
     placed: dict[int, list[Entry]],
     rules: Rules,
+    entries: Sequence[Entry] = (),
 ) -> dict[int, list[tuple[str, int, str]]]:
     """Hard-rule breaks of the planner's board in one week: request -> [(rule, severity, text)]."""
     comp = components(placed)
@@ -673,6 +674,18 @@ def audit_board(
     out: dict[int, list[tuple[str, int, str]]] = defaultdict(list)
     for members in groups.values():
         rooms = {e.room for m in members for e in placed[m]}
+        same = {reqs[m].label for m in members}
+        if len(same) == 1 and len(members) > 1:
+            # one course+section listed once per programme and spread over several board cells (English
+            # courses): every cell of that code at that time seats the rows together
+            r0, day0 = reqs[members[0]], placed[members[0]][0].day
+            lo = min(reqs[m].sp or 1 for m in members)
+            hi = max(reqs[m].ep or 1 for m in members)
+            rooms |= {
+                e.room
+                for e in entries
+                if e.kind == "COURSE" and r0.code in e.codes and e.day == day0 and overlap(e.sp, e.ep, lo, hi)
+            }
         pool_rooms = [x for x in rooms if rules.in_pool(x)]
         seats = sum(rules.seats(x) for x in pool_rooms)
         # the seats needed at the busiest period (rows of one cell may cover different periods)
@@ -946,7 +959,7 @@ def compare_instance(
             if not r.days:
                 r.days = [1, 2, 3, 4, 5]
         placed, loose, ambiguous = match_week(act, wk_entries, exam, rules.same_event)
-        b_audit = audit_board(w, reqmap, placed, rules)
+        b_audit = audit_board(w, reqmap, placed, rules, wk_entries)
         l_audit = audit_list(w, act, blocks_real, rules)
         # SmartSched's week
         world = World()
@@ -1009,6 +1022,13 @@ def compare_instance(
             labels = list(dict.fromkeys(m.label for m in ms))
             label = " + ".join(labels[:3]) + (f" + {len(labels) - 3} more" if len(labels) > 3 else "")
             size = sum(m.size for m in ms)
+            venue_texts = sorted(
+                {
+                    " ".join(str(m.definitive_text).split())
+                    for m in ms
+                    if m.definitive_text and str(m.definitive_text).strip() not in ("-", "--", "x", "X", "0")
+                }
+            )
             requested = sorted({x for m in ms for x in m.requested})
             if P:
                 planner_txt = P.text()
@@ -1068,12 +1088,13 @@ def compare_instance(
                     )
                 elif r.code in board_codes:
                     add("e", "board_time_differs", f"{r.code} is on the board this week at another day/time")
-                else:
+                elif venue_texts:
+                    # the planner put it outside the classrooms (CASE, office, ONLINE ...): SmartSched rooms it
                     add(
-                        "b",
-                        "fills_board_gap",
-                        f"no board cell, no definitive room ({r.definitive_text or '-'}); size {size}",
+                        "e", "planner_venue_not_a_room", f"list definitive '{'; '.join(venue_texts)[:60]}'; size {size}"
                     )
+                else:
+                    add("b", "fills_board_gap", f"no board cell, no definitive room; size {size}")
                 continue
             same_rooms = P.rooms == S.rooms
             same_time = (P.day, P.sp, P.ep) == (S.day, S.sp, S.ep)
@@ -1342,6 +1363,8 @@ def cross_check(api: Api, res: dict[str, Any], work: Path) -> dict[str, Any]:
     di_reqs = {code: {int(x) for it in g["items"] for x in it["request_ids"]} for code, g in groups.items()}
     if res["instance"]["kind"] == "EXAM":
         di_reqs["locked_room_too_small"] |= di_reqs.get("shared_room_overflow", set())
+    # term runs move a lock's blocked weeks to another room and report it as a week room change
+    di_reqs["locked_room_blocked"] = di_reqs.get("locked_room_blocked", set()) | di_reqs.get("week_room_changes", set())
     mine: dict[str, set[int]] = defaultdict(set)
     missed: list[dict[str, Any]] = []
     for e in res["planner_errors"]:

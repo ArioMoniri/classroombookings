@@ -8,8 +8,9 @@ of sharing events in a room-period is valid iff some allocation gives every even
 room more than its seat budget (exam capacity when an exam is involved).  CP-SAT models the
 allocation with one integer ``seats[e, r]`` per (split event, room) — constant over the event's
 duration — inside one ``Cumulative`` per room; :func:`seat_conflicts` checks a finished timetable
-per (day, period, week) with a max-flow (Gale/Hall condition), so ``validate`` accepts exactly the
-timetables for which such an allocation exists.
+per (day, period, week) with a max-flow (Gale/Hall condition) and, where a split exam meets different
+neighbours in different periods, with one constant split over its whole duration, so ``validate`` accepts
+exactly the timetables for which such an allocation exists.
 """
 
 from __future__ import annotations
@@ -129,7 +130,124 @@ def seat_conflicts(
                 continue
             seen.add(key)
             out.append((key[0], key[1], day, p, w))
+    out.extend(_fixed_split_conflicts(inp, events_by_id, rooms_by_id, assignments, slots, seen))
     return out
+
+
+#: memo of the fixed-split checks (component signature -> feasible); evaluate() runs them many times
+_FIXED_SPLIT_CACHE: dict[tuple[object, ...], bool] = {}
+
+
+def _fixed_split_conflicts(
+    inp: SolverInput,
+    events_by_id: Mapping[int, Event],
+    rooms_by_id: Mapping[int, Room],
+    assignments: Mapping[int, Assignment],
+    slots: Mapping[tuple[int, int, int], list[int]],
+    seen: set[tuple[tuple[int, ...], tuple[int, ...]]],
+) -> list[tuple[tuple[int, ...], tuple[int, ...], int, int, int]]:
+    """The CP model gives a split exam **one** seat split for its whole duration (``seats[e, r]`` is constant);
+    a per-period max-flow would also accept a timetable that needs a different split in different periods
+    (another exam enters one of its rooms half-way).  For every (day, week) component in which a split
+    sharing event meets different neighbours in different periods, check that one constant split fits every
+    period (a tiny CP-SAT feasibility model, memoised)."""
+    out: list[tuple[tuple[int, ...], tuple[int, ...], int, int, int]] = []
+    by_dw: dict[tuple[int, int], dict[int, list[int]]] = defaultdict(dict)
+    for (day, p, w), eids in slots.items():
+        by_dw[(day, w)][p] = eids
+    for (day, w), per_period in sorted(by_dw.items()):
+        split = {
+            e
+            for eids in per_period.values()
+            for e in eids
+            if len([r for r in assignments[e].room_ids if r in rooms_by_id]) > 1
+        }
+        if not split:
+            continue
+        # components over (shared rooms) x (overlapping periods)
+        parent: dict[int, int] = {}
+        for eids in per_period.values():
+            for comp in _components(eids, assignments):
+                for other in comp:
+                    _union(parent, comp[0], other)
+        comps: dict[int, set[int]] = defaultdict(set)
+        for e in list(parent):
+            comps[_find(parent, e)].add(e)
+        for comp_set in comps.values():
+            if len(comp_set) < 2 or not comp_set & split:
+                continue
+            periods = sorted(p for p, eids in per_period.items() if set(eids) & comp_set)
+            present = {p: sorted(set(per_period[p]) & comp_set) for p in periods}
+            if all(present[p] == present[periods[0]] for p in periods):
+                continue  # the same events in every period: the per-period flow already decides it
+            events = [events_by_id[i] for i in sorted(comp_set)]
+            room_ids = sorted({r for i in comp_set for r in assignments[i].room_ids if r in rooms_by_id})
+            caps = {r: sharing_capacity(rooms_by_id[r], events) for r in room_ids}
+            rooms_of = {i: tuple(r for r in assignments[i].room_ids if r in rooms_by_id) for i in sorted(comp_set)}
+            demands = {i: seat_target(events_by_id[i], rooms_of[i], rooms_by_id) for i in sorted(comp_set)}
+            sig = (
+                tuple(sorted(demands.items())),
+                tuple(sorted(rooms_of.items())),
+                tuple(sorted(caps.items())),
+                tuple((p, tuple(present[p])) for p in periods),
+            )
+            ok = _FIXED_SPLIT_CACHE.get(sig)
+            if ok is None:
+                ok = _constant_split_feasible(demands, rooms_of, caps, present)
+                if len(_FIXED_SPLIT_CACHE) > 20000:
+                    _FIXED_SPLIT_CACHE.clear()
+                _FIXED_SPLIT_CACHE[sig] = ok
+            if ok:
+                continue
+            key = (tuple(sorted(comp_set)), tuple(room_ids))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append((key[0], key[1], day, periods[0], w))
+    return out
+
+
+def _find(parent: dict[int, int], x: int) -> int:
+    parent.setdefault(x, x)
+    while parent[x] != x:
+        parent[x] = parent[parent[x]]
+        x = parent[x]
+    return x
+
+
+def _union(parent: dict[int, int], a: int, b: int) -> None:
+    parent[_find(parent, b)] = _find(parent, a)
+
+
+def _constant_split_feasible(
+    demands: Mapping[int, int],
+    rooms_of: Mapping[int, Iterable[int]],
+    caps: Mapping[int, int],
+    present: Mapping[int, list[int]],
+) -> bool:
+    """One seat split per event (``x[e, r]``, at least one seat per room of a split event) that fits the
+    seats of every room in every period."""
+    from ortools.sat.python import cp_model  # type: ignore[import-untyped]
+
+    m = cp_model.CpModel()
+    x: dict[tuple[int, int], object] = {}
+    for e, rooms in rooms_of.items():
+        rs = list(rooms)
+        if len(rs) == 1:
+            x[(e, rs[0])] = demands[e]
+            continue
+        for r in rs:
+            x[(e, r)] = m.NewIntVar(1 if demands[e] >= len(rs) else 0, max(0, caps[r]), f"x{e}_{r}")
+        m.Add(sum(x[(e, r)] for r in rs) == demands[e])  # type: ignore[misc]
+    for _p, eids in present.items():
+        for r, cap in caps.items():
+            terms = [x[(e, r)] for e in eids if (e, r) in x]
+            if terms:
+                m.Add(sum(terms) <= cap)  # type: ignore[arg-type]
+    solver = cp_model.CpSolver()
+    solver.parameters.num_workers = 1
+    solver.parameters.max_time_in_seconds = 5.0
+    return bool(solver.Solve(m) in (cp_model.OPTIMAL, cp_model.FEASIBLE))
 
 
 def _components(eids: list[int], assignments: Mapping[int, Assignment]) -> list[list[int]]:

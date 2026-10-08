@@ -125,6 +125,11 @@ class MoveOut(BaseModel):
     ok: bool
     assignment: AssignmentOut | None = None
     conflicts: list[dict[str, Any]] = []
+    #: the run after the move, re-validated at planner level (``app.services.planner_check``): hard score,
+    #: status and the rule violations (a forced double booking lowers the hard score, review M4)
+    hard_score: int | None = None
+    status: str | None = None
+    violations: list[dict[str, Any]] = []
 
 
 class DiagnosisApplyIn(BaseModel):
