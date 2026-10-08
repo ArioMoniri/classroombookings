@@ -638,6 +638,16 @@ def test_logs_reads_latest_console_output(aws: StubAws) -> None:
     ec2.add_response("get_console_output", {"InstanceId": "i-0123456789abcdef0",
                                             "Output": base64.b64encode(out_text.encode()).decode()},
                      {"InstanceId": "i-0123456789abcdef0", "Latest": True})
-    out = sa.cmd_logs(aws)
+    ssm = aws.stub("ssm")
+    ssm.add_response("send_command", {"Command": {"CommandId": "0b7a3c1e-1f2d-4e5a-9b8c-7d6e5f4a3b21"}})
+    ssm.add_client_error("get_command_invocation", service_error_code="InvocationDoesNotExist")
+    ssm.add_response("get_command_invocation", {"Status": "Success", "StandardOutputContent":
+                                                "smartsched-backend Up 2 minutes (healthy)\n"
+                                                "pod-ci: ADMIN_PASSWORD=hunter2-secret\n",
+                                                "StandardErrorContent": ""})
+    out = sa.cmd_logs(aws, sleep=lambda _s: None)
     aws.assert_done()
-    assert out["i-0123456789abcdef0"]["lines"] == ["[user-data] waiting for SSM /smartsched/github_token"]
+    pod = out["i-0123456789abcdef0"]
+    assert pod["lines"] == ["[user-data] waiting for SSM /smartsched/github_token"]
+    assert pod["runtime"][0] == "smartsched-backend Up 2 minutes (healthy)"
+    assert "hunter2" not in "\n".join(pod["runtime"])

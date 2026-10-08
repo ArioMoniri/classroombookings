@@ -933,7 +933,43 @@ def filter_console(text: str, limit: int = 200) -> list[str]:
             for line in keep[-limit:]]
 
 
-def cmd_logs(aws: Aws) -> dict[str, Any]:
+# Read-only diagnostics run on the pod through SSM Run Command (the instance profile has
+# AmazonSSMManagedInstanceCore). Output is redacted line by line before it is returned.
+POD_DIAG = (
+    "systemctl list-timers 'smartsched-*' --no-pager 2>&1 | head -8; "
+    "systemctl is-active smartsched-ci-web.service 2>&1; "
+    "docker ps --format '{{.Names}} {{.Status}}' 2>&1; "
+    "journalctl -u 'smartsched-ci-*' -n 120 --no-pager -o short-iso 2>&1 | grep -v -i 'basic_auth' | tail -120"
+)
+
+
+def pod_runtime(aws: Aws, instance_id: str, sleep: Callable[[float], None] = time.sleep,
+                tries: int = 20) -> list[str]:
+    ssm = aws.client("ssm")
+    try:
+        cmd = ssm.send_command(InstanceIds=[instance_id], DocumentName="AWS-RunShellScript",
+                               Parameters={"commands": [POD_DIAG]}, TimeoutSeconds=60,
+                               Comment="smartsched logs (read-only)")
+    except Exception as exc:  # noqa: BLE001 - SSM agent not registered yet, or no permission
+        return [f"ssm not available ({error_code(exc) or exc})"]
+    command_id = cmd["Command"]["CommandId"]
+    for _ in range(tries):
+        sleep(3)
+        try:
+            inv = ssm.get_command_invocation(CommandId=command_id, InstanceId=instance_id)
+        except Exception as exc:  # noqa: BLE001 - InvocationDoesNotExist right after send_command
+            if error_code(exc) == "InvocationDoesNotExist":
+                continue
+            return [f"ssm invocation failed ({error_code(exc) or exc})"]
+        if inv["Status"] in ("Pending", "InProgress", "Delayed"):
+            continue
+        text = (inv.get("StandardOutputContent") or "") + (inv.get("StandardErrorContent") or "")
+        return [LOG_REDACT.sub(lambda m: (m.group(1) + " [redacted]") if m.group(1) else "[redacted]", line)
+                for line in text.splitlines()][-160:]
+    return ["ssm command still running; try again"]
+
+
+def cmd_logs(aws: Aws, sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
     """Boot progress from the EC2 serial console (cloud-init tees user-data output there); no SSH or SSM."""
     import base64
 
@@ -953,6 +989,8 @@ def cmd_logs(aws: Aws) -> dict[str, Any]:
             text = raw
         out[iid] = {"state": inst["State"]["Name"], "captured": str(resp.get("Timestamp", "")),
                     "lines": filter_console(text)}
+        if inst["State"]["Name"] == "running":
+            out[iid]["runtime"] = pod_runtime(aws, iid, sleep=sleep)
     if not out:
         out["note"] = "no SmartSched instance found"
     return out
