@@ -3,6 +3,7 @@
 #
 #   ./deploy.sh            build + start the stack, wait for health, print URL + credentials location
 #   ./deploy.sh --legacy   also start the legacy CRBS app (profile "legacy") for live imports
+#   ./deploy.sh --tls      add the Caddy HTTPS edge (docker-compose.caddy.yml; TLS_DOMAIN + ACME_EMAIL in .env)
 #   ./deploy.sh --update   git pull (if a checkout), rebuild images, restart, migrations run on start
 #   ./deploy.sh --logs     follow logs
 #   ./deploy.sh --down     stop the stack (volumes are kept; add --volumes to delete data)
@@ -22,6 +23,7 @@ COMPOSE_FILE="$HERE/docker-compose.yml"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 
 PROFILE_ARGS=()
+FILE_ARGS=(-f "$COMPOSE_FILE")
 ACTION="up"
 REMOVE_VOLUMES=0
 NO_BUILD=0
@@ -36,6 +38,7 @@ usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
 for arg in "$@"; do
   case "$arg" in
     --legacy)   PROFILE_ARGS=(--profile legacy) ;;
+    --tls)      FILE_ARGS+=(-f "$HERE/docker-compose.caddy.yml") ;;
     --down)     ACTION="down" ;;
     --logs)     ACTION="logs" ;;
     --update)   ACTION="update" ;;
@@ -63,7 +66,7 @@ case "${COMPOSE_VERSION#v}" in
   1.*|2.[0-9].*|2.1[0-6].*) warn "docker compose $COMPOSE_VERSION is old; >= 2.17 is recommended" ;;
 esac
 # ${arr[@]+...} keeps `set -u` happy with an empty array on bash 3.2 (macOS).
-COMPOSE+=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE" ${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"})
+COMPOSE+=(--env-file "$ENV_FILE" "${FILE_ARGS[@]}" ${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"})
 
 # ---- .env with generated secrets ------------------------------------------------------------
 random_secret() {
@@ -91,19 +94,20 @@ ensure_env() {
     cp "$HERE/.env.example" "$ENV_FILE"
     chmod 600 "$ENV_FILE"
   fi
-  local created=0
-  while grep -q '__GENERATE__' "$ENV_FILE"; do
-    local line key value
-    line="$(grep -m1 '__GENERATE__' "$ENV_FILE")"
-    key="${line%%=*}"
+  local created=0 key value
+  # One pass over KEY=__GENERATE__ lines only (comments may mention the placeholder too).
+  for key in $(grep -oE '^[A-Z][A-Z0-9_]*=__GENERATE__[[:space:]]*$' "$ENV_FILE" | cut -d= -f1); do
     case "$key" in
       ADMIN_PASSWORD|*_DB_PASSWORD|POSTGRES_PASSWORD|CRBS_DB_ROOT_PASSWORD) value="$(random_password)" ;;
       *) value="$(random_secret)" ;;
     esac
-    # Replace only the placeholder, keep the trailing comment.
-    sed -i.bak "s|^${key}=__GENERATE__|${key}=${value}|" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
+    [[ -n "$value" ]] || die "could not generate a value for $key"
+    sed -i.bak "s|^${key}=__GENERATE__[[:space:]]*$|${key}=${value}|" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
     created=1
   done
+  if grep -Eq '^[A-Z][A-Z0-9_]*=.*__GENERATE__' "$ENV_FILE"; then
+    die "unreplaced __GENERATE__ placeholder in $ENV_FILE: $(grep -E '^[A-Z][A-Z0-9_]*=.*__GENERATE__' "$ENV_FILE" | cut -d= -f1 | tr '\n' ' ')"
+  fi
   if [[ $created -eq 1 ]]; then log "generated secrets written to $ENV_FILE (keep it safe; it is git-ignored)"; fi
   # Required keys must be present and non-empty.
   local k
@@ -142,7 +146,9 @@ wait_healthy() {
 print_summary() {
   local port url
   port="$(env_get PROXY_PORT)"; port="${port:-8080}"
-  url="$(env_get PUBLIC_URL)"; url="${url:-http://localhost:$port}"
+  url="$(env_get PUBLIC_URL)"
+  if [[ -z "$url" && ${#FILE_ARGS[@]} -gt 2 ]]; then url="https://$(env_get TLS_DOMAIN)"; fi
+  url="${url:-http://localhost:$port}"
   echo
   log "SmartSched is up:  $url"
   log "API docs:          $url/api/docs"
@@ -194,6 +200,9 @@ case "$ACTION" in
     ;;
   up)
     ensure_env
+    if [[ ${#FILE_ARGS[@]} -gt 2 ]]; then
+      [[ -n "$(env_get TLS_DOMAIN)" && -n "$(env_get ACME_EMAIL)" ]] || die "--tls needs TLS_DOMAIN and ACME_EMAIL in $ENV_FILE"
+    fi
     if [[ $NO_BUILD -eq 0 ]]; then
       log "building images (first build takes a few minutes)"
       "${COMPOSE[@]}" build

@@ -18,7 +18,7 @@ type:
 	$(PY) -m mypy app/importers app/services app/workers app/core app/solver/model.py app/solver/stub.py
 
 test:
-	$(PY) -m pytest -q --ignore=tests/solver --ignore=tests/ai
+	$(PY) -m pytest -q --ignore=tests/solver
 
 dev:
 	$(PY) -m uvicorn app.main:app --reload --port 8000

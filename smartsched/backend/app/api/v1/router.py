@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     auth,
+    chat,
     constraints,
     dashboard,
     health,
@@ -31,5 +32,6 @@ for r in (
     runs.router,
     dashboard.router,
     users.router,
+    chat.router,
 ):
     api_router.include_router(r)

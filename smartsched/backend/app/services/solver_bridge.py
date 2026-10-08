@@ -94,6 +94,105 @@ def horizon_weeks(run: ScheduleRun, term: Term) -> list[int]:
     return list(range(1, (term.week_count or 14) + 1))
 
 
+def _joinable(a: sm.Event, b: sm.Event) -> bool:
+    """Two fixed-time course requests are one physical lecture when they share an instructor or the
+    planner locked both to the same room set, at the same day/periods, in overlapping weeks."""
+    if (a.fixed_day, a.fixed_start, a.duration) != (b.fixed_day, b.fixed_start, b.duration) or a.fixed_day is None:
+        return False
+    if not a.weeks & b.weeks:
+        return False
+    ra = set(a.locked.room_ids) if a.locked else set()
+    rb = set(b.locked.room_ids) if b.locked else set()
+    if ra and rb and ra != rb:
+        return False  # the planner put them in different rooms: two sessions (or a data error to report)
+    return bool(a.instructor_keys & b.instructor_keys) or (bool(ra) and ra == rb)
+
+
+def merge_joint_lectures(
+    events: list[sm.Event], members: dict[int, list[int]], room_capacity: dict[int, int] | None = None
+) -> tuple[list[sm.Event], list[dict[str, Any]]]:
+    """Merge requests that describe one joint lecture (``FIZ 111 §1`` listed once per programme,
+    ``HEM 334 / NRS 304`` taught together) into one solver event.
+
+    The planning list has one row per programme; without merging, the planner's own definitive plan
+    is infeasible (same instructor / same room twice at the same time).  The merged event seats the
+    sum of the groups, carries every cohort and instructor key, and maps back to all its requests
+    through ``members`` (one assignment per request is persisted).  When the planner locked the group
+    into rooms smaller than the summed enrolment (the list's enrolments are *expected* numbers and
+    programmes overlap), the planner's rooms win: the size is clipped to their capacity and the clip
+    is reported.  Returns (events, one summary dict per merged group).
+    """
+    by_slot: dict[tuple[int | None, int | None, int], list[int]] = defaultdict(list)
+    for i, e in enumerate(events):
+        if e.fixed_day is not None and e.fixed_start is not None:
+            by_slot[(e.fixed_day, e.fixed_start, e.duration)].append(i)
+    parent = list(range(len(events)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for idxs in by_slot.values():
+        for x in range(len(idxs)):
+            for y in range(x + 1, len(idxs)):
+                if _joinable(events[idxs[x]], events[idxs[y]]):
+                    parent[find(idxs[x])] = find(idxs[y])
+    groups: dict[int, list[int]] = defaultdict(list)
+    for i in range(len(events)):
+        groups[find(i)].append(i)
+    out: list[sm.Event] = []
+    merged: list[dict[str, Any]] = []
+    caps = room_capacity or {}
+    for idxs in groups.values():
+        if len(idxs) == 1:
+            out.append(events[idxs[0]])
+            continue
+        evs = sorted((events[i] for i in idxs), key=lambda e: e.id)
+        head = evs[0]
+        locked_rooms = next((e.locked.room_ids for e in evs if e.locked), None)
+        weeks = frozenset().union(*(e.weeks for e in evs))
+        labels = list(dict.fromkeys(e.label for e in evs))
+        label = " + ".join(labels) if len(labels) <= 3 else f"{labels[0]} + {len(labels) - 1} more"
+        size = sum(e.size for e in evs)
+        info: dict[str, Any] = {"event_id": head.id, "request_ids": [e.id for e in evs], "label": label, "size": size}
+        if locked_rooms:
+            cap = sum(caps.get(r, 0) for r in locked_rooms)
+            if cap and size > cap:
+                info["clipped_to"] = cap
+                size = max(cap, max(e.size for e in evs))
+        merged.append(info)
+        out.append(
+            replace(
+                head,
+                label=label,
+                size=size,
+                weeks=weeks,
+                required_tags=frozenset().union(*(e.required_tags for e in evs)),
+                forbidden_tags=frozenset.intersection(*(e.forbidden_tags for e in evs)),
+                preferred_room_ids=tuple(dict.fromkeys(r for e in evs for r in e.preferred_room_ids)),
+                preferred_building=next((e.preferred_building for e in evs if e.preferred_building), None),
+                cohort_keys=frozenset().union(*(e.cohort_keys for e in evs)),
+                instructor_keys=frozenset().union(*(e.instructor_keys for e in evs)),
+                locked=(
+                    sm.Assignment(
+                        head.id,
+                        head.fixed_day or 1,
+                        head.fixed_start or 1,
+                        (head.fixed_start or 1) + head.duration - 1,
+                        locked_rooms,
+                        weeks,
+                    )
+                    if locked_rooms
+                    else None
+                ),
+            )
+        )
+        members[head.id] = [m for e in evs for m in members.pop(e.id, [e.id])]
+    return out, merged
+
+
 async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[sm.SolverInput, dict[int, list[int]]]:
     """Return (SolverInput, event_id -> request ids) for ``run``; exam cohorts are merged by merge_key."""
     term = await session.get(Term, run.term_id)
@@ -187,6 +286,14 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 )
             )
             members[mr.id] = [mr.id]
+        if params.get("merge_joint_lectures", True):
+            events, merged = merge_joint_lectures(events, members, {r.id: r.capacity for r in rooms})
+            if merged:
+                run.stats = {
+                    **(run.stats or {}),
+                    "merged_joint_lectures": len(merged),
+                    "merged_joint_lectures_clipped": [m for m in merged if "clipped_to" in m][:50],
+                }
     else:
         qe = (
             select(ExamRequest)

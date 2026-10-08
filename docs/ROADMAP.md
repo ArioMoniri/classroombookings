@@ -91,3 +91,17 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] AI: mount `/terms/{id}/elicit` + `/elicit/accept`; preference-file extraction with per-row `source_ref`; plain-language pre-check text
 - [ ] Solver: confirm Low/Normal/High = 2/5/8 weight scale; pre-check run-time estimate; `room_reserved_for` kind
 - [ ] Frontend: `components/studio/*` (rule card, slot chip, source chip, readiness meter, review tray, upload review, step rail); replace generate-view; switch the propose mock to `/terms/{id}/elicit`
+
+### Phase 5 deploy/devops backlog (devops-engineer, 2026-10-08)
+
+- [ ] Backend: run the CP-SAT call off the event loop (`asyncio.to_thread` / process pool) in `services/solver_bridge.run_schedule`; today a solve blocks its whole uvicorn process (API + healthcheck) for up to `time_limit`
+- [ ] Backend: on startup mark `schedule_runs`/`import_jobs` left in `RUNNING`/`QUEUED` by a previous process as `FAILED (interrupted)` (in-process queue loses jobs on restart)
+- [ ] Backend: do not serve `/uploads/imports/*` from the public StaticFiles mount (nginx 404s it today); serve room photos only, or require auth
+- [ ] Backend: `POST /terms` with no `name` raises `TypeError: Term() got multiple values for keyword argument 'name'` (500): `Term(**body.model_dump(), name=...)` duplicates the key; use `body.model_dump(exclude={"name"})`
+- [ ] Backend: import-job `error` returns a full traceback with absolute server paths to API clients; log it, return a short message
+- [ ] Backend: commit `smartsched/backend/requirements.lock` (`pip-compile`/`uv pip compile` for py3.12) so Docker builds pin transitive deps; the Dockerfile already uses it as a constraints file when present
+- [ ] Frontend: session cookie is `Secure` whenever `NODE_ENV=production`, so plain-http logins from another machine fail silently; add `COOKIE_SECURE=auto` (derive from `X-Forwarded-Proto`) or document TLS-only (deploy/README.md "TLS" does)
+- [ ] Frontend: cookie `maxAge` (30 days) outlives the JWT (`JWT_EXPIRE_MINUTES=720`); align them
+- [ ] Dedicated worker service (RQ/Celery on Redis, `python -m app.cli worker`) + progress fan-out via pub/sub, before running several backend replicas (deploy/README.md "Scaling")
+- [ ] Pin base images by digest and let Renovate/Dependabot bump them
+- [ ] Postgres locale: initdb uses `C.UTF-8`; evaluate `--locale-provider=icu --icu-locale=tr-TR` for Turkish ORDER BY (needs a fresh volume)

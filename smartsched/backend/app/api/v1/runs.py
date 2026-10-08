@@ -323,14 +323,21 @@ async def _conflict_messages(db: AsyncSession, conflicts: list[dict[str, Any]]) 
     if ids:
         others = list((await db.execute(select(Assignment).where(Assignment.id.in_(ids)))).scalars())
         labels = await assignment_labels(db, others)
+    room_ids = {int(c["room_id"]) for c in conflicts if c.get("room_id")}
+    names: dict[int, str] = {}
+    if room_ids:
+        names = {r.id: r.display_name for r in (await db.execute(select(Room).where(Room.id.in_(room_ids)))).scalars()}
     out = []
     for c in conflicts:
         when = f"{day_label(int(c.get('day') or 0))} P{c.get('start_period')}-P{c.get('end_period')}"
-        room = c.get("room") or (f"#{c['room_id']}" if c.get("room_id") else "room")
+        rid = int(c["room_id"]) if c.get("room_id") else None
+        room = c.get("room") or (names.get(rid, f"#{rid}") if rid else "room")
         if c.get("kind") == "assignment":
             label = labels.get(int(c["id"]), c.get("label") or f"#{c['id']}")
             msg = f"{room} is taken by {label} ({when})"
-            out.append({**c, "label": label, "with_assignment_id": c["id"], "with_label": label, "message": msg})
+            out.append(
+                {**c, "room": room, "label": label, "with_assignment_id": c["id"], "with_label": label, "message": msg}
+            )
         elif c.get("kind") == "block":
             out.append({**c, "message": f"{room} is blocked: {c.get('label')} ({when})"})
         else:

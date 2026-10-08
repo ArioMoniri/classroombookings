@@ -27,7 +27,7 @@ from app.importers.normalize import (
     tr_casefold,
 )
 from app.models import Course, Instructor, Program, Room, Section, Term, Week
-from app.schemas.ai import ProposedConstraint, ProposedSectionEdit, ResolvedEntity, SectionChanges, SourceRef
+from app.schemas.ai import ProposedConstraint, ProposedSectionEdit, ResolvedEntity, SectionChanges
 from app.services.calendar import week_index_for_date
 
 FUZZY_ACCEPT = 0.86
@@ -290,13 +290,13 @@ def resolve_course(
     by_code = {c.code: c for c in ctx.courses}
     course = by_code.get(code or "")
     if course is None:
-        cands = []
+        cands: list[dict[str, Any]] = []
         if code:
             for c in ctx.courses:
                 s = _ratio(code, c.code)
                 if s >= 0.8:
                     cands.append({"id": c.id, "label": c.display_code, "score": round(s, 2)})
-            cands.sort(key=lambda d: -d["score"])
+            cands.sort(key=lambda d: -float(d["score"]))
         return ResolvedEntity(type="course", text=text, candidates=cands[:3]), []
     ids: list[int] = []
     for _sid, prog, mr_ids in ctx.sections_by_course.get(course.id, []):
@@ -352,16 +352,6 @@ def clean_sentinels(d: dict[str, Any] | None) -> dict[str, Any]:
             continue
         out[k] = v
     return out
-
-
-def source_for(raw: dict[str, Any], source: SourceRef | None) -> SourceRef | None:
-    """Attach the model's ``source_ref`` (row / paragraph number) to the file-level source."""
-    if source is None:
-        return None
-    ref = raw.get("source_ref")
-    if isinstance(ref, int) and not isinstance(ref, bool) and ref > 0:
-        return source.model_copy(update={"ref": ref})
-    return source
 
 
 def _ints(values: Any, lo: int, hi: int) -> list[int]:
@@ -447,7 +437,7 @@ def _weeks_from(ctx: TermContext, mp: dict[str, Any], entities: list[ResolvedEnt
     return weeks
 
 
-def resolve_proposal(ctx: TermContext, raw: dict[str, Any], source: SourceRef | None = None) -> ProposedConstraint:
+def resolve_proposal(ctx: TermContext, raw: dict[str, Any]) -> ProposedConstraint:
     """Map one model proposal (names) to a :class:`ProposedConstraint` (ids) with review status.
 
     Every id in the result comes from the database; names that do not resolve confidently are kept
@@ -456,11 +446,8 @@ def resolve_proposal(ctx: TermContext, raw: dict[str, Any], source: SourceRef | 
     kind = str(raw.get("kind") or "")
     spec = KINDS.get(kind)
     nl_text = str(raw.get("nl_text") or "")
-    src = source_for(raw, source)
     if spec is None:
-        return ProposedConstraint(
-            kind=kind, nl_text=nl_text, status="rejected", issues=[f"unknown kind '{kind}'"], source=src
-        )
+        return ProposedConstraint(kind=kind, nl_text=nl_text, status="rejected", issues=[f"unknown kind '{kind}'"])
     hardness = str(raw.get("hardness") or spec.default_hardness)
     try:
         weight = int(raw.get("weight") or 0)
@@ -599,7 +586,6 @@ def resolve_proposal(ctx: TermContext, raw: dict[str, Any], source: SourceRef | 
         status=_status(issues, entities, _confidence(raw, entities)),
         issues=issues,
         entities=entities,
-        source=src,
     )
 
 
@@ -697,9 +683,7 @@ def resolve_section_targets(
     return sorted(set(out))
 
 
-def resolve_section_edit(
-    ctx: TermContext, op: str, raw: dict[str, Any], source: SourceRef | None = None
-) -> ProposedSectionEdit:
+def resolve_section_edit(ctx: TermContext, op: str, raw: dict[str, Any]) -> ProposedSectionEdit:
     """Model section edit (names) -> :class:`ProposedSectionEdit` with validated section/room ids."""
     data = clean_sentinels(raw)
     issues: list[str] = []
@@ -752,7 +736,6 @@ def resolve_section_edit(
         issues=issues,
         entities=entities,
         labels=[section_label(ctx, sid) for sid in section_ids],
-        source=source_for(raw, source),
     )
 
 
@@ -769,7 +752,6 @@ __all__ = [
     "resolve_section_edit",
     "resolve_section_targets",
     "section_label",
-    "source_for",
     "split_program_and_years",
     "week_for_date",
 ]

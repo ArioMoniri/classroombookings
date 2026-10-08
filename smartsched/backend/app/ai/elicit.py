@@ -30,11 +30,14 @@ MAX_TOKENS = 16000
 EFFORT = "medium"
 
 _RULES_EN = (PROMPTS / "elicit.md").read_text(encoding="utf-8")
+_MAPPING = (PROMPTS / "mapping.md").read_text(encoding="utf-8")
 
 
-def build_system(ctx: TermContext, lang: str) -> list[dict[str, Any]]:
-    """Two blocks: rules + catalogue (stable, cached), term context (stable per term, cached)."""
-    rules = _RULES_EN.format(lang="Turkish" if lang == "tr" else "English")
+def build_system(ctx: TermContext, lang: str, intro: str | None = None) -> list[dict[str, Any]]:
+    """Two cached blocks: ``intro`` (elicitation rules by default) + shared mapping rules + catalogue,
+    then the term context (stable per term)."""
+    language = "Turkish" if lang == "tr" else "English"
+    rules = (intro if intro is not None else _RULES_EN).format(lang=language) + "\n" + _MAPPING.format(lang=language)
     cat = (
         "Catalogue of constraint kinds (kind [allowed hardness, default; params]: description, examples):\n"
         + catalog.catalog_prompt(lang)
@@ -87,7 +90,12 @@ async def propose(
         ref = raw.get("source_ref")
         if lookup is not None and isinstance(ref, int) and not isinstance(ref, bool) and ref > 0:
             return lookup(ref)
-        return lookup(0) if lookup is not None else SourceRef(kind="prompt")
+        return lookup(0) if lookup is not None else None
+
+    def tag(item: ProposedConstraint | ProposedSectionEdit, raw: dict[str, Any]) -> None:
+        ref = src(raw)
+        if ref is not None and ref.filename:
+            item.source, item.source_ref = "UPLOAD", ref.to_ref()
 
     for call in calls:
         data, schema_issues = _validated_call_input(call)
@@ -100,23 +108,22 @@ async def propose(
         for raw in data.get("proposals") or []:
             try:
                 p = resolve_proposal(ctx, dict(raw))
-                p.source = src(raw)
+                tag(p, raw)
                 proposals.append(p)
             except Exception as exc:  # noqa: BLE001 - one bad proposal must not lose the others
                 log.warning("proposal resolution failed: %s", type(exc).__name__)
-                proposals.append(
-                    ProposedConstraint(
-                        kind=str(raw.get("kind") or "?"),
-                        nl_text=str(raw.get("nl_text") or ""),
-                        status="rejected",
-                        issues=[f"resolution error: {type(exc).__name__}"],
-                        source=src(raw),
-                    )
+                bad = ProposedConstraint(
+                    kind=str(raw.get("kind") or "?"),
+                    nl_text=str(raw.get("nl_text") or ""),
+                    status="rejected",
+                    issues=[f"resolution error: {type(exc).__name__}"],
                 )
+                tag(bad, raw)
+                proposals.append(bad)
         for raw in data.get("section_edits") or []:
             try:
                 e = resolve_section_edit(ctx, str(raw.get("op") or ""), dict(raw))
-                e.source = src(raw)
+                tag(e, raw)
                 edits.append(e)
             except Exception as exc:  # noqa: BLE001
                 log.warning("section edit resolution failed: %s", type(exc).__name__)
@@ -126,7 +133,7 @@ async def propose(
                 {
                     "text": str(u.get("text") or ""),
                     "reason": str(u.get("reason") or ""),
-                    "source": ref.model_dump() if ref is not None else None,
+                    "source_ref": ref.to_ref() if ref is not None else None,
                 }
             )
     if not calls and not note:
@@ -143,9 +150,7 @@ async def elicit_constraints(
         f"Planner's preferences ({'Turkish' if lang == 'tr' else 'English'}):\n\n{text}\n\n"
         "Call propose_constraints once with every rule and section edit you can map."
     )
-    proposals, edits, unparsed, note = await propose(
-        client, ctx, content, lang, lookup=lambda _ref: SourceRef(kind="prompt")
-    )
+    proposals, edits, unparsed, note = await propose(client, ctx, content, lang)
     if not proposals and not edits and not note:
         note = "Kural çıkarılamadı." if lang == "tr" else "No rules could be extracted."
     log.info(
@@ -214,10 +219,13 @@ async def accept_proposals(
     *,
     user_id: int | None = None,
     run_id: int | None = None,
-    source: str = "AI",
+    source: str | None = None,
     commit: bool = True,
 ) -> tuple[list[int], list[dict[str, Any]]]:
-    """Persist the proposals the planner accepted as ``ConstraintRow(source=AI)``; returns (ids, rejected)."""
+    """Persist accepted proposals as ``ConstraintRow`` (source ``AI`` or ``UPLOAD``); returns (ids, rejected).
+
+    The upload reference (``{"file": ..., "row": 12}``) is kept in ``params["_source_ref"]`` until the
+    constraints table gets its own column (solver selectors ignore unknown keys)."""
     rejected: list[dict[str, Any]] = []
     rows: list[ConstraintRow] = []
     for i, p in enumerate(proposals):
@@ -227,14 +235,17 @@ async def accept_proposals(
         if issues:
             rejected.append({"index": i, "kind": p.kind, "issues": issues})
             continue
+        params = dict(p.params)
+        if p.source_ref:
+            params["_source_ref"] = p.source_ref
         row = ConstraintRow(
             term_id=term_id if run_id is None else None,
             run_id=run_id,
             kind=p.kind,
-            params=p.params,
+            params=params,
             hardness=p.hardness,
             weight=max(1, min(10, int(p.weight))),
-            source=source,
+            source=source or p.source,
             nl_text=(p.nl_text or p.title or "")[:4000] or None,
             enabled=True,
             created_by=user_id,

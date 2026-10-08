@@ -126,25 +126,31 @@ async def build_dashboard(
     )
 
     run = await utilisation_run(session, term.id)
+    run_rows: list[Assignment] = []
+    if run is not None:
+        run_rows = list(
+            (
+                await session.execute(
+                    select(Assignment).where(Assignment.run_id == run.id, Assignment.archived.is_(False))
+                )
+            ).scalars()
+        )
     util_week = week or current_week
     if week is None and run is not None:
-        hw = horizon_weeks(run, term)
-        if hw and util_week not in hw:
-            util_week = hw[0]
+        # the calendar week may lie outside what the run covers (a one-week run, an imported board with
+        # two sheets): fall back to the closest week the run actually occupies
+        present: set[int] = set()
+        for a in run_rows:
+            present |= assignment_weeks(a)
+        candidates = sorted(present) or horizon_weeks(run, term)
+        if candidates and util_week not in candidates:
+            util_week = min(candidates, key=lambda w: (abs(w - current_week), w))
 
     occupied: set[tuple[int, int, int]] = set()  # (room, day, period)
     bookable_ids = {r.id for r in bookable}
     conflicts = 0
     if run is not None:
-        rows = [
-            a
-            for a in (
-                await session.execute(
-                    select(Assignment).where(Assignment.run_id == run.id, Assignment.archived.is_(False))
-                )
-            ).scalars()
-            if _covers(assignment_weeks(a), util_week)
-        ]
+        rows = [a for a in run_rows if _covers(assignment_weeks(a), util_week)]
         for a in rows:
             for rid in a.room_ids or []:
                 if int(rid) in bookable_ids:

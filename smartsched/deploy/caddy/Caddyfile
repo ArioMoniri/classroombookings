@@ -1,0 +1,23 @@
+# Automatic HTTPS in front of the SmartSched nginx proxy (docker-compose.caddy.yml).
+# TLS_DOMAIN must resolve to this host and ports 80/443 must be reachable for the ACME challenge.
+{
+	email {$ACME_EMAIL}
+}
+
+{$TLS_DOMAIN} {
+	# SSE (solver progress) must not be buffered; nginx also disables buffering for those paths.
+	reverse_proxy proxy:8080 {
+		flush_interval -1
+	}
+	request_body {
+		max_size 50MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	log {
+		output stdout
+		format console
+	}
+}

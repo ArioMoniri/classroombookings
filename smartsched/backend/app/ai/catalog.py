@@ -524,6 +524,7 @@ def validate_params(kind: str, params: dict[str, Any], hardness: str | None = No
         issues.append(f"kind '{kind}' cannot be {hardness}")
     # 'match' accepts str or list in the solver; normalise before checking
     schema = spec.params_schema
+    params = {k: v for k, v in params.items() if not str(k).startswith("_")}  # metadata such as _source_ref
     if isinstance(params.get("match"), list):
         schema = {**schema, "properties": {**schema["properties"], "match": _arr(_s("string"))}}
     _check(params, schema, "params", issues)

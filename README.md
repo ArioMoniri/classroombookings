@@ -27,3 +27,19 @@ This project makes use of several third parties, some of which are listed below.
 - [CodeIgniter](https://codeigniter.com/) (MIT)
 - [Unpoly](https://unpoly.com/) (MIT)
 - [FamFamFam Silk Icons](http://www.famfamfam.com/lab/icons/silk/) ([CC BY 3.0](https://creativecommons.org/licenses/by/3.0/), Unmodified)
+
+## SmartSched (AI classroom optimizer & scheduler)
+
+`smartsched/` holds SmartSched, a separate application that sits next to classroombookings. It imports
+the planning-office workbooks (or a CRBS database) and builds room and exam schedules with a CP-SAT
+solver. It has a FastAPI backend, a Next.js frontend and PostgreSQL.
+
+- One-click deploy (Docker): `cd smartsched/deploy && ./deploy.sh` prints the URL and where the
+  generated admin credentials are. `./deploy.sh --legacy` also runs this classroombookings app (PHP 8.3
+  + MySQL 8.4) for live imports. Details on TLS, backups, scaling and sizing are in
+  [smartsched/deploy/README.md](smartsched/deploy/README.md).
+- Local development without Docker: `scripts/dev.sh --run` (Python 3.12 venv, `npm ci`, SQLite,
+  seeded admin, backend on :8000 and frontend on :3000).
+- Quality gates: `make -C smartsched check` (ruff, mypy, pytest, tsc, eslint, vitest). CI is
+  `.github/workflows/smartsched.yml`.
+- Architecture, roadmap and agent protocol: `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/AGENTS.md`.

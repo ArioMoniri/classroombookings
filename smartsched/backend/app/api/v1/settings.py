@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
+from app.ai.client import DEFAULT_MODEL, test_connection
 from app.api.deps import DB, Admin
 from app.schemas.settings import SettingsUpdate, TestAiIn, TestAiOut
 from app.services import settings_service as ss
@@ -32,17 +33,8 @@ async def update_settings(body: SettingsUpdate, db: DB, _: Admin) -> dict[str, A
 
 
 async def _probe_ai(api_key: str, model: str) -> tuple[bool, str]:
-    """1-token call to verify the key. Replaced in tests."""
-    try:
-        import anthropic
-    except ImportError:  # pragma: no cover
-        return False, "anthropic SDK not installed"
-    try:
-        client = anthropic.AsyncAnthropic(api_key=api_key)
-        resp = await client.messages.create(model=model, max_tokens=1, messages=[{"role": "user", "content": "ping"}])
-        return True, f"ok ({resp.model})"
-    except Exception as exc:  # noqa: BLE001
-        return False, f"{type(exc).__name__}: {str(exc)[:200]}"
+    """Tiny probe via the AI layer (:func:`app.ai.client.test_connection`). Replaced in tests."""
+    return await test_connection(api_key, model)
 
 
 @router.post("/test-ai", response_model=TestAiOut)
@@ -56,7 +48,7 @@ async def test_ai(body: TestAiIn, db: DB, _: Admin) -> TestAiOut:
         key = await ss.get_value(db, "anthropic_api_key") or ""
         if key:
             used = "stored"
-    model = body.model or await ss.get_value(db, "anthropic_model")
+    model = body.model or await ss.get_value(db, "anthropic_model") or DEFAULT_MODEL
     if not key:
         return TestAiOut(ok=False, model=model, detail="no API key configured", used_key=used)
     ok, detail = await _probe_ai(key, model)

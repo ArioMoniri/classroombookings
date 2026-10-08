@@ -1,0 +1,48 @@
+# Optional TLS edge: Caddy obtains/renews Let's Encrypt certificates and forwards to the nginx proxy.
+#   ./deploy.sh --tls        (or: docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d)
+# Set TLS_DOMAIN + ACME_EMAIL in .env, PUBLIC_URL=https://$TLS_DOMAIN and CORS_ORIGINS accordingly.
+# Caddy is the only container that runs as root (it binds :80/:443 and owns its cert volume); it has
+# no access to the database or app volumes.
+services:
+  caddy:
+    image: caddy:2.11.7-alpine
+    restart: unless-stopped
+    depends_on:
+      proxy:
+        condition: service_healthy
+    environment:
+      TLS_DOMAIN: ${TLS_DOMAIN:?set TLS_DOMAIN in .env for --tls}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env for --tls}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # With Caddy in front, the nginx proxy only needs to listen on the host loopback (or not at all).
+  proxy:
+    ports: !override
+      - "127.0.0.1:${PROXY_PORT:-8080}:8080"
+
+volumes:
+  caddy-data:
+  caddy-config:

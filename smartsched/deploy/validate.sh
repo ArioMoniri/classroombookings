@@ -30,17 +30,23 @@ SHELL_SCRIPTS=("$HERE"/*.sh "$ROOT"/scripts/*.sh)
 POSIX_SCRIPTS=("$ROOT/smartsched/backend/docker-entrypoint.sh")
 
 echo "== YAML syntax"
-for f in "$HERE/docker-compose.yml" "$ROOT/.github/workflows/smartsched.yml"; do
+for f in "$HERE/docker-compose.yml" "$HERE/docker-compose.caddy.yml" "$ROOT/.github/workflows/smartsched.yml"; do
   [[ -f "$f" ]] || { fail "missing $f"; continue; }
-  if "$PY" -c "import sys,yaml; yaml.safe_load(open(sys.argv[1]))" "$f" 2>"$TMP/yaml.err"; then ok "${f#"$ROOT"/}"; else fail "$f: $(cat "$TMP/yaml.err")"; fi
+  # compose's !override / !reset tags are accepted (constructed as plain values)
+  if "$PY" -c "
+import sys, yaml
+class L(yaml.SafeLoader): pass
+L.add_multi_constructor('!', lambda loader, suffix, node: loader.construct_sequence(node) if isinstance(node, yaml.SequenceNode) else (loader.construct_mapping(node) if isinstance(node, yaml.MappingNode) else loader.construct_scalar(node)))
+yaml.load(open(sys.argv[1]), Loader=L)
+" "$f" 2>"$TMP/yaml.err"; then ok "${f#"$ROOT"/}"; else fail "$f: $(cat "$TMP/yaml.err")"; fi
 done
 
-echo "== .env.example vs docker-compose.yml"
+echo "== .env.example vs docker-compose*.yml"
 "$PY" - "$HERE" <<'PY' || FAIL=1
 import re, sys
 from pathlib import Path
 here = Path(sys.argv[1])
-compose = (here / "docker-compose.yml").read_text()
+compose = "\n".join(f.read_text() for f in sorted(here.glob("docker-compose*.yml")))
 env_text = (here / ".env.example").read_text()
 declared = {m.group(1) for m in re.finditer(r"^([A-Z][A-Z0-9_]*)=", env_text, re.M)}
 # ${VAR}, ${VAR:-default}, ${VAR:?msg}; skip $${...} (literal for the container shell)
@@ -48,7 +54,7 @@ used = set(re.findall(r"(?<!\$)\$\{([A-Z][A-Z0-9_]*)", compose))
 missing = sorted(used - declared)
 rc = 0
 for v in missing:
-    print(f"  FAIL ${v} used in docker-compose.yml but not declared in .env.example"); rc = 1
+    print(f"  FAIL ${v} used in docker-compose*.yml but not declared in .env.example"); rc = 1
 for v in sorted(declared - used):
     print(f"  note ${v} declared in .env.example but unused by compose (read by deploy.sh)")
 print(f"  ok   {len(used)} variables used, {len(declared)} declared, {len(missing)} missing")
@@ -217,6 +223,12 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
     ok "docker compose config ($(docker compose version --short 2>/dev/null))"
   else
     fail "docker compose config: $(cat "$TMP/compose.err")"
+  fi
+  if TLS_DOMAIN=smartsched.example.org ACME_EMAIL=ops@example.org docker compose --env-file "$HERE/.env.example" \
+       -f "$HERE/docker-compose.yml" -f "$HERE/docker-compose.caddy.yml" config -q 2>"$TMP/compose.err"; then
+    ok "docker compose config with the Caddy TLS override"
+  else
+    fail "docker compose config (caddy override): $(cat "$TMP/compose.err")"
   fi
 else
   note "docker compose plugin not installed; skipped"

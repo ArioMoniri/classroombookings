@@ -55,6 +55,24 @@ class SourceRef(BaseModel):
             return "prompt"
         return f"{self.filename}{' [' + self.sheet + ']' if self.sheet else ''} {self.kind} {self.ref}"
 
+    def to_ref(self) -> dict[str, Any] | None:
+        """Compact ``source_ref`` stored with proposals / constraints:
+        ``{"file": "prefs.xlsx", "row": 12, "sheet": "Bahar", "excerpt": "..."}``."""
+        if self.filename is None:
+            return None
+        out: dict[str, Any] = {"file": self.filename}
+        if self.ref is not None:
+            out[self.kind] = self.ref
+        if self.sheet:
+            out["sheet"] = self.sheet
+        if self.excerpt:
+            out["excerpt"] = self.excerpt
+        return out
+
+
+#: ``AI`` = from the free-text prompt or chat, ``UPLOAD`` = from an uploaded preference file.
+ProposalSource = Literal["AI", "UPLOAD"]
+
 
 class ProposedConstraint(BaseModel):
     kind: str
@@ -68,7 +86,8 @@ class ProposedConstraint(BaseModel):
     status: Literal["ok", "needs_review", "rejected"] = "ok"
     issues: list[str] = []
     entities: list[ResolvedEntity] = []
-    source: SourceRef | None = None
+    source: ProposalSource = "AI"
+    source_ref: dict[str, Any] | None = None  # {"file": ..., "row"|"paragraph"|"page"|"line": n, ...}
 
 
 SectionField = Literal["enrolment", "day", "time", "mode", "preferred_rooms"]
@@ -99,7 +118,8 @@ class ProposedSectionEdit(BaseModel):
     issues: list[str] = []
     entities: list[ResolvedEntity] = []
     labels: list[str] = []  # human labels of the targeted sections ("PHAR 240 §1 (eczacılık)")
-    source: SourceRef | None = None
+    source: ProposalSource = "AI"
+    source_ref: dict[str, Any] | None = None
 
 
 class ElicitIn(BaseModel):

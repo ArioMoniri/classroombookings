@@ -1,5 +1,9 @@
 name: smartsched
 
+# Quality gates for SmartSched (smartsched/**): backend ruff + mypy + pytest (+ migrations on SQLite
+# and Postgres 16), frontend tsc + eslint + vitest + Playwright (mock API), Docker image builds (no
+# push), a full docker compose smoke test, and the agent watchdog report (non-blocking).
+
 on:
   push:
     paths:
@@ -28,12 +32,26 @@ env:
 
 jobs:
   backend:
-    name: backend (ruff + mypy + pytest)
-    runs-on: ubuntu-latest
+    name: backend (ruff + mypy + pytest + migrations)
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
         working-directory: smartsched/backend
+    services:
+      postgres:
+        image: postgres:16.15-alpine3.24
+        env:
+          POSTGRES_USER: smartsched
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: smartsched
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U smartsched -d smartsched"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,14 +68,42 @@ jobs:
           ruff check app/solver
           python -m mypy app/solver
           python -m pytest tests/solver -q
-      - name: Alembic migrations apply on a fresh SQLite database
+      - name: AI lint (tests/ai run inside make check unless the backend Makefile ignores them)
+        run: |
+          if [ -d app/ai ]; then ruff check app/ai; fi
+          if grep -q -- '--ignore=tests/ai' Makefile && [ -d tests/ai ]; then python -m pytest tests/ai -q; fi
+      - name: Migrations on a fresh SQLite database
         env:
           DATABASE_URL: sqlite+aiosqlite:///./ci-migrate.db
         run: alembic upgrade head
+      - name: Container entrypoint against Postgres 16 (migrate + seed + uvicorn + health + login)
+        env:
+          ENVIRONMENT: prod
+          DATABASE_URL: postgresql+psycopg://smartsched:ci-only-password@127.0.0.1:5432/smartsched
+          APP_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+          ADMIN_EMAIL: admin@example.edu.tr
+          ADMIN_PASSWORD: ci-only-admin-password
+          UPLOAD_DIR: /tmp/smartsched-uploads
+          UVICORN_WORKERS: "2"
+        run: |
+          sh ./docker-entrypoint.sh > /tmp/backend.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8000/api/v1/health && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8000/api/v1/health | grep -q '"db":true'
+          curl -fsS -X POST http://127.0.0.1:8000/api/v1/auth/login \
+            -H 'content-type: application/json' \
+            -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" | grep -q access_token
+          # second start is idempotent (alembic no-op, seed no-op)
+          sh ./docker-entrypoint.sh python -c "print('restart ok')"
+      - name: Backend log
+        if: always()
+        run: cat /tmp/backend.log || true
 
   frontend:
     name: frontend (tsc + eslint + vitest + playwright)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
@@ -76,9 +122,13 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Frontend gate (npm run check = tsc + eslint + vitest)
         run: npm run check
-      - name: Playwright version
+      - name: Playwright version (locked by package-lock.json)
         id: pw
-        run: echo "version=$(node -e "console.log(require('@playwright/test/package.json').version)")" >> "$GITHUB_OUTPUT"
+        run: |
+          installed=$(node -p "require('@playwright/test/package.json').version")
+          locked=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
+          test "$installed" = "$locked"
+          echo "version=$installed" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@v4
@@ -105,12 +155,17 @@ jobs:
 
   docker:
     name: docker images (buildx, no push)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      - name: Validate deploy files (compose config, env completeness, paths)
-        run: pip install pyyaml && smartsched/deploy/validate.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Validate deploy files (env completeness, pins, paths, shellcheck, compose config)
+        run: |
+          python -m pip install pyyaml
+          smartsched/deploy/validate.sh
       - uses: docker/setup-buildx-action@v3
       - name: Build backend image
         uses: docker/build-push-action@v6
@@ -118,7 +173,6 @@ jobs:
           context: smartsched/backend
           file: smartsched/backend/Dockerfile
           push: false
-          load: false
           tags: smartsched-backend:ci
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
@@ -128,17 +182,65 @@ jobs:
           context: smartsched/frontend
           file: smartsched/frontend/Dockerfile
           push: false
-          load: false
           tags: smartsched-frontend:ci
           build-args: |
             NEXT_PUBLIC_API_URL=http://backend:8000
             NEXT_PUBLIC_API_MOCK=0
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
+      - name: Build legacy CRBS image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: smartsched/deploy/legacy/Dockerfile
+          push: false
+          tags: smartsched-crbs:ci
+          cache-from: type=gha,scope=crbs
+          cache-to: type=gha,scope=crbs,mode=max
+
+  stack-smoke:
+    name: docker compose smoke (deploy.sh up, login through nginx, down)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    needs: docker
+    defaults:
+      run:
+        working-directory: smartsched/deploy
+    steps:
+      - uses: actions/checkout@v4
+      - name: deploy.sh (generates .env, builds, starts, waits for /api/v1/health)
+        run: ./deploy.sh
+      - name: Smoke checks through the proxy
+        run: |
+          set -euo pipefail
+          get() { grep -E "^$1=" .env | cut -d= -f2-; }
+          base="http://localhost:$(get PROXY_PORT)"
+          curl -fsS "$base/healthz"
+          curl -fsS "$base/api/v1/health" | grep -q '"db":true'
+          curl -fsS -o /dev/null "$base/login"
+          curl -fsS -o /dev/null "$base/api/docs"
+          # imported workbooks must not be public
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$base/uploads/imports/x.xlsx")" = 404
+          # cookie login via the Next.js route handler, then an authenticated call
+          curl -fsS -c /tmp/jar -X POST "$base/api/v1/auth/login" \
+            -H 'content-type: application/json' \
+            -d "{\"email\":\"$(get ADMIN_EMAIL)\",\"password\":\"$(get ADMIN_PASSWORD)\"}"
+          curl -fsS -b /tmp/jar "$base/api/v1/auth/me" | grep -q "$(get ADMIN_EMAIL)"
+          # every long-running container is non-root
+          for svc in backend frontend proxy; do
+            uid=$(docker compose --env-file .env exec -T "$svc" id -u)
+            echo "$svc uid=$uid"; test "$uid" != 0
+          done
+      - name: Compose logs
+        if: always()
+        run: docker compose --env-file .env logs --no-color --tail=300 || true
+      - name: Tear down
+        if: always()
+        run: FORCE=1 ./deploy.sh --down --volumes || true
 
   watchdog:
     name: watchdog (agent ledger report, non-blocking)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     continue-on-error: true
     steps:
@@ -146,5 +248,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - name: Ledger report
+      - name: Ledger report (stale agents, last status per agent)
+        run: python scripts/watchdog.py || true
+      - name: Ledger report (JSON)
         run: python scripts/watchdog.py --json || true
