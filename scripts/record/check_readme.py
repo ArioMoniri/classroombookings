@@ -83,9 +83,8 @@ def main(argv: list[str]) -> int:
     unused = []
     for d in MEDIA_DIRS:
         for p in sorted((ROOT / d).glob("*")):
-            if p.is_file() and p not in used and p.name != "MANIFEST.md" and not p.name.endswith(".mp4") or (p.suffix == ".mp4" and p not in used):
-                if p.is_file() and p not in used and p.name != "MANIFEST.md":
-                    unused.append(str(p.relative_to(ROOT)))
+            if p.is_file() and p not in used and p.name != "MANIFEST.md":
+                unused.append(str(p.relative_to(ROOT)))
     if unused:
         print("not referenced by any README:\n  " + "\n  ".join(unused))
     if missing:
