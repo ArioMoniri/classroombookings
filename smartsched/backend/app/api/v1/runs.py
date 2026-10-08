@@ -14,6 +14,7 @@ from app.api.deps import DB, Planner, Viewer
 from app.core.db import get_session_factory
 from app.models import Assignment, ExamRequest, MeetingRequest, Room, ScheduleRun, Section, Term
 from app.schemas.runs import (
+    TERMINAL_STATUSES,
     AssignmentOut,
     DiagnosisApplyIn,
     DiagnosisApplyOut,
@@ -34,7 +35,7 @@ from app.workers.queue import JobState, get_queue, worker_id
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
-TERMINAL = {"FEASIBLE", "OPTIMAL", "INFEASIBLE", "TIMEOUT", "FAILED", "CANCELLED", "ERROR"}
+TERMINAL = set(TERMINAL_STATUSES)  # includes FEASIBLE_PARTIAL (best-effort partial timetable)
 
 
 async def _run(db: AsyncSession, run_id: int) -> ScheduleRun:

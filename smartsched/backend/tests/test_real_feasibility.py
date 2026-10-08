@@ -139,7 +139,7 @@ async def test_strict_modes_give_a_best_effort_partial_run(engine):
     async with factory() as s:
         ids = await _seed(s)
     run = await _run(factory, ids["term"], trust_locked_rooms=False, fixed_conflicts_as_warnings=False)
-    assert run.status == "INFEASIBLE" and run.stats["partial"] is True
+    assert run.status == "FEASIBLE_PARTIAL" and run.stats["partial"] is True  # stats.partial kept for old clients
     assert run.stats["events_total"] == 5 and run.stats["placed"] == 3 and run.stats["unplaced"] == 2
     assert run.hard_score == 100  # the placed events satisfy every hard rule
     async with factory() as s:

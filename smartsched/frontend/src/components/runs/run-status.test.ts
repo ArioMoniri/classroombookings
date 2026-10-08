@@ -16,6 +16,17 @@ describe("best-effort (partial) runs", () => {
     expect(runStatusBadge(run, (k, v) => translate("tr", k, v)).label).toBe("Kısmi · 662/683 yerleşti");
   });
 
+  it("labels a FEASIBLE_PARTIAL run as partial, with counts", () => {
+    const run = ScheduleRun.parse(adapt.run({ ...base, status: "FEASIBLE_PARTIAL", hard_score: 100, stats: { partial: true, placed: 658, unplaced: 26, events_total: 684 } }));
+    expect(partialCounts(run)).toEqual({ placed: 658, total: 684 });
+    expect(runStatusBadge(run, (k, v) => translate("en", k, v))).toEqual({ kind: "warning", label: "Partial · 658/684 placed" });
+    expect(runStatusBadge(run, (k, v) => translate("tr", k, v)).label).toBe("Kısmi · 658/684 yerleşti");
+    // without counts (e.g. a list payload without stats) the plain status label is used
+    const bare = ScheduleRun.parse(adapt.run({ ...base, status: "FEASIBLE_PARTIAL", hard_score: 100, stats: {} }));
+    expect(runStatusBadge(bare, (k, v) => translate("en", k, v))).toEqual({ kind: "warning", label: "Partial" });
+    expect(translate("tr", "runs.status.FEASIBLE_PARTIAL")).toBe("Kısmi");
+  });
+
   it("keeps plain statuses for complete and empty runs", () => {
     const feasible = ScheduleRun.parse(adapt.run({ ...base, status: "FEASIBLE", hard_score: 100, stats: { placed: 683, events_total: 683 } }));
     expect(partialCounts(feasible)).toBeNull();

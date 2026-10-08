@@ -1,10 +1,10 @@
 """Dashboard aggregates for one term: request counts, last runs and room utilisation.
 
 Utilisation is measured on one week of one run: the term's *active* run (preferring COURSE) or, when
-none is published, the newest FEASIBLE/OPTIMAL run. A (room, day, period) cell counts as occupied when
-a non-archived assignment of that run or a term block covers it in that week. Only bookable rooms are
-counted. Building rows use the room's building code (``A``, ``B`` ...), falling back to the first
-character of the canonical room code.
+none is published, the newest FEASIBLE/OPTIMAL run (else the newest FEASIBLE_PARTIAL one). A (room,
+day, period) cell counts as occupied when a non-archived assignment of that run or a term block covers
+it in that week. Only bookable rooms are counted. Building rows use the room's building code (``A``,
+``B`` ...), falling back to the first character of the canonical room code.
 """
 
 from __future__ import annotations
@@ -25,7 +25,8 @@ from app.services.solver_bridge import horizon_weeks
 PERIODS_PER_DAY = 18
 WORKDAYS = (1, 2, 3, 4, 5)
 ALL_DAYS = (1, 2, 3, 4, 5, 6, 7)
-GOOD = ("FEASIBLE", "OPTIMAL")
+GOOD = ("FEASIBLE", "OPTIMAL")  # complete timetables
+USABLE = (*GOOD, "FEASIBLE_PARTIAL")  # a best-effort partial timetable is still a timetable
 
 
 async def pick_term(session: AsyncSession, term_id: int | None) -> Term | None:
@@ -46,6 +47,8 @@ async def utilisation_run(session: AsyncSession, term_id: int) -> ScheduleRun | 
         base.where(ScheduleRun.is_active.is_(True)),
         base.where(ScheduleRun.status.in_(GOOD), ScheduleRun.kind == "COURSE"),
         base.where(ScheduleRun.status.in_(GOOD)),
+        base.where(ScheduleRun.status.in_(USABLE), ScheduleRun.kind == "COURSE"),
+        base.where(ScheduleRun.status.in_(USABLE)),
     ):
         run = (await session.execute(q.order_by(ScheduleRun.id.desc()))).scalars().first()
         if run is not None:

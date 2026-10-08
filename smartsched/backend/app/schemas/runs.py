@@ -7,6 +7,26 @@ from pydantic import BaseModel, Field
 
 from app.schemas.common import ORMModel
 
+#: every ``ScheduleRun.status``.  ``FEASIBLE_PARTIAL``: a best-effort run that stored a partial timetable
+#: (some requests cannot be placed, every placed one satisfies the hard rules; ``stats.partial`` /
+#: ``placed`` / ``unplaced`` / ``events_total`` give the numbers, ``stats.partial`` stays for older clients)
+RUN_STATUSES: tuple[str, ...] = (
+    "QUEUED",
+    "RUNNING",
+    "OPTIMAL",
+    "FEASIBLE",
+    "FEASIBLE_PARTIAL",
+    "INFEASIBLE",
+    "TIMEOUT",
+    "FAILED",
+    "CANCELLED",
+    "ERROR",
+)
+#: a run in one of these states will not change any more (SSE streams end, the UI stops polling)
+TERMINAL_STATUSES: frozenset[str] = frozenset(RUN_STATUSES) - {"QUEUED", "RUNNING"}
+#: runs with a usable timetable (dashboard utilisation, "last good run"); partial ones after complete ones
+USABLE_STATUSES: tuple[str, ...] = ("OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL")
+
 
 class RunCreate(BaseModel):
     term_id: int
@@ -26,7 +46,7 @@ class RunOut(ORMModel):
     kind: str
     horizon: str
     horizon_params: dict[str, Any]
-    status: str
+    status: str = Field(description="one of " + ", ".join(RUN_STATUSES))
     params: dict[str, Any]
     objective_value: float | None
     soft_score: int | None

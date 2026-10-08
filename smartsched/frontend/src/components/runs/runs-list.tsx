@@ -13,14 +13,15 @@ import type { MessageKey, Vars } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { ScoreRing } from "./score-ring";
 
-export const RUN_STATUS_KIND: Record<RunStatus, StatusKind> = { QUEUED: "preoccupied", RUNNING: "pclab", FEASIBLE: "feasible", OPTIMAL: "feasible", INFEASIBLE: "infeasible", TIMEOUT: "infeasible", ERROR: "infeasible", FAILED: "infeasible", CANCELLED: "preoccupied" };
+export const RUN_STATUS_KIND: Record<RunStatus, StatusKind> = { QUEUED: "preoccupied", RUNNING: "pclab", FEASIBLE: "feasible", OPTIMAL: "feasible", FEASIBLE_PARTIAL: "warning", INFEASIBLE: "infeasible", TIMEOUT: "infeasible", ERROR: "infeasible", FAILED: "infeasible", CANCELLED: "preoccupied" };
 
-/** A best-effort run (backend ``stats.partial``): status stays INFEASIBLE, but ``placed`` events were
- * stored; shown as "Partial · placed/total" with the warning badge. */
+/** A best-effort run: status ``FEASIBLE_PARTIAL`` (older runs: INFEASIBLE with ``stats.partial``) with
+ * ``placed`` of ``events_total`` events stored; shown as "Partial · placed/total" with the warning badge. */
 export function partialCounts(r: ScheduleRun): { placed: number; total: number } | null {
   const placed = Number(r.stats.placed ?? 0);
   const total = Number(r.stats.events_total ?? 0);
-  return r.status === "INFEASIBLE" && placed > 0 && total > 0 ? { placed, total } : null;
+  const partial = r.status === "FEASIBLE_PARTIAL" || (r.status === "INFEASIBLE" && Boolean(r.stats.partial ?? placed > 0));
+  return partial && placed > 0 && total > 0 ? { placed, total } : null;
 }
 
 export function runStatusBadge(r: ScheduleRun, t: (k: MessageKey, p?: Vars) => string): { kind: StatusKind; label: string } {

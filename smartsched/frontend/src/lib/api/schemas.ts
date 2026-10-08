@@ -233,7 +233,7 @@ export type RunKind = z.infer<typeof RunKind>;
 export const Horizon = z.enum(["WEEK", "MONTH", "TERM"]);
 export type Horizon = z.infer<typeof Horizon>;
 /** TIMEOUT / ERROR are persisted verbatim from the solver result (SolverResult.status). */
-export const RunStatus = z.enum(["QUEUED", "RUNNING", "FEASIBLE", "OPTIMAL", "INFEASIBLE", "TIMEOUT", "ERROR", "FAILED", "CANCELLED"]);
+export const RunStatus = z.enum(["QUEUED", "RUNNING", "FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL", "INFEASIBLE", "TIMEOUT", "ERROR", "FAILED", "CANCELLED"]);
 export type RunStatus = z.infer<typeof RunStatus>;
 
 export const Diagnosis = z.object({

@@ -797,7 +797,7 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
             .where(
                 ScheduleRun.term_id == term.id,
                 ScheduleRun.kind == draft.kind,
-                ScheduleRun.status.in_(("FEASIBLE", "OPTIMAL")),
+                ScheduleRun.status.in_(("FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL")),
             )
             .order_by(ScheduleRun.id.desc())
             .limit(1)

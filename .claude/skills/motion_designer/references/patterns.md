@@ -4,7 +4,7 @@ Every pattern has the same parts: **When**, **Code**, **Reduced motion**, **A11y
 
 Class names are placeholders for the material utilities in `docs/design/v2/liquid-glass.md`: `glass` = a surface with `backdrop-filter` (one per visual stack), `glass-tint` = a translucent fill **without** `backdrop-filter` (pills, indicators and thickening layers inside a glass, because Apple says no glass on glass), and `surface-solid` = the opaque reduced-transparency fallback. Material (blur radius, tint, rim) belongs to that spec. Movement belongs to this one.
 
-Global setup (once, in the client providers):
+## 0. Global setup (MotionProvider, once in the client providers)
 
 ```tsx
 "use client";
