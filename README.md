@@ -98,6 +98,31 @@ or period; the grid shows conflicts before you drop.
   <img alt="Chat panel next to the timetable with a proposed change waiting for review" src="docs/images/screens/chat-panel-light.png" width="960">
 </picture>
 
+**Generator Studio** (in progress). One guided screen to shape a run: pick the scope, include or leave out classes, add rules in your own words, from templates or from uploaded preference files, then fix problems before you press Generate.
+
+<table>
+  <tr>
+    <td><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-scope-dark.png">
+  <img alt="Studio scope step with a plain-language summary of what will be planned" src="docs/images/screens/studio-scope-light.png" width="480">
+</picture></td>
+    <td><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-classes-dark.png">
+  <img alt="Studio class list with include and exclude toggles and changed-field badges" src="docs/images/screens/studio-classes-light.png" width="480">
+</picture></td>
+  </tr>
+  <tr>
+    <td><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-rules-dark.png">
+  <img alt="Studio rule cards with Must or Try to, importance, and source chips" src="docs/images/screens/studio-rules-light.png" width="480">
+</picture></td>
+    <td><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-precheck-dark.png">
+  <img alt="Studio pre-check with readiness meter and one-click fixes" src="docs/images/screens/studio-precheck-light.png" width="480">
+</picture></td>
+  </tr>
+</table>
+
 <details>
 <summary><strong>More screenshots</strong></summary>
 

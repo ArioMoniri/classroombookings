@@ -126,12 +126,12 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 ### Phase 6 integration backlog (integration-engineer, 2026-10-08)
 
-- [ ] Importer: B 207 (only `PC` room) has capacity 0 in the Bahar grid header and A 103/104/105 carry no `PC` tag → every "Bilg. Lab. Zorunlu" request is unplaceable; seed lab capacities/tags from the Bahar `Sayfa2` room buckets (22 rooms have no capacity)
-- [ ] Bridge/solver "room-only" mode: instructor/cohort clashes between two fixed-time requests (Bahar: 118 + 68) cannot be fixed by rooms; report them as input warnings and drop the key only for the clashing fixed pair, so the room plan is still produced
-- [ ] Product decision: "trust LOCKED definitive rooms" switch (64 Bahar locked rooms are smaller than the expected enrolment); joint lectures are already clipped to the planner's room and reported in `stats.merged_joint_lectures_clipped`
-- [ ] Solver: `share_room` for split (multi-room) exams — the Final plan seats two split exams in one room pair (79 remaining locked overlaps)
-- [ ] Solver/bridge: persist the relaxation's partial placement of an INFEASIBLE run as a draft so the grid is not empty
-- [ ] Dev DB: run Alembic on dev startup (or document "delete the dev DB"); `create_all` + later `alembic upgrade` do not compose (studio tables / `constraints.source_ref`)
+- [x] Importer: B 207 (only `PC` room) has capacity 0 in the Bahar grid header and A 103/104/105 carry no `PC` tag → every "Bilg. Lab. Zorunlu" request is unplaceable; seed lab capacities/tags from the Bahar `Sayfa2` room buckets (22 rooms have no capacity)
+- [x] Bridge/solver "room-only" mode: instructor/cohort clashes between two fixed-time requests (Bahar: 118 + 68) cannot be fixed by rooms; report them as input warnings and drop the key only for the clashing fixed pair, so the room plan is still produced
+- [x] Product decision: "trust LOCKED definitive rooms" switch (64 Bahar locked rooms are smaller than the expected enrolment); joint lectures are already clipped to the planner's room and reported in `stats.merged_joint_lectures_clipped`
+- [x] Solver: `share_room` for split (multi-room) exams — the Final plan seats two split exams in one room pair (79 remaining locked overlaps)
+- [x] Solver/bridge: persist the relaxation's partial placement of an INFEASIBLE run as a draft so the grid is not empty
+- [x] Dev DB: run Alembic on dev startup (or document "delete the dev DB"); `create_all` + later `alembic upgrade` do not compose (studio tables / `constraints.source_ref`)
 - [ ] Imports still parse workbooks on the event loop (10–25 s for Bahar); move parsing to a worker thread like the solve
 - [ ] Re-record `smartsched/frontend/src/lib/api/__fixtures__/real/*.json` (contract test) whenever backend schemas change; a CI job could run the backend, record and diff
 - [ ] Dashboard: KPI deltas vs. the previous run/week (the fake "+3 pt / −2" were removed); stats tiles on the run report read `stats.unplaced/conflicts`, which CP-SAT runs do not set
@@ -143,3 +143,14 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Run page sticky header is translucent; hero text shows through when the chat panel scrolls — make it opaque or scroll the chat independently
 - [ ] Mock room photos use random picsum images; replace with neutral tiles or real room photos (phase 7 live import)
 - [ ] Every Playwright config should use its own port (`PW_PORT`) so parallel agents don't share a server and mock state
+
+### Phase 9 real-data feasibility backlog (solver-engineer, 2026-10-08)
+
+- [ ] Week-granular blocks for TERM runs: a 14-week lecture whose locked room is blocked by the grid in one week (ETKİNLİK, exam) is unplaced for the whole term (Bahar term: 14 `locked_ineligible`); model "all weeks except w" (split the event's weeks around blocked weeks) instead of dropping the room
+- [ ] `api/v1/runs.py` `TERMINAL`, dashboard `GOOD`, studio filters: if a dedicated `FEASIBLE_PARTIAL` status is ever wanted, add it there first (today a best-effort run is `INFEASIBLE` + `stats.partial/placed/unplaced/events_total`, labelled "Partial · placed/total" in the UI)
+- [ ] Studio drafts: expose the run modes (`trust_locked_rooms`, `fixed_conflicts_as_warnings`, `best_effort`, `definitive_rooms`) as draft switches; pre-check uses the defaults
+- [ ] Unlocked exam runs (`definitive_rooms=prefer`): the relaxation stops at FEASIBLE within 60 s below the greedy placement (greedy fallback is used); tune (LNS-only phase, hint completion for `seats[e, r]`)
+- [ ] Reproduction rate unlocked is 69–73 % (courses) / 6 % (exams): calibrate `room_preference` vs `min_capacity_waste` weights against the planner's definitive rooms
+- [ ] Period snapping: ends 10 min into a period still claim it (BES 640 19:50 vs BES 560 20:00 both in P15); consider a ≥ ½-period rule with planner sign-off
+- [ ] Planner data fixes surfaced by the report: 7 Bahar / 3 Güz locked room overlaps, 131 Bahar fixed-vs-fixed instructor/cohort clashes (`input_conflict`), Final exams locked to rooms blocked by the Final grid (SYB 256/356/456, ODY 102/108)
+

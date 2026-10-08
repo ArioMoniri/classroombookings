@@ -7,7 +7,7 @@ const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push("pageerror " + e.message));
 page.on("console", (m) => { if (m.type() === "error") errors.push("console " + m.text()); });
-await page.goto(base + "/login");
+await page.goto(base + "/login"); await page.waitForLoadState("networkidle"); await page.waitForTimeout(1500);
 await page.getByLabel(/E-posta|E-mail/).fill("fatih.demir@example.edu.tr");
 await page.getByLabel(/Şifre|Password/).fill("admin");
 await page.getByTestId("login-submit").click();
