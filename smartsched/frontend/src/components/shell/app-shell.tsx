@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useAppearancePreferences } from "@/components/ui/appearance-preferences";
 import { useMeFull } from "@/lib/api/shell-extra";
@@ -53,6 +54,13 @@ function UserSync() {
   useAppearancePreferences(userKey ?? undefined);
   useAccentPreference(userKey ?? undefined);
   const setUserKey = useWorkspaceUser((s) => s.setUserKey);
+  const router = useRouter();
+  const pathname = usePathname();
+  const mustChange = me.data?.force_password_reset ?? false;
+  useEffect(() => {
+    // a forced password change cannot be skipped by opening a page directly
+    if (mustChange) router.replace(`/login/change-password?next=${encodeURIComponent(pathname)}`);
+  }, [mustChange, pathname, router]);
   useEffect(() => {
     if (!userKey) return;
     setUserKey(userKey);

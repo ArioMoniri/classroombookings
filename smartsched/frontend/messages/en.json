@@ -804,6 +804,27 @@
       "evening": "evening",
       "seats": "{n} seats",
       "safe": "Navigating never changes anything"
+    },
+    "auth": {
+      "welcome": "Welcome, {name}",
+      "offline": "The server cannot be reached. Check the connection and try again.",
+      "failed": "The e-mail, username or password is wrong.",
+      "identifier": "E-mail or username",
+      "identifierHint": "fatih@university.edu.tr",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "changeTitle": "Choose a new password",
+      "changeHint": "Your administrator asked you to change your password before you continue.",
+      "current": "Current password",
+      "currentHint": "Leave empty if you signed in with a temporary password.",
+      "new": "New password",
+      "newHint": "At least 8 characters, different from the current one.",
+      "again": "New password again",
+      "mismatch": "The two passwords are not the same.",
+      "changeSubmit": "Save and continue",
+      "changed": "Password changed",
+      "changeRejected": "The current password is wrong, or the new one is the same as the old one.",
+      "changeFailed": "The password could not be changed. Try again."
     }
   }
 }

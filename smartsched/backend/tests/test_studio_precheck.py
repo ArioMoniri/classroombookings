@@ -115,9 +115,13 @@ async def test_precheck_fix_moves_locked_class_to_rooms_that_fit(bahar):
         )
     ).json()["items"]
     row = rows[0]
-    assert row["status"] == "PARSED" and not row["locked"] and row["requested_room_ids"] == patch["requested_room_ids"]
-    assert {f["field"] for f in row["changed_fields"]} >= {"status", "requested_room_ids", "enrolment"}
-    assert all(code != "A 206" for code in row["requested_room_codes"])
+    # review M5: the fix lives in the draft (pin: one of the fitting rooms, lock ignored for this draft);
+    # the term's request keeps the planner's LOCK in A 206
+    assert row["status"] == "LOCKED" and row["locked"] and row["definitive_room_ids"] == [a206.id]
+    assert {f["field"] for f in row["changed_fields"]} == {"enrolment"}
+    pins = r.json()["draft"]["pins"]
+    assert pins == [{"event_id": phar, "room_ids": patch["requested_room_ids"], "unlock": True}]
+    assert r.json()["applied"]["scope"] == "draft"
 
 
 async def test_builtin_fix_is_admin_only(bahar):

@@ -804,6 +804,27 @@
       "evening": "ikinci öğretim",
       "seats": "{n} kişilik",
       "safe": "Gezinme hiçbir şeyi değiştirmez"
+    },
+    "auth": {
+      "welcome": "Hoş geldiniz, {name}",
+      "offline": "Sunucuya ulaşılamıyor. Bağlantıyı kontrol edip tekrar deneyin.",
+      "failed": "E-posta, kullanıcı adı veya şifre yanlış.",
+      "identifier": "E-posta veya kullanıcı adı",
+      "identifierHint": "fatih@universite.edu.tr",
+      "showPassword": "Şifreyi göster",
+      "hidePassword": "Şifreyi gizle",
+      "changeTitle": "Yeni şifre belirleyin",
+      "changeHint": "Devam etmeden önce yöneticiniz şifrenizi değiştirmenizi istiyor.",
+      "current": "Mevcut şifre",
+      "currentHint": "Geçici şifreyle girdiyseniz boş bırakın.",
+      "new": "Yeni şifre",
+      "newHint": "En az 8 karakter, mevcut şifreden farklı.",
+      "again": "Yeni şifre (tekrar)",
+      "mismatch": "İki şifre aynı değil.",
+      "changeSubmit": "Kaydet ve devam et",
+      "changed": "Şifre değiştirildi",
+      "changeRejected": "Mevcut şifre yanlış ya da yeni şifre eskisiyle aynı.",
+      "changeFailed": "Şifre değiştirilemedi. Tekrar deneyin."
     }
   }
 }
