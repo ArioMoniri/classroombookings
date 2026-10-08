@@ -19,8 +19,10 @@
       "scope": "core/safe_files.py, core/export_safety.py, exports, imports, queue, studio*, chat.py, constraints.py, runs.py (small edits)",
       "goal": "fix B1–B3, M1–M13 of docs/review/2026-10-08-backend-ai-studio-review.md and U1–U6; own backend make check going green",
       "next": "remaining minors, widen mypy gate (app/ai, app/api), all tests green, finding→fix→test table",
-      "status": "running",
-      "started_at": "2026-10-08 10:00"
+      "status": "finished",
+      "started_at": "2026-10-08 10:00",
+      "finished_at": "2026-10-08 12:03",
+      "left_off": "DONE: B1–B3, M1–M13, U1–U6, default term, most minors; make check green (539 passed) + test-slow (10). Open: MINOR 9/11, mandatory If-Match, frontend wiring (key pill, cancel, fix scope, conflict review), exam-list identity, shared login limiter, SVG logo sanitising, ÇEV/CEV folding decision (ROADMAP Review follow-ups)."
     },
     {
       "id": "a6fe099980dc5e912",
