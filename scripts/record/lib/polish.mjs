@@ -105,7 +105,7 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 8 * 1024 * 
   let n = 1;
   const rs = assets.rippleSize;
   for (const r of ripIdx) {
-    g.push(`[${r.idx}:v]format=rgba,setpts=PTS-STARTPTS+${r.t.toFixed(3)}/TB[rp${n}]`);
+    g.push(`[${r.idx}:v]format=rgba,tpad=start_duration=${r.t.toFixed(3)}:color=0x00000000[rp${n}]`);
     g.push(`[${last}][rp${n}]overlay=x='${curX}+${hx}-${rs / 2}':y='${curY}+${hy}-${rs / 2}':eof_action=pass:eval=frame[v${n}]`);
     last = `v${n++}`;
   }
@@ -113,7 +113,7 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 8 * 1024 * 
   last = `v${n++}`;
   for (const c of capIdx) {
     const fo = Math.max(0, c.len - 0.25).toFixed(3);
-    g.push(`[${c.idx}:v]format=rgba,fade=t=in:st=0:d=0.25:alpha=1,fade=t=out:st=${fo}:d=0.25:alpha=1,setpts=PTS-STARTPTS+${c.start.toFixed(3)}/TB[cp${n}]`);
+    g.push(`[${c.idx}:v]format=rgba,fade=t=in:st=0:d=0.25:alpha=1,fade=t=out:st=${fo}:d=0.25:alpha=1,tpad=start_duration=${c.start.toFixed(3)}:color=0x00000000[cp${n}]`);
     const x = Math.round((CW - c.w) / 2);
     const y = Math.round(CH - pad - c.h - 22);
     g.push(`[${last}][cp${n}]overlay=${x}:${y}:eof_action=pass[v${n}]`);
@@ -124,7 +124,7 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 8 * 1024 * 
   writeFileSync(script, g.join(";\n"));
 
   const mp4 = join(outDir, `${name}.mp4`);
-  ff([...inputs, "-filter_complex_script", script, "-map", "[out]", "-r", String(FPS), "-c:v", "libx264",
+  ff([...inputs, "-filter_complex_script", script, "-map", "[out]", "-t", durS, "-r", String(FPS), "-c:v", "libx264",
     "-preset", process.env.REC_X264_PRESET ?? "medium", "-crf", process.env.REC_CRF ?? "18", "-pix_fmt", "yuv420p",
     "-movflags", "+faststart", "-an", mp4], "compose");
 

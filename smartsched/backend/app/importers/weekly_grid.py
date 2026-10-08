@@ -13,11 +13,11 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-import openpyxl
 from openpyxl.utils import get_column_letter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.safe_files import open_workbook, run_isolated
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
 from app.importers.report import ImportReport
@@ -297,7 +297,8 @@ def parse_sheet(ws: Any, index: int, year: int, default_kind: str = "LECTURE") -
 def parse_weekly_grid(
     path: str | Path, year: int, sheets: list[str] | None = None, default_kind: str = "LECTURE"
 ) -> ParsedGrid:
-    wb = openpyxl.load_workbook(path, data_only=True)
+    # full load (merged cells + comments); refused when a sheet's real extent / merged area exceeds the caps
+    wb = open_workbook(path, read_only=False, data_only=True)
     out: list[GridSheet] = []
     rooms: dict[str, n.RoomHeader] = {}
     warnings: list[str] = []
@@ -392,7 +393,7 @@ async def import_weekly_grid(
     inferred_kind = term_kind or ("FINAL" if re.search(r"FINAL|BUT|BÜT", term_code.upper()) else "REGULAR")
     term = await cat.term(term_code, name=term_name, kind=inferred_kind)
     exam_term = (term_kind or term.kind) in {"FINAL", "BUT"}
-    parsed = parse_weekly_grid(path, year, default_kind="EXAM" if exam_term else "LECTURE")
+    parsed = await run_isolated(parse_weekly_grid, path, year, default_kind="EXAM" if exam_term else "LECTURE")
     report.warnings.extend(parsed.warnings)
     lecture_weeks = [s.week_index for s in parsed.sheets if s.kind in {"LECTURE"}]
     if lecture_weeks and max(lecture_weeks) > term.week_count:

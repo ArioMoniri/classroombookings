@@ -26,6 +26,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.safe_files import Limits, UnsafeFileError
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
 from app.importers.report import ImportReport
@@ -106,6 +107,9 @@ def parse_room_master(text: str) -> tuple[list[dict[str, Any]], list[str]]:
 
 async def import_room_master(session: AsyncSession, path: str | Path, *, filename: str | None = None) -> ImportReport:
     report = ImportReport(kind="room-master", filename=filename or Path(path).name)
+    cap = Limits.from_settings().max_upload_bytes
+    if Path(path).stat().st_size > cap:
+        raise UnsafeFileError(413, f"room master CSV larger than {cap // (1024 * 1024)} MiB")
     rows, errors = parse_room_master(Path(path).read_text(encoding="utf-8-sig"))
     for e in errors:
         report.warn(e)

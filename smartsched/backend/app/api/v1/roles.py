@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import delete, func, select
 
 from app.api.deps import DB, UsersAdmin, require_permission
-from app.api.v1.users import user_out
 from app.models import Permission, Program, Role, RoomAcl, User, UserConstraint
 from app.schemas.crbs import ConstraintsIO, ConstraintValue, RoleIn, RoleOut, RoleUpdate
 from app.services.bookings_perms import LIMIT_KEYS, PERMISSION_NAMES, forget_access, grouped_permissions
@@ -43,7 +42,9 @@ async def _role_out(db: DB, role: Role, with_users: bool = False) -> RoleOut:
         user_count=int(count),
     )
     if with_users:
-        rows = (await db.execute(select(User).where(User.role_id == role.id).order_by(User.username, User.email))).scalars()
+        rows = (
+            await db.execute(select(User).where(User.role_id == role.id).order_by(User.username, User.email))
+        ).scalars()
         out.users = [{"id": u.id, "username": u.username, "email": u.email, "displayname": u.full_name} for u in rows]
     return out
 
@@ -207,4 +208,3 @@ async def reset_token(user_id: int, db: DB, me: UsersAdmin) -> dict[str, Any]:
         "emailed": issued.emailed,
         "token": None if issued.emailed else issued.token,
     }
-

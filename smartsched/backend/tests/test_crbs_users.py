@@ -62,7 +62,9 @@ async def test_csv_import_of_real_instructors(env):  # noqa: F811
     assert res["created"] == 2
     status = [x["status"] for x in res["results"]]
     assert status == ["success", "success", "username_exists", "username_empty", "invalid"]
-    users = {u["username"]: u for u in (await env.client.get("/api/v1/users", headers=env.admin)).json() if u["username"]}
+    users = {
+        u["username"]: u for u in (await env.client.get("/api/v1/users", headers=env.admin)).json() if u["username"]
+    }
     u1 = users[fold_username(user1)]
     assert u1["role_id"] == teacher and u1["department_id"] == psy.id and u1["displayname"] == f"{first1} {rest1[-1]}"
     assert u1["email"].endswith("@uni.edu.tr") and u1["force_password_reset"] is False
@@ -74,10 +76,14 @@ async def test_csv_import_of_real_instructors(env):  # noqa: F811
         r = await env.client.post("/api/v1/auth/login", json={"username": typed, "password": "ilk-parola-1"})
         assert r.status_code == 200, (typed, r.text)
     # the historic "email" field accepts a username too
-    assert (await env.client.post("/api/v1/auth/login", json={"email": user1, "password": "ilk-parola-1"})).status_code == 200
+    assert (
+        await env.client.post("/api/v1/auth/login", json={"email": user1, "password": "ilk-parola-1"})
+    ).status_code == 200
 
     # the second user got the default password and must change it first
-    login = await env.client.post("/api/v1/auth/login", json={"username": u2["username"], "password": "varsayilan-parola"})
+    login = await env.client.post(
+        "/api/v1/auth/login", json={"username": u2["username"], "password": "varsayilan-parola"}
+    )
     assert login.status_code == 200 and login.json()["password_change_required"] is True
     h2 = {"Authorization": f"Bearer {login.json()['access_token']}"}
     blocked = await env.client.get("/api/v1/bookings/context", headers=h2)
@@ -120,13 +126,27 @@ async def test_reset_tokens_with_and_without_smtp(env, monkeypatch):  # noqa: F8
     first = r.json()
     assert first["emailed"] is False and len(first["token"]) >= 20  # no SMTP: the admin passes it on
     second = (await c.post(f"/api/v1/users/{uid}/reset-token", headers=env.admin)).json()
-    assert (await c.post("/api/v1/auth/password-reset/confirm", json={"token": first["token"], "password": "yeni-parola-1"})).status_code == 400  # revoked
-    assert (await c.post("/api/v1/auth/password-reset/confirm", json={"token": second["token"], "password": "yeni-parola-1"})).status_code == 200
-    assert (await c.post("/api/v1/auth/password-reset/confirm", json={"token": second["token"], "password": "yeni-parola-2"})).status_code == 400  # one-time
-    assert (await c.post("/api/v1/auth/login", json={"email": "unutkan@uni.edu.tr", "password": "yeni-parola-1"})).status_code == 200
+    assert (
+        await c.post("/api/v1/auth/password-reset/confirm", json={"token": first["token"], "password": "yeni-parola-1"})
+    ).status_code == 400  # revoked
+    assert (
+        await c.post(
+            "/api/v1/auth/password-reset/confirm", json={"token": second["token"], "password": "yeni-parola-1"}
+        )
+    ).status_code == 200
+    assert (
+        await c.post(
+            "/api/v1/auth/password-reset/confirm", json={"token": second["token"], "password": "yeni-parola-2"}
+        )
+    ).status_code == 400  # one-time
+    assert (
+        await c.post("/api/v1/auth/login", json={"email": "unutkan@uni.edu.tr", "password": "yeni-parola-1"})
+    ).status_code == 200
 
     # public request without SMTP: recorded for the admins, never reveals whether the account exists
-    assert (await c.post("/api/v1/auth/password-reset/request", json={"email": "unutkan@uni.edu.tr"})).status_code == 202
+    assert (
+        await c.post("/api/v1/auth/password-reset/request", json={"email": "unutkan@uni.edu.tr"})
+    ).status_code == 202
     assert (await c.post("/api/v1/auth/password-reset/request", json={"email": "yok@uni.edu.tr"})).status_code == 202
     box = (await c.get("/api/v1/booking-admin/outbox", headers=env.admin)).json()
     assert [o["kind"] for o in box].count("password_reset_request") == 1
@@ -136,7 +156,13 @@ async def test_reset_tokens_with_and_without_smtp(env, monkeypatch):  # noqa: F8
     FakeSMTP.sent = []
     r = await c.put(
         "/api/v1/org/smtp",
-        json={"host": "smtp.uni.edu.tr", "port": 587, "username": "bildirim", "password": "smtp-gizli", "from_address": "Bildirim@Uni.edu.tr"},
+        json={
+            "host": "smtp.uni.edu.tr",
+            "port": 587,
+            "username": "bildirim",
+            "password": "smtp-gizli",
+            "from_address": "Bildirim@Uni.edu.tr",
+        },
         headers=env.admin,
     )
     assert r.status_code == 200 and r.json()["configured"] is True
@@ -147,7 +173,9 @@ async def test_reset_tokens_with_and_without_smtp(env, monkeypatch):  # noqa: F8
     msg = FakeSMTP.sent[-1]
     assert msg["To"] == "unutkan@uni.edu.tr" and msg["From"].endswith("<bildirim@uni.edu.tr>")
     code = next(line for line in msg.get_content().splitlines() if line and " " not in line)
-    assert (await c.post("/api/v1/auth/password-reset/confirm", json={"token": code, "password": "yeni-parola-3"})).status_code == 200
+    assert (
+        await c.post("/api/v1/auth/password-reset/confirm", json={"token": code, "password": "yeni-parola-3"})
+    ).status_code == 200
     box = (await c.get("/api/v1/booking-admin/outbox", headers=env.admin)).json()
     sent = next(o for o in box if o["kind"] == "password_reset")
     assert sent["status"] == "SENT" and code not in sent["body"]
@@ -232,8 +260,19 @@ async def test_ldap_login_creates_updates_and_falls_back(env, monkeypatch):  # n
         "default_role_id": teacher,
     }
     assert (await c.put("/api/v1/org/auth/ldap", json=cfg, headers=env.admin)).status_code == 200
-    probe = (await c.post("/api/v1/org/auth/ldap/test", json={"username": "ilker.sahin", "password": "doğru-parola"}, headers=env.admin)).json()
-    assert probe["ok"] and probe["mapped"] == {"firstname": "İlker", "lastname": "Şahin", "displayname": "İlker Şahin", "email": "Ilker.Sahin@Uni.edu.tr"}
+    probe = (
+        await c.post(
+            "/api/v1/org/auth/ldap/test",
+            json={"username": "ilker.sahin", "password": "doğru-parola"},
+            headers=env.admin,
+        )
+    ).json()
+    assert probe["ok"] and probe["mapped"] == {
+        "firstname": "İlker",
+        "lastname": "Şahin",
+        "displayname": "İlker Şahin",
+        "email": "Ilker.Sahin@Uni.edu.tr",
+    }
     assert (await c.get("/api/v1/org/public")).json()["ldap_enabled"] is True
 
     r = await c.post("/api/v1/auth/login", json={"username": "ILKER.SAHIN", "password": "doğru-parola"})
@@ -243,18 +282,26 @@ async def test_ldap_login_creates_updates_and_falls_back(env, monkeypatch):  # n
     me = (await c.get("/api/v1/auth/me", headers=h)).json()
     assert me["username"] == "ilker.sahin" and me["role"] == "TEACHER" and me["auth_source"] == "ldap"
     assert me["email"] == "ilker.sahin@uni.edu.tr" and me["full_name"] == "İlker Şahin"
-    assert (await c.post("/api/v1/auth/login", json={"username": "ilker.sahin", "password": "yanlış"})).status_code == 401
+    assert (
+        await c.post("/api/v1/auth/login", json={"username": "ilker.sahin", "password": "yanlış"})
+    ).status_code == 401
 
     # directory unreachable: the local copy of the last good password is used (CRBS fallback)
     FakeDirectory.down = True
-    assert (await c.post("/api/v1/auth/login", json={"username": "ilker.sahin", "password": "doğru-parola"})).status_code == 200
+    assert (
+        await c.post("/api/v1/auth/login", json={"username": "ilker.sahin", "password": "doğru-parola"})
+    ).status_code == 200
     FakeDirectory.down = False
 
     # a disabled account is refused even though the directory would accept it
     await c.put(f"/api/v1/users/{me['id']}", json={"is_active": False}, headers=env.admin)
-    assert (await c.post("/api/v1/auth/login", json={"username": "ilker.sahin", "password": "doğru-parola"})).status_code == 403
+    assert (
+        await c.post("/api/v1/auth/login", json={"username": "ilker.sahin", "password": "doğru-parola"})
+    ).status_code == 403
     # unknown people are not created when create_users is off
     FakeDirectory.people["yeni.kisi"] = {"givenName": "Yeni", "sn": "Kişi", "mail": "yeni@uni.edu.tr"}
     await c.put("/api/v1/org/auth/ldap", json={"create_users": False}, headers=env.admin)
-    assert (await c.post("/api/v1/auth/login", json={"username": "yeni.kisi", "password": "doğru-parola"})).status_code == 401
+    assert (
+        await c.post("/api/v1/auth/login", json={"username": "yeni.kisi", "password": "doğru-parola"})
+    ).status_code == 401
     del FakeDirectory.people["yeni.kisi"]

@@ -20,6 +20,7 @@ from app.ai.edits import apply_section_edits
 from app.ai.elicit import accept_proposals, elicit_constraints
 from app.ai.ingest import MAX_FILE_BYTES, SUPPORTED, IngestError, extract_preferences
 from app.api.deps import DB, Planner
+from app.core.safe_files import UnsafeFileError, precheck_upload
 from app.models import ScheduleRun, Term
 from app.schemas.ai import (
     AcceptIn,
@@ -173,11 +174,17 @@ async def post_preferences_upload(
     data = await file.read(MAX_FILE_BYTES + 1)
     if len(data) > MAX_FILE_BYTES:
         raise HTTPException(413, f"file too large (max {MAX_FILE_BYTES // (1024 * 1024)} MiB)")
+    try:  # refuse zip bombs before anything else (no key needed to be rejected)
+        await precheck_upload(data, file.filename)
+    except UnsafeFileError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
     client = await _client(db)
     try:
         return await extract_preferences(
             db, term_id, data, file.filename or "upload", "en" if lang == "en" else "tr", client=client
         )
+    except UnsafeFileError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
     except IngestError as exc:
         raise HTTPException(400, str(exc)) from exc
     except (AIRefusal, AIUpstreamError) as exc:

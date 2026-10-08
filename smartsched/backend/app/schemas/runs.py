@@ -182,3 +182,37 @@ class ImportJobOut(ORMModel):
     error: str | None
     created_at: dt.datetime
     finished_at: dt.datetime | None
+
+
+class DataIssueItem(BaseModel):
+    """One diagnosis of the run in a data-issues group, with every request (class) involved."""
+
+    diagnosis_index: int
+    code: str
+    severity: str
+    message: str
+    message_tr: str
+    suggestions: list[str]
+    event_ids: list[int]
+    request_ids: list[int]
+    unplaced: bool
+    params: dict[str, Any]
+    classes: list[dict[str, Any]]
+
+
+class DataIssueGroup(BaseModel):
+    code: str
+    title: dict[str, str]
+    hint: dict[str, str]
+    count: int
+    requests: int
+    items: list[DataIssueItem]
+
+
+class DataIssuesOut(BaseModel):
+    run_id: int
+    term_id: int
+    kind: str
+    status: str
+    totals: dict[str, Any]
+    groups: list[DataIssueGroup]

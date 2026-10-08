@@ -728,6 +728,9 @@ async def persist_result(
         "objective_breakdown": dict(result.objective_breakdown),
         "assignments": count,
         "progress": 100,
+        # solver event -> its requests where one event stands for several (joint lectures, exam cohorts);
+        # diagnosis event ids are solver events, the data-issues report lists every request involved
+        "event_members": {str(k): list(v) for k, v in members.items() if len(v) > 1},
     }
     diags = [asdict(d) for d in result.diagnoses] + bridge_diags
     run.stats["warnings_by_code"] = dict(

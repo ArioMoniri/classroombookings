@@ -38,6 +38,17 @@ class Settings(BaseSettings):
 
     upload_dir: str = "./uploads"
 
+    # safe upload intake (app/core/safe_files.py, review B1)
+    upload_max_mb: float = 25.0  # any single upload (413 above)
+    zip_max_uncompressed_mb: float = 50.0  # whole .xlsx/.docx expanded
+    zip_max_member_mb: float = 20.0  # one part (sharedStrings.xml, a sheet) expanded
+    zip_max_ratio: float = 100.0  # expanded / compressed (checked above 2 MiB expanded)
+    sheet_max_rows: int = 20_000
+    sheet_max_cols: int = 1024
+    parse_isolation: str = Field(default="process", description="process (rlimit child) | thread")
+    parse_memory_mb: int = 2048  # RLIMIT_AS of the parse child
+    parse_timeout_s: float = 300.0
+
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")

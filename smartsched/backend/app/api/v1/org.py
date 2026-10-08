@@ -104,7 +104,9 @@ async def setup_status(db: DB) -> dict[str, Any]:
             "admin": users > 0,
             "terms": await count(Term),
             "rooms": await count(Room),
-            "bookable_rooms": int((await db.execute(select(func.count(Room.id)).where(Room.is_bookable.is_(True)))).scalar_one()),
+            "bookable_rooms": int(
+                (await db.execute(select(func.count(Room.id)).where(Room.is_bookable.is_(True)))).scalar_one()
+            ),
             "room_groups": await count(RoomGroup),
             "schedules": await count(BookingSchedule),
             "timetable_weeks": await count(TimetableWeek),
@@ -154,7 +156,9 @@ async def _settings_out(db: DB) -> dict[str, Any]:
     org = await get_group(db, "org")
     teacher = await _teacher_role(db)
     org["timezone"] = await settings_service.get_value(db, "timezone")
-    org["bookings_show_name"] = bool(teacher and all(p in {x.name for x in teacher.permissions} for p in SHOW_NAME_PERMS))
+    org["bookings_show_name"] = bool(
+        teacher and all(p in {x.name for x in teacher.permissions} for p in SHOW_NAME_PERMS)
+    )
     org["max_active_bookings"] = teacher.max_active_bookings if teacher else None
     return org
 

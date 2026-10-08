@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 
 from app.api.deps import DB, Planner, Viewer
+from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
 from app.importers.report import ImportReport
@@ -22,12 +23,30 @@ router = APIRouter(prefix="/imports", tags=["imports"])
 _SAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
-async def _save_upload(job_id: int, file: UploadFile) -> Path:
+def _job_files(job_id: int) -> list[Path]:
+    return sorted((Path(get_settings().upload_dir) / "imports").glob(f"{job_id}_*"))
+
+
+def _cleanup(job_id: int) -> None:
+    """Remove the uploaded files of a job (failed or refused imports keep nothing on disk)."""
+    for f in _job_files(job_id):
+        f.unlink(missing_ok=True)
+
+
+async def _save_upload(db: DB, job: ImportJob, file: UploadFile, *, full_load: bool = False) -> Path:
+    """Stream the upload to disk with the size cap and pre-inspect OOXML containers (review B1). A refused
+    file is deleted, its job marked FAILED and the client gets 413 / 400."""
     target_dir = Path(get_settings().upload_dir) / "imports"
-    target_dir.mkdir(parents=True, exist_ok=True)
     name = _SAFE.sub("_", file.filename or "upload.bin")
-    target = target_dir / f"{job_id}_{name}"
-    target.write_bytes(await file.read())
+    target = target_dir / f"{job.id}_{name}"
+    try:
+        await safe_files.save_upload(file, target)
+        await safe_files.precheck_upload(target, file.filename, full_load=full_load)
+    except safe_files.UnsafeFileError as exc:
+        _cleanup(job.id)
+        job.status, job.error, job.finished_at = "FAILED", exc.message, utcnow()
+        await db.commit()
+        raise HTTPException(exc.status, exc.message) from exc
     return target
 
 
@@ -36,8 +55,15 @@ async def _start_job(db: DB, job: ImportJob, run: Any) -> ImportJob:
 
     async def body(progress: Any) -> dict[str, Any]:
         progress("importing", 10)
-        async with factory() as session:
-            report: ImportReport = await run(session)
+        try:
+            async with factory() as session:
+                report: ImportReport = await run(session)
+        except safe_files.UnsafeFileError as exc:
+            _cleanup(job.id)
+            raise ValueError(exc.message) from exc
+        except Exception:
+            _cleanup(job.id)  # failed imports keep no workbook on disk (review MINOR 1)
+            raise
         return report.to_dict()
 
     async def on_status(st: JobState) -> None:
@@ -74,7 +100,7 @@ async def import_planning(
     from app.importers.planning_list import import_planning_list
 
     job = await _new_job(db, "planning-list", file.filename, term_code)
-    path = await _save_upload(job.id, file)
+    path = await _save_upload(db, job, file)
     return await _start_job(
         db, job, lambda s: import_planning_list(s, path, term_code, filename=file.filename, week_count=week_count)
     )
@@ -85,7 +111,7 @@ async def import_exams(db: DB, _: Planner, file: UploadFile = File(...), term_co
     from app.importers.exam_list import import_exam_list
 
     job = await _new_job(db, "exam-list", file.filename, term_code)
-    path = await _save_upload(job.id, file)
+    path = await _save_upload(db, job, file)
     return await _start_job(db, job, lambda s: import_exam_list(s, path, term_code, filename=file.filename))
 
 
@@ -101,7 +127,7 @@ async def import_grid(
     from app.importers.weekly_grid import import_weekly_grid
 
     job = await _new_job(db, "weekly-grid", file.filename, term_code)
-    path = await _save_upload(job.id, file)
+    path = await _save_upload(db, job, file, full_load=True)
     return await _start_job(
         db,
         job,
@@ -121,7 +147,7 @@ async def import_crbs_endpoint(
     job = await _new_job(
         db, "crbs", ", ".join(f.filename or "?" for f in files) if files else dsn.split("@")[-1] if dsn else None, None
     )
-    paths = [await _save_upload(job.id, f) for f in files]
+    paths = [await _save_upload(db, job, f) for f in files]
     source: Any = dsn if dsn else paths
     return await _start_job(db, job, lambda s: import_crbs(s, source, filename=job.filename))
 
@@ -148,7 +174,7 @@ async def get_job_file(job_id: int, db: DB, _: Planner, index: int = 0) -> FileR
     job = await db.get(ImportJob, job_id)
     if job is None:
         raise HTTPException(404, "import job not found")
-    files = sorted((Path(get_settings().upload_dir) / "imports").glob(f"{job_id}_*"))
+    files = _job_files(job_id)
     if not 0 <= index < len(files):
         raise HTTPException(404, "no uploaded file for this job")
     path = files[index]

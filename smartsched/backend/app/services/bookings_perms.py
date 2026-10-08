@@ -83,7 +83,12 @@ ROLE_DEFAULTS: dict[str, dict[str, Any]] = {
         "name": "Teacher",
         "description": "Teacher",
         # verbatim from crbs-core/application/modules/install/resources/data.sql (role 2)
-        "permissions": {"room.view", "book_single.create", "book_single.view_other_notes", "book_recur.view_other_notes"},
+        "permissions": {
+            "room.view",
+            "book_single.create",
+            "book_single.view_other_notes",
+            "book_recur.view_other_notes",
+        },
     },
     "PLANNER": {
         "name": "Planner",

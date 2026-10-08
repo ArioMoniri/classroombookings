@@ -3,7 +3,8 @@
 // Pattern references (docs/design/v2/references.md): macOS 26 / iPadOS 26 floating sidebars (inset from
 // the window edge, chrome material, content scrolls *under* nothing), Linear and Vercel sidebar density
 // (28–32 px rows, quiet section labels), Craft's translucent rail. The active highlight glides between
-// items with SPRING_MORPH (instant under reduced motion).
+// items with springs.glassMorph via SPRING_MORPH (instant under reduced motion); the pill is a fill
+// without backdrop-filter (no glass on glass) and pointer-events:none.
 import * as React from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
@@ -99,7 +100,7 @@ function SidebarGlassItem({ className, active = false, icon, count, hint, childr
                 layoutId="sidebar-glass-active"
                 transition={transition}
                 aria-hidden
-                className="absolute inset-0 -z-10 rounded-[inherit] bg-fill-1 shadow-[inset_0_1px_0_0_var(--specular-low)]"
+                className="pointer-events-none absolute inset-0 -z-10 rounded-[inherit] bg-fill-1 shadow-[inset_0_1px_0_0_var(--specular-low)]"
               />
             ) : null}
             {icon ? <span className={cn("flex text-label-2", active && "text-tint-text")}>{icon}</span> : null}

@@ -197,10 +197,14 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
         )
     rooms = await svc.visible_rooms(db, access)
     gids = sorted({r.room_group_id for r in rooms if r.room_group_id is not None})
-    groups = list((await db.execute(select(RoomGroup).where(RoomGroup.id.in_(gids)).order_by(RoomGroup.pos)))) if gids else []
+    groups = (
+        list(await db.execute(select(RoomGroup).where(RoomGroup.id.in_(gids)).order_by(RoomGroup.pos))) if gids else []
+    )
     return {
         "sessions": sessions,
-        "current_term_id": next((s["id"] for s in sessions if s["is_current"]), sessions[0]["id"] if sessions else None),
+        "current_term_id": next(
+            (s["id"] for s in sessions if s["is_current"]), sessions[0]["id"] if sessions else None
+        ),
         "room_groups": [{"id": g.id, "name": g.name, "description": g.description} for (g,) in groups]
         + ([{"id": 0, "name": "—", "description": None}] if any(r.room_group_id is None for r in rooms) else []),
         "display": {"type": org["displaytype"], "columns": org["d_columns"], "use_room_groups": org["use_room_groups"]},
@@ -218,7 +222,9 @@ async def _room_info(db: DB, room: Room) -> dict[str, Any]:
     fields = []
     values = {
         v.field_id: v.value
-        for v in (await db.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.room_id == room.id))).scalars()
+        for v in (
+            await db.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.room_id == room.id))
+        ).scalars()
     }
     for f in (await db.execute(select(RoomCustomField).order_by(RoomCustomField.pos, RoomCustomField.name))).scalars():
         raw = values.get(f.id)
@@ -319,9 +325,7 @@ async def recurring_create(body: RecurringIn, db: DB, access: Acc) -> dict[str, 
 @router.post("/multi", status_code=201)
 async def multi_select(body: SelectionIn, db: DB, access: Acc) -> dict[str, Any]:
     try:
-        mb = await svc.create_selection(
-            db, access, [{**s.model_dump(), "term_id": body.term_id} for s in body.slots]
-        )
+        mb = await svc.create_selection(db, access, [{**s.model_dump(), "term_id": body.term_id} for s in body.slots])
         return await svc.selection_out(db, access, mb)
     except svc.BookingError as exc:
         raise _err(exc) from exc
@@ -404,7 +408,9 @@ async def conflicts(db: DB, access: Acc, term_id: int | None = None) -> list[dic
 async def export_csv(
     db: DB, access: Acc, term_id: int | None = None, room_group_id: int | None = None, include_cancelled: bool = False
 ) -> Response:
-    text = await export.export_csv(db, term_id=term_id, room_group_id=room_group_id, include_cancelled=include_cancelled)
+    text = await export.export_csv(
+        db, term_id=term_id, room_group_id=room_group_id, include_cancelled=include_cancelled
+    )
     name = "bookings.csv"
     if term_id is not None:
         term = await db.get(Term, term_id)
@@ -431,7 +437,10 @@ def _ics(text: str, name: str) -> Response:
 @router.get("/feed/user.ics")
 async def my_feed(db: DB, access: Acc) -> Response:
     u = access.user
-    return _ics(await export.ics_feed(db, access, title=f"SmartSched – {u.full_name or u.username or u.email}", user_id=u.id), "bookings.ics")
+    return _ics(
+        await export.ics_feed(db, access, title=f"SmartSched – {u.full_name or u.username or u.email}", user_id=u.id),
+        "bookings.ics",
+    )
 
 
 @router.get("/feed/room/{room_id}.ics")
@@ -439,7 +448,10 @@ async def room_feed(room_id: int, db: DB, access: Acc) -> Response:
     room = await db.get(Room, room_id)
     if room is None or not access.can_view_room(room):
         raise HTTPException(404, "room not found")
-    return _ics(await export.ics_feed(db, access, title=f"SmartSched – {room.display_name}", room_id=room.id), f"{room.code}.ics")
+    return _ics(
+        await export.ics_feed(db, access, title=f"SmartSched – {room.display_name}", room_id=room.id),
+        f"{room.code}.ics",
+    )
 
 
 @router.post("/feed/token")
@@ -448,7 +460,11 @@ async def rotate_feed_token(db: DB, access: Acc) -> dict[str, str]:
     access.user.calendar_token = secrets.token_urlsafe(32)
     await db.commit()
     tok = access.user.calendar_token
-    return {"token": tok, "user_feed": f"/api/v1/ics/{tok}/user.ics", "room_feed": f"/api/v1/ics/{tok}/room/{{room_id}}.ics"}
+    return {
+        "token": tok,
+        "user_feed": f"/api/v1/ics/{tok}/user.ics",
+        "room_feed": f"/api/v1/ics/{tok}/room/{{room_id}}.ics",
+    }
 
 
 async def _token_access(db: DB, token: str) -> Access:
@@ -464,7 +480,10 @@ async def _token_access(db: DB, token: str) -> Access:
 async def token_user_feed(token: str, db: DB) -> Response:
     access = await _token_access(db, token)
     u = access.user
-    return _ics(await export.ics_feed(db, access, title=f"SmartSched – {u.full_name or u.username or u.email}", user_id=u.id), "bookings.ics")
+    return _ics(
+        await export.ics_feed(db, access, title=f"SmartSched – {u.full_name or u.username or u.email}", user_id=u.id),
+        "bookings.ics",
+    )
 
 
 @ics_router.get("/{token}/room/{room_id}.ics")
@@ -473,7 +492,10 @@ async def token_room_feed(token: str, room_id: int, db: DB) -> Response:
     room = await db.get(Room, room_id)
     if room is None or not access.can_view_room(room):
         raise HTTPException(404, "room not found")
-    return _ics(await export.ics_feed(db, access, title=f"SmartSched – {room.display_name}", room_id=room.id), f"{room.code}.ics")
+    return _ics(
+        await export.ics_feed(db, access, title=f"SmartSched – {room.display_name}", room_id=room.id),
+        f"{room.code}.ics",
+    )
 
 
 # --- one booking (keep these after the fixed paths above) -------------------------------------------

@@ -1,6 +1,7 @@
 "use client"
 // Source: shadcn/ui sonner (style base-nova, https://ui.shadcn.com) on sonner (MIT, emilkowalski/sonner) — Licence: MIT
-// Modified: yes — Liquid Glass v2 toasts: thick material, specular edge, status-tinted icons. API unchanged.
+// Modified: yes — Liquid Glass v2 toasts: thick material, specular edge, status-tinted icons, max 3 visible; motion retimed
+// to springs.smooth in globals.css ([data-sonner-toast]). API unchanged.
 
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
@@ -38,6 +39,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           cancelButton: "!rounded-full !bg-fill-2 !text-label-1",
         },
       }}
+      visibleToasts={3}
       {...props}
     />
   )

@@ -5,9 +5,11 @@
  * and ship them to your users … you may not redistribute the transitions library itself"
  * (https://transitions.dev/terms.html, https://github.com/Jakubantalik/transitions.dev/blob/main/LICENSE).
  * The "Transitions.dev — <name>" comment at the top of each transition is kept as the terms require.
- * Modified: yes — durations retuned to the SmartSched ≤ 300 ms ceiling, colours/blur mapped to
- * Liquid Glass tokens, and a mapping block added for Base UI's data-starting-style /
- * data-ending-style attributes (see the "SmartSched mapping" sections). */
+ * Modified: yes — durations retuned to the SmartSched ≤ 300 ms ceiling, a mapping block added for Base UI's
+ * data-starting-style / data-ending-style attributes (see the "SmartSched mapping" sections). The mappings
+ * follow docs/design/v2/motion.md (pattern §1, §8): entrances on --spring-glass-morph, exits 120 ms
+ * --ease-in, and NO filter / will-change on the popup, because these popups carry backdrop-filter
+ * (a filter there drops frames and a will-change: opacity|filter creates a backdrop root). */
 
 /* Transitions.dev — Modal open / close */
 :root {
@@ -44,10 +46,17 @@
 
 /* SmartSched mapping: Base UI keeps the popup mounted with [data-open] and flags the first and
    last frames with [data-starting-style] / [data-ending-style]. */
+.t-modal[data-slot] {
+  will-change: auto;
+}
 .t-modal[data-open] {
   transform: scale(1);
   opacity: 1;
   pointer-events: auto;
+  will-change: auto;
+  transition:
+    transform var(--spring-glass-morph-ms) var(--spring-glass-morph),
+    opacity   var(--dur-base) var(--ease-out);
 }
 .t-modal[data-starting-style] {
   transform: scale(var(--modal-scale));
@@ -58,8 +67,8 @@
   opacity: 0;
   pointer-events: none;
   transition:
-    transform var(--modal-close-dur) var(--modal-ease),
-    opacity   var(--modal-close-dur) var(--modal-ease);
+    transform var(--dur-fast) var(--ease-in),
+    opacity   var(--dur-fast) var(--ease-in);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -98,31 +107,35 @@
     filter    var(--panel-open-dur) var(--panel-ease);
 }
 
-/* SmartSched mapping for Base UI popups (Popover, Select, Menu, Tooltip). The popup side flips
+/* SmartSched mapping for Base UI popups (Popover, Select, Menu, Tooltip). These popups ARE the glass
+   (backdrop-filter), so the upstream blur is not used here: transform + opacity only. The popup side flips
    the travel direction so panels always grow out of their trigger. */
+/* every SmartSched popup has data-slot; the attribute selector out-ranks the upstream base rule in all states */
+.t-panel-slide[data-slot] {
+  filter: none;
+  will-change: auto;
+}
 .t-panel-slide[data-open]:not([data-open="false"]) {
   transform: translateY(0);
   opacity: 1;
-  filter: none; /* none, not blur(0): a live filter would become a backdrop root for nested glass */
   pointer-events: auto;
+  transform-origin: var(--transform-origin, top center);
   transition:
-    transform var(--panel-open-dur) var(--panel-ease),
-    opacity   var(--panel-open-dur) var(--panel-ease),
-    filter    var(--panel-open-dur) var(--panel-ease);
+    transform var(--spring-glass-morph-ms) var(--spring-glass-morph),
+    opacity   var(--dur-base) var(--ease-out);
 }
 .t-panel-slide[data-side="top"] { --panel-translate-y: 6px; }
-.t-panel-slide[data-starting-style],
-.t-panel-slide[data-ending-style] {
-  transform: translateY(var(--panel-translate-y));
+.t-panel-slide[data-starting-style] {
+  transform: translateY(var(--panel-translate-y)) scale(0.97);
   opacity: 0;
-  filter: blur(var(--panel-blur));
 }
 .t-panel-slide[data-ending-style] {
+  transform: scale(0.98);
+  opacity: 0;
   pointer-events: none;
   transition:
-    transform var(--panel-close-dur) var(--panel-ease),
-    opacity   var(--panel-close-dur) var(--panel-ease),
-    filter    var(--panel-close-dur) var(--panel-ease);
+    transform var(--dur-fast) var(--ease-in),
+    opacity   var(--dur-fast) var(--ease-in);
 }
 
 @media (prefers-reduced-motion: reduce) {

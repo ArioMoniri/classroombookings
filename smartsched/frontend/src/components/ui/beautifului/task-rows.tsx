@@ -5,8 +5,9 @@
 // Modified: yes — the scripted tick sequence is removed; each row's status is a prop
 // ("pending" | "running" | "done" | "failed") driven by real progress (e.g. solver / import jobs); failed
 // rows get a real retry button; labels are localisable; foundation.css tokens re-mapped to Liquid Glass;
-// detail stagger shortened to ≤ 240 ms. Kept: spinner ring with step number, status badge, pill,
-// capsule ↔ list variants, and the expandable detail grammar (grid-template-rows 0fr → 1fr).
+// detail stagger shortened to ≤ 120 ms; the upstream grid-template-rows / border-radius tweens are dropped
+// (layout properties, motion.md §8): details open instantly and fade in. Kept: spinner ring with step number,
+// status badge, pill, capsule ↔ list variants, and the expandable detail grammar.
 import * as React from "react"
 import { CheckIcon, ChevronDownIcon, RotateCwIcon, XIcon } from "lucide-react"
 import { cn } from "cn"
@@ -85,7 +86,7 @@ function TaskRows({ rows, variant = "capsules", labels, className, defaultOpen =
           <li
             key={row.key}
             className={cn(
-              "overflow-hidden transition-[border-radius,background-color] duration-300",
+              "overflow-hidden",
               list ? "[&:not(:last-child)]:hairline-b" : cn("glass-regular", isOpen ? "rounded-2xl" : "rounded-[22px]")
             )}
           >
@@ -121,7 +122,7 @@ function TaskRows({ rows, variant = "capsules", labels, className, defaultOpen =
                   </span>
                 ) : null}
                 {hasDetails ? (
-                  <ChevronDownIcon aria-hidden className={cn("size-[15px] shrink-0 text-label-3 transition-transform duration-300", isOpen && "rotate-180")} />
+                  <ChevronDownIcon aria-hidden className={cn("size-[15px] shrink-0 text-label-3 transition-transform duration-(--spring-snappy-ms) ease-(--spring-snappy)", isOpen && "rotate-180")} />
                 ) : null}
               </button>
               {row.status === "failed" ? (
@@ -136,14 +137,8 @@ function TaskRows({ rows, variant = "capsules", labels, className, defaultOpen =
               ) : null}
             </div>
             {hasDetails ? (
-              <div
-                id={detailsId}
-                className="grid transition-[grid-template-rows,opacity] duration-300 ease-(--ease-out)"
-                style={{ gridTemplateRows: isOpen ? "1fr" : "0fr", opacity: isOpen ? 1 : 0 }}
-                inert={!isOpen}
-                aria-hidden={!isOpen || undefined}
-              >
-                <div className="overflow-hidden">
+              <div id={detailsId} hidden={!isOpen}>
+                <div className="animate-in fade-in duration-(--dur-base)">
                   <div className="mb-2.5 grid grid-cols-[24px_1fr] gap-2.5 px-2.5">
                     <span aria-hidden className="mx-auto h-full w-px bg-hairline-strong" />
                     <ul className="flex flex-col gap-1.5">
@@ -151,7 +146,7 @@ function TaskRows({ rows, variant = "capsules", labels, className, defaultOpen =
                         <li
                           key={j}
                           className="flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-1 duration-200"
-                          style={{ animationDelay: `${Math.min(j * 40, 120)}ms`, animationFillMode: "both" }}
+                          style={{ animationDelay: `${Math.min(j * 30, 90)}ms`, animationFillMode: "both" }}
                         >
                           <span className="text-[12px] text-label-2">{d.label}</span>
                           {d.meta ? <span className="font-mono text-[11.5px] text-label-3 tabular-nums">{d.meta}</span> : null}

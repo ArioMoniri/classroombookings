@@ -140,9 +140,7 @@ async def test_role_limits_and_user_constraints(client):
     assert got["range_max"] == {"type": "X", "value": None}
     ctx = (await client.get("/api/v1/bookings/context", headers=h)).json()
     assert ctx["limits"] == {"max_active_bookings": 5, "range_min": 0, "range_max": None, "recur_max_instances": 10}
-    bad = await client.put(
-        f"/api/v1/users/{uid}/constraints", json={"range_min": {"type": "U"}}, headers=admin
-    )
+    bad = await client.put(f"/api/v1/users/{uid}/constraints", json={"range_min": {"type": "U"}}, headers=admin)
     assert bad.status_code == 422  # U needs a value
 
 

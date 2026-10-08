@@ -29,9 +29,11 @@ const glassPanelVariants = cva("relative isolate text-label-1", {
       md: "p-4",
       lg: "p-6",
     },
-    /* Elevation by light: hover brightens the sheen and lifts the ambient shadow one step. */
+    /* Elevation by light: hover brightens the surface through a veil layer. */
     interactive: {
-      true: "cursor-pointer transition-[box-shadow,filter] duration-(--dur-base) ease-out hover:brightness-[1.03] hover:shadow-(--shadow-2) active:brightness-[0.99] dark:hover:brightness-[1.12]",
+      /* never filter/opacity on the backdrop-filter element itself (motion.md §8): a pointer-events:none
+         ::after veil fades instead */
+      true: "cursor-pointer after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:bg-white/[0.07] dark:after:bg-white/[0.04] after:opacity-0 after:transition-opacity after:duration-(--dur-fast) hover:after:opacity-100 active:scale-[0.995] transition-transform duration-(--dur-fast) ease-(--spring-snappy)",
       false: "",
     },
   },

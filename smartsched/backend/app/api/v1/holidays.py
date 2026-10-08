@@ -28,9 +28,7 @@ async def _check_range(db: DB, term_id: int, start: date, end: date) -> None:
     if end < start:
         raise HTTPException(422, "date_end is before date_start")
     if start < info.start or end > info.end:
-        raise HTTPException(
-            422, f"holiday must be within the term ({info.start:%d.%m.%Y} - {info.end:%d.%m.%Y})"
-        )
+        raise HTTPException(422, f"holiday must be within the term ({info.start:%d.%m.%Y} - {info.end:%d.%m.%Y})")
 
 
 @router.get("", response_model=list[HolidayOut])

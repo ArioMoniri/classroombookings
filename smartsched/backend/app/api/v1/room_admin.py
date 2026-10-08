@@ -51,7 +51,9 @@ AclAdmin = Annotated[User, Depends(require_permission("setup.rooms_acl"))]
 
 
 async def _group_out(db: DB, g: RoomGroup) -> RoomGroupOut:
-    ids = list((await db.execute(select(Room.id).where(Room.room_group_id == g.id).order_by(Room.pos, Room.code))).scalars())
+    ids = list(
+        (await db.execute(select(Room.id).where(Room.room_group_id == g.id).order_by(Room.pos, Room.code))).scalars()
+    )
     return RoomGroupOut(id=g.id, name=g.name, description=g.description, pos=g.pos, room_count=len(ids), room_ids=ids)
 
 
@@ -77,7 +79,10 @@ async def _assign(db: DB, g: RoomGroup, room_ids: list[int]) -> None:
 
 @router.get("/groups", response_model=list[RoomGroupOut])
 async def list_groups(db: DB, _: RoomsAdmin) -> list[RoomGroupOut]:
-    return [await _group_out(db, g) for g in (await db.execute(select(RoomGroup).order_by(RoomGroup.pos, RoomGroup.name))).scalars()]
+    return [
+        await _group_out(db, g)
+        for g in (await db.execute(select(RoomGroup).order_by(RoomGroup.pos, RoomGroup.name))).scalars()
+    ]
 
 
 @router.post("/groups", response_model=RoomGroupOut, status_code=201)
@@ -97,7 +102,9 @@ async def groups_from_buildings(db: DB, _: RoomsAdmin) -> list[RoomGroupOut]:
     """One group per building (A, B, C, D blocks) holding that building's ungrouped rooms."""
     out = []
     for b in (await db.execute(select(Building).order_by(Building.code))).scalars():
-        rooms = list((await db.execute(select(Room).where(Room.building_id == b.id, Room.room_group_id.is_(None)))).scalars())
+        rooms = list(
+            (await db.execute(select(Room).where(Room.building_id == b.id, Room.room_group_id.is_(None)))).scalars()
+        )
         if not rooms:
             continue
         name = (n.clean_text(b.name) or b.code)[:32]
@@ -198,7 +205,11 @@ async def _room(db: DB, room_id: int) -> Room:
 async def list_rooms(db: DB, _: RoomsAdmin, room_group_id: int | None = None) -> list[RoomAdminOut]:
     q = select(Room)
     if room_group_id is not None:
-        q = q.where(Room.room_group_id == (room_group_id or None)) if room_group_id else q.where(Room.room_group_id.is_(None))
+        q = (
+            q.where(Room.room_group_id == (room_group_id or None))
+            if room_group_id
+            else q.where(Room.room_group_id.is_(None))
+        )
     rooms = sorted((await db.execute(q)).scalars(), key=lambda r: (r.room_group_id or 0, r.pos or 0, r.code))
     return [await _room_out(db, r) for r in rooms]
 
@@ -209,15 +220,19 @@ async def _owner_acl(db: DB, room: Room, owner_id: int | None, previous: int | N
         for acl in (
             await db.execute(
                 select(RoomAcl).where(
-                    RoomAcl.entity_type == "room", RoomAcl.entity_id == room.id,
-                    RoomAcl.context_type == "user", RoomAcl.context_id == previous,
+                    RoomAcl.entity_type == "room",
+                    RoomAcl.entity_id == room.id,
+                    RoomAcl.context_type == "user",
+                    RoomAcl.context_id == previous,
                 )
             )
         ).scalars():
             if [p.name for p in acl.permissions] == ["book_single.cancel_other_booking"]:
                 await db.delete(acl)
     if owner_id and owner_id != previous:
-        perm = (await db.execute(select(Permission).where(Permission.name == "book_single.cancel_other_booking"))).scalar_one()
+        perm = (
+            await db.execute(select(Permission).where(Permission.name == "book_single.cancel_other_booking"))
+        ).scalar_one()
         acl = RoomAcl(entity_type="room", entity_id=room.id, context_type="user", context_id=owner_id)
         acl.permissions = [perm]
         db.add(acl)
@@ -292,7 +307,9 @@ async def delete_photo(room_id: int, db: DB, _: RoomsAdmin) -> RoomAdminOut:
 
 
 def _field_out(f: RoomCustomField) -> CustomFieldOut:
-    return CustomFieldOut(id=f.id, name=f.name, type=f.type, options=[{"id": o.id, "value": o.value} for o in f.options])
+    return CustomFieldOut(
+        id=f.id, name=f.name, type=f.type, options=[{"id": o.id, "value": o.value} for o in f.options]
+    )
 
 
 async def _field(db: DB, fid: int) -> RoomCustomField:
@@ -331,7 +348,11 @@ async def list_fields(db: DB, _: RoomsAdmin) -> list[CustomFieldOut]:
 @router.post("/fields", response_model=CustomFieldOut, status_code=201)
 async def create_field(body: CustomFieldIn, db: DB, _: RoomsAdmin) -> CustomFieldOut:
     f = RoomCustomField(name=body.name, type=body.type)
-    f.options = [RoomCustomFieldOption(value=v[:64], pos=i) for i, v in enumerate(body.options)] if body.type == "SELECT" else []
+    f.options = (
+        [RoomCustomFieldOption(value=v[:64], pos=i) for i, v in enumerate(body.options)]
+        if body.type == "SELECT"
+        else []
+    )
     db.add(f)
     await db.commit()
     await db.refresh(f)
@@ -342,6 +363,7 @@ async def create_field(body: CustomFieldIn, db: DB, _: RoomsAdmin) -> CustomFiel
 async def update_field(fid: int, body: CustomFieldIn, db: DB, _: RoomsAdmin) -> CustomFieldOut:
     """Options are matched by text so existing SELECT values survive a rename of other options."""
     f = await _field(db, fid)
+    old_name = f.name
     old_by_value = {o.value: o for o in f.options}
     f.name, f.type = body.name, body.type
     new_opts = []
@@ -353,9 +375,20 @@ async def update_field(fid: int, body: CustomFieldIn, db: DB, _: RoomsAdmin) -> 
     removed = {str(o.id) for o in old_by_value.values()}
     f.options = new_opts
     if removed or body.type != "SELECT":
-        for v in (await db.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.field_id == f.id))).scalars():
+        for v in (
+            await db.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.field_id == f.id))
+        ).scalars():
             if body.type == "SELECT" and v.value in removed:
                 v.value = None
+    await db.flush()
+    room_ids = (
+        await db.execute(select(RoomCustomFieldValue.room_id).where(RoomCustomFieldValue.field_id == f.id))
+    ).scalars()
+    for rid in set(room_ids):
+        r = await db.get(Room, rid)
+        if r is not None and old_name != f.name:
+            r.custom_fields = {k: v for k, v in (r.custom_fields or {}).items() if k != old_name}
+        await _mirror(db, rid)
     await db.commit()
     await db.refresh(f)
     return _field_out(f)
@@ -389,7 +422,9 @@ async def put_room_fields(room_id: int, body: dict[str, Any], db: DB, _: RoomsAd
     await _room(db, room_id)
     existing = {
         v.field_id: v
-        for v in (await db.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.room_id == room_id))).scalars()
+        for v in (
+            await db.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.room_id == room_id))
+        ).scalars()
     }
     for key, value in body.items():
         try:

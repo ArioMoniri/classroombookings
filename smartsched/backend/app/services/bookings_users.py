@@ -130,9 +130,11 @@ async def import_users_csv(
             except ValueError:
                 result.update(status="invalid", error=f"invalid e-mail {email!r}")
                 continue
-        if username in seen or (
-            await session.execute(select(User.id).where(User.username == username))
-        ).scalar_one_or_none() is not None:
+        if (
+            username in seen
+            or (await session.execute(select(User.id).where(User.username == username))).scalar_one_or_none()
+            is not None
+        ):
             result["status"] = "username_exists"
             continue
         if email and (await session.execute(select(User.id).where(User.email == email))).scalar_one_or_none():
@@ -197,14 +199,18 @@ async def issue_reset_token(session: AsyncSession, user: User, actor: User | Non
     now = utcnow()
     for old in (
         await session.execute(
-            select(PasswordResetToken).where(PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None))
+            select(PasswordResetToken).where(
+                PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None)
+            )
         )
     ).scalars():
         old.used_at = now
     token = secrets.token_urlsafe(24)
     expires = now + RESET_TTL
     session.add(
-        PasswordResetToken(user_id=user.id, token_hash=_hash(token), expires_at=expires, created_by=actor.id if actor else None)
+        PasswordResetToken(
+            user_id=user.id, token_hash=_hash(token), expires_at=expires, created_by=actor.id if actor else None
+        )
     )
     emailed = False
     if user.email and await smtp_configured(session):

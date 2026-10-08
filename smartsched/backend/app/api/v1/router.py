@@ -57,3 +57,8 @@ for r in (
     org.auth_router,
 ):
     api_router.include_router(r)
+
+# planner-facing data-conflict report of a run (GET /runs/{id}/data-issues)
+from app.api.v1 import data_issues  # noqa: E402
+
+api_router.include_router(data_issues.router)

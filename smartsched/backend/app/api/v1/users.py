@@ -108,19 +108,15 @@ async def search_users(
         users = [
             u
             for u in users
-            if any(
-                needle in n.tr_casefold(x)
-                for x in (u.username, u.email, u.firstname, u.lastname, u.full_name)
-                if x
-            )
+            if any(needle in n.tr_casefold(x) for x in (u.username, u.email, u.firstname, u.lastname, u.full_name) if x)
         ]
     keys = {
         "username": lambda u: n.tr_casefold(u.username or u.email or ""),
         "displayname": lambda u: n.tr_casefold(u.full_name or ""),
         "lastlogin": lambda u: (u.last_login_at is None, u.last_login_at or 0),
         "enabled": lambda u: (not u.is_active,),
-        "role": lambda u: (u.role or ""),
-        "department": lambda u: (u.department_id or 0),
+        "role": lambda u: u.role or "",
+        "department": lambda u: u.department_id or 0,
     }
     desc = sort.startswith("-")
     users.sort(key=keys.get(sort.lstrip("-"), keys["username"]), reverse=desc)  # type: ignore[arg-type]

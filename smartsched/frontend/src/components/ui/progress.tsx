@@ -1,6 +1,7 @@
 "use client"
 // Source: shadcn/ui progress (style base-nova, https://ui.shadcn.com) — Licence: MIT
-// Modified: yes — Liquid Glass v2: fill track, tint bar, value label in label-2. API unchanged.
+// Modified: yes — Liquid Glass v2: fill track, tint bar, value label in label-2. The bar width is not
+// animated (width is a layout property, motion.md §8); animate the value with springs.ticker if needed. API unchanged.
 
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress"
 import { cn } from "cn"
@@ -46,7 +47,7 @@ function ProgressIndicator({
   return (
     <ProgressPrimitive.Indicator
       data-slot="progress-indicator"
-      className={cn("h-full rounded-full bg-tint transition-[width] duration-(--dur-max) ease-(--ease-glass)", className)}
+      className={cn("h-full rounded-full bg-tint", className)}
       {...props}
     />
   )

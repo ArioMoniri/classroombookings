@@ -7,22 +7,18 @@ Rule targeting always goes through the solver's own selector (``select_events``)
 
 from __future__ import annotations
 
-import csv
-import io
 import re
 from collections.abc import Iterable
-from datetime import date, datetime, time
-from pathlib import PurePath
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import catalog
+from app.core.safe_files import UnsafeFileError, run_isolated
 from app.importers.normalize import (
     PERIODS,
     canon_course_code,
-    clean_text,
     extract_course_codes,
     parse_class_year,
     parse_day,
@@ -35,6 +31,7 @@ from app.importers.normalize import (
     tr_casefold,
     tr_upper,
 )
+from app.importers.tables import read_table, table_cell
 from app.models import (
     ConstraintRow,
     Course,
@@ -55,6 +52,8 @@ from app.solver import model as sm
 
 WEIGHT_SCALE = {"low": 2, "normal": 5, "high": 8}
 MAX_MAPPING_BYTES = 5 * 1024 * 1024
+MAX_MAPPING_ROWS = 5000
+MAX_MAPPING_COLS = 256
 
 
 def _t(tr: str, en: str) -> dict[str, str]:
@@ -669,53 +668,13 @@ def _ascii_code(code: str) -> str:
 
 
 def _cell(v: Any) -> str:
-    if v is None:
-        return ""
-    if isinstance(v, datetime):
-        return v.strftime("%Y-%m-%d") if (v.hour, v.minute) == (0, 0) else v.strftime("%Y-%m-%d %H:%M")
-    if isinstance(v, date):
-        return v.isoformat()
-    if isinstance(v, time):
-        return v.strftime("%H:%M")
-    if isinstance(v, float) and v.is_integer():
-        v = int(v)
-    return clean_text(v) or ""
+    return table_cell(v)
 
 
 def _read_table(
     data: bytes, filename: str, sheet: str | None
 ) -> tuple[list[str], str | None, list[tuple[int, list[str]]]]:
-    """(sheet names, chosen sheet, [(1-based row number, cells)])."""
-    suffix = PurePath(filename).suffix.lower()
-    if suffix in (".xlsx", ".xlsm"):
-        from openpyxl import load_workbook
-
-        try:
-            wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-        except Exception as exc:  # noqa: BLE001 - surfaced as a 400
-            raise st.StudioError(400, f"cannot read workbook: {type(exc).__name__}") from exc
-        try:
-            names = [ws.title for ws in wb.worksheets]
-            ws = wb[sheet] if sheet and sheet in names else wb.worksheets[0]
-            rows = [(i, [_cell(v) for v in row]) for i, row in enumerate(ws.iter_rows(values_only=True), start=1)]
-            return names, ws.title, rows[:5000]
-        finally:
-            wb.close()
-    if suffix == ".csv":
-        text = ""
-        for enc in ("utf-8-sig", "cp1254", "latin-1"):
-            try:
-                text = data.decode(enc)
-                break
-            except UnicodeDecodeError:
-                continue
-        try:
-            dialect: Any = csv.Sniffer().sniff(text[:4096], delimiters=",;\t|")
-        except csv.Error:
-            dialect = csv.excel
-        rows = [(i, [_cell(c) for c in r]) for i, r in enumerate(csv.reader(io.StringIO(text), dialect), start=1)]
-        return [], None, rows[:5000]
-    raise st.StudioError(400, "the column-mapping fallback reads .xlsx and .csv files only")
+    return read_table(data, filename, sheet, max_rows=MAX_MAPPING_ROWS, max_cols=MAX_MAPPING_COLS)
 
 
 def _detect(header: list[str]) -> dict[str, int]:
@@ -745,7 +704,12 @@ async def mapping_fallback(
     if not data:
         raise st.StudioError(400, "empty file")
     sheet_req = (mapping or {}).get("sheet")
-    sheets, sheet, rows = _read_table(data, filename, sheet_req)
+    try:  # bounded parse off the event loop, in a memory-capped child process (review B1)
+        sheets, sheet, rows = await run_isolated(
+            read_table, data, filename, sheet_req, max_rows=MAX_MAPPING_ROWS, max_cols=MAX_MAPPING_COLS
+        )
+    except UnsafeFileError as exc:
+        raise st.StudioError(exc.status, exc.message) from exc
     if not rows:
         raise st.StudioError(400, "the sheet is empty")
     if mapping and mapping.get("header_row"):

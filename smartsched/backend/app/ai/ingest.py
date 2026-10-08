@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.client import AIClient
 from app.ai.elicit import propose
 from app.ai.resolve import load_term_context
+from app.core.safe_files import inspect_zip, open_workbook, run_isolated
 from app.importers.normalize import tr_casefold
 from app.schemas.ai import IngestOut, ProposedConstraint, ProposedSectionEdit, SourceRef, UsageOut
 
@@ -34,6 +35,8 @@ log = logging.getLogger(__name__)
 
 MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_UNITS = 1500
+MAX_TABLE_COLS = 100
+MAX_PDF_PAGES = 200
 MAX_UNIT_CHARS = 600
 CHUNK_CHARS = 12000
 MAX_CHUNKS = 8
@@ -159,17 +162,14 @@ def _table_units(rows: list[tuple[int, list[str]]], filename: str, sheet: str | 
 
 
 def _xlsx(data: bytes, filename: str) -> Extracted:
-    from openpyxl import load_workbook
-
     out = Extracted("xlsx")
-    try:
-        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-    except Exception as exc:  # noqa: BLE001 - surfaced as a 400
-        raise IngestError(f"cannot read workbook: {type(exc).__name__}") from exc
+    # zip pre-inspection + clamped sheet dimensions (app/core/safe_files.py, review B1)
+    wb = open_workbook(data, read_only=True, data_only=True, max_rows=MAX_UNITS + 16, max_cols=MAX_TABLE_COLS)
     try:
         for ws in wb.worksheets:
             rows: list[tuple[int, list[str]]] = []
-            for rownum, row in enumerate(ws.iter_rows(values_only=True), start=1):
+            it = ws.iter_rows(max_row=MAX_UNITS + 16, max_col=MAX_TABLE_COLS, values_only=True)
+            for rownum, row in enumerate(it, start=1):
                 rows.append((rownum, [_cell(v) for v in row]))
                 if len(rows) > MAX_UNITS + 15:
                     break
@@ -206,6 +206,7 @@ def _docx(data: bytes, filename: str) -> Extracted:
     except ImportError as exc:  # pragma: no cover - listed as a backend dependency
         raise IngestError("python-docx is not installed on the server") from exc
     out = Extracted("docx")
+    inspect_zip(data, kind="document")  # a .docx is a zip too: refuse bombs before python-docx expands it
     try:
         doc = docx.Document(io.BytesIO(data))
     except Exception as exc:  # noqa: BLE001
@@ -231,9 +232,17 @@ def _pdf(data: bytes, filename: str) -> Extracted:
     out = Extracted("pdf")
     try:
         reader = PdfReader(io.BytesIO(data))
-        pages = [(i, page.extract_text() or "") for i, page in enumerate(reader.pages, start=1)]
+        n_pages = len(reader.pages)
+        pages = []
+        for i in range(min(n_pages, MAX_PDF_PAGES)):  # never read 20 000 pages for a 1 500-unit cap
+            pages.append((i + 1, reader.pages[i].extract_text() or ""))
+            if sum(len(t) for _, t in pages) > MAX_UNITS * MAX_UNIT_CHARS:
+                break
     except Exception as exc:  # noqa: BLE001
         raise IngestError(f"cannot read PDF: {type(exc).__name__}") from exc
+    if n_pages > len(pages):
+        out.warnings.append(f"only the first {len(pages)} of {n_pages} pages were read")
+        out.truncated = True
     for page_no, text in pages:
         for line in text.splitlines():
             line = _cell(line)
@@ -317,7 +326,8 @@ async def extract_preferences(
     client: AIClient,
 ) -> IngestOut:
     """Uploaded file -> reviewed-later proposals with source references (nothing is applied)."""
-    ex = extract_units(file_bytes, filename)
+    # the local read runs off the event loop in a memory-capped child process (review B1)
+    ex = await run_isolated(extract_units, file_bytes, filename)
     name = PurePath(filename or "upload").name
     if not ex.units:
         return IngestOut(

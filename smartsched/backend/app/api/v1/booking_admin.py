@@ -69,7 +69,9 @@ async def _session_out(db: DB, t: Term) -> SessionOut:
     info = await term_info(db, t)
     mapped = (
         await db.execute(
-            select(func.count()).select_from(TermDate).where(TermDate.term_id == t.id, TermDate.timetable_week_id.is_not(None))
+            select(func.count())
+            .select_from(TermDate)
+            .where(TermDate.term_id == t.id, TermDate.timetable_week_id.is_not(None))
         )
     ).scalar_one()
     hols = (await db.execute(select(func.count(Holiday.id)).where(Holiday.term_id == t.id))).scalar_one()
@@ -101,7 +103,10 @@ async def update_session(term_id: int, body: SessionSettingsIn, db: DB, _: Sessi
         row = TermBookingSettings(term_id=t.id, is_selectable=bool(t.is_active))
         db.add(row)
     data = body.model_dump(exclude_unset=True)
-    if data.get("default_schedule_id") is not None and await db.get(BookingSchedule, data["default_schedule_id"]) is None:
+    if (
+        data.get("default_schedule_id") is not None
+        and await db.get(BookingSchedule, data["default_schedule_id"]) is None
+    ):
         raise HTTPException(422, f"schedule {data['default_schedule_id']} not found")
     if data.get("is_selectable") is not None:
         row.is_selectable = data["is_selectable"]
@@ -109,7 +114,10 @@ async def update_session(term_id: int, body: SessionSettingsIn, db: DB, _: Sessi
         new_default = data["default_schedule_id"]
         # CRBS init_new_session: groups without a schedule get the default
         if new_default is not None:
-            have = {ts.room_group_id for ts in (await db.execute(select(TermSchedule).where(TermSchedule.term_id == t.id))).scalars()}
+            have = {
+                ts.room_group_id
+                for ts in (await db.execute(select(TermSchedule).where(TermSchedule.term_id == t.id))).scalars()
+            }
             for g in (await db.execute(select(RoomGroup))).scalars():
                 if g.id not in have:
                     db.add(TermSchedule(term_id=t.id, room_group_id=g.id, schedule_id=new_default))
@@ -121,7 +129,10 @@ async def update_session(term_id: int, body: SessionSettingsIn, db: DB, _: Sessi
 @router.get("/sessions/{term_id}/schedules")
 async def get_term_schedules(term_id: int, db: DB, _: SessionsAdmin) -> list[dict[str, Any]]:
     await _term(db, term_id)
-    rows = {ts.room_group_id: ts for ts in (await db.execute(select(TermSchedule).where(TermSchedule.term_id == term_id))).scalars()}
+    rows = {
+        ts.room_group_id: ts
+        for ts in (await db.execute(select(TermSchedule).where(TermSchedule.term_id == term_id))).scalars()
+    }
     out = []
     for g in (await db.execute(select(RoomGroup).order_by(RoomGroup.pos))).scalars():
         ts = rows.get(g.id)
@@ -130,7 +141,9 @@ async def get_term_schedules(term_id: int, db: DB, _: SessionsAdmin) -> list[dic
 
 
 @router.put("/sessions/{term_id}/schedules")
-async def put_term_schedules(term_id: int, body: list[TermScheduleIn], db: DB, _: SessionsAdmin) -> list[dict[str, Any]]:
+async def put_term_schedules(
+    term_id: int, body: list[TermScheduleIn], db: DB, _: SessionsAdmin
+) -> list[dict[str, Any]]:
     await _term(db, term_id)
     for item in body:
         if await db.get(RoomGroup, item.room_group_id) is None:
@@ -244,7 +257,9 @@ async def _schedule(db: DB, sid: int) -> BookingSchedule:
 
 @router.get("/schedules", response_model=list[ScheduleOut])
 async def list_schedules(db: DB, _: SchedulesAdmin) -> list[ScheduleOut]:
-    return [_schedule_out(s) for s in (await db.execute(select(BookingSchedule).order_by(BookingSchedule.name))).scalars()]
+    return [
+        _schedule_out(s) for s in (await db.execute(select(BookingSchedule).order_by(BookingSchedule.name))).scalars()
+    ]
 
 
 @router.post("/schedules", response_model=ScheduleOut, status_code=201)
@@ -280,7 +295,9 @@ async def delete_schedule(sid: int, db: DB, _: SchedulesAdmin) -> None:
     pids = [p.id for p in s.periods]
     if pids:
         used = (
-            await db.execute(select(func.count(Booking.id)).where(Booking.period_id.in_(pids), Booking.status == "BOOKED"))
+            await db.execute(
+                select(func.count(Booking.id)).where(Booking.period_id.in_(pids), Booking.status == "BOOKED")
+            )
         ).scalar_one()
         if used:
             raise HTTPException(409, f"{used} active booking(s) use periods of {s.name}")
@@ -302,8 +319,14 @@ async def create_period(sid: int, body: PeriodIn, db: DB, _: SchedulesAdmin) -> 
     await _schedule(db, sid)
     ts, te, sp, ep = _times(body.time_start, body.time_end)
     p = BookingPeriod(
-        schedule_id=sid, name=body.name, time_start=ts, time_end=te, bookable=body.bookable, days=body.days,
-        start_period=sp, end_period=ep,
+        schedule_id=sid,
+        name=body.name,
+        time_start=ts,
+        time_end=te,
+        bookable=body.bookable,
+        days=body.days,
+        start_period=sp,
+        end_period=ep,
     )
     db.add(p)
     await db.commit()
@@ -326,8 +349,14 @@ async def periods_from_grid(sid: int, db: DB, _: SchedulesAdmin, days: str = "1,
     for p in n.PERIODS:
         db.add(
             BookingPeriod(
-                schedule_id=s.id, name=f"P{p.index}", time_start=p.start, time_end=p.end, bookable=True,
-                days=day_list, start_period=p.index, end_period=p.index,
+                schedule_id=s.id,
+                name=f"P{p.index}",
+                time_start=p.start,
+                time_end=p.end,
+                bookable=True,
+                days=day_list,
+                start_period=p.index,
+                end_period=p.index,
             )
         )
     await db.commit()
@@ -347,10 +376,14 @@ async def update_period(pid: int, body: PeriodUpdate, db: DB, _: SchedulesAdmin)
     p = await _period(db, pid)
     data = body.model_dump(exclude_unset=True)
     if "time_start" in data or "time_end" in data:
-        ts, te, sp, ep = _times(data.get("time_start") or f"{p.time_start:%H:%M}", data.get("time_end") or f"{p.time_end:%H:%M}")
+        ts, te, sp, ep = _times(
+            data.get("time_start") or f"{p.time_start:%H:%M}", data.get("time_end") or f"{p.time_end:%H:%M}"
+        )
         if (sp, ep) != (p.start_period, p.end_period):
             used = (
-                await db.execute(select(func.count(Booking.id)).where(Booking.period_id == p.id, Booking.status == "BOOKED"))
+                await db.execute(
+                    select(func.count(Booking.id)).where(Booking.period_id == p.id, Booking.status == "BOOKED")
+                )
             ).scalar_one()
             if used:
                 raise HTTPException(409, f"{used} active booking(s) use {p.name}; its grid span cannot change")
@@ -441,11 +474,7 @@ async def access_check(user_id: int, room_id: int, db: DB, _: CheckerUser) -> di
         raise HTTPException(404, "user or room not found")
     acc = await load_access(db, user)
     from_acl = acc.room_acl(room)
-    names = sorted(
-        p.name
-        for p in (await db.execute(select(Permission))).scalars()
-        if p.group in BOOKING_SCOPE_GROUPS
-    )
+    names = sorted(p.name for p in (await db.execute(select(Permission))).scalars() if p.group in BOOKING_SCOPE_GROUPS)
     effective: dict[str, dict[str, bool]] = {}
     for name in names:
         g, action = name.split(".", 1)
@@ -501,4 +530,3 @@ async def outbox_retry(oid: int, db: DB, _: SettingsAdmin) -> dict[str, Any]:
     await deliver(db, r)
     await db.commit()
     return _outbox_out(r)
-

@@ -1,6 +1,6 @@
 "use client"
 // Source: shadcn/ui switch (style base-nova, https://ui.shadcn.com) — Licence: MIT
-// Modified: yes — Liquid Glass v2: iOS-proportioned capsule, white lit thumb on the spring curve, tint when on. API unchanged.
+// Modified: yes — Liquid Glass v2: iOS-proportioned capsule, white lit thumb on springs.snappy (CSS mirror), tint when on. API unchanged.
 
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch"
 import { cn } from "cn"
@@ -24,7 +24,7 @@ function Switch({
     >
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"
-        className="pointer-events-none block rounded-full bg-white shadow-[0_0_0_0.5px_rgba(0,0,0,0.06),0_2px_5px_rgba(0,0,0,0.18),inset_0_-1px_0_rgba(0,0,0,0.04)] transition-transform duration-(--dur-max) ease-(--ease-spring) group-data-[size=default]/switch:size-[18px] group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-4 group-data-[size=sm]/switch:data-checked:translate-x-3 data-unchecked:translate-x-0"
+        className="pointer-events-none block rounded-full bg-white shadow-[0_0_0_0.5px_rgba(0,0,0,0.06),0_2px_5px_rgba(0,0,0,0.18),inset_0_-1px_0_rgba(0,0,0,0.04)] transition-transform duration-(--spring-snappy-ms) ease-(--spring-snappy) group-data-[size=default]/switch:size-[18px] group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-4 group-data-[size=sm]/switch:data-checked:translate-x-3 data-unchecked:translate-x-0"
       />
     </SwitchPrimitive.Root>
   )

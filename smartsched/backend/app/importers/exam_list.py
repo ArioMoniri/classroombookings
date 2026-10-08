@@ -12,6 +12,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.safe_files import run_isolated
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
 from app.importers.report import ImportReport
@@ -174,7 +175,7 @@ async def import_exam_list(
     term_kind: str = "FINAL",
 ) -> ImportReport:
     report = ImportReport(kind="exam-list", filename=filename or Path(path).name, term_code=term_code)
-    parsed = parse_exam_list(path)
+    parsed = await run_isolated(parse_exam_list, path)  # off the event loop, memory-capped child
     report.rows_total = parsed.rows_total
     for row, reason, detail in parsed.skipped:
         report.skip(row, reason, detail)

@@ -8,10 +8,10 @@ from datetime import time
 from pathlib import Path
 from typing import Any
 
-import openpyxl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.safe_files import open_workbook, run_isolated
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
 from app.importers.report import ImportReport
@@ -126,7 +126,7 @@ def parse_capacity_buckets(path: str | Path, skip_sheet: int = 0) -> list[Capaci
     ``KAPASİTE`` cell starts a bucket (two columns, rooms listed downwards).  A bucket that contains a
     computer-lab nickname (``B BİLGİ LAB``) is the computer-lab bucket: all its rooms are PC labs (Bahar:
     A 103 / A 104 / A 105 / B 207, matching the summary count "Bilgisayar 4")."""
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    wb = open_workbook(path, read_only=True, data_only=True, max_rows=200, max_cols=60)
     out: list[CapacityEntry] = []
     try:
         for idx, ws in enumerate(wb.worksheets):
@@ -268,7 +268,7 @@ async def import_planning_list(
     week_count: int = 14,
 ) -> ImportReport:
     report = ImportReport(kind="planning-list", filename=filename or Path(path).name, term_code=term_code)
-    parsed = parse_planning_list(path, max_week=week_count)
+    parsed = await run_isolated(parse_planning_list, path, max_week=week_count)  # off the loop, rlimit
     report.rows_total = parsed.rows_total
     for row, reason, detail in parsed.skipped:
         report.skip(row, reason, detail)

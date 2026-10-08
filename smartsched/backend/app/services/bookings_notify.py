@@ -134,14 +134,24 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
                 else f"{_who(actor)} made {len(lines)} booking(s) for you:\n{what}\n"
             )
             await notify(
-                session, kind="booking_created", to_email=target.email, subject=subject, body=body,
-                user_id=target.id, booking_id=first.id,
+                session,
+                kind="booking_created",
+                to_email=target.email,
+                subject=subject,
+                body=body,
+                user_id=target.id,
+                booking_id=first.id,
             )
     room = await session.get(Room, first.room_id)
-    if room is not None and room.owner_user_id and room.owner_user_id not in {
-        actor.id if actor else None,
-        first.user_id,
-    }:
+    if (
+        room is not None
+        and room.owner_user_id
+        and room.owner_user_id
+        not in {
+            actor.id if actor else None,
+            first.user_id,
+        }
+    ):
         owner = await session.get(User, room.owner_user_id)
         if owner is not None:
             subject = f"{room.display_name} için yeni rezervasyon" if tr else f"New booking in {room.display_name}"
@@ -151,8 +161,13 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
                 else f"{_who(actor)} booked a room you own{' (series #' + str(series) + ')' if series else ''}:\n{what}\n"
             )
             await notify(
-                session, kind="room_owner_booking", to_email=owner.email, subject=subject, body=body,
-                user_id=owner.id, booking_id=first.id,
+                session,
+                kind="room_owner_booking",
+                to_email=owner.email,
+                subject=subject,
+                body=body,
+                user_id=owner.id,
+                booking_id=first.id,
             )
 
 
@@ -179,8 +194,13 @@ async def _on_cancelled(session: AsyncSession, payload: dict[str, Any]) -> None:
             else f"{_who(actor)} cancelled {len(items)} of your bookings:\n{what}{why}\n"
         )
         await notify(
-            session, kind="booking_cancelled", to_email=target.email, subject=subject, body=body,
-            user_id=uid, booking_id=items[0].id,
+            session,
+            kind="booking_cancelled",
+            to_email=target.email,
+            subject=subject,
+            body=body,
+            user_id=uid,
+            booking_id=items[0].id,
         )
 
 

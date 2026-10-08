@@ -207,9 +207,18 @@
   --seq-1: #eff6ff; --seq-2: #bfdbfe; --seq-3: #60a5fa; --seq-4: #2563eb; --seq-5: #1e3a8a;
 
   --dur-instant: 0ms; --dur-fast: 120ms; --dur-base: 180ms; --dur-slow: 240ms; --dur-max: 300ms;
-  /* Spring curves rendered as CSS linear(): own parameters (zeta .7 / .9), see liquid-glass.md §7 */
-  --ease-spring: linear(0, 0.053, 0.178, 0.334, 0.495, 0.642, 0.767, 0.866, 0.939, 0.99, 1.021, 1.039, 1.045, 1.045, 1.04, 1.034, 1.026, 1.019, 1.013, 1.008, 1.004, 1.001, 1, 0.998, 1);
-  --ease-snappy: linear(0, 0.083, 0.252, 0.434, 0.595, 0.723, 0.819, 0.886, 0.932, 0.961, 0.98, 0.991, 0.997, 1, 1.001, 1.001, 1);
+  /* Springs: CSS mirrors of @/lib/motion (docs/design/v2/motion.md §1, motion_designer references/springs.md §3).
+     Fallbacks here; the linear() curves are set in the @supports block below. --ease-spring / --ease-snappy
+     are v2.0 names kept as aliases. */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --spring-snappy: var(--ease-out);        --spring-snappy-ms: 280ms;
+  --spring-smooth: var(--ease-out);        --spring-smooth-ms: 280ms;
+  --spring-bouncy-subtle: var(--ease-out); --spring-bouncy-subtle-ms: 290ms;
+  --spring-sheet: var(--ease-out);         --spring-sheet-ms: 270ms;
+  --spring-glass-morph: var(--ease-out);   --spring-glass-morph-ms: 280ms;
+  --spring-ticker: var(--ease-out);        --spring-ticker-ms: 270ms;
+  --ease-spring: var(--spring-glass-morph);
+  --ease-snappy: var(--spring-snappy);
 
   --period-row-h: 40px;
   --room-col-w: 128px;
@@ -339,6 +348,17 @@
     linear-gradient(180deg, var(--scene-hi), var(--scene) 55%);
 }
 
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --spring-snappy: linear(0, 0.094, 0.267, 0.444, 0.592, 0.707, 0.794, 0.856, 0.9, 0.932, 0.953, 0.968, 0.978, 0.985, 1);
+    --spring-smooth: linear(0, 0.062, 0.193, 0.345, 0.488, 0.614, 0.715, 0.795, 0.857, 0.901, 0.934, 0.957, 0.973, 0.983, 1);
+    --spring-bouncy-subtle: linear(0, 0.088, 0.272, 0.472, 0.652, 0.793, 0.894, 0.959, 0.998, 1.017, 1.023, 1.023, 1.019, 1.015, 1);
+    --spring-sheet: linear(0, 0.047, 0.153, 0.283, 0.416, 0.54, 0.648, 0.738, 0.81, 0.867, 0.909, 0.941, 0.964, 0.979, 1);
+    --spring-glass-morph: linear(0, 0.077, 0.238, 0.421, 0.587, 0.725, 0.829, 0.903, 0.953, 0.983, 1.001, 1.009, 1.012, 1.012, 1);
+    --spring-ticker: linear(0, 0.063, 0.196, 0.35, 0.493, 0.618, 0.72, 0.799, 0.859, 0.904, 0.935, 0.958, 0.973, 0.983, 1);
+  }
+}
+
 /* corner-shape: squircle where supported (Chromium 139+): the true continuous curve, so the
    radii no longer need widening. */
 @supports (corner-shape: squircle) {
@@ -357,6 +377,24 @@
     --mat-thick: var(--mat-thick-solid);
     --mat-chrome: var(--mat-chrome-solid);
   }
+}
+/* Reduced transparency: the OS query is Chromium-only, so the in-app Appearance preference
+   (<html data-transparency="reduced">, see components/ui/appearance-preferences.tsx) applies the same values. */
+:root[data-transparency="reduced"],
+:root.dark[data-transparency="reduced"] {
+  --mat-ultra-thin: var(--mat-ultra-thin-solid);
+  --mat-thin: var(--mat-thin-solid);
+  --mat-regular: var(--mat-regular-solid);
+  --mat-thick: var(--mat-thick-solid);
+  --mat-chrome: var(--mat-chrome-solid);
+  --mat-ultra-thin-filter: none;
+  --mat-thin-filter: none;
+  --mat-regular-filter: none;
+  --mat-thick-filter: none;
+  --mat-chrome-filter: none;
+  --grain: none;
+  --sheen: none;
+  --scene-mesh: linear-gradient(var(--scene), var(--scene));
 }
 @media (prefers-reduced-transparency: reduce) {
   :root,
@@ -541,12 +579,37 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root { --spring-snappy-ms: 0ms; --spring-smooth-ms: 0ms; --spring-bouncy-subtle-ms: 0ms;
+          --spring-sheet-ms: 0ms; --spring-glass-morph-ms: 0ms; --spring-ticker-ms: 0ms; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+/* In-app "Reduce motion" (Settings → Appearance) mirrors the OS preference for CSS. */
+:root[data-motion="reduced"] {
+  --spring-snappy-ms: 0ms; --spring-smooth-ms: 0ms; --spring-bouncy-subtle-ms: 0ms;
+  --spring-sheet-ms: 0ms; --spring-glass-morph-ms: 0ms; --spring-ticker-ms: 0ms;
+}
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Sonner's built-in toast motion is 400 ms; retime to the smooth spring (motion.md §3.1, pattern §5). */
+[data-sonner-toast] {
+  transition-duration: var(--spring-smooth-ms) !important;
+  transition-timing-function: var(--spring-smooth) !important;
+}
+[data-sonner-toast][data-removed="true"] {
+  transition-duration: var(--dur-fast) !important;
+  transition-timing-function: var(--ease-in) !important;
 }
 
 /* Generator Studio: pre-check "Checking…" pill pulses (opacity only, never layout) */

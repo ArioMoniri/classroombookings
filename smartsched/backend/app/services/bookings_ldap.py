@@ -29,7 +29,12 @@ from app.services.bookings_perms import set_user_role
 from app.services.bookings_settings import get_group
 
 _PLACEHOLDER_RX = re.compile(r":([A-Za-z0-9+]+)")
-MAPPING = {"firstname": "attr_firstname", "lastname": "attr_lastname", "displayname": "attr_displayname", "email": "attr_email"}
+MAPPING = {
+    "firstname": "attr_firstname",
+    "lastname": "attr_lastname",
+    "displayname": "attr_displayname",
+    "email": "attr_email",
+}
 
 
 @dataclass
@@ -75,8 +80,12 @@ def _server(cfg: dict[str, Any]) -> ldap3.Server:
 
         tls = ldap3.Tls(validate=ssl.CERT_NONE if cfg.get("ignore_cert") else ssl.CERT_REQUIRED)
     return ldap3.Server(
-        str(cfg["server"]), port=int(cfg.get("port") or 389), use_ssl=bool(cfg.get("use_tls")), tls=tls,
-        get_info=ldap3.NONE, connect_timeout=10,
+        str(cfg["server"]),
+        port=int(cfg.get("port") or 389),
+        use_ssl=bool(cfg.get("use_tls")),
+        tls=tls,
+        get_info=ldap3.NONE,
+        connect_timeout=10,
     )
 
 
@@ -93,7 +102,11 @@ def verify(cfg: dict[str, Any], username: str, password: str) -> LdapResult:
         )
         if not conn.bind():
             return LdapResult(False, errors=["bind_error", str(conn.result.get("description", ""))])
-    except (ldap_exc.LDAPSocketOpenError, ldap_exc.LDAPSocketReceiveError, ldap_exc.LDAPSessionTerminatedByServerError) as exc:
+    except (
+        ldap_exc.LDAPSocketOpenError,
+        ldap_exc.LDAPSocketReceiveError,
+        ldap_exc.LDAPSessionTerminatedByServerError,
+    ) as exc:
         return LdapResult(False, errors=["no_socket_connection", str(exc)], connection_error=True)
     except ldap_exc.LDAPException as exc:
         return LdapResult(False, errors=["bind_error", str(exc)])

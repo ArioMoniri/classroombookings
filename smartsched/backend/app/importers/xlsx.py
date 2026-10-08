@@ -7,8 +7,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-import openpyxl
-
+from app.core.safe_files import open_workbook
 from app.importers.normalize import clean_text, tr_casefold
 
 warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
@@ -22,7 +21,7 @@ def iter_sheet_rows(
     The workbook is opened read-only (the planning lists report 16 k columns because of formatting);
     only the first ``max_col`` columns are read and trailing all-empty rows are skipped.
     """
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    wb = open_workbook(path, read_only=True, data_only=True, max_cols=max_col)
     ws = wb[sheet] if isinstance(sheet, str) else wb.worksheets[sheet]
     rows = ws.iter_rows(min_row=1, max_col=max_col, values_only=True)
     header_raw = next(rows)

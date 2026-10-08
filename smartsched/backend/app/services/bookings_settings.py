@@ -108,9 +108,7 @@ def _encode(spec: Spec, value: Any) -> str | None:
 
 async def get_group(session: AsyncSession, group: str, *, reveal: bool = False) -> dict[str, Any]:
     specs = GROUPS[group]
-    rows = {
-        r.key: r for r in (await session.execute(select(Setting).where(Setting.key.like(f"{group}.%")))).scalars()
-    }
+    rows = {r.key: r for r in (await session.execute(select(Setting).where(Setting.key.like(f"{group}.%")))).scalars()}
     out: dict[str, Any] = {}
     for key, spec in specs.items():
         row = rows.get(f"{group}.{key}")

@@ -5,9 +5,10 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
 /* Controls are capsules; containers use continuous radii. Press = 0.97 scale on the snappy
-   spring curve (CSS linear(), ≤ 120 ms), removed under reduced motion by the global rule. */
+   spring curve (CSS linear() mirror of springs.snappy), removed under reduced motion by the global rule.
+   Only transform/opacity/colour transition — never box-shadow (motion.md §8). */
 const buttonVariants = cva(
-  "group/button relative inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-[13px] font-medium tracking-[-0.003em] whitespace-nowrap outline-none select-none transition-[background-color,color,box-shadow,transform,opacity] duration-(--dur-fast) ease-(--ease-snappy) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:not-aria-[haspopup]:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 aria-invalid:outline-2 aria-invalid:outline-(--status-infeasible-border) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg]:stroke-[1.75]",
+  "group/button relative inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-[13px] font-medium tracking-[-0.003em] whitespace-nowrap outline-none select-none transition-[background-color,color,transform,opacity] duration-(--dur-fast) ease-(--spring-snappy) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:not-aria-[haspopup]:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 aria-invalid:outline-2 aria-invalid:outline-(--status-infeasible-border) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg]:stroke-[1.75]",
   {
     variants: {
       variant: {

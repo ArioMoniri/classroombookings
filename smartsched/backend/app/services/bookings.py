@@ -129,9 +129,7 @@ class Held:
 Occ = dict[tuple[int, date], list[Held]]
 
 
-async def timetable_occupancy(
-    session: AsyncSession, room_ids: set[int] | None, d_from: date, d_to: date
-) -> Occ:
+async def timetable_occupancy(session: AsyncSession, room_ids: set[int] | None, d_from: date, d_to: date) -> Occ:
     """Active-run assignments and blocks holding rooms between ``d_from`` and ``d_to``."""
     out: Occ = defaultdict(list)
     infos: list[TermInfo] = []
@@ -485,7 +483,10 @@ async def _open_date(session: AsyncSession, info: TermInfo, d: date) -> DateInfo
 
 
 def _slot_rows(b: Booking) -> list[BookingSlot]:
-    return [BookingSlot(booking_id=b.id, period=p, room_id=b.room_id, date=b.date) for p in range(b.start_period, b.end_period + 1)]
+    return [
+        BookingSlot(booking_id=b.id, period=p, room_id=b.room_id, date=b.date)
+        for p in range(b.start_period, b.end_period + 1)
+    ]
 
 
 async def _insert(session: AsyncSession, b: Booking) -> Booking:
@@ -548,7 +549,9 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
         created_by=access.user_id,
     )
     await _insert(session, b)
-    await events.emit(session, "booking.created", {"booking_id": b.id, "booking_ids": [b.id], "actor_id": access.user_id})
+    await events.emit(
+        session, "booking.created", {"booking_id": b.id, "booking_ids": [b.id], "actor_id": access.user_id}
+    )
     if commit:
         await session.commit()
     return b
@@ -836,7 +839,9 @@ async def cancel_many(
         else:
             done += await _cancel_rows(session, access, [b], reason)
     if done:
-        await events.emit(session, "booking.cancelled", {"booking_ids": done, "actor_id": access.user_id, "reason": reason})
+        await events.emit(
+            session, "booking.cancelled", {"booking_ids": done, "actor_id": access.user_id, "reason": reason}
+        )
     await session.commit()
     return {"cancelled": done, "skipped": skipped}
 
@@ -871,7 +876,10 @@ async def update(
     }
     for key in data:
         if not feats[need[key]]:
-            raise _forbid(f"edit_{key}", f"you may not change {key} of this booking" + (f" with scope {scope}" if scope != "one" else ""))
+            raise _forbid(
+                f"edit_{key}",
+                f"you may not change {key} of this booking" + (f" with scope {scope}" if scope != "one" else ""),
+            )
     if "user_id" in data and data["user_id"] is not None:
         target = await session.get(User, data["user_id"])
         if target is None or not target.is_active:
@@ -899,7 +907,9 @@ async def update(
             period = await period_for(session, info, new_room, data.get("period_id", b.period_id), new_date)
         except CalendarError as exc:
             raise _conflict("calendar", str(exc)) from exc
-        held = await find_conflict(session, new_room.id, new_date, period.start_period, period.end_period, exclude={b.id})
+        held = await find_conflict(
+            session, new_room.id, new_date, period.start_period, period.end_period, exclude={b.id}
+        )
         if held is not None:
             raise await _conflict_error(held, new_room, new_date)
         await session.execute(delete(BookingSlot).where(BookingSlot.booking_id == b.id))
@@ -955,7 +965,9 @@ async def create_selection(session: AsyncSession, access: Access, slots: list[di
         raise BookingError(422, "no_slots", "select at least one slot")
     first = slots[0]
     try:
-        info = await resolve_term(session, first["date"], first.get("term_id"), view_all=access.can("system.view_all_sessions"))
+        info = await resolve_term(
+            session, first["date"], first.get("term_id"), view_all=access.can("system.view_all_sessions")
+        )
     except CalendarError as exc:
         raise _conflict("calendar", str(exc)) from exc
     anchor = (await date_infos(session, info, [first["date"]]))[first["date"]]
@@ -1056,11 +1068,15 @@ async def create_from_selection(
                 problems.append({"mbs_id": s.id, "code": "not_found", "message": "room or period gone"})
                 continue
             if not access.can("book_single.create", room):
-                problems.append({"mbs_id": s.id, "code": "book_single.create", "message": f"not allowed in {room.display_name}"})
+                problems.append(
+                    {"mbs_id": s.id, "code": "book_single.create", "message": f"not allowed in {room.display_name}"}
+                )
                 continue
             held = await find_conflict(session, room.id, s.date, period.start_period, period.end_period)
             if held is not None:
-                problems.append({"mbs_id": s.id, "code": "conflict", "message": "slot is taken", "conflict": held.as_dict()})
+                problems.append(
+                    {"mbs_id": s.id, "code": "conflict", "message": "slot is taken", "conflict": held.as_dict()}
+                )
         if problems or dry_run:
             if problems and not dry_run:
                 raise _conflict("slots_unavailable", f"{len(problems)} slot(s) cannot be booked", problems=problems)
@@ -1167,7 +1183,9 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
         if owned
         else []
     )
-    total_all = (await session.execute(select(func.count(Booking.id)).where(Booking.user_id == access.user_id))).scalar_one()
+    total_all = (
+        await session.execute(select(func.count(Booking.id)).where(Booking.user_id == access.user_id))
+    ).scalar_one()
     current = [ti for ti in await terms_for_date(session, t) if ti.term.is_active]
     total_session = 0
     if current:
@@ -1303,7 +1321,13 @@ async def grid(
     prev_d, next_d = dates[0] - timedelta(days=step), dates[-1] + timedelta(days=1)
     return {
         "display": display,
-        "term": {"id": info.term.id, "code": info.term.code, "name": info.term.name, "start": info.start.isoformat(), "end": info.end.isoformat()},
+        "term": {
+            "id": info.term.id,
+            "code": info.term.code,
+            "name": info.term.name,
+            "start": info.start.isoformat(),
+            "end": info.end.isoformat(),
+        },
         "date": target.isoformat(),
         "room_group_id": room_group_id,
         "schedule": {"id": schedule.id, "name": schedule.name} if schedule else None,
@@ -1331,7 +1355,16 @@ async def grid(
             }
             for p in periods
         ],
-        "rooms": [{"id": r.id, "name": r.display_name, "code": r.code, "room_group_id": r.room_group_id, "capacity": r.capacity} for r in rooms],
+        "rooms": [
+            {
+                "id": r.id,
+                "name": r.display_name,
+                "code": r.code,
+                "room_group_id": r.room_group_id,
+                "capacity": r.capacity,
+            }
+            for r in rooms
+        ],
         "slots": slots,
         "nav": {
             "prev": prev_d.isoformat() if prev_d >= info.start else None,
@@ -1351,10 +1384,14 @@ async def conflicts_with_timetable(session: AsyncSession, term_id: int | None) -
     rows = list((await session.execute(q)).scalars())
     if not rows:
         return []
-    occ = await timetable_occupancy(session, {b.room_id for b in rows}, min(b.date for b in rows), max(b.date for b in rows))
+    occ = await timetable_occupancy(
+        session, {b.room_id for b in rows}, min(b.date for b in rows), max(b.date for b in rows)
+    )
     out = []
     for b in rows:
         for held in occ.get((b.room_id, b.date), []):
             if held.overlaps(b.start_period, b.end_period):
-                out.append({"booking_id": b.id, "room_id": b.room_id, "date": b.date.isoformat(), "held": held.as_dict()})
+                out.append(
+                    {"booking_id": b.id, "room_id": b.room_id, "date": b.date.isoformat(), "held": held.as_dict()}
+                )
     return out

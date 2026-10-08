@@ -1,7 +1,8 @@
 "use client"
 // SmartSched Liquid Glass v2 — Chip. Original work. Filter / token capsule.
 // References: Apple Mail & Photos iOS 26 filter capsules, Linear filter chips, Kinetics "Choice Chips"
-// (feel reference only, no code). Selected = tint-soft fill + check that grows in (≤ 180 ms).
+// (feel reference only, no code). Selected = tint-soft fill + a check that pops in (transform/opacity only,
+// springs.bouncySubtle CSS mirror, motion.md §3.2). No width animation: the check slot appears instantly.
 import * as React from "react"
 import { CheckIcon, XIcon } from "lucide-react"
 import { cn } from "cn"
@@ -30,7 +31,7 @@ function Chip({ className, selected, onSelectedChange, icon, removeLabel, onRemo
           if (!event.defaultPrevented && toggle) onSelectedChange?.(!selected)
         }}
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full font-medium whitespace-nowrap outline-none select-none transition-[background-color,color,box-shadow,transform] duration-(--dur-fast) ease-(--ease-snappy) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-3.5 [&_svg]:shrink-0",
+          "inline-flex items-center gap-1.5 rounded-full font-medium whitespace-nowrap outline-none select-none transition-[background-color,color,transform] duration-(--dur-fast) ease-(--spring-snappy) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-3.5 [&_svg]:shrink-0",
           height,
           selected
             ? "bg-tint-soft text-tint-text shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_30%,transparent)]"
@@ -41,15 +42,14 @@ function Chip({ className, selected, onSelectedChange, icon, removeLabel, onRemo
         {...props}
       >
         {toggle ? (
-          <span
-            aria-hidden
-            className={cn(
-              "-ml-0.5 grid overflow-hidden transition-[width,opacity] duration-(--dur-base) ease-(--ease-snappy)",
-              selected ? "w-3.5 opacity-100" : "w-0 opacity-0"
-            )}
-          >
-            <CheckIcon className="stroke-[2.5]" />
-          </span>
+          selected ? (
+            <span
+              aria-hidden
+              className="-ml-0.5 flex animate-in zoom-in-50 fade-in duration-(--spring-bouncy-subtle-ms) ease-(--spring-bouncy-subtle)"
+            >
+              <CheckIcon className="stroke-[2.5]" />
+            </span>
+          ) : null
         ) : null}
         {icon}
         {children}

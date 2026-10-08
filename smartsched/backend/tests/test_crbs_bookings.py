@@ -161,7 +161,9 @@ async def test_cancel_one_future_all_and_owner_rules(env):  # noqa: F811
     ids = {b["date"]: b["id"] for b in out["created"]}
     assert list(ids) == ["2026-02-19", "2026-02-26", "2026-03-05", "2026-03-12", "2026-03-19", "2026-03-26"]
     c = env.client
-    r = await c.post(f"/api/v1/bookings/{ids['2026-02-26']}/cancel", json={"scope": "one", "reason": "Sınav"}, headers=env.planner)
+    r = await c.post(
+        f"/api/v1/bookings/{ids['2026-02-26']}/cancel", json={"scope": "one", "reason": "Sınav"}, headers=env.planner
+    )
     assert r.json()["cancelled"] == [ids["2026-02-26"]]
     r = await c.post(f"/api/v1/bookings/{ids['2026-03-12']}/cancel", json={"scope": "future"}, headers=env.planner)
     assert sorted(r.json()["cancelled"]) == sorted([ids["2026-03-12"], ids["2026-03-19"], ids["2026-03-26"]])
@@ -187,7 +189,9 @@ async def test_cancel_one_future_all_and_owner_rules(env):  # noqa: F811
     # cancel many: only those the user may cancel
     b1 = (await env.book(teacher, "A101", date(2026, 2, 18), "P11")).json()
     b2 = (await env.book(other, "A101", date(2026, 2, 18), "P12")).json()
-    res = (await c.post("/api/v1/bookings/cancel-multi", json={"booking_ids": [b1["id"], b2["id"]]}, headers=teacher)).json()
+    res = (
+        await c.post("/api/v1/bookings/cancel-multi", json={"booking_ids": [b1["id"], b2["id"]]}, headers=teacher)
+    ).json()
     assert res["cancelled"] == [b1["id"]] and res["skipped"] == [{"id": b2["id"], "reason": "not_cancelable"}]
 
 
@@ -208,9 +212,7 @@ async def test_limits_max_active_window_and_past(env):  # noqa: F811
     third = await env.book(teacher, "A101", date(2026, 2, 19), "P6")
     assert third.status_code == 409 and third.json()["detail"]["code"] == "max_active_bookings"
     grid = (
-        await env.client.get(
-            "/api/v1/bookings/grid", params={"display": "day", "date": "2026-02-20"}, headers=teacher
-        )
+        await env.client.get("/api/v1/bookings/grid", params={"display": "day", "date": "2026-02-20"}, headers=teacher)
     ).json()
     assert {s["reason"] for s in grid["slots"] if s["status"] == "unavailable"} >= {"limit"}
     # a booking made for her by the planner does not count against her own limit (CRBS created_by rule)
@@ -235,7 +237,9 @@ async def test_room_acl_by_department_and_access_checker(env):  # noqa: F811
     c = env.client
     deps = (await c.get("/api/v1/departments", params={"q": "PSİKOLOJİ"}, headers=env.admin)).json()
     psy = next(d for d in deps if d["name"].casefold().startswith("psikoloji"))
-    role = (await c.post("/api/v1/roles", json={"name": "Misafir öğretim elemanı", "permissions": []}, headers=env.admin)).json()
+    role = (
+        await c.post("/api/v1/roles", json={"name": "Misafir öğretim elemanı", "permissions": []}, headers=env.admin)
+    ).json()
     uid, guest = await env.user("misafir@uni.edu.tr", role=None, role_id=role["id"], department_id=psy["id"])
     assert (await c.get("/api/v1/bookings/rooms", headers=guest)).json() == []
     acl = await c.post(
@@ -257,12 +261,22 @@ async def test_room_acl_by_department_and_access_checker(env):  # noqa: F811
     assert (await env.book(guest, "A101", MON, "P1")).status_code == 404  # A 101 is invisible to her
     bad = await c.post(
         "/api/v1/room-admin/acl",
-        json={"entity_type": "room", "entity_id": env.rooms["A102"], "context_type": "user", "context_id": uid, "permissions": ["setup.users"]},
+        json={
+            "entity_type": "room",
+            "entity_id": env.rooms["A102"],
+            "context_type": "user",
+            "context_id": uid,
+            "permissions": ["setup.users"],
+        },
         headers=env.admin,
     )
     assert bad.status_code == 422
     check = (
-        await c.get("/api/v1/booking-admin/access-check", params={"user_id": uid, "room_id": env.rooms["A102"]}, headers=env.admin)
+        await c.get(
+            "/api/v1/booking-admin/access-check",
+            params={"user_id": uid, "room_id": env.rooms["A102"]},
+            headers=env.admin,
+        )
     ).json()
     assert check["from_role"] == [] and check["from_acl"] == ["book_single.create", "room.view"]
     assert check["effective"]["book_single"]["book_single.create"] is True
@@ -272,7 +286,13 @@ async def test_room_acl_by_department_and_access_checker(env):  # noqa: F811
     a_block = next(g for g in groups if env.rooms["A101"] in g["room_ids"])
     await c.post(
         "/api/v1/room-admin/acl",
-        json={"entity_type": "room_group", "entity_id": a_block["id"], "context_type": "user", "context_id": uid, "permissions": ["room.view"]},
+        json={
+            "entity_type": "room_group",
+            "entity_id": a_block["id"],
+            "context_type": "user",
+            "context_id": uid,
+            "permissions": ["room.view"],
+        },
         headers=env.admin,
     )
     visible = {r["code"] for r in (await c.get("/api/v1/bookings/rooms", headers=guest)).json()}
@@ -304,7 +324,13 @@ async def test_multi_booking_selection_and_atomic_create(env):  # noqa: F811
     assert dry.json() == {"dry_run": True, "problems": [], "would_create": 2}
     r = await c.post(
         f"/api/v1/bookings/multi/{mb['id']}/create",
-        json={"type": "single", "slots": [{"mbs_id": p4, "create": False}, {"mbs_id": by_period[env.periods["P1"]]["mbs_id"], "notes": "Kulüp toplantısı"}]},
+        json={
+            "type": "single",
+            "slots": [
+                {"mbs_id": p4, "create": False},
+                {"mbs_id": by_period[env.periods["P1"]]["mbs_id"], "notes": "Kulüp toplantısı"},
+            ],
+        },
         headers=teacher,
     )
     assert r.status_code == 200, r.text
@@ -312,7 +338,13 @@ async def test_multi_booking_selection_and_atomic_create(env):  # noqa: F811
     assert [b["start_period"] for b in created] == [1, 2] and created[0]["notes"] == "Kulüp toplantısı"
     assert (await c.get(f"/api/v1/bookings/multi/{mb['id']}", headers=teacher)).status_code == 404  # consumed
     # setting the department needs book_single.set_department
-    sel2 = (await c.post("/api/v1/bookings/multi", json={"slots": [{"date": MON.isoformat(), "period_id": env.periods["P3"], "room_id": env.rooms["A101"]}]}, headers=teacher)).json()
+    sel2 = (
+        await c.post(
+            "/api/v1/bookings/multi",
+            json={"slots": [{"date": MON.isoformat(), "period_id": env.periods["P3"], "room_id": env.rooms["A101"]}]},
+            headers=teacher,
+        )
+    ).json()
     r = await c.post(
         f"/api/v1/bookings/multi/{sel2['id']}/create",
         json={"type": "single", "slots": [{"mbs_id": sel2["slots"][0]["mbs_id"], "department_id": 1}]},
@@ -325,7 +357,9 @@ async def test_edit_scopes_and_field_rights(env):  # noqa: F811
     tid, teacher = await env.user("duzenle@uni.edu.tr")
     c = env.client
     b = (await env.book(teacher, "A101", MON, "P1", notes="ilk")).json()
-    r = await c.put(f"/api/v1/bookings/{b['id']}", json={"period_id": env.periods["P2"], "notes": "İkinci saat"}, headers=teacher)
+    r = await c.put(
+        f"/api/v1/bookings/{b['id']}", json={"period_id": env.periods["P2"], "notes": "İkinci saat"}, headers=teacher
+    )
     assert r.status_code == 200, r.text
     assert r.json()[0]["start_period"] == 2 and r.json()[0]["notes"] == "İkinci saat"
     into_lecture = await c.put(f"/api/v1/bookings/{b['id']}", json={"period_id": env.periods["P4"]}, headers=teacher)
@@ -349,11 +383,15 @@ async def test_edit_scopes_and_field_rights(env):  # noqa: F811
         )
     ).json()
     ids = [x["id"] for x in out["created"]]
-    r = await c.put(f"/api/v1/bookings/{ids[2]}", params={"scope": "future"}, json={"notes": "Ders kaydırıldı"}, headers=env.planner)
+    r = await c.put(
+        f"/api/v1/bookings/{ids[2]}", params={"scope": "future"}, json={"notes": "Ders kaydırıldı"}, headers=env.planner
+    )
     assert [x["notes"] for x in r.json()] == ["Ders kaydırıldı", "Ders kaydırıldı"]
     series = (await c.get(f"/api/v1/bookings/{ids[0]}/series", headers=env.planner)).json()
     assert [x["notes"] for x in series] == ["seri", "seri", "Ders kaydırıldı", "Ders kaydırıldı"]
-    moved = await c.put(f"/api/v1/bookings/{ids[0]}", params={"scope": "all"}, json={"room_id": env.rooms["A101"]}, headers=env.planner)
+    moved = await c.put(
+        f"/api/v1/bookings/{ids[0]}", params={"scope": "all"}, json={"room_id": env.rooms["A101"]}, headers=env.planner
+    )
     assert moved.status_code == 403  # a whole series cannot be moved in time or space (UpdateAgent)
     detail = (await c.get(f"/api/v1/bookings/{ids[0]}", headers=env.planner)).json()
     assert detail["edit_features"]["all"]["room"] is False and detail["edit_features"]["one"]["room"] is True
@@ -370,10 +408,18 @@ async def test_booking_for_another_user_notifies_and_shows_on_dashboard(env):  #
     dash = (await c.get("/api/v1/bookings/dashboard", headers=teacher)).json()
     assert [b["date"] for b in dash["user_bookings"]] == ["2026-02-17"]
     assert dash["totals"]["active"] == 0 and dash["totals"]["all"] == 1  # created by someone else
-    mail = next(o for o in (await c.get("/api/v1/booking-admin/outbox", headers=env.admin)).json() if o["kind"] == "booking_created")
+    mail = next(
+        o
+        for o in (await c.get("/api/v1/booking-admin/outbox", headers=env.admin)).json()
+        if o["kind"] == "booking_created"
+    )
     assert mail["to_email"] == "adina@uni.edu.tr" and mail["status"] == "UNSENT" and "A 101" in mail["body"]
     # room owner dashboard: others' bookings in the room she owns
-    await c.put(f"/api/v1/room-admin/rooms/{env.rooms['A102']}", json={"owner_user_id": tid, "location": "A Blok 1. kat"}, headers=env.admin)
+    await c.put(
+        f"/api/v1/room-admin/rooms/{env.rooms['A102']}",
+        json={"owner_user_id": tid, "location": "A Blok 1. kat"},
+        headers=env.admin,
+    )
     assert (await env.book(teacher2, "A102", THU, "P1")).status_code == 201
     dash = (await c.get("/api/v1/bookings/dashboard", headers=teacher)).json()
     assert [b["room_name"] for b in dash["room_bookings"]] == ["A 102"]
@@ -393,7 +439,11 @@ async def test_show_names_setting_and_maintenance_mode(env):  # noqa: F811
     r = await c.put("/api/v1/org/settings", json={"bookings_show_name": True}, headers=env.admin)
     assert r.status_code == 200 and r.json()["bookings_show_name"] is True
     assert (await c.get(f"/api/v1/bookings/{bk['id']}", headers=b)).json()["user_name"] == "Zeynep Şahin"
-    await c.put("/api/v1/org/settings", json={"maintenance_mode": True, "maintenance_mode_message": "Bakımdayız"}, headers=env.admin)
+    await c.put(
+        "/api/v1/org/settings",
+        json={"maintenance_mode": True, "maintenance_mode_message": "Bakımdayız"},
+        headers=env.admin,
+    )
     blocked = await c.get("/api/v1/bookings/context", headers=b)
     assert blocked.status_code == 503 and blocked.json()["detail"] == "Bakımdayız"
     assert (await c.get("/api/v1/bookings/context", headers=env.admin)).status_code == 200
@@ -412,14 +462,24 @@ async def test_closed_dates_and_wrong_periods(env):  # noqa: F811
     r = await env.book(teacher, "A101", date(2026, 2, 17), "P1")
     assert r.status_code == 409 and r.json()["detail"]["code"] == "holiday"
     # timetable weeks: once mapped, unmapped dates are closed (CRBS)
-    wk = (await c.post("/api/v1/booking-admin/weeks", json={"name": "A Haftası", "bgcol": "#71aae3"}, headers=env.admin)).json()
+    wk = (
+        await c.post("/api/v1/booking-admin/weeks", json={"name": "A Haftası", "bgcol": "#71aae3"}, headers=env.admin)
+    ).json()
     assert wk["bgcol"] == "#71AAE3" and wk["fgcol"] == "#ffffff"  # brightness 159.5 <= 160: white text
-    await c.put(f"/api/v1/booking-admin/sessions/{env.term_id}/dates", json={"dates": {"2026-02-18": wk["id"]}}, headers=env.admin)
+    await c.put(
+        f"/api/v1/booking-admin/sessions/{env.term_id}/dates",
+        json={"dates": {"2026-02-18": wk["id"]}},
+        headers=env.admin,
+    )
     r = await env.book(teacher, "A101", date(2026, 2, 19), "P1")
     assert r.status_code == 409 and r.json()["detail"]["code"] == "no_week"
     assert (await env.book(teacher, "A101", date(2026, 2, 18), "P11")).status_code == 201
     # a period not available on that weekday
     await c.put(f"/api/v1/booking-admin/periods/{env.periods['P1']}", json={"days": [1, 2, 3, 4, 5]}, headers=env.admin)
-    await c.post(f"/api/v1/booking-admin/sessions/{env.term_id}/apply-week", json={"timetable_week_id": wk["id"]}, headers=env.admin)
+    await c.post(
+        f"/api/v1/booking-admin/sessions/{env.term_id}/apply-week",
+        json={"timetable_week_id": wk["id"]},
+        headers=env.admin,
+    )
     r = await env.book(teacher, "A101", date(2026, 2, 21), "P1")
     assert r.status_code == 409 and "not available" in r.json()["detail"]["message"]

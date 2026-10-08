@@ -72,7 +72,7 @@ function PromptComposer({
       <div
         role="presentation"
         onClick={() => ref.current?.focus()}
-        className="glass-thick flex cursor-text flex-col gap-2 rounded-[20px] p-2.5 transition-[box-shadow] duration-150 focus-within:shadow-[var(--glass-edge),0_0_0_3px_color-mix(in_oklab,var(--focus)_22%,transparent)]"
+        className="glass-thick flex cursor-text flex-col gap-2 rounded-[20px] p-2.5 focus-within:shadow-[var(--glass-edge),0_0_0_3px_color-mix(in_oklab,var(--focus)_22%,transparent)]"
       >
         <textarea
           ref={ref}
@@ -109,7 +109,7 @@ function PromptComposer({
               disabled={!canSend}
               onClick={send}
               className={cn(
-                "flex size-8 items-center justify-center rounded-full outline-none transition-[background-color,color,transform] duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) enabled:active:scale-95",
+                "flex size-8 items-center justify-center rounded-full outline-none transition-[background-color,color,transform] duration-(--dur-base) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) enabled:active:scale-95",
                 canSend ? "bg-tint text-tint-foreground" : "bg-fill-1 text-label-3"
               )}
             >
