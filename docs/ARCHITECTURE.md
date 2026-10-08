@@ -119,15 +119,23 @@ class SolverInput:
     previous: tuple["Assignment", ...] = ()   # for stability objective
     time_limit_s: float = 60.0; seed: int = 0; workers: int = 8
     weights: Mapping[str, int] = field(default_factory=dict)  # soft objective weights by name
+    # real-data modes (app/solver/README.md "Real-data modes"); solver default False, bridge default True
+    trust_locked_rooms: bool = False           # D1 a too-small locked room is kept (warning, not violation)
+    fixed_conflicts_as_warnings: bool = False  # D2 fixed-vs-fixed key clash = input warning for that pair
+    best_effort: bool = False                  # D3 infeasible -> maximum placement, stats.partial/placed/unplaced
 @dataclass(frozen=True)
 class Assignment:   event_id: int; day: int; start: int; end: int; room_ids: tuple[int, ...]; weeks: frozenset[int]; date: date | None = None
 @dataclass
 class Diagnosis:    event_ids: list[int]; constraint_kinds: list[str]; message: str; suggestions: list[str]; severity: str
+                    code: str = ""   # trusted_lock_capacity | input_conflict | unplaced | no_room | locked_overlap | ...
+                    params: dict = {} # structured facts + params["options"]: one structured action per suggestion
 @dataclass
 class SolverResult:
     status: Literal["OPTIMAL","FEASIBLE","INFEASIBLE","TIMEOUT","ERROR"]
     assignments: list[Assignment]; hard_score: int (0..100); soft_score: int (0..100)
     objective_breakdown: dict[str, int]; diagnoses: list[Diagnosis]; stats: dict[str, Any]
+    # best_effort + INFEASIBLE: assignments = maximum placement; stats.partial=True, placed, unplaced,
+    # events_total, unplaced_ids; hard/soft scores are those of the placed events (100 = all hard rules hold)
 ```
 
 Constraint kinds (v1): `capacity`, `no_room_overlap`, `no_cohort_overlap`, `no_instructor_overlap`,

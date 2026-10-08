@@ -4,6 +4,7 @@ on the real Final fixture (planner's locked definitive rooms)."""
 from __future__ import annotations
 
 import datetime as dt
+from dataclasses import replace
 
 import pytest
 from app.core.db import get_session_factory
@@ -64,12 +65,16 @@ async def test_locked_exams_share_one_room_within_seats(engine, sizes, feasible)
         inp, _members = await build_solver_input(s, run)
     assert len(inp.events) == len(sizes)
     assert all(e.share_room and e.max_rooms == 1 and shares_room(e) for e in inp.events)
-    res = solve(inp)
+    res = solve(replace(inp, trust_locked_rooms=False, best_effort=False))
     if feasible:  # 45 seats <= 60 exam seats: no "locked assignments overlap" any more
         assert res.status in {"OPTIMAL", "FEASIBLE"}, [d.message for d in res.diagnoses]
         assert len({a.room_ids for a in res.assignments}) == 1
-    else:  # 75 > 60: the seat budget is still enforced
+    else:  # 75 > 60: the seat budget is still enforced (strict mode)
         assert res.status == "INFEASIBLE"
+        # run default trust_locked_rooms: the planner's over-full room is kept and reported as a warning
+        trusted = solve(inp)
+        assert trusted.status in {"OPTIMAL", "FEASIBLE"} and trusted.hard_score == 100
+        assert any(d.code == "trusted_lock_capacity" and d.params.get("shared") for d in trusted.diagnoses)
 
 
 async def test_final_fixture_locked_single_room_exams_no_longer_clash(engine):

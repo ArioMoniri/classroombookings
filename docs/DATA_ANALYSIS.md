@@ -103,6 +103,19 @@ One sheet per week (`2 - 8 Şubat Bahar Dönem Açılış`, `9 - 15 Şubat`, …
 | Computer labs | A 103 (47 / 33 in some sheets), A 104 (41 / 28), A 105 (60), B 207 (PC, 60 exam), "B BİLGİ LAB" |
 | Unknown capacity | D 107 (10 in exam sheet) |
 
+**Importer rules (2026-10-08, F2)**: lecture capacity = the most frequent value of a room's *first
+(Monday) header copy* over the lecture-week sheets (Bahar writes `A 103 (47)` on Mon/Tue and a stale
+`(33)` on the other days and on the Final/BÜT/summer sheets); exam-week headers of a term workbook give
+exam capacity only (and only when smaller than the lecture header); a dedicated exam workbook gives exam
+seating (ties → the smaller value). `Sayfa2` buckets set lecture capacities; the bucket containing
+`B BİLGİ LAB` is the computer-lab bucket → `PC` on A 103 / A 104 / A 105 / B 207 (`B Blok Bilg. Lab.`,
+`B BİLGİ LAB`, `B Blok Bilgisayar lab.` are aliases of B 207; a row naming one room next to a
+computer-lab phrase tags it, e.g. C 202). Rooms with no capacity anywhere are reported and set
+`is_bookable=False`; `python -m app.cli import room-master <csv>` (fixture
+`smartsched/backend/tests/fixtures/room_master.csv`) is the planner's authoritative correction and is
+never overwritten by later workbook imports. B 207 has no lecture number in any Bahar source: 60 (Güz
+lecture header = Final exam sheet) is used and flagged.
+
 Buildings: **A** (floors 1–3), **B** (2nd & 4th floors), **C** (z=ground, 2–6), **D**. TIP rooms (A 201–203) are reserved for the Faculty of Medicine and need the medicine planner's approval (comment: "Planlama için Gözde Ayrancıgil 4073").
 
 ### Time grid

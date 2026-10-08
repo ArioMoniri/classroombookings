@@ -3,7 +3,6 @@
 import { HelpCircle } from "lucide-react";
 import { useId, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Slider } from "@/components/ui/slider";
 import { useI18n } from "@/lib/i18n/provider";
 import { DEFAULT_SCALE, importanceOf, type WeightScale } from "./rule-sentence";
 import { Segmented } from "./segmented";
@@ -125,14 +124,17 @@ export function HardnessControl({
           </span>
           {advanced ? (
             <div className="flex w-36 items-center gap-2">
-              <Slider
+              <input
+                type="range"
                 min={1}
                 max={10}
                 step={1}
-                value={[weight]}
-                onValueChange={(v) => onWeight(Array.isArray(v) ? (v[0] ?? weight) : Number(v))}
+                value={weight}
+                onChange={(e) => onWeight(Number(e.target.value))}
                 aria-label={t("studio.rule.weightSlider")}
                 aria-valuetext={t("studio.rule.weightValue", { n: weight })}
+                className="h-1.5 w-full cursor-pointer accent-[var(--primary)]"
+                data-testid="weight-slider"
               />
               <span className="w-5 text-right font-mono text-xs tabular-nums">{weight}</span>
             </div>

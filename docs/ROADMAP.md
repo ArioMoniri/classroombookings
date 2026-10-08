@@ -135,3 +135,11 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Imports still parse workbooks on the event loop (10–25 s for Bahar); move parsing to a worker thread like the solve
 - [ ] Re-record `smartsched/frontend/src/lib/api/__fixtures__/real/*.json` (contract test) whenever backend schemas change; a CI job could run the backend, record and diff
 - [ ] Dashboard: KPI deltas vs. the previous run/week (the fake "+3 pt / −2" were removed); stats tiles on the run report read `stats.unplaced/conflicts`, which CP-SAT runs do not set
+
+### UI polish backlog (screenshot pass, 2026-10-08)
+
+- [ ] `/timetable` run selector truncates its label ("…Feasible · 1(") on desktop and mobile
+- [ ] `/timetable` throws React hydration error #418 in production (page recovers)
+- [ ] Run page sticky header is translucent; hero text shows through when the chat panel scrolls — make it opaque or scroll the chat independently
+- [ ] Mock room photos use random picsum images; replace with neutral tiles or real room photos (phase 7 live import)
+- [ ] Every Playwright config should use its own port (`PW_PORT`) so parallel agents don't share a server and mock state

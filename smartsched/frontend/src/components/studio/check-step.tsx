@@ -217,16 +217,9 @@ export function CheckStep() {
   );
 }
 
-const GROUP_KEYS: Record<string, MessageKey> = {
-  capacity: "studio.check.groupName.capacity",
-  room_tags: "studio.check.groupName.room_tags",
-  locked_ineligible: "studio.check.groupName.locked_ineligible",
-  pigeonhole: "studio.check.groupName.pigeonhole",
-  instructor_clash: "studio.check.groupName.instructor_clash",
-  rule_no_match: "studio.check.groupName.rule_no_match",
-  rule_clash: "studio.check.groupName.rule_clash",
-  no_time: "studio.check.groupName.no_time",
-};
+const GROUP_KEYS: Record<string, MessageKey> = Object.fromEntries(
+  (["capacity", "room_tags", "room_pin", "no_room", "blocked", "bad_time", "out_of_horizon", "no_time", "cohort_clash", "instructor_clash", "locked_overlap", "locked_ineligible", "locked_small", "locked_blocked", "pigeonhole", "rule_no_match", "rule_duplicate", "rule_conflict", "utilisation", "other"] as const).map((g) => [g, `studio.check.groupName.${g}` as MessageKey]),
+);
 function groupLabel(group: string, t: (k: MessageKey) => string, fallback?: string): string {
   return GROUP_KEYS[group] ? t(GROUP_KEYS[group]) : (fallback ?? group);
 }

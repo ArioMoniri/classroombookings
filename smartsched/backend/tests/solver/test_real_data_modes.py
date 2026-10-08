@@ -311,3 +311,39 @@ def test_unlocked_split_exam_shares_with_preference_weight() -> None:
     )
     res3 = solve(inp3)
     assert assigned(res3.assignments, 2).room_ids == (3,) and res3.objective_breakdown.get("room_preference", 0) == 0
+
+
+def test_trusted_overfull_shared_room_is_kept_and_closed_to_others() -> None:
+    """Final plan: ACU 132 (122) + ACU 310 (78) locked together in A 207 (55 exam seats).  Trusted: kept,
+    one warning, and a third (free) exam may not join the over-full room; strict: infeasible, named."""
+    rooms = (room(1, "A207", 120, exam_capacity=55), room(2, "A204", 156, exam_capacity=74))
+
+    def ex(i: int, size: int, lock: tuple[int, ...] | None, label: str):  # type: ignore[no-untyped-def]
+        return event(
+            i,
+            size=size,
+            duration=2,
+            kind="exam",
+            weeks=(15,),
+            day=1,
+            start=4,
+            share_room=True,
+            label=label,
+            locked=_lock(i, 1, 4, 2, lock, (15,)) if lock else None,
+            preferred_room_ids=(1,),
+        )
+
+    exams = (ex(1, 122, (1,), "ACU 132"), ex(2, 78, (1,), "ACU 310"), ex(3, 10, None, "ACU 400"))
+    inp = make_input(rooms, exams, weeks=(15,), trust_locked_rooms=True)
+    res = solve(inp)
+    assert res.status in OK and res.hard_score == 100, [d.message for d in res.diagnoses]
+    shared = [d for d in res.diagnoses if d.code == "trusted_lock_capacity" and d.params.get("shared")]
+    assert (
+        len(shared) == 1 and sorted(shared[0].event_ids) == [1, 2] and "200 students for 55 seats" in shared[0].message
+    )
+    assert assigned(res.assignments, 3).room_ids == (2,)  # preferred A 207 is full: A 204
+    assert _hard(inp, res.assignments) == []
+    joined = [*res.assignments[:2], Assignment(3, 1, 4, 5, (1,), frozenset({15}))]
+    assert _hard(inp, [a for a in res.assignments if a.event_id != 3] + [joined[-1]])  # joining is a violation
+    strict = solve(replace(inp, trust_locked_rooms=False))
+    assert strict.status == "INFEASIBLE" and any(d.code == "locked_overlap" for d in strict.diagnoses)

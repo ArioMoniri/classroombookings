@@ -38,3 +38,7 @@ export function useStudioRules(termId: number | undefined, kind: StudioKind) {
 export function usePresets(kind: StudioKind) {
   return useQuery({ queryKey: sk.presets(kind), queryFn: () => api.presets.list(kind) });
 }
+/** Settings for the studio (AI key present, solver defaults). Planners get 403: no toast, just undefined. */
+export function useSettingsPeek() {
+  return useQuery({ queryKey: ["settings", "peek"], queryFn: api.settings.peek, retry: false, staleTime: 5 * 60_000 });
+}

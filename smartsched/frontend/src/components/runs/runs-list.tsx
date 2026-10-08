@@ -9,10 +9,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useRuns } from "@/lib/api/hooks";
 import type { RunStatus, ScheduleRun } from "@/lib/api/schemas";
+import type { MessageKey, Vars } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { ScoreRing } from "./score-ring";
 
 export const RUN_STATUS_KIND: Record<RunStatus, StatusKind> = { QUEUED: "preoccupied", RUNNING: "pclab", FEASIBLE: "feasible", OPTIMAL: "feasible", INFEASIBLE: "infeasible", TIMEOUT: "infeasible", ERROR: "infeasible", FAILED: "infeasible", CANCELLED: "preoccupied" };
+
+/** A best-effort run (backend ``stats.partial``): status stays INFEASIBLE, but ``placed`` events were
+ * stored; shown as "Partial · placed/total" with the warning badge. */
+export function partialCounts(r: ScheduleRun): { placed: number; total: number } | null {
+  const placed = Number(r.stats.placed ?? 0);
+  const total = Number(r.stats.events_total ?? 0);
+  return r.status === "INFEASIBLE" && placed > 0 && total > 0 ? { placed, total } : null;
+}
+
+export function runStatusBadge(r: ScheduleRun, t: (k: MessageKey, p?: Vars) => string): { kind: StatusKind; label: string } {
+  const partial = partialCounts(r);
+  if (partial) return { kind: "warning", label: t("runs.partial", partial) };
+  return { kind: RUN_STATUS_KIND[r.status], label: `${t(`runs.status.${r.status}`)}${r.status === "RUNNING" ? ` ${r.progress}%` : ""}` };
+}
 
 export function horizonLabel(r: ScheduleRun, t: (k: "generate.week" | "generate.month" | "generate.wholeTerm") => string): string {
   const base = t(r.horizon === "WEEK" ? "generate.week" : r.horizon === "MONTH" ? "generate.month" : "generate.wholeTerm");
@@ -55,7 +70,7 @@ export function RunsList() {
               {(runs.data ?? []).map((r) => (
                 <TableRow key={r.id} data-testid="run-row">
                   <TableCell className="font-mono font-medium">#{r.id}{r.parent_run_id ? <span className="ml-1 text-xs text-muted-foreground">← #{r.parent_run_id}</span> : null}</TableCell>
-                  <TableCell><StatusBadge kind={RUN_STATUS_KIND[r.status]} label={`${t(`runs.status.${r.status}`)}${r.status === "RUNNING" ? ` ${r.progress}%` : ""}`} /></TableCell>
+                  <TableCell><StatusBadge {...runStatusBadge(r, t)} /></TableCell>
                   <TableCell>{t(r.kind === "COURSE" ? "generate.course" : "generate.exam")}</TableCell>
                   <TableCell>{horizonLabel(r, t)}</TableCell>
                   <TableCell><ScoreRing size="sm" value={r.hard_score} label={t("runs.hard")} /></TableCell>

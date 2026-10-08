@@ -19,7 +19,7 @@ import { api } from "@/lib/api/endpoints";
 import { useApplyFix, useConstraints, useRun } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import { DiagnosisCard } from "./diagnosis-card";
-import { RUN_STATUS_KIND, durationLabel, horizonLabel } from "./runs-list";
+import { RUN_STATUS_KIND, durationLabel, horizonLabel, partialCounts, runStatusBadge } from "./runs-list";
 import { ScoreRing } from "./score-ring";
 import { SoftBreakdown } from "./soft-breakdown";
 
@@ -57,7 +57,7 @@ export function RunView({ id }: { id: number }) {
         subtitle={`${t(r.kind === "COURSE" ? "generate.course" : "generate.exam")} · ${horizonLabel(r, t)}${r.parent_run_id ? ` · ${t("runs.parent", { id: r.parent_run_id })}` : ""}`}
         actions={
           <>
-            <StatusBadge kind={RUN_STATUS_KIND[r.status]} label={`${t(`runs.status.${r.status}`)}${active ? ` ${r.progress}%` : ""}`} />
+            <StatusBadge {...(active ? { kind: RUN_STATUS_KIND[r.status], label: `${t(`runs.status.${r.status}`)} ${r.progress}%` } : runStatusBadge(r, t))} />
             <Button variant="outline" size="sm" nativeButton={false} render={<a href={api.runs.exportUrl(r.id, "xlsx")} download />}><Download /> {t("runs.export")}</Button>
             <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/generate" />}>{t("runs.resolve")}</Button>
           </>
@@ -75,7 +75,7 @@ export function RunView({ id }: { id: number }) {
       ) : (
         <>
           <div className="grid gap-4 rounded-xl border bg-card p-4 md:grid-cols-[auto_1fr] lg:grid-cols-[auto_1fr_auto]" role="group" aria-label={t("runs.report")}>
-            <ScoreRing value={r.hard_score} label={r.hard_score === 100 ? t("runs.status.FEASIBLE") : t("runs.status.INFEASIBLE")} />
+            <ScoreRing value={r.hard_score} label={partialCounts(r) ? t("runs.partial", partialCounts(r) ?? {}) : r.hard_score === 100 ? t("runs.status.FEASIBLE") : t("runs.status.INFEASIBLE")} />
             <SoftBreakdown score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} />
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm lg:grid-cols-1">
               <dt className="text-muted-foreground">{t("runs.assignments")}</dt><dd className="tabular-nums">{n(Number(r.stats.events ?? 0))}</dd>

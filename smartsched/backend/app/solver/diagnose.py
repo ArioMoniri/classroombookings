@@ -307,6 +307,30 @@ def _locked_seat_budget(prep: Prepared) -> list[Diagnosis]:
         codes = " + ".join(prep.doms.rooms_by_id[r].code for r in room_ids)
         cap = sum(sharing_capacity(prep.doms.rooms_by_id[r], events) for r in room_ids)
         need = sum(e.size for e in events)
+        if all(trusted_lock(inp, e) for e in events):
+            out.append(
+                Diagnosis(
+                    list(ids),
+                    ["capacity"],
+                    f"locked exams share {codes} on day {day} P{period} (week {week}): {need} students for {cap} "
+                    "seats (" + ", ".join(f"{e.label} ({e.size})" for e in events[:6]) + "); the planner's rooms "
+                    "are kept and nobody else is seated there",
+                    ["check the enrolment estimates or the rooms' exam capacity (room master)", "add a room"],
+                    "warning",
+                    "trusted_lock_capacity",
+                    {
+                        "rooms": list(room_ids),
+                        "room_codes": [prep.doms.rooms_by_id[r].code for r in room_ids],
+                        "seats": cap,
+                        "size": need,
+                        "shared": True,
+                        "day": day,
+                        "period": period,
+                        "week": week,
+                    },
+                )
+            )
+            continue
         out.append(
             Diagnosis(
                 list(ids),
@@ -799,8 +823,15 @@ def relaxation_diagnosis(
     stats["relax_optimal"] = status == cp_model.OPTIMAL
     assignments = ctx.extract(solver)
     placed = {a.event_id: a for a in assignments}
+    stats["unplaced"] = len(prep.inp.events) - len(placed)
+    return explain_unplaced(prep, placed, explained), stats, placed
+
+
+def explain_unplaced(
+    prep: Prepared, placed: dict[int, Assignment], explained: set[int] | frozenset[int] = frozenset()
+) -> list[Diagnosis]:
+    """Summary + one explanation per unplaced event (at most 50) next to the ``placed`` ones."""
     unplaced = [e for e in prep.inp.events if e.id not in placed]
-    stats["unplaced"] = len(unplaced)
     out: list[Diagnosis] = []
     if unplaced:
         out.append(
@@ -818,7 +849,7 @@ def relaxation_diagnosis(
         idx = _PlacedIndex(prep, placed)
         for e in [e for e in unplaced if e.id not in explained][:50]:
             out.append(explain_event(prep, e.id, placed, idx))
-    return out, stats, placed
+    return out
 
 
 def diagnose_with_placement(
@@ -872,6 +903,7 @@ __all__ = [
     "diagnose",
     "diagnose_with_placement",
     "explain_event",
+    "explain_unplaced",
     "relaxation_diagnosis",
     "static_check",
 ]

@@ -212,6 +212,8 @@ export const api = {
   },
   settings: {
     get: () => request("/settings", { schema: SettingsOut }),
+    /** ADMIN-only route: planners get 403, so callers that merely peek (AI key present? defaults) stay silent. */
+    peek: () => request("/settings", { schema: SettingsOut, silent: true }),
     update: (body: SettingsUpdate) => request("/settings", { method: "PUT", body: adapt.settingsUpdateBody(body), schema: SettingsOut }),
     testAi: () => request("/settings/test-ai", { method: "POST", body: {}, schema: TestAi, silent: true }),
     /** ADMIN only (403 for planners: silent, the card hides itself). */

@@ -160,6 +160,8 @@ class Domains:
     #: (kind, key) -> events that had a single time option when the key was pruned; their key
     #: relations are fully decided statically (fixed-vs-flexible by pruning, fixed-vs-fixed above)
     key_fixed: dict[tuple[str, str], frozenset[int]] = field(default_factory=dict)
+    #: trusted locked sharing groups that over-fill their rooms (``build.trusted_full_groups``)
+    trusted_full: list[frozenset[int]] = field(default_factory=list)
 
     def event_ids(self) -> list[int]:
         return [e.id for e in self.inp.events]

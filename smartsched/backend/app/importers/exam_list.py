@@ -63,7 +63,9 @@ class ExamRow:
     def merge_key(self) -> str | None:
         if not self.course_code or self.date is None or self.start_time is None:
             return None
-        return f"{self.course_code}:{self.date.isoformat()}:{self.start_time:%H%M}"
+        # BİF 111 and BIF 111 on the same slot are one exam (dotted/undotted I typed inconsistently)
+        code = self.course_code.replace("İ", "I")
+        return f"{code}:{self.date.isoformat()}:{self.start_time:%H%M}"
 
     @property
     def fingerprint(self) -> str:

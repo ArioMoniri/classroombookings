@@ -35,7 +35,10 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
     all_weeks = frozenset(ctx.inp.weeks)
     exclusive: dict[int, list[tuple[object, frozenset[int]]]] = defaultdict(list)
     sharing: dict[int, list[tuple[object, frozenset[int], Event]]] = defaultdict(list)
+    in_full = {eid for group in ctx.doms.trusted_full for eid in group}
     for eid, rid in sorted(ctx.z):
+        if eid in in_full:
+            continue  # held by its trusted group's exclusive block below
         g = ctx.guard(f"room:{ctx.rooms_by_id[rid].code}")
         iv = ctx.room_interval(eid, rid, g)
         event = ctx.events_by_id[eid]
@@ -45,6 +48,9 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
             sharing[rid].append((iv, event.weeks & all_weeks, event))
         else:
             exclusive[rid].append((iv, event.weeks & all_weeks))
+    for gi, group in enumerate(ctx.doms.trusted_full):
+        for rid, item in _trusted_group_blocks(ctx, gi, group, all_weeks):
+            exclusive[rid].append(item)
     for b in ctx.inp.blocks:
         if b.room_id not in ctx.rooms_by_id or b.day not in ctx.day_pos:
             continue
@@ -74,11 +80,49 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
             ctx.model.AddCumulative([iv for iv, _ in cgroup], [d for _, d in cgroup], cap)
 
 
+def _trusted_group_blocks(
+    ctx: ModelContext, gi: int, group: frozenset[int], all_weeks: frozenset[int]
+) -> list[tuple[int, tuple[object, frozenset[int]]]]:
+    """A trusted over-full group of locked sharing exams holds each of its rooms exclusively for the
+    union of its members' periods (present iff any member is placed)."""
+    by_room_day: dict[tuple[int, int], list[Event]] = defaultdict(list)
+    for eid in sorted(group):
+        e = ctx.events_by_id[eid]
+        if e.locked is None or e.locked.day not in ctx.day_pos:
+            continue
+        for rid in e.locked.room_ids:
+            if rid in ctx.rooms_by_id and (eid, rid) in ctx.z:
+                by_room_day[(rid, e.locked.day)].append(e)
+    out: list[tuple[int, tuple[object, frozenset[int]]]] = []
+    for (rid, day), evs in sorted(by_room_day.items()):
+        start = min(e.locked.start for e in evs if e.locked)
+        end = max(e.locked.end for e in evs if e.locked)
+        weeks = frozenset().union(*(e.weeks for e in evs)) & all_weeks
+        if not weeks:
+            continue
+        g = ctx.guard(f"room:{ctx.rooms_by_id[rid].code}")
+        lits = [ctx.placed.get(e.id, True) for e in evs]
+        name = f"trusted_{gi}_{rid}_{day}"
+        if g is None and any(lit is True for lit in lits):
+            iv = ctx.fixed_interval(day, start, end, name)
+        else:
+            present = ctx.new_bool(f"{name}_on")
+            ctx.model.AddMaxEquality(present, [lit for lit in lits if lit is not True] or [1])
+            ctx.derive(present, lambda h, ids=[e.id for e in evs]: int(any(i in h.by_event for i in ids)))
+            presence = present if g is None else ctx.and_lit(present, g)
+            gstart = ctx.day_pos[day] * ctx.inp.periods_per_day + start - 1
+            iv = ctx.model.NewOptionalFixedSizeIntervalVar(gstart, end - start + 1, presence, name)
+        out.append((rid, (iv, weeks)))
+    return out
+
+
 def score(ev: Evaluation, c: Constraint) -> None:
     occ = room_occupancy(ev)
     seen: set[tuple[int, int, int]] = set()
     # seat budgets of shared rooms (single- and multi-room sharing events, app/solver/seats.py)
     for ids, room_ids, day, p, wk in seat_conflicts(ev.inp, ev.events_by_id, ev.rooms_by_id, ev.by_event):
+        if all(ev.trusted(i) for i in ids):
+            continue  # trust_locked_rooms: the planner's over-full shared rooms (a warning, see static check)
         events = [ev.events_by_id[i] for i in ids]
         cap = sum(sharing_capacity(ev.rooms_by_id[r], events) for r in room_ids)
         total = sum(seat_target(e, ev.by_event[e.id].room_ids, ev.rooms_by_id) for e in events)

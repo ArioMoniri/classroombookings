@@ -16,6 +16,8 @@ diagnose.py       static checker, assumption cores + deletion shrinking, slack r
 repair.py         repair() (LNS neighbourhood re-solve), validate(), score()
 generators.py     synthetic + Bahar-like instance generators (planted feasible solutions)
 serialization.py  JSON in/out of the contract
+seats.py          seat budgets of shared rooms (split exams): targets, allocation, max-flow validation
+options.py        structured suggestion options (Diagnosis.params["options"])
 ```
 
 Run the tests: `cd smartsched/backend && python -m pytest tests/solver -q`
@@ -113,14 +115,25 @@ assignments, never read back from CP-SAT, so `solve()` and `validate()` agree by
 
 ### Shared exam rooms (`Event.share_room`)
 
-The Final plan seats several small exams in one room under one invigilator. Events with
-`share_room=True` (single-room only; split exams stay exclusive) are not in the room's
-`NoOverlap2D`; instead each room with sharing candidates gets a `Cumulative` per week class with
-demand = event size and capacity = the room's `exam_capacity` (lecture capacity if no sharing event
-is an exam). Exclusive events and blocks enter the same cumulative with demand = capacity, so one
-non-sharing event in a room-period excludes everything else. `validate()` checks the seat budget per
-(room, day, period, week); the static checker skips sharing pairs in its lock/pigeonhole tests and
-`explain_event` reports "shared seats exceed N" when that is the blocker.
+The Final plan seats several small exams in one room under one invigilator, and routinely two *split*
+exams in the same room pair (PSI 212 + FZT 260 in A 204 + A 102). Events with `share_room=True` are not
+in the room's `NoOverlap2D`; each room with sharing candidates gets a `Cumulative` per week class with
+capacity = the room's `exam_capacity` (lecture capacity if no sharing event is an exam). Exclusive
+events and blocks enter the same cumulative with demand = capacity, so one non-sharing event in a
+room-period excludes everything else.
+
+**Seat rule** (`seats.py`): a sharing event needs `target = min(size, Σ seats of its rooms)` seats in
+total (`min` only bites for a trusted, planner-locked room set that is too small: such an event fills
+its rooms). A single-room event puts all of them in its room (demand = constant). A split event may
+divide its students over its rooms *in any way*, at least one seat per used room: one integer
+`seats[e, r] ∈ [z, cap_r·z]` per (split event, room option) with `Σ_r seats = target`, constant over
+the event's duration, is the event's demand in room *r*'s cumulative. `validate()` accepts a timetable
+iff such an allocation exists per (day, period, week): a max-flow over events → rooms (Gale/Hall
+condition), so "A 204 + A 102 seat 122 but the exams need 130" is reported, and so is the subtler case
+where the totals fit but one room is over-full (a single-room exam already uses most of A 102). The
+static checker runs the same test on locked sharing exams (`locked_overlap` with `params.shared`),
+greedy fills sharing rooms seat-aware, and hints value `seats` with a proportional (largest
+remainder) allocation.
 
 ### Hard constraints that are always hard
 
@@ -129,6 +142,61 @@ non-sharing event in a room-period excludes everything else. `validate()` checks
 `capacity`, `fixed_time`, `room_tags`, `room_pin`, `room_forbid` are hard by default and may be
 softened explicitly (`Constraint("capacity", {}, hard=False)` → seats short are penalised). Locked
 assignments always win (also over the request's fixed day/time — a lock is the planner's decision).
+
+## Real-data modes (D1–D3)
+
+Three `SolverInput` switches, **off by default** in the pure solver (strict semantics, every older test
+unchanged) and **on by default** in the bridge (run params `trust_locked_rooms`,
+`fixed_conflicts_as_warnings`, `best_effort`; see `solver_bridge.MODE_DEFAULTS`). None of them relaxes
+a rule silently: each produces a structured warning per case.
+
+* **`trust_locked_rooms`** — a locked room set is the planner's decision; planning-list enrolments are
+  estimates. The locked rooms skip the capacity and tag pruning (`domains._room_options`), split locks
+  skip `Σ cap·z ≥ size`, a sharing lock demands `min(size, seats)`, `capacity.score` / `room_tags.score`
+  skip the trusted event, and the static checker emits one `trusted_lock_capacity` warning ("ACU 132
+  expects 122 students but is locked to A 207 (55 exam / 120 lecture seats)", with bigger rooms as
+  suggestions) or `trusted_lock_tags` warning per case. Pins and room bans are never overridden.
+* **`fixed_conflicts_as_warnings`** — two *input-fixed* events (locked, or `fixed_day`+`fixed_start`
+  with `fixed_time` hard) sharing a cohort/instructor key at overlapping times in shared weeks cannot be
+  fixed by any room choice. Cohort/instructor `NoOverlap`s now contain only the key's *flexible* events
+  (fixed-vs-flexible overlaps are pruned from the flexible domains, fixed-vs-fixed pairs are known
+  statically): a waived pair is simply not related, any other fixed-vs-fixed clash gets an explicit
+  "not both placed" clause. The static checker reports one `input_conflict` warning per pair (both
+  requests named, "move one of them", "check the instructor name"); `score_keys` skips the pair while
+  both sit at their fixed times; flexible events still respect the key against everything (a flexible
+  event whose window only fits on top of a fixed pair stays an error).
+* **`best_effort`** — on a static error or a CP-SAT infeasibility proof, phase 1 is the slack
+  relaxation, warm-started with the greedy placement (complete hint: unhinted events hinted unplaced),
+  minimising `(L+1)·#unplaced + #unplaced locked` (lexicographic: the most events, then keep the
+  planner's locked ones); phase 2 re-solves the placed events with the normal objective, hinted with
+  phase 1. Status stays `INFEASIBLE` (the full request set has no solution); `assignments` is the
+  partial timetable, `stats.partial=True`, `placed`, `unplaced`, `events_total`, `unplaced_ids`; hard /
+  soft scores are evaluated on the placed events (hard 100 = every hard rule holds for them). The first
+  diagnosis (`code="partial"`) summarises; every unplaced event is explained (`unplaced`) unless a
+  static single-event error already names it. In relax mode a lock binds only if the event is placed,
+  so overlapping locks unplace one event instead of making the relaxation infeasible.
+
+Also: an event locked to *k* rooms may use *k* rooms (`normalize_input`; the Bahar list locks large
+lectures to `A 101 / A 106 / …` while the request is a single-room event).
+
+### Diagnosis codes and params
+
+`Diagnosis.code` names the case, `Diagnosis.params` carries its facts, and
+`params["options"]` holds one structured action per suggestion (`options.py`: `move`, `release_room`,
+`unlock`, `relax`, `split`, `manual` with their arguments), so the run-report fixes
+(`services/diagnosis_fixes.py`) and the studio pre-check (`services/precheck.py`) never parse wording.
+
+| code | severity | params |
+|---|---|---|
+| `bad_time`, `no_time`, `all_blocked`, `out_of_horizon` | error / info | `day`/`start`/`duration`, `reasons`, `weeks` |
+| `no_room` | error | `reason` (`pin`/`tags`/`capacity`/`rules`), `size`, `missing_tags`, `missing_pins`, `largest_room`, `largest_capacity`, `reasons` |
+| `fixed_conflict` / `input_conflict` | error / warning | `noun`, `key`, `kind`, `keys` (`[[kind, key], …]`), `day`, `start` |
+| `trusted_lock_capacity` / `trusted_lock_tags` | warning | `rooms`, `room_codes`, `seats`, `size`, `fitting_rooms` / `missing_tags`, `forbidden_tags` |
+| `locked_overlap` | error | `rooms`, `room_codes`, `day`, `period`, `shared` (+ `week`, `need`, `seats` for shared rooms) |
+| `locked_ineligible`, `locked_blocked` | error | `rooms`, `reasons` / `day`, `start`, `end` |
+| `pigeonhole` | error | `n`, `day`, `period`, `week`, `rooms` |
+| `core`, `unplaced`, `unplaced_summary`, `partial` | error / warning | — |
+| `timeout`, `relax_timeout`, `no_core`, `internal` | warning / error | — |
 
 ## Diagnosis (`diagnose.py`)
 
@@ -145,7 +213,8 @@ Never relax silently; explain instead. Three rungs, cheapest first:
    the initial core; deletion-based shrinking re-solves without one literal at a time under a
    per-probe time limit and keeps the literal only if the model becomes feasible without it.
    Interval presences are `base ∧ guard`, so a false guard switches the whole group off.
-3. **Slack relaxation** (`mode="relax"`): minimise the number of unplaced events. Every unplaced
+3. **Slack relaxation** (`mode="relax"`): minimise the number of unplaced events (ties: keep locked
+   events placed; warm-started with the greedy placement). Every unplaced
    event is explained by `explain_event`: rooms that fit but are busy (and by whom), rooms excluded
    by capacity/tags/pins/bans, cohort/instructor clashes with named events, free alternatives and
    alternative periods on the same day.

@@ -10,7 +10,7 @@ from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
 from app.solver.constraints import HANDLERS, effective_constraints
 from app.solver.context import Mode, ModelContext
-from app.solver.domains import Domains, build_domains, normalize_input
+from app.solver.domains import Domains, build_domains, normalize_input, shares_room, trusted_lock
 from app.solver.model import Assignment, Constraint, SolverInput
 
 
@@ -35,6 +35,7 @@ def prepare(inp: SolverInput) -> Prepared:
         h = HANDLERS[c.kind]
         if c.hard and h.prune is not None:
             h.prune(doms, c)
+    doms.trusted_full = trusted_full_groups(inp, doms)
     n_opts = sum(d.option_count() for d in doms.by_event.values())
     fixed = sum(1 for d in doms.by_event.values() if d.fixed_time)
     stats = {
@@ -46,6 +47,29 @@ def prepare(inp: SolverInput) -> Prepared:
         "constraints": [c.kind for c in constraints],
     }
     return Prepared(inp, constraints, warnings, soft_structural, doms, stats)
+
+
+def trusted_full_groups(inp: SolverInput, doms: Domains) -> list[frozenset[int]]:
+    """``trust_locked_rooms``: planner-locked room-sharing events whose seats cannot be allotted (ACU 132
+    + ACU 310 locked together in A 207).  The planner's rooms are kept: each group holds its rooms
+    *exclusively* for the union of its members' periods (nobody else may join an over-full room), and
+    the static checker reports it as a warning.  Groups chained through shared members are merged."""
+    from app.solver.seats import seat_conflicts
+
+    locked = {e.id: e.locked for e in inp.events if e.locked is not None and shares_room(e) and trusted_lock(inp, e)}
+    if len(locked) < 2:
+        return []
+    groups: list[set[int]] = []
+    for ids, _rooms, _day, _p, _w in seat_conflicts(inp, doms.events_by_id, doms.rooms_by_id, locked):  # type: ignore[arg-type]
+        merged = set(ids)
+        rest = []
+        for g in groups:
+            if g & merged:
+                merged |= g
+            else:
+                rest.append(g)
+        groups = [*rest, merged]
+    return sorted((frozenset(g) for g in groups), key=lambda g: sorted(g))
 
 
 def build_model(prep: Prepared, mode: Mode = "solve") -> ModelContext:

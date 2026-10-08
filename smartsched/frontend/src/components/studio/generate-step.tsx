@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { useSettings } from "@/lib/api/hooks";
 import type { MessageKey } from "@/lib/i18n";
+import { useSettingsPeek } from "@/lib/api/studio-hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import { useEstimateText } from "./check-step";
 import { RunCard, RunHistory } from "./run-cards";
@@ -64,7 +64,7 @@ export function KeepSmallToggle() {
 export function GenerateStep() {
   const { t } = useI18n();
   const { local, dispatch, advanced } = useStudio();
-  const settings = useSettings();
+  const settings = useSettingsPeek();
   const human = useHumanSummary();
   const active = useStudioStore((s) => s.activeRun);
   const weights = local.params.weights ?? settings.data?.default_weights ?? {};

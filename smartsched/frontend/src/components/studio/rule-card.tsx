@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { HardnessControl } from "./hardness-control";
-import type { Token, WeightScale } from "./rule-sentence";
+import { plainSentence, type Token, type WeightScale } from "./rule-sentence";
 import { SlotChip } from "./slot-picker";
 import { SourceChip, type SourceKind } from "./source-chip";
 
@@ -92,7 +92,10 @@ export function RuleCard(p: RuleCardProps) {
     >
       <div className="flex items-start gap-2">
         <SourceChip source={p.source} proposal={p.proposal} className="mt-0.5" />
-        <p id={sentenceId} className="min-w-0 flex-1 text-[0.95rem] leading-relaxed">
+        <span id={sentenceId} className="sr-only">
+          {p.tokens ? plainSentence(p.tokens) : p.fallback}
+        </span>
+        <p className="min-w-0 flex-1 text-[0.95rem] leading-relaxed">
           {p.tokens
             ? p.tokens.map((tok, i) =>
                 tok.kind === "text" ? (

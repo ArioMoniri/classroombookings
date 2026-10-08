@@ -15,7 +15,7 @@ from typing import Any
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
 from app.solver.build import Prepared, build_model, hint_assignments, make_solver, prepare, status_name
-from app.solver.diagnose import diagnose, diagnose_with_placement, static_check
+from app.solver.diagnose import diagnose, diagnose_with_placement, explain_unplaced, static_check
 from app.solver.domains import normalize_input
 from app.solver.evaluate import Evaluation
 from app.solver.greedy import greedy_assignments
@@ -213,9 +213,16 @@ def _best_effort(
     diagnoses, placed = diagnose_with_placement(prep, budget, core=run_core, hints=greedy, explained=explained)
     stats.update(prep.stats)
     stats["diagnose_s"] = round(time.perf_counter() - t0 - stats.get("solve_s", 0.0), 3)
-    if not placed and greedy:  # relaxation timed out: fall back to the greedy placement
-        placed = {a.event_id: a for a in greedy}
-        stats["partial_source"] = "greedy"
+    stats["partial_source"] = "relaxation"
+    if len(greedy) > len(placed):
+        # the relaxation timed out or stopped early below the greedy warm start: keep the greedy
+        # placement if it satisfies every hard rule for its events (checked, never assumed)
+        g_sub = replace(inp, events=tuple(e for e in inp.events if e.id in {a.event_id for a in greedy}))
+        if not evaluate(g_sub, greedy).hard_violations():
+            placed = {a.event_id: a for a in greedy}
+            stats["partial_source"] = "greedy"
+            diagnoses = [d for d in diagnoses if d.code not in ("unplaced", "unplaced_summary", "relax_timeout")]
+            diagnoses += explain_unplaced(prep, placed, explained)
     unplaced_ids = [e.id for e in inp.events if e.id not in placed]
     stats.update(
         partial=True,

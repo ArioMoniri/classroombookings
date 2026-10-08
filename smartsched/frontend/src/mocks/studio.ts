@@ -111,6 +111,11 @@ export function freshStudioState(): StudioMockState {
   };
 }
 
+/** FormData file entry (duck-typed: jsdom and undici have different File classes). */
+function fileOf(v: FormDataEntryValue | null): { name: string; text: () => Promise<string> } | null {
+  return v !== null && typeof v === "object" && "name" in v && typeof (v as { text?: unknown }).text === "function" ? (v as unknown as { name: string; text: () => Promise<string> }) : null;
+}
+
 const json = <T extends DefaultBodyType>(body: T, init?: ResponseInit) => HttpResponse.json(body, init);
 const err = (status: number, detail: unknown) => json({ detail } as DefaultBodyType, { status });
 const kindOf = (url: URL): "COURSE" | "EXAM" => (url.searchParams.get("kind") === "EXAM" ? "EXAM" : "COURSE");
@@ -346,7 +351,7 @@ export function createStudioHandlers(host: () => StudioHost) {
       if (!shared.length || !both.length) continue;
       const hard = effHard(d, p) && effHard(d, f);
       items.push({
-        id: `clash:${p.id}:${f.id}`, category: "clash", severity: hard ? "error" : "warning", group: "rule_clash",
+        id: `clash:${p.id}:${f.id}`, category: "clash", severity: hard ? "error" : "warning", group: "rule_conflict",
         title: t("Bu iki kural aynı anda doğru olamaz", "These two rules can't both be true"),
         message: t(`"${p.nl_text ?? "#" + p.id}" ve "${f.nl_text ?? "#" + f.id}" (${roomCode(shared[0])})`, `"${p.nl_text ?? "#" + p.id}" and "${f.nl_text ?? "#" + f.id}" (${roomCode(shared[0])})`),
         detail: `room_pin #${p.id} vs room_forbid #${f.id}`, event_ids: both, classes: [], constraint_kinds: ["room_pin", "room_forbid"], constraint_ids: [p.id, f.id],
@@ -357,7 +362,7 @@ export function createStudioHandlers(host: () => StudioHost) {
       });
     }
     if (d.disabled_builtin_kinds.length) {
-      items.push({ id: "info:builtins_off", category: "info", severity: "info", group: "builtins_off", title: t("Bazı temel kurallar kapalı", "Some built-in rules are off"), message: t(d.disabled_builtin_kinds.map((k) => BUILTIN_TEXT[k]?.tr ?? k).join(", "), d.disabled_builtin_kinds.map((k) => BUILTIN_TEXT[k]?.en ?? k).join(", ")), detail: "", event_ids: [], classes: [], constraint_kinds: d.disabled_builtin_kinds, constraint_ids: [], fixes: [] });
+      items.push({ id: "info:builtins_off", category: "info", severity: "info", group: "other", title: t("Bazı temel kurallar kapalı", "Some built-in rules are off"), message: t(d.disabled_builtin_kinds.map((k) => BUILTIN_TEXT[k]?.tr ?? k).join(", "), d.disabled_builtin_kinds.map((k) => BUILTIN_TEXT[k]?.en ?? k).join(", ")), detail: "", event_ids: [], classes: [], constraint_kinds: d.disabled_builtin_kinds, constraint_ids: [], fixes: [] });
     }
     h.studio.lastPrecheck.set(`${d.term_id}:${d.kind}`, items);
     const errors = items.filter((i) => i.severity === "error").length;
@@ -462,8 +467,8 @@ export function createStudioHandlers(host: () => StudioHost) {
     }),
     http.post(`${base}/terms/:id/preferences/upload`, async ({ request }) => {
       const fd = await request.formData();
-      const file = fd.get("file");
-      const filename = file instanceof File ? file.name : "upload.txt";
+      const file = fileOf(fd.get("file"));
+      const filename = file ? file.name : "upload.txt";
       if (!/\.(xlsx|xlsm|csv|docx|pdf|txt|md)$/i.test(filename)) return err(400, "unsupported file type; use .xlsx, .csv, .docx, .pdf, .txt or .md");
       if (!host().settings.anthropic_api_key_masked) return err(409, NO_KEY);
       const common = { assistant_message: "", usage: { model: host().settings.anthropic_model, input_tokens: 0, output_tokens: 0, estimated_cost_usd: 0 }, filename, chunks: 1, truncated: false, warnings: [] as string[] };
@@ -471,7 +476,7 @@ export function createStudioHandlers(host: () => StudioHost) {
         const demo = demoProposals(filename, /\.csv$/i.test(filename) ? null : "Sayfa1");
         return json({ ...common, proposals: demo.proposals, section_edits: demo.edits, unparsed: demo.unparsed, file_kind: /\.csv$/i.test(filename) ? "csv" : "xlsx", units: 3, detected_columns: { course: "Ders Kodu", program: "Program", enrolment: "Öğrenci Sayısı", room: "Derslik Talebi", note: "Not" } });
       }
-      const text = file instanceof File && /\.(txt|md)$/i.test(filename) ? await file.text() : "Eczacılık pazartesi C blokta kalsın\nHer hafta aynı derslik";
+      const text = file && /\.(txt|md)$/i.test(filename) ? await file.text() : "Eczacılık pazartesi C blokta kalsın\nHer hafta aynı derslik";
       const res = mockElicit(text);
       res.proposals.forEach((p, i) => {
         p.source = "UPLOAD";
@@ -692,8 +697,8 @@ export function createStudioHandlers(host: () => StudioHost) {
     }),
     http.post(`${base}/terms/:id/studio/preferences/mapping`, async ({ request }) => {
       const fd = await request.formData();
-      const file = fd.get("file");
-      const filename = file instanceof File ? file.name : "upload.xlsx";
+      const file = fileOf(fd.get("file"));
+      const filename = file ? file.name : "upload.xlsx";
       if (!/\.(xlsx|xlsm|csv)$/i.test(filename)) return err(400, "column mapping reads .xlsx or .csv files");
       const mappingRaw = fd.get("mapping");
       const rowsDemo = demoRows();
