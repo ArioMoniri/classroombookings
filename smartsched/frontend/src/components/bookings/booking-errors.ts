@@ -59,7 +59,8 @@ export function bookingErrorMessage(err: CrbsError, t: T, ctx: ErrorContext = {}
       room: ctx.roomName?.(c.room_id) ?? "",
       date: date(c.date),
       periods: periods(c.start_period, c.end_period),
-      label: c.label ?? "",
+      // solver rows may have no course label: a localised "Class" instead of an empty name
+      label: c.label || (c.kind === "timetable" ? t("reserve.cell.class") : ""),
     };
     if (c.kind === "timetable") return t("crbs.errors.conflict_timetable", vars);
     if (c.kind === "block") return t("crbs.errors.conflict_block", vars);

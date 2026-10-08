@@ -55,6 +55,8 @@ export interface RuleCardProps {
   candidates?: Candidate[];
   enabled?: boolean;
   readOnly?: boolean;
+  /** not a rule (e.g. a fix's draft-only change): no Must/Try chip */
+  hideHardness?: boolean;
   saved?: boolean;
   advanced?: boolean;
   kind?: string;
@@ -120,9 +122,9 @@ export function RuleCard(p: RuleCardProps) {
           <HardnessControl hardness={p.hardness} weight={p.weight} allowed={p.allowed} onHardness={p.onHardness} onWeight={p.onWeight} scale={p.scale} advanced={Boolean(p.advanced)} compact={p.compact} idPrefix={p.domId} />
           <AffectedBadge affected={p.affected} onClick={p.onShowClasses} />
         </div>
-      ) : (
+      ) : p.hideHardness && !p.affected ? null : (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-label-2">
-          <span className={cn("rounded-full px-2 py-0.5 font-medium", p.hardness === "hard" ? "bg-foreground text-background" : "border border-border-strong text-foreground")}>{p.hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
+          {p.hideHardness ? null : <span className={cn("rounded-full px-2 py-0.5 font-medium", p.hardness === "hard" ? "bg-foreground text-background" : "border border-border-strong text-foreground")}>{p.hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>}
           <AffectedBadge affected={p.affected} onClick={p.onShowClasses} />
         </div>
       )}

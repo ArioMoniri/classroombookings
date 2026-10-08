@@ -154,8 +154,8 @@
       "run": "Oluştur"
     },
     "stepStatus": {
-      "term": "Tüm dönem · {n} hafta",
-      "weeks": "H{from}–{to} · {n} hafta",
+      "term": "Tüm dönem · {n, plural, other {# hafta}}",
+      "weeks": "{n, plural, one {H{from} · # hafta} other {H{from}–{to} · # hafta}}",
       "noWeeks": "Hafta seçilmedi",
       "classes": "{in} dahil · {out} dışarıda",
       "rules": "{must} kesin · {try} mümkünse",
@@ -194,9 +194,9 @@
       "weeks": "Haftalar",
       "monthFrom": "İlk haftayı seçin (oradan itibaren 4 hafta)",
       "holiday": "Tatil: {label}",
-      "sentence": "{weeks} hafta boyunca {rooms} derslikte {n} ders planlıyorsunuz.",
+      "sentence": "{weeks, plural, other {# hafta}} boyunca {rooms, plural, other {# derslikte}} {n, plural, other {# ders}} planlıyorsunuz.",
       "counting": "Sayılıyor…",
-      "line2": "{out} plan dışı · {pinned} sabit · {holidays} hafta tatil",
+      "line2": "{out} plan dışı · {pinned} sabit · {holidays, plural, =0 {tatil haftası yok} other {# hafta tatil}}",
       "lastRun": "Son başarılı çalıştırma: #{id} · {when}",
       "allRulesMet": "Tüm kurallar sağlandı",
       "noRun": "Bu dönem için henüz başarılı bir çalıştırma yok.",
@@ -305,7 +305,19 @@
       "sentence": "{cls} {where} kalsın",
       "inRoom": "{room} dersliğinde",
       "atTime": "{day} {time}'de",
-      "fromClassList": "ders listesinden sabitlendi"
+      "fromClassList": "ders listesinden sabitlendi",
+      "unlocked": "Kilit açık",
+      "unlockedHint": "Bu taslakta kilidi açık: yeri değişebilir. Bu dersi sabitle",
+      "unlockedSentence": "Kilit açıldı: {cls} taşınabilir",
+      "tagsSentence": "{cls} için {tags} derslik gerekli",
+      "noTagsSentence": "{cls} her tür derslikte olabilir",
+      "seatsSentence": "{cls} {n} kişilik planlansın",
+      "roomsSentence": "{cls} en fazla {n, plural, other {# salona}} bölünebilir",
+      "fromFix": "ön kontrol düzeltmesiyle değişti, yalnızca bu taslakta",
+      "lockAgain": "Yeniden kilitle",
+      "relocked": "Yeniden kilitlendi",
+      "undoOverride": "Bu değişikliği geri al",
+      "overrideRemoved": "Değişiklik geri alındı"
     },
     "source": {
       "FILE": "Dosya",
@@ -368,6 +380,7 @@
       "groupOff": "Kapalı",
       "groupBuiltin": "Sistem kuralları (yönetici kapatmadıkça açık)",
       "groupPins": "Sabitlenen dersler",
+      "groupOverrides": "Ön kontrol düzeltmeleriyle değişenler",
       "groupEmpty": "Burada kural yok.",
       "more": "Diğer işlemler",
       "turnOff": "Bu plan için kapat",
@@ -747,9 +760,9 @@
       "shortcut": "Ctrl/⌘ + Enter",
       "h": {
         "place": "SmartSched {weeks}. haftalar için {n} dersi {rooms} dersliğe yerleştirecek.",
-        "rules": "{must} kesin kurala uyacak, {try} tercihi mümkün olduğunca gözetecek.",
-        "pinned": "{n} ders sabitlendi, yeri değişmeyecek.",
-        "out": "{n} ders plan dışında.",
+        "rules": "{must, plural, other {# kesin kurala}} uyacak, {try, plural, other {# tercihi}} mümkün olduğunca gözetecek.",
+        "pinned": "{n, plural, other {# ders sabitlendi, yeri değişmeyecek.}}",
+        "out": "{n, plural, other {# ders plan dışında.}}",
         "stable": "#{id} numaralı çalıştırmadan mümkün olduğunca az değişiklik yapacak.",
         "time": "Tahmini süre {words}."
       }
@@ -1743,7 +1756,7 @@
       "offline": "Sunucuya ulaşılamıyor. Bağlantıyı kontrol edip tekrar deneyin.",
       "failed": "E-posta, kullanıcı adı veya şifre yanlış.",
       "identifier": "E-posta veya kullanıcı adı",
-      "identifierHint": "fatih@universite.edu.tr",
+      "identifierHint": "E-posta adresiniz veya kullanıcı adınız",
       "showPassword": "Şifreyi göster",
       "hidePassword": "Şifreyi gizle",
       "changeTitle": "Yeni şifre belirleyin",
@@ -2164,7 +2177,8 @@
       "free": "Boş",
       "reserve": "Rezerve et",
       "span": "{n} ders saati",
-      "selectedSpan": "{n} ders saatlik rezervasyon için seçildi"
+      "selectedSpan": "{n} ders saatlik rezervasyon için seçildi",
+      "class": "Ders"
     },
     "reason": {
       "schedule": "Bu derslik için rezerve edilebilir bir ders saati değil"

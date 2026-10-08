@@ -25,9 +25,9 @@ The SmartSched side comes only from the API (requests, rooms, run assignments, d
         --email planner@smartsched.local --password '…' --database-url sqlite+aiosqlite:////tmp/x/cmp.db \
         --work /tmp/x/compare --steps import,solve,compare
 
-``--database-url`` is only used for the room master (``import_room_master``): the API has no
-room-master endpoint, so the CLI importer is applied to the backend's DB, exactly as
-``python -m app.cli import room-master`` would.
+The room master goes through ``POST /imports/room-master``; ``--database-url`` is only a fallback for
+backends without that endpoint (the CLI importer is then applied to the backend's DB, exactly as
+``python -m app.cli import room-master`` would).
 """
 
 from __future__ import annotations
@@ -161,10 +161,14 @@ def step_import(api: Api, fixtures: Path, database_url: str | None, log: list[st
         path = "/imports/planning-list" if kind == "planning" else "/imports/exam-list"
         job = api.upload(path, fixtures / plan, {"term_code": term})
         log.append(f"{kind}-list {plan} -> {term}: job {job['id']} {job['status']} {_job_counts(job)}")
-    if database_url:
+    try:  # POST /imports/room-master (2026-10-08); older backends: the CLI importer on --database-url
+        job = api.upload("/imports/room-master", fixtures / "room_master.csv", {})
+        log.append(f"room-master: job {job['id']} {job['status']} {_job_counts(job)}")
+    except RuntimeError as exc:
+        if not database_url:
+            raise
+        log.append(f"room-master: API refused ({str(exc)[:80]}); applied with the CLI importer")
         log.append("room-master: " + asyncio.run(_room_master(database_url, fixtures / "room_master.csv")))
-    else:
-        log.append("room-master: skipped (no --database-url; the API has no room-master endpoint)")
 
 
 def _job_counts(job: dict[str, Any]) -> str:

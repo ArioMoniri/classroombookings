@@ -487,21 +487,27 @@ def _transient_run(draft: StudioDraft) -> ScheduleRun:
     )
 
 
-async def _request_sizes(session: AsyncSession, kind: str, ids: Iterable[int]) -> dict[int, int]:
+async def _request_sizes(
+    session: AsyncSession, kind: str, ids: Iterable[int], fallbacks: dict[str, Any] | None = None
+) -> dict[int, int]:
+    """Seats of each request: its enrolment, else the bridge's fallback size for a missing enrolment
+    (``run.stats["enrolment_fallbacks"]``, review M1) - the same size the solver event was built with, so a
+    draft that leaves part of a joint lecture out never clips the rest to 0 or to the members with a number."""
     wanted = list({int(i) for i in ids})
     if not wanted:
         return {}
+    fb = {int(k): int((v or {}).get("size") or 0) for k, v in (fallbacks or {}).items()}
     if kind == "EXAM":
         rows = (
             await session.execute(select(ExamRequest.id, ExamRequest.enrolment).where(ExamRequest.id.in_(wanted)))
         ).all()
-        return {i: int(n or 0) for i, n in rows}
+        return {i: int(n or 0) or fb.get(i, 0) for i, n in rows}
     q = (
         select(MeetingRequest.id, Section.enrolment, MeetingRequest.requested_capacity)
         .join(Section, Section.id == MeetingRequest.section_id)
         .where(MeetingRequest.id.in_(wanted))
     )
-    return {i: int(e or c or 0) for i, e, c in (await session.execute(q)).all()}
+    return {i: int(e or c or 0) or fb.get(i, 0) for i, e, c in (await session.execute(q)).all()}
 
 
 def _freeze_selectors(inp: sm.SolverInput, c: sm.Constraint, keys: tuple[str, ...]) -> sm.Constraint:
@@ -538,7 +544,8 @@ def apply_draft(
             continue
         if len(keep) < len(mem):
             kept_seats = sum(sizes.get(m, 0) for m in keep)
-            if kept_seats:
+            # clip only when every kept member has a size (an unknown one would under-count the group)
+            if kept_seats and all(sizes.get(m, 0) > 0 for m in keep):
                 e = replace(e, size=min(e.size, kept_seats))
         events.append(e)
         new_members[e.id] = keep
@@ -643,7 +650,7 @@ async def _build_for(session: AsyncSession, run: ScheduleRun, snap: dict[str, An
     inp, members = await solver_bridge.build_solver_input(session, run)
     excluded = [int(i) for i in snap.get("excluded_event_ids") or []]
     touched = {m for ids in members.values() if len(ids) > 1 and set(ids) & set(excluded) for m in ids}
-    sizes = await _request_sizes(session, run.kind, touched)
+    sizes = await _request_sizes(session, run.kind, touched, (run.stats or {}).get("enrolment_fallbacks"))
     inp2, members2, dropped = apply_draft(inp, members, snap, sizes)
     return DraftInput(inp2, members2, excluded, dropped, dict(run.stats or {}))
 

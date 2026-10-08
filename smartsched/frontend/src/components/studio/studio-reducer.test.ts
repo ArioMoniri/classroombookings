@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Draft, Precheck, StudioRule, StudioSummary } from "@/lib/api/studio-schemas";
 import type { Week } from "@/lib/api/schemas";
-import { deriveSummary, estimateWords, initialStudioState, patchFor, resolveWeeks, studioReducer, type StudioState } from "./studio-reducer";
+import { deriveSummary, estimateWords, initialStudioState, isPlacementPin, patchFor, pinOverrides, resolveWeeks, studioReducer, type StudioState } from "./studio-reducer";
 
 const draft = (over: Partial<Draft> = {}): Draft => ({
   draft_id: 9,
@@ -87,6 +87,36 @@ describe("studioReducer", () => {
   });
 });
 
+describe("draft pins with pre-check overrides (unlock, tags, seats)", () => {
+  it("keeps the fix's overrides when the class is pinned from the class list, and only removes the placement on unpin", () => {
+    let s = hydrated(draft({ pins: [{ event_id: 5, room_ids: [], unlock: true }] }));
+    expect(s.local.pins).toEqual([{ event_id: 5, room_ids: [], unlock: true }]);
+    s = studioReducer(s, { type: "setPin", pin: { event_id: 5, room_ids: [7], day: null, start_period: null } });
+    expect(s.local.pins).toEqual([{ event_id: 5, room_ids: [7], day: null, start_period: null, unlock: true }]);
+    s = studioReducer(s, { type: "unpin", eventId: 5 });
+    expect(s.local.pins).toEqual([{ event_id: 5, room_ids: [], day: null, start_period: null, unlock: true }]);
+    // the PUT carries the override, so the unlock survives the next save
+    expect(patchFor(s.local, ["pins"]).pins?.[0]).toMatchObject({ event_id: 5, unlock: true });
+  });
+
+  it("drops a plain pin entirely and clears an override with dropOverrides", () => {
+    let s = hydrated(draft({ pins: [{ event_id: 1, room_ids: [3] }, { event_id: 5, room_ids: [], unlock: true, size: 40 }] }));
+    s = studioReducer(s, { type: "unpin", eventId: 1 });
+    expect(s.local.pins.map((p) => p.event_id)).toEqual([5]);
+    s = studioReducer(s, { type: "dropOverrides", eventId: 5 });
+    expect(s.local.pins).toEqual([]);
+    expect(s.dirty).toEqual(["pins"]);
+  });
+
+  it("tells a placement pin from an override-only entry", () => {
+    expect(isPlacementPin({ event_id: 1, room_ids: [3] })).toBe(true);
+    expect(isPlacementPin({ event_id: 1, room_ids: [], day: 2, start_period: 3 })).toBe(true);
+    expect(isPlacementPin({ event_id: 1, room_ids: [], unlock: true })).toBe(false);
+    expect(pinOverrides({ event_id: 1, room_ids: [], unlock: true, required_tags: ["PC"], size: 40, max_rooms: 2 })).toEqual({ unlock: true, required_tags: ["PC"], size: 40, max_rooms: 2 });
+    expect(pinOverrides({ event_id: 1, room_ids: [3] })).toEqual({});
+  });
+});
+
 describe("resolveWeeks", () => {
   it("mirrors the backend horizons", () => {
     expect(resolveWeeks("TERM", {}, weeks)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14]);
@@ -160,6 +190,39 @@ describe("deriveSummary (the 'What will happen' reducer)", () => {
     expect(stale.readiness).toBe("unknown");
     const checking = deriveSummary({ local: s.local, dirty: false, server: s.server, summary, classes, rules: [], termWeeks: weeks, precheck: precheck(3, "ready"), checking: true });
     expect(checking.readiness).toBe("checking");
+  });
+
+  it("a step change saved after the pre-check keeps its readiness (recording bug: 'Not checked yet')", () => {
+    let s = hydrated();
+    // the automatic pre-check ran on version 3 ...
+    const pc = precheck(3, "blocked");
+    // ... then the planner opened the Check step: only last_step is saved, the server answers version 4
+    s = studioReducer(s, { type: "setStep", step: "check" });
+    s = studioReducer(s, { type: "saving" });
+    s = studioReducer(s, { type: "saved", draft: draft({ version: 4, last_step: "check" }), sent: ["last_step"] });
+    s = studioReducer(s, { type: "setStep", step: "rules" });
+    s = studioReducer(s, { type: "saved", draft: draft({ version: 5, last_step: "rules" }), sent: ["last_step"] });
+    const v = deriveSummary({ local: s.local, dirty: false, server: s.server, sameContent: s.sameContent, summary, classes, rules: [], termWeeks: weeks, precheck: pc, checking: false });
+    expect(v.readiness).toBe("blocked");
+  });
+
+  it("a content save or a server-side fix after the pre-check still makes it stale", () => {
+    const pc = precheck(3, "blocked");
+    let s = studioReducer(hydrated(), { type: "exclude", ids: [2] });
+    s = studioReducer(s, { type: "setStep", step: "check" });
+    s = studioReducer(s, { type: "saved", draft: draft({ version: 4, excluded_event_ids: [2] }), sent: ["excluded_event_ids", "last_step"] });
+    expect(deriveSummary({ local: s.local, dirty: false, server: s.server, sameContent: s.sameContent, summary, classes, rules: [], termWeeks: weeks, precheck: pc, checking: false }).readiness).toBe("unknown");
+    // a pre-check fix comes back as "saved" with nothing sent: the draft content changed on the server
+    let f = hydrated();
+    f = studioReducer(f, { type: "saved", draft: draft({ version: 4, excluded_event_ids: [3] }), sent: [] });
+    expect(deriveSummary({ local: f.local, dirty: false, server: f.server, sameContent: f.sameContent, summary, classes, rules: [], termWeeks: weeks, precheck: pc, checking: false }).readiness).toBe("unknown");
+  });
+
+  it("counts only real pins as pinned; unlock-only fixes are counted as unlocked", () => {
+    const s = hydrated(draft({ pins: [{ event_id: 1, room_ids: [3] }, { event_id: 2, room_ids: [], unlock: true }] }));
+    const v = deriveSummary({ local: s.local, dirty: false, server: s.server, summary, classes, rules: [], termWeeks: weeks, precheck: null, checking: false });
+    expect(v.pinned).toBe(1);
+    expect(v.unlocked).toBe(1);
   });
 
   it("falls back to the server summary before the class list and rules load", () => {

@@ -109,7 +109,7 @@ export interface SlotText {
  * blanks `user_name` / `notes` when the viewer may not see them (`user_hidden`, `notes_hidden`), so the
  * label falls back to a neutral "Booked" instead of a name.
  */
-export function slotText(slot: GridSlot | undefined, labels: { booked: string; mine: string }): SlotText {
+export function slotText(slot: GridSlot | undefined, labels: { booked: string; mine: string; class?: string }): SlotText {
   if (!slot) return { primary: null, secondary: null };
   if (slot.status === "booked" && slot.booking) {
     const b = slot.booking;
@@ -117,7 +117,8 @@ export function slotText(slot: GridSlot | undefined, labels: { booked: string; m
     const secondary = b.notes || b.department_name || null;
     return { primary: who, secondary };
   }
-  if (slot.status === "timetable") return { primary: slot.label ?? null, secondary: null };
+  // solver rows without a course label fall back to a localised "Class" (never a hard-coded word)
+  if (slot.status === "timetable") return { primary: slot.label || labels.class || null, secondary: null };
   if (slot.status === "unavailable" && slot.reason === "holiday") return { primary: slot.label ?? null, secondary: null };
   return { primary: null, secondary: null };
 }

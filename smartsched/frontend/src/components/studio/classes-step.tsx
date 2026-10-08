@@ -22,6 +22,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { ChangedMark, DayTimeCell, ModeCell, PinCell, RoomsCell, StudentsCell } from "./class-cells";
+import { isPlacementPin } from "./studio-reducer";
 import { EMPTY_FILTERS, QUICK_FILTERS, activeFilterCount, filterClasses, filterOptions, quickCounts, type ClassFilters, type QuickFilter } from "./class-filters";
 import { ConfirmDialog } from "./confirm-dialog";
 import { plainRuleText } from "./rule-helpers";
@@ -79,7 +80,10 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
   const shown = useMemo(() => filterClasses(rows, filters, rowState), [rows, filters, rowState]);
   const counts = useMemo(() => quickCounts(rows, rowState), [rows, rowState]);
   const active = activeFilterCount(filters);
+  // every draft pin entry (for undo) and which classes a pre-check fix unlocked (shown as "may move")
   const pinByEvent = useMemo(() => new Map(local.pins.map((p) => [p.event_id, p])), [local.pins]);
+  const placedByEvent = useMemo(() => new Map(local.pins.filter(isPlacementPin).map((p) => [p.event_id, p])), [local.pins]);
+  const unlockedIds = useMemo(() => new Set(local.pins.filter((p) => p.unlock && !isPlacementPin(p)).map((p) => p.event_id)), [local.pins]);
   const changedRows = rows.filter((r) => r.changed_fields.length > 0);
   const inPlan = rows.filter((r) => r.schedulable && !rowState.excluded.has(r.id)).length;
   const ruleFilter = filters.ruleId !== null ? rules?.rules.find((r) => r.id === filters.ruleId) : undefined;
@@ -239,7 +243,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
       {
         id: "pin",
         header: () => t("studio.classes.col.pin"),
-        cell: ({ row }) => <PinCell row={row.original} pin={pinByEvent.get(row.original.id)} roomCode={sentence.roomCode} rooms={rooms} onPin={pin} onUnpin={() => unpin(row.original.id)} open={pinOpen === row.original.id ? true : undefined} onOpenChange={(o) => setPinOpen(o ? row.original.id : null)} />,
+        cell: ({ row }) => <PinCell row={row.original} pin={placedByEvent.get(row.original.id)} unlocked={unlockedIds.has(row.original.id)} roomCode={sentence.roomCode} rooms={rooms} onPin={pin} onUnpin={() => unpin(row.original.id)} open={pinOpen === row.original.id ? true : undefined} onOpenChange={(o) => setPinOpen(o ? row.original.id : null)} />,
         size: 110,
       },
       {
@@ -259,7 +263,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [shown, selected, rowState, edits.warnings, pinByEvent, pinOpen, rooms, sentence, t, locale],
+    [shown, selected, rowState, edits.warnings, pinByEvent, placedByEvent, unlockedIds, pinOpen, rooms, sentence, t, locale],
   );
 
   const table = useReactTable({ data: shown, columns, getCoreRowModel: getCoreRowModel(), getRowId: (r) => String(r.id) });
@@ -479,7 +483,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                       <p className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                         <DayTimeCell row={r} onSave={(p) => save(r, p)} />
                         <span>· {t("studio.classes.studentsN", { n: r.enrolment ?? "—" })}</span>
-                        <PinCell row={r} pin={pinByEvent.get(r.id)} roomCode={sentence.roomCode} rooms={rooms} onPin={pin} onUnpin={() => unpin(r.id)} />
+                        <PinCell row={r} pin={placedByEvent.get(r.id)} unlocked={unlockedIds.has(r.id)} roomCode={sentence.roomCode} rooms={rooms} onPin={pin} onUnpin={() => unpin(r.id)} />
                       </p>
                     </div>
                     <Switch checked={!out} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" className="mt-1" />
@@ -553,7 +557,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
       )}
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-label-2" data-testid="classes-footer">
-        <span>{t("studio.classes.footer", { in: n(inPlan), out: n(rowState.excluded.size), pinned: n(local.pins.length) })}</span>
+        <span>{t("studio.classes.footer", { in: n(inPlan), out: n(rowState.excluded.size), pinned: n(rowState.pinned.size) })}</span>
         {changedRows.length ? (
           <>
             <span aria-hidden>·</span>

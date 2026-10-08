@@ -92,3 +92,12 @@ describe("BookingGrid reservation affordances", () => {
     expect(pickKind(booking(2, 7))).toBeNull();
   });
 });
+
+describe("timetable cells without a course label (solver rows)", () => {
+  it("fall back to a localised word, not a hard-coded Turkish one", async () => {
+    const { slotText } = await import("./grid-model");
+    const s: GridSlot = { date: D, period_id: 1, room_id: 1, status: "timetable", reason: "timetable", label: "" };
+    expect(slotText(s, { booked: "Booked", mine: "You", class: "Class" }).primary).toBe("Class");
+    expect(slotText({ ...s, label: "MAT 112-2" }, { booked: "Booked", mine: "You", class: "Class" }).primary).toBe("MAT 112-2");
+  });
+});

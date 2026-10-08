@@ -1559,10 +1559,11 @@ async def board_checks(session: AsyncSession, run: ScheduleRun) -> dict[str, lis
                             c.rooms.update(x.rooms)
                             c.cells.update(x.refs[:1])
                         c.request_ids = list(dict.fromkeys([*c.request_ids, ra.id, rb.id]))
+                        first, second = sorted((a, b), key=lambda x: (x.start, x.label))
                         c.params = {
                             "instructor": names.get(ins, str(ins)),
-                            "labels": sorted({a.label, b.label}),
-                            "slots": [[a.start, a.end], [b.start, b.end]],
+                            "labels": [first.label, second.label],
+                            "slots": [[first.start, first.end], [second.start, second.end]],
                         }
 
     if not cases:

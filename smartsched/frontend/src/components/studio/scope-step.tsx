@@ -176,9 +176,9 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
       ) : (
         <div className="rounded-2xl bg-fill-3 p-4 shadow-[inset_0_0_0_1px_var(--hairline)]">
           <p className="text-base" aria-live="polite" data-testid="scope-sentence">
-            {classesLoading && !classes ? t("studio.scope.counting") : t("studio.scope.sentence", { n: n(summary.classesIn), rooms: n(summary.rooms), weeks: n(summary.weeks.length) })}
+            {classesLoading && !classes ? t("studio.scope.counting") : t("studio.scope.sentence", { n: summary.classesIn, rooms: summary.rooms, weeks: summary.weeks.length })}
           </p>
-          <p className="mt-1 text-sm text-label-2">{t("studio.scope.line2", { out: n(summary.classesOut), pinned: n(summary.pinned), holidays: n(holidays) })}</p>
+          <p className="mt-1 text-sm text-label-2">{t("studio.scope.line2", { out: n(summary.classesOut), pinned: n(summary.pinned), holidays })}</p>
           {summaryData?.last_good_run ? (
             <p className="mt-2 text-sm">
               <Link href={`/runs/${summaryData.last_good_run.id}`} className="text-tint-text underline-offset-2 hover:underline">

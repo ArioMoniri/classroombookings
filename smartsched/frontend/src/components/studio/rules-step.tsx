@@ -21,7 +21,7 @@ import { RuleCard } from "./rule-card";
 import { plainRuleText } from "./rule-helpers";
 import { templateFor } from "./rule-sentence";
 import { useStudio, useStudioStore } from "./studio-context";
-import { effectiveRules, type EffectiveRule } from "./studio-reducer";
+import { effectiveRules, isPlacementPin, pinOverrides, type EffectiveRule } from "./studio-reducer";
 import { TemplateGallery, type BuilderPrefill } from "./template-gallery";
 import { TermRuleCard } from "./term-rule-card";
 import { UploadPanel } from "./upload-panel";
@@ -36,7 +36,7 @@ const SOURCES = ["FILE", "ADMIN", "AI", "UPLOAD"] as const;
 
 export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefill?: BuilderPrefill | null; onBuilderConsumed?: () => void }) {
   const { t, n } = useI18n();
-  const { rules, local, meta, sentence, precheck, store, dispatch, classes } = useStudio();
+  const { rules, local, meta, sentence, precheck, store, dispatch } = useStudio();
   const settings = useSettingsPeek();
   const actions = useRuleActions();
   const tray = useStudioStore((s) => s.tray);
@@ -51,6 +51,10 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set(["builtin", "off"]));
 
   const galleryOpen = gallery || Boolean(builderPrefill);
+  // real pins (room / day and time) vs the draft-only changes a pre-check fix made (unlock, tags, seats)
+  const placed = useMemo(() => local.pins.filter(isPlacementPin), [local.pins]);
+  const changed = useMemo(() => local.pins.filter((p) => Object.keys(pinOverrides(p)).length > 0), [local.pins]);
+  const classLabel = sentence.classLabel;
   const eff = useMemo(() => effectiveRules(rules?.rules ?? [], local), [rules, local]);
   const clashes = useMemo(() => (precheck?.items ?? []).filter((i) => i.category === "clash"), [precheck]);
   const clashFor = (id: number): PrecheckItem | null => clashes.find((c) => c.constraint_ids.includes(id)) ?? null;
@@ -213,19 +217,17 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
           ))
         )}
 
-        {local.pins.length ? (
-          <RuleGroup id="pins" label={t("studio.rules.groupPins")} count={local.pins.length} collapsed={collapsed.has("pins")} onToggle={() => toggleGroup("pins")}>
+        {placed.length ? (
+          <RuleGroup id="pins" label={t("studio.rules.groupPins")} count={placed.length} collapsed={collapsed.has("pins")} onToggle={() => toggleGroup("pins")}>
             <ul className="space-y-2">
-              {local.pins.map((p) => {
-                const c = classes?.find((x) => x.id === p.event_id);
-                const label = c ? `${c.course_code} §${c.section_label}` : `#${p.event_id}`;
+              {placed.map((p) => {
                 const where = p.room_ids.length ? t("studio.pin.inRoom", { room: p.room_ids.map(sentence.roomCode).join(", ") }) : p.day ? t("studio.pin.atTime", { day: sentence.dayName(p.day), time: p.start_period ? PERIODS[p.start_period - 1]?.start ?? "" : "" }) : "";
                 return (
                   <li key={p.event_id}>
                     <RuleCard
                       domId={`pin-${p.event_id}`}
                       tokens={null}
-                      fallback={t("studio.pin.sentence", { cls: label, where })}
+                      fallback={t("studio.pin.sentence", { cls: classLabel(p.event_id), where })}
                       source="ADMIN"
                       subLabel={t("studio.pin.fromClassList")}
                       hardness="hard"
@@ -241,6 +243,51 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
                           }}
                         >
                           <Lock aria-hidden /> {t("studio.pin.remove")}
+                        </Button>
+                      }
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </RuleGroup>
+        ) : null}
+
+        {changed.length ? (
+          <RuleGroup id="overrides" label={t("studio.rules.groupOverrides")} count={changed.length} collapsed={collapsed.has("overrides")} onToggle={() => toggleGroup("overrides")}>
+            <ul className="space-y-2">
+              {changed.map((p) => {
+                const ov = pinOverrides(p);
+                const cls = classLabel(p.event_id);
+                const lines = [
+                  ov.unlock ? t("studio.pin.unlockedSentence", { cls }) : null,
+                  ov.required_tags ? (ov.required_tags.length ? t("studio.pin.tagsSentence", { cls, tags: ov.required_tags.map(sentence.tagLabel).join(", ") }) : t("studio.pin.noTagsSentence", { cls })) : null,
+                  ov.size != null ? t("studio.pin.seatsSentence", { cls, n: n(ov.size) }) : null,
+                  ov.max_rooms != null ? t("studio.pin.roomsSentence", { cls, n: ov.max_rooms }) : null,
+                ].filter((x): x is string => x !== null);
+                return (
+                  <li key={p.event_id}>
+                    <RuleCard
+                      domId={`override-${p.event_id}`}
+                      testId="override-card"
+                      tokens={null}
+                      fallback={lines.join(" · ")}
+                      source="ADMIN"
+                      subLabel={t("studio.pin.fromFix")}
+                      hardness="hard"
+                      weight={5}
+                      readOnly
+                      hideHardness
+                      actions={
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            dispatch({ type: "dropOverrides", eventId: p.event_id });
+                            store.getState().record({ label: ov.unlock ? t("studio.pin.relocked") : t("studio.pin.overrideRemoved"), undo: () => dispatch({ type: "setPin", pin: p }), redo: () => dispatch({ type: "dropOverrides", eventId: p.event_id }) });
+                          }}
+                        >
+                          {ov.unlock ? <Lock aria-hidden /> : null} {ov.unlock ? t("studio.pin.lockAgain") : t("studio.pin.undoOverride")}
                         </Button>
                       }
                     />

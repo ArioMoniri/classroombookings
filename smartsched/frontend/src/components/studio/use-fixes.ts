@@ -45,6 +45,8 @@ export function useApplyFix() {
               await refresh(["classes", "summary"]);
             }
             dispatch({ type: "setExcluded", ids: before.excluded });
+            // unlock / room / seat fixes live on the draft pins
+            dispatch({ type: "setPins", pins: before.pins });
             for (const [id, ov] of Object.entries(before.rule_overrides)) dispatch({ type: "setOverride", ruleId: Number(id), override: ov });
             const nowOv = store.getState().studio.local.rule_overrides;
             for (const id of Object.keys(nowOv)) if (!(id in before.rule_overrides)) dispatch({ type: "setOverride", ruleId: Number(id), override: null });

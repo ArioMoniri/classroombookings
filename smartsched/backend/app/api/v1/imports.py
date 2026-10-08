@@ -3,18 +3,18 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 
-from app.api.deps import DB, Planner, Viewer
+from app.api.deps import DB, CurrentAccess, Planner, Viewer, require_permission
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
 from app.importers.report import ImportReport
-from app.models import ImportJob
+from app.models import ImportJob, User
 from app.schemas.runs import ImportJobOut
 from app.workers.queue import JobState, get_queue, worker_id
 
@@ -146,6 +146,24 @@ async def import_grid(
     )
 
 
+RoomsEditor = Annotated[User, Depends(require_permission("planning.edit", "setup.rooms"))]
+_ROOM_MASTER_TYPES = (".csv", ".txt", ".xlsx", ".xlsm")
+
+
+@router.post("/room-master", response_model=ImportJobOut, status_code=202)
+async def import_room_master_endpoint(db: DB, _: RoomsEditor, file: UploadFile = File(...)) -> ImportJob:
+    """The room master (``code, capacity, exam_capacity, tags, building, floor, bookable[, notes]``) as CSV
+    (UTF-8 or Windows-1254, ``;`` or ``,``) or ``.xlsx`` (first sheet).  Values it sets are never overwritten
+    by a later workbook import.  Needs ``planning.edit`` or ``setup.rooms``."""
+    from app.importers.room_master import import_room_master
+
+    if not (file.filename or "").lower().endswith(_ROOM_MASTER_TYPES):
+        raise HTTPException(400, "the room master must be a .csv or .xlsx file")
+    job = await _new_job(db, "room-master", file.filename, None)
+    path = await _save_upload(db, job, file)
+    return await _start_job(db, job, lambda s: import_room_master(s, path, filename=file.filename))
+
+
 @router.post("/crbs", response_model=ImportJobOut, status_code=202)
 async def import_crbs_endpoint(
     db: DB, _: Planner, dsn: str | None = Form(None), files: list[UploadFile] = File(default=[])
@@ -169,8 +187,14 @@ async def list_jobs(db: DB, _: Viewer, limit: int = 50) -> list[ImportJob]:
 
 
 @router.get("/{job_id}", response_model=ImportJobOut)
-async def get_job(job_id: int, db: DB, _: Viewer) -> ImportJob:
+async def get_job(job_id: int, db: DB, access: CurrentAccess) -> ImportJob:
+    """Planners see every job; a room administrator (``setup.rooms``) sees the room-master imports."""
     job = await db.get(ImportJob, job_id)
+    viewer = "planning.view" in access.perms
+    if not viewer and not ("setup.rooms" in access.perms and job is not None and job.kind == "room-master"):
+        if "setup.rooms" not in access.perms:
+            raise HTTPException(403, "requires permission planning.view")
+        raise HTTPException(404, "import job not found")
     if job is None:
         raise HTTPException(404, "import job not found")
     st = get_queue().state(f"import:{job.id}")

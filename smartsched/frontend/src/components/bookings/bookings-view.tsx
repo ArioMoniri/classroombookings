@@ -538,7 +538,7 @@ function SlotInfoSheet({ info, onOpenChange, onAlternatives }: { info: { slot: G
   const message = !s
     ? ""
     : s.status === "timetable"
-      ? t("crbs.slot.timetableInfo", { label: s.label ?? "", room: room?.name ?? "", period: period?.name ?? "" })
+      ? t("crbs.slot.timetableInfo", { label: s.label || t("reserve.cell.class"), room: room?.name ?? "", period: period?.name ?? "" })
       : t(reasonKey(s.reason), { name: s.label ?? "" });
   return (
     <Sheet open={!!info} onOpenChange={onOpenChange}>

@@ -169,11 +169,11 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
     (slot: GridSlot | undefined): string | null => {
       if (!slot) return t("crbs.slot.reason.unavailable");
       if (slot.status === "booked" && slot.booking) {
-        const text = slotText(slot, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine") });
+        const text = slotText(slot, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class") });
         const b = slot.booking;
         return [text.primary, b.notes, b.department_name && b.department_name !== text.secondary ? b.department_name : null].filter(Boolean).join(" · ") || null;
       }
-      if (slot.status === "timetable") return `${t("crbs.legend.timetable")} · ${slot.label ?? ""}`;
+      if (slot.status === "timetable") return `${t("crbs.legend.timetable")} · ${slot.label || t("reserve.cell.class")}`;
       if (isSelectable(slot)) return null;
       if (slot.status === "available") return t("crbs.slot.reason.permissions");
       return t(reasonKey(slot.reason), { name: slot.label ?? "" });
@@ -192,7 +192,7 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
       if (isSelectable(slot)) {
         state = multi ? (selected.has(slotKey(slot)) ? t("crbs.slot.selected") : t("crbs.slot.selectable")) : inSpan ? t("reserve.cell.selectedSpan", { n: span.length }) : `${t("crbs.slot.free")}, ${t("reserve.cell.reserve")}`;
       } else if (slot.status === "booked") {
-        const text = slotText(slot, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine") });
+        const text = slotText(slot, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class") });
         const b = slot.booking;
         state = [slot.reason === "recurring" ? t("crbs.legend.recurring") : t("crbs.legend.single"), text.primary, b?.notes, b?.department_name].filter(Boolean).join(" · ");
         if (kind === "cancel") state += `, ${selected.has(slotKey(slot)) ? t("reserve.multi.selectedCancel") : t("crbs.slot.selectable")}`;
@@ -343,7 +343,7 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
   if (!layout.rows.length || !layout.cols.length) return null;
 
   const corner = columns === "periods" ? (grid.display === "day" ? t("crbs.grid.room") : t("crbs.grid.day")) : t("crbs.grid.period");
-  const labels = { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), free: t("reserve.cell.free"), reserve: t("reserve.cell.reserve") };
+  const labels = { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class"), free: t("reserve.cell.free"), reserve: t("reserve.cell.reserve") };
 
   return (
     <div ref={wrapRef} className="relative">
@@ -494,7 +494,7 @@ const Cell = memo(function Cell({
   multi: boolean;
   isSelected: boolean;
   highlighted?: boolean;
-  labels: { booked: string; mine: string; free: string; reserve: string };
+  labels: { booked: string; mine: string; class: string; free: string; reserve: string };
   deptColor: string | null;
   muted: boolean;
   onFocus: () => void;

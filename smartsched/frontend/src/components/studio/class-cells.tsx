@@ -222,7 +222,7 @@ export function RoomsCell({ row, onSave }: { row: ClassRow; onSave: (patch: Meet
   );
 }
 
-export function PinCell({ row, pin, roomCode, rooms, onPin, onUnpin, open, onOpenChange }: { row: ClassRow; pin: Pin | undefined; roomCode: (id: number) => string; rooms: { id: number; display_name: string; capacity: number; is_bookable: boolean }[]; onPin: (p: Pin) => void; onUnpin: () => void; open?: boolean; onOpenChange?: (v: boolean) => void }) {
+export function PinCell({ row, pin, unlocked, roomCode, rooms, onPin, onUnpin, open, onOpenChange }: { row: ClassRow; pin: Pin | undefined; /** a pre-check fix unlocked the class for this draft (it may move) */ unlocked?: boolean; roomCode: (id: number) => string; rooms: { id: number; display_name: string; capacity: number; is_bookable: boolean }[]; onPin: (p: Pin) => void; onUnpin: () => void; open?: boolean; onOpenChange?: (v: boolean) => void }) {
   const { t, locale } = useI18n();
   const initialRoom = pin?.room_ids[0] ?? row.definitive_room_ids[0] ?? row.requested_room_ids[0] ?? null;
   const [room, setRoom] = useState<number | null>(initialRoom);
@@ -230,9 +230,9 @@ export function PinCell({ row, pin, roomCode, rooms, onPin, onUnpin, open, onOpe
   const label = pin ? (pin.room_ids.length ? pin.room_ids.map(roomCode).join(", ") : pin.day ? `${dayName(pin.day, locale, "short")} P${pin.start_period ?? ""}` : t("studio.pin.pinned")) : null;
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger render={<button type="button" className={cn("inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs pointer-coarse:min-h-11", pin ? "bg-status-locked text-status-locked-fg" : "text-label-2 hover:bg-fill-2")} aria-label={pin ? t("studio.pin.pinnedTo", { where: label ?? "" }) : t("studio.pin.title")} data-testid="pin-button" />}>
+      <PopoverTrigger render={<button type="button" className={cn("inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs pointer-coarse:min-h-11", pin ? "bg-status-locked text-status-locked-fg" : "text-label-2 hover:bg-fill-2")} aria-label={pin ? t("studio.pin.pinnedTo", { where: label ?? "" }) : unlocked ? t("studio.pin.unlockedHint") : t("studio.pin.title")} data-testid="pin-button" data-unlocked={!pin && unlocked ? "true" : undefined} />}>
         {pin ? <Lock className="size-3.5" aria-hidden /> : <LockOpen className="size-3.5" aria-hidden />}
-        {label ? <span className="max-w-24 truncate">{label}</span> : null}
+        {label ? <span className="max-w-24 truncate">{label}</span> : unlocked ? <span className="max-w-24 truncate">{t("studio.pin.unlocked")}</span> : null}
       </PopoverTrigger>
       <PopoverContent className="w-72" align="end">
         <div className="grid gap-2 text-sm">

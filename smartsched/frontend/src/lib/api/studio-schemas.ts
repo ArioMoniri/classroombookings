@@ -26,6 +26,12 @@ export const Pin = z.object({
   room_ids: z.array(z.number()).default([]),
   day: z.number().nullable().optional(),
   start_period: z.number().nullable().optional(),
+  // draft-only overrides written by pre-check fixes (backend app/schemas/studio.py Pin): kept so a later
+  // PUT of the pins does not silently drop them
+  unlock: z.boolean().nullable().optional(),
+  required_tags: z.array(z.string()).nullable().optional(),
+  size: z.number().nullable().optional(),
+  max_rooms: z.number().nullable().optional(),
 });
 export type Pin = z.infer<typeof Pin>;
 

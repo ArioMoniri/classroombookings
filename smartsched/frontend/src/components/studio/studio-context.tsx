@@ -16,7 +16,7 @@ import { dayName } from "@/lib/time";
 import { useHydrated } from "@/lib/use-hydrated";
 import type { RowState } from "./class-filters";
 import type { SentenceContext } from "./rule-sentence";
-import { deriveSummary, patchFor, type DraftLocal, type StudioAction, type StudioState, type SummaryView } from "./studio-reducer";
+import { deriveSummary, isPlacementPin, patchFor, type DraftLocal, type StudioAction, type StudioState, type SummaryView } from "./studio-reducer";
 import { StudioDataContext, type StudioData } from "./studio-data";
 import { createStudioStore, type StudioStore, type StudioStoreState } from "./studio-store";
 
@@ -169,16 +169,23 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
   }, [store, saveNow]);
 
   /* ------------------------------------------------------------------ pre-check */
+  // only the newest request may set the result: an older check answering late must not replace it
+  const precheckSeq = useRef(0);
   const runPrecheck = useCallback(async (): Promise<Precheck | null> => {
+    const seq = ++precheckSeq.current;
     const ok = await flush();
-    if (!ok && store.getState().studio.status === "conflict") return null;
+    if (!ok && store.getState().studio.status === "conflict") {
+      if (seq === precheckSeq.current && store.getState().checking) store.getState().setChecking(false);
+      return null;
+    }
+    if (seq !== precheckSeq.current) return null;
     store.getState().setChecking(true);
     try {
       const p = await api.studio.precheck(termId, kind);
-      store.getState().setPrecheck(p);
+      if (seq === precheckSeq.current) store.getState().setPrecheck(p);
       return p;
     } catch (e) {
-      store.getState().setChecking(false, e instanceof Error ? e.message : String(e));
+      if (seq === precheckSeq.current) store.getState().setChecking(false, e instanceof Error ? e.message : String(e));
       return null;
     }
   }, [flush, store, termId, kind]);
@@ -243,7 +250,7 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
   /* -------------------------------------------------------------- derived state */
   const rooms = useMemo(() => roomsQ.data ?? [], [roomsQ.data]);
   const termWeeks = useMemo(() => weeksQ.data ?? [], [weeksQ.data]);
-  const rowState = useMemo<RowState>(() => ({ excluded: new Set(state.local.excluded), pinned: new Set(state.local.pins.map((p) => p.event_id)) }), [state.local.excluded, state.local.pins]);
+  const rowState = useMemo<RowState>(() => ({ excluded: new Set(state.local.excluded), pinned: new Set(state.local.pins.filter(isPlacementPin).map((p) => p.event_id)) }), [state.local.excluded, state.local.pins]);
 
   const classById = useMemo(() => new Map((classes.data?.items ?? []).map((c) => [c.id, c])), [classes.data]);
   const sentence = useMemo<SentenceContext>(() => {
@@ -277,6 +284,7 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
         local: state.local,
         dirty: state.dirty.length > 0,
         server: state.server,
+        sameContent: state.sameContent,
         summary: summaryQ.data ?? null,
         classes: classes.data?.items ?? null,
         rules: rules.data?.rules ?? null,
@@ -284,7 +292,7 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
         precheck,
         checking,
       }),
-    [state.local, state.dirty.length, state.server, summaryQ.data, classes.data, rules.data, termWeeks, precheck, checking],
+    [state.local, state.dirty.length, state.server, state.sameContent, summaryQ.data, classes.data, rules.data, termWeeks, precheck, checking],
   );
 
   const refresh = useCallback(

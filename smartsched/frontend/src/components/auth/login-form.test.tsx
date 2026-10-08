@@ -31,6 +31,16 @@ describe("LoginForm", () => {
     expect(document.body.textContent).not.toMatch(/demo|admin"|example\.edu/i);
   });
 
+  it.each([
+    ["en", "Your e-mail address or username"],
+    ["tr", "E-posta adresiniz veya kullanıcı adınız"],
+  ] as const)("hints the identifier field without a person-like address (%s)", (locale, hint) => {
+    renderForm(locale);
+    const field = screen.getByTestId("login-identifier");
+    expect(field).toHaveAttribute("placeholder", hint);
+    expect(field.getAttribute("placeholder")).not.toMatch(/@/);
+  });
+
   it("renders the organisation brand, login message, maintenance banner and the forgot-password link", () => {
     renderForm();
     expect(screen.getByTestId("login-brand")).toHaveTextContent("Acıbadem Üniversitesi");

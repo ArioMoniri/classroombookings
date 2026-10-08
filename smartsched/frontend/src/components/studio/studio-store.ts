@@ -89,7 +89,8 @@ export function createStudioStore() {
     precheck: null,
     checking: false,
     precheckError: null,
-    setPrecheck: (p) => set({ precheck: p, checking: false, precheckError: null }),
+    // a result for an older version of the same draft (a fix answered first) never replaces a newer one
+    setPrecheck: (p) => set((s) => (p && s.precheck && p.draft_id === s.precheck.draft_id && p.version < s.precheck.version ? { checking: false } : { precheck: p, checking: false, precheckError: null })),
     setChecking: (v, error = null) => set({ checking: v, precheckError: error }),
     changeTick: 0,
     touch: () => set((s) => ({ changeTick: s.changeTick + 1 })),

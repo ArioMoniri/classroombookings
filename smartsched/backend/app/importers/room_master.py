@@ -1,4 +1,5 @@
-"""Room master CSV: the planner's authoritative room list (``python -m app.cli import room-master file.csv``).
+"""Room master: the planner's authoritative room list (``python -m app.cli import room-master file.csv`` or
+``POST /api/v1/imports/room-master``; a CSV, or an ``.xlsx`` whose first sheet has the same columns).
 
 Columns (header row required, order free, ``;`` or ``,`` delimited, UTF-8 with or without BOM):
 
@@ -26,7 +27,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.safe_files import Limits, UnsafeFileError
+from app.core.safe_files import Limits, UnsafeFileError, is_zip_container, open_workbook, run_isolated
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
 from app.importers.report import ImportReport
@@ -105,12 +106,49 @@ def parse_room_master(text: str) -> tuple[list[dict[str, Any]], list[str]]:
     return rows, errors
 
 
+def xlsx_to_csv_text(path: str | Path) -> str:
+    """The first sheet of a room-master workbook as ``;`` separated text (header row first), read with the
+    safe workbook reader (zip pre-inspection, row / column caps)."""
+    wb = open_workbook(path, read_only=True, data_only=True, max_rows=5000, max_cols=len(COLUMNS) + 4)
+    try:
+        ws = wb.worksheets[0]
+        buf = io.StringIO()
+        writer = csv.writer(buf, delimiter=";", lineterminator="\n")
+        for values in ws.iter_rows(values_only=True):
+            cells = [
+                "" if v is None else str(int(v)) if isinstance(v, float) and v.is_integer() else str(v) for v in values
+            ]
+            if any(c.strip() for c in cells):
+                writer.writerow(cells)
+        return buf.getvalue()
+    finally:
+        wb.close()
+
+
+def read_room_master_text(path: str | Path) -> str:
+    """CSV text of a room master: UTF-8 (with or without BOM), else Windows-1254 (Turkish Excel's "CSV"
+    export); ``.xlsx`` / ``.xlsm`` workbooks are converted from their first sheet."""
+    if is_zip_container(Path(path).name):
+        return xlsx_to_csv_text(path)
+    data = Path(path).read_bytes()
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return data.decode("cp1254")
+
+
 async def import_room_master(session: AsyncSession, path: str | Path, *, filename: str | None = None) -> ImportReport:
+    """Apply a room master (CSV or xlsx, see the module doc) - the CLI ``import room-master`` and
+    ``POST /imports/room-master``."""
     report = ImportReport(kind="room-master", filename=filename or Path(path).name)
     cap = Limits.from_settings().max_upload_bytes
     if Path(path).stat().st_size > cap:
-        raise UnsafeFileError(413, f"room master CSV larger than {cap // (1024 * 1024)} MiB")
-    rows, errors = parse_room_master(Path(path).read_text(encoding="utf-8-sig"))
+        raise UnsafeFileError(413, f"room master larger than {cap // (1024 * 1024)} MiB")
+    if is_zip_container(Path(path).name):
+        text = await run_isolated(xlsx_to_csv_text, path)  # off the loop, memory-capped child
+    else:
+        text = read_room_master_text(path)
+    rows, errors = parse_room_master(text)
     for e in errors:
         report.warn(e)
     report.rows_total = len(rows) + sum(1 for e in errors if e.startswith("line "))
@@ -173,4 +211,4 @@ def _has_capacity(cat: Catalog, code: str) -> bool:
     return bool(room.capacity or room.exam_capacity)
 
 
-__all__ = ["COLUMNS", "import_room_master", "parse_room_master"]
+__all__ = ["COLUMNS", "import_room_master", "parse_room_master", "read_room_master_text", "xlsx_to_csv_text"]

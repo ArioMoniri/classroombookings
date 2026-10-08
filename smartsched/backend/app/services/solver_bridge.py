@@ -127,7 +127,11 @@ MODE_DEFAULTS: dict[str, Any] = {
     "definitive_rooms": "lock",  # lock | prefer (soft hint) | ignore — planner's definitive rooms of LOCKED rows
     # term runs: a room blocked in some weeks only moves those weeks (week segments, app/solver/weeksplit.py)
     "split_blocked_weeks": True,
+    # R4: a class larger than every suitable room that is free at its time may use several rooms of one
+    # building (seats add up to its size); at most ``split_max_rooms`` rooms (run param, default 4)
+    "split_large_classes": True,
 }
+SPLIT_MAX_ROOMS = 4
 
 
 def events_for_requests(params: dict[str, Any], members: dict[int, list[int]]) -> dict[str, Any]:
@@ -416,6 +420,82 @@ def clip_to_planner_rooms(
         clipped.append((e.id, e.size, seats, list(planner)))
         out.append(replace(e, size=seats, forbidden_room_ids=e.forbidden_room_ids | small))
     return out, clipped
+
+
+def _suits(e: sm.Event, r: sm.Room) -> bool:
+    if r.capacity <= 0 or r.id in e.forbidden_room_ids or e.forbidden_tags & r.tags:
+        return False
+    if not e.required_tags <= r.tags:
+        return False
+    return not e.required_room_ids or r.id in e.required_room_ids
+
+
+def allow_large_splits(
+    events: list[sm.Event],
+    rooms: tuple[sm.Room, ...],
+    blocks: list[sm.Block],
+    max_rooms: int = SPLIT_MAX_ROOMS,
+) -> tuple[list[sm.Event], list[dict[str, Any]]]:
+    """R4 (planner comparison): a course larger than every suitable room that is free at its fixed time
+    (no grid block, no locked class in any of its weeks) — or, without a fixed time, larger than every
+    suitable room — may use up to ``max_rooms`` rooms of **one building** whose seats add up to its size
+    (the solver's split linking: ``Σ cap·z ≥ size``).  The building is the event's requested building (or
+    that of its requested rooms) when it can seat the class, else the one needing the fewest rooms (then
+    the most free seats).  Rooms of other buildings stay allowed only when they seat the class alone, so
+    a single big room that frees up in a week segment is never lost.  Locked, room-less, multi-room and
+    exam events are left alone; an event no building can seat is left alone too.  Returns (events, one
+    info dict per split event)."""
+    if max_rooms < 2:
+        return events, []
+    by_id = {r.id: r for r in rooms}
+    busy: dict[tuple[int, int], list[tuple[int, int, frozenset[int] | None]]] = defaultdict(list)
+    for b in blocks:
+        busy[(b.room_id, b.day)].append((b.start, b.end, None if b.week is None else frozenset({b.week})))
+    for e in events:
+        if e.locked is not None:
+            for rid in e.locked.room_ids:
+                busy[(rid, e.locked.day)].append((e.locked.start, e.locked.end, frozenset(e.locked.weeks)))
+
+    def free(r: sm.Room, e: sm.Event) -> bool:
+        if e.fixed_day is None or e.fixed_start is None:
+            return True
+        end = e.fixed_start + e.duration - 1
+        return not any(
+            a <= end and e.fixed_start <= b and (wk is None or wk & e.weeks) for a, b, wk in busy[(r.id, e.fixed_day)]
+        )
+
+    out: list[sm.Event] = []
+    info: list[dict[str, Any]] = []
+    for e in events:
+        if e.kind != "course" or e.locked is not None or not e.needs_room or e.max_rooms > 1 or e.size <= 0:
+            out.append(e)
+            continue
+        suitable = [r for r in rooms if _suits(e, r)]
+        if not suitable or any(r.capacity >= e.size and free(r, e) for r in suitable):
+            out.append(e)
+            continue
+        wanted = e.preferred_building or next((by_id[i].building for i in e.preferred_room_ids if i in by_id), None)
+        best: tuple[tuple[int, int, int], str, int] | None = None
+        for building in sorted({r.building for r in suitable}):
+            caps = sorted((r.capacity for r in suitable if r.building == building and free(r, e)), reverse=True)
+            total, k = 0, 0
+            for c in caps:
+                if total >= e.size:
+                    break
+                total, k = total + c, k + 1
+            if total < e.size or k > max_rooms:
+                continue
+            rank = (0 if building == wanted else 1, k, -sum(caps))
+            if best is None or rank < best[0]:
+                best = (rank, building, k)
+        if best is None:
+            out.append(e)
+            continue
+        _rank, building, k = best
+        outside = frozenset(r.id for r in rooms if r.building != building and r.capacity < e.size)
+        out.append(replace(e, max_rooms=min(max_rooms, k + 1), forbidden_room_ids=e.forbidden_room_ids | outside))
+        info.append({"event_id": e.id, "label": e.label, "size": e.size, "building": building, "rooms_needed": k})
+    return out, info
 
 
 def _median(values: list[int]) -> int:
@@ -1055,6 +1135,27 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             )
         if carried:
             run.stats = {**(run.stats or {}), "carried_locks": {str(k): v for k, v in sorted(carried.items())}}
+
+    if not exam and run_mode(params, "split_large_classes"):
+        events, splits = allow_large_splits(
+            events, rooms, blocks, int(params.get("split_max_rooms", SPLIT_MAX_ROOMS) or SPLIT_MAX_ROOMS)
+        )
+        if splits:
+            run.stats = {**(run.stats or {}), "split_large_classes": len(splits)}
+            bridge_diags.append(
+                _bridge_diag(
+                    [x["event_id"] for x in splits],
+                    f"{len(splits)} class(es) larger than every free room that fits may use several rooms of one "
+                    "building: "
+                    + "; ".join(f"{x['label']} ({x['size']}, {x['building']} block)" for x in splits[:10])
+                    + (" ..." if len(splits) > 10 else ""),
+                    ["set split_large_classes=false to keep every class in one room"],
+                    "split_allowed",
+                    ["capacity"],
+                    {"events": splits},
+                    severity="info",
+                )
+            )
 
     if exam and extra_weeks:
         weeks = sorted(week_set | extra_weeks)

@@ -235,6 +235,12 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Audit log viewer with filters, CSV export and undo; in-app notifications (/me/notifications) in the shell.
 - [ ] Move approval e-mail/in-app texts into bookings_i18n; Postgres CI job for concurrent approvals.
 
+### Test-stack follow-ups (2026-10-08)
+
+- [ ] SMTP sink (local debug server) in the e2e stack to close parity rows S-23 / X-02 without e-mailing reset codes.
+- [ ] Second, empty backend in e2e for the installer-requirements step (B-SETUP-02).
+- [ ] Next.js dev/e2e proxies `/uploads/rooms/*` so room photos and the org logo show without nginx.
+
 ### Calendar sync follow-ups (2026-10-08)
 
 - [ ] Timetable classes (not only bookings) in the "mine" feed and push (T7).

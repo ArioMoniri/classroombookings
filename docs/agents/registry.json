@@ -332,7 +332,8 @@
       "goal": "the user asked us to add every classroombookings (CRBS) feature SmartSched lacks. A UI-level audit, docs/review/2026-10-08-crbs-ui-gap-audit.md, lists them with CRBS file:line, the SmartSched location and the smallest fix. Read it fully first. Implement every item owned by \"admin screens\" or \"auth/shell\", plus the small backend changes they need. The bookings-grid items belong to another agent (re…",
       "ledger": "frontend-engineer (admin + shell UI gaps)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 17:26"
     },
     {
       "id": "a892e1ea406c12e43",

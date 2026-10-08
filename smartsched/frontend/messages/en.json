@@ -154,8 +154,8 @@
       "run": "Generate"
     },
     "stepStatus": {
-      "term": "Whole term · {n} weeks",
-      "weeks": "W{from}–{to} · {n} weeks",
+      "term": "Whole term · {n, plural, one {# week} other {# weeks}}",
+      "weeks": "{n, plural, one {W{from} · # week} other {W{from}–{to} · # weeks}}",
       "noWeeks": "No weeks chosen",
       "classes": "{in} in · {out} out",
       "rules": "{must} must · {try} try",
@@ -194,9 +194,9 @@
       "weeks": "Weeks",
       "monthFrom": "Pick the first week (4 weeks from there)",
       "holiday": "Holiday: {label}",
-      "sentence": "You are planning {n} classes in {rooms} rooms for {weeks} weeks.",
+      "sentence": "You are planning {n, plural, one {# class} other {# classes}} in {rooms, plural, one {# room} other {# rooms}} for {weeks, plural, one {# week} other {# weeks}}.",
       "counting": "Counting…",
-      "line2": "{out} left out · {pinned} pinned · {holidays} weeks are holidays",
+      "line2": "{out} left out · {pinned} pinned · {holidays, plural, =0 {no holiday weeks} one {# week is a holiday} other {# weeks are holidays}}",
       "lastRun": "Last good run: #{id} · {when}",
       "allRulesMet": "All rules met",
       "noRun": "No good run yet for this term.",
@@ -305,7 +305,19 @@
       "sentence": "Keep {cls} {where}",
       "inRoom": "in {room}",
       "atTime": "on {day} at {time}",
-      "fromClassList": "pinned from the class list"
+      "fromClassList": "pinned from the class list",
+      "unlocked": "Unlocked",
+      "unlockedHint": "Unlocked in this draft: the planner may move it. Pin this class",
+      "unlockedSentence": "Unlocked: {cls} may move",
+      "tagsSentence": "{cls} needs a {tags} room",
+      "noTagsSentence": "{cls} may use any room type",
+      "seatsSentence": "Plan {cls} for {n} seats",
+      "roomsSentence": "{cls} may split into up to {n, plural, one {# room} other {# rooms}}",
+      "fromFix": "changed by a pre-check fix, in this draft only",
+      "lockAgain": "Lock again",
+      "relocked": "Locked again",
+      "undoOverride": "Undo this change",
+      "overrideRemoved": "Change undone"
     },
     "source": {
       "FILE": "File",
@@ -368,6 +380,7 @@
       "groupOff": "Turned off",
       "groupBuiltin": "Built-in (always on unless an admin turns them off)",
       "groupPins": "Pinned classes",
+      "groupOverrides": "Changed by pre-check fixes",
       "groupEmpty": "No rules here.",
       "more": "More actions",
       "turnOff": "Turn off for this plan",
@@ -747,9 +760,9 @@
       "shortcut": "Ctrl/⌘ + Enter",
       "h": {
         "place": "SmartSched will place {n} classes into {rooms} rooms for weeks {weeks}.",
-        "rules": "It must follow {must} rules and will try to follow {try} preferences.",
-        "pinned": "{n} classes are pinned and won't move.",
-        "out": "{n} are left out.",
+        "rules": "It must follow {must, plural, one {# rule} other {# rules}} and will try to follow {try, plural, one {# preference} other {# preferences}}.",
+        "pinned": "{n, plural, one {# class is pinned and won't move.} other {# classes are pinned and won't move.}}",
+        "out": "{n, plural, one {# is left out.} other {# are left out.}}",
         "stable": "It will keep as much as possible from run #{id}.",
         "time": "This should take {words}."
       }
@@ -1743,7 +1756,7 @@
       "offline": "The server cannot be reached. Check the connection and try again.",
       "failed": "The e-mail, username or password is wrong.",
       "identifier": "E-mail or username",
-      "identifierHint": "fatih@university.edu.tr",
+      "identifierHint": "Your e-mail address or username",
       "showPassword": "Show password",
       "hidePassword": "Hide password",
       "changeTitle": "Choose a new password",
@@ -2164,7 +2177,8 @@
       "free": "Free",
       "reserve": "Reserve",
       "span": "{n} periods",
-      "selectedSpan": "selected for a {n}-period booking"
+      "selectedSpan": "selected for a {n}-period booking",
+      "class": "Class"
     },
     "reason": {
       "schedule": "Not a bookable period for this room"

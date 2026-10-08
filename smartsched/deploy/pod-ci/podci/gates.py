@@ -32,6 +32,9 @@ GATES: tuple[Gate, ...] = (
          needs=("frontend", "backend"), timeout=3600),
     # after e2e-real so it reads this run's /w/playwright-report.json; API rows still run if e2e failed
     Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)", needs=("backend",), timeout=1800),
+    # real workbooks, 4 solves (Bahar term ~5 min): planner-level violations fail the run
+    Gate("planner", "planner.sh", "planner-level validation (tools/validate_planner.py)", needs=("backend",),
+         timeout=3600),
     Gate("images", "images.sh", "docker build backend/frontend/crbs", needs=("prepare",), timeout=2700),
     Gate("watchdog", "watchdog.sh", "agent ledger report", blocking=False, needs=("prepare",), timeout=300),
 )

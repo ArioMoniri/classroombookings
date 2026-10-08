@@ -30,6 +30,7 @@ BOOL_KEYS = frozenset(
         "best_effort",
         "merge_joint_lectures",
         "split_blocked_weeks",
+        "split_large_classes",
         "strict_horizon",
         "stability",
     }
@@ -77,6 +78,8 @@ def clean_client_params(params: dict[str, Any]) -> dict[str, Any]:
             out[key] = _num(value, key, *b[key], integer=False)
         elif key in ("workers", "seed"):
             out[key] = _num(value, key, *b[key], integer=True)
+        elif key == "split_max_rooms":  # R4: rooms one large class may be split over (solver_bridge)
+            out[key] = _num(value, key, 1, 8, integer=True)
         elif key == "solver":
             if value not in SOLVERS:
                 raise ParamError(f"params.solver must be one of {SOLVERS}")

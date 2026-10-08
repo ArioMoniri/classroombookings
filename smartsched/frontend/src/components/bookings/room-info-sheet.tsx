@@ -168,7 +168,7 @@ function RoomDay({ room, date, termId, fmt, onReserve }: { room: RoomInfo; date:
   if (!g || g.rooms[0]?.id !== room.id) return null;
   const held = roomDay(g, room.id, date).filter((s) => s.status === "booked" || s.status === "timetable" || (s.status === "unavailable" && s.reason === "holiday"));
   const describe = (x: (typeof held)[number]) => {
-    const text = slotText(x, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine") });
+    const text = slotText(x, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class") });
     return [text.primary, x.booking?.notes, x.booking?.department_name].filter(Boolean).join(" · ");
   };
   // consecutive periods held by the same class or booking series are one row

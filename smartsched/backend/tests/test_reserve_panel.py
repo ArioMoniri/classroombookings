@@ -152,3 +152,49 @@ async def test_multi_recurring_honours_per_date_choices(env):  # noqa: F811
     created = [b["date"] for s in r.json()["series"] for b in s["created"]]
     assert MON.isoformat() in created and skip not in created
     assert "2026-03-02" in created
+
+
+async def test_solver_run_classes_are_named_from_their_section(env):  # noqa: F811
+    """Solver assignments carry no label or course codes; the grid names them "<course>-<section>" (never a
+    hard-coded Turkish "Ders")."""
+    from app.core import db as dbmod
+    from app.models import Assignment, Course, MeetingRequest, Section
+    from sqlalchemy import select
+
+    async with dbmod.get_session_factory()() as s:
+        mr, code, sec = (
+            await s.execute(
+                select(MeetingRequest.id, Course.display_code, Section.label)
+                .join(Section, Section.id == MeetingRequest.section_id)
+                .join(Course, Course.id == Section.course_id)
+                .where(Section.term_id == env.term_id)
+                .limit(1)
+            )
+        ).one()
+        s.add(
+            Assignment(
+                run_id=env.run_id,  # the published run
+                meeting_request_id=mr,
+                day=1,
+                date=MON,
+                start_period=1,
+                end_period=1,
+                room_ids=[env.rooms["A101"]],
+                label=None,
+                course_codes=[],
+                origin="SOLVER",
+            )
+        )
+        await s.commit()
+    _, teacher = await env.user("cozucu.etiket@uni.edu.tr")
+    grid = (
+        await env.client.get(
+            "/api/v1/bookings/grid",
+            params={"display": "room", "date": MON.isoformat(), "room_id": env.rooms["A101"]},
+            headers=teacher,
+        )
+    ).json()
+    p1 = next(x for x in grid["slots"] if x["date"] == MON.isoformat() and x["period_id"] == env.periods["P1"])
+    assert p1["status"] == "timetable"
+    assert p1["label"] == (f"{code}-{sec}" if sec else code)
+    assert p1["label"] != "Ders"

@@ -28,9 +28,9 @@ export function useHumanSummary(): string {
       : summary.weeks.length === 0
         ? t("glass.studio.placeTerm", { n: n(summary.classesIn), rooms: n(summary.rooms) })
         : t("studio.summary.h.place", { n: n(summary.classesIn), rooms: n(summary.rooms), weeks: compactRange(summary.weeks) }),
-    t("studio.summary.h.rules", { must: n(summary.must), try: n(summary.tryTo) }),
-    summary.pinned ? t("studio.summary.h.pinned", { n: n(summary.pinned) }) : "",
-    summary.classesOut ? t("studio.summary.h.out", { n: n(summary.classesOut) }) : "",
+    t("studio.summary.h.rules", { must: summary.must, try: summary.tryTo }),
+    summary.pinned ? t("studio.summary.h.pinned", { n: summary.pinned }) : "",
+    summary.classesOut ? t("studio.summary.h.out", { n: summary.classesOut }) : "",
     summary.stability && summary.lastGoodRunId ? t("studio.summary.h.stable", { id: summary.lastGoodRunId }) : "",
     summary.estimate ? t("studio.summary.h.time", { words: est(summary.estimate) }) : "",
   ];

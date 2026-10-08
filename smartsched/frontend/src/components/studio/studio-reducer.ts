@@ -34,6 +34,12 @@ export interface StudioState {
   status: "idle" | "saving" | "saved" | "error" | "conflict";
   error: string | null;
   conflict: Draft | null;
+  /**
+   * Server versions whose plan content equals an older version: a save that only changed `last_step`
+   * (opening another step) bumps the version but cannot change the pre-check result. Maps the new
+   * version to the one it was saved on top of, so a pre-check of that older version stays current.
+   */
+  sameContent: Readonly<Record<number, number>>;
 }
 
 export type StudioAction =
@@ -44,6 +50,9 @@ export type StudioAction =
   | { type: "setExcluded"; ids: number[] }
   | { type: "setPin"; pin: Pin }
   | { type: "unpin"; eventId: number }
+  /** remove a pre-check fix's draft-only overrides (unlock, room tags, seats, room count) of a class */
+  | { type: "dropOverrides"; eventId: number }
+  | { type: "setPins"; pins: Pin[] }
   | { type: "setOverride"; ruleId: number; override: RuleOverride | null }
   | { type: "setRuleInPlay"; ruleId: number; inPlay: boolean }
   | { type: "setBuiltin"; kind: string; enabled: boolean }
@@ -68,7 +77,39 @@ export const EMPTY_LOCAL: DraftLocal = {
   preset_id: null,
 };
 
-export const initialStudioState: StudioState = { server: null, local: EMPTY_LOCAL, dirty: [], status: "idle", error: null, conflict: null };
+export const initialStudioState: StudioState = { server: null, local: EMPTY_LOCAL, dirty: [], status: "idle", error: null, conflict: null, sameContent: {} };
+
+/* -------------------------------------------------------------------------- pins */
+
+const OVERRIDE_KEYS = ["unlock", "required_tags", "size", "max_rooms"] as const;
+type PinOverrides = Pick<Pin, (typeof OVERRIDE_KEYS)[number]>;
+
+/** The draft-only overrides a pre-check fix stored on a pin entry (unlock, room tags, seats, room count). */
+export function pinOverrides(p: Pin): PinOverrides {
+  const out: PinOverrides = {};
+  if (p.unlock) out.unlock = true;
+  if (p.required_tags != null) out.required_tags = p.required_tags;
+  if (p.size != null) out.size = p.size;
+  if (p.max_rooms != null) out.max_rooms = p.max_rooms;
+  return out;
+}
+
+/** A real pin: the class keeps a room and/or a day and time. An entry with only overrides is not one. */
+export function isPlacementPin(p: Pin): boolean {
+  return p.room_ids.length > 0 || p.day != null || p.start_period != null;
+}
+
+const hasOverrides = (p: Pin) => Object.keys(pinOverrides(p)).length > 0;
+const withoutOverrides = (p: Pin): Pin => {
+  const next = { ...p };
+  for (const k of OVERRIDE_KEYS) delete next[k];
+  return next;
+};
+const replacePin = (pins: Pin[], eventId: number, next: Pin | null): Pin[] => {
+  const i = pins.findIndex((p) => p.event_id === eventId);
+  if (i < 0) return next ? [...pins, next] : pins;
+  return next ? pins.map((p, k) => (k === i ? next : p)) : pins.filter((_, k) => k !== i);
+};
 
 export function localFromDraft(d: Draft): DraftLocal {
   return {
@@ -96,7 +137,7 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
   const l = state.local;
   switch (action.type) {
     case "hydrate":
-      return { server: action.draft, local: localFromDraft(action.draft), dirty: [], status: "idle", error: null, conflict: null };
+      return { server: action.draft, local: localFromDraft(action.draft), dirty: [], status: "idle", error: null, conflict: null, sameContent: {} };
     case "setScope":
       return edit(
         state,
@@ -112,10 +153,25 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
     }
     case "setExcluded":
       return edit(state, { ...l, excluded: uniq(action.ids) }, "excluded_event_ids");
-    case "setPin":
-      return edit(state, { ...l, pins: [...l.pins.filter((p) => p.event_id !== action.pin.event_id), action.pin] }, "pins");
-    case "unpin":
-      return edit(state, { ...l, pins: l.pins.filter((p) => p.event_id !== action.eventId) }, "pins");
+    case "setPin": {
+      // a new placement keeps the fix overrides already stored for the class (unless the pin brings its own)
+      const prev = l.pins.find((p) => p.event_id === action.pin.event_id);
+      return edit(state, { ...l, pins: replacePin(l.pins, action.pin.event_id, { ...(prev ? pinOverrides(prev) : {}), ...action.pin }) }, "pins");
+    }
+    case "unpin": {
+      // removes the placement only; an unlock / seats / tags fix on the same class stays
+      const prev = l.pins.find((p) => p.event_id === action.eventId);
+      if (!prev) return state;
+      const rest: Pin | null = hasOverrides(prev) ? { ...prev, room_ids: [], day: null, start_period: null } : null;
+      return edit(state, { ...l, pins: replacePin(l.pins, action.eventId, rest) }, "pins");
+    }
+    case "dropOverrides": {
+      const prev = l.pins.find((p) => p.event_id === action.eventId);
+      if (!prev || !hasOverrides(prev)) return state;
+      return edit(state, { ...l, pins: replacePin(l.pins, action.eventId, isPlacementPin(prev) ? withoutOverrides(prev) : null) }, "pins");
+    }
+    case "setPins":
+      return edit(state, { ...l, pins: action.pins.map((p) => ({ ...p })) }, "pins");
     case "setOverride": {
       const next = { ...l.rule_overrides };
       if (!action.override || (action.override.hardness == null && action.override.weight == null)) delete next[String(action.ruleId)];
@@ -146,7 +202,11 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
       const fromServer = localFromDraft(action.draft);
       const local = { ...fromServer };
       for (const f of stillDirty) assignField(local, l, f);
-      return { ...state, server: action.draft, local, dirty: stillDirty, status: stillDirty.length ? "idle" : "saved", error: null, conflict: null };
+      // a save of only the open step (navigation) cannot change the plan: remember the version it built on
+      const navOnly = action.sent.length > 0 && action.sent.every((f) => f === "last_step");
+      const prevVersion = state.server?.version;
+      const sameContent = navOnly && prevVersion !== undefined && action.draft.version !== prevVersion ? { ...state.sameContent, [action.draft.version]: prevVersion } : state.sameContent;
+      return { ...state, server: action.draft, local, dirty: stillDirty, status: stillDirty.length ? "idle" : "saved", error: null, conflict: null, sameContent };
     }
     case "saveFailed":
       return { ...state, status: "error", error: action.error };
@@ -154,7 +214,7 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
       return { ...state, status: "conflict", conflict: action.current };
     case "keepMine":
       // overwrite: adopt the server version number, resend every field
-      return { ...state, server: action.current, status: "idle", conflict: null, dirty: ALL_FIELDS };
+      return { ...state, server: action.current, status: "idle", conflict: null, dirty: ALL_FIELDS, sameContent: {} };
   }
 }
 
@@ -284,6 +344,8 @@ export interface SummaryInput {
   local: DraftLocal;
   dirty: boolean;
   server: Draft | null;
+  /** StudioState.sameContent (navigation-only saves) */
+  sameContent?: Readonly<Record<number, number>>;
   summary: StudioSummary | null;
   classes: readonly ClassCountInput[] | null;
   rules: readonly StudioRule[] | null;
@@ -297,6 +359,8 @@ export interface SummaryView {
   classesOut: number;
   classesTotal: number;
   pinned: number;
+  /** classes a pre-check fix unlocked for this draft (shown as "may move", not as pinned) */
+  unlocked: number;
   rooms: number;
   weeks: number[];
   holidayWeeks: number[];
@@ -320,7 +384,7 @@ export function deriveSummary(i: SummaryInput): SummaryView {
   const eff = i.rules ? effectiveRules(i.rules, i.local).filter((r) => r.inPlay) : null;
   const must = eff ? eff.filter((r) => r.hardness === "hard").length : (i.summary?.counts.rules_must ?? 0);
   const tryTo = eff ? eff.filter((r) => r.hardness === "soft").length : (i.summary?.counts.rules_try ?? 0);
-  const fresh = i.precheck !== null && !i.dirty && i.server !== null && i.precheck.version === i.server.version;
+  const fresh = i.precheck !== null && !i.dirty && i.server !== null && contentVersion(i.sameContent, i.precheck.version) === contentVersion(i.sameContent, i.server.version);
   const readiness: SummaryView["readiness"] = i.checking ? "checking" : fresh && i.precheck ? i.precheck.readiness : "unknown";
   const items = i.precheck?.items ?? [];
   const order = { error: 0, warning: 1, info: 2 } as const;
@@ -331,7 +395,8 @@ export function deriveSummary(i: SummaryInput): SummaryView {
     classesIn,
     classesOut: excluded.size,
     classesTotal: i.classes ? i.classes.length : (i.summary?.counts.classes_total ?? 0),
-    pinned: i.local.pins.length,
+    pinned: i.local.pins.filter(isPlacementPin).length,
+    unlocked: i.local.pins.filter((p) => p.unlock && !isPlacementPin(p)).length,
     rooms: i.summary?.counts.rooms ?? 0,
     weeks,
     holidayWeeks: weeks.filter((w) => holidays.has(w)),
@@ -345,6 +410,13 @@ export function deriveSummary(i: SummaryInput): SummaryView {
     lastGoodRunId: lastGood,
     stability: lastGood !== null && i.local.params.stability !== false,
   };
+}
+
+/** The oldest version with the same plan content as `v` (follows navigation-only saves). */
+export function contentVersion(sameContent: Readonly<Record<number, number>> | undefined, v: number): number {
+  let cur = v;
+  for (let guard = 0; sameContent && guard < 1000 && sameContent[cur] !== undefined; guard++) cur = sameContent[cur]!;
+  return cur;
 }
 
 /** Rounded words for an estimate in seconds ("under a minute", "about 2 minutes (at most 5)"). */
