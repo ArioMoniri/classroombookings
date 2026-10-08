@@ -107,11 +107,12 @@ export function DepartmentBar({ grid, value, onChange, mine, termId, onRoomInfo 
         </ul>
       </div>
       {chosen !== null ? (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 type-footnote text-label-2" aria-live="polite">
+        // one fixed-height strip (scrolls sideways): the top rooms arrive after the grid and must not push it down
+        <div className="-mx-1 flex h-12 items-center gap-2 overflow-x-auto px-1 type-footnote whitespace-nowrap text-label-2 scrollbar-thin sm:h-7" aria-live="polite">
           <span data-testid="department-filtering">{t("reserve.dept.filtering", { name: nameOf(chosen) })}</span>
           {top.data ? (
             top.data.rooms.length ? (
-              <span className="flex flex-wrap items-center gap-1.5" data-testid="department-top-rooms">
+              <span className="flex items-center gap-1.5" data-testid="department-top-rooms">
                 <span className="text-label-3">{t("reserve.dept.topRooms", { name: nameOf(chosen) })}:</span>
                 {top.data.rooms.map((r) => (
                   <button
@@ -120,7 +121,7 @@ export function DepartmentBar({ grid, value, onChange, mine, termId, onRoomInfo 
                     onClick={() => onRoomInfo(r.room_id)}
                     title={t("reserve.dept.roomUse", { bookings: r.bookings, classes: r.classes })}
                     aria-label={`${t("crbs.roomInfo.open", { name: r.name })} · ${t("reserve.dept.roomUse", { bookings: r.bookings, classes: r.classes })}`}
-                    className="min-h-11 rounded-full bg-fill-2 px-2.5 font-medium text-label-1 outline-none hover:bg-fill-1 focus-visible:outline-2 focus-visible:outline-(--focus) sm:min-h-6"
+                    className="h-11 shrink-0 rounded-full bg-fill-2 px-2.5 font-medium text-label-1 outline-none hover:bg-fill-1 focus-visible:outline-2 focus-visible:outline-(--focus) sm:h-6"
                   >
                     {r.name}
                   </button>

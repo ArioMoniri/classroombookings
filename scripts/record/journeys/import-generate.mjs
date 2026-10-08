@@ -48,8 +48,15 @@ export default {
       if (await week.isVisible().catch(() => false)) await rec.click(week);
       await rec.frame(page.getByTestId("scope-sentence"), { dwell: 1200 });
     });
-    await rec.step(tr(ctx, "Generate (about a minute of solving, skipped here)", "Oluştur (yaklaşık bir dakikalık çözüm burada atlandı)"), async () => {
+    await rec.step(tr(ctx, "The pre-check warns before solving: some classes cannot fit", "Ön kontrol çözmeden önce uyarır: bazı dersler sığamaz"), async () => {
       await rec.click(page.getByTestId("summary-generate"));
+      const anyway = page.getByRole("button", { name: /generate anyway|yine de oluştur/i });
+      if (await anyway.waitFor({ timeout: 6_000 }).then(() => true, () => false)) {
+        await rec.frame(page.getByRole("dialog").or(page.getByRole("alertdialog")).first(), { dwell: 1800 });
+        await rec.click(anyway);
+      }
+    });
+    await rec.step(tr(ctx, "Generate anyway to get the full diagnosis (solving time skipped)", "Yine de oluşturun, tam tanı için (çözüm süresi atlandı)"), async () => {
       await rec.cut(() => page.getByTestId("run-open-report").first().waitFor({ timeout: 300_000 }));
       await rec.frame(page.getByTestId("run-result").first(), { dwell: 1500 });
     });

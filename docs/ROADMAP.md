@@ -227,6 +227,14 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Calendar sync: tokenised ICS subscription feeds (mine / room / department / room group) for Google, Outlook, Apple; optional Google Calendar + Microsoft 365 push when an admin configures OAuth clients; signed outgoing webhooks (Activepieces/n8n-ready).
 - [ ] Room details panel with capacity, features, today's bookings, next free slot and "other available rooms" at the same time with one-click reserve (uses T1 find-a-room).
 
+### Calendar sync follow-ups (2026-10-08)
+
+- [ ] Timetable classes (not only bookings) in the "mine" feed and push (T7).
+- [ ] Read busy/free from Google/Microsoft to warn about clashes (two-way half of T6); optional dedicated SmartSched calendar per user.
+- [ ] `run.published` webhook event; remove pushed events when a user disconnects.
+- [ ] Optional Activepieces `--profile automations` compose service.
+- [ ] Pod smoke test against a real Google Workspace / Entra ID tenant once the university creates its OAuth clients (docs/deploy/calendar-oauth.md).
+
 ### Phase 17 — Booking enhancements wave 1 (from docs/product/booking-enhancements.md)
 
 Foundation, in order: typed room features → find a room → notification hub → audit log + undo → approvals (TIP rooms, labs, amphitheatres, exam halls) → conflict resolver after publishing → booking policies → public day view → KVKK (retention, consent, export/delete). Waves 2–3 (availability portal ~6 weeks before term, check-in + door-sign kiosk + auto-release, invigilators, what-ifs, two-way calendar sync, API/webhooks, multi-campus) follow. Open questions for the user are listed in the doc §5.

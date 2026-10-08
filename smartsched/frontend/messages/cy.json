@@ -86,5 +86,11 @@
   "roomsV2": {
     "week": "Wythnos",
     "dayCol": "Dydd"
+  },
+  "reserve": {
+    "free": {
+      "day": "Dydd",
+      "week": "Wythnos"
+    }
   }
 }

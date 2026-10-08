@@ -86,5 +86,11 @@
   "roomsV2": {
     "week": "viikko",
     "dayCol": "päivää"
+  },
+  "reserve": {
+    "free": {
+      "day": "päivää",
+      "week": "viikko"
+    }
   }
 }

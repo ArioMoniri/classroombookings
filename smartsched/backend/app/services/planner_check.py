@@ -494,12 +494,12 @@ def check(data: CheckData) -> PlannerCheck:
                 groups: dict[int, tuple[int, frozenset[int]]] = {}
                 for h in sorted(comp):
                     need_h = sum(size_of(m) for m in cell_members[cell][h])
-                    rs = frozenset(by_head[h])
-                    seats_h = sum(rooms[r].seats for r in rs)
-                    if need_h > seats_h and trusted_rooms(group(h), rs):
+                    rooms_h = frozenset(by_head[h])
+                    seats_h = sum(rooms[r].seats for r in rooms_h)
+                    if need_h > seats_h and trusted_rooms(group(h), rooms_h):
                         # the planner's own (too small) rooms: the group fills them (D1, reported by the run),
                         # like the solver's seat target min(size, seats); the others must still fit
-                        ckey_h = (h, rs)
+                        ckey_h = (h, rooms_h)
                         if ckey_h not in seen_trusted:
                             seen_trusted.add(ckey_h)
                             rids_h = sorted(cell_members[cell][h])
@@ -507,11 +507,11 @@ def check(data: CheckData) -> PlannerCheck:
                                 "capacity",
                                 rids_h,
                                 f"{', '.join(label(x) for x in rids_h[:4])}: {need_h} students in the planner's "
-                                f"{', '.join(code(r) for r in sorted(rs))} ({seats_h} exam seats)",
+                                f"{', '.join(code(r) for r in sorted(rooms_h))} ({seats_h} exam seats)",
                                 "D1",
                             )
                         need_h = seats_h
-                    groups[h] = (need_h, rs)
+                    groups[h] = (need_h, rooms_h)
                 used_rooms = set().union(*(rs for _s, rs in groups.values()))
                 room_seats = {r: rooms[r].seats for r in used_rooms}
                 if _max_flow_ok(groups, room_seats):

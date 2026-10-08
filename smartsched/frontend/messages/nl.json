@@ -86,5 +86,11 @@
   "roomsV2": {
     "week": "week",
     "dayCol": "dag"
+  },
+  "reserve": {
+    "free": {
+      "day": "dag",
+      "week": "week"
+    }
   }
 }

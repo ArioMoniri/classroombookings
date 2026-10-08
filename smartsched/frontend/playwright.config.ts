@@ -18,7 +18,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: /(real-backend|bookings|calendar|languages|motion-audit|smoke|admin-gaps)\.spec\.ts/,
+  testMatch: /(real-backend|bookings|calendar|languages|motion-audit|smoke|admin-gaps|reserve)\.spec\.ts/,
   globalSetup: REAL ? "./e2e/global-setup.ts" : undefined,
   timeout: 60_000,
   expect: { timeout: 10_000 },

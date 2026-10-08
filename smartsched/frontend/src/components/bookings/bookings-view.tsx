@@ -380,7 +380,7 @@ export function BookingsView() {
       </Toolbar>
 
       {display === "day" && groups.length > 1 ? (
-        <nav aria-label={t("crbs.toolbar.groups")} data-print-hide className="-mx-1 overflow-x-auto px-1 scrollbar-thin">
+        <nav aria-label={t("crbs.toolbar.groups")} data-print-hide className="-mx-1 overflow-x-auto px-1 scrollbar-thin" data-testid="group-tabs">
           <SegmentedGlass<string>
             aria-label={t("crbs.toolbar.groups")}
             size="sm"
@@ -516,6 +516,7 @@ export function BookingsView() {
         onOpenChange={setMultiOpen}
         slotKeys={bookKeys}
         termId={g?.term.id}
+        termEnd={g?.term.end}
         fmt={fmt}
         onBooked={() => {
           setSelected(new Set());

@@ -302,7 +302,8 @@
       "goal": "Google, Outlook and other calendar sync for SmartSched bookings, a direct user request. Read the integrations decision at the end of docs/product/booking-enhancements.md (\"Integrations engine (decision 2026-10-08)\") and §4.5 A3 / T6, then follow it: native connectors first, webhooks, optional Activepieces. The KVKK sync switch is on but switchable (user decision). Work test-first on real fixtures …",
       "ledger": "backend-engineer (calendar sync)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 16:29"
     },
     {
       "id": "aee0611753a31f734",

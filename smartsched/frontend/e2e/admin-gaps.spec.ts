@@ -13,6 +13,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, login } from "./helpers";
 
 const STAMP = Date.now().toString(36);
+/** this spec's own administrator (English profile language), created through the real API by the seeded admin */
+const ME = { username: `e2e.admingaps.${STAMP}`, email: `e2e.admingaps.${STAMP}@uni.edu.tr`, password: "Yonetici-2026!" };
+/** the sorting fixtures: a = disabled, no department; b = enabled, with a department */
+const SA = `e2e.a.srt${STAMP}`;
+const SB = `e2e.b.srt${STAMP}`;
 const SESSION = { name: `E2E Yaz ${STAMP}`, code: `E2E-YAZ-${STAMP}`.toUpperCase().slice(0, 32), start: "2026-07-06", end: "2026-08-28" };
 const ROOM_NO = 100 + (Date.now() % 900);
 const ROOM = { code: `Z ${ROOM_NO}`, canonical: `Z${ROOM_NO}`, name: `E2E Seminer ${STAMP}` };
@@ -35,9 +40,21 @@ async function call<T = unknown>(page: Page, method: "GET" | "POST" | "PUT" | "D
   return res.body as T;
 }
 
+let ready = false;
 async function signIn(page: Page) {
-  await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: test.info().project.use.baseURL ?? "http://127.0.0.1:3100" }]);
-  await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  const ctx = page.context();
+  const english = () => ctx.addCookies([{ name: "NEXT_LOCALE", value: "en", url: test.info().project.use.baseURL ?? "http://127.0.0.1:3100" }]);
+  if (!ready) {
+    await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await call(page, "POST", "/users", { username: ME.username, email: ME.email, displayname: "E2E Kurulum Yöneticisi", role: "ADMIN", password: ME.password });
+    await ctx.clearCookies();
+    await login(page, ME.username, ME.password);
+    await call(page, "PUT", "/auth/profile", { language: "en" });
+    await ctx.clearCookies();
+    ready = true;
+  }
+  await english();
+  await login(page, ME.username, ME.password);
 }
 
 async function openPalette(page: Page) {
@@ -86,8 +103,8 @@ test("admin gaps 2. the sidebar Users entry and the old settings tab open /admin
   const teacher = roles.find((r) => r.code === "TEACHER") ?? roles[0]!;
   const deps = await call<{ id: number; name: string }[]>(page, "GET", "/departments");
   // a: disabled, no department; b: enabled, with a department
-  await call(page, "POST", "/users", { username: `e2e.a.${STAMP}`, email: `e2e.a.${STAMP}@uni.edu.tr`, displayname: "E2E A", role_id: teacher.id, is_active: false, password: "Parola-2026!" });
-  await call(page, "POST", "/users", { username: `e2e.b.${STAMP}`, email: `e2e.b.${STAMP}@uni.edu.tr`, displayname: "E2E B", role_id: teacher.id, department_id: deps[0]?.id ?? null, password: "Parola-2026!" });
+  await call(page, "POST", "/users", { username: SA, email: `${SA}@uni.edu.tr`, displayname: "E2E A", role_id: teacher.id, is_active: false, password: "Parola-2026!" });
+  await call(page, "POST", "/users", { username: SB, email: `${SB}@uni.edu.tr`, displayname: "E2E B", role_id: teacher.id, department_id: deps[0]?.id ?? null, password: "Parola-2026!" });
 
   await page.goto("/bookings");
   await page.getByTestId("nav-admin-users").filter({ visible: true }).first().click();
@@ -95,14 +112,14 @@ test("admin gaps 2. the sidebar Users entry and the old settings tab open /admin
   await page.goto("/settings?tab=users");
   await page.waitForURL("**/admin/users");
 
-  await page.getByTestId("users-search").fill(STAMP);
+  await page.getByTestId("users-search").fill(`srt${STAMP}`);
   const order = () => page.locator("[data-testid=users-table] tbody tr[data-username]").evaluateAll((rows) => rows.map((r) => r.getAttribute("data-username")));
-  await expect.poll(order).toEqual([`e2e.a.${STAMP}`, `e2e.b.${STAMP}`]);
+  await expect.poll(order).toEqual([SA, SB]);
   await page.getByTestId("users-sort").selectOption("-enabled,username");
-  await expect.poll(order).toEqual([`e2e.b.${STAMP}`, `e2e.a.${STAMP}`]);
+  await expect.poll(order).toEqual([SB, SA]);
   if (deps[0]) {
     await page.getByTestId("users-sort").selectOption("department,username");
-    await expect.poll(order).toEqual([`e2e.a.${STAMP}`, `e2e.b.${STAMP}`]);
+    await expect.poll(order).toEqual([SA, SB]);
   }
 
   await page.getByTestId("users-new").click();
@@ -213,7 +230,7 @@ test("admin gaps 6. ⌘K New room creates a room in Admin → Rooms; photo light
   await create.getByTestId("room-create").click();
   await expect(create).toBeHidden();
   await page.getByRole("searchbox", { name: "Search rooms" }).fill(STAMP);
-  await expect(page.getByText(ROOM.name)).toBeVisible();
+  await expect(page.getByTestId(`room-edit-${ROOM.canonical}`)).toBeVisible();
 
   const rooms = await call<{ id: number; code: string }[]>(page, "GET", "/room-admin/rooms");
   const room = rooms.find((r) => r.code === ROOM.canonical)!;
@@ -239,17 +256,17 @@ test("admin gaps 6. ⌘K New room creates a room in Admin → Rooms; photo light
   await page.getByRole("searchbox", { name: "Search rooms" }).fill(STAMP);
   await page.getByTestId(`room-delete-${ROOM.canonical}`).click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(page.getByText(ROOM.name)).toHaveCount(0);
+  await expect(page.getByTestId(`room-edit-${ROOM.canonical}`)).toHaveCount(0);
   const after = await call<{ code: string }[]>(page, "GET", "/room-admin/rooms");
   expect(after.some((r) => r.code === ROOM.canonical)).toBe(false);
 });
 
 test("admin gaps 7. the access checker opens from a user row with ?user= (#15)", async ({ page }) => {
-  const found = await call<UserPage>(page, "GET", `/users/search?q=e2e.b.${STAMP}`);
+  const found = await call<UserPage>(page, "GET", `/users/search?q=${SB}`);
   const id = found.items[0]!.id;
   await page.goto("/admin/users");
-  await page.getByTestId("users-search").fill(`e2e.b.${STAMP}`);
-  await page.getByRole("button", { name: `Actions for e2e.b.${STAMP}` }).click();
+  await page.getByTestId("users-search").fill(SB);
+  await page.getByRole("button", { name: `Actions for ${SB}` }).click();
   await page.getByTestId(`user-check-access-${id}`).click();
   await page.waitForURL(`**/admin/access?user=${id}`);
   await expect(page.getByTestId("access-user")).toHaveValue(String(id));
@@ -271,8 +288,8 @@ test("admin gaps 8. the role editor lists the role's users and links to them (#1
   await box.getByTestId("role-users-all").click();
   await page.waitForURL(`**/admin/users?role=${teacher.id}`);
   await expect(page.getByTestId("users-role-filter")).toHaveValue(String(teacher.id));
-  await page.getByTestId("users-search").fill(`e2e.b.${STAMP}`);
-  await expect(page.locator(`[data-username="e2e.b.${STAMP}"]`)).toBeVisible();
+  await page.getByTestId("users-search").fill(SB);
+  await expect(page.locator(`[data-username="${SB}"]`)).toBeVisible();
 });
 
 test("admin gaps 9. a schedule description is saved (#19)", async ({ page }) => {

@@ -67,6 +67,7 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL in .env}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:8080"]}
+      PUBLIC_URL: ${PUBLIC_URL:-}   # OAuth redirect + calendar feed links (calendar sync)
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-720}
       UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-1}
