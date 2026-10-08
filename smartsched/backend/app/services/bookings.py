@@ -894,6 +894,43 @@ async def cancel(
     return ids
 
 
+async def bookings_outside_term(session: AsyncSession, term: Term) -> list[Booking]:
+    """Active bookings of ``term`` whose date is no longer inside its range (CRBS ``check_session_dates``)."""
+    info = await term_info(session, term)
+    if info is None:
+        return []
+    q = select(Booking).where(Booking.term_id == term.id, Booking.status == BOOKED).order_by(Booking.date)
+    return [b for b in (await session.execute(q)).scalars() if not (info.start <= b.date <= info.end)]
+
+
+async def booking_summary(session: AsyncSession, b: Booking) -> dict[str, Any]:
+    room = await session.get(Room, b.room_id)
+    period = await session.get(BookingPeriod, b.period_id)
+    return {
+        "id": b.id,
+        "date": b.date.isoformat(),
+        "room_id": b.room_id,
+        "room_name": room.display_name if room else None,
+        "period_name": period.name if period else None,
+        "user_id": b.user_id,
+        "series_id": b.series_id,
+    }
+
+
+async def cancel_outside_term(session: AsyncSession, term: Term, actor: User, rows: list[Booking]) -> list[int]:
+    """Cancel (not delete, as CRBS does) with the reason, and tell the owners (``booking.cancelled``)."""
+    from app.services.bookings_perms import load_access
+
+    info = await term_info(session, term)
+    span = f"{info.start:%d.%m.%Y}-{info.end:%d.%m.%Y}" if info else "-"
+    reason = f"outside the dates of term {term.code} ({span})"
+    access = await load_access(session, actor)
+    ids = await _cancel_rows(session, access, rows, reason)
+    if ids:
+        await events.emit(session, "booking.cancelled", {"booking_ids": ids, "actor_id": actor.id, "reason": reason})
+    return ids
+
+
 async def cancel_many(
     session: AsyncSession, access: Access, booking_ids: list[int], reason: str | None
 ) -> dict[str, Any]:
@@ -1198,12 +1235,13 @@ async def create_from_selection(
         if dry_run:
             results.append({"mbs_id": s.id, "preview": plan_out(await plan_recurring(session, access, rbody))})
             continue
+        mbs_id = s.id  # read before a rollback expires the row
         try:
             res = await create_recurring(session, access, rbody, commit=False)
         except BookingError as exc:
             await session.rollback()
-            raise BookingError(exc.status, exc.code, f"slot {s.id}: {exc.message}", **exc.data) from exc
-        results.append({"mbs_id": s.id, **res})
+            raise BookingError(exc.status, exc.code, f"slot {mbs_id}: {exc.message}", **exc.data) from exc
+        results.append({"mbs_id": mbs_id, **res})
     if dry_run:
         return {"dry_run": True, "slots": results}
     mb = await get_selection(session, access, mb_id)

@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SectionTitle } from "./kit";
 import { useErrorToast } from "./admin-gate";
+import { EntityIcon, IconPicker } from "./icons";
 
 const KEYS = [["crbs", "weeks"], ["crbs", "dates"], ["crbs", "session-dates"], ["crbs", "grid"]];
 
@@ -38,7 +39,8 @@ export function WeeksAdmin() {
                 </li>
               ) : (
                 <li key={w.id} className="flex items-center gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
-                  <span className="inline-flex h-6 min-w-16 items-center justify-center rounded-md px-2 type-footnote font-semibold" style={{ background: w.bgcol, color: w.fgcol }}>
+                  <span className="inline-flex h-6 min-w-16 items-center justify-center gap-1 rounded-md px-2 type-footnote font-semibold" style={{ background: w.bgcol, color: w.fgcol }}>
+                    <EntityIcon name={w.icon} className="text-current" />
                     {w.name}
                   </span>
                   <span className="flex-1 font-mono type-footnote text-label-3">{w.bgcol}</span>
@@ -76,8 +78,9 @@ function WeekForm({ week, onDone }: { week: TimetableWeek | null; onDone: () => 
   const { t } = useI18n();
   const [name, setName] = useState(week?.name ?? "");
   const [col, setCol] = useState(week?.bgcol ?? "#71AAE3");
+  const [icon, setIcon] = useState<string | null>(week?.icon ?? null);
   const [error, setError] = useState<string | null>(null);
-  const save = useCrbsMutation(() => (week ? crbs.bookingAdmin.updateWeek(week.id, { name: name.trim(), bgcol: col }) : crbs.bookingAdmin.createWeek({ name: name.trim(), bgcol: col })), KEYS);
+  const save = useCrbsMutation(() => (week ? crbs.bookingAdmin.updateWeek(week.id, { name: name.trim(), bgcol: col, icon }) : crbs.bookingAdmin.createWeek({ name: name.trim(), bgcol: col, icon })), KEYS);
   return (
     <form
       className="grid items-end gap-3 sm:grid-cols-[2fr_auto_auto]"
@@ -111,6 +114,9 @@ function WeekForm({ week, onDone }: { week: TimetableWeek | null; onDone: () => 
           {week ? t("crbs.common.save") : t("crbs.common.add")}
         </Button>
       </div>
+      <Field label={t("crbs.icons.label")} htmlFor={`wk-icon-${week?.id ?? "new"}`} className="sm:col-span-3">
+        <IconPicker id={`wk-icon-${week?.id ?? "new"}`} value={icon} onChange={setIcon} />
+      </Field>
       {error ? <Alert tone="error" className="sm:col-span-3">{error}</Alert> : null}
     </form>
   );

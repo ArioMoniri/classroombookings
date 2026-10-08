@@ -6,11 +6,12 @@ import csv
 import io
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.export_safety import safe_writer
+from app.core.export_safety import ics_text, safe_writer
 from app.models import (
     Booking,
     BookingPeriod,
@@ -24,8 +25,10 @@ from app.models import (
 )
 from app.models.booking import BOOKED
 from app.models.catalog import Room
+from app.services import settings_service
 from app.services.bookings import can_view_notes, can_view_user
 from app.services.bookings_perms import Access
+from app.services.bookings_settings import get_value
 
 CSV_COLUMNS = (
     "Booking ID",
@@ -80,6 +83,9 @@ async def export_csv(
         return cache[(model, key)]
 
     weeks = {(r.term_id, r.date): r.timetable_week_id for r in (await session.execute(select(TermDate))).scalars()}
+    # CRBS export_unbuffered joins room_groups INNER: rooms without a group are left out (deliberate
+    # difference j; bookings.export_ungrouped_rooms includes them)
+    include_ungrouped = bool(await get_value(session, "bookings", "export_ungrouped_rooms"))
     buf = io.StringIO()
     buf.write("\ufeff")
     w = safe_writer(csv.writer(buf, lineterminator="\r\n"))  # review M8
@@ -87,6 +93,8 @@ async def export_csv(
     for b in rows:
         room: Room | None = await get(Room, b.room_id)
         if room_group_id is not None and (room is None or room.room_group_id != room_group_id):
+            continue
+        if not include_ungrouped and (room is None or room.room_group_id is None):
             continue
         period: BookingPeriod | None = await get(BookingPeriod, b.period_id)
         sched: BookingSchedule | None = await get(BookingSchedule, period.schedule_id if period else None)
@@ -135,7 +143,40 @@ async def export_csv(
 
 
 def _esc(text: str) -> str:
-    return text.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+    return ics_text(text)  # RFC 5545 escaping; CR/LF can never start a new property (review M8)
+
+
+def _tz(name: str) -> ZoneInfo:
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo("Europe/Istanbul")
+
+
+def _fixed_offset(tz: ZoneInfo, years: set[int]) -> timedelta | None:
+    """The zone's UTC offset when it is the same all year in ``years`` (Turkey: +03:00 since 2016)."""
+    offsets = {datetime(y, m, 15, 12, tzinfo=tz).utcoffset() for y in years for m in (1, 4, 7, 10)}
+    return next(iter(offsets)) if len(offsets) == 1 else None
+
+
+def _offset(td: timedelta) -> str:
+    minutes = int(td.total_seconds() // 60)
+    sign = "+" if minutes >= 0 else "-"
+    minutes = abs(minutes)
+    return f"{sign}{minutes // 60:02d}{minutes % 60:02d}"
+
+
+def _vtimezone(name: str, offset: timedelta) -> list[str]:
+    return [
+        "BEGIN:VTIMEZONE",
+        f"TZID:{name}",
+        "BEGIN:STANDARD",
+        "DTSTART:19700101T000000",
+        f"TZOFFSETFROM:{_offset(offset)}",
+        f"TZOFFSETTO:{_offset(offset)}",
+        "END:STANDARD",
+        "END:VTIMEZONE",
+    ]
 
 
 def _fold(line: str) -> list[str]:
@@ -162,15 +203,30 @@ async def ics_feed(
     if room_id is not None:
         q = q.where(Booking.room_id == room_id)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    # audit B11: the organisation's time zone. A zone with one offset all year (Europe/Istanbul) is written
+    # as TZID + VTIMEZONE; a zone with daylight saving is written in UTC, which every client reads correctly.
+    tz_name = str(await settings_service.get_value(session, "timezone") or "Europe/Istanbul")
+    tz = _tz(tz_name)
+    rows = list((await session.execute(q)).scalars())
+    fixed = _fixed_offset(tz, {b.date.year for b in rows} or {datetime.now(UTC).year})
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
         "PRODID:-//SmartSched//Bookings//TR",
         "CALSCALE:GREGORIAN",
         f"X-WR-CALNAME:{_esc(title)}",
-        "X-WR-TIMEZONE:Europe/Istanbul",
+        f"X-WR-TIMEZONE:{tz.key}",
     ]
-    for b in (await session.execute(q)).scalars():
+    if fixed is not None:
+        lines += _vtimezone(tz.key, fixed)
+
+    def when(prop: str, local: datetime) -> str:
+        if fixed is not None:
+            return f"{prop};TZID={tz.key}:{local:%Y%m%dT%H%M%S}"
+        utc = local.replace(tzinfo=tz).astimezone(UTC)
+        return f"{prop}:{utc:%Y%m%dT%H%M%SZ}"
+
+    for b in rows:
         room = await session.get(Room, b.room_id)
         period = await session.get(BookingPeriod, b.period_id)
         if room is None or period is None:
@@ -191,8 +247,8 @@ async def ics_feed(
             "BEGIN:VEVENT",
             f"UID:booking-{b.id}@smartsched",
             f"DTSTAMP:{stamp}",
-            f"DTSTART;TZID=Europe/Istanbul:{start:%Y%m%dT%H%M%S}",
-            f"DTEND;TZID=Europe/Istanbul:{end:%Y%m%dT%H%M%S}",
+            when("DTSTART", start),
+            when("DTEND", end),
             f"SUMMARY:{_esc(summary)}",
             f"LOCATION:{_esc(room.display_name)}",
         ]

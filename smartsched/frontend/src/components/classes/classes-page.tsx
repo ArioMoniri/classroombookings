@@ -91,6 +91,7 @@ export function ClassesPage() {
   const fill = useFill(rootRef);
   const searchRef = useRef<HTMLInputElement>(null);
   const filterRef = useRef<HTMLButtonElement>(null);
+  const saveCurrentRef = useRef<() => Promise<void>>(async () => {});
 
   // ------------------------------------------------------------------ term, kind, run
   const kind: ClassKind = params.get("kind") === "exams" ? "exams" : "meetings";
@@ -229,7 +230,17 @@ export function ClassesPage() {
       return true;
     } catch (e) {
       patchRow(r.id, () => prev);
-      toast.error(t("classes.edit.failed", { reason: e instanceof Error ? e.message : String(e) }), { action: { label: t("classes.retry"), onClick: () => void saveField(r, column, value) } });
+      toast.error(t("classes.edit.failed", { reason: e instanceof Error ? e.message : String(e) }), {
+        action: {
+          label: t("classes.retry"),
+          onClick: () => {
+            patchRow(r.id, (x) => (column === "students" ? { ...x, enrolment: body.enrolment as number | null } : column === "reqStatus" ? { ...x, req: { ...x.req, status: String(body.status) } } : { ...x, req: { ...x.req, notes: (body.notes as string | null) ?? null } }));
+            void (r.kind === "exam" ? api.requests.updateExam(r.id, body as never) : api.requests.updateMeeting(r.id, body as never))
+              .then(() => toast.success(`${r.course_code} · ${t("classes.edit.saved")}`))
+              .catch((err: unknown) => { patchRow(r.id, () => prev); toast.error(String(err)); });
+          },
+        },
+      });
       return false;
     } finally {
       setSavingIds((s) => {
@@ -327,12 +338,11 @@ export function ClassesPage() {
         else if (activeId !== null) setParam({ id: null });
         return true;
       case "mod+s":
-        if (modified && savedView?.mine) void saveCurrent();
+        if (modified && savedView?.mine) void saveCurrentRef.current();
         return true;
       default:
         return false;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly, toggleLock, router, runId, openRow, rows, selection.size, activeId, setParam, modified, savedView]);
 
   useEffect(() => {
@@ -384,6 +394,9 @@ export function ClassesPage() {
       toast.error(String(e));
     }
   };
+  useEffect(() => {
+    saveCurrentRef.current = saveCurrent;
+  });
   const doSaveAs = async () => {
     if (!saveAs?.name.trim()) return;
     try {

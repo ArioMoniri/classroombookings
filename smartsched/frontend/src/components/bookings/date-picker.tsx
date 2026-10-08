@@ -13,6 +13,7 @@ import type { DateInfo, TimetableWeek } from "@/lib/api/crbs";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/provider";
 import { monthsBetween } from "@/components/admin/date-painter";
+import { EntityIcon } from "@/components/admin/icons";
 import { addDays, formatPattern, type DateFormatter } from "./date-format";
 
 interface Props {
@@ -136,6 +137,7 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
             {weeks.map((w) => (
               <li key={w.id} className="flex items-center gap-1.5">
                 <span aria-hidden className="h-[3px] w-4 rounded-full" style={{ background: w.bgcol }} />
+                <EntityIcon name={w.icon} />
                 {w.name}
               </li>
             ))}

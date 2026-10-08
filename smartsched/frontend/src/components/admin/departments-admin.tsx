@@ -13,6 +13,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle } from "./kit";
 import { useErrorToast } from "./admin-gate";
+import { EntityIcon, IconPicker } from "./icons";
 
 const fold = (s: string) => s.toLocaleLowerCase("tr-TR");
 
@@ -56,7 +57,12 @@ export function DepartmentsAdmin() {
             <TableBody>
               {rows.map((d) => (
                 <TableRow key={d.id}>
-                  <TableCell className="pl-4 font-medium text-label-1">{d.name}</TableCell>
+                  <TableCell className="pl-4 font-medium text-label-1">
+                    <span className="flex items-center gap-1.5">
+                      <EntityIcon name={d.icon} />
+                      {d.name}
+                    </span>
+                  </TableCell>
                   <TableCell className="hidden text-label-2 md:table-cell">{d.description ?? ""}</TableCell>
                   <TableCell className="text-right tabular-nums text-label-2">{d.user_count}</TableCell>
                   <TableCell className="pr-4 text-right whitespace-nowrap">
@@ -94,8 +100,9 @@ function DepartmentForm({ dep, onClose }: { dep: Department | null; onClose: () 
   const { t } = useI18n();
   const [name, setName] = useState(dep?.name ?? "");
   const [description, setDescription] = useState(dep?.description ?? "");
+  const [icon, setIcon] = useState<string | null>(dep?.icon ?? null);
   const [error, setError] = useState<string | null>(null);
-  const body = { name: name.trim(), description: description.trim() || null };
+  const body = { name: name.trim(), description: description.trim() || null, icon };
   const save = useCrbsMutation(() => (dep ? crbs.departments.update(dep.id, body) : crbs.departments.create(body)), [["crbs", "departments"]]);
   return (
     <form
@@ -113,6 +120,9 @@ function DepartmentForm({ dep, onClose }: { dep: Department | null; onClose: () 
       </Field>
       <Field label={t("crbs.common.description")} htmlFor="dep-desc">
         <Input id="dep-desc" maxLength={255} value={description} onChange={(e) => setDescription(e.target.value)} />
+      </Field>
+      <Field label={t("crbs.icons.label")} htmlFor="dep-icon">
+        <IconPicker id="dep-icon" value={icon} onChange={setIcon} />
       </Field>
       {error ? <Alert tone="error">{error}</Alert> : null}
       <DialogFooter>

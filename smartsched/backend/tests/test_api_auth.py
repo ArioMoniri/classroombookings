@@ -65,7 +65,7 @@ async def test_settings_mask_secret_and_test_ai(client, monkeypatch):
     assert (
         r.json()["used_key"] == "stored" and r.json()["ok"] is False and calls[-1][0] == "sk-ant-api03-SECRETVALUE-xyz"
     )
-    r = await client.post("/api/v1/settings/test-ai", json={"api_key": "sk-transient-good"}, headers=h)
+    r = await client.post("/api/v1/settings/test-ai", json={"api_key": "sk-ant-transient-0123456789-good"}, headers=h)
     assert r.json()["used_key"] == "transient" and r.json()["ok"] is True and r.json()["model"] == "claude-opus-5-5"
     # transient key was not saved
     r = await client.get("/api/v1/settings", headers=h)

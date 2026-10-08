@@ -14,6 +14,7 @@ export function LoginBrand() {
   if (!org.data?.logo_url && !org.data?.name) return null;
   return (
     <div className="mb-4 flex items-center gap-3" data-testid="login-brand">
+      {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
       {org.data.logo_url ? <img src={org.data.logo_url} alt="" className="h-10 max-w-40 object-contain" /> : null}
       {org.data.name ? <p className="type-headline text-label-1">{org.data.name}</p> : null}
     </div>

@@ -429,6 +429,7 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
         </label>
         <section aria-label={t("crbs.rooms.photo")} className="flex flex-col gap-2">
           <p className="type-headline text-label-1">{t("crbs.rooms.photo")}</p>
+          {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
           {photoUrl ? <img src={photoUrl} alt={t("crbs.rooms.photoAlt", { name: room.display_name })} className="max-h-48 w-full rounded-xl object-cover" /> : null}
           <div className="flex gap-2">
             <Button variant="outline" size="sm" render={<label />} nativeButton={false}>

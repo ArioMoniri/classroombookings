@@ -1,14 +1,24 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.deps import DB, Planner, Viewer
-from app.models import Term, Week
+from app.api.deps import DB, Planner, Viewer, require_permission
+from app.models import Term, User, Week
 from app.schemas.catalog import TermIn, TermOut, TermUpdate, WeekIn, WeekOut
 
 router = APIRouter(prefix="/terms", tags=["terms"])
+#: CRBS ``Sessions`` controller: creating, editing and deleting sessions needs ``setup.sessions``; the
+#: planning office keeps ``planning.edit`` (audit MISSING 6)
+SessionsEditor = Annotated[User, Depends(require_permission("planning.edit", "setup.sessions"))]
+
+
+class TermUpdateOut(TermOut):
+    #: bookings cancelled because the new dates no longer contain them (CRBS ``check_session_dates``)
+    cancelled_booking_ids: list[int] = []
 
 
 @router.get("", response_model=list[TermOut])
@@ -38,16 +48,17 @@ async def get_current_term(db: DB, _: Viewer) -> TermOut:
 
 
 @router.post("", response_model=TermOut, status_code=201)
-async def create_term(body: TermIn, db: DB, _: Planner) -> Term:
+async def create_term(body: TermIn, db: DB, _: SessionsEditor) -> Term:
     if (await db.execute(select(Term).where(Term.code == body.code))).scalar_one_or_none():
         raise HTTPException(status.HTTP_409_CONFLICT, "term code exists")
     data = body.model_dump()
     data["name"] = (data.get("name") or "").strip() or body.code
-    term = Term(**data)
-    db.add(term)
     if body.is_active:
+        # audit B3: deactivate the others *before* the new row exists (autoflush used to include it)
         for other in (await db.execute(select(Term).where(Term.is_active.is_(True)))).scalars():
             other.is_active = False
+    term = Term(**data)
+    db.add(term)
     try:
         await db.commit()
     except IntegrityError as exc:
@@ -69,21 +80,49 @@ async def get_term(term_id: int, db: DB, _: Viewer) -> Term:
     return await _get(db, term_id)
 
 
-@router.put("/{term_id}", response_model=TermOut)
-async def update_term(term_id: int, body: TermUpdate, db: DB, _: Planner) -> Term:
+@router.put("/{term_id}", response_model=TermUpdateOut)
+async def update_term(
+    term_id: int, body: TermUpdate, db: DB, user: SessionsEditor, confirm: bool = False
+) -> TermUpdateOut:
+    """When the dates change, active bookings that fall outside the new range are cancelled with a reason
+    (CRBS ``Bookings_model::check_session_dates`` deletes them). With ``bookings.term_date_change = confirm``
+    the change is refused (409, the list of bookings) until it is sent again with ``?confirm=true``."""
+    from app.services import bookings as booking_service
+    from app.services.bookings_settings import get_value
+
     term = await _get(db, term_id)
-    for k, v in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    for k, v in data.items():
         setattr(term, k, v)
     if body.is_active:
         for other in (await db.execute(select(Term).where(Term.id != term.id, Term.is_active.is_(True)))).scalars():
             other.is_active = False
+    cancelled: list[int] = []
+    if {"start_date", "end_date", "week_count"} & set(data):
+        await db.flush()
+        outside = await booking_service.bookings_outside_term(db, term)
+        if outside:
+            mode = await get_value(db, "bookings", "term_date_change")
+            if mode == "confirm" and not confirm:
+                listing = [await booking_service.booking_summary(db, b) for b in outside]
+                await db.rollback()
+                raise HTTPException(
+                    409,
+                    {
+                        "code": "bookings_outside_term",
+                        "message": f"{len(outside)} booking(s) fall outside the new dates; repeat with ?confirm=true "
+                        "to cancel them",
+                        "bookings": listing,
+                    },
+                )
+            cancelled = await booking_service.cancel_outside_term(db, term, user, outside)
     await db.commit()
     await db.refresh(term)
-    return term
+    return TermUpdateOut.model_validate(term).model_copy(update={"cancelled_booking_ids": cancelled})
 
 
 @router.delete("/{term_id}", status_code=204)
-async def delete_term(term_id: int, db: DB, _: Planner) -> None:
+async def delete_term(term_id: int, db: DB, _: SessionsEditor) -> None:
     term = await _get(db, term_id)
     await db.delete(term)
     await db.commit()

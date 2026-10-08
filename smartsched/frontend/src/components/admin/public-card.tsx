@@ -10,6 +10,7 @@ export function PublicCard({ title, lead, children, wide }: { title: string; lea
     <main className="scene flex min-h-dvh flex-col justify-center bg-fixed px-4 py-10 sm:items-center">
       <GlassPanel material="regular" radius="2xl" padding="lg" className={wide ? "w-full sm:max-w-xl" : "w-full sm:max-w-md"}>
         <div className="mb-5 flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
           {org.data?.logo_url ? <img src={org.data.logo_url} alt="" className="h-9 max-w-32 object-contain" /> : null}
           {org.data?.name ? <p className="type-headline text-label-2">{org.data.name}</p> : null}
         </div>

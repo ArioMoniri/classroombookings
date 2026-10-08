@@ -48,7 +48,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
   const save = useCrbsMutation(() => crbs.org.putSettings(d), KEYS);
   const upload = useCrbsMutation((f: File) => crbs.org.uploadLogo(f), KEYS);
   const dropLogo = useCrbsMutation(() => crbs.org.deleteLogo(), KEYS);
-  const preview = useMemo(() => dateFormatter(v, locale), [v, locale]);
+  const preview = useMemo(() => dateFormatter({ pattern_long: v.pattern_long, pattern_weekday: v.pattern_weekday, pattern_time: v.pattern_time }, locale), [v.pattern_long, v.pattern_weekday, v.pattern_time, locale]);
   const dirty = Object.keys(d).length > 0;
   const columnsFor = v.displaytype === "day" ? (["periods", "rooms"] as const) : (["periods", "days"] as const);
 
@@ -66,6 +66,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
             <Input id="org-web" type="url" className="w-72" placeholder="https://" value={v.website ?? ""} onChange={(e) => set("website", e.target.value)} />
           </FieldRow>
           <FieldRow label={t("crbs.org.logo")} hint={t("crbs.org.logoHint")} className="hairline-t">
+            {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
             {logo ? <img src={logo} alt={t("crbs.org.logo")} className="h-10 max-w-40 rounded-md object-contain" /> : null}
             <Button variant="outline" size="sm" render={<label />} nativeButton={false}>
               <ImageUp aria-hidden />

@@ -95,7 +95,31 @@ async def update_room(room_id: int, body: RoomUpdate, db: DB, _: Planner) -> Roo
 
 @router.delete("/rooms/{room_id}", status_code=204)
 async def delete_room(room_id: int, db: DB, _: Planner) -> None:
+    """Refused while bookings point at the room (audit B16: ``ON DELETE CASCADE`` would erase their history
+    and nobody would be told); make the room not bookable instead, or cancel its bookings first."""
+    from sqlalchemy import func
+
+    from app.models import Booking
+
     room = await _room(db, room_id)
+    rows = (
+        await db.execute(
+            select(Booking.status, func.count(Booking.id)).where(Booking.room_id == room.id).group_by(Booking.status)
+        )
+    ).all()
+    counts = {st: int(c) for st, c in rows}
+    if counts:
+        active = counts.get("BOOKED", 0)
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            {
+                "code": "room_has_bookings",
+                "message": f"{room.display_name} has {sum(counts.values())} booking(s) ({active} active); "
+                "set it not bookable instead of deleting it",
+                "active_bookings": active,
+                "bookings": sum(counts.values()),
+            },
+        )
     await db.delete(room)
     await db.commit()
 

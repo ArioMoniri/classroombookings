@@ -39,6 +39,7 @@ WEIGHT_SETS: dict[str, dict[str, int]] = {
     "defaults": {},
     "pref20": {"room_preference": 20, "building_preference": 5, "min_capacity_waste": 1},
     "pref30-bld2": {"room_preference": 30, "building_preference": 2, "min_capacity_waste": 1},
+    "pref30-bld0": {"room_preference": 30, "building_preference": 0, "min_capacity_waste": 1},
     "pref50-bld0": {"room_preference": 50, "building_preference": 0, "min_capacity_waste": 1},
     "pref10-waste0": {"room_preference": 10, "building_preference": 5, "min_capacity_waste": 0},
 }

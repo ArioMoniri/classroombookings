@@ -26,6 +26,7 @@ import { DatePicker } from "./date-picker";
 import { isSelectable, slotKey, type SlotTone } from "./grid-model";
 import { MultiBookDialog } from "./multi-book-dialog";
 import { RoomInfoSheet } from "./room-info-sheet";
+import { EntityIcon } from "@/components/admin/icons";
 import { useBookingFormat } from "./use-booking-format";
 import { useIsPhone } from "./use-is-phone";
 
@@ -134,6 +135,7 @@ export function BookingsView() {
       {week ? (
         <span className="inline-flex items-center gap-1.5">
           · <span aria-hidden className="inline-block size-2.5 rounded-full" style={{ background: week.bgcol }} />
+          <EntityIcon name={week.icon} />
           {week.name}
         </span>
       ) : null}

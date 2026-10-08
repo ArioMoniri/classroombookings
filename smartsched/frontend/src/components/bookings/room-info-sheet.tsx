@@ -34,6 +34,7 @@ export function RoomInfoSheet({ roomId, onOpenChange }: { roomId: number | null;
               <SheetDescription>{[r.group, r.capacity ? t("crbs.grid.seats", { n: r.capacity }) : null].filter(Boolean).join(" · ")}</SheetDescription>
             </SheetHeader>
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pb-5">
+              {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
               {r.photo_url ? <img src={r.photo_url} alt={t("crbs.rooms.photoAlt", { name: r.name })} className="max-h-60 w-full rounded-xl object-cover" /> : null}
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 type-callout">
                 {r.location ? (
