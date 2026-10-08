@@ -89,7 +89,7 @@ const Card = memo(function Card({ r, runId, selected, selectMode, onOpen, onTogg
 });
 
 export function ClassCards({ rows, group, runId, selection, selectMode, onToggle, onOpen, onLock, onExplain, readOnly }: { rows: ClassRow[]; group: string | null; runId: number | null; selection: ReadonlySet<number>; selectMode: boolean; onToggle: (id: number) => void; onOpen: (r: ClassRow) => void; onLock: (r: ClassRow) => void; onExplain: (r: ClassRow) => void; readOnly: boolean }) {
-  const { locale } = useI18n();
+  const { t, locale } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
   const items = useMemo(() => {
     const out: ({ type: "h"; key: string; label: string; n: number } | { type: "r"; r: ClassRow })[] = [];
@@ -134,7 +134,7 @@ export function ClassCards({ rows, group, runId, selection, selectMode, onToggle
           return (
             <div key={vi.key} ref={v.measureElement} data-index={vi.index} className={cn("inset-x-0", sticky ? "sticky top-0 z-10" : "absolute")} style={sticky ? { height: vi.size } : { transform: `translateY(${vi.start}px)` }}>
               {it.type === "h" ? (
-                <p className="glass-thick rounded-lg px-3 py-2 text-[13px] font-semibold">{it.label} · {it.n.toLocaleString(locale)}</p>
+                <p className="glass-thick rounded-lg px-3 py-2 text-[13px] font-semibold">{it.label === "—" ? t(group === "faculty" ? "classes.group.noFaculty" : "classes.group.none") : it.label} · {it.n.toLocaleString(locale)}</p>
               ) : (
                 <div className="py-1">
                   <Card r={it.r} runId={runId} selected={selection.has(it.r.id)} selectMode={selectMode} onOpen={() => onOpen(it.r)} onToggle={() => onToggle(it.r.id)} onLock={() => onLock(it.r)} onExplain={() => onExplain(it.r)} readOnly={readOnly} />

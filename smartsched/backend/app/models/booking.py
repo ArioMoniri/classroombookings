@@ -45,6 +45,8 @@ class Role(Base):
     range_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     range_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     recur_max_instances: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
+    legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     permissions: Mapped[list[Permission]] = relationship(secondary="role_permissions", lazy="selectin")
@@ -94,6 +96,8 @@ class RoomGroup(Base):
     name: Mapped[str] = mapped_column(String(32))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     pos: Mapped[int] = mapped_column(Integer, default=0)
+    #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
+    legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
 
 class RoomCustomField(Base):
@@ -103,6 +107,8 @@ class RoomCustomField(Base):
     name: Mapped[str] = mapped_column(String(64))
     type: Mapped[str] = mapped_column(String(16))  # TEXT | CHECKBOX | SELECT
     pos: Mapped[int] = mapped_column(Integer, default=0)
+    #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
+    legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     options: Mapped[list[RoomCustomFieldOption]] = relationship(
         cascade="all, delete-orphan", order_by="RoomCustomFieldOption.pos", lazy="selectin"
@@ -140,6 +146,8 @@ class RoomAcl(Base):
     entity_id: Mapped[int] = mapped_column(Integer)
     context_type: Mapped[str] = mapped_column(String(16))  # user | role | department
     context_id: Mapped[int] = mapped_column(Integer)
+    #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
+    legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     permissions: Mapped[list[Permission]] = relationship(secondary="room_acl_permissions", lazy="selectin")
 
@@ -163,6 +171,8 @@ class BookingSchedule(Base):
     name: Mapped[str] = mapped_column(String(32))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     type: Mapped[str] = mapped_column(String(20), default="periods")
+    #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
+    legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     periods: Mapped[list[BookingPeriod]] = relationship(
         cascade="all, delete-orphan", order_by="BookingPeriod.time_start", lazy="selectin"
@@ -182,6 +192,8 @@ class BookingPeriod(Base):
     #: the period's span on the 18-period university grid (shared with the solver)
     start_period: Mapped[int] = mapped_column(Integer)
     end_period: Mapped[int] = mapped_column(Integer)
+    #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
+    legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
 
 class TermBookingSettings(Base):
@@ -215,6 +227,8 @@ class TimetableWeek(Base):
     name: Mapped[str] = mapped_column(String(20))
     bgcol: Mapped[str] = mapped_column(String(6))  # hex without '#'
     icon: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
+    legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
 
 class TermDate(Base):
@@ -237,6 +251,8 @@ class Holiday(Base):
     name: Mapped[str] = mapped_column(String(50))
     date_start: Mapped[date_] = mapped_column(Date)
     date_end: Mapped[date_] = mapped_column(Date)
+    #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
+    legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -274,6 +290,8 @@ class BookingSeries(_Audit, Base):
         ForeignKey("timetable_weeks.id", ondelete="SET NULL"), nullable=True
     )
     weekday: Mapped[int] = mapped_column(Integer)  # 1..7
+    #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
+    legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
 
 class MultiBooking(Base):
@@ -323,6 +341,8 @@ class Booking(_Audit, Base):
     start_period: Mapped[int] = mapped_column(Integer)
     end_period: Mapped[int] = mapped_column(Integer)
     multi_booking_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
+    legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
 
 class BookingSlot(Base):
