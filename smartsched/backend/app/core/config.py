@@ -35,6 +35,8 @@ class Settings(BaseSettings):
 
     solver_default_time_limit: float = 60.0
     solver_workers: int = 8
+    solver_max_time_limit: float = 3600.0  # POST /runs params.time_limit_s upper bound
+    solver_max_workers: int = 16
 
     upload_dir: str = "./uploads"
 

@@ -1,12 +1,12 @@
 // ffmpeg compositor: raw Playwright video + timeline → Recordly-style MP4, GIF (< 8 MB) and poster.
-//   camera   perspective filter in "source" mode = sub-pixel crop that follows a spring-smoothed
+//   camera   (own ffmpeg pass) perspective filter in "source" mode = sub-pixel crop that follows a spring-smoothed
 //            camera track (no zoompan jitter), sampled per frame and compressed to piecewise-linear
 //            expressions
 //   frame    rounded corners (alphamerge with a mask), blurred drop shadow, soft gradient background
 //   cursor   enlarged arrow overlaid from the logged pointer track (camera-transformed), click ripple
 //   captions one pill per step, faded in/out
 import { execFileSync, spawnSync } from "node:child_process";
-import { readdirSync, statSync, writeFileSync } from "node:fs";
+import { readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildAssets, layoutFor } from "./assets.mjs";
 import { cameraTrack, piecewiseExpr, pointerAt, shots } from "./camera.mjs";
@@ -67,8 +67,20 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 8 * 1024 * 
   const curX = piecewiseExpr(cur.map((c) => ({ t: c.t, v: c.x - hx })), 0.4, "t", 3);
   const curY = piecewiseExpr(cur.map((c) => ({ t: c.t, v: c.y - hy })), 0.4, "t", 3);
 
+  // ---- pass 1: camera ---------------------------------------------------------------------------
+  // A separate pass on purpose: inside the big overlay graph below, ffmpeg 6.1's perspective filter
+  // sees a different `in` frame counter than the frames it is given (camera drifted seconds away
+  // from the content); alone it is exact.
+  const camFile = join(outDir, `${name}.camera.mp4`);
+  const cameraF = zoomed
+    ? `perspective=x0='${persp[0]}':y0='${persp[1]}':x1='${persp[2]}':y1='${persp[3]}':x2='${persp[4]}':y2='${persp[5]}':x3='${persp[6]}':y3='${persp[7]}':sense=source:interpolation=cubic:eval=frame,`
+    : "";
+  const camScript = join(outDir, `${name}.camera.filter.txt`);
+  writeFileSync(camScript, `[0:v]fps=${FPS},${cameraF}scale=${VW}:${VH}:flags=lanczos,format=yuv420p[cam]`);
+  ff(["-i", raw, "-filter_complex_script", camScript, "-map", "[cam]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "12", camFile], "camera");
+
   // ---- inputs ----------------------------------------------------------------------------------
-  const inputs = ["-i", raw];
+  const inputs = ["-i", camFile];
   const still = (file) => inputs.push("-loop", "1", "-framerate", String(FPS), "-t", durS, "-i", file);
   still(assets.bg); // 1
   still(assets.mask); // 2
@@ -92,10 +104,7 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 8 * 1024 * 
 
   // ---- filter graph ----------------------------------------------------------------------------
   const g = [];
-  const cameraF = zoomed
-    ? `perspective=x0='${persp[0]}':y0='${persp[1]}':x1='${persp[2]}':y1='${persp[3]}':x2='${persp[4]}':y2='${persp[5]}':x3='${persp[6]}':y3='${persp[7]}':sense=source:interpolation=cubic:eval=frame,`
-    : "";
-  g.push(`[0:v]fps=${FPS},${cameraF}scale=${VW}:${VH}:flags=lanczos,format=rgba[cam]`);
+  g.push(`[0:v]format=rgba[cam]`);
   g.push(`[2:v]format=gray[mask]`);
   g.push(`[cam][mask]alphamerge[card]`);
   g.push(`[1:v]format=rgba[bg]`);
@@ -146,6 +155,7 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 8 * 1024 * 
     gifInfo = { width: w, fps, bytes: size };
     if (size <= gifMaxBytes) break;
   }
+  rmSync(camFile, { force: true });
   return { mp4, gif, poster, gifInfo, durationMs: durMs, layout, filterScript: script, clicks: clicks.length, zoomed };
 }
 

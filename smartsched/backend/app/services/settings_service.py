@@ -104,6 +104,8 @@ async def get_all_masked(session: AsyncSession) -> dict[str, Any]:
         else:
             out[key] = value
     for key, row in rows.items():
+        if "." in key:  # org.* / ldap.* / smtp.* / user.N.* belong to /org (app/services/bookings_settings.py)
+            continue
         if key not in out:
             out[key] = (
                 {"set": bool(row.value), "masked": mask_secret(await get_value(session, key))}

@@ -9,7 +9,8 @@ import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 export function DiagnosisCard({ d, onApply, applying, onChat }: { d: Diagnosis; onApply: (suggestionId: string) => void; applying: boolean; onChat: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const planner = d.text ? (locale === "tr" ? d.text.tr : d.text.en) || d.message : null;
   const hard = d.severity === "critical" || d.severity === "high";
   const [choice, setChoice] = useState((d.suggestions.find((s) => s.applicable) ?? d.suggestions[0])?.id ?? "");
   const chosen = d.suggestions.find((s) => s.id === choice);
@@ -18,10 +19,10 @@ export function DiagnosisCard({ d, onApply, applying, onChat }: { d: Diagnosis; 
     <article className={cn("rounded-xl border bg-card", hard ? "border-status-infeasible-border" : "border-status-warning-border")} aria-labelledby={`diag-${d.id}`} data-testid="diagnosis-card">
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
         <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", hard ? "bg-status-infeasible text-status-infeasible-fg" : "bg-status-warning text-status-warning-fg")}><Icon className="size-3.5" aria-hidden />{hard ? t("runs.hard") : t("runs.soft")} · {t(`runs.severity.${d.severity}`)}</span>
-        {d.constraint_kinds.map((k) => <Badge key={k} variant="outline" className="font-mono text-[10px]">{k}</Badge>)}
-        <span className="ml-auto flex gap-1">{d.event_labels.map((l) => <Badge key={l} variant="secondary" className="font-mono">{l}</Badge>)}</span>
+        {planner ? null : d.constraint_kinds.map((k) => <Badge key={k} variant="outline" className="font-mono text-[10px]">{k}</Badge>)}
+        {planner ? null : <span className="ml-auto flex gap-1">{d.event_labels.map((l) => <Badge key={l} variant="secondary" className="font-mono">{l}</Badge>)}</span>}
       </div>
-      <p id={`diag-${d.id}`} className="px-4 py-3 text-sm">{d.message}</p>
+      <p id={`diag-${d.id}`} className="px-4 py-3 text-sm">{planner ?? d.message}</p>
       {d.suggestions.length ? (
         <div className="border-t px-4 py-3">
           <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">{t("runs.suggestions")}</p>

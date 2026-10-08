@@ -195,7 +195,11 @@ OpenAPI is at **`/api/docs`** (schema at `/api/openapi.json`).
 | Group | Routes |
 |---|---|
 | Health | `GET /health`, `GET /metrics` |
-| Auth and users | `POST /auth/login`, `GET /auth/me`; `/users` CRUD, `POST /users/{id}/password` |
+| Auth and users | `POST /auth/login` (e-mail or username; LDAP when enabled), `GET /auth/me`, `GET /auth/permissions`, `GET/PUT /auth/profile`, `POST /auth/change-password`, `POST /auth/password-reset/request`, `/confirm`; `/users` CRUD, `GET /users/search`, `POST /users/import` (CSV), `GET/PUT /users/{id}/constraints`, `POST /users/{id}/reset-token`, `POST /users/{id}/password` |
+| Roles and departments | `GET /permissions`, `/roles` CRUD (CRBS permission sets + booking limits), `/departments` CRUD (departments are programmes) |
+| Bookings (CRBS parity) | `GET /bookings/context`, `/grid`, `/dates`, `/rooms[/{id}]`; `POST /bookings`, `/recurring/preview`, `/recurring`, `/multi`, `/multi/{id}/create`; `GET/PUT /bookings/{id}`, `/series`, `POST /bookings/{id}/cancel`, `/cancel-multi`; `GET /bookings/mine`, `/dashboard`, `/owned-rooms`, `/conflicts`, `/export.csv`, `/feed/user.ics`, `/feed/room/{id}.ics`, `POST /bookings/feed/token`, `GET /ics/{token}/…` |
+| Booking setup | `/booking-admin/sessions…` (selectable, default schedule, group schedules, date→timetable-week calendar), `/booking-admin/schedules…`, `/booking-admin/periods/{id}`, `/booking-admin/weeks…`, `GET /booking-admin/access-check`, `GET /booking-admin/outbox`; `/holidays` CRUD; `/room-admin/groups…`, `/room-admin/rooms…` (owner, location, icon, order, photo, custom field values), `/room-admin/fields…`, `/room-admin/acl…` |
+| Organisation | `GET /org/public`, `GET /org/setup-status`, `POST /org/setup` (first run), `GET/PUT /org/settings`, `POST/DELETE /org/logo`, `GET/PUT /org/auth/ldap`, `POST /org/auth/ldap/test`, `GET/PUT /org/smtp`, `POST /org/smtp/test`, `/org/translations`, `GET /org/changelog`, `POST /org/changelog/seen`, `GET /org/events` |
 | Settings | `GET/PUT /settings` (API key write-only, masked on read), `POST /settings/test-ai` |
 | Terms | `/terms` CRUD, `GET/PUT /terms/{id}/weeks` |
 | Rooms | `/buildings`, `/rooms` CRUD, `POST /rooms/{id}/photo` |

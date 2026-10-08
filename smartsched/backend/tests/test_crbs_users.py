@@ -305,3 +305,30 @@ async def test_ldap_login_creates_updates_and_falls_back(env, monkeypatch):  # n
         await c.post("/api/v1/auth/login", json={"username": "yeni.kisi", "password": "doğru-parola"})
     ).status_code == 401
     del FakeDirectory.people["yeni.kisi"]
+
+
+async def test_search_profile_and_delete_keeps_booking_history(env):  # noqa: F811
+    c = env.client
+    uid, h = await env.user("şükrü.öztürk@uni.edu.tr", displayname="Şükrü Öztürk", username="sukru.ozturk")
+    found = (await c.get("/api/v1/users/search", params={"q": "ŞÜKRÜ"}, headers=env.admin)).json()
+    assert found["total"] == 1 and found["items"][0]["id"] == uid
+    assert (await c.get("/api/v1/users/search", params={"q": "sukru"}, headers=env.admin)).json()["total"] == 1
+    teacher = await role_id(c, env.admin, "TEACHER")
+    by_role = (await c.get("/api/v1/users/search", params={"role_id": teacher}, headers=env.admin)).json()
+    assert uid in [u["id"] for u in by_role["items"]]
+    assert (await c.get("/api/v1/users/search", headers=h)).status_code == 403
+
+    prof = await c.put(
+        "/api/v1/auth/profile",
+        json={"firstname": "Şükrü", "lastname": "Öztürk", "ext": "4073", "language": "tr"},
+        headers=h,
+    )
+    assert prof.status_code == 200 and prof.json()["ext"] == "4073" and prof.json()["role_name"] == "Teacher"
+    assert (await c.put("/api/v1/auth/profile", json={"language": "xx"}, headers=h)).status_code == 422
+    wrong = await c.post("/api/v1/auth/change-password", json={"current_password": "yanlış", "new_password": "yeni-parola-9"}, headers=h)
+    assert wrong.status_code == 403
+
+    b = (await env.book(h, "A101", __import__("datetime").date(2026, 2, 16), "P1", notes="Seminer")).json()
+    assert (await c.delete(f"/api/v1/users/{uid}", headers=env.admin)).status_code == 204
+    detail = (await c.get(f"/api/v1/bookings/{b['id']}", headers=env.admin)).json()
+    assert detail["status"] == "BOOKED" and detail["user_id"] is None and detail["notes"] == "Seminer"

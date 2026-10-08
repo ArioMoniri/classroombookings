@@ -68,7 +68,7 @@ def dimension_bomb() -> bytes:
 def shared_string_bomb(mib: int = 30) -> bytes:
     body = b'<?xml version="1.0" encoding="UTF-8"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="1" uniqueCount="1"><si><t>'
     body += b"A" * (mib * MiB) + b"</t></si></sst>"
-    return rewrite(tiny_workbook(), "xl/sharedStrings.xml", lambda _x: body)
+    return rewrite(tiny_workbook(), "", lambda x: x, extra={"xl/sharedStrings.xml": body})
 
 
 def merge_bomb() -> bytes:
@@ -238,8 +238,8 @@ async def test_ai_ingest_refuses_bombs_before_the_key_check(client):
     assert r.status_code == 413, r.text
     docx_bomb = rewrite(
         tiny_workbook(),
-        "xl/sharedStrings.xml",
-        lambda _x: b"<w/>",
+        "",
+        lambda x: x,
         extra={"word/document.xml": b"<w>" + b"A" * (4 * MiB) + b"</w>"},
     )
     r = await client.post(url, files=_files("doc.docx", docx_bomb), headers=h)

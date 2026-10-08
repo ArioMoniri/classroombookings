@@ -59,6 +59,10 @@ class StudioDraft(TimestampMixin, Base):
     params: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)  # time_limit_s, seed, weights, ...
     last_precheck: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
+    # optimistic concurrency (review M1): every UPDATE is ``... WHERE version = <loaded version>``; the
+    # application sets the new version itself (it doubles as the ETag), a lost race raises StaleDataError
+    __mapper_args__ = {"version_id_col": version, "version_id_generator": False}
+
 
 class ImportedSnapshot(Base):
     __tablename__ = "imported_snapshots"

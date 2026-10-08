@@ -117,6 +117,16 @@ async def get_draft(
     if draft is None:
         if not create:
             raise StudioError(404, "no studio draft for this term")
+        return await _create_draft(session, term_id, user_id, kind)
+    return draft
+
+
+async def _create_draft(session: AsyncSession, term_id: int, user_id: int, kind: str) -> StudioDraft:
+    """Idempotent get-or-create: two first visits racing on the unique (term, user, kind) key both get the
+    one draft (the loser's INSERT fails, it re-reads the winner's row) instead of a 500 (usability U2)."""
+    from sqlalchemy.exc import IntegrityError
+
+    try:
         draft = StudioDraft(
             term_id=term_id,
             user_id=user_id,
@@ -132,7 +142,17 @@ async def get_draft(
         )
         session.add(draft)
         await session.commit()
-        await session.refresh(draft)
+    except IntegrityError:
+        await session.rollback()
+        draft = (
+            await session.execute(
+                select(StudioDraft).where(
+                    StudioDraft.term_id == term_id, StudioDraft.user_id == user_id, StudioDraft.kind == kind
+                )
+            )
+        ).scalar_one()
+        return draft
+    await session.refresh(draft)
     return draft
 
 
@@ -364,9 +384,21 @@ async def update_draft(
         await set_disabled_builtins(session, draft, list(builtins or []), user.id)
     draft.version = int(draft.version) + 1
     draft.last_precheck = None
-    await session.commit()
+    await commit_draft(session, draft)
     await session.refresh(draft)
     return draft
+
+
+async def commit_draft(session: AsyncSession, draft: StudioDraft) -> None:
+    """Commit a draft change; a concurrent writer that won the race (the conditional ``UPDATE ... WHERE
+    version = <loaded>`` matched no row) rolls this one back and answers 409 (review M1)."""
+    from sqlalchemy.orm.exc import StaleDataError
+
+    try:
+        await session.commit()
+    except StaleDataError as exc:
+        await session.rollback()
+        raise StudioError(409, {"message": "the draft changed since you loaded it", "current": None}) from exc
 
 
 async def bump(session: AsyncSession, draft: StudioDraft) -> None:
@@ -571,7 +603,9 @@ async def build_solver_input_for_run(
     session: AsyncSession, run: ScheduleRun
 ) -> tuple[sm.SolverInput, dict[int, list[int]]]:
     """Bridge input for ``run``, edited by ``run.params["studio"]`` when the run came from a draft."""
-    snap = (run.params or {}).get("studio")
+    from app.services.run_params import trusted_studio_snapshot
+
+    snap = trusted_studio_snapshot(run)  # a forged (unsealed) snapshot is ignored (review B3)
     if not snap:
         return await solver_bridge.build_solver_input(session, run)
     out = await _build_for(session, run, snap)
@@ -668,6 +702,7 @@ async def generate(session: AsyncSession, draft: StudioDraft, body: Any, user: U
         **{k: v for k, v in (body.params or {}).items() if k in DRAFT_PARAM_KEYS and k != "parent_run_id"},
         "studio": snap,
     }
+    params = _sealed_params(params, term.id, draft.kind)
     parent_id = body.parent_run_id if body.parent_run_id is not None else dparams.get("parent_run_id")
     stability = body.stability if body.stability is not None else bool(dparams.get("stability", True))
     if parent_id is not None:
@@ -711,6 +746,18 @@ async def generate(session: AsyncSession, draft: StudioDraft, body: Any, user: U
         "excluded": len(snap["excluded_event_ids"]),
         "prompt_text": prompt,
     }
+
+
+def _sealed_params(params: dict[str, Any], term_id: int, kind: str) -> dict[str, Any]:
+    """Bounded run params + the server seal of the draft snapshot (review B3/M13)."""
+    from app.services import run_params as rp
+
+    snap = params.pop("studio")
+    try:
+        clean = rp.clamp_server_params(rp.clean_client_params(params))
+    except rp.ParamError as exc:
+        raise StudioError(422, str(exc)) from exc
+    return rp.seal_studio({**clean, "studio": snap}, term_id, kind)
 
 
 # --------------------------------------------------------------------------- estimate

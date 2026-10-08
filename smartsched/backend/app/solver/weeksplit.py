@@ -33,6 +33,7 @@ import time
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
+from typing import Any
 
 from app.solver.constraints import effective_constraints
 from app.solver.constraints._common import int_list, week_runs
@@ -574,7 +575,18 @@ def to_original(split: WeekSplit, result: SolverResult) -> SolverResult:
     def map_ids(ids: Iterable[int]) -> list[int]:
         return list(dict.fromkeys(split.origin_of(i) for i in ids))
 
-    diags = [replace(d, event_ids=map_ids(d.event_ids)) for d in result.diagnoses]
+    def map_params(params: dict[str, Any]) -> dict[str, Any]:
+        out = dict(params)
+        for key in ("busy", "clashes"):  # explain_event: the events holding a room / a key
+            if isinstance(out.get(key), list):
+                out[key] = [
+                    {**x, "holders": map_ids(x.get("holders") or [])} if isinstance(x, dict) else x for x in out[key]
+                ]
+        if isinstance(out.get("clash_ids"), list):
+            out["clash_ids"] = map_ids(out["clash_ids"])
+        return out
+
+    diags = [replace(d, event_ids=map_ids(d.event_ids), params=map_params(d.params)) for d in result.diagnoses]
     kept_notes: list[Diagnosis] = []
     for d in split.diagnoses:
         root = d.event_ids[0] if d.event_ids else None

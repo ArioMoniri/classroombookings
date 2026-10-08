@@ -257,6 +257,10 @@ export const Diagnosis = z.object({
     }),
   ),
   severity: z.enum(["critical", "high", "medium", "low"]),
+  /** solver/bridge diagnosis code (``unplaced``, ``input_conflict`` ...) */
+  code: z.string().default(""),
+  /** planner-facing text (backend templates); preferred over ``message`` when present */
+  text: z.object({ tr: z.string(), en: z.string() }).optional(),
 });
 export type Diagnosis = z.infer<typeof Diagnosis>;
 

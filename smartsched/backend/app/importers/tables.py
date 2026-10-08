@@ -51,7 +51,7 @@ def read_table(
         try:
             names = [ws.title for ws in wb.worksheets]
             ws = wb[sheet] if sheet and sheet in names else wb.worksheets[0]
-            it = ws.iter_rows(max_row=max_rows, max_col=max_cols, values_only=True)
+            it = ws.iter_rows(values_only=True)  # bounded: open_workbook clamped the dimension
             return names, ws.title, [(i, [table_cell(v) for v in row]) for i, row in enumerate(it, start=1)]
         finally:
             wb.close()

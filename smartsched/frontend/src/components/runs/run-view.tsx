@@ -75,7 +75,7 @@ export function RunView({ id }: { id: number }) {
       ) : (
         <>
           <div className="grid gap-4 rounded-xl border bg-card p-4 md:grid-cols-[auto_1fr] lg:grid-cols-[auto_1fr_auto]" role="group" aria-label={t("runs.report")}>
-            <ScoreRing value={r.hard_score} label={partialCounts(r) ? t("runs.partial", partialCounts(r) ?? {}) : r.hard_score === 100 ? t("runs.status.FEASIBLE") : t("runs.status.INFEASIBLE")} />
+            <ScoreRing value={r.hard_score} partial={partialCounts(r)} label={partialCounts(r) ? t("runs.partialRing", partialCounts(r) ?? {}) : r.hard_score === 100 ? t("runs.status.FEASIBLE") : t("runs.status.INFEASIBLE")} />
             <SoftBreakdown score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} />
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm lg:grid-cols-1">
               <dt className="text-muted-foreground">{t("runs.assignments")}</dt><dd className="tabular-nums">{n(Number(r.stats.events ?? 0))}</dd>

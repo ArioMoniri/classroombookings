@@ -117,6 +117,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await dispose_engine()
 
 
+def _install_error_handlers(app: FastAPI) -> None:
+    """A lost optimistic-concurrency race anywhere (``version_id_col`` rows) is a 409, never a 500."""
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
+    from sqlalchemy.orm.exc import StaleDataError
+
+    async def stale(_request: Request, _exc: Exception) -> JSONResponse:
+        return JSONResponse({"detail": "the record changed since you loaded it; reload and retry"}, status_code=409)
+
+    app.add_exception_handler(StaleDataError, stale)
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
@@ -134,6 +146,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    _install_error_handlers(app)
     app.include_router(api_router, prefix="/api/v1")
     # Only room photos are public. Uploaded workbooks (uploads/imports: instructor names, enrolments)
     # are served through the authenticated ``GET /api/v1/imports/{id}/file``.

@@ -733,6 +733,33 @@ async def persist_result(
         "event_members": {str(k): list(v) for k, v in members.items() if len(v) > 1},
     }
     diags = [asdict(d) for d in result.diagnoses] + bridge_diags
+    # planner-facing report: unplaced classes first, then data errors, clashes, warnings; every
+    # diagnosis carries a TR / EN text rendered from code + params (names, days, clock times; no ids)
+    from app.services.data_issues import order_for_report, planner_text, text_context
+
+    diags = order_for_report(diags)
+    try:
+        ctx = await text_context(session, run, diags, members)
+        for d in diags:
+            d["text"] = planner_text(d, ctx)
+    except Exception:  # noqa: BLE001 - texts are a convenience; the structured diagnosis is the truth
+        log.exception("planner texts for run %s failed", run.id)
+        ctx = None
+    overflows = [d for d in diags if d.get("code") == "trusted_lock_capacity" and (d.get("params") or {}).get("shared")]
+    if overflows:
+        run.stats["shared_room_overflows"] = [
+            {
+                "rooms": (d.get("params") or {}).get("room_codes"),
+                "day": (d.get("params") or {}).get("day"),
+                "period": (d.get("params") or {}).get("period"),
+                "week": (d.get("params") or {}).get("week"),
+                "size": (d.get("params") or {}).get("size"),
+                "seats": (d.get("params") or {}).get("seats"),
+                "exams": [ctx.labels.get(int(i), str(i)) for i in d.get("event_ids") or []] if ctx else [],
+                "text": d.get("text"),
+            }
+            for d in overflows[:50]
+        ]
     run.stats["warnings_by_code"] = dict(
         sorted(Counter(str(d.get("code") or "other") for d in diags if d.get("severity") != "error").items())
     )
@@ -764,6 +791,13 @@ async def _humanize(session: AsyncSession, diags: list[dict[str, Any]]) -> list[
     return [{**d, "message": sub(str(d.get("message", "")))} for d in diags]
 
 
+def _studio_run(run: ScheduleRun) -> bool:
+    """Only a server-sealed ``params.studio`` (studio.generate and its child runs) is honoured (review B3)."""
+    from app.services.run_params import trusted_studio_snapshot
+
+    return trusted_studio_snapshot(run) is not None
+
+
 async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn | None = None) -> dict[str, Any]:
     """Job body for the queue: load, build, solve, persist."""
 
@@ -781,7 +815,7 @@ async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn |
         await session.commit()
         report("loading", 5)
         rparams = run.params or {}
-        if rparams.get("studio") or rparams.get("draft_id"):
+        if _studio_run(run):
             # studio runs and their children keep the draft's exclusions / pins / disabled built-ins
             from app.services.studio import build_solver_input_for_run
 

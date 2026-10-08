@@ -168,7 +168,7 @@ def _xlsx(data: bytes, filename: str) -> Extracted:
     try:
         for ws in wb.worksheets:
             rows: list[tuple[int, list[str]]] = []
-            it = ws.iter_rows(max_row=MAX_UNITS + 16, max_col=MAX_TABLE_COLS, values_only=True)
+            it = ws.iter_rows(values_only=True)  # bounded: open_workbook clamped the dimension
             for rownum, row in enumerate(it, start=1):
                 rows.append((rownum, [_cell(v) for v in row]))
                 if len(rows) > MAX_UNITS + 15:

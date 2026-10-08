@@ -62,7 +62,7 @@ from app.schemas.ai import (
     UsageOut,
 )
 from app.services.grid import assignment_labels
-from app.services.solver_bridge import build_solver_input, persist_result
+from app.services.solver_bridge import persist_result
 from app.solver import model as sm
 
 log = logging.getLogger(__name__)
@@ -316,7 +316,7 @@ async def _evaluation(session: AsyncSession, state: RunState) -> tuple[sm.Solver
     if state._evaluation is None:
         from app.solver.scoring import evaluate
 
-        inp, members = await build_solver_input(session, state.run)
+        inp, members = await _run_input(session, state.run)
         event_of = _event_map(state.run, state.rows, members)
         current = _current_assignments(inp, state.rows, event_of)
         state._evaluation = (inp, event_of, evaluate(inp, list(current.values())))
@@ -699,6 +699,14 @@ async def find_diff(session: AsyncSession, run_id: int, diff_id: str) -> tuple[P
 # ---------------------------------------------------------------------------
 
 
+async def _run_input(session: AsyncSession, run: ScheduleRun) -> tuple[sm.SolverInput, dict[int, list[int]]]:
+    """Solver input of ``run`` (or of a child copying its params): a studio run's draft (left-out classes,
+    pins, rule switches) is honoured, exactly as for the run itself (review B2)."""
+    from app.services.studio import build_solver_input_for_run
+
+    return await build_solver_input_for_run(session, run)
+
+
 def _event_map(run: ScheduleRun, rows: list[Assignment], members: dict[int, list[int]]) -> dict[int, int]:
     """Assignment row id -> solver event id (meeting request id; exam head id for merged exams)."""
     head_of = {m: head for head, ms in members.items() for m in ms}
@@ -849,7 +857,7 @@ async def apply_diff(
     await session.flush()
 
     # 2. solver input of the child (term data + constraints as they are now, parent as `previous`)
-    inp, members = await build_solver_input(session, child)
+    inp, members = await _run_input(session, child)  # keeps the draft of studio runs (B2)
     event_of = _event_map(parent, state.rows, members)
     current = _current_assignments(inp, state.rows, event_of)
     events = {e.id: e for e in inp.events}
@@ -1090,7 +1098,7 @@ def _solve_job(
             run.status, run.started_at = "RUNNING", datetime.now(UTC).replace(tzinfo=None)
             await s.commit()
             progress("building", 10)
-            inp, members = await build_solver_input(s, run)
+            inp, members = await _run_input(s, run)  # keeps the draft of studio runs (B2)
             ids = {e.id for e in inp.events}
             evs = []
             for e in inp.events:

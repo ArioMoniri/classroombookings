@@ -30,7 +30,7 @@ from app.services.conflicts import check_room_conflicts
 from app.services.diagnosis_fixes import FixError, apply_option, structure_diagnosis
 from app.services.exports import export_csv, export_ics, export_xlsx
 from app.services.grid import assignment_labels, build_grid, enrich_assignments
-from app.services.solver_bridge import run_schedule
+from app.services.solver_bridge import PARTIAL_STATUS, run_schedule
 from app.workers.queue import JobState, get_queue, worker_id
 
 router = APIRouter(prefix="/runs", tags=["runs"])
@@ -59,11 +59,7 @@ async def create_run(body: RunCreate, db: DB, user: Planner) -> RunCreated:
     term = await db.get(Term, body.term_id)
     if term is None:
         raise HTTPException(404, "term not found")
-    params = {
-        "time_limit_s": await ss.get_value(db, "solver_default_time_limit"),
-        "workers": await ss.get_value(db, "solver_workers"),
-        **body.params,
-    }
+    params = await _client_run_params(db, body, term.id)
     run = ScheduleRun(
         term_id=term.id,
         kind=body.kind,
@@ -82,6 +78,26 @@ async def create_run(body: RunCreate, db: DB, user: Planner) -> RunCreated:
     await db.refresh(run)
     _enqueue(run.id)
     return RunCreated(run_id=run.id, status="QUEUED")
+
+
+async def _client_run_params(db: AsyncSession, body: RunCreate, term_id: int) -> dict[str, Any]:
+    """Whitelisted, bounded params of ``POST /runs`` (review B3/M13): reserved keys (``studio``...) and
+    unknown keys answer 422; server defaults are clamped to the same bounds."""
+    from app.services import run_params as rp
+
+    try:
+        client = rp.clean_client_params(dict(body.params or {}))
+    except rp.ParamError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if body.parent_run_id is not None:
+        parent = await db.get(ScheduleRun, body.parent_run_id)
+        if parent is None or parent.term_id != term_id or parent.kind != body.kind:
+            raise HTTPException(422, "parent_run_id must be a run of the same term and kind")
+    defaults = {
+        "time_limit_s": await ss.get_value(db, "solver_default_time_limit"),
+        "workers": await ss.get_value(db, "solver_workers"),
+    }
+    return rp.clamp_server_params({**defaults, **client})
 
 
 def _enqueue(run_id: int) -> None:
@@ -123,7 +139,21 @@ def run_out(run: ScheduleRun, term_codes: dict[int, str]) -> RunOut:
     breakdown = stats.get("objective_breakdown") or {}
     out.objective_breakdown = {str(k): int(v) for k, v in breakdown.items() if isinstance(v, int | float)}
     out.diagnosis = [structure_diagnosis(d, i, run.kind) for i, d in enumerate(run.diagnosis or [])]
+    out.placed, out.events_total, out.partial = placement(run)
     return out
+
+
+def placement(run: ScheduleRun) -> tuple[int | None, int | None, bool]:
+    """(placed, events_total, partial) of a run's stored timetable."""
+    stats = run.stats or {}
+    placed = stats.get("placed")
+    total = stats.get("events_total")
+    partial = run.status == PARTIAL_STATUS or (run.status == "INFEASIBLE" and bool(stats.get("partial")))
+    return (
+        int(placed) if isinstance(placed, int | float) else None,
+        int(total) if isinstance(total, int | float) else None,
+        partial,
+    )
 
 
 async def runs_out(db: AsyncSession, runs: list[ScheduleRun]) -> list[RunOut]:
@@ -512,9 +542,27 @@ async def run_summary(run_id: int, db: DB, _: Viewer) -> dict[str, Any]:
                 )
             ).all()
         )
+    placed, total, partial = placement(run)
+    if partial:
+        headline = {
+            "tr": f"{placed}/{total} ders yerleşti · hiçbir kural bozulmadı",
+            "en": f"{placed}/{total} placed · no rule broken",
+        }
+    elif run.status in ("OPTIMAL", "FEASIBLE"):
+        headline = {
+            "tr": f"Tüm dersler yerleşti ({total or len(rows)})",
+            "en": f"Everything placed ({total or len(rows)})",
+        }
+    else:
+        headline = {"tr": f"Durum: {run.status}", "en": f"Status: {run.status}"}
     return {
         "run_id": run.id,
         "status": run.status,
+        "partial": partial,
+        "placed": placed,
+        "events_total": total,
+        "headline": headline,
+        "shared_room_overflows": (run.stats or {}).get("shared_room_overflows") or [],
         "assignments": len(rows),
         "by_origin": kind_counts,
         "diagnoses": unresolved,

@@ -483,3 +483,36 @@ async def test_closed_dates_and_wrong_periods(env):  # noqa: F811
     )
     r = await env.book(teacher, "A101", date(2026, 2, 21), "P1")
     assert r.status_code == 409 and "not available" in r.json()["detail"]["message"]
+
+
+async def test_date_picker_shows_weeks_and_holidays_to_staff(env):  # noqa: F811
+    c = env.client
+    _, teacher = await env.user("takvim.secici@uni.edu.tr")
+    await c.post(
+        "/api/v1/holidays",
+        json={
+            "term_id": env.term_id,
+            "name": "Ulusal Egemenlik ve Çocuk Bayramı",
+            "date_start": "2026-04-23",
+            "date_end": "2026-04-23",
+        },
+        headers=env.admin,
+    )
+    wk = (
+        await c.post("/api/v1/booking-admin/weeks", json={"name": "B Haftası", "bgcol": "FFD966"}, headers=env.admin)
+    ).json()
+    await c.post(
+        f"/api/v1/booking-admin/sessions/{env.term_id}/apply-week",
+        json={"timetable_week_id": wk["id"]},
+        headers=env.admin,
+    )
+    r = await c.get("/api/v1/bookings/dates", params={"from": "2026-04-20", "to": "2026-04-26"}, headers=teacher)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    days = {d["date"]: d for d in out["dates"]}
+    assert len(days) == 7 and days["2026-04-23"]["holiday"] == "Ulusal Egemenlik ve Çocuk Bayramı"
+    assert days["2026-04-23"]["open"] is False and days["2026-04-22"]["open"] is True
+    assert days["2026-04-22"]["timetable_week_id"] == wk["id"] and days["2026-04-22"]["term_week"] == 12
+    assert out["weeks"] == [{"id": wk["id"], "name": "B Haftası", "bgcol": "#FFD966", "fgcol": "#000000"}]
+    # the admin calendar endpoint stays admin-only
+    assert (await c.get(f"/api/v1/booking-admin/sessions/{env.term_id}/dates", headers=teacher)).status_code == 403

@@ -1246,7 +1246,7 @@ async def apply_preset(
             await st.set_disabled_builtins(session, draft, sorted(set(builtins_apply)), user.id)
         draft.preset_id = p.id
         await st.bump(session, draft)
-        await session.commit()
+        await st.commit_draft(session, draft)
         await session.refresh(draft)
     return {
         "add": add,

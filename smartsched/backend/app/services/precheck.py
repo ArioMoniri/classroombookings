@@ -741,7 +741,10 @@ async def run_precheck(session: AsyncSession, draft: StudioDraft) -> dict[str, A
         "computed_at": datetime.now(UTC).isoformat(),
         "items": {it["id"]: {"fixes": it["fixes"], "group": it["group"]} for it in items},
     }
-    await session.commit()
+    try:
+        await st.commit_draft(session, draft)
+    except st.StudioError:
+        pass  # the draft changed meanwhile: this result is already stale, keep the newer draft (M1)
     return out
 
 
@@ -798,7 +801,7 @@ async def apply_fix(session: AsyncSession, draft: StudioDraft, item_id: str, opt
     else:  # pragma: no cover - only produced by this module
         raise st.StudioError(422, f"unsupported fix type {kind}")
     await st.bump(session, draft)
-    await session.commit()
+    await st.commit_draft(session, draft)
     return {"item_id": item_id, "option": option, "type": kind, "payload": payload, "label": fix["label"]}
 
 

@@ -101,6 +101,7 @@
     "title": "Runs", "subtitle": "Every solver run with its scores and diagnosis.", "run": "Run", "kind": "Kind",
     "horizon": "Horizon", "hard": "Hard", "soft": "Soft", "created": "Created", "duration": "Duration", "open": "Open",
     "partial": "Partial · {placed}/{total} placed",
+    "partialRing": "{placed}/{total} placed · no rule broken",
     "status": { "QUEUED": "Queued", "RUNNING": "Running", "FEASIBLE": "Feasible", "OPTIMAL": "Optimal", "FEASIBLE_PARTIAL": "Partial", "INFEASIBLE": "Infeasible", "TIMEOUT": "Timed out", "ERROR": "Solver error", "FAILED": "Failed", "CANCELLED": "Cancelled" },
     "report": "Report", "grid": "Timetable", "chat": "Chat", "hardScore": "Hard constraints", "softScore": "Soft preferences",
     "objective": "Objective breakdown", "diagnosis": "Diagnosis", "suggestions": "Suggested fixes", "applyFix": "Apply",

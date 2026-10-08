@@ -167,6 +167,9 @@ export function diagnosis(v: unknown, i: number): unknown {
       };
     }),
     severity: SEVERITY[str(v.severity) ?? "high"] ?? "high",
+    code: str(v.code) ?? "",
+    // planner-facing TR / EN text rendered by the backend from code + params (no ids, day names, clock times)
+    text: isRec(v.text) ? { tr: str(v.text.tr) ?? "", en: str(v.text.en) ?? "" } : undefined,
   };
 }
 

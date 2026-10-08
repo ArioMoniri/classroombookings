@@ -63,6 +63,11 @@ class RunOut(ORMModel):
     finished_at: dt.datetime | None
     objective_breakdown: dict[str, int] = {}
     progress: int = 0
+    #: placement of the stored timetable (FEASIBLE_PARTIAL: placed < events_total; the hard score is the one
+    #: of the *placed* events, so a partial run must be shown as "placed/total", never as a plain 100/100)
+    placed: int | None = None
+    events_total: int | None = None
+    partial: bool = False
 
 
 class RunCreated(BaseModel):

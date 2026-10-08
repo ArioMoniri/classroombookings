@@ -6,7 +6,7 @@ Every route here honours maintenance mode (503 unless ``system.bypass_maintenanc
 from __future__ import annotations
 
 import secrets
-from datetime import date
+from datetime import date, timedelta
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -15,12 +15,21 @@ from sqlalchemy import select
 
 from app.api.deps import DB, CurrentAccess, require_permission
 from app.importers import normalize as n
-from app.models import Booking, Program, RoomCustomField, RoomCustomFieldValue, RoomGroup, Term, User
+from app.models import (
+    Booking,
+    Program,
+    RoomCustomField,
+    RoomCustomFieldValue,
+    RoomGroup,
+    Term,
+    TimetableWeek,
+    User,
+)
 from app.models.catalog import Room
 from app.services import bookings as svc
 from app.services import bookings_export as export
 from app.services import bookings_notify  # noqa: F401  (registers the notification event handlers)
-from app.services.bookings_calendar import term_info
+from app.services.bookings_calendar import date_infos, fgcol, term_info
 from app.services.bookings_perms import Access, effective_limits, load_access
 from app.services.bookings_settings import get_group
 
@@ -266,6 +275,50 @@ async def room_detail(room_id: int, db: DB, access: Acc) -> dict[str, Any]:
     if room is None or not access.can_view_room(room):
         raise HTTPException(404, "room not found")
     return await _room_info(db, room)
+
+
+@router.get("/dates")
+async def dates(
+    db: DB,
+    access: Acc,
+    term_id: int | None = None,
+    from_: Annotated[date | None, Query(alias="from")] = None,
+    to: date | None = None,
+) -> dict[str, Any]:
+    """Date picker data (CRBS ``Bookings::filter('date')``): each date with its timetable week (colours),
+    holiday and whether it is open for bookings; at most one term's range."""
+    t = await svc.today(db)
+    try:
+        info = await svc.resolve_term(db, from_ or t, term_id, view_all=access.can("system.view_all_sessions"))
+    except svc.CalendarError as exc:
+        raise HTTPException(409, {"code": "calendar", "message": str(exc)}) from exc
+    start = max(from_ or info.start, info.start)
+    end = min(to or info.end, info.end)
+    if (end - start).days > 400:
+        raise HTTPException(422, "range too long")
+    days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    infos = await date_infos(db, info, days)
+    weeks = {
+        w.id: {"id": w.id, "name": w.name, "bgcol": f"#{w.bgcol}", "fgcol": fgcol(w.bgcol)}
+        for w in (await db.execute(select(TimetableWeek))).scalars()
+    }
+    return {
+        "term_id": info.term.id,
+        "today": t.isoformat(),
+        "weeks": list(weeks.values()),
+        "dates": [
+            {
+                "date": d.isoformat(),
+                "weekday": x.weekday,
+                "term_week": x.term_week,
+                "timetable_week_id": x.timetable_week_id,
+                "holiday": x.holiday,
+                "open": x.open,
+                "reason": x.reason,
+            }
+            for d, x in infos.items()
+        ],
+    }
 
 
 @router.get("/grid")

@@ -75,7 +75,8 @@ repo root
 | `assignments` | id, run_id, meeting_request_id / exam_request_id, week (nullable = all weeks in pattern), day, date, start_period, end_period, room_ids (JSON, ordered), is_locked, origin (`SOLVER`,`AI_EDIT`,`MANUAL`,`IMPORT`) |
 | `chat_messages` | id, run_id, role, content, tool_calls (JSON), created_at |
 | `settings` | key, value (encrypted when `is_secret`), is_secret, updated_at — e.g. `anthropic_api_key`, `anthropic_model`, `solver_default_time_limit` |
-| `users` | id, email, password_hash, role (`ADMIN`,`PLANNER`,`VIEWER`), is_active |
+| `users` | id, email (optional), username (Turkish-insensitive), password_hash, full_name (= CRBS displayname), role_id → `roles`, role (code `ADMIN`,`PLANNER`,`VIEWER`,`TEACHER` or `CUSTOM`, kept in sync), department_id → `programs`, force_password_reset, auth_source (`local`/`ldap`), is_active |
+| CRBS parity (bookings) | `roles`/`permissions`/`role_permissions`, `user_constraints`, `room_groups`, `room_custom_fields`(+options/values), `room_acl`(+permissions), `booking_schedules`/`booking_periods` (on the 18-period grid), `term_booking_settings`, `term_schedules`, `timetable_weeks`, `term_dates`, `holidays`, `bookings` + `booking_slots` (unique room/date/period), `booking_series`, `multi_bookings`(+slots), `password_reset_tokens`, `notification_outbox`, `translations` — see docs/CRBS_PARITY.md |
 | `import_jobs` | id, kind, filename, status, summary (JSON: rows, created, updated, warnings), created_at |
 
 ## Solver contract (`app/solver/model.py`) — frozen for parallel work

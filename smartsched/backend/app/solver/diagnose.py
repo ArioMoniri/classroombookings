@@ -58,6 +58,36 @@ def _top(counter: Counter[str], n: int = 3) -> str:
     return "; ".join(f"{k} ×{v}" if v > 1 else k for k, v in counter.most_common(n))
 
 
+def reason_category(reason: str) -> str:
+    """Planner-level category of a pruning reason string (so "not in the pinned room set (room_pin #6)"
+    ×9 collapses into one ``pin`` line): ``locked``, ``pin``, ``forbid``, ``tags``, ``capacity``,
+    ``blocked``, ``cohort``, ``instructor`` or the constraint kind named in the reason."""
+    r = reason.casefold()
+    if r.startswith("locked to another room"):
+        return "locked"
+    if "room_pin" in r or "pinned room" in r:
+        return "pin"
+    if "room_forbid" in r:
+        return "forbid"
+    if "tag" in r:
+        return "tags"
+    if "capacity" in r:
+        return "capacity"
+    if "blocked" in r or "room_closed" in r:
+        return "blocked"
+    if r.startswith("cohort "):
+        return "cohort"
+    if r.startswith("instructor "):
+        return "instructor"
+    m = _KIND_RE.search(reason)
+    return m.group(1) if m else "other"
+
+
+def reason_categories(reasons: Iterable[str]) -> dict[str, int]:
+    out: Counter[str] = Counter(reason_category(r) for r in reasons)
+    return dict(out.most_common())
+
+
 _KIND_RE = re.compile(r"\(([a-z_]+)(?: #[^)]*)?\)")
 _REASON_KINDS = {"block": "no_room_overlap", "cohort": "no_cohort_overlap", "instructor": "no_instructor_overlap"}
 
@@ -390,18 +420,64 @@ def _no_room_diagnosis(
     params: dict[str, Any] = {"size": e.size, "missing_pins": missing_pins, "missing_tags": missing_tags}
     if "capacity" in kinds:
         params.update(largest_room=best.code, largest_capacity=effective_capacity(best, e))
+    by_id = {r.id: r for r in rooms}
+    pinned = [by_id[r] for r in sorted(e.required_room_ids) if r in by_id]
+    locked_rooms = [by_id[r] for r in (e.locked.room_ids if e.locked is not None else ()) if r in by_id]
+    if pinned:
+        params["pinned_rooms"] = [{"room": r.code, "capacity": effective_capacity(r, e)} for r in pinned]
+        seats = sum(effective_capacity(r, e) for r in pinned[: max(1, e.max_rooms)])
+        if "capacity" not in kinds and seats < e.size:
+            kinds.insert(0, "capacity")
+            sugg.insert(0, f"the pinned room(s) seat {seats} < {e.size}; pin a bigger room or split the group")
+            big = max(pinned, key=lambda r: effective_capacity(r, e))
+            params.update(largest_room=big.code, largest_capacity=effective_capacity(big, e), pinned_seats=seats)
+    if locked_rooms:
+        params["locked_rooms"] = [{"room": r.code, "capacity": effective_capacity(r, e)} for r in locked_rooms]
+        if pinned and not {r.id for r in pinned} & {r.id for r in locked_rooms}:
+            params["pin_vs_lock"] = True
+            if "room_pin" not in kinds:
+                kinds.append("room_pin")
+            sugg.append(
+                "the request is locked to "
+                + ", ".join(r.code for r in locked_rooms)
+                + " but pinned to "
+                + ", ".join(r.code for r in pinned)
+                + "; keep one of them"
+            )
+    fitting = sorted(
+        (
+            r
+            for r in rooms
+            if e.required_tags <= r.tags
+            and not (e.forbidden_tags & r.tags)
+            and r.id not in e.forbidden_room_ids
+            and effective_capacity(r, e) >= e.size
+        ),
+        key=lambda r: effective_capacity(r, e),
+    )
+    params["fitting_rooms"] = [{"room": r.code, "capacity": effective_capacity(r, e)} for r in fitting[:6]]
+    params["excluded"] = reason_categories(dom.room_reasons.values())
     if not kinds:
         reasons = Counter(dom.room_reasons.values())
         kinds.extend(kinds_in_reasons(reasons))
         sugg.append("reasons: " + _top(reasons))
         params["reasons"] = dict(reasons.most_common(5))
     params["reason"] = (
-        "pin" if missing_pins else "tags" if missing_tags else "capacity" if "capacity" in kinds else "rules"
+        "pin"
+        if missing_pins
+        else "tags"
+        if missing_tags
+        else "capacity"
+        if "capacity" in kinds
+        else "pin_vs_lock"
+        if params.get("pin_vs_lock")
+        else "rules"
     )
     return Diagnosis(
         [e.id],
         kinds or ["capacity"],
-        f"{_label(e)} (size {e.size}) has no eligible room",
+        f"{_label(e)} (size {e.size}) has no eligible room"
+        + (f": {sugg[0]}" if params["reason"] in ("capacity", "pin_vs_lock") and sugg else ""),
         sugg,
         "error",
         "no_room",
@@ -448,17 +524,25 @@ def _locked_conflicts(prep: Prepared) -> list[Diagnosis]:
         bad_rooms = [r for r in a.room_ids if r not in dom.rooms]
         if bad_rooms:
             reasons = [dom.room_reasons.get(r, "unknown room") for r in bad_rooms]
+            codes = [prep.doms.rooms_by_id[r].code if r in prep.doms.rooms_by_id else str(r) for r in bad_rooms]
             out.append(
                 Diagnosis(
                     [e.id],
                     ["fixed_time", "capacity"],
-                    f"locked assignment of {_label(e)} uses room(s) {bad_rooms} which are not eligible: {
-                        '; '.join(reasons)
-                    }",
+                    f"locked assignment of {_label(e)} uses room(s) {', '.join(codes)} which are not eligible: "
+                    + _top(Counter(reasons), 4),  # duplicate reasons collapsed ("... ×3")
                     ["unlock the event", "fix the room (capacity/tags) or the pin"],
                     "error",
                     "locked_ineligible",
-                    {"rooms": bad_rooms, "reasons": reasons},
+                    {
+                        "rooms": bad_rooms,
+                        "room_codes": codes,
+                        "reasons": reasons,
+                        "categories": reason_categories(reasons),
+                        "day": a.day,
+                        "start": a.start,
+                        "end": a.end,
+                    },
                 )
             )
         elif any(not dom.is_pair_allowed(dom.times[0], r) for r in a.room_ids):
@@ -581,6 +665,9 @@ def explain_event(
     idx = index or _PlacedIndex(prep, placed)
     kinds: Counter[str] = Counter()
     busy_rooms: list[tuple[str, int]] = []  # (text, count)
+    busy_params: dict[int, dict[str, Any]] = {}  # room id -> {room, capacity, day, start, end, holders}
+    clash_params: list[dict[str, Any]] = []
+    free_params: list[dict[str, Any]] = []
     key_clashes: list[str] = []
     suggestions: list[str] = []
     free_options: list[str] = []
@@ -594,6 +681,17 @@ def explain_event(
                 key_clashes.append(
                     f"{_time_str(t)}: {'cohort' if k in e.cohort_keys else 'instructor'} '{k}' busy with {names}"
                 )
+                if len(clash_params) < 6:
+                    clash_params.append(
+                        {
+                            "kind": "cohort" if k in e.cohort_keys else "instructor",
+                            "key": k,
+                            "day": t.day,
+                            "start": t.start,
+                            "end": t.end,
+                            "holders": list(ids[:3]),
+                        }
+                    )
             continue
         if not e.needs_room:
             free_options.append(_time_str(t))
@@ -612,8 +710,19 @@ def explain_event(
                 busy_rooms.append(
                     (f"{room.code} ({effective_capacity(room, e)}) at {_time_str(t)} held by {names}", len(holders))
                 )
+                if rid not in busy_params and len(busy_params) < 8:
+                    busy_params[rid] = {
+                        "room": room.code,
+                        "capacity": effective_capacity(room, e),
+                        "day": t.day,
+                        "start": t.start,
+                        "end": t.end,
+                        "holders": list(holders[:3]),
+                    }
             else:
                 free_options.append(f"{room.code} at {_time_str(t)}")
+                if len(free_params) < 3:
+                    free_params.append({"room": room.code, "day": t.day, "start": t.start, "end": t.end})
     for k in kinds_in_reasons(dom.room_reasons.values()):
         kinds[k] += 1
     pruned = Counter(dom.room_reasons.values())
@@ -648,8 +757,32 @@ def explain_event(
         f"{_time_str(dom.times[0]) if dom.fixed_time else f'{len(dom.times)} time options'}) cannot be placed: "
         + " | ".join(parts)
     )
+    caps = [effective_capacity(r, e) for r in prep.inp.rooms]
+    fits = sum(1 for c in caps if c >= e.size)
+    params: dict[str, Any] = {
+        "size": e.size,
+        "duration": e.duration,
+        "time_options": len(dom.times),
+        "busy": list(busy_params.values()),
+        "clashes": clash_params,
+        "free": free_params,
+        "excluded": reason_categories(dom.room_reasons.values()),
+        "fitting_rooms": fits,
+        "largest_capacity": max(caps, default=0),
+        "problem": (
+            "capacity"
+            if e.needs_room and e.max_rooms <= 1 and e.size > 0 and fits == 0
+            else "rooms_busy"
+            if busy_params
+            else "clash"
+            if clash_params
+            else "excluded"
+        ),
+    }
+    if dom.fixed_time:
+        params.update(day=dom.times[0].day, start=dom.times[0].start, end=dom.times[0].end)
     return Diagnosis(
-        [event_id], [k for k, _ in kinds.most_common()] or ["capacity"], msg, suggestions, "error", "unplaced"
+        [event_id], [k for k, _ in kinds.most_common()] or ["capacity"], msg, suggestions, "error", "unplaced", params
     )
 
 
