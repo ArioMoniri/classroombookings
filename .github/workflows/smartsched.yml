@@ -1,8 +1,9 @@
 name: smartsched
 
 # Quality gates for SmartSched (smartsched/**): backend ruff + mypy + pytest (+ migrations on SQLite
-# and Postgres 16), frontend tsc + eslint + vitest + Playwright (mock API), Docker image builds (no
-# push), a full docker compose smoke test, and the agent watchdog report (non-blocking).
+# and Postgres 16), frontend tsc + eslint + vitest + Playwright against the REAL backend (a backend
+# container with the Bahar fixtures; there is no mock API), Docker image builds (no push), a full docker
+# compose smoke test, and the agent watchdog report (non-blocking).
 
 # DISABLED ON PUSH (2026-10-08, user decision: GitHub Actions minutes are too expensive).
 # CI runs on the AWS pod itself (smartsched/deploy/pod-ci); this file is kept only as a manual fallback.
@@ -95,17 +96,26 @@ jobs:
         run: cat /tmp/backend.log || true
 
   frontend:
-    name: frontend (tsc + eslint + vitest + playwright)
+    name: frontend (tsc + eslint + vitest + playwright on the real backend)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: smartsched/frontend
     env:
       PLAYWRIGHT_BROWSERS_PATH: /home/runner/.cache/ms-playwright
       CI: "1"
+      E2E_REAL: "1"
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
     steps:
       - uses: actions/checkout@v4
+      - name: Start the e2e backend container (Bahar fixtures, seeded admin, full-term run, pinned booking clock)
+        working-directory: .
+        run: |
+          docker run -d --name e2e-backend --network host \
+            -v "$GITHUB_WORKSPACE:/w/src" -v "$RUNNER_TEMP/e2e:/w/e2e" -w /w/src/smartsched/backend \
+            -e E2E_WORKDIR=/w/e2e -e E2E_HOST=127.0.0.1 -e E2E_PORT=8000 -e E2E_BOOKING_CLOCK=2026-02-16T08:00 \
+            python:3.12.15-slim-bookworm bash /w/src/smartsched/deploy/pod-ci/gates/e2e-backend-entry.sh
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -134,8 +144,22 @@ jobs:
       - name: Install Playwright OS deps only (browsers cached)
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
-      - name: Playwright smoke (mock API; builds + starts next on :3100)
+      - name: Wait for the e2e backend
+        run: |
+          for i in $(seq 1 300); do
+            curl -fsS http://127.0.0.1:8000/api/v1/health >/dev/null && exit 0
+            docker ps -q -f name=e2e-backend | grep -q . || { docker logs e2e-backend; exit 1; }
+            sleep 2
+          done
+          docker logs --tail 200 e2e-backend; exit 1
+      - name: Playwright, every spec on the real backend (builds + starts next on :3100)
         run: npx playwright test
+      - name: No mock/demo code in the production build
+        run: bash ../deploy/validate.sh --no-mock-build .next/standalone
+      - name: Backend log
+        if: always()
+        working-directory: .
+        run: docker logs --tail 300 e2e-backend || true
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
@@ -178,7 +202,6 @@ jobs:
           tags: smartsched-frontend:ci
           build-args: |
             NEXT_PUBLIC_API_URL=http://backend:8000
-            NEXT_PUBLIC_API_MOCK=0
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
       - name: Build legacy CRBS image

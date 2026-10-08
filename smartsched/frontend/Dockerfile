@@ -16,9 +16,7 @@ RUN npm ci --no-audit --no-fund
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 ARG NEXT_PUBLIC_API_URL=http://backend:8000
-ARG NEXT_PUBLIC_API_MOCK=0
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_API_MOCK=$NEXT_PUBLIC_API_MOCK \
     NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules

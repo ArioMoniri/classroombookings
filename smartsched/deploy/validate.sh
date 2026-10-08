@@ -9,7 +9,11 @@
 #     exist in the build context
 #   - bash -n / sh -n on every shell script (+ shellcheck when installed), nginx config sanity
 #     (+ nginx -t when nginx is installed), `docker compose config` when the CLI plugin is installed
+#   - no mock API / demo login anywhere in the shipped frontend: sources, image and compose config, and
+#     the production build (.next/standalone) when one exists
 # Exit code 1 on any failure. Usage: smartsched/deploy/validate.sh
+#   smartsched/deploy/validate.sh --no-mock-build DIR   only the build check, on DIR (e.g. .next/standalone);
+#                                                       bash + grep only (used by the pod CI e2e-real gate)
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,6 +24,25 @@ FAIL=0
 ok()   { printf '  \033[32mok\033[0m   %s\n' "$*"; }
 fail() { printf '  \033[31mFAIL\033[0m %s\n' "$*"; FAIL=1; }
 note() { printf '  note %s\n' "$*"; }
+
+# A production build must not contain the MSW mock API, its handlers or the demo-login copy.
+NO_MOCK_PATTERNS=('node_modules/msw' 'mocks/handlers' 'mockServiceWorker' 'NEXT_PUBLIC_API_MOCK' 'password admin' 'password \\?"admin\\?"' 'Demo mode' 'Demo modu')
+check_no_mock_build() {
+  local dir="$1" pat hits
+  if [[ ! -d "$dir" ]]; then fail "no build at $dir"; return; fi
+  for pat in "${NO_MOCK_PATTERNS[@]}"; do
+    hits=$(grep -rlE --exclude-dir=.cache -- "$pat" "$dir" 2>/dev/null | head -5)
+    if [[ -n "$hits" ]]; then fail "build $dir contains '$pat': $(echo "$hits" | tr '\n' ' ')"; else ok "build has no '$pat'"; fi
+  done
+  # an msw package or a mocks/ chunk directory in the traced output
+  hits=$(find "$dir" \( -path '*/node_modules/msw' -o -path '*/node_modules/@mswjs' -o -name 'handlers*.js' -path '*mocks*' \) -print 2>/dev/null | head -5)
+  if [[ -n "$hits" ]]; then fail "build $dir ships mock files: $(echo "$hits" | tr '\n' ' ')"; else ok "build ships no msw package or mocks/ files"; fi
+}
+if [[ "${1:-}" == "--no-mock-build" ]]; then
+  echo "== production build: no mock / demo code"
+  check_no_mock_build "${2:?usage: validate.sh --no-mock-build DIR}"
+  exit $FAIL
+fi
 
 PY="${PYTHON:-python3}"
 if ! "$PY" -c 'import yaml' 2>/dev/null; then
@@ -216,6 +239,27 @@ if [[ -f "$NG" ]]; then
   fi
 else
   fail "missing $NG"
+fi
+
+echo "== frontend: no mock API or demo login"
+FE="$ROOT/smartsched/frontend"
+[[ -e "$FE/src/mocks" ]] && fail "smartsched/frontend/src/mocks exists (mock handlers must not live in app code)" || ok "no src/mocks"
+# app code = everything under src/ except tests and the test fixtures in src/test/
+hits=$(grep -rlE --include='*.ts' --include='*.tsx' -e 'from "msw' -e '@/mocks' -e 'NEXT_PUBLIC_API_MOCK' -e 'isMockMode' "$FE/src" 2>/dev/null)
+[[ -n "$hits" ]] && fail "mock references in frontend sources: $hits" || ok "frontend sources: no msw / @/mocks / NEXT_PUBLIC_API_MOCK"
+hits=$(grep -rlE --include='*.ts' --include='*.tsx' -e 'from "@/test/' "$FE/src" 2>/dev/null | grep -vE '\.test\.tsx?$|/src/test/' || true)
+[[ -n "$hits" ]] && fail "app code imports test fixtures: $hits" || ok "app code does not import src/test/"
+if "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(1 if "msw" in d.get("dependencies",{}) or "msw" in d.get("devDependencies",{}) else 0)' "$FE/package.json"; then
+  ok "package.json does not depend on msw"
+else
+  fail "package.json depends on msw"
+fi
+hits=$(grep -lE 'NEXT_PUBLIC_API_MOCK|demoHint' "$FE/Dockerfile" "$FE/.env.example" "$HERE/docker-compose.yml" "$HERE/.env.example" "$FE/messages/en.json" "$FE/messages/tr.json" 2>/dev/null)
+[[ -n "$hits" ]] && fail "mock switch / demo hint in: $hits" || ok "Dockerfile, compose, .env examples and messages: no mock switch or demo hint"
+if [[ -d "$FE/.next/standalone" ]]; then
+  check_no_mock_build "$FE/.next/standalone"
+else
+  note "no frontend build at smartsched/frontend/.next/standalone; build check skipped (pod CI e2e-real runs it)"
 fi
 
 echo "== docker compose config (CLI only, no daemon needed)"

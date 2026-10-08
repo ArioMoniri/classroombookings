@@ -1,6 +1,6 @@
 /**
  * Fetch wrapper: same-origin `/api/v1/*` (proxied by the Next route handler, which
- * attaches the JWT from the httpOnly cookie, or serves MSW mocks in mock mode).
+ * attaches the JWT from the httpOnly cookie and forwards to the FastAPI backend).
  */
 import type { z } from "zod";
 import { ApiError } from "./schemas";

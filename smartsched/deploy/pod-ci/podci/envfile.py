@@ -10,19 +10,21 @@ from pathlib import Path
 
 PLACEHOLDER = "__GENERATE__"
 PASSWORD_KEYS = re.compile(r"^(ADMIN_PASSWORD|.*_DB_PASSWORD|POSTGRES_PASSWORD|CRBS_DB_ROOT_PASSWORD)$")
-# .env key -> SSM name under /smartsched (all SecureString except admin_email)
+# .env key -> SSM name under /smartsched (all SecureString except admin_email). AUTH_SECRET was dropped
+# (dead config, no-placeholder audit m3): pods bootstrapped earlier keep /smartsched/app/AUTH_SECRET and
+# the line in .env, both unused and harmless; it is no longer synced.
 SSM_MAP = {
     "ADMIN_EMAIL": "admin_email",
     "ADMIN_PASSWORD": "admin_password",
     "APP_SECRET": "app/APP_SECRET",
     "JWT_SECRET": "app/JWT_SECRET",
-    "AUTH_SECRET": "app/AUTH_SECRET",
     "POSTGRES_PASSWORD": "app/POSTGRES_PASSWORD",
 }
 LINE = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
 
 
 def random_password(n: int = 20) -> str:
+    """ADMIN_PASSWORD / DB passwords: 20 alphanumerics (the backend needs >= 12 in prod)."""
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(n))
 

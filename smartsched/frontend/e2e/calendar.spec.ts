@@ -8,21 +8,20 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
  * solver run for the whole term. Start the frontend with NEXT_PUBLIC_API_MOCK=0 and NEXT_PUBLIC_API_URL
  * pointing at the backend, then:
  *
- *   E2E_CALENDAR=1 PW_PORT=3700 npx playwright test e2e/calendar.spec.ts
+ *   E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test e2e/calendar.spec.ts
+ *   (against an already running frontend: PW_PORT=3700 npx playwright test e2e/calendar.spec.ts)
  *
- * (E2E_REAL=1 also enables it once playwright.config.ts includes this file in its real-backend testMatch.)
+ * Data: only the gate's Bahar fixtures are assumed (weekly grid + planning list imported). The board run is the
+ * term's grid import; moves use the latest usable solver run of the term when there is one, else the board
+ * (E2E_EDIT_RUN overrides). Every move is undone, and the undo is checked through the API.
  * Covers: the shell's URL contract (/timetable?run&week, ?subject=instructor:<id>, /requests?q=,
  * /requests?program_id=), the six lenses, inspector + explain, move dialog with the free-room finder and
  * undo (restores the backend state), /classes export with the "SmartSched Derslik" column, rooms list and
  * detail, and the motion audit for the calendar (.claude/skills/motion_designer/references/audit.md).
  */
-const ON = process.env.E2E_CALENDAR === "1" || process.env.E2E_REAL === "1";
-test.skip(!ON, "real-backend spec: set E2E_CALENDAR=1 and start the backend + a non-mock frontend");
-
 const EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@smartsched.local";
 const PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "Admin-2026!";
-const BOARD_RUN = Number(process.env.E2E_BOARD_RUN ?? 1);
-const SOLVER_RUN = Number(process.env.E2E_SOLVER_RUN ?? 5);
+const TERM = process.env.E2E_TERM_CODE ?? "2026-BAHAR";
 const ROOM_CODE = process.env.E2E_ROOM ?? "A 204";
 
 type Index = {
@@ -51,6 +50,25 @@ async function api<T>(page: Page, path: string): Promise<T> {
   }, `/api/v1${path}`);
   expect(res.status, `${path} → ${res.status}`).toBe(200);
   return res.body as T;
+}
+
+type RunRow = { id: number; status: string; kind: string; term_code: string | null; params: Record<string, unknown> | null };
+const USABLE = ["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL", "TIMEOUT"];
+
+/** Log in, then find the term's board run (grid import), the run to edit and the A 204 room id. */
+async function setup(page: Page): Promise<{ board: number; editable: number; roomId: number }> {
+  await login(page);
+  const raw = await api<RunRow[] | { items: RunRow[] }>(page, "/runs");
+  const runs = (Array.isArray(raw) ? raw : raw.items).filter((r) => r.kind === "COURSE" && USABLE.includes(r.status) && (r.term_code ?? TERM) === TERM);
+  const isImport = (r: RunRow) => r.params?.source === "GRID_IMPORT";
+  const board = runs.filter(isImport).sort((a, b) => a.id - b.id)[0];
+  expect(board, `${TERM}: the weekly grid import makes a board run`).toBeTruthy();
+  const solver = runs.filter((r) => !isImport(r)).sort((a, b) => b.id - a.id)[0];
+  const editable = Number(process.env.E2E_EDIT_RUN ?? 0) || (solver ?? board).id;
+  const idx = await api<Index>(page, `/runs/${board.id}/calendar-index`);
+  const room = idx.rooms.find((r) => r.name === ROOM_CODE);
+  expect(room, `${ROOM_CODE} exists`).toBeTruthy();
+  return { board: board.id, editable, roomId: room?.id ?? 0 };
 }
 
 /** Header cells of the first sheet of an .xlsx (tiny zip reader: central directory + inflateRaw). */
@@ -88,20 +106,19 @@ test.describe("calendar on the real backend", () => {
 
   test("URL contract: run + week, six lenses, instructor subject", async ({ page }) => {
     test.setTimeout(180_000);
-    await login(page);
-    const idx = await api<Index>(page, `/runs/${BOARD_RUN}/calendar-index`);
+    const { board, roomId } = await setup(page);
+    const idx = await api<Index>(page, `/runs/${board}/calendar-index`);
     expect(idx.assignments.length, "the imported board has classes").toBeGreaterThan(1000);
 
     // run report "Çizelgede aç": /timetable?run=<id>&week=<n>
-    await page.goto(`/timetable?run=${BOARD_RUN}&week=3`);
+    await page.goto(`/timetable?run=${board}&week=3`);
     await expect(page.getByTestId("calendar")).toBeVisible();
     await expect(page.getByTestId("week-label")).toContainText("3", { timeout: 30_000 });
     await expect(page.getByTestId("calendar-event").first()).toBeVisible({ timeout: 30_000 });
     await expect(lensTab(page, "Board")).toHaveAttribute("aria-selected", "true");
 
     // the six lenses, each with its own canvas; the lens is URL state (Week/Day need a subject: a room here)
-    const a204 = idx.rooms.find((r) => r.name === ROOM_CODE)?.id ?? idx.rooms[0].id;
-    await page.goto(`/timetable?run=${BOARD_RUN}&week=3&subject=room:${a204}&lens=board`);
+    await page.goto(`/timetable?run=${board}&week=3&subject=room:${roomId}&lens=board`);
     await expect(page.getByTestId("calendar-event").first()).toBeVisible({ timeout: 30_000 });
     const lenses: [string, string, string][] = [
       ["Week", "week", "time-grid"],
@@ -116,7 +133,7 @@ test.describe("calendar on the real backend", () => {
       await expect(lensTab(page, name)).toHaveAttribute("aria-selected", "true");
       await expect(page.getByTestId(canvas).first()).toBeVisible({ timeout: 20_000 });
       if (key !== "board") await expect(page).toHaveURL(new RegExp(`lens=${key}`));
-      await expect(page).toHaveURL(new RegExp(`run=${BOARD_RUN}(&|$)`));
+      await expect(page).toHaveURL(new RegExp(`run=${board}(&|$)`));
       await expect(page).toHaveURL(/week=3(&|$)/);
     }
     // Term heat → a day cell drills down to Board · Day for that date
@@ -131,7 +148,7 @@ test.describe("calendar on the real backend", () => {
     const counts = new Map<number, number>();
     for (const a of idx.assignments) for (const i of a.instr_ids) counts.set(i, (counts.get(i) ?? 0) + 1);
     const [instructor] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
-    await page.goto(`/timetable?subject=instructor:${instructor}&run=${BOARD_RUN}`);
+    await page.goto(`/timetable?subject=instructor:${instructor}&run=${board}`);
     await expect(lensTab(page, "Week")).toHaveAttribute("aria-selected", "true", { timeout: 30_000 });
     await expect(page.getByTestId("time-grid")).toBeVisible();
     await expect(page.getByTestId("calendar-event").first()).toBeVisible({ timeout: 30_000 });
@@ -139,13 +156,13 @@ test.describe("calendar on the real backend", () => {
 
   test("inspector, explain, move with the free-room finder, undo restores the backend", async ({ page }) => {
     test.setTimeout(180_000);
-    await login(page);
-    const before = await api<Index>(page, `/runs/${SOLVER_RUN}/calendar-index`);
+    const { editable } = await setup(page);
+    const before = await api<Index>(page, `/runs/${editable}/calendar-index`);
     const room = before.rooms.find((r) => r.name === ROOM_CODE);
     expect(room, `${ROOM_CODE} exists`).toBeTruthy();
     const rid = room?.id ?? 0;
 
-    await page.goto(`/timetable?run=${SOLVER_RUN}&week=3&lens=week&subject=room:${rid}`);
+    await page.goto(`/timetable?run=${editable}&week=3&lens=week&subject=room:${rid}`);
     const chips = page.locator(`[data-testid=calendar-event][data-room-id="${rid}"]`);
     await expect(chips.first()).toBeVisible({ timeout: 30_000 });
     const insp = page.getByTestId("class-inspector");
@@ -201,7 +218,7 @@ test.describe("calendar on the real backend", () => {
     await expect(dialog).toBeHidden({ timeout: 20_000 });
 
     await expect
-      .poll(async () => (await api<Index>(page, `/runs/${SOLVER_RUN}/calendar-index`)).assignments.find((a) => a.id === aid)?.rooms, { timeout: 20_000 })
+      .poll(async () => (await api<Index>(page, `/runs/${editable}/calendar-index`)).assignments.find((a) => a.id === aid)?.rooms, { timeout: 20_000 })
       .toEqual([target]);
     // the class left this room's week
     await expect(page.locator(`[data-testid=calendar-event][data-assignment-id="${aid}"]`)).toHaveCount(0);
@@ -209,15 +226,15 @@ test.describe("calendar on the real backend", () => {
     // undo (toast action) puts it back on the server
     await page.locator("[data-sonner-toast]").getByRole("button", { name: "Undo" }).first().click();
     await expect
-      .poll(async () => (await api<Index>(page, `/runs/${SOLVER_RUN}/calendar-index`)).assignments.find((a) => a.id === aid)?.rooms, { timeout: 20_000 })
+      .poll(async () => (await api<Index>(page, `/runs/${editable}/calendar-index`)).assignments.find((a) => a.id === aid)?.rooms, { timeout: 20_000 })
       .toEqual(original?.rooms);
     await expect(page.locator(`[data-testid=calendar-event][data-assignment-id="${aid}"]`).first()).toBeVisible({ timeout: 20_000 });
   });
 
   test("all classes: /requests?q= and ?program_id= land on /classes, planning-list export has SmartSched Derslik", async ({ page }) => {
     test.setTimeout(180_000);
-    await login(page);
-    const idx = await api<Index>(page, `/runs/${BOARD_RUN}/calendar-index`);
+    const { board } = await setup(page);
+    const idx = await api<Index>(page, `/runs/${board}/calendar-index`);
     const sample = idx.assignments.find((a) => a.mr && a.code && a.prog_id);
     expect(sample).toBeTruthy();
     const code = sample?.code ?? "";
@@ -369,8 +386,8 @@ test.describe("motion audit: calendar", () => {
 
   test("lens switch, week step and inspector appear hold the frame budget under the 300 ms ceiling", async ({ page, browser }) => {
     test.setTimeout(180_000);
-    await login(page);
-    await page.goto(`/timetable?run=${SOLVER_RUN}&week=3&lens=week&subject=room:13`);
+    const { editable, roomId } = await setup(page);
+    await page.goto(`/timetable?run=${editable}&week=3&lens=week&subject=room:${roomId}`);
     await expect(page.getByTestId("calendar-event").first()).toBeVisible({ timeout: 30_000 });
     await page.waitForTimeout(800);
     const cdp = await page.context().newCDPSession(page);
@@ -417,8 +434,8 @@ test.describe("motion audit: calendar", () => {
 
   test("reduced motion: the inspector and the week canvas land without transforms", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await login(page);
-    await page.goto(`/timetable?run=${SOLVER_RUN}&week=3&lens=week&subject=room:13`);
+    const { editable, roomId } = await setup(page);
+    await page.goto(`/timetable?run=${editable}&week=3&lens=week&subject=room:${roomId}`);
     await expect(page.getByTestId("calendar-event").first()).toBeVisible({ timeout: 30_000 });
     await page.getByTestId("calendar-event").first().click();
     const insp = page.getByTestId("class-inspector");
@@ -438,8 +455,8 @@ test.describe("motion audit: calendar", () => {
   test("reduced transparency: the inspector and capsules are opaque", async ({ page }) => {
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
-    await login(page);
-    await page.goto(`/timetable?run=${SOLVER_RUN}&week=3&lens=week&subject=room:13`);
+    const { editable, roomId } = await setup(page);
+    await page.goto(`/timetable?run=${editable}&week=3&lens=week&subject=room:${roomId}`);
     await expect(page.getByTestId("calendar-event").first()).toBeVisible({ timeout: 30_000 });
     await page.waitForTimeout(800);
     await startFrameProbe(page);

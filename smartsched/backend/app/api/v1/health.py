@@ -8,16 +8,16 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import func, select, text
 
 from app.api.deps import DB, bearer, get_current_user
-from app.core.config import get_settings
+from app.core.config import app_version, get_settings
 from app.models import Assignment, MeetingRequest, Room, ScheduleRun, Term
 from app.services.bookings_perms import load_access
-from app.services.solver_bridge import solver_name
 
 router = APIRouter(tags=["ops"])
 
 
 @router.get("/health")
 async def health(db: DB) -> dict[str, Any]:
+    """Public liveness/readiness probe: no solver backend or other internals (no-placeholder audit m7)."""
     try:
         await db.execute(text("SELECT 1"))
         db_ok = True
@@ -26,9 +26,8 @@ async def health(db: DB) -> dict[str, Any]:
     return {
         "status": "ok" if db_ok else "degraded",
         "db": db_ok,
-        "solver": solver_name(),
         "app": get_settings().app_name,
-        "version": "0.1.0",
+        "version": app_version(),
     }
 
 

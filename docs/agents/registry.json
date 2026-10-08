@@ -122,7 +122,8 @@
       "goal": "deliver the full classroombookings (CRBS) user and admin UI in the Liquid Glass v2 style. The user's requirement is every CRBS feature and more, never fewer. - Bookings grid: displaytype and d_columns, grid_highlight, print, room popup, icons, week colours. - My bookings with ICS export. - Every admin screen: users, roles and permissions, rooms, room groups, fields, schedules and periods, sessions…",
       "ledger": "frontend-engineer (CRBS bookings + admin)",
       "resumed": true,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 13:27"
     },
     {
       "id": "af43b21028d16c6e0",

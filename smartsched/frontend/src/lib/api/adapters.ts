@@ -1,7 +1,7 @@
 /**
  * Normalises payloads from the FastAPI backend (smartsched/backend/app/api/v1) into the
  * frontend schemas in ./schemas.ts. Every adapter is idempotent: it accepts both the backend
- * shape and the already-normalised shape served by the MSW mocks.
+ * shape and its own already-normalised output.
  */
 import { PERIODS } from "@/lib/time";
 
@@ -325,7 +325,7 @@ export function settings(v: unknown): unknown {
   };
 }
 
-/** Frontend SettingsUpdate → backend SettingsUpdate field names (extra keys ride in `extra`). */
+/** Frontend SettingsUpdate → backend SettingsUpdate (app/schemas/settings.py); keys without a column ride in `extra`. */
 export function settingsUpdateBody(body: Rec): Rec {
   const out: Rec = {};
   const extra: Rec = {};
@@ -335,8 +335,7 @@ export function settingsUpdateBody(body: Rec): Rec {
   if (body.solver_default_workers !== undefined) out.solver_workers = body.solver_default_workers;
   if (body.default_weights !== undefined) out.solver_weights = body.default_weights;
   if (body.solver_default_seed !== undefined) extra.solver_default_seed = body.solver_default_seed;
-  // keep frontend names too so the mock (and a backend that adopts them) understands the payload
-  return { ...body, ...out, ...(Object.keys(extra).length ? { extra } : {}) };
+  return { ...out, ...(Object.keys(extra).length ? { extra } : {}) };
 }
 
 export function testAi(v: unknown): unknown {

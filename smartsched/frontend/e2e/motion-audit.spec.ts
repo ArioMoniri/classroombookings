@@ -1,14 +1,17 @@
 /**
  * Motion audit (.claude/skills/motion_designer/references/audit.md) for the dashboard and the run report.
- * Runs against a live server (real backend): PW_PORT=3600 npx playwright test e2e/motion-audit.spec.ts
- * Env: AUDIT_EMAIL / AUDIT_PASSWORD (default the seeded admin), AUDIT_RUN (a finished run id, default 5),
- * MOTION_CPU (1 in CI; 4 for the device check).
+ * Runs against the REAL backend (E2E_REAL=1, see playwright.config.ts):
+ *   E2E_REAL=1 PW_PORT=3600 npx playwright test e2e/motion-audit.spec.ts
+ * Env: AUDIT_EMAIL / AUDIT_PASSWORD (default the seeded admin), AUDIT_RUN (a finished run id; e2e/global-setup.ts
+ * sets it to the full-term solver run), MOTION_CPU (1 in CI; 4 for the device check).
  */
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+test.skip(process.env.E2E_REAL !== "1", "motion audit runs against the real backend: set E2E_REAL=1 (see playwright.config.ts)");
+
 const EMAIL = process.env.AUDIT_EMAIL ?? "admin@smartsched.local";
 const PASSWORD = process.env.AUDIT_PASSWORD ?? "Admin-2026!";
-const RUN = process.env.AUDIT_RUN ?? "5";
+const RUN = process.env.AUDIT_RUN ?? process.env.E2E_SOLVER_RUN ?? "1";
 
 type FrameReport = { frames: number; dropped: number; p95: number; longFrames: number; worstLongFrame: number };
 

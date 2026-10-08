@@ -3,23 +3,28 @@
 Next.js 16 (App Router) admin panel for SmartSched: import the term's requests, generate a timetable with
 the CP-SAT backend, inspect the run report, drag events around the room × period grid, and refine the
 plan in chat. TypeScript strict, Tailwind 4 + shadcn/ui (base-nova style on `@base-ui/react`), `motion`,
-TanStack Query/Table/Virtual, Zustand, `@dnd-kit`, zod, MSW.
+TanStack Query/Table/Virtual, Zustand, `@dnd-kit`, zod.
 
 ## Run
 
 ```bash
+scripts/dev.sh --run              # from the repo root: starts the backend (:8000) and this app (:3000)
+# or, with the backend already running:
 cd smartsched/frontend
 npm install
-cp .env.example .env.local        # edit NEXT_PUBLIC_API_URL / NEXT_PUBLIC_API_MOCK
+cp .env.example .env.local        # NEXT_PUBLIC_API_URL = the backend
 npm run dev                       # http://localhost:3000
 ```
+
+The UI always talks to the real FastAPI backend; there is no mock or demo mode. Sign in with the
+administrator the backend seeds from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (see `smartsched/backend/.env`).
 
 | Script | What it does |
 |---|---|
 | `npm run dev` / `build` / `start` | Next.js dev server / production build / serve the build |
 | `npm run check` | `tsc --noEmit && eslint . && vitest run` — the quality gate |
 | `npm run test` | vitest only (unit tests live next to the code as `*.test.ts(x)`) |
-| `npm run e2e` | Playwright smoke test (builds, starts on :3100 in mock mode, runs `e2e/smoke.spec.ts`) |
+| `npm run e2e` | Playwright against the real backend (builds, starts on :3100; needs `E2E_REAL=1` and a running e2e backend, see below) |
 | `npm run typecheck` / `lint` | the individual gates |
 
 Playwright: Chromium is expected under `PLAYWRIGHT_BROWSERS_PATH` (defaults to `/opt/pw-browsers`, build
@@ -30,16 +35,15 @@ Playwright: Chromium is expected under `PLAYWRIGHT_BROWSERS_PATH` (defaults to `
 | Variable | Default | Meaning |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | FastAPI base URL. The browser never calls it directly: `src/app/api/v1/[...path]/route.ts` proxies `/api/v1/*` to it and attaches the JWT from the httpOnly cookie. |
-| `NEXT_PUBLIC_API_MOCK` | unset | `1` = the proxy answers from the MSW handlers in `src/mocks` (in-memory, deterministic). The whole UI is demoable without a backend; any e-mail + password `admin` logs in. |
 | `AUTH_SECRET` | — | reserved for cookie signing in production deployments |
-| `MOCK_SOLVE_MS` | `5000` | how long a mock solver run takes before it finishes |
 
 ### Auth flow
 
 `POST /api/v1/auth/login` → route handler forwards to the backend, stores `access_token` in the httpOnly
 cookie `smartsched_token`, returns `{ user }` (resolved via `/auth/me` when the backend's `TokenOut`
 has no user). `src/proxy.ts` (Next 16's middleware) redirects unauthenticated visits to
-`/login?next=…` and authenticated visits to `/login` back to `/dashboard`. 401s from the API clear the
+`/login?next=…` and authenticated visits to `/login` back to `/dashboard`; `/reset-password` and `/setup`
+are public (signed in or not), `/login/change-password` needs the session. 401s from the API clear the
 cookie and bounce to login (`ApiErrorBridge` in `src/components/providers.tsx`).
 
 ## Structure
@@ -51,7 +55,7 @@ src/
     login/                         sign-in page
     (app)/                         authenticated shell: dashboard, import, requests, rooms[/id],
                                    generate, runs[/id], timetable, settings
-    api/v1/[...path]/route.ts      backend proxy (+ MSW in mock mode)
+    api/v1/[...path]/route.ts      backend proxy (always the real backend)
     api/auth/logout/route.ts
   proxy.ts                         route guard
   components/
@@ -67,10 +71,11 @@ src/
     api/endpoints.ts, hooks.ts     one function + one TanStack hook per route
     i18n/                          light TR/EN i18n (messages/*.json, cookie NEXT_LOCALE)
     time.ts, grid/layout.ts        18-period helpers, span layout + conflict checks (unit-tested)
-  mocks/                           MSW handlers + deterministic fake data (61 real rooms, runs #1/#2)
+  test/                            vitest setup + fixtures (never imported by app code)
   stores/ui.ts                     Zustand UI state (sidebar, density, highlight/changed assignment ids)
 messages/tr.json, en.json          dictionaries (keys must stay in parity)
-e2e/smoke.spec.ts                  Playwright smoke flow
+e2e/*.spec.ts                      Playwright on the real backend (smoke, real-backend, bookings, calendar,
+                                   motion-audit); e2e/global-setup.ts resolves the run ids
 ```
 
 ## How to add a page
@@ -82,7 +87,7 @@ e2e/smoke.spec.ts                  Playwright smoke flow
 3. Add strings to **both** `messages/en.json` and `messages/tr.json` — `MessageKey` is derived from the
    English file, so a missing key fails `tsc`.
 4. Data: add a zod schema in `lib/api/schemas.ts`, an endpoint in `endpoints.ts`, a hook in `hooks.ts`,
-   and a mock handler in `src/mocks/handlers.ts` so the page works in mock mode and in Playwright.
+   and, when the payload is new, a recorded real-backend fixture in `src/lib/api/__fixtures__/real/`.
 5. Add a `data-testid` to the main container and extend `e2e/smoke.spec.ts` if the page is on the critical path.
 
 ## How to add a component
@@ -107,10 +112,16 @@ The client is written against the FastAPI OpenAPI (`/api/openapi.json`); `lib/ap
 remaining shape differences (paginated `{items,limit,offset}`, the grid's day × room × cell matrix,
 settings secrets as `{set,masked}`, naive UTC datetimes, chat history whose proposed diff rides on the
 assistant message's `tool_calls`). `src/lib/api/contract.test.ts` parses payloads recorded from the real
-backend (`src/lib/api/__fixtures__/real/`, re-record after backend schema changes). The MSW mocks speak
-the backend shapes too (move conflicts are `200 {ok:false}`, chat = `ChatOut` + `ChatMessageOut[]`,
-`POST /runs/{id}/chat/apply` always yields a child run, `POST /runs/{id}/diagnoses/{idx}/apply`).
+backend (`src/lib/api/__fixtures__/real/`, re-record after backend schema changes).
 `GET /dashboard` is composed client-side only when the backend answers 404.
 
-Real-backend e2e: `E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test` (see
-`docs/testing/2026-10-08-real-backend-e2e.md` for the backend setup).
+Browser e2e (real backend only). Start the e2e backend (fresh SQLite, the Bahar 2026 workbooks, seeded admin,
+a full-term solver run, booking clock pinned to 16 Feb 2026 08:00), then run every spec:
+
+```bash
+cd smartsched/backend && E2E_WORKDIR=/tmp/e2e E2E_VENV=none E2E_HOST=127.0.0.1 \
+  bash ../deploy/pod-ci/gates/e2e-backend-entry.sh            # serves :8000
+cd smartsched/frontend && E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test
+```
+
+The pod CI gate `e2e-real` does the same in Docker (see `docs/testing/2026-10-08-real-backend-e2e.md`).

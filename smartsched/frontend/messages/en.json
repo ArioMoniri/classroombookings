@@ -20,8 +20,7 @@
   },
   "auth": {
     "title": "Sign in", "subtitle": "Planning office access", "email": "E-mail", "password": "Password",
-    "submit": "Sign in", "signingIn": "Signing in…", "failed": "Sign-in failed. Check your credentials.",
-    "demoHint": "Demo mode: any e-mail with password \"admin\" works."
+    "submit": "Sign in", "signingIn": "Signing in…", "failed": "Sign-in failed. Check your credentials."
   },
   "common": {
     "loading": "Loading…", "error": "Something went wrong", "retry": "Retry", "save": "Save", "cancel": "Cancel",

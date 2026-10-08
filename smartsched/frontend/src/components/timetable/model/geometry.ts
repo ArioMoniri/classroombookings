@@ -4,6 +4,7 @@
  * prefix-sum table instead of `p * rowH`.
  */
 import { PERIODS, PERIODS_PER_DAY, parseClock } from "@/lib/time";
+import { TRANSITION_PERIOD } from "./periods";
 
 export type Density = "compact" | "standard" | "comfortable";
 
@@ -19,7 +20,7 @@ export const ROOM_COL: Record<Density, number> = { compact: 96, standard: 120, c
 export const GUTTER_W = 56;
 export const ROOM_HEADER_H = 48;
 export const BAND_H = 24;
-export const P12 = 12;
+export const P12 = TRANSITION_PERIOD;
 export const P12_SCALE = 0.6;
 export const DAY_START_MIN = parseClock(PERIODS[0].start) ?? 510;
 export const DAY_END_MIN = parseClock(PERIODS[PERIODS_PER_DAY - 1].end) ?? 1370;

@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
-from app.core.config import assert_secure, get_settings
+from app.core.config import app_version, assert_secure, get_settings
 from app.core.db import create_all, dispose_engine, get_engine, get_session_factory
 from app.services.seed import seed_admin
 from app.workers.queue import get_queue, recover_interrupted
@@ -131,13 +131,17 @@ def _install_error_handlers(app: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    # Swagger UI / ReDoc / the OpenAPI schema only in dev and test (no-placeholder audit m6): production
+    # does not advertise its route map. ``openapi_url=None`` also disables both UIs.
+    docs = settings.is_relaxed
     app = FastAPI(
         title="SmartSched API",
-        version="0.1.0",
+        version=app_version(),
         description="AI classroom optimizer & scheduler: imports, CP-SAT runs, exports.",
         lifespan=lifespan,
-        docs_url="/api/docs",
-        openapi_url="/api/openapi.json",
+        docs_url="/api/docs" if docs else None,
+        redoc_url="/api/redoc" if docs else None,
+        openapi_url="/api/openapi.json" if docs else None,
     )
     app.add_middleware(
         CORSMiddleware,

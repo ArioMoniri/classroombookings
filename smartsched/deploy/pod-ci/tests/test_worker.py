@@ -88,10 +88,11 @@ def test_failed_gate_skips_dependents_and_deploy(cfg: Config, store: Store) -> N
     make(cfg, store, ex, rep).work()
     states = {s.name: s.state for s in store.steps(rid)}
     assert states["frontend"] == FAILURE
-    assert states["e2e-mock"] == states["e2e-real"] == states["deploy"] == "skipped"
+    assert states["e2e-real"] == states["deploy"] == "skipped"
+    assert "e2e-mock" not in states  # no mock gate: browser tests run against the real backend only
     assert states["backend"] == states["images"] == SUCCESS  # independent gates still run
     run = store.get(rid)
-    assert run and run.state == FAILURE and run.summary.startswith("failed: frontend, e2e-mock, e2e-real")
+    assert run and run.state == FAILURE and run.summary.startswith("failed: frontend, e2e-real")
     assert "deploy.sh" not in ex.scripts
     assert rep.last("pod-ci", SHA_A) == "failure" and rep.last("pod-ci/frontend") == "failure"
     assert rep.last("pod-ci/e2e-real") == "error"  # skipped blocking gate is not green

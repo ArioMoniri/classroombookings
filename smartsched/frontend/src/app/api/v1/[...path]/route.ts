@@ -2,23 +2,17 @@
  * Same-origin proxy for the FastAPI backend (`/api/v1/*` → `${NEXT_PUBLIC_API_URL}/api/v1/*`).
  * - attaches `Authorization: Bearer <jwt>` from the httpOnly cookie
  * - `auth/login` stores the JWT in the cookie and returns only the user
- * - in mock mode (NEXT_PUBLIC_API_MOCK=1) answers from the MSW handlers in src/mocks
+ * There is no mock mode: every request goes to the real backend.
  */
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
-import { AUTH_COOKIE, COOKIE_MAX_AGE, backendBaseUrl, isMockMode } from "@/lib/server/config";
+import { AUTH_COOKIE, COOKIE_MAX_AGE, backendBaseUrl } from "@/lib/server/config";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
 async function resolve(request: Request): Promise<Response> {
-  if (isMockMode()) {
-    const { getResponse } = await import("msw");
-    const { handlers } = await import("@/mocks/handlers");
-    const res = await getResponse(handlers, request);
-    return res ?? new Response(JSON.stringify({ detail: `No mock for ${request.method} ${new URL(request.url).pathname}` }), { status: 501, headers: { "Content-Type": "application/json" } });
-  }
   try {
     return await fetch(request, { redirect: "manual" });
   } catch (e) {

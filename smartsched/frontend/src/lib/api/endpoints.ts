@@ -1,6 +1,6 @@
 /**
  * Typed endpoint functions. One function per API route in docs/ARCHITECTURE.md.
- * Responses go through ./adapters.ts so both the FastAPI backend and the MSW mocks validate.
+ * Responses go through ./adapters.ts, which normalises the FastAPI backend shapes.
  */
 import { z } from "zod";
 import * as adapt from "./adapters";
@@ -182,9 +182,9 @@ export const api = {
     grid: (id: number, week?: number) => request(`/runs/${id}/grid`, { query: { week }, schema: Grid }),
     move: (runId: number, assignmentId: number, body: MoveRequest) =>
       request(`/runs/${runId}/assignments/${assignmentId}/move`, { method: "POST", body, schema: Move, silent: true }),
-    /** Backend reads `?locked=`; the body is kept for the mock. */
+    /** `POST …/lock?locked=` (the backend reads the query parameter only). */
     lock: (runId: number, assignmentId: number, locked: boolean) =>
-      request(`/runs/${runId}/assignments/${assignmentId}/lock`, { method: "POST", query: { locked }, body: { locked }, schema: AssignmentOne }),
+      request(`/runs/${runId}/assignments/${assignmentId}/lock`, { method: "POST", query: { locked }, schema: AssignmentOne }),
     /** `GET /runs/{id}/chat` → ChatMessageOut[]; the proposed diff rides on the assistant message's tool_calls. */
     chat: (runId: number) => request(`/runs/${runId}/chat`, { schema: chatOf(runId) }),
     /** `POST /runs/{id}/chat` returns ChatOut for the new turn; the panel shows the whole history. */

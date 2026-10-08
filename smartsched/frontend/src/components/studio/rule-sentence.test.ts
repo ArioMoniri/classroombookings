@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { StudioMeta } from "@/lib/api/studio-schemas";
-import { studioMeta } from "@/mocks/studio-data";
+import { studioMeta } from "@/test/fixtures/studio-meta";
 import { fallbackSentence } from "./studio-data";
 import { compactRange, defaultParams, importanceOf, missingRequired, parseTemplate, plainSentence, readAppliesTo, templateFor, tokens, writeAppliesTo, writeField } from "./rule-sentence";
 

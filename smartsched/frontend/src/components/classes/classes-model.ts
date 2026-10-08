@@ -6,6 +6,7 @@
 import type { ClassRow, PlacementStatus } from "@/lib/api/classes";
 import { PERIODS, parseClock, periodEndingAt, snapToPeriod } from "@/lib/time";
 import { fold } from "@/components/timetable/model/filters";
+import { DAY_START } from "@/components/timetable/model/periods";
 
 export type Where = "placed" | "requested";
 
@@ -331,7 +332,7 @@ export function parseTimeWindow(value: string): { from: number; to: number } | n
   const [a, b] = value.split("-");
   const from = a ? snapToPeriod(a.replace(".", ":"))?.index : 1;
   const to = b ? periodEndingAt(b.replace(".", ":")) : PERIODS.length;
-  if (!from || !to || parseClock((a ?? "08:30").replace(".", ":")) === null) return null;
+  if (!from || !to || parseClock((a ?? DAY_START).replace(".", ":")) === null) return null;
   return { from, to: Math.max(from, to) };
 }
 

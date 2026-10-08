@@ -15,6 +15,8 @@
 #
 # Secrets: on first run .env is created from .env.example and every "__GENERATE__" placeholder is
 # replaced with a random value (openssl, falling back to python). .env is git-ignored.
+# ADMIN_EMAIL has no default: set it in .env or pass it on the first run (ADMIN_EMAIL=you@uni.edu.tr ./deploy.sh).
+# The admin must change the generated password at the first login (ENVIRONMENT=prod).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,7 +35,7 @@ log()  { printf '\033[1;34m[deploy]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[deploy] warning:\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[deploy] error:\033[0m %s\n' "$*" >&2; exit 1; }
 
-usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
 
 for arg in "$@"; do
   case "$arg" in
@@ -80,9 +82,10 @@ random_secret() {
 }
 
 random_password() {
-  # 20 chars, URL/shell safe (no quotes, no $), readable enough to type once.
+  # 20 chars, URL/shell safe (no quotes, no $), readable enough to type once. 48 random bytes give 64
+  # base64 characters, so 20 alphanumerics remain after dropping + / = (the backend needs >= 12 in prod).
   if command -v openssl >/dev/null 2>&1; then
-    openssl rand -base64 30 | tr -dc 'A-Za-z0-9' | head -c 20; echo
+    openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 20; echo
   else
     python3 -c 'import secrets,string; a=string.ascii_letters+string.digits; print("".join(secrets.choice(a) for _ in range(20)))'
   fi
@@ -109,11 +112,28 @@ ensure_env() {
     die "unreplaced __GENERATE__ placeholder in $ENV_FILE: $(grep -E '^[A-Z][A-Z0-9_]*=.*__GENERATE__' "$ENV_FILE" | cut -d= -f1 | tr '\n' ' ')"
   fi
   if [[ $created -eq 1 ]]; then log "generated secrets written to $ENV_FILE (keep it safe; it is git-ignored)"; fi
+  # ADMIN_EMAIL has no default (no-placeholder audit m1): take it from the environment on the first run.
+  if [[ -z "$(env_get ADMIN_EMAIL)" && -n "${ADMIN_EMAIL:-}" ]]; then
+    [[ "$ADMIN_EMAIL" =~ ^[^[:space:]\|\\\&]+@[^[:space:]\|\\\&]+$ ]] || die "ADMIN_EMAIL='$ADMIN_EMAIL' is not an e-mail address"
+    if grep -Eq '^ADMIN_EMAIL=' "$ENV_FILE"; then
+      sed -i.bak "s|^ADMIN_EMAIL=.*$|ADMIN_EMAIL=${ADMIN_EMAIL}|" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
+    else
+      printf 'ADMIN_EMAIL=%s\n' "$ADMIN_EMAIL" >> "$ENV_FILE"
+    fi
+    log "ADMIN_EMAIL=$ADMIN_EMAIL written to $ENV_FILE"
+  fi
   # Required keys must be present and non-empty.
-  local k
-  for k in APP_SECRET JWT_SECRET AUTH_SECRET POSTGRES_PASSWORD ADMIN_EMAIL ADMIN_PASSWORD; do
-    grep -Eq "^${k}=.+" "$ENV_FILE" || die "$k is empty in $ENV_FILE"
+  local k hint
+  for k in APP_SECRET JWT_SECRET POSTGRES_PASSWORD ADMIN_EMAIL ADMIN_PASSWORD; do
+    hint=""
+    [[ $k == ADMIN_EMAIL ]] && hint=" (set the real administrator address, or run ADMIN_EMAIL=you@university.edu.tr ./deploy.sh)"
+    [[ -n "$(env_get "$k")" ]] || die "$k is empty in $ENV_FILE$hint"
   done
+  local email
+  email="$(env_get ADMIN_EMAIL)"
+  if [[ "$(printf '%s' "$email" | tr '[:upper:]' '[:lower:]')" == *example.* ]]; then
+    die "ADMIN_EMAIL=$email is an example address; set the real administrator address in $ENV_FILE"
+  fi
 }
 
 env_get() { grep -E "^$1=" "$ENV_FILE" | head -1 | cut -d= -f2- | sed 's/[[:space:]]*#.*$//; s/^[[:space:]]*//; s/[[:space:]]*$//'; }
@@ -151,9 +171,8 @@ print_summary() {
   url="${url:-http://localhost:$port}"
   echo
   log "SmartSched is up:  $url"
-  log "API docs:          $url/api/docs"
   log "Admin login:       $(env_get ADMIN_EMAIL)  (password: ADMIN_PASSWORD in $ENV_FILE)"
-  log "                   seeded on the first start only; later changes to .env do not reset it"
+  log "                   seeded on the first start only (change it at the first login); later .env changes do not reset it"
   if [[ ${#PROFILE_ARGS[@]} -gt 0 ]]; then
     log "Legacy CRBS:       http://localhost:$(env_get CRBS_PORT)  (first visit runs the CRBS installer; DB host crbs-db)"
     log "CRBS import DSN:   mysql://$(env_get CRBS_DB_USER):<CRBS_DB_PASSWORD>@crbs-db:3306/$(env_get CRBS_DB_NAME)  (needs BACKEND_EXTRA_PIP=pymysql)"

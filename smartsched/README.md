@@ -25,7 +25,7 @@ smartsched/
 │       ├── services/       solver_bridge (DB -> SolverInput -> results), studio, precheck, diagnosis fixes
 │       ├── workers/        in-process asyncio job queue (CP-SAT runs in a worker thread)
 │       └── cli.py          python -m app.cli
-├── frontend/    Next.js 16 App Router, TypeScript strict, Tailwind 4, shadcn/ui, TanStack, dnd-kit, zod, MSW
+├── frontend/    Next.js 16 App Router, TypeScript strict, Tailwind 4, shadcn/ui, TanStack, dnd-kit, zod
 └── deploy/      docker compose, deploy.sh, nginx, Caddy, legacy CRBS image, validate.sh
 ```
 
@@ -57,8 +57,7 @@ scripts/dev.sh --run        # from the repository root; or: make -C smartsched d
 It needs Python 3.12+ and Node 22+. It creates `backend/.venv`, installs the backend with
 `pip install -e ".[dev]"`, runs `npm ci`, writes `backend/.env` (SQLite, admin `admin@example.com` /
 `admin`) and `frontend/.env.local` (real backend), migrates, seeds the admin, and starts the backend
-on :8000 and the frontend on :3000. `scripts/dev.sh --mock` (`make -C smartsched dev-mock`) runs the
-frontend alone on mock data.
+on :8000 and the frontend on :3000. The frontend always needs the backend (there is no mock data).
 
 ### Backend (`smartsched/backend`)
 
@@ -91,11 +90,17 @@ After changing `app/models`, add a migration: `alembic revision --autogenerate -
 ### Frontend (`smartsched/frontend`)
 
 ```bash
+scripts/dev.sh --run            # from the repo root: backend :8000 (SQLite, migrations, seeded admin) + frontend :3000
+# or, with the backend already running:
 cd smartsched/frontend
 npm ci
-cp .env.example .env.local      # the example sets NEXT_PUBLIC_API_MOCK=1; set 0 to use the backend
+cp .env.example .env.local      # NEXT_PUBLIC_API_URL = the backend (default http://localhost:8000)
 npm run dev                     # http://localhost:3000
 ```
+
+There is no mock or demo mode: the UI always talks to the real backend. Sign in with the administrator
+seeded from the backend's `ADMIN_EMAIL` / `ADMIN_PASSWORD` (`scripts/dev.sh` writes them to
+`smartsched/backend/.env`), then import your workbooks or the fixtures in `smartsched/backend/tests/fixtures/`.
 
 | Script | What it runs |
 |---|---|
@@ -103,17 +108,16 @@ npm run dev                     # http://localhost:3000
 | `npm run check` | `tsc --noEmit && eslint . && vitest run` (the quality gate) |
 | `npm run test` | vitest only |
 | `npm run typecheck` / `lint` | the individual gates |
-| `npm run e2e` | Playwright smoke tests: production build on :3100 with the mock API |
+| `npm run e2e` | Playwright against the real backend (`E2E_REAL=1`; start it with `smartsched/deploy/pod-ci/gates/e2e-backend-entry.sh`): production build on :3100 |
 | `npm run e2e:ui` | the same in Playwright's UI mode |
 
 The browser never calls FastAPI directly. `src/app/api/v1/[...path]/route.ts` proxies `/api/v1/*` to
-`NEXT_PUBLIC_API_URL` and attaches the JWT from the httpOnly cookie. In mock mode the same route
-answers from the MSW handlers in `src/mocks`. Structure, auth flow and how to add pages are in
+`NEXT_PUBLIC_API_URL` and attaches the JWT from the httpOnly cookie. Structure, auth flow and how to add pages are in
 [frontend/README.md](frontend/README.md).
 
 ### Top-level make targets
 
-`make -C smartsched help` lists them all. The ones used most: `dev`, `dev-mock`, `check` (backend +
+`make -C smartsched help` lists them all. The ones used most: `dev`, `check` (backend +
 frontend gates), `check-all` (plus solver and AI gates and `deploy/validate.sh`), `e2e`, `validate`,
 `deploy`, `deploy-legacy`, `update`, `down`, `logs`, `status`, `watchdog`.
 
@@ -180,9 +184,7 @@ is `claude-opus-5-5`; `claude-sonnet-5-5` and `claude-haiku-5-5` are selectable.
 | Variable | Default | Purpose |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | FastAPI base URL used by the `/api/v1` proxy |
-| `NEXT_PUBLIC_API_MOCK` | unset | `1` serves the MSW mock API (any e-mail with password `admin` logs in) |
 | `AUTH_SECRET` | none | cookie/session secret |
-| `MOCK_SOLVE_MS` | `5000` | duration of a mock solver run |
 
 Deployment variables (`UVICORN_WORKERS`, `RUN_MIGRATIONS`, `SEED_ADMIN`, limits, legacy, TLS) are in
 `deploy/.env.example`.
@@ -238,8 +240,7 @@ planned before running several replicas ([deploy/README.md](deploy/README.md), "
 | `cd backend && python -m pytest tests/solver -q` | solver: feasible, infeasible and soft-weight cases per constraint kind, diagnosis, repair |
 | `cd backend && SMARTSCHED_SLOW=1 python -m pytest tests/solver -q` | adds the 1 300-event / 60-room / 14-week course and 400-exam scale tests |
 | `cd backend && python -m pytest tests/ai -q` | AI layer with a scripted fake SDK; `test_live_smoke.py` runs only when `ANTHROPIC_API_KEY` is set |
-| `cd frontend && npm run e2e` | Playwright smoke on the mock API |
-| `cd frontend && E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test` | Playwright against a running backend ([setup](../docs/testing/2026-10-08-real-backend-e2e.md)) |
+| `cd frontend && E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test` | every Playwright spec against the real e2e backend (`deploy/pod-ci/gates/e2e-backend-entry.sh`; [setup](../docs/testing/2026-10-08-real-backend-e2e.md)) |
 
 Policy ([docs/ROADMAP.md](../docs/ROADMAP.md), "TDD policy"): every importer function starts from a
 failing test on a real fixture row; every solver constraint has a feasible, an infeasible and a

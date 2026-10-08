@@ -4,7 +4,10 @@
 #   scripts/dev.sh            bootstrap only: python venv + pip install -e ".[dev]", npm ci, .env files,
 #                             SQLite migrations, seeded admin
 #   scripts/dev.sh --run      bootstrap (idempotent) then run backend :8000 + frontend :3000 together
-#   scripts/dev.sh --mock     like --run but the frontend serves MSW mock data (no backend needed)
+#
+# The dev admin (seeded into an empty users table only):
+#   DEV_ADMIN_EMAIL     default: `git config user.email`, else admin@smartsched.local
+#   DEV_ADMIN_PASSWORD  default: a random password, printed once when the admin is created (never stored)
 #
 # Requirements: python3 >= 3.12, node >= 22 + npm. No Docker needed.
 set -euo pipefail
@@ -14,12 +17,10 @@ BACKEND="$ROOT/smartsched/backend"
 FRONTEND="$ROOT/smartsched/frontend"
 VENV="$BACKEND/.venv"
 RUN=0
-MOCK=0
 for arg in "$@"; do
   case "$arg" in
     --run) RUN=1 ;;
-    --mock) RUN=1; MOCK=1 ;;
-    -h|--help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown flag: $arg" >&2; exit 1 ;;
   esac
 done
@@ -47,10 +48,14 @@ pip install --quiet --upgrade pip
 pip install --quiet -e "${BACKEND}[dev]"
 
 if [[ ! -f "$BACKEND/.env" ]]; then
-  log "creating backend/.env (SQLite, dev admin)"
+  log "creating backend/.env (SQLite, ENVIRONMENT=dev)"
   cp "$BACKEND/.env.example" "$BACKEND/.env"
   secret="$(python -c 'import secrets; print(secrets.token_hex(32))')"
-  sed -i.bak "s|^APP_SECRET=.*|APP_SECRET=$secret|; s|^ADMIN_PASSWORD=.*|ADMIN_PASSWORD=admin|; s|^ADMIN_EMAIL=.*|ADMIN_EMAIL=admin@example.com|" "$BACKEND/.env"
+  admin_email="${DEV_ADMIN_EMAIL:-$(git -C "$ROOT" config user.email 2>/dev/null || true)}"
+  admin_email="${admin_email:-admin@smartsched.local}"
+  [[ "$admin_email" =~ ^[^[:space:]\|\\\&]+@[^[:space:]\|\\\&]+$ ]] || die "DEV_ADMIN_EMAIL='$admin_email' is not an e-mail address"
+  # The password is never written to .env: it is passed to the seed command only (below).
+  sed -i.bak "s|^APP_SECRET=.*|APP_SECRET=$secret|; s|^ADMIN_PASSWORD=.*|ADMIN_PASSWORD=|; s|^ADMIN_EMAIL=.*|ADMIN_EMAIL=$admin_email|" "$BACKEND/.env"
   rm -f "$BACKEND/.env.bak"
 fi
 # A SQLite file created by tests / `create_all` (ENVIRONMENT=dev) has tables but no alembic_version:
@@ -83,7 +88,10 @@ rm -f "$BACKEND/.dev-stamp"
 log "alembic upgrade head"
 (cd "$BACKEND" && alembic upgrade head)
 log "seeding admin (no-op if users exist)"
-(cd "$BACKEND" && python -m app.cli seed-admin)
+admin_password="${DEV_ADMIN_PASSWORD:-$(python -c 'import secrets; print(secrets.token_urlsafe(15))')}"
+seed_out="$(cd "$BACKEND" && ADMIN_PASSWORD="$admin_password" python -m app.cli seed-admin)"
+SEEDED=0
+if grep -qx seeded <<<"$seed_out"; then SEEDED=1; fi
 
 # ---- frontend ---------------------------------------------------------------------------------
 if [[ ! -d "$FRONTEND/node_modules" ]] || [[ "$FRONTEND/package-lock.json" -nt "$FRONTEND/node_modules/.package-lock.json" ]]; then
@@ -91,18 +99,18 @@ if [[ ! -d "$FRONTEND/node_modules" ]] || [[ "$FRONTEND/package-lock.json" -nt "
   (cd "$FRONTEND" && npm ci --no-audit --no-fund)
 fi
 if [[ ! -f "$FRONTEND/.env.local" ]]; then
-  log "creating frontend/.env.local (real backend on :8000; set NEXT_PUBLIC_API_MOCK=1 for mock data)"
-  {
-    echo "NEXT_PUBLIC_API_URL=http://localhost:8000"
-    echo "NEXT_PUBLIC_API_MOCK=0"
-    echo "AUTH_SECRET=$(python -c 'import secrets; print(secrets.token_hex(16))')"
-  } > "$FRONTEND/.env.local"
+  log "creating frontend/.env.local (backend on :8000)"
+  echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > "$FRONTEND/.env.local"
 fi
 
 env_val() { grep -E "^$1=" "$BACKEND/.env" | head -1 | cut -d= -f2-; }
-log "bootstrap complete. Admin: $(env_val ADMIN_EMAIL) / $(env_val ADMIN_PASSWORD) (from backend/.env; seeded only into an empty users table)"
-if grep -q '^NEXT_PUBLIC_API_MOCK=1' "$FRONTEND/.env.local" 2>/dev/null; then
-  log "note: frontend/.env.local has NEXT_PUBLIC_API_MOCK=1 (mock data); set 0 to use the backend"
+if [[ $SEEDED -eq 1 && -z "${DEV_ADMIN_PASSWORD:-}" ]]; then
+  log "bootstrap complete. Dev admin created: $(env_val ADMIN_EMAIL)  password: $admin_password"
+  log "  (shown once and not stored anywhere; change it in the profile page, or delete the SQLite DB to reseed)"
+elif [[ $SEEDED -eq 1 ]]; then
+  log "bootstrap complete. Dev admin created: $(env_val ADMIN_EMAIL) with DEV_ADMIN_PASSWORD"
+else
+  log "bootstrap complete. Admin: $(env_val ADMIN_EMAIL) (already existed; password unchanged)"
 fi
 [[ $RUN -eq 1 ]] || { log "run both servers with: scripts/dev.sh --run   (or: make -C smartsched dev)"; exit 0; }
 
@@ -120,16 +128,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-if [[ $MOCK -eq 0 ]]; then
-  log "backend  → http://localhost:8000  (docs: /api/docs)"
-  (cd "$BACKEND" && exec python -m uvicorn app.main:app --reload --port 8000) &
-  PIDS+=($!)
-fi
+log "backend  → http://localhost:8000  (docs: /api/docs, dev only)"
+(cd "$BACKEND" && exec python -m uvicorn app.main:app --reload --port 8000) &
+PIDS+=($!)
 log "frontend → http://localhost:3000"
-if [[ $MOCK -eq 1 ]]; then
-  (cd "$FRONTEND" && NEXT_PUBLIC_API_MOCK=1 exec npm run dev) &
-else
-  (cd "$FRONTEND" && exec npm run dev) &
-fi
+(cd "$FRONTEND" && exec npm run dev) &
 PIDS+=($!)
 wait -n

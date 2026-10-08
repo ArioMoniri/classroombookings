@@ -1,4 +1,4 @@
-/** Small, fully known calendar index for unit tests and component tests (mirrors tests/test_api_calendar.py). */
+/** Test-only: a small, fully known calendar index for unit and component tests (mirrors backend tests/test_api_calendar.py). Never imported by app code. */
 import type { CalendarIndex, IndexAssignment } from "@/lib/api/calendar";
 
 const ALL = Array.from({ length: 14 }, (_, i) => i + 1);

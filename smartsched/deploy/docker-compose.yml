@@ -103,7 +103,6 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:8000}
-        NEXT_PUBLIC_API_MOCK: ${NEXT_PUBLIC_API_MOCK:-0}
     image: smartsched-frontend:${SMARTSCHED_TAG:-0.1.0}
     restart: unless-stopped
     depends_on:
@@ -111,8 +110,6 @@ services:
         condition: service_healthy
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:8000}
-      NEXT_PUBLIC_API_MOCK: ${NEXT_PUBLIC_API_MOCK:-0}
-      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
       PORT: "3000"
       HOSTNAME: 0.0.0.0
     expose:

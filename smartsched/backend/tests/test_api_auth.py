@@ -7,7 +7,7 @@ from tests.api_fixtures import login
 
 async def test_health_and_login_flow(client):
     r = await client.get("/api/v1/health")
-    assert r.status_code == 200 and r.json()["db"] is True and r.json()["solver"].startswith("app.solver.")
+    assert r.status_code == 200 and r.json()["db"] is True and "solver" not in r.json()
     r = await client.get("/api/v1/auth/me")
     assert r.status_code == 401
     r = await client.post("/api/v1/auth/login", json={"email": "admin@example.com", "password": "wrong"})

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignment, fixtureIndex } from "@/components/timetable/model/fixtures";
+import { assignment, fixtureIndex } from "@/test/fixtures/calendar-index";
 import { buildModel } from "@/components/timetable/model/index-model";
 import { dayShare, freeRuns, heldAt, roomWeek, rowSegments, weekClasses, weekShare } from "./room-occupancy";
 

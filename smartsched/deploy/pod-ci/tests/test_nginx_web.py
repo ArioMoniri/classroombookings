@@ -32,6 +32,14 @@ def test_render_inserts_before_catch_all_and_is_idempotent() -> None:
     assert out.replace(nginx.block("172.17.0.1:8095") + "\n\n", "") == CONF
 
 
+def test_api_docs_are_not_routed_to_the_backend() -> None:
+    """m6: production FastAPI has no docs; nginx (repo file and the pod-rendered one) never proxies them."""
+    for conf in (CONF, nginx.render(CONF)):
+        for path in ("/api/docs", "/api/redoc", "/api/openapi.json"):
+            assert f"location = {path} {{ proxy_pass" not in conf
+        assert "location ~ ^/api/(docs|redoc|openapi\\.json)$ { return 404; }" in conf
+
+
 def test_render_requires_catch_all() -> None:
     with pytest.raises(ValueError):
         nginx.render("server { listen 8080; }")

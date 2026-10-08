@@ -8,28 +8,29 @@ from app.core.config import DEFAULT_APP_SECRET, Settings, assert_secure, get_set
 
 from tests.api_fixtures import login
 
-GOOD_A = "a" * 24 + "-app-secret-0123456789"
-GOOD_J = "j" * 24 + "-jwt-secret-0123456789"
+# no "secret"/"change-me" in a real value: placeholder words are refused (no-placeholder audit M2)
+GOOD_A = "a" * 24 + "-app-key-0123456789abc"
+GOOD_J = "j" * 24 + "-jwt-key-0123456789abc"
 
 
 @pytest.mark.parametrize(
     "app_secret,jwt_secret,reason",
     [
         (DEFAULT_APP_SECRET, GOOD_J, "APP_SECRET is a placeholder"),
-        ("short-secret", GOOD_J, "APP_SECRET is shorter"),
+        ("short-value-0123", GOOD_J, "APP_SECRET is shorter"),
         (GOOD_A, None, "JWT_SECRET is not set"),
         (GOOD_A, "__GENERATE__", "JWT_SECRET is a placeholder"),
         (GOOD_A, GOOD_A, "must differ"),
     ],
 )
 def test_m9_prod_refuses_insecure_secrets(app_secret, jwt_secret, reason):
-    s = Settings(environment="prod", app_secret=app_secret, jwt_secret=jwt_secret)
+    s = Settings(environment="prod", app_secret=app_secret, jwt_secret=jwt_secret, admin_password=None)
     with pytest.raises(RuntimeError, match=reason):
         assert_secure(s)
 
 
 def test_m9_prod_accepts_strong_distinct_secrets_and_dev_falls_back():
-    assert_secure(Settings(environment="prod", app_secret=GOOD_A, jwt_secret=GOOD_J))
+    assert_secure(Settings(environment="prod", app_secret=GOOD_A, jwt_secret=GOOD_J, admin_password=None))
     assert_secure(Settings(environment="dev"))  # dev keeps working with the default
     assert Settings(environment="dev", app_secret=GOOD_A).signing_key == GOOD_A
     assert Settings(environment="prod", app_secret=GOOD_A, jwt_secret=GOOD_J).signing_key == GOOD_J

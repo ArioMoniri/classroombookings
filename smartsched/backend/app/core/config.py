@@ -2,20 +2,71 @@
 
 from __future__ import annotations
 
+import importlib.metadata
+import re
 from functools import lru_cache
+from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_APP_SECRET = "change-me-change-me-change-me-change-me"
 MIN_SECRET_LEN = 32
+MIN_ADMIN_PASSWORD_LEN = 12
+#: environments that skip the production checks; every other value (only ``prod`` is valid) is checked
+RELAXED_ENVIRONMENTS = frozenset({"dev", "test"})
+#: a secret containing one of these (case-insensitive, Turkish I folded) is a placeholder (no-placeholder M2)
+SECRET_PLACEHOLDER_MARKERS = ("changeme", "change-me", "__generate__", "secret")
+#: an admin password that is one of these words, optionally followed by digits/punctuation only (M3)
+_ADMIN_PLACEHOLDER = re.compile(r"(?:admin|change-?me|__generate__|password|parola|sifre|şifre)[\W\d_]*")
+PACKAGE_NAME = "smartsched-backend"
+
+Environment = Literal["dev", "test", "prod"]
+
+
+def _fold(value: str) -> str:
+    """Trim (incl. NBSP) and lower-case with the Turkish I's folded to ``i`` (``ADMİN``/``admın`` -> ``admin``)."""
+    return value.strip().replace("İ", "i").replace("I", "i").replace("ı", "i").lower()
+
+
+def secret_problem(value: str | None) -> str | None:
+    """Why ``value`` cannot be a production APP_SECRET / JWT_SECRET (``None`` when it can)."""
+    if not value:
+        return "is not set"
+    folded = _fold(value)
+    if folded == _fold(DEFAULT_APP_SECRET) or any(m in folded for m in SECRET_PLACEHOLDER_MARKERS):
+        return "is a placeholder/default value"
+    if len(value.strip()) < MIN_SECRET_LEN:
+        return f"is shorter than {MIN_SECRET_LEN} characters"
+    return None
+
+
+def admin_password_problem(value: str | None) -> str | None:
+    """Why ``value`` cannot seed the production admin (``None`` when it can or nothing is seeded)."""
+    if value is None or value == "":
+        return None  # nothing to seed
+    folded = _fold(value)
+    if _ADMIN_PLACEHOLDER.fullmatch(folded) or any(m in folded for m in ("changeme", "change-me", "__generate__")):
+        return "is a placeholder value"
+    if len(value.strip()) < MIN_ADMIN_PASSWORD_LEN:
+        return f"is shorter than {MIN_ADMIN_PASSWORD_LEN} characters"
+    return None
+
+
+def app_version() -> str:
+    """The installed package version (pyproject ``[project] version``), not a hard-coded string."""
+    try:
+        return importlib.metadata.version(PACKAGE_NAME)
+    except importlib.metadata.PackageNotFoundError:  # source tree without ``pip install``
+        return "0+unknown"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "SmartSched"
-    environment: str = Field(default="dev", description="dev | test | prod")
+    #: dev | test | prod; anything else fails at start-up (no-placeholder M2). Trimmed and case-folded.
+    environment: Environment = "dev"
     debug: bool = False
 
     database_url: str = "sqlite+aiosqlite:///./smartsched.db"
@@ -66,6 +117,16 @@ class Settings(BaseSettings):
     parse_memory_mb: int = 2048  # RLIMIT_AS of the parse child
     parse_timeout_s: float = 300.0
 
+    @field_validator("environment", mode="before")
+    @classmethod
+    def _normalise_environment(cls, value: Any) -> Any:
+        return _fold(value) if isinstance(value, str) else value
+
+    @property
+    def is_relaxed(self) -> bool:
+        """dev / test: production secret and admin-password checks are skipped."""
+        return self.environment in RELAXED_ENVIRONMENTS
+
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
@@ -75,19 +136,23 @@ class Settings(BaseSettings):
         return self.jwt_secret or self.app_secret
 
     def insecure_reasons(self) -> list[str]:
-        """Why this configuration must not run in production (empty when it may)."""
+        """Why this configuration must not run in production (empty when it may). Runs for every
+        environment except an explicit ``dev`` / ``test``."""
         out: list[str] = []
-        if self.environment != "prod":
+        if self.is_relaxed:
             return out
         for name, value in (("APP_SECRET", self.app_secret), ("JWT_SECRET", self.jwt_secret)):
-            if not value:
-                out.append(f"{name} is not set")
-            elif value == DEFAULT_APP_SECRET or "change-me" in value or "__GENERATE__" in value:
-                out.append(f"{name} is a placeholder/default value")
-            elif len(value) < MIN_SECRET_LEN:
-                out.append(f"{name} is shorter than {MIN_SECRET_LEN} characters")
+            problem = secret_problem(value)
+            if problem:
+                out.append(f"{name} {problem}")
         if self.jwt_secret and self.jwt_secret == self.app_secret:
             out.append("JWT_SECRET must differ from APP_SECRET")
+        problem = admin_password_problem(self.admin_password)
+        if problem:
+            out.append(
+                f"ADMIN_PASSWORD {problem} (at least {MIN_ADMIN_PASSWORD_LEN} characters, not a default; "
+                "leave it empty once the admin exists)"
+            )
         return out
 
 
@@ -96,7 +161,7 @@ def assert_secure(settings: Settings) -> None:
     reasons = settings.insecure_reasons()
     if reasons:
         raise RuntimeError(
-            "refusing to start with ENVIRONMENT=prod: "
+            f"refusing to start with ENVIRONMENT={settings.environment}: "
             + "; ".join(reasons)
             + " (generate them with `openssl rand -base64 48`, see smartsched/deploy/.env.example)"
         )

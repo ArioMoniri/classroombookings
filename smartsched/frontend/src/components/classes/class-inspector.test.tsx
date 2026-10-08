@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { assignment } from "@/components/timetable/model/fixtures";
+import { assignment } from "@/test/fixtures/calendar-index";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { ClassInspector, type InspectorProps } from "./class-inspector";
 

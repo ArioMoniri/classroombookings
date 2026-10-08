@@ -47,10 +47,13 @@ export interface CalendarData {
 
 export function useCalendarData(requestedRun: number | null): CalendarData {
   const requested = useRun(requestedRun);
+  // server render and the client's first render must agree (the query cache is restored before hydration)
+  const hydrated = useHydrated();
   const { term, termId } = useTermContext(requested.data?.term_id ?? null);
   const runsQ = useRuns(termId !== null ? { term_id: termId } : undefined);
   const runs = useMemo(() => usableRuns(runsQ.data, termId), [runsQ.data, termId]);
-  const run = (requestedRun !== null ? (runsQ.data ?? []).find((r) => r.id === requestedRun) : undefined) ?? defaultRun(runs, term);
+  // the default run waits for hydration: the restored cache must not pick a run the server could not
+  const run = (requestedRun !== null ? (runsQ.data ?? []).find((r) => r.id === requestedRun) : undefined) ?? (hydrated ? defaultRun(runs, term) : undefined);
   const runId = requestedRun ?? run?.id ?? null;
   const index = useCalendarIndex(runId);
   const model = useMemo(() => (index.data ? buildModel(index.data) : null), [index.data]);
@@ -60,9 +63,9 @@ export function useCalendarData(requestedRun: number | null): CalendarData {
     runId,
     run,
     model,
-    loading: runsQ.isLoading || (runId !== null && index.isLoading),
+    loading: !hydrated || runsQ.isPending || (runId !== null && index.isPending),
     error: index.isError,
     refetch: () => void index.refetch(),
-    noRun: !runsQ.isLoading && runId === null,
+    noRun: hydrated && !runsQ.isPending && runId === null,
   };
 }

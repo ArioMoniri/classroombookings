@@ -9,7 +9,7 @@ GitHub Actions minutes are not used for CI. The pod polls GitHub, runs the same 
 systemd timer (2 min) -> podci poll -> git ls-remote (token from SSM) -> new head? -> SQLite queue
                                      -> heartbeat metrics + idle check
 path unit (queue-signal) -> podci work (flock, one job at a time)
-    prepare -> validate -> backend -> infra -> frontend -> e2e-mock -> e2e-real -> images -> watchdog
+    prepare -> validate -> backend -> infra -> frontend -> e2e-real -> images -> watchdog
     -> deploy (deploy branch only, all blocking gates green, commit still the branch head)
     -> POST /repos/{owner}/{repo}/statuses/{sha} per gate + overall ("pod-ci", "pod-ci/<gate>")
 nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
@@ -24,8 +24,7 @@ nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
 | `backend` | python CI container | `make check`, solver gate, AI gate, `alembic upgrade head` on SQLite | yes |
 | `infra` | python CI container | ruff + pytest for `infra/aws` and this directory | yes |
 | `frontend` | Playwright container | `npm ci`, `npm run check` (tsc + eslint + vitest) | yes |
-| `e2e-mock` | Playwright container | `npx playwright test` (mock API) | yes |
-| `e2e-real` | backend + Playwright containers on a per-run network | backend imports the real Bahar fixtures (`tests/fixtures/*.xlsx`), seeds the admin, serves; `E2E_REAL=1 npx playwright test` | yes |
+| `e2e-real` | backend + Playwright containers on a per-run network | backend imports the real Bahar fixtures (`tests/fixtures/*.xlsx`), seeds the admin, solves the full term, serves with the booking clock pinned inside Bahar 2026 (`gates/e2e-backend-entry.sh`); `E2E_REAL=1 npx playwright test` runs every spec (smoke, real-backend, bookings, calendar, motion-audit), then the standalone build is checked for mock/demo code (`validate.sh --no-mock-build`). There is no mock-API gate. | yes |
 | `images` | host | `docker build` backend, frontend, legacy CRBS (no push; tags removed, cache kept) | yes |
 | `watchdog` | python CI container | `scripts/watchdog.py` report | no |
 | `deploy` | host | checkout the commit in `/opt/smartsched/src`, render `/ci/` into nginx, `deploy.sh --update --no-pull --tls`, restart proxy, health check, then self-update pod CI | yes (deploy branch) |

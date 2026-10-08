@@ -28,9 +28,8 @@ GATES: tuple[Gate, ...] = (
     Gate("backend", "backend.sh", "ruff + mypy + pytest + solver + migrations", needs=("prepare",), timeout=2400),
     Gate("infra", "infra.sh", "pod CI + AWS bootstrap tests", needs=("prepare",), timeout=600),
     Gate("frontend", "frontend.sh", "tsc + eslint + vitest", needs=("prepare",), timeout=1800),
-    Gate("e2e-mock", "e2e-mock.sh", "Playwright smoke (mock API)", needs=("frontend",), timeout=1800),
-    Gate("e2e-real", "e2e-real.sh", "Playwright vs real backend + Bahar fixtures", needs=("frontend", "backend"),
-         timeout=2400),
+    Gate("e2e-real", "e2e-real.sh", "Playwright (all specs) vs real backend + Bahar fixtures",
+         needs=("frontend", "backend"), timeout=3600),
     Gate("images", "images.sh", "docker build backend/frontend/crbs", needs=("prepare",), timeout=2700),
     Gate("watchdog", "watchdog.sh", "agent ledger report", blocking=False, needs=("prepare",), timeout=300),
 )

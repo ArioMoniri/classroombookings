@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ProposedConstraint } from "@/lib/api/schemas";
 import { StudioMeta } from "@/lib/api/studio-schemas";
 import { I18nProvider } from "@/lib/i18n/provider";
-import { studioMeta } from "@/mocks/studio-data";
+import { studioMeta } from "@/test/fixtures/studio-meta";
 import { ReviewTray, resolveCandidate, unresolvedCandidates } from "./review-tray";
 import type { TrayItem } from "./studio-store";
 import { UploadReview, bucketOf, reviewCounts } from "./upload-review";

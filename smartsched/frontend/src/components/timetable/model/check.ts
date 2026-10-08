@@ -6,6 +6,7 @@
 import { PERIODS, PERIODS_PER_DAY } from "@/lib/time";
 import type { Text2 } from "@/lib/api/calendar";
 import { roomCap, type CalEvent, type CalendarModel, type WeekMask } from "./index-model";
+import { DAY_END, DAY_START, TRANSITION, TRANSITION_PERIOD } from "./periods";
 
 export type Severity = "hard" | "soft";
 export interface CheckIssue {
@@ -60,7 +61,7 @@ export function checkMove(model: CalendarModel, moving: CalEvent, target: MoveTa
   const mask = target.mask ?? moving.mask;
   const self = new Set<number>([a.id, ...ignore]);
   if (target.sp < 1 || target.ep > PERIODS_PER_DAY || target.sp > target.ep || target.day < 1 || target.day > 7) {
-    hard.push({ code: "out_of_range", severity: "hard", text: { tr: "Ders saati 08:30–22:50 aralığının dışına taşıyor", en: "The span leaves the 08:30–22:50 day" } });
+    hard.push({ code: "out_of_range", severity: "hard", text: { tr: `Ders saati ${DAY_START}–${DAY_END} aralığının dışına taşıyor`, en: `The span leaves the ${DAY_START}–${DAY_END} day` } });
     return { ok: false, hard, soft, culprits };
   }
   const room = model.roomById.get(target.room);
@@ -134,8 +135,8 @@ export function checkMove(model: CalendarModel, moving: CalEvent, target: MoveTa
     }
   }
   if (a.locked) soft.push({ code: "locked", severity: "soft", text: { tr: "Kilitli ders: taşıma kilidi korur", en: "Locked class: the move keeps it locked" } });
-  if (target.sp <= 12 && target.ep >= 12 && target.ep > target.sp) {
-    soft.push({ code: "p12", severity: "soft", text: { tr: "Aralık 17:30–18:00 geçiş saatini içeriyor", en: "The span includes the 17:30–18:00 transition (P12)" } });
+  if (target.sp <= TRANSITION_PERIOD && target.ep >= TRANSITION_PERIOD && target.ep > target.sp) {
+    soft.push({ code: "p12", severity: "soft", text: { tr: `Aralık ${TRANSITION.start}–${TRANSITION.end} geçiş saatini içeriyor`, en: `The span includes the ${TRANSITION.start}–${TRANSITION.end} transition (P${TRANSITION_PERIOD})` } });
   }
   return { ok: hard.length === 0, hard, soft, culprits };
 }

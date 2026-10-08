@@ -232,7 +232,7 @@ ranges, so the backend sees the real scheme and client IP.
 | run shows `FAILED` "interrupted by restart" | backend restarted mid-solve (in-process queue). Start the run again |
 | API slow while a solve runs | CP-SAT is using all CPU cores. Lower `solver_workers` or solve time limits, or move to dedicated workers ([Scaling](#scaling)) |
 | SSE progress not live | a different uvicorn process holds the job (see [the job queue](#the-job-queue-read-before-scaling)); the UI polling still shows progress |
-| frontend shows mock data | the image was built with `NEXT_PUBLIC_API_MOCK=1`. Set 0 and `./deploy.sh --update` |
+| frontend shows "Backend unreachable" (502 from `/api/v1`) | the frontend reaches FastAPI at `NEXT_PUBLIC_API_URL` (default `http://backend:8000`, baked in at build time). Check `docker compose ps backend`, fix the URL in `.env`, then `./deploy.sh --update`. There is no mock mode |
 | `port is already allocated` | change `PROXY_PORT` (or `CRBS_PORT`) in `.env` |
 | legacy app "unable to write" | the `crbs-local` / `crbs-uploads` volumes were created by an older root-owned image: `docker compose exec -u 0 crbs chown -R www-data: local uploads` |
 

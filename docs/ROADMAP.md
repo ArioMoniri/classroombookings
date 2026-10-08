@@ -262,3 +262,13 @@ loop), 3, 4, 5, 6, 7, 8, 10, 12, 13, 14; usability U1-U6 and the default term. S
       `ÇEV`/`CEV`-style ASCII spellings are the same department code.
 - [ ] **Cancel across workers** — `CANCELLED` set by another process is picked up on the next heartbeat (15 s); a
       DB-backed queue (Phase "real job control") would make it immediate and allow priorities.
+
+### No-placeholder audit follow-ups (docs/review/2026-10-08-no-placeholder-audit.md, backend-engineer)
+- [ ] **Time grid per term from the DB/workbook** (audit m8) — the 18-period grid is hard-coded and duplicated
+      (`app/importers/normalize.py` period table, `frontend/src/lib/time.ts`, `app/api/v1/dashboard.py`). Store the
+      grid on the term (`terms.periods_json`, filled from the weekly-grid workbook header or the CRBS
+      `booking_periods`) and have the importers, solver bridge, dashboard and frontend read it from there.
+- [ ] **Docs for ADMIN sessions in prod** (audit m6 option b) — production now serves no `/api/docs`; if operators
+      need them, serve the schema behind `planning.admin` instead of re-opening the public route.
+- [ ] **Stale AUTH_SECRET on older pods** — pods bootstrapped before the removal keep `AUTH_SECRET` in `deploy/.env`
+      and `/smartsched/app/AUTH_SECRET` in SSM; both are unused. Delete the parameter on the next `down`/`up`.

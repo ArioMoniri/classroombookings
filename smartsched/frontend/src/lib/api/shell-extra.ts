@@ -327,16 +327,9 @@ export function hasPermission(perms: readonly string[] | undefined, perm: string
   return want.some((p) => perms.includes(p));
 }
 
-/** Older backends (and the mock API) send no permissions: derive them from the three legacy roles. */
-const LEGACY_PERMS: Record<string, string[]> = {
-  ADMIN: ["planning.view", "planning.edit", "planning.admin", "room.view", "setup.settings", "setup.users", "setup.rooms", "book_single.create"],
-  PLANNER: ["planning.view", "planning.edit", "room.view", "book_single.create"],
-  VIEWER: ["planning.view", "room.view"],
-};
-
-export function effectivePermissions(me: Pick<MeFull, "role" | "permissions"> | undefined): string[] | undefined {
-  if (!me) return undefined;
-  return me.permissions.length ? me.permissions : (LEGACY_PERMS[me.role] ?? []);
+/** The permission list is exactly what `GET /auth/me` returns (no role-based fallback). */
+export function effectivePermissions(me: Pick<MeFull, "permissions"> | undefined): string[] | undefined {
+  return me?.permissions;
 }
 
 export function usePermissions(): { perms: string[] | undefined; can: (perm: string | readonly string[] | undefined) => boolean; me: MeFull | undefined } {

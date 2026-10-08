@@ -20,8 +20,7 @@
   },
   "auth": {
     "title": "Giriş yap", "subtitle": "Planlama ofisi erişimi", "email": "E-posta", "password": "Şifre",
-    "submit": "Giriş yap", "signingIn": "Giriş yapılıyor…", "failed": "Giriş başarısız. Bilgilerinizi kontrol edin.",
-    "demoHint": "Demo modu: herhangi bir e-posta ile \"admin\" şifresi çalışır."
+    "submit": "Giriş yap", "signingIn": "Giriş yapılıyor…", "failed": "Giriş başarısız. Bilgilerinizi kontrol edin."
   },
   "common": {
     "loading": "Yükleniyor…", "error": "Bir şeyler ters gitti", "retry": "Tekrar dene", "save": "Kaydet", "cancel": "Vazgeç",

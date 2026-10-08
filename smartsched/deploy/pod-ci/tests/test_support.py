@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -23,7 +24,8 @@ def test_prepare_env_generates_on_pod_and_keeps_secrets(tmp_path: Path) -> None:
     env = tmp_path / ".env"
     gen = envfile.prepare(env, EXAMPLE, {"TLS_DOMAIN": "1-2-3-4.sslip.io", "ADMIN_EMAIL": "a@b.c",
                                          "CORS_ORIGINS": '["https://1-2-3-4.sslip.io"]'})
-    assert {"APP_SECRET", "JWT_SECRET", "AUTH_SECRET", "POSTGRES_PASSWORD", "ADMIN_PASSWORD"} <= set(gen)
+    assert {"APP_SECRET", "JWT_SECRET", "POSTGRES_PASSWORD", "ADMIN_PASSWORD"} <= set(gen)
+    assert "AUTH_SECRET" not in gen  # dead config (no-placeholder audit m3): the frontend never read it
     parsed = envfile.parse(env.read_text())
     assert "__GENERATE__" not in env.read_text().split("# ---- database")[1]
     assert re.fullmatch(r"[A-Za-z0-9]{20}", parsed["ADMIN_PASSWORD"])
@@ -37,8 +39,69 @@ def test_prepare_env_generates_on_pod_and_keeps_secrets(tmp_path: Path) -> None:
     ssm = envfile.ssm_values(env)
     assert ssm["admin_password"] == (parsed["ADMIN_PASSWORD"], True)
     assert ssm["admin_email"] == ("a@b.c", False)
-    assert set(ssm) == {"admin_email", "admin_password", "app/APP_SECRET", "app/JWT_SECRET", "app/AUTH_SECRET",
-                        "app/POSTGRES_PASSWORD"}
+    assert set(ssm) == {"admin_email", "admin_password", "app/APP_SECRET", "app/JWT_SECRET", "app/POSTGRES_PASSWORD"}
+
+
+def test_pod_admin_email_replaces_the_empty_example_and_password_is_long(tmp_path: Path) -> None:
+    """m1: .env.example ships ADMIN_EMAIL empty; the pod passes the real address (pod-bootstrap.sh)."""
+    assert re.search(r"^ADMIN_EMAIL=$", EXAMPLE.read_text(), re.M)
+    env = tmp_path / ".env"
+    envfile.prepare(env, EXAMPLE, {"ADMIN_EMAIL": "planner@university.edu.tr", "ENVIRONMENT": "prod"})
+    parsed = envfile.parse(env.read_text())
+    assert parsed["ADMIN_EMAIL"] == "planner@university.edu.tr" and parsed["ENVIRONMENT"] == "prod"
+    assert len(parsed["ADMIN_PASSWORD"]) >= 12  # backend refuses a shorter ADMIN_PASSWORD in prod (M3)
+    assert all(len(envfile.random_password()) == 20 for _ in range(50))
+
+
+def test_existing_pod_env_with_auth_secret_is_not_synced(tmp_path: Path) -> None:
+    """Older pods keep AUTH_SECRET in .env (and /smartsched/app/AUTH_SECRET in SSM, harmless): never re-synced."""
+    env = tmp_path / ".env"
+    envfile.prepare(env, EXAMPLE, {"ADMIN_EMAIL": "a@b.c"})
+    env.write_text(env.read_text() + "AUTH_SECRET=" + "f" * 64 + "\n")
+    assert "app/AUTH_SECRET" not in envfile.ssm_values(env)
+
+
+def _fake_docker(tmp_path: Path) -> dict[str, str]:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / "docker"
+    fake.write_text("#!/bin/sh\n[ \"$1 $2\" = 'compose version' ] && [ \"$3\" = --short ] && echo 2.29.0\nexit 0\n")
+    fake.chmod(0o755)
+    # health never comes up behind a fake docker: curl fails at once, sleep is a no-op and every `date +%s`
+    # jumps 400 s, so wait_healthy gives up on its first lap instead of after 300 s
+    (bin_dir / "curl").write_text("#!/bin/sh\nexit 7\n")
+    (bin_dir / "sleep").write_text("#!/bin/sh\nexit 0\n")
+    (bin_dir / "date").write_text("#!/bin/sh\n[ -f \"$0.n\" ] || echo 0 > \"$0.n\"; n=$(cat \"$0.n\"); "
+                                  "echo $((n + 400)) > \"$0.n\"; echo $n\n")
+    for name in ("curl", "sleep", "date"):
+        (bin_dir / name).chmod(0o755)
+    env = {k: v for k, v in os.environ.items() if k != "ADMIN_EMAIL"}
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '/usr/bin:/bin')}"
+    return env
+
+
+@pytest.mark.parametrize("email", ["", "admin@example.edu.tr", "ops@Example.org"])
+def test_deploy_sh_refuses_empty_or_example_admin_email(tmp_path: Path, email: str) -> None:
+    env = _fake_docker(tmp_path)
+    env["ENV_FILE"] = str(tmp_path / ".env")
+    if email:
+        env["ADMIN_EMAIL"] = email
+    proc = subprocess.run(["bash", str(REPO / "smartsched/deploy/deploy.sh"), "--no-build"], env=env,
+                          capture_output=True, text=True, timeout=60)
+    assert proc.returncode != 0 and "ADMIN_EMAIL" in proc.stderr, proc.stderr
+    assert "AUTH_SECRET" not in (tmp_path / ".env").read_text()
+
+
+def test_deploy_sh_takes_admin_email_from_the_environment_on_first_run(tmp_path: Path) -> None:
+    env = _fake_docker(tmp_path)
+    env["ENV_FILE"] = str(tmp_path / ".env")
+    env["ADMIN_EMAIL"] = "planner@university.edu.tr"
+    subprocess.run(["bash", str(REPO / "smartsched/deploy/deploy.sh"), "--no-build"], env=env,
+                   capture_output=True, text=True, timeout=60)
+    parsed = envfile.parse((tmp_path / ".env").read_text())
+    assert parsed["ADMIN_EMAIL"] == "planner@university.edu.tr"
+    assert re.fullmatch(r"[A-Za-z0-9]{20}", parsed["ADMIN_PASSWORD"])
+    assert re.fullmatch(r"[0-9a-f]{64}", parsed["APP_SECRET"]) and "AUTH_SECRET" not in parsed
 
 
 def test_config_file_and_env_override(tmp_path: Path) -> None:

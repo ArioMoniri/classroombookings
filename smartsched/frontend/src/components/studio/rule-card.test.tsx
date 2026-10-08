@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { StudioMeta } from "@/lib/api/studio-schemas";
 import { I18nProvider } from "@/lib/i18n/provider";
-import { studioMeta } from "@/mocks/studio-data";
+import { studioMeta } from "@/test/fixtures/studio-meta";
 import { RuleCard, type RuleCardProps } from "./rule-card";
 import { tokens } from "./rule-sentence";
 import { StudioDataContext, fallbackSentence } from "./studio-data";

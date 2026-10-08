@@ -1,6 +1,7 @@
 /**
- * Static Generator Studio meta for the mock API, transcribed from the backend
- * (`app/services/studio_rules.py::TEMPLATES / meta()` and `app/services/studio.py::BUILTINS`).
+ * Test fixture (vitest only, never imported by app code): the Generator Studio `GET /studio/meta`
+ * payload transcribed from the backend (`app/services/studio_rules.py::TEMPLATES / meta()` and
+ * `app/services/studio.py::BUILTINS`), so the studio components can be rendered in jsdom.
  */
 import { PERIODS } from "@/lib/time";
 

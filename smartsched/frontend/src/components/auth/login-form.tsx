@@ -19,8 +19,6 @@ import { AuthCard } from "./auth-card";
 const schema = z.object({ identifier: z.string().trim().min(2), password: z.string().min(1) });
 type FormValues = z.infer<typeof schema>;
 
-const MOCK = process.env.NEXT_PUBLIC_API_MOCK === "1";
-
 export function LoginForm() {
   const { t } = useI18n();
   const router = useRouter();
@@ -29,7 +27,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const alertRef = useRef<HTMLDivElement>(null);
   const { ref: shakeRef, shake } = useShake<HTMLDivElement>();
-  const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { identifier: MOCK ? "fatih.demir@example.edu.tr" : "", password: "" } });
+  const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { identifier: "", password: "" } });
 
   useEffect(() => {
     if (error) alertRef.current?.focus();
@@ -47,8 +45,8 @@ export function LoginForm() {
       }
       const name = user?.full_name?.split(" ")[0];
       toast.success(name ? t("glass.auth.welcome", { name }) : t("auth.title"));
-      // a teacher has no planning dashboard: land on the timetable
-      const planner = !user || user.permissions.length === 0 || user.permissions.includes("planning.view");
+      // a teacher has no planning dashboard: land on the timetable (permissions come from /auth/me)
+      const planner = !user || user.permissions.includes("planning.view");
       router.replace(target === "/dashboard" && !planner ? "/timetable" : target);
       router.refresh();
     } catch (e) {
@@ -98,7 +96,6 @@ export function LoginForm() {
           )}
         </Button>
       </form>
-      {MOCK ? <p className="mt-4 text-[12px] text-label-3">{t("auth.demoHint")}</p> : null}
     </AuthCard>
   );
 }
