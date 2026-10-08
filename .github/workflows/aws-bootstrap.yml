@@ -5,7 +5,7 @@
 # (smartsched/deploy/pod-ci); this job only calls AWS APIs: no builds, no tests, <= 10 minutes.
 #
 # Trigger: commit + push a change to infra/aws/POD_ACTION whose first line is
-#     up | status | stop | start | cost | down destroy        (optional: region=<aws-region>)
+#     up | status | logs | stop | start | cost | down destroy       (optional: region=<aws-region>)
 # e.g. `echo "up $(date -u +%FT%TZ)" > infra/aws/POD_ACTION` (the timestamp makes every push a change).
 # `down` deletes the pod and its data; it needs the second word `destroy`.
 #
@@ -27,7 +27,7 @@ on:
       command:
         description: "up | status | stop | start | cost | down"
         type: choice
-        options: [status, up, stop, start, cost, down]
+        options: [status, logs, up, stop, start, cost, down]
         default: status
       confirm_down:
         description: "type destroy to allow `down`"
@@ -87,13 +87,13 @@ jobs:
             region="$(grep -oE 'region=[a-z0-9-]+' <<< "$line" | cut -d= -f2 || true)"
           fi
           case "$cmd" in
-            up|status|stop|start|cost) ;;
+            up|status|logs|stop|start|cost) ;;
             down)
               if [ "$confirm" != "destroy" ]; then
                 echo "::error::'down' deletes the pod and its data; write 'down destroy' into infra/aws/POD_ACTION"
                 exit 1
               fi ;;
-            *) echo "::error::unknown command '$cmd' (up|status|stop|start|cost|down destroy)"; exit 1 ;;
+            *) echo "::error::unknown command '$cmd' (up|status|logs|stop|start|cost|down destroy)"; exit 1 ;;
           esac
           region="${region:-${REGION_SECRET:-us-east-1}}"
           if ! [[ "$region" =~ ^[a-z0-9-]+$ ]]; then echo "::error::invalid region '$region'"; exit 1; fi

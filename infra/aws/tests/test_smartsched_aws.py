@@ -608,3 +608,36 @@ def test_policy_files_are_valid_json() -> None:
     for f in iam_dir.glob("*.json"):
         doc = json.loads(f.read_text())
         assert doc["Version"] == "2012-10-17", f
+
+
+def test_filter_console_keeps_boot_lines_and_redacts_credentials() -> None:
+    text = "\n".join([
+        "[    1.0] kernel noise",
+        "[user-data] start 2026-10-08T11:44:00Z",
+        "[pod-bootstrap] ADMIN_PASSWORD=hunter2-very-secret",
+        "[pod-bootstrap] using token ghp_abcdefghijklmnopqrstuvwxyz0123",
+        "Get:1 http://ports.ubuntu.com noble InRelease",
+        "[pod-ci] key sk-ant-api03-abcdefghijkl stored",
+        "cloud-init[1234]: Cloud-init v. 25.1 finished at Thu, 08 Oct 2026",
+    ])
+    lines = sa.filter_console(text)
+    assert lines[0] == "[user-data] start 2026-10-08T11:44:00Z"
+    assert len(lines) == 5
+    joined = "\n".join(lines)
+    for leaked in ("hunter2", "ghp_abcdef", "sk-ant-api03"):
+        assert leaked not in joined
+    assert "[redacted]" in lines[1] and "[redacted]" in lines[2] and "[redacted]" in lines[3]
+
+
+def test_logs_reads_latest_console_output(aws: StubAws) -> None:
+    import base64
+
+    ec2 = aws.stub("ec2")
+    ec2.add_response("describe_instances", {"Reservations": [{"Instances": [instance("running")]}]})
+    out_text = "noise\n[user-data] waiting for SSM /smartsched/github_token\n"
+    ec2.add_response("get_console_output", {"InstanceId": "i-0123456789abcdef0",
+                                            "Output": base64.b64encode(out_text.encode()).decode()},
+                     {"InstanceId": "i-0123456789abcdef0", "Latest": True})
+    out = sa.cmd_logs(aws)
+    aws.assert_done()
+    assert out["i-0123456789abcdef0"]["lines"] == ["[user-data] waiting for SSM /smartsched/github_token"]

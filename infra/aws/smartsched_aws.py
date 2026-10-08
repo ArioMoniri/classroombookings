@@ -917,6 +917,47 @@ def cmd_status(aws: Aws, s: Settings, account: str) -> dict[str, Any]:
     return out
 
 
+# Console lines worth showing: our boot scripts' prefixes and cloud-init failures. Everything else (kernel,
+# apt, docker build output) is dropped, and anything that looks like a credential is redacted, because the
+# result lands in GitHub Actions logs.
+LOG_KEEP = re.compile(r"\[(user-data|pod-bootstrap|pod-ci|deploy)\]|cloud-init.*(error|fail|finished)"
+                      r"|Traceback|ERROR|error:", re.I)
+LOG_REDACT = re.compile(
+    r"(?i)(password|passwd|secret|token|api[_-]?key|authorization|basic_auth)(\S*\s*[:=]\s*|\s+)\S+"
+    r"|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|sk-ant-[A-Za-z0-9_-]{10,}")
+
+
+def filter_console(text: str, limit: int = 200) -> list[str]:
+    keep = [line.rstrip() for line in text.splitlines() if LOG_KEEP.search(line)]
+    return [LOG_REDACT.sub(lambda m: (m.group(1) + " [redacted]") if m.group(1) else "[redacted]", line)
+            for line in keep[-limit:]]
+
+
+def cmd_logs(aws: Aws) -> dict[str, Any]:
+    """Boot progress from the EC2 serial console (cloud-init tees user-data output there); no SSH or SSM."""
+    import base64
+
+    out: dict[str, Any] = {}
+    ec2 = aws.client("ec2")
+    for inst in find_instances(aws):
+        iid = inst["InstanceId"]
+        try:
+            resp = ec2.get_console_output(InstanceId=iid, Latest=True)
+        except Exception as exc:  # noqa: BLE001 - Latest=True needs Nitro; fall back to the boot-time buffer
+            log(f"latest console output unavailable ({error_code(exc) or exc}); using the buffered output")
+            resp = ec2.get_console_output(InstanceId=iid)
+        raw = resp.get("Output") or ""
+        try:
+            text = base64.b64decode(raw).decode("utf-8", "replace")
+        except Exception:  # noqa: BLE001 - boto3 normally returns base64; tolerate already-decoded text
+            text = raw
+        out[iid] = {"state": inst["State"]["Name"], "captured": str(resp.get("Timestamp", "")),
+                    "lines": filter_console(text)}
+    if not out:
+        out["note"] = "no SmartSched instance found"
+    return out
+
+
 def cmd_stop(aws: Aws, sleep: Callable[[float], None] = time.sleep) -> list[str]:
     ids = [i["InstanceId"] for i in find_instances(aws) if i["State"]["Name"] in ("pending", "running")]
     if ids:
@@ -1108,7 +1149,7 @@ def cmd_plan(s: Settings, public_ip: str = "203.0.113.10") -> dict[str, Any]:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="smartsched_aws.py", description=__doc__.split("\n\n")[0],
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("command", choices=["up", "status", "stop", "start", "down", "cost", "plan", "preflight",
+    p.add_argument("command", choices=["up", "status", "logs", "stop", "start", "down", "cost", "plan", "preflight",
                                        "put-github-token", "render-user-data"])
     p.add_argument("--region", default=None,
                    help=f"AWS region, or 'auto' = cheaper of {'/'.join(NEAR_TURKIYE)} (default: $AWS_REGION, "
@@ -1195,6 +1236,8 @@ def main(argv: list[str] | None = None) -> int:
             emit(cmd_status(aws, s, ident["account"]), a)
         elif a.command == "cost":
             emit(cmd_cost(aws, s, ident["account"]), a)
+        elif a.command == "logs":
+            emit(cmd_logs(aws), a)
         elif a.command == "stop":
             emit({"stopped": cmd_stop(aws)}, a)
         elif a.command == "start":
