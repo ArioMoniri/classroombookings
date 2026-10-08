@@ -4,19 +4,9 @@ name: smartsched
 # and Postgres 16), frontend tsc + eslint + vitest + Playwright (mock API), Docker image builds (no
 # push), a full docker compose smoke test, and the agent watchdog report (non-blocking).
 
+# DISABLED ON PUSH (2026-10-08, user decision: GitHub Actions minutes are too expensive).
+# CI runs on the AWS pod itself (smartsched/deploy/pod-ci); this file is kept only as a manual fallback.
 on:
-  push:
-    paths:
-      - "smartsched/**"
-      - "docs/**"
-      - "scripts/**"
-      - ".github/workflows/smartsched.yml"
-  pull_request:
-    paths:
-      - "smartsched/**"
-      - "docs/**"
-      - "scripts/**"
-      - ".github/workflows/smartsched.yml"
   workflow_dispatch:
 
 concurrency:
@@ -61,8 +51,10 @@ jobs:
           cache-dependency-path: smartsched/backend/pyproject.toml
       - name: Install
         run: python -m pip install --upgrade pip && pip install -e ".[dev]"
-      - name: Backend gate (make check = ruff + mypy + pytest; parses the real fixture workbooks)
+      - name: Backend gate (make check = ruff + mypy incl. app/api + app/ai + fast pytest on the real workbooks)
         run: make check
+      - name: Backend slow tests (heaviest real-workbook tests, tests/conftest.py SLOW_TESTS)
+        run: make test-slow
       - name: Solver gate (slow scale tests skipped unless SMARTSCHED_SLOW=1)
         run: |
           ruff check app/solver
