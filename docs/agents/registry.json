@@ -332,6 +332,18 @@
       "ledger": "frontend-engineer (admin + shell UI gaps)",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a892e1ea406c12e43",
+      "description": "Importer + planner-comparison follow-ups",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 16:56",
+      "scope": "",
+      "goal": "close the importer and data follow-ups found by the planner comparison (docs/testing/2026-10-08-schedule-vs-planner.md §6, §7, §10) and the solver review hand-off. Work test-first on the real workbooks (fixtures in tests/conftest.py) and use the comparison script smartsched/backend/tools/compare_planner.py to verify. The solver fix agent has finished; its validator is app/services/planner_check.py…",
+      "ledger": "backend-engineer (importer + comparison follow-ups)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
