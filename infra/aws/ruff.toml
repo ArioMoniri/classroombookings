@@ -1,0 +1,11 @@
+# Lint settings for this directory (ruff check <dir>); mirrors smartsched/backend (line length 120).
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "DTZ", "BLE", "S", "SIM"]
+# S101: asserts are fine in tests; S603/S607: subprocess with fixed argv lists is the point of this code.
+ignore = ["S603", "S607"]
+
+[lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S108"]

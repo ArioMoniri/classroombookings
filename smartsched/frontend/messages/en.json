@@ -904,6 +904,368 @@
     "notFound": "Room not found.",
     "utilisationHint": "Bookable periods held by classes or pre-occupied"
   },
+  "crbs": {
+    "common": {
+      "cancel": "Cancel",
+      "loading": "Loading…",
+      "save": "Save",
+      "yes": "Yes",
+      "no": "No",
+      "delete": "Delete",
+      "edit": "Edit",
+      "add": "Add",
+      "create": "Create",
+      "close": "Close",
+      "saved": "Saved",
+      "none": "None",
+      "search": "Search",
+      "unlimited": "Unlimited",
+      "actions": "Actions",
+      "name": "Name",
+      "description": "Description",
+      "deleted": "Deleted",
+      "back": "Back"
+    },
+    "bookings": {
+      "title": "Bookings"
+    },
+    "toolbar": {
+      "label": "Booking grid controls",
+      "display": "View",
+      "byDay": "By day",
+      "byRoom": "By room",
+      "prevDay": "Previous day",
+      "nextDay": "Next day",
+      "prevWeek": "Previous week",
+      "nextWeek": "Next week",
+      "today": "Today",
+      "room": "Room",
+      "session": "Session",
+      "groups": "Room groups",
+      "multi": "Select several"
+    },
+    "grid": {
+      "label": "Bookable slots",
+      "room": "Room",
+      "day": "Day",
+      "period": "Period",
+      "seats": "{n} seats",
+      "termWeek": "week {n}",
+      "ungrouped": "Other rooms"
+    },
+    "slot": {
+      "booked": "Booked",
+      "mine": "You",
+      "free": "free",
+      "selectable": "free, press to select",
+      "selected": "selected",
+      "notBookable": "Cannot be booked",
+      "timetableInfo": "{room} {period} is used by {label} in the published timetable. Slots held by the timetable cannot be booked.",
+      "reason": {
+        "holiday": "Holiday: {name}",
+        "period": "This period does not run on this day",
+        "limit": "You have reached your booking limit",
+        "permissions": "You may not book this room",
+        "range_min": "Too soon: bookings need more notice",
+        "range_max": "Too far ahead for your booking window",
+        "date_range": "Outside the session",
+        "no_week": "This date has no timetable week",
+        "timetable": "Held by the published timetable",
+        "block": "Reserved block",
+        "unavailable": "Not available"
+      }
+    },
+    "legend": {
+      "label": "Legend",
+      "available": "Free",
+      "mine": "Your booking",
+      "single": "Booked once",
+      "recurring": "Recurring",
+      "timetable": "Timetable",
+      "holiday": "Holiday",
+      "unavailable": "Not bookable"
+    },
+    "limits": {
+      "pill": "{remaining} of {max} bookings left",
+      "remaining": "You can make {n} more booking(s)"
+    },
+    "maintenance": {
+      "title": "Bookings are in maintenance",
+      "default": "An administrator has paused bookings for maintenance. Please try again later.",
+      "bypassTitle": "Maintenance mode is on",
+      "bypass": "Other users cannot book right now; you can because your role bypasses maintenance mode."
+    },
+    "problems": {
+      "noScheduleTitle": "No periods for this session",
+      "noSchedule": "The session has no schedule, so there are no periods to book.",
+      "noRoomsTitle": "No rooms to show",
+      "noRooms": "No bookable rooms are visible to you. Rooms without a room group are hidden unless an administrator shows them.",
+      "fix": "Open setup"
+    },
+    "picker": {
+      "label": "Choose a date",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "week": "timetable week {name}",
+      "holiday": "holiday: {name}",
+      "closed": "closed for bookings",
+      "holidayLegend": "Holiday"
+    },
+    "book": {
+      "kind": "Booking type",
+      "single": "Once",
+      "recurring": "Every week",
+      "notes": "Notes",
+      "notesHint": "{n} characters left",
+      "notesPlaceholder": "e.g. thesis defence, department meeting",
+      "department": "Department",
+      "departmentMine": "My department",
+      "departmentNone": "No department",
+      "user": "Book for",
+      "userHint": "Booking for someone else notifies them by e-mail when SMTP is set up.",
+      "userMe": "Myself",
+      "userNone": "Nobody (room reservation)",
+      "submit": "Book this slot",
+      "done": "{room} booked for {date}, {period}"
+    },
+    "recur": {
+      "range": "Repeat",
+      "start": "From",
+      "startThis": "This date ({date})",
+      "startSession": "Start of the session",
+      "custom": "Choose a date…",
+      "startDate": "Start date",
+      "end": "Until",
+      "endSession": "End of the session ({date})",
+      "endDate": "End date",
+      "preview": "Show the dates",
+      "refresh": "Check again",
+      "summary": "{create} to book · {skip} skipped · {holidays} holiday(s)",
+      "bookAll": "Book all free",
+      "skipAll": "Skip all",
+      "limit": "Your role allows at most {max} dates in one series.",
+      "overLimit": "Only the first {max} dates will be booked; {cut} chosen date(s) are over the limit.",
+      "termWeek": "week {n}",
+      "cut": "over the limit",
+      "actionFor": "Action for {date}",
+      "action": {
+        "book": "Book",
+        "skip": "Skip",
+        "replace": "Replace"
+      },
+      "status": {
+        "free": "Free",
+        "booked": "Already booked",
+        "timetable": "Timetable",
+        "block": "Reserved block",
+        "holiday": "Holiday"
+      },
+      "skippedHoliday": "Skipped",
+      "submit": "Book {n} dates",
+      "done": "{created} dates booked, {skipped} skipped"
+    },
+    "detail": {
+      "title": "Booking",
+      "cancelled": "This booking was cancelled",
+      "reason": "Reason: {reason}",
+      "type": "Type",
+      "user": "Booked by",
+      "userHidden": "Hidden",
+      "noUser": "Nobody",
+      "notesHidden": "Hidden",
+      "room": "Room",
+      "owner": "owner {name}",
+      "series": "Series",
+      "showSeries": "Show all dates of the series",
+      "hideSeries": "Hide the series",
+      "edit": "Edit",
+      "cancel": "Cancel booking",
+      "saved": "{n} booking(s) updated"
+    },
+    "edit": {
+      "date": "Date",
+      "period": "Period",
+      "room": "Room",
+      "scopeHint": "Date, period and room can only be changed for this one date."
+    },
+    "scope": {
+      "label": "Apply to",
+      "one": "This date",
+      "future": "This and later",
+      "all": "Whole series"
+    },
+    "cancel": {
+      "title": "Cancel this booking?",
+      "body": "{room}, {date}, {period}",
+      "confirm": "Cancel booking",
+      "reason": "Reason",
+      "reasonHint": "Kept with the booking and shown to whoever booked it.",
+      "done": "{n} booking(s) cancelled"
+    },
+    "status": {
+      "booked": "Booked",
+      "cancelled": "Cancelled"
+    },
+    "multi": {
+      "tray": "Selected slots",
+      "selected": "{n} slot(s) selected",
+      "clear": "Clear",
+      "book": "Book selected",
+      "title": "Book {n} slots",
+      "allOrNothing": "All of them are booked, or none: if one slot is taken in the meantime, nothing is booked.",
+      "blocked": "Not possible",
+      "notesHint": "The same note goes on every booking.",
+      "problems": "{n} slot(s) cannot be booked, so nothing will be booked:",
+      "ready": "All clear: {n} booking(s) will be created.",
+      "check": "Check",
+      "confirm": "Book all {n}",
+      "done": "{n} bookings created"
+    },
+    "mine": {
+      "title": "My bookings",
+      "totals": "{active} active · {session} this session · {all} in total",
+      "limit": "limit {n}",
+      "filter": "Show",
+      "upcoming": "Upcoming",
+      "past": "Past",
+      "cancelled": "Cancelled",
+      "cancelSelected": "Cancel {n}",
+      "emptyUpcoming": "No upcoming bookings. Pick a free slot on the Bookings page.",
+      "empty": "Nothing here.",
+      "select": "Select {room} on {date}",
+      "ownedRooms": "Bookings in rooms you look after",
+      "upcomingCount": "{n} upcoming",
+      "ownedEmpty": "No upcoming bookings by others.",
+      "cancelManyTitle": "Cancel {n} bookings?",
+      "cancelManyBody": "Bookings you may no longer cancel (already started) are left as they are.",
+      "cancelManyDone": "{n} cancelled, {skipped} left as they were"
+    },
+    "feed": {
+      "title": "Calendar subscription",
+      "lead": "Subscribe in Outlook, Google Calendar or Apple Calendar to see your bookings next to your other events.",
+      "issue": "Create subscription link",
+      "rotate": "Create a new link",
+      "rotateTitle": "Replace the subscription link?",
+      "warning": "Anyone with the link can read your bookings. A new link stops the old one.",
+      "url": "Subscription link",
+      "copy": "Copy link",
+      "copied": "Link copied"
+    },
+    "export": {
+      "title": "Export bookings",
+      "session": "Session",
+      "group": "Room group",
+      "allGroups": "All groups",
+      "includeCancelled": "Include cancelled bookings",
+      "download": "Download CSV",
+      "hint": "UTF-8 with BOM, so Excel shows Turkish letters correctly."
+    },
+    "errors": {
+      "conflict_timetable": "{room} on {date} {periods} is held by {label} in the published timetable, so it cannot be booked.",
+      "conflict_block": "{room} on {date} {periods} is a reserved block ({label}).",
+      "conflict_booking": "{room} on {date} {periods} is already booked.",
+      "conflict_race": "Someone booked this slot a moment ago. The grid has been refreshed.",
+      "room_not_found": "This room is not available to you.",
+      "room_not_bookable": "This room cannot be booked.",
+      "no_single": "You may not make bookings in this room.",
+      "no_recur": "You may not make recurring bookings in this room.",
+      "set_user": "You may not book for another person.",
+      "set_department": "You may not choose the department.",
+      "holiday": "That date is a holiday.",
+      "no_week": "That date has no timetable week, so it is closed for bookings.",
+      "date_range": "That date is outside the session.",
+      "calendar": "That date or period cannot be booked ({message}).",
+      "range_min": "Bookings must be made earlier: the first date you can book is {min}.",
+      "range_max": "That is too far ahead: you can book until {max}.",
+      "max_active_bookings": "You already have {limit} active bookings, the most your role allows.",
+      "must_select_fewer": "You can make {remaining} more booking(s); select fewer slots.",
+      "already_cancelled": "This booking is already cancelled.",
+      "not_cancelable": "You may not cancel this booking (it has started, or it is someone else's).",
+      "not_editable": "You may not edit this booking.",
+      "edit_field": "You may not change that part of the booking.",
+      "cancelled": "A cancelled booking cannot be edited.",
+      "scope": "Only recurring bookings can change later dates.",
+      "none_created": "None of the dates could be booked.",
+      "no_recurring_dates": "There are no dates to repeat this booking on.",
+      "recurring_dates": "The end date is before the start date.",
+      "slots_unavailable": "Some slots cannot be booked, so nothing was booked.",
+      "none_selected": "Select at least one slot.",
+      "user": "That person was not found or is disabled.",
+      "department": "That department was not found.",
+      "not_found": "Not found.",
+      "maintenance": "Bookings are in maintenance.",
+      "maintenance_with": "Bookings are in maintenance: {message}",
+      "validation": "Please check the form: {message}",
+      "forbidden": "You do not have permission for this.",
+      "offline": "The server cannot be reached. Check your connection.",
+      "generic": "Something went wrong: {message}"
+    },
+    "nav": {
+      "bookings": "Bookings",
+      "myBookings": "My bookings",
+      "admin": "Setup"
+    },
+    "admin": {
+      "title": "Setup",
+      "lead": "Everything classroom bookings need, in the order a new term needs it.",
+      "group": {
+        "people": "People",
+        "rooms": "Rooms",
+        "calendar": "Calendar",
+        "organisation": "Organisation"
+      },
+      "noAccessTitle": "You do not have access to this page",
+      "noAccessBody": "Your role does not include the permission this setup screen needs. Ask an administrator if you think it should.",
+      "users": {
+        "title": "Users",
+        "lead": "Accounts, roles, departments, limits and CSV import"
+      },
+      "roles": {
+        "title": "Roles",
+        "lead": "Permission sets and booking limits"
+      },
+      "departments": {
+        "title": "Departments",
+        "lead": "The units staff belong to (the planning lists' programmes)"
+      },
+      "rooms": {
+        "title": "Rooms",
+        "lead": "Room groups and order, room details, custom fields, access"
+      },
+      "access": {
+        "title": "Access checker",
+        "lead": "What one person may do in one room, and why"
+      },
+      "sessions": {
+        "title": "Sessions",
+        "lead": "Which terms are bookable, schedules per room group, timetable weeks per date"
+      },
+      "holidays": {
+        "title": "Holidays",
+        "lead": "Dates closed for bookings; recurring series skip them"
+      },
+      "schedules": {
+        "title": "Schedules",
+        "lead": "Periods people can book, on the university's 18-period grid"
+      },
+      "weeks": {
+        "title": "Timetable weeks",
+        "lead": "Rotating weeks (A/B) and their colours"
+      },
+      "settings": {
+        "title": "Organisation",
+        "lead": "Name, logo, time zone, dates, login message, maintenance, languages"
+      },
+      "ldap": {
+        "title": "Sign-in (LDAP)",
+        "lead": "Directory sign-in with a local fallback"
+      },
+      "email": {
+        "title": "E-mail",
+        "lead": "SMTP server and the notification outbox"
+      }
+    }
+  },
   "glass": {
     "shell": {
       "then": "then",
@@ -1063,7 +1425,16 @@
       "must": "Must",
       "try": "Try to",
       "off": "off",
-      "moreFixes": "{n} more options"
+      "moreFixes": "{n} more options",
+      "stepLoading": "Reading classes, rooms and rules",
+      "stepBuilding": "Building the model",
+      "stepSolving": "Finding rooms",
+      "stepSaving": "Saving the timetable",
+      "subPhase": "solver step: {phase}",
+      "taskDone": "Done",
+      "taskFailed": "Failed",
+      "taskRunning": "In progress",
+      "taskPending": "Waiting"
     },
     "settings": {
       "keyOkModel": "Key works · {model}",

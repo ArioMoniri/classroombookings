@@ -6,9 +6,12 @@ sent is trusted. Edits change term data (they affect every later run), which is 
 ever applied after the planner accepted them.
 
 Semantics
-* ``exclude``: every meeting request of the section stops needing a room (``needs_room = False``);
-  the section, its requests and past runs are kept, so ``include`` restores it.
-* ``include``: ``needs_room = True`` on the section's (non-archived) meeting requests.
+* ``exclude`` / ``include`` with ``draft_user_id`` (the review / upload accept paths, review MINOR 6):
+  the section's meeting requests are left out of / put back into **that user's studio draft** only
+  (``excluded_event_ids``); the term data is untouched.
+* ``exclude`` without a draft (chat edits, which re-solve a child run of the term data): every meeting
+  request of the section stops needing a room (``needs_room = False``); ``include`` restores it.
+* Term-wide changes capture the imported snapshot first (studio "revert" restores them).
 * ``set_field``: ``enrolment`` / ``mode`` on the section (remote modes ONLINE/UZEM/ASYNC also set
   ``needs_room = False``, face-to-face modes set it back to ``True``); ``day`` / periods on the
   section's single meeting request (sections with several meetings must be moved per assignment);
@@ -42,10 +45,56 @@ def blocking_issues(edit: ProposedSectionEdit) -> list[str]:
     return issues
 
 
+async def _user_draft(session: AsyncSession, term_id: int, user_id: int) -> Any:
+    from app.models import StudioDraft
+
+    draft = (
+        await session.execute(
+            select(StudioDraft).where(
+                StudioDraft.term_id == term_id, StudioDraft.user_id == user_id, StudioDraft.kind == "COURSE"
+            )
+        )
+    ).scalar_one_or_none()
+    if draft is None:
+        draft = StudioDraft(
+            term_id=term_id, user_id=user_id, kind="COURSE", version=1, horizon="TERM", horizon_params={},
+            excluded_event_ids=[], pins=[], disabled_rule_ids=[], rule_overrides={}, params={},
+        )  # fmt: skip
+        session.add(draft)
+        await session.flush()
+    return draft
+
+
+async def _snapshot(session: AsyncSession, sections: list[Section]) -> None:
+    """Imported snapshot of every touched class before a term-wide change (revert / audit)."""
+    from app.models import MeetingRequest
+    from app.services import studio_classes as sc
+
+    ids = [m.id for s in sections for m in s.meeting_requests if not m.archived]
+    if not ids:
+        return
+    meetings = list(
+        (
+            await session.execute(
+                select(MeetingRequest).where(MeetingRequest.id.in_(ids)).options(selectinload(MeetingRequest.section))
+            )
+        ).scalars()
+    )
+    snaps = await sc.load_snapshots(session, meetings)
+    for m in meetings:
+        await sc.ensure_snapshots(session, m, snaps)
+
+
 async def apply_section_edits(
-    session: AsyncSession, term_id: int, edits: list[ProposedSectionEdit], *, commit: bool = True
+    session: AsyncSession,
+    term_id: int,
+    edits: list[ProposedSectionEdit],
+    *,
+    commit: bool = True,
+    draft_user_id: int | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Apply accepted edits; returns ``(applied, rejected)`` with per-edit details."""
+    """Apply accepted edits; returns ``(applied, rejected)`` with per-edit details. With
+    ``draft_user_id``, include / exclude only change that user's studio draft (see module doc)."""
     applied: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     for i, edit in enumerate(edits):
@@ -81,9 +130,28 @@ async def apply_section_edits(
             rejected.append({"index": i, "op": edit.op, "issues": issues})
             continue
         changed: list[str] = []
+        draft = None
+        if edit.op in ("include", "exclude") and draft_user_id is not None:
+            draft = await _user_draft(session, term_id, draft_user_id)
+        else:
+            await _snapshot(session, sections)
         for s in sections:
             active = [m for m in s.meeting_requests if not m.archived]
             label = f"{s.course.display_code}{' §' + s.label if s.label else ''}"
+            if edit.op in ("include", "exclude") and draft is not None:
+                ids = {m.id for m in active}
+                cur = [int(x) for x in draft.excluded_event_ids or []]
+                new = (
+                    [x for x in cur if x not in ids]
+                    if edit.op == "include"
+                    else list(dict.fromkeys([*cur, *sorted(ids)]))
+                )
+                if new != cur:
+                    draft.excluded_event_ids = new
+                    draft.version = int(draft.version) + 1
+                    draft.last_precheck = None
+                changed.append(f"{label}: {'included in' if edit.op == 'include' else 'left out of'} your draft")
+                continue
             if edit.op in ("include", "exclude"):
                 for m in active:
                     m.needs_room = edit.op == "include"

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { TaskRows, type TaskRow } from "@/components/ui/beautifului/task-rows";
 import { Progress, ProgressIndicator, ProgressTrack } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -54,6 +55,39 @@ function Verdict({ r, headline }: { r: ScheduleRun; headline?: string }) {
       <XOctagon className="mt-0.5 size-5 shrink-0 stroke-[2]" aria-hidden />
       <span>{t("glass.report.noTimetable")}</span>
     </p>
+  );
+}
+
+/** Solve pipeline from the worker's real phases (loading 5 % → building 15 % → solving 20–90 % → persisting 92 %). */
+function useSolveSteps(r: ScheduleRun): TaskRow[] {
+  const { t } = useI18n();
+  const p = r.status === "QUEUED" ? -1 : r.progress;
+  const phase = typeof r.stats.phase === "string" ? r.stats.phase : "";
+  const steps: { key: string; label: string; from: number; to: number }[] = [
+    { key: "loading", label: t("glass.report.stepLoading"), from: 0, to: 15 },
+    { key: "building", label: t("glass.report.stepBuilding"), from: 15, to: 20 },
+    { key: "solving", label: t("glass.report.stepSolving"), from: 20, to: 92 },
+    { key: "persisting", label: t("glass.report.stepSaving"), from: 92, to: 100 },
+  ];
+  return steps.map((s, i) => ({
+    key: s.key,
+    step: i + 1,
+    label: s.label,
+    status: p >= s.to ? "done" : p >= s.from ? "running" : "pending",
+    meta: s.key === "solving" && p >= s.from && p < s.to && phase && !["solving", "building", "loading"].includes(phase) ? t("glass.report.subPhase", { phase: phase.replace(/_/g, " ") }) : undefined,
+  }));
+}
+
+function SolveProgress({ r }: { r: ScheduleRun }) {
+  const { t } = useI18n();
+  const rows = useSolveSteps(r);
+  return (
+    <TaskRows
+      variant="list"
+      rows={rows}
+      labels={{ completed: t("glass.report.taskDone"), failed: t("glass.report.taskFailed"), retry: t("common.retry"), running: t("glass.report.taskRunning"), pending: t("glass.report.taskPending") }}
+      className="mt-4"
+    />
   );
 }
 
@@ -140,6 +174,7 @@ export function RunView({ id }: { id: number }) {
               <ProgressIndicator />
             </ProgressTrack>
           </Progress>
+          <SolveProgress r={r} />
           <p className="mt-3 text-[12px] text-label-3">{t("glass.report.solverInfo", { s: r.params.time_limit_s })}</p>
         </GlassPanel>
       ) : (

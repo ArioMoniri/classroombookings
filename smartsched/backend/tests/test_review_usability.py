@@ -166,3 +166,23 @@ async def test_u5_u6_final_term_scope_and_codes(client):
     events, requests = sm["counts"]["events"], sm["counts"]["classes_in"]
     assert f"{events:,}".replace(",", ".") + " sınavı" in sm["human_summary"]["tr"] and events < requests
     assert any(w["code"] == "exams_outside_term" for w in sm["warnings"])  # the 13 May exams are reported
+
+
+async def test_default_term_is_todays_term_not_the_last_imported(client, monkeypatch):
+    from datetime import date
+
+    from app.services import terms as terms_svc
+
+    from tests.api_fixtures import login
+
+    h = await login(client)
+    for code, start, weeks in (("2026-BAHAR", "2026-02-02", 14), ("2026-FINAL", "2026-06-01", 3), ("2026-2027-GUZ", "2026-09-28", 14)):
+        r = await client.post("/api/v1/terms", json={"code": code, "start_date": start, "week_count": weeks}, headers=h)
+        assert r.status_code == 201, r.text
+    for today, want in ((date(2026, 3, 10), "2026-BAHAR"), (date(2026, 6, 3), "2026-FINAL"), (date(2026, 10, 8), "2026-2027-GUZ"), (date(2026, 5, 20), "2026-FINAL")):
+        monkeypatch.setattr(terms_svc, "today", lambda d=today: d)
+        listed = (await client.get("/api/v1/terms", headers=h)).json()
+        assert listed[0]["code"] == want and listed[0]["is_current"], (today, [t["code"] for t in listed])
+        assert sum(t["is_current"] for t in listed) == 1
+        assert (await client.get("/api/v1/terms/current", headers=h)).json()["code"] == want
+        assert (await client.get("/api/v1/dashboard", headers=h)).json()["term"]["code"] == want

@@ -469,7 +469,7 @@ async def accept(session: AsyncSession, term_id: int, body: Any, user: User) -> 
             params = dict(row.params)
             row.source_ref = params.pop("_source_ref")
             row.params = params
-    applied, rejected_edits = await apply_section_edits(session, term_id, edits, commit=False)
+    applied, rejected_edits = await apply_section_edits(session, term_id, edits, commit=False, draft_user_id=user.id)
     await session.commit()
     return {
         "created": created,

@@ -904,6 +904,368 @@
     "notFound": "Derslik bulunamadı.",
     "utilisationHint": "Ders veya önceden dolu ders saatleri"
   },
+  "crbs": {
+    "common": {
+      "cancel": "Vazgeç",
+      "loading": "Yükleniyor…",
+      "save": "Kaydet",
+      "yes": "Evet",
+      "no": "Hayır",
+      "delete": "Sil",
+      "edit": "Düzenle",
+      "add": "Ekle",
+      "create": "Oluştur",
+      "close": "Kapat",
+      "saved": "Kaydedildi",
+      "none": "Yok",
+      "search": "Ara",
+      "unlimited": "Sınırsız",
+      "actions": "İşlemler",
+      "name": "Ad",
+      "description": "Açıklama",
+      "deleted": "Silindi",
+      "back": "Geri"
+    },
+    "bookings": {
+      "title": "Rezervasyonlar"
+    },
+    "toolbar": {
+      "label": "Rezervasyon tablosu denetimleri",
+      "display": "Görünüm",
+      "byDay": "Güne göre",
+      "byRoom": "Salona göre",
+      "prevDay": "Önceki gün",
+      "nextDay": "Sonraki gün",
+      "prevWeek": "Önceki hafta",
+      "nextWeek": "Sonraki hafta",
+      "today": "Bugün",
+      "room": "Salon",
+      "session": "Dönem",
+      "groups": "Salon grupları",
+      "multi": "Çoklu seçim"
+    },
+    "grid": {
+      "label": "Rezerve edilebilir saatler",
+      "room": "Salon",
+      "day": "Gün",
+      "period": "Ders saati",
+      "seats": "{n} kişilik",
+      "termWeek": "{n}. hafta",
+      "ungrouped": "Diğer salonlar"
+    },
+    "slot": {
+      "booked": "Rezerve",
+      "mine": "Siz",
+      "free": "boş",
+      "selectable": "boş, seçmek için basın",
+      "selected": "seçildi",
+      "notBookable": "Rezerve edilemez",
+      "timetableInfo": "{room} {period} yayımlanmış ders programında {label} dersine ayrılmış. Ders programındaki saatler rezerve edilemez.",
+      "reason": {
+        "holiday": "Tatil: {name}",
+        "period": "Bu ders saati bu gün yok",
+        "limit": "Rezervasyon sınırınıza ulaştınız",
+        "permissions": "Bu salonu rezerve etme izniniz yok",
+        "range_min": "Çok yakın: rezervasyonun daha önceden yapılması gerekiyor",
+        "range_max": "Rezervasyon aralığınızın dışında, çok ileri bir tarih",
+        "date_range": "Dönem dışında",
+        "no_week": "Bu tarihin ders haftası tanımlı değil",
+        "timetable": "Yayımlanmış ders programında",
+        "block": "Ayrılmış blok",
+        "unavailable": "Uygun değil"
+      }
+    },
+    "legend": {
+      "label": "Açıklama",
+      "available": "Boş",
+      "mine": "Sizin rezervasyonunuz",
+      "single": "Tek seferlik rezervasyon",
+      "recurring": "Tekrarlayan rezervasyon",
+      "timetable": "Ders programı",
+      "holiday": "Tatil",
+      "unavailable": "Rezerve edilemez"
+    },
+    "limits": {
+      "pill": "{max} rezervasyondan {remaining} hakkınız kaldı",
+      "remaining": "{n} rezervasyon hakkınız kaldı"
+    },
+    "maintenance": {
+      "title": "Rezervasyonlar bakımda",
+      "default": "Bir yönetici rezervasyonları bakım için durdurdu. Lütfen daha sonra tekrar deneyin.",
+      "bypassTitle": "Bakım modu açık",
+      "bypass": "Diğer kullanıcılar şu anda rezervasyon yapamıyor; rolünüz bakım modunu aştığı için siz yapabilirsiniz."
+    },
+    "problems": {
+      "noScheduleTitle": "Bu dönem için ders saati yok",
+      "noSchedule": "Dönemin ders saatleri tanımlı olmadığı için rezerve edilecek saat yok.",
+      "noRoomsTitle": "Gösterilecek salon yok",
+      "noRooms": "Size açık rezerve edilebilir salon yok. Bir salon grubuna ait olmayan salonlar, yönetici göstermedikçe gizlidir.",
+      "fix": "Ayarları aç"
+    },
+    "picker": {
+      "label": "Tarih seçin",
+      "prevMonth": "Önceki ay",
+      "nextMonth": "Sonraki ay",
+      "week": "{name} haftası",
+      "holiday": "tatil: {name}",
+      "closed": "rezervasyona kapalı",
+      "holidayLegend": "Tatil"
+    },
+    "book": {
+      "kind": "Rezervasyon türü",
+      "single": "Tek seferlik",
+      "recurring": "Her hafta",
+      "notes": "Not",
+      "notesHint": "{n} karakter kaldı",
+      "notesPlaceholder": "ör. tez savunması, bölüm toplantısı",
+      "department": "Bölüm",
+      "departmentMine": "Kendi bölümüm",
+      "departmentNone": "Bölüm yok",
+      "user": "Kimin adına",
+      "userHint": "Başkası adına yapılan rezervasyon, SMTP tanımlıysa ilgiliye e-postayla bildirilir.",
+      "userMe": "Kendim",
+      "userNone": "Kimse (salon ayırma)",
+      "submit": "Bu saati rezerve et",
+      "done": "{room}, {date} {period} için rezerve edildi"
+    },
+    "recur": {
+      "range": "Tekrar",
+      "start": "Başlangıç",
+      "startThis": "Bu tarihten ({date})",
+      "startSession": "Dönem başından",
+      "custom": "Tarih seçin…",
+      "startDate": "Başlangıç tarihi",
+      "end": "Bitiş",
+      "endSession": "Dönem sonuna kadar ({date})",
+      "endDate": "Bitiş tarihi",
+      "preview": "Tarihleri göster",
+      "refresh": "Yeniden denetle",
+      "summary": "{create} rezerve edilecek · {skip} atlanacak · {holidays} tatil",
+      "bookAll": "Boşların hepsi",
+      "skipAll": "Hiçbiri",
+      "limit": "Rolünüz bir seride en çok {max} tarihe izin veriyor.",
+      "overLimit": "Yalnızca ilk {max} tarih rezerve edilecek; seçilen {cut} tarih sınırı aşıyor.",
+      "termWeek": "{n}. hafta",
+      "cut": "sınırın üstünde",
+      "actionFor": "{date} için işlem",
+      "action": {
+        "book": "Rezerve et",
+        "skip": "Atla",
+        "replace": "Yerine geç"
+      },
+      "status": {
+        "free": "Boş",
+        "booked": "Dolu",
+        "timetable": "Ders programında",
+        "block": "Ayrılmış blok",
+        "holiday": "Tatil"
+      },
+      "skippedHoliday": "Atlanır",
+      "submit": "{n} tarihi rezerve et",
+      "done": "{created} tarih rezerve edildi, {skipped} tarih atlandı"
+    },
+    "detail": {
+      "title": "Rezervasyon",
+      "cancelled": "Bu rezervasyon iptal edildi",
+      "reason": "Gerekçe: {reason}",
+      "type": "Tür",
+      "user": "Rezerve eden",
+      "userHidden": "Gizli",
+      "noUser": "Kimse",
+      "notesHidden": "Gizli",
+      "room": "Salon",
+      "owner": "sorumlu {name}",
+      "series": "Seri",
+      "showSeries": "Serinin tüm tarihlerini göster",
+      "hideSeries": "Seriyi gizle",
+      "edit": "Düzenle",
+      "cancel": "Rezervasyonu iptal et",
+      "saved": "{n} rezervasyon güncellendi"
+    },
+    "edit": {
+      "date": "Tarih",
+      "period": "Ders saati",
+      "room": "Salon",
+      "scopeHint": "Tarih, saat ve salon yalnızca bu tarih için değiştirilebilir."
+    },
+    "scope": {
+      "label": "Uygulanacak",
+      "one": "Bu tarih",
+      "future": "Bu ve sonrakiler",
+      "all": "Tüm seri"
+    },
+    "cancel": {
+      "title": "Rezervasyon iptal edilsin mi?",
+      "body": "{room}, {date}, {period}",
+      "confirm": "İptal et",
+      "reason": "Gerekçe",
+      "reasonHint": "Rezervasyonla birlikte saklanır ve rezervasyon sahibine gösterilir.",
+      "done": "{n} rezervasyon iptal edildi"
+    },
+    "status": {
+      "booked": "Rezerve",
+      "cancelled": "İptal edildi"
+    },
+    "multi": {
+      "tray": "Seçilen saatler",
+      "selected": "{n} saat seçildi",
+      "clear": "Temizle",
+      "book": "Seçilenleri rezerve et",
+      "title": "{n} saati rezerve et",
+      "allOrNothing": "Hepsi birden rezerve edilir ya da hiçbiri: bu arada bir saat dolarsa hiçbir rezervasyon yapılmaz.",
+      "blocked": "Olmaz",
+      "notesHint": "Aynı not tüm rezervasyonlara yazılır.",
+      "problems": "{n} saat rezerve edilemiyor, bu yüzden hiçbiri rezerve edilmeyecek:",
+      "ready": "Engel yok: {n} rezervasyon oluşturulacak.",
+      "check": "Denetle",
+      "confirm": "{n} rezervasyonun hepsini yap",
+      "done": "{n} rezervasyon oluşturuldu"
+    },
+    "mine": {
+      "title": "Rezervasyonlarım",
+      "totals": "{active} etkin · bu dönem {session} · toplam {all}",
+      "limit": "sınır {n}",
+      "filter": "Göster",
+      "upcoming": "Yaklaşan",
+      "past": "Geçmiş",
+      "cancelled": "İptal edilen",
+      "cancelSelected": "{n} rezervasyonu iptal et",
+      "emptyUpcoming": "Yaklaşan rezervasyonunuz yok. Rezervasyonlar sayfasından boş bir saat seçin.",
+      "empty": "Burada bir şey yok.",
+      "select": "{date} {room} rezervasyonunu seç",
+      "ownedRooms": "Sorumlu olduğunuz salonlardaki rezervasyonlar",
+      "upcomingCount": "{n} yaklaşan",
+      "ownedEmpty": "Başkalarının yaklaşan rezervasyonu yok.",
+      "cancelManyTitle": "{n} rezervasyon iptal edilsin mi?",
+      "cancelManyBody": "Artık iptal edilemeyenler (başlamış olanlar) olduğu gibi bırakılır.",
+      "cancelManyDone": "{n} iptal edildi, {skipped} olduğu gibi kaldı"
+    },
+    "feed": {
+      "title": "Takvim aboneliği",
+      "lead": "Rezervasyonlarınızı diğer etkinliklerinizin yanında görmek için Outlook, Google Takvim veya Apple Takvim'de abone olun.",
+      "issue": "Abonelik bağlantısı oluştur",
+      "rotate": "Yeni bağlantı oluştur",
+      "rotateTitle": "Abonelik bağlantısı yenilensin mi?",
+      "warning": "Bağlantıya sahip herkes rezervasyonlarınızı görebilir. Yeni bağlantı eskisini geçersiz kılar.",
+      "url": "Abonelik bağlantısı",
+      "copy": "Bağlantıyı kopyala",
+      "copied": "Bağlantı kopyalandı"
+    },
+    "export": {
+      "title": "Rezervasyonları dışa aktar",
+      "session": "Dönem",
+      "group": "Salon grubu",
+      "allGroups": "Tüm gruplar",
+      "includeCancelled": "İptal edilenleri de ekle",
+      "download": "CSV indir",
+      "hint": "UTF-8 (BOM'lu); Excel Türkçe karakterleri doğru gösterir."
+    },
+    "errors": {
+      "conflict_timetable": "{room}, {date} {periods}: yayımlanmış ders programında {label} dersi var; bu saat rezerve edilemez.",
+      "conflict_block": "{room}, {date} {periods}: ayrılmış blok ({label}); rezerve edilemez.",
+      "conflict_booking": "{room}, {date} {periods} zaten rezerve edilmiş.",
+      "conflict_race": "Bu saat az önce başkası tarafından rezerve edildi. Tablo yenilendi.",
+      "room_not_found": "Bu salon size açık değil.",
+      "room_not_bookable": "Bu salon rezerve edilemez.",
+      "no_single": "Bu salonda rezervasyon yapma izniniz yok.",
+      "no_recur": "Bu salonda tekrarlayan rezervasyon yapma izniniz yok.",
+      "set_user": "Başkası adına rezervasyon yapma izniniz yok.",
+      "set_department": "Bölüm seçme izniniz yok.",
+      "holiday": "O tarih tatil.",
+      "no_week": "O tarihin ders haftası olmadığından rezervasyona kapalı.",
+      "date_range": "O tarih dönem dışında.",
+      "calendar": "Bu tarih ya da saat rezerve edilemez ({message}).",
+      "range_min": "Rezervasyon daha önceden yapılmalı: rezerve edebileceğiniz en erken tarih {min}.",
+      "range_max": "Bu tarih çok ileride: en geç {max} tarihine kadar rezervasyon yapabilirsiniz.",
+      "max_active_bookings": "Zaten {limit} etkin rezervasyonunuz var; rolünüzün izin verdiği en fazla sayı bu.",
+      "must_select_fewer": "{remaining} rezervasyon hakkınız kaldı; daha az saat seçin.",
+      "already_cancelled": "Bu rezervasyon zaten iptal edilmiş.",
+      "not_cancelable": "Bu rezervasyonu iptal edemezsiniz (başlamış ya da başkasına ait).",
+      "not_editable": "Bu rezervasyonu düzenleyemezsiniz.",
+      "edit_field": "Rezervasyonun bu kısmını değiştiremezsiniz.",
+      "cancelled": "İptal edilmiş rezervasyon düzenlenemez.",
+      "scope": "Sonraki tarihler yalnızca tekrarlayan rezervasyonlarda değiştirilebilir.",
+      "none_created": "Tarihlerin hiçbiri rezerve edilemedi.",
+      "no_recurring_dates": "Bu rezervasyonun tekrarlanacağı tarih yok.",
+      "recurring_dates": "Bitiş tarihi başlangıçtan önce.",
+      "slots_unavailable": "Bazı saatler rezerve edilemediği için hiçbiri rezerve edilmedi.",
+      "none_selected": "En az bir saat seçin.",
+      "user": "Kişi bulunamadı ya da hesabı kapalı.",
+      "department": "Bölüm bulunamadı.",
+      "not_found": "Bulunamadı.",
+      "maintenance": "Rezervasyonlar bakımda.",
+      "maintenance_with": "Rezervasyonlar bakımda: {message}",
+      "validation": "Lütfen formu denetleyin: {message}",
+      "forbidden": "Bunun için izniniz yok.",
+      "offline": "Sunucuya ulaşılamıyor. Bağlantınızı denetleyin.",
+      "generic": "Bir sorun oluştu: {message}"
+    },
+    "nav": {
+      "bookings": "Rezervasyonlar",
+      "myBookings": "Rezervasyonlarım",
+      "admin": "Kurulum"
+    },
+    "admin": {
+      "title": "Kurulum",
+      "lead": "Salon rezervasyonu için gereken her şey, yeni bir dönemin ihtiyaç duyduğu sırayla.",
+      "group": {
+        "people": "Kişiler",
+        "rooms": "Salonlar",
+        "calendar": "Takvim",
+        "organisation": "Kurum"
+      },
+      "noAccessTitle": "Bu sayfaya erişiminiz yok",
+      "noAccessBody": "Rolünüz bu kurulum ekranının gerektirdiği izni içermiyor. Gerekli olduğunu düşünüyorsanız bir yöneticiye başvurun.",
+      "users": {
+        "title": "Kullanıcılar",
+        "lead": "Hesaplar, roller, bölümler, sınırlar ve CSV ile içe aktarma"
+      },
+      "roles": {
+        "title": "Roller",
+        "lead": "İzin setleri ve rezervasyon sınırları"
+      },
+      "departments": {
+        "title": "Bölümler",
+        "lead": "Personelin bağlı olduğu birimler (planlama listelerindeki programlar)"
+      },
+      "rooms": {
+        "title": "Salonlar",
+        "lead": "Salon grupları ve sırası, salon bilgileri, özel alanlar, erişim"
+      },
+      "access": {
+        "title": "Erişim denetimi",
+        "lead": "Bir kişinin bir salonda neler yapabileceği ve nedeni"
+      },
+      "sessions": {
+        "title": "Dönemler",
+        "lead": "Hangi dönemlerin rezerve edilebileceği, salon grubuna göre ders saatleri, tarihlere göre ders haftaları"
+      },
+      "holidays": {
+        "title": "Tatiller",
+        "lead": "Rezervasyona kapalı tarihler; tekrarlayan seriler bunları atlar"
+      },
+      "schedules": {
+        "title": "Ders saatleri",
+        "lead": "Rezerve edilebilecek saatler, üniversitenin 18 ders saatlik çizelgesinde"
+      },
+      "weeks": {
+        "title": "Ders haftaları",
+        "lead": "Dönüşümlü haftalar (A/B) ve renkleri"
+      },
+      "settings": {
+        "title": "Kurum ayarları",
+        "lead": "Ad, logo, saat dilimi, tarih biçimi, giriş mesajı, bakım, diller"
+      },
+      "ldap": {
+        "title": "Oturum açma (LDAP)",
+        "lead": "Yerel yedekli dizin ile oturum açma"
+      },
+      "email": {
+        "title": "E-posta",
+        "lead": "SMTP sunucusu ve bildirim kutusu"
+      }
+    }
+  },
   "glass": {
     "shell": {
       "then": "sonra",
@@ -1063,7 +1425,16 @@
       "must": "Zorunlu",
       "try": "Mümkünse",
       "off": "kapalı",
-      "moreFixes": "{n} seçenek daha"
+      "moreFixes": "{n} seçenek daha",
+      "stepLoading": "Dersler, derslikler ve kurallar okunuyor",
+      "stepBuilding": "Model kuruluyor",
+      "stepSolving": "Derslikler aranıyor",
+      "stepSaving": "Çizelge kaydediliyor",
+      "subPhase": "çözücü adımı: {phase}",
+      "taskDone": "Bitti",
+      "taskFailed": "Başarısız",
+      "taskRunning": "Sürüyor",
+      "taskPending": "Bekliyor"
     },
     "settings": {
       "keyOkModel": "Anahtar çalışıyor · {model}",

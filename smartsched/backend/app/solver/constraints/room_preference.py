@@ -1,7 +1,8 @@
 """``room_preference``: ordered list of preferred rooms.
 
 Penalty units = rank of the chosen room in the list (0 for the first choice), or ``len(list)``
-when the room is not listed.  Implicit from ``Event.preferred_room_ids``; targeted form
+when the room is not listed; a multi-room event uses its first ``max_rooms`` listed rooms for free
+(see :func:`units`).  Implicit from ``Event.preferred_room_ids``; targeted form
 ``{"event_ids"/..., "room_ids": [ordered]}``; hard + targeted = restrict to the list.
 """
 
