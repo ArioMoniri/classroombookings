@@ -179,12 +179,35 @@ def horizon_weeks(run: ScheduleRun, term: Term) -> list[int]:
     return list(range(1, (term.week_count or 14) + 1))
 
 
+_LEADING_ZEROS = re.compile(r"(?<=[A-Za-zİıŞşĞğÜüÖöÇç ])0+(?=\d)")
+
+
 def _course_code(label: str) -> str:
-    """``"MAT 112 §1 + ..."`` -> ``"MAT 112"`` (the course of a course event label)."""
-    return " ".join(label.split("§", 1)[0].split()).upper()
+    """``"MAT 112 §1 + ..."`` -> ``"MAT 112"`` (the course of a course event label); leading zeros of the
+    number are dropped (``SYS 018`` = ``SYS 18``, orchestrator R1)."""
+    code = " ".join(label.split("§", 1)[0].split("+", 1)[0].split()).upper()
+    return _LEADING_ZEROS.sub("", code)
 
 
-def _joinable(a: sm.Event, b: sm.Event, planner_locked: set[int] | frozenset[int] = frozenset()) -> bool:
+def _section(label: str) -> str:
+    """``"MAT 112 §01"`` -> ``"1"`` (no section: ``""``)."""
+    part = label.split("+", 1)[0]
+    return part.split("§", 1)[1].strip().lstrip("0") if "§" in part else ""
+
+
+def _planner_set(e: sm.Event, planner_sets: dict[int, list[int]] | None) -> set[int]:
+    """The planner's room set of an event: its lock, else (definitive rooms as hints) its definitive set."""
+    if e.locked is not None:
+        return set(e.locked.room_ids)
+    return set((planner_sets or {}).get(e.id, ()))
+
+
+def _joinable(
+    a: sm.Event,
+    b: sm.Event,
+    planner_locked: set[int] | frozenset[int] = frozenset(),
+    planner_sets: dict[int, list[int]] | None = None,
+) -> bool:
     """Two fixed-time course requests are one physical lecture at the same day/periods in overlapping weeks
     when the planner locked both to the same room set, or — neither of them locked by the planner — they
     are the same course with a shared instructor (``FIZ 111 §1`` listed once per programme).  A shared
@@ -195,8 +218,8 @@ def _joinable(a: sm.Event, b: sm.Event, planner_locked: set[int] | frozenset[int
         return False
     if not a.weeks & b.weeks:
         return False
-    ra = set(a.locked.room_ids) if a.locked else set()
-    rb = set(b.locked.room_ids) if b.locked else set()
+    ra = _planner_set(a, planner_sets)
+    rb = _planner_set(b, planner_sets)
     if ra or rb:
         return bool(ra) and ra == rb  # the planner's own decision: the same rooms at the same time
     if a.id in planner_locked or b.id in planner_locked:
@@ -208,13 +231,25 @@ def _base_label(label: str) -> str:
     return " ".join(label.split())
 
 
-def _same_locked_lecture(a: sm.Event, b: sm.Event) -> bool:
-    if a.locked is None or b.locked is None or not a.weeks & b.weeks:
+def _slot_of(e: sm.Event) -> tuple[int, int, int] | None:
+    if e.locked is not None:
+        return e.locked.day, e.locked.start, e.locked.end
+    if e.fixed_day is None or e.fixed_start is None:
+        return None
+    return e.fixed_day, e.fixed_start, e.fixed_start + e.duration - 1
+
+
+def _same_locked_lecture(a: sm.Event, b: sm.Event, planner_sets: dict[int, list[int]] | None = None) -> bool:
+    """The planner put two rows into the same room set at overlapping times: one lecture listed twice when
+    both start together or it is the same course (``BME 528`` P8-10 and ``BME 528 §1`` P7-9 in B 204;
+    ``SYS 18`` / ``SYS 018 §1``).  With definitive rooms as hints the planner's sets count the same way."""
+    ra, rb = _planner_set(a, planner_sets), _planner_set(b, planner_sets)
+    sa, sb = _slot_of(a), _slot_of(b)
+    if not ra or ra != rb or sa is None or sb is None or not a.weeks & b.weeks:
         return False
-    la, lb = a.locked, b.locked
-    if la.day != lb.day or set(la.room_ids) != set(lb.room_ids) or la.start > lb.end or lb.start > la.end:
+    if sa[0] != sb[0] or sa[1] > sb[2] or sb[1] > sa[2]:
         return False
-    return la.start == lb.start or _base_label(a.label) == _base_label(b.label)
+    return sa[1] == sb[1] or _course_code(a.label) == _course_code(b.label)
 
 
 def merge_joint_lectures(
@@ -223,6 +258,7 @@ def merge_joint_lectures(
     room_capacity: dict[int, int] | None = None,
     hint_rooms: dict[int, list[int]] | None = None,
     planner_locked: set[int] | frozenset[int] = frozenset(),
+    planner_sets: dict[int, list[int]] | None = None,
 ) -> tuple[list[sm.Event], list[dict[str, Any]]]:
     """Merge requests that describe one joint lecture (``FIZ 111 §1`` listed once per programme, two rows
     the planner locked into one room at one time) into one solver event.
@@ -252,19 +288,21 @@ def merge_joint_lectures(
     for idxs in by_slot.values():
         for x in range(len(idxs)):
             for y in range(x + 1, len(idxs)):
-                if _joinable(events[idxs[x]], events[idxs[y]], planner_locked):
+                if _joinable(events[idxs[x]], events[idxs[y]], planner_locked, planner_sets):
                     parent[find(idxs[x])] = find(idxs[y])
     # the planner locked two rows into the same room set at overlapping times: one lecture listed twice
     # when both start together (cross-listed MBG 408 / MBG 598 in A 207) or it is the same course and
     # section (CSE 102 §1 once per programme with slightly different times); the room holds the union
     by_rooms: dict[tuple[int, tuple[int, ...]], list[int]] = defaultdict(list)
     for i, e in enumerate(events):
-        if e.locked is not None and e.locked.room_ids and e.fixed_day is not None:
-            by_rooms[(e.locked.day, tuple(sorted(e.locked.room_ids)))].append(i)
+        rs = _planner_set(e, planner_sets)
+        slot = _slot_of(e)
+        if rs and slot is not None:
+            by_rooms[(slot[0], tuple(sorted(rs)))].append(i)
     for idxs in by_rooms.values():
         for x in range(len(idxs)):
             for y in range(x + 1, len(idxs)):
-                if _same_locked_lecture(events[idxs[x]], events[idxs[y]]):
+                if _same_locked_lecture(events[idxs[x]], events[idxs[y]], planner_sets):
                     parent[find(idxs[x])] = find(idxs[y])
     groups: dict[int, list[int]] = defaultdict(list)
     for i in range(len(events)):
@@ -483,7 +521,8 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     extra_weeks: set[int] = set()
     room_cap = {r.id: (r.exam_capacity if exam else r.capacity) for r in rooms}
     trust_hints = run_mode(params, "trust_locked_rooms") and bool(params.get("trust_definitive_capacity", True))
-    hint_sets: dict[int, list[int]] = {}  # prefer mode: request -> the planner's definitive rooms (hint)
+    hint_sets: dict[int, list[int]] = {}  # prefer mode + D1: request -> the planner's definitive rooms (hint)
+    planner_sets: dict[int, list[int]] = {}  # prefer mode: request -> the planner's definitive pooled rooms
     #: request id -> {"size", "source"}: fallback sizes of requests without an enrolment (review M1)
     fallbacks: dict[int, dict[str, Any]] = {}
     planner_locked: set[int] = set()  # LOCKED rows (definitive rooms in or outside the pool)
@@ -564,6 +603,8 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 size, source = sizes.size_for(sec.course_id, sec.program_id, _years(sec.class_years, sec.class_year))
                 fallbacks[mr.id] = {"size": size, "source": source}
             hint_rooms = 1
+            if is_locked and definitive_mode == "prefer" and definitive:
+                planner_sets[mr.id] = list(definitive)
             if is_locked and definitive_mode == "prefer":
                 preferred = list(dict.fromkeys([*definitive, *preferred]))
                 hint_rooms = max(1, len(definitive))  # the planner's room set may be used as a whole
@@ -601,7 +642,12 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             members[mr.id] = [mr.id]
         if run_mode(params, "merge_joint_lectures"):
             events, merged = merge_joint_lectures(
-                events, members, {r.id: r.capacity for r in rooms}, hint_sets, planner_locked
+                events,
+                members,
+                {r.id: r.capacity for r in rooms},
+                hint_sets,
+                planner_locked,
+                planner_sets if definitive_mode == "prefer" else None,
             )
             joint = [m for m in merged if "rejected" not in m]
             rejected = [m for m in merged if "rejected" in m]
@@ -1245,6 +1291,13 @@ async def persist_result(
     try:
         ctx = await text_context(session, run, diags, members)
         for d in diags:
+            if d.get("code") == "input_conflict" and len(d.get("event_ids") or []) == 2:
+                # the same course and section at one time: one lecture listed twice in the planner's list, not
+                # an instructor / cohort clash (orchestrator: label it as such)
+                ea, eb = (int(i) for i in d["event_ids"])
+                la, lb = ctx.labels.get(ea), ctx.labels.get(eb)
+                if la and lb and _course_code(la) == _course_code(lb) and _section(la) == _section(lb):
+                    d["params"] = {**(d.get("params") or {}), "same_lecture": True}
             d["text"] = planner_text(d, ctx)
     except Exception:  # noqa: BLE001 - texts are a convenience; the structured diagnosis is the truth
         log.exception("planner texts for run %s failed", run.id)

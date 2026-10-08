@@ -1,0 +1,90 @@
+{
+  "common": {
+    "day": "Dag",
+    "week": "Uge"
+  },
+  "requests": {
+    "weeks": "Uger"
+  },
+  "generate": {
+    "week": "Uge",
+    "month": "Måned"
+  },
+  "grid": {
+    "day": "Dag",
+    "week": "Uge"
+  },
+  "days": {
+    "1": "Mandag",
+    "2": "Tirsdag",
+    "3": "Onsdag",
+    "4": "Torsdag",
+    "5": "Fredag",
+    "6": "Lørdag",
+    "7": "Søndag"
+  },
+  "studio": {
+    "scope": {
+      "weeks": "Uger"
+    },
+    "classes": {
+      "col": {
+        "weeks": "Uger"
+      }
+    },
+    "mapping": {
+      "role": {
+        "day": "Dag"
+      }
+    },
+    "field": {
+      "days": "Dage",
+      "weeks": "Uger"
+    },
+    "summary": {
+      "weeks": "Uger"
+    }
+  },
+  "crbs": {
+    "grid": {
+      "day": "Dag"
+    },
+    "schedules": {
+      "days": "Dage"
+    },
+    "org": {
+      "col": {
+        "days": "Dage"
+      }
+    }
+  },
+  "calendar": {
+    "lens": {
+      "week": "Uge",
+      "day": "Dag",
+      "month": "Måned"
+    },
+    "board": {
+      "day": "Dag"
+    },
+    "sidebar": {
+      "miniMonth": "Måned"
+    },
+    "move": {
+      "day": "Dag"
+    },
+    "scrubber": "Uge"
+  },
+  "classes": {
+    "f": {
+      "day": "Dag"
+    },
+    "col": {
+      "weeks": "Uger"
+    }
+  },
+  "roomsV2": {
+    "week": "Uge",
+    "dayCol": "Dag"
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "common": {
+    "day": "Giorno",
+    "week": "Settimana"
+  },
+  "requests": {
+    "weeks": "Settimane"
+  },
+  "generate": {
+    "week": "Settimana",
+    "month": "Mese"
+  },
+  "grid": {
+    "day": "Giorno",
+    "week": "Settimana"
+  },
+  "days": {
+    "1": "Lunedì",
+    "2": "Martedì",
+    "3": "Mercoledì",
+    "4": "Giovedì",
+    "5": "Venerdì",
+    "6": "Sabato",
+    "7": "Domenica"
+  },
+  "studio": {
+    "scope": {
+      "weeks": "Settimane"
+    },
+    "classes": {
+      "col": {
+        "weeks": "Settimane"
+      }
+    },
+    "mapping": {
+      "role": {
+        "day": "Giorno"
+      }
+    },
+    "field": {
+      "days": "Giorni",
+      "weeks": "Settimane"
+    },
+    "summary": {
+      "weeks": "Settimane"
+    }
+  },
+  "crbs": {
+    "grid": {
+      "day": "Giorno"
+    },
+    "schedules": {
+      "days": "Giorni"
+    },
+    "org": {
+      "col": {
+        "days": "Giorni"
+      }
+    }
+  },
+  "calendar": {
+    "lens": {
+      "week": "Settimana",
+      "day": "Giorno",
+      "month": "Mese"
+    },
+    "board": {
+      "day": "Giorno"
+    },
+    "sidebar": {
+      "miniMonth": "Mese"
+    },
+    "move": {
+      "day": "Giorno"
+    },
+    "scrubber": "Settimana"
+  },
+  "classes": {
+    "f": {
+      "day": "Giorno"
+    },
+    "col": {
+      "weeks": "Settimane"
+    }
+  },
+  "roomsV2": {
+    "week": "Settimana",
+    "dayCol": "Giorno"
+  }
+}

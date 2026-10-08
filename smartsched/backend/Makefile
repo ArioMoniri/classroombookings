@@ -3,7 +3,7 @@
 PY ?= python3
 # app/solver + tests/solver are owned by the solver-engineer and gated separately (CI "Solver gate").
 # app/ai + tests/ai are part of this gate since the 2026-10-08 review (MINOR 13).
-EXCL = --exclude app/solver --exclude tests/solver --exclude tools/review
+EXCL = --exclude app/solver --exclude tests/solver
 
 check: lint type test
 
@@ -16,7 +16,7 @@ format:
 	ruff format app tests tools $(EXCL)
 
 type:
-	$(PY) -m mypy app/api app/ai app/importers app/services app/workers app/core app/solver/model.py app/solver/stub.py tools --exclude tools/review
+	$(PY) -m mypy app/api app/ai app/importers app/services app/workers app/core app/solver/model.py app/solver/stub.py tools
 
 # fast gate; the heaviest real-workbook tests (tests/conftest.py SLOW_TESTS) run in test-slow (CI runs both)
 test:

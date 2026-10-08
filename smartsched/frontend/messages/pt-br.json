@@ -1,0 +1,90 @@
+{
+  "common": {
+    "day": "Dia",
+    "week": "Semana"
+  },
+  "requests": {
+    "weeks": "Semanas"
+  },
+  "generate": {
+    "week": "Semana",
+    "month": "Mês"
+  },
+  "grid": {
+    "day": "Dia",
+    "week": "Semana"
+  },
+  "days": {
+    "1": "Segunda",
+    "2": "Terça",
+    "3": "Quarta",
+    "4": "Quinta",
+    "5": "Sexta",
+    "6": "Sábado",
+    "7": "Domingo"
+  },
+  "studio": {
+    "scope": {
+      "weeks": "Semanas"
+    },
+    "classes": {
+      "col": {
+        "weeks": "Semanas"
+      }
+    },
+    "mapping": {
+      "role": {
+        "day": "Dia"
+      }
+    },
+    "field": {
+      "days": "Dias",
+      "weeks": "Semanas"
+    },
+    "summary": {
+      "weeks": "Semanas"
+    }
+  },
+  "crbs": {
+    "grid": {
+      "day": "Dia"
+    },
+    "schedules": {
+      "days": "Dias"
+    },
+    "org": {
+      "col": {
+        "days": "Dias"
+      }
+    }
+  },
+  "calendar": {
+    "lens": {
+      "week": "Semana",
+      "day": "Dia",
+      "month": "Mês"
+    },
+    "board": {
+      "day": "Dia"
+    },
+    "sidebar": {
+      "miniMonth": "Mês"
+    },
+    "move": {
+      "day": "Dia"
+    },
+    "scrubber": "Semana"
+  },
+  "classes": {
+    "f": {
+      "day": "Dia"
+    },
+    "col": {
+      "weeks": "Semanas"
+    }
+  },
+  "roomsV2": {
+    "week": "Semana",
+    "dayCol": "Dia"
+  }
+}

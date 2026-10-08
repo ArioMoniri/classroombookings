@@ -117,9 +117,9 @@ def week_segment_groups(inp: SolverInput) -> list[list[int]]:
 
 
 def _relax_objective(ctx: ModelContext, inp: SolverInput) -> Any:
-    """Lexicographic: (1) requests not completely placed, (2) unplaced event-weeks of week-segmented
-    requests (a request that loses one week beats one that loses the term), (3) keep planner-locked
-    events placed (a locked event and a free one competing for a room: the free one gives way).
+    """Lexicographic: (1) requests not completely placed, (2) unplaced event-weeks of every request (a
+    request that loses one week beats one that loses the term), (3) keep planner-locked events placed (a
+    locked event and a free one competing for a room: the free one gives way).
     Without week segments this is the plain ``(L+1)·#unplaced + #unplaced locked``."""
     locked = {e.id for e in inp.events if e.locked is not None}
     weeks = {e.id: max(1, len(e.weeks)) for e in inp.events}
@@ -127,14 +127,17 @@ def _relax_objective(ctx: ModelContext, inp: SolverInput) -> Any:
     groups = [g for g in groups if len(g) > 1]
     segmented = {i for g in groups for i in g}
     tier3 = len(locked) + 1
-    tier2 = tier3 * (sum(weeks[i] for i in segmented) + 1)
+    # unplaced event-weeks count for *every* event: a request dropped for all 14 weeks costs 14 weeks, not
+    # fewer than one segment of another request (orchestrator R3: PHAR 114 §2 lost its lock for the term so
+    # that another request's 7-week segment could take the room)
+    tier2 = tier3 * (sum(weeks[i] for i in ctx.placed) + 1)
     terms: list[Any] = []
     for eid, p in ctx.placed.items():
         lock = 1 if eid in locked else 0
         if eid in segmented:
             terms.append((tier3 * weeks[eid] + lock) * (1 - p))
         else:
-            terms.append((tier2 + lock) * (1 - p))
+            terms.append((tier2 + tier3 * weeks[eid] + lock) * (1 - p))
     for n, g in enumerate(groups):
         full = ctx.new_bool(f"segments_placed_{n}")
         for i in g:

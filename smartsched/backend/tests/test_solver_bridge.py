@@ -313,7 +313,9 @@ def test_merged_joint_lecture_with_definitive_hints_uses_the_planners_seats():
     out, merged = merge_joint_lectures([ev(1, 120), ev(2, 116)], members, {10: 156, 11: 90}, {1: [10], 2: [10, 11]})
     assert len(out) == 1 and members == {1: [1, 2]}
     assert out[0].size == 236 and out[0].max_rooms == 2 and merged[0]["planner_rooms"] == [10, 11]
-    rooms = tuple(sm.Room(r, f"R{r}", c, c // 2, "A", frozenset()) for r, c in ((10, 156), (11, 90), (12, 60), (13, 300)))
+    rooms = tuple(
+        sm.Room(r, f"R{r}", c, c // 2, "A", frozenset()) for r, c in ((10, 156), (11, 90), (12, 60), (13, 300))
+    )
     clipped, cases = clip_to_planner_rooms(out, {1: [10, 11]}, {10: 156, 11: 90, 12: 60, 13: 300}, rooms)
     assert cases == [] and clipped[0].size == 236  # 246 seats suffice: nothing clipped
     out2, merged2 = merge_joint_lectures([ev(1, 120), ev(2, 116)], {1: [1], 2: [2]}, {10: 156}, {1: [10], 2: [10]})

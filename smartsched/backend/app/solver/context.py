@@ -221,7 +221,10 @@ class ModelContext:
             z = self.z[(eid, r)]
             sv = m.NewIntVar(0, max(0, caps[r]), f"seats_{eid}_{r}")
             m.Add(sv <= caps[r] * z)
-            m.Add(sv >= z)
+            if target >= max(1, event.max_rooms):
+                # at least one seat per used room; a size-0 (or tiny) exam would otherwise have no room set at
+                # all (orchestrator R2: size-0 Final exams stayed unplaced next to free rooms)
+                m.Add(sv >= z)
             self.seats[(eid, r)] = sv
             self.derive(sv, _eval_seats(event, r, self.rooms_by_id))
         total = sum(self.seats[(eid, r)] for r in rooms)

@@ -6,7 +6,7 @@
 //        [--engine ffmpeg|recordly|both|raw] [--out DIR] [--speed 1] [--headed] [--list]
 //
 // Env (all optional):
-//   REC_BASE_URL     app URL (default http://127.0.0.1:3500 = scripts/record/stack.sh)
+//   REC_BASE_URL     app URL (default http://127.0.0.1:3610 = scripts/record/stack.sh)
 //   REC_EMAIL / REC_PASSWORD                 admin/planner credentials (default: the stack's seeded admin)
 //   REC_TEACHER_EMAIL / REC_TEACHER_PASSWORD teacher credentials for teacher-booking
 //   REC_TERM_CODE    term the journeys use (default 2026-BAHAR)
@@ -63,7 +63,7 @@ if (!["ffmpeg", "recordly", "both", "raw"].includes(args.engine)) throw new Erro
 const journey = (await import(pathToFileURL(join(journeysDir, `${args.journey}.mjs`)).href)).default;
 const [vw, vh] = (env.REC_VIEWPORT ?? "1440x900").split("x").map(Number);
 const viewport = { width: vw, height: vh };
-const baseURL = env.REC_BASE_URL ?? "http://127.0.0.1:3500";
+const baseURL = env.REC_BASE_URL ?? "http://127.0.0.1:3610";
 const creds =
   journey.role === "teacher"
     ? { email: env.REC_TEACHER_EMAIL ?? "ogretmen@smartsched.local", password: env.REC_TEACHER_PASSWORD ?? "Teacher-2026!" }

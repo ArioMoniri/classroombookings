@@ -182,6 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--params", default="{}", help='extra run params as JSON, e.g. {"definitive_rooms": "prefer"}')
     ap.add_argument("--cache-dir", type=Path, help="keep the imported term databases here (reused when present)")
     ap.add_argument("--out", type=Path, help="append the JSON lines to this file")
+    ap.add_argument("--keep-db", type=Path, help="copy each solved run's database into this directory")
     args = ap.parse_args(argv)
     _env()
     params = json.loads(args.params)
@@ -202,6 +203,9 @@ def main(argv: list[str] | None = None) -> int:
                     work, name, time_limit=args.time_limit, workers=args.workers, seed=args.seed, params=params
                 )
             )
+            if args.keep_db:
+                args.keep_db.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(work, args.keep_db / f"{name}.db")
             line = json.dumps(res, ensure_ascii=False, default=str)
             print(line, flush=True)
             if args.out:

@@ -467,28 +467,29 @@ class OrgSettingsIn(BaseModel):
     @field_validator("languages")
     @classmethod
     def _languages(cls, v: list[str] | None) -> list[str] | None:
-        """B8: a non-empty subset of the shipped languages (the frontend has message files for them)."""
+        """B8: a non-empty subset of the shipped languages (the frontend has message files for them): Turkish,
+        English and the 12 other CRBS languages (P18-LANG); ``pt_BR`` / ``German`` are stored as ``pt-br`` / ``de``."""
         if v is None:
             return None
-        from app.services.bookings_i18n import SHIPPED_LANGUAGES
+        from app.services.bookings_i18n import SHIPPED_LANGUAGES, normalize_language
 
-        out = list(dict.fromkeys(x.strip().lower() for x in v))
-        bad = [x for x in out if x not in SHIPPED_LANGUAGES]
-        if bad or not out:
+        codes = [normalize_language(x) for x in v]
+        out = list(dict.fromkeys(c for c in codes if c))
+        if None in codes or not out:
             raise ValueError(f"languages must be chosen from {', '.join(SHIPPED_LANGUAGES)}")
         return out
 
     @field_validator("default_language")
     @classmethod
     def _default_language(cls, v: str | None) -> str | None:
-        from app.services.bookings_i18n import SHIPPED_LANGUAGES
+        from app.services.bookings_i18n import SHIPPED_LANGUAGES, normalize_language
 
         if v is None:
             return None
-        v = v.strip().lower()
-        if v not in SHIPPED_LANGUAGES:
+        code = normalize_language(v)
+        if code is None:
             raise ValueError(f"default_language must be one of {', '.join(SHIPPED_LANGUAGES)}")
-        return v
+        return code
 
     @model_validator(mode="after")
     def _cols(self) -> OrgSettingsIn:
@@ -566,6 +567,17 @@ class TranslationIn(BaseModel):
     set: str = Field(max_length=64)
     key: str = Field(max_length=255)
     text: str
+
+    @field_validator("language")
+    @classmethod
+    def _language(cls, v: str) -> str:
+        """An override is for a shipped language (P18-LANG: the 14), stored under its code (``pt-br``)."""
+        from app.services.bookings_i18n import SHIPPED_LANGUAGES, normalize_language
+
+        code = normalize_language(v)
+        if code is None:
+            raise ValueError(f"language must be one of {', '.join(SHIPPED_LANGUAGES)}")
+        return code
 
 
 class TranslationOut(ORMModel):

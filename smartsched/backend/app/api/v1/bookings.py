@@ -31,6 +31,7 @@ from app.services import bookings_calendar as cal
 from app.services import bookings_export as export
 from app.services import bookings_notify  # noqa: F401  (registers the notification event handlers)
 from app.services.bookings_calendar import date_infos, fgcol, term_info
+from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import Access, effective_limits, load_access
 from app.services.bookings_settings import get_group, get_value
 
@@ -221,7 +222,12 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
     rooms = await svc.visible_rooms(db, access)
     gids = sorted({r.room_group_id for r in rooms if r.room_group_id is not None})
     groups = (
-        list(await db.execute(select(RoomGroup).where(RoomGroup.id.in_(gids)).order_by(RoomGroup.pos))) if gids else []
+        sorted(
+            await db.execute(select(RoomGroup).where(RoomGroup.id.in_(gids))),
+            key=lambda row: (row[0].pos, tr_sort_key(row[0].name)),  # position, then Turkish name order
+        )
+        if gids
+        else []
     )
     return {
         "sessions": sessions,

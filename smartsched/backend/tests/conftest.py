@@ -121,6 +121,12 @@ SLOW_TESTS = frozenset(
         "tests/test_review_import.py::test_m4_unchanged_reimport_writes_nothing_and_legacy_keys_migrate",
         "tests/test_import_planning_list.py::test_import_bahar_into_db_is_idempotent",
         "tests/test_import_planning_list.py::test_import_guz_then_bahar_share_catalog",
+        # planner-level regression tests of the strict solver review (B1, B2, M1, M2; orchestrator R2)
+        "tests/test_planner_level_real.py::test_bahar_week3_is_valid_at_planner_level",
+        "tests/test_planner_level_real.py::test_bahar_week3_is_deterministic",
+        "tests/test_planner_level_real.py::test_final_is_valid_at_planner_level",
+        "tests/test_planner_level_real.py::test_fix_button_cases_leave_planner_valid_runs",
+        "tests/test_planner_level_real.py::test_bahar_term_is_valid_at_planner_level",
     }
 )
 

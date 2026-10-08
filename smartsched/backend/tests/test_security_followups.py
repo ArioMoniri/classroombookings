@@ -193,3 +193,17 @@ async def test_room_group_and_room_lists_are_in_turkish_alphabetical_order(env):
     assert [r["name"] for r in booking_rooms] == expected
     member_ids = (await c.get("/api/v1/room-admin/groups", headers=env.admin)).json()
     assert next(g for g in member_ids if g["id"] == gids[0])["room_ids"] == [rooms[n] for n in expected]
+
+
+async def test_deleting_a_role_signs_its_members_out(env):  # noqa: F811
+    """B-AUTH-11 follow-up: deleting a role takes it away from its members; their old tokens stop working, exactly
+    as on a role change (they can sign in again and land with no role)."""
+    r = await env.client.post(
+        "/api/v1/roles", json={"name": "Geçici Rol", "permissions": ["room.view"]}, headers=env.admin
+    )
+    assert r.status_code == 201, r.text
+    role_id = r.json()["id"]
+    _, member = await env.user("gecici.uye@uni.edu.tr", role=None, role_id=role_id)
+    assert (await env.client.get("/api/v1/auth/me", headers=member)).status_code == 200
+    assert (await env.client.delete(f"/api/v1/roles/{role_id}", headers=env.admin)).status_code == 204
+    assert (await env.client.get("/api/v1/auth/me", headers=member)).status_code == 401

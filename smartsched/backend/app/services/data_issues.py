@@ -107,6 +107,14 @@ GROUPS: tuple[GroupSpec, ...] = (
         "One programme year has two fixed-time classes at overlapping times; move one or mark it elective.",
     ),
     GroupSpec(
+        "same_lecture_twice",
+        "İki kez yazılmış - Listed twice",
+        "Listede iki kez yazılmış dersler",
+        "Lectures listed twice",
+        "Aynı ders ve şube aynı saatte iki satırda var; birini silin veya birleştirin.",
+        "The same course and section appear on two rows at the same time; delete or merge one.",
+    ),
+    GroupSpec(
         "board_vs_list",
         "Liste ile pano farklı - Board",
         "Planlama listesi ile yayınlanan pano farklı",
@@ -185,6 +193,8 @@ def classify(d: dict[str, Any]) -> list[str]:
         return ["missing_enrolment"]
     if code == "joint_lecture_clipped":  # prefer mode: a joint lecture's planner rooms seat fewer
         return ["locked_room_too_small"]
+    if code == "input_conflict" and params.get("same_lecture"):
+        return ["same_lecture_twice"]
     if code in ("input_conflict", "fixed_conflict"):
         keys = {str(k[0]) for k in params.get("keys") or [] if k}
         if params.get("kind"):
@@ -530,6 +540,15 @@ def planner_text(d: dict[str, Any], ctx: TextContext | None = None) -> dict[str,
                 "en": f"{lab(ids[0])} and {lab(ids[1])} are both locked to {rooms} on {slot_en}. "
                 "Change the room or time of one of them.",
             }
+    elif code == "input_conflict" and p.get("same_lecture") and len(ids) >= 2:
+        slot_tr = when(ids[0], "tr")
+        slot_en = when(ids[0], "en")
+        out = {
+            "tr": f"{lab(ids[0])} listede iki kez yazılmış ({slot_tr}): aynı ders, aynı şube, aynı saat. Satırlardan "
+            "birini silin veya ikisini tek satırda birleştirin.",
+            "en": f"{lab(ids[0])} is listed twice ({slot_en}): the same course, section and time. Delete one row or "
+            "merge them into one.",
+        }
     elif code in ("input_conflict", "fixed_conflict") and ids:
         keys = [k for k in _as_list(p.get("keys")) if isinstance(k, list | tuple) and len(k) == 2]
         if not keys and p.get("key"):
@@ -1133,6 +1152,131 @@ async def board_vs_list(session: AsyncSession, run: ScheduleRun) -> list[dict[st
     return out
 
 
+def _list_item(
+    code: str, group_msg: tuple[str, str], rids: list[int], rows: dict[int, dict[str, Any]], params: dict[str, Any]
+) -> dict[str, Any]:
+    return {
+        "diagnosis_index": -1,
+        "code": code,
+        "severity": "warning",
+        "message": group_msg[1],
+        "message_tr": group_msg[0],
+        "detail": "",
+        "suggestions": [],
+        "event_ids": [],
+        "request_ids": rids,
+        "unplaced": False,
+        "params": params,
+        "classes": [rows[r] for r in rids if r in rows],
+    }
+
+
+async def list_checks(session: AsyncSession, run: ScheduleRun) -> dict[str, list[dict[str, Any]]]:
+    """The planner's list checked from the data alone — two LOCKED rows in one room at one time, a locked
+    room without the requested PC tag, a locked room blocked by the grid — for runs whose solver did not
+    lock the definitive rooms (``definitive_rooms`` prefer / ignore), so the report lists them in every mode
+    (in lock mode the solver's diagnoses already do).  Group code -> items."""
+    from app.models import Block
+
+    out: dict[str, list[dict[str, Any]]] = {"locked_room_overlap": [], "missing_tags": [], "locked_room_blocked": []}
+    if run.kind == "EXAM":
+        return out  # exams share rooms by design; their seat checks belong to the solver
+    run_weeks = await _run_weeks(session, run)
+    rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
+    q = (
+        select(MeetingRequest)
+        .join(Section, Section.id == MeetingRequest.section_id)
+        .where(
+            Section.term_id == run.term_id,
+            MeetingRequest.status == "LOCKED",
+            MeetingRequest.archived.is_(False),
+            MeetingRequest.needs_room.is_(True),
+        )
+        .options(selectinload(MeetingRequest.section).selectinload(Section.course))
+    )
+    locked = []
+    for mr in (await session.execute(q)).scalars():
+        ids = [int(r) for r in mr.definitive_room_ids or [] if int(r) in rooms]
+        if not ids or mr.day is None or mr.start_period is None or mr.end_period is None:
+            continue
+        weeks = {int(w) for w in mr.weeks or []} or set(run_weeks or range(1, 15))
+        if run_weeks is not None:
+            weeks &= run_weeks
+        if weeks:
+            locked.append((mr, ids, weeks))
+    found: dict[str, list[tuple[list[int], dict[str, Any]]]] = {k: [] for k in out}
+    by_room: dict[tuple[int, int], list[tuple[MeetingRequest, set[int]]]] = {}
+    for mr, ids, weeks in locked:
+        for r in ids:
+            by_room.setdefault((r, int(mr.day or 0)), []).append((mr, weeks))
+    for (room_id, _day), items in sorted(by_room.items()):
+        for i in range(len(items)):
+            for j in range(i + 1, len(items)):
+                a, wa = items[i]
+                b, wb = items[j]
+                assert a.start_period is not None and a.end_period is not None
+                assert b.start_period is not None and b.end_period is not None
+                if a.start_period > b.end_period or b.start_period > a.end_period or not wa & wb:
+                    continue
+                if _norm_code(a.section.course.code) == _norm_code(b.section.course.code):
+                    continue  # one lecture listed twice (merged by the bridge, reported as such)
+                found["locked_room_overlap"].append(
+                    ([a.id, b.id], {"room_codes": [rooms[room_id].code], "weeks": sorted(wa & wb)})
+                )
+        if "PC" not in (rooms[room_id].tags or []):
+            for mr, _w in items:
+                if "PC" in (mr.requested_tags or []):
+                    found["missing_tags"].append(
+                        ([mr.id], {"room_codes": [rooms[room_id].code], "missing_tags": ["PC"]})
+                    )
+    blocks = list(
+        (await session.execute(select(Block).where(Block.term_id == run.term_id, Block.archived.is_(False)))).scalars()
+    )
+    for row, ids, weeks in locked:
+        for blk in blocks:
+            bday = blk.day or (blk.date.isoweekday() if blk.date else None)
+            if blk.room_id not in ids or bday != row.day:
+                continue
+            r0, r1 = int(row.start_period or 0), int(row.end_period or 0)
+            if blk.start_period > r1 or r0 > blk.end_period:
+                continue
+            hit = sorted(weeks & {int(w) for w in blk.weeks}) if blk.weeks else sorted(weeks)
+            if hit:
+                found["locked_room_blocked"].append(
+                    ([row.id], {"room_codes": [rooms[blk.room_id].code], "weeks": hit, "block": blk.label})
+                )
+                break
+    rows = await _class_rows(session, run, {r for cases in found.values() for rids, _p in cases for r in rids})
+    for code, cases in found.items():
+        for rids, params in cases:
+            names = [
+                f"{rows[r]['course_code']}{' §' + rows[r]['section'] if rows[r]['section'] else ''}"
+                for r in rids
+                if r in rows
+            ]
+            room = ", ".join(params.get("room_codes") or [])
+            wk = _weeks_text(params.get("weeks") or [])
+            if code == "locked_room_overlap":
+                msg = (
+                    f"{' ve '.join(names)} aynı anda {room} dersliğine kilitli ({wk}. hafta).",
+                    f"{' and '.join(names)} are both locked to {room} at the same time (week(s) {wk}).",
+                )
+            elif code == "missing_tags":
+                msg = (
+                    f"{names[0] if names else '?'} PC dersliği istiyor ama kilitli dersliği {room} PC değil.",
+                    f"{names[0] if names else '?'} needs a PC room but is locked to {room}, which is not one.",
+                )
+            else:
+                msg = (
+                    f"{names[0] if names else '?'} {room} dersliğine kilitli ama derslik {wk}. hafta(lar)da "
+                    f"takvimde kapalı ({params.get('block')}).",
+                    f"{names[0] if names else '?'} is locked to {room}, which the grid blocks in week(s) {wk} "
+                    f"({params.get('block')}).",
+                )
+            out[code].append(_list_item(f"list_{code}", msg, rids, rows, params))
+    return out
+
+
 async def capacity_warnings(session: AsyncSession, term_id: int, kind: str = "COURSE") -> list[dict[str, Any]]:
     """Requests whose planner room (definitive, else requested) seats fewer than the enrolment —
     "A 206 has 92 seats, this class has 130" — straight from the data (no run needed; the studio's
@@ -1214,6 +1358,11 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
     capacity = [
         it for it in await capacity_warnings(session, run.term_id, run.kind) if it["request_ids"][0] not in covered
     ]
+    from app.services.solver_bridge import run_mode
+
+    # the list's own checks in every mode: with definitive rooms as hints the solver does not lock them, so
+    # it reports no locked overlap / missing tag / blocked lock — the data still has them (orchestrator)
+    from_list = await list_checks(session, run) if run_mode(run.params or {}, "definitive_rooms") != "lock" else {}
     groups_out: list[dict[str, Any]] = []
     for spec in GROUPS:
         items: list[dict[str, Any]] = []
@@ -1242,6 +1391,7 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
             items = board
         if spec.code == "locked_room_too_small":
             items = items + capacity
+        items = items + list(from_list.get(spec.code, []))
         title_tr, title_en = spec.title_tr, spec.title_en
         if spec.code == "locked_room_blocked" and run.kind == "EXAM":
             title_tr, title_en = EXAM_BLOCKED_TITLE

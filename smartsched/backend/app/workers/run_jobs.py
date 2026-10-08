@@ -97,15 +97,16 @@ async def commit_unless_cancelled(session: Any, run: Any, status: str) -> bool:
 
     from app.models import ScheduleRun
 
+    run_id = int(run.id)
     res = await session.execute(
         update(ScheduleRun)
-        .where(ScheduleRun.id == run.id, ScheduleRun.status != "CANCELLED")
+        .where(ScheduleRun.id == run_id, ScheduleRun.status != "CANCELLED")
         .values(status=status)
         .execution_options(synchronize_session=False)
     )
     if not res.rowcount:
         await session.rollback()
-        cancel.release(run.id)
+        cancel.release(run_id)
         return False
     await session.commit()
     run.status = status

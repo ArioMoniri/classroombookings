@@ -11,6 +11,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { z } from "zod";
 import { HttpError, request, type Query } from "./client";
+import { changePassword as changePasswordKeepSession } from "./shell-extra";
 
 /* ------------------------------------------------------------------------------------------ errors */
 
@@ -964,7 +965,8 @@ export const crbs = {
     me: () => json("/auth/me", Me),
     profile: () => json("/auth/profile", Profile),
     putProfile: (body: Partial<Omit<Profile, "id" | "username" | "role" | "role_name" | "department_id">>) => send("PUT", "/auth/profile", body, Profile),
-    changePassword: (current: string | null, next: string) => send("POST", "/auth/change-password", { current_password: current, new_password: next }),
+    // keeps the session: the backend revokes old tokens on a password change, so this signs in again (shell-extra)
+    changePassword: (current: string | null, next: string) => changePasswordKeepSession({ current_password: current, new_password: next }),
     requestReset: (email: string) => send("POST", "/auth/password-reset/request", { email }),
     confirmReset: (token: string, password: string) => send("POST", "/auth/password-reset/confirm", { token, password }, z.object({ ok: z.boolean() })),
   },

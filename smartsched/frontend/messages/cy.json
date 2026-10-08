@@ -1,0 +1,90 @@
+{
+  "common": {
+    "day": "Dydd",
+    "week": "Wythnos"
+  },
+  "requests": {
+    "weeks": "Wythnosau"
+  },
+  "generate": {
+    "week": "Wythnos",
+    "month": "Mis"
+  },
+  "grid": {
+    "day": "Dydd",
+    "week": "Wythnos"
+  },
+  "days": {
+    "1": "Dydd Llun",
+    "2": "Dydd Mawrth",
+    "3": "Dydd Mercher",
+    "4": "Dydd Iau",
+    "5": "Dydd Gwener",
+    "6": "Dydd Sadwrn",
+    "7": "Dydd Sul"
+  },
+  "studio": {
+    "scope": {
+      "weeks": "Wythnosau"
+    },
+    "classes": {
+      "col": {
+        "weeks": "Wythnosau"
+      }
+    },
+    "mapping": {
+      "role": {
+        "day": "Dydd"
+      }
+    },
+    "field": {
+      "days": "Dyddiau",
+      "weeks": "Wythnosau"
+    },
+    "summary": {
+      "weeks": "Wythnosau"
+    }
+  },
+  "crbs": {
+    "grid": {
+      "day": "Dydd"
+    },
+    "schedules": {
+      "days": "Dyddiau"
+    },
+    "org": {
+      "col": {
+        "days": "Dyddiau"
+      }
+    }
+  },
+  "calendar": {
+    "lens": {
+      "week": "Wythnos",
+      "day": "Dydd",
+      "month": "Mis"
+    },
+    "board": {
+      "day": "Dydd"
+    },
+    "sidebar": {
+      "miniMonth": "Mis"
+    },
+    "move": {
+      "day": "Dydd"
+    },
+    "scrubber": "Wythnos"
+  },
+  "classes": {
+    "f": {
+      "day": "Dydd"
+    },
+    "col": {
+      "weeks": "Wythnosau"
+    }
+  },
+  "roomsV2": {
+    "week": "Wythnos",
+    "dayCol": "Dydd"
+  }
+}

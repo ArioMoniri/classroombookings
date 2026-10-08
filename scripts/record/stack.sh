@@ -7,24 +7,33 @@
 #   scripts/record/stack.sh status         print URLs, PIDs and the database in use
 #
 # --fresh   empty database (admin only) for the "import planning files" journey; the default imports
-#           the Bahar weekly grid + planning list exactly like docs/testing/2026-10-08-real-backend-e2e.md.
+#           the real workbooks of all three terms (Bahar 2026, Güz 2026-27, Final 2026) and the room
+#           master, like docs/testing/2026-10-08-real-data-feasibility.md "Setup" (REC_DATA=bahar: Bahar only).
+#
+#   scripts/record/stack.sh runs           real solver runs through POST /runs on the running stack
+#                                           (REC_RUNS, default "2026-GUZ:WEEK:3:120 2026-GUZ:TERM:-:240"
+#                                           = term:horizon:week:time-limit), waits until they finish
+#
+# Ports: REC_API_PORT / REC_WEB_PORT (defaults 8610 / 3610).
 #
 # Nothing is written inside the repository: the database, uploads, logs and a copy of the frontend
 # (built with its own .next, so a build here never clobbers another agent's dev server) live under
 # $REC_WORKDIR (default: ${TMPDIR:-/tmp}/smartsched-rec). node_modules is symlinked, not copied.
 #
-# Env: REC_WORKDIR, REC_API_PORT (8200), REC_WEB_PORT (3500), REC_EMAIL / REC_PASSWORD (seeded admin,
+# Env: REC_WORKDIR, REC_API_PORT (8610), REC_WEB_PORT (3610), REC_EMAIL / REC_PASSWORD (seeded admin,
 #      default admin@smartsched.local / Admin-2026!), REC_TERM_CODE (2026-BAHAR), PYTHON (python3),
-#      REC_TEACHER_EMAIL / REC_TEACHER_PASSWORD (teacher created for the booking journey),
-#      REC_SKIP_BUILD=1 (reuse the previous frontend build).
+#      REC_TEACHER=1 + REC_TEACHER_EMAIL / REC_TEACHER_PASSWORD (also create a teacher account; off by default:
+#      the journeys book as the seeded administrator so no invented person appears in the media),
+#      REC_LANG (en|tr: the admin's profile language, which the booking pages follow),
+#      REC_SKIP_BUILD=1 (reuse the previous frontend build), REC_DATA (all|bahar), REC_RUNS (see runs).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKEND="$ROOT/smartsched/backend"
 FRONTEND="$ROOT/smartsched/frontend"
 WORK="${REC_WORKDIR:-${TMPDIR:-/tmp}/smartsched-rec}"
-API_PORT="${REC_API_PORT:-8200}"
-WEB_PORT="${REC_WEB_PORT:-3500}"
+API_PORT="${REC_API_PORT:-8610}"
+WEB_PORT="${REC_WEB_PORT:-3610}"
 EMAIL="${REC_EMAIL:-admin@smartsched.local}"
 PASSWORD="${REC_PASSWORD:-Admin-2026!}"
 TERM_CODE="${REC_TERM_CODE:-2026-BAHAR}"
@@ -49,8 +58,8 @@ backend_env() {
   export CORS_ORIGINS="[\"http://127.0.0.1:$WEB_PORT\",\"http://localhost:$WEB_PORT\"]"
 }
 
-# Through the public API: the term (fresh mode: the import journey picks it in the wizard) and a
-# teacher account for the booking journey (REC_TEACHER_EMAIL / REC_TEACHER_PASSWORD).
+# Through the public API: the term (fresh mode: the import journey picks it in the wizard), the one-time
+# booking setup (setup_api.py bookings) and, with REC_TEACHER=1, a teacher account.
 seed_via_api() {
   local api="http://127.0.0.1:$API_PORT/api/v1" token
   token="$(curl -fsS -X POST "$api/auth/login" -H 'content-type: application/json' \
@@ -61,6 +70,12 @@ seed_via_api() {
       -d "{\"code\":\"$TERM_CODE\",\"name\":\"2026 Bahar\",\"is_active\":true,\"week_count\":19}" \
       && log "created empty term $TERM_CODE" || log "term $TERM_CODE not created (exists?)"
   fi
+  if [[ "$1" == 0 && "${REC_DATA:-all}" == all ]]; then
+    "$PYTHON" "$ROOT/scripts/record/setup_api.py" "$api" "$EMAIL" "$PASSWORD" bookings --language "${REC_LANG:-en}" \
+      >>"$WORK/import.log" 2>&1 && log "booking setup done (Güz 2026-27 open, admin language ${REC_LANG:-en})" \
+      || die "booking setup failed, see $WORK/import.log"
+  fi
+  [[ "${REC_TEACHER:-0}" == 1 ]] || return 0
   curl -fsS -o /dev/null -X POST "$api/users" -H "Authorization: Bearer $token" -H 'content-type: application/json' \
     -d "{\"email\":\"${REC_TEACHER_EMAIL:-ogretmen@smartsched.local}\",\"full_name\":\"Ayşe Öğretmen\",\"role\":\"TEACHER\",\"password\":\"${REC_TEACHER_PASSWORD:-Teacher-2026!}\"}" \
     && log "teacher ${REC_TEACHER_EMAIL:-ogretmen@smartsched.local} ready" || log "teacher not created (exists, or the TEACHER role is not available yet)"
@@ -105,6 +120,16 @@ cmd_up() {
         --term "$TERM_CODE" --year 2026 && \
       "$PYTHON" -m app.cli import planning-list tests/fixtures/bahar_derslik_planlama_listesi_v5.xlsx \
         --term "$TERM_CODE") >"$WORK/import.log" 2>&1 || die "fixture import failed, see $WORK/import.log"
+    if [[ "${REC_DATA:-all}" == all ]]; then
+      log "importing Güz 2026-27 (grid + planning list), Final 2026 (grid + exam list) and the room master (≈40 s)"
+      (cd "$BACKEND" && F=tests/fixtures && \
+        "$PYTHON" -m app.cli import weekly-grid "$F/guz_derslikler_takvimi_2026_2027.xlsx" --term 2026-GUZ --year 2026 && \
+        "$PYTHON" -m app.cli import planning-list "$F/guz_derslik_planlama_2026_2027_v2.xlsx" --term 2026-GUZ && \
+        "$PYTHON" -m app.cli import weekly-grid "$F/final_derslikler_takvimi_2026_v2.xlsx" --term 2026-FINAL --year 2026 && \
+        "$PYTHON" -m app.cli import exam-list "$F/final_planlama_listesi_2026_v2.xlsx" --term 2026-FINAL && \
+        "$PYTHON" -m app.cli import room-master "$F/room_master.csv") >>"$WORK/import.log" 2>&1 \
+        || die "fixture import failed, see $WORK/import.log"
+    fi
   fi
   (cd "$BACKEND" && "$PYTHON" -m app.cli seed-admin >>"$WORK/import.log" 2>&1) || die "seed-admin failed"
 
@@ -143,8 +168,17 @@ cmd_up() {
   log "frontend ready: http://127.0.0.1:$WEB_PORT  (login $EMAIL)"
 }
 
+# Real solver runs through the public API (the same POST /runs the Generate button sends), one after
+# the other (scripts/record/setup_api.py runs).
+cmd_runs() {
+  # shellcheck disable=SC2086
+  "$PYTHON" "$ROOT/scripts/record/setup_api.py" "http://127.0.0.1:$API_PORT/api/v1" "$EMAIL" "$PASSWORD" \
+    runs ${REC_RUNS:-2026-GUZ:WEEK:3:120 2026-GUZ:TERM:-:240} || die "solver runs failed"
+}
+
 case "${1:-}" in
   up) shift; cmd_up "$@" ;;
+  runs) cmd_runs ;;
   down) cmd_down ;;
   status) cmd_status ;;
   *) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;

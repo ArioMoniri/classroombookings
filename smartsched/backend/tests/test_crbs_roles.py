@@ -86,6 +86,9 @@ async def test_custom_role_permissions_are_enforced(client):
     assert (await client.get("/api/v1/runs", headers=h)).status_code == 403
     # deleting the role leaves the user without permissions (CRBS: users.role_id = NULL)
     assert (await client.delete(f"/api/v1/roles/{custom['id']}", headers=admin)).status_code == 204
+    # ... and ends the member's sessions (B-AUTH-11, as a role change does); after signing in again: no role
+    assert (await client.get("/api/v1/auth/me", headers=h)).status_code == 401
+    h = await login(client, "sekreter@uni.edu.tr", "parola-1234")
     me = (await client.get("/api/v1/auth/me", headers=h)).json()
     assert me["role_id"] is None and me["permissions"] == []
     assert (await client.get("/api/v1/users", headers=h)).status_code == 403

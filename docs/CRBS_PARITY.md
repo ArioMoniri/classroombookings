@@ -411,6 +411,8 @@ found and fixed one real difference: `GET /users/search` sorted Turkish names by
 and role / department by code / id; it now follows CRBS's `sort_map` (role and department names, several keys) in
 Turkish alphabetical order (B-USERS-01, `app/api/v1/users.py`). The 30 gaps: 21 UI rows (admin screens and the
 dashboard / multi-booking wizard / cancel-many exist but no Playwright step drives them; login logo, login message,
-"What's new" and the i18n overlay are not mounted by the shell yet), sign-out not revoking the bearer token
-(B-AUTH-11), the CRBS migration verified on CRBS's own install SQL but not yet on a running MySQL (BUG-B04), and the
+"What's new" and the i18n overlay were not mounted by the shell then — mounted since, still needing e2e steps), and
+sign-out not revoking the bearer token (B-AUTH-11 — closed since: `users.token_version`, `POST /auth/logout`, revoked on
+password change/reset, disable, role change and role deletion; the UI's sign-out calls it and a password change re-signs
+in transparently; deliberate difference: sign-out ends the user's sessions on every device), the CRBS migration verified on CRBS's own install SQL but not yet on a running MySQL (BUG-B04), and the
 later Phase 18 parts (13 languages, legacy MySQL upgrade, side-by-side diff).

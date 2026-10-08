@@ -86,8 +86,7 @@ def test_double_booking_in_the_pool_is_a_violation_outside_the_pool_an_exception
     outside = _data([_req(1), _req(2)], [_row(1, 1, (9,)), _row(2, 2, (9,))])
     unreported = check(outside)
     assert [f.cause for f in unreported.violations] == ["outside_pool"]  # an exception nobody reported
-    reported = check(_data(outside.reqs.values().__iter__().__class__ and [_req(1), _req(2)], outside.rows,
-                           [_diag("outside_pool_overlap", [1, 2])]))
+    reported = check(_data([_req(1), _req(2)], outside.rows, [_diag("outside_pool_overlap", [1, 2])]))
     assert reported.violations == [] and reported.exceptions_by_cause() == {"outside_pool": 1}
     assert reported.hard_score == 100 and reported.strict_score < 100
 

@@ -11,6 +11,7 @@ from sqlalchemy import delete, func, select
 
 from app.api.deps import DB, UsersAdmin, require_permission
 from app.api.v1.users import guard_privileged
+from app.core.security import revoke_tokens
 from app.models import Permission, Program, Role, RoomAcl, User, UserConstraint
 from app.schemas.crbs import ConstraintsIO, ConstraintValue, RoleIn, RoleOut, RoleUpdate
 from app.services.bookings_perms import (
@@ -139,6 +140,7 @@ async def delete_role(role_id: int, db: DB, me: RolesAdmin) -> None:
         u.role_id = None
         u.role = "NONE"
         forget_access(u)
+        revoke_tokens(u)  # B-AUTH-11: losing the role ends the member's sessions, as a role change does
     await db.execute(delete(RoomAcl).where(RoomAcl.context_type == "role", RoomAcl.context_id == role.id))
     await db.delete(role)
     await db.commit()

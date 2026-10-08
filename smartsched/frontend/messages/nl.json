@@ -1,0 +1,90 @@
+{
+  "common": {
+    "day": "dag",
+    "week": "week"
+  },
+  "requests": {
+    "weeks": "weken"
+  },
+  "generate": {
+    "week": "week",
+    "month": "maand"
+  },
+  "grid": {
+    "day": "dag",
+    "week": "week"
+  },
+  "days": {
+    "1": "maandag",
+    "2": "dinsdag",
+    "3": "woensdag",
+    "4": "donderdag",
+    "5": "vrijdag",
+    "6": "zaterdag",
+    "7": "zondag"
+  },
+  "studio": {
+    "scope": {
+      "weeks": "weken"
+    },
+    "classes": {
+      "col": {
+        "weeks": "weken"
+      }
+    },
+    "mapping": {
+      "role": {
+        "day": "dag"
+      }
+    },
+    "field": {
+      "days": "dagen",
+      "weeks": "weken"
+    },
+    "summary": {
+      "weeks": "weken"
+    }
+  },
+  "crbs": {
+    "grid": {
+      "day": "dag"
+    },
+    "schedules": {
+      "days": "dagen"
+    },
+    "org": {
+      "col": {
+        "days": "dagen"
+      }
+    }
+  },
+  "calendar": {
+    "lens": {
+      "week": "week",
+      "day": "dag",
+      "month": "maand"
+    },
+    "board": {
+      "day": "dag"
+    },
+    "sidebar": {
+      "miniMonth": "maand"
+    },
+    "move": {
+      "day": "dag"
+    },
+    "scrubber": "week"
+  },
+  "classes": {
+    "f": {
+      "day": "dag"
+    },
+    "col": {
+      "weeks": "weken"
+    }
+  },
+  "roomsV2": {
+    "week": "week",
+    "dayCol": "dag"
+  }
+}

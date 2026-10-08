@@ -1,0 +1,90 @@
+{
+  "common": {
+    "day": "Den",
+    "week": "Týden"
+  },
+  "requests": {
+    "weeks": "Týdny"
+  },
+  "generate": {
+    "week": "Týden",
+    "month": "Měsíc"
+  },
+  "grid": {
+    "day": "Den",
+    "week": "Týden"
+  },
+  "days": {
+    "1": "Pondělí",
+    "2": "Úterý",
+    "3": "Středa",
+    "4": "Čtvrtek",
+    "5": "Pátek",
+    "6": "Sobota",
+    "7": "Neděle"
+  },
+  "studio": {
+    "scope": {
+      "weeks": "Týdny"
+    },
+    "classes": {
+      "col": {
+        "weeks": "Týdny"
+      }
+    },
+    "mapping": {
+      "role": {
+        "day": "Den"
+      }
+    },
+    "field": {
+      "days": "Dny",
+      "weeks": "Týdny"
+    },
+    "summary": {
+      "weeks": "Týdny"
+    }
+  },
+  "crbs": {
+    "grid": {
+      "day": "Den"
+    },
+    "schedules": {
+      "days": "Dny"
+    },
+    "org": {
+      "col": {
+        "days": "Dny"
+      }
+    }
+  },
+  "calendar": {
+    "lens": {
+      "week": "Týden",
+      "day": "Den",
+      "month": "Měsíc"
+    },
+    "board": {
+      "day": "Den"
+    },
+    "sidebar": {
+      "miniMonth": "Měsíc"
+    },
+    "move": {
+      "day": "Den"
+    },
+    "scrubber": "Týden"
+  },
+  "classes": {
+    "f": {
+      "day": "Den"
+    },
+    "col": {
+      "weeks": "Týdny"
+    }
+  },
+  "roomsV2": {
+    "week": "Týden",
+    "dayCol": "Den"
+  }
+}
