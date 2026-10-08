@@ -27,8 +27,9 @@ from typing import Any
 
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
-from app.solver.build import Prepared, build_model, hint_assignments, make_solver
+from app.solver.build import Prepared, build_model, hint_assignments, make_solver, stable_rank
 from app.solver.constraints import HANDLERS
+from app.solver.context import ModelContext
 from app.solver.domains import (
     EventDomain,
     TimeOption,
@@ -822,9 +823,42 @@ def relaxation_diagnosis(
         )
     stats["relax_optimal"] = status == cp_model.OPTIMAL
     assignments = ctx.extract(solver)
+    if status == cp_model.OPTIMAL and ctx.relax_objective is not None:
+        remaining = budget_s - (time.perf_counter() - t0)
+        canon = _canonical_placement(prep, ctx, solver, assignments, remaining)
+        if canon is not None:
+            assignments = canon
+            stats["relax_canonical"] = True
     placed = {a.event_id: a for a in assignments}
     stats["unplaced"] = len(prep.inp.events) - len(placed)
     return explain_unplaced(prep, placed, explained), stats, placed
+
+
+def _tie_weight(e: Event) -> int:
+    """Tie-break among maximum placements: keep the event with more students; a fixed pseudo-random
+    rank of the id separates equal sizes."""
+    return min(e.size, 2000) * 1000 + stable_rank(e.id)
+
+
+def _canonical_placement(
+    prep: Prepared, ctx: ModelContext, solver: Any, assignments: list[Assignment], budget_s: float
+) -> list[Assignment] | None:
+    """CP-SAT's parallel search returns *some* optimal relaxation; when several placements are optimal,
+    which events stay unplaced would depend on thread timing.  Fix the optimum and pick the placement
+    that keeps the most students (then a fixed id rank), so the same input gives the same partial
+    timetable (determinism with ``workers > 1``).  ``None`` if the stage does not prove optimality."""
+    if budget_s < 0.5 or len(assignments) == len(prep.inp.events):
+        return None
+    value = int(round(solver.ObjectiveValue()))
+    ctx.model.Add(ctx.relax_objective == value)
+    ctx.model.Minimize(sum(_tie_weight(e) * (1 - ctx.placed[e.id]) for e in prep.inp.events if e.id in ctx.placed))
+    ctx.model.ClearHints()
+    ctx.add_hints(assignments, unplaced_rest=True)
+    stage = make_solver(prep.inp, max(0.5, min(budget_s, 30.0)))
+    status = stage.Solve(ctx.model)
+    if status != cp_model.OPTIMAL:
+        return None
+    return ctx.extract(stage)  # type: ignore[no-any-return]
 
 
 def explain_unplaced(

@@ -699,6 +699,7 @@ async def create_recurring(
     await session.flush()
     created: list[Booking] = []
     skipped: list[dict[str, Any]] = []
+    replaced: list[int] = []
     booked = 0
     for item in plan.instances:
         d = date.fromisoformat(item["date"])
@@ -717,7 +718,7 @@ async def create_recurring(
         if action == "replace":
             old = await session.get(Booking, item["held"]["id"])
             if old is not None and old.status == BOOKED:
-                await _cancel_rows(session, access, [old], f"replaced by series #{series.id}")
+                replaced += await _cancel_rows(session, access, [old], f"replaced by series #{series.id}")
         b = Booking(
             series_id=series.id,
             term_id=plan.info.term.id,
@@ -742,6 +743,12 @@ async def create_recurring(
     if not created:
         await session.rollback()
         raise _conflict("none_created", "no instances were booked", skipped=skipped)
+    if replaced:
+        await events.emit(
+            session,
+            "booking.cancelled",
+            {"booking_ids": replaced, "actor_id": access.user_id, "reason": f"replaced by series #{series.id}"},
+        )
     await events.emit(
         session,
         "series.created",

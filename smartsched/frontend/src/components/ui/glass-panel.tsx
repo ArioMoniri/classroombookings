@@ -46,9 +46,8 @@ function GlassPanel({ className, material, radius, padding, interactive, render,
     props: mergeProps<"div">(
       {
         className: cn(glassPanelVariants({ material, radius, padding, interactive }), className),
-        // @ts-expect-error data attribute consumed by globals.css (squircle corners, forced-colors)
-        "data-glass": material ?? "regular",
-        "data-slot": "glass-panel",
+        // data-glass is consumed by globals.css (squircle corners, forced-colors fallback)
+        ...({ "data-glass": material ?? "regular", "data-slot": "glass-panel" } as Record<string, string>),
       },
       props
     ),

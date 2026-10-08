@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
-from app.solver.model import Assignment, Block, Diagnosis, Event, Room, SolverInput, SolverResult
+from app.solver.model import Assignment, Diagnosis, Event, Room, SolverInput, SolverResult
 
 Slot = tuple[int, int, int]  # (week, day, period)
 
@@ -204,7 +204,8 @@ def _diagnose(ev: Event, rooms: list[Room], st: _State, inp: SolverInput) -> Dia
         if ev.fixed_day and ev.fixed_start:
             kinds.append("fixed_time")
             suggestions.append(
-                f"move away from day {ev.fixed_day} P{ev.fixed_start}-P{ev.fixed_start + ev.duration - 1} or free one of {[r.code for r in fitting[:3]]}"
+                f"move away from day {ev.fixed_day} P{ev.fixed_start}-P{ev.fixed_start + ev.duration - 1} "
+                f"or free one of {[r.code for r in fitting[:3]]}"
             )
         else:
             suggestions.append("widen allowed days/periods")

@@ -2,7 +2,7 @@
 
 Every pattern has the same parts: **When**, **Code**, **Reduced motion**, **A11y**. Code imports tokens from `@/lib/motion`, which is a verbatim copy of `references/motion-tokens.ts`. Every `ts`/`tsx` block in this file is a complete module, and `scripts/check_snippets.py` type-checks it in strict mode. Keep that true when you edit this file.
 
-Class names such as `glass`, `glass-thick` and `surface-solid` are placeholders for the material utilities defined in `docs/design/v2/liquid-glass.md`. Material (blur radius, tint, rim) belongs to that spec. Movement belongs to this one.
+Class names are placeholders for the material utilities in `docs/design/v2/liquid-glass.md`: `glass` = a surface with `backdrop-filter` (one per visual stack), `glass-tint` = a translucent fill **without** `backdrop-filter` (pills, indicators and thickening layers inside a glass, because Apple says no glass on glass), and `surface-solid` = the opaque reduced-transparency fallback. Material (blur radius, tint, rim) belongs to that spec. Movement belongs to this one.
 
 Global setup (once, in the client providers):
 
@@ -28,7 +28,9 @@ export function MotionProvider({ children }: { children: ReactNode }) {
 
 ## 1. Glass panel appear / dismiss (materialise)
 
-**When**: popovers, menus, the event sheet header card, the "jump to latest" pill. Apple's glass "materializes" by modulating light and does not simply fade. On the web we approximate that with scale 0.96→1, a 6 px content blur clearing, and opacity, all on the glass element itself. The panel grows from its trigger (`transformOrigin`). Exits take about 65 % of the entrance time.
+**When**: popovers, menus, the event sheet header card, the "jump to latest" pill. Apple's glass "materializes" by modulating light and does not simply fade. On the web we approximate that with three parts: the glass element scales 0.96→1 and fades in (`glassMorph`), its **content** clears from a 6 px blur, and it grows from its trigger (`transformOrigin`). Exits take about 65 % of the entrance time.
+
+**Never animate `filter` on the element that carries `backdrop-filter`.** Measured in headless Chromium (18 open/close cycles): blur on the glass element dropped 1.6 frames per interaction at 1× CPU and 5.0 at 4×. The same blur on an inner content wrapper dropped 0.2 and 1.8, identical to using no blur at all.
 
 ```tsx
 "use client";
@@ -58,18 +60,19 @@ export function GlassPanel({ open, origin = "top center", labelledBy, className 
           aria-labelledby={labelledBy}
           className={`${material} ${className}`}
           style={{ transformOrigin: origin }}
-          initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -4, filter: "blur(6px)" }}
-          animate={reduce ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-          exit={
-            reduce
-              ? { opacity: 0, transition: tween.reduced }
-              : { opacity: 0, scale: 0.98, filter: "blur(4px)", transition: tween.exit }
-          }
-          transition={
-            reduce ? tween.reduced : { default: springs.glassMorph, opacity: tween.fadeIn, filter: tween.fadeIn }
-          }
+          initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -4 }}
+          animate={reduce ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+          exit={reduce ? { opacity: 0, transition: tween.reduced } : { opacity: 0, scale: 0.98, transition: tween.exit }}
+          transition={reduce ? tween.reduced : { default: springs.glassMorph, opacity: tween.fadeIn }}
         >
-          {children}
+          {/* the "materialise" blur lives on the content, never on the backdrop-filter element */}
+          <motion.div
+            initial={reduce ? false : { filter: "blur(6px)" }}
+            animate={{ filter: "blur(0px)" }}
+            transition={tween.fadeIn}
+          >
+            {children}
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -77,26 +80,25 @@ export function GlassPanel({ open, origin = "top center", labelledBy, className 
 }
 ```
 
-CSS-only variant for Base UI popups (Popover, Menu, Dialog, Select), which expose `data-starting-style` / `data-ending-style`:
+CSS-only variant for Base UI popups (Popover, Menu, Dialog, Select), which expose `data-starting-style` / `data-ending-style`. It does no blur on the popup itself:
 
 ```css
 .glass-popup {
   transform-origin: var(--transform-origin, top center);
   transition:
     transform var(--spring-glass-morph-ms) var(--spring-glass-morph),
-    opacity var(--dur-base) var(--ease-out),
-    filter var(--dur-base) var(--ease-out);
+    opacity var(--dur-base) var(--ease-out);
 }
-.glass-popup[data-starting-style] { opacity: 0; transform: scale(0.96) translateY(-4px); filter: blur(6px); }
-.glass-popup[data-ending-style]   { opacity: 0; transform: scale(0.98); filter: blur(4px);
+.glass-popup[data-starting-style] { opacity: 0; transform: scale(0.96) translateY(-4px); }
+.glass-popup[data-ending-style]   { opacity: 0; transform: scale(0.98);
   transition-duration: var(--dur-fast); transition-timing-function: var(--ease-in); }
 @media (prefers-reduced-motion: reduce) {
   .glass-popup { transition: opacity 100ms linear; }
-  .glass-popup[data-starting-style], .glass-popup[data-ending-style] { transform: none; filter: none; }
+  .glass-popup[data-starting-style], .glass-popup[data-ending-style] { transform: none; }
 }
 ```
 
-**Reduced motion**: opacity only, 100 ms. **Reduced transparency**: `surface-solid` (opaque, 1 px border), and the motion is unchanged. **A11y**: focus moves into the panel after it opens. Do not wait for the animation, because the panel is interactive from frame 1. `Esc` closes, and focus returns to the trigger. The blur is on the panel, never on an ancestor (see SKILL.md, backdrop-root rule).
+**Reduced motion**: opacity only, 100 ms, no blur. **Reduced transparency**: `surface-solid` (opaque, 1 px border), and the motion is unchanged. **A11y**: focus moves into the panel after it opens. Do not wait for the animation, because the panel is interactive from frame 1. `Esc` closes, and focus returns to the trigger. No `opacity`, `filter` or `transform` animation on an *ancestor* of a glass element (see SKILL.md, backdrop-root rule).
 
 ---
 
@@ -153,7 +155,7 @@ export function Segmented<T extends string>(props: {
                 <motion.span
                   layoutId="segmented-pill"
                   aria-hidden
-                  className="glass-thick pointer-events-none absolute inset-0 -z-10"
+                  className="glass-tint pointer-events-none absolute inset-0 -z-10"
                   style={{ borderRadius: 999 }}
                   transition={reduce ? { duration: 0 } : springs.glassMorph}
                 />
@@ -226,7 +228,7 @@ export function GlassTabBar(props: { tabs: readonly Tab[]; active: string; scrol
                 <motion.span
                   layoutId="tab-pill"
                   aria-hidden
-                  className="glass-thick pointer-events-none absolute inset-0 -z-10"
+                  className="glass-tint pointer-events-none absolute inset-0 -z-10"
                   style={{ borderRadius: 999 }}
                   transition={morph}
                 />
@@ -816,7 +818,7 @@ export function NumberTicker(props: { value: number; locale: string; format?: In
 
 ## 12. Skeleton → content crossfade
 
-**When**: any async region. If data arrives in < 150 ms, show no skeleton. Once shown, keep it at least 300 ms so it never flashes. Skeleton and content share one grid cell, so the swap has no layout jump. Content enters with opacity plus 4 px y.
+**When**: any async region. If data arrives in < 150 ms, show no skeleton. Once shown, keep it at least 300 ms so it never flashes. Skeleton and content share one grid cell, so the swap has no layout jump. The content renders **underneath at full opacity** and rises 4 px (transform only). The skeleton sits **on top** and fades out. That way glass cards in the content never sit under a fading ancestor (backdrop-root rule, pattern 13).
 
 ```tsx
 "use client";
@@ -850,57 +852,83 @@ export function Reveal(props: { loading: boolean; skeleton: ReactNode; children:
   const showSkeleton = useSkeletonGate(loading);
   return (
     <div aria-busy={loading} className="grid [&>*]:[grid-area:1/1]">
+      {!loading && !showSkeleton ? (
+        <motion.div initial={reduce ? false : { y: 4 }} animate={{ y: 0 }} transition={springs.smooth}>
+          {children}
+        </motion.div>
+      ) : (
+        <div aria-hidden />
+      )}
       <AnimatePresence initial={false}>
-        {showSkeleton ? (
-          <motion.div key="skeleton" aria-hidden exit={{ opacity: 0, transition: tween.fadeOut }}>
+        {showSkeleton && (
+          <motion.div
+            key="skeleton"
+            aria-hidden
+            className="z-10 bg-[var(--surface-1)]"
+            exit={{ opacity: 0, transition: reduce ? tween.reduced : tween.fadeOut }}
+          >
             {skeleton}
           </motion.div>
-        ) : !loading ? (
-          <motion.div
-            key="content"
-            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={reduce ? tween.reduced : { default: springs.smooth, opacity: tween.fadeIn }}
-          >
-            {children}
-          </motion.div>
-        ) : null}
+        )}
       </AnimatePresence>
     </div>
   );
 }
 ```
 
-**Reduced motion**: the content fades in over 100 ms, and the skeleton shimmer is static (`.skeleton { animation: none }` in the global reduced-motion block). **A11y**: `aria-busy` on the region and the skeleton is `aria-hidden`. Focus is not moved by the swap.
+The content mounts only when the skeleton starts leaving. Because the skeleton is opaque and on top, the content appears through it as it fades.
+
+**Reduced motion**: no rise, and the skeleton fades over 100 ms. The skeleton shimmer is static (`.skeleton { animation: none }` in the global reduced-motion block). **A11y**: `aria-busy` on the region and the skeleton is `aria-hidden`. Focus is not moved by the swap.
 
 ---
 
 ## 13. Route transitions
 
-**When**: every navigation inside the app shell. Enter only: content fades in and rises 6 px (`smooth`), and the old page leaves instantly. Apple's rule is "don't make people wait for an animation", and App Router exit animations would hold the old tree. Put it in `app/(app)/template.tsx`, which re-mounts on every navigation, while `layout.tsx` (the shell, the glass chrome) stays still. Spatial continuity between pages (list card → detail) uses `layoutId` only inside one route. Cross-route shared elements wait for React `<ViewTransition>` to leave experimental status in Next.js (checked 2026-10: still experimental).
+**When**: every navigation inside the app shell. Enter only: content rises 6 px (`smooth`, a transform on the wrapper) while a background-coloured **veil** above it fades out (180 ms). The old page leaves instantly. Apple's rule is "don't make people wait for an animation", and App Router exit animations would hold the old tree. Put it in `app/(app)/template.tsx`, which re-mounts on every navigation, while `layout.tsx` (the shell, the glass chrome) stays still.
+
+Why a veil and not `opacity` on the wrapper: an ancestor with `opacity` < 1 (or `filter`, or `will-change: opacity`) becomes a *backdrop root*, so every glass card inside loses its blur for the whole fade and then pops in when the fade ends. Measured in Chromium 141 (Playwright 1.56 headless shell): the luminance stddev of a glass card over stripes went from 56 (frosted) to 102 (raw stripes) with a 0.999-opacity ancestor. A `transform` ancestor is safe.
+
+Spatial continuity between pages (list card → detail) uses `layoutId` only inside one route. Cross-route shared elements wait for React `<ViewTransition>` to leave experimental status in Next.js (checked 2026-10: still experimental).
 
 ```tsx
 "use client";
-import { motion } from "motion/react";
-import type { ReactNode } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useState, type ReactNode } from "react";
 import { springs, tween, useReduce } from "@/lib/motion";
 
 export default function Template({ children }: { children: ReactNode }) {
   const reduce = useReduce();
+  const [veil, setVeil] = useState(true);
   return (
-    <motion.div
-      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={reduce ? tween.reduced : { default: springs.smooth, opacity: tween.fadeIn }}
-      className="min-h-full"
-    >
-      {children}
-    </motion.div>
+    <div className="relative min-h-full">
+      <motion.div
+        initial={reduce ? false : { y: 6 }}
+        animate={{ y: 0 }}
+        transition={springs.smooth}
+      >
+        {children}
+      </motion.div>
+      <AnimatePresence>
+        {veil && (
+          <motion.div
+            key="veil"
+            aria-hidden
+            className="app-backdrop pointer-events-none absolute inset-0"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 0 }}
+            transition={reduce ? tween.reduced : tween.fadeIn}
+            onAnimationComplete={() => setVeil(false)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 ```
 
-**Reduced motion**: 100 ms fade. **A11y**: Next's route announcer reads the new title, and focus moves to the page `<h1>` (tabIndex −1) after navigation, not after the animation. Caveat: while `y ≠ 0` the wrapper is a containing block for `position: fixed` children. Render page-level fixed UI (sheets, toasts) through portals.
+`app-backdrop` paints the same background as the shell behind the content (`background: var(--app-bg); background-attachment: fixed`), so a fading veil reads exactly as content fading in.
+
+**Reduced motion**: no rise, 100 ms veil fade. **A11y**: Next's route announcer reads the new title, and focus moves to the page `<h1>` (tabIndex −1) after navigation, not after the animation. The veil is `aria-hidden` and `pointer-events: none`, and it unmounts when done. Caveat: while `y ≠ 0` the wrapper is a containing block for `position: fixed` children. Render page-level fixed UI (sheets, toasts) through portals.
 
 ---
 
@@ -992,7 +1020,7 @@ export function GlassHeader(props: { scrollRef: RefObject<HTMLElement | null>; h
       <div aria-hidden className="glass pointer-events-none absolute inset-0 -z-20" />
       <motion.div
         aria-hidden
-        className={`glass-thick pointer-events-none absolute inset-0 -z-10 ${hard ? "" : "[mask-image:linear-gradient(to_bottom,black_70%,transparent)]"}`}
+        className={`glass-tint pointer-events-none absolute inset-0 -z-10 ${hard ? "" : "[mask-image:linear-gradient(to_bottom,black_70%,transparent)]"}`}
         style={{ opacity: reduce ? undefined : tint }}
         animate={reduce ? { opacity: scrolled ? 1 : 0 } : undefined}
         transition={tween.fadeIn}
@@ -1162,7 +1190,7 @@ export function PaletteRow(props: { selected: boolean; children: ReactNode }) {
         <motion.span
           layoutId="palette-row"
           aria-hidden
-          className="glass-thick pointer-events-none absolute inset-0 -z-10"
+          className="glass-tint pointer-events-none absolute inset-0 -z-10"
           style={{ borderRadius: 10 }}
           transition={reduce ? { duration: 0 } : springs.snappy}
         />

@@ -14,7 +14,15 @@ from typing import Any
 
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
-from app.solver.build import Prepared, build_model, hint_assignments, make_solver, prepare, status_name
+from app.solver.build import (
+    Prepared,
+    build_model,
+    hint_assignments,
+    make_solver,
+    prepare,
+    stable_rank,
+    status_name,
+)
 from app.solver.diagnose import diagnose, diagnose_with_placement, explain_unplaced, static_check
 from app.solver.domains import normalize_input
 from app.solver.evaluate import Evaluation
@@ -59,6 +67,33 @@ def _complete_hint(inp: SolverInput, hints: dict[int, Assignment], budget_s: flo
     except Exception:  # noqa: BLE001 - a hint is optional
         return hints
     return hints
+
+
+def _canonical_optimum(
+    ctx: Any, solver: Any, assignments: list[Assignment], budget_s: float
+) -> list[Assignment] | None:
+    """Several timetables can share the optimal objective (two equal rooms swapped); CP-SAT's parallel
+    workers return whichever they find first.  Fix the objective at its optimum and pick the optimum
+    with the smallest fixed pseudo-random rank of its (event, room) and (event, time) choices, so a
+    fixed input and seed give the same timetable with ``workers > 1``.  ``None`` unless proven."""
+    if budget_s < 1.0:
+        return None
+    parts = []
+    for (eid, rid), z in ctx.z.items():
+        parts.append(stable_rank(eid, rid) * z)
+    for (eid, ti), y in ctx.y.items():
+        if y is not True and y is not ctx.placed.get(eid):
+            parts.append(stable_rank(eid, 7919, ti) * y)
+    if not parts:
+        return None
+    ctx.model.Add(ctx.objective_expr() == int(round(solver.ObjectiveValue())))
+    ctx.model.Minimize(sum(parts))
+    ctx.model.ClearHints()
+    ctx.add_hints(assignments)
+    stage = make_solver(ctx.inp, max(0.5, min(budget_s, 20.0)))
+    if stage.Solve(ctx.model) != cp_model.OPTIMAL:
+        return None
+    return ctx.extract(stage)  # type: ignore[no-any-return]
 
 
 def neighbours_of_options(inp: SolverInput, placed: list[Assignment], e: Event) -> set[int]:
@@ -123,6 +158,11 @@ def solve(inp: SolverInput, *, _complete: bool = True, _hints: list[Assignment] 
         stats["conflicts"] = int(solver.NumConflicts())
         if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             assignments = ctx.extract(solver)
+            if status == cp_model.OPTIMAL:
+                canon = _canonical_optimum(ctx, solver, assignments, inp.time_limit_s - (time.perf_counter() - t0))
+                if canon is not None:
+                    assignments = canon
+                    stats["canonical"] = True
             ev = evaluate(inp, assignments)
             stats["objective_value"] = int(round(solver.ObjectiveValue()))
             stats["objective_bound"] = int(round(solver.BestObjectiveBound()))

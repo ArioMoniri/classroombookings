@@ -24,6 +24,7 @@ dependencies = [
   "anthropic>=0.40",
   "python-docx>=1.1",
   "pypdf>=4.0",
+  "ldap3>=2.9",
 ]
 
 [project.optional-dependencies]
@@ -87,4 +88,5 @@ asyncio_default_fixture_loop_scope = "session"
 testpaths = ["tests"]
 filterwarnings = [
   "ignore::UserWarning:openpyxl",
+  "ignore::DeprecationWarning:ldap3.*",
 ]

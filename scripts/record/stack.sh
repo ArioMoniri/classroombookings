@@ -15,6 +15,7 @@
 #
 # Env: REC_WORKDIR, REC_API_PORT (8200), REC_WEB_PORT (3500), REC_EMAIL / REC_PASSWORD (seeded admin,
 #      default admin@smartsched.local / Admin-2026!), REC_TERM_CODE (2026-BAHAR), PYTHON (python3),
+#      REC_TEACHER_EMAIL / REC_TEACHER_PASSWORD (teacher created for the booking journey),
 #      REC_SKIP_BUILD=1 (reuse the previous frontend build).
 set -euo pipefail
 
@@ -46,6 +47,23 @@ backend_env() {
   export APP_SECRET="${REC_APP_SECRET:-recording-only-secret-recording-only-secret}"
   export UPLOAD_DIR="$WORK/uploads"
   export CORS_ORIGINS="[\"http://127.0.0.1:$WEB_PORT\",\"http://localhost:$WEB_PORT\"]"
+}
+
+# Through the public API: the term (fresh mode: the import journey picks it in the wizard) and a
+# teacher account for the booking journey (REC_TEACHER_EMAIL / REC_TEACHER_PASSWORD).
+seed_via_api() {
+  local api="http://127.0.0.1:$API_PORT/api/v1" token
+  token="$(curl -fsS -X POST "$api/auth/login" -H 'content-type: application/json' \
+    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | "$PYTHON" -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')" \
+    || die "admin login failed"
+  if [[ "$1" == 1 ]]; then
+    curl -fsS -o /dev/null -X POST "$api/terms" -H "Authorization: Bearer $token" -H 'content-type: application/json' \
+      -d "{\"code\":\"$TERM_CODE\",\"name\":\"2026 Bahar\",\"is_active\":true,\"week_count\":19}" \
+      && log "created empty term $TERM_CODE" || log "term $TERM_CODE not created (exists?)"
+  fi
+  curl -fsS -o /dev/null -X POST "$api/users" -H "Authorization: Bearer $token" -H 'content-type: application/json' \
+    -d "{\"email\":\"${REC_TEACHER_EMAIL:-ogretmen@smartsched.local}\",\"full_name\":\"Ayşe Öğretmen\",\"role\":\"TEACHER\",\"password\":\"${REC_TEACHER_PASSWORD:-Teacher-2026!}\"}" \
+    && log "teacher ${REC_TEACHER_EMAIL:-ogretmen@smartsched.local} ready" || log "teacher not created (exists, or the TEACHER role is not available yet)"
 }
 
 cmd_down() {
@@ -95,6 +113,7 @@ cmd_up() {
       >"$WORK/backend.log" 2>&1 & echo $! >"$WORK/backend.pid")
   wait_http "http://127.0.0.1:$API_PORT/api/v1/health" 60 || die "backend did not start, see $WORK/backend.log"
   log "backend ready on :$API_PORT (db $WORK/rec.db)"
+  seed_via_api "$fresh"
 
   # ---- frontend (isolated copy, real mode) -------------------------------------------------------
   local web="$WORK/frontend"

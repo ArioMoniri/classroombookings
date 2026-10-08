@@ -1,0 +1,49 @@
+{
+  "_about": "SmartSched demo preset for Recordly (webadderallorg/Recordly, project format v2). `editor` uses the field names of ProjectEditorState in src/components/video-editor/projectPersistence.ts; scripts/record/lib/recordly.mjs merges it (plus the theme block) into every generated .recordly project, and docs/recording/RECORDLY.md lists the same values for setting them by hand in the editor.",
+  "editor": {
+    "aspectRatio": "16:10",
+    "padding": { "top": 12, "bottom": 12, "left": 12, "right": 12, "linked": true },
+    "borderRadius": 8,
+    "shadowIntensity": 0.6,
+    "backgroundBlur": 0,
+    "showCursor": true,
+    "loopCursor": false,
+    "cursorStyle": "tahoe",
+    "cursorSize": 2.5,
+    "cursorSmoothing": 0.67,
+    "cursorClickBounce": 2,
+    "cursorClickBounceDuration": 350,
+    "cursorClickEffect": "ripple",
+    "cursorClickEffectColor": "#2563EB",
+    "cursorClickEffectScale": 1,
+    "cursorClickEffectOpacity": 0.9,
+    "cursorClickEffectDurationMs": 600,
+    "cursorSway": 0,
+    "connectZooms": true,
+    "zoomInEasing": "recordly",
+    "zoomOutEasing": "recordly",
+    "connectedZoomEasing": "recordly",
+    "zoomMotionBlur": 0.35,
+    "autoCaptionSettings": {
+      "enabled": true,
+      "language": "auto",
+      "fontSize": 30,
+      "bottomOffset": 4,
+      "maxWidth": 62,
+      "maxRows": 1,
+      "animationStyle": "fade",
+      "boxRadius": 17.5,
+      "textColor": "#FFFFFF",
+      "inactiveTextColor": "#A3A3A3",
+      "backgroundOpacity": 0.86
+    }
+  },
+  "themes": {
+    "light": { "wallpaper": "/wallpapers/tahoe-light.jpg" },
+    "dark": { "wallpaper": "/wallpapers/tahoe-dark.jpg", "cursorClickEffectColor": "#60A5FA", "shadowIntensity": 0.8 }
+  },
+  "export": {
+    "mp4": { "quality": "high", "frameRate": 30, "note": "MP4 for the docs site / PR descriptions" },
+    "gif": { "frameRate": 15, "loop": true, "sizePreset": "medium", "note": "README GIF must stay under 8 MB; lower the size preset or frame rate if it does not" }
+  }
+}

@@ -82,10 +82,24 @@ def build_model(prep: Prepared, mode: Mode = "solve") -> ModelContext:
     if mode == "solve":
         ctx.model.Minimize(ctx.objective_expr())
     elif mode == "relax":
-        ctx.model.Minimize(_relax_objective(ctx, prep.inp))
+        ctx.relax_objective = _relax_objective(ctx, prep.inp)
+        ctx.model.Minimize(ctx.relax_objective)
     prep.stats[f"build_{mode}_s"] = round(time.perf_counter() - t0, 3)
     prep.stats[f"bools_{mode}"] = ctx.n_bools
     return ctx
+
+
+def stable_rank(*key: int) -> int:
+    """Fixed pseudo-random rank in 1..997 of an integer tuple (splitmix64 mixing: non-linear, so swapping
+    two events between two rooms does not tie; no Python ``hash`` randomisation)."""
+    h = 0x9E3779B97F4A7C15
+    mask = (1 << 64) - 1
+    for k in key:
+        h = (h ^ (k & mask)) * 0xBF58476D1CE4E5B9 & mask
+        h ^= h >> 31
+        h = h * 0x94D049BB133111EB & mask
+        h ^= h >> 29
+    return h % 997 + 1
 
 
 def week_segment_groups(inp: SolverInput) -> list[list[int]]:

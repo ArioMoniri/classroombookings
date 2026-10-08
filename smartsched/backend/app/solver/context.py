@@ -103,6 +103,8 @@ class ModelContext:
         self._derived: list[tuple[Any, Callable[[HintView], int]]] = []
         self._lit_eval: dict[int, Callable[[HintView], int]] = {}
         self.warnings: list[str] = []
+        #: ``relax`` mode: the minimised expression (re-used by the canonical tie-break stage)
+        self.relax_objective: Any = None
         self.n_bools = 0
         self.n_intervals = 0
         self._build_variables()
