@@ -376,3 +376,64 @@ test("13. planners see bookings the published timetable overlaps (conflicts afte
   expect(res.status()).toBe(403);
   await teacher.close();
 });
+
+test("14. no escalation: a role manager without planning rights cannot grant, edit or import beyond their own permissions", async ({ page }) => {
+  // a custom role that manages users and roles but holds no planning permission (made by the administrator)
+  const roleName = `E2E Rol yöneticisi ${STAMP}`;
+  const own = ["setup.roles", "setup.users", "room.view", "book_single.create"];
+  const role = await api<{ id: number }>("POST", "/roles", { name: roleName, permissions: own });
+  const mgr = { username: `e2e.rolyon.${STAMP}`, password: "Rolyonetici-2026!" };
+  await api("POST", "/users", { username: mgr.username, email: `${mgr.username}@uni.edu.tr`, role_id: role.id, password: mgr.password });
+  const roles = await api<{ id: number; code: string | null; name: string; permissions: string[] }[]>("GET", "/roles");
+  const planner = roles.find((r) => r.code === "PLANNER")!;
+  const plannerMissing = planner.permissions.filter((p) => !own.includes(p)).sort();
+
+  // the backend refuses with the missing permissions in the detail
+  const mgrToken = await loginToken(mgr.username, mgr.password);
+  const refused = await ctx.api.fetch(`${API}/roles/${planner.id}`, { method: "PUT", data: { description: "x" }, headers: { Authorization: `Bearer ${mgrToken}` } });
+  expect(refused.status()).toBe(403);
+  expect(await refused.text()).toContain(plannerMissing[0]!);
+
+  await uiLogin(page, mgr.username, mgr.password);
+  // role editor: Planner is read-only (names what is missing), cannot be deleted
+  await page.goto("/admin/roles");
+  await page.getByRole("button", { name: /^Planner/ }).click();
+  const editor = page.getByTestId("role-editor");
+  await expect(editor.getByTestId("role-readonly")).toContainText(plannerMissing[0]!);
+  await expect(editor.getByRole("button", { name: /Rolü sil|Delete role/ })).toHaveCount(0);
+  await expect(editor.getByTestId("role-save")).toBeDisabled();
+  // a new role cannot get a permission the editor does not hold
+  await page.getByTestId("roles-new").click();
+  const notHeld = page.getByTestId("role-editor").locator('[data-not-held="true"]');
+  await expect(notHeld.first()).toBeVisible();
+  await expect(notHeld.first().getByRole("checkbox")).toBeDisabled();
+  await expect(page.getByTestId("role-editor").locator('label:not([data-not-held]) [role="checkbox"]').first()).toBeEnabled();
+
+  // users: the administrator's account is beyond this role; the picker disables roles it cannot grant
+  await page.goto("/admin/users");
+  await page.getByTestId("users-search").fill("admin@smartsched.local");
+  await expect(page.locator('[data-username="admin@smartsched.local"]').getByTestId("user-privileged")).toBeVisible();
+  await page.getByTestId("users-new").click();
+  const dialog = page.getByTestId("user-dialog");
+  const plannerOption = dialog.locator("#u-role option", { hasText: /^Planner/ });
+  await expect(plannerOption).toBeDisabled();
+  await expect(plannerOption).toContainText("eksik:");
+  await expect(dialog.locator("#u-role option", { hasText: roleName })).toBeEnabled();
+  await expect(dialog.getByTestId("role-disabled-hint")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // CSV import: a row asking for Planner comes back "forbidden", a row with the manager's own role is created
+  await page.getByTestId("users-import").click();
+  const imp = page.getByRole("dialog");
+  const csv = [
+    `e2e.imp1.${STAMP};İlk;Satır;e2e.imp1.${STAMP}@uni.edu.tr;Gecici-2026!;${roleName};`,
+    `e2e.imp2.${STAMP};İkinci;Satır;e2e.imp2.${STAMP}@uni.edu.tr;Gecici-2026!;Planner;`,
+  ].join("\n");
+  await imp.locator("#imp-file").setInputFiles({ name: "kullanicilar.csv", mimeType: "text/csv", buffer: Buffer.from(csv, "utf-8") });
+  await imp.locator("#imp-role").selectOption({ label: roleName });
+  await imp.getByRole("button", { name: "İçe aktar", exact: true }).click();
+  const results = imp.getByTestId("import-results");
+  await expect(results).toContainText("Oluşturuldu");
+  await expect(results).toContainText("İzin yok");
+  await expect(imp.getByTestId("import-forbidden")).toContainText("1 satır");
+});

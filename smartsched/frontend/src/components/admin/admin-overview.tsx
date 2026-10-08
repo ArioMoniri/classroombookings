@@ -3,11 +3,12 @@
 import { CheckCircle2, ChevronRight, Circle } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import { useSetupStatus } from "@/lib/api/crbs";
+import { useSetupRequirements, useSetupStatus } from "@/lib/api/crbs";
 import { adminSectionsFor, usePermissions, type AdminSection } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { Loading, PageTitle, SectionTitle } from "./kit";
+import { RequirementsList } from "./requirements-list";
 
 const GROUPS: { id: AdminSection["group"]; key: MessageKey }[] = [
   { id: "people", key: "crbs.admin.group.people" },
@@ -18,8 +19,11 @@ const GROUPS: { id: AdminSection["group"]; key: MessageKey }[] = [
 
 export function AdminOverview() {
   const { t, n } = useI18n();
-  const { perms } = usePermissions();
+  const { perms, can } = usePermissions();
   const status = useSetupStatus();
+  // the installer's server checks stay visible after setup (they list versions and paths: setup.settings only)
+  const showReqs = can("setup.settings");
+  const reqs = useSetupRequirements(showReqs);
   const sections = adminSectionsFor(perms);
   const c = status.data?.checks;
   const checks: { key: MessageKey; done: boolean; value?: number; href: string; optional?: boolean }[] = c
@@ -63,6 +67,12 @@ export function AdminOverview() {
           )}
         </Card>
       </section>
+      {showReqs ? (
+        <section aria-labelledby="requirements">
+          <SectionTitle id="requirements">{t("crbs.setup.req.title")}</SectionTitle>
+          <RequirementsList query={reqs} />
+        </section>
+      ) : null}
       {GROUPS.map((g) => {
         const items = sections.filter((s) => s.group === g.id);
         if (!items.length) return null;

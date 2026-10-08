@@ -16,6 +16,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
+import { roleEditCheck, usePermissions } from "@/lib/permissions";
 import { Alert, ConfirmDialog, Field, LimitInput, Loading, PageTitle } from "./kit";
 import { useErrorToast } from "./admin-gate";
 
@@ -93,7 +94,12 @@ export function RolesAdmin() {
 function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: (r: Role) => void; onDeleted: () => void }) {
   const { t } = useI18n();
   const catalogue = usePermissionCatalogue();
+  const { perms: mine } = usePermissions();
+  const held = useMemo(() => new Set(mine ?? []), [mine]);
   const locked = role?.code === "ADMIN";
+  // no escalation (backend rule): a role with permissions the editor does not hold is read-only, not deletable
+  const editCheck = roleEditCheck(mine, role);
+  const readOnly = locked || !editCheck.allowed;
   const [name, setName] = useState(role?.name ?? "");
   const [description, setDescription] = useState(role?.description ?? "");
   const [limits, setLimits] = useState({
@@ -118,7 +124,13 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
     });
 
   return (
-    <Card variant="glass" className="gap-5 px-5" data-testid="role-editor">
+    <Card variant="glass" className="gap-5 px-5" data-testid="role-editor" data-readonly={readOnly ? "true" : undefined}>
+      {!locked && !editCheck.allowed ? (
+        <Alert tone="warning" testId="role-readonly">
+          {t("crbs.roles.readOnly", { list: editCheck.missing.join(", ") })}
+        </Alert>
+      ) : null}
+      <fieldset disabled={readOnly && !locked ? true : undefined} className="contents">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t("crbs.common.name")} htmlFor="role-name">
           <Input id="role-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
@@ -142,10 +154,11 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
         </div>
       </section>
       {locked ? <Alert tone="info">{t("crbs.roles.adminLocked")}</Alert> : null}
-      {catalogue.data ? <PermissionMatrix catalogue={catalogue.data} value={perms} onToggle={toggle} disabled={locked} /> : <Loading />}
+      {catalogue.data ? <PermissionMatrix catalogue={catalogue.data} value={perms} onToggle={toggle} disabled={readOnly} held={held} /> : <Loading />}
+      </fieldset>
       {error ? <Alert tone="error">{error}</Alert> : null}
       <div className="flex flex-wrap justify-between gap-2">
-        {role && !locked ? (
+        {role && !readOnly ? (
           <Button variant="ghost" className="text-status-infeasible-fg" onClick={() => setConfirmDelete(true)}>
             <Trash2 aria-hidden />
             {t("crbs.roles.delete")}
@@ -154,7 +167,7 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
           <span />
         )}
         <Button
-          disabled={save.isPending || !name.trim()}
+          disabled={save.isPending || !name.trim() || (readOnly && !locked)}
           data-testid="role-save"
           onClick={() => {
             setError(null);
@@ -193,8 +206,25 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
   );
 }
 
-export function PermissionMatrix({ catalogue, value, onToggle, disabled, only }: { catalogue: PermissionCatalogue; value: ReadonlySet<string>; onToggle: (p: string, on: boolean) => void; disabled?: boolean; only?: "bookings" }) {
+export function PermissionMatrix({
+  catalogue,
+  value,
+  onToggle,
+  disabled,
+  only,
+  held,
+}: {
+  catalogue: PermissionCatalogue;
+  value: ReadonlySet<string>;
+  onToggle: (p: string, on: boolean) => void;
+  disabled?: boolean;
+  only?: "bookings";
+  /** the editor's own permissions: anything else is disabled (no escalation); omitted = no such limit */
+  held?: ReadonlySet<string>;
+}) {
   const { t } = useI18n();
+  const off = (name: string) => !!disabled || (!!held && !held.has(name));
+  const why = (name: string) => (!disabled && held && !held.has(name) ? t("crbs.roles.notHeld") : undefined);
   const book = catalogue.bookings;
   const desc = useMemo(() => {
     const m = new Map<string, string | null | undefined>();
@@ -209,8 +239,8 @@ export function PermissionMatrix({ catalogue, value, onToggle, disabled, only }:
               <legend className="mb-2 type-headline text-label-1">{GROUP_KEYS[group] ? t(GROUP_KEYS[group]!) : group}</legend>
               <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
                 {items.map((p) => (
-                  <label key={p.name} className="flex items-start gap-2 type-callout text-label-1">
-                    <Checkbox className="mt-0.5" checked={value.has(p.name)} disabled={disabled} onCheckedChange={(v) => onToggle(p.name, v === true)} />
+                  <label key={p.name} className={cn("flex items-start gap-2 type-callout text-label-1", off(p.name) && "text-label-3")} title={why(p.name)} data-not-held={why(p.name) ? "true" : undefined}>
+                    <Checkbox className="mt-0.5" checked={value.has(p.name)} disabled={off(p.name)} onCheckedChange={(v) => onToggle(p.name, v === true)} />
                     <span>
                       {permLabel(t, p.name, p.description)}
                       <span className="block font-mono type-caption text-label-3">{p.name}</span>
@@ -226,8 +256,8 @@ export function PermissionMatrix({ catalogue, value, onToggle, disabled, only }:
         {book.room ? (
           <div className="mb-2 flex flex-col gap-1.5">
             {book.room.map((p) => (
-              <label key={p.name} className="flex items-center gap-2 type-callout text-label-1">
-                <Checkbox checked={value.has(p.name)} disabled={disabled} onCheckedChange={(v) => onToggle(p.name, v === true)} />
+              <label key={p.name} className={cn("flex items-center gap-2 type-callout text-label-1", off(p.name) && "text-label-3")} title={why(p.name)}>
+                <Checkbox checked={value.has(p.name)} disabled={off(p.name)} onCheckedChange={(v) => onToggle(p.name, v === true)} />
                 {permLabel(t, p.name, p.description)}
               </label>
             ))}
@@ -258,8 +288,8 @@ export function PermissionMatrix({ catalogue, value, onToggle, disabled, only }:
                     const name = `${g}.${a}`;
                     return (
                       <td key={g} className="px-3 py-1.5 text-center shadow-[inset_0_-1px_0_var(--hairline)]">
-                        <span className="inline-flex">
-                          <Checkbox aria-label={`${t(GROUP_KEYS[g]!)}: ${desc.get(name) ?? name}`} checked={value.has(name)} disabled={disabled} onCheckedChange={(v) => onToggle(name, v === true)} />
+                        <span className="inline-flex" title={why(name)}>
+                          <Checkbox aria-label={`${t(GROUP_KEYS[g]!)}: ${desc.get(name) ?? name}`} checked={value.has(name)} disabled={off(name)} onCheckedChange={(v) => onToggle(name, v === true)} />
                         </span>
                       </td>
                     );

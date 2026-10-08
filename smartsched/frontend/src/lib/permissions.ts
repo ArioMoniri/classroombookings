@@ -80,6 +80,68 @@ export function bookingCapabilities(perms: readonly string[] | undefined | null)
   };
 }
 
+/* ------------------------------------------------------------------ no escalation (role grants) */
+
+/**
+ * Mirrors the backend (`bookings_perms.may_grant_role` / `may_manage_user`, `roles._no_escalation`; user
+ * decision 2026-10-08): nobody grants a role, manages an account, or creates, edits or deletes a role unless
+ * they hold every permission involved; a privileged role (Administrator, or any role holding setup.roles)
+ * also needs setup.roles. Administrator holds everything and is unaffected. The backend decides; this only
+ * disables what would be refused and names what is missing.
+ */
+export const GRANT_GUARD = "setup.roles";
+
+export interface RoleLike {
+  code?: string | null;
+  /** known to people who can list roles (setup.roles); otherwise only the seeded code is known */
+  permissions?: readonly string[] | null;
+}
+
+export function isPrivilegedRole(role: RoleLike | null | undefined): boolean {
+  if (!role) return false;
+  return role.code === "ADMIN" || !!role.permissions?.includes(GRANT_GUARD);
+}
+
+/** Names in `need` that `perms` does not hold, sorted (the backend lists them in the same order). */
+export function missingPermissions(perms: readonly string[] | undefined | null, need: readonly string[] | Iterable<string>): string[] {
+  const held = new Set(perms ?? []);
+  return [...new Set(need)].filter((p) => !held.has(p)).sort();
+}
+
+export interface GrantCheck {
+  allowed: boolean;
+  missing: string[];
+}
+
+/** May `perms` give `role` to someone? Unknown permission sets are only checked for the privileged guard. */
+export function roleGrantCheck(perms: readonly string[] | undefined | null, role: RoleLike | null | undefined): GrantCheck {
+  if (!role) return { allowed: true, missing: [] };
+  const need = [...(role.permissions ?? [])];
+  if (isPrivilegedRole(role)) need.push(GRANT_GUARD);
+  const missing = missingPermissions(perms, need);
+  return { allowed: missing.length === 0, missing };
+}
+
+export function canGrantRole(perms: readonly string[] | undefined | null, role: RoleLike | null | undefined): boolean {
+  return roleGrantCheck(perms, role).allowed;
+}
+
+/** Edit, reset, delete or change the limits of `target` (own account always; `target.role` is the user row's code). */
+export function canManageAccount(
+  perms: readonly string[] | undefined | null,
+  meId: number | undefined,
+  target: { id: number; role?: string | null; role_permissions?: readonly string[] | null },
+): boolean {
+  if (meId !== undefined && target.id === meId) return true;
+  return canGrantRole(perms, { code: target.role, permissions: target.role_permissions });
+}
+
+/** Role editor: a role whose permissions exceed the editor's own is read-only and cannot be deleted. */
+export function roleEditCheck(perms: readonly string[] | undefined | null, role: RoleLike | null | undefined): GrantCheck {
+  const missing = missingPermissions(perms, role?.permissions ?? []);
+  return { allowed: missing.length === 0, missing };
+}
+
 /* --------------------------------------------------------------------------------- admin sections */
 
 export type AdminSectionId =

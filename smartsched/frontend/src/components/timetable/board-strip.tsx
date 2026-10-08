@@ -97,8 +97,8 @@ function BoardStripImpl(p: BoardStripProps) {
   return (
     <div ref={ref} className="cal-canvas relative h-full overflow-auto" role="grid" aria-label={t("calendar.stripLabel", { week: p.week })} aria-rowcount={p.rooms.length + 1} aria-colcount={8} data-testid="board-strip">
       <div className="relative" style={{ width, height: HEAD_H + p.rooms.length * p.rowH }}>
-        <div className="glass-thick sticky top-0 z-20 hairline-b" style={{ width, height: HEAD_H }} role="row">
-          <div className="glass-thick sticky left-0 z-10 h-full" style={{ width: LABEL_W }} />
+        <div className="cal-sticky sticky top-0 z-20 hairline-b" style={{ width, height: HEAD_H }} role="row">
+          <div className="cal-sticky sticky left-0 z-10 h-full" style={{ width: LABEL_W }} />
           {[1, 2, 3, 4, 5, 6, 7].map((d) => {
             const h = p.heat.get(`${p.week}:${d}`);
             const pct = Math.round((h?.occupancy ?? 0) * 100);

@@ -773,8 +773,8 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
       <p id="cal-grid-help" className="sr-only">{t("calendar.lassoHint")}</p>
       <div className="relative" style={{ width: contentW, height: contentH }}>
         {/* sticky header (room or day headers): thick material, Apple "hard" edge */}
-        <div className="glass-thick sticky top-0 z-20 hairline-b" style={{ width: contentW, height: headerH }} role="row" aria-rowindex={1}>
-          <div className="glass-thick sticky left-0 z-10 h-full" style={{ width: GUTTER_W }} />
+        <div className="cal-sticky sticky top-0 z-20 hairline-b" style={{ width: contentW, height: headerH }} role="row" aria-rowindex={1}>
+          <div className="cal-sticky sticky left-0 z-10 h-full" style={{ width: GUTTER_W }} />
           {props.header}
           {columns.slice(c0, c1 + 1).map((c, i) => {
             const col = c0 + i;

@@ -150,7 +150,7 @@ export function ClassesPage() {
       else next.set(k, v);
     }
     // native history: syncs useSearchParams without an RSC round trip per change (Next docs, "Native History API")
-    window.history.replaceState(window.history.state, "", `/classes?${next.toString()}`);
+    window.history.replaceState(null, "", `/classes?${next.toString()}`);
   }, [params]);
 
   // ------------------------------------------------------------------ query

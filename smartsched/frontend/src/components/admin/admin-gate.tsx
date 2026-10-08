@@ -12,12 +12,14 @@ import { adminSectionsFor, canAccessRoute, usePermissions } from "@/lib/permissi
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
+import { useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { Loading, NoAccess } from "./kit";
 
 export function AdminGate({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const pathname = usePathname();
   const { perms, loading } = usePermissions();
+  useProfileLanguage();
   if (loading) return <Loading />;
   if (!canAccessRoute(perms, pathname)) return <NoAccess title={t("crbs.admin.noAccessTitle")} body={t("crbs.admin.noAccessBody")} />;
   const sections = adminSectionsFor(perms);

@@ -79,7 +79,11 @@ export function bookingErrorMessage(err: CrbsError, t: T, ctx: ErrorContext = {}
     });
   }
   if (err.status === 0) return t("crbs.errors.offline");
-  if (err.status === 403) return t("crbs.errors.forbidden");
+  // the backend's 403 detail says what is missing (e.g. the no-escalation rule lists the permissions)
+  if (err.status === 403) {
+    const detail = err.message.trim();
+    return detail && !/^\d{3}\b/.test(detail) && detail !== "Forbidden" ? t("crbs.errors.forbidden_with", { message: detail }) : t("crbs.errors.forbidden");
+  }
   if (err.status === 404) return t("crbs.errors.not_found");
   return t("crbs.errors.generic", { message: err.message });
 }

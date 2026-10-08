@@ -57,7 +57,7 @@ export function RoomDetail({ id }: { id: number }) {
     const next = new URLSearchParams(params.toString());
     next.set("week", String(w));
     setPicked(null);
-    window.history.replaceState(window.history.state, "", `/rooms/${id}?${next.toString()}`);
+    window.history.replaceState(null, "", `/rooms/${id}?${next.toString()}`);
   };
 
   const grid = useMemo(() => (cal.model && week !== null ? roomWeek(cal.model, id, week) : null), [cal.model, week, id]);

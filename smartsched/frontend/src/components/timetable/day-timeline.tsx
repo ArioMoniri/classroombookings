@@ -231,8 +231,8 @@ function DayTimelineImpl(p: DayTimelineProps) {
       data-testid="day-timeline"
     >
       <div className="relative" style={{ width, height: HEAD_H + p.rooms.length * ROW_H }}>
-        <div className="glass-thick sticky top-0 z-20 hairline-b" style={{ width, height: HEAD_H }} role="row">
-          <div className="glass-thick sticky left-0 z-10 h-full" style={{ width: LABEL_W }} />
+        <div className="cal-sticky sticky top-0 z-20 hairline-b" style={{ width, height: HEAD_H }} role="row">
+          <div className="cal-sticky sticky left-0 z-10 h-full" style={{ width: LABEL_W }} />
           {PERIODS.map((per) => (
             <span key={per.index} role="columnheader" className="absolute top-2 text-[11px] text-label-3 tabular-nums" style={{ left: LABEL_W + minuteX(periodStartMin(per.index), p.pxPerMin) + 3 }} title={`P${per.index}`}>
               {per.start}

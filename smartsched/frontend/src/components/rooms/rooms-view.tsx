@@ -55,7 +55,7 @@ export function RoomsView() {
       else next.set(k, v);
     }
     // native history: syncs useSearchParams without an RSC round trip per keystroke
-    window.history.replaceState(window.history.state, "", `/rooms${next.size ? `?${next.toString()}` : ""}`);
+    window.history.replaceState(null, "", `/rooms${next.size ? `?${next.toString()}` : ""}`);
   };
 
   const grids = useMemo(() => {

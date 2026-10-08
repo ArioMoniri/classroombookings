@@ -1035,6 +1035,7 @@
       "hint": "UTF-8 with BOM, so Excel shows Turkish letters correctly."
     },
     "errors": {
+      "forbidden_with": "You do not have permission for this: {message}",
       "conflict_timetable": "{room} on {date} {periods} is held by {label} in the published timetable, so it cannot be booked.",
       "conflict_block": "{room} on {date} {periods} is a reserved block ({label}).",
       "conflict_booking": "{room} on {date} {periods} is already booked.",
@@ -1161,6 +1162,31 @@
       "hint": "Drag the handle to change the order, or use Alt+↑/↓ on it. The order is used in the booking grid."
     },
     "setup": {
+      "req": {
+        "title": "Server requirements",
+        "lead": "Checked like the classroombookings installer. Errors must be fixed before setup can continue; warnings can wait.",
+        "recheck": "Check again",
+        "blocked": "Setup is blocked by: {list}.",
+        "allOk": "Everything setup needs is in place.",
+        "warnings": "{n} warnings; setup can continue.",
+        "unavailable": "The requirements could not be checked: {message}",
+        "status": {
+          "ok": "OK",
+          "warn": "Warning",
+          "err": "Error"
+        },
+        "check": {
+          "python_version": "Python version",
+          "image_library": "Image library (Pillow)",
+          "ldap_module": "LDAP module (ldap3)",
+          "folder_uploads": "Uploads folder",
+          "database": "Database connection",
+          "database_schema": "Database schema (migrations)",
+          "secrets": "Secrets and production settings",
+          "smtp": "E-mail (SMTP)"
+        }
+      },
+      "stepCheck": "Requirements",
       "title": "Set up SmartSched",
       "lead": "Three short steps: your institution, the first administrator, done. Rooms, terms and timetables come next, inside the app.",
       "already": "This installation is already set up. Sign in to continue.",
@@ -1238,6 +1264,10 @@
       "markSeen": "Mark as read"
     },
     "users": {
+      "roleDisabledHint": "Roles with permissions you do not hold cannot be chosen.",
+      "roleMissing": "{role} (missing: {list})",
+      "privilegedHint": "This account's role has permissions you do not hold, so you cannot manage it.",
+      "privileged": "Beyond your permissions",
       "count": "{n} users",
       "import": "Import CSV",
       "new": "New user",
@@ -1303,6 +1333,7 @@
       "resetWhere": "They enter it on the sign-in page under “Forgot your password?”."
     },
     "import": {
+      "forbiddenHint": "{n} rows asked for a role with permissions you do not hold; they were not created.",
       "title": "Import users from CSV",
       "lead": "One user per line; existing usernames are skipped, nothing else is changed.",
       "file": "CSV file",
@@ -1315,6 +1346,7 @@
       "line": "Line",
       "result": "Result",
       "status": {
+        "forbidden": "Not allowed",
         "success": "Created",
         "username_exists": "Username exists",
         "username_empty": "No username",
@@ -1323,6 +1355,8 @@
       }
     },
     "roles": {
+      "notHeld": "You do not hold this permission, so you cannot grant it.",
+      "readOnly": "Read-only: this role has permissions you do not hold: {list}.",
       "lead": "A role is a set of permissions plus booking limits. Users get exactly what their role and room access entries allow.",
       "new": "New role",
       "create": "Create role",
@@ -1541,6 +1575,8 @@
       "deleteBody": "Its dates lose their week and close for bookings until mapped again."
     },
     "org": {
+      "patternListHint": "The choices classroombookings offers; the examples show 16 April at 09:30.",
+      "patternDefault": "Default ({example})",
       "organisation": "Institution",
       "name": "Name",
       "website": "Website",

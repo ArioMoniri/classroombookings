@@ -256,3 +256,13 @@
 @media (prefers-reduced-motion: reduce) { .cal-thinking { animation: none; color: var(--label-2); background: none; } }
 :root[data-motion="reduced"] .cal-thinking { animation: none; color: var(--label-2); background: none; }
 @media (forced-colors: active) { .cal-thinking { color: CanvasText; background: none; } }
+
+/*
+ * Sticky day / room headers and the gutter corner (calendar.md §8.2 "hard edge", rule 8 glass budget): the
+ * thick tint laid over the opaque canvas colour. The canvas under them is opaque, so a backdrop blur adds
+ * nothing visible but costs one blur pass per frame (motion audit, e2e/calendar.spec.ts); this keeps the
+ * look and leaves the budget to the capsules, scrubber and inspector.
+ */
+.cal-sticky {
+  background: linear-gradient(var(--mat-thick), var(--mat-thick)), var(--cal-canvas);
+}

@@ -32,10 +32,11 @@ import {
   type ResetToken,
   type UserIn,
 } from "@/lib/api/crbs";
-import { usePermissions } from "@/lib/permissions";
+import { canManageAccount, roleGrantCheck, usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
+import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
 
@@ -48,8 +49,8 @@ const SEEDED = [
 ] as const;
 
 export function UsersAdmin() {
-  const { t, locale } = useI18n();
-  const { can } = usePermissions();
+  const { t } = useI18n();
+  const { can, perms, userId } = usePermissions();
   const [q, setQ] = useState("");
   const [role, setRole] = useState("");
   const [dept, setDept] = useState("");
@@ -68,7 +69,9 @@ export function UsersAdmin() {
   const reset = useCrbsMutation((u: AdminUser) => crbs.users.resetToken(u.id));
   const del = useCrbsMutation((u: AdminUser) => crbs.users.remove(u.id), [["crbs", "users"]]);
   const total = users.data?.total ?? 0;
-  const dt = (iso: string | null | undefined) => (iso ? new Date(iso.endsWith("Z") || iso.includes("+") ? iso : `${iso}Z`).toLocaleString(locale === "tr" ? "tr-TR" : "en-GB", { dateStyle: "medium", timeStyle: "short" }) : "—");
+  const manageable = (u: AdminUser) => canManageAccount(perms, userId, { id: u.id, role: u.role, role_permissions: roles.data?.find((r) => r.id === u.role_id)?.permissions });
+  const fmt = useBookingFormat();
+  const dt = (iso: string | null | undefined) => fmt.dateTime(iso) || "—";
 
   return (
     <div className="flex flex-col gap-5">
@@ -167,6 +170,11 @@ export function UsersAdmin() {
                         {t("crbs.users.mustChange")}
                       </Badge>
                     ) : null}
+                    {!manageable(u) ? (
+                      <Badge tone="locked" variant="secondary" className="ml-2" title={t("crbs.users.privilegedHint")} data-testid="user-privileged">
+                        {t("crbs.users.privileged")}
+                      </Badge>
+                    ) : null}
                   </TableCell>
                   <TableCell className="hidden text-label-2 lg:table-cell">{u.department_name ?? "—"}</TableCell>
                   <TableCell className="hidden text-label-2 tabular-nums lg:table-cell">{dt(u.last_login_at)}</TableCell>
@@ -176,11 +184,13 @@ export function UsersAdmin() {
                         <MoreHorizontal />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setEditing(u)}>
+                        {!manageable(u) ? <p className="max-w-60 px-2 py-1 type-footnote text-label-2">{t("crbs.users.privilegedHint")}</p> : null}
+                        <DropdownMenuItem disabled={!manageable(u)} onClick={() => setEditing(u)}>
                           <Pencil aria-hidden />
                           {t("crbs.common.edit")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
+                          disabled={!manageable(u)}
                           onClick={() =>
                             reset.mutate(u, {
                               onSuccess: (tok) => setToken({ user: u, token: tok }),
@@ -192,7 +202,7 @@ export function UsersAdmin() {
                           {t("crbs.users.resetCode")}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem variant="destructive" onClick={() => setDeleting(u)}>
+                        <DropdownMenuItem variant="destructive" disabled={!manageable(u)} onClick={() => setDeleting(u)}>
                           <Trash2 aria-hidden />
                           {t("crbs.common.delete")}
                         </DropdownMenuItem>
@@ -252,24 +262,41 @@ export function UsersAdmin() {
   );
 }
 
+/** "a, b, c +2": the missing permissions, short enough for an <option>. */
+function shortList(names: readonly string[], max = 3): string {
+  return names.length > max ? `${names.slice(0, max).join(", ")} +${names.length - max}` : names.join(", ");
+}
+
+/**
+ * Role picker for user create/edit and the CSV default role. No escalation (backend rule): a role whose
+ * permissions are not all held by the current user is disabled, with what is missing. Without setup.roles
+ * the role list is not readable, so only the seeded codes are offered and only Administrator is known to be
+ * out of reach; the backend's 403 explains anything else.
+ */
 function RoleSelect({ value, onChange, canListRoles, id }: { value: string; onChange: (v: string) => void; canListRoles: boolean; id?: string }) {
   const { t } = useI18n();
+  const { perms } = usePermissions();
   const roles = useRoles(canListRoles);
+  const options = roles.data
+    ? roles.data.map((r) => ({ value: `id:${r.id}`, label: r.name, check: roleGrantCheck(perms, r) }))
+    : SEEDED.map((r) => ({ value: `code:${r.code}`, label: t(r.key as MessageKey), check: roleGrantCheck(perms, { code: r.code }) }));
+  const anyDisabled = options.some((o) => !o.check.allowed);
   return (
-    <SelectField id={id} value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">{t("crbs.users.pickRole")}</option>
-      {roles.data
-        ? roles.data.map((r) => (
-            <option key={r.id} value={`id:${r.id}`}>
-              {r.name}
-            </option>
-          ))
-        : SEEDED.map((r) => (
-            <option key={r.code} value={`code:${r.code}`}>
-              {t(r.key as MessageKey)}
-            </option>
-          ))}
-    </SelectField>
+    <>
+      <SelectField id={id} value={value} onChange={(e) => onChange(e.target.value)} aria-describedby={anyDisabled && id ? `${id}-hint` : undefined}>
+        <option value="">{t("crbs.users.pickRole")}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value} disabled={!o.check.allowed && o.value !== value}>
+            {o.check.allowed ? o.label : t("crbs.users.roleMissing", { role: o.label, list: shortList(o.check.missing) })}
+          </option>
+        ))}
+      </SelectField>
+      {anyDisabled ? (
+        <p id={id ? `${id}-hint` : undefined} className="type-footnote text-label-3" data-testid="role-disabled-hint">
+          {t("crbs.users.roleDisabledHint")}
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -471,9 +498,10 @@ function ConstraintsEditor({ userId }: { userId: number }) {
 }
 
 function TokenDialog({ value, onClose }: { value: { user: AdminUser; token: ResetToken } | null; onClose: () => void }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
+  const fmt = useBookingFormat();
   const tok = value?.token;
-  const expires = tok?.expires_at ? new Date(tok.expires_at.endsWith("Z") ? tok.expires_at : `${tok.expires_at}Z`).toLocaleString(locale === "tr" ? "tr-TR" : "en-GB", { dateStyle: "medium", timeStyle: "short" }) : "";
+  const expires = fmt.dateTime(tok?.expires_at);
   return (
     <Dialog open={!!value} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md" data-testid="token-dialog">
@@ -505,6 +533,7 @@ const STATUS_KEYS: Record<string, MessageKey> = {
   username_empty: "crbs.import.status.username_empty",
   password_empty: "crbs.import.status.password_empty",
   invalid: "crbs.import.status.invalid",
+  forbidden: "crbs.import.status.forbidden",
 };
 
 function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onOpenChange: (o: boolean) => void; canListRoles: boolean }) {
@@ -574,6 +603,11 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
         ) : (
           <div className="flex flex-col gap-3">
             <Alert tone={result.created ? "success" : "warning"}>{t("crbs.import.summary", { created: result.created, total: result.results.length })}</Alert>
+            {result.results.some((r) => r.status === "forbidden") ? (
+              <Alert tone="warning" testId="import-forbidden">
+                {t("crbs.import.forbiddenHint", { n: result.results.filter((r) => r.status === "forbidden").length })}
+              </Alert>
+            ) : null}
             <div className="max-h-[50vh] overflow-auto rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)]">
               <Table data-testid="import-results">
                 <TableHeader>
@@ -589,10 +623,12 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
                       <TableCell className="pl-3 tabular-nums text-label-2">{r.line}</TableCell>
                       <TableCell className="text-label-1">{r.username || "—"}</TableCell>
                       <TableCell className="pr-3">
-                        <Badge variant="secondary" tone={r.status === "success" ? "feasible" : r.status === "invalid" ? "infeasible" : "warning"}>
+                        <Badge variant="secondary" tone={r.status === "success" ? "feasible" : r.status === "invalid" || r.status === "forbidden" ? "infeasible" : "warning"}>
                           {STATUS_KEYS[r.status] ? t(STATUS_KEYS[r.status]!) : r.status}
                         </Badge>
-                        {r.error ? <span className="ml-2 type-footnote text-label-2">{r.error}</span> : null}
+                        {r.error ? (
+                          <span className="ml-2 type-footnote text-label-2">{r.error}</span>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))}

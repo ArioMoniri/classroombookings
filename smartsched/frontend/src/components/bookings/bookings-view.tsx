@@ -27,7 +27,7 @@ import { isSelectable, slotKey, type SlotTone } from "./grid-model";
 import { MultiBookDialog } from "./multi-book-dialog";
 import { RoomInfoSheet } from "./room-info-sheet";
 import { EntityIcon } from "@/components/admin/icons";
-import { useBookingFormat } from "./use-booking-format";
+import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
 import { useIsPhone } from "./use-is-phone";
 
 type Display = "day" | "room";
@@ -35,6 +35,7 @@ type Display = "day" | "room";
 export function BookingsView() {
   const { t } = useI18n();
   usePrintInLight();
+  useProfileLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();

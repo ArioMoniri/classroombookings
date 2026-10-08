@@ -98,7 +98,7 @@ function AgendaImpl(p: AgendaProps) {
   return (
     <div ref={ref} className="cal-canvas relative h-full overflow-auto" role="feed" aria-label={t("calendar.agenda.label")} data-testid="agenda">
       {activeDay && !p.compact ? (
-        <div className="glass-thick sticky top-0 z-10 flex h-10 items-center px-4 hairline-b text-[13px] font-semibold capitalize" aria-hidden>
+        <div className="cal-sticky sticky top-0 z-10 flex h-10 items-center px-4 hairline-b text-[13px] font-semibold capitalize" aria-hidden>
           {activeDay.date ? dayTitle(activeDay.date, locale) : ""}
         </div>
       ) : null}

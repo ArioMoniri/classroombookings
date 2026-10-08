@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { crbs, crbsError, useCrbsMutation, useOrgSettings, useTranslations, type OrgSettings, type OrgSettingsIn } from "@/lib/api/crbs";
+import { crbs, crbsError, useCrbsMutation, useDatePatternOptions, useOrgSettings, useTranslations, type OrgSettings, type OrgSettingsIn } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import { dateFormatter } from "@/components/bookings/date-format";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
@@ -48,7 +48,13 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
   const save = useCrbsMutation(() => crbs.org.putSettings(d), KEYS);
   const upload = useCrbsMutation((f: File) => crbs.org.uploadLogo(f), KEYS);
   const dropLogo = useCrbsMutation(() => crbs.org.deleteLogo(), KEYS);
-  const preview = useMemo(() => dateFormatter({ pattern_long: v.pattern_long, pattern_weekday: v.pattern_weekday, pattern_time: v.pattern_time }, locale), [v.pattern_long, v.pattern_weekday, v.pattern_time, locale]);
+  // CRBS offers fixed lists (Dates::date_pattern_options); PUT /org/settings accepts only these or "" = default
+  const options = useDatePatternOptions(locale);
+  const defaults = options.data?.language === locale ? options.data.defaults : undefined;
+  const preview = useMemo(
+    () => dateFormatter({ pattern_long: v.pattern_long, pattern_weekday: v.pattern_weekday, pattern_time: v.pattern_time }, locale, defaults),
+    [v.pattern_long, v.pattern_weekday, v.pattern_time, locale, defaults],
+  );
   const dirty = Object.keys(d).length > 0;
   const columnsFor = v.displaytype === "day" ? (["periods", "rooms"] as const) : (["periods", "days"] as const);
 
@@ -142,10 +148,22 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
         <Card variant="glass" className="gap-0 px-4 py-1">
           {(["pattern_long", "pattern_weekday", "pattern_time"] as const).map((k, i) => (
             <FieldRow key={k} label={t(`crbs.org.${k}`)} hint={t("crbs.org.patternPreview", { value: k === "pattern_time" ? preview.time("08:30") : k === "pattern_long" ? preview.long("2026-04-23") : preview.weekday("2026-04-23") })} htmlFor={`org-${k}`} className={i ? "hairline-t" : undefined}>
-              <Input id={`org-${k}`} className="w-56 font-mono" value={v[k] ?? ""} onChange={(e) => set(k, e.target.value)} />
+              <SelectField id={`org-${k}`} className="w-72" value={v[k] ?? ""} onChange={(e) => set(k, e.target.value)} disabled={!options.data} data-testid={`org-${k}`}>
+                {(() => {
+                  const list = options.data?.[k] ?? [];
+                  const current = v[k] ?? "";
+                  // a value saved before the lists existed stays selectable until it is changed
+                  const extra = current && !list.some((o) => o.pattern === current) ? [{ pattern: current, example: current, default: false }] : [];
+                  return [...list, ...extra].map((o) => (
+                    <option key={o.pattern || "default"} value={o.pattern}>
+                      {o.default ? t("crbs.org.patternDefault", { example: o.example }) : `${o.example} (${o.pattern})`}
+                    </option>
+                  ));
+                })()}
+              </SelectField>
             </FieldRow>
           ))}
-          <p className="pb-3 type-footnote text-label-3">{t("crbs.org.patternTokens")}</p>
+          <p className="pb-3 type-footnote text-label-3">{t("crbs.org.patternListHint")}</p>
         </Card>
       </section>
 

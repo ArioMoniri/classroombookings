@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMutation, useOutbox, useSmtpSettings, type SmtpSettings } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
+import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { Alert, Field, FieldRow, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
 
@@ -95,12 +96,13 @@ function SmtpForm({ data }: { data: SmtpSettings }) {
 }
 
 function OutboxList() {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [status, setStatus] = useState("");
   const q = useOutbox(status || undefined);
   const toastError = useErrorToast();
   const retry = useCrbsMutation((id: number) => crbs.bookingAdmin.retryOutbox(id), [["crbs", "outbox"]]);
-  const dt = (iso: string | null | undefined) => (iso ? new Date(/Z|\+/.test(iso) ? iso : `${iso}Z`).toLocaleString(locale === "tr" ? "tr-TR" : "en-GB", { dateStyle: "short", timeStyle: "short" }) : "");
+  const fmt = useBookingFormat();
+  const dt = fmt.dateTime;
   return (
     <section aria-labelledby="outbox" className="flex flex-col gap-3">
       <SectionTitle

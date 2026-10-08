@@ -34,12 +34,13 @@ import { Alert, ConfirmDialog, Field, Loading, PageTitle, SectionTitle, SelectFi
 import { addDays } from "./date-format";
 import { bookingErrorMessage } from "./booking-errors";
 import { BookingDetailSheet } from "./booking-detail-sheet";
-import { useBookingFormat } from "./use-booking-format";
+import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
 
 type Tab = "upcoming" | "past" | "cancelled";
 
 export function MyBookingsView() {
   const { t } = useI18n();
+  useProfileLanguage();
   const fmt = useBookingFormat();
   const me = useCrbsMe();
   const caps = bookingCapabilities(me.data?.permissions);

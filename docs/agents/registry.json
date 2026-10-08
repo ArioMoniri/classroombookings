@@ -134,7 +134,8 @@
       "goal": "run a READ-ONLY audit of the whole SmartSched system for demo, test, mock, stub or placeholder usage reachable in production. The user's standing rule is: \"there should be no demo test or placeholder usage across the all system\". You produce the findings list; the orchestrator assigns the fixes.",
       "ledger": "strict-reviewer (no-placeholder audit)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 13:09"
     }
   ]
 }

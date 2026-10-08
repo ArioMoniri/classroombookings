@@ -38,4 +38,11 @@ describe("booking refusals are explained in the user's language", () => {
     expect(bookingErrorMessage(crbsError(new HttpError(0, "Failed to fetch")), tr)).toContain("Sunucuya ulaşılamıyor");
     expect(bookingErrorMessage(crbsError(new HttpError(409, "", { detail: { code: "edit_room_id", message: "" } })), tr)).toBe("Rezervasyonun bu kısmını değiştiremezsiniz.");
   });
+  it("a 403 shows the backend's detail (the no-escalation rule names the missing permissions)", () => {
+    const grant = crbsError(new HttpError(403, "", { detail: "granting the role 'Planner' requires permissions you do not hold: planning.edit, planning.view" }));
+    expect(bookingErrorMessage(grant, tr)).toBe("Bunun için yetkiniz yok: granting the role 'Planner' requires permissions you do not hold: planning.edit, planning.view");
+    const edit = crbsError(new HttpError(403, "", { detail: "to edit this role you need permissions you do not hold: setup.roles" }));
+    expect(bookingErrorMessage(edit, en)).toBe("You do not have permission for this: to edit this role you need permissions you do not hold: setup.roles");
+    expect(bookingErrorMessage(crbsError(new HttpError(403, "403 Forbidden")), en)).toBe("You do not have permission for this.");
+  });
 });

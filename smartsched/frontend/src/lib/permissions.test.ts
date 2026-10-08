@@ -4,10 +4,16 @@ import {
   adminSectionsFor,
   bookingCapabilities,
   canAccessRoute,
+  canGrantRole,
+  canManageAccount,
   hasAllPermissions,
   hasAnySetup,
   hasPermission,
   hasPlanning,
+  isPrivilegedRole,
+  missingPermissions,
+  roleEditCheck,
+  roleGrantCheck,
   routeRequirement,
 } from "./permissions";
 
@@ -75,5 +81,38 @@ describe("role-level capabilities, without assuming three roles", () => {
     expect(routeRequirement("/admin/whatever")).not.toBeNull();
     expect(routeRequirement("/admin/rooms/12")).toEqual(["setup.rooms", "setup.rooms_acl"]);
     expect(routeRequirement("/timetable")).toBeNull(); // not this module's route
+  });
+});
+
+describe("no escalation: grants and role edits need every permission involved", () => {
+  const USERS_ONLY = ["setup.users", "room.view", "book_single.create"];
+  const ROLES_TOO = ["setup.users", "setup.roles", "room.view", "book_single.create"];
+  const teacher = { code: "TEACHER", permissions: ["room.view", "book_single.create"] };
+  const planner = { code: "PLANNER", permissions: ["room.view", "book_single.create", "planning.edit", "planning.view"] };
+  const custom = { code: null, permissions: ["setup.roles", "setup.users"] };
+  it("recognises privileged roles", () => {
+    expect(isPrivilegedRole({ code: "ADMIN" })).toBe(true);
+    expect(isPrivilegedRole(custom)).toBe(true);
+    expect(isPrivilegedRole(teacher)).toBe(false);
+    expect(isPrivilegedRole(null)).toBe(false);
+  });
+  it("a role is grantable only when its permissions are a subset of the granter's, and names what is missing", () => {
+    expect(roleGrantCheck(USERS_ONLY, teacher)).toEqual({ allowed: true, missing: [] });
+    expect(roleGrantCheck(USERS_ONLY, planner)).toEqual({ allowed: false, missing: ["planning.edit", "planning.view"] });
+    expect(roleGrantCheck(USERS_ONLY, custom)).toEqual({ allowed: false, missing: ["setup.roles"] });
+    expect(canGrantRole(USERS_ONLY, { code: "ADMIN" })).toBe(false); // seeded code only: the privileged guard
+    expect(canGrantRole(ROLES_TOO, custom)).toBe(true);
+    expect(missingPermissions(["a"], ["c", "b", "a", "b"])).toEqual(["b", "c"]);
+  });
+  it("accounts follow their role; one's own account is always manageable", () => {
+    expect(canManageAccount(USERS_ONLY, 7, { id: 3, role: "ADMIN" })).toBe(false);
+    expect(canManageAccount(USERS_ONLY, 7, { id: 7, role: "ADMIN" })).toBe(true);
+    expect(canManageAccount(USERS_ONLY, 7, { id: 4, role: "TEACHER", role_permissions: teacher.permissions })).toBe(true);
+    expect(canManageAccount(USERS_ONLY, 7, { id: 5, role: "CUSTOM", role_permissions: planner.permissions })).toBe(false);
+  });
+  it("the role editor is read-only for roles beyond the editor's own permissions", () => {
+    expect(roleEditCheck(ROLES_TOO, teacher).allowed).toBe(true);
+    expect(roleEditCheck(ROLES_TOO, planner)).toEqual({ allowed: false, missing: ["planning.edit", "planning.view"] });
+    expect(roleEditCheck(ROLES_TOO, null).allowed).toBe(true);
   });
 });

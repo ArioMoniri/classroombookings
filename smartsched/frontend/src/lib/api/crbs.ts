@@ -763,6 +763,43 @@ export const Changelog = z.object({
 });
 export type Changelog = z.infer<typeof Changelog>;
 
+const Patterns = z.object({ pattern_long: z.string().nullish(), pattern_weekday: z.string().nullish(), pattern_time: z.string().nullish() });
+/** `GET /org/i18n` (public): backend strings + admin overrides of one language, and the date patterns. */
+export const OrgI18n = z.object({
+  language: z.string(),
+  default_language: z.string().nullish(),
+  languages: z.array(z.string()).default([]),
+  language_names: z.record(z.string(), z.string()).default({}),
+  /** set → key → text (CRBS `lang` rows over the shipped strings) */
+  messages: z.record(z.string(), z.record(z.string(), z.string())).default({}),
+  date_patterns: Patterns,
+  /** what an empty pattern means for this language (CRBS "(Default)") */
+  date_defaults: z.object({ long: z.string(), weekday: z.string(), time: z.string() }),
+});
+export type OrgI18n = z.infer<typeof OrgI18n>;
+
+const PatternOption = z.object({ pattern: z.string(), example: z.string(), default: z.boolean().optional() });
+/** `GET /org/date-patterns`: the only values `PUT /org/settings` accepts, each with an example. */
+export const DatePatternOptions = z.object({
+  language: z.string(),
+  pattern_long: z.array(PatternOption),
+  pattern_weekday: z.array(PatternOption),
+  pattern_time: z.array(PatternOption),
+  defaults: z.object({ long: z.string(), weekday: z.string(), time: z.string() }),
+  current: Patterns.nullish(),
+});
+export type DatePatternOptions = z.infer<typeof DatePatternOptions>;
+
+export const RequirementStatus = z.enum(["ok", "warn", "err"]);
+export type RequirementStatus = z.infer<typeof RequirementStatus>;
+/** `GET /org/setup/requirements` (CRBS installer "check requirements"); `err` blocks `POST /org/setup`. */
+export const SetupRequirements = z.object({
+  setup_required: z.boolean(),
+  ok: z.boolean(),
+  requirements: z.record(z.string(), z.object({ status: RequirementStatus, message: z.string().default("") })),
+});
+export type SetupRequirements = z.infer<typeof SetupRequirements>;
+
 /* --------------------------------------------------------------------------------------- requests */
 
 const s = { silent: true } as const;
@@ -918,6 +955,9 @@ export const crbs = {
     putTranslations: (items: Omit<Translation, "id">[]) => send("PUT", "/org/translations", items, z.array(Translation)),
     deleteTranslation: (id: number) => send("DELETE", `/org/translations/${id}`),
     changelog: () => json("/org/changelog", Changelog),
+    i18n: (language?: string) => json("/org/i18n", OrgI18n, { language }),
+    datePatterns: (language?: string) => json("/org/date-patterns", DatePatternOptions, { language }),
+    requirements: () => json("/org/setup/requirements", SetupRequirements),
     changelogSeen: () => send("POST", "/org/changelog/seen", undefined, z.object({ viewed_at: z.string() })),
   },
   auth: {
@@ -1006,6 +1046,9 @@ export const crbsKeys = {
   smtp: ["crbs", "smtp"] as const,
   translations: (lang?: string) => ["crbs", "translations", lang ?? null] as const,
   changelog: ["crbs", "changelog"] as const,
+  i18n: (lang?: string) => ["crbs", "i18n", lang ?? null] as const,
+  datePatterns: (lang?: string) => ["crbs", "date-patterns", lang ?? null] as const,
+  requirements: ["crbs", "setup-requirements"] as const,
   profile: ["crbs", "profile"] as const,
 };
 
@@ -1054,6 +1097,12 @@ export const useLdapSettings = () => useQuery({ queryKey: crbsKeys.ldap, queryFn
 export const useSmtpSettings = () => useQuery({ queryKey: crbsKeys.smtp, queryFn: crbs.org.smtp, retry: false });
 export const useTranslations = (lang?: string) => useQuery({ queryKey: crbsKeys.translations(lang), queryFn: () => crbs.org.translations(lang), retry: false });
 export const useProfile = () => useQuery({ queryKey: crbsKeys.profile, queryFn: crbs.auth.profile, retry: false });
+export const useOrgI18n = (lang?: string) =>
+  useQuery({ queryKey: crbsKeys.i18n(lang), queryFn: () => crbs.org.i18n(lang), staleTime: 5 * 60_000, placeholderData: keepPreviousData, retry: false });
+export const useDatePatternOptions = (lang?: string, enabled = true) =>
+  useQuery({ queryKey: crbsKeys.datePatterns(lang), queryFn: () => crbs.org.datePatterns(lang), enabled, staleTime: 5 * 60_000, retry: false });
+export const useSetupRequirements = (enabled = true) =>
+  useQuery({ queryKey: crbsKeys.requirements, queryFn: crbs.org.requirements, enabled, retry: false });
 export const useChangelog = () => useQuery({ queryKey: crbsKeys.changelog, queryFn: crbs.org.changelog, retry: false });
 
 /**

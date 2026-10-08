@@ -1035,6 +1035,7 @@
       "hint": "UTF-8 (BOM'lu); Excel Türkçe karakterleri doğru gösterir."
     },
     "errors": {
+      "forbidden_with": "Bunun için yetkiniz yok: {message}",
       "conflict_timetable": "{room}, {date} {periods}: yayımlanmış ders programında {label} dersi var; bu saat rezerve edilemez.",
       "conflict_block": "{room}, {date} {periods}: ayrılmış blok ({label}); rezerve edilemez.",
       "conflict_booking": "{room}, {date} {periods} zaten rezerve edilmiş.",
@@ -1161,6 +1162,31 @@
       "hint": "Sırayı değiştirmek için tutamağı sürükleyin ya da üzerinde Alt+↑/↓ kullanın. Rezervasyon tablosu bu sırayı kullanır."
     },
     "setup": {
+      "req": {
+        "title": "Sunucu gereksinimleri",
+        "lead": "classroombookings kurulumundaki gibi denetlenir. Hatalar giderilmeden kuruluma devam edilemez; uyarılar bekleyebilir.",
+        "recheck": "Yeniden denetle",
+        "blocked": "Kurulumu engelleyenler: {list}.",
+        "allOk": "Kurulum için gereken her şey hazır.",
+        "warnings": "{n} uyarı; kurulum sürebilir.",
+        "unavailable": "Gereksinimler denetlenemedi: {message}",
+        "status": {
+          "ok": "Tamam",
+          "warn": "Uyarı",
+          "err": "Hata"
+        },
+        "check": {
+          "python_version": "Python sürümü",
+          "image_library": "Görüntü kitaplığı (Pillow)",
+          "ldap_module": "LDAP modülü (ldap3)",
+          "folder_uploads": "Yükleme klasörü",
+          "database": "Veritabanı bağlantısı",
+          "database_schema": "Veritabanı şeması (geçişler)",
+          "secrets": "Gizli anahtarlar ve üretim ayarları",
+          "smtp": "E-posta (SMTP)"
+        }
+      },
+      "stepCheck": "Gereksinimler",
       "title": "SmartSched kurulumu",
       "lead": "Üç kısa adım: kurumunuz, ilk yönetici, bitti. Salonlar, dönemler ve ders programları sonra uygulamanın içinden eklenir.",
       "already": "Bu kurulum zaten tamamlanmış. Devam etmek için oturum açın.",
@@ -1238,6 +1264,10 @@
       "markSeen": "Okundu say"
     },
     "users": {
+      "roleDisabledHint": "Sizde olmayan yetkileri içeren roller seçilemez.",
+      "roleMissing": "{role} (eksik: {list})",
+      "privilegedHint": "Bu hesabın rolünde sizde olmayan yetkiler var; bu yüzden yönetemezsiniz.",
+      "privileged": "Yetkilerinizi aşıyor",
       "count": "{n} kullanıcı",
       "import": "CSV içe aktar",
       "new": "Yeni kullanıcı",
@@ -1303,6 +1333,7 @@
       "resetWhere": "Kullanıcı kodu oturum açma sayfasında “Parolanızı mı unuttunuz?” altında girer."
     },
     "import": {
+      "forbiddenHint": "{n} satır, sizde olmayan yetkileri içeren bir rol istedi; bu satırlar oluşturulmadı.",
       "title": "CSV'den kullanıcı içe aktar",
       "lead": "Her satıra bir kullanıcı; var olan kullanıcı adları atlanır, başka bir şey değişmez.",
       "file": "CSV dosyası",
@@ -1315,6 +1346,7 @@
       "line": "Satır",
       "result": "Sonuç",
       "status": {
+        "forbidden": "İzin yok",
         "success": "Oluşturuldu",
         "username_exists": "Kullanıcı adı var",
         "username_empty": "Kullanıcı adı yok",
@@ -1323,6 +1355,8 @@
       }
     },
     "roles": {
+      "notHeld": "Bu yetki sizde yok; bu yüzden veremezsiniz.",
+      "readOnly": "Salt okunur: bu rolde sizde olmayan yetkiler var: {list}.",
       "lead": "Rol, izinler ve rezervasyon sınırlarından oluşan bir settir. Kullanıcılar tam olarak rollerinin ve salon erişim kayıtlarının izin verdiğini yapabilir.",
       "new": "Yeni rol",
       "create": "Rolü oluştur",
@@ -1541,6 +1575,8 @@
       "deleteBody": "Tarihleri haftasız kalır ve yeniden eşlenene kadar rezervasyona kapanır."
     },
     "org": {
+      "patternListHint": "classroombookings'teki seçenekler; örnekler 16 Nisan 09:30 için.",
+      "patternDefault": "Varsayılan ({example})",
       "organisation": "Kurum",
       "name": "Ad",
       "website": "Web sitesi",
