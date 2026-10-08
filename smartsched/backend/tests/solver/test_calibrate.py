@@ -31,3 +31,15 @@ def test_metrics_and_choice_follow_the_planners_rooms() -> None:
         == 0
     )
     assert "defaults" in WEIGHT_SETS
+
+
+def test_choice_needs_a_real_gain_and_never_trades_placement() -> None:
+    def per(rate: float, placed: float, hard: float = 100) -> dict[str, dict[str, float]]:
+        m = {"repro_exact_rate": rate, "repro_overlap_rate": rate, "placed_roomed": placed, "hard": hard}
+        return {"bahar_w3": m, "final": m}
+
+    base = {"defaults": per(0.889, 561)}
+    assert choose({**base, "pref30": per(0.894, 560)}) == "defaults"  # +0.5 point: within the seed spread
+    assert choose({**base, "pref30": per(0.92, 560)}) == "pref30"  # +3 points, placement within 2 %
+    assert choose({**base, "pref30": per(0.95, 520)}) == "defaults"  # better reproduction, 7 % fewer placed
+    assert choose({**base, "pref30": per(0.95, 561, hard=99)}) == "defaults"  # never at the cost of a hard rule
