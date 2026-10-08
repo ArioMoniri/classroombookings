@@ -28,7 +28,12 @@ GOOD_PW = "Kx7pQ2mZr9TfLw4Hs8Nb"  # same shape as the pod's generated ADMIN_PASS
 
 def prod(**kw: object) -> Settings:
     # admin_password=None: tests/conftest.py exports ADMIN_PASSWORD=admin1234 for the test environment
-    base: dict[str, object] = {"environment": "prod", "app_secret": GOOD_A, "jwt_secret": GOOD_J, "admin_password": None}
+    base: dict[str, object] = {
+        "environment": "prod",
+        "app_secret": GOOD_A,
+        "jwt_secret": GOOD_J,
+        "admin_password": None,
+    }
     base.update(kw)
     return Settings(**base)  # type: ignore[arg-type]
 
@@ -116,7 +121,9 @@ def test_m3_prod_refuses_placeholder_admin_password(password):
 
 def test_m3_strong_admin_password_and_unset_password_pass():
     assert prod(admin_email="planner@university.edu.tr", admin_password=GOOD_PW).insecure_reasons() == []
-    assert prod(admin_email="planner@university.edu.tr", admin_password="ci-only-admin-password").insecure_reasons() == []
+    assert (
+        prod(admin_email="planner@university.edu.tr", admin_password="ci-only-admin-password").insecure_reasons() == []
+    )
     assert prod(admin_password=None).insecure_reasons() == []  # nothing to seed
     assert Settings(environment="dev", admin_password="admin").insecure_reasons() == []
 

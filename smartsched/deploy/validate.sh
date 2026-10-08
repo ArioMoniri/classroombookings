@@ -264,12 +264,15 @@ fi
 
 echo "== docker compose config (CLI only, no daemon needed)"
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-  if docker compose --env-file "$HERE/.env.example" --profile legacy -f "$HERE/docker-compose.yml" config -q 2>"$TMP/compose.err"; then
+  # .env.example ships ADMIN_EMAIL empty on purpose (deploy.sh / the pod fill in the real address)
+  if ADMIN_EMAIL=ops@smartsched.invalid docker compose --env-file "$HERE/.env.example" --profile legacy \
+       -f "$HERE/docker-compose.yml" config -q 2>"$TMP/compose.err"; then
     ok "docker compose config ($(docker compose version --short 2>/dev/null))"
   else
     fail "docker compose config: $(cat "$TMP/compose.err")"
   fi
-  if TLS_DOMAIN=smartsched.example.org ACME_EMAIL=ops@example.org docker compose --env-file "$HERE/.env.example" \
+  if ADMIN_EMAIL=ops@smartsched.invalid TLS_DOMAIN=smartsched.example.org ACME_EMAIL=ops@example.org \
+       docker compose --env-file "$HERE/.env.example" \
        -f "$HERE/docker-compose.yml" -f "$HERE/docker-compose.caddy.yml" config -q 2>"$TMP/compose.err"; then
     ok "docker compose config with the Caddy TLS override"
   else

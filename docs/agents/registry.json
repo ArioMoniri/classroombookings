@@ -161,6 +161,18 @@
       "ledger": "frontend-engineer (no-placeholder frontend)",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a04ed316ad0ba1caa",
+      "description": "Wave B: CRBS superset acceptance gate",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 13:30",
+      "scope": "",
+      "goal": "Phase 18 of docs/ROADMAP.md, part 1. The user's requirement: SmartSched has \"all functionalities classroombookings has and more, not less in any way\". Prove it with an automated gate. 1. Every behaviour row of the CRBS parity inventory needs an automated API acceptance test. The inventory is docs/review/2026-10-08-crbs-parity-audit.md (91 behaviours plus every CRBS screen) and docs/CRBS_PARITY.md.…",
+      "ledger": "backend-engineer (CRBS superset gate)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
