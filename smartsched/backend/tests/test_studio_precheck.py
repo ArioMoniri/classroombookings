@@ -48,6 +48,7 @@ async def test_precheck_finds_too_big_class_and_leave_out_fix(bahar):
         e
         for e in din.inp.events
         if e.locked is None
+        and e.needs_room
         and din.members[e.id] == [e.id]
         and e.id not in flagged
         and e.fixed_start
@@ -97,9 +98,10 @@ async def test_precheck_fix_moves_locked_class_to_rooms_that_fit(bahar):
     assert r.status_code == 200
     pre = await _precheck(bahar)
     mine = _items_for(pre, phar)
-    # the static checker reports both the ineligible lock and "no room left" (locked to another room)
-    assert {it["group"] for it in mine} == {"locked_ineligible", "no_room"}, mine
-    item = next(it for it in mine if it["group"] == "locked_ineligible")
+    # trust_locked_rooms (run default): the planner's smaller room is kept and reported as a warning
+    assert {it["group"] for it in mine} == {"locked_small"}, mine
+    item = next(it for it in mine if it["group"] == "locked_small")
+    assert item["severity"] == "warning"
     assert a206.display_name in item["message"]["en"] and str(a206.capacity) in item["message"]["en"]
     rooms = next(f for f in item["fixes"] if f["option"] == "rooms")
     patch = rooms["action"]["payload"]["patch"]

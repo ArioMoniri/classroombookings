@@ -693,7 +693,14 @@ async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn |
         run.stats = {**(run.stats or {}), "progress": 5, "phase": "loading", "worker": worker_id()}
         await session.commit()
         report("loading", 5)
-        inp, members = await build_solver_input(session, run)
+        rparams = run.params or {}
+        if rparams.get("studio") or rparams.get("draft_id"):
+            # studio runs and their children keep the draft's exclusions / pins / disabled built-ins
+            from app.services.studio import build_solver_input_for_run
+
+            inp, members = await build_solver_input_for_run(session, run)
+        else:
+            inp, members = await build_solver_input(session, run)
         report("building", 15)
         choice = str((run.params or {}).get("solver", "auto"))
         solver_mod = _solver_fn(choice).__module__

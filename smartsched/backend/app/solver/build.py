@@ -10,7 +10,7 @@ from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
 from app.solver.constraints import HANDLERS, effective_constraints
 from app.solver.context import Mode, ModelContext
-from app.solver.domains import Domains, build_domains
+from app.solver.domains import Domains, build_domains, normalize_input
 from app.solver.model import Assignment, Constraint, SolverInput
 
 
@@ -28,6 +28,7 @@ class Prepared:
 
 def prepare(inp: SolverInput) -> Prepared:
     t0 = time.perf_counter()
+    inp = normalize_input(inp)  # idempotent (cpsat.solve normalises first; precheck calls prepare directly)
     constraints, warnings, soft_structural = effective_constraints(inp)
     doms = build_domains(inp, soft_structural)
     for c in constraints:

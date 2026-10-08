@@ -98,6 +98,7 @@ def static_check(prep: Prepared) -> list[Diagnosis]:
                     ["correct the day of the request", "add the day to the term grid"],
                     "error",
                     "bad_time",
+                    {"day": e.fixed_day},
                 )
             )
             continue
@@ -113,6 +114,7 @@ def static_check(prep: Prepared) -> list[Diagnosis]:
                     ["shorten the request", "move it earlier"],
                     "error",
                     "bad_time",
+                    {"start": e.fixed_start, "duration": e.duration},
                 )
             )
             continue
@@ -126,6 +128,7 @@ def static_check(prep: Prepared) -> list[Diagnosis]:
                     [],
                     "info",
                     "out_of_horizon",
+                    {"weeks": sorted(e.weeks)},
                 )
             )
         if not dom.times:
@@ -138,6 +141,7 @@ def static_check(prep: Prepared) -> list[Diagnosis]:
                     ["widen the day/period window", "move the conflicting fixed-time event"],
                     "error",
                     "no_time",
+                    {"reasons": dict(reasons.most_common(5))},
                 )
             )
             continue
@@ -154,6 +158,7 @@ def static_check(prep: Prepared) -> list[Diagnosis]:
                     ["release one of the blocks", "move the event to another time"],
                     "error",
                     "all_blocked",
+                    {"reasons": dict(reasons.most_common(5))},
                 )
             )
     for kind, key, a, b in doms.static_conflicts:
@@ -171,6 +176,14 @@ def static_check(prep: Prepared) -> list[Diagnosis]:
                 ],
                 "error",
                 "fixed_conflict",
+                {
+                    "noun": noun,
+                    "key": key,
+                    "kind": kind,
+                    "keys": [[kind, key]],
+                    "day": doms.domain(a).times[0].day,
+                    "start": doms.domain(a).times[0].start,
+                },
             )
         )
     out.extend(_input_conflicts(prep))
@@ -210,6 +223,13 @@ def _input_conflicts(prep: Prepared) -> list[Diagnosis]:
                 sugg,
                 "warning",
                 "input_conflict",
+                {
+                    "keys": [[k, key] for k, key in keys],
+                    "noun": "instructor" if "no_instructor_overlap" in kinds else "cohort",
+                    "key": keys[0][1],
+                    "day": ta.day,
+                    "start": ta.start,
+                },
             )
         )
     return out
@@ -248,6 +268,13 @@ def _trusted_lock_warnings(prep: Prepared) -> list[Diagnosis]:
                     sugg,
                     "warning",
                     "trusted_lock_capacity",
+                    {
+                        "rooms": [r.id for r in rooms],
+                        "room_codes": [r.code for r in rooms],
+                        "seats": seats,
+                        "size": e.size,
+                        "fitting_rooms": [r.code for r in bigger],
+                    },
                 )
             )
         missing = sorted({t for r in rooms for t in e.required_tags - r.tags})
@@ -262,6 +289,7 @@ def _trusted_lock_warnings(prep: Prepared) -> list[Diagnosis]:
                     ["check the room requirement of the request or the room's tags (room master)"],
                     "warning",
                     "trusted_lock_tags",
+                    {"rooms": [r.id for r in rooms], "missing_tags": missing, "forbidden_tags": clash},
                 )
             )
     return out
@@ -288,6 +316,16 @@ def _locked_seat_budget(prep: Prepared) -> list[Diagnosis]:
                 [f"unlock one of {', '.join(e.label for e in events[:3])}", "add a room to one of the exams"],
                 "error",
                 "locked_overlap",
+                {
+                    "rooms": list(room_ids),
+                    "room_codes": [prep.doms.rooms_by_id[r].code for r in room_ids],
+                    "day": day,
+                    "period": period,
+                    "week": week,
+                    "need": need,
+                    "seats": cap,
+                    "shared": True,
+                },
             )
         )
     return out
@@ -324,12 +362,25 @@ def _no_room_diagnosis(
         combos = sorted(eligible, key=lambda r: -effective_capacity(r, e))[:3]
         if sum(effective_capacity(r, e) for r in combos) >= e.size:
             sugg.append("split across " + " + ".join(f"{r.code}({effective_capacity(r, e)})" for r in combos))
+    params: dict[str, Any] = {"size": e.size, "missing_pins": missing_pins, "missing_tags": missing_tags}
+    if "capacity" in kinds:
+        params.update(largest_room=best.code, largest_capacity=effective_capacity(best, e))
     if not kinds:
         reasons = Counter(dom.room_reasons.values())
         kinds.extend(kinds_in_reasons(reasons))
         sugg.append("reasons: " + _top(reasons))
+        params["reasons"] = dict(reasons.most_common(5))
+    params["reason"] = (
+        "pin" if missing_pins else "tags" if missing_tags else "capacity" if "capacity" in kinds else "rules"
+    )
     return Diagnosis(
-        [e.id], kinds or ["capacity"], f"{_label(e)} (size {e.size}) has no eligible room", sugg, "error", "no_room"
+        [e.id],
+        kinds or ["capacity"],
+        f"{_label(e)} (size {e.size}) has no eligible room",
+        sugg,
+        "error",
+        "no_room",
+        params,
     )
 
 
@@ -362,6 +413,7 @@ def _locked_conflicts(prep: Prepared) -> list[Diagnosis]:
                         [f"unlock {ea.label} or {eb.label}"],
                         "error",
                         "locked_overlap",
+                        {"rooms": [r], "room_codes": [code], "day": day, "period": p, "shared": False},
                     )
                 )
     for e, a in locked:
@@ -381,6 +433,7 @@ def _locked_conflicts(prep: Prepared) -> list[Diagnosis]:
                     ["unlock the event", "fix the room (capacity/tags) or the pin"],
                     "error",
                     "locked_ineligible",
+                    {"rooms": bad_rooms, "reasons": reasons},
                 )
             )
         elif any(not dom.is_pair_allowed(dom.times[0], r) for r in a.room_ids):
@@ -392,6 +445,7 @@ def _locked_conflicts(prep: Prepared) -> list[Diagnosis]:
                     ["release the block", "unlock the event"],
                     "error",
                     "locked_blocked",
+                    {"day": a.day, "start": a.start, "end": a.end, "rooms": list(a.room_ids)},
                 )
             )
     return out
@@ -438,6 +492,7 @@ def _pigeonhole(prep: Prepared) -> list[Diagnosis]:
                         ],
                         "error",
                         "pigeonhole",
+                        {"n": len(group), "day": day, "period": p, "week": w, "rooms": len(rooms)},
                     )
                 )
     return out

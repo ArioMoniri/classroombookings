@@ -2,8 +2,11 @@
 turned into plain-language TR/EN items with structured fixes that apply **into the draft**.
 
 * ``static_check`` (``app.solver.diagnose``) runs on ``prepare(inp)`` - no CP-SAT search, well under a
-  second for the 1 300-event Bahar term. Its diagnoses are classified by shape (the message formats of
-  ``diagnose.py``) into groups (``capacity``, ``locked_ineligible``, ``pigeonhole`` ...).
+  second for the 1 300-event Bahar term. Its diagnoses are classified by their structured ``code`` /
+  ``params`` (never the wording) into groups (``capacity``, ``locked_ineligible``, ``locked_small``,
+  ``instructor_clash``, ``pigeonhole`` ...). With the run defaults (``trust_locked_rooms``,
+  ``fixed_conflicts_as_warnings``) planner-locked rooms that are too small and clashes between two
+  fixed requests are *warnings* (the generator keeps them), not blockers.
 * Rule checks: targeted rules that match no class, duplicates, room pin vs room ban contradictions.
 * Fix actions (``FixOut.action.type``): ``exclude`` (left out of this draft), ``meeting_update``
   (class-list edit with snapshot, e.g. unlock + other rooms, students), ``exam_update`` (room count),
@@ -52,6 +55,11 @@ TITLES: dict[str, dict[str, str]] = {
     "instructor_clash": {"tr": "Öğretim elemanının iki dersi çakışıyor", "en": "An instructor has two classes at once"},
     "locked_overlap": {"tr": "İki kilitli ders aynı derslikte", "en": "Two locked classes share a room"},
     "locked_ineligible": {"tr": "Kilitli derslik uygun değil", "en": "The locked room does not fit"},
+    "locked_small": {
+        "tr": "Kilitli derslik beklenen öğrenci sayısından küçük",
+        "en": "The locked room is smaller than the expected class",
+    },
+    "locked_tags": {"tr": "Kilitli dersliğin özellikleri uymuyor", "en": "The locked room lacks a required feature"},
     "locked_blocked": {"tr": "Kilitli ders dolu bir saatte", "en": "A locked class sits on a blocked slot"},
     "pigeonhole": {"tr": "Aynı saatte yeterli derslik yok", "en": "Not enough rooms at one time"},
     "rule_no_match": {"tr": "Kural hiçbir dersle eşleşmiyor", "en": "A rule matches no classes"},
@@ -67,16 +75,6 @@ CATEGORY = {
     "out_of_horizon": "info",
     "utilisation": "info",
 }
-
-_RX_PIGEON = re.compile(
-    r"^(?P<n>\d+) fixed-time events need a room on day (?P<day>\d) P(?P<p>\d+) in week (?P<w>\d+) "
-    r"but only (?P<m>\d+) eligible"
-)
-_RX_LARGEST = re.compile(r"largest eligible room is (?P<code>\S+) \((?P<cap>\d+) seats\)")
-_RX_LOCKED_OVERLAP = re.compile(r"both hold (?P<room>\S+) on day (?P<day>\d) P(?P<p>\d+)")
-_RX_NOT_ELIGIBLE = re.compile(r"uses room\(s\) \[(?P<rooms>[^\]]*)\] which are not eligible: (?P<why>.*)$")
-_RX_KEY = re.compile(r"^(?P<noun>cohort|instructor) '(?P<key>[^']+)'")
-_RX_NO_TAG = re.compile(r"no room carries tag\(s\) \[(?P<tags>[^\]]*)\]")
 
 
 def _t(tr: str, en: str) -> dict[str, str]:
@@ -252,7 +250,10 @@ def _rule_relax_fixes(ctx: _Ctx, e: sm.Event, kinds: list[str]) -> list[dict[str
 
 
 def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
+    """Classify by the solver's structured ``code`` / ``params`` (never by the wording)."""
     msg = d.message
+    code = d.code
+    prm = d.params or {}
     ids = [int(i) for i in d.event_ids]
     e = ctx.events.get(ids[0]) if ids else None
     lab = ctx.label(ids[0]) if ids else ""
@@ -260,34 +261,33 @@ def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
     message = _t(msg, msg)
     fixes: list[dict[str, Any]] = []
     severity = d.severity if d.severity in ("error", "warning", "info") else "error"
-    if "which is not in the grid" in msg or "-period grid" in msg:
+    if code == "bad_time":
         group = "bad_time"
         message = _t(
             f"{lab} çizelgenin dışında bir gün/saate yazılmış.", f"{lab} is set to a day or time outside the timetable."
         )
         fixes = _exclude_fixes(ctx, ids)
-    elif "has no week inside the horizon" in msg:
+    elif code == "out_of_horizon":
         group, severity = "out_of_horizon", "info"
         message = _t(f"{lab} seçilen haftalarda hiç yapılmıyor.", f"{lab} does not meet in the chosen weeks.")
-    elif "has no feasible time" in msg:
+    elif code == "no_time":
         group = "no_time"
-        why = msg.split("has no feasible time:", 1)[-1].strip()
+        why = "; ".join(str(k) for k in (prm.get("reasons") or {})) or "-"
         message = _t(
             f"{lab} için kurallara uyan bir saat kalmadı ({why}).",
             f"{lab} has no time left that the rules allow ({why}).",
         )
         fixes = (_rule_relax_fixes(ctx, e, d.constraint_kinds) if e else []) + _exclude_fixes(ctx, ids)
-    elif "has no eligible room" in msg and e is not None:
-        kinds = set(d.constraint_kinds)
-        sugg = " ".join(d.suggestions)
-        if "room_tags" in kinds and (m := _RX_NO_TAG.search(sugg)):
+    elif code == "no_room" and e is not None:
+        reason = prm.get("reason")
+        if reason == "tags":
             group = "room_tags"
-            tags = m["tags"].replace("'", "")
+            missing = {str(t) for t in prm.get("missing_tags") or []}
+            tags = ", ".join(sorted(missing))
             message = _t(
                 f"{lab} {tags} özellikli bir derslik istiyor ama hiçbir derslikte bu özellik yok.",
                 f"{lab} needs a room tagged {tags}, but no room has that tag.",
             )
-            missing = {t.strip() for t in tags.split(",") if t.strip()}
             if not ctx.exam:
                 fixes.append(
                     _fix(
@@ -301,12 +301,12 @@ def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
                         },
                     )
                 )
-        elif "room_pin" in kinds:
+        elif reason == "pin":
             group = "room_pin"
             message = _t(f"{lab} olmayan bir dersliğe sabitlenmiş.", f"{lab} is pinned to a room that does not exist.")
-        elif "capacity" in kinds and (m := _RX_LARGEST.search(sugg)):
+        elif reason == "capacity" and prm.get("largest_room"):
             group = "capacity"
-            cap, best = int(m["cap"]), ctx.show(m["code"])
+            cap, best = int(prm["largest_capacity"]), ctx.show(str(prm["largest_room"]))
             message = _t(
                 f"{lab}: {e.size} öğrenci var ama kullanılabilecek en büyük derslik {best} ({cap} kişilik).",
                 f"{lab}: {e.size} students, but the largest room it may use is {best} ({cap} seats).",
@@ -338,7 +338,7 @@ def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
                     )
         else:
             group = "no_room"
-            why = sugg.replace("reasons: ", "")
+            why = "; ".join(str(k) for k in (prm.get("reasons") or {})) or "-"
             message = _t(
                 f"{lab} için kurallardan sonra hiç derslik kalmadı ({why}).",
                 f"{lab} has no room left after the rules ({why}).",
@@ -350,22 +350,27 @@ def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
                 fixes.append(_unlock_fix(ctx, e.id))
             fixes += _rule_relax_fixes(ctx, e, [k for k in d.constraint_kinds if k != "capacity"])
         fixes += _exclude_fixes(ctx, ids)
-    elif "every eligible room is blocked" in msg:
+    elif code == "all_blocked":
         group = "blocked"
         message = _t(
             f"{lab} için uygun bütün derslikler o saatte dolu ({_ev_when(e, 'tr') if e else ''}).",
             f"Every suitable room is blocked when {lab} meets ({_ev_when(e, 'en') if e else ''}).",
         )
         fixes = _exclude_fixes(ctx, ids)
-    elif (m := _RX_KEY.match(msg)) and len(ids) == 2:
+    elif code in ("fixed_conflict", "input_conflict") and len(ids) == 2:
         a, b = ctx.label(ids[0]), ctx.label(ids[1])
         when_tr = _ev_when(e, "tr") if e else ""
         when_en = _ev_when(e, "en") if e else ""
-        if m["noun"] == "cohort":
+        keys = [(str(k), str(v)) for k, v in prm.get("keys") or []]
+        ins_key = next((v for k, v in keys if k == "no_instructor_overlap"), None)
+        note_tr = " Girdi çakışması: ikisi de saatini korur." if code == "input_conflict" else ""
+        note_en = " Input conflict: both keep their times." if code == "input_conflict" else ""
+        if ins_key is None:
             group = "cohort_clash"
+            key = next((v for k, v in keys if k == "no_cohort_overlap"), str(prm.get("key", "")))
             message = _t(
-                f"{a} ve {b} aynı saatte ({when_tr}) ve ikisi de {_cohort_text(m['key'], 'tr')} dersi.",
-                f"{a} and {b} are fixed at the same time ({when_en}) for {_cohort_text(m['key'], 'en')}.",
+                f"{a} ve {b} aynı saatte ({when_tr}) ve ikisi de {_cohort_text(key, 'tr')} dersi.{note_tr}",
+                f"{a} and {b} are fixed at the same time ({when_en}) for {_cohort_text(key, 'en')}.{note_en}",
             )
             fixes = _exclude_fixes(ctx, ids, 2) + [
                 _fix(
@@ -379,13 +384,12 @@ def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
             ]
         else:
             group = "instructor_clash"
-            key = m["key"]
-            name = key
-            if key.startswith("INS:") and key[4:].isdigit():
-                name = ctx.instructors.get(int(key[4:]), key)
+            name = ins_key
+            if ins_key.startswith("INS:") and ins_key[4:].isdigit():
+                name = ctx.instructors.get(int(ins_key[4:]), ins_key)
             message = _t(
-                f"{a} ve {b} aynı saatte ({when_tr}) ve aynı öğretim elemanının ({name}) dersi.",
-                f"{a} and {b} are fixed at the same time ({when_en}) and share an instructor ({name}).",
+                f"{a} ve {b} aynı saatte ({when_tr}) ve aynı öğretim elemanının ({name}) dersi.{note_tr}",
+                f"{a} and {b} are fixed at the same time ({when_en}) and share an instructor ({name}).{note_en}",
             )
             fixes = _exclude_fixes(ctx, ids, 2) + [
                 _fix(
@@ -397,38 +401,60 @@ def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
                     admin_only=True,
                 )
             ]
-    elif msg.startswith("locked assignments overlap") and len(ids) == 2:
+    elif code == "locked_overlap" and len(ids) >= 2:
         group = "locked_overlap"
-        m2 = _RX_LOCKED_OVERLAP.search(msg)
-        room = ctx.show(m2["room"]) if m2 else "?"
-        day = int(m2["day"]) if m2 else None
-        p = int(m2["p"]) if m2 else None
-        a, b = ctx.label(ids[0]), ctx.label(ids[1])
-        message = _t(
-            f"{a} ve {b} ikisi de {room} dersliğine {_when(day, p, p, 'tr')} saatinde kilitli.",
-            f"{a} and {b} are both locked in {room} on {_when(day, p, p, 'en')}.",
-        )
-        # the solver's own suggestion ("unlock A or B") parsed like the run-report fixes
+        room = " + ".join(ctx.show(str(c)) for c in prm.get("room_codes") or []) or "?"
+        day = prm.get("day")
+        p = prm.get("period")
+        names_tr = " ve ".join(ctx.label(i) for i in ids[:4])
+        names_en = " and ".join(ctx.label(i) for i in ids[:4])
+        if prm.get("shared"):
+            message = _t(
+                f"{names_tr} {room} salonlarını {_when(day, p, p, 'tr')} saatinde paylaşıyor ama "
+                f"{prm.get('need')} kişi için yalnızca {prm.get('seats')} yer var.",
+                f"{names_en} share {room} on {_when(day, p, p, 'en')} but need {prm.get('need')} seats and the "
+                f"rooms seat {prm.get('seats')}.",
+            )
+        else:
+            message = _t(
+                f"{names_tr} ikisi de {room} dersliğine {_when(day, p, p, 'tr')} saatinde kilitli.",
+                f"{names_en} are both locked in {room} on {_when(day, p, p, 'en')}.",
+            )
         opts = [parse_option(j, s, asdict(d)) for j, s in enumerate(d.suggestions)]
         if any(o.action == "unlock" for o in opts):
             fixes = [_unlock_fix(ctx, eid, f"unlock:{eid}") for eid in ids]
         fixes += _exclude_fixes(ctx, ids, 2)
-    elif msg.startswith("locked assignment of") and "not eligible" in msg and e is not None:
-        group = "locked_ineligible"
-        m3 = _RX_NOT_ELIGIBLE.search(msg)
-        why = m3["why"] if m3 else ""
-        ids_txt = [x.strip() for x in m3["rooms"].split(",")] if m3 else []
-        rooms = ", ".join(ctx.names.get(int(x), f"#{x}") for x in ids_txt if x.isdigit()) or "?"
-        message = _t(
-            f"{lab} {rooms} dersliğine kilitli ama bu derslik kullanılamıyor ({why}).",
-            f"{lab} is locked to {rooms}, which can't be used ({why}).",
+    elif code in ("locked_ineligible", "trusted_lock_capacity", "trusted_lock_tags") and e is not None:
+        group = {"locked_ineligible": "locked_ineligible", "trusted_lock_capacity": "locked_small"}.get(
+            code, "locked_tags"
         )
+        rooms = ", ".join(ctx.names.get(int(x), f"#{x}") for x in prm.get("rooms") or []) or "?"
+        if code == "locked_ineligible":
+            why = "; ".join(str(r) for r in prm.get("reasons") or [])
+            message = _t(
+                f"{lab} {rooms} dersliğine kilitli ama bu derslik kullanılamıyor ({why}).",
+                f"{lab} is locked to {rooms}, which can't be used ({why}).",
+            )
+        elif code == "trusted_lock_capacity":
+            message = _t(
+                f"{lab} {prm.get('size')} öğrenci bekliyor ama {rooms} dersliğine ({prm.get('seats')} kişilik) "
+                "kilitli; planlamacının dersliği korunur.",
+                f"{lab} expects {prm.get('size')} students but is locked to {rooms} ({prm.get('seats')} seats); "
+                "the planner's room is kept.",
+            )
+        else:
+            tags = ", ".join(str(t) for t in [*(prm.get("missing_tags") or []), *(prm.get("forbidden_tags") or [])])
+            message = _t(
+                f"{lab} {rooms} dersliğine kilitli ama derslik özellikleri uymuyor ({tags}); derslik korunur.",
+                f"{lab} is locked to {rooms}, whose tags don't match ({tags}); the room is kept.",
+            )
         rf = _rooms_fix(ctx, e, unlock=True)
         if rf:
             fixes.append(rf)
         fixes.append(_unlock_fix(ctx, e.id))
-        fixes += _exclude_fixes(ctx, ids)
-    elif msg.startswith("locked assignment of") and "blocked slot" in msg:
+        if code == "locked_ineligible":
+            fixes += _exclude_fixes(ctx, ids)
+    elif code == "locked_blocked":
         group = "locked_blocked"
         message = _t(
             f"{lab} dolu (bloklu) bir saate kilitli ({_ev_when(e, 'tr') if e else ''}).",
@@ -436,13 +462,13 @@ def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
         )
         if ids:
             fixes = [_unlock_fix(ctx, ids[0])] + _exclude_fixes(ctx, ids)
-    elif m4 := _RX_PIGEON.match(msg):
+    elif code == "pigeonhole":
         group = "pigeonhole"
-        day, p, w = int(m4["day"]), int(m4["p"]), int(m4["w"])
+        day, p, w = int(prm["day"]), int(prm["period"]), int(prm["week"])
         message = _t(
-            f"{m4['n']} ders {_when(day, p, p, 'tr')} saatinde ({w}. hafta) derslik istiyor ama uygun yalnızca "
-            f"{m4['m']} derslik var.",
-            f"{m4['n']} classes need a room on {_when(day, p, p, 'en')} (week {w}) but only {m4['m']} suitable "
+            f"{prm['n']} ders {_when(day, p, p, 'tr')} saatinde ({w}. hafta) derslik istiyor ama uygun yalnızca "
+            f"{prm['rooms']} derslik var.",
+            f"{prm['n']} classes need a room on {_when(day, p, p, 'en')} (week {w}) but only {prm['rooms']} suitable "
             "rooms exist.",
         )
         by_size = sorted(ids, key=lambda i: ctx.events[i].size if i in ctx.events else 0)

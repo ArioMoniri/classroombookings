@@ -149,6 +149,7 @@ class ConstraintOut(ORMModel):
     nl_text: str | None
     enabled: bool
     created_by: int | None
+    source_ref: dict[str, Any] | None = None
 
 
 class ImportJobOut(ORMModel):

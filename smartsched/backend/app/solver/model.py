@@ -118,6 +118,15 @@ class Diagnosis:
     #: machine-readable category, e.g. ``trusted_lock_capacity``, ``input_conflict``, ``unplaced``,
     #: ``no_room``, ``locked_overlap``, ``pigeonhole``, ``core`` (see app/solver/README.md "Diagnosis codes")
     code: str = ""
+    #: structured facts behind the message (rooms, slot, key, sizes ...) so consumers (precheck, run-report
+    #: fixes, the AI layer) never parse the wording; keys per code in app/solver/README.md
+    params: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if "options" not in self.params:
+            from app.solver.options import options_for
+
+            self.params = {**self.params, "options": options_for(self.suggestions, self.message, self.event_ids)}
 
 
 @dataclass

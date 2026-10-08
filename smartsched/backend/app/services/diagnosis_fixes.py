@@ -1,8 +1,9 @@
 """Turn the solver's free-text diagnosis suggestions into structured, applicable fix options.
 
-``app.solver.diagnose`` emits ``Diagnosis(event_ids, constraint_kinds, message, suggestions, severity)``
-with plain-English suggestion strings.  A *subset* of those strings has a fixed shape and can be
-applied mechanically (see :data:`PATTERNS`); everything else is returned with ``action="manual"`` and
+``app.solver.diagnose`` emits ``Diagnosis(event_ids, constraint_kinds, message, suggestions, severity,
+code, params)``; ``params["options"]`` holds one structured option per suggestion string
+(app/solver/options.py), which is what :func:`parse_option` uses.  Runs stored before structured options
+fall back to the string patterns below.  Non-mechanical options are ``action="manual"`` /
 ``applicable=False`` and the apply endpoint answers 422 with a reason.
 
 Applying never edits the source request rows' times or rooms.  Placements become planner-locked
@@ -64,9 +65,33 @@ class FixOption:
         }
 
 
+def _structured(index: int, text: str, diag: dict[str, Any], run_kind: str | None) -> FixOption | None:
+    """The solver's own structured option (``Diagnosis.params["options"][index]``, see
+    app/solver/options.py); ``None`` for diagnoses stored before options existed."""
+    opts = (diag.get("params") or {}).get("options") if isinstance(diag.get("params"), dict) else None
+    if not isinstance(opts, list) or index >= len(opts) or not isinstance(opts[index], dict):
+        return None
+    o = {k: v for k, v in opts[index].items() if k != "index"}
+    action = str(o.pop("action", "manual"))
+    t = " ".join(str(text).split())
+    if action in ("move", "release_room"):
+        ok = o.get("event_id") is not None and o.get("day") is not None
+    elif action in ("unlock", "split"):
+        ok = bool(o.get("event_ids")) and not (action == "split" and run_kind == "COURSE")
+    elif action == "relax":
+        ok = bool(o.get("kind"))
+    else:
+        action, ok, o = "manual", False, {}
+    return FixOption(index, t, action, ok, o)
+
+
 def parse_option(index: int, text: str, diag: dict[str, Any], run_kind: str | None = None) -> FixOption:
     """Classify one suggestion string of ``diag`` (a stored ``asdict(Diagnosis)``). ``run_kind`` marks
-    options the apply endpoint would refuse for that kind (splitting a course) as not applicable."""
+    options the apply endpoint would refuse for that kind (splitting a course) as not applicable.
+    Structured options emitted by the solver win; the patterns below only serve older stored runs."""
+    structured = _structured(index, text, diag, run_kind)
+    if structured is not None:
+        return structured
     t = " ".join(str(text).split())
     event_ids = [int(e) for e in diag.get("event_ids") or []]
     target = event_ids[0] if event_ids else None

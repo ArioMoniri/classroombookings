@@ -498,6 +498,16 @@ export const handlers = [
     const run = getRun(num(params.id));
     return run ? json(run) : notFound("Run");
   }),
+  http.delete(`${base}/runs/:id`, ({ params }) => {
+    const run = getRun(num(params.id));
+    if (!run) return notFound("Run");
+    if (run.status === "QUEUED" || run.status === "RUNNING") {
+      run.status = "CANCELLED";
+      run.finished_at = new Date().toISOString();
+      state.runStartedAt.delete(run.id);
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
   http.get(`${base}/runs/:id/assignments`, ({ params, request }) => {
     const url = new URL(request.url);
     const week = url.searchParams.get("week");

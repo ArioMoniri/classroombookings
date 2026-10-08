@@ -212,6 +212,7 @@ def result_from_dict(d: Mapping[str, Any]) -> SolverResult:
                 list(x.get("suggestions", [])),
                 str(x.get("severity", "error")),
                 str(x.get("code", "")),
+                dict(x.get("params", {})),
             )
             for x in d.get("diagnoses", [])
         ],

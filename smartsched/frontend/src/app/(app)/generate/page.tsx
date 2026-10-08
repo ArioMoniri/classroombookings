@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
-import { GenerateView } from "@/components/generate/generate-view";
+import { Suspense } from "react";
+import { StudioView } from "@/components/studio/studio-view";
 
-export const metadata: Metadata = { title: "Generate" };
+export const metadata: Metadata = { title: "Generator Studio" };
 
 export default function GeneratePage() {
-  return <GenerateView />;
+  return (
+    <Suspense>
+      <StudioView />
+    </Suspense>
+  );
 }
