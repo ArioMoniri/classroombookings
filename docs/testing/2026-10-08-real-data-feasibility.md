@@ -196,9 +196,10 @@ Why the remaining Bahar classes are not in the planner's rooms (seed 0: 9 unplac
 * 5: the planner's room is excluded by a hard rule (tags / grid block);
 * 9 unplaced (no free fitting room at a fixed time).
 
-Final exams: 9 % are placed but share no room with the planner (91.1 % overlap). The gap between
-exact and overlap is mostly split / shared-room patterns that differ from the planner's: the same exam
-in 2 rooms instead of 3, or a different shared room for small exams.
+Final exams: 8.9 % share no room with the planner (1.4 % unplaced, 7.5 % in other rooms). The other
+10.2 points between exact (80.9 %) and overlap (91.1 %) are exams whose room set shares rooms with the
+planner's set without being identical (e.g. another number of rooms for a split exam). These cases were
+not analysed one by one.
 
 Caveats: time-limited runs with 4 workers are not bit-reproducible (about ±1 point between runs of the
 same seed on Bahar). Measurements were taken on a contended 4-vCPU box, so 8 dedicated workers should
