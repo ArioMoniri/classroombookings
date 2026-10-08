@@ -1,7 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { DEFAULT_LOCALE, LOCALE_COOKIE, formatNumber, translate, type Locale, type MessageKey, type Vars } from "./index";
+import { QueryClientContext, keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { OrgI18n } from "@/lib/api/crbs";
+import { DEFAULT_LOCALE, LOCALE_COOKIE, formatNumber, overridesFromBundle, translate, type Locale, type MessageKey, type MessageOverrides, type Vars } from "./index";
 
 interface I18nContextValue {
   locale: Locale;
@@ -12,8 +14,66 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
+const NO_OVERRIDES: MessageOverrides = Object.freeze({});
+/** every `useOrgI18n(lang)` key (`crbsKeys.i18n`) */
+const I18N_PREFIX = ["crbs", "i18n"] as const;
+/** `crbsKeys.i18n(lang)`: the provider shares the cache entry of `useOrgI18n` (one request per language). */
+export const orgI18nKey = (lang: Locale) => [...I18N_PREFIX, lang] as const;
+
+/**
+ * `useOrgI18n(locale)` with the same key, fetcher and cache options. The API module is imported when the
+ * query runs, not at module load: lib/i18n stays below the API layer, and the provider still renders where
+ * that module is replaced (component tests mock `@/lib/api/crbs` wholesale); a failed load is a query error,
+ * which leaves the shipped messages in place.
+ */
+function useOrgBundle(locale: Locale) {
+  return useQuery<OrgI18n>({
+    queryKey: orgI18nKey(locale),
+    queryFn: async () => (await import("@/lib/api/crbs")).crbs.org.i18n(locale),
+    staleTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+}
+
+interface LoadedOverrides {
+  locale: Locale;
+  overrides: MessageOverrides;
+}
+
+/**
+ * Loads the admin overrides of the active language (`GET /org/i18n?language=…`, public, cached 5 min) and
+ * hands them to the provider. A bundle for another language (the previous one is kept while the new one
+ * loads, or the backend answered with its default language) is never applied.
+ */
+function OrgOverridesLoader({ locale, onLoad }: { locale: Locale; onLoad: (loaded: LoadedOverrides | null) => void }) {
+  const q = useOrgBundle(locale);
+  const qc = useQueryClient();
+  // the admin editor (/admin/settings) refetches its translation list after every save or delete; refresh the
+  // bundle then too, so an edited text shows at once instead of after the 5 min cache
+  useEffect(
+    () =>
+      qc.getQueryCache().subscribe((event) => {
+        const key = event.query.queryKey;
+        if (event.type === "updated" && event.action.type === "success" && key[0] === "crbs" && key[1] === "translations") {
+          void qc.invalidateQueries({ queryKey: I18N_PREFIX });
+        }
+      }),
+    [qc],
+  );
+  const bundle = q.data?.language === locale ? q.data : undefined;
+  const overrides = useMemo(() => (bundle ? overridesFromBundle(bundle.messages) : null), [bundle]);
+  useEffect(() => {
+    onLoad(overrides ? { locale, overrides } : null);
+  }, [locale, overrides, onLoad]);
+  return null;
+}
+
 export function I18nProvider({ initialLocale, children }: { initialLocale: Locale; children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [loaded, setLoaded] = useState<LoadedOverrides | null>(null);
+  // the overrides need the API; without a QueryClient (isolated component tests) the shipped messages apply
+  const hasQueryClient = useContext(QueryClientContext) !== undefined;
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
@@ -25,17 +85,24 @@ export function I18nProvider({ initialLocale, children }: { initialLocale: Local
     }
   }, []);
 
+  const overrides = loaded?.locale === locale ? loaded.overrides : NO_OVERRIDES;
+
   const value = useMemo<I18nContextValue>(
     () => ({
       locale,
       setLocale,
-      t: (key, vars) => translate(locale, key, vars),
+      t: (key, vars) => translate(locale, key, vars, overrides),
       n: (v, opts) => formatNumber(locale, v, opts),
     }),
-    [locale, setLocale],
+    [locale, setLocale, overrides],
   );
 
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+  return (
+    <I18nContext.Provider value={value}>
+      {hasQueryClient ? <OrgOverridesLoader locale={locale} onLoad={setLoaded} /> : null}
+      {children}
+    </I18nContext.Provider>
+  );
 }
 
 export function useI18n(): I18nContextValue {

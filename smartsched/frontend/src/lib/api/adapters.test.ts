@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import * as adapt from "./adapters";
-import { Assignment, GridResponse, MeetingRequest, MoveResponse, Paginated, Room, ScheduleRun, Settings, TestAiResponse } from "./schemas";
+import { Assignment, GridResponse, ImportJob, MeetingRequest, MoveResponse, Paginated, Room, ScheduleRun, Settings, TestAiResponse } from "./schemas";
 
 /** Payload shapes copied from smartsched/backend/app/schemas/*.py and services/grid.py. */
 describe("backend adapters", () => {
@@ -66,5 +66,31 @@ describe("backend adapters", () => {
     expect(adapt.utcIso("2026-10-08T07:30:12Z")).toBe("2026-10-08T07:30:12Z");
     expect(adapt.utcIso("2026-10-08T10:30:12+03:00")).toBe("2026-10-08T10:30:12+03:00");
     expect(adapt.utcIso("2026-10-08")).toBe("2026-10-08");
+  });
+
+  it("reads the backend import job (ImportReport.to_dict) and its empty summary while it runs", () => {
+    // trimmed from GET /imports/{id} after the Bahar planning list (the real e2e backend)
+    const done = ImportJob.parse(
+      adapt.importJob({
+        id: 1, kind: "planning-list", filename: "bahar_derslik_planlama_listesi_v5.xlsx", term_code: "2026-BAHAR", status: "DONE", error: null,
+        created_at: "2026-10-08T14:05:39.899007", finished_at: "2026-10-08T14:06:01",
+        summary: {
+          rows_total: 1529, rows_imported: 1524, rows_skipped_count: 2,
+          rows_skipped: [{ row: 117, reason: "no course code", detail: null }, { row: 1406, reason: "no course code", detail: "MDF-516" }],
+          warnings: ["row 11: weeks value 0; assuming all", "row 132: start time 09:00 not on the grid; snapped to P1 (08:30)"],
+          created: { sections: 3, meeting_requests: 4 }, updated: {}, warnings_count: 2,
+        },
+      }),
+    );
+    expect(done.summary).toMatchObject({ rows: 1529, created: 7, updated: 0, skipped: 2 });
+    expect(done.summary.warnings).toEqual([
+      { row: 117, field: "", value: null, message: "no course code", severity: "error" },
+      { row: 1406, field: "", value: "MDF-516", message: "no course code", severity: "error" },
+      { row: 11, field: "", value: null, message: "weeks value 0; assuming all", severity: "warning" },
+      { row: 132, field: "", value: null, message: "start time 09:00 not on the grid; snapped to P1 (08:30)", severity: "warning" },
+    ]);
+    expect(done.created_at).toBe("2026-10-08T14:05:39.899007Z");
+    const queued = ImportJob.parse(adapt.importJob({ id: 2, kind: "weekly-grid", filename: "grid.xlsx", status: "QUEUED", summary: {}, created_at: "2026-10-08T14:07:00" }));
+    expect(queued.summary).toEqual({ rows: 0, created: 0, updated: 0, skipped: 0, warnings: [] });
   });
 });

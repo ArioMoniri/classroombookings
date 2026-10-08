@@ -4,7 +4,8 @@ import { Bell, Search } from "lucide-react";
 import { motion, useMotionValueEvent, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { WhatsNewIndicator } from "@/components/admin/whats-new";
 import { StatusBadge } from "@/components/common/status-badge";
 import { runStatusBadge } from "@/components/runs/runs-list";
 import { Button } from "@/components/ui/button";
@@ -13,36 +14,19 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Progress, ProgressIndicator, ProgressTrack } from "@/components/ui/progress";
 import { useRuns } from "@/lib/api/hooks";
 import type { ScheduleRun } from "@/lib/api/schemas";
-import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { tween, useReduce, useReducedTransparency } from "@/lib/motion";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
+import { useTintOnlyChrome } from "./blur-budget";
+import { breadcrumbs, type Crumb } from "./breadcrumbs";
 import { UserMenu } from "./user-menu";
 
-const SEGMENT_LABELS: Record<string, MessageKey> = {
-  dashboard: "nav.dashboard",
-  import: "nav.import",
-  requests: "nav.requests",
-  generate: "nav.generate",
-  timetable: "nav.timetable",
-  runs: "nav.runs",
-  rooms: "nav.rooms",
-  settings: "nav.settings",
-  classes: "glass.shell.classes",
-};
-
-export function useBreadcrumbs(): { href: string; label: string; current: boolean }[] {
+export function useBreadcrumbs(): Crumb[] {
   const pathname = usePathname();
   const { t } = useI18n();
-  const parts = pathname.split("/").filter(Boolean);
-  return parts.map((seg, i) => {
-    const href = `/${parts.slice(0, i + 1).join("/")}`;
-    const key = SEGMENT_LABELS[seg];
-    const label = key ? t(key) : /^\d+$/.test(seg) ? `#${seg}` : seg;
-    return { href, label, current: i === parts.length - 1 };
-  });
+  return useMemo(() => breadcrumbs(pathname, t), [pathname, t]);
 }
 
 /**
@@ -61,15 +45,21 @@ export function useThickening() {
   return { reduce, solid, tint, titleOpacity, scrolled };
 }
 
-/** A floating capsule whose material thickens with scroll. Decorative layers are aria-hidden and inert. */
-export function ThickeningCapsule({ children, className, label }: { children: ReactNode; className?: string; label?: string }) {
+/** Backdrop pass of a shell bar; tint-only (blur-budget.ts) keeps the edge and ambient but drops the blur. */
+const BACKDROP = "[backdrop-filter:var(--mat-chrome-filter)] [-webkit-backdrop-filter:var(--mat-chrome-filter)]";
+
+/**
+ * A floating capsule whose material thickens with scroll. Decorative layers are aria-hidden and inert.
+ * `tintOnly`: no blur pass; the tint layer is the chrome solid, so content scrolling under it stays hidden.
+ */
+export function ThickeningCapsule({ children, className, label, tintOnly = false }: { children: ReactNode; className?: string; label?: string; tintOnly?: boolean }) {
   const { reduce, solid, tint, scrolled } = useThickening();
   return (
-    <div role={label ? "toolbar" : undefined} aria-label={label} data-scrolled={scrolled} className={cn("relative isolate flex items-center gap-0.5 rounded-full p-1", className)}>
-      <span aria-hidden className="pointer-events-none absolute inset-0 -z-20 rounded-[inherit] shadow-[var(--glass-edge),var(--ambient-1)] [backdrop-filter:var(--mat-chrome-filter)] [-webkit-backdrop-filter:var(--mat-chrome-filter)]" />
+    <div role={label ? "toolbar" : undefined} aria-label={label} data-scrolled={scrolled} data-chrome={tintOnly ? "tint" : "glass"} className={cn("relative isolate flex items-center gap-0.5 rounded-full p-1", className)}>
+      <span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-20 rounded-[inherit] shadow-[var(--glass-edge),var(--ambient-1)]", !tintOnly && BACKDROP)} />
       <motion.span
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 rounded-[inherit] bg-(--mat-chrome)"
+        className={cn("pointer-events-none absolute inset-0 -z-10 rounded-[inherit]", tintOnly ? "bg-(--mat-chrome-solid)" : "bg-(--mat-chrome)")}
         style={{ opacity: solid ? 1 : reduce ? undefined : tint }}
         animate={reduce && !solid ? { opacity: scrolled ? 1 : 0.35 } : undefined}
         transition={tween.fadeIn}
@@ -168,9 +158,10 @@ export function TopBar() {
   const runs = useRuns();
   const hydrated = useHydrated();
   const running = hydrated ? runs.data?.find(isActive) : undefined;
+  const tintOnly = useTintOnlyChrome();
   return (
     <header className="pointer-events-none sticky top-0 z-30 hidden items-center gap-3 px-4 pt-2 pb-1 sm:px-6 lg:flex lg:px-8">
-      <ThickeningCapsule className="pointer-events-auto min-w-0 px-3">
+      <ThickeningCapsule className="pointer-events-auto min-w-0 px-3" tintOnly={tintOnly}>
         <nav aria-label={t("glass.shell.breadcrumb")} className="min-w-0">
           <ol className="flex h-8 items-center gap-1 text-[13px]">
             {crumbs.map((c, i) => (
@@ -197,7 +188,7 @@ export function TopBar() {
         </nav>
       </ThickeningCapsule>
       <div className="flex-1" />
-      <ThickeningCapsule className="pointer-events-auto" label={t("glass.shell.toolbar")}>
+      <ThickeningCapsule className="pointer-events-auto" label={t("glass.shell.toolbar")} tintOnly={tintOnly}>
         {running ? <RunIsland run={running} /> : null}
         <button
           type="button"
@@ -209,6 +200,7 @@ export function TopBar() {
           <span className="pr-6">{t("glass.shell.searchShort")}</span>
           <KbdHint keys={["mod", "K"]} />
         </button>
+        <WhatsNewIndicator />
         <RecentRuns />
       </ThickeningCapsule>
     </header>
@@ -220,13 +212,15 @@ export function MobileTopBar() {
   const crumbs = useBreadcrumbs();
   const { solid, tint, titleOpacity, reduce, scrolled } = useThickening();
   const title = crumbs.at(-1)?.label ?? "";
+  const tintOnly = useTintOnlyChrome();
   return (
-    <header className="sticky top-0 z-30 flex h-12 items-center gap-2 px-4 pt-[env(safe-area-inset-top)] lg:hidden" data-scrolled={scrolled}>
-      <span aria-hidden className="pointer-events-none absolute inset-0 -z-20 [backdrop-filter:var(--mat-chrome-filter)] [-webkit-backdrop-filter:var(--mat-chrome-filter)]" />
-      <motion.span aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-(--mat-chrome) shadow-[inset_0_-1px_0_0_var(--hairline)]" style={{ opacity: solid ? 1 : reduce ? undefined : tint }} animate={reduce && !solid ? { opacity: scrolled ? 1 : 0.35 } : undefined} transition={tween.fadeIn} />
+    <header className="sticky top-0 z-30 flex h-12 items-center gap-2 px-4 pt-[env(safe-area-inset-top)] lg:hidden" data-scrolled={scrolled} data-chrome={tintOnly ? "tint" : "glass"}>
+      <span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-20", !tintOnly && BACKDROP)} />
+      <motion.span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-10 shadow-[inset_0_-1px_0_0_var(--hairline)]", tintOnly ? "bg-(--mat-chrome-solid)" : "bg-(--mat-chrome)")} style={{ opacity: solid ? 1 : reduce ? undefined : tint }} animate={reduce && !solid ? { opacity: scrolled ? 1 : 0.35 } : undefined} transition={tween.fadeIn} />
       <motion.p className="type-headline min-w-0 flex-1 truncate text-label-1" style={{ opacity: reduce ? (scrolled ? 1 : 0) : titleOpacity }} aria-hidden>
         {title}
       </motion.p>
+      <WhatsNewIndicator />
       <UserMenu compact />
     </header>
   );

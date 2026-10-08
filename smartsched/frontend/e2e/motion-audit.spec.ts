@@ -3,7 +3,12 @@
  * Runs against the REAL backend (E2E_REAL=1, see playwright.config.ts):
  *   E2E_REAL=1 PW_PORT=3600 npx playwright test e2e/motion-audit.spec.ts
  * Env: AUDIT_EMAIL / AUDIT_PASSWORD (default the seeded admin), AUDIT_RUN (a finished run id; e2e/global-setup.ts
- * sets it to the full-term solver run), MOTION_CPU (1 in CI; 4 for the device check).
+ * sets it to the full-term solver run), MOTION_CPU (1 in CI; 4 for the device check), MOTION_STRICT.
+ *
+ * Always enforced: the 300 ms ceiling for finite animations, reduced motion and reduced transparency.
+ * Frame budgets (dropped frames, worst long frame) are measured and logged on every run but enforced only with
+ * MOTION_STRICT=1 (a dedicated device check): on a shared CI container even the no-op baseline click shows
+ * 100–200 ms frames, so they would measure the machine, not the UI (same policy as e2e/calendar.spec.ts).
  */
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { login as signIn } from "./helpers";
@@ -12,6 +17,7 @@ test.skip(process.env.E2E_REAL !== "1", "motion audit runs against the real back
 
 const EMAIL = process.env.AUDIT_EMAIL ?? "admin@smartsched.local";
 const PASSWORD = process.env.AUDIT_PASSWORD ?? "Admin-2026!";
+const STRICT = process.env.MOTION_STRICT === "1";
 const RUN = process.env.AUDIT_RUN ?? process.env.E2E_SOLVER_RUN ?? "1";
 
 type FrameReport = { frames: number; dropped: number; p95: number; longFrames: number; worstLongFrame: number };
@@ -110,8 +116,10 @@ test.describe("motion audit: dashboard", () => {
       const report = await stopFrameProbe(page);
       results.push({ surface: "dashboard", name, ...report, layouts, over });
       expect.soft(over).toEqual([]);
-      expect.soft(report.dropped).toBeLessThanOrEqual(3 * interactions);
-      expect.soft(report.worstLongFrame).toBeLessThanOrEqual(rate > 1 ? 150 : 100);
+      if (STRICT) {
+        expect.soft(report.dropped).toBeLessThanOrEqual(3 * interactions);
+        expect.soft(report.worstLongFrame).toBeLessThanOrEqual(rate > 1 ? 150 : 100);
+      }
     };
 
     // calibration: the cost of an input that animates nothing (machine load, software raster)
@@ -162,8 +170,10 @@ test.describe("motion audit: run report", () => {
       const report = await stopFrameProbe(page);
       results.push({ surface: "run report", name, ...report, layouts, over });
       expect.soft(over).toEqual([]);
-      expect.soft(report.dropped).toBeLessThanOrEqual(3 * interactions);
-      expect.soft(report.worstLongFrame).toBeLessThanOrEqual(rate > 1 ? 150 : 100);
+      if (STRICT) {
+        expect.soft(report.dropped).toBeLessThanOrEqual(3 * interactions);
+        expect.soft(report.worstLongFrame).toBeLessThanOrEqual(rate > 1 ? 150 : 100);
+      }
     };
     await measure("no-op click (baseline)", 1, async () => {
       await page.mouse.click(5, 880);

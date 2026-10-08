@@ -287,3 +287,30 @@ loop), 3, 4, 5, 6, 7, 8, 10, 12, 13, 14; usability U1-U6 and the default term. S
       need them, serve the schema behind `planning.admin` instead of re-opening the public route.
 - [ ] **Stale AUTH_SECRET on older pods** — pods bootstrapped before the removal keep `AUTH_SECRET` in `deploy/.env`
       and `/smartsched/app/AUTH_SECRET` in SSM; both are unused. Delete the parameter on the next `down`/`up`.
+
+### Phase 18 part 1 — done 2026-10-08 (backend-engineer, CRBS superset gate)
+
+- [x] Parity inventory with an automated API acceptance test per row: `smartsched/backend/tests/parity/inventory.py`
+      (182 rows: 109 behaviours, 7 superset rows, 16 audit bugs, 6 missing items, 12 deliberate differences, 3 later
+      parts, 29 screens), 28 new acceptance tests in `tests/parity/test_parity_*.py` on the real Bahar fixtures, the
+      existing `test_crbs_*` tests referenced by node id.
+- [x] `scripts/parity_check.py` (table, `docs/testing/crbs-parity-report.md`, exit 1 on FAIL / MISSING, `--strict`,
+      `--playwright-json`) and the pod CI gate script `smartsched/deploy/pod-ci/gates/parity.sh` — **not registered yet**
+      in `podci/gates.py` (another agent was editing it): add
+      `Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)", needs=("backend",), timeout=1800),`
+      after the `backend` gate.
+- [x] Measured: PASS 152 · GAP 30 · FAIL 0 · MISSING 0. Fixed: Turkish / CRBS `sort_map` order of the user list.
+- [ ] README: state the measured result (README is outside this agent's fence).
+- [ ] e2e-real gate: also write a Playwright JSON report (`--reporter=list,json`, `PLAYWRIGHT_JSON_OUTPUT_NAME=/w/playwright-report.json`)
+      so parity.sh reports UI results, not only titles.
+- [ ] UI gaps (frontend): Playwright steps for the admin screens S-16..S-24, the staff dashboard (S-10), the
+      multi-booking wizard (S-06), cancel-many (S-09); mount login logo / message / forgot link, "What's new", i18n
+      overlay (ROADMAP 'Shell follow-ups'); then run the gate with `--strict`.
+- [ ] B-AUTH-11 sign-out: per-user `token_version` claim bumped by `POST /auth/logout` and password changes
+      (`app/core/security.py`, `app/api/deps.py`).
+- [ ] Part 2 (P18-LANG): import the 13 CRBS language files as message catalogues, widen the backend language list
+      (`app/services/bookings_i18n.py`, `schemas/crbs.py` language validation, shipped e-mail strings), frontend
+      locale files + an e2e language switch.
+- [ ] Part 3 (P18-LEGACY): `POST /imports/crbs?dry_run=1` report (counts per table, unmapped rows) and a run against
+      the pod's `--profile legacy` MySQL with a real dump.
+- [ ] Part 4 (P18-DIFF): sampler of (date, room, user) + CRBS grid scraper on the pod, diffed against `GET /bookings/grid`.

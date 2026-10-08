@@ -385,3 +385,32 @@ UTF-8 with a BOM; ICS text is RFC 5545-escaped and folded on UTF-8 byte boundari
 | `test_crbs_fixes_bookings.py`, `test_crbs_fixes_org.py` | the audit fixes B1-B16, MISSING 2-6 and every deliberate-difference switch (both the CRBS default and the switched behaviour), the no-escalation rule, the installer requirements step |
 | `test_import_crbs.py` | CRBS's own `structure.sql` + `data.sql` loaded, the legacy importer filling the parity tables, `$2y$` / `sha1:` passwords |
 | `parity/` | the **CRBS superset gate** (§9): `inventory.py` (every CRBS behaviour and screen with the tests that prove it), `test_parity_*.py` (acceptance tests for the rows the suites above did not cover, each marked `@pytest.mark.parity("<row>")`), `test_inventory.py` (the inventory is complete and the checker fails failing / missing rows), `plugin.py` (result recorder for `scripts/parity_check.py`) |
+
+## 9. Superset gate (ROADMAP Phase 18, 2026-10-08)
+
+The user's requirement: SmartSched has every classroombookings function and more, not less in any way.
+`python3 scripts/parity_check.py` proves it row by row and writes `docs/testing/crbs-parity-report.md`.
+
+* **Inventory** — `smartsched/backend/tests/parity/inventory.py`, 182 rows: 109 CRBS behaviours (§2 features
+  split per behaviour: B-SETUP, B-AUTH, B-USERS, B-ROLES, B-ROOMS, B-SESS, B-BOOK), 7 "more than CRBS" rows (X-*),
+  the audit's 16 bugs (BUG-B01..B16), 6 missing items (MISS-1..6), 12 deliberate differences (DIFF-*), the three
+  later parts of Phase 18 (P18-*) and the 29 screens of §5 (S-01..S-29). The audit counted 91 behaviours but kept
+  only its bug / missing / difference rows in writing; the behaviour rows were rebuilt from §2 and the CRBS
+  controllers, so every CRBS controller action is in a row.
+* **API column** — the row's tests: existing `tests/test_crbs_*` / `test_import_crbs` / `test_review_security`
+  tests referenced by node id (reused, not duplicated) plus `tests/parity/test_parity_*.py` tests marked
+  `@pytest.mark.parity("<row>")`, all on the real Bahar 2026 import (`tests/crbs_env`).
+* **UI column** — Playwright titles in `smartsched/frontend/e2e/bookings.spec.ts` / `calendar.spec.ts` (present =
+  `SPEC`; with `--playwright-json` the real results). The specs run against the real backend in pod CI `e2e-real`.
+* **Result** — PASS, FAIL, MISSING (no test and no declared gap, a stale test reference or a vanished UI title) or
+  GAP (declared in the inventory with reason, owner and proposed fix). Exit 1 on FAIL / MISSING (`--strict`: GAP
+  too). Pod CI gate: `smartsched/deploy/pod-ci/gates/parity.sh`.
+
+**Measured 2026-10-08 14:15 UTC:** PASS 152 · GAP 30 · FAIL 0 · MISSING 0; 105 API tests passed in 391 s. The gate
+found and fixed one real difference: `GET /users/search` sorted Turkish names by code point ("İpek" before "Çağla")
+and role / department by code / id; it now follows CRBS's `sort_map` (role and department names, several keys) in
+Turkish alphabetical order (B-USERS-01, `app/api/v1/users.py`). The 30 gaps: 21 UI rows (admin screens and the
+dashboard / multi-booking wizard / cancel-many exist but no Playwright step drives them; login logo, login message,
+"What's new" and the i18n overlay are not mounted by the shell yet), sign-out not revoking the bearer token
+(B-AUTH-11), the CRBS migration verified on CRBS's own install SQL but not yet on a running MySQL (BUG-B04), and the
+later Phase 18 parts (13 languages, legacy MySQL upgrade, side-by-side diff).

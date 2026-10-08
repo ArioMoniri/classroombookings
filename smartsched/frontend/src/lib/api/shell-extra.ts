@@ -225,7 +225,7 @@ export interface UploadProgress {
 
 /**
  * `POST /imports/{kind}` over XMLHttpRequest: `onProgress` reports real bytes sent (fetch has no upload
- * progress). Form fields match `api.imports.upload`. Resolves with the parsed import job.
+ * progress). Form fields match `api.imports.upload`. Resolves with the finished import job (see waitForImport).
  */
 export function uploadImportWithProgress(
   kind: ImportKind,
@@ -240,7 +240,7 @@ export function uploadImportWithProgress(
   if (kind === "planning-list") fd.append("week_count", "14");
   fd.append("term_id", String(term.id));
   if (opts.dsn) fd.append("dsn", opts.dsn);
-  return new Promise((resolve, reject) => {
+  return new Promise<ImportJob>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_PREFIX}/imports/${kind}`);
     xhr.setRequestHeader("Accept", "application/json");
@@ -268,7 +268,24 @@ export function uploadImportWithProgress(
     };
     opts.signal?.addEventListener("abort", () => xhr.abort());
     xhr.send(fd);
-  });
+  }).then((job) => waitForImport(job, opts.signal));
+}
+
+/**
+ * `POST /imports/{kind}` answers 202 with the job still QUEUED/RUNNING (empty summary): poll
+ * `GET /imports/{id}` until the importer finished, so the report shows the real counts and warnings.
+ */
+export async function waitForImport(job: ImportJob, signal?: AbortSignal, intervalMs = 1000, timeoutMs = 15 * 60_000): Promise<ImportJob> {
+  const deadline = Date.now() + timeoutMs;
+  let cur = job;
+  while (cur.status === "QUEUED" || cur.status === "RUNNING") {
+    if (signal?.aborted) throw new HttpError(0, "Aborted");
+    if (Date.now() > deadline) throw new HttpError(504, "Import still running");
+    await new Promise((r) => setTimeout(r, intervalMs));
+    cur = await request(`/imports/${cur.id}`, { schema: ImportOne, silent: true });
+  }
+  if (cur.status === "FAILED") throw new HttpError(422, "Import failed", cur);
+  return cur;
 }
 
 /* ------------------------------------------------------------------------- chat: apply a subset */

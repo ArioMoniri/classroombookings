@@ -1,6 +1,6 @@
 "use client"
 // Source: shadcn/ui dialog (style base-nova, https://ui.shadcn.com) — Licence: MIT
-// Modified: yes — Liquid Glass v2 thick material + transitions.dev "Modal open / close" (.t-modal). API unchanged.
+// Modified: yes — Liquid Glass v2 thick material + transitions.dev "Modal open / close" (.t-modal), plain scrim overlay (no backdrop blur). API unchanged.
 
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
@@ -25,6 +25,12 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+/*
+ * A plain scrim (motion.md: "scrim fade"; reduced transparency: the same scrim). No backdrop-filter: a
+ * full-viewport blur re-rasterises the whole page, including every glass surface under it, on the opening
+ * frame (the ⌘K long animation frame in the glass-shell motion audit), and the dialog's own thick glass
+ * already separates it from the page.
+ */
 function DialogOverlay({
   className,
   ...props
@@ -33,7 +39,7 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-(--overlay) transition-opacity duration-(--dur-base) ease-out supports-backdrop-filter:backdrop-blur-[2px] data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-(--dur-fast)",
+        "fixed inset-0 isolate z-50 bg-(--overlay) transition-opacity duration-(--dur-base) ease-out data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-(--dur-fast)",
         className
       )}
       {...props}

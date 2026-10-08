@@ -12,6 +12,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
+import { TINT_ONLY_OVER_SCENE, useTintOnlyChrome } from "./blur-budget";
 import { visibleNavGroups, type NavItem } from "./nav-config";
 import { TermSwitcher, useActiveTerm } from "./term-switcher";
 import { ThemeToggle } from "./theme-toggle";
@@ -88,8 +89,9 @@ export function Sidebar() {
   const toggle = useUiStore((s) => s.toggleSidebar);
   const { t } = useI18n();
   const toggleLabel = collapsed ? t("nav.expand") : t("nav.collapse");
+  const tintOnly = useTintOnlyChrome();
   return (
-    <aside aria-label={t("glass.shell.sidebar")} data-collapsed={collapsed} className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col lg:flex", collapsed ? "w-[72px]" : "w-[264px]")}>
+    <aside aria-label={t("glass.shell.sidebar")} data-collapsed={collapsed} data-chrome={tintOnly ? "tint" : "glass"} className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col lg:flex", collapsed ? "w-[72px]" : "w-[264px]", tintOnly && TINT_ONLY_OVER_SCENE)}>
       <SidebarGlass aria-label={t("glass.shell.primary")} className="flex-1">
         <SidebarGlassHeader className={cn(collapsed && "flex-col px-2")}>
           <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-2 rounded-lg outline-none focus-visible:outline-2 focus-visible:outline-(--focus)" aria-label={t("app.name")}>

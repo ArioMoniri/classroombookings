@@ -123,19 +123,42 @@ export function exam(v: unknown): unknown {
 }
 
 export function warning(v: unknown): unknown {
-  if (!isRec(v)) return { row: 0, field: "", value: null, message: String(v), severity: "info" };
+  if (!isRec(v)) {
+    // importer reports (app/importers/report.py) carry plain strings: "row 11: weeks value 0; assuming all"
+    const m = /^row (\d+):\s*([\s\S]*)$/.exec(String(v));
+    return m ? { row: Number(m[1]), field: "", value: null, message: m[2], severity: "warning" } : { row: 0, field: "", value: null, message: String(v), severity: "info" };
+  }
   const sev = str(v.severity) ?? "warning";
   return { row: num(v.row, 0), field: str(v.field) ?? str(v.column) ?? "", value: str(v.value) ?? str(v.raw), message: str(v.message) ?? str(v.code) ?? "", severity: sev === "error" || sev === "info" ? sev : "warning" };
 }
 
+/** `{sections: 3, meeting_requests: 12}` per-entity counts (ImportReport.created/updated) → their total */
+const countOf = (v: unknown): number | null => (isRec(v) ? Object.values(v).reduce<number>((n, x) => n + (num(x, 0) ?? 0), 0) : num(v));
+
+/**
+ * `ImportJobOut` (app/schemas/runs.py): `summary` is `ImportReport.to_dict()` (rows_total, per-entity
+ * created/updated counts, rows_skipped [{row, reason, detail}], warnings as "row N: …" strings) and is
+ * empty while the job is QUEUED/RUNNING. Skipped rows are listed as errors next to the warnings.
+ */
 export function importJob(v: unknown): unknown {
   if (!isRec(v)) return v;
   const summary = isRec(v.summary) ? v.summary : {};
+  const skippedRows = arr(summary.rows_skipped).filter(isRec);
+  const skipped = num(summary.skipped) ?? num(summary.rows_skipped_count) ?? (Array.isArray(summary.rows_skipped) ? summary.rows_skipped.length : num(summary.rows_skipped, 0));
   return {
     ...v,
     filename: str(v.filename) ?? "",
     status: str(v.status) ?? "DONE",
-    summary: { rows: num(summary.rows, 0), created: num(summary.created, 0), updated: num(summary.updated, 0), skipped: num(summary.skipped, 0), warnings: arr(summary.warnings).map(warning) },
+    summary: {
+      rows: num(summary.rows) ?? num(summary.rows_total, 0),
+      created: countOf(summary.created) ?? 0,
+      updated: countOf(summary.updated) ?? 0,
+      skipped: skipped ?? 0,
+      warnings: [
+        ...skippedRows.map((r) => ({ row: num(r.row, 0), field: "", value: str(r.detail), message: str(r.reason) ?? "", severity: "error" })),
+        ...arr(summary.warnings).map(warning),
+      ],
+    },
     created_at: utcIso(v.created_at) ?? new Date().toISOString(),
   };
 }

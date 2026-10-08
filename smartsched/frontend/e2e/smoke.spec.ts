@@ -61,10 +61,16 @@ test.describe("SmartSched smoke (real backend)", () => {
     await expect(page.getByTestId("class-inspector")).toBeVisible();
     await page.keyboard.press("Escape");
 
-    // Calendar: the imported board, week switcher
+    // Calendar: the imported board (Board lens: every room of a day), then A 204's week and the week switcher
     await page.goto(`/timetable?run=${boardRun()}&week=3`);
     await expect(page.getByTestId("calendar-event").first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("week-label")).toContainText("3");
+    const index = await api<{ rooms: { id: number; name: string }[] }>(page, `/runs/${boardRun()}/calendar-index`);
+    const a204 = index.rooms.find((r) => r.name === "A 204");
+    expect(a204, "A 204 is in the board").toBeTruthy();
+    await page.goto(`/timetable?run=${boardRun()}&week=3&lens=week&subject=room:${a204?.id}`);
+    await expect(page.getByTestId("time-grid")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("calendar-event").first()).toBeVisible({ timeout: 30_000 });
     await page.getByTestId("week-next").click();
     await expect(page.getByTestId("week-label")).toContainText("4");
     await expect(page).toHaveURL(/week=4/);
@@ -132,15 +138,20 @@ test.describe("SmartSched smoke (real backend)", () => {
     if (!(await page.getByTestId("upload-panel").isVisible())) await page.getByTestId("add-upload").click();
     await page.getByTestId("upload-input").setInputFiles(PLANNING_LIST);
     await expect(page.getByTestId("mapping-step")).toBeVisible({ timeout: 60_000 });
-    expect(await page.getByTestId("mapping-row").count()).toBeGreaterThan(5);
+    await expect(page.getByTestId("mapping-row").nth(5)).toBeVisible({ timeout: 30_000 });
 
     // 5. Pre-check: a one-click fix on a hard-impossible class changes the draft (one more class left out)
     await page.getByTestId("rail-step-check").click();
     await expect(page.getByTestId("check-step")).toBeVisible();
-    const impossible = page.locator("[data-testid='issue-card'][data-severity='error']").first();
-    await expect(impossible).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("check-tab-impossible")).toBeVisible({ timeout: 60_000 });
+    await page.getByTestId("check-tab-impossible").click();
+    const groups = page.getByTestId("issue-group").locator("> button[aria-expanded='false']");
+    for (let i = await groups.count(); i > 0; i--) await groups.first().click(); // open every impossible group
+    // the backend's one-click fix that leaves the class out of this plan ("… bu planın dışında kalsın")
+    const leaveOut = page.locator("[data-testid='issue-card'][data-severity='error'] [data-testid='fix-button']").filter({ hasText: /dışında kalsın|out of (this|the) plan/i }).first();
+    await expect(leaveOut).toBeVisible({ timeout: 60_000 });
     const outBefore = Number((await page.getByTestId("stat-out").first().textContent())?.replace(/\D/g, "") || "0");
-    await impossible.getByTestId("fix-button").first().click();
+    await leaveOut.click();
     await expect(page.getByTestId("stat-out").first()).toHaveText(String(outBefore + 1), { timeout: 20_000 });
 
     // 6. Generate (the real data still has impossible classes: generate anyway) → result card → run page

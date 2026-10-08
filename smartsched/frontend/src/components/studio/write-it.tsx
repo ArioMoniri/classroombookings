@@ -22,7 +22,9 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
   const setText = (v: string | ((prev: string) => string)) => setNlText(typeof v === "function" ? v(store.getState().nlText) : v);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [keyMissing, setKeyMissing] = useState(noKey);
+  // the settings load after the first render: derive from the prop (useState(noKey) froze the first value)
+  const [keyRejected, setKeyRejected] = useState(false);
+  const keyMissing = noKey || keyRejected;
   const [unparsed, setUnparsed] = useState<Unparsed[]>([]);
   const area = useRef<HTMLTextAreaElement>(null);
 
@@ -54,7 +56,7 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
       setUnparsed(res.unparsed);
       if (!res.proposals.length && !res.section_edits.length && !res.unparsed.length) setError(t("studio.write.nothing"));
     } catch (e) {
-      if (e instanceof HttpError && e.status === 409) setKeyMissing(true);
+      if (e instanceof HttpError && e.status === 409) setKeyRejected(true);
       else setError(t("studio.write.aiError", { reason: e instanceof Error ? e.message : String(e) }));
     } finally {
       setBusy(false);

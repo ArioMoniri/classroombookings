@@ -26,6 +26,7 @@ GATES: tuple[Gate, ...] = (
     Gate("prepare", "prepare.sh", "CI images (python CI image, Playwright image)", timeout=1200),
     Gate("validate", "validate.sh", "deploy/validate.sh", needs=("prepare",), timeout=300),
     Gate("backend", "backend.sh", "ruff + mypy + pytest + solver + migrations", needs=("prepare",), timeout=2400),
+    Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)", needs=("backend",), timeout=1800),
     Gate("infra", "infra.sh", "pod CI + AWS bootstrap tests", needs=("prepare",), timeout=600),
     Gate("frontend", "frontend.sh", "tsc + eslint + vitest", needs=("prepare",), timeout=1800),
     Gate("e2e-real", "e2e-real.sh", "Playwright (all specs) vs real backend + Bahar fixtures",
