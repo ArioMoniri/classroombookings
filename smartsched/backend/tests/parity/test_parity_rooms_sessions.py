@@ -163,3 +163,113 @@ async def test_holidays_can_be_moved_and_deleted(env):
     assert (await c.delete(f"/api/v1/holidays/{hid}", headers=other)).status_code == 403
     assert (await c.delete(f"/api/v1/holidays/{hid}", headers=env.admin)).status_code == 204
     assert (await env.book(teacher, "A101", WED, "P11")).status_code == 201
+
+
+async def _free_period(env, room: str, day: date, headers: dict[str, str], term_id: int | None = None) -> str:  # type: ignore[no-untyped-def]
+    """First period the grid offers for ``room`` on ``day`` (the published Bahar grid decides)."""
+    params = {"display": "room", "date": day.isoformat(), "room_id": env.rooms[room]}
+    if term_id is not None:
+        params["term_id"] = term_id
+    grid = (await env.client.get("/api/v1/bookings/grid", params=params, headers=headers)).json()
+    names = {p["id"]: p["name"] for p in grid["periods"]}
+    free = [s for s in grid["slots"] if s["date"] == day.isoformat() and s["status"] == "available"]
+    assert free, grid.get("problems")
+    return names[free[0]["period_id"]]
+
+
+@pytest.mark.parity("B-SESS-14")
+async def test_sessions_may_overlap_and_bookings_keep_their_session(env):
+    """CRBS refuses overlapping sessions (``Sessions::_date_check``). SmartSched keeps Bahar and its Final
+    exam period side by side, so every booking stores its session and ``term_id`` picks one explicitly."""
+    c = env.client
+    final = await c.post(
+        "/api/v1/terms",
+        json={
+            "code": "2026-FINAL",
+            "name": "2026 Bahar Final",
+            "kind": "FINAL",
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-12",
+        },
+        headers=env.planner,
+    )
+    assert final.status_code == 201, final.text
+    fid = final.json()["id"]
+    await c.put(
+        f"/api/v1/booking-admin/sessions/{fid}",
+        json={"is_selectable": True, "default_schedule_id": env.schedule_id},
+        headers=env.admin,
+    )
+    day = date(2026, 6, 2)
+    p = await _free_period(env, "A102", day, env.planner, fid)
+    in_final = await env.book(env.planner, "A102", day, p, term_id=fid, notes="Final sınavı – BME 419")
+    assert in_final.status_code == 201 and in_final.json()["term_id"] == fid, in_final.text
+    p2 = await _free_period(env, "A102", day, env.planner, env.term_id)
+    in_bahar = await env.book(env.planner, "A102", day, p2)
+    assert in_bahar.status_code == 201 and in_bahar.json()["term_id"] == env.term_id, in_bahar.text
+    # one slot, one holder, whichever session it was booked in
+    again = await env.book(env.planner, "A102", day, p)
+    assert again.status_code == 409 and again.json()["detail"]["conflict"]["kind"] == "booking"
+
+
+@pytest.mark.parity("B-SESS-15")
+async def test_deleting_a_session_removes_its_bookings_holidays_and_dates(env):
+    """``Sessions_model::delete``: the session's bookings, holidays and calendar dates go with it."""
+    c = env.client
+    yaz = (
+        await c.post(
+            "/api/v1/terms",
+            json={"code": "2026-YAZ", "name": "2026 Yaz Okulu", "start_date": "2026-07-06", "end_date": "2026-08-21"},
+            headers=env.planner,
+        )
+    ).json()
+    await c.put(
+        f"/api/v1/booking-admin/sessions/{yaz['id']}",
+        json={"is_selectable": True, "default_schedule_id": env.schedule_id},
+        headers=env.admin,
+    )
+    h = await c.post(
+        "/api/v1/holidays",
+        json={
+            "term_id": yaz["id"],
+            "name": "15 Temmuz Demokrasi ve Millî Birlik Günü",
+            "date_start": "2026-07-15",
+            "date_end": "2026-07-15",
+        },
+        headers=env.admin,
+    )
+    assert h.status_code == 201, h.text
+    wk = (
+        await c.post("/api/v1/booking-admin/weeks", json={"name": "Yaz", "bgcol": "#FFE699"}, headers=env.admin)
+    ).json()
+    await c.post(
+        f"/api/v1/booking-admin/sessions/{yaz['id']}/apply-week",
+        json={"timetable_week_id": wk["id"]},
+        headers=env.admin,
+    )
+    _, teacher = await env.user("yaz.hocasi@uni.edu.tr")
+    b = await env.book(teacher, "A101", date(2026, 7, 7), "P1", term_id=yaz["id"])
+    assert b.status_code == 201, b.text
+    bahar = (await env.book(teacher, "A101", MON, "P1")).json()
+    assert (await c.delete(f"/api/v1/terms/{yaz['id']}", headers=env.planner)).status_code == 204
+    assert (await c.get(f"/api/v1/bookings/{b.json()['id']}", headers=env.admin)).status_code == 404
+    assert (await c.get("/api/v1/holidays", params={"term_id": yaz["id"]}, headers=env.admin)).json() in ([], None) or (
+        await c.get("/api/v1/holidays", params={"term_id": yaz["id"]}, headers=env.admin)
+    ).status_code == 404
+    assert (await c.get(f"/api/v1/booking-admin/sessions/{yaz['id']}/dates", headers=env.admin)).status_code == 404
+    # the other session is untouched, and the deleted booking's slot is free again
+    assert (await c.get(f"/api/v1/bookings/{bahar['id']}", headers=env.admin)).json()["status"] == "BOOKED"
+    from app.core import db as dbmod
+    from app.models import BookingSlot, Holiday, TermDate
+    from sqlalchemy import func, select
+
+    async with dbmod.get_session_factory()() as s:
+        for model, col in ((Holiday, Holiday.term_id), (TermDate, TermDate.term_id)):
+            n = (await s.execute(select(func.count()).select_from(model).where(col == yaz["id"]))).scalar_one()
+            assert n == 0, model.__name__
+        slots = (
+            await s.execute(
+                select(func.count()).select_from(BookingSlot).where(BookingSlot.booking_id == b.json()["id"])
+            )
+        ).scalar_one()
+        assert slots == 0

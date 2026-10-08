@@ -175,6 +175,30 @@
       "ledger": "backend-engineer (CRBS superset gate)",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "abad9fbb51b53fca2",
+      "description": "Wave A: strict solver review",
+      "subagent_type": "strict-reviewer",
+      "isolation": null,
+      "started_at": "2026-10-08 14:04",
+      "scope": "read-only for the repo. Run commands and write scratch files only in /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/solver-review/.",
+      "goal": "run a READ-ONLY adversarial review of the SmartSched timetabling solver and its bridge. The user's requirement is \"100/100 accuracy on hard constraints, or explain what is impossible and how to fix it\". Verify every claim by running code.",
+      "ledger": "strict-reviewer (solver review)",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a88b650f74552e07c",
+      "description": "Wave A: schedule vs planner comparison",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-08 14:04",
+      "scope": "",
+      "goal": "the user asked us to \"compare the built schedule with the planner's files to find errors\". Act as the university classroom planner. Compare SmartSched's generated timetables with the planner's own grids, then classify every difference so the planner knows what to fix and what to trust.",
+      "ledger": "user-tester (schedule comparison)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
