@@ -139,7 +139,8 @@ def _esc(text: str) -> str:
 
 def _fold(line: str) -> list[str]:
     """RFC 5545 line folding at 75 octets (UTF-8 aware, never splitting a multi-byte character)."""
-    out, cur = [], ""
+    out: list[str] = []
+    cur = ""
     for ch in line:
         limit = 75 if not out else 74
         if len((cur + ch).encode("utf-8")) > limit:

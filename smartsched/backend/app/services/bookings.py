@@ -56,6 +56,8 @@ from app.services.bookings_perms import Access, effective_limits
 from app.services.calendar import date_for
 from app.services.grid import assignment_weeks
 
+Day = date  # dataclass fields named ``date`` shadow the type
+
 
 class BookingError(Exception):
     """Business-rule violation: ``status`` is the HTTP code, ``code`` a stable machine reason."""
@@ -428,7 +430,7 @@ async def remaining_bookings(session: AsyncSession, access: Access) -> int | Non
 @dataclass
 class SingleIn:
     room_id: int
-    date: date
+    date: Day
     period_id: int
     notes: str | None = None
     user_id: int | None = None
@@ -566,16 +568,16 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
 class RecurIn:
     room_id: int
     period_id: int
-    date: date  # anchor (the clicked slot)
-    start: date | None = None  # None = "session" (first recurring date)
-    end: date | None = None  # None = "session" (last recurring date)
+    date: Day  # anchor (the clicked slot)
+    start: Day | None = None  # None = "session" (first recurring date)
+    end: Day | None = None  # None = "session" (last recurring date)
     notes: str | None = None
     user_id: int | None = None
     department_id: int | None = None
     term_id: int | None = None
     user_given: bool = False
     department_given: bool = False
-    instances: dict[date, dict[str, Any]] | None = None
+    instances: dict[Day, dict[str, Any]] | None = None
 
 
 @dataclass
@@ -1097,7 +1099,7 @@ async def create_from_selection(
     results = []
     for s in selected:
         c = choices.get(s.id, {})
-        body = RecurIn(
+        rbody = RecurIn(
             room_id=s.room_id,
             period_id=s.period_id,
             date=s.date,
@@ -1111,10 +1113,10 @@ async def create_from_selection(
             department_given="department_id" in c,
         )
         if dry_run:
-            results.append({"mbs_id": s.id, "preview": plan_out(await plan_recurring(session, access, body))})
+            results.append({"mbs_id": s.id, "preview": plan_out(await plan_recurring(session, access, rbody))})
             continue
         try:
-            res = await create_recurring(session, access, body, commit=False)
+            res = await create_recurring(session, access, rbody, commit=False)
         except BookingError as exc:
             await session.rollback()
             raise BookingError(exc.status, exc.code, f"slot {s.id}: {exc.message}", **exc.data) from exc

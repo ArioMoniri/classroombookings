@@ -69,7 +69,7 @@ async def _assign(db: DB, g: RoomGroup, room_ids: list[int]) -> None:
     for r in (await db.execute(select(Room).where(Room.room_group_id == g.id))).scalars():
         if r.id not in room_ids:
             r.room_group_id = None
-    for pos, rid in enumerate(room_ids):
+    for rid in room_ids:
         r = await db.get(Room, rid)
         if r is None:
             raise HTTPException(422, f"room {rid} not found")

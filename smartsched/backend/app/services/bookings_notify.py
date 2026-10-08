@@ -155,10 +155,11 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
         owner = await session.get(User, room.owner_user_id)
         if owner is not None:
             subject = f"{room.display_name} için yeni rezervasyon" if tr else f"New booking in {room.display_name}"
+            tag = (f" (seri #{series})" if tr else f" (series #{series})") if series else ""
             body = (
-                f"{_who(actor)} sorumlu olduğunuz dersliği ayırttı{' (seri #' + str(series) + ')' if series else ''}:\n{what}\n"
+                f"{_who(actor)} sorumlu olduğunuz dersliği ayırttı{tag}:\n{what}\n"
                 if tr
-                else f"{_who(actor)} booked a room you own{' (series #' + str(series) + ')' if series else ''}:\n{what}\n"
+                else f"{_who(actor)} booked a room you own{tag}:\n{what}\n"
             )
             await notify(
                 session,

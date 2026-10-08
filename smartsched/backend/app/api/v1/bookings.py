@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import secrets
 from datetime import date
-
-Day = date  # field names "date" shadow the type inside pydantic models
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -25,6 +23,8 @@ from app.services import bookings_notify  # noqa: F401  (registers the notificat
 from app.services.bookings_calendar import term_info
 from app.services.bookings_perms import Access, effective_limits, load_access
 from app.services.bookings_settings import get_group
+
+Day = date  # field names "date" shadow the type inside pydantic models
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 ics_router = APIRouter(prefix="/ics", tags=["bookings"])
