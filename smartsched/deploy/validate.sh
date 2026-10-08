@@ -208,8 +208,9 @@ if [[ -f "$NG" ]]; then
     mkdir -p "$TMP/nginx/conf.d"
     # service names only resolve inside compose: map them to localhost for the syntax check
     sed 's/server frontend:3000/server 127.0.0.1:3000/; s/server backend:8000/server 127.0.0.1:8000/' "$NG" > "$TMP/nginx/conf.d/default.conf"
-    printf 'pid %s/nginx.pid; error_log stderr; events {} http { include %s/conf.d/*.conf; }\n' "$TMP" "$TMP/nginx" > "$TMP/nginx/nginx.conf"
-    if nginx -t -q -c "$TMP/nginx/nginx.conf" 2>"$TMP/nginx.err"; then ok "nginx -t"; else fail "nginx -t: $(cat "$TMP/nginx.err")"; fi
+    printf 'pid %s/nginx.pid; error_log stderr; events {} http { access_log off; client_body_temp_path %s/cbt; proxy_temp_path %s/pt; fastcgi_temp_path %s/ft; uwsgi_temp_path %s/ut; scgi_temp_path %s/st; include %s/conf.d/*.conf; }\n' "$TMP" "$TMP" "$TMP" "$TMP" "$TMP" "$TMP" "$TMP/nginx" > "$TMP/nginx/nginx.conf"
+    # -p/-e keep nginx away from /var/log/nginx and the compiled-in prefix, so the check runs as a normal user
+    if nginx -t -q -p "$TMP" -e stderr -c "$TMP/nginx/nginx.conf" 2>"$TMP/nginx.err"; then ok "nginx -t"; else fail "nginx -t: $(cat "$TMP/nginx.err")"; fi
   else
     note "nginx not installed; nginx -t skipped"
   fi

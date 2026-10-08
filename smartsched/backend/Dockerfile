@@ -23,7 +23,7 @@ WORKDIR /build
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 # `requirements.lock*` is optional (glob matches nothing when the file is absent).
-COPY pyproject.toml requirements.lock* ./
+COPY pyproject.toml README.md requirements.lock* ./
 # Dependency layer first (cached until pyproject/lock change), then the package itself.
 RUN mkdir -p app && touch app/__init__.py \
  && if [ -f requirements.lock ]; then pip install -c requirements.lock . ; else pip install . ; fi \
