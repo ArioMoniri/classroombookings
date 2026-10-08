@@ -1436,7 +1436,8 @@
       "taskRunning": "In progress",
       "taskPending": "Waiting",
       "gridHint": "See this run on the calendar, starting at week {week}.",
-      "openGrid": "Open in the timetable"
+      "openGrid": "Open in the timetable",
+      "ruleCol": "Preference"
     },
     "settings": {
       "keyOkModel": "Key works · {model}",
@@ -1509,7 +1510,10 @@
     "studio": {
       "weekN": "Week {n}",
       "weekShort": "W{n}",
-      "weekHint": "Click a week to plan only that week; hold ⌘, Ctrl or ⇧ to add more weeks."
+      "weekHint": "Click a week to plan only that week; hold ⌘, Ctrl or ⇧ to add more weeks.",
+      "oneWeek": "week {w}",
+      "placeOneWeek": "SmartSched will place {n} classes into {rooms} rooms for week {w}.",
+      "placeTerm": "SmartSched will place {n} classes into {rooms} rooms for the selected period."
     },
     "import": {
       "steps": "Steps",

@@ -59,9 +59,10 @@ async def test_generate_from_draft_with_stub_and_cpsat(bahar):
     run = (await c.get(f"/api/v1/runs/{run_id}", headers=h)).json()
     assert run["status"] in TERMINAL and run["status"] not in {"FAILED", "ERROR"}, run.get("error")
     assert run["stats"]["solver"] == "app.solver.cpsat"
-    print("STATUS1", run["status"], len(run["diagnosis"]), run["stats"].get("placed"), run["stats"].get("events_total"))
-    if run["status"] in {"INFEASIBLE", "FEASIBLE_PARTIAL"}:
-        assert run["diagnosis"] and all(phar not in d["event_ids"] for d in run["diagnosis"])
+    # the real Bahar week 3 is over-subscribed: a best-effort partial timetable, never a silent full one
+    assert run["status"] == "FEASIBLE_PARTIAL", run["status"]
+    assert 0 < run["stats"]["placed"] < run["stats"]["events_total"] and run["hard_score"] == 100
+    assert run["diagnosis"] and all(phar not in d["event_ids"] for d in run["diagnosis"])  # left out stays out
     # parent run must belong to the same term + kind
     r = await c.post(f"{url}/generate", json={"parent_run_id": 999999}, headers=h)
     assert r.status_code == 422
@@ -81,18 +82,7 @@ async def test_generate_small_feasible_draft_with_cpsat(bahar):
     )
     assert r.status_code == 200
     pre = (await c.post(f"{url}/precheck", headers=h)).json()
-    print("READY", pre["readiness"])
-    if pre["readiness"] == "blocked":  # leave out whatever the static checker still flags
-        flagged = {
-            rid for it in pre["items"] if it["severity"] == "error" for cl in it["classes"] for rid in cl["request_ids"]
-        }
-        flagged |= {e for it in pre["items"] if it["severity"] == "error" for e in it["event_ids"]}
-        d = (await c.get(url, headers=h)).json()
-        r = await c.put(
-            url, json={"version": d["version"], "excluded_event_ids": sorted(set(pre_ids) | flagged)}, headers=h
-        )
-        assert r.status_code == 200, r.text
-        assert (await c.post(f"{url}/precheck", headers=h)).json()["readiness"] != "blocked"
+    assert pre["readiness"] == "ready", [it["message"]["en"] for it in pre["items"] if it["severity"] == "error"][:3]
     r = await c.post(
         f"{url}/generate", json={"params": {"solver": "cpsat", "time_limit_s": 20, "workers": 2}}, headers=h
     )

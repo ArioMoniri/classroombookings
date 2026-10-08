@@ -39,7 +39,7 @@ export function SoftBreakdown({ score, breakdown, weights, className }: { score:
         <table className="mt-3 w-full text-[12px]">
           <thead className="text-label-3">
             <tr>
-              <th scope="col" className="pb-1 text-left font-medium">{t("runs.objective")}</th>
+              <th scope="col" className="pb-1 text-left font-medium">{t("glass.report.ruleCol")}</th>
               <th scope="col" className="pb-1 text-right font-medium">{t("glass.report.points")}</th>
               <th scope="col" className="pb-1 text-right font-medium">{t("glass.report.weight")}</th>
             </tr>

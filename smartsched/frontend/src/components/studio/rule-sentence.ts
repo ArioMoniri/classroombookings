@@ -5,6 +5,7 @@
  */
 import type { Locale } from "@/lib/i18n";
 import type { RuleTemplate, TemplateField } from "@/lib/api/studio-schemas";
+import { harmoniseAfter } from "@/components/common/tr-suffix";
 import { PERIODS } from "@/lib/time";
 
 export type Params = Record<string, unknown>;
@@ -261,6 +262,15 @@ export function tokens(template: RuleTemplate, params: Params, ctx: SentenceCont
     }
   };
   walk(parseTemplate(sentence), false);
+  // Turkish suffix harmony after a filled slot: "{date}'den itibaren" + "4. hafta" → "4. haftadan itibaren",
+  // "{latest}'den sonra" + "17:30" → "17:30'dan sonra" (usability m2)
+  if (ctx.locale === "tr") {
+    for (let i = 1; i < out.length; i++) {
+      const prev = out[i - 1];
+      const cur = out[i];
+      if (prev?.kind === "slot" && !prev.slot.empty && cur?.kind === "text") out[i] = { kind: "text", text: harmoniseAfter(prev.slot.display, cur.text) };
+    }
+  }
   // tidy whitespace between tokens
   return out.filter((t) => t.kind === "slot" || t.text.length > 0);
 }

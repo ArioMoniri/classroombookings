@@ -1,0 +1,4 @@
+# Test/lint deps for infra/aws + pod-ci (the gates/infra.sh gate and local runs). The pod itself needs
+# only python3 (stdlib) + python3-boto3 from Ubuntu 24.04.
+-r ../../../infra/aws/requirements.txt
+ruff==0.16.10

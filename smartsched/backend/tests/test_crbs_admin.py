@@ -16,6 +16,16 @@ from tests.api_fixtures import login
 from tests.crbs_env import env  # noqa: F401
 
 
+def _png() -> bytes:
+    import io
+
+    from PIL import Image
+
+    b = io.BytesIO()
+    Image.new("RGB", (64, 48), "white").save(b, "PNG")
+    return b.getvalue()
+
+
 async def test_room_groups_order_fields_owner_and_photo(env):  # noqa: F811
     c, admin = env.client, env.admin
     g = await c.post(
@@ -110,7 +120,7 @@ async def test_room_groups_order_fields_owner_and_photo(env):  # noqa: F811
 
     photo = await c.post(
         f"/api/v1/room-admin/rooms/{env.rooms['A103']}/photo",
-        files={"file": ("lab.png", b"\x89PNG\r\n\x1a\n" + b"0" * 32, "image/png")},
+        files={"file": ("lab.png", _png(), "image/png")},  # a real image: photos are decoded (audit B2)
         headers=admin,
     )
     assert photo.status_code == 200 and photo.json()["photo_url"] == f"/uploads/rooms/{env.rooms['A103']}.png"

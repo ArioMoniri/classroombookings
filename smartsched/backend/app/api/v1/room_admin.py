@@ -278,16 +278,20 @@ async def update_room(room_id: int, body: RoomBookingUpdate, db: DB, _: RoomsAdm
 async def upload_photo(room_id: int, db: DB, _: RoomsAdmin, file: UploadFile = File(...)) -> RoomAdminOut:
     r = await _room(db, room_id)
     ext = Path(file.filename or "photo.jpg").suffix.lower() or ".jpg"
-    if ext not in {".jpg", ".jpeg", ".png", ".gif", ".webp"}:
-        raise HTTPException(400, "unsupported image type (jpg, png, gif, webp)")
+    if ext not in {".jpg", ".jpeg", ".png", ".gif"}:  # CRBS setup/rooms/Rooms: jpg|jpeg|png|gif
+        raise HTTPException(400, "unsupported image type (jpg, png, gif)")
     data = await file.read(10 * 1024 * 1024 + 1)
     if len(data) > 10 * 1024 * 1024:
         raise HTTPException(413, "image larger than 10 MB")
-    from app.core.images import check_image
+    from app.core.images import ImageError, check_image, sanitize_image
 
     problem = check_image(data, ext, file.content_type)  # review MINOR 14: the bytes must be that image
     if problem:
         raise HTTPException(400, problem)
+    try:  # audit B2: decoded and re-encoded (≤ 1600 px), so only real pixels are ever served
+        data, ext = sanitize_image(data)
+    except ImageError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
     target = Path(get_settings().upload_dir) / "rooms"
     target.mkdir(parents=True, exist_ok=True)
     for old in target.glob(f"{r.id}.*"):

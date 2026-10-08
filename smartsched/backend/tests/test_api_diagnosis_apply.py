@@ -219,10 +219,9 @@ async def test_apply_unlock_on_real_cpsat_diagnosis(client):
     run_id = r.json()["run_id"]
     await get_queue().wait_idle()
     run = (await client.get(f"/api/v1/runs/{run_id}", headers=h)).json()
-    assert run["status"] in {"INFEASIBLE", "FEASIBLE_PARTIAL", "FEASIBLE", "OPTIMAL"}
+    # the real Güz data is over-subscribed: best effort stores a partial timetable with diagnoses
+    assert run["status"] == "FEASIBLE_PARTIAL", run["status"]
     assert run["stats"]["merged_joint_lectures"] > 20  # FIZ 111 §1 etc. listed once per programme
-    if run["status"] not in {"INFEASIBLE", "FEASIBLE_PARTIAL"}:
-        return
     found = [
         (d["index"], o["index"], d["event_ids"])
         for d in run["diagnosis"]

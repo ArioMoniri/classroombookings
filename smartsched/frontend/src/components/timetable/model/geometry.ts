@@ -134,15 +134,17 @@ export interface LaneInput {
  * Greedy interval partitioning inside clusters of mutually overlapping spans: each item gets a lane and the
  * lane count of its own cluster (so a lone event elsewhere in the column keeps the full width).
  */
-export function layoutLanes<T extends LaneInput>(items: readonly T[]): Map<T["id"], { lane: number; lanes: number }> {
+export function layoutLanes<T extends LaneInput>(items: readonly T[]): Map<T["id"], { lane: number; lanes: number; cluster: number }> {
   const sorted = [...items].sort((a, b) => a.sp - b.sp || b.ep - a.ep);
-  const out = new Map<T["id"], { lane: number; lanes: number }>();
+  const out = new Map<T["id"], { lane: number; lanes: number; cluster: number }>();
+  let clusterNo = 0;
   let cluster: { item: T; lane: number }[] = [];
   let clusterEnd = -1;
   let laneEnds: number[] = [];
   const flush = () => {
     const lanes = Math.max(1, laneEnds.length);
-    for (const c of cluster) out.set(c.item.id, { lane: c.lane, lanes });
+    for (const c of cluster) out.set(c.item.id, { lane: c.lane, lanes, cluster: clusterNo });
+    clusterNo++;
     cluster = [];
     laneEnds = [];
   };

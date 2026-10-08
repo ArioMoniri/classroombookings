@@ -101,7 +101,7 @@ export function trSuffix(text: string, kind: TrCase): string {
 }
 
 /** True for things that take an apostrophe: digits, codes with capitals, times, percentages, names. */
-function needsApostrophe(text: string): boolean {
+export function needsApostrophe(text: string): boolean {
   const s = text.trim();
   return /\d|%$/.test(s.slice(-2)) || /\p{Lu}/u.test(s.charAt(0)) || /[A-ZÇĞİÖŞÜ]{2,}$/.test(s);
 }
@@ -122,4 +122,29 @@ export function tr(text: string, kind: TrCase, opts: { proper?: boolean } = {}):
 /** Turkish puts the percent sign first: 44 → "%44"; 0.1 → "%0,1". */
 export function trPercent(value: number, locale: string, fractionDigits = 0): string {
   return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: fractionDigits, minimumFractionDigits: 0 }).format(value);
+}
+
+const SUFFIX_KIND: [RegExp, TrCase][] = [
+  [/^(?:d|t)(?:a|e)n/, "abl"],
+  [/^(?:d|t)(?:a|e)(?![a-zçğıöşü])/, "loc"],
+  [/^n?(?:ı|i|u|ü)n(?![a-zçğıöşü])/, "gen"],
+  [/^y?(?:a|e)(?![a-zçğıöşü])/, "dat"],
+  [/^y?(?:ı|i|u|ü)(?![a-zçğıöşü])/, "acc"],
+];
+
+/**
+ * Re-harmonise a suffix written after a placeholder in a template ("{date}'den itibaren" with
+ * date = "4. hafta" → "dan itibaren"): returns the text that should follow `value`.
+ * Text that does not start with an apostrophe suffix is returned unchanged.
+ */
+export function harmoniseAfter(value: string, following: string): string {
+  const m = /^['’]([a-zçğıöşü]+)/.exec(following);
+  if (!m || !value.trim()) return following;
+  const word = m[1] ?? "";
+  const hit = SUFFIX_KIND.find(([re]) => re.test(word));
+  if (!hit) return following;
+  const [re, kind] = hit;
+  const matched = re.exec(word)?.[0] ?? "";
+  const rest = following.slice(1 + matched.length);
+  return `${needsApostrophe(value) ? "'" : ""}${trSuffix(value, kind)}${rest}`;
 }

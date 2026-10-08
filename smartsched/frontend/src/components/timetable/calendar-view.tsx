@@ -38,6 +38,7 @@ import { BAND_H, MINUTE_PX_STEPS, ROOM_COL, ROOM_HEADER_H, STRIP_SLOT_STEPS, cla
 import { computeHeat, weeklyMean, type HeatMetric } from "./model/heat";
 import { blocksOf, bookingsOf, eventsOf, roomCap, termLongBlocks, type CalEvent, type CalendarModel } from "./model/index-model";
 import { useUndoStore } from "./model/undo-store";
+import { useActiveTerm } from "@/components/shell/term-switcher";
 import { lensDirection, lensForKey, parseViewState, serializeViewState, weekInRun, type Lens, type Subject, type ViewState } from "./model/view-state";
 import { useCalendarActions } from "./use-calendar-actions";
 import { useCalendarData } from "./use-calendar-data";
@@ -108,7 +109,6 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const readOnly = me.data?.role === "VIEWER";
   const mobile = useMedia("(max-width: 767px)");
   const wide = useMedia("(min-width: 1600px)");
-  const desktop = useMedia("(min-width: 1280px)");
   const rootRef = useRef<HTMLDivElement>(null);
   const fill = useFillHeight(rootRef, !embedded);
   const now = useNow();
@@ -122,6 +122,13 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   });
   const update = useCallback((patch: Partial<ViewState>) => setVs((s) => ({ ...s, ...patch })), []);
 
+  // switching the term in the shell drops a run of the previous term (and its week / selection)
+  const shellTermId = useActiveTerm().term?.id ?? null;
+  const [seenTerm, setSeenTerm] = useState(shellTermId);
+  if (shellTermId !== seenTerm) {
+    setSeenTerm(shellTermId);
+    if (seenTerm !== null && !embedded && !fixedRun) setVs((s) => ({ ...s, run: null, week: null, day: 0, sel: null, compare: null }));
+  }
   const data = useCalendarData(fixedRun ?? vs.run);
   const model = data.model;
   const runId = data.runId;
@@ -458,7 +465,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [embedded, actions, vs.lens, vs.board, weekEvents, day, roomSet, selection.size, t, setWeek, week, step, update, setLens, goToday, zoomBy, selectedEvents, readOnly]);
+  }, [embedded, setSidebarOpen, actions, vs.lens, vs.board, weekEvents, day, roomSet, selection.size, t, setWeek, week, step, update, setLens, goToday, zoomBy, selectedEvents, readOnly]);
 
   // ------------------------------------------------------------------ lens content
   const chipLine2 = useCallback(

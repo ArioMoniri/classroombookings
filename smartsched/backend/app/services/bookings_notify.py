@@ -20,9 +20,11 @@ from app.models import Booking, BookingPeriod, NotificationOutbox, User
 from app.models.base import utcnow
 from app.models.catalog import Room
 from app.services import bookings_events as events
+from app.services import bookings_i18n
 from app.services.bookings_settings import get_group, get_value
 
 NOT_CONFIGURED = "SMTP is not configured"
+T = bookings_i18n.text  # e-mail texts: admin overrides (translations, set "email") over the shipped ones
 
 
 def _send(smtp: dict[str, Any], msg: EmailMessage) -> None:
@@ -102,43 +104,48 @@ def _who(u: User | None) -> str:
     return u.full_name or u.username or u.email or f"#{u.id}"
 
 
-async def _describe(session: AsyncSession, b: Booking) -> str:
+async def _describe(session: AsyncSession, b: Booking, fmt: bookings_i18n.Formatter) -> str:
+    """``A 101, Salı 17 Şubat 2026 P1 08:30-09:10`` with the organisation's date and time patterns."""
     room = await session.get(Room, b.room_id)
     period = await session.get(BookingPeriod, b.period_id)
-    times = f"{period.time_start:%H:%M}-{period.time_end:%H:%M}" if period else ""
+    times = f"{fmt.time(period.time_start)}-{fmt.time(period.time_end)}" if period else ""
     pname = period.name if period else ""
-    return f"{room.display_name if room else b.room_id}, {b.date:%d.%m.%Y} {pname} {times}".strip()
+    return f"{room.display_name if room else b.room_id}, {fmt.long(b.date)} {pname} {times}".strip()
 
 
-async def _texts(session: AsyncSession) -> str:
-    return str(await get_value(session, "org", "default_language") or "tr")
+async def _language(session: AsyncSession, user: User | None) -> str:
+    """The recipient's profile language when it is enabled, else the organisation's default."""
+    org_default = str(await get_value(session, "org", "default_language") or "tr")
+    enabled = await get_value(session, "org", "languages") or []
+    if user is not None and user.language and user.language in enabled:
+        return user.language
+    return org_default
 
 
 async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
     ids = payload.get("booking_ids") or [payload["booking_id"]]
     actor = await session.get(User, payload.get("actor_id")) if payload.get("actor_id") else None
-    tr = (await _texts(session)) == "tr"
     first = await session.get(Booking, ids[0])
     if first is None:
         return
-    lines = [await _describe(session, b) for b in [await session.get(Booking, i) for i in ids] if b is not None]
-    what = "\n".join(f"- {x}" for x in lines)
+    rows = [b for b in [await session.get(Booking, i) for i in ids] if b is not None]
     series = payload.get("series_id")
+
+    async def items(lang: str) -> str:
+        fmt = await bookings_i18n.formatter(session, lang)
+        return "\n".join([f"- {await _describe(session, b, fmt)}" for b in rows])
+
     if first.user_id and first.user_id != (actor.id if actor else None):
         target = await session.get(User, first.user_id)
         if target is not None:
-            subject = "Sizin adınıza rezervasyon yapıldı" if tr else "A booking was made for you"
-            body = (
-                f"{_who(actor)} sizin adınıza {len(lines)} rezervasyon yaptı:\n{what}\n"
-                if tr
-                else f"{_who(actor)} made {len(lines)} booking(s) for you:\n{what}\n"
-            )
+            lang = await _language(session, target)
+            what = await items(lang)
             await notify(
                 session,
                 kind="booking_created",
                 to_email=target.email,
-                subject=subject,
-                body=body,
+                subject=await T(session, lang, "booking_created.subject", actor=_who(actor), count=len(rows)),
+                body=await T(session, lang, "booking_created.body", actor=_who(actor), count=len(rows), items=what),
                 user_id=target.id,
                 booking_id=first.id,
             )
@@ -154,19 +161,14 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
     ):
         owner = await session.get(User, room.owner_user_id)
         if owner is not None:
-            subject = f"{room.display_name} için yeni rezervasyon" if tr else f"New booking in {room.display_name}"
-            tag = (f" (seri #{series})" if tr else f" (series #{series})") if series else ""
-            body = (
-                f"{_who(actor)} sorumlu olduğunuz dersliği ayırttı{tag}:\n{what}\n"
-                if tr
-                else f"{_who(actor)} booked a room you own{tag}:\n{what}\n"
-            )
+            lang = await _language(session, owner)
+            tag = await T(session, lang, "room_owner.series", series_id=series) if series else ""
             await notify(
                 session,
                 kind="room_owner_booking",
                 to_email=owner.email,
-                subject=subject,
-                body=body,
+                subject=await T(session, lang, "room_owner.subject", room=room.display_name),
+                body=await T(session, lang, "room_owner.body", actor=_who(actor), series=tag, items=await items(lang)),
                 user_id=owner.id,
                 booking_id=first.id,
             )
@@ -175,33 +177,36 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
 async def _on_cancelled(session: AsyncSession, payload: dict[str, Any]) -> None:
     actor_id = payload.get("actor_id")
     actor = await session.get(User, actor_id) if actor_id else None
-    tr = (await _texts(session)) == "tr"
     by_user: dict[int, list[Booking]] = {}
     for bid in payload.get("booking_ids", []):
         b = await session.get(Booking, bid)
         if b is not None and b.user_id and b.user_id != actor_id:
             by_user.setdefault(b.user_id, []).append(b)
     reason = payload.get("reason")
-    for uid, items in by_user.items():
+    for uid, bookings in by_user.items():
         target = await session.get(User, uid)
         if target is None:
             continue
-        what = "\n".join([f"- {await _describe(session, b)}" for b in items])
-        why = f"\n{'Gerekçe' if tr else 'Reason'}: {reason}" if reason else ""
-        subject = "Rezervasyonunuz iptal edildi" if tr else "Your booking was cancelled"
-        body = (
-            f"{_who(actor)} {len(items)} rezervasyonunuzu iptal etti:\n{what}{why}\n"
-            if tr
-            else f"{_who(actor)} cancelled {len(items)} of your bookings:\n{what}{why}\n"
-        )
+        lang = await _language(session, target)
+        fmt = await bookings_i18n.formatter(session, lang)
+        what = "\n".join([f"- {await _describe(session, b, fmt)}" for b in bookings])
+        why = await T(session, lang, "booking_cancelled.reason", reason=reason) if reason else ""
         await notify(
             session,
             kind="booking_cancelled",
             to_email=target.email,
-            subject=subject,
-            body=body,
+            subject=await T(session, lang, "booking_cancelled.subject", actor=_who(actor), count=len(bookings)),
+            body=await T(
+                session,
+                lang,
+                "booking_cancelled.body",
+                actor=_who(actor),
+                count=len(bookings),
+                items=what,
+                reason=why,
+            ),
             user_id=uid,
-            booking_id=items[0].id,
+            booking_id=bookings[0].id,
         )
 
 

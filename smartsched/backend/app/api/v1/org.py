@@ -4,16 +4,16 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy import delete, func, select
 
 from app.api.deps import DB, CurrentAccess, CurrentUser, require_permission
 from app.core.config import get_settings
 from app.core.identity import clean_email, fold_username
+from app.core.images import ImageError, sanitize_image
 from app.core.security import hash_password, verify_password
 from app.importers import normalize as n
 from app.models import (
@@ -41,7 +41,7 @@ from app.schemas.crbs import (
     TranslationOut,
 )
 from app.services import bookings_events as events
-from app.services import bookings_ldap, settings_service
+from app.services import bookings_i18n, bookings_ldap, settings_service
 from app.services.bookings_notify import notify
 from app.services.bookings_perms import (
     ensure_permissions_and_roles,
@@ -49,6 +49,7 @@ from app.services.bookings_perms import (
     set_user_role,
 )
 from app.services.bookings_settings import (
+    BOOKINGS_SPECS,
     get_group,
     get_user_value,
     set_group,
@@ -160,7 +161,8 @@ async def _settings_out(db: DB) -> dict[str, Any]:
         teacher and all(p in {x.name for x in teacher.permissions} for p in SHOW_NAME_PERMS)
     )
     org["max_active_bookings"] = teacher.max_active_bookings if teacher else None
-    org["show_ungrouped_rooms"] = bool((await get_group(db, "bookings"))["show_ungrouped_rooms"])
+    # the bookings group (show_ungrouped_rooms and the deliberate-difference switches) is flat here
+    org.update(await get_group(db, "bookings"))
     return org
 
 
@@ -176,9 +178,10 @@ async def put_org_settings(body: OrgSettingsIn, db: DB, _: SettingsAdmin) -> dic
     max_b = data.pop("max_active_bookings", None)
     unlimited = data.pop("max_active_bookings_unlimited", None)
     tz = data.pop("timezone", None)
-    show_ungrouped = data.pop("show_ungrouped_rooms", None)
-    if show_ungrouped is not None:
-        await set_group(db, "bookings", {"show_ungrouped_rooms": show_ungrouped})
+    booking_values = {k: data.pop(k) for k in list(data) if k in BOOKINGS_SPECS}
+    booking_values = {k: v for k, v in booking_values.items() if v is not None}
+    if booking_values:
+        await set_group(db, "bookings", booking_values)
     if tz is not None:
         from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -192,6 +195,10 @@ async def put_org_settings(body: OrgSettingsIn, db: DB, _: SettingsAdmin) -> dic
     cols = data.get("d_columns", current["d_columns"])
     if cols not in {"day": {"periods", "rooms"}, "room": {"periods", "days"}}[dtype]:
         raise HTTPException(422, f"columns {cols!r} do not fit display type {dtype!r}")
+    langs = data.get("languages") or current["languages"] or []
+    default_lang = data.get("default_language") or current["default_language"]
+    if default_lang not in langs:  # B8
+        raise HTTPException(422, f"default language {default_lang!r} is not among the enabled languages {langs}")
     for k in ("name", "website", "login_message_text", "maintenance_mode_message"):
         if k in data and data[k] is not None:
             data[k] = n.clean_text(data[k]) or ""
@@ -217,14 +224,20 @@ async def put_org_settings(body: OrgSettingsIn, db: DB, _: SettingsAdmin) -> dic
     return await _settings_out(db)
 
 
+LOGO_MAX_BYTES = 2 * 1024 * 1024
+
+
 @router.post("/logo")
 async def upload_logo(db: DB, _: SettingsAdmin, file: UploadFile = File(...)) -> dict[str, Any]:
-    ext = Path(file.filename or "logo.png").suffix.lower()
-    if ext not in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}:
-        raise HTTPException(400, "unsupported image type (png, jpg, gif, webp, svg)")
-    data = await file.read()
-    if len(data) > 2 * 1024 * 1024:
+    """CRBS ``settings/Organisation``: jpg, png or gif only. The image is decoded and re-encoded (at most
+    1600 px), so an SVG or an HTML polyglot can never be served from our origin (audit B2)."""
+    raw = await file.read(LOGO_MAX_BYTES + 1)
+    if len(raw) > LOGO_MAX_BYTES:
         raise HTTPException(413, "logo larger than 2 MB")
+    try:
+        data, ext = sanitize_image(raw, max_bytes=LOGO_MAX_BYTES)
+    except ImageError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
     target = Path(get_settings().upload_dir) / "rooms"  # the only public upload directory
     target.mkdir(parents=True, exist_ok=True)
     for old in target.glob("org-logo.*"):
@@ -364,6 +377,41 @@ async def delete_translation(tid: int, db: DB, _: SettingsAdmin) -> None:
     await db.commit()
 
 
+async def _language_or_default(db: DB, language: str | None) -> tuple[str, dict[str, Any]]:
+    org = await get_group(db, "org")
+    lang = (language or org["default_language"] or "tr").strip().lower()
+    if lang not in bookings_i18n.SHIPPED_LANGUAGES or lang not in (org["languages"] or []):
+        raise HTTPException(422, f"language {lang!r} is not enabled ({', '.join(org['languages'] or [])})")
+    return lang, org
+
+
+@router.get("/i18n")
+async def i18n_bundle(db: DB, language: str | None = None) -> dict[str, Any]:
+    """Public (the login page is translated too): the strings the backend ships for ``language`` merged with
+    the admin overrides of that language (CRBS ``MY_Lang::load_from_db``), plus the date patterns. The
+    frontend lays ``messages`` over its own message files."""
+    lang, org = await _language_or_default(db, language)
+    return {
+        "language": lang,
+        "default_language": org["default_language"],
+        "languages": org["languages"],
+        "language_names": {k: bookings_i18n.LANGUAGE_NAMES[k] for k in org["languages"] or []},
+        "messages": await bookings_i18n.bundle(db, lang),
+        "date_patterns": {k: org[k] for k in ("pattern_long", "pattern_weekday", "pattern_time")},
+        "date_defaults": bookings_i18n.DEFAULT_PATTERNS[lang],
+    }
+
+
+@router.get("/date-patterns")
+async def date_patterns(db: DB, _: CurrentUser, language: str | None = None) -> dict[str, Any]:
+    """The pattern options of CRBS ``Dates::date_pattern_options`` / ``time_pattern_options`` with an example
+    each (16 April, 09:30) in ``language``; ``PUT /org/settings`` accepts only these (or "" = default)."""
+    lang, org = await _language_or_default(db, language)
+    out = bookings_i18n.pattern_options(lang)
+    out["current"] = {k: org[k] for k in ("pattern_long", "pattern_weekday", "pattern_time")}
+    return out
+
+
 # --- changelog, events --------------------------------------------------------------------------------
 
 _VERSION_RX = re.compile(r"^##\s+\[?([^\]\s]+)\]?\s*(\d{4}-\d{2}-\d{2})?")
@@ -389,21 +437,44 @@ def parse_changelog(text: str) -> list[dict[str, Any]]:
     return entries
 
 
+def _entries() -> list[dict[str, Any]]:
+    return parse_changelog(CHANGELOG.read_text(encoding="utf-8")) if CHANGELOG.exists() else []
+
+
 @router.get("/changelog")
 async def changelog(db: DB, user: CurrentUser) -> dict[str, Any]:
-    entries = parse_changelog(CHANGELOG.read_text(encoding="utf-8")) if CHANGELOG.exists() else []
-    seen = await get_user_value(db, user.id, "changelog_viewed_at")
+    """Unread = the newest entry is not the version the user marked as seen (audit B12: a date alone missed a
+    second release on the same day). Users who marked an older build (date only) fall back to the date."""
+    entries = _entries()
+    seen_at = await get_user_value(db, user.id, "changelog_viewed_at")
+    seen_version = await get_user_value(db, user.id, "changelog_viewed_version")
     latest = next((e["date"] for e in entries if e.get("date")), None)
-    unread = bool(latest) and (seen is None or seen < str(latest))
-    return {"entries": entries, "latest": latest, "viewed_at": seen, "unread": unread}
+    latest_version = entries[0]["version"] if entries else None
+    if seen_version is not None:
+        unread = latest_version is not None and seen_version != latest_version
+    else:
+        unread = bool(latest) and (seen_at is None or seen_at[:10] < str(latest))
+    return {
+        "entries": entries,
+        "latest": latest,
+        "latest_version": latest_version,
+        "viewed_at": seen_at,
+        "viewed_version": seen_version,
+        "unread": unread,
+    }
 
 
 @router.post("/changelog/seen")
 async def changelog_seen(db: DB, user: CurrentUser) -> dict[str, Any]:
-    stamp = datetime.now().date().isoformat()
+    from app.models.base import utcnow
+
+    stamp = utcnow().replace(microsecond=0).isoformat()
+    entries = _entries()
+    version = entries[0]["version"] if entries else None
     await set_user_value(db, user.id, "changelog_viewed_at", stamp)
+    await set_user_value(db, user.id, "changelog_viewed_version", version)
     await db.commit()
-    return {"viewed_at": stamp}
+    return {"viewed_at": stamp, "version": version}
 
 
 @router.get("/events")
@@ -490,13 +561,26 @@ async def change_password(body: ChangePasswordIn, db: DB, user: CurrentUser) -> 
 
 
 @auth_router.post("/password-reset/request", status_code=202)
-async def reset_request(body: ResetRequestIn, db: DB) -> dict[str, Any]:
+async def reset_request(body: ResetRequestIn, db: DB, request: Request) -> dict[str, Any]:
     """Public. With SMTP a one-time code is e-mailed; without SMTP the request is recorded in the outbox
-    for the administrators (no code is created). The answer never reveals whether the account exists."""
+    for the administrators (no code is created). The answer never reveals whether the account exists.
+    Audit B10: at most 20 requests per client address per 15 minutes (then 429) and 3 per account (further
+    ones answer 202 but send nothing); a new code never revokes the earlier unexpired ones."""
+    from app.core import throttle
+
+    address = request.client.host if request.client else "?"
+    if throttle.RESET_PER_ADDRESS.hit(f"ip:{address}"):
+        raise HTTPException(
+            429,
+            "too many password reset requests; try again later",
+            headers={"Retry-After": str(throttle.RESET_PER_ADDRESS.retry_after(f"ip:{address}"))},
+        )
     user = await find_login_user(db, body.email)
+    if user is not None and user.is_active and throttle.RESET_PER_ACCOUNT.hit(f"user:{user.id}"):
+        user = None  # over the per-account limit: same answer, nothing sent
     if user is not None and user.is_active:
         if user.email and await smtp_configured(db):
-            await issue_reset_token(db, user, None)
+            await issue_reset_token(db, user, None, revoke_others=False)
         else:
             await notify(
                 db,

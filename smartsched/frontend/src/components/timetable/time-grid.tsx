@@ -221,7 +221,7 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
   }, [drag, create, lasso]);
 
   // ------------------------------------------------------------------ geometry helpers
-  const lanes = useMemo(() => {
+  const laneLayout = useMemo(() => {
     const byCol = new Map<number, CalEvent[]>();
     for (const e of events) {
       const c = colOf(e);
@@ -230,16 +230,27 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
       list.push(e);
       byCol.set(c, list);
     }
+    // at most two side-by-side lanes (calendar.md §7.3 double booking); deeper clashes fold into one "+N" stack
     const out = new Map<string, { lane: number; lanes: number; col: number }>();
+    const stacks: { key: string; col: number; sp: number; ep: number; aids: number[] }[] = [];
     for (const [c, list] of byCol) {
       const l = layoutLanes(list.map((e) => ({ id: e.key, sp: e.sp, ep: e.ep })));
+      const overflow = new Map<number, CalEvent[]>();
       for (const e of list) {
-        const x = l.get(e.key) ?? { lane: 0, lanes: 1 };
-        out.set(e.key, { ...x, col: c });
+        const x = l.get(e.key) ?? { lane: 0, lanes: 1, cluster: -1 };
+        if (x.lanes > 2 && x.lane >= 1) {
+          overflow.set(x.cluster, [...(overflow.get(x.cluster) ?? []), e]);
+          continue;
+        }
+        out.set(e.key, { lane: x.lane, lanes: Math.min(2, x.lanes), col: c });
+      }
+      for (const [cl, evs] of overflow) {
+        stacks.push({ key: `stack-${c}-${cl}`, col: c, sp: Math.min(...evs.map((e) => e.sp)), ep: Math.max(...evs.map((e) => e.ep)), aids: evs.map((e) => e.a.id) });
       }
     }
-    return out;
+    return { lanes: out, stacks };
   }, [events, colOf]);
+  const lanes = laneLayout.lanes;
 
   const rectFor = useCallback(
     (col: number, sp: number, ep: number, lane = 0, laneCount = 1) => {
@@ -901,6 +912,34 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
               />
             </ShakeWrap>
           );
+        })}
+
+        {laneLayout.stacks.map((st) => {
+          if (st.col < c0 || st.col > c1) return null;
+          const r = rectFor(st.col, st.sp, st.ep, 1, 2);
+          return (
+            <button
+              key={st.key}
+              type="button"
+              className="cal-chip items-center justify-center"
+              data-conflict="true"
+              style={{ ...chipVars(8), left: r.left, top: r.top, width: r.width, height: r.height, zIndex: 2 }}
+              aria-label={t("calendar.issues.conflicts", { n: st.aids.length + 1 })}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => props.onSelectMany(st.aids, false)}
+            >
+              <span className="cal-code">+{st.aids.length}</span>
+            </button>
+          );
+        })}
+
+        {/* double-booking bracket: a red rule left of each clashing pair */}
+        {[...new Set(visibleEvents.filter((ev) => (lanes.get(ev.key)?.lanes ?? 1) > 1 && lanes.get(ev.key)?.lane === 0).map((ev) => ev.key))].map((k) => {
+          const ev = visibleEvents.find((e) => e.key === k);
+          const ln = lanes.get(k);
+          if (!ev || !ln) return null;
+          const r = rectFor(ln.col, ev.sp, ev.ep);
+          return <div key={`br-${k}`} aria-hidden className="pointer-events-none absolute z-[1] w-[2px] rounded-full" style={{ left: r.left - 2, top: r.top, height: r.height, background: "var(--status-infeasible-solid)" }} />;
         })}
 
         {/* optimistic placements awaiting the Move popover */}

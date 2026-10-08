@@ -193,18 +193,16 @@ class IssuedToken:
     emailed: bool
 
 
-async def issue_reset_token(session: AsyncSession, user: User, actor: User | None) -> IssuedToken:
-    """New one-time token (older unused ones are revoked). E-mailed when SMTP is configured and the user
-    has an address; the plain token is never stored (only its SHA-256)."""
+async def issue_reset_token(
+    session: AsyncSession, user: User, actor: User | None, *, revoke_others: bool = True
+) -> IssuedToken:
+    """New one-time token. E-mailed when SMTP is configured and the user has an address; the plain token is
+    never stored (only its SHA-256). An administrator's new token revokes the older unused ones; a public
+    request (``revoke_others=False``, audit B10) does not, so a stranger asking for resets cannot invalidate
+    the code the user just received. Using any code revokes the others (:func:`consume_reset_token`)."""
     now = utcnow()
-    for old in (
-        await session.execute(
-            select(PasswordResetToken).where(
-                PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None)
-            )
-        )
-    ).scalars():
-        old.used_at = now
+    if revoke_others:
+        await _revoke_open_tokens(session, user.id, now)
     token = secrets.token_urlsafe(24)
     expires = now + RESET_TTL
     session.add(
@@ -233,6 +231,17 @@ async def issue_reset_token(session: AsyncSession, user: User, actor: User | Non
     return IssuedToken(token, expires, emailed)
 
 
+async def _revoke_open_tokens(session: AsyncSession, user_id: int, now: datetime) -> None:
+    for old in (
+        await session.execute(
+            select(PasswordResetToken).where(
+                PasswordResetToken.user_id == user_id, PasswordResetToken.used_at.is_(None)
+            )
+        )
+    ).scalars():
+        old.used_at = now
+
+
 async def consume_reset_token(session: AsyncSession, token: str, new_password: str) -> User | None:
     row = (
         await session.execute(select(PasswordResetToken).where(PasswordResetToken.token_hash == _hash(token.strip())))
@@ -244,6 +253,7 @@ async def consume_reset_token(session: AsyncSession, token: str, new_password: s
     if user is None or not user.is_active:
         return None
     row.used_at = now
+    await _revoke_open_tokens(session, user.id, now)
     user.password_hash = hash_password(new_password)
     user.force_password_reset = False
     await session.flush()

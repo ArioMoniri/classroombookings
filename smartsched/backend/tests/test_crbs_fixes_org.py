@@ -236,7 +236,9 @@ async def test_b10_public_reset_is_throttled_and_keeps_the_earlier_code(env, mon
     assert len(rows) == 3 and all(t.used_at is None for t in rows)
     # per-account limit: further requests are accepted (202, nothing revealed) but issue nothing
     for _ in range(5):
-        assert (await c.post("/api/v1/auth/password-reset/request", json={"email": "sifre.unuttum@uni.edu.tr"})).status_code == 202
+        assert (
+            await c.post("/api/v1/auth/password-reset/request", json={"email": "sifre.unuttum@uni.edu.tr"})
+        ).status_code == 202
     async with dbmod.get_session_factory()() as s:
         n = len(list((await s.execute(select(PasswordResetToken).where(PasswordResetToken.user_id == uid))).scalars()))
     assert n == 3

@@ -47,9 +47,9 @@ describe("layout math", () => {
       { id: "b", sp: 8, ep: 9 },
       { id: "c", sp: 12, ep: 13 },
     ]);
-    expect(lanes.get("a")).toEqual({ lane: 0, lanes: 2 });
-    expect(lanes.get("b")).toEqual({ lane: 1, lanes: 2 });
-    expect(lanes.get("c")).toEqual({ lane: 0, lanes: 1 });
+    expect(lanes.get("a")).toEqual({ lane: 0, lanes: 2, cluster: 0 });
+    expect(lanes.get("b")).toEqual({ lane: 1, lanes: 2, cluster: 0 });
+    expect(lanes.get("c")).toEqual({ lane: 0, lanes: 1, cluster: 1 });
   });
   it("virtual window with overscan", () => {
     expect(visibleRange(1200, 600, 120, 60, 4)).toEqual([6, 19]);

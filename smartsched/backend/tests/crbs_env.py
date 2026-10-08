@@ -63,6 +63,9 @@ async def env(tmp_path_factory, tmp_path, monkeypatch) -> AsyncIterator[Env]:
     shutil.copy(template, db)
     dbmod.configure_engine(f"sqlite+aiosqlite:///{db}")
     qmod.reset_queue()
+    from app.core import throttle
+
+    throttle.reset_all()  # password-reset request counters are per process
     clock = {"now": datetime(2026, 2, 16, 8, 0)}
 
     async def fake_now(_session):  # type: ignore[no-untyped-def]

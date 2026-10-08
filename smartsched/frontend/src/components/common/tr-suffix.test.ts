@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lastNumberWord, spokenTail, tr, trPercent, trSuffix } from "./tr-suffix";
+import { harmoniseAfter, lastNumberWord, spokenTail, tr, trPercent, trSuffix } from "./tr-suffix";
 
 describe("Turkish suffix harmony", () => {
   it("reads numbers the Turkish way", () => {
@@ -39,5 +39,13 @@ describe("Turkish suffix harmony", () => {
     expect(trPercent(0.001, "tr", 1)).toBe("%0,1");
     expect(trPercent(0.44, "en")).toBe("44%");
     expect(tr("%44", "acc")).toBe("%44'ü");
+  });
+
+  it("re-harmonises template suffixes after a slot", () => {
+    expect(harmoniseAfter("4. hafta", "'den itibaren")).toBe("dan itibaren");
+    expect(harmoniseAfter("17:30", "'den sonra ders olmasın")).toBe("'dan sonra ders olmasın");
+    expect(harmoniseAfter("A 204", "'de kalsın")).toBe("'te kalsın");
+    expect(harmoniseAfter("Perşembe 13:30", "'de")).toBe("'da");
+    expect(harmoniseAfter("A 204", " dersliğinde")).toBe(" dersliğinde");
   });
 });

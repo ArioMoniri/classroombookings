@@ -430,6 +430,60 @@ class OrgSettingsIn(BaseModel):
     max_active_bookings_unlimited: bool | None = None
     #: CRBS hides rooms without a room group from the booking grid; True shows them in an ungrouped tab
     show_ungrouped_rooms: bool | None = None
+    #: CRBS settings/General: highlight the mouse-focused grid slot
+    grid_highlight: bool | None = None
+    # deliberate-difference switches (app/services/bookings_settings.py BOOKINGS_SPECS explains each)
+    enforce_max_active_on_create: bool | None = None
+    recur_max_counts_replacements: bool | None = None
+    maintenance_gates_lists: bool | None = None
+    manual_current_term: bool | None = None
+    export_ungrouped_rooms: bool | None = None
+    recurring_department_needs_set_department: bool | None = None
+    ignore_unauthorised_user_department: bool | None = None
+    cancel_all_includes_past: bool | None = None
+    term_date_change: Literal["cancel", "confirm"] | None = None
+
+    @field_validator("website")
+    @classmethod
+    def _website(cls, v: str | None) -> str | None:
+        """B8: only http(s) links (the login page renders it as a link: no ``javascript:`` / ``data:``)."""
+        if v is None:
+            return None
+        text = n.clean_text(v) or ""
+        if not text:
+            return ""
+        from urllib.parse import urlsplit
+
+        parts = urlsplit(text)
+        if parts.scheme.lower() not in ("http", "https") or not parts.netloc:
+            raise ValueError("website must be an http:// or https:// address")
+        return text
+
+    @field_validator("languages")
+    @classmethod
+    def _languages(cls, v: list[str] | None) -> list[str] | None:
+        """B8: a non-empty subset of the shipped languages (the frontend has message files for them)."""
+        if v is None:
+            return None
+        from app.services.bookings_i18n import SHIPPED_LANGUAGES
+
+        out = list(dict.fromkeys(x.strip().lower() for x in v))
+        bad = [x for x in out if x not in SHIPPED_LANGUAGES]
+        if bad or not out:
+            raise ValueError(f"languages must be chosen from {', '.join(SHIPPED_LANGUAGES)}")
+        return out
+
+    @field_validator("default_language")
+    @classmethod
+    def _default_language(cls, v: str | None) -> str | None:
+        from app.services.bookings_i18n import SHIPPED_LANGUAGES
+
+        if v is None:
+            return None
+        v = v.strip().lower()
+        if v not in SHIPPED_LANGUAGES:
+            raise ValueError(f"default_language must be one of {', '.join(SHIPPED_LANGUAGES)}")
+        return v
 
     @model_validator(mode="after")
     def _cols(self) -> OrgSettingsIn:
@@ -437,6 +491,14 @@ class OrgSettingsIn(BaseModel):
             ok = {"day": {"periods", "rooms"}, "room": {"periods", "days"}}[self.displaytype]
             if self.d_columns not in ok:
                 raise ValueError(f"columns {self.d_columns!r} do not fit display type {self.displaytype!r}")
+        from app.services.bookings_i18n import valid_pattern
+
+        for kind in ("pattern_long", "pattern_weekday", "pattern_time"):
+            value = getattr(self, kind)
+            if value is not None and not valid_pattern(kind, value.strip()):
+                raise ValueError(f"{kind} must be one of GET /org/date-patterns (or empty for the default)")
+            if value is not None:
+                setattr(self, kind, value.strip())
         return self
 
 

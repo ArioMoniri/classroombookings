@@ -1436,7 +1436,8 @@
       "taskRunning": "Sürüyor",
       "taskPending": "Bekliyor",
       "gridHint": "Bu çalıştırmayı çizelgede {week}. haftadan başlayarak görün.",
-      "openGrid": "Çizelgede aç"
+      "openGrid": "Çizelgede aç",
+      "ruleCol": "Tercih"
     },
     "settings": {
       "keyOkModel": "Anahtar çalışıyor · {model}",
@@ -1509,7 +1510,10 @@
     "studio": {
       "weekN": "{n}. hafta",
       "weekShort": "H{n}",
-      "weekHint": "Yalnızca o haftayı planlamak için bir haftaya tıklayın; birden çok hafta için ⌘, Ctrl veya ⇧ tuşunu basılı tutun."
+      "weekHint": "Yalnızca o haftayı planlamak için bir haftaya tıklayın; birden çok hafta için ⌘, Ctrl veya ⇧ tuşunu basılı tutun.",
+      "oneWeek": "{w}. hafta",
+      "placeOneWeek": "SmartSched {w}. hafta için {n} dersi {rooms} dersliğe yerleştirecek.",
+      "placeTerm": "SmartSched seçilen dönem için {n} dersi {rooms} dersliğe yerleştirecek."
     },
     "import": {
       "steps": "Adımlar",

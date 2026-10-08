@@ -32,7 +32,7 @@ from app.services import bookings_export as export
 from app.services import bookings_notify  # noqa: F401  (registers the notification event handlers)
 from app.services.bookings_calendar import date_infos, fgcol, term_info
 from app.services.bookings_perms import Access, effective_limits, load_access
-from app.services.bookings_settings import get_group
+from app.services.bookings_settings import get_group, get_value
 
 Day = date  # field names "date" shadow the type inside pydantic models
 
@@ -48,6 +48,18 @@ async def maintenance_gate(access: CurrentAccess, db: DB) -> Access:
 
 
 Acc = Annotated[Access, Depends(maintenance_gate)]
+
+
+async def list_gate(access: CurrentAccess, db: DB) -> Access:
+    """Dashboard, my bookings, owned rooms and calendar feeds. CRBS's maintenance gate is the Bookings
+    controller only (its Dashboard stays open); ``bookings.maintenance_gates_lists`` closes these too
+    (audit deliberate difference g)."""
+    if await get_value(db, "bookings", "maintenance_gates_lists"):
+        return await maintenance_gate(access, db)
+    return access
+
+
+ListAcc = Annotated[Access, Depends(list_gate)]
 
 
 def _err(exc: svc.BookingError) -> HTTPException:
@@ -217,7 +229,12 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
         ),
         "room_groups": [{"id": g.id, "name": g.name, "description": g.description} for (g,) in groups]
         + ([{"id": 0, "name": "—", "description": None}] if any(r.room_group_id is None for r in rooms) else []),
-        "display": {"type": org["displaytype"], "columns": org["d_columns"], "use_room_groups": org["use_room_groups"]},
+        "display": {
+            "type": org["displaytype"],
+            "columns": org["d_columns"],
+            "use_room_groups": org["use_room_groups"],
+            "grid_highlight": org["grid_highlight"],  # CRBS settings/General (MISSING 5)
+        },
         "date_patterns": {k: org[k] for k in ("pattern_long", "pattern_weekday", "pattern_time")},
         "permissions": sorted(access.perms),
         "limits": await effective_limits(db, access.user),
@@ -427,7 +444,7 @@ async def multi_create(mb_id: int, body: MultiCreateIn, db: DB, access: Acc) -> 
 @router.get("/mine")
 async def mine(
     db: DB,
-    access: Acc,
+    access: ListAcc,
     from_: Annotated[date | None, Query(alias="from")] = None,
     to: date | None = None,
     status: Literal["BOOKED", "CANCELLED", "ALL"] = "BOOKED",
@@ -438,12 +455,12 @@ async def mine(
 
 
 @router.get("/dashboard")
-async def dashboard(db: DB, access: Acc) -> dict[str, Any]:
+async def dashboard(db: DB, access: ListAcc) -> dict[str, Any]:
     return await svc.dashboard(db, access)
 
 
 @router.get("/owned-rooms")
-async def owned_rooms(db: DB, access: Acc) -> list[dict[str, Any]]:
+async def owned_rooms(db: DB, access: ListAcc) -> list[dict[str, Any]]:
     t = await svc.today(db)
     out = []
     for room in (await db.execute(select(Room).where(Room.owner_user_id == access.user_id))).scalars():
@@ -489,7 +506,7 @@ def _ics(text: str, name: str) -> Response:
 
 
 @router.get("/feed/user.ics")
-async def my_feed(db: DB, access: Acc) -> Response:
+async def my_feed(db: DB, access: ListAcc) -> Response:
     u = access.user
     return _ics(
         await export.ics_feed(db, access, title=f"SmartSched – {u.full_name or u.username or u.email}", user_id=u.id),
@@ -498,7 +515,7 @@ async def my_feed(db: DB, access: Acc) -> Response:
 
 
 @router.get("/feed/room/{room_id}.ics")
-async def room_feed(room_id: int, db: DB, access: Acc) -> Response:
+async def room_feed(room_id: int, db: DB, access: ListAcc) -> Response:
     room = await db.get(Room, room_id)
     if room is None or not access.can_view_room(room):
         raise HTTPException(404, "room not found")

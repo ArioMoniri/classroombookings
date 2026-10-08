@@ -265,7 +265,8 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
         year: (y) => t("studio.classes.yearN", { n: y }),
         choose: t("studio.rule.choose"),
         fromWeek: (w) => t("studio.rule.fromWeek", { n: w }),
-        weeks: (w) => t("studio.rule.weeks", { w }),
+        // one week is singular in Turkish ("3. hafta", not "3. haftalar"; usability m2)
+        weeks: (w) => (/^\d+$/.test(w) ? t("glass.studio.oneWeek", { w }) : t("studio.rule.weeks", { w })),
       },
     };
   }, [rooms, programsQ.data, classById, classes.data, locale, t]);
