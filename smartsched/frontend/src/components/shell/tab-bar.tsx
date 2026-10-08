@@ -8,6 +8,7 @@ import { useState, type ReactNode } from "react";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
+import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
@@ -48,6 +49,7 @@ export function TabBar() {
     else if (y - prev > 6) setCompact(true);
     else if (prev - y > 6) setCompact(false);
   });
+  const hydrated = useHydrated();
   const morph = reduce ? { duration: 0 } : springs.glassMorph;
   const { can } = usePermissions();
   // a teacher has no planning tabs: the bookings entries (admin/nav-items) take their place
@@ -90,6 +92,8 @@ export function TabBar() {
     );
   };
 
+  // tabs depend on permissions and counts from queries: render after hydration only (no #418 mismatch)
+  if (!hydrated) return null;
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-end justify-center gap-2 px-3 lg:hidden">
       <LayoutGroup id="tab-bar">

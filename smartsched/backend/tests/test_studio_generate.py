@@ -59,6 +59,7 @@ async def test_generate_from_draft_with_stub_and_cpsat(bahar):
     run = (await c.get(f"/api/v1/runs/{run_id}", headers=h)).json()
     assert run["status"] in TERMINAL and run["status"] not in {"FAILED", "ERROR"}, run.get("error")
     assert run["stats"]["solver"] == "app.solver.cpsat"
+    print("STATUS1", run["status"], len(run["diagnosis"]), run["stats"].get("placed"), run["stats"].get("events_total"))
     if run["status"] in {"INFEASIBLE", "FEASIBLE_PARTIAL"}:
         assert run["diagnosis"] and all(phar not in d["event_ids"] for d in run["diagnosis"])
     # parent run must belong to the same term + kind
@@ -80,6 +81,7 @@ async def test_generate_small_feasible_draft_with_cpsat(bahar):
     )
     assert r.status_code == 200
     pre = (await c.post(f"{url}/precheck", headers=h)).json()
+    print("READY", pre["readiness"])
     if pre["readiness"] == "blocked":  # leave out whatever the static checker still flags
         flagged = {
             rid for it in pre["items"] if it["severity"] == "error" for cl in it["classes"] for rid in cl["request_ids"]

@@ -7,9 +7,13 @@ from sqlalchemy import select
 
 from app.api.deps import DB, Planner, Viewer
 from app.core.config import get_settings
+from app.core.images import check_image
+from app.core.safe_files import UnsafeFileError, read_upload
 from app.importers import normalize as n
 from app.models import Building, Room
 from app.schemas.catalog import BuildingIn, BuildingOut, RoomIn, RoomOut, RoomUpdate
+
+PHOTO_MAX_BYTES = 10 * 1024 * 1024
 
 router = APIRouter(tags=["rooms"])
 
@@ -102,10 +106,19 @@ async def upload_photo(room_id: int, db: DB, _: Planner, file: UploadFile = File
     ext = Path(file.filename or "photo.jpg").suffix.lower() or ".jpg"
     if ext not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
         raise HTTPException(400, "unsupported image type")
+    try:
+        data = await read_upload(file, PHOTO_MAX_BYTES)
+    except UnsafeFileError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
+    problem = check_image(data, ext, file.content_type)
+    if problem:
+        raise HTTPException(400, problem)
     target_dir = Path(get_settings().upload_dir) / "rooms"
     target_dir.mkdir(parents=True, exist_ok=True)
+    for old in target_dir.glob(f"{room.id}.*"):
+        old.unlink(missing_ok=True)
     target = target_dir / f"{room.id}{ext}"
-    target.write_bytes(await file.read())
+    target.write_bytes(data)
     room.photo_url = f"/uploads/rooms/{room.id}{ext}"
     await db.commit()
     await db.refresh(room)

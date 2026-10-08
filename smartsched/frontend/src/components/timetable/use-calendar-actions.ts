@@ -63,7 +63,7 @@ export function useCalendarActions(runId: number | null, opts: { isAdmin?: boole
   }, [lang]);
 
   const move = useCallback(
-    async (items: MoveItem[], label: string, toRoom: string, force = false): Promise<MoveOutcome> => {
+    async function run(items: MoveItem[], label: string, toRoom: string, force = false): Promise<MoveOutcome> {
       if (runId === null || items.length === 0) return { ok: false, applied: false };
       let res: BulkMoveOut;
       try {
@@ -77,7 +77,7 @@ export function useCalendarActions(runId: number | null, opts: { isAdmin?: boole
         const reason = reasonOf(res);
         toast.error(t("calendar.move.cannot", { reason }), {
           description: opts.isAdmin ? undefined : t("calendar.move.forceAdmin"),
-          action: opts.isAdmin ? { label: t("calendar.move.force"), onClick: () => void move(items, label, toRoom, true) } : undefined,
+          action: opts.isAdmin ? { label: t("calendar.move.force"), onClick: () => void run(items, label, toRoom, true) } : undefined,
           duration: 8000,
         });
         opts.announce?.(t("calendar.move.cannot", { reason }));

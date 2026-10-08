@@ -556,6 +556,9 @@ class WeeksParse:
 _ALL_WEEK_WORDS = ("hepsi", "tüm", "her hafta", "dönemin tamamı", "tamamı", "boyunca", "100%")
 _WEEK_NO_ROOM_WORDS = ("online", "uzem", "çevrimiçi", "hastane", "laboratuvar", "asenkron", "gerek yok", "istenmiyor")
 _ILK_RX = re.compile(r"ilk\s+(\d+)\s*hafta")
+_SON_RX = re.compile(r"son\s+(\d+)\s*hafta")  # "son 7 hafta" = the last 7 weeks (review MINOR 8)
+_HARIC_AFTER_RX = re.compile(r"hari[çc]\s*:?\s*(\d[\d\s,\-]*)")
+_HARIC_BEFORE_RX = re.compile(r"(\d[\d\s.,\-]*?)\s*\.?\s*(?:hafta(?:lar[ıi]?)?)?\s*\)?\s*hari[çc]")
 _RANGE_RX = re.compile(r"(\d+)\s*\.?\s*(?:-|–|ila|ile)\s*(\d+)")
 _NUM_RX = re.compile(r"\d+")
 _HAFTA_SEG_RX = re.compile(r"([\d.,\s\-–]+?)\s*hafta\w*\s*([^\d]*)")
@@ -612,6 +615,16 @@ def parse_weeks(value: Any, max_week: int = 14) -> WeeksParse:
             return WeeksParse(all_weeks, True, warnings=[f"fractional weeks value {text!r}; assuming all"])
     if any(w in low for w in _WEEK_NO_ROOM_WORDS) and not any(ch.isdigit() for ch in low):
         return WeeksParse([], False, needs_room=False, note=text)
+    if "hariç" in low or "haric" in low:  # "2-14 (7. hafta hariç)", "1-14 hariç 8", "8. ve 9. hafta hariç"
+        after = _HARIC_AFTER_RX.search(low)
+        before = None if after else _HARIC_BEFORE_RX.search(low)
+        hit = after or before
+        if hit is not None:
+            excluded = set(_expand_numbers(hit.group(1)))
+            rest = (low[: hit.start()] + " " + low[hit.end() :]).replace("(", " ").replace(")", " ").strip(" ,;")
+            base = parse_weeks(rest, max_week).weeks if any(ch.isdigit() for ch in rest) else all_weeks
+            kept = [w for w in base if w not in excluded]
+            return WeeksParse(kept, kept == all_weeks, note=text)
     if any(w in low for w in _ALL_WEEK_WORDS):
         return WeeksParse(all_weeks, True, note=text if len(text) > 20 else None)
     if "vize" in low:
@@ -620,6 +633,10 @@ def parse_weeks(value: Any, max_week: int = 14) -> WeeksParse:
     if m:
         n = min(int(m.group(1)), max_week)
         return WeeksParse(list(range(1, n + 1)), n == max_week, note=text)
+    m = _SON_RX.search(low)
+    if m:
+        n = min(int(m.group(1)), max_week)
+        return WeeksParse(list(range(max_week - n + 1, max_week + 1)), n == max_week, note=text)
     segments = list(_HAFTA_SEG_RX.finditer(low))
     weeks: list[int] = []
     warnings: list[str] = []

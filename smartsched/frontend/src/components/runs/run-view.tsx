@@ -9,7 +9,6 @@ import { ChatPanel } from "@/components/chat/chat-panel";
 import { PageHeader } from "@/components/common/page-header";
 import { KpiNumber } from "@/components/dashboard/kpi-number";
 import { useRememberRunOnView } from "@/components/shell/workspace";
-import { Timetable } from "@/components/timetable/timetable";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -271,7 +270,15 @@ export function RunView({ id }: { id: number }) {
                 ) : null}
               </TabsContent>
               <TabsContent value="grid" className="pt-4">
-                <Timetable runId={r.id} week={r.horizon_params.weeks[0] ?? 1} className="h-[calc(100dvh-280px)] min-h-[480px]" />
+                {/* the calendar lives on its own page (owned by the calendar view); deep-link run + week */}
+                <Card>
+                  <CardContent className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-[13px] text-label-2">{t("glass.report.gridHint", { week: r.horizon_params.weeks[0] ?? 1 })}</p>
+                    <Button nativeButton={false} render={<Link href={`/timetable?run=${r.id}&week=${r.horizon_params.weeks[0] ?? 1}`} />} data-testid="open-grid">
+                      {t("glass.report.openGrid")}
+                    </Button>
+                  </CardContent>
+                </Card>
               </TabsContent>
               <TabsContent value="constraints" className="pt-4">
                 <Card>

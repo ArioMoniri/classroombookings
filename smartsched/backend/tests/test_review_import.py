@@ -51,7 +51,9 @@ async def test_m4_unchanged_reimport_writes_nothing_and_legacy_keys_migrate(baha
         rows = list(
             (
                 await s.execute(
-                    select(MeetingRequest).join(Section).where(Section.term_id == bahar.term_id, MeetingRequest.archived.is_(False))
+                    select(MeetingRequest)
+                    .join(Section)
+                    .where(Section.term_id == bahar.term_id, MeetingRequest.archived.is_(False))
                 )
             ).scalars()
         )
@@ -69,7 +71,9 @@ async def test_m4_unchanged_reimport_writes_nothing_and_legacy_keys_migrate(baha
             m.id: m.source_key
             for m in (
                 await s.execute(
-                    select(MeetingRequest).join(Section).where(Section.term_id == bahar.term_id, MeetingRequest.archived.is_(False))
+                    select(MeetingRequest)
+                    .join(Section)
+                    .where(Section.term_id == bahar.term_id, MeetingRequest.archived.is_(False))
                 )
             ).scalars()
         }
@@ -85,22 +89,34 @@ async def test_m4_reimport_keeps_identity_edits_and_remaps(bahar, tmp_path):
     # a meeting whose day changes in the new file (identity changes -> archived + new row)
     async with get_session_factory()() as s:
         w = (
-            await s.execute(
-                select(MeetingRequest)
-                .join(Section)
-                .where(
-                    Section.term_id == bahar.term_id,
-                    MeetingRequest.day == 2,
-                    MeetingRequest.archived.is_(False),
-                    MeetingRequest.id.not_in([x, phar240, venue_row]),
+            (
+                await s.execute(
+                    select(MeetingRequest)
+                    .join(Section)
+                    .where(
+                        Section.term_id == bahar.term_id,
+                        MeetingRequest.day == 2,
+                        MeetingRequest.archived.is_(False),
+                        MeetingRequest.id.not_in([x, phar240, venue_row]),
+                    )
+                    .order_by(MeetingRequest.id)
                 )
-                .order_by(MeetingRequest.id)
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         assert w is not None
         sibs = (
-            await s.execute(select(MeetingRequest.id).where(MeetingRequest.section_id == w.section_id, MeetingRequest.archived.is_(False)))
-        ).scalars().all()
+            (
+                await s.execute(
+                    select(MeetingRequest.id).where(
+                        MeetingRequest.section_id == w.section_id, MeetingRequest.archived.is_(False)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
         rule = ConstraintRow(
             term_id=bahar.term_id, kind="room_forbid", params={"event_ids": [x, w.id], "room_ids": [1]},
             hardness="soft", weight=3, source="ADMIN", enabled=True,
@@ -145,7 +161,9 @@ async def test_m4_reimport_keeps_identity_edits_and_remaps(bahar, tmp_path):
     conflict = [cf for cf in ex["conflicts"] if cf["id"] == phar240 and cf["field"] == "start_period"]
     assert conflict and conflict[0]["planner"] == 2 and conflict[0]["file"] == 3 and conflict[0]["resolution"] == "kept"
     row = next(
-        it for it in (await c.get(f"{url}/classes", params={"limit": 2000}, headers=h)).json()["items"] if it["id"] == phar240
+        it
+        for it in (await c.get(f"{url}/classes", params={"limit": 2000}, headers=h)).json()["items"]
+        if it["id"] == phar240
     )
     assert {f["field"]: f["imported"] for f in row["changed_fields"]}["start_period"] == 3  # revert -> new file
     # ids of the replaced meeting are remapped in the draft and in the rule
@@ -153,12 +171,18 @@ async def test_m4_reimport_keeps_identity_edits_and_remaps(bahar, tmp_path):
     assert new_w not in sibs and (await _mr(w_id)).archived and (await _mr(new_w)).day == 4
     async with get_session_factory()() as s:
         draft = (
-            await s.execute(select(StudioDraft).where(StudioDraft.term_id == bahar.term_id, StudioDraft.kind == "COURSE"))
+            await s.execute(
+                select(StudioDraft).where(StudioDraft.term_id == bahar.term_id, StudioDraft.kind == "COURSE")
+            )
         ).scalar_one()
         assert sorted(draft.excluded_event_ids) == sorted([x, new_w]) and draft.pins[0]["event_id"] == x
         assert (await s.get(ConstraintRow, rule_id)).params["event_ids"] == [x, new_w]
         snap = (
-            await s.execute(select(ImportedSnapshot).where(ImportedSnapshot.entity == "meeting", ImportedSnapshot.entity_id == phar240))
+            await s.execute(
+                select(ImportedSnapshot).where(
+                    ImportedSnapshot.entity == "meeting", ImportedSnapshot.entity_id == phar240
+                )
+            )
         ).scalar_one()
         assert snap.values["start_period"] == 3
     # "take" applies the file's values

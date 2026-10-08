@@ -48,6 +48,7 @@ from app.models import (
     StudioPreset,
     User,
 )
+from app.services import solver_bridge
 from app.services import studio as st
 from app.solver import model as sm
 
@@ -337,7 +338,7 @@ def _selector_affected(
 
     spec = catalog.KINDS.get(kind)
     clean = normalize_selector_params({k: v for k, v in params.items() if not str(k).startswith("_")})
-    clean = st.solver_bridge.events_for_requests(clean, members)  # merged members -> their event (U3)
+    clean = solver_bridge.events_for_requests(clean, members)  # merged members -> their event (U3)
     c = sm.Constraint(kind, clean, True, 1, None)
     if spec is not None and not spec.selectable:
         if kind == "room_closed":

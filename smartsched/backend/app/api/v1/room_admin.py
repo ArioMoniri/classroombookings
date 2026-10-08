@@ -70,10 +70,10 @@ async def _assign(db: DB, g: RoomGroup, room_ids: list[int]) -> None:
         if r.id not in room_ids:
             r.room_group_id = None
     for rid in room_ids:
-        r = await db.get(Room, rid)
-        if r is None:
+        member = await db.get(Room, rid)
+        if member is None:
             raise HTTPException(422, f"room {rid} not found")
-        r.room_group_id = g.id
+        member.room_group_id = g.id
         r.room_group = g.name
 
 
@@ -280,9 +280,14 @@ async def upload_photo(room_id: int, db: DB, _: RoomsAdmin, file: UploadFile = F
     ext = Path(file.filename or "photo.jpg").suffix.lower() or ".jpg"
     if ext not in {".jpg", ".jpeg", ".png", ".gif", ".webp"}:
         raise HTTPException(400, "unsupported image type (jpg, png, gif, webp)")
-    data = await file.read()
+    data = await file.read(10 * 1024 * 1024 + 1)
     if len(data) > 10 * 1024 * 1024:
         raise HTTPException(413, "image larger than 10 MB")
+    from app.core.images import check_image
+
+    problem = check_image(data, ext, file.content_type)  # review MINOR 14: the bytes must be that image
+    if problem:
+        raise HTTPException(400, problem)
     target = Path(get_settings().upload_dir) / "rooms"
     target.mkdir(parents=True, exist_ok=True)
     for old in target.glob(f"{r.id}.*"):
@@ -375,11 +380,11 @@ async def update_field(fid: int, body: CustomFieldIn, db: DB, _: RoomsAdmin) -> 
     removed = {str(o.id) for o in old_by_value.values()}
     f.options = new_opts
     if removed or body.type != "SELECT":
-        for v in (
+        for fv in (
             await db.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.field_id == f.id))
         ).scalars():
-            if body.type == "SELECT" and v.value in removed:
-                v.value = None
+            if body.type == "SELECT" and fv.value in removed:
+                fv.value = None
     await db.flush()
     room_ids = (
         await db.execute(select(RoomCustomFieldValue.room_id).where(RoomCustomFieldValue.field_id == f.id))

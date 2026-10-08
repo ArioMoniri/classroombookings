@@ -13,7 +13,7 @@ from botocore.stub import Stubber
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import smartsched_aws as sa  # noqa: E402
+import smartsched_aws as sa
 
 # botocore operation -> IAM action, where the two differ (Budgets uses coarse IAM actions).
 IAM_ACTION_OVERRIDES = {

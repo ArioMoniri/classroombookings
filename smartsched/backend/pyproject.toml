@@ -25,6 +25,8 @@ dependencies = [
   "python-docx>=1.1",
   "pypdf>=4.0",
   "ldap3>=2.9",
+  "Pillow>=10.0",  # uploaded logos / room photos are decoded and re-encoded (app/core/images.py)
+  "bcrypt>=4.0",  # legacy CRBS password hashes ($2y$ / sha1:) verified once, then rehashed to argon2
 ]
 
 [project.optional-dependencies]
@@ -70,11 +72,7 @@ module = ["app.solver", "app.solver.*"]
 ignore_errors = true
 follow_imports = "skip"
 
-# app.ai.* is owned by the ai-engineer (own gate, see app/ai/README.md "Tests"); the studio services
-# import it, so errors there are ignored here (same policy as app.solver).
-[[tool.mypy.overrides]]
-module = ["app.ai", "app.ai.*"]
-ignore_errors = true
+# app.ai.* is part of the backend gate since the 2026-10-08 review (MINOR 13): lint + types in make check.
 
 [[tool.mypy.overrides]]
 module = ["app.solver.model", "app.solver.stub"]
@@ -86,6 +84,9 @@ strict = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 testpaths = ["tests"]
+markers = [
+  "slow: heavy real-workbook tests (>~15 s); `make check` skips them, `make test-slow` / CI runs them",
+]
 filterwarnings = [
   "ignore::UserWarning:openpyxl",
   "ignore::DeprecationWarning:ldap3.*",

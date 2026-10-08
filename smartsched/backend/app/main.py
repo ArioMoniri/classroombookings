@@ -12,7 +12,6 @@ from typing import Any, cast
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
 from app.core.config import assert_secure, get_settings
@@ -153,7 +152,10 @@ def create_app() -> FastAPI:
     # are served through the authenticated ``GET /api/v1/imports/{id}/file``.
     photos = Path(settings.upload_dir) / "rooms"
     photos.mkdir(parents=True, exist_ok=True)
-    app.mount("/uploads/rooms", StaticFiles(directory=str(photos)), name="room-photos")
+    # nosniff + CSP default-src 'none' on every upload response (CRBS parity audit B2)
+    from app.core.images import SafeStaticFiles
+
+    app.mount("/uploads/rooms", SafeStaticFiles(directory=str(photos)), name="room-photos")
     return app
 
 

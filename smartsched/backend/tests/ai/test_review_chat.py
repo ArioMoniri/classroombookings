@@ -6,8 +6,8 @@ import asyncio
 
 from app.models import ChatApplyClaim, ScheduleRun
 
-from tests.ai.test_chat import _count, _move, _setup
 from tests.ai.conftest import text, tools
+from tests.ai.test_chat import _count, _move, _setup
 
 
 async def test_m2_concurrent_applies_claim_once(client, fake_sdk):

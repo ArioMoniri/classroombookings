@@ -46,7 +46,6 @@ from app.services import studio as st
 EDITABLE = (*SECTION_FIELDS, *MEETING_FIELDS)
 
 
-
 def _would_be(mr: MeetingRequest, w: dict[str, Any]) -> Any:
     from types import SimpleNamespace
 
@@ -707,12 +706,12 @@ async def revert(session: AsyncSession, ids: list[int], fields: list[str] | None
             for f, key in (("start_time", "_start_time"), ("end_time", "_end_time")):
                 raw = ms.values.get(key)
                 setattr(mr, f, time.fromisoformat(raw) if raw else None)
-    bad = {
+    broken = {
         mr.id: errs for mr in meetings.values() if (errs := [e for e in coherence_errors(mr) if e not in before[mr.id]])
     }
-    if bad:
+    if broken:
         await session.rollback()
-        raise st.StudioError(422, {"message": "the revert would leave inconsistent classes", "errors": bad})
+        raise st.StudioError(422, {"message": "the revert would leave inconsistent classes", "errors": broken})
     await session.commit()
     return await rows_for(session, ids, user)
 

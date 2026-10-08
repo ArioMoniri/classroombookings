@@ -279,3 +279,50 @@ async def test_real_final_locked_plan_validates(engine):
     errors = {d.code for d in res.diagnoses if d.severity == "error"}
     assert errors <= {"no_room", "locked_ineligible", "unplaced", "unplaced_summary"}, errors
     assert any(d.code == "trusted_lock_capacity" and d.params.get("shared") for d in res.diagnoses)
+
+
+@SLOW
+async def test_real_bahar_full_term_keeps_planner_locks_through_blocked_weeks(engine):
+    """SMARTSCHED_SLOW=1: Bahar *full term* (cpsat, defaults, week segments on).  Before week segments, 14
+    locked lectures whose room the grid blocks in one week (ETKİNLİK, HAZIRLIK ...) were lost for the
+    whole term (648/684 placed, roomed 94.0 %, planner-roomed 96.2 %).  Now: hard 100, >= 98 % of the
+    planner-roomed events placed in *every* week, >= 95.5 % of all room-needing events.  (Week 1 alone
+    admits at most 578/603 room-needing events — its relaxation is OPTIMAL — so the week-3 rate of 96.5 %
+    is not reachable for "every week of every event" on this data.)"""
+    factory = get_session_factory()
+    async with factory() as s:
+        term_id = await _import_bahar(s)
+        run = ScheduleRun(
+            term_id=term_id,
+            kind="COURSE",
+            horizon="TERM",
+            params={"time_limit_s": 300, "solver": "cpsat", "seed": 0},
+        )
+        s.add(run)
+        await s.commit()
+        run_id = run.id
+        probe = ScheduleRun(term_id=term_id, kind="COURSE", horizon="TERM", params={})
+        inp, _members = await build_solver_input(s, probe)
+        locked = {e.id for e in inp.events if e.locked is not None}
+        roomed = {e.id for e in inp.events if e.needs_room}
+    await run_schedule(factory, run_id)
+    async with factory() as s:
+        run = await s.get(ScheduleRun, run_id)
+        assert run is not None
+        rows = list((await s.execute(select(Assignment).where(Assignment.run_id == run_id))).scalars())
+    assert run.hard_score == 100, run.diagnosis[:3]
+    assert run.status == "FEASIBLE_PARTIAL" and run.stats["events_total"] == len(inp.events)
+    unplaced = set(run.stats["unplaced_ids"])  # not placed in every week (partially placed included)
+    full = {e.id for e in inp.events} - unplaced
+    assert len(full & locked) >= 0.98 * len(locked), (len(full & locked), len(locked))
+    assert len(full & roomed) >= 0.955 * len(roomed), (len(full & roomed), len(roomed))
+    splits = [d for d in run.diagnosis if d["code"] == "week_split"]
+    assert sum(1 for d in splits if d["params"]["reason"] == "blocked") >= 10
+    assert sum(1 for d in run.diagnosis if d["code"] == "locked_ineligible") <= 3  # true double locks only
+    by_request: dict[int, list[Assignment]] = {}
+    for a in rows:
+        by_request.setdefault(a.meeting_request_id or 0, []).append(a)
+    moved = [v for v in by_request.values() if len(v) > 1]
+    assert moved and all(len({(a.day, a.start_period, a.end_period) for a in v}) == 1 for v in moved)  # same time
+    explained = {i for d in run.diagnosis if d["severity"] == "error" for i in d["event_ids"]}
+    assert unplaced <= explained

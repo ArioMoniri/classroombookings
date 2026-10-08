@@ -135,7 +135,7 @@ def _weeks_text(weeks: list[int]) -> str:
     ws = sorted(set(weeks))
     runs: list[str] = []
     start = prev = ws[0]
-    for w in ws[1:] + [None]:  # type: ignore[list-item]
+    for w in ws[1:] + [None]:
         if w is not None and w == prev + 1:
             prev = w
             continue
@@ -517,7 +517,7 @@ async def record_edit(
         diff.operations.append(
             SetWeightOp(
                 constraint_id=cid, weight=weight, hardness=hardness, label=row.nl_text or row.kind, reason=reason
-            )  # type: ignore[arg-type]
+            )
         )
         return {"recorded": "set_weight (proposal only)"}
     if name in ("include_sections", "exclude_sections", "set_section_field"):

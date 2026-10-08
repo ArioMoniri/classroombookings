@@ -25,7 +25,11 @@ async def test_m8_exports_neutralise_formulas_and_ics_lines(bahar):
     run_id = r.json()["run_id"]
     await get_queue().wait_idle(timeout=300)
     async with get_session_factory()() as s:
-        a = (await s.execute(select(Assignment).where(Assignment.run_id == run_id).order_by(Assignment.id))).scalars().first()
+        a = (
+            (await s.execute(select(Assignment).where(Assignment.run_id == run_id).order_by(Assignment.id)))
+            .scalars()
+            .first()
+        )
         assert a is not None and a.room_ids
         a.notes = "@SUM(1+1)*cmd|' /C calc'!A0\r\nATTENDEE:mailto:x@evil.example"
         room = await s.get(Room, int(a.room_ids[0]))
@@ -39,7 +43,9 @@ async def test_m8_exports_neutralise_formulas_and_ics_lines(bahar):
     # XLSX: the room header is a text cell (never a formula)
     data = (await c.get(f"/api/v1/runs/{run_id}/export", params={"format": "xlsx", "weeks": "3"}, headers=h)).content
     wb = openpyxl.load_workbook(io.BytesIO(data))
-    evil = [cell for ws in wb.worksheets for row in ws.iter_rows() for cell in row if str(cell.value or "").startswith("=")]
+    evil = [
+        cell for ws in wb.worksheets for row in ws.iter_rows() for cell in row if str(cell.value or "").startswith("=")
+    ]
     assert evil and all(cell.data_type == "s" and cell.quotePrefix for cell in evil)
     # ICS: no injected property line
     ics = (await c.get(f"/api/v1/runs/{run_id}/export", params={"format": "ics"}, headers=h)).text
@@ -47,9 +53,14 @@ async def test_m8_exports_neutralise_formulas_and_ics_lines(bahar):
 
 
 def test_m8_helpers():
-    assert safe_cell("=1+1") == "'=1+1" and safe_cell("-") == "'-" and safe_cell(-5) == -5 and safe_cell("A 101") == "A 101"
+    assert (
+        safe_cell("=1+1") == "'=1+1"
+        and safe_cell("-") == "'-"
+        and safe_cell(-5) == -5
+        and safe_cell("A 101") == "A 101"
+    )
     assert safe_cell("\tx") == "'\tx" and safe_cell("İstanbul") == "İstanbul"
-    assert ics_text("a;b,c\r\nBEGIN:VEVENT\x00") == "a\;b\\,c\\nBEGIN:VEVENT"
+    assert ics_text("a;b,c\r\nBEGIN:VEVENT\x00") == "a\\;b\\,c\\nBEGIN:VEVENT"
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.append(["=1+1", "+cmd", "MAT 112", 3])

@@ -9,6 +9,7 @@ import { api } from "@/lib/api/endpoints";
 import { useMeFull } from "@/lib/api/shell-extra";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 
@@ -28,7 +29,8 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
   const router = useRouter();
   const qc = useQueryClient();
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
-  const user = me.data;
+  const hydrated = useHydrated();
+  const user = hydrated ? me.data : undefined;
   const logout = async () => {
     await api.auth.logout();
     qc.clear();

@@ -69,7 +69,9 @@ async def test_u2_first_visits_race_to_one_draft(bahar):
     async with get_session_factory()() as s:
         n = (
             await s.execute(
-                select(func.count(StudioDraft.id)).where(StudioDraft.term_id == bahar.term_id, StudioDraft.kind == "EXAM")
+                select(func.count(StudioDraft.id)).where(
+                    StudioDraft.term_id == bahar.term_id, StudioDraft.kind == "EXAM"
+                )
             )
         ).scalar_one()
     assert n == 1
@@ -118,7 +120,9 @@ async def _locked_small_item(bahar) -> tuple[int, dict, int]:
     phar = await meeting_id("PHAR 240", day=1, start=1)  # locked in A 206
     a206 = await room("A206")
     r = await bahar.client.put(
-        "/api/v1/studio/meetings/bulk", json={"ids": [phar], "patch": {"enrolment": a206.capacity + 20}}, headers=bahar.planner
+        "/api/v1/studio/meetings/bulk",
+        json={"ids": [phar], "patch": {"enrolment": a206.capacity + 20}},
+        headers=bahar.planner,
     )
     assert r.status_code == 200
     pre = (await bahar.client.post(f"/api/v1/terms/{bahar.term_id}/studio/precheck", headers=bahar.planner)).json()
@@ -131,7 +135,9 @@ async def test_m5_fix_stays_in_the_draft_and_write_through_needs_confirm(bahar):
     url = f"/api/v1/terms/{bahar.term_id}/studio/precheck/fix"
     phar, item, version = await _locked_small_item(bahar)
     # stale If-Match -> 409; write-through without confirm -> 428
-    r = await c.post(url, json={"item_id": item["id"], "option": "rooms"}, headers={**h, "If-Match": f'"{version + 7}"'})
+    r = await c.post(
+        url, json={"item_id": item["id"], "option": "rooms"}, headers={**h, "If-Match": f'"{version + 7}"'}
+    )
     assert r.status_code == 409, r.text
     r = await c.post(url, json={"item_id": item["id"], "option": "rooms", "write_through": True}, headers=h)
     assert r.status_code == 428
@@ -140,7 +146,9 @@ async def test_m5_fix_stays_in_the_draft_and_write_through_needs_confirm(bahar):
     assert r.status_code == 200, r.text
     admin_draft = (await c.get(f"/api/v1/terms/{bahar.term_id}/studio", headers=bahar.admin)).json()
     assert admin_draft["pins"] == []
-    row = (await c.get(f"/api/v1/terms/{bahar.term_id}/studio/classes", params={"ids": str(phar)}, headers=h)).json()["items"][0]
+    row = (await c.get(f"/api/v1/terms/{bahar.term_id}/studio/classes", params={"ids": str(phar)}, headers=h)).json()[
+        "items"
+    ][0]
     assert row["locked"]
 
 
@@ -149,10 +157,14 @@ async def test_m5_confirmed_write_through_never_unlocks(bahar):
     url = f"/api/v1/terms/{bahar.term_id}/studio/precheck/fix"
     phar, item, _ = await _locked_small_item(bahar)
     rooms = next(f for f in item["fixes"] if f["option"] == "rooms")["action"]["payload"]["patch"]["requested_room_ids"]
-    r = await c.post(url, json={"item_id": item["id"], "option": "rooms", "write_through": True, "confirm": True}, headers=h)
+    r = await c.post(
+        url, json={"item_id": item["id"], "option": "rooms", "write_through": True, "confirm": True}, headers=h
+    )
     assert r.status_code == 200, r.text
     assert r.json()["applied"]["scope"] == "term"
-    row = (await c.get(f"/api/v1/terms/{bahar.term_id}/studio/classes", params={"ids": str(phar)}, headers=h)).json()["items"][0]
+    row = (await c.get(f"/api/v1/terms/{bahar.term_id}/studio/classes", params={"ids": str(phar)}, headers=h)).json()[
+        "items"
+    ][0]
     assert row["requested_room_ids"] == rooms  # written term-wide (with snapshot)
     assert row["status"] == "LOCKED" and row["locked"]  # ...but the LOCK is only lifted in the draft
     assert r.json()["draft"]["pins"] == [{"event_id": phar, "unlock": True}]
@@ -163,14 +175,23 @@ async def test_m5_exam_write_through_takes_a_snapshot(bahar):
     from app.services import precheck as pc
 
     async with get_session_factory()() as s:
-        ex = ExamRequest(term_id=bahar.term_id, course_code="PHAR240", enrolment=80, requested_room_count=1, status="LOCKED", source_key="EX:t#0")
+        ex = ExamRequest(
+            term_id=bahar.term_id,
+            course_code="PHAR240",
+            enrolment=80,
+            requested_room_count=1,
+            status="LOCKED",
+            source_key="EX:t#0",
+        )
         s.add(ex)
         await s.commit()
         draft = await st.get_draft(s, bahar.term_id, (await _planner()).id, "EXAM")
         await pc._write_through(s, draft, "exam_update", [ex.id], {"requested_room_count": 3}, await _planner())
         await s.commit()
         snap = (
-            await s.execute(select(ImportedSnapshot).where(ImportedSnapshot.entity == "exam", ImportedSnapshot.entity_id == ex.id))
+            await s.execute(
+                select(ImportedSnapshot).where(ImportedSnapshot.entity == "exam", ImportedSnapshot.entity_id == ex.id)
+            )
         ).scalar_one()
         await s.refresh(ex)
         assert snap.values == {"requested_room_count": 1, "status": "LOCKED"}

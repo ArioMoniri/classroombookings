@@ -41,6 +41,8 @@ ORG_SPECS: dict[str, Spec] = {
         Spec("pattern_time", default="HH:mm"),
         Spec("default_language", default="tr"),
         Spec("languages", "json", ["tr", "en"]),
+        # CRBS settings/General "grid_highlight": coloured highlight of the mouse-focused grid slot
+        Spec("grid_highlight", "bool", False),
     )
 }
 LDAP_SPECS: dict[str, Spec] = {
@@ -53,7 +55,9 @@ LDAP_SPECS: dict[str, Spec] = {
         Spec("port", "int", 389),
         Spec("version", "int", 3),
         Spec("use_tls", "bool", False),
-        Spec("ignore_cert", "bool", True),
+        # CRBS's installer writes 1 (certificates never checked); SmartSched checks them unless the admin
+        # explicitly switches this on (docs/review/2026-10-08-crbs-parity-audit.md, deliberate differences)
+        Spec("ignore_cert", "bool", False),
         Spec("bind_dn_format", default="uid=:user,dc=example,dc=com"),
         Spec("base_dn", default="dc=example,dc=com"),
         Spec("search_filter", default="(&(uid=:user)(objectClass=person))"),
@@ -84,8 +88,38 @@ BOOKINGS_SPECS: dict[str, Spec] = {
         # CRBS hides rooms that belong to no room group from the booking grid (Rooms_model::get_bookable_rooms);
         # an administrator may show them (as an "ungrouped" tab) instead.
         Spec("show_ungrouped_rooms", "bool", False),
+        # --- deliberate differences (docs/review/2026-10-08-crbs-parity-audit.md). Behaviour switches default
+        # to what CRBS does; security switches default to the safer SmartSched rule.
+        # (a) CRBS checks max_active_bookings in the grid (Slot) and in multi-booking, not when a single booking
+        #     is posted (SingleAgent); True also refuses POST /bookings past the limit.
+        Spec("enforce_max_active_on_create", "bool", False),
+        # (f) CRBS counts only "book" instances against recur_max_instances; True also counts "replace".
+        Spec("recur_max_counts_replacements", "bool", False),
+        # (g) CRBS's maintenance gate is the Bookings controller only; True also closes the dashboard,
+        #     "my bookings", owned rooms and the calendar feeds.
+        Spec("maintenance_gates_lists", "bool", False),
+        # (i) CRBS computes the current session from its dates (Sessions_model::auto_set_current);
+        #     True keeps the manual terms.is_active flag instead.
+        Spec("manual_current_term", "bool", False),
+        # (j) CRBS's export joins room_groups (INNER): bookings of ungrouped rooms are left out; True includes them.
+        Spec("export_ungrouped_rooms", "bool", False),
+        # (b) CRBS's multi-booking recurring step lets book_recur.create choose the department
+        #     (MultiAgent::process_recurring_defaults); True requires book_recur.set_department.
+        Spec("recurring_department_needs_set_department", "bool", False),
+        # (c) security: unauthorised user/department choices answer 403; True restores CRBS (silently book
+        #     for yourself / your own department).
+        Spec("ignore_unauthorised_user_department", "bool", False),
+        # security: scope=all cancels this and future instances only (past instances stay as history);
+        #     True restores CRBS (Bookings_model::cancel_all cancels every instance).
+        Spec("cancel_all_includes_past", "bool", False),
+        # MISSING 3 (Bookings_model::check_session_dates): when a term's dates shrink, bookings outside them are
+        #     "cancel" = cancelled with a reason at once (CRBS deletes them), "confirm" = the change is refused
+        #     with the list until it is repeated with ?confirm=true.
+        Spec("term_date_change", default="cancel"),
     )
 }
+#: allowed values of string settings (validated by PUT /org/settings)
+CHOICES: dict[str, tuple[str, ...]] = {"bookings.term_date_change": ("cancel", "confirm")}
 GROUPS = {"org": ORG_SPECS, "ldap": LDAP_SPECS, "smtp": SMTP_SPECS, "bookings": BOOKINGS_SPECS}
 
 

@@ -386,7 +386,7 @@ class TimetableWeekUpdate(BaseModel):
     @field_validator("bgcol")
     @classmethod
     def _col(cls, v: str | None) -> str | None:
-        return TimetableWeekIn._col(v) if v is not None else None  # type: ignore[call-arg]
+        return TimetableWeekIn._col(v) if v is not None else None
 
 
 class TimetableWeekOut(BaseModel):

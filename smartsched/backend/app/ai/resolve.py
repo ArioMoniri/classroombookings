@@ -767,7 +767,7 @@ def resolve_section_edit(ctx: TermContext, op: str, raw: dict[str, Any]) -> Prop
     if status != "rejected":
         status = _status(issues, entities, conf)
     return ProposedSectionEdit(
-        op=op if op in ("include", "exclude", "set_field") else "set_field",  # type: ignore[arg-type]
+        op=op if op in ("include", "exclude", "set_field") else "set_field",
         section_ids=section_ids,
         changes=sc or SectionChanges(),
         nl_text=str(raw.get("nl_text") or raw.get("reason") or ""),

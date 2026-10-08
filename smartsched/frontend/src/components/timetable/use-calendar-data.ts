@@ -5,9 +5,9 @@
  */
 import { useMemo } from "react";
 import { useCalendarIndex } from "@/lib/api/calendar";
-import { useRuns, useTerms } from "@/lib/api/hooks";
+import { useActiveTerm } from "@/components/shell/term-switcher";
+import { useRun, useRuns } from "@/lib/api/hooks";
 import type { ScheduleRun, Term } from "@/lib/api/schemas";
-import { useUiStore } from "@/stores/ui";
 import { buildModel, type CalendarModel } from "./model/index-model";
 
 const USABLE = new Set<ScheduleRun["status"]>(["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL", "TIMEOUT"]);
@@ -22,12 +22,11 @@ export function defaultRun(runs: readonly ScheduleRun[], term: Term | undefined)
   return runs.find((r) => (r.kind === "EXAM") === wantExam) ?? runs[0];
 }
 
-export function useTermContext(): { term: Term | undefined; termId: number | null; terms: Term[] } {
-  const terms = useTerms();
-  const storeTerm = useUiStore((s) => s.termId);
-  const list = useMemo(() => terms.data ?? [], [terms.data]);
-  const term = list.find((t) => t.id === storeTerm) ?? list.find((t) => t.is_active) ?? list[0];
-  return { term, termId: term?.id ?? null, terms: list };
+/** The shell's working term (session pick → remembered → current by date), unless a deep-linked run says otherwise. */
+export function useTermContext(runTermId?: number | null): { term: Term | undefined; termId: number | null; terms: Term[] } {
+  const active = useActiveTerm();
+  const term = (runTermId ? active.terms.find((t) => t.id === runTermId) : undefined) ?? active.term;
+  return { term, termId: term?.id ?? null, terms: active.terms };
 }
 
 export interface CalendarData {
@@ -43,7 +42,8 @@ export interface CalendarData {
 }
 
 export function useCalendarData(requestedRun: number | null): CalendarData {
-  const { term, termId } = useTermContext();
+  const requested = useRun(requestedRun);
+  const { term, termId } = useTermContext(requested.data?.term_id ?? null);
   const runsQ = useRuns(termId !== null ? { term_id: termId } : undefined);
   const runs = useMemo(() => usableRuns(runsQ.data, termId), [runsQ.data, termId]);
   const run = (requestedRun !== null ? (runsQ.data ?? []).find((r) => r.id === requestedRun) : undefined) ?? defaultRun(runs, term);

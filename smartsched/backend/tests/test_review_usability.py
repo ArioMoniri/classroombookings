@@ -44,13 +44,22 @@ async def test_u1_programme_year_template_matches_the_real_nursing_sections(baha
     # stored through the CRUD as the studio dropdown sends it -> canonical, and the class list agrees
     r = await c.post(
         "/api/v1/constraints",
-        json={"term_id": bahar.term_id, "kind": "day_window", "params": {"cohorts": ["PROG:Hemşirelik:Y1"], "latest": 11}, "hardness": "hard"},
+        json={
+            "term_id": bahar.term_id,
+            "kind": "day_window",
+            "params": {"cohorts": ["PROG:Hemşirelik:Y1"], "latest": 11},
+            "hardness": "hard",
+        },
         headers=h,
     )
     assert r.status_code == 201, r.text
     assert r.json()["params"]["cohorts"] == ["PROG:hemşirelik:Y1"]
     listed = (
-        await c.get(f"/api/v1/terms/{bahar.term_id}/studio/classes", params={"rule_id": r.json()["id"], "limit": 2000}, headers=h)
+        await c.get(
+            f"/api/v1/terms/{bahar.term_id}/studio/classes",
+            params={"rule_id": r.json()["id"], "limit": 2000},
+            headers=h,
+        )
     ).json()["items"]
     async with get_session_factory()() as s:
         got = {(await s.get(MeetingRequest, it["id"])).section_id for it in listed}
@@ -60,14 +69,18 @@ async def test_u1_programme_year_template_matches_the_real_nursing_sections(baha
         from sqlalchemy import update
 
         await s.execute(
-            update(ConstraintRow).where(ConstraintRow.id == r.json()["id"]).values(params={"cohorts": ["PROG:Hemşirelik:Y1"], "latest": 11})
+            update(ConstraintRow)
+            .where(ConstraintRow.id == r.json()["id"])
+            .values(params={"cohorts": ["PROG:Hemşirelik:Y1"], "latest": 11})
         )
         await s.commit()
         from app.models import ScheduleRun
         from app.services.solver_bridge import build_solver_input
         from app.solver.constraints._common import select_events
 
-        inp, _ = await build_solver_input(s, ScheduleRun(id=-1, term_id=bahar.term_id, kind="COURSE", horizon="TERM", params={}, stats={}))
+        inp, _ = await build_solver_input(
+            s, ScheduleRun(id=-1, term_id=bahar.term_id, kind="COURSE", horizon="TERM", params={}, stats={})
+        )
     rule = next(x for x in inp.constraints if x.id == r.json()["id"])
     assert select_events(inp, rule.params)
 
@@ -100,14 +113,22 @@ async def test_u3_rules_and_pins_on_a_merged_member_reach_its_event(bahar):
     p = (
         await c.post(
             "/api/v1/studio/constraints/preview",
-            json={"term_id": bahar.term_id, "kind": "room_preference", "params": {"event_ids": [member], "room_ids": [a206]}},
+            json={
+                "term_id": bahar.term_id,
+                "kind": "room_preference",
+                "params": {"event_ids": [member], "room_ids": [a206]},
+            },
             headers=h,
         )
     ).json()
     assert p["affected_count"] >= 2 and member in p["sample"][0]["request_ids"], p  # was 0 ("matches none")
     r = await c.post(
         "/api/v1/constraints",
-        json={"term_id": bahar.term_id, "kind": "room_preference", "params": {"event_ids": [member], "room_ids": [a206]}},
+        json={
+            "term_id": bahar.term_id,
+            "kind": "room_preference",
+            "params": {"event_ids": [member], "room_ids": [a206]},
+        },
         headers=h,
     )
     assert r.status_code == 201, r.text
@@ -176,10 +197,19 @@ async def test_default_term_is_todays_term_not_the_last_imported(client, monkeyp
     from tests.api_fixtures import login
 
     h = await login(client)
-    for code, start, weeks in (("2026-BAHAR", "2026-02-02", 14), ("2026-FINAL", "2026-06-01", 3), ("2026-2027-GUZ", "2026-09-28", 14)):
+    for code, start, weeks in (
+        ("2026-BAHAR", "2026-02-02", 14),
+        ("2026-FINAL", "2026-06-01", 3),
+        ("2026-2027-GUZ", "2026-09-28", 14),
+    ):
         r = await client.post("/api/v1/terms", json={"code": code, "start_date": start, "week_count": weeks}, headers=h)
         assert r.status_code == 201, r.text
-    for today, want in ((date(2026, 3, 10), "2026-BAHAR"), (date(2026, 6, 3), "2026-FINAL"), (date(2026, 10, 8), "2026-2027-GUZ"), (date(2026, 5, 20), "2026-FINAL")):
+    for today, want in (
+        (date(2026, 3, 10), "2026-BAHAR"),
+        (date(2026, 6, 3), "2026-FINAL"),
+        (date(2026, 10, 8), "2026-2027-GUZ"),
+        (date(2026, 5, 20), "2026-FINAL"),
+    ):
         monkeypatch.setattr(terms_svc, "today", lambda d=today: d)
         listed = (await client.get("/api/v1/terms", headers=h)).json()
         assert listed[0]["code"] == want and listed[0]["is_current"], (today, [t["code"] for t in listed])

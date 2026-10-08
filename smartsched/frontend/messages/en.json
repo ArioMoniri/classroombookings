@@ -1434,7 +1434,9 @@
       "taskDone": "Done",
       "taskFailed": "Failed",
       "taskRunning": "In progress",
-      "taskPending": "Waiting"
+      "taskPending": "Waiting",
+      "gridHint": "See this run on the calendar, starting at week {week}.",
+      "openGrid": "Open in the timetable"
     },
     "settings": {
       "keyOkModel": "Key works · {model}",
@@ -1527,6 +1529,15 @@
       "failedShort": "Failed",
       "dropNow": "Drop to add the file",
       "browse": "Choose file"
+    },
+    "errors": {
+      "offline": "The server cannot be reached. Your last change may not be saved.",
+      "forbidden": "You do not have permission for this.",
+      "notFound": "This item no longer exists.",
+      "conflict": "Someone else changed this in the meantime. Reload and try again.",
+      "server": "Something went wrong on the server. Try again; if it repeats, send the error code to your administrator.",
+      "rejected": "The server did not accept this request.",
+      "errorId": "error code {id}"
     }
   }
 }

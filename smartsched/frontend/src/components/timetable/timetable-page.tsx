@@ -1,37 +1,8 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useState } from "react";
-import { PageHeader } from "@/components/common/page-header";
-import { NativeSelect } from "@/components/common/native-select";
-import { useContextRun } from "@/components/rooms/use-room-occupancy";
-import { useRuns } from "@/lib/api/hooks";
-import { useI18n } from "@/lib/i18n/provider";
-import { Timetable } from "./timetable";
+import { CalendarView } from "./calendar-view";
 
+/** /timetable: the v2 calendar (docs/design/v2/calendar.md). All view state lives in the URL. */
 export function TimetablePage() {
-  const { t } = useI18n();
-  const params = useSearchParams();
-  const runs = useRuns();
-  const contextRun = useContextRun();
-  const [runId, setRunId] = useState<number | null>(null);
-  const effective = runId ?? contextRun;
-  const finished = (runs.data ?? []).filter((r) => r.status !== "QUEUED" && r.status !== "RUNNING" && r.status !== "FAILED");
-  return (
-    <div>
-      <PageHeader
-        title={t("grid.title")}
-        actions={
-          <NativeSelect aria-label={t("runs.run")} value={effective ?? ""} onChange={(e) => setRunId(Number(e.target.value))} className="w-64">
-            {finished.map((r) => <option key={r.id} value={r.id}>#{r.id} · {r.term_code} · {t(`runs.status.${r.status}`)} · {r.hard_score ?? "—"}/100</option>)}
-          </NativeSelect>
-        }
-      />
-      {effective !== null ? (
-        <Timetable runId={effective} week={params.get("week") ? Number(params.get("week")) : undefined} day={params.get("day") ? Number(params.get("day")) : undefined} zoom={params.get("zoom") === "week" ? "week" : "day"} className="h-[calc(100dvh-170px)] min-h-[480px]" />
-      ) : (
-        <p className="text-sm text-muted-foreground">{t("grid.emptyRun")}</p>
-      )}
-    </div>
-  );
+  return <CalendarView />;
 }

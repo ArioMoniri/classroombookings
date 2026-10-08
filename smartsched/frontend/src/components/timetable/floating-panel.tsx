@@ -38,7 +38,6 @@ export function FloatingPanel({ open, anchor, onClose, labelledBy, width = 340, 
     const left = right ? anchor.x + 12 : Math.max(8, anchor.x - 12 - width);
     const below = anchor.y + h < vh - 8;
     const top = below ? Math.max(8, anchor.y - 16) : Math.max(8, vh - h - 8);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- measured placement must land before paint
     setPos({ left, top, origin: `${right ? "left" : "right"} ${below ? "top" : "bottom"}` });
   }, [open, anchor, width]);
 

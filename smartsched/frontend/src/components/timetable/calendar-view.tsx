@@ -5,7 +5,7 @@
  */
 import "./calendar.css";
 import { motion } from "motion/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -114,8 +114,9 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const now = useNow();
 
   // ------------------------------------------------------------------ view state ↔ URL
+  const search = useSearchParams();
   const [vs, setVs] = useState<ViewState>(() => {
-    const params = typeof window !== "undefined" && !embedded ? new URLSearchParams(window.location.search) : new URLSearchParams();
+    const params = !embedded ? new URLSearchParams(search.toString()) : new URLSearchParams();
     const s = parseViewState(params, { run: fixedRun ?? null, week: initialWeek ?? null });
     return params.has("day") ? s : { ...s, day: 0 };
   });
@@ -133,7 +134,10 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const [selection, setSelection] = useState<Set<number>>(() => new Set(vs.sel ? [vs.sel] : []));
   const [anchorAid, setAnchorAid] = useState<number | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(vs.sel !== null);
-  const [sidebarOpen, setSidebarOpen] = useState(!embedded);
+  // null = automatic: docked on ≥ 1600 px, closed (overlay when opened) below (calendar.md §5.2)
+  const [sidebarPref, setSidebarPref] = useState<boolean | null>(embedded ? false : null);
+  const sidebarOpen = sidebarPref ?? wide;
+  const setSidebarOpen = useCallback((v: boolean | ((o: boolean) => boolean)) => setSidebarPref((p) => (typeof v === "function" ? v(p ?? wide) : v)), [wide]);
   const [pending, setPending] = useState<PendingMove | null>(null);
   const [moveFor, setMoveFor] = useState<CalEvent | null>(null);
   const [createReq, setCreateReq] = useState<CreateRequest | null>(null);
@@ -151,7 +155,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const actions = useCalendarActions(runId, opts);
 
   // ------------------------------------------------------------------ week / day defaults (usability M1)
-  const allWeeks = model?.weeks ?? [];
+  const allWeeks = useMemo(() => model?.weeks ?? [], [model]);
   const runWeeks = model?.index.run.horizon === "WEEK" ? model.index.run.weeks : [];
   const todayPos = model ? weekDayOf(model.index.weeks, now.iso) : null;
   const week = vs.week ?? weekInRun(runWeeks, allWeeks, todayPos?.week ?? null);
@@ -698,7 +702,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       {sidebarOpen && model && runId !== null && !embedded ? (
         <CalendarSidebar
           ref={searchRef}
-          className={cn("w-[272px] shrink-0", !desktop && "absolute inset-y-0 left-0 z-40 shadow-[var(--ambient-3)]")}
+          className={cn("w-[272px] shrink-0", !wide && "absolute inset-y-0 left-0 z-40 shadow-[var(--ambient-3)]")}
           model={model}
           term={data.term}
           runs={data.runs}

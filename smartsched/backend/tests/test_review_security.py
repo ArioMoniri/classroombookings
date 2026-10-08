@@ -127,3 +127,24 @@ def test_minor3_log_lines_never_carry_a_key(caplog):
     with caplog.at_level(logging.DEBUG, logger="httpx"):
         logging.getLogger("httpx").debug("headers: x-api-key=%s", "sk-ant-api03-SECRETSECRETSECRET")
     assert "SECRETSECRET" not in caplog.text and "sk-ant-***" in caplog.text
+
+
+async def test_minor14_room_photo_checks_bytes_and_size(client, monkeypatch):
+    from app.api.v1 import rooms as rooms_api
+
+    h = await login(client)
+    r = await client.post("/api/v1/rooms", json={"code": "A 101", "capacity": 58}, headers=h)
+    assert r.status_code in (200, 201), r.text
+    rid = r.json()["id"]
+    url = f"/api/v1/rooms/{rid}/photo"
+    html = b"<html><script>alert(1)</script></html>"
+    assert (await client.post(url, files={"file": ("x.png", html, "image/png")}, headers=h)).status_code == 400
+    gif_as_png = b"GIF89a" + b"0" * 32
+    r = await client.post(url, files={"file": ("x.png", gif_as_png, "image/png")}, headers=h)
+    assert r.status_code == 400 and "gif" in r.json()["detail"]
+    png = b"\x89PNG\r\n\x1a\n" + b"0" * 32
+    assert (await client.post(url, files={"file": ("x.png", png, "text/html")}, headers=h)).status_code == 400
+    r = await client.post(url, files={"file": ("x.png", png, "image/png")}, headers=h)
+    assert r.status_code == 200 and r.json()["photo_url"].endswith(".png")
+    monkeypatch.setattr(rooms_api, "PHOTO_MAX_BYTES", 16)
+    assert (await client.post(url, files={"file": ("x.png", png, "image/png")}, headers=h)).status_code == 413

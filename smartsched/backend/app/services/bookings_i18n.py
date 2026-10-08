@@ -1,0 +1,296 @@
+"""Languages, translation overrides and date patterns (CRBS ``MY_Lang::load_from_db``, ``libraries/Dates``).
+
+* Shipped languages are the ones the frontend has message files for (``tr``, ``en``); the org setting
+  ``languages`` enables a subset and ``default_language`` must be one of them.
+* Admin overrides live in ``translations`` (CRBS ``lang`` table). :func:`bundle` merges the backend's own
+  strings (e-mail texts) with the overrides of one language, which is what ``GET /org/i18n`` serves and what
+  every e-mail uses (:func:`text`).
+* Date patterns are ICU patterns chosen from CRBS's option lists (``Dates::date_pattern_options`` /
+  ``time_pattern_options``); :class:`Formatter` renders them with Turkish or English month and day names.
+  An empty pattern means the CRBS default (``IntlDateFormatter`` FULL / MEDIUM / SHORT for the locale).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date, datetime, time
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Translation
+
+SHIPPED_LANGUAGES: tuple[str, ...] = ("tr", "en")
+LANGUAGE_NAMES = {"tr": "Türkçe", "en": "English"}
+
+MONTHS = {
+    "tr": (
+        "Ocak",
+        "Şubat",
+        "Mart",
+        "Nisan",
+        "Mayıs",
+        "Haziran",
+        "Temmuz",
+        "Ağustos",
+        "Eylül",
+        "Ekim",
+        "Kasım",
+        "Aralık",
+    ),
+    "en": (
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ),
+}
+MONTHS_SHORT = {
+    "tr": ("Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"),
+    "en": ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
+}
+WEEKDAYS = {
+    "tr": ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"),
+    "en": ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"),
+}
+WEEKDAYS_SHORT = {
+    "tr": ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"),
+    "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
+}
+AM_PM = {"tr": ("ÖÖ", "ÖS"), "en": ("AM", "PM")}
+
+#: CRBS ``Dates::date_pattern_options`` (the "---" separators dropped); used for long and weekday dates
+DATE_PATTERNS: tuple[str, ...] = (
+    "yyyy-MM-dd",
+    "dd/MM/yyyy",
+    "dd.MM.yyyy",
+    "MM/dd/yyyy",
+    "d MMM yyyy",
+    "d MMMM yyyy",
+    "EEE d MMM yyyy",
+    "EEE d MMMM yyyy",
+    "EEEE d MMMM yyyy",
+    "EEEE, d MMMM yyyy",
+    "d MMM",
+    "EEE d MMM",
+    "EEE d MMMM",
+    "EEEE d MMM",
+    "EEEE d MMMM",
+    "MMM d yyyy",
+    "MMMM d yyyy",
+    "MMMM d, yyyy",
+    "EEE MMM d yyyy",
+    "EEE MMMM d yyyy",
+    "EEEE MMMM d yyyy",
+    "EEEE, MMMM d yyyy",
+    "MMM d",
+    "EEE MMM d",
+    "EEE MMMM d",
+    "EEEE MMM d",
+    "EEEE MMMM d",
+)
+#: CRBS ``Dates::time_pattern_options``
+TIME_PATTERNS: tuple[str, ...] = ("HH:mm", "hh:mma", "hh:mm a", "h:mma", "h:mm a")
+PATTERN_KINDS = {"pattern_long": DATE_PATTERNS, "pattern_weekday": DATE_PATTERNS, "pattern_time": TIME_PATTERNS}
+#: "" (CRBS "(Default)") = IntlDateFormatter FULL / MEDIUM / SHORT of the locale
+DEFAULT_PATTERNS = {
+    "tr": {"long": "d MMMM yyyy EEEE", "weekday": "d MMM yyyy", "time": "HH:mm"},
+    "en": {"long": "EEEE, d MMMM yyyy", "weekday": "d MMM yyyy", "time": "HH:mm"},
+}
+
+
+def valid_pattern(kind: str, pattern: str) -> bool:
+    return pattern == "" or pattern in PATTERN_KINDS[kind]
+
+
+def _lang(language: str | None) -> str:
+    return language if language in SHIPPED_LANGUAGES else "tr"
+
+
+def format_pattern(value: date | datetime | time, pattern: str, language: str | None = "tr") -> str:
+    """Render the ICU subset CRBS's option lists use: ``y M d E H h m a`` and ``'quoted'`` text."""
+    lang = _lang(language)
+    out: list[str] = []
+    i = 0
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "'":
+            end = pattern.find("'", i + 1)
+            if end == i + 1:  # '' = a literal quote
+                out.append("'")
+                i += 2
+                continue
+            end = len(pattern) if end == -1 else end
+            out.append(pattern[i + 1 : end])
+            i = end + 1
+            continue
+        if not ch.isascii() or not ch.isalpha():
+            out.append(ch)
+            i += 1
+            continue
+        j = i
+        while j < len(pattern) and pattern[j] == ch:
+            j += 1
+        out.append(_field(value, ch, j - i, lang))
+        i = j
+    return "".join(out)
+
+
+def _field(v: date | datetime | time, ch: str, width: int, lang: str) -> str:
+    d = v if isinstance(v, date) else None
+    t = v.time() if isinstance(v, datetime) else (v if isinstance(v, time) else None)
+    if ch == "y" and d is not None:
+        return f"{d.year % 100:02d}" if width == 2 else f"{d.year:0{max(width, 1)}d}"
+    if ch == "M" and d is not None:
+        if width >= 4:
+            return MONTHS[lang][d.month - 1]
+        if width == 3:
+            return MONTHS_SHORT[lang][d.month - 1]
+        return f"{d.month:0{width}d}"
+    if ch == "d" and d is not None:
+        return f"{d.day:0{width}d}"
+    if ch == "E" and d is not None:
+        return (WEEKDAYS if width >= 4 else WEEKDAYS_SHORT)[lang][d.weekday()]
+    if t is not None:
+        if ch == "H":
+            return f"{t.hour:0{width}d}"
+        if ch == "h":
+            return f"{(t.hour % 12) or 12:0{width}d}"
+        if ch == "m":
+            return f"{t.minute:0{width}d}"
+        if ch == "a":
+            return AM_PM[lang][t.hour >= 12]
+    return ""  # a field the value does not have (e.g. a time pattern letter on a date)
+
+
+def pattern_options(language: str | None = "tr") -> dict[str, Any]:
+    """``GET /org/date-patterns``: the CRBS option lists with examples (16 April of this year, 09:30)."""
+    lang = _lang(language)
+    sample = date(date.today().year, 4, 16)
+    clock = time(9, 30)
+    dates = [{"pattern": "", "example": format_pattern(sample, DEFAULT_PATTERNS[lang]["long"], lang), "default": True}]
+    dates += [{"pattern": p, "example": format_pattern(sample, p, lang)} for p in DATE_PATTERNS]
+    times = [{"pattern": "", "example": format_pattern(clock, DEFAULT_PATTERNS[lang]["time"], lang), "default": True}]
+    times += [{"pattern": p, "example": format_pattern(clock, p, lang)} for p in TIME_PATTERNS]
+    return {
+        "language": lang,
+        "pattern_long": dates,
+        "pattern_weekday": dates,
+        "pattern_time": times,
+        "defaults": DEFAULT_PATTERNS[lang],
+    }
+
+
+@dataclass(frozen=True)
+class Formatter:
+    """Dates and times rendered with the organisation's patterns (``date_output_long`` & co. in CRBS)."""
+
+    language: str
+    long_pattern: str
+    weekday_pattern: str
+    time_pattern: str
+
+    def long(self, d: date) -> str:
+        return format_pattern(d, self.long_pattern, self.language)
+
+    def weekday(self, d: date) -> str:
+        return format_pattern(d, self.weekday_pattern, self.language)
+
+    def time(self, t: time) -> str:
+        return format_pattern(t, self.time_pattern, self.language)
+
+
+async def formatter(session: AsyncSession, language: str | None = None) -> Formatter:
+    from app.services.bookings_settings import get_group
+
+    org = await get_group(session, "org")
+    lang = _lang(language or org["default_language"])
+    defaults = DEFAULT_PATTERNS[lang]
+    return Formatter(
+        language=lang,
+        long_pattern=org["pattern_long"] or defaults["long"],
+        weekday_pattern=org["pattern_weekday"] or defaults["weekday"],
+        time_pattern=org["pattern_time"] or defaults["time"],
+    )
+
+
+# --------------------------------------------------------------------------------------------------
+# Backend strings (e-mails) + admin overrides
+# --------------------------------------------------------------------------------------------------
+
+#: set "email": every text a notification uses; admins override them per language under the same keys
+BASE_STRINGS: dict[str, dict[str, dict[str, str]]] = {
+    "tr": {
+        "email": {
+            "booking_created.subject": "Sizin adınıza rezervasyon yapıldı",
+            "booking_created.body": "{actor} sizin adınıza {count} rezervasyon yaptı:\n{items}\n",
+            "room_owner.subject": "{room} için yeni rezervasyon",
+            "room_owner.body": "{actor} sorumlu olduğunuz dersliği ayırttı{series}:\n{items}\n",
+            "room_owner.series": " (seri #{series_id})",
+            "booking_cancelled.subject": "Rezervasyonunuz iptal edildi",
+            "booking_cancelled.body": "{actor} {count} rezervasyonunuzu iptal etti:\n{items}{reason}\n",
+            "booking_cancelled.reason": "\nGerekçe: {reason}",
+        }
+    },
+    "en": {
+        "email": {
+            "booking_created.subject": "A booking was made for you",
+            "booking_created.body": "{actor} made {count} booking(s) for you:\n{items}\n",
+            "room_owner.subject": "New booking in {room}",
+            "room_owner.body": "{actor} booked a room you own{series}:\n{items}\n",
+            "room_owner.series": " (series #{series_id})",
+            "booking_cancelled.subject": "Your booking was cancelled",
+            "booking_cancelled.body": "{actor} cancelled {count} of your bookings:\n{items}{reason}\n",
+            "booking_cancelled.reason": "\nReason: {reason}",
+        }
+    },
+}
+
+
+async def overrides(session: AsyncSession, language: str) -> dict[str, dict[str, str]]:
+    out: dict[str, dict[str, str]] = {}
+    q = select(Translation).where(Translation.language == language).order_by(Translation.set, Translation.key)
+    for t in (await session.execute(q)).scalars():
+        out.setdefault(t.set, {})[t.key] = t.text
+    return out
+
+
+async def bundle(session: AsyncSession, language: str) -> dict[str, dict[str, str]]:
+    """Backend strings of ``language`` with the admin overrides of that language on top (CRBS applies
+    ``lang`` rows of the current language over the shipped files)."""
+    merged = {s: dict(keys) for s, keys in BASE_STRINGS.get(_lang(language), {}).items()}
+    for s, keys in (await overrides(session, language)).items():
+        merged.setdefault(s, {}).update(keys)
+    return merged
+
+
+class _Missing(dict[str, Any]):
+    def __missing__(self, key: str) -> str:
+        return "{" + key + "}"
+
+
+async def text(session: AsyncSession, language: str, key: str, set_: str = "email", **values: Any) -> str:
+    """One string (override first, then the shipped text) with ``{placeholders}`` filled; unknown
+    placeholders in an admin override are left as written instead of failing the notification."""
+    lang = _lang(language)
+    row = (
+        await session.execute(
+            select(Translation.text).where(
+                Translation.language == lang, Translation.set == set_, Translation.key == key
+            )
+        )
+    ).scalar_one_or_none()
+    template = row if row is not None else BASE_STRINGS[lang].get(set_, {}).get(key, key)
+    try:
+        return template.format_map(_Missing(values))
+    except (ValueError, IndexError):  # a stray "{" in an override
+        return template

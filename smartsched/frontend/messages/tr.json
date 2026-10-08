@@ -1434,7 +1434,9 @@
       "taskDone": "Bitti",
       "taskFailed": "Başarısız",
       "taskRunning": "Sürüyor",
-      "taskPending": "Bekliyor"
+      "taskPending": "Bekliyor",
+      "gridHint": "Bu çalıştırmayı çizelgede {week}. haftadan başlayarak görün.",
+      "openGrid": "Çizelgede aç"
     },
     "settings": {
       "keyOkModel": "Anahtar çalışıyor · {model}",
@@ -1527,6 +1529,15 @@
       "failedShort": "Başarısız",
       "dropNow": "Eklemek için bırakın",
       "browse": "Dosya seç"
+    },
+    "errors": {
+      "offline": "Sunucuya ulaşılamıyor. Son değişikliğiniz kaydedilmemiş olabilir.",
+      "forbidden": "Bu işlem için yetkiniz yok.",
+      "notFound": "Bu kayıt artık yok.",
+      "conflict": "Bu kaydı bu arada başka biri değiştirdi. Sayfayı yenileyip tekrar deneyin.",
+      "server": "Sunucuda bir sorun oluştu. Tekrar deneyin; sürerse hata kodunu yöneticinize iletin.",
+      "rejected": "Sunucu bu isteği kabul etmedi.",
+      "errorId": "hata kodu {id}"
     }
   }
 }

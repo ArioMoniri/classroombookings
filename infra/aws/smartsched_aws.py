@@ -496,10 +496,18 @@ def _rule_keys(perms: Iterable[dict[str, Any]]) -> set[tuple[str, int, int, str]
     return keys
 
 
-def _perm_from_key(key: tuple[str, int, int, str]) -> dict[str, Any]:
-    proto, lo, hi, cidr = key
-    rng = {"Ipv6Ranges": [{"CidrIpv6": cidr}]} if ":" in cidr else {"IpRanges": [{"CidrIp": cidr}]}
-    return {"IpProtocol": proto, "FromPort": lo, "ToPort": hi, **rng}
+def _perms_from_keys(keys: Iterable[tuple[str, int, int, str]],
+                     descriptions: dict[tuple[str, int, int, str], str] | None = None) -> list[dict[str, Any]]:
+    """One IpPermission per (protocol, port range), IPv4 and IPv6 CIDRs merged (no duplicates)."""
+    grouped: dict[tuple[str, int, int], dict[str, Any]] = {}
+    for key in sorted(keys):
+        proto, lo, hi, cidr = key
+        perm = grouped.setdefault((proto, lo, hi), {"IpProtocol": proto, "FromPort": lo, "ToPort": hi})
+        rng: dict[str, str] = {"CidrIpv6": cidr} if ":" in cidr else {"CidrIp": cidr}
+        if descriptions and key in descriptions:
+            rng["Description"] = descriptions[key]
+        perm.setdefault("Ipv6Ranges" if ":" in cidr else "IpRanges", []).append(rng)
+    return list(grouped.values())
 
 
 def ensure_security_group(aws: Aws, vpc_id: str, ssh_cidr: str | None) -> str:
@@ -519,11 +527,16 @@ def ensure_security_group(aws: Aws, vpc_id: str, ssh_cidr: str | None) -> str:
     want = _rule_keys(desired_ingress(ssh_cidr))
     add, remove = want - current, current - want
     if remove:
-        ec2.revoke_security_group_ingress(GroupId=sg_id, IpPermissions=[_perm_from_key(k) for k in sorted(remove)])
+        ec2.revoke_security_group_ingress(GroupId=sg_id, IpPermissions=_perms_from_keys(remove))
         log(f"security group {sg_id}: revoked {sorted(remove)}")
     if add:
-        desired = {k: p for p in desired_ingress(ssh_cidr) for k in _rule_keys([p])}
-        ec2.authorize_security_group_ingress(GroupId=sg_id, IpPermissions=[desired[k] for k in sorted(add)])
+        descs = {}
+        for perm in desired_ingress(ssh_cidr):
+            for r in perm.get("IpRanges", []):
+                descs[(perm["IpProtocol"], perm["FromPort"], perm["ToPort"], r["CidrIp"])] = r["Description"]
+            for r in perm.get("Ipv6Ranges", []):
+                descs[(perm["IpProtocol"], perm["FromPort"], perm["ToPort"], r["CidrIpv6"])] = r["Description"]
+        ec2.authorize_security_group_ingress(GroupId=sg_id, IpPermissions=_perms_from_keys(add, descs))
     return str(sg_id)
 
 

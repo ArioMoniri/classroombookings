@@ -3,7 +3,7 @@ one-time password reset tokens (``setup.users``). CRBS: ``Roles``, ``Users::{imp
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import delete, func, select
@@ -134,7 +134,8 @@ def _constraints_out(row: UserConstraint | None) -> ConstraintsIO:
     out: dict[str, ConstraintValue] = {}
     for k in LIMIT_KEYS:
         kind = getattr(row, f"{k}_type") if row is not None else "R"
-        out[k] = ConstraintValue.model_construct(type=kind, value=getattr(row, f"{k}_value") if row else None)
+        value = getattr(row, f"{k}_value") if row else None
+        out[k] = ConstraintValue.model_construct(type=cast(Any, kind), value=value)
     return ConstraintsIO(**out)
 
 

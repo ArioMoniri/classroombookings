@@ -14,12 +14,21 @@ bahar = studio_support.bahar
 
 # cells of "Dersin 1./2. Öğretim Elemanı" in bahar_derslik_planlama_listesi_v5.xlsx (verbatim)
 REAL_CELLS = {
-    "Arş. Gör. Ecenur Aydemir, Arş. Gör. Ahmet Can Küçükkurt": ["Arş. Gör. Ecenur Aydemir", "Arş. Gör. Ahmet Can Küçükkurt"],
+    "Arş. Gör. Ecenur Aydemir, Arş. Gör. Ahmet Can Küçükkurt": [
+        "Arş. Gör. Ecenur Aydemir",
+        "Arş. Gör. Ahmet Can Küçükkurt",
+    ],
     "Doç. Dr. Hande Yapışlar\n&\nDoç. Dr. Meltem Kolgazi": ["Doç. Dr. Hande Yapışlar", "Doç. Dr. Meltem Kolgazi"],
     "Prof.Dr.Oğuz Polat,Prof.Dr.Işıl Pakiş": ["Prof.Dr.Oğuz Polat", "Prof.Dr.Işıl Pakiş"],
     "Prof. Dr. Eda Tahir Turanlı\n ve Öğr.Gör.Dr. Eda Suer": ["Prof. Dr. Eda Tahir Turanlı", "Öğr.Gör.Dr. Eda Suer"],
-    "Öğr.Gör. Zehra Ayşin İlter Lewis;Öğr.Gör. Gülden Akyol": ["Öğr.Gör. Zehra Ayşin İlter Lewis", "Öğr.Gör. Gülden Akyol"],
-    "Doç. Dr. M. Emin AKSOY, Öğr. Gör. Hayrettin Can SÜDOR": ["Doç. Dr. M. Emin AKSOY", "Öğr. Gör. Hayrettin Can SÜDOR"],
+    "Öğr.Gör. Zehra Ayşin İlter Lewis;Öğr.Gör. Gülden Akyol": [
+        "Öğr.Gör. Zehra Ayşin İlter Lewis",
+        "Öğr.Gör. Gülden Akyol",
+    ],
+    "Doç. Dr. M. Emin AKSOY, Öğr. Gör. Hayrettin Can SÜDOR": [
+        "Doç. Dr. M. Emin AKSOY",
+        "Öğr. Gör. Hayrettin Can SÜDOR",
+    ],
     "Prof. Dr. Halime Kenar,": ["Prof. Dr. Halime Kenar"],
     "Öğr,Gör. Nihan Laçin": ["Öğr Gör. Nihan Laçin"],
     "Dr. Öğr. Üyesi Ladan Hajhamidiasl Öğr. Gör. Dr. Cansu Gençalp": [
@@ -55,14 +64,18 @@ async def test_m11_imported_bahar_has_people_not_lists(bahar):
         n_ecenur = (
             await s.execute(select(func.count()).where(SectionInstructor.instructor_id == ecenur.id))
         ).scalar_one()
-        n_kk = (await s.execute(select(func.count()).where(SectionInstructor.instructor_id == kucukkurt.id))).scalar_one()
+        n_kk = (
+            await s.execute(select(func.count()).where(SectionInstructor.instructor_id == kucukkurt.id))
+        ).scalar_one()
     assert n_ecenur >= 19 and n_kk >= 19  # one person across all her sections: clashes become visible
     # the solver sees one instructor key on all of them
     from app.models import ScheduleRun
     from app.services.solver_bridge import build_solver_input
 
     async with get_session_factory()() as s:
-        inp, _ = await build_solver_input(s, ScheduleRun(id=-1, term_id=bahar.term_id, kind="COURSE", horizon="TERM", params={}, stats={}))
+        inp, _ = await build_solver_input(
+            s, ScheduleRun(id=-1, term_id=bahar.term_id, kind="COURSE", horizon="TERM", params={}, stats={})
+        )
     key = f"INS:{ecenur.id}"
     assert sum(1 for e in inp.events if key in e.instructor_keys) >= 10
 

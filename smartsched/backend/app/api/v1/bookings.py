@@ -27,6 +27,7 @@ from app.models import (
 )
 from app.models.catalog import Room
 from app.services import bookings as svc
+from app.services import bookings_calendar as cal
 from app.services import bookings_export as export
 from app.services import bookings_notify  # noqa: F401  (registers the notification event handlers)
 from app.services.bookings_calendar import date_infos, fgcol, term_info
@@ -289,8 +290,8 @@ async def dates(
     holiday and whether it is open for bookings; at most one term's range."""
     t = await svc.today(db)
     try:
-        info = await svc.resolve_term(db, from_ or t, term_id, view_all=access.can("system.view_all_sessions"))
-    except svc.CalendarError as exc:
+        info = await cal.resolve_term(db, from_ or t, term_id, view_all=access.can("system.view_all_sessions"))
+    except cal.CalendarError as exc:
         raise HTTPException(409, {"code": "calendar", "message": str(exc)}) from exc
     start = max(from_ or info.start, info.start)
     end = min(to or info.end, info.end)
@@ -343,7 +344,7 @@ async def grid(
             room_id=room_id,
             use_room_groups=org["use_room_groups"],
         )
-    except svc.CalendarError as exc:
+    except cal.CalendarError as exc:
         raise HTTPException(409, {"code": "calendar", "message": str(exc)}) from exc
 
 

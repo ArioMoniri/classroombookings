@@ -373,3 +373,45 @@ async def test_mapping_fallback_without_ai_and_accept_with_source_ref(bahar):
     assert ref["file"] == "eczacilik_talepler.xlsx" and ref["row"] == 3 and "PHAR 240" in ref["excerpt"]
     rules = (await c.get(f"/api/v1/terms/{bahar.term_id}/studio/rules", headers=h)).json()["rules"]
     assert next(x for x in rules if x["id"] == acc["created"][0])["source_ref"]["file"] == "eczacilik_talepler.xlsx"
+
+
+async def test_minor7_copied_rules_that_need_review_land_in_the_tray(bahar):
+    """A copied rule with some classes missing in the target term is reported, not created."""
+    c, h = bahar.client, bahar.planner
+    phar = await meeting_id("PHAR 240", day=1, start=1)
+    other = await meeting_id("PHAR 290", day=3, start=9)
+    rid = await _rule(
+        bahar, kind="room_preference", params={"event_ids": [phar, other], "room_ids": [12]}, hardness="soft", weight=4
+    )
+    ecz = await _program("Eczacılık")
+    async with get_session_factory()() as s:
+        nxt = Term(code="2026-YAZ2", name="Yaz", week_count=8)
+        s.add(nxt)
+        await s.flush()
+        course = (await s.execute(select(Course).where(Course.code == "PHAR240"))).scalar_one()
+        sec = Section(
+            term_id=nxt.id,
+            course_id=course.id,
+            program_id=ecz.id,
+            label="1",
+            class_year=2,
+            class_years=[2],
+            enrolment=40,
+            source_key="yaz2-phar240-1",
+        )
+        s.add(sec)
+        await s.flush()
+        s.add(
+            MeetingRequest(section_id=sec.id, day=1, days=[1], start_period=1, end_period=3, weeks=[1], status="PARSED")
+        )
+        await s.commit()
+        nxt_id = nxt.id
+    out = (
+        await c.post(
+            "/api/v1/studio/constraints/copy",
+            json={"to_term_id": nxt_id, "from_term_id": bahar.term_id, "constraint_ids": [rid], "dry_run": False},
+            headers=h,
+        )
+    ).json()
+    assert [x["source_id"] for x in out["needs_review"]] == [rid] and out["created"] == []
+    assert out["needs_review"][0]["created_id"] is None

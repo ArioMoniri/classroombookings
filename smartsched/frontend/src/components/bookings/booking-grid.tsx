@@ -115,10 +115,16 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate }:
 
   return (
     <div className="overflow-auto overscroll-x-contain rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)] scrollbar-thin max-h-[calc(100dvh-15rem)]" data-testid="booking-grid">
-      <table ref={tableRef} role="grid" aria-label={t("crbs.grid.label")} aria-rowcount={layout.rows.length + 1} className="w-full border-separate border-spacing-0 type-caption" onKeyDown={onKeyDown}>
+      <table ref={tableRef} role="grid" aria-label={t("crbs.grid.label")} aria-rowcount={layout.rows.length + 1} className="w-max min-w-full table-fixed border-separate border-spacing-0 type-caption" onKeyDown={onKeyDown}>
+        <colgroup>
+          <col className="w-[96px]" />
+          {layout.cols.map((col) => (
+            <col key={col.key} className={col.kind === "date" ? "w-[112px]" : "w-[78px]"} />
+          ))}
+        </colgroup>
         <thead>
           <tr>
-            <th scope="col" className="sticky top-0 left-0 z-30 min-w-[84px] bg-(--mat-thick-solid) px-2 py-2 text-left font-medium text-label-3 shadow-[inset_-1px_-1px_0_var(--hairline)]">
+            <th scope="col" className="sticky top-0 left-0 z-30 bg-(--mat-thick-solid) px-2 py-2 text-left font-medium text-label-3 shadow-[inset_-1px_-1px_0_var(--hairline)]">
               {corner}
             </th>
             {layout.cols.map((col) => {
@@ -128,7 +134,7 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate }:
                 <th
                   key={col.key}
                   scope="col"
-                  className={cn("sticky top-0 z-20 min-w-[64px] bg-(--mat-thick-solid) px-1.5 py-1.5 text-left align-bottom font-semibold text-label-1 shadow-[inset_0_-1px_0_var(--hairline)]", closed && "text-label-3")}
+                  className={cn("sticky top-0 z-20 bg-(--mat-thick-solid) px-1.5 py-1.5 text-left align-bottom font-semibold text-label-1 shadow-[inset_0_-1px_0_var(--hairline)]", closed && "text-label-3")}
                 >
                   <span className="block whitespace-nowrap">{h.title}</span>
                   {h.sub ? <span className="block truncate font-normal text-label-3 tabular-nums">{h.sub}</span> : null}
@@ -215,7 +221,7 @@ const Cell = memo(function Cell({
       onFocus={onFocus}
       onClick={() => slot && onActivate(slot)}
       className={cn(
-        "group/cell relative flex h-11 w-full min-w-[64px] flex-col items-start justify-center gap-0.5 overflow-hidden px-1.5 py-1 text-left outline-none focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
+        "group/cell relative flex h-11 w-full flex-col items-start justify-center gap-0.5 overflow-hidden px-1.5 py-1 text-left outline-none focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
         TONE_CLASS[tone],
         isSelected && "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_18%)] text-label-1 shadow-[inset_0_0_0_2px_var(--accent)]",
         multi && !selectable && "cursor-not-allowed",

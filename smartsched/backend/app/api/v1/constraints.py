@@ -53,7 +53,7 @@ async def create_constraint(body: ConstraintIn, db: DB, user: Planner) -> Constr
 async def update_constraint(cid: int, body: ConstraintUpdate, db: DB, _: Planner) -> ConstraintRow:
     row = await _editable(db, cid)
     data = body.model_dump(exclude_unset=True)
-    params = data.get("params") if data.get("params") is not None else dict(row.params or {})
+    params: dict[str, Any] = data["params"] if data.get("params") is not None else dict(row.params or {})
     _validate(row.kind, params, data.get("hardness") or row.hardness)
     for k, v in data.items():
         setattr(row, k, v)

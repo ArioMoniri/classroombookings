@@ -333,7 +333,7 @@ async def extract_preferences(
         return IngestOut(
             proposals=[],
             filename=name,
-            file_kind=ex.file_kind,  # type: ignore[arg-type]
+            file_kind=ex.file_kind,
             warnings=ex.warnings or ["no text found in the file"],
             assistant_message="Dosyada metin bulunamadı." if lang == "tr" else "No text found in the file.",
         )
@@ -379,7 +379,7 @@ async def extract_preferences(
         assistant_message="\n\n".join(notes)[:4000],
         usage=UsageOut(**client.usage.to_out()),
         filename=name,
-        file_kind=ex.file_kind,  # type: ignore[arg-type]
+        file_kind=ex.file_kind,
         units=len(ex.units),
         chunks=len(chunks),
         truncated=ex.truncated,

@@ -18,6 +18,8 @@ generators.py     synthetic + Bahar-like instance generators (planted feasible s
 serialization.py  JSON in/out of the contract
 seats.py          seat budgets of shared rooms (split exams): targets, allocation, max-flow validation
 options.py        structured suggestion options (Diagnosis.params["options"])
+weeksplit.py      week segments for term runs (blocked weeks move only those weeks), residual split, merge back
+calibrate.py      weight calibration against the planner's rooms (CLI; the only module that imports the bridge)
 ```
 
 Run the tests: `cd smartsched/backend && python -m pytest tests/solver -q`
@@ -169,8 +171,8 @@ a rule silently: each produces a structured warning per case.
   relaxation, warm-started with the greedy placement (complete hint: unhinted events hinted unplaced),
   minimising `(L+1)·#unplaced + #unplaced locked` (lexicographic: the most events, then keep the
   planner's locked ones); phase 2 re-solves the placed events with the normal objective, hinted with
-  phase 1. Status stays `INFEASIBLE` (the full request set has no solution); `assignments` is the
-  partial timetable, `stats.partial=True`, `placed`, `unplaced`, `events_total`, `unplaced_ids`; hard /
+  phase 1. Status stays `INFEASIBLE` (the full request set has no solution; the bridge stores such a run as
+  `FEASIBLE_PARTIAL`, keeping `stats.partial`); `assignments` is the partial timetable, `stats.partial=True`, `placed`, `unplaced`, `events_total`, `unplaced_ids`; hard /
   soft scores are evaluated on the placed events (hard 100 = every hard rule holds for them). The first
   diagnosis (`code="partial"`) summarises; every unplaced event is explained (`unplaced`) unless a
   static single-event error already names it. In relax mode a lock binds only if the event is placed,
@@ -178,6 +180,73 @@ a rule silently: each produces a structured warning per case.
 
 Also: an event locked to *k* rooms may use *k* rooms (`normalize_input`; the Bahar list locks large
 lectures to `A 101 / A 106 / …` while the request is a single-room event).
+
+## Week segments for term runs (`weeksplit.py`)
+
+A request is one event over all its weeks with one room set, so on a term run a single blocked week
+(an ETKİNLİK / exam cell in the planner's grid, a `room_closed` week, another lock holding the room only
+in some weeks) used to exclude the room for the whole term (Bahar term: 14 `locked_ineligible`).
+`split_blocked_weeks(inp)` splits such events into **week segments** — same day and periods every week,
+a room change only in the affected weeks:
+
+* a **locked** event whose locked room is blocked / held by another lock in some weeks keeps the
+  planner's lock for the other weeks; the affected weeks become unlocked segments at the same time
+  (planner's rooms first in their preferences; with `trust_locked_rooms` they need no more seats than
+  the planner's room offered).  The lock with more weeks yields, so a one-week special event keeps its
+  room.  A room that is never free is left to the static checker (`locked_ineligible` / `locked_overlap`);
+* an **unlocked fixed-time** event for which no eligible room is free in every week is partitioned by a
+  greedy maximum cover (the room free in most weeks takes them).  `profile_split=True` also splits
+  events whose free rooms merely change between weeks (more freedom, larger model; off by default).
+
+Segments get new negative ids, labels `"MAT 112 §1 [w9]"`, inherit every key/tag/group, are named by the
+constraints that named the event (`event_ids`, `groups`), get `previous` re-keyed by weeks, and form one
+soft `same_room_across_weeks` group (marked `week_segments`), so one room for all weeks is still
+preferred.  Every split is reported (`week_split` warning: `reason` = `blocked` / `locked_clash` /
+`no_common_room` / `no_room_all_weeks`, `kept_weeks`, `moved_weeks`, `uncovered_weeks`).
+
+`solve_segmented(inp)` = split → `solve` → (best effort) **residual round**: fixed-time events left
+unplaced are covered by the rooms that are free in their weeks *given the rest of the timetable* and
+re-solved hinted with the previous timetable; the round is kept only if it places more original events
+completely (then more event-weeks) without losing hard score.  `to_original(split, result)` translates
+back: segments in the same rooms are merged into one assignment, diagnosis ids (and `params.busy/clashes`
+holders) map to the original events, `stats.placed` counts events placed in *every* week,
+`stats.partially_placed(_ids)` the others, `stats.week_split` the counts.  The bridge does this for every
+CP-SAT run with multi-week events (run param `split_blocked_weeks`, default on).
+
+The relaxation objective knows the segments (`build._relax_objective`): lexicographically (1) requests not
+completely placed, (2) unplaced event-weeks of segmented requests, (3) planner-locked events kept, (4)
+closeness to the warm start's rooms (`diagnose.relaxation_diagnosis`: the greedy hint follows the soft
+preferences, the relaxation has none, so maximising the placement no longer scatters the planner's rooms).
+
+Bahar full term (`docs/testing/2026-10-08-real-data-feasibility.md`): 648 → 658/684 placed, roomed
+567 → 577/603, planner-roomed 512 → 523/532, hard 100.  Week 1 alone (HAZIRLIK, Adli Tıp Staj, TOEFL …
+blocks) admits at most 578/603 roomed events (week-1 relaxation proven OPTIMAL), so "every week of every
+event" cannot reach the week-3 rate on this data.
+
+## Determinism with several workers
+
+CP-SAT's parallel search returns *some* optimum.  When the relaxation proves its optimum, a canonical
+stage fixes it and keeps the placement with the most students (then a fixed id rank, `build.stable_rank`
+— splitmix64, no Python hash randomisation); when the main solve proves optimality, a second stage fixes
+the objective and picks the optimum with the smallest pseudo-random (event, room) / (event, time) rank.
+So a fixed input and seed give the same timetable with `workers > 1` whenever optimality is proven
+(the pre-existing determinism test flaked 2/12 before, 0/20 after); time-limited, unproven solves can
+still differ between runs (use `workers=1` for bit-for-bit runs).
+
+## Planner rooms as hints (`definitive_rooms="prefer"`) and weights
+
+* greedy: locks first, then a **preference pass** (fixed-time events take their preferred room *set* if
+  it is free, largest first), then the rest; room costs use the model's weights;
+* after the relaxation, `greedy.prefer_rooms` moves placed events back into their free preferred rooms
+  (validated) before phase 2;
+* `room_preference` units: a multi-room event uses its first `max_rooms` listed rooms for free (the
+  planner's set is the first choice, not only its first room);
+* bridge: an event may use as many rooms as the planner's set; D1 for hints (`trust_definitive_capacity`,
+  default = `trust_locked_rooms`): a group the planner seats in fewer seats than its expected enrolment
+  gets the planner's seat count as size (reported `trusted_hint_capacity`), merged joint lectures too.
+
+`python -m app.solver.calibrate` grid-searches weight sets on Bahar week 3, Güz week 3 and the Final
+(rows + summary + choice as JSON; `docs/testing/calibration/`), see `weights.py` for the chosen defaults.
 
 ### Diagnosis codes and params
 
@@ -189,13 +258,15 @@ lectures to `A 101 / A 106 / …` while the request is a single-room event).
 | code | severity | params |
 |---|---|---|
 | `bad_time`, `no_time`, `all_blocked`, `out_of_horizon` | error / info | `day`/`start`/`duration`, `reasons`, `weeks` |
-| `no_room` | error | `reason` (`pin`/`tags`/`capacity`/`rules`), `size`, `missing_tags`, `missing_pins`, `largest_room`, `largest_capacity`, `reasons` |
+| `no_room` | error | `reason` (`pin`/`tags`/`capacity`/`pin_vs_lock`/`rules`), `size`, `missing_tags`, `missing_pins`, `largest_room`, `largest_capacity`, `pinned_rooms`, `locked_rooms`, `pin_vs_lock`, `fitting_rooms`, `excluded` (collapsed reason categories), `reasons` |
 | `fixed_conflict` / `input_conflict` | error / warning | `noun`, `key`, `kind`, `keys` (`[[kind, key], …]`), `day`, `start` |
 | `trusted_lock_capacity` / `trusted_lock_tags` | warning | `rooms`, `room_codes`, `seats`, `size`, `fitting_rooms` / `missing_tags`, `forbidden_tags` |
 | `locked_overlap` | error | `rooms`, `room_codes`, `day`, `period`, `shared` (+ `week`, `need`, `seats` for shared rooms) |
-| `locked_ineligible`, `locked_blocked` | error | `rooms`, `reasons` / `day`, `start`, `end` |
+| `locked_ineligible`, `locked_blocked` | error | `rooms`, `room_codes`, `reasons`, `categories`, `day`, `start`, `end` |
 | `pigeonhole` | error | `n`, `day`, `period`, `week`, `rooms` |
-| `core`, `unplaced`, `unplaced_summary`, `partial` | error / warning | — |
+| `unplaced` | error | `size`, `duration`, `day`/`start`/`end` (fixed time), `problem` (`capacity`/`rooms_busy`/`clash`/`excluded`), `busy` (`[{room, capacity, day, start, end, holders}]`), `clashes` (`[{kind, key, day, start, end, holders}]`), `free`, `excluded` (reason category → count), `fitting_rooms`, `largest_capacity` |
+| `week_split` | warning | `reason`, `kept_weeks`, `moved_weeks`, `uncovered_weeks`, `rooms`/`room_codes`/`affected_rooms`, `segments` |
+| `core`, `unplaced_summary`, `partial` | error / warning | — |
 | `timeout`, `relax_timeout`, `no_core`, `internal` | warning / error | — |
 
 ## Diagnosis (`diagnose.py`)

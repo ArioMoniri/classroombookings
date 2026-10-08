@@ -41,7 +41,7 @@ def test_turkish_case():
         ("SYS019", "SYS019"),
         ("ACU1001", "ACU1001"),
         ("FZT 3002", "FZT3002"),
-        ("İNG 101", "İNG101"),
+        ("İNG 101", "ING101"),  # usability U6: the dotted capital İ folds to I
         ("ACU", None),
         ("\xa0", None),
         (None, None),
@@ -727,3 +727,18 @@ def test_canon_course_code_loose(raw, name, expected):
     else:
         assert code == expected
         assert (warning is None) == (raw == "MAT 112")
+
+
+@pytest.mark.parametrize(
+    "text,weeks",
+    [
+        ("son 7 hafta", list(range(8, 15))),  # review MINOR 8: was [7]
+        ("Son 4 hafta derslikte", [11, 12, 13, 14]),
+        ("2-14 (7. hafta hariç)", [2, 3, 4, 5, 6, *range(8, 15)]),  # was [7]
+        ("1-14 hariç 8", [*range(1, 8), *range(9, 15)]),
+        ("8. ve 9. hafta hariç tüm haftalar", [*range(1, 8), *range(10, 15)]),
+        ("ilk 7 hafta", list(range(1, 8))),
+    ],
+)
+def test_parse_weeks_last_n_and_except(text, weeks):
+    assert n.parse_weeks(text, 14).weeks == weeks

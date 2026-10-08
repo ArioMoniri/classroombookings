@@ -94,3 +94,27 @@ def _fresh_login_limiter():
     ratelimit.reset()
     yield
     ratelimit.reset()
+
+
+#: the heaviest tests (each >~15 s on the real workbooks, ~4.5 min together). ``make check`` runs
+#: ``-m "not slow"``; ``make test-slow`` (a separate CI step) runs exactly these, so CI keeps full coverage.
+SLOW_TESTS = frozenset(
+    {
+        "tests/test_real_feasibility.py::test_real_final_locked_plan_validates",
+        "tests/test_real_feasibility.py::test_real_bahar_week3_static_check_has_no_blockers_from_locks_or_fixed_clashes",
+        "tests/test_api_diagnosis_apply.py::test_apply_unlock_on_real_cpsat_diagnosis",
+        "tests/test_import_weekly_grid.py::test_import_bahar_grid_links_requests",
+        "tests/test_import_room_master.py::test_real_bahar_import_room_master_end_to_end",
+        "tests/test_api_exam_share.py::test_final_fixture_locked_single_room_exams_no_longer_clash",
+        "tests/test_review_import.py::test_m4_reimport_keeps_identity_edits_and_remaps",
+        "tests/test_review_import.py::test_m4_unchanged_reimport_writes_nothing_and_legacy_keys_migrate",
+        "tests/test_import_planning_list.py::test_import_bahar_into_db_is_idempotent",
+        "tests/test_import_planning_list.py::test_import_guz_then_bahar_share_catalog",
+    }
+)
+
+
+def pytest_collection_modifyitems(config, items):  # noqa: ARG001
+    for item in items:
+        if item.nodeid in SLOW_TESTS:
+            item.add_marker(pytest.mark.slow)

@@ -163,8 +163,12 @@ async def test_m6_heartbeats_and_restart_recovery_by_boot_id(client, monkeypatch
             "other_live_worker": ScheduleRun(term_id=tid, status="RUNNING", heartbeat_at=fresh,
                                              stats={"worker": {"host": "node-2", "pid": 1, "boot": "live-boot"}}),
         }  # fmt: skip
-        job_stale = ImportJob(kind="planning-list", status="RUNNING", heartbeat_at=stale, summary={"worker": {"boot": "x"}})
-        job_live = ImportJob(kind="planning-list", status="RUNNING", heartbeat_at=fresh, summary={"worker": {"boot": "y"}})
+        job_stale = ImportJob(
+            kind="planning-list", status="RUNNING", heartbeat_at=stale, summary={"worker": {"boot": "x"}}
+        )
+        job_live = ImportJob(
+            kind="planning-list", status="RUNNING", heartbeat_at=fresh, summary={"worker": {"boot": "y"}}
+        )
         s.add_all([*rows.values(), job_stale, job_live])
         await s.commit()
         ids = {k: v.id for k, v in rows.items()}
@@ -200,7 +204,13 @@ async def test_m7_writes_succeed_quickly_during_a_solve(client, monkeypatch):
     r = await client.post("/api/v1/terms", json={"code": "2026-GUZ"}, headers=h)
     w = await client.post(
         "/api/v1/constraints",
-        json={"term_id": tid, "kind": "building_preference", "params": {"building": "C"}, "hardness": "soft", "weight": 2},
+        json={
+            "term_id": tid,
+            "kind": "building_preference",
+            "params": {"building": "C"},
+            "hardness": "soft",
+            "weight": 2,
+        },
         headers=h,
     )
     elapsed = time.monotonic() - t0
