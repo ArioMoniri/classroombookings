@@ -40,17 +40,39 @@ export function findFlash(cfr) {
 }
 
 /**
- * Map a recorder-clock timeline onto the video and cut the kept range [marks.begin, marks.end].
- * Returns the trimmed timeline (video clock, 0 = first kept frame).
+ * Map a recorder-clock timeline onto the video and cut the kept range [marks.begin, marks.end], minus the
+ * recorder's cuts (time spent waiting, see Recorder.cut). Returns the trimmed timeline (video clock,
+ * 0 = first kept frame, cuts removed).
  */
 export function trimAndMap(cfr, tl, out) {
   const flash = findFlash(cfr);
   const offset = flash.startMs - tl.marks.sync.start; // video = recorder + offset
   const begin = Math.max(flash.endMs + 34, tl.marks.begin + offset);
   const end = tl.marks.end + offset;
-  ff(["-ss", (begin / 1000).toFixed(3), "-i", cfr, "-t", ((end - begin) / 1000).toFixed(3), "-c:v", "libx264",
-    "-preset", "veryfast", "-crf", "10", "-pix_fmt", "yuv420p", out], "trim");
-  const shift = (t) => Math.round(t + offset - begin);
+  // cuts on the trimmed clock (ms from `begin`), sorted, inside the kept range
+  const cuts = (tl.cuts ?? [])
+    .map((c) => ({ start: c.start + offset - begin, end: c.end + offset - begin }))
+    .filter((c) => c.end > 0 && c.start < end - begin)
+    .sort((a, b) => a.start - b.start);
+  const sec = (ms) => (ms / 1000).toFixed(3);
+  const select = cuts.length
+    ? `,select='not(${cuts.map((c) => `between(t,${sec(c.start)},${sec(c.end)})`).join("+")})',setpts=N/${FPS}/TB`
+    : "";
+  ff(["-ss", sec(begin), "-i", cfr, "-t", sec(end - begin), "-vf", `setpts=PTS-STARTPTS${select}`, "-r", String(FPS),
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "10", "-pix_fmt", "yuv420p", out], "trim");
+  const removedBefore = (t) => {
+    let removed = 0;
+    for (const c of cuts) {
+      if (t >= c.end) removed += c.end - c.start;
+      else if (t > c.start) return { removed, inside: c };
+    }
+    return { removed, inside: null };
+  };
+  const shift = (t0) => {
+    const t = t0 + offset - begin;
+    const { removed, inside } = removedBefore(t);
+    return Math.round((inside ? inside.start : t) - removed);
+  };
   const steps = tl.steps.map((s) => ({
     ...s,
     startMs: shift(s.startMs),
@@ -58,12 +80,14 @@ export function trimAndMap(cfr, tl, out) {
     targets: s.targets.map((g) => ({ ...g, t: shift(g.t) })),
   }));
   const pointer = tl.pointer.map((p) => ({ ...p, t: shift(p.t) })).filter((p) => p.t >= -2000);
+  const cutMs = cuts.reduce((a, c) => a + (Math.min(c.end, end - begin) - Math.max(0, c.start)), 0);
   return {
     ...tl,
     clock: "video",
     sync: { flashStartMs: flash.startMs, flashEndMs: flash.endMs, offsetMs: offset, beginMs: begin, endMs: end },
+    cuts: cuts.map((c) => ({ ...c, removedMs: Math.round(c.end - c.start) })),
     steps,
     pointer,
-    durationMs: Math.round(end - begin),
+    durationMs: Math.round(end - begin - cutMs),
   };
 }

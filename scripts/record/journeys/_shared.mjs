@@ -1,5 +1,5 @@
-// Helpers shared by the journeys. Selectors list the current data-testid first and role/label
-// fallbacks after it, because the UI is being redesigned (see docs/recording/RECORDLY.md, "Status").
+// Helpers shared by the journeys. Selectors are the data-testids the real-backend e2e specs use
+// (smartsched/frontend/e2e/*.spec.ts), so a journey breaks together with a spec, not silently.
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,8 +12,8 @@ export const tr = (ctx, en, trText) => (ctx.lang === "tr" ? trText : en);
 /** Log in through the UI without recording it (used in setup(), before the sync flash). */
 export async function login(page, { email, password }) {
   await page.goto("/login");
-  await page.getByLabel(/E-posta|E-mail|Kullanıcı|Username/i).first().fill(email);
-  await page.getByLabel(/Şifre|Password/i).first().fill(password);
+  await page.getByTestId("login-identifier").fill(email);
+  await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
 }

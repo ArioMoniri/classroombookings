@@ -15,7 +15,8 @@
 //   RECORDLY_BIN     extracted Recordly AppImage executable (engine recordly/both)
 //   PLAYWRIGHT_BROWSERS_PATH (default /opt/pw-browsers when it exists)
 //
-// Output in --out (default ./recordings/<journey>-<theme>): <name>.mp4 (H.264), <name>.gif (< 8 MB),
+// Output in --out (default ./recordings/<journey>-<theme>): <name>.mp4 (H.264), <name>.webp (animated, < 4 MB;
+// REC_WEBP_MAX_BYTES), <name>.gif (only with REC_GIF=1, < 4 MB),
 // <name>.poster.png, <name>.timeline.json, <name>.raw.mp4 + .cursor.json + <name>.recordly (Recordly
 // project), and with engine recordly/both <name>.recordly.mp4 rendered by Recordly itself.
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -158,7 +159,8 @@ if (args.engine === "ffmpeg" || args.engine === "both") {
   const t = performance.now();
   const r = polish({ raw, tl, outDir, name, theme: args.theme, captions: !args["no-captions"] });
   result.ffmpeg = { ...r, seconds: +((performance.now() - t) / 1000).toFixed(1) };
-  log(`ffmpeg: ${r.mp4} (${(statSync(r.mp4).size / 1e6).toFixed(1)} MB), gif ${(r.gifInfo.bytes / 1e6).toFixed(2)} MB @ ${r.gifInfo.width}px/${r.gifInfo.fps}fps, poster ${r.poster} in ${result.ffmpeg.seconds} s`);
+  const gifNote = r.gifInfo ? `, gif ${(r.gifInfo.bytes / 1e6).toFixed(2)} MB @ ${r.gifInfo.width}px/${r.gifInfo.fps}fps` : "";
+  log(`ffmpeg: ${r.mp4} (${(statSync(r.mp4).size / 1e6).toFixed(1)} MB), webp ${(r.webpInfo.bytes / 1e6).toFixed(2)} MB @ ${r.webpInfo.width}px/${r.webpInfo.fps}fps/q${r.webpInfo.quality}${gifNote}, poster ${r.poster} in ${result.ffmpeg.seconds} s`);
 }
 if (args.engine === "recordly" || args.engine === "both") {
   const t = performance.now();

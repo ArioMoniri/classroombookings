@@ -1,4 +1,4 @@
-// ffmpeg compositor: raw Playwright video + timeline → Recordly-style MP4, GIF (< 8 MB) and poster.
+// ffmpeg compositor: raw Playwright video + timeline → Recordly-style MP4, animated WebP (< 4 MB), optional GIF and poster.
 //   camera   (own ffmpeg pass) perspective filter in "source" mode = sub-pixel crop that follows a spring-smoothed
 //            camera track (no zoompan jitter), sampled per frame and compressed to piecewise-linear
 //            expressions
@@ -30,7 +30,7 @@ export function probeDuration(file) {
  * @param {string} p.name     base file name
  * @param {"light"|"dark"} p.theme
  */
-export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 8 * 1024 * 1024, captions = true, cameraOpts = {} }) {
+export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 4 * 1024 * 1024, captions = true, cameraOpts = {} }) {
   const viewport = tl.viewport;
   const { width: W, height: H } = viewport;
   const durMs = Math.floor(probeDuration(raw) * 1000);
@@ -143,20 +143,34 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 8 * 1024 * 
   const poster = join(outDir, `${name}.poster.png`);
   ff(["-ss", posterT.toFixed(2), "-i", mp4, "-frames:v", "1", poster], "poster");
 
-  // ---- GIF under the size budget: shrink width, then fps, until it fits ------------------------
+  // ---- animated WebP for the README under the size budget: shrink quality, width, then fps -----
+  const webp = join(outDir, `${name}.webp`);
+  let webpInfo = null;
+  const webpMax = Number(process.env.REC_WEBP_MAX_BYTES ?? 4 * 1024 * 1024);
+  for (const [w, fps, q] of [[1000, 15, 72], [1000, 12, 62], [920, 12, 55], [840, 10, 50], [760, 10, 45], [680, 8, 40]]) {
+    ff(["-i", mp4, "-vf", `fps=${fps},scale=${w}:-2:flags=lanczos`, "-c:v", "libwebp_anim", "-lossless", "0",
+      "-quality", String(q), "-compression_level", "6", "-preset", "picture", "-loop", "0", "-an", webp], "webp");
+    const size = statSync(webp).size;
+    webpInfo = { width: w, fps, quality: q, bytes: size };
+    if (size <= webpMax) break;
+  }
+
+  // ---- GIF (opt-in, REC_GIF=1) under the size budget: shrink width, then fps, until it fits ---
   const gif = join(outDir, `${name}.gif`);
   let gifInfo = null;
-  for (const [w, fps] of [[1000, 15], [900, 12], [800, 12], [720, 10], [640, 10], [560, 8]]) {
-    const pal = join(outDir, `${name}.palette.png`);
-    ff(["-i", mp4, "-vf", `fps=${fps},scale=${w}:-2:flags=lanczos,palettegen=max_colors=192:stats_mode=diff`, pal], "palette");
-    ff(["-i", mp4, "-i", pal, "-lavfi", `fps=${fps},scale=${w}:-2:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`,
-      "-loop", "0", gif], "gif");
-    const size = statSync(gif).size;
-    gifInfo = { width: w, fps, bytes: size };
-    if (size <= gifMaxBytes) break;
+  if (process.env.REC_GIF === "1") {
+    for (const [w, fps] of [[1000, 15], [900, 12], [800, 12], [720, 10], [640, 10], [560, 8]]) {
+      const pal = join(outDir, `${name}.palette.png`);
+      ff(["-i", mp4, "-vf", `fps=${fps},scale=${w}:-2:flags=lanczos,palettegen=max_colors=192:stats_mode=diff`, pal], "palette");
+      ff(["-i", mp4, "-i", pal, "-lavfi", `fps=${fps},scale=${w}:-2:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`,
+        "-loop", "0", gif], "gif");
+      const size = statSync(gif).size;
+      gifInfo = { width: w, fps, bytes: size };
+      if (size <= gifMaxBytes) break;
+    }
   }
   rmSync(camFile, { force: true });
-  return { mp4, gif, poster, gifInfo, durationMs: durMs, layout, filterScript: script, clicks: clicks.length, zoomed };
+  return { mp4, gif: gifInfo ? gif : null, webp, webpInfo, poster, gifInfo, durationMs: durMs, layout, filterScript: script, clicks: clicks.length, zoomed };
 }
 
 export function listOutputs(dir) {

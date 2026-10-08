@@ -266,6 +266,18 @@
       "ledger": "docs-media (wave D: screenshots, recordings, README)",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "aaadc9adc64164328",
+      "description": "Wave C part 1: booking enhancements backend",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 15:11",
+      "scope": "",
+      "goal": "build the foundations of booking-enhancements wave 1 (Phase 17 in docs/ROADMAP.md) on the backend, test-first. The product spec is docs/product/booking-enhancements.md. Read §0, §3.2–3.3 (order and dependency graph), the build specs §4.1 P10, §4.2 T1, §4.6 P7 and §4.3 P1, §5 risks, and the \"Integrations engine (decision 2026-10-08)\" section at the end. User decisions to respect (docs/agents/static…",
+      "ledger": "backend-engineer (wave C part 1)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

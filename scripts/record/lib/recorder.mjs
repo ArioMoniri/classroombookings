@@ -21,6 +21,7 @@ export class Recorder {
     this.pointer = [];
     this.steps = [];
     this.marks = {};
+    this.cuts = [];
     this.current = null;
     this.pos = { x: viewport.width * 0.62, y: viewport.height * 0.72 };
   }
@@ -93,6 +94,20 @@ export class Recorder {
   addTarget(b, kind) {
     if (!this.current) return;
     this.current.targets.push({ t: this.now(), kind, x: b.x, y: b.y, w: b.width, h: b.height });
+  }
+
+  /**
+   * Run `fn` (typically a wait for the solver or an import job) and cut that time out of the final video,
+   * keeping `keepMs` at each edge so the jump stays readable. Captions should say that time was skipped.
+   */
+  async cut(fn, { keepMs = 700 } = {}) {
+    const start = this.now();
+    try {
+      return await fn(this);
+    } finally {
+      const end = this.now();
+      if (end - start > keepMs * 2 + 300) this.cuts.push({ start: start + keepMs, end: end - keepMs });
+    }
   }
 
   /** Frame a region without touching it (e.g. "look at the result card"). */
@@ -197,6 +212,7 @@ export class Recorder {
       version: 1,
       viewport: this.viewport,
       marks: this.marks,
+      cuts: this.cuts,
       steps: this.steps,
       pointer: this.pointer,
     };
