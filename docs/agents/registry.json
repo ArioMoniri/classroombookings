@@ -202,7 +202,8 @@
       "goal": "the user asked us to \"compare the built schedule with the planner's files to find errors\". Act as the university classroom planner. Compare SmartSched's generated timetables with the planner's own grids, then classify every difference so the planner knows what to fix and what to trust.",
       "ledger": "user-tester (schedule comparison)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 14:58"
     },
     {
       "id": "a64b163ceae6d3867",
@@ -238,6 +239,30 @@
       "scope": "",
       "goal": "fix the findings of the strict solver review in docs/review/2026-10-08-solver-review.md: B1, B2, M1–M6 and the cheap MINORs. Read the whole review first. It has file:line pointers and the smallest fixes. The user requires \"100/100 on hard constraints, or explain what is impossible and how to fix it\". The reviewer found the CP model sound. The bridge, however, rewrites the planner's problem (merges…",
       "ledger": "solver-engineer (solver review fixes)",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a04c8880a4a6d6df1",
+      "description": "P18-LANG: 13 CRBS languages + Turkish",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 14:58",
+      "scope": "",
+      "goal": "Phase 18 part P18-LANG in docs/ROADMAP.md and the gap row P18-LANG in smartsched/backend/tests/parity/inventory.py. classroombookings ships 13 UI languages: Czech, Danish, Dutch, English, Finnish, French, German, Italian, Portuguese, Portuguese-Brazilian, Spanish, Swedish, Welsh. SmartSched must support all of them plus Turkish, in the frontend and in backend texts (e-mails, ICS, exports, diagnose…",
+      "ledger": "frontend-engineer (13 languages + TR)",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ac99f3a76c4acc49e",
+      "description": "Wave D: screenshots, recordings, README",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-08 14:58",
+      "scope": "",
+      "goal": "wave D of the SmartSched roadmap. The user's feedback, verbatim: \"if u have enahced ui n motion desing and liquid galss and all i told still the readme doennt have recordly or the gifs or new screenshot n still looks to ai gen\". They also asked for Recordly recordings of how to use the app in the GitHub repo, with English captions. The redesign is now finished: Liquid Glass v2 shell, calendar with…",
+      "ledger": "docs-media (wave D: screenshots, recordings, README)",
       "resumed": false,
       "status": "running"
     }

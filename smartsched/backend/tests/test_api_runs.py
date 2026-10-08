@@ -132,7 +132,9 @@ async def test_run_progress_events_stream(client):
     run_id = r.json()["run_id"]
     await get_queue().wait_idle()
     run = (await client.get(f"/api/v1/runs/{run_id}", headers=h)).json()
-    assert run["status"] in {"FEASIBLE", "OPTIMAL"} and run["stats"]["events"] == 0 and run["stats"]["solver"]
+    # nothing to schedule: a clear FAILED with an empty-scope message, never "hard 100 with 0 events"
+    assert run["status"] == "FAILED" and run["hard_score"] is None and run["stats"]["events_total"] == 0
+    assert run["diagnosis"][0]["code"] == "empty_scope" and "nothing to schedule" in run["error"]
     r = await client.get(f"/api/v1/runs/{run_id}/events", headers=h)
     assert "event: status" in r.text
     r = await client.get("/api/v1/constraints/kinds", headers=h)
