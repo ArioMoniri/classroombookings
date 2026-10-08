@@ -1,0 +1,35 @@
+{
+ "term_id": 1,
+ "term_code": "2026-BAHAR-EN",
+ "term_created": true,
+ "files": [
+  0,
+  1,
+  2
+ ],
+ "fast_path": [
+  {
+   "file": 0,
+   "filename": "room_master.csv",
+   "route": "fast:room-master",
+   "created": {
+    "buildings": 4,
+    "rooms": 87
+   },
+   "updated": {
+    "rooms": 87
+   },
+   "rows_imported": 87,
+   "warnings_count": 1
+  }
+ ],
+ "general": {
+  "sections": 1150,
+  "meeting_requests": 1348
+ },
+ "notes": [],
+ "constraints_created": [],
+ "constraints_rejected": [],
+ "at": "2026-10-08T10:17:17.144266",
+ "by": 1
+}

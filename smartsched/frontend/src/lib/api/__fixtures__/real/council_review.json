@@ -1,0 +1,1117 @@
+{
+ "job_id": 1,
+ "status": "REVIEW",
+ "blocking": 5,
+ "items": [
+  {
+   "id": "map:1:0:11",
+   "kind": "mapping",
+   "title": "bahar_requests_en.csv / bahar_requests_en.csv: column 'Assigned Room' -> room?",
+   "blocking": true,
+   "decision": null,
+   "file_index": 1,
+   "grid": 0,
+   "column": 11,
+   "confidence": 0.819,
+   "current": {
+    "field": "room"
+   },
+   "alternatives": [],
+   "samples": [
+    "A 204",
+    "online",
+    "ANATOMİ LABORATUVARI",
+    "C 201",
+    "A 207"
+   ],
+   "options": [
+    "",
+    "course_code",
+    "course_name",
+    "section",
+    "program",
+    "faculty",
+    "class_year",
+    "semester",
+    "enrolment",
+    "day",
+    "start_time",
+    "end_time",
+    "time_range",
+    "room_request",
+    "room",
+    "instructor",
+    "instructor2",
+    "mode",
+    "weeks",
+    "notes",
+    "date",
+    "duration",
+    "capacity",
+    "exam_capacity",
+    "building",
+    "floor",
+    "room_type",
+    "person_name",
+    "email",
+    "title",
+    "label",
+    "start_date",
+    "end_date"
+   ],
+   "source": "heuristic"
+  },
+  {
+   "id": "map:1:0:13",
+   "kind": "mapping",
+   "title": "bahar_requests_en.csv / bahar_requests_en.csv: column 'Second Lecturer' -> instructor2?",
+   "blocking": true,
+   "decision": null,
+   "file_index": 1,
+   "grid": 0,
+   "column": 13,
+   "confidence": 0.877,
+   "current": {
+    "field": "instructor2"
+   },
+   "alternatives": [
+    [
+     "instructor",
+     0.795
+    ]
+   ],
+   "samples": [
+    "Öğr. Gör. Şerife Dikmen Urgan",
+    "Öğr. Gör. Yasin Demirel",
+    "Asenkron",
+    "Arş. Gör. Cemre SAVAŞAN",
+    "ARŞ.GÖR.CEMRE SAVAŞAN\nARŞ.GÖR.BEYZANUR DALGIÇ"
+   ],
+   "options": [
+    "",
+    "course_code",
+    "course_name",
+    "section",
+    "program",
+    "faculty",
+    "class_year",
+    "semester",
+    "enrolment",
+    "day",
+    "start_time",
+    "end_time",
+    "time_range",
+    "room_request",
+    "room",
+    "instructor",
+    "instructor2",
+    "mode",
+    "weeks",
+    "notes",
+    "date",
+    "duration",
+    "capacity",
+    "exam_capacity",
+    "building",
+    "floor",
+    "room_type",
+    "person_name",
+    "email",
+    "title",
+    "label",
+    "start_date",
+    "end_date"
+   ],
+   "source": "heuristic"
+  },
+  {
+   "id": "map:1:0:15",
+   "kind": "mapping",
+   "title": "bahar_requests_en.csv / bahar_requests_en.csv: column 'Remarks' -> notes?",
+   "blocking": true,
+   "decision": null,
+   "file_index": 1,
+   "grid": 0,
+   "column": 15,
+   "confidence": 0.864,
+   "current": {
+    "field": "notes"
+   },
+   "alternatives": [],
+   "samples": [
+    "UZEM",
+    "MBG YL programında MBG 598 kodlu dersle aynı yer ve gün ve zamanda açılacaktır. Rezerve edilecek dersliği 13:30 itibariyle rezerve etmemiz rica ediliyor. Seminer öncesi bilgisayar hazırlığı için gerekli.",
+    "Eczacılık Fakültesinde ders çakışma kuralları uygulanacak.",
+    "Bu ders PSI 276 Psikolojide İstatistik Uygulamaları dersinin uygulamalı kısmı içindir, laboratuvar gerektiği için yeni bir satırda tekrar eklenmiştir. Mümkünse A105 lavoratuvarları kullanılabilir.",
+    "Derslik gerekiyor."
+   ],
+   "options": [
+    "",
+    "course_code",
+    "course_name",
+    "section",
+    "program",
+    "faculty",
+    "class_year",
+    "semester",
+    "enrolment",
+    "day",
+    "start_time",
+    "end_time",
+    "time_range",
+    "room_request",
+    "room",
+    "instructor",
+    "instructor2",
+    "mode",
+    "weeks",
+    "notes",
+    "date",
+    "duration",
+    "capacity",
+    "exam_capacity",
+    "building",
+    "floor",
+    "room_type",
+    "person_name",
+    "email",
+    "title",
+    "label",
+    "start_date",
+    "end_date"
+   ],
+   "source": "heuristic"
+  },
+  {
+   "id": "merge:instructor:Prof. Dr. Uğur Sezeman|Uğur Sezerman",
+   "kind": "merge",
+   "title": "Same instructor? 'Prof. Dr. Uğur Sezeman' and 'Uğur Sezerman'",
+   "blocking": true,
+   "decision": null,
+   "confidence": 0.96,
+   "current": {
+    "kind": "instructor",
+    "a": "Prof. Dr. Uğur Sezeman",
+    "b": "Uğur Sezerman",
+    "score": 0.96
+   }
+  },
+  {
+   "id": "merge:instructor:Dr. Emel GÜR|Dr. Öğr. Üyesi Emel Uğur",
+   "kind": "merge",
+   "title": "Same instructor? 'Dr. Emel GÜR' and 'Dr. Öğr. Üyesi Emel Uğur'",
+   "blocking": true,
+   "decision": null,
+   "confidence": 0.941,
+   "current": {
+    "kind": "instructor",
+    "a": "Dr. Emel GÜR",
+    "b": "Dr. Öğr. Üyesi Emel Uğur",
+    "score": 0.941
+   }
+  },
+  {
+   "id": "issue:0:time_order",
+   "kind": "issue",
+   "title": "1 request(s) end before they start",
+   "blocking": false,
+   "decision": null,
+   "severity": "error",
+   "code": "time_order",
+   "sources": [
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 655
+    }
+   ],
+   "count": 1
+  },
+  {
+   "id": "issue:1:capacity",
+   "kind": "issue",
+   "title": "35 request(s) have more students than seats in their assigned room(s); e.g. MAT112: 180 students, 156 seats in A204; BES128: 180 students, 156 seats in A204; PSI276: 90 students, 60 seats in A105",
+   "blocking": false,
+   "decision": null,
+   "severity": "warning",
+   "code": "capacity",
+   "sources": [
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 2
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 21
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 36
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 168
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 215
+    }
+   ],
+   "count": 35
+  },
+  {
+   "id": "issue:2:solver_static:fixed_conflict",
+   "kind": "issue",
+   "title": "solver pre-check (fixed_conflict): 882 finding(s); e.g. cohort 'PROG:bilgisayar muhendisligi (ingilizce):Y1': ENG 106 §1 (#468) (day 1 P4-P5) and ENG 106 §2 (#537) (day 1 P4-P5) are both fixed at overlapping times in shared weeks; cohort 'PROG:bilgisayar muhendisligi (ingilizce):Y2': CSE 220 §1 (#662) (day 4 P3-P5) and CSE 220 §1 (#663) (day 4 P3-P5) are both fixed at overlapping times in shared weeks",
+   "blocking": false,
+   "decision": null,
+   "severity": "warning",
+   "code": "solver_static:fixed_conflict",
+   "sources": [
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 567
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 648
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 791
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 792
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 25
+    }
+   ],
+   "count": 50
+  },
+  {
+   "id": "issue:3:solver_static:trusted_lock_capacity",
+   "kind": "issue",
+   "title": "solver pre-check (trusted_lock_capacity): 35 finding(s); e.g. MAT 112 §1 expects 180 students but is locked to A204 (74 exam / 156 lecture seats); the planner's room is kept; BES 128 expects 180 students but is locked to A204 (74 exam / 156 lecture seats); the planner's room is kept",
+   "blocking": false,
+   "decision": null,
+   "severity": "warning",
+   "code": "solver_static:trusted_lock_capacity",
+   "sources": [
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 2
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 21
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 36
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 168
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 215
+    }
+   ],
+   "count": 35
+  },
+  {
+   "id": "issue:4:solver_static:locked_overlap",
+   "kind": "issue",
+   "title": "solver pre-check (locked_overlap): 224 finding(s); e.g. locked assignments overlap: MBG 414 §1 (#236) and MBG 026 §1 (#237) both hold A101 on day 3 P3; locked assignments overlap: MBG 414 §1 (#236) and MBG 026 (#367) both hold A101 on day 3 P3",
+   "blocking": false,
+   "decision": null,
+   "severity": "warning",
+   "code": "solver_static:locked_overlap",
+   "sources": [
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 291
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 292
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 291
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 445
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 292
+    }
+   ],
+   "count": 50
+  },
+  {
+   "id": "issue:5:solver_static:pigeonhole",
+   "kind": "issue",
+   "title": "solver pre-check (pigeonhole): 39 finding(s); e.g. 69 fixed-time events need a room on day 1 P3 in week 1 but only 58 eligible room(s) exist: SYB 312, MBG 612, MBT 621, BME 590, NUT 124, TVT 112 §1; 71 fixed-time events need a room on day 1 P4 in week 1 but only 58 eligible room(s) exist: SYB 312, MBG 612, MBT 621, BME 590, BME 218 §1, HEM 114",
+   "blocking": false,
+   "decision": null,
+   "severity": "warning",
+   "code": "solver_static:pigeonhole",
+   "sources": [
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 117
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 174
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 207
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 208
+    },
+    {
+     "file": "bahar_requests_en.csv",
+     "row": 270
+    }
+   ],
+   "count": 50
+  },
+  {
+   "id": "rule_text:1",
+   "kind": "rule_text",
+   "title": "bahar_requests_en.csv: 193 rule-like text(s) need the AI model to become constraints",
+   "blocking": false,
+   "decision": null,
+   "file_index": 1,
+   "texts": [
+    {
+     "text": "MBG YL programında MBG 598 kodlu dersle aynı yer ve gün ve zamanda açılacaktır. Rezerve edilecek dersliği 13:30 itibariyle rezerve etmemiz rica ediliyor. Seminer öncesi bilgisayar hazırlığı için gerekli.",
+     "course_codes": [
+      "MBG408",
+      "MBG416"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 25
+     }
+    },
+    {
+     "text": "Eczacılık Fakültesinde ders çakışma kuralları uygulanacak.",
+     "course_codes": [
+      "PHAR116",
+      "PHAR126",
+      "PHAR484",
+      "PHAR404",
+      "PHAR210",
+      "PHAR332",
+      "PHAR110",
+      "PHAR312",
+      "PHAR114",
+      "PHAR102",
+      "PHAR220",
+      "PHAR468",
+      "PHAR280",
+      "PHAR290",
+      "PHAR124",
+      "PHAR154",
+      "PHAR122",
+      "PHAR230",
+      "PHAR108",
+      "PHAR240",
+      "PHAR342",
+      "PHAR474",
+      "PHAR322",
+      "PHAR532",
+      "PHAR582",
+      "PHAR530",
+      "PHAR128",
+      "PHAR118",
+      "PHAR134",
+      "PHAR362",
+      "PHAR482",
+      "PHAR472",
+      "PHAR402",
+      "PHAR308",
+      "PHAR538",
+      "PHAR533",
+      "PHAR130",
+      "PHAR104",
+      "PHAR480",
+      "PHAR440",
+      "PHAR462",
+      "PHAR250",
+      "PHAR202",
+      "PHAR260"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 30
+     }
+    },
+    {
+     "text": "Bu ders PSI 276 Psikolojide İstatistik Uygulamaları dersinin uygulamalı kısmı içindir, laboratuvar gerektiği için yeni bir satırda tekrar eklenmiştir. Mümkünse A105 lavoratuvarları kullanılabilir.",
+     "course_codes": [
+      "PSI276"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 36
+     }
+    },
+    {
+     "text": "Derslik gerekiyor.",
+     "course_codes": [
+      "MBG112",
+      "MAT102"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 41
+     }
+    },
+    {
+     "text": "Uygulama dersidir. Lab da yapılacak.",
+     "course_codes": [
+      "MBG112",
+      "MBG110"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 42
+     }
+    },
+    {
+     "text": "Derslik gerekiyor. 80 kişilk sınıf MBG ye toplam 70 kişilik kontejan koyulması gerekiyor. MBG 2., 3. ve 4. sınflar alacak.",
+     "course_codes": [
+      "MBG023"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 43
+     }
+    },
+    {
+     "text": "Uygulama dersidir.Lab da yapılacak.",
+     "course_codes": [
+      "PHY102"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 44
+     }
+    },
+    {
+     "text": "Online yapılacak. Alttan alanlar için farklı kodlar bu derse bağlanarak yapılarak açılabilir.",
+     "course_codes": [
+      "MBG318"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 45
+     }
+    },
+    {
+     "text": "MBG 534 Proteomiks MBG YL dersi ile aynı yer, gün ve saatte yapılacatır. Lisans düzeyinde sadece MBG 4. sınıflara açılacaktır.",
+     "course_codes": [
+      "MBG014"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 51
+     }
+    },
+    {
+     "text": "Ders Hemşirelik (ingilizce bölümü ile ortak yürütülecektir.)",
+     "course_codes": [
+      "NUT132"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 59
+     }
+    },
+    {
+     "text": "Ders kampüs dışı kurumlarda yapılacağı için dersliğe ihtiyaç yoktur.",
+     "course_codes": [
+      "PSI454",
+      "PSY454"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 67
+     }
+    },
+    {
+     "text": "1. ve 2. ÖĞRETİM BİRLİKTE DERS ALACAKTIR.",
+     "course_codes": [
+      "PTL252",
+      "PTL204",
+      "PTL208"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 73
+     }
+    },
+    {
+     "text": "Ders online asenkron olarak işlenmektedir.",
+     "course_codes": [
+      "SYS23",
+      "ING212",
+      "ATA112",
+      "ING112",
+      "TUR112"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 85
+     }
+    },
+    {
+     "text": "Ders C102 FTR Lab'da işlenecektir.",
+     "course_codes": [
+      "FYT112",
+      "FYT114"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 91
+     }
+    },
+    {
+     "text": "2024 öncesi müfredatta PSY 114 Fizyoloji kodu ve adıyla yer almaktadır. PSY 114 Fizyoloji olarak müfredatında yer alanların PSY 116 Fizyoloji dersini alabilmesi için intibakının yapılması gerekir.",
+     "course_codes": [
+      "PSY116"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 99
+     }
+    },
+    {
+     "text": "Dersi verecek öğretim üyesi henüz belli değildir.",
+     "course_codes": [
+      "PSY218"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 101
+     }
+    },
+    {
+     "text": "Ders OPT Labda yapılacak",
+     "course_codes": [
+      "OPT152",
+      "OPT134",
+      "OPT106",
+      "OPT214",
+      "OPT206",
+      "OPT236"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 107
+     }
+    },
+    {
+     "text": "Hastane Uygulaması",
+     "course_codes": [
+      "AHP212",
+      "AHP102"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 113
+     }
+    },
+    {
+     "text": "Alan Seçmeli ders",
+     "course_codes": [
+      "SYB378",
+      "SYB454",
+      "SYB428",
+      "SYB288",
+      "SYB340",
+      "SYB462",
+      "SYB294"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 118
+     }
+    },
+    {
+     "text": "C 202 BİLG. LAB BU DERSTE ZORUNLU",
+     "course_codes": [
+      "TVT106"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 120
+     }
+    },
+    {
+     "text": "Öğrenciler 3 hafta teorik, 1 hafta uygulama şeklinde eğitim alacaktır. Not girişinde problem yaşanmaması için her güne bir satır denk gelecek şekilde, uygulama haftasının 5 günü için 5 satır açılmıştır.",
+     "course_codes": [
+      "SYB256",
+      "SYB356"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 121
+     }
+    },
+    {
+     "text": "SOS 202 (2024-2025 müfredatı) ve SOS 202 (2022-2023 müfredatı) aynı derslikte yapılacaktır. SOS 202 Sosyoloji Bölümü 2024-2025 müfredatında açılması rica olunur.",
+     "course_codes": [
+      "SOS202"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 139
+     }
+    },
+    {
+     "text": "Öğrenciler 14 hafta boyunca Perşembe ve Cuma eğitim alacaktır. Not girişinde problem yaşanmaması için her güne bir satır denk gelecek şekilde, uygulama haftasının 2 günü için 2 satır açılmıştır.",
+     "course_codes": [
+      "SYB456"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 143
+     }
+    },
+    {
+     "text": "SOS 112 (2024-2025 müfredatı) ve SOS 102 (2022-2023 müfredatı) aynı derslikte yapılacaktır. SOS 112 kodunun Sosyoloji Bölümü 2024-2025 müfredatında açılması rica olunur.",
+     "course_codes": [
+      "SOS112"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 144
+     }
+    },
+    {
+     "text": "Derse 20 kontenjan kotası konulacak. Bu ders 2024 müfredat güncellemesi sırasında eklenmiştir. Giriş yılı fark etmeksizin 3. ve 4. sınıf öğrencilerin alabileceği şekilde tanımlanmalıdır.",
+     "course_codes": [
+      "PSY358"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 145
+     }
+    },
+    {
+     "text": "Ders online yapılacaktır, derslik ihtiyacı bulunmamaktadır. ANT 152 kodunun Sosyoloji Bölümü 2024-2025 müfredatında açılması rica olunur.",
+     "course_codes": [
+      "ANT152"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 148
+     }
+    },
+    {
+     "text": "Tek ders alttan alanve il dışından gelen öğrenci nedeniyle Sekron yapılacaktır.",
+     "course_codes": [
+      "PRO234"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 151
+     }
+    },
+    {
+     "text": "Bu ders, bitirme projesi kapsamında açılmakta ve tüm gün sürmektedir. Derslik bulunamaması durumunda iki ayrı derslik planlanabilir.",
+     "course_codes": [
+      "SOS410"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 152
+     }
+    },
+    {
+     "text": "Derse 15 kontenjan kotası konulacak.",
+     "course_codes": [
+      "PSY404",
+      "PSY430",
+      "PSY431"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 153
+     }
+    },
+    {
+     "text": "Ders psikoloji bölümü tarafından da almaktadır. Derslik planlanırken her iki bölümün kontenjanı dikkate alınmalıdır.  SOS 356  Sosyoloji Bölümü 2022-2023 müfredatında açılması rica olunur.",
+     "course_codes": [
+      "SOS356"
+     ],
+     "source": {
+      "file": "bahar_requests_en.csv",
+      "row": 157
+     }
+    }
+   ]
+  },
+  {
+   "id": "rule_text:2",
+   "kind": "rule_text",
+   "title": "rules_memo.docx: 17 rule-like text(s) need the AI model to become constraints",
+   "blocking": false,
+   "decision": null,
+   "file_index": 2,
+   "texts": [
+    {
+     "text": "Bahar 2026 — Derslik planlama notları",
+     "course_codes": [
+      "BAHAR2026"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 1
+     }
+    },
+    {
+     "text": "Bölümlerden gelen özel talepler (planlama listesindeki açıklamalardan):",
+     "course_codes": [],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 2
+     }
+    },
+    {
+     "text": "MBG 408: MBG YL programında MBG 598 kodlu dersle aynı yer ve gün ve zamanda açılacaktır. Rezerve edilecek dersliği 13:30 itibariyle rezerve etmemiz rica ediliyor. Seminer öncesi bilgisayar hazırlığı için gerekli.",
+     "course_codes": [
+      "MBG408",
+      "MBG598",
+      "MBG13",
+      "MBG30"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 3
+     }
+    },
+    {
+     "text": "PHAR 116: Eczacılık Fakültesinde ders çakışma kuralları uygulanacak.",
+     "course_codes": [
+      "PHAR116"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 4
+     }
+    },
+    {
+     "text": "PSI 276: Bu ders PSI 276 Psikolojide İstatistik Uygulamaları dersinin uygulamalı kısmı içindir, laboratuvar gerektiği için yeni bir satırda tekrar eklenmiştir. Mümkünse A105 lavoratuvarları kullanılabilir.",
+     "course_codes": [
+      "PSI276"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 5
+     }
+    },
+    {
+     "text": "MBG 112: Derslik gerekiyor.",
+     "course_codes": [
+      "MBG112"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 6
+     }
+    },
+    {
+     "text": "MBG 112: Uygulama dersidir. Lab da yapılacak.",
+     "course_codes": [
+      "MBG112"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 7
+     }
+    },
+    {
+     "text": "MBG 023: Derslik gerekiyor. 80 kişilk sınıf MBG ye toplam 70 kişilik kontejan koyulması gerekiyor. MBG 2., 3. ve 4. sınflar alacak.",
+     "course_codes": [
+      "MBG023",
+      "MBG80",
+      "MBG70"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 8
+     }
+    },
+    {
+     "text": "PHY 102: Uygulama dersidir.Lab da yapılacak.",
+     "course_codes": [
+      "PHY102"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 9
+     }
+    },
+    {
+     "text": "MBG 318: Online yapılacak. Alttan alanlar için farklı kodlar bu derse bağlanarak yapılarak açılabilir.",
+     "course_codes": [
+      "MBG318"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 10
+     }
+    },
+    {
+     "text": "MBG 014: MBG 534 Proteomiks MBG YL dersi ile aynı yer, gün ve saatte yapılacatır. Lisans düzeyinde sadece MBG 4. sınıflara açılacaktır.",
+     "course_codes": [
+      "MBG014",
+      "MBG534"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 11
+     }
+    },
+    {
+     "text": "PTL 252: 1. ve 2. ÖĞRETİM BİRLİKTE DERS ALACAKTIR.",
+     "course_codes": [
+      "PTL252"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 12
+     }
+    },
+    {
+     "text": "FYT 112: Ders C102 FTR Lab'da işlenecektir.",
+     "course_codes": [
+      "FYT112"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 13
+     }
+    },
+    {
+     "text": "PSY 116: 2024 öncesi müfredatta PSY 114 Fizyoloji kodu ve adıyla yer almaktadır. PSY 114 Fizyoloji olarak müfredatında yer alanların PSY 116 Fizyoloji dersini alabilmesi için intibakının yapılması gerekir.",
+     "course_codes": [
+      "PSY116",
+      "PSY2024",
+      "PSY114"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 14
+     }
+    },
+    {
+     "text": "OPT 152: Ders OPT Labda yapılacak",
+     "course_codes": [
+      "OPT152"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 15
+     }
+    },
+    {
+     "text": "TVT106: C 202 BİLG. LAB BU DERSTE ZORUNLU",
+     "course_codes": [
+      "TVT106",
+      "TVT202"
+     ],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 16
+     }
+    },
+    {
+     "text": "A Blok derslikleri",
+     "course_codes": [],
+     "source": {
+      "file": "rules_memo.docx",
+      "paragraph": 17
+     }
+    }
+   ]
+  },
+  {
+   "id": "plan:0",
+   "kind": "plan",
+   "title": "Term BAHAR (REGULAR, 16 weeks) from bahar_requests_en.csv",
+   "blocking": false,
+   "decision": null,
+   "current": {
+    "code": "BAHAR",
+    "name": "Spring",
+    "kind": "REGULAR",
+    "week_count": 16,
+    "start_date": null,
+    "year": null
+   },
+   "confidence": 0.6,
+   "files": [
+    1
+   ],
+   "evidence": [
+    "bahar_requests_en.csv: SPRING"
+   ]
+  }
+ ],
+ "plan": {
+  "groups": [
+   {
+    "key": "SPRING:?",
+    "code": "BAHAR",
+    "name": "Spring",
+    "kind": "REGULAR",
+    "year": null,
+    "files": [
+     1
+    ],
+    "week_count": 16,
+    "start_date": null,
+    "end_date": null,
+    "weeks": [],
+    "days": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "evidence": [
+     "bahar_requests_en.csv: SPRING"
+    ],
+    "confidence": 0.6
+   }
+  ],
+  "unassigned_files": [],
+  "global_files": [
+   0,
+   2
+  ],
+  "period_grid": {
+   "source": "default-18",
+   "periods": [
+    {
+     "index": 1,
+     "start": "08:30",
+     "end": "09:10"
+    },
+    {
+     "index": 2,
+     "start": "09:20",
+     "end": "10:00"
+    },
+    {
+     "index": 3,
+     "start": "10:10",
+     "end": "10:50"
+    },
+    {
+     "index": 4,
+     "start": "11:00",
+     "end": "11:40"
+    },
+    {
+     "index": 5,
+     "start": "11:50",
+     "end": "12:30"
+    },
+    {
+     "index": 6,
+     "start": "12:40",
+     "end": "13:20"
+    },
+    {
+     "index": 7,
+     "start": "13:30",
+     "end": "14:10"
+    },
+    {
+     "index": 8,
+     "start": "14:20",
+     "end": "15:00"
+    },
+    {
+     "index": 9,
+     "start": "15:10",
+     "end": "15:50"
+    },
+    {
+     "index": 10,
+     "start": "16:00",
+     "end": "16:40"
+    },
+    {
+     "index": 11,
+     "start": "16:50",
+     "end": "17:30"
+    },
+    {
+     "index": 12,
+     "start": "17:30",
+     "end": "18:00"
+    },
+    {
+     "index": 13,
+     "start": "18:00",
+     "end": "18:40"
+    },
+    {
+     "index": 14,
+     "start": "18:50",
+     "end": "19:30"
+    },
+    {
+     "index": 15,
+     "start": "19:40",
+     "end": "20:20"
+    },
+    {
+     "index": 16,
+     "start": "20:30",
+     "end": "21:10"
+    },
+    {
+     "index": 17,
+     "start": "21:20",
+     "end": "22:00"
+    },
+    {
+     "index": 18,
+     "start": "22:10",
+     "end": "22:50"
+    }
+   ],
+   "coverage": 0.908
+  },
+  "horizons": [
+   "WEEK",
+   "MONTH",
+   "TERM"
+  ]
+ },
+ "threshold": 0.9,
+ "saved": null,
+ "errors": [],
+ "rerun_files": []
+}

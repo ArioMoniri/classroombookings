@@ -40,6 +40,7 @@ import {
   users,
   weeks,
 } from "./data";
+import { createCouncilHandlers, resetCouncilMock } from "./council";
 import { createStudioHandlers, freshStudioState, studioSeedConstraints, type MockConstraint, type StudioMockState } from "./studio";
 
 /* ------------------------------------------------------------------------------- state */
@@ -98,6 +99,7 @@ function freshState(): MockState {
 let state: MockState = freshState();
 export function resetMockState(): void {
   state = freshState();
+  resetCouncilMock();
 }
 
 const SOLVE_MS = Number(process.env.MOCK_SOLVE_MS ?? 5000);
@@ -290,6 +292,7 @@ const studioHandlers = createStudioHandlers(() => ({
 }));
 
 export const handlers = [
+  ...createCouncilHandlers(base),
   ...studioHandlers,
   http.post(`${base}/auth/login`, async ({ request }) => {
     const body = (await request.json()) as { email?: string; password?: string };
