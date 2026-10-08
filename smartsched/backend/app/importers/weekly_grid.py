@@ -430,9 +430,17 @@ async def import_weekly_grid(
     )
     carry_from = max(lecture_weeks) if lecture_weeks else 0
     carried = [w for w in missing_weeks if w > carry_from] if importer_settings().grid_carry_forward else []
+    if term.end_date is None and term.start_date is not None:
+        # a term without an end date cannot be opened for bookings (the Güz board covers 2 of 14 weeks): the
+        # end is the later of start + week_count weeks and the last sheet's week
+        by_count = term.start_date + timedelta(weeks=int(term.week_count or 14), days=-1)
+        last_sheet = max((s_.start_date for s_ in parsed.sheets if s_.start_date), default=None)
+        term.end_date = max(by_count, last_sheet + timedelta(days=6)) if last_sheet else by_count
+        report.extra["term_end_date"] = term.end_date.isoformat()
     if missing_weeks:
         report.warn(
-            f"the board has week sheets for weeks {_week_ranges(lecture_weeks)} only; weeks "
+            f"the board covers only {len(set(lecture_weeks))} of the term's {term.week_count} weeks: "
+            f"week sheets for weeks {_week_ranges(lecture_weeks)} only; weeks "
             f"{_week_ranges(missing_weeks)} have no sheet, so the solver sees no closed rooms or events there"
             + (
                 f"; the blocks of week {carry_from} are carried forward to weeks {_week_ranges(carried)}"

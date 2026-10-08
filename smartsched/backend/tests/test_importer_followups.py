@@ -331,7 +331,13 @@ async def test_missing_week_sheets_are_reported_and_optionally_carried_forward(s
 
     report = await import_weekly_grid(session, GUZ_GRID, "2026-GUZ", year=2026)
     assert report.extra["missing_weeks"] == list(range(3, 15))
-    assert any("weeks 3-14" in w for w in report.warnings)
+    assert any("weeks 3-14" in w and "covers only 2 of the term's 14 weeks" in w for w in report.warnings)
+    # the term still gets its end date (start + 14 weeks), so it can be opened for bookings
+    from app.models import Term
+
+    term = (await session.execute(select(Term).where(Term.code == "2026-GUZ"))).scalar_one()
+    assert term.start_date == date(2026, 9, 21) and term.end_date == date(2026, 12, 27)
+    assert report.extra["term_end_date"] == "2026-12-27"
     blocks = list((await session.execute(select(Block).where(Block.archived.is_(False)))).scalars())
     assert all(b.weeks in ([1], [2]) for b in blocks)  # off by default: nothing is invented
 

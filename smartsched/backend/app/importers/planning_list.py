@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import time
+from datetime import time, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -307,6 +307,9 @@ async def import_planning_list(
         report.skip(row, reason, detail)
     cat = Catalog(session, report)
     term = await cat.term(term_code, name=term_name, week_count=week_count)
+    if term.end_date is None and term.start_date is not None:  # a board imported first gave the start only
+        term.end_date = term.start_date + timedelta(weeks=int(term.week_count or week_count), days=-1)
+        report.extra["term_end_date"] = term.end_date.isoformat()
     # room master facts from the summary sheet: lecture capacities + the computer-lab bucket
     for e in parsed.capacities:
         await cat.room(
