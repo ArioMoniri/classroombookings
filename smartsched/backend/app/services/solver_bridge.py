@@ -67,8 +67,44 @@ def solver_name(choice: str = "auto") -> str:
         return "none"
 
 
-def _call_solver(inp: sm.SolverInput, progress: ProgressFn | None, choice: str = "auto") -> sm.SolverResult:
+#: run status of a best-effort run that stores a partial timetable (the solver reports INFEASIBLE with
+#: ``stats.partial``: the full request set has no solution, the placed events satisfy every hard rule)
+PARTIAL_STATUS = "FEASIBLE_PARTIAL"
+
+
+def run_status(result: sm.SolverResult) -> str:
+    """API status of a solver result: ``FEASIBLE_PARTIAL`` for a stored partial timetable."""
+    if result.status == "INFEASIBLE" and result.stats.get("partial") and result.assignments:
+        return PARTIAL_STATUS
+    return result.status
+
+
+def _unlocked_forbidden_tags(inp: sm.SolverInput) -> dict[int, frozenset[str]]:
+    """Locked course events have their ``TIP`` ban cleared (the planner's room wins); a week segment
+    moved out of the lock gets it back unless the planner's room itself is a medicine (TIP) room."""
+    tip_rooms = {r.id for r in inp.rooms if "TIP" in r.tags}
+    return {
+        e.id: frozenset() if set(e.locked.room_ids) & tip_rooms else frozenset({"TIP"})
+        for e in inp.events
+        if e.kind == "course" and e.locked is not None and not e.forbidden_tags
+    }
+
+
+def _call_solver(
+    inp: sm.SolverInput, progress: ProgressFn | None, choice: str = "auto", *, split_weeks: bool | None = None
+) -> sm.SolverResult:
+    """Solve ``inp``.  With CP-SAT and multi-week events, term runs are solved in week segments
+    (``app.solver.weeksplit``: a room blocked in some weeks only changes the room in those weeks; the
+    planner's lock holds for the others); the result is translated back to the original event ids."""
     fn = _solver_fn(choice)
+    if split_weeks is None:
+        split_weeks = bool(MODE_DEFAULTS["split_blocked_weeks"])
+    if split_weeks and fn.__module__ == SOLVER_MODULES["cpsat"] and any(len(e.weeks) > 1 for e in inp.events):
+        from app.solver.weeksplit import solve_segmented, to_original
+
+        res, split = solve_segmented(inp, unlocked_forbidden_tags=_unlocked_forbidden_tags(inp), rounds=1)
+        out: sm.SolverResult = to_original(split, res)
+        return out
     try:
         return fn(inp, progress=progress)
     except TypeError:
@@ -90,6 +126,8 @@ MODE_DEFAULTS: dict[str, Any] = {
     "best_effort": True,  # D3: an infeasible run still stores the maximum placement
     "merge_joint_lectures": True,  # D4
     "definitive_rooms": "lock",  # lock | prefer (soft hint) | ignore — planner's definitive rooms of LOCKED rows
+    # term runs: a room blocked in some weeks only moves those weeks (week segments, app/solver/weeksplit.py)
+    "split_blocked_weeks": True,
 }
 
 
@@ -536,11 +574,17 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         head_of = {rid: head for head, ids in members.items() for rid in ids}
         events_by_id = {e.id: i for i, e in enumerate(events)}
         seen_prev: set[int] = set()
-        for a in (
-            await session.execute(
-                select(Assignment).where(Assignment.run_id == run.parent_run_id, Assignment.archived.is_(False))
-            )
-        ).scalars():
+        parent_rows = list(
+            (
+                await session.execute(
+                    select(Assignment).where(Assignment.run_id == run.parent_run_id, Assignment.archived.is_(False))
+                )
+            ).scalars()
+        )
+        # a week-segmented parent stores one row per room set: the row covering most weeks stands for the
+        # event (a manual move collapses them into one row anyway)
+        parent_rows.sort(key=lambda a: (-len(a.weeks or []), a.id))
+        for a in parent_rows:
             req_id = a.meeting_request_id if not exam else a.exam_request_id
             if req_id is None:
                 continue
@@ -669,7 +713,7 @@ async def persist_result(
                 )
             )
             count += 1
-    run.status = result.status
+    run.status = run_status(result)
     run.hard_score = result.hard_score
     run.soft_score = result.soft_score
     run.objective_value = float(sum(result.objective_breakdown.values())) if result.objective_breakdown else None
@@ -743,7 +787,13 @@ async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn |
         report("solving", 20)
         # CP-SAT holds the CPU for up to time_limit_s: solve in a worker thread so the event loop (health
         # checks, the UI, SSE progress) keeps running; ``progress`` is thread-safe (see workers.queue)
-        result = await asyncio.to_thread(_call_solver, inp, lambda ph, pct: report(ph, 20 + int(pct * 0.7)), choice)
+        result = await asyncio.to_thread(
+            _call_solver,
+            inp,
+            lambda ph, pct: report(ph, 20 + int(pct * 0.7)),
+            choice,
+            split_weeks=run_mode(rparams, "split_blocked_weeks"),
+        )
         report("persisting", 92)
         run = await session.get(ScheduleRun, run_id)
         assert run is not None
@@ -755,4 +805,4 @@ async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn |
         }
         n = await persist_result(session, run, result, members)
         report("done", 100)
-        return {"status": result.status, "assignments": n, "solver": solver_mod}
+        return {"status": run_status(result), "assignments": n, "solver": solver_mod}

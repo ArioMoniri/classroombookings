@@ -1,0 +1,50 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='390' height='844' viewBox='0 0 390 844' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='SmartSched Calendar v2, phone day list'>
+<title>SmartSched Calendar v2, phone day list</title>
+<defs><pattern id='hatch' width='6' height='6' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'><rect width='6' height='6' fill='#F8FAFC' fill-opacity='.72'/><line x1='0' y1='0' x2='0' y2='6' stroke='#0F172A' stroke-opacity='.10' stroke-width='1'/></pattern>
+<filter id='gl' x='-5%' y='-20%' width='110%' height='140%'><feDropShadow dx='0' dy='4' stdDeviation='8' flood-color='#0F172A' flood-opacity='.10'/></filter></defs>
+<rect width='390' height='844' fill='#FFFFFF'/>
+<text x='20' y='70' font-size='32' font-weight='700' fill='#0F172A' text-anchor='start' fill-opacity='1'>Çarşamba</text><text x='20' y='94' font-size='15' font-weight='400' fill='#475569' text-anchor='start' fill-opacity='1'>18 Mart · Hafta 7</text>
+<rect x='290' y='46' width='40' height='40' rx='20' fill='#FFFFFF' fill-opacity='.78' stroke='#FFFFFF' stroke-opacity='.9' filter='url(#gl)'/><rect x='290.5' y='46.5' width='39' height='39' rx='20' fill='none' stroke='#0F172A' stroke-opacity='.08'/><rect x='338' y='46' width='40' height='40' rx='20' fill='#FFFFFF' fill-opacity='.78' stroke='#FFFFFF' stroke-opacity='.9' filter='url(#gl)'/><rect x='338.5' y='46.5' width='39' height='39' rx='20' fill='none' stroke='#0F172A' stroke-opacity='.08'/><text x='310' y='72' font-size='15' font-weight='500' fill='#0F172A' text-anchor='middle' fill-opacity='1'>⌕</text><text x='358' y='72' font-size='18' font-weight='500' fill='#0F172A' text-anchor='middle' fill-opacity='1'>+</text>
+<text x='36' y='124' font-size='11' font-weight='600' fill='#64748B' text-anchor='middle' fill-opacity='1'>P</text>
+<text x='36' y='149' font-size='15' font-weight='400' fill='#0F172A' text-anchor='middle' fill-opacity='1'>16</text>
+<circle cx='36' cy='168' r='2' fill='#2563EB' fill-opacity='0.3'/>
+<text x='88' y='124' font-size='11' font-weight='600' fill='#64748B' text-anchor='middle' fill-opacity='1'>S</text>
+<text x='88' y='149' font-size='15' font-weight='400' fill='#0F172A' text-anchor='middle' fill-opacity='1'>17</text>
+<circle cx='88' cy='168' r='2' fill='#2563EB' fill-opacity='0.55'/>
+<text x='140' y='124' font-size='11' font-weight='600' fill='#64748B' text-anchor='middle' fill-opacity='1'>Ç</text>
+<circle cx='140' cy='144' r='16' fill='#0F172A'/><text x='140' y='149' font-size='15' font-weight='600' fill='#FFFFFF' text-anchor='middle' fill-opacity='1'>18</text>
+<circle cx='140' cy='168' r='2' fill='#2563EB' fill-opacity='0.8'/>
+<text x='192' y='124' font-size='11' font-weight='600' fill='#64748B' text-anchor='middle' fill-opacity='1'>P</text>
+<text x='192' y='149' font-size='15' font-weight='400' fill='#0F172A' text-anchor='middle' fill-opacity='1'>19</text>
+<circle cx='192' cy='168' r='2' fill='#2563EB' fill-opacity='0.3'/>
+<text x='244' y='124' font-size='11' font-weight='600' fill='#64748B' text-anchor='middle' fill-opacity='1'>C</text>
+<text x='244' y='149' font-size='15' font-weight='400' fill='#0F172A' text-anchor='middle' fill-opacity='1'>20</text>
+<circle cx='244' cy='168' r='2' fill='#2563EB' fill-opacity='0.55'/>
+<text x='296' y='124' font-size='11' font-weight='600' fill='#64748B' text-anchor='middle' fill-opacity='1'>C</text>
+<text x='296' y='149' font-size='15' font-weight='400' fill='#0F172A' text-anchor='middle' fill-opacity='1'>21</text>
+<circle cx='296' cy='168' r='2' fill='#2563EB' fill-opacity='0.8'/>
+<text x='348' y='124' font-size='11' font-weight='600' fill='#64748B' text-anchor='middle' fill-opacity='1'>P</text>
+<text x='348' y='149' font-size='15' font-weight='400' fill='#0F172A' text-anchor='middle' fill-opacity='1'>22</text>
+<circle cx='348' cy='168' r='2' fill='#2563EB' fill-opacity='0.3'/>
+<rect x='20' y='184' width='350' height='32' rx='16' fill='#F1F5F9'/><rect x='23' y='187' width='172' height='26' rx='13' fill='#FFFFFF'/><text x='109' y='205' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle' fill-opacity='1'>Liste</text><text x='282' y='205' font-size='13' font-weight='400' fill='#0F172A' text-anchor='middle' fill-opacity='1'>Zaman çizelgesi</text>
+<rect x='20' y='228' width='56' height='28' rx='14' fill='#0F172A'/><text x='48.0' y='247' font-size='12' font-weight='600' fill='#FFFFFF' text-anchor='middle' fill-opacity='1'>Tümü</text>
+<rect x='84' y='228' width='64' height='28' rx='14' fill='#F1F5F9'/><text x='116.0' y='247' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle' fill-opacity='1'>A 204</text>
+<rect x='156' y='228' width='88' height='28' rx='14' fill='#F1F5F9'/><text x='200.0' y='247' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle' fill-opacity='1'>Dr. Kaya</text>
+<rect x='252' y='228' width='112' height='28' rx='14' fill='#F1F5F9'/><text x='308.0' y='247' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle' fill-opacity='1'>Eczacılık 2</text>
+<text x='20' y='290' font-size='13' font-weight='600' fill='#475569' text-anchor='start' fill-opacity='1'>Şimdi · 13:30</text>
+<rect x='20' y='302' width='350' height='60' rx='12' fill='#F8FAFC'/><rect x='30' y='312' width='3' height='40' rx='1.5' fill='#2a78d6'/><text x='44' y='328' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start' fill-opacity='1'>BME 419 §1</text><text x='44' y='348' font-size='13' font-weight='400' fill='#475569' text-anchor='start' fill-opacity='1'>A 204 · 13:30–15:50 · 102/156</text>
+<rect x='44' y='356' width='120' height='2' fill='#FF3B30'/>
+<rect x='20' y='370' width='350' height='60' rx='12' fill='#F8FAFC'/><rect x='30' y='380' width='3' height='40' rx='1.5' fill='#1baf7a'/><text x='44' y='396' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start' fill-opacity='1'>FTR 412 §1</text><text x='44' y='416' font-size='13' font-weight='400' fill='#475569' text-anchor='start' fill-opacity='1'>A 102 · 13:30–16:40 · 86/96</text>
+<text x='20' y='454' font-size='13' font-weight='600' fill='#475569' text-anchor='start' fill-opacity='1'>Sıradaki · 14:20</text>
+<rect x='20' y='466' width='350' height='60' rx='12' fill='#F8FAFC'/><rect x='30' y='476' width='3' height='40' rx='1.5' fill='#eda100'/><text x='44' y='492' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start' fill-opacity='1'>BUS 403 §1</text><text x='44' y='512' font-size='13' font-weight='400' fill='#475569' text-anchor='start' fill-opacity='1'>A 307 · 14:20–16:40 · 68/70</text>
+<text x='20' y='550' font-size='13' font-weight='600' fill='#475569' text-anchor='start' fill-opacity='1'>16:00 · P10</text>
+<rect x='20' y='562' width='350' height='60' rx='12' fill='#F8FAFC'/><rect x='30' y='572' width='3' height='40' rx='1.5' fill='#4a3aa7'/><text x='44' y='588' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start' fill-opacity='1'>EĞT 301 §2</text><text x='44' y='608' font-size='13' font-weight='400' fill='#475569' text-anchor='start' fill-opacity='1'>A 201 · 16:00–17:30 · ▲ çakışma</text>
+<text x='20' y='646' font-size='13' font-weight='600' fill='#475569' text-anchor='start' fill-opacity='1'>18:00 · P13 · Akşam</text>
+<rect x='20' y='658' width='350' height='60' rx='12' fill='#F8FAFC'/><rect x='30' y='668' width='3' height='40' rx='1.5' fill='#eb6834'/><text x='44' y='684' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start' fill-opacity='1'>ECZ 112 §1</text><text x='44' y='704' font-size='13' font-weight='400' fill='#475569' text-anchor='start' fill-opacity='1'>B 204 · 18:00–19:30 · İÖ</text>
+<rect x='20' y='754' width='290' height='56' rx='28' fill='#FFFFFF' fill-opacity='.78' stroke='#FFFFFF' stroke-opacity='.9' filter='url(#gl)'/><rect x='20.5' y='754.5' width='289' height='55' rx='28' fill='none' stroke='#0F172A' stroke-opacity='.08'/>
+<text x='56' y='788' font-size='11' font-weight='400' fill='#0F172A' text-anchor='middle' fill-opacity='1'>Pano</text>
+<text x='126' y='788' font-size='11' font-weight='600' fill='#0F172A' text-anchor='middle' fill-opacity='1'>Takvim</text>
+<text x='196' y='788' font-size='11' font-weight='400' fill='#0F172A' text-anchor='middle' fill-opacity='1'>Dersler</text>
+<text x='266' y='788' font-size='11' font-weight='400' fill='#0F172A' text-anchor='middle' fill-opacity='1'>Ayarlar</text>
+<rect x='318' y='754' width='56' height='56' rx='28' fill='#FFFFFF' fill-opacity='.78' stroke='#FFFFFF' stroke-opacity='.9' filter='url(#gl)'/><rect x='318.5' y='754.5' width='55' height='55' rx='28' fill='none' stroke='#0F172A' stroke-opacity='.08'/><text x='346' y='788' font-size='10' font-weight='600' fill='#0F172A' text-anchor='middle' fill-opacity='1'>Bugün</text>
+</svg>

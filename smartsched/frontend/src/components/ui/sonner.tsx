@@ -1,4 +1,6 @@
 "use client"
+// Source: shadcn/ui sonner (style base-nova, https://ui.shadcn.com) on sonner (MIT, emilkowalski/sonner) — Licence: MIT
+// Modified: yes — Liquid Glass v2 toasts: thick material, specular edge, status-tinted icons. API unchanged.
 
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
@@ -12,33 +14,28 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       icons={{
-        success: (
-          <CircleCheckIcon className="size-4" />
-        ),
-        info: (
-          <InfoIcon className="size-4" />
-        ),
-        warning: (
-          <TriangleAlertIcon className="size-4" />
-        ),
-        error: (
-          <OctagonXIcon className="size-4" />
-        ),
-        loading: (
-          <Loader2Icon className="size-4 animate-spin" />
-        ),
+        success: <CircleCheckIcon className="size-4 text-status-feasible-fg" />,
+        info: <InfoIcon className="size-4 text-tint-text" />,
+        warning: <TriangleAlertIcon className="size-4 text-status-warning-fg" />,
+        error: <OctagonXIcon className="size-4 text-status-infeasible-fg" />,
+        loading: <Loader2Icon className="size-4 animate-spin text-label-2" />,
       }}
       style={
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--normal-bg": "var(--mat-thick)",
+          "--normal-text": "var(--label-1)",
+          "--normal-border": "var(--hairline)",
+          "--border-radius": "var(--radius-2xl)",
         } as React.CSSProperties
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast",
+          toast:
+            "cn-toast !shadow-(--shadow-3) backdrop-blur-[32px] backdrop-saturate-[1.8] !text-[13px] !gap-2.5 !px-4 !py-3",
+          title: "!font-semibold !text-label-1",
+          description: "!text-label-2",
+          actionButton: "!rounded-full !bg-tint !text-tint-foreground !font-medium",
+          cancelButton: "!rounded-full !bg-fill-2 !text-label-1",
         },
       }}
       {...props}

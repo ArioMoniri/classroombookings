@@ -2,7 +2,7 @@
 
 Owner: design-pro (v2 calendar + all-classes) · Status: spec v2.0 (2026-10-08) · Route: `/timetable` (kept, so existing links still work)
 Supersedes the visual and IA parts of `docs/design/timetable-grid.md` (v1). v1 still holds for anything this doc doesn't change: the dnd-kit sensor config, the move-scope popover, and the `checkMove` rules.
-Depends on: `docs/design/v2/liquid-glass.md` for materials, glass tokens and glass components, and `docs/design/v2/motion.md` (plus the `/motion_designer` skill) for springs and choreography. Base tokens come from `docs/design/tokens.md` (faculty palette §2.3, sequential scale §2.5, durations §6).
+Depends on: `docs/design/v2/liquid-glass.md` for materials, glass tokens and glass components (materials `--mat-{ultra-thin,thin,regular,thick,chrome}` with `-solid`/`-filter` variants in `globals.css`, the gate `docs/design/v2/verify-contrast.mjs`, and rule **G1**: only thick and chrome may float over content). Motion comes from `docs/design/v2/motion.md` and the `/motion_designer` skill (`.claude/skills/motion_designer`): springs `snappy · smooth · bouncySubtle · sheet · glassMorph · ticker` and patterns §1–§19. Base tokens come from `docs/design/tokens.md` (faculty palette §2.3, sequential scale §2.5, durations §6).
 Data: `docs/DATA_ANALYSIS.md`. About 60 rooms in buildings A–D (capacity, TIP/PC tags), 18 periods from 08:30 to 22:50 (P12 is a 30-minute transition), 14 lecture weeks plus exam weeks, about 1,300 placed meetings per term, and evening (İÖ) programmes from 18:00.
 Companion: `docs/design/v2/all-classes.md` shares the inspector, filters, copy and the anti-AI checklist. Wireframes: `docs/design/v2/wireframes/calendar-*.svg`.
 
@@ -142,7 +142,7 @@ Wireframe: `wireframes/calendar-desktop.svg`.
 ```
 
 ### 5.1 Capsule toolbar (floating, glass; macOS 26 toolbar grouping)
-- Three capsules, 12 px from the canvas top. Height 44 px with pointer, 48 px on touch. Radius `full`. Gap 8 px. Capsule 1 is left-aligned, capsule 2 centred, capsule 3 right-aligned. Material: liquid-glass.md **regular glass** (role `glass/regular`; see §8.2).
+- Three capsules, 12 px from the canvas top. Height 44 px with pointer, 48 px on touch. Radius `full`. Gap 8 px. Capsule 1 is left-aligned, capsule 2 centred, capsule 3 right-aligned. Material: `--mat-chrome` (floating chrome over content, rule G1; see §8.2).
   1. **Navigate**: sidebar toggle · `‹` · range title button ("Hafta 7", opens the mini-month popover, #11) · `›` · **Bugün**.
   2. **Lens**: segmented control with a glass thumb (a raised, lighter glass lozenge; no saturated fill). The Board button carries a tiny chevron menu: Gün / Hafta şeridi.
   3. **Subject and actions**: subject picker ("A 204 ▾" or "Tümü"), search (⌘K), issue capsule (only when > 0: "2 çakışma · 5 uyarı", red/amber glyph + text), undo/redo (shown only when the stack is non-empty), `⋯` menu (Karşılaştır…, Yoğunluk, Hafta sonu, Akşam saatleri, Dışa aktar, Yazdır, Lejant).
@@ -152,7 +152,7 @@ Wireframe: `wireframes/calendar-desktop.svg`.
 ### 5.2 Sidebar (inset glass panel, 272 px)
 Inset 8 px from the window edges, radius 20 (concentric with the 12 px chip radius inside at 8 px padding). It floats over the canvas edge on < 1600 px and pushes the canvas on ≥ 1600 px. Sections, top to bottom:
 1. **Term and run**: "2026 Bahar ▾" · "Run #42 ✓ Uygulanabilir ▾" (lists runs with status glyph, objective, created time; "Aktif" badge on the activated run).
-2. **Mini-month** (react-day-picker): week numbers in the left column (term weeks "7", not ISO), today as a filled accent circle, the selected range as a glass-tint row, and one **heat dot** under each day (3 sizes: < 40 %, 40–75 %, > 75 % occupancy; tooltip "%72 dolu · 2 çakışma"). Holidays have their number struck through in `--fg-subtle`; exam weeks carry a tiny "S" under the week number.
+2. **Mini-month** (react-day-picker): week numbers in the left column (term weeks "7", not ISO), today as a filled accent circle, the selected range as an accent-soft row, and one **heat dot** under each day (3 sizes: < 40 %, 40–75 %, > 75 % occupancy; tooltip "%72 dolu · 2 çakışma"). Holidays have their number struck through in `--fg-subtle`; exam weeks carry a tiny "S" under the week number.
 3. **Filters** (Wix #25 accordions; each has a count and a reset ↺):
    - Binalar: A B C D checkboxes with room counts.
    - Fakülteler: colour swatch + name + meeting count, from the faculty palette. `⌥`-click isolates one faculty (Apple Calendar "show only this calendar").
@@ -187,7 +187,7 @@ Empty selection: the inspector collapses. With multi-selection it shows the **se
 ### 6.1 Pano · Gün (Board, day): the Excel sheet
 - Rows: P1…P18. Row height = density (§14). P12 renders at 0.6× height with "17:30" and a tooltip "30 dk geçiş".
 - Columns: rooms in the planner's order (building bands A → B → C → D, then capacity descending inside each building, the Excel order). Column width 120 (standard). Sticky room header 48 px: "A 204" (13/16 semibold), and "156" plus a TIP/PC tag glyph in 11/14 `--fg-muted`. In exam weeks the header shows the exam capacity "74 sınav".
-- **Building bands**: a 24 px glass-tint strip above the room headers ("A Blok · 28 oda"), clickable to collapse the building into a single 32 px column showing a stacked occupancy bar. Persisted per user.
+- **Building bands**: a 24 px strip above the room headers (part of the sticky header, so it shares its `--mat-thick` material) ("A Blok · 28 oda"), clickable to collapse the building into a single 32 px column showing a stacked occupancy bar. Persisted per user.
 - The time gutter is 56 px and sticky left: "13:30" in 11/14 tabular `--fg-subtle`, and the current period's label in accent.
 - **All-day band** (§7.5) sits above P1, sticky with the header, collapsible.
 - Empty cells show nothing at rest. On hover, a faint "+" appears at the cell centre; drag-to-create starts here (§9.4).
@@ -227,7 +227,7 @@ Wireframe: `wireframes/calendar-term-heat.svg`.
 - Values: occupancy = occupied room-periods ÷ (bookable rooms × 18) for that date. Pre-occupied blocks count as occupied, and the tooltip splits "%58 ders + %14 önceden dolu".
 
 ### 6.7 Ajanda (Agenda) and Up Next
-- A virtualised list: day header (sticky glass: "Çarşamba, 18 Mart · Hafta 7"), then period subheaders ("13:30 · P7"), then event rows.
+- A virtualised list: day header (sticky, `--mat-thick` via motion pattern §15: "Çarşamba, 18 Mart · Hafta 7"), then period subheaders ("13:30 · P7"), then event rows.
 - Row: faculty bar · code (semibold) · course name (`--fg-muted`, truncated) · room · "P7–P9" · status glyph. Height 44 (touch 52).
 - When the date is today, the top section is **Şimdi** (Now: running events with a progress hairline) followed by **Sıradaki** (Up next).
 - It scrolls infinitely across the term. The date strip (phone) or the scrubber (desktop) jumps.
@@ -263,7 +263,7 @@ Wireframe: `wireframes/calendar-term-heat.svg`.
 | Yerleşti / Placed | default chip | — |
 | Seçili / Selected | 2 px ring in the faculty **bar** colour, offset 1 px, plus a 1 px inner white (light) / black (dark) halo; elevation 1. The fill stays tinted, because white text fails on blue (4.42:1) and yellow (2.17:1); see §8.1. | "seçili" |
 | Odak / Focused (keyboard) | 2 px `--focus` ring, 2 px offset (outside the selection ring when both apply) | — |
-| Çakışma / Conflict (hard) | 1.5 px `--status-infeasible-border` inset ring, a red triangle glyph replacing the state glyph, a 10 % red wash over the fill; colliding chips pulse once (2 × 150 ms) | "çakışma: {neden}" |
+| Çakışma / Conflict (hard) | 1.5 px `--status-infeasible-border` inset ring, a red triangle glyph replacing the state glyph, a 10 % red wash over the fill; on a rejected drop the chip plays the **conflict shake** once (motion pattern §9: 3 px, 2 cycles, 240 ms); culprit chips get a static red ring (no pulse) | "çakışma: {neden}" |
 | Çift rezervasyon / Double booking (same room+period) | the cell splits into side-by-side half-width chips joined by a red bracket and a "2" capsule | "2 ders aynı odada" |
 | Uyarı / Warning (soft; e.g. capacity 102/96, building mismatch) | amber dot glyph; the second line shows the reason ("96 koltuk < 102") in amber ink | "uyarı: …" |
 | Kilitli / Locked | lock glyph (12 px), and the bar becomes 3 px **double** (two 1 px lines), a shape cue that survives grayscale | "kilitli" |
@@ -331,13 +331,14 @@ Why selection is a ring and not a solid fill: white on the solid hue is 4.42 (bl
 Other colours: `--now` (above); `--booking-fill` = `--surface-2`; `--ghost-stroke` = `--fg-subtle`; conflict, warning and locked come from the status tokens in tokens §2.2; heat from §2.5.
 
 ### 8.2 Glass roles (names resolve to `liquid-glass.md`; if a name differs, liquid-glass.md wins)
-| Role | Used by | Requirement from this spec |
+| Material (globals.css) | Used by | Why (computed in §15) |
 |---|---|---|
-| `glass/regular` | capsules, scrubber, sidebar, inspector | Effective tint ≥ 72 % opacity in light and dark, because `--fg-muted` text must stay ≥ 4.5:1 over the most saturated chip behind it (§15). Blur radius per liquid-glass.md. |
-| `glass/thin` (clear) | sticky day headers, building bands, Agenda day headers | Primary text only (`--fg`) at ≥ 64 % tint; no muted text on it |
-| `glass/thumb` | the segmented-control thumb, scrubber thumb | Lighter than the capsule (+8 % white in light, +6 % white in dark), plus a 0.5 px highlight stroke |
-| `glass/popover` | popovers, menus, ⌘K, quick-create, toasts | ≥ 80 % tint (it carries form controls and muted helper text) |
-| Fallback | `prefers-reduced-transparency: reduce`, `forced-colors: active`, or the in-app "Saydamlığı azalt" | Solid `--surface-raised` plus a 1 px `--border-strong`; no blur |
+| `--mat-chrome` (light 86 %, dark 88 %) | toolbar capsules, week scrubber, sidebar (matches `--sidebar: var(--mat-chrome)`) | floats over content (G1); `--fg-muted` ≥ 5.22:1 light / 5.34:1 dark over the worst chip or black/white content |
+| `--mat-thick` (86 % / 88 %) | inspector, popovers, quick-create, ⌘K, toasts, sticky day/room headers and building bands (motion pattern §15, Apple "hard" edge), Agenda day headers | over content (G1); `--fg-muted` ≥ 5.49:1 light / 5.06:1 dark |
+| `--mat-regular`, `--mat-thin`, `--mat-ultra-thin` | **never over the calendar canvas or the chips**; only over the app scene (e.g. the empty state card) | over content they fail: `--fg-muted` 3.01:1 light / 2.36:1 dark on `--mat-regular` |
+| Segmented / scrubber thumb | the raised lozenge inside a capsule | defined by liquid-glass.md (segmented control); morphs with `springs.glassMorph` (motion pattern §2) |
+| Content surface | calendar canvas, chips, heat cells | opaque: `--mat-thick-solid` (light `#ffffff`, dark `#222328`) or the page `--bg`, whichever liquid-glass.md assigns to content; never a translucent material |
+| Fallback | `prefers-reduced-transparency: reduce`, `forced-colors: active`, or the in-app "Saydamlığı azalt" | `globals.css` swaps every `--mat-*` for its `-solid` twin and the `-filter` for `none`; add a 1 px `--hairline` border |
 
 ### 8.3 Spacing and sizes
 Capsule height 44 (touch 48), capsule gap 8, inset from the canvas edge 12. Sidebar 272, inspector 360, both inset 8 with radius 20. Chip radius 6, chip padding 4/6, stacked chip gap 1. Gutter 56. Room header 48. Building band 24. All-day band 22 per row. Scrubber tick 20 × 24. Month cell ≥ 112 × 96. Term cell 40 × 32 (gap 3). Touch targets ≥ 44 × 44: on touch, resize handles grow to 16 px hit areas that are invisible until selected.
@@ -346,16 +347,17 @@ Capsule height 44 (touch 48), capsule gap 8, inset from the canvas edge 12. Side
 | Moment | Duration | Curve (motion.md / tokens §6) | Reduced motion |
 |---|---|---|---|
 | Chip hover, focus ring, selection ring | 120 ms | `--ease-out` | instant |
-| Drag lift (scale 1.02 + elevation 2) | 120 ms | `--ease-out` | no scale, elevation only |
-| Magnet snap to slot | 120 ms | `--ease-out` | instant |
-| Drop settle / spring-back on invalid | ≈ 240 ms | `--spring-drop` | instant |
-| Conflict pulse on culprits | 2 × 150 ms | `--ease-in-out` | static red ring |
+| Drag lift (scale 1.03 + pre-rendered deeper shadow; motion pattern §7) | 120 ms | `--ease-out` | no scale, shadow only |
+| Magnet snap to slot (`magneticSnap(16)`, drop outline glides between cells; pattern §7) | ≈ 280 ms settle | `springs.snappy` | instant |
+| Drop settle / spring-back on invalid (dnd-kit `dropAnimation` with `cssSpring.snappy`) | 280 ms | `springs.snappy` (= tokens `--spring-drop`) | instant |
+| Conflict shake on a rejected drop or invalid edit (pattern §9; once, 3 px, 2 cycles) | 240 ms | ease-out | none (the static dashed outline and text carry the message) |
 | Popover / quick-create open (scale .96 → 1 + fade) | 180 ms in, 120 ms out | `--ease-emphasized` | fade ≤ 100 ms |
-| Inspector / bottom sheet in | ≤ 300 ms | `--spring-sheet` | fade 100 ms |
-| Lens switch (cross-fade + selected chip `layoutId` morph) | 240 ms | `--ease-in-out` | instant |
+| Inspector appear (pattern §1) / bottom sheet with detents (pattern §4) | 270 ms | `springs.sheet` (= `--spring-sheet`) | fade 100 ms |
+| Lens switch (cross-fade + selected chip `layoutId` morph) | 280 ms | `springs.smooth` | instant |
+| Segmented thumb / capsule pill morph (pattern §2) | 280 ms | `springs.glassMorph` | instant |
 | Week change (scrubber, `[` `]`) | 180 ms content cross-fade, horizontal offset 12 px | `--ease-out` | instant |
-| Capsule condense on scroll | 240 ms | `--ease-in-out` | none |
-| Scrubber thumb travel | ≈ 240 ms | `--spring-drop` | instant |
+| Capsule condense on scroll; sticky header thickens its material (pattern §15, scroll-linked, not timed) | 240 ms | `--ease-in-out` | none |
+| Scrubber thumb travel | 280 ms | `springs.snappy` | instant |
 | Heat cells on metric change | 180 ms colour cross-fade, **no stagger** | linear | instant |
 | Toast / undo | sonner default (≤ 300 ms) | — | fade |
 | Zoom step | 180 ms row-height interpolation, anchored at the pointer | `--ease-out` | instant |
@@ -371,13 +373,13 @@ Never animate: the now-line, scroll position (except keyboard `scrollIntoView` w
 - The selection count shows in the inspector header and is announced politely ("6 ders seçildi").
 
 ### 9.2 Drag to move (single or multi), with slot magnetism and live conflict preview
-- Lift: pointer down plus 6 px movement (touch: 250 ms long-press, tolerance 8 px). The original stays at 40 % with a dashed outline; the ghost (DragOverlay) gets elevation 2 and scale 1.02.
+- Lift: pointer down plus 6 px movement (touch: 250 ms long-press, tolerance 8 px). The original stays at 40 % with a dashed outline; the ghost (DragOverlay) gets the deeper shadow and scale 1.03 (motion pattern §7).
 - **Magnetism** (two levels):
-  1. *Edge snap*: the ghost's top edge snaps to the nearest period boundary, and its column to the nearest room/day, once within 12 px (120 ms ease). It never rests between periods.
+  1. *Edge snap*: the ghost's top edge snaps to the nearest period boundary, and its column to the nearest room/day, once within 16 px (`magneticSnap(16)`, motion pattern §7; full pull inside 5 px). It never rests between periods.
   2. *Valid-slot pull*: if the hovered target is invalid, the nearest valid slot **in the same room and day** (search ±3 periods) gets a hairline accent outline labelled "Boş: P10–P12". Releasing with `⌥` held, or pausing 600 ms over the invalid target, moves the ghost there with a 120 ms magnet animation. It never auto-drops; the user still releases.
 - **Live conflict preview** (on every `dragover`, rAF-throttled, < 1 ms pure `checkMove` against the index, §13):
   - Valid target: 2 px accent outline over the target span, and a glass reason capsule under the ghost: "A 101 · Çar P7–P9 · 58 koltuk ✓".
-  - Hard conflict: dashed red outline, capsule "✕ ENG 102 ile çakışıyor (A 101 Çar P8)". The culprit chips get a red ring and pulse once.
+  - Hard conflict: dashed red outline, capsule "✕ ENG 102 ile çakışıyor (A 101 Çar P8)". The culprit chips get a static red ring (no pulse while dragging; the conflict shake plays only on a rejected drop).
   - Soft issue: amber outline, capsule "⚠ 58 koltuk < 102 öğrenci".
   - Checks: room overlap in any of the event's weeks; **instructor** overlap; **cohort** (programme+year) overlap; capacity (lecture or exam); TIP room without release; PC requirement; pre-occupied; locked event; span beyond P18; P12 inside the span (warning).
 - Drop on valid: optimistic move, then the **Move popover** (v1 §4.2: new vs old, scope radio, soft warnings, Kaydet/Geri al; auto-save after 4 s; `Enter`/`Esc`). `⇧`-drop skips the popover and applies to all weeks.
@@ -545,7 +547,7 @@ The Turkish suffix after room codes ('e/'a/'ye) depends on how the code is read 
 5. **Month / Term**: 35–42 and 98–112 cells (up to 4 × 112 with the building split): plain DOM, values from the worker; no virtualisation needed. Tooltips are one shared floating element, not one per cell.
 6. **ARIA with virtualisation**: `aria-rowcount`/`aria-colcount` give the totals, and each rendered cell carries `aria-rowindex`/`aria-colindex`. A roving-focus cursor scrolls the virtualiser before it moves focus, so focus never lands on an unmounted cell.
 7. **Drag**: hit-testing is arithmetic (pointer position, then room/period), never `elementFromPoint`. `checkMove` is pure, runs at most once per animation frame, and costs < 1 ms. Only transforms animate. DragOverlay renders in a portal.
-8. **Glass cost**: at most 5 `backdrop-filter` surfaces on screen at once (3 capsules + sidebar + inspector; popovers are transient). Never on chips, cells or sticky row headers in the strip. The blur radius drops to the liquid-glass.md "low" value while a drag is active to keep 60 fps on integrated GPUs.
+8. **Glass cost**: at most 5 `backdrop-filter` surfaces on screen at once (3 capsules + sidebar + inspector; popovers are transient). Never on chips, cells or sticky row headers in the strip. While a drag is active, the floating chrome swaps `--mat-chrome-filter` (blur 40 px) for `--mat-thin-filter` (blur 16 px) to keep 60 fps on integrated GPUs; the tint stays, so contrast is unchanged.
 9. **Budgets** (measured in CI with a Playwright trace on the Bahar fixture): first chips on screen ≤ 800 ms after data; week switch ≤ 16 ms main-thread; drag frame ≤ 8 ms; Term lens render ≤ 50 ms; worker index build ≤ 150 ms.
 
 ## 14. Density and responsive behaviour
@@ -577,7 +579,7 @@ Density is set in `⋯ › Yoğunluk` and persisted per user; Compact is pointer
   | dark 64 % over violet `#9085e9` | 8.93 | **4.36 ✕** |
   | dark 72 % over violet | 10.39 | 5.07 ✓ |
 
-  Hence §8.2: glass carrying muted text needs ≥ 72 % tint; thin glass (≥ 64 %) carries primary text only. Popovers (forms) use ≥ 80 %.
+  Hence §8.2: glass carrying muted text needs ≥ 72 % tint. Checked against the shipped materials (worst case over the four most saturated faculty hues and over black/white content): `--mat-thick` gives `--fg` 12.93 / `--fg-muted` 5.49 (light) and 10.38 / 5.06 (dark); `--mat-chrome` gives 12.29 / 5.22 (light) and 10.95 / 5.34 (dark); `--mat-regular` fails (muted 3.01 light, 2.36 dark), which is why rule G1 keeps it off content. `node docs/design/v2/verify-contrast.mjs` is the CI gate.
 - **Heat cells** (40 % step over `--bg`): `--fg` on steps 1–5 is 17.26 / 15.57 / 12.56 / 9.86 / 8.28 (light) and 15.75 / 14.14 / 11.05 / 7.87 / 5.63 (dark). `--fg-muted` fails on step 5 (3.51 light, 2.75 dark), so heat cells use `--fg` only.
 - **Non-text contrast**: chip bars are decorative (the code text carries identity). Selection and focus rings are ≥ 3:1 against both the chip fill and the canvas. The now-line red against `--bg`: 3.55:1 light, 5.50:1 dark (≥ 3:1 ✓). The time capsule text: 5.38:1 light (white on `#D70015`) and 5.50:1 dark (`#0B1220` on `#FF453A`).
 - `prefers-reduced-transparency`, `forced-colors: active`, and the in-app **Saydamlığı azalt** setting all switch glass to solid (§8.2). Under forced colours the hatch becomes `1px dashed CanvasText` and chips get a `ButtonText` border.
@@ -691,3 +693,12 @@ Reviewers tick every line before merge; the strict-reviewer agent blocks on any 
 4. Should the Term lens include Final/BÜT weeks by default, or only when the run kind is EXAM?
 5. Multi-move across days (keep relative offsets) or only within a day? This spec allows across days; the conflict preview makes it safe.
 6. Is `force` (move despite a conflict) allowed for PLANNER, or ADMIN only?
+
+## Decisions (orchestrator, 2026-10-08)
+
+1. Default lens: **Board** for planners and admins, **Week** (own programme/instructor) for staff and faculty secretaries.
+2. Confirmed CRBS-style bookings **block the solver** on the next run (they are treated as pre-occupied slots).
+3. `/requests` becomes a **saved view** inside `/classes`; the old route redirects.
+4. Forcing a move despite a conflict is **admin-only**; planners see the conflict and must resolve it.
+5. Edits happen on **drafts**; editing the active/published run creates a child draft that must be published.
+6. The planning-list export **adds** a "SmartSched Derslik" column next to "Kesinleşen Derslik" and never overwrites the planner's column.

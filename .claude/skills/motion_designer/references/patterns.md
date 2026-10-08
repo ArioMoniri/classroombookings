@@ -153,7 +153,7 @@ export function Segmented<T extends string>(props: {
                 <motion.span
                   layoutId="segmented-pill"
                   aria-hidden
-                  className="glass-thick absolute inset-0 -z-10"
+                  className="glass-thick pointer-events-none absolute inset-0 -z-10"
                   style={{ borderRadius: 999 }}
                   transition={reduce ? { duration: 0 } : springs.glassMorph}
                 />
@@ -226,7 +226,7 @@ export function GlassTabBar(props: { tabs: readonly Tab[]; active: string; scrol
                 <motion.span
                   layoutId="tab-pill"
                   aria-hidden
-                  className="glass-thick absolute inset-0 -z-10"
+                  className="glass-thick pointer-events-none absolute inset-0 -z-10"
                   style={{ borderRadius: 999 }}
                   transition={morph}
                 />
@@ -341,7 +341,7 @@ export function DetentSheet(props: { open: boolean; onClose: () => void; labelle
       dragMomentum={false}
       onDragEnd={onDragEnd}
     >
-      <motion.div aria-hidden className="surface-solid absolute inset-0 -z-10 rounded-[inherit]" style={{ opacity: solidity }} />
+      <motion.div aria-hidden className="surface-solid pointer-events-none absolute inset-0 -z-10 rounded-[inherit]" style={{ opacity: solidity }} />
       <button
         type="button"
         aria-label={detent === 0 ? "Expand sheet" : "Collapse sheet"}
@@ -577,7 +577,7 @@ export function LiftedGhost({ children }: { children: ReactNode }) {
     >
       <motion.div
         aria-hidden
-        className="absolute inset-0 -z-10 rounded-[inherit] shadow-[0_12px_32px_-8px_rgb(0_0_0/0.35)]"
+        className="pointer-events-none absolute inset-0 -z-10 rounded-[inherit] shadow-[0_12px_32px_-8px_rgb(0_0_0/0.35)]"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.12 }}
@@ -989,17 +989,17 @@ export function GlassHeader(props: { scrollRef: RefObject<HTMLElement | null>; h
   return (
     <header className="sticky top-0 z-30 isolate" data-scrolled={scrolled}>
       {/* constant backdrop-filter: one blur pass, never animated */}
-      <div aria-hidden className="glass absolute inset-0 -z-20" />
+      <div aria-hidden className="glass pointer-events-none absolute inset-0 -z-20" />
       <motion.div
         aria-hidden
-        className={`glass-thick absolute inset-0 -z-10 ${hard ? "" : "[mask-image:linear-gradient(to_bottom,black_70%,transparent)]"}`}
+        className={`glass-thick pointer-events-none absolute inset-0 -z-10 ${hard ? "" : "[mask-image:linear-gradient(to_bottom,black_70%,transparent)]"}`}
         style={{ opacity: reduce ? undefined : tint }}
         animate={reduce ? { opacity: scrolled ? 1 : 0 } : undefined}
         transition={tween.fadeIn}
       />
       <motion.div
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-px bg-[var(--border)]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[var(--border)]"
         style={{ opacity: reduce ? (scrolled ? 1 : 0) : hairline }}
       />
       {children}
@@ -1162,7 +1162,7 @@ export function PaletteRow(props: { selected: boolean; children: ReactNode }) {
         <motion.span
           layoutId="palette-row"
           aria-hidden
-          className="glass-thick absolute inset-0 -z-10"
+          className="glass-thick pointer-events-none absolute inset-0 -z-10"
           style={{ borderRadius: 10 }}
           transition={reduce ? { duration: 0 } : springs.snappy}
         />
@@ -1196,7 +1196,7 @@ export function RunIsland(props: { expanded: boolean; onToggle: () => void; comp
       layout
       transition={morph}
       style={{ borderRadius: expanded ? 24 : 999 }}
-      className="glass overflow-hidden"
+      className={`glass overflow-hidden ${expanded ? "w-[min(360px,calc(100vw-2rem))]" : "w-fit"}`}
     >
       <button type="button" aria-expanded={expanded} onClick={onToggle} className="block w-full text-left">
         <AnimatePresence initial={false} mode="popLayout">

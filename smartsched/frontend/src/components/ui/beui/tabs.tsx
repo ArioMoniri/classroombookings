@@ -1,7 +1,8 @@
 "use client";
 // Source: https://beui.dev (components/motion/tabs.tsx) via shadcn registry @beui/tabs — https://github.com/starc007/ui-components
 // Licence: MIT, Copyright (c) 2026 Saurabh Chauhan (full text: src/components/ui/LICENSES/beui-MIT.txt)
-// Modified: yes — import paths re-pointed to src/components/ui/beui/*
+// Modified: yes — import paths re-pointed to src/components/ui/beui/*; TabsTrigger gains `labelClassName`
+// (colour of the clipped active label, needed for a light glass thumb) — marked "SmartSched:" below.
 // beui.dev/components/motion/tabs
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -266,11 +267,14 @@ export function TabsTrigger({
   children,
   className,
   indicatorClassName,
+  labelClassName,
   onClick,
   ...props
 }: {
   value: string;
   indicatorClassName?: string;
+  /** SmartSched: class for the clipped active-label layer (default text-primary-foreground) */
+  labelClassName?: string;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "value">) {
   const { value: current, setValue, layoutId, variant } = useTabs();
   const active = current === value;
@@ -348,7 +352,7 @@ export function TabsTrigger({
           data-tabs-label=""
           aria-hidden="true"
           inert
-          className="pointer-events-none absolute inset-0 inline-flex items-center justify-center text-primary-foreground [gap:inherit] [padding:inherit]"
+          className={cn("pointer-events-none absolute inset-0 inline-flex items-center justify-center text-primary-foreground [gap:inherit] [padding:inherit]", labelClassName)}
           style={{ clipPath: initialClip }}
         >
           {children}
