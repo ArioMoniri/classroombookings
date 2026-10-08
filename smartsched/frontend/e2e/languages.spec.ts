@@ -60,7 +60,7 @@ async function pickLanguage(page: Page, code: "de" | "fr", name: string) {
   const option = page.getByTestId(`locale-option-${code}`);
   await expect(option).toContainText(name);
   // CRBS translates only part of SmartSched: the picker says so, with the share
-  await expect(page.getByTestId(`locale-partial-${code}`)).toHaveText(/\d+\s?%/);
+  await expect(page.getByTestId(`locale-partial-${code}`)).toHaveText(/\d+\s?%|%\s?\d+/); // "1 %" (de, fr), "%1" (tr)
   await option.click();
   await expect(page.locator("html")).toHaveAttribute("lang", code);
 }
