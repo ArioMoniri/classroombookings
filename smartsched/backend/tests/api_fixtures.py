@@ -34,3 +34,22 @@ async def login(client: AsyncClient, email: str = "admin@example.com", password:
     r = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+async def add_one_request(term_id: int) -> int:
+    """One fixed-time meeting request, so a run of the term has something to schedule (an empty scope ends
+    as FAILED ``empty_scope`` before any solver is called)."""
+    from app.core.db import get_session_factory
+    from app.models import Course, MeetingRequest, Section
+
+    async with get_session_factory()() as s:
+        course = Course(code="JOB101", display_code="JOB 101")
+        s.add(course)
+        await s.flush()
+        sec = Section(term_id=term_id, course_id=course.id, enrolment=10, source_key=f"job-{term_id}")
+        s.add(sec)
+        await s.flush()
+        mr = MeetingRequest(section_id=sec.id, day=1, days=[1], start_period=1, end_period=2, weeks=[1])
+        s.add(mr)
+        await s.commit()
+        return mr.id

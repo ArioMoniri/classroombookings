@@ -10,6 +10,7 @@ import type { Unparsed } from "@/lib/api/studio-schemas";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useStudio, useStudioStore } from "./studio-context";
+import { pairLang } from "@/lib/i18n";
 
 const CHIPS: MessageKey[] = ["studio.write.chip.tip", "studio.write.chip.evening", "studio.write.chip.sameRoom", "studio.write.chip.fit", "studio.write.chip.pharmacy", "studio.write.chip.nursing", "studio.write.chip.a204", "studio.write.chip.examGap"];
 
@@ -49,7 +50,7 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await api.studio.elicit(termId, text, locale);
+      const res = await api.studio.elicit(termId, text, pairLang(locale));
       const stamp = Date.now();
       store.getState().addTray(res.proposals.filter((p) => p.status !== "rejected").map((proposal, i) => ({ key: `nl-${stamp}-${i}`, origin: "nl" as const, state: "pending" as const, type: "rule" as const, proposal })));
       store.getState().addTray(res.section_edits.map((edit, i) => ({ key: `nle-${stamp}-${i}`, origin: "nl" as const, state: "pending" as const, type: "edit" as const, edit })));

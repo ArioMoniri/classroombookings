@@ -116,6 +116,9 @@ BOOKINGS_SPECS: dict[str, Spec] = {
         #     "cancel" = cancelled with a reason at once (CRBS deletes them), "confirm" = the change is refused
         #     with the list until it is repeated with ?confirm=true.
         Spec("term_date_change", default="cancel"),
+        # P7 (beyond CRBS): a booking create / move / cancel can be undone within this many hours (or until the
+        #     booking starts), as long as nothing changed it since (POST /audit/{id}/undo).
+        Spec("audit_undo_hours", "int", 24),
     )
 }
 GROUPS = {"org": ORG_SPECS, "ldap": LDAP_SPECS, "smtp": SMTP_SPECS, "bookings": BOOKINGS_SPECS}

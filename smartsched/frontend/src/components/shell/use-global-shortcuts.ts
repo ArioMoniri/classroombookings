@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { LOCALES } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useUiStore } from "@/stores/ui";
 import { ALL_NAV_ITEMS } from "./nav-config";
@@ -16,7 +15,7 @@ function isEditable(target: EventTarget | null): boolean {
 /** ⌘K palette · ⌘B sidebar · g+<key> navigation · t theme · l language · ? shortcuts */
 export function useGlobalShortcuts() {
   const router = useRouter();
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, languages } = useI18n();
   const cycleTheme = useCycleTheme();
   const pending = useRef<number | null>(null);
   useEffect(() => {
@@ -51,7 +50,7 @@ export function useGlobalShortcuts() {
           cycleTheme();
           break;
         case "l":
-          setLocale(LOCALES[(LOCALES.indexOf(locale) + 1) % LOCALES.length]);
+          setLocale(languages[(languages.indexOf(locale) + 1) % languages.length]!);
           router.refresh();
           break;
         case "?":
@@ -63,5 +62,5 @@ export function useGlobalShortcuts() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [router, locale, setLocale, cycleTheme]);
+  }, [router, locale, setLocale, languages, cycleTheme]);
 }

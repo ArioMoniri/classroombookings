@@ -15,6 +15,7 @@ import { defaultParams, missingRequired, plainSentence, readField, tokens, write
 import { SlotChip, SlotEditor } from "./slot-picker";
 import { useStudio } from "./studio-context";
 import { useRuleActions } from "./use-rule-actions";
+import { pairLang } from "@/lib/i18n";
 
 const TOPICS = ["rooms", "times", "buildings", "programmes", "exams"] as const;
 type Topic = (typeof TOPICS)[number];
@@ -66,7 +67,7 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
   return (
     <>
         <DialogHeader>
-          <DialogTitle>{chosen ? chosen.title[locale] : t("studio.add.template")}</DialogTitle>
+          <DialogTitle>{chosen ? chosen.title[pairLang(locale)] : t("studio.add.template")}</DialogTitle>
           <DialogDescription>{chosen ? t("studio.builder.help") : t("studio.gallery.help")}</DialogDescription>
         </DialogHeader>
         {chosen ? (
@@ -90,9 +91,9 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
                   <li key={tpl.id}>
                     <button type="button" onClick={() => setChosen(tpl)} className="flex h-full w-full flex-col items-start gap-1.5 rounded-lg border bg-card p-3 text-left hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50" data-testid={`template-${tpl.id}`}>
                       <span className="flex items-center gap-2 font-medium">
-                        <Icon className="size-4 text-tint-text" aria-hidden /> {tpl.title[locale]}
+                        <Icon className="size-4 text-tint-text" aria-hidden /> {tpl.title[pairLang(locale)]}
                       </span>
-                      <span className="text-xs text-label-2">{tpl.sentence[locale].replace(/[[\]]/g, "").replace(/\{(\w+)\}/g, "…")}</span>
+                      <span className="text-xs text-label-2">{tpl.sentence[pairLang(locale)].replace(/[[\]]/g, "").replace(/\{(\w+)\}/g, "…")}</span>
                       <span className="text-[11px] text-label-2">{tpl.default_hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
                     </button>
                   </li>
@@ -182,7 +183,7 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
             </div>
           ))}
       </div>
-      {template.note ? <p className="rounded-md bg-fill-2/60 px-2.5 py-1.5 text-xs text-label-2">{template.note[locale]}</p> : null}
+      {template.note ? <p className="rounded-md bg-fill-2/60 px-2.5 py-1.5 text-xs text-label-2">{template.note[pairLang(locale)]}</p> : null}
       <HardnessControl hardness={hardness} weight={weight} allowed={template.allowed_hardness} onHardness={setHardness} onWeight={setWeight} scale={meta?.weight_scale} advanced={advanced} idPrefix="builder" />
       {missing.length ? <p className="text-xs text-status-warning-fg">{t("studio.builder.missing", { fields: missing.map((f) => t(FIELD_KEY[f.name] ?? "studio.slot.value")).join(", ") })}</p> : null}
       <div className="flex flex-wrap justify-between gap-2">

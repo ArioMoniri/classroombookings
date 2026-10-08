@@ -10,7 +10,6 @@ import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, Comma
 import { KbdHint } from "@/components/ui/kbd-hint";
 import { useRooms, useRuns } from "@/lib/api/hooks";
 import { normaliseQuery, usePermissions, useShellSearch } from "@/lib/api/shell-extra";
-import { LOCALES } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
 import { useUiStore } from "@/stores/ui";
@@ -61,7 +60,7 @@ export function CommandPalette() {
   const listReady = useDeferredValue(open);
   const setOpen = useUiStore((s) => s.setPaletteOpen);
   const router = useRouter();
-  const { t, locale, setLocale } = useI18n();
+  const { t, locale, setLocale, languages } = useI18n();
   const cycleTheme = useCycleTheme();
   const { term } = useActiveTerm();
   const { can } = usePermissions();
@@ -95,7 +94,7 @@ export function CommandPalette() {
   const gotos = actionsOnly ? [] : visibleNavGroups(can).flatMap((g) => g.items).filter((i) => matches(text, t(i.labelKey), i.href));
   const prefs = [
     { value: "pref-theme", icon: Monitor, label: t("palette.toggleTheme"), keys: ["T"], run: () => { cycleTheme(); setOpen(false); }, words: "theme tema dark light koyu açık" },
-    { value: "pref-lang", icon: Languages, label: t("palette.toggleLang"), keys: ["L"], run: () => { setLocale(LOCALES[(LOCALES.indexOf(locale) + 1) % LOCALES.length]); router.refresh(); setOpen(false); }, words: "language dil türkçe english" },
+    { value: "pref-lang", icon: Languages, label: t("palette.toggleLang"), keys: ["L"], run: () => { setLocale(languages[(languages.indexOf(locale) + 1) % languages.length]!); router.refresh(); setOpen(false); }, words: "language dil türkçe english" },
   ].filter((p) => matches(text, p.label, p.words));
 
   const results = live ? search.data : undefined;

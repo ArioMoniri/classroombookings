@@ -7,7 +7,7 @@
     "programs": "Programs", "instructors": "Instructors", "settings": "Settings", "users": "Users",
     "collapse": "Collapse sidebar", "expand": "Expand sidebar", "menu": "Open menu",
     "search": "Search…", "searchHint": "⌘K", "notifications": "Notifications", "account": "Account",
-    "logout": "Log out", "theme": "Theme", "language": "Language", "needsReview": "{count} need review",
+    "logout": "Log out", "theme": "Theme", "language": "Language", "languagePartial": "Partial translation · {pct}", "languagePartialHint": "Texts without a translation are shown in English.", "needsReview": "{count} need review",
     "running": "{count} running", "term": "Term", "switchTerm": "Switch term", "switched": "Switched to {term}"
   },
   "theme": { "system": "System", "light": "Light", "dark": "Dark" },

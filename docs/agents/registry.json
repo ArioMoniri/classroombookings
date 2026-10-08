@@ -278,6 +278,30 @@
       "ledger": "backend-engineer (wave C part 1)",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a5ade7a96d2030d5f",
+      "description": "Reservation panel UX (user request)",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 15:32",
+      "scope": "",
+      "goal": "a direct user request for the booking (reservation) panel at /bookings. The user's words: \"reservable time slots should be in reservation panel to click n reserve n dept separated google etc sync n class details of other available class on reservation panel\". Build all four on the existing CRBS-parity booking screens in smartsched/frontend/src/components/bookings/ (booking-grid.tsx, bookings-view.…",
+      "ledger": "frontend-engineer (reservation panel)",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a55b7ba9e56f93e17",
+      "description": "Calendar sync backend (Google/Outlook)",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 15:32",
+      "scope": "",
+      "goal": "Google, Outlook and other calendar sync for SmartSched bookings, a direct user request. Read the integrations decision at the end of docs/product/booking-enhancements.md (\"Integrations engine (decision 2026-10-08)\") and §4.5 A3 / T6, then follow it: native connectors first, webhooks, optional Activepieces. The KVKK sync switch is on but switchable (user decision). Work test-first on real fixtures …",
+      "ledger": "backend-engineer (calendar sync)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

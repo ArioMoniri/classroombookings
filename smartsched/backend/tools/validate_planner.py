@@ -182,6 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--params", default="{}", help='extra run params as JSON, e.g. {"definitive_rooms": "prefer"}')
     ap.add_argument("--cache-dir", type=Path, help="keep the imported term databases here (reused when present)")
     ap.add_argument("--out", type=Path, help="append the JSON lines to this file")
+    ap.add_argument("--fixtures", type=Path, default=FIXTURES, help="the workbooks + room_master.csv")
     ap.add_argument("--keep-db", type=Path, help="copy each solved run's database into this directory")
     args = ap.parse_args(argv)
     _env()
@@ -195,7 +196,10 @@ def main(argv: list[str] | None = None) -> int:
             term = INSTANCES[name].term
             base = cache / f"{term}.db"
             if not base.exists():
-                asyncio.run(import_term(base, term))
+                part = cache / f"{term}.importing.db"
+                part.unlink(missing_ok=True)
+                asyncio.run(import_term(part, term, args.fixtures))
+                part.replace(base)  # a failed import never leaves a half-built cache behind
             work = tmp / f"{name}.db"
             shutil.copyfile(base, work)
             res = asyncio.run(

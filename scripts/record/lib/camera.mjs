@@ -3,7 +3,7 @@
 
 export const DEFAULTS = {
   fps: 30,
-  maxZoom: 1.8, // Recordly depth 3
+  maxZoom: 1.6, // between Recordly depth 2 and 3: text stays sharp on a 1440 px capture
   fill: 0.5, // a click target may fill this share of the frame (width or height)
   minZoom: 1.18, // smaller zooms are not worth the motion: stay on the overview
   leadMs: 550, // the camera starts moving this long before the action

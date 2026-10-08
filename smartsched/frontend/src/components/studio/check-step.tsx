@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { estimateWords } from "./studio-reducer";
 import { useStudio } from "./studio-context";
 import { useApplyFix } from "./use-fixes";
+import { pairLang } from "@/lib/i18n";
 
 const READY_KEY: Record<Readiness | "unknown" | "checking", MessageKey> = {
   ready: "studio.check.ready",
@@ -68,9 +69,9 @@ export function IssueCard({ item, onFixed }: { item: PrecheckItem; onFixed?: () 
     <article tabIndex={-1} data-issue-id={item.id} aria-labelledby={`issue-${item.id}`} className="rounded-[var(--radius-md)] border bg-card p-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50" data-testid="issue-card" data-severity={item.severity}>
       <h4 id={`issue-${item.id}`} className={cn("flex items-start gap-1.5 font-medium", tone)}>
         <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
-        <span className="text-foreground">{item.title[locale] || item.title.en}</span>
+        <span className="text-foreground">{item.title[pairLang(locale)] || item.title.en}</span>
       </h4>
-      <p className="mt-1 pl-5.5 text-label-2">{item.message[locale] || item.message.en}</p>
+      <p className="mt-1 pl-5.5 text-label-2">{item.message[pairLang(locale)] || item.message.en}</p>
       {item.fixes.length ? (
         <div className="mt-2 flex flex-wrap gap-1.5 pl-5.5">
           {item.fixes.map((f) => {
@@ -90,7 +91,7 @@ export function IssueCard({ item, onFixed }: { item: PrecheckItem; onFixed?: () 
                 data-testid="fix-button"
               >
                 {running ? <Loader2 className="animate-spin" aria-hidden /> : null}
-                {f.label[locale] || f.label.en}
+                {f.label[pairLang(locale)] || f.label.en}
               </Button>
             );
           })}
@@ -130,7 +131,7 @@ export function CheckStep() {
       else heading.current?.focus();
     });
 
-  const human = summaryData?.human_summary[locale];
+  const human = summaryData?.human_summary[pairLang(locale)];
 
   return (
     <div className="space-y-4" data-testid="check-step">
@@ -141,7 +142,7 @@ export function CheckStep() {
           </h3>
           <ReadinessMeter readiness={summary.readiness} />
           <p className="mt-2 text-sm" aria-live="polite">
-            {precheck ? precheck.summary[locale] : null}
+            {precheck ? precheck.summary[pairLang(locale)] : null}
           </p>
           {precheckError ? (
             <p role="alert" className="mt-2 text-sm text-status-warning-fg">
@@ -179,7 +180,7 @@ export function CheckStep() {
             ) : (
               groups.map((g) => {
                 const shown = open[g.group] ?? (many ? (g.items.length > 3 ? 0 : g.items.length) : g.items.length);
-                const head = g.meta?.title?.[locale];
+                const head = g.meta?.title?.[pairLang(locale)];
                 return (
                   <section key={g.group} aria-label={g.group} className="space-y-2" data-testid="issue-group">
                     {many || g.items.length > 3 ? (

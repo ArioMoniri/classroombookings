@@ -1,5 +1,13 @@
 """ORM models. Import this package to register all tables on ``Base.metadata``."""
 
+from app.models.approvals import (
+    ApprovalDecision,
+    ApprovalRequest,
+    ApprovalRule,
+    ApproverScope,
+    InAppNotification,
+)
+from app.models.audit import AuditEvent
 from app.models.base import Base
 from app.models.booking import (
     Booking,
@@ -42,7 +50,12 @@ from app.models.studio import ImportedSnapshot, StudioDraft, StudioPreset
 from app.models.system import ImportJob, Setting, User
 
 __all__ = [
+    "ApprovalDecision",
+    "ApprovalRequest",
+    "ApprovalRule",
+    "ApproverScope",
     "Assignment",
+    "AuditEvent",
     "Base",
     "Block",
     "Booking",
@@ -60,6 +73,7 @@ __all__ = [
     "Holiday",
     "ImportJob",
     "ImportedSnapshot",
+    "InAppNotification",
     "Instructor",
     "MeetingRequest",
     "MultiBooking",

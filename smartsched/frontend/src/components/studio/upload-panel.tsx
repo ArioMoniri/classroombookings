@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { MappingStep } from "./mapping-step";
 import { useStudio } from "./studio-context";
 import type { TrayItem } from "./studio-store";
+import { pairLang } from "@/lib/i18n";
 
 export const ACCEPT = [".xlsx", ".xlsm", ".csv", ".docx", ".pdf", ".txt", ".md"];
 export const MAX_FILES = 10;
@@ -82,7 +83,7 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
     async (id: string, file: File) => {
       patch(id, { stage: "uploading", percent: 0, message: undefined });
       try {
-        const res = await api.studio.uploadPreferences(termId, file, locale, (p) => patch(id, { stage: p.stage, percent: p.percent }));
+        const res = await api.studio.uploadPreferences(termId, file, pairLang(locale), (p) => patch(id, { stage: p.stage, percent: p.percent }));
         ingest(id, file, res);
       } catch (e) {
         if (e instanceof HttpError && e.status === 409) {
@@ -120,7 +121,7 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
     const file = new File([paste], t("studio.upload.pasted"), { type: "text/plain" });
     setRows((rs) => [...rs, { id, file, stage: "reading", percent: 100 }]);
     try {
-      const res = await api.studio.elicit(termId, paste, locale);
+      const res = await api.studio.elicit(termId, paste, pairLang(locale));
       ingest(id, file, res);
       setPaste("");
     } catch (e) {
@@ -240,8 +241,8 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
                 <div className="mt-2">
                   <MappingStep
                     filename={r.file.name}
-                    load={() => api.studio.mapping(termId, r.file, locale) as Promise<MappingColumns>}
-                    submit={(spec: MappingSpec) => api.studio.mapping(termId, r.file, locale, spec) as Promise<MappingProposals>}
+                    load={() => api.studio.mapping(termId, r.file, pairLang(locale)) as Promise<MappingColumns>}
+                    submit={(spec: MappingSpec) => api.studio.mapping(termId, r.file, pairLang(locale), spec) as Promise<MappingProposals>}
                     onDone={(res) => ingest(r.id, r.file, res)}
                     onCancel={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}
                   />

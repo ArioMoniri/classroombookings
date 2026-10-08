@@ -352,13 +352,13 @@ def build(crbs: Path = CRBS, messages: Path = MESSAGES) -> Result:
     for lang in LANGUAGES:
         cat: dict[str, str] = {}
         for ss_key, crbs_key in mapping.items():
-            text = sources[lang.code].get(crbs_key)
-            if text is None or not norm(text):
+            found = sources[lang.code].get(crbs_key)
+            if found is None or not norm(found):
                 continue
-            if placeholders(text) != placeholders(en[ss_key]):
+            if placeholders(found) != placeholders(en[ss_key]):
                 rejected.setdefault(lang.code, []).append(ss_key)
                 continue
-            cat[ss_key] = norm(text)
+            cat[ss_key] = norm(found)
         catalogues[lang.code] = cat
     return Result(english, sources, mapping, catalogues, len(en), order, rejected, stale)
 

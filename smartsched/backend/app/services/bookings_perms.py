@@ -53,12 +53,22 @@ SMARTSCHED_PERMISSIONS: tuple[tuple[str, str], ...] = (
     ("planning.edit", "Import, edit requests and rules, generate and publish timetables"),
     ("planning.admin", "Planning administration: AI settings, built-in rules"),
 )
-ALL_PERMISSIONS: tuple[tuple[str, str], ...] = CRBS_PERMISSIONS + SMARTSCHED_PERMISSIONS
+#: booking enhancements wave 1 (docs/product/booking-enhancements.md, ROADMAP Phase 17): beyond CRBS. Only the
+#: Administrator role holds them by default, so a CRBS installation behaves as before until they are granted.
+WAVE1_PERMISSIONS: tuple[tuple[str, str], ...] = (
+    ("rooms.features", "Manage the room feature catalogue and the rooms' feature values"),
+    ("audit.view", "View the audit log of every change"),
+    ("approvals.decide", "Approve or reject booking requests (as a designated approver)"),
+    ("book_single.request", "Request single bookings that an approver confirms"),
+    ("book_recur.request", "Request recurring bookings that an approver confirms"),
+)
+ALL_PERMISSIONS: tuple[tuple[str, str], ...] = CRBS_PERMISSIONS + SMARTSCHED_PERMISSIONS + WAVE1_PERMISSIONS
 PERMISSION_NAMES: frozenset[str] = frozenset(n for n, _ in ALL_PERMISSIONS)
 
-GROUP_ORDER = ("system", "setup", "planning", "room", "book_single", "book_recur")
+GROUP_ORDER = ("system", "setup", "planning", "rooms", "audit", "approvals", "room", "book_single", "book_recur")
 ACTION_ORDER = (
     "create",
+    "request",
     "edit_other_booking",
     "cancel_other_booking",
     "set_user",
@@ -102,7 +112,7 @@ ROLE_DEFAULTS: dict[str, dict[str, Any]] = {
             "system.bypass_maintenance_mode",
             "room.view",
         }
-        | _book(*ACTION_ORDER),
+        | _book(*(a for a in ACTION_ORDER if a != "request")),
     },
     "VIEWER": {
         "name": "Viewer",

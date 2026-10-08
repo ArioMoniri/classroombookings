@@ -12,12 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, useShake } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, useOrgPublic, useProfile, type Profile } from "@/lib/api/crbs";
-import { isLocale } from "@/lib/i18n";
+import { LOCALE_INFO, isLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, Field, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
 
-const LANG_LABEL: Record<string, string> = { tr: "Türkçe", en: "English" };
+/** language names in themselves (the 14 shipped languages) */
+const langLabel = (code: string | null | undefined) => (code && isLocale(code) ? LOCALE_INFO[code].name : (code ?? ""));
 
 export function ProfileView() {
   const { t } = useI18n();
@@ -87,10 +88,10 @@ function ProfileForm({ data }: { data: Profile }) {
             </Field>
             <Field label={t("crbs.profile.language")} htmlFor="pf-lang" hint={t("crbs.profile.languageHint")}>
               <SelectField id="pf-lang" value={f.language} onChange={(e) => set("language", e.target.value)} data-testid="profile-language">
-                <option value="">{t("crbs.profile.orgDefault", { lang: LANG_LABEL[org.data?.default_language ?? "tr"] ?? org.data?.default_language ?? "" })}</option>
+                <option value="">{t("crbs.profile.orgDefault", { lang: langLabel(org.data?.default_language ?? "tr") })}</option>
                 {languages.map((l) => (
-                  <option key={l} value={l}>
-                    {LANG_LABEL[l] ?? l}
+                  <option key={l} value={l} lang={l}>
+                    {langLabel(l)}
                   </option>
                 ))}
               </SelectField>

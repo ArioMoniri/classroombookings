@@ -219,6 +219,14 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - Status updates to the user are written BLUF (bottom line up front).
 - **No privilege escalation** (stricter than classroombookings, confirmed): nobody may grant a role, manage an account, or create/edit/delete a role whose permissions they do not all hold themselves; Administrator holds every permission and is unaffected. Implemented in `app/services/bookings_perms.py` (`may_grant_role`, `missing_permissions`) and `app/api/v1/{users,roles}.py`; tests in `tests/test_crbs_fixes_org.py`.
 
+### Reservation panel (user request 2026-10-08)
+
+"Reservable time slots should be in the reservation panel to click and reserve; department-separated; Google etc. sync; class details of other available classrooms on the reservation panel."
+- [ ] Click-to-reserve free slots (visible free state, why-not reasons, multi-period span, "Free slots" list lens; default on phones).
+- [ ] Department-separated view (department tabs/filter, colour legend, own department first).
+- [ ] Calendar sync: tokenised ICS subscription feeds (mine / room / department / room group) for Google, Outlook, Apple; optional Google Calendar + Microsoft 365 push when an admin configures OAuth clients; signed outgoing webhooks (Activepieces/n8n-ready).
+- [ ] Room details panel with capacity, features, today's bookings, next free slot and "other available rooms" at the same time with one-click reserve (uses T1 find-a-room).
+
 ### Phase 17 — Booking enhancements wave 1 (from docs/product/booking-enhancements.md)
 
 Foundation, in order: typed room features → find a room → notification hub → audit log + undo → approvals (TIP rooms, labs, amphitheatres, exam halls) → conflict resolver after publishing → booking policies → public day view → KVKK (retention, consent, export/delete). Waves 2–3 (availability portal ~6 weeks before term, check-in + door-sign kiosk + auto-release, invigilators, what-ifs, two-way calendar sync, API/webhooks, multi-campus) follow. Open questions for the user are listed in the doc §5.

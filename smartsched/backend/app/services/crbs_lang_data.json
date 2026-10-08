@@ -59,7 +59,7 @@
       },
       "short": "dd. MM. yyyy",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     },
     "cy": {
       "name": "Cymraeg",
@@ -119,7 +119,7 @@
       },
       "short": "dd/MM/yyyy",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     },
     "da": {
       "name": "Dansk",
@@ -179,7 +179,7 @@
       },
       "short": "dd.MM.yyyy",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     },
     "de": {
       "name": "Deutsch",
@@ -239,7 +239,7 @@
       },
       "short": "dd.MM.yyyy",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     },
     "es": {
       "name": "Español",
@@ -299,7 +299,7 @@
       },
       "short": "dd/MM/yyyy",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     },
     "fi": {
       "name": "Suomi",
@@ -359,7 +359,7 @@
       },
       "short": "dd.MM.yyyy",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     },
     "fr": {
       "name": "Français",
@@ -419,7 +419,7 @@
       },
       "short": "dd/MM/yyyy",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     },
     "it": {
       "name": "Italiano",
@@ -479,7 +479,7 @@
       },
       "short": "dd/MM/yyyy",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     },
     "nl": {
       "name": "Nederlands",
@@ -539,7 +539,7 @@
       },
       "short": "dd-MM-yyyy",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     },
     "pt": {
       "name": "Português",
@@ -599,7 +599,7 @@
       },
       "short": "dd/MM/yyyy",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     },
     "pt-br": {
       "name": "Português (Brasil)",
@@ -659,7 +659,7 @@
       },
       "short": "dd/MM/yyyy",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     },
     "sv": {
       "name": "Svenska",
@@ -719,7 +719,7 @@
       },
       "short": "yyyy-MM-dd",
       "translated": 34,
-      "total": 2554
+      "total": 2556
     }
   }
 }

@@ -16,6 +16,7 @@ import { useStudio } from "./studio-context";
 import type { EffectiveRule } from "./studio-reducer";
 import { useApplyFix } from "./use-fixes";
 import { useRuleActions } from "./use-rule-actions";
+import { pairLang } from "@/lib/i18n";
 
 /** Flash-outline another card ("Show both"). */
 export function flashCard(domId: string, reduce: boolean) {
@@ -131,9 +132,9 @@ export function TermRuleCard({ eff, clash, compact }: { eff: EffectiveRule; clas
         clash={
           clash
             ? {
-                other: otherRule ? plainRuleText(meta, otherRule.kind, otherRule.params, otherRule.nl_text, sentence) : clash.message[locale],
+                other: otherRule ? plainRuleText(meta, otherRule.kind, otherRule.params, otherRule.nl_text, sentence) : clash.message[pairLang(locale)],
                 onShowBoth: otherRule ? () => flashCard(`rule-${otherRule.id}`, reduce) : undefined,
-                fixes: clash.fixes.slice(0, 2).map((f) => ({ label: f.label[locale] || f.label.en, run: () => void fixes.apply(clash, f) })),
+                fixes: clash.fixes.slice(0, 2).map((f) => ({ label: f.label[pairLang(locale)] || f.label.en, run: () => void fixes.apply(clash, f) })),
               }
             : null
         }

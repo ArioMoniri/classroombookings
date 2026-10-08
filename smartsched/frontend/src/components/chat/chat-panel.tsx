@@ -18,6 +18,7 @@ import { useReduce } from "@/lib/motion";
 import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
+import { pairLang } from "@/lib/i18n";
 
 const STARTERS = { tr: ["BME 419'u A 204'e taşı", "MAT 112'yi salı öğleden sonraya al", "İkinci öğretim B blokta kalsın"], en: ["Move BME 419 to A 204", "Move MAT 112 to Tuesday afternoon", "Keep evening classes in building B"] };
 
@@ -210,7 +211,7 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
           placeholder={t("chat.placeholder")}
           label={t("chat.placeholder")}
           sendLabel={t("chat.send")}
-          suggestions={messages.length === 0 && !noKey ? STARTERS[locale] : undefined}
+          suggestions={messages.length === 0 && !noKey ? STARTERS[pairLang(locale)] : undefined}
         />
       </div>
     </section>

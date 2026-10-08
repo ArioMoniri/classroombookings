@@ -6,6 +6,7 @@ import { ReadinessMeter, useEstimateText } from "./check-step";
 import { GenerateButton, KeepSmallToggle, useHumanSummary } from "./generate-step";
 import { RunCard } from "./run-cards";
 import { useStudio, useStudioStore } from "./studio-context";
+import { pairLang } from "@/lib/i18n";
 
 /** "What will happen": sentence summary, six mini stats, readiness + top issues, estimate, Generate. */
 export function SummaryPanel({ className, showGenerate = true }: { className?: string; showGenerate?: boolean }) {
@@ -49,7 +50,7 @@ export function SummaryPanel({ className, showGenerate = true }: { className?: s
             {summary.topIssues.map((i) => (
               <li key={i.id}>
                 <button type="button" className="text-left text-label-2 hover:text-label-1 hover:underline" onClick={() => goStep("check")}>
-                  · {i.title[locale] || i.title.en}
+                  · {i.title[pairLang(locale)] || i.title.en}
                 </button>
               </li>
             ))}

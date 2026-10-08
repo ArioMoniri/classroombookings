@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { crbs, crbsError, useCrbsMutation, useDatePatternOptions, useOrgSettings, useTranslations, type OrgSettings, type OrgSettingsIn } from "@/lib/api/crbs";
+import { LOCALES, LOCALE_INFO, coverage } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { dateFormatter } from "@/components/bookings/date-format";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
@@ -24,10 +25,8 @@ import { WhatsNewPanel } from "./whats-new";
 
 const KEYS = [["crbs", "org-settings"], ["crbs", "org-public"], ["crbs", "context"], ["crbs", "grid"], ["crbs", "roles"]];
 const TIMEZONES = ["Europe/Istanbul", "Europe/London", "Europe/Berlin", "UTC", "Asia/Baku", "Asia/Dubai", "America/New_York"];
-const LANGS = [
-  { code: "tr", label: "Türkçe" },
-  { code: "en", label: "English" },
-];
+/** the 14 shipped languages (Turkish, English, the 12 other CRBS languages), named in themselves */
+const LANGS = LOCALES.map((code) => ({ code, label: LOCALE_INFO[code].name, partial: coverage(code) }));
 
 export function OrgSettingsView() {
   const { t } = useI18n();
@@ -38,7 +37,7 @@ export function OrgSettingsView() {
 }
 
 function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } }) {
-  const { t, locale } = useI18n();
+  const { t, n, locale } = useI18n();
   const [d, setD] = useState<OrgSettingsIn & { grid_highlight?: boolean }>({});
   const v = { ...data, ...d } as OrgSettings & { grid_highlight?: boolean };
   const set = <K extends keyof typeof v>(k: K, val: (typeof v)[K]) => setD((p) => ({ ...p, [k]: val }));
@@ -185,8 +184,9 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
         <SectionTitle id="org-lang">{t("crbs.org.languages")}</SectionTitle>
         <Card variant="glass" className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.org.enabledLanguages")} hint={t("crbs.org.enabledLanguagesHint")}>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3" data-testid="org-languages">
             {LANGS.map((l) => (
-              <label key={l.code} className="flex items-center gap-1.5 type-callout text-label-1">
+              <label key={l.code} lang={l.code} className="flex items-center gap-1.5 type-callout text-label-1">
                 <Checkbox
                   checked={(v.languages ?? []).includes(l.code)}
                   onCheckedChange={(x) => {
@@ -195,15 +195,24 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
                     else cur.delete(l.code);
                     if (cur.size) set("languages", LANGS.map((z) => z.code).filter((c) => cur.has(c)));
                   }}
+                  data-testid={`org-language-${l.code}`}
                 />
-                {l.label}
+                <span className="flex min-w-0 flex-col leading-tight">
+                  {l.label}
+                  {l.partial.partial ? (
+                    <span className="type-caption text-label-3" lang={locale}>
+                      {t("nav.languagePartial", { pct: n(Math.max(l.partial.ratio, 0.01), { style: "percent", maximumFractionDigits: 0 }) })}
+                    </span>
+                  ) : null}
+                </span>
               </label>
             ))}
+            </div>
           </FieldRow>
           <FieldRow label={t("crbs.org.defaultLanguage")} htmlFor="org-deflang" className="hairline-t">
             <SelectField id="org-deflang" className="w-40" value={v.default_language ?? "tr"} onChange={(e) => set("default_language", e.target.value)}>
               {LANGS.filter((l) => (v.languages ?? []).includes(l.code)).map((l) => (
-                <option key={l.code} value={l.code}>
+                <option key={l.code} value={l.code} lang={l.code}>
                   {l.label}
                 </option>
               ))}

@@ -62,6 +62,8 @@ class WeekSplit:
     #: original event id -> all its event ids, the original first
     segments: dict[int, list[int]] = field(default_factory=dict)
     diagnoses: list[Diagnosis] = field(default_factory=list)
+    #: event id -> forbidden tags without its lock (the bridge clears ``TIP`` for locked events)
+    forbid: dict[int, frozenset[str]] = field(default_factory=dict)
 
     def origin_of(self, event_id: int) -> int:
         return self.origin.get(event_id, event_id)
@@ -353,8 +355,8 @@ def split_blocked_weeks(
         )
 
     if not replaced:
-        return WeekSplit(inp=inp)
-    return _apply(WeekSplit(inp=inp), replaced, diags)
+        return WeekSplit(inp=inp, forbid=forbid)
+    return _apply(WeekSplit(inp=inp, forbid=forbid), replaced, diags)
 
 
 def _apply(base: WeekSplit, replaced: dict[int, list[Event]], diags: list[Diagnosis]) -> WeekSplit:
@@ -420,7 +422,9 @@ def _apply(base: WeekSplit, replaced: dict[int, list[Event]], diags: list[Diagno
             previous.append(replace(best, event_id=sid, weeks=weeks))
 
     out = replace(inp, events=tuple(events), constraints=tuple(new_constraints), previous=tuple(previous))
-    return WeekSplit(inp=out, origin=origin, segments=segments, diagnoses=[*base.diagnoses, *diags])
+    return WeekSplit(
+        inp=out, origin=origin, segments=segments, diagnoses=[*base.diagnoses, *diags], forbid=dict(base.forbid)
+    )
 
 
 def residual_split(split: WeekSplit, assignments: Iterable[Assignment]) -> tuple[WeekSplit, list[Assignment]] | None:
@@ -451,6 +455,84 @@ def residual_split(split: WeekSplit, assignments: Iterable[Assignment]) -> tuple
     replaced: dict[int, list[Event]] = {}
     diags: list[Diagnosis] = []
     hints = list(placed.values())
+    codes = {r.id: r.code for r in inp.rooms}
+    # locked events the solve left unplaced because their room is taken in *some* weeks by what it placed
+    # (another request's moved week segment, orchestrator R3): keep the planner's lock in the free weeks and
+    # give only the taken weeks another room at the same time (full size: the trust stays with the lock)
+    for e in inp.events:
+        if e.id in placed or e.locked is None or not e.needs_room or shares_room(e) or len(e.weeks) < 2:
+            continue
+        slot = _fixed_slot(e, fixed_soft)
+        lrooms = [r for r in e.locked.room_ids if r in rooms_by_id]
+        if slot is None or not lrooms:
+            continue
+        kept = set(e.weeks)
+        for r in lrooms:
+            kept &= occ.free(r, slot, e.weeks, e.id)
+        moved_weeks = set(e.weeks) - kept
+        if not kept or not moved_weeks:
+            continue  # never free (the static checker explains it) or free all term (unplaced for another reason)
+        proto = replace(
+            e,
+            locked=None,
+            fixed_day=slot.day,
+            fixed_start=slot.start,
+            allowed_days=frozenset({slot.day}),
+            weeks=frozenset(moved_weeks),
+            forbidden_tags=split.forbid.get(e.id, e.forbidden_tags),
+            preferred_room_ids=tuple(dict.fromkeys([*lrooms, *e.preferred_room_ids])),
+        )
+        eligible, _r = _room_options(proto, inp, soft)
+        if proto.max_rooms > 1 and "capacity" not in soft:
+            eligible = [r for r in eligible if effective_capacity(rooms_by_id[r], proto) >= proto.size]
+        free = {r: occ.free(r, slot, proto.weeks, e.id) for r in eligible}
+        left = set(moved_weeks)
+        cover: list[tuple[int, set[int]]] = []
+        while left:
+            best = max(eligible, key=lambda r: len(free[r] & left), default=None)
+            if best is None or not free[best] & left:
+                break
+            cover.append((best, free[best] & left))
+            left -= free[best] & left
+        main = replace(e, weeks=frozenset(kept), locked=replace(e.locked, weeks=frozenset(kept)))
+        parts: list[Event] = [main]
+        hints.append(replace(e.locked, weeks=frozenset(kept)))
+        for r in lrooms:
+            occ.locks[r][e.id] = (slot, frozenset(kept))
+        for room, weeks in cover:
+            sid = next_id
+            next_id -= 1
+            parts.append(replace(proto, id=sid, weeks=frozenset(weeks), label=seg_label(e.label, weeks)))
+            hints.append(Assignment(sid, slot.day, slot.start, slot.end, (room,), frozenset(weeks), e.fixed_date))
+            occ.locks[room][sid] = (slot, frozenset(weeks))
+        if left:
+            parts.append(replace(proto, id=next_id, weeks=frozenset(left), label=seg_label(e.label, left)))
+            next_id -= 1
+        replaced[e.id] = parts
+        diags.append(
+            Diagnosis(
+                [split.origin_of(e.id)],
+                ["same_room_across_weeks"],
+                f"{e.label} keeps {', '.join(codes.get(r, str(r)) for r in lrooms)} in week(s) {weeks_text(kept)}; the "
+                f"room is taken in week(s) {weeks_text(moved_weeks)} once the rest of the timetable is placed, so "
+                "those weeks move to "
+                + ("; ".join(f"{codes.get(r, r)} (w{weeks_text(w)})" for r, w in cover) or "no free room")
+                + " at the same time"
+                + (f"; no room at all in week(s) {weeks_text(left)}" if left else ""),
+                ["move the class that takes the room in those weeks to keep one room all term"],
+                "warning",
+                "week_split",
+                {
+                    "reason": REASON_LOCK_CLASH,
+                    "rooms": lrooms,
+                    "room_codes": [codes.get(r, str(r)) for r in lrooms],
+                    "kept_weeks": sorted(kept),
+                    "moved_weeks": sorted(moved_weeks),
+                    "uncovered_weeks": sorted(left),
+                    "segments": [p.id for p in parts[1:]],
+                },
+            )
+        )
     for e in inp.events:
         if e.id in placed or e.locked is not None or not e.needs_room or shares_room(e) or len(e.weeks) < 2:
             continue
@@ -492,7 +574,6 @@ def residual_split(split: WeekSplit, assignments: Iterable[Assignment]) -> tuple
         if len(parts) < 2:
             continue  # one free room in every week: no split needed, the hint alone places it
         replaced[e.id] = parts
-        codes = {r.id: r.code for r in inp.rooms}
         diags.append(
             Diagnosis(
                 [split.origin_of(e.id)],

@@ -38,10 +38,10 @@ from app.models import (
     User,
 )
 from app.models.base import utcnow
-from app.models.booking import BOOKED, CANCELLED
+from app.models.booking import BOOKED, CANCELLED, PENDING
 from app.models.catalog import Room
+from app.services import audit, settings_service
 from app.services import bookings_events as events
-from app.services import settings_service
 from app.services.bookings_calendar import (
     CalendarError,
     DateInfo,
@@ -210,13 +210,19 @@ async def timetable_occupancy(session: AsyncSession, room_ids: set[int] | None, 
 async def booking_occupancy(
     session: AsyncSession, room_ids: set[int] | None, d_from: date, d_to: date, exclude: set[int] | None = None
 ) -> Occ:
+    """Active bookings, plus PENDING requests (P1) whose tentative hold has not run out."""
     out: Occ = defaultdict(list)
-    q = select(Booking).where(Booking.status == BOOKED, Booking.date.between(d_from, d_to))
+    q = select(Booking).where(Booking.status.in_((BOOKED, PENDING)), Booking.date.between(d_from, d_to))
     if room_ids is not None:
         q = q.where(Booking.room_id.in_(room_ids))
+    now: datetime | None = None
     for b in (await session.execute(q)).scalars():
         if exclude and b.id in exclude:
             continue
+        if b.status == PENDING:
+            now = now or await now_local(session)
+            if b.held_until is None or b.held_until <= now:
+                continue
         out[(b.room_id, b.date)].append(
             Held("booking", b.room_id, b.date, b.start_period, b.end_period, b.notes or "", b.id, series_id=b.series_id)
         )
@@ -349,6 +355,8 @@ async def booking_out(session: AsyncSession, access: Access, b: Booking, *, deta
         "cancel_reason": b.cancel_reason,
         "cancelled_at": b.cancelled_at.isoformat() if b.cancelled_at else None,
         "created_at": b.created_at.isoformat() if b.created_at else None,
+        "headcount": b.headcount,
+        "held_until": b.held_until.isoformat() if b.held_until else None,
     }
     if detail:
         out["can_edit"] = b.status == BOOKED and can_edit(access, b, room)
@@ -446,6 +454,9 @@ class SingleIn:
     #: set_user given explicitly (user_id may then be None = "no user")
     user_given: bool = False
     department_given: bool = False
+    #: T1: what the booking was searched for (kept for P2 alternatives)
+    headcount: int | None = None
+    required_features: list[Any] | None = None
 
 
 async def ungrouped_rooms_hidden(session: AsyncSession) -> bool:
@@ -521,9 +532,56 @@ def _slot_rows(b: Booking) -> list[BookingSlot]:
     ]
 
 
+slot_rows = _slot_rows
+
+
+async def release_expired_holds(session: AsyncSession, room_id: int | None = None, d: date | None = None) -> int:
+    """Free the slots of PENDING requests whose tentative hold ran out (the request itself stays open)."""
+    now = await now_local(session)
+    q = select(Booking.id).where(Booking.status == PENDING, Booking.held_until.is_not(None), Booking.held_until <= now)
+    if room_id is not None:
+        q = q.where(Booking.room_id == room_id)
+    if d is not None:
+        q = q.where(Booking.date == d)
+    ids = list((await session.execute(q)).scalars())
+    if not ids:
+        return 0
+    await session.execute(delete(BookingSlot).where(BookingSlot.booking_id.in_(ids)))
+    for b in (await session.execute(select(Booking).where(Booking.id.in_(ids)))).scalars():
+        b.held_until = None
+    await session.flush()
+    return len(ids)
+
+
+def snap(b: Booking) -> dict[str, Any]:
+    """The audited state of a booking (P7)."""
+    return audit.snapshot(
+        b,
+        (
+            "id",
+            "status",
+            "series_id",
+            "term_id",
+            "room_id",
+            "date",
+            "period_id",
+            "start_period",
+            "end_period",
+            "user_id",
+            "department_id",
+            "notes",
+            "headcount",
+            "cancel_reason",
+        ),
+    )
+
+
 async def _insert(session: AsyncSession, b: Booking) -> Booking:
     session.add(b)
     await session.flush()
+    if b.status == PENDING and b.held_until is None:
+        return b  # a request without a hold holds nothing
+    await release_expired_holds(session, b.room_id, b.date)
     for s in _slot_rows(b):
         session.add(s)
     try:
@@ -545,15 +603,22 @@ async def _conflict_error(held: Held, room: Room, d: date) -> BookingError:
 
 
 async def create_single(session: AsyncSession, access: Access, body: SingleIn, *, commit: bool = True) -> Booking:
+    """A booking, or (P1) a PENDING request when the room needs approval (``booking.status``)."""
+    from app.services import approvals
+
     room = await visible_room(session, access, body.room_id)
-    if not access.can("book_single.create", room):
-        raise _forbid("book_single.create", f"you may not make single bookings in {room.display_name}")
     try:
         info = await resolve_term(session, body.date, body.term_id, view_all=access.can("system.view_all_sessions"))
+    except CalendarError as exc:
+        raise _conflict("calendar", str(exc)) from exc
+    need = await approvals.need_for(session, access, room, "book_single", info.term.id)
+    try:
         await _open_date(session, info, body.date)
         period = await period_for(session, info, room, body.period_id, body.date)
     except CalendarError as exc:
         raise _conflict("calendar", str(exc)) from exc
+    if need is not None:
+        await approvals.check_lead_time(session, need, info.term.id, body.date)
     user_id, dep_id = await _who_and_department(session, access, room, "book_single", body)
     await check_window(session, access, info, body.date, room)
     # CRBS checks the limit in the grid (Slot) and in multi-booking, not in SingleAgent (deliberate
@@ -580,13 +645,30 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
         start_period=period.start_period,
         end_period=period.end_period,
         notes=body.notes,
-        status=BOOKED,
+        status=BOOKED if need is None else PENDING,
         created_by=access.user_id,
+        headcount=body.headcount,
+        required_features=body.required_features,
     )
+    if need is not None:
+        b.held_until = await approvals.hold_until(session, need, b)
     await _insert(session, b)
-    await events.emit(
-        session, "booking.created", {"booking_id": b.id, "booking_ids": [b.id], "actor_id": access.user_id}
-    )
+    if need is None:
+        await audit.record(
+            session,
+            "booking.create",
+            "booking",
+            b.id,
+            after=snap(b),
+            actor=access.user,
+            term_id=b.term_id,
+            reversible=True,
+        )
+        await events.emit(
+            session, "booking.created", {"booking_id": b.id, "booking_ids": [b.id], "actor_id": access.user_id}
+        )
+    else:
+        await approvals.open_request(session, access, need, room, [b])
     if commit:
         await session.commit()
     return b
@@ -624,6 +706,8 @@ class RecurPlan:
     instances: list[dict[str, Any]] = field(default_factory=list)
     bookable: int = 0
     max_instances: int | None = None
+    #: P1: the series needs approval (a PENDING request) when set
+    need: Any = None
 
 
 def _actions_for(access: Access, holders: list[Held], existing: Booking | None, room: Room) -> list[str]:
@@ -642,11 +726,15 @@ def _actions_for(access: Access, holders: list[Held], existing: Booking | None, 
 
 
 async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -> RecurPlan:
+    from app.services import approvals
+
     room = await visible_room(session, access, body.room_id)
-    if not access.can("book_recur.create", room):
-        raise _forbid("book_recur.create", f"you may not make recurring bookings in {room.display_name}")
     try:
         info = await resolve_term(session, body.date, body.term_id, view_all=access.can("system.view_all_sessions"))
+    except CalendarError as exc:
+        raise _conflict("calendar", str(exc)) from exc
+    need = await approvals.need_for(session, access, room, "book_recur", info.term.id)
+    try:
         anchor = await _open_date(session, info, body.date)
         period = await period_for(session, info, room, body.period_id, body.date)
     except CalendarError as exc:
@@ -659,7 +747,7 @@ async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -
     if end < start:
         raise BookingError(422, "recurring_dates", f"end {end:%d.%m.%Y} is before start {start:%d.%m.%Y}")
     chosen = [d for d in dates if start <= d.date <= end]
-    plan = RecurPlan(info, room, period, anchor)
+    plan = RecurPlan(info, room, period, anchor, need=need)
     if chosen:
         d0, d1 = chosen[0].date, chosen[-1].date
         bocc = await booking_occupancy(session, {room.id}, d0, d1)
@@ -703,14 +791,18 @@ def plan_out(plan: RecurPlan) -> dict[str, Any]:
         "bookable_count": plan.bookable,
         "max_instances": plan.max_instances,
         "exceeds_by": exceeds,
+        "requires_approval": plan.need is not None,
     }
 
 
 async def create_recurring(
     session: AsyncSession, access: Access, body: RecurIn, *, commit: bool = True
 ) -> dict[str, Any]:
+    from app.services import approvals
+
     plan = await plan_recurring(session, access, body)
     room = plan.room
+    need = plan.need
     user_id, dep_id = await _who_and_department(
         session,
         access,
@@ -736,7 +828,7 @@ async def create_recurring(
         timetable_week_id=plan.anchor.timetable_week_id,
         weekday=plan.anchor.weekday,
         notes=body.notes,
-        status=BOOKED,
+        status=BOOKED if need is None else PENDING,
         created_by=access.user_id,
     )
     session.add(series)
@@ -757,6 +849,9 @@ async def create_recurring(
             continue
         if action == "do_not_book":
             skipped.append({"date": item["date"], "reason": "not selected", "status": item["status"]})
+            continue
+        if action == "replace" and need is not None:
+            skipped.append({"date": item["date"], "reason": "replace needs a direct booking", "status": item["status"]})
             continue
         counts = action == "book" or count_replacements
         if counts and plan.max_instances is not None and booked >= plan.max_instances:
@@ -785,9 +880,11 @@ async def create_recurring(
             start_period=plan.period.start_period,
             end_period=plan.period.end_period,
             notes=body.notes,
-            status=BOOKED,
+            status=BOOKED if need is None else PENDING,
             created_by=access.user_id,
         )
+        if need is not None:
+            b.held_until = await approvals.hold_until(session, need, b)
         if old is None:
             held = await find_conflict(session, room.id, d, b.start_period, b.end_period)
             if held is not None:
@@ -801,8 +898,9 @@ async def create_recurring(
                 ids = await _cancel_rows(session, access, [old], f"replaced by series #{series.id}")
             session.add(b)
             await session.flush()
-            for slot in _slot_rows(b):
-                session.add(slot)
+            if b.status != PENDING or b.held_until is not None:
+                for slot in _slot_rows(b):
+                    session.add(slot)
             await session.flush()
         except IntegrityError:
             await savepoint.rollback()
@@ -818,20 +916,55 @@ async def create_recurring(
         await session.rollback()
         raise _conflict("none_created", "no instances were booked", skipped=skipped)
     if replaced:
+        await audit.record_many(
+            session,
+            "booking.cancel",
+            "booking",
+            [(i, {"status": BOOKED}, {"status": CANCELLED}) for i in replaced],
+            actor=access.user,
+            reason=f"replaced by series #{series.id}",
+            term_id=series.term_id,
+        )
         await events.emit(
             session,
             "booking.cancelled",
             {"booking_ids": replaced, "actor_id": access.user_id, "reason": f"replaced by series #{series.id}"},
         )
-    await events.emit(
-        session,
-        "series.created",
-        {"series_id": series.id, "booking_ids": [b.id for b in created], "actor_id": access.user_id},
-    )
+    if need is None:
+        parent = await audit.record(
+            session,
+            "series.create",
+            "booking_series",
+            series.id,
+            after={"ids": [b.id for b in created], "room_id": room.id, "weekday": series.weekday},
+            actor=access.user,
+            term_id=series.term_id,
+            reversible=True,
+        )
+        for b in created:
+            await audit.record(
+                session,
+                "booking.create",
+                "booking",
+                b.id,
+                after=snap(b),
+                actor=access.user,
+                term_id=b.term_id,
+                reversible=True,
+                parent_id=parent.id,
+            )
+        await events.emit(
+            session,
+            "series.created",
+            {"series_id": series.id, "booking_ids": [b.id for b in created], "actor_id": access.user_id},
+        )
+    else:
+        await approvals.open_request(session, access, need, room, created, series)
     if commit:
         await session.commit()
     return {
         "series_id": series.id,
+        "status": series.status,
         "created": [await booking_out(session, access, b) for b in created],
         "skipped": skipped,
     }
@@ -884,7 +1017,20 @@ async def cancel(
             # cancels every instance: bookings.cancel_all_includes_past)
             q = q.where(Booking.date >= await today(session))
         rows = list((await session.execute(q)).scalars())
+    before = {r.id: snap(r) for r in rows if r.status == BOOKED}
     ids = await _cancel_rows(session, access, rows, reason)
+    await audit.record_many(
+        session,
+        "booking.cancel",
+        "booking",
+        [(r.id, before[r.id], snap(r)) for r in rows if r.id in before],
+        parent_entity_id=b.id,
+        parent_after={"scope": scope},
+        actor=access.user,
+        reason=reason,
+        term_id=b.term_id,
+        reversible=True,
+    )
     if scope == "all" and b.series_id:
         series = await session.get(BookingSeries, b.series_id)
         if series is not None:
@@ -926,7 +1072,17 @@ async def cancel_outside_term(session: AsyncSession, term: Term, actor: User, ro
     span = f"{info.start:%d.%m.%Y}-{info.end:%d.%m.%Y}" if info else "-"
     reason = f"outside the dates of term {term.code} ({span})"
     access = await load_access(session, actor)
+    before = {r.id: snap(r) for r in rows if r.status == BOOKED}
     ids = await _cancel_rows(session, access, rows, reason)
+    await audit.record_many(
+        session,
+        "booking.cancel",
+        "booking",
+        [(r.id, before[r.id], snap(r)) for r in rows if r.id in before],
+        actor=actor,
+        reason=reason,
+        term_id=term.id,
+    )
     if ids:
         await events.emit(session, "booking.cancelled", {"booking_ids": ids, "actor_id": actor.id, "reason": reason})
     return ids
@@ -938,6 +1094,7 @@ async def cancel_many(
     """``Bookings::cancel_multi``: each booking that the user may cancel is cancelled (single instance)."""
     done: list[int] = []
     skipped: list[dict[str, Any]] = []
+    items: list[tuple[Any, dict[str, Any] | None, dict[str, Any] | None]] = []
     for bid in dict.fromkeys(booking_ids):
         b = await session.get(Booking, bid)
         if b is None:
@@ -949,7 +1106,12 @@ async def cancel_many(
         elif room is None or not await can_cancel(session, access, b, room):
             skipped.append({"id": bid, "reason": "not_cancelable"})
         else:
+            before = snap(b)
             done += await _cancel_rows(session, access, [b], reason)
+            items.append((b.id, before, snap(b)))
+    await audit.record_many(
+        session, "booking.cancel", "booking", items, actor=access.user, reason=reason, reversible=True
+    )
     if done:
         await events.emit(
             session, "booking.cancelled", {"booking_ids": done, "actor_id": access.user_id, "reason": reason}
@@ -1009,6 +1171,7 @@ async def update(
             q = q.where(Booking.date >= b.date)
         targets = list((await session.execute(q)).scalars())
     moving = any(k in data for k in ("date", "period_id", "room_id"))
+    before = {t.id: snap(t) for t in targets}
     if moving:
         new_room = await visible_room(session, access, data.get("room_id", b.room_id))
         new_date = data.get("date", b.date)
@@ -1058,6 +1221,30 @@ async def update(
                 if key in data:
                     setattr(series, key, data[key])
             series.updated_at, series.updated_by = now, access.user_id
+    if moving:
+        await audit.record(
+            session,
+            "booking.move",
+            "booking",
+            b.id,
+            before=before[b.id],
+            after=snap(b),
+            actor=access.user,
+            term_id=b.term_id,
+            reversible=True,
+        )
+    others = [t for t in targets if not (moving and t.id == b.id)]
+    if others:
+        await audit.record_many(
+            session,
+            "booking.update",
+            "booking",
+            [(t.id, before[t.id], snap(t)) for t in others],
+            parent_entity_id=b.id,
+            parent_after={"scope": scope},
+            actor=access.user,
+            term_id=b.term_id,
+        )
     await events.emit(
         session, "booking.updated", {"booking_ids": [t.id for t in targets], "actor_id": access.user_id, "scope": scope}
     )

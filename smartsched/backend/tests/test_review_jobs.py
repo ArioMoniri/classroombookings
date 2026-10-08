@@ -17,7 +17,7 @@ from app.solver import model as sm
 from app.workers.queue import BOOT_ID, get_queue, recover_interrupted
 from sqlalchemy import func, select, text
 
-from tests.api_fixtures import login
+from tests.api_fixtures import add_one_request, login
 
 
 def _now() -> datetime:
@@ -62,7 +62,9 @@ def sleeping_solver(seconds: float, seen: dict | None = None):
 
 
 async def _term(client, h) -> int:
-    return int((await client.post("/api/v1/terms", json={"code": "2026-BAHAR"}, headers=h)).json()["id"])
+    tid = int((await client.post("/api/v1/terms", json={"code": "2026-BAHAR"}, headers=h)).json()["id"])
+    await add_one_request(tid)  # a run with nothing to schedule ends before the solver (empty_scope)
+    return tid
 
 
 async def _wait(cond, timeout: float = 20.0) -> None:

@@ -14,8 +14,8 @@ export default {
   async run(rec, ctx) {
     const { page } = rec;
     await rec.step(tr(ctx, "Sign in with your planner account", "Planlamacı hesabınızla giriş yapın"), async () => {
-      await rec.type(page.getByLabel(/E-posta|E-mail/i).first(), ctx.creds.email);
-      await rec.type(page.getByLabel(/Şifre|Password/i).first(), ctx.creds.password, { delay: 35 });
+      await rec.type(page.getByTestId("login-identifier"), ctx.creds.email);
+      await rec.type(page.getByTestId("login-password"), ctx.creds.password, { delay: 35 });
       await rec.click(page.getByTestId("login-submit"), { after: 200 });
       await page.getByTestId("dashboard").waitFor({ timeout: 30_000 });
     });

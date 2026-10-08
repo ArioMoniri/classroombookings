@@ -16,6 +16,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -23,6 +24,7 @@ from sqlalchemy import (
     Text,
     Time,
     UniqueConstraint,
+    true,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -105,10 +107,20 @@ class RoomCustomField(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(64))
-    type: Mapped[str] = mapped_column(String(16))  # TEXT | CHECKBOX | SELECT
+    #: CRBS: TEXT | CHECKBOX | SELECT; typed features (P10, ``app/services/rooms_features.py``): BOOLEAN | NUMBER |
+    #: MULTISELECT as well (CHECKBOX is an alias of BOOLEAN)
+    type: Mapped[str] = mapped_column(String(16))
     pos: Mapped[int] = mapped_column(Integer, default=0)
     #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
     legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    # --- P10 typed features (alembic 0007_room_features)
+    filterable: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    public: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    icon: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    unit: Mapped[str | None] = mapped_column(String(16), nullable=True)  # NUMBER only, e.g. "adet"
+    #: mirrored into ``rooms.tags`` (the solver's vocabulary: PC, TIP, LAB, AMPHI ...) when the value is true
+    solver_tag: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(32), nullable=True)  # av|seating|accessibility|lab|other
 
     options: Mapped[list[RoomCustomFieldOption]] = relationship(
         cascade="all, delete-orphan", order_by="RoomCustomFieldOption.pos", lazy="selectin"
@@ -126,13 +138,20 @@ class RoomCustomFieldOption(Base):
 
 class RoomCustomFieldValue(Base):
     __tablename__ = "room_custom_field_values"
-    __table_args__ = (UniqueConstraint("room_id", "field_id", name="uq_room_field_value"),)
+    __table_args__ = (
+        UniqueConstraint("room_id", "field_id", name="uq_room_field_value"),
+        Index("ix_room_field_values_field_num", "field_id", "value_num"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id", ondelete="CASCADE"), index=True)
     field_id: Mapped[int] = mapped_column(ForeignKey("room_custom_fields.id", ondelete="CASCADE"), index=True)
-    #: TEXT: the text; CHECKBOX: "1"/"0"; SELECT: the option id
+    #: TEXT: the text; CHECKBOX / BOOLEAN: "1"/"0"; SELECT: the option id; NUMBER: the number as text
     value: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    #: NUMBER: the value (filterable with >= / <=)
+    value_num: Mapped[float | None] = mapped_column(Float, nullable=True)
+    #: MULTISELECT: list of option ids
+    value_json: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class RoomAcl(Base):
@@ -261,6 +280,12 @@ class Holiday(Base):
 
 BOOKED = "BOOKED"
 CANCELLED = "CANCELLED"
+#: P1 approvals (``app/services/approvals.py``): a request waiting for a designated approver; it holds its slots only
+#: while ``held_until`` lies ahead (the rule's ``hold_minutes``)
+PENDING = "PENDING"
+REJECTED = "REJECTED"
+EXPIRED = "EXPIRED"
+WITHDRAWN = "WITHDRAWN"
 
 
 class _Audit:
@@ -343,6 +368,11 @@ class Booking(_Audit, Base):
     multi_booking_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     #: id of the row in a migrated CRBS database (``app/importers/crbs_legacy.py``; re-imports update it)
     legacy_crbs_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    # --- T1 find-a-room (alembic 0008_find_room): what the booking was searched for (P2 ranks alternatives)
+    headcount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    required_features: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
+    # --- P1 approvals (alembic 0010_approvals): a PENDING request holds its slots until this local time
+    held_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class BookingSlot(Base):

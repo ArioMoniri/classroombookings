@@ -40,6 +40,7 @@ def test_classify_maps_every_named_group() -> None:
         "locked_room_blocked": {"code": "locked_ineligible"},
         "week_room_changes": {"code": "week_split"},
         "missing_enrolment": {"code": "missing_enrolment"},
+        "same_lecture_twice": {"code": "input_conflict", "params": {"same_lecture": True}},
         "other": {"code": "timeout", "severity": "warning"},
     }
     assert {g.code for g in GROUPS} == set(cases) | {"board_vs_list"}

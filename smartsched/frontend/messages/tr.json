@@ -7,7 +7,7 @@
     "programs": "Programlar", "instructors": "Öğretim elemanları", "settings": "Ayarlar", "users": "Kullanıcılar",
     "collapse": "Kenar çubuğunu daralt", "expand": "Kenar çubuğunu genişlet", "menu": "Menüyü aç",
     "search": "Ara…", "searchHint": "⌘K", "notifications": "Bildirimler", "account": "Hesap",
-    "logout": "Çıkış yap", "theme": "Tema", "language": "Dil", "needsReview": "{count} inceleme bekliyor",
+    "logout": "Çıkış yap", "theme": "Tema", "language": "Dil", "languagePartial": "Kısmi çeviri · {pct}", "languagePartialHint": "Çevirisi olmayan metinler İngilizce gösterilir.", "needsReview": "{count} inceleme bekliyor",
     "running": "{count} çalışıyor", "term": "Dönem", "switchTerm": "Dönem değiştir", "switched": "{term} dönemine geçildi"
   },
   "theme": { "system": "Sistem", "light": "Açık", "dark": "Koyu" },

@@ -21,7 +21,7 @@ from app.solver import model as sm
 from app.workers.queue import get_queue, public_error, recover_interrupted, worker_id
 from httpx import ASGITransport, AsyncClient
 
-from tests.api_fixtures import login
+from tests.api_fixtures import add_one_request, login
 
 
 async def test_solve_runs_off_the_event_loop_and_reports_progress(client, monkeypatch):
@@ -36,6 +36,7 @@ async def test_solve_runs_off_the_event_loop_and_reports_progress(client, monkey
     monkeypatch.setattr(solver_bridge, "_call_solver", slow_solver)
     h = await login(client)
     term = (await client.post("/api/v1/terms", json={"code": "2026-BAHAR"}, headers=h)).json()
+    await add_one_request(term["id"])  # a run with nothing to schedule ends before the solver (empty_scope)
     run_id = (await client.post("/api/v1/runs", json={"term_id": term["id"]}, headers=h)).json()["run_id"]
     await asyncio.sleep(0.4)
     t0 = time.perf_counter()

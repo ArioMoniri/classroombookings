@@ -18,8 +18,6 @@ from app.importers import normalize as n
 from app.models import (
     Booking,
     Program,
-    RoomCustomField,
-    RoomCustomFieldValue,
     RoomGroup,
     Term,
     TimetableWeek,
@@ -30,6 +28,7 @@ from app.services import bookings as svc
 from app.services import bookings_calendar as cal
 from app.services import bookings_export as export
 from app.services import bookings_notify  # noqa: F401  (registers the notification event handlers)
+from app.services import rooms_features as features
 from app.services.bookings_calendar import date_infos, fgcol, term_info
 from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import Access, effective_limits, load_access
@@ -85,6 +84,9 @@ class BookingIn(BaseModel):
     user_id: int | None = None
     department_id: int | None = None
     term_id: int | None = None
+    #: T1: filled when the booking comes from "find me a room" (P2 ranks alternatives with them)
+    headcount: int | None = Field(default=None, ge=0, le=5000)
+    required_features: list[Any] | None = Field(default=None, max_length=20)
 
     @model_validator(mode="after")
     def _clean(self) -> BookingIn:
@@ -173,6 +175,8 @@ def _single(body: BookingIn) -> svc.SingleIn:
         term_id=body.term_id,
         user_given="user_id" in sent,
         department_given="department_id" in sent,
+        headcount=body.headcount,
+        required_features=body.required_features,
     )
 
 
@@ -253,21 +257,20 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
 async def _room_info(db: DB, room: Room) -> dict[str, Any]:
     group = await db.get(RoomGroup, room.room_group_id) if room.room_group_id else None
     owner = await db.get(User, room.owner_user_id) if room.owner_user_id else None
-    fields = []
-    values = {
-        v.field_id: v.value
-        for v in (
-            await db.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.room_id == room.id))
-        ).scalars()
-    }
-    for f in (await db.execute(select(RoomCustomField).order_by(RoomCustomField.pos, RoomCustomField.name))).scalars():
-        raw = values.get(f.id)
-        val: Any = raw
-        if f.type == "CHECKBOX":
-            val = raw == "1"
-        elif f.type == "SELECT":
-            val = next((o.value for o in f.options if str(o.id) == str(raw)), None)
-        fields.append({"field_id": f.id, "name": f.name, "type": f.type, "value": val})
+    # typed features (P10): CHECKBOX/BOOLEAN bool, SELECT option text, NUMBER number, MULTISELECT option texts
+    catalogue = [f for f in await features.catalogue(db) if f.public is not False]
+    typed = (await features.room_values(db, [room], catalogue))[room.id]
+    fields = [
+        {
+            "field_id": f.id,
+            "name": f.name,
+            "type": f.type,
+            "value": features.display(f, typed[f.id]),
+            "unit": f.unit,
+            "icon": f.icon,
+        }
+        for f in catalogue
+    ]
     return {
         "id": room.id,
         "code": room.code,
@@ -376,11 +379,14 @@ async def grid(
 
 
 @router.post("", status_code=201)
-async def create_booking(body: BookingIn, db: DB, access: Acc) -> dict[str, Any]:
+async def create_booking(body: BookingIn, db: DB, access: Acc, response: Response) -> dict[str, Any]:
+    """201 with the booking; 202 with ``status: PENDING`` when the room needs approval (P1)."""
     try:
         b = await svc.create_single(db, access, _single(body))
     except svc.BookingError as exc:
         raise _err(exc) from exc
+    if b.status == "PENDING":
+        response.status_code = 202
     return await svc.booking_out(db, access, b, detail=True)
 
 
@@ -393,11 +399,15 @@ async def recurring_preview(body: RecurringIn, db: DB, access: Acc) -> dict[str,
 
 
 @router.post("/recurring", status_code=201)
-async def recurring_create(body: RecurringIn, db: DB, access: Acc) -> dict[str, Any]:
+async def recurring_create(body: RecurringIn, db: DB, access: Acc, response: Response) -> dict[str, Any]:
+    """201; 202 with ``status: PENDING`` when the room needs approval (P1)."""
     try:
-        return await svc.create_recurring(db, access, _recur(body))
+        out = await svc.create_recurring(db, access, _recur(body))
     except svc.BookingError as exc:
         raise _err(exc) from exc
+    if out.get("status") == "PENDING":
+        response.status_code = 202
+    return out
 
 
 @router.post("/multi", status_code=201)

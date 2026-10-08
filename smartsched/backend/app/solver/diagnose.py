@@ -1042,6 +1042,7 @@ def relaxation_diagnosis(
     by_id.update({a.event_id: a for a in hint_assignments(prep.inp)})
     # lowest tier: stay in the warm start's rooms (the greedy hint follows the soft preferences, the
     # relaxation itself has none), so maximising the placement does not scatter the planner's rooms
+    base_objective = ctx.relax_objective  # the placement tiers only (requests, event-weeks, locks)
     devs = []
     for e in prep.inp.events:
         h = by_id.get(e.id)
@@ -1079,7 +1080,13 @@ def relaxation_diagnosis(
     assignments = ctx.extract(solver)
     if status == cp_model.OPTIMAL and ctx.relax_objective is not None:
         remaining = budget_s - (time.perf_counter() - t0)
-        canon = _canonical_placement(prep, ctx, solver, assignments, remaining)
+        # the optimum of the placement tiers (the room-deviation tier is the remainder of the scaled sum)
+        value = int(round(solver.ObjectiveValue()))
+        base_value = value // (len(devs) + 1) if devs else value
+        tiers = [(base_objective, base_value)]
+        if devs:  # the warm start's rooms: as close as the optimum (two inequalities, no weighted equality)
+            tiers.append((sum(devs), value - base_value * (len(devs) + 1)))
+        canon = _canonical_placement(prep, ctx, tiers, assignments, remaining)
         if canon is not None:
             assignments = canon
             stats["relax_canonical"] = True
@@ -1095,16 +1102,22 @@ def _tie_weight(e: Event) -> int:
 
 
 def _canonical_placement(
-    prep: Prepared, ctx: ModelContext, solver: Any, assignments: list[Assignment], budget_s: float
+    prep: Prepared,
+    ctx: ModelContext,
+    tiers: list[tuple[Any, int]],
+    assignments: list[Assignment],
+    budget_s: float,
 ) -> list[Assignment] | None:
     """CP-SAT's parallel search returns *some* optimal relaxation; when several placements are optimal,
-    which events stay unplaced would depend on thread timing.  Fix the optimum and pick the placement
-    that keeps the most students (then a fixed id rank), so the same input gives the same partial
-    timetable (determinism with ``workers > 1``).  ``None`` if the stage does not prove optimality."""
+    which events stay unplaced would depend on thread timing.  Keep the optimum of each tier (``expr <=
+    value``: the placement tiers, then the closeness to the warm start's rooms — inequalities are far easier
+    to prove than one equality on the scaled sum) and pick the placement that keeps the most students (then
+    a fixed id rank), so the same input gives the same partial timetable (determinism with ``workers > 1``).
+    ``None`` if the stage does not prove optimality."""
     if budget_s < 0.5 or len(assignments) == len(prep.inp.events):
         return None
-    value = int(round(solver.ObjectiveValue()))
-    ctx.model.Add(ctx.relax_objective == value)
+    for expr, value in tiers:
+        ctx.model.Add(expr <= value)
     ctx.model.Minimize(sum(_tie_weight(e) * (1 - ctx.placed[e.id]) for e in prep.inp.events if e.id in ctx.placed))
     ctx.model.ClearHints()
     ctx.add_hints(assignments, unplaced_rest=True)

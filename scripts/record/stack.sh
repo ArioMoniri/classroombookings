@@ -10,6 +10,7 @@
 #           the real workbooks of all three terms (Bahar 2026, Güz 2026-27, Final 2026) and the room
 #           master, like docs/testing/2026-10-08-real-data-feasibility.md "Setup" (REC_DATA=bahar: Bahar only).
 #
+#   scripts/record/stack.sh snapshot       save the database + uploads; `REC_SNAPSHOT=1 stack.sh up` restores them
 #   scripts/record/stack.sh runs           real solver runs through POST /runs on the running stack
 #                                           (REC_RUNS, default "2026-GUZ:WEEK:3:120 2026-GUZ:TERM:-:240"
 #                                           = term:horizon:week:time-limit), waits until they finish
@@ -114,7 +115,12 @@ cmd_up() {
   # for a migration that an in-flight backend change has not written yet (uvicorn then starts in
   # its "legacy create_all database" mode and only logs drift).
   rm -f "$WORK/rec.db"
-  if [[ $fresh -eq 0 ]]; then
+  local restored=0
+  if [[ $fresh -eq 0 && "${REC_SNAPSHOT:-0}" == 1 && -f "$WORK/rec.snapshot.db" ]]; then
+    cp "$WORK/rec.snapshot.db" "$WORK/rec.db" && restored=1 && log "restored the snapshot (imports, booking setup, solver runs)"
+    rm -rf "$WORK/uploads" && cp -r "$WORK/uploads.snapshot" "$WORK/uploads" 2>/dev/null || mkdir -p "$WORK/uploads"
+  fi
+  if [[ $fresh -eq 0 && $restored -eq 0 ]]; then
     log "importing Bahar weekly grid + planning list (≈30 s)"
     (cd "$BACKEND" && "$PYTHON" -m app.cli import weekly-grid tests/fixtures/bahar_derslikler_takvimi_2026.xlsx \
         --term "$TERM_CODE" --year 2026 && \
@@ -131,7 +137,7 @@ cmd_up() {
         || die "fixture import failed, see $WORK/import.log"
     fi
   fi
-  (cd "$BACKEND" && "$PYTHON" -m app.cli seed-admin >>"$WORK/import.log" 2>&1) || die "seed-admin failed"
+  [[ $restored -eq 1 ]] || { (cd "$BACKEND" && "$PYTHON" -m app.cli seed-admin >>"$WORK/import.log" 2>&1) || die "seed-admin failed"; }
 
   # ---- backend ----------------------------------------------------------------------------------
   # exec + setsid: the PID file names the server itself (a session leader, so `down` can stop its
@@ -141,7 +147,7 @@ cmd_up() {
   echo $! >"$WORK/backend.pid"
   wait_http "http://127.0.0.1:$API_PORT/api/v1/health" 60 || die "backend did not start, see $WORK/backend.log"
   log "backend ready on :$API_PORT (db $WORK/rec.db)"
-  seed_via_api "$fresh"
+  [[ $restored -eq 1 ]] || seed_via_api "$fresh"
 
   # ---- frontend (isolated copy, real mode) -------------------------------------------------------
   local web="$WORK/frontend"
@@ -176,7 +182,17 @@ cmd_runs() {
     runs ${REC_RUNS:-2026-GUZ:WEEK:3:120 2026-GUZ:TERM:-:240} || die "solver runs failed"
 }
 
+# Snapshot of the running stack's database (SQLite online backup) and uploads; `up` with REC_SNAPSHOT=1
+# restores it instead of importing again, so every take starts from the same data in seconds.
+cmd_snapshot() {
+  "$PYTHON" -c 'import sqlite3,sys; s=sqlite3.connect(sys.argv[1]); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.close()' \
+    "$WORK/rec.db" "$WORK/rec.snapshot.db" || die "snapshot failed"
+  rm -rf "$WORK/uploads.snapshot" && cp -r "$WORK/uploads" "$WORK/uploads.snapshot"
+  log "snapshot saved: $WORK/rec.snapshot.db"
+}
+
 case "${1:-}" in
+  snapshot) cmd_snapshot ;;
   up) shift; cmd_up "$@" ;;
   runs) cmd_runs ;;
   down) cmd_down ;;

@@ -102,7 +102,7 @@ Legend for *Perm.*: the CRBS permission that guards the feature (`login` = any s
 | 8 | Room groups feature toggle (`use_room_groups`, migration 2023-04; always on since 2.8) | Group rooms in the grid | `setup.settings` | `settings` | missing | exists | `PUT /org/settings {use_room_groups}`; when off, the grid shows all visible rooms in one list |
 | 9 | Maintenance mode gate (`Bookings::__construct`) | Booking pages show only the message unless `system.bypass_maintenance_mode` | bypass perm | | missing | exists | every `/bookings/*` route returns 503 `{detail: message}` unless the user has the bypass permission |
 | 10 | `Login::index` login message, logo | Shown on the login page | public | | missing | exists | `GET /org/public` (name, logo, login message, maintenance, `ldap_enabled`, `setup_required`) |
-| 11 | `setup/Language`, `MY_Lang::load_from_db`, table `lang` | Enabled languages + default; DB overrides of any translation string `(language, set, key, text)` | `setup.settings` | `lang`, `settings` (lang) | partial (UI has TR/EN files) | exists | `GET /org/translations?language=`, `PUT /org/translations` (upsert list), `DELETE /org/translations/{id}`; languages in `/org/settings` |
+| 11 | `setup/Language`, `MY_Lang::load_from_db`, table `lang` | Enabled languages + default; DB overrides of any translation string `(language, set, key, text)` | `setup.settings` | `lang`, `settings` (lang) | done: the 13 CRBS languages + Turkish (P18-LANG, see "Languages" below) | exists | `GET /org/translations?language=`, `PUT /org/translations` (upsert list), `DELETE /org/translations/{id}`; languages in `/org/settings` |
 | 12 | `Changelog` library, `Dashboard::changelog[_status]` | "What's new" indicator per user (last viewed timestamp) | login | `settings` (changelog, user.N) | missing | exists | `GET /org/changelog` (entries parsed from `smartsched/backend/CHANGELOG.md`, `unread` flag), `POST /org/changelog/seen` |
 | 13 | `Events` library, `EventType::USER_LOGGED_IN` | In-process event hooks (`register`, `trigger`) | code | | missing | exists | `app/services/bookings_events.py` (`on`, `emit`); events `user.logged_in`, `booking.created`, `booking.updated`, `booking.cancelled`, `series.created`, `password.reset_requested`; `GET /org/events` lists them and their handlers |
 
@@ -364,6 +364,22 @@ that language, plus the date patterns), `GET /org/date-patterns?language=` (CRBS
 `email`), session create/edit/delete under `setup.sessions`, and the legacy importer filling these tables
 (usernames, `$2y$`/`sha1:` hashes verified as CRBS does and rehashed to argon2 at the first login).
 
+### Languages (P18-LANG)
+
+SmartSched ships the 13 CRBS UI languages plus Turkish: `tr`, `en`, `cs`, `cy`, `da`, `de`, `es`, `fi`, `fr`, `it`,
+`nl`, `pt`, `pt-br`, `sv` (lower-case codes everywhere: cookie, profile, org `languages` / `default_language`,
+`GET /org/i18n`, translation overrides; `pt_BR` / `German` are normalised). `smartsched/backend/tools/crbs_lang_import.py`
+reads `crbs-core/application/language/<language>/*.php` with a tokenizer (PHP is never executed) and writes
+`smartsched/frontend/messages/<code>.json`, the day/month names + default date patterns shared by frontend
+(`src/lib/i18n/locale-data.json`) and backend (`app/services/crbs_lang_data.json`), and
+`docs/testing/language-coverage.md`. CRBS's 12 non-English folders hold only the CodeIgniter system strings
+(calendar, date, validation, ...); its application strings are English-only, so SmartSched takes 34 message keys
+per language plus all 38 day/month names from CRBS and shows the rest in English per key (as CRBS itself does), with
+a "partial translation · N %" note in the language picker; organisations fill the rest with the translation
+overrides. E-mails use the recipient's language (CRBS dates, English text where CRBS has none); CSV exports keep
+CRBS's fixed English columns; ICS feeds carry no translatable words. Tests: `tests/parity/test_parity_languages.py`,
+`src/lib/i18n/languages.test.tsx`, e2e `languages.spec.ts` (German and French in the bookings grid header).
+
 ## 7. Turkish text handling
 
 Usernames fold `İ`/`I`/`ı`/`i` together and are NFKC/NBSP-cleaned (`app/core/identity.py`); e-mails are
@@ -415,4 +431,4 @@ dashboard / multi-booking wizard / cancel-many exist but no Playwright step driv
 sign-out not revoking the bearer token (B-AUTH-11 — closed since: `users.token_version`, `POST /auth/logout`, revoked on
 password change/reset, disable, role change and role deletion; the UI's sign-out calls it and a password change re-signs
 in transparently; deliberate difference: sign-out ends the user's sessions on every device), the CRBS migration verified on CRBS's own install SQL but not yet on a running MySQL (BUG-B04), and the
-later Phase 18 parts (13 languages, legacy MySQL upgrade, side-by-side diff).
+later Phase 18 parts (13 languages — closed since: P18-LANG —, legacy MySQL upgrade, side-by-side diff).

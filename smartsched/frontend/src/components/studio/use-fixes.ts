@@ -8,6 +8,7 @@ import { sk } from "@/lib/api/studio-hooks";
 import type { ClassRow, Fix, MeetingPatch, PrecheckItem } from "@/lib/api/studio-schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { useStudio } from "./studio-context";
+import { pairLang } from "@/lib/i18n";
 
 const num = (v: unknown): number[] => (Array.isArray(v) ? v.map(Number).filter(Number.isFinite) : []);
 
@@ -34,7 +35,7 @@ export function useApplyFix() {
         qc.setQueryData(sk.draft(termId, kind), res.draft);
         store.getState().setPrecheck(res.precheck);
         await refresh(fix.action.type === "meeting_update" || fix.action.type === "exam_update" ? ["classes", "summary", "rules"] : ["summary", "rules"]);
-        const label = fix.label[locale] || fix.label.en;
+        const label = fix.label[pairLang(locale)] || fix.label.en;
         store.getState().record({
           label,
           undo: async () => {

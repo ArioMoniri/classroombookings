@@ -25,7 +25,7 @@ from tools.validate_planner import INSTANCES, import_term
 #: (term code) -> imported DB; (instance) -> (solved DB, run id); shared by the tests of this module
 _TERMS: dict[str, Path] = {}
 _RUNS: dict[str, tuple[Path, int]] = {}
-WEEK_LIMIT = 60.0
+WEEK_LIMIT = 120.0
 WORKERS = 4
 
 

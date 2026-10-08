@@ -1136,9 +1136,11 @@ ROWS: tuple[Row, ...] = (
         "the frontend and backend texts",
         "application/language/*",
         FO + "test_missing2_i18n_bundle_merges_overrides",
-        gap="Phase 18 part 2: today TR + EN only (backend languages list, shipped e-mail strings, frontend message "
-        "files being edited by other agents). Needs: the CRBS language files imported as message catalogues, the "
-        "language list in app/services/bookings_i18n.py widened, frontend locale files + an e2e language switch",
+        # + the tests/parity/test_parity_languages.py tests marked P18-LANG (tools/crbs_lang_import.py imports the
+        # CRBS files; docs/testing/language-coverage.md has the per-language coverage). The browser step is
+        # e2e/languages.spec.ts (German and French in the bookings grid header); parity_check.py reads only
+        # bookings/calendar.spec.ts titles, so it is not listed as a UI reference here.
+        TA + "test_org_settings_translations_changelog_and_events",
     ),
     _r(
         "P18-LEGACY",

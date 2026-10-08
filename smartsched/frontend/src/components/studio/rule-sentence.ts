@@ -7,6 +7,7 @@ import type { Locale } from "@/lib/i18n";
 import type { RuleTemplate, TemplateField } from "@/lib/api/studio-schemas";
 import { harmoniseAfter } from "@/components/common/tr-suffix";
 import { PERIODS } from "@/lib/time";
+import { pairLang } from "@/lib/i18n";
 
 export type Params = Record<string, unknown>;
 
@@ -238,7 +239,7 @@ export function displayValue(field: TemplateField, value: unknown, ctx: Sentence
 /* ---------------------------------------------------------------------------- tokens */
 
 export function tokens(template: RuleTemplate, params: Params, ctx: SentenceContext, opts: { showEmptyOptional?: boolean } = {}): Token[] {
-  const sentence = template.sentence[ctx.locale] || template.sentence.en;
+  const sentence = template.sentence[pairLang(ctx.locale)] || template.sentence.en;
   const fields = new Map(template.fields.map((f) => [f.name, f]));
   const slotOf = (name: string, optional: boolean): Slot | null => {
     const field = fields.get(name);

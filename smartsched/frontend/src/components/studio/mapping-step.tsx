@@ -9,6 +9,7 @@ import { MAPPING_ROLES } from "@/lib/api/studio-schemas";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { Segmented } from "./segmented";
+import { pairLang } from "@/lib/i18n";
 
 const ROLE_KEY: Record<MappingRole, MessageKey> = {
   course: "studio.mapping.role.course",
@@ -152,7 +153,7 @@ export function MappingStep({
                         <option value="">{t("studio.mapping.ignore")}</option>
                         {MAPPING_ROLES.map((r) => (
                           <option key={r} value={r}>
-                            {cols.roles[r]?.[locale] ?? t(ROLE_KEY[r])}
+                            {cols.roles[r]?.[pairLang(locale)] ?? t(ROLE_KEY[r])}
                           </option>
                         ))}
                       </NativeSelect>

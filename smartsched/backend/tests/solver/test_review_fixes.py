@@ -241,3 +241,29 @@ def test_fallback_sizes_stay_out_of_waste_minimisation() -> None:
     excl = (Constraint("min_capacity_waste", {"exclude_event_ids": [1]}, hard=False),)
     res = solve(make_input(rooms, (e,), excl, weeks=W1))
     assert res.status in OK and res.objective_breakdown.get("min_capacity_waste", 0) == 0
+
+
+def test_residual_round_keeps_a_lock_in_its_free_weeks() -> None:
+    """R3: PHAR 114 §2 is locked to A for weeks 1-3; the solve put another request's moved segment into A
+    in week 2.  The residual round keeps the planner's lock in weeks 1 and 3 and moves only week 2 (B),
+    instead of dropping the class for the term; feasible end to end."""
+    rooms = (room(1, "A", 58), room(2, "B", 58))
+    wk = (1, 2, 3)
+    phar = event(1, weeks=wk, day=2, start=4, label="PHAR 114 §2", locked=_lock(1, (1,), day=2, start=4, weeks=wk))
+    rad = event(2, weeks=(2,), day=2, start=4, label="RAD 282 [w2]")
+    inp = make_input(rooms, (phar, rad), weeks=wk, best_effort=True, trust_locked_rooms=True)
+    split = split_blocked_weeks(inp)
+    placed = [Assignment(2, 2, 4, 5, (1,), frozenset({2}))]
+    nxt = residual_split(split, placed)
+    assert nxt is not None
+    cand, hints = nxt
+    main = next(e for e in cand.inp.events if e.id == 1)
+    assert main.locked is not None and main.weeks == frozenset({1, 3}) and main.locked.room_ids == (1,)
+    seg = next(e for e in cand.inp.events if cand.origin_of(e.id) == 1 and e.id != 1)
+    assert seg.weeks == frozenset({2}) and seg.locked is None
+    assert any(a.event_id == seg.id and a.room_ids == (2,) for a in hints)
+    assert residual_gain(split, placed, cand, hints) == 1
+    note = next(d for d in cand.diagnoses if d.event_ids == [1] and d.code == "week_split")
+    assert note.params["kept_weeks"] == [1, 3] and note.params["moved_weeks"] == [2]
+    res = solve(replace(cand.inp, best_effort=False), _hints=hints)
+    assert res.status in OK and not [v for v in validate(cand.inp, res.assignments) if v.hard]

@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { useStudio } from "./studio-context";
 import { effectiveRules } from "./studio-reducer";
 import { useRuleActions } from "./use-rule-actions";
+import { pairLang } from "@/lib/i18n";
 
 interface Policy {
   id: string;
@@ -110,14 +111,14 @@ export function BuiltinRules() {
           <li key={b.kind} className="flex items-center gap-3 rounded-[var(--radius-md)] border bg-fill-3 p-3 text-sm">
             <Shield className="size-4 shrink-0 text-label-2" aria-hidden />
             <span className="min-w-0 flex-1">
-              {b.title[locale] || b.title.en}
+              {b.title[pairLang(locale)] || b.title.en}
               {reason ? <span className="block text-xs text-label-2">{reason}</span> : null}
               {!enabled ? <span className="block text-xs text-status-warning-fg">{t("studio.builtin.offWarning")}</span> : null}
             </span>
             <Switch
               checked={enabled}
               disabled={reason !== null}
-              aria-label={`${b.title[locale] || b.title.en}: ${enabled ? t("studio.builtin.on") : t("studio.builtin.off")}`}
+              aria-label={`${b.title[pairLang(locale)] || b.title.en}: ${enabled ? t("studio.builtin.on") : t("studio.builtin.off")}`}
               onCheckedChange={(v) => {
                 dispatch({ type: "setBuiltin", kind: b.kind, enabled: v });
                 store.getState().record({ label: t("studio.history.builtin"), undo: () => dispatch({ type: "setBuiltin", kind: b.kind, enabled: !v }), redo: () => dispatch({ type: "setBuiltin", kind: b.kind, enabled: v }) });
