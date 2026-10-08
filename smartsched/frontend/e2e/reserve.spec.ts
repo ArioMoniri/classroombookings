@@ -369,7 +369,8 @@ test("11. booking details: not-your-own warning, timetable week, occurs, room de
   const [free] = run(await dayGrid(WEDNESDAY, ctx.token), 1);
   await cell(page, free!).click();
   const user = page.getByTestId("book-sheet").getByTestId("book-user");
-  await expect(user.locator("option", { hasText: `${TEACHER.first} ${TEACHER.last}` })).toHaveCount(1);
+  await expect(user.locator("option", { hasText: `${TEACHER.first} ${TEACHER.last}` }).first()).toBeAttached();
+  await expect(user.locator(`option[value="${ctx.teacherId}"]`)).toHaveCount(1);
   await page.keyboard.press("Escape");
 });
 

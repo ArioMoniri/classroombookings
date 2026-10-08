@@ -240,7 +240,8 @@ test("admin gaps 6. ⌘K New room creates a room in Admin → Rooms; photo light
   await page.getByTestId(`room-edit-${ROOM.canonical}`).click();
   await page.locator('input[type=file][accept^="image/"]').setInputFiles({ name: "seminer.png", mimeType: "image/png", buffer: PNG });
   await page.getByTestId("room-photo-enlarge").click();
-  await expect(page.getByTestId("room-photo-lightbox").locator("img")).toBeVisible();
+  await expect(page.getByTestId("room-photo-lightbox")).toBeVisible();
+  await expect(page.getByTestId("room-photo-lightbox").locator("img")).toHaveAttribute("src", new RegExp(`/uploads/rooms/${room.id}\\.png`));
   await shot(page, "06-room-photo-lightbox");
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("room-photo-lightbox")).toBeHidden();
@@ -303,6 +304,15 @@ test("admin gaps 9. a schedule description is saved (#19)", async ({ page }) => 
   await page.getByTestId("schedule-save").click();
   await page.reload();
   await expect(page.getByTestId("schedule-description")).toHaveValue(`E2E açıklama ${STAMP}`);
+  // a period (CRBS Periods: name, start/end time, days, bookable), then remove it again
+  const per = `E${STAMP.slice(-5)}`;
+  await page.locator("#per-name").fill(per);
+  await page.locator("#per-start").fill("21.00");
+  await page.locator("#per-end").fill("21.40");
+  await page.locator("section[aria-labelledby=per-add]").getByRole("button").last().click();
+  await expect(page.getByRole("switch", { name: new RegExp(per) })).toBeVisible();
+  await page.getByRole("button", { name: `Delete ${per}` }).click();
+  await expect(page.getByRole("switch", { name: new RegExp(per) })).toHaveCount(0);
 });
 
 test("admin gaps 10. maintenance mode shows a banner on every page; Admin links the CSV export (#13, #14)", async ({ page }) => {
@@ -427,7 +437,8 @@ test("admin gaps 15. the login page shows the organisation's logo, name and logi
     await page.getByTestId("logout").click();
     await page.waitForURL("**/login");
     await expect(page.getByTestId("login-brand")).toContainText(name);
-    await expect(page.getByTestId("login-brand").locator("img")).toBeVisible();
+    // the e2e stack has no nginx in front, so /uploads/rooms/* (backend StaticFiles in production) is not served here
+    await expect(page.getByTestId("login-brand").locator("img")).toHaveAttribute("src", /\/uploads\/rooms\/org-logo\./);
     await expect(page.getByTestId("login-message")).toContainText(`Personel hesabınızla girin (${STAMP}).`);
     await expect(page.getByTestId("forgot-password")).toHaveAttribute("href", "/reset-password");
     await expect(page.getByTestId("app-version")).toHaveText(/^(Version|Sürüm) \d/);
@@ -436,5 +447,83 @@ test("admin gaps 15. the login page shows the organisation's logo, name and logi
     await signIn(page);
     await call(page, "PUT", "/org/settings", { name: before.name, login_message_enabled: before.login_message_enabled, login_message_text: before.login_message_text });
     if (!before.logo_url) await call(page, "DELETE", "/org/logo");
+  }
+});
+
+test("admin gaps 16. room groups with members, a custom field and a room access entry (S-17)", async ({ page }) => {
+  const code = `Z ${100 + ((ROOM_NO + 7) % 900)}`;
+  const room = await call<{ id: number; code: string; display_name: string }>(page, "POST", "/rooms", { code, display_name: `E2E Grup Odası ${STAMP}`, capacity: 12 });
+  const group = `E2E Grup ${STAMP}`.slice(0, 32);
+  const field = `E2E Alan ${STAMP}`;
+  try {
+    await page.goto("/admin/rooms?tab=groups");
+    await page.getByRole("button", { name: "New group" }).click();
+    await page.locator("#grp-name").fill(group);
+    await page.locator("#grp-q").fill(`Grup Odası ${STAMP}`);
+    await page.getByRole("dialog").getByRole("checkbox").first().click();
+    await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText(group, { exact: true })).toBeVisible();
+    const groups = await call<{ id: number; name: string; room_ids: number[] }[]>(page, "GET", "/room-admin/groups");
+    expect(groups.find((g) => g.name === group)?.room_ids).toEqual([room.id]);
+
+    await page.getByRole("tab", { name: "Custom fields" }).click();
+    await page.getByRole("button", { name: "New field" }).click();
+    await page.locator("#fld-name").fill(field);
+    await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("row", { name: new RegExp(field) })).toBeVisible();
+
+    await page.getByRole("tab", { name: "Access" }).click();
+    await page.locator("#acl-entity").selectOption(`room:${room.id}`);
+    await page.locator("#acl-ctx").selectOption("role");
+    await expect(page.locator("select#acl-ctx-id")).toBeVisible();
+    await page.locator("select#acl-ctx-id").selectOption({ index: 1 });
+    await page.locator("section[aria-labelledby=acl-add]").getByRole("checkbox").first().click();
+    await page.getByTestId("acl-add").click();
+    await expect(page.getByTestId("acl-list").locator("li")).toHaveCount(1);
+    await shot(page, "16-room-acl");
+    await page.getByTestId("acl-list").getByRole("button", { name: "Remove entry" }).first().click();
+    await expect(page.getByTestId("acl-list").locator("li")).toHaveCount(0);
+
+    await page.getByRole("tab", { name: "Custom fields" }).click();
+    await page.getByRole("button", { name: `Delete ${field}` }).click();
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(page.getByRole("row", { name: new RegExp(field) })).toHaveCount(0);
+  } finally {
+    const groups = await call<{ id: number; name: string }[]>(page, "GET", "/room-admin/groups");
+    for (const g of groups.filter((x) => x.name === group)) await call(page, "DELETE", `/room-admin/groups/${g.id}`);
+    await call(page, "DELETE", `/rooms/${room.id}`);
+  }
+});
+
+test("admin gaps 17. a session's booking settings, schedule per room group and timetable-week calendar (S-18)", async ({ page }) => {
+  const term = await call<{ id: number; name: string }>(page, "POST", "/terms", { code: `E2E-CAL-${STAMP}`.toUpperCase().slice(0, 32), name: `E2E Takvim ${STAMP}`, start_date: "2026-07-06", end_date: "2026-07-17", week_count: 2 });
+  const week = await call<{ id: number; name: string }>(page, "POST", "/booking-admin/weeks", { name: `E2E H ${STAMP}`.slice(0, 20), bgcol: "#2563eb" });
+  const room = await call<{ id: number }>(page, "POST", "/rooms", { code: `Z ${100 + ((ROOM_NO + 13) % 900)}`, display_name: `E2E Takvim Odası ${STAMP}`, capacity: 10 });
+  const group = await call<{ id: number; name: string }>(page, "POST", "/room-admin/groups", { name: `E2E Takvim ${STAMP}`.slice(0, 32), room_ids: [room.id] });
+  const schedules = await call<{ id: number; name: string }[]>(page, "GET", "/booking-admin/schedules");
+  const schedule = schedules[0] ?? (await call<{ id: number; name: string }>(page, "POST", "/booking-admin/schedules", { name: `E2E ${STAMP}`.slice(0, 32) }));
+  try {
+    await page.goto("/admin/sessions");
+    await page.getByRole("button", { name: new RegExp(`^${term.name}`) }).click();
+    await expect(page.locator("#sess-settings")).toHaveText(term.name);
+    const selectable = page.getByTestId("session-selectable");
+    const wasOn = (await selectable.getAttribute("aria-checked")) === "true";
+    await selectable.click();
+    await expect(selectable).toHaveAttribute("aria-checked", wasOn ? "false" : "true");
+    await page.locator(`#ts-${group.id}`).selectOption(String(schedule.id));
+    await expect.poll(async () => (await call<{ room_group_id: number; schedule_id: number | null }[]>(page, "GET", `/booking-admin/sessions/${term.id}/schedules`)).find((g) => g.room_group_id === group.id)?.schedule_id).toBe(schedule.id);
+
+    await page.getByRole("radio", { name: week.name }).click();
+    await page.locator('[data-paint-day="2026-07-08"]').click();
+    await page.getByTestId("painter-save").click();
+    await expect
+      .poll(async () => (await call<{ dates: { date: string; timetable_week_id: number | null }[] }>(page, "GET", `/booking-admin/sessions/${term.id}/dates`)).dates.find((d) => d.date === "2026-07-08")?.timetable_week_id)
+      .toBe(week.id);
+    await shot(page, "17-session-calendar");
+  } finally {
+    await call(page, "DELETE", `/terms/${term.id}`);
+    await call(page, "DELETE", `/room-admin/groups/${group.id}`);
+    await call(page, "DELETE", `/rooms/${room.id}`);
+    await call(page, "DELETE", `/booking-admin/weeks/${week.id}`);
   }
 });
