@@ -1360,10 +1360,10 @@ async def board_checks(session: AsyncSession, run: ScheduleRun) -> dict[str, lis
                     **_list_item(
                         "board_missing_week",
                         (
-                            f"Panoda {wk}. hafta(lar) için sayfa yok (pano {have}. haftaları kapsıyor); bu haftalarda "
-                            "kapalı derslikler ve etkinlikler bilinmiyor.",
-                            f"The board has no sheet for week(s) {wk} (it covers weeks {have}); closed rooms and "
-                            "events of those weeks are unknown.",
+                            f"Pano yalnızca {len(covered)} haftayı kapsıyor ({have}. hafta); {wk}. hafta(lar) için "
+                            "sayfa yok, bu haftalarda kapalı derslikler ve etkinlikler bilinmiyor.",
+                            f"The board covers only {len(covered)} week(s) ({have}); it has no sheet for week(s) "
+                            f"{wk}, so closed rooms and events of those weeks are unknown.",
                         ),
                         [],
                         {},

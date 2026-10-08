@@ -163,9 +163,16 @@ async def timetable_occupancy(session: AsyncSession, room_ids: set[int] | None, 
                 Assignment.archived.is_(False),
                 (Assignment.date.is_(None)) | (Assignment.date.between(d_from, d_to)),
             )
-            for a in (await session.execute(q)).scalars():
+            assignments = list((await session.execute(q)).scalars())
+            # solver-run rows carry no label / course codes: name them from the request's section (course code
+            # and section, as the imported board rows read); nothing derivable stays empty (the UI localises it)
+            need = {
+                a.meeting_request_id for a in assignments if not a.label and not a.course_codes and a.meeting_request_id
+            }
+            request_labels = await _request_labels(session, need) if need else {}
+            for a in assignments:
                 rooms = [int(r) for r in (a.room_ids or [])]
-                label = a.label or ", ".join(a.course_codes or []) or "Ders"
+                label = a.label or ", ".join(a.course_codes or []) or request_labels.get(a.meeting_request_id or 0, "")
                 dates: list[date] = []
                 if a.date is not None:
                     dates = [a.date]
@@ -205,6 +212,20 @@ async def timetable_occupancy(session: AsyncSession, room_ids: set[int] | None, 
                     add(Held("block", b.room_id, d, b.start_period, b.end_period, b.label, b.id))
                     d += timedelta(days=7)
     return out
+
+
+async def _request_labels(session: AsyncSession, request_ids: set[int | None]) -> dict[int, str]:
+    """Meeting request id -> "MAT 112-2" (course display code and section label) for unlabelled assignments."""
+    from app.models import Course, MeetingRequest, Section  # local: keeps this module's import list unchanged
+
+    ids = [i for i in request_ids if i]
+    rows = await session.execute(
+        select(MeetingRequest.id, Course.display_code, Section.label)
+        .join(Section, Section.id == MeetingRequest.section_id)
+        .join(Course, Course.id == Section.course_id)
+        .where(MeetingRequest.id.in_(ids))
+    )
+    return {int(mid): f"{code}-{sec}" if sec else str(code) for mid, code, sec in rows}
 
 
 async def booking_occupancy(
