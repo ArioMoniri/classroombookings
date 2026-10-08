@@ -74,6 +74,54 @@
       "started_at": "2026-10-08 10:00",
       "finished_at": "2026-10-08 11:52",
       "left_off": "DONE: Liquid Glass v2 on shell, ⌘K, dashboard, run report (partial amber), chat DiffTable, studio, import, settings Appearance + AI key test, login + change password, 223 glass i18n keys, test ids. Open: dialog overlay blur LoAF, motion frame gates under load, backend prefs/log endpoints, trusted_lock_tags empty room code."
+    },
+    {
+      "id": "afeacc8df86b94cc9",
+      "description": "RESUME solver placement/calibration",
+      "subagent_type": "solver-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 12:22",
+      "scope": "smartsched/backend/app/solver/**; app/services/{solver_bridge,data_issues,dashboard}.py; app/api/v1/{runs,data_issues,dashboard}.py (status only); app/schemas/runs.py; tests/solver/**, tests/test_real_feasibility.py; run-status labels in smartsched/frontend/src/components/runs/* (labels only); docs/testing/2026-10-08-real-data-feasibility.md. The review-fix agent finished: runs.py now has cancel a…",
+      "goal": "- Per-week term splitting: the Bahar term should place at least 96 % of events. - Weight calibration: reproduce the planner's choices for at least 85 % of courses and at least 50 % of exams. Use app/solver/calibrate.py plus tests/solver/test_calibrate.py, which already exist as WIP. - Planner data-issues report plus its xlsx export. - FEASIBLE_PARTIAL status. - Planner-facing TR/EN diagnoses. - Ex…",
+      "ledger": "solver-engineer (phase 9 follow-up)",
+      "resumed": true,
+      "status": "running"
+    },
+    {
+      "id": "ad17ead17306ce06f",
+      "description": "RESUME CRBS parity backend fixes",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 12:22",
+      "scope": "smartsched/backend/app/services/bookings*.py; app/api/v1/{bookings,booking_admin,org,terms,room_admin,rooms}.py; app/importers/crbs_legacy.py; app/core/security.py; app/models/booking.py; alembic revision 0005_crbs_legacy_ids (yours, chained after 0004_review_fixes; keep a single head); tests for these. Read-only for everything else. The review-fix agent has finished and owns nothing now. If you m…",
+      "goal": "finish fixing the B1–B16 bugs and \"missing 2–6\" items in docs/review/2026-10-08-crbs-parity-audit.md. Keep CRBS default behaviour, exposed through settings, and safer security defaults. Remaining per the last ledger lines: the remaining B-items, the i18n/date-pattern endpoints, check_session_dates, and tests. The user's standing requirement is that SmartSched has every classroombookings feature an…",
+      "ledger": "backend-engineer (CRBS parity fixes)",
+      "resumed": true,
+      "status": "running"
+    },
+    {
+      "id": "a5d36e79e1121e36b",
+      "description": "RESUME calendar/classes/rooms glass",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 12:22",
+      "scope": "smartsched/frontend/src/components/{timetable,classes,requests,rooms}/**; src/app/(app)/{timetable,classes,requests,rooms}/**; src/lib/api/{classes,calendar}.ts; e2e/calendar.spec.ts; messages/{en,tr}.json (only your own key block; never rewrite the \"glass\" or \"crbs\" blocks); backend new files app/api/v1/calendar.py, app/services/calendar_views.py, app/schemas/calendar.py. Read-only elsewhere. The…",
+      "goal": "finish the Liquid Glass v2 calendar, all-classes and rooms views per docs/design/v2/{calendar,all-classes,liquid-glass,motion}.md and the /motion_designer skill (.claude/skills/motion_designer). - Six calendar lenses: Board, Week, Day, Month, Term, Agenda. - Drag-and-drop with the move dialog and inspector. - /classes all-classes view: provenance, saved views, export using the \"SmartSched Derslik\"…",
+      "ledger": "frontend-engineer (calendar + classes + rooms v2)",
+      "resumed": true,
+      "status": "running"
+    },
+    {
+      "id": "aeab47d00d8d6539e",
+      "description": "RESUME CRBS booking + admin screens",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 12:22",
+      "scope": "smartsched/frontend/src/app/(app)/{bookings,my-bookings,admin}/**; src/app/setup/**; src/app/reset-password/**; src/components/{bookings,admin}/**; src/lib/api/crbs.ts; src/lib/permissions.ts; e2e/bookings.spec.ts; messages crbs block; the small backend edit for bookings.show_ungrouped_rooms only. Read-only elsewhere.",
+      "goal": "deliver the full classroombookings (CRBS) user and admin UI in the Liquid Glass v2 style. The user's requirement is every CRBS feature and more, never fewer. - Bookings grid: displaytype and d_columns, grid_highlight, print, room popup, icons, week colours. - My bookings with ICS export. - Every admin screen: users, roles and permissions, rooms, room groups, fields, schedules and periods, sessions…",
+      "ledger": "frontend-engineer (CRBS bookings + admin)",
+      "resumed": true,
+      "status": "running"
     }
   ]
 }

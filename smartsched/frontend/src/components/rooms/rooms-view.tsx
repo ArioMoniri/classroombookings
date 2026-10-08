@@ -30,12 +30,13 @@ const SEAT_STEPS = [0, 30, 60, 100, 150] as const;
 type Sort = "code" | "capacity" | "busy" | "free";
 
 export function RoomsView() {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
   const layout = params.get("layout") === "table" ? "table" : "cards";
   const building = params.get("building") ?? "";
-  const tags = (params.get("tags") ?? "").split(",").filter(Boolean) as RoomTag[];
+  const tagsParam = params.get("tags") ?? "";
+  const tags = useMemo(() => tagsParam.split(",").filter(Boolean) as RoomTag[], [tagsParam]);
   const minSeats = Number(params.get("seats") ?? 0) || 0;
   const q = params.get("q") ?? "";
   const sort = (["code", "capacity", "busy", "free"].includes(params.get("sort") ?? "") ? params.get("sort") : "code") as Sort;
@@ -81,8 +82,7 @@ export function RoomsView() {
     return filtered.sort((a, b) =>
       sort === "capacity" ? b.capacity - a.capacity || byCode(a, b) : sort === "busy" ? share(b) - share(a) || byCode(a, b) : sort === "free" ? share(a) - share(b) || byCode(a, b) : byCode(a, b),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- tags is derived from the URL string
-  }, [rooms.data, building, params.get("tags"), minSeats, q, sort, grids]);
+  }, [rooms.data, building, tags, minSeats, q, sort, grids]);
 
   const groups = useMemo(() => {
     if (sort !== "code") return [{ key: "all", label: null as string | null, rooms: list }];

@@ -159,6 +159,32 @@ async def user_role(session: AsyncSession, user: User) -> Role | None:
     return None
 
 
+#: Deliberate security difference (docs/review/2026-10-08-crbs-parity-audit.md): CRBS ``Users::save`` lets
+#: anyone holding ``setup.users`` give any role, Administrator included. SmartSched also asks for
+#: ``setup.roles`` before user management grants -- or takes over the account of -- a privileged role.
+GRANT_GUARD = "setup.roles"
+
+
+def is_privileged_role(role: Role | None) -> bool:
+    """Administrator, or any role holding ``setup.roles`` (which can give itself every permission)."""
+    return role is not None and (role.code == "ADMIN" or any(p.name == GRANT_GUARD for p in role.permissions))
+
+
+async def may_grant_role(session: AsyncSession, actor: User, role: Role | None) -> bool:
+    return not is_privileged_role(role) or GRANT_GUARD in (await load_access(session, actor)).perms
+
+
+async def may_manage_user(session: AsyncSession, actor: User, target: User) -> bool:
+    """Whether ``actor`` may edit, disable, delete or set the password of ``target`` (privileged accounts
+    need ``setup.roles``; anyone may manage their own account)."""
+    if actor.id == target.id:
+        return True
+    role = await user_role(session, target)
+    if role is None and target.role == "ADMIN":  # roles table not seeded
+        return GRANT_GUARD in (await load_access(session, actor)).perms
+    return await may_grant_role(session, actor, role)
+
+
 @dataclass
 class Access:
     """A user's permissions for one request: role permissions plus room ACL entries."""

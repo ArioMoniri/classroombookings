@@ -757,6 +757,22 @@
     }
   },
   "crbs": {
+    "conflicts": {
+      "refresh": "Yenile",
+      "currentSession": "Geçerli dönem",
+      "allSessions": "Tüm dönemler",
+      "none": "Yayımlanan ders programıyla çakışan rezervasyon yok.",
+      "summary": "{days} günde {rooms} derslikte {bookings} rezervasyon ders programıyla çakışıyor.",
+      "hint": "Taşımak ya da gerekçe yazarak iptal etmek için rezervasyonu açın.",
+      "open": "Rezervasyon #{id}, {room}, {date}",
+      "periods": "{span}. ders saati",
+      "run": "çalıştırma #{id}",
+      "kind": {
+        "timetable": "Ders programı",
+        "block": "Blok",
+        "booking": "Rezervasyon"
+      }
+    },
     "common": {
       "cancel": "Vazgeç",
       "loading": "Yükleniyor…",
@@ -1065,6 +1081,10 @@
       "profile": "Profil"
     },
     "admin": {
+      "conflicts": {
+        "title": "Rezervasyon çakışmaları",
+        "lead": "Yayımlanan ders programı veya bir blokla artık çakışan rezervasyonlar"
+      },
       "title": "Kurulum",
       "lead": "Salon rezervasyonu için gereken her şey, yeni bir dönemin ihtiyaç duyduğu sırayla.",
       "group": {

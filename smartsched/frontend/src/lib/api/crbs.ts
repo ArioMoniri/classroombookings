@@ -346,6 +346,25 @@ export const Dashboard = z.object({
 });
 export type Dashboard = z.infer<typeof Dashboard>;
 
+/** `GET /bookings/conflicts`: an active booking that the published timetable (or a block) now overlaps. */
+export const BookingConflict = z.object({
+  booking_id: z.number(),
+  room_id: z.number(),
+  date: z.string(),
+  held: z.object({
+    kind: z.enum(["timetable", "block", "booking"]),
+    room_id: z.number(),
+    date: z.string(),
+    start_period: z.number(),
+    end_period: z.number(),
+    label: z.string(),
+    id: z.number(),
+    run_id: z.number().nullish(),
+    series_id: z.number().nullish(),
+  }),
+});
+export type BookingConflict = z.infer<typeof BookingConflict>;
+
 export const OwnedRoom = RoomInfo.extend({ upcoming: z.array(BookingOut).default([]) });
 export type OwnedRoom = z.infer<typeof OwnedRoom>;
 
@@ -779,6 +798,7 @@ export const crbs = {
     dashboard: () => json("/bookings/dashboard", Dashboard),
     ownedRooms: () => json("/bookings/owned-rooms", z.array(OwnedRoom)),
     feedToken: () => send("POST", "/bookings/feed/token", undefined, FeedToken),
+    conflicts: (termId?: number) => json("/bookings/conflicts", z.array(BookingConflict), { term_id: termId }),
   },
   roles: {
     permissions: () => json("/permissions", PermissionCatalogue),
@@ -961,6 +981,7 @@ export const crbsKeys = {
   mine: (q: object) => ["crbs", "mine", q] as const,
   dashboard: ["crbs", "dashboard"] as const,
   ownedRooms: ["crbs", "owned-rooms"] as const,
+  conflicts: (termId?: number) => ["crbs", "conflicts", termId ?? null] as const,
   roles: ["crbs", "roles"] as const,
   permissions: ["crbs", "permissions"] as const,
   users: (q: object) => ["crbs", "users", q] as const,
@@ -1001,6 +1022,8 @@ export const useSeries = (id: number | null, enabled: boolean) =>
 export const useMyBookings = (q: { from?: string; to?: string; status?: "BOOKED" | "CANCELLED" | "ALL" }) =>
   useQuery({ queryKey: crbsKeys.mine(q), queryFn: () => crbs.bookings.mine(q), retry: false });
 export const useBookingDashboard = () => useQuery({ queryKey: crbsKeys.dashboard, queryFn: crbs.bookings.dashboard, retry: false });
+export const useBookingConflicts = (termId: number | undefined, enabled = true) =>
+  useQuery({ queryKey: crbsKeys.conflicts(termId), queryFn: () => crbs.bookings.conflicts(termId), enabled, retry: false });
 export const useOwnedRooms = () => useQuery({ queryKey: crbsKeys.ownedRooms, queryFn: crbs.bookings.ownedRooms, retry: false });
 export const useRoles = (enabled = true) => useQuery({ queryKey: crbsKeys.roles, queryFn: crbs.roles.list, enabled, staleTime: 30_000, retry: false });
 export const usePermissionCatalogue = () => useQuery({ queryKey: crbsKeys.permissions, queryFn: crbs.roles.permissions, staleTime: 10 * 60_000, retry: false });
@@ -1048,4 +1071,4 @@ export function useCrbsMutation<TVars, TOut>(fn: (vars: TVars) => Promise<TOut>,
 }
 
 /** Everything a booking can change: the grid, the lists, the context counters. */
-export const BOOKING_KEYS: QueryKey[] = [["crbs", "grid"], ["crbs", "mine"], ["crbs", "dashboard"], ["crbs", "owned-rooms"], crbsKeys.context, ["crbs", "booking"], ["crbs", "series"]];
+export const BOOKING_KEYS: QueryKey[] = [["crbs", "grid"], ["crbs", "mine"], ["crbs", "dashboard"], ["crbs", "owned-rooms"], crbsKeys.context, ["crbs", "booking"], ["crbs", "series"], ["crbs", "conflicts"]];

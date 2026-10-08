@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assignment, fixtureIndex } from "@/components/timetable/model/fixtures";
 import { buildModel } from "@/components/timetable/model/index-model";
-import { dayShare, freeRuns, heldAt, roomWeek, weekClasses, weekShare } from "./room-occupancy";
+import { dayShare, freeRuns, heldAt, roomWeek, rowSegments, weekClasses, weekShare } from "./room-occupancy";
 
 const model = buildModel(
   fixtureIndex([
@@ -45,5 +45,13 @@ describe("room occupancy", () => {
     expect(heldAt(g, 3, 4)).toBeNull();
     expect(heldAt(g, 3, null)).toBeNull();
     expect(weekClasses(model, 1, 7).map((e) => e.a.label)).toEqual(["MAT 101 §2", "BME 419 §1"]);
+  });
+  it("row segments merge a held item over its periods and keep free periods single", () => {
+    const row = roomWeek(model, 1, 7)[2];
+    const segs = rowSegments(row);
+    expect(segs[0]).toMatchObject({ kind: "held", sp: 1, ep: 2, cell: { label: "MAT 101 §2" } });
+    expect(segs[1]).toEqual({ kind: "free", p: 3 });
+    const covered = segs.reduce((n, s) => n + (s.kind === "free" ? 1 : s.ep - s.sp + 1), 0);
+    expect(covered).toBe(18);
   });
 });

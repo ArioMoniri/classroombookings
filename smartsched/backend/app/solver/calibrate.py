@@ -148,9 +148,15 @@ def choose(
     return best
 
 
-def build_instances(fixtures: Path, *, names: Iterable[str] = ("bahar_w3", "guz_w3", "final")) -> list[Instance]:
+def build_instances(
+    fixtures: Path,
+    *,
+    names: Iterable[str] = ("bahar_w3", "guz_w3", "final"),
+    definitive_rooms: str = "prefer",
+) -> list[Instance]:
     """Import the real fixtures into a throw-away SQLite DB (grid, planning / exam list, room master)
-    and build the bridge's input with ``definitive_rooms="prefer"`` (the planner's rooms as hints)."""
+    and build the bridge's input with ``definitive_rooms="prefer"`` (the planner's rooms as hints;
+    ``"lock"`` builds the locked reference, ``"ignore"`` the no-hint baseline)."""
     import asyncio
     import os
     import tempfile
@@ -201,7 +207,7 @@ def build_instances(fixtures: Path, *, names: Iterable[str] = ("bahar_w3", "guz_
                         kind=kind,
                         horizon=horizon,
                         horizon_params=hp,
-                        params={"definitive_rooms": "prefer"},
+                        params={"definitive_rooms": definitive_rooms},
                     )
                     inp, members = await build_solver_input(s, run)
                     model = ExamRequest if kind == "EXAM" else MeetingRequest

@@ -757,6 +757,22 @@
     }
   },
   "crbs": {
+    "conflicts": {
+      "refresh": "Refresh",
+      "currentSession": "Current session",
+      "allSessions": "All sessions",
+      "none": "No booking clashes with the published timetable.",
+      "summary": "{bookings} bookings in {rooms} rooms on {days} days overlap the timetable.",
+      "hint": "Open a booking to move or cancel it with a reason.",
+      "open": "Booking #{id}, {room}, {date}",
+      "periods": "period {span}",
+      "run": "run #{id}",
+      "kind": {
+        "timetable": "Timetable",
+        "block": "Block",
+        "booking": "Booking"
+      }
+    },
     "common": {
       "cancel": "Cancel",
       "loading": "Loading…",
@@ -1065,6 +1081,10 @@
       "profile": "Profile"
     },
     "admin": {
+      "conflicts": {
+        "title": "Booking conflicts",
+        "lead": "Bookings that the published timetable or a block now overlaps"
+      },
       "title": "Setup",
       "lead": "Everything classroom bookings need, in the order a new term needs it.",
       "group": {

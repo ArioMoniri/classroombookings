@@ -328,3 +328,76 @@ async def test_ldap_rejection_does_not_fall_back_to_the_local_copy(env, monkeypa
     # local (non-directory) accounts still sign in with their own password
     r = await c.post("/api/v1/auth/login", json={"username": "YEREL.HESAP", "password": "yerel-parola-1"})
     assert r.status_code == 200, r.text
+
+
+async def test_setup_users_cannot_grant_or_take_over_administrator_without_setup_roles(env):  # noqa: F811
+    """Deliberate security difference: CRBS (Users::save) lets anyone holding setup.users give any role,
+    Administrator included. SmartSched asks for setup.roles as well before a user management action grants
+    -- or takes over the account of -- a role that holds setup.roles (Administrator does)."""
+    c = env.client
+    roles = {r["code"]: r for r in (await c.get("/api/v1/roles", headers=env.admin)).json()}
+    r = await c.post(
+        "/api/v1/roles",
+        json={"name": "Bölüm Sekreteri", "description": "İİBF", "permissions": ["setup.users", "room.view"]},
+        headers=env.admin,
+    )
+    assert r.status_code == 201, r.text
+    _, sekreter = await env.user("sekreter@uni.edu.tr", role=None, role_id=r.json()["id"])
+    yetkili = (
+        await c.post(
+            "/api/v1/roles",
+            json={"name": "Rol Yöneticisi", "permissions": ["setup.roles", "room.view"]},
+            headers=env.admin,
+        )
+    ).json()
+    admin_id = (await c.get("/api/v1/auth/me", headers=env.admin)).json()["id"]
+
+    # CRBS behaviour kept: ordinary roles are granted as before
+    ok = await c.post(
+        "/api/v1/users",
+        json={"email": "ilker.sahin@uni.edu.tr", "role": "TEACHER", "password": "parola-1234"},
+        headers=sekreter,
+    )
+    assert ok.status_code == 201, ok.text
+    teacher_id = ok.json()["id"]
+    # ... but not Administrator, nor a role holding setup.roles, on create or on update
+    for body in ({"role": "ADMIN"}, {"role_id": roles["ADMIN"]["id"]}, {"role_id": yetkili["id"]}):
+        r = await c.post(
+            "/api/v1/users",
+            json={"email": "ışık.öztürk@uni.edu.tr", "password": "parola-1234", "role": None, **body},
+            headers=sekreter,
+        )
+        assert r.status_code == 403, r.text
+        r = await c.put(f"/api/v1/users/{teacher_id}", json=body, headers=sekreter)
+        assert r.status_code == 403, r.text
+    assert (await c.get(f"/api/v1/users/{teacher_id}", headers=env.admin)).json()["role"] == "TEACHER"
+    # nor take the Administrator's account over (password, reset code, e-mail, disable, delete)
+    assert (
+        await c.post(f"/api/v1/users/{admin_id}/password", json={"password": "ele-gecirme-1"}, headers=sekreter)
+    ).status_code == 403
+    assert (await c.post(f"/api/v1/users/{admin_id}/reset-token", headers=sekreter)).status_code == 403
+    assert (
+        await c.put(f"/api/v1/users/{admin_id}", json={"email": "saldirgan@uni.edu.tr"}, headers=sekreter)
+    ).status_code == 403
+    assert (await c.delete(f"/api/v1/users/{admin_id}", headers=sekreter)).status_code == 403
+    # the CSV import refuses those rows (and an Administrator default) but imports the others
+    csv = "kullanıcı adı,ad,soyad,e-posta,parola,rol,bölüm\nayşe.yılmaz,Ayşe,Yılmaz,,parola-1234,Teacher,\n"
+    csv += "İLKNUR.ÇELİK,İlknur,Çelik,,parola-1234,Administrator,\n"
+    r = await c.post(
+        "/api/v1/users/import", files={"file": ("users.csv", csv.encode("utf-8"), "text/csv")}, headers=sekreter
+    )
+    assert r.status_code == 200, r.text
+    res = r.json()
+    assert res["created"] == 1
+    assert [x["status"] for x in res["results"]] == ["success", "forbidden"]
+    assert "setup.roles" in res["results"][1]["error"]
+    r = await c.post(
+        "/api/v1/users/import",
+        files={"file": ("users.csv", b"murat.kaya,Murat,Kaya,,parola-1234,,\n", "text/csv")},
+        data={"role_id": str(roles["ADMIN"]["id"])},
+        headers=sekreter,
+    )
+    assert r.status_code == 403, r.text
+    # an actor holding setup.roles (the Administrator) still may
+    r = await c.put(f"/api/v1/users/{teacher_id}", json={"role": "ADMIN"}, headers=env.admin)
+    assert r.status_code == 200 and r.json()["role"] == "ADMIN"

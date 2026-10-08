@@ -63,6 +63,14 @@ describe("role-level capabilities, without assuming three roles", () => {
     const all = ADMIN_SECTIONS.flatMap((s) => s.permission);
     expect(adminSectionsFor(all)).toHaveLength(ADMIN_SECTIONS.length);
   });
+  it("a planner without setup rights reaches only the booking conflicts screen", () => {
+    const PLANNER = ["room.view", "book_single.create", "planning.view", "planning.edit"];
+    expect(adminSectionsFor(PLANNER).map((s) => s.id)).toEqual(["conflicts"]);
+    expect(canAccessRoute(PLANNER, "/admin/conflicts")).toBe(true);
+    expect(canAccessRoute(PLANNER, "/admin")).toBe(false);
+    expect(canAccessRoute(TEACHER, "/admin/conflicts")).toBe(false);
+    expect(canAccessRoute(SECRETARY, "/admin/conflicts")).toBe(false);
+  });
   it("unknown admin sub-routes still need some setup permission", () => {
     expect(routeRequirement("/admin/whatever")).not.toBeNull();
     expect(routeRequirement("/admin/rooms/12")).toEqual(["setup.rooms", "setup.rooms_acl"]);

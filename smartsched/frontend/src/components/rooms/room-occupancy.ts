@@ -92,3 +92,24 @@ export function weekClasses(model: CalendarModel, roomId: number, week: number) 
   }
   return out.sort((a, b) => a.day - b.day || a.sp - b.sp || a.a.label.localeCompare(b.a.label, "tr"));
 }
+
+export type RowSegment = { kind: "free"; p: number } | { kind: "held"; cell: Exclude<RoomCell, { kind: "free" }>; sp: number; ep: number };
+
+/** One day row as drawable segments: each free period on its own, each held item merged over the periods it keeps. */
+export function rowSegments(row: readonly RoomCell[]): RowSegment[] {
+  const out: RowSegment[] = [];
+  for (let p = 1; p <= row.length; ) {
+    const c = row[p - 1];
+    if (c.kind === "free") {
+      out.push({ kind: "free", p });
+      p++;
+      continue;
+    }
+    const end = Math.min(row.length, c.ep);
+    let ep = p;
+    while (ep < end && row[ep].kind === c.kind && (row[ep] as { label: string }).label === c.label) ep++;
+    out.push({ kind: "held", cell: c, sp: p, ep });
+    p = ep + 1;
+  }
+  return out;
+}

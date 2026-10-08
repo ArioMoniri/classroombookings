@@ -92,6 +92,7 @@ export type AdminSectionId =
   | "holidays"
   | "schedules"
   | "weeks"
+  | "conflicts"
   | "settings"
   | "authentication"
   | "email";
@@ -117,6 +118,8 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { id: "holidays", href: "/admin/holidays", labelKey: "crbs.admin.holidays.title", descriptionKey: "crbs.admin.holidays.lead", permission: ["setup.sessions"], group: "calendar" },
   { id: "schedules", href: "/admin/schedules", labelKey: "crbs.admin.schedules.title", descriptionKey: "crbs.admin.schedules.lead", permission: ["setup.schedules"], group: "calendar" },
   { id: "weeks", href: "/admin/weeks", labelKey: "crbs.admin.weeks.title", descriptionKey: "crbs.admin.weeks.lead", permission: ["setup.timetable_weeks"], group: "calendar" },
+  // planners: bookings the newly published timetable overlaps (GET /bookings/conflicts, planning.view)
+  { id: "conflicts", href: "/admin/conflicts", labelKey: "crbs.admin.conflicts.title", descriptionKey: "crbs.admin.conflicts.lead", permission: ["planning.view"], group: "calendar" },
   { id: "settings", href: "/admin/settings", labelKey: "crbs.admin.settings.title", descriptionKey: "crbs.admin.settings.lead", permission: ["setup.settings"], group: "organisation" },
   { id: "authentication", href: "/admin/authentication", labelKey: "crbs.admin.ldap.title", descriptionKey: "crbs.admin.ldap.lead", permission: ["setup.authentication"], group: "organisation" },
   { id: "email", href: "/admin/email", labelKey: "crbs.admin.email.title", descriptionKey: "crbs.admin.email.lead", permission: ["setup.settings"], group: "organisation" },

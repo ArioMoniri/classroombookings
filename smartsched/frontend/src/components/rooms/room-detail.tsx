@@ -32,7 +32,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS, PERIODS_PER_DAY, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { RoomVisual, floorText, nowLine, tagWords } from "./room-card";
-import { freeRuns, heldAt, roomWeek, weekClasses, weekShare, type FreeRun, type RoomCell } from "./room-occupancy";
+import { freeRuns, heldAt, roomWeek, rowSegments, weekClasses, weekShare, type FreeRun, type RoomCell } from "./room-occupancy";
 import { defaultWeek, useRunNow } from "./use-room-week";
 
 const EVENING_FROM = 12; // P12 starts the evening programme (17:30)
@@ -277,55 +277,46 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
         </div>
         {days.map((day) => {
           const row = grid[day - 1];
-          const cells: React.ReactNode[] = [];
-          for (let p = 1; p <= PERIODS_PER_DAY; ) {
-            const c = row[p - 1];
-            if (c.kind === "free") {
+          const cells = rowSegments(row).map((seg) => {
+            if (seg.kind === "free") {
+              const p = seg.p;
               const isPicked = !!picked && picked.day === day && p >= picked.sp && p <= picked.ep;
               const isNow = !!now && now.day === day && now.period === p;
               const label = t("roomsV2.cellFree", { day: dayName(day, locale), p });
-              cells.push(
-                onPick ? (
-                  <button
-                    key={p}
-                    type="button"
-                    role="gridcell"
-                    aria-label={label}
-                    aria-selected={isPicked}
-                    onClick={() => {
-                      // two periods from here (one when the next period is taken)
-                      const ep = p < PERIODS_PER_DAY && row[p].kind === "free" ? p + 1 : p;
-                      onPick({ day, sp: p, ep, length: ep - p + 1 });
-                    }}
-                    className={cn("h-7 rounded-[4px] bg-fill-3 hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)", isPicked && "bg-tint-soft shadow-[inset_0_0_0_1.5px_var(--accent)]", isNow && "shadow-[inset_0_-2px_0_var(--now)]")}
-                  />
-                ) : (
-                  <span key={p} role="gridcell" aria-label={label} className={cn("h-7 rounded-[4px] bg-fill-3", isNow && "shadow-[inset_0_-2px_0_var(--now)]")} />
-                ),
+              return onPick ? (
+                <button
+                  key={p}
+                  type="button"
+                  role="gridcell"
+                  aria-label={label}
+                  aria-selected={isPicked}
+                  onClick={() => {
+                    // two periods from here (one when the next period is taken)
+                    const ep = p < PERIODS_PER_DAY && row[p].kind === "free" ? p + 1 : p;
+                    onPick({ day, sp: p, ep, length: ep - p + 1 });
+                  }}
+                  className={cn("h-7 rounded-[4px] bg-fill-3 hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)", isPicked && "bg-tint-soft shadow-[inset_0_0_0_1.5px_var(--accent)]", isNow && "shadow-[inset_0_-2px_0_var(--now)]")}
+                />
+              ) : (
+                <span key={p} role="gridcell" aria-label={label} className={cn("h-7 rounded-[4px] bg-fill-3", isNow && "shadow-[inset_0_-2px_0_var(--now)]")} />
               );
-              p++;
-              continue;
             }
-            const end = Math.min(PERIODS_PER_DAY, "ep" in c ? c.ep : p);
-            // span only as far as the same item continues in this row
-            let ep = p;
-            while (ep < end && row[ep].kind === c.kind && (row[ep] as { label: string }).label === c.label) ep++;
-            const label = t("roomsV2.cellHeld", { day: dayName(day, locale), p: `${p}${ep > p ? `–${ep}` : ""}`, label: c.label });
-            cells.push(
+            const { cell: c, sp, ep } = seg;
+            const label = t("roomsV2.cellHeld", { day: dayName(day, locale), p: `${sp}${ep > sp ? `–${ep}` : ""}`, label: c.label });
+            return (
               <span
-                key={p}
+                key={sp}
                 role="gridcell"
                 aria-label={label}
                 title={label}
                 data-conflict={c.kind === "class" && c.conflict ? "true" : undefined}
                 className={cn("h-7 min-w-0 overflow-hidden rounded-[4px] font-semibold whitespace-nowrap", cellClass(c), c.kind === "class" ? "!relative justify-center" : "flex items-center px-1.5")}
-                style={{ gridColumn: `${p + 1} / ${ep + 2}`, ...(c.kind === "class" ? chipVars(c.fac) : {}) }}
+                style={{ gridColumn: `${sp + 1} / ${ep + 2}`, ...(c.kind === "class" ? chipVars(c.fac) : {}) }}
               >
                 <span className="truncate">{c.label}</span>
-              </span>,
+              </span>
             );
-            p = ep + 1;
-          }
+          });
           return (
             <div key={day} role="row" className="contents">
               <span role="rowheader" className="flex items-center text-[12px] font-semibold text-label-2">{dayName(day, locale, "short")}</span>
