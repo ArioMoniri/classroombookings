@@ -353,6 +353,10 @@ async def test_setup_users_cannot_grant_or_take_over_administrator_without_setup
     ).json()
     admin_id = (await c.get("/api/v1/auth/me", headers=env.admin)).json()["id"]
 
+    # user managers may read roles and permissions (to grey out what they cannot grant) but not change them
+    assert (await c.get("/api/v1/roles", headers=sekreter)).status_code == 200
+    assert (await c.get("/api/v1/permissions", headers=sekreter)).status_code == 200
+    assert (await c.post("/api/v1/roles", json={"name": "x", "permissions": []}, headers=sekreter)).status_code == 403
     # no escalation (user decision 2026-10-08): a role is granted only when the actor holds all its permissions
     izleyici = (
         await c.post(

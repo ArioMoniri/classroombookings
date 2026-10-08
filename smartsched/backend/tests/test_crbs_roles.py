@@ -80,7 +80,9 @@ async def test_custom_role_permissions_are_enforced(client):
     me = (await client.get("/api/v1/auth/me", headers=h)).json()
     assert me["role"] == "CUSTOM" and set(me["permissions"]) == {"setup.users", "room.view"}
     assert (await client.get("/api/v1/users", headers=h)).status_code == 200
-    assert (await client.get("/api/v1/roles", headers=h)).status_code == 403
+    # read-only role list for user managers (their pickers grey out roles they may not grant); no writes
+    assert (await client.get("/api/v1/roles", headers=h)).status_code == 200
+    assert (await client.post("/api/v1/roles", json={"name": "y", "permissions": []}, headers=h)).status_code == 403
     assert (await client.get("/api/v1/runs", headers=h)).status_code == 403
     # deleting the role leaves the user without permissions (CRBS: users.role_id = NULL)
     assert (await client.delete(f"/api/v1/roles/{custom['id']}", headers=admin)).status_code == 204

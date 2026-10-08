@@ -25,6 +25,8 @@ from app.services.bookings_users import ImportDefaults, import_users_csv, issue_
 
 router = APIRouter(tags=["roles"])
 RolesAdmin = Annotated[User, Depends(require_permission("setup.roles"))]
+#: read-only role list for user managers, so their role pickers can show which roles they may grant
+RolesReader = Annotated[User, Depends(require_permission("setup.roles", "setup.users"))]
 
 
 async def _no_escalation(db: DB, me: User, names: Iterable[str], what: str = "grant these permissions") -> None:
@@ -73,12 +75,12 @@ async def _role(db: DB, role_id: int) -> Role:
 
 
 @router.get("/permissions")
-async def list_permissions(db: DB, _: RolesAdmin) -> dict[str, Any]:
+async def list_permissions(db: DB, _: RolesReader) -> dict[str, Any]:
     return grouped_permissions(list((await db.execute(select(Permission))).scalars()))
 
 
 @router.get("/roles", response_model=list[RoleOut])
-async def list_roles(db: DB, _: RolesAdmin) -> list[RoleOut]:
+async def list_roles(db: DB, _: RolesReader) -> list[RoleOut]:
     return [await _role_out(db, r) for r in (await db.execute(select(Role).order_by(Role.name))).scalars()]
 
 
