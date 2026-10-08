@@ -234,6 +234,8 @@ class RunContext:
     meetings: dict[int, MeetingFacts] = field(default_factory=dict)
     exams: dict[int, ExamRequest] = field(default_factory=dict)
     bookings: list[Booking] = field(default_factory=list)
+    #: published-board (IMPORT) rows carry course codes, not request ids: assignment id -> matched request id
+    board_mr: dict[int, int] = field(default_factory=dict)
     _by_day: dict[int, list[Assignment]] | None = None
     _blocks_by_room: dict[int, list[Block]] | None = None
 
@@ -268,6 +270,10 @@ class RunContext:
         w = sorted(assignment_weeks(a))
         return w or self.all_weeks()
 
+    def meeting_of(self, a: Assignment) -> MeetingFacts | None:
+        mid = a.meeting_request_id or self.board_mr.get(a.id)
+        return self.meetings.get(mid) if mid else None
+
     def cap(self, rid: int) -> int:
         r = self.rooms.get(rid)
         if r is None:
@@ -279,14 +285,17 @@ class RunContext:
         return r.display_name if r is not None else f"#{rid}"
 
     def size_of(self, a: Assignment) -> int:
-        if a.meeting_request_id and a.meeting_request_id in self.meetings:
-            return self.meetings[a.meeting_request_id].size
+        m = self.meeting_of(a)
+        if m is not None:
+            return m.size
         if a.exam_request_id and a.exam_request_id in self.exams:
             return int(self.exams[a.exam_request_id].enrolment or 0)
         return 0
 
     def label_of(self, a: Assignment) -> str:
-        m = self.meetings.get(a.meeting_request_id or 0)
+        if a.label and not a.meeting_request_id:
+            return a.label
+        m = self.meeting_of(a)
         if m is not None:
             return f"{m.code}{' §' + m.section if m.section else ''}"
         e = self.exams.get(a.exam_request_id or 0)
@@ -372,6 +381,8 @@ async def load_run_context(session: AsyncSession, run: ScheduleRun, *, with_book
         ctx.exams = {
             e.id: e for e in (await session.execute(select(ExamRequest).where(ExamRequest.id.in_(ex_ids)))).scalars()
         }
+    if run.kind == "COURSE" and rows and not any(a.meeting_request_id for a in rows):
+        await _match_board(session, ctx)
     if with_bookings:
         ctx.bookings = list(
             (
@@ -379,6 +390,38 @@ async def load_run_context(session: AsyncSession, run: ScheduleRun, *, with_book
             ).scalars()
         )
     return ctx
+
+
+async def _match_board(session: AsyncSession, ctx: RunContext) -> None:
+    """Link published-board rows to requests by course code + day + overlapping periods; when several
+    sections meet at the same time prefer the one whose definitive room is the board room."""
+    facts = await load_meeting_facts(session, None, ctx.term.id)
+    by_key: dict[tuple[str, int], list[MeetingFacts]] = defaultdict(list)
+    for m in facts.values():
+        if m.day and m.sp and m.ep:
+            by_key[(code_key(m.code), m.day)].append(m)
+    used: set[int] = set()
+    for a in ctx.rows:
+        codes = [str(c) for c in a.course_codes or []] or ([a.label] if a.label else [])
+        rooms = set(ints(a.room_ids))
+        best: MeetingFacts | None = None
+        for c in codes:
+            for part in re.split(r"[/+,]", c):
+                cands = [
+                    m
+                    for m in by_key.get((code_key(part), a.day), [])
+                    if overlap(m.sp or 0, m.ep or 0, a.start_period, a.end_period)
+                ]
+                if not cands:
+                    continue
+                best = next((m for m in cands if set(m.definitive_ids) & rooms), cands[0])
+                break
+            if best is not None:
+                break
+        if best is not None:
+            ctx.board_mr[a.id] = best.id
+            used.add(best.id)
+    ctx.meetings.update({mid: facts[mid] for mid in used})
 
 
 # ------------------------------------------------------------------ calendar index
@@ -394,7 +437,7 @@ async def _faculties(session: AsyncSession) -> list[IndexFaculty]:
 def _compact(ctx: RunContext, rows: list[Assignment], reasons: dict[int, list[str]]) -> list[IndexAssignment]:
     out: list[IndexAssignment] = []
     for a in rows:
-        m = ctx.meetings.get(a.meeting_request_id or 0)
+        m = ctx.meeting_of(a)
         e = ctx.exams.get(a.exam_request_id or 0)
         rids = ints(a.room_ids)
         caps = [ctx.cap(r) for r in rids if r in ctx.rooms]
@@ -402,7 +445,7 @@ def _compact(ctx: RunContext, rows: list[Assignment], reasons: dict[int, list[st
         out.append(
             IndexAssignment(
                 id=a.id,
-                mr=a.meeting_request_id,
+                mr=a.meeting_request_id or ctx.board_mr.get(a.id),
                 ex=a.exam_request_id,
                 label=ctx.label_of(a),
                 code=code,
@@ -843,7 +886,7 @@ def check_candidate(ctx: RunContext, c: Candidate, *, others: list[Candidate] | 
                         ),
                     )
                 )
-        other = ctx.meetings.get(a.meeting_request_id or 0)
+        other = ctx.meeting_of(a)
         if mine is None or other is None or other.id == mine.id:
             continue
         shared_instr = set(mine.instr_ids) & set(other.instr_ids)
@@ -1057,7 +1100,7 @@ def plan_moves(ctx: RunContext, items: list[MoveItemIn]) -> list[PlannedMove]:
                 parts.append((m, ws))
         if not parts:
             raise CalendarError(422, f"assignment {it.aid} has no weeks in scope {it.scope} {it.week or ''}".strip())
-        meeting = ctx.meetings.get(base.meeting_request_id or 0)
+        meeting = ctx.meeting_of(base)
         cand = Candidate(
             moving={m.id for m, _ in parts},
             day=day,
@@ -1201,7 +1244,7 @@ def plan_item_out(ctx: RunContext, p: PlannedMove, moved: list[int] | None = Non
 
 
 def _checks(ctx: RunContext, a: Assignment) -> list[dict[str, Any]]:
-    m = ctx.meetings.get(a.meeting_request_id or 0)
+    m = ctx.meeting_of(a)
     rids = ints(a.room_ids)
     codes = [ctx.code(r) for r in rids]
     cap = sum(ctx.cap(r) for r in rids)
@@ -1278,7 +1321,7 @@ def _checks(ctx: RunContext, a: Assignment) -> list[dict[str, Any]]:
 
 def explain_template(ctx: RunContext, a: Assignment, lang: str) -> AssignmentExplainOut:
     tr = lang == "tr"
-    m = ctx.meetings.get(a.meeting_request_id or 0)
+    m = ctx.meeting_of(a)
     rids = ints(a.room_ids)
     codes = " + ".join(ctx.code(r) for r in rids) or "—"
     size = ctx.size_of(a)
@@ -1333,7 +1376,7 @@ def explain_template(ctx: RunContext, a: Assignment, lang: str) -> AssignmentExp
             for x in ctx.rows
             if x.id != a.id
             and x.day == a.day
-            and (o := ctx.meetings.get(x.meeting_request_id or 0)) is not None
+            and (o := ctx.meeting_of(x)) is not None
             and o.program_id == m.program_id
             and set(o.years) & set(m.years)
         ]

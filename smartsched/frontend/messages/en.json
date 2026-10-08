@@ -755,5 +755,51 @@
         "time": "This should take {words}."
       }
     }
+  },
+  "glass": {
+    "shell": {
+      "then": "then",
+      "sidebar": "Sidebar",
+      "primary": "Primary",
+      "classes": "All classes",
+      "solving": "Solving · {pct}%",
+      "runShort": "Run #{id}",
+      "queuedShort": "queued",
+      "runTitle": "Run #{id} · {term}",
+      "openRun": "Open the run",
+      "recentRuns": "Recent runs",
+      "noRuns": "No runs yet",
+      "breadcrumb": "Breadcrumb",
+      "toolbar": "Search and notifications",
+      "searchShort": "Search",
+      "tabs": "Tabs",
+      "more": "More"
+    },
+    "term": {
+      "kind": {
+        "REGULAR": "Teaching term",
+        "FINAL": "Final exams",
+        "BUT": "Make-up exams",
+        "SUMMER": "Summer school"
+      },
+      "weeks": "{n} weeks"
+    },
+    "role": {
+      "ADMIN": "Administrator",
+      "PLANNER": "Planner",
+      "VIEWER": "Viewer"
+    },
+    "palette": {
+      "placeholder": "Search a course (PHAR 240), instructor, programme, room (A 206) or run…",
+      "searching": "Searching…",
+      "empty": "Nothing matches “{query}”. Try a course code (MAT 112), a room (A 206) or a surname.",
+      "courses": "Courses",
+      "sections": "{n} sections",
+      "instructors": "Instructors",
+      "programs": "Programmes",
+      "evening": "evening",
+      "seats": "{n} seats",
+      "safe": "Navigating never changes anything"
+    }
   }
 }

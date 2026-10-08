@@ -129,7 +129,7 @@ async def run_free_rooms(
         if base is None:
             raise HTTPException(404, "assignment not found")
         exclude = {a.id for a in cv.weekly_series(ctx, base)}
-        meeting = ctx.meetings.get(base.meeting_request_id or 0)
+        meeting = ctx.meeting_of(base)
         size = size or ctx.size_of(base)
         week_list = week_list or sorted({w for a in cv.weekly_series(ctx, base) for w in ctx.weeks_of(a)})
     return cv.free_rooms(

@@ -755,5 +755,51 @@
         "time": "Tahmini süre {words}."
       }
     }
+  },
+  "glass": {
+    "shell": {
+      "then": "sonra",
+      "sidebar": "Kenar çubuğu",
+      "primary": "Ana gezinme",
+      "classes": "Tüm dersler",
+      "solving": "Çözülüyor · %{pct}",
+      "runShort": "Çalıştırma #{id}",
+      "queuedShort": "sırada",
+      "runTitle": "Çalıştırma #{id} · {term}",
+      "openRun": "Çalıştırmayı aç",
+      "recentRuns": "Son çalıştırmalar",
+      "noRuns": "Henüz çalıştırma yok",
+      "breadcrumb": "Konum",
+      "toolbar": "Arama ve bildirimler",
+      "searchShort": "Ara",
+      "tabs": "Sekmeler",
+      "more": "Diğer"
+    },
+    "term": {
+      "kind": {
+        "REGULAR": "Ders dönemi",
+        "FINAL": "Final sınavları",
+        "BUT": "Bütünleme sınavları",
+        "SUMMER": "Yaz okulu"
+      },
+      "weeks": "{n} hafta"
+    },
+    "role": {
+      "ADMIN": "Yönetici",
+      "PLANNER": "Planlamacı",
+      "VIEWER": "İzleyici"
+    },
+    "palette": {
+      "placeholder": "Ders (PHAR 240), öğretim elemanı, program, derslik (A 206) veya çalıştırma arayın…",
+      "searching": "Aranıyor…",
+      "empty": "“{query}” ile eşleşen bir şey yok. Ders kodu (MAT 112), derslik (A 206) veya soyadı deneyin.",
+      "courses": "Dersler",
+      "sections": "{n} şube",
+      "instructors": "Öğretim elemanları",
+      "programs": "Programlar",
+      "evening": "ikinci öğretim",
+      "seats": "{n} kişilik",
+      "safe": "Gezinme hiçbir şeyi değiştirmez"
+    }
   }
 }
