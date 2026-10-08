@@ -4,7 +4,7 @@
  * booking, the default schedule and the schedule per room group, and the calendar that assigns a
  * timetable week to each date (paint with a week, or apply one week to the whole term).
  */
-import { Brush, Eraser, Loader2, RotateCcw } from "lucide-react";
+import { Brush, Eraser, Loader2, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useReducer, useState, type PointerEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { Alert, ConfirmDialog, FieldRow, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
 import { changeCount, changes, initialPainter, monthsBetween, painterReducer, type Brush as BrushValue } from "./date-painter";
+import { DeleteSessionDialog, SessionDialog } from "./session-forms";
 
 const KEYS = [["crbs", "sessions"], ["crbs", "session-dates"], ["crbs", "term-schedules"], ["crbs", "context"], ["crbs", "grid"], ["crbs", "dates"]];
 
@@ -37,9 +38,21 @@ export function SessionsAdmin() {
   const sessions = useSessions();
   const [pick, setPick] = useState<number | null>(null);
   const current = sessions.data?.find((s) => s.term_id === pick) ?? sessions.data?.find((s) => s.is_selectable) ?? sessions.data?.[0];
+  // CRBS Sessions::add / edit / delete (UI gap audit #3)
+  const [editing, setEditing] = useState<Session | "new" | null>(null);
+  const [deleting, setDeleting] = useState<Session | null>(null);
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle title={t("crbs.admin.sessions.title")} subtitle={t("crbs.admin.sessions.lead")} />
+      <PageTitle
+        title={t("crbs.admin.sessions.title")}
+        subtitle={t("crbs.admin.sessions.lead")}
+        actions={
+          <Button onClick={() => setEditing("new")} data-testid="session-new">
+            <Plus aria-hidden />
+            {t("admingaps.sessions.new")}
+          </Button>
+        }
+      />
       {sessions.isLoading ? <Loading /> : null}
       {sessions.data && sessions.data.length === 0 ? <Alert tone="info">{t("crbs.sessions.none")}</Alert> : null}
       {sessions.data && sessions.data.length ? (
@@ -69,12 +82,21 @@ export function SessionsAdmin() {
           </ul>
         </Card>
       ) : null}
-      {current ? <SessionDetail key={current.term_id} session={current} /> : null}
+      {current ? <SessionDetail key={current.term_id} session={current} onEdit={() => setEditing(current)} onDelete={() => setDeleting(current)} /> : null}
+      <SessionDialog open={editing !== null} session={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={(id) => setPick(id)} />
+      <DeleteSessionDialog
+        session={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => {
+          setDeleting(null);
+          setPick(null);
+        }}
+      />
     </div>
   );
 }
 
-function SessionDetail({ session }: { session: Session }) {
+function SessionDetail({ session, onEdit, onDelete }: { session: Session; onEdit: () => void; onDelete: () => void }) {
   const { t } = useI18n();
   const schedules = useSchedules();
   const termSchedules = useTermSchedules(session.term_id);
@@ -84,7 +106,23 @@ function SessionDetail({ session }: { session: Session }) {
   return (
     <>
       <section aria-labelledby="sess-settings">
-        <SectionTitle id="sess-settings">{t("crbs.sessions.settings", { name: session.name })}</SectionTitle>
+        <SectionTitle
+          id="sess-settings"
+          actions={
+            <div className="flex gap-1">
+              <Button variant="outline" size="sm" onClick={onEdit} data-testid="session-edit">
+                <Pencil aria-hidden />
+                {t("admingaps.sessions.edit")}
+              </Button>
+              <Button variant="ghost" size="sm" className="text-status-infeasible-fg" onClick={onDelete} data-testid="session-delete">
+                <Trash2 aria-hidden />
+                {t("crbs.common.delete")}
+              </Button>
+            </div>
+          }
+        >
+          {t("crbs.sessions.settings", { name: session.name })}
+        </SectionTitle>
         <Card variant="glass" className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.sessions.selectableLabel")} hint={t("crbs.sessions.selectableHint")} htmlFor="sess-sel">
             <Switch id="sess-sel" checked={session.is_selectable} onCheckedChange={(v) => update.mutate({ is_selectable: v }, { onError: toastError })} data-testid="session-selectable" />

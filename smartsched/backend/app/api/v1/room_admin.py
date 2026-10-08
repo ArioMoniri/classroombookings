@@ -40,6 +40,7 @@ from app.schemas.crbs import (
     RoomGroupOut,
     RoomGroupUpdate,
 )
+from app.services import rooms_features as features
 from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import BOOKING_SCOPE_GROUPS, perm_group
 
@@ -167,19 +168,10 @@ async def delete_group(gid: int, db: DB, _: RoomsAdmin) -> None:
 
 
 async def _field_values(db: DB, room_id: int) -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    fields = {f.id: f for f in (await db.execute(select(RoomCustomField))).scalars()}
-    for v in (await db.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.room_id == room_id))).scalars():
-        f = fields.get(v.field_id)
-        if f is None:
-            continue
-        if f.type == "CHECKBOX":
-            out[str(f.id)] = v.value == "1"
-        elif f.type == "SELECT":
-            out[str(f.id)] = int(v.value) if v.value and v.value.isdigit() else None
-        else:
-            out[str(f.id)] = v.value
-    return out
+    """``{field_id: value}`` for every typed feature (P10, ``app.services.rooms_features``): CHECKBOX/BOOLEAN bool,
+    SELECT option id, NUMBER number, MULTISELECT option ids, TEXT text."""
+    room = await db.get(Room, room_id)
+    return await features.legacy_values(db, room) if room is not None else {}
 
 
 async def _room_out(db: DB, r: Room) -> RoomAdminOut:
@@ -346,23 +338,10 @@ async def _field(db: DB, fid: int) -> RoomCustomField:
 
 
 async def _mirror(db: DB, room_id: int) -> None:
-    """Copy custom field values into ``rooms.custom_fields`` (by field name) for the AI layer / room UI."""
+    """``rooms.custom_fields`` (by field name) and the solver tags of typed features (``rooms.tags``)."""
     r = await db.get(Room, room_id)
-    if r is None:
-        return
-    fields = {f.id: f for f in (await db.execute(select(RoomCustomField))).scalars()}
-    keep = {k: v for k, v in (r.custom_fields or {}).items() if k not in {f.name for f in fields.values()}}
-    for v in (await db.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.room_id == room_id))).scalars():
-        f = fields.get(v.field_id)
-        if f is None or v.value in (None, ""):
-            continue
-        if f.type == "CHECKBOX":
-            keep[f.name] = v.value == "1"
-        elif f.type == "SELECT":
-            keep[f.name] = next((o.value for o in f.options if str(o.id) == v.value), None)
-        else:
-            keep[f.name] = v.value
-    r.custom_fields = keep
+    if r is not None:
+        await features.mirror(db, r)
 
 
 @router.get("/fields", response_model=list[CustomFieldOut])
@@ -443,41 +422,21 @@ async def get_room_fields(room_id: int, db: DB, _: RoomsAdmin) -> dict[str, Any]
 
 
 @router.put("/rooms/{room_id}/fields")
-async def put_room_fields(room_id: int, body: dict[str, Any], db: DB, _: RoomsAdmin) -> dict[str, Any]:
-    """``{field_id: value}``: TEXT -> text, CHECKBOX -> bool, SELECT -> option id (or null)."""
-    await _room(db, room_id)
-    existing = {
-        v.field_id: v
-        for v in (
-            await db.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.room_id == room_id))
-        ).scalars()
-    }
-    for key, value in body.items():
+async def put_room_fields(room_id: int, body: dict[str, Any], db: DB, me: RoomsAdmin) -> dict[str, Any]:
+    """``{field_id: value}``: TEXT -> text, CHECKBOX -> bool, SELECT -> option id (or null); the typed features
+    (P10) accept their values too. Written through ``rooms_features.set_values`` (tags mirrored, audited)."""
+    room = await _room(db, room_id)
+    for key in body:
         try:
-            fid = int(key)
+            int(key)
         except ValueError as exc:
             raise HTTPException(422, f"field id {key!r} is not a number") from exc
-        f = await _field(db, fid)
-        stored: str | None
-        if value is None:
-            stored = None
-        elif f.type == "CHECKBOX":
-            stored = "1" if (value is True or n.parse_bool_loose(value)) else "0"
-        elif f.type == "SELECT":
-            if not any(o.id == int(value) for o in f.options):
-                raise HTTPException(422, f"option {value} is not an option of {f.name}")
-            stored = str(int(value))
-        else:
-            stored = n.clean_text(value)
-            if stored and len(stored) > 255:
-                raise HTTPException(422, f"{f.name}: at most 255 characters")
-        row = existing.get(fid)
-        if row is None:
-            db.add(RoomCustomFieldValue(room_id=room_id, field_id=fid, value=stored))
-        else:
-            row.value = stored
-    await db.flush()
-    await _mirror(db, room_id)
+        await _field(db, int(key))
+    try:
+        await features.set_values(db, room, body, me)
+    except features.FeatureError as exc:
+        await db.rollback()
+        raise HTTPException(exc.status, exc.message) from exc
     await db.commit()
     return await _field_values(db, room_id)
 

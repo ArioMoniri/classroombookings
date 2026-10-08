@@ -4,14 +4,15 @@
  * limits and the permission matrix grouped like CRBS (`Permissions_model::get_scoped`): system and setup
  * permissions as lists, booking permissions as a table with single and recurring side by side.
  */
-import { Loader2, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { ChevronRight, Loader2, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { crbs, crbsError, usePermissionCatalogue, useCrbsMutation, useRoles, type PermissionCatalogue, type Role, type RoleIn } from "@/lib/api/crbs";
+import { crbs, crbsError, usePermissionCatalogue, useCrbsMutation, useRoles, useUserSearch, type PermissionCatalogue, type Role, type RoleIn } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -156,6 +157,7 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
       {locked ? <Alert tone="info">{t("crbs.roles.adminLocked")}</Alert> : null}
       {catalogue.data ? <PermissionMatrix catalogue={catalogue.data} value={perms} onToggle={toggle} disabled={readOnly} held={held} /> : <Loading />}
       </fieldset>
+      {role ? <RoleUsers role={role} /> : null}
       {error ? <Alert tone="error">{error}</Alert> : null}
       <div className="flex flex-wrap justify-between gap-2">
         {role && !readOnly ? (
@@ -203,6 +205,49 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
         }
       />
     </Card>
+  );
+}
+
+const ROLE_USERS_SHOWN = 24;
+
+/** CRBS `V/roles/user_list.php`: who holds the role (UI gap audit #16). Needs setup.users to read people. */
+function RoleUsers({ role }: { role: Role }) {
+  const { t } = useI18n();
+  const { can } = usePermissions();
+  const allowed = can("setup.users");
+  const users = useUserSearch({ role_id: role.id, limit: ROLE_USERS_SHOWN, sort: "displayname" }, allowed && role.user_count > 0);
+  const total = users.data?.total ?? role.user_count;
+  return (
+    <section aria-labelledby="role-users" data-testid="role-users">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 id="role-users" className="type-headline text-label-1">
+          {t("admingaps.roles.users", { n: total })}
+        </h3>
+        {allowed && total > 0 ? (
+          <Link href={`/admin/users?role=${role.id}`} className="inline-flex items-center gap-1 type-callout text-tint-text outline-none hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="role-users-all">
+            {t("admingaps.roles.openInUsers")}
+            <ChevronRight className="size-4" aria-hidden />
+          </Link>
+        ) : null}
+      </div>
+      {role.user_count === 0 ? (
+        <p className="type-callout text-label-2">{t("admingaps.roles.noUsers")}</p>
+      ) : !allowed ? (
+        <p className="type-callout text-label-2">{t("admingaps.roles.usersNeedPermission")}</p>
+      ) : users.isLoading ? (
+        <Loading />
+      ) : (
+        <ul className="flex flex-wrap gap-1.5">
+          {(users.data?.items ?? []).map((u) => (
+            <li key={u.id} className="rounded-full bg-fill-2 px-2.5 py-1 type-footnote text-label-1" title={u.email ?? u.username ?? undefined}>
+              {u.displayname || u.full_name || u.username || u.email}
+              {!u.is_active ? <span className="ml-1 text-label-3">· {t("crbs.users.disabled")}</span> : null}
+            </li>
+          ))}
+          {total > ROLE_USERS_SHOWN ? <li className="px-1 py-1 type-footnote text-label-3">{t("admingaps.roles.more", { n: total - ROLE_USERS_SHOWN })}</li> : null}
+        </ul>
+      )}
+    </section>
   );
 }
 

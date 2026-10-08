@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { crbs, useChangelog, useCrbsMutation, type Changelog } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
+import { useHydrated } from "@/lib/use-hydrated";
 import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { Loading } from "./kit";
 
@@ -66,7 +67,10 @@ export function WhatsNewIndicator({ className }: { className?: string }) {
   const q = useChangelog();
   const [open, setOpen] = useState(false);
   const seen = useCrbsMutation(() => crbs.org.changelogSeen(), [["crbs", "changelog"]]);
-  const unread = !!q.data?.unread;
+  // the shell mounts two indicators (mobile bar, desktop bar under Suspense); the later one would hydrate with the
+  // changelog already cached and differ from the server HTML, so the cache-fed dot waits for hydration
+  const hydrated = useHydrated();
+  const unread = hydrated && !!q.data?.unread;
   return (
     <>
       <Button

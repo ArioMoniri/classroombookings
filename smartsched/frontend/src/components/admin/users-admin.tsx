@@ -4,7 +4,9 @@
  * force-password-change flag, per-user booking limits (R = role value, U = own value, X = unlimited),
  * one-time reset codes (shown once), delete, and the CSV import with a per-row result table.
  */
-import { Copy, KeyRound, Loader2, MoreHorizontal, Pencil, Trash2, Upload, UserPlus } from "lucide-react";
+import { Copy, KeyRound, Loader2, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -51,9 +53,12 @@ const SEEDED = [
 export function UsersAdmin() {
   const { t } = useI18n();
   const { can, perms, userId } = usePermissions();
-  const [q, setQ] = useState("");
-  const [role, setRole] = useState("");
-  const [dept, setDept] = useState("");
+  // ?role=<id> (the role editor's "all users" link), ?department=<id> and ?q= preset the filters
+  const params = useSearchParams();
+  const router = useRouter();
+  const [q, setQ] = useState(() => params.get("q") ?? "");
+  const [role, setRole] = useState(() => (params.get("role") ?? "").replace(/\D/g, ""));
+  const [dept, setDept] = useState(() => (params.get("department") ?? "").replace(/\D/g, ""));
   const [enabled, setEnabled] = useState("");
   const [sort, setSort] = useState("username");
   const [page, setPage] = useState(0);
@@ -103,7 +108,7 @@ export function UsersAdmin() {
           }}
           data-testid="users-search"
         />
-        <SelectField aria-label={t("crbs.users.role")} value={role} onChange={(e) => (setRole(e.target.value), setPage(0))}>
+        <SelectField aria-label={t("crbs.users.role")} data-testid="users-role-filter" value={role} onChange={(e) => (setRole(e.target.value), setPage(0))}>
           <option value="">{t("crbs.users.allRoles")}</option>
           {(roles.data ?? []).map((r) => (
             <option key={r.id} value={r.id}>
@@ -124,11 +129,14 @@ export function UsersAdmin() {
           <option value="1">{t("crbs.users.enabled")}</option>
           <option value="0">{t("crbs.users.disabled")}</option>
         </SelectField>
-        <SelectField aria-label={t("crbs.users.sort")} value={sort} onChange={(e) => setSort(e.target.value)}>
+        <SelectField aria-label={t("crbs.users.sort")} data-testid="users-sort" value={sort} onChange={(e) => setSort(e.target.value)}>
           <option value="username">{t("crbs.users.sortUsername")}</option>
           <option value="displayname">{t("crbs.users.sortName")}</option>
           <option value="-lastlogin">{t("crbs.users.sortLogin")}</option>
           <option value="role">{t("crbs.users.sortRole")}</option>
+          {/* CRBS users_index sortable columns: enabled and department too (backend sort_map; UI gap audit #22) */}
+          <option value="-enabled,username">{t("admingaps.users.sortEnabled")}</option>
+          <option value="department,username">{t("admingaps.users.sortDepartment")}</option>
         </SelectField>
       </div>
       <Card variant="glass" className="py-0">
@@ -200,6 +208,11 @@ export function UsersAdmin() {
                         >
                           <KeyRound aria-hidden />
                           {t("crbs.users.resetCode")}
+                        </DropdownMenuItem>
+                        {/* CRBS users_add_side: the access checker for this person (UI gap audit #15) */}
+                        <DropdownMenuItem onClick={() => router.push(`/admin/access?user=${u.id}`)} data-testid={`user-check-access-${u.id}`}>
+                          <ShieldQuestion aria-hidden />
+                          {t("admingaps.access.check")}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" disabled={!manageable(u)} onClick={() => setDeleting(u)}>
@@ -331,6 +344,8 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
     is_active: user?.is_active ?? true,
     force_password_reset: user?.force_password_reset ?? false,
     password: "",
+    // CRBS users_add "Password (confirm)" (UI gap audit #22)
+    password2: "",
   });
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((prev) => ({ ...prev, [k]: v }));
@@ -361,6 +376,7 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
           setError(null);
           if (!f.username.trim() && !f.email.trim()) return setError(t("crbs.users.needIdentity"));
           if (!f.role) return setError(t("crbs.users.needRole"));
+          if (f.password !== f.password2) return setError(t("admingaps.users.passwordMismatch"));
           save.mutate(undefined, {
             onSuccess: (u) => {
               toast.success(user ? t("crbs.common.saved") : t("crbs.users.created", { name: u.username ?? u.email ?? "" }));
@@ -405,6 +421,9 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
           <Field label={user ? t("crbs.users.newPassword") : t("crbs.users.password")} htmlFor="u-password" hint={t("crbs.users.passwordHint")}>
             <Input id="u-password" type="password" autoComplete="new-password" minLength={8} value={f.password} onChange={(e) => set("password", e.target.value)} />
           </Field>
+          <Field label={t("admingaps.users.passwordConfirm")} htmlFor="u-password2" error={f.password2 && f.password !== f.password2 ? t("admingaps.users.passwordMismatch") : null}>
+            <Input id="u-password2" type="password" autoComplete="new-password" value={f.password2} onChange={(e) => set("password2", e.target.value)} data-testid="user-password-confirm" />
+          </Field>
         </div>
         <label className="flex items-center justify-between gap-3 type-callout text-label-1">
           {t("crbs.users.enabled")}
@@ -418,6 +437,12 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
           <Switch checked={f.force_password_reset} onCheckedChange={(v) => set("force_password_reset", v)} aria-label={t("crbs.users.forceReset")} />
         </label>
         {user ? <ConstraintsEditor userId={user.id} /> : null}
+        {user ? (
+          <Link href={`/admin/access?user=${user.id}`} className="inline-flex items-center gap-1.5 self-start type-callout text-tint-text outline-none hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="user-form-check-access">
+            <ShieldQuestion className="size-4" aria-hidden />
+            {t("admingaps.access.checkUser")}
+          </Link>
+        ) : null}
         {error ? <Alert tone="error">{error}</Alert> : null}
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={onClose}>

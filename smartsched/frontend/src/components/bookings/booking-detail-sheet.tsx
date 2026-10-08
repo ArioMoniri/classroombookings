@@ -4,7 +4,7 @@
  * as the viewer may see them, the series, and the edit / cancel actions the backend allows. Edit fields
  * follow `edit_features[scope]`; future/all scopes only change notes, department and user (CRBS rule).
  */
-import { CalendarClock, Loader2, Pencil, Repeat, Trash2, User } from "lucide-react";
+import { CalendarClock, Info, Loader2, Pencil, Repeat, Trash2, User } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,37 +18,40 @@ import {
   crbs,
   crbsError,
   useBooking,
+  useBookingDates,
   useBookingGrid,
+  useBookingUsers,
   useCrbsMe,
   useCrbsMutation,
   useDepartments,
   useSeries,
-  useUserSearch,
   type BookingDetail,
   type Scope,
 } from "@/lib/api/crbs";
 import { useQuery } from "@tanstack/react-query";
-import { hasPermission } from "@/lib/permissions";
+import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { Alert, ConfirmDialog, Field, Loading, SelectField } from "@/components/admin/kit";
 import { bookingErrorMessage } from "./booking-errors";
 import type { DateFormatter } from "./date-format";
 import { useIsPhone } from "./use-is-phone";
 
-export function BookingDetailSheet({ bookingId, onOpenChange, fmt }: { bookingId: number | null; onOpenChange: (open: boolean) => void; fmt: DateFormatter }) {
+export function BookingDetailSheet({ bookingId, onOpenChange, fmt, onRoomInfo }: { bookingId: number | null; onOpenChange: (open: boolean) => void; fmt: DateFormatter; onRoomInfo?: (roomId: number, date: string) => void }) {
   const phone = useIsPhone();
   return (
     <Sheet open={bookingId !== null} onOpenChange={onOpenChange}>
       <SheetContent side={phone ? "bottom" : "right"} className="gap-0 sm:max-w-lg data-[side=right]:sm:max-w-lg" data-testid="booking-sheet">
-        {bookingId !== null ? <Detail key={bookingId} id={bookingId} fmt={fmt} onClose={() => onOpenChange(false)} /> : null}
+        {bookingId !== null ? <Detail key={bookingId} id={bookingId} fmt={fmt} onClose={() => onOpenChange(false)} onRoomInfo={onRoomInfo} /> : null}
       </SheetContent>
     </Sheet>
   );
 }
 
-function Detail({ id, fmt, onClose }: { id: number; fmt: DateFormatter; onClose: () => void }) {
+function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatter; onClose: () => void; onRoomInfo?: (roomId: number, date: string) => void }) {
   const { t } = useI18n();
   const q = useBooking(id);
+  // CRBS bookings/view.php: the timetable week of the date and "Occurs: Week A, every Monday"
+  const day = useBookingDates({ term_id: q.data?.term_id ?? undefined, from: q.data?.date, to: q.data?.date }, !!q.data?.term_id);
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [showSeries, setShowSeries] = useState(false);
@@ -67,6 +70,10 @@ function Detail({ id, fmt, onClose }: { id: number; fmt: DateFormatter; onClose:
     );
   }
   const cancelled = b.status !== "BOOKED";
+  const weeks = new Map((day.data?.weeks ?? []).map((w) => [w.id, w]));
+  const dayWeek = weeks.get(day.data?.dates.find((d) => d.date === b.date)?.timetable_week_id ?? -1);
+  const seriesWeek = b.series?.timetable_week_id != null ? weeks.get(b.series.timetable_week_id) : undefined;
+  const weekday = b.series ? t(`days.${b.series.weekday}` as MessageKey) : "";
   const who = b.is_owner ? t("crbs.slot.mine") : b.user_name || (b.user_hidden ? t("crbs.detail.userHidden") : t("crbs.detail.noUser"));
 
   return (
@@ -93,6 +100,23 @@ function Detail({ id, fmt, onClose }: { id: number; fmt: DateFormatter; onClose:
               {b.type === "recurring" ? <Repeat className="size-3.5" aria-hidden /> : <CalendarClock className="size-3.5" aria-hidden />}
               {b.type === "recurring" ? t("crbs.legend.recurring") : t("crbs.legend.single")}
             </dd>
+            {dayWeek ? (
+              <>
+                <dt className="text-label-3">{t("reserve.detail.week")}</dt>
+                <dd className="flex items-center gap-1.5 text-label-1" data-testid="detail-week">
+                  <span aria-hidden className="inline-block size-2.5 rounded-full" style={{ background: dayWeek.bgcol }} />
+                  {dayWeek.name}
+                </dd>
+              </>
+            ) : null}
+            {b.series ? (
+              <>
+                <dt className="text-label-3">{t("reserve.detail.occurs")}</dt>
+                <dd className="text-label-1" data-testid="detail-occurs">
+                  {seriesWeek ? t("reserve.detail.occursWeek", { week: seriesWeek.name, weekday }) : t("reserve.detail.occursEvery", { weekday })}
+                </dd>
+              </>
+            ) : null}
             <dt className="text-label-3">{t("crbs.detail.user")}</dt>
             <dd className="flex items-center gap-1.5 text-label-1">
               <User className="size-3.5" aria-hidden />
@@ -109,9 +133,17 @@ function Detail({ id, fmt, onClose }: { id: number; fmt: DateFormatter; onClose:
             {b.room ? (
               <>
                 <dt className="text-label-3">{t("crbs.detail.room")}</dt>
-                <dd className="text-label-1">
-                  {[b.room.group, b.room.location, b.room.capacity ? t("crbs.grid.seats", { n: b.room.capacity }) : null, b.room.owner ? t("crbs.detail.owner", { name: b.room.owner }) : null].filter(Boolean).join(" · ")}
+                <dd className="flex flex-col items-start gap-1 text-label-1">
+                  <span>{[b.room.group, b.room.location, b.room.capacity ? t("crbs.grid.seats", { n: b.room.capacity }) : null, b.room.owner ? t("crbs.detail.owner", { name: b.room.owner }) : null].filter(Boolean).join(" · ")}</span>
+                  {onRoomInfo ? (
+                    <button type="button" onClick={() => onRoomInfo(b.room_id, b.date)} className="inline-flex min-h-11 items-center gap-1 rounded-sm font-medium text-tint-text outline-none focus-visible:outline-2 focus-visible:outline-(--focus) sm:min-h-0" data-testid="detail-room-info">
+                      <Info className="size-3.5" aria-hidden />
+                      {t("reserve.slotInfo.room")}
+                    </button>
+                  ) : null}
                 </dd>
+                {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
+                {b.room.photo_url ? <img src={b.room.photo_url} alt={t("crbs.rooms.photoAlt", { name: b.room_name })} className="col-span-2 max-h-48 w-full rounded-xl object-cover" data-testid="detail-photo" /> : null}
                 {b.room.fields
                   .filter((f) => f.value !== null && f.value !== "" && f.value !== false)
                   .map((f) => (
@@ -156,6 +188,11 @@ function Detail({ id, fmt, onClose }: { id: number; fmt: DateFormatter; onClose:
               )
             ) : null}
           </section>
+        ) : null}
+        {mode === "view" && !cancelled && !b.is_owner && (b.can_edit || b.can_cancel) ? (
+          <Alert tone="warning" testId="not-own-warning">
+            {t("reserve.detail.notOwn")}
+          </Alert>
         ) : null}
       </div>
       {mode === "view" && !cancelled && (b.can_edit || b.can_cancel) ? (
@@ -202,7 +239,6 @@ function ScopePicker({ value, onChange, booking }: { value: Scope; onChange: (s:
 
 function EditForm({ booking: b, fmt, onDone }: { booking: BookingDetail; fmt: DateFormatter; onDone: () => void }) {
   const { t } = useI18n();
-  const me = useCrbsMe();
   const [scope, setScope] = useState<Scope>("one");
   const f = b.edit_features[scope];
   const [date, setDate] = useState(b.date);
@@ -213,9 +249,10 @@ function EditForm({ booking: b, fmt, onDone }: { booking: BookingDetail; fmt: Da
   const [user, setUser] = useState(b.user_id ? String(b.user_id) : "none");
   const [error, setError] = useState<string | null>(null);
   const { ref: shakeRef, shake } = useShake<HTMLDivElement>();
-  const canPickUser = f.edit_user && hasPermission(me.data?.permissions, "setup.users");
+  // "Booked by" choices come from /bookings/users (book_*.set_user), so planners need no setup.users
+  const canPickUser = f.edit_user;
   const departments = useDepartments(f.department);
-  const users = useUserSearch({ limit: 500, enabled: true, sort: "displayname" }, canPickUser);
+  const users = useBookingUsers(canPickUser);
   const rooms = useQuery({ queryKey: ["crbs", "booking-rooms"], queryFn: () => crbs.bookings.rooms(), enabled: f.room, retry: false });
   const periodsGrid = useBookingGrid({ display: "room", date, room_id: Number(roomId) }, f.period);
   const periods = periodsGrid.data?.periods ?? [];
@@ -304,9 +341,9 @@ function EditForm({ booking: b, fmt, onDone }: { booking: BookingDetail; fmt: Da
         <Field label={t("crbs.book.user")} htmlFor="edit-user">
           <SelectField id="edit-user" value={user} onChange={(e) => setUser(e.target.value)}>
             <option value="none">{t("crbs.book.userNone")}</option>
-            {(users.data?.items ?? []).map((u) => (
+            {(users.data ?? []).map((u) => (
               <option key={u.id} value={u.id}>
-                {u.displayname || u.username || u.email}
+                {u.name}
               </option>
             ))}
           </SelectField>

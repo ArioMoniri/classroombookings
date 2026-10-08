@@ -11,12 +11,13 @@ from zoneinfo import ZoneInfo
 import icalendar
 from app.core import db as dbmod
 from app.models import CalendarFeedToken, User
+from app.models.base import utcnow
 from sqlalchemy import select
 
 from tests.crbs_env import env  # noqa: F401
 
 MON = date(2026, 2, 16)  # Bahar week 3
-NOTE = "Şube toplantısı – İç Hastalıkları; ölçme, değerlendirme\nİkinci satır"
+NOTE = "Şube toplantısı – İç Hastalıkları; ölçme, değerlendirme \\ yedek: İzmir/Iğdır"
 IST = ZoneInfo("Europe/Istanbul")
 
 
@@ -63,7 +64,8 @@ async def test_mine_feed_is_valid_rfc5545_and_token_is_stored_hashed(env):  # no
     assert ev.decoded("DTSTART") == datetime(2026, 2, 16, 8, 30, tzinfo=IST)
     assert ev.decoded("DTEND") == datetime(2026, 2, 16, 9, 10, tzinfo=IST)
     assert str(ev["SUMMARY"]) == "A 101 – P1" and str(ev["LOCATION"]) == "A 101"
-    assert NOTE in str(ev["DESCRIPTION"])  # escaped on the wire, identical after parsing (İ, ş, ;, newline)
+    assert str(ev["DESCRIPTION"]) == NOTE  # escaped on the wire (\\; \\, \\\\), identical after parsing; no own name
+    assert "\\;" in r.text.replace("\r\n ", "") and "\\\\" in r.text.replace("\r\n ", "")
     assert str(ev["STATUS"]) == "CONFIRMED" and int(ev["SEQUENCE"]) == 0
     assert ev.decoded("LAST-MODIFIED") and ev.decoded("DTSTAMP") == ev.decoded("LAST-MODIFIED")
     assert all(len(line.encode()) <= 75 for line in r.text.split("\r\n"))
@@ -104,7 +106,9 @@ async def test_room_feed_hides_private_notes_and_user_names(env):  # noqa: F811
     c = env.client
     _, owner = await env.user("not.sahibi@uni.edu.tr", displayname="Zeynep Şahin")
     b = (await env.book(owner, "A101", MON, "P1", notes="Gizli not: sınav soruları")).json()
-    role = (await c.post("/api/v1/roles", json={"name": "Takvim misafiri", "permissions": ["room.view"]}, headers=env.admin)).json()
+    role = (
+        await c.post("/api/v1/roles", json={"name": "Takvim misafiri", "permissions": ["room.view"]}, headers=env.admin)
+    ).json()
     _, guest = await env.user("takvim.misafir@uni.edu.tr", role=None, role_id=role["id"])
     tok = (await new_token(env, guest))["token"]
     r = await c.get(f"/api/v1/calendar/feeds/{tok}/room/{env.rooms['A101']}.ics")
@@ -116,6 +120,11 @@ async def test_room_feed_hides_private_notes_and_user_names(env):  # noqa: F811
     own = (await new_token(env, owner))["token"]
     text = (await c.get(f"/api/v1/calendar/feeds/{own}/room/{env.rooms['A101']}.ics")).text
     assert "Gizli not" in str(events(text)[f"booking-{b['id']}@smartsched"]["DESCRIPTION"])
+    # the planner may see notes and users: two lines (an escaped newline on the wire)
+    ptok = (await new_token(env, env.planner))["token"]
+    text = (await c.get(f"/api/v1/calendar/feeds/{ptok}/room/{env.rooms['A101']}.ics")).text
+    desc = str(events(text)[f"booking-{b['id']}@smartsched"]["DESCRIPTION"])
+    assert desc == "Gizli not: sınav soruları\nZeynep Şahin" and "\\n" in text.replace("\r\n ", "")
     # the legacy token link still serves the same feed
     legacy = await c.get(f"/api/v1/ics/{tok}/room/{env.rooms['A101']}.ics")
     assert legacy.status_code == 200 and "Gizli" not in legacy.text
@@ -129,16 +138,25 @@ async def test_room_acl_department_and_room_group_feeds(env):  # noqa: F811
     uid, guest = await env.user("dar.gorus@uni.edu.tr", role=None, role_id=role["id"])
     r = await c.post(
         "/api/v1/room-admin/acl",
-        json={"entity_type": "room", "entity_id": env.rooms["A102"], "context_type": "user", "context_id": uid,
-              "permissions": ["room.view"]},
+        json={
+            "entity_type": "room",
+            "entity_id": env.rooms["A102"],
+            "context_type": "user",
+            "context_id": uid,
+            "permissions": ["room.view"],
+        },
         headers=env.admin,
     )
     assert r.status_code == 201, r.text
     group = (
-        await c.post("/api/v1/room-admin/groups", json={"name": "Ağ Grubu", "room_ids": [env.rooms["A101"], env.rooms["A102"]]}, headers=env.admin)
+        await c.post(
+            "/api/v1/room-admin/groups",
+            json={"name": "Ağ Grubu", "room_ids": [env.rooms["A101"], env.rooms["A102"]]},
+            headers=env.admin,
+        )
     ).json()
     in_a101 = (await env.book(env.planner, "A101", MON, "P1", department_id=psy["id"])).json()
-    in_a102 = (await env.book(env.planner, "A102", MON, "P2", department_id=psy["id"])).json()
+    in_a102 = (await env.book(env.planner, "A102", date(2026, 2, 19), "P1", department_id=psy["id"])).json()
     assert in_a101["id"] and in_a102["id"]
     tok = (await new_token(env, guest))["token"]
     base = f"/api/v1/calendar/feeds/{tok}"
@@ -205,18 +223,25 @@ async def test_feed_rate_limit(env):  # noqa: F811
     r = await env.client.get(url)
     assert r.status_code == 429 and int(r.headers["retry-after"]) > 0
     # unknown tokens are throttled per address too, never a 500
-    assert (await env.client.get("/api/v1/calendar/feeds/sst_unknown_token_value_000000000000/mine.ics")).status_code == 404
+    assert (
+        await env.client.get("/api/v1/calendar/feeds/sst_unknown_token_value_000000000000/mine.ics")
+    ).status_code == 404
 
 
 async def test_admin_settings_require_setup_settings_and_mask_secrets(env):  # noqa: F811
     c = env.client
     _, teacher = await env.user("yetkisiz@uni.edu.tr")
     assert (await c.get("/api/v1/calendar/admin/settings", headers=teacher)).status_code == 403
-    assert (await c.put("/api/v1/calendar/admin/settings", json={"webhooks_enabled": True}, headers=teacher)).status_code == 403
+    assert (
+        await c.put("/api/v1/calendar/admin/settings", json={"webhooks_enabled": True}, headers=teacher)
+    ).status_code == 403
     r = await c.put(
         "/api/v1/calendar/admin/settings",
-        json={"google_client_id": "  1234-abc.apps.googleusercontent.com ", "google_client_secret": "GOCSPX-gercek-gizli-deger",
-              "public_url": "https://rezervasyon.uni.edu.tr/"},
+        json={
+            "google_client_id": "  1234-abc.apps.googleusercontent.com ",
+            "google_client_secret": "GOCSPX-gercek-gizli-deger",
+            "public_url": "https://rezervasyon.uni.edu.tr/",
+        },
         headers=env.admin,
     )
     assert r.status_code == 200, r.text
@@ -231,3 +256,27 @@ async def test_admin_settings_require_setup_settings_and_mask_secrets(env):  # n
     tok = await new_token(env, teacher)
     assert tok["urls"]["mine"].startswith("https://rezervasyon.uni.edu.tr/api/v1/calendar/feeds/")
     assert tok["subscribe"]["webcal"].startswith("webcal://rezervasyon.uni.edu.tr/")
+
+
+async def test_pending_requests_are_tentative_in_mine_only_and_rejected_ones_cancel(env):  # noqa: F811
+    from app.models import Booking
+
+    _, teacher = await env.user("onay.bekliyor@uni.edu.tr")
+    b = (await env.book(teacher, "A101", MON, "P1")).json()
+    async with dbmod.get_session_factory()() as s:
+        row = await s.get(Booking, b["id"])
+        row.status = "PENDING"  # what an approval rule makes of a request (P1)
+        await s.commit()
+    mine = (await new_token(env, teacher))["token"]
+    other = (await new_token(env, env.planner))["token"]
+    uid = f"booking-{b['id']}@smartsched"
+    ev = events((await env.client.get(f"/api/v1/calendar/feeds/{mine}/mine.ics")).text)[uid]
+    assert str(ev["STATUS"]) == "TENTATIVE"
+    room = (await env.client.get(f"/api/v1/calendar/feeds/{other}/room/{env.rooms['A101']}.ics")).text
+    assert uid not in events(room)  # other people's requests are not in room feeds
+    async with dbmod.get_session_factory()() as s:
+        row = await s.get(Booking, b["id"])
+        row.status, row.updated_at = "REJECTED", utcnow()
+        await s.commit()
+    ev = events((await env.client.get(f"/api/v1/calendar/feeds/{mine}/mine.ics")).text)[uid]
+    assert str(ev["STATUS"]) == "CANCELLED" and int(ev["SEQUENCE"]) == 1

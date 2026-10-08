@@ -31,7 +31,20 @@ FO = "tests/test_crbs_fixes_org.py::"
 TM = "tests/test_crbs_migration.py::"
 IC = "tests/test_import_crbs.py::"
 RS = "tests/test_review_security.py::"
+CF = "tests/test_calendar_feeds.py::"
+CC = "tests/test_calendar_connectors.py::"
+CM = "tests/test_calendar_migration.py::"
+WH = "tests/test_webhooks.py::"
 UI_B = "bookings.spec.ts::"
+W1F = "tests/test_wave1_features.py::"
+W1T = "tests/test_wave1_find_room.py::"
+W1A = "tests/test_wave1_audit.py::"
+W1P = "tests/test_wave1_approvals.py::"
+W1M = "tests/test_wave1_migrations.py::"
+WAVE1_UI_GAP = (
+    "booking enhancements wave 1 screens (feature editor, find-a-room sheet, audit page, approver inbox) are not "
+    "built yet; proposed: frontend against docs/product/wave1-api.md, then e2e steps on the real backend"
+)
 UI_C = "calendar.spec.ts::"
 
 E2E = {
@@ -56,6 +69,10 @@ E2E = {
 CAL_ROOMS = UI_C + "rooms: list with the week's occupancy, detail with grid, free slots and calendar link"
 CAL_MOVE = UI_C + "inspector, explain, move with the free-room finder, undo restores the backend"
 
+PANEL_UI_GAP = (
+    "backend contract docs/product/calendar-sync-api.md; the reservation panel (frontend agent) builds the screens, "
+    "no Playwright step yet"
+)
 FRONTEND_UI_GAP = (
     "screen exists (frontend-engineer, CRBS bookings + admin, 2026-10-08) but no Playwright test drives it; "
     "proposed: add a bookings.spec.ts step on the real backend"
@@ -352,7 +369,9 @@ ROWS: tuple[Row, ...] = (
         "The 28 CRBS permissions and the Administrator / Teacher roles of data.sql",
         "data.sql auth_permissions / auth_roles",
         TR + "test_seeded_roles_are_the_crbs_defaults_plus_smartsched_roles",
-        difference="superset: three planning.* permissions and the Planner / Viewer roles are added",
+        difference="superset: three planning.* permissions, the Planner / Viewer roles and five wave-1 permissions "
+        "(rooms.features, audit.view, approvals.decide, book_single.request, book_recur.request; rows X-08..X-11) "
+        "are added; only Administrator holds the wave-1 ones by default",
     ),
     _r(
         "B-ROLES-02",
@@ -903,6 +922,134 @@ ROWS: tuple[Row, ...] = (
         "(CRBS: formula injection)",
         FB + "test_b9_j_export_neutralises_formulas_and_follows_room_groups",
         difference="security (audit B9)",
+    ),
+    # ---------------------------------------------------------------- calendar sync + webhooks (T6 / A2, decision
+    # "Integrations engine" 2026-10-08; contract docs/product/calendar-sync-api.md)
+    _r(
+        "X-CAL-01",
+        "Calendar subscription links: per-user secret tokens stored only as SHA-256, several links per user, revoke "
+        "one or reset all; the older /ics links and POST /bookings/feed/token keep working",
+        "(not in CRBS)",
+        CF + "test_mine_feed_is_valid_rfc5545_and_token_is_stored_hashed",
+        CF + "test_revoke_reset_disabled_user_and_kvkk_switch",
+        CM + "test_plaintext_tokens_are_hashed_and_dropped",
+        TE + "test_ics_feeds",
+        difference="superset",
+        ui_gap=PANEL_UI_GAP,
+    ),
+    _r(
+        "X-CAL-02",
+        "Feeds are RFC 5545 (VTIMEZONE Europe/Istanbul, stable UID, SEQUENCE / LAST-MODIFIED, STATUS:CANCELLED for "
+        "a grace period, escaping, folding) with ETag / 304, Cache-Control and rate limits",
+        "(not in CRBS)",
+        CF + "test_mine_feed_is_valid_rfc5545_and_token_is_stored_hashed",
+        CF + "test_etag_304_and_sequence_on_update_then_cancelled_with_grace",
+        CF + "test_feed_rate_limit",
+        difference="superset",
+    ),
+    _r(
+        "X-CAL-03",
+        "Feeds show only what the link owner may see: room ACL, notes and user names (view_other_*), department "
+        "and room-group feeds, pending requests only in the owner's feed",
+        "(not in CRBS)",
+        CF + "test_room_feed_hides_private_notes_and_user_names",
+        CF + "test_room_acl_department_and_room_group_feeds",
+        CF + "test_pending_requests_are_tentative_in_mine_only_and_rejected_ones_cancel",
+        difference="superset",
+    ),
+    _r(
+        "X-CAL-04",
+        "KVKK switch for calendar sync (on by the officer's sign-off, switchable): off = token feeds 404, connect "
+        "403, push jobs skipped; every change writes a dated sign-off record and an audit event",
+        "(not in CRBS)",
+        CF + "test_revoke_reset_disabled_user_and_kvkk_switch",
+        CC + "test_callback_errors_and_kvkk_switch",
+        CF + "test_admin_settings_require_setup_settings_and_mask_secrets",
+        difference="superset (user decision 2026-10-08, KVKK)",
+    ),
+    _r(
+        "X-CAL-05",
+        "Google Calendar and Microsoft 365 push connectors: admin-entered OAuth client (configured: false "
+        "otherwise), PKCE + state, encrypted tokens, create / update / delete through a retried outbox",
+        "(not in CRBS)",
+        CC + "test_connectors_report_not_configured_until_the_admin_enters_a_client",
+        CC + "test_google_connect_then_create_update_cancel_reach_the_calendar",
+        CC + "test_google_choose_calendar_moves_events_and_duplicate_ids_are_idempotent",
+        CC + "test_microsoft_refreshes_tokens_retries_with_backoff_and_needs_reauth",
+        CC + "test_disconnect_deletes_tokens_and_revokes_at_google",
+        CC + "test_a_booking_given_to_another_user_leaves_the_old_calendar",
+        difference="superset",
+        gap="verified against mocked Google / Graph APIs with real-shaped answers; a live run needs the "
+        "university's own OAuth client (docs/deploy/calendar-oauth.md), proposed as a pod smoke step",
+        ui_gap=PANEL_UI_GAP,
+    ),
+    _r(
+        "X-HOOK-01",
+        "Outgoing webhooks for booking.* and approval.*: HMAC-SHA256 signature, retries with backoff, delivery "
+        "log, redelivery, switch-off after five failures; Activepieces / n8n consume them",
+        "(not in CRBS)",
+        WH + "test_admin_only_crud_url_rules_and_secret_shown_once",
+        WH + "test_signed_booking_events_when_enabled",
+        WH + "test_retries_backoff_redeliver_and_switch_off_after_five_failures",
+        WH + "test_resolved_metadata_address_is_refused_at_delivery",
+        WH + "test_approval_events_carry_the_request",
+        difference="superset",
+        ui_gap=PANEL_UI_GAP,
+    ),
+    # ---------------------------------------------------------------- booking enhancements wave 1 (ROADMAP Phase 17)
+    _r(
+        "X-08",
+        "Typed room features (yes/no, number, option, options, text) with a catalogue, per-room values, facets "
+        "over visible rooms, bulk CSV (cp1254, ';'), solver tags mirrored into rooms.tags (solver contract kept)",
+        "(CRBS: TEXT/CHECKBOX/SELECT display-only custom fields)",
+        W1F + "test_adopt_tags_turns_the_imported_tags_into_typed_features",
+        W1F + "test_tag_mirror_adds_and_removes_only_its_tag_and_the_solver_sees_it",
+        W1F + "test_number_and_select_values_with_turkish_input",
+        W1F + "test_facet_counts_follow_room_acl_visibility",
+        W1F + "test_bulk_csv_cp1254_semicolon_with_bad_cells",
+        W1F + "test_removing_a_solver_tag_feature_shows_its_impact_first",
+        W1M + "test_wave1_upgrade_keeps_checkbox_values_adopts_tags_and_round_trips",
+        difference="superset (booking enhancements P10, permission rooms.features)",
+        ui_gap=WAVE1_UI_GAP,
+    ),
+    _r(
+        "X-09",
+        "Find me a room: dates / weekday in weeks, periods or Turkish clock times, headcount, features, buildings, "
+        "consecutive periods; ranked by fit with reasons; timetable, blocks, bookings, holidays and ACL respected",
+        "(not in CRBS)",
+        W1T + "test_wednesday_1010_1230_for_90_matches_the_planners_hand_count",
+        W1T + "test_features_buildings_and_turkish_text",
+        W1T + "test_recurring_partial_results_and_holidays",
+        W1T + "test_acl_hides_rooms_and_alternatives_when_few_are_free",
+        difference="superset (booking enhancements T1)",
+        ui_gap=WAVE1_UI_GAP,
+    ),
+    _r(
+        "X-10",
+        "Append-only audit log of booking, user, role, room, ACL, settings and approval changes (secrets redacted, "
+        "network hashed) with undo of booking create / move / cancel",
+        "(CRBS: created_by / updated_by only)",
+        W1A + "test_booking_events_carry_actor_request_and_minimised_address",
+        W1A + "test_no_route_edits_or_deletes_audit_events",
+        W1A + "test_undo_create_move_and_cancel",
+        W1A + "test_undo_cancel_restores_or_offers_alternatives_when_taken",
+        W1A + "test_series_create_is_one_parent_event_and_undo_cancels_the_series",
+        W1A + "test_admin_changes_are_tracked_with_secrets_redacted",
+        difference="superset (booking enhancements P7, permission audit.view)",
+        ui_gap=WAVE1_UI_GAP,
+    ),
+    _r(
+        "X-11",
+        "Approval workflows: rooms / groups / room types need approval by designated administrators; PENDING "
+        "requests, optional hold, expiry, approve / reject / suggest another room, notifications; CRBS default off",
+        "(CRBS issues #67, #82)",
+        W1P + "test_crbs_default_no_room_needs_approval",
+        W1P + "test_designation_rules_requests_competition_and_approval",
+        W1P + "test_self_approval_reject_with_suggestion_and_withdraw",
+        W1P + "test_hold_blocks_the_slot_until_it_runs_out_then_expiry",
+        W1P + "test_approval_rechecks_the_calendar_and_request_only_permissions",
+        difference="superset (booking enhancements P1, permissions approvals.decide, book_*.request)",
+        ui_gap=WAVE1_UI_GAP,
     ),
     # ---------------------------------------------------------------- audit bugs (regressions)
     _r(

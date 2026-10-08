@@ -279,7 +279,8 @@ async def disconnect(provider: str, db: DB, access: CurrentAccess) -> Response:
 _TENANT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$")
 
 
-def _clean(v: Any) -> Any:
+def _clean(v: str | None) -> str | None:
+    """Trim spaces / NBSP pasted around ids and secrets (Turkish keyboards and copied console text)."""
     if v is None:
         return None
     return n.clean_text(v) or ""

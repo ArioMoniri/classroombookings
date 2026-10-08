@@ -83,9 +83,14 @@ def norm_type(t: str) -> str:
     return "BOOLEAN" if t == "CHECKBOX" else t
 
 
+def ascii_upper(text: str) -> str:
+    """Solver tags are ASCII codes (PC, TIP): "tip", "Tıp" and "TİP" all mean TIP."""
+    return text.replace("İ", "I").replace("ı", "I").upper()
+
+
 def norm_tag(tag: str | None) -> str | None:
     text = n.clean_text(tag)
-    return n.tr_upper(text).replace(" ", "_")[:16] if text else None
+    return ascii_upper(text).replace(" ", "_")[:16] if text else None
 
 
 # --------------------------------------------------------------------------------------------------

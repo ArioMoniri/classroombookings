@@ -424,6 +424,39 @@ export interface FindIn {
   limit?: number;
 }
 
+/* ------------------------------------------------------------- calendar sync (docs/product/calendar-sync-api.md) */
+
+export const SyncConnector = z.object({
+  provider: z.string(),
+  label: z.string(),
+  configured: z.boolean(),
+  connected: z.boolean(),
+  status: z.string().nullish(),
+  account_email: z.string().nullish(),
+  calendar_name: z.string().nullish(),
+  last_synced_at: z.string().nullish(),
+  last_error: z.string().nullish(),
+});
+export type SyncConnector = z.infer<typeof SyncConnector>;
+const FeedTemplates = z.object({ mine: z.string(), room: z.string(), department: z.string(), room_group: z.string().optional() });
+export const SyncStatus = z.object({
+  enabled: z.boolean(),
+  feeds: z.object({
+    tokens: z.array(z.object({ id: z.number(), label: z.string().nullish(), created_at: z.string().nullish(), last_used_at: z.string().nullish(), hint: z.string() })).default([]),
+    url_templates: FeedTemplates,
+  }),
+  connectors: z.array(SyncConnector).default([]),
+});
+export type SyncStatus = z.infer<typeof SyncStatus>;
+export const FeedTokenCreated = z.object({ id: z.number(), label: z.string().nullish(), token: z.string(), hint: z.string(), urls: FeedTemplates });
+export type FeedTokenCreated = z.infer<typeof FeedTokenCreated>;
+export const FeedOptions = z.object({
+  rooms: z.array(z.object({ id: z.number(), code: z.string(), name: z.string(), room_group_id: z.number().nullish() })).default([]),
+  room_groups: z.array(z.object({ id: z.number(), name: z.string() })).default([]),
+  departments: z.array(z.object({ id: z.number(), name: z.string() })).default([]),
+});
+export type FeedOptions = z.infer<typeof FeedOptions>;
+
 export const FeedToken = z.object({ token: z.string(), user_feed: z.string(), room_feed: z.string() });
 export type FeedToken = z.infer<typeof FeedToken>;
 
@@ -896,6 +929,14 @@ export const crbs = {
       json(`/bookings/departments/${departmentId}/rooms`, DepartmentRooms, { term_id: termId, limit }),
     users: (q?: string) => json("/bookings/users", z.array(BookingUser), { q }),
   },
+  calendar: {
+    sync: () => json("/calendar/sync", SyncStatus),
+    options: () => json("/calendar/feeds/options", FeedOptions),
+    createToken: (label: string) => send("POST", "/calendar/feeds/tokens", { label }, FeedTokenCreated),
+    reset: () => send("POST", "/calendar/feeds/reset", undefined, FeedTokenCreated),
+    connect: (provider: string, returnPath: string) => send("POST", `/calendar/connectors/${provider}/connect`, { return_path: returnPath }, z.object({ authorize_url: z.string() })),
+    disconnect: (provider: string) => send("DELETE", `/calendar/connectors/${provider}`),
+  },
   rooms: {
     /** T1 find-a-room; 404/405 while the backend does not have it yet (callers fall back to the grid) */
     find: (body: FindIn) => send("POST", "/rooms/find", body, FindOut),
@@ -1131,6 +1172,8 @@ export const useMyBookings = (q: { from?: string; to?: string; status?: "BOOKED"
 export const useBookingDashboard = () => useQuery({ queryKey: crbsKeys.dashboard, queryFn: crbs.bookings.dashboard, retry: false });
 export const useBookingConflicts = (termId: number | undefined, enabled = true) =>
   useQuery({ queryKey: crbsKeys.conflicts(termId), queryFn: () => crbs.bookings.conflicts(termId), enabled, retry: false });
+/** "Booked by" choices for planners with `book_*.set_user` (no `setup.users` needed). */
+export const useBookingUsers = (enabled = true) => useQuery({ queryKey: ["crbs", "booking-users"], queryFn: () => crbs.bookings.users(), enabled, staleTime: 60_000, retry: false });
 export const useOwnedRooms = () => useQuery({ queryKey: crbsKeys.ownedRooms, queryFn: crbs.bookings.ownedRooms, retry: false });
 export const useRoles = (enabled = true) => useQuery({ queryKey: crbsKeys.roles, queryFn: crbs.roles.list, enabled, staleTime: 30_000, retry: false });
 export const usePermissionCatalogue = () => useQuery({ queryKey: crbsKeys.permissions, queryFn: crbs.roles.permissions, staleTime: 10 * 60_000, retry: false });

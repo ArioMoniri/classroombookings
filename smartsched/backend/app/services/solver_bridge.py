@@ -394,7 +394,8 @@ def clip_to_planner_rooms(
     """D1 for definitive rooms used as *hints* (``definitive_rooms="prefer"``): an event the planner seats in
     a room set with fewer seats than its expected size may use exactly that set with the planner's seat
     count as its size — and only that set: every other room that cannot seat the full group is forbidden,
-    so a clipped size never lets the group into somebody else's small room (review MINOR).  Returns the
+    so a clipped size never lets the group into somebody else's small room (review MINOR); a room-sharing
+    exam is restricted to the planner's set (its size is the seat demand in a shared room).  Returns the
     events and ``(event id, full size, seats, planner rooms)`` per clipped event."""
     out: list[sm.Event] = []
     clipped: list[tuple[int, int, int, list[int]]] = []
@@ -404,7 +405,12 @@ def clip_to_planner_rooms(
         if not planner or not 0 < seats < e.size or e.locked is not None:
             out.append(e)
             continue
-        small = frozenset(r.id for r in rooms if r.id not in planner and room_capacity.get(r.id, 0) < e.size)
+        if e.share_room:
+            # a shared exam room takes the event's *size* in seats: a clipped size is sound only in exactly
+            # the planner's set, so a clipped exam may use no other room (it would under-count its students)
+            small = frozenset(r.id for r in rooms if r.id not in planner)
+        else:
+            small = frozenset(r.id for r in rooms if r.id not in planner and room_capacity.get(r.id, 0) < e.size)
         clipped.append((e.id, e.size, seats, list(planner)))
         out.append(replace(e, size=seats, forbidden_room_ids=e.forbidden_room_ids | small))
     return out, clipped

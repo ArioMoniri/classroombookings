@@ -157,6 +157,38 @@ def hint_assignments(inp: SolverInput) -> list[Assignment]:
     return [by_id[e.id] for e in inp.events if e.id in by_id]
 
 
+#: wall-clock safety net of a deterministic-mode CP-SAT call: factor x its deterministic budget
+DETERMINISTIC_WALL_FACTOR = 6.0
+
+
+def deterministic_mode(inp: SolverInput) -> bool:
+    """``workers == 1`` is the deterministic mode: every CP-SAT call gets a *deterministic* time budget
+    derived from ``time_limit_s`` only, and the stages split their budgets by deterministic time, so the same
+    input and seed give the same result on any machine load (bit-for-bit, review M2)."""
+    return int(inp.workers) == 1
+
+
+class Clock:
+    """Time used by a solve: wall seconds, or in deterministic mode the deterministic time of its CP-SAT
+    calls (Python work is deterministic anyway).  Nested solves report theirs in ``stats["clock_s"]``."""
+
+    def __init__(self, inp: SolverInput) -> None:
+        self.det = deterministic_mode(inp)
+        self.t0 = time.perf_counter()
+        self.spent = 0.0
+
+    def elapsed(self) -> float:
+        return self.spent if self.det else time.perf_counter() - self.t0
+
+    def charge(self, solver: Any) -> None:
+        if self.det:
+            self.spent += float(solver.deterministic_time)
+
+    def charge_s(self, seconds: Any) -> None:
+        if self.det and isinstance(seconds, int | float):
+            self.spent += float(seconds)
+
+
 #: deterministic-time budget of the canonical stages (``cpsat._canonical_optimum``,
 #: ``diagnose._canonical_placement``): single worker, so the same model gives the same answer on any load
 CANONICAL_DETERMINISTIC_S = 60.0
@@ -175,6 +207,11 @@ def make_solver(
     solver.parameters.max_time_in_seconds = max(0.1, float(time_limit_s))
     if deterministic_s is not None:
         solver.parameters.max_deterministic_time = max(0.1, float(deterministic_s))
+    if deterministic_mode(inp):
+        # the budget is deterministic time; the wall clock is only a safety net
+        det = min(float(time_limit_s), float(deterministic_s)) if deterministic_s is not None else float(time_limit_s)
+        solver.parameters.max_deterministic_time = max(0.1, det)
+        solver.parameters.max_time_in_seconds = max(30.0, det * DETERMINISTIC_WALL_FACTOR)
     solver.parameters.num_workers = max(1, int(inp.workers if workers is None else workers))
     solver.parameters.random_seed = int(inp.seed)
     solver.parameters.log_search_progress = False

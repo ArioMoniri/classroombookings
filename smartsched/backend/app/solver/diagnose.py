@@ -29,6 +29,7 @@ from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
 from app.solver.build import (
     CANONICAL_DETERMINISTIC_S,
+    Clock,
     Prepared,
     build_model,
     hint_assignments,
@@ -934,9 +935,13 @@ def _assumption_names(ctx: Any) -> dict[int, str]:
     return names
 
 
-def core_diagnosis(prep: Prepared, budget_s: float) -> tuple[list[Diagnosis], dict[str, Any]]:
+def core_diagnosis(
+    prep: Prepared, budget_s: float, clock: Clock | None = None
+) -> tuple[list[Diagnosis], dict[str, Any]]:
     """Assumption core + deletion-based shrinking (single worker, satisfaction only)."""
     t0 = time.perf_counter()
+    clock = clock or Clock(prep.inp)
+    c0 = clock.elapsed()
     stats: dict[str, Any] = {"core_probes": 0}
     ctx = build_model(prep, "assume")
     names = _assumption_names(ctx)
@@ -947,6 +952,7 @@ def core_diagnosis(prep: Prepared, budget_s: float) -> tuple[list[Diagnosis], di
     model.AddAssumptions(all_lits)
     solver = make_solver(prep.inp, max(0.5, budget_s * 0.4), workers=1)
     status = solver.Solve(model)
+    clock.charge(solver)
     stats["core_probes"] += 1
     stats["core_first_status"] = solver.StatusName(status)
     if status != cp_model.INFEASIBLE:
@@ -955,7 +961,7 @@ def core_diagnosis(prep: Prepared, budget_s: float) -> tuple[list[Diagnosis], di
     core = [names[i] for i in solver.SufficientAssumptionsForInfeasibility() if i in names]
     stats["core_initial"] = len(core)
     # deletion-based shrinking: drop an assumption; still infeasible -> it was not needed
-    remaining = budget_s - (time.perf_counter() - t0)
+    remaining = budget_s - (clock.elapsed() - c0)
     per_probe = max(0.3, min(3.0, remaining / max(1, len(core))))
     ordered = sorted(core, key=lambda n: (0 if n.startswith("event:") else 1, n))
     # deletion-minimal only if every element was probed and every probe was decided (INFEASIBLE: dropped,
@@ -964,7 +970,7 @@ def core_diagnosis(prep: Prepared, budget_s: float) -> tuple[list[Diagnosis], di
     for name in ordered:
         if len(core) <= 1:
             break
-        if time.perf_counter() - t0 + per_probe > budget_s:
+        if clock.elapsed() - c0 + per_probe > budget_s:
             minimal = False
             break
         trial = [n for n in core if n != name]
@@ -972,6 +978,7 @@ def core_diagnosis(prep: Prepared, budget_s: float) -> tuple[list[Diagnosis], di
         model.AddAssumptions([lit_by_name[n] for n in trial])
         probe = make_solver(prep.inp, per_probe, workers=1)
         st = probe.Solve(model)
+        clock.charge(probe)
         stats["core_probes"] += 1
         if st == cp_model.INFEASIBLE:
             core = trial
@@ -1031,11 +1038,14 @@ def relaxation_diagnosis(
     *,
     hints: list[Assignment] | None = None,
     explained: set[int] | frozenset[int] = frozenset(),
+    clock: Clock | None = None,
 ) -> tuple[list[Diagnosis], dict[str, Any], dict[int, Assignment]]:
     """Slack relaxation: maximise the number of placed events (hard rules intact).  ``hints`` (e.g.
     the greedy placement) warm-start the model; unplaced events whose id is in ``explained`` (already
     named by a static single-event error) are not explained twice."""
     t0 = time.perf_counter()
+    clock = clock or Clock(prep.inp)
+    c0 = clock.elapsed()
     stats: dict[str, Any] = {}
     ctx = build_model(prep, "relax")
     by_id = {a.event_id: a for a in (hints or [])}
@@ -1059,6 +1069,7 @@ def relaxation_diagnosis(
     ctx.add_hints([by_id[e.id] for e in prep.inp.events if e.id in by_id], unplaced_rest=True)
     solver = make_solver(prep.inp, max(0.5, budget_s))
     status = solver.Solve(ctx.model)
+    clock.charge(solver)
     stats["relax_status"] = solver.StatusName(status)
     stats["relax_s"] = round(time.perf_counter() - t0, 3)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
@@ -1079,14 +1090,14 @@ def relaxation_diagnosis(
     stats["relax_optimal"] = status == cp_model.OPTIMAL
     assignments = ctx.extract(solver)
     if status == cp_model.OPTIMAL and ctx.relax_objective is not None:
-        remaining = budget_s - (time.perf_counter() - t0)
+        remaining = budget_s - (clock.elapsed() - c0)
         # the optimum of the placement tiers (the room-deviation tier is the remainder of the scaled sum)
         value = int(round(solver.ObjectiveValue()))
         base_value = value // (len(devs) + 1) if devs else value
         tiers = [(base_objective, base_value)]
         if devs:  # the warm start's rooms: as close as the optimum (two inequalities, no weighted equality)
             tiers.append((sum(devs), value - base_value * (len(devs) + 1)))
-        canon = _canonical_placement(prep, ctx, tiers, assignments, remaining)
+        canon = _canonical_placement(prep, ctx, tiers, assignments, remaining, clock)
         if canon is not None:
             assignments = canon
             stats["relax_canonical"] = True
@@ -1165,6 +1176,7 @@ def _canonical_placement(
     tiers: list[tuple[Any, int]],
     assignments: list[Assignment],
     budget_s: float,
+    clock: Clock | None = None,
 ) -> list[Assignment] | None:
     """CP-SAT's parallel search returns *some* optimal relaxation; when several placements are optimal,
     which events stay unplaced would depend on thread timing.  Keep the optimum of each tier (``expr <=
@@ -1192,6 +1204,8 @@ def _canonical_placement(
     # it returns) no longer depends on thread timing or machine load (review M2)
     stage = make_solver(prep.inp, max(1.0, budget_s), workers=1, deterministic_s=CANONICAL_DETERMINISTIC_S)
     status = stage.Solve(ctx.model)
+    if clock is not None:
+        clock.charge(stage)
     if status != cp_model.OPTIMAL:
         return None
     return ctx.extract(stage)  # type: ignore[no-any-return]
@@ -1252,22 +1266,24 @@ def diagnose_with_placement(
     core: bool = True,
     hints: list[Assignment] | None = None,
     explained: set[int] | frozenset[int] = frozenset(),
+    clock: Clock | None = None,
 ) -> tuple[list[Diagnosis], dict[int, Assignment]]:
     """Assumption core (optional) + slack relaxation; returns the diagnoses and the maximum
     placement found by the relaxation (empty when it timed out).  Never raises."""
     out: list[Diagnosis] = []
     placed: dict[int, Assignment] = {}
-    t0 = time.perf_counter()
+    clock = clock or Clock(prep.inp)
+    c0 = clock.elapsed()
     if core:
         try:
-            core_diags, cstats = core_diagnosis(prep, budget_s * 0.5)
+            core_diags, cstats = core_diagnosis(prep, budget_s * 0.5, clock)
             prep.stats.update(cstats)
             out.extend(core_diags)
         except Exception as exc:  # noqa: BLE001
             prep.stats["core_error"] = f"{type(exc).__name__}: {exc}"
-    remaining = max(1.0, budget_s - (time.perf_counter() - t0))
+    remaining = max(1.0, budget_s - (clock.elapsed() - c0))
     try:
-        relax, rstats, placed = relaxation_diagnosis(prep, remaining, hints=hints, explained=explained)
+        relax, rstats, placed = relaxation_diagnosis(prep, remaining, hints=hints, explained=explained, clock=clock)
         prep.stats.update(rstats)
         out.extend(relax)
     except Exception as exc:  # noqa: BLE001
@@ -1339,9 +1355,9 @@ def partial_message(placed: int, total: int, exceptions: dict[str, int]) -> str:
     )
 
 
-def diagnose(prep: Prepared, budget_s: float) -> list[Diagnosis]:
+def diagnose(prep: Prepared, budget_s: float, clock: Clock | None = None) -> list[Diagnosis]:
     """Full diagnosis after CP-SAT proved INFEASIBLE.  Never raises."""
-    return diagnose_with_placement(prep, budget_s)[0]
+    return diagnose_with_placement(prep, budget_s, clock=clock)[0]
 
 
 __all__ = [

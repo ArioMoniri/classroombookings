@@ -267,9 +267,18 @@ the objective and picks the optimum with the smallest pseudo-random (event, room
 Both canonical stages run on **one worker with a deterministic time limit** (`build.CANONICAL_DETERMINISTIC_S`,
 review M2), so whether they prove their optimum no longer depends on machine load, and the tie-break ranks
 of the canonical optimum use a wide range (`CANONICAL_RANKS`) so that ties between optima are unlikely.
-So a fixed input and seed give the same timetable with `workers > 1` whenever the stages are proven
-(`tests/test_planner_level_real.py::test_bahar_week3_is_deterministic`); time-limited, unproven solves can
-still differ between runs (use `workers=1` for bit-for-bit runs).
+So a fixed input and seed give the same timetable with `workers > 1` whenever the stages are proven;
+when the relaxation's canonical stage cannot prove its optimum, rows that are interchangeable (one lecture
+listed twice) are canonicalised by `canonical_exchange`.  Time-limited, unproven parallel solves can still
+differ between runs, and under heavy machine load even the optimum proofs may not finish.
+
+**Deterministic mode (`workers=1`)**: every CP-SAT call gets a *deterministic* time budget derived from
+`time_limit_s` only (`build.deterministic_mode`, `build.Clock`): the stages (complete hint, search,
+canonical stages, day sweep, relaxation / core, phase 2, residual week-split round) split their budgets by
+the deterministic time the earlier stages used, never by the wall clock (which is only a safety net of
+`DETERMINISTIC_WALL_FACTOR` x the budget).  Same input + seed = same timetable on any load, bit for bit
+(`tests/test_planner_level_real.py::test_bahar_week3_is_deterministic`); `stats.deterministic`,
+`stats.clock_s`.  Use it for publishable runs (review roadmap: "a deterministic mode").
 
 ## Planner rooms as hints (`definitive_rooms="prefer"`) and weights
 

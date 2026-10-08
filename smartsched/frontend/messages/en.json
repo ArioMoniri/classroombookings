@@ -2158,5 +2158,242 @@
     "tagTIP": "Medical (TIP)",
     "tagLAB": "Lab",
     "tagAMPHI": "Amphitheatre"
+  },
+  "reserve": {
+    "cell": {
+      "free": "Free",
+      "reserve": "Reserve",
+      "span": "{n} periods",
+      "selectedSpan": "selected for a {n}-period booking"
+    },
+    "reason": {
+      "schedule": "Not a bookable period for this room"
+    },
+    "grid": {
+      "hint": "Click a free period to reserve it. Drag across periods or Shift-click to reserve several in a row.",
+      "longPress": "Touch and hold a grey cell to see why it cannot be booked."
+    },
+    "lens": {
+      "label": "View",
+      "grid": "Grid",
+      "free": "Free slots"
+    },
+    "free": {
+      "scope": "Range",
+      "day": "Day",
+      "week": "Week",
+      "count": "{n, plural, one {# free period} other {# free periods}}",
+      "rooms": "{n, plural, one {in # room} other {in # rooms}}",
+      "empty": "No free periods you can reserve on this day.",
+      "emptyWeek": "No free periods you can reserve this week.",
+      "reserveAt": "Reserve {room}, {date}, {time}",
+      "deptFirst": "Rooms your department uses come first.",
+      "loading": "Looking for free periods…",
+      "seats": "{n} seats",
+      "details": "Room details"
+    },
+    "dept": {
+      "label": "Department",
+      "all": "All departments",
+      "mine": "{name} (yours)",
+      "legend": "Bookings by department",
+      "legendEmpty": "No booking on this view has a department.",
+      "count": "{n, plural, one {# booking} other {# bookings}}",
+      "filtering": "{name} bookings are in colour; other bookings are muted.",
+      "topRooms": "Rooms {name} uses most",
+      "roomUse": "{bookings} bookings · {classes} classes",
+      "noRooms": "No bookings or classes for {name} in this session.",
+      "show": "Show {name}",
+      "clear": "Show all departments"
+    },
+    "book": {
+      "periods": "Periods",
+      "periodsHint": "Add the periods before or after to reserve them together.",
+      "period": "Period",
+      "submitN": "Reserve {n} periods",
+      "doneN": "Reserved {room}, {date}: {n} periods",
+      "spanRecurring": "Each period becomes a weekly series until {date}. Taken dates and holidays are skipped.",
+      "otherRooms": "Other available rooms"
+    },
+    "room": {
+      "capacity": "Seats",
+      "examCapacity": "Exam seats",
+      "building": "Building",
+      "floor": "Floor",
+      "group": "Room group",
+      "features": "Features",
+      "day": "On {date}",
+      "dayEmpty": "Nothing booked or timetabled on this day.",
+      "class": "Class",
+      "booking": "Booking",
+      "next": "Next free slot",
+      "nextNone": "No free slot this week.",
+      "reserve": "Reserve",
+      "reserveNext": "Reserve {time}",
+      "photoOpen": "Enlarge photo",
+      "photoClose": "Close photo",
+      "week": "Open the week of this room"
+    },
+    "alt": {
+      "title": "Other available rooms",
+      "lead": "Free on {date} at {time}",
+      "minSeats": "At least",
+      "seatsUnit": "seats",
+      "tags": "Needs",
+      "empty": "No other room is free at this time with these needs.",
+      "loading": "Checking the other rooms…",
+      "spare": "{n} spare seats",
+      "exact": "Exact fit",
+      "unknownSize": "Size unknown",
+      "reserve": "Reserve",
+      "reserveRoom": "Reserve {room} at {time}",
+      "time": "Time",
+      "finder": "Ranked by the room finder"
+    },
+    "slotInfo": {
+      "alternatives": "Free rooms at this time",
+      "room": "Room details"
+    },
+    "sync": {
+      "title": "Sync to calendar",
+      "open": "Calendar sync",
+      "lead": "Subscribe once and your calendar app keeps itself up to date: Google Calendar, Outlook, Apple Calendar and others.",
+      "mine": "My bookings",
+      "room": "Room {name}",
+      "department": "Department {name}",
+      "https": "Web link",
+      "webcal": "Calendar app link",
+      "copy": "Copy {what}",
+      "copied": "Link copied",
+      "google": "Add to Google Calendar",
+      "outlook": "Add to Outlook",
+      "outlookWork": "Microsoft 365",
+      "apple": "Apple Calendar",
+      "create": "Create my private links",
+      "reset": "Reset private link",
+      "resetTitle": "Reset the private link?",
+      "resetBody": "Calendars subscribed with the old links stop updating. Subscribe again with the new links.",
+      "private": "Anyone with these links can read the bookings in them. Keep them private.",
+      "googleNote": "Google refreshes subscribed calendars every few hours, not instantly.",
+      "loading": "Loading your calendar links…",
+      "none": "You have no private link yet.",
+      "connectGoogle": "Connect Google Calendar",
+      "connectMicrosoft": "Connect Microsoft 365",
+      "connectLead": "Two-way sync: your bookings are pushed to your own calendar as events and kept up to date.",
+      "connected": "Connected: {account}",
+      "disconnect": "Disconnect",
+      "connectError": "Could not connect: {message}",
+      "disabled": "Calendar sync was turned off by the administrator.",
+      "existing": "{n, plural, one {You have # private link ({hints}).} other {You have # private links ({hints}).}} Links are shown only once; create a new one to see it here.",
+      "pickRoom": "Room to subscribe to",
+      "pickDepartment": "Department to subscribe to",
+      "reconnect": "Reconnect",
+      "connectedToast": "Calendar connected"
+    },
+    "multi": {
+      "include": "Include {slot}",
+      "copyDown": "Copy to the rows below",
+      "perRow": "Details per slot",
+      "cancelN": "Cancel {n}",
+      "cancelTitle": "Cancel {n, plural, one {# booking} other {# bookings}}?",
+      "cancelBody": "These bookings, including other people's, are cancelled. Their owners are notified.",
+      "previewDates": "Check dates",
+      "dates": "Dates for {slot}",
+      "selectedCancel": "selected for cancelling"
+    },
+    "detail": {
+      "notOwn": "This is not your own booking.",
+      "week": "Timetable week",
+      "occurs": "Occurs",
+      "occursWeek": "{week}, every {weekday}",
+      "occursEvery": "Every {weekday}"
+    },
+    "mine": {
+      "canCreate": "You can create {n} more"
+    },
+    "toolbar": {
+      "current": "Current and future",
+      "past": "Past",
+      "groupCount": "{name} ({n})",
+      "ungrouped": "Other rooms"
+    }
+  },
+  "admingaps": {
+    "shell": {
+      "version": "Version {version}",
+      "maintenanceTitle": "Maintenance mode is on."
+    },
+    "overview": {
+      "data": "Bookings data",
+      "exportLead": "Download the bookings of a session as CSV (Excel), per room group, with or without cancellations."
+    },
+    "sessions": {
+      "new": "New session",
+      "newHint": "A session is a term with a first and a last day. Bookings, holidays and timetable weeks belong to one session.",
+      "edit": "Edit details",
+      "editTitle": "Edit {name}",
+      "editHint": "Change the name or the dates of this session.",
+      "created": "{name} created",
+      "cancelled": "{n, plural, one {# booking outside the new dates was cancelled.} other {# bookings outside the new dates were cancelled.}}",
+      "codeTaken": "A session with this code already exists.",
+      "namePlaceholder": "e.g. 2026-2027 Güz Dönemi",
+      "code": "Code",
+      "codeHint": "Short and unique, e.g. 2026-2027 GÜZ. Empty = the name.",
+      "start": "Start date",
+      "end": "End date",
+      "endBeforeStart": "The end date is before the start date.",
+      "datesHint": "Bookings that fall outside new dates are cancelled, as in classroombookings.",
+      "outsideTitle": "{n, plural, one {# booking falls outside the new dates.} other {# bookings fall outside the new dates.}}",
+      "outsideBody": "Saving cancels them with a reason; their owners see it in My bookings.",
+      "outsideConfirm": "{n, plural, one {Save and cancel # booking} other {Save and cancel # bookings}}",
+      "deleteTitle": "Delete {name}?",
+      "deleteLead": "This deletes the session and everything in it. It cannot be undone.",
+      "usageBookings": "Bookings",
+      "usageActive": "{total} ({active} active)",
+      "usageSeries": "Recurring series",
+      "usageHolidays": "Holidays",
+      "usagePlanning": "Timetable data",
+      "usagePlanningValue": "{sections} sections · {runs} runs",
+      "deleteAck": "{n, plural, one {I understand that # booking and the timetable data of this session are deleted.} other {I understand that # bookings and the timetable data of this session are deleted.}}",
+      "deleteConfirm": "Delete session"
+    },
+    "holidays": {
+      "days": "{n, plural, one {# day} other {# days}}",
+      "editNamed": "Edit {name}",
+      "editTitle": "Edit {name}",
+      "editHint": "Bookings cannot be made on these dates; recurring bookings skip them."
+    },
+    "users": {
+      "sortEnabled": "Enabled first",
+      "sortDepartment": "By department",
+      "passwordConfirm": "Password (confirm)",
+      "passwordMismatch": "The two passwords do not match."
+    },
+    "access": {
+      "check": "Check access",
+      "checkUser": "Check this person's access to a room",
+      "checkRoom": "Check access to {name}"
+    },
+    "roles": {
+      "users": "Users ({n})",
+      "openInUsers": "Show in Users",
+      "noUsers": "Nobody has this role yet.",
+      "usersNeedPermission": "You need the Users permission to see who has this role.",
+      "more": "and {n} more"
+    },
+    "rooms": {
+      "new": "New room",
+      "newHint": "Add a room to the room master. Owner, location, photo and custom fields are set in the room's edit sheet.",
+      "created": "{name} created",
+      "codeTaken": "A room with the code {code} already exists.",
+      "code": "Code",
+      "codeHint": "Building letter and number, e.g. A 101.",
+      "nameHint": "Empty = the code.",
+      "capacity": "Seats",
+      "deleteTitle": "Delete {name}?",
+      "deleteBody": "The room and its access entries are removed. A room with bookings cannot be deleted: make it not bookable instead.",
+      "hasBookings": "This room has {n} booking(s) ({active} active), so it cannot be deleted. Turn off “Bookable” in its edit sheet instead.",
+      "enlargePhoto": "Enlarge the photo of {name}"
+    }
   }
 }

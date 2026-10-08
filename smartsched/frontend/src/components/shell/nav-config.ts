@@ -44,7 +44,8 @@ export const NAV_GROUPS: NavGroup[] = [
     labelKey: "nav.admin",
     items: [
       { href: "/settings", labelKey: "nav.settings", icon: Settings, key: "s", permission: ["planning.admin", "setup.settings"] },
-      { href: "/settings?tab=users", labelKey: "nav.users", icon: Users, permission: "setup.users" },
+      // the full CRBS user screen (username, role, department, limits, import); the old 4-field tab redirects here
+      { href: "/admin/users", labelKey: "nav.users", icon: Users, permission: "setup.users" },
     ],
   },
 ];

@@ -26,7 +26,9 @@ async def test_setup_rooms_may_create_and_delete_rooms(env):  # noqa: F811
     rid = await _role(env, "Derslik yöneticisi", ["setup.rooms"])
     _, clerk = await env.user("derslik.yonetici@uni.edu.tr", role=None, role_id=rid)
     c = env.client
-    r = await c.post("/api/v1/rooms", json={"code": "Z 901", "display_name": "Z 901 Seminer", "capacity": 24}, headers=clerk)
+    r = await c.post(
+        "/api/v1/rooms", json={"code": "Z 901", "display_name": "Z 901 Seminer", "capacity": 24}, headers=clerk
+    )
     assert r.status_code == 201, r.text
     room = r.json()
     assert room["code"] == "Z901" and room["capacity"] == 24

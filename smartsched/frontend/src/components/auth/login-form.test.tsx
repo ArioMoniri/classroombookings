@@ -6,7 +6,8 @@ import { LoginForm } from "./login-form";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 const org = vi.hoisted(() => ({ data: undefined as Record<string, unknown> | undefined }));
-vi.mock("@/lib/api/crbs", () => ({ useOrgPublic: () => ({ data: org.data }) }));
+const version = vi.hoisted(() => ({ data: null as string | null }));
+vi.mock("@/lib/api/crbs", () => ({ useOrgPublic: () => ({ data: org.data }), useAppVersion: () => ({ data: version.data }) }));
 
 function renderForm(locale: "tr" | "en" = "en") {
   return render(
@@ -45,6 +46,16 @@ describe("LoginForm", () => {
     expect(screen.queryByTestId("login-message")).toBeNull();
     expect(screen.queryByTestId("login-maintenance")).toBeNull();
     expect(screen.getByTestId("forgot-password")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["en", "Version 0.1.0"],
+    ["tr", "Sürüm 0.1.0"],
+  ] as const)("shows the backend version under the form, not a hard-coded label (%s)", (locale, text) => {
+    version.data = "0.1.0";
+    renderForm(locale);
+    expect(screen.getByTestId("app-version")).toHaveTextContent(text);
+    version.data = null;
   });
 
   it.each(["en", "tr"] as const)("labels exactly one field as the password (%s), the toggle names its action", (locale) => {

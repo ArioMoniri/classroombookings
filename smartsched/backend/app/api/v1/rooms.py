@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status

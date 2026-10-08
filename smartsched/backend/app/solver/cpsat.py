@@ -16,6 +16,7 @@ from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
 from app.solver.build import (
     CANONICAL_DETERMINISTIC_S,
+    Clock,
     Prepared,
     build_model,
     hint_assignments,
@@ -53,7 +54,9 @@ def _result_from_evaluation(
     )
 
 
-def _complete_hint(inp: SolverInput, hints: dict[int, Assignment], budget_s: float) -> dict[int, Assignment]:
+def _complete_hint(
+    inp: SolverInput, hints: dict[int, Assignment], budget_s: float, clock: Clock | None = None
+) -> dict[int, Assignment]:
     """Greedy left a few events unplaced: re-solve a small neighbourhood (everything else locked)
     so the main model starts from a *complete* feasible hint.  Best effort, never raises."""
     unplaced = [e for e in inp.events if e.id not in hints]
@@ -70,6 +73,8 @@ def _complete_hint(inp: SolverInput, hints: dict[int, Assignment], budget_s: flo
         )
         sub = replace(inp, events=events, previous=tuple(placed), time_limit_s=budget_s, workers=max(1, inp.workers))
         res = solve(sub, _complete=False)
+        if clock is not None:
+            clock.charge_s(res.stats.get("clock_s"))
         if res.status in ("OPTIMAL", "FEASIBLE") and res.hard_score == 100:
             return {a.event_id: a for a in res.assignments}
     except Exception:  # noqa: BLE001 - a hint is optional
@@ -82,7 +87,7 @@ CANONICAL_RANKS = 65521
 
 
 def _canonical_optimum(
-    ctx: Any, solver: Any, assignments: list[Assignment], budget_s: float
+    ctx: Any, solver: Any, assignments: list[Assignment], budget_s: float, clock: Clock | None = None
 ) -> list[Assignment] | None:
     """Several timetables can share the optimal objective (two equal rooms swapped); CP-SAT's parallel
     workers return whichever they find first.  Fix the objective at its optimum and pick the optimum
@@ -108,7 +113,10 @@ def _canonical_optimum(
     # timetable returned, no longer depend on thread timing or machine load; the wall-clock limit only
     # guards against a pathological stage
     stage = make_solver(ctx.inp, max(1.0, budget_s), workers=1, deterministic_s=CANONICAL_DETERMINISTIC_S)
-    if stage.Solve(ctx.model) != cp_model.OPTIMAL:
+    status = stage.Solve(ctx.model)
+    if clock is not None:
+        clock.charge(stage)
+    if status != cp_model.OPTIMAL:
         return None
     return ctx.extract(stage)  # type: ignore[no-any-return]
 
@@ -164,6 +172,7 @@ def day_sweep(
     ``same_room_group``).  Each day gets a share of ``budget_s`` by its number of events."""
     stats: dict[str, Any] = {"sweep_days": 0, "sweep_improved_days": 0}
     t0 = time.perf_counter()
+    clock = Clock(inp)
     current = {a.event_id: a for a in assignments}
     days = _sweep_days(inp, current)
     if not days:
@@ -172,7 +181,7 @@ def day_sweep(
     stats["sweep_penalty_before"] = best
     total = sum(len(v) for v in days.values())
     for day in sorted(days):
-        remaining = budget_s - (time.perf_counter() - t0)
+        remaining = budget_s - clock.elapsed()
         if remaining < 0.5:
             break
         free = days[day]
@@ -184,6 +193,7 @@ def day_sweep(
         total -= len(free)
         sub = replace(inp, events=pinned + locked, time_limit_s=share, best_effort=False)
         res = solve(sub, _complete=False, _hints=[current[e.id] for e in sub.events], _sweep=False)
+        clock.charge_s(res.stats.get("clock_s"))
         stats["sweep_days"] += 1
         if res.status not in ("OPTIMAL", "FEASIBLE") or res.hard_score < 100:
             continue
@@ -197,6 +207,7 @@ def day_sweep(
         stats["sweep_improved_days"] += 1
     stats["sweep_penalty_after"] = best
     stats["sweep_s"] = round(time.perf_counter() - t0, 3)
+    stats["sweep_clock_s"] = round(clock.elapsed(), 6)
     return [current[a.event_id] for a in assignments], stats
 
 
@@ -229,6 +240,7 @@ def solve(
     _sweep: bool = True,
 ) -> SolverResult:
     t0 = time.perf_counter()
+    clock = Clock(inp)
     stats: dict[str, Any] = {}
     try:
         inp = normalize_input(inp)
@@ -241,8 +253,8 @@ def solve(
         if errors:
             stats["solver_status"] = "STATIC_INFEASIBLE"
             if inp.best_effort:
-                return _best_effort(inp, prep, static, stats, t0, run_core=False, hints=_hints)
-            stats["wall_s"] = round(time.perf_counter() - t0, 3)
+                return _best_effort(inp, prep, static, stats, t0, run_core=False, hints=_hints, clock=clock)
+            _stamp(stats, t0, clock)
             return SolverResult("INFEASIBLE", [], 0, 0, {}, static, stats)
         ctx = build_model(prep, "solve")
         t_greedy = time.perf_counter()
@@ -252,14 +264,13 @@ def solve(
                 hints.setdefault(a.event_id, a)
         stats["greedy_placed"] = len(hints)
         if _complete and len(hints) < len(inp.events):
-            hints = _complete_hint(inp, hints, min(10.0, max(1.0, inp.time_limit_s * 0.15)))
+            hints = _complete_hint(inp, hints, min(10.0, max(1.0, inp.time_limit_s * 0.15)), clock)
             stats["hint_completed"] = len(hints)
         hints.update({a.event_id: a for a in hint_assignments(inp)})  # previous / locked win
         stats["greedy_s"] = round(time.perf_counter() - t_greedy, 3)
         stats["hinted_events"] = ctx.add_hints([hints[e.id] for e in inp.events if e.id in hints])
         stats["warnings"].extend(ctx.warnings)
-        elapsed = time.perf_counter() - t0
-        search_s = inp.time_limit_s - elapsed
+        search_s = inp.time_limit_s - clock.elapsed()
         # a complete warm start guarantees a solution: keep part of the time for the day sweep, which
         # closes most of the gap a time-limited search leaves on large instances (see day_sweep)
         sweep = (
@@ -271,6 +282,7 @@ def solve(
             search_s *= SEARCH_SHARE
         solver = make_solver(inp, max(0.5, search_s))
         status = solver.Solve(ctx.model)
+        clock.charge(solver)
         name = status_name(solver, status)
         stats["solver_status"] = name
         stats["solve_s"] = round(solver.WallTime(), 3)
@@ -279,14 +291,15 @@ def solve(
         if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             assignments = ctx.extract(solver)
             if status == cp_model.OPTIMAL:
-                canon = _canonical_optimum(ctx, solver, assignments, inp.time_limit_s - (time.perf_counter() - t0))
+                canon = _canonical_optimum(ctx, solver, assignments, inp.time_limit_s - clock.elapsed(), clock)
                 if canon is not None:
                     assignments = canon
                     stats["canonical"] = True
             else:
                 if sweep:
-                    budget = inp.time_limit_s - (time.perf_counter() - t0)
+                    budget = inp.time_limit_s - clock.elapsed()
                     assignments, sweep_stats = day_sweep(inp, assignments, budget)
+                    clock.charge_s(sweep_stats.get("sweep_clock_s"))
                     stats.update(sweep_stats)
                 assignments, moves = polish_preferred(prep, inp, assignments)
                 if moves:
@@ -296,7 +309,7 @@ def solve(
             stats["objective_bound"] = int(round(solver.BestObjectiveBound()))
             stats["cp_breakdown"] = ctx.term_values(solver)
             stats["evaluated_penalty"] = ev.total_penalty()
-            stats["wall_s"] = round(time.perf_counter() - t0, 3)
+            _stamp(stats, t0, clock)
             stats.update(placed=len(assignments), unplaced=0, events_total=len(inp.events))
             warnings: list[Diagnosis] = [d for d in static if d.severity != "error"]
             hard = ev.hard_violations()
@@ -316,18 +329,18 @@ def solve(
             )
         if status == cp_model.INFEASIBLE:
             if inp.best_effort:
-                return _best_effort(inp, prep, static, stats, t0, run_core=True, hints=_hints)
+                return _best_effort(inp, prep, static, stats, t0, run_core=True, hints=_hints, clock=clock)
             budget = relax_budget(inp)
-            diagnoses = static + diagnose(prep, budget)
+            diagnoses = static + diagnose(prep, budget, clock=clock)
             stats.update(prep.stats)
             stats["diagnose_s"] = round(time.perf_counter() - t0 - stats["solve_s"], 3)
-            stats["wall_s"] = round(time.perf_counter() - t0, 3)
+            _stamp(stats, t0, clock)
             return SolverResult("INFEASIBLE", [], 0, 0, {}, diagnoses, stats)
         if inp.best_effort and hints:
-            partial = _timeout_partial(inp, prep, static, stats, t0, hints, name)
+            partial = _timeout_partial(inp, prep, static, stats, t0, hints, name, clock)
             if partial is not None:
                 return partial
-        stats["wall_s"] = round(time.perf_counter() - t0, 3)
+        _stamp(stats, t0, clock)
         return SolverResult(
             "TIMEOUT",
             [],
@@ -349,7 +362,7 @@ def solve(
             stats,
         )
     except Exception as exc:  # noqa: BLE001 - the API wants a result, not a traceback
-        stats["wall_s"] = round(time.perf_counter() - t0, 3)
+        _stamp(stats, t0, clock)
         stats["error"] = f"{type(exc).__name__}: {exc}"
         stats["traceback"] = traceback.format_exc()
         return SolverResult(
@@ -361,6 +374,14 @@ def solve(
             [Diagnosis([], [], f"solver error: {type(exc).__name__}: {exc}", [], "error", "internal")],
             stats,
         )
+
+
+def _stamp(stats: dict[str, Any], t0: float, clock: Clock | None) -> None:
+    """Wall time and the solve's clock (deterministic time in deterministic mode, see ``build.Clock``)."""
+    stats["wall_s"] = round(time.perf_counter() - t0, 3)
+    if clock is not None:
+        stats["clock_s"] = round(clock.elapsed(), 6)
+        stats["deterministic"] = clock.det
 
 
 #: share of the time limit the slack relaxation (diagnosis / best effort phase 1) may use; it scales with
@@ -380,6 +401,7 @@ def _timeout_partial(
     t0: float,
     hints: dict[int, Assignment],
     status_name_: str,
+    clock: Clock | None = None,
 ) -> SolverResult | None:
     """``best_effort`` and the search ended without any solution (UNKNOWN): return the warm start's
     placement when it keeps every hard rule for its events (checked, never assumed), with every other
@@ -404,8 +426,8 @@ def _timeout_partial(
         events_total=len(inp.events),
         unplaced_ids=unplaced_ids[:500],
         evaluated_penalty=ev.total_penalty(),
-        wall_s=round(time.perf_counter() - t0, 3),
     )
+    _stamp(stats, t0, clock)
     summary = Diagnosis(
         unplaced_ids[:200],
         [],
@@ -429,6 +451,7 @@ def _best_effort(
     *,
     run_core: bool,
     hints: list[Assignment] | None = None,
+    clock: Clock | None = None,
 ) -> SolverResult:
     """``best_effort``: the instance cannot be scheduled completely.  Phase 1 (slack relaxation,
     hinted with the greedy placement) maximises the number of placed events and explains every
@@ -436,6 +459,7 @@ def _best_effort(
     1).  Status stays INFEASIBLE (the full request set has no solution); ``stats.partial`` /
     ``placed`` / ``unplaced`` / ``unplaced_ids`` describe the partial timetable, and the hard/soft
     scores are those of the placed events (hard 100 = every hard rule holds for them)."""
+    clock = clock or Clock(inp)
     budget = relax_budget(inp)
     explained = {d.event_ids[0] for d in static if d.severity == "error" and len(d.event_ids) == 1}
     greedy = greedy_assignments(prep)
@@ -449,7 +473,9 @@ def _best_effort(
             greedy = given
             stats["warm_start"] = "hints"
             stats["hints_placed"] = len(given)
-    diagnoses, placed = diagnose_with_placement(prep, budget, core=run_core, hints=greedy, explained=explained)
+    diagnoses, placed = diagnose_with_placement(
+        prep, budget, core=run_core, hints=greedy, explained=explained, clock=clock
+    )
     stats.update(prep.stats)
     stats["diagnose_s"] = round(time.perf_counter() - t0 - stats.get("solve_s", 0.0), 3)
     stats["partial_source"] = "relaxation"
@@ -471,10 +497,10 @@ def _best_effort(
         unplaced_ids=unplaced_ids[:500],
     )
     if not placed:
-        stats["wall_s"] = round(time.perf_counter() - t0, 3)
+        _stamp(stats, t0, clock)
         return SolverResult("INFEASIBLE", [], 0, 0, {}, static + diagnoses, stats)
     sub = replace(inp, events=tuple(e for e in inp.events if e.id in placed), best_effort=False)
-    remaining = inp.time_limit_s - (time.perf_counter() - t0)
+    remaining = inp.time_limit_s - clock.elapsed()
     assignments = [placed[e.id] for e in sub.events]
     # the relaxation ignores soft terms: move events back into their preferred rooms where those are free
     # (validated), so phase 2 starts from a good incumbent instead of an arbitrary room choice
@@ -485,6 +511,7 @@ def _best_effort(
     phase2 = None
     if remaining > 1.0:
         phase2 = solve(replace(sub, time_limit_s=remaining), _complete=False, _hints=assignments)
+        clock.charge_s(phase2.stats.get("clock_s"))
         stats["phase2_status"] = phase2.status
         stats["phase2_s"] = phase2.stats.get("wall_s")
         # every scalar stat of phase 2 (solver status, canonical stage, objective / bound, sweep, polish ...)
@@ -503,7 +530,7 @@ def _best_effort(
             stats["polish_preferred_moves"] = moves
     ev = evaluate(sub, assignments)
     stats["evaluated_penalty"] = ev.total_penalty()
-    stats["wall_s"] = round(time.perf_counter() - t0, 3)
+    _stamp(stats, t0, clock)
     hard = ev.hard_violations()
     extra: list[Diagnosis] = []
     if hard:  # never hide it (the relaxation and phase 2 enforce every hard rule)

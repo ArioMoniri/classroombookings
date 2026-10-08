@@ -39,7 +39,7 @@ their own switch (decision text). While off, endpoints can be registered and tes
   "enabled": true,
   "feeds": {
     "tokens": [
-      {"id": 7, "label": "Google", "created_at": "2026-10-08T12:30:00", "last_used_at": null, "hint": "…x4Qa"}
+      {"id": 7, "label": "Google", "created_at": "2026-10-08T12:30:00", "last_used_at": null, "hint": "x4Qa"}
     ],
     "url_templates": {
       "mine": "https://rezervasyon.example.edu.tr/api/v1/calendar/feeds/{token}/mine.ics",
@@ -58,7 +58,7 @@ their own switch (decision text). While off, endpoints can be registered and tes
 }
 ```
 
-* `hint` is the last 4 characters of a token, so the user can tell links apart. The token itself is shown
+* `hint` is the last 4 characters of a token (show it as `…x4Qa`), so the user can tell links apart. The token itself is shown
   **once**, when it is created; the server keeps only its SHA-256.
 * `url_templates` are absolute when the public URL is configured (`integrations.public_url`, else the
   `PUBLIC_URL` environment variable); otherwise they are paths starting with `/api/v1/…` and the panel prefixes
@@ -80,7 +80,7 @@ A user may hold at most 10 links (`409` above that). `FeedTokenCreated`:
 
 ```json
 {
-  "id": 8, "label": "Google", "token": "sst_4dJ…43 chars…", "hint": "…x4Qa", "created_at": "…",
+  "id": 8, "label": "Google", "token": "sst_4dJ…(47 chars)", "hint": "x4Qa", "created_at": "…", "last_used_at": null,
   "urls": {
     "mine": "https://…/api/v1/calendar/feeds/sst_4dJ…/mine.ics",
     "room": "https://…/api/v1/calendar/feeds/sst_4dJ…/room/{id}.ics",
@@ -159,11 +159,12 @@ never shipped; `configured` is `true` only when both the client id and the clien
 | `POST /calendar/connectors/{provider}/connect` | `{"return_path": "/profile/calendar"}` (optional, must start with `/`) | `200 {"authorize_url": "https://accounts.google.com/o/oauth2/v2/auth?…"}`; `404` unknown provider; `409` not configured; `403` KVKK switch off |
 | `GET /calendar/connectors/{provider}/callback` | `?code=&state=` (or `?error=`) — called by the provider, no JWT | `302` to the panel: `{public_url}{return_path}?calendar=connected&provider=google` or `?calendar=error&provider=google&reason=<code>` |
 | `GET /calendar/connectors/{provider}/calendars` | | `200 [{"id": "primary", "name": "Ayşe Yılmaz", "primary": true, "can_write": true}]` |
-| `PUT /calendar/connectors/{provider}` | `{"calendar_id": "…"}` | `200` connector; queues a full resync into that calendar |
-| `POST /calendar/connectors/{provider}/resync` | | `202 {"queued": 1}` |
+| `PUT /calendar/connectors/{provider}` | `{"calendar_id": "…", "calendar_name": "Dersler"}` (name optional, shown in the panel) | `200` connector; queues a full resync into that calendar (events move out of the previous one) |
+| `POST /calendar/connectors/{provider}/resync` | | `202 {"queued": 1}` (`0` when a full sync is already waiting); `403` while the KVKK switch is off |
 | `DELETE /calendar/connectors/{provider}` | | `204`; tokens deleted at once and revoked at Google (background); events already written stay in the external calendar |
 
-`provider` is `google` or `microsoft`. `reason` codes on the callback redirect: `denied` (the user cancelled),
+`calendars`, `PUT`, `resync` and `DELETE` answer `404 {"detail": "not connected"}` when the user has no connection
+to that provider. `provider` is `google` or `microsoft`. `reason` codes on the callback redirect: `denied` (the user cancelled),
 `state` (unknown / expired / reused state, 10-minute lifetime), `exchange` (the provider refused the code),
 `disabled` (KVKK switch off), `not_configured`.
 

@@ -183,7 +183,12 @@ def run_detached(fn: Callable[[], Awaitable[None]], key: str) -> None:
 
 
 async def wait_idle(timeout: float = 60.0) -> None:
-    await _get_queue().wait_idle(timeout)
+    """Until no drain is queued or running (a drain may queue the next one)."""
+    q = _get_queue()
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while q._tasks and loop.time() < deadline:
+        await q.wait_idle(max(0.1, deadline - loop.time()))
 
 
 async def on_startup() -> None:

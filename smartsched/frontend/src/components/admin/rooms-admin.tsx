@@ -3,9 +3,13 @@
  * /admin/rooms (CRBS `setup/rooms/{Groups,Rooms,Fields,Acl}`): room groups with drag reorder and members,
  * each room's booking details (group, owner, location, icon, notes, photo, bookable, custom field values),
  * custom fields (TEXT / CHECKBOX / SELECT) and the access-control list per room or room group.
- * Codes and capacities stay on /rooms (the room master).
+ * New rooms (code, name, group, capacity) are created here and deleted here (CRBS `Rooms::add/delete`, UI gap
+ * audit #4; `POST/DELETE /rooms` accept setup.rooms); later capacity changes stay on /rooms (the room master).
+ * `?tab=rooms&new=1` (⌘K "New room") opens the create form.
  */
-import { Building2, ImageUp, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Building2, ImageUp, Loader2, Maximize2, Pencil, Plus, ShieldQuestion, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -22,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   crbs,
+  crbsAdmin,
   crbsError,
   useAcl,
   useBookingContext,
@@ -56,7 +61,9 @@ export function RoomsAdmin() {
   const { can } = usePermissions();
   const rooms = can("setup.rooms");
   const acl = can("setup.rooms_acl");
-  const [tab, setTab] = useState(rooms ? "groups" : "acl");
+  const params = useSearchParams();
+  const asked = params.get("tab");
+  const [tab, setTab] = useState(() => (asked && ["groups", "rooms", "fields", "acl"].includes(asked) && (asked === "acl" ? acl : rooms) ? asked : rooms ? "groups" : "acl"));
   return (
     <div className="flex flex-col gap-5">
       <PageTitle title={t("crbs.admin.rooms.title")} subtitle={t("crbs.admin.rooms.lead")} />
@@ -247,6 +254,15 @@ function RoomsTab() {
   const { t } = useI18n();
   const rooms = useAdminRooms();
   const groups = useRoomGroups();
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [creating, setCreating] = useState(() => params.get("new") === "1");
+  const [deleting, setDeleting] = useState<AdminRoom | null>(null);
+  const closeCreate = () => {
+    setCreating(false);
+    if (params.get("new")) router.replace(`${pathname}?tab=rooms`, { scroll: false });
+  };
   const [group, setGroup] = useState("all");
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<AdminRoom | null>(null);
@@ -260,7 +276,7 @@ function RoomsTab() {
   const sortable = group !== "all" && group !== "none" && !q;
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
+      <div className="grid gap-2 sm:grid-cols-[1fr_220px_auto]">
         <Input type="search" aria-label={t("crbs.rooms.searchRooms")} placeholder={t("crbs.rooms.searchRooms")} value={q} onChange={(e) => setQ(e.target.value)} />
         <SelectField aria-label={t("crbs.export.group")} value={group} onChange={(e) => setGroup(e.target.value)}>
           <option value="all">{t("crbs.export.allGroups")}</option>
@@ -271,6 +287,10 @@ function RoomsTab() {
           ))}
           <option value="none">{t("crbs.rooms.noGroup")}</option>
         </SelectField>
+        <Button onClick={() => setCreating(true)} data-testid="room-new">
+          <Plus aria-hidden />
+          {t("admingaps.rooms.new")}
+        </Button>
       </div>
       <Card variant="glass" className="overflow-hidden py-0">
         {rooms.isLoading ? (
@@ -286,13 +306,13 @@ function RoomsTab() {
                 { onSuccess: () => setOrder(null), onError: (e) => (toastError(e), setOrder(null)) },
               );
             }}
-            render={(r) => <RoomRow room={r} onEdit={() => setEditing(r)} />}
+            render={(r) => <RoomRow room={r} onEdit={() => setEditing(r)} onDelete={() => setDeleting(r)} />}
           />
         ) : (
           <ul>
             {filtered.map((r) => (
               <li key={r.id} className="px-4 py-2 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
-                <RoomRow room={r} onEdit={() => setEditing(r)} />
+                <RoomRow room={r} onEdit={() => setEditing(r)} onDelete={() => setDeleting(r)} />
               </li>
             ))}
           </ul>
@@ -300,12 +320,128 @@ function RoomsTab() {
       </Card>
       {sortable ? <p className="type-footnote text-label-3">{t("crbs.sort.hint")}</p> : <p className="type-footnote text-label-3">{t("crbs.rooms.orderHint")}</p>}
       <RoomSheet room={editing} onClose={() => setEditing(null)} />
+      <Dialog open={creating} onOpenChange={(o) => !o && closeCreate()}>
+        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg" data-testid="room-create-dialog">
+          {creating ? <RoomCreateForm groups={groups.data ?? []} defaultGroup={group !== "all" && group !== "none" ? group : ""} onClose={closeCreate} /> : null}
+        </DialogContent>
+      </Dialog>
+      <DeleteRoomDialog room={deleting} onClose={() => setDeleting(null)} />
     </div>
   );
 }
 
-function RoomRow({ room: r, onEdit }: { room: AdminRoom; onEdit: () => void }) {
+const ROOM_KEYS = [["crbs", "admin-rooms"], ["crbs", "room-groups"], ["crbs", "grid"], ["crbs", "context"], ["crbs", "booking-rooms"], ["rooms"]];
+
+/** CRBS `rooms_add.php` (create): code, display name, group, capacity and bookable; the rest is in the edit sheet. */
+function RoomCreateForm({ groups, defaultGroup, onClose }: { groups: RoomGroup[]; defaultGroup: string; onClose: () => void }) {
   const { t } = useI18n();
+  const [f, setF] = useState({ code: "", display_name: "", room_group_id: defaultGroup, capacity: "", is_bookable: true });
+  const [error, setError] = useState<string | null>(null);
+  const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((p) => ({ ...p, [k]: v }));
+  const save = useCrbsMutation(async () => {
+    const room = await crbsAdmin.rooms.create({ code: f.code.trim(), display_name: f.display_name.trim() || null, capacity: f.capacity ? Math.max(0, Number(f.capacity)) : 0, is_bookable: f.is_bookable });
+    if (f.room_group_id) await crbs.roomAdmin.updateRoom(room.id, { room_group_id: Number(f.room_group_id) });
+    return room;
+  }, ROOM_KEYS);
+  return (
+    <form
+      className="flex flex-col gap-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setError(null);
+        save.mutate(undefined, {
+          onSuccess: (r) => (toast.success(t("admingaps.rooms.created", { name: r.display_name })), onClose()),
+          onError: (err) => {
+            const ce = crbsError(err);
+            setError(ce.status === 409 ? t("admingaps.rooms.codeTaken", { code: f.code.trim() }) : bookingErrorMessage(ce, t));
+          },
+        });
+      }}
+    >
+      <DialogHeader>
+        <DialogTitle>{t("admingaps.rooms.new")}</DialogTitle>
+        <DialogDescription>{t("admingaps.rooms.newHint")}</DialogDescription>
+      </DialogHeader>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={t("admingaps.rooms.code")} htmlFor="rm-new-code" hint={t("admingaps.rooms.codeHint")}>
+          <Input id="rm-new-code" required maxLength={32} autoComplete="off" placeholder="A 101" value={f.code} onChange={(e) => set("code", e.target.value)} data-testid="room-new-code" />
+        </Field>
+        <Field label={t("crbs.rooms.displayName")} htmlFor="rm-new-name" hint={t("admingaps.rooms.nameHint")}>
+          <Input id="rm-new-name" maxLength={64} value={f.display_name} onChange={(e) => set("display_name", e.target.value)} data-testid="room-new-name" />
+        </Field>
+        <Field label={t("crbs.export.group")} htmlFor="rm-new-group" hint={t("crbs.rooms.groupHint")}>
+          <SelectField id="rm-new-group" value={f.room_group_id} onChange={(e) => set("room_group_id", e.target.value)} data-testid="room-new-group">
+            <option value="">{t("crbs.rooms.noGroup")}</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </SelectField>
+        </Field>
+        <Field label={t("admingaps.rooms.capacity")} htmlFor="rm-new-cap">
+          <Input id="rm-new-cap" type="number" min={0} inputMode="numeric" value={f.capacity} onChange={(e) => set("capacity", e.target.value)} data-testid="room-new-capacity" />
+        </Field>
+      </div>
+      <label className="flex items-center justify-between gap-3 type-callout text-label-1">
+        {t("crbs.rooms.bookable")}
+        <Switch checked={f.is_bookable} onCheckedChange={(v) => set("is_bookable", v)} aria-label={t("crbs.rooms.bookable")} />
+      </label>
+      {error ? <Alert tone="error">{error}</Alert> : null}
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onClose}>
+          {t("crbs.common.cancel")}
+        </Button>
+        <Button type="submit" disabled={!f.code.trim() || save.isPending} data-testid="room-create">
+          {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+          {t("crbs.common.create")}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+/** CRBS `room.delete.warning`; the backend refuses while bookings exist (their history stays), so say why. */
+function DeleteRoomDialog({ room, onClose }: { room: AdminRoom | null; onClose: () => void }) {
+  const { t } = useI18n();
+  const [error, setError] = useState<string | null>(null);
+  const del = useCrbsMutation((id: number) => crbsAdmin.rooms.remove(id), ROOM_KEYS);
+  return (
+    <ConfirmDialog
+      open={!!room}
+      onOpenChange={(o) => !o && (setError(null), onClose())}
+      title={t("admingaps.rooms.deleteTitle", { name: room?.display_name ?? "" })}
+      description={t("admingaps.rooms.deleteBody")}
+      confirmLabel={t("crbs.common.delete")}
+      destructive
+      busy={del.isPending}
+      onConfirm={() =>
+        room &&
+        del.mutate(room.id, {
+          onSuccess: () => (toast.success(t("crbs.common.deleted")), setError(null), onClose()),
+          onError: (err) => {
+            const ce = crbsError(err);
+            setError(
+              ce.code === "room_has_bookings"
+                ? t("admingaps.rooms.hasBookings", { n: Number(ce.data.bookings ?? 0), active: Number(ce.data.active_bookings ?? 0) })
+                : bookingErrorMessage(ce, t),
+            );
+          },
+        })
+      }
+    >
+      {error ? (
+        <Alert tone="warning" testId="room-delete-refused">
+          {error}
+        </Alert>
+      ) : null}
+    </ConfirmDialog>
+  );
+}
+
+function RoomRow({ room: r, onEdit, onDelete }: { room: AdminRoom; onEdit: () => void; onDelete: () => void }) {
+  const { t } = useI18n();
+  const { can } = usePermissions();
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="flex min-w-0 items-center gap-2">
@@ -324,8 +460,16 @@ function RoomRow({ room: r, onEdit }: { room: AdminRoom; onEdit: () => void }) {
             {t("crbs.rooms.notBookable")}
           </Badge>
         ) : null}
+        {can(["setup.rooms_acl", "setup.users"]) ? (
+          <Button variant="ghost" size="icon-sm" render={<Link href={`/admin/access?room=${r.id}`} />} nativeButton={false} aria-label={t("admingaps.access.checkRoom", { name: r.display_name })} data-testid={`room-check-access-${r.code}`}>
+            <ShieldQuestion />
+          </Button>
+        ) : null}
         <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.editNamed", { name: r.display_name })} onClick={onEdit} data-testid={`room-edit-${r.code}`}>
           <Pencil />
+        </Button>
+        <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.deleteNamed", { name: r.display_name })} onClick={onDelete} data-testid={`room-delete-${r.code}`}>
+          <Trash2 />
         </Button>
       </span>
     </div>
@@ -378,6 +522,8 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
   const photo = useCrbsMutation((file: File) => crbs.roomAdmin.uploadPhoto(room.id, file), keys);
   const dropPhoto = useCrbsMutation(() => crbs.roomAdmin.deletePhoto(room.id), keys);
   const [photoUrl, setPhotoUrl] = useState(room.photo_url);
+  // CRBS Rooms::photo opens the full image (UI gap audit #25)
+  const [zoom, setZoom] = useState(false);
   const toastError = useErrorToast();
   const val = (fid: number) => (String(fid) in fieldDraft ? fieldDraft[String(fid)] : values.data?.[String(fid)]);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((p) => ({ ...p, [k]: v }));
@@ -429,8 +575,15 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
         </label>
         <section aria-label={t("crbs.rooms.photo")} className="flex flex-col gap-2">
           <p className="type-headline text-label-1">{t("crbs.rooms.photo")}</p>
-          {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
-          {photoUrl ? <img src={photoUrl} alt={t("crbs.rooms.photoAlt", { name: room.display_name })} className="max-h-48 w-full rounded-xl object-cover" /> : null}
+          {photoUrl ? (
+            <button type="button" onClick={() => setZoom(true)} aria-label={t("admingaps.rooms.enlargePhoto", { name: room.display_name })} className="group relative block overflow-hidden rounded-xl outline-none focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="room-photo-enlarge">
+              {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
+              <img src={photoUrl} alt={t("crbs.rooms.photoAlt", { name: room.display_name })} className="max-h-48 w-full object-cover" />
+              <span className="absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-(--mat-thick-solid) text-label-1 shadow-[0_0_0_1px_var(--hairline)]" aria-hidden>
+                <Maximize2 className="size-3.5" />
+              </span>
+            </button>
+          ) : null}
           <div className="flex gap-2">
             <Button variant="outline" size="sm" render={<label />} nativeButton={false}>
               <ImageUp aria-hidden />
@@ -463,6 +616,13 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
         ) : null}
         {error ? <Alert tone="error">{error}</Alert> : null}
       </div>
+      <Dialog open={zoom && !!photoUrl} onOpenChange={setZoom}>
+        <DialogContent className="w-auto max-w-[min(96vw,1200px)] p-2 sm:max-w-[min(96vw,1200px)]" data-testid="room-photo-lightbox">
+          <DialogTitle className="sr-only">{t("crbs.rooms.photoAlt", { name: room.display_name })}</DialogTitle>
+          {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
+          {photoUrl ? <img src={photoUrl} alt={t("crbs.rooms.photoAlt", { name: room.display_name })} className="max-h-[85dvh] w-auto max-w-full rounded-xl object-contain" /> : null}
+        </DialogContent>
+      </Dialog>
       <SheetFooter className="hairline-t flex-row justify-end gap-2 px-5 py-3">
         <Button variant="ghost" onClick={onClose}>
           {t("crbs.common.cancel")}

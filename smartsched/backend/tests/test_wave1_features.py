@@ -76,7 +76,9 @@ async def test_tag_mirror_adds_and_removes_only_its_tag_and_the_solver_sees_it(e
 
 async def test_number_and_select_values_with_turkish_input(env):  # noqa: F811
     c = env.client
-    r = await c.post(FEAT, json={"name": "PC sayısı", "type": "NUMBER", "unit": "adet", "category": "lab"}, headers=env.admin)
+    r = await c.post(
+        FEAT, json={"name": "PC sayısı", "type": "NUMBER", "unit": "adet", "category": "lab"}, headers=env.admin
+    )
     assert r.status_code == 201, r.text
     n_id = r.json()["id"]
     r = await c.post(
@@ -117,8 +119,13 @@ async def test_facet_counts_follow_room_acl_visibility(env):  # noqa: F811
     rid = r.json()["id"]
     r = await c.post(
         "/api/v1/room-admin/acl",
-        json={"entity_type": "room", "entity_id": env.rooms["A104"], "context_type": "role", "context_id": rid,
-              "permissions": ["room.view"]},
+        json={
+            "entity_type": "room",
+            "entity_id": env.rooms["A104"],
+            "context_type": "role",
+            "context_id": rid,
+            "permissions": ["room.view"],
+        },
         headers=env.admin,
     )
     assert r.status_code == 201, r.text
@@ -133,13 +140,7 @@ async def test_bulk_csv_cp1254_semicolon_with_bad_cells(env):  # noqa: F811
     c = env.client
     await c.post(FEAT, json={"name": "Projeksiyon", "type": "BOOLEAN"}, headers=env.admin)
     await c.post(FEAT, json={"name": "PC sayısı", "type": "NUMBER", "unit": "adet"}, headers=env.admin)
-    text = (
-        "Derslik;Projeksiyon;PC sayısı;Renk\n"
-        "A 101;Evet;0;mavi\n"
-        "A 103;var;47;\n"
-        "A 999;evet;;\n"
-        "B 201;belki;-3;\n"
-    )
+    text = "Derslik;Projeksiyon;PC sayısı;Renk\nA 101;Evet;0;mavi\nA 103;var;47;\nA 999;evet;;\nB 201;belki;-3;\n"
     files = {"file": ("ozellikler.csv", text.encode("cp1254"), "text/csv")}
     r = await c.post(f"{FEAT}/bulk-values", files=files, headers=env.admin)
     assert r.status_code == 200, r.text

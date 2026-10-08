@@ -1,9 +1,9 @@
 "use client";
 /** /admin — the CRBS setup dashboard: a checklist of what bookings need, then the screens by group. */
-import { CheckCircle2, ChevronRight, Circle } from "lucide-react";
+import { CheckCircle2, ChevronRight, Circle, Download } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import { useSetupRequirements, useSetupStatus } from "@/lib/api/crbs";
+import { useAppVersion, useSetupRequirements, useSetupStatus } from "@/lib/api/crbs";
 import { adminSectionsFor, usePermissions, type AdminSection } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
@@ -25,6 +25,9 @@ export function AdminOverview() {
   const showReqs = can("setup.settings");
   const reqs = useSetupRequirements(showReqs);
   const sections = adminSectionsFor(perms);
+  // CRBS Setup menu "Export" (Menu_model.php:149): the CSV export form lives on /my-bookings (UI gap audit #14)
+  const canExport = can("system.export_bookings");
+  const version = useAppVersion();
   const c = status.data?.checks;
   const checks: { key: MessageKey; done: boolean; value?: number; href: string; optional?: boolean }[] = c
     ? [
@@ -97,6 +100,26 @@ export function AdminOverview() {
           </section>
         );
       })}
+      {canExport ? (
+        <section aria-labelledby="grp-data">
+          <SectionTitle id="grp-data">{t("admingaps.overview.data")}</SectionTitle>
+          <Card variant="plain" className="py-0">
+            <Link href="/my-bookings#export-title" data-testid="admin-export" className="flex items-center gap-3 px-4 py-3 outline-none hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
+              <Download className="size-4 text-label-2" aria-hidden />
+              <span className="min-w-0 flex-1">
+                <span className="block type-headline text-label-1">{t("crbs.export.title")}</span>
+                <span className="block type-footnote text-label-2">{t("admingaps.overview.exportLead")}</span>
+              </span>
+              <ChevronRight className="size-4 text-label-3" aria-hidden />
+            </Link>
+          </Card>
+        </section>
+      ) : null}
+      {version.data ? (
+        <p className="type-footnote text-label-3 tabular-nums" data-testid="admin-version">
+          {t("admingaps.shell.version", { version: version.data })}
+        </p>
+      ) : null}
     </div>
   );
 }

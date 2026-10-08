@@ -455,7 +455,10 @@ async def open_request(
     series: BookingSeries | None = None,
 ) -> ApprovalRequest:
     first = min(bookings, key=lambda b: (b.date, b.start_period))
-    expires = await _start_of(session, first) - timedelta(
+    # a single request expires before its start; a series before its last instance starts (instances that
+    # started meanwhile are not booked when it is approved)
+    last = max(bookings, key=lambda b: (b.date, b.start_period))
+    expires = await _start_of(session, last if series is not None else first) - timedelta(
         minutes=int(need.snapshot.get("expires_before_start_minutes") or 0)
     )
     req = ApprovalRequest(
@@ -1051,6 +1054,11 @@ async def _finalise(
     assert target is not None
     for b in rows:
         if b.status != PENDING:
+            continue
+        if req.series_id is not None and await _start_of(session, b) <= await bsvc.now_local(session):
+            b.status, b.cancel_reason, b.held_until = EXPIRED, "started before it was approved", None
+            await session.execute(delete(BookingSlot).where(BookingSlot.booking_id == b.id))
+            failed.append({"date": b.date.isoformat(), "reason": "started"})
             continue
         if chosen and b.date not in chosen:
             b.status, b.cancel_reason, b.held_until = REJECTED, "not approved (other instances were)", None

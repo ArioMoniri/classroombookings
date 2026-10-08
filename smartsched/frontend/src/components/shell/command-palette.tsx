@@ -13,7 +13,7 @@ import { normaliseQuery, usePermissions, useShellSearch } from "@/lib/api/shell-
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
 import { useUiStore } from "@/stores/ui";
-import { visibleNavGroups } from "./nav-config";
+import { visibleNavGroups, type NavItem } from "./nav-config";
 import { useActiveTerm } from "./term-switcher";
 import { useCycleTheme } from "./theme-toggle";
 
@@ -87,11 +87,14 @@ export function CommandPalette() {
   };
 
   const actions = [
-    { value: "action-generate", icon: PlayCircle, label: t("palette.generateWeek"), keys: ["G", "G"], run: () => go("/generate"), words: "generate oluştur plan solve" },
-    { value: "action-import", icon: FileUp, label: t("palette.importFile"), keys: ["G", "I"], run: () => go("/import"), words: "import içe aktar excel" },
-    { value: "action-room", icon: Warehouse, label: t("palette.newRoom"), run: () => go("/rooms?new=1"), words: "room derslik yeni new" },
-  ].filter((a) => can("planning.edit") && matches(text, a.label, a.words));
-  const gotos = actionsOnly ? [] : visibleNavGroups(can).flatMap((g) => g.items).filter((i) => matches(text, t(i.labelKey), i.href));
+    { value: "action-generate", icon: PlayCircle, label: t("palette.generateWeek"), keys: ["G", "G"], run: () => go("/generate"), words: "generate oluştur plan solve", allowed: can("planning.edit") },
+    { value: "action-import", icon: FileUp, label: t("palette.importFile"), keys: ["G", "I"], run: () => go("/import"), words: "import içe aktar excel", allowed: can("planning.edit") },
+    // the create form lives in Admin → Rooms (setup.rooms; POST /rooms also accepts it, UI gap audit #4)
+    { value: "action-room", icon: Warehouse, label: t("palette.newRoom"), run: () => go("/admin/rooms?tab=rooms&new=1"), words: "room derslik yeni new oda", allowed: can("setup.rooms") },
+  ].filter((a) => a.allowed && matches(text, a.label, a.words));
+  // the profile (names, language, password) belongs to every user, so it is always in "Go to" (UI gap audit #1)
+  const profileItem: NavItem = { href: "/profile", labelKey: "crbs.nav.profile", icon: UserRound };
+  const gotos = actionsOnly ? [] : [...visibleNavGroups(can).flatMap((g) => g.items), profileItem].filter((i) => matches(text, t(i.labelKey), i.href));
   const prefs = [
     { value: "pref-theme", icon: Monitor, label: t("palette.toggleTheme"), keys: ["T"], run: () => { cycleTheme(); setOpen(false); }, words: "theme tema dark light koyu açık" },
     { value: "pref-lang", icon: Languages, label: t("palette.toggleLang"), keys: ["L"], run: () => { setLocale(languages[(languages.indexOf(locale) + 1) % languages.length]!); router.refresh(); setOpen(false); }, words: "language dil türkçe english" },

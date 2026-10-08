@@ -129,6 +129,8 @@ class Provider:
     label = ""
     scopes: tuple[str, ...] = ()
     default_calendar: str | None = None
+    #: sent with every API call of this provider
+    api_headers: dict[str, str] = {}
 
     def authorize_endpoint(self, cfg: ClientConfig) -> str:
         raise NotImplementedError
@@ -295,6 +297,8 @@ class MicrosoftProvider(Provider):
     label = "Outlook / Microsoft 365"
     scopes = ("offline_access", "openid", "email", "User.Read", "Calendars.ReadWrite")
     default_calendar = None  # /me/events = the user's default calendar
+    # immutable ids: an event keeps its id when the user moves it to another folder / calendar
+    api_headers = {"Prefer": 'IdType="ImmutableId"'}
     GRAPH = "https://graph.microsoft.com/v1.0"
 
     def authorize_endpoint(self, cfg: ClientConfig) -> str:
@@ -445,7 +449,8 @@ class Api:
     ) -> httpx.Response:
         label = what or f"{method} {url.split('?')[0].rsplit('/', 2)[-2]}"
         for attempt in (1, 2):
-            headers = {"Authorization": f"Bearer {await self.token() if attempt == 1 else await self.refresh()}"}
+            token = await self.token() if attempt == 1 else await self.refresh()
+            headers = {**self.provider.api_headers, "Authorization": f"Bearer {token}"}
             try:
                 resp = await self.client.request(method, url, json=json, params=params, headers=headers)
             except httpx.HTTPError as exc:
@@ -647,22 +652,20 @@ async def queue_bookings(session: AsyncSession, booking_ids: list[int]) -> int:
     ids = sorted({int(i) for i in booking_ids})
     if not ids or not await feeds.sync_enabled(session):
         return 0
-    owners = dict(
-        (await session.execute(select(Booking.id, Booking.user_id).where(Booking.id.in_(ids)))).tuples().all()
-    )
+    owners = dict((await session.execute(select(Booking.id, Booking.user_id).where(Booking.id.in_(ids)))).all())
     user_ids = {u for u in owners.values() if u is not None}
     conns_by_user: dict[int, list[int]] = {}
     if user_ids:
         q = select(CalendarConnection.user_id, CalendarConnection.id).where(
             CalendarConnection.user_id.in_(user_ids), CalendarConnection.status == "ACTIVE"
         )
-        for uid, cid in (await session.execute(q)).tuples():
+        for uid, cid in (await session.execute(q)).all():
             conns_by_user.setdefault(uid, []).append(cid)
     linked: dict[int, set[int]] = {}
     q2 = select(CalendarEventLink.booking_id, CalendarEventLink.connection_id).where(
         CalendarEventLink.booking_id.in_(ids)
     )
-    for bid, cid in (await session.execute(q2)).tuples():
+    for bid, cid in (await session.execute(q2)).all():
         linked.setdefault(bid, set()).add(cid)
     added = 0
     for bid in ids:
@@ -845,7 +848,7 @@ async def connectors_out(session: AsyncSession, user: User) -> list[dict[str, An
                         .where(CalendarSyncJob.connection_id == conn.id)
                         .group_by(CalendarSyncJob.status)
                     )
-                ).tuples()
+                ).all()
             )
             item.update(
                 connected=True,

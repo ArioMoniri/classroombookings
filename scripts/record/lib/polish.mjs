@@ -146,7 +146,7 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 4 * 1024 * 
   // ---- animated WebP for the README under the size budget: shrink quality, width, then fps -----
   const webp = join(outDir, `${name}.webp`);
   let webpInfo = null;
-  const webpMax = Number(process.env.REC_WEBP_MAX_BYTES ?? 4 * 1024 * 1024);
+  const webpMax = Number(process.env.REC_WEBP_MAX_BYTES ?? 3_900_000);
   for (const [w, fps, q] of [[1000, 15, 72], [1000, 12, 62], [920, 12, 55], [840, 10, 50], [760, 10, 45], [680, 8, 40]]) {
     ff(["-i", mp4, "-vf", `fps=${fps},scale=${w}:-2:flags=lanczos`, "-c:v", "libwebp_anim", "-lossless", "0",
       "-quality", String(q), "-compression_level", "6", "-preset", "picture", "-loop", "0", "-an", webp], "webp");

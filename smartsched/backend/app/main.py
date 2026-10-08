@@ -111,8 +111,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await seed_admin(session)
     async with get_session_factory()() as session:
         await recover_interrupted(session)  # jobs of a dead process never finish: mark them FAILED
+    from app.workers import integrations
+
+    await integrations.on_startup()  # calendar push / webhook outbox rows left by a previous process
     log.info("SmartSched backend ready (%s, %s)", settings.environment, settings.database_url.split("@")[-1])
     yield
+    await integrations.shutdown()
     await get_queue().shutdown()
     await dispose_engine()
 

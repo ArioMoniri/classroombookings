@@ -193,7 +193,8 @@ def _fixed_split_conflicts(
             )
             ok = _FIXED_SPLIT_CACHE.get(sig)
             if ok is None:
-                ok = _constant_split_feasible(demands, rooms_of, caps, present)
+                max_rooms = {i: events_by_id[i].max_rooms for i in comp_set}
+                ok = _constant_split_feasible(demands, rooms_of, caps, present, max_rooms)
                 if len(_FIXED_SPLIT_CACHE) > 20000:
                     _FIXED_SPLIT_CACHE.clear()
                 _FIXED_SPLIT_CACHE[sig] = ok
@@ -224,9 +225,12 @@ def _constant_split_feasible(
     rooms_of: Mapping[int, Iterable[int]],
     caps: Mapping[int, int],
     present: Mapping[int, list[int]],
+    max_rooms: Mapping[int, int] | None = None,
 ) -> bool:
-    """One seat split per event (``x[e, r]``, at least one seat per room of a split event) that fits the
-    seats of every room in every period."""
+    """One seat split per event (``x[e, r]``; at least one seat per used room exactly when the CP model
+    demands it: target >= ``max_rooms``) that fits the seats of every room in every period.  Only a *proven*
+    infeasibility counts (a stage stopped by its time limit is not a violation: the per-period flow, a
+    necessary condition, already holds)."""
     from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
     m = cp_model.CpModel()
@@ -236,8 +240,9 @@ def _constant_split_feasible(
         if len(rs) == 1:
             x[(e, rs[0])] = demands[e]
             continue
+        lo = 1 if demands[e] >= max(1, (max_rooms or {}).get(e, len(rs))) else 0
         for r in rs:
-            x[(e, r)] = m.NewIntVar(1 if demands[e] >= len(rs) else 0, max(0, caps[r]), f"x{e}_{r}")
+            x[(e, r)] = m.NewIntVar(lo, max(0, caps[r]), f"x{e}_{r}")
         m.Add(sum(x[(e, r)] for r in rs) == demands[e])  # type: ignore[misc]
     for _p, eids in present.items():
         for r, cap in caps.items():
@@ -246,8 +251,9 @@ def _constant_split_feasible(
                 m.Add(sum(terms) <= cap)  # type: ignore[arg-type]
     solver = cp_model.CpSolver()
     solver.parameters.num_workers = 1
-    solver.parameters.max_time_in_seconds = 5.0
-    return bool(solver.Solve(m) in (cp_model.OPTIMAL, cp_model.FEASIBLE))
+    solver.parameters.max_time_in_seconds = 10.0
+    solver.parameters.max_deterministic_time = 5.0
+    return bool(solver.Solve(m) != cp_model.INFEASIBLE)
 
 
 def _components(eids: list[int], assignments: Mapping[int, Assignment]) -> list[list[int]]:

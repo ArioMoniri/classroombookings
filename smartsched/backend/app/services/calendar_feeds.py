@@ -284,7 +284,8 @@ async def event_view(cache: _Cache, access: Access | None, b: Booking) -> EventV
     owner_view = access is None
     if b.notes and (owner_view or booking_svc.can_view_notes(access, b, room)):  # type: ignore[arg-type]
         lines.append(b.notes)
-    if user is not None and not owner_view and booking_svc.can_view_user(access, b, room):  # type: ignore[arg-type]
+    own = access is not None and booking_svc.is_owner(access, b)
+    if user is not None and not owner_view and not own and booking_svc.can_view_user(access, b, room):  # type: ignore[arg-type]
         lines.append(_display(user) or "")
     if dep is not None:
         lines.append(dep.name)

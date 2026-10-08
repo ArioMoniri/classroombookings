@@ -4,36 +4,30 @@
  * bookings with multi-cancel, bookings by others in rooms I own, a calendar subscription link and, with
  * `system.export_bookings`, the CSV export.
  */
-import { CalendarPlus, Copy, Download, Repeat, Trash2 } from "lucide-react";
+import { CalendarSync, Download, Repeat, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { SegmentedGlass } from "@/components/ui/segmented-glass";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  BOOKING_KEYS,
-  crbs,
-  crbsError,
   exportCsvUrl,
   useBookingContext,
   useBookingDashboard,
   useBookingDates,
   useCrbsMe,
-  useCrbsMutation,
   useMyBookings,
   useOwnedRooms,
   type BookingOut,
-  type FeedToken,
 } from "@/lib/api/crbs";
 import { bookingCapabilities } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
-import { Alert, ConfirmDialog, Field, Loading, PageTitle, SectionTitle, SelectField } from "@/components/admin/kit";
+import { Field, Loading, PageTitle, SectionTitle, SelectField } from "@/components/admin/kit";
 import { addDays } from "./date-format";
-import { bookingErrorMessage } from "./booking-errors";
 import { BookingDetailSheet } from "./booking-detail-sheet";
+import { CalendarSyncPanel } from "./calendar-sync";
+import { CancelManyDialog } from "./cancel-many-dialog";
+import { RoomInfoSheet } from "./room-info-sheet";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
 
 type Tab = "upcoming" | "past" | "cancelled";
@@ -51,6 +45,7 @@ export function MyBookingsView() {
   const dash = useBookingDashboard();
   const owned = useOwnedRooms();
   const [detail, setDetail] = useState<number | null>(null);
+  const [roomInfo, setRoomInfo] = useState<{ id: number; date: string } | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [cancelOpen, setCancelOpen] = useState(false);
 
@@ -77,6 +72,9 @@ export function MyBookingsView() {
             <span data-testid="mine-totals">
               {t("crbs.mine.totals", { active: dash.data.totals.active, session: dash.data.totals.session, all: dash.data.totals.all })}
               {dash.data.limits.max_active_bookings != null ? ` · ${t("crbs.mine.limit", { n: dash.data.limits.max_active_bookings })}` : ""}
+              {dash.data.limits.max_active_bookings != null ? (
+                <span data-testid="mine-can-create">{` · ${t("reserve.mine.canCreate", { n: Math.max(0, dash.data.limits.max_active_bookings - dash.data.totals.active) })}`}</span>
+              ) : null}
             </span>
           ) : null
         }
@@ -113,7 +111,7 @@ export function MyBookingsView() {
           ) : rows.length === 0 ? (
             <p className="px-4 py-6 type-callout text-label-2">{tab === "upcoming" ? t("crbs.mine.emptyUpcoming") : t("crbs.mine.empty")}</p>
           ) : (
-            <BookingList rows={rows} fmt={fmt} selectable={tab === "upcoming"} selected={selected} onToggle={toggle} onOpen={setDetail} />
+            <BookingList rows={rows} fmt={fmt} selectable={tab === "upcoming"} selected={selected} onToggle={toggle} onOpen={setDetail} onRoom={(id, date) => setRoomInfo({ id, date })} />
           )}
         </Card>
       </section>
@@ -128,7 +126,7 @@ export function MyBookingsView() {
                   <h3 className="type-headline text-label-1">{room.name}</h3>
                   <span className="type-footnote text-label-3">{t("crbs.mine.upcomingCount", { n: room.upcoming.length })}</span>
                 </div>
-                {room.upcoming.length ? <BookingList rows={room.upcoming} fmt={fmt} showUser onOpen={setDetail} /> : <p className="px-4 pb-3 type-callout text-label-2">{t("crbs.mine.ownedEmpty")}</p>}
+                {room.upcoming.length ? <BookingList rows={room.upcoming} fmt={fmt} showUser onOpen={setDetail} onRoom={(id, date) => setRoomInfo({ id, date })} /> : <p className="px-4 pb-3 type-callout text-label-2">{t("crbs.mine.ownedEmpty")}</p>}
               </Card>
             ))}
           </div>
@@ -136,11 +134,22 @@ export function MyBookingsView() {
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <CalendarFeed />
+        <section aria-labelledby="feed-title">
+          <SectionTitle id="feed-title">
+            <span className="inline-flex items-center gap-2">
+              <CalendarSync className="size-5 text-label-2" aria-hidden />
+              {t("reserve.sync.title")}
+            </span>
+          </SectionTitle>
+          <Card variant="glass" className="gap-3 px-4">
+            <CalendarSyncPanel departmentId={me.data?.department_id ?? null} />
+          </Card>
+        </section>
         {caps.exportBookings ? <ExportCard /> : null}
       </div>
 
       <BookingDetailSheet bookingId={detail} onOpenChange={(o) => !o && setDetail(null)} fmt={fmt} />
+      <RoomInfoSheet roomId={roomInfo?.id ?? null} context={roomInfo ? { date: roomInfo.date } : undefined} fmt={fmt} onOpenChange={(o) => !o && setRoomInfo(null)} />
       <CancelManyDialog
         ids={[...selected]}
         open={cancelOpen}
@@ -161,6 +170,7 @@ function BookingList({
   selected,
   onToggle,
   onOpen,
+  onRoom,
   showUser,
 }: {
   rows: BookingOut[];
@@ -169,6 +179,7 @@ function BookingList({
   selected?: ReadonlySet<number>;
   onToggle?: (id: number, on: boolean) => void;
   onOpen: (id: number) => void;
+  onRoom?: (roomId: number, date: string) => void;
   showUser?: boolean;
 }) {
   const { t } = useI18n();
@@ -177,104 +188,28 @@ function BookingList({
       {rows.map((b) => (
         <li key={b.id} className="flex items-center gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none" data-booking-id={b.id}>
           {selectable ? <Checkbox checked={selected?.has(b.id) ?? false} onCheckedChange={(v) => onToggle?.(b.id, v === true)} aria-label={t("crbs.mine.select", { room: b.room_name, date: fmt.short(b.date) })} /> : null}
-          <button type="button" onClick={() => onOpen(b.id)} className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-md text-left outline-none focus-visible:outline-2 focus-visible:outline-(--focus)">
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
             <span className="min-w-0">
               <span className="block type-headline text-label-1">
-                {b.room_name} · {b.period_name}
+                {/* CRBS user_bookings.php: the room name opens the room-info drawer */}
+                <button type="button" onClick={() => onRoom?.(b.room_id, b.date)} disabled={!onRoom} className="rounded-sm outline-none hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus) disabled:hover:text-label-1" aria-label={t("crbs.roomInfo.open", { name: b.room_name })} data-testid={`mine-room-${b.id}`}>
+                  {b.room_name}
+                </button>
+                <span> · {b.period_name}</span>
                 {b.time_start ? <span className="ml-1.5 font-normal text-label-3 tabular-nums">{fmt.time(b.time_start)}</span> : null}
               </span>
-              <span className="flex items-center gap-1 truncate type-footnote text-label-2">
+              <button type="button" onClick={() => onOpen(b.id)} className="flex w-full items-center gap-1 truncate rounded-sm text-left type-footnote text-label-2 outline-none hover:text-label-1 focus-visible:outline-2 focus-visible:outline-(--focus)">
                 {b.type === "recurring" ? <Repeat className="size-3 shrink-0" aria-label={t("crbs.legend.recurring")} /> : null}
                 {fmt.long(b.date)}
                 {showUser && b.user_name ? ` · ${b.user_name}` : ""}
                 {b.notes ? ` · ${b.notes}` : ""}
-              </span>
+              </button>
             </span>
             {b.status !== "BOOKED" ? <span className="shrink-0 type-footnote font-medium text-label-3">{t("crbs.status.cancelled")}</span> : null}
-          </button>
+          </div>
         </li>
       ))}
     </ul>
-  );
-}
-
-function CancelManyDialog({ ids, open, onOpenChange, onDone }: { ids: number[]; open: boolean; onOpenChange: (o: boolean) => void; onDone: () => void }) {
-  const { t } = useI18n();
-  const [reason, setReason] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const m = useCrbsMutation(() => crbs.bookings.cancelMany(ids, reason.trim() || null), BOOKING_KEYS);
-  return (
-    <ConfirmDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={t("crbs.mine.cancelManyTitle", { n: ids.length })}
-      description={t("crbs.mine.cancelManyBody")}
-      confirmLabel={t("crbs.cancel.confirm")}
-      destructive
-      busy={m.isPending}
-      onConfirm={() =>
-        m.mutate(undefined, {
-          onSuccess: (res) => {
-            toast.success(t("crbs.mine.cancelManyDone", { n: res.cancelled.length, skipped: res.skipped.length }));
-            setReason("");
-            onDone();
-          },
-          onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
-        })
-      }
-    >
-      <Field label={t("crbs.cancel.reason")} htmlFor="cancel-many-reason" hint={t("crbs.cancel.reasonHint")}>
-        <Textarea id="cancel-many-reason" rows={2} maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
-      </Field>
-      {error ? <Alert tone="error">{error}</Alert> : null}
-    </ConfirmDialog>
-  );
-}
-
-function CalendarFeed() {
-  const { t } = useI18n();
-  const [feed, setFeed] = useState<FeedToken | null>(null);
-  const [confirm, setConfirm] = useState(false);
-  const m = useCrbsMutation(() => crbs.bookings.feedToken());
-  const url = feed && typeof window !== "undefined" ? `${window.location.origin}${feed.user_feed}` : "";
-  const issue = () =>
-    m.mutate(undefined, {
-      onSuccess: (f) => {
-        setFeed(f);
-        setConfirm(false);
-      },
-      onError: (e) => toast.error(bookingErrorMessage(crbsError(e), t)),
-    });
-  return (
-    <section aria-labelledby="feed-title">
-      <SectionTitle id="feed-title">{t("crbs.feed.title")}</SectionTitle>
-      <Card variant="glass" className="gap-3 px-4">
-        <p className="type-callout text-label-2">{t("crbs.feed.lead")}</p>
-        {feed ? (
-          <div className="flex gap-2">
-            <Input readOnly value={url} aria-label={t("crbs.feed.url")} onFocus={(e) => e.currentTarget.select()} data-testid="feed-url" />
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label={t("crbs.feed.copy")}
-              onClick={() => {
-                void navigator.clipboard?.writeText(url).then(() => toast.success(t("crbs.feed.copied")));
-              }}
-            >
-              <Copy />
-            </Button>
-          </div>
-        ) : null}
-        <div>
-          <Button variant={feed ? "ghost" : "default"} onClick={() => (feed ? setConfirm(true) : issue())} disabled={m.isPending} data-testid="feed-issue">
-            <CalendarPlus aria-hidden />
-            {feed ? t("crbs.feed.rotate") : t("crbs.feed.issue")}
-          </Button>
-        </div>
-        <p className="type-footnote text-label-3">{t("crbs.feed.warning")}</p>
-      </Card>
-      <ConfirmDialog open={confirm} onOpenChange={setConfirm} title={t("crbs.feed.rotateTitle")} description={t("crbs.feed.warning")} confirmLabel={t("crbs.feed.rotate")} busy={m.isPending} onConfirm={issue} />
-    </section>
   );
 }
 

@@ -74,7 +74,7 @@ export function SchedulesAdmin() {
                     className={cn("w-full px-4 py-2 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", current?.id === s.id ? "bg-tint-soft" : "hover:bg-fill-3")}
                   >
                     <span className="block type-headline text-label-1">{s.name}</span>
-                    <span className="block type-footnote text-label-3">{t("crbs.schedules.periodCount", { n: s.periods.length })}</span>
+                    <span className="block truncate type-footnote text-label-3">{[t("crbs.schedules.periodCount", { n: s.periods.length }), s.description].filter(Boolean).join(" · ")}</span>
                   </button>
                 </li>
               ))}
@@ -102,10 +102,13 @@ export function SchedulesAdmin() {
 function ScheduleEditor({ schedule, onDeleted }: { schedule: Schedule; onDeleted: () => void }) {
   const { t, locale } = useI18n();
   const [name, setName] = useState(schedule.name);
+  // CRBS schedule.field.description (V/schedules/add.php; UI gap audit #19)
+  const [description, setDescription] = useState(schedule.description ?? "");
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [del, setDel] = useState(false);
   const toastError = useErrorToast();
-  const rename = useCrbsMutation(() => crbs.bookingAdmin.updateSchedule(schedule.id, { name: name.trim() }), KEYS);
+  const rename = useCrbsMutation(() => crbs.bookingAdmin.updateSchedule(schedule.id, { name: name.trim(), description: description.trim() || null }), KEYS);
+  const unchanged = name.trim() === schedule.name && description.trim() === (schedule.description ?? "").trim();
   const fromGrid = useCrbsMutation(() => crbs.bookingAdmin.periodsFromGrid(schedule.id, days), KEYS);
   const remove = useCrbsMutation(() => crbs.bookingAdmin.deleteSchedule(schedule.id), KEYS);
   const fmtDays = (ds: number[]) => (ds.length === 7 ? t("crbs.schedules.everyDay") : ds.map((d) => formatPattern(addDays("2026-02-16", d - 1), "EEE", locale)).join(" "));
@@ -115,7 +118,10 @@ function ScheduleEditor({ schedule, onDeleted }: { schedule: Schedule; onDeleted
         <Field label={t("crbs.common.name")} htmlFor="sch-name" className="min-w-56 flex-1">
           <Input id="sch-name" maxLength={32} value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Button variant="outline" disabled={name.trim() === schedule.name || !name.trim()} onClick={() => rename.mutate(undefined, { onSuccess: () => toast.success(t("crbs.common.saved")), onError: toastError })}>
+        <Field label={t("crbs.common.description")} htmlFor="sch-desc" className="min-w-56 flex-[2]">
+          <Input id="sch-desc" maxLength={255} value={description} onChange={(e) => setDescription(e.target.value)} data-testid="schedule-description" />
+        </Field>
+        <Button variant="outline" disabled={unchanged || !name.trim()} data-testid="schedule-save" onClick={() => rename.mutate(undefined, { onSuccess: () => toast.success(t("crbs.common.saved")), onError: toastError })}>
           {t("crbs.common.save")}
         </Button>
         <Button variant="ghost" className="text-status-infeasible-fg" onClick={() => setDel(true)}>

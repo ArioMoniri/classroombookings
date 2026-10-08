@@ -3,6 +3,8 @@
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useAppearancePreferences } from "@/components/ui/appearance-preferences";
+import { AlertTriangle } from "lucide-react";
+import { useOrgPublic } from "@/lib/api/crbs";
 import { useMeFull } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
 import { useUiStore } from "@/stores/ui";
@@ -34,6 +36,27 @@ function OfflineBanner() {
   return (
     <div role="status" className="mx-4 mt-2 rounded-full bg-status-warning px-4 py-1.5 text-center text-[13px] text-status-warning-fg sm:mx-6 lg:mx-8">
       {t("common.offline")}
+    </div>
+  );
+}
+
+/**
+ * CRBS `layout.php`: while maintenance mode is on, every page says so (staff cannot book; roles with
+ * system.bypass_maintenance_mode still can). /bookings shows its own 503 screen or bypass notice instead.
+ */
+export function MaintenanceBanner() {
+  const { t } = useI18n();
+  const pathname = usePathname();
+  const org = useOrgPublic();
+  if (!org.data?.maintenance_mode || pathname === "/bookings" || pathname.startsWith("/bookings/")) return null;
+  return (
+    <div role="status" data-testid="shell-maintenance" className="mx-4 mt-2 flex items-start gap-2 rounded-xl bg-status-warning px-3 py-2 type-callout text-status-warning-fg sm:mx-6 lg:mx-8">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <p className="min-w-0">
+        <span className="font-semibold">{t("admingaps.shell.maintenanceTitle")}</span>
+        {" "}
+        {org.data.maintenance_message || t("crbs.maintenance.default")}
+      </p>
     </div>
   );
 }
@@ -93,6 +116,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <TopBar />
         </Suspense>
         <OfflineBanner />
+        <MaintenanceBanner />
         <main id="main" className="flex-1 px-4 pt-3 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-4 lg:pb-8">
           <div className="mx-auto w-full max-w-[1600px]">{children}</div>
         </main>

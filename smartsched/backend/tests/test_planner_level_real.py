@@ -121,13 +121,20 @@ async def test_bahar_week3_is_valid_at_planner_level(workdir: Path) -> None:
 
 
 async def test_bahar_week3_is_deterministic(workdir: Path) -> None:
-    """M2: the same input and seed give the same timetable (canonical stages: one worker, deterministic
-    time) — compared row by row with a second run."""
-    db, run_id = await _solved(workdir, "bahar_w3")
-    first = await _rows(db, run_id, exam=False)
-    second_id = await _solve(db, "bahar_w3", time_limit=WEEK_LIMIT)
+    """M2: deterministic mode (``workers=1``: every stage budgeted in CP-SAT deterministic time, never by the
+    wall clock) gives the same timetable for the same input and seed on any machine load — two runs compared
+    row by row; both are valid at planner level."""
+    base = await _term_db(workdir, INSTANCES["bahar_w3"].term)
+    db = workdir / "bahar_w3_det.db"
+    shutil.copyfile(base, db)
+    first_id = await _solve(db, "bahar_w3", time_limit=60.0, params={"workers": 1})
+    second_id = await _solve(db, "bahar_w3", time_limit=60.0, params={"workers": 1})
+    first = await _rows(db, first_id, exam=False)
     second = await _rows(db, second_id, exam=False)
-    assert len(first) == len(second) and first == second
+    assert first and first == second
+    run, res = await _check(db, second_id)
+    assert run.stats.get("deterministic") is True
+    _assert_valid(run, res)
     await dbmod.dispose_engine()
 
 

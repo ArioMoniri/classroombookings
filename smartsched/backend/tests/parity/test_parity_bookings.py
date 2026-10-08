@@ -265,7 +265,12 @@ async def test_permissions_are_grouped_like_crbs(env):
     perms = (await c.get("/api/v1/permissions", headers=env.admin)).json()
     groups = {g for scope in perms.values() for g in scope}
     assert {"system", "setup", "room", "book_single", "book_recur"} <= groups
-    assert len([p for scope in perms.values() for items in scope.values() for p in items]) == 31
+    # 28 CRBS + 3 planning.* + 5 wave-1 permissions (rooms.features, audit.view, approvals.decide, book_*.request)
+    assert len([p for scope in perms.values() for items in scope.values() for p in items]) == 36
+    # the CRBS booking groups keep CRBS's order; the new request action sits right after create
+    single = [p["name"] for p in perms["bookings"]["book_single"]]
+    assert single[:2] == ["book_single.create", "book_single.request"]
+    assert {"rooms", "audit", "approvals"} <= set(perms["system"])
     teacher = await role_id(c, env.admin, "TEACHER")
     role = (await c.get(f"/api/v1/roles/{teacher}", headers=env.admin)).json()
     assert set(role["permissions"]) == {

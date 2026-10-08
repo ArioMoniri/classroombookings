@@ -226,7 +226,7 @@ def _tags_from_words(words: list[str]) -> set[str]:
             if key == tag.lower() or key in syns:
                 out.add(tag)
         if not any(key in syns or key == tag.lower() for tag, syns in feat.TAG_SYNONYMS.items()):
-            out.add(n.tr_upper(w.strip()).replace(" ", "_"))
+            out.add(feat.ascii_upper(w.strip()).replace(" ", "_"))
     return out
 
 
@@ -542,6 +542,7 @@ async def _alternatives(
     info: TermInfo,
 ) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+
     def all_free(c: _Cand, ds: list[date], s: int) -> bool:
         return all(_free_on(holders(c.room.id, d), s, s + dur - 1) is None for d in ds)
 

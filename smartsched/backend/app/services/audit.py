@@ -82,7 +82,8 @@ def context(session: AsyncSession | Session) -> AuditContext | None:
 def user_label(u: User | None) -> str | None:
     if u is None:
         return None
-    return u.full_name or u.username or u.email or f"#{u.id}"
+    named = " ".join(x for x in (u.firstname, u.lastname) if x)
+    return u.full_name or named or u.username or u.email or f"#{u.id}"
 
 
 def hash_ip(address: str | None) -> str | None:

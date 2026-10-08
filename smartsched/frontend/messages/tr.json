@@ -2158,5 +2158,242 @@
     "tagTIP": "Tıp (TIP)",
     "tagLAB": "Laboratuvar",
     "tagAMPHI": "Amfi"
+  },
+  "reserve": {
+    "cell": {
+      "free": "Boş",
+      "reserve": "Rezerve et",
+      "span": "{n} ders saati",
+      "selectedSpan": "{n} ders saatlik rezervasyon için seçildi"
+    },
+    "reason": {
+      "schedule": "Bu derslik için rezerve edilebilir bir ders saati değil"
+    },
+    "grid": {
+      "hint": "Boş bir saate tıklayıp rezerve edin. Art arda birkaç ders saati için sürükleyin ya da Shift ile tıklayın.",
+      "longPress": "Gri bir hücrenin neden rezerve edilemediğini görmek için basılı tutun."
+    },
+    "lens": {
+      "label": "Görünüm",
+      "grid": "Çizelge",
+      "free": "Boş saatler"
+    },
+    "free": {
+      "scope": "Aralık",
+      "day": "Gün",
+      "week": "Hafta",
+      "count": "{n} boş ders saati",
+      "rooms": "{n} derslikte",
+      "empty": "Bu gün rezerve edebileceğiniz boş ders saati yok.",
+      "emptyWeek": "Bu hafta rezerve edebileceğiniz boş ders saati yok.",
+      "reserveAt": "{room}, {date}, {time} saatini rezerve et",
+      "deptFirst": "Bölümünüzün kullandığı derslikler önce gelir.",
+      "loading": "Boş saatler aranıyor…",
+      "seats": "{n} kişilik",
+      "details": "Derslik bilgisi"
+    },
+    "dept": {
+      "label": "Bölüm",
+      "all": "Tüm bölümler",
+      "mine": "{name} (bölümünüz)",
+      "legend": "Bölümlere göre rezervasyonlar",
+      "legendEmpty": "Bu görünümde bölümü olan rezervasyon yok.",
+      "count": "{n} rezervasyon",
+      "filtering": "{name} rezervasyonları renkli, diğer rezervasyonlar soluk gösteriliyor.",
+      "topRooms": "{name} bölümünün en çok kullandığı derslikler",
+      "roomUse": "{bookings} rezervasyon · {classes} ders",
+      "noRooms": "{name} bölümünün bu dönemde rezervasyonu ya da dersi yok.",
+      "show": "{name} bölümünü göster",
+      "clear": "Tüm bölümleri göster"
+    },
+    "book": {
+      "periods": "Ders saatleri",
+      "periodsHint": "Birlikte rezerve etmek için önceki ya da sonraki saatleri ekleyin.",
+      "period": "Ders saati",
+      "submitN": "{n} ders saatini rezerve et",
+      "doneN": "{room}, {date}: {n} ders saati rezerve edildi",
+      "spanRecurring": "Her ders saati {date} tarihine kadar haftalık seri olur. Dolu tarihler ve tatiller atlanır.",
+      "otherRooms": "Diğer boş derslikler"
+    },
+    "room": {
+      "capacity": "Kapasite",
+      "examCapacity": "Sınav kapasitesi",
+      "building": "Bina",
+      "floor": "Kat",
+      "group": "Derslik grubu",
+      "features": "Özellikler",
+      "day": "{date}",
+      "dayEmpty": "Bu gün rezervasyon ya da ders yok.",
+      "class": "Ders",
+      "booking": "Rezervasyon",
+      "next": "İlk boş saat",
+      "nextNone": "Bu hafta boş saat yok.",
+      "reserve": "Rezerve et",
+      "reserveNext": "{time} saatini rezerve et",
+      "photoOpen": "Fotoğrafı büyüt",
+      "photoClose": "Fotoğrafı kapat",
+      "week": "Dersliğin haftasını aç"
+    },
+    "alt": {
+      "title": "Diğer boş derslikler",
+      "lead": "{date}, {time} saatinde boş",
+      "minSeats": "En az",
+      "seatsUnit": "kişi",
+      "tags": "Gerekli",
+      "empty": "Bu saatte bu ihtiyaçlara uyan başka boş derslik yok.",
+      "loading": "Diğer derslikler kontrol ediliyor…",
+      "spare": "{n} boş koltuk",
+      "exact": "Tam uyuyor",
+      "unknownSize": "Kapasite bilinmiyor",
+      "reserve": "Rezerve et",
+      "reserveRoom": "{room}, {time} saatini rezerve et",
+      "time": "Saat",
+      "finder": "Derslik bulucu sıraladı"
+    },
+    "slotInfo": {
+      "alternatives": "Bu saatte boş derslikler",
+      "room": "Derslik bilgisi"
+    },
+    "sync": {
+      "title": "Takvime eşitle",
+      "open": "Takvim eşitleme",
+      "lead": "Bir kez abone olun, takvim uygulamanız kendini güncel tutar: Google Takvim, Outlook, Apple Takvim ve diğerleri.",
+      "mine": "Rezervasyonlarım",
+      "room": "{name} dersliği",
+      "department": "{name} bölümü",
+      "https": "Web bağlantısı",
+      "webcal": "Takvim uygulaması bağlantısı",
+      "copy": "{what} kopyala",
+      "copied": "Bağlantı kopyalandı",
+      "google": "Google Takvim'e ekle",
+      "outlook": "Outlook'a ekle",
+      "outlookWork": "Microsoft 365",
+      "apple": "Apple Takvim",
+      "create": "Özel bağlantılarımı oluştur",
+      "reset": "Özel bağlantıyı sıfırla",
+      "resetTitle": "Özel bağlantı sıfırlansın mı?",
+      "resetBody": "Eski bağlantılarla abone olunan takvimler artık güncellenmez. Yeni bağlantılarla yeniden abone olun.",
+      "private": "Bu bağlantılara sahip herkes içindeki rezervasyonları görebilir. Kimseyle paylaşmayın.",
+      "googleNote": "Google abone olunan takvimleri anında değil, birkaç saatte bir yeniler.",
+      "loading": "Takvim bağlantılarınız yükleniyor…",
+      "none": "Henüz özel bağlantınız yok.",
+      "connectGoogle": "Google Takvim'i bağla",
+      "connectMicrosoft": "Microsoft 365'i bağla",
+      "connectLead": "İki yönlü eşitleme: rezervasyonlarınız kendi takviminize etkinlik olarak gönderilir ve güncel tutulur.",
+      "connected": "Bağlı: {account}",
+      "disconnect": "Bağlantıyı kes",
+      "connectError": "Bağlanamadı: {message}",
+      "disabled": "Takvim eşitleme yönetici tarafından kapatıldı.",
+      "existing": "{n} özel bağlantınız var ({hints}). Bağlantılar yalnızca bir kez gösterilir; burada görmek için yeni bir bağlantı oluşturun.",
+      "pickRoom": "Abone olunacak derslik",
+      "pickDepartment": "Abone olunacak bölüm",
+      "reconnect": "Bağlantıyı yenileyin",
+      "connectedToast": "Takvim bağlandı"
+    },
+    "multi": {
+      "include": "{slot} dahil",
+      "copyDown": "Alttaki satırlara kopyala",
+      "perRow": "Saat başına ayrıntılar",
+      "cancelN": "{n} rezervasyonu iptal et",
+      "cancelTitle": "{n} rezervasyon iptal edilsin mi?",
+      "cancelBody": "Başkalarına ait olanlar da dahil bu rezervasyonlar iptal edilir. Sahiplerine bildirim gider.",
+      "previewDates": "Tarihleri kontrol et",
+      "dates": "{slot} tarihleri",
+      "selectedCancel": "iptal için seçildi"
+    },
+    "detail": {
+      "notOwn": "Bu sizin rezervasyonunuz değil.",
+      "week": "Ders haftası",
+      "occurs": "Tekrar",
+      "occursWeek": "{week}, her {weekday}",
+      "occursEvery": "Her {weekday}"
+    },
+    "mine": {
+      "canCreate": "{n} rezervasyon daha yapabilirsiniz"
+    },
+    "toolbar": {
+      "current": "Güncel ve gelecek",
+      "past": "Geçmiş",
+      "groupCount": "{name} ({n})",
+      "ungrouped": "Diğer derslikler"
+    }
+  },
+  "admingaps": {
+    "shell": {
+      "version": "Sürüm {version}",
+      "maintenanceTitle": "Bakım modu açık."
+    },
+    "overview": {
+      "data": "Rezervasyon verileri",
+      "exportLead": "Bir dönemin rezervasyonlarını derslik grubuna göre, iptaller dahil ya da hariç CSV (Excel) olarak indirin."
+    },
+    "sessions": {
+      "new": "Yeni dönem",
+      "newHint": "Dönem, ilk ve son günü olan bir yarıyıldır. Rezervasyonlar, tatiller ve ders haftaları bir döneme aittir.",
+      "edit": "Bilgileri düzenle",
+      "editTitle": "{name} dönemini düzenle",
+      "editHint": "Bu dönemin adını veya tarihlerini değiştirin.",
+      "created": "{name} oluşturuldu",
+      "cancelled": "Yeni tarihlerin dışında kalan {n} rezervasyon iptal edildi.",
+      "codeTaken": "Bu kodla bir dönem zaten var.",
+      "namePlaceholder": "ör. 2026-2027 Güz Dönemi",
+      "code": "Kod",
+      "codeHint": "Kısa ve benzersiz, ör. 2026-2027 GÜZ. Boş bırakılırsa ad kullanılır.",
+      "start": "Başlangıç tarihi",
+      "end": "Bitiş tarihi",
+      "endBeforeStart": "Bitiş tarihi başlangıç tarihinden önce.",
+      "datesHint": "Yeni tarihlerin dışında kalan rezervasyonlar, classroombookings'te olduğu gibi iptal edilir.",
+      "outsideTitle": "{n} rezervasyon yeni tarihlerin dışında kalıyor.",
+      "outsideBody": "Kaydederseniz gerekçeyle iptal edilirler; sahipleri bunu Rezervasyonlarım sayfasında görür.",
+      "outsideConfirm": "Kaydet ve {n} rezervasyonu iptal et",
+      "deleteTitle": "{name} silinsin mi?",
+      "deleteLead": "Dönem ve içindeki her şey silinir. Bu işlem geri alınamaz.",
+      "usageBookings": "Rezervasyonlar",
+      "usageActive": "{total} ({active} etkin)",
+      "usageSeries": "Yinelenen seriler",
+      "usageHolidays": "Tatiller",
+      "usagePlanning": "Ders programı verileri",
+      "usagePlanningValue": "{sections} şube · {runs} çalıştırma",
+      "deleteAck": "{n} rezervasyonun ve bu dönemin ders programı verilerinin silineceğini anlıyorum.",
+      "deleteConfirm": "Dönemi sil"
+    },
+    "holidays": {
+      "days": "{n} gün",
+      "editNamed": "{name} tatilini düzenle",
+      "editTitle": "{name} tatilini düzenle",
+      "editHint": "Bu tarihlerde rezervasyon yapılamaz; yinelenen rezervasyonlar bu günleri atlar."
+    },
+    "users": {
+      "sortEnabled": "Önce etkin hesaplar",
+      "sortDepartment": "Bölüme göre",
+      "passwordConfirm": "Parola (tekrar)",
+      "passwordMismatch": "İki parola aynı değil."
+    },
+    "access": {
+      "check": "Erişimi denetle",
+      "checkUser": "Bu kişinin bir derslikteki erişimini denetle",
+      "checkRoom": "{name} erişimini denetle"
+    },
+    "roles": {
+      "users": "Kullanıcılar ({n})",
+      "openInUsers": "Kullanıcılar'da göster",
+      "noUsers": "Bu role sahip kimse yok.",
+      "usersNeedPermission": "Bu role kimlerin sahip olduğunu görmek için Kullanıcılar yetkisi gerekir.",
+      "more": "ve {n} kişi daha"
+    },
+    "rooms": {
+      "new": "Yeni derslik",
+      "newHint": "Derslik ana listesine bir derslik ekleyin. Sorumlu kişi, konum, fotoğraf ve özel alanlar dersliğin düzenleme panelinden girilir.",
+      "created": "{name} oluşturuldu",
+      "codeTaken": "{code} kodlu bir derslik zaten var.",
+      "code": "Kod",
+      "codeHint": "Blok harfi ve numara, ör. A 101.",
+      "nameHint": "Boş bırakılırsa kod kullanılır.",
+      "capacity": "Kişi sayısı",
+      "deleteTitle": "{name} silinsin mi?",
+      "deleteBody": "Derslik ve erişim kayıtları kaldırılır. Rezervasyonu olan bir derslik silinemez; bunun yerine rezervasyona kapatın.",
+      "hasBookings": "Bu dersliğin {n} rezervasyonu var ({active} etkin), bu yüzden silinemez. Bunun yerine düzenleme panelinden “Rezerve edilebilir” seçeneğini kapatın.",
+      "enlargePhoto": "{name} fotoğrafını büyüt"
+    }
   }
 }

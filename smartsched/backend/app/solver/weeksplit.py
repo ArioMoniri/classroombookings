@@ -726,16 +726,19 @@ def solve_segmented(
     second chance hinted with the previous timetable; a round is kept only if it places more original
     events completely without losing hard score.  Returns the result on ``split.inp`` (segment ids)
     and the split; :func:`to_original` translates it back."""
+    from app.solver.build import Clock
     from app.solver.cpsat import solve
 
     t0 = time.perf_counter()
+    clock = Clock(inp)
     split = split_blocked_weeks(inp, unlocked_forbidden_tags=unlocked_forbidden_tags, profile_split=profile_split)
     res = solve(split.inp)
+    clock.charge_s(res.stats.get("clock_s"))
     done = 0
     for _ in range(max(0, rounds)):
         if not res.stats.get("partial") or not res.assignments:
             break
-        remaining = inp.time_limit_s - (time.perf_counter() - t0)
+        remaining = inp.time_limit_s - clock.elapsed()
         if remaining < 5.0:
             break
         nxt = residual_split(split, res.assignments)
@@ -748,6 +751,7 @@ def solve_segmented(
             res.stats["week_split_residual_skipped"] = True
             break
         cand = solve(replace(cand_split.inp, time_limit_s=remaining), _hints=hints)
+        clock.charge_s(cand.stats.get("clock_s"))
         before = len(fully_placed(split, res.assignments))
         after = len(fully_placed(cand_split, cand.assignments))
         if after <= before or cand.hard_score < res.hard_score:

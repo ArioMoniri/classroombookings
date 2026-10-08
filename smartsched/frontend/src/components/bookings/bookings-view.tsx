@@ -1,36 +1,49 @@
 "use client";
 /**
- * /bookings — the CRBS booking grid on Liquid Glass. Chrome (toolbar, tray, sheets) is glass; the grid is
- * opaque. State lives in the URL (?display=day|room&date=&group=&room=&term=) so a view can be shared.
+ * /bookings — the CRBS booking grid on Liquid Glass, and the reservation panel around it. Chrome (toolbar,
+ * tray, sheets) is glass; the grid and the free-slot list are opaque. State lives in the URL
+ * (?display=day|room&date=&group=&room=&term=&lens=grid|free&scope=day|week) so a view can be shared; the
+ * department lens is remembered per user.
+ *
+ * Reserve: a free cell (or a period in the "Free slots" lens) opens the booking sheet with room, date and
+ * period; drag / Shift-click selects a span. Room names open the room details with "Other available rooms".
  */
-import { ChevronLeft, ChevronRight, CircleSlash, Info, Layers, ListChecks, Printer, Wrench, X } from "lucide-react";
+import { CalendarSync, ChevronLeft, ChevronRight, CircleSlash, DoorOpen, Info, LayoutGrid, Layers, List, ListChecks, Printer, Trash2, Wrench, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { SegmentedGlass } from "@/components/ui/segmented-glass";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Toolbar, ToolbarButton, ToolbarLabel } from "@/components/ui/toolbar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { crbs, crbsError, useBookingContext, useBookingDates, useBookingGrid, useCrbsMe, useOrgPublic, type Grid, type GridQuery, type GridSlot } from "@/lib/api/crbs";
+import { crbs, crbsError, crbsKeys, useBookingContext, useBookingDates, useBookingGrid, useCrbsMe, useOrgPublic, type Grid, type GridQuery, type GridSlot } from "@/lib/api/crbs";
 import { bookingCapabilities, hasPermission } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { Alert, PageTitle, SelectField } from "@/components/admin/kit";
 import { BookSheet, type BookTarget } from "./book-sheet";
 import { BookingDetailSheet } from "./booking-detail-sheet";
-import { BookingGrid, reasonKey, TONE_CLASS, TONE_ICON } from "./booking-grid";
+import { BookingGrid, pickKind, reasonKey, TONE_CLASS, TONE_ICON } from "./booking-grid";
 import { bookingErrorMessage } from "./booking-errors";
 import { DatePicker } from "./date-picker";
 import { isSelectable, slotKey, type SlotTone } from "./grid-model";
 import { MultiBookDialog } from "./multi-book-dialog";
-import { RoomInfoSheet } from "./room-info-sheet";
+import { RoomInfoSheet, useNow, type RoomContext } from "./room-info-sheet";
+import { CalendarSyncPanel } from "./calendar-sync";
+import { CancelManyDialog } from "./cancel-many-dialog";
+import { DepartmentBar, useDepartmentLens } from "./department-lens";
+import { FreeSlotsList } from "./free-slots-list";
+import { addDays } from "./date-format";
+import { freeSlotsByRoom } from "./reserve-model";
 import { EntityIcon } from "@/components/admin/icons";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
 import { useIsPhone } from "./use-is-phone";
 
 type Display = "day" | "room";
+type Lens = "grid" | "free";
+type Scope = "day" | "week";
 
 export function BookingsView() {
   const { t } = useI18n();
@@ -55,7 +68,14 @@ export function BookingsView() {
   const rooms = useQuery({ queryKey: ["crbs", "booking-rooms"], queryFn: () => crbs.bookings.rooms(), enabled: ctx.isSuccess, retry: false, staleTime: 60_000 });
   const roomIcons = useMemo(() => new Map((rooms.data ?? []).map((r) => [r.id, r.icon])), [rooms.data]);
   const highlight = num("highlight") ?? null;
-  const [roomInfo, setRoomInfo] = useState<number | null>(null);
+  const [roomInfo, setRoomInfo] = useState<{ id: number; context: RoomContext } | null>(null);
+  const phone = useIsPhone();
+  const lens: Lens = (params.get("lens") as Lens | null) ?? (phone ? "free" : "grid");
+  const scope: Scope = params.get("scope") === "week" ? "week" : "day";
+  const [department, setDepartment, myDepartment] = useDepartmentLens();
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const now = useNow();
 
   const [multi, setMulti] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -80,7 +100,7 @@ export function BookingsView() {
     (slot: GridSlot) => {
       if (!g) return;
       if (multi) {
-        if (!isSelectable(slot)) {
+        if (!pickKind(slot)) {
           if (slot.status === "booked" && slot.booking) setDetail(slot.booking.id);
           return;
         }
@@ -100,7 +120,55 @@ export function BookingsView() {
     [g, multi],
   );
 
+  const onSpan = useCallback((slots: GridSlot[]) => g && slots[0] && setBook({ slot: slots[0], grid: g, span: slots }), [g]);
+  const openRoom = useCallback((id: number, context: RoomContext = {}) => setRoomInfo({ id, context: { termId: g?.term.id, date: g?.display === "day" ? g.date : undefined, ...context } }), [g]);
+  const otherRooms = useCallback(
+    (target: BookTarget) => {
+      const span = target.span?.length ? target.span : [target.slot];
+      const periods = span.map((s) => target.grid.periods.find((p) => p.id === s.period_id)).filter((p): p is NonNullable<typeof p> => !!p);
+      setBook(null);
+      openRoom(target.slot.room_id, { date: target.slot.date, periods, termId: target.grid.term.id });
+    },
+    [openRoom],
+  );
+
   const weekById = useMemo(() => new Map((dates.data?.weeks ?? []).map((w) => [w.id, w])), [dates.data]);
+  const slotByKey = useMemo(() => new Map((g?.slots ?? []).map((x) => [slotKey(x), x])), [g?.slots]);
+  const bookKeys = [...selected].filter((k) => isSelectable(slotByKey.get(k)));
+  const cancelIds = [...selected].map((k) => slotByKey.get(k)).filter((x) => x?.status === "booked" && x.booking?.can_cancel).map((x) => x!.booking!.id);
+
+  // Free slots lens: the day grid, or the open days of its week (same group) for "Week"
+  const weekDates = useMemo(() => {
+    if (!g || g.display !== "day" || lens !== "free" || scope !== "week") return [];
+    const monday = addDays(g.date, -(((new Date(`${g.date}T12:00:00`).getDay() + 6) % 7)));
+    const open = new Map((dates.data?.dates ?? []).map((d) => [d.date, d]));
+    return Array.from({ length: 7 }, (_, i) => addDays(monday, i)).filter((d) => open.get(d)?.open && !open.get(d)?.holiday);
+  }, [dates.data?.dates, g, lens, scope]);
+  const weekGrids = useQueries({
+    queries: weekDates.map((d) => {
+      const q: GridQuery = { display: "day", date: d, term_id: g?.term.id, room_group_id: g?.room_group_id ?? undefined };
+      return { queryKey: crbsKeys.grid(q), queryFn: () => crbs.bookings.grid(q), staleTime: 10_000, retry: false };
+    }),
+  });
+  const deptRooms = useQuery({
+    queryKey: ["crbs", "department-rooms", department === "all" ? null : department, g?.term.id],
+    queryFn: () => crbs.bookings.departmentRooms(department === "all" ? 0 : department, g?.term.id, 8),
+    enabled: department !== "all" && !!g,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const weekData = weekGrids.map((x) => x.data);
+  const weekKey = weekData.map((x) => x?.date ?? "").join(",") + weekGrids.map((x) => x.dataUpdatedAt).join(",");
+  const firstRooms = useMemo(() => new Set((deptRooms.data?.rooms ?? []).map((r) => r.room_id)), [deptRooms.data]);
+  const freeRooms = useMemo(
+    () => {
+      const grids = scope === "week" && g?.display === "day" ? weekData.filter((x): x is Grid => !!x) : g ? [g] : [];
+      return freeSlotsByRoom(grids, { now, firstRooms });
+    },
+    // weekKey stands for the week grids (a new array every render)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scope, g, weekKey, now, firstRooms],
+  );
 
   if (ctx.isError) {
     const err = crbsError(ctx.error);
@@ -172,6 +240,21 @@ export function BookingsView() {
       {org.data?.maintenance_mode && caps.bypassMaintenance ? <Alert tone="warning" title={t("crbs.maintenance.bypassTitle")}>{org.data.maintenance_message || t("crbs.maintenance.bypass")}</Alert> : null}
 
       <Toolbar placement="inline" data-print-hide className="sticky top-2 z-30 h-auto w-full flex-wrap justify-start gap-2 rounded-3xl p-1.5 md:rounded-full" aria-label={t("crbs.toolbar.label")}>
+        <SegmentedGlass<Lens>
+          aria-label={t("reserve.lens.label")}
+          size="sm"
+          value={lens}
+          onValueChange={(v) => {
+            setSelected(new Set());
+            setMulti(false);
+            setParams({ lens: v });
+          }}
+          options={[
+            { value: "grid", label: t("reserve.lens.grid"), icon: <LayoutGrid aria-hidden /> },
+            { value: "free", label: t("reserve.lens.free"), icon: <List aria-hidden /> },
+          ]}
+          data-testid="lens"
+        />
         <SegmentedGlass<Display>
           aria-label={t("crbs.toolbar.display")}
           size="sm"
@@ -215,14 +298,27 @@ export function BookingsView() {
           <label className="flex min-w-40 items-center gap-2">
             <span className="sr-only">{t("crbs.toolbar.room")}</span>
             <SelectField value={String(g?.rooms[0]?.id ?? "")} onChange={(e) => setParams({ room: e.target.value })} aria-label={t("crbs.toolbar.room")} data-testid="room-select">
-              {(rooms.data ?? g?.rooms ?? []).map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
+              {/* CRBS filter/room.php: rooms under their room group */}
+              {roomOptions(rooms.data ?? [], g?.rooms ?? [], t("reserve.toolbar.ungrouped")).map((grp) =>
+                grp.label === null ? (
+                  grp.rooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))
+                ) : (
+                  <optgroup key={grp.label} label={grp.label}>
+                    {grp.rooms.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ),
+              )}
             </SelectField>
             {g?.rooms[0] ? (
-              <ToolbarButton size="icon-sm" aria-label={t("crbs.roomInfo.open", { name: g.rooms[0].name })} onClick={() => setRoomInfo(g.rooms[0]?.id ?? null)}>
+              <ToolbarButton size="icon-sm" aria-label={t("crbs.roomInfo.open", { name: g.rooms[0].name })} onClick={() => g.rooms[0] && openRoom(g.rooms[0].id, { date: g.date })}>
                 <Info />
               </ToolbarButton>
             ) : null}
@@ -231,17 +327,43 @@ export function BookingsView() {
         {sessions.length > 1 ? (
           <label className="flex min-w-40 items-center gap-2">
             <span className="sr-only">{t("crbs.toolbar.session")}</span>
-            <SelectField value={String(g?.term.id ?? "")} aria-label={t("crbs.toolbar.session")} onChange={(e) => setParams({ term: e.target.value, date: null })}>
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
+            <SelectField value={String(g?.term.id ?? "")} aria-label={t("crbs.toolbar.session")} onChange={(e) => setParams({ term: e.target.value, date: null })} data-testid="session-select">
+              {/* CRBS grid/Controls.php: "Current and future" and "Past" */}
+              {[
+                { label: t("reserve.toolbar.current"), items: sessions.filter((s) => s.is_current || !dates.data?.today || s.end >= dates.data.today) },
+                { label: t("reserve.toolbar.past"), items: sessions.filter((s) => !s.is_current && !!dates.data?.today && s.end < dates.data.today) },
+              ]
+                .filter((x) => x.items.length)
+                .map((x) => (
+                  <optgroup key={x.label} label={x.label}>
+                    {x.items.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
             </SelectField>
           </label>
         ) : null}
         <div className="ml-auto flex items-center gap-1">
-          {caps.single || caps.recurring ? (
+          {lens === "free" && display === "day" ? (
+            <SegmentedGlass<Scope>
+              aria-label={t("reserve.free.scope")}
+              size="sm"
+              value={scope}
+              onValueChange={(v) => setParams({ scope: v === "day" ? null : v })}
+              options={[
+                { value: "day", label: t("reserve.free.day") },
+                { value: "week", label: t("reserve.free.week") },
+              ]}
+            />
+          ) : null}
+          <ToolbarButton onClick={() => setSyncOpen(true)} aria-label={t("reserve.sync.title")} data-testid="sync-open">
+            <CalendarSync aria-hidden />
+            <span className="hidden lg:inline">{t("reserve.sync.open")}</span>
+          </ToolbarButton>
+          {(caps.single || caps.recurring) && lens === "grid" ? (
             <Chip
               selected={multi}
               onSelectedChange={(v) => {
@@ -267,10 +389,15 @@ export function BookingsView() {
               setSelected(new Set());
               setParams({ group: v });
             }}
-            options={groups.map((gr) => ({ value: String(gr.id), label: gr.id === 0 ? t("crbs.grid.ungrouped") : gr.name, icon: <Layers aria-hidden /> }))}
+            options={groups.map((gr) => {
+              const name = gr.id === 0 ? t("crbs.grid.ungrouped") : gr.name;
+              return { value: String(gr.id), label: gr.room_count != null ? t("reserve.toolbar.groupCount", { name, n: gr.room_count }) : name, icon: <Layers aria-hidden /> };
+            })}
           />
         </nav>
       ) : null}
+
+      <DepartmentBar grid={g} value={department} onChange={setDepartment} mine={myDepartment} termId={g?.term.id} onRoomInfo={(id) => openRoom(id)} />
 
       {g?.problems.includes("no_schedule") ? (
         <Alert tone="warning" title={t("crbs.problems.noScheduleTitle")}>
@@ -295,14 +422,37 @@ export function BookingsView() {
       {grid.isError ? <Alert tone="error">{bookingErrorMessage(crbsError(grid.error), t, { formatDate: fmt.short })}</Alert> : null}
 
       <div aria-busy={grid.isFetching} className="relative">
-        {g ? (
-          <BookingGrid grid={g} columns={fitColumns} fmt={fmt} multi={multi} selected={selected} onActivate={onActivate} crosshair={!!ctx.data?.display.grid_highlight} highlightBookingId={highlight} roomIcons={roomIcons} onRoomInfo={setRoomInfo} />
+        {g && lens === "free" ? (
+          <FreeSlotsList
+            rooms={freeRooms}
+            loading={grid.isFetching || weekGrids.some((x) => x.isLoading)}
+            week={display === "room" || scope === "week"}
+            fmt={fmt}
+            deptFirst={firstRooms.size > 0 && freeRooms.some((r) => firstRooms.has(r.room.id))}
+            onReserve={setBook}
+            onRoomInfo={(id, date) => openRoom(id, { date })}
+          />
+        ) : g ? (
+          <BookingGrid
+            grid={g}
+            columns={fitColumns}
+            fmt={fmt}
+            multi={multi}
+            selected={selected}
+            onActivate={onActivate}
+            onSpan={caps.single || caps.recurring ? onSpan : undefined}
+            crosshair={!!ctx.data?.display.grid_highlight}
+            highlightBookingId={highlight}
+            roomIcons={roomIcons}
+            onRoomInfo={(id) => openRoom(id)}
+            department={department}
+          />
         ) : grid.isLoading || ctx.isLoading ? (
           <Skeleton className="h-[420px] w-full rounded-xl" />
         ) : null}
       </div>
 
-      <Legend />
+      {lens === "grid" ? <Legend /> : null}
 
       {multi && selected.size > 0 ? (
         <Toolbar placement="floating-bottom" aria-label={t("crbs.multi.tray")} data-testid="multi-tray" data-print-hide>
@@ -313,20 +463,58 @@ export function BookingsView() {
             <X aria-hidden />
             {t("crbs.multi.clear")}
           </ToolbarButton>
-          <Button size="sm" onClick={() => setMultiOpen(true)} data-testid="multi-book">
-            {t("crbs.multi.book")}
-          </Button>
+          {cancelIds.length ? (
+            <ToolbarButton onClick={() => setCancelOpen(true)} className="text-status-infeasible-fg" data-testid="multi-cancel">
+              <Trash2 aria-hidden />
+              {t("reserve.multi.cancelN", { n: cancelIds.length })}
+            </ToolbarButton>
+          ) : null}
+          {bookKeys.length ? (
+            <Button size="sm" onClick={() => setMultiOpen(true)} data-testid="multi-book">
+              {t("crbs.multi.book")}
+            </Button>
+          ) : null}
         </Toolbar>
       ) : null}
 
-      <BookSheet target={book} onOpenChange={(o) => !o && setBook(null)} fmt={fmt} />
-      <BookingDetailSheet bookingId={detail} onOpenChange={(o) => !o && setDetail(null)} fmt={fmt} />
-      <SlotInfoSheet info={info} onOpenChange={(o) => !o && setInfo(null)} />
-      <RoomInfoSheet roomId={roomInfo} onOpenChange={(o) => !o && setRoomInfo(null)} />
+      <BookSheet target={book} onOpenChange={(o) => !o && setBook(null)} fmt={fmt} onOtherRooms={otherRooms} />
+      <BookingDetailSheet bookingId={detail} onOpenChange={(o) => !o && setDetail(null)} fmt={fmt} onRoomInfo={(id, date) => (setDetail(null), openRoom(id, { date }))} />
+      <SlotInfoSheet
+        info={info}
+        onOpenChange={(o) => !o && setInfo(null)}
+        onAlternatives={(slot, gr) => {
+          const p = gr.periods.find((x) => x.id === slot.period_id);
+          setInfo(null);
+          openRoom(slot.room_id, { date: slot.date, periods: p ? [p] : undefined, termId: gr.term.id });
+        }}
+      />
+      <RoomInfoSheet roomId={roomInfo?.id ?? null} context={roomInfo?.context} fmt={fmt} onOpenChange={(o) => !o && setRoomInfo(null)} onReserve={setBook} />
+      <Sheet open={syncOpen} onOpenChange={setSyncOpen}>
+        <SheetContent side={phone ? "bottom" : "right"} className="gap-0 data-[side=bottom]:max-h-[92dvh] data-[side=right]:sm:max-w-lg" data-testid="sync-sheet">
+          <SheetHeader className="px-5 pt-5">
+            <SheetTitle className="type-title-3">{t("reserve.sync.title")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("reserve.sync.lead")}</SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+            {syncOpen ? <CalendarSyncPanel roomId={display === "room" ? (g?.rooms[0]?.id ?? null) : null} departmentId={department === "all" ? null : department} /> : null}
+          </div>
+        </SheetContent>
+      </Sheet>
+      <CancelManyDialog
+        ids={cancelIds}
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        description={t("reserve.multi.cancelBody")}
+        onDone={() => {
+          setSelected(new Set());
+          setCancelOpen(false);
+          setMulti(false);
+        }}
+      />
       <MultiBookDialog
         open={multiOpen}
         onOpenChange={setMultiOpen}
-        slotKeys={[...selected]}
+        slotKeys={bookKeys}
         termId={g?.term.id}
         fmt={fmt}
         onBooked={() => {
@@ -339,7 +527,7 @@ export function BookingsView() {
   );
 }
 
-function SlotInfoSheet({ info, onOpenChange }: { info: { slot: GridSlot; grid: Grid } | null; onOpenChange: (o: boolean) => void }) {
+function SlotInfoSheet({ info, onOpenChange, onAlternatives }: { info: { slot: GridSlot; grid: Grid } | null; onOpenChange: (o: boolean) => void; onAlternatives: (slot: GridSlot, grid: Grid) => void }) {
   const { t } = useI18n();
   const fmt = useBookingFormat();
   const phone = useIsPhone();
@@ -372,6 +560,10 @@ function SlotInfoSheet({ info, onOpenChange }: { info: { slot: GridSlot; grid: G
                   {message}
                 </span>
               </Alert>
+              <Button variant="outline" className="mt-3 min-h-11 sm:min-h-0" onClick={() => onAlternatives(s, info.grid)} data-testid="slot-info-alternatives">
+                <DoorOpen aria-hidden />
+                {t("reserve.slotInfo.alternatives")}
+              </Button>
             </div>
           </>
         ) : null}
@@ -393,6 +585,9 @@ const LEGEND: { tone: SlotTone; key: Parameters<ReturnType<typeof useI18n>["t"]>
 function Legend() {
   const { t } = useI18n();
   return (
+    <div className="flex flex-col gap-2">
+    <p className="hidden type-footnote text-label-3 sm:block print:hidden">{t("reserve.grid.hint")}</p>
+    <p className="type-footnote text-label-3 sm:hidden print:hidden">{t("reserve.grid.longPress")}</p>
     <ul className="flex flex-wrap gap-x-4 gap-y-2 type-footnote text-label-2" aria-label={t("crbs.legend.label")}>
       {LEGEND.map(({ tone, key }) => {
         const Icon = TONE_ICON[tone];
@@ -406,7 +601,21 @@ function Legend() {
         );
       })}
     </ul>
+    </div>
   );
+}
+
+/** Room picker options under their room group (CRBS filter/room.php), in the grid's order. */
+function roomOptions(infos: { id: number; name: string; group?: string | null }[], fallback: { id: number; name: string }[], ungrouped: string): { label: string | null; rooms: { id: number; name: string }[] }[] {
+  if (!infos.length) return [{ label: null, rooms: fallback }];
+  const out: { label: string | null; rooms: { id: number; name: string }[] }[] = [];
+  for (const r of infos) {
+    const label = r.group ?? ungrouped;
+    const last = out[out.length - 1];
+    if (last && last.label === label) last.rooms.push(r);
+    else out.push({ label, rooms: [r] });
+  }
+  return out.length === 1 ? [{ label: null, rooms: out[0]!.rooms }] : out;
 }
 
 /* CRBS print.css: only the grid (with its title and legend) on white paper, landscape, every column on the

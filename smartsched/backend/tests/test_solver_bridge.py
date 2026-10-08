@@ -324,3 +324,28 @@ def test_merged_joint_lecture_with_definitive_hints_uses_the_planners_seats():
     # D1 for hints: 156 in the planner's room only; every other room must seat all 236 (13 does, 11/12 not)
     assert cases2 == [(1, 236, 156, [10])] and clipped2[0].size == 156
     assert clipped2[0].forbidden_room_ids == frozenset({11, 12})
+
+
+def test_clipped_shared_exam_may_only_use_the_planners_rooms():
+    """Prefer mode, D1 for hints, exams: the size is the seat demand in a shared room, so a clipped exam may
+    sit only in exactly the planner's set (elsewhere it would under-count its students)."""
+    from app.services.solver_bridge import clip_to_planner_rooms
+    from app.solver import model as sm
+
+    ex = sm.Event(
+        id=1,
+        kind="exam",
+        label="BIL102",
+        size=100,
+        duration=2,
+        weeks=frozenset({15}),
+        fixed_day=3,
+        fixed_start=7,
+        allowed_days=frozenset({3}),
+        max_rooms=3,
+        share_room=True,
+    )
+    rooms = tuple(sm.Room(r, f"R{r}", c * 2, c, "A", frozenset()) for r, c in ((10, 40), (11, 40), (12, 200)))
+    out, cases = clip_to_planner_rooms([ex], {1: [10, 11]}, {10: 40, 11: 40, 12: 200}, rooms)
+    assert cases == [(1, 100, 80, [10, 11])] and out[0].size == 80
+    assert out[0].forbidden_room_ids == frozenset({12})  # even the big room: it would seat only 80 of 100

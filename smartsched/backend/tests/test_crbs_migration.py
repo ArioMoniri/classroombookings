@@ -63,7 +63,8 @@ def test_upgrade_downgrade_roundtrip(tmp_path):
         )
     }
     assert teacher == {"room.view", "book_single.create", "book_single.view_other_notes", "book_recur.view_other_notes"}
-    assert con.execute("select count(*) from permissions").fetchone()[0] == 31
+    # 28 CRBS + 3 planning.* + 5 wave-1 (0012_room_features, 0014_audit_events, 0015_approvals)
+    assert con.execute("select count(*) from permissions").fetchone()[0] == 36
     row = con.execute("select role_id, force_password_reset, auth_source from users").fetchone()
     assert row == (roles["PLANNER"], 0, "local")
     unique = [r for r in con.execute("pragma index_list(booking_slots)") if r[2]]

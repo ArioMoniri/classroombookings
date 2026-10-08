@@ -63,9 +63,17 @@ async def test_wednesday_1010_1230_for_90_matches_the_planners_hand_count(env, p
 async def test_features_buildings_and_turkish_text(env):  # noqa: F811
     find_api.FIND_LIMIT.reset()
     c = env.client
-    pc = next(f for f in (await c.post("/api/v1/room-admin/features/adopt-tags", headers=env.admin)).json()
-              if f["solver_tag"] == "PC")
-    body = {"date": WED.isoformat(), "start": 1, "duration_periods": 2, "features": [{"field": "BİLGİSAYAR LABORATUVARI"}]}
+    pc = next(
+        f
+        for f in (await c.post("/api/v1/room-admin/features/adopt-tags", headers=env.admin)).json()
+        if f["solver_tag"] == "PC"
+    )
+    body = {
+        "date": WED.isoformat(),
+        "start": 1,
+        "duration_periods": 2,
+        "features": [{"field": "BİLGİSAYAR LABORATUVARI"}],
+    }
     out = (await c.post(FIND, json=body, headers=env.admin)).json()
     pcs = {x["code"] for x in out["results"] if x["status"] not in ("feature_missing",)}
     assert pcs == {"A103", "A104", "A105"}
@@ -91,8 +99,12 @@ async def test_recurring_partial_results_and_holidays(env):  # noqa: F811
     find_api.FIND_LIMIT.reset()
     hol = await env.client.post(
         "/api/v1/holidays",
-        json={"term_id": env.term_id, "name": "Ulusal Egemenlik ve Çocuk Bayramı", "date_start": "2026-04-23",
-              "date_end": "2026-04-23"},
+        json={
+            "term_id": env.term_id,
+            "name": "Ulusal Egemenlik ve Çocuk Bayramı",
+            "date_start": "2026-04-23",
+            "date_end": "2026-04-23",
+        },
         headers=env.admin,
     )
     assert hol.status_code == 201, hol.text
@@ -130,11 +142,14 @@ async def test_acl_hides_rooms_and_alternatives_when_few_are_free(env):  # noqa:
     assert not [x for x in out["results"] if x["status"] == "free"]
     near = [a for a in out["alternatives"] if a["kind"] == "near_miss"]
     assert [a["code"] for a in near] == ["A203"] and "148" in near[0]["reason"]["tr"]
-    # 120+: only A 203 is free, so the busy fitting rooms are offered earlier or later the same day
+    # A 101 on Monday 16 Feb: P1-P3 are free on the board, FZT 132 holds P4-P5. Once P2 is booked, a search for
+    # A 101 at P2 offers P1 and P3 instead (same room, -1/+1 period)
+    _, ayse = await env.user("ayse.f@uni.edu.tr")
+    assert (await env.book(ayse, "A101", date(2026, 2, 16), "P2")).status_code == 201
     out = (
-        await c.post(FIND, json={"date": WED.isoformat(), "start": 3, "end": 5, "headcount": 120}, headers=env.admin)
+        await c.post(FIND, json={"date": "2026-02-16", "start": 2, "headcount": 50, "text": "A 101"}, headers=env.admin)
     ).json()
-    assert [x["code"] for x in out["results"] if x["status"] == "free"] == ["A203"]
-    times = [a for a in out["alternatives"] if a["kind"] == "time"]
-    assert times and {a["code"] for a in times} <= {"A204", "A207", "C201"}
+    assert [x["status"] for x in out["results"]] == ["busy"] and "Rezervasyon" in out["results"][0]["busy_with"]
+    times = sorted((a["start_period"], a["code"]) for a in out["alternatives"] if a["kind"] == "time")
+    assert times == [(1, "A101"), (3, "A101")]
     assert all(a["reason"]["tr"] and a["reason"]["en"] for a in out["alternatives"])
