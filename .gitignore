@@ -24,3 +24,5 @@ smartsched/deploy/.env
 .env
 .claude/worktrees/
 smartsched/backend/*.egg-info/
+docs/agents/.lock
+docs/agents/registry.tmp

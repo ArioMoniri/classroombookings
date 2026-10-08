@@ -1,0 +1,69 @@
+{
+  "agents": [
+    {
+      "id": "adc1dc8ef604c1216",
+      "description": "Placement and reproduction improvements",
+      "subagent_type": "solver-engineer",
+      "ledger": "phase 9 follow-up",
+      "scope": "app/solver/**, services/{solver_bridge,data_issues,dashboard}.py, api/v1/{runs,data_issues,dashboard}.py (status only), schemas/runs.py, tests, run-status labels in frontend components/runs/*",
+      "goal": "per-week term splitting (Bahar ≥96 % placed), weight calibration (course ≥85 %, exam ≥50 % reproduction), planner data-issues report + xlsx, FEASIBLE_PARTIAL, TR/EN diagnoses, exam overflow",
+      "next": "finish calibration, data-issues endpoint, measurements in docs/testing/2026-10-08-real-data-feasibility.md",
+      "status": "running",
+      "started_at": "2026-10-08 10:00"
+    },
+    {
+      "id": "a120760cde6d07e0d",
+      "description": "Fix review blockers and majors",
+      "subagent_type": "backend-engineer",
+      "ledger": "review fixes",
+      "scope": "core/safe_files.py, core/export_safety.py, exports, imports, queue, studio*, chat.py, constraints.py, runs.py (small edits)",
+      "goal": "fix B1–B3, M1–M13 of docs/review/2026-10-08-backend-ai-studio-review.md and U1–U6; own backend make check going green",
+      "next": "remaining minors, widen mypy gate (app/ai, app/api), all tests green, finding→fix→test table",
+      "status": "running",
+      "started_at": "2026-10-08 10:00"
+    },
+    {
+      "id": "a6fe099980dc5e912",
+      "description": "Fix CRBS parity bugs and missing backend",
+      "subagent_type": "backend-engineer",
+      "ledger": "CRBS parity fixes",
+      "scope": "services/bookings*.py, api/v1/{bookings,booking_admin,org,terms,room_admin,rooms}.py, importers/crbs_legacy.py, core/security.py, models/booking.py, new alembic rev",
+      "goal": "B1–B16 + missing 2–6 of docs/review/2026-10-08-crbs-parity-audit.md; CRBS defaults with settings, safer security defaults",
+      "next": "remaining B-items, i18n/date-pattern endpoints, check_session_dates, tests",
+      "status": "running",
+      "started_at": "2026-10-08 10:00"
+    },
+    {
+      "id": "ac0cd43d5e50a0c46",
+      "description": "Glass redesign: calendar, all-classes, rooms",
+      "subagent_type": "frontend-engineer",
+      "ledger": "calendar",
+      "scope": "components/{timetable,classes,requests,rooms}/**, app/(app)/{timetable,classes,requests,rooms}/**, lib/api/{classes,calendar}.ts, backend api/v1/calendar.py, services/calendar_views.py, schemas/calendar.py",
+      "goal": "six calendar lenses, /classes all-classes view (provenance, saved views, export), rooms; honour /timetable?run=&week= and ?subject=instructor:<id>",
+      "next": "finish lenses + DnD + inspector, rooms, e2e/calendar.spec.ts, motion audit; fix reasonLabel export breaking the build",
+      "status": "running",
+      "started_at": "2026-10-08 10:00"
+    },
+    {
+      "id": "adacaf9e3510bb675",
+      "description": "CRBS booking and admin screens (frontend)",
+      "subagent_type": "frontend-engineer",
+      "ledger": "CRBS bookings + admin",
+      "scope": "app/(app)/{bookings,my-bookings,admin}/**, app/setup/**, app/reset-password/**, components/{bookings,admin}/**, lib/api/crbs.ts, lib/permissions.ts",
+      "goal": "full CRBS UI: grid, my bookings + ICS, all admin screens, setup wizard, reset password, profile language; ungrouped rooms hidden by default with toggle",
+      "next": "my-bookings, admin screens, setup/reset, add crbs.* message keys, e2e/bookings.spec.ts",
+      "status": "running",
+      "started_at": "2026-10-08 10:00"
+    },
+    {
+      "id": "a96cc7f2d9a298be3",
+      "description": "Glass redesign: shell, dashboard, run report, studio, settings",
+      "subagent_type": "frontend-engineer",
+      "ledger": "glass shell + pages",
+      "status": "finished",
+      "started_at": "2026-10-08 10:00",
+      "finished_at": "2026-10-08 11:52",
+      "left_off": "DONE: Liquid Glass v2 on shell, ⌘K, dashboard, run report (partial amber), chat DiffTable, studio, import, settings Appearance + AI key test, login + change password, 223 glass i18n keys, test ids. Open: dialog overlay blur LoAF, motion frame gates under load, backend prefs/log endpoints, trusted_lock_tags empty room code."
+    }
+  ]
+}
