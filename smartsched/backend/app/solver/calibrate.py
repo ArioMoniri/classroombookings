@@ -140,23 +140,32 @@ def summarise(rows: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, float
 
 
 def choose(
-    summary: Mapping[str, Mapping[str, Mapping[str, float]]], reference: str = "defaults", tolerance: float = 0.02
+    summary: Mapping[str, Mapping[str, Mapping[str, float]]],
+    reference: str = "defaults",
+    tolerance: float = 0.02,
+    min_gain: float = 0.01,
 ) -> str:
-    """The weight set with the best reproduction (course exact + exam overlap, averaged) among those
-    that keep hard 100 and place at least as many room-needing events as ``reference`` minus
-    ``tolerance`` (2 %: the seed-to-seed spread of a time-limited best-effort Bahar run is ±1.7 %)."""
+    """The weight set with the best reproduction (course exact + exam exact, averaged) among those that
+    keep hard 100 and place at least as many room-needing events as ``reference`` minus ``tolerance``
+    (2 %: the seed-to-seed spread of a time-limited best-effort Bahar run).  A set replaces
+    ``reference`` only if it beats it by more than ``min_gain`` (1 point): smaller gaps are within the
+    spread between seeds (Güz week 3, defaults: 89.8 % vs 91.6 %) and are no reason to change the weights
+    every run uses."""
+
+    def score(per: Mapping[str, Mapping[str, float]]) -> float:
+        rates = [m["repro_exact_rate"] for m in per.values()]
+        return statistics.fmean(rates) if rates else 0.0
+
     ref = summary.get(reference, {})
-    best, best_score = reference, -1.0
+    best, best_score = reference, (score(ref) + min_gain) if ref else -1.0
     for name, per in summary.items():
         ok = all(m["hard"] >= 100 for m in per.values()) and all(
             m["placed_roomed"] >= ref.get(i, m)["placed_roomed"] * (1 - tolerance) for i, m in per.items()
         )
-        if not ok:
+        if not ok or name == reference:
             continue
-        scores = [m["repro_overlap_rate"] if i.startswith("final") else m["repro_exact_rate"] for i, m in per.items()]
-        score = statistics.fmean(scores) if scores else 0.0
-        if score > best_score:
-            best, best_score = name, score
+        if score(per) > best_score:
+            best, best_score = name, score(per)
     return best
 
 
