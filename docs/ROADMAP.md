@@ -233,10 +233,10 @@ Foundation, in order: typed room features → find a room → notification hub �
 
 ### Shell follow-ups (from the CRBS screens hand-off, 2026-10-08)
 
-- [ ] Login page renders the organisation logo, login message, maintenance banner and "forgot password" link (`components/admin/login-extras.tsx` exists) — assigned to the no-placeholder frontend agent (owns auth).
-- [ ] Shell header shows the "What's new" indicator (`components/admin/whats-new.tsx`).
-- [ ] i18n provider overlays admin translation overrides from `GET /org/i18n` (`useOrgI18n` hook ready).
-- [ ] Breadcrumb labels localised for /admin/* routes (shows "admin / conflicts" in English).
+- [x] Login page renders the organisation logo, login message, maintenance banner and "forgot password" link (`components/admin/login-extras.tsx` exists) — assigned to the no-placeholder frontend agent (owns auth).
+- [x] Shell header shows the "What's new" indicator (`components/admin/whats-new.tsx`).
+- [x] i18n provider overlays admin translation overrides from `GET /org/i18n` (`useOrgI18n` hook ready).
+- [x] Breadcrumb labels localised for /admin/* routes (shows "admin / conflicts" in English).
 
 ### Calendar follow-ups (from the calendar/classes/rooms hand-off, 2026-10-08)
 

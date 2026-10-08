@@ -101,8 +101,10 @@ async def test_final_fixture_locked_single_room_exams_no_longer_clash(engine):
 
 def test_merge_joint_lectures_keeps_planner_rooms():
     """Güz rows: CSE 101 §1 is listed for three programmes (85 + 50 + 40) at the same time with the same
-    instructor and the planner's room A 204 (156): one event, clipped to the planner's room, all three
-    requests kept as members. A different-room pair is left alone."""
+    instructor; the planner locked two of them to A 204 (156): those two are one event of 135 locked to A 204.
+    The unlocked third row shares only the instructor, so it is not chained into the locked lecture (review
+    B1): it stays a request of its own (its clash is a reported input conflict).  A different-room pair is
+    left alone."""
     from app.services.solver_bridge import merge_joint_lectures
     from app.solver import model as sm
 
@@ -134,10 +136,10 @@ def test_merge_joint_lectures_keeps_planner_rooms():
     ]
     members = {e.id: [e.id] for e in events}
     out, merged = merge_joint_lectures(events, members, {10: 156, 11: 58, 12: 58})
-    assert len(out) == 4 and len(merged) == 1
+    assert len(out) == 5 and len(merged) == 1
     joint = next(e for e in out if e.id == 1)
-    assert joint.label == "CSE 101 §1" and joint.size == 156 and merged[0]["clipped_to"] == 156
-    assert joint.locked is not None and joint.locked.room_ids == (10,)
-    assert joint.cohort_keys == {"PROG:p1:Y1", "PROG:p2:Y1", "PROG:p3:Y1"}
-    assert members[1] == [1, 2, 3] and 2 not in members and 3 not in members
-    assert {e.id for e in out} == {1, 4, 5, 6}
+    assert joint.label == "CSE 101 §1" and joint.size == 135 and "clipped_to" not in merged[0]
+    assert joint.locked is not None and joint.locked.room_ids == (10,) and joint.lock_trusted
+    assert joint.cohort_keys == {"PROG:p1:Y1", "PROG:p2:Y1"}
+    assert members[1] == [1, 2] and 2 not in members and members[3] == [3]
+    assert {e.id for e in out} == {1, 3, 4, 5, 6}

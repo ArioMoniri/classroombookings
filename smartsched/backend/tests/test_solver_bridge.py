@@ -307,9 +307,18 @@ def test_merged_joint_lecture_with_definitive_hints_uses_the_planners_seats():
             preferred_room_ids=(10,),
         )
 
+    from app.services.solver_bridge import clip_to_planner_rooms
+
     members = {1: [1], 2: [2]}
     out, merged = merge_joint_lectures([ev(1, 120), ev(2, 116)], members, {10: 156, 11: 90}, {1: [10], 2: [10, 11]})
     assert len(out) == 1 and members == {1: [1, 2]}
-    assert out[0].size == 236 and "clipped_to" not in merged[0] and out[0].max_rooms == 2  # 246 seats suffice
+    assert out[0].size == 236 and out[0].max_rooms == 2 and merged[0]["planner_rooms"] == [10, 11]
+    rooms = tuple(sm.Room(r, f"R{r}", c, c // 2, "A", frozenset()) for r, c in ((10, 156), (11, 90), (12, 60), (13, 300)))
+    clipped, cases = clip_to_planner_rooms(out, {1: [10, 11]}, {10: 156, 11: 90, 12: 60, 13: 300}, rooms)
+    assert cases == [] and clipped[0].size == 236  # 246 seats suffice: nothing clipped
     out2, merged2 = merge_joint_lectures([ev(1, 120), ev(2, 116)], {1: [1], 2: [2]}, {10: 156}, {1: [10], 2: [10]})
-    assert out2[0].size == 156 and merged2[0]["clipped_to"] == 156
+    assert out2[0].size == 236 and "clipped_to" not in merged2[0]  # the merge never clips (review B1)
+    clipped2, cases2 = clip_to_planner_rooms(out2, {1: [10]}, {10: 156, 11: 90, 12: 60, 13: 300}, rooms)
+    # D1 for hints: 156 in the planner's room only; every other room must seat all 236 (13 does, 11/12 not)
+    assert cases2 == [(1, 236, 156, [10])] and clipped2[0].size == 156
+    assert clipped2[0].forbidden_room_ids == frozenset({11, 12})
