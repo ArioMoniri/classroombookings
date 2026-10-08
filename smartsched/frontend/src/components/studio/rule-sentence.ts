@@ -301,6 +301,48 @@ export function missingRequired(template: RuleTemplate, params: Params, ctx: Sen
   return template.fields.filter((f) => f.required && isEmptyValue(f, readField(f, params, ctx)));
 }
 
+/** Why a template's params cannot be saved yet. */
+export type TemplateIssue =
+  | { code: "missing"; field: TemplateField }
+  | { code: "minItems"; field: TemplateField; n: number }
+  | { code: "range"; field: TemplateField; min: number; max: number }
+  /** a time window rule (day_window) with neither a latest nor an earliest time means nothing */
+  | { code: "needOneTime"; field?: undefined }
+  /** "no classes after 10:00 or before 12:00" leaves no time at all */
+  | { code: "timeOrder"; field?: undefined };
+
+/**
+ * Builder / rule-card validation: required fields, minimum counts (`min_items`), number and period ranges,
+ * plus the rules a field list cannot express (a time window needs one end; "room only for" needs at least
+ * one programme, or the room type would be closed to everyone). Empty list = the rule can be saved.
+ */
+export function templateIssues(template: RuleTemplate, params: Params, ctx: SentenceContext): TemplateIssue[] {
+  const out: TemplateIssue[] = [];
+  for (const f of template.fields) {
+    const v = readField(f, params, ctx);
+    const empty = isEmptyValue(f, v);
+    if (empty) {
+      if (f.required || f.type === "applies_to_others") out.push({ code: "missing", field: f });
+      continue;
+    }
+    if (f.min_items !== undefined && Array.isArray(v) && v.length < f.min_items) out.push({ code: "minItems", field: f, n: f.min_items });
+    if ((f.type === "number" || f.type === "period") && typeof v === "number") {
+      const min = f.min ?? Number.NEGATIVE_INFINITY;
+      const max = f.max ?? Number.POSITIVE_INFINITY;
+      if (!Number.isFinite(v) || v < min || v > max) out.push({ code: "range", field: f, min, max });
+    }
+  }
+  if (template.kind === "day_window") {
+    const latest = template.fields.find((f) => f.name === "latest");
+    const earliest = template.fields.find((f) => f.name === "earliest");
+    const l = latest ? readField(latest, params, ctx) : null;
+    const e = earliest ? readField(earliest, params, ctx) : null;
+    if (l === null && e === null) out.push({ code: "needOneTime" });
+    else if (typeof l === "number" && typeof e === "number" && e > l) out.push({ code: "timeOrder" });
+  }
+  return out;
+}
+
 /** Weight ↔ Low / Normal / High (2 / 5 / 8 from GET /studio/meta). */
 export type Importance = "low" | "normal" | "high" | "custom";
 export interface WeightScale {

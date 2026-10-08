@@ -358,6 +358,18 @@
       "ledger": "frontend-engineer (studio + calendar polish bugs)",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a5b33b80f7bb1593e",
+      "description": "Wave 1 frontend screens",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 17:27",
+      "scope": "",
+      "goal": "build the user interface for the wave-1 booking features. Their backend has landed. The API contract is docs/product/wave1-api.md and the product spec is docs/product/booking-enhancements.md §4.1 P10, §4.2 T1, §4.6 P7 and §4.3 P1. The items are listed in docs/ROADMAP.md under \"Wave 1 frontend\". Follow the Liquid Glass v2 design (docs/design/v2/liquid-glass.md) and the /motion_designer guidance (.c…",
+      "ledger": "frontend-engineer (wave 1 frontend)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
