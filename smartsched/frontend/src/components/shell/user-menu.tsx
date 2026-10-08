@@ -1,10 +1,11 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Keyboard, LogOut, Settings } from "lucide-react";
+import { Keyboard, LogOut, Settings, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useAppVersion } from "@/lib/api/crbs";
 import { api } from "@/lib/api/endpoints";
 import { useMeFull } from "@/lib/api/shell-extra";
 import type { MessageKey } from "@/lib/i18n";
@@ -31,6 +32,8 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
   const hydrated = useHydrated();
   const user = hydrated ? me.data : undefined;
+  // CRBS layout footer: the running version (backend GET /health), so a bug report can name it
+  const version = useAppVersion();
   const logout = async () => {
     await api.auth.logout();
     qc.clear();
@@ -65,6 +68,10 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
           <span className="block truncate text-xs font-normal text-label-3">{user?.email ?? ""}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {/* CRBS header "Display name" -> profile/edit: names, e-mail, language, password (UI gap audit #1) */}
+        <DropdownMenuItem onClick={() => router.push("/profile")} data-testid="user-menu-profile">
+          <UserRound /> {t("crbs.nav.profile")}
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/settings")}>
           <Settings /> {t("nav.settings")}
         </DropdownMenuItem>
@@ -75,6 +82,11 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
         <DropdownMenuItem variant="destructive" onClick={() => void logout()} data-testid="logout">
           <LogOut /> {t("nav.logout")}
         </DropdownMenuItem>
+        {version.data ? (
+          <p className="px-2 pt-1.5 pb-1 type-caption text-label-3 tabular-nums" data-testid="app-version">
+            {t("admingaps.shell.version", { version: version.data })}
+          </p>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

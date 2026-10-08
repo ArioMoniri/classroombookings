@@ -1249,4 +1249,4 @@ export const crbsAdmin = {
 
 export const useTermUsage = (termId: number | null) =>
   useQuery({ queryKey: ["crbs", "term-usage", termId ?? 0], queryFn: () => crbsAdmin.terms.usage(termId ?? 0), enabled: termId !== null, retry: false });
-export const useAppVersion = () => useQuery({ queryKey: ["health"], queryFn: crbsAdmin.health, staleTime: 10 * 60_000, retry: false, select: (h) => h.version ?? null });
+export const useAppVersion = () => useQuery({ queryKey: ["health"], queryFn: crbsAdmin.health, staleTime: 10 * 60_000, retry: false, select: (h) => (h.version && !h.version.includes("unknown") ? h.version : null) });
