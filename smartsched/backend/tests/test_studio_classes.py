@@ -144,7 +144,9 @@ async def test_bulk_edit_and_revert_to_imported(bahar):
     async with get_session_factory()() as s:
         small = (await s.execute(select(Room).where(Room.capacity > 0).order_by(Room.capacity))).scalars().first()
     r = await c.put("/api/v1/studio/meetings/bulk", json={"ids": [phar], "patch": {"requested_room_ids": [small.id]}, "dry_run": True}, headers=h)
-    assert r.json()["results"][0]["warnings"] == [f"{small.display_name} has {small.capacity} seats, this class has 95"]
+    warnings = r.json()["results"][0]["warnings"]
+    assert f"{small.display_name} has {small.capacity} seats, this class has 95" in warnings
+    assert "A 206 has 92 seats, this class has 95" in warnings  # its definitive (locked) room is small too
     assert r.json()["updated"] == 0
     # revert one field, then everything
     r = await c.post(f"/api/v1/studio/meetings/{phar}/revert", json={"fields": ["enrolment"]}, headers=h)
