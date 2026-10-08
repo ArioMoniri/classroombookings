@@ -267,3 +267,22 @@ def test_residual_round_keeps_a_lock_in_its_free_weeks() -> None:
     assert note.params["kept_weeks"] == [1, 3] and note.params["moved_weeks"] == [2]
     res = solve(replace(cand.inp, best_effort=False), _hints=hints)
     assert res.status in OK and not [v for v in validate(cand.inp, res.assignments) if v.hard]
+
+
+def test_canonical_exchange_prefers_the_larger_of_two_identical_rows() -> None:
+    """M2: ING 302 listed twice (100 and 90 students) at one slot, one room: whichever row the parallel
+    search placed, the exchange leaves the larger one placed in that exact room (never a rule broken)."""
+    from app.solver.diagnose import canonical_exchange
+
+    rooms = (room(30, "C201", 126),)
+    small = event(244, size=90, weeks=W1, day=3, start=2, label="ING 302")
+    big = event(245, size=100, weeks=W1, day=3, start=2, label="ING 302")
+    other = event(246, size=100, weeks=W1, day=3, start=2, label="CHE 101", cohort_keys={"CHE:Y1"})
+    prep = prepare(make_input(rooms, (small, big, other), weeks=W1))
+    placed = {244: Assignment(244, 3, 2, 3, (30,), frozenset(W1))}
+    assert canonical_exchange(prep, placed) == 1 and list(placed) == [245] and placed[245].room_ids == (30,)
+    assert canonical_exchange(prep, placed) == 0  # stable
+    # an event with a key the placed one lacks could clash elsewhere: never exchanged
+    placed = {244: Assignment(244, 3, 2, 3, (30,), frozenset(W1))}
+    prep2 = prepare(make_input(rooms, (small, other), weeks=W1))
+    assert canonical_exchange(prep2, placed) == 0 and list(placed) == [244]

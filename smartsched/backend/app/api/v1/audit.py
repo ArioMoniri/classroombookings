@@ -93,9 +93,7 @@ def _out(ev: AuditEvent, full: bool) -> dict[str, Any]:
 
 async def _own_scope(db: DB, access: Access) -> Any:
     """Events a user without ``audit.view`` may read: their own actions and events of their own bookings."""
-    own = [
-        str(i) for i in (await db.execute(select(Booking.id).where(Booking.user_id == access.user_id))).scalars()
-    ]
+    own = [str(i) for i in (await db.execute(select(Booking.id).where(Booking.user_id == access.user_id))).scalars()]
     cond = AuditEvent.actor_id == access.user_id
     if own:
         cond = or_(cond, (AuditEvent.entity_type == "booking") & AuditEvent.entity_id.in_(own))
@@ -139,9 +137,7 @@ async def list_events(
     undone = set()
     if rows:
         undone = set(
-            (
-                await db.execute(select(AuditEvent.undo_of).where(AuditEvent.undo_of.in_([r.id for r in rows])))
-            ).scalars()
+            (await db.execute(select(AuditEvent.undo_of).where(AuditEvent.undo_of.in_([r.id for r in rows])))).scalars()
         )
     items = [{**_out(r, full), "undone": r.id in undone} for r in rows]
     return {"items": items, "next_cursor": rows[-1].id if more and rows else None}
@@ -202,7 +198,9 @@ async def get_event(event_id: int, db: DB, access: CurrentAccess) -> dict[str, A
     ev = (await db.execute(q)).scalar_one_or_none()
     if ev is None:
         raise HTTPException(404, "audit event not found")
-    children = (await db.execute(select(AuditEvent).where(AuditEvent.parent_id == ev.id).order_by(AuditEvent.id))).scalars()
+    children = (
+        await db.execute(select(AuditEvent).where(AuditEvent.parent_id == ev.id).order_by(AuditEvent.id))
+    ).scalars()
     undone = (await db.execute(select(AuditEvent.id).where(AuditEvent.undo_of == ev.id))).first()
     return {**_out(ev, full), "undone": undone is not None, "children": [_out(c, full) for c in children]}
 

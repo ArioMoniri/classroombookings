@@ -1091,8 +1091,66 @@ def relaxation_diagnosis(
             assignments = canon
             stats["relax_canonical"] = True
     placed = {a.event_id: a for a in assignments}
+    if not stats.get("relax_canonical"):
+        swaps = canonical_exchange(prep, placed)
+        if swaps:
+            stats["relax_exchanges"] = swaps
     stats["unplaced"] = len(prep.inp.events) - len(placed)
     return explain_unplaced(prep, placed, explained), stats, placed
+
+
+def _interchangeable(u: Event, p: Event, prep: Prepared, a: Assignment) -> bool:
+    """``u`` can take ``p``'s exact place without any new conflict: same duration, weeks and time options, the
+    room set allowed for ``u`` at that time, no cohort / instructor key ``p`` does not have, no lock."""
+    if u.locked is not None or p.locked is not None or not u.needs_room or not p.needs_room:
+        return False
+    if u.duration != p.duration or u.weeks != p.weeks or u.max_rooms < len(a.room_ids):
+        return False
+    if not (u.cohort_keys | u.instructor_keys) <= (p.cohort_keys | p.instructor_keys):
+        return False
+    if shares_room(u) or shares_room(p):
+        return False
+    du, dp = prep.doms.domain(u.id), prep.doms.domain(p.id)
+    if set(du.times) != set(dp.times):
+        return False
+    t = next((x for x in du.times if x.day == a.day and x.start == a.start), None)
+    if t is None or not all(r in du.rooms and du.is_pair_allowed(t, r) for r in a.room_ids):
+        return False
+    seats = sum(effective_capacity(prep.doms.rooms_by_id[r], u) for r in a.room_ids)
+    return trusted_lock(prep.inp, u) or "capacity" in prep.doms.soft or seats >= u.size
+
+
+def canonical_exchange(prep: Prepared, placed: dict[int, Assignment]) -> int:
+    """A cheap, always-sound canonicalisation when the proof-based stage could not finish: an unplaced
+    event takes the exact place of a placed event it is interchangeable with (``_interchangeable``) whenever
+    it ranks higher (more students, then a fixed id rank).  Rows listed twice (``ING 302`` 100 vs 90
+    students at one slot) then no longer depend on thread timing.  The placement count, the event-weeks
+    and every hard rule are unchanged.  Returns the number of exchanges (``placed`` is updated in place)."""
+    events = prep.doms.events_by_id
+    by_slot: dict[tuple[int, int, int], list[int]] = defaultdict(list)
+    for eid, a in placed.items():
+        by_slot[(a.day, a.start, a.end)].append(eid)
+    unplaced = sorted((e for e in prep.inp.events if e.id not in placed), key=lambda e: -_tie_weight(e))
+    swaps = 0
+    for u in unplaced:
+        best: int | None = None
+        for t in prep.doms.domain(u.id).times:
+            for pid in by_slot.get((t.day, t.start, t.end), []):
+                p = events[pid]
+                if pid not in placed or _tie_weight(p) >= _tie_weight(u):
+                    continue
+                if not _interchangeable(u, p, prep, placed[pid]):
+                    continue
+                if best is None or _tie_weight(p) < _tie_weight(events[best]):
+                    best = pid
+        if best is None:
+            continue
+        a = placed.pop(best)
+        placed[u.id] = Assignment(u.id, a.day, a.start, a.end, a.room_ids, a.weeks, a.date)
+        key = (a.day, a.start, a.end)
+        by_slot[key] = [u.id if x == best else x for x in by_slot[key]]
+        swaps += 1
+    return swaps
 
 
 def _tie_weight(e: Event) -> int:

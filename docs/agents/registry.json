@@ -302,6 +302,18 @@
       "ledger": "backend-engineer (calendar sync)",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "aee0611753a31f734",
+      "description": "UI-level CRBS feature gap audit",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-08 15:35",
+      "scope": "read-only for code. Write only that one report file and scratch files in your scratchpad. Do not edit product code; implementation agents follow your report. Be thorough but fast. Return the prioritised list in your final message too.",
+      "goal": "the user asked: \"check features like this which is in classroombookings but you haven't added, and add them\". \"Like this\" refers to their previous request: reservable time slots you can click to reserve in the reservation panel, a department-separated view, Google and other calendar sync, and class details of other available rooms in the panel. Our existing parity gate (docs/testing/crbs-parity-re…",
+      "ledger": "ui-parity-auditor",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

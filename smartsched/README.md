@@ -243,18 +243,24 @@ planned before running several replicas ([deploy/README.md](deploy/README.md), "
 
 Policy ([docs/ROADMAP.md](../docs/ROADMAP.md), "TDD policy"): every importer function starts from a
 failing test on a real fixture row; every solver constraint has a feasible, an infeasible and a
-soft-weight test; API routes are tested with `httpx` against SQLite. CI
-(`.github/workflows/smartsched.yml`) runs the gates plus migrations on SQLite and Postgres 16, Docker
-builds and a compose smoke test.
+soft-weight test; API routes are tested with `httpx` against SQLite. CI runs on the AWS pod
+([deploy/pod-ci/README.md](deploy/pod-ci/README.md)): the same gates as
+`.github/workflows/smartsched.yml`, which is now manual-only, plus the real-backend e2e run and Docker
+image builds.
 
 ## Status
 
-The Generator Studio (`/generate`, phase 8) has its backend in place; the frontend screen is **in
-progress**. Real-data feasibility (phase 9) is **in progress**: on the 2026 Bahar workbooks a CP-SAT run
-is currently reported infeasible with a full diagnosis (fixed-time instructor and cohort clashes,
-rooms without capacity or tags, locked rooms smaller than the enrolment), see the
-[real-backend e2e report](../docs/testing/2026-10-08-real-backend-e2e.md). Live status per agent is in
+The Generator Studio (`/generate`) and the real-data work are done. On the real 2026 Bahar workbooks a
+full-term run places 643 of 669 classes (96.1 %) with every hard rule kept for the placed ones, and
+reports each class it cannot place with the reason; see
+[docs/testing/2026-10-08-real-data-feasibility.md](../docs/testing/2026-10-08-real-data-feasibility.md).
+The classroombookings side is checked by the CRBS superset gate
+([docs/testing/crbs-parity-report.md](../docs/testing/crbs-parity-report.md)). Live status per agent is in
 [docs/PROGRESS.md](../docs/PROGRESS.md).
+
+Screenshots and recordings for the root README are made from a real-data stack with
+[`scripts/record/`](../scripts/record/) (`stack.sh`, `screens.mjs`, `record-all.sh`; see
+[docs/recording/RECORDLY.md](../docs/recording/RECORDLY.md)).
 
 ## Links
 

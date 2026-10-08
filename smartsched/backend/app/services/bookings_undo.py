@@ -21,9 +21,9 @@ from app.models.booking import BOOKED, CANCELLED
 from app.models.catalog import Room
 from app.services import audit
 from app.services import bookings as bsvc
-from app.services import bookings_events as events
 from app.services.bookings_perms import Access
 from app.services.bookings_settings import get_value
+from app.services.events import publish_event
 
 UNDOABLE = ("booking.create", "series.create", "booking.move", "booking.cancel")
 
@@ -34,7 +34,9 @@ def _err(status: int, code: str, message: str, message_tr: str, **data: Any) -> 
 
 async def _group(session: AsyncSession, ev: AuditEvent) -> list[AuditEvent]:
     children = list(
-        (await session.execute(select(AuditEvent).where(AuditEvent.parent_id == ev.id).order_by(AuditEvent.id))).scalars()
+        (
+            await session.execute(select(AuditEvent).where(AuditEvent.parent_id == ev.id).order_by(AuditEvent.id))
+        ).scalars()
     )
     return [ev, *children]
 
@@ -125,18 +127,21 @@ async def _undo_create(session: AsyncSession, access: Access, ev: AuditEvent, ro
         if series is not None and series.status == BOOKED:
             series.status, series.cancelled_at, series.cancelled_by = CANCELLED, utcnow(), access.user_id
             series.cancel_reason = reason
-    target = await audit.record_many(
-        session,
-        "booking.cancel",
-        "booking",
-        [(b.id, before[b.id], bsvc.snap(b)) for b in targets],
-        actor=access.user,
-        reason=reason,
-        undo_of=ev.id,
-    )
-    if target is None:  # nothing was still booked: mark the undo anyway
+    if targets:
+        await publish_event(
+            session,
+            "booking.cancel",
+            "booking",
+            targets[0].id,
+            items=[(b.id, before[b.id], bsvc.snap(b)) for b in targets],
+            actor=access.user,
+            reason=reason,
+            undo_of=ev.id,
+            notify="booking.cancelled",
+            payload={"booking_ids": ids, "actor_id": access.user_id, "reason": reason},
+        )
+    else:  # nothing was still booked: mark the undo anyway
         await audit.record(session, "booking.cancel", "booking", ev.entity_id, actor=access.user, undo_of=ev.id)
-    await events.emit(session, "booking.cancelled", {"booking_ids": ids, "actor_id": access.user_id, "reason": reason})
     await session.commit()
     return {"undone": ev.id, "action": "booking.cancel", "booking_ids": ids}
 
@@ -164,7 +169,9 @@ async def _undo_move(session: AsyncSession, access: Access, ev: AuditEvent, b: B
     return {"undone": ev.id, "action": "booking.move", "booking_ids": [b.id]}
 
 
-async def _attach_alternatives(session: AsyncSession, access: Access, exc: bsvc.BookingError, snap: dict[str, Any]) -> None:
+async def _attach_alternatives(
+    session: AsyncSession, access: Access, exc: bsvc.BookingError, snap: dict[str, Any]
+) -> None:
     from app.services.find_room import alternatives_for
 
     room = await session.get(Room, snap.get("room_id")) if snap.get("room_id") else None
@@ -220,17 +227,17 @@ async def _undo_cancel(session: AsyncSession, access: Access, ev: AuditEvent, ro
         series = await session.get(BookingSeries, sid)
         if series is not None and series.status == CANCELLED:
             series.status, series.cancel_reason, series.cancelled_at, series.cancelled_by = BOOKED, None, None, None
-    await audit.record_many(
+    await publish_event(
         session,
         "booking.restore",
         "booking",
-        [(b.id, before[b.id], bsvc.snap(b)) for b in targets],
+        targets[0].id,
+        items=[(b.id, before[b.id], bsvc.snap(b)) for b in targets],
         actor=access.user,
         reason=f"undo of #{ev.id}",
         undo_of=ev.id,
-    )
-    await events.emit(
-        session, "booking.created", {"booking_id": targets[0].id, "booking_ids": [b.id for b in targets], "actor_id": access.user_id}
+        notify="booking.created",
+        payload={"booking_id": targets[0].id, "booking_ids": [b.id for b in targets], "actor_id": access.user_id},
     )
     await session.commit()
     return {"undone": ev.id, "action": "booking.restore", "booking_ids": [b.id for b in targets]}

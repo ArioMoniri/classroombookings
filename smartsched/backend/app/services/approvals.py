@@ -49,6 +49,7 @@ from app.services import bookings as bsvc
 from app.services import bookings_notify as mail
 from app.services.bookings_calendar import CalendarError, date_infos, holidays_by_date, term_info
 from app.services.bookings_perms import Access, load_access
+from app.services.events import publish_event
 
 DECIDE = "approvals.decide"
 APPROVED = "APPROVED"
@@ -471,7 +472,7 @@ async def open_request(
     )
     session.add(req)
     await session.flush()
-    await audit.record(
+    await publish_event(
         session,
         "approval.request",
         "approval_request",
@@ -792,7 +793,7 @@ async def sweep(session: AsyncSession) -> dict[str, int]:
         rows = await bookings_of(session, req)
         req.note = req.note or "Başlangıçtan önce onaylanmadı / not approved before the start"
         await _close(session, req, rows, EXPIRED, "approval expired", None)
-        await audit.record(session, "approval.expire", "approval_request", req.id, after={"status": EXPIRED})
+        await publish_event(session, "approval.expire", "approval_request", req.id, after={"status": EXPIRED})
         await _notify_requester(session, req, "approval.expired", None)
         expired += 1
     released = await bsvc.release_expired_holds(session)
@@ -810,7 +811,7 @@ async def withdraw(session: AsyncSession, access: Access, request_id: int) -> Ap
     if req.status != PENDING:
         raise _err(409, "not_pending", f"the request is {req.status}", f"talep {req.status} durumunda")
     await _close(session, req, await bookings_of(session, req), WITHDRAWN, "withdrawn by the requester", access.user)
-    await audit.record(
+    await publish_event(
         session, "approval.withdraw", "approval_request", req.id, after={"status": WITHDRAWN}, actor=access.user
     )
     await session.commit()
@@ -909,7 +910,7 @@ async def decide(
             suggestion = {"alternatives": alts} if alts else None
         req.suggestion = suggestion
         await _close(session, req, rows, REJECTED, note or "rejected by the approver", access.user)
-        await audit.record(
+        await publish_event(
             session,
             "approval.reject",
             "approval_request",
@@ -949,7 +950,7 @@ async def decide(
             req.step += 1
             first = rows[0]
             await _notify_approvers(session, req, room, first, await session.get(User, req.requested_by) or access.user)
-        await audit.record(
+        await publish_event(
             session,
             "approval.step",
             "approval_request",
@@ -986,7 +987,7 @@ async def decide(
             series.status = BOOKED
             if alt_out:
                 series.room_id = alt_out["room_id"]
-    await audit.record(
+    await publish_event(
         session,
         "approval.approve",
         "approval_request",
@@ -1014,7 +1015,7 @@ async def decide(
             continue
         other.note = "Aynı saat başka bir talebe verildi / the slot was given to another request"
         await _close(session, other, other_rows, REJECTED, other.note, access.user)
-        await audit.record(
+        await publish_event(
             session,
             "approval.reject",
             "approval_request",

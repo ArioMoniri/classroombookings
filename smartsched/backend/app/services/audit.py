@@ -193,25 +193,28 @@ async def record_many(
     *,
     parent_entity_id: Any = None,
     parent_after: dict[str, Any] | None = None,
+    parent_entity_type: str | None = None,
+    child_action: str | None = None,
     **kw: Any,
 ) -> AuditEvent | None:
-    """A bulk operation: one event when ``items`` has one entry, else a parent plus one child per entity
-    (undo works on the parent). Returns the event an undo should target."""
+    """A bulk operation: one event when ``items`` has one entry (and no distinct parent entity type), else a parent
+    (``action`` on ``parent_entity_type``/``parent_entity_id``) plus one child per entity (``child_action``).
+    Returns the event an undo should target (the parent)."""
     if not items:
         return None
-    if len(items) == 1:
+    if len(items) == 1 and parent_entity_type in (None, entity_type):
         eid, b, a = items[0]
         return await record(session, action, entity_type, eid, before=b, after=a, **kw)
     parent = await record(
         session,
         action,
-        entity_type,
+        parent_entity_type or entity_type,
         parent_entity_id if parent_entity_id is not None else items[0][0],
         after={"count": len(items), "ids": [i[0] for i in items], **(parent_after or {})},
         **kw,
     )
     for eid, b, a in items:
-        await record(session, action, entity_type, eid, before=b, after=a, parent_id=parent.id, **kw)
+        await record(session, child_action or action, entity_type, eid, before=b, after=a, parent_id=parent.id, **kw)
     return parent
 
 

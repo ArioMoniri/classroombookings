@@ -41,7 +41,6 @@ from app.models.base import utcnow
 from app.models.booking import BOOKED, CANCELLED, PENDING
 from app.models.catalog import Room
 from app.services import audit, settings_service
-from app.services import bookings_events as events
 from app.services.bookings_calendar import (
     CalendarError,
     DateInfo,
@@ -58,6 +57,7 @@ from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import Access, effective_limits
 from app.services.bookings_settings import get_value
 from app.services.calendar import date_for
+from app.services.events import publish_event
 from app.services.grid import assignment_weeks
 
 Day = date  # dataclass fields named ``date`` shadow the type
@@ -654,7 +654,7 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
         b.held_until = await approvals.hold_until(session, need, b)
     await _insert(session, b)
     if need is None:
-        await audit.record(
+        await publish_event(
             session,
             "booking.create",
             "booking",
@@ -663,9 +663,8 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
             actor=access.user,
             term_id=b.term_id,
             reversible=True,
-        )
-        await events.emit(
-            session, "booking.created", {"booking_id": b.id, "booking_ids": [b.id], "actor_id": access.user_id}
+            notify="booking.created",
+            payload={"booking_id": b.id, "booking_ids": [b.id], "actor_id": access.user_id},
         )
     else:
         await approvals.open_request(session, access, need, room, [b])
@@ -916,47 +915,33 @@ async def create_recurring(
         await session.rollback()
         raise _conflict("none_created", "no instances were booked", skipped=skipped)
     if replaced:
-        await audit.record_many(
+        await publish_event(
             session,
             "booking.cancel",
             "booking",
-            [(i, {"status": BOOKED}, {"status": CANCELLED}) for i in replaced],
+            replaced[0],
+            items=[(i, {"status": BOOKED}, {"status": CANCELLED}) for i in replaced],
             actor=access.user,
             reason=f"replaced by series #{series.id}",
             term_id=series.term_id,
-        )
-        await events.emit(
-            session,
-            "booking.cancelled",
-            {"booking_ids": replaced, "actor_id": access.user_id, "reason": f"replaced by series #{series.id}"},
+            notify="booking.cancelled",
+            payload={"booking_ids": replaced, "actor_id": access.user_id, "reason": f"replaced by series #{series.id}"},
         )
     if need is None:
-        parent = await audit.record(
+        await publish_event(
             session,
             "series.create",
             "booking_series",
             series.id,
-            after={"ids": [b.id for b in created], "room_id": room.id, "weekday": series.weekday},
+            items=[(b.id, None, snap(b)) for b in created],
+            item_type="booking",
+            child_action="booking.create",
+            parent_after={"room_id": room.id, "weekday": series.weekday},
             actor=access.user,
             term_id=series.term_id,
             reversible=True,
-        )
-        for b in created:
-            await audit.record(
-                session,
-                "booking.create",
-                "booking",
-                b.id,
-                after=snap(b),
-                actor=access.user,
-                term_id=b.term_id,
-                reversible=True,
-                parent_id=parent.id,
-            )
-        await events.emit(
-            session,
-            "series.created",
-            {"series_id": series.id, "booking_ids": [b.id for b in created], "actor_id": access.user_id},
+            notify="series.created",
+            payload={"series_id": series.id, "booking_ids": [b.id for b in created], "actor_id": access.user_id},
         )
     else:
         await approvals.open_request(session, access, need, room, created, series)
@@ -1019,24 +1004,25 @@ async def cancel(
         rows = list((await session.execute(q)).scalars())
     before = {r.id: snap(r) for r in rows if r.status == BOOKED}
     ids = await _cancel_rows(session, access, rows, reason)
-    await audit.record_many(
-        session,
-        "booking.cancel",
-        "booking",
-        [(r.id, before[r.id], snap(r)) for r in rows if r.id in before],
-        parent_entity_id=b.id,
-        parent_after={"scope": scope},
-        actor=access.user,
-        reason=reason,
-        term_id=b.term_id,
-        reversible=True,
-    )
     if scope == "all" and b.series_id:
         series = await session.get(BookingSeries, b.series_id)
         if series is not None:
             series.status, series.cancelled_at, series.cancelled_by = CANCELLED, utcnow(), access.user_id
             series.cancel_reason = reason
-    await events.emit(session, "booking.cancelled", {"booking_ids": ids, "actor_id": access.user_id, "reason": reason})
+    await publish_event(
+        session,
+        "booking.cancel",
+        "booking",
+        b.id,
+        items=[(r.id, before[r.id], snap(r)) for r in rows if r.id in before],
+        parent_after={"scope": scope},
+        actor=access.user,
+        reason=reason,
+        term_id=b.term_id,
+        reversible=True,
+        notify="booking.cancelled",
+        payload={"booking_ids": ids, "actor_id": access.user_id, "reason": reason},
+    )
     await session.commit()
     return ids
 
@@ -1074,17 +1060,19 @@ async def cancel_outside_term(session: AsyncSession, term: Term, actor: User, ro
     access = await load_access(session, actor)
     before = {r.id: snap(r) for r in rows if r.status == BOOKED}
     ids = await _cancel_rows(session, access, rows, reason)
-    await audit.record_many(
-        session,
-        "booking.cancel",
-        "booking",
-        [(r.id, before[r.id], snap(r)) for r in rows if r.id in before],
-        actor=actor,
-        reason=reason,
-        term_id=term.id,
-    )
     if ids:
-        await events.emit(session, "booking.cancelled", {"booking_ids": ids, "actor_id": actor.id, "reason": reason})
+        await publish_event(
+            session,
+            "booking.cancel",
+            "booking",
+            ids[0],
+            items=[(r.id, before[r.id], snap(r)) for r in rows if r.id in before],
+            actor=actor,
+            reason=reason,
+            term_id=term.id,
+            notify="booking.cancelled",
+            payload={"booking_ids": ids, "actor_id": actor.id, "reason": reason},
+        )
     return ids
 
 
@@ -1109,12 +1097,18 @@ async def cancel_many(
             before = snap(b)
             done += await _cancel_rows(session, access, [b], reason)
             items.append((b.id, before, snap(b)))
-    await audit.record_many(
-        session, "booking.cancel", "booking", items, actor=access.user, reason=reason, reversible=True
-    )
     if done:
-        await events.emit(
-            session, "booking.cancelled", {"booking_ids": done, "actor_id": access.user_id, "reason": reason}
+        await publish_event(
+            session,
+            "booking.cancel",
+            "booking",
+            done[0],
+            items=items,
+            actor=access.user,
+            reason=reason,
+            reversible=True,
+            notify="booking.cancelled",
+            payload={"booking_ids": done, "actor_id": access.user_id, "reason": reason},
         )
     await session.commit()
     return {"cancelled": done, "skipped": skipped}
@@ -1221,8 +1215,10 @@ async def update(
                 if key in data:
                     setattr(series, key, data[key])
             series.updated_at, series.updated_by = now, access.user_id
+    payload = {"booking_ids": [t.id for t in targets], "actor_id": access.user_id, "scope": scope}
+    others = [t for t in targets if not (moving and t.id == b.id)]
     if moving:
-        await audit.record(
+        await publish_event(
             session,
             "booking.move",
             "booking",
@@ -1232,22 +1228,22 @@ async def update(
             actor=access.user,
             term_id=b.term_id,
             reversible=True,
+            notify=None if others else "booking.updated",
+            payload=payload,
         )
-    others = [t for t in targets if not (moving and t.id == b.id)]
     if others:
-        await audit.record_many(
+        await publish_event(
             session,
             "booking.update",
             "booking",
-            [(t.id, before[t.id], snap(t)) for t in others],
-            parent_entity_id=b.id,
+            b.id,
+            items=[(t.id, before[t.id], snap(t)) for t in others],
             parent_after={"scope": scope},
             actor=access.user,
             term_id=b.term_id,
+            notify="booking.updated",
+            payload=payload,
         )
-    await events.emit(
-        session, "booking.updated", {"booking_ids": [t.id for t in targets], "actor_id": access.user_id, "scope": scope}
-    )
     await session.commit()
     return targets
 
