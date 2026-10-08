@@ -21,7 +21,6 @@ import {
   useBookingDates,
   useBookingGrid,
   useBookingUsers,
-  useCrbsMe,
   useCrbsMutation,
   useDepartments,
   useSeries,
