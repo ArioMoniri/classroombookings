@@ -423,6 +423,12 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     needs_room = False
                 if outside:
                     outside_pool[mr.id] = outside
+            elif is_locked and definitive_mode == "prefer" and not definitive:
+                # only the planner's choice *inside* the pool becomes a soft hint; a room outside the pool
+                # (lab/office without capacity) cannot be chosen or replaced by the solver, so the meeting
+                # keeps it exactly as with locks (else it would compete for pooled rooms it never used)
+                needs_room = False
+                outside_pool[mr.id] = outside
             size = int(sec.enrolment or mr.requested_capacity or 0)
             hint_rooms = 1
             if is_locked and definitive_mode == "prefer":
@@ -524,6 +530,9 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     exam_needs_room = False
                 if outside:
                     outside_pool[head.id] = outside
+            elif is_locked and definitive_mode == "prefer" and not definitive:
+                exam_needs_room = False  # the planner's room is outside the pool: kept (see the course case)
+                outside_pool[head.id] = outside
             elif is_locked and definitive_mode == "prefer":
                 exam_preferred = list(dict.fromkeys([*definitive, *exam_preferred]))
                 seats = sum(room_cap.get(r, 0) for r in definitive)

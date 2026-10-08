@@ -201,7 +201,12 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - E-mail delivery runs inside the request (bounded by the SMTP timeout); move `deliver()` onto the job queue with retries/backoff.
 - `users.calendar_token` is a stored capability URL; store a hash and show the link once on rotation.
 - `timetable_occupancy()` re-reads every term's range and the active run per check; cache per request/term for big recurring series and the day grid.
-- The legacy CRBS importer (`app/importers/crbs_legacy.py`) still turns CRBS bookings into blocks and roles into ADMIN/VIEWER; import them as `bookings`/`booking_series` with `roles`, departments, room groups, custom fields and ACLs now that the tables exist.
+- [x] The legacy CRBS importer imports into the parity tables (roles + permissions, users with usernames and legacy `$2y$`/`sha1:` hashes rehashed to argon2 at first login, constraints, room groups/owners/fields, ACLs, schedules/periods, sessions, weeks + dates, holidays, bookings + series + slots; alembic `0005_crbs_legacy_ids`) — audit B4.
+- CRBS parity audit 2026-10-08 (docs/review/2026-10-08-crbs-parity-audit.md), items deferred from the backend fix pass, with reasons:
+  - [ ] MISSING 1 — the CRBS screens are frontend work (CRBS booking + admin screens agent); the backend API they need exists.
+  - [ ] MISSING 2 (UI half) — the backend serves `GET /org/i18n` (shipped strings + admin overrides + patterns), `GET /org/date-patterns` and applies overrides/patterns/profile language in e-mails; the frontend must load the bundle and format dates with the patterns on every page.
+  - [ ] MISSING 5 (print half) — CRBS's printable bookings page is `assets/css/print.css` over the same grid; the frontend needs a print stylesheet / print view of `GET /bookings/grid` (no backend change needed). `grid_highlight` is done (`GET /bookings/context` → `display.grid_highlight`).
+  - [ ] MISSING 6 (UI half) — the first-run screen should show `GET /org/setup/requirements` (backend done: Python, Pillow, ldap3, uploads folder, database, migration state, secrets, SMTP; `POST /org/setup` answers 409 while a check is `err`).
 - Booking race: the `booking_slots` unique key is verified on SQLite and Postgres 16 schema-wise; add a concurrent-insert test on Postgres in CI.
 - Optional: per-room iCal feed of the published timetable (today the room feed lists bookings only).
 

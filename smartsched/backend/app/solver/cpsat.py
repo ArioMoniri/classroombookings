@@ -96,6 +96,28 @@ def _canonical_optimum(
     return ctx.extract(stage)  # type: ignore[no-any-return]
 
 
+def polish_preferred(prep: Prepared, inp: SolverInput, assignments: list[Assignment]) -> tuple[list[Assignment], int]:
+    """A time-limited search (status FEASIBLE) may stop with an event outside its free preferred room set
+    (the planner's room when definitive rooms are hints).  Try each :func:`prefer_rooms` move on its own
+    and keep it only if every hard rule still holds and the total penalty strictly drops (validated with
+    :func:`evaluate`), so a proven optimum is never changed.  Returns the assignments and the moves kept."""
+    better = prefer_rooms(prep, assignments)
+    if better == assignments:
+        return assignments, 0
+    current = list(assignments)
+    best = evaluate(inp, current).total_penalty()
+    kept = 0
+    for i, (old, new) in enumerate(zip(assignments, better, strict=True)):
+        if old == new:
+            continue
+        cand = [*current[:i], new, *current[i + 1 :]]
+        ev = evaluate(inp, cand)
+        if ev.hard_violations() or ev.total_penalty() >= best:
+            continue
+        current, best, kept = cand, ev.total_penalty(), kept + 1
+    return current, kept
+
+
 def neighbours_of_options(inp: SolverInput, placed: list[Assignment], e: Event) -> set[int]:
     """Placed events that could block any option of ``e`` (same key, or a room ``e`` may use)."""
     from app.solver.domains import TimeOption, build_domains, weeks_intersect
@@ -163,6 +185,10 @@ def solve(inp: SolverInput, *, _complete: bool = True, _hints: list[Assignment] 
                 if canon is not None:
                     assignments = canon
                     stats["canonical"] = True
+            else:
+                assignments, moves = polish_preferred(prep, inp, assignments)
+                if moves:
+                    stats["polish_preferred_moves"] = moves
             ev = evaluate(inp, assignments)
             stats["objective_value"] = int(round(solver.ObjectiveValue()))
             stats["objective_bound"] = int(round(solver.BestObjectiveBound()))
@@ -300,6 +326,10 @@ def _best_effort(
         stats["phase2_s"] = phase2.stats.get("wall_s")
         if phase2.status in ("OPTIMAL", "FEASIBLE"):
             assignments = phase2.assignments
+    if phase2 is None or phase2.status != "OPTIMAL":
+        assignments, moves = polish_preferred(prep, sub, assignments)
+        if moves:
+            stats["polish_preferred_moves"] = moves
     ev = evaluate(sub, assignments)
     stats["evaluated_penalty"] = ev.total_penalty()
     stats["wall_s"] = round(time.perf_counter() - t0, 3)

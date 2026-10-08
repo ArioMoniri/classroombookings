@@ -13,6 +13,7 @@ import pytest
 from PIL import Image
 
 from tests.crbs_env import env  # noqa: F401
+from tests.test_crbs_admin import empty_client  # noqa: F401
 
 MON = date(2026, 2, 16)
 
@@ -401,3 +402,44 @@ async def test_setup_users_cannot_grant_or_take_over_administrator_without_setup
     # an actor holding setup.roles (the Administrator) still may
     r = await c.put(f"/api/v1/users/{teacher_id}", json={"role": "ADMIN"}, headers=env.admin)
     assert r.status_code == 200 and r.json()["role"] == "ADMIN"
+
+
+async def test_missing6_installer_requirements_step(empty_client, tmp_path, monkeypatch):  # noqa: F811
+    """CRBS ``Install::check_requirements``: runtime version, image library (GD), LDAP module (warning only),
+    a writable uploads folder and the database -- shown before the first administrator is created, and the
+    install refuses to continue while one of them is an error."""
+    from app.core.config import get_settings
+
+    from tests.api_fixtures import login
+
+    c = empty_client
+    monkeypatch.setattr(get_settings(), "upload_dir", str(tmp_path / "yüklemeler"))
+    r = await c.get("/api/v1/org/setup/requirements")
+    assert r.status_code == 200, r.text
+    out = r.json()
+    req = out["requirements"]
+    assert out["setup_required"] is True and out["ok"] is True
+    for key in ("python_version", "image_library", "folder_uploads", "database"):
+        assert req[key]["status"] == "ok", (key, req[key])
+    assert req["ldap_module"]["status"] in ("ok", "warn")
+    assert req["database_schema"]["status"] in ("ok", "warn")  # tests build the schema without alembic
+    assert all(set(v) == {"status", "message"} for v in req.values())
+
+    # an uploads folder that cannot be created (a file is in the way) blocks the install like CRBS
+    blocker = tmp_path / "dosya"
+    blocker.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(get_settings(), "upload_dir", str(blocker / "uploads"))
+    out = (await c.get("/api/v1/org/setup/requirements")).json()
+    assert out["ok"] is False and out["requirements"]["folder_uploads"]["status"] == "err"
+    body = {"org_name": "Acıbadem Üniversitesi", "admin_email": "kurulum@uni.edu.tr", "admin_password": "kurulum-1234"}
+    r = await c.post("/api/v1/org/setup", json=body)
+    assert r.status_code == 409 and "folder_uploads" in r.text
+    assert (await c.get("/api/v1/org/public")).json()["setup_required"] is True
+
+    monkeypatch.setattr(get_settings(), "upload_dir", str(tmp_path / "yüklemeler"))
+    assert (await c.post("/api/v1/org/setup", json=body)).status_code == 201
+    # once installed the report (versions, paths) is for administrators only
+    assert (await c.get("/api/v1/org/setup/requirements")).status_code == 401
+    admin = await login(c, "kurulum@uni.edu.tr", "kurulum-1234")
+    r = await c.get("/api/v1/org/setup/requirements", headers=admin)
+    assert r.status_code == 200 and r.json()["setup_required"] is False

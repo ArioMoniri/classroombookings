@@ -8,9 +8,10 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import delete, func, select
 
-from app.api.deps import DB, CurrentAccess, CurrentUser, require_permission
+from app.api.deps import DB, CurrentAccess, CurrentUser, bearer, get_current_user, require_permission
 from app.core.config import get_settings
 from app.core.identity import clean_email, fold_username
 from app.core.images import ImageError, sanitize_image
@@ -41,11 +42,12 @@ from app.schemas.crbs import (
     TranslationOut,
 )
 from app.services import bookings_events as events
-from app.services import bookings_i18n, bookings_ldap, settings_service
+from app.services import bookings_i18n, bookings_ldap, bookings_setup, settings_service
 from app.services.bookings_notify import notify
 from app.services.bookings_perms import (
     ensure_permissions_and_roles,
     grouped_permissions,
+    load_access,
     set_user_role,
 )
 from app.services.bookings_settings import (
@@ -120,12 +122,30 @@ async def setup_status(db: DB) -> dict[str, Any]:
     }
 
 
+@router.get("/setup/requirements")
+async def setup_requirements(
+    request: Request, db: DB, creds: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]
+) -> dict[str, Any]:
+    """CRBS installer "Check requirements" step (audit MISSING 6). Public while no user exists, like the
+    CRBS installer; afterwards it lists versions and paths, so it needs ``setup.settings``."""
+    setup_required = not (await db.execute(select(func.count(User.id)))).scalar_one()
+    if not setup_required:
+        access = await load_access(db, await get_current_user(request, creds, db))
+        if "setup.settings" not in access.perms:
+            raise HTTPException(403, "requires permission setup.settings")
+    checks = await bookings_setup.check_requirements(db, await smtp_configured(db))
+    return {"setup_required": setup_required, "ok": not bookings_setup.failing(checks), "requirements": checks}
+
+
 @router.post("/setup", status_code=201)
 async def first_run_setup(body: SetupIn, db: DB) -> dict[str, Any]:
     """First-run wizard (CRBS ``install/info``): organisation name, timezone and the first administrator.
-    Only while no user exists; afterwards 409."""
+    Only while no user exists; afterwards 409. Refused while a requirement is an error (CRBS installer)."""
     if (await db.execute(select(func.count(User.id)))).scalar_one():
         raise HTTPException(409, "setup is already complete")
+    failed = bookings_setup.failing(await bookings_setup.check_requirements(db, await smtp_configured(db)))
+    if failed:
+        raise HTTPException(409, f"requirements not met: {', '.join(failed)} (GET /org/setup/requirements)")
     try:
         email = clean_email(body.admin_email)
         username = fold_username(body.admin_username) if body.admin_username else None

@@ -859,7 +859,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
                 update({ sel: null });
               }}
               onMove={() => setMoveFor(selected)}
-              onLock={(locked) => void actions.lock([selected.a.id], locked, selected.a.label)}
+              onLock={(locked) => actions.lock([selected.a.id], locked, selected.a.label)}
               explainSignal={explainSignal}
             />
           ) : (

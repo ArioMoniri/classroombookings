@@ -167,7 +167,8 @@ export function MobileCalendar(p: MobileCalendarProps) {
                 setMoving(open);
                 setOpen(null);
               }}
-              onLock={(locked) => void p.actions.lock([open.a.id], locked, open.a.label)}
+              onLock={(locked) => p.actions.lock([open.a.id], locked, open.a.label)}
+              appear={false}
             />
           ) : null}
         </SheetContent>

@@ -5,14 +5,16 @@
  * "Yerleşimi açıkla" (per-assignment explain; deterministic template unless a model paraphrase is grounded) ·
  * provenance file · sheet · row with the raw Excel row · placements across runs.
  */
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, Copy, Lock, LockOpen, MessageSquareText, Minus, MoveRight, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, Copy, Link2, Lock, LockOpen, MessageSquareText, Minus, MoreHorizontal, MoveRight, X } from "lucide-react";
+import { motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { calendarApi, type ExplainOut, type IndexAssignment } from "@/lib/api/calendar";
 import { classesApi, useClassDetail, type ClassKind, type ClassRow } from "@/lib/api/classes";
 import { useI18n } from "@/lib/i18n/provider";
-import { useReduce } from "@/lib/motion";
+import { springs, useReduce } from "@/lib/motion";
 import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { chipVars } from "@/components/timetable/event-chip";
@@ -32,13 +34,16 @@ export interface InspectorProps {
   readOnly?: boolean;
   onClose: () => void;
   onMove?: () => void;
-  onLock?: (locked: boolean) => void;
+  /** may return the save promise: the header then shows "Saving…" / "Saved" (calendar.md §9.5) */
+  onLock?: (locked: boolean) => void | Promise<unknown>;
   onPrev?: () => void;
   onNext?: () => void;
   surface: "calendar" | "classes";
   className?: string;
   /** focus "why here" (E key) */
   explainSignal?: number;
+  /** spring in on mount (motion.md: inspector appear, springs.sheet); off inside a bottom sheet that animates itself */
+  appear?: boolean;
 }
 
 function SectionBlock({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
@@ -61,6 +66,8 @@ function WeekSquares({ all, placed, label }: { all: number[]; placed: number[]; 
   );
 }
 
+const ORIGINS = { SOLVER: 1, MANUAL: 1, IMPORT: 1, AI_EDIT: 1 } as const;
+
 function weeksText(ws: number[]): string {
   if (!ws.length) return "—";
   const s = [...ws].sort((a, b) => a - b);
@@ -77,6 +84,11 @@ export function ClassInspector(p: InspectorProps) {
   const [explain, setExplain] = useState<{ state: "idle" | "loading" | "done" | "error"; out?: ExplainOut }>({ state: "idle" });
   const [showRaw, setShowRaw] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+  }, []);
   const abort = useRef<AbortController | null>(null);
   const whyRef = useRef<HTMLButtonElement>(null);
   const aid = p.assignment?.id ?? row?.placement?.assignment_ids[0] ?? null;
@@ -109,6 +121,29 @@ export function ClassInspector(p: InspectorProps) {
     }
   }, [p.runId, aid, lang]);
 
+  const onLock = p.onLock;
+  async function lockNow(next: boolean) {
+    if (!onLock) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setSave("saving");
+    try {
+      if ((await onLock(next)) === false) {
+        setSave("error");
+        return;
+      }
+      setSave("saved");
+      saveTimer.current = setTimeout(() => setSave("idle"), 1000);
+    } catch {
+      setSave("error");
+    }
+  }
+  const copyLink = () => {
+    void navigator.clipboard?.writeText(window.location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  };
+
   const a = p.assignment;
   const code = row?.course_code ?? a?.code ?? a?.label ?? "";
   const section = row?.section ?? a?.sec ?? null;
@@ -133,6 +168,7 @@ export function ClassInspector(p: InspectorProps) {
     return { tone: "feasible", text: `${t("calendar.state.placed")}${locked ? ` · ${t("calendar.state.locked")}` : ""}`, glyph: <Check className="size-3.5" /> };
   })();
   const fit = cap ? Math.round((size / cap) * 100) : null;
+  const origin = placement?.origin ?? null;
   const allWeeks = p.allWeeks ?? row?.req.weeks ?? [];
   const placedWeeks = a?.weeks.length ? a.weeks : (placement?.weeks_placed ?? []);
   const checks = explain.out?.checks?.length ? explain.out.checks : (detail.data?.checks ?? []);
@@ -145,7 +181,15 @@ export function ClassInspector(p: InspectorProps) {
   })();
 
   return (
-    <aside className={cn("glass-thick flex min-h-0 flex-col overflow-hidden rounded-2xl text-label-1", p.className)} aria-label={t("calendar.insp.label")} data-glass="thick" data-testid="class-inspector">
+    <motion.aside
+      className={cn("glass-thick flex min-h-0 flex-col overflow-hidden rounded-2xl text-label-1", p.className)}
+      aria-label={t("calendar.insp.label")}
+      data-glass="thick"
+      data-testid="class-inspector"
+      initial={p.appear === false ? false : reduce ? { opacity: 0 } : { opacity: 0, x: 16 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={reduce ? { duration: 0.1 } : { x: springs.sheet, opacity: { duration: 0.1 } }}
+    >
       <header className="flex items-start gap-3 px-4 pt-4 pb-3" style={chipVars(slot)}>
         <span aria-hidden className="mt-1 h-10 w-[3px] shrink-0 rounded-full" style={{ background: "var(--chip-bar)" }} />
         <div className="min-w-0 flex-1">
@@ -158,6 +202,21 @@ export function ClassInspector(p: InspectorProps) {
           </p>
         </div>
         <div className="flex shrink-0 items-center">
+          {save !== "idle" ? (
+            <span role="status" className={cn("mr-1 text-[11px] font-medium", save === "error" ? "text-status-infeasible-fg" : "text-label-2")} data-testid="inspector-save">
+              {save === "saving" ? t("calendar.insp.saving") : save === "saved" ? t("calendar.insp.saved") : t("calendar.insp.saveFailed")}
+            </span>
+          ) : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("calendar.insp.more")} data-testid="inspector-more" />}>
+              <MoreHorizontal />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              <DropdownMenuItem onClick={copyLink}><Link2 aria-hidden />{t("calendar.insp.copyLink")}</DropdownMenuItem>
+              {p.runId !== null ? <DropdownMenuItem render={<Link href={`/runs/${p.runId}?tab=chat`} />}><MessageSquareText aria-hidden />{t("calendar.insp.openChat")}</DropdownMenuItem> : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {copied ? <span role="status" className="sr-only">{t("calendar.insp.linkCopied")}</span> : null}
           {p.onPrev ? <Button variant="ghost" size="icon-sm" aria-label={t("classes.insp.prev")} onClick={p.onPrev}><ChevronLeft /></Button> : null}
           {p.onNext ? <Button variant="ghost" size="icon-sm" aria-label={t("classes.insp.next")} onClick={p.onNext}><ChevronRight /></Button> : null}
           <Button variant="ghost" size="icon-sm" aria-label={t("calendar.insp.close")} onClick={p.onClose}><X /></Button>
@@ -166,7 +225,7 @@ export function ClassInspector(p: InspectorProps) {
       {!p.readOnly && aid !== null ? (
         <div className="flex flex-wrap gap-1.5 px-4 pb-3">
           {p.onMove ? <Button size="sm" variant="secondary" onClick={p.onMove} data-testid="inspector-move"><MoveRight aria-hidden />{t("calendar.insp.move")}</Button> : null}
-          {p.onLock ? <Button size="sm" variant="secondary" onClick={() => p.onLock?.(!locked)}>{locked ? <LockOpen aria-hidden /> : <Lock aria-hidden />}{locked ? t("calendar.insp.unlock") : t("calendar.insp.lock")}</Button> : null}
+          {onLock ? <Button size="sm" variant="secondary" disabled={save === "saving"} onClick={() => void lockNow(!locked)} data-testid="inspector-lock">{locked ? <LockOpen aria-hidden /> : <Lock aria-hidden />}{locked ? t("calendar.insp.unlock") : t("calendar.insp.lock")}</Button> : null}
           {p.surface === "calendar" && mr ? <Button size="sm" variant="ghost" render={<Link href={`/classes?id=${mr}${p.runId ? `&run=${p.runId}` : ""}`} />}>{t("calendar.insp.openClasses")}</Button> : null}
           {p.surface === "classes" ? <Button size="sm" variant="ghost" render={<Link href={calendarHref} />} data-testid="open-in-calendar">{t("calendar.insp.openCalendar")}</Button> : null}
         </div>
@@ -187,6 +246,14 @@ export function ClassInspector(p: InspectorProps) {
               <span className="text-label-2">{t("calendar.insp.placement")}:</span> <span className="font-semibold">{rooms.join(" + ")}</span>
               {cap ? <span className="text-label-2 tabular-nums"> · {t("calendar.insp.studentsLine", { size, cap, fit: fit ?? 0 })}</span> : null}
             </p>
+          ) : null}
+          {rooms.length && cap && fit !== null ? (
+            <span aria-hidden className="relative h-1 w-full max-w-[220px] overflow-hidden rounded-full bg-fill-2" data-testid="inspector-fit">
+              <span className={cn("absolute inset-y-0 left-0 rounded-full", fit > 100 ? "bg-status-infeasible-fg" : fit < 35 ? "bg-status-warning-fg" : "bg-status-feasible-fg")} style={{ width: `${Math.min(100, fit)}%` }} />
+            </span>
+          ) : null}
+          {origin && rooms.length ? (
+            <p className="text-[12px] text-label-2">{t("calendar.insp.originLine", { origin: t(`calendar.insp.origin.${(origin in ORIGINS ? origin : "SOLVER") as keyof typeof ORIGINS}`) })}{locked ? ` · ${t("calendar.state.locked")}` : ""}</p>
           ) : null}
           {allWeeks.length > 1 ? (
             <div className="flex items-center gap-2 text-[12px] text-label-2">
@@ -304,6 +371,11 @@ export function ClassInspector(p: InspectorProps) {
           </SectionBlock>
         ) : null}
 
+        {detail.data && !detail.data.history.length && p.runId !== null ? (
+          <SectionBlock title={t("calendar.insp.history")}>
+            <p className="text-[12px] text-label-2">{t("calendar.insp.noHistory")}</p>
+          </SectionBlock>
+        ) : null}
         {detail.data?.history.length ? (
           <SectionBlock title={t("calendar.insp.history")}>
             <ul className="flex flex-col gap-1 text-[12px] tabular-nums">
@@ -318,7 +390,7 @@ export function ClassInspector(p: InspectorProps) {
           </SectionBlock>
         ) : null}
       </div>
-    </aside>
+    </motion.aside>
   );
 }
 

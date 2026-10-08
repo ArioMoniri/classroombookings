@@ -124,17 +124,23 @@ export function useCalendarActions(runId: number | null, opts: { isAdmin?: boole
 
   const lock = useCallback(
     async (ids: number[], locked: boolean, label: string) => {
-      if (runId === null || ids.length === 0) return;
+      if (runId === null || ids.length === 0) return false;
       const apply = async (value: boolean) => {
         await calendarApi.bulkLock(runId, ids, value);
         setIndex((old) => ({ ...old, assignments: old.assignments.map((a) => (ids.includes(a.id) ? { ...a, locked: value } : a)) }));
         void qc.invalidateQueries({ queryKey: ["classes"] });
       };
-      await apply(locked);
+      try {
+        await apply(locked);
+      } catch (err) {
+        toast.error(t("calendar.toast.lockFailed", { reason: err instanceof Error ? err.message : String(err) }));
+        return false;
+      }
       const msg = ids.length > 1 ? t("calendar.toast.lockedMany", { n: ids.length }) : t(locked ? "calendar.toast.locked" : "calendar.toast.unlocked", { code: label });
       push({ label: msg, inverse: () => apply(!locked), forward: () => apply(locked) });
       opts.announce?.(msg);
       toast.success(msg, { action: { label: t("calendar.toast.undo"), onClick: () => void useUndoStore.getState().undo() } });
+      return true;
     },
     [runId, setIndex, qc, t, push, opts],
   );

@@ -264,8 +264,13 @@ export function ClassesPage() {
 
   const toggleLock = useCallback((r: ClassRow) => {
     if (!r.placement) return;
-    void actions.lock(r.placement.assignment_ids, !r.placement.locked, r.course_code);
-    patchRow(r.id, (x) => (x.placement ? { ...x, placement: { ...x.placement, locked: !x.placement.locked } } : x));
+    const next = !r.placement.locked;
+    const flip = (value: boolean) => patchRow(r.id, (x) => (x.placement ? { ...x, placement: { ...x.placement, locked: value } } : x));
+    flip(next);
+    return actions.lock(r.placement.assignment_ids, next, r.course_code).then((ok) => {
+      if (!ok) flip(!next);
+      return ok;
+    });
   }, [actions, patchRow]);
 
   const lockSelection = (locked: boolean) => {
@@ -466,6 +471,7 @@ export function ClassesPage() {
       onPrev={() => step(-1)}
       onNext={() => step(1)}
       explainSignal={explainSignal}
+      appear={!mobile}
     />
   ) : null;
 
