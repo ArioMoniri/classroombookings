@@ -480,6 +480,32 @@ def test_status_reports_cost_and_orphans(aws: StubAws) -> None:
     assert out["estimated_monthly_usd"]["if_running_24x7"]["compute"] == 49.06
 
 
+def test_status_skips_opt_in_region_that_is_not_enabled(aws: StubAws) -> None:
+    """eu-south-1 is opt-in: when it is not enabled, EC2 answers AuthFailure; status must still succeed."""
+    ec2, cw, b, p = aws.stub("ec2"), aws.stub("cloudwatch"), aws.stub("budgets"), aws.stub("pricing")
+    ec2.add_response("describe_instances", {"Reservations": [{"Instances": [instance("stopped")]}]})
+    p.add_response("get_products", {"PriceList": [price_item("0.0672")]})
+    p.add_response("get_products", {"PriceList": [price_item("0.08")]})
+    ec2.add_response("describe_addresses", {"Addresses": [{"AllocationId": "e", "PublicIp": "203.0.113.10",
+                                                           "InstanceId": "i-0123456789abcdef0"}]})
+    cw.add_response("describe_alarms", {"MetricAlarms": [{"AlarmName": sa.ALARM_NAME, "StateValue": "OK",
+                                                          "ActionsEnabled": True}]})
+    b.add_response("describe_budget", {"Budget": {**sa.budget_definition(100.0), "CalculatedSpend": {
+        "ActualSpend": {"Amount": "12.5", "Unit": "USD"}, "ForecastedSpend": {"Amount": "40", "Unit": "USD"}}}})
+    ec2.add_response("describe_volumes", {"Volumes": [{"VolumeId": "vol-orphan"}]})
+    ec2.add_response("describe_addresses", {"Addresses": [{"AllocationId": "e", "PublicIp": "203.0.113.10",
+                                                           "AssociationId": "a"}]})
+    aws.stub("ec2", "eu-central-1").add_response("describe_instances", {"Reservations": []})
+    aws.stub("ec2", "eu-south-1").add_client_error("describe_instances", service_error_code="AuthFailure",
+                                                   service_message="not able to validate credentials")
+    out = sa.cmd_status(aws, sa.Settings(), ACCOUNT)
+    aws.assert_done()
+    assert out["panel_url"] == "https://203-0-113-10.sslip.io"
+    assert "eu-central-1" not in out["tagged_instances_in_other_regions"]
+    assert "AuthFailure" in out["tagged_instances_in_other_regions"]["eu-south-1"]
+
+
+
 def stub_down_region(aws: StubAws, region: str, with_resources: bool) -> None:
     ec2, cw, ssm = aws.stub("ec2", region), aws.stub("cloudwatch", region), aws.stub("ssm", region)
     if not with_resources:

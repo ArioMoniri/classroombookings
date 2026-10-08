@@ -903,10 +903,14 @@ def cmd_status(aws: Aws, s: Settings, account: str) -> dict[str, Any]:
         "price_source": src,
     }
     out["orphans"] = orphans(aws)
-    others = {}
+    others: dict[str, Any] = {}
     for region in PRICE_REGIONS:
         if region != s.region:
-            found = find_instances(aws, region)
+            try:
+                found = find_instances(aws, region)
+            except Exception as exc:  # noqa: BLE001 - opt-in regions (eu-south-1) answer AuthFailure when not enabled
+                others[region] = f"not checked ({error_code(exc) or type(exc).__name__}; region not enabled?)"
+                continue
             if found:
                 others[region] = [i["InstanceId"] for i in found]
     out["tagged_instances_in_other_regions"] = others
