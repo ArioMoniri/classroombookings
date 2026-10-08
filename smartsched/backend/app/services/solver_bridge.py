@@ -553,6 +553,10 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                                 int(room_id), int(w) if w is not None else None, a.day, a.start_period, a.end_period
                             )
                         )
+    # confirmed user bookings (CRBS parity) are pre-occupied slots for the solver
+    from app.services.bookings_solver import booking_blocks
+
+    blocks.extend(await booking_blocks(session, term, weeks_rows, week_set))
 
     cons = (
         (

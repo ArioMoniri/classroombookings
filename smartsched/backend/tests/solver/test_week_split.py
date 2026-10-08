@@ -21,7 +21,6 @@ from app.solver.weeksplit import (
     split_blocked_weeks,
     to_original,
 )
-
 from tests.solver.conftest import event, make_input, room
 
 W3 = (1, 2, 3)

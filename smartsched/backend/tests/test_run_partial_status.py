@@ -22,7 +22,9 @@ def _result(status: str, partial: bool, n: int) -> SolverResult:
 
 
 def test_run_status_maps_partial_results() -> None:
-    assert PARTIAL_STATUS == "FEASIBLE_PARTIAL" and PARTIAL_STATUS in RUN_STATUSES and PARTIAL_STATUS in TERMINAL_STATUSES
+    assert (
+        PARTIAL_STATUS == "FEASIBLE_PARTIAL" and PARTIAL_STATUS in RUN_STATUSES and PARTIAL_STATUS in TERMINAL_STATUSES
+    )
     assert len(PARTIAL_STATUS) <= 16  # ScheduleRun.status is String(16)
     assert run_status(_result("INFEASIBLE", True, 3)) == "FEASIBLE_PARTIAL"
     assert run_status(_result("INFEASIBLE", True, 0)) == "INFEASIBLE"  # nothing stored: plain infeasible
