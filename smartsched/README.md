@@ -209,6 +209,7 @@ OpenAPI is at **`/api/docs`** (schema at `/api/openapi.json`).
 | Generator Studio | `GET /studio/meta`; `GET/PUT /terms/{id}/studio` (draft, `If-Match`), `/studio/summary`, `/studio/classes`, `/studio/rules`, `POST /terms/{id}/studio/precheck`, `/precheck/fix`, `/proposals/accept`, `/preferences/mapping`, `/generate`; `PUT /studio/meetings/bulk`, `POST /studio/meetings[/{id}]/revert`, `POST /studio/constraints/preview`, `/copy` |
 | Presets | `/presets` CRUD, `POST /presets/{id}/apply` |
 | Dashboard | `GET /dashboard` |
+| Ingestion Council (universal onboarding) | `POST /council/jobs` (multipart, any files, `202`), `GET /council/jobs[/{id}]`, `GET /council/jobs/{id}/events` (SSE), `GET/POST /council/jobs/{id}/review`, `POST /council/jobs/{id}/commit`, `/rerun`, `GET /council/jobs/{id}/records`, `/artifacts`; see [docs/universal/ARCHITECTURE.md](../docs/universal/ARCHITECTURE.md) |
 
 A typical flow: log in; import the weekly grid (or room master), then the planning list; review
 `GET /requests/meetings?term_id=…&status=NEEDS_REVIEW`; `POST /runs {term_id, kind: COURSE|EXAM, horizon:

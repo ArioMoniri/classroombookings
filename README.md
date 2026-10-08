@@ -414,6 +414,7 @@ need one.
 | [docs/RESEARCH.md](docs/RESEARCH.md) | State of the art in course, exam and room timetabling; LLM + solver hybrids |
 | [docs/AGENTS.md](docs/AGENTS.md) | Agent roles, watchdog, worktrees, hand-off format |
 | [docs/PROGRESS.md](docs/PROGRESS.md) | Append-only progress ledger |
+| [docs/universal/](docs/universal/) | Universal onboarding: [Ingestion Council architecture](docs/universal/ARCHITECTURE.md), [2026 research](docs/universal/RESEARCH-2026.md), [Ruflo dev harness](docs/universal/RUFLO.md) |
 | [docs/design/](docs/design/) | UI specs: tokens, navigation shell, dashboard, timetable grid, run report, import wizard, requests inbox, rooms, settings, generate and chat, [Generator Studio](docs/design/generator-studio.md) |
 | [docs/testing/](docs/testing/) | Test reports, such as the [real-backend end-to-end run](docs/testing/2026-10-08-real-backend-e2e.md) |
 | [smartsched/README.md](smartsched/README.md) | Developer guide: backend, frontend, CLI, environment, API |

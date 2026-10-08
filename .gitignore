@@ -23,3 +23,10 @@ smartsched/frontend/.env*.local
 smartsched/deploy/.env
 .env
 .claude/worktrees/
+# Ruflo / claude-flow runtime state (developer harness; config lives in .claude-flow/)
+.swarm/
+.hive-mind/
+ruvector.db
+.mcp.json
+.claude/proven-config.json
+.claude/.proven-config-version

@@ -112,6 +112,13 @@ existed:
 | `.claude-flow/memory-package.json` | Absolute path into the npx cache | No (machine-specific). |
 | `.swarm/*.db`, `ruvector.db` | Binary state | No (ignored). |
 
+Every later command, `swarm init`, `hive-mind init` and `hive-mind spawn --dry-run` included, also
+**started a background worker daemon** ("Started Ruflo background daemon … (stop: ruflo daemon stop)";
+opt-out `RUFLO_DAEMON_AUTOSTART=0`, found in `dist/src/index.js`). They also adopted a signed "proven
+config" into `.claude/proven-config.json` and `.claude/.proven-config-version`, with no opt-out, and
+auto-refreshed existing `.claude/helpers` *and* `~/.claude/helpers` (opt-out `RUFLO_HELPERS_LOCKED=1`)
+**[measured]**. `hive-mind spawn` without `hive-mind init` fails ("Hive-mind not initialized").
+
 Even `npx claude-flow@3.55.0 init --help` performed an update check and wrote
 `~/.claude-flow/update-state.json` with `lastCheck` and `checksToday` **[measured]**. The npm `.mcp.json`
 sets `npm_config_update_notifier=false` for the MCP server but not for the CLI. We found no

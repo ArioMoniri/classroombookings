@@ -77,6 +77,31 @@ All settings live in `deploy/.env`, created from `.env.example` by `deploy.sh`. 
 - `.env` is `chmod 600` and git-ignored. Back it up together with the database: `APP_SECRET` also
   encrypts the API keys stored in settings.
 
+## Onboarding (Ingestion Council)
+
+`/onboarding` accepts any schedule files: room lists, request lists, existing boards, exam lists,
+calendars, staff lists and memos, in xlsx, csv, docx, pdf, txt, json or as images. The council in the
+backend reads them one by one; see `docs/universal/ARCHITECTURE.md`. Nothing extra needs deploying: the
+council runs in the backend container on the same job queue as imports and solves.
+`alembic upgrade head` (run on start) creates its tables (`0003_council`).
+
+- **Without an API key** the council runs its deterministic path: the university importers for known
+  formats, and heuristic column mapping plus extraction for everything else. Images and scans, rule
+  texts and prose then show "needs the AI model" in review. Nothing is invented.
+- **With a key** (Settings → AI, or `ANTHROPIC_API_KEY`), each role makes strict-tool calls within
+  `COUNCIL_JOB_TOKEN_BUDGET`. Usage and cost are shown per step in the UI and stored on the job.
+- Settings, all in `.env.example`: `COUNCIL_AI`, `COUNCIL_MODEL`, `COUNCIL_FAST_MODEL` (for example
+  `claude-haiku-5-5` for vision and the judge), `COUNCIL_REVIEW_THRESHOLD`, `COUNCIL_STEP_TIMEOUT_S`,
+  `COUNCIL_JOB_TOKEN_BUDGET`, `COUNCIL_MAX_FILES`, `COUNCIL_MAX_FILE_MB`, `COUNCIL_SELF_CONSISTENCY`,
+  `COUNCIL_JUDGE_SAMPLE`.
+- Uploads are stored under `UPLOAD_DIR/council/<job>/` (the `uploads` volume) and are part of the audit
+  trail. Back them up with the database. nginx accepts at most 50 MB per request, so split very large
+  uploads into two jobs.
+- Progress streams over SSE (`/api/v1/council/jobs/{id}/events`, unbuffered in `nginx/default.conf`).
+  The UI falls back to polling.
+- A job interrupted by a restart is marked FAILED on start and can be re-run from the stored files
+  (`POST /api/v1/council/jobs/{id}/rerun`).
+
 ## The job queue (read before scaling)
 
 Solver runs and imports execute inside the backend process, in an in-process asyncio queue

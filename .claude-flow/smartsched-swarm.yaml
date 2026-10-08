@@ -1,0 +1,49 @@
+# SmartSched agent mapping for Ruflo-orchestrated development (read by scripts/ruflo.sh; see
+# docs/universal/RUFLO.md). The workers are the existing Claude Code subagents in .claude/agents/*.md.
+# Ruflo only coordinates. Scope fences, the ledger (docs/PROGRESS.md) and the hand-off format stay as
+# defined in docs/AGENTS.md.
+
+ruflo_version: "3.55.0"   # pinned, never @latest (3.38.17/18 shipped a corrupted dependency graph)
+topology: hierarchical
+max_agents: 8
+queen: orchestrator        # the main Claude Code session; it owns the plan and the branch
+
+agents:
+  backend-engineer:
+    file: .claude/agents/backend-engineer.md
+    ruflo_role: worker
+    writes: [smartsched/backend/app/api, smartsched/backend/app/models, smartsched/backend/app/schemas,
+             smartsched/backend/app/importers, smartsched/backend/app/services, smartsched/backend/app/council,
+             smartsched/backend/alembic, smartsched/backend/tests]
+    gate: "cd smartsched/backend && make check"
+  solver-engineer:
+    file: .claude/agents/solver-engineer.md
+    ruflo_role: specialist
+    writes: [smartsched/backend/app/solver, smartsched/backend/tests/solver]
+    gate: "cd smartsched/backend && python -m pytest -q tests/solver"
+  ai-engineer:
+    file: .claude/agents/ai-engineer.md
+    ruflo_role: specialist
+    writes: [smartsched/backend/app/ai, smartsched/backend/tests/ai]
+    gate: "cd smartsched/backend && python -m pytest -q tests/ai"
+  frontend-engineer:
+    file: .claude/agents/frontend-engineer.md
+    ruflo_role: worker
+    writes: [smartsched/frontend]
+    gate: "cd smartsched/frontend && npm run check"
+  design-pro:
+    file: .claude/agents/design-pro.md
+    ruflo_role: worker
+    writes: [docs/design, smartsched/frontend/src/components/ui]
+  devops-engineer:
+    file: .claude/agents/devops-engineer.md
+    ruflo_role: worker
+    writes: [smartsched/deploy, .github/workflows, scripts]
+  strict-reviewer:
+    file: .claude/agents/strict-reviewer.md
+    ruflo_role: scout       # read-only; it only reports
+    writes: []
+  user-tester:
+    file: .claude/agents/user-tester.md
+    ruflo_role: scout
+    writes: [docs/testing]
