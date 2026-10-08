@@ -1137,6 +1137,25 @@
       "weekN": "{n}. hafta",
       "weekShort": "H{n}",
       "weekHint": "Yalnızca o haftayı planlamak için bir haftaya tıklayın; birden çok hafta için ⌘, Ctrl veya ⇧ tuşunu basılı tutun."
+    },
+    "import": {
+      "steps": "Adımlar",
+      "onlyXlsx": "Yalnızca Excel dosyaları (.xlsx) içe aktarılabilir.",
+      "tooLarge": "Dosya sunucu için çok büyük.",
+      "badFile": "Dosya okunamadı. Doğru Excel şablonu mu?",
+      "failed": "İçe aktarma başarısız oldu. Hiçbir şey değişmedi; tekrar deneyin.",
+      "reading": "Yüklendi. Sayfalar sunucuda okunuyor…",
+      "summary": "{rows} satır okundu · {created} oluşturuldu · {skipped} atlandı",
+      "bySeverity": "{e} hata · {w} uyarı · {i} not",
+      "remove": "{name} dosyasını kaldır",
+      "retry": "{name} dosyasını yeniden dene",
+      "progressOf": "{name} yükleme durumu",
+      "queued": "İçe aktarmaya hazır",
+      "uploading": "Yükleniyor",
+      "uploaded": "Yüklendi",
+      "failedShort": "Başarısız",
+      "dropNow": "Eklemek için bırakın",
+      "browse": "Dosya seç"
     }
   }
 }

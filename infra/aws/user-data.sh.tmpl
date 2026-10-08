@@ -1,0 +1,103 @@
+#!/bin/bash
+# SmartSched pod first-boot script (EC2 user-data, rendered by infra/aws/smartsched_aws.py).
+# Runs once per instance as root via cloud-init. It installs Docker (official apt repo), the compose
+# and buildx plugins, git and the Python libraries pod CI needs, waits until the GitHub token is in
+# SSM, clones the repository, then hands over to smartsched/deploy/pod-ci/pod-bootstrap.sh, which
+# generates the app secrets ON THE POD, stores them in SSM, deploys the stack and starts pod CI.
+# Log: /var/log/smartsched-bootstrap.log (also readable through SSM Session Manager).
+set -euo pipefail
+exec > >(tee -a /var/log/smartsched-bootstrap.log) 2>&1
+echo "[user-data] start $(date -u +%FT%TZ)"
+
+export DEBIAN_FRONTEND=noninteractive
+export AWS_REGION=@@REGION@@
+export AWS_DEFAULT_REGION=@@REGION@@
+export SMARTSCHED_PANEL_DOMAIN=@@PANEL_DOMAIN@@
+export SMARTSCHED_ADMIN_EMAIL=@@ADMIN_EMAIL@@
+export SMARTSCHED_ACME_EMAIL=@@ACME_EMAIL@@
+export SMARTSCHED_REPO=@@REPO@@
+export SMARTSCHED_DEPLOY_BRANCH=@@DEPLOY_BRANCH@@
+export SMARTSCHED_CI_BRANCHES=@@CI_BRANCHES@@
+export SMARTSCHED_SSM_PREFIX=@@SSM_PREFIX@@
+export SMARTSCHED_IDLE_ALARM=@@IDLE_ALARM@@
+export SMARTSCHED_IDLE_MINUTES=@@IDLE_MINUTES@@
+export SMARTSCHED_IDLE_CPU=@@IDLE_CPU@@
+DOCKER_VERSION=@@DOCKER_VERSION@@
+SRC=/opt/smartsched/src
+
+# ---- swap: 8 GB RAM is shared by the stack and CI builds (next build, pip) ----------------------
+if [ ! -f /swapfile ]; then
+  fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  sysctl -w vm.swappiness=10 && echo 'vm.swappiness=10' > /etc/sysctl.d/90-smartsched.conf
+fi
+
+# ---- packages ------------------------------------------------------------------------------------
+apt-get update -y
+apt-get install -y --no-install-recommends ca-certificates curl git gnupg jq python3 python3-boto3 python3-yaml
+install -m 0755 -d /etc/apt/keyrings
+if [ ! -f /etc/apt/keyrings/docker.asc ]; then
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  chmod a+r /etc/apt/keyrings/docker.asc
+fi
+. /etc/os-release
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" \
+  > /etc/apt/sources.list.d/docker.list
+apt-get update -y
+if [ -n "$DOCKER_VERSION" ]; then
+  # Pin, e.g. DOCKER_VERSION=5:28.5.1-1~ubuntu.24.04~noble (apt-cache madison docker-ce)
+  apt-get install -y docker-ce="$DOCKER_VERSION" docker-ce-cli="$DOCKER_VERSION" containerd.io docker-buildx-plugin docker-compose-plugin
+  apt-mark hold docker-ce docker-ce-cli
+else
+  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+fi
+mkdir -p /etc/docker
+# docker0 is pinned to 172.17.0.1: the pod CI web page listens there and nginx proxies /ci/ to it.
+cat > /etc/docker/daemon.json <<'JSON'
+{
+  "bip": "172.17.0.1/16",
+  "log-driver": "json-file",
+  "log-opts": {"max-size": "20m", "max-file": "5"},
+  "features": {"buildkit": true}
+}
+JSON
+systemctl enable docker
+systemctl restart docker
+docker version --format 'docker {{.Server.Version}}'
+docker compose version
+git --version
+
+# ---- GitHub token (private repo): written to SSM by the bootstrap workflow -----------------------
+get_token() {
+  python3 - <<'PY'
+import os, sys
+import boto3
+from botocore.exceptions import ClientError
+name = os.environ["SMARTSCHED_SSM_PREFIX"] + "/github_token"
+try:
+    v = boto3.client("ssm").get_parameter(Name=name, WithDecryption=True)["Parameter"]["Value"]
+except ClientError:
+    sys.exit(1)
+sys.stdout.write(v)
+PY
+}
+TOKEN=""
+for _ in $(seq 1 180); do
+  if TOKEN="$(get_token)" && [ -n "$TOKEN" ]; then break; fi
+  echo "[user-data] waiting for SSM ${SMARTSCHED_SSM_PREFIX}/github_token (store POD_GITHUB_TOKEN via the aws-bootstrap workflow)"
+  sleep 20
+done
+[ -n "$TOKEN" ] || { echo "[user-data] no GitHub token after 60 min; re-run: sudo bash /var/lib/cloud/instance/user-data.txt"; exit 1; }
+
+# The token travels in an HTTP header via GIT_CONFIG_* (never on the command line or in .git/config).
+AUTH="$(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+export GIT_TERMINAL_PROMPT=0 GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
+       GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${AUTH}"
+mkdir -p /opt/smartsched
+if [ ! -d "$SRC/.git" ]; then
+  git clone --branch "$SMARTSCHED_DEPLOY_BRANCH" "https://github.com/${SMARTSCHED_REPO}.git" "$SRC"
+fi
+unset TOKEN AUTH GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
+
+bash "$SRC/smartsched/deploy/pod-ci/pod-bootstrap.sh"
+echo "[user-data] done $(date -u +%FT%TZ)"

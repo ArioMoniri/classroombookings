@@ -12,8 +12,29 @@ router = APIRouter(prefix="/terms", tags=["terms"])
 
 
 @router.get("", response_model=list[TermOut])
-async def list_terms(db: DB, _: Viewer) -> list[Term]:
-    return list((await db.execute(select(Term).order_by(Term.id.desc()))).scalars())
+async def list_terms(db: DB, _: Viewer) -> list[TermOut]:
+    """The current term first (``is_current``), then by start date, newest first: a client that opens
+    ``terms[0]`` lands on today's term, not the last imported one."""
+    from app.services.terms import current_term
+
+    terms = list((await db.execute(select(Term).order_by(Term.id.desc()))).scalars())
+    cur = current_term(terms)
+    rest = sorted(
+        (t for t in terms if t is not cur), key=lambda t: (t.start_date is not None, t.start_date, t.id), reverse=True
+    )
+    return [
+        TermOut.model_validate(t).model_copy(update={"is_current": t is cur}) for t in ([cur] if cur else []) + rest
+    ]
+
+
+@router.get("/current", response_model=TermOut)
+async def get_current_term(db: DB, _: Viewer) -> TermOut:
+    from app.services.terms import load_current_term
+
+    t = await load_current_term(db)
+    if t is None:
+        raise HTTPException(404, "no terms yet")
+    return TermOut.model_validate(t).model_copy(update={"is_current": True})
 
 
 @router.post("", response_model=TermOut, status_code=201)

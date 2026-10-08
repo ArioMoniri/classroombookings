@@ -84,3 +84,13 @@ def parsed_final_grid():
     from app.importers.weekly_grid import parse_weekly_grid
 
     return parse_weekly_grid(FINAL_GRID, year=2026)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_login_limiter():
+    """The in-process login failure limiter (app/core/ratelimit.py) must not leak between tests."""
+    from app.core import ratelimit
+
+    ratelimit.reset()
+    yield
+    ratelimit.reset()

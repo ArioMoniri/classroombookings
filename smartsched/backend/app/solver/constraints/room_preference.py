@@ -23,6 +23,16 @@ def rank(prefs: tuple[int, ...], room_id: int) -> int:
     return prefs.index(room_id) if room_id in prefs else len(prefs)
 
 
+def units(prefs: tuple[int, ...], room_id: int, max_rooms: int = 1) -> int:
+    """Penalty units of one used room.  A multi-room event (split exam, a lecture the planner seats in
+    ``A 101 / A 106``) may use its first ``max_rooms`` preferred rooms at no cost — the planner's room
+    *set* is the first choice, not just its first room; a room outside the list costs at least 1."""
+    k = max(1, max_rooms) - 1
+    if room_id in prefs:
+        return max(0, prefs.index(room_id) - k)
+    return max(1, len(prefs) - k)
+
+
 def prune(doms: Domains, c: Constraint) -> None:
     if not c.hard or not is_targeted(c):
         return
@@ -45,9 +55,9 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
         if not prefs:
             continue
         for rid in ctx.domain(event.id).rooms:
-            units = rank(prefs, rid)
-            if units:
-                ctx.add_penalty("room_preference", ctx.room_use(event.id, rid), units, w)
+            n = units(prefs, rid, event.max_rooms)
+            if n:
+                ctx.add_penalty("room_preference", ctx.room_use(event.id, rid), n, w)
 
 
 def score(ev: Evaluation, c: Constraint) -> None:
@@ -59,15 +69,15 @@ def score(ev: Evaluation, c: Constraint) -> None:
         if not c.hard:
             ev.add_bound("room_preference", len(prefs) * max(1, event.max_rooms) * w)
         for room in ev.rooms_of(event.id):
-            units = rank(prefs, room.id)
-            if not units:
+            n = units(prefs, room.id, event.max_rooms)
+            if not n:
                 continue
             names = ", ".join(ev.rooms_by_id[r].code for r in prefs if r in ev.rooms_by_id)
             msg = f"{event.label} is in {room.code}; preferred order: {names}"
             if c.hard:
                 ev.hard("room_preference", [event.id], msg, [room.id])
             else:
-                ev.soft("room_preference", [event.id], msg, units * w, [room.id])
+                ev.soft("room_preference", [event.id], msg, n * w, [room.id])
 
 
-__all__ = ["apply", "prune", "rank", "score"]
+__all__ = ["apply", "prune", "rank", "score", "units"]

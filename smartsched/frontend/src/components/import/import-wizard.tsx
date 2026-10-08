@@ -1,9 +1,9 @@
 "use client";
 
-import { Check, Database, FileSpreadsheet, FileUp, Grid3x3, ListChecks, Loader2, type LucideIcon } from "lucide-react";
+import { Check, ChevronRight, Database, FileSpreadsheet, Grid3x3, ListChecks, Loader2, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/page-header";
 import { NativeSelect } from "@/components/common/native-select";
@@ -12,7 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api } from "@/lib/api/endpoints";
+import { HttpError } from "@/lib/api/client";
+import { uploadImportWithProgress } from "@/lib/api/shell-extra";
+import { MagneticDrop, type UploadState } from "./magnetic-drop";
 import { useImports } from "@/lib/api/hooks";
 import type { ImportJob, ImportKind } from "@/lib/api/schemas";
 import type { MessageKey } from "@/lib/i18n";
@@ -33,14 +35,14 @@ const STEPS: MessageKey[] = ["import.stepKind", "import.stepUpload", "import.ste
 function Stepper({ step }: { step: number }) {
   const { t } = useI18n();
   return (
-    <ol className="mb-6 flex items-center gap-2 text-xs" aria-label="Steps">
+    <ol className="mb-6 flex items-center gap-2 text-[12px]" aria-label={t("glass.import.steps")}>
       {STEPS.map((key, i) => (
         <li key={key} aria-current={i === step ? "step" : undefined} className="flex items-center gap-2">
-          <span className={cn("flex size-6 items-center justify-center rounded-full border font-medium", i < step ? "border-primary bg-primary text-primary-foreground" : i === step ? "border-primary text-primary" : "text-muted-foreground")}>
+          <span className={cn("flex size-6 items-center justify-center rounded-full font-semibold tabular-nums", i < step ? "bg-tint text-tint-foreground" : i === step ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-3")}>
             {i < step ? <Check className="size-3.5" aria-hidden /> : i + 1}
           </span>
-          <span className={cn("hidden sm:inline", i === step ? "font-medium" : "text-muted-foreground")}>{t(key)}</span>
-          {i < STEPS.length - 1 ? <span className={cn("h-px w-6 sm:w-10", i < step ? "bg-primary" : "bg-border")} aria-hidden /> : null}
+          <span className={cn("hidden sm:inline", i === step ? "font-medium text-label-1" : "text-label-3")}>{t(key)}</span>
+          {i < STEPS.length - 1 ? <span className={cn("h-px w-6 sm:w-10", i < step ? "bg-tint" : "bg-hairline-strong")} aria-hidden /> : null}
         </li>
       ))}
     </ol>
@@ -57,11 +59,10 @@ export function ImportWizard() {
   const [termId, setTermId] = useState<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [dsn, setDsn] = useState("");
-  const [dragging, setDragging] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [upload, setUpload] = useState<UploadState>({ phase: "idle" });
+  const busy = upload.phase === "uploading" || upload.phase === "processing";
   const [job, setJob] = useState<ImportJob | null>(null);
   const [done, setDone] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const imports = useImports();
   const step = !kind ? 0 : job ? (done ? 3 : 2) : 1;
   const effectiveTerm = termId ?? term?.id ?? 1;
@@ -70,30 +71,39 @@ export function ImportWizard() {
     setJob(null);
     setDone(false);
     setFile(null);
+    setUpload({ phase: "idle" });
     router.replace(`/import?kind=${k}`);
   };
 
-  const onFiles = (files: FileList | null) => {
-    const f = files?.[0];
-    if (!f) return;
-    if (!/\.(xlsx|xlsm)$/i.test(f.name)) {
-      toast.error("Yalnızca .xlsx");
+  const onFile = (f: File | null) => {
+    setUpload({ phase: "idle" });
+    if (f && !/\.(xlsx|xlsm)$/i.test(f.name)) {
+      toast.error(t("glass.import.onlyXlsx"));
       return;
     }
     setFile(f);
   };
 
+  /** Real progress: bytes from XMLHttpRequest, then the server's parse (no fake percentages). */
   const start = async () => {
     if (!kind) return;
-    setBusy(true);
+    const t0 = terms.find((x) => x.id === effectiveTerm) ?? term;
+    if (!t0) return;
+    setUpload({ phase: "uploading", pct: 0 });
     try {
-      const t0 = terms.find((x) => x.id === effectiveTerm) ?? term;
-      if (!t0) throw new Error("no term");
-      const j = await api.imports.upload(kind, file, t0, kind === "crbs" ? dsn : undefined);
+      const j = await uploadImportWithProgress(kind, file, t0, {
+        dsn: kind === "crbs" ? dsn : undefined,
+        onProgress: ({ loaded, total }) => {
+          const pct = total ? Math.round((loaded / total) * 100) : 0;
+          setUpload(pct >= 100 ? { phase: "processing" } : { phase: "uploading", pct });
+        },
+      });
+      setUpload({ phase: "done" });
       setJob(j);
       void imports.refetch();
-    } finally {
-      setBusy(false);
+    } catch (e) {
+      const status = e instanceof HttpError ? e.status : 0;
+      setUpload({ phase: "error", message: status === 413 ? t("glass.import.tooLarge") : status === 0 ? t("glass.auth.offline") : status === 400 || status === 422 ? t("glass.import.badFile") : t("glass.import.failed") });
     }
   };
 
@@ -106,17 +116,24 @@ export function ImportWizard() {
       <Stepper step={step} />
 
       {step === 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {KINDS.map((k) => (
-            <button key={k.kind} type="button" onClick={() => chooseKind(k.kind)} data-testid={`import-kind-${k.kind}`} className="flex gap-3 rounded-xl border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-primary-tint focus-visible:ring-2 focus-visible:ring-ring">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted"><k.icon className="size-5" aria-hidden /></span>
-              <span>
-                <span className="block font-medium">{t(k.label)}</span>
-                <span className="block text-xs text-muted-foreground">{t(k.desc)}</span>
-              </span>
-            </button>
-          ))}
-        </div>
+        <Card className="max-w-3xl">
+          <CardContent>
+            <ul>
+              {KINDS.map((k) => (
+                <li key={k.kind} className="[&:not(:last-child)]:hairline-b">
+                  <button type="button" onClick={() => chooseKind(k.kind)} data-testid={`import-kind-${k.kind}`} className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left outline-none hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-(--focus)">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-fill-2 text-label-1"><k.icon className="size-[18px] stroke-[1.75]" aria-hidden /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-medium text-label-1">{t(k.label)}</span>
+                      <span className="block text-[12.5px] text-label-2">{t(k.desc)}</span>
+                    </span>
+                    <ChevronRight className="size-4 text-label-3" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       ) : null}
 
       {step === 1 && kind ? (
@@ -135,34 +152,12 @@ export function ImportWizard() {
                 <Input id="dsn" placeholder="mysql://user:pass@host:3306/crbs" value={dsn} onChange={(e) => setDsn(e.target.value)} autoComplete="off" />
               </div>
             ) : (
-              <div
-                role="button"
-                tabIndex={0}
-                aria-label={t("import.dropzone")}
-                onClick={() => inputRef.current?.click()}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
-                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={(e) => { e.preventDefault(); setDragging(false); onFiles(e.dataTransfer.files); }}
-                className={cn("flex min-h-[200px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition-colors", dragging ? "border-primary bg-primary-tint" : "hover:border-border-strong")}
-                data-testid="dropzone"
-              >
-                <FileUp className={cn("size-8 text-muted-foreground transition-transform", dragging && "-translate-y-1")} aria-hidden />
-                {file ? (
-                  <p className="text-sm font-medium">{file.name} <span className="text-muted-foreground">· {(file.size / 1024).toFixed(0)} KB</span></p>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium">{t("import.dropzone")}</p>
-                    <p className="text-xs text-muted-foreground">{t("import.dropzoneHint")}</p>
-                  </>
-                )}
-                <input ref={inputRef} type="file" accept=".xlsx,.xlsm" className="sr-only" onChange={(e) => onFiles(e.target.files)} data-testid="file-input" />
-              </div>
+              <MagneticDrop file={file} onFile={onFile} upload={upload} disabled={busy} />
             )}
             <div className="flex items-center justify-between">
               <Button variant="ghost" onClick={() => router.replace("/import")}>{t("common.back")}</Button>
               <Button onClick={() => void start()} disabled={!canStart || busy} data-testid="import-start">
-                {busy ? <><Loader2 className="animate-spin" /> {t("import.importing")}</> : t("import.start")}
+                {busy ? <><Loader2 className="animate-spin motion-reduce:animate-none" /> {upload.phase === "processing" ? t("glass.import.reading") : t("import.importing")}</> : t("import.start")}
               </Button>
             </div>
           </CardContent>
@@ -170,23 +165,31 @@ export function ImportWizard() {
       ) : null}
 
       {(step === 2 || step === 3) && job && counts ? (
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-4">
-            {[
-              ["import.rows", job.summary.rows],
-              ["import.created", job.summary.created],
-              ["import.skipped", job.summary.skipped],
-              ["import.warnings", job.summary.warnings.length],
-            ].map(([k, v]) => (
-              <div key={String(k)} className="rounded-xl border bg-card p-4">
-                <p className="text-xs font-medium uppercase text-muted-foreground">{t(k as MessageKey)}</p>
-                <p className="text-3xl font-bold tabular-nums">{n(Number(v))}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-sm text-muted-foreground" aria-live="polite">
-            {job.filename} · {n(job.summary.rows)} {t("import.rows").toLocaleLowerCase(locale)} · {counts.error} ✗ · {counts.warning} ⚠ · {counts.info} ℹ
-          </p>
+        <div className="space-y-5" data-testid="import-report">
+          <Card>
+            <CardHeader>
+              <CardTitle>{job.filename}</CardTitle>
+              <p className="text-[13px] text-label-2" aria-live="polite">
+                {t("glass.import.summary", { rows: n(job.summary.rows), created: n(job.summary.created), skipped: n(job.summary.skipped) })}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+                {[
+                  [t("import.rows"), job.summary.rows],
+                  [t("import.created"), job.summary.created],
+                  [t("import.skipped"), job.summary.skipped],
+                  [t("import.warnings"), job.summary.warnings.length],
+                ].map(([k, v]) => (
+                  <div key={String(k)}>
+                    <dt className="text-[12px] text-label-3">{k}</dt>
+                    <dd className="text-[22px] leading-7 font-semibold tracking-[-0.017em] text-label-1 tabular-nums">{n(Number(v))}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-3 text-[12.5px] text-label-2">{t("glass.import.bySeverity", { e: n(counts.error), w: n(counts.warning), i: n(counts.info) })}</p>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader><CardTitle>{t("import.warningsTable")}</CardTitle></CardHeader>
             <CardContent><ParseWarningsTable warnings={job.summary.warnings} /></CardContent>
@@ -199,14 +202,14 @@ export function ImportWizard() {
       ) : null}
 
       {step === 0 && imports.data && imports.data.length > 0 ? (
-        <Card className="mt-6">
+        <Card className="mt-6 max-w-3xl">
           <CardHeader><CardTitle>{t("import.recent")}</CardTitle></CardHeader>
           <CardContent>
-            <ul className="divide-y text-sm">
+            <ul className="text-[13px]">
               {imports.data.slice(0, 6).map((j) => (
-                <li key={j.id} className="flex items-center justify-between gap-3 py-2">
-                  <span className="min-w-0 truncate">{j.filename}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{t(KINDS.find((k) => k.kind === j.kind)?.label ?? "import.title")} · {n(j.summary.rows)} · {formatDate(j.created_at.slice(0, 10), locale)}</span>
+                <li key={j.id} className="flex items-center justify-between gap-3 py-2 [&:not(:last-child)]:hairline-b">
+                  <span className="min-w-0 truncate text-label-1">{j.filename}</span>
+                  <span className="shrink-0 text-[12px] text-label-3">{t(KINDS.find((k) => k.kind === j.kind)?.label ?? "import.title")} · {n(j.summary.rows)} · {formatDate(j.created_at.slice(0, 10), locale)}</span>
                 </li>
               ))}
             </ul>

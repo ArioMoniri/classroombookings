@@ -934,6 +934,21 @@ def relaxation_diagnosis(
     ctx = build_model(prep, "relax")
     by_id = {a.event_id: a for a in (hints or [])}
     by_id.update({a.event_id: a for a in hint_assignments(prep.inp)})
+    # lowest tier: stay in the warm start's rooms (the greedy hint follows the soft preferences, the
+    # relaxation itself has none), so maximising the placement does not scatter the planner's rooms
+    devs = []
+    for e in prep.inp.events:
+        h = by_id.get(e.id)
+        if h is None or e.locked is not None or not e.needs_room:
+            continue
+        for r in h.room_ids:
+            lit = ctx.room_use(e.id, r)
+            if lit is not None and lit is not True:
+                devs.append(1 - lit)
+    if devs and ctx.relax_objective is not None:
+        ctx.relax_objective = (len(devs) + 1) * ctx.relax_objective + sum(devs)
+        ctx.model.Minimize(ctx.relax_objective)
+        stats["relax_hint_terms"] = len(devs)
     ctx.add_hints([by_id[e.id] for e in prep.inp.events if e.id in by_id], unplaced_rest=True)
     solver = make_solver(prep.inp, max(0.5, budget_s))
     status = solver.Solve(ctx.model)

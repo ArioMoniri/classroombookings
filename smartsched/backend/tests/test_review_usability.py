@@ -128,3 +128,41 @@ async def test_u3_rules_and_pins_on_a_merged_member_reach_its_event(bahar):
     assert ev.required_room_ids == frozenset({a204})  # the pin landed on the joint lecture
     rule = next(x for x in din.inp.constraints if x.id == r.json()["id"])
     assert rule.params["event_ids"] == [head]
+
+
+def test_u6_course_codes_fold_the_dotted_capital_i():
+    from app.importers.normalize import canon_course_code, extract_course_codes
+
+    assert canon_course_code("BİF111") == canon_course_code("BIF111") == canon_course_code("bif 111") == "BIF111"
+    assert extract_course_codes("ATA112, TUR112, İNG112") == ["ATA112", "TUR112", "ING112"]  # real Final row 67
+    assert canon_course_code("MİK 502") == "MIK502" and canon_course_code("ÇEV 101") == "ÇEV101"
+
+
+async def test_u5_u6_final_term_scope_and_codes(client):
+    from app.importers.exam_list import import_exam_list
+    from app.importers.weekly_grid import import_weekly_grid
+    from app.models import Course, ExamRequest, Term
+
+    from tests.api_fixtures import login
+    from tests.conftest import EXAM_LIST, FINAL_GRID
+
+    async with get_session_factory()() as s:
+        await import_weekly_grid(s, FINAL_GRID, "2026-FINAL", year=2026, term_kind="FINAL")
+        await import_exam_list(s, EXAM_LIST, "2026-FINAL")
+    async with get_session_factory()() as s:
+        term = (await s.execute(select(Term).where(Term.code == "2026-FINAL"))).scalar_one()
+        assert term.week_count == 3
+        codes = list((await s.execute(select(Course.code))).scalars())
+        assert codes and not [c for c in codes if "İ" in c]  # U6
+        ing212 = (await s.execute(select(ExamRequest).where(ExamRequest.source_row_index == 68))).scalar_one()
+        assert ing212.course_code == "ING212"
+    h = await login(client)
+    url = f"/api/v1/terms/{term.id}/studio"
+    d = (await client.get(url, params={"kind": "EXAM"}, headers=h)).json()
+    assert d["scope"]["weeks"] == [1, 2, 3]  # was 1..14
+    sm = (await client.get(f"{url}/summary", params={"kind": "EXAM"}, headers=h)).json()
+    assert sm["weeks"] == [1, 2, 3] and sm["counts"]["weeks"] == 3  # was [-2, 1, ..., 14]
+    assert "-2" not in sm["human_summary"]["tr"] and "1-3. sınav haftalarında" in sm["human_summary"]["tr"]
+    events, requests = sm["counts"]["events"], sm["counts"]["classes_in"]
+    assert f"{events:,}".replace(",", ".") + " sınavı" in sm["human_summary"]["tr"] and events < requests
+    assert any(w["code"] == "exams_outside_term" for w in sm["warnings"])  # the 13 May exams are reported

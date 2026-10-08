@@ -32,12 +32,9 @@ USABLE = (*GOOD, "FEASIBLE_PARTIAL")  # a best-effort partial timetable is still
 async def pick_term(session: AsyncSession, term_id: int | None) -> Term | None:
     if term_id:
         return await session.get(Term, term_id)
-    active = (
-        (await session.execute(select(Term).where(Term.is_active.is_(True)).order_by(Term.id.desc()))).scalars().first()
-    )
-    if active is not None:
-        return active
-    return (await session.execute(select(Term).order_by(Term.id.desc()))).scalars().first()
+    from app.services.terms import load_current_term
+
+    return await load_current_term(session)  # active, else today's term (not the last imported one)
 
 
 async def utilisation_run(session: AsyncSession, term_id: int) -> ScheduleRun | None:

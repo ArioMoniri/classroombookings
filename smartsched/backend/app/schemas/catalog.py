@@ -64,6 +64,7 @@ class TermOut(ORMModel):
     week_count: int
     periods_json: list[Any] | None
     is_active: bool
+    is_current: bool = False  # the term the app should open (app/services/terms.py)
 
 
 class WeekIn(BaseModel):

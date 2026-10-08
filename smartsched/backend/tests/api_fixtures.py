@@ -6,7 +6,6 @@ from collections.abc import AsyncIterator
 
 import pytest
 from app.core import db as dbmod
-from app.core import ratelimit
 from app.core.config import get_settings
 from app.models import Base
 from app.services.seed import seed_admin
@@ -23,7 +22,6 @@ async def client(tmp_path, monkeypatch) -> AsyncIterator[AsyncClient]:
     async with dbmod.get_session_factory()() as s:
         await seed_admin(s)
     qmod.reset_queue()
-    ratelimit.reset()
     from app.main import app
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:

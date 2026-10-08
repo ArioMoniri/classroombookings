@@ -242,3 +242,17 @@
 }
 :root[data-motion="reduced"] .cal-ghost { animation: none; }
 :root[data-motion="reduced"] .cal-heat { transition: none; }
+
+/* AI "thinking" shimmer (motion pattern §17): loops only while the explain request runs */
+.cal-thinking {
+  background: linear-gradient(90deg, var(--label-2) 0%, var(--label-1) 40%, var(--label-2) 80%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: cal-shimmer 1.6s linear infinite;
+}
+@keyframes cal-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .cal-thinking { animation: none; color: var(--label-2); background: none; } }
+:root[data-motion="reduced"] .cal-thinking { animation: none; color: var(--label-2); background: none; }
+@media (forced-colors: active) { .cal-thinking { color: CanvasText; background: none; } }

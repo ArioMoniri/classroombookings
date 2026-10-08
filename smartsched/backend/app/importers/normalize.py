@@ -59,12 +59,18 @@ _BARE_NUMBER_RX = re.compile(r"(?<![A-Za-z0-9.])(\d{2,4})(?![0-9.])")
 _COURSE_FULL_RX = re.compile(rf"^([{_TR_LETTERS}]{{2,5}})(\d{{2,4}})([A-Z]?)$")
 
 
+def code_upper(text: str) -> str:
+    """Upper case for course codes: Turkish-aware (``ı`` -> ``I``), and the dotted capital ``İ`` folds to
+    ``I`` - ``bif 111`` (Turkish upper ``BİF 111``), ``BİF111`` and ``BIF111`` are one course (usability U6)."""
+    return tr_upper(text).replace("İ", "I")
+
+
 def extract_course_codes(value: Any) -> list[str]:
     """All canonical course codes in a cell; bare numbers after a code inherit its prefix (`ING 101 /105`)."""
     text = clean_text(value)
     if not text:
         return []
-    up = tr_upper(text)
+    up = code_upper(text)
     codes: list[str] = []
     pos = 0
     last_prefix: str | None = None
@@ -109,7 +115,7 @@ def canon_course_code_loose(value: Any, name: Any = None) -> tuple[str | None, s
     text = clean_text(value)
     if not text:
         return None, None
-    up = tr_upper(text).replace("'", "").replace("’", "")
+    up = code_upper(text).replace("'", "").replace("’", "")
     m = _LOOSE_CODE_RX.search(up)
     if m and any(ch.isdigit() for ch in m.group(2)):
         digits = m.group(2).replace("O", "0").replace(" ", "")

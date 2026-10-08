@@ -1137,6 +1137,25 @@
       "weekN": "Week {n}",
       "weekShort": "W{n}",
       "weekHint": "Click a week to plan only that week; hold ⌘, Ctrl or ⇧ to add more weeks."
+    },
+    "import": {
+      "steps": "Steps",
+      "onlyXlsx": "Only Excel files (.xlsx) can be imported.",
+      "tooLarge": "The file is too large for the server.",
+      "badFile": "The file could not be read. Is it the right Excel template?",
+      "failed": "The import failed. Nothing was changed; try again.",
+      "reading": "Uploaded. Reading the sheets on the server…",
+      "summary": "{rows} rows read · {created} created · {skipped} skipped",
+      "bySeverity": "{e} errors · {w} warnings · {i} notes",
+      "remove": "Remove {name}",
+      "retry": "Try {name} again",
+      "progressOf": "Upload progress of {name}",
+      "queued": "Ready to import",
+      "uploading": "Uploading",
+      "uploaded": "Uploaded",
+      "failedShort": "Failed",
+      "dropNow": "Drop to add the file",
+      "browse": "Choose file"
     }
   }
 }
