@@ -39,6 +39,7 @@ def test_classify_maps_every_named_group() -> None:
         "shared_room_overflow": {"code": "trusted_lock_capacity", "event_ids": [1, 2], "params": {"shared": True}},
         "locked_room_blocked": {"code": "locked_ineligible"},
         "week_room_changes": {"code": "week_split"},
+        "missing_enrolment": {"code": "missing_enrolment"},
         "other": {"code": "timeout", "severity": "warning"},
     }
     assert {g.code for g in GROUPS} == set(cases) | {"board_vs_list"}
@@ -48,6 +49,10 @@ def test_classify_maps_every_named_group() -> None:
     assert classify(both) == ["fixed_instructor_clash", "fixed_cohort_clash"]
     assert classify({"code": "partial"}) == [] and classify({"code": "unplaced_summary"}) == []
     assert classify({"code": "no_room", "params": {"reason": "capacity"}}) == ["no_free_room"]
+    # review M6: merged / clipped joint lectures, overlaps outside the pool, info notes
+    assert classify({"code": "joint_lecture_clipped", "severity": "warning"}) == ["locked_room_too_small"]
+    assert classify({"code": "outside_pool_overlap", "severity": "warning"}) == ["locked_room_overlap"]
+    assert classify({"code": "manual_lock", "severity": "info"}) == []
     assert all(len(g.sheet) <= 31 and not set(g.sheet) & set("[]:*?/\\") for g in GROUPS)
     acu = {
         "code": "trusted_lock_capacity",

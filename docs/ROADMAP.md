@@ -246,6 +246,14 @@ Foundation, in order: typed room features → find a room → notification hub �
 - [ ] Strict motion audit on a quiet or GPU machine (`MOTION_STRICT=1`), record the device baseline in docs/design/v2/motion.md.
 - [ ] /classes inspector overlay covers the Classes/Exams toggle at 1280–1599 px; rooms filter bar wraps at 1440 px.
 
+### Planner comparison follow-ups (docs/testing/2026-10-08-schedule-vs-planner.md)
+
+- [ ] R2/R3/R1 and the data-issues gaps: assigned to the solver review fix agent.
+- [ ] R4: allow multi-room splits for large groups without a definitive room set (ENG 105 §1, ING 301, NRS 204+304); optionally use the published board as a soft multi-room hint (also fixes R5 reshuffling).
+- [ ] Importer: `needs_room=false` for non-room venues (CASE, office, ONLINE); normalise leading zeros in codes (SYS 18/018); flag non-person instructor values ("Yüz yüze", "UZEM"); prefer sheet-name dates when day headers contradict them; optionally carry the last week's grid blocks forward when a week sheet is missing.
+- [ ] Data-issues: board-only checks (capacity, instructor clashes from board times, two classes in one cell); report unknown board codes and board cells at times the list lacks.
+- [ ] `POST /imports/room-master` (today only the CLI importer applies room_master.csv).
+
 ### Review follow-ups (docs/review/2026-10-08-backend-ai-studio-review.md + planner usability test)
 
 Done 2026-10-08 by backend-engineer (review fixes): B1-B3, M1-M13, MINOR 1, 2 (PDF page cap; parsing is off the event
