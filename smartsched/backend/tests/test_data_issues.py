@@ -112,6 +112,39 @@ def test_planner_texts_use_names_days_and_clock_times_never_ids_or_keys() -> Non
     assert "kapasite sorunu" in planner_text(cap, CTX)["tr"] and "a capacity problem" in planner_text(cap, CTX)["en"]
 
 
+def test_every_solver_code_has_a_turkish_planner_text() -> None:
+    """Codes that used to fall back to the English message now have TR / EN templates; none leaks ids,
+    rule kinds or period numbers, and the Turkish text is not the English one."""
+    cases = [
+        {
+            "code": "trusted_hint_capacity",
+            "event_ids": [1],
+            "params": {"size": 130, "seats": 92, "room_codes": ["A206"]},
+        },
+        {"code": "no_time", "event_ids": [1], "params": {"categories": {"cohort": 3, "day_window": 2}}},
+        {"code": "bad_time", "event_ids": [1], "params": {"day": 7}},
+        {"code": "bad_time", "event_ids": [1], "params": {"start": 17, "duration": 3}},
+        {"code": "out_of_horizon", "event_ids": [1], "params": {"weeks": [15, 16]}},
+        {"code": "core", "event_ids": [1, 786], "params": {}},
+        {"code": "no_core", "event_ids": [], "params": {}},
+        {"code": "relax_timeout", "event_ids": [], "params": {}},
+        {"code": "timeout", "event_ids": [], "params": {}},
+        {"code": "internal", "event_ids": [], "message": "solver error: KeyError: 3", "params": {}},
+    ]
+    for d in cases:
+        t = planner_text({"severity": "warning", "message": "english fallback (#1)", **d}, CTX)
+        assert t["tr"] != t["en"] and "english fallback" not in t["tr"], d["code"]
+        for text in t.values():
+            assert "#" not in text and "no_cohort_overlap" not in text and "day_window" not in text, (d, text)
+    hint = planner_text(cases[0], CTX)
+    assert hint["tr"].startswith("MAT 112 §1: beklenen 130 öğrenci, planlayıcının dersliği A206 92 kişilik.")
+    assert "92 seats" in hint["en"] and "hint" in hint["en"]
+    assert "sınıfın başka dersi var" in planner_text(cases[1], CTX)["tr"]
+    assert "Pazar" in planner_text(cases[2], CTX)["tr"] and "Sunday" in planner_text(cases[2], CTX)["en"]
+    assert "MAT 112 §1, MAT 102 §1" in planner_text(cases[5], CTX)["tr"]
+    assert classify({"code": "trusted_hint_capacity"}) == ["locked_room_too_small"]
+
+
 def test_capacity_pin_case_names_capacity_and_the_rooms_that_fit() -> None:
     """Usability M7: 137 students pinned to a 30-seat room said "not in the pinned room set ×9"."""
     from app.solver.cpsat import solve

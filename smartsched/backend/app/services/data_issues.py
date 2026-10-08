@@ -186,6 +186,8 @@ def classify(d: dict[str, Any]) -> list[str]:
         if params.get("shared") and len(d.get("event_ids") or []) >= 2:
             return ["shared_room_overflow"]
         return ["locked_room_too_small"]
+    if code == "trusted_hint_capacity":  # prefer mode: the planner's room as a hint seats fewer
+        return ["locked_room_too_small"]
     if code == "trusted_lock_tags" or (code == "no_room" and params.get("reason") == "tags"):
         return ["missing_tags"]
     if code in ("outside_room_pool", "room_without_capacity"):
@@ -292,6 +294,27 @@ _EXCLUDED = {
     "tags": ("özellik (PC, TIP ...) uymuyor", "tags (PC, TIP ...) do not match"),
     "blocked": ("takvimde kapalı", "blocked in the grid"),
 }
+
+
+#: why a class lost every possible time (``no_time`` params.categories, diagnose.reason_category)
+_TIME_EXCLUDED = {
+    "cohort": ("sınıfın başka dersi var", "the class year has another class"),
+    "instructor": ("öğretim elemanının başka dersi var", "the instructor has another class"),
+    "day_window": ("izin verilen saatlerin dışında", "outside the allowed hours"),
+    "blocked": ("takvimde kapalı", "blocked in the grid"),
+    "fixed_time": ("sabit saate uymuyor", "not the fixed time"),
+    "room_closed": ("derslikler kapalı", "the rooms are closed"),
+}
+
+
+def _time_excluded_text(lang: str, categories: Any) -> str:
+    if not isinstance(categories, dict) or not categories:
+        return ""
+    parts = []
+    for cat, n in list(categories.items())[:4]:
+        tr, en = _TIME_EXCLUDED.get(str(cat), ("başka bir kural", "another rule"))
+        parts.append(f"{n} saat: {tr}" if lang == "tr" else f"{n} time(s): {en}")
+    return "; ".join(parts)
 
 
 def _excluded_text(lang: str, excluded: Any) -> str:
@@ -576,6 +599,80 @@ def planner_text(d: dict[str, Any], ctx: TextContext | None = None) -> dict[str,
         out = {
             "tr": f"{len(ids)} ders yerleştirilemedi (nedenleri tek tek listelendi).",
             "en": f"{len(ids)} classes cannot be placed (each reason is listed).",
+        }
+    elif code == "trusted_hint_capacity":
+        seats_tr = "sınav koltuğu" if ctx.exam else "kişilik"
+        seats_en = "exam seats" if ctx.exam else "seats"
+        out = {
+            "tr": f"{first}: beklenen {size} öğrenci, planlayıcının dersliği {rooms} {p.get('seats')} {seats_tr}. "
+            f"Derslik ipucu olarak kullanıldı ve grup {p.get('seats')} öğrenci sayıldı; öğrenci tahminini "
+            "kontrol edin.",
+            "en": f"{first} expects {size} students; the planner's room {rooms} has {p.get('seats')} {seats_en}. "
+            f"The room is used as a hint and the group counted as {p.get('seats')}; check the enrolment estimate.",
+        }
+    elif code == "no_time":
+        why_tr = _time_excluded_text("tr", p.get("categories"))
+        why_en = _time_excluded_text("en", p.get("categories"))
+        out = {
+            "tr": f"{first} için uygun saat kalmadı{' (' + why_tr + ')' if why_tr else ''}. Gün / saat aralığını "
+            "genişletin veya çakışan sabit saatli dersi taşıyın.",
+            "en": f"{first} has no possible time left{' (' + why_en + ')' if why_en else ''}. Widen its day / time "
+            "window or move the clashing fixed-time class.",
+        }
+    elif code == "bad_time":
+        if p.get("day") is not None:
+            day = int(p["day"])
+            out = {
+                "tr": f"{first} {DAY_TR.get(day, str(day))} gününe sabit ama bu gün dönem takviminde yok. Talebin "
+                "gününü düzeltin veya günü takvime ekleyin.",
+                "en": f"{first} is fixed on {DAY_EN.get(day, str(day))}, which is not a day of the term grid. "
+                "Correct the request's day or add the day to the grid.",
+            }
+        else:
+            out = {
+                "tr": f"{first} {p.get('start')}. ders saatinde {p.get('duration')} saat olarak sabit ve günün son "
+                "ders saatini aşıyor. Süreyi kısaltın veya daha erken başlatın.",
+                "en": f"{first} starts at period {p.get('start')} for {p.get('duration')} periods, past the last "
+                "period of the day. Shorten it or start it earlier.",
+            }
+    elif code == "out_of_horizon":
+        weeks = _weeks_text(_as_list(p.get("weeks")))
+        out = {
+            "tr": f"{first} bu çalışmanın haftalarında yok ({weeks}. hafta); derslik kullanmıyor.",
+            "en": f"{first} has no week in this run (week(s) {weeks}); it takes no room.",
+        }
+    elif code == "core":
+        names = ", ".join(lab(i) for i in ids[:6]) + (" ..." if len(ids) > 6 else "")
+        out = {
+            "tr": f"Bu dersler birlikte yerleştirilemiyor: {names}. Birinin saatini, dersliğini veya kilidini "
+            "değiştirin.",
+            "en": f"These classes cannot all be placed together: {names}. Change the time, room or lock of one "
+            "of them.",
+        }
+    elif code == "no_core":
+        out = {
+            "tr": "Çizelge çıkmıyor ve çakışan dersler süre içinde ayrıştırılamadı. Süreyi uzatın veya daha kısa "
+            "bir dönemi (tek hafta) çözün.",
+            "en": "No timetable exists and the clashing classes could not be isolated in time. Raise the time "
+            "limit or solve a shorter horizon (one week).",
+        }
+    elif code == "relax_timeout":
+        out = {
+            "tr": "Süre içinde kısmi bir çizelge bulunamadı. Süreyi uzatın veya hafta hafta çözün.",
+            "en": "No partial timetable was found within the time limit. Raise the time limit or solve week by week.",
+        }
+    elif code == "timeout":
+        out = {
+            "tr": "Süre içinde çizelge bulunamadı. Süreyi uzatın, hafta hafta çözün veya daha fazla dersi kilitleyin.",
+            "en": "No timetable was found within the time limit. Raise the time limit, solve week by week or lock "
+            "more classes.",
+        }
+    elif code == "internal":
+        out = {
+            "tr": "Çözücü iç hatası: sonuç kurallara göre doğrulanamadı. Bu çalışmayı destek ekibine bildirin "
+            "(ayrıntı aşağıda).",
+            "en": "Internal solver error: the result could not be validated against the rules. Please report "
+            "this run (details below).",
         }
     elif code in ("outside_room_pool", "room_without_capacity"):
         names = ", ".join(lab(i) for i in ids[:6]) or humanize(str(d.get("message") or "").split(":", 1)[-1], ctx)

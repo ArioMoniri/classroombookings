@@ -156,9 +156,14 @@ def run_mode(params: dict[str, Any] | None, key: str) -> Any:
 
 
 def _bridge_diag(
-    event_ids: list[int], message: str, suggestions: list[str], code: str, kinds: list[str] | None = None
+    event_ids: list[int],
+    message: str,
+    suggestions: list[str],
+    code: str,
+    kinds: list[str] | None = None,
+    params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return asdict(sm.Diagnosis(event_ids, kinds or [], message, suggestions, "warning", code))
+    return asdict(sm.Diagnosis(event_ids, kinds or [], message, suggestions, "warning", code, dict(params or {})))
 
 
 def horizon_weeks(run: ScheduleRun, term: Term) -> list[int]:
@@ -378,7 +383,8 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     extra_weeks: set[int] = set()
     room_cap = {r.id: (r.exam_capacity if exam else r.capacity) for r in rooms}
     trust_hints = run_mode(params, "trust_locked_rooms") and bool(params.get("trust_definitive_capacity", True))
-    hint_clipped: list[tuple[int, int, int]] = []  # (request, expected size, planner's seats) in prefer mode
+    # prefer mode: (request, expected size, planner's seats, the planner's rooms) of D1-for-hints cases
+    hint_clipped: list[tuple[int, int, int, list[int]]] = []
     hint_sets: dict[int, list[int]] = {}  # prefer mode: request -> the planner's definitive rooms (hint)
 
     if not exam:
@@ -440,7 +446,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 if trust_hints and definitive and 0 < seats < size:
                     # D1 for hints: the planner seats this group in fewer seats (enrolments are estimates),
                     # so a room set of that size is enough; reported per case (trusted_hint_capacity)
-                    hint_clipped.append((mr.id, size, seats))
+                    hint_clipped.append((mr.id, size, seats, list(definitive)))
                     size = seats
             if (
                 is_locked
@@ -537,7 +543,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 exam_preferred = list(dict.fromkeys([*definitive, *exam_preferred]))
                 seats = sum(room_cap.get(r, 0) for r in definitive)
                 if trust_hints and definitive and 0 < seats < size:
-                    hint_clipped.append((head.id, size, seats))  # see the course case above
+                    hint_clipped.append((head.id, size, seats, list(definitive)))  # see the course case above
                     size = seats
             tip_ok = is_locked and any(r.id in definitive and "TIP" in (r.tags or []) for r in rooms_db)
             cohort = frozenset().union(
@@ -582,19 +588,26 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             members[head.id] = [r.id for r in rows]
 
     if hint_clipped:
+        # one warning per case (like trusted_lock_capacity for locks), with the facts as params, so the
+        # data-issues report lists every class next to its planner room
         labels = {e.id: e.label for e in events}
-        bridge_diags.append(
-            _bridge_diag(
-                [r for r, _s, _c in hint_clipped][:200],
-                f"{len(hint_clipped)} request(s) have a definitive room (used as a hint) smaller than the expected "
-                "enrolment; the planner's seat count is used as their size: "
-                + "; ".join(f"{labels.get(r, r)} {sz} -> {cap}" for r, sz, cap in hint_clipped[:10])
-                + (" ..." if len(hint_clipped) > 10 else ""),
-                ["check the enrolment estimates", "set trust_definitive_capacity=false to require full capacity"],
-                "trusted_hint_capacity",
-                ["capacity"],
+        head_of = {m: h for h, ms in members.items() for m in ms}
+        what = "exam seats" if exam else "seats"
+        for rid, sz, cap, planner_rooms in hint_clipped:
+            head_id = head_of.get(rid, rid)
+            hint_codes = [all_rooms.get(r, str(r)) for r in planner_rooms]
+            bridge_diags.append(
+                _bridge_diag(
+                    [head_id],
+                    f"{labels.get(head_id, str(head_id))} expects {sz} students; the planner's room "
+                    f"{' + '.join(hint_codes)} "
+                    f"has {cap} {what}: used as a hint with {cap} as the group size (enrolments are estimates)",
+                    ["check the enrolment estimate", "set trust_definitive_capacity=false to require full capacity"],
+                    "trusted_hint_capacity",
+                    ["capacity"],
+                    {"size": sz, "seats": cap, "room_codes": hint_codes, "request_id": rid},
+                )
             )
-        )
         run.stats = {**(run.stats or {}), "trusted_hint_capacity": len(hint_clipped)}
 
     blocks: list[sm.Block] = []

@@ -9,7 +9,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +40,6 @@ const EVENING_FROM = 12; // P12 starts the evening programme (17:30)
 export function RoomDetail({ id }: { id: number }) {
   const { t, locale } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
-  const router = useRouter();
   const params = useSearchParams();
   const qc = useQueryClient();
   const room = useRoom(id);
@@ -58,7 +57,7 @@ export function RoomDetail({ id }: { id: number }) {
     const next = new URLSearchParams(params.toString());
     next.set("week", String(w));
     setPicked(null);
-    router.replace(`/rooms/${id}?${next.toString()}`, { scroll: false });
+    window.history.replaceState(window.history.state, "", `/rooms/${id}?${next.toString()}`);
   };
 
   const grid = useMemo(() => (cal.model && week !== null ? roomWeek(cal.model, id, week) : null), [cal.model, week, id]);

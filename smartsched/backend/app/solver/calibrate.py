@@ -16,7 +16,7 @@ solve.  Deterministic per seed; with ``workers > 1`` and a time limit the number
 between runs, so the CLI reports the mean of ``--repeat`` seeds.
 
     cd smartsched/backend
-    python -m app.solver.calibrate --time-limit 90 --out ../../docs/testing/calibration/2026-10-08-weights.json
+    python -m app.solver.calibrate --time-limit 90 --repeat 2 --workers 4 --out /tmp/calibration.json
 """
 
 from __future__ import annotations
@@ -35,7 +35,6 @@ from app.solver.model import SolverInput, SolverResult
 
 #: candidate weight sets (overrides of weights.DEFAULT_WEIGHTS); "defaults" is the reference
 WEIGHT_SETS: dict[str, dict[str, int]] = {
-    "old-defaults": {"room_preference": 10, "building_preference": 5, "min_capacity_waste": 1},
     "defaults": {},
     "pref20": {"room_preference": 20, "building_preference": 5, "min_capacity_waste": 1},
     "pref30-bld2": {"room_preference": 30, "building_preference": 2, "min_capacity_waste": 1},
@@ -118,7 +117,20 @@ def run_grid(
 def summarise(rows: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, float]]]:
     """weight set -> instance -> mean metrics over seeds."""
     out: dict[str, dict[str, dict[str, float]]] = {}
-    keys = ("placed_roomed", "planner_placed", "repro_exact_rate", "repro_overlap_rate", "hard", "soft")
+    keys = (
+        "placed",
+        "placed_roomed",
+        "roomed",
+        "planner_events",
+        "planner_placed",
+        "repro_exact",
+        "repro_overlap",
+        "repro_exact_rate",
+        "repro_overlap_rate",
+        "hard",
+        "soft",
+        "wall_s",
+    )
     groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for r in rows:
         groups.setdefault((r["weights"], r["instance"]), []).append(r)
@@ -240,15 +252,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--sets", nargs="*", default=list(WEIGHT_SETS), help=f"weight sets ({', '.join(WEIGHT_SETS)})")
     ap.add_argument("--instances", nargs="*", default=["bahar_w3", "guz_w3", "final"])
+    ap.add_argument("--definitive-rooms", default="prefer", choices=("prefer", "lock", "ignore"))
     ap.add_argument("--cache", type=Path, help="pickle of the built instances (reused when present)")
     ap.add_argument("--out", type=Path, help="write rows + summary + choice as JSON")
     args = ap.parse_args(argv)
+    # build through the importable module so a cached pickle names app.solver.calibrate.Instance, not
+    # __main__.Instance (loadable from tests and scripts too)
+    from app.solver import calibrate as module
+
     if args.cache and args.cache.exists():
         import pickle
 
         instances = pickle.loads(args.cache.read_bytes())
     else:
-        instances = build_instances(args.fixtures, names=args.instances)
+        instances = module.build_instances(args.fixtures, names=args.instances, definitive_rooms=args.definitive_rooms)
         if args.cache:
             import pickle
 
@@ -276,6 +293,8 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "time_limit_s": args.time_limit,
                     "repeat": args.repeat,
+                    "workers": args.workers,
+                    "definitive_rooms": args.definitive_rooms,
                     "rows": rows,
                     "summary": summary,
                     "choice": choice,

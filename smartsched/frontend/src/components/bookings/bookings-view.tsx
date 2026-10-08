@@ -6,7 +6,7 @@
 import { ChevronLeft, ChevronRight, CircleSlash, Info, Layers, ListChecks, Printer, Wrench, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -34,6 +34,7 @@ type Display = "day" | "room";
 
 export function BookingsView() {
   const { t } = useI18n();
+  usePrintInLight();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -407,14 +408,48 @@ function Legend() {
   );
 }
 
-/* CRBS print.css: only the grid (with its title and legend) on paper, landscape, colours kept. The shell is
-   not ours, so everything outside the print area is hidden by visibility rather than by selectors. */
+/* CRBS print.css: only the grid (with its title and legend) on white paper, landscape, every column on the
+   page, colours kept. The shell is not ours, so everything outside the print area is hidden by visibility
+   rather than by selectors; the light palette for dark-mode users comes from usePrintInLight(). */
 const PRINT_CSS = `@media print {
-  @page { size: landscape; margin: 10mm; }
+  @page { size: A4 landscape; margin: 8mm; }
+  html, body { background: #fff !important; background-image: none !important; color-scheme: light; }
   body * { visibility: hidden !important; }
   [data-print-area], [data-print-area] * { visibility: visible !important; }
   [data-print-area] { position: absolute; left: 0; top: 0; width: 100%; }
   [data-print-hide], [data-print-hide] * { display: none !important; }
   [data-print-area] * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  [data-testid="booking-grid"] th { position: static !important; }
+  [data-testid="booking-grid"] { max-height: none !important; overflow: visible !important; border-radius: 0 !important; }
+  [data-testid="booking-grid"] table { width: 100% !important; min-width: 0 !important; table-layout: fixed !important; font-size: 7pt; line-height: 1.15; }
+  [data-testid="booking-grid"] col { width: auto !important; }
+  [data-testid="booking-grid"] col:first-child { width: 20mm !important; }
+  [data-testid="booking-grid"] th { position: static !important; padding: 1mm !important; }
+  [data-testid="booking-grid"] thead { display: table-header-group; }
+  [data-testid="booking-grid"] tr { break-inside: avoid; }
+  [data-testid="booking-grid"] [data-cell] { height: auto !important; min-height: 8mm; padding: 0.6mm 0.8mm !important; outline: none !important; }
+  [data-testid="booking-grid"] [data-tone="available"] svg { display: none !important; }
+  [data-testid="booking-grid"] button { color: inherit; }
 }`;
+
+/** Dark-mode users still print on white: drop the theme class for the print only (CRBS prints light). */
+function usePrintInLight() {
+  useEffect(() => {
+    const root = document.documentElement;
+    let restore = false;
+    const before = () => {
+      restore = root.classList.contains("dark");
+      if (restore) root.classList.remove("dark");
+    };
+    const after = () => {
+      if (restore) root.classList.add("dark");
+      restore = false;
+    };
+    window.addEventListener("beforeprint", before);
+    window.addEventListener("afterprint", after);
+    return () => {
+      window.removeEventListener("beforeprint", before);
+      window.removeEventListener("afterprint", after);
+      after();
+    };
+  }, []);
+}

@@ -11,13 +11,44 @@ import type { Locale } from "@/lib/i18n";
 
 export const DEFAULT_PATTERNS = { long: "EEEE d MMMM yyyy", weekday: "EEE d MMM", time: "HH:mm" } as const;
 
+export interface PatternDefaults {
+  long: string;
+  weekday: string;
+  time: string;
+}
+
+/** An empty org pattern is CRBS "(Default)": the locale's FULL / MEDIUM / SHORT format. Same table as the
+ *  backend (`bookings_i18n.DEFAULT_PATTERNS`, served as `GET /org/i18n` → `date_defaults`). */
+export const LOCALE_DEFAULTS: Record<Locale, PatternDefaults> = {
+  tr: { long: "d MMMM yyyy EEEE", weekday: "d MMM yyyy", time: "HH:mm" },
+  en: { long: "EEEE, d MMMM yyyy", weekday: "d MMM yyyy", time: "HH:mm" },
+};
+
+/* Month and day names: the backend's tables, so the grid and the e-mails read the same ("Sep", not Intl's "Sept"). */
+const MONTHS: Record<Locale, readonly string[]> = {
+  tr: ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"],
+  en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+};
+const MONTHS_SHORT: Record<Locale, readonly string[]> = {
+  tr: ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+};
+/** Monday first, like Python's `date.weekday()` */
+const WEEKDAYS: Record<Locale, readonly string[]> = {
+  tr: ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"],
+  en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+};
+const WEEKDAYS_SHORT: Record<Locale, readonly string[]> = {
+  tr: ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"],
+  en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+};
+const AM_PM: Record<Locale, readonly [string, string]> = { tr: ["ÖÖ", "ÖS"], en: ["AM", "PM"] };
+
 export interface DatePatterns {
   pattern_long?: string | null;
   pattern_weekday?: string | null;
   pattern_time?: string | null;
 }
-
-const intlTag = (locale: Locale) => (locale === "tr" ? "tr-TR" : "en-GB");
 
 /** "2026-02-16" → local Date at midnight; also accepts full ISO timestamps. */
 export function parseDay(value: string | Date): Date {
@@ -70,7 +101,7 @@ export function tokenize(pattern: string): Token[] {
       i = stop + 1;
       continue;
     }
-    if (/[EdMyHhms]/.test(ch)) {
+    if (/[EdMyHhmsa]/.test(ch)) {
       let j = i;
       while (pattern[j] === ch) j++;
       out.push({ kind: "field", letter: ch, count: j - i });
@@ -85,20 +116,16 @@ export function tokenize(pattern: string): Token[] {
   return out;
 }
 
-function part(d: Date, locale: Locale, opts: Intl.DateTimeFormatOptions, type: Intl.DateTimeFormatPartTypes): string {
-  return new Intl.DateTimeFormat(intlTag(locale), opts).formatToParts(d).find((p) => p.type === type)?.value ?? "";
-}
-
 function field(d: Date, letter: string, count: number, locale: Locale): string {
   const pad = (n: number, w = 2) => String(n).padStart(w, "0");
   switch (letter) {
     case "E":
-      return part(d, locale, { weekday: count >= 4 ? "long" : "short" }, "weekday").replace(/\.$/, "");
+      return (count >= 4 ? WEEKDAYS : WEEKDAYS_SHORT)[locale][(d.getDay() + 6) % 7]!;
     case "d":
       return count >= 2 ? pad(d.getDate()) : String(d.getDate());
     case "M":
-      if (count >= 4) return part(d, locale, { month: "long", day: "numeric" }, "month");
-      if (count === 3) return part(d, locale, { month: "short", day: "numeric" }, "month").replace(/\.$/, "");
+      if (count >= 4) return MONTHS[locale][d.getMonth()]!;
+      if (count === 3) return MONTHS_SHORT[locale][d.getMonth()]!;
       return count === 2 ? pad(d.getMonth() + 1) : String(d.getMonth() + 1);
     case "y":
       return count === 2 ? pad(d.getFullYear() % 100) : String(d.getFullYear());
@@ -110,6 +137,8 @@ function field(d: Date, letter: string, count: number, locale: Locale): string {
     }
     case "m":
       return count >= 2 ? pad(d.getMinutes()) : String(d.getMinutes());
+    case "a":
+      return AM_PM[locale][d.getHours() >= 12 ? 1 : 0];
     case "s":
       return count >= 2 ? pad(d.getSeconds()) : String(d.getSeconds());
     default:
@@ -128,25 +157,43 @@ export function formatPattern(value: string | Date, pattern: string, locale: Loc
 export interface DateFormatter {
   long: (day: string) => string;
   weekday: (day: string) => string;
-  /** "08:30" stays as is unless the pattern says otherwise ("h:mm" → "8:30") */
+  /** "08:30" stays as is unless the pattern says otherwise ("h:mm a" → "8:30 AM") */
   time: (hhmm: string) => string;
   /** numeric, for tables: 16.02.2026 (tr) / 16/02/2026 (en) */
   short: (day: string) => string;
+  /** a backend timestamp (UTC, with or without "Z") in local time: weekday pattern + time pattern */
+  dateTime: (iso: string | null | undefined) => string;
 }
 
-export function dateFormatter(patterns: DatePatterns | undefined | null, locale: Locale): DateFormatter {
-  const long = patterns?.pattern_long || DEFAULT_PATTERNS.long;
-  const weekday = patterns?.pattern_weekday || DEFAULT_PATTERNS.weekday;
-  const time = patterns?.pattern_time || DEFAULT_PATTERNS.time;
+/** Backend timestamps are naive UTC ("2026-02-16T08:00:00"); read them as UTC, show them in local time. */
+export function parseTimestamp(iso: string): Date {
+  return new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : `${iso}Z`);
+}
+
+/**
+ * Formatter over the organisation's patterns. An empty pattern is CRBS "(Default)" = `defaults` (from
+ * `GET /org/i18n` → `date_defaults`, else the same table shipped here) for the language.
+ */
+export function dateFormatter(patterns: DatePatterns | undefined | null, locale: Locale, defaults?: PatternDefaults | null): DateFormatter {
+  const base = defaults ?? LOCALE_DEFAULTS[locale] ?? DEFAULT_PATTERNS;
+  const long = patterns?.pattern_long || base.long;
+  const weekday = patterns?.pattern_weekday || base.weekday;
+  const time = patterns?.pattern_time || base.time;
+  const clock = (d: Date) => formatPattern(d, time, locale);
   return {
     long: (day) => formatPattern(day, long, locale),
     weekday: (day) => formatPattern(day, weekday, locale),
     time: (hhmm) => {
       const m = /^(\d{1,2}):(\d{2})/.exec(hhmm);
       if (!m) return hhmm;
-      const d = new Date(2000, 0, 1, Number(m[1]), Number(m[2]));
-      return formatPattern(d, time, locale);
+      return clock(new Date(2000, 0, 1, Number(m[1]), Number(m[2])));
     },
     short: (day) => formatPattern(day, locale === "tr" ? "dd.MM.yyyy" : "dd/MM/yyyy", locale),
+    dateTime: (iso) => {
+      if (!iso) return "";
+      const d = parseTimestamp(iso);
+      if (Number.isNaN(d.getTime())) return iso;
+      return `${formatPattern(d, weekday, locale)} ${clock(d)}`;
+    },
   };
 }

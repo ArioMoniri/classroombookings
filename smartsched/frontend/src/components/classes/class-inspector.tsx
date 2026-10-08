@@ -160,9 +160,13 @@ export function ClassInspector(p: InspectorProps) {
   const size = a?.size ?? row?.enrolment ?? 0;
   const locked = a?.locked ?? placement?.locked ?? false;
   const conflictText = row?.issues.find((i) => i.severity === "hard")?.text[lang] ?? (a?.reasons.length ? a.reasons[0] : null);
+  const checks = explain.out?.checks?.length ? explain.out.checks : (detail.data?.checks ?? []);
+  // a failed solver check (instructor/cohort busy, room taken) outranks "placed": same reasons the move dialog shows
+  const failedCheck = checks.find((c) => c.state === "fail") ?? null;
   const statusLine = (() => {
     if (row?.placement_status === "unplaced") return { tone: "warning", text: t("classes.insp.unplacedReason", { reason: row.issues[0]?.text[lang] ?? "" }), glyph: <Minus className="size-3.5" /> };
     if (conflictText && (row?.placement_status === "conflict" || (a && a.reasons.some((r) => !r.startsWith("capacity"))))) return { tone: "infeasible", text: `${t("calendar.state.conflict")}: ${conflictText}`, glyph: <AlertTriangle className="size-3.5" /> };
+    if (failedCheck) return { tone: "infeasible", text: `${t("calendar.state.conflict")}: ${failedCheck.text[lang]}`, glyph: <AlertTriangle className="size-3.5" /> };
     if (row?.placement_status === "no_room_needed") return { tone: "neutral", text: t("classes.status.no_room_needed"), glyph: <Minus className="size-3.5" /> };
     if (row?.placement_status === "partial") return { tone: "warning", text: `${t("classes.status.partial")} · ${row.placement?.weeks_placed.length ?? 0}/${row.req.weeks.length}`, glyph: <Minus className="size-3.5" /> };
     return { tone: "feasible", text: `${t("calendar.state.placed")}${locked ? ` · ${t("calendar.state.locked")}` : ""}`, glyph: <Check className="size-3.5" /> };
@@ -171,7 +175,6 @@ export function ClassInspector(p: InspectorProps) {
   const origin = a?.origin ?? placement?.origin ?? null;
   const allWeeks = p.allWeeks ?? row?.req.weeks ?? [];
   const placedWeeks = a?.weeks.length ? a.weeks : (placement?.weeks_placed ?? []);
-  const checks = explain.out?.checks?.length ? explain.out.checks : (detail.data?.checks ?? []);
   const prov = row?.provenance;
   const raw = detail.data?.raw_row ?? null;
   const calendarHref = (() => {

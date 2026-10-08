@@ -24,6 +24,7 @@ from app.models import (
     SectionInstructor,
     Term,
 )
+from app.services.data_issues import build_data_issues
 from app.services.solver_bridge import MODE_DEFAULTS, build_solver_input, run_schedule
 from sqlalchemy import select
 
@@ -166,6 +167,11 @@ async def test_definitive_rooms_as_hints(engine):
     assert acu.locked is None and acu.preferred_room_ids[0] == ids["room:A207"]
     assert acu.size == 120  # D1 for hints: the planner seats 122 expected students in 120 seats
     assert "trusted_hint_capacity" in {d["code"] for d in run.stats["bridge_diagnoses"]}
+    # only the choice inside the pool becomes a hint: LAB 1 keeps its lab outside the pool (as with locks)
+    # instead of competing for pooled rooms it never used
+    lab = next(e for e in inp.events if e.label == "LAB 1")
+    assert lab.needs_room is False and lab.locked is None
+    assert "outside_room_pool" in {d["code"] for d in run.stats["bridge_diagnoses"]}
     res = await _run(factory, ids["term"], definitive_rooms="prefer")
     assert res.status in {"OPTIMAL", "FEASIBLE"}  # the hint holds: ACU 132 stays in A 207
     strict = await _run(factory, ids["term"], definitive_rooms="prefer", trust_definitive_capacity=False)
@@ -179,7 +185,22 @@ async def test_definitive_rooms_as_hints(engine):
                 )
             ).scalar_one()
             rooms[rid] = a.room_ids
+        lab_rows = (
+            await s.execute(
+                select(Assignment).where(Assignment.run_id == res.id, Assignment.meeting_request_id == ids["LAB 1"])
+            )
+        ).scalar_one()
     assert rooms == {res.id: [ids["room:A207"]], strict.id: [ids["room:A204"]]}
+    assert lab_rows.room_ids == [ids["room:A701"]]
+    # data-issues report: the clipped hint is listed once, per class, in "planned rooms too small"
+    async with factory() as s:
+        run_row = await s.get(ScheduleRun, res.id)
+        assert run_row is not None
+        report = await build_data_issues(s, run_row)
+    small = next(g for g in report["groups"] if g["code"] == "locked_room_too_small")
+    acu_items = [it for it in small["items"] if ids["ACU 132"] in it["request_ids"]]
+    assert [it["code"] for it in acu_items] == ["trusted_hint_capacity"], acu_items
+    assert acu_items[0]["message_tr"].startswith("ACU 132: beklenen 122 öğrenci, planlayıcının dersliği A207 120")
 
 
 async def _import_bahar(session) -> int:  # type: ignore[no-untyped-def]

@@ -149,8 +149,9 @@ export function ClassesPage() {
       if (v === null || v === "") next.delete(k);
       else next.set(k, v);
     }
-    router.replace(`/classes?${next.toString()}`, { scroll: false });
-  }, [params, router]);
+    // native history: syncs useSearchParams without an RSC round trip per change (Next docs, "Native History API")
+    window.history.replaceState(window.history.state, "", `/classes?${next.toString()}`);
+  }, [params]);
 
   // ------------------------------------------------------------------ query
   const [search, setSearch] = useState(view.filters.text);

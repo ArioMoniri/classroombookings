@@ -7,7 +7,7 @@
  */
 import { ChevronLeft, ChevronRight, LayoutGrid, Search, TableProperties, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,6 @@ type Sort = "code" | "capacity" | "busy" | "free";
 
 export function RoomsView() {
   const { t } = useI18n();
-  const router = useRouter();
   const params = useSearchParams();
   const layout = params.get("layout") === "table" ? "table" : "cards";
   const building = params.get("building") ?? "";
@@ -55,7 +54,8 @@ export function RoomsView() {
       if (v === null || v === "") next.delete(k);
       else next.set(k, v);
     }
-    router.replace(`/rooms${next.size ? `?${next.toString()}` : ""}`, { scroll: false });
+    // native history: syncs useSearchParams without an RSC round trip per keystroke
+    window.history.replaceState(window.history.state, "", `/rooms${next.size ? `?${next.toString()}` : ""}`);
   };
 
   const grids = useMemo(() => {

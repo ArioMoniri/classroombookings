@@ -243,10 +243,31 @@ still differ between runs (use `workers=1` for bit-for-bit runs).
   planner's set is the first choice, not only its first room);
 * bridge: an event may use as many rooms as the planner's set; D1 for hints (`trust_definitive_capacity`,
   default = `trust_locked_rooms`): a group the planner seats in fewer seats than its expected enrolment
-  gets the planner's seat count as size (reported `trusted_hint_capacity`), merged joint lectures too.
+  gets the planner's seat count as size (one `trusted_hint_capacity` warning per case), merged joint
+  lectures too;
+* bridge: only the planner's choice *inside* the room pool becomes a hint — a LOCKED row whose rooms are
+  all outside the pool (lab/office without capacity) keeps them (`needs_room=False`, `outside_room_pool`)
+  exactly as with locks; before, 81 Bahar week-3 rows competed for pooled rooms they never used and
+  pushed planner-roomed classes out (placed 600 → 641 of 660).
 
 `python -m app.solver.calibrate` grid-searches weight sets on Bahar week 3, Güz week 3 and the Final
-(rows + summary + choice as JSON; `docs/testing/calibration/`), see `weights.py` for the chosen defaults.
+(rows + summary + choice as JSON with `--out`); results and the chosen defaults are in
+`docs/testing/2026-10-08-real-data-feasibility.md` ("Weight calibration").
+
+## Day sweep after a time-limited search (`cpsat.day_sweep`, `cpsat.polish_preferred`)
+
+On the real Bahar week (~640 placed events, 58 rooms) a 45 s CP-SAT search stops far from the optimum
+(objective 1694 vs bound 1262), although with the times fixed the room choice only couples events of the
+same day.  When the warm start is complete (a solution is guaranteed) and the events span more than one
+day, the main search gets `SEARCH_SHARE` (60 %) of the remaining time; if it ends FEASIBLE (not proven),
+each day is re-solved on its own — that day's unlocked events pinned to their current day/start, the
+day's locked events as they are, hinted with the current rooms — and a day's new rooms are kept only if
+the *whole* timetable still has no hard violation and its total penalty strictly drops (soft terms
+linking days, e.g. `same_room_group`, are part of that check).  `polish_preferred` then tries single
+moves into a free preferred room set under the same rule.  Proven optima are never touched
+(determinism above).  Bahar week 3 prefer mode, 90 s: penalty 1694 → ~1300, exact reproduction 83 → 89 %.
+Stats: `sweep_days`, `sweep_improved_days`, `sweep_penalty_before/after`, `sweep_s`,
+`polish_preferred_moves` (phase 2 of a best-effort run: `phase2_sweep_*`).
 
 ### Diagnosis codes and params
 
@@ -257,10 +278,11 @@ still differ between runs (use `workers=1` for bit-for-bit runs).
 
 | code | severity | params |
 |---|---|---|
-| `bad_time`, `no_time`, `all_blocked`, `out_of_horizon` | error / info | `day`/`start`/`duration`, `reasons`, `weeks` |
+| `bad_time`, `no_time`, `all_blocked`, `out_of_horizon` | error / info | `day`/`start`/`duration`, `reasons`, `categories` (`no_time`: reason category → count), `weeks` |
 | `no_room` | error | `reason` (`pin`/`tags`/`capacity`/`pin_vs_lock`/`rules`), `size`, `missing_tags`, `missing_pins`, `largest_room`, `largest_capacity`, `pinned_rooms`, `locked_rooms`, `pin_vs_lock`, `fitting_rooms`, `excluded` (collapsed reason categories), `reasons` |
 | `fixed_conflict` / `input_conflict` | error / warning | `noun`, `key`, `kind`, `keys` (`[[kind, key], …]`), `day`, `start` |
 | `trusted_lock_capacity` / `trusted_lock_tags` | warning | `rooms`, `room_codes`, `seats`, `size`, `fitting_rooms` / `missing_tags`, `forbidden_tags` |
+| `trusted_hint_capacity` (bridge, prefer mode) | warning | `size`, `seats`, `room_codes`, `request_id` |
 | `locked_overlap` | error | `rooms`, `room_codes`, `day`, `period`, `shared` (+ `week`, `need`, `seats` for shared rooms) |
 | `locked_ineligible`, `locked_blocked` | error | `rooms`, `room_codes`, `reasons`, `categories`, `day`, `start`, `end` |
 | `pigeonhole` | error | `n`, `day`, `period`, `week`, `rooms` |

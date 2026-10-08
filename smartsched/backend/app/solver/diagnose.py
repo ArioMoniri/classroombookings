@@ -172,7 +172,10 @@ def static_check(prep: Prepared) -> list[Diagnosis]:
                     ["widen the day/period window", "move the conflicting fixed-time event"],
                     "error",
                     "no_time",
-                    {"reasons": dict(reasons.most_common(5))},
+                    {
+                        "reasons": dict(reasons.most_common(5)),
+                        "categories": reason_categories(dom.time_reasons.values()),
+                    },
                 )
             )
             continue

@@ -196,7 +196,7 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
                         >
                           <span className="w-14 shrink-0 font-semibold">{r.code}</span>
                           <span className="w-16 shrink-0 text-[12px] text-label-2 tabular-nums">{t(model.exam ? "calendar.move.examSeats" : "calendar.move.seats", { n: r.capacity })}</span>
-                          <span className="min-w-0 flex-1 truncate text-[12px] text-label-2">{r.status === "free" && r.fit ? `%${Math.round(r.fit * 100)}` : (r.reason?.[lang] ?? "")}</span>
+                          <span className="min-w-0 flex-1 truncate text-[12px] text-label-2">{r.room_id === ev.room ? t("calendar.move.current") : r.status === "free" && r.fit ? t("calendar.move.fit", { p: Math.round(r.fit * 100) }) : (r.reason?.[lang] ?? "")}</span>
                           {room === r.room_id ? <Check className="size-3.5 shrink-0 text-tint-text" aria-hidden /> : null}
                         </button>
                       ))}
