@@ -85,3 +85,10 @@ for r in (
     approvals.me_router,
 ):
     api_router.include_router(r)
+
+# calendar sync (subscription feeds, Google / Microsoft push connectors) and outgoing webhooks
+# (docs/product/calendar-sync-api.md)
+from app.api.v1 import calendar_sync, webhooks  # noqa: E402
+
+api_router.include_router(calendar_sync.router)
+api_router.include_router(webhooks.router)

@@ -8,6 +8,8 @@ from datetime import date
 
 import pytest
 
+from tests.api_fixtures import login
+
 MON = date(2026, 2, 16)
 THU = date(2026, 2, 19)
 
@@ -126,6 +128,9 @@ async def test_deleting_a_role_removes_its_acl_entries(env):
     assert (await c.delete(f"/api/v1/roles/{role['id']}", headers=env.admin)).status_code == 204
     assert await _acl(env, "room", env.rooms["A103"]) == []
     assert (await c.get(f"/api/v1/users/{uid}", headers=env.admin)).json()["role_id"] is None
+    # losing the role also ends the member's sessions (B-AUTH-11); signed in again they see no room
+    assert (await c.get("/api/v1/bookings/rooms", headers=h)).status_code == 401
+    h = await login(c, "lab.sorumlu@uni.edu.tr", "parola-1234")
     assert (await c.get("/api/v1/bookings/rooms", headers=h)).json() == []
 
 

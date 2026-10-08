@@ -438,23 +438,23 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
             score -= BUILDING_BONUS
             reasons.append(_reason(f"Tercih edilen bina ({preferred})", f"Preferred building ({preferred})"))
         if status == "too_small":
-            reasons.append(
-                _reason(f"{c.cap} kişilik; {q.headcount} kişi sığmaz", f"Seats {c.cap}; {q.headcount} do not fit")
+            reasons.insert(
+                0, _reason(f"{c.cap} kişilik; {q.headcount} kişi sığmaz", f"Seats {c.cap}; {q.headcount} do not fit")
             )
         elif status == "capacity_unknown":
-            reasons.append(_reason("Kapasite bilinmiyor", "Capacity unknown"))
+            reasons.insert(0, _reason("Kapasite bilinmiyor", "Capacity unknown"))
         elif status == "feature_missing":
-            reasons.append(_reason("Eksik: " + ", ".join(c.missing), "Missing: " + ", ".join(c.missing)))
+            reasons.insert(0, _reason("Eksik: " + ", ".join(c.missing), "Missing: " + ", ".join(c.missing)))
         elif status == "requestable":
-            reasons.append(_reason("Onay gerekli: talep oluşturulur", "Needs approval: a request is created"))
+            reasons.insert(0, _reason("Onay gerekli: talep oluşturulur", "Needs approval: a request is created"))
         elif status == "partial":
-            reasons.append(_reason(f"{free_n}/{len(per)} tarih boş", f"free on {free_n} of {len(per)} dates"))
+            reasons.insert(0, _reason(f"{free_n}/{len(per)} tarih boş", f"free on {free_n} of {len(per)} dates"))
         busy_with = None
         if status in ("busy", "partial"):
             first_held = next(h for h in per.values() if h is not None)
             busy_with = await _busy_label(session, access, first_held, r)
             if status == "busy":
-                reasons.append(_reason(f"Dolu: {busy_with}", f"Busy: {busy_with}"))
+                reasons.insert(0, _reason(f"Dolu: {busy_with}", f"Busy: {busy_with}"))
         item: dict[str, Any] = {
             "room_id": r.id,
             "code": r.code,
@@ -542,10 +542,11 @@ async def _alternatives(
     info: TermInfo,
 ) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    fits = [c for c in cands if c.static is None]
-
     def all_free(c: _Cand, ds: list[date], s: int) -> bool:
         return all(_free_on(holders(c.room.id, d), s, s + dur - 1) is None for d in ds)
+
+    # rooms that fit but are taken at the asked time (free ones are results already)
+    fits = [c for c in cands if c.static is None and not all_free(c, dates, s0)]
 
     # same rooms, earlier / later
     for shift in [1, -1, 2, -2][: max(0, min(q.flex_periods, 2)) * 2]:

@@ -97,6 +97,8 @@ export const BookingOut = z.object({
   notes: z.string().nullish(),
   notes_hidden: z.boolean().default(false),
   is_owner: z.boolean().default(false),
+  /** grid slots only: the viewer may cancel it (multi-select bulk cancel, CRBS slot/booked.php) */
+  can_cancel: z.boolean().optional(),
   cancel_reason: z.string().nullish(),
   cancelled_at: z.string().nullish(),
   created_at: z.string().nullish(),
@@ -121,6 +123,10 @@ export const RoomInfo = z.object({
   code: z.string(),
   name: z.string(),
   capacity: z.number().nullish(),
+  exam_capacity: z.number().nullish(),
+  building: z.string().nullish(),
+  building_code: z.string().nullish(),
+  floor: z.string().nullish(),
   tags: z.array(z.string()).default([]),
   room_group_id: z.number().nullish(),
   group: z.string().nullish(),
@@ -130,7 +136,7 @@ export const RoomInfo = z.object({
   notes: z.string().nullish(),
   icon: z.string().nullish(),
   photo_url: z.string().nullish(),
-  fields: z.array(z.object({ field_id: z.number(), name: z.string(), type: z.string(), value: z.unknown() })).default([]),
+  fields: z.array(z.object({ field_id: z.number(), name: z.string(), type: z.string(), value: z.unknown(), unit: z.string().nullish(), icon: z.string().nullish() })).default([]),
 });
 export type RoomInfo = z.infer<typeof RoomInfo>;
 
@@ -150,7 +156,7 @@ export const BookingContext = z.object({
     z.object({ id: z.number(), code: z.string(), name: z.string(), start: z.string(), end: z.string(), is_current: z.boolean(), is_selectable: z.boolean() }),
   ),
   current_term_id: z.number().nullish(),
-  room_groups: z.array(z.object({ id: z.number(), name: z.string(), description: z.string().nullish() })),
+  room_groups: z.array(z.object({ id: z.number(), name: z.string(), description: z.string().nullish(), room_count: z.number().optional() })),
   display: z.object({
     type: z.enum(["day", "room"]),
     columns: z.enum(["periods", "rooms", "days"]),
@@ -210,7 +216,7 @@ export const GridPeriod = z.object({
 });
 export type GridPeriod = z.infer<typeof GridPeriod>;
 
-export const GridRoom = z.object({ id: z.number(), name: z.string(), code: z.string(), room_group_id: z.number().nullish(), capacity: z.number().nullish() });
+export const GridRoom = z.object({ id: z.number(), name: z.string(), code: z.string(), room_group_id: z.number().nullish(), capacity: z.number().nullish(), owner: z.string().nullish() });
 export type GridRoom = z.infer<typeof GridRoom>;
 
 export const Grid = z.object({
@@ -329,6 +335,8 @@ export interface MultiSlotChoice {
   department_id?: number | null;
   recurring_start?: string | null;
   recurring_end?: string | null;
+  /** recurring only: per-date choice for this slot's series */
+  instances?: { date: string; action: InstanceAction }[];
 }
 
 export const MultiProblem = z.object({ mbs_id: z.number(), code: z.string(), message: z.string(), conflict: Held.optional() });
@@ -368,6 +376,53 @@ export type BookingConflict = z.infer<typeof BookingConflict>;
 
 export const OwnedRoom = RoomInfo.extend({ upcoming: z.array(BookingOut).default([]) });
 export type OwnedRoom = z.infer<typeof OwnedRoom>;
+
+/** `GET /bookings/departments/{id}/rooms`: rooms a department uses most (bookings + timetable classes). */
+export const DepartmentRooms = z.object({
+  department: z.object({ id: z.number(), name: z.string() }),
+  term_id: z.number(),
+  rooms: z.array(
+    z.object({ room_id: z.number(), code: z.string(), name: z.string(), room_group_id: z.number().nullish(), capacity: z.number().nullish(), bookings: z.number(), classes: z.number() }),
+  ),
+});
+export type DepartmentRooms = z.infer<typeof DepartmentRooms>;
+
+/** `GET /bookings/users`: "Booked by" choices (guarded by `book_*.set_user`). */
+export const BookingUser = z.object({ id: z.number(), name: z.string(), username: z.string().nullish() });
+export type BookingUser = z.infer<typeof BookingUser>;
+
+/** T1 `POST /rooms/find` (docs/product/booking-enhancements.md §4.2); fields read leniently. */
+export const FindResult = z.object({
+  room_id: z.number(),
+  code: z.string(),
+  name: z.string(),
+  building: z.string().nullish(),
+  capacity: z.number().nullish(),
+  exam_capacity: z.number().nullish(),
+  tags: z.array(z.string()).default([]),
+  features: z.array(z.string()).default([]),
+  status: z.string(),
+  action: z.string().default("none"),
+  start_period: z.number(),
+  end_period: z.number(),
+  reason: z.object({ tr: z.string(), en: z.string() }).nullish(),
+  fit: z.object({ waste_pct: z.number().nullish(), score: z.number().nullish() }).nullish(),
+});
+export type FindResult = z.infer<typeof FindResult>;
+export const FindOut = z.object({ term_id: z.number().optional(), results: z.array(FindResult).default([]) });
+export type FindOut = z.infer<typeof FindOut>;
+export interface FindIn {
+  term_id?: number;
+  date: string;
+  start: number;
+  end: number;
+  headcount?: number;
+  tags?: string[];
+  include_busy?: boolean;
+  include_requestable?: boolean;
+  flex?: { periods: number; other_days?: boolean };
+  limit?: number;
+}
 
 export const FeedToken = z.object({ token: z.string(), user_feed: z.string(), room_feed: z.string() });
 export type FeedToken = z.infer<typeof FeedToken>;
@@ -837,6 +892,13 @@ export const crbs = {
     ownedRooms: () => json("/bookings/owned-rooms", z.array(OwnedRoom)),
     feedToken: () => send("POST", "/bookings/feed/token", undefined, FeedToken),
     conflicts: (termId?: number) => json("/bookings/conflicts", z.array(BookingConflict), { term_id: termId }),
+    departmentRooms: (departmentId: number, termId?: number, limit?: number) =>
+      json(`/bookings/departments/${departmentId}/rooms`, DepartmentRooms, { term_id: termId, limit }),
+    users: (q?: string) => json("/bookings/users", z.array(BookingUser), { q }),
+  },
+  rooms: {
+    /** T1 find-a-room; 404/405 while the backend does not have it yet (callers fall back to the grid) */
+    find: (body: FindIn) => send("POST", "/rooms/find", body, FindOut),
   },
   roles: {
     permissions: () => json("/permissions", PermissionCatalogue),
@@ -1123,3 +1185,68 @@ export function useCrbsMutation<TVars, TOut>(fn: (vars: TVars) => Promise<TOut>,
 
 /** Everything a booking can change: the grid, the lists, the context counters. */
 export const BOOKING_KEYS: QueryKey[] = [["crbs", "grid"], ["crbs", "mine"], ["crbs", "dashboard"], ["crbs", "owned-rooms"], crbsKeys.context, ["crbs", "booking"], ["crbs", "series"], ["crbs", "conflicts"]];
+
+/* ------------------------------------------------------------- admin gaps (UI gap audit 2026-10-08) */
+
+/** `PUT /terms/{id}` answer: the bookings cancelled because the new dates no longer contain them. */
+export const TermSaved = z.object({
+  id: z.number(),
+  code: z.string(),
+  name: z.string(),
+  start_date: z.string().nullish(),
+  end_date: z.string().nullish(),
+  cancelled_booking_ids: z.array(z.number()).default([]),
+});
+export type TermSaved = z.infer<typeof TermSaved>;
+/** `GET /terms/{id}/usage`: what deleting the term erases with it (CRBS `session.delete.warning`). */
+export const TermUsage = z.object({ term_id: z.number(), bookings: z.number(), active_bookings: z.number(), series: z.number(), holidays: z.number(), runs: z.number(), sections: z.number().default(0) });
+export type TermUsage = z.infer<typeof TermUsage>;
+export interface TermCreateIn {
+  code: string;
+  name?: string | null;
+  start_date: string;
+  end_date: string;
+  week_count?: number;
+}
+export interface TermUpdateIn {
+  name?: string | null;
+  start_date?: string;
+  end_date?: string;
+  week_count?: number;
+}
+/** `POST /rooms` answer (room master). */
+export const CreatedRoom = z.object({ id: z.number(), code: z.string(), display_name: z.string(), capacity: z.number() });
+export interface RoomCreateIn {
+  code: string;
+  display_name?: string | null;
+  capacity?: number;
+  is_bookable?: boolean;
+}
+/** `GET /health` (public): the backend version for the About line. */
+export const Health = z.object({ status: z.string(), version: z.string().nullish(), app: z.string().nullish() });
+
+/** Teaching weeks between two ISO dates (Monday-based, at least 1, at most 60 like `TermIn.week_count`). */
+export function weeksBetween(start: string, end: string): number {
+  const ms = Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`);
+  if (!Number.isFinite(ms) || ms < 0) return 1;
+  return Math.min(60, Math.max(1, Math.ceil((ms / 86_400_000 + 1) / 7)));
+}
+
+export const crbsAdmin = {
+  terms: {
+    create: (body: TermCreateIn) => send("POST", "/terms", body, TermSaved),
+    /** `confirm` repeats a date change that the `bookings.term_date_change = confirm` setting held back (409) */
+    update: (id: number, body: TermUpdateIn, confirm = false) => send("PUT", `/terms/${id}`, body, TermSaved, confirm ? { confirm: true } : undefined),
+    remove: (id: number) => send("DELETE", `/terms/${id}`),
+    usage: (id: number) => json(`/terms/${id}/usage`, TermUsage),
+  },
+  rooms: {
+    create: (body: RoomCreateIn) => send("POST", "/rooms", body, CreatedRoom),
+    remove: (id: number) => send("DELETE", `/rooms/${id}`),
+  },
+  health: () => json("/health", Health),
+};
+
+export const useTermUsage = (termId: number | null) =>
+  useQuery({ queryKey: ["crbs", "term-usage", termId ?? 0], queryFn: () => crbsAdmin.terms.usage(termId ?? 0), enabled: termId !== null, retry: false });
+export const useAppVersion = () => useQuery({ queryKey: ["health"], queryFn: crbsAdmin.health, staleTime: 10 * 60_000, retry: false, select: (h) => h.version ?? null });

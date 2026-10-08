@@ -1907,7 +1907,7 @@
       "reduceMotionHint": "Kaydırma, büyütme ve yaylanmaları kısa geçişlerle değiştirir.",
       "reduceTransparency": "Saydamlığı azalt",
       "reduceTransparencyHint": "Okunabilirlik için cam yüzeyleri opak yapar.",
-      "languageHint": "Türkçe ve İngilizce; tarih ve sayılar dile uyar.",
+      "languageHint": "Yöneticinin açtığı diller; tarih ve sayılar dile uyar.",
       "periodsHint": "Üniversitenin 18 ders saati; 12. ders saati 30 dakikadır.",
       "subtitleUser": "Dil, görünüm ve erişilebilirlik."
     },

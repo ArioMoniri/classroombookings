@@ -253,7 +253,8 @@
       "goal": "Phase 18 part P18-LANG in docs/ROADMAP.md and the gap row P18-LANG in smartsched/backend/tests/parity/inventory.py. classroombookings ships 13 UI languages: Czech, Danish, Dutch, English, Finnish, French, German, Italian, Portuguese, Portuguese-Brazilian, Spanish, Swedish, Welsh. SmartSched must support all of them plus Turkish, in the frontend and in backend texts (e-mails, ICS, exports, diagnose…",
       "ledger": "frontend-engineer (13 languages + TR)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 15:49"
     },
     {
       "id": "ac99f3a76c4acc49e",

@@ -450,7 +450,9 @@ async def feed_options(session: AsyncSession, access: Access) -> dict[str, Any]:
     deps = list((await session.execute(select(Program))).scalars())
     deps.sort(key=lambda d: (tr_sort_key(d.name), d.id))
     return {
-        "rooms": [{"id": r.id, "code": r.code, "name": r.display_name, "room_group_id": r.room_group_id} for r in rooms],
+        "rooms": [
+            {"id": r.id, "code": r.code, "name": r.display_name, "room_group_id": r.room_group_id} for r in rooms
+        ],
         "room_groups": [{"id": g.id, "name": g.name} for g in groups],
         "departments": [{"id": d.id, "name": d.name} for d in deps],
     }

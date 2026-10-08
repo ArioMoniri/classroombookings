@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from pydantic import BaseModel
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DB, Planner, Viewer, require_permission
@@ -119,6 +120,41 @@ async def update_term(
     await db.commit()
     await db.refresh(term)
     return TermUpdateOut.model_validate(term).model_copy(update={"cancelled_booking_ids": cancelled})
+
+
+class TermUsageOut(BaseModel):
+    """What ``DELETE /terms/{id}`` erases with the term (CRBS ``session.delete.warning``: its bookings go too)."""
+
+    term_id: int
+    bookings: int
+    active_bookings: int
+    series: int
+    holidays: int
+    runs: int
+    #: SmartSched planning data that goes too (course sections of the term)
+    sections: int
+
+
+@router.get("/{term_id}/usage", response_model=TermUsageOut)
+async def term_usage(term_id: int, db: DB, _: SessionsEditor) -> TermUsageOut:
+    """Counts for the delete confirmation in Admin -> Sessions (UI gap audit 2026-10-08 #3)."""
+    from app.models import Booking, BookingSeries, Holiday, ScheduleRun, Section
+
+    await _get(db, term_id)
+
+    async def count(model: type, *where: object) -> int:
+        q = select(func.count()).select_from(model).where(model.term_id == term_id, *where)  # type: ignore[attr-defined]
+        return int((await db.execute(q)).scalar_one())
+
+    return TermUsageOut(
+        term_id=term_id,
+        bookings=await count(Booking),
+        active_bookings=await count(Booking, Booking.status == "BOOKED"),
+        series=await count(BookingSeries),
+        holidays=await count(Holiday),
+        runs=await count(ScheduleRun),
+        sections=await count(Section),
+    )
 
 
 @router.delete("/{term_id}", status_code=204)

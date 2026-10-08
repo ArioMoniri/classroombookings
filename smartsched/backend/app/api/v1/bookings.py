@@ -5,11 +5,10 @@ Every route here honours maintenance mode (503 unless ``system.bypass_maintenanc
 
 from __future__ import annotations
 
-import secrets
 from datetime import date, timedelta
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import func, select
 
@@ -37,7 +36,7 @@ from app.services import bookings_notify  # noqa: F401  (registers the notificat
 from app.services import rooms_features as features
 from app.services.bookings_calendar import date_infos, fgcol, term_info
 from app.services.bookings_collation import tr_sort_key
-from app.services.bookings_perms import Access, effective_limits, load_access
+from app.services.bookings_perms import Access, effective_limits
 from app.services.bookings_settings import get_group, get_value
 
 Day = date  # field names "date" shadow the type inside pydantic models
@@ -142,6 +141,8 @@ class SlotChoice(BaseModel):
     department_id: int | None = None
     recurring_start: Day | Literal["session"] | None = None
     recurring_end: Day | Literal["session"] | None = None
+    #: recurring only: book / do not book / replace per date of this slot's series (CRBS multi recur preview)
+    instances: list[InstanceChoice] | None = None
 
 
 class MultiCreateIn(BaseModel):
@@ -244,8 +245,28 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
         "current_term_id": next(
             (s["id"] for s in sessions if s["is_current"]), sessions[0]["id"] if sessions else None
         ),
-        "room_groups": [{"id": g.id, "name": g.name, "description": g.description} for (g,) in groups]
-        + ([{"id": 0, "name": "—", "description": None}] if any(r.room_group_id is None for r in rooms) else []),
+        # room_count: CRBS shows "Name (n)" on the room-group tabs (Grid.php:112)
+        "room_groups": [
+            {
+                "id": g.id,
+                "name": g.name,
+                "description": g.description,
+                "room_count": sum(1 for r in rooms if r.room_group_id == g.id),
+            }
+            for (g,) in groups
+        ]
+        + (
+            [
+                {
+                    "id": 0,
+                    "name": "—",
+                    "description": None,
+                    "room_count": sum(1 for r in rooms if r.room_group_id is None),
+                }
+            ]
+            if any(r.room_group_id is None for r in rooms)
+            else []
+        ),
         "display": {
             "type": org["displaytype"],
             "columns": org["d_columns"],
@@ -373,7 +394,7 @@ async def grid(
 ) -> dict[str, Any]:
     org = await get_group(db, "org")
     try:
-        return await svc.grid(
+        out = await svc.grid(
             db,
             access,
             display=display or org["displaytype"],
@@ -385,6 +406,59 @@ async def grid(
         )
     except cal.CalendarError as exc:
         raise HTTPException(409, {"code": "calendar", "message": str(exc)}) from exc
+    return await _grid_extras(db, access, out)
+
+
+async def _grid_extras(db: DB, access: Access, out: dict[str, Any]) -> dict[str, Any]:
+    """CRBS grid details the reservation panel shows: the room owner under the room name
+    (``col_room.php:14-20``) and, per booked slot, whether the viewer may cancel it (multi-select bulk
+    cancel, ``slot/booked.php:66-90``)."""
+    rooms: dict[int, Room] = {}
+    for r in out["rooms"]:
+        room = await db.get(Room, r["id"])
+        owner = await db.get(User, room.owner_user_id) if room is not None and room.owner_user_id else None
+        r["owner"] = (owner.full_name or owner.username or owner.email) if owner else None
+        if room is not None:
+            rooms[room.id] = room
+    for slot in out["slots"]:
+        b_out = slot.get("booking")
+        if not b_out:
+            continue
+        b = await db.get(Booking, b_out["id"])
+        room = rooms.get(slot["room_id"])
+        b_out["can_cancel"] = bool(
+            b is not None and room is not None and b.status == "BOOKED" and await svc.can_cancel(db, access, b, room)
+        )
+    return out
+
+
+@router.get("/users")
+async def booking_users(
+    db: DB,
+    access: Acc,
+    q: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 500,
+) -> list[dict[str, Any]]:
+    """ "Booked by" choices for the create / edit forms (CRBS ``single_form.php:80-95``): active users by
+    display name. Guarded by ``book_single.set_user`` / ``book_recur.set_user`` (role or any room ACL), so
+    planners who may book for others need no ``setup.users``."""
+    perms = ("book_single.set_user", "book_recur.set_user")
+    if not any(p in access.perms for p in perms) and not any(
+        p in acl for acl in (*access.acl_rooms.values(), *access.acl_groups.values()) for p in perms
+    ):
+        raise HTTPException(403, "requires book_single.set_user or book_recur.set_user")
+    users = list((await db.execute(select(User).where(User.is_active.is_(True)))).scalars())
+
+    def name(u: User) -> str:
+        full = " ".join(x for x in (u.firstname, u.lastname) if x)
+        return u.full_name or full or u.username or u.email or f"#{u.id}"
+
+    rows = [{"id": u.id, "name": name(u), "username": u.username} for u in users]
+    if q:
+        needle = n.tr_casefold(q)
+        rows = [r for r in rows if needle in n.tr_casefold(f"{r['name']} {r['username'] or ''}")]
+    rows.sort(key=lambda r: tr_sort_key(str(r["name"])))
+    return rows[:limit]
 
 
 # --- create ---------------------------------------------------------------------------------------
@@ -460,6 +534,10 @@ async def multi_create(mb_id: int, body: MultiCreateIn, db: DB, access: Acc) -> 
                 d.pop(k)
         if "notes" in d:
             d["notes"] = _notes(d["notes"])
+        if c.instances is not None:
+            d["instances"] = {i.date: {"action": i.action} for i in c.instances}
+        else:
+            d.pop("instances", None)
         choices[c.mbs_id] = d
     try:
         return await svc.create_from_selection(db, access, mb_id, body.type, choices, body.dry_run)
@@ -638,47 +716,36 @@ async def room_feed(room_id: int, db: DB, access: ListAcc) -> Response:
 
 
 @router.post("/feed/token")
-async def rotate_feed_token(db: DB, access: Acc) -> dict[str, str]:
-    """New secret for calendar subscriptions (``/ics/{token}/…``); the old links stop working."""
-    access.user.calendar_token = secrets.token_urlsafe(32)
+async def rotate_feed_token(db: DB, access: Acc) -> dict[str, Any]:
+    """New secret for calendar subscriptions; every older link of the user stops working (= ``POST
+    /calendar/feeds/reset``, docs/product/calendar-sync-api.md). Only the token's SHA-256 is stored."""
+    from app.services import calendar_feeds
+
+    row, tok = await calendar_feeds.reset_tokens(db, access.user)
     await db.commit()
-    tok = access.user.calendar_token
+    urls = await calendar_feeds.url_templates(db, tok)
     return {
         "token": tok,
         "user_feed": f"/api/v1/ics/{tok}/user.ics",
         "room_feed": f"/api/v1/ics/{tok}/room/{{room_id}}.ics",
+        **calendar_feeds.token_out(row),
+        "urls": urls,
+        "subscribe": calendar_feeds.subscribe_links(urls["mine"]),
     }
 
 
-async def _token_access(db: DB, token: str) -> Access:
-    if len(token) < 20:
-        raise HTTPException(404, "feed not found")
-    user = (await db.execute(select(User).where(User.calendar_token == token))).scalar_one_or_none()
-    if user is None or not user.is_active:
-        raise HTTPException(404, "feed not found")
-    return await load_access(db, user)
-
-
 @ics_router.get("/{token}/user.ics")
-async def token_user_feed(token: str, db: DB) -> Response:
-    access = await _token_access(db, token)
-    u = access.user
-    return _ics(
-        await export.ics_feed(db, access, title=f"SmartSched – {u.full_name or u.username or u.email}", user_id=u.id),
-        "bookings.ics",
-    )
+async def token_user_feed(token: str, request: Request, db: DB) -> Response:
+    from app.api.v1 import calendar_sync
+
+    return await calendar_sync.serve_feed(request, db, token, "mine", None)
 
 
 @ics_router.get("/{token}/room/{room_id}.ics")
-async def token_room_feed(token: str, room_id: int, db: DB) -> Response:
-    access = await _token_access(db, token)
-    room = await db.get(Room, room_id)
-    if room is None or not access.can_view_room(room):
-        raise HTTPException(404, "room not found")
-    return _ics(
-        await export.ics_feed(db, access, title=f"SmartSched – {room.display_name}", room_id=room.id),
-        f"{room.code}.ics",
-    )
+async def token_room_feed(token: str, room_id: int, request: Request, db: DB) -> Response:
+    from app.api.v1 import calendar_sync
+
+    return await calendar_sync.serve_feed(request, db, token, "room", room_id)
 
 
 # --- one booking (keep these after the fixed paths above) -------------------------------------------

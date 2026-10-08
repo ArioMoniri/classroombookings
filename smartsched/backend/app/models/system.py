@@ -45,7 +45,7 @@ class User(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     force_password_reset: Mapped[bool] = mapped_column(Boolean, default=False)
     auth_source: Mapped[str] = mapped_column(String(8), default="local")  # local | ldap
-    calendar_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    # calendar_token (plaintext) moved to calendar_feed_tokens.token_hash in alembic 0011_integrations
     language: Mapped[str | None] = mapped_column(String(32), nullable=True)
     #: bumped to sign the user out everywhere (sign-out, password change/reset, disabling, role change); access
     #: tokens carry it as the ``tv`` claim and a token with an older value answers 401 (parity B-AUTH-11)

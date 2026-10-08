@@ -1415,6 +1415,7 @@ async def create_from_selection(
             user_given="user_id" in c,
             department_given="department_id" in c,
             multi=True,
+            instances=c.get("instances"),  # per-date book / do not book / replace (reservation panel)
         )
         if dry_run:
             results.append({"mbs_id": s.id, "preview": plan_out(await plan_recurring(session, access, rbody))})

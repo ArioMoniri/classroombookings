@@ -14,7 +14,9 @@ for dir in "$SRC"/*-"$THEME"; do
   name="$(basename "$dir")"
   id="${name%-"$THEME"}"
   [[ -f "$dir/$name.mp4" && -f "$dir/$name.webp" ]] || { echo "skip $id (no mp4/webp)"; continue; }
-  cp "$dir/$name.mp4" "$DEST/$id.mp4"
+  # the compositor's MP4 is near-lossless (CRF 18); the repository copy is re-encoded smaller (REC_PUBLISH_CRF)
+  ffmpeg -hide_banner -loglevel error -y -i "$dir/$name.mp4" -c:v libx264 -preset slow -crf "${REC_PUBLISH_CRF:-26}" \
+    -pix_fmt yuv420p -movflags +faststart -an "$DEST/$id.mp4"
   cp "$dir/$name.webp" "$DEST/$id.webp"
   convert "$dir/$name.poster.png" -resize 1200x -quality 80 -define webp:method=6 "$DEST/$id-poster.webp"
   printf '%-18s mp4 %5.1f MB  webp %4.1f MB  %s s\n' "$id" \

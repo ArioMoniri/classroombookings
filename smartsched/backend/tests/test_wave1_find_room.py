@@ -89,6 +89,13 @@ async def test_features_buildings_and_turkish_text(env):  # noqa: F811
 
 async def test_recurring_partial_results_and_holidays(env):  # noqa: F811
     find_api.FIND_LIMIT.reset()
+    hol = await env.client.post(
+        "/api/v1/holidays",
+        json={"term_id": env.term_id, "name": "Ulusal Egemenlik ve Çocuk Bayramı", "date_start": "2026-04-23",
+              "date_end": "2026-04-23"},
+        headers=env.admin,
+    )
+    assert hol.status_code == 201, hol.text
     _, ayse = await env.user("ayse@uni.edu.tr")
     r = await env.book(ayse, "A102", date(2026, 3, 5), "P1")  # one Thursday taken
     assert r.status_code == 201, r.text
@@ -116,14 +123,18 @@ async def test_acl_hides_rooms_and_alternatives_when_few_are_free(env):  # noqa:
     _, guest = await env.user("misafir@uni.edu.tr", role_id=rid)
     out = (await c.post(FIND, json={"date": WED.isoformat(), "start": 3, "end": 5}, headers=guest)).json()
     assert out["results"] == []  # no room.view anywhere
-    # 150+ seats Wednesday P3-P5: A 204 (156) is busy with PHY 102 -> alternatives at other times
+    # 150+ seats Wednesday P3-P5: A 204 (156) has PHY 102; A 203 (148) is 1.3 % short -> a near miss
     out = (
-        await c.post(FIND, json={"date": WED.isoformat(), "start": 3, "end": 5, "headcount": 150, "flex": {"other_days": True}},
-                     headers=env.admin)
+        await c.post(FIND, json={"date": WED.isoformat(), "start": 3, "end": 5, "headcount": 150}, headers=env.admin)
     ).json()
     assert not [x for x in out["results"] if x["status"] == "free"]
-    kinds = {a["kind"] for a in out["alternatives"]}
-    assert "time" in kinds or "day" in kinds
-    assert all(a["reason"]["tr"] and a["reason"]["en"] for a in out["alternatives"])
     near = [a for a in out["alternatives"] if a["kind"] == "near_miss"]
-    assert all(a["code"] != "A204" for a in near)
+    assert [a["code"] for a in near] == ["A203"] and "148" in near[0]["reason"]["tr"]
+    # 120+: only A 203 is free, so the busy fitting rooms are offered earlier or later the same day
+    out = (
+        await c.post(FIND, json={"date": WED.isoformat(), "start": 3, "end": 5, "headcount": 120}, headers=env.admin)
+    ).json()
+    assert [x["code"] for x in out["results"] if x["status"] == "free"] == ["A203"]
+    times = [a for a in out["alternatives"] if a["kind"] == "time"]
+    assert times and {a["code"] for a in times} <= {"A204", "A207", "C201"}
+    assert all(a["reason"]["tr"] and a["reason"]["en"] for a in out["alternatives"])

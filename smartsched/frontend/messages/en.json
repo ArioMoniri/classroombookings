@@ -1907,7 +1907,7 @@
       "reduceMotionHint": "Replaces sliding, scaling and springs with short fades.",
       "reduceTransparency": "Reduce transparency",
       "reduceTransparencyHint": "Makes glass surfaces opaque for better legibility.",
-      "languageHint": "Turkish and English; dates and numbers follow the language.",
+      "languageHint": "The languages your administrator enabled; dates and numbers follow the language.",
       "periodsHint": "The university's 18 periods; period 12 is 30 minutes.",
       "subtitleUser": "Language, appearance and accessibility."
     },

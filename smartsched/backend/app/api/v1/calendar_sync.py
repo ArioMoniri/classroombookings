@@ -131,7 +131,7 @@ def ics_response(request: Request, feed: feeds.Feed) -> Response:
     return Response(feed.text.encode("utf-8"), media_type="text/calendar; charset=utf-8", headers=headers)
 
 
-async def _serve(request: Request, db: DB, token: str, kind: str, scope_id: int | None) -> Response:
+async def serve_feed(request: Request, db: DB, token: str, kind: str, scope_id: int | None) -> Response:
     access = await token_access_or_404(request, db, token)
     scope = feeds.FeedScope(kind, scope_id if scope_id is not None else access.user_id)
     try:
@@ -143,22 +143,22 @@ async def _serve(request: Request, db: DB, token: str, kind: str, scope_id: int 
 
 @router.get("/feeds/{token}/mine.ics")
 async def feed_mine(token: str, request: Request, db: DB) -> Response:
-    return await _serve(request, db, token, "mine", None)
+    return await serve_feed(request, db, token, "mine", None)
 
 
 @router.get("/feeds/{token}/room/{room_id}.ics")
 async def feed_room(token: str, room_id: int, request: Request, db: DB) -> Response:
-    return await _serve(request, db, token, "room", room_id)
+    return await serve_feed(request, db, token, "room", room_id)
 
 
 @router.get("/feeds/{token}/department/{department_id}.ics")
 async def feed_department(token: str, department_id: int, request: Request, db: DB) -> Response:
-    return await _serve(request, db, token, "department", department_id)
+    return await serve_feed(request, db, token, "department", department_id)
 
 
 @router.get("/feeds/{token}/room-group/{group_id}.ics")
 async def feed_room_group(token: str, group_id: int, request: Request, db: DB) -> Response:
-    return await _serve(request, db, token, "room_group", group_id)
+    return await serve_feed(request, db, token, "room_group", group_id)
 
 
 # --------------------------------------------------------------------------------------------------

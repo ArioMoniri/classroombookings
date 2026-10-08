@@ -2,20 +2,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import delete, select
 
-from app.api.deps import DB, Planner, Viewer
+from app.api.deps import DB, Planner, Viewer, require_permission
 from app.core.config import get_settings
 from app.core.images import check_image
 from app.core.safe_files import UnsafeFileError, read_upload
 from app.importers import normalize as n
-from app.models import Building, Room, RoomAcl
+from app.models import Building, Room, RoomAcl, User
 from app.schemas.catalog import BuildingIn, BuildingOut, RoomIn, RoomOut, RoomUpdate
 
 PHOTO_MAX_BYTES = 10 * 1024 * 1024
 
 router = APIRouter(tags=["rooms"])
+#: CRBS ``setup/rooms/Rooms::add`` / ``delete``: a room administrator (``setup.rooms``) creates and deletes rooms
+#: from Admin -> Rooms; the planning office keeps ``planning.edit`` (UI gap audit 2026-10-08 #4)
+RoomsEditor = Annotated[User, Depends(require_permission("planning.edit", "setup.rooms"))]
 
 
 @router.get("/buildings", response_model=list[BuildingOut])
@@ -49,7 +54,7 @@ async def list_rooms(
 
 
 @router.post("/rooms", response_model=RoomOut, status_code=201)
-async def create_room(body: RoomIn, db: DB, _: Planner) -> Room:
+async def create_room(body: RoomIn, db: DB, _: RoomsEditor) -> Room:
     codes = n.parse_room_codes(body.code)
     code = codes[0] if codes else n.tr_upper(body.code).replace(" ", "")
     if (await db.execute(select(Room).where(Room.code == code))).scalar_one_or_none():
@@ -94,7 +99,7 @@ async def update_room(room_id: int, body: RoomUpdate, db: DB, _: Planner) -> Roo
 
 
 @router.delete("/rooms/{room_id}", status_code=204)
-async def delete_room(room_id: int, db: DB, _: Planner) -> None:
+async def delete_room(room_id: int, db: DB, _: RoomsEditor) -> None:
     """Refused while bookings point at the room (audit B16: ``ON DELETE CASCADE`` would erase their history
     and nobody would be told); make the room not bookable instead, or cancel its bookings first."""
     from sqlalchemy import func
