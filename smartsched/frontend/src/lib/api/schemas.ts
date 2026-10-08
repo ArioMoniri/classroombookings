@@ -258,7 +258,7 @@ export const Diagnosis = z.object({
   ),
   severity: z.enum(["critical", "high", "medium", "low"]),
   /** solver/bridge diagnosis code (``unplaced``, ``input_conflict`` ...) */
-  code: z.string().default(""),
+  code: z.string().optional(),
   /** planner-facing text (backend templates); preferred over ``message`` when present */
   text: z.object({ tr: z.string(), en: z.string() }).optional(),
 });

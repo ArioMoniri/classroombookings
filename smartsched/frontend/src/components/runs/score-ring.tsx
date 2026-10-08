@@ -20,7 +20,7 @@ export function ScoreRing({ value, label, size = "lg", className, partial }: { v
         <div className="relative size-28">
           <svg viewBox="0 0 112 112" className="size-28 -rotate-90">
             <circle cx="56" cy="56" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="8" />
-            <motion.circle cx="56" cy="56" r={r} fill="none" stroke="var(--status-warning-solid, var(--status-warning-border))" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} initial={reduce ? false : { strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - pct) }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} />
+            <motion.circle cx="56" cy="56" r={r} fill="none" stroke="var(--status-warning-solid)" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} initial={reduce ? false : { strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - pct) }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-3xl font-bold tracking-[-0.01em] tabular-nums">{partial.placed}</span>

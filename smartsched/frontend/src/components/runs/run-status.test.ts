@@ -25,6 +25,13 @@ describe("best-effort (partial) runs", () => {
     const bare = ScheduleRun.parse(adapt.run({ ...base, status: "FEASIBLE_PARTIAL", hard_score: 100, stats: {} }));
     expect(runStatusBadge(bare, (k, v) => translate("en", k, v))).toEqual({ kind: "warning", label: "Partial" });
     expect(translate("tr", "runs.status.FEASIBLE_PARTIAL")).toBe("Kısmi");
+    expect(translate("tr", "runs.partialRing", { placed: 658, total: 684 })).toBe("658/684 ders yerleşti · hiçbir kural bozulmadı");
+  });
+
+  it("keeps the planner text and code of a diagnosis", () => {
+    const run = ScheduleRun.parse(adapt.run({ ...base, status: "FEASIBLE_PARTIAL", hard_score: 100, stats: {}, diagnosis: [{ event_ids: [1], constraint_kinds: ["capacity"], message: "E1 (#1) cannot be placed", suggestions: [], severity: "error", code: "unplaced", text: { tr: "MAT 112 yerleşemedi", en: "MAT 112 could not be placed" } }] }));
+    expect(run.diagnosis[0].code).toBe("unplaced");
+    expect(run.diagnosis[0].text).toEqual({ tr: "MAT 112 yerleşemedi", en: "MAT 112 could not be placed" });
   });
 
   it("keeps plain statuses for complete and empty runs", () => {
