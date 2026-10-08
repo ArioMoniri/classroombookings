@@ -19,13 +19,15 @@ docker run -d "${docker_common[@]}" --name "$backend" --network "$net" --network
   -e E2E_BOOKING_CLOCK=2026-02-16T08:00 \
   -w /w/src/smartsched/backend "$PY_IMAGE" bash /ci/e2e-backend-entry.sh >/dev/null
 section "playwright (E2E_REAL=1, all specs)"
-in_playwright --network "$net" -e E2E_REAL=1 -e NEXT_PUBLIC_API_URL=http://backend:8000 -- '
+# list for the log; json for the parity gate (gates/parity.sh maps UI rows to these test results)
+in_playwright --network "$net" -e E2E_REAL=1 -e NEXT_PUBLIC_API_URL=http://backend:8000 \
+  -e PLAYWRIGHT_JSON_OUTPUT_NAME=/w/playwright-report.json -- '
 for i in $(seq 1 300); do
   if node -e "fetch(\"http://backend:8000/api/v1/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then break; fi
   [ "$i" = 300 ] && { echo "backend not healthy after 10 min"; exit 1; }
   sleep 2
 done
-npx playwright test --reporter=list
+npx playwright test --reporter=list,json
 echo "==== no mock/demo code in the production build"
 bash ../deploy/validate.sh --no-mock-build .next/standalone
 '

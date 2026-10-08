@@ -15,14 +15,14 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session_factory
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, token_is_current
 from app.models import User
 from app.services.bookings_perms import LEGACY_GUARDS, Access, load_access
 
 bearer = HTTPBearer(auto_error=False)
 
 #: routes a user flagged with ``force_password_reset`` may still call (CRBS ``check_password_reset``)
-PASSWORD_CHANGE_ALLOWED = ("/auth/me", "/auth/change-password", "/auth/permissions")
+PASSWORD_CHANGE_ALLOWED = ("/auth/me", "/auth/change-password", "/auth/permissions", "/auth/logout")
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
@@ -49,6 +49,8 @@ async def get_current_user(
     user = await db.get(User, user_id) if user_id else None
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user not found or inactive")
+    if not token_is_current(payload, user):  # signed out, password changed, disabled or role changed since
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "token revoked")
     if (
         user.force_password_reset
         and user.auth_source != "ldap"

@@ -346,7 +346,43 @@ def load_grid(path: Path, exam: bool) -> tuple[list[Entry], dict[int, Any], list
                     e.note,
                 )
             )
-    return out, sheets, issues
+    return _stack(out), sheets, issues
+
+
+def _stack(entries: list[Entry]) -> list[Entry]:
+    """Join single-period cells with the same text in one room column on consecutive periods into one
+    entry (the Güz and Final boards write a lesson once per period instead of merging the cells)."""
+    out: list[Entry] = []
+    groups: dict[tuple[int, int, int, str, str], list[Entry]] = defaultdict(list)
+    for e in entries:
+        groups[(e.week, e.day, e.column, e.raw, e.kind)].append(e)
+    for es in groups.values():
+        es.sort(key=lambda x: x.sp)
+        cur: Entry | None = None
+        single = False  # ``cur`` was built from single-period cells only
+        for e in es:
+            if cur is not None and single and e.sp == e.ep and cur.ep + 1 == e.sp:
+                cur.ep = e.ep
+                continue
+            cur = Entry(
+                len(out),
+                e.week,
+                e.sheet,
+                e.day,
+                e.room,
+                e.sp,
+                e.ep,
+                e.codes,
+                e.raw,
+                e.kind,
+                e.coord,
+                e.row,
+                e.column,
+                e.note,
+            )
+            single = e.sp == e.ep
+            out.append(cur)
+    return out
 
 
 def load_rows(path: Path, exam: bool) -> dict[int, Any]:
@@ -639,7 +675,12 @@ def audit_board(
         rooms = {e.room for m in members for e in placed[m]}
         pool_rooms = [x for x in rooms if rules.in_pool(x)]
         seats = sum(rules.seats(x) for x in pool_rooms)
-        size = sum(reqs[m].size for m in members)
+        # the seats needed at the busiest period (rows of one cell may cover different periods)
+        span = range(min(reqs[m].sp or 1 for m in members), max(reqs[m].ep or 1 for m in members) + 1)
+        size = max(
+            (sum(reqs[m].size for m in members if (reqs[m].sp or 0) <= p <= (reqs[m].ep or 0)) for p in span),
+            default=0,
+        )
         if pool_rooms and len(pool_rooms) == len(rooms) and size > seats:
             names = " + ".join(sorted({reqs[m].label for m in members}))
             text = f"room too small: {'/'.join(sorted(rooms))} seats {seats}, {names} has {size}"
@@ -737,6 +778,33 @@ def audit_list(
             )
         for t in rules.tag_problems(r, r.definitive):
             out[r.id].append(("tags", 60 if t.startswith("missing PC") else 20, "list: " + t))
+    # instructor / cohort clashes at the list's fixed times (what the data-issues report checks)
+    fixed = [r for r in reqs if r.needs_room and r.sp and r.ep and len(r.days) == 1]
+    by_key: dict[tuple[str, int], list[Req]] = defaultdict(list)
+    for r in fixed:
+        for i in r.instructors:
+            if not any(x in i.lower() for x in SKIP_INSTRUCTOR):
+                by_key[("I:" + i, r.days[0])].append(r)
+        for c in r.cohorts:
+            by_key[("C:" + c, r.days[0])].append(r)
+    for (key, _day), rs in by_key.items():
+        for i, a in enumerate(rs):
+            for b in rs[i + 1 :]:
+                if not overlap(a.sp or 0, a.ep or 0, b.sp or 0, b.ep or 0) or rules.same_event(a, b):
+                    continue
+                if a.weeks and b.weeks and not a.weeks & b.weeks:
+                    continue
+                kind = "instructor" if key.startswith("I:") else "cohort"
+                if a.code == b.code:
+                    rule = "same_course_two_rows" if kind == "instructor" else ""
+                    if not rule:
+                        continue
+                else:
+                    rule = f"{kind}_clash"
+                text = f"list {kind} clash: {key[2:]} has {a.label} (row {a.row}) and {b.label} (row {b.row}) at once"
+                sev = 10 if rule == "same_course_two_rows" else (40 if kind == "instructor" else 15)
+                out[a.id].append((rule, sev, text))
+                out[b.id].append((rule, sev, text))
     if not rules.exam:
         by_room: dict[tuple[str, int], list[Req]] = defaultdict(list)
         for r in locked:
@@ -786,11 +854,12 @@ class World:
         return [rid for (a, b, rid) in table.get((key, day), []) if overlap(a, b, sp, ep) and rid not in but]
 
 
-def _pref(r: Req, rooms: frozenset[str]) -> int:
+def _pref(requested: Sequence[str], building: str | None, rooms: frozenset[str]) -> int:
+    """Stated preferences met: a requested room (2), the requested building (1)."""
     score = 0
-    if r.requested and set(r.requested) & rooms:
+    if requested and set(requested) & rooms:
         score += 2
-    if r.building and rooms and all(x[:1] == r.building[:1] for x in rooms):
+    if building and rooms and all(x[:1] == building[:1] for x in rooms):
         score += 1
     return score
 
@@ -907,18 +976,37 @@ def compare_instance(
 
         board_rooms = set(sheets[board_w].rooms)
         board_codes = {c for e in wk_entries if e.kind == "COURSE" for c in e.codes}
+        # one comparison per SmartSched event (joint lectures and exam cohorts are one event)
+        events_w: dict[int, list[Req]] = defaultdict(list)
         for r in act:
-            P = place_of(placed[r.id]) if placed.get(r.id) else None
-            S = s_place.get(r.id)
-            L = (
-                Place(r.days[0], r.sp or 0, r.ep or 0, frozenset(r.definitive))
-                if r.status == "LOCKED" and r.definitive
+            events_w[head.get(r.id, r.id)].append(r)
+        for ms in events_w.values():
+            r = ms[0]
+            ids = [m.id for m in ms]
+            ents = list({e.idx: e for m in ms for e in placed.get(m.id, [])}.values())
+            P = place_of(ents) if ents else None
+            sps = [s_place[m.id] for m in ms if m.id in s_place]
+            S = (
+                Place(
+                    sps[0].day,
+                    min(x.sp for x in sps),
+                    max(x.ep for x in sps),
+                    frozenset().union(*(x.rooms for x in sps)),
+                )
+                if sps
                 else None
             )
-            vb_all = b_audit.get(r.id, [])
+            locked_rooms = frozenset(x for m in ms if m.status == "LOCKED" for x in m.definitive)
+            L = Place(r.days[0], r.sp or 0, r.ep or 0, locked_rooms) if locked_rooms else None
+            vb_all = list(dict.fromkeys(v for m in ms for v in b_audit.get(m.id, [])))
             vb = [v for v in vb_all if v[0] not in DATA_RULES]
             vdata = [v for v in vb_all if v[0] in DATA_RULES]
-            refs = (P.refs if P else []) + ([f"{LIST_SHEET}!row {r.row}"] if r.row else [])
+            rows_txt = [f"{LIST_SHEET}!row {m.row}" for m in ms if m.row]
+            refs = (P.refs if P else []) + rows_txt
+            labels = list(dict.fromkeys(m.label for m in ms))
+            label = " + ".join(labels[:3]) + (f" + {len(labels) - 3} more" if len(labels) > 3 else "")
+            size = sum(m.size for m in ms)
+            requested = sorted({x for m in ms for x in m.requested})
             if P:
                 planner_txt = P.text()
             else:
@@ -930,8 +1018,8 @@ def compare_instance(
                         instance=inst.name,
                         cls=cls,
                         sub=sub,
-                        request_ids=[r.id],  # noqa: B023 - used immediately
-                        label=r.label,  # noqa: B023
+                        request_ids=ids,  # noqa: B023 - used immediately
+                        label=label,  # noqa: B023
                         week=w,  # noqa: B023
                         planner=planner_txt,  # noqa: B023
                         smartsched=S.text() if S else "(unplaced)",  # noqa: B023
@@ -956,7 +1044,7 @@ def compare_instance(
                 add("d", ",".join(codes), f"{text} | check: {check}", vb)
                 continue
             if P is None:
-                if r.id in ambiguous:
+                if all(m.id in ambiguous for m in ms):
                     add(
                         "e",
                         "board_cells_taken_by_other_rows",
@@ -969,11 +1057,19 @@ def compare_instance(
                         f"list room {'/'.join(sorted(L.rooms - board_rooms))} is no board column",
                     )
                 elif L is not None:
-                    add("e", "list_only", f"list row {r.row} says {'/'.join(r.definitive)}; the board has no such cell")
+                    add(
+                        "e",
+                        "list_only",
+                        f"list {', '.join(rows_txt)} says {'/'.join(sorted(L.rooms))}; no such board cell",
+                    )
                 elif r.code in board_codes:
                     add("e", "board_time_differs", f"{r.code} is on the board this week at another day/time")
                 else:
-                    add("b", "fills_board_gap", f"no board cell, no definitive room ({r.definitive_text or '-'})")
+                    add(
+                        "b",
+                        "fills_board_gap",
+                        f"no board cell, no definitive room ({r.definitive_text or '-'}); size {size}",
+                    )
                 continue
             same_rooms = P.rooms == S.rooms
             same_time = (P.day, P.sp, P.ep) == (S.day, S.sp, S.ep)
@@ -984,7 +1080,12 @@ def compare_instance(
                     add("match", "", "")
                 continue
             if same_rooms and P.day == S.day:
-                add("e", "time_differs", f"board P{P.sp}-P{P.ep}, list P{r.sp}-P{r.ep}, SmartSched P{S.sp}-P{S.ep}")
+                inside = S.sp <= P.sp and P.ep <= S.ep
+                add(
+                    "e",
+                    "time_list_wider_than_board" if inside else "time_differs",
+                    f"board P{P.sp}-P{P.ep}, list P{r.sp}-P{r.ep}, SmartSched P{S.sp}-P{S.ep}",
+                )
                 continue
             if vb:
                 add("a", vb[0][0], "; ".join(t for _r, _s, t in vb), vb)
@@ -1001,15 +1102,19 @@ def compare_instance(
                 add(
                     "e",
                     "board_vs_list",
-                    f"list row {r.row}: {'/'.join(sorted(L.rooms))}, board: {'/'.join(sorted(P.rooms))}; {follows}",
+                    f"list {', '.join(rows_txt)}: {'/'.join(sorted(L.rooms))}, board: {'/'.join(sorted(P.rooms))}; {follows}",
                 )
                 continue
             if len(r.days) == 1 and not same_time and (S.day, S.sp, S.ep) == (r.days[0], r.sp, r.ep):
                 add("e", "time_differs", f"board {P.text()}, list (fixed) P{r.sp}-P{r.ep}")
                 continue
-            ps, pp = _pref(r, S.rooms), _pref(r, P.rooms)
+            ps, pp = _pref(requested, r.building, S.rooms), _pref(requested, r.building, P.rooms)
             holders = sorted(
-                {reqmap[x].label for room in P.rooms for x in world.busy(world.rooms, room, P.day, P.sp, P.ep, {r.id})}
+                {
+                    reqmap[x].label
+                    for room in P.rooms
+                    for x in world.busy(world.rooms, room, P.day, P.sp, P.ep, set(ids))
+                }
             )
             blocked = sorted(
                 {
@@ -1026,8 +1131,8 @@ def compare_instance(
                 why = "planner room FREE in SmartSched's week"
             seats_p = sum(rules.seats(x) for x in P.rooms)
             seats_s = sum(rules.seats(x) for x in S.rooms)
-            fit = f"size {r.size}; seats planner {seats_p} / SmartSched {seats_s}"
-            pref_txt = f"requested {'/'.join(r.requested) or '-'} building {r.building or '-'}"
+            fit = f"size {size}; seats planner {seats_p} / SmartSched {seats_s}"
+            pref_txt = f"requested {'/'.join(requested) or '-'} building {r.building or '-'}"
             if blocked and not holders:
                 add("a", "blocked", f"{why}; {fit}", [("blocked", 55, why)])
             elif ps > pp:
@@ -1090,6 +1195,8 @@ def compare_instance(
     for rid, errs2 in list_errors.items():
         r = reqmap[rid]
         for rule, sev, text in errs2:
+            if rule in DATA_RULES:
+                continue
             errors.append(
                 {
                     "source": "list",
@@ -1114,6 +1221,13 @@ def compare_instance(
         "findings": [asdict(f) for f in findings],
         "planner_errors": sorted(uniq.values(), key=lambda x: (-x["severity"], x["label"])),
         "requests": {r.id: {"label": r.label, "row": r.row, "status": r.status, "size": r.size} for r in reqs},
+        "data_rule_requests": {
+            rule: sorted(
+                {rid for rid, errs in board_errors.items() for x, _s, _t, _r in errs if x == rule}
+                | {rid for rid, errs2 in list_errors.items() for x, _s, _t in errs2 if x == rule}
+            )
+            for rule in DATA_RULES
+        },
     }
 
 
@@ -1177,10 +1291,15 @@ DI_GROUP = {
     ("tags", "board"): "missing_tags",
     ("instructor_clash", "board"): "fixed_instructor_clash",
     ("cohort_clash", "board"): "fixed_cohort_clash",
+    ("instructor_clash", "list"): "fixed_instructor_clash",
+    ("cohort_clash", "list"): "fixed_cohort_clash",
 }
 
 
 def cross_check(api: Api, res: dict[str, Any], work: Path) -> dict[str, Any]:
+    """The run's data-issues report against the independent audit: planner errors it does not list
+    (by source: the list, which it checks, or the board, which it only compares room-wise) and items
+    the independent audit does not confirm (with the likely reason)."""
     from openpyxl import load_workbook
 
     rid = res["run_id"]
@@ -1189,51 +1308,38 @@ def cross_check(api: Api, res: dict[str, Any], work: Path) -> dict[str, Any]:
     path = work / f"run{rid}-data-issues.xlsx"
     path.write_bytes(xlsx)
     wb = load_workbook(path, read_only=True)
-    sheets = {ws.title: max(0, (ws.max_row or 1) - 1) for ws in wb.worksheets}
+    sheets = {str(ws.title): max(0, int(ws.max_row or 1) - 1) for ws in wb.worksheets}
     wb.close()
     groups = {g["code"]: g for g in di["groups"]}
     di_reqs = {code: {int(x) for it in g["items"] for x in it["request_ids"]} for code, g in groups.items()}
-    exam = res["instance"]["kind"] == "EXAM"
-    if exam:
+    if res["instance"]["kind"] == "EXAM":
         di_reqs["locked_room_too_small"] |= di_reqs.get("shared_room_overflow", set())
-    missed: list[dict[str, Any]] = []
     mine: dict[str, set[int]] = defaultdict(set)
+    missed: list[dict[str, Any]] = []
     for e in res["planner_errors"]:
-        rule = e["rule"]
-        if rule == "tags" and "TIP" in e["text"] and "missing PC" not in e["text"]:
-            key = "tip_room"
-        else:
-            key = DI_GROUP.get((rule, e["source"]), f"{rule}:{e['source']}")
+        tip = e["rule"] == "tags" and "TIP" in e["text"] and "missing PC" not in e["text"]
+        key = "tip_room" if tip else DI_GROUP.get((e["rule"], e["source"]), f"{e['rule']}:{e['source']}")
         mine[key].add(int(e["request_id"]))
-        if key in di_reqs and int(e["request_id"]) not in di_reqs[key]:
+        if int(e["request_id"]) not in di_reqs.get(key, set()):
             missed.append({**e, "group": key})
-        elif key not in di_reqs:
-            missed.append({**e, "group": f"(no group) {key}"})
-    bvl = {
-        int(x)
-        for f in res["findings"]
-        if f["cls"] == "e" and f["sub"] in ("board_vs_list", "list_only")
-        for x in f["request_ids"]
-    }
-    mine["board_vs_list"] = bvl
+    for code, ids in res.get("data_rule_requests", {}).items():
+        mine[code] |= {int(x) for x in ids}
     for f in res["findings"]:
-        if (
-            f["cls"] == "e"
-            and f["sub"] == "board_vs_list"
-            and not set(f["request_ids"]) & di_reqs.get("board_vs_list", set())
-        ):
-            missed.append(
-                {
-                    "source": "board",
-                    "request_id": f["request_ids"][0],
-                    "label": f["label"],
-                    "rule": "board_vs_list",
-                    "severity": 30,
-                    "text": f["detail"],
-                    "refs": f["refs"],
-                    "group": "board_vs_list",
-                }
-            )
+        if f["cls"] == "e" and f["sub"] in ("board_vs_list", "list_only"):
+            mine["board_vs_list"] |= set(f["request_ids"])
+            if not set(f["request_ids"]) & di_reqs.get("board_vs_list", set()):
+                missed.append(
+                    {
+                        "source": "board",
+                        "request_id": f["request_ids"][0],
+                        "label": f["label"],
+                        "rule": f["sub"],
+                        "severity": 30,
+                        "text": f["detail"],
+                        "refs": f["refs"],
+                        "group": "board_vs_list",
+                    }
+                )
     false_alarms: list[dict[str, Any]] = []
     for code, g in groups.items():
         if code in ("no_free_room", "other", "rooms_outside_pool", "week_room_changes"):
@@ -1241,19 +1347,35 @@ def cross_check(api: Api, res: dict[str, Any], work: Path) -> dict[str, Any]:
         ours = mine.get(code, set())
         for it in g["items"]:
             ids = {int(x) for x in it["request_ids"]}
-            if ids and not ids & ours:
-                false_alarms.append(
-                    {"group": code, "code": it["code"], "message": it["message"], "request_ids": sorted(ids)[:6]}
-                )
-    dedup_missed = list({(m["group"], m["request_id"], m["text"]): m for m in missed}.values())
+            if not ids or ids & ours:
+                continue
+            codes = {str(c.get("course_code") or "").replace(" ", "") for c in it.get("classes") or []}
+            if len(codes) == 1 and len(ids) > 1:
+                why = "one course listed twice (same code, same instructor): a data issue, not a clash"
+            elif code == "board_vs_list":
+                why = "the board shows the class at another time or as a different cell; not confirmed by matching"
+            else:
+                why = "not confirmed by the independent audit"
+            false_alarms.append(
+                {
+                    "group": code,
+                    "code": it["code"],
+                    "message": it["message"],
+                    "request_ids": sorted(ids)[:6],
+                    "why": why,
+                }
+            )
+    dedup = list({(m["group"], m["request_id"], m["text"]): m for m in missed}.values())
     return {
         "run_id": rid,
         "totals": di["totals"],
         "xlsx": str(path),
         "xlsx_sheets": sheets,
         "json_counts": {c: g["count"] for c, g in groups.items()},
-        "missed": dedup_missed,
+        "missed": dedup,
+        "missed_by_group_source": dict(Counter(f"{m['group']} ({m['source']})" for m in dedup)),
         "false_alarms": false_alarms,
+        "false_alarms_by_group": dict(Counter(f"{m['group']}: {m['why'][:40]}" for m in false_alarms)),
     }
 
 

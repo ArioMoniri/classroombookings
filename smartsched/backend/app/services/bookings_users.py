@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.identity import clean_email, fold_username
-from app.core.security import hash_password
+from app.core.security import hash_password, revoke_tokens
 from app.importers import normalize as n
 from app.models import PasswordResetToken, Program, Role, User
 from app.models.base import utcnow
@@ -275,5 +275,6 @@ async def consume_reset_token(session: AsyncSession, token: str, new_password: s
     await _revoke_open_tokens(session, user.id, now)
     user.password_hash = hash_password(new_password)
     user.force_password_reset = False
+    revoke_tokens(user)  # B-AUTH-11: whoever held the old password is signed out too
     await session.flush()
     return user

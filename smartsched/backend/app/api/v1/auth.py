@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from app.api.deps import DB, CurrentAccess, CurrentUser
 from app.core.config import get_settings
-from app.core.security import create_access_token, hash_password, password_needs_rehash, verify_password
+from app.core.security import hash_password, password_needs_rehash, revoke_tokens, user_token, verify_password
 from app.models import User
 from app.models.base import utcnow
 from app.schemas.auth import LoginIn, TokenOut, UserOut
@@ -83,12 +83,22 @@ async def _login(body: LoginIn, db: DB) -> TokenOut:
     user.last_login_at = utcnow()
     await events.emit(db, "user.logged_in", {"user_id": user.id, "auth_method": method})
     await db.commit()
-    token = create_access_token(user.email or user.username or str(user.id), {"uid": user.id, "role": user.role})
+    token = user_token(user)  # carries the token version (B-AUTH-11)
     return TokenOut(
         access_token=token,
         expires_in=get_settings().jwt_expire_minutes * 60,
         password_change_required=bool(user.force_password_reset and method == "local"),
     )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(user: CurrentUser, db: DB) -> Response:
+    """Sign out (CRBS ``Logout``, parity B-AUTH-11): the user's token version moves on, so this bearer token and
+    every other token of the user (other browsers, devices) answer 401 from now on. Allowed while a forced
+    password change is pending."""
+    revoke_tokens(user)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/me", response_model=UserOut)

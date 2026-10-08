@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, utcnow
@@ -47,6 +47,9 @@ class User(Base):
     auth_source: Mapped[str] = mapped_column(String(8), default="local")  # local | ldap
     calendar_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     language: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    #: bumped to sign the user out everywhere (sign-out, password change/reset, disabling, role change); access
+    #: tokens carry it as the ``tv`` claim and a token with an older value answers 401 (parity B-AUTH-11)
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class ImportJob(Base):

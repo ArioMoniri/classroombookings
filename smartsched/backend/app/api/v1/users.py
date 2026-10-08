@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import delete, func, select, update
 
 from app.api.deps import DB, UsersAdmin
-from app.core.security import hash_password
+from app.core.security import hash_password, revoke_tokens
 from app.importers import normalize as n
 from app.models import ConstraintRow, Program, Role, RoomAcl, ScheduleRun, User, UserConstraint
 from app.models.catalog import Room
@@ -223,6 +223,7 @@ async def update_user(user_id: int, body: UserUpdate, db: DB, me: UsersAdmin) ->
     data.pop("role_id", None)
     if "displayname" in data:
         data["full_name"] = data.pop("displayname")
+    was_active, old_role = u.is_active, (u.role_id, u.role)
     for k, v in data.items():
         if v is not None or k in {"full_name", "firstname", "lastname", "ext", "department_id", "username"}:
             setattr(u, k, v)
@@ -230,6 +231,10 @@ async def update_user(user_id: int, body: UserUpdate, db: DB, me: UsersAdmin) ->
         set_user_role(u, new_role)
     if password:
         u.password_hash = hash_password(password)
+    # B-AUTH-11: a new password, disabling the account or another role ends the user's sessions (re-enabling the
+    # account does not revive tokens issued before it was disabled)
+    if password or (was_active and not u.is_active) or (u.role_id, u.role) != old_role:
+        revoke_tokens(u)
     await db.commit()
     await db.refresh(u)
     return await user_out(db, u)
@@ -241,6 +246,7 @@ async def set_password(user_id: int, body: PasswordIn, db: DB, me: UsersAdmin) -
     u = await _user(db, user_id)
     await guard_privileged(db, me, target=u)
     u.password_hash = hash_password(body.password)
+    revoke_tokens(u)  # B-AUTH-11
     await db.commit()
     await db.refresh(u)
     return await user_out(db, u)

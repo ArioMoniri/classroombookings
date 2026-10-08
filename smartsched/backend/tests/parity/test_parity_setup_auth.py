@@ -200,3 +200,99 @@ async def test_user_list_filters_sort_and_paging(env):
         await c.get("/api/v1/users/search", params={"role_id": teacher_role, "q": "ÇAĞLA"}, headers=env.admin)
     ).json()
     assert [u["id"] for u in both["items"]] == [ids[0]]
+
+
+async def _me(env, headers: dict[str, str]) -> int:  # type: ignore[no-untyped-def]
+    return (await env.client.get("/api/v1/auth/me", headers=headers)).status_code
+
+
+async def _sign_in(env, ident: str, password: str = "parola-1234") -> dict[str, str]:  # type: ignore[no-untyped-def]
+    r = await env.client.post("/api/v1/auth/login", json={"username": ident, "password": password})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+@pytest.mark.parity("B-AUTH-11")
+async def test_sign_out_revokes_the_token_on_every_device(env):
+    """CRBS ``Logout`` destroys the session. SmartSched: POST /auth/logout bumps the user's token version, so the
+    bearer token (and the copy another device holds) answers 401 at once instead of living until it expires."""
+    c = env.client
+    _, laptop = await env.user("oturum.kapat@uni.edu.tr", username="gülşen.ışık", displayname="Gülşen Işık")
+    phone = await _sign_in(env, "GÜLŞEN.IŞIK")  # Turkish İ/I folding on the username, second device
+    assert await _me(env, laptop) == 200 and await _me(env, phone) == 200
+    assert (await c.post("/api/v1/auth/logout", headers=laptop)).status_code == 204
+    assert await _me(env, laptop) == 401 and await _me(env, phone) == 401
+    assert (await c.get("/api/v1/bookings/context", headers=phone)).status_code == 401
+    assert (await c.post("/api/v1/auth/logout", headers=laptop)).status_code == 401  # already revoked
+    assert (await c.post("/api/v1/auth/logout")).status_code == 401  # no token
+    again = await _sign_in(env, "oturum.kapat@uni.edu.tr")
+    assert await _me(env, again) == 200
+    # other users keep their sessions
+    assert await _me(env, env.admin) == 200
+
+
+@pytest.mark.parity("B-AUTH-11")
+async def test_password_changes_and_resets_revoke_older_tokens(env):
+    """Own password change, admin password set and the one-time reset code all end the existing sessions."""
+    c = env.client
+    uid, h = await env.user("parola.degis@uni.edu.tr", username="ömer.çelik")
+    r = await c.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "parola-1234", "new_password": "yeni-Parola-1"},
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+    assert await _me(env, h) == 401
+    h = await _sign_in(env, "ömer.çelik", "yeni-Parola-1")
+    assert await _me(env, h) == 200
+    # the administrator sets a new password (Users -> password)
+    r = await c.post(f"/api/v1/users/{uid}/password", json={"password": "admin-verdi-2"}, headers=env.admin)
+    assert r.status_code == 200, r.text
+    assert await _me(env, h) == 401
+    h = await _sign_in(env, "ömer.çelik", "admin-verdi-2")
+    # ... or through the user edit form
+    r = await c.put(f"/api/v1/users/{uid}", json={"password": "duzenle-parola-3"}, headers=env.admin)
+    assert r.status_code == 200, r.text
+    assert await _me(env, h) == 401
+    h = await _sign_in(env, "ömer.çelik", "duzenle-parola-3")
+    # one-time reset code
+    code = (await c.post(f"/api/v1/users/{uid}/reset-token", headers=env.admin)).json()["token"]
+    assert await _me(env, h) == 200  # issuing a code alone does not sign anyone out
+    r = await c.post("/api/v1/auth/password-reset/confirm", json={"token": code, "password": "kod-parola-4"})
+    assert r.status_code == 200, r.text
+    assert await _me(env, h) == 401
+    assert await _me(env, await _sign_in(env, "ömer.çelik", "kod-parola-4")) == 200
+
+
+@pytest.mark.parity("B-AUTH-11", "B-AUTH-02")
+async def test_disabling_and_role_changes_revoke_older_tokens(env):
+    """A disabled account's token does not come back when the account is enabled again; a role change ends the
+    sessions issued under the old role."""
+    c = env.client
+    uid, h = await env.user("rol.degis@uni.edu.tr", username="işıl.şahin")
+    assert (await c.put(f"/api/v1/users/{uid}", json={"is_active": False}, headers=env.admin)).status_code == 200
+    assert (await c.put(f"/api/v1/users/{uid}", json={"is_active": True}, headers=env.admin)).status_code == 200
+    assert await _me(env, h) == 401  # re-enabling does not revive the old token
+    h = await _sign_in(env, "işıl.şahin")
+    # an unrelated edit keeps the session
+    r = await c.put(f"/api/v1/users/{uid}", json={"displayname": "Işıl Şahin"}, headers=env.admin)
+    assert r.status_code == 200, r.text
+    assert await _me(env, h) == 200
+    # the same role again is not a change
+    assert (await c.put(f"/api/v1/users/{uid}", json={"role": "TEACHER"}, headers=env.admin)).status_code == 200
+    assert await _me(env, h) == 200
+    r = await c.put(f"/api/v1/users/{uid}", json={"role_id": await role_id(c, env.admin, "VIEWER")}, headers=env.admin)
+    assert r.status_code == 200, r.text
+    assert await _me(env, h) == 401
+    h = await _sign_in(env, "işıl.şahin")
+    me = (await c.get("/api/v1/auth/me", headers=h)).json()
+    assert me["role"] == "VIEWER"
+
+
+@pytest.mark.parity("B-AUTH-11")
+async def test_forced_password_change_user_may_sign_out(env):
+    """A user who must change the password first may still sign out (like /auth/change-password)."""
+    _, h = await env.user("zorunlu.degisim@uni.edu.tr", force_password_reset=True)
+    assert (await env.client.get("/api/v1/bookings/context", headers=h)).status_code == 403
+    assert (await env.client.post("/api/v1/auth/logout", headers=h)).status_code == 204
+    assert await _me(env, h) == 401

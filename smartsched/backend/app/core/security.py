@@ -108,6 +108,33 @@ def decode_access_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, settings.signing_key, algorithms=[settings.jwt_algorithm])
 
 
+#: JWT claim holding ``users.token_version`` at sign-in (parity B-AUTH-11)
+TOKEN_VERSION_CLAIM = "tv"
+
+
+def user_token(user: Any) -> str:
+    """Access token for a signed-in user: ``uid``, the coarse ``role`` code and the current token version."""
+    return create_access_token(
+        user.email or user.username or str(user.id),
+        {"uid": user.id, "role": user.role, TOKEN_VERSION_CLAIM: int(user.token_version or 0)},
+    )
+
+
+def token_is_current(payload: dict[str, Any], user: Any) -> bool:
+    """False once the user's token version moved past the token's (sign-out, password change, ...). Tokens issued
+    before the claim existed count as version 0: valid until the first revocation, never after it."""
+    claim = payload.get(TOKEN_VERSION_CLAIM, 0)
+    if isinstance(claim, bool) or not isinstance(claim, int):
+        return False
+    return claim == int(user.token_version or 0)
+
+
+def revoke_tokens(user: Any) -> None:
+    """Sign ``user`` out everywhere: every access token issued so far answers 401 (CRBS ``Logout`` destroys the
+    session; a JWT cannot be destroyed, so its version is outdated instead). The caller commits."""
+    user.token_version = int(user.token_version or 0) + 1
+
+
 _KEY_RX = re.compile(r"sk-ant-[A-Za-z0-9_\-]{4,}")
 
 

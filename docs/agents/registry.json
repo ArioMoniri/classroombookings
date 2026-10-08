@@ -188,7 +188,8 @@
       "goal": "run a READ-ONLY adversarial review of the SmartSched timetabling solver and its bridge. The user's requirement is \"100/100 accuracy on hard constraints, or explain what is impossible and how to fix it\". Verify every claim by running code.",
       "ledger": "strict-reviewer (solver review)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 14:31"
     },
     {
       "id": "a88b650f74552e07c",
@@ -223,6 +224,18 @@
       "scope": "",
       "goal": "fix the backend items the CRBS superset gate found. Work test-first; use the real fixtures (tests/crbs_env, the Bahar import). 1. B-AUTH-11, sign-out does not revoke: the JWT stays valid for up to 12 h after sign-out. - Add a per-user `token_version` integer (alembic migration chained after the current head; check with `alembic heads`). - Put it in the JWT as a claim. Check it in app/api/deps.py w…",
       "ledger": "backend-engineer (security follow-ups)",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a407b1d73d6cf89a8",
+      "description": "Fix solver review blockers + majors",
+      "subagent_type": "solver-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 14:32",
+      "scope": "",
+      "goal": "fix the findings of the strict solver review in docs/review/2026-10-08-solver-review.md: B1, B2, M1–M6 and the cheap MINORs. Read the whole review first. It has file:line pointers and the smallest fixes. The user requires \"100/100 on hard constraints, or explain what is impossible and how to fix it\". The reviewer found the CP model sound. The bridge, however, rewrites the planner's problem (merges…",
+      "ledger": "solver-engineer (solver review fixes)",
       "resumed": false,
       "status": "running"
     }

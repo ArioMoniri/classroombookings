@@ -15,7 +15,7 @@ from app.api.deps import DB, CurrentAccess, CurrentUser, bearer, get_current_use
 from app.core.config import get_settings
 from app.core.identity import clean_email, fold_username
 from app.core.images import ImageError, sanitize_image
-from app.core.security import hash_password, verify_password
+from app.core.security import hash_password, revoke_tokens, verify_password
 from app.importers import normalize as n
 from app.models import (
     BookingSchedule,
@@ -568,7 +568,8 @@ async def put_profile(body: ProfileIn, db: DB, user: CurrentUser) -> ProfileOut:
 @auth_router.post("/change-password")
 async def change_password(body: ChangePasswordIn, db: DB, user: CurrentUser) -> dict[str, Any]:
     """Own password (CRBS ``Profile::save`` / ``new_password``): the current password is required unless
-    a forced change is pending; the new password must differ from the current one."""
+    a forced change is pending; the new password must differ from the current one. Every session of the user
+    ends (``signed_out``: the caller signs in again with the new password; parity B-AUTH-11)."""
     if not user.force_password_reset or user.password_hash is None:
         if user.password_hash and not verify_password(body.current_password or "", user.password_hash):
             raise HTTPException(403, "current password is wrong")
@@ -576,8 +577,9 @@ async def change_password(body: ChangePasswordIn, db: DB, user: CurrentUser) -> 
         raise HTTPException(422, "the new password must differ from the current one")
     user.password_hash = hash_password(body.new_password)
     user.force_password_reset = False
+    revoke_tokens(user)  # B-AUTH-11: every session, this one included, signs in again with the new password
     await db.commit()
-    return {"ok": True}
+    return {"ok": True, "signed_out": True}
 
 
 @auth_router.post("/password-reset/request", status_code=202)
