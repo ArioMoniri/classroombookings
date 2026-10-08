@@ -121,7 +121,7 @@ def run_out(run: ScheduleRun, term_codes: dict[int, str]) -> RunOut:
     out.progress = int(stats.get("progress") or (100 if run.status in TERMINAL else 0))
     breakdown = stats.get("objective_breakdown") or {}
     out.objective_breakdown = {str(k): int(v) for k, v in breakdown.items() if isinstance(v, int | float)}
-    out.diagnosis = [structure_diagnosis(d, i) for i, d in enumerate(run.diagnosis or [])]
+    out.diagnosis = [structure_diagnosis(d, i, run.kind) for i, d in enumerate(run.diagnosis or [])]
     return out
 
 

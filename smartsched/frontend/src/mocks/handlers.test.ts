@@ -1,6 +1,7 @@
 import { getResponse } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
-import { GridResponse, MoveResponse, ScheduleRun } from "@/lib/api/schemas";
+import * as adapt from "@/lib/api/adapters";
+import { ChatResponse, DiagnosisApplyResult, ElicitResult, GridResponse, MoveResponse, ScheduleRun } from "@/lib/api/schemas";
 import { handlers, resetMockState } from "./handlers";
 
 const BASE = "http://backend.test/api/v1";
@@ -41,7 +42,7 @@ describe("mock API", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ room_ids: other.room_ids, day: other.day, start_period: other.start_period, end_period: other.end_period }),
     });
-    expect(bad.status).toBe(409);
+    expect(bad.status).toBe(200); // like the backend: conflicts are {ok:false}, not an HTTP error
     const badBody = MoveResponse.parse(await bad.json());
     expect(badBody.ok).toBe(false);
     expect(badBody.conflicts.some((c) => c.kind === "no_room_overlap")).toBe(true);
@@ -56,7 +57,9 @@ describe("mock API", () => {
       body: JSON.stringify({ room_ids: [free.id], day: a.day, start_period: a.start_period, end_period: a.end_period }),
     });
     expect(good.status).toBe(200);
-    expect(MoveResponse.parse(await good.json()).assignment?.room_ids).toEqual([free.id]);
+    const moved = MoveResponse.parse(await good.json()).assignment;
+    expect(moved?.room_ids).toEqual([free.id]);
+    expect(moved).toMatchObject({ origin: "MANUAL", is_locked: true });
   });
 
   it("creates a run that progresses to FEASIBLE and proposes chat moves", async () => {
@@ -64,8 +67,32 @@ describe("mock API", () => {
     expect(created.status).toBe(202);
     const { run_id } = (await created.json()) as { run_id: number };
     expect(run_id).toBeGreaterThan(2);
-    const chat = await call("/runs/1/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "BME 419'u A 204'e taşı" }) });
-    const { messages } = (await chat.json()) as { messages: { proposal: { moves: unknown[] } | null }[] };
-    expect(messages.at(-1)?.proposal?.moves.length).toBe(1);
+    // chat speaks the backend shapes: ChatOut, then ChatMessageOut[] with the diff on tool_calls
+    const chat = await call("/runs/1/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "BME 419'u A 204'e taşı", lang: "tr" }) });
+    const out = (await chat.json()) as { message_id: number; proposed_diff: { id: string; operations: { op: string }[] } };
+    expect(out.proposed_diff.operations.map((o) => o.op)).toEqual(["move"]);
+    const history = ChatResponse.parse(adapt.chatHistory(await (await call("/runs/1/chat")).json(), 1));
+    const last = history.messages.at(-1);
+    expect(last?.role).toBe("assistant");
+    expect(last?.proposal?.moves[0]).toMatchObject({ to: { room: "A 204" } });
+    const applied = await call("/runs/1/chat/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ diff_id: out.proposed_diff.id }) });
+    const res = (await applied.json()) as { child_run_id: number };
+    expect(res.child_run_id).toBeGreaterThan(run_id);
+    const again = await call("/runs/1/chat/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ diff_id: out.proposed_diff.id }) });
+    expect(again.status).toBe(409);
+    const after = ChatResponse.parse(adapt.chatHistory(await (await call("/runs/1/chat")).json(), 1));
+    expect(after.messages.find((m) => m.proposal?.id === out.proposed_diff.id)?.proposal).toMatchObject({ applied: true, child_run_id: res.child_run_id });
+  });
+
+  it("elicits/accepts rules and applies structured diagnosis fixes", async () => {
+    const el = ElicitResult.parse(await (await call("/terms/1/elicit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: "TIP derslikleri sadece Tıp için; İkinci öğretim B blokta", lang: "tr" }) })).json());
+    expect(el.proposals.map((p) => p.kind)).toEqual(["room_tags", "building_preference"]);
+    expect(el.proposals[0].hardness).toBe("hard");
+    const acc = (await (await call("/terms/1/elicit/accept", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proposals: el.proposals }) })).json()) as { created: number[] };
+    expect(acc.created).toHaveLength(2);
+    const run = ScheduleRun.parse(adapt.run(await (await call("/runs/2")).json()));
+    const fix = await call("/runs/2/diagnoses/0/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ option_index: 1 }) });
+    expect(DiagnosisApplyResult.parse(await fix.json()).child_run_id).toBeGreaterThan(run.id);
+    expect((await call("/runs/2/diagnoses/9/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).status).toBe(404);
   });
 });

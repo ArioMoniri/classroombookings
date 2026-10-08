@@ -1,0 +1,2617 @@
+{
+ "term": {
+  "id": 1,
+  "code": "2026-BAHAR",
+  "name": "2026-BAHAR",
+  "kind": "REGULAR",
+  "start_date": "2026-02-02",
+  "end_date": null,
+  "week_count": 15,
+  "periods_json": null,
+  "is_active": false
+ },
+ "current_week": 15,
+ "utilisation_week": 15,
+ "rooms_total": 79,
+ "rooms_bookable": 79,
+ "sections_total": 1271,
+ "requests_total": 1524,
+ "meetings_total": 1524,
+ "exams_total": 0,
+ "requests_needs_review": 231,
+ "requests_pending": 742,
+ "requests_locked": 782,
+ "meetings_by_status": {
+  "LOCKED": 782,
+  "NEEDS_REVIEW": 231,
+  "PARSED": 511
+ },
+ "exams_by_status": {},
+ "active_run_id": null,
+ "utilisation_run_id": 1,
+ "utilisation": 0.3226,
+ "utilisation_by_building": [
+  {
+   "building": "A",
+   "utilisation": 0.2405,
+   "rooms": 31
+  },
+  {
+   "building": "B",
+   "utilisation": 0.2296,
+   "rooms": 12
+  },
+  {
+   "building": "C",
+   "utilisation": 0.4635,
+   "rooms": 32
+  },
+  {
+   "building": "D",
+   "utilisation": 0.1111,
+   "rooms": 4
+  }
+ ],
+ "utilisation_building_day": [
+  {
+   "building": "A",
+   "day": 1,
+   "utilisation": 0.2204
+  },
+  {
+   "building": "A",
+   "day": 2,
+   "utilisation": 0.2616
+  },
+  {
+   "building": "A",
+   "day": 3,
+   "utilisation": 0.3082
+  },
+  {
+   "building": "A",
+   "day": 4,
+   "utilisation": 0.2455
+  },
+  {
+   "building": "A",
+   "day": 5,
+   "utilisation": 0.1667
+  },
+  {
+   "building": "A",
+   "day": 6,
+   "utilisation": 0.0179
+  },
+  {
+   "building": "A",
+   "day": 7,
+   "utilisation": 0.0663
+  },
+  {
+   "building": "B",
+   "day": 1,
+   "utilisation": 0.213
+  },
+  {
+   "building": "B",
+   "day": 2,
+   "utilisation": 0.2315
+  },
+  {
+   "building": "B",
+   "day": 3,
+   "utilisation": 0.2963
+  },
+  {
+   "building": "B",
+   "day": 4,
+   "utilisation": 0.2685
+  },
+  {
+   "building": "B",
+   "day": 5,
+   "utilisation": 0.1389
+  },
+  {
+   "building": "B",
+   "day": 6,
+   "utilisation": 0.0
+  },
+  {
+   "building": "B",
+   "day": 7,
+   "utilisation": 0.0
+  },
+  {
+   "building": "C",
+   "day": 1,
+   "utilisation": 0.4236
+  },
+  {
+   "building": "C",
+   "day": 2,
+   "utilisation": 0.4809
+  },
+  {
+   "building": "C",
+   "day": 3,
+   "utilisation": 0.5104
+  },
+  {
+   "building": "C",
+   "day": 4,
+   "utilisation": 0.4931
+  },
+  {
+   "building": "C",
+   "day": 5,
+   "utilisation": 0.4097
+  },
+  {
+   "building": "C",
+   "day": 6,
+   "utilisation": 0.0208
+  },
+  {
+   "building": "C",
+   "day": 7,
+   "utilisation": 0.0
+  },
+  {
+   "building": "D",
+   "day": 1,
+   "utilisation": 0.1111
+  },
+  {
+   "building": "D",
+   "day": 2,
+   "utilisation": 0.0556
+  },
+  {
+   "building": "D",
+   "day": 3,
+   "utilisation": 0.0833
+  },
+  {
+   "building": "D",
+   "day": 4,
+   "utilisation": 0.2083
+  },
+  {
+   "building": "D",
+   "day": 5,
+   "utilisation": 0.0972
+  },
+  {
+   "building": "D",
+   "day": 6,
+   "utilisation": 0.0
+  },
+  {
+   "building": "D",
+   "day": 7,
+   "utilisation": 0.0
+  }
+ ],
+ "utilisation_building_period": [
+  {
+   "building": "A",
+   "period": 1,
+   "utilisation": 0.1806
+  },
+  {
+   "building": "A",
+   "period": 2,
+   "utilisation": 0.3484
+  },
+  {
+   "building": "A",
+   "period": 3,
+   "utilisation": 0.4452
+  },
+  {
+   "building": "A",
+   "period": 4,
+   "utilisation": 0.4645
+  },
+  {
+   "building": "A",
+   "period": 5,
+   "utilisation": 0.4645
+  },
+  {
+   "building": "A",
+   "period": 6,
+   "utilisation": 0.1548
+  },
+  {
+   "building": "A",
+   "period": 7,
+   "utilisation": 0.4387
+  },
+  {
+   "building": "A",
+   "period": 8,
+   "utilisation": 0.4968
+  },
+  {
+   "building": "A",
+   "period": 9,
+   "utilisation": 0.4258
+  },
+  {
+   "building": "A",
+   "period": 10,
+   "utilisation": 0.4
+  },
+  {
+   "building": "A",
+   "period": 11,
+   "utilisation": 0.2968
+  },
+  {
+   "building": "A",
+   "period": 12,
+   "utilisation": 0.0452
+  },
+  {
+   "building": "A",
+   "period": 13,
+   "utilisation": 0.071
+  },
+  {
+   "building": "A",
+   "period": 14,
+   "utilisation": 0.0581
+  },
+  {
+   "building": "A",
+   "period": 15,
+   "utilisation": 0.0258
+  },
+  {
+   "building": "A",
+   "period": 16,
+   "utilisation": 0.0065
+  },
+  {
+   "building": "A",
+   "period": 17,
+   "utilisation": 0.0065
+  },
+  {
+   "building": "A",
+   "period": 18,
+   "utilisation": 0.0
+  },
+  {
+   "building": "B",
+   "period": 1,
+   "utilisation": 0.0667
+  },
+  {
+   "building": "B",
+   "period": 2,
+   "utilisation": 0.2833
+  },
+  {
+   "building": "B",
+   "period": 3,
+   "utilisation": 0.45
+  },
+  {
+   "building": "B",
+   "period": 4,
+   "utilisation": 0.5167
+  },
+  {
+   "building": "B",
+   "period": 5,
+   "utilisation": 0.4833
+  },
+  {
+   "building": "B",
+   "period": 6,
+   "utilisation": 0.15
+  },
+  {
+   "building": "B",
+   "period": 7,
+   "utilisation": 0.4667
+  },
+  {
+   "building": "B",
+   "period": 8,
+   "utilisation": 0.55
+  },
+  {
+   "building": "B",
+   "period": 9,
+   "utilisation": 0.5333
+  },
+  {
+   "building": "B",
+   "period": 10,
+   "utilisation": 0.3667
+  },
+  {
+   "building": "B",
+   "period": 11,
+   "utilisation": 0.2333
+  },
+  {
+   "building": "B",
+   "period": 12,
+   "utilisation": 0.0
+  },
+  {
+   "building": "B",
+   "period": 13,
+   "utilisation": 0.0167
+  },
+  {
+   "building": "B",
+   "period": 14,
+   "utilisation": 0.0167
+  },
+  {
+   "building": "B",
+   "period": 15,
+   "utilisation": 0.0
+  },
+  {
+   "building": "B",
+   "period": 16,
+   "utilisation": 0.0
+  },
+  {
+   "building": "B",
+   "period": 17,
+   "utilisation": 0.0
+  },
+  {
+   "building": "B",
+   "period": 18,
+   "utilisation": 0.0
+  },
+  {
+   "building": "C",
+   "period": 1,
+   "utilisation": 0.5125
+  },
+  {
+   "building": "C",
+   "period": 2,
+   "utilisation": 0.6937
+  },
+  {
+   "building": "C",
+   "period": 3,
+   "utilisation": 0.7875
+  },
+  {
+   "building": "C",
+   "period": 4,
+   "utilisation": 0.8
+  },
+  {
+   "building": "C",
+   "period": 5,
+   "utilisation": 0.7812
+  },
+  {
+   "building": "C",
+   "period": 6,
+   "utilisation": 0.4875
+  },
+  {
+   "building": "C",
+   "period": 7,
+   "utilisation": 0.7688
+  },
+  {
+   "building": "C",
+   "period": 8,
+   "utilisation": 0.8125
+  },
+  {
+   "building": "C",
+   "period": 9,
+   "utilisation": 0.8063
+  },
+  {
+   "building": "C",
+   "period": 10,
+   "utilisation": 0.7312
+  },
+  {
+   "building": "C",
+   "period": 11,
+   "utilisation": 0.4938
+  },
+  {
+   "building": "C",
+   "period": 12,
+   "utilisation": 0.0813
+  },
+  {
+   "building": "C",
+   "period": 13,
+   "utilisation": 0.1375
+  },
+  {
+   "building": "C",
+   "period": 14,
+   "utilisation": 0.1625
+  },
+  {
+   "building": "C",
+   "period": 15,
+   "utilisation": 0.125
+  },
+  {
+   "building": "C",
+   "period": 16,
+   "utilisation": 0.1
+  },
+  {
+   "building": "C",
+   "period": 17,
+   "utilisation": 0.05
+  },
+  {
+   "building": "C",
+   "period": 18,
+   "utilisation": 0.0125
+  },
+  {
+   "building": "D",
+   "period": 1,
+   "utilisation": 0.05
+  },
+  {
+   "building": "D",
+   "period": 2,
+   "utilisation": 0.15
+  },
+  {
+   "building": "D",
+   "period": 3,
+   "utilisation": 0.25
+  },
+  {
+   "building": "D",
+   "period": 4,
+   "utilisation": 0.3
+  },
+  {
+   "building": "D",
+   "period": 5,
+   "utilisation": 0.3
+  },
+  {
+   "building": "D",
+   "period": 6,
+   "utilisation": 0.05
+  },
+  {
+   "building": "D",
+   "period": 7,
+   "utilisation": 0.1
+  },
+  {
+   "building": "D",
+   "period": 8,
+   "utilisation": 0.2
+  },
+  {
+   "building": "D",
+   "period": 9,
+   "utilisation": 0.2
+  },
+  {
+   "building": "D",
+   "period": 10,
+   "utilisation": 0.25
+  },
+  {
+   "building": "D",
+   "period": 11,
+   "utilisation": 0.15
+  },
+  {
+   "building": "D",
+   "period": 12,
+   "utilisation": 0.0
+  },
+  {
+   "building": "D",
+   "period": 13,
+   "utilisation": 0.0
+  },
+  {
+   "building": "D",
+   "period": 14,
+   "utilisation": 0.0
+  },
+  {
+   "building": "D",
+   "period": 15,
+   "utilisation": 0.0
+  },
+  {
+   "building": "D",
+   "period": 16,
+   "utilisation": 0.0
+  },
+  {
+   "building": "D",
+   "period": 17,
+   "utilisation": 0.0
+  },
+  {
+   "building": "D",
+   "period": 18,
+   "utilisation": 0.0
+  }
+ ],
+ "peak_hours": [
+  {
+   "day": 1,
+   "period": 1,
+   "occupancy": 0.1772
+  },
+  {
+   "day": 1,
+   "period": 2,
+   "occupancy": 0.3924
+  },
+  {
+   "day": 1,
+   "period": 3,
+   "occupancy": 0.5443
+  },
+  {
+   "day": 1,
+   "period": 4,
+   "occupancy": 0.5949
+  },
+  {
+   "day": 1,
+   "period": 5,
+   "occupancy": 0.5696
+  },
+  {
+   "day": 1,
+   "period": 6,
+   "occupancy": 0.2025
+  },
+  {
+   "day": 1,
+   "period": 7,
+   "occupancy": 0.6203
+  },
+  {
+   "day": 1,
+   "period": 8,
+   "occupancy": 0.6076
+  },
+  {
+   "day": 1,
+   "period": 9,
+   "occupancy": 0.5823
+  },
+  {
+   "day": 1,
+   "period": 10,
+   "occupancy": 0.4557
+  },
+  {
+   "day": 1,
+   "period": 11,
+   "occupancy": 0.2278
+  },
+  {
+   "day": 1,
+   "period": 12,
+   "occupancy": 0.0506
+  },
+  {
+   "day": 1,
+   "period": 13,
+   "occupancy": 0.0759
+  },
+  {
+   "day": 1,
+   "period": 14,
+   "occupancy": 0.0886
+  },
+  {
+   "day": 1,
+   "period": 15,
+   "occupancy": 0.0633
+  },
+  {
+   "day": 1,
+   "period": 16,
+   "occupancy": 0.038
+  },
+  {
+   "day": 1,
+   "period": 17,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 1,
+   "period": 18,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 2,
+   "period": 1,
+   "occupancy": 0.3418
+  },
+  {
+   "day": 2,
+   "period": 2,
+   "occupancy": 0.4937
+  },
+  {
+   "day": 2,
+   "period": 3,
+   "occupancy": 0.557
+  },
+  {
+   "day": 2,
+   "period": 4,
+   "occupancy": 0.5823
+  },
+  {
+   "day": 2,
+   "period": 5,
+   "occupancy": 0.6076
+  },
+  {
+   "day": 2,
+   "period": 6,
+   "occupancy": 0.3671
+  },
+  {
+   "day": 2,
+   "period": 7,
+   "occupancy": 0.6203
+  },
+  {
+   "day": 2,
+   "period": 8,
+   "occupancy": 0.5949
+  },
+  {
+   "day": 2,
+   "period": 9,
+   "occupancy": 0.557
+  },
+  {
+   "day": 2,
+   "period": 10,
+   "occupancy": 0.5063
+  },
+  {
+   "day": 2,
+   "period": 11,
+   "occupancy": 0.3544
+  },
+  {
+   "day": 2,
+   "period": 12,
+   "occupancy": 0.1013
+  },
+  {
+   "day": 2,
+   "period": 13,
+   "occupancy": 0.1266
+  },
+  {
+   "day": 2,
+   "period": 14,
+   "occupancy": 0.1519
+  },
+  {
+   "day": 2,
+   "period": 15,
+   "occupancy": 0.0506
+  },
+  {
+   "day": 2,
+   "period": 16,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 2,
+   "period": 17,
+   "occupancy": 0.0
+  },
+  {
+   "day": 2,
+   "period": 18,
+   "occupancy": 0.0
+  },
+  {
+   "day": 3,
+   "period": 1,
+   "occupancy": 0.3924
+  },
+  {
+   "day": 3,
+   "period": 2,
+   "occupancy": 0.5823
+  },
+  {
+   "day": 3,
+   "period": 3,
+   "occupancy": 0.6203
+  },
+  {
+   "day": 3,
+   "period": 4,
+   "occupancy": 0.6203
+  },
+  {
+   "day": 3,
+   "period": 5,
+   "occupancy": 0.6456
+  },
+  {
+   "day": 3,
+   "period": 6,
+   "occupancy": 0.3671
+  },
+  {
+   "day": 3,
+   "period": 7,
+   "occupancy": 0.6582
+  },
+  {
+   "day": 3,
+   "period": 8,
+   "occupancy": 0.6835
+  },
+  {
+   "day": 3,
+   "period": 9,
+   "occupancy": 0.6709
+  },
+  {
+   "day": 3,
+   "period": 10,
+   "occupancy": 0.6076
+  },
+  {
+   "day": 3,
+   "period": 11,
+   "occupancy": 0.481
+  },
+  {
+   "day": 3,
+   "period": 12,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 3,
+   "period": 13,
+   "occupancy": 0.1013
+  },
+  {
+   "day": 3,
+   "period": 14,
+   "occupancy": 0.0886
+  },
+  {
+   "day": 3,
+   "period": 15,
+   "occupancy": 0.0886
+  },
+  {
+   "day": 3,
+   "period": 16,
+   "occupancy": 0.0759
+  },
+  {
+   "day": 3,
+   "period": 17,
+   "occupancy": 0.0633
+  },
+  {
+   "day": 3,
+   "period": 18,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 4,
+   "period": 1,
+   "occupancy": 0.3038
+  },
+  {
+   "day": 4,
+   "period": 2,
+   "occupancy": 0.481
+  },
+  {
+   "day": 4,
+   "period": 3,
+   "occupancy": 0.6076
+  },
+  {
+   "day": 4,
+   "period": 4,
+   "occupancy": 0.6329
+  },
+  {
+   "day": 4,
+   "period": 5,
+   "occupancy": 0.6076
+  },
+  {
+   "day": 4,
+   "period": 6,
+   "occupancy": 0.2658
+  },
+  {
+   "day": 4,
+   "period": 7,
+   "occupancy": 0.6203
+  },
+  {
+   "day": 4,
+   "period": 8,
+   "occupancy": 0.6582
+  },
+  {
+   "day": 4,
+   "period": 9,
+   "occupancy": 0.5823
+  },
+  {
+   "day": 4,
+   "period": 10,
+   "occupancy": 0.5823
+  },
+  {
+   "day": 4,
+   "period": 11,
+   "occupancy": 0.4177
+  },
+  {
+   "day": 4,
+   "period": 12,
+   "occupancy": 0.0759
+  },
+  {
+   "day": 4,
+   "period": 13,
+   "occupancy": 0.1139
+  },
+  {
+   "day": 4,
+   "period": 14,
+   "occupancy": 0.1139
+  },
+  {
+   "day": 4,
+   "period": 15,
+   "occupancy": 0.0886
+  },
+  {
+   "day": 4,
+   "period": 16,
+   "occupancy": 0.0759
+  },
+  {
+   "day": 4,
+   "period": 17,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 4,
+   "period": 18,
+   "occupancy": 0.0
+  },
+  {
+   "day": 5,
+   "period": 1,
+   "occupancy": 0.2405
+  },
+  {
+   "day": 5,
+   "period": 2,
+   "occupancy": 0.3924
+  },
+  {
+   "day": 5,
+   "period": 3,
+   "occupancy": 0.5443
+  },
+  {
+   "day": 5,
+   "period": 4,
+   "occupancy": 0.5696
+  },
+  {
+   "day": 5,
+   "period": 5,
+   "occupancy": 0.5063
+  },
+  {
+   "day": 5,
+   "period": 6,
+   "occupancy": 0.2152
+  },
+  {
+   "day": 5,
+   "period": 7,
+   "occupancy": 0.2785
+  },
+  {
+   "day": 5,
+   "period": 8,
+   "occupancy": 0.5443
+  },
+  {
+   "day": 5,
+   "period": 9,
+   "occupancy": 0.5316
+  },
+  {
+   "day": 5,
+   "period": 10,
+   "occupancy": 0.4557
+  },
+  {
+   "day": 5,
+   "period": 11,
+   "occupancy": 0.3165
+  },
+  {
+   "day": 5,
+   "period": 12,
+   "occupancy": 0.0
+  },
+  {
+   "day": 5,
+   "period": 13,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 5,
+   "period": 14,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 5,
+   "period": 15,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 5,
+   "period": 16,
+   "occupancy": 0.0
+  },
+  {
+   "day": 5,
+   "period": 17,
+   "occupancy": 0.0
+  },
+  {
+   "day": 5,
+   "period": 18,
+   "occupancy": 0.0
+  },
+  {
+   "day": 6,
+   "period": 1,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 6,
+   "period": 2,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 6,
+   "period": 3,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 6,
+   "period": 4,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 6,
+   "period": 5,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 6,
+   "period": 6,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 6,
+   "period": 7,
+   "occupancy": 0.038
+  },
+  {
+   "day": 6,
+   "period": 8,
+   "occupancy": 0.038
+  },
+  {
+   "day": 6,
+   "period": 9,
+   "occupancy": 0.038
+  },
+  {
+   "day": 6,
+   "period": 10,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 6,
+   "period": 11,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 6,
+   "period": 12,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 6,
+   "period": 13,
+   "occupancy": 0.0
+  },
+  {
+   "day": 6,
+   "period": 14,
+   "occupancy": 0.0
+  },
+  {
+   "day": 6,
+   "period": 15,
+   "occupancy": 0.0
+  },
+  {
+   "day": 6,
+   "period": 16,
+   "occupancy": 0.0
+  },
+  {
+   "day": 6,
+   "period": 17,
+   "occupancy": 0.0
+  },
+  {
+   "day": 6,
+   "period": 18,
+   "occupancy": 0.0
+  },
+  {
+   "day": 7,
+   "period": 1,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 7,
+   "period": 2,
+   "occupancy": 0.0506
+  },
+  {
+   "day": 7,
+   "period": 3,
+   "occupancy": 0.0506
+  },
+  {
+   "day": 7,
+   "period": 4,
+   "occupancy": 0.0506
+  },
+  {
+   "day": 7,
+   "period": 5,
+   "occupancy": 0.0506
+  },
+  {
+   "day": 7,
+   "period": 6,
+   "occupancy": 0.0506
+  },
+  {
+   "day": 7,
+   "period": 7,
+   "occupancy": 0.0506
+  },
+  {
+   "day": 7,
+   "period": 8,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 7,
+   "period": 9,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 7,
+   "period": 10,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 7,
+   "period": 11,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 7,
+   "period": 12,
+   "occupancy": 0.0253
+  },
+  {
+   "day": 7,
+   "period": 13,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 7,
+   "period": 14,
+   "occupancy": 0.0127
+  },
+  {
+   "day": 7,
+   "period": 15,
+   "occupancy": 0.0
+  },
+  {
+   "day": 7,
+   "period": 16,
+   "occupancy": 0.0
+  },
+  {
+   "day": 7,
+   "period": 17,
+   "occupancy": 0.0
+  },
+  {
+   "day": 7,
+   "period": 18,
+   "occupancy": 0.0
+  }
+ ],
+ "blocks_week": 71,
+ "conflicts": 0,
+ "last_runs": [
+  {
+   "id": 5,
+   "term_id": 1,
+   "term_code": "2026-BAHAR",
+   "kind": "COURSE",
+   "horizon": "TERM",
+   "horizon_params": {},
+   "status": "INFEASIBLE",
+   "params": {
+    "time_limit_s": 300,
+    "workers": 8,
+    "solver": "cpsat"
+   },
+   "objective_value": null,
+   "soft_score": 0,
+   "hard_score": 0,
+   "stats": {
+    "progress": 100,
+    "phase": "done",
+    "worker": {
+     "host": "vm",
+     "pid": 19491
+    },
+    "rooms_without_capacity": [
+     "A303",
+     "A605",
+     "A606",
+     "A701",
+     "A702",
+     "A703",
+     "A704",
+     "A705",
+     "A803",
+     "A804",
+     "A805",
+     "B207",
+     "B301",
+     "B501",
+     "B506",
+     "C102",
+     "C104",
+     "C107",
+     "C202",
+     "CZ02",
+     "D202",
+     "D302"
+    ],
+    "rooms_without_capacity_count": 22,
+    "merged_joint_lectures": 149,
+    "merged_joint_lectures_clipped": [
+     {
+      "event_id": 1,
+      "request_ids": [
+       1,
+       999
+      ],
+      "label": "MAT 112 §1",
+      "size": 180,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 532,
+      "request_ids": [
+       532,
+       748
+      ],
+      "label": "MAT 112 §1",
+      "size": 180,
+      "clipped_to": 126
+     },
+     {
+      "event_id": 28,
+      "request_ids": [
+       28,
+       30
+      ],
+      "label": "BES 128 + HEM 106",
+      "size": 300,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 33,
+      "request_ids": [
+       33,
+       34
+      ],
+      "label": "MBG 408 §1 + MBG 416 §1",
+      "size": 240,
+      "clipped_to": 120
+     },
+     {
+      "event_id": 775,
+      "request_ids": [
+       775,
+       803
+      ],
+      "label": "HEM 334 + NRS 304",
+      "size": 160,
+      "clipped_to": 72
+     },
+     {
+      "event_id": 236,
+      "request_ids": [
+       236,
+       252,
+       495
+      ],
+      "label": "PHY 102 §1",
+      "size": 160,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 51,
+      "request_ids": [
+       51,
+       54,
+       55
+      ],
+      "label": "MBG 023 §1",
+      "size": 240,
+      "clipped_to": 96
+     },
+     {
+      "event_id": 60,
+      "request_ids": [
+       60,
+       187
+      ],
+      "label": "MBG 014 §1 + MBG 534 §1",
+      "size": 150,
+      "clipped_to": 96
+     },
+     {
+      "event_id": 61,
+      "request_ids": [
+       61,
+       68
+      ],
+      "label": "NRS 110 + NUT 132",
+      "size": 130,
+      "clipped_to": 120
+     },
+     {
+      "event_id": 67,
+      "request_ids": [
+       67,
+       91,
+       123,
+       128
+      ],
+      "label": "SYS 18 + SYS 018 §1",
+      "size": 176,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 1027,
+      "request_ids": [
+       1027,
+       1113
+      ],
+      "label": "PHAR 134 §1 + PHAR 114 §1",
+      "size": 130,
+      "clipped_to": 92
+     },
+     {
+      "event_id": 180,
+      "request_ids": [
+       180,
+       189
+      ],
+      "label": "MBG 598 §1 + MBG 698",
+      "size": 140,
+      "clipped_to": 120
+     },
+     {
+      "event_id": 186,
+      "request_ids": [
+       186,
+       1048,
+       1049
+      ],
+      "label": "MBG 532 §1 + MBG 012 §1",
+      "size": 240,
+      "clipped_to": 40
+     },
+     {
+      "event_id": 188,
+      "request_ids": [
+       188,
+       797,
+       798,
+       947,
+       968,
+       969
+      ],
+      "label": "MBG 546 §1 + MBG 404 §1 + MBG 027 §1",
+      "size": 250,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 524,
+      "request_ids": [
+       524,
+       750
+      ],
+      "label": "BME 218 §1",
+      "size": 150,
+      "clipped_to": 126
+     },
+     {
+      "event_id": 1017,
+      "request_ids": [
+       1017,
+       1069
+      ],
+      "label": "HEM 114 + NRS 116",
+      "size": 190,
+      "clipped_to": 126
+     },
+     {
+      "event_id": 255,
+      "request_ids": [
+       255,
+       273,
+       440
+      ],
+      "label": "MBG 034 §1",
+      "size": 175,
+      "clipped_to": 30
+     },
+     {
+      "event_id": 258,
+      "request_ids": [
+       258,
+       261
+      ],
+      "label": "RAD 202",
+      "size": 160,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 1050,
+      "request_ids": [
+       1050,
+       1056
+      ],
+      "label": "RAD 202",
+      "size": 160,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 1051,
+      "request_ids": [
+       1051,
+       1057
+      ],
+      "label": "RAD 202",
+      "size": 160,
+      "clipped_to": 94
+     },
+     {
+      "event_id": 259,
+      "request_ids": [
+       259,
+       262,
+       1052,
+       1053
+      ],
+      "label": "RAD 274",
+      "size": 320,
+      "clipped_to": 82
+     },
+     {
+      "event_id": 260,
+      "request_ids": [
+       260,
+       263
+      ],
+      "label": "RAD 292",
+      "size": 160,
+      "clipped_to": 94
+     },
+     {
+      "event_id": 287,
+      "request_ids": [
+       287,
+       341,
+       349,
+       367,
+       374,
+       424
+      ],
+      "label": "SYS 19 §2 + 4 more",
+      "size": 217,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 308,
+      "request_ids": [
+       308,
+       315
+      ],
+      "label": "TLT 134 §1 + ADS 112",
+      "size": 107,
+      "clipped_to": 58
+     },
+     {
+      "event_id": 310,
+      "request_ids": [
+       310,
+       322
+      ],
+      "label": "ACU 169",
+      "size": 100,
+      "clipped_to": 58
+     },
+     {
+      "event_id": 312,
+      "request_ids": [
+       312,
+       313,
+       468
+      ],
+      "label": "MBG 414 §1 + MBG 026 §1 + MBG 026",
+      "size": 105,
+      "clipped_to": 58
+     },
+     {
+      "event_id": 326,
+      "request_ids": [
+       326,
+       447
+      ],
+      "label": "AHP 152 §1 + PRO 172",
+      "size": 60,
+      "clipped_to": 58
+     },
+     {
+      "event_id": 327,
+      "request_ids": [
+       327,
+       394
+      ],
+      "label": "SYB 222 + SYB 454",
+      "size": 73,
+      "clipped_to": 30
+     },
+     {
+      "event_id": 334,
+      "request_ids": [
+       334,
+       1081
+      ],
+      "label": "OPT 142 §1 + NUT 368",
+      "size": 65,
+      "clipped_to": 64
+     },
+     {
+      "event_id": 365,
+      "request_ids": [
+       365,
+       932
+      ],
+      "label": "ADS 284",
+      "size": 55,
+      "clipped_to": 28
+     },
+     {
+      "event_id": 366,
+      "request_ids": [
+       366,
+       422
+      ],
+      "label": "ADS 294",
+      "size": 55,
+      "clipped_to": 28
+     },
+     {
+      "event_id": 384,
+      "request_ids": [
+       384,
+       418,
+       419,
+       420,
+       467
+      ],
+      "label": "BME 419 §1",
+      "size": 95,
+      "clipped_to": 72
+     },
+     {
+      "event_id": 415,
+      "request_ids": [
+       415,
+       487,
+       897
+      ],
+      "label": "BME 526 + BMT 512 + BME 526 §1",
+      "size": 45,
+      "clipped_to": 38
+     },
+     {
+      "event_id": 469,
+      "request_ids": [
+       469,
+       470
+      ],
+      "label": "OPT 124 §1 + OPT 122 §1",
+      "size": 85,
+      "clipped_to": 72
+     },
+     {
+      "event_id": 522,
+      "request_ids": [
+       522,
+       550
+      ],
+      "label": "CSE 102 §1",
+      "size": 260,
+      "clipped_to": 126
+     },
+     {
+      "event_id": 523,
+      "request_ids": [
+       523,
+       749
+      ],
+      "label": "CSE 102 §1",
+      "size": 180,
+      "clipped_to": 126
+     },
+     {
+      "event_id": 533,
+      "request_ids": [
+       533,
+       555
+      ],
+      "label": "ACU 168",
+      "size": 175,
+      "clipped_to": 120
+     },
+     {
+      "event_id": 567,
+      "request_ids": [
+       567,
+       760
+      ],
+      "label": "BIL 102",
+      "size": 130,
+      "clipped_to": 72
+     },
+     {
+      "event_id": 605,
+      "request_ids": [
+       605,
+       606
+      ],
+      "label": "MBG 013 §1",
+      "size": 100,
+      "clipped_to": 58
+     },
+     {
+      "event_id": 662,
+      "request_ids": [
+       662,
+       726
+      ],
+      "label": "SOS 246 §1",
+      "size": 50,
+      "clipped_to": 30
+     },
+     {
+      "event_id": 679,
+      "request_ids": [
+       679,
+       680
+      ],
+      "label": "HEM 442 + HEM 450",
+      "size": 40,
+      "clipped_to": 30
+     },
+     {
+      "event_id": 809,
+      "request_ids": [
+       809,
+       841
+      ],
+      "label": "RAD 132 + RAD 132 §1",
+      "size": 115,
+      "clipped_to": 92
+     },
+     {
+      "event_id": 822,
+      "request_ids": [
+       822,
+       823
+      ],
+      "label": "CSE 220 §1",
+      "size": 120,
+      "clipped_to": 64
+     },
+     {
+      "event_id": 892,
+      "request_ids": [
+       892,
+       894
+      ],
+      "label": "MEG 314 §1 + BME 326 §1",
+      "size": 60,
+      "clipped_to": 30
+     },
+     {
+      "event_id": 1015,
+      "request_ids": [
+       1015,
+       1181
+      ],
+      "label": "BME 102 §1",
+      "size": 175,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 1084,
+      "request_ids": [
+       1084,
+       1246
+      ],
+      "label": "CSE 422 §1",
+      "size": 65,
+      "clipped_to": 64
+     },
+     {
+      "event_id": 1085,
+      "request_ids": [
+       1085,
+       1247
+      ],
+      "label": "CSE 472 §1",
+      "size": 65,
+      "clipped_to": 64
+     }
+    ],
+    "prepare_s": 0.268,
+    "events": 686,
+    "rooms": 57,
+    "fixed_time_events": 672,
+    "candidate_options": 7129,
+    "constraints": [
+     "capacity",
+     "no_room_overlap",
+     "no_cohort_overlap",
+     "no_instructor_overlap",
+     "fixed_time",
+     "room_tags",
+     "room_pin",
+     "room_forbid",
+     "building_preference",
+     "room_preference",
+     "same_room_across_weeks",
+     "same_room_group",
+     "min_capacity_waste",
+     "stability"
+    ],
+    "warnings": [],
+    "static_check_s": 0.346,
+    "wall_s": 0.346,
+    "solver_status": "STATIC_INFEASIBLE",
+    "solver": "app.solver.cpsat",
+    "objective_breakdown": {},
+    "assignments": 0
+   },
+   "diagnosis": [
+    {
+     "event_ids": [
+      1
+     ],
+     "constraint_kinds": [
+      "capacity"
+     ],
+     "message": "MAT 112 §1 (#1) (size 180) has no eligible room",
+     "suggestions": [
+      {
+       "id": "s0",
+       "index": 0,
+       "text": "largest eligible room is A204 (156 seats) < 180; allow splitting (max_rooms>1), reduce the group or raise the room capacity",
+       "action": "split",
+       "applicable": true,
+       "params": {
+        "event_ids": [
+         1
+        ],
+        "max_rooms": 3
+       }
+      },
+      {
+       "id": "s1",
+       "index": 1,
+       "text": "split across A204(156) + A203(148) + C201(126)",
+       "action": "manual",
+       "applicable": false,
+       "params": {}
+      }
+     ],
+     "severity": "error",
+     "id": "0",
+     "index": 0,
+     "event_labels": [
+      "MAT 112 §1"
+     ]
+    },
+    {
+     "event_ids": [
+      532
+     ],
+     "constraint_kinds": [
+      "capacity"
+     ],
+     "message": "MAT 112 §1 (#532) (size 180) has no eligible room",
+     "suggestions": [
+      {
+       "id": "s0",
+       "index": 0,
+       "text": "largest eligible room is A204 (156 seats) < 180; allow splitting (max_rooms>1), reduce the group or raise the room capacity",
+       "action": "split",
+       "applicable": true,
+       "params": {
+        "event_ids": [
+         532
+        ],
+        "max_rooms": 3
+       }
+      },
+      {
+       "id": "s1",
+       "index": 1,
+       "text": "split across A204(156) + A203(148) + C201(126)",
+       "action": "manual",
+       "applicable": false,
+       "params": {}
+      }
+     ],
+     "severity": "error",
+     "id": "1",
+     "index": 1,
+     "event_labels": [
+      "MAT 112 §1"
+     ]
+    }
+   ],
+   "parent_run_id": null,
+   "prompt_text": null,
+   "label": "e2e cpsat full term",
+   "is_active": false,
+   "error": null,
+   "created_at": "2026-10-08T07:37:06.373643",
+   "started_at": "2026-10-08T07:37:06.384089",
+   "finished_at": "2026-10-08T07:37:07.109279",
+   "objective_breakdown": {},
+   "progress": 100
+  },
+  {
+   "id": 4,
+   "term_id": 1,
+   "term_code": "2026-BAHAR",
+   "kind": "COURSE",
+   "horizon": "WEEK",
+   "horizon_params": {
+    "weeks": [
+     3
+    ]
+   },
+   "status": "INFEASIBLE",
+   "params": {
+    "time_limit_s": 120,
+    "workers": 8,
+    "solver": "cpsat"
+   },
+   "objective_value": null,
+   "soft_score": 0,
+   "hard_score": 0,
+   "stats": {
+    "progress": 100,
+    "phase": "done",
+    "worker": {
+     "host": "vm",
+     "pid": 19491
+    },
+    "rooms_without_capacity": [
+     "A303",
+     "A605",
+     "A606",
+     "A701",
+     "A702",
+     "A703",
+     "A704",
+     "A705",
+     "A803",
+     "A804",
+     "A805",
+     "B207",
+     "B301",
+     "B501",
+     "B506",
+     "C102",
+     "C104",
+     "C107",
+     "C202",
+     "CZ02",
+     "D202",
+     "D302"
+    ],
+    "rooms_without_capacity_count": 22,
+    "merged_joint_lectures": 149,
+    "merged_joint_lectures_clipped": [
+     {
+      "event_id": 1,
+      "request_ids": [
+       1,
+       999
+      ],
+      "label": "MAT 112 §1",
+      "size": 180,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 532,
+      "request_ids": [
+       532,
+       748
+      ],
+      "label": "MAT 112 §1",
+      "size": 180,
+      "clipped_to": 126
+     },
+     {
+      "event_id": 28,
+      "request_ids": [
+       28,
+       30
+      ],
+      "label": "BES 128 + HEM 106",
+      "size": 300,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 33,
+      "request_ids": [
+       33,
+       34
+      ],
+      "label": "MBG 408 §1 + MBG 416 §1",
+      "size": 240,
+      "clipped_to": 120
+     },
+     {
+      "event_id": 775,
+      "request_ids": [
+       775,
+       803
+      ],
+      "label": "HEM 334 + NRS 304",
+      "size": 160,
+      "clipped_to": 72
+     },
+     {
+      "event_id": 236,
+      "request_ids": [
+       236,
+       252,
+       495
+      ],
+      "label": "PHY 102 §1",
+      "size": 160,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 51,
+      "request_ids": [
+       51,
+       54,
+       55
+      ],
+      "label": "MBG 023 §1",
+      "size": 240,
+      "clipped_to": 96
+     },
+     {
+      "event_id": 60,
+      "request_ids": [
+       60,
+       187
+      ],
+      "label": "MBG 014 §1 + MBG 534 §1",
+      "size": 150,
+      "clipped_to": 96
+     },
+     {
+      "event_id": 61,
+      "request_ids": [
+       61,
+       68
+      ],
+      "label": "NRS 110 + NUT 132",
+      "size": 130,
+      "clipped_to": 120
+     },
+     {
+      "event_id": 67,
+      "request_ids": [
+       67,
+       91,
+       123,
+       128
+      ],
+      "label": "SYS 18 + SYS 018 §1",
+      "size": 176,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 1027,
+      "request_ids": [
+       1027,
+       1113
+      ],
+      "label": "PHAR 134 §1 + PHAR 114 §1",
+      "size": 130,
+      "clipped_to": 92
+     },
+     {
+      "event_id": 180,
+      "request_ids": [
+       180,
+       189
+      ],
+      "label": "MBG 598 §1 + MBG 698",
+      "size": 140,
+      "clipped_to": 120
+     },
+     {
+      "event_id": 186,
+      "request_ids": [
+       186,
+       1048,
+       1049
+      ],
+      "label": "MBG 532 §1 + MBG 012 §1",
+      "size": 240,
+      "clipped_to": 40
+     },
+     {
+      "event_id": 188,
+      "request_ids": [
+       188,
+       797,
+       798,
+       947,
+       968,
+       969
+      ],
+      "label": "MBG 546 §1 + MBG 404 §1 + MBG 027 §1",
+      "size": 250,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 524,
+      "request_ids": [
+       524,
+       750
+      ],
+      "label": "BME 218 §1",
+      "size": 150,
+      "clipped_to": 126
+     },
+     {
+      "event_id": 1017,
+      "request_ids": [
+       1017,
+       1069
+      ],
+      "label": "HEM 114 + NRS 116",
+      "size": 190,
+      "clipped_to": 126
+     },
+     {
+      "event_id": 255,
+      "request_ids": [
+       255,
+       273,
+       440
+      ],
+      "label": "MBG 034 §1",
+      "size": 175,
+      "clipped_to": 30
+     },
+     {
+      "event_id": 258,
+      "request_ids": [
+       258,
+       261
+      ],
+      "label": "RAD 202",
+      "size": 160,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 1050,
+      "request_ids": [
+       1050,
+       1056
+      ],
+      "label": "RAD 202",
+      "size": 160,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 1051,
+      "request_ids": [
+       1051,
+       1057
+      ],
+      "label": "RAD 202",
+      "size": 160,
+      "clipped_to": 94
+     },
+     {
+      "event_id": 259,
+      "request_ids": [
+       259,
+       262,
+       1052,
+       1053
+      ],
+      "label": "RAD 274",
+      "size": 320,
+      "clipped_to": 82
+     },
+     {
+      "event_id": 260,
+      "request_ids": [
+       260,
+       263
+      ],
+      "label": "RAD 292",
+      "size": 160,
+      "clipped_to": 94
+     },
+     {
+      "event_id": 287,
+      "request_ids": [
+       287,
+       341,
+       349,
+       367,
+       374,
+       424
+      ],
+      "label": "SYS 19 §2 + 4 more",
+      "size": 217,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 308,
+      "request_ids": [
+       308,
+       315
+      ],
+      "label": "TLT 134 §1 + ADS 112",
+      "size": 107,
+      "clipped_to": 58
+     },
+     {
+      "event_id": 310,
+      "request_ids": [
+       310,
+       322
+      ],
+      "label": "ACU 169",
+      "size": 100,
+      "clipped_to": 58
+     },
+     {
+      "event_id": 312,
+      "request_ids": [
+       312,
+       313,
+       468
+      ],
+      "label": "MBG 414 §1 + MBG 026 §1 + MBG 026",
+      "size": 105,
+      "clipped_to": 58
+     },
+     {
+      "event_id": 326,
+      "request_ids": [
+       326,
+       447
+      ],
+      "label": "AHP 152 §1 + PRO 172",
+      "size": 60,
+      "clipped_to": 58
+     },
+     {
+      "event_id": 327,
+      "request_ids": [
+       327,
+       394
+      ],
+      "label": "SYB 222 + SYB 454",
+      "size": 73,
+      "clipped_to": 30
+     },
+     {
+      "event_id": 334,
+      "request_ids": [
+       334,
+       1081
+      ],
+      "label": "OPT 142 §1 + NUT 368",
+      "size": 65,
+      "clipped_to": 64
+     },
+     {
+      "event_id": 365,
+      "request_ids": [
+       365,
+       932
+      ],
+      "label": "ADS 284",
+      "size": 55,
+      "clipped_to": 28
+     },
+     {
+      "event_id": 366,
+      "request_ids": [
+       366,
+       422
+      ],
+      "label": "ADS 294",
+      "size": 55,
+      "clipped_to": 28
+     },
+     {
+      "event_id": 384,
+      "request_ids": [
+       384,
+       418,
+       419,
+       420,
+       467
+      ],
+      "label": "BME 419 §1",
+      "size": 95,
+      "clipped_to": 72
+     },
+     {
+      "event_id": 415,
+      "request_ids": [
+       415,
+       487,
+       897
+      ],
+      "label": "BME 526 + BMT 512 + BME 526 §1",
+      "size": 45,
+      "clipped_to": 38
+     },
+     {
+      "event_id": 469,
+      "request_ids": [
+       469,
+       470
+      ],
+      "label": "OPT 124 §1 + OPT 122 §1",
+      "size": 85,
+      "clipped_to": 72
+     },
+     {
+      "event_id": 522,
+      "request_ids": [
+       522,
+       550
+      ],
+      "label": "CSE 102 §1",
+      "size": 260,
+      "clipped_to": 126
+     },
+     {
+      "event_id": 523,
+      "request_ids": [
+       523,
+       749
+      ],
+      "label": "CSE 102 §1",
+      "size": 180,
+      "clipped_to": 126
+     },
+     {
+      "event_id": 533,
+      "request_ids": [
+       533,
+       555
+      ],
+      "label": "ACU 168",
+      "size": 175,
+      "clipped_to": 120
+     },
+     {
+      "event_id": 567,
+      "request_ids": [
+       567,
+       760
+      ],
+      "label": "BIL 102",
+      "size": 130,
+      "clipped_to": 72
+     },
+     {
+      "event_id": 605,
+      "request_ids": [
+       605,
+       606
+      ],
+      "label": "MBG 013 §1",
+      "size": 100,
+      "clipped_to": 58
+     },
+     {
+      "event_id": 662,
+      "request_ids": [
+       662,
+       726
+      ],
+      "label": "SOS 246 §1",
+      "size": 50,
+      "clipped_to": 30
+     },
+     {
+      "event_id": 679,
+      "request_ids": [
+       679,
+       680
+      ],
+      "label": "HEM 442 + HEM 450",
+      "size": 40,
+      "clipped_to": 30
+     },
+     {
+      "event_id": 809,
+      "request_ids": [
+       809,
+       841
+      ],
+      "label": "RAD 132 + RAD 132 §1",
+      "size": 115,
+      "clipped_to": 92
+     },
+     {
+      "event_id": 822,
+      "request_ids": [
+       822,
+       823
+      ],
+      "label": "CSE 220 §1",
+      "size": 120,
+      "clipped_to": 64
+     },
+     {
+      "event_id": 892,
+      "request_ids": [
+       892,
+       894
+      ],
+      "label": "MEG 314 §1 + BME 326 §1",
+      "size": 60,
+      "clipped_to": 30
+     },
+     {
+      "event_id": 1015,
+      "request_ids": [
+       1015,
+       1181
+      ],
+      "label": "BME 102 §1",
+      "size": 175,
+      "clipped_to": 156
+     },
+     {
+      "event_id": 1084,
+      "request_ids": [
+       1084,
+       1246
+      ],
+      "label": "CSE 422 §1",
+      "size": 65,
+      "clipped_to": 64
+     },
+     {
+      "event_id": 1085,
+      "request_ids": [
+       1085,
+       1247
+      ],
+      "label": "CSE 472 §1",
+      "size": 65,
+      "clipped_to": 64
+     }
+    ],
+    "prepare_s": 0.038,
+    "events": 685,
+    "rooms": 57,
+    "fixed_time_events": 671,
+    "candidate_options": 7488,
+    "constraints": [
+     "capacity",
+     "no_room_overlap",
+     "no_cohort_overlap",
+     "no_instructor_overlap",
+     "fixed_time",
+     "room_tags",
+     "room_pin",
+     "room_forbid",
+     "building_preference",
+     "room_preference",
+     "same_room_across_weeks",
+     "same_room_group",
+     "min_capacity_waste",
+     "stability"
+    ],
+    "warnings": [],
+    "static_check_s": 0.05,
+    "wall_s": 0.05,
+    "solver_status": "STATIC_INFEASIBLE",
+    "solver": "app.solver.cpsat",
+    "objective_breakdown": {},
+    "assignments": 0
+   },
+   "diagnosis": [
+    {
+     "event_ids": [
+      1
+     ],
+     "constraint_kinds": [
+      "capacity"
+     ],
+     "message": "MAT 112 §1 (#1) (size 180) has no eligible room",
+     "suggestions": [
+      {
+       "id": "s0",
+       "index": 0,
+       "text": "largest eligible room is A204 (156 seats) < 180; allow splitting (max_rooms>1), reduce the group or raise the room capacity",
+       "action": "split",
+       "applicable": true,
+       "params": {
+        "event_ids": [
+         1
+        ],
+        "max_rooms": 3
+       }
+      },
+      {
+       "id": "s1",
+       "index": 1,
+       "text": "split across A204(156) + A203(148) + C201(126)",
+       "action": "manual",
+       "applicable": false,
+       "params": {}
+      }
+     ],
+     "severity": "error",
+     "id": "0",
+     "index": 0,
+     "event_labels": [
+      "MAT 112 §1"
+     ]
+    },
+    {
+     "event_ids": [
+      532
+     ],
+     "constraint_kinds": [
+      "capacity"
+     ],
+     "message": "MAT 112 §1 (#532) (size 180) has no eligible room",
+     "suggestions": [
+      {
+       "id": "s0",
+       "index": 0,
+       "text": "largest eligible room is A204 (156 seats) < 180; allow splitting (max_rooms>1), reduce the group or raise the room capacity",
+       "action": "split",
+       "applicable": true,
+       "params": {
+        "event_ids": [
+         532
+        ],
+        "max_rooms": 3
+       }
+      },
+      {
+       "id": "s1",
+       "index": 1,
+       "text": "split across A204(156) + A203(148) + C201(126)",
+       "action": "manual",
+       "applicable": false,
+       "params": {}
+      }
+     ],
+     "severity": "error",
+     "id": "1",
+     "index": 1,
+     "event_labels": [
+      "MAT 112 §1"
+     ]
+    }
+   ],
+   "parent_run_id": null,
+   "prompt_text": null,
+   "label": "e2e cpsat week 3",
+   "is_active": false,
+   "error": null,
+   "created_at": "2026-10-08T07:36:55.822825",
+   "started_at": "2026-10-08T07:36:55.839528",
+   "finished_at": "2026-10-08T07:36:56.103249",
+   "objective_breakdown": {},
+   "progress": 100
+  },
+  {
+   "id": 3,
+   "term_id": 1,
+   "term_code": "2026-BAHAR",
+   "kind": "COURSE",
+   "horizon": "WEEK",
+   "horizon_params": {
+    "weeks": [
+     3
+    ]
+   },
+   "status": "FAILED",
+   "params": {
+    "time_limit_s": 120,
+    "workers": 8,
+    "solver": "cpsat"
+   },
+   "objective_value": null,
+   "soft_score": null,
+   "hard_score": null,
+   "stats": {
+    "progress": 5,
+    "phase": "failed",
+    "worker": {
+     "host": "vm",
+     "pid": 19491
+    }
+   },
+   "diagnosis": [],
+   "parent_run_id": null,
+   "prompt_text": null,
+   "label": "e2e cpsat week 3",
+   "is_active": false,
+   "error": "OperationalError: (sqlite3.OperationalError) no such column: constraints.source_ref\n[SQL: SELECT constraints.id, constraints.term_id, constraints.run_id, constraints.kind, constraints.params, constraints.hardness, constraints.weight, constraints.source, constraints.source_ref, constraints.nl_text, …",
+   "created_at": "2026-10-08T07:36:09.494800",
+   "started_at": "2026-10-08T07:36:09.511405",
+   "finished_at": "2026-10-08T07:36:09.734969",
+   "objective_breakdown": {},
+   "progress": 5
+  },
+  {
+   "id": 2,
+   "term_id": 1,
+   "term_code": "2026-BAHAR",
+   "kind": "EXAM",
+   "horizon": "TERM",
+   "horizon_params": {},
+   "status": "FEASIBLE",
+   "params": {
+    "source": "GRID_IMPORT"
+   },
+   "objective_value": null,
+   "soft_score": 100,
+   "hard_score": 100,
+   "stats": {
+    "progress": 100
+   },
+   "diagnosis": [],
+   "parent_run_id": null,
+   "prompt_text": null,
+   "label": "Grid import: bahar_derslikler_takvimi_2026.xlsx",
+   "is_active": false,
+   "error": null,
+   "created_at": "2026-10-08T07:21:13.262406",
+   "started_at": null,
+   "finished_at": null,
+   "objective_breakdown": {},
+   "progress": 100
+  },
+  {
+   "id": 1,
+   "term_id": 1,
+   "term_code": "2026-BAHAR",
+   "kind": "COURSE",
+   "horizon": "TERM",
+   "horizon_params": {},
+   "status": "FEASIBLE",
+   "params": {
+    "source": "GRID_IMPORT"
+   },
+   "objective_value": null,
+   "soft_score": 100,
+   "hard_score": 100,
+   "stats": {
+    "progress": 100
+   },
+   "diagnosis": [],
+   "parent_run_id": null,
+   "prompt_text": null,
+   "label": "Grid import: bahar_derslikler_takvimi_2026.xlsx",
+   "is_active": false,
+   "error": null,
+   "created_at": "2026-10-08T07:21:13.260041",
+   "started_at": null,
+   "finished_at": null,
+   "objective_breakdown": {},
+   "progress": 100
+  }
+ ]
+}

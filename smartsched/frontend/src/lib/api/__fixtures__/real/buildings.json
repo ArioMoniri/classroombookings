@@ -1,0 +1,22 @@
+[
+ {
+  "id": 1,
+  "code": "A",
+  "name": "A Blok"
+ },
+ {
+  "id": 4,
+  "code": "B",
+  "name": "B Blok"
+ },
+ {
+  "id": 2,
+  "code": "C",
+  "name": "C Blok"
+ },
+ {
+  "id": 3,
+  "code": "D",
+  "name": "D Blok"
+ }
+]

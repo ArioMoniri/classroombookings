@@ -1,0 +1,228 @@
+[
+ {
+  "id": 1220,
+  "run_id": 1,
+  "meeting_request_id": null,
+  "exam_request_id": null,
+  "week": 3,
+  "weeks": [
+   3
+  ],
+  "day": 1,
+  "date": "2026-02-16",
+  "start_period": 1,
+  "end_period": 4,
+  "room_ids": [
+   2
+  ],
+  "label": "PHAR 474",
+  "course_codes": [
+   "PHAR474"
+  ],
+  "tags": [],
+  "notes": null,
+  "is_locked": false,
+  "origin": "IMPORT",
+  "archived": false,
+  "display_label": "PHAR 474",
+  "room_codes": [
+   "A 102"
+  ],
+  "course_code": "PHAR474",
+  "course_name": null,
+  "section_label": null,
+  "program_name": null,
+  "class_year": null,
+  "size": 0,
+  "enrolment": null,
+  "instructors": [],
+  "instructor": null,
+  "capacity": 96,
+  "week_set": [
+   3
+  ],
+  "is_conflict": false,
+  "conflict_reasons": []
+ },
+ {
+  "id": 1221,
+  "run_id": 1,
+  "meeting_request_id": null,
+  "exam_request_id": null,
+  "week": 3,
+  "weeks": [
+   3
+  ],
+  "day": 1,
+  "date": "2026-02-16",
+  "start_period": 1,
+  "end_period": 2,
+  "room_ids": [
+   4
+  ],
+  "label": "BCT 128",
+  "course_codes": [
+   "BCT128"
+  ],
+  "tags": [],
+  "notes": null,
+  "is_locked": false,
+  "origin": "IMPORT",
+  "archived": false,
+  "display_label": "BCT 128",
+  "room_codes": [
+   "A 107"
+  ],
+  "course_code": "BCT128",
+  "course_name": null,
+  "section_label": null,
+  "program_name": null,
+  "class_year": null,
+  "size": 0,
+  "enrolment": null,
+  "instructors": [],
+  "instructor": null,
+  "capacity": 58,
+  "week_set": [
+   3
+  ],
+  "is_conflict": false,
+  "conflict_reasons": []
+ },
+ {
+  "id": 1222,
+  "run_id": 1,
+  "meeting_request_id": null,
+  "exam_request_id": null,
+  "week": 3,
+  "weeks": [
+   3
+  ],
+  "day": 1,
+  "date": "2026-02-16",
+  "start_period": 1,
+  "end_period": 3,
+  "room_ids": [
+   12
+  ],
+  "label": "HEM 334 / NRS 304",
+  "course_codes": [
+   "HEM334",
+   "NRS304"
+  ],
+  "tags": [],
+  "notes": "2 ŞUBAT, 9 ŞUBAT VE 16 ŞUBAT PAZARTESİ KULLANIM OLACAK",
+  "is_locked": false,
+  "origin": "IMPORT",
+  "archived": false,
+  "display_label": "HEM 334 / NRS 304",
+  "room_codes": [
+   "A 206"
+  ],
+  "course_code": "HEM334",
+  "course_name": null,
+  "section_label": null,
+  "program_name": null,
+  "class_year": null,
+  "size": 0,
+  "enrolment": null,
+  "instructors": [],
+  "instructor": null,
+  "capacity": 92,
+  "week_set": [
+   3
+  ],
+  "is_conflict": false,
+  "conflict_reasons": []
+ },
+ {
+  "id": 1223,
+  "run_id": 1,
+  "meeting_request_id": null,
+  "exam_request_id": null,
+  "week": 3,
+  "weeks": [
+   3
+  ],
+  "day": 1,
+  "date": "2026-02-16",
+  "start_period": 1,
+  "end_period": 2,
+  "room_ids": [
+   19
+  ],
+  "label": "MAT 112",
+  "course_codes": [
+   "MAT112"
+  ],
+  "tags": [],
+  "notes": null,
+  "is_locked": false,
+  "origin": "IMPORT",
+  "archived": false,
+  "display_label": "MAT 112",
+  "room_codes": [
+   "C 201"
+  ],
+  "course_code": "MAT112",
+  "course_name": null,
+  "section_label": null,
+  "program_name": null,
+  "class_year": null,
+  "size": 0,
+  "enrolment": null,
+  "instructors": [],
+  "instructor": null,
+  "capacity": 126,
+  "week_set": [
+   3
+  ],
+  "is_conflict": false,
+  "conflict_reasons": []
+ },
+ {
+  "id": 1560,
+  "run_id": 1,
+  "meeting_request_id": null,
+  "exam_request_id": null,
+  "week": 3,
+  "weeks": [
+   3
+  ],
+  "day": 1,
+  "date": "2026-02-16",
+  "start_period": 1,
+  "end_period": 2,
+  "room_ids": [
+   30
+  ],
+  "label": "BES 384",
+  "course_codes": [
+   "BES384"
+  ],
+  "tags": [],
+  "notes": null,
+  "is_locked": false,
+  "origin": "IMPORT",
+  "archived": false,
+  "display_label": "BES 384",
+  "room_codes": [
+   "C 401"
+  ],
+  "course_code": "BES384",
+  "course_name": null,
+  "section_label": null,
+  "program_name": null,
+  "class_year": null,
+  "size": 0,
+  "enrolment": null,
+  "instructors": [],
+  "instructor": null,
+  "capacity": 72,
+  "week_set": [
+   3
+  ],
+  "is_conflict": false,
+  "conflict_reasons": []
+ }
+]

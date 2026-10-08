@@ -132,10 +132,10 @@ export function useLockAssignment(runId: number) {
 export function useChat(runId: number) {
   return useQuery({ queryKey: qk.chat(runId), queryFn: () => api.runs.chat(runId) });
 }
-export function useSendChat(runId: number) {
+export function useSendChat(runId: number, lang: "tr" | "en" = "tr") {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (message: string) => api.runs.sendChat(runId, message),
+    mutationFn: (message: string) => api.runs.sendChat(runId, message, lang),
     onSuccess: (data) => qc.setQueryData(qk.chat(runId), data),
   });
 }
@@ -153,9 +153,10 @@ export function useApplyProposal(runId: number) {
 export function useUndoProposal(runId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (proposalId: string) => api.runs.undoProposal(runId, proposalId),
+    mutationFn: () => api.runs.undoProposal(runId),
     onSuccess: (data) => {
       qc.setQueryData(qk.chat(runId), { messages: data.messages });
+      void qc.invalidateQueries({ queryKey: ["runs"] });
       void qc.invalidateQueries({ queryKey: ["grid", runId] });
     },
   });
@@ -163,8 +164,11 @@ export function useUndoProposal(runId: number) {
 export function useApplyFix(runId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ diagnosisId, suggestionId }: { diagnosisId: string; suggestionId: string }) => api.runs.applyFix(runId, diagnosisId, suggestionId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["runs"] }),
+    mutationFn: ({ diagnosisIndex, optionIndex }: { diagnosisIndex: number; optionIndex: number }) => api.runs.applyFix(runId, diagnosisIndex, optionIndex),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["runs"] });
+      void qc.invalidateQueries({ queryKey: ["grid", runId] });
+    },
   });
 }
 export function useSettings() {

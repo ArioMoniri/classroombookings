@@ -1,0 +1,777 @@
+{
+ "id": 4,
+ "term_id": 1,
+ "term_code": "2026-BAHAR",
+ "kind": "COURSE",
+ "horizon": "WEEK",
+ "horizon_params": {
+  "weeks": [
+   3
+  ]
+ },
+ "status": "INFEASIBLE",
+ "params": {
+  "time_limit_s": 120,
+  "workers": 8,
+  "solver": "cpsat"
+ },
+ "objective_value": null,
+ "soft_score": 0,
+ "hard_score": 0,
+ "stats": {
+  "progress": 100,
+  "phase": "done",
+  "worker": {
+   "host": "vm",
+   "pid": 19491
+  },
+  "rooms_without_capacity": [
+   "A303",
+   "A605",
+   "A606",
+   "A701",
+   "A702",
+   "A703",
+   "A704",
+   "A705",
+   "A803",
+   "A804",
+   "A805",
+   "B207",
+   "B301",
+   "B501",
+   "B506",
+   "C102",
+   "C104",
+   "C107",
+   "C202",
+   "CZ02",
+   "D202",
+   "D302"
+  ],
+  "rooms_without_capacity_count": 22,
+  "merged_joint_lectures": 149,
+  "merged_joint_lectures_clipped": [
+   {
+    "event_id": 1,
+    "request_ids": [
+     1,
+     999
+    ],
+    "label": "MAT 112 §1",
+    "size": 180,
+    "clipped_to": 156
+   },
+   {
+    "event_id": 532,
+    "request_ids": [
+     532,
+     748
+    ],
+    "label": "MAT 112 §1",
+    "size": 180,
+    "clipped_to": 126
+   },
+   {
+    "event_id": 28,
+    "request_ids": [
+     28,
+     30
+    ],
+    "label": "BES 128 + HEM 106",
+    "size": 300,
+    "clipped_to": 156
+   },
+   {
+    "event_id": 33,
+    "request_ids": [
+     33,
+     34
+    ],
+    "label": "MBG 408 §1 + MBG 416 §1",
+    "size": 240,
+    "clipped_to": 120
+   },
+   {
+    "event_id": 775,
+    "request_ids": [
+     775,
+     803
+    ],
+    "label": "HEM 334 + NRS 304",
+    "size": 160,
+    "clipped_to": 72
+   },
+   {
+    "event_id": 236,
+    "request_ids": [
+     236,
+     252,
+     495
+    ],
+    "label": "PHY 102 §1",
+    "size": 160,
+    "clipped_to": 156
+   },
+   {
+    "event_id": 51,
+    "request_ids": [
+     51,
+     54,
+     55
+    ],
+    "label": "MBG 023 §1",
+    "size": 240,
+    "clipped_to": 96
+   },
+   {
+    "event_id": 60,
+    "request_ids": [
+     60,
+     187
+    ],
+    "label": "MBG 014 §1 + MBG 534 §1",
+    "size": 150,
+    "clipped_to": 96
+   },
+   {
+    "event_id": 61,
+    "request_ids": [
+     61,
+     68
+    ],
+    "label": "NRS 110 + NUT 132",
+    "size": 130,
+    "clipped_to": 120
+   },
+   {
+    "event_id": 67,
+    "request_ids": [
+     67,
+     91,
+     123,
+     128
+    ],
+    "label": "SYS 18 + SYS 018 §1",
+    "size": 176,
+    "clipped_to": 156
+   },
+   {
+    "event_id": 1027,
+    "request_ids": [
+     1027,
+     1113
+    ],
+    "label": "PHAR 134 §1 + PHAR 114 §1",
+    "size": 130,
+    "clipped_to": 92
+   },
+   {
+    "event_id": 180,
+    "request_ids": [
+     180,
+     189
+    ],
+    "label": "MBG 598 §1 + MBG 698",
+    "size": 140,
+    "clipped_to": 120
+   },
+   {
+    "event_id": 186,
+    "request_ids": [
+     186,
+     1048,
+     1049
+    ],
+    "label": "MBG 532 §1 + MBG 012 §1",
+    "size": 240,
+    "clipped_to": 40
+   },
+   {
+    "event_id": 188,
+    "request_ids": [
+     188,
+     797,
+     798,
+     947,
+     968,
+     969
+    ],
+    "label": "MBG 546 §1 + MBG 404 §1 + MBG 027 §1",
+    "size": 250,
+    "clipped_to": 156
+   },
+   {
+    "event_id": 524,
+    "request_ids": [
+     524,
+     750
+    ],
+    "label": "BME 218 §1",
+    "size": 150,
+    "clipped_to": 126
+   },
+   {
+    "event_id": 1017,
+    "request_ids": [
+     1017,
+     1069
+    ],
+    "label": "HEM 114 + NRS 116",
+    "size": 190,
+    "clipped_to": 126
+   },
+   {
+    "event_id": 255,
+    "request_ids": [
+     255,
+     273,
+     440
+    ],
+    "label": "MBG 034 §1",
+    "size": 175,
+    "clipped_to": 30
+   },
+   {
+    "event_id": 258,
+    "request_ids": [
+     258,
+     261
+    ],
+    "label": "RAD 202",
+    "size": 160,
+    "clipped_to": 156
+   },
+   {
+    "event_id": 1050,
+    "request_ids": [
+     1050,
+     1056
+    ],
+    "label": "RAD 202",
+    "size": 160,
+    "clipped_to": 156
+   },
+   {
+    "event_id": 1051,
+    "request_ids": [
+     1051,
+     1057
+    ],
+    "label": "RAD 202",
+    "size": 160,
+    "clipped_to": 94
+   },
+   {
+    "event_id": 259,
+    "request_ids": [
+     259,
+     262,
+     1052,
+     1053
+    ],
+    "label": "RAD 274",
+    "size": 320,
+    "clipped_to": 82
+   },
+   {
+    "event_id": 260,
+    "request_ids": [
+     260,
+     263
+    ],
+    "label": "RAD 292",
+    "size": 160,
+    "clipped_to": 94
+   },
+   {
+    "event_id": 287,
+    "request_ids": [
+     287,
+     341,
+     349,
+     367,
+     374,
+     424
+    ],
+    "label": "SYS 19 §2 + 4 more",
+    "size": 217,
+    "clipped_to": 156
+   },
+   {
+    "event_id": 308,
+    "request_ids": [
+     308,
+     315
+    ],
+    "label": "TLT 134 §1 + ADS 112",
+    "size": 107,
+    "clipped_to": 58
+   },
+   {
+    "event_id": 310,
+    "request_ids": [
+     310,
+     322
+    ],
+    "label": "ACU 169",
+    "size": 100,
+    "clipped_to": 58
+   },
+   {
+    "event_id": 312,
+    "request_ids": [
+     312,
+     313,
+     468
+    ],
+    "label": "MBG 414 §1 + MBG 026 §1 + MBG 026",
+    "size": 105,
+    "clipped_to": 58
+   },
+   {
+    "event_id": 326,
+    "request_ids": [
+     326,
+     447
+    ],
+    "label": "AHP 152 §1 + PRO 172",
+    "size": 60,
+    "clipped_to": 58
+   },
+   {
+    "event_id": 327,
+    "request_ids": [
+     327,
+     394
+    ],
+    "label": "SYB 222 + SYB 454",
+    "size": 73,
+    "clipped_to": 30
+   },
+   {
+    "event_id": 334,
+    "request_ids": [
+     334,
+     1081
+    ],
+    "label": "OPT 142 §1 + NUT 368",
+    "size": 65,
+    "clipped_to": 64
+   },
+   {
+    "event_id": 365,
+    "request_ids": [
+     365,
+     932
+    ],
+    "label": "ADS 284",
+    "size": 55,
+    "clipped_to": 28
+   },
+   {
+    "event_id": 366,
+    "request_ids": [
+     366,
+     422
+    ],
+    "label": "ADS 294",
+    "size": 55,
+    "clipped_to": 28
+   },
+   {
+    "event_id": 384,
+    "request_ids": [
+     384,
+     418,
+     419,
+     420,
+     467
+    ],
+    "label": "BME 419 §1",
+    "size": 95,
+    "clipped_to": 72
+   },
+   {
+    "event_id": 415,
+    "request_ids": [
+     415,
+     487,
+     897
+    ],
+    "label": "BME 526 + BMT 512 + BME 526 §1",
+    "size": 45,
+    "clipped_to": 38
+   },
+   {
+    "event_id": 469,
+    "request_ids": [
+     469,
+     470
+    ],
+    "label": "OPT 124 §1 + OPT 122 §1",
+    "size": 85,
+    "clipped_to": 72
+   },
+   {
+    "event_id": 522,
+    "request_ids": [
+     522,
+     550
+    ],
+    "label": "CSE 102 §1",
+    "size": 260,
+    "clipped_to": 126
+   },
+   {
+    "event_id": 523,
+    "request_ids": [
+     523,
+     749
+    ],
+    "label": "CSE 102 §1",
+    "size": 180,
+    "clipped_to": 126
+   },
+   {
+    "event_id": 533,
+    "request_ids": [
+     533,
+     555
+    ],
+    "label": "ACU 168",
+    "size": 175,
+    "clipped_to": 120
+   },
+   {
+    "event_id": 567,
+    "request_ids": [
+     567,
+     760
+    ],
+    "label": "BIL 102",
+    "size": 130,
+    "clipped_to": 72
+   },
+   {
+    "event_id": 605,
+    "request_ids": [
+     605,
+     606
+    ],
+    "label": "MBG 013 §1",
+    "size": 100,
+    "clipped_to": 58
+   },
+   {
+    "event_id": 662,
+    "request_ids": [
+     662,
+     726
+    ],
+    "label": "SOS 246 §1",
+    "size": 50,
+    "clipped_to": 30
+   },
+   {
+    "event_id": 679,
+    "request_ids": [
+     679,
+     680
+    ],
+    "label": "HEM 442 + HEM 450",
+    "size": 40,
+    "clipped_to": 30
+   },
+   {
+    "event_id": 809,
+    "request_ids": [
+     809,
+     841
+    ],
+    "label": "RAD 132 + RAD 132 §1",
+    "size": 115,
+    "clipped_to": 92
+   },
+   {
+    "event_id": 822,
+    "request_ids": [
+     822,
+     823
+    ],
+    "label": "CSE 220 §1",
+    "size": 120,
+    "clipped_to": 64
+   },
+   {
+    "event_id": 892,
+    "request_ids": [
+     892,
+     894
+    ],
+    "label": "MEG 314 §1 + BME 326 §1",
+    "size": 60,
+    "clipped_to": 30
+   },
+   {
+    "event_id": 1015,
+    "request_ids": [
+     1015,
+     1181
+    ],
+    "label": "BME 102 §1",
+    "size": 175,
+    "clipped_to": 156
+   },
+   {
+    "event_id": 1084,
+    "request_ids": [
+     1084,
+     1246
+    ],
+    "label": "CSE 422 §1",
+    "size": 65,
+    "clipped_to": 64
+   },
+   {
+    "event_id": 1085,
+    "request_ids": [
+     1085,
+     1247
+    ],
+    "label": "CSE 472 §1",
+    "size": 65,
+    "clipped_to": 64
+   }
+  ],
+  "prepare_s": 0.038,
+  "events": 685,
+  "rooms": 57,
+  "fixed_time_events": 671,
+  "candidate_options": 7488,
+  "constraints": [
+   "capacity",
+   "no_room_overlap",
+   "no_cohort_overlap",
+   "no_instructor_overlap",
+   "fixed_time",
+   "room_tags",
+   "room_pin",
+   "room_forbid",
+   "building_preference",
+   "room_preference",
+   "same_room_across_weeks",
+   "same_room_group",
+   "min_capacity_waste",
+   "stability"
+  ],
+  "warnings": [],
+  "static_check_s": 0.05,
+  "wall_s": 0.05,
+  "solver_status": "STATIC_INFEASIBLE",
+  "solver": "app.solver.cpsat",
+  "objective_breakdown": {},
+  "assignments": 0
+ },
+ "diagnosis": [
+  {
+   "event_ids": [
+    1
+   ],
+   "constraint_kinds": [
+    "capacity"
+   ],
+   "message": "MAT 112 §1 (#1) (size 180) has no eligible room",
+   "suggestions": [
+    {
+     "id": "s0",
+     "index": 0,
+     "text": "largest eligible room is A204 (156 seats) < 180; allow splitting (max_rooms>1), reduce the group or raise the room capacity",
+     "action": "split",
+     "applicable": true,
+     "params": {
+      "event_ids": [
+       1
+      ],
+      "max_rooms": 3
+     }
+    },
+    {
+     "id": "s1",
+     "index": 1,
+     "text": "split across A204(156) + A203(148) + C201(126)",
+     "action": "manual",
+     "applicable": false,
+     "params": {}
+    }
+   ],
+   "severity": "error",
+   "id": "0",
+   "index": 0,
+   "event_labels": [
+    "MAT 112 §1"
+   ]
+  },
+  {
+   "event_ids": [
+    532
+   ],
+   "constraint_kinds": [
+    "capacity"
+   ],
+   "message": "MAT 112 §1 (#532) (size 180) has no eligible room",
+   "suggestions": [
+    {
+     "id": "s0",
+     "index": 0,
+     "text": "largest eligible room is A204 (156 seats) < 180; allow splitting (max_rooms>1), reduce the group or raise the room capacity",
+     "action": "split",
+     "applicable": true,
+     "params": {
+      "event_ids": [
+       532
+      ],
+      "max_rooms": 3
+     }
+    },
+    {
+     "id": "s1",
+     "index": 1,
+     "text": "split across A204(156) + A203(148) + C201(126)",
+     "action": "manual",
+     "applicable": false,
+     "params": {}
+    }
+   ],
+   "severity": "error",
+   "id": "1",
+   "index": 1,
+   "event_labels": [
+    "MAT 112 §1"
+   ]
+  },
+  {
+   "event_ids": [
+    28
+   ],
+   "constraint_kinds": [
+    "capacity"
+   ],
+   "message": "BES 128 + HEM 106 (#28) (size 180) has no eligible room",
+   "suggestions": [
+    {
+     "id": "s0",
+     "index": 0,
+     "text": "largest eligible room is A204 (156 seats) < 180; allow splitting (max_rooms>1), reduce the group or raise the room capacity",
+     "action": "split",
+     "applicable": true,
+     "params": {
+      "event_ids": [
+       28
+      ],
+      "max_rooms": 3
+     }
+    },
+    {
+     "id": "s1",
+     "index": 1,
+     "text": "split across A204(156) + A203(148) + C201(126)",
+     "action": "manual",
+     "applicable": false,
+     "params": {}
+    }
+   ],
+   "severity": "error",
+   "id": "2",
+   "index": 2,
+   "event_labels": [
+    "BES 128 + HEM 106"
+   ]
+  },
+  {
+   "event_ids": [
+    775
+   ],
+   "constraint_kinds": [
+    "capacity"
+   ],
+   "message": "HEM 334 + NRS 304 (#775) (size 90) has no eligible room",
+   "suggestions": [
+    {
+     "id": "s0",
+     "index": 0,
+     "text": "reasons: locked to another room ×56; capacity 72 < 90 (capacity)",
+     "action": "manual",
+     "applicable": false,
+     "params": {}
+    }
+   ],
+   "severity": "error",
+   "id": "3",
+   "index": 3,
+   "event_labels": [
+    "HEM 334 + NRS 304"
+   ]
+  },
+  {
+   "event_ids": [
+    44
+   ],
+   "constraint_kinds": [
+    "room_tags"
+   ],
+   "message": "PSI 276 §1 (#44) (size 90) has no eligible room",
+   "suggestions": [
+    {
+     "id": "s0",
+     "index": 0,
+     "text": "no room carries tag(s) ['PC']; tag a room or drop the requirement",
+     "action": "manual",
+     "applicable": false,
+     "params": {}
+    }
+   ],
+   "severity": "error",
+   "id": "4",
+   "index": 4,
+   "event_labels": [
+    "PSI 276 §1"
+   ]
+  },
+  {
+   "event_ids": [
+    1032
+   ],
+   "constraint_kinds": [
+    "capacity"
+   ],
+   "message": "PSI 276 §1 (#1032) (size 90) has no eligible room",
+   "suggestions": [
+    {
+     "id": "s0",
+     "index": 0,
+     "text": "reasons: locked to another room ×56; capacity 72 < 90 (capacity)",
+     "action": "manual",
+     "applicable": false,
+     "params": {}
+    }
+   ],
+   "severity": "error",
+   "id": "5",
+   "index": 5,
+   "event_labels": [
+    "PSI 276 §1"
+   ]
+  }
+ ],
+ "parent_run_id": null,
+ "prompt_text": null,
+ "label": "e2e cpsat week 3",
+ "is_active": false,
+ "error": null,
+ "created_at": "2026-10-08T07:36:55.822825",
+ "started_at": "2026-10-08T07:36:55.839528",
+ "finished_at": "2026-10-08T07:36:56.103249",
+ "objective_breakdown": {},
+ "progress": 100
+}

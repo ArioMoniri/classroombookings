@@ -11,6 +11,7 @@ from app.models.scheduling import (
     Section,
     SectionInstructor,
 )
+from app.models.studio import ImportedSnapshot, StudioDraft, StudioPreset
 from app.models.system import ImportJob, Setting, User
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "ExamRequest",
     "Faculty",
     "ImportJob",
+    "ImportedSnapshot",
     "Instructor",
     "MeetingRequest",
     "Program",
@@ -32,6 +34,8 @@ __all__ = [
     "Section",
     "SectionInstructor",
     "Setting",
+    "StudioDraft",
+    "StudioPreset",
     "Term",
     "User",
     "Week",

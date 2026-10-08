@@ -1,0 +1,13 @@
+{
+ "anthropic_api_key": {
+  "set": false,
+  "masked": null,
+  "source": null
+ },
+ "anthropic_model": "claude-opus-5-5",
+ "solver_default_time_limit": 60.0,
+ "solver_workers": 8,
+ "solver_weights": "{}",
+ "ui_language": "tr",
+ "timezone": "Europe/Istanbul"
+}

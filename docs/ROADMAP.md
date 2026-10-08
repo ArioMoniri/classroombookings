@@ -119,3 +119,15 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Red-team eval before launch (RESEARCH Recommendations 3): paraphrase / re-ordering / ambiguous room names / prompt-injection in uploaded files, measured against a fixed expected-constraint set
 - [ ] Persist the model id + verifier result per applied diff on the child run (audit, RESEARCH §4.3 step 6) - partly there via `chat_messages.tool_calls` usage + `stats.mode`
 - [ ] OCR for scanned PDFs (currently reported as "no extractable text")
+
+### Phase 6 integration backlog (integration-engineer, 2026-10-08)
+
+- [ ] Importer: B 207 (only `PC` room) has capacity 0 in the Bahar grid header and A 103/104/105 carry no `PC` tag → every "Bilg. Lab. Zorunlu" request is unplaceable; seed lab capacities/tags from the Bahar `Sayfa2` room buckets (22 rooms have no capacity)
+- [ ] Bridge/solver "room-only" mode: instructor/cohort clashes between two fixed-time requests (Bahar: 118 + 68) cannot be fixed by rooms; report them as input warnings and drop the key only for the clashing fixed pair, so the room plan is still produced
+- [ ] Product decision: "trust LOCKED definitive rooms" switch (64 Bahar locked rooms are smaller than the expected enrolment); joint lectures are already clipped to the planner's room and reported in `stats.merged_joint_lectures_clipped`
+- [ ] Solver: `share_room` for split (multi-room) exams — the Final plan seats two split exams in one room pair (79 remaining locked overlaps)
+- [ ] Solver/bridge: persist the relaxation's partial placement of an INFEASIBLE run as a draft so the grid is not empty
+- [ ] Dev DB: run Alembic on dev startup (or document "delete the dev DB"); `create_all` + later `alembic upgrade` do not compose (studio tables / `constraints.source_ref`)
+- [ ] Imports still parse workbooks on the event loop (10–25 s for Bahar); move parsing to a worker thread like the solve
+- [ ] Re-record `smartsched/frontend/src/lib/api/__fixtures__/real/*.json` (contract test) whenever backend schemas change; a CI job could run the backend, record and diff
+- [ ] Dashboard: KPI deltas vs. the previous run/week (the fake "+3 pt / −2" were removed); stats tiles on the run report read `stats.unplaced/conflicts`, which CP-SAT runs do not set

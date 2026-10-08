@@ -69,6 +69,12 @@ module = ["app.solver", "app.solver.*"]
 ignore_errors = true
 follow_imports = "skip"
 
+# app.ai.* is owned by the ai-engineer (own gate, see app/ai/README.md "Tests"); the studio services
+# import it, so errors there are ignored here (same policy as app.solver).
+[[tool.mypy.overrides]]
+module = ["app.ai", "app.ai.*"]
+ignore_errors = true
+
 [[tool.mypy.overrides]]
 module = ["app.solver.model", "app.solver.stub"]
 ignore_errors = false

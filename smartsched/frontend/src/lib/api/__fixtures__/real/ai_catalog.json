@@ -1,0 +1,636 @@
+{
+ "kinds": [
+  {
+   "kind": "capacity",
+   "title": {
+    "tr": "Kapasite",
+    "en": "Capacity"
+   },
+   "description": {
+    "tr": "Derslik kapasitesi (sınavda sınav kapasitesi) öğrenci sayısını karşılamalı. Hedefli biçimde 'size' ile koltuk ihtiyacı değiştirilir.",
+    "en": "Room capacity (exam capacity for exams) must cover the enrolment. Targeted form overrides the seats needed with 'size'."
+   },
+   "params_schema": {
+    "type": "object",
+    "properties": {
+     "event_ids": {
+      "type": "array",
+      "items": {
+       "type": "integer"
+      },
+      "description": "meeting/exam request ids"
+     },
+     "program": {
+      "type": "string",
+      "description": "programme canonical name -> cohort keys PROG:<name>:*"
+     },
+     "programs": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "cohort": {
+      "type": "string",
+      "description": "exact cohort key, e.g. PROG:Psikoloji:Y1"
+     },
+     "cohorts": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "match": {
+      "type": "string",
+      "description": "case-insensitive substring of a label or cohort key"
+     },
+     "instructor": {
+      "type": "string",
+      "description": "instructor key INS:<id>"
+     },
+     "instructors": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "kinds": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "course",
+        "exam"
+       ]
+      }
+     },
+     "size": {
+      "type": "integer"
+     }
+    },
+    "additionalProperties": false
+   },
+   "examples": [
+    {
+     "nl": "Birleştirilmiş sınav için 120 koltuk yeter",
+     "params": {
+      "size": 120
+     },
+     "hardness": "hard"
+    }
+   ],
+   "allowed_hardness": [
+    "hard",
+    "soft"
+   ],
+   "default_hardness": "hard",
+   "implicit": true,
+   "registered": true
+  },
+  {
+   "kind": "no_room_overlap",
+   "title": {
+    "tr": "Derslik çakışması yok",
+    "en": "No room overlap"
+   },
+   "description": {
+    "tr": "Aynı derslik, gün, saat ve haftada en fazla bir etkinlik. Her zaman zorunlu.",
+    "en": "At most one event per room, day, period and week. Always hard."
+   },
+   "params_schema": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+   },
+   "examples": [],
+   "allowed_hardness": [
+    "hard"
+   ],
+   "default_hardness": "hard",
+   "implicit": true,
+   "registered": true
+  },
+  {
+   "kind": "no_cohort_overlap",
+   "title": {
+    "tr": "Sınıf çakışması yok",
+    "en": "No cohort overlap"
+   },
+   "description": {
+    "tr": "Aynı program+sınıf aynı anda iki derse giremez. Her zaman zorunlu.",
+    "en": "The same programme+year never has two events at once. Always hard."
+   },
+   "params_schema": {
+    "type": "object",
+    "properties": {
+     "keys": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    },
+    "additionalProperties": false
+   },
+   "examples": [],
+   "allowed_hardness": [
+    "hard"
+   ],
+   "default_hardness": "hard",
+   "implicit": true,
+   "registered": true
+  }
+ ],
+ "tools": [
+  {
+   "name": "propose_constraints",
+   "description": "Turn the planner's text (or an uploaded preference file) into typed scheduling rules from the catalogue and, when the text asks to add/drop sections or change a section's enrolment, day/time, mode or preferred rooms, into section edits. Call it exactly once with everything you could map; put sentences you could not map into 'unparsed'. Never invent ids: name rooms, programmes, courses and instructors exactly as written.",
+   "input_schema": {
+    "type": "object",
+    "properties": {
+     "proposals": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "kind": {
+         "type": "string",
+         "enum": [
+          "capacity",
+          "no_room_overlap",
+          "no_cohort_overlap",
+          "no_instructor_overlap",
+          "fixed_time",
+          "room_tags",
+          "room_pin",
+          "room_forbid",
+          "building_preference",
+          "room_preference",
+          "same_room_across_weeks",
+          "same_room_group",
+          "min_capacity_waste",
+          "exam_gap",
+          "max_exams_per_day",
+          "stability",
+          "room_closed",
+          "day_window",
+          "evening_programs_in_buildings"
+         ]
+        },
+        "hardness": {
+         "type": "string",
+         "enum": [
+          "hard",
+          "soft"
+         ]
+        },
+        "weight": {
+         "type": "integer",
+         "description": "1..10 for soft rules (10 = very important); 0 for hard rules"
+        },
+        "title": {
+         "type": "string",
+         "description": "short label in the user's language"
+        },
+        "nl_text": {
+         "type": "string",
+         "description": "the exact sentence of the user's text this rule comes from"
+        },
+        "rationale": {
+         "type": "string",
+         "description": "one sentence: why this kind and these params"
+        },
+        "confidence": {
+         "type": "number",
+         "description": "0..1 how sure the mapping is"
+        },
+        "source_ref": {
+         "type": "integer",
+         "description": "row / paragraph number given in the input ([R12] => 12); 0 = none"
+        },
+        "selector": {
+         "type": "object",
+         "properties": {
+          "course_codes": {
+           "type": "array",
+           "items": {
+            "type": "string"
+           },
+           "description": "course codes as written, e.g. 'PHAR 240'; [] = none"
+          },
+          "program_name": {
+           "type": "string",
+           "description": "programme / department name as written; '' = none"
+          },
+          "class_years": {
+           "type": "array",
+           "items": {
+            "type": "integer"
+           },
+           "description": "1..6; [] = all years of the programme"
+          },
+          "instructor_name": {
+           "type": "string",
+           "description": "'' = none"
+          },
+          "match": {
+           "type": "string",
+           "description": "free substring when nothing else fits (low confidence); '' = none"
+          },
+          "kinds": {
+           "type": "array",
+           "items": {
+            "type": "string",
+            "enum": [
+             "course",
+             "exam"
+            ]
+           },
+           "description": "[] = both"
+          }
+         },
+         "required": [
+          "course_codes",
+          "program_name",
+          "class_years",
+          "instructor_name",
+          "match",
+          "kinds"
+         ],
+         "additionalProperties": false,
+         "description": "Which events the rule applies to. All fields empty = all events."
+        },
+        "params": {
+         "type": "object",
+         "properties": {
+          "room_codes": {
+           "type": "array",
+           "items": {
+            "type": "string"
+           },
+           "description": "room codes as written, e.g. 'A 206'"
+          },
+          "buildings": {
+           "type": "array",
+           "items": {
+            "type": "string"
+           },
+           "description": "building letters A-D"
+          },
+          "required_tags": {
+           "type": "array",
+           "items": {
+            "type": "string",
+            "enum": [
+             "TIP",
+             "PC",
+             "LAB",
+             "AMPHI"
+            ]
+           }
+          },
+          "forbidden_tags": {
+           "type": "array",
+           "items": {
+            "type": "string",
+            "enum": [
+             "TIP",
+             "PC",
+             "LAB",
+             "AMPHI"
+            ]
+           }
+          },
+          "days": {
+           "type": "array",
+           "items": {
+            "type": "integer"
+           },
+           "description": "1=Monday .. 7=Sunday"
+          },
+          "periods": {
+           "type": "array",
+           "items": {
+            "type": "integer"
+           },
+           "description": "explicit period indexes 1..18"
+          },
+          "earliest": {
+           "type": "integer",
+           "description": "first allowed period (day_window) or range start; 0 = unset"
+          },
+          "latest": {
+           "type": "integer",
+           "description": "last allowed period (day_window) or range end; 0 = unset"
+          },
+          "weeks": {
+           "type": "array",
+           "items": {
+            "type": "integer"
+           },
+           "description": "week indexes 1..N"
+          },
+          "from_date": {
+           "type": "string",
+           "description": "ISO date YYYY-MM-DD, resolved to a week index; '' = unset"
+          },
+          "to_date": {
+           "type": "string",
+           "description": "ISO date YYYY-MM-DD; '' = unset"
+          },
+          "last_n_weeks": {
+           "type": "integer",
+           "description": "e.g. 'only the last 7 weeks' = 7; 0 = unset"
+          },
+          "amount": {
+           "type": "integer",
+           "description": "the kind's number: capacity size, min_capacity_waste unit, exam_gap min periods, max_exams_per_day n, fixed_time start period; 0 = unset"
+          },
+          "label": {
+           "type": "string",
+           "description": "room_closed label; '' = none"
+          }
+         },
+         "required": [
+          "room_codes",
+          "buildings",
+          "required_tags",
+          "forbidden_tags",
+          "days",
+          "periods",
+          "earliest",
+          "latest",
+          "weeks",
+          "from_date",
+          "to_date",
+          "last_n_weeks",
+          "amount",
+          "label"
+         ],
+         "additionalProperties": false,
+         "description": "Rule parameters. Fill only what the kind needs; leave the rest empty ('' / [] / 0)."
+        }
+       },
+       "required": [
+        "kind",
+        "hardness",
+        "weight",
+        "title",
+        "nl_text",
+        "rationale",
+        "confidence",
+        "source_ref",
+        "selector",
+        "params"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "section_edits": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "op": {
+         "type": "string",
+         "enum": [
+          "include",
+          "exclude",
+          "set_field"
+         ]
+        },
+        "section_ids": {
+         "type": "array",
+         "items": {
+          "type": "integer"
+         },
+         "description": "ids returned by find_sections; [] when naming by course"
+        },
+        "course_codes": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         },
+         "description": "course codes as written; [] when using section_ids"
+        },
+        "program_name": {
+         "type": "string",
+         "description": "narrow course codes to one programme; '' = all"
+        },
+        "section_label": {
+         "type": "string",
+         "description": "şube / section label, e.g. '1'; '' = all sections"
+        },
+        "enrolment": {
+         "type": "integer",
+         "description": "new student count; 0 = keep"
+        },
+        "day": {
+         "type": "integer",
+         "description": "new day 1..7; 0 = keep"
+        },
+        "start_period": {
+         "type": "integer",
+         "description": "new first period 1..18; 0 = keep"
+        },
+        "end_period": {
+         "type": "integer",
+         "description": "new last period 1..18; 0 = keep"
+        },
+        "mode": {
+         "type": "string",
+         "enum": [
+          "",
+          "F2F",
+          "ONLINE",
+          "HYBRID",
+          "UZEM",
+          "ASYNC",
+          "HOSPITAL",
+          "SIMULATION",
+          "OTHER"
+         ]
+        },
+        "preferred_room_codes": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         },
+         "description": "ordered preferred rooms as written; [] = keep"
+        },
+        "nl_text": {
+         "type": "string"
+        },
+        "rationale": {
+         "type": "string"
+        },
+        "confidence": {
+         "type": "number"
+        },
+        "source_ref": {
+         "type": "integer",
+         "description": "row / paragraph number; 0 = none"
+        }
+       },
+       "required": [
+        "op",
+        "section_ids",
+        "course_codes",
+        "program_name",
+        "section_label",
+        "enrolment",
+        "day",
+        "start_period",
+        "end_period",
+        "mode",
+        "preferred_room_codes",
+        "nl_text",
+        "rationale",
+        "confidence",
+        "source_ref"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "unparsed": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "text": {
+         "type": "string"
+        },
+        "reason": {
+         "type": "string"
+        },
+        "source_ref": {
+         "type": "integer",
+         "description": "0 = none"
+        }
+       },
+       "required": [
+        "text",
+        "reason",
+        "source_ref"
+       ],
+       "additionalProperties": false
+      }
+     }
+    },
+    "required": [
+     "proposals",
+     "section_edits",
+     "unparsed"
+    ],
+    "additionalProperties": false
+   }
+  }
+ ],
+ "selectors": {
+  "resolved": {
+   "event_ids": {
+    "type": "array",
+    "items": {
+     "type": "integer"
+    },
+    "description": "meeting/exam request ids"
+   },
+   "program": {
+    "type": "string",
+    "description": "programme canonical name -> cohort keys PROG:<name>:*"
+   },
+   "programs": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    }
+   },
+   "cohort": {
+    "type": "string",
+    "description": "exact cohort key, e.g. PROG:Psikoloji:Y1"
+   },
+   "cohorts": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    }
+   },
+   "match": {
+    "type": "string",
+    "description": "case-insensitive substring of a label or cohort key"
+   },
+   "instructor": {
+    "type": "string",
+    "description": "instructor key INS:<id>"
+   },
+   "instructors": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    }
+   },
+   "kinds": {
+    "type": "array",
+    "items": {
+     "type": "string",
+     "enum": [
+      "course",
+      "exam"
+     ]
+    }
+   }
+  },
+  "model": {
+   "type": "object",
+   "properties": {
+    "course_codes": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "course codes as written, e.g. 'PHAR 240'; [] = none"
+    },
+    "program_name": {
+     "type": "string",
+     "description": "programme / department name as written; '' = none"
+    },
+    "class_years": {
+     "type": "array",
+     "items": {
+      "type": "integer"
+     },
+     "description": "1..6; [] = all years of the programme"
+    },
+    "instructor_name": {
+     "type": "string",
+     "description": "'' = none"
+    },
+    "match": {
+     "type": "string",
+     "description": "free substring when nothing else fits (low confidence); '' = none"
+    },
+    "kinds": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "enum": [
+       "course",
+       "exam"
+      ]
+     },
+     "description": "[] = both"
+    }
+   },
+   "required": [
+    "course_codes",
+    "program_name",
+    "class_years",
+    "instructor_name",
+    "match",
+    "kinds"
+   ],
+   "additionalProperties": false,
+   "description": "Which events the rule applies to. All fields empty = all events."
+  }
+ }
+}

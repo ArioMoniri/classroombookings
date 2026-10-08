@@ -180,6 +180,7 @@ function UsersCard() {
       setSaving(false);
     }
   };
+  if (users.isError) return null; // GET /users is ADMIN-only (403 for planners/viewers)
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">

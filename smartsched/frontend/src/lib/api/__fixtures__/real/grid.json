@@ -1,0 +1,1684 @@
+{
+ "run_id": 1,
+ "term_id": 1,
+ "week": 3,
+ "week_start": "2026-02-16",
+ "weeks": [
+  {
+   "id": 1,
+   "term_id": 1,
+   "index": 1,
+   "start_date": "2026-02-02",
+   "kind": "LECTURE",
+   "label": "2  - 8 Şubat Bahar Dönem Açılış"
+  },
+  {
+   "id": 2,
+   "term_id": 1,
+   "index": 2,
+   "start_date": "2026-02-09",
+   "kind": "LECTURE",
+   "label": "9 - 15 Şubat Bahar Dönem Aç (2"
+  },
+  {
+   "id": 3,
+   "term_id": 1,
+   "index": 3,
+   "start_date": "2026-02-16",
+   "kind": "LECTURE",
+   "label": "16 - 22 Şubat"
+  },
+  {
+   "id": 4,
+   "term_id": 1,
+   "index": 4,
+   "start_date": "2026-02-23",
+   "kind": "LECTURE",
+   "label": "23 Şubat - 1 Mart"
+  },
+  {
+   "id": 5,
+   "term_id": 1,
+   "index": 5,
+   "start_date": "2026-03-02",
+   "kind": "LECTURE",
+   "label": "2 - 8 Mart"
+  },
+  {
+   "id": 6,
+   "term_id": 1,
+   "index": 6,
+   "start_date": "2026-03-09",
+   "kind": "LECTURE",
+   "label": "9 - 15 Mart"
+  },
+  {
+   "id": 7,
+   "term_id": 1,
+   "index": 7,
+   "start_date": "2026-03-16",
+   "kind": "LECTURE",
+   "label": "16 - 22 Mart"
+  },
+  {
+   "id": 8,
+   "term_id": 1,
+   "index": 8,
+   "start_date": "2026-03-23",
+   "kind": "LECTURE",
+   "label": "23 - 29 Mart"
+  },
+  {
+   "id": 9,
+   "term_id": 1,
+   "index": 9,
+   "start_date": "2026-03-30",
+   "kind": "LECTURE",
+   "label": "30 mart - 05 Nisan"
+  },
+  {
+   "id": 10,
+   "term_id": 1,
+   "index": 10,
+   "start_date": "2026-04-06",
+   "kind": "LECTURE",
+   "label": "6 - 12 Nisan"
+  },
+  {
+   "id": 11,
+   "term_id": 1,
+   "index": 11,
+   "start_date": "2026-04-13",
+   "kind": "LECTURE",
+   "label": "13 - 19 Nisan"
+  },
+  {
+   "id": 12,
+   "term_id": 1,
+   "index": 12,
+   "start_date": "2026-04-20",
+   "kind": "LECTURE",
+   "label": "20 - 26 Nisan"
+  },
+  {
+   "id": 13,
+   "term_id": 1,
+   "index": 13,
+   "start_date": "2026-04-27",
+   "kind": "LECTURE",
+   "label": "27 Nisan - 03 Mayıs"
+  },
+  {
+   "id": 14,
+   "term_id": 1,
+   "index": 14,
+   "start_date": "2026-05-04",
+   "kind": "LECTURE",
+   "label": "4 - 10 Mayıs"
+  },
+  {
+   "id": 15,
+   "term_id": 1,
+   "index": 15,
+   "start_date": "2026-05-11",
+   "kind": "LECTURE",
+   "label": "11 - 17 Mayıs"
+  },
+  {
+   "id": 16,
+   "term_id": 1,
+   "index": 16,
+   "start_date": null,
+   "kind": "LECTURE",
+   "label": "Yaz Dönemi"
+  },
+  {
+   "id": 17,
+   "term_id": 1,
+   "index": 17,
+   "start_date": "2026-06-01",
+   "kind": "EXAM",
+   "label": "Final 1 - 7 Haziran"
+  },
+  {
+   "id": 18,
+   "term_id": 1,
+   "index": 18,
+   "start_date": "2026-06-08",
+   "kind": "EXAM",
+   "label": "Final 8 - 14 Haziran"
+  },
+  {
+   "id": 19,
+   "term_id": 1,
+   "index": 19,
+   "start_date": "2026-06-22",
+   "kind": "MAKEUP",
+   "label": "BÜT 22 - 24 Haziran"
+  }
+ ],
+ "periods": [
+  {
+   "index": 1,
+   "start": "08:30",
+   "end": "09:10"
+  },
+  {
+   "index": 2,
+   "start": "09:20",
+   "end": "10:00"
+  },
+  {
+   "index": 3,
+   "start": "10:10",
+   "end": "10:50"
+  },
+  {
+   "index": 4,
+   "start": "11:00",
+   "end": "11:40"
+  },
+  {
+   "index": 5,
+   "start": "11:50",
+   "end": "12:30"
+  },
+  {
+   "index": 6,
+   "start": "12:40",
+   "end": "13:20"
+  },
+  {
+   "index": 7,
+   "start": "13:30",
+   "end": "14:10"
+  },
+  {
+   "index": 8,
+   "start": "14:20",
+   "end": "15:00"
+  },
+  {
+   "index": 9,
+   "start": "15:10",
+   "end": "15:50"
+  },
+  {
+   "index": 10,
+   "start": "16:00",
+   "end": "16:40"
+  },
+  {
+   "index": 11,
+   "start": "16:50",
+   "end": "17:30"
+  },
+  {
+   "index": 12,
+   "start": "17:30",
+   "end": "18:00"
+  },
+  {
+   "index": 13,
+   "start": "18:00",
+   "end": "18:40"
+  },
+  {
+   "index": 14,
+   "start": "18:50",
+   "end": "19:30"
+  },
+  {
+   "index": 15,
+   "start": "19:40",
+   "end": "20:20"
+  },
+  {
+   "index": 16,
+   "start": "20:30",
+   "end": "21:10"
+  },
+  {
+   "index": 17,
+   "start": "21:20",
+   "end": "22:00"
+  },
+  {
+   "index": 18,
+   "start": "22:10",
+   "end": "22:50"
+  }
+ ],
+ "days": [
+  {
+   "day": 1,
+   "label": "Pazartesi",
+   "date": "2026-02-16",
+   "rooms": [
+    {
+     "room_id": 1,
+     "code": "A101",
+     "display_name": "A 101",
+     "capacity": 58,
+     "exam_capacity": 0,
+     "tags": [],
+     "building_id": 1,
+     "floor": "1",
+     "is_bookable": true,
+     "cells": [
+      null,
+      null,
+      null,
+      {
+       "kind": "assignment",
+       "id": 1340,
+       "label": "FZT 132",
+       "start_period": 4,
+       "end_period": 5,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        1
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "FZT132",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 58,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 101"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1340,
+       "label": "FZT 132",
+       "start_period": 4,
+       "end_period": 5,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        1
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "FZT132",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 58,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 101"
+       ]
+      },
+      null,
+      {
+       "kind": "assignment",
+       "id": 1391,
+       "label": "PDL 212",
+       "start_period": 7,
+       "end_period": 9,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        1
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "PDL212",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 58,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 101"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1391,
+       "label": "PDL 212",
+       "start_period": 7,
+       "end_period": 9,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        1
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "PDL212",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 58,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 101"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1391,
+       "label": "PDL 212",
+       "start_period": 7,
+       "end_period": 9,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        1
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "PDL212",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 58,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 101"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1505,
+       "label": "ACU177",
+       "start_period": 10,
+       "end_period": 11,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        1
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "ACU177",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 58,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 101"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1505,
+       "label": "ACU177",
+       "start_period": 10,
+       "end_period": 11,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        1
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "ACU177",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 58,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 101"
+       ]
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+     ]
+    },
+    {
+     "room_id": 2,
+     "code": "A102",
+     "display_name": "A 102",
+     "capacity": 96,
+     "exam_capacity": 0,
+     "tags": [],
+     "building_id": 1,
+     "floor": "1",
+     "is_bookable": true,
+     "cells": [
+      {
+       "kind": "assignment",
+       "id": 1220,
+       "label": "PHAR 474",
+       "start_period": 1,
+       "end_period": 4,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "PHAR474",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1220,
+       "label": "PHAR 474",
+       "start_period": 1,
+       "end_period": 4,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "PHAR474",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1220,
+       "label": "PHAR 474",
+       "start_period": 1,
+       "end_period": 4,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "PHAR474",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1220,
+       "label": "PHAR 474",
+       "start_period": 1,
+       "end_period": 4,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "PHAR474",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1376,
+       "label": "ACU 303",
+       "start_period": 5,
+       "end_period": 6,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "ACU303",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1376,
+       "label": "ACU 303",
+       "start_period": 5,
+       "end_period": 6,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "ACU303",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1392,
+       "label": "FZT 144",
+       "start_period": 7,
+       "end_period": 10,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "FZT144",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1392,
+       "label": "FZT 144",
+       "start_period": 7,
+       "end_period": 10,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "FZT144",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1392,
+       "label": "FZT 144",
+       "start_period": 7,
+       "end_period": 10,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "FZT144",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1392,
+       "label": "FZT 144",
+       "start_period": 7,
+       "end_period": 10,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "FZT144",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1545,
+       "label": "SAY 542",
+       "start_period": 11,
+       "end_period": 13,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "SAY542",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1545,
+       "label": "SAY 542",
+       "start_period": 11,
+       "end_period": 13,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "SAY542",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1545,
+       "label": "SAY 542",
+       "start_period": 11,
+       "end_period": 13,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        2
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "SAY542",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 96,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 102"
+       ]
+      },
+      null,
+      null,
+      null,
+      null,
+      null
+     ]
+    },
+    {
+     "room_id": 27,
+     "code": "A103",
+     "display_name": "A 103",
+     "capacity": 33,
+     "exam_capacity": 0,
+     "tags": [],
+     "building_id": 1,
+     "floor": "1",
+     "is_bookable": true,
+     "cells": [
+      null,
+      null,
+      null,
+      {
+       "kind": "assignment",
+       "id": 1344,
+       "label": "TDS214",
+       "start_period": 4,
+       "end_period": 8,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        27
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "TDS214",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 33,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 103"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1344,
+       "label": "TDS214",
+       "start_period": 4,
+       "end_period": 8,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        27
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "TDS214",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 33,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 103"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1344,
+       "label": "TDS214",
+       "start_period": 4,
+       "end_period": 8,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        27
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "TDS214",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 33,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 103"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1344,
+       "label": "TDS214",
+       "start_period": 4,
+       "end_period": 8,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        27
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "TDS214",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 33,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 103"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1344,
+       "label": "TDS214",
+       "start_period": 4,
+       "end_period": 8,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        27
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "TDS214",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 33,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 103"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1491,
+       "label": "HSEC 306",
+       "start_period": 9,
+       "end_period": 10,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        27
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "HSEC306",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 33,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 103"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1491,
+       "label": "HSEC 306",
+       "start_period": 9,
+       "end_period": 10,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        27
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "HSEC306",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 33,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 103"
+       ]
+      },
+      null,
+      {
+       "kind": "assignment",
+       "id": 1548,
+       "label": "TDS214",
+       "start_period": 12,
+       "end_period": 15,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        27
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "TDS214",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 33,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 103"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1548,
+       "label": "TDS214",
+       "start_period": 12,
+       "end_period": 15,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        27
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "TDS214",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 33,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 103"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1548,
+       "label": "TDS214",
+       "start_period": 12,
+       "end_period": 15,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        27
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "TDS214",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 33,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 103"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1548,
+       "label": "TDS214",
+       "start_period": 12,
+       "end_period": 15,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        27
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "TDS214",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 33,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 103"
+       ]
+      },
+      null,
+      null,
+      null
+     ]
+    },
+    {
+     "room_id": 28,
+     "code": "A104",
+     "display_name": "A 104",
+     "capacity": 28,
+     "exam_capacity": 0,
+     "tags": [],
+     "building_id": 1,
+     "floor": "1",
+     "is_bookable": true,
+     "cells": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+       "kind": "assignment",
+       "id": 1384,
+       "label": "MBT 685",
+       "start_period": 6,
+       "end_period": 8,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": "13:00-15:20",
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        28
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "MBT685",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 28,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 104"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1384,
+       "label": "MBT 685",
+       "start_period": 6,
+       "end_period": 8,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": "13:00-15:20",
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        28
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "MBT685",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 28,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 104"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1384,
+       "label": "MBT 685",
+       "start_period": 6,
+       "end_period": 8,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": "13:00-15:20",
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        28
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "MBT685",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 28,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 104"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1492,
+       "label": "HSEC 306",
+       "start_period": 9,
+       "end_period": 10,
+       "head": true,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        28
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "HSEC306",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 28,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 104"
+       ]
+      },
+      {
+       "kind": "assignment",
+       "id": 1492,
+       "label": "HSEC 306",
+       "start_period": 9,
+       "end_period": 10,
+       "head": false,
+       "locked": false,
+       "origin": "IMPORT",
+       "tags": [],
+       "notes": null,
+       "meeting_request_id": null,
+       "exam_request_id": null,
+       "room_ids": [
+        28
+       ],
+       "week": 3,
+       "weeks": [
+        3
+       ],
+       "date": "2026-02-16",
+       "course_code": "HSEC306",
+       "course_name": null,
+       "section_label": null,
+       "program_name": null,
+       "class_year": null,
+       "size": 0,
+       "enrolment": null,
+       "instructors": [],
+       "instructor": null,
+       "capacity": 28,
+       "is_conflict": false,
+       "conflict_reasons": [],
+       "room_codes": [
+        "A 104"
+       ]
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+     ]
+    }
+   ]
+  }
+ ],
+ "assignments": 601,
+ "blocks": 72,
+ "conflicts": 0
+}

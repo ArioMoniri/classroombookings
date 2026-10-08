@@ -6,11 +6,17 @@ import { z } from "zod";
 import * as adapt from "./adapters";
 import { HttpError, request, type Query } from "./client";
 import {
+  AcceptResult,
+  AiCatalog,
   Assignment,
   Building,
+  ChatApplyResult,
   ChatResponse,
   Constraint,
   DashboardSummary,
+  DiagnosisApplyResult,
+  ElicitResult,
+  ExplainResult,
   ExamRequest,
   ExamRequestUpdate,
   GridResponse,
@@ -22,7 +28,7 @@ import {
   MoveResponse,
   Paginated,
   Program,
-  ProposedConstraints,
+  type ProposedConstraint,
   Room,
   RunCreate,
   RunCreated,
@@ -51,12 +57,40 @@ const RunOne = z.preprocess(adapt.run, ScheduleRun);
 const AssignmentsList = z.preprocess((v) => adapt.listOf(v).map(adapt.assignment), z.array(Assignment));
 const AssignmentOne = z.preprocess(adapt.assignment, Assignment);
 const Grid = z.preprocess(adapt.grid, GridResponse);
+const Dashboard = z.preprocess(adapt.dashboard, DashboardSummary);
 const Move = z.preprocess(adapt.moveResponse, MoveResponse);
 const SettingsOut = z.preprocess(adapt.settings, Settings);
 const TestAi = z.preprocess(adapt.testAi, TestAiResponse);
 const ConstraintsList = z.preprocess(adapt.listOf, z.array(Constraint));
 const BuildingsList = z.preprocess(adapt.listOf, z.array(Building));
 const UsersList = z.preprocess(adapt.listOf, z.array(User));
+const chatOf = (runId: number) => z.preprocess((v) => adapt.chatHistory(v, runId), ChatResponse);
+const ApplyOut = z.object({ child_run_id: z.number().nullable(), status: z.string().nullable().optional(), rejected: z.array(z.record(z.string(), z.unknown())).default([]) });
+
+export type Lang = "tr" | "en";
+
+/** Response parsers by route, exported for the contract test against recorded real-backend payloads. */
+export const responseSchemas = {
+  me: User,
+  terms: TermsList,
+  weeks: WeeksList,
+  rooms: RoomsList,
+  buildings: BuildingsList,
+  programs: ProgramsList,
+  meetings: MeetingsPage,
+  imports: ImportsList,
+  runs: RunsList,
+  run: RunOne,
+  assignments: AssignmentsList,
+  grid: Grid,
+  move: Move,
+  settings: SettingsOut,
+  dashboard: Dashboard,
+  users: UsersList,
+  constraints: ConstraintsList,
+  aiCatalog: AiCatalog,
+  chat: chatOf,
+} as const;
 
 const lq = adapt.listQuery;
 
@@ -72,7 +106,7 @@ export const api = {
     /** `GET /dashboard` when the backend has it; otherwise composed client-side from the reference routes. */
     summary: async (termId?: number): Promise<DashboardSummary> => {
       try {
-        return await request("/dashboard", { query: { term_id: termId }, schema: DashboardSummary, silent: true });
+        return await request("/dashboard", { query: { term_id: termId }, schema: Dashboard, silent: true });
       } catch (e) {
         if (!(e instanceof HttpError) || (e.status !== 404 && e.status !== 501 && e.status !== 405)) throw e;
         return composeDashboard(termId);
@@ -98,12 +132,16 @@ export const api = {
     updateExam: (id: number, body: ExamRequestUpdate) => request(`/requests/exams/${id}`, { method: "PUT", body, schema: ExamOne }),
   },
   imports: {
-    upload: (kind: ImportKind, file: File | null, termId: number, dsn?: string) => {
+    /** Backend form fields: `term_code` (+ `year` for weekly grids; CRBS takes `dsn` or `files`). */
+    upload: (kind: ImportKind, file: File | null, term: Pick<Term, "id" | "code" | "start_date">, dsn?: string) => {
       const fd = new FormData();
-      if (file) fd.append("file", file);
-      fd.append("term_id", String(termId));
+      if (file) fd.append(kind === "crbs" ? "files" : "file", file);
+      if (kind !== "crbs") fd.append("term_code", term.code);
+      if (kind === "weekly-grid") fd.append("year", String(Number(term.start_date.slice(0, 4)) || new Date().getFullYear()));
+      if (kind === "planning-list") fd.append("week_count", "14");
+      fd.append("term_id", String(term.id));
       if (dsn) fd.append("dsn", dsn);
-      return request(`/imports/${kind}`, { method: "POST", formData: fd, query: { term_id: termId }, schema: ImportOne });
+      return request(`/imports/${kind}`, { method: "POST", formData: fd, schema: ImportOne });
     },
     get: (jobId: number) => request(`/imports/${jobId}`, { schema: ImportOne }),
     list: () => request("/imports", { schema: ImportsList }),
@@ -111,9 +149,21 @@ export const api = {
   constraints: {
     list: (query?: Query) => request("/constraints", { query, schema: ConstraintsList }),
     create: (body: Omit<Constraint, "id">) => request("/constraints", { method: "POST", body, schema: Constraint }),
-    /** Mock-only today: the backend's `propose_constraints` tool lives in app/ai (see hand-off). */
-    propose: (termId: number, prompt: string) =>
-      request("/constraints/propose", { method: "POST", body: { term_id: termId, prompt }, schema: ProposedConstraints }),
+  },
+  /** AI layer (app/api/v1/chat.py). 409 = no Anthropic key configured (message tells the admin where to add it). */
+  ai: {
+    elicit: (termId: number, text: string, lang: Lang) =>
+      request(`/terms/${termId}/elicit`, { method: "POST", body: { text, lang }, schema: ElicitResult, silent: true }),
+    accept: (termId: number, proposals: ProposedConstraint[], runId?: number) =>
+      request(`/terms/${termId}/elicit/accept`, { method: "POST", body: { proposals, run_id: runId ?? null }, schema: AcceptResult }),
+    uploadPreferences: (termId: number, file: File, lang: Lang) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("lang", lang);
+      return request(`/terms/${termId}/preferences/upload`, { method: "POST", formData: fd, schema: ElicitResult, silent: true });
+    },
+    explain: (runId: number, lang: Lang) => request(`/runs/${runId}/explain`, { method: "POST", body: { lang, use_model: true }, schema: ExplainResult }),
+    catalog: () => request("/ai/catalog", { schema: AiCatalog }),
   },
   runs: {
     list: (query?: Query) => request("/runs", { query, schema: RunsList }),
@@ -126,23 +176,43 @@ export const api = {
     /** Backend reads `?locked=`; the body is kept for the mock. */
     lock: (runId: number, assignmentId: number, locked: boolean) =>
       request(`/runs/${runId}/assignments/${assignmentId}/lock`, { method: "POST", query: { locked }, body: { locked }, schema: AssignmentOne }),
-    chat: (runId: number) => request(`/runs/${runId}/chat`, { schema: ChatResponse }),
-    sendChat: (runId: number, message: string) => request(`/runs/${runId}/chat`, { method: "POST", body: { message }, schema: ChatResponse }),
-    applyProposal: (runId: number, proposalId: string) =>
-      request(`/runs/${runId}/chat/${proposalId}/apply`, { method: "POST", schema: z.object({ child_run_id: z.number().nullable(), messages: ChatResponse.shape.messages }) }),
-    undoProposal: (runId: number, proposalId: string) =>
-      request(`/runs/${runId}/chat/${proposalId}/undo`, { method: "POST", schema: z.object({ ok: z.boolean(), messages: ChatResponse.shape.messages }) }),
-    applyFix: (runId: number, diagnosisId: string, suggestionId: string) =>
-      request(`/runs/${runId}/diagnosis/${diagnosisId}/apply`, { method: "POST", body: { suggestion_id: suggestionId }, schema: RunCreated }),
+    /** `GET /runs/{id}/chat` → ChatMessageOut[]; the proposed diff rides on the assistant message's tool_calls. */
+    chat: (runId: number) => request(`/runs/${runId}/chat`, { schema: chatOf(runId) }),
+    /** `POST /runs/{id}/chat` returns ChatOut for the new turn; the panel shows the whole history. */
+    sendChat: async (runId: number, message: string, lang: Lang = "tr") => {
+      await request(`/runs/${runId}/chat`, { method: "POST", body: { message, lang } });
+      return api.runs.chat(runId);
+    },
+    /** Applying a diff always yields a child run (patched copy, or a queued re-solve). */
+    applyProposal: async (runId: number, diffId: string): Promise<ChatApplyResult> => {
+      const out = await request(`/runs/${runId}/chat/apply`, { method: "POST", body: { diff_id: diffId }, schema: ApplyOut });
+      const { messages } = await api.runs.chat(runId);
+      return { ...out, messages };
+    },
+    /** Undo of an applied diff = publish the parent run again (the child run stays in the history). */
+    undoProposal: async (runId: number) => {
+      await request(`/runs/${runId}/activate`, { method: "POST", schema: RunOne });
+      const { messages } = await api.runs.chat(runId);
+      return { ok: true, messages };
+    },
+    activate: (runId: number) => request(`/runs/${runId}/activate`, { method: "POST", schema: RunOne }),
+    /** `POST /runs/{id}/diagnoses/{idx}/apply {option_index}`; 422 = the suggestion has no structured fix. */
+    applyFix: (runId: number, diagnosisIndex: number, optionIndex: number, reSolve = true) =>
+      request(`/runs/${runId}/diagnoses/${diagnosisIndex}/apply`, { method: "POST", body: { option_index: optionIndex, re_solve: reSolve }, schema: DiagnosisApplyResult }),
     exportUrl: (runId: number, format: "xlsx" | "ics" | "csv" | "crbs") => `/api/v1/runs/${runId}/export?format=${format}`,
   },
   settings: {
     get: () => request("/settings", { schema: SettingsOut }),
     update: (body: SettingsUpdate) => request("/settings", { method: "PUT", body: adapt.settingsUpdateBody(body), schema: SettingsOut }),
     testAi: () => request("/settings/test-ai", { method: "POST", body: {}, schema: TestAi, silent: true }),
-    users: () => request("/users", { schema: UsersList }),
+    /** ADMIN only (403 for planners: silent, the card hides itself). */
+    users: () => request("/users", { schema: UsersList, silent: true }),
     createUser: (body: { email: string; full_name: string; role: User["role"]; password: string }) =>
       request("/users", { method: "POST", body, schema: User }),
+    updateUser: (id: number, body: Partial<Pick<User, "email" | "full_name" | "role" | "is_active">> & { password?: string }) =>
+      request(`/users/${id}`, { method: "PUT", body, schema: User }),
+    setPassword: (id: number, password: string) => request(`/users/${id}/password`, { method: "POST", body: { password }, schema: User }),
+    deleteUser: (id: number) => request(`/users/${id}`, { method: "DELETE" }),
   },
 };
 
@@ -173,6 +243,8 @@ async function composeDashboard(termId?: number): Promise<DashboardSummary> {
     utilisation: byBuilding.reduce((s, b) => s + b.utilisation * b.rooms, 0) / Math.max(1, bookable.length),
     utilisation_by_building: byBuilding,
     peak_hours: [],
+    utilisation_building_day: [],
+    utilisation_building_period: [],
     conflicts: 0,
     last_runs: sorted.slice(0, 5),
   };

@@ -12,7 +12,7 @@ import type { RunStatus, ScheduleRun } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { ScoreRing } from "./score-ring";
 
-export const RUN_STATUS_KIND: Record<RunStatus, StatusKind> = { QUEUED: "preoccupied", RUNNING: "pclab", FEASIBLE: "feasible", OPTIMAL: "feasible", INFEASIBLE: "infeasible", FAILED: "infeasible", CANCELLED: "preoccupied" };
+export const RUN_STATUS_KIND: Record<RunStatus, StatusKind> = { QUEUED: "preoccupied", RUNNING: "pclab", FEASIBLE: "feasible", OPTIMAL: "feasible", INFEASIBLE: "infeasible", TIMEOUT: "infeasible", ERROR: "infeasible", FAILED: "infeasible", CANCELLED: "preoccupied" };
 
 export function horizonLabel(r: ScheduleRun, t: (k: "generate.week" | "generate.month" | "generate.wholeTerm") => string): string {
   const base = t(r.horizon === "WEEK" ? "generate.week" : r.horizon === "MONTH" ? "generate.month" : "generate.wholeTerm");

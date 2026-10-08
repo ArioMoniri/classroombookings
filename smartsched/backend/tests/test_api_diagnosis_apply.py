@@ -74,6 +74,7 @@ def test_parse_option_shapes():
         parse_option(5, "allow splitting across rooms (max_rooms > 1) or raise a room's capacity", diag).action
         == "split"
     )
+    assert parse_option(5, "allow splitting (max_rooms>1)", diag, "COURSE").applicable is False  # courses never split
     manual = parse_option(6, "release the block", diag)
     assert manual.action == "manual" and not manual.applicable
 

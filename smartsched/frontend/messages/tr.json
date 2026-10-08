@@ -100,7 +100,7 @@
   "runs": {
     "title": "Çalıştırmalar", "subtitle": "Her çözücü çalıştırması, puanları ve teşhisi.", "run": "Çalıştırma", "kind": "Tür",
     "horizon": "Ufuk", "hard": "Katı", "soft": "Yumuşak", "created": "Oluşturulma", "duration": "Süre", "open": "Aç",
-    "status": { "QUEUED": "Kuyrukta", "RUNNING": "Çalışıyor", "FEASIBLE": "Uygun", "OPTIMAL": "En iyi", "INFEASIBLE": "Uygunsuz", "FAILED": "Başarısız", "CANCELLED": "İptal" },
+    "status": { "QUEUED": "Kuyrukta", "RUNNING": "Çalışıyor", "FEASIBLE": "Uygun", "OPTIMAL": "En iyi", "INFEASIBLE": "Uygunsuz", "TIMEOUT": "Süre doldu", "ERROR": "Çözücü hatası", "FAILED": "Başarısız", "CANCELLED": "İptal" },
     "report": "Rapor", "grid": "Çizelge", "chat": "Sohbet", "hardScore": "Katı kısıtlar", "softScore": "Yumuşak tercihler",
     "objective": "Amaç fonksiyonu dağılımı", "diagnosis": "Teşhis", "suggestions": "Önerilen düzeltmeler", "applyFix": "Uygula",
     "applied": "Düzeltme uygulandı — yeniden çözüm kuyruğa alındı", "noDiagnosis": "İhlal yok. Tüm katı kısıtlar sağlanıyor.",

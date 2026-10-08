@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api/endpoints";
 import { useCreateRun, useMeetings, useRuns, useSettings, useWeeks } from "@/lib/api/hooks";
-import type { Horizon, RunKind } from "@/lib/api/schemas";
+import type { Horizon, ProposedConstraint, RunKind } from "@/lib/api/schemas";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { formatDate } from "@/lib/time";
@@ -33,7 +33,7 @@ const CHIPS: { key: MessageKey; tr: string; en: string }[] = [
   { key: "generate.chip.nursing", tr: "1. sınıf hemşirelik 17:30'dan sonra ders almasın", en: "No first-year nursing lectures after 17:30" },
 ];
 
-type Proposed = { kind: string; hardness: "hard" | "soft"; weight: number; nl_text: string; accepted: boolean };
+type Proposed = ProposedConstraint & { accepted: boolean };
 
 export function GenerateView() {
   const { t, locale } = useI18n();
@@ -59,7 +59,8 @@ export function GenerateView() {
   const [stability, setStability] = useState(true);
   const [proposed, setProposed] = useState<Proposed[]>([]);
   const [analysing, setAnalysing] = useState(false);
-  const previousRun = runs.data?.find((r) => r.status === "FEASIBLE" || r.status === "OPTIMAL");
+  // stability parent: the newest good run of the same kind (an EXAM board must not seed a COURSE run)
+  const previousRun = runs.data?.find((r) => r.kind === kind && (r.status === "FEASIBLE" || r.status === "OPTIMAL"));
 
   const lectureWeeks = useMemo(() => (weeks.data ?? []).filter((w) => w.kind !== "HOLIDAY"), [weeks.data]);
   const examWeeks = useMemo(() => (weeks.data ?? []).filter((w) => w.kind === "EXAM"), [weeks.data]);
@@ -73,8 +74,12 @@ export function GenerateView() {
     if (!prompt.trim()) return;
     setAnalysing(true);
     try {
-      const res = await api.constraints.propose(effectiveTermId, prompt);
-      setProposed(res.constraints.map((c) => ({ ...c, accepted: false })));
+      // POST /terms/{id}/elicit: typed rules with names resolved to ids server-side (never by the model)
+      const res = await api.ai.elicit(effectiveTermId, prompt, locale === "en" ? "en" : "tr");
+      setProposed(res.proposals.filter((c) => c.status !== "rejected").map((c) => ({ ...c, accepted: false })));
+      if (res.assistant_message) toast(res.assistant_message);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e)); // 409: no Anthropic key configured
     } finally {
       setAnalysing(false);
     }
@@ -84,6 +89,17 @@ export function GenerateView() {
     if (horizonWeeks.length === 0) {
       toast.error(t("generate.week"));
       return;
+    }
+    const accepted: ProposedConstraint[] = proposed.filter((p) => p.accepted).map((p) => {
+      const c: Partial<Proposed> = { ...p };
+      delete c.accepted;
+      return c as ProposedConstraint;
+    });
+    if (accepted.length > 0) {
+      // reviewed rules become term constraints (source AI) before the solver sees them
+      const res = await api.ai.accept(effectiveTermId, accepted);
+      if (res.rejected.length) toast.warning(`${res.rejected.length} ✕`, { description: res.rejected.map((r) => String(r.reason ?? r.error ?? "")).filter(Boolean).join("; ") });
+      setProposed((p) => p.filter((x) => !x.accepted));
     }
     const { run_id } = await create.mutateAsync({
       term_id: effectiveTermId,
@@ -180,7 +196,7 @@ export function GenerateView() {
                   <li key={i} className={cn("flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm", c.accepted && "border-status-feasible-border bg-status-feasible/30")}>
                     <Badge variant={c.hardness === "hard" ? "default" : "secondary"}>{c.hardness}</Badge>
                     <span className="font-mono text-xs">{c.kind}</span>
-                    <span className="flex-1 text-muted-foreground">“{c.nl_text}”</span>
+                    <span className="flex-1 text-muted-foreground">“{c.nl_text}”{c.title ? <span className="block text-xs text-foreground">{c.title}</span> : null}{c.issues.length ? <span className="block text-xs text-status-warning-fg">{c.issues.join("; ")}</span> : null}</span>
                     {!c.accepted ? (
                       <>
                         <Button size="xs" onClick={() => setProposed((p) => p.map((x, j) => (j === i ? { ...x, accepted: true } : x)))}>{t("generate.accept")}</Button>

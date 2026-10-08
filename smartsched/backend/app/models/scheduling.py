@@ -154,6 +154,10 @@ class Block(TimestampMixin, Base):
     room: Mapped[Room] = relationship()
 
 
+#: allowed ``constraints.source`` values (``BUILTIN`` rows are read-only switches of always-on rules)
+CONSTRAINT_SOURCES = ("FILE", "ADMIN", "AI", "UPLOAD", "BUILTIN")
+
+
 class ConstraintRow(TimestampMixin, Base):
     __tablename__ = "constraints"
 
@@ -166,7 +170,11 @@ class ConstraintRow(TimestampMixin, Base):
     params: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     hardness: Mapped[str] = mapped_column(String(8), default="soft")  # hard | soft
     weight: Mapped[int] = mapped_column(Integer, default=1)
-    source: Mapped[str] = mapped_column(String(8), default="ADMIN")  # FILE, ADMIN, AI
+    source: Mapped[str] = mapped_column(String(8), default="ADMIN")  # FILE, ADMIN, AI, UPLOAD, BUILTIN
+    #: provenance: {"file", "sheet", "row"|"paragraph"|"page"|"line", "excerpt"} for UPLOAD rows,
+    #: {"draft_id"} for BUILTIN rows (built-in rule switched off in one studio draft),
+    #: {"copied_from": {...}} / {"preset_id"} for copied / preset rules
+    source_ref: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     nl_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)

@@ -11,7 +11,8 @@ import { cn } from "@/lib/utils";
 export function DiagnosisCard({ d, onApply, applying, onChat }: { d: Diagnosis; onApply: (suggestionId: string) => void; applying: boolean; onChat: () => void }) {
   const { t } = useI18n();
   const hard = d.severity === "critical" || d.severity === "high";
-  const [choice, setChoice] = useState(d.suggestions[0]?.id ?? "");
+  const [choice, setChoice] = useState((d.suggestions.find((s) => s.applicable) ?? d.suggestions[0])?.id ?? "");
+  const chosen = d.suggestions.find((s) => s.id === choice);
   const Icon = hard ? XOctagon : AlertTriangle;
   return (
     <article className={cn("rounded-xl border bg-card", hard ? "border-status-infeasible-border" : "border-status-warning-border")} aria-labelledby={`diag-${d.id}`} data-testid="diagnosis-card">
@@ -28,13 +29,13 @@ export function DiagnosisCard({ d, onApply, applying, onChat }: { d: Diagnosis; 
             {d.suggestions.map((s) => (
               <label key={s.id} className={cn("flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm", choice === s.id && "border-primary bg-primary-tint")}>
                 <input type="radio" name={`diag-${d.id}`} value={s.id} checked={choice === s.id} onChange={() => setChoice(s.id)} className="accent-primary" />
-                <span className="flex-1">{s.text}</span>
-                <Badge variant="outline" className="font-mono text-[10px]">{s.action}</Badge>
+                <span className={cn("flex-1", !s.applicable && "text-muted-foreground")}>{s.text}</span>
+                <Badge variant="outline" className="font-mono text-[10px]">{s.applicable ? s.action : "manual"}</Badge>
               </label>
             ))}
           </div>
           <div className="mt-3 flex gap-2">
-            <Button size="sm" onClick={() => onApply(choice)} disabled={!choice || applying} aria-label={`${t("runs.applyFix")}: ${d.suggestions.find((s) => s.id === choice)?.text ?? ""}`} data-testid="apply-fix">{applying ? <Loader2 className="animate-spin" /> : null} {t("runs.applyFix")}</Button>
+            <Button size="sm" onClick={() => onApply(choice)} disabled={!choice || applying || !chosen?.applicable} aria-label={`${t("runs.applyFix")}: ${d.suggestions.find((s) => s.id === choice)?.text ?? ""}`} data-testid="apply-fix">{applying ? <Loader2 className="animate-spin" /> : null} {t("runs.applyFix")}</Button>
             <Button size="sm" variant="ghost" onClick={onChat}><MessageSquare /> {t("chat.title")}</Button>
           </div>
         </div>

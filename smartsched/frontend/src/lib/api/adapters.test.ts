@@ -37,10 +37,12 @@ describe("backend adapters", () => {
   });
 
   it("maps RunOut / AssignmentOut / MoveOut field names", () => {
-    const run = ScheduleRun.parse(adapt.run({ id: 3, term_id: 1, kind: "COURSE", horizon: "WEEK", horizon_params: { weeks: [7] }, status: "RUNNING", params: {}, objective_value: null, soft_score: null, hard_score: null, stats: { progress: 42, phase: "search" }, diagnosis: [{ message: "BME 419 needs 102 seats", suggestions: ["Release A 204"] }], parent_run_id: null, prompt_text: null, label: null, is_active: true, error: null, created_at: "2026-03-14T14:02:00Z", started_at: null, finished_at: null }));
+    const run = ScheduleRun.parse(adapt.run({ id: 3, term_id: 1, term_code: "2026-BAHAR", kind: "COURSE", horizon: "WEEK", horizon_params: { weeks: [7] }, status: "RUNNING", params: {}, objective_value: null, soft_score: null, hard_score: null, stats: { progress: 42, phase: "search" }, diagnosis: [{ message: "BME 419 needs 102 seats", suggestions: ["Release A 204"] }], parent_run_id: null, prompt_text: null, label: null, is_active: true, error: null, created_at: "2026-03-14T14:02:00Z", started_at: null, finished_at: null }));
     expect(run.progress).toBe(42);
-    expect(run.term_code).toBe("term-1");
-    expect(run.diagnosis[0]).toMatchObject({ id: "d0", severity: "high", suggestions: [{ id: "s0", text: "Release A 204", action: "manual" }] });
+    expect(run.term_code).toBe("2026-BAHAR");
+    expect(run.diagnosis[0]).toMatchObject({ id: "0", index: 0, severity: "high", suggestions: [{ id: "s0", text: "Release A 204", action: "manual", applicable: false }] });
+    // a RunOut without term_code is a contract violation now (no more `term-{id}` synthesis)
+    expect(ScheduleRun.safeParse(adapt.run({ ...run, term_code: undefined })).success).toBe(false);
     const a = Assignment.parse(adapt.assignment({ id: 5, run_id: 3, meeting_request_id: 1, exam_request_id: null, week: null, weeks: [1, 2], day: 2, date: null, start_period: 1, end_period: 2, room_ids: ["4"], label: null, course_codes: ["HEM 334", "NRS 304"], tags: [], notes: null, is_locked: true, origin: "IMPORT", archived: false, display_label: "HEM 334 / NRS 304", room_codes: ["A102"] }));
     expect(a).toMatchObject({ label: "HEM 334 / NRS 304", course_code: "HEM 334", room_ids: [4], is_locked: true, size: 0 });
     const mv = MoveResponse.parse(adapt.moveResponse({ ok: false, assignment: null, conflicts: [{ type: "room", detail: "A 204 busy", assignment_id: 9 }] }));
@@ -50,9 +52,18 @@ describe("backend adapters", () => {
   it("maps masked settings and test-ai results", () => {
     const s = Settings.parse(adapt.settings({ anthropic_api_key: { set: true, masked: "sk-ant-…3f9a", source: "db" }, anthropic_model: "claude-sonnet-5-5", solver_default_time_limit: 90, solver_workers: 4, solver_weights: '{"room_preference": 5}' }));
     expect(s).toMatchObject({ anthropic_api_key_masked: "sk-ant-…3f9a", solver_default_workers: 4, default_weights: { room_preference: 5 }, solver_default_time_limit: 90 });
-    expect(s.available_models).toContain("claude-opus-5-5");
+    expect(s.available_models[0]).toBe("claude-opus-5-5");
+    expect(adapt.DEFAULT_MODELS[0]).toBe("claude-opus-5-5");
+    expect(Settings.parse(adapt.settings({ anthropic_api_key: { set: false }, solver_default_time_limit: 60 })).anthropic_model).toBe("claude-opus-5-5");
     expect(adapt.settingsUpdateBody({ solver_default_workers: 6, default_weights: { stability: 2 }, solver_default_seed: 9 })).toMatchObject({ solver_workers: 6, solver_weights: { stability: 2 }, extra: { solver_default_seed: 9 } });
     expect(TestAiResponse.parse(adapt.testAi({ ok: false, model: "claude-sonnet-5-5", detail: "AuthenticationError: invalid", used_key: "stored" }))).toMatchObject({ ok: false, error: "AuthenticationError: invalid" });
     expect(adapt.listQuery({ q: "MAT", page: 2, page_size: 50 })).toMatchObject({ search: "MAT", limit: 50, offset: 50 });
+  });
+
+  it("reads naive backend datetimes as UTC", () => {
+    expect(adapt.utcIso("2026-10-08T07:30:12.5")).toBe("2026-10-08T07:30:12.5Z");
+    expect(adapt.utcIso("2026-10-08T07:30:12Z")).toBe("2026-10-08T07:30:12Z");
+    expect(adapt.utcIso("2026-10-08T10:30:12+03:00")).toBe("2026-10-08T10:30:12+03:00");
+    expect(adapt.utcIso("2026-10-08")).toBe("2026-10-08");
   });
 });

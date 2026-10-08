@@ -35,3 +35,9 @@ for r in (
     chat.router,
 ):
     api_router.include_router(r)
+
+# Generator Studio (phase 8)
+from app.api.v1 import presets, studio  # noqa: E402
+
+api_router.include_router(studio.router)
+api_router.include_router(presets.router)

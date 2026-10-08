@@ -52,3 +52,12 @@ describe("time grid", () => {
     expect(dateForWeekDay("2026-02-09", 3)).toBe("2026-02-11");
   });
 });
+
+describe("formatDate", () => {
+  it("formats ISO dates in Turkish and tolerates weeks without a date (real Bahar 'Yaz Dönemi' sheet)", async () => {
+    const { formatDate } = await import("./time");
+    expect(formatDate("2026-02-16", "tr")).toBe("16 Şub");
+    expect(formatDate("", "tr")).toBe("—");
+    expect(formatDate(null, "en")).toBe("—");
+  });
+});

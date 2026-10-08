@@ -103,8 +103,14 @@ the single source of truth for colours and motion and is mirrored in `src/app/gl
 
 ## Backend alignment
 
-The client is written against `docs/ARCHITECTURE.md`; `lib/api/adapters.ts` bridges the differences
-found in `smartsched/backend/app/api/v1` (paginated `{items,limit,offset}`, grid cell matrix, settings
-secrets as `{set,masked}`, `?locked=` query on lock, `TokenOut` without user). Routes that exist only in
-the mock today: `GET /dashboard` (composed client-side when the backend returns 404), `/runs/{id}/chat*`,
-`/constraints/propose`, `/runs/{id}/diagnosis/{id}/apply`, `/users`.
+The client is written against the FastAPI OpenAPI (`/api/openapi.json`); `lib/api/adapters.ts` bridges the
+remaining shape differences (paginated `{items,limit,offset}`, the grid's day × room × cell matrix,
+settings secrets as `{set,masked}`, naive UTC datetimes, chat history whose proposed diff rides on the
+assistant message's `tool_calls`). `src/lib/api/contract.test.ts` parses payloads recorded from the real
+backend (`src/lib/api/__fixtures__/real/`, re-record after backend schema changes). The MSW mocks speak
+the backend shapes too (move conflicts are `200 {ok:false}`, chat = `ChatOut` + `ChatMessageOut[]`,
+`POST /runs/{id}/chat/apply` always yields a child run, `POST /runs/{id}/diagnoses/{idx}/apply`).
+`GET /dashboard` is composed client-side only when the backend answers 404.
+
+Real-backend e2e: `E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test` (see
+`docs/testing/2026-10-08-real-backend-e2e.md` for the backend setup).

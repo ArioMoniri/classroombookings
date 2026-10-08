@@ -1,0 +1,86 @@
+[
+ {
+  "id": 1,
+  "building_id": 1,
+  "code": "A101",
+  "display_name": "A 101",
+  "floor": "1",
+  "capacity": 58,
+  "exam_capacity": 0,
+  "tags": [],
+  "is_bookable": true,
+  "notes": null,
+  "photo_url": null,
+  "legacy_crbs_room_id": null,
+  "room_group": null,
+  "custom_fields": {}
+ },
+ {
+  "id": 7,
+  "building_id": 1,
+  "code": "A201",
+  "display_name": "A 201",
+  "floor": "2",
+  "capacity": 96,
+  "exam_capacity": 0,
+  "tags": [
+   "TIP"
+  ],
+  "is_bookable": true,
+  "notes": null,
+  "photo_url": null,
+  "legacy_crbs_room_id": null,
+  "room_group": null,
+  "custom_fields": {}
+ },
+ {
+  "id": 10,
+  "building_id": 1,
+  "code": "A204",
+  "display_name": "A 204",
+  "floor": "2",
+  "capacity": 156,
+  "exam_capacity": 0,
+  "tags": [],
+  "is_bookable": true,
+  "notes": null,
+  "photo_url": null,
+  "legacy_crbs_room_id": null,
+  "room_group": null,
+  "custom_fields": {}
+ },
+ {
+  "id": 56,
+  "building_id": 4,
+  "code": "B207",
+  "display_name": "B 207",
+  "floor": "2",
+  "capacity": 0,
+  "exam_capacity": 0,
+  "tags": [
+   "PC"
+  ],
+  "is_bookable": true,
+  "notes": null,
+  "photo_url": null,
+  "legacy_crbs_room_id": null,
+  "room_group": null,
+  "custom_fields": {}
+ },
+ {
+  "id": 18,
+  "building_id": 2,
+  "code": "CZ01",
+  "display_name": "C z01",
+  "floor": "0",
+  "capacity": 30,
+  "exam_capacity": 0,
+  "tags": [],
+  "is_bookable": true,
+  "notes": null,
+  "photo_url": null,
+  "legacy_crbs_room_id": null,
+  "room_group": null,
+  "custom_fields": {}
+ }
+]

@@ -1,0 +1,222 @@
+{
+ "items": [
+  {
+   "id": 43,
+   "section_id": 39,
+   "day": 5,
+   "days": [
+    5
+   ],
+   "start_period": 8,
+   "end_period": 10,
+   "start_time": "14:20:00",
+   "end_time": "16:40:00",
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "requested_room_text": "Derslik",
+   "requested_room_ids": [],
+   "requested_building": null,
+   "requested_tags": [],
+   "requested_capacity": 90,
+   "flexible_day": false,
+   "needs_room": true,
+   "definitive_room_text": "A 206",
+   "definitive_room_ids": [
+    12
+   ],
+   "status": "LOCKED",
+   "parse_warnings": [],
+   "notes": null,
+   "archived": false,
+   "source_row_index": 44,
+   "course_code": "PSI 218",
+   "course_name": "Araştırma Yöntemleri II",
+   "section_label": "1",
+   "program_name": "Psikoloji",
+   "enrolment": 90,
+   "mode": "F2F",
+   "instructors": [
+    "Belma Bekçi"
+   ]
+  },
+  {
+   "id": 44,
+   "section_id": 40,
+   "day": 5,
+   "days": [
+    5
+   ],
+   "start_period": 4,
+   "end_period": 5,
+   "start_time": "11:00:00",
+   "end_time": "12:30:00",
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "requested_room_text": "Bilgisayar Laboratuvarı (SPSS)",
+   "requested_room_ids": [],
+   "requested_building": null,
+   "requested_tags": [
+    "PC"
+   ],
+   "requested_capacity": 90,
+   "flexible_day": false,
+   "needs_room": true,
+   "definitive_room_text": "A 105",
+   "definitive_room_ids": [
+    29
+   ],
+   "status": "LOCKED",
+   "parse_warnings": [],
+   "notes": "Bu ders PSI 276 Psikolojide İstatistik Uygulamaları dersinin uygulamalı kısmı içindir, laboratuvar gerektiği için yeni bir satırda tekrar eklenmiştir. Mümkünse A105 lavoratuvarları kullanılabilir.",
+   "archived": false,
+   "source_row_index": 45,
+   "course_code": "PSI 276",
+   "course_name": "Psikolojide İstatistik Uygulamaları II",
+   "section_label": "1",
+   "program_name": "Psikoloji",
+   "enrolment": 90,
+   "mode": "F2F",
+   "instructors": [
+    "Belma Bekçi"
+   ]
+  },
+  {
+   "id": 76,
+   "section_id": 67,
+   "day": 5,
+   "days": [
+    5
+   ],
+   "start_period": 1,
+   "end_period": 11,
+   "start_time": "08:30:00",
+   "end_time": "17:30:00",
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "requested_room_text": "Kampüs dışı",
+   "requested_room_ids": [],
+   "requested_building": null,
+   "requested_tags": [],
+   "requested_capacity": 50,
+   "flexible_day": false,
+   "needs_room": false,
+   "definitive_room_text": "Kampüs dışı",
+   "definitive_room_ids": [],
+   "status": "NEEDS_REVIEW",
+   "parse_warnings": [
+    "weeks value 0; assuming all"
+   ],
+   "notes": "Ders kampüs dışı kurumlarda yapılacağı için dersliğe ihtiyaç yoktur.",
+   "archived": false,
+   "source_row_index": 77,
+   "course_code": "PSI 454",
+   "course_name": "Psikolojide Alan Uygulamaları",
+   "section_label": "1",
+   "program_name": "Psikoloji",
+   "enrolment": 50,
+   "mode": "F2F",
+   "instructors": [
+    "Şebnem Akan",
+    "Ülkü Gülbike Yumak"
+   ]
+  },
+  {
+   "id": 109,
+   "section_id": 100,
+   "day": 5,
+   "days": [
+    5
+   ],
+   "start_period": 3,
+   "end_period": 5,
+   "start_time": "10:10:00",
+   "end_time": "12:30:00",
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "requested_room_text": "Derslik",
+   "requested_room_ids": [],
+   "requested_building": null,
+   "requested_tags": [],
+   "requested_capacity": 40,
+   "flexible_day": false,
+   "needs_room": true,
+   "definitive_room_text": "A 307",
+   "definitive_room_ids": [
+    16
+   ],
+   "status": "LOCKED",
+   "parse_warnings": [],
+   "notes": null,
+   "archived": false,
+   "source_row_index": 110,
+   "course_code": "PSY 216",
+   "course_name": "Bilişsel Psikolojiye Giriş",
+   "section_label": "1",
+   "program_name": "Psikoloji (İngilizce)",
+   "enrolment": 40,
+   "mode": "F2F",
+   "instructors": [
+    "Dilan Çabuk Çolak"
+   ]
+  }
+ ],
+ "total": 56,
+ "limit": 4,
+ "offset": 0
+}

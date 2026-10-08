@@ -23,6 +23,7 @@ from app.models import (
     Section,
     SectionInstructor,
     Term,
+    Week,
 )
 from app.services.calendar import date_for, day_label
 
@@ -393,11 +394,23 @@ async def build_grid(
         d = date_for(term, week, day)
         days.append({"day": day, "label": day_label(day), "date": d.isoformat() if d else None, "rooms": day_rooms})
     week_start = date_for(term, week, 1)
+    term_weeks = (await session.execute(select(Week).where(Week.term_id == term.id).order_by(Week.index))).scalars()
     return {
         "run_id": run.id,
         "term_id": term.id,
         "week": week,
         "week_start": week_start.isoformat() if week_start else None,
+        "weeks": [
+            {
+                "id": w.id,
+                "term_id": w.term_id,
+                "index": w.index,
+                "start_date": w.start_date.isoformat() if w.start_date else None,
+                "kind": w.kind,
+                "label": w.label,
+            }
+            for w in term_weeks
+        ],
         "periods": [{"index": p.index, "start": f"{p.start:%H:%M}", "end": f"{p.end:%H:%M}"} for p in PERIODS],
         "days": days,
         "assignments": len(assignments),

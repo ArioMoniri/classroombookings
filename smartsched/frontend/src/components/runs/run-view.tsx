@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress, ProgressIndicator, ProgressTrack } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { optionIndex } from "@/lib/api/adapters";
 import { api } from "@/lib/api/endpoints";
 import { useApplyFix, useConstraints, useRun } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
@@ -39,10 +40,14 @@ export function RunView({ id }: { id: number }) {
   if (run.isError) return <p className="text-muted-foreground">{t("runs.notFound")}</p>;
   if (!r) return <Skeleton className="h-64 rounded-xl" />;
   const active = r.status === "QUEUED" || r.status === "RUNNING";
-  const onApply = async (diagnosisId: string, suggestionId: string) => {
-    const res = await applyFix.mutateAsync({ diagnosisId, suggestionId });
-    toast.success(t("runs.applied"));
-    router.push(`/runs/${res.run_id}`);
+  const onApply = async (diagnosisIndex: number, suggestionId: string) => {
+    try {
+      const res = await applyFix.mutateAsync({ diagnosisIndex, optionIndex: optionIndex(suggestionId) });
+      toast.success(t("runs.applied"), { description: res.message });
+      if (res.child_run_id) router.push(`/runs/${res.child_run_id}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e)); // 422: no structured fix for this suggestion
+    }
   };
   return (
     <div data-testid="run-view">
@@ -92,7 +97,7 @@ export function RunView({ id }: { id: number }) {
                 {r.diagnosis.length === 0 ? (
                   <div className="rounded-xl border border-status-feasible-border bg-status-feasible/40 p-6 text-center text-sm text-status-feasible-fg">{t("runs.noDiagnosis")}</div>
                 ) : (
-                  r.diagnosis.map((d) => <DiagnosisCard key={d.id} d={d} applying={applyFix.isPending} onApply={(sid) => void onApply(d.id, sid)} onChat={() => setTab("chat")} />)
+                  r.diagnosis.map((d) => <DiagnosisCard key={d.id} d={d} applying={applyFix.isPending} onApply={(sid) => void onApply(d.index ?? Number(d.id) ?? 0, sid)} onChat={() => setTab("chat")} />)
                 )}
               </TabsContent>
               <TabsContent value="grid" className="pt-3">

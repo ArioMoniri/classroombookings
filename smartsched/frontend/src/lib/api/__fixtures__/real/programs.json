@@ -1,0 +1,28 @@
+{
+ "items": [
+  {
+   "id": 48,
+   "faculty_id": 4,
+   "name": "Adli Bilimler Tezli Yüksek Lisans",
+   "canonical_name": "adli bilimler tezli yüksek lisans",
+   "is_evening": false
+  },
+  {
+   "id": 93,
+   "faculty_id": 4,
+   "name": "Adli Bilimler Tezsiz Yüksek Lisans",
+   "canonical_name": "adli bilimler tezsiz yüksek lisans",
+   "is_evening": false
+  },
+  {
+   "id": 20,
+   "faculty_id": 3,
+   "name": "Ameliyathane Hizmetleri Programı",
+   "canonical_name": "ameliyathane hizmetleri programı",
+   "is_evening": false
+  }
+ ],
+ "total": 97,
+ "limit": 500,
+ "offset": 0
+}

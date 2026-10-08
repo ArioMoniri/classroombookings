@@ -1,0 +1,69 @@
+{
+ "ok": false,
+ "assignment": {
+  "id": 1221,
+  "run_id": 1,
+  "meeting_request_id": null,
+  "exam_request_id": null,
+  "week": 3,
+  "weeks": [
+   3
+  ],
+  "day": 1,
+  "date": "2026-02-16",
+  "start_period": 1,
+  "end_period": 2,
+  "room_ids": [
+   4
+  ],
+  "label": "BCT 128",
+  "course_codes": [
+   "BCT128"
+  ],
+  "tags": [],
+  "notes": null,
+  "is_locked": false,
+  "origin": "IMPORT",
+  "archived": false,
+  "display_label": "BCT 128",
+  "room_codes": [
+   "A 107"
+  ],
+  "course_code": "BCT128",
+  "course_name": null,
+  "section_label": null,
+  "program_name": null,
+  "class_year": null,
+  "size": 0,
+  "enrolment": null,
+  "instructors": [],
+  "instructor": null,
+  "capacity": 58,
+  "week_set": [
+   3
+  ],
+  "is_conflict": false,
+  "conflict_reasons": []
+ },
+ "conflicts": [
+  {
+   "kind": "assignment",
+   "id": 1220,
+   "run_id": 1,
+   "room_id": 2,
+   "label": "PHAR 474",
+   "meeting_request_id": null,
+   "exam_request_id": null,
+   "day": 1,
+   "start_period": 1,
+   "end_period": 4,
+   "weeks": [
+    3
+   ],
+   "room": "A 102",
+   "with_assignment_id": 1220,
+   "with_label": "PHAR 474",
+   "message": "A 102 is taken by PHAR 474 (Pazartesi P1-P4)"
+  }
+ ]
+}

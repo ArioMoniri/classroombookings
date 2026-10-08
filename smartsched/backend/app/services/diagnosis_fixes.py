@@ -64,8 +64,9 @@ class FixOption:
         }
 
 
-def parse_option(index: int, text: str, diag: dict[str, Any]) -> FixOption:
-    """Classify one suggestion string of ``diag`` (a stored ``asdict(Diagnosis)``)."""
+def parse_option(index: int, text: str, diag: dict[str, Any], run_kind: str | None = None) -> FixOption:
+    """Classify one suggestion string of ``diag`` (a stored ``asdict(Diagnosis)``). ``run_kind`` marks
+    options the apply endpoint would refuse for that kind (splitting a course) as not applicable."""
     t = " ".join(str(text).split())
     event_ids = [int(e) for e in diag.get("event_ids") or []]
     target = event_ids[0] if event_ids else None
@@ -119,18 +120,20 @@ def parse_option(index: int, text: str, diag: dict[str, Any]) -> FixOption:
     if m := _RELAX.match(t):
         return FixOption(index, t, "relax", True, {"kind": m["kind"], "event_ids": event_ids})
     if _SPLIT.search(t):
-        return FixOption(index, t, "split", bool(event_ids), {"event_ids": event_ids, "max_rooms": 3})
+        return FixOption(
+            index, t, "split", bool(event_ids) and run_kind != "COURSE", {"event_ids": event_ids, "max_rooms": 3}
+        )
     return FixOption(index, t, "manual", False, {})
 
 
-def structure_diagnosis(raw: Any, index: int) -> dict[str, Any]:
+def structure_diagnosis(raw: Any, index: int, run_kind: str | None = None) -> dict[str, Any]:
     """Stored diagnosis -> API shape: stable ``id``, ``event_labels`` and structured ``suggestions``."""
     if not isinstance(raw, dict):
         raw = {"event_ids": [], "constraint_kinds": [], "message": str(raw), "suggestions": [], "severity": "error"}
     labels = {int(m["id"]): m["label"].strip() for m in _LABEL.finditer(str(raw.get("message") or ""))}
     event_ids = [int(e) for e in raw.get("event_ids") or []]
     options = [
-        parse_option(j, s, raw).as_dict() if isinstance(s, str) else s
+        parse_option(j, s, raw, run_kind).as_dict() if isinstance(s, str) else s
         for j, s in enumerate(raw.get("suggestions") or [])
     ]
     return {

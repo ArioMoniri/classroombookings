@@ -124,11 +124,13 @@ export function clampDay(day: number): number {
 export function dateForWeekDay(weekStart: string, day: number): string {
   const [y, m, d] = weekStart.split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d + (clampDay(day) - 1)));
-  return date.toISOString().slice(0, 10);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
 }
 
-export function formatDate(iso: string, locale: string, opts?: Intl.DateTimeFormatOptions): string {
-  const [y, m, d] = iso.split("-").map(Number);
+/** "2026-02-16" → "16 Şub". Real weeks can lack a date (e.g. the "Yaz Dönemi" sheet): returns "—". */
+export function formatDate(iso: string | null | undefined, locale: string, opts?: Intl.DateTimeFormatOptions): string {
+  const [y, m, d] = (iso ?? "").split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
+  if (!iso || Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat(locale, { timeZone: "UTC", day: "numeric", month: "short", ...opts }).format(date);
 }

@@ -7,8 +7,6 @@ import { HttpResponse, http, type DefaultBodyType, type PathParams } from "msw";
 import { PERIODS, PERIODS_PER_DAY, rangesOverlap } from "@/lib/time";
 import type {
   Assignment,
-  ChatMessage,
-  ChatProposal,
   DashboardSummary,
   ExamRequest,
   ImportJob,
@@ -16,6 +14,7 @@ import type {
   MeetingRequest,
   MoveRequest,
   MoveResponse,
+  ProposedConstraint,
   RunCreate,
   ScheduleRun,
   Settings,
@@ -43,18 +42,38 @@ import {
 } from "./data";
 
 /* ------------------------------------------------------------------------------- state */
+/** Backend `ChatMessageOut`: the proposed diff rides on the assistant message's tool_calls. */
+interface MockChatMessage {
+  id: number;
+  run_id: number;
+  role: "user" | "assistant" | "system";
+  content: string;
+  tool_calls: Record<string, unknown>[];
+  created_at: string;
+}
+/** Backend `ProposedDiff` (app/schemas/ai.py), the subset the mock produces. */
+interface MockDiff {
+  id: string;
+  run_id: number;
+  operations: Record<string, unknown>[];
+  re_solve: boolean;
+  stability: boolean;
+  summary: string;
+  warnings: string[];
+}
+
 interface MockState {
   meetings: MeetingRequest[];
   exams: ExamRequest[];
   runs: ScheduleRun[];
   assignments: Map<number, Assignment[]>;
-  chats: Map<number, ChatMessage[]>;
+  chats: Map<number, MockChatMessage[]>;
   settings: Settings;
   users: User[];
   imports: ImportJob[];
   runStartedAt: Map<number, number>;
   nextId: number;
-  undoStack: Map<string, Assignment[]>;
+  constraints: typeof constraints;
 }
 
 function freshState(): MockState {
@@ -63,13 +82,13 @@ function freshState(): MockState {
     exams: structuredClone(examRequests),
     runs: structuredClone(runs),
     assignments: new Map([...assignmentsByRun.entries()].map(([k, v]) => [k, structuredClone(v)])),
-    chats: new Map([[1, structuredClone(chatSeed)]]),
+    chats: new Map([[1, chatSeed.map((m) => ({ id: m.id, run_id: m.run_id, role: m.role, content: m.content, tool_calls: [], created_at: m.created_at }))]]),
     settings: structuredClone(settingsSeed),
     users: structuredClone(users),
     imports: structuredClone(importJobsSeed),
     runStartedAt: new Map(),
     nextId: 5000,
-    undoStack: new Map(),
+    constraints: structuredClone(constraints),
   };
 }
 
@@ -161,12 +180,13 @@ function validateMove(runId: number, moving: Assignment, body: MoveRequest): Mov
 }
 
 /* ---------------------------------------------------------------------------- chat */
-function proposeFromMessage(runId: number, text: string): ChatProposal | null {
+function proposeFromMessage(runId: number, text: string): MockDiff | null {
   const assignments = state.assignments.get(runId) ?? [];
   const codeMatch = /([A-ZÇĞİÖŞÜ]{2,4})\s?(\d{3})/i.exec(text);
   const roomMatch = /\b([A-D])\s?([zZ]?\d{2,3})\b/.exec(text.replace(/[A-ZÇĞİÖŞÜ]{2,4}\s?\d{3}/gi, ""));
   const dayWords: Record<string, number> = { pazartesi: 1, monday: 1, salı: 2, sali: 2, tuesday: 2, çarşamba: 3, carsamba: 3, wednesday: 3, perşembe: 4, persembe: 4, thursday: 4, cuma: 5, friday: 5 };
   const dayMatch = Object.keys(dayWords).find((k) => text.toLocaleLowerCase("tr-TR").includes(k));
+  const diff = (operations: Record<string, unknown>[], summary: string, reSolve = false): MockDiff => ({ id: `d${state.nextId++}`, run_id: runId, operations, re_solve: reSolve, stability: true, summary, warnings: [] });
   if (codeMatch) {
     const code = `${codeMatch[1].toLocaleUpperCase("tr-TR")} ${codeMatch[2]}`;
     const target = assignments.find((a) => a.course_code.startsWith(code));
@@ -176,42 +196,77 @@ function proposeFromMessage(runId: number, text: string): ChatProposal | null {
     const day = dayMatch ? dayWords[dayMatch] : target.day;
     const dest = room ?? rooms.find((r) => r.is_bookable && r.capacity >= target.size && validateMove(runId, target, { room_ids: [r.id], day, start_period: target.start_period, end_period: target.end_period }).length === 0);
     if (!dest) return null;
-    return {
-      id: `p${state.nextId++}`,
-      summary: `${target.label}: ${fromRoom?.display_name ?? "?"} → ${dest.display_name}${day !== target.day ? `, day ${day}` : ""}`,
-      moves: [
+    return diff(
+      [
         {
+          op: "move",
           assignment_id: target.id,
+          day: day !== target.day ? day : null,
+          room_ids: [dest.id],
           label: target.label,
-          from: { room: fromRoom?.display_name ?? "?", day: target.day, start_period: target.start_period, end_period: target.end_period },
-          to: { room: dest.display_name, day, start_period: target.start_period, end_period: target.end_period },
+          before: { label: target.label, day: target.day, periods: `P${target.start_period}-P${target.end_period}`, rooms: [fromRoom?.display_name ?? "?"] },
+          after: { day, periods: `P${target.start_period}-P${target.end_period}`, rooms: [dest.display_name] },
         },
       ],
-      constraints: [],
-      applied: false,
-      child_run_id: null,
-    };
+      `1 move: ${target.label} → ${dest.display_name}`,
+    );
   }
   if (/tip|blok|block|akşam|evening|kapasite|capacity|aynı derslik|same room/i.test(text)) {
-    return {
-      id: `p${state.nextId++}`,
-      summary: "New soft preference",
-      moves: [],
-      constraints: [{ op: "add", kind: /tip/i.test(text) ? "room_tags" : /blok|block/i.test(text) ? "building_preference" : "same_room_across_weeks", hardness: "soft", weight: 3, nl_text: text }],
-      applied: false,
-      child_run_id: null,
-    };
+    const kind = /tip/i.test(text) ? "room_tags" : /blok|block/i.test(text) ? "building_preference" : "same_room_across_weeks";
+    return diff([{ op: "add_constraint", constraint: { kind, params: {}, hardness: "soft", weight: 3, nl_text: text, status: "ok" } }], "1 new rule · re-solve (stable)", true);
   }
   return null;
 }
 
-function chatFor(runId: number): ChatMessage[] {
+function chatFor(runId: number): MockChatMessage[] {
   let list = state.chats.get(runId);
   if (!list) {
     list = [];
     state.chats.set(runId, list);
   }
   return list;
+}
+
+function findDiff(runId: number, diffId: string): { diff: MockDiff; call: Record<string, unknown> } | null {
+  for (const m of chatFor(runId)) {
+    for (const call of m.tool_calls) {
+      const d = call.diff as MockDiff | undefined;
+      if (call.type === "diff" && d?.id === diffId) return { diff: d, call };
+    }
+  }
+  return null;
+}
+
+/** Child run sharing the parent's settings (backend: `apply_diff`, diagnosis apply). */
+function childRun(parent: ScheduleRun, prompt: string, status: ScheduleRun["status"]): ScheduleRun {
+  const id = Math.max(...state.runs.map((r) => r.id)) + 1;
+  const child: ScheduleRun = { ...structuredClone(parent), id, status, progress: status === "QUEUED" ? 0 : 100, parent_run_id: parent.id, prompt_text: prompt, created_at: new Date().toISOString(), finished_at: status === "QUEUED" ? null : new Date().toISOString(), diagnosis: [] };
+  state.runs.push(child);
+  if (status === "QUEUED") state.runStartedAt.set(id, Date.now());
+  return child;
+}
+
+/** Mock of `POST /terms/{id}/elicit`: one rule per sentence, keyword-classified. */
+function elicit(text: string): ProposedConstraint[] {
+  return text
+    .split(/[.;\n]/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => ({
+      kind: /tip/i.test(p) ? "room_tags" : /blok|block/i.test(p) ? "building_preference" : /17|saat|after|sonra/i.test(p) ? "day_window" : "room_preference",
+      params: {},
+      hardness: /sadece|only|asla|never/i.test(p) ? ("hard" as const) : ("soft" as const),
+      weight: 3,
+      nl_text: p,
+      rationale: "",
+      confidence: 0.8,
+      title: null,
+      status: "ok" as const,
+      issues: [],
+      entities: [],
+      source: "AI",
+      source_ref: { file: null, kind: "prompt" },
+    }));
 }
 
 /* ---------------------------------------------------------------------------- utils */
@@ -282,6 +337,12 @@ export const handlers = [
       utilisation: Number((byBuilding.reduce((s, b) => s + b.utilisation * b.rooms, 0) / Math.max(1, byBuilding.reduce((s, b) => s + b.rooms, 0))).toFixed(2)),
       utilisation_by_building: byBuilding,
       peak_hours: peak,
+      utilisation_building_day: byBuilding.flatMap((b) => [1, 2, 3, 4, 5, 6, 7].map((day) => ({ building: b.building, day, utilisation: day <= 5 ? b.utilisation : Number((b.utilisation * 0.2).toFixed(2)) }))),
+      utilisation_building_period: byBuilding.flatMap((b) => PERIODS.map((p) => ({ building: b.building, period: p.index, utilisation: Number(Math.min(1, b.utilisation * (p.index <= 11 ? 1.2 : 0.4)).toFixed(2)) }))),
+      utilisation_week: 7,
+      requests_pending: state.meetings.filter((m) => m.status !== "LOCKED").length + state.exams.filter((e) => e.status !== "LOCKED").length,
+      active_run_id: 1,
+      utilisation_run_id: 1,
       conflicts: (state.assignments.get(2) ?? []).filter((a) => a.conflict).length,
       last_runs: state.runs.map(tickRun).slice(-5).reverse(),
     };
@@ -379,20 +440,35 @@ export const handlers = [
   http.get(`${base}/constraints`, ({ request }) => {
     const url = new URL(request.url);
     const runId = url.searchParams.get("run_id");
-    return json(constraints.filter((c) => !runId || c.run_id === null || c.run_id === Number(runId)));
+    return json(state.constraints.filter((c) => !runId || c.run_id === null || c.run_id === Number(runId)));
   }),
-  http.post(`${base}/constraints/propose`, async ({ request }) => {
-    const body = (await request.json()) as { prompt: string };
-    const parts = body.prompt.split(/[.;\n]/).map((s) => s.trim()).filter(Boolean);
-    return json({
-      constraints: parts.map((p) => ({
-        op: "add" as const,
-        kind: /tip/i.test(p) ? "room_tags" : /blok|block/i.test(p) ? "building_preference" : /17|saat|after|sonra/i.test(p) ? "day_window" : "room_preference",
-        hardness: /sadece|only|asla|never/i.test(p) ? ("hard" as const) : ("soft" as const),
-        weight: 3,
-        nl_text: p,
-      })),
+  http.post(`${base}/terms/:id/elicit`, async ({ request }) => {
+    const body = (await request.json()) as { text: string };
+    return json({ proposals: elicit(body.text), section_edits: [], unparsed: [], assistant_message: "", usage: { model: state.settings.anthropic_model, input_tokens: 0, output_tokens: 0, estimated_cost_usd: 0 } });
+  }),
+  http.post(`${base}/terms/:id/elicit/accept`, async ({ params, request }) => {
+    const body = (await request.json()) as { proposals: ProposedConstraint[]; run_id?: number | null };
+    const created = body.proposals.map((p) => {
+      const id = state.nextId++;
+      state.constraints.push({ id, term_id: num(params.id), run_id: body.run_id ?? null, kind: p.kind, params: p.params, hardness: p.hardness, weight: p.weight, source: "AI", nl_text: p.nl_text, enabled: true });
+      return id;
     });
+    return json({ created, rejected: [], section_edits_applied: [] });
+  }),
+  http.post(`${base}/terms/:id/preferences/upload`, async ({ request }) => {
+    const fd = await request.formData();
+    const file = fd.get("file");
+    const text = file instanceof File ? await file.text() : "";
+    return json({ proposals: elicit(text), section_edits: [], unparsed: [], assistant_message: "", filename: file instanceof File ? file.name : "upload", file_kind: "txt", units: text.split("\n").length, chunks: 1, truncated: false, detected_columns: {}, warnings: [] });
+  }),
+  http.get(`${base}/ai/catalog`, () =>
+    json({ kinds: ["capacity", "room_tags", "building_preference", "day_window", "room_preference", "same_room_across_weeks"].map((kind) => ({ kind, title: { tr: kind, en: kind }, description: { tr: "", en: "" }, params_schema: {}, examples: [], allowed_hardness: ["hard", "soft"], default_hardness: "soft", implicit: false, registered: true })), tools: [], selectors: {} }),
+  ),
+  http.post(`${base}/runs/:id/explain`, ({ params }) => {
+    const run = getRun(num(params.id));
+    if (!run) return notFound("Run");
+    const text = run.status === "INFEASIBLE" ? `Çizelge #${run.id} uygun değil: ${run.diagnosis.length} sorun bulundu.` : `Çizelge #${run.id}: katı kısıtlar ${run.hard_score ?? "—"}/100, yumuşak ${run.soft_score ?? "—"}/100.`;
+    return json({ text, sections: [], source: "template" });
   }),
 
   http.get(`${base}/runs`, ({ request }) => {
@@ -470,14 +546,15 @@ export const handlers = [
     const a = list?.find((x) => x.id === num(params.aid));
     if (!list || !a) return notFound("Assignment");
     const body = (await request.json()) as MoveRequest;
-    if (a.is_locked) return json({ ok: false, assignment: a, conflicts: [{ kind: "locked", message: `${a.label} is locked` }] } satisfies MoveResponse, { status: 409 });
+    // like the backend: conflicts → 200 {ok:false}; a successful move is MANUAL and locked
     const conflicts = validateMove(runId, a, body);
-    if (conflicts.length > 0) return json({ ok: false, assignment: a, conflicts } satisfies MoveResponse, { status: 409 });
+    if (conflicts.length > 0) return json({ ok: false, assignment: a, conflicts } satisfies MoveResponse);
     a.room_ids = body.room_ids;
     a.day = body.day;
     a.start_period = body.start_period;
     a.end_period = body.end_period;
     a.origin = "MANUAL";
+    a.is_locked = true;
     a.conflict = false;
     a.conflict_reason = null;
     const run = state.runs.find((r) => r.id === runId);
@@ -492,77 +569,67 @@ export const handlers = [
     a.is_locked = q !== null ? q === "true" : body.locked === true;
     return json(a);
   }),
-  http.get(`${base}/runs/:id/chat`, ({ params }) => json({ messages: chatFor(num(params.id)) })),
+  http.post(`${base}/runs/:id/activate`, ({ params }) => {
+    const run = getRun(num(params.id));
+    if (!run) return notFound("Run");
+    return json(run);
+  }),
+  http.get(`${base}/runs/:id/chat`, ({ params }) => json(chatFor(num(params.id)))),
   http.post(`${base}/runs/:id/chat`, async ({ params, request }) => {
     const runId = num(params.id);
     const body = (await request.json()) as { message: string };
+    if (!state.settings.anthropic_api_key_masked) return json({ detail: "No Anthropic API key is configured. An admin can add one under Settings > AI (Ayarlar > Yapay zekâ)." }, { status: 409 });
     const list = chatFor(runId);
-    list.push({ id: state.nextId++, run_id: runId, role: "user", content: body.message, proposal: null, created_at: new Date().toISOString() });
-    const proposal = proposeFromMessage(runId, body.message);
-    list.push({
-      id: state.nextId++,
-      run_id: runId,
-      role: "assistant",
-      content: proposal
-        ? proposal.moves.length > 0
-          ? `I can do that: ${proposal.summary}. The target slot is free and capacity fits. Apply?`
-          : `Understood — I'll add this as a soft preference and re-solve with stability on. Apply?`
-        : "I couldn't map that to a concrete change. Try a course code and a room, e.g. \"MAT 112'yi A 204'e taşı\".",
-      proposal,
-      created_at: new Date().toISOString(),
-    });
-    return json({ messages: list });
+    const now = new Date().toISOString();
+    list.push({ id: state.nextId++, run_id: runId, role: "user", content: body.message, tool_calls: [], created_at: now });
+    const diff = proposeFromMessage(runId, body.message);
+    const content = diff
+      ? diff.operations.some((o) => o.op === "move")
+        ? `I can do that: ${diff.summary}. The target slot is free and capacity fits. Apply?`
+        : "Understood — I'll add this as a soft preference and re-solve with stability on. Apply?"
+      : "I couldn't map that to a concrete change. Try a course code and a room, e.g. \"MAT 112'yi A 204'e taşı\".";
+    const reply: MockChatMessage = { id: state.nextId++, run_id: runId, role: "assistant", content, tool_calls: diff ? [{ type: "diff", diff, applied: null }] : [], created_at: now };
+    list.push(reply);
+    return json({ message_id: reply.id, assistant_message: content, proposed_diff: diff, explanations: [], usage: { model: state.settings.anthropic_model, input_tokens: 0, output_tokens: 0 } });
   }),
-  http.post(`${base}/runs/:id/chat/:pid/apply`, ({ params }) => {
+  http.post(`${base}/runs/:id/chat/apply`, async ({ params, request }) => {
     const runId = num(params.id);
-    const list = chatFor(runId);
-    const msg = list.find((m) => m.proposal?.id === params.pid);
-    if (!msg?.proposal) return notFound("Proposal");
-    const assignments = state.assignments.get(runId) ?? [];
-    state.undoStack.set(msg.proposal.id, structuredClone(assignments));
-    for (const mv of msg.proposal.moves) {
-      const a = assignments.find((x) => x.id === mv.assignment_id);
-      const room = findRoom(mv.to.room);
-      if (a && room) {
-        a.room_ids = [room.id];
-        a.day = mv.to.day;
-        a.start_period = mv.to.start_period;
-        a.end_period = mv.to.end_period;
-        a.origin = "AI_EDIT";
-      }
+    const body = (await request.json()) as { diff_id?: string };
+    const found = body.diff_id ? findDiff(runId, body.diff_id) : null;
+    const parent = state.runs.find((r) => r.id === runId);
+    if (!found || !parent) return json({ detail: `diff ${body.diff_id ?? "?"} not found for run ${runId}` }, { status: 400 });
+    if (found.call.applied) return json({ detail: `diff ${found.diff.id} was already applied (child run #${String(found.call.applied)})` }, { status: 409 });
+    // backend semantics: the result is always a child run — a patched copy, or a queued re-solve
+    const reSolve = found.diff.re_solve || found.diff.operations.some((o) => o.op === "add_constraint");
+    const child = childRun(parent, `chat: ${found.diff.summary}`, reSolve ? "QUEUED" : "FEASIBLE");
+    const copy = (state.assignments.get(runId) ?? []).map((a, i) => ({ ...structuredClone(a), id: child.id * 10_000 + i + 1, run_id: child.id }));
+    const applied: Record<string, unknown>[] = [];
+    for (const op of found.diff.operations) {
+      if (op.op !== "move") continue;
+      const original = (state.assignments.get(runId) ?? []).findIndex((x) => x.id === op.assignment_id);
+      const a = copy[original];
+      if (!a) continue;
+      a.room_ids = (op.room_ids as number[] | undefined) ?? a.room_ids;
+      if (typeof op.day === "number") a.day = op.day;
+      a.origin = "AI_EDIT";
+      a.is_locked = true;
+      applied.push({ op: "move", assignment_id: a.id });
     }
-    msg.proposal.applied = true;
-    let childId: number | null = null;
-    if (msg.proposal.constraints.length > 0) {
-      childId = Math.max(...state.runs.map((r) => r.id)) + 1;
-      const parent = state.runs.find((r) => r.id === runId);
-      if (parent) {
-        state.runs.push({ ...structuredClone(parent), id: childId, status: "QUEUED", progress: 0, parent_run_id: runId, prompt_text: msg.proposal.constraints[0].nl_text, created_at: new Date().toISOString(), finished_at: null, diagnosis: [] });
-        state.runStartedAt.set(childId, Date.now());
-      }
-      msg.proposal.child_run_id = childId;
-    }
-    list.push({ id: state.nextId++, run_id: runId, role: "system", content: childId ? `Applied. Re-solve queued as run #${childId}.` : "Applied. Hard score still 100/100.", proposal: null, created_at: new Date().toISOString() });
-    return json({ child_run_id: childId, messages: list });
+    state.assignments.set(child.id, copy);
+    found.call.applied = child.id;
+    chatFor(runId).push({ id: state.nextId++, run_id: runId, role: "system", content: reSolve ? `Applied. Re-solve queued as run #${child.id}.` : `Applied as run #${child.id}. Hard score still 100/100.`, tool_calls: [], created_at: new Date().toISOString() });
+    return json({ child_run_id: child.id, applied, rejected: [], constraints_created: [], re_solve_queued: reSolve, mode: reSolve ? "full" : "patch", status: child.status, hard_score: child.hard_score, soft_score: child.soft_score });
   }),
-  http.post(`${base}/runs/:id/chat/:pid/undo`, ({ params }) => {
-    const runId = num(params.id);
-    const list = chatFor(runId);
-    const msg = list.find((m) => m.proposal?.id === params.pid);
-    const snapshot = state.undoStack.get(String(params.pid));
-    if (!msg?.proposal || !snapshot) return notFound("Proposal");
-    state.assignments.set(runId, snapshot);
-    msg.proposal.applied = false;
-    list.push({ id: state.nextId++, run_id: runId, role: "system", content: "Undone.", proposal: null, created_at: new Date().toISOString() });
-    return json({ ok: true, messages: list });
-  }),
-  http.post(`${base}/runs/:id/diagnosis/:did/apply`, ({ params }) => {
+  http.post(`${base}/runs/:id/diagnoses/:idx/apply`, async ({ params, request }) => {
     const parent = state.runs.find((r) => r.id === num(params.id));
     if (!parent) return notFound("Run");
-    const id = Math.max(...state.runs.map((r) => r.id)) + 1;
-    state.runs.push({ ...structuredClone(parent), id, status: "QUEUED", progress: 0, parent_run_id: parent.id, prompt_text: `fix:${String(params.did)}`, created_at: new Date().toISOString(), finished_at: null, diagnosis: [] });
-    state.runStartedAt.set(id, Date.now());
-    return json({ run_id: id }, { status: 202 });
+    const body = (await request.json()) as { option_index?: number; re_solve?: boolean };
+    const diag = parent.diagnosis[num(params.idx)];
+    if (!diag) return json({ detail: `diagnosis ${String(params.idx)} not found (run has ${parent.diagnosis.length})` }, { status: 404 });
+    const opt = diag.suggestions[body.option_index ?? 0];
+    if (!opt?.applicable || opt.action === "manual") return json({ detail: `suggestion '${opt?.text ?? "?"}' has no structured fix; apply it by hand` }, { status: 422 });
+    const child = body.re_solve === false ? null : childRun(parent, `fix: diagnosis ${String(params.idx)} option ${body.option_index ?? 0}: ${opt.text}`, "QUEUED");
+    return json({ run_id: parent.id, child_run_id: child?.id ?? null, action: opt.action, message: opt.text, details: {}, constraint_id: null });
   }),
   http.get(`${base}/runs/:id/export`, ({ params, request }) => {
     const format = new URL(request.url).searchParams.get("format") ?? "csv";
@@ -585,10 +652,32 @@ export const handlers = [
   }),
   http.get(`${base}/users`, () => json(state.users)),
   http.post(`${base}/users`, async ({ request }) => {
-    const body = (await request.json()) as { email: string; full_name: string; role: User["role"] };
-    const user: User = { id: state.nextId++, email: body.email, full_name: body.full_name, role: body.role, is_active: true };
+    const body = (await request.json()) as { email: string; full_name: string; role: User["role"]; password?: string };
+    const email = body.email.trim().toLocaleLowerCase("en-US");
+    if (state.users.some((u) => u.email === email)) return json({ detail: `a user with e-mail ${email} already exists` }, { status: 409 });
+    if (!body.password || body.password.length < 8) return json({ detail: [{ msg: "String should have at least 8 characters", loc: ["body", "password"] }] }, { status: 422 });
+    const user: User = { id: state.nextId++, email, full_name: body.full_name, role: body.role, is_active: true, created_at: new Date().toISOString() };
     state.users.push(user);
     return json(user, { status: 201 });
+  }),
+  http.put(`${base}/users/:id`, async ({ params, request }) => {
+    const u = state.users.find((x) => x.id === num(params.id));
+    if (!u) return notFound("User");
+    const body = (await request.json()) as Partial<User>;
+    const admins = state.users.filter((x) => x.role === "ADMIN" && x.is_active && x.id !== u.id).length;
+    if (u.role === "ADMIN" && ((body.role && body.role !== "ADMIN") || body.is_active === false) && admins === 0) return json({ detail: "cannot demote or deactivate the last active admin" }, { status: 409 });
+    Object.assign(u, { ...body, id: u.id });
+    return json(u);
+  }),
+  http.post(`${base}/users/:id/password`, ({ params }) => {
+    const u = state.users.find((x) => x.id === num(params.id));
+    return u ? json(u) : notFound("User");
+  }),
+  http.delete(`${base}/users/:id`, ({ params }) => {
+    const i = state.users.findIndex((x) => x.id === num(params.id));
+    if (i < 0) return notFound("User");
+    state.users.splice(i, 1);
+    return new HttpResponse(null, { status: 204 });
   }),
   http.get(`${base}/health`, () => json({ status: "ok", mock: true })),
 ];

@@ -20,15 +20,20 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
   const [table, setTable] = useState(false);
   const days = [1, 2, 3, 4, 5, 6, 7];
   const buildingRows = data.utilisation_by_building;
-  // Day mode: derive per-building × day from peak hours (mock: same per day scaled by building share).
-  const dayValue = (buildingUtil: number, day: number): number => {
+  // Real matrices from `GET /dashboard` (occupied room-periods / available, per building); the composed
+  // client-side fallback has none, so it derives an estimate from the peak hours instead.
+  const realDay = data.utilisation_building_day;
+  const realPeriod = data.utilisation_building_period;
+  const dayValue = (building: string, buildingUtil: number, day: number): number => {
+    if (realDay.length) return realDay.find((c) => c.building === building && c.day === day)?.utilisation ?? 0;
     const dayOcc = data.peak_hours.filter((p) => p.day === day);
     if (dayOcc.length === 0) return 0;
     const avg = dayOcc.reduce((s, p) => s + p.occupancy, 0) / dayOcc.length;
-    return Math.min(1, buildingUtil * (avg / Math.max(0.01, data.utilisation)) );
+    return Math.min(1, buildingUtil * (avg / Math.max(0.01, data.utilisation)));
   };
-  const periodValue = (period: number): number => {
-    const list = data.peak_hours.filter((p) => p.period === period);
+  const periodValue = (building: string, period: number): number => {
+    if (realPeriod.length) return realPeriod.find((c) => c.building === building && c.period === period)?.utilisation ?? 0;
+    const list = data.peak_hours.filter((p) => p.period === period && p.day <= 5);
     return list.length ? list.reduce((s, p) => s + p.occupancy, 0) / list.length : 0;
   };
   const cols = mode === "day" ? days : Array.from({ length: 18 }, (_, i) => i + 1);
@@ -64,14 +69,14 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
             </tr>
           </thead>
           <tbody>
-            {(mode === "day" ? buildingRows : [{ building: "All", utilisation: data.utilisation, rooms: data.rooms_bookable }]).map((row) => (
+            {(mode === "day" || realPeriod.length ? buildingRows : [{ building: "All", utilisation: data.utilisation, rooms: data.rooms_bookable }]).map((row) => (
               <tr key={row.building}>
                 <th scope="row" className="pr-2 text-left font-medium">{row.building}</th>
                 {cols.map((c) => {
-                  const v = mode === "day" ? dayValue(row.utilisation, c) : periodValue(c);
+                  const v = mode === "day" ? dayValue(row.building, row.utilisation, c) : periodValue(row.building, c);
                   const { bg, fg } = seqStep(v);
                   const pct = Math.round(v * 100);
-                  const label = mode === "day" ? `${row.building} · ${dayName(c, locale)} · ${pct}%` : `P${c} · ${pct}%`;
+                  const label = mode === "day" ? `${row.building} · ${dayName(c, locale)} · ${pct}%` : `${row.building} · P${c} · ${pct}%`;
                   const href = mode === "day" ? `/timetable?day=${c}&building=${row.building}` : `/timetable?period=${c}`;
                   return (
                     <td key={c} className="p-0">

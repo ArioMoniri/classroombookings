@@ -87,7 +87,9 @@ export function ImportWizard() {
     if (!kind) return;
     setBusy(true);
     try {
-      const j = await api.imports.upload(kind, file, effectiveTerm, kind === "crbs" ? dsn : undefined);
+      const t0 = terms.find((x) => x.id === effectiveTerm) ?? term;
+      if (!t0) throw new Error("no term");
+      const j = await api.imports.upload(kind, file, t0, kind === "crbs" ? dsn : undefined);
       setJob(j);
       void imports.refetch();
     } finally {

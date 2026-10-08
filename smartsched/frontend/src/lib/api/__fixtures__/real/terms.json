@@ -1,0 +1,13 @@
+[
+ {
+  "id": 1,
+  "code": "2026-BAHAR",
+  "name": "2026-BAHAR",
+  "kind": "REGULAR",
+  "start_date": "2026-02-02",
+  "end_date": null,
+  "week_count": 15,
+  "periods_json": null,
+  "is_active": false
+ }
+]

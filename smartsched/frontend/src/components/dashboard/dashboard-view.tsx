@@ -54,8 +54,8 @@ export function DashboardView() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {d ? (
           <>
-            <StatTile label={t("dashboard.utilisation")} value={d.utilisation * 100} format={(v) => `${Math.round(v)}%`} delta={{ value: 3, goodDirection: "up", label: "+3 pt" }} href="/timetable?zoom=week" footnote={`${t("common.week")} ${d.current_week}`} />
-            <StatTile label={t("dashboard.needsReview")} value={d.requests_needs_review} delta={{ value: -2, goodDirection: "down", label: "−2" }} href="/requests?status=NEEDS_REVIEW" footnote={`${n(d.requests_total)} ${t("requests.title").toLocaleLowerCase(locale)}`} tone={d.requests_needs_review > 0 ? "warning" : "default"} />
+            <StatTile label={t("dashboard.utilisation")} value={d.utilisation * 100} format={(v) => `${Math.round(v)}%`} href="/timetable?zoom=week" footnote={`${t("common.week")} ${d.utilisation_week ?? d.current_week}`} />
+            <StatTile label={t("dashboard.needsReview")} value={d.requests_needs_review} href="/requests?status=NEEDS_REVIEW" footnote={`${n(d.requests_total)} ${t("requests.title").toLocaleLowerCase(locale)}`} tone={d.requests_needs_review > 0 ? "warning" : "default"} />
             <StatTile label={t("dashboard.sections")} value={d.sections_total} href="/requests" footnote={`${d.rooms_bookable} ${t("dashboard.rooms").toLocaleLowerCase(locale)}`} />
             <StatTile
               label={t("dashboard.lastRuns")}
@@ -75,7 +75,7 @@ export function DashboardView() {
           <CardHeader>
             <CardTitle>{t("dashboard.byBuilding")}</CardTitle>
           </CardHeader>
-          <CardContent>{d ? <UtilisationHeatmap data={d} week={d.current_week} /> : <Skeleton className="h-40" />}</CardContent>
+          <CardContent>{d ? <UtilisationHeatmap data={d} week={d.utilisation_week ?? d.current_week} /> : <Skeleton className="h-40" />}</CardContent>
         </Card>
         <Card>
           <CardHeader className="flex-row items-center justify-between">

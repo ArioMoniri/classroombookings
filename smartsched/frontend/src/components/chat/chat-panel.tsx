@@ -25,11 +25,19 @@ function ProposalCard({ runId, proposal }: { runId: number; proposal: ChatPropos
   const setChanged = useUiStore((s) => s.setChangedAssignmentIds);
   const ids = proposal.moves.map((m) => m.assignment_id);
   const onApply = async () => {
-    const res = await apply.mutateAsync(proposal.id);
+    let res;
+    try {
+      res = await apply.mutateAsync(proposal.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+      return;
+    }
     setChanged(ids);
     setTimeout(() => setChanged([]), 4000);
+    // the result is a child run; undo re-publishes this (parent) run
     toast.success(t("chat.appliedToast"), {
-      action: { label: t("common.undo"), onClick: () => void undo.mutateAsync(proposal.id).then(() => toast(t("chat.undoneToast"))) },
+      description: res.rejected.length ? `${res.rejected.length} ✕` : undefined,
+      action: { label: t("common.undo"), onClick: () => void undo.mutateAsync().then(() => { toast(t("chat.undoneToast")); router.push(`/runs/${runId}`); }) },
       duration: 8000,
     });
     if (res.child_run_id) router.push(`/runs/${res.child_run_id}`);
@@ -57,6 +65,9 @@ function ProposalCard({ runId, proposal }: { runId: number; proposal: ChatPropos
           </tbody>
         </table>
       ) : null}
+      {proposal.notes.length ? (
+        <ul className="space-y-0.5 px-3 py-2 text-xs text-muted-foreground">{proposal.notes.map((n, i) => <li key={i}>· {n}</li>)}</ul>
+      ) : null}
       {proposal.constraints.length ? (
         <ul className="space-y-1 px-3 py-2 text-xs">
           {proposal.constraints.map((c, i) => (
@@ -68,7 +79,7 @@ function ProposalCard({ runId, proposal }: { runId: number; proposal: ChatPropos
         {!proposal.applied ? (
           <Button size="sm" onClick={() => void onApply()} disabled={apply.isPending} aria-label={`${t("chat.apply")} (${proposal.moves.length + proposal.constraints.length})`} data-testid="proposal-apply">{apply.isPending ? <Loader2 className="animate-spin" /> : null} {t("chat.apply")}</Button>
         ) : (
-          <Button size="sm" variant="outline" onClick={() => void undo.mutateAsync(proposal.id).then(() => toast(t("chat.undoneToast")))} disabled={undo.isPending} data-testid="proposal-undo"><Undo2 /> {t("chat.undo")}</Button>
+          <Button size="sm" variant="outline" onClick={() => void undo.mutateAsync().then(() => toast(t("chat.undoneToast")))} disabled={undo.isPending} data-testid="proposal-undo"><Undo2 /> {t("chat.undo")}</Button>
         )}
       </div>
     </div>
@@ -88,9 +99,9 @@ function Message({ m, runId }: { m: ChatMessage; runId: number }) {
 }
 
 export function ChatPanel({ runId, className }: { runId: number; className?: string }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const chat = useChat(runId);
-  const send = useSendChat(runId);
+  const send = useSendChat(runId, locale === "en" ? "en" : "tr");
   const settings = useSettings();
   const [text, setText] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -102,7 +113,12 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
     const msg = text.trim();
     if (!msg) return;
     setText("");
-    await send.mutateAsync(msg);
+    try {
+      await send.mutateAsync(msg);
+    } catch (e) {
+      setText(msg); // keep the planner's text (e.g. 409: no API key configured)
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
   };
   return (
     <div className={cn("flex min-h-0 flex-col rounded-xl border bg-card", className)} data-testid="chat-panel">

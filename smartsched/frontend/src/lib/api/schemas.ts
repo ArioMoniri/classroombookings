@@ -13,6 +13,7 @@ export const User = z.object({
   full_name: z.string().nullable().optional(),
   role: Role,
   is_active: z.boolean().default(true),
+  created_at: z.string().nullable().optional(),
 });
 export type User = z.infer<typeof User>;
 
@@ -231,20 +232,27 @@ export const RunKind = z.enum(["COURSE", "EXAM"]);
 export type RunKind = z.infer<typeof RunKind>;
 export const Horizon = z.enum(["WEEK", "MONTH", "TERM"]);
 export type Horizon = z.infer<typeof Horizon>;
-export const RunStatus = z.enum(["QUEUED", "RUNNING", "FEASIBLE", "OPTIMAL", "INFEASIBLE", "FAILED", "CANCELLED"]);
+/** TIMEOUT / ERROR are persisted verbatim from the solver result (SolverResult.status). */
+export const RunStatus = z.enum(["QUEUED", "RUNNING", "FEASIBLE", "OPTIMAL", "INFEASIBLE", "TIMEOUT", "ERROR", "FAILED", "CANCELLED"]);
 export type RunStatus = z.infer<typeof RunStatus>;
 
 export const Diagnosis = z.object({
   id: z.string(),
+  /** position in run.diagnosis (the `{idx}` of the apply route) */
+  index: z.number().optional(),
   event_ids: z.array(z.number()),
   event_labels: z.array(z.string()),
   constraint_kinds: z.array(z.string()),
   message: z.string(),
+  /** Backend `GET /runs/{id}` structures the solver's suggestion strings; only `applicable` ones can be
+   * applied with `POST /runs/{id}/diagnoses/{index}/apply {option_index}`. */
   suggestions: z.array(
     z.object({
       id: z.string(),
+      index: z.number().optional(),
       text: z.string(),
-      action: z.enum(["release_room", "move", "split", "relax", "add_constraint", "manual"]),
+      action: z.enum(["release_room", "move", "split", "relax", "unlock", "add_constraint", "manual"]),
+      applicable: z.boolean().default(true),
       params: z.record(z.string(), z.unknown()).default({}),
     }),
   ),
@@ -297,6 +305,17 @@ export type RunCreate = z.infer<typeof RunCreate>;
 
 export const RunCreated = z.object({ run_id: z.number() });
 
+/** `POST /runs/{id}/diagnoses/{idx}/apply` */
+export const DiagnosisApplyResult = z.object({
+  run_id: z.number(),
+  child_run_id: z.number().nullable(),
+  action: z.string(),
+  message: z.string(),
+  details: z.record(z.string(), z.unknown()).default({}),
+  constraint_id: z.number().nullable().optional(),
+});
+export type DiagnosisApplyResult = z.infer<typeof DiagnosisApplyResult>;
+
 export const AssignmentOrigin = z.enum(["SOLVER", "AI_EDIT", "MANUAL", "IMPORT"]);
 export const Assignment = z.object({
   id: z.number(),
@@ -305,10 +324,15 @@ export const Assignment = z.object({
   exam_request_id: z.number().nullable(),
   label: z.string(),
   course_code: z.string(),
+  course_name: z.string().nullable().optional(),
   section_label: z.string().nullable(),
   program_name: z.string().nullable(),
   instructor: z.string().nullable(),
   size: z.number(),
+  /** seats of the assigned room(s): lecture capacity (course runs) / exam capacity (exam runs) */
+  capacity: z.number().nullable().optional(),
+  /** weeks the assignment occupies its room(s) */
+  weeks: z.array(z.number()).default([]),
   week: z.number().nullable(),
   day: z.number(),
   date: z.string().nullable(),
@@ -390,6 +414,8 @@ export const ChatProposal = z.object({
   summary: z.string(),
   moves: z.array(ChatMove),
   constraints: z.array(ChatConstraintDiff),
+  /** swaps / locks / re-solve flags and model warnings, as short human-readable lines */
+  notes: z.array(z.string()).default([]),
   applied: z.boolean().default(false),
   child_run_id: z.number().nullable().optional(),
 });
@@ -442,6 +468,13 @@ export const DashboardSummary = z.object({
   utilisation: z.number(),
   utilisation_by_building: z.array(z.object({ building: z.string(), utilisation: z.number(), rooms: z.number() })),
   peak_hours: z.array(z.object({ day: z.number(), period: z.number(), occupancy: z.number() })),
+  /** real building × day / building × period matrices (backend `GET /dashboard`); optional for the composed fallback */
+  utilisation_building_day: z.array(z.object({ building: z.string(), day: z.number(), utilisation: z.number() })).default([]),
+  utilisation_building_period: z.array(z.object({ building: z.string(), period: z.number(), utilisation: z.number() })).default([]),
+  utilisation_week: z.number().optional(),
+  requests_pending: z.number().optional(),
+  active_run_id: z.number().nullable().optional(),
+  utilisation_run_id: z.number().nullable().optional(),
   conflicts: z.number(),
   last_runs: z.array(ScheduleRun),
 });
@@ -453,4 +486,77 @@ export const ApiError = z.object({
 });
 export type ApiError = z.infer<typeof ApiError>;
 
-export const ProposedConstraints = z.object({ constraints: z.array(ChatConstraintDiff) });
+/* ------------------------------------------------------------------ AI layer (app/schemas/ai.py) */
+
+export const AiUsage = z.object({
+  model: z.string().nullable().optional(),
+  input_tokens: z.number().default(0),
+  output_tokens: z.number().default(0),
+  estimated_cost_usd: z.number().default(0),
+});
+
+/** `ProposedConstraint`: one typed rule the model extracted (ids resolved server-side, never by the model). */
+export const ProposedConstraint = z.object({
+  kind: z.string(),
+  params: z.record(z.string(), z.unknown()).default({}),
+  hardness: Hardness.default("soft"),
+  weight: z.number().default(1),
+  nl_text: z.string().default(""),
+  rationale: z.string().default(""),
+  confidence: z.number().default(0),
+  title: z.string().nullable().optional(),
+  status: z.enum(["ok", "needs_review", "rejected"]).default("ok"),
+  issues: z.array(z.string()).default([]),
+  entities: z.array(z.record(z.string(), z.unknown())).default([]),
+  source: z.string().default("AI"),
+  source_ref: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+export type ProposedConstraint = z.infer<typeof ProposedConstraint>;
+
+/** `POST /terms/{id}/elicit` (and `/preferences/upload`, which adds file metadata). */
+export const ElicitResult = z.object({
+  proposals: z.array(ProposedConstraint),
+  section_edits: z.array(z.record(z.string(), z.unknown())).default([]),
+  unparsed: z.array(z.record(z.string(), z.unknown())).default([]),
+  assistant_message: z.string().default(""),
+  usage: AiUsage.optional(),
+  filename: z.string().optional(),
+  warnings: z.array(z.string()).default([]),
+});
+export type ElicitResult = z.infer<typeof ElicitResult>;
+
+export const AcceptResult = z.object({
+  created: z.array(z.number()),
+  rejected: z.array(z.record(z.string(), z.unknown())).default([]),
+  section_edits_applied: z.array(z.unknown()).default([]),
+});
+export type AcceptResult = z.infer<typeof AcceptResult>;
+
+export const ExplainResult = z.object({
+  text: z.string(),
+  sections: z.array(z.record(z.string(), z.unknown())).default([]),
+  source: z.enum(["model", "template"]).default("template"),
+});
+export type ExplainResult = z.infer<typeof ExplainResult>;
+
+export const AiCatalog = z.object({
+  kinds: z.array(
+    z.object({
+      kind: z.string(),
+      title: z.record(z.string(), z.string()),
+      description: z.record(z.string(), z.string()),
+      allowed_hardness: z.array(z.string()),
+      default_hardness: z.string(),
+      implicit: z.boolean().default(false),
+    }),
+  ),
+});
+export type AiCatalog = z.infer<typeof AiCatalog>;
+
+export const ChatApplyResult = z.object({
+  child_run_id: z.number().nullable(),
+  messages: z.array(ChatMessage),
+  status: z.string().nullable().optional(),
+  rejected: z.array(z.record(z.string(), z.unknown())).default([]),
+});
+export type ChatApplyResult = z.infer<typeof ChatApplyResult>;
