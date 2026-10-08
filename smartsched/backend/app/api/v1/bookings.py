@@ -281,6 +281,12 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
     }
 
 
+def _person(u: User) -> str:
+    """Display name: CRBS displayname (full_name), else first + last name, else username / e-mail."""
+    full = " ".join(x for x in (u.firstname, u.lastname) if x)
+    return u.full_name or full or u.username or u.email or f"#{u.id}"
+
+
 async def _room_info(db: DB, room: Room) -> dict[str, Any]:
     group = await db.get(RoomGroup, room.room_group_id) if room.room_group_id else None
     owner = await db.get(User, room.owner_user_id) if room.owner_user_id else None
@@ -314,7 +320,7 @@ async def _room_info(db: DB, room: Room) -> dict[str, Any]:
         "group": group.name if group else None,
         "location": room.location,
         "owner_user_id": room.owner_user_id,
-        "owner": (owner.full_name or owner.username or owner.email) if owner else None,
+        "owner": _person(owner) if owner else None,
         "notes": room.notes,
         "icon": room.icon,
         "photo_url": room.photo_url,
@@ -417,7 +423,7 @@ async def _grid_extras(db: DB, access: Access, out: dict[str, Any]) -> dict[str,
     for r in out["rooms"]:
         room = await db.get(Room, r["id"])
         owner = await db.get(User, room.owner_user_id) if room is not None and room.owner_user_id else None
-        r["owner"] = (owner.full_name or owner.username or owner.email) if owner else None
+        r["owner"] = _person(owner) if owner else None
         if room is not None:
             rooms[room.id] = room
     for slot in out["slots"]:
@@ -449,11 +455,7 @@ async def booking_users(
         raise HTTPException(403, "requires book_single.set_user or book_recur.set_user")
     users = list((await db.execute(select(User).where(User.is_active.is_(True)))).scalars())
 
-    def name(u: User) -> str:
-        full = " ".join(x for x in (u.firstname, u.lastname) if x)
-        return u.full_name or full or u.username or u.email or f"#{u.id}"
-
-    rows = [{"id": u.id, "name": name(u), "username": u.username} for u in users]
+    rows = [{"id": u.id, "name": _person(u), "username": u.username} for u in users]
     if q:
         needle = n.tr_casefold(q)
         rows = [r for r in rows if needle in n.tr_casefold(f"{r['name']} {r['username'] or ''}")]

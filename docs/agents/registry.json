@@ -241,7 +241,9 @@
       "goal": "fix the findings of the strict solver review in docs/review/2026-10-08-solver-review.md: B1, B2, M1–M6 and the cheap MINORs. Read the whole review first. It has file:line pointers and the smallest fixes. The user requires \"100/100 on hard constraints, or explain what is impossible and how to fix it\". The reviewer found the CP model sound. The bridge, however, rewrites the planner's problem (merges…",
       "ledger": "solver-engineer (solver review fixes)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 16:55",
+      "left_off": "Nothing changes from these two notifications. They are leftover waiters on the same `make test-slow` run (14 passed, 1 skipped) that is already in the report I handed back."
     },
     {
       "id": "a04c8880a4a6d6df1",

@@ -4,7 +4,7 @@
 Reads the parity inventory (smartsched/backend/tests/parity/inventory.py), runs every API acceptance test it
 names -- the tests under tests/parity (``@pytest.mark.parity("<row>")``) and the existing tests it references --
 on the real Bahar 2026 fixtures, maps the UI rows to Playwright test titles in
-smartsched/frontend/e2e/{bookings,calendar}.spec.ts, prints one line per row and writes
+smartsched/frontend/e2e/{bookings,calendar,admin-gaps}.spec.ts, prints one line per row and writes
 docs/testing/crbs-parity-report.md.
 
 Row result: PASS (API tests passed, UI titles present / passed), FAIL (a test failed or was skipped), MISSING
@@ -38,7 +38,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "smartsched" / "backend"
 E2E_DIR = ROOT / "smartsched" / "frontend" / "e2e"
-UI_SPECS = ("bookings.spec.ts", "calendar.spec.ts")
+UI_SPECS = ("bookings.spec.ts", "calendar.spec.ts", "admin-gaps.spec.ts")
 DEFAULT_REPORT = ROOT / "docs" / "testing" / "crbs-parity-report.md"
 
 PASS, FAIL, MISSING, GAP, NA, SPEC, NOTRUN = "PASS", "FAIL", "MISSING", "GAP", "-", "SPEC", "NOT RUN"

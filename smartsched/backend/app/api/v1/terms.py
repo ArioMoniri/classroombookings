@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DB, Planner, Viewer, require_permission
@@ -142,8 +142,8 @@ async def term_usage(term_id: int, db: DB, _: SessionsEditor) -> TermUsageOut:
 
     await _get(db, term_id)
 
-    async def count(model: type, *where: object) -> int:
-        q = select(func.count()).select_from(model).where(model.term_id == term_id, *where)  # type: ignore[attr-defined]
+    async def count(model: Any, *where: ColumnElement[bool]) -> int:
+        q = select(func.count()).select_from(model).where(model.term_id == term_id, *where)
         return int((await db.execute(q)).scalar_one())
 
     return TermUsageOut(

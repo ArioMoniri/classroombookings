@@ -293,7 +293,7 @@ test("admin gaps 8. the role editor lists the role's users and links to them (#1
   await expect(page.locator(`[data-username="${SB}"]`)).toBeVisible();
 });
 
-test("admin gaps 9. a schedule description is saved (#19)", async ({ page }) => {
+test("admin gaps 9. a schedule description is saved; a period is added and removed (#19, S-19)", async ({ page }) => {
   await page.goto("/admin/schedules");
   const desc = page.getByTestId("schedule-description");
   if (!(await desc.isVisible().catch(() => false))) {

@@ -85,6 +85,12 @@ function run(g: Grid, n: number, exclude: number[] = []): GridSlot[] {
 
 const cell = (page: Page, s: { date: string; period_id: number; room_id: number }) => page.locator(`button[data-slot-key="${key(s)}"]`);
 
+/** open /bookings and wait for the grid or the free-slot list (the dev server can be slow on a cold route) */
+async function openBookings(page: Page, query: string) {
+  await page.goto(`/bookings?${query}`);
+  await expect(page.getByTestId(query.includes("lens=free") ? "free-slots" : "booking-grid")).toBeVisible({ timeout: 30_000 });
+}
+
 test.beforeAll(async () => {
   ctx.api = await pwRequest.newContext();
   ctx.token = await loginToken(ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -134,7 +140,7 @@ test("1. a free slot says Free, offers Reserve, and one click reserves it", asyn
   const g = await dayGrid(TUESDAY);
   const [slot] = run(g, 1);
   await login(page, TEACHER.username, TEACHER.password);
-  await page.goto(`/bookings?date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
+  await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
   const c = cell(page, slot!);
   await expect(c).toHaveAttribute("data-tone", "available");
   await expect(c).toContainText(/Boş|Free/);
@@ -154,7 +160,7 @@ test("2. keyboard: focus a free cell and press Enter to open the sheet", async (
   const g = await dayGrid(TUESDAY);
   const [slot] = run(g, 1);
   await login(page, TEACHER.username, TEACHER.password);
-  await page.goto(`/bookings?date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
+  await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
   await cell(page, slot!).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("book-sheet")).toBeVisible();
@@ -165,7 +171,7 @@ test("3. drag across consecutive periods reserves a span in one go", async ({ pa
   const g = await dayGrid(TUESDAY);
   const span = run(g, 2);
   await login(page, TEACHER.username, TEACHER.password);
-  await page.goto(`/bookings?date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
+  await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
   await cell(page, span[1]!).scrollIntoViewIfNeeded();
   await cell(page, span[0]!).scrollIntoViewIfNeeded();
   const a = await cell(page, span[0]!).boundingBox();
@@ -186,7 +192,7 @@ test("4. Shift-click selects a span; cells that cannot be booked say why on hove
   const g = await dayGrid(TUESDAY);
   const span = run(g, 3);
   await login(page, TEACHER.username, TEACHER.password);
-  await page.goto(`/bookings?date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
+  await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
   await cell(page, span[0]!).click();
   const sheet = page.getByTestId("book-sheet");
   await expect(sheet).toBeVisible();
@@ -209,7 +215,7 @@ test("4. Shift-click selects a span; cells that cannot be booked say why on hove
 
 test("5. the Free slots lens lists only reservable periods, grouped by room, and books from the list", async ({ page }) => {
   await login(page, TEACHER.username, TEACHER.password);
-  await page.goto(`/bookings?date=${WEDNESDAY}&group=${ctx.groupA}&lens=free`);
+  await openBookings(page, `date=${WEDNESDAY}&group=${ctx.groupA}&lens=free`);
   const list = page.getByTestId("free-slots");
   await expect(list).toBeVisible();
   const g = await dayGrid(WEDNESDAY);
@@ -226,7 +232,7 @@ test("5. the Free slots lens lists only reservable periods, grouped by room, and
   await expect(page.getByTestId("book-sheet")).toBeHidden();
   await expect(list.locator(`[data-slot-key="${k}"]`)).toHaveCount(0);
   // week scope
-  await page.goto(`/bookings?date=${WEDNESDAY}&group=${ctx.groupA}&lens=free&scope=week`);
+  await openBookings(page, `date=${WEDNESDAY}&group=${ctx.groupA}&lens=free&scope=week`);
   await expect(page.getByTestId("free-slots")).toBeVisible();
 });
 
@@ -236,7 +242,7 @@ test("6. department view: the user's department by default, colour legend, muted
   const [slot] = run(g, 1);
   await api("POST", "/bookings", { room_id: slot!.room_id, date: TUESDAY, period_id: slot!.period_id, department_id: ctx.other.id, notes: "Başka bölüm" });
   await login(page, TEACHER.username, TEACHER.password);
-  await page.goto(`/bookings?date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
+  await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
   const select = page.getByTestId("department-select");
   await expect(select).toHaveValue(String(ctx.psychology.id));
   await expect(page.getByTestId("department-filtering")).toContainText(ctx.psychology.name);
@@ -257,7 +263,7 @@ test("6. department view: the user's department by default, colour legend, muted
 test("7. calendar sync: private links for me, a room and a department, copy, Google / Outlook, reset", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await login(page, TEACHER.username, TEACHER.password);
-  await page.goto(`/bookings?date=${TUESDAY}&group=${ctx.groupA}`);
+  await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}`);
   await page.getByTestId("sync-open").click();
   const panel = page.getByTestId("sync-sheet");
   await panel.getByTestId("sync-create").click();
@@ -293,7 +299,7 @@ test("7. calendar sync: private links for me, a room and a department, copy, Goo
 
 test("8. room details: capacity, exam capacity, building, the day, the next free slot, and reserving an alternative", async ({ page }) => {
   await login(page, TEACHER.username, TEACHER.password);
-  await page.goto(`/bookings?date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
+  await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
   await page.getByTestId("room-info-A101").click();
   const info = page.getByTestId("room-info");
   await expect(info).toContainText("A 101");
@@ -320,7 +326,7 @@ test("9. a held slot offers the free rooms at that time; the booking sheet links
   const g = await dayGrid(TUESDAY);
   const held = g.slots.find((s) => s.status === "timetable")!;
   await login(page, TEACHER.username, TEACHER.password);
-  await page.goto(`/bookings?date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
+  await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
   await cell(page, held).click();
   await page.getByTestId("slot-info-alternatives").click();
   await expect(page.getByTestId("room-alternatives")).toBeVisible();
@@ -336,7 +342,7 @@ test("10. administrators bulk-cancel other people's bookings from the grid (CRBS
   const [slot] = run(g, 1);
   const b = await api<{ id: number }>("POST", "/bookings", { room_id: slot!.room_id, date: TUESDAY, period_id: slot!.period_id, notes: "Toplu iptal" }, ctx.teacherToken);
   await login(page, ADMIN.username, ADMIN.password);
-  await page.goto(`/bookings?date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
+  await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
   await page.getByTestId("multi-toggle").click();
   await cell(page, slot!).click();
   await expect(cell(page, slot!)).toHaveAttribute("aria-pressed", "true");
@@ -355,7 +361,7 @@ test("11. booking details: not-your-own warning, timetable week, occurs, room de
   const [rslot] = run(g, 1, [slot!.room_id]);
   await api("POST", "/bookings/recurring", { room_id: rslot!.room_id, period_id: rslot!.period_id, date: WEDNESDAY, start: WEDNESDAY, end: "2026-03-11" });
   await login(page, ADMIN.username, ADMIN.password);
-  await page.goto(`/bookings?date=${WEDNESDAY}&group=${ctx.groupA}&lens=grid`);
+  await openBookings(page, `date=${WEDNESDAY}&group=${ctx.groupA}&lens=grid`);
   await cell(page, slot!).click();
   const detail = page.getByTestId("booking-sheet");
   await expect(detail.getByTestId("not-own-warning")).toContainText(/Bu sizin rezervasyonunuz değil|This is not your own booking/);
@@ -378,7 +384,7 @@ test("12. multi-booking: include per row and details per slot with copy-down", a
   const g = await dayGrid(WEDNESDAY, ctx.token);
   const span = run(g, 2);
   await login(page, ADMIN.username, ADMIN.password);
-  await page.goto(`/bookings?date=${WEDNESDAY}&group=${ctx.groupA}&lens=grid`);
+  await openBookings(page, `date=${WEDNESDAY}&group=${ctx.groupA}&lens=grid`);
   await page.getByTestId("multi-toggle").click();
   for (const s of span) await cell(page, s).click();
   await page.getByTestId("multi-book").click();
@@ -403,10 +409,10 @@ test("13. room owner under the room name, group tabs with counts, grouped picker
   await api("PUT", `/room-admin/rooms/${ctx.rooms.A101}`, { owner_user_id: ctx.teacherId });
   try {
     await login(page, TEACHER.username, TEACHER.password);
-    await page.goto(`/bookings?date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
+    await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
     await expect(page.getByTestId("room-info-A101")).toContainText(`${TEACHER.first} ${TEACHER.last}`);
     await expect(page.getByTestId("group-tabs").getByRole("tab").first()).toHaveText(/\(\d+\)/);
-    await page.goto(`/bookings?display=room&date=${TUESDAY}&room=${ctx.rooms.A101}&lens=grid`);
+    await openBookings(page, `display=room&date=${TUESDAY}&room=${ctx.rooms.A101}&lens=grid`);
     expect(await page.getByTestId("room-select").locator("optgroup").count()).toBeGreaterThan(0);
     await page.goto("/my-bookings");
     await expect(page.getByTestId("mine-can-create")).toBeVisible();

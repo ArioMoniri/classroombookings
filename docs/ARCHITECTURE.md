@@ -122,6 +122,8 @@ class SolverInput:
     weights: Mapping[str, int] = field(default_factory=dict)  # soft objective weights by name
     # real-data modes (app/solver/README.md "Real-data modes"); solver default False, bridge default True
     trust_locked_rooms: bool = False           # D1 a too-small locked room is kept (warning, not violation)
+    # Event.lock_trusted (default True): only planning-list LOCKED rows are trusted under D1; locks carried from a
+    # parent run (fix button, MANUAL, AI edit) set lock_trusted=False and must pass capacity and tag checks
     fixed_conflicts_as_warnings: bool = False  # D2 fixed-vs-fixed key clash = input warning for that pair
     best_effort: bool = False                  # D3 infeasible -> maximum placement, stats.partial/placed/unplaced
 @dataclass(frozen=True)

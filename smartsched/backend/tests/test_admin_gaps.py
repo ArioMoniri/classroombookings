@@ -56,7 +56,7 @@ async def test_term_usage_counts_what_a_delete_erases(env):  # noqa: F811
     usage = (await c.get(f"/api/v1/terms/{env.term_id}/usage", headers=env.admin)).json()
     assert usage["term_id"] == env.term_id
     assert usage["active_bookings"] >= 1 and usage["bookings"] >= usage["active_bookings"]
-    assert usage["runs"] >= 1
+    assert usage["runs"] >= 1 and usage["sections"] > 0
 
     # setup.sessions alone may read it (the sessions admin), a teacher may not
     rid = await _role(env, "Dönem sorumlusu", ["setup.sessions"])

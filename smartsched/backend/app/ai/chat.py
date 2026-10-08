@@ -1169,10 +1169,11 @@ def _solve_job(
         ids = {e.id for e in inp.events}
         evs = []
         for e in inp.events:
+            # repair locks come from the AI edit, not the planning list: never trusted under D1 (solver review B2)
             if e.id in moved:
-                evs.append(replace(e, locked=moved[e.id]))
+                evs.append(replace(e, locked=moved[e.id], lock_trusted=False))
             elif e.id in locks and e.id in current:
-                evs.append(replace(e, locked=current[e.id]))
+                evs.append(replace(e, locked=current[e.id], lock_trusted=False))
             else:
                 evs.append(e)
         inp = replace(inp, events=tuple(evs))

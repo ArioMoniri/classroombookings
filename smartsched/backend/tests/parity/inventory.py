@@ -9,7 +9,7 @@ screens of docs/CRBS_PARITY.md §5.
 A row is proven by
   * ``api``: existing test node ids (``tests/<file>.py::<test>``) — reused, not duplicated — plus every test
     under tests/parity marked ``@pytest.mark.parity("<row id>")``;
-  * ``ui``: Playwright test titles (``<spec>::<title>``) in smartsched/frontend/e2e/{bookings,calendar}.spec.ts,
+  * ``ui``: Playwright test titles (``<spec>::<title>``) in smartsched/frontend/e2e/{bookings,calendar,admin-gaps}.spec.ts,
     which pod CI runs against the real backend (gate e2e-real).
 
 ``difference`` names a deliberate difference from CRBS (decided by the user or the orchestrator) that the
@@ -46,6 +46,7 @@ WAVE1_UI_GAP = (
     "built yet; proposed: frontend against docs/product/wave1-api.md, then e2e steps on the real backend"
 )
 UI_C = "calendar.spec.ts::"
+UI_A = "admin-gaps.spec.ts::"
 
 E2E = {
     1: UI_B + "1. the administrator creates a teacher in Setup → Users",
@@ -65,6 +66,31 @@ E2E = {
     14: UI_B
     + "14. no escalation: a role manager without planning rights cannot grant, edit or import beyond their own "
     "permissions",
+}
+# UI gap audit 2026-10-08 (admin and shell rows): smartsched/frontend/e2e/admin-gaps.spec.ts
+ADMIN_E2E = {
+    1: UI_A + "admin gaps 1. the user menu and ⌘K open the profile; the menu names the backend version (#1, #24)",
+    2: UI_A
+    + "admin gaps 2. the sidebar Users entry and the old settings tab open /admin/users; sort by enabled and department; the password is asked twice (#8, #22)",
+    3: UI_A + "admin gaps 3. a session is created and edited in Admin → Sessions (#3)",
+    4: UI_A + "admin gaps 4. a holiday is edited and shows its duration (#6, #23)",
+    5: UI_A + "admin gaps 5. deleting a session names what goes with it, then deletes it (#3)",
+    6: UI_A
+    + "admin gaps 6. ⌘K New room creates a room in Admin → Rooms; photo lightbox, access checker link, delete (#4, #15, #25)",
+    7: UI_A + "admin gaps 7. the access checker opens from a user row with ?user= (#15)",
+    8: UI_A + "admin gaps 8. the role editor lists the role's users and links to them (#16)",
+    9: UI_A + "admin gaps 9. a schedule description is saved; a period is added and removed (#19, S-19)",
+    10: UI_A + "admin gaps 10. maintenance mode shows a banner on every page; Admin links the CSV export (#13, #14)",
+    11: UI_A + "admin gaps 11. departments: create, edit and delete (S-16)",
+    12: UI_A + "admin gaps 12. timetable weeks: add one with a colour and delete it (S-20)",
+    13: UI_A
+    + "admin gaps 13. organisation settings: a translation override reaches the shell, then is removed (S-21, S-24)",
+    14: UI_A + "admin gaps 14. LDAP settings save and read back; e-mail settings show the outbox (S-22, S-23)",
+    15: UI_A
+    + "admin gaps 15. the login page shows the organisation's logo, name and login message; What's new opens from the header (S-02)",
+    16: UI_A + "admin gaps 16. room groups with members, a custom field and a room access entry (S-17)",
+    17: UI_A
+    + "admin gaps 17. a session's booking settings, schedule per room group and timetable-week calendar (S-18)",
 }
 CAL_ROOMS = UI_C + "rooms: list with the week's occupancy, detail with grid, free slots and calendar link"
 CAL_MOVE = UI_C + "inspector, explain, move with the free-room finder, undo restores the backend"
@@ -146,8 +172,7 @@ ROWS: tuple[Row, ...] = (
         "Organisation logo (jpg/png/gif, scaled to 1600 px) shown on the login page; removable",
         "settings/Organisation::index",
         FO + "test_b2_logo_is_reencoded_and_svg_is_refused",
-        ui_gap="login page does not mount LoginBrand yet (ROADMAP 'Shell follow-ups'); proposed: mount it and add "
-        "an e2e assertion",
+        ui=(ADMIN_E2E[15],),
     ),
     _r(
         "B-SETUP-08",
@@ -168,7 +193,7 @@ ROWS: tuple[Row, ...] = (
         "Login message (on/off + text) on the public login page",
         "Login::index, settings/General",
         TA + "test_org_settings_translations_changelog_and_events",
-        ui_gap="login page does not mount LoginNotices yet (ROADMAP 'Shell follow-ups')",
+        ui=(ADMIN_E2E[15],),
     ),
     _r(
         "B-SETUP-11",
@@ -211,8 +236,7 @@ ROWS: tuple[Row, ...] = (
         "setup/Language, MY_Lang::load_from_db",
         TA + "test_org_settings_translations_changelog_and_events",
         FO + "test_missing2_i18n_bundle_merges_overrides",
-        ui=(E2E[11],),
-        ui_gap="the i18n provider does not overlay GET /org/i18n overrides yet (ROADMAP 'Shell follow-ups')",
+        ui=(E2E[11], ADMIN_E2E[13]),
     ),
     _r(
         "B-SETUP-17",
@@ -220,7 +244,7 @@ ROWS: tuple[Row, ...] = (
         "Changelog, Dashboard::changelog",
         TA + "test_org_settings_translations_changelog_and_events",
         FO + "test_b12_changelog_seen_is_a_version_and_timestamp",
-        ui_gap="the shell does not mount WhatsNewIndicator yet (ROADMAP 'Shell follow-ups')",
+        ui=(ADMIN_E2E[15],),
     ),
     _r(
         "B-SETUP-18",
@@ -274,7 +298,7 @@ ROWS: tuple[Row, ...] = (
         "LDAP settings with a connection test",
         "settings/Authentication",
         TU + "test_ldap_login_creates_updates_and_falls_back",
-        ui_gap=FRONTEND_UI_GAP,
+        ui=(ADMIN_E2E[14],),
     ),
     _r(
         "B-AUTH-07",
@@ -1156,9 +1180,9 @@ ROWS: tuple[Row, ...] = (
         "MISS-1",
         "The CRBS frontend (grid, sheets, admin screens, login extras)",
         "audit MISSING 1",
-        ui=(E2E[3], E2E[9], E2E[14]),
-        gap="screens built 2026-10-08; per-screen coverage in the S-* rows; the "
-        "shell items (login logo/message, What's new, i18n overlay) are in ROADMAP 'Shell follow-ups'",
+        ui=(E2E[3], E2E[9], E2E[14], ADMIN_E2E[13], ADMIN_E2E[15]),
+        gap="UI-only row without an API test; screens built 2026-10-08, per-screen coverage in the S-* rows (the "
+        "shell items login logo/message, What's new and the i18n overlay are driven by admin-gaps 13 and 15)",
     ),
     _r(
         "MISS-2",
@@ -1166,7 +1190,7 @@ ROWS: tuple[Row, ...] = (
         "audit MISSING 2",
         FO + "test_missing2_i18n_bundle_merges_overrides",
         FO + "test_missing2_emails_use_overrides_and_date_patterns",
-        gap="backend applies them (e-mails, /org/i18n); the frontend overlay is a ROADMAP shell follow-up",
+        ui=(ADMIN_E2E[13],),
     ),
     _r(
         "MISS-3",
@@ -1319,9 +1343,8 @@ ROWS: tuple[Row, ...] = (
         "Login: logo, login message, maintenance banner, username or e-mail, forgot password, forced change",
         "Login",
         TU + "test_csv_import_of_real_instructors",
-        ui=(E2E[2], E2E[10], E2E[12]),
+        ui=(E2E[2], E2E[10], E2E[12], ADMIN_E2E[15]),
         screen=True,
-        ui_gap="logo / login message / forgot-password link not mounted on the login page (ROADMAP 'Shell follow-ups')",
     ),
     _r(
         "S-03",
@@ -1403,7 +1426,7 @@ ROWS: tuple[Row, ...] = (
         "Profile (names, e-mail, extension, language, password, calendar token)",
         "Profile",
         TU + "test_search_profile_and_delete_keeps_booking_history",
-        ui=(E2E[11],),
+        ui=(E2E[11], ADMIN_E2E[1]),
         screen=True,
     ),
     _r(
@@ -1412,7 +1435,7 @@ ROWS: tuple[Row, ...] = (
         "Users",
         TU + "test_search_profile_and_delete_keeps_booking_history",
         TR + "test_role_limits_and_user_constraints",
-        ui=(E2E[1], E2E[12], E2E[14]),
+        ui=(E2E[1], E2E[12], E2E[14], ADMIN_E2E[2], ADMIN_E2E[7]),
         screen=True,
     ),
     _r(
@@ -1428,7 +1451,7 @@ ROWS: tuple[Row, ...] = (
         "Roles (permission groups, the four limits)",
         "Roles",
         TR + "test_custom_role_permissions_are_enforced",
-        ui=(E2E[14],),
+        ui=(E2E[14], ADMIN_E2E[8]),
         screen=True,
     ),
     _r(
@@ -1436,8 +1459,8 @@ ROWS: tuple[Row, ...] = (
         "Departments",
         "Departments",
         TA + "test_departments_are_programmes",
+        ui=(ADMIN_E2E[11],),
         screen=True,
-        ui_gap=FRONTEND_UI_GAP,
     ),
     _r(
         "S-17",
@@ -1445,8 +1468,8 @@ ROWS: tuple[Row, ...] = (
         "setup/rooms/*",
         TA + "test_room_groups_order_fields_owner_and_photo",
         TB + "test_room_acl_by_department_and_access_checker",
+        ui=(ADMIN_E2E[6], ADMIN_E2E[7], ADMIN_E2E[16]),
         screen=True,
-        ui_gap=FRONTEND_UI_GAP,
     ),
     _r(
         "S-18",
@@ -1454,63 +1477,65 @@ ROWS: tuple[Row, ...] = (
         "Sessions, Holidays, Room_schedules",
         TA + "test_schedules_periods_and_group_schedules",
         TB + "test_date_picker_shows_weeks_and_holidays_to_staff",
+        ui=(ADMIN_E2E[3], ADMIN_E2E[4], ADMIN_E2E[5], ADMIN_E2E[17]),
         screen=True,
-        ui_gap=FRONTEND_UI_GAP,
     ),
     _r(
         "S-19",
         "Schedules and periods (+ the 18 university periods)",
         "Schedules, Periods",
         TA + "test_schedules_periods_and_group_schedules",
+        ui=(ADMIN_E2E[9],),
         screen=True,
-        ui_gap=FRONTEND_UI_GAP,
     ),
     _r(
         "S-20",
         "Timetable weeks with colour picker",
         "Weeks",
         TB + "test_closed_dates_and_wrong_periods",
+        ui=(ADMIN_E2E[12],),
         screen=True,
-        ui_gap=FRONTEND_UI_GAP,
     ),
     _r(
         "S-21",
         "Organisation and general settings",
         "settings/Organisation, settings/General",
         TA + "test_org_settings_translations_changelog_and_events",
+        ui=(ADMIN_E2E[10], ADMIN_E2E[13], ADMIN_E2E[15]),
         screen=True,
-        ui_gap=FRONTEND_UI_GAP,
     ),
     _r(
         "S-22",
         "Authentication (LDAP) with test",
         "settings/Authentication",
         TU + "test_ldap_login_creates_updates_and_falls_back",
+        ui=(ADMIN_E2E[14],),
         screen=True,
-        ui_gap=FRONTEND_UI_GAP,
     ),
     _r(
         "S-23",
         "E-mail (SMTP) settings, test message and outbox",
         "(SmartSched)",
         TU + "test_reset_tokens_with_and_without_smtp",
+        ui=(ADMIN_E2E[14],),
+        ui_gap="the e2e stack has no SMTP server: the test message and saving an SMTP configuration are not driven "
+        "(a configured SMTP would make the other specs' reset codes e-mailed instead of shown)",
         screen=True,
-        ui_gap=FRONTEND_UI_GAP,
     ),
     _r(
         "S-24",
         "Translation overrides",
         "setup/Language",
         TA + "test_org_settings_translations_changelog_and_events",
+        ui=(ADMIN_E2E[13],),
         screen=True,
-        ui_gap=FRONTEND_UI_GAP,
     ),
     _r(
         "S-25",
         "Export bookings",
         "Export",
         TE + "test_csv_export_has_crbs_columns_and_turkish_text",
-        ui=(E2E[7],),
+        ui=(E2E[7], ADMIN_E2E[10]),
         screen=True,
     ),
     _r(

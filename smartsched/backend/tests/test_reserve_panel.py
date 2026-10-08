@@ -88,6 +88,13 @@ async def test_grid_slots_say_who_may_cancel_and_rooms_carry_the_owner(env):  # 
         return next(s for s in grid["slots"] if s["date"] == MON.isoformat() and s["period_id"] == env.periods["P2"])
 
     assert (await p2(ayse))["booking"]["can_cancel"] is True  # own booking
+    oid, _ = await env.user("oda.sahibi@uni.edu.tr", firstname="Selin", lastname="Aydın")
+    r = await env.client.put(
+        f"/api/v1/room-admin/rooms/{env.rooms['A101']}", json={"owner_user_id": oid}, headers=env.admin
+    )
+    assert r.status_code == 200, r.text
+    grid = (await env.client.get("/api/v1/bookings/grid", params=params, headers=ayse)).json()
+    assert grid["rooms"][0]["owner"] == "Selin Aydın"  # CRBS col_room.php: the owner under the room name
     assert (await p2(mehmet))["booking"]["can_cancel"] is False  # someone else's, no cancel permission
     assert (await p2(env.admin))["booking"]["can_cancel"] is True  # administrators cancel any booking
 
