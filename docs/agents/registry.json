@@ -111,7 +111,8 @@
       "goal": "finish the Liquid Glass v2 calendar, all-classes and rooms views per docs/design/v2/{calendar,all-classes,liquid-glass,motion}.md and the /motion_designer skill (.claude/skills/motion_designer). - Six calendar lenses: Board, Week, Day, Month, Term, Agenda. - Drag-and-drop with the move dialog and inspector. - /classes all-classes view: provenance, saved views, export using the \"SmartSched Derslik\"…",
       "ledger": "frontend-engineer (calendar + classes + rooms v2)",
       "resumed": true,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 14:06"
     },
     {
       "id": "aeab47d00d8d6539e",

@@ -238,6 +238,14 @@ Foundation, in order: typed room features → find a room → notification hub �
 - [ ] i18n provider overlays admin translation overrides from `GET /org/i18n` (`useOrgI18n` hook ready).
 - [ ] Breadcrumb labels localised for /admin/* routes (shows "admin / conflicts" in English).
 
+### Calendar follow-ups (from the calendar/classes/rooms hand-off, 2026-10-08)
+
+- [ ] "Move together" for joint lectures (same course and time in two programmes, e.g. BME 102 §1): sibling detection in the move check and one move for the pair.
+- [ ] Request-level edits in the inspector (enrolment, preferred rooms via `PUT /requests/meetings/{id}`) and per-entry undo in History.
+- [ ] `.ics` export per subject (room, instructor, cohort) from the calendar.
+- [ ] Strict motion audit on a quiet or GPU machine (`MOTION_STRICT=1`), record the device baseline in docs/design/v2/motion.md.
+- [ ] /classes inspector overlay covers the Classes/Exams toggle at 1280–1599 px; rooms filter bar wraps at 1440 px.
+
 ### Review follow-ups (docs/review/2026-10-08-backend-ai-studio-review.md + planner usability test)
 
 Done 2026-10-08 by backend-engineer (review fixes): B1-B3, M1-M13, MINOR 1, 2 (PDF page cap; parsing is off the event
