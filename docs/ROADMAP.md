@@ -175,3 +175,16 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Global sidebar auto-collapse on /generate below 1440 px (navigation-shell §3.1) — not done to avoid overriding the persisted user choice.
 - [ ] Export draft as JSON (advanced).
 - [ ] Contract fixtures for the studio routes recorded from the real backend (`src/lib/api/__fixtures__/real/studio_*.json`) so `contract.test.ts` catches drift.
+
+### Frontend UX fixes for the Liquid Glass implementation wave (from docs/testing/2026-10-08-planner-usability.md)
+
+- [ ] Partial runs never show a green 100/100: show "662/683 placed · no rule broken" with an amber state
+- [ ] Run report: planner-facing Turkish/English diagnosis cards (backend templates), unplaced classes first, duplicate reasons collapsed
+- [ ] Remember term, run and week per user; default to the current term by date, timetable opens the matching run and week
+- [ ] ⌘K searches course codes, instructors and programmes as well as rooms and runs; course search in the timetable
+- [ ] Show the definitive room on request/class rows
+- [ ] Week chips replace the selection by default (shift/⌘ to add)
+- [ ] Move dialog: free-room finder for the slot, Turkish reasons, date-ranged moves ("from 23 Feb")
+- [ ] Exam runs: grid cards use exam capacity
+- [ ] Export polish: sheets named by date range, a legend sheet, an unplaced-classes sheet
+- [ ] i18n sweep (no English leaking into Turkish UI) and a Turkish suffix-harmony helper for generated sentences
