@@ -17,7 +17,6 @@ from datetime import date, time
 from pathlib import Path
 
 import pytest
-
 from app.services import bookings_i18n as i18n
 from app.services.bookings_export import CSV_COLUMNS
 from tools import crbs_lang_import as imp

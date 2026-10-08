@@ -117,9 +117,10 @@ async def test_b2_room_photo_is_decoded_and_reencoded(env):  # noqa: F811
     [
         {"website": "javascript:alert(1)"},
         {"website": "data:text/html,<script>alert(1)</script>"},
-        {"languages": ["tr", "de"]},
+        {"languages": ["tr", "xx"]},  # not a shipped language (de, fr, ... are: P18-LANG)
         {"languages": []},
-        {"default_language": "fr"},
+        {"default_language": "fr"},  # a shipped language, but not among the org's enabled ones (tr, en)
+        {"default_language": "xx"},
         {"languages": ["en"], "default_language": "tr"},
         {"pattern_long": "<b>yyyy</b>"},
         {"pattern_time": "EEEE"},
