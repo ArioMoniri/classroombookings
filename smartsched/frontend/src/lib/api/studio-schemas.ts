@@ -196,6 +196,8 @@ export const PrecheckItem = z.object({
   id: z.string(),
   category: PrecheckCategory,
   severity: z.enum(["error", "warning", "info"]),
+  /** cause bucket: capacity | room_tags | locked_ineligible | pigeonhole | instructor_clash | rule_no_match … */
+  group: z.string().default("other"),
   title: Text2,
   message: Text2,
   detail: z.string().default(""),
@@ -213,11 +215,21 @@ export type Readiness = z.infer<typeof Readiness>;
 export const Estimate = z.object({ low: z.number(), high: z.number(), words: Text2.optional() });
 export type Estimate = z.infer<typeof Estimate>;
 
+export const PrecheckGroup = z.object({
+  group: z.string(),
+  title: Text2.optional(),
+  severity: z.enum(["error", "warning", "info"]),
+  count: z.number(),
+});
+export type PrecheckGroup = z.infer<typeof PrecheckGroup>;
+
 export const Precheck = z.object({
   draft_id: z.number(),
   version: z.number(),
   readiness: Readiness,
   counts: z.record(z.string(), z.number()).default({}),
+  /** "> 20 issues: grouped by cause" (the full Bahar answer is ~650 KB: render groups, expand lazily) */
+  groups: z.array(PrecheckGroup).default([]),
   items: z.array(PrecheckItem).default([]),
   estimate_s: Estimate,
   summary: Text2,

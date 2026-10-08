@@ -50,6 +50,7 @@ interface PrecheckItemOut {
   id: string;
   category: "impossible" | "clash" | "no_match" | "info";
   severity: "error" | "warning" | "info";
+  group: string;
   title: { tr: string; en: string };
   message: { tr: string; en: string };
   detail: string;
@@ -300,7 +301,7 @@ export function createStudioHandlers(host: () => StudioHost) {
       if (bme && !excluded.has(bme.id) && bme.day === 3 && bme.start_period === 7 && bme.requested_room_ids.length === 1 && bme.requested_room_ids[0] === 1) {
         const label = "BME 419 §1";
         items.push({
-          id: `impossible:${bme.id}`, category: "impossible", severity: "error",
+          id: `impossible:${bme.id}`, category: "impossible", severity: "error", group: "capacity",
           title: t(`${label} · Çar 13:30–15:50 · 102 öğrenci`, `${label} · Wed 13:30–15:50 · 102 students`),
           message: t("O saatte yeterince büyük derslik yok. Sadece A 204 (156 kişilik) yetiyor ve 7. haftada ETKİNLİK için ayrılmış.", "No room is big enough at that time. Only A 204 (156 seats) is big enough, and it is reserved for ETKİNLİK in week 7."),
           detail: "capacity + room_closed: A 204 blocked W7 Fri P10-P12; requested room_ids=[1]", event_ids: [bme.id], classes: [{ event_id: bme.id, label, request_ids: [bme.id] }],
@@ -315,7 +316,7 @@ export function createStudioHandlers(host: () => StudioHost) {
       const noTime = all.filter((r) => r.included && r.needs_room && !r.schedulable);
       if (noTime.length) {
         items.push({
-          id: "info:no_time", category: "info", severity: "info",
+          id: "info:no_time", category: "info", severity: "info", group: "no_time",
           title: t(`${noTime.length} dersin günü/saati yok`, `${noTime.length} classes have no day/time`),
           message: t("Bu dersler plana alınamaz. Derslerde gün ve saat ekleyin veya plan dışında bırakın.", "These classes can't be planned. Add a day and time in Classes, or leave them out."),
           detail: "", event_ids: noTime.map((r) => r.id), classes: [], constraint_kinds: [], constraint_ids: [],
@@ -329,7 +330,7 @@ export function createStudioHandlers(host: () => StudioHost) {
       if (s.targeted && affected(c, d) === 0) {
         const name = c.nl_text ?? catalogTitle(c.kind).en;
         items.push({
-          id: `no_match:${c.id}`, category: "no_match", severity: "warning",
+          id: `no_match:${c.id}`, category: "no_match", severity: "warning", group: "rule_no_match",
           title: t(`"${name}" hiçbir dersle eşleşmiyor`, `"${name}" matches no classes`), message: t("Adı kontrol edin veya kuralı bu plan için kapatın.", "Check the name, or turn the rule off for this plan."),
           detail: `${c.kind} ${JSON.stringify(c.params)}`, event_ids: [], classes: [], constraint_kinds: [c.kind], constraint_ids: [c.id],
           fixes: [{ option: `off:${c.id}`, label: t("Bu planda kapat", "Turn it off for this plan"), action: { type: "rule_off", payload: { constraint_id: c.id } }, admin_only: false }],
@@ -345,7 +346,7 @@ export function createStudioHandlers(host: () => StudioHost) {
       if (!shared.length || !both.length) continue;
       const hard = effHard(d, p) && effHard(d, f);
       items.push({
-        id: `clash:${p.id}:${f.id}`, category: "clash", severity: hard ? "error" : "warning",
+        id: `clash:${p.id}:${f.id}`, category: "clash", severity: hard ? "error" : "warning", group: "rule_clash",
         title: t("Bu iki kural aynı anda doğru olamaz", "These two rules can't both be true"),
         message: t(`"${p.nl_text ?? "#" + p.id}" ve "${f.nl_text ?? "#" + f.id}" (${roomCode(shared[0])})`, `"${p.nl_text ?? "#" + p.id}" and "${f.nl_text ?? "#" + f.id}" (${roomCode(shared[0])})`),
         detail: `room_pin #${p.id} vs room_forbid #${f.id}`, event_ids: both, classes: [], constraint_kinds: ["room_pin", "room_forbid"], constraint_ids: [p.id, f.id],
@@ -356,18 +357,26 @@ export function createStudioHandlers(host: () => StudioHost) {
       });
     }
     if (d.disabled_builtin_kinds.length) {
-      items.push({ id: "info:builtins_off", category: "info", severity: "info", title: t("Bazı temel kurallar kapalı", "Some built-in rules are off"), message: t(d.disabled_builtin_kinds.map((k) => BUILTIN_TEXT[k]?.tr ?? k).join(", "), d.disabled_builtin_kinds.map((k) => BUILTIN_TEXT[k]?.en ?? k).join(", ")), detail: "", event_ids: [], classes: [], constraint_kinds: d.disabled_builtin_kinds, constraint_ids: [], fixes: [] });
+      items.push({ id: "info:builtins_off", category: "info", severity: "info", group: "builtins_off", title: t("Bazı temel kurallar kapalı", "Some built-in rules are off"), message: t(d.disabled_builtin_kinds.map((k) => BUILTIN_TEXT[k]?.tr ?? k).join(", "), d.disabled_builtin_kinds.map((k) => BUILTIN_TEXT[k]?.en ?? k).join(", ")), detail: "", event_ids: [], classes: [], constraint_kinds: d.disabled_builtin_kinds, constraint_ids: [], fixes: [] });
     }
     h.studio.lastPrecheck.set(`${d.term_id}:${d.kind}`, items);
     const errors = items.filter((i) => i.severity === "error").length;
     const warnings = items.filter((i) => i.severity === "warning").length;
     const readiness = errors ? "blocked" : warnings || items.some((i) => i.category !== "info") ? "needs_look" : "ready";
     const blocked = new Set(items.filter((i) => i.severity === "error").flatMap((i) => i.event_ids)).size;
+    const order = { error: 0, warning: 1, info: 2 } as const;
+    const groupMap = new Map<string, { group: string; title: { tr: string; en: string }; severity: PrecheckItemOut["severity"]; count: number }>();
+    for (const it of items) {
+      const g = groupMap.get(it.group) ?? { group: it.group, title: it.title, severity: it.severity, count: 0 };
+      g.count += 1;
+      groupMap.set(it.group, g);
+    }
+    const groups = [...groupMap.values()].sort((a, b) => order[a.severity] - order[b.severity] || b.count - a.count);
     const limit = Number(d.params.time_limit_s ?? h.settings.solver_default_time_limit ?? 120);
     return {
       draft_id: d.draft_id, version: d.version, readiness,
       counts: { impossible: items.filter((i) => i.category === "impossible").length, clash: items.filter((i) => i.category === "clash").length, no_match: items.filter((i) => i.category === "no_match").length, info: items.filter((i) => i.category === "info").length, errors, warnings, events: included.length, rooms: rooms.filter((r) => r.is_bookable).length, blocked_classes: blocked },
-      items, estimate_s: estimate(included.length, resolveWeeks(d).length, limit),
+      groups, items, estimate_s: estimate(included.length, resolveWeeks(d).length, limit),
       summary: readiness === "ready" ? t("Hazır: imkânsız bir şey bulunmadı.", "Ready: nothing impossible found.") : readiness === "needs_look" ? t(`Bakılması gereken ${items.length} madde var; plan yine de oluşturulabilir.`, `${items.length} things to look at; the plan can still be generated.`) : t(`${blocked} ders kesin kurallarınızla yerleştirilemiyor.`, `${blocked} classes can't be placed under your Must-rules.`),
       duration_s: 0.04,
     };
