@@ -310,6 +310,6 @@ def test_merged_joint_lecture_with_definitive_hints_uses_the_planners_seats():
     members = {1: [1], 2: [2]}
     out, merged = merge_joint_lectures([ev(1, 120), ev(2, 116)], members, {10: 156, 11: 90}, {1: [10], 2: [10, 11]})
     assert len(out) == 1 and members == {1: [1, 2]}
-    assert out[0].size == 246 and merged[0]["clipped_to"] == 246 and out[0].max_rooms == 2
+    assert out[0].size == 236 and "clipped_to" not in merged[0] and out[0].max_rooms == 2  # 246 seats suffice
     out2, merged2 = merge_joint_lectures([ev(1, 120), ev(2, 116)], {1: [1], 2: [2]}, {10: 156}, {1: [10], 2: [10]})
     assert out2[0].size == 156 and merged2[0]["clipped_to"] == 156

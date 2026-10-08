@@ -73,3 +73,14 @@ beUI tooltip/status-bar), `lottie-react@^3.1.2` (MIT, for EmptyState). `clsx`, `
 | Generator Studio segmented, upload rows, diff list | beUI motion tabs / file upload, beautifului Diff Table | re-implemented in `components/studio` (2026-10-08) |
 
 No code from kobra.systems, reverseui.com or Kinetics is included in this repository.
+
+## Paid-component decisions (user decision 2026-10-08: do not buy; free parts or free alternatives only)
+
+Recorded by the glass-shell agent. Nothing below was bought or copied.
+
+| Need | Paid suggestion | Decision | Evidence / what ships instead |
+|---|---|---|---|
+| Run-progress timeline (`/runs/[id]` while solving) | reverseui.com "Timeline Progress" (Essential $39) | **Not imported.** reverseui's pricing page lists "Free plan includes: 19 free components, full source, Commercial use", but the site has **no licence or terms page** (`/terms`, `/license` → 404; no legal URL in `sitemap.xml`, checked 2026-10-08 with curl), so there is no text granting modification or redistribution inside this AGPL repository. | Built on our primitives: `beautifului/task-rows` (MIT) fed with the worker's real phases (`components/runs/run-view.tsx`, `SolveProgress`). reverseui used as visual reference only. |
+| Run-report log viewer | reverseui.com "Logs Explorer" | **Not imported** (same licence gap). | No backend log route exists yet; the report shows planner-facing groups from `GET /runs/{id}/data-issues` with an Excel download instead. Backlog item in ROADMAP. |
+| Import dropzone | kobra.systems "Magnetic Dropzone" ($199; free tier "Personal use only") | **Not allowed** (personal-use-only free tier, paid otherwise). | `beui/file-upload` (MIT) wrapped in `components/import/magnetic-drop.tsx`: magnetic lift/lean on drag from the /motion_designer patterns §7 + §14 (transform only, reduced-motion safe). |
+| Menu morph, spinner → check | transitions.dev Pro | **Not used.** Only the free set already in `transitions/transitions-dev.css` (Modal, Panel reveal, Error shake). | Our own motion patterns (`@/lib/motion`, motion_designer §1, §10). |

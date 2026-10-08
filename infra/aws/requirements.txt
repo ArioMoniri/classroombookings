@@ -1,0 +1,4 @@
+# infra/aws/smartsched_aws.py runtime + test deps (pinned for reproducible bootstrap runs)
+boto3==1.43.109
+botocore==1.43.109
+pytest==9.1.1
