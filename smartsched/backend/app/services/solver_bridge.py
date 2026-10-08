@@ -1,7 +1,6 @@
 """Build a ``SolverInput`` from the DB for a schedule run, solve, and persist the ``SolverResult``.
 
-The real CP-SAT solver (``app.solver.cpsat``) is imported lazily; when it is absent the greedy
-``app.solver.stub`` is used so the API and UI work end-to-end before the solver lands.
+Runs are solved by CP-SAT (``app.solver.cpsat``, imported lazily); there is no fallback solver.
 """
 
 from __future__ import annotations
@@ -41,30 +40,25 @@ log = logging.getLogger(__name__)
 ProgressFn = Callable[[str, int], None]
 
 
-SOLVER_MODULES = {"cpsat": "app.solver.cpsat", "stub": "app.solver.stub"}
+#: the production solver (``auto`` and ``cpsat`` both mean CP-SAT).  The greedy ``app.solver.stub`` is not a
+#: run option (audit M1: a planner could store a greedy result as a real run); tests that want a fast
+#: solver monkeypatch this entry (``tests/conftest.py`` fixture ``stub_solver``)
+SOLVER_MODULES = {"cpsat": "app.solver.cpsat"}
+SOLVER_CHOICES = ("auto", "cpsat")
+CPSAT_MODULE = "app.solver.cpsat"
 
 
 def _solver_fn(choice: str = "auto") -> Callable[..., sm.SolverResult]:
-    """``auto`` prefers CP-SAT and falls back to the greedy stub; ``cpsat``/``stub`` force one."""
-    names = [SOLVER_MODULES[choice]] if choice in SOLVER_MODULES else list(SOLVER_MODULES.values())
-    for name in names:
-        try:
-            mod = importlib.import_module(name)
-        except ModuleNotFoundError as exc:
-            if exc.name and name.startswith(exc.name):
-                continue
-            raise
-        fn = getattr(mod, "solve", None)
-        if fn is not None:
-            return fn  # type: ignore[no-any-return]
-    raise RuntimeError(f"no solver module available for {choice!r}")
+    """The solver for a run's ``params.solver`` (``auto`` | ``cpsat``); anything else is an error, never a
+    silent fallback."""
+    if choice not in SOLVER_CHOICES:
+        raise ValueError(f"unknown solver {choice!r} (choose one of {', '.join(SOLVER_CHOICES)})")
+    fn: Callable[..., sm.SolverResult] = importlib.import_module(SOLVER_MODULES["cpsat"]).solve
+    return fn
 
 
 def solver_name(choice: str = "auto") -> str:
-    try:
-        return _solver_fn(choice).__module__
-    except RuntimeError:
-        return "none"
+    return _solver_fn(choice).__module__
 
 
 #: run status of a best-effort run that stores a partial timetable (the solver reports INFEASIBLE with
@@ -99,7 +93,7 @@ def _call_solver(
     fn = _solver_fn(choice)
     if split_weeks is None:
         split_weeks = bool(MODE_DEFAULTS["split_blocked_weeks"])
-    if split_weeks and fn.__module__ == SOLVER_MODULES["cpsat"] and any(len(e.weeks) > 1 for e in inp.events):
+    if split_weeks and fn.__module__ == CPSAT_MODULE and any(len(e.weeks) > 1 for e in inp.events):
         from app.solver.weeksplit import solve_segmented, to_original
 
         res, split = solve_segmented(inp, unlocked_forbidden_tags=_unlocked_forbidden_tags(inp), rounds=1)

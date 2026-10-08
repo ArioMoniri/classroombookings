@@ -12,8 +12,8 @@ draft then edits that input through the frozen solver contract only (``dataclass
 * **built-in rules switched off** (ADMIN): recorded as ``constraints`` rows with ``source=BUILTIN``,
   ``enabled=false`` and ``source_ref={"draft_id": ...}`` (the plain bridge never loads disabled rows);
   honoured here: the overlap kinds are configured to check a key nobody carries (and instructor keys
-  are cleared after instructor selectors were frozen into event ids, so the greedy stub honours it
-  too); ``capacity`` becomes a strong preference.
+  are cleared after instructor selectors were frozen into event ids, so every solver path honours
+  it); ``capacity`` becomes a strong preference.
 
 Runs generated from a draft carry the draft snapshot in ``params["studio"]`` and are solved by
 :func:`run_draft_schedule`, so a draft edited while the run is queued does not change that run.
@@ -78,6 +78,13 @@ BUILTIN_TEXT: dict[str, dict[str, str]] = {
 NO_KEY = "__studio_disabled__"
 DRAFT_PARAM_KEYS = ("time_limit_s", "seed", "workers", "weights", "solver", "merge_joint_lectures", "parent_run_id")
 _SELECTOR_KEYS = ("event_ids", "cohort", "cohorts", "program", "programs", "match", "instructor", "instructors")
+
+
+def _check_solver(params: dict[str, Any]) -> None:
+    from app.services.run_params import SOLVERS
+
+    if "solver" in params and params["solver"] not in SOLVERS:
+        raise StudioError(422, f"params.solver must be one of {SOLVERS}")
 
 
 class StudioError(Exception):
@@ -357,6 +364,7 @@ async def _validate_patch(
         params = {k: v for k, v in data["params"].items() if k in DRAFT_PARAM_KEYS or k in ("stability", "label")}
         if "time_limit_s" in params and not 1 <= float(params["time_limit_s"]) <= 3600:
             raise StudioError(422, "time_limit_s must be within 1..3600")
+        _check_solver(params)
         out["params"] = params
     return out
 
@@ -716,6 +724,7 @@ async def generate(session: AsyncSession, draft: StudioDraft, body: Any, user: U
         **{k: v for k, v in (body.params or {}).items() if k in DRAFT_PARAM_KEYS and k != "parent_run_id"},
         "studio": snap,
     }
+    _check_solver(params)  # also a draft saved before the stub was removed (audit M1)
     params = _sealed_params(params, term.id, draft.kind)
     parent_id = body.parent_run_id if body.parent_run_id is not None else dparams.get("parent_run_id")
     stability = body.stability if body.stability is not None else bool(dparams.get("stability", True))

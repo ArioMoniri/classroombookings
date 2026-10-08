@@ -34,7 +34,8 @@ BOOL_KEYS = frozenset(
         "stability",
     }
 )
-SOLVERS = ("auto", "cpsat", "stub")
+#: run solvers a client may choose (the greedy stub is a test helper, not a run option: audit M1)
+SOLVERS = ("auto", "cpsat")
 DEFINITIVE = ("lock", "prefer", "ignore")
 MAX_WEIGHT = 10_000
 MAX_WEIGHT_KEYS = 50
