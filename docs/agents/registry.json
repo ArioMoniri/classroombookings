@@ -123,6 +123,18 @@
       "ledger": "frontend-engineer (CRBS bookings + admin)",
       "resumed": true,
       "status": "running"
+    },
+    {
+      "id": "af43b21028d16c6e0",
+      "description": "No-placeholder audit (read-only)",
+      "subagent_type": "strict-reviewer",
+      "isolation": null,
+      "started_at": "2026-10-08 12:56",
+      "scope": "read-only over the repository: smartsched/backend, smartsched/frontend, smartsched/deploy, infra/aws, scripts, README.md, docs (only where docs instruct users to use demo data). Write nothing. Run commands only to verify claims: grep, a python import, `npm ls`, reading built output under .next if it exists. Look for, at least: 1. MSW / mock API mode in the frontend (NEXT_PUBLIC_API_MOCK, src/mocks…",
+      "goal": "run a READ-ONLY audit of the whole SmartSched system for demo, test, mock, stub or placeholder usage reachable in production. The user's standing rule is: \"there should be no demo test or placeholder usage across the all system\". You produce the findings list; the orchestrator assigns the fixes.",
+      "ledger": "strict-reviewer (no-placeholder audit)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

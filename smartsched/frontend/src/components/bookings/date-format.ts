@@ -2,8 +2,9 @@
  * Dates in the organisation's patterns (CRBS `settings/General`: `pattern_long` "EEEE d MMMM yyyy",
  * `pattern_weekday` "EEE d MMM", `pattern_time` "HH:mm"), in Turkish or English.
  *
- * Supported tokens (ICU / date-fns subset that CRBS documents): `EEEE` `EEE` (weekday long/short), `d` `dd`,
- * `M` `MM` `MMM` `MMMM`, `yy` `yyyy`, `H` `HH`, `m` `mm`; text in single quotes is literal ('' = a quote).
+ * Supported tokens (the ICU subset of the CRBS option lists): `EEEE` `EEE` (weekday long/short), `d` `dd`,
+ * `M` `MM` `MMM` `MMMM`, `yy` `yyyy`, `H` `HH`, `h` `hh`, `m` `mm`, `a` (ÖÖ/ÖS, AM/PM); text in single quotes is
+ * literal ('' = a quote). Names come from the same tables as the backend, so screens and e-mails agree.
  * Booking dates are plain calendar dates ("2026-02-16"), so they are parsed as local dates: no time-zone
  * shift can move a booking to the previous day.
  */
