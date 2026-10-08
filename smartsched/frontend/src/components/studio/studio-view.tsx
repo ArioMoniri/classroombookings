@@ -184,6 +184,8 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [prefill, setPrefill] = useState<BuilderPrefill | null>(null);
   const index = STUDIO_STEPS.indexOf(step);
+  // the class table needs the width: the summary collapses to a 48 px rail below 1800 px
+  const collapse = step === "classes";
 
   // keyboard: Alt+1…5, [ / ], ⌘↵ generate, ⌘Z / ⌘⇧Z, ⌘⇧A advanced
   useEffect(() => {
@@ -278,7 +280,14 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
         </ol>
       </nav>
 
-      <div className="grid gap-6 xl:grid-cols-[200px_minmax(0,1fr)_304px] 2xl:grid-cols-[var(--studio-rail-w)_minmax(0,1200px)_360px] 2xl:justify-center">
+      <div
+        className={cn(
+          "grid gap-6",
+          collapse
+            ? "xl:grid-cols-[200px_minmax(0,1fr)_var(--studio-summary-collapsed-w)] min-[1800px]:grid-cols-[var(--studio-rail-w)_minmax(0,1200px)_360px] min-[1800px]:justify-center"
+            : "xl:grid-cols-[200px_minmax(0,1fr)_304px] 2xl:grid-cols-[var(--studio-rail-w)_minmax(0,1200px)_360px] 2xl:justify-center",
+        )}
+      >
         <div className="hidden xl:block">
           <div className="sticky top-4 space-y-4">
             <nav aria-label={t("studio.nav.label")}>
@@ -330,10 +339,21 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
               {body}
             </motion.div>
           </AnimatePresence>
+          {collapse ? (
+            <div className="sticky bottom-3 z-20 mt-3 hidden justify-end xl:flex min-[1800px]:hidden">
+              <GenerateButton size="default" testId="inline-generate" />
+            </div>
+          ) : null}
         </section>
 
         <div className="hidden xl:block">
-          <div className="sticky top-4">
+          {collapse ? (
+            <button type="button" onClick={() => setSummaryOpen(true)} className="sticky top-4 flex w-full flex-col items-center gap-2 rounded-lg border py-3 text-xs hover:bg-muted min-[1800px]:hidden" aria-label={t("studio.summary.title")} data-testid="summary-collapsed">
+              <ChevronLeft className="size-4" aria-hidden />
+              <span className="[writing-mode:vertical-rl]">{t("studio.summary.title")}</span>
+            </button>
+          ) : null}
+          <div className={cn("sticky top-4", collapse && "hidden min-[1800px]:block")}>
             <SummaryPanel />
           </div>
         </div>
