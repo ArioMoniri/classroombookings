@@ -15,7 +15,8 @@ from typing import Any
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
 from app.solver.build import Prepared, build_model, hint_assignments, make_solver, prepare, status_name
-from app.solver.diagnose import diagnose, static_check
+from app.solver.diagnose import diagnose, diagnose_with_placement, static_check
+from app.solver.domains import normalize_input
 from app.solver.evaluate import Evaluation
 from app.solver.greedy import greedy_assignments
 from app.solver.model import Assignment, Diagnosis, Event, SolverInput, SolverResult
@@ -81,10 +82,11 @@ def neighbours_of_options(inp: SolverInput, placed: list[Assignment], e: Event) 
     return out
 
 
-def solve(inp: SolverInput, *, _complete: bool = True) -> SolverResult:
+def solve(inp: SolverInput, *, _complete: bool = True, _hints: list[Assignment] | None = None) -> SolverResult:
     t0 = time.perf_counter()
     stats: dict[str, Any] = {}
     try:
+        inp = normalize_input(inp)
         prep: Prepared = prepare(inp)
         stats.update(prep.stats)
         stats["warnings"] = list(prep.warnings)
@@ -92,12 +94,17 @@ def solve(inp: SolverInput, *, _complete: bool = True) -> SolverResult:
         stats["static_check_s"] = round(time.perf_counter() - t0, 3)
         errors = [d for d in static if d.severity == "error"]
         if errors:
-            stats["wall_s"] = round(time.perf_counter() - t0, 3)
             stats["solver_status"] = "STATIC_INFEASIBLE"
+            if inp.best_effort:
+                return _best_effort(inp, prep, static, stats, t0, run_core=False)
+            stats["wall_s"] = round(time.perf_counter() - t0, 3)
             return SolverResult("INFEASIBLE", [], 0, 0, {}, static, stats)
         ctx = build_model(prep, "solve")
         t_greedy = time.perf_counter()
-        hints = {a.event_id: a for a in greedy_assignments(prep)}
+        hints = {a.event_id: a for a in (_hints or [])}
+        if len(hints) < len(inp.events):
+            for a in greedy_assignments(prep):
+                hints.setdefault(a.event_id, a)
         stats["greedy_placed"] = len(hints)
         if _complete and len(hints) < len(inp.events):
             hints = _complete_hint(inp, hints, min(10.0, max(1.0, inp.time_limit_s * 0.15)))
@@ -122,6 +129,7 @@ def solve(inp: SolverInput, *, _complete: bool = True) -> SolverResult:
             stats["cp_breakdown"] = ctx.term_values(solver)
             stats["evaluated_penalty"] = ev.total_penalty()
             stats["wall_s"] = round(time.perf_counter() - t0, 3)
+            stats.update(placed=len(assignments), unplaced=0, events_total=len(inp.events))
             warnings: list[Diagnosis] = [d for d in static if d.severity != "error"]
             hard = ev.hard_violations()
             if hard:  # should never happen; never hide it
@@ -132,12 +140,15 @@ def solve(inp: SolverInput, *, _complete: bool = True) -> SolverResult:
                         "solver output violates hard rules: " + "; ".join(v.message for v in hard[:5]),
                         [],
                         "error",
+                        "internal",
                     )
                 )
             return _result_from_evaluation(
                 "OPTIMAL" if status == cp_model.OPTIMAL else "FEASIBLE", assignments, ev, warnings, stats
             )
         if status == cp_model.INFEASIBLE:
+            if inp.best_effort:
+                return _best_effort(inp, prep, static, stats, t0, run_core=True)
             budget = max(2.0, min(inp.time_limit_s * 0.5, 120.0))
             diagnoses = static + diagnose(prep, budget)
             stats.update(prep.stats)
@@ -160,6 +171,7 @@ def solve(inp: SolverInput, *, _complete: bool = True) -> SolverResult:
                     f"{name}); raise the time limit or reduce the horizon",
                     ["increase time_limit_s", "solve week by week", "lock more events"],
                     "warning",
+                    "timeout",
                 )
             ],
             stats,
@@ -169,8 +181,90 @@ def solve(inp: SolverInput, *, _complete: bool = True) -> SolverResult:
         stats["error"] = f"{type(exc).__name__}: {exc}"
         stats["traceback"] = traceback.format_exc()
         return SolverResult(
-            "ERROR", [], 0, 0, {}, [Diagnosis([], [], f"solver error: {type(exc).__name__}: {exc}", [], "error")], stats
+            "ERROR",
+            [],
+            0,
+            0,
+            {},
+            [Diagnosis([], [], f"solver error: {type(exc).__name__}: {exc}", [], "error", "internal")],
+            stats,
         )
+
+
+def _best_effort(
+    inp: SolverInput,
+    prep: Prepared,
+    static: list[Diagnosis],
+    stats: dict[str, Any],
+    t0: float,
+    *,
+    run_core: bool,
+) -> SolverResult:
+    """``best_effort``: the instance cannot be scheduled completely.  Phase 1 (slack relaxation,
+    hinted with the greedy placement) maximises the number of placed events and explains every
+    unplaced one; phase 2 re-solves the *placed* events with the normal objective (hinted with phase
+    1).  Status stays INFEASIBLE (the full request set has no solution); ``stats.partial`` /
+    ``placed`` / ``unplaced`` / ``unplaced_ids`` describe the partial timetable, and the hard/soft
+    scores are those of the placed events (hard 100 = every hard rule holds for them)."""
+    budget = max(2.0, min(inp.time_limit_s * 0.5, 120.0))
+    explained = {d.event_ids[0] for d in static if d.severity == "error" and len(d.event_ids) == 1}
+    greedy = greedy_assignments(prep)
+    stats["greedy_placed"] = len(greedy)
+    diagnoses, placed = diagnose_with_placement(prep, budget, core=run_core, hints=greedy, explained=explained)
+    stats.update(prep.stats)
+    stats["diagnose_s"] = round(time.perf_counter() - t0 - stats.get("solve_s", 0.0), 3)
+    if not placed and greedy:  # relaxation timed out: fall back to the greedy placement
+        placed = {a.event_id: a for a in greedy}
+        stats["partial_source"] = "greedy"
+    unplaced_ids = [e.id for e in inp.events if e.id not in placed]
+    stats.update(
+        partial=True,
+        placed=len(placed),
+        unplaced=len(unplaced_ids),
+        events_total=len(inp.events),
+        unplaced_ids=unplaced_ids[:500],
+    )
+    if not placed:
+        stats["wall_s"] = round(time.perf_counter() - t0, 3)
+        return SolverResult("INFEASIBLE", [], 0, 0, {}, static + diagnoses, stats)
+    sub = replace(inp, events=tuple(e for e in inp.events if e.id in placed), best_effort=False)
+    remaining = inp.time_limit_s - (time.perf_counter() - t0)
+    assignments = [placed[e.id] for e in sub.events]
+    phase2 = None
+    if remaining > 1.0:
+        phase2 = solve(replace(sub, time_limit_s=remaining), _complete=False, _hints=assignments)
+        stats["phase2_status"] = phase2.status
+        stats["phase2_s"] = phase2.stats.get("wall_s")
+        if phase2.status in ("OPTIMAL", "FEASIBLE"):
+            assignments = phase2.assignments
+    ev = evaluate(sub, assignments)
+    stats["evaluated_penalty"] = ev.total_penalty()
+    stats["wall_s"] = round(time.perf_counter() - t0, 3)
+    hard = ev.hard_violations()
+    extra: list[Diagnosis] = []
+    if hard:  # never hide it (the relaxation and phase 2 enforce every hard rule)
+        extra.append(
+            Diagnosis(
+                sorted({i for v in hard for i in v.event_ids}),
+                sorted({v.kind for v in hard}),
+                "partial timetable violates hard rules: " + "; ".join(v.message for v in hard[:5]),
+                [],
+                "error",
+                "internal",
+            )
+        )
+    summary = Diagnosis(
+        unplaced_ids[:200],
+        [],
+        f"best effort: {len(placed)} of {len(inp.events)} events placed, {len(unplaced_ids)} cannot be placed "
+        f"(reasons below); hard rules hold for every placed event"
+        if not hard
+        else f"best effort: {len(placed)} of {len(inp.events)} events placed",
+        ["fix the reported input problems and re-run to place the rest"],
+        "warning",
+        "partial",
+    )
+    return _result_from_evaluation("INFEASIBLE", assignments, ev, [summary, *static, *diagnoses, *extra], stats)
 
 
 __all__ = ["solve"]

@@ -132,6 +132,12 @@
   --grid-header-h: 56px;
   --mini-col-w: 6px;
 
+  /* Generator Studio surfaces (docs/design/generator-studio.md §9) */
+  --studio-rail-w: 216px;
+  --studio-summary-w: 336px;
+  --studio-summary-collapsed-w: 48px;
+  --rule-card-min-h: 72px;
+
   --radius: 8px;
 
   /* shadcn aliases */
@@ -248,3 +254,12 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Generator Studio: pre-check "Checking…" pill pulses (opacity only, never layout) */
+@keyframes studio-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.studio-pulse { animation: studio-pulse 1.2s var(--ease-in-out) infinite; }
+.studio-flash { outline: 2px solid var(--status-infeasible-border); outline-offset: 2px; transition: outline-color var(--dur-fast) var(--ease-out); }
+

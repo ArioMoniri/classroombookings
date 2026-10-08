@@ -9,7 +9,7 @@ from app.services.studio import build_draft_input, build_solver_input_for_draft
 from sqlalchemy import select
 
 from tests import studio_support
-from tests.studio_support import meeting_id
+from tests.studio_support import bahar_counts, meeting_id
 
 bahar = studio_support.bahar
 
@@ -30,7 +30,8 @@ async def test_draft_round_trip_and_version_conflict(bahar):
     assert r.status_code == 200, r.text
     d = r.json()
     assert d["kind"] == "COURSE" and d["version"] == 1 and d["etag"] == '"1"'
-    assert d["scope"]["horizon"] == "TERM" and d["scope"]["weeks"] == list(range(1, 16))
+    weeks = (await bahar_counts(bahar.term_id))["weeks"]
+    assert d["scope"]["horizon"] == "TERM" and d["scope"]["weeks"] == list(range(1, weeks + 1))
     assert d["excluded_event_ids"] == [] and d["disabled_builtin_kinds"] == [] and d["pins"] == []
     phar240 = await meeting_id("PHAR 240", day=1, start=1)  # Mon P1-P3, LOCKED in A 206
     body = {

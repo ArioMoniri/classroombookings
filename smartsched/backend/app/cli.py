@@ -28,6 +28,10 @@ async def _run_import(args: argparse.Namespace) -> int:
             from app.importers.weekly_grid import import_weekly_grid
 
             rep = await import_weekly_grid(session, args.file, args.term, year=args.year, term_kind=args.term_kind)
+        elif args.what == "room-master":
+            from app.importers.room_master import import_room_master
+
+            rep = await import_room_master(session, args.file)
         elif args.what == "crbs":
             from app.importers.crbs_legacy import import_crbs
 
@@ -109,6 +113,10 @@ def main(argv: list[str] | None = None) -> int:
         if name == "weekly-grid":
             sp.add_argument("--year", type=int, required=True)
             sp.add_argument("--term-kind", default=None, help="REGULAR|FINAL|BUT (default: inferred)")
+    rm = imp_sub.add_parser(
+        "room-master", help="room master CSV: code,capacity,exam_capacity,tags,building,floor,bookable[,notes]"
+    )
+    rm.add_argument("file")
     cr = imp_sub.add_parser("crbs")
     cr.add_argument("files", nargs="*", help="SQL dump files (structure.sql data.sql …)")
     cr.add_argument("--dsn", default=None, help="mysql://user:pass@host/db")

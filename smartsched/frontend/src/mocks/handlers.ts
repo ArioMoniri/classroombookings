@@ -40,6 +40,7 @@ import {
   users,
   weeks,
 } from "./data";
+import { createStudioHandlers, freshStudioState, studioSeedConstraints, type MockConstraint, type StudioMockState } from "./studio";
 
 /* ------------------------------------------------------------------------------- state */
 /** Backend `ChatMessageOut`: the proposed diff rides on the assistant message's tool_calls. */
@@ -73,7 +74,8 @@ interface MockState {
   imports: ImportJob[];
   runStartedAt: Map<number, number>;
   nextId: number;
-  constraints: typeof constraints;
+  constraints: MockConstraint[];
+  studio: StudioMockState;
 }
 
 function freshState(): MockState {
@@ -88,7 +90,8 @@ function freshState(): MockState {
     imports: structuredClone(importJobsSeed),
     runStartedAt: new Map(),
     nextId: 5000,
-    constraints: structuredClone(constraints),
+    constraints: [...structuredClone(constraints), ...structuredClone(studioSeedConstraints)],
+    studio: freshStudioState(),
   };
 }
 
@@ -246,29 +249,6 @@ function childRun(parent: ScheduleRun, prompt: string, status: ScheduleRun["stat
   return child;
 }
 
-/** Mock of `POST /terms/{id}/elicit`: one rule per sentence, keyword-classified. */
-function elicit(text: string): ProposedConstraint[] {
-  return text
-    .split(/[.;\n]/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => ({
-      kind: /tip/i.test(p) ? "room_tags" : /blok|block/i.test(p) ? "building_preference" : /17|saat|after|sonra/i.test(p) ? "day_window" : "room_preference",
-      params: {},
-      hardness: /sadece|only|asla|never/i.test(p) ? ("hard" as const) : ("soft" as const),
-      weight: 3,
-      nl_text: p,
-      rationale: "",
-      confidence: 0.8,
-      title: null,
-      status: "ok" as const,
-      issues: [],
-      entities: [],
-      source: "AI",
-      source_ref: { file: null, kind: "prompt" },
-    }));
-}
-
 /* ---------------------------------------------------------------------------- utils */
 function paginate<T>(items: T[], url: URL) {
   const page = Number(url.searchParams.get("page") ?? 1);
@@ -294,7 +274,23 @@ function roomUtilisation(runId: number, week: number): Map<number, number> {
 /* -------------------------------------------------------------------------- handlers */
 const base = "*/api/v1";
 
+const studioHandlers = createStudioHandlers(() => ({
+  meetings: state.meetings,
+  exams: state.exams,
+  constraints: state.constraints,
+  runs: state.runs,
+  settings: state.settings,
+  studio: state.studio,
+  nextId: () => state.nextId++,
+  startRun: (run: ScheduleRun) => {
+    state.runs.push(run);
+    state.runStartedAt.set(run.id, Date.now());
+  },
+  getRun,
+}));
+
 export const handlers = [
+  ...studioHandlers,
   http.post(`${base}/auth/login`, async ({ request }) => {
     const body = (await request.json()) as { email?: string; password?: string };
     if (!body.email || body.password !== "admin") return json({ detail: "Invalid credentials" }, { status: 401 });
@@ -440,11 +436,9 @@ export const handlers = [
   http.get(`${base}/constraints`, ({ request }) => {
     const url = new URL(request.url);
     const runId = url.searchParams.get("run_id");
-    return json(state.constraints.filter((c) => !runId || c.run_id === null || c.run_id === Number(runId)));
-  }),
-  http.post(`${base}/terms/:id/elicit`, async ({ request }) => {
-    const body = (await request.json()) as { text: string };
-    return json({ proposals: elicit(body.text), section_edits: [], unparsed: [], assistant_message: "", usage: { model: state.settings.anthropic_model, input_tokens: 0, output_tokens: 0, estimated_cost_usd: 0 } });
+    const run = runId ? state.runs.find((r) => r.id === Number(runId)) : undefined;
+    const termId = url.searchParams.get("term_id") ? Number(url.searchParams.get("term_id")) : (run?.term_id ?? null);
+    return json(state.constraints.filter((c) => (termId === null || c.term_id === termId) && (!runId || c.run_id === null || c.run_id === Number(runId))));
   }),
   http.post(`${base}/terms/:id/elicit/accept`, async ({ params, request }) => {
     const body = (await request.json()) as { proposals: ProposedConstraint[]; run_id?: number | null };
@@ -454,12 +448,6 @@ export const handlers = [
       return id;
     });
     return json({ created, rejected: [], section_edits_applied: [] });
-  }),
-  http.post(`${base}/terms/:id/preferences/upload`, async ({ request }) => {
-    const fd = await request.formData();
-    const file = fd.get("file");
-    const text = file instanceof File ? await file.text() : "";
-    return json({ proposals: elicit(text), section_edits: [], unparsed: [], assistant_message: "", filename: file instanceof File ? file.name : "upload", file_kind: "txt", units: text.split("\n").length, chunks: 1, truncated: false, detected_columns: {}, warnings: [] });
   }),
   http.get(`${base}/ai/catalog`, () =>
     json({ kinds: ["capacity", "room_tags", "building_preference", "day_window", "room_preference", "same_room_across_weeks"].map((kind) => ({ kind, title: { tr: kind, en: kind }, description: { tr: "", en: "" }, params_schema: {}, examples: [], allowed_hardness: ["hard", "soft"], default_hardness: "soft", implicit: false, registered: true })), tools: [], selectors: {} }),

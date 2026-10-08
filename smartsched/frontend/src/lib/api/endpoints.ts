@@ -40,6 +40,7 @@ import {
   User,
   Week,
 } from "./schemas";
+import { presetsApi, studioApi } from "./studio-endpoints";
 
 const RoomsList = z.preprocess((v) => adapt.listOf(v).map(adapt.room), z.array(Room));
 const RoomOne = z.preprocess(adapt.room, Room);
@@ -149,7 +150,13 @@ export const api = {
   constraints: {
     list: (query?: Query) => request("/constraints", { query, schema: ConstraintsList }),
     create: (body: Omit<Constraint, "id">) => request("/constraints", { method: "POST", body, schema: Constraint }),
+    update: (id: number, body: Partial<Pick<Constraint, "params" | "hardness" | "weight" | "nl_text" | "enabled">>) =>
+      request(`/constraints/${id}`, { method: "PUT", body, schema: Constraint }),
+    remove: (id: number) => request(`/constraints/${id}`, { method: "DELETE" }),
   },
+  /** Generator Studio (app/api/v1/studio.py) and university-wide presets (app/api/v1/presets.py). */
+  studio: studioApi,
+  presets: presetsApi,
   /** AI layer (app/api/v1/chat.py). 409 = no Anthropic key configured (message tells the admin where to add it). */
   ai: {
     elicit: (termId: number, text: string, lang: Lang) =>

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from app.solver.model import Block, Event, Room, SolverInput
 
@@ -53,8 +53,44 @@ def room_fits_alone(room: Room, event: Event) -> bool:
 
 
 def shares_room(event: Event) -> bool:
-    """Sharing applies to single-room events only; split events stay exclusive."""
-    return event.share_room and event.needs_room and event.max_rooms <= 1
+    """Events with ``share_room`` sit in a room under a seat budget instead of exclusively; split
+    (multi-room) exams share too, with per-room seat demands (see :mod:`app.solver.seats`)."""
+    return event.share_room and event.needs_room
+
+
+def is_input_fixed(event: Event, soft: Iterable[str] = ()) -> bool:
+    """The request itself fixes day and start (or the planner locked it) — no solver choice of time."""
+    if event.locked is not None:
+        return True
+    return event.fixed_day is not None and event.fixed_start is not None and "fixed_time" not in set(soft)
+
+
+def fixed_time_of(event: Event) -> TimeOption | None:
+    if event.locked is not None:
+        return TimeOption(event.locked.day, event.locked.start, max(1, event.duration))
+    if event.fixed_day is not None and event.fixed_start is not None:
+        return TimeOption(event.fixed_day, event.fixed_start, max(1, event.duration))
+    return None
+
+
+def trusted_lock(inp: SolverInput, event: Event) -> bool:
+    """``trust_locked_rooms``: the planner's locked room set wins over the (estimated) size."""
+    return inp.trust_locked_rooms and event.locked is not None and bool(event.locked.room_ids)
+
+
+def normalize_input(inp: SolverInput) -> SolverInput:
+    """Make locks self-consistent: an event locked to *k* rooms may use *k* rooms (the Bahar list
+    locks large lectures to ``A 101 / A 106 / A 107 / A 108`` while the request is a single-room event).
+    Idempotent; returns ``inp`` itself when nothing changes."""
+    changed = False
+    events: list[Event] = []
+    for e in inp.events:
+        k = len(e.locked.room_ids) if e.locked is not None else 0
+        if k > max(1, e.max_rooms):
+            e = replace(e, max_rooms=k)
+            changed = True
+        events.append(e)
+    return replace(inp, events=tuple(events)) if changed else inp
 
 
 def sharing_capacity(room: Room, events: Iterable[Event]) -> int:
@@ -119,6 +155,11 @@ class Domains:
     blocks_by_room: dict[int, list[Block]]
     soft: frozenset[str] = frozenset()  # structural kinds that are soft (not pruned)
     static_conflicts: list[tuple[str, str, int, int]] = field(default_factory=list)  # (kind, key, a, b)
+    #: fixed-vs-fixed key clashes waived by ``fixed_conflicts_as_warnings`` (reported as warnings)
+    waived_conflicts: list[tuple[str, str, int, int]] = field(default_factory=list)
+    #: (kind, key) -> events that had a single time option when the key was pruned; their key
+    #: relations are fully decided statically (fixed-vs-flexible by pruning, fixed-vs-fixed above)
+    key_fixed: dict[tuple[str, str], frozenset[int]] = field(default_factory=dict)
 
     def event_ids(self) -> list[int]:
         return [e.id for e in self.inp.events]
@@ -170,6 +211,8 @@ def _room_options(event: Event, inp: SolverInput, soft: frozenset[str]) -> tuple
     if not event.needs_room:
         return chosen, reasons
     split = event.max_rooms > 1
+    trusted = trusted_lock(inp, event)
+    locked_rooms = set(event.locked.room_ids) if event.locked is not None else set()
     for room in inp.rooms:
         cap = effective_capacity(room, event)
         if event.locked is not None and event.locked.room_ids:
@@ -181,6 +224,9 @@ def _room_options(event: Event, inp: SolverInput, soft: frozenset[str]) -> tuple
             continue
         if "room_forbid" not in soft and room.id in event.forbidden_room_ids:
             reasons[room.id] = "room is forbidden for this event (room_forbid)"
+            continue
+        if trusted and room.id in locked_rooms:
+            chosen.append(room.id)  # the planner's room: capacity / tag mismatches are reported, not enforced
             continue
         missing = event.required_tags - room.tags
         if "room_tags" not in soft and missing:
@@ -270,14 +316,19 @@ def instructor_groups(inp: SolverInput) -> dict[str, list[int]]:
     return dict(groups)
 
 
-def prune_fixed_key_conflicts(doms: Domains, groups: dict[str, list[int]], kind: str) -> list[tuple[str, int, int]]:
+def prune_fixed_key_conflicts(
+    doms: Domains, groups: dict[str, list[int]], kind: str, record_as: str | None = None
+) -> list[tuple[str, int, int]]:
     """For cohort/instructor keys: remove time options of flexible events that collide with
     fixed-time events of the same key (weeks intersecting).  Returns the list of fixed-vs-fixed
-    collisions ``(key, event_a, event_b)`` which make the instance statically infeasible."""
+    collisions ``(key, event_a, event_b)`` which make the instance statically infeasible.
+    ``record_as`` (constraint kind) stores the fixed members per key in ``doms.key_fixed``."""
     collisions: list[tuple[str, int, int]] = []
     for key, ids in groups.items():
         fixed = [doms.domain(i) for i in ids if doms.domain(i).fixed_time]
         flexible = [doms.domain(i) for i in ids if not doms.domain(i).fixed_time]
+        if record_as is not None:
+            doms.key_fixed[(record_as, key)] = frozenset(d.event.id for d in fixed)
         for i, a in enumerate(fixed):
             ta = a.times[0]
             for b in fixed[i + 1 :]:

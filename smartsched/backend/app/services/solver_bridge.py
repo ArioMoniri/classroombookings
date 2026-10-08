@@ -9,7 +9,8 @@ from __future__ import annotations
 import asyncio
 import importlib
 import logging
-from collections import defaultdict
+import re
+from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
@@ -24,6 +25,7 @@ from app.models import (
     Block,
     ConstraintRow,
     ExamRequest,
+    Instructor,
     MeetingRequest,
     Room,
     ScheduleRun,
@@ -79,6 +81,29 @@ def _cohort_keys(program: str | None, years: list[Any]) -> frozenset[str]:
     if not program:
         return frozenset()
     return frozenset(f"PROG:{program}:Y{int(y)}" for y in years if y is not None and int(y) > 0)
+
+
+#: run params (``ScheduleRun.params``) of the real-data modes and their defaults; see app/solver/README.md
+MODE_DEFAULTS: dict[str, Any] = {
+    "trust_locked_rooms": True,  # D1: keep a LOCKED definitive room smaller than the expected enrolment
+    "fixed_conflicts_as_warnings": True,  # D2: fixed-vs-fixed cohort/instructor clashes are input warnings
+    "best_effort": True,  # D3: an infeasible run still stores the maximum placement
+    "merge_joint_lectures": True,  # D4
+    "definitive_rooms": "lock",  # lock | prefer (soft hint) | ignore — planner's definitive rooms of LOCKED rows
+}
+
+
+def run_mode(params: dict[str, Any] | None, key: str) -> Any:
+    value = (params or {}).get(key, MODE_DEFAULTS[key])
+    if key == "definitive_rooms":
+        return value if value in ("lock", "prefer", "ignore") else "lock"
+    return bool(value)
+
+
+def _bridge_diag(
+    event_ids: list[int], message: str, suggestions: list[str], code: str, kinds: list[str] | None = None
+) -> dict[str, Any]:
+    return asdict(sm.Diagnosis(event_ids, kinds or [], message, suggestions, "warning", code))
 
 
 def horizon_weeks(run: ScheduleRun, term: Term) -> list[int]:
@@ -222,12 +247,33 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     )
     room_ids = {r.id for r in rooms}
     dropped = [r.code for r in rooms_db if r.id not in room_ids]
+    bridge_diags: list[dict[str, Any]] = []
     if dropped:
         run.stats = {
             **(run.stats or {}),
             "rooms_without_capacity": dropped[:50],
             "rooms_without_capacity_count": len(dropped),
         }
+        bridge_diags.append(
+            _bridge_diag(
+                [],
+                f"{len(dropped)} bookable room(s) have no {'exam ' if exam else ''}capacity and are not used: "
+                + ", ".join(dropped[:20]),
+                ["set their capacity in the room master (python -m app.cli import room-master <csv>)"],
+                "room_without_capacity",
+                ["capacity"],
+            )
+        )
+    all_rooms: dict[int, str] = {
+        int(rid): str(code) for rid, code in (await session.execute(select(Room.id, Room.code))).all()
+    }
+    definitive_mode = run_mode(params, "definitive_rooms")
+    outside_pool: dict[int, list[int]] = {}  # event id -> planner rooms outside the solver's room pool
+
+    def split_definitive(ids: list[Any]) -> tuple[list[int], list[int]]:
+        ids_i = list(dict.fromkeys(int(x) for x in ids or []))
+        return [x for x in ids_i if x in room_ids], [x for x in ids_i if x not in room_ids]
+
     events: list[sm.Event] = []
     members: dict[int, list[int]] = {}
     extra_weeks: set[int] = set()
@@ -258,10 +304,30 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             if "TIP" not in tags:
                 forbidden_tags = frozenset({"TIP"})
             locked = None
-            definitive = [int(x) for x in (mr.definitive_room_ids or []) if int(x) in room_ids]
-            if mr.status == "LOCKED" and definitive and fixed_day:
-                locked = sm.Assignment(mr.id, fixed_day, mr.start_period, mr.end_period, tuple(definitive), ev_weeks)
-                forbidden_tags = frozenset()
+            definitive, outside = split_definitive(mr.definitive_room_ids or [])
+            is_locked = mr.status == "LOCKED" and bool(definitive or outside) and bool(fixed_day)
+            needs_room = True
+            preferred = [int(x) for x in (mr.requested_room_ids or []) if int(x) in room_ids]
+            if is_locked and definitive_mode == "lock":
+                if definitive:
+                    locked = sm.Assignment(
+                        mr.id, fixed_day or 1, mr.start_period, mr.end_period, tuple(definitive), ev_weeks
+                    )
+                    forbidden_tags = frozenset()
+                else:
+                    # the planner's room is outside the room pool (lab/office without capacity): the
+                    # meeting keeps its time and cohort/instructor rules but needs no pooled room
+                    needs_room = False
+                if outside:
+                    outside_pool[mr.id] = outside
+            elif is_locked and definitive_mode == "prefer":
+                preferred = list(dict.fromkeys([*definitive, *preferred]))
+            if (
+                is_locked
+                and definitive_mode != "lock"
+                and any(r.id in definitive and "TIP" in (r.tags or []) for r in rooms_db)
+            ):
+                forbidden_tags = frozenset()  # the planner seats this group in a medicine (TIP) room
             cohort = _cohort_keys(
                 sec.program.canonical_name if sec.program else None, sec.class_years or [sec.class_year]
             )
@@ -280,15 +346,16 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     allowed_days=frozenset(days or [1, 2, 3, 4, 5]),
                     required_tags=required_tags,
                     forbidden_tags=forbidden_tags,
-                    preferred_room_ids=tuple(int(x) for x in (mr.requested_room_ids or []) if int(x) in room_ids),
+                    preferred_room_ids=tuple(preferred),
                     preferred_building=mr.requested_building,
                     cohort_keys=cohort,
                     instructor_keys=instr,
                     locked=locked,
+                    needs_room=needs_room,
                 )
             )
             members[mr.id] = [mr.id]
-        if params.get("merge_joint_lectures", True):
+        if run_mode(params, "merge_joint_lectures"):
             events, merged = merge_joint_lectures(events, members, {r.id: r.capacity for r in rooms})
             if merged:
                 run.stats = {
@@ -320,19 +387,31 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 extra_weeks.add(week)  # exam dated outside the term's lecture weeks (e.g. early finals)
             size = sum(int(r.enrolment or 0) for r in rows)
             tags = {str(t) for r in rows for t in (r.requested_tags or [])}
-            definitive = [int(x) for r in rows for x in (r.definitive_room_ids or []) if int(x) in room_ids]
-            definitive = list(dict.fromkeys(definitive))
+            definitive, outside = split_definitive([x for r in rows for x in (r.definitive_room_ids or [])])
             locked = None
-            if all(r.status == "LOCKED" for r in rows) and definitive:
-                locked = sm.Assignment(
-                    head.id,
-                    head_date.isoweekday(),
-                    head_start,
-                    head_end,
-                    tuple(definitive),
-                    frozenset({week}),
-                    head_date,
-                )
+            exam_needs_room = True
+            is_locked = all(r.status == "LOCKED" for r in rows) and bool(definitive or outside)
+            exam_preferred = list(
+                dict.fromkeys(int(x) for r in rows for x in (r.requested_room_ids or []) if int(x) in room_ids)
+            )
+            if is_locked and definitive_mode == "lock":
+                if definitive:
+                    locked = sm.Assignment(
+                        head.id,
+                        head_date.isoweekday(),
+                        head_start,
+                        head_end,
+                        tuple(definitive),
+                        frozenset({week}),
+                        head_date,
+                    )
+                else:
+                    exam_needs_room = False
+                if outside:
+                    outside_pool[head.id] = outside
+            elif is_locked and definitive_mode == "prefer":
+                exam_preferred = list(dict.fromkeys([*definitive, *exam_preferred]))
+            tip_ok = is_locked and any(r.id in definitive and "TIP" in (r.tags or []) for r in rooms_db)
             cohort = frozenset().union(
                 *(
                     _cohort_keys(r.program.canonical_name if r.program else None, r.class_years or [r.class_year])
@@ -340,6 +419,8 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 )
             )
             max_rooms = max(int(r.requested_room_count or 0) for r in rows) or 3
+            if is_locked and definitive and definitive_mode != "lock":
+                max_rooms = max(max_rooms, len(definitive))
             if locked is not None:
                 # the planner's definitive room set is the room count; a single locked room may then be
                 # shared with other exams (the solver only shares single-room events)
@@ -357,10 +438,9 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     allowed_days=frozenset({head_date.isoweekday()}),
                     fixed_date=head_date,
                     required_tags=frozenset({"PC"} & tags),
-                    forbidden_tags=frozenset() if "TIP" in tags or locked else frozenset({"TIP"}),
-                    preferred_room_ids=tuple(
-                        dict.fromkeys(int(x) for r in rows for x in (r.requested_room_ids or []) if int(x) in room_ids)
-                    ),
+                    forbidden_tags=frozenset() if "TIP" in tags or locked or tip_ok else frozenset({"TIP"}),
+                    preferred_room_ids=tuple(exam_preferred),
+                    needs_room=exam_needs_room,
                     preferred_building=head.requested_building,
                     max_rooms=max(max_rooms, 1),
                     cohort_keys=cohort,
@@ -472,7 +552,52 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         seed=int(params.get("seed", 0)),
         workers=int(params.get("workers", 8)),
         weights=dict(params.get("weights", {})),
+        trust_locked_rooms=run_mode(params, "trust_locked_rooms"),
+        fixed_conflicts_as_warnings=run_mode(params, "fixed_conflicts_as_warnings"),
+        best_effort=run_mode(params, "best_effort"),
     )
+    if outside_pool:
+        head_of_member = {m: h for h, ms in members.items() for m in ms}
+        by_event: dict[int, list[int]] = defaultdict(list)
+        for rid, rooms_out in outside_pool.items():
+            by_event[head_of_member.get(rid, rid)].extend(rooms_out)
+        ev_by_id = {e.id: e for e in inp.events}
+        lines = []
+        for eid, rids in sorted(by_event.items()):
+            held = ev_by_id.get(eid)
+            if held is None:
+                continue
+            codes = ", ".join(all_rooms.get(r, str(r)) for r in dict.fromkeys(rids))
+            lines.append((eid, f"{held.label} ({codes})", held.needs_room))
+        kept_out = [x for x in lines if not x[2]]
+        partly = [x for x in lines if x[2]]
+        if kept_out:
+            bridge_diags.append(
+                _bridge_diag(
+                    [x[0] for x in kept_out][:200],
+                    f"{len(kept_out)} locked request(s) sit in the planner's room outside the bookable pool "
+                    "(no capacity known) and keep it; times, cohorts and instructors still count: "
+                    + "; ".join(x[1] for x in kept_out[:10])
+                    + (" ..." if len(kept_out) > 10 else ""),
+                    ["add these rooms with a capacity to the room master to let the solver check them"],
+                    "outside_room_pool",
+                )
+            )
+        if partly:
+            bridge_diags.append(
+                _bridge_diag(
+                    [x[0] for x in partly][:200],
+                    f"{len(partly)} locked request(s) also use a room outside the bookable pool; only their pooled "
+                    "rooms are checked: " + "; ".join(x[1] for x in partly[:10]) + (" ..." if len(partly) > 10 else ""),
+                    ["add these rooms with a capacity to the room master"],
+                    "outside_room_pool",
+                )
+            )
+        run.stats = {
+            **(run.stats or {}),
+            "outside_pool_rooms": {str(k): list(dict.fromkeys(v)) for k, v in by_event.items()},
+        }
+    run.stats = {**(run.stats or {}), "bridge_diagnoses": bridge_diags}
     return inp, members
 
 
@@ -485,7 +610,11 @@ async def persist_result(
     await session.execute(delete(Assignment).where(Assignment.run_id == run.id, Assignment.origin == "SOLVER"))
     count = 0
     exam = run.kind == "EXAM"
+    stats_in = dict(run.stats or {})
+    outside = {int(k): [int(r) for r in v] for k, v in (stats_in.get("outside_pool_rooms") or {}).items()}
     for a in result.assignments:
+        if a.event_id in outside:  # the planner's room outside the pool (kept, not checked by the solver)
+            a = replace(a, room_ids=tuple(dict.fromkeys([*a.room_ids, *outside[a.event_id]])))
         for req_id in members.get(a.event_id, [a.event_id]):
             weeks = sorted(a.weeks)
             session.add(
@@ -508,17 +637,44 @@ async def persist_result(
     run.hard_score = result.hard_score
     run.soft_score = result.soft_score
     run.objective_value = float(sum(result.objective_breakdown.values())) if result.objective_breakdown else None
+    bridge_diags = list(stats_in.pop("bridge_diagnoses", None) or [])
     run.stats = {
-        **(run.stats or {}),
+        **stats_in,
         **result.stats,
         "objective_breakdown": dict(result.objective_breakdown),
         "assignments": count,
         "progress": 100,
     }
-    run.diagnosis = [asdict(d) for d in result.diagnoses]
+    diags = [asdict(d) for d in result.diagnoses] + bridge_diags
+    run.stats["warnings_by_code"] = dict(
+        sorted(Counter(str(d.get("code") or "other") for d in diags if d.get("severity") != "error").items())
+    )
+    run.stats["errors_by_code"] = dict(
+        sorted(Counter(str(d.get("code") or "other") for d in diags if d.get("severity") == "error").items())
+    )
+    run.diagnosis = await _humanize(session, diags)
     run.finished_at = datetime.now(UTC).replace(tzinfo=None)
     await session.commit()
     return count
+
+
+_INS_RX = re.compile(r"INS:(\d+)")
+
+
+async def _humanize(session: AsyncSession, diags: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """``instructor 'INS:42'`` -> ``instructor 'INS:42' (Dr. Ayşe Kaya)`` in diagnosis texts."""
+    ids = {int(m) for d in diags for m in _INS_RX.findall(str(d.get("message", "")))}
+    if not ids:
+        return diags
+    rows = (await session.execute(select(Instructor.id, Instructor.full_name).where(Instructor.id.in_(ids)))).all()
+    names: dict[int, str] = {int(i): str(n) for i, n in rows}
+
+    def sub(text: str) -> str:
+        return _INS_RX.sub(
+            lambda m: f"INS:{m.group(1)} ({names[int(m.group(1))]})" if int(m.group(1)) in names else m.group(0), text
+        )
+
+    return [{**d, "message": sub(str(d.get("message", "")))} for d in diags]
 
 
 async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn | None = None) -> dict[str, Any]:

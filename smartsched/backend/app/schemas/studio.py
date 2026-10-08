@@ -203,6 +203,7 @@ class PrecheckItem(BaseModel):
     id: str
     category: Literal["impossible", "clash", "no_match", "info"]
     severity: Literal["error", "warning", "info"]
+    group: str  # capacity | room_tags | locked_ineligible | pigeonhole | instructor_clash | rule_no_match | ...
     title: Text2
     message: Text2
     detail: str = ""  # the solver's own sentence (advanced layer)
@@ -218,6 +219,7 @@ class PrecheckOut(BaseModel):
     version: int
     readiness: Literal["ready", "needs_look", "blocked"]
     counts: dict[str, int]
+    groups: list[dict[str, Any]] = []  # [{group, title, severity, count}] for "> 20 issues: grouped by cause"
     items: list[PrecheckItem]
     estimate_s: dict[str, Any]
     summary: Text2

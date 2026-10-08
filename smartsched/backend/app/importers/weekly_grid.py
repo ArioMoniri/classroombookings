@@ -7,6 +7,7 @@ Layout: row 1 = day labels merged over 29 columns each; header rows (2, 22, 44 �
 from __future__ import annotations
 
 import re
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
@@ -60,6 +61,19 @@ class GridSheet:
     entries: list[GridEntry]
     header_rows: list[int]
     warnings: list[str] = field(default_factory=list)
+    #: capacity of the first (Monday) header copy of a room, per header row of this sheet
+    header_caps: dict[str, list[int]] = field(default_factory=dict)
+
+
+@dataclass
+class RoomFacts:
+    """Consolidated room master from a workbook's headers (see :func:`consolidate_rooms`)."""
+
+    code: str
+    display_name: str
+    capacity: int | None
+    exam_capacity: int | None
+    tags: list[str]
 
 
 @dataclass
@@ -174,6 +188,7 @@ def parse_sheet(ws: Any, index: int, year: int, default_kind: str = "LECTURE") -
     col_rooms: dict[int, n.RoomHeader] = {}
     row_period: dict[int, int] = {}
     block_rows: list[int] = []
+    header_caps: dict[str, list[int]] = {}
 
     def flush_block() -> None:
         if not col_rooms or not block_rows:
@@ -234,7 +249,13 @@ def parse_sheet(ws: Any, index: int, year: int, default_kind: str = "LECTURE") -
                 col_rooms = headers
                 row_period = {}
                 block_rows = []
+                first_in_row: set[str] = set()
                 for h in headers.values():
+                    # the header row repeats per day block; the first (Monday) copy is the master: Bahar
+                    # writes "A 103 (47)" on Mon/Tue and a stale "(33)" on the other days
+                    if h.capacity and h.code not in first_in_row:
+                        header_caps.setdefault(h.code, []).append(h.capacity)
+                    first_in_row.add(h.code)
                     prev = rooms.get(h.code)
                     if prev is None or (prev.capacity is None and h.capacity):
                         rooms[h.code] = h
@@ -269,6 +290,7 @@ def parse_sheet(ws: Any, index: int, year: int, default_kind: str = "LECTURE") -
         entries=entries,
         header_rows=header_rows,
         warnings=warnings,
+        header_caps=header_caps,
     )
 
 
@@ -290,6 +312,65 @@ def parse_weekly_grid(
                 rooms[code] = h
     wb.close()
     return ParsedGrid(out, rooms, warnings)
+
+
+def _mode(values: list[int], prefer_low: bool) -> int | None:
+    """Most frequent value; ties -> the smaller (exam seating, conservative) or the larger one."""
+    if not values:
+        return None
+    counts = Counter(values)
+    best = max(counts.values())
+    tied = [v for v, c in counts.items() if c == best]
+    return min(tied) if prefer_low else max(tied)
+
+
+def consolidate_rooms(parsed: ParsedGrid, exam_workbook: bool) -> tuple[dict[str, RoomFacts], list[str]]:
+    """One capacity per room from all header occurrences of a workbook.
+
+    * **Lecture-week sheets** are the only source of *lecture* capacity: the most frequent value of the
+      first (Monday) header copy (Bahar writes ``A 103 (47)`` on Monday/Tuesday of each lecture week and
+      ``(33)`` elsewhere and on the Final/BÜT/summer sheets; Sayfa2 confirms 47; the old importer let the
+      last sheet win, so A 103 became a 33-seat lab).
+    * **Exam-week sheets** (Final/BÜT/summer) give *exam* capacity only.  In a dedicated exam workbook
+      (all sheets are exam weeks) every header is exam seating (ties -> the smaller value: ``A 203`` is
+      written ``(148)`` and ``(74)``).  In a term workbook most exam-week headers are copies of the
+      lecture header; only a value *smaller* than the room's lecture header is taken as its exam
+      capacity (reported as a warning so the planner can confirm it).
+    * Tags (``TIP``, ``PC``) are the union over all sheets.
+    """
+    lecture: dict[str, list[int]] = defaultdict(list)
+    exam: dict[str, list[int]] = defaultdict(list)
+    for sheet in parsed.sheets:
+        target = exam if (exam_workbook or sheet.kind != "LECTURE") else lecture
+        for code, caps in sheet.header_caps.items():
+            target[code].extend(caps)
+    tags: dict[str, list[str]] = defaultdict(list)
+    names: dict[str, str] = {}
+    for sheet in parsed.sheets:
+        for code, h in sheet.rooms.items():
+            names.setdefault(code, h.display_name)
+            tags[code] = list(dict.fromkeys([*tags[code], *h.tags]))
+    warnings: list[str] = []
+    out: dict[str, RoomFacts] = {}
+    for code in sorted(names):
+        cap = None if exam_workbook else _mode(lecture.get(code, []), prefer_low=False)
+        if cap is not None and len(set(lecture[code])) > 1:
+            warnings.append(f"room {code}: lecture headers disagree {sorted(set(lecture[code]))}; using {cap}")
+        exam_cap: int | None
+        if exam_workbook:
+            exam_cap = _mode(exam.get(code, []), prefer_low=True)
+            if exam_cap is not None and len(set(exam[code])) > 1:
+                warnings.append(f"room {code}: exam headers disagree {sorted(set(exam[code]))}; using {exam_cap}")
+        else:
+            # exam seating is never larger than the lecture seating (A 306 (48) on a BÜT sheet is a typo)
+            differing = [c for c in exam.get(code, []) if cap is None or c < cap]
+            exam_cap = _mode(differing, prefer_low=True)
+            if exam_cap is not None:
+                warnings.append(
+                    f"room {code}: exam-week headers say ({exam_cap}) vs lecture ({cap}); taken as exam capacity"
+                )
+        out[code] = RoomFacts(code, names[code], cap, exam_cap, tags[code])
+    return out, warnings
 
 
 async def import_weekly_grid(
@@ -345,16 +426,17 @@ async def import_weekly_grid(
     # a term workbook reuses the lecture headers even on its Final sheets.
     exam_workbook = bool(parsed.sheets) and all(s.kind in {"EXAM", "MAKEUP"} for s in parsed.sheets)
     report.extra["capacity_kind"] = "exam" if exam_workbook else "lecture"
-    for s in parsed.sheets:
-        exam = exam_workbook
-        for code, h in s.rooms.items():
-            await cat.room(
-                code,
-                display_name=h.display_name,
-                capacity=None if exam else h.capacity,
-                exam_capacity=h.capacity if exam else None,
-                tags=h.tags,
-            )
+    facts, room_warnings = consolidate_rooms(parsed, exam_workbook)
+    report.warnings.extend(room_warnings)
+    for code, f in facts.items():
+        await cat.room(
+            code,
+            display_name=f.display_name,
+            capacity=f.capacity,
+            exam_capacity=f.exam_capacity,
+            tags=f.tags,
+            source=f"grid:{filename}",
+        )
     await session.flush()
 
     # runs holding imported assignments: one per kind
@@ -495,6 +577,7 @@ async def import_weekly_grid(
             b.archived = True
             report.updated["blocks_archived"] += 1
     report.rows_total = len(parsed.entries)
+    await cat.finalize_rooms(lecture_side=not exam_workbook)
     report.extra.update(
         sheets=len(parsed.sheets),
         rooms=len(parsed.rooms),

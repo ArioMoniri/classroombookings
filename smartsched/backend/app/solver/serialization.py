@@ -159,6 +159,9 @@ def input_to_dict(inp: SolverInput) -> dict[str, Any]:
         "seed": inp.seed,
         "workers": inp.workers,
         "weights": dict(inp.weights),
+        "trust_locked_rooms": inp.trust_locked_rooms,
+        "fixed_conflicts_as_warnings": inp.fixed_conflicts_as_warnings,
+        "best_effort": inp.best_effort,
     }
 
 
@@ -176,6 +179,9 @@ def input_from_dict(d: Mapping[str, Any]) -> SolverInput:
         seed=int(d.get("seed", 0)),
         workers=int(d.get("workers", 8)),
         weights={str(k): int(v) for k, v in d.get("weights", {}).items()},
+        trust_locked_rooms=bool(d.get("trust_locked_rooms", False)),
+        fixed_conflicts_as_warnings=bool(d.get("fixed_conflicts_as_warnings", False)),
+        best_effort=bool(d.get("best_effort", False)),
     )
 
 
@@ -205,6 +211,7 @@ def result_from_dict(d: Mapping[str, Any]) -> SolverResult:
                 str(x.get("message", "")),
                 list(x.get("suggestions", [])),
                 str(x.get("severity", "error")),
+                str(x.get("code", "")),
             )
             for x in d.get("diagnoses", [])
         ],

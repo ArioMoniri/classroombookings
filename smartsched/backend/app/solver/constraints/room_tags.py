@@ -57,6 +57,8 @@ def score(ev: Evaluation, c: Constraint) -> None:
             continue
         if not c.hard:
             ev.add_bound("room_tags", (len(req) + len(forb)) * max(1, event.max_rooms) * w)
+        if c.hard and not is_targeted(c) and ev.trusted(event.id):
+            continue  # trust_locked_rooms: the planner's room; reported as a warning by the static check
         for room in ev.rooms_of(event.id):
             units = _bad(room, req, forb)
             if not units:

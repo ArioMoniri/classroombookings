@@ -95,6 +95,17 @@ class SolverInput:
     seed: int = 0
     workers: int = 8
     weights: Mapping[str, int] = field(default_factory=dict)  # soft objective weights by name
+    # --- real-data modes (README "Real-data modes"); all off by default = strict semantics -----------
+    #: a locked room set is the planner's decision: kept even when smaller than ``size`` (enrolments are
+    #: estimates); reported as a ``trusted_lock_capacity`` warning instead of a hard violation
+    trust_locked_rooms: bool = False
+    #: two fixed-time events sharing a cohort/instructor key at overlapping times: no room choice can fix
+    #: that, so the key's no-overlap is dropped for exactly that pair and reported as an ``input_conflict``
+    #: warning (flexible events still respect every key against everything)
+    fixed_conflicts_as_warnings: bool = False
+    #: an infeasible instance still returns the maximum placement (status INFEASIBLE, ``stats.partial``,
+    #: ``stats.placed`` / ``stats.unplaced``; hard/soft scores are those of the placed events)
+    best_effort: bool = False
 
 
 @dataclass
@@ -103,7 +114,10 @@ class Diagnosis:
     constraint_kinds: list[str]
     message: str
     suggestions: list[str]
-    severity: str
+    severity: str  # error | warning | info
+    #: machine-readable category, e.g. ``trusted_lock_capacity``, ``input_conflict``, ``unplaced``,
+    #: ``no_room``, ``locked_overlap``, ``pigeonhole``, ``core`` (see app/solver/README.md "Diagnosis codes")
+    code: str = ""
 
 
 @dataclass

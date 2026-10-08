@@ -7,9 +7,11 @@ instead).  Two events in disjoint weeks (1–7 vs 8–14) never meet, so they ma
 Blocks are fixed intervals in the same constraint (and pruned from fixed-time events' domains).
 
 ``Event.share_room`` (small exams invigilated together): sharing events in a room are limited by a
-``Cumulative`` per (room, week class) — demand = event size, capacity = the room's exam capacity
-(lecture capacity if no sharing event is an exam); exclusive events and blocks enter it with demand
-= capacity, so a non-sharing event in a room-period excludes everything else.
+``Cumulative`` per (room, week class) — demand = the seats the event takes in that room (its size for
+a single-room event, the ``seats[e, r]`` variable of a split exam, see :mod:`app.solver.seats`),
+capacity = the room's exam capacity (lecture capacity if no sharing event is an exam); exclusive
+events and blocks enter it with demand = capacity, so a non-sharing event in a room-period excludes
+everything else.
 Always hard.  Assumption guard per room: ``room:<code>``.
 """
 
@@ -23,6 +25,7 @@ from app.solver.context import ModelContext
 from app.solver.domains import shares_room, sharing_capacity, weeks_intersect
 from app.solver.evaluate import Evaluation, room_occupancy
 from app.solver.model import Constraint, Event
+from app.solver.seats import seat_conflicts, seat_target
 
 #: "2d" = one NoOverlap2D per room (time × week runs); "classes" = one NoOverlap per week class
 ROOM_ENCODING = os.environ.get("SMARTSCHED_ROOM_ENCODING", "2d")
@@ -61,7 +64,11 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
             continue
         room = ctx.rooms_by_id[rid]
         cap = sharing_capacity(room, [e for _, _, e in shared])
-        entries: list[tuple[tuple[object, int], frozenset[int]]] = [((iv, e.size), w) for iv, w, e in shared]
+        # demand = seats the event takes in this room: its size (single room, capped by the room for a
+        # trusted lock) or the seats[e, r] variable of a split exam (app/solver/seats.py)
+        entries: list[tuple[tuple[object, object], frozenset[int]]] = [
+            ((iv, ctx.seat_demand(e.id, rid)), w) for iv, w, e in shared
+        ]
         entries += [((iv, cap), w) for iv, w in items]
         for cgroup in week_classes(entries):
             ctx.model.AddCumulative([iv for iv, _ in cgroup], [d for _, d in cgroup], cap)
@@ -70,28 +77,23 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
 def score(ev: Evaluation, c: Constraint) -> None:
     occ = room_occupancy(ev)
     seen: set[tuple[int, int, int]] = set()
-    seen_share: set[tuple[int, int, int, tuple[int, ...]]] = set()
+    # seat budgets of shared rooms (single- and multi-room sharing events, app/solver/seats.py)
+    for ids, room_ids, day, p, wk in seat_conflicts(ev.inp, ev.events_by_id, ev.rooms_by_id, ev.by_event):
+        events = [ev.events_by_id[i] for i in ids]
+        cap = sum(sharing_capacity(ev.rooms_by_id[r], events) for r in room_ids)
+        total = sum(seat_target(e, ev.by_event[e.id].room_ids, ev.rooms_by_id) for e in events)
+        labels = ", ".join(f"{e.label} ({e.size})" for e in events)
+        codes = " + ".join(ev.rooms_by_id[r].code for r in room_ids)
+        ev.hard(
+            "no_room_overlap",
+            list(ids),
+            f"shared room{'s' if len(room_ids) > 1 else ''} {codes} on day {day} P{p} (week {wk}) "
+            f"seat{'' if len(room_ids) > 1 else 's'} {cap} but the exams need {total}: {labels}",
+            list(room_ids),
+        )
     for (rid, day, p), eids in occ.items():
         if len(eids) < 2:
             continue
-        sharers = [i for i in eids if shares_room(ev.events_by_id[i])]
-        if len(sharers) >= 2 and rid in ev.rooms_by_id:
-            # seat budget per week among sharing events
-            shared_room = ev.rooms_by_id[rid]
-            cap = sharing_capacity(shared_room, [ev.events_by_id[i] for i in sharers])
-            for wk in ev.inp.weeks:
-                ids = tuple(sorted(i for i in sharers if wk in ev.events_by_id[i].weeks))
-                total = sum(ev.events_by_id[i].size for i in ids)
-                if len(ids) >= 2 and total > cap and (rid, day, p, ids) not in seen_share:
-                    seen_share.add((rid, day, p, ids))
-                    labels = ", ".join(f"{ev.events_by_id[i].label} ({ev.events_by_id[i].size})" for i in ids)
-                    ev.hard(
-                        "no_room_overlap",
-                        list(ids),
-                        f"shared room {shared_room.code} on day {day} P{p} (week {wk}) "
-                        f"seats {cap} but holds {total}: {labels}",
-                        [rid],
-                    )
         for a, b in pairs(sorted(eids)):
             if shares_room(ev.events_by_id[a]) and shares_room(ev.events_by_id[b]):
                 continue

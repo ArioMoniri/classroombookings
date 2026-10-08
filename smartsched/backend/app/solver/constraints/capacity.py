@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from app.solver.constraints._common import is_targeted, select_events
 from app.solver.context import ModelContext
-from app.solver.domains import Domains, effective_capacity
+from app.solver.domains import Domains, effective_capacity, trusted_lock
 from app.solver.evaluate import Evaluation
 from app.solver.model import Constraint, Event
 from app.solver.weights import constraint_weight
@@ -68,6 +68,8 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
     for event in events:
         if not event.needs_room or event.max_rooms > 1:
             continue
+        if not targeted and trusted_lock(ctx.inp, event):
+            continue  # the planner's room: a warning, never a penalty (score() skips it too)
         need = _required(c, event)
         dom = ctx.domain(event.id)
         for rid in dom.rooms:
@@ -101,6 +103,8 @@ def score(ev: Evaluation, c: Constraint) -> None:
         total = sum(effective_capacity(r, event) for r in rooms)
         if total >= need:
             continue
+        if not targeted and ev.trusted(event.id):
+            continue  # trust_locked_rooms: the planner's room; reported as a warning by the static check
         msg = f"{event.label} needs {need} seats but {', '.join(r.code for r in rooms) or 'no room'} offers {total}"
         if c.hard:
             ev.hard("capacity", [event.id], msg, list(a.room_ids))

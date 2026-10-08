@@ -213,7 +213,7 @@ export const ImportJob = z.object({
 export type ImportJob = z.infer<typeof ImportJob>;
 
 export const Hardness = z.enum(["hard", "soft"]);
-export const ConstraintSource = z.enum(["FILE", "ADMIN", "AI"]);
+export const ConstraintSource = z.enum(["FILE", "ADMIN", "AI", "UPLOAD", "BUILTIN"]);
 export const Constraint = z.object({
   id: z.number(),
   term_id: z.number(),

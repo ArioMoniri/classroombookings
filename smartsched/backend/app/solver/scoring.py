@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 from app.solver.constraints import HANDLERS, effective_constraints
+from app.solver.domains import normalize_input
 from app.solver.evaluate import Evaluation, index_assignments
 from app.solver.model import Assignment, SolverInput
 
 
 def evaluate(inp: SolverInput, assignments: list[Assignment] | tuple[Assignment, ...]) -> Evaluation:
-    constraints, _warnings, _soft = effective_constraints(inp)
+    inp = normalize_input(inp)
+    constraints, _warnings, soft = effective_constraints(inp)
     rooms_by_id = {r.id: r for r in inp.rooms}
     events_by_id = {e.id: e for e in inp.events}
-    ev = Evaluation(inp, index_assignments(assignments), rooms_by_id, events_by_id)
+    ev = Evaluation(inp, index_assignments(assignments), rooms_by_id, events_by_id, soft_structural=soft)
     seen: set[int] = set()
     for a in assignments:
         if a.event_id in seen:

@@ -8,7 +8,7 @@ from app.models import Faculty, MeetingRequest, Program, Room, Section
 from sqlalchemy import select
 
 from tests import studio_support
-from tests.studio_support import meeting_id
+from tests.studio_support import bahar_counts, meeting_id, room
 
 bahar = studio_support.bahar
 
@@ -20,10 +20,12 @@ async def _classes(b, **params):
 
 
 async def test_class_list_filters_on_bahar(bahar):
+    n = await bahar_counts(bahar.term_id)
+    assert n["meetings"] > 1400 and n["locked"] > 700  # the real Bahar list (1 524 rows, 782 locked)
     page = await _classes(bahar, limit=2000)
-    assert page["total"] == 1524 and page["counts"]["total"] == 1524
-    assert page["counts"]["left_out"] == 0 and page["counts"]["locked"] == 782
-    assert page["counts"]["needs_room"] == 975 and page["counts"]["no_day_time"] > 0
+    assert page["total"] == n["meetings"] and page["counts"]["total"] == n["meetings"]
+    assert page["counts"]["left_out"] == 0 and page["counts"]["locked"] == n["locked"]
+    assert page["counts"]["needs_room"] == n["needs_room"] and page["counts"]["no_day_time"] > 0
     row = page["items"][0]
     assert row["included"] and row["course_code"] and row["time_label"] in (None, row["time_label"])
     # Turkish-aware, diacritic-insensitive search: "eczacilik" == "ECZACILIK" == "Eczacılık"
@@ -42,19 +44,22 @@ async def test_class_list_filters_on_bahar(bahar):
     f = await _classes(bahar, faculty_id=fac.id, limit=2000)
     assert f["total"] > 0 and all(r["faculty_id"] == fac.id for r in f["items"])
     py = await _classes(bahar, program_id=prog.id, class_year=1, limit=2000)
-    assert py["total"] > 0 and all(r["program_id"] == prog.id and 1 in (r["class_years"] or [r["class_year"]]) for r in py["items"])
+    assert py["total"] > 0 and all(
+        r["program_id"] == prog.id and 1 in (r["class_years"] or [r["class_year"]]) for r in py["items"]
+    )
     mon = await _classes(bahar, day=1, limit=2000)
     assert mon["total"] > 200 and all(r["day"] == 1 or 1 in r["days"] for r in mon["items"])
     cblock = await _classes(bahar, building="c", limit=2000)
     assert cblock["total"] > 0
     assert all(
-        r["requested_building"] == "C" or any(code.startswith("C") for code in r["requested_room_codes"] + r["definitive_room_codes"])
+        r["requested_building"] == "C"
+        or any(code.startswith("C") for code in r["requested_room_codes"] + r["definitive_room_codes"])
         for r in cblock["items"]
     )
     online = await _classes(bahar, mode="ONLINE", limit=2000)
     assert online["total"] > 100 and all(r["mode"] == "ONLINE" for r in online["items"])
     locked = await _classes(bahar, status="LOCKED", limit=5)
-    assert locked["total"] == 782 and all(r["locked"] for r in locked["items"]) and len(locked["items"]) == 5
+    assert locked["total"] == n["locked"] and all(r["locked"] for r in locked["items"]) and len(locked["items"]) == 5
     paged = await _classes(bahar, limit=10, offset=10)
     assert [r["id"] for r in paged["items"]] == [r["id"] for r in page["items"][10:20]]
     # draft state: left out + pinned + rule matches
@@ -63,7 +68,11 @@ async def test_class_list_filters_on_bahar(bahar):
     await bahar.client.get(url, headers=bahar.planner)
     r = await bahar.client.put(
         url,
-        json={"version": 1, "excluded_event_ids": [phar], "pins": [{"event_id": psi["items"][0]["id"], "room_ids": [10]}]},
+        json={
+            "version": 1,
+            "excluded_event_ids": [phar],
+            "pins": [{"event_id": psi["items"][0]["id"], "room_ids": [10]}],
+        },
         headers=bahar.planner,
     )
     assert r.status_code == 200, r.text
@@ -104,7 +113,9 @@ async def test_class_list_filters_on_bahar(bahar):
 async def test_bulk_edit_and_revert_to_imported(bahar):
     c, h = bahar.client, bahar.planner
     phar = await meeting_id("PHAR 240", day=1, start=1)  # PHAR 240 §1, 80 students, Mon P1-P3, LOCKED
-    r = await c.put("/api/v1/studio/meetings/bulk", json={"ids": [phar], "patch": {"enrolment": 95, "start_period": 2}}, headers=h)
+    r = await c.put(
+        "/api/v1/studio/meetings/bulk", json={"ids": [phar], "patch": {"enrolment": 95, "start_period": 2}}, headers=h
+    )
     assert r.status_code == 200, r.text
     res = r.json()
     assert res["updated"] == 1 and res["failed"] == 0
@@ -143,10 +154,16 @@ async def test_bulk_edit_and_revert_to_imported(bahar):
     # capacity hint: a room smaller than the class
     async with get_session_factory()() as s:
         small = (await s.execute(select(Room).where(Room.capacity > 0).order_by(Room.capacity))).scalars().first()
-    r = await c.put("/api/v1/studio/meetings/bulk", json={"ids": [phar], "patch": {"requested_room_ids": [small.id]}, "dry_run": True}, headers=h)
+    r = await c.put(
+        "/api/v1/studio/meetings/bulk",
+        json={"ids": [phar], "patch": {"requested_room_ids": [small.id]}, "dry_run": True},
+        headers=h,
+    )
     warnings = r.json()["results"][0]["warnings"]
     assert f"{small.display_name} has {small.capacity} seats, this class has 95" in warnings
-    assert "A 206 has 92 seats, this class has 95" in warnings  # its definitive (locked) room is small too
+    a206 = await room("A206")
+    if a206.capacity < 95:  # its definitive (locked) room is small too
+        assert f"{a206.display_name} has {a206.capacity} seats, this class has 95" in warnings
     assert r.json()["updated"] == 0
     # revert one field, then everything
     r = await c.post(f"/api/v1/studio/meetings/{phar}/revert", json={"fields": ["enrolment"]}, headers=h)

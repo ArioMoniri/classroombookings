@@ -8,6 +8,7 @@ from datetime import time
 from pathlib import Path
 from typing import Any
 
+import openpyxl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -101,11 +102,60 @@ class PlanningRow:
 
 
 @dataclass
+class CapacityEntry:
+    """One room of a capacity bucket in the list's summary sheet (Bahar ``Sayfa2``)."""
+
+    code: str
+    capacity: int | None
+    bucket: int  # column index of the bucket's DERSLİK column
+    raw: str
+    pc_lab: bool = False  # the bucket is the computer-lab bucket
+
+
+@dataclass
 class ParsedPlanningList:
     rows: list[PlanningRow]
     rows_total: int
     skipped: list[tuple[int, str, str | None]]
     headers: list[str | None]
+    capacities: list[CapacityEntry] = field(default_factory=list)
+
+
+def parse_capacity_buckets(path: str | Path, skip_sheet: int = 0) -> list[CapacityEntry]:
+    """Room capacity buckets from the summary sheet(s): every ``DERSLİK`` header cell followed by a
+    ``KAPASİTE`` cell starts a bucket (two columns, rooms listed downwards).  A bucket that contains a
+    computer-lab nickname (``B BİLGİ LAB``) is the computer-lab bucket: all its rooms are PC labs (Bahar:
+    A 103 / A 104 / A 105 / B 207, matching the summary count "Bilgisayar 4")."""
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    out: list[CapacityEntry] = []
+    try:
+        for idx, ws in enumerate(wb.worksheets):
+            if idx == skip_sheet:
+                continue
+            grid = [list(r) for r in ws.iter_rows(min_row=1, max_row=200, max_col=60, values_only=True)]
+            for r, row in enumerate(grid):
+                for c in range(len(row) - 1):
+                    if n.tr_casefold(n.clean_text(row[c]) or "") != "derslik":
+                        continue
+                    if not n.tr_casefold(n.clean_text(row[c + 1]) or "").startswith("kapasite"):
+                        continue
+                    bucket: list[CapacityEntry] = []
+                    for below in grid[r + 1 :]:
+                        raw = n.clean_text(below[c]) if c < len(below) else None
+                        if raw is None:
+                            break
+                        codes = n.parse_room_codes(raw)
+                        if len(codes) != 1:
+                            continue
+                        cap = n.parse_int_loose(below[c + 1]) if c + 1 < len(below) else None
+                        bucket.append(CapacityEntry(codes[0], cap or None, c, raw))
+                    if any(n.is_pc_lab_text(e.raw) for e in bucket):
+                        for e in bucket:
+                            e.pc_lab = True
+                    out.extend(bucket)
+    finally:
+        wb.close()
+    return out
 
 
 def _get(values: tuple[Any, ...], mapping: dict[str, int], key: str) -> Any:
@@ -204,7 +254,8 @@ def parse_planning_list(path: str | Path, sheet: str | int = 0, max_week: int = 
             skipped.append((row, res[0], res[1]))
         else:
             parsed.append(res)
-    return ParsedPlanningList(parsed, total, skipped, headers)
+    capacities = parse_capacity_buckets(path, skip_sheet=sheet if isinstance(sheet, int) else 0)
+    return ParsedPlanningList(parsed, total, skipped, headers, capacities)
 
 
 async def import_planning_list(
@@ -223,6 +274,14 @@ async def import_planning_list(
         report.skip(row, reason, detail)
     cat = Catalog(session, report)
     term = await cat.term(term_code, name=term_name, week_count=week_count)
+    # room master facts from the summary sheet: lecture capacities + the computer-lab bucket
+    for e in parsed.capacities:
+        await cat.room(
+            e.code, capacity=e.capacity, tags=["PC"] if e.pc_lab else None, source=f"planning-list:{report.filename}"
+        )
+    report.extra["capacity_buckets"] = len({e.bucket for e in parsed.capacities})
+    report.extra["pc_labs"] = sorted({e.code for e in parsed.capacities if e.pc_lab})
+    pc_from_text: set[str] = set()
 
     existing_sections = {
         s.source_key: s for s in (await session.execute(select(Section).where(Section.term_id == term.id))).scalars()
@@ -307,6 +366,13 @@ async def import_planning_list(
                 with_periods += 1
         requested_ids = await cat.room_ids(r.venue.room_codes, create=False)
         definitive_ids = await cat.room_ids(r.definitive.room_codes, create=True)
+        # "C 202 BİLG. LAB. ZORUNLU PLANLANDI", "A 105 nolu bilgi lab": the named room is a computer lab
+        for lab_text in (r.definitive.raw, r.venue.raw):
+            for code in n.pc_lab_rooms(lab_text):
+                room = await cat.room(code, create=False)
+                if room is not None and "PC" not in (room.tags or []):
+                    await cat.room(code, tags=["PC"])
+                    pc_from_text.add(code)
         status = "PARSED"
         if r.definitive.status == "ROOMS":
             status = "LOCKED"
@@ -363,6 +429,10 @@ async def import_planning_list(
             sec.archived = True
             report.updated["sections_archived"] += 1
 
+    if pc_from_text:
+        report.warn(f"rooms tagged PC because a row calls them a computer lab: {', '.join(sorted(pc_from_text))}")
+        report.extra["pc_labs"] = sorted({*report.extra["pc_labs"], *pc_from_text})
+    await cat.finalize_rooms(lecture_side=True)
     report.extra["rows_with_day_time"] = with_day_time
     report.extra["rows_with_periods"] = with_periods
     report.extra["period_coverage"] = round(with_periods / with_day_time, 4) if with_day_time else None

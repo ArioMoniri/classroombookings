@@ -257,6 +257,7 @@ async def import_exam_list(
         if skey and skey not in seen_keys and not ex.archived:
             ex.archived = True
             report.updated["exam_requests_archived"] += 1
+    await cat.finalize_rooms(lecture_side=False)
     report.extra["merge_groups"] = len(merge_groups)
     report.extra["merged_rows"] = sum(c for c in merge_groups.values() if c > 1)
     await session.commit()

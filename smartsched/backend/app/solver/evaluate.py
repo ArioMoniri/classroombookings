@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from app.solver.domains import TimeOption
+from app.solver.domains import TimeOption, fixed_time_of, is_input_fixed, trusted_lock
 from app.solver.model import Assignment, Event, Room, SolverInput
 
 
@@ -32,6 +32,7 @@ class Evaluation:
     violations: list[Violation] = field(default_factory=list)
     penalties: dict[str, int] = field(default_factory=dict)  # term -> weighted penalty
     bounds: dict[str, int] = field(default_factory=dict)  # term -> weighted worst case (normalisation)
+    soft_structural: frozenset[str] = frozenset()  # structural kinds an explicit constraint made soft
 
     # ------------------------------------------------------------------ helpers
     def assignment(self, event_id: int) -> Assignment | None:
@@ -48,6 +49,30 @@ class Evaluation:
         if a is None:
             return []
         return [self.rooms_by_id[r] for r in a.room_ids if r in self.rooms_by_id]
+
+    def trusted(self, event_id: int) -> bool:
+        """``trust_locked_rooms`` and the event sits exactly in its planner-locked rooms: capacity and
+        tag mismatches of that room set are warnings (static check), not hard violations."""
+        e = self.events_by_id.get(event_id)
+        a = self.by_event.get(event_id)
+        if e is None or a is None or not trusted_lock(self.inp, e) or e.locked is None:
+            return False
+        return set(a.room_ids) == set(e.locked.room_ids)
+
+    def waived_pair(self, a: int, b: int) -> bool:
+        """``fixed_conflicts_as_warnings``: both events are fixed by the input and sit at their fixed
+        time, so their key overlap is an input conflict (reported as a warning), not a violation."""
+        if not self.inp.fixed_conflicts_as_warnings:
+            return False
+        for eid in (a, b):
+            e = self.events_by_id.get(eid)
+            t = self.time_of(eid)
+            if e is None or t is None or not is_input_fixed(e, self.soft_structural):
+                return False
+            ft = fixed_time_of(e)
+            if ft is None or (ft.day, ft.start) != (t.day, t.start):
+                return False
+        return True
 
     def hard(self, kind: str, event_ids: list[int], message: str, room_ids: list[int] | None = None) -> None:
         self.violations.append(Violation(kind, True, list(event_ids), message, list(room_ids or [])))

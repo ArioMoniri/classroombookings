@@ -388,8 +388,27 @@ def _canon_room(letter: str, num: str) -> str:
     return f"{letter.upper()}{num.upper()}"
 
 
+#: nicknames that stand for one real room.  B 207 is the B-block computer lab: the Güz list writes
+#: "B 207 Bilg. Lab.", the Bahar list "B Blok Bilg. Lab.", Bahar ``Sayfa2`` "B BİLGİ LAB" and the Bahar
+#: Final sheet header "B Blok Bilgisayar lab." (matched on the Turkish-casefolded text)
+ROOM_ALIASES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"(?<![a-zçğıöşü0-9])b\s*(?:blok\w*\s*)?bilg(?:i|isayar)?\.?\s*lab"), "B207"),
+)
+_PC_LAB_RX = re.compile(r"bilg(?:i|isayar)?\.?\s*lab|bilgisayar\s+laboratuvar")
+
+
+def room_aliases(value: Any) -> list[str]:
+    """Room codes named by a nickname (``"B Blok Bilg. Lab."`` -> ``["B207"]``)."""
+    text = clean_text(value)
+    if not text:
+        return []
+    low = tr_casefold(text)
+    return [code for rx, code in ROOM_ALIASES if rx.search(low)]
+
+
 def parse_room_codes(value: Any) -> list[str]:
-    """`A 101 / A 106`, `A107/ B 207`, `C z01`, `B 207\\nPC`, `a 106`, `C blok 601-602` -> canonical codes."""
+    """`A 101 / A 106`, `A107/ B 207`, `C z01`, `B 207\\nPC`, `a 106`, `C blok 601-602`,
+    `B Blok Bilg. Lab.` (alias of B 207) -> canonical codes."""
     text = clean_text(value)
     if not text:
         return []
@@ -397,7 +416,23 @@ def parse_room_codes(value: Any) -> list[str]:
     for m in _ROOM_BLOCK_RX.finditer(text):
         for num in re.findall(r"\d{3}", m.group(2)):
             codes.append(_canon_room(m.group(1), num))
+    codes.extend(room_aliases(text))
     return list(dict.fromkeys(codes))
+
+
+def is_pc_lab_text(value: Any) -> bool:
+    """``"A 103 BİLG. LAB. ZORUNLU"``, ``"Bilgisayar Laboratuvarı (SPSS)"``, ``"B BİLGİ LAB"``."""
+    text = clean_text(value)
+    return bool(text) and _PC_LAB_RX.search(tr_casefold(text or "")) is not None
+
+
+def pc_lab_rooms(value: Any) -> list[str]:
+    """The room a text calls a computer lab: exactly one room code next to a computer-lab phrase
+    (``"C 202 BİLG. LAB. ZORUNLU PLANLANDI"`` -> ``["C202"]``); ambiguous texts name none."""
+    if not is_pc_lab_text(value):
+        return []
+    codes = parse_room_codes(value)
+    return codes if len(codes) == 1 else []
 
 
 def display_room_code(code: str) -> str:
@@ -428,6 +463,15 @@ def parse_room_header(value: Any) -> RoomHeader | None:
     raw = str(value)
     m = _ROOM_HEADER_RX.match(raw)
     if not m:
+        alias = room_aliases(raw)  # "B Blok Bilgisayar lab." (Bahar Final sheets) = B 207
+        if len(alias) == 1 and len(raw) <= 40:
+            return RoomHeader(
+                code=alias[0],
+                display_name=display_room_code(alias[0]),
+                capacity=None,
+                tags=["PC"] if is_pc_lab_text(raw) else [],
+                raw=raw,
+            )
         return None
     rest = m.group(4) or ""
     rest_tokens = [tr_upper(t) for t in re.split(r"[\s,/]+", rest.strip()) if t]

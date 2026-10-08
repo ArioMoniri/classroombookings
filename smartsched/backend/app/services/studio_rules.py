@@ -661,6 +661,13 @@ def _norm(params: dict[str, Any] | None) -> str:
 _BUILDING_RX = re.compile(r"\b([A-Da-d])\s*[-]?\s*(?:blok|BLOK|Blok|bloğu|BLOĞU|Bloğu)")
 
 
+_ASCII = str.maketrans("İIıÇçĞğÖöŞşÜü", "IIICCGGOOSSUU")
+
+
+def _ascii_code(code: str) -> str:
+    return re.sub(r"\s+", "", str(code)).translate(_ASCII).upper()
+
+
 def _cell(v: Any) -> str:
     if v is None:
         return ""
@@ -800,6 +807,13 @@ async def _map_rows(
     edits: list[dict[str, Any]] = []
     unparsed: list[dict[str, Any]] = []
 
+    by_ascii = {_ascii_code(c.code): c.code for c in ctx.courses}
+
+    def _term_code(raw: str) -> str:
+        """Course code as stored in the term: ``PSİ 116`` (Turkish keyboard) -> ``PSI116``."""
+        canon = canon_course_code(raw) or raw
+        return by_ascii.get(_ascii_code(canon), canon)
+
     def val(cells: list[str], role: str) -> str:
         i = cols.get(role)
         return cells[i].strip() if i is not None and i < len(cells) and cells[i] else ""
@@ -813,12 +827,12 @@ async def _map_rows(
         ref: dict[str, Any] = {"file": filename, "row": rownum, "excerpt": excerpt}
         if sheet:
             ref["sheet"] = sheet
-        codes = [c for c in extract_course_codes(val(cells, "course"))]
+        codes = [_term_code(c) for c in extract_course_codes(val(cells, "course"))]
         program = val(cells, "program")
         years = [int(y) for y in (parse_class_year(val(cells, "year")) or []) if y] if val(cells, "year") else []
         label = val(cells, "section").lstrip("§").strip()
         selector = {
-            "course_codes": [canon_course_code(c) or c for c in codes],
+            "course_codes": codes,
             "program_name": program,
             "class_years": years,
         }

@@ -22,7 +22,7 @@ from app.core.config import get_settings
 from app.core.security import hash_password
 from app.importers.planning_list import import_planning_list
 from app.importers.weekly_grid import import_weekly_grid
-from app.models import Base, Term, User
+from app.models import Base, Room, Term, User
 from app.services.seed import seed_admin
 from app.workers import queue as qmod
 from httpx import ASGITransport, AsyncClient
@@ -121,3 +121,39 @@ async def meeting_id(code: str, day: int | None = None, start: int | None = None
         ids = list((await s.execute(q)).scalars())
     assert ids, f"no meeting for {code} day={day} start={start}"
     return ids[0]
+
+
+async def bahar_counts(term_id: int) -> dict[str, int]:
+    """Counts of the imported Bahar term, so tests do not hard-code importer output."""
+    from app.models import MeetingRequest, Room, Section
+    from sqlalchemy import func
+
+    async with dbmod.get_session_factory()() as s:
+        base = (
+            select(func.count(MeetingRequest.id))
+            .join(Section, Section.id == MeetingRequest.section_id)
+            .where(Section.term_id == term_id, MeetingRequest.archived.is_(False))
+        )
+        term = await s.get(Term, term_id)
+        assert term is not None
+        return {
+            "meetings": (await s.execute(base)).scalar_one(),
+            "locked": (await s.execute(base.where(MeetingRequest.status == "LOCKED"))).scalar_one(),
+            "needs_room": (await s.execute(base.where(MeetingRequest.needs_room.is_(True)))).scalar_one(),
+            "rooms": (
+                await s.execute(select(func.count(Room.id)).where(Room.is_bookable.is_(True), Room.capacity > 0))
+            ).scalar_one(),
+            "weeks": int(term.week_count),
+        }
+
+
+async def room(code: str) -> Room:
+    """Room row by canonical code (``"A206"``); ids depend on the importer, never hard-code them."""
+    async with dbmod.get_session_factory()() as s:
+        return (await s.execute(select(Room).where(Room.code == code))).scalar_one()
+
+
+async def largest_room(exclude_tag: str = "TIP") -> Room:
+    async with dbmod.get_session_factory()() as s:
+        rooms = [r for r in (await s.execute(select(Room).where(Room.is_bookable.is_(True)))).scalars()]
+    return max((r for r in rooms if exclude_tag not in (r.tags or [])), key=lambda r: (r.capacity, r.code))

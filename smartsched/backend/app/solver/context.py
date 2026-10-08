@@ -29,8 +29,9 @@ from typing import Any, Literal
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
 from app.solver.constraints._common import week_runs
-from app.solver.domains import Domains, EventDomain, TimeOption, effective_capacity
+from app.solver.domains import Domains, EventDomain, TimeOption, effective_capacity, shares_room, trusted_lock
 from app.solver.model import Assignment, Constraint, Event, Room, SolverInput
+from app.solver.seats import proportional_allocation, seat_target
 from app.solver.weights import base_weight
 
 Mode = Literal["solve", "assume", "relax"]
@@ -66,6 +67,14 @@ def _eval_room(eid: int, rid: int) -> Callable[[HintView], int]:
     return lambda h: int(rid in h.rooms(eid))
 
 
+def _eval_seats(event: Event, rid: int, rooms_by_id: dict[int, Room]) -> Callable[[HintView], int]:
+    def fn(h: HintView) -> int:
+        rooms = h.rooms(event.id)
+        return proportional_allocation(event, rooms, rooms_by_id).get(rid, 0) if rid in rooms else 0
+
+    return fn
+
+
 class ModelContext:
     def __init__(self, inp: SolverInput, doms: Domains, mode: Mode = "solve") -> None:
         self.inp = inp
@@ -78,6 +87,8 @@ class ModelContext:
         self.y: dict[tuple[int, int], Lit] = {}
         self.z: dict[tuple[int, int], Any] = {}
         self.start: dict[int, Any] = {}  # flexible events: IntVar on the global period axis
+        #: split room-sharing events: seats used in each room option (see app/solver/seats.py)
+        self.seats: dict[tuple[int, int], Any] = {}
         self.placed: dict[int, Any] = {}
         self.guards: dict[str, Any] = {}
         self.guard_order: list[str] = []
@@ -166,6 +177,8 @@ class ModelContext:
                     m.Add(sum(zs) == placed)
             else:
                 self._link_split(event, zs, caps, placed)
+                if shares_room(event):
+                    self._link_seats(event, [r for r in dom.rooms if (eid, r) in self.z], placed)
             if not dom.fixed_time:
                 # blocked (time, room) pairs of flexible events
                 for ti, t in enumerate(dom.times):
@@ -178,14 +191,49 @@ class ModelContext:
         lo = max(1, event.min_rooms)
         hi = max(lo, event.max_rooms)
         total = sum(c * v for c, v in zip(caps, zs, strict=True))
+        # trust_locked_rooms: a planner-locked room set may seat fewer than ``size`` (warning, not a rule)
+        need = 0 if trusted_lock(self.inp, event) else event.size
         if placed is True:
             m.Add(sum(zs) >= lo)
             m.Add(sum(zs) <= hi)
-            m.Add(total >= event.size)
+            if need:
+                m.Add(total >= need)
         else:
             m.Add(sum(zs) >= lo).OnlyEnforceIf(placed)
             m.Add(sum(zs) <= hi * placed)
-            m.Add(total >= event.size).OnlyEnforceIf(placed)
+            if need:
+                m.Add(total >= need).OnlyEnforceIf(placed)
+
+    def _link_seats(self, event: Event, rooms: list[int], placed: Lit) -> None:
+        """Split room-sharing event: ``seats[e,r]`` in ``[z, cap_r·z]`` with ``Σ_r seats = target``
+        (``size``; for a locked room set ``min(size, Σ cap)``)."""
+        m = self.model
+        eid = event.id
+        caps = {r: effective_capacity(self.rooms_by_id[r], event) for r in rooms}
+        if event.locked is not None and event.locked.room_ids:
+            target = seat_target(event, event.locked.room_ids, self.rooms_by_id)
+        else:
+            target = event.size
+        for r in rooms:
+            z = self.z[(eid, r)]
+            sv = m.NewIntVar(0, max(0, caps[r]), f"seats_{eid}_{r}")
+            m.Add(sv <= caps[r] * z)
+            m.Add(sv >= z)
+            self.seats[(eid, r)] = sv
+            self.derive(sv, _eval_seats(event, r, self.rooms_by_id))
+        total = sum(self.seats[(eid, r)] for r in rooms)
+        if placed is True:
+            m.Add(total == target)
+        else:
+            m.Add(total == target * placed)
+
+    def seat_demand(self, event_id: int, room_id: int) -> Any:
+        """Seats ``event`` takes in ``room`` when it uses it (a constant for single-room events)."""
+        sv = self.seats.get((event_id, room_id))
+        if sv is not None:
+            return sv
+        event = self.events_by_id[event_id]
+        return seat_target(event, (room_id,), self.rooms_by_id)
 
     # ------------------------------------------------------------------ literal accessors
     def domain(self, event_id: int) -> EventDomain:
@@ -444,10 +492,26 @@ class ModelContext:
     def _option_index(self, assignment: Assignment) -> int | None:
         return self.domain(assignment.event_id).time_index(assignment.day, assignment.start)
 
-    def add_hints(self, assignments: Iterable[Assignment]) -> int:
-        """Complete per-event hints from previous/locked assignments. Returns hinted event count."""
+    def add_hints(self, assignments: Iterable[Assignment], *, unplaced_rest: bool = False) -> int:
+        """Complete per-event hints from previous/locked assignments. Returns hinted event count.
+        ``unplaced_rest`` (relax mode): every event without a hint is hinted as not placed, so the
+        hint is a complete partial schedule."""
         hinted = 0
         assignments = list(assignments)
+        if unplaced_rest and self.placed:
+            have = {a.event_id for a in assignments}
+            for e in self.inp.events:
+                if e.id in have:
+                    continue
+                self.model.AddHint(self.placed[e.id], 0)
+                for i in range(len(self.domain(e.id).times)):
+                    lit = self.y.get((e.id, i))
+                    if lit is not None and lit is not True and lit is not self.placed[e.id]:
+                        self.model.AddHint(lit, 0)
+                for rid in self.domain(e.id).rooms:
+                    v = self.z.get((e.id, rid))
+                    if v is not None:
+                        self.model.AddHint(v, 0)
         for a in assignments:
             if a.event_id not in self.events_by_id:
                 continue
@@ -478,8 +542,12 @@ class ModelContext:
         return hinted
 
     def fix_assignment(self, a: Assignment, guard: Lit | None) -> bool:
-        """Force an event onto an assignment (used for locked events).  Returns False if impossible."""
+        """Force an event onto an assignment (used for locked events).  Returns False if impossible.
+        In ``relax`` mode the lock binds only if the event is placed (an impossible lock unplaces it)."""
         dom = self.domain(a.event_id)
+        placed = self.placed.get(a.event_id) if self.mode == "relax" else None
+        if placed is not None and guard is None:
+            return self._fix_if_placed(a, placed)
         ti = self._option_index(a)
         if ti is None:
             self.add_false(guard)
@@ -506,6 +574,27 @@ class ModelContext:
                 ok = False
                 self.add_false(guard)
         return ok
+
+    def _fix_if_placed(self, a: Assignment, placed: Any) -> bool:
+        m = self.model
+        dom = self.domain(a.event_id)
+        ti = self._option_index(a)
+        if ti is None or (dom.event.needs_room and any((a.event_id, r) not in self.z for r in a.room_ids)):
+            m.Add(placed == 0)
+            return False
+        ylit = self.y[(a.event_id, ti)]
+        if ylit is not True and ylit is not placed:
+            m.AddImplication(placed, ylit)
+        if dom.event.needs_room:
+            for rid in dom.rooms:
+                v = self.z.get((a.event_id, rid))
+                if v is None:
+                    continue
+                if rid in a.room_ids:
+                    m.Add(v == placed)
+                else:
+                    m.Add(v == 0)
+        return True
 
     # ------------------------------------------------------------------ extraction
     def extract(self, solver: Any) -> list[Assignment]:

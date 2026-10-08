@@ -481,12 +481,31 @@ def apply_draft(
         if idx is None:
             continue
         ev = events[idx]
-        if pin.get("room_ids"):
-            ev = replace(ev, required_room_ids=frozenset(int(r) for r in pin["room_ids"]), forbidden_tags=frozenset())
-        if pin.get("day") is not None:
-            ev = replace(ev, fixed_day=int(pin["day"]), allowed_days=frozenset({int(pin["day"])}))
-        if pin.get("start_period") is not None:
-            ev = replace(ev, fixed_start=int(pin["start_period"]))
+        rooms = tuple(int(r) for r in pin.get("room_ids") or [])
+        day = int(pin["day"]) if pin.get("day") is not None else None
+        start = int(pin["start_period"]) if pin.get("start_period") is not None else None
+        if rooms:
+            ev = replace(ev, required_room_ids=frozenset(rooms), forbidden_tags=frozenset())
+        if day is not None:
+            ev = replace(ev, fixed_day=day, allowed_days=frozenset({day}))
+        if start is not None:
+            ev = replace(ev, fixed_start=start)
+        if ev.locked is not None:  # the pin is the newer planner intent: it overrides the lock
+            lk = ev.locked
+            if rooms and len(rooms) > 1:
+                ev = replace(ev, locked=None)
+            else:
+                s0 = start if start is not None else lk.start
+                ev = replace(
+                    ev,
+                    locked=replace(
+                        lk,
+                        room_ids=rooms or lk.room_ids,
+                        day=day if day is not None else lk.day,
+                        start=s0,
+                        end=s0 + (lk.end - lk.start),
+                    ),
+                )
         events[idx] = ev
     off = {int(i) for i in snap.get("disabled_rule_ids") or []}
     overrides = snap.get("rule_overrides") or {}

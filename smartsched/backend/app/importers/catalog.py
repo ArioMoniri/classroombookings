@@ -24,6 +24,8 @@ class Catalog:
         self._instructors: dict[str, Instructor] = {}
         self._rooms: dict[str, Room] = {}
         self._buildings: dict[str, Building] = {}
+        self.touched_rooms: set[str] = set()
+        self.preexisting_rooms: set[str] = set()  # found in the DB (created by an earlier import)
 
     async def term(
         self,
@@ -64,10 +66,16 @@ class Catalog:
         tags: list[str] | None = None,
         notes: str | None = None,
         create: bool = True,
+        source: str | None = None,
     ) -> Room | None:
+        """Get or create a room.  Capacities/tags given here update the room, except that values set by
+        the planner's room master CSV (``custom_fields.master``) are authoritative: a workbook never
+        overwrites them (a differing value is reported as a warning)."""
         room = self._rooms.get(code)
         if room is None:
             room = (await self.s.execute(select(Room).where(Room.code == code))).scalar_one_or_none()
+            if room is not None:
+                self.preexisting_rooms.add(code)
         if room is None:
             if not create:
                 return None
@@ -81,17 +89,24 @@ class Catalog:
                 exam_capacity=exam_capacity or 0,
                 tags=list(tags or []),
                 notes=notes,
+                custom_fields=_sources({}, source, capacity=capacity, exam_capacity=exam_capacity),
             )
             self.s.add(room)
             await self.s.flush()
             self.report.created["rooms"] += 1
         else:
             changed = False
-            if capacity and room.capacity != capacity:
-                room.capacity = capacity
-                changed = True
-            if exam_capacity and room.exam_capacity != exam_capacity:
-                room.exam_capacity = exam_capacity
+            fields = dict(room.custom_fields or {})
+            master = set(fields.get("master") or [])
+            for attr, value in (("capacity", capacity), ("exam_capacity", exam_capacity)):
+                if not value or getattr(room, attr) == value:
+                    continue
+                if attr in master:
+                    kept = getattr(room, attr)
+                    self.report.warn(f"room {code}: {source or 'import'} says {attr} {value}, room master keeps {kept}")
+                    continue
+                setattr(room, attr, value)
+                fields = _sources(fields, source, **{attr: value})
                 changed = True
             if tags:
                 merged = list(dict.fromkeys([*room.tags, *tags]))
@@ -102,9 +117,53 @@ class Catalog:
                 room.notes = notes
                 changed = True
             if changed:
+                room.custom_fields = fields
                 self.report.updated["rooms"] += 1
         self._rooms[code] = room
+        self.touched_rooms.add(code)
         return room
+
+    async def finalize_rooms(self, *, lecture_side: bool) -> None:
+        """Reconcile the rooms this import touched (see DATA_ANALYSIS "Room master").
+
+        * A room without a lecture capacity but with an exam-sheet capacity takes that number as its
+          lecture capacity, flagged in a warning and in ``custom_fields.capacity_source`` (best available
+          source; the room master CSV corrects it) — in ``lecture_side`` imports (term grid, planning
+          list), and in exam imports for rooms an earlier lecture import already knew (B 207: the Bahar
+          workbooks name it without a number, the Final workbook seats 60).  Rooms first seen in an exam
+          workbook keep lecture capacity 0 (their exam seating says nothing about lectures).
+        * A room with no capacity in any source is reported and set ``is_bookable=False`` (flag
+          ``custom_fields.auto_unbookable``), never dropped silently; it becomes bookable again as soon
+          as a later import or the room master gives it a capacity.
+        """
+        no_capacity: list[str] = []
+        for code in sorted(self.touched_rooms):
+            room = self._rooms[code]
+            fields = dict(room.custom_fields or {})
+            if (lecture_side or code in self.preexisting_rooms) and not room.capacity and room.exam_capacity:
+                room.capacity = room.exam_capacity
+                fields["capacity_source"] = "exam-sheet capacity (flagged: no lecture capacity found)"
+                self.report.warn(
+                    f"room {code}: no lecture capacity in any source; using its exam-sheet capacity "
+                    f"{room.exam_capacity} (flagged, correct it in the room master)"
+                )
+            if (room.capacity or room.exam_capacity) and fields.get("auto_unbookable"):
+                fields.pop("auto_unbookable")
+                room.is_bookable = True
+            elif not room.capacity and not room.exam_capacity:
+                if room.is_bookable and "master" not in fields:
+                    room.is_bookable = False
+                    fields["auto_unbookable"] = True
+                no_capacity.append(code)
+            if fields != (room.custom_fields or {}):
+                room.custom_fields = fields
+        if no_capacity:
+            self.report.warn(
+                f"{len(no_capacity)} room(s) have no capacity in any source and are not bookable: "
+                + ", ".join(no_capacity)
+                + " (fix them with `python -m app.cli import room-master <csv>`)"
+            )
+            self.report.extra["rooms_without_capacity"] = no_capacity
 
     async def faculty(self, text: Any) -> Faculty | None:
         parsed = n.canon_faculty(text)
@@ -211,6 +270,20 @@ class Catalog:
             if r is not None:
                 ids.append(r.id)
         return ids
+
+
+def _sources(fields: dict[str, Any], source: str | None, **values: int | None) -> dict[str, Any]:
+    """Record which import set a capacity (``custom_fields.sources = {"capacity": "...", ...}``)."""
+    if not source:
+        return fields
+    out = dict(fields)
+    src = dict(out.get("sources") or {})
+    for k, v in values.items():
+        if v:
+            src[k] = source
+    if src:
+        out["sources"] = src
+    return out
 
 
 def _floor_of(code: str) -> str | None:

@@ -83,11 +83,15 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 ### Phase 8 Generator Studio backlog (from docs/design/generator-studio.md, 2026-10-08)
 
-- [ ] Backend: `POST /runs/precheck` (wrap solver static_check, reuse `services/diagnosis_fixes.py` for fix actions applied to the draft)
-- [ ] Backend: studio draft `GET/PUT /terms/{id}/studio`; `POST /runs` accepts `draft_id` / `exclude_event_ids`
-- [ ] Backend: `POST /constraints/preview` (affected count), `POST /constraints/copy`, `/presets` CRUD + apply
-- [ ] Backend: `PUT /sections/{id}`, `PUT /requests/meetings/bulk`, imported-value snapshot + revert, class-list filters (faculty, year, building, mode, changed, rule)
-- [ ] Backend: constraint source `UPLOAD` / `BUILTIN` + `source_ref`; `GET /constraints/kinds` returns the full TR/EN catalogue
+- [x] Backend: pre-check as `POST /terms/{id}/studio/precheck` + `/precheck/fix` (static_check + rule checks, plain TR/EN items, fixes applied into the draft; `parse_option` reused for unlock) (studio backend, 2026-10-08)
+- [x] Backend: studio draft `GET/PUT /terms/{id}/studio` (per user/term/kind, version + If-Match); runs from drafts via `POST /terms/{id}/studio/generate` (snapshot in `params.studio`)
+- [ ] Backend (integration): `solver_bridge.run_schedule` should call `app.services.studio.build_solver_input_for_run` so child runs (chat apply, diagnosis apply) of studio runs keep the draft's exclusions / pins / built-in switches; optionally `POST /runs {draft_id}` delegating to `studio.generate`
+- [x] Backend: `POST /studio/constraints/preview`, `POST /studio/constraints/copy`, `/presets` CRUD + apply (studio paths; `/constraints/*` is owned by the integration router)
+- [x] Backend: `GET /terms/{id}/studio/classes` (filters faculty/program/year/day/building/mode/status/changed/included/pinned/rule/q), `PUT /studio/meetings/bulk` (enrolment + mode on the section), imported snapshot (lazy, fingerprinted) + `POST /studio/meetings/{id}/revert`
+- [ ] Backend: importers could write the imported snapshot at import time (today it is captured lazily before the first studio edit; edits made elsewhere before that count as imported); exam-request edits/snapshots in the studio class list
+- [x] Backend: constraint source `UPLOAD` / `BUILTIN` + `constraints.source_ref` column (alembic 0002_studio); `POST /terms/{id}/studio/proposals/accept` stores upload refs there; full catalogue + 14 templates + 2/5/8 weight scale in `GET /studio/meta`
+- [ ] Backend (integration): add `source_ref` to `ConstraintOut`; `GET /constraints/kinds` -> `catalog_dict()`; `accept_proposals` (app/ai) could write `source_ref` directly instead of `params._source_ref`
+- [ ] Backend: disabling `no_cohort_overlap` per draft is honoured by CP-SAT only (keys sentinel); the greedy stub still checks cohort keys
 - [ ] AI: mount `/terms/{id}/elicit` + `/elicit/accept`; preference-file extraction with per-row `source_ref`; plain-language pre-check text
 - [ ] Solver: confirm Low/Normal/High = 2/5/8 weight scale; pre-check run-time estimate; `room_reserved_for` kind
 - [ ] Frontend: `components/studio/*` (rule card, slot chip, source chip, readiness meter, review tray, upload review, step rail); replace generate-view; switch the propose mock to `/terms/{id}/elicit`

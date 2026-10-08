@@ -29,7 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.importers.normalize import PERIODS
-from app.models import ConstraintRow, ExamRequest, Instructor, StudioDraft, User
+from app.models import ConstraintRow, ExamRequest, Instructor, Room, StudioDraft, User
 from app.services import settings_service as ss
 from app.services import studio as st
 from app.services.diagnosis_fixes import parse_option
@@ -113,8 +113,17 @@ def _item_id(*parts: Any) -> str:
 
 
 class _Ctx:
-    def __init__(self, din: st.DraftInput, rooms_by_id: dict[int, sm.Room], instructors: dict[int, str]) -> None:
+    def __init__(
+        self,
+        din: st.DraftInput,
+        rooms_by_id: dict[int, sm.Room],
+        instructors: dict[int, str],
+        display: dict[str, str] | None = None,
+        names: dict[int, str] | None = None,
+    ) -> None:
         self.din = din
+        self.display = display or {}
+        self.names = names or {}  # room id -> display name (every room, also ones without capacity)
         self.events = {e.id: e for e in din.inp.events}
         self.rooms = rooms_by_id
         self.instructors = instructors
@@ -147,7 +156,13 @@ class _Ctx:
             return r.exam_capacity if e.kind == "exam" else r.capacity
 
         fit = [r for r in self.rooms.values() if cap(r) >= e.size and e.required_tags <= r.tags]
-        return sorted(fit, key=lambda r: (cap(r), r.code))[:limit]
+        # TIP (medicine) rooms only when nothing else fits: the bridge keeps courses out of them
+        plain = [r for r in fit if "TIP" not in r.tags or "TIP" in e.required_tags]
+        return sorted(plain or fit, key=lambda r: (cap(r), r.code))[:limit]
+
+    def show(self, code: str) -> str:
+        """Display name of a canonical room code (``A204`` -> ``A 204``)."""
+        return self.display.get(code, code)
 
 
 def _fix(
@@ -200,7 +215,7 @@ def _rooms_fix(ctx: _Ctx, e: sm.Event, unlock: bool) -> dict[str, Any] | None:
     fit = ctx.fitting_rooms(e)
     if not fit or ctx.exam:
         return None
-    codes = ", ".join(r.code for r in fit)
+    codes = ", ".join(ctx.show(r.code) for r in fit)
     patch: dict[str, Any] = {"requested_room_ids": [r.id for r in fit]}
     if unlock:
         patch["locked"] = False
@@ -291,10 +306,10 @@ def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
             message = _t(f"{lab} olmayan bir dersliğe sabitlenmiş.", f"{lab} is pinned to a room that does not exist.")
         elif "capacity" in kinds and (m := _RX_LARGEST.search(sugg)):
             group = "capacity"
-            cap = int(m["cap"])
+            cap, best = int(m["cap"]), ctx.show(m["code"])
             message = _t(
-                f"{lab}: {e.size} öğrenci var ama kullanılabilecek en büyük derslik {m['code']} ({cap} kişilik).",
-                f"{lab}: {e.size} students, but the largest room it may use is {m['code']} ({cap} seats).",
+                f"{lab}: {e.size} öğrenci var ama kullanılabilecek en büyük derslik {best} ({cap} kişilik).",
+                f"{lab}: {e.size} students, but the largest room it may use is {best} ({cap} seats).",
             )
             rf = _rooms_fix(ctx, e, unlock=False)
             if rf:
@@ -385,7 +400,7 @@ def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
     elif msg.startswith("locked assignments overlap") and len(ids) == 2:
         group = "locked_overlap"
         m2 = _RX_LOCKED_OVERLAP.search(msg)
-        room = m2["room"] if m2 else "?"
+        room = ctx.show(m2["room"]) if m2 else "?"
         day = int(m2["day"]) if m2 else None
         p = int(m2["p"]) if m2 else None
         a, b = ctx.label(ids[0]), ctx.label(ids[1])
@@ -402,14 +417,8 @@ def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
         group = "locked_ineligible"
         m3 = _RX_NOT_ELIGIBLE.search(msg)
         why = m3["why"] if m3 else ""
-        rooms = (
-            ", ".join(
-                ctx.rooms[int(x)].code for x in m3["rooms"].split(",") if x.strip().isdigit() and int(x) in ctx.rooms
-            )
-            if m3
-            else "?"
-        )
-        rooms = rooms or (m3["rooms"] if m3 else "?")
+        ids_txt = [x.strip() for x in m3["rooms"].split(",")] if m3 else []
+        rooms = ", ".join(ctx.names.get(int(x), f"#{x}") for x in ids_txt if x.isdigit()) or "?"
         message = _t(
             f"{lab} {rooms} dersliğine kilitli ama bu derslik kullanılamıyor ({why}).",
             f"{lab} is locked to {rooms}, which can't be used ({why}).",
@@ -637,7 +646,9 @@ async def run_precheck(session: AsyncSession, draft: StudioDraft) -> dict[str, A
     din = await st.build_draft_input(session, draft)
     inp = din.inp
     instructors = {i.id: i.full_name for i in (await session.execute(select(Instructor))).scalars()}
-    ctx = _Ctx(din, {r.id: r for r in inp.rooms}, instructors)
+    all_rooms = list((await session.execute(select(Room))).scalars())
+    display = {r.code: r.display_name for r in all_rooms}
+    ctx = _Ctx(din, {r.id: r for r in inp.rooms}, instructors, display, {r.id: r.display_name for r in all_rooms})
     items: list[dict[str, Any]] = []
     if inp.events:
         prep = prepare(inp)
@@ -681,11 +692,18 @@ async def run_precheck(session: AsyncSession, draft: StudioDraft) -> dict[str, A
             f"{n} ders kesin kurallarınızla yerleştirilemiyor.",
             f"{n} classes can't be placed under your Must-rules.",
         )
+    groups: dict[str, dict[str, Any]] = {}
+    for it in items:
+        g = groups.setdefault(
+            it["group"], {"group": it["group"], "title": it["title"], "severity": it["severity"], "count": 0}
+        )
+        g["count"] += 1
     out = {
         "draft_id": draft.id,
         "version": draft.version,
         "readiness": readiness,
         "counts": counts,
+        "groups": sorted(groups.values(), key=lambda g: (order.get(g["severity"], 3), -g["count"])),
         "items": items,
         "estimate_s": est,
         "summary": summary,
