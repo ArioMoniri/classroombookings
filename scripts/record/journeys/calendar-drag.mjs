@@ -22,9 +22,25 @@ export default {
       await rec.frame(page.locator("[data-testid='day-grid'], [data-testid='week-grid'], [data-testid='timetable']").first(), { dwell: 1400 });
     }, { zoom: false });
     await rec.step(tr(ctx, "Drag a class to a free slot", "Bir dersi boş bir saate sürükleyin"), async () => {
-      const b = await event.boundingBox();
-      // two rows down = two periods later in the day grid; the backend re-checks the move
-      await rec.drag(event, { x: b.x + b.width / 2, y: b.y + b.height / 2 + b.height * 2.2 });
+      // a free slot in the same room column: the first block of empty period cells (as tall as the
+      // class) below it; the backend re-checks the move either way
+      const target = await event.evaluate((el) => {
+        const col = el.closest("[data-room-id]");
+        const eb = el.getBoundingClientRect();
+        const cells = [...(col?.querySelectorAll("[data-period]") ?? [])].map((c) => c.getBoundingClientRect());
+        const rowH = cells[0]?.height || 40;
+        const span = Math.max(1, Math.round(eb.height / rowH));
+        const busy = [...(col?.querySelectorAll("[data-assignment-id]") ?? [])].map((e) => e.getBoundingClientRect());
+        const free = (r) => !busy.some((b) => b.top < r.bottom - 2 && b.bottom > r.top + 2);
+        for (let i = 0; i + span <= cells.length; i++) {
+          const top = cells[i].top;
+          if (top <= eb.bottom || top + span * rowH > window.innerHeight - 20) continue;
+          const block = { top, bottom: top + span * rowH };
+          if (free(block)) return { x: eb.left + eb.width / 2, y: top + (span * rowH) / 2 };
+        }
+        return { x: eb.left + eb.width / 2, y: eb.top + eb.height * 2.5 };
+      });
+      await rec.drag(event, target);
     });
     await rec.step(tr(ctx, "SmartSched checks clashes and locks the new slot", "SmartSched çakışmaları kontrol eder ve yeni saati kilitler"), async () => {
       await page.locator("[data-sonner-toast], [data-testid='move-dialog']").first().waitFor({ timeout: 20_000 }).catch(() => undefined);

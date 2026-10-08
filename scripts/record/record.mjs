@@ -169,5 +169,5 @@ if (args.engine === "recordly" || args.engine === "both") {
 }
 writeFileSync(join(outDir, `${name}.result.json`), JSON.stringify(result, null, 2));
 // keep the folder tidy: assets/palette are build intermediates
-for (const f of readdirSync(outDir)) if (f.endsWith(".palette.png")) rmSync(join(outDir, f));
+for (const f of readdirSync(outDir)) if (f.endsWith(".palette.png") || (f.endsWith(".filter.txt") && !env.REC_KEEP_ASSETS)) rmSync(join(outDir, f));
 if (existsSync(join(outDir, `${name}.assets`)) && !env.REC_KEEP_ASSETS) rmSync(join(outDir, `${name}.assets`), { recursive: true, force: true });

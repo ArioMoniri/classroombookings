@@ -19,6 +19,7 @@ from typing import Any
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.models import (
     Assignment,
@@ -187,7 +188,10 @@ def _same_locked_lecture(a: sm.Event, b: sm.Event) -> bool:
 
 
 def merge_joint_lectures(
-    events: list[sm.Event], members: dict[int, list[int]], room_capacity: dict[int, int] | None = None
+    events: list[sm.Event],
+    members: dict[int, list[int]],
+    room_capacity: dict[int, int] | None = None,
+    hint_rooms: dict[int, list[int]] | None = None,
 ) -> tuple[list[sm.Event], list[dict[str, Any]]]:
     """Merge requests that describe one joint lecture (``FIZ 111 §1`` listed once per programme,
     ``HEM 334 / NRS 304`` taught together) into one solver event.
@@ -256,8 +260,12 @@ def merge_joint_lectures(
         info: dict[str, Any] = {"event_id": head.id, "request_ids": [e.id for e in evs], "label": label, "size": size}
         if span_changed:
             info["span"] = [first, last]
-        if locked_rooms:
-            cap = sum(caps.get(r, 0) for r in locked_rooms)
+        planner_rooms: list[int] = list(locked_rooms or ())
+        if not planner_rooms and hint_rooms and all(e.id in hint_rooms for e in evs):
+            # definitive rooms used as hints (D1 for hints): the planner's room set seats the joint lecture
+            planner_rooms = list(dict.fromkeys(r for e in evs for r in hint_rooms[e.id]))
+        if planner_rooms:
+            cap = sum(caps.get(r, 0) for r in planner_rooms)
             if cap and size > cap:
                 info["clipped_to"] = cap
                 size = max(cap, max(e.size for e in evs))
@@ -269,6 +277,7 @@ def merge_joint_lectures(
                 size=size,
                 weeks=weeks,
                 required_tags=frozenset().union(*(e.required_tags for e in evs)),
+                max_rooms=max(len(planner_rooms), *(e.max_rooms for e in evs)),
                 forbidden_tags=frozenset.intersection(*(e.forbidden_tags for e in evs)),
                 preferred_room_ids=tuple(dict.fromkeys(r for e in evs for r in e.preferred_room_ids)),
                 preferred_building=next((e.preferred_building for e in evs if e.preferred_building), None),
@@ -351,6 +360,10 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     events: list[sm.Event] = []
     members: dict[int, list[int]] = {}
     extra_weeks: set[int] = set()
+    room_cap = {r.id: (r.exam_capacity if exam else r.capacity) for r in rooms}
+    trust_hints = run_mode(params, "trust_locked_rooms") and bool(params.get("trust_definitive_capacity", True))
+    hint_clipped: list[tuple[int, int, int]] = []  # (request, expected size, planner's seats) in prefer mode
+    hint_sets: dict[int, list[int]] = {}  # prefer mode: request -> the planner's definitive rooms (hint)
 
     if not exam:
         q = (
@@ -394,8 +407,19 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     needs_room = False
                 if outside:
                     outside_pool[mr.id] = outside
-            elif is_locked and definitive_mode == "prefer":
+            size = int(sec.enrolment or mr.requested_capacity or 0)
+            hint_rooms = 1
+            if is_locked and definitive_mode == "prefer":
                 preferred = list(dict.fromkeys([*definitive, *preferred]))
+                hint_rooms = max(1, len(definitive))  # the planner's room set may be used as a whole
+                seats = sum(room_cap.get(r, 0) for r in definitive)
+                if trust_hints and definitive:
+                    hint_sets[mr.id] = list(definitive)
+                if trust_hints and definitive and 0 < seats < size:
+                    # D1 for hints: the planner seats this group in fewer seats (enrolments are estimates),
+                    # so a room set of that size is enough; reported per case (trusted_hint_capacity)
+                    hint_clipped.append((mr.id, size, seats))
+                    size = seats
             if (
                 is_locked
                 and definitive_mode != "lock"
@@ -412,7 +436,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     id=mr.id,
                     kind="course",
                     label=label,
-                    size=int(sec.enrolment or mr.requested_capacity or 0),
+                    size=size,
                     duration=mr.end_period - mr.start_period + 1,
                     weeks=ev_weeks,
                     fixed_day=fixed_day,
@@ -426,11 +450,12 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     instructor_keys=instr,
                     locked=locked,
                     needs_room=needs_room,
+                    max_rooms=hint_rooms,
                 )
             )
             members[mr.id] = [mr.id]
         if run_mode(params, "merge_joint_lectures"):
-            events, merged = merge_joint_lectures(events, members, {r.id: r.capacity for r in rooms})
+            events, merged = merge_joint_lectures(events, members, {r.id: r.capacity for r in rooms}, hint_sets)
             if merged:
                 run.stats = {
                     **(run.stats or {}),
@@ -485,6 +510,10 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     outside_pool[head.id] = outside
             elif is_locked and definitive_mode == "prefer":
                 exam_preferred = list(dict.fromkeys([*definitive, *exam_preferred]))
+                seats = sum(room_cap.get(r, 0) for r in definitive)
+                if trust_hints and definitive and 0 < seats < size:
+                    hint_clipped.append((head.id, size, seats))  # see the course case above
+                    size = seats
             tip_ok = is_locked and any(r.id in definitive and "TIP" in (r.tags or []) for r in rooms_db)
             cohort = frozenset().union(
                 *(
@@ -526,6 +555,22 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 )
             )
             members[head.id] = [r.id for r in rows]
+
+    if hint_clipped:
+        labels = {e.id: e.label for e in events}
+        bridge_diags.append(
+            _bridge_diag(
+                [r for r, _s, _c in hint_clipped][:200],
+                f"{len(hint_clipped)} request(s) have a definitive room (used as a hint) smaller than the expected "
+                "enrolment; the planner's seat count is used as their size: "
+                + "; ".join(f"{labels.get(r, r)} {sz} -> {cap}" for r, sz, cap in hint_clipped[:10])
+                + (" ..." if len(hint_clipped) > 10 else ""),
+                ["check the enrolment estimates", "set trust_definitive_capacity=false to require full capacity"],
+                "trusted_hint_capacity",
+                ["capacity"],
+            )
+        )
+        run.stats = {**(run.stats or {}), "trusted_hint_capacity": len(hint_clipped)}
 
     blocks: list[sm.Block] = []
     for b in (
@@ -767,6 +812,9 @@ async def persist_result(
         sorted(Counter(str(d.get("code") or "other") for d in diags if d.get("severity") == "error").items())
     )
     run.diagnosis = await _humanize(session, diags)
+    # the texts above query the DB (autoflush): re-assign so the in-place additions to stats are written
+    run.stats = dict(run.stats)
+    flag_modified(run, "stats")
     run.finished_at = datetime.now(UTC).replace(tzinfo=None)
     await session.commit()
     return count

@@ -10,8 +10,6 @@ Edits made outside the studio before the first studio edit count as "imported" (
 
 from __future__ import annotations
 
-import hashlib
-import json
 import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -22,6 +20,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.importers.identity import (
+    MEETING_FIELDS,
+    SECTION_FIELDS,
+    expand_coupled,
+    meeting_snapshot_fp,
+    plain,
+    section_snapshot_fp,
+)
 from app.importers.normalize import PERIODS, tr_casefold, tr_upper
 from app.models import (
     ExamRequest,
@@ -37,22 +43,33 @@ from app.models import (
 )
 from app.services import studio as st
 
-MEETING_FIELDS = (
-    "day",
-    "days",
-    "flexible_day",
-    "start_period",
-    "end_period",
-    "weeks",
-    "requested_room_ids",
-    "requested_building",
-    "requested_tags",
-    "definitive_room_ids",
-    "needs_room",
-    "status",
-)
-SECTION_FIELDS = ("enrolment", "mode")
 EDITABLE = (*SECTION_FIELDS, *MEETING_FIELDS)
+
+
+
+def _would_be(mr: MeetingRequest, w: dict[str, Any]) -> Any:
+    from types import SimpleNamespace
+
+    keys = ("start_period", "end_period", "day", "days", "status", "definitive_room_ids")
+    return SimpleNamespace(**{k: w.get(k, getattr(mr, k)) for k in keys})
+
+
+def coherence_errors(mr: Any) -> list[str]:
+    """Invariants of a meeting request after an edit or a revert."""
+    errors: list[str] = []
+    s, e = mr.start_period, mr.end_period
+    if (s is None) != (e is None):
+        errors.append("start_period and end_period must be set together")
+    elif s is not None and e is not None and not 1 <= s <= e <= len(PERIODS):
+        errors.append(f"periods must satisfy 1 <= start <= end <= {len(PERIODS)} (got P{s}-P{e})")
+    days = [int(d) for d in mr.days or []]
+    if mr.day is not None and days and mr.day not in days:
+        errors.append(f"day {mr.day} is not one of days {days}")
+    if mr.status == "LOCKED" and (not mr.definitive_room_ids or not mr.day or not s):
+        errors.append("a locked class needs its room, a fixed day and a time")
+    return errors
+
+
 ROOM_TAGS = frozenset({"TIP", "PC", "LAB", "AMPHI"})
 #: modes without a physical room (``app.importers.normalize.parse_mode`` + the AI edits)
 REMOTE_MODES = frozenset({"ONLINE", "UZEM", "ASYNC", "HOSPITAL"})
@@ -72,24 +89,15 @@ def time_label(start: int | None, end: int | None) -> str | None:
     return f"{PERIODS[start - 1].start:%H:%M}-{PERIODS[end - 1].end:%H:%M}"
 
 
-def _plain(v: Any) -> Any:
-    if isinstance(v, time):
-        return v.strftime("%H:%M")
-    if isinstance(v, list | tuple):
-        return [_plain(x) for x in v]
-    return v
-
-
-def _fp(*parts: Any) -> str:
-    return hashlib.sha1(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()
+_plain = plain
 
 
 def section_fp(sec: Section) -> str:
-    return _fp(sec.source_row, sec.source_key)
+    return section_snapshot_fp(sec.source_row, sec.source_key)
 
 
 def meeting_fp(mr: MeetingRequest) -> str:
-    return _fp(mr.section.source_row, mr.source_key, mr.source_row_index)
+    return meeting_snapshot_fp(mr.section.source_row, mr.source_key, mr.source_row_index)
 
 
 @dataclass
@@ -605,6 +613,9 @@ async def bulk_edit(session: AsyncSession, body: Any, user: User) -> dict[str, A
         assert term is not None
         terms[term.id] = term
         errors, w = _validate(mr, patch, term, room_ids, buildings)
+        if not errors:  # the row as it would be after the patch (e.g. a LOCKED class losing its room)
+            now = set(coherence_errors(mr))
+            errors = [e for e in coherence_errors(_would_be(mr, w)) if e not in now]
         if errors:
             results.append({"id": mid, "ok": False, "errors": errors, "changed": []})
             continue
@@ -671,8 +682,9 @@ async def revert(session: AsyncSession, ids: list[int], fields: list[str] | None
     if missing:
         raise st.StudioError(404, f"meeting request(s) not found: {missing}")
     snaps = await load_snapshots(session, meetings.values())
+    before = {mr.id: set(coherence_errors(mr)) for mr in meetings.values()}
     for mr in meetings.values():
-        want = set(fields or EDITABLE)
+        want = expand_coupled(fields or EDITABLE)  # never half a group (start without end, day vs days)
         ss = snaps.sections.get(mr.section_id)
         if ss is not None:
             for f in SECTION_FIELDS:
@@ -695,6 +707,12 @@ async def revert(session: AsyncSession, ids: list[int], fields: list[str] | None
             for f, key in (("start_time", "_start_time"), ("end_time", "_end_time")):
                 raw = ms.values.get(key)
                 setattr(mr, f, time.fromisoformat(raw) if raw else None)
+    bad = {
+        mr.id: errs for mr in meetings.values() if (errs := [e for e in coherence_errors(mr) if e not in before[mr.id]])
+    }
+    if bad:
+        await session.rollback()
+        raise st.StudioError(422, {"message": "the revert would leave inconsistent classes", "errors": bad})
     await session.commit()
     return await rows_for(session, ids, user)
 

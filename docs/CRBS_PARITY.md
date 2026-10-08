@@ -168,7 +168,7 @@ use is refused with 409, because re-importing the workbook would recreate it.
 | # | CRBS feature | What it does | Perm. | Data | Before | After | SmartSched endpoint |
 |---|---|---|---|---|---|---|---|
 | 44 | `Bookings::index`, `Context`, `Grid`, `Slot` | Grid by **day** (rooms × periods) or by **room** (days × periods of one week), prev/next navigation, room group tabs, room filter, date filter; slot states: available, booked (single/recurring), unavailable (holiday, period not on this weekday, outside session range, limit reached, no permission, outside `range_min`/`range_max`) | login | all | missing | exists | `GET /bookings/grid?display=day\|room&date=&term_id=&room_group_id=&room_id=`; extra state `timetable` = held by the published solver run (or an imported block) |
-| 45 | `Bookings::filter(room\|date)` | Room picker and date picker views | login | | missing | exists | `GET /bookings/rooms`, `GET /booking-admin/sessions/{term_id}/dates` (dates with weeks/holidays) |
+| 45 | `Bookings::filter(room\|date)` | Room picker and date picker views | login | | missing | exists | `GET /bookings/rooms`, `GET /bookings/dates?term_id=&from=&to=` (each date with timetable week colours, holiday, open/closed) |
 | 46 | `SingleAgent` single booking | Date + period + room; department (own, or chosen with `set_department`); user (self, or chosen with `set_user`); notes ≤255; constraint checks; conflict check (`validate_booking`) | `book_single.create` | `bookings` | missing | exists | `POST /bookings` |
 | 47 | `SingleAgent` recurring: `get_recurring_dates`, `preview_single_recurring`, `create_single_recurring`, `Bookings_repeat_model::create` | Series = (session, period, room, timetable week, weekday); start/end = a date or "session"; preview lists each instance with actions **book / do not book / replace** (replace only for the owner or with `cancel_other_booking`); holidays skipped; at most `recur_max_instances` booked | `book_recur.create` | `bookings_repeat`, `bookings` | missing | exists | `POST /bookings/recurring/preview`, `POST /bookings/recurring` |
 | 48 | `MultiAgent` multi-booking | Select many slots in the grid → `multi_bookings` + `multi_bookings_slots`; step 2: single (per-slot create/user/department/notes) or recurring (per-slot start/end); recurring preview with conflicts; created in one transaction; limit `max_active_bookings` respected | `book_*.create` per room | `multi_bookings*` | missing | exists | `POST /bookings/multi`, `GET/DELETE /bookings/multi/{mb_id}`, `POST /bookings/multi/{mb_id}/create {type, slots, dry_run}` |
@@ -244,6 +244,7 @@ Guard = permission checked on the route (role ∪ room ACL where a room is invol
 | `GET /booking-admin/access-check` | `setup.rooms_acl` or `setup.users` | see #32 |
 | `GET /booking-admin/outbox`, `POST /booking-admin/outbox/{id}/retry` | `setup.settings` | |
 | `GET /bookings/context` | login | sessions, room groups, display settings, my limits, my active count |
+| `GET /bookings/dates` | login | `{term_id, today, weeks[{id,name,bgcol,fgcol}], dates[{date, weekday, term_week, timetable_week_id, holiday, open, reason}]}` |
 | `GET /bookings/rooms`, `GET /bookings/rooms/{id}` | `room.view` (role or ACL) | |
 | `GET /bookings/grid` | login (+ room visibility) | `{term, date, display, dates[], periods[], rooms[], slots[{date, period_id, room_id, status, reason, label, booking?}], nav{prev,next}}` |
 | `POST /bookings` | `book_single.create` (room-aware) | `{room_id, date, period_id, notes?, user_id?, department_id?, term_id?}` → `BookingOut` |
@@ -316,3 +317,27 @@ Guard = permission checked on the route (role ∪ room ACL where a room is invol
 6. **CSV import `force_password_reset`** is read from its own (8th) column; CRBS reads the role column.
 7. **Deleting a user keeps booking history** (the user link becomes empty) instead of deleting bookings.
 8. **Cancellation reasons are recorded**, including automatic ones ("replaced by series #N").
+
+9. **LDAP default role**: as in CRBS, an account created by LDAP gets `ldap.default_role_id` (none when
+   unset, so it has no permissions until an admin assigns a role).
+10. **`users.role` values** seen by the frontend are now `ADMIN`, `PLANNER`, `VIEWER`, `TEACHER`, `CUSTOM`
+    (a custom role) or `NONE` (no role); permissions come from `GET /auth/me` → `permissions[]`.
+
+## 7. Turkish text handling
+
+Usernames fold `İ`/`I`/`ı`/`i` together and are NFKC/NBSP-cleaned (`app/core/identity.py`); e-mails are
+lower-cased the same way; search, role and department matching in the CSV import use `tr_casefold`; the
+CSV import reads UTF-8 (with or without BOM) and Windows-1254, with `;` or `,`; period times accept dotted
+forms (`18.00`); free text (notes, names, locations, translations) is NBSP-cleaned; the bookings CSV is
+UTF-8 with a BOM; ICS text is RFC 5545-escaped and folded on UTF-8 byte boundaries.
+
+## 8. Tests (`smartsched/backend/tests`)
+
+| File | Covers |
+|---|---|
+| `test_crbs_roles.py` | seeded roles = data.sql + SmartSched roles, permission matrix per role, custom roles, legacy role codes, Administrator lock-out guards, role limits and R/U/X user constraints |
+| `test_crbs_bookings.py` | real Bahar grid published: conflicts with the timetable and other bookings (service + DB unique key), unpublished runs, conflicts after activation, recurring across the 23 Nisan holiday and timetable-held dates, replace and `recur_max_instances`, cancel one/future/all and owner/date rules, cancel many, limits (active, window, past), department ACL + group ACL + access checker, multi-booking (atomic, dry run), edit scopes and field rights, booking for another user + outbox + dashboard + room owner, show-names setting, maintenance mode, holidays / timetable weeks / weekday periods, the staff date picker |
+| `test_crbs_users.py` | CSV import of real Bahar instructors (cp1254, `;`, header, defaults, statuses), Turkish-insensitive username login, forced password change, reset tokens without and with SMTP (mocked `smtplib`), SMTP failure, LDAP via mocked `ldap3.Connection` (create, update, fallback, disabled, no-create), search, profile, delete keeps booking history |
+| `test_crbs_admin.py` | room groups/order/fields/values/owner ACL/photo, schedules and periods (dotted times, grid limits), per-group schedules, departments = programmes, org settings, translations, changelog, events, setup checklist, first-run wizard |
+| `test_crbs_export_solver.py` | CSV export columns and Turkish text, ICS feeds (bearer, token, rotation), bookings as solver blocks in `build_solver_input` |
+| `test_crbs_migration.py` | `0003_crbs_parity` upgrade from `0002_studio` with an existing user, schema = models, downgrade, upgrade again |

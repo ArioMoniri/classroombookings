@@ -108,9 +108,31 @@ export function staggerDelay(i: number, step: number = staggerRule.step): number
 
 /* ------------------------------------------------------ preference hooks */
 
-/** `true` when the user asked for reduced motion. `null` (SSR, unknown) is treated as `false`. */
+function subscribeAppMotion(onChange: () => void) {
+  if (typeof document === "undefined") return () => {};
+  const mo = new MutationObserver(onChange);
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-motion"] });
+  return () => mo.disconnect();
+}
+
+/** The in-app "Reduce motion" switch (Settings → Appearance) sets `<html data-motion="reduced">`. */
+export function useAppReducedMotion(): boolean {
+  return useSyncExternalStore(
+    subscribeAppMotion,
+    () => document.documentElement.dataset.motion === "reduced",
+    () => false,
+  );
+}
+
+/**
+ * `true` when the user asked for reduced motion: the OS query **or** the in-app switch
+ * (`<html data-motion="reduced">`). `null` (SSR, unknown) is treated as `false`.
+ * SmartSched addition to the skill copy: Settings → Appearance must work on shared lab PCs.
+ */
 export function useReduce(): boolean {
-  return useReducedMotion() ?? false;
+  const os = useReducedMotion() ?? false;
+  const app = useAppReducedMotion();
+  return os || app;
 }
 
 /** Pick the full transition or its reduced-motion replacement. */

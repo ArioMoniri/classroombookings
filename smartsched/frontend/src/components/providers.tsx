@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { AppearanceMotionConfig } from "@/components/ui/appearance-preferences";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HttpError, onApiError } from "@/lib/api/client";
@@ -40,11 +41,14 @@ export function Providers({ locale, children }: { locale: Locale; children: Reac
     <QueryClientProvider client={client}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         <I18nProvider initialLocale={locale}>
-          <TooltipProvider delay={300}>
-            {children}
-            <Toaster position="bottom-right" closeButton visibleToasts={3} />
-            <ApiErrorBridge />
-          </TooltipProvider>
+          {/* motion/react follows the OS and the in-app Reduce motion switch (motion.md §2, pattern §0) */}
+          <AppearanceMotionConfig>
+            <TooltipProvider delay={300}>
+              {children}
+              <Toaster position="bottom-right" closeButton visibleToasts={3} />
+              <ApiErrorBridge />
+            </TooltipProvider>
+          </AppearanceMotionConfig>
         </I18nProvider>
       </ThemeProvider>
     </QueryClientProvider>

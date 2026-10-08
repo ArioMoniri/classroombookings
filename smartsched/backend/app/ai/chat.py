@@ -785,7 +785,62 @@ async def apply_diff(
         raise ChatError("the diff belongs to another run")
     if diff.is_empty:
         raise ChatError("the diff is empty")
+    claim = await _claim(session, run_id, diff_id, user_id) if diff_id else None
+    try:
+        return await _apply_claimed(session, parent, diff, stored_msg, stored_idx, claim, user_id, label, enqueue)
+    except BaseException:
+        if claim is not None:
+            await _release(session, claim)
+        raise
 
+
+async def _claim(session: AsyncSession, run_id: int, diff_id: str, user_id: int | None) -> int:
+    """Atomic idempotency claim (review M2): the unique (run, diff) INSERT is committed before any work, so
+    two concurrent applies of one diff cannot both create a child run; the loser gets "already applied"."""
+    from sqlalchemy.exc import IntegrityError
+
+    from app.models import ChatApplyClaim
+
+    row = ChatApplyClaim(run_id=run_id, diff_id=diff_id[:64], user_id=user_id)
+    session.add(row)
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        other = (
+            await session.execute(
+                select(ChatApplyClaim.child_run_id).where(
+                    ChatApplyClaim.run_id == run_id, ChatApplyClaim.diff_id == diff_id[:64]
+                )
+            )
+        ).scalar_one_or_none()
+        raise ChatError(f"diff {diff_id} was already applied (child run #{other or 'pending'})") from exc
+    return int(row.id)
+
+
+async def _release(session: AsyncSession, claim_id: int) -> None:
+    """Undo a claim whose apply failed or rejected every operation (the planner may try again)."""
+    from sqlalchemy import delete
+
+    from app.models import ChatApplyClaim
+
+    await session.rollback()
+    await session.execute(delete(ChatApplyClaim).where(ChatApplyClaim.id == claim_id))
+    await session.commit()
+
+
+async def _apply_claimed(
+    session: AsyncSession,
+    parent: ScheduleRun,
+    diff: ProposedDiff,
+    stored_msg: ChatMessage | None,
+    stored_idx: int,
+    claim: int | None,
+    user_id: int | None,
+    label: str | None,
+    enqueue: bool,
+) -> ApplyOut:
+    run_id = parent.id
     state = await load_run_state(session, run_id)
     prompt = await _prompt_for(session, run_id, stored_msg)
     child = ScheduleRun(
@@ -941,6 +996,8 @@ async def apply_diff(
 
     if not plan.applied:
         await session.rollback()
+        if claim is not None:
+            await _release(session, claim)
         return ApplyOut(child_run_id=None, rejected=plan.rejected, mode="none", status="REJECTED")
 
     locked_rows = {event_of[a.id] for a in state.rows if a.is_locked and a.id in event_of}
@@ -977,6 +1034,12 @@ async def apply_diff(
         calls = list(stored_msg.tool_calls or [])
         calls[stored_idx] = {**calls[stored_idx], "applied": child.id}
         stored_msg.tool_calls = calls
+    if claim is not None:
+        from app.models import ChatApplyClaim
+
+        claim_row = await session.get(ChatApplyClaim, claim)
+        if claim_row is not None:
+            claim_row.child_run_id = child.id
     await session.commit()
     if needs_solve:
         job = _solve_job(child.id, current, plan.moved, locks, changed, parent)

@@ -109,8 +109,11 @@ cmd_up() {
   (cd "$BACKEND" && "$PYTHON" -m app.cli seed-admin >>"$WORK/import.log" 2>&1) || die "seed-admin failed"
 
   # ---- backend ----------------------------------------------------------------------------------
-  (cd "$BACKEND" && setsid nohup "$PYTHON" -m uvicorn app.main:app --host 127.0.0.1 --port "$API_PORT" \
-      >"$WORK/backend.log" 2>&1 & echo $! >"$WORK/backend.pid")
+  # exec + setsid: the PID file names the server itself (a session leader, so `down` can stop its
+  # whole process group) and no shell keeps the caller's stdout open
+  (cd "$BACKEND" && exec setsid "$PYTHON" -m uvicorn app.main:app --host 127.0.0.1 --port "$API_PORT" \
+      >"$WORK/backend.log" 2>&1 </dev/null) &
+  echo $! >"$WORK/backend.pid"
   wait_http "http://127.0.0.1:$API_PORT/api/v1/health" 60 || die "backend did not start, see $WORK/backend.log"
   log "backend ready on :$API_PORT (db $WORK/rec.db)"
   seed_via_api "$fresh"
@@ -133,8 +136,9 @@ cmd_up() {
       || die "next build failed, see $WORK/build.log"
   fi
   (cd "$web" && NEXT_PUBLIC_API_MOCK=0 NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" AUTH_SECRET=rec \
-      NEXT_TELEMETRY_DISABLED=1 setsid nohup npx next start -p "$WEB_PORT" -H 127.0.0.1 \
-      >"$WORK/frontend.log" 2>&1 & echo $! >"$WORK/frontend.pid")
+      NEXT_TELEMETRY_DISABLED=1 exec setsid npx next start -p "$WEB_PORT" -H 127.0.0.1 \
+      >"$WORK/frontend.log" 2>&1 </dev/null) &
+  echo $! >"$WORK/frontend.pid"
   wait_http "http://127.0.0.1:$WEB_PORT/login" 120 || die "frontend did not start, see $WORK/frontend.log"
   log "frontend ready: http://127.0.0.1:$WEB_PORT  (login $EMAIL)"
 }

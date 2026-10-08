@@ -42,15 +42,15 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
             type="button"
             aria-label={t("nav.account")}
             data-testid="user-menu"
-            className={cn("flex items-center gap-2 rounded-md text-left text-sm hover:bg-accent", compact ? "size-8 justify-center" : collapsed ? "size-9 justify-center" : "w-full px-2 py-1.5")}
+            className={cn("flex items-center gap-2 rounded-xl text-left text-sm outline-none transition-colors duration-(--dur-fast) hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)", compact ? "size-9 justify-center rounded-full" : collapsed ? "size-9 justify-center" : "w-full px-2 py-1.5")}
           >
             <Avatar className="size-7">
               <AvatarFallback className="text-[11px]">{user ? initials(user.full_name, user.email) : "…"}</AvatarFallback>
             </Avatar>
             {!collapsed && !compact ? (
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{user?.full_name ?? user?.email ?? "…"}</span>
-                <span className="block truncate text-[11px] text-muted-foreground">{user?.role ?? ""}</span>
+                <span className="block truncate text-[13px] font-medium text-label-1">{user?.full_name ?? user?.email ?? "…"}</span>
+                <span className="block truncate text-[11px] text-label-3">{user ? t(`glass.role.${user.role}`) : ""}</span>
               </span>
             ) : null}
           </button>
@@ -59,7 +59,7 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <span className="block truncate">{user?.full_name ?? ""}</span>
-          <span className="block truncate text-xs font-normal text-muted-foreground">{user?.email ?? ""}</span>
+          <span className="block truncate text-xs font-normal text-label-3">{user?.email ?? ""}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => router.push("/settings")}>

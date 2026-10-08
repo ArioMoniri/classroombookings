@@ -62,3 +62,8 @@ for r in (
 from app.api.v1 import data_issues  # noqa: E402
 
 api_router.include_router(data_issues.router)
+
+# calendar v2 + all-classes read models, scoped/bulk moves, explain, saved views (docs/design/v2/calendar.md)
+from app.api.v1 import calendar as calendar_v2  # noqa: E402
+
+api_router.include_router(calendar_v2.router)

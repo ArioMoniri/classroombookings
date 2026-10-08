@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import time
 from pathlib import Path
@@ -14,9 +15,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.safe_files import open_workbook, run_isolated
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
+from app.importers.identity import (
+    COUPLED,
+    TIME_SHADOW,
+    is_legacy_key,
+    meeting_identity,
+    meeting_snapshot_fp,
+    occurrences,
+    plain,
+    section_snapshot_fp,
+    time_sort_key,
+)
 from app.importers.report import ImportReport
 from app.importers.xlsx import iter_sheet_rows, map_headers, row_dict
-from app.models import MeetingRequest, Section, SectionInstructor
+from app.models import ImportedSnapshot, MeetingRequest, Section, SectionInstructor, StudioDraft
 
 HEADER_SPEC: dict[str, list[str]] = {
     "faculty": ["fakülte"],
@@ -266,7 +278,14 @@ async def import_planning_list(
     filename: str | None = None,
     term_name: str | None = None,
     week_count: int = 14,
+    on_conflict: str = "keep",
 ) -> ImportReport:
+    """Import / re-import a planning list. Re-imports match meetings by their stable identity
+    (:mod:`app.importers.identity`), skip unchanged rows, keep planner (studio) edits of fields the file
+    also changed (``on_conflict="keep"``, reported in ``extra.conflicts``; ``"take"`` applies the file),
+    and remap draft / rule ids of meetings that were archived and replaced (``extra.remapped_ids``)."""
+    if on_conflict not in ("keep", "take"):
+        raise ValueError("on_conflict must be keep or take")
     report = ImportReport(kind="planning-list", filename=filename or Path(path).name, term_code=term_code)
     parsed = await run_isolated(parse_planning_list, path, max_week=week_count)  # off the loop, rlimit
     report.rows_total = parsed.rows_total
@@ -286,19 +305,34 @@ async def import_planning_list(
     existing_sections = {
         s.source_key: s for s in (await session.execute(select(Section).where(Section.term_id == term.id))).scalars()
     }
-    existing_meetings = {
-        m.source_key: m
-        for m in (
-            await session.execute(select(MeetingRequest).join(Section).where(Section.term_id == term.id))
-        ).scalars()
-    }
-    seen_fp: dict[str, int] = {}
+    sections_by_id = {sec.id: sec for sec in existing_sections.values()}
+    term_meetings = list(
+        (await session.execute(select(MeetingRequest).join(Section).where(Section.term_id == term.id))).scalars()
+    )
+    snaps = await _load_snapshots(session, term_meetings, list(sections_by_id))
+    report.extra["rekeyed_legacy"] = _rekey_legacy(term_code, term_meetings, sections_by_id, snaps)
+    await session.flush()
+    existing_meetings = {m.source_key: m for m in term_meetings}
+    # stable identity: section key + day(s) + occurrence (by start time, then file row)
+    keyed: list[tuple[str, tuple[int, ...], tuple[Any, ...]]] = []
+    for r in parsed.rows:
+        # rooms named only in a later row's definitive column must exist before earlier rows resolve their
+        # requested venue, or a second import of the same file "changes" those rows
+        await cat.room_ids(r.definitive.room_codes, create=True)
+        prog = await cat.program(r.program, await cat.faculty(r.faculty))
+        sk = f"{r.course_code}|{prog.canonical_name if prog else ''}|{r.label or ''}"
+        keyed.append((sk, tuple(r.day.days), time_sort_key(r.start_time, r.row)))
+    occ = occurrences(keyed)
+    conflicts: list[dict[str, Any]] = []
+    unchanged = Counter[str]()
+    created_now: list[MeetingRequest] = []
+    take = on_conflict == "take"
     seen_meeting_keys: set[str] = set()
     seen_section_keys: set[str] = set()
     with_periods = 0
     with_day_time = 0
 
-    for r in parsed.rows:
+    for i_row, r in enumerate(parsed.rows):
         for w in r.warnings:
             report.warn(w, r.row)
         faculty = await cat.faculty(r.faculty)
@@ -332,17 +366,27 @@ async def import_planning_list(
             report.created["sections"] += 1
         else:
             if section_key not in seen_section_keys:
-                section.enrolment = r.enrolment if r.enrolment is not None else section.enrolment
-                section.mode = r.mode.mode
-                section.remote_pct = r.remote_pct
-                section.whole_term_in_room = r.whole_term
-                section.notes = r.notes
-                section.class_year = class_year
-                section.class_years = r.class_years
-                section.semester_no = r.semester
-                section.source_row = r.raw
-                section.archived = False
-                report.updated["sections"] += 1
+                ssnap = snaps.get(("section", section.id))
+                prev = (ssnap.values or {}).get("enrolment", section.enrolment) if ssnap else section.enrolment
+                sec_values: dict[str, Any] = dict(
+                    enrolment=r.enrolment if r.enrolment is not None else prev,  # blank cell: no change
+                    mode=r.mode.mode,
+                    remote_pct=r.remote_pct,
+                    whole_term_in_room=r.whole_term,
+                    notes=r.notes,
+                    class_year=class_year,
+                    class_years=r.class_years,
+                    semester_no=r.semester,
+                    source_row=r.raw,
+                    archived=False,
+                )
+                ctx = {"entity": "section", "id": section.id, "row": r.row, "course": r.course_code}
+                if _merge(section, sec_values, ssnap, take, conflicts, ctx):
+                    report.updated["sections"] += 1
+                else:
+                    unchanged["sections"] += 1
+                if ssnap is not None:
+                    ssnap.fingerprint = section_snapshot_fp(section.source_row, section_key)
         seen_section_keys.add(section_key)
 
         # instructors
@@ -355,10 +399,7 @@ async def import_planning_list(
             if link is None:
                 session.add(SectionInstructor(section_id=section.id, instructor_id=ins.id, role=role))
 
-        fp = r.fingerprint
-        occ = seen_fp.get(fp, 0)
-        seen_fp[fp] = occ + 1
-        mkey = f"PL:{term_code}:{fp}#{occ}"
+        mkey = meeting_identity(term_code, keyed[i_row][0], keyed[i_row][1], occ[i_row])
         seen_meeting_keys.add(mkey)
         if r.has_day_and_time:
             with_day_time += 1
@@ -410,20 +451,42 @@ async def import_planning_list(
             mr = MeetingRequest(**fields)
             session.add(mr)
             existing_meetings[mkey] = mr
+            created_now.append(mr)
             report.created["meeting_requests"] += 1
         else:
             if mr.status == "LOCKED" and status != "LOCKED":
                 fields.pop("status")  # never downgrade a planner lock
-            for k, v in fields.items():
-                setattr(mr, k, v)
-            report.updated["meeting_requests"] += 1
+            msnap = snaps.get(("meeting", mr.id))
+            ctx = {"entity": "meeting", "id": mr.id, "row": r.row, "course": r.course_code, "section": r.label}
+            if _merge(mr, fields, msnap, take, conflicts, ctx):
+                report.updated["meeting_requests"] += 1
+            else:
+                unchanged["meeting_requests"] += 1  # identical row: nothing written
+            if msnap is not None:
+                msnap.fingerprint = meeting_snapshot_fp(section.source_row, mkey, r.row)
         report.rows_imported += 1
 
     # rows absent from the new file are archived, never deleted
+    archived_now: list[MeetingRequest] = []
     for key, mr in existing_meetings.items():
         if key and key.startswith(f"PL:{term_code}:") and key not in seen_meeting_keys and not mr.archived:
             mr.archived = True
+            archived_now.append(mr)
             report.updated["meeting_requests_archived"] += 1
+    await session.flush()
+    remapped = _successors(archived_now, created_now)
+    if remapped:
+        await remap_request_ids(session, term.id, remapped)
+    report.extra["remapped_ids"] = {str(k): v for k, v in sorted(remapped.items())}
+    report.extra["unchanged"] = dict(unchanged)
+    report.extra["conflicts_count"] = len(conflicts)
+    report.extra["conflicts"] = conflicts[:500]
+    report.extra["on_conflict"] = on_conflict
+    if conflicts:
+        report.warn(
+            f"{len(conflicts)} field(s) edited by a planner were also changed by the file: "
+            + ("the file's values were taken" if take else "the planner's edits were kept (see extra.conflicts)")
+        )
     for key, sec in existing_sections.items():
         if key not in seen_section_keys and not sec.archived:
             sec.archived = True
@@ -438,6 +501,173 @@ async def import_planning_list(
     report.extra["period_coverage"] = round(with_periods / with_day_time, 4) if with_day_time else None
     await session.commit()
     return report
+
+
+#: columns written by every import that are bookkeeping, not content (a change alone is "unchanged")
+_META = frozenset({"source_key", "source_row_index", "parse_warnings", "section_id", "source_row"})
+
+
+def _group_of(key: str) -> frozenset[str]:
+    if key in TIME_SHADOW:
+        key = "start_period"
+    return next((g for g in COUPLED if key in g), frozenset({key}))
+
+
+def _merge(
+    obj: Any,
+    values: dict[str, Any],
+    snap: ImportedSnapshot | None,
+    take: bool,
+    conflicts: list[dict[str, Any]],
+    ctx: dict[str, Any],
+) -> bool:
+    """Write the file's ``values`` onto ``obj`` (a meeting or section). Fields the planner edited (current
+    value != the snapshot of the previous import, per coupled group) are kept unless the file changed them
+    too, which is a conflict: kept (default) or taken, and reported. The snapshot follows the file, so
+    "revert" restores the newest imported values. Returns True when content changed."""
+    missing = object()
+    sv: dict[str, Any] = dict(snap.values or {}) if snap is not None else {}
+
+    def shadow(k: str) -> str:
+        return TIME_SHADOW.get(k, k)
+
+    edited = {
+        _group_of(k)
+        for k in values
+        if k not in TIME_SHADOW and shadow(k) in sv and plain(getattr(obj, k)) != sv[shadow(k)]
+    }
+    changed = False
+    handled: set[str] = set()
+    for group in edited:
+        keys = [k for k in values if _group_of(k) == group]
+        diff = [k for k in keys if plain(values[k]) != sv.get(shadow(k), missing)]
+        agrees = all(plain(values[k]) == plain(getattr(obj, k)) for k in keys)
+        # keep: a conflict only when the file changed the field since the previous import; take: the file
+        # wins wherever it disagrees with the planner's edit
+        if (diff or take) and not agrees:  # the file now says what the planner set: the edit is absorbed, no conflict
+            for k in diff or [k for k in keys if plain(values[k]) != plain(getattr(obj, k))]:
+                if k in TIME_SHADOW:
+                    continue
+                conflicts.append(
+                    {
+                        **ctx,
+                        "field": k,
+                        "planner": plain(getattr(obj, k)),
+                        "file": plain(values[k]),
+                        "previous_import": sv.get(shadow(k)),
+                        "resolution": "taken" if take else "kept",
+                    }
+                )
+            if take:
+                for k in keys:
+                    if plain(getattr(obj, k)) != plain(values[k]):
+                        setattr(obj, k, values[k])
+                        changed = True
+        for k in keys:
+            if shadow(k) in sv:
+                sv[shadow(k)] = plain(values[k])
+        handled |= set(keys)
+    for k, v in values.items():
+        if k in handled or plain(getattr(obj, k)) == plain(v):
+            continue
+        setattr(obj, k, v)
+        if k not in _META:
+            changed = True
+        if shadow(k) in sv:
+            sv[shadow(k)] = plain(v)
+    if snap is not None and sv != (snap.values or {}):
+        snap.values = sv
+    return changed
+
+
+async def _load_snapshots(
+    session: AsyncSession, meetings: list[MeetingRequest], section_ids: list[int]
+) -> dict[tuple[str, int], ImportedSnapshot]:
+    out: dict[tuple[str, int], ImportedSnapshot] = {}
+    for entity, ids in (("meeting", [m.id for m in meetings]), ("section", section_ids)):
+        for i in range(0, len(ids), 500):
+            chunk = ids[i : i + 500]
+            q = select(ImportedSnapshot).where(ImportedSnapshot.entity == entity, ImportedSnapshot.entity_id.in_(chunk))
+            for row in (await session.execute(q)).scalars():
+                out[(entity, row.entity_id)] = row
+    return out
+
+
+def _rekey_legacy(
+    term_code: str,
+    meetings: list[MeetingRequest],
+    sections: dict[int, Section],
+    snaps: dict[tuple[str, int], ImportedSnapshot],
+) -> int:
+    """Data migration (review M4): legacy content-hash keys of active rows -> stable identity keys, from
+    the imported values (the snapshot when the planner edited the row)."""
+    legacy = [m for m in meetings if not m.archived and is_legacy_key(term_code, m.source_key)]
+    if not legacy:
+        return 0
+    items: list[tuple[str, tuple[int, ...], tuple[Any, ...]]] = []
+    for m in legacy:
+        snap = snaps.get(("meeting", m.id))
+        sv = snap.values if snap is not None else {}
+        days = sv.get("days") if "days" in sv else (m.days or ([m.day] if m.day else []))
+        start = sv.get("_start_time") if "_start_time" in sv else m.start_time
+        sec = sections.get(m.section_id)
+        items.append(
+            (
+                sec.source_key if sec else str(m.section_id),
+                tuple(int(d) for d in days or []),
+                time_sort_key(start, m.source_row_index),
+            )
+        )
+    for m, (sk, days, _), o in zip(legacy, items, occurrences(items), strict=True):
+        m.source_key = meeting_identity(term_code, sk, days, o)
+        snap = snaps.get(("meeting", m.id))
+        sec = sections.get(m.section_id)
+        if snap is not None and sec is not None:
+            snap.fingerprint = meeting_snapshot_fp(sec.source_row, m.source_key, m.source_row_index)
+    return len(legacy)
+
+
+def _successors(archived: list[MeetingRequest], created: list[MeetingRequest]) -> dict[int, int]:
+    """Archived meeting -> the new meeting of the same section that replaced it in this import (paired in
+    start-time order when the counts match; anything ambiguous is left alone)."""
+    by_sec_old: dict[int, list[MeetingRequest]] = {}
+    by_sec_new: dict[int, list[MeetingRequest]] = {}
+    for m in archived:
+        by_sec_old.setdefault(m.section_id, []).append(m)
+    for m in created:
+        by_sec_new.setdefault(m.section_id, []).append(m)
+    out: dict[int, int] = {}
+    for sid, olds in by_sec_old.items():
+        news = by_sec_new.get(sid) or []
+        if not news or len(news) != len(olds):
+            continue
+        key = lambda m: (m.start_period or 99, m.source_row_index or 0, m.id)  # noqa: E731
+        for o, nw in zip(sorted(olds, key=key), sorted(news, key=key), strict=True):
+            out[o.id] = nw.id
+    return out
+
+
+async def remap_request_ids(session: AsyncSession, term_id: int, mapping: dict[int, int]) -> None:
+    """Point studio drafts (left-out classes, pins) and term rules (``params.event_ids``) of ``term_id`` at
+    the successors of archived meetings."""
+    from app.models import ConstraintRow
+
+    def sub(ids: list[Any]) -> list[Any]:
+        return list(dict.fromkeys(mapping.get(int(i), int(i)) for i in ids))
+
+    for d in (
+        await session.execute(select(StudioDraft).where(StudioDraft.term_id == term_id, StudioDraft.kind == "COURSE"))
+    ).scalars():
+        ex = sub(d.excluded_event_ids or [])
+        pins = [{**p, "event_id": mapping.get(int(p["event_id"]), int(p["event_id"]))} for p in d.pins or []]
+        if ex != list(d.excluded_event_ids or []) or pins != list(d.pins or []):
+            d.excluded_event_ids, d.pins = ex, pins
+            d.version = int(d.version) + 1
+            d.last_precheck = None
+    for c in (await session.execute(select(ConstraintRow).where(ConstraintRow.term_id == term_id))).scalars():
+        ids = (c.params or {}).get("event_ids")
+        if isinstance(ids, list) and any(int(i) in mapping for i in ids if isinstance(i, int)):
+            c.params = {**c.params, "event_ids": sub([i for i in ids if isinstance(i, int)])}
 
 
 def _join_notes(r: PlanningRow) -> str | None:

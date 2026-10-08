@@ -150,7 +150,7 @@ async def test_apply_move_relax_and_errors_on_real_row(client):
     child_id = r.json()["child_run_id"]
     await get_queue().wait_idle()
     child = (await client.get(f"/api/v1/runs/{child_id}", headers=h)).json()
-    assert child["parent_run_id"] == run_id and child["status"] in {"FEASIBLE", "OPTIMAL", "INFEASIBLE"}
+    assert child["parent_run_id"] == run_id and child["status"] in {"FEASIBLE", "OPTIMAL", "INFEASIBLE", "FEASIBLE_PARTIAL"}
     rows = (await client.get(f"/api/v1/runs/{run_id}/assignments", headers=h)).json()
     assert [(x["start_period"], x["end_period"]) for x in rows if x["meeting_request_id"] == psi.id] == [(4, 6)]
     child_rows = (await client.get(f"/api/v1/runs/{child_id}/assignments", headers=h)).json()
@@ -214,9 +214,9 @@ async def test_apply_unlock_on_real_cpsat_diagnosis(client):
     run_id = r.json()["run_id"]
     await get_queue().wait_idle()
     run = (await client.get(f"/api/v1/runs/{run_id}", headers=h)).json()
-    assert run["status"] in {"INFEASIBLE", "FEASIBLE", "OPTIMAL"}
+    assert run["status"] in {"INFEASIBLE", "FEASIBLE_PARTIAL", "FEASIBLE", "OPTIMAL"}
     assert run["stats"]["merged_joint_lectures"] > 20  # FIZ 111 §1 etc. listed once per programme
-    if run["status"] != "INFEASIBLE":
+    if run["status"] not in {"INFEASIBLE", "FEASIBLE_PARTIAL"}:
         return
     found = [
         (d["index"], o["index"], d["event_ids"])
@@ -234,5 +234,5 @@ async def test_apply_unlock_on_real_cpsat_diagnosis(client):
     assert m["status"] == "PARSED"
     await get_queue().wait_idle()
     child = (await client.get(f"/api/v1/runs/{body['child_run_id']}", headers=h)).json()
-    assert child["parent_run_id"] == run_id and child["status"] in {"INFEASIBLE", "FEASIBLE", "OPTIMAL"}
+    assert child["parent_run_id"] == run_id and child["status"] in {"INFEASIBLE", "FEASIBLE_PARTIAL", "FEASIBLE", "OPTIMAL"}
     assert set(event_ids)  # the pair named by the diagnosis

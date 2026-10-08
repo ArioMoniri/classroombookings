@@ -29,7 +29,7 @@ from app.models.booking import (
     UserConstraint,
 )
 from app.models.catalog import Building, Course, Faculty, Instructor, Program, Room, Term, Week
-from app.models.runs import Assignment, ChatMessage, ScheduleRun
+from app.models.runs import Assignment, ChatApplyClaim, ChatMessage, ScheduleRun
 from app.models.scheduling import (
     Block,
     ConstraintRow,
@@ -51,6 +51,7 @@ __all__ = [
     "BookingSeries",
     "BookingSlot",
     "Building",
+    "ChatApplyClaim",
     "ChatMessage",
     "ConstraintRow",
     "Course",

@@ -1,23 +1,25 @@
 "use client";
 
-import { CalendarRange, ChevronsLeft, ChevronsRight } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { CalendarRange, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { KbdHint } from "@/components/ui/kbd-hint";
+import { SidebarGlass, SidebarGlassContent, SidebarGlassFooter, SidebarGlassHeader, SidebarGlassItem, SidebarGlassSection } from "@/components/ui/sidebar-glass";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMeetings, useRuns } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
+import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
-import { useHydrated } from "@/lib/use-hydrated";
-import { LocaleToggle } from "./locale-toggle";
 import { NAV_GROUPS, type NavItem } from "./nav-config";
-import { TermSwitcher } from "./term-switcher";
+import { TermSwitcher, useActiveTerm } from "./term-switcher";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
 
+/** Counts are scoped to the selected term (usability M14: the FINAL term showed Bahar's 231). */
 export function useNavBadges(): Record<NonNullable<NavItem["badge"]>, number> {
-  const meetings = useMeetings({ status: "NEEDS_REVIEW", page_size: 1 });
+  const { term } = useActiveTerm();
+  const meetings = useMeetings(term ? { status: "NEEDS_REVIEW", term_id: term.id, page_size: 1 } : { status: "NEEDS_REVIEW", page_size: 1 });
   const runs = useRuns();
   return {
     needsReview: meetings.data?.total ?? 0,
@@ -32,6 +34,9 @@ export function isActive(pathname: string, search: string, href: string): boolea
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
+export const navTestId = (href: string) => `nav-${href.replace(/[/?=]/g, "-").replace(/^-/, "")}`;
+
+/** Grouped navigation (SidebarGlass grammar): quiet sentence-case section labels, plain numerals, g-key hints. */
 export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const search = useSearchParams().toString();
@@ -39,108 +44,85 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
   const liveBadges = useNavBadges();
   const hydrated = useHydrated();
   const badges = hydrated ? liveBadges : { needsReview: 0, running: 0 };
-  const reduce = useReducedMotion();
   return (
-    <nav aria-label="Primary" className="flex-1 overflow-y-auto px-2 py-2">
+    <>
       {NAV_GROUPS.map((group) => (
-        <div key={group.labelKey} className="mb-3">
-          {!collapsed ? <p className="mb-1 px-2 text-[11px] font-medium uppercase tracking-[0.02em] text-muted-foreground">{t(group.labelKey)}</p> : <div className="mx-2 mb-2 border-t" />}
-          <ul className="space-y-0.5">
-            {group.items.map((item) => {
-              const active = isActive(pathname, search, item.href);
-              const count = item.badge ? badges[item.badge] : 0;
-              const label = t(item.labelKey);
-              const aria = item.badge && count > 0 ? `${label}, ${t(item.badge === "needsReview" ? "nav.needsReview" : "nav.running", { count })}` : label;
-              const link = (
-                <Link
-                  href={item.href}
-                  onClick={onNavigate}
-                  aria-current={active ? "page" : undefined}
-                  aria-label={aria}
-                  data-testid={`nav-${item.href.replace(/[/?=]/g, "-").replace(/^-/, "")}`}
-                  className={cn(
-                    "relative flex h-9 items-center gap-2.5 rounded-md px-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                    active ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                    collapsed && "justify-center px-0",
-                  )}
-                >
-                  {active ? (
-                    <motion.span layoutId={reduce ? undefined : "nav-indicator"} transition={{ type: "spring", stiffness: 500, damping: 40 }} className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary" aria-hidden />
-                  ) : null}
-                  <item.icon className="size-4 shrink-0" aria-hidden />
-                  {!collapsed ? <span className="flex-1 truncate">{label}</span> : null}
-                  {!collapsed && count > 0 ? (
-                    <span className={cn("ml-auto inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold", item.badge === "running" ? "bg-primary-tint text-primary" : "bg-status-warning text-status-warning-fg")}>
-                      {item.badge === "running" ? <span className="mr-1 size-1.5 animate-pulse rounded-full bg-primary" aria-hidden /> : null}
-                      {count}
-                    </span>
-                  ) : null}
-                  {collapsed && count > 0 ? <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary" aria-hidden /> : null}
-                </Link>
-              );
-              return (
-                <li key={item.href}>
-                  {collapsed ? (
-                    <Tooltip>
-                      <TooltipTrigger render={link} />
-                      <TooltipContent side="right">{aria}</TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    link
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+        <SidebarGlassSection key={group.labelKey} title={collapsed ? undefined : t(group.labelKey)} aria-label={collapsed ? t(group.labelKey) : undefined}>
+          {group.items.map((item) => {
+            const active = isActive(pathname, search, item.href);
+            const count = item.badge ? badges[item.badge] : 0;
+            const label = t(item.labelKey);
+            const aria = item.badge && count > 0 ? `${label}, ${t(item.badge === "needsReview" ? "nav.needsReview" : "nav.running", { count })}` : label;
+            const props = {
+              active,
+              icon: <item.icon aria-hidden />,
+              count: !collapsed && count > 0 ? count : undefined,
+              hint: !collapsed && item.key ? <KbdHint keys={["G", item.key.toUpperCase()]} sequence thenLabel={t("glass.shell.then")} /> : undefined,
+              "aria-label": aria,
+              "data-testid": navTestId(item.href),
+              onClick: onNavigate,
+              className: cn(collapsed && "justify-center px-0"),
+              children: collapsed ? <span className="sr-only">{label}</span> : label,
+            };
+            if (!collapsed) return <SidebarGlassItem key={item.href} {...props} render={<Link href={item.href} />} />;
+            // collapsed: the tooltip root has no DOM, so the <li> stays a direct child of the list
+            return (
+              <Tooltip key={item.href}>
+                <SidebarGlassItem {...props} render={<TooltipTrigger render={<Link href={item.href} />} />} />
+                <TooltipContent side="right">{aria}</TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </SidebarGlassSection>
       ))}
-    </nav>
+    </>
   );
 }
 
+/** Desktop sidebar: floating chrome glass inset 8 px from the window (liquid-glass.md §16.1). */
 export function Sidebar() {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggle = useUiStore((s) => s.toggleSidebar);
   const { t } = useI18n();
-  const reduce = useReducedMotion();
+  const toggleLabel = collapsed ? t("nav.expand") : t("nav.collapse");
   return (
-    <motion.aside
-      aria-label="Sidebar"
-      initial={false}
-      animate={{ width: collapsed ? 56 : 240 }}
-      transition={reduce ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }}
-      className="sticky top-0 hidden h-dvh shrink-0 flex-col border-r bg-sidebar lg:flex"
-      data-collapsed={collapsed}
-    >
-      <div className={cn("flex h-14 items-center gap-2 border-b px-3", collapsed && "justify-center px-0")}>
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <CalendarRange className="size-4" aria-hidden />
-        </span>
-        {!collapsed ? <span className="truncate font-semibold">{t("app.name")}</span> : null}
-      </div>
-      <div className="px-2 pt-2">
-        <TermSwitcher collapsed={collapsed} />
-      </div>
-      <NavList collapsed={collapsed} />
-      <div className={cn("border-t p-2", collapsed ? "flex flex-col items-center gap-1" : "space-y-2")}>
-        <UserMenu collapsed={collapsed} />
-        <div className={cn("flex items-center gap-1", collapsed ? "flex-col" : "justify-between")}>
-          {!collapsed ? <LocaleToggle /> : null}
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button type="button" onClick={toggle} aria-label={collapsed ? t("nav.expand") : t("nav.collapse")} className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" data-testid="sidebar-toggle">
-                    {collapsed ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}
-                  </button>
-                }
-              />
-              <TooltipContent side="right">{collapsed ? t("nav.expand") : t("nav.collapse")} · ⌘B</TooltipContent>
-            </Tooltip>
-          </div>
+    <aside aria-label={t("glass.shell.sidebar")} data-collapsed={collapsed} className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col lg:flex", collapsed ? "w-[72px]" : "w-[264px]")}>
+      <SidebarGlass aria-label={t("glass.shell.primary")} className="flex-1">
+        <SidebarGlassHeader className={cn(collapsed && "flex-col px-2")}>
+          <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-2 rounded-lg outline-none focus-visible:outline-2 focus-visible:outline-(--focus)" aria-label={t("app.name")}>
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-tint text-tint-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.28)]">
+              <CalendarRange className="size-4 stroke-[1.75]" aria-hidden />
+            </span>
+            {!collapsed ? <span className="type-headline truncate text-label-1">{t("app.name")}</span> : null}
+          </Link>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button type="button" onClick={toggle} aria-label={toggleLabel} aria-expanded={!collapsed} className="inline-flex size-7 items-center justify-center rounded-full text-label-2 outline-none hover:bg-fill-2 hover:text-label-1 focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="sidebar-toggle">
+                  {collapsed ? <PanelLeftOpen className="size-4 stroke-[1.75]" /> : <PanelLeftClose className="size-4 stroke-[1.75]" />}
+                </button>
+              }
+            />
+            <TooltipContent side="right">
+              {toggleLabel} <KbdHint keys={["mod", "B"]} className="ml-1" />
+            </TooltipContent>
+          </Tooltip>
+        </SidebarGlassHeader>
+        <div className={cn("px-2 pb-2", collapsed && "px-1.5")}>
+          <TermSwitcher collapsed={collapsed} />
         </div>
-      </div>
-    </motion.aside>
+        <SidebarGlassContent>
+          <NavList collapsed={collapsed} />
+        </SidebarGlassContent>
+        <SidebarGlassFooter className={cn(collapsed && "items-center")}>
+          <div className={cn("flex items-center gap-1", collapsed && "flex-col")}>
+            <div className="min-w-0 flex-1">
+              <UserMenu collapsed={collapsed} />
+            </div>
+            <ThemeToggle />
+          </div>
+        </SidebarGlassFooter>
+      </SidebarGlass>
+    </aside>
   );
 }

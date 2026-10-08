@@ -6,7 +6,7 @@ from datetime import date as date_
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, utcnow
@@ -36,6 +36,8 @@ class ScheduleRun(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    #: last liveness beat of the process solving this run (review M6; stale -> recovered as FAILED)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     assignments: Mapped[list[Assignment]] = relationship(back_populates="run", cascade="all, delete-orphan")
 
@@ -78,4 +80,18 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
     tool_calls: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class ChatApplyClaim(Base):
+    """One row per applied chat diff: the INSERT is the atomic idempotency claim (review M2)."""
+
+    __tablename__ = "chat_apply_claims"
+    __table_args__ = (UniqueConstraint("run_id", "diff_id", name="uq_chat_apply_claims_run_diff"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("schedule_runs.id", ondelete="CASCADE"), index=True)
+    diff_id: Mapped[str] = mapped_column(String(64))
+    child_run_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

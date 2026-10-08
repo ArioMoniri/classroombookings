@@ -188,3 +188,13 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Exam runs: grid cards use exam capacity
 - [ ] Export polish: sheets named by date range, a legend sheet, an unplaced-classes sheet
 - [ ] i18n sweep (no English leaking into Turkish UI) and a Turkish suffix-harmony helper for generated sentences
+
+### Phase 11 CRBS parity backend backlog (backend-engineer, 2026-10-08)
+
+- Frontend screens listed in docs/CRBS_PARITY.md §5 (bookings grid, booking sheet, recurring preview, multi-booking wizard, setup screens) — frontend agent.
+- E-mail delivery runs inside the request (bounded by the SMTP timeout); move `deliver()` onto the job queue with retries/backoff.
+- `users.calendar_token` is a stored capability URL; store a hash and show the link once on rotation.
+- `timetable_occupancy()` re-reads every term's range and the active run per check; cache per request/term for big recurring series and the day grid.
+- The legacy CRBS importer (`app/importers/crbs_legacy.py`) still turns CRBS bookings into blocks and roles into ADMIN/VIEWER; import them as `bookings`/`booking_series` with `roles`, departments, room groups, custom fields and ACLs now that the tables exist.
+- Booking race: the `booking_slots` unique key is verified on SQLite and Postgres 16 schema-wise; add a concurrent-insert test on Postgres in CI.
+- Optional: per-room iCal feed of the published timetable (today the room feed lists bookings only).

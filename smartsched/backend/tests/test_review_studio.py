@@ -73,3 +73,40 @@ async def test_u2_first_visits_race_to_one_draft(bahar):
             )
         ).scalar_one()
     assert n == 1
+
+
+async def test_m3_revert_restores_coupled_groups(bahar):
+    c, h = bahar.client, bahar.planner
+    phar = await meeting_id("PHAR 240", day=1, start=1)  # PHAR 240 §1, Mon P1-P3, LOCKED in A 206
+    r = await c.put(
+        "/api/v1/studio/meetings/bulk", json={"ids": [phar], "patch": {"day": 2, "start_period": 4}}, headers=h
+    )
+    assert r.status_code == 200 and r.json()["updated"] == 1, r.text
+    row = r.json()["rows"][0]
+    assert (row["day"], row["start_period"], row["end_period"]) == (2, 4, 6)
+    # old code: start reverted alone -> P1-P6 (start without its end); now the whole time group
+    r = await c.post(f"/api/v1/studio/meetings/{phar}/revert", json={"fields": ["start_period"]}, headers=h)
+    assert r.status_code == 200, r.text
+    row = r.json()
+    assert (row["start_period"], row["end_period"], row["time_label"]) == (1, 3, "08:30-10:50")
+    assert row["day"] == 2  # the day group was not asked for
+    # old code: days reverted alone -> days [1] but day 2
+    r = await c.post(f"/api/v1/studio/meetings/{phar}/revert", json={"fields": ["days"]}, headers=h)
+    row = r.json()
+    assert (row["day"], row["days"]) == (1, [1]) and row["changed_fields"] == []
+
+
+async def test_m3_edit_cannot_leave_a_locked_class_without_its_room(bahar):
+    c, h = bahar.client, bahar.planner
+    phar = await meeting_id("PHAR 240", day=1, start=1)
+    r = await c.put(
+        "/api/v1/studio/meetings/bulk", json={"ids": [phar], "patch": {"definitive_room_ids": []}}, headers=h
+    )
+    res = r.json()["results"][0]
+    assert not res["ok"] and "locked class needs its room" in res["errors"][0]
+    r = await c.put(  # unlocking in the same patch is fine
+        "/api/v1/studio/meetings/bulk",
+        json={"ids": [phar], "patch": {"definitive_room_ids": [], "locked": False}},
+        headers=h,
+    )
+    assert r.json()["results"][0]["ok"], r.text
