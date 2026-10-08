@@ -200,6 +200,13 @@ async def recover_interrupted(session: Any) -> dict[str, int]:
             continue
         job.status, job.error, job.finished_at = "FAILED", msg, now
         imports += 1
+    from app.models import CouncilJob
+
+    for cj in (await session.execute(select(CouncilJob).where(CouncilJob.status.in_(("QUEUED", "RUNNING"))))).scalars():
+        if _alive((cj.settings or {}).get("worker")):
+            continue
+        cj.status, cj.error, cj.finished_at = "FAILED", f"{msg}; re-run the job", now
+        imports += 1
     await session.commit()
     if runs or imports:
         log.warning("marked %d run(s) and %d import job(s) FAILED (%s)", runs, imports, msg)

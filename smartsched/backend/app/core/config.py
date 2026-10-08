@@ -38,6 +38,20 @@ class Settings(BaseSettings):
 
     upload_dir: str = "./uploads"
 
+    # Ingestion Council (docs/universal/ARCHITECTURE.md "Settings")
+    council_ai: bool = Field(default=True, description="use Claude in the council when an API key is configured")
+    council_model: str = Field(default="", description="model for the council; '' = the anthropic_model setting")
+    council_fast_model: str = Field(
+        default="", description="model for vision transcription and the judge; '' = council_model"
+    )
+    council_review_threshold: float = Field(default=0.75, description="below this confidence an item needs review")
+    council_step_timeout_s: float = 300.0
+    council_job_token_budget: int = Field(default=600_000, description="input+output tokens per job; then heuristic")
+    council_max_files: int = 25
+    council_max_file_mb: int = 15
+    council_self_consistency: int = Field(default=1, description="model votes per sheet (majority)")
+    council_judge_sample: int = Field(default=12, description="records per file checked by the model judge; 0 = off")
+
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")

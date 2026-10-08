@@ -2,6 +2,7 @@
 
 from app.models.base import Base
 from app.models.catalog import Building, Course, Faculty, Instructor, Program, Room, Term, Week
+from app.models.council import CouncilArtifact, CouncilJob, CouncilStep
 from app.models.runs import Assignment, ChatMessage, ScheduleRun
 from app.models.scheduling import (
     Block,
@@ -21,6 +22,9 @@ __all__ = [
     "Building",
     "ChatMessage",
     "ConstraintRow",
+    "CouncilArtifact",
+    "CouncilJob",
+    "CouncilStep",
     "Course",
     "ExamRequest",
     "Faculty",

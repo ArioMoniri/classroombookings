@@ -15,7 +15,7 @@ format:
 	ruff format app tests $(EXCL)
 
 type:
-	$(PY) -m mypy app/importers app/services app/workers app/core app/solver/model.py app/solver/stub.py
+	$(PY) -m mypy app/importers app/services app/workers app/core app/council app/solver/model.py app/solver/stub.py
 
 test:
 	$(PY) -m pytest -q --ignore=tests/solver
