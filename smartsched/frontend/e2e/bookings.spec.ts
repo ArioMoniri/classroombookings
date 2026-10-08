@@ -120,6 +120,8 @@ test("1. the administrator creates a teacher in Setup → Users", async ({ page 
   await dialog.locator("#u-last").fill(TEACHER.last);
   await dialog.locator("#u-role").selectOption({ label: "Teacher" });
   await dialog.locator("#u-password").fill(TEACHER.password);
+  // the admin screens added a password confirmation (CRBS gap audit #22)
+  if (await dialog.locator("#u-password2").count()) await dialog.locator("#u-password2").fill(TEACHER.password);
   await dialog.getByTestId("user-save").click();
   await expect(dialog).toBeHidden();
   await page.getByTestId("users-search").fill(TEACHER.username);

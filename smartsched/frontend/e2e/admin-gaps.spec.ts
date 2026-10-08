@@ -93,7 +93,7 @@ test("admin gaps 1. the user menu and ⌘K open the profile; the menu names the 
   await page.goto("/admin");
   await expect(page.getByTestId("admin-version")).toHaveText(`Version ${health.version}`);
   await openPalette(page);
-  await page.keyboard.type("Profile");
+  await page.getByRole("dialog").getByRole("combobox").fill("Profile");
   await page.getByRole("option", { name: /^Profile/ }).click();
   await page.waitForURL("**/profile");
 });
@@ -216,7 +216,7 @@ test("admin gaps 5. deleting a session names what goes with it, then deletes it 
 test("admin gaps 6. ⌘K New room creates a room in Admin → Rooms; photo lightbox, access checker link, delete (#4, #15, #25)", async ({ page }) => {
   await page.goto("/admin");
   await openPalette(page);
-  await page.keyboard.type("New room");
+  await page.getByRole("dialog").getByRole("combobox").fill("New room");
   await page.getByRole("option", { name: /New room/ }).click();
   await page.waitForURL(/\/admin\/rooms\?tab=rooms&new=1/);
   const create = page.getByTestId("room-create-dialog");
@@ -294,15 +294,25 @@ test("admin gaps 8. the role editor lists the role's users and links to them (#1
 });
 
 test("admin gaps 9. a schedule description is saved; a period is added and removed (#19, S-19)", async ({ page }) => {
+  // its own schedule, so the step never depends on (or changes) the schedules other specs use
+  const name = `E2E ${STAMP}`.slice(0, 32);
   await page.goto("/admin/schedules");
+  await expect(async () => {
+    await page.getByPlaceholder("New schedule name").fill(name);
+    await expect(page.getByRole("button", { name: "Create schedule" })).toBeEnabled({ timeout: 1_000 });
+  }).toPass();
+  await page.getByRole("button", { name: "Create schedule" }).click();
+  await expect(page.locator("#sch-name")).toHaveValue(name);
   const desc = page.getByTestId("schedule-description");
-  if (!(await desc.isVisible().catch(() => false))) {
-    await page.getByPlaceholder("New schedule name").fill(`E2E ${STAMP}`.slice(0, 32));
-    await page.getByRole("button", { name: "Create schedule" }).click();
-  }
-  await desc.fill(`E2E açıklama ${STAMP}`);
+  // a fill before hydration is reset by React; retry until the form holds it (Save enables)
+  await expect(async () => {
+    await desc.fill(`E2E açıklama ${STAMP}`);
+    await expect(page.getByTestId("schedule-save")).toBeEnabled({ timeout: 1_000 });
+  }).toPass();
   await page.getByTestId("schedule-save").click();
+  await expect(page.getByRole("button", { name: new RegExp(`^${name}`) })).toContainText(`E2E açıklama ${STAMP}`);
   await page.reload();
+  await page.getByRole("button", { name: new RegExp(`^${name}`) }).click();
   await expect(page.getByTestId("schedule-description")).toHaveValue(`E2E açıklama ${STAMP}`);
   // a period (CRBS Periods: name, start/end time, days, bookable), then remove it again
   const per = `E${STAMP.slice(-5)}`;
@@ -313,6 +323,9 @@ test("admin gaps 9. a schedule description is saved; a period is added and remov
   await expect(page.getByRole("switch", { name: new RegExp(per) })).toBeVisible();
   await page.getByRole("button", { name: `Delete ${per}` }).click();
   await expect(page.getByRole("switch", { name: new RegExp(per) })).toHaveCount(0);
+  await page.getByRole("button", { name: "Delete", exact: true }).first().click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByRole("button", { name: new RegExp(`^${name}`) })).toHaveCount(0);
 });
 
 test("admin gaps 10. maintenance mode shows a banner on every page; Admin links the CSV export (#13, #14)", async ({ page }) => {
@@ -416,13 +429,16 @@ test("admin gaps 14. LDAP settings save and read back; e-mail settings show the 
 });
 
 test("admin gaps 15. the login page shows the organisation's logo, name and login message; What's new opens from the header (S-02)", async ({ page }) => {
+  test.setTimeout(150_000); // settings round trips, a sign-out and a sign-in
   const before = await call<{ name: string | null; login_message_enabled: boolean; login_message_text: string | null; logo_url: string | null }>(page, "GET", "/org/settings");
   const name = `Acıbadem E2E ${STAMP}`;
   try {
     await page.goto("/admin/settings");
-    await page.getByTestId("org-name").fill(name);
+    // the logo upload refreshes the settings (and the form), so it goes first, then the name
     await page.locator('input[type=file][accept^="image/png"]').setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: PNG });
     await expect.poll(async () => (await call<{ logo_url: string | null }>(page, "GET", "/org/settings")).logo_url).toBeTruthy();
+    await page.reload();
+    await page.getByTestId("org-name").fill(name);
     await page.getByTestId("org-save").click();
     await expect.poll(async () => (await call<{ name: string | null }>(page, "GET", "/org/settings")).name).toBe(name);
     await call(page, "PUT", "/org/settings", { login_message_enabled: true, login_message_text: `Personel hesabınızla girin (${STAMP}).` });
@@ -451,6 +467,7 @@ test("admin gaps 15. the login page shows the organisation's logo, name and logi
 });
 
 test("admin gaps 16. room groups with members, a custom field and a room access entry (S-17)", async ({ page }) => {
+  test.setTimeout(150_000);
   const code = `Z ${100 + ((ROOM_NO + 7) % 900)}`;
   const room = await call<{ id: number; code: string; display_name: string }>(page, "POST", "/rooms", { code, display_name: `E2E Grup Odası ${STAMP}`, capacity: 12 });
   const group = `E2E Grup ${STAMP}`.slice(0, 32);
@@ -496,12 +513,14 @@ test("admin gaps 16. room groups with members, a custom field and a room access 
 });
 
 test("admin gaps 17. a session's booking settings, schedule per room group and timetable-week calendar (S-18)", async ({ page }) => {
+  test.setTimeout(150_000);
   const term = await call<{ id: number; name: string }>(page, "POST", "/terms", { code: `E2E-CAL-${STAMP}`.toUpperCase().slice(0, 32), name: `E2E Takvim ${STAMP}`, start_date: "2026-07-06", end_date: "2026-07-17", week_count: 2 });
   const week = await call<{ id: number; name: string }>(page, "POST", "/booking-admin/weeks", { name: `E2E H ${STAMP}`.slice(0, 20), bgcol: "#2563eb" });
   const room = await call<{ id: number }>(page, "POST", "/rooms", { code: `Z ${100 + ((ROOM_NO + 13) % 900)}`, display_name: `E2E Takvim Odası ${STAMP}`, capacity: 10 });
   const group = await call<{ id: number; name: string }>(page, "POST", "/room-admin/groups", { name: `E2E Takvim ${STAMP}`.slice(0, 32), room_ids: [room.id] });
   const schedules = await call<{ id: number; name: string }[]>(page, "GET", "/booking-admin/schedules");
-  const schedule = schedules[0] ?? (await call<{ id: number; name: string }>(page, "POST", "/booking-admin/schedules", { name: `E2E ${STAMP}`.slice(0, 32) }));
+  const ownSchedule = !schedules[0];
+  const schedule = schedules[0] ?? (await call<{ id: number; name: string }>(page, "POST", "/booking-admin/schedules", { name: `E2E T ${STAMP}`.slice(0, 32) }));
   try {
     await page.goto("/admin/sessions");
     await page.getByRole("button", { name: new RegExp(`^${term.name}`) }).click();
@@ -525,5 +544,6 @@ test("admin gaps 17. a session's booking settings, schedule per room group and t
     await call(page, "DELETE", `/room-admin/groups/${group.id}`);
     await call(page, "DELETE", `/rooms/${room.id}`);
     await call(page, "DELETE", `/booking-admin/weeks/${week.id}`);
+    if (ownSchedule) await call(page, "DELETE", `/booking-admin/schedules/${schedule.id}`);
   }
 });

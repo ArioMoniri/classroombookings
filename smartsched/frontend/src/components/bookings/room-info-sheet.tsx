@@ -167,6 +167,20 @@ function RoomDay({ room, date, termId, fmt, onReserve }: { room: RoomInfo; date:
   if (week.isLoading) return <Loading />;
   if (!g || g.rooms[0]?.id !== room.id) return null;
   const held = roomDay(g, room.id, date).filter((s) => s.status === "booked" || s.status === "timetable" || (s.status === "unavailable" && s.reason === "holiday"));
+  const describe = (x: (typeof held)[number]) => {
+    const text = slotText(x, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine") });
+    return [text.primary, x.booking?.notes, x.booking?.department_name].filter(Boolean).join(" · ");
+  };
+  // consecutive periods held by the same class or booking series are one row
+  const order = new Map(g.periods.map((p, i) => [p.id, i]));
+  const runs: (typeof held)[] = [];
+  for (const x of held) {
+    const last = runs[runs.length - 1];
+    const prev = last?.[last.length - 1];
+    const same = prev && (order.get(x.period_id) ?? 0) === (order.get(prev.period_id) ?? 0) + 1 && prev.status === x.status && describe(prev) === describe(x) && (prev.booking?.series_id ?? prev.booking?.id ?? null) === (x.booking?.series_id ?? x.booking?.id ?? null);
+    if (same) last!.push(x);
+    else runs.push([x]);
+  }
   const next = nextFreeSlot(g, room.id, now);
   const np = next ? periods.get(next.period_id) : undefined;
   return (
@@ -179,17 +193,18 @@ function RoomDay({ room, date, termId, fmt, onReserve }: { room: RoomInfo; date:
           <p className="type-callout text-label-2">{t("reserve.room.dayEmpty")}</p>
         ) : (
           <ul className="flex flex-col overflow-hidden rounded-xl bg-fill-2">
-            {held.map((s) => {
-              const p = periods.get(s.period_id);
-              const text = slotText(s, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine") });
+            {runs.map((run) => {
+              const s = run[0]!;
+              const a = periods.get(s.period_id);
+              const b = periods.get(run[run.length - 1]!.period_id);
               const Icon = s.status === "timetable" ? GraduationCap : s.reason === "recurring" ? Repeat : User;
               return (
                 <li key={s.period_id} className="flex items-center gap-3 px-3 py-2 type-callout shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
-                  <span className="w-24 shrink-0 text-label-3 tabular-nums">
-                    {p?.name} · {p ? fmt.time(p.time_start) : ""}
+                  <span className="w-28 shrink-0 text-label-3 tabular-nums">
+                    {run.length > 1 ? `${a?.name}–${b?.name}` : a?.name} · {a ? fmt.time(a.time_start) : ""}
                   </span>
                   <Icon className="size-3.5 shrink-0 text-label-2" aria-label={s.status === "timetable" ? t("reserve.room.class") : t("reserve.room.booking")} />
-                  <span className="min-w-0 truncate text-label-1">{[text.primary, s.booking?.notes, s.booking?.department_name].filter(Boolean).join(" · ")}</span>
+                  <span className="min-w-0 truncate text-label-1">{describe(s)}</span>
                 </li>
               );
             })}

@@ -25,7 +25,7 @@ can import its database.
 
 <p align="center">
   <a href="docs/images/recordings/import-generate.mp4">
-    <img alt="Screen recording: the weekly room grid and the planning list of Bahar 2026 are imported into an empty term, each with an import report; week 3 is chosen in the Generator Studio, whose pre-check warns that some classes cannot be placed under the hard rules; the run is generated anyway and the run report shows how many classes were placed with every hard rule kept, then the first class that could not be placed, with its reason and suggested fixes." src="docs/images/recordings/import-generate.webp" width="960">
+    <img alt="Screen recording: the weekly room grid and the planning list of Bahar 2026 are imported into an empty term, each with an import report; week 3 is chosen in the Generator Studio, whose pre-check warns that some classes cannot be placed under the hard rules; the run is generated anyway and the run report shows how many classes were placed with every hard rule kept, then the first class that could not be placed, with its reason and suggested fixes." src="docs/images/recordings/import-generate.webp" width="680">
   </a>
   <br>
   <sub>From two Excel files to a checked timetable: import the Bahar 2026 workbooks, generate week 3, read the report.
@@ -190,12 +190,12 @@ other work, CP-SAT with 4 workers. A *request* is one row of the planning or exa
 placed in every week of the run. "Planner-level hard" re-checks the stored timetable against the raw
 workbook rows, independently of the solver.
 
-| Instance | Requests placed | Solver events placed | Planner-level hard | Violations | Wall time |
-|---|---|---|---|---|---|
-| Bahar 2026, whole term | 839 / 883 (95.0 %) | 683 / 720 | 100 | 0 | 301 s |
-| Bahar 2026, week 3 | 845 / 882 (95.8 %) | 689 / 719 | 100 | 0 | 82 s |
-| Güz 2026-27, week 3 | 626 / 653 (95.9 %) | 522 / 548 | 100 | 0 | 62 s |
-| Final 2026 exams | 724 / 729 (99.3 %) | 624 / 629 | 100 | 0 | 102 s |
+| Instance | Requests placed | Solver events placed | Planner-level hard | Violations |
+|---|---|---|---|---|
+| Bahar 2026, whole term (300 s limit) | 838 / 883 (94.9 %) | 682 / 720 | 100 | 0 |
+| Bahar 2026, week 3 (120 s) | 845 / 882 (95.8 %) | 689 / 719 | 100 | 0 |
+| Güz 2026-27, week 3 (120 s) | 626 / 653 (95.9 %) | 522 / 548 | 100 | 0 |
+| Final 2026 exams (120 s) | 724 / 729 (99.3 %) | 624 / 629 | 100 | 0 |
 
 Every exception behind these numbers is the planner's own data and is reported per class (locked rooms
 smaller than the enrolment estimate, fixed-time clashes of one instructor or cohort, missing
@@ -205,20 +205,20 @@ runs (for example 136 students seated in a 72-seat room), because the bridge cli
 the room. The placement rates went down a little when that was fixed. Earlier still, the same Bahar
 data ended *infeasible within 0.05 s, with 356 diagnoses and no timetable*.
 
-When the planner's rooms are only hints instead of locks, the solver chose the planner's room for
-89.7 % of course classes (855 / 953, Bahar and Güz week 3) and 80.9 % of exams in the weight
-calibration of the same report, measured before the review fixes.
+When the planner's rooms are only hints instead of locks, the solver picks exactly the planner's room
+set for 89.5 % of the placed Bahar week 3 requests and 94.9 % of the Güz ones; for the Final exams it is
+74.1 % exact and 93.4 % sharing at least one room, every run with planner-level hard 100.
 
 The recordings and screenshots on this page come from a fresh import of the same workbooks and two
 runs made through the API for Güz 2026-27: week 3 placed 522 of 548 solver events (the row above) and
 the whole term 519 of 548, both with hard score 100.
 
 The classroombookings side is checked by the CRBS superset gate
-([docs/testing/crbs-parity-report.md](docs/testing/crbs-parity-report.md)): 182 rows, one per CRBS
-behaviour, audit item or screen, each tied to API tests on the real Bahar data and, where there is a
-screen, to a Playwright test against the real backend. The run committed on 2026-10-08 at 15:00 UTC
-passed: 153 rows pass, 29 are declared gaps with a reason and a proposed fix, none fail; 109 API tests
-ran. The gate runs in CI, so the report file always shows the latest run.
+([docs/testing/crbs-parity-report.md](docs/testing/crbs-parity-report.md)): one row per CRBS behaviour,
+audit item or screen, each tied to API tests on the real Bahar data and, where there is a screen, to a
+Playwright test against the real backend. The run of 2026-10-08 16:27 UTC passed with 192 rows:
+157 pass, 35 are declared gaps with a reason and a proposed fix, none fail; 157 API tests ran. The
+gate runs in CI, so the report file always shows the latest run.
 
 ## Screenshots
 

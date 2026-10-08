@@ -16,6 +16,7 @@ from app.core.safe_files import run_isolated
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
 from app.importers.report import ImportReport
+from app.importers.settings import importer_settings
 from app.importers.xlsx import iter_sheet_rows, map_headers, row_dict
 from app.models import ExamRequest
 
@@ -64,8 +65,9 @@ class ExamRow:
     def merge_key(self) -> str | None:
         if not self.course_code or self.date is None or self.start_time is None:
             return None
-        # BİF 111 and BIF 111 on the same slot are one exam (dotted/undotted I typed inconsistently)
-        code = self.course_code.replace("İ", "I")
+        # BİF 111 and BIF 111, SYS 18 and SYS 018 on the same slot are one exam (dotted/undotted I, leading
+        # zeros typed inconsistently)
+        code = n.course_key(self.course_code)
         return f"{code}:{self.date.isoformat()}:{self.start_time:%H%M}"
 
     @property
@@ -90,7 +92,11 @@ class ParsedExamList:
 
 
 def parse_exam_row(
-    row: int, values: tuple[Any, ...], mapping: dict[str, int], headers: list[str | None]
+    row: int,
+    values: tuple[Any, ...],
+    mapping: dict[str, int],
+    headers: list[str | None],
+    non_room_venues: list[str] | tuple[str, ...] | None = None,
 ) -> ExamRow | tuple[str, str | None]:
     def g(k: str) -> Any:
         idx = mapping.get(k)
@@ -112,7 +118,7 @@ def parse_exam_row(
     if d_end:
         warnings.append(f"exam date range {d}..{d_end}; using first day")
     venue = n.parse_venue_request(g("venue"))
-    definitive = n.parse_definitive_rooms(g("definitive"))
+    definitive = n.parse_definitive_rooms(g("definitive"), non_room_venues)
     no_exam = n.clean_text(g("no_exam")) is not None
     on_campus = n.clean_text(g("on_campus")) is not None
     needs_room = not no_exam
@@ -146,7 +152,9 @@ def parse_exam_row(
     )
 
 
-def parse_exam_list(path: str | Path, sheet: str | int = 0) -> ParsedExamList:
+def parse_exam_list(
+    path: str | Path, sheet: str | int = 0, non_room_venues: list[str] | tuple[str, ...] | None = None
+) -> ParsedExamList:
     headers, rows = iter_sheet_rows(path, sheet)
     mapping = map_headers(headers, HEADER_SPEC)
     missing = [k for k in ("code", "date", "start") if k not in mapping]
@@ -157,7 +165,7 @@ def parse_exam_list(path: str | Path, sheet: str | int = 0) -> ParsedExamList:
     total = 0
     for row, values in rows:
         total += 1
-        res = parse_exam_row(row, values, mapping, headers)
+        res = parse_exam_row(row, values, mapping, headers, non_room_venues)
         if isinstance(res, tuple):
             skipped.append((row, res[0], res[1]))
         else:
@@ -175,7 +183,9 @@ async def import_exam_list(
     term_kind: str = "FINAL",
 ) -> ImportReport:
     report = ImportReport(kind="exam-list", filename=filename or Path(path).name, term_code=term_code)
-    parsed = await run_isolated(parse_exam_list, path)  # off the event loop, memory-capped child
+    settings = importer_settings()
+    # off the event loop, memory-capped child
+    parsed = await run_isolated(parse_exam_list, path, non_room_venues=settings.non_room_venues)
     report.rows_total = parsed.rows_total
     for row, reason, detail in parsed.skipped:
         report.skip(row, reason, detail)
@@ -188,9 +198,13 @@ async def import_exam_list(
     seen_fp: dict[str, int] = {}
     seen_keys: set[str] = set()
     merge_groups: dict[str, int] = {}
+    venue_rows = 0
     for r in parsed.rows:
         for w in r.warnings:
             report.warn(w, r.row)
+        if r.definitive.venue:
+            venue_rows += 1
+            report.warn(n.venue_warning(r.definitive), r.row)
         faculty = await cat.faculty(r.faculty)
         program = await cat.program(r.program, faculty)
         await cat.course(r.course_code or "", name=r.course_name)
@@ -237,7 +251,7 @@ async def import_exam_list(
             merge_key=mk,
             status=status,
             parse_warnings=r.warnings,
-            notes=r.venue.notes,
+            notes=" | ".join(p for p in (r.venue.notes, n.venue_note(r.definitive)) if p) or None,
             source_row=r.raw,
             source_key=key,
             source_row_index=r.row,
@@ -261,6 +275,7 @@ async def import_exam_list(
             ex.archived = True
             report.updated["exam_requests_archived"] += 1
     await cat.finalize_rooms(lecture_side=False)
+    report.extra["non_room_venues"] = venue_rows
     report.extra["merge_groups"] = len(merge_groups)
     report.extra["merged_rows"] = sum(c for c in merge_groups.values() if c > 1)
     await session.commit()

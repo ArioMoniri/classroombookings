@@ -6,6 +6,7 @@ Everything here is side-effect free and DB-agnostic so it can be unit-tested on 
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
@@ -45,6 +46,17 @@ def tr_casefold(s: str) -> str:
 
 def _tr_title(s: str) -> str:
     return " ".join(w[:1].upper() + w[1:] if w else w for w in s.split(" "))
+
+
+def tr_fold(s: str) -> str:
+    """Keyword-matching form: Turkish casefold with the dotless ``ı`` folded to ``i`` too, so a word typed
+    in capitals without the Turkish dot matches (``"ONLINE"`` casefolds to ``"onlıne"`` in Turkish)."""
+    return tr_casefold(s).replace("ı", "i")
+
+
+def has_phrase(folded_text: str, phrase: str) -> bool:
+    """``phrase`` occurs in ``folded_text`` as whole words (both in :func:`tr_fold` form)."""
+    return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", folded_text) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +112,22 @@ def extract_course_codes(value: Any) -> list[str]:
 def canon_course_code(value: Any) -> str | None:
     codes = extract_course_codes(value)
     return codes[0] if codes else None
+
+
+#: leading zeros of a course number (``SYS 018`` = ``SYS 18``); shared with the solver bridge's joint-lecture
+#: merge (``solver_bridge._course_code``) so the importers and the merge agree on one lecture
+LEADING_ZEROS_RX = re.compile(r"(?<=[A-Za-zÇĞİÖŞÜçğıöşü ])0+(?=\d)")
+
+
+def strip_code_zeros(code: str) -> str:
+    """``"SYS 018"`` -> ``"SYS 18"``, ``"SYS019"`` -> ``"SYS19"``; inner zeros stay (``MBG 100``)."""
+    return LEADING_ZEROS_RX.sub("", code)
+
+
+def course_key(code: str | None) -> str:
+    """Identity of a course code for matching (never for display): no spaces, the dotted ``İ`` folded
+    (``BİF111`` = ``BIF111``) and no leading zeros in the number (``SYS018`` = ``SYS18``, comparison R1)."""
+    return strip_code_zeros(code_upper(re.sub(r"\s+", "", code or "")))
 
 
 _LOOSE_CODE_RX = re.compile(rf"([{_TR_LETTERS}]{{2,5}})\s?(\d[\dO ]{{1,4}}\d|[\dO]{{2,4}})(?![{_TR_LETTERS}])")
@@ -389,6 +417,7 @@ def parse_time_slot(value: Any) -> tuple[time, time] | None:
 _ROOM_RX = re.compile(r"(?<![A-Za-zÇĞİÖŞÜçğıöşü0-9])([A-Da-d])\s?([zZ]?\d{2,3})(?![0-9])")
 _ROOM_BLOCK_RX = re.compile(r"([A-Da-d])\s*[Bb][Ll][Oo][Kk]\w*\s*((?:\d{3}\s*[-,/]?\s*)+)")
 _BUILDING_RX = re.compile(r"\b([A-Da-d])\s*[Bb][Ll][Oo][Kk]")
+_ROOM_PAIR_RX = re.compile(r"\s*[-–/]\s*([zZ]?\d{2,3})(?![0-9.,]?\d)(?!\s*(?:kişi|kisi|öğr|ogr))")
 
 
 def _canon_room(letter: str, num: str) -> str:
@@ -419,7 +448,13 @@ def parse_room_codes(value: Any) -> list[str]:
     text = clean_text(value)
     if not text:
         return []
-    codes = [_canon_room(m.group(1), m.group(2)) for m in _ROOM_RX.finditer(text)]
+    codes: list[str] = []
+    for m in _ROOM_RX.finditer(text):
+        codes.append(_canon_room(m.group(1), m.group(2)))
+        # "C 501-502", "C 403 - 404", "A 106/107": the second room of the same floor (same hundred)
+        nxt = _ROOM_PAIR_RX.match(text, m.end())
+        if nxt and len(nxt.group(1)) == len(m.group(2)) and nxt.group(1)[:-2] == m.group(2)[:-2]:
+            codes.append(_canon_room(m.group(1), nxt.group(1)))
     for m in _ROOM_BLOCK_RX.finditer(text):
         for num in re.findall(r"\d{3}", m.group(2)):
             codes.append(_canon_room(m.group(1), num))
@@ -504,6 +539,8 @@ class DefinitiveParse:
     room_codes: list[str]
     status: str  # ROOMS | NO_ROOM | CANCELLED | UNKNOWN | EMPTY
     raw: str | None = None
+    #: the non-room venue (``case``, ``öğretim üyesi odası``, ``online`` ...) that made the row NO_ROOM
+    venue: str | None = None
 
 
 _NO_ROOM_PHRASES = (
@@ -524,19 +561,55 @@ _NO_ROOM_PHRASES = (
 _CANCELLED_PHRASES = ("iptal", "kapatıl", "kapatılacak")
 
 
-def parse_definitive_rooms(value: Any) -> DefinitiveParse:
+def non_room_venue(value: Any, venues: Iterable[str] | None = None) -> str | None:
+    """The non-room venue a text names (``"CASE 4. Kat"`` -> ``"case"``, ``"Öğretim Üyesi Odası"``,
+    ``"ONLINE"``, ``"MS Teams"``), matched as whole words after Turkish folding; ``None`` when the text names
+    none.  ``venues`` defaults to :data:`app.importers.settings.DEFAULT_NON_ROOM_VENUES` (the importers pass
+    the configured list, setting ``IMPORT_NON_ROOM_VENUES``)."""
+    text = clean_text(value)
+    if not text:
+        return None
+    if venues is None:
+        from app.importers.settings import DEFAULT_NON_ROOM_VENUES
+
+        venues = DEFAULT_NON_ROOM_VENUES
+    folded = tr_fold(text)
+    for v in venues:
+        fv = tr_fold(v)
+        if fv and has_phrase(folded, fv):
+            return v
+    return None
+
+
+def parse_definitive_rooms(value: Any, non_room_venues: Iterable[str] | None = None) -> DefinitiveParse:
+    """The planner's definitive room cell.  A cell without a room code that names a non-room venue (CASE,
+    an office, ONLINE, Zoom ...; :func:`non_room_venue`) is ``NO_ROOM`` with ``venue`` set."""
     text = clean_text(value)
     if not text or text.lower() in {"x"}:
         return DefinitiveParse([], "EMPTY", text)
     codes = parse_room_codes(text)
-    low = tr_casefold(text)
-    if any(p in low for p in _CANCELLED_PHRASES):
+    low = tr_fold(text)
+    if any(tr_fold(p) in low for p in _CANCELLED_PHRASES):
         return DefinitiveParse(codes, "CANCELLED", text)
     if codes:
         return DefinitiveParse(codes, "ROOMS", text)
-    if any(p in low for p in _NO_ROOM_PHRASES):
+    if any(tr_fold(p) in low for p in _NO_ROOM_PHRASES):
         return DefinitiveParse([], "NO_ROOM", text)
+    venue = non_room_venue(text, non_room_venues)
+    if venue is not None:
+        return DefinitiveParse([], "NO_ROOM", text, venue=venue)
     return DefinitiveParse([], "UNKNOWN", text)
+
+
+def venue_note(definitive: DefinitiveParse) -> str | None:
+    """Data note of a row whose definitive place is no classroom (TR / EN, shown with the request)."""
+    if not definitive.venue:
+        return None
+    return f"Derslik dışı mekân ({definitive.raw}): derslik gerekmez / not a classroom, no room needed"
+
+
+def venue_warning(definitive: DefinitiveParse) -> str:
+    return f"definitive place {definitive.raw!r} is not a classroom ({definitive.venue}): no room needed"
 
 
 # ---------------------------------------------------------------------------
@@ -948,6 +1021,61 @@ def looks_like_person(text: str) -> bool:
     return all(_NAME_WORD.match(w) and tr_casefold(w).rstrip(".") not in _NOT_NAME for w in words)
 
 
+#: an instructor cell that names how or whether the class is taught, not who teaches it
+_NON_PERSON_MODE = (
+    "yüz yüze", "yüzyüze", "uzem", "online", "çevrimiçi", "asenkron", "senkron", "hibrit", "uzaktan", "zoom",
+    "teams", "face to face", "remote",
+)  # fmt: skip
+#: placeholders and decisions still to be made
+_NON_PERSON_PLACEHOLDER = (
+    "yok", "evet", "hayır", "belirlenecek", "belli değil", "belli degil", "bildirecek", "yapılacak", "gerekli",
+    "tba", "tbd", "n/a", "atanacak",
+)  # fmt: skip
+#: departments, units and offices written into the instructor column
+_NON_PERSON_ORG = (
+    "bölüm", "bölümü", "bölümünün", "böl", "anabilim", "anabilimdalı", "abd", "dalı", "diller", "dersler",
+    "derslek", "fakülte", "fakültesi", "yüksekokul", "yüksekokulu", "enstitü", "enstitüsü", "rektörlük",
+    "dekanlık", "müdürlüğü", "koordinatörlüğü", "danışmanları", "merkezi", "birimi", "department", "faculty",
+)  # fmt: skip
+#: words of a sentence (a section note pasted into the column), never of a name
+_SENTENCE_WORDS = frozenset(
+    tr_fold(w) for w in ("ve", "ile", "için", "lütfen", "bu", "ders", "dersi", "tüm", "olarak", "the", "and", "for")
+)
+_MISSPELT_TITLES = frozenset({"öğt", "ögr", "psk"})
+
+
+def non_person_reason(value: Any) -> str | None:
+    """Why an instructor cell names no person (``"Yüz yüze"`` -> ``"mode"``, ``"Yabancı Diller Bölümü"`` ->
+    ``"department"``, a pasted section note -> ``"note"``, ``"Öğt. Gör. Dr"`` -> ``"title_only"``), or
+    ``None`` for a person.  Such values are never an instructor key: two classes "taught by" UZEM do not
+    clash (comparison §7 false alarm)."""
+    text = clean_text(value)
+    if not text:
+        return None
+    folded = tr_fold(text)
+    if any(has_phrase(folded, tr_fold(p)) for p in _NON_PERSON_MODE):
+        return "mode"
+    if any(has_phrase(folded, tr_fold(p)) for p in _NON_PERSON_PLACEHOLDER):
+        return "placeholder"
+    if any(has_phrase(folded, tr_fold(p)) for p in _NON_PERSON_ORG):
+        return "department"
+    titles, words = _title_and_rest(text)
+    if (
+        words
+        and all(
+            tr_fold(w).rstrip(".") in _MISSPELT_TITLES or tr_casefold(w).rstrip(".") in _TITLE_TOKENS for w in words
+        )
+        and (titles or len(words) > 1)
+    ):
+        return "title_only"
+    if titles:
+        return None  # "Prof. Dr. X (Dış Hoca)": a titled person, whatever follows
+    tokens = [tr_fold(w).strip(".,;:()") for w in words]
+    if len(tokens) > 6 or any(t in _SENTENCE_WORDS for t in tokens) or (text.endswith(".") and len(tokens) >= 4):
+        return "note"
+    return None
+
+
 def _split_glued(part: str) -> list[str]:
     """``Dr. Öğr. Üyesi A B Öğr. Gör. Dr. C D`` (two people, no separator) -> two parts at the 2nd title run."""
     tokens = [t for t in re.split(r"(?<=\.)\s*|\s+", part) if t]
@@ -1201,9 +1329,10 @@ def parse_venue_request(value: Any) -> VenueRequest:
         tags.append("TIP")
     v.tags = tags
     has_room_word = any(w in low for w in ("derslik", "sınıf", "amfi", "anfi", "dersik", "derslk", "derlisk"))
-    no_room = any(w in low for w in _VENUE_NO_ROOM)
+    folded = tr_fold(text)  # "ONLINE" is "onlıne" in Turkish lower case
+    no_room = any(tr_fold(w) in folded for w in _VENUE_NO_ROOM)
     explicit_no = any(
-        w in low
+        tr_fold(w) in folded
         for w in ("talebi yok", "gerek yok", "istenmiyor", "ihtiyaç bulunmuyor", "kullanılmayacak", "talebimiz yok")
     )
     if explicit_no and not v.room_codes:

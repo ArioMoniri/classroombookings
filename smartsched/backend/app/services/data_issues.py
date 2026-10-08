@@ -123,6 +123,62 @@ GROUPS: tuple[GroupSpec, ...] = (
         "The planning list's definitive room and the published weekly board disagree at the same time.",
     ),
     GroupSpec(
+        "board_capacity",
+        "Pano kapasite - Board capacity",
+        "Panoda derse küçük gelen derslikler",
+        "Board rooms too small for their class",
+        "Yayınlanan panoda bir ders tek başına öğrenci sayısından küçük bir derslikte; panoyu veya öğrenci "
+        "sayısını düzeltin.",
+        "On the published board a class sits alone in a room with fewer seats than its enrolment; fix the "
+        "board cell or the enrolment.",
+    ),
+    GroupSpec(
+        "board_instructor_clash",
+        "Pano hoca - Board instructor",
+        "Pano saatlerinden doğan öğretim elemanı çakışmaları",
+        "Instructor clashes caused by board times",
+        "Panoda aynı öğretim elemanının iki dersi aynı saatte; planlama listesinde saatler çakışmıyor, pano "
+        "hücresinin saatini düzeltin.",
+        "The board puts two classes of one instructor at the same time although the list times do not "
+        "overlap; fix the time of the board cell.",
+    ),
+    GroupSpec(
+        "board_two_classes",
+        "Hücrede iki ders - Two in cell",
+        "Panoda bir hücrede iki ders",
+        "Two classes in one board cell",
+        "Bir pano hücresinde iki farklı ders var ve listede ortak ders değiller (öğretim elemanları farklı); "
+        "birini başka dersliğe alın.",
+        "One board cell holds two different courses that the list does not give as a joint lecture "
+        "(different instructors); move one of them.",
+    ),
+    GroupSpec(
+        "board_unknown_code",
+        "Panoda bilinmeyen - Board code",
+        "Panoda olup listede olmayan ders kodları",
+        "Board course codes unknown to the list",
+        "Panodaki ders kodu planlama listesinde yok; kodu düzeltin veya dersi listeye ekleyin.",
+        "The board cell's course code is not in the planning list; fix the code or add the class to the list.",
+    ),
+    GroupSpec(
+        "board_time_not_in_list",
+        "Pano saati - Board time",
+        "Listede olmayan saatlerdeki pano hücreleri",
+        "Board cells at times the list does not have",
+        "Ders listede var ama bu gün ve saatte değil; pano hücresinin veya listenin saatini düzeltin.",
+        "The course is in the list, but not on this day and time; fix the board cell or the list time.",
+    ),
+    GroupSpec(
+        "board_missing_week",
+        "Pano haftası yok - No board wk",
+        "Panosu olmayan haftalar",
+        "Weeks without a board sheet",
+        "Çalışmanın bu haftaları için panoda sayfa yok; kapalı derslikler ve etkinlikler bilinmiyor. Hafta "
+        "sayfasını yayınlayın.",
+        "The board has no sheet for these weeks of the run, so closed rooms and events are unknown; publish "
+        "the week sheet.",
+    ),
+    GroupSpec(
         "locked_room_too_small",
         "Küçük derslik - Room too small",
         "Planlanan derslik öğrenci sayısından küçük",
@@ -139,6 +195,16 @@ GROUPS: tuple[GroupSpec, ...] = (
         "ortancası veya dönemin ortancası). Gerçek sayıyı girin.",
         "The list has no enrolment; the solver used an estimate (the course's other sections, the programme "
         "year's median or the term's median). Enter the real number.",
+    ),
+    GroupSpec(
+        "instructor_not_person",
+        "Hoca adı değil - Not a person",
+        "Öğretim elemanı sütununda kişi olmayan değerler",
+        "Instructor values that name no person",
+        "Öğretim elemanı sütununda kişi adı yok (Yüz yüze, UZEM, bölüm adı, not ...); hoca çakışması "
+        "denetlenemiyor. Öğretim elemanının adını yazın.",
+        "The instructor column names no person (face to face, UZEM, a department, a note ...); instructor "
+        "clashes cannot be checked. Enter the instructor's name.",
     ),
     GroupSpec(
         "missing_tags",
@@ -191,6 +257,8 @@ def classify(d: dict[str, Any]) -> list[str]:
         return ["locked_room_overlap"]
     if code == "missing_enrolment":
         return ["missing_enrolment"]
+    if code == "instructor_not_person":
+        return ["instructor_not_person"]
     if code == "joint_lecture_clipped":  # prefer mode: a joint lecture's planner rooms seat fewer
         return ["locked_room_too_small"]
     if code == "input_conflict" and params.get("same_lecture"):
@@ -665,6 +733,15 @@ def planner_text(d: dict[str, Any], ctx: TextContext | None = None) -> dict[str,
             + ", ".join(_FALLBACK_EN.get(x, x) for x in src)
             + "). Enter the real enrolment.",
         }
+    elif code == "instructor_not_person":
+        names = ", ".join(f"'{x}'" for x in _as_list(p.get("names"))[:8])
+        n_req = len(_as_list(p.get("request_ids"))) or len(ids)
+        out = {
+            "tr": f"{n_req} kayıtta öğretim elemanı yerine kişi olmayan bir değer yazılmış ({names}); bu değerler "
+            "hoca çakışmasında kullanılmadı. Öğretim elemanının adını yazın.",
+            "en": f"{n_req} request(s) name no person as instructor ({names}); these values are not used for "
+            "instructor clashes. Enter the instructor's name.",
+        }
     elif code == "joint_lecture_clipped":
         out = {
             "tr": f"{first} (ortak ders): beklenen {size} öğrenci, planlayıcının dersliği {rooms} {p.get('seats')} "
@@ -1012,7 +1089,10 @@ async def _members(session: AsyncSession, run: ScheduleRun, event_ids: set[int])
 
 
 def _norm_code(code: str) -> str:
-    return code.replace("İ", "I").replace("ı", "i").replace(" ", "").upper()
+    """Course code key: no spaces, ``İ`` folded, no leading zeros (``SYS 018`` = ``SYS18``)."""
+    from app.importers.normalize import course_key
+
+    return course_key(code)
 
 
 def _weeks_of_row(a: Assignment) -> set[int]:
@@ -1039,18 +1119,7 @@ async def board_vs_list(session: AsyncSession, run: ScheduleRun) -> list[dict[st
     """LOCKED requests whose definitive room disagrees with the published weekly board (the grid
     import's run) at the same course, day and periods — per week, e.g. "PHAR 240 §1: list A 206, board
     D 106 in weeks 1-3"."""
-    board_run = (
-        (
-            await session.execute(
-                select(ScheduleRun)
-                .where(ScheduleRun.term_id == run.term_id, ScheduleRun.kind == run.kind, ScheduleRun.id != run.id)
-                .order_by(ScheduleRun.id)
-            )
-        )
-        .scalars()
-        .all()
-    )
-    board = next((r for r in board_run if (r.params or {}).get("source") == "GRID_IMPORT"), None)
+    board = await _board_run(session, run)
     if board is None:
         return []
     exam = run.kind == "EXAM"
@@ -1149,6 +1218,415 @@ async def board_vs_list(session: AsyncSession, run: ScheduleRun) -> list[dict[st
                 "classes": [{**row, "board_rooms": br}],
             }
         )
+    return out
+
+
+async def _board_run(session: AsyncSession, run: ScheduleRun) -> ScheduleRun | None:
+    """The published weekly board of the run's term and kind (the grid import's run)."""
+    rows = (
+        (
+            await session.execute(
+                select(ScheduleRun)
+                .where(ScheduleRun.term_id == run.term_id, ScheduleRun.kind == run.kind, ScheduleRun.id != run.id)
+                .order_by(ScheduleRun.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return next((r for r in rows if (r.params or {}).get("source") == "GRID_IMPORT"), None)
+
+
+@dataclass
+class _BoardReq:
+    """A request as the board checks see it."""
+
+    id: int
+    key: str
+    days: tuple[int, ...]
+    when: Any  # exam date (None for courses)
+    start: int
+    end: int
+    weeks: frozenset[int]
+    size: int
+    instructors: frozenset[int]
+    definitive: frozenset[int]
+    group: str  # exams: merge key (one exam of several cohorts); courses: the request id
+
+
+@dataclass
+class _BoardBlock:
+    """One class on the board: one room (set), one label, consecutive periods of one day and week."""
+
+    week: int
+    day: int
+    date: Any
+    start: int
+    end: int
+    rooms: tuple[int, ...]
+    label: str
+    keys: tuple[str, ...]
+    refs: list[str]
+
+
+@dataclass
+class _BoardCase:
+    group: str
+    weeks: set[int] = field(default_factory=set)
+    cells: set[str] = field(default_factory=set)
+    rooms: set[int] = field(default_factory=set)
+    slots: set[tuple[Any, Any, int, int]] = field(default_factory=set)
+    request_ids: list[int] = field(default_factory=list)
+    params: dict[str, Any] = field(default_factory=dict)
+
+
+def _cell_ref(source_key: str | None, sheets: dict[int, str]) -> str:
+    """``GRID:term:file:3:CT9:98`` -> ``"'16 - 22 Şubat'!CT9"`` (the Excel cell the planner opens)."""
+    parts = (source_key or "").split(":")
+    if len(parts) < 5 or not parts[-3].isdigit():
+        return ""
+    return f"'{sheets.get(int(parts[-3]), parts[-3])}'!{parts[-2]}"
+
+
+async def board_checks(session: AsyncSession, run: ScheduleRun) -> dict[str, list[dict[str, Any]]]:
+    """Checks of the published weekly board alone (comparison §7.3, §7.5), in the run's weeks:
+
+    * ``board_capacity`` - a class alone in one board room with more students than seats (the planner's
+      definitive room of that class is checked by the list checks already);
+    * ``board_instructor_clash`` - two board cells of one instructor overlap although the list times of the
+      two classes do not (a clash the board's times create; list clashes are ``fixed_instructor_clash``);
+    * ``board_two_classes`` - one board cell holds two courses that the list gives different instructors;
+    * ``board_unknown_code`` - a board course code the list does not have;
+    * ``board_time_not_in_list`` - a board cell of a listed course on a day / time the list does not have;
+    * ``board_missing_week`` - weeks of the run the board has no sheet for.
+
+    A pattern repeated every week is one item with its weeks.  Group code -> items."""
+    from app.importers.normalize import course_key, non_person_reason
+    from app.models import Block, Term, Week
+
+    out: dict[str, list[dict[str, Any]]] = {
+        k: []
+        for k in (
+            "board_capacity",
+            "board_instructor_clash",
+            "board_two_classes",
+            "board_unknown_code",
+            "board_time_not_in_list",
+            "board_missing_week",
+        )
+    }
+    board = await _board_run(session, run)
+    if board is None or run.term_id is None:
+        return out
+    exam = run.kind == "EXAM"
+    run_weeks = await _run_weeks(session, run)
+    rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
+    sheets = {
+        int(w.index): str(w.label or w.index)
+        for w in (await session.execute(select(Week).where(Week.term_id == run.term_id))).scalars()
+    }
+    cells = list(
+        (
+            await session.execute(
+                select(Assignment).where(Assignment.run_id == board.id, Assignment.archived.is_(False))
+            )
+        ).scalars()
+    )
+
+    # --- weeks without a sheet ----------------------------------------------------------------------
+    covered = {w for a in cells for w in _weeks_of_row(a)}
+    for b in (
+        await session.execute(
+            select(Block).where(Block.term_id == run.term_id, Block.source == "GRID_IMPORT", Block.archived.is_(False))
+        )
+    ).scalars():
+        if b.weeks:
+            covered.add(int(b.weeks[0]))  # the sheet's own week (later weeks: carried forward by a setting)
+    if covered and not exam:
+        term = await session.get(Term, run.term_id)
+        horizon = (
+            set(run_weeks)
+            if run_weeks is not None
+            else set(range(1, int(term.week_count or 14) + 1))
+            if term
+            else set()
+        )
+        missing = sorted(horizon - covered)
+        if missing:
+            wk = _weeks_text(missing)
+            have = _weeks_text(covered)
+            out["board_missing_week"].append(
+                {
+                    **_list_item(
+                        "board_missing_week",
+                        (
+                            f"Panoda {wk}. hafta(lar) için sayfa yok (pano {have}. haftaları kapsıyor); bu haftalarda "
+                            "kapalı derslikler ve etkinlikler bilinmiyor.",
+                            f"The board has no sheet for week(s) {wk} (it covers weeks {have}); closed rooms and "
+                            "events of those weeks are unknown.",
+                        ),
+                        [],
+                        {},
+                        {"weeks": missing, "board_weeks": sorted(covered)},
+                    ),
+                    "suggestions": ["publish the week sheet, or set IMPORT_GRID_CARRY_FORWARD=1 and re-import"],
+                }
+            )
+
+    # --- the list's requests by course key ---------------------------------------------------------
+    by_key: dict[str, list[_BoardReq]] = {}
+    names: dict[int, str] = {}
+    if exam:
+        qe = select(ExamRequest).where(ExamRequest.term_id == run.term_id, ExamRequest.archived.is_(False))
+        for ex in (await session.execute(qe)).scalars():
+            if ex.start_period is None or ex.end_period is None or ex.date is None:
+                key = course_key(ex.course_code)
+                by_key.setdefault(key, [])
+                continue
+            r = _BoardReq(
+                ex.id,
+                course_key(ex.course_code),
+                (ex.date.isoweekday(),),
+                ex.date,
+                int(ex.start_period),
+                int(ex.end_period),
+                frozenset(),
+                int(ex.enrolment or 0),
+                frozenset(),
+                frozenset(int(x) for x in ex.definitive_room_ids or []),
+                str(ex.merge_key or f"single:{ex.id}"),
+            )
+            by_key.setdefault(r.key, []).append(r)
+    else:
+        names = {
+            int(i): str(n)
+            for i, n in (await session.execute(select(Instructor.id, Instructor.full_name))).all()
+            if non_person_reason(n) is None
+        }
+        qm = (
+            select(MeetingRequest)
+            .join(Section, Section.id == MeetingRequest.section_id)
+            .where(Section.term_id == run.term_id, MeetingRequest.archived.is_(False))
+            .options(
+                selectinload(MeetingRequest.section).selectinload(Section.course),
+                selectinload(MeetingRequest.section).selectinload(Section.instructors),
+            )
+        )
+        for mr in (await session.execute(qm)).scalars():
+            key = course_key(mr.section.course.code)
+            days = tuple(int(d) for d in (mr.days or ([mr.day] if mr.day else [])))
+            if mr.start_period is None or mr.end_period is None or not days:
+                by_key.setdefault(key, [])
+                continue
+            r = _BoardReq(
+                mr.id,
+                key,
+                days,
+                None,
+                int(mr.start_period),
+                int(mr.end_period),
+                frozenset(int(w) for w in mr.weeks or []),
+                int(mr.section.enrolment or 0),
+                frozenset(int(si.instructor_id) for si in mr.section.instructors if int(si.instructor_id) in names),
+                frozenset(int(x) for x in mr.definitive_room_ids or []),
+                str(mr.id),
+            )
+            by_key.setdefault(key, []).append(r)
+
+    def matches(b: _BoardBlock, w: int, key: str) -> list[_BoardReq]:
+        out_: list[_BoardReq] = []
+        for r in by_key.get(key, []):
+            if exam:
+                if r.when != b.date:
+                    continue
+            elif b.day not in r.days or (r.weeks and w not in r.weeks):
+                continue
+            if r.start <= b.end and b.start <= r.end:
+                out_.append(r)
+        return out_
+
+    # --- board cells -> blocks: one class in one room on consecutive periods (the board writes one cell per
+    # period row), per week -------------------------------------------------------------------------------
+    raw: dict[tuple[Any, ...], list[Assignment]] = {}
+    for a in cells:
+        keys = tuple(dict.fromkeys(course_key(str(c)) for c in a.course_codes or [] if c))
+        if not keys:
+            continue
+        for w in sorted(_weeks_of_row(a)):
+            if run_weeks is not None and w not in run_weeks:
+                continue
+            day = a.date if exam else a.day
+            raw.setdefault((w, day, tuple(sorted(int(x) for x in a.room_ids or [])), a.label or "", keys), []).append(a)
+    by_week: dict[int, list[_BoardBlock]] = {}
+    for (w, day, room_ids, label, keys), xs in raw.items():
+        xs.sort(key=lambda a: (a.start_period, a.end_period))
+        cur: _BoardBlock | None = None
+        for a in xs:
+            ref = _cell_ref(a.source_key, sheets)
+            if cur is not None and a.start_period <= cur.end + 1:
+                cur.end = max(cur.end, a.end_period)
+                if ref:
+                    cur.refs.append(ref)
+                continue
+            cur = _BoardBlock(w, a.day, a.date, a.start_period, a.end_period, room_ids, label, keys, [ref] if ref else [])
+            by_week.setdefault(w, []).append(cur)
+
+    cases: dict[tuple[Any, ...], _BoardCase] = {}
+
+    def case(group: str, sig: tuple[Any, ...], b: _BoardBlock | None = None) -> _BoardCase:
+        c = cases.setdefault((group, *sig), _BoardCase(group))
+        if b is not None:
+            c.weeks.add(b.week)
+            c.rooms.update(b.rooms)
+            c.cells.update(b.refs[:1])  # the first cell of the block is the one to open
+            c.slots.add((b.day, b.date, b.start, b.end))
+        return c
+
+    for w, blocks in sorted(by_week.items()):
+        # rooms of a course on a day (a class spread over several board rooms is no single-room class)
+        spread: dict[tuple[Any, str], list[_BoardBlock]] = {}
+        for b in blocks:
+            for k in b.keys:
+                spread.setdefault((b.date if exam else b.day, k), []).append(b)
+        matched_of: dict[int, dict[str, list[_BoardReq]]] = {}
+        for b in blocks:
+            matched = {k: matches(b, w, k) for k in b.keys}
+            matched_of[id(b)] = matched
+            known = [k for k in b.keys if k in by_key]
+            if not known:
+                case("board_unknown_code", (b.label,), b)
+                continue
+            if not any(matched[k] for k in known):
+                c = case("board_time_not_in_list", (b.label, b.date if exam else b.day, b.start, b.end), b)
+                c.request_ids = list(dict.fromkeys([*c.request_ids, *(r.id for k in known for r in by_key[k][:3])]))
+                continue
+            # one class alone in one room: capacity
+            if len(known) == 1 and len(b.rooms) == 1 and b.rooms[0] in rooms:
+                k = known[0]
+                room = rooms[b.rooms[0]]
+                seats = int(((room.exam_capacity or room.capacity) if exam else room.capacity) or 0)
+                elsewhere = any(
+                    o is not b and o.rooms != b.rooms and o.start <= b.end and b.start <= o.end
+                    for o in spread.get((b.date if exam else b.day, k), [])
+                )
+                reqs = [r for r in matched[k] if b.rooms[0] not in r.definitive]
+                if exam:
+                    sizes: dict[str, int] = {}
+                    for r in matched[k]:
+                        sizes[r.group] = sizes.get(r.group, 0) + r.size
+                    size = max(sizes.values(), default=0)
+                else:
+                    size = max((r.size for r in reqs), default=0)
+                if seats and size > seats and reqs and not elsewhere:
+                    c = case("board_capacity", (b.label, b.date if exam else b.day, b.start, b.end, b.rooms[0]), b)
+                    c.request_ids = list(dict.fromkeys([*c.request_ids, *(r.id for r in reqs)]))
+                    c.params = {"seats": seats, "size": size}
+            # two courses in one cell that the list does not give as one lecture
+            if not exam and len(known) >= 2:
+                for i, ka in enumerate(known):
+                    for kb in known[i + 1 :]:
+                        ra, rb = matched[ka], matched[kb]
+                        if not ra or not rb:
+                            continue
+                        ia = frozenset().union(*(r.instructors for r in ra))
+                        ib = frozenset().union(*(r.instructors for r in rb))
+                        same_lock = any(x.definitive and x.definitive == y.definitive for x in ra for y in rb)
+                        if ia & ib or same_lock or not ia or not ib:
+                            continue
+                        c = case("board_two_classes", (b.label, b.day, b.start, b.end, ka, kb), b)
+                        c.request_ids = list(dict.fromkeys([*c.request_ids, ra[0].id, rb[0].id]))
+        # instructor clashes the board times create
+        if not exam:
+            per_ins: dict[tuple[int, int], list[tuple[_BoardBlock, str, _BoardReq]]] = {}
+            for b in blocks:
+                for k, rs in matched_of[id(b)].items():
+                    for r in rs:
+                        for ins in r.instructors:
+                            per_ins.setdefault((ins, b.day), []).append((b, k, r))
+            for (ins, day), xs in per_ins.items():
+                for i, (a, ka, ra) in enumerate(xs):
+                    for b, kb, rb in xs[i + 1 :]:
+                        if ka == kb or set(a.rooms) & set(b.rooms) or a.start > b.end or b.start > a.end:
+                            continue
+                        if set(ra.days) & set(rb.days) and ra.start <= rb.end and rb.start <= ra.end:
+                            continue  # the list itself clashes: fixed_instructor_clash reports it
+                        pair = tuple(sorted([(ka, a.start, a.end), (kb, b.start, b.end)]))
+                        c = case("board_instructor_clash", (day, ins, pair))
+                        for x in (a, b):
+                            c.weeks.add(x.week)
+                            c.rooms.update(x.rooms)
+                            c.cells.update(x.refs[:1])
+                        c.request_ids = list(dict.fromkeys([*c.request_ids, ra.id, rb.id]))
+                        c.params = {
+                            "instructor": names.get(ins, str(ins)),
+                            "labels": sorted({a.label, b.label}),
+                            "slots": [[a.start, a.end], [b.start, b.end]],
+                        }
+
+    if not cases:
+        return out
+    rows = await _class_rows(session, run, {r for c in cases.values() for r in c.request_ids})
+    for sig, c in sorted(cases.items(), key=lambda kv: (kv[0][0], sorted(kv[1].weeks), str(kv[0][1:]))):
+        group = c.group
+        wk = _weeks_text(sorted(c.weeks))
+        rooms_txt = " / ".join(sorted(rooms[r].code for r in c.rooms if r in rooms))
+        cells_txt = ", ".join(sorted(c.cells)[:4]) + (" ..." if len(c.cells) > 4 else "")
+        if group == "board_instructor_clash":
+            day = sig[1]
+            labels = " ve ".join(str(x) for x in c.params.get("labels") or [])
+            labels_en = " and ".join(str(x) for x in c.params.get("labels") or [])
+            who = c.params.get("instructor")
+            msg = (
+                f"{who}: panoda {labels} aynı anda ({DAY_TR.get(day, day)}, {rooms_txt}; {wk}. hafta); listede "
+                f"saatleri çakışmıyor. Hücreler: {cells_txt}.",
+                f"{who}: the board has {labels_en} at the same time ({DAY_EN.get(day, day)}, {rooms_txt}; week(s) "
+                f"{wk}); their list times do not overlap. Cells: {cells_txt}.",
+            )
+        else:
+            day, start, end, label = sig[1], sig[2], sig[3], sig[4]
+            if exam:
+                when_tr = when_en = f"{day.isoformat() if day else ''} {_clock(start, end)}".strip()
+            else:
+                when_tr, when_en = _slot("tr", day, start, end), _slot("en", day, start, end)
+            if group == "board_capacity":
+                msg = (
+                    f"Panoda {label} ({when_tr}, {wk}. hafta) tek başına {rooms_txt} dersliğinde: "
+                    f"{c.params['seats']} kişilik, derste {c.params['size']} öğrenci var. Hücre: {cells_txt}.",
+                    f"The board puts {label} ({when_en}, week(s) {wk}) alone in {rooms_txt}: {c.params['seats']} "
+                    f"seats for {c.params['size']} students. Cell: {cells_txt}.",
+                )
+            elif group == "board_two_classes":
+                msg = (
+                    f"Panoda bir hücrede iki ders: {label} ({when_tr}, {rooms_txt}; {wk}. hafta); listede "
+                    f"öğretim elemanları farklı. Hücre: {cells_txt}.",
+                    f"One board cell holds two courses: {label} ({when_en}, {rooms_txt}; week(s) {wk}); the list "
+                    f"gives them different instructors. Cell: {cells_txt}.",
+                )
+            elif group == "board_unknown_code":
+                msg = (
+                    f"Panodaki {label} ({when_tr}, {rooms_txt}; {wk}. hafta) planlama listesinde yok. "
+                    f"Hücre: {cells_txt}.",
+                    f"The board's {label} ({when_en}, {rooms_txt}; week(s) {wk}) is not in the planning list. "
+                    f"Cell: {cells_txt}.",
+                )
+            else:
+                msg = (
+                    f"Panoda {label} {when_tr} ({rooms_txt}; {wk}. hafta); listede bu ders bu gün ve saatte yok. "
+                    f"Hücre: {cells_txt}.",
+                    f"The board has {label} on {when_en} ({rooms_txt}; week(s) {wk}); the list has no such day "
+                    f"and time for it. Cell: {cells_txt}.",
+                )
+        params = {
+            **c.params,
+            "weeks": sorted(c.weeks),
+            "room_codes": sorted(rooms[r].code for r in c.rooms if r in rooms),
+            "cells": sorted(c.cells),
+        }
+        item = _list_item(group, msg, c.request_ids, rows, params)
+        for cls in item["classes"]:
+            cls.setdefault("board_rooms", rooms_txt)
+        item["classes"] = [{**cls, "board_rooms": rooms_txt} for cls in item["classes"]]
+        out[group].append(item)
     return out
 
 
@@ -1363,6 +1841,8 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
     # the list's own checks in every mode: with definitive rooms as hints the solver does not lock them, so
     # it reports no locked overlap / missing tag / blocked lock — the data still has them (orchestrator)
     from_list = await list_checks(session, run) if run_mode(run.params or {}, "definitive_rooms") != "lock" else {}
+    # the published board's own errors (comparison §7.3 / §7.5); not part of the solver's input
+    from_board = await board_checks(session, run)
     groups_out: list[dict[str, Any]] = []
     for spec in GROUPS:
         items: list[dict[str, Any]] = []
@@ -1391,7 +1871,7 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
             items = board
         if spec.code == "locked_room_too_small":
             items = items + capacity
-        items = items + list(from_list.get(spec.code, []))
+        items = items + list(from_list.get(spec.code, [])) + list(from_board.get(spec.code, []))
         title_tr, title_en = spec.title_tr, spec.title_en
         if spec.code == "locked_room_blocked" and run.kind == "EXAM":
             title_tr, title_en = EXAM_BLOCKED_TITLE

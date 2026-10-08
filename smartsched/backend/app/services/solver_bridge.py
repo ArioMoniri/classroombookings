@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
+from app.importers.normalize import LEADING_ZEROS_RX, non_person_reason
 from app.models import (
     Assignment,
     Block,
@@ -179,7 +180,8 @@ def horizon_weeks(run: ScheduleRun, term: Term) -> list[int]:
     return list(range(1, (term.week_count or 14) + 1))
 
 
-_LEADING_ZEROS = re.compile(r"(?<=[A-Za-zİıŞşĞğÜüÖöÇç ])0+(?=\d)")
+#: leading zeros of a course number: the importers' :data:`normalize.LEADING_ZEROS_RX` (one definition)
+_LEADING_ZEROS = LEADING_ZEROS_RX
 
 
 def _course_code(label: str) -> str:
@@ -535,7 +537,16 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     tip_requested: set[int] = set()  # requests asking for a medicine (TIP) room
     tip_planned: set[int] = set()  # LOCKED requests the planner seats in a TIP room
 
+    #: instructor values that name no person ("Yüz yüze", "UZEM", a pasted note; databases imported before
+    #: the importer's check still link them): never an instructor key, reported as a data issue
+    not_person: dict[int, list[str]] = defaultdict(list)  # request id -> the values dropped
+
     if not exam:
+        ghost_instructors = {
+            int(i): str(name)
+            for i, name in (await session.execute(select(Instructor.id, Instructor.full_name))).all()
+            if non_person_reason(name) is not None
+        }
         q = (
             select(MeetingRequest)
             .join(Section, Section.id == MeetingRequest.section_id)
@@ -621,7 +632,12 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             cohort = _cohort_keys(
                 sec.program.canonical_name if sec.program else None, sec.class_years or [sec.class_year]
             )
-            instr = frozenset(f"INS:{si.instructor_id}" for si in sec.instructors)
+            instr = frozenset(
+                f"INS:{si.instructor_id}" for si in sec.instructors if si.instructor_id not in ghost_instructors
+            )
+            for si in sec.instructors:
+                if si.instructor_id in ghost_instructors:
+                    not_person[mr.id].append(ghost_instructors[si.instructor_id])
             label = f"{sec.course.display_code}{' §' + sec.label if sec.label else ''}"
             events.append(
                 sm.Event(
@@ -792,7 +808,11 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     preferred_building=head.requested_building,
                     max_rooms=max(max_rooms, 1),
                     cohort_keys=cohort,
-                    instructor_keys=frozenset(f"INS:{r.instructor_text}" for r in rows if r.instructor_text),
+                    instructor_keys=frozenset(
+                        f"INS:{r.instructor_text}"
+                        for r in rows
+                        if r.instructor_text and non_person_reason(r.instructor_text) is None
+                    ),
                     locked=locked,
                     # exams of different cohorts may sit in one room as long as the seats add up
                     # (the Final plan does this routinely); the solver checks the seat budget
@@ -800,6 +820,9 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 )
             )
             members[head.id] = [r.id for r in rows]
+            for r in rows:
+                if r.instructor_text and non_person_reason(r.instructor_text) is not None:
+                    not_person[r.id].append(r.instructor_text)
 
     head_of = {m: h for h, ms in members.items() for m in ms}
     labels = {e.id: e.label for e in events}
@@ -865,6 +888,23 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 )
             )
         run.stats = {**(run.stats or {}), "enrolment_fallbacks": {str(k): v for k, v in sorted(fallbacks.items())}}
+
+    if not_person:
+        names = sorted({v for vs in not_person.values() for v in vs})
+        ev_ids = sorted({head_of.get(r, r) for r in not_person})
+        bridge_diags.append(
+            _bridge_diag(
+                ev_ids,
+                f"{len(not_person)} request(s) name no person as instructor ({', '.join(repr(x) for x in names[:8])}"
+                + (" ..." if len(names) > 8 else "")
+                + "): not used for instructor clashes",
+                ["write the instructor's name in the planning list"],
+                "instructor_not_person",
+                [],
+                {"names": names, "request_ids": sorted(not_person)},
+                severity="info",
+            )
+        )
 
     if outside_slots:
         bridge_diags.extend(_outside_pool_overlaps(outside_slots, head_of, labels, all_rooms, exam))

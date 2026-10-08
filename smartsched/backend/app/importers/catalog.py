@@ -21,6 +21,7 @@ class Catalog:
         self._faculties: dict[str, Faculty] = {}
         self._programs: dict[str, Program] = {}
         self._courses: dict[str, Course] = {}
+        self._course_keys: dict[str, Course] | None = None
         self._instructors: dict[str, Instructor] = {}
         self._rooms: dict[str, Room] = {}
         self._buildings: dict[str, Building] = {}
@@ -221,6 +222,10 @@ class Catalog:
         if c is None:
             c = (await self.s.execute(select(Course).where(Course.code == code))).scalar_one_or_none()
         if c is None:
+            # one course per code key: ``SYS 18`` and ``SYS 018`` are the same lecture (comparison R1); the
+            # course keeps the spelling it was first imported with (``display_code``)
+            c = (await self._course_by_key()).get(n.course_key(code))
+        if c is None:
             c = Course(
                 code=code,
                 display_code=n.display_course_code(code),
@@ -234,6 +239,7 @@ class Catalog:
             self.s.add(c)
             await self.s.flush()
             self.report.created["courses"] += 1
+            (await self._course_by_key()).setdefault(n.course_key(code), c)
         else:
             if name and not c.name:
                 c.name = name
@@ -245,6 +251,14 @@ class Catalog:
                 c.ects = ects
         self._courses[code] = c
         return c
+
+    async def _course_by_key(self) -> dict[str, Course]:
+        """Course code key (:func:`normalize.course_key`) -> course, loaded once per import."""
+        if self._course_keys is None:
+            self._course_keys = {}
+            for c in (await self.s.execute(select(Course).order_by(Course.id))).scalars():
+                self._course_keys.setdefault(n.course_key(c.code), c)
+        return self._course_keys
 
     async def instructor(self, text: Any) -> Instructor | None:
         parsed = n.canon_person_name(text)

@@ -21,6 +21,7 @@ from app.core.safe_files import open_workbook, run_isolated
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
 from app.importers.report import ImportReport
+from app.importers.settings import importer_settings
 from app.models import Assignment, Block, MeetingRequest, ScheduleRun, Section, Week
 
 
@@ -63,6 +64,8 @@ class GridSheet:
     warnings: list[str] = field(default_factory=list)
     #: capacity of the first (Monday) header copy of a room, per header row of this sheet
     header_caps: dict[str, list[int]] = field(default_factory=dict)
+    #: day headers whose date contradicts the sheet name's date range: (header text, header date, used date)
+    date_conflicts: list[tuple[str, date, date]] = field(default_factory=list)
 
 
 @dataclass
@@ -168,7 +171,23 @@ def parse_sheet(ws: Any, index: int, year: int, default_kind: str = "LECTURE") -
     for db in days:
         for c in range(db.col_start, db.col_end + 1):
             col_to_day[c] = db
-    start_date = next((db.date for db in days if db.day == 1 and db.date), None) or week_start_from_name(ws.title, year)
+    # the sheet name's date range wins over day headers that contradict it: the Final sheet "15 - 21 Haziran"
+    # carries the headers of the week before (9-14 June), and 484 blocks got the wrong date (comparison §6)
+    name_start = week_start_from_name(ws.title, year)
+    date_conflicts: list[tuple[str, date, date]] = []
+    if name_start is not None:
+        for db in days:
+            expected = name_start + timedelta(days=db.day - name_start.isoweekday())
+            if db.date is not None and db.date != expected:
+                date_conflicts.append((db.label, db.date, expected))
+                db.date = expected
+    if date_conflicts:
+        warnings.append(
+            f"sheet {ws.title!r}: {len(date_conflicts)} day header(s) contradict the sheet name's dates ("
+            + ", ".join(f"{label.strip()!r} = {hd:%d.%m}" for label, hd, _e in date_conflicts[:7])
+            + f"); the sheet name dates are used ({name_start:%d.%m.%Y} onwards)"
+        )
+    start_date = next((db.date for db in days if db.day == 1 and db.date), None) or name_start
     if start_date is not None:
         for db in days:
             if db.date is None:
@@ -291,6 +310,7 @@ def parse_sheet(ws: Any, index: int, year: int, default_kind: str = "LECTURE") -
         header_rows=header_rows,
         warnings=warnings,
         header_caps=header_caps,
+        date_conflicts=date_conflicts,
     )
 
 
@@ -403,6 +423,28 @@ async def import_weekly_grid(
         term.week_count = max(exam_weeks)  # a Final/BÜT workbook: its exam weeks are the term (usability U5)
     if term.start_date is None:
         term.start_date = next((s.start_date for s in parsed.sheets if s.start_date), None)
+    # a lecture term whose board stops early (the Güz board has weeks 1-2 only): reported; the last week's
+    # blocks may be carried forward (IMPORT_GRID_CARRY_FORWARD, off by default)
+    missing_weeks = (
+        [w for w in range(1, (term.week_count or 0) + 1) if w not in set(lecture_weeks)] if lecture_weeks else []
+    )
+    carry_from = max(lecture_weeks) if lecture_weeks else 0
+    carried = [w for w in missing_weeks if w > carry_from] if importer_settings().grid_carry_forward else []
+    if missing_weeks:
+        report.warn(
+            f"the board has week sheets for weeks {_week_ranges(lecture_weeks)} only; weeks "
+            f"{_week_ranges(missing_weeks)} have no sheet, so the solver sees no closed rooms or events there"
+            + (
+                f"; the blocks of week {carry_from} are carried forward to weeks {_week_ranges(carried)}"
+                if carried
+                else " (set IMPORT_GRID_CARRY_FORWARD=1 to carry the last week's blocks forward)"
+            )
+        )
+    for s_ in parsed.sheets:
+        for label, header_date, used in s_.date_conflicts:
+            report.extra.setdefault("sheet_date_conflicts", []).append(
+                {"sheet": s_.name, "header": label, "header_date": header_date.isoformat(), "used": used.isoformat()}
+            )
 
     # weeks
     existing_weeks = {
@@ -490,7 +532,7 @@ async def import_weekly_grid(
         for mid, day, sp, cid in rows:
             if day is None or sp is None:
                 continue
-            link_index.setdefault((course_codes.get(cid, ""), day, sp), []).append(mid)
+            link_index.setdefault((n.course_key(course_codes.get(cid, "")), day, sp), []).append(mid)
 
     existing_assign = {
         a.source_key: a
@@ -516,7 +558,7 @@ async def import_weekly_grid(
             mr_id = None
             if link_index:
                 for code in e.cell.codes:
-                    ids = link_index.get((code, e.day, e.start_period))
+                    ids = link_index.get((n.course_key(code), e.day, e.start_period))
                     if ids:
                         mr_id = ids[0]
                         linked += 1
@@ -555,7 +597,7 @@ async def import_weekly_grid(
                 date=e.date,
                 start_period=e.start_period,
                 end_period=e.end_period,
-                weeks=[e.week_index],
+                weeks=[e.week_index, *carried] if carried and e.week_index == carry_from else [e.week_index],
                 label=e.cell.label,
                 tags=[e.tag] if e.tag else [],
                 notes=e.note,
@@ -583,6 +625,8 @@ async def import_weekly_grid(
     report.rows_total = len(parsed.entries)
     await cat.finalize_rooms(lecture_side=not exam_workbook)
     report.extra.update(
+        missing_weeks=missing_weeks,
+        carried_forward_weeks=carried,
         sheets=len(parsed.sheets),
         rooms=len(parsed.rooms),
         linked_assignments=linked,
@@ -599,3 +643,17 @@ async def import_weekly_grid(
     )
     await session.commit()
     return report
+
+
+def _week_ranges(weeks: list[int]) -> str:
+    """``[1, 2, 3, 7]`` -> ``"1-3, 7"``."""
+    out: list[str] = []
+    ws = sorted(set(weeks))
+    i = 0
+    while i < len(ws):
+        j = i
+        while j + 1 < len(ws) and ws[j + 1] == ws[j] + 1:
+            j += 1
+        out.append(f"{ws[i]}-{ws[j]}" if j > i else str(ws[i]))
+        i = j + 1
+    return ", ".join(out)

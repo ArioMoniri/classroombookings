@@ -64,7 +64,17 @@ booking, the template rule and the Planner account those recordings made are vis
 | `studio-scope-dark.webp` | 1440×900 | 51 KB | Generator Studio, scope step: term, classes/exams, horizon, plain sentence of what will be planned. |
 | `studio-scope-light.webp` | 1440×900 | 51 KB | Generator Studio, scope step: term, classes/exams, horizon, plain sentence of what will be planned. |
 
-Recordings are in [`../recordings/`](../recordings/): `<journey>.mp4` (H.264, 1600×1060, 30 fps), `<journey>.webp`
-(animated, under 3.9 MB, used in the README) and `<journey>-poster.webp`. They are made by
-`scripts/record/record-all.sh` (Playwright video + ffmpeg polish, see `docs/recording/RECORDLY.md`) and copied with
-`scripts/record/publish.sh`.
+Recordings are in [`../recordings/`](../recordings/): `<journey>.mp4` (H.264, 1280×848, 30 fps, CRF 28),
+`<journey>.webp` (animated, under 2.6 MB, shown in the README; 680–1000 px wide, 8–12 fps) and
+`<journey>-poster.webp` (a frame from the step marked as the poster, for players and link previews). Total 20.2 MB.
+They are made by `scripts/record/record-all.sh` (Playwright video + ffmpeg polish, see
+`docs/recording/RECORDLY.md`) and converted with `scripts/record/publish.sh`, into a scratch folder first and
+then copied here once.
+
+| Recording | Length | MP4 | WebP | Shows |
+|---|---|---|---|---|
+| `import-generate` | 66 s | 2.9 MB | 2.0 MB | empty Bahar 2026 term → weekly grid + planning list imports with reports → Studio week 3 → pre-check warning → generate anyway → run report and first unplaced class (import and solver waits cut) |
+| `calendar-move` | 34 s | 1.9 MB | 2.2 MB | room A 204, week 3 of the published Güz run → inspector → move PSI 155 to A 203 (server dry run OK) → undo |
+| `studio-rule-fix` | 34 s | 1.8 MB | 2.4 MB | Studio: template "Same room every week" → pre-check (blocked) → apply "Unlock RTT 193 §1" |
+| `room-booking` | 28 s | 1.2 MB | 2.4 MB | booking grid, A building, next teaching day → A 203 P3 → note "ING 301 make-up lecture" → My bookings |
+| `admin-user` | 31 s | 1.0 MB | 2.3 MB | Setup → Users → new account `planlama` (Planlama Ofisi) with the Planner role |

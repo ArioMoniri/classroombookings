@@ -40,10 +40,20 @@ def test_classify_maps_every_named_group() -> None:
         "locked_room_blocked": {"code": "locked_ineligible"},
         "week_room_changes": {"code": "week_split"},
         "missing_enrolment": {"code": "missing_enrolment"},
+        "instructor_not_person": {"code": "instructor_not_person", "severity": "info"},
         "same_lecture_twice": {"code": "input_conflict", "params": {"same_lecture": True}},
         "other": {"code": "timeout", "severity": "warning"},
     }
-    assert {g.code for g in GROUPS} == set(cases) | {"board_vs_list"}
+    board_only = {  # filled from the published board, not from diagnoses (planner comparison §7)
+        "board_vs_list",
+        "board_capacity",
+        "board_instructor_clash",
+        "board_two_classes",
+        "board_unknown_code",
+        "board_time_not_in_list",
+        "board_missing_week",
+    }
+    assert {g.code for g in GROUPS} == set(cases) | board_only
     for group, d in cases.items():
         assert classify(d) == [group], (group, d)
     both = {"code": "input_conflict", "constraint_kinds": ["no_cohort_overlap", "no_instructor_overlap"]}

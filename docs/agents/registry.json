@@ -268,7 +268,8 @@
       "goal": "wave D of the SmartSched roadmap. The user's feedback, verbatim: \"if u have enahced ui n motion desing and liquid galss and all i told still the readme doennt have recordly or the gifs or new screenshot n still looks to ai gen\". They also asked for Recordly recordings of how to use the app in the GitHub repo, with English captions. The redesign is now finished: Liquid Glass v2 shell, calendar with…",
       "ledger": "docs-media (wave D: screenshots, recordings, README)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 17:16"
     },
     {
       "id": "aaadc9adc64164328",

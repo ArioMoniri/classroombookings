@@ -414,11 +414,14 @@ test("13. room owner under the room name, group tabs with counts, grouped picker
     await expect(page.getByTestId("group-tabs").getByRole("tab").first()).toHaveText(/\(\d+\)/);
     await openBookings(page, `display=room&date=${TUESDAY}&room=${ctx.rooms.A101}&lens=grid`);
     expect(await page.getByTestId("room-select").locator("optgroup").count()).toBeGreaterThan(0);
+    // CRBS dashboard stats "bookings you can create" (shown when the user has a limit)
+    await api("PUT", `/users/${ctx.teacherId}/constraints`, { max_active_bookings: { type: "U", value: 40 } });
     await page.goto("/my-bookings");
-    await expect(page.getByTestId("mine-can-create")).toBeVisible();
+    await expect(page.getByTestId("mine-can-create")).toContainText(/daha yapabilirsiniz|more/);
     await page.locator('[data-testid^="mine-room-"]').first().click();
     await expect(page.getByTestId("room-info")).toBeVisible();
   } finally {
     await api("PUT", `/room-admin/rooms/${ctx.rooms.A101}`, { owner_user_id: null });
+    await api("PUT", `/users/${ctx.teacherId}/constraints`, { max_active_bookings: { type: "R" } });
   }
 });

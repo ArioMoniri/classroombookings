@@ -27,6 +27,7 @@ from app.importers.identity import (
     time_sort_key,
 )
 from app.importers.report import ImportReport
+from app.importers.settings import importer_settings
 from app.importers.xlsx import iter_sheet_rows, map_headers, row_dict
 from app.models import ImportedSnapshot, MeetingRequest, Section, SectionInstructor, StudioDraft
 
@@ -178,7 +179,12 @@ def _get(values: tuple[Any, ...], mapping: dict[str, int], key: str) -> Any:
 
 
 def parse_planning_row(
-    row: int, values: tuple[Any, ...], mapping: dict[str, int], headers: list[str | None], max_week: int = 14
+    row: int,
+    values: tuple[Any, ...],
+    mapping: dict[str, int],
+    headers: list[str | None],
+    max_week: int = 14,
+    non_room_venues: list[str] | tuple[str, ...] | None = None,
 ) -> PlanningRow | tuple[str, str | None]:
     """Return a PlanningRow or (skip_reason, detail)."""
 
@@ -201,7 +207,7 @@ def parse_planning_row(
     elif (g("start") is not None and n.clean_text(g("start")) and start is None) and day.days:
         warnings.append(f"unparseable start time {g('start')!r}")
     venue = n.parse_venue_request(g("request"))
-    definitive = n.parse_definitive_rooms(g("definitive"))
+    definitive = n.parse_definitive_rooms(g("definitive"), non_room_venues)
     mode = n.parse_mode(g("mode"))
     weeks = n.parse_weeks(g("weeks"), max_week=max_week)
     warnings.extend(weeks.warnings)
@@ -250,7 +256,12 @@ def parse_planning_row(
     )
 
 
-def parse_planning_list(path: str | Path, sheet: str | int = 0, max_week: int = 14) -> ParsedPlanningList:
+def parse_planning_list(
+    path: str | Path,
+    sheet: str | int = 0,
+    max_week: int = 14,
+    non_room_venues: list[str] | tuple[str, ...] | None = None,
+) -> ParsedPlanningList:
     headers, rows = iter_sheet_rows(path, sheet)
     mapping = map_headers(headers, HEADER_SPEC)
     missing = [k for k in ("code", "day", "start", "end") if k not in mapping]
@@ -261,7 +272,7 @@ def parse_planning_list(path: str | Path, sheet: str | int = 0, max_week: int = 
     total = 0
     for row, values in rows:
         total += 1
-        res = parse_planning_row(row, values, mapping, headers, max_week)
+        res = parse_planning_row(row, values, mapping, headers, max_week, non_room_venues)
         if isinstance(res, tuple):
             skipped.append((row, res[0], res[1]))
         else:
@@ -287,7 +298,10 @@ async def import_planning_list(
     if on_conflict not in ("keep", "take"):
         raise ValueError("on_conflict must be keep or take")
     report = ImportReport(kind="planning-list", filename=filename or Path(path).name, term_code=term_code)
-    parsed = await run_isolated(parse_planning_list, path, max_week=week_count)  # off the loop, rlimit
+    settings = importer_settings()
+    parsed = await run_isolated(  # off the loop, rlimit
+        parse_planning_list, path, max_week=week_count, non_room_venues=settings.non_room_venues
+    )
     report.rows_total = parsed.rows_total
     for row, reason, detail in parsed.skipped:
         report.skip(row, reason, detail)
@@ -332,9 +346,14 @@ async def import_planning_list(
     with_periods = 0
     with_day_time = 0
 
+    venue_rows = 0
+    non_person: Counter[str] = Counter()
     for i_row, r in enumerate(parsed.rows):
         for w in r.warnings:
             report.warn(w, r.row)
+        if r.definitive.venue:
+            venue_rows += 1
+            report.warn(n.venue_warning(r.definitive), r.row)
         faculty = await cat.faculty(r.faculty)
         program = await cat.program(r.program, faculty)
         course = await cat.course(
@@ -389,8 +408,15 @@ async def import_planning_list(
                     ssnap.fingerprint = section_snapshot_fp(section.source_row, section_key)
         seen_section_keys.add(section_key)
 
-        # instructors
+        # instructors; a cell that names no person ("Yüz yüze", "UZEM", a pasted note) is a data issue and
+        # never an instructor (two classes "taught by" it do not clash; comparison §7)
         for idx, text in enumerate(r.instructors + r.secondary_instructors):
+            why = n.non_person_reason(text)
+            if why is not None:
+                non_person[text] += 1
+                report.warn(f"instructor value {text!r} names no person ({why}); not used as an instructor", r.row)
+                await _unlink_non_person(session, section.id, text)
+                continue
             ins = await cat.instructor(text)
             if ins is None:
                 continue
@@ -492,6 +518,8 @@ async def import_planning_list(
             sec.archived = True
             report.updated["sections_archived"] += 1
 
+    report.extra["non_room_venues"] = venue_rows
+    report.extra["non_person_instructors"] = dict(non_person.most_common())
     if pc_from_text:
         report.warn(f"rooms tagged PC because a row calls them a computer lab: {', '.join(sorted(pc_from_text))}")
         report.extra["pc_labs"] = sorted({*report.extra["pc_labs"], *pc_from_text})
@@ -670,6 +698,32 @@ async def remap_request_ids(session: AsyncSession, term_id: int, mapping: dict[i
             c.params = {**c.params, "event_ids": sub([i for i in ids if isinstance(i, int)])}
 
 
+async def _unlink_non_person(session: AsyncSession, section_id: int, text: str) -> None:
+    """Drop the link to an "instructor" a previous import created from a non-person value."""
+    from app.models import Instructor
+
+    parsed = n.canon_person_name(text)
+    if parsed is None:
+        return
+    ins_id = (
+        await session.execute(select(Instructor.id).where(Instructor.canonical_name == parsed.canonical))
+    ).scalar_one_or_none()
+    if ins_id is not None:
+        link = await session.get(SectionInstructor, (section_id, ins_id))
+        if link is not None:
+            await session.delete(link)
+
+
 def _join_notes(r: PlanningRow) -> str | None:
-    parts = [p for p in (r.notes, r.day.note, r.weeks.note, r.venue.notes if r.venue.same_room_as else None) if p]
+    parts = [
+        p
+        for p in (
+            r.notes,
+            r.day.note,
+            r.weeks.note,
+            r.venue.notes if r.venue.same_room_as else None,
+            n.venue_note(r.definitive),
+        )
+        if p
+    ]
     return " | ".join(dict.fromkeys(parts)) or None
