@@ -198,3 +198,11 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - The legacy CRBS importer (`app/importers/crbs_legacy.py`) still turns CRBS bookings into blocks and roles into ADMIN/VIEWER; import them as `bookings`/`booking_series` with `roles`, departments, room groups, custom fields and ACLs now that the tables exist.
 - Booking race: the `booking_slots` unique key is verified on SQLite and Postgres 16 schema-wise; add a concurrent-insert test on Postgres in CI.
 - Optional: per-room iCal feed of the published timetable (today the room feed lists bookings only).
+
+### User decisions (2026-10-08)
+
+- Departments are mapped to programmes; a programme that has classes cannot be deleted — **confirmed**.
+- Booking behaviour inherits classroombookings by default, with admin options to change it (first case: rooms outside any group are hidden in the booking grid; `bookings.show_ungrouped_rooms` toggle).
+- README and recording captions are in **English**.
+- No paid UI components: use the free parts the sites offer (only where their terms allow commercial use) or MIT alternatives — reverseui free components, beUI file-upload instead of kobra Magnetic Dropzone, TanStack grouping instead of kobra Grouped Table, free transitions.dev set only.
+- Status updates to the user are written BLUF (bottom line up front).

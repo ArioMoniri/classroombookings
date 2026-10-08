@@ -304,11 +304,15 @@ class RunContext:
         return a.label or (str(a.course_codes[0]) if a.course_codes else f"#{a.id}")
 
 
-async def load_meeting_facts(session: AsyncSession, mr_ids: set[int] | None, term_id: int | None) -> dict[int, MeetingFacts]:
+async def load_meeting_facts(
+    session: AsyncSession, mr_ids: set[int] | None, term_id: int | None
+) -> dict[int, MeetingFacts]:
     q = select(MeetingRequest).options(
         selectinload(MeetingRequest.section).selectinload(Section.course),
         selectinload(MeetingRequest.section).selectinload(Section.program).selectinload(Program.faculty),
-        selectinload(MeetingRequest.section).selectinload(Section.instructors).selectinload(SectionInstructor.instructor),
+        selectinload(MeetingRequest.section)
+        .selectinload(Section.instructors)
+        .selectinload(SectionInstructor.instructor),
     )
     if mr_ids is not None:
         if not mr_ids:
@@ -495,7 +499,11 @@ async def calendar_index(session: AsyncSession, run: ScheduleRun) -> CalendarInd
     assignments = await compact_rows(session, ctx, ctx.rows)
     rooms = sorted(
         ctx.rooms.values(),
-        key=lambda r: (r.display_name.split(" ")[0] if " " in r.display_name else r.code[:1], -(r.capacity or 0), r.code),
+        key=lambda r: (
+            r.display_name.split(" ")[0] if " " in r.display_name else r.code[:1],
+            -(r.capacity or 0),
+            r.code,
+        ),
     )
     used = {r for a in ctx.rows for r in ints(a.room_ids)} | {b.room_id for b in ctx.blocks}
     room_out = [
@@ -593,9 +601,7 @@ async def calendar_index(session: AsyncSession, run: ScheduleRun) -> CalendarInd
             origin_import=bool(ctx.rows) and all(a.origin == "IMPORT" for a in ctx.rows[:50]),
         ),
         rooms=room_out,
-        weeks=[
-            IndexWeek(index=w.index, start_date=_iso(w.start_date), kind=w.kind, label=w.label) for w in ctx.weeks
-        ],
+        weeks=[IndexWeek(index=w.index, start_date=_iso(w.start_date), kind=w.kind, label=w.label) for w in ctx.weeks],
         periods=[{"index": p.index, "start": f"{p.start:%H:%M}", "end": f"{p.end:%H:%M}"} for p in PERIODS],
         faculties=await _faculties(session),
         assignments=assignments,
@@ -644,11 +650,18 @@ def _occupancy_sets(ctx: RunContext, room_id: int | None = None) -> tuple[Cells,
 
 
 async def heat(
-    session: AsyncSession, run: ScheduleRun, *, scale: str = "term", month: str | None = None, room_id: int | None = None
+    session: AsyncSession,
+    run: ScheduleRun,
+    *,
+    scale: str = "term",
+    month: str | None = None,
+    room_id: int | None = None,
 ) -> HeatOut:
     ctx = await load_run_context(session, run, with_bookings=False)
     occ, blk = _occupancy_sets(ctx, room_id)
-    enrich = await enrich_assignments(session, run, ctx.rows, all_rows=ctx.rows, rooms_by_id=ctx.rooms, blocks=ctx.blocks)
+    enrich = await enrich_assignments(
+        session, run, ctx.rows, all_rows=ctx.rows, rooms_by_id=ctx.rooms, blocks=ctx.blocks
+    )
     conflicts: dict[tuple[int, int], int] = defaultdict(int)
     for a in ctx.rows:
         if room_id is not None and room_id not in ints(a.room_ids):
@@ -701,8 +714,8 @@ async def heat(
             d += timedelta(days=1)
     else:
         for w in term_weeks:
-            for d in range(1, 8):
-                cells.append(cell(w, d, date_for(ctx.term, w, d, ctx.weeks), True))
+            for dd in range(1, 8):
+                cells.append(cell(w, dd, date_for(ctx.term, w, dd, ctx.weeks), True))
     weekly = []
     for w in term_weeks:
         wc = [c for c in cells if c.week == w and c.in_term]
@@ -715,7 +728,14 @@ async def heat(
                 "conflicts": sum(c.conflicts for c in wc),
             }
         )
-    return HeatOut(run_id=run.id, scale="month" if scale == "month" else "term", month=month, room_id=room_id, cells=cells, weekly=weekly)
+    return HeatOut(
+        run_id=run.id,
+        scale="month" if scale == "month" else "term",
+        month=month,
+        room_id=room_id,
+        cells=cells,
+        weekly=weekly,
+    )
 
 
 # ------------------------------------------------------------------ checks
@@ -749,7 +769,9 @@ def _dates(ctx: RunContext, weeks: list[int], day: int) -> set[date]:
     return out
 
 
-def check_candidate(ctx: RunContext, c: Candidate, *, others: list[Candidate] | None = None) -> tuple[list[Issue], list[Issue]]:
+def check_candidate(
+    ctx: RunContext, c: Candidate, *, others: list[Candidate] | None = None
+) -> tuple[list[Issue], list[Issue]]:
     """Hard and soft issues of placing ``c`` (the same rules as the client preview, calendar.md §9.2)."""
     hard: list[Issue] = []
     soft: list[Issue] = []
@@ -768,12 +790,21 @@ def check_candidate(ctx: RunContext, c: Candidate, *, others: list[Candidate] | 
     for rid in c.rooms:
         room = ctx.rooms.get(rid)
         if room is None:
-            hard.append(Issue(code="unknown_room", severity="hard", text=_t(f"Bilinmeyen derslik #{rid}", f"Unknown room #{rid}")))
+            hard.append(
+                Issue(
+                    code="unknown_room", severity="hard", text=_t(f"Bilinmeyen derslik #{rid}", f"Unknown room #{rid}")
+                )
+            )
             continue
         code = room.display_name
         if not room.is_bookable:
             hard.append(
-                Issue(code="not_bookable", severity="hard", room_code=code, text=_t(f"{code} kullanıma kapalı", f"{code} is not bookable"))
+                Issue(
+                    code="not_bookable",
+                    severity="hard",
+                    room_code=code,
+                    text=_t(f"{code} kullanıma kapalı", f"{code} is not bookable"),
+                )
             )
         if "TIP" in (room.tags or []) and rid not in c.current_rooms and not (c.meeting and "TIP" in c.meeting.tags):
             soft.append(
@@ -781,7 +812,10 @@ def check_candidate(ctx: RunContext, c: Candidate, *, others: list[Candidate] | 
                     code="tip",
                     severity="soft",
                     room_code=code,
-                    text=_t(f"{code} TIP dersliği (tıp eğitimine ayrılmış)", f"{code} is a TIP room (reserved for medical teaching)"),
+                    text=_t(
+                        f"{code} TIP dersliği (tıp eğitimine ayrılmış)",
+                        f"{code} is a TIP room (reserved for medical teaching)",
+                    ),
                 )
             )
         if c.meeting and c.meeting.needs_pc and "PC" not in (room.tags or []):
@@ -950,15 +984,30 @@ def check_candidate(ctx: RunContext, c: Candidate, *, others: list[Candidate] | 
                     code="batch_overlap",
                     severity="hard",
                     room_code=ctx.code(next(iter(set(o.rooms) & set(c.rooms)))),
-                    text=_t("Seçili iki ders aynı odaya ve saate taşınıyor", "Two selected classes move into the same room and time"),
+                    text=_t(
+                        "Seçili iki ders aynı odaya ve saate taşınıyor",
+                        "Two selected classes move into the same room and time",
+                    ),
                 )
             )
             break
     if c.locked:
-        soft.append(Issue(code="locked", severity="soft", text=_t("Kilitli ders: taşıma kilidi korur", "Locked class: the move keeps it locked")))
+        soft.append(
+            Issue(
+                code="locked",
+                severity="soft",
+                text=_t("Kilitli ders: taşıma kilidi korur", "Locked class: the move keeps it locked"),
+            )
+        )
     if c.sp <= 12 <= c.ep and c.ep > c.sp:
         soft.append(
-            Issue(code="p12", severity="soft", text=_t("Aralık 17:30–18:00 geçiş saatini içeriyor", "The span includes the 17:30–18:00 transition (P12)"))
+            Issue(
+                code="p12",
+                severity="soft",
+                text=_t(
+                    "Aralık 17:30–18:00 geçiş saatini içeriyor", "The span includes the 17:30–18:00 transition (P12)"
+                ),
+            )
         )
     return hard, soft
 
@@ -1011,7 +1060,7 @@ def free_rooms(
                 building=bld,
                 capacity=cap,
                 tags=[str(t) for t in r.tags or []],
-                status=status,  # type: ignore[arg-type]
+                status=status,
                 fit=round(size / cap, 3) if cap and size else None,
                 reason=reason,
                 with_label=with_label,
@@ -1115,7 +1164,16 @@ def plan_moves(ctx: RunContext, items: list[MoveItemIn]) -> list[PlannedMove]:
             exam_id=base.exam_request_id,
         )
         plans.append(
-            PlannedMove(item=it, base=base, target_day=day, target_sp=sp, target_ep=ep, target_rooms=rooms, parts=parts, candidate=cand)
+            PlannedMove(
+                item=it,
+                base=base,
+                target_day=day,
+                target_sp=sp,
+                target_ep=ep,
+                target_rooms=rooms,
+                parts=parts,
+                candidate=cand,
+            )
         )
     moving_all = {m.id for p in plans for m, _ in p.parts}
     cands = [p.candidate for p in plans]
@@ -1139,7 +1197,9 @@ def _snapshot(a: Assignment) -> Snapshot:
     )
 
 
-async def apply_plans(session: AsyncSession, ctx: RunContext, plans: list[PlannedMove]) -> tuple[list[Assignment], UndoToken, dict[int, tuple[list[int], list[int]]]]:
+async def apply_plans(
+    session: AsyncSession, ctx: RunContext, plans: list[PlannedMove]
+) -> tuple[list[Assignment], UndoToken, dict[int, tuple[list[int], list[int]]]]:
     """Commit the planned moves (MANUAL + locked, like the single move endpoint). Returns changed rows, the undo
     token and, per base assignment, (moved row ids, created split ids)."""
     changed: list[Assignment] = []
@@ -1175,7 +1235,9 @@ async def apply_plans(session: AsyncSession, ctx: RunContext, plans: list[Planne
                 week=ws[0] if len(ws) == 1 else None,
                 weeks=list(ws),
                 day=p.target_day,
-                date=date_for(ctx.term, ws[0], p.target_day, ctx.weeks) if len(ws) == 1 and row.date is not None else None,
+                date=date_for(ctx.term, ws[0], p.target_day, ctx.weeks)
+                if len(ws) == 1 and row.date is not None
+                else None,
                 start_period=p.target_sp,
                 end_period=p.target_ep,
                 room_ids=list(p.target_rooms),
@@ -1200,7 +1262,9 @@ async def apply_plans(session: AsyncSession, ctx: RunContext, plans: list[Planne
     return [*changed, *created], undo, per_base
 
 
-async def restore(session: AsyncSession, run: ScheduleRun, snapshots: list[Snapshot], delete_ids: list[int]) -> list[int]:
+async def restore(
+    session: AsyncSession, run: ScheduleRun, snapshots: list[Snapshot], delete_ids: list[int]
+) -> list[int]:
     touched: list[int] = []
     for did in delete_ids:
         a = await session.get(Assignment, did)
@@ -1222,7 +1286,9 @@ async def restore(session: AsyncSession, run: ScheduleRun, snapshots: list[Snaps
     return touched
 
 
-def plan_item_out(ctx: RunContext, p: PlannedMove, moved: list[int] | None = None, split: list[int] | None = None) -> MovePlanItem:
+def plan_item_out(
+    ctx: RunContext, p: PlannedMove, moved: list[int] | None = None, split: list[int] | None = None
+) -> MovePlanItem:
     return MovePlanItem(
         aid=p.base.id,
         label=ctx.label_of(p.base),
@@ -1285,7 +1351,12 @@ def _checks(ctx: RunContext, a: Assignment) -> list[dict[str, Any]]:
         )
     if m and m.needs_pc:
         ok = all("PC" in (ctx.rooms[r].tags or []) for r in rids if r in ctx.rooms)
-        add("pc", "ok" if ok else "fail", "Bilgisayar laboratuvarı" + (" sağlandı" if ok else " sağlanamadı"), "Computer lab" + (" provided" if ok else " missing"))
+        add(
+            "pc",
+            "ok" if ok else "fail",
+            "Bilgisayar laboratuvarı" + (" sağlandı" if ok else " sağlanamadı"),
+            "Computer lab" + (" provided" if ok else " missing"),
+        )
     series = [x for x in ctx.rows if x.meeting_request_id and x.meeting_request_id == a.meeting_request_id]
     if len(series) > 1 or (series and len(ctx.weeks_of(series[0])) > 1):
         rooms_used = {tuple(sorted(ints(x.room_ids))) for x in series}
@@ -1312,10 +1383,25 @@ def _checks(ctx: RunContext, a: Assignment) -> list[dict[str, Any]]:
     cohort = [i for i in hard if i.code == "cohort"]
     room = [i for i in hard if i.code in ("room_overlap", "block", "seats")]
     if m and m.instr_ids:
-        add("instructor", "fail" if instr else "ok", instr[0].text.tr if instr else "Öğretim elemanı bu saatte boş", instr[0].text.en if instr else "Instructor free at this time")
+        add(
+            "instructor",
+            "fail" if instr else "ok",
+            instr[0].text.tr if instr else "Öğretim elemanı bu saatte boş",
+            instr[0].text.en if instr else "Instructor free at this time",
+        )
     if m and m.program_id:
-        add("cohort", "fail" if cohort else "ok", cohort[0].text.tr if cohort else "Program ve sınıf bu saatte boş", cohort[0].text.en if cohort else "Programme and year free at this time")
-    add("room_free", "fail" if room else "ok", room[0].text.tr if room else f"{' + '.join(codes)} bu saatte boş", room[0].text.en if room else f"{' + '.join(codes)} free at this time")
+        add(
+            "cohort",
+            "fail" if cohort else "ok",
+            cohort[0].text.tr if cohort else "Program ve sınıf bu saatte boş",
+            cohort[0].text.en if cohort else "Programme and year free at this time",
+        )
+    add(
+        "room_free",
+        "fail" if room else "ok",
+        room[0].text.tr if room else f"{' + '.join(codes)} bu saatte boş",
+        room[0].text.en if room else f"{' + '.join(codes)} free at this time",
+    )
     return out
 
 
@@ -1330,7 +1416,10 @@ def explain_template(ctx: RunContext, a: Assignment, lang: str) -> AssignmentExp
     checks = _checks(ctx, a)
     why: list[str] = []
     origin = {
-        "IMPORT": ("Planlama biriminin yayımladığı panodan içe aktarıldı.", "Imported from the planning office's published board."),
+        "IMPORT": (
+            "Planlama biriminin yayımladığı panodan içe aktarıldı.",
+            "Imported from the planning office's published board.",
+        ),
         "MANUAL": ("Elle taşındı ve kilitlendi.", "Moved by hand and locked."),
         "AI_EDIT": ("Sohbet önerisiyle değiştirildi.", "Changed by a chat proposal."),
         "SOLVER": ("Çözücü yerleştirdi.", "Placed by the solver."),
@@ -1340,14 +1429,18 @@ def explain_template(ctx: RunContext, a: Assignment, lang: str) -> AssignmentExp
         mark = {"ok": "✓", "fail": "✕", "na": "–"}[c["state"]]
         why.append(f"{mark} {c['text']['tr' if tr else 'en']}")
     weeks = ctx.weeks_of(a)
-    fr = free_rooms(ctx, day=a.day, sp=a.start_period, ep=a.end_period, weeks=weeks, size=size, exclude={a.id}, meeting=m)
+    fr = free_rooms(
+        ctx, day=a.day, sp=a.start_period, ep=a.end_period, weeks=weeks, size=size, exclude={a.id}, meeting=m
+    )
     alternatives: list[str] = []
-    cands = [f for f in fr.rooms if f.room_id not in rids and f.status in ("free", "busy", "blocked") and (not size or f.capacity >= size)]
+    cands = [
+        f
+        for f in fr.rooms
+        if f.room_id not in rids and f.status in ("free", "busy", "blocked") and (not size or f.capacity >= size)
+    ]
     for f in cands[:5]:
         if f.status == "free":
-            alternatives.append(
-                f"{f.code} ({f.capacity} {'koltuk' if tr else 'seats'}): {'boş' if tr else 'free'}"
-            )
+            alternatives.append(f"{f.code} ({f.capacity} {'koltuk' if tr else 'seats'}): {'boş' if tr else 'free'}")
         else:
             reason = f.reason.tr if (f.reason and tr) else (f.reason.en if f.reason else "")
             alternatives.append(f"{f.code} ({f.capacity} {'koltuk' if tr else 'seats'}): {reason}")
@@ -1360,15 +1453,23 @@ def explain_template(ctx: RunContext, a: Assignment, lang: str) -> AssignmentExp
     if a.is_locked:
         impact.append("Kilitli: yeniden çözümde bu yerde kalır." if tr else "Locked: a re-solve keeps it here.")
     impact.append(
-        (f"Aynı saatte uygun {len(free_fit)} boş derslik var" + (f": {', '.join(f.code for f in free_fit[:4])}." if free_fit else "."))
+        (
+            f"Aynı saatte uygun {len(free_fit)} boş derslik var"
+            + (f": {', '.join(f.code for f in free_fit[:4])}." if free_fit else ".")
+        )
         if tr
-        else (f"{len(free_fit)} free fitting rooms at this time" + (f": {', '.join(f.code for f in free_fit[:4])}." if free_fit else "."))
+        else (
+            f"{len(free_fit)} free fitting rooms at this time"
+            + (f": {', '.join(f.code for f in free_fit[:4])}." if free_fit else ".")
+        )
     )
     if len(weeks) > 1:
         impact.append(
-            f"Taşıma {len(weeks)} haftayı etkiler ({weeks_text(weeks)}); tek hafta veya bir haftadan itibaren de taşınabilir."
+            f"Taşıma {len(weeks)} haftayı etkiler ({weeks_text(weeks)}); "
+            "tek hafta veya bir haftadan itibaren de taşınabilir."
             if tr
-            else f"A move affects {len(weeks)} weeks ({weeks_text(weeks)}); you can also move one week or from a week on."
+            else f"A move affects {len(weeks)} weeks ({weeks_text(weeks)}); "
+            "you can also move one week or from a week on."
         )
     if m and m.program_id:
         same_day = [
@@ -1381,18 +1482,27 @@ def explain_template(ctx: RunContext, a: Assignment, lang: str) -> AssignmentExp
             and set(o.years) & set(m.years)
         ]
         if same_day:
+            yr = m.years[0] if m.years else ""
             impact.append(
-                f"{m.program_name} {m.years[0] if m.years else ''}. sınıfın bu gün {len(same_day)} dersi daha var; başka saate taşımak onlarla çakışabilir."
+                f"{m.program_name} {yr}. sınıfın bu gün {len(same_day)} dersi daha var; "
+                "başka saate taşımak onlarla çakışabilir."
                 if tr
-                else f"{m.program_name} year {m.years[0] if m.years else ''} has {len(same_day)} more classes this day; another time may clash with them."
+                else f"{m.program_name} year {yr} has {len(same_day)} more classes this day; "
+                "another time may clash with them."
             )
     if size and cap and size > cap:
         impact.append(
-            f"Şu anki derslik küçük: {size} öğrenci, {cap} koltuk." if tr else f"The current room is too small: {size} students, {cap} seats."
+            f"Şu anki derslik küçük: {size} öğrenci, {cap} koltuk."
+            if tr
+            else f"The current room is too small: {size} students, {cap} seats."
         )
     sections = [
         ExplainSection(key="why", title="Neden bu oda" if tr else "Why this room", lines=why),
-        ExplainSection(key="alternatives", title="Değerlendirilen alternatifler" if tr else "Alternatives considered", lines=alternatives),
+        ExplainSection(
+            key="alternatives",
+            title="Değerlendirilen alternatifler" if tr else "Alternatives considered",
+            lines=alternatives,
+        ),
         ExplainSection(key="impact", title="Taşırsanız" if tr else "If you move it", lines=impact),
     ]
     text = "\n\n".join(f"{s.title}\n" + "\n".join(s.lines) for s in sections)
@@ -1407,7 +1517,9 @@ _EXPLAIN_SYSTEM = (
 )
 
 
-async def explain_assignment(session: AsyncSession, ctx: RunContext, aid: int, lang: str, client: Any | None) -> AssignmentExplainOut:
+async def explain_assignment(
+    session: AsyncSession, ctx: RunContext, aid: int, lang: str, client: Any | None
+) -> AssignmentExplainOut:
     a = next((x for x in ctx.rows if x.id == aid), None)
     if a is None:
         raise CalendarError(404, f"assignment {aid} not found in run {ctx.run.id}")
@@ -1431,9 +1543,7 @@ async def explain_assignment(session: AsyncSession, ctx: RunContext, aid: int, l
     paragraphs = [p.strip() for p in prose.split("\n\n") if p.strip()]
     if len(paragraphs) < 3 or set(re.findall(r"\d+", prose)) - allowed:
         return out
-    sections = [
-        ExplainSection(key=s.key, title=s.title, lines=[paragraphs[i]]) for i, s in enumerate(out.sections[:3])
-    ]
+    sections = [ExplainSection(key=s.key, title=s.title, lines=[paragraphs[i]]) for i, s in enumerate(out.sections[:3])]
     return AssignmentExplainOut(
         assignment_id=aid, text="\n\n".join(paragraphs[:3]), sections=sections, checks=out.checks, source="model"
     )
@@ -1533,7 +1643,9 @@ def _placement_from(rows: list[Assignment], rooms: dict[int, Room], exam: bool, 
             if r not in rids:
                 rids.append(r)
     weeks = sorted({w for a in rows for w in assignment_weeks(a)})
-    caps = [int((rooms[r].exam_capacity if exam else rooms[r].capacity) or 0) for r in ints(first.room_ids) if r in rooms]
+    caps = [
+        int((rooms[r].exam_capacity if exam else rooms[r].capacity) or 0) for r in ints(first.room_ids) if r in rooms
+    ]
     return ClassPlacement(
         assignment_ids=[a.id for a in rows],
         day=first.day,
@@ -1546,7 +1658,7 @@ def _placement_from(rows: list[Assignment], rooms: dict[int, Room], exam: bool, 
         weeks_placed=weeks,
         locked=all(a.is_locked for a in rows),
         origin=first.origin or "SOLVER",
-        matched=matched,  # type: ignore[arg-type]
+        matched=matched,
     )
 
 
@@ -1589,7 +1701,9 @@ async def _meeting_rows(
         .options(
             selectinload(MeetingRequest.section).selectinload(Section.course),
             selectinload(MeetingRequest.section).selectinload(Section.program).selectinload(Program.faculty),
-            selectinload(MeetingRequest.section).selectinload(Section.instructors).selectinload(SectionInstructor.instructor),
+            selectinload(MeetingRequest.section)
+            .selectinload(Section.instructors)
+            .selectinload(SectionInstructor.instructor),
         )
         .order_by(MeetingRequest.source_row_index, MeetingRequest.id)
     )
@@ -1658,20 +1772,27 @@ async def _meeting_rows(
                 )
         elif any(i.severity == "hard" for i in issues):
             status = "conflict"
-        elif req_weeks and placement.weeks_placed and len(set(req_weeks) - set(placement.weeks_placed)) > 0 and run.horizon != "WEEK" and matched == "request":
+        elif (
+            req_weeks
+            and placement.weeks_placed
+            and len(set(req_weeks) - set(placement.weeks_placed)) > 0
+            and run.horizon != "WEEK"
+            and matched == "request"
+        ):
             status = "partial"
         else:
             status = "placed"
         if placement and placement.capacity and size:
             fit = size / placement.capacity
             if fit > 1 and not any(i.code == "capacity" for i in issues):
+                pr, pc = " + ".join(placement.room_codes), placement.capacity
                 issues.append(
                     Issue(
                         code="capacity",
                         severity="soft",
                         text=_t(
-                            f"{' + '.join(placement.room_codes)}: {placement.capacity} koltuk, bu ders {size} öğrenci",
-                            f"{' + '.join(placement.room_codes)}: {placement.capacity} seats, this class has {size} students",
+                            f"{pr}: {pc} koltuk, bu ders {size} öğrenci",
+                            f"{pr}: {pc} seats, this class has {size} students",
                         ),
                     )
                 )
@@ -1682,7 +1803,9 @@ async def _meeting_rows(
         changed: list[ClassChange] = []
         definitive_codes = [rooms[r].display_name for r in ints(mr.definitive_room_ids) if r in rooms]
         if placement and definitive_codes and set(definitive_codes) != set(placement.room_codes):
-            changed.append(ClassChange(field="room", source="run", **{"from": definitive_codes}, to=placement.room_codes))
+            changed.append(
+                ClassChange(field="room", source="run", **{"from": definitive_codes}, to=placement.room_codes)
+            )
         raw_enrol = _int_or_none(_raw_value(sec.source_row, "Öğrenci Sayısı"))
         if raw_enrol is not None and sec.enrolment is not None and raw_enrol != sec.enrolment:
             changed.append(ClassChange(field="enrolment", source="manual", **{"from": raw_enrol}, to=sec.enrolment))
@@ -1690,17 +1813,25 @@ async def _meeting_rows(
             prev = cmp_by_mr.get(mr.id, [])
             if placement and prev:
                 p0 = prev[0]
-                if (p0.day, p0.start_period, sorted(ints(p0.room_ids))) != (placement.day, placement.start_period, sorted(placement.room_ids)):
+                if (p0.day, p0.start_period, sorted(ints(p0.room_ids))) != (
+                    placement.day,
+                    placement.start_period,
+                    sorted(placement.room_ids),
+                ):
+                    before = " + ".join(rooms[r].display_name for r in ints(p0.room_ids) if r in rooms)
+                    after = " + ".join(placement.room_codes)
                     changed.append(
                         ClassChange(
                             field="placement",
                             source="compare",
-                            **{"from": f"{' + '.join(rooms[r].display_name for r in ints(p0.room_ids) if r in rooms)} {when(p0.day, p0.start_period, p0.end_period)}"},
-                            to=f"{' + '.join(placement.room_codes)} {when(placement.day, placement.start_period, placement.end_period)}",
+                            **{"from": f"{before} {when(p0.day, p0.start_period, p0.end_period)}"},
+                            to=f"{after} {when(placement.day, placement.start_period, placement.end_period)}",
                         )
                     )
             elif bool(placement) != bool(prev):
-                changed.append(ClassChange(field="placement", source="compare", **{"from": bool(prev)}, to=bool(placement)))
+                changed.append(
+                    ClassChange(field="placement", source="compare", **{"from": bool(prev)}, to=bool(placement))
+                )
         out.append(
             ClassRow(
                 id=mr.id,
@@ -1715,7 +1846,9 @@ async def _meeting_rows(
                 program_name=prog.name if prog else None,
                 is_evening=bool(prog and prog.is_evening),
                 class_years=years,
-                instructors=[ClassInstructor(id=si.instructor_id, name=si.instructor.full_name) for si in sec.instructors],
+                instructors=[
+                    ClassInstructor(id=si.instructor_id, name=si.instructor.full_name) for si in sec.instructors
+                ],
                 enrolment=sec.enrolment,
                 mode=sec.mode or "F2F",
                 needs_room=bool(mr.needs_room),
@@ -1736,9 +1869,13 @@ async def _meeting_rows(
                     warnings=[str(w.get("message") if isinstance(w, dict) else w) for w in mr.parse_warnings or []],
                     notes=mr.notes,
                 ),
-                definitive=ClassDefinitive(text=(mr.definitive_room_text or "").strip() or None, room_ids=ints(mr.definitive_room_ids), room_codes=definitive_codes),
+                definitive=ClassDefinitive(
+                    text=(mr.definitive_room_text or "").strip() or None,
+                    room_ids=ints(mr.definitive_room_ids),
+                    room_codes=definitive_codes,
+                ),
                 placement=placement,
-                placement_status=status,  # type: ignore[arg-type]
+                placement_status=status,
                 issues=issues,
                 changed=changed,
                 provenance=ClassProvenance(
@@ -1760,17 +1897,30 @@ def _reason_issue(reason: str, rooms: dict[int, Room]) -> Issue:
     if reason.startswith("capacity:"):
         m = re.search(r"(\d+)\s*>\s*(\d+)", reason)
         size, cap = (m.group(1), m.group(2)) if m else ("?", "?")
-        return Issue(code="capacity", severity="soft", text=_t(f"{cap} koltuk < {size} öğrenci", f"{cap} seats < {size} students"))
+        return Issue(
+            code="capacity",
+            severity="soft",
+            text=_t(f"{cap} koltuk < {size} öğrenci", f"{cap} seats < {size} students"),
+        )
     if reason.startswith("seats:"):
         body = reason.split(":", 1)[1].strip()
-        return Issue(code="seats", severity="hard", text=_t(f"Sınav kapasitesi aşılıyor: {body}", f"Exam seats exceeded: {body}"))
+        return Issue(
+            code="seats", severity="hard", text=_t(f"Sınav kapasitesi aşılıyor: {body}", f"Exam seats exceeded: {body}")
+        )
     if reason.startswith("room overlap:"):
         body = reason.split(":", 1)[1].strip()
         room = body.split(" with ")[0]
-        return Issue(code="room_overlap", severity="hard", room_code=room, text=_t(f"{room} aynı saatte başka derse verilmiş", f"{room} is double-booked at this time"))
+        return Issue(
+            code="room_overlap",
+            severity="hard",
+            room_code=room,
+            text=_t(f"{room} aynı saatte başka derse verilmiş", f"{room} is double-booked at this time"),
+        )
     if reason.startswith("block:"):
         body = reason.split(":", 1)[1].strip()
-        return Issue(code="block", severity="hard", text=_t(f"Önceden dolu alanda: {body}", f"On a pre-occupied slot: {body}"))
+        return Issue(
+            code="block", severity="hard", text=_t(f"Önceden dolu alanda: {body}", f"On a pre-occupied slot: {body}")
+        )
     return Issue(code="other", severity="soft", text=_t(reason, reason))
 
 
@@ -1818,7 +1968,12 @@ async def _exam_rows(
             status = "no_run"
         elif placement is None:
             status = "unplaced"
-            issues.insert(0, Issue(code="unplaced", severity="hard", text=_t("Bu çalıştırmada yerleşmedi", "Not placed in this run")))
+            issues.insert(
+                0,
+                Issue(
+                    code="unplaced", severity="hard", text=_t("Bu çalıştırmada yerleşmedi", "Not placed in this run")
+                ),
+            )
         elif any(i.severity == "hard" for i in issues):
             status = "conflict"
         else:
@@ -1826,7 +1981,9 @@ async def _exam_rows(
         definitive_codes = [rooms[r].display_name for r in ints(ex.definitive_room_ids) if r in rooms]
         changed: list[ClassChange] = []
         if placement and definitive_codes and set(definitive_codes) != set(placement.room_codes):
-            changed.append(ClassChange(field="room", source="run", **{"from": definitive_codes}, to=placement.room_codes))
+            changed.append(
+                ClassChange(field="room", source="run", **{"from": definitive_codes}, to=placement.room_codes)
+            )
         out.append(
             ClassRow(
                 id=ex.id,
@@ -1860,9 +2017,13 @@ async def _exam_rows(
                     notes=ex.notes,
                     room_count=ex.requested_room_count,
                 ),
-                definitive=ClassDefinitive(text=(ex.definitive_room_text or "").strip() or None, room_ids=ints(ex.definitive_room_ids), room_codes=definitive_codes),
+                definitive=ClassDefinitive(
+                    text=(ex.definitive_room_text or "").strip() or None,
+                    room_ids=ints(ex.definitive_room_ids),
+                    room_codes=definitive_codes,
+                ),
                 placement=placement,
-                placement_status=status,  # type: ignore[arg-type]
+                placement_status=status,
                 issues=issues,
                 changed=changed,
                 provenance=ClassProvenance(
@@ -1905,18 +2066,22 @@ async def class_detail(
     col = Assignment.exam_request_id if kind == "exams" else Assignment.meeting_request_id
     runs = list(
         (
-            await session.execute(
-                select(ScheduleRun).where(ScheduleRun.term_id == term.id).order_by(ScheduleRun.id)
-            )
+            await session.execute(select(ScheduleRun).where(ScheduleRun.term_id == term.id).order_by(ScheduleRun.id))
         ).scalars()
     )
     rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
     for r in runs:
         a = (
-            await session.execute(
-                select(Assignment).where(Assignment.run_id == r.id, col == class_id, Assignment.archived.is_(False)).limit(1)
+            (
+                await session.execute(
+                    select(Assignment)
+                    .where(Assignment.run_id == r.id, col == class_id, Assignment.archived.is_(False))
+                    .limit(1)
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         if a is None:
             continue
         history.append(
@@ -1968,7 +2133,15 @@ async def export_planning_list(session: AsyncSession, term: Term, data: ClassesO
             if k not in headers:
                 headers.append(k)
     if not headers:
-        headers = ["Ders Kodu", "Ders Adı", "Şube", "Dersin Günü", "Dersin Başlangıç Saati", "Dersin Bitiş Saati", KESINLESEN]
+        headers = [
+            "Ders Kodu",
+            "Ders Adı",
+            "Şube",
+            "Dersin Günü",
+            "Dersin Başlangıç Saati",
+            "Dersin Bitiş Saati",
+            KESINLESEN,
+        ]
     kes = next((i for i, h in enumerate(headers) if KESINLESEN.lower() in h.lower()), len(headers) - 1)
     out_headers = [*headers[: kes + 1], SMARTSCHED_COLUMN, *headers[kes + 1 :]]
     wb = Workbook()
@@ -1983,7 +2156,9 @@ async def export_planning_list(session: AsyncSession, term: Term, data: ClassesO
     for mr in meetings:
         raw = dict(mr.section.source_row or {})
         if mr.day:
-            raw[next((h for h in headers if "Dersin Günü" in h), "Dersin Günü")] = DAY_TR.get(mr.day, raw.get("Dersin Günü"))
+            raw[next((h for h in headers if "Dersin Günü" in h), "Dersin Günü")] = DAY_TR.get(
+                mr.day, raw.get("Dersin Günü")
+            )
         if mr.start_period and mr.end_period:
             raw[next((h for h in headers if "Başlangıç" in h), "Dersin Başlangıç Saati")] = clock(mr.start_period)
             raw[next((h for h in headers if "Bitiş" in h), "Dersin Bitiş Saati")] = clock(mr.end_period, True)
@@ -2008,9 +2183,29 @@ def export_csv_rows(data: ClassesOut) -> str:
     buf = io.StringIO()
     buf.write("﻿")  # BOM so Excel opens Turkish characters correctly (all-classes.md §11)
     w = csv.writer(buf)
-    w.writerow(["Ders", "Şube", "Program", "Sınıf", "Öğretim elemanı", "Öğrenci", "İstenen zaman", "İstenen oda", KESINLESEN, SMARTSCHED_COLUMN, "Durum", "Sorunlar", "Kaynak satır"])
+    w.writerow(
+        [
+            "Ders",
+            "Şube",
+            "Program",
+            "Sınıf",
+            "Öğretim elemanı",
+            "Öğrenci",
+            "İstenen zaman",
+            "İstenen oda",
+            KESINLESEN,
+            SMARTSCHED_COLUMN,
+            "Durum",
+            "Sorunlar",
+            "Kaynak satır",
+        ]
+    )
     for r in data.items:
-        req = when(r.req.day, r.req.start_period, r.req.end_period) if r.req.day and r.req.start_period and r.req.end_period else ""
+        req = (
+            when(r.req.day, r.req.start_period, r.req.end_period)
+            if r.req.day and r.req.start_period and r.req.end_period
+            else ""
+        )
         w.writerow(
             [
                 r.course_code,

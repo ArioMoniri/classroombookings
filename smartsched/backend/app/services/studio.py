@@ -23,7 +23,6 @@ Runs generated from a draft carry the draft snapshot in ``params["studio"]`` and
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
@@ -645,41 +644,9 @@ async def build_solver_input_for_run(
 
 
 async def run_draft_schedule(session_factory: Any, run_id: int, progress: Any = None) -> dict[str, Any]:
-    """Queue job body for studio runs (``run_schedule`` with the draft-aware input)."""
-
-    def report(phase: str, pct: int) -> None:
-        if progress:
-            progress(phase, pct)
-
-    async with session_factory() as session:
-        run = await session.get(ScheduleRun, run_id)
-        if run is None:
-            raise ValueError(f"run {run_id} not found")
-        run.status = "RUNNING"
-        run.started_at = datetime.now(UTC).replace(tzinfo=None)
-        run.stats = {**(run.stats or {}), "progress": 5, "phase": "loading", "worker": worker_id()}
-        await session.commit()
-        report("loading", 5)
-        inp, members = await build_solver_input_for_run(session, run)
-        report("building", 15)
-        choice = str((run.params or {}).get("solver", "auto"))
-        solver_mod = solver_bridge.solver_name(choice)
-        report("solving", 20)
-        result = await asyncio.to_thread(
-            solver_bridge._call_solver, inp, lambda ph, pct: report(ph, 20 + int(pct * 0.7)), choice
-        )
-        report("persisting", 92)
-        run = await session.get(ScheduleRun, run_id)
-        assert run is not None
-        result.stats = {
-            **result.stats,
-            "solver": solver_mod,
-            "events": result.stats.get("events", len(inp.events)),
-            "rooms": result.stats.get("rooms", len(inp.rooms)),
-        }
-        n = await solver_bridge.persist_result(session, run, result, members)
-        report("done", 100)
-        return {"status": result.status, "assignments": n, "solver": solver_mod}
+    """Queue job body for studio runs: the bridge's job body, which honours the sealed draft snapshot
+    (one code path for cancellation, the wall-clock limit and the session handling during the solve)."""
+    return await solver_bridge.run_schedule(session_factory, run_id, progress)
 
 
 def enqueue_studio_run(run_id: int) -> None:
@@ -737,6 +704,9 @@ async def generate(session: AsyncSession, draft: StudioDraft, body: Any, user: U
         parent = await session.get(ScheduleRun, int(parent_id))
         if parent is None or parent.term_id != term.id or parent.kind != draft.kind:
             raise StudioError(422, "parent_run_id must be a run of the same term and kind")
+    from app.workers.run_jobs import check_user_limit
+
+    await check_user_limit(session, user.id)  # review M13: at most N active runs per user (429)
     din = await build_draft_input(session, draft, snapshot=snap)
     rules = [c for c in din.inp.constraints if c.id is not None]
     weeks = list(din.inp.weeks)

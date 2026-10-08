@@ -24,7 +24,7 @@ from tests.api_fixtures import login
 async def test_solve_runs_off_the_event_loop_and_reports_progress(client, monkeypatch):
     seen: dict[str, object] = {}
 
-    def slow_solver(inp, progress, choice="auto"):
+    def slow_solver(inp, progress, choice="auto", **_kw):
         seen["thread"] = threading.get_ident()
         progress("solving", 50)  # called from the worker thread
         time.sleep(1.5)  # stands in for CP-SAT holding the CPU for the time limit

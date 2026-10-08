@@ -133,3 +133,19 @@ export function useRememberRunOnView(termId: number | undefined, runId: number |
     if (runId !== undefined) setRun(runId);
   }, [runId, setRun]);
 }
+
+/** The week this user last looked at on the dashboard of `termId` (kept apart from run weeks). */
+export function useRememberedTermWeek(termId: number | undefined): [number | undefined, (week: number) => void] {
+  const userKey = useWorkspaceUser((s) => s.userKey);
+  const key = termId === undefined ? undefined : `term:${termId}`;
+  const week = useWorkspaceStore((s) => (key === undefined ? undefined : s.users[userKey]?.weekByRun?.[key]));
+  const remember = useWorkspaceStore((s) => s.remember);
+  const set = useCallback(
+    (w: number) => {
+      if (key === undefined) return;
+      remember(userKey, (m) => ({ ...m, weekByRun: { ...m.weekByRun, [key]: w } }));
+    },
+    [remember, userKey, key],
+  );
+  return [week, set];
+}

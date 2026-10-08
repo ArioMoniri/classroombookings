@@ -241,7 +241,9 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
     rows, undo, per_base = await cv.apply_plans(db, ctx, to_apply)
     applied_ids = {p.base.id for p in to_apply}
     items = [
-        cv.plan_item_out(ctx, p, *(per_base.get(p.base.id, ([], [])))) if p.base.id in applied_ids else cv.plan_item_out(ctx, p)
+        cv.plan_item_out(ctx, p, *(per_base.get(p.base.id, ([], []))))
+        if p.base.id in applied_ids
+        else cv.plan_item_out(ctx, p)
         for p in plans
     ]
     compact: list[IndexAssignment] = await cv.compact_rows(db, ctx, rows)
@@ -298,8 +300,10 @@ async def bulk_lock(run_id: int, body: BulkLockIn, db: DB, _: Planner) -> dict[s
 
 
 @router.post("/runs/{run_id}/assignments/{aid}/explain", response_model=AssignmentExplainOut)
-async def explain_assignment(run_id: int, aid: int, body: ExplainAssignmentIn, db: DB, _: Viewer) -> AssignmentExplainOut:
-    """"Why is this class here": checks, alternatives considered and the impact of moving it. Deterministic
+async def explain_assignment(
+    run_id: int, aid: int, body: ExplainAssignmentIn, db: DB, _: Viewer
+) -> AssignmentExplainOut:
+    """ "Why is this class here": checks, alternatives considered and the impact of moving it. Deterministic
     template; when an Anthropic key is configured the prose is paraphrased by the model and kept only if every
     number in it is grounded in the facts (``source`` tells which)."""
     run = await _run(db, run_id)

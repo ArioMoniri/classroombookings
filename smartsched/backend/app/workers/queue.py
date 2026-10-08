@@ -8,8 +8,12 @@ Celery/RQ worker) can read them. Progress events are also fanned out in-memory f
   another thread), so ``/health`` and every other request keep being served during a solve.
 * ``JobState.error`` is a short, path-free message safe to show to clients; the traceback is only
   logged server-side.
-* Jobs live in this process only: :func:`recover_interrupted` (called on startup) marks runs and
-  import jobs that a dead process left QUEUED/RUNNING as FAILED.
+* Jobs live in this process only. While a ``run:<id>`` / ``import:<id>`` job is queued or running the
+  queue writes ``heartbeat_at`` every ``RUN_HEARTBEAT_S`` (and picks up a ``CANCELLED`` status set by
+  another process). :func:`recover_interrupted` (called on startup) marks runs and import jobs FAILED
+  whose owner is a previous boot of this process (``worker.boot``) or whose heartbeat is older than
+  ``RUN_STALE_AFTER_S`` - hostnames and PIDs are not trusted (Docker restarts change the hostname and
+  reuse PID 1). Review M6.
 """
 
 from __future__ import annotations
@@ -20,12 +24,15 @@ import os
 import re
 import socket
 import threading
+import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
 log = logging.getLogger(__name__)
+#: identity of this process start (a restarted container gets a new one even with the same PID/hostname)
+BOOT_ID = uuid.uuid4().hex
 
 ProgressCallback = Callable[[str, int], None]
 JobFn = Callable[[ProgressCallback], Awaitable[dict[str, Any] | None]]
@@ -91,6 +98,14 @@ class JobQueue:
         self._jobs[key] = st
 
         async def runner() -> None:
+            hb = asyncio.create_task(_heartbeat_loop(key)) if _beats(key) else None
+            try:
+                await run_job()
+            finally:
+                if hb is not None:
+                    hb.cancel()
+
+        async def run_job() -> None:
             async with self._sem:
                 st.status, st.phase, st.started_at = "RUNNING", "starting", datetime.now(UTC)
                 self._emit(st)
@@ -156,47 +171,81 @@ def public_error(exc: BaseException, limit: int = 300) -> str:
 
 def worker_id() -> dict[str, Any]:
     """Identity of this process, stored on runs/import jobs so a restart can tell its own orphans."""
-    return {"host": socket.gethostname(), "pid": os.getpid()}
+    return {"host": socket.gethostname(), "pid": os.getpid(), "boot": BOOT_ID}
 
 
-def _alive(owner: Any) -> bool:
-    """True when ``owner`` (a :func:`worker_id`) is another live process on this host. Owners on other
-    hosts are assumed alive (they recover their own jobs); unknown owners are treated as dead."""
-    if not isinstance(owner, dict) or "pid" not in owner:
-        return False
-    if owner.get("host") != socket.gethostname():
-        return True
-    pid = int(owner["pid"])
-    if pid == os.getpid():
-        return False  # we just started: nothing of ours can be running yet
+def _beats(key: str) -> bool:
+    return key.startswith(("run:", "import:"))
+
+
+async def _beat(key: str) -> None:
+    """One heartbeat: ``heartbeat_at = now``; a run cancelled by another process is stopped here too."""
+    from app.core.db import get_session_factory
+    from app.models import ImportJob, ScheduleRun
+
+    kind, _, raw = key.partition(":")
+    model: Any = ScheduleRun if kind == "run" else ImportJob
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
+        row_id = int(raw)
+    except ValueError:
+        return
+    async with get_session_factory()() as session:
+        row = await session.get(model, row_id)
+        if row is None:
+            return
+        row.heartbeat_at = datetime.now(UTC).replace(tzinfo=None)
+        cancelled = kind == "run" and row.status == "CANCELLED"
+        await session.commit()
+    if cancelled:
+        from app.workers import cancel
+
+        cancel.cancel(row_id)
+
+
+async def _heartbeat_loop(key: str) -> None:
+    from app.core.config import get_settings
+
+    while True:
+        try:
+            await _beat(key)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - a missed beat must never fail the job
+            log.debug("heartbeat failed for %s", key, exc_info=True)
+        await asyncio.sleep(float(get_settings().run_heartbeat_s))
+
+
+def _alive(owner: Any, heartbeat_at: datetime | None, now: datetime, stale_after: float) -> bool:
+    """A job is alive when it belongs to another boot (another live process or node) **and** its heartbeat
+    is fresh. Our own boot's rows at startup, rows without a heartbeat and stale ones are orphans."""
+    if isinstance(owner, dict) and owner.get("boot") == BOOT_ID:
+        return False  # we just started: nothing of ours can be running yet
+    if heartbeat_at is None:
         return False
-    except PermissionError:
-        return True
-    return True
+    return (now - heartbeat_at).total_seconds() <= stale_after
 
 
 async def recover_interrupted(session: Any) -> dict[str, int]:
     """Mark runs / import jobs left QUEUED or RUNNING by a dead process as FAILED (startup hook)."""
     from sqlalchemy import select
 
+    from app.core.config import get_settings
     from app.models import ImportJob, ScheduleRun
 
     now = datetime.now(UTC).replace(tzinfo=None)
+    stale = float(get_settings().run_stale_after_s)
     msg = "interrupted by restart"
     runs = imports = 0
     for run in (
         await session.execute(select(ScheduleRun).where(ScheduleRun.status.in_(("QUEUED", "RUNNING"))))
     ).scalars():
-        if _alive((run.stats or {}).get("worker")):
+        if _alive((run.stats or {}).get("worker"), run.heartbeat_at, now, stale):
             continue
         run.status, run.error, run.finished_at = "FAILED", msg, now
         run.stats = {**(run.stats or {}), "error": msg, "phase": "failed"}
         runs += 1
     for job in (await session.execute(select(ImportJob).where(ImportJob.status.in_(("QUEUED", "RUNNING"))))).scalars():
-        if _alive((job.summary or {}).get("worker")):
+        if _alive((job.summary or {}).get("worker"), job.heartbeat_at, now, stale):
             continue
         job.status, job.error, job.finished_at = "FAILED", msg, now
         imports += 1

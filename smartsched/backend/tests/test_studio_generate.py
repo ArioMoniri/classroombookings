@@ -13,7 +13,7 @@ from tests.studio_support import meeting_id, room
 
 bahar = studio_support.bahar
 
-TERMINAL = {"FEASIBLE", "OPTIMAL", "INFEASIBLE", "TIMEOUT", "FAILED", "ERROR"}
+TERMINAL = {"FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL", "INFEASIBLE", "TIMEOUT", "FAILED", "ERROR"}
 
 
 async def test_generate_from_draft_with_stub_and_cpsat(bahar):
@@ -59,7 +59,7 @@ async def test_generate_from_draft_with_stub_and_cpsat(bahar):
     run = (await c.get(f"/api/v1/runs/{run_id}", headers=h)).json()
     assert run["status"] in TERMINAL and run["status"] not in {"FAILED", "ERROR"}, run.get("error")
     assert run["stats"]["solver"] == "app.solver.cpsat"
-    if run["status"] == "INFEASIBLE":
+    if run["status"] in {"INFEASIBLE", "FEASIBLE_PARTIAL"}:
         assert run["diagnosis"] and all(phar not in d["event_ids"] for d in run["diagnosis"])
     # parent run must belong to the same term + kind
     r = await c.post(f"{url}/generate", json={"parent_run_id": 999999}, headers=h)

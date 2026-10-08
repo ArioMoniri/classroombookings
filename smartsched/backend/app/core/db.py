@@ -15,15 +15,22 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 def _make_engine(url: str) -> AsyncEngine:
     kwargs: dict[str, object] = {"future": True}
+    busy_ms = int(get_settings().sqlite_busy_timeout_ms)
     if url.startswith("sqlite"):
-        kwargs["connect_args"] = {"check_same_thread": False}
+        kwargs["connect_args"] = {"check_same_thread": False, "timeout": busy_ms / 1000}
     engine = create_async_engine(url, **kwargs)
     if url.startswith("sqlite"):
+        file_db = ":memory:" not in url and "mode=memory" not in url
 
         @event.listens_for(engine.sync_engine, "connect")
         def _fk_on(dbapi_conn, _record):  # type: ignore[no-untyped-def]
             cur = dbapi_conn.cursor()
             cur.execute("PRAGMA foreign_keys=ON")
+            # review M7: readers never block writers (WAL) and a writer waits instead of failing at once
+            cur.execute(f"PRAGMA busy_timeout={busy_ms}")
+            if file_db:
+                cur.execute("PRAGMA journal_mode=WAL")
+                cur.execute("PRAGMA synchronous=NORMAL")
             cur.close()
 
     return engine

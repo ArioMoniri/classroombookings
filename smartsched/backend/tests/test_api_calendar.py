@@ -40,14 +40,24 @@ async def _seed() -> dict[str, int]:
         s.add(term)
         await s.flush()
         for i in ALL:
-            s.add(Week(term_id=term.id, index=i, start_date=date(2026, 2, 2) + timedelta(weeks=i - 1), kind="LECTURE", label=f"H{i}"))
+            s.add(
+                Week(
+                    term_id=term.id,
+                    index=i,
+                    start_date=date(2026, 2, 2) + timedelta(weeks=i - 1),
+                    kind="LECTURE",
+                    label=f"H{i}",
+                )
+            )
         a, c = Building(code="A", name="A Blok"), Building(code="C", name="C Blok")
         s.add_all([a, c])
         await s.flush()
         rooms = {
             "A101": Room(building_id=a.id, code="A101", display_name="A 101", capacity=58, exam_capacity=30),
             "A204": Room(building_id=a.id, code="A204", display_name="A 204", capacity=156, exam_capacity=74),
-            "A104": Room(building_id=a.id, code="A104", display_name="A 104", capacity=41, exam_capacity=41, tags=["PC"]),
+            "A104": Room(
+                building_id=a.id, code="A104", display_name="A 104", capacity=41, exam_capacity=41, tags=["PC"]
+            ),
             "C201": Room(building_id=c.id, code="C201", display_name="C 201", capacity=126, exam_capacity=60),
             "C202": Room(building_id=c.id, code="C202", display_name="C 202", capacity=72, exam_capacity=35),
         }
@@ -61,7 +71,19 @@ async def _seed() -> dict[str, int]:
         s.add_all([prog, kaya, demir])
         await s.flush()
 
-        async def meeting(code: str, name: str, size: int, day: int, sp: int, ep: int, instr: Instructor, row: int, definitive: str | None, tags: list[str] | None = None, year: int = 2) -> MeetingRequest:
+        async def meeting(
+            code: str,
+            name: str,
+            size: int,
+            day: int,
+            sp: int,
+            ep: int,
+            instr: Instructor,
+            row: int,
+            definitive: str | None,
+            tags: list[str] | None = None,
+            year: int = 2,
+        ) -> MeetingRequest:
             course = Course(code=code.replace(" ", ""), display_code=code, name=name)
             s.add(course)
             await s.flush()
@@ -73,7 +95,17 @@ async def _seed() -> dict[str, int]:
                 class_year=year,
                 enrolment=size,
                 source_key=f"{code}|bm|1",
-                source_row={"Ders Kodu": code, "Ders Adı": name, "Şube": 1, "Derse Kayıtlanacak Öğrenci Sayısı": size, "Dersin Günü": "x", "Dersin Başlangıç Saati": "x", "Dersin Bitiş Saati": "x", KESIN: definitive or " ", "Derse Özel Açıklama": " "},
+                source_row={
+                    "Ders Kodu": code,
+                    "Ders Adı": name,
+                    "Şube": 1,
+                    "Derse Kayıtlanacak Öğrenci Sayısı": size,
+                    "Dersin Günü": "x",
+                    "Dersin Başlangıç Saati": "x",
+                    "Dersin Bitiş Saati": "x",
+                    KESIN: definitive or " ",
+                    "Derse Özel Açıklama": " ",
+                },
             )
             s.add(sec)
             await s.flush()
@@ -102,13 +134,54 @@ async def _seed() -> dict[str, int]:
         run = ScheduleRun(term_id=term.id, kind="COURSE", horizon="TERM", status="FEASIBLE", params={}, stats={})
         s.add(run)
         await s.flush()
-        a1 = Assignment(run_id=run.id, meeting_request_id=bme.id, weeks=ALL, day=3, start_period=7, end_period=9, room_ids=[rooms["A204"].id])
-        a2 = Assignment(run_id=run.id, meeting_request_id=eng.id, weeks=ALL, day=3, start_period=8, end_period=9, room_ids=[rooms["A101"].id])
-        a3 = Assignment(run_id=run.id, meeting_request_id=lab.id, weeks=ALL, day=2, start_period=3, end_period=4, room_ids=[rooms["A104"].id], is_locked=True)
+        a1 = Assignment(
+            run_id=run.id,
+            meeting_request_id=bme.id,
+            weeks=ALL,
+            day=3,
+            start_period=7,
+            end_period=9,
+            room_ids=[rooms["A204"].id],
+        )
+        a2 = Assignment(
+            run_id=run.id,
+            meeting_request_id=eng.id,
+            weeks=ALL,
+            day=3,
+            start_period=8,
+            end_period=9,
+            room_ids=[rooms["A101"].id],
+        )
+        a3 = Assignment(
+            run_id=run.id,
+            meeting_request_id=lab.id,
+            weeks=ALL,
+            day=2,
+            start_period=3,
+            end_period=4,
+            room_ids=[rooms["A104"].id],
+            is_locked=True,
+        )
         s.add_all([a1, a2, a3])
         # HAZIRLIK holds C 202 on Wednesdays P7-P9, weeks 1-14
-        s.add(Block(term_id=term.id, room_id=rooms["C202"].id, day=3, start_period=7, end_period=9, weeks=ALL, label="HAZIRLIK", source="GRID_IMPORT"))
-        planner = User(email="planner@example.com", password_hash=hash_password("planner1234"), full_name="Fatih Demir", role="PLANNER")
+        s.add(
+            Block(
+                term_id=term.id,
+                room_id=rooms["C202"].id,
+                day=3,
+                start_period=7,
+                end_period=9,
+                weeks=ALL,
+                label="HAZIRLIK",
+                source="GRID_IMPORT",
+            )
+        )
+        planner = User(
+            email="planner@example.com",
+            password_hash=hash_password("planner1234"),
+            full_name="Fatih Demir",
+            role="PLANNER",
+        )
         s.add(planner)
         await s.commit()
         return {
@@ -143,7 +216,9 @@ async def test_index_heat_and_free_rooms(client):
     assert (wed["occupied"], wed["blocked"], wed["capacity"]) == (5, 3, 90)
     assert wed["occupancy"] == round(8 / 90, 4) and wed["date"] == "2026-02-04"
     assert len(heat["cells"]) == 14 * 7 and len(heat["weekly"]) == 14
-    month = (await client.get(f"/api/v1/runs/{ids['run']}/heat", params={"scale": "month", "month": "2026-03"}, headers=h)).json()
+    month = (
+        await client.get(f"/api/v1/runs/{ids['run']}/heat", params={"scale": "month", "month": "2026-03"}, headers=h)
+    ).json()
     assert month["cells"][0]["date"] == "2026-02-23" and len(month["cells"]) % 7 == 0
     assert all(c["in_term"] for c in month["cells"])
     bad = await client.get(f"/api/v1/runs/{ids['run']}/heat", params={"scale": "month", "month": "march"}, headers=h)
@@ -245,7 +320,13 @@ async def test_scoped_move_from_week_splits_and_undo_restores(client):
         )
     ).json()
     assert r["applied"] and r["items"][0]["weeks"] == [7]
-    assert (await client.post(f"/api/v1/runs/{ids['run']}/assignments/bulk-move", json={"moves": [{"aid": ids["bme"], "scope": "from"}]}, headers=h)).status_code == 422
+    assert (
+        await client.post(
+            f"/api/v1/runs/{ids['run']}/assignments/bulk-move",
+            json={"moves": [{"aid": ids["bme"], "scope": "from"}]},
+            headers=h,
+        )
+    ).status_code == 422
 
 
 async def test_bulk_move_atomic_force_and_lock(client):
@@ -270,7 +351,13 @@ async def test_bulk_move_atomic_force_and_lock(client):
     assert (await client.post(url, json={"moves": moves[1:], "force": True}, headers=hp)).status_code == 403
     out = (await client.post(url, json={"moves": moves[1:], "force": True}, headers=h)).json()
     assert out["applied"] and not out["ok"]
-    lk = (await client.post(f"/api/v1/runs/{ids['run']}/assignments/bulk-lock", json={"ids": [ids["bme"], 999999], "locked": False}, headers=h)).json()
+    lk = (
+        await client.post(
+            f"/api/v1/runs/{ids['run']}/assignments/bulk-lock",
+            json={"ids": [ids["bme"], 999999], "locked": False},
+            headers=h,
+        )
+    ).json()
     assert lk == {"updated": [ids["bme"]], "missing": [999999]}
 
 
@@ -286,9 +373,13 @@ async def test_explain_template(client):
     states = {c["key"]: c["state"] for c in out["checks"]}
     assert states["requested_room"] == "ok" and states["capacity"] == "ok" and states["cohort"] == "ok"
     assert any("Taşıma 14 haftayı etkiler" in line for line in out["sections"][2]["lines"])
-    en = (await client.post(f"/api/v1/runs/{ids['run']}/assignments/{ids['bme']}/explain", json={"lang": "en"}, headers=h)).json()
+    en = (
+        await client.post(f"/api/v1/runs/{ids['run']}/assignments/{ids['bme']}/explain", json={"lang": "en"}, headers=h)
+    ).json()
     assert en["sections"][0]["title"] == "Why this room"
-    assert (await client.post(f"/api/v1/runs/{ids['run']}/assignments/999999/explain", json={}, headers=h)).status_code == 404
+    assert (
+        await client.post(f"/api/v1/runs/{ids['run']}/assignments/999999/explain", json={}, headers=h)
+    ).status_code == 404
 
 
 async def test_classes_read_model_detail_and_planning_list_export(client):
@@ -343,11 +434,27 @@ async def test_saved_views_crud_and_sharing(client):
     h = await login(client)
     await _seed()
     hp = await login(client, "planner@example.com", "planner1234")
-    mine = (await client.post("/api/v1/views", json={"surface": "classes", "name": "Akşam ECZ", "state": {"filters": {"evening": True}}}, headers=hp)).json()
-    shared = (await client.post("/api/v1/views", json={"surface": "classes", "name": "Sorunlular (paylaşılan)", "state": {}, "shared": True}, headers=h)).json()
+    mine = (
+        await client.post(
+            "/api/v1/views",
+            json={"surface": "classes", "name": "Akşam ECZ", "state": {"filters": {"evening": True}}},
+            headers=hp,
+        )
+    ).json()
+    shared = (
+        await client.post(
+            "/api/v1/views",
+            json={"surface": "classes", "name": "Sorunlular (paylaşılan)", "state": {}, "shared": True},
+            headers=h,
+        )
+    ).json()
     assert mine["mine"] and not mine["shared"] and mine["owner_name"] == "Fatih Demir"
-    planner_sees = [v["name"] for v in (await client.get("/api/v1/views", params={"surface": "classes"}, headers=hp)).json()]
-    admin_sees = [v["name"] for v in (await client.get("/api/v1/views", params={"surface": "classes"}, headers=h)).json()]
+    planner_sees = [
+        v["name"] for v in (await client.get("/api/v1/views", params={"surface": "classes"}, headers=hp)).json()
+    ]
+    admin_sees = [
+        v["name"] for v in (await client.get("/api/v1/views", params={"surface": "classes"}, headers=h)).json()
+    ]
     assert planner_sees == ["Akşam ECZ", "Sorunlular (paylaşılan)"]
     assert admin_sees == ["Sorunlular (paylaşılan)"]  # private views stay private
     assert (await client.get("/api/v1/views", params={"surface": "calendar"}, headers=h)).json() == []

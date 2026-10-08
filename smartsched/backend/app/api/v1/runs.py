@@ -60,6 +60,7 @@ async def create_run(body: RunCreate, db: DB, user: Planner) -> RunCreated:
     if term is None:
         raise HTTPException(404, "term not found")
     params = await _client_run_params(db, body, term.id)
+    await _check_user_limit(db, user.id)
     run = ScheduleRun(
         term_id=term.id,
         kind=body.kind,
@@ -186,10 +187,41 @@ async def get_run(run_id: int, db: DB, _: Viewer) -> RunOut:
 
 
 @router.delete("/{run_id}", status_code=204)
-async def delete_run(run_id: int, db: DB, _: Planner) -> None:
+async def delete_run(run_id: int, db: DB, user: Planner) -> None:
     run = await _run(db, run_id)
+    if run.status in {"QUEUED", "RUNNING"}:
+        await _cancel(db, run, user)  # never leave a solver running for a deleted run
     await db.delete(run)
     await db.commit()
+
+
+@router.post("/{run_id}/cancel", response_model=RunOut)
+async def cancel_run(run_id: int, db: DB, user: Planner) -> RunOut:
+    """Cancel a QUEUED or RUNNING run: status ``CANCELLED`` at once, the CP-SAT search is stopped
+    (``StopSearch``) and its partial result discarded. 409 for a run that already finished."""
+    run = await _run(db, run_id)
+    if run.status not in {"QUEUED", "RUNNING"}:
+        raise HTTPException(409, f"run {run_id} is {run.status}; only QUEUED or RUNNING runs can be cancelled")
+    await _cancel(db, run, user)
+    await db.refresh(run)
+    return (await runs_out(db, [run]))[0]
+
+
+async def _cancel(db: AsyncSession, run: ScheduleRun, user: Any) -> None:
+    from app.workers import cancel
+
+    run.status = "CANCELLED"
+    run.error = f"cancelled by {getattr(user, 'email', None) or 'a planner'}"
+    run.finished_at = datetime.now(UTC).replace(tzinfo=None)
+    run.stats = {**(run.stats or {}), "phase": "cancelled"}
+    await db.commit()
+    cancel.cancel(run.id)  # this process; other processes see CANCELLED on their next heartbeat
+
+
+async def _check_user_limit(db: AsyncSession, user_id: int) -> None:
+    from app.workers.run_jobs import check_user_limit
+
+    await check_user_limit(db, user_id)
 
 
 @router.post("/{run_id}/activate", response_model=RunOut)

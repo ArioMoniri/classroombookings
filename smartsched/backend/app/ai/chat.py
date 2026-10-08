@@ -17,7 +17,6 @@ Safety model (docs/ARCHITECTURE.md "AI layer", docs/RESEARCH.md §4.3):
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
@@ -1153,33 +1152,48 @@ def _solve_job(
 
     async def job(progress: Any) -> dict[str, Any]:
         from app.solver.repair import repair
+        from app.workers import run_jobs
 
         factory = get_session_factory()
         async with factory() as s:
             run = await s.get(ScheduleRun, child_id)
             assert run is not None
-            run.status, run.started_at = "RUNNING", datetime.now(UTC).replace(tzinfo=None)
+            if not await run_jobs.start_run(s, run):
+                return await run_jobs.finish_cancelled(factory, child_id)
             await s.commit()
             progress("building", 10)
             inp, members = await _run_input(s, run)  # keeps the draft of studio runs (B2)
-            ids = {e.id for e in inp.events}
-            evs = []
-            for e in inp.events:
-                if e.id in moved:
-                    evs.append(replace(e, locked=moved[e.id]))
-                elif e.id in locks and e.id in current:
-                    evs.append(replace(e, locked=current[e.id]))
-                else:
-                    evs.append(e)
-            inp = replace(inp, events=tuple(evs))
-            cur = [a for eid, a in current.items() if eid in ids]
-            full = changed >= ids
-            limit = time_limit if full else min(time_limit, 30.0)
-            progress("solving", 30)
-            result = await asyncio.to_thread(
-                repair, inp, cur, sorted(changed & ids), limit, keep_changed=False, radius=0 if full else 1
+            await s.commit()  # no transaction stays open during the solve (review M7)
+        ids = {e.id for e in inp.events}
+        evs = []
+        for e in inp.events:
+            if e.id in moved:
+                evs.append(replace(e, locked=moved[e.id]))
+            elif e.id in locks and e.id in current:
+                evs.append(replace(e, locked=current[e.id]))
+            else:
+                evs.append(e)
+        inp = replace(inp, events=tuple(evs))
+        cur = [a for eid, a in current.items() if eid in ids]
+        full = changed >= ids
+        limit = time_limit if full else min(time_limit, 30.0)
+        progress("solving", 30)
+        try:
+            result = await run_jobs.solve_off_loop(
+                child_id,
+                limit,
+                repair,
+                inp,
+                cur,
+                sorted(changed & ids),
+                limit,
+                keep_changed=False,
+                radius=0 if full else 1,
             )
-            progress("persisting", 90)
+        except run_jobs.RunCancelled:
+            return await run_jobs.finish_cancelled(factory, child_id)
+        progress("persisting", 90)
+        async with factory() as s:
             run = await s.get(ScheduleRun, child_id)
             assert run is not None
             result.stats = {**result.stats, "solver": "app.solver.repair", "mode": "full" if full else "repair"}

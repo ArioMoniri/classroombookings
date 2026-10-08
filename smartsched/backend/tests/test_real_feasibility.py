@@ -164,15 +164,22 @@ async def test_definitive_rooms_as_hints(engine):
         inp, _m = await build_solver_input(s, run)
     acu = next(e for e in inp.events if e.label == "ACU 132")
     assert acu.locked is None and acu.preferred_room_ids[0] == ids["room:A207"]
+    assert acu.size == 120  # D1 for hints: the planner seats 122 expected students in 120 seats
+    assert "trusted_hint_capacity" in {d["code"] for d in run.stats["bridge_diagnoses"]}
     res = await _run(factory, ids["term"], definitive_rooms="prefer")
-    assert res.status in {"OPTIMAL", "FEASIBLE"}  # unlocked, ACU 132 moves to A 204 (156 seats)
+    assert res.status in {"OPTIMAL", "FEASIBLE"}  # the hint holds: ACU 132 stays in A 207
+    strict = await _run(factory, ids["term"], definitive_rooms="prefer", trust_definitive_capacity=False)
+    assert strict.status in {"OPTIMAL", "FEASIBLE"}  # full capacity required: ACU 132 moves to A 204 (156)
     async with factory() as s:
-        a = (
-            await s.execute(
-                select(Assignment).where(Assignment.run_id == res.id, Assignment.meeting_request_id == ids["ACU 132"])
-            )
-        ).scalar_one()
-    assert a.room_ids == [ids["room:A204"]]
+        rooms = {}
+        for rid in (res.id, strict.id):
+            a = (
+                await s.execute(
+                    select(Assignment).where(Assignment.run_id == rid, Assignment.meeting_request_id == ids["ACU 132"])
+                )
+            ).scalar_one()
+            rooms[rid] = a.room_ids
+    assert rooms == {res.id: [ids["room:A207"]], strict.id: [ids["room:A204"]]}
 
 
 async def _import_bahar(session) -> int:  # type: ignore[no-untyped-def]

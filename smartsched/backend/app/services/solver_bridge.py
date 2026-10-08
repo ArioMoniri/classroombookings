@@ -6,7 +6,6 @@ The real CP-SAT solver (``app.solver.cpsat``) is imported lazily; when it is abs
 
 from __future__ import annotations
 
-import asyncio
 import importlib
 import logging
 import re
@@ -847,7 +846,10 @@ def _studio_run(run: ScheduleRun) -> bool:
 
 
 async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn | None = None) -> dict[str, Any]:
-    """Job body for the queue: load, build, solve, persist."""
+    """Job body for the queue: load + build (one session, committed and closed), solve off the event loop
+    with no DB transaction open (review M7), persist in a fresh session. Cancellation and the wall-clock
+    limit are handled by :mod:`app.workers.run_jobs` (review M6/M13)."""
+    from app.workers import run_jobs
 
     def report(phase: str, pct: int) -> None:
         if progress:
@@ -857,12 +859,12 @@ async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn |
         run = await session.get(ScheduleRun, run_id)
         if run is None:
             raise ValueError(f"run {run_id} not found")
-        run.status = "RUNNING"
-        run.started_at = datetime.now(UTC).replace(tzinfo=None)
+        if not await run_jobs.start_run(session, run):
+            return await run_jobs.finish_cancelled(session_factory, run_id)
         run.stats = {**(run.stats or {}), "progress": 5, "phase": "loading", "worker": worker_id()}
         await session.commit()
         report("loading", 5)
-        rparams = run.params or {}
+        rparams = dict(run.params or {})
         if _studio_run(run):
             # studio runs and their children keep the draft's exclusions / pins / disabled built-ins
             from app.services.studio import build_solver_input_for_run
@@ -870,22 +872,32 @@ async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn |
             inp, members = await build_solver_input_for_run(session, run)
         else:
             inp, members = await build_solver_input(session, run)
-        report("building", 15)
-        choice = str((run.params or {}).get("solver", "auto"))
-        solver_mod = _solver_fn(choice).__module__
-        report("solving", 20)
-        # CP-SAT holds the CPU for up to time_limit_s: solve in a worker thread so the event loop (health
-        # checks, the UI, SSE progress) keeps running; ``progress`` is thread-safe (see workers.queue)
-        result = await asyncio.to_thread(
+        await session.commit()  # bridge stats are kept on the row; no transaction stays open during the solve
+    report("building", 15)
+    choice = str(rparams.get("solver", "auto"))
+    solver_mod = _solver_fn(choice).__module__
+    report("solving", 20)
+    # CP-SAT holds the CPU for up to time_limit_s: solve in a worker thread so the event loop (health
+    # checks, the UI, SSE progress) keeps running; ``progress`` is thread-safe (see workers.queue)
+    try:
+        result = await run_jobs.solve_off_loop(
+            run_id,
+            float(inp.time_limit_s),
             _call_solver,
             inp,
             lambda ph, pct: report(ph, 20 + int(pct * 0.7)),
             choice,
             split_weeks=run_mode(rparams, "split_blocked_weeks"),
         )
-        report("persisting", 92)
+    except run_jobs.RunCancelled:
+        return await run_jobs.finish_cancelled(session_factory, run_id)
+    report("persisting", 92)
+    async with session_factory() as session:
         run = await session.get(ScheduleRun, run_id)
-        assert run is not None
+        if run is None:
+            raise ValueError(f"run {run_id} was deleted while solving")
+        if run.status == "CANCELLED":
+            return {"status": "CANCELLED"}
         result.stats = {
             **result.stats,
             "solver": solver_mod,
@@ -893,5 +905,5 @@ async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn |
             "rooms": result.stats.get("rooms", len(inp.rooms)),
         }
         n = await persist_result(session, run, result, members)
-        report("done", 100)
-        return {"status": run_status(result), "assignments": n, "solver": solver_mod}
+    report("done", 100)
+    return {"status": run_status(result), "assignments": n, "solver": solver_mod}
