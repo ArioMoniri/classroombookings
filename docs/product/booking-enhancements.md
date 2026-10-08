@@ -1311,3 +1311,9 @@ KVKK:
 [Erasure regulation](https://prighter.com/resources/laws/turkish-kvkk/by-laws/erasure-destruction-or-anonymization-of-personal-data) ·
 [Cross-border guide (Moroğlu Arseven)](https://www.morogluarseven.com/insights/publications/articles-en/guide-on-cross-border-data-transfers/) ·
 [Erdem & Erdem 2024 Q3 bulletin](https://www.erdem-erdem.av.tr/en/insights/personal-data-protection-bulletin-2024-third-quarter).
+
+## Decisions by the user (2026-10-08)
+
+1. **Approvers.** Restricted rooms (TIP rooms, PC labs, amphitheatres, exam halls) are approved by **Administrator users who are designated as approvers when their account is created** (an "approves for" field on the user: room groups / room types). Those designated administrators handle **every approval step**; a multi-step chain stays configurable, but the default is one step by any designated approver for that room.
+2. **KVKK.** The user signs off as the institution's **KVKK officer** for the cross-border features (AI natural-language booking, Outlook/Google calendar sync). They are enabled by default in this deployment; the sign-off (who, when, which features, legal basis Art. 9 as amended by Law 7499) is stored as an auditable settings record and an admin can switch either feature off.
+3. **Check-in.** Follow the product recommendation: the first term runs check-in as **reminders plus no-show measurement only**; automatic release is built, measured against the first term's data, and offered as an admin toggle (off by default until the measurement is reviewed).
