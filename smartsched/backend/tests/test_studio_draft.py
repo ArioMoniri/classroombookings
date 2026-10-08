@@ -32,7 +32,7 @@ async def test_draft_round_trip_and_version_conflict(bahar):
     assert d["kind"] == "COURSE" and d["version"] == 1 and d["etag"] == '"1"'
     assert d["scope"]["horizon"] == "TERM" and d["scope"]["weeks"] == list(range(1, 16))
     assert d["excluded_event_ids"] == [] and d["disabled_builtin_kinds"] == [] and d["pins"] == []
-    phar240 = await meeting_id("PHAR 240", day=1, start=1)  # Mon P1-P3, LOCKED in A 112
+    phar240 = await meeting_id("PHAR 240", day=1, start=1)  # Mon P1-P3, LOCKED in A 206
     body = {
         "version": 1,
         "horizon": "WEEK",
