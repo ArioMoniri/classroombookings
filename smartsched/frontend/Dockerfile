@@ -23,7 +23,8 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+# public/ may be empty (git does not track empty dirs) but the runtime stage copies it
+RUN mkdir -p public && npm run build
 
 FROM ${NODE_IMAGE} AS runtime
 LABEL org.opencontainers.image.title="smartsched-frontend" \
