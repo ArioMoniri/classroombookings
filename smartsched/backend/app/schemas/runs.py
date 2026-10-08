@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.common import ORMModel
 
@@ -37,6 +37,17 @@ class RunCreate(BaseModel):
     prompt: str | None = Field(default=None, max_length=4000)
     parent_run_id: int | None = None
     label: str | None = Field(default=None, max_length=255)
+
+    @field_validator("horizon_params")
+    @classmethod
+    def _week_list(cls, v: dict[str, Any]) -> dict[str, Any]:
+        """``{"week": 3}`` (API/CLI shorthand) is stored as ``{"weeks": [3], "week": 3}`` so every reader that
+        only looks at ``weeks`` (run view, runs list, dashboard, calendar) shows the right horizon."""
+        hp = dict(v or {})
+        week = hp.get("week")
+        if isinstance(week, int) and not isinstance(week, bool) and not hp.get("weeks"):
+            hp["weeks"] = [week]
+        return hp
 
 
 class RunOut(ORMModel):

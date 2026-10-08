@@ -1458,7 +1458,7 @@ async def board_checks(session: AsyncSession, run: ScheduleRun) -> dict[str, lis
             day = a.date if exam else a.day
             raw.setdefault((w, day, tuple(sorted(int(x) for x in a.room_ids or [])), a.label or "", keys), []).append(a)
     by_week: dict[int, list[_BoardBlock]] = {}
-    for (w, day, room_ids, label, keys), xs in raw.items():
+    for (w, _day, room_ids, label, keys), xs in raw.items():
         xs.sort(key=lambda a: (a.start_period, a.end_period))
         cur: _BoardBlock | None = None
         for a in xs:
@@ -1468,7 +1468,9 @@ async def board_checks(session: AsyncSession, run: ScheduleRun) -> dict[str, lis
                 if ref:
                     cur.refs.append(ref)
                 continue
-            cur = _BoardBlock(w, a.day, a.date, a.start_period, a.end_period, room_ids, label, keys, [ref] if ref else [])
+            cur = _BoardBlock(
+                w, a.day, a.date, a.start_period, a.end_period, room_ids, label, keys, [ref] if ref else []
+            )
             by_week.setdefault(w, []).append(cur)
 
     cases: dict[tuple[Any, ...], _BoardCase] = {}
@@ -1565,6 +1567,72 @@ async def board_checks(session: AsyncSession, run: ScheduleRun) -> dict[str, lis
 
     if not cases:
         return out
+    rows = await _class_rows(session, run, {r for c in cases.values() for r in c.request_ids})
+
+    def slots_text(c: _BoardCase, lang: str) -> str:
+        parts = []
+        for day, d, start, end in sorted(c.slots, key=lambda x: (str(x[1]), x[0], x[2])):
+            if exam:
+                parts.append(f"{d.isoformat() if d else ''} {_clock(start, end)}".strip())
+            else:
+                parts.append(_slot(lang, day, start, end))
+        return "; ".join(parts[:4]) + (" ..." if len(parts) > 4 else "")
+
+    for sig, c in sorted(cases.items(), key=lambda kv: (kv[0][0], sorted(kv[1].weeks), str(kv[0][1:]))):
+        group = c.group
+        wk = _weeks_text(sorted(c.weeks))
+        rooms_txt = " / ".join(sorted(rooms[r].code for r in c.rooms if r in rooms))
+        cells_txt = ", ".join(sorted(c.cells)[:4]) + (" ..." if len(c.cells) > 4 else "")
+        label = str(sig[1]) if group != "board_instructor_clash" else ""
+        when_tr, when_en = slots_text(c, "tr"), slots_text(c, "en")
+        if group == "board_instructor_clash":
+            day = sig[1]
+            labels = list(c.params.get("labels") or [])
+            span = [_clock(a, b) for a, b in c.params.get("slots") or []]
+            who = c.params.get("instructor")
+            msg = (
+                f"{who}: panoda {' ve '.join(labels)} aynı anda ({DAY_TR.get(day, day)} {' / '.join(span)}, "
+                f"{rooms_txt}; {wk}. hafta); listede saatleri çakışmıyor. Hücreler: {cells_txt}.",
+                f"{who}: the board has {' and '.join(labels)} at the same time ({DAY_EN.get(day, day)} "
+                f"{' / '.join(span)}, {rooms_txt}; week(s) {wk}); their list times do not overlap. Cells: {cells_txt}.",
+            )
+        elif group == "board_capacity":
+            msg = (
+                f"Panoda {label} ({when_tr}, {wk}. hafta) tek başına {rooms_txt} dersliğinde: {c.params['seats']} "
+                f"{'sınav koltuğu' if exam else 'kişilik'}, derste {c.params['size']} öğrenci var. Hücre: {cells_txt}.",
+                f"The board puts {label} ({when_en}, week(s) {wk}) alone in {rooms_txt}: {c.params['seats']} "
+                f"{'exam ' if exam else ''}seats for {c.params['size']} students. Cell: {cells_txt}.",
+            )
+        elif group == "board_two_classes":
+            msg = (
+                f"Panoda bir hücrede iki ders: {label} ({when_tr}, {rooms_txt}; {wk}. hafta); listede öğretim "
+                f"elemanları farklı. Hücre: {cells_txt}.",
+                f"One board cell holds two courses: {label} ({when_en}, {rooms_txt}; week(s) {wk}); the list gives "
+                f"them different instructors. Cell: {cells_txt}.",
+            )
+        elif group == "board_unknown_code":
+            msg = (
+                f"Panodaki {label} planlama listesinde yok ({when_tr}; {rooms_txt}; {wk}. hafta). Hücre: {cells_txt}.",
+                f"The board's {label} is not in the planning list ({when_en}; {rooms_txt}; week(s) {wk}). "
+                f"Cell: {cells_txt}.",
+            )
+        else:
+            msg = (
+                f"Panoda {label} {when_tr} ({rooms_txt}; {wk}. hafta); listede bu ders bu gün ve saatte yok. "
+                f"Hücre: {cells_txt}.",
+                f"The board has {label} on {when_en} ({rooms_txt}; week(s) {wk}); the list has no such day and time "
+                f"for it. Cell: {cells_txt}.",
+            )
+        params = {
+            **c.params,
+            "weeks": sorted(c.weeks),
+            "room_codes": sorted(rooms[r].code for r in c.rooms if r in rooms),
+            "cells": sorted(c.cells),
+        }
+        item = _list_item(group, msg, c.request_ids, rows, params)
+        item["classes"] = [{**cls, "board_rooms": rooms_txt} for cls in item["classes"]]
+        out[group].append(item)
+    return out
     rows = await _class_rows(session, run, {r for c in cases.values() for r in c.request_ids})
     for sig, c in sorted(cases.items(), key=lambda kv: (kv[0][0], sorted(kv[1].weeks), str(kv[0][1:]))):
         group = c.group

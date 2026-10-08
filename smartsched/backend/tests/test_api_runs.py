@@ -177,3 +177,13 @@ async def test_stub_is_not_a_run_solver(client):
     assert _solver_fn("auto").__module__ == _solver_fn("cpsat").__module__ == "app.solver.cpsat"
     with pytest.raises(ValueError, match="unknown solver 'stub'"):
         _solver_fn("stub")
+
+
+def test_week_shorthand_is_stored_as_a_week_list() -> None:
+    """Recording bug 2 (2026-10-08): a WEEK run posted as {"week": 3} showed as "whole term" because the UI
+    reads horizon_params.weeks only."""
+    from app.schemas.runs import RunCreate
+
+    body = RunCreate(term_id=1, horizon="WEEK", horizon_params={"week": 3})
+    assert body.horizon_params == {"week": 3, "weeks": [3]}
+    assert RunCreate(term_id=1, horizon="WEEK", horizon_params={"weeks": [2, 3]}).horizon_params == {"weeks": [2, 3]}

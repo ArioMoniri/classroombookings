@@ -76,6 +76,8 @@ async def _run_solve(args: argparse.Namespace) -> int:
             term_id=term.id,
             kind=args.kind,
             horizon=args.horizon,
+            # same shape as POST /runs normalises to: the UI reads horizon_params.weeks
+            horizon_params={"week": args.week, "weeks": [args.week]} if args.week else {},
             params={"time_limit_s": args.time_limit, "solver": args.solver},
             label=args.label,
         )
@@ -124,6 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--term", required=True)
     sv.add_argument("--kind", default="COURSE", choices=["COURSE", "EXAM"])
     sv.add_argument("--horizon", default="TERM", choices=["WEEK", "MONTH", "TERM"])
+    sv.add_argument("--week", type=int, default=None, help="week number for --horizon WEEK (default: week 1)")
     sv.add_argument("--time-limit", type=float, default=60.0)
     sv.add_argument("--label", default=None)
     sv.add_argument("--solver", default="auto", choices=["auto", "cpsat"])
