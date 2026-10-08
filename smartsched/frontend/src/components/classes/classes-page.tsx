@@ -28,6 +28,7 @@ import { api } from "@/lib/api/endpoints";
 import { useMe, usePrograms, useRooms, useRuns } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
+import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useCalendarActions } from "@/components/timetable/use-calendar-actions";
 import { useUndoStore } from "@/components/timetable/model/undo-store";
@@ -98,7 +99,8 @@ export function ClassesPage() {
   const requestedRun = params.get("run") ? Number(params.get("run")) : null;
   const { term, termId } = useTermContext();
   const runsQ = useRuns(termId !== null ? { term_id: termId } : undefined);
-  const runs = useMemo(() => usableRuns(runsQ.data, termId).filter((r) => (r.kind === "EXAM") === (kind === "exams")), [runsQ.data, termId, kind]);
+  const hydrated = useHydrated();
+  const runs = useMemo(() => (hydrated ? usableRuns(runsQ.data, termId).filter((r) => (r.kind === "EXAM") === (kind === "exams")) : []), [hydrated, runsQ.data, termId, kind]);
   const runId = requestedRun ?? defaultRun(runs, term)?.id ?? runs[0]?.id ?? null;
   const classes = useClasses(termId, kind, runId);
   const allRows = useMemo(() => classes.data?.items ?? [], [classes.data]);

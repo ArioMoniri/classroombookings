@@ -22,12 +22,46 @@ def hash_password(password: str) -> str:
     return _hasher.hash(password)
 
 
+#: hashes carried over from a CRBS database (``password_hash()`` bcrypt, and the 2018 ``sha1:`` upgrade format)
+LEGACY_PREFIXES = ("$2y$", "$2a$", "$2b$", "sha1:")
+
+
+def _bcrypt_verify(password: str, hashed: str) -> bool:
+    import bcrypt
+
+    h = hashed.encode("ascii", errors="ignore")
+    if h.startswith(b"$2y$"):  # PHP's bcrypt marker; the same algorithm as $2b$
+        h = b"$2b$" + h[4:]
+    try:
+        return bool(bcrypt.checkpw(password.encode("utf-8")[:72], h))  # PHP uses the first 72 bytes too
+    except ValueError:  # malformed hash
+        return False
+
+
 def verify_password(password: str, password_hash: str) -> bool:
+    """argon2 (SmartSched), or a legacy CRBS hash exactly as ``Auth_local::verify`` checks it: ``$2y$`` bcrypt
+    of the password, or ``sha1:`` + bcrypt of ``sha1(password)`` (hex). Callers rehash legacy hashes to
+    argon2 after a successful check (:func:`password_needs_rehash`)."""
+    if not password_hash:
+        return False
+    if password_hash.startswith("sha1:"):
+        return _bcrypt_verify(hashlib.sha1(password.encode("utf-8")).hexdigest(), password_hash[5:])
+    if password_hash.startswith(LEGACY_PREFIXES):
+        return _bcrypt_verify(password, password_hash)
     try:
         return _hasher.verify(password_hash, password)
     except VerifyMismatchError:
         return False
     except Exception:  # malformed hash
+        return False
+
+
+def password_needs_rehash(password_hash: str) -> bool:
+    if password_hash.startswith(LEGACY_PREFIXES):
+        return True
+    try:
+        return _hasher.check_needs_rehash(password_hash)
+    except Exception:
         return False
 
 

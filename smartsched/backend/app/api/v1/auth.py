@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 
 from app.api.deps import DB, CurrentAccess, CurrentUser
 from app.core.config import get_settings
-from app.core.security import create_access_token, verify_password
+from app.core.security import create_access_token, hash_password, password_needs_rehash, verify_password
 from app.models import User
 from app.models.base import utcnow
 from app.schemas.auth import LoginIn, TokenOut, UserOut
@@ -19,10 +19,20 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 log = logging.getLogger(__name__)
 
 
-async def _local(db: DB, identifier: str, password: str) -> User | None:
+async def _local(db: DB, identifier: str, password: str, *, ldap_rejected: bool = False) -> User | None:
+    """Local password check. A legacy CRBS hash (``$2y$`` / ``sha1:``) is replaced by argon2 once it has been
+    verified, as CRBS upgrades ``sha1:`` hashes (``Auth_local::verify``). After the directory *rejected* the
+    password, the local copy is not tried for directory accounts (``auth_source = ldap``): only when the
+    directory cannot be reached (deliberate security difference; CRBS always falls back)."""
     user = await find_login_user(db, identifier)
-    if user is None or not user.password_hash or not verify_password(password, user.password_hash):
+    if user is None or not user.password_hash:
         return None
+    if ldap_rejected and user.auth_source == "ldap":
+        return None
+    if not verify_password(password, user.password_hash):
+        return None
+    if password_needs_rehash(user.password_hash):
+        user.password_hash = hash_password(password)
     return user
 
 
@@ -54,6 +64,7 @@ async def login(body: LoginIn, db: DB, request: Request) -> TokenOut:
 async def _login(body: LoginIn, db: DB) -> TokenOut:
     ident, method = body.identifier, "local"
     user: User | None = None
+    ldap_rejected = False
     if await get_value(db, "ldap", "enabled") and "@" not in ident:
         res = await bookings_ldap.authenticate(db, ident, body.password)
         if res.ok and res.user is not None:
@@ -61,9 +72,10 @@ async def _login(body: LoginIn, db: DB) -> TokenOut:
         elif "user_not_enabled" in res.errors:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "user disabled")
         elif not res.connection_error:
+            ldap_rejected = True
             log.info("LDAP login failed for %s: %s", ident, res.errors)
     if user is None:
-        user = await _local(db, ident, body.password)
+        user = await _local(db, ident, body.password, ldap_rejected=ldap_rejected)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid credentials")
     if not user.is_active:

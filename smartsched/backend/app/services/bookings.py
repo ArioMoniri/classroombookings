@@ -1045,11 +1045,11 @@ async def update(
             await session.rollback()
             raise _conflict("conflict", "the slot was booked by someone else a moment ago") from exc
     now = utcnow()
-    for t in targets:
+    for target in targets:
         for key in ("notes", "department_id", "user_id"):
             if key in data:
-                setattr(t, key, data[key])
-        t.updated_at, t.updated_by = now, access.user_id
+                setattr(target, key, data[key])
+        target.updated_at, target.updated_by = now, access.user_id
     if scope == "all" and b.series_id:
         series = await session.get(BookingSeries, b.series_id)
         if series is not None:
