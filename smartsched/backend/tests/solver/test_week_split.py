@@ -88,16 +88,25 @@ def test_blocked_week_without_any_free_room_is_reported_and_the_rest_stays() -> 
     assert all(seg_id not in d.event_ids for d in out.diagnoses)  # ids translated back to the request
 
 
-def test_trusted_small_lock_does_not_demand_a_bigger_room_for_the_moved_week() -> None:
-    """The planner seats 70 students in a 58-seat room (trusted lock); the moved week needs no more
-    seats than the planner's room offered, and the clip is reported."""
+def test_trusted_small_lock_needs_a_full_room_in_the_moved_week() -> None:
+    """The planner seats 70 students in a 58-seat room (trusted lock, D1).  The trust covers the planner's
+    room only: the moved week needs a room for all 70 (review MINOR; the clipped size let the group into
+    somebody else's 58-seat room).  Infeasible here (no room of 70): the week stays unplaced with a capacity
+    reason, the lock holds the other weeks; feasible with an 80-seat room."""
     inp = _blocked_lock_input()
     inp = replace(inp, events=tuple(replace(e, size=70) for e in inp.events))
     sp = split_blocked_weeks(inp)
     seg = next(e for e in sp.inp.events if e.id != 1)
-    assert seg.size == 58 and sp.diagnoses[0].params["size_clipped_to"] == 58
+    assert seg.size == 70 and "size_clipped_to" not in sp.diagnoses[0].params
     res, split = solve_segmented(inp)
-    assert res.hard_score == 100 and len(fully_placed(split, res.assignments)) == 1
+    assert res.hard_score == 100 and len(fully_placed(split, res.assignments)) == 0
+    why = next(d for d in res.diagnoses if seg.id in d.event_ids and d.severity == "error")
+    assert "capacity" in why.constraint_kinds
+    big = replace(inp, rooms=(*inp.rooms, room(4, "A204", 80)))
+    res2, split2 = solve_segmented(big)
+    assert res2.hard_score == 100 and len(fully_placed(split2, res2.assignments)) == 1
+    moved = next(a for a in res2.assignments if a.event_id != 1)
+    assert moved.room_ids == (4,)
 
 
 def test_lock_clash_in_some_weeks_moves_the_longer_lock() -> None:
