@@ -44,10 +44,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.importers.normalize import non_person_reason
 from app.models import (
     Assignment,
     Block,
     ExamRequest,
+    Instructor,
     MeetingRequest,
     Room,
     ScheduleRun,
@@ -723,9 +725,17 @@ async def load(session: AsyncSession, run: ScheduleRun, assignments: list[Assign
                 definitive=_int_ids(ex.definitive_room_ids),
                 tags=frozenset(str(t) for t in ex.requested_tags or []),
                 cohort=_cohorts(prog, ex.class_years or [ex.class_year]),
-                instructors=frozenset({ex.instructor_text}) if ex.instructor_text else frozenset(),
+                # a value that names no person ("UZEM", a department) is no instructor (the bridge drops it too)
+                instructors=frozenset({ex.instructor_text})
+                if ex.instructor_text and non_person_reason(ex.instructor_text) is None
+                else frozenset(),
             )
     else:
+        not_person = {
+            int(i)
+            for i, name in (await session.execute(select(Instructor.id, Instructor.full_name))).all()
+            if non_person_reason(name) is not None
+        }
         qm = (
             select(MeetingRequest)
             .join(Section, Section.id == MeetingRequest.section_id)
@@ -761,7 +771,9 @@ async def load(session: AsyncSession, run: ScheduleRun, assignments: list[Assign
                 definitive=_int_ids(mr.definitive_room_ids),
                 tags=frozenset(str(t) for t in mr.requested_tags or []),
                 cohort=_cohorts(prog, sec.class_years or [sec.class_year]),
-                instructors=frozenset(str(si.instructor_id) for si in sec.instructors),
+                instructors=frozenset(
+                    str(si.instructor_id) for si in sec.instructors if si.instructor_id not in not_person
+                ),
             )
     if assignments is None:
         assignments = list(
