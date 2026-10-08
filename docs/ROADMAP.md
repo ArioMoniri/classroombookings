@@ -231,6 +231,13 @@ Foundation, in order: typed room features → find a room → notification hub �
 - [ ] Legacy CRBS upgrade path: import a running classroombookings MySQL database (users with their passwords, roles, ACLs, constraints, room groups/fields, sessions/weeks/holidays, bookings and series) into SmartSched with a dry-run report — verified against a real CRBS install in the pod's `--profile legacy`.
 - [ ] Side-by-side check on the pod: run the legacy CRBS (`--profile legacy`) and SmartSched on the same data and diff grid states for a sample of dates/rooms/users.
 
+### Shell follow-ups (from the CRBS screens hand-off, 2026-10-08)
+
+- [ ] Login page renders the organisation logo, login message, maintenance banner and "forgot password" link (`components/admin/login-extras.tsx` exists) — assigned to the no-placeholder frontend agent (owns auth).
+- [ ] Shell header shows the "What's new" indicator (`components/admin/whats-new.tsx`).
+- [ ] i18n provider overlays admin translation overrides from `GET /org/i18n` (`useOrgI18n` hook ready).
+- [ ] Breadcrumb labels localised for /admin/* routes (shows "admin / conflicts" in English).
+
 ### Review follow-ups (docs/review/2026-10-08-backend-ai-studio-review.md + planner usability test)
 
 Done 2026-10-08 by backend-engineer (review fixes): B1-B3, M1-M13, MINOR 1, 2 (PDF page cap; parsing is off the event
