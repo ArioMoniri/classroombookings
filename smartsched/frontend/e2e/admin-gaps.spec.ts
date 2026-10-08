@@ -395,7 +395,46 @@ test("admin gaps 14. LDAP settings save and read back; e-mail settings show the 
   } finally {
     await call(page, "PUT", "/org/auth/ldap", { port: before.port ?? 389 });
   }
+  // the connection test answers in words (no directory in the e2e stack: refused or unreachable, never silence)
+  await page.locator("#ldap-tu").fill("e2e.ldap");
+  await page.locator("#ldap-tp").fill("Parola-2026!");
+  await page.locator("section[aria-labelledby=ldap-test]").getByRole("button", { name: "Test" }).click();
+  await expect(page.locator("section[aria-labelledby=ldap-test]").getByRole("alert")).toBeVisible({ timeout: 45_000 });
   await page.goto("/admin/email");
   await expect(page.locator("#outbox")).toBeVisible();
   await expect(page.locator("#smtp-host")).toBeVisible();
+});
+
+test("admin gaps 15. the login page shows the organisation's logo, name and login message; What's new opens from the header (S-02)", async ({ page }) => {
+  const before = await call<{ name: string | null; login_message_enabled: boolean; login_message_text: string | null; logo_url: string | null }>(page, "GET", "/org/settings");
+  const name = `Acıbadem E2E ${STAMP}`;
+  try {
+    await page.goto("/admin/settings");
+    await page.getByTestId("org-name").fill(name);
+    await page.locator('input[type=file][accept^="image/png"]').setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: PNG });
+    await expect.poll(async () => (await call<{ logo_url: string | null }>(page, "GET", "/org/settings")).logo_url).toBeTruthy();
+    await page.getByTestId("org-save").click();
+    await expect.poll(async () => (await call<{ name: string | null }>(page, "GET", "/org/settings")).name).toBe(name);
+    await call(page, "PUT", "/org/settings", { login_message_enabled: true, login_message_text: `Personel hesabınızla girin (${STAMP}).` });
+
+    // What's new (CRBS Dashboard::changelog_status) from the header
+    await page.goto("/admin");
+    await page.getByTestId("whats-new").filter({ visible: true }).first().click();
+    await expect(page.getByRole("dialog").getByText("What's new", { exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await openUserMenu(page);
+    await page.getByTestId("logout").click();
+    await page.waitForURL("**/login");
+    await expect(page.getByTestId("login-brand")).toContainText(name);
+    await expect(page.getByTestId("login-brand").locator("img")).toBeVisible();
+    await expect(page.getByTestId("login-message")).toContainText(`Personel hesabınızla girin (${STAMP}).`);
+    await expect(page.getByTestId("forgot-password")).toHaveAttribute("href", "/reset-password");
+    await expect(page.getByTestId("app-version")).toHaveText(/^(Version|Sürüm) \d/);
+    await shot(page, "15-login-brand");
+  } finally {
+    await signIn(page);
+    await call(page, "PUT", "/org/settings", { name: before.name, login_message_enabled: before.login_message_enabled, login_message_text: before.login_message_text });
+    if (!before.logo_url) await call(page, "DELETE", "/org/logo");
+  }
 });

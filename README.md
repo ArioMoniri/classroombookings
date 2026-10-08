@@ -25,7 +25,7 @@ can import its database.
 
 <p align="center">
   <a href="docs/images/recordings/import-generate.mp4">
-    <img alt="Screen recording: the weekly room grid and the planning list of Bahar 2026 are imported into an empty term, each with an import report; week 3 is generated in the Generator Studio; the run report shows how many classes were placed with every hard rule kept, then the first class that could not be placed, with its reason and suggested fixes." src="docs/images/recordings/import-generate.webp" width="960">
+    <img alt="Screen recording: the weekly room grid and the planning list of Bahar 2026 are imported into an empty term, each with an import report; week 3 is chosen in the Generator Studio, whose pre-check warns that some classes cannot be placed under the hard rules; the run is generated anyway and the run report shows how many classes were placed with every hard rule kept, then the first class that could not be placed, with its reason and suggested fixes." src="docs/images/recordings/import-generate.webp" width="960">
   </a>
   <br>
   <sub>From two Excel files to a checked timetable: import the Bahar 2026 workbooks, generate week 3, read the report.

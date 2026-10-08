@@ -166,6 +166,8 @@ test("3. drag across consecutive periods reserves a span in one go", async ({ pa
   const span = run(g, 2);
   await login(page, TEACHER.username, TEACHER.password);
   await page.goto(`/bookings?date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
+  await cell(page, span[1]!).scrollIntoViewIfNeeded();
+  await cell(page, span[0]!).scrollIntoViewIfNeeded();
   const a = await cell(page, span[0]!).boundingBox();
   const b = await cell(page, span[1]!).boundingBox();
   await page.mouse.move(a!.x + a!.width / 2, a!.y + a!.height / 2);
@@ -279,7 +281,7 @@ test("7. calendar sync: private links for me, a room and a department, copy, Goo
   for (const c of sync.connectors) await expect(panel.getByTestId(`sync-connect-${c.provider}`)).toHaveCount(c.configured ? 1 : 0);
   // reset: a new link, the old one stops working
   await panel.getByTestId("sync-reset").click();
-  await page.getByRole("alertdialog").getByRole("button", { name: /sıfırla|reset/i }).click();
+  await page.getByRole("dialog", { name: /sıfırlansın mı|Reset the private link/ }).getByRole("button", { name: /sıfırla|reset/i }).click();
   await expect(url).not.toHaveValue(mineUrl);
   const old = await ctx.api.get(mineUrl.replace(/^https?:\/\/[^/]+/, API.replace(/\/api\/v1$/, "")));
   expect(old.status()).toBe(404);
@@ -304,7 +306,7 @@ test("8. room details: capacity, exam capacity, building, the day, the next free
   const firstAlt = alts.locator('[data-testid^="alt-reserve-"]').first();
   await expect(firstAlt).toBeVisible();
   const code = (await firstAlt.getAttribute("data-testid"))!.replace("alt-reserve-", "");
-  await firstAlt.click();
+  await alts.getByTestId(`alt-reserve-${code}`).click();
   const sheet = page.getByTestId("book-sheet");
   await expect(sheet).toBeVisible();
   await sheet.locator("#book-notes").fill("Alternatif derslik");
@@ -339,7 +341,7 @@ test("10. administrators bulk-cancel other people's bookings from the grid (CRBS
   await cell(page, slot!).click();
   await expect(cell(page, slot!)).toHaveAttribute("aria-pressed", "true");
   await page.getByTestId("multi-cancel").click();
-  await page.getByRole("alertdialog").getByRole("button", { name: /iptal|cancel/i }).last().click();
+  await page.getByRole("dialog", { name: /iptal edilsin mi|Cancel \d+ bookings/ }).getByRole("button", { name: /^(İptal et|Cancel booking)$/ }).click();
   await expect(cell(page, slot!)).toHaveAttribute("data-tone", "available");
   const mine = await api<{ id: number }[]>("GET", "/bookings/mine?status=CANCELLED", undefined, ctx.teacherToken);
   expect(mine.some((x) => x.id === b.id)).toBe(true);

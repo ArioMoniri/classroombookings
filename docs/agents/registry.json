@@ -278,7 +278,8 @@
       "goal": "build the foundations of booking-enhancements wave 1 (Phase 17 in docs/ROADMAP.md) on the backend, test-first. The product spec is docs/product/booking-enhancements.md. Read §0, §3.2–3.3 (order and dependency graph), the build specs §4.1 P10, §4.2 T1, §4.6 P7 and §4.3 P1, §5 risks, and the \"Integrations engine (decision 2026-10-08)\" section at the end. User decisions to respect (docs/agents/static…",
       "ledger": "backend-engineer (wave C part 1)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 16:38"
     },
     {
       "id": "a5ade7a96d2030d5f",

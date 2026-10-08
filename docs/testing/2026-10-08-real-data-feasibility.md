@@ -260,10 +260,28 @@ rows (placed = every week of the run); "events" are solver events (joint lecture
 
 | Instance | Limit / wall | Requests placed | Events placed | Planner-level hard | Strict view (no waivers) | Violations | Accepted exceptions (reported) | Planner rooms reproduced (lock) |
 |---|---|---|---|---|---|---|---|---|
-| Bahar week 3 | 120 s / 82 s | 845 / 882 = **95.8 %** | 689 / 719 | **100** | 56 | **0** | D1 77, D2 223, D3 37, outside pool 19, missing enrolment 76 | 668 / 683 placed, 100 % exact |
-| Güz week 3 | 120 s / 62 s | 626 / 653 = **95.9 %** | 522 / 548 | **100** | 61 | **0** | D1 78, D2 90, D3 27, outside pool 10, missing enrolment 28 | 524 / 531, 100 % |
-| Final exams | 120 s / 102 s | 724 / 729 = **99.3 %** | 624 / 629 | **100** | 63 | **0** | D1 124, D2 135, D3 5, missing enrolment 10 | 645 / 655, 100 % |
-| Bahar full term | 300 s / 301 s | 839 / 883 = **95.0 %** | 683 / 720 | **100** | 56 | **0** | D1 76, D2 227, D3 44, week split 11, outside pool 19, missing enrolment 76 | 668 / 683, 98.4 % exact (week splits) |
+| Bahar week 3 | 120 s / 90 s | 845 / 882 = **95.8 %** | 689 / 719 | **100** | 56 | **0** | D1 77, D2 223, D3 37, outside pool 19, missing enrolment 76 | 668 / 683 placed, 100 % exact |
+| Güz week 3 | 120 s / 63 s | 626 / 653 = **95.9 %** | 522 / 548 | **100** | 62 | **0** | D1 77, D2 87, D3 27, outside pool 10, missing enrolment 28 | 524 / 531, 100 % |
+| Final exams | 120 s / 122 s | 724 / 729 = **99.3 %** | 624 / 629 | **100** | 63 | **0** | D1 128, D2 135, D3 5, missing enrolment 10 | 645 / 655, 100 % |
+| Bahar full term | 300 s / 302 s | 838 / 883 = **94.9 %** | 682 / 720 | **100** | 56 | **0** | D1 76, D2 216, D3 45, week split 10, outside pool 19, missing enrolment 76 | 669 / 683, 98.5 % exact (week splits) |
+
+The solver's own hard score is 100 on all four as well.  Load average 15–22 during these runs (the term
+relaxation ended FEASIBLE, not proven, at 150 s).
+
+Prefer mode (`definitive_rooms="prefer"`, 90 s, the reproduction setting), also checked at planner level:
+
+| Instance | Requests placed | Planner-level hard / violations | Reproduction: exact planner room set (per request) | overlap |
+|---|---|---|---|---|
+| Bahar week 3 | 850 / 882 = 96.4 % | 100 / 0 | **89.5 %** (676 placed planner-roomed requests) | 90.2 % |
+| Güz week 3 | 642 / 653 = 98.3 % | 100 / 0 | **94.9 %** (526) | 95.1 % |
+| Final exams | 712 / 729 = 97.7 % | 100 / 0 | **74.1 %** (633) | **93.4 %** |
+
+(Per *request* here; the phase-9 figures 88.9 / 90.7 / 80.9 % exact were per solver event from
+`tools.calibrate`.  The Final exact rate drops because each programme row of a split exam is now compared
+with its own definitive room, which is what the planner sees; a clipped shared exam may only use the
+planner's set, see below.)  Two bugs found by checking prefer mode at planner level, both fixed: a clipped
+shared exam under-counted its students in non-planner rooms (now restricted to the planner's set), and the
+new constant-seat-split validation reported a false `internal` violation (lower bound / timeout).
 
 Before the fixes (same tool, same box, Bahar / Güz / Final week runs): planner-level hard **85 / 83 / 93**,
 **134 / 68 / 56 violations** (Bahar: 76 size-0 requests without any fallback, 41 groups over capacity
@@ -296,8 +314,17 @@ way (one lock for two classes).  The relaxation now counts lost event-weeks for 
 lock no longer loses to a 7-week segment) and the residual round can keep a lock in its free weeks and
 move only the contested ones.
 
-Determinism (M2): the canonical stages run on one worker with a deterministic time limit; when the
-relaxation's stage cannot prove its optimum (Bahar week 3: not within 43 s), interchangeable rows (one
-lecture listed twice) are canonicalised by an exchange step.  See the table below for the reproduction
-check.
+Determinism (M2): the canonical stages run on one worker with a deterministic time limit (the relaxation's
+stage on the contested neighbourhood only); interchangeable rows (one lecture listed twice) are
+canonicalised by an exchange step.  With 4 workers on this loaded box two Bahar week-3 runs still differed
+in 2–8 rows (the relaxation itself did not always prove its optimum under load 20+), so multi-worker runs
+are reproducible only when every stage is proven.  **Deterministic mode (`workers=1`)** budgets every stage
+in CP-SAT deterministic time instead of wall time: two Bahar week-3 runs in two processes with different
+`PYTHONHASHSEED` gave the identical timetable (681 / 719 events, hash `11aa76412bed0123`, 371 s wall each
+for a 120 s budget at load 20); `tests/test_planner_level_real.py::test_bahar_week3_is_deterministic`
+checks it.
+
+Reproduce: `cd smartsched/backend && python -m tools.validate_planner --instances bahar_w3 guz_w3 final
+bahar_term --time-limit 120 --workers 4 --cache-dir /tmp/vp` (add `--params '{"definitive_rooms":
+"prefer"}'` for the reproduction runs); exit status 1 on any planner-level violation.
 

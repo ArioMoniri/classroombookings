@@ -227,6 +227,14 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Calendar sync: tokenised ICS subscription feeds (mine / room / department / room group) for Google, Outlook, Apple; optional Google Calendar + Microsoft 365 push when an admin configures OAuth clients; signed outgoing webhooks (Activepieces/n8n-ready).
 - [ ] Room details panel with capacity, features, today's bookings, next free slot and "other available rooms" at the same time with one-click reserve (uses T1 find-a-room).
 
+### Wave 1 frontend (backend landed 2026-10-08; contract docs/product/wave1-api.md)
+
+- [ ] Room features admin (types, values, bulk CSV, solver-tag impact confirm) and feature filters in find-a-room.
+- [ ] Find-a-room page + palette entry (POST /rooms/find with reasons, alternatives, recent searches).
+- [ ] Approvals: inbox for designated approvers, requester timeline, approval rules admin, PENDING state in the grid and booking sheet (202), decide with alternative.
+- [ ] Audit log viewer with filters, CSV export and undo; in-app notifications (/me/notifications) in the shell.
+- [ ] Move approval e-mail/in-app texts into bookings_i18n; Postgres CI job for concurrent approvals.
+
 ### Calendar sync follow-ups (2026-10-08)
 
 - [ ] Timetable classes (not only bookings) in the "mine" feed and push (T7).

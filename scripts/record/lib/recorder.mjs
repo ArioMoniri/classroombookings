@@ -34,8 +34,8 @@ export class Recorder {
     await sleep(ms * this.speed);
   }
 
-  /** Paint a full-viewport magenta frame for ~300 ms; returns [start, end] on the recorder clock. */
-  async syncFlash() {
+  /** Paint a full-viewport magenta frame for ~`ms`; returns {start, end} on the recorder clock. */
+  async flash(ms = 350) {
     await this.page.evaluate((color) => {
       const d = document.createElement("div");
       d.id = "__rec_sync";
@@ -44,14 +44,19 @@ export class Recorder {
       return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     }, SYNC_COLOR);
     const start = this.now();
-    await sleep(350);
+    await sleep(ms);
     await this.page.evaluate(() => {
       document.getElementById("__rec_sync")?.remove();
       return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     });
-    const end = this.now();
-    this.marks.sync = { start, end };
-    return [start, end];
+    return { start, end: this.now() };
+  }
+
+  /** The first sync flash: maps the recorder clock onto the video clock. */
+  async syncFlash() {
+    const f = await this.flash();
+    this.marks.sync = f;
+    return [f.start, f.end];
   }
 
   /** Mark the start of the part of the video that is kept (everything before is trimmed). */
@@ -97,16 +102,20 @@ export class Recorder {
   }
 
   /**
-   * Run `fn` (typically a wait for the solver or an import job) and cut that time out of the final video,
-   * keeping `keepMs` at each edge so the jump stays readable. Captions should say that time was skipped.
+   * Run `fn` (typically a wait for the solver or an import job) and cut that time out of the final video.
+   * A marker flash at each edge, inside the removed span, re-syncs the clocks: under load Playwright's video
+   * drifts from the recorder clock over a long wait, so one sync flash at the start is not enough.
+   * Captions should say that time was skipped.
    */
-  async cut(fn, { keepMs = 700 } = {}) {
-    const start = this.now();
+  async cut(fn, { keepMs = 500 } = {}) {
+    await this.wait(keepMs);
+    const a = await this.flash(300);
     try {
       return await fn(this);
     } finally {
-      const end = this.now();
-      if (end - start > keepMs * 2 + 300) this.cuts.push({ start: start + keepMs, end: end - keepMs });
+      await this.wait(150);
+      const b = await this.flash(300);
+      this.cuts.push({ start: a.start, end: b.end, flashA: a, flashB: b });
     }
   }
 

@@ -140,6 +140,7 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
           <Input id="role-desc" value={description} maxLength={255} onChange={(e) => setDescription(e.target.value)} />
         </Field>
       </div>
+      {role ? <RoleUsers role={role} /> : null}
       <section aria-labelledby="role-limits">
         <h3 id="role-limits" className="type-headline text-label-1">
           {t("crbs.users.limits")}
@@ -157,7 +158,6 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
       {locked ? <Alert tone="info">{t("crbs.roles.adminLocked")}</Alert> : null}
       {catalogue.data ? <PermissionMatrix catalogue={catalogue.data} value={perms} onToggle={toggle} disabled={readOnly} held={held} /> : <Loading />}
       </fieldset>
-      {role ? <RoleUsers role={role} /> : null}
       {error ? <Alert tone="error">{error}</Alert> : null}
       <div className="flex flex-wrap justify-between gap-2">
         {role && !readOnly ? (

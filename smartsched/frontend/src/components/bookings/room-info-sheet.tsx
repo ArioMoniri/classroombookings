@@ -309,7 +309,8 @@ function OtherRooms({ room, date, context, fmt, onReserve }: { room: RoomInfo; d
           ))}
         </div>
       ) : null}
-      {loading ? (
+      {loading || (finder.isLoading && !!first) ? (
+        // wait for the finder's ranking too, so the list does not reorder under the pointer
         <Loading label={t("reserve.alt.loading")} />
       ) : alts.list.length === 0 ? (
         <p className="type-callout text-label-2" data-testid="alt-empty">

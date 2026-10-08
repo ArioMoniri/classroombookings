@@ -114,8 +114,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.workers import integrations
 
     await integrations.on_startup()  # calendar push / webhook outbox rows left by a previous process
+    from app.workers import approvals_sweeper
+
+    if settings.environment != "test":  # tests call the sweep directly; no timers inside the test loop
+        approvals_sweeper.start()
     log.info("SmartSched backend ready (%s, %s)", settings.environment, settings.database_url.split("@")[-1])
     yield
+    await approvals_sweeper.stop()
     await integrations.shutdown()
     await get_queue().shutdown()
     await dispose_engine()

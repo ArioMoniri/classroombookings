@@ -18,25 +18,34 @@ export function toCfr(webm, out) {
   return out;
 }
 
-/** Frames (2×2 RGB averages) where the magenta sync flash is visible → [startMs, endMs] video clock. */
-export function findFlash(cfr) {
+/** Every run of magenta sync frames (2×2 RGB averages) → [{startMs, endMs}] on the video clock. */
+export function findFlashes(cfr) {
   const buf = ff(["-i", cfr, "-vf", "scale=2:2:flags=area", "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"], "scan");
   const frames = buf.length / 12;
+  const runs = [];
   let first = -1;
-  let lastF = -1;
-  for (let i = 0; i < frames; i++) {
+  for (let i = 0; i <= frames; i++) {
     let hits = 0;
-    for (let p = 0; p < 4; p++) {
-      const o = i * 12 + p * 3;
-      if (buf[o] > 200 && buf[o + 1] < 90 && buf[o + 2] > 200) hits++;
+    if (i < frames) {
+      for (let p = 0; p < 4; p++) {
+        const o = i * 12 + p * 3;
+        if (buf[o] > 200 && buf[o + 1] < 90 && buf[o + 2] > 200) hits++;
+      }
     }
-    if (hits === 4) {
-      if (first < 0) first = i;
-      lastF = i;
-    } else if (first >= 0) break;
+    if (hits === 4 && first < 0) first = i;
+    if (hits !== 4 && first >= 0) {
+      runs.push({ startMs: (first * 1000) / FPS, endMs: (i * 1000) / FPS });
+      first = -1;
+    }
   }
-  if (first < 0) throw new Error("sync flash not found in the raw video");
-  return { startMs: (first * 1000) / FPS, endMs: ((lastF + 1) * 1000) / FPS, frames };
+  if (!runs.length) throw new Error("sync flash not found in the raw video");
+  return { runs, frames };
+}
+
+/** The first sync flash (kept for callers of the old API). */
+export function findFlash(cfr) {
+  const { runs, frames } = findFlashes(cfr);
+  return { ...runs[0], frames };
 }
 
 /**
@@ -45,13 +54,39 @@ export function findFlash(cfr) {
  * 0 = first kept frame, cuts removed).
  */
 export function trimAndMap(cfr, tl, out) {
-  const flash = findFlash(cfr);
-  const offset = flash.startMs - tl.marks.sync.start; // video = recorder + offset
-  const begin = Math.max(flash.endMs + 34, tl.marks.begin + offset);
-  const end = tl.marks.end + offset;
+  const { runs } = findFlashes(cfr);
+  const flash = runs[0];
+  const recCuts = tl.cuts ?? [];
+  // anchors (recorder ms → video ms): the sync flash, then both marker flashes of every cut
+  const anchors = [{ r: tl.marks.sync.start, v: flash.startMs }];
+  const vcuts = [];
+  if (runs.length - 1 >= recCuts.length * 2) {
+    recCuts.forEach((c, i) => {
+      const a = runs[1 + 2 * i];
+      const b = runs[2 + 2 * i];
+      anchors.push({ r: c.flashA.start, v: a.startMs }, { r: c.flashB.end, v: b.endMs });
+      vcuts.push({ start: a.startMs, end: b.endMs });
+    });
+  } else if (recCuts.length) {
+    throw new Error(`expected ${recCuts.length * 2} cut marker flashes, found ${runs.length - 1}`);
+  }
+  /** recorder ms → video ms, piecewise linear between anchors (clock drift under load) */
+  const toVideo = (t) => {
+    if (t <= anchors[0].r || anchors.length === 1) return t + (anchors[0].v - anchors[0].r);
+    for (let i = 1; i < anchors.length; i++) {
+      const p = anchors[i - 1];
+      const q = anchors[i];
+      if (t <= q.r) return p.v + ((t - p.r) * (q.v - p.v)) / Math.max(1, q.r - p.r);
+    }
+    const l = anchors[anchors.length - 1];
+    return t + (l.v - l.r);
+  };
+  const offset = flash.startMs - tl.marks.sync.start; // video = recorder + offset at the sync flash
+  const begin = Math.max(flash.endMs + 34, toVideo(tl.marks.begin));
+  const end = toVideo(tl.marks.end);
   // cuts on the trimmed clock (ms from `begin`), sorted, inside the kept range
-  const cuts = (tl.cuts ?? [])
-    .map((c) => ({ start: c.start + offset - begin, end: c.end + offset - begin }))
+  const cuts = vcuts
+    .map((c) => ({ start: c.start - begin, end: c.end - begin }))
     .filter((c) => c.end > 0 && c.start < end - begin)
     .sort((a, b) => a.start - b.start);
   const sec = (ms) => (ms / 1000).toFixed(3);
@@ -69,7 +104,7 @@ export function trimAndMap(cfr, tl, out) {
     return { removed, inside: null };
   };
   const shift = (t0) => {
-    const t = t0 + offset - begin;
+    const t = toVideo(t0) - begin;
     const { removed, inside } = removedBefore(t);
     return Math.round((inside ? inside.start : t) - removed);
   };
@@ -84,7 +119,7 @@ export function trimAndMap(cfr, tl, out) {
   return {
     ...tl,
     clock: "video",
-    sync: { flashStartMs: flash.startMs, flashEndMs: flash.endMs, offsetMs: offset, beginMs: begin, endMs: end },
+    sync: { flashStartMs: flash.startMs, flashEndMs: flash.endMs, offsetMs: offset, beginMs: begin, endMs: end, anchors },
     cuts: cuts.map((c) => ({ ...c, removedMs: Math.round(c.end - c.start) })),
     steps,
     pointer,
