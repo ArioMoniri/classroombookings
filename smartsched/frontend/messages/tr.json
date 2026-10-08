@@ -2006,7 +2006,7 @@
     "generate": "Program oluştur",
     "error": "Dersler yüklenemedi.",
     "retry": "Tekrar dene",
-    "insp": {"request": "Talep", "placement": "Yerleşim (Run #{run})", "explanation": "Açıklama", "source": "Kaynak", "history": "Geçmiş", "acrossRuns": "Çalıştırmalara göre", "prev": "Önceki ders", "next": "Sonraki ders", "flexibleDay": "Esnek gün", "notes": "Not", "warnings": "Ayrıştırma uyarıları", "fix": "Düzelt", "unplacedReason": "Yerleşmedi: {reason}", "empty": "—", "raw": "Excel satırı"},
+    "insp": {"request": "Talep", "placement": "Yerleşim (Run #{run})", "explanation": "Açıklama", "source": "Kaynak", "history": "Geçmiş", "acrossRuns": "Çalıştırmalara göre", "prev": "Önceki ders", "next": "Sonraki ders", "flexibleDay": "Esnek gün", "notes": "Not", "warnings": "Ayrıştırma uyarıları", "fix": "Düzelt", "unplacedReason": "Yerleşmedi: {reason}", "requestedWeeks": "istenen", "unplacedHint": "Yerleştirmek için takvimde boş bir alana tıklayın ve Talep sekmesinden bu dersi seçin.", "noRoomHint": "Çevrim içi veya asenkron: bu ders oda gerektirmez.", "empty": "—", "raw": "Excel satırı"},
     "mobile": {"filters": "Filtreler", "select": "Seç", "lock": "Kilitle", "explain": "Açıkla", "calendar": "Takvim", "actions": "{code} işlemleri", "done": "Bitti"},
     "tokens": {"hint": "Belirteçler: fak: prog: sınıf: hoca: bina: oda: gün: saat: mod: durum: yerleşmedi sorunlu değişti kilitli"},
     "redirectNote": "Talepler artık Tüm dersler içinde bir görünüm",

@@ -290,3 +290,41 @@ async def test_b12_changelog_seen_is_a_version_and_timestamp(env, monkeypatch, t
         encoding="utf-8",
     )
     assert (await c.get("/api/v1/org/changelog", headers=teacher)).json()["unread"] is True
+
+
+async def test_ldap_rejection_does_not_fall_back_to_the_local_copy(env, monkeypatch):  # noqa: F811
+    """Deliberate security difference: CRBS (Userauth::log_in) tries the local password after *any* LDAP
+    failure; SmartSched only when the directory cannot be reached, or for accounts that are not LDAP ones."""
+    from app.services import bookings_ldap
+
+    from tests.test_crbs_users import FakeDirectory
+
+    monkeypatch.setattr(bookings_ldap.ldap3, "Connection", FakeDirectory)
+    monkeypatch.setattr(FakeDirectory, "password", "doğru-parola")
+    monkeypatch.setattr(FakeDirectory, "down", False)
+    c = env.client
+    await env.user("yerel.hesap@uni.edu.tr", username="yerel.hesap", password="yerel-parola-1")
+    cfg = {
+        "enabled": True,
+        "server": "ldap.uni.edu.tr",
+        "bind_dn_format": "uid=:user,ou=people,dc=uni,dc=edu,dc=tr",
+        "base_dn": "ou=people,dc=uni,dc=edu,dc=tr",
+        "search_filter": "(uid=:user)",
+        "attr_displayname": ":givenName :sn",
+    }
+    assert (await c.put("/api/v1/org/auth/ldap", json=cfg, headers=env.admin)).status_code == 200
+    ok = await c.post("/api/v1/auth/login", json={"username": "ilker.sahin", "password": "doğru-parola"})
+    assert ok.status_code == 200, ok.text
+    # the directory password changes: the stale local copy no longer opens the account
+    monkeypatch.setattr(FakeDirectory, "password", "yeni-dizin-parolası")
+    old = await c.post("/api/v1/auth/login", json={"username": "ilker.sahin", "password": "doğru-parola"})
+    assert old.status_code == 401
+    # ... except while the directory is unreachable (CRBS fallback)
+    monkeypatch.setattr(FakeDirectory, "down", True)
+    assert (
+        await c.post("/api/v1/auth/login", json={"username": "ilker.sahin", "password": "doğru-parola"})
+    ).status_code == 200
+    monkeypatch.setattr(FakeDirectory, "down", False)
+    # local (non-directory) accounts still sign in with their own password
+    r = await c.post("/api/v1/auth/login", json={"username": "YEREL.HESAP", "password": "yerel-parola-1"})
+    assert r.status_code == 200, r.text

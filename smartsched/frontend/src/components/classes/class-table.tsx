@@ -153,6 +153,9 @@ function ClassTableImpl(p: ClassTableProps) {
     enableMultiSort: true,
     isMultiSortEvent: (e) => (e as MouseEvent).shiftKey,
     manualExpanding: true,
+    // no pagination; the default auto reset schedules a setState during the first render (React warning)
+    autoResetPageIndex: false,
+    autoResetExpanded: false,
   });
 
   const flat = useMemo<Flat[]>(() => {

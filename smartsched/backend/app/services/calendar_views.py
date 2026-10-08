@@ -1721,9 +1721,14 @@ async def _meeting_rows(
         if a.meeting_request_id:
             cmp_by_mr[a.meeting_request_id].append(a)
     reasons: dict[int, list[str]] = {}
+    names: dict[int, tuple[str, str | None]] = {}
     if run is not None and rows:
         en = await enrich_assignments(session, run, rows, all_rows=rows, rooms_by_id=rooms)
         reasons = {aid: e.conflict_reasons for aid, e in en.items()}
+        names = {
+            aid: (f"{e.course_code or f'#{aid}'}{f' §{e.section_label}' if e.section_label else ''}", e.course_name)
+            for aid, e in en.items()
+        }
     job = jobs.get("planning-list")
     out: list[ClassRow] = []
     for mr in meetings:
@@ -1746,7 +1751,7 @@ async def _meeting_rows(
         issues: list[Issue] = []
         for a in mine:
             for r in reasons.get(a.id, []):
-                issues.append(_reason_issue(r, rooms))
+                issues.append(_reason_issue(r, rooms, names, sec.course.name))
         size = int(sec.enrolment or mr.requested_capacity or 0)
         req_weeks = ints(mr.weeks)
         status: str
@@ -1893,8 +1898,16 @@ async def _meeting_rows(
     return out
 
 
-def _reason_issue(reason: str, rooms: dict[int, Room]) -> Issue:
-    """Map the grid enrichment's English reason codes to planner sentences."""
+def _reason_issue(
+    reason: str,
+    rooms: dict[int, Room],
+    names: dict[int, tuple[str, str | None]] | None = None,
+    own: str | None = None,
+) -> Issue:
+    """Map the grid enrichment's English reason codes to planner sentences.
+
+    ``names`` maps assignment ids to (label, course name) so a room overlap names the other class;
+    when both carry the same course name the sentence says it may be a joint lecture."""
     if reason.startswith("capacity:"):
         m = re.search(r"(\d+)\s*>\s*(\d+)", reason)
         size, cap = (m.group(1), m.group(2)) if m else ("?", "?")
@@ -1911,12 +1924,18 @@ def _reason_issue(reason: str, rooms: dict[int, Room]) -> Issue:
     if reason.startswith("room overlap:"):
         body = reason.split(":", 1)[1].strip()
         room = body.split(" with ")[0]
-        return Issue(
-            code="room_overlap",
-            severity="hard",
-            room_code=room,
-            text=_t(f"{room} aynı saatte başka derse verilmiş", f"{room} is double-booked at this time"),
-        )
+        m = re.search(r"#(\d+)", body)
+        other = (names or {}).get(int(m.group(1))) if m else None
+        if other is None:
+            text = _t(f"{room} aynı saatte başka derse verilmiş", f"{room} is double-booked at this time")
+        elif own and other[1] and other[1] == own:
+            text = _t(
+                f"{room} aynı saatte {other[0]} ({other[1]}) ile paylaşılıyor — aynı ders adı, ortak ders olabilir",
+                f"{room} is shared with {other[0]} ({other[1]}) at this time — same course name, maybe a joint lecture",
+            )
+        else:
+            text = _t(f"{room} aynı saatte {other[0]} ile çakışıyor", f"{room} clashes with {other[0]} at this time")
+        return Issue(code="room_overlap", severity="hard", room_code=room, text=text)
     if reason.startswith("block:"):
         body = reason.split(":", 1)[1].strip()
         return Issue(

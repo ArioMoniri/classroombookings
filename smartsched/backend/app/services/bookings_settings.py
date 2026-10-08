@@ -118,8 +118,6 @@ BOOKINGS_SPECS: dict[str, Spec] = {
         Spec("term_date_change", default="cancel"),
     )
 }
-#: allowed values of string settings (validated by PUT /org/settings)
-CHOICES: dict[str, tuple[str, ...]] = {"bookings.term_date_change": ("cancel", "confirm")}
 GROUPS = {"org": ORG_SPECS, "ldap": LDAP_SPECS, "smtp": SMTP_SPECS, "bookings": BOOKINGS_SPECS}
 
 

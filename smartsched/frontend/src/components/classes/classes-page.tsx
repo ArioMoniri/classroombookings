@@ -463,7 +463,7 @@ export function ClassesPage() {
   ) : null;
 
   return (
-    <div ref={rootRef} className="flex min-h-0 gap-2" style={{ height: mobile ? undefined : fill }} data-testid="classes">
+    <div ref={rootRef} className="flex min-h-0 gap-2" style={{ height: fill }} data-testid="classes">
       <section className="flex min-w-0 flex-1 flex-col gap-2">
         {/* title row (not glass) */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">

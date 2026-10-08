@@ -2006,7 +2006,7 @@
     "generate": "Generate a timetable",
     "error": "Couldn't load classes.",
     "retry": "Try again",
-    "insp": {"request": "Request", "placement": "Placement (run #{run})", "explanation": "Explanation", "source": "Source", "history": "History", "acrossRuns": "Across runs", "prev": "Previous class", "next": "Next class", "flexibleDay": "Flexible day", "notes": "Notes", "warnings": "Parse warnings", "fix": "Fix", "unplacedReason": "Unplaced: {reason}", "empty": "—", "raw": "Excel row"},
+    "insp": {"request": "Request", "placement": "Placement (run #{run})", "explanation": "Explanation", "source": "Source", "history": "History", "acrossRuns": "Across runs", "prev": "Previous class", "next": "Next class", "flexibleDay": "Flexible day", "notes": "Notes", "warnings": "Parse warnings", "fix": "Fix", "unplacedReason": "Unplaced: {reason}", "requestedWeeks": "requested", "unplacedHint": "To place it, open the calendar, click a free slot and choose this class on the Request tab.", "noRoomHint": "Online or asynchronous: the class needs no room.", "empty": "—", "raw": "Excel row"},
     "mobile": {"filters": "Filters", "select": "Select", "lock": "Lock", "explain": "Explain", "calendar": "Calendar", "actions": "Actions for {code}", "done": "Done"},
     "tokens": {"hint": "Tokens: fak: prog: sınıf: hoca: bina: oda: gün: saat: mod: durum: yerleşmedi sorunlu değişti kilitli"},
     "redirectNote": "Requests are now a view in All classes",

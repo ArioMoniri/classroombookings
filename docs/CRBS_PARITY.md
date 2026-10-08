@@ -323,6 +323,38 @@ Guard = permission checked on the route (role ∪ room ACL where a room is invol
 10. **`users.role` values** seen by the frontend are now `ADMIN`, `PLANNER`, `VIEWER`, `TEACHER`, `CUSTOM`
     (a custom role) or `NONE` (no role); permissions come from `GET /auth/me` → `permissions[]`.
 
+### 6.1 Switches (audit 2026-10-08, `docs/review/2026-10-08-crbs-parity-audit.md`)
+
+Rule: behaviour differences default to CRBS with an org setting to switch; security differences keep the
+safer SmartSched rule, with a setting only where restoring CRBS is harmless. All are flat keys of
+`GET/PUT /org/settings` (stored as `bookings.*`, see `app/services/bookings_settings.py`).
+
+| Setting (default) | Default = | `true` / other value = |
+|---|---|---|
+| `enforce_max_active_on_create` (false) | CRBS: the limit greys out the grid and multi-booking only | `POST /bookings` refuses too (409 `max_active_bookings`) |
+| `recur_max_counts_replacements` (false) | CRBS: only "book" instances count against `recur_max_instances` | "replace" counts too |
+| `maintenance_gates_lists` (false) | CRBS: maintenance closes the booking pages, not the dashboard | dashboard, my bookings, owned rooms, feeds return 503 too |
+| `manual_current_term` (false) | CRBS: the current session is computed from the dates (`auto_set_current`) | `terms.is_active` decides |
+| `export_ungrouped_rooms` (false) | CRBS: the CSV leaves rooms without a group out | they are exported |
+| `recurring_department_needs_set_department` (false) | CRBS: multi-booking recurring step accepts a department with `book_recur.create` | needs `book_recur.set_department` |
+| `ignore_unauthorised_user_department` (false) | safer: 403 `set_user` / `set_department` | CRBS: silently books for yourself / your department |
+| `cancel_all_includes_past` (false) | safer: `scope=all` cancels today and later, past instances stay as history | CRBS `cancel_all`: every instance |
+| `term_date_change` (`cancel`) | CRBS-like: bookings outside new term dates are cancelled (with a reason; CRBS deletes them) | `confirm`: 409 with the list until `PUT /terms/{id}?confirm=true` |
+| `grid_highlight` (false, org) | CRBS `settings/General` | reaches the grid via `GET /bookings/context` → `display.grid_highlight` |
+| `ldap.ignore_cert` (false) | safer than CRBS's installer (1) | certificates not checked |
+
+Safer rules without a switch (restoring CRBS would not be harmless): the current password is needed to change
+it; booking details need `room.view` or ownership; after the directory *rejects* a password the local copy is
+not tried for LDAP accounts (only when it is unreachable); `setup.users` cannot grant Administrator without
+`setup.roles`; rooms, periods and schedules with bookings (also cancelled history) cannot be deleted (409 with
+counts; make them not bookable); owners cannot move a booking into the past or beyond `range_min`/`range_max`.
+
+Also from the audit: `GET /org/i18n?language=` (public; shipped e-mail strings merged with the overrides of
+that language, plus the date patterns), `GET /org/date-patterns?language=` (CRBS option lists with examples;
+`PUT /org/settings` accepts only these), e-mails rendered with the patterns and overridable texts (set
+`email`), session create/edit/delete under `setup.sessions`, and the legacy importer filling these tables
+(usernames, `$2y$`/`sha1:` hashes verified as CRBS does and rehashed to argon2 at the first login).
+
 ## 7. Turkish text handling
 
 Usernames fold `İ`/`I`/`ı`/`i` together and are NFKC/NBSP-cleaned (`app/core/identity.py`); e-mails are

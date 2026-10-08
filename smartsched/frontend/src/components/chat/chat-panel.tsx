@@ -74,6 +74,8 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
     <div ref={wrapRef} className="mt-2 w-full space-y-2" data-testid="proposal-card" onMouseEnter={() => setHighlight(ids)} onMouseLeave={() => setHighlight([])} aria-busy={busy}>
       {rows.length ? (
         <DiffTable
+          // inside the glass chat panel: a well, not a second glass (G2 / A8)
+          className="![background:var(--fill-3)] ![backdrop-filter:none] ![-webkit-backdrop-filter:none] !shadow-[inset_0_0_0_1px_var(--hairline)]"
           title={proposal.summary || t("chat.proposal")}
           columns={[
             { key: "class", label: t("glass.chat.colClass"), width: "28%" },
@@ -202,6 +204,7 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
           </p>
         ) : null}
         <PromptComposer
+          className="[&_.glass-thick]:![backdrop-filter:none] [&_.glass-thick]:![-webkit-backdrop-filter:none]"
           onSend={(text) => void submit(text)}
           disabled={noKey || send.isPending}
           placeholder={t("chat.placeholder")}

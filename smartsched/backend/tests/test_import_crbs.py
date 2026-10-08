@@ -159,7 +159,13 @@ async def test_import_crbs_fills_the_parity_tables(session):
     await session.flush()
     session.add(
         Block(
-            term_id=term.id, room_id=room.id, day=2, start_period=1, end_period=1, label="x", source="CRBS",
+            term_id=term.id,
+            room_id=room.id,
+            day=2,
+            start_period=1,
+            end_period=1,
+            label="x",
+            source="CRBS",
             source_key="CRBS:booking:1",
         )
     )
@@ -208,13 +214,23 @@ async def test_import_crbs_fills_the_parity_tables(session):
     conf = await _one(session, Room, Room.legacy_crbs_room_id == 3)
     assert conf.display_name == "Konferans Salonu" and not conf.is_bookable and conf.owner_user_id == ayse.id
     fields = {f.name: f for f in (await session.execute(select(RoomCustomField))).scalars()}
-    assert {k: f.type for k, f in fields.items()} == {"Kapasite": "TEXT", "Donanım": "SELECT", "Engelli erişimi": "CHECKBOX"}
+    assert {k: f.type for k, f in fields.items()} == {
+        "Kapasite": "TEXT",
+        "Donanım": "SELECT",
+        "Engelli erişimi": "CHECKBOX",
+    }
     values = {
         v.field_id: v.value
-        for v in (await session.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.room_id == a101.id))).scalars()
+        for v in (
+            await session.execute(select(RoomCustomFieldValue).where(RoomCustomFieldValue.room_id == a101.id))
+        ).scalars()
     }
     smart_board = next(o for o in fields["Donanım"].options if o.value == "Akıllı tahta")
-    assert values == {fields["Kapasite"].id: "58", fields["Donanım"].id: str(smart_board.id), fields["Engelli erişimi"].id: "1"}
+    assert values == {
+        fields["Kapasite"].id: "58",
+        fields["Donanım"].id: str(smart_board.id),
+        fields["Engelli erişimi"].id: "1",
+    }
 
     # ACL: room + room group, user + department contexts; an entry on a missing room is skipped
     acls = list((await session.execute(select(RoomAcl).order_by(RoomAcl.id))).scalars())
@@ -242,13 +258,17 @@ async def test_import_crbs_fills_the_parity_tables(session):
     assert len(tdates) == 7 and tdates[date(2025, 9, 9)] == weeks["B Haftası"].id
     hol = await _one(session, Holiday, Holiday.term_id == term.id)
     assert hol.name == "Yarıyıl tatili" and (hol.date_start, hol.date_end) == (date(2026, 1, 26), date(2026, 2, 1))
-    holiday_weeks = (await session.execute(select(Week).where(Week.term_id == term.id, Week.kind == "HOLIDAY"))).scalars().all()
+    holiday_weeks = (
+        (await session.execute(select(Week).where(Week.term_id == term.id, Week.kind == "HOLIDAY"))).scalars().all()
+    )
     assert len(holiday_weeks) == 1
 
     # bookings + series + slots; cancelled history kept, without slots
     series = await _one(session, BookingSeries, BookingSeries.legacy_crbs_id == 1)
     assert series.weekday == 2 and series.timetable_week_id == weeks["Timetable"].id and series.user_id == ayse.id
-    instances = list((await session.execute(select(Booking).where(Booking.series_id == series.id).order_by(Booking.date))).scalars())
+    instances = list(
+        (await session.execute(select(Booking).where(Booking.series_id == series.id).order_by(Booking.date))).scalars()
+    )
     assert [b.date for b in instances] == [date(2025, 9, 2), date(2025, 9, 16), date(2025, 9, 23)]
     b1 = await _one(session, Booking, Booking.legacy_crbs_id == 1)
     assert b1.status == "BOOKED" and b1.notes == "PSİ 101 telafi" and b1.department_id == psy.id
@@ -259,18 +279,50 @@ async def test_import_crbs_fills_the_parity_tables(session):
     assert sorted(s.period for s in slots) == [7, 8, 9]
     b3 = await _one(session, Booking, Booking.legacy_crbs_id == 3)
     assert b3.status == "CANCELLED" and b3.cancel_reason == "Toplantı ertelendi" and b3.cancelled_by == admin.id
-    assert (await session.execute(select(func.count()).select_from(BookingSlot).where(BookingSlot.booking_id == b3.id))).scalar_one() == 0
+    assert (
+        await session.execute(select(func.count()).select_from(BookingSlot).where(BookingSlot.booking_id == b3.id))
+    ).scalar_one() == 0
 
     # idempotent re-import: nothing new, everything matched by its CRBS id
     counts = {
         m.__name__: (await session.execute(select(func.count()).select_from(m))).scalar_one()
-        for m in (User, Role, RoomGroup, RoomAcl, BookingSchedule, BookingPeriod, TimetableWeek, Holiday, Booking, BookingSeries, BookingSlot, TermDate, RoomCustomField, RoomCustomFieldValue)
+        for m in (
+            User,
+            Role,
+            RoomGroup,
+            RoomAcl,
+            BookingSchedule,
+            BookingPeriod,
+            TimetableWeek,
+            Holiday,
+            Booking,
+            BookingSeries,
+            BookingSlot,
+            TermDate,
+            RoomCustomField,
+            RoomCustomFieldValue,
+        )
     }
     rep2 = await import_crbs(session, _source(), filename="crbs-seed")
     assert rep2.created["bookings"] == 0 and rep2.created["users"] == 0 and rep2.updated["bookings"] == 6
     again = {
         m.__name__: (await session.execute(select(func.count()).select_from(m))).scalar_one()
-        for m in (User, Role, RoomGroup, RoomAcl, BookingSchedule, BookingPeriod, TimetableWeek, Holiday, Booking, BookingSeries, BookingSlot, TermDate, RoomCustomField, RoomCustomFieldValue)
+        for m in (
+            User,
+            Role,
+            RoomGroup,
+            RoomAcl,
+            BookingSchedule,
+            BookingPeriod,
+            TimetableWeek,
+            Holiday,
+            Booking,
+            BookingSeries,
+            BookingSlot,
+            TermDate,
+            RoomCustomField,
+            RoomCustomFieldValue,
+        )
     }
     assert again == counts
 

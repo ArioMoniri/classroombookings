@@ -190,8 +190,8 @@ export function ClassInspector(p: InspectorProps) {
           ) : null}
           {allWeeks.length > 1 ? (
             <div className="flex items-center gap-2 text-[12px] text-label-2">
-              <span>{t("calendar.insp.weeks", { weeks: weeksText(placedWeeks) })}</span>
-              <WeekSquares all={allWeeks} placed={placedWeeks} label={t("calendar.insp.weeks", { weeks: weeksText(placedWeeks) })} />
+              <span>{t("calendar.insp.weeks", { weeks: weeksText(placedWeeks.length ? placedWeeks : allWeeks) })}{placedWeeks.length ? "" : ` · ${t("classes.insp.requestedWeeks")}`}</span>
+              <WeekSquares all={allWeeks} placed={placedWeeks} label={t("calendar.insp.weeks", { weeks: weeksText(placedWeeks.length ? placedWeeks : allWeeks) })} />
             </div>
           ) : null}
           {row?.req.warnings.length ? <ul className="text-[12px] text-status-warning-fg">{row.req.warnings.slice(0, 3).map((w) => <li key={w}>{w}</li>)}</ul> : null}
@@ -220,6 +220,10 @@ export function ClassInspector(p: InspectorProps) {
               ))}
             </ul>
           ) : null}
+          {row?.placement_status === "unplaced" ? (
+            <p className="text-[12px] text-label-2">{t("classes.insp.unplacedHint")}</p>
+          ) : null}
+          {row?.placement_status === "no_room_needed" ? <p className="text-[12px] text-label-2">{t("classes.insp.noRoomHint")}</p> : null}
           {(row?.issues ?? []).filter((i) => i.code !== "unplaced").slice(0, 4).map((i, k) => (
             <p key={k} className={cn("text-[12px]", i.severity === "hard" ? "text-status-infeasible-fg" : "text-status-warning-fg")}>{i.severity === "hard" ? "▲" : "•"} {i.text[lang]}</p>
           ))}
