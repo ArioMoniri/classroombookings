@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.api.v1 import (
     auth,
@@ -17,10 +17,14 @@ from app.api.v1 import (
     terms,
     users,
 )
+from app.api.v1.audit import audit_context  # noqa: E402
+from app.api.v1.room_features import facets_router  # noqa: E402
 
-api_router = APIRouter()
+# P7: every /api/v1 request names its actor, request id and hashed network for the audit log
+api_router = APIRouter(dependencies=[Depends(audit_context)])
 for r in (
     health.router,
+    facets_router,  # GET /rooms/facets before GET /rooms/{room_id}
     auth.router,
     settings.router,
     terms.router,
@@ -67,3 +71,17 @@ api_router.include_router(data_issues.router)
 from app.api.v1 import calendar as calendar_v2  # noqa: E402
 
 api_router.include_router(calendar_v2.router)
+
+# booking enhancements wave 1 (ROADMAP Phase 17, docs/product/wave1-api.md): typed room features (P10), find a
+# room (T1), audit log + undo (P7), approval workflows (P1)
+from app.api.v1 import approvals, audit, find_room, room_features  # noqa: E402
+
+for r in (
+    room_features.router,
+    find_room.router,
+    audit.router,
+    approvals.router,
+    approvals.rules_router,
+    approvals.me_router,
+):
+    api_router.include_router(r)

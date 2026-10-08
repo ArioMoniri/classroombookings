@@ -168,9 +168,10 @@ partial timetable when not everything fits
 ([solver README](smartsched/backend/app/solver/README.md#real-data-modes-d1d3)).
 
 When not every class can be placed, the run is **partial**, labelled for example
-*Partial · 522/548 placed*. A relaxation first proves the largest number of classes that can be
-placed, keeping the planner's locks where it can; the placed classes are then optimised for the soft
-rules. Every placed class keeps every hard rule (hard score 100, checked independently). Each class
+*Partial · 522/548 placed*. A relaxation first places as many classes as it can, keeping the
+planner's locks where it can; the placed classes are then optimised for the soft rules. Every placed
+class keeps every hard rule, apart from the waived exceptions it lists (hard score 100, re-checked
+against the workbook rows). Each class
 left out is listed with the reason (for example: *every room that fits is taken at that time*, with
 the rooms and what holds them) and with fixes such as freeing a named room. Applying a fix creates a
 new run; the old one stays as it was.
@@ -183,28 +184,34 @@ key. Details: [solver README](smartsched/backend/app/solver/README.md),
 
 ## Measured on the real data
 
-From [docs/testing/2026-10-08-real-data-feasibility.md](docs/testing/2026-10-08-real-data-feasibility.md):
-the planning office's 2026 workbooks, the run settings a planner gets by default, 4 vCPU shared with
-other work, CP-SAT with 4 workers.
+From [docs/testing/2026-10-08-real-data-feasibility.md](docs/testing/2026-10-08-real-data-feasibility.md),
+section "Review fixes": the planning office's 2026 workbooks, default run settings, 4 vCPU shared with
+other work, CP-SAT with 4 workers. A *request* is one row of the planning or exam list; *placed* means
+placed in every week of the run. "Planner-level hard" re-checks the stored timetable against the raw
+workbook rows, independently of the solver.
 
-| Instance | Status | Classes placed | Placed in the planner's locked rooms | Hard score | Wall time |
+| Instance | Requests placed | Solver events placed | Planner-level hard | Violations | Wall time |
 |---|---|---|---|---|---|
-| Bahar 2026, whole term (14 weeks) | partial | 643 / 669 (96.1 %) | 511 / 523 (97.7 %) | 100 | 252 s |
-| Bahar 2026, week 3 | partial | 649 / 668 (97.2 %) | 515 / 522 (98.7 %) | 100 | 51 s |
+| Bahar 2026, whole term | 839 / 883 (95.0 %) | 683 / 720 | 100 | 0 | 301 s |
+| Bahar 2026, week 3 | 845 / 882 (95.8 %) | 689 / 719 | 100 | 0 | 82 s |
+| Güz 2026-27, week 3 | 626 / 653 (95.9 %) | 522 / 548 | 100 | 0 | 62 s |
+| Final 2026 exams | 724 / 729 (99.3 %) | 624 / 629 | 100 | 0 | 102 s |
 
-For the term, both the relaxation and the second phase finish proven optimal, so 643 is the most this
-data allows under the hard rules, not a time-limit result. Of the 12 locks that are not kept, 8 are
-errors in the planner's own data (7 pairs of locked rows holding the same room at the same time, and
-one class locked to a room the grid blocks).
+Every exception behind these numbers is the planner's own data and is reported per class (locked rooms
+smaller than the enrolment estimate, fixed-time clashes of one instructor or cohort, missing
+enrolments). The same report records an earlier mistake: before the review fixes the solver reported
+hard 100 while the planner-level check found 134, 68 and 56 violations on the Bahar, Güz and Final week
+runs (for example 136 students seated in a 72-seat room), because the bridge clipped merged groups to
+the room. The placement rates went down a little when that was fixed. Earlier still, the same Bahar
+data ended *infeasible within 0.05 s, with 356 diagnoses and no timetable*.
 
-When the planner's rooms are only hints instead of locks, the solver chooses the planner's room for
-**89.7 %** of course classes (855 / 953, Bahar and Güz week 3) and **80.9 %** of exams, with every hard
-rule kept. Before this work, the same Bahar data ended *infeasible within 0.05 s, with 356 diagnoses
-and no timetable*.
+When the planner's rooms are only hints instead of locks, the solver chose the planner's room for
+89.7 % of course classes (855 / 953, Bahar and Güz week 3) and 80.9 % of exams in the weight
+calibration of the same report, measured before the review fixes.
 
 The recordings and screenshots on this page come from a fresh import of the same workbooks and two
-runs made through the API for Güz 2026-27: week 3 placed 522 of 548 classes and the whole term 519
-of 548, both with hard score 100.
+runs made through the API for Güz 2026-27: week 3 placed 522 of 548 solver events (the row above) and
+the whole term 519 of 548, both with hard score 100.
 
 The classroombookings side is checked by the CRBS superset gate
 ([docs/testing/crbs-parity-report.md](docs/testing/crbs-parity-report.md)): 182 rows, one per CRBS

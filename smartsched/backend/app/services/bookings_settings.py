@@ -121,7 +121,40 @@ BOOKINGS_SPECS: dict[str, Spec] = {
         Spec("audit_undo_hours", "int", 24),
     )
 }
-GROUPS = {"org": ORG_SPECS, "ldap": LDAP_SPECS, "smtp": SMTP_SPECS, "bookings": BOOKINGS_SPECS}
+#: the user's KVKK officer sign-off of 2026-10-08 (docs/product/booking-enhancements.md, "Decisions by the user" 2);
+#: replaced by a dated record of the administrator whenever the calendar sync switch is changed
+KVKK_SIGNOFF_2026_10_08 = {
+    "by": "KVKK officer (institution user decision)",
+    "at": "2026-10-08",
+    "features": ["ai_nl_booking", "calendar_sync"],
+    "legal_basis": "KVKK Art. 9 as amended by Law 7499 (cross-border transfer)",
+    "enabled": True,
+}
+# Calendar sync, push connectors and webhooks (docs/product/calendar-sync-api.md). Client secrets are stored
+# encrypted with APP_SECRET; no client id ships with the product (connectors report configured: false).
+INTEGRATIONS_SPECS: dict[str, Spec] = {
+    s.key: s
+    for s in (
+        Spec("calendar_sync_enabled", "bool", True),
+        Spec("calendar_sync_signoff", "json", KVKK_SIGNOFF_2026_10_08),
+        Spec("webhooks_enabled", "bool", False),
+        Spec("public_url", default=""),
+        Spec("feed_past_days", "int", 90),
+        Spec("feed_cancelled_grace_days", "int", 14),
+        Spec("google_client_id", default=""),
+        Spec("google_client_secret", default="", secret=True),
+        Spec("microsoft_client_id", default=""),
+        Spec("microsoft_client_secret", default="", secret=True),
+        Spec("microsoft_tenant", default="organizations"),
+    )
+}
+GROUPS = {
+    "org": ORG_SPECS,
+    "ldap": LDAP_SPECS,
+    "smtp": SMTP_SPECS,
+    "bookings": BOOKINGS_SPECS,
+    "integrations": INTEGRATIONS_SPECS,
+}
 
 
 def _decode(spec: Spec, raw: str | None) -> Any:

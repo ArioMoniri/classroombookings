@@ -62,8 +62,11 @@ async def find(body: FindIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
     if FIND_LIMIT.hit(key):
         raise HTTPException(
             429,
-            {"code": "rate_limited", "message": "too many searches; try again in a minute",
-             "message_tr": "çok fazla arama; bir dakika sonra yeniden deneyin"},
+            {
+                "code": "rate_limited",
+                "message": "too many searches; try again in a minute",
+                "message_tr": "çok fazla arama; bir dakika sonra yeniden deneyin",
+            },
             headers={"Retry-After": str(FIND_LIMIT.retry_after(key))},
         )
     try:

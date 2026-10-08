@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.importers import normalize as n
 from app.models import Booking, Building, Program, User
+from app.models.booking import BOOKED
 from app.models.catalog import Room
 from app.services import bookings as bsvc
 from app.services import rooms_features as feat
@@ -234,7 +235,7 @@ async def _usual_building(session: AsyncSession, access: Access, today: date) ->
     q = (
         select(Room.building_id)
         .join(Booking, Booking.room_id == Room.id)
-        .where(Booking.user_id == access.user_id, Booking.created_at >= since, Booking.status == bsvc.BOOKED)
+        .where(Booking.user_id == access.user_id, Booking.created_at >= since, Booking.status == BOOKED)
     )
     counts = Counter(bid for bid in (await session.execute(q)).scalars() if bid is not None)
     if not counts:
@@ -271,7 +272,7 @@ async def _busy_label(session: AsyncSession, access: Access, held: bsvc.Held, ro
     b = await session.get(Booking, held.ref_id)
     if b is None:
         return "Rezervasyon"
-    parts = ["Rezervasyon" if b.status == bsvc.BOOKED else "Onay bekleyen talep"]
+    parts = ["Rezervasyon" if b.status == BOOKED else "Onay bekleyen talep"]
     if bsvc.can_view_user(access, b, room):
         u = await session.get(User, b.user_id) if b.user_id else None
         if u is not None:

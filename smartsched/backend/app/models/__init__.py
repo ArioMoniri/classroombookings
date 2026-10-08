@@ -37,6 +37,16 @@ from app.models.booking import (
     UserConstraint,
 )
 from app.models.catalog import Building, Course, Faculty, Instructor, Program, Room, Term, Week
+from app.models.integrations import (
+    CalendarConnection,
+    CalendarEventLink,
+    CalendarEventRevision,
+    CalendarFeedToken,
+    CalendarSyncJob,
+    OAuthState,
+    WebhookDelivery,
+    WebhookEndpoint,
+)
 from app.models.runs import Assignment, ChatApplyClaim, ChatMessage, ScheduleRun
 from app.models.scheduling import (
     Block,
@@ -50,6 +60,14 @@ from app.models.studio import ImportedSnapshot, StudioDraft, StudioPreset
 from app.models.system import ImportJob, Setting, User
 
 __all__ = [
+    "CalendarConnection",
+    "CalendarEventLink",
+    "CalendarEventRevision",
+    "CalendarFeedToken",
+    "CalendarSyncJob",
+    "OAuthState",
+    "WebhookDelivery",
+    "WebhookEndpoint",
     "ApprovalDecision",
     "ApprovalRequest",
     "ApprovalRule",

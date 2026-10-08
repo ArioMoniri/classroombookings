@@ -546,8 +546,8 @@ async def update_field(
             if before["name"] != f.name:
                 room.custom_fields = {k: v for k, v in (room.custom_fields or {}).items() if k != before["name"]}
             if f.solver_tag and new_kind == "BOOLEAN":
-                rows = (await value_rows(session, [rid])).get(rid, {})
-                row = rows.get(f.id)
+                own = (await value_rows(session, [rid])).get(rid, {})
+                row = own.get(f.id)
                 if row is not None and row.value == "1":
                     _set_tag(room, f.solver_tag, True)
             await mirror(session, room, fields)
@@ -584,9 +584,9 @@ async def delete_field(
     await session.delete(f)
     await session.flush()
     for rid in room_ids:
-        r = await session.get(Room, rid)
-        if r is not None and name in (r.custom_fields or {}):
-            r.custom_fields = {k: v for k, v in r.custom_fields.items() if k != name}
+        rr = await session.get(Room, rid)
+        if rr is not None and name in (rr.custom_fields or {}):
+            rr.custom_fields = {k: v for k, v in rr.custom_fields.items() if k != name}
     await audit.record(session, "room_feature.delete", "room_feature", before["id"], before=before, actor=actor)
     return {"deleted": before["id"], "impact": imp}
 
@@ -701,9 +701,9 @@ def matches(c: Criterion, value: Any) -> bool:
         return False
     if kind == "NUMBER":
         v = float(value)
-        return {"gte": v >= c.value, "lte": v <= c.value, "eq": v == c.value}[c.op]
+        return bool({"gte": v >= c.value, "lte": v <= c.value, "eq": v == c.value}[c.op])
     if kind == "SELECT":
-        return value in c.value
+        return bool(value in c.value)
     if kind == "MULTISELECT":
         return set(c.value) <= set(value or [])
     return c.value in n.tr_casefold(str(value))

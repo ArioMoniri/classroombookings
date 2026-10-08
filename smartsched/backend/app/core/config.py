@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 12
 
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    #: how browsers reach the panel (deploy/.env.example PUBLIC_URL); calendar feed links and OAuth redirect URIs
+    #: are built from it unless the admin setting integrations.public_url overrides it
+    public_url: str | None = None
 
     admin_email: str | None = None
     admin_password: str | None = None

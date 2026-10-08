@@ -1176,6 +1176,15 @@ def _canonical_placement(
         return None
     for expr, value in tiers:
         ctx.model.Add(expr <= value)
+    # only the unplaced events and the placed ones that could give way to them (radius 1: a shared room
+    # option or cohort / instructor key at an overlapping time) may change; everything else keeps the
+    # relaxation's placement — small enough for one worker to prove on the real Bahar week (719 events)
+    by_id = {a.event_id: a for a in assignments}
+    free = _contested(prep, by_id)
+    for eid, a in by_id.items():
+        if eid not in free and eid in ctx.placed:
+            ctx.model.Add(ctx.placed[eid] == 1)
+            ctx.fix_assignment(a, None)
     ctx.model.Minimize(sum(_tie_weight(e) * (1 - ctx.placed[e.id]) for e in prep.inp.events if e.id in ctx.placed))
     ctx.model.ClearHints()
     ctx.add_hints(assignments, unplaced_rest=True)
@@ -1186,6 +1195,28 @@ def _canonical_placement(
     if status != cp_model.OPTIMAL:
         return None
     return ctx.extract(stage)  # type: ignore[no-any-return]
+
+
+def _contested(prep: Prepared, placed: dict[int, Assignment]) -> set[int]:
+    """Unplaced events plus the placed events that hold a room option or a cohort / instructor key of one of
+    them at an overlapping time in shared weeks."""
+    doms = prep.doms
+    unplaced = [e for e in prep.inp.events if e.id not in placed]
+    out = {e.id for e in unplaced}
+    for e in unplaced:
+        dom = doms.domain(e.id)
+        rooms = set(dom.rooms)
+        keys = e.cohort_keys | e.instructor_keys
+        for pid, a in placed.items():
+            p = doms.events_by_id[pid]
+            if not weeks_intersect(p.weeks, e.weeks):
+                continue
+            ta = TimeOption(a.day, a.start, a.end - a.start + 1)
+            if not any(t.overlaps(ta) for t in dom.times):
+                continue
+            if rooms & set(a.room_ids) or keys & (p.cohort_keys | p.instructor_keys):
+                out.add(pid)
+    return out
 
 
 def explain_unplaced(

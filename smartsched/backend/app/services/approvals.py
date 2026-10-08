@@ -183,10 +183,10 @@ async def designated_for(session: AsyncSession, room: Room) -> list[User]:
 
 
 async def _fallback(session: AsyncSession, room: Room) -> list[User]:
-    everyone = []
+    everyone: list[User] = []
     for s in (await session.execute(select(ApproverScope).where(ApproverScope.scope_type == "all"))).scalars():
         u = await session.get(User, s.user_id)
-        if await _decider(session, u) and u not in everyone:
+        if u is not None and await _decider(session, u) and u not in everyone:
             everyone.append(u)
     if everyone:
         return everyone

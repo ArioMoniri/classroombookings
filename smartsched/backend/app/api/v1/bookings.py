@@ -11,14 +11,19 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.deps import DB, CurrentAccess, require_permission
 from app.importers import normalize as n
 from app.models import (
+    Assignment,
     Booking,
+    Building,
+    MeetingRequest,
     Program,
     RoomGroup,
+    ScheduleRun,
+    Section,
     Term,
     TimetableWeek,
     User,
@@ -257,6 +262,7 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
 async def _room_info(db: DB, room: Room) -> dict[str, Any]:
     group = await db.get(RoomGroup, room.room_group_id) if room.room_group_id else None
     owner = await db.get(User, room.owner_user_id) if room.owner_user_id else None
+    building = await db.get(Building, room.building_id) if room.building_id else None
     # typed features (P10): CHECKBOX/BOOLEAN bool, SELECT option text, NUMBER number, MULTISELECT option texts
     catalogue = [f for f in await features.catalogue(db) if f.public is not False]
     typed = (await features.room_values(db, [room], catalogue))[room.id]
@@ -276,6 +282,11 @@ async def _room_info(db: DB, room: Room) -> dict[str, Any]:
         "code": room.code,
         "name": room.display_name,
         "capacity": room.capacity,
+        # reservation panel room details: exam seating, building and floor (rooms master data)
+        "exam_capacity": room.exam_capacity,
+        "building": building.name if building else None,
+        "building_code": building.code if building else None,
+        "floor": room.floor,
         "tags": room.tags or [],
         "room_group_id": room.room_group_id,
         "group": group.name if group else None,
@@ -485,6 +496,76 @@ async def owned_rooms(db: DB, access: ListAcc) -> list[dict[str, Any]]:
         info["upcoming"] = await svc.list_bookings(db, access, room_ids=[room.id], d_from=t)
         out.append(info)
     return out
+
+
+@router.get("/departments/{department_id}/rooms")
+async def department_rooms(
+    department_id: int,
+    db: DB,
+    access: Acc,
+    term_id: int | None = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 12,
+) -> dict[str, Any]:
+    """Rooms a department (programme) uses most in a session, for the reservation panel's department
+    view: its active bookings plus its weekly classes in the published timetable, counted per room.
+    Only bookable rooms the caller may view are listed (same set as the grid)."""
+    dep = await db.get(Program, department_id)
+    if dep is None:
+        raise HTTPException(404, "department not found")
+    if term_id is not None:
+        term = await db.get(Term, term_id)
+        info = await term_info(db, term) if term else None
+        if info is None:
+            raise HTTPException(404, "session not found")
+    else:
+        try:
+            info = await cal.resolve_term(
+                db, await svc.today(db), None, view_all=access.can("system.view_all_sessions")
+            )
+        except cal.CalendarError as exc:
+            raise HTTPException(409, {"code": "calendar", "message": str(exc)}) from exc
+    booked: dict[int, int] = {
+        int(rid): int(cnt)
+        for rid, cnt in await db.execute(
+            select(Booking.room_id, func.count(Booking.id))
+            .where(
+                Booking.department_id == department_id,
+                Booking.status == "BOOKED",
+                Booking.date.between(info.start, info.end),
+            )
+            .group_by(Booking.room_id)
+        )
+    }
+    classes: dict[int, int] = {}
+    runs = select(ScheduleRun.id).where(ScheduleRun.term_id == info.term.id, ScheduleRun.is_active.is_(True))
+    q = (
+        select(Assignment.room_ids)
+        .join(MeetingRequest, MeetingRequest.id == Assignment.meeting_request_id)
+        .join(Section, Section.id == MeetingRequest.section_id)
+        .where(Assignment.run_id.in_(runs), Assignment.archived.is_(False), Section.program_id == department_id)
+    )
+    for (room_ids,) in await db.execute(q):
+        for rid in {int(r) for r in room_ids or []}:
+            classes[rid] = classes.get(rid, 0) + 1
+    visible = await svc.visible_rooms(db, access)
+    used = [r for r in visible if booked.get(r.id) or classes.get(r.id)]
+    used.sort(key=lambda r: (-(booked.get(r.id, 0) + classes.get(r.id, 0)), tr_sort_key(r.display_name or r.code)))
+    return {
+        "department": {"id": dep.id, "name": dep.name},
+        "term_id": info.term.id,
+        "rooms": [
+            {
+                "room_id": r.id,
+                "code": r.code,
+                "name": r.display_name,
+                "room_group_id": r.room_group_id,
+                "capacity": r.capacity,
+                "bookings": booked.get(r.id, 0),
+                "classes": classes.get(r.id, 0),
+            }
+            for r in used[:limit]
+        ],
+    }
 
 
 @router.get("/conflicts", dependencies=[Depends(require_permission("planning.view"))])

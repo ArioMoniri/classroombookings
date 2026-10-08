@@ -122,8 +122,12 @@ Measured through `run_schedule` (exactly `POST /runs`) on SQLite databases built
 | Bahar full term | 300 s / 252 s | FEASIBLE_PARTIAL | **643 / 669 = 96.1 %** | 562 / 588 = 95.6 % | 511 / 523 = 97.7 % | **100** |
 | Bahar week 3 | 120 s / 51 s | FEASIBLE_PARTIAL | 649 / 668 = 97.2 % | 568 / 587 = 96.8 % | 515 / 522 = 98.7 % | **100** |
 
-* **Term target met, narrowly** (96.1 % of events). The relaxation and phase 2 are both proven OPTIMAL,
-  so 643 is the maximum for this data and this model, not a time-limit artefact.
+* **Term target met, narrowly** (96.1 % of events). ~~The relaxation and phase 2 are both proven OPTIMAL,
+  so 643 is the maximum for this data and this model, not a time-limit artefact.~~ **Corrected (strict
+  review M5):** both stages were OPTIMAL in *that* run, but the claim did not reproduce on a loaded box (the
+  relaxation was capped at 120 s whatever the limit) and it only covered the up-front week segmentation, so
+  643 was the best placement found, not a proven maximum in general.  It is also superseded: the review fixes
+  below change the problem (no more hidden clipping, fallback sizes), see "Review fixes".
 * The room-needing rate (95.6 %) stays below 96 %: week 1 alone admits at most 578 / 603 room-needing
   events (proven bound from the morning), so "every week of every event" cannot reach 96 % on this data.
 * 12 locks lost in the term: 8 are the planner's own data errors (7 pairs of LOCKED rows holding the same
@@ -240,3 +244,60 @@ cd smartsched/backend
 python -m tools.calibrate --time-limit 90 --repeat 2 --workers 4 \
   --sets defaults pref20 pref30-bld2 pref10-waste0 --cache /tmp/calib.pkl --out /tmp/calibration.json
 ```
+
+## Review fixes (2026-10-08 evening, solver-engineer): planner-level validity
+
+Strict solver review `docs/review/2026-10-08-solver-review.md` (B1, B2, M1–M6) and the planner comparison
+`docs/testing/2026-10-08-schedule-vs-planner.md` (R1–R3).  The solver's own hard 100 was proved for the
+problem the bridge built; the bridge hid planner-visible violations (merged groups clipped to the room,
+size-0 classes, tool-made locks trusted).  Every run is now checked **at planner level**: the stored rows
+against the raw request rows (`app/services/planner_check.py`, `python -m tools.validate_planner`), and an
+accepted exception counts only when the run reports it.
+
+Machine: 4 vCPU shared with other agents (load 5–9), CP-SAT 4 workers, seed 0, `run_schedule` on SQLite DBs
+built by the importers, default modes (definitive rooms locked).  "Requests" are planning-list / exam-list
+rows (placed = every week of the run); "events" are solver events (joint lectures / exam cohorts merged).
+
+| Instance | Limit / wall | Requests placed | Events placed | Planner-level hard | Strict view (no waivers) | Violations | Accepted exceptions (reported) | Planner rooms reproduced (lock) |
+|---|---|---|---|---|---|---|---|---|
+| Bahar week 3 | 120 s / 82 s | 845 / 882 = **95.8 %** | 689 / 719 | **100** | 56 | **0** | D1 77, D2 223, D3 37, outside pool 19, missing enrolment 76 | 668 / 683 placed, 100 % exact |
+| Güz week 3 | 120 s / 62 s | 626 / 653 = **95.9 %** | 522 / 548 | **100** | 61 | **0** | D1 78, D2 90, D3 27, outside pool 10, missing enrolment 28 | 524 / 531, 100 % |
+| Final exams | 120 s / 102 s | 724 / 729 = **99.3 %** | 624 / 629 | **100** | 63 | **0** | D1 124, D2 135, D3 5, missing enrolment 10 | 645 / 655, 100 % |
+| Bahar full term | 300 s / 301 s | 839 / 883 = **95.0 %** | 683 / 720 | **100** | 56 | **0** | D1 76, D2 227, D3 44, week split 11, outside pool 19, missing enrolment 76 | 668 / 683, 98.4 % exact (week splits) |
+
+Before the fixes (same tool, same box, Bahar / Güz / Final week runs): planner-level hard **85 / 83 / 93**,
+**134 / 68 / 56 violations** (Bahar: 76 size-0 requests without any fallback, 41 groups over capacity
+unreported — e.g. 136 students in C 501 (72 seats) —, 9 planner locks moved, 6 member time spans
+rewritten), although the solver itself reported hard 100.  Requests placed then: 859 / 882 (97.4 %),
+631 / 653 (96.6 %), 714 / 729 (97.9 %).
+
+Why fewer Bahar classes are placed (−14 requests in week 3): the old numbers were partly fictitious.
+33 events of size 0 fit any room; joint lectures chained through a shared instructor (`Yabancı Diller`
+placeholder, other courses) were seated in one locked room with their size clipped to it.  Now a class
+without enrolment is planned with an estimate (median of the course's other sections, else of the
+programme year, else of the term; reported per class), and an unlocked row is no longer folded into
+somebody else's locked lecture: it needs its own room.  The Final gains (+10 requests): size-0 split exams
+had no feasible seat split (R2, `TDS102`, `BES250`, `DYZ146` are placed now) and partly locked exam
+cohorts keep the planner's rooms.
+
+Strict view: 56–63 % of the placed requests are untouched by any exception.  Most exceptions are the
+planner's own data: fixed-time clashes of one instructor / cohort (D2), planner rooms smaller than the
+expected enrolment (D1), missing enrolments, overlaps in rooms outside the pool — all listed per class in
+`GET /runs/{id}/data-issues` (new groups: missing enrolments, "listed twice", overlaps outside the pool;
+list checks also in prefer mode).
+
+Orchestrator R1–R3: R1 (prefer mode merges rows of one lecture with the same planner room set, leading
+zeros normalised) and R2 fixed; R3: `BME 528 §1` is the planner's row listed twice (`BME 528` P8–10 and
+`BME 528 §1` P7–9, both locked to B 204) — now one lecture that keeps B 204 in weeks 2–14 and moves only in
+week 1.  `PHAR 114 §2` is still not placed in the term run, for a different reason than in the comparison:
+A 306 and C 602 are held in all weeks by unlocked classes (ING 402, SOS 404 §1) that the planner did not
+room; the relaxation places the most classes first and keeps planner locks second (D3), so the lock gives
+way (one lock for two classes).  The relaxation now counts lost event-weeks for every request (a 14-week
+lock no longer loses to a 7-week segment) and the residual round can keep a lock in its free weeks and
+move only the contested ones.
+
+Determinism (M2): the canonical stages run on one worker with a deterministic time limit; when the
+relaxation's stage cannot prove its optimum (Bahar week 3: not within 43 s), interchangeable rows (one
+lecture listed twice) are canonicalised by an exchange step.  See the table below for the reproduction
+check.
+

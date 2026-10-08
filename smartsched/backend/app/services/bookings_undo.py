@@ -42,9 +42,8 @@ async def _group(session: AsyncSession, ev: AuditEvent) -> list[AuditEvent]:
 
 
 def _booking_ids(group: list[AuditEvent]) -> list[int]:
-    ids = [int(e.entity_id) for e in group if e.entity_type == "booking" and e.entity_id and e.entity_id.isdigit()]
-    if len(group) > 1:  # the parent of a bulk event names the first booking again (or the series)
-        ids = [int(e.entity_id) for e in group[1:] if e.entity_type == "booking" and (e.entity_id or "").isdigit()]
+    members = group[1:] if len(group) > 1 else group  # a bulk parent names the first booking again (or the series)
+    ids = [int(e.entity_id or 0) for e in members if e.entity_type == "booking" and (e.entity_id or "").isdigit()]
     return list(dict.fromkeys(ids))
 
 
@@ -92,7 +91,8 @@ async def check(session: AsyncSession, access: Access, event_id: int) -> tuple[A
     hours = int(await get_value(session, "bookings", "audit_undo_hours") or 24)
     young = utcnow() - ev.ts < timedelta(hours=hours)
     now = await bsvc.now_local(session)
-    upcoming = any(await _start(session, b) > now for b in rows)
+    starts = [await _start(session, b) for b in rows]
+    upcoming = any(s > now for s in starts)
     if not (young or upcoming):
         raise _err(
             409,

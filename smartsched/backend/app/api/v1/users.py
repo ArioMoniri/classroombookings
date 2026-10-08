@@ -18,6 +18,8 @@ from app.importers import normalize as n
 from app.models import ConstraintRow, Program, Role, RoomAcl, ScheduleRun, User, UserConstraint
 from app.models.catalog import Room
 from app.schemas.users import PasswordIn, UserAdminOut, UserCreate, UserUpdate
+from app.services import approvals
+from app.services.bookings import BookingError
 from app.services.bookings_collation import tr_sort_key  # Turkish alphabetical order (CRBS sort_map names)
 from app.services.bookings_perms import (
     GRANT_GUARD,
@@ -42,7 +44,19 @@ async def user_out(db: DB, u: User) -> UserAdminOut:
     if u.department_id is not None:
         dep = await db.get(Program, u.department_id)
         d.department_name = dep.name if dep else None
+    d.approves_for = [approvals.scope_out(s) for s in await approvals.scopes_of(db, u.id)]
     return d
+
+
+async def _approves_for(db: DB, me: User, u: User, scopes: list[Any] | None) -> None:
+    """P1: designate the account as approver when it is created or edited (``approves_for``)."""
+    if scopes is None:
+        return
+    try:
+        await approvals.set_scopes(db, me, u, [approvals.ScopeIn(s.type, s.id, s.tag) for s in scopes])
+    except BookingError as exc:
+        await db.rollback()
+        raise HTTPException(exc.status, exc.as_detail()) from exc
 
 
 async def _user(db: DB, user_id: int) -> User:
@@ -182,6 +196,8 @@ async def create_user(body: UserCreate, db: DB, me: UsersAdmin) -> UserAdminOut:
     )
     set_user_role(u, role)
     db.add(u)
+    await db.flush()
+    await _approves_for(db, me, u, body.approves_for)
     await db.commit()
     await db.refresh(u)
     return await user_out(db, u)
@@ -207,6 +223,7 @@ async def update_user(user_id: int, body: UserUpdate, db: DB, me: UsersAdmin) ->
     if "department_id" in data:
         await check_department(db, data["department_id"])
     password = data.pop("password", None)
+    data.pop("approves_for", None)
     data.pop("role", None)
     data.pop("role_id", None)
     if "displayname" in data:
@@ -223,6 +240,8 @@ async def update_user(user_id: int, body: UserUpdate, db: DB, me: UsersAdmin) ->
     # account does not revive tokens issued before it was disabled)
     if password or (was_active and not u.is_active) or (u.role_id, u.role) != old_role:
         revoke_tokens(u)
+    await db.flush()
+    await _approves_for(db, me, u, body.approves_for)
     await db.commit()
     await db.refresh(u)
     return await user_out(db, u)
