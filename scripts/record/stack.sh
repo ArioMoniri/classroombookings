@@ -57,6 +57,8 @@ cmd_down() {
       log "stopped $name"
     fi
   done
+  # fallback: anything still listening on our ports (e.g. a crashed previous run)
+  fuser -k -TERM "$API_PORT/tcp" "$WEB_PORT/tcp" >/dev/null 2>&1 || true
 }
 
 cmd_status() {
@@ -102,6 +104,10 @@ cmd_up() {
     tar -C "$FRONTEND" --exclude=./node_modules --exclude=./.next --exclude=./test-results \
         --exclude=./playwright-report -cf - . | tar -C "$web" -xf -
     ln -sfn "$FRONTEND/node_modules" "$web/node_modules"
+    # Turbopack refuses a node_modules symlink that leaves the project root: widen the root of the
+    # copy (only the copy's next.config is patched, never the repository's).
+    local cfg; cfg="$(ls "$web"/next.config.* | head -1)"
+    grep -q 'rec-stack' "$cfg" || sed -i 's|^export default nextConfig;|// rec-stack: shared node_modules symlink\nnextConfig.turbopack = { ...(nextConfig.turbopack ?? {}), root: "/" };\nnextConfig.outputFileTracingRoot = "/";\nexport default nextConfig;|' "$cfg"
     log "building frontend copy (real mode) in $web"
     (cd "$web" && NEXT_PUBLIC_API_MOCK=0 NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" \
         NEXT_TELEMETRY_DISABLED=1 npx next build >"$WORK/build.log" 2>&1) \
