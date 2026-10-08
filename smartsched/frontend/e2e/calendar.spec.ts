@@ -5,9 +5,8 @@ import { REAL, SKIP_REASON, login as signIn } from "./helpers";
 
 /**
  * Calendar, all classes and rooms against the REAL backend (no mock): FastAPI with the Bahar workbooks
- * imported (docs/testing/2026-10-08-real-backend-e2e.md): the board run is the grid import, the solver run (if any) a
- * solver run for the whole term. Start the frontend with NEXT_PUBLIC_API_MOCK=0 and NEXT_PUBLIC_API_URL
- * pointing at the backend, then:
+ * imported (docs/testing/2026-10-08-real-backend-e2e.md): the board run is the grid import, the solver run (when
+ * there is one) a full-term solver run. Start the frontend with NEXT_PUBLIC_API_URL pointing at the backend, then:
  *
  *   E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test e2e/calendar.spec.ts
  *   (against an already running frontend: E2E_REAL=1 PW_PORT=3700 npx playwright test e2e/calendar.spec.ts)

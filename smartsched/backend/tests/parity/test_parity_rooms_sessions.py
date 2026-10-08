@@ -150,6 +150,13 @@ async def test_holidays_can_be_moved_and_deleted(env):
     )
     assert h.status_code == 201 and h.json()["name"] == "Kurum içi eğitim günü", h.text
     hid = h.json()["id"]
+    # Holidays::_date_check: inside the session's dates only
+    outside = await c.post(
+        "/api/v1/holidays",
+        json={"term_id": env.term_id, "name": "Yılbaşı", "date_start": "2026-01-01", "date_end": "2026-01-01"},
+        headers=env.admin,
+    )
+    assert outside.status_code == 422, outside.text
     assert (await env.book(teacher, "A101", TUE, "P1")).json()["detail"]["code"] == "holiday"
     moved = await c.put(
         f"/api/v1/holidays/{hid}", json={"date_start": WED.isoformat(), "date_end": WED.isoformat()}, headers=env.admin
