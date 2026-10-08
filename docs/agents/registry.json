@@ -136,6 +136,30 @@
       "resumed": false,
       "status": "finished",
       "finished_at": "2026-10-08 13:09"
+    },
+    {
+      "id": "a44e1beeab50a2d49",
+      "description": "No-placeholder fixes: backend + devops",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 13:16",
+      "scope": "",
+      "goal": "close the backend and deploy findings of the no-placeholder audit. The user's rule: \"there should be no demo test or placeholder usage across the all system\". Work test-first. M2 MAJOR: production secret checks depend on ENVIRONMENT being exactly \"prod\". - In smartsched/backend/app/core/config.py, make `environment` a Literal[\"dev\",\"test\",\"prod\"]. An unknown value fails at start-up. - Run `insecur…",
+      "ledger": "backend-engineer (no-placeholder backend)",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a9e52d46d4c1cdad8",
+      "description": "No-placeholder fixes: frontend + e2e",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 13:16",
+      "scope": "",
+      "goal": "remove every demo, mock and placeholder path from the production frontend, and make the browser tests run against the REAL backend. The user's rule: \"there should be no demo test or placeholder usage across the all system\". Findings come from a read-only audit; the IDs are below. B1 BLOCKER: the MSW mock API ships in prod and can be switched on. - Delete the `isMockMode` branch from smartsched/fro…",
+      "ledger": "frontend-engineer (no-placeholder frontend)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
