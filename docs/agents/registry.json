@@ -200,6 +200,18 @@
       "ledger": "user-tester (schedule comparison)",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a64b163ceae6d3867",
+      "description": "Shell follow-ups (frontend)",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 14:06",
+      "scope": "",
+      "goal": "close the shell items left over from the CRBS screens and calendar hand-offs. They are listed in docs/ROADMAP.md under \"Shell follow-ups\" and \"Calendar follow-ups\". The shell's original agent has finished, so these files now belong to you. 1. Shell header: show the \"What's new\" indicator. The component exists at src/components/admin/whats-new.tsx; import it, do not edit it unless needed. 2. i18n: …",
+      "ledger": "frontend-engineer (shell follow-ups)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
