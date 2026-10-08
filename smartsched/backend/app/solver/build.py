@@ -82,14 +82,53 @@ def build_model(prep: Prepared, mode: Mode = "solve") -> ModelContext:
     if mode == "solve":
         ctx.model.Minimize(ctx.objective_expr())
     elif mode == "relax":
-        # lexicographic: first the number of unplaced events, then keep planner-locked events placed
-        # (a locked event and a free one competing for a room: the free one gives way)
-        locked = {e.id for e in prep.inp.events if e.locked is not None}
-        big = len(locked) + 1
-        ctx.model.Minimize(sum((big + (1 if eid in locked else 0)) * (1 - p) for eid, p in ctx.placed.items()))
+        ctx.model.Minimize(_relax_objective(ctx, prep.inp))
     prep.stats[f"build_{mode}_s"] = round(time.perf_counter() - t0, 3)
     prep.stats[f"bools_{mode}"] = ctx.n_bools
     return ctx
+
+
+def week_segment_groups(inp: SolverInput) -> list[list[int]]:
+    """Events that are week segments of one request (``weeksplit.split_blocked_weeks`` marks their
+    ``same_room_across_weeks`` group with ``week_segments``)."""
+    ids = {e.id for e in inp.events}
+    out: list[list[int]] = []
+    for c in inp.constraints:
+        if c.kind == "same_room_across_weeks" and c.params.get("week_segments"):
+            for g in c.params.get("groups") or []:
+                members = [int(i) for i in g if int(i) in ids]
+                if len(members) > 1:
+                    out.append(members)
+    return out
+
+
+def _relax_objective(ctx: ModelContext, inp: SolverInput) -> Any:
+    """Lexicographic: (1) requests not completely placed, (2) unplaced event-weeks of week-segmented
+    requests (a request that loses one week beats one that loses the term), (3) keep planner-locked
+    events placed (a locked event and a free one competing for a room: the free one gives way).
+    Without week segments this is the plain ``(L+1)·#unplaced + #unplaced locked``."""
+    locked = {e.id for e in inp.events if e.locked is not None}
+    weeks = {e.id: max(1, len(e.weeks)) for e in inp.events}
+    groups = [[i for i in g if i in ctx.placed] for g in week_segment_groups(inp)]
+    groups = [g for g in groups if len(g) > 1]
+    segmented = {i for g in groups for i in g}
+    tier3 = len(locked) + 1
+    tier2 = tier3 * (sum(weeks[i] for i in segmented) + 1)
+    terms: list[Any] = []
+    for eid, p in ctx.placed.items():
+        lock = 1 if eid in locked else 0
+        if eid in segmented:
+            terms.append((tier3 * weeks[eid] + lock) * (1 - p))
+        else:
+            terms.append((tier2 + lock) * (1 - p))
+    for n, g in enumerate(groups):
+        full = ctx.new_bool(f"segments_placed_{n}")
+        for i in g:
+            ctx.model.AddImplication(full, ctx.placed[i])
+        ctx.model.AddBoolOr([full] + [ctx.placed[i].Not() for i in g])
+        ctx.derive(full, lambda h, ids=tuple(g): int(all(i in h.by_event for i in ids)))
+        terms.append(tier2 * (1 - full))
+    return sum(terms) if terms else 0
 
 
 def hint_assignments(inp: SolverInput) -> list[Assignment]:
