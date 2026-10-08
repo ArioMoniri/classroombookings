@@ -19,9 +19,14 @@ class Pin(BaseModel):
     """Draft-only pin: the event keeps one of ``room_ids`` and/or sits at ``day`` / ``start_period``."""
 
     event_id: int
-    room_ids: list[int] = []
+    room_ids: list[int] = Field(default=[], max_length=50)
     day: int | None = Field(default=None, ge=1, le=7)
     start_period: int | None = Field(default=None, ge=1, le=18)
+    # draft-only overrides written by pre-check fixes (review M5); the term data is never touched
+    unlock: bool | None = None  # ignore the planner's lock for this draft (the solver picks the room)
+    required_tags: list[str] | None = Field(default=None, max_length=8)  # replaces the class's room tags
+    size: int | None = Field(default=None, ge=0, le=5000)  # seats to plan for
+    max_rooms: int | None = Field(default=None, ge=1, le=10)  # exams: rooms the sitting may split into
 
 
 class RuleOverride(BaseModel):
@@ -227,8 +232,13 @@ class PrecheckOut(BaseModel):
 
 
 class FixIn(BaseModel):
-    item_id: str
-    option: str
+    item_id: str = Field(max_length=200)
+    option: str = Field(max_length=100)
+    #: draft version the fix was chosen on (or the ``If-Match`` header); a stale one answers 409
+    version: int | None = None
+    #: write the fix into the term's data (all drafts, the inbox) instead of this draft only; needs ``confirm``
+    write_through: bool = False
+    confirm: bool = False
 
 
 class FixResultOut(BaseModel):

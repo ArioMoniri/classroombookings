@@ -748,7 +748,26 @@ async def run_precheck(session: AsyncSession, draft: StudioDraft) -> dict[str, A
     return out
 
 
-async def apply_fix(session: AsyncSession, draft: StudioDraft, item_id: str, option: str, user: User) -> dict[str, Any]:
+async def apply_fix(
+    session: AsyncSession,
+    draft: StudioDraft,
+    item_id: str,
+    option: str,
+    user: User,
+    *,
+    expected_version: int | None = None,
+    write_through: bool = False,
+    confirm: bool = False,
+) -> dict[str, Any]:
+    """Apply one fix option (review M5). By default every fix lands in **this draft only**: exclusions, rule
+    switches and draft pins/overrides (unlock, rooms, room tags, seats, exam room count) - the term's
+    requests are not touched. ``write_through`` (with ``confirm``) writes class / exam edits into the term
+    data instead (with an imported snapshot, so "revert" works); a planner's LOCK is never downgraded
+    term-wide - unlocking always stays a draft override."""
+    if expected_version is not None and expected_version != draft.version:
+        raise st.StudioError(409, {"message": "the draft changed since the pre-check was run", "current": None})
+    if write_through and not confirm:
+        raise st.StudioError(428, "write_through changes the term's data for everyone: send confirm=true")
     pre = draft.last_precheck or {}
     if item_id not in (pre.get("items") or {}):
         await run_precheck(session, draft)
@@ -763,27 +782,19 @@ async def apply_fix(session: AsyncSession, draft: StudioDraft, item_id: str, opt
         raise st.StudioError(403, "only an ADMIN can apply this fix")
     action = fix["action"]
     kind, payload = action["type"], action["payload"]
+    scope = "draft"
     if kind == "exclude":
         ids = [int(i) for i in payload["request_ids"]]
         draft.excluded_event_ids = list(dict.fromkeys([*(int(i) for i in draft.excluded_event_ids or []), *ids]))
-    elif kind == "meeting_update":
-        from app.schemas.studio import BulkEditIn, MeetingPatch
-        from app.services import studio_classes as sc
-
-        res = await sc.bulk_edit(
-            session, BulkEditIn(ids=list(payload["request_ids"]), patch=MeetingPatch(**payload["patch"])), user
-        )
-        if res["failed"]:
-            errs = [e for r in res["results"] for e in r["errors"]]
-            raise st.StudioError(422, f"fix could not be applied: {'; '.join(errs[:3])}")
-    elif kind == "exam_update":
-        for rid in payload["request_ids"]:
-            ex = await session.get(ExamRequest, int(rid))
-            if ex is None or ex.term_id != draft.term_id:
-                raise st.StudioError(404, f"exam request {rid} not found")
-            for k, v in payload["patch"].items():
-                if k in ("requested_room_count", "status"):
-                    setattr(ex, k, v)
+    elif kind in ("meeting_update", "exam_update"):
+        patch = dict(payload["patch"])
+        unlock = patch.pop("locked", None) is False or patch.get("status") == "PARSED"
+        patch.pop("status", None)
+        if write_through and patch:
+            scope = "term"
+            await _write_through(session, draft, kind, [int(i) for i in payload["request_ids"]], patch, user)
+            patch = {}
+        _pin_overrides(draft, [int(i) for i in payload["request_ids"]], patch, unlock)
     elif kind == "rule_override":
         ov = dict(draft.rule_overrides or {})
         ov[str(payload["constraint_id"])] = {
@@ -802,7 +813,74 @@ async def apply_fix(session: AsyncSession, draft: StudioDraft, item_id: str, opt
         raise st.StudioError(422, f"unsupported fix type {kind}")
     await st.bump(session, draft)
     await st.commit_draft(session, draft)
-    return {"item_id": item_id, "option": option, "type": kind, "payload": payload, "label": fix["label"]}
+    return {
+        "item_id": item_id,
+        "option": option,
+        "type": kind,
+        "payload": payload,
+        "label": fix["label"],
+        "scope": scope,
+    }
+
+
+def _pin_overrides(draft: StudioDraft, request_ids: list[int], patch: dict[str, Any], unlock: bool) -> None:
+    """Merge a fix's class patch into the draft's pins (draft-only overrides)."""
+    over: dict[str, Any] = {}
+    if unlock:
+        over["unlock"] = True
+    if patch.get("requested_room_ids"):
+        over["room_ids"] = [int(r) for r in patch["requested_room_ids"]]
+    if "requested_tags" in patch:
+        over["required_tags"] = sorted(str(t) for t in patch["requested_tags"] or [])
+    if patch.get("enrolment") is not None:
+        over["size"] = int(patch["enrolment"])
+    if patch.get("requested_room_count") is not None:
+        over["max_rooms"] = int(patch["requested_room_count"])
+    if not over:
+        return
+    pins = {int(p["event_id"]): dict(p) for p in draft.pins or []}
+    for rid in request_ids:
+        pins[rid] = {**pins.get(rid, {"event_id": rid}), **over}
+    draft.pins = list(pins.values())
+
+
+async def _write_through(
+    session: AsyncSession, draft: StudioDraft, kind: str, request_ids: list[int], patch: dict[str, Any], user: User
+) -> None:
+    """Confirmed term-wide write of a fix (never a lock downgrade: callers strip ``locked``/``status``)."""
+    if kind == "meeting_update":
+        from app.schemas.studio import BulkEditIn, MeetingPatch
+        from app.services import studio_classes as sc
+
+        res = await sc.bulk_edit(session, BulkEditIn(ids=request_ids, patch=MeetingPatch(**patch)), user)
+        if res["failed"]:
+            errs = [e for r in res["results"] for e in r["errors"]]
+            raise st.StudioError(422, f"fix could not be applied: {'; '.join(errs[:3])}")
+        return
+    from app.importers.identity import plain
+    from app.models import ImportedSnapshot
+
+    for rid in request_ids:
+        ex = await session.get(ExamRequest, rid)
+        if ex is None or ex.term_id != draft.term_id:
+            raise st.StudioError(404, f"exam request {rid} not found")
+        snap = (
+            await session.execute(
+                select(ImportedSnapshot).where(ImportedSnapshot.entity == "exam", ImportedSnapshot.entity_id == ex.id)
+            )
+        ).scalar_one_or_none()
+        if snap is None:  # first edit: keep the imported values (revert / audit)
+            session.add(
+                ImportedSnapshot(
+                    entity="exam",
+                    entity_id=ex.id,
+                    values={k: plain(getattr(ex, k)) for k in ("requested_room_count", "status")},
+                    fingerprint=ex.source_key,
+                )
+            )
+        for k, v in patch.items():
+            if k == "requested_room_count":
+                ex.requested_room_count = int(v)
 
 
 __all__ = ["apply_fix", "run_precheck"]

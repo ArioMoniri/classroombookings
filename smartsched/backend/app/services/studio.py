@@ -278,9 +278,19 @@ async def _validate_patch(
             bad = [r for r in p.get("room_ids") or [] if r not in known_rooms]
             if bad:
                 raise StudioError(422, f"unknown room id(s) {bad}")
-            if not p.get("room_ids") and p.get("day") is None and p.get("start_period") is None:
-                raise StudioError(422, f"pin of class {p['event_id']} needs rooms or a day/time")
-            clean.append({k: v for k, v in p.items() if v not in (None, [])})
+            overrides = ("unlock", "required_tags", "size", "max_rooms")
+            if (
+                not p.get("room_ids")
+                and p.get("day") is None
+                and p.get("start_period") is None
+                and not any(p.get(k) not in (None, False) for k in overrides)
+            ):
+                raise StudioError(422, f"pin of class {p['event_id']} needs rooms, a day/time or an override")
+            if p.get("required_tags") is not None:
+                p = {**p, "required_tags": sorted({str(t).upper() for t in p["required_tags"]})}
+            clean.append(
+                {k: v for k, v in p.items() if (k == "required_tags" and v is not None) or v not in (None, [], False)}
+            )
         out["pins"] = clean
     if data.get("disabled_rule_ids") is not None:
         ids = sorted({int(i) for i in data["disabled_rule_ids"]})
@@ -516,15 +526,33 @@ def apply_draft(
         rooms = tuple(int(r) for r in pin.get("room_ids") or [])
         day = int(pin["day"]) if pin.get("day") is not None else None
         start = int(pin["start_period"]) if pin.get("start_period") is not None else None
+        if pin.get("unlock") and ev.locked is not None and not rooms:
+            # draft-only unlock (pre-check fix): the planner's room becomes a preference; the medicine-room
+            # (TIP) ban comes back unless that room is itself a TIP room
+            tip = {r.id for r in inp.rooms if "TIP" in r.tags}
+            held = tuple(ev.locked.room_ids)
+            ev = replace(
+                ev,
+                locked=None,
+                preferred_room_ids=tuple(dict.fromkeys([*held, *ev.preferred_room_ids])),
+                forbidden_tags=ev.forbidden_tags if set(held) & tip else ev.forbidden_tags | {"TIP"},
+            )
+        if pin.get("required_tags") is not None:
+            ev = replace(ev, required_tags=frozenset(str(t) for t in pin["required_tags"]))
+        if pin.get("size") is not None:
+            ev = replace(ev, size=int(pin["size"]))
+        if pin.get("max_rooms") is not None:
+            ev = replace(ev, max_rooms=max(ev.min_rooms, int(pin["max_rooms"])))
         if rooms:
             ev = replace(ev, required_room_ids=frozenset(rooms), forbidden_tags=frozenset())
         if day is not None:
             ev = replace(ev, fixed_day=day, allowed_days=frozenset({day}))
         if start is not None:
             ev = replace(ev, fixed_start=start)
-        if ev.locked is not None:  # the pin is the newer planner intent: it overrides the lock
+        if ev.locked is not None and (rooms or day is not None or start is not None):
+            # the pin is the newer planner intent: it overrides the lock
             lk = ev.locked
-            if rooms and len(rooms) > 1:
+            if (rooms and len(rooms) > 1) or pin.get("unlock"):
                 ev = replace(ev, locked=None)
             else:
                 s0 = start if start is not None else lk.start

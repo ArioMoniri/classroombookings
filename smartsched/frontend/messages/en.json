@@ -773,7 +773,8 @@
       "toolbar": "Search and notifications",
       "searchShort": "Search",
       "tabs": "Tabs",
-      "more": "More"
+      "more": "More",
+      "bookings": "Bookings"
     },
     "term": {
       "kind": {
@@ -787,7 +788,10 @@
     "role": {
       "ADMIN": "Administrator",
       "PLANNER": "Planner",
-      "VIEWER": "Viewer"
+      "VIEWER": "Viewer",
+      "TEACHER": "Teacher",
+      "CUSTOM": "Custom role",
+      "NONE": "No role"
     },
     "palette": {
       "placeholder": "Search a course (PHAR 240), instructor, programme, room (A 206) or run…",

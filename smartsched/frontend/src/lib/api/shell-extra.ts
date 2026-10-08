@@ -295,3 +295,66 @@ export async function applyProposalSubset(runId: number, diffId: string, keepAss
   const operations = (call.diff.operations ?? []).filter((op) => op.op !== "move" || (op.assignment_id !== undefined && keep.has(op.assignment_id)));
   return request(`/runs/${runId}/chat/apply`, { method: "POST", body: { diff: { ...call.diff, operations } }, schema: Out });
 }
+
+/* ------------------------------------------------------------------- identity with permissions */
+
+/**
+ * `GET /auth/me` with the CRBS-parity fields. `useMe()` parses `User`, whose role enum predates TEACHER /
+ * CUSTOM / NONE and which drops `permissions`; the shell gates navigation on permissions instead.
+ */
+export const MeFull = z
+  .object({
+    id: z.number(),
+    email: z.string().nullable().optional(),
+    username: z.string().nullable().optional(),
+    full_name: z.string().nullable().optional(),
+    role: z.string().default("NONE"),
+    permissions: z.array(z.string()).default([]),
+    force_password_reset: z.boolean().default(false),
+  })
+  .passthrough();
+export type MeFull = z.infer<typeof MeFull>;
+
+export function useMeFull() {
+  return useQuery({ queryKey: ["me", "full"], queryFn: () => request("/auth/me", { schema: MeFull, silent: true }), staleTime: 60_000, retry: false });
+}
+
+/** `true` when the user holds any of `perm` (no permission list yet → planning pages stay visible while loading). */
+export function hasPermission(perms: readonly string[] | undefined, perm: string | readonly string[] | undefined): boolean {
+  if (!perm) return true;
+  if (!perms) return false;
+  const want = typeof perm === "string" ? [perm] : perm;
+  return want.some((p) => perms.includes(p));
+}
+
+/** Older backends (and the mock API) send no permissions: derive them from the three legacy roles. */
+const LEGACY_PERMS: Record<string, string[]> = {
+  ADMIN: ["planning.view", "planning.edit", "planning.admin", "room.view", "setup.settings", "setup.users", "setup.rooms", "book_single.create"],
+  PLANNER: ["planning.view", "planning.edit", "room.view", "book_single.create"],
+  VIEWER: ["planning.view", "room.view"],
+};
+
+export function effectivePermissions(me: Pick<MeFull, "role" | "permissions"> | undefined): string[] | undefined {
+  if (!me) return undefined;
+  return me.permissions.length ? me.permissions : (LEGACY_PERMS[me.role] ?? []);
+}
+
+export function usePermissions(): { perms: string[] | undefined; can: (perm: string | readonly string[] | undefined) => boolean; me: MeFull | undefined } {
+  const me = useMeFull();
+  const perms = effectivePermissions(me.data);
+  return { perms, me: me.data, can: (perm) => hasPermission(perms, perm) };
+}
+
+/** Login with an e-mail **or** a username (CRBS parity); the proxy stores the JWT and returns `/auth/me`. */
+export async function loginWithIdentifier(identifier: string, password: string): Promise<{ user: MeFull | null; mustChangePassword: boolean }> {
+  const id = identifier.trim();
+  const body = id.includes("@") ? { email: id, password } : { username: id, password };
+  const out = await request<{ user?: unknown; password_change_required?: boolean }>("/auth/login", { method: "POST", body, silent: true });
+  const parsed = MeFull.safeParse(out?.user);
+  const user = parsed.success ? parsed.data : null;
+  return { user, mustChangePassword: Boolean(out?.password_change_required) || Boolean(user?.force_password_reset) };
+}
+
+export function changePassword(body: { current_password?: string | null; new_password: string }) {
+  return request("/auth/change-password", { method: "POST", body, silent: true });
+}

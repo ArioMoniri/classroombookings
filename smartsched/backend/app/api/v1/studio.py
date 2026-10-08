@@ -206,13 +206,32 @@ async def studio_precheck(term_id: int, db: DB, user: Planner, kind: str = "COUR
 
 
 @router.post("/terms/{term_id}/studio/precheck/fix", response_model=FixResultOut)
-async def studio_precheck_fix(term_id: int, body: FixIn, db: DB, user: Planner, kind: str = "COURSE") -> dict[str, Any]:
-    """Apply one fix option of a pre-check item into the draft (exclusion, class edit, per-draft rule
-    switch, built-in switch for ADMIN), then re-run the pre-check."""
+async def studio_precheck_fix(
+    term_id: int,
+    body: FixIn,
+    db: DB,
+    user: Planner,
+    kind: str = "COURSE",
+    if_match: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Apply one fix option of a pre-check item **into the draft only** (exclusion, draft pin/override,
+    per-draft rule switch, built-in switch for ADMIN), then re-run the pre-check. ``version`` / ``If-Match``
+    guard against a draft changed meanwhile (409). ``write_through`` + ``confirm`` write class / exam edits
+    into the term's data instead (never unlocking a LOCKED class term-wide)."""
     uid = user.id
     draft = await _draft(db, term_id, uid, kind)
+    expected = body.version if body.version is not None else _etag(if_match)
     try:
-        applied = await pc.apply_fix(db, draft, body.item_id, body.option, user)
+        applied = await pc.apply_fix(
+            db,
+            draft,
+            body.item_id,
+            body.option,
+            user,
+            expected_version=expected,
+            write_through=body.write_through,
+            confirm=body.confirm,
+        )
     except st.StudioError as exc:
         await db.rollback()
         raise _http(exc) from exc

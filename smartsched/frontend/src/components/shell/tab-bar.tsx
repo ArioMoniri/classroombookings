@@ -10,15 +10,17 @@ import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
+import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
+import { usePermissions } from "@/lib/api/shell-extra";
 import { isActive, navTestId, useNavBadges } from "./sidebar";
 
-type Tab = { href: string; labelKey: MessageKey; icon: typeof LayoutDashboard; badge?: "needsReview" };
+type Tab = { href: string; labelKey: MessageKey; icon: typeof LayoutDashboard; badge?: "needsReview"; permission?: string | string[] };
 
 const TABS: Tab[] = [
-  { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
-  { href: "/requests", labelKey: "nav.requests", icon: Inbox, badge: "needsReview" },
-  { href: "/generate", labelKey: "nav.generate", icon: PlayCircle },
-  { href: "/timetable", labelKey: "nav.timetable", icon: CalendarDays },
+  { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, permission: "planning.view" },
+  { href: "/requests", labelKey: "nav.requests", icon: Inbox, badge: "needsReview", permission: "planning.view" },
+  { href: "/generate", labelKey: "nav.generate", icon: PlayCircle, permission: "planning.edit" },
+  { href: "/timetable", labelKey: "nav.timetable", icon: CalendarDays, permission: ["planning.view", "room.view"] },
 ];
 
 const PILL = "pointer-events-none absolute inset-0 -z-10 rounded-full bg-(--mat-thick) shadow-[inset_0_1px_0_0_var(--specular),0_0_0_1px_var(--hairline)]";
@@ -47,7 +49,12 @@ export function TabBar() {
     else if (prev - y > 6) setCompact(false);
   });
   const morph = reduce ? { duration: 0 } : springs.glassMorph;
-  const activeHref = TABS.find((tab) => isActive(pathname, search, tab.href))?.href;
+  const { can } = usePermissions();
+  // a teacher has no planning tabs: the bookings entries (admin/nav-items) take their place
+  const planning = TABS.filter((tab) => can(tab.permission));
+  const bookings: Tab[] = ADMIN_NAV_ITEMS.filter((i) => i.href.startsWith("/bookings") || i.href.startsWith("/my-bookings")).filter((i) => can(i.permission)).map((i) => ({ href: i.href, labelKey: i.labelKey, icon: i.icon }));
+  const tabs = (planning.length >= 3 ? planning : [...bookings, ...planning]).slice(0, 4);
+  const activeHref = tabs.find((tab) => isActive(pathname, search, tab.href))?.href;
 
   const item = (key: string, label: string, icon: ReactNode, active: boolean, extra: { href?: string; onClick?: () => void; count?: number; testId?: string }) => {
     const content = (
@@ -88,7 +95,7 @@ export function TabBar() {
       <LayoutGroup id="tab-bar">
         <motion.nav aria-label={t("glass.shell.tabs")} layout transition={morph} style={{ borderRadius: 999 }} data-compact={compact} data-glass="chrome" className="glass-chrome pointer-events-auto p-1">
           <ul className="flex items-center gap-0.5">
-            {TABS.map((tab) => item(tab.href, t(tab.labelKey), <tab.icon />, tab.href === activeHref, { href: tab.href, count: tab.badge ? badges[tab.badge] : undefined, testId: `tab-${navTestId(tab.href)}` }))}
+            {tabs.map((tab) => item(tab.href, t(tab.labelKey), <tab.icon />, tab.href === activeHref, { href: tab.href, count: tab.badge ? badges[tab.badge] : undefined, testId: `tab-${navTestId(tab.href)}` }))}
             {item("more", t("glass.shell.more"), <MoreHorizontal />, false, { onClick: () => setDrawerOpen(true), testId: "open-drawer" })}
           </ul>
         </motion.nav>

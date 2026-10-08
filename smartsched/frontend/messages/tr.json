@@ -773,7 +773,8 @@
       "toolbar": "Arama ve bildirimler",
       "searchShort": "Ara",
       "tabs": "Sekmeler",
-      "more": "Diğer"
+      "more": "Diğer",
+      "bookings": "Rezervasyonlar"
     },
     "term": {
       "kind": {
@@ -787,7 +788,10 @@
     "role": {
       "ADMIN": "Yönetici",
       "PLANNER": "Planlamacı",
-      "VIEWER": "İzleyici"
+      "VIEWER": "İzleyici",
+      "TEACHER": "Öğretim elemanı",
+      "CUSTOM": "Özel rol",
+      "NONE": "Rolsüz"
     },
     "palette": {
       "placeholder": "Ders (PHAR 240), öğretim elemanı, program, derslik (A 206) veya çalıştırma arayın…",

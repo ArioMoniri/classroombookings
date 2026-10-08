@@ -9,12 +9,12 @@ import { runStatusBadge } from "@/components/runs/runs-list";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { KbdHint } from "@/components/ui/kbd-hint";
 import { useRooms, useRuns } from "@/lib/api/hooks";
-import { normaliseQuery, useShellSearch } from "@/lib/api/shell-extra";
+import { normaliseQuery, usePermissions, useShellSearch } from "@/lib/api/shell-extra";
 import { LOCALES } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
 import { useUiStore } from "@/stores/ui";
-import { ALL_NAV_ITEMS } from "./nav-config";
+import { visibleNavGroups } from "./nav-config";
 import { useActiveTerm } from "./term-switcher";
 import { useCycleTheme } from "./theme-toggle";
 
@@ -61,13 +61,15 @@ export function CommandPalette() {
   const { t, locale, setLocale } = useI18n();
   const cycleTheme = useCycleTheme();
   const { term } = useActiveTerm();
+  const { can } = usePermissions();
+  const planner = can("planning.view");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("");
   const debounced = normaliseQuery(useDebounced(query, 150));
   const actionsOnly = query.startsWith(">");
   const text = actionsOnly ? query.slice(1).trim() : query.trim();
   const live = !actionsOnly && debounced.length >= 2 ? debounced : "";
-  const search = useShellSearch(live, term?.id);
+  const search = useShellSearch(planner ? live : "", term?.id);
   const rooms = useRooms(live ? { q: live } : { q: "__none__" });
   const runs = useRuns();
 
@@ -86,8 +88,8 @@ export function CommandPalette() {
     { value: "action-generate", icon: PlayCircle, label: t("palette.generateWeek"), keys: ["G", "G"], run: () => go("/generate"), words: "generate oluştur plan solve" },
     { value: "action-import", icon: FileUp, label: t("palette.importFile"), keys: ["G", "I"], run: () => go("/import"), words: "import içe aktar excel" },
     { value: "action-room", icon: Warehouse, label: t("palette.newRoom"), run: () => go("/rooms?new=1"), words: "room derslik yeni new" },
-  ].filter((a) => matches(text, a.label, a.words));
-  const gotos = actionsOnly ? [] : ALL_NAV_ITEMS.filter((i) => matches(text, t(i.labelKey), i.href));
+  ].filter((a) => can("planning.edit") && matches(text, a.label, a.words));
+  const gotos = actionsOnly ? [] : visibleNavGroups(can).flatMap((g) => g.items).filter((i) => matches(text, t(i.labelKey), i.href));
   const prefs = [
     { value: "pref-theme", icon: Monitor, label: t("palette.toggleTheme"), keys: ["T"], run: () => { cycleTheme(); setOpen(false); }, words: "theme tema dark light koyu açık" },
     { value: "pref-lang", icon: Languages, label: t("palette.toggleLang"), keys: ["L"], run: () => { setLocale(LOCALES[(LOCALES.indexOf(locale) + 1) % LOCALES.length]); router.refresh(); setOpen(false); }, words: "language dil türkçe english" },
@@ -109,9 +111,9 @@ export function CommandPalette() {
     }
     return [...seen.values()].slice(0, 6);
   }, [results]);
-  const roomItems = live ? (rooms.data ?? []).slice(0, 6) : [];
+  const roomItems = live && planner ? (rooms.data ?? []).slice(0, 6) : [];
   const runMatch = /^#?(\d+)$/.exec(text);
-  const runItems = actionsOnly ? [] : (runs.data ?? []).filter((r) => (runMatch ? String(r.id).startsWith(runMatch[1] ?? "") : matches(text, r.term_code, `#${r.id}`, t(`runs.status.${r.status}`)))).slice(0, 5);
+  const runItems = actionsOnly || !planner ? [] : (runs.data ?? []).filter((r) => (runMatch ? String(r.id).startsWith(runMatch[1] ?? "") : matches(text, r.term_code, `#${r.id}`, t(`runs.status.${r.status}`)))).slice(0, 5);
   const loading = live !== "" && search.isFetching && !results;
 
   const item = (value: string, onSelect: () => void, children: ReactNode, hint?: ReactNode) => (

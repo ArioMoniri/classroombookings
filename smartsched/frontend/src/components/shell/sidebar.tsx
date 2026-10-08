@@ -7,11 +7,12 @@ import { KbdHint } from "@/components/ui/kbd-hint";
 import { SidebarGlass, SidebarGlassContent, SidebarGlassFooter, SidebarGlassHeader, SidebarGlassItem, SidebarGlassSection } from "@/components/ui/sidebar-glass";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMeetings, useRuns } from "@/lib/api/hooks";
+import { usePermissions } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
-import { NAV_GROUPS, type NavItem } from "./nav-config";
+import { visibleNavGroups, type NavItem } from "./nav-config";
 import { TermSwitcher, useActiveTerm } from "./term-switcher";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
@@ -44,9 +45,11 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
   const liveBadges = useNavBadges();
   const hydrated = useHydrated();
   const badges = hydrated ? liveBadges : { needsReview: 0, running: 0 };
+  const { can } = usePermissions();
+  const groups = hydrated ? visibleNavGroups(can) : [];
   return (
     <>
-      {NAV_GROUPS.map((group) => (
+      {groups.map((group) => (
         <SidebarGlassSection key={group.labelKey} title={collapsed ? undefined : t(group.labelKey)} aria-label={collapsed ? t(group.labelKey) : undefined}>
           {group.items.map((item) => {
             const active = isActive(pathname, search, item.href);

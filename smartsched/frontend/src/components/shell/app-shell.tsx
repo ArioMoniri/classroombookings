@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useAppearancePreferences } from "@/components/ui/appearance-preferences";
-import { useMe } from "@/lib/api/hooks";
+import { useMeFull } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
 import { useUiStore } from "@/stores/ui";
 import { useAccentPreference } from "./appearance";
@@ -48,7 +48,7 @@ function Shortcuts() {
  * every later term change is remembered for them.
  */
 function UserSync() {
-  const me = useMe();
+  const me = useMeFull();
   const userKey = me.data ? String(me.data.id) : null;
   useAppearancePreferences(userKey ?? undefined);
   useAccentPreference(userKey ?? undefined);

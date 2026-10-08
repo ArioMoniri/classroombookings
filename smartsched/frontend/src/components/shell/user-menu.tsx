@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api/endpoints";
-import { useMe } from "@/lib/api/hooks";
+import { useMeFull } from "@/lib/api/shell-extra";
+import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
@@ -22,7 +23,7 @@ export function initials(name: string | null | undefined, email: string): string
 }
 
 export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?: boolean }) {
-  const me = useMe();
+  const me = useMeFull();
   const { t } = useI18n();
   const router = useRouter();
   const qc = useQueryClient();
@@ -45,12 +46,12 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
             className={cn("flex items-center gap-2 rounded-xl text-left text-sm outline-none transition-colors duration-(--dur-fast) hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)", compact ? "size-9 justify-center rounded-full" : collapsed ? "size-9 justify-center" : "w-full px-2 py-1.5")}
           >
             <Avatar className="size-7">
-              <AvatarFallback className="text-[11px]">{user ? initials(user.full_name, user.email) : "…"}</AvatarFallback>
+              <AvatarFallback className="text-[11px]">{user ? initials(user.full_name, user.email ?? user.username ?? "?") : "…"}</AvatarFallback>
             </Avatar>
             {!collapsed && !compact ? (
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium text-label-1">{user?.full_name ?? user?.email ?? "…"}</span>
-                <span className="block truncate text-[11px] text-label-3">{user ? t(`glass.role.${user.role}`) : ""}</span>
+                <span className="block truncate text-[13px] font-medium text-label-1">{user?.full_name ?? user?.email ?? user?.username ?? "…"}</span>
+                <span className="block truncate text-[11px] text-label-3">{user ? t(`glass.role.${user.role}` as MessageKey) : ""}</span>
               </span>
             ) : null}
           </button>
