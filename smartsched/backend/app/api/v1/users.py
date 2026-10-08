@@ -18,6 +18,7 @@ from app.importers import normalize as n
 from app.models import ConstraintRow, Program, Role, RoomAcl, ScheduleRun, User, UserConstraint
 from app.models.catalog import Room
 from app.schemas.users import PasswordIn, UserAdminOut, UserCreate, UserUpdate
+from app.services.bookings_collation import tr_sort_key  # Turkish alphabetical order (CRBS sort_map names)
 from app.services.bookings_perms import (
     GRANT_GUARD,
     is_privileged_role,
@@ -29,19 +30,6 @@ from app.services.bookings_perms import (
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-#: Turkish alphabetical order (TDK) with q, w, x where Latin puts them; CRBS sorts in MySQL with a Unicode
-#: collation, so "Çağla" comes before "İpek" -- a plain code-point sort would put Ç, Ö, Ş, Ü after Z
-_TR_ORDER = {ch: i for i, ch in enumerate("abcçdefgğhıijklmnoöpqrsştuüvwxyz")}
-
-
-def tr_sort_key(value: str | None) -> tuple[tuple[int, int], ...]:
-    """Sort key for Turkish names: ``tr_casefold`` (I/ı, İ/i, NBSP), then letters in Turkish order; digits and
-    punctuation sort before letters, other characters after them."""
-    return tuple(
-        (1, _TR_ORDER[ch]) if ch in _TR_ORDER else (0, ord(ch)) if ord(ch) < 128 else (2, ord(ch))
-        for ch in n.tr_casefold(value or "")
-    )
 
 
 async def user_out(db: DB, u: User) -> UserAdminOut:

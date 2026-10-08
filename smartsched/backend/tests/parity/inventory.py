@@ -292,10 +292,11 @@ ROWS: tuple[Row, ...] = (
         "B-AUTH-11",
         "Sign out ends the session",
         "Logout (destroys the PHP session)",
-        gap="SmartSched signs out on the client (the bearer token is dropped) but the token stays valid until it "
-        "expires (JWT_EXPIRE_MINUTES, 12 h); a disabled account is refused at once (B-AUTH-02). Proposed: a "
-        "per-user token_version claim bumped by POST /auth/logout and by password changes (app/core/security.py + "
-        "app/api/deps.py, outside the CRBS services: backend owner of app/core)",
+        difference="superset: a JWT cannot be destroyed, so POST /auth/logout bumps users.token_version (JWT claim "
+        "tv) and every earlier token of the user answers 401 -- sign-out ends the user's sessions on every device, "
+        "not only this browser; password change / admin password set / reset code, disabling the account and a "
+        "role change revoke the same way (CRBS keeps other sessions alive); an own password change also ends "
+        "the current session (sign in again with the new password)",
     ),
     # ---------------------------------------------------------------- users (#19-#23)
     _r(

@@ -54,6 +54,7 @@ from app.services.bookings_calendar import (
     resolve_term,
     term_info,
 )
+from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import Access, effective_limits
 from app.services.bookings_settings import get_value
 from app.services.calendar import date_for
@@ -1346,13 +1347,17 @@ async def visible_rooms(session: AsyncSession, access: Access, room_group_id: in
         for r in (await session.execute(q)).scalars()
         if access.can_view_room(r) and not (hide_ungrouped and r.room_group_id is None)
     ]
-    # audit B7: the configured order (room_groups.pos, then rooms.pos), ungrouped rooms last
-    group_pos = {g.id: (g.pos or 0, g.id) for g in (await session.execute(select(RoomGroup))).scalars()}
+    # audit B7: the configured order (room_groups.pos, then rooms.pos), ungrouped rooms last; equal positions
+    # fall back to the names in Turkish alphabetical order (CRBS rg.name / rooms.name, Unicode collation)
+    group_pos = {
+        g.id: (g.pos or 0, tr_sort_key(g.name), g.id) for g in (await session.execute(select(RoomGroup))).scalars()
+    }
     rooms.sort(
         key=lambda r: (
             r.room_group_id is None,
-            group_pos.get(r.room_group_id or 0, (0, 0)),
+            group_pos.get(r.room_group_id or 0, ()),
             r.pos or 0,
+            tr_sort_key(r.display_name or r.code),
             r.code,
         )
     )

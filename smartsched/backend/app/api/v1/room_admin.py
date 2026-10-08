@@ -40,6 +40,7 @@ from app.schemas.crbs import (
     RoomGroupOut,
     RoomGroupUpdate,
 )
+from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import BOOKING_SCOPE_GROUPS, perm_group
 
 router = APIRouter(prefix="/room-admin", tags=["room-admin"])
@@ -50,10 +51,19 @@ AclAdmin = Annotated[User, Depends(require_permission("setup.rooms_acl"))]
 # --- groups ----------------------------------------------------------------------------------------
 
 
+def room_order(r: Room) -> tuple[Any, ...]:
+    """CRBS ``Rooms_model::get_in_group``: rooms.pos, then rooms.name in Turkish alphabetical order."""
+    return (r.pos or 0, tr_sort_key(r.display_name or r.code), r.code)
+
+
+def group_order(g: RoomGroup) -> tuple[Any, ...]:
+    """CRBS ``Room_groups_model``: rg.pos, then rg.name in Turkish alphabetical order."""
+    return (g.pos or 0, tr_sort_key(g.name), g.id)
+
+
 async def _group_out(db: DB, g: RoomGroup) -> RoomGroupOut:
-    ids = list(
-        (await db.execute(select(Room.id).where(Room.room_group_id == g.id).order_by(Room.pos, Room.code))).scalars()
-    )
+    members = sorted((await db.execute(select(Room).where(Room.room_group_id == g.id))).scalars(), key=room_order)
+    ids = [r.id for r in members]
     return RoomGroupOut(id=g.id, name=g.name, description=g.description, pos=g.pos, room_count=len(ids), room_ids=ids)
 
 
@@ -80,10 +90,8 @@ async def _assign(db: DB, g: RoomGroup, room_ids: list[int]) -> None:
 
 @router.get("/groups", response_model=list[RoomGroupOut])
 async def list_groups(db: DB, _: RoomsAdmin) -> list[RoomGroupOut]:
-    return [
-        await _group_out(db, g)
-        for g in (await db.execute(select(RoomGroup).order_by(RoomGroup.pos, RoomGroup.name))).scalars()
-    ]
+    groups = sorted((await db.execute(select(RoomGroup))).scalars(), key=group_order)
+    return [await _group_out(db, g) for g in groups]
 
 
 @router.post("/groups", response_model=RoomGroupOut, status_code=201)
@@ -212,7 +220,12 @@ async def list_rooms(db: DB, _: RoomsAdmin, room_group_id: int | None = None) ->
             if room_group_id
             else q.where(Room.room_group_id.is_(None))
         )
-    rooms = sorted((await db.execute(q)).scalars(), key=lambda r: (r.room_group_id or 0, r.pos or 0, r.code))
+    # CRBS ``Rooms_model::get_all``: rg.pos, rooms.pos, rooms.name (ungrouped rooms first, MySQL NULLs first)
+    groups = {g.id: group_order(g) for g in (await db.execute(select(RoomGroup))).scalars()}
+    rooms = sorted(
+        (await db.execute(q)).scalars(),
+        key=lambda r: (r.room_group_id is not None, groups.get(r.room_group_id or 0, ()), room_order(r)),
+    )
     return [await _room_out(db, r) for r in rooms]
 
 

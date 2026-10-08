@@ -150,6 +150,11 @@ class HolidayUpdate(BaseModel):
     date_start: dt.date | None = None
     date_end: dt.date | None = None
 
+    @field_validator("name")
+    @classmethod
+    def _name(cls, v: str | None) -> str | None:  # same normalisation as HolidayIn (NBSP, runs of spaces)
+        return _required_clean(v) if v is not None else None
+
 
 class HolidayOut(ORMModel):
     id: int

@@ -11,6 +11,7 @@ from app.api.deps import DB, CurrentUser, require_permission
 from app.importers import normalize as n
 from app.models import Booking, BookingSeries, ExamRequest, Program, RoomAcl, Section, User
 from app.schemas.crbs import DepartmentIn, DepartmentOut, DepartmentUpdate
+from app.services.bookings_collation import tr_sort_key
 
 router = APIRouter(prefix="/departments", tags=["departments"])
 DeptAdmin = Annotated[User, Depends(require_permission("setup.departments"))]
@@ -42,7 +43,7 @@ async def list_departments(db: DB, _: CurrentUser, q: str | None = None) -> list
     if q:
         needle = n.tr_casefold(q)
         rows = [p for p in rows if needle in n.tr_casefold(p.name)]
-    rows.sort(key=lambda p: n.tr_casefold(p.name))
+    rows.sort(key=lambda p: tr_sort_key(p.name))  # CRBS Departments_model::Get: name asc (Unicode collation)
     return [await _out(db, p) for p in rows]
 
 

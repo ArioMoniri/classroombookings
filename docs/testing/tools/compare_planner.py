@@ -715,15 +715,15 @@ def audit_board(
     slots: dict[int, Place] = {r: place_of(es) for r, es in placed.items()}
     by_key: dict[str, list[int]] = defaultdict(list)
     for r in placed:
-        for i in reqs[r].instructors:
-            if not any(s in i.lower() for s in SKIP_INSTRUCTOR):
-                by_key["I:" + i].append(r)
-        for c in reqs[r].cohorts:
-            by_key["C:" + c].append(r)
+        for ins in reqs[r].instructors:
+            if not any(x in ins.lower() for x in SKIP_INSTRUCTOR):
+                by_key["I:" + ins].append(r)
+        for coh in reqs[r].cohorts:
+            by_key["C:" + coh].append(r)
     seen: set[tuple[str, int, int]] = set()
     for key, rs in by_key.items():
-        for i, a in enumerate(rs):
-            for b in rs[i + 1 :]:
+        for k, a in enumerate(rs):
+            for b in rs[k + 1 :]:
                 pa, pb = slots[a], slots[b]
                 if comp[a] == comp[b] or pa.day != pb.day or not overlap(pa.sp, pa.ep, pb.sp, pb.ep):
                     continue
@@ -759,13 +759,13 @@ def audit_list(
     out: dict[int, list[tuple[str, int, str]]] = defaultdict(list)
     locked = [r for r in reqs if r.status == "LOCKED" and r.definitive and r.sp and r.ep and r.days and r.needs_room]
     blk: dict[str, list[Entry]] = defaultdict(list)
-    for b in blocks:
-        blk[b.room].append(b)
+    for be in blocks:
+        blk[be.room].append(be)
     for r in locked:
         for room in r.definitive:
-            for b in blk.get(room, []):
-                if b.day in r.days[:1] and overlap(b.sp, b.ep, r.sp or 0, r.ep or 0):
-                    out[r.id].append(("blocked", 55, f"room blocked: {room} holds '{b.raw}' at {b.ref}"))
+            for be in blk.get(room, []):
+                if be.day in r.days[:1] and overlap(be.sp, be.ep, r.sp or 0, r.ep or 0):
+                    out[r.id].append(("blocked", 55, f"room blocked: {room} holds '{be.raw}' at {be.ref}"))
                     break
         seats = sum(rules.seats(x) for x in r.definitive)
         if seats and all(rules.in_pool(x) for x in r.definitive) and r.size > seats:
@@ -782,14 +782,14 @@ def audit_list(
     fixed = [r for r in reqs if r.needs_room and r.sp and r.ep and len(r.days) == 1]
     by_key: dict[tuple[str, int], list[Req]] = defaultdict(list)
     for r in fixed:
-        for i in r.instructors:
-            if not any(x in i.lower() for x in SKIP_INSTRUCTOR):
-                by_key[("I:" + i, r.days[0])].append(r)
+        for ins in r.instructors:
+            if not any(x in ins.lower() for x in SKIP_INSTRUCTOR):
+                by_key[("I:" + ins, r.days[0])].append(r)
         for c in r.cohorts:
             by_key[("C:" + c, r.days[0])].append(r)
     for (key, _day), rs in by_key.items():
-        for i, a in enumerate(rs):
-            for b in rs[i + 1 :]:
+        for k, a in enumerate(rs):
+            for b in rs[k + 1 :]:
                 if not overlap(a.sp or 0, a.ep or 0, b.sp or 0, b.ep or 0) or rules.same_event(a, b):
                     continue
                 if a.weeks and b.weeks and not a.weeks & b.weeks:
@@ -810,9 +810,9 @@ def audit_list(
         for r in locked:
             for room in r.definitive:
                 by_room[(room, r.days[0])].append(r)
-        for (room, _day), rs in by_room.items():
-            for i, a in enumerate(rs):
-                for b in rs[i + 1 :]:
+        for (room, _day), rs2 in by_room.items():
+            for k, a in enumerate(rs2):
+                for b in rs2[k + 1 :]:
                     if not overlap(a.sp or 0, a.ep or 0, b.sp or 0, b.ep or 0):
                         continue
                     if (a.weeks and b.weeks and not a.weeks & b.weeks) or rules.same_event(a, b):
@@ -862,6 +862,15 @@ def _pref(requested: Sequence[str], building: str | None, rooms: frozenset[str])
     if building and rooms and all(x[:1] == building[:1] for x in rooms):
         score += 1
     return score
+
+
+def _active(r: Req, w: int, exam: bool, date_week: int | None, solved: bool) -> bool:
+    """Does the request meet in week ``w`` and need a room there?"""
+    if not r.needs_room or r.sp is None or r.ep is None:
+        return False
+    if exam:
+        return date_week == w
+    return (not r.weeks or w in r.weeks) and bool(r.days or solved)
 
 
 def compare_instance(
@@ -925,20 +934,14 @@ def compare_instance(
             notes.append(f"week {w}: no board sheet")
             continue
         if board_w != w:
+            name = sheets[board_w].name
             notes.append(
-                f"week {w}: the board has no sheet for week {w}; compared with sheet '{sheets[board_w].name}' (week {board_w})"
+                f"week {w}: the board has no sheet for week {w}; compared with sheet '{name}' (week {board_w})"
             )
         wk_entries = [e for e in entries if e.week == board_w]
         blocks_real = [e for e in entries if e.week == w and e.kind == "BLOCK"]
 
-        def active(r: Req) -> bool:
-            if not r.needs_room or r.sp is None or r.ep is None:
-                return False
-            if exam:
-                return week_of_date(r.date) == w
-            return (not r.weeks or w in r.weeks) and bool(r.days or s_by_req.get(r.id))
-
-        act = [r for r in reqs if active(r)]
+        act = [r for r in reqs if _active(r, w, exam, week_of_date(r.date), bool(s_by_req.get(r.id)))]
         for r in act:
             if not r.days:
                 r.days = [1, 2, 3, 4, 5]
@@ -1040,7 +1043,8 @@ def compare_instance(
                 ]
                 codes = sorted({str(d.get("code")) for d in ds}) or ["(no diagnosis)"]
                 text = "; ".join(((d.get("text") or {}).get("en") or d.get("message") or "")[:240] for d in ds[:2])
-                check = verify_unplaced(r, rules, world, blocks_real, head, reqmap, P)
+                lk = frozenset(x for x in locked_rooms if rules.in_pool(x)) if inst.mode == "lock" else frozenset()
+                check = verify_unplaced(r, rules, world, blocks_real, head, reqmap, P, lk)
                 add("d", ",".join(codes), f"{text} | check: {check}", vb)
                 continue
             if P is None:
@@ -1102,7 +1106,8 @@ def compare_instance(
                 add(
                     "e",
                     "board_vs_list",
-                    f"list {', '.join(rows_txt)}: {'/'.join(sorted(L.rooms))}, board: {'/'.join(sorted(P.rooms))}; {follows}",
+                    f"list {', '.join(rows_txt)}: {'/'.join(sorted(L.rooms))}, "
+                    f"board: {'/'.join(sorted(P.rooms))}; {follows}",
                 )
                 continue
             if len(r.days) == 1 and not same_time and (S.day, S.sp, S.ep) == (r.days[0], r.sp, r.ep):
@@ -1157,7 +1162,8 @@ def compare_instance(
             hint = ""
             if ex and not unknown:
                 r0 = ex[0]
-                hint = f"list: {r0.label} row {r0.row} {DAY_EN.get(r0.days[0], '?') if r0.days else 'no day'} P{r0.sp}-P{r0.ep} needs_room={r0.needs_room}"
+                day0 = DAY_EN.get(r0.days[0], "?") if r0.days else "no day"
+                hint = f"list: {r0.label} row {r0.row} {day0} P{r0.sp}-P{r0.ep} needs_room={r0.needs_room}"
             findings.append(
                 Finding(
                     instance=inst.name,
@@ -1172,13 +1178,11 @@ def compare_instance(
                     refs=[e.ref],
                 )
             )
-        if not exam and inst.horizon == "TERM":
-            pass
     # planner errors (board + list), one entry per request and rule
     errors: list[dict[str, Any]] = []
-    for rid, errs in board_errors.items():
+    for rid, berrs in board_errors.items():
         r = reqmap[rid]
-        for rule, sev, text, refs in errs:
+        for rule, sev, text, refs in berrs:
             if rule in DATA_RULES:
                 continue
             errors.append(
@@ -1232,7 +1236,14 @@ def compare_instance(
 
 
 def verify_unplaced(
-    r: Req, rules: Rules, world: World, blocks: list[Entry], head: dict[int, int], reqs: dict[int, Req], P: Place | None
+    r: Req,
+    rules: Rules,
+    world: World,
+    blocks: list[Entry],
+    head: dict[int, int],
+    reqs: dict[int, Req],
+    P: Place | None,
+    locked: frozenset[str] = frozenset(),
 ) -> str:
     """Is the stated reason true in SmartSched's own week?  Free single rooms that seat the whole event
     (joint lectures summed) at the fixed time, and whether the planner's own board slot is free there."""
@@ -1249,6 +1260,21 @@ def verify_unplaced(
             return False
         return not any(b.room == code and b.day == day and overlap(b.sp, b.ep, sp, ep) for b in blocks)
 
+    if locked:
+        held = sorted(
+            {f"{x} by {reqs[h].label}" for x in locked for h in world.busy(world.rooms, x, day, sp, ep, mates)}
+            | {
+                f"{b.room} blocked '{b.raw}'"
+                for b in blocks
+                if b.room in locked and b.day == day and overlap(b.sp, b.ep, sp, ep)
+            }
+        )
+        if held:
+            return f"confirmed (locked to {'/'.join(sorted(locked))}): {'; '.join(held[:3])}"
+        if busy_keys:
+            return f"locked rooms free; cohort/instructor busy ({', '.join(busy_keys[:2])})"
+        return f"NOT CONFIRMED: locked rooms {'/'.join(sorted(locked))} are free and no clash in SmartSched's week"
+
     free: list[str] = []
     for code in rules.rooms:
         if not rules.in_pool(code) or rules.seats(code) < size:
@@ -1263,13 +1289,15 @@ def verify_unplaced(
         pool = all(rules.in_pool(x) for x in P.rooms)
         seats = sum(rules.seats(x) for x in P.rooms)
         if pool and all(free_room(x) for x in P.rooms) and seats >= size:
-            planner = f"; PLANNER SLOT FREE: the board's {'/'.join(sorted(P.rooms))} ({seats} seats) is free in SmartSched's week"
+            rooms_txt = "/".join(sorted(P.rooms))
+            planner = f"; PLANNER SLOT FREE: the board's {rooms_txt} ({seats} seats) is free in SmartSched's week"
         elif pool and all(free_room(x) for x in P.rooms):
             planner = f"; the board's {'/'.join(sorted(P.rooms))} is free but seats {seats} < {size}"
         else:
             planner = "; the board's rooms are taken in SmartSched's week"
     if busy_keys:
-        return f"cohort/instructor busy ({', '.join(busy_keys[:2])}); free single rooms seating {size}: {len(free)}{planner}"
+        who = ", ".join(busy_keys[:2])
+        return f"cohort/instructor busy ({who}); free single rooms seating {size}: {len(free)}{planner}"
     if free:
         return f"NOT CONFIRMED: {len(free)} free single room(s) seat {size}: {', '.join(sorted(free)[:5])}{planner}"
     big = max((rules.seats(c) for c in rules.rooms if rules.in_pool(c)), default=0)

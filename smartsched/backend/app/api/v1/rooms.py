@@ -3,14 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.api.deps import DB, Planner, Viewer
 from app.core.config import get_settings
 from app.core.images import check_image
 from app.core.safe_files import UnsafeFileError, read_upload
 from app.importers import normalize as n
-from app.models import Building, Room
+from app.models import Building, Room, RoomAcl
 from app.schemas.catalog import BuildingIn, BuildingOut, RoomIn, RoomOut, RoomUpdate
 
 PHOTO_MAX_BYTES = 10 * 1024 * 1024
@@ -120,6 +120,9 @@ async def delete_room(room_id: int, db: DB, _: Planner) -> None:
                 "bookings": sum(counts.values()),
             },
         )
+    # CRBS ``Rooms_model::delete`` drops the room's ACL entries. SQLite gives the highest deleted id to the next
+    # room, so a leftover row would hand this room's permissions to an unrelated new room.
+    await db.execute(delete(RoomAcl).where(RoomAcl.entity_type == "room", RoomAcl.entity_id == room.id))
     await db.delete(room)
     await db.commit()
 
