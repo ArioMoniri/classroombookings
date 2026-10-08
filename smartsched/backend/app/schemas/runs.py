@@ -22,6 +22,7 @@ class RunCreate(BaseModel):
 class RunOut(ORMModel):
     id: int
     term_id: int
+    term_code: str | None = None
     kind: str
     horizon: str
     horizon_params: dict[str, Any]
@@ -40,6 +41,8 @@ class RunOut(ORMModel):
     created_at: dt.datetime
     started_at: dt.datetime | None
     finished_at: dt.datetime | None
+    objective_breakdown: dict[str, int] = {}
+    progress: int = 0
 
 
 class RunCreated(BaseModel):
@@ -68,6 +71,20 @@ class AssignmentOut(ORMModel):
     archived: bool
     display_label: str | None = None
     room_codes: list[str] = []
+    # enrichment (see services.grid.enrich_assignments)
+    course_code: str | None = None
+    course_name: str | None = None
+    section_label: str | None = None
+    program_name: str | None = None
+    class_year: int | None = None
+    size: int = 0
+    enrolment: int | None = None
+    instructors: list[str] = []
+    instructor: str | None = None
+    capacity: int | None = None
+    week_set: list[int] = []
+    is_conflict: bool = False
+    conflict_reasons: list[str] = []
 
 
 class MoveIn(BaseModel):
@@ -83,6 +100,21 @@ class MoveOut(BaseModel):
     ok: bool
     assignment: AssignmentOut | None = None
     conflicts: list[dict[str, Any]] = []
+
+
+class DiagnosisApplyIn(BaseModel):
+    option_index: int = 0
+    re_solve: bool = True
+    label: str | None = None
+
+
+class DiagnosisApplyOut(BaseModel):
+    run_id: int
+    child_run_id: int | None = None
+    action: str
+    message: str
+    details: dict[str, Any] = {}
+    constraint_id: int | None = None
 
 
 class ConstraintIn(BaseModel):
