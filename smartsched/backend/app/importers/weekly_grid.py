@@ -398,6 +398,9 @@ async def import_weekly_grid(
     lecture_weeks = [s.week_index for s in parsed.sheets if s.kind in {"LECTURE"}]
     if lecture_weeks and max(lecture_weeks) > term.week_count:
         term.week_count = max(lecture_weeks)
+    exam_weeks = [s.week_index for s in parsed.sheets if s.kind == "EXAM"]
+    if exam_term and exam_weeks and not lecture_weeks:
+        term.week_count = max(exam_weeks)  # a Final/BÜT workbook: its exam weeks are the term (usability U5)
     if term.start_date is None:
         term.start_date = next((s.start_date for s in parsed.sheets if s.start_date), None)
 

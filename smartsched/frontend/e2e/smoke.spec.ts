@@ -171,7 +171,7 @@ test.describe("SmartSched smoke", () => {
     await page.getByTestId("rail-step-rules").click();
     await expect(page.getByTestId("rules-step")).toBeVisible();
     const before = Number((await page.getByTestId("stat-must").textContent()) ?? "0");
-    await page.getByTestId("nl-input").fill("TIP derslikleri sadece Tıp için");
+    await page.getByTestId("rule-composer-input").fill("TIP derslikleri sadece Tıp için");
     await page.getByTestId("nl-analyse").click();
     await expect(page.getByTestId("review-tray")).toBeVisible();
     await page.getByTestId("tray-accept").first().click();

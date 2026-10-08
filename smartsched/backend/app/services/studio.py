@@ -186,9 +186,28 @@ def resolve_weeks(term: Term, horizon: str, horizon_params: dict[str, Any] | Non
     return solver_bridge.horizon_weeks(run, term)
 
 
+async def scope_weeks(session: AsyncSession, term: Term, draft: StudioDraft) -> list[int]:
+    """Weeks in scope. An exam draft over the whole term uses the term's exam weeks (its week calendar),
+    not the 14-week lecture default (usability U5)."""
+    hp = dict(draft.horizon_params or {})
+    if draft.kind == "EXAM" and draft.horizon == "TERM" and not hp.get("weeks"):
+        rows = (await session.execute(select(Week.index, Week.kind).where(Week.term_id == term.id))).all()
+        exam = sorted({int(i) for i, k in rows if k == "EXAM" and int(i) >= 1})
+        if exam or rows:
+            return exam or sorted({int(i) for i, _k in rows if int(i) >= 1})
+    return resolve_weeks(term, draft.horizon, hp)
+
+
+def exam_event_weeks(inp: sm.SolverInput) -> tuple[list[int], int]:
+    """(weeks the exams of ``inp`` sit in, number of exams dated outside the term's weeks)."""
+    weeks = sorted({w for e in inp.events for w in e.weeks if w >= 1})
+    outside = sum(1 for e in inp.events if any(w < 1 for w in e.weeks))
+    return weeks, outside
+
+
 async def draft_out(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
     term = await get_term(session, draft.term_id)
-    weeks = resolve_weeks(term, draft.horizon, draft.horizon_params)
+    weeks = await scope_weeks(session, term, draft)
     holidays = set(
         (await session.execute(select(Week.index).where(Week.term_id == term.id, Week.kind == "HOLIDAY"))).scalars()
     )
@@ -709,7 +728,7 @@ async def generate(session: AsyncSession, draft: StudioDraft, body: Any, user: U
     await check_user_limit(session, user.id)  # review M13: at most N active runs per user (429)
     din = await build_draft_input(session, draft, snapshot=snap)
     rules = [c for c in din.inp.constraints if c.id is not None]
-    weeks = list(din.inp.weeks)
+    weeks = exam_event_weeks(din.inp)[0] if draft.kind == "EXAM" else list(din.inp.weeks)
     prompt = (
         f"Studio draft #{draft.id} v{draft.version}: {len(din.inp.events)} events "
         f"({sum(len(v) for v in din.members.values())} classes), {len(snap['excluded_event_ids'])} left out, "
@@ -829,7 +848,12 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
     try_ = len(rules) - must
     classes_in = sum(len(v) for v in din.members.values())
     out_n = len(draft.excluded_event_ids or [])
-    weeks = list(din.inp.weeks)
+    exam = draft.kind == "EXAM"
+    outside = 0
+    if exam:  # the weeks the exams actually sit in; dates before/after the term are reported, not "week -2"
+        weeks, outside = exam_event_weeks(din.inp)
+    else:
+        weeks = list(din.inp.weeks)
     holidays = set(
         (await session.execute(select(Week.index).where(Week.term_id == term.id, Week.kind == "HOLIDAY"))).scalars()
     )
@@ -884,6 +908,17 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
                 },
             }
         )
+    if outside:
+        warnings.append(
+            {
+                "code": "exams_outside_term",
+                "count": outside,
+                "message": {
+                    "tr": f"{_n(outside, 'tr')} sınavın tarihi dönemin sınav haftalarının dışında.",
+                    "en": f"{_n(outside, 'en')} exams are dated outside the term's exam weeks.",
+                },
+            }
+        )
     builtins = await disabled_builtins(session, draft)
     pre = draft.last_precheck or {}
     readiness = pre.get("readiness") if pre.get("version") == draft.version else "unknown"
@@ -892,6 +927,14 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
         "tr": f"{nw} hafta boyunca {_n(nr, 'tr')} derslikte {_n(ne, 'tr')} ders planlıyorsunuz.",
         "en": f"You are planning {_n(ne, 'en')} classes in {_n(nr, 'en')} rooms for {nw} weeks.",
     }
+    if exam:  # merged cohorts sit one exam: say sittings, with the request count in brackets
+        nx = len(din.inp.events)
+        sentence = {
+            "tr": f"{nw} sınav haftasında {_n(nr, 'tr')} salonda {_n(nx, 'tr')} sınav ({_n(ne, 'tr')} talep) "
+            "planlıyorsunuz.",
+            "en": f"You are planning {_n(nx, 'en')} exams ({_n(ne, 'en')} requests) in {_n(nr, 'en')} rooms "
+            f"over {nw} exam weeks.",
+        }
     human = {
         "tr": (
             f"SmartSched {week_span(weeks)}. haftalar için {_n(ne, 'tr')} dersi {_n(nr, 'tr')} dersliğe "
@@ -906,6 +949,20 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
             f"Estimated time: {est['words']['en']}."
         ),
     }
+    if exam:
+        nx = len(din.inp.events)
+        human = {
+            "tr": (
+                f"SmartSched {week_span(weeks)}. sınav haftalarında {_n(nx, 'tr')} sınavı ({_n(ne, 'tr')} talep) "
+                f"{_n(nr, 'tr')} salona yerleştirecek. {must} kesin kurala uyacak, {try_} tercihi mümkün olduğunca "
+                f"gözetecek. {_n(out_n, 'tr')} talep plan dışında. Tahmini süre: {est['words']['tr']}."
+            ),
+            "en": (
+                f"SmartSched will place {_n(nx, 'en')} exams ({_n(ne, 'en')} requests) into {_n(nr, 'en')} rooms "
+                f"in exam weeks {week_span(weeks)}. It must follow {must} rules and will try to follow {try_} "
+                f"preferences. {_n(out_n, 'en')} requests are left out. Estimated time: {est['words']['en']}."
+            ),
+        }
     return {
         "draft_id": draft.id,
         "version": draft.version,

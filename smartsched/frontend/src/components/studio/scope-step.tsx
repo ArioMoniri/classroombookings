@@ -21,6 +21,12 @@ function relDays(iso: string | null | undefined, locale: string): string {
   return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-days, "day");
 }
 
+/** Week chip selection: a plain click replaces, ⌘/Ctrl/⇧ toggles one week (usability M10). */
+export function nextWeeks(chosen: number[], i: number, additive: boolean): number[] {
+  if (!additive) return [i];
+  return chosen.includes(i) ? chosen.filter((x) => x !== i) : [...chosen, i].sort((a, b) => a - b);
+}
+
 export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }) {
   const { t, n, locale } = useI18n();
   const { terms } = useActiveTerm();
@@ -42,12 +48,8 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
    *  ⌘/Ctrl/⇧ + click adds or removes one week, like selecting files in Finder or Explorer. */
   const pickWeek = (i: number, additive: boolean) => {
     if (local.horizon === "MONTH") return setScope("MONTH", undefined, i);
-    if (!additive) {
-      if (chosen.length === 1 && chosen[0] === i) return;
-      return setScope("WEEK", [i]);
-    }
-    const next = chosen.includes(i) ? chosen.filter((x) => x !== i) : [...chosen, i].sort((a, b) => a - b);
-    setScope("WEEK", next);
+    if (!additive && chosen.length === 1 && chosen[0] === i) return;
+    setScope("WEEK", nextWeeks(chosen, i, additive));
   };
 
   const noTerm = terms.length === 0;

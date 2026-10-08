@@ -68,7 +68,6 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
       </label>
       <Textarea
         id="studio-write"
-        data-testid="rule-composer-input"
         ref={area}
         rows={3}
         value={text}
@@ -84,7 +83,7 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
         aria-describedby="studio-write-hint"
         className="field-sizing-content max-h-64 min-h-20 resize-y"
         lang={locale}
-        data-testid="nl-input"
+        data-testid="rule-composer-input"
       />
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => void analyse()} disabled={!text.trim() || busy || keyMissing} data-testid="nl-analyse" aria-keyshortcuts="Meta+Enter">
