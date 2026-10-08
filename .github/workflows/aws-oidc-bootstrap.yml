@@ -1,0 +1,142 @@
+# One-shot: uses the temporary AWS secrets ONCE to create long-lived, keyless access for this repo.
+#  1. GitHub OIDC identity provider in the AWS account (if missing)
+#  2. IAM role `smartsched-github-bootstrap`, assumable only by this repository's workflows on the
+#     SmartSched branches, with a policy scoped to what the pod bootstrap needs
+#  3. AWS Budgets monthly cost budget of $100 with e-mail alerts to umutk@getvivax.com
+# Triggered by pushing a change to infra/aws/OIDC_BOOTSTRAP on the branch (workflow_dispatch needs the
+# default branch). Re-running is safe: every step is idempotent.
+name: aws-oidc-bootstrap
+
+on:
+  push:
+    paths:
+      - "infra/aws/OIDC_BOOTSTRAP"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aws-oidc-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+      ROLE_NAME: smartsched-github-bootstrap
+      POLICY_NAME: smartsched-github-bootstrap
+      BUDGET_NAME: smartsched-monthly-100usd
+      BUDGET_EMAIL: umutk@getvivax.com
+      REPO: ArioMoniri/classroombookings
+    steps:
+      - name: Check credentials
+        run: |
+          set -euo pipefail
+          aws --version
+          if ! aws sts get-caller-identity --output json > /tmp/id.json; then
+            echo "::error::AWS credentials are missing or expired. Refresh the AWS_* secrets and push infra/aws/OIDC_BOOTSTRAP again."
+            exit 1
+          fi
+          ACCOUNT=$(jq -r .Account /tmp/id.json)
+          echo "ACCOUNT=$ACCOUNT" >> "$GITHUB_ENV"
+          echo "Caller: $(jq -r .Arn /tmp/id.json)"
+
+      - name: GitHub OIDC provider
+        run: |
+          set -euo pipefail
+          ARN="arn:aws:iam::${ACCOUNT}:oidc-provider/token.actions.githubusercontent.com"
+          if aws iam get-open-id-connect-provider --open-id-connect-provider-arn "$ARN" >/dev/null 2>&1; then
+            echo "OIDC provider already exists"
+          else
+            aws iam create-open-id-connect-provider \
+              --url https://token.actions.githubusercontent.com \
+              --client-id-list sts.amazonaws.com \
+              --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 1c58a3a8518e8759bf075b76b750d4f2df264fcd \
+              --tags Key=Project,Value=smartsched
+            echo "OIDC provider created"
+          fi
+
+      - name: Bootstrap role (trust = this repo's SmartSched branches only)
+        run: |
+          set -euo pipefail
+          cat > /tmp/trust.json <<JSON
+          {
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Effect": "Allow",
+              "Principal": {"Federated": "arn:aws:iam::${ACCOUNT}:oidc-provider/token.actions.githubusercontent.com"},
+              "Action": "sts:AssumeRoleWithWebIdentity",
+              "Condition": {
+                "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
+                "StringLike": {"token.actions.githubusercontent.com:sub": [
+                  "repo:${REPO}:ref:refs/heads/claude/gracious-cerf-w1598m",
+                  "repo:${REPO}:ref:refs/heads/claude/smartsched-universal"
+                ]}
+              }
+            }]
+          }
+          JSON
+          cat > /tmp/policy.json <<JSON
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {"Sid": "Compute", "Effect": "Allow", "Action": ["ec2:*", "ssm:*", "cloudwatch:*", "logs:*", "budgets:*", "pricing:GetProducts", "pricing:DescribeServices", "ce:GetCostAndUsage", "ce:GetCostForecast", "sts:GetCallerIdentity"], "Resource": "*"},
+              {"Sid": "OwnIam", "Effect": "Allow", "Action": "iam:*", "Resource": [
+                "arn:aws:iam::${ACCOUNT}:role/smartsched-*",
+                "arn:aws:iam::${ACCOUNT}:instance-profile/smartsched-*",
+                "arn:aws:iam::${ACCOUNT}:policy/smartsched-*"
+              ]},
+              {"Sid": "ServiceLinked", "Effect": "Allow", "Action": "iam:CreateServiceLinkedRole", "Resource": "*"}
+            ]
+          }
+          JSON
+          if aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
+            aws iam update-assume-role-policy --role-name "$ROLE_NAME" --policy-document file:///tmp/trust.json
+            echo "Role exists; trust policy refreshed"
+          else
+            aws iam create-role --role-name "$ROLE_NAME" \
+              --assume-role-policy-document file:///tmp/trust.json \
+              --max-session-duration 3600 \
+              --description "SmartSched pod bootstrap from GitHub Actions (OIDC)" \
+              --tags Key=Project,Value=smartsched
+            echo "Role created"
+          fi
+          aws iam put-role-policy --role-name "$ROLE_NAME" --policy-name "$POLICY_NAME" --policy-document file:///tmp/policy.json
+          echo "ROLE_ARN=arn:aws:iam::${ACCOUNT}:role/${ROLE_NAME}" >> "$GITHUB_ENV"
+
+      - name: Monthly budget $100 with e-mail alerts
+        run: |
+          set -euo pipefail
+          cat > /tmp/budget.json <<JSON
+          {"BudgetName": "${BUDGET_NAME}", "BudgetLimit": {"Amount": "100", "Unit": "USD"},
+           "TimeUnit": "MONTHLY", "BudgetType": "COST"}
+          JSON
+          notif() { # $1=ACTUAL|FORECASTED $2=threshold
+            printf '{"Notification":{"NotificationType":"%s","ComparisonOperator":"GREATER_THAN","Threshold":%s,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"%s"}]}' "$1" "$2" "$BUDGET_EMAIL"
+          }
+          if aws budgets describe-budget --account-id "$ACCOUNT" --budget-name "$BUDGET_NAME" >/dev/null 2>&1; then
+            aws budgets update-budget --account-id "$ACCOUNT" --new-budget file:///tmp/budget.json
+            echo "Budget exists; limit refreshed"
+          else
+            printf '[%s,%s,%s,%s]' "$(notif ACTUAL 50)" "$(notif ACTUAL 80)" "$(notif ACTUAL 100)" "$(notif FORECASTED 100)" > /tmp/notifs.json
+            aws budgets create-budget --account-id "$ACCOUNT" --budget file:///tmp/budget.json \
+              --notifications-with-subscribers file:///tmp/notifs.json
+            echo "Budget created with alerts at 50/80/100% actual and 100% forecasted to ${BUDGET_EMAIL}"
+          fi
+
+      - name: Summary
+        run: |
+          {
+            echo "## SmartSched AWS bootstrap"
+            echo ""
+            echo "- Account: \`${ACCOUNT}\`"
+            echo "- Region: \`${AWS_DEFAULT_REGION}\`"
+            echo "- OIDC role: \`${ROLE_ARN}\` — add it as the repository secret **AWS_ROLE_ARN**; temporary keys are no longer needed."
+            echo "- Budget: \`${BUDGET_NAME}\` — \$100/month, alerts to ${BUDGET_EMAIL} (AWS sends a confirmation e-mail first)."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "ROLE_ARN=${ROLE_ARN}"
