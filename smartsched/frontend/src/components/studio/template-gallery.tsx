@@ -77,7 +77,7 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
               {TOPICS.filter((x) => kind === "EXAM" || x !== "exams").map((x) => {
                 const Icon = TOPIC_ICON[x];
                 return (
-                  <button key={x} type="button" role="tab" aria-selected={topic === x} onClick={() => setTopic(x)} className={cn("flex shrink-0 items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm pointer-coarse:min-h-11", topic === x ? "bg-primary-tint font-medium text-primary" : "hover:bg-muted")}>
+                  <button key={x} type="button" role="tab" aria-selected={topic === x} onClick={() => setTopic(x)} className={cn("flex shrink-0 items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm pointer-coarse:min-h-11", topic === x ? "bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")}>
                     <Icon className="size-4" aria-hidden /> {t(TOPIC_KEY[x])}
                   </button>
                 );
@@ -90,15 +90,15 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
                   <li key={tpl.id}>
                     <button type="button" onClick={() => setChosen(tpl)} className="flex h-full w-full flex-col items-start gap-1.5 rounded-lg border bg-card p-3 text-left hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50" data-testid={`template-${tpl.id}`}>
                       <span className="flex items-center gap-2 font-medium">
-                        <Icon className="size-4 text-primary" aria-hidden /> {tpl.title[locale]}
+                        <Icon className="size-4 text-tint-text" aria-hidden /> {tpl.title[locale]}
                       </span>
-                      <span className="text-xs text-muted-foreground">{tpl.sentence[locale].replace(/[[\]]/g, "").replace(/\{(\w+)\}/g, "…")}</span>
-                      <span className="text-[11px] text-muted-foreground">{tpl.default_hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
+                      <span className="text-xs text-label-2">{tpl.sentence[locale].replace(/[[\]]/g, "").replace(/\{(\w+)\}/g, "…")}</span>
+                      <span className="text-[11px] text-label-2">{tpl.default_hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
                     </button>
                   </li>
                 );
               })}
-              {list.length === 0 ? <li className="text-sm text-muted-foreground">{t("studio.gallery.empty")}</li> : null}
+              {list.length === 0 ? <li className="text-sm text-label-2">{t("studio.gallery.empty")}</li> : null}
             </ul>
           </div>
         )}
@@ -160,8 +160,8 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
 
   return (
     <div className="space-y-4" data-testid="rule-builder">
-      <div className="rounded-lg border bg-muted/40 p-3">
-        <p className="text-xs font-medium text-muted-foreground">{t("studio.builder.preview")}</p>
+      <div className="rounded-lg border bg-fill-3 p-3">
+        <p className="text-xs font-medium text-label-2">{t("studio.builder.preview")}</p>
         <p className="mt-1 text-base leading-relaxed">
           {toks.map((tok, i) => (tok.kind === "text" ? <span key={i}>{tok.text}</span> : <SlotChip key={`${tok.slot.name}-${i}`} slot={tok.slot} onChange={(v) => set(tok.slot.name, v)} />))}
         </p>
@@ -176,13 +176,13 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
           .map((f) => (
             <div key={f.name} className="grid gap-1.5">
               <span className="text-sm font-medium">
-                {t(FIELD_KEY[f.name] ?? "studio.slot.value")} {f.required ? <span className="text-xs font-normal text-muted-foreground">{t("studio.builder.required")}</span> : <span className="text-xs font-normal text-muted-foreground">{t("studio.builder.optional")}</span>}
+                {t(FIELD_KEY[f.name] ?? "studio.slot.value")} {f.required ? <span className="text-xs font-normal text-label-2">{t("studio.builder.required")}</span> : <span className="text-xs font-normal text-label-2">{t("studio.builder.optional")}</span>}
               </span>
               <SlotEditor field={f} value={readField(f, params, sentence)} onChange={(v) => set(f.name, v)} />
             </div>
           ))}
       </div>
-      {template.note ? <p className="rounded-md bg-muted/60 px-2.5 py-1.5 text-xs text-muted-foreground">{template.note[locale]}</p> : null}
+      {template.note ? <p className="rounded-md bg-fill-2/60 px-2.5 py-1.5 text-xs text-label-2">{template.note[locale]}</p> : null}
       <HardnessControl hardness={hardness} weight={weight} allowed={template.allowed_hardness} onHardness={setHardness} onWeight={setWeight} scale={meta?.weight_scale} advanced={advanced} idPrefix="builder" />
       {missing.length ? <p className="text-xs text-status-warning-fg">{t("studio.builder.missing", { fields: missing.map((f) => t(FIELD_KEY[f.name] ?? "studio.slot.value")).join(", ") })}</p> : null}
       <div className="flex flex-wrap justify-between gap-2">

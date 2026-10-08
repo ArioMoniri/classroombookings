@@ -77,7 +77,7 @@ export function HardnessControl({
         />
         <Popover>
           <PopoverTrigger
-            render={<button type="button" className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-11" aria-label={t("studio.rule.whatsThis")} />}
+            render={<button type="button" className="inline-flex size-7 items-center justify-center rounded-md text-label-2 hover:bg-fill-2 hover:text-foreground pointer-coarse:size-11" aria-label={t("studio.rule.whatsThis")} />}
           >
             <HelpCircle className="size-3.5" aria-hidden />
           </PopoverTrigger>
@@ -91,7 +91,7 @@ export function HardnessControl({
           </PopoverContent>
         </Popover>
       </div>
-      <span id={`${id}-help`} className={firstUse || !compact ? "basis-full text-xs text-muted-foreground" : "sr-only"}>
+      <span id={`${id}-help`} className={firstUse || !compact ? "basis-full text-xs text-label-2" : "sr-only"}>
         {hardness === "hard" ? t("studio.rule.mustHelp") : t("studio.rule.tryHelp")}
         {onlyOne ? ` ${allowed[0] === "hard" ? t("studio.rule.onlyMust") : t("studio.rule.onlyTry")}` : ""}
       </span>
@@ -102,7 +102,7 @@ export function HardnessControl({
       ) : null}
       {hardness === "soft" ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span id={`${id}-il`} className="text-xs text-muted-foreground">
+          <span id={`${id}-il`} className="text-xs text-label-2">
             {t("studio.rule.importance")}
           </span>
           <Segmented
@@ -118,7 +118,7 @@ export function HardnessControl({
               { value: "high", label: t("studio.rule.high") },
             ]}
           />
-          {imp === "custom" ? <span className="text-xs text-muted-foreground">{t("studio.rule.custom", { n: weight })}</span> : null}
+          {imp === "custom" ? <span className="text-xs text-label-2">{t("studio.rule.custom", { n: weight })}</span> : null}
           <span id={`${id}-ih`} className="sr-only">
             {t("studio.rule.importanceHelp")}
           </span>

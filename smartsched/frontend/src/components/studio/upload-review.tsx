@@ -104,16 +104,16 @@ export function UploadReview({
 
   return (
     <section aria-labelledby="review-title" className="space-y-3 rounded-xl border bg-card p-3 sm:p-4" data-testid="upload-review">
-      <div className="rounded-md bg-muted/60 p-2.5 text-sm" role="status">
+      <div className="rounded-md bg-fill-2/60 p-2.5 text-sm" role="status">
         <h3 id="review-title" className="font-semibold">
           {t("studio.review.title")}
         </h3>
-        <p className="text-muted-foreground">{t("studio.review.summary", { files, n: pending.length, ready: counts.ready, look: counts.look, unread: counts.unread })}</p>
+        <p className="text-label-2">{t("studio.review.summary", { files, n: pending.length, ready: counts.ready, look: counts.look, unread: counts.unread })}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label={t("studio.review.title")} className="flex flex-wrap gap-1">
           {(["all", "ready", "look", "unread"] as const).map((k) => (
-            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={cn("rounded-md border px-2 py-1 text-xs pointer-coarse:min-h-11", tab === k ? "border-primary bg-primary-tint font-medium text-primary" : "hover:bg-muted")} data-testid={`review-tab-${k}`}>
+            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={cn("rounded-xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] px-2 py-1 text-xs pointer-coarse:min-h-11", tab === k ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")} data-testid={`review-tab-${k}`}>
               {t(TAB_KEY[k])} <span className="tabular-nums">{k === "all" ? counts.all : counts[k]}</span>
             </button>
           ))}
@@ -133,7 +133,7 @@ export function UploadReview({
       <div className="relative overflow-x-auto">
         <table className="w-full min-w-[520px] text-sm" aria-label={t("studio.review.title")}>
           <thead>
-            <tr className="text-left text-xs text-muted-foreground">
+            <tr className="text-left text-xs text-label-2">
               <th className="w-8 py-1.5" scope="col">
                 <span className="sr-only">{t("studio.classes.select")}</span>
               </th>
@@ -179,15 +179,15 @@ export function UploadReview({
                     })} aria-label={t("studio.review.selectRow", { row: String(ref?.row ?? ref?.line ?? ref?.page ?? "") })} />
                   </td>
                   <td className="max-w-40 py-2 pr-2">
-                    <button type="button" className="text-left text-xs break-words text-primary underline-offset-2 hover:underline" onClick={() => setSource(it)} data-testid="review-from">
+                    <button type="button" className="text-left text-xs break-words text-tint-text underline-offset-2 hover:underline" onClick={() => setSource(it)} data-testid="review-from">
                       {provenanceText(ref, t) ?? it.file}
                     </button>
-                    <q lang="tr" className="mt-1 line-clamp-2 text-xs break-words text-muted-foreground 2xl:hidden">
+                    <q lang="tr" className="mt-1 line-clamp-2 text-xs break-words text-label-2 2xl:hidden">
                       {quoteOf(it)}
                     </q>
                   </td>
                   <td className="hidden max-w-56 py-2 pr-2 text-xs 2xl:table-cell">
-                    <q lang="tr" className="line-clamp-3 text-muted-foreground">{quoteOf(it)}</q>
+                    <q lang="tr" className="line-clamp-3 text-label-2">{quoteOf(it)}</q>
                   </td>
                   <td className="py-2 pr-2">
                     <span className="block">{proposed(it)}</span>
@@ -241,7 +241,7 @@ export function UploadReview({
             })}
             {shown.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
+                <td colSpan={6} className="py-6 text-center text-sm text-label-2">
                   {t("studio.review.empty")}
                 </td>
               </tr>
@@ -257,8 +257,8 @@ export function UploadReview({
           </SheetHeader>
           {source ? (
             <div className="space-y-3 px-4 pb-4 text-sm">
-              <p className="text-xs text-muted-foreground">{t("studio.review.sourceHelp")}</p>
-              <blockquote lang="tr" className="rounded-md border-l-4 border-primary bg-muted/60 p-3 whitespace-pre-wrap">
+              <p className="text-xs text-label-2">{t("studio.review.sourceHelp")}</p>
+              <blockquote lang="tr" className="rounded-md border-l-4 border-primary bg-fill-2/60 p-3 whitespace-pre-wrap">
                 <mark className="bg-status-warning text-foreground">{quoteOf(source)}</mark>
               </blockquote>
               {source.type === "rule" ? <p>{proposed(source)}</p> : null}

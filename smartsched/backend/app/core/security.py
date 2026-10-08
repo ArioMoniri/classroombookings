@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -71,3 +72,28 @@ def create_access_token(subject: str, extra: dict[str, Any] | None = None, expir
 def decode_access_token(token: str) -> dict[str, Any]:
     settings = get_settings()
     return jwt.decode(token, settings.signing_key, algorithms=[settings.jwt_algorithm])
+
+
+_KEY_RX = re.compile(r"sk-ant-[A-Za-z0-9_\-]{4,}")
+
+
+def redact_keys(text: str) -> str:
+    """Remove anything that looks like an Anthropic API key from ``text`` (logs, error messages)."""
+    return _KEY_RX.sub("sk-ant-***", text)
+
+
+def validate_api_key(value: str) -> str:
+    """A pasted API key: surrounding whitespace dropped; control characters, inner whitespace and absurd
+    lengths are refused (they ended up in HTTP headers and error texts; review MINOR 3)."""
+    key = (value or "").strip()
+    if not key:
+        return key
+    if any(ord(ch) < 33 or ord(ch) == 127 for ch in key):
+        raise ValueError("the API key contains spaces or control characters; paste it again")
+    if not 20 <= len(key) <= 300:
+        raise ValueError("the API key length is not plausible (20..300 characters)")
+    return key
+
+
+def key_fingerprint(key: str) -> str:
+    return hashlib.sha256(("key-fp:" + key).encode("utf-8")).hexdigest()[:16]

@@ -101,6 +101,8 @@ async def get_all_masked(session: AsyncSession) -> dict[str, Any]:
                 "masked": mask_secret(value),
                 "source": "db" if key in rows and rows[key].value else ("env" if value else None),
             }
+            if key == "anthropic_api_key":
+                out[key].update(await key_status(session, value))
         else:
             out[key] = value
     for key, row in rows.items():
@@ -113,3 +115,42 @@ async def get_all_masked(session: AsyncSession) -> dict[str, Any]:
                 else row.value
             )
     return out
+
+
+KEY_STATUS = "ai.key_status"  # dotted: internal, not listed by GET /settings
+
+
+async def record_key_test(session: AsyncSession, key: str, ok: bool, detail: str) -> None:
+    """Remember the outcome of the last real probe of ``key`` (by fingerprint, never the key)."""
+    import json
+    from datetime import UTC, datetime
+
+    from app.core.security import key_fingerprint
+
+    payload = {"fp": key_fingerprint(key), "ok": ok, "detail": detail[:300], "at": datetime.now(UTC).isoformat()}
+    row = await session.get(Setting, KEY_STATUS)
+    if row is None:
+        session.add(Setting(key=KEY_STATUS, value=json.dumps(payload), is_secret=False))
+    else:
+        row.value = json.dumps(payload)
+    await session.commit()
+
+
+async def key_status(session: AsyncSession, key: str | None) -> dict[str, Any]:
+    """``status``: ``none`` (no key), ``unverified`` (saved, never tested - or changed since), ``ok`` /
+    ``failed`` (last real probe of exactly this key). A saved key is never reported as connected
+    until a probe succeeded (usability U4)."""
+    import json
+
+    from app.core.security import key_fingerprint
+
+    if not key:
+        return {"status": "none", "checked_at": None, "detail": None}
+    row = await session.get(Setting, KEY_STATUS)
+    try:
+        data = json.loads(row.value) if row is not None and row.value else {}
+    except ValueError:
+        data = {}
+    if data.get("fp") != key_fingerprint(key):
+        return {"status": "unverified", "checked_at": None, "detail": None}
+    return {"status": "ok" if data.get("ok") else "failed", "checked_at": data.get("at"), "detail": data.get("detail")}

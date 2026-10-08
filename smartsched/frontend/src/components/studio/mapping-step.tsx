@@ -99,26 +99,26 @@ export function MappingStep({
   return (
     <section aria-labelledby="mapping-title" className="space-y-3 rounded-lg border bg-card p-3" data-testid="mapping-step">
       <div className="flex items-start gap-2">
-        <TableProperties className="mt-0.5 size-4 text-primary" aria-hidden />
+        <TableProperties className="mt-0.5 size-4 text-tint-text" aria-hidden />
         <div>
           <h4 id="mapping-title" className="text-sm font-semibold">
             {t("studio.mapping.title", { file: filename })}
           </h4>
-          <p className="text-xs text-muted-foreground">{t("studio.mapping.help")}</p>
+          <p className="text-xs text-label-2">{t("studio.mapping.help")}</p>
         </div>
       </div>
       {!cols && !error ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+        <p className="flex items-center gap-2 text-sm text-label-2" role="status">
           <Loader2 className="size-4 animate-spin" aria-hidden /> {t("studio.mapping.loading")}
         </p>
       ) : null}
       {cols ? (
         <>
-          <p className="text-xs text-muted-foreground">{t("studio.mapping.found", { n: cols.row_count, sheet: cols.sheet ?? "—" })}</p>
+          <p className="text-xs text-label-2">{t("studio.mapping.found", { n: cols.row_count, sheet: cols.sheet ?? "—" })}</p>
           <div className="relative overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-label-2">
                   <th className="py-1 pr-2 font-medium">{t("studio.mapping.column")}</th>
                   <th className="py-1 pr-2 font-medium">{t("studio.mapping.samples")}</th>
                   <th className="py-1 font-medium">{t("studio.mapping.means")}</th>
@@ -128,7 +128,7 @@ export function MappingStep({
                 {cols.columns.map((c) => (
                   <tr key={c.index} className="border-t align-top" data-testid="mapping-row">
                     <td className="py-1.5 pr-2 font-medium">{c.header || `#${c.index + 1}`}</td>
-                    <td className="max-w-48 py-1.5 pr-2 text-xs text-muted-foreground">
+                    <td className="max-w-48 py-1.5 pr-2 text-xs text-label-2">
                       <span className="line-clamp-2" lang="tr">
                         {c.samples.join(" · ") || "—"}
                       </span>

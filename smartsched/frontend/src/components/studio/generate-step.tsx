@@ -55,7 +55,7 @@ export function KeepSmallToggle() {
       <Switch checked={on} onCheckedChange={(v) => dispatch({ type: "setParams", params: { stability: v } })} className="mt-0.5" data-testid="keep-small" />
       <span>
         {t("studio.run.keepSmall", { id: summary.lastGoodRunId })}
-        <span className="block text-xs text-muted-foreground">{t("studio.run.keepSmallHelp")}</span>
+        <span className="block text-xs text-label-2">{t("studio.run.keepSmallHelp")}</span>
       </span>
     </label>
   );

@@ -1024,7 +1024,9 @@ async def _apply_claimed(
             changed = set(plan.moved) | set(unassigned) | {e for v in viol for e in v.event_ids}
             for c in plan.changed_constraints:
                 if c.enabled and c.params:
-                    changed |= {e.id for e in select_events(inp, c.params)}
+                    from app.services.solver_bridge import events_for_requests
+
+                    changed |= {e.id for e in select_events(inp, events_for_requests(dict(c.params), members))}
             out.mode = "repair"
         child.stats = {**(child.stats or {}), "phase": "queued", "mode": out.mode}
         out.status = "QUEUED"

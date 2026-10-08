@@ -1,7 +1,8 @@
 "use client";
 
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, CloudOff, Loader2, Redo2, Undo2 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { springs, useReduce } from "@/lib/motion";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -79,7 +80,7 @@ function SaveStatus() {
   const s = state.status;
   if (s === "saving" || state.dirty.length)
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" role="status" data-testid="save-status" data-state="saving">
+      <span className="inline-flex items-center gap-1 text-xs text-label-2" role="status" data-testid="save-status" data-state="saving">
         <Loader2 className="size-3 animate-spin" aria-hidden /> {t("studio.save.saving")}
       </span>
     );
@@ -94,7 +95,7 @@ function SaveStatus() {
     );
   if (s === "saved")
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" role="status" data-testid="save-status" data-state="saved">
+      <span className="inline-flex items-center gap-1 text-xs text-label-2" role="status" data-testid="save-status" data-state="saved">
         <Check className="size-3" aria-hidden /> {t("studio.save.saved")}
       </span>
     );
@@ -177,13 +178,20 @@ function ConflictBanner() {
 
 function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
   const { t } = useI18n();
-  const reduce = useReducedMotion();
+  const reduce = useReduce();
   const { step, goStep, advanced, setAdvanced, store, state } = useStudio();
   const { generate } = useGenerate();
   const status = useStepStatus();
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [prefill, setPrefill] = useState<BuilderPrefill | null>(null);
   const index = STUDIO_STEPS.indexOf(step);
+  // forward steps enter from the right, back steps from the left
+  const [prevIndex, setPrevIndex] = useState(index);
+  const [stepDir, setStepDir] = useState(1);
+  if (index !== prevIndex) {
+    setStepDir(index > prevIndex ? 1 : -1);
+    setPrevIndex(index);
+  }
   // the class table needs the width: the summary collapses to a 48 px rail below 1800 px
   const collapse = step === "classes";
 
@@ -256,7 +264,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
       <div className="mb-3 md:hidden" data-testid="mobile-progress">
         <div className="grid grid-cols-5 gap-1" aria-hidden>
           {STUDIO_STEPS.map((s, i) => (
-            <span key={s} className={cn("h-1.5 rounded-full", i <= index ? "bg-primary" : "bg-muted")} />
+            <span key={s} className={cn("h-1.5 rounded-full", i <= index ? "bg-tint" : "bg-fill-2")} />
           ))}
         </div>
         <p className="mt-1.5 text-sm font-medium">
@@ -269,11 +277,11 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
         <ol className="flex gap-1">
           {STUDIO_STEPS.map((s, i) => (
             <li key={s} className="shrink-0">
-              <button type="button" onClick={() => goStep(s)} aria-current={s === step ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex flex-col rounded-md border px-3 py-1.5 text-left text-sm", s === step ? "border-primary bg-primary-tint text-primary" : "hover:bg-muted")} data-testid={`tab-step-${s}`}>
+              <button type="button" onClick={() => goStep(s)} aria-current={s === step ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex flex-col rounded-xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] px-3 py-1.5 text-left text-sm", s === step ? "bg-tint-soft text-tint-text" : "hover:bg-fill-2")} data-testid={`tab-step-${s}`}>
                 <span className="font-medium">
                   {i + 1} {t(STEP_KEY[s])}
                 </span>
-                <span className="max-w-48 truncate text-[11px] text-muted-foreground">{status[s]}</span>
+                <span className="max-w-48 truncate text-[11px] text-label-2">{status[s]}</span>
               </button>
             </li>
           ))}
@@ -296,11 +304,11 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
                   const current = s === step;
                   return (
                     <li key={s}>
-                      <button type="button" onClick={() => goStep(s)} aria-current={current ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex min-h-14 w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left", current ? "bg-primary-tint text-primary" : "hover:bg-muted")} data-testid={`rail-step-${s}`}>
-                        <span className={cn("mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold", current ? "border-primary bg-primary text-primary-foreground" : "")}>{i + 1}</span>
+                      <button type="button" onClick={() => goStep(s)} aria-current={current ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex min-h-14 w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left outline-none focus-visible:outline-2 focus-visible:outline-(--focus)", current ? "bg-fill-1 text-label-1" : "hover:bg-fill-3")} data-testid={`rail-step-${s}`}>
+                        <span className={cn("mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums", current ? "bg-tint text-tint-foreground" : "bg-fill-2 text-label-2")}>{i + 1}</span>
                         <span className="min-w-0">
                           <span className="block text-sm font-medium">{t(STEP_KEY[s])}</span>
-                          <span className="block truncate text-xs text-muted-foreground" aria-hidden>
+                          <span className="block truncate text-xs text-label-2" aria-hidden>
                             {status[s]}
                           </span>
                         </span>
@@ -323,7 +331,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
 
         <section aria-labelledby="studio-step-title" className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h2 id="studio-step-title" className="mr-auto text-lg font-semibold">
+            <h2 id="studio-step-title" className="mr-auto type-title-2 text-label-1">
               {index + 1} · {t(STEP_KEY[step])}
             </h2>
             <div className="flex items-center gap-2 xl:hidden">
@@ -334,11 +342,11 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
               </label>
             </div>
           </div>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={step} initial={reduce ? { opacity: 0 } : { opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={reduce ? { opacity: 0 } : { opacity: 0, x: -8 }} transition={{ duration: reduce ? 0.1 : 0.18, ease: [0.16, 1, 0.3, 1] }}>
-              {body}
-            </motion.div>
-          </AnimatePresence>
+          {/* Enter-only, transform-only step change (motion.md §3.4): no exit wait, and no opacity on a wrapper
+              that holds glass cards (backdrop-root rule G6). Reduced motion: no travel. */}
+          <motion.div key={step} data-testid={`studio-step-${step}`} initial={reduce ? false : { x: stepDir * 8 }} animate={{ x: 0 }} transition={springs.smooth}>
+            {body}
+          </motion.div>
           {collapse ? (
             <div className="sticky bottom-3 z-20 mt-3 hidden justify-end xl:flex min-[1800px]:hidden">
               <GenerateButton size="default" testId="inline-generate" />
@@ -348,7 +356,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
 
         <div className="hidden xl:block">
           {collapse ? (
-            <button type="button" onClick={() => setSummaryOpen(true)} className="sticky top-4 flex w-full flex-col items-center gap-2 rounded-lg border py-3 text-xs hover:bg-muted min-[1800px]:hidden" aria-label={t("studio.summary.title")} data-testid="summary-collapsed">
+            <button type="button" onClick={() => setSummaryOpen(true)} className="sticky top-4 flex w-full flex-col items-center gap-2 rounded-lg border py-3 text-xs hover:bg-fill-2 min-[1800px]:hidden" aria-label={t("studio.summary.title")} data-testid="summary-collapsed">
               <ChevronLeft className="size-4" aria-hidden />
               <span className="[writing-mode:vertical-rl]">{t("studio.summary.title")}</span>
             </button>
@@ -360,12 +368,12 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
       </div>
 
       {/* < xl: sticky bottom bar — Back · summary pill · Next / Generate */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 px-4 py-2.5 backdrop-blur-sm xl:hidden" data-testid="studio-bottom-bar">
-        <div className="mx-auto flex max-w-3xl items-center gap-2">
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 px-3 lg:bottom-3 xl:hidden" data-testid="studio-bottom-bar">
+        <div data-glass="chrome" className="glass-chrome pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-full p-1.5">
           <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => goStep(STUDIO_STEPS[index - 1])} className="pointer-coarse:min-h-11">
             <ChevronLeft aria-hidden /> {t("common.back")}
           </Button>
-          <button type="button" onClick={() => setSummaryOpen(true)} className="min-w-0 flex-1 truncate rounded-full border px-3 py-1.5 text-left text-xs pointer-coarse:min-h-11" data-testid="summary-pill">
+          <button type="button" onClick={() => setSummaryOpen(true)} className="min-w-0 flex-1 truncate rounded-full bg-fill-3 px-3 py-1.5 text-left text-xs pointer-coarse:min-h-11" data-testid="summary-pill">
             <SummaryPill />
           </button>
           {step === "run" ? (

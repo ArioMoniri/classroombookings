@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/common/page-header";
 import { NativeSelect } from "@/components/common/native-select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -291,7 +290,7 @@ function UsersCard() {
               <TableRow key={u.id}>
                 <TableCell className="flex items-center gap-2"><Avatar className="size-6"><AvatarFallback className="text-[10px]">{initials(u.full_name, u.email)}</AvatarFallback></Avatar>{u.full_name ?? "—"}</TableCell>
                 <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                <TableCell><Badge variant={u.role === "ADMIN" ? "default" : u.role === "PLANNER" ? "secondary" : "outline"}>{u.role}</Badge></TableCell>
+                <TableCell className="text-label-2">{t(`glass.role.${u.role}`)}</TableCell>
                 <TableCell><span className={cn("inline-flex items-center gap-1 text-xs", u.is_active ? "text-status-feasible-fg" : "text-muted-foreground")}><span className={cn("size-1.5 rounded-full", u.is_active ? "bg-status-feasible-solid" : "bg-border-strong")} aria-hidden />{u.is_active ? t("settings.active") : t("settings.inactive")}</span></TableCell>
               </TableRow>
             ))}
@@ -304,7 +303,7 @@ function UsersCard() {
           <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
             <div className="grid gap-1"><Label htmlFor="u-name">{t("settings.name")}</Label><Input id="u-name" required value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
             <div className="grid gap-1"><Label htmlFor="u-email">{t("settings.email")}</Label><Input id="u-email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-            <div className="grid gap-1"><Label htmlFor="u-role">{t("settings.role")}</Label><NativeSelect id="u-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>{(["ADMIN", "PLANNER", "VIEWER"] as const).map((r) => <option key={r} value={r}>{r}</option>)}</NativeSelect></div>
+            <div className="grid gap-1"><Label htmlFor="u-role">{t("settings.role")}</Label><NativeSelect id="u-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>{(["ADMIN", "PLANNER", "VIEWER"] as const).map((r) => <option key={r} value={r}>{t(`glass.role.${r}`)}</option>)}</NativeSelect></div>
             <div className="grid gap-1"><Label htmlFor="u-pass">{t("auth.password")}</Label><Input id="u-pass" type="password" required autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
             <DialogFooter><Button type="submit" disabled={saving}>{t("common.save")}</Button></DialogFooter>
           </form>

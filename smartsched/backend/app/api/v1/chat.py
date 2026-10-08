@@ -21,6 +21,7 @@ from app.ai.elicit import accept_proposals, elicit_constraints
 from app.ai.ingest import MAX_FILE_BYTES, SUPPORTED, IngestError, extract_preferences
 from app.api.deps import DB, Planner
 from app.core.safe_files import UnsafeFileError, precheck_upload
+from app.core.security import redact_keys
 from app.models import ScheduleRun, Term
 from app.schemas.ai import (
     AcceptIn,
@@ -56,7 +57,9 @@ def _ai_error(exc: Exception) -> HTTPException:
         return HTTPException(422, f"The model declined this request ({exc.category or 'unspecified'}).")
     if isinstance(exc, AIConfigError):
         return HTTPException(409, NO_KEY)
-    return HTTPException(502, str(exc))
+    if isinstance(exc, AIUpstreamError):  # our own short texts (client.py), never the upstream body
+        return HTTPException(502, redact_keys(str(exc))[:300])
+    return HTTPException(502, "the AI service failed; try again later")
 
 
 async def _run(db: AsyncSession, run_id: int) -> ScheduleRun:

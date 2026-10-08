@@ -1062,7 +1062,81 @@
       "ruleOf": "Kural: {kind}",
       "must": "Zorunlu",
       "try": "Mümkünse",
-      "off": "kapalı"
+      "off": "kapalı",
+      "moreFixes": "{n} seçenek daha"
+    },
+    "settings": {
+      "keyOkModel": "Anahtar çalışıyor · {model}",
+      "keyOk": "Anahtar çalışıyor",
+      "keyFail": {
+        "auth": "Anahtar reddedildi",
+        "network": "Anthropic'e ulaşılamıyor",
+        "quota": "Kota veya kredi doldu",
+        "model": "Bu model bu anahtarla kullanılamıyor",
+        "other": "Sınama başarısız"
+      },
+      "keyFixHint": {
+        "auth": "Anahtarı console.anthropic.com'dan yeniden kopyalayın; iptal edilmiş veya yanlış yazılmış olabilir.",
+        "network": "Sunucunun internet erişimi yok ya da bir vekil sunucu engelliyor. BT ekibinize sorun.",
+        "quota": "Bu anahtarın planını ve kredisini console.anthropic.com'da kontrol edin.",
+        "model": "Aşağıdan başka bir model seçip yeniden sınayın.",
+        "other": "Bir dakika sonra tekrar deneyin. Sürerse sunucu günlüğüne bakın."
+      },
+      "keyUntested": "Kaydedildi, henüz sınanmadı",
+      "testFirst": "Kaydetmeden sına",
+      "modelOpus": "En güçlü akıl yürütme; en yavaş ve en pahalı",
+      "modelSonnet": "Dengeli; kurallar ve sohbet için varsayılan",
+      "modelHaiku": "En hızlı ve en ucuz; kısa yanıtlar için",
+      "modelHint": "Kuralları kendi cümlenizle yazarken ve sohbette kullanılır.",
+      "appearance": "Görünüm",
+      "appearanceHint": "Bu tarayıcıda sizin için saklanır.",
+      "themeHint": "Sistem, bilgisayarınızın açık/koyu ayarını izler.",
+      "accent": "Vurgu rengi",
+      "accentHint": "Yalnızca düğmelerde, bağlantılarda ve seçimde kullanılır.",
+      "accents": {
+        "blue": "Mavi",
+        "indigo": "Çivit",
+        "teal": "Deniz yeşili",
+        "graphite": "Grafit",
+        "orange": "Turuncu"
+      },
+      "density": "Yoğunluk",
+      "densityHint": "Sıkı görünüm çizelgeye daha çok ders saati sığdırır.",
+      "comfortable": "Rahat",
+      "compact": "Sıkı",
+      "accessibility": "Erişilebilirlik",
+      "accessibilityHint": "Sistem ayarlarının kilitli olduğu ortak bilgisayarlarda işe yarar.",
+      "reduceMotion": "Hareketi azalt",
+      "reduceMotionHint": "Kaydırma, büyütme ve yaylanmaları kısa geçişlerle değiştirir.",
+      "reduceTransparency": "Saydamlığı azalt",
+      "reduceTransparencyHint": "Okunabilirlik için cam yüzeyleri opak yapar.",
+      "languageHint": "Türkçe ve İngilizce; tarih ve sayılar dile uyar.",
+      "periodsHint": "Üniversitenin 18 ders saati; 12. ders saati 30 dakikadır.",
+      "subtitleUser": "Dil, görünüm ve erişilebilirlik."
+    },
+    "chat": {
+      "moveLabel": "{label}: {from} → {to}",
+      "applied": "{n} değişiklik uygulandı",
+      "applyFailed": "Değişiklikler uygulanamadı. Hiçbir şey değişmedi.",
+      "colClass": "Ders",
+      "colFrom": "Şu an",
+      "colTo": "Önerilen",
+      "diffHint": "Dışarıda bırakmak için işareti kaldırın",
+      "diffSummary": "{n} taşıma seçili",
+      "applyN": "{n} değişikliği uygula",
+      "appliedN": "{n} değişiklik uygulandı",
+      "applyRules": "Kuralları ekle",
+      "elapsed": "{s} sn",
+      "noKeyToast": "Asistan için YZ anahtarı gerekiyor. Metniniz duruyor.",
+      "sendFailed": "Asistan yanıt vermedi. Metniniz duruyor; tekrar deneyin.",
+      "noKey": "Asistan için YZ anahtarı gerekiyor.",
+      "openSettings": "Ayarlar'dan ekleyin",
+      "askAdmin": "Yöneticinizden eklemesini isteyin."
+    },
+    "studio": {
+      "weekN": "{n}. hafta",
+      "weekShort": "H{n}",
+      "weekHint": "Yalnızca o haftayı planlamak için bir haftaya tıklayın; birden çok hafta için ⌘, Ctrl veya ⇧ tuşunu basılı tutun."
     }
   }
 }

@@ -85,7 +85,7 @@ export function RuleCard(p: RuleCardProps) {
       onMouseLeave={p.onHover ? () => p.onHover?.(false) : undefined}
       className={cn(
         "group/rule rounded-[var(--radius-md)] border bg-card p-3 text-sm shadow-[var(--shadow-1)] sm:p-4",
-        p.proposal && "border-dashed border-primary/50 bg-primary-tint/40",
+        p.proposal && "border-dashed border-primary/50 bg-tint-soft/40",
         p.enabled === false && "opacity-60",
         p.clash && "border-status-infeasible-border",
       )}
@@ -113,7 +113,7 @@ export function RuleCard(p: RuleCardProps) {
         ) : null}
         {p.menu}
       </div>
-      {p.subLabel ? <p className="mt-1 pl-1 text-xs text-muted-foreground">{p.subLabel}</p> : null}
+      {p.subLabel ? <p className="mt-1 pl-1 text-xs text-label-2">{p.subLabel}</p> : null}
 
       {!p.readOnly && p.onHardness && p.onWeight ? (
         <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -121,7 +121,7 @@ export function RuleCard(p: RuleCardProps) {
           <AffectedBadge affected={p.affected} onClick={p.onShowClasses} />
         </div>
       ) : (
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-label-2">
           <span className={cn("rounded-full px-2 py-0.5 font-medium", p.hardness === "hard" ? "bg-foreground text-background" : "border border-border-strong text-foreground")}>{p.hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
           <AffectedBadge affected={p.affected} onClick={p.onShowClasses} />
         </div>
@@ -133,7 +133,7 @@ export function RuleCard(p: RuleCardProps) {
         </p>
       ) : null}
       {most ? (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-label-2">
           <Info className="size-3.5 shrink-0" aria-hidden /> {t("studio.rule.affectsMost")}
         </p>
       ) : null}
@@ -163,7 +163,7 @@ export function RuleCard(p: RuleCardProps) {
       ) : null}
 
       {p.nlText || p.provenance ? (
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-xs text-label-2">
           {p.nlText ? (
             <q lang={/[çğıöşüİ]/i.test(p.nlText) ? "tr" : locale}>{p.nlText}</q>
           ) : null}
@@ -190,11 +190,11 @@ export function RuleCard(p: RuleCardProps) {
       ) : null}
 
       {p.advanced && p.kind ? (
-        <details className="mt-2 text-xs text-muted-foreground">
+        <details className="mt-2 text-xs text-label-2">
           <summary className="cursor-pointer select-none">
             <span className="font-mono">{p.kind}</span> · {t("studio.rule.rawParams")}
           </summary>
-          <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted p-2 font-mono text-[11px]">{JSON.stringify(p.params ?? {}, null, 2)}</pre>
+          <pre className="mt-1 max-h-40 overflow-auto rounded bg-fill-2 p-2 font-mono text-[11px]">{JSON.stringify(p.params ?? {}, null, 2)}</pre>
         </details>
       ) : null}
 
@@ -206,7 +206,7 @@ export function RuleCard(p: RuleCardProps) {
 export function AffectedBadge({ affected, onClick }: { affected?: AffectedInfo; onClick?: () => void }) {
   const { t, n } = useI18n();
   if (!affected) return null;
-  if (affected.loading && affected.count === null) return <span className="inline-block h-5 w-28 animate-pulse rounded-full bg-muted" aria-label={t("common.loading")} />;
+  if (affected.loading && affected.count === null) return <span className="inline-block h-5 w-28 animate-pulse rounded-full bg-fill-2" aria-label={t("common.loading")} />;
   if (affected.count === null) return null;
   const label = t("studio.rule.appliesTo", { n: n(affected.count) });
   const pct = affected.percent !== null && affected.percent !== undefined ? ` (${n(affected.percent, { maximumFractionDigits: 1 })} %)` : "";

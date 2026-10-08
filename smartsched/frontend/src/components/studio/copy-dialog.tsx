@@ -116,7 +116,7 @@ function CopyBody({ onClose, initialRunId }: { onClose: () => void; initialRunId
           </NativeSelect>
         </label>
         {loading && !result ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <p className="flex items-center gap-2 text-sm text-label-2" role="status">
             <Loader2 className="size-4 animate-spin" aria-hidden /> {t("common.loading")}
           </p>
         ) : null}
@@ -127,7 +127,7 @@ function CopyBody({ onClose, initialRunId }: { onClose: () => void; initialRunId
               return (
                 <section key={b.key} aria-label={t(b.label)} className="space-y-1.5">
                   <h4 className="text-sm font-semibold">
-                    {t(b.label)} <span className="font-normal text-muted-foreground">({items.length})</span>
+                    {t(b.label)} <span className="font-normal text-label-2">({items.length})</span>
                   </h4>
                   <ul className="space-y-1.5">
                     {items.map((c) => (
@@ -147,7 +147,7 @@ function CopyBody({ onClose, initialRunId }: { onClose: () => void; initialRunId
                         />
                         <div className="min-w-0 flex-1">
                           <p>{text(c)}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-label-2">
                             {c.hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")} · {t("studio.rule.appliesTo", { n: c.affected_count })}
                           </p>
                           {c.reasons.length ? <p className="text-xs text-status-warning-fg">{c.reasons.join("; ")}</p> : null}
@@ -159,7 +159,7 @@ function CopyBody({ onClose, initialRunId }: { onClose: () => void; initialRunId
               );
             })
           : null}
-        {result && !result.will_match.length && !result.needs_review.length && !result.cannot_match.length ? <p className="text-sm text-muted-foreground">{t("studio.copy.none")}</p> : null}
+        {result && !result.will_match.length && !result.needs_review.length && !result.cannot_match.length ? <p className="text-sm text-label-2">{t("studio.copy.none")}</p> : null}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}

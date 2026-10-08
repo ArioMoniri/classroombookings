@@ -32,7 +32,7 @@ export function SummaryPanel({ className, showGenerate = true }: { className?: s
       <dl className="grid grid-cols-3 gap-2">
         {stats.map((s) => (
           <div key={s.label} className="rounded-md border bg-card px-2 py-1.5">
-            <dt className="truncate text-[11px] text-muted-foreground" title={s.label}>
+            <dt className="truncate text-[11px] text-label-2" title={s.label}>
               {s.label}
             </dt>
             <dd className="text-base font-semibold tabular-nums" data-testid={s.testId}>
@@ -47,19 +47,19 @@ export function SummaryPanel({ className, showGenerate = true }: { className?: s
           <ul className="space-y-1 text-xs">
             {summary.topIssues.map((i) => (
               <li key={i.id}>
-                <button type="button" className="text-left text-muted-foreground hover:text-foreground hover:underline" onClick={() => goStep("check")}>
+                <button type="button" className="text-left text-label-2 hover:text-foreground hover:underline" onClick={() => goStep("check")}>
                   · {i.title[locale] || i.title.en}
                 </button>
               </li>
             ))}
           </ul>
         ) : null}
-        <p className="text-xs text-muted-foreground">{t("studio.check.estimate", { words: est(summary.estimate) })}</p>
+        <p className="text-xs text-label-2">{t("studio.check.estimate", { words: est(summary.estimate) })}</p>
       </div>
       {showGenerate ? (
         <div className="space-y-3">
           <GenerateButton className="w-full" testId="summary-generate" />
-          <p className="text-center text-[11px] text-muted-foreground">{t("studio.summary.shortcut")}</p>
+          <p className="text-center text-[11px] text-label-2">{t("studio.summary.shortcut")}</p>
           <KeepSmallToggle />
         </div>
       ) : null}

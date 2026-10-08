@@ -1,4 +1,5 @@
-"""Review 2026-10-08 fixes: chat-apply claims (M2), job heartbeats (M6).
+"""Review 2026-10-08 fixes: chat-apply claims (M2), job heartbeats (M6), canonical cohort keys in stored
+constraint params (usability U1: ``PROG:Hemşirelik:Y1`` -> ``PROG:hemşirelik:Y1``, as the bridge builds them).
 
 Meeting identity (M4) needs no schema change: ``meeting_requests.source_key`` keeps its column and the
 planning-list importer re-keys legacy content-hash keys (``PL:<term>:<16 hex>#n``) to the stable
@@ -37,6 +38,21 @@ def upgrade() -> None:
         b.add_column(sa.Column("heartbeat_at", sa.DateTime(), nullable=True))
     with op.batch_alter_table("import_jobs") as b:
         b.add_column(sa.Column("heartbeat_at", sa.DateTime(), nullable=True))
+    _canonical_cohort_params()
+
+
+def _canonical_cohort_params() -> None:
+    """Data migration: cohort / programme selectors of stored rules in the canonical form."""
+    from app.importers.normalize import normalize_selector_params
+
+    constraints = sa.table("constraints", sa.column("id", sa.Integer()), sa.column("params", sa.JSON()))
+    bind = op.get_bind()
+    for cid, params in bind.execute(sa.select(constraints.c.id, constraints.c.params)).all():
+        if not isinstance(params, dict):
+            continue
+        norm = normalize_selector_params(params)
+        if norm != params:
+            bind.execute(constraints.update().where(constraints.c.id == cid).values(params=norm))
 
 
 def downgrade() -> None:

@@ -28,7 +28,7 @@ export function SourceChip({ source, proposal, className }: { source: SourceKind
     <span
       className={cn(
         "inline-flex shrink-0 items-center gap-1 rounded-[var(--radius-xs)] border px-1.5 py-0.5 text-[11px] font-medium leading-none",
-        source === "AI" || source === "UPLOAD" ? "border-primary/40 bg-primary-tint text-primary" : source === "BUILTIN" ? "bg-muted text-muted-foreground" : "bg-background text-foreground",
+        source === "AI" || source === "UPLOAD" ? "border-primary/40 bg-tint-soft text-tint-text" : source === "BUILTIN" ? "bg-fill-2 text-label-2" : "bg-background text-foreground",
         proposal && "border-dashed",
         className,
       )}

@@ -1062,7 +1062,81 @@
       "ruleOf": "Rule: {kind}",
       "must": "Must",
       "try": "Try to",
-      "off": "off"
+      "off": "off",
+      "moreFixes": "{n} more options"
+    },
+    "settings": {
+      "keyOkModel": "Key works · {model}",
+      "keyOk": "Key works",
+      "keyFail": {
+        "auth": "Key rejected",
+        "network": "Anthropic cannot be reached",
+        "quota": "Limit or credit used up",
+        "model": "This model is not available for the key",
+        "other": "The test failed"
+      },
+      "keyFixHint": {
+        "auth": "Copy the key again from console.anthropic.com; it may be revoked or mistyped.",
+        "network": "The server has no internet access or a proxy blocks it. Ask your IT team.",
+        "quota": "Check the plan and credits of this key on console.anthropic.com.",
+        "model": "Choose another model below and test again.",
+        "other": "Try again in a minute. If it keeps failing, check the backend log."
+      },
+      "keyUntested": "Saved, not tested yet",
+      "testFirst": "Test before saving",
+      "modelOpus": "Strongest reasoning, slowest and most expensive",
+      "modelSonnet": "Balanced; the default for rules and chat",
+      "modelHaiku": "Fastest and cheapest, for short answers",
+      "modelHint": "Used for writing rules in your own words and for the chat.",
+      "appearance": "Appearance",
+      "appearanceHint": "Saved for you on this browser.",
+      "themeHint": "System follows your computer's light or dark mode.",
+      "accent": "Accent colour",
+      "accentHint": "Used for buttons, links and selection only.",
+      "accents": {
+        "blue": "Blue",
+        "indigo": "Indigo",
+        "teal": "Teal",
+        "graphite": "Graphite",
+        "orange": "Orange"
+      },
+      "density": "Density",
+      "densityHint": "Compact fits more periods on the timetable.",
+      "comfortable": "Comfortable",
+      "compact": "Compact",
+      "accessibility": "Accessibility",
+      "accessibilityHint": "Useful on shared lab computers where the system settings are locked.",
+      "reduceMotion": "Reduce motion",
+      "reduceMotionHint": "Replaces sliding, scaling and springs with short fades.",
+      "reduceTransparency": "Reduce transparency",
+      "reduceTransparencyHint": "Makes glass surfaces opaque for better legibility.",
+      "languageHint": "Turkish and English; dates and numbers follow the language.",
+      "periodsHint": "The university's 18 periods; period 12 is 30 minutes.",
+      "subtitleUser": "Language, appearance and accessibility."
+    },
+    "chat": {
+      "moveLabel": "Move {label} from {from} to {to}",
+      "applied": "{n} changes applied",
+      "applyFailed": "The changes could not be applied. Nothing was changed.",
+      "colClass": "Class",
+      "colFrom": "Now",
+      "colTo": "Proposed",
+      "diffHint": "Untick a row to leave it out",
+      "diffSummary": "{n} moves selected",
+      "applyN": "Apply {n}",
+      "appliedN": "{n} applied",
+      "applyRules": "Add the rules",
+      "elapsed": "{s} s",
+      "noKeyToast": "The assistant needs an AI key. Your text is kept.",
+      "sendFailed": "The assistant did not answer. Your text is kept; try again.",
+      "noKey": "The assistant needs an AI key.",
+      "openSettings": "Add it in Settings",
+      "askAdmin": "Ask your administrator to add one."
+    },
+    "studio": {
+      "weekN": "Week {n}",
+      "weekShort": "W{n}",
+      "weekHint": "Click a week to plan only that week; hold ⌘, Ctrl or ⇧ to add more weeks."
     }
   }
 }

@@ -22,7 +22,7 @@ function ToggleChip({ on, onClick, children, label }: { on: boolean; onClick: ()
       aria-pressed={on}
       aria-label={label}
       onClick={onClick}
-      className={cn("min-h-8 rounded-md border px-2 text-xs pointer-coarse:min-h-11", on ? "border-primary bg-primary-tint font-medium text-primary" : "hover:bg-muted")}
+      className={cn("min-h-8 rounded-xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] px-2 text-xs pointer-coarse:min-h-11", on ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")}
     >
       {children}
     </button>
@@ -81,7 +81,7 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
               {t("studio.rule.nClasses", { n: v.event_ids.length })}
             </label>
           ) : null}
-          {v.mode === "other" ? <p className="text-xs text-muted-foreground">{v.text}</p> : null}
+          {v.mode === "other" ? <p className="text-xs text-label-2">{v.text}</p> : null}
         </div>
       );
     }
@@ -183,7 +183,7 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
           <SearchBox value={q} onChange={setQ} label={t("common.room")} />
           <div className="max-h-56 space-y-0.5 overflow-y-auto" role="group" aria-label={t("common.rooms")}>
             {list.map((r) => (
-              <label key={r.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-muted">
+              <label key={r.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2">
                 <input
                   type={single ? "radio" : "checkbox"}
                   name={single ? "room-pick" : undefined}
@@ -191,13 +191,13 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
                   onChange={() => onChange(single ? r.id : toggle(nums, r.id))}
                 />
                 <span className="font-mono">{r.display_name}</span>
-                <span className="ml-auto text-xs text-muted-foreground">
+                <span className="ml-auto text-xs text-label-2">
                   {r.capacity} {t("common.seats")}
                 </span>
               </label>
             ))}
           </div>
-          {!single && chosen.length > 1 && field.ordered ? <p className="text-xs text-muted-foreground">{t("studio.slot.ordered", { list: chosen.map(sentence.roomCode).join(" › ") })}</p> : null}
+          {!single && chosen.length > 1 && field.ordered ? <p className="text-xs text-label-2">{t("studio.slot.ordered", { list: chosen.map(sentence.roomCode).join(" › ") })}</p> : null}
         </div>
       );
     }
@@ -208,12 +208,12 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
           <SearchBox value={q} onChange={setQ} label={t("requests.course")} />
           <div className="max-h-56 space-y-0.5 overflow-y-auto" role="group" aria-label={t("requests.course")}>
             {list.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-muted">
+              <label key={c.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2">
                 <input type="checkbox" checked={nums.includes(c.id)} onChange={() => onChange(toggle(nums, c.id))} />
                 <span className="font-mono text-xs">
                   {c.course_code} §{c.section_label}
                 </span>
-                <span className="truncate text-xs text-muted-foreground">{c.program_name}</span>
+                <span className="truncate text-xs text-label-2">{c.program_name}</span>
               </label>
             ))}
           </div>
@@ -247,11 +247,11 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
       const set = (x: number) => onChange(Math.max(min, Math.min(max, x)));
       return (
         <div className="flex items-center gap-1">
-          <button type="button" className="inline-flex size-8 items-center justify-center rounded-md border hover:bg-muted pointer-coarse:size-11" aria-label={t("studio.slot.less")} onClick={() => set(n - 1)}>
+          <button type="button" className="inline-flex size-8 items-center justify-center rounded-md border hover:bg-fill-2 pointer-coarse:size-11" aria-label={t("studio.slot.less")} onClick={() => set(n - 1)}>
             <Minus className="size-3.5" aria-hidden />
           </button>
           <Input type="number" className="w-16 text-center" min={min} max={max} value={n} aria-label={field.name} onChange={(e) => set(Number(e.target.value))} />
-          <button type="button" className="inline-flex size-8 items-center justify-center rounded-md border hover:bg-muted pointer-coarse:size-11" aria-label={t("studio.slot.more")} onClick={() => set(n + 1)}>
+          <button type="button" className="inline-flex size-8 items-center justify-center rounded-md border hover:bg-fill-2 pointer-coarse:size-11" aria-label={t("studio.slot.more")} onClick={() => set(n + 1)}>
             <Plus className="size-3.5" aria-hidden />
           </button>
         </div>
@@ -266,7 +266,7 @@ function SearchBox({ value, onChange, label }: { value: string; onChange: (v: st
   const { t } = useI18n();
   return (
     <div className="relative">
-      <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+      <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-label-2" aria-hidden />
       <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={t("common.search")} aria-label={`${t("common.search")}: ${label}`} className="pl-7" />
     </div>
   );
@@ -278,7 +278,7 @@ export function SlotChip({ slot, onChange, readOnly, uncertain }: { slot: Slot; 
   const [draft, setDraft] = useState<unknown>(slot.value);
   const cls = cn(
     "mx-0.5 inline-flex max-w-full items-center rounded-[var(--radius-xs)] border px-1.5 py-0.5 align-baseline text-[0.95em] font-medium leading-snug",
-    slot.empty ? "border-dashed border-status-warning-border text-status-warning-fg" : "border-border-strong/60 bg-muted/60 text-foreground",
+    slot.empty ? "border-dashed border-status-warning-border text-status-warning-fg" : "border-border-strong/60 bg-fill-2/60 text-foreground",
     uncertain && "underline decoration-dotted underline-offset-4",
   );
   if (readOnly || !onChange) return <span className={cls}>{slot.display}</span>;
@@ -294,7 +294,7 @@ export function SlotChip({ slot, onChange, readOnly, uncertain }: { slot: Slot; 
         <span className="truncate">{slot.display}</span>
       </PopoverTrigger>
       <PopoverContent className="w-80" align="start">
-        <p className="text-xs font-medium text-muted-foreground">
+        <p className="text-xs font-medium text-label-2">
           {t(slotNameKey(slot.field.type))}
           {slot.field.required ? ` ${t("studio.builder.required")}` : ""}
         </p>

@@ -99,9 +99,11 @@ export function ProposalCard({ item, meta, onAccept, onReject, onChange, onKeyDo
         params={p.params}
         actions={
           <>
+<span className="inline-flex" data-testid="rule-accept">
             <Button size="sm" onClick={onAccept} disabled={busy || p.status === "rejected"} data-testid="tray-accept" aria-keyshortcuts="a">
               <Check aria-hidden /> {t("studio.tray.accept")}
             </Button>
+            </span>
             <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)} aria-pressed={editing} aria-keyshortcuts="e">
               <Pencil aria-hidden /> {t("common.edit")}
             </Button>
@@ -154,7 +156,7 @@ export function ReviewTray({ items, meta, onAccept, onReject, onUpdate }: { item
   };
 
   return (
-    <section aria-labelledby="tray-title" className="rounded-xl border border-dashed border-primary/40 bg-primary-tint/30 p-3 sm:p-4" data-testid="review-tray">
+    <section aria-labelledby="tray-title" className="rounded-xl border border-dashed border-primary/40 bg-tint-soft/30 p-3 sm:p-4" data-testid="review-tray">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h3 id="tray-title" ref={heading} tabIndex={-1} className="flex-1 text-sm font-semibold outline-none">
           {t("studio.tray.title", { n: pending.length })}

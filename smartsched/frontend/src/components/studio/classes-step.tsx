@@ -161,10 +161,10 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-xs font-semibold">{(r.course_code ?? "").toLocaleUpperCase(locale === "tr" ? "tr-TR" : "en-US")}</span>
-                {r.section_label ? <span className="text-xs text-muted-foreground">§{r.section_label}</span> : null}
-                {rowState.excluded.has(r.id) ? <span className="rounded border px-1 text-[10px] text-muted-foreground">{t("studio.classes.leftOutChip")}</span> : null}
+                {r.section_label ? <span className="text-xs text-label-2">§{r.section_label}</span> : null}
+                {rowState.excluded.has(r.id) ? <span className="rounded border px-1 text-[10px] text-label-2">{t("studio.classes.leftOutChip")}</span> : null}
               </div>
-              <div className="truncate text-xs text-muted-foreground" title={r.course_name ?? ""}>
+              <div className="truncate text-xs text-label-2" title={r.course_name ?? ""}>
                 {r.course_name}
               </div>
             </div>
@@ -179,9 +179,9 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           <div className="min-w-0 text-xs">
             <div className="truncate" title={`${row.original.faculty_name ?? ""} › ${row.original.program_name ?? ""}`}>
               {row.original.program_name}
-              {row.original.is_evening ? <span className="ml-1 rounded bg-muted px-1 text-[10px]">İÖ</span> : null}
+              {row.original.is_evening ? <span className="ml-1 rounded bg-fill-2 px-1 text-[10px]">İÖ</span> : null}
             </div>
-            <div className="truncate text-muted-foreground">{row.original.faculty_name}</div>
+            <div className="truncate text-label-2">{row.original.faculty_name}</div>
           </div>
         ),
         size: 200,
@@ -388,11 +388,11 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
 
   return (
     <div className="space-y-3" data-testid="classes-step">
-      <p className="text-sm text-muted-foreground">{t("studio.classes.helper")}</p>
+      <p className="text-sm text-label-2">{t("studio.classes.helper")}</p>
 
       <div className="flex flex-wrap items-center gap-2" role="search">
         <div className="relative w-full sm:w-64">
-          <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-label-2" aria-hidden />
           <Input ref={search} value={filters.q} onChange={(e) => set({ q: e.target.value })} placeholder={t("studio.classes.search")} aria-label={t("studio.classes.search")} aria-keyshortcuts="/" className="pl-7" data-testid="class-search" />
         </div>
         {narrow ? (
@@ -412,14 +412,14 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
 
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label={t("studio.classes.quickTitle")}>
         {QUICK_FILTERS.map((q) => (
-          <button key={q} type="button" aria-pressed={filters.quick === q} onClick={() => set({ quick: filters.quick === q ? null : q })} className={cn("shrink-0 rounded-full border px-2.5 py-1 text-xs pointer-coarse:min-h-11", filters.quick === q ? "border-primary bg-primary-tint font-medium text-primary" : "hover:bg-muted")} data-testid={`quick-${q}`}>
-            {t(QUICK_KEY[q])} <span className="tabular-nums text-muted-foreground">{n(counts[q])}</span>
+          <button key={q} type="button" aria-pressed={filters.quick === q} onClick={() => set({ quick: filters.quick === q ? null : q })} className={cn("shrink-0 rounded-full border px-2.5 py-1 text-xs pointer-coarse:min-h-11", filters.quick === q ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")} data-testid={`quick-${q}`}>
+            {t(QUICK_KEY[q])} <span className="tabular-nums text-label-2">{n(counts[q])}</span>
           </button>
         ))}
       </div>
 
       {ruleFilter ? (
-        <div className="flex items-center gap-2 rounded-md bg-primary-tint px-2.5 py-1.5 text-sm">
+        <div className="flex items-center gap-2 rounded-md bg-tint-soft px-2.5 py-1.5 text-sm">
           <span className="min-w-0 flex-1 truncate">{t("studio.classes.byRule", { rule: plainRuleText(meta, ruleFilter.kind, ruleFilter.params, ruleFilter.nl_text, sentence) })}</span>
           <Button size="icon-xs" variant="ghost" aria-label={t("studio.classes.clear")} onClick={() => set({ ruleId: null })}>
             <X aria-hidden />
@@ -428,12 +428,12 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
       ) : null}
 
       {active > 0 && shown.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5 text-sm" data-testid="only-these-bar">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-fill-3 px-2.5 py-1.5 text-sm" data-testid="only-these-bar">
           <span>{t("studio.classes.matchBar", { n: n(shown.length) })}</span>
           <Button size="sm" variant="outline" onClick={onlyThese} data-testid="only-these">
             {t("studio.classes.onlyThese", { n: n(shown.length) })}
           </Button>
-          <span className="text-xs text-muted-foreground">{t("studio.classes.onlyTheseHint", { n: n(Math.max(0, rows.length - shown.length)) })}</span>
+          <span className="text-xs text-label-2">{t("studio.classes.onlyTheseHint", { n: n(Math.max(0, rows.length - shown.length)) })}</span>
           <Button size="sm" variant="ghost" onClick={() => exclude(shown.map((r) => r.id), t("studio.history.leftOut"))}>
             {t("studio.classes.leaveTheseOut")}
           </Button>
@@ -447,16 +447,16 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-lg border p-6 text-center text-sm">
+        <div className="rounded-2xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] p-6 text-center text-sm">
           <p>{t("studio.scope.nothingToPlan")}</p>
           <Button className="mt-3" render={<Link href={kind === "EXAM" ? "/import?source=exam" : "/import?source=planning"} />}>
             {t("studio.scope.importCta")}
           </Button>
         </div>
       ) : shown.length === 0 ? (
-        <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground" data-testid="classes-empty">
+        <div className="rounded-2xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] p-6 text-center text-sm text-label-2" data-testid="classes-empty">
           {t("studio.classes.empty")}{" "}
-          <button type="button" className="font-medium text-primary underline" onClick={() => setFilters(EMPTY_FILTERS)}>
+          <button type="button" className="font-medium text-tint-text underline" onClick={() => setFilters(EMPTY_FILTERS)}>
             {t("studio.classes.clear")}
           </button>
         </div>
@@ -472,10 +472,10 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                     <Checkbox checked={selected.has(r.id)} onClick={(e) => { e.preventDefault(); toggleSelect(r.id, false); }} aria-label={t("studio.classes.selectRow", { name: `${r.course_code} §${r.section_label ?? ""}` })} className="mt-1" />
                     <div className="min-w-0 flex-1 text-sm">
                       <p className="font-mono text-xs font-semibold">
-                        {r.course_code} <span className="text-muted-foreground">§{r.section_label}</span> {out ? <span className="ml-1 rounded border px-1 font-sans text-[10px] font-normal text-muted-foreground">{t("studio.classes.leftOutChip")}</span> : null}
+                        {r.course_code} <span className="text-label-2">§{r.section_label}</span> {out ? <span className="ml-1 rounded border px-1 font-sans text-[10px] font-normal text-label-2">{t("studio.classes.leftOutChip")}</span> : null}
                       </p>
                       <p className="truncate text-xs">{r.course_name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{r.program_name}</p>
+                      <p className="truncate text-xs text-label-2">{r.program_name}</p>
                       <p className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                         <DayTimeCell row={r} onSave={(p) => save(r, p)} />
                         <span>· {t("studio.classes.studentsN", { n: r.enrolment ?? "—" })}</span>
@@ -501,7 +501,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id}>
                   {hg.headers.map((h, i) => (
-                    <th key={h.id} scope="col" className={cn("border-b bg-background px-2 py-2 text-left text-xs font-medium whitespace-nowrap text-muted-foreground", i < 3 && "xl:sticky xl:z-[3]", i === 0 && "xl:left-0", i === 1 && "xl:left-9", i === 2 && "xl:left-[100px]")}>
+                    <th key={h.id} scope="col" className={cn("border-b bg-background px-2 py-2 text-left text-xs font-medium whitespace-nowrap text-label-2", i < 3 && "xl:sticky xl:z-[3]", i === 0 && "xl:left-0", i === 1 && "xl:left-9", i === 2 && "xl:left-[100px]")}>
                       {flexRender(h.column.columnDef.header, h.getContext())}
                     </th>
                   ))}
@@ -529,7 +529,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                     aria-rowindex={v.index + 1}
                     aria-selected={selected.has(r.id)}
                     onKeyDown={(e) => onRowKey(e, r, v.index)}
-                    className={cn("group/row outline-none focus-visible:bg-primary-tint", out && "opacity-60", selected.has(r.id) && "bg-primary-tint/60")}
+                    className={cn("group/row outline-none focus-visible:bg-tint-soft", out && "opacity-60", selected.has(r.id) && "bg-tint-soft/60")}
                     data-testid="class-row"
                     data-class-id={r.id}
                     data-included={!out}
@@ -552,7 +552,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground" data-testid="classes-footer">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-label-2" data-testid="classes-footer">
         <span>{t("studio.classes.footer", { in: n(inPlan), out: n(rowState.excluded.size), pinned: n(local.pins.length) })}</span>
         {changedRows.length ? (
           <>
@@ -612,7 +612,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           <div className="px-4 pb-4">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-label-2">
                   <th className="py-1 font-medium">{t("studio.classes.col.course")}</th>
                   <th className="py-1 font-medium">{t("studio.classes.field")}</th>
                   <th className="py-1 font-medium">{t("studio.classes.imported")}</th>
@@ -628,7 +628,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                         {r.course_code} §{r.section_label}
                       </td>
                       <td className="py-1.5 text-xs">{c.field}</td>
-                      <td className="py-1.5 text-xs text-muted-foreground line-through">{fmt(c.imported)}</td>
+                      <td className="py-1.5 text-xs text-label-2 line-through">{fmt(c.imported)}</td>
                       <td className="py-1.5 text-xs">{fmt(c.current)}</td>
                       <td className="py-1.5 text-right">
                         <Button size="xs" variant="outline" onClick={() => void edits.revert(r, [c.field])}>
@@ -645,7 +645,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                 {t("studio.classes.revertAll")}
               </Button>
             ) : (
-              <p className="text-sm text-muted-foreground">{t("studio.classes.noChanges")}</p>
+              <p className="text-sm text-label-2">{t("studio.classes.noChanges")}</p>
             )}
           </div>
         </SheetContent>

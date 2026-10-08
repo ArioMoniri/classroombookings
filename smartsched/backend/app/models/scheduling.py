@@ -6,7 +6,7 @@ from datetime import date as date_
 from datetime import time
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, Date, ForeignKey, Integer, String, Text, Time, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Date, ForeignKey, Integer, String, Text, Time, UniqueConstraint, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -178,3 +178,15 @@ class ConstraintRow(TimestampMixin, Base):
     nl_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+
+@event.listens_for(ConstraintRow, "before_insert")
+@event.listens_for(ConstraintRow, "before_update")
+def _canonical_selectors(_mapper: Any, _conn: Any, row: ConstraintRow) -> None:
+    """Every write path (CRUD, studio accept/copy/presets, AI accept, chat) stores cohort keys and
+    programme selectors in the one canonical form (usability U1)."""
+    from app.importers.normalize import normalize_selector_params
+
+    norm = normalize_selector_params(row.params)
+    if norm != (row.params or {}):
+        row.params = norm

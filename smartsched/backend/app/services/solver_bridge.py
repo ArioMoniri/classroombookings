@@ -116,7 +116,9 @@ def _cohort_keys(program: str | None, years: list[Any]) -> frozenset[str]:
     row with no class year (electives, graduate pools) must not be treated as one giant cohort."""
     if not program:
         return frozenset()
-    return frozenset(f"PROG:{program}:Y{int(y)}" for y in years if y is not None and int(y) > 0)
+    from app.importers.normalize import cohort_key
+
+    return frozenset(cohort_key(program, y) for y in years if y is not None and int(y) > 0)
 
 
 #: run params (``ScheduleRun.params``) of the real-data modes and their defaults; see app/solver/README.md
@@ -129,6 +131,21 @@ MODE_DEFAULTS: dict[str, Any] = {
     # term runs: a room blocked in some weeks only moves those weeks (week segments, app/solver/weeksplit.py)
     "split_blocked_weeks": True,
 }
+
+
+def events_for_requests(params: dict[str, Any], members: dict[int, list[int]]) -> dict[str, Any]:
+    """``params["event_ids"]`` hold request ids (meeting / exam requests); a request merged into a joint
+    lecture or a shared exam is solved as its head event: map member ids to the head (usability U3)."""
+    ids = params.get("event_ids")
+    if not isinstance(ids, list) or not members:
+        return params
+    head_of = {m: h for h, ms in members.items() for m in ms}
+    mapped = list(
+        dict.fromkeys(
+            head_of.get(int(i), int(i)) for i in ids if isinstance(i, int | str) and str(i).lstrip("-").isdigit()
+        )
+    )
+    return params if mapped == ids else {**params, "event_ids": mapped}
 
 
 def run_mode(params: dict[str, Any] | None, key: str) -> Any:
@@ -613,8 +630,18 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         .scalars()
         .all()
     )
-    constraints = tuple(
-        sm.Constraint(c.kind, dict(c.params or {}), c.hardness == "hard", int(c.weight or 1), c.id) for c in cons
+    from app.importers.normalize import normalize_selector_params
+
+    constraints = tuple(  # cohort / programme selectors in the one canonical form (usability U1); request ids of
+        # merged joint-lecture members point at their solver event (usability U3)
+        sm.Constraint(
+            c.kind,
+            events_for_requests(normalize_selector_params(c.params), members),
+            c.hardness == "hard",
+            int(c.weight or 1),
+            c.id,
+        )
+        for c in cons
     )
 
     previous: list[sm.Assignment] = []

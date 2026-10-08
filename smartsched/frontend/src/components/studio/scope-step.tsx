@@ -38,8 +38,14 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
     dispatch({ type: "setScope", horizon, horizon_params: hp });
     store.getState().record({ label: t("studio.history.scope"), undo: () => dispatch({ type: "setScope", ...before }), redo: () => dispatch({ type: "setScope", horizon, horizon_params: hp }) });
   };
-  const toggleWeek = (i: number) => {
+  /** Plain click/Enter **replaces** the selection (usability M10: W1 stayed selected and W3 was added);
+   *  ⌘/Ctrl/⇧ + click adds or removes one week, like selecting files in Finder or Explorer. */
+  const pickWeek = (i: number, additive: boolean) => {
     if (local.horizon === "MONTH") return setScope("MONTH", undefined, i);
+    if (!additive) {
+      if (chosen.length === 1 && chosen[0] === i) return;
+      return setScope("WEEK", [i]);
+    }
     const next = chosen.includes(i) ? chosen.filter((x) => x !== i) : [...chosen, i].sort((a, b) => a - b);
     setScope("WEEK", next);
   };
@@ -51,7 +57,7 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
 
   if (noTerm)
     return (
-      <div className="rounded-lg border p-6 text-center text-sm" data-testid="scope-step">
+      <div className="rounded-2xl bg-fill-3 p-6 text-sm" data-testid="scope-step">
         <p>{t("studio.scope.noTerm")}</p>
         {isAdmin ? (
           <Button className="mt-3" render={<Link href="/settings" />}>
@@ -137,44 +143,49 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
                       aria-pressed={on}
                       disabled={holiday}
                       title={holiday ? t("studio.scope.holiday", { label: w.label }) : w.label}
-                      aria-label={`W${w.index} ${formatDate(w.start_date, locale)}${holiday ? `, ${t("studio.scope.holiday", { label: w.label })}` : ""}`}
-                      onClick={() => toggleWeek(w.index)}
-                      className={cn("flex min-w-14 flex-col items-center rounded-md border px-2 py-1 text-xs pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50", on ? "border-primary bg-primary-tint text-primary" : "hover:bg-muted", holiday && "hatch-preoccupied")}
+                      aria-label={`${t("glass.studio.weekN", { n: w.index })} ${formatDate(w.start_date, locale)}${holiday ? `, ${t("studio.scope.holiday", { label: w.label })}` : ""}`}
+                      onClick={(e) => pickWeek(w.index, e.metaKey || e.ctrlKey || e.shiftKey)}
+                      className={cn(
+                        "flex min-w-14 flex-col items-center rounded-xl px-2.5 py-1.5 text-[12px] outline-none transition-[background-color,color,transform] duration-(--dur-fast) ease-(--spring-snappy) active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
+                        on ? "bg-tint-soft text-tint-text shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_35%,transparent)]" : "bg-fill-3 text-label-1 shadow-[inset_0_0_0_1px_var(--hairline)] hover:bg-fill-2",
+                        holiday && "hatch-preoccupied",
+                      )}
                       data-testid={`week-${w.index}`}
                     >
-                      <span className="font-mono font-semibold">W{w.index}</span>
-                      <span className="text-[10px] text-muted-foreground">{formatDate(w.start_date, locale)}</span>
+                      <span className="font-semibold tabular-nums">{t("glass.studio.weekShort", { n: w.index })}</span>
+                      <span className={cn("text-[11px]", on ? "text-tint-text" : "text-label-3")}>{formatDate(w.start_date, locale, { day: "numeric", month: "short" })}</span>
                     </button>
                   );
                 })}
             </div>
           )}
+          {local.horizon === "WEEK" ? <p className="text-[12px] text-label-3">{t("glass.studio.weekHint")}</p> : null}
           {local.horizon === "WEEK" && chosen.length === 0 ? <p className="text-xs text-status-warning-fg">{t("studio.scope.pickWeeks")}</p> : null}
         </div>
       ) : null}
 
       {nothing ? (
-        <div className="rounded-lg border p-4 text-sm" data-testid="scope-empty">
+        <div className="rounded-2xl bg-fill-3 p-4 text-sm shadow-[inset_0_0_0_1px_var(--hairline)]" data-testid="scope-empty">
           <p>{t("studio.scope.nothingToPlan")}</p>
           <Button className="mt-3" render={<Link href={kind === "EXAM" ? "/import?source=exam" : "/import?source=planning"} />}>
             {t("studio.scope.importCta")}
           </Button>
         </div>
       ) : (
-        <div className="rounded-lg border bg-muted/40 p-4">
+        <div className="rounded-2xl bg-fill-3 p-4 shadow-[inset_0_0_0_1px_var(--hairline)]">
           <p className="text-base" aria-live="polite" data-testid="scope-sentence">
             {classesLoading && !classes ? t("studio.scope.counting") : t("studio.scope.sentence", { n: n(summary.classesIn), rooms: n(summary.rooms), weeks: n(summary.weeks.length) })}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">{t("studio.scope.line2", { out: n(summary.classesOut), pinned: n(summary.pinned), holidays: n(holidays) })}</p>
+          <p className="mt-1 text-sm text-label-2">{t("studio.scope.line2", { out: n(summary.classesOut), pinned: n(summary.pinned), holidays: n(holidays) })}</p>
           {summaryData?.last_good_run ? (
             <p className="mt-2 text-sm">
-              <Link href={`/runs/${summaryData.last_good_run.id}`} className="text-primary underline-offset-2 hover:underline">
+              <Link href={`/runs/${summaryData.last_good_run.id}`} className="text-tint-text underline-offset-2 hover:underline">
                 {t("studio.scope.lastRun", { id: summaryData.last_good_run.id, when: relDays(summaryData.last_good_run.finished_at, locale) })}
               </Link>
-              {summaryData.last_good_run.hard_score === 100 ? <span className="text-muted-foreground"> · {t("studio.scope.allRulesMet")}</span> : null}
+              {summaryData.last_good_run.hard_score === 100 ? <span className="text-label-2"> · {t("studio.scope.allRulesMet")}</span> : null}
             </p>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">{t("studio.scope.noRun")}</p>
+            <p className="mt-2 text-sm text-label-2">{t("studio.scope.noRun")}</p>
           )}
         </div>
       )}

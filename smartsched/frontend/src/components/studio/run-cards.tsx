@@ -88,14 +88,14 @@ export function RunCard({ compact }: { compact?: boolean }) {
       data-status={r?.status ?? "QUEUED"}
     >
       <h3 id="run-status-title" tabIndex={-1} className="flex items-center gap-2 font-semibold outline-none" aria-live={live}>
-        {!r || running ? <Loader2 className="size-4 animate-spin text-primary" aria-hidden /> : GOOD.has(r.status) ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : r.status === "INFEASIBLE" ? <OctagonX className="size-4 text-status-infeasible-fg" aria-hidden /> : <XCircle className="size-4 text-status-infeasible-fg" aria-hidden />}
+        {!r || running ? <Loader2 className="size-4 animate-spin text-tint-text" aria-hidden /> : GOOD.has(r.status) ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : r.status === "INFEASIBLE" ? <OctagonX className="size-4 text-status-infeasible-fg" aria-hidden /> : <XCircle className="size-4 text-status-infeasible-fg" aria-hidden />}
         {t("studio.run.title", { id: active.runId })} · {r ? t(`runs.status.${r.status}`) : t("runs.status.QUEUED")}
       </h3>
 
       {!r || running ? (
         <div className="mt-2 space-y-2">
           <Progress value={r?.progress ?? 0} aria-label={t("generate.progress", { pct: r?.progress ?? 0 })} />
-          <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+          <p className="flex flex-wrap gap-x-3 text-xs text-label-2">
             <span>{r?.status === "RUNNING" ? t("studio.run.phaseSolving", { pct: r.progress }) : t("studio.run.phaseQueued")}</span>
             <span>{t("studio.run.mustBroken", { n: 0 })}</span>
             <span className="inline-flex items-center gap-1">
@@ -147,7 +147,7 @@ export function RunCard({ compact }: { compact?: boolean }) {
       ) : r.status === "INFEASIBLE" ? (
         <div className="mt-2 space-y-2">
           <p>{t("studio.run.infeasible", { n: r.diagnosis.length })}</p>
-          <ul className="space-y-1 text-xs text-muted-foreground">
+          <ul className="space-y-1 text-xs text-label-2">
             {r.diagnosis.slice(0, 3).map((d) => (
               <li key={d.id}>· {d.message}</li>
             ))}
@@ -167,7 +167,7 @@ export function RunCard({ compact }: { compact?: boolean }) {
       ) : (
         <div className="mt-2 space-y-2">
           <p>{t("studio.run.failed")}</p>
-          <p className="font-mono text-xs text-muted-foreground">{String(r.stats.error_id ?? r.stats.error ?? `run-${r.id}`)}</p>
+          <p className="font-mono text-xs text-label-2">{String(r.stats.error_id ?? r.stats.error ?? `run-${r.id}`)}</p>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={adjust}>
               {t("studio.run.tryAgain")}
@@ -193,7 +193,7 @@ function DeltaLine({ cur, prev }: { cur: ScheduleRun; prev: ScheduleRun }) {
   const { t, n } = useI18n();
   const d = compareRuns(cur, prev);
   return (
-    <p className="text-xs text-muted-foreground" data-testid="run-delta">
+    <p className="text-xs text-label-2" data-testid="run-delta">
       {t("studio.run.vs", { id: prev.id })}: {t("studio.run.deltaPrefs", { d: signed(d.soft, (x) => n(x)) })} · {t("studio.run.deltaPlaced", { d: signed(d.placed, (x) => n(x)) })}
     </p>
   );
@@ -212,7 +212,7 @@ export function CompareTable({ cur, prev }: { cur: ScheduleRun; prev: ScheduleRu
   return (
     <table className="w-full text-xs" data-testid="compare-table">
       <thead>
-        <tr className="text-left text-muted-foreground">
+        <tr className="text-left text-label-2">
           <th className="py-1 font-medium" />
           <th className="py-1 text-right font-medium">#{prev.id}</th>
           <th className="py-1 text-right font-medium">#{cur.id}</th>
@@ -249,11 +249,11 @@ export function RunHistory() {
       <ul className="divide-y rounded-lg border text-sm">
         {list.map((r) => (
           <li key={r.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
-            <Link href={`/runs/${r.id}`} className="font-mono text-primary hover:underline">
+            <Link href={`/runs/${r.id}`} className="font-mono text-tint-text hover:underline">
               #{r.id}
             </Link>
             <span className="text-xs">{t(`runs.status.${r.status}`)}</span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-label-2">
               {r.hard_score ?? "—"}/{r.soft_score ?? "—"}
             </span>
             {GOOD.has(r.status) ? (

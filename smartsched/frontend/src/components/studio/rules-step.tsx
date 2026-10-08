@@ -116,7 +116,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
       </div>
 
       {firstVisit ? (
-        <div className="rounded-lg border bg-primary-tint/40 p-3 text-sm" data-testid="rules-explainer">
+        <div className="rounded-lg border bg-tint-soft/40 p-3 text-sm" data-testid="rules-explainer">
           {t("studio.rules.explainer")}
         </div>
       ) : null}
@@ -166,7 +166,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
             {t("studio.rules.listTitle")}
           </h3>
           <div className="relative w-full sm:w-56">
-            <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-label-2" aria-hidden />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("studio.rules.search")} aria-label={t("studio.rules.search")} className="pl-7" />
           </div>
           <NativeSelect className="w-auto min-w-36" aria-label={t("studio.rules.source")} value={source} onChange={(e) => setSource(e.target.value)}>
@@ -201,7 +201,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
         ) : (
           groups.map((g) => (
             <RuleGroup key={g.key} id={g.key} label={g.label} count={g.items.length} collapsed={collapsed.has(g.key)} onToggle={() => toggleGroup(g.key)}>
-              {g.items.length === 0 ? <p className="text-sm text-muted-foreground">{t("studio.rules.groupEmpty")}</p> : null}
+              {g.items.length === 0 ? <p className="text-sm text-label-2">{t("studio.rules.groupEmpty")}</p> : null}
               <ul className="space-y-2">
                 {g.items.map((e) => (
                   <li key={e.rule.id}>
@@ -275,7 +275,7 @@ function RuleGroup({ id, label, count, collapsed, onToggle, children }: { id: st
       <h4 id={`grp-${id}`}>
         <button type="button" onClick={onToggle} aria-expanded={!collapsed} className="flex w-full items-center gap-2 rounded-md py-1 text-sm font-semibold hover:text-primary pointer-coarse:min-h-11">
           <ChevronDown className={cn("size-4 transition-transform duration-[var(--dur-fast)]", collapsed && "-rotate-90")} aria-hidden />
-          {label} <span className="font-normal text-muted-foreground">({count})</span>
+          {label} <span className="font-normal text-label-2">({count})</span>
         </button>
       </h4>
       {collapsed ? null : children}

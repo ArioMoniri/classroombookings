@@ -20,6 +20,7 @@ from app.importers.normalize import (
     PERIODS,
     canon_course_code,
     extract_course_codes,
+    normalize_selector_params,
     parse_class_year,
     parse_day,
     parse_mode,
@@ -335,7 +336,8 @@ def _selector_affected(
     from app.solver.constraints._common import is_targeted, select_events
 
     spec = catalog.KINDS.get(kind)
-    clean = {k: v for k, v in params.items() if not str(k).startswith("_")}
+    clean = normalize_selector_params({k: v for k, v in params.items() if not str(k).startswith("_")})
+    clean = st.solver_bridge.events_for_requests(clean, members)  # merged members -> their event (U3)
     c = sm.Constraint(kind, clean, True, 1, None)
     if spec is not None and not spec.selectable:
         if kind == "room_closed":

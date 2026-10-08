@@ -41,7 +41,7 @@ export function PresetMenu({ className, compact }: { className?: string; compact
             <DropdownMenuItem key={p.id} onClick={() => setApply(p)} data-testid="preset-item">
               <span className="min-w-0 flex-1">
                 <span className="block truncate">{p.name}</span>
-                <span className="block truncate text-xs text-muted-foreground">
+                <span className="block truncate text-xs text-label-2">
                   {p.author ?? "—"} · {formatDate(p.updated_at ?? p.created_at, locale)}
                 </span>
               </span>
@@ -128,7 +128,7 @@ function ApplyPresetDialog({ preset, onClose }: { preset: Preset | null; onClose
           <DialogDescription>{preset?.description ?? t("studio.preset.applyHelp")}</DialogDescription>
         </DialogHeader>
         {!diff ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <p className="flex items-center gap-2 text-sm text-label-2" role="status">
             <Loader2 className="size-4 animate-spin" aria-hidden /> {t("common.loading")}
           </p>
         ) : (
@@ -250,7 +250,7 @@ function ManagePresetsDialog({ open, onOpenChange, presets }: { open: boolean; o
             <li key={p.id} className="flex items-center gap-2 py-2">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{p.name}</p>
-                <p className="truncate text-xs text-muted-foreground">
+                <p className="truncate text-xs text-label-2">
                   {t("studio.preset.meta", { n: p.rules.length, author: p.author ?? "—", date: formatDate(p.updated_at ?? p.created_at, locale) })}
                 </p>
               </div>

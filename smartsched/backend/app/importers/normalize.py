@@ -1045,6 +1045,50 @@ def canon_program(value: Any) -> OrgParse | None:
     return OrgParse(name, _org_key(text), is_evening)
 
 
+def program_key(name: Any) -> str:
+    """Canonical programme key: equals ``Program.canonical_name`` for a programme of that name
+    (``"Hemşirelik"``, ``"HEMŞİRELİK"`` and ``"hemşirelik"`` -> ``"hemşirelik"``)."""
+    text = clean_text(name)
+    return _org_key(text) if text else ""
+
+
+_COHORT_RX = re.compile(r"^PROG:(?P<p>.*):Y(?P<y>\d+)$", re.S)
+
+
+def cohort_key(program: Any, year: Any) -> str:
+    """The one cohort key format (``PROG:<programme key>:Y<year>``) used by the bridge, studio rules,
+    templates, AI proposals and preview counts (usability U1)."""
+    return f"PROG:{program_key(program)}:Y{int(year)}"
+
+
+def normalize_cohort_key(key: Any) -> str:
+    m = _COHORT_RX.match(str(key or "").strip())
+    if m is None:
+        return str(key)
+    return cohort_key(m.group("p"), m.group("y"))
+
+
+def normalize_selector_params(params: dict[str, Any] | None) -> dict[str, Any]:
+    """Constraint params with cohort keys (``cohort``/``cohorts``) and programme selectors
+    (``program``/``programs``) in canonical form; everything else unchanged. Idempotent."""
+    if not params:
+        return dict(params or {})
+    out = dict(params)
+    for key in ("cohort", "cohorts"):
+        v = out.get(key)
+        if isinstance(v, str):
+            out[key] = normalize_cohort_key(v)
+        elif isinstance(v, list):
+            out[key] = list(dict.fromkeys(normalize_cohort_key(x) for x in v))
+    for key in ("program", "programs"):
+        v = out.get(key)
+        if isinstance(v, str) and v:
+            out[key] = program_key(v)
+        elif isinstance(v, list):
+            out[key] = list(dict.fromkeys(program_key(x) for x in v if x))
+    return out
+
+
 def split_program_names(value: Any) -> list[str]:
     text = clean_text(value)
     if not text:

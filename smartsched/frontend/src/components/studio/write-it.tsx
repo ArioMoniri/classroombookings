@@ -64,10 +64,11 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
   return (
     <div className="space-y-2" data-testid="write-it">
       <label htmlFor="studio-write" className="flex items-center gap-1.5 text-sm font-medium">
-        <Sparkles className="size-4 text-primary" aria-hidden /> {t("studio.write.label")}
+        <Sparkles className="size-4 text-label-2" aria-hidden /> {t("studio.write.label")}
       </label>
       <Textarea
         id="studio-write"
+        data-testid="rule-composer-input"
         ref={area}
         rows={3}
         value={text}
@@ -90,13 +91,13 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
           {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}
           {busy ? t("studio.write.reading") : t("studio.write.analyse")}
         </Button>
-        <span id="studio-write-hint" className="text-xs text-muted-foreground">
+        <span id="studio-write-hint" className="text-xs text-label-2">
           {t("studio.write.hint")}
         </span>
       </div>
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label={t("studio.write.suggestions")}>
         {CHIPS.map((k) => (
-          <button key={k} type="button" onClick={() => insert(t(k))} className="shrink-0 rounded-full border bg-background px-2.5 py-1 text-xs hover:bg-muted pointer-coarse:min-h-11">
+          <button key={k} type="button" onClick={() => insert(t(k))} className="shrink-0 rounded-full border bg-background px-2.5 py-1 text-xs hover:bg-fill-2 pointer-coarse:min-h-11">
             {t(k)}
           </button>
         ))}

@@ -77,7 +77,7 @@ export function PolicySwitches() {
   };
 
   return (
-    <fieldset className="rounded-lg border p-3" data-testid="policy-switches">
+    <fieldset className="rounded-2xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] p-3" data-testid="policy-switches">
       <legend className="px-1 text-sm font-medium">{t("studio.policy.title")}</legend>
       <ul className="grid gap-2 sm:grid-cols-2">
         {POLICIES.map((p) => {
@@ -107,11 +107,11 @@ export function BuiltinRules() {
         const enabled = !local.disabled_builtin_kinds.includes(b.kind);
         const reason = !b.disableable ? t("studio.builtin.always") : !isAdmin ? t("studio.builtin.adminOnly") : null;
         return (
-          <li key={b.kind} className="flex items-center gap-3 rounded-[var(--radius-md)] border bg-muted/40 p-3 text-sm">
-            <Shield className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <li key={b.kind} className="flex items-center gap-3 rounded-[var(--radius-md)] border bg-fill-3 p-3 text-sm">
+            <Shield className="size-4 shrink-0 text-label-2" aria-hidden />
             <span className="min-w-0 flex-1">
               {b.title[locale] || b.title.en}
-              {reason ? <span className="block text-xs text-muted-foreground">{reason}</span> : null}
+              {reason ? <span className="block text-xs text-label-2">{reason}</span> : null}
               {!enabled ? <span className="block text-xs text-status-warning-fg">{t("studio.builtin.offWarning")}</span> : null}
             </span>
             <Switch

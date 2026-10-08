@@ -170,11 +170,11 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
           onDragOver={(e) => e.preventDefault()}
           onDragLeave={() => setDrag(false)}
           onDrop={onDrop}
-          className={cn("flex flex-col items-center gap-2 rounded-[var(--radius-lg)] border-2 border-dashed p-5 text-center", drag ? "border-primary bg-primary-tint" : "border-border")}
+          className={cn("flex flex-col items-center gap-2 rounded-[var(--radius-lg)] border-2 border-dashed p-5 text-center", drag ? "border-primary bg-tint-soft" : "border-border")}
         >
-          <FileUp className="size-6 text-muted-foreground" aria-hidden />
+          <FileUp className="size-6 text-label-2" aria-hidden />
           <p className="text-sm">{drag ? t("studio.upload.release") : t("studio.upload.drop")}</p>
-          <p className="text-xs text-muted-foreground">{t("studio.upload.limits", { files: MAX_FILES, mb: 20 })}</p>
+          <p className="text-xs text-label-2">{t("studio.upload.limits", { files: MAX_FILES, mb: 20 })}</p>
           <Button size="sm" variant="outline" onClick={() => input.current?.click()} data-testid="upload-choose">
             {t("studio.upload.choose")}
           </Button>
@@ -192,7 +192,7 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
               e.target.value = "";
             }}
           />
-          <p className="text-xs text-muted-foreground">{t("studio.upload.examples")}</p>
+          <p className="text-xs text-label-2">{t("studio.upload.examples")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -207,7 +207,7 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
           {rows.map((r) => (
             <li key={r.id} className="rounded-md border p-2" data-testid="upload-row" data-stage={r.stage}>
               <div className="flex items-center gap-2 text-sm">
-                {r.stage === "ready" ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : r.stage === "error" || r.stage === "rejected" ? <AlertTriangle className="size-4 text-status-infeasible-fg" aria-hidden /> : r.stage === "mapping" ? <AlertTriangle className="size-4 text-status-warning-fg" aria-hidden /> : <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />}
+                {r.stage === "ready" ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : r.stage === "error" || r.stage === "rejected" ? <AlertTriangle className="size-4 text-status-infeasible-fg" aria-hidden /> : r.stage === "mapping" ? <AlertTriangle className="size-4 text-status-warning-fg" aria-hidden /> : <Loader2 className="size-4 animate-spin text-label-2" aria-hidden />}
                 <span className="min-w-0 flex-1 truncate font-medium" title={r.file.name}>
                   {r.file.name}
                 </span>
@@ -220,11 +220,11 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
                   <X aria-hidden />
                 </Button>
               </div>
-              <p role="status" className={cn("mt-1 text-xs", r.stage === "error" || r.stage === "rejected" ? "text-status-infeasible-fg" : "text-muted-foreground")}>
+              <p role="status" className={cn("mt-1 text-xs", r.stage === "error" || r.stage === "rejected" ? "text-status-infeasible-fg" : "text-label-2")}>
                 {stageLabel(r)}
               </p>
               {r.stage === "uploading" || r.stage === "reading" ? (
-                <div role="progressbar" aria-label={r.file.name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={r.stage === "reading" ? undefined : r.percent} className="mt-1 h-1 overflow-hidden rounded-full bg-muted">
+                <div role="progressbar" aria-label={r.file.name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={r.stage === "reading" ? undefined : r.percent} className="mt-1 h-1 overflow-hidden rounded-full bg-fill-2">
                   <div className={cn("h-full bg-primary transition-[width] duration-[var(--dur-fast)]", r.stage === "reading" && "studio-pulse")} style={{ width: `${r.stage === "reading" ? 100 : r.percent}%` }} />
                 </div>
               ) : null}

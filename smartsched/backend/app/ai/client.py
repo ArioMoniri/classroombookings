@@ -20,9 +20,28 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import redact_keys
 from app.services import settings_service as ss
 
 log = logging.getLogger(__name__)
+
+
+class _RedactKeys(logging.Filter):
+    """Never let an API key reach a log line (SDK / httpx DEBUG output included; review MINOR 3)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            msg = record.getMessage()
+        except Exception:  # noqa: BLE001
+            return True
+        clean = redact_keys(msg)
+        if clean != msg:
+            record.msg, record.args = clean, ()
+        return True
+
+
+for _name in ("anthropic", "httpx", "httpcore", __name__):
+    logging.getLogger(_name).addFilter(_RedactKeys())
 
 #: Default per the ``claude-api`` skill (the stored setting ``anthropic_model`` wins when set).
 DEFAULT_MODEL = "claude-opus-5-5"
@@ -225,8 +244,9 @@ class AIClient:
             raise AIUpstreamError(f"model {kwargs['model']!r} not found") from exc
         except anthropic.RateLimitError as exc:
             raise AIUpstreamError("rate limited by Anthropic; retry later") from exc
-        except anthropic.BadRequestError as exc:
-            raise AIUpstreamError(f"bad request: {exc.message[:200]}") from exc
+        except anthropic.BadRequestError as exc:  # the upstream text may echo input: log it, return a generic one
+            log.warning("ai bad request: %s", redact_keys(str(exc.message)[:500]))
+            raise AIUpstreamError("the AI service rejected the request (bad request)") from exc
         except anthropic.APIStatusError as exc:
             raise AIUpstreamError(f"Anthropic API error {exc.status_code}") from exc
         except anthropic.APIConnectionError as exc:
@@ -291,7 +311,8 @@ async def test_connection(api_key: str, model: str | None = None) -> tuple[bool,
     except AIError as exc:
         return False, str(exc)
     except Exception as exc:  # noqa: BLE001 - surfaced to the admin UI, never re-raised with the key
-        return False, f"{type(exc).__name__}: {str(exc)[:200]}"
+        log.warning("ai key probe failed: %s", redact_keys(f"{type(exc).__name__}: {exc}")[:500])
+        return False, f"could not complete the test call ({type(exc).__name__})"
     served = getattr(message, "model", client.model)
     return True, f"ok ({served}, {client.usage.input_tokens} in / {client.usage.output_tokens} out)"
 

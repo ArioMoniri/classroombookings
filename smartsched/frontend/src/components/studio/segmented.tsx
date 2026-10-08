@@ -64,7 +64,7 @@ export function Segmented<T extends string>({
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
       data-testid={testId}
-      className={cn("relative inline-flex max-w-full flex-wrap items-stretch rounded-lg border bg-muted/40 p-0.5", className)}
+      className={cn("relative inline-flex max-w-full flex-wrap items-stretch rounded-lg border bg-fill-3 p-0.5", className)}
     >
       {options.map((o, i) => {
         const on = o.value === value;
@@ -86,7 +86,7 @@ export function Segmented<T extends string>({
             className={cn(
               "relative z-0 min-w-0 flex-auto rounded-md px-2.5 text-center leading-tight outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:min-h-11",
               size === "sm" ? "min-h-7 py-1 text-xs" : "min-h-8 py-1.5 text-sm",
-              on ? "font-medium text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+              on ? "font-medium text-primary-foreground" : "text-label-2 hover:text-foreground",
             )}
           >
             {on ? (
