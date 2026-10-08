@@ -81,8 +81,10 @@ jobs:
               "Condition": {
                 "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
                 "StringLike": {"token.actions.githubusercontent.com:sub": [
-                  "repo:ArioMoniri/classroombookings:*",
-                  "repo:ariomoniri/classroombookings:*"
+                  "repo:ArioMoniri@92126657/classroombookings@1409398656:ref:refs/heads/claude/gracious-cerf-w1598m",
+                  "repo:ArioMoniri@92126657/classroombookings@1409398656:ref:refs/heads/claude/smartsched-universal",
+                  "repo:ArioMoniri/classroombookings:ref:refs/heads/claude/gracious-cerf-w1598m",
+                  "repo:ArioMoniri/classroombookings:ref:refs/heads/claude/smartsched-universal"
                 ]}
               }
             }]

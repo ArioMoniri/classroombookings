@@ -22,3 +22,31 @@ Re-run it by changing `infra/aws/OIDC_BOOTSTRAP` (all steps are idempotent).
 
 AWS Budgets alerts but does not block spending by itself; the pod bootstrap adds a budget action that stops the instance at 100 %.
 To remove everything later: delete the role, the OIDC provider and the budget in the AWS console (or run the pod bootstrap's `down`).
+
+## Fix 2026-10-08: GitHub now signs the `sub` claim with immutable IDs
+
+The first pod bootstrap failed with "Not authorized to perform sts:AssumeRoleWithWebIdentity". The workflow printed the
+real claim: `repo:ArioMoniri@92126657/classroombookings@1409398656:ref:refs/heads/claude/gracious-cerf-w1598m`
+(owner and repository IDs are now part of `sub`). The role's trust policy must list that form. Paste this as the role's
+**Trust relationships** in the IAM console (Roles → smartsched-github-bootstrap → Trust relationships → Edit), or refresh
+the temporary AWS_* secrets and push `infra/aws/OIDC_BOOTSTRAP` so the bootstrap job writes it:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {"Federated": "arn:aws:iam::235229001983:oidc-provider/token.actions.githubusercontent.com"},
+    "Action": "sts:AssumeRoleWithWebIdentity",
+    "Condition": {
+      "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
+      "StringLike": {"token.actions.githubusercontent.com:sub": [
+        "repo:ArioMoniri@92126657/classroombookings@1409398656:ref:refs/heads/claude/gracious-cerf-w1598m",
+        "repo:ArioMoniri@92126657/classroombookings@1409398656:ref:refs/heads/claude/smartsched-universal",
+        "repo:ArioMoniri/classroombookings:ref:refs/heads/claude/gracious-cerf-w1598m",
+        "repo:ArioMoniri/classroombookings:ref:refs/heads/claude/smartsched-universal"
+      ]}
+    }
+  }]
+}
+```
