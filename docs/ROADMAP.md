@@ -80,3 +80,14 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Holidays from CRBS only mark whole-week `weeks.kind = HOLIDAY`; partial-week holidays are kept as labels
 - [ ] **Exam room sharing**: the real Final plan puts several small exams in one room at the same time (grid cells like `MAT 102 / MAT 112`); the solver contract models one event per room-slot, so an EXAM run with the planner's locked definitive rooms is reported INFEASIBLE (`no_room_overlap`+`fixed_time` ×112 on 2026-FINAL). Needs a `shared_room` option (sum of cohort sizes ≤ exam capacity) in the contract and bridge
 - [ ] 20 rooms referenced by the Final list (labs, D 3xx, A 7xx…) have no exam capacity in any grid header; add a room-master CSV import or admin bulk edit so capacity-0 rooms are not dropped from solver input
+
+### Phase 8 Generator Studio backlog (from docs/design/generator-studio.md, 2026-10-08)
+
+- [ ] Backend: `POST /runs/precheck` (wrap solver static_check, reuse `services/diagnosis_fixes.py` for fix actions applied to the draft)
+- [ ] Backend: studio draft `GET/PUT /terms/{id}/studio`; `POST /runs` accepts `draft_id` / `exclude_event_ids`
+- [ ] Backend: `POST /constraints/preview` (affected count), `POST /constraints/copy`, `/presets` CRUD + apply
+- [ ] Backend: `PUT /sections/{id}`, `PUT /requests/meetings/bulk`, imported-value snapshot + revert, class-list filters (faculty, year, building, mode, changed, rule)
+- [ ] Backend: constraint source `UPLOAD` / `BUILTIN` + `source_ref`; `GET /constraints/kinds` returns the full TR/EN catalogue
+- [ ] AI: mount `/terms/{id}/elicit` + `/elicit/accept`; preference-file extraction with per-row `source_ref`; plain-language pre-check text
+- [ ] Solver: confirm Low/Normal/High = 2/5/8 weight scale; pre-check run-time estimate; `room_reserved_for` kind
+- [ ] Frontend: `components/studio/*` (rule card, slot chip, source chip, readiness meter, review tray, upload review, step rail); replace generate-view; switch the propose mock to `/terms/{id}/elicit`

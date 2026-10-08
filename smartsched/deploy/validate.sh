@@ -1,117 +1,193 @@
 #!/usr/bin/env bash
 # Static validation of the deployment files (no Docker daemon needed).
-#   - YAML syntax of docker-compose.yml (python + PyYAML) and the CI workflow
-#   - `docker compose config` when the compose CLI plugin is available (daemon not required)
-#   - every ${VAR} referenced by docker-compose.yml is declared in .env.example
+#   - YAML syntax of docker-compose.yml and the CI workflow (python + PyYAML)
+#   - every ${VAR} referenced by docker-compose.yml is declared in .env.example; no secrets committed;
+#     no inline comments after empty values (compose would read the comment as the value)
 #   - every build context / dockerfile / bind-mount source referenced by compose exists
-#   - Dockerfiles reference files that exist in their build context
-#   - bash -n on every shell script, nginx config brace balance
-# Exit code 1 on any failure.
+#   - every image is pinned to a patch release (no :latest, no bare major tags)
+#   - Dockerfiles: pinned FROM (ARG defaults resolved), non-root USER in the final stage, COPY sources
+#     exist in the build context
+#   - bash -n / sh -n on every shell script (+ shellcheck when installed), nginx config sanity
+#     (+ nginx -t when nginx is installed), `docker compose config` when the CLI plugin is installed
+# Exit code 1 on any failure. Usage: smartsched/deploy/validate.sh
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 FAIL=0
 ok()   { printf '  \033[32mok\033[0m   %s\n' "$*"; }
 fail() { printf '  \033[31mFAIL\033[0m %s\n' "$*"; FAIL=1; }
+note() { printf '  note %s\n' "$*"; }
+
+PY="${PYTHON:-python3}"
+if ! "$PY" -c 'import yaml' 2>/dev/null; then
+  echo "validate.sh needs PyYAML: pip install pyyaml" >&2
+  exit 2
+fi
+SHELL_SCRIPTS=("$HERE"/*.sh "$ROOT"/scripts/*.sh)
+POSIX_SCRIPTS=("$ROOT/smartsched/backend/docker-entrypoint.sh")
 
 echo "== YAML syntax"
 for f in "$HERE/docker-compose.yml" "$ROOT/.github/workflows/smartsched.yml"; do
   [[ -f "$f" ]] || { fail "missing $f"; continue; }
-  if python3 -c "import sys,yaml; yaml.safe_load(open(sys.argv[1]))" "$f" 2>/tmp/validate_yaml.err; then ok "$f"; else fail "$f: $(cat /tmp/validate_yaml.err)"; fi
+  if "$PY" -c "import sys,yaml; yaml.safe_load(open(sys.argv[1]))" "$f" 2>"$TMP/yaml.err"; then ok "${f#"$ROOT"/}"; else fail "$f: $(cat "$TMP/yaml.err")"; fi
 done
 
-echo "== env completeness (.env.example vs docker-compose.yml)"
-if python3 - "$HERE" <<'PY'; then :; else FAIL=1; fi
+echo "== .env.example vs docker-compose.yml"
+"$PY" - "$HERE" <<'PY' || FAIL=1
 import re, sys
 from pathlib import Path
 here = Path(sys.argv[1])
 compose = (here / "docker-compose.yml").read_text()
-declared = {m.group(1) for m in re.finditer(r"^([A-Z][A-Z0-9_]*)=", (here / ".env.example").read_text(), re.M)}
-# ${VAR}, ${VAR:-default}, ${VAR:?msg}; skip $${…} (literal for the container shell)
+env_text = (here / ".env.example").read_text()
+declared = {m.group(1) for m in re.finditer(r"^([A-Z][A-Z0-9_]*)=", env_text, re.M)}
+# ${VAR}, ${VAR:-default}, ${VAR:?msg}; skip $${...} (literal for the container shell)
 used = set(re.findall(r"(?<!\$)\$\{([A-Z][A-Z0-9_]*)", compose))
 missing = sorted(used - declared)
-unused = sorted(declared - used)
+rc = 0
 for v in missing:
-    print(f"  FAIL ${v} used in docker-compose.yml but not declared in .env.example")
-for v in unused:
-    print(f"  note ${v} declared in .env.example but unused by compose (fine if read by deploy.sh)")
+    print(f"  FAIL ${v} used in docker-compose.yml but not declared in .env.example"); rc = 1
+for v in sorted(declared - used):
+    print(f"  note ${v} declared in .env.example but unused by compose (read by deploy.sh)")
 print(f"  ok   {len(used)} variables used, {len(declared)} declared, {len(missing)} missing")
-secrets = re.findall(r"^(?:APP_SECRET|JWT_SECRET|AUTH_SECRET|POSTGRES_PASSWORD|ADMIN_PASSWORD|CRBS_DB_PASSWORD|CRBS_DB_ROOT_PASSWORD|ANTHROPIC_API_KEY)=(\S*)", (here / ".env.example").read_text(), re.M)
-leaked = [s for s in secrets if s not in ("", "__GENERATE__")]
+secret_keys = ("APP_SECRET", "JWT_SECRET", "AUTH_SECRET", "POSTGRES_PASSWORD", "ADMIN_PASSWORD",
+               "CRBS_DB_PASSWORD", "CRBS_DB_ROOT_PASSWORD", "ANTHROPIC_API_KEY")
+leaked = [k for k, v in re.findall(r"^([A-Z_]+)=(\S*)", env_text, re.M) if k in secret_keys and v not in ("", "__GENERATE__")]
 if leaked:
-    print(f"  FAIL .env.example contains concrete secret values: {leaked}")
+    print(f"  FAIL .env.example contains concrete secret values for {leaked}"); rc = 1
 else:
     print("  ok   no secrets committed in .env.example")
-sys.exit(1 if missing or leaked else 0)
-PY
-
-echo "== referenced paths exist"
-if python3 - "$HERE" <<'PY'; then :; else FAIL=1; fi
-import sys, yaml
-from pathlib import Path
-here = Path(sys.argv[1])
-doc = yaml.safe_load((here / "docker-compose.yml").read_text())
-rc = 0
-def check(p: Path, what: str) -> None:
-    global rc
-    if p.exists():
-        print(f"  ok   {what}: {p.relative_to(here.parent.parent)}")
-    else:
-        print(f"  FAIL {what} missing: {p}")
-        rc = 1
-for name, svc in doc["services"].items():
-    build = svc.get("build")
-    if isinstance(build, dict):
-        ctx = (here / build.get("context", ".")).resolve()
-        check(ctx, f"{name} build context")
-        check((ctx / build.get("dockerfile", "Dockerfile")).resolve(), f"{name} dockerfile")
-        for ign in (ctx / ".dockerignore",):
-            if not ign.exists():
-                print(f"  note {name}: no .dockerignore in {ctx}")
-    for vol in svc.get("volumes", []):
-        src = vol.split(":")[0] if isinstance(vol, str) else vol.get("source", "")
-        if src.startswith("./") or src.startswith("../"):
-            check((here / src).resolve(), f"{name} bind mount")
-for name in doc.get("volumes", {}):
-    print(f"  ok   named volume {name}")
+inline = [ln for ln in env_text.splitlines() if re.match(r"^[A-Z_]+=", ln) and re.search(r"\s#", ln)]
+if inline:
+    for ln in inline:
+        print(f"  FAIL inline comment (compose keeps it as the value when the value is empty): {ln}")
+    rc = 1
+else:
+    print("  ok   no inline comments after values")
 sys.exit(rc)
 PY
 
-echo "== Dockerfile references"
-for df in "$ROOT/smartsched/backend/Dockerfile" "$ROOT/smartsched/frontend/Dockerfile" "$HERE/legacy/Dockerfile"; do
-  [[ -f "$df" ]] || { fail "missing $df"; continue; }
-  grep -q '^USER ' "$df" || fail "$df: no USER instruction (must run non-root)"
-  grep -Eq '^FROM [a-z0-9./-]+:[A-Za-z0-9._-]+' "$df" || fail "$df: unpinned FROM"
-  grep -Eq '^FROM [a-z0-9./-]+(:latest)?( |$)' "$df" && fail "$df: FROM without a pinned tag"
-  ok "$df: FROM pinned, USER $(grep -m1 '^USER ' "$df" | awk '{print $2}' 2>/dev/null || echo '-')"
-done
-# backend: files COPYed must exist in the context
-for f in pyproject.toml alembic.ini alembic app; do
-  [[ -e "$ROOT/smartsched/backend/$f" ]] && ok "backend context has $f" || fail "backend context missing $f"
-done
-for f in package.json package-lock.json public next.config.ts; do
-  [[ -e "$ROOT/smartsched/frontend/$f" ]] && ok "frontend context has $f" || fail "frontend context missing $f"
-done
-grep -q 'output: "standalone"' "$ROOT/smartsched/frontend/next.config.ts" && ok "next.config.ts output=standalone" || fail "next.config.ts lacks output: \"standalone\""
-[[ -f "$HERE/legacy/apache-crbs.conf" ]] && ok "legacy apache conf present" || fail "legacy/apache-crbs.conf missing"
-[[ -f "$ROOT/index.php" ]] && ok "legacy app index.php at repo root" || fail "repo root index.php missing (legacy profile)"
+echo "== compose: paths and image pins"
+"$PY" - "$HERE" <<'PY' || FAIL=1
+import re, sys, yaml
+from pathlib import Path
+here = Path(sys.argv[1])
+root = here.parent.parent
+doc = yaml.safe_load((here / "docker-compose.yml").read_text())
+rc = 0
+PIN = re.compile(r"^[\w./-]+:\d+\.\d+(\.\d+)?[\w.-]*$")
+def check(p: Path, what: str) -> None:
+    global rc
+    if p.exists():
+        print(f"  ok   {what}: {p.relative_to(root)}")
+    else:
+        print(f"  FAIL {what} missing: {p}"); rc = 1
+for name, svc in doc["services"].items():
+    build = svc.get("build")
+    image = svc.get("image", "")
+    if isinstance(build, dict):
+        ctx = (here / build.get("context", ".")).resolve()
+        check(ctx, f"{name} build context")
+        df = (ctx / build.get("dockerfile", "Dockerfile")).resolve()
+        check(df, f"{name} dockerfile")
+        if not (ctx / ".dockerignore").exists() and not Path(str(df) + ".dockerignore").exists():
+            print(f"  FAIL {name}: no .dockerignore for context {ctx}"); rc = 1
+    elif not PIN.match(image):
+        print(f"  FAIL {name}: image '{image}' is not pinned to a version"); rc = 1
+    else:
+        print(f"  ok   {name}: image {image}")
+    if "restart" not in svc:
+        print(f"  FAIL {name}: no restart policy"); rc = 1
+    if "healthcheck" not in svc:
+        print(f"  FAIL {name}: no healthcheck"); rc = 1
+    for vol in svc.get("volumes", []):
+        src = vol.split(":")[0] if isinstance(vol, str) else vol.get("source", "")
+        if src.startswith(("./", "../", "/")):
+            check((here / src).resolve(), f"{name} bind mount")
+        elif src not in (doc.get("volumes") or {}):
+            print(f"  FAIL {name}: named volume {src} not declared"); rc = 1
+print(f"  ok   named volumes: {', '.join(doc.get('volumes') or {})}")
+sys.exit(rc)
+PY
 
-echo "== shell scripts (bash -n)"
-for s in "$HERE"/*.sh "$ROOT"/scripts/*.sh; do
+echo "== Dockerfiles (pinned FROM, non-root USER, COPY sources)"
+"$PY" - "$ROOT" <<'PY' || FAIL=1
+import re, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+targets = [
+    (root / "smartsched/backend/Dockerfile", root / "smartsched/backend"),
+    (root / "smartsched/frontend/Dockerfile", root / "smartsched/frontend"),
+    (root / "smartsched/deploy/legacy/Dockerfile", root),
+]
+PIN = re.compile(r"^[\w./-]+:\d+\.\d+(\.\d+)?[\w.-]*$")
+rc = 0
+for df, ctx in targets:
+    rel = df.relative_to(root)
+    if not df.exists():
+        print(f"  FAIL missing {rel}"); rc = 1; continue
+    text = re.sub(r"\\\n", " ", df.read_text())
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+    args: dict[str, str] = {}
+    stages: set[str] = set()
+    final_user = None
+    for ln in lines:
+        m = re.match(r"ARG\s+(\w+)=(\S+)", ln)
+        if m:
+            args.setdefault(m.group(1), m.group(2))
+        m = re.match(r"FROM\s+(?:--platform=\S+\s+)?(\S+)(?:\s+AS\s+(\S+))?", ln, re.I)
+        if m:
+            ref = re.sub(r"\$\{?(\w+)\}?", lambda x: args.get(x.group(1), x.group(0)), m.group(1))
+            final_user = None
+            if ref in stages:
+                pass
+            elif not PIN.match(ref):
+                print(f"  FAIL {rel}: FROM {m.group(1)} -> '{ref}' is not pinned to a version"); rc = 1
+            else:
+                print(f"  ok   {rel}: FROM {ref}")
+            if m.group(2):
+                stages.add(m.group(2))
+        m = re.match(r"USER\s+(\S+)", ln)
+        if m:
+            final_user = m.group(1)
+        m = re.match(r"COPY\s+(.*)", ln)
+        if m and "--from=" not in m.group(1) and "<<" not in m.group(1):
+            parts = [p for p in m.group(1).split() if not p.startswith("--")]
+            for src in parts[:-1]:
+                if src.endswith("*"):
+                    continue  # optional glob (e.g. requirements.lock*)
+                if not (ctx / src).exists():
+                    print(f"  FAIL {rel}: COPY source {src} not in build context {ctx.relative_to(root) or '.'}"); rc = 1
+    if final_user in (None, "root", "0"):
+        print(f"  FAIL {rel}: final stage runs as root (add USER)"); rc = 1
+    else:
+        print(f"  ok   {rel}: final stage USER {final_user}")
+fe = (root / "smartsched/frontend/next.config.ts").read_text()
+if re.search(r"output:\s*[\"']standalone[\"']", fe):
+    print("  ok   next.config.ts output: standalone")
+else:
+    print("  FAIL next.config.ts lacks output: 'standalone'"); rc = 1
+sys.exit(rc)
+PY
+
+echo "== shell scripts"
+for s in "${SHELL_SCRIPTS[@]}"; do
   [[ -f "$s" ]] || continue
-  if bash -n "$s"; then ok "$s"; else fail "$s"; fi
+  if bash -n "$s"; then ok "bash -n ${s#"$ROOT"/}"; else fail "bash -n $s"; fi
   [[ -x "$s" ]] || fail "$s is not executable"
 done
-# the entrypoint embedded in the backend Dockerfile (POSIX sh)
-python3 - "$ROOT/smartsched/backend/Dockerfile" <<'PY' > /tmp/validate_entrypoint.sh
-import re, sys
-src = open(sys.argv[1]).read()
-m = re.search(r"COPY --chmod=755 <<'SH' /usr/local/bin/entrypoint.sh\n(.*?)\nSH\n", src, re.S)
-print(m.group(1) if m else "")
-PY
-if [[ -s /tmp/validate_entrypoint.sh ]] && sh -n /tmp/validate_entrypoint.sh; then ok "backend entrypoint (sh -n)"; else fail "backend entrypoint heredoc"; fi
-if command -v shellcheck >/dev/null 2>&1; then shellcheck -S warning "$HERE"/*.sh "$ROOT"/scripts/*.sh && ok "shellcheck" || fail "shellcheck"; fi
+for s in "${POSIX_SCRIPTS[@]}"; do
+  [[ -f "$s" ]] || { fail "missing $s"; continue; }
+  if sh -n "$s"; then ok "sh -n ${s#"$ROOT"/}"; else fail "sh -n $s"; fi
+  [[ -x "$s" ]] || fail "$s is not executable"
+done
+if command -v shellcheck >/dev/null 2>&1; then
+  if shellcheck -S warning "${SHELL_SCRIPTS[@]}" && shellcheck -S warning -s sh "${POSIX_SCRIPTS[@]}"; then ok "shellcheck"; else fail "shellcheck"; fi
+else
+  note "shellcheck not installed; skipped"
+fi
 
 echo "== nginx config"
 NG="$HERE/nginx/default.conf"
@@ -120,25 +196,30 @@ if [[ -f "$NG" ]]; then
   [[ "$o" -eq "$c" ]] && ok "braces balanced ($o)" || fail "braces unbalanced ($o vs $c)"
   grep -q 'client_max_body_size 50m' "$NG" && ok "client_max_body_size 50m" || fail "client_max_body_size missing"
   grep -q 'proxy_buffering off' "$NG" && ok "SSE proxy_buffering off" || fail "proxy_buffering off missing"
+  grep -q 'listen 8080' "$NG" && ok "listens on 8080 (unprivileged image)" || fail "nginx must listen on 8080"
   for up in frontend:3000 backend:8000; do grep -q "server $up" "$NG" && ok "upstream $up" || fail "upstream $up missing"; done
   if command -v nginx >/dev/null 2>&1; then
-    tmp=$(mktemp -d); mkdir -p "$tmp/conf.d"; cp "$NG" "$tmp/conf.d/"
-    printf 'events{} http{ include %s/conf.d/*.conf; }\n' "$tmp" > "$tmp/nginx.conf"
-    nginx -t -c "$tmp/nginx.conf" >/dev/null 2>&1 && ok "nginx -t" || fail "nginx -t"
+    mkdir -p "$TMP/nginx/conf.d"
+    # service names only resolve inside compose: map them to localhost for the syntax check
+    sed 's/server frontend:3000/server 127.0.0.1:3000/; s/server backend:8000/server 127.0.0.1:8000/' "$NG" > "$TMP/nginx/conf.d/default.conf"
+    printf 'pid %s/nginx.pid; error_log stderr; events {} http { include %s/conf.d/*.conf; }\n' "$TMP" "$TMP/nginx" > "$TMP/nginx/nginx.conf"
+    if nginx -t -q -c "$TMP/nginx/nginx.conf" 2>"$TMP/nginx.err"; then ok "nginx -t"; else fail "nginx -t: $(cat "$TMP/nginx.err")"; fi
+  else
+    note "nginx not installed; nginx -t skipped"
   fi
 else
   fail "missing $NG"
 fi
 
 echo "== docker compose config (CLI only, no daemon needed)"
-if docker compose version >/dev/null 2>&1; then
-  if docker compose --env-file "$HERE/.env.example" --profile legacy -f "$HERE/docker-compose.yml" config -q 2>/tmp/validate_compose.err; then
-    ok "docker compose config"
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+  if docker compose --env-file "$HERE/.env.example" --profile legacy -f "$HERE/docker-compose.yml" config -q 2>"$TMP/compose.err"; then
+    ok "docker compose config ($(docker compose version --short 2>/dev/null))"
   else
-    fail "docker compose config: $(cat /tmp/validate_compose.err)"
+    fail "docker compose config: $(cat "$TMP/compose.err")"
   fi
 else
-  echo "  skip docker compose plugin not installed"
+  note "docker compose plugin not installed; skipped"
 fi
 
 echo

@@ -50,6 +50,23 @@ PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
 FALLBACK_MODELS = frozenset({"claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"})
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
+#: Models that accept ``output_config.effort`` (it errors on Sonnet 4.5 / Haiku 4.5 and older).
+EFFORT_MODELS = frozenset(
+    {
+        "claude-fable-5-1",
+        "claude-fable-5",
+        "claude-opus-5-5",
+        "claude-opus-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+        "claude-sonnet-5-5",
+        "claude-sonnet-5",
+        "claude-sonnet-4-6",
+        "claude-haiku-5-5",
+    }
+)
+
 
 class AIError(RuntimeError):
     """Base class for errors raised by the AI layer."""
@@ -113,6 +130,10 @@ class UsageTracker:
             self.cache_read_input_tokens,
             self.cache_creation_input_tokens,
         )
+
+    def to_out(self) -> dict[str, Any]:
+        """Fields of :class:`app.schemas.ai.UsageOut`."""
+        return {k: v for k, v in self.to_dict().items() if k != "type"}
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -183,7 +204,7 @@ class AIClient:
         output_config: dict[str, Any] = {}
         if output_format:
             output_config["format"] = output_format
-        if effort:
+        if effort and kwargs["model"].split("@")[0].removeprefix("anthropic.") in EFFORT_MODELS:
             output_config["effort"] = effort
         if output_config:
             kwargs["output_config"] = output_config
@@ -262,14 +283,17 @@ async def test_connection(api_key: str, model: str | None = None) -> tuple[bool,
         return False, "no API key configured"
     try:
         client = AIClient(api_key, model or DEFAULT_MODEL, timeout_s=30.0, max_retries=1, use_fallbacks=False)
-        message = await client.complete(system="Reply with OK.", messages=[{"role": "user", "content": "ping"}], max_tokens=1)
+        message = await client.complete(
+            system="Reply with OK.", messages=[{"role": "user", "content": "ping"}], max_tokens=8, effort="low"
+        )
     except AIRefusal:
         return True, "ok (model refused the probe but the key is valid)"
     except AIError as exc:
         return False, str(exc)
     except Exception as exc:  # noqa: BLE001 - surfaced to the admin UI, never re-raised with the key
         return False, f"{type(exc).__name__}: {str(exc)[:200]}"
-    return True, f"ok ({getattr(message, 'model', client.model)}, {client.usage.input_tokens} in / {client.usage.output_tokens} out)"
+    served = getattr(message, "model", client.model)
+    return True, f"ok ({served}, {client.usage.input_tokens} in / {client.usage.output_tokens} out)"
 
 
 def text_of(message: Any) -> str:

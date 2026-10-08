@@ -13,11 +13,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import DB, Planner, Viewer
 from app.core.db import get_session_factory
 from app.models import Assignment, ExamRequest, MeetingRequest, Room, ScheduleRun, Section, Term
-from app.schemas.runs import AssignmentOut, MoveIn, MoveOut, RunCreate, RunCreated, RunOut
+from app.schemas.runs import (
+    AssignmentOut,
+    DiagnosisApplyIn,
+    DiagnosisApplyOut,
+    MoveIn,
+    MoveOut,
+    RunCreate,
+    RunCreated,
+    RunOut,
+)
 from app.services import settings_service as ss
+from app.services.calendar import day_label
 from app.services.conflicts import check_room_conflicts
+from app.services.diagnosis_fixes import FixError, apply_option, structure_diagnosis
 from app.services.exports import export_csv, export_ics, export_xlsx
-from app.services.grid import assignment_labels, build_grid
+from app.services.grid import assignment_labels, build_grid, enrich_assignments
 from app.services.solver_bridge import run_schedule
 from app.workers.queue import JobState, get_queue
 
@@ -68,8 +79,13 @@ async def create_run(body: RunCreate, db: DB, user: Planner) -> RunCreated:
     db.add(run)
     await db.commit()
     await db.refresh(run)
+    _enqueue(run.id)
+    return RunCreated(run_id=run.id, status="QUEUED")
+
+
+def _enqueue(run_id: int) -> None:
+    """Hand a committed QUEUED run to the background queue (solve + persist)."""
     factory = get_session_factory()
-    run_id = run.id
 
     async def body_fn(progress: Any) -> dict[str, Any]:
         return await run_schedule(factory, run_id, progress)
@@ -87,7 +103,31 @@ async def create_run(body: RunCreate, db: DB, user: Planner) -> RunCreated:
             await session.commit()
 
     get_queue().enqueue(f"run:{run_id}", body_fn, on_status=on_status)
-    return RunCreated(run_id=run_id, status="QUEUED")
+
+
+async def _term_codes(db: AsyncSession, runs: list[ScheduleRun]) -> dict[int, str]:
+    ids = {r.term_id for r in runs}
+    if not ids:
+        return {}
+    return {tid: code for tid, code in (await db.execute(select(Term.id, Term.code).where(Term.id.in_(ids)))).all()}
+
+
+def run_out(run: ScheduleRun, term_codes: dict[int, str]) -> RunOut:
+    """API shape of a run: term code, top-level progress/objective breakdown, structured diagnoses."""
+    run = _with_progress(run)
+    out = RunOut.model_validate(run)
+    stats = run.stats or {}
+    out.term_code = term_codes.get(run.term_id)
+    out.progress = int(stats.get("progress") or (100 if run.status in TERMINAL else 0))
+    breakdown = stats.get("objective_breakdown") or {}
+    out.objective_breakdown = {str(k): int(v) for k, v in breakdown.items() if isinstance(v, int | float)}
+    out.diagnosis = [structure_diagnosis(d, i) for i, d in enumerate(run.diagnosis or [])]
+    return out
+
+
+async def runs_out(db: AsyncSession, runs: list[ScheduleRun]) -> list[RunOut]:
+    codes = await _term_codes(db, runs)
+    return [run_out(r, codes) for r in runs]
 
 
 @router.get("", response_model=list[RunOut])
@@ -98,7 +138,7 @@ async def list_runs(
     kind: str | None = None,
     status: str | None = None,
     limit: int = Query(50, le=500),
-) -> list[ScheduleRun]:
+) -> list[RunOut]:
     q = select(ScheduleRun).order_by(ScheduleRun.id.desc()).limit(limit)
     if term_id:
         q = q.where(ScheduleRun.term_id == term_id)
@@ -106,12 +146,12 @@ async def list_runs(
         q = q.where(ScheduleRun.kind == kind)
     if status:
         q = q.where(ScheduleRun.status == status)
-    return [_with_progress(r) for r in (await db.execute(q)).scalars()]
+    return await runs_out(db, list((await db.execute(q)).scalars()))
 
 
 @router.get("/{run_id}", response_model=RunOut)
-async def get_run(run_id: int, db: DB, _: Viewer) -> ScheduleRun:
-    return _with_progress(await _run(db, run_id))
+async def get_run(run_id: int, db: DB, _: Viewer) -> RunOut:
+    return (await runs_out(db, [await _run(db, run_id)]))[0]
 
 
 @router.delete("/{run_id}", status_code=204)
@@ -122,7 +162,7 @@ async def delete_run(run_id: int, db: DB, _: Planner) -> None:
 
 
 @router.post("/{run_id}/activate", response_model=RunOut)
-async def activate_run(run_id: int, db: DB, _: Planner) -> ScheduleRun:
+async def activate_run(run_id: int, db: DB, _: Planner) -> RunOut:
     """Mark this run as the active/published schedule of its term+kind (used for undo of AI child runs)."""
     run = await _run(db, run_id)
     for other in (
@@ -136,7 +176,7 @@ async def activate_run(run_id: int, db: DB, _: Planner) -> ScheduleRun:
     run.is_active = True
     await db.commit()
     await db.refresh(run)
-    return _with_progress(run)
+    return (await runs_out(db, [run]))[0]
 
 
 @router.get("/{run_id}/events")
@@ -190,14 +230,13 @@ async def run_events(run_id: int, db: DB, _: Viewer) -> StreamingResponse:
     )
 
 
-async def _assignment_out(db: AsyncSession, rows: list[Assignment]) -> list[AssignmentOut]:
-    labels = await assignment_labels(db, rows)
-    rooms = {r.id: r.display_name for r in (await db.execute(select(Room))).scalars()}
+async def _assignment_out(db: AsyncSession, run: ScheduleRun, rows: list[Assignment]) -> list[AssignmentOut]:
+    enrich = await enrich_assignments(db, run, rows)
     out = []
     for a in rows:
         d = AssignmentOut.model_validate(a)
-        d.display_label = labels[a.id]
-        d.room_codes = [rooms.get(int(r), str(r)) for r in a.room_ids or []]
+        for k, v in enrich[a.id].as_dict().items():
+            setattr(d, k, v)
         out.append(d)
     return out
 
@@ -212,7 +251,7 @@ async def list_assignments(
     room: int | None = None,
     include_archived: bool = False,
 ) -> list[AssignmentOut]:
-    await _run(db, run_id)
+    run = await _run(db, run_id)
     q = (
         select(Assignment)
         .where(Assignment.run_id == run_id)
@@ -229,7 +268,7 @@ async def list_assignments(
         ]
     if room:
         rows = [a for a in rows if room in [int(r) for r in a.room_ids or []]]
-    return await _assignment_out(db, rows)
+    return await _assignment_out(db, run, rows)
 
 
 @router.get("/{run_id}/grid")
@@ -277,14 +316,44 @@ async def _assignment(db: AsyncSession, run_id: int, aid: int) -> Assignment:
     return a
 
 
+async def _conflict_messages(db: AsyncSession, conflicts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Add a human-readable ``message`` (and the other assignment's label) to every conflict."""
+    ids = [int(c["id"]) for c in conflicts if c.get("kind") == "assignment"]
+    labels: dict[int, str] = {}
+    if ids:
+        others = list((await db.execute(select(Assignment).where(Assignment.id.in_(ids)))).scalars())
+        labels = await assignment_labels(db, others)
+    out = []
+    for c in conflicts:
+        when = f"{day_label(int(c.get('day') or 0))} P{c.get('start_period')}-P{c.get('end_period')}"
+        room = c.get("room") or (f"#{c['room_id']}" if c.get("room_id") else "room")
+        if c.get("kind") == "assignment":
+            label = labels.get(int(c["id"]), c.get("label") or f"#{c['id']}")
+            msg = f"{room} is taken by {label} ({when})"
+            out.append({**c, "label": label, "with_assignment_id": c["id"], "with_label": label, "message": msg})
+        elif c.get("kind") == "block":
+            out.append({**c, "message": f"{room} is blocked: {c.get('label')} ({when})"})
+        else:
+            out.append({**c, "message": c.get("message") or str(c.get("kind"))})
+    return out
+
+
 @router.post("/{run_id}/assignments/{aid}/move", response_model=MoveOut)
 async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, _: Planner) -> MoveOut:
+    """Manual drag-drop edit. A successful move marks the assignment ``MANUAL`` and **locked** so that
+    re-solves (child runs) keep it where the planner put it (``Event.locked`` overrides the request's
+    fixed day/time). Conflicts are returned with ``ok=false`` unless ``force``."""
     run = await _run(db, run_id)
     a = await _assignment(db, run_id, aid)
     day = body.day or a.day
     sp = body.start_period or a.start_period
     ep = body.end_period or (sp + (a.end_period - a.start_period) if body.start_period else a.end_period)
+    if not (1 <= day <= 7 and 1 <= sp <= ep <= 18):
+        raise HTTPException(422, f"invalid target: day {day}, P{sp}-P{ep}")
     room_ids = body.room_ids if body.room_ids is not None else [int(r) for r in a.room_ids or []]
+    known = set((await db.execute(select(Room.id).where(Room.id.in_(room_ids)))).scalars()) if room_ids else set()
+    if set(room_ids) - known:
+        raise HTTPException(422, f"unknown room id(s) {sorted(set(room_ids) - known)}")
     weeks = [body.week] if body.week else [int(w) for w in (a.weeks or ([a.week] if a.week else []))]
     conflicts = await check_room_conflicts(
         db,
@@ -297,23 +366,98 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, _: Planne
         exclude_assignment_id=a.id,
         run_id=run.id,
     )
+    if run.kind == "EXAM":
+        # exams may share a room: only a seat-budget overflow is a conflict (blocks always are)
+        preview = Assignment(
+            id=a.id,
+            run_id=run.id,
+            meeting_request_id=a.meeting_request_id,
+            exam_request_id=a.exam_request_id,
+            week=body.week or a.week,
+            weeks=weeks,
+            day=day,
+            date=a.date,
+            start_period=sp,
+            end_period=ep,
+            room_ids=room_ids,
+        )
+        reasons = (await enrich_assignments(db, run, [preview]))[a.id].conflict_reasons
+        seat = [r for r in reasons if r.startswith("seats:") or r.startswith("capacity:")]
+        conflicts = [c for c in conflicts if c.get("kind") != "assignment"]
+        conflicts += [{"kind": "seats", "message": r} for r in seat]
+    conflicts = await _conflict_messages(db, conflicts)
     if conflicts and not body.force:
-        return MoveOut(ok=False, conflicts=conflicts)
-    a.day, a.start_period, a.end_period, a.room_ids, a.origin = day, sp, ep, room_ids, "MANUAL"
+        return MoveOut(ok=False, assignment=(await _assignment_out(db, run, [a]))[0], conflicts=conflicts)
+    a.day, a.start_period, a.end_period, a.room_ids = day, sp, ep, room_ids
+    a.origin = "MANUAL"
+    a.is_locked = True
     if body.week:
         a.week, a.weeks = body.week, [body.week]
     await db.commit()
     await db.refresh(a)
-    return MoveOut(ok=True, assignment=(await _assignment_out(db, [a]))[0], conflicts=conflicts)
+    return MoveOut(ok=True, assignment=(await _assignment_out(db, run, [a]))[0], conflicts=conflicts)
 
 
 @router.post("/{run_id}/assignments/{aid}/lock", response_model=AssignmentOut)
 async def lock_assignment(run_id: int, aid: int, db: DB, _: Planner, locked: bool = True) -> AssignmentOut:
+    run = await _run(db, run_id)
     a = await _assignment(db, run_id, aid)
     a.is_locked = locked
     await db.commit()
     await db.refresh(a)
-    return (await _assignment_out(db, [a]))[0]
+    return (await _assignment_out(db, run, [a]))[0]
+
+
+@router.post("/{run_id}/diagnoses/{idx}/apply", response_model=DiagnosisApplyOut)
+async def apply_diagnosis(run_id: int, idx: int, body: DiagnosisApplyIn, db: DB, user: Planner) -> DiagnosisApplyOut:
+    """Apply one structured suggestion of diagnosis ``idx`` (see ``GET /runs/{id}`` ->
+    ``diagnosis[idx].suggestions[option_index]`` with ``applicable=true``).
+
+    Supported: ``move`` (place + lock the event at the suggested room/time), ``release_room`` (also
+    unlocks the holders), ``unlock`` (reset LOCKED requests / locked assignments), ``relax`` (soften the
+    term's hard constraint rows of that kind), ``split`` (exams: allow up to 3 rooms). Anything else
+    answers 422. With ``re_solve`` (default) a child run is queued with ``parent_run_id`` = this run.
+    """
+    run = await _run(db, run_id)
+    diags = list(run.diagnosis or [])
+    if not 0 <= idx < len(diags):
+        raise HTTPException(404, f"diagnosis {idx} not found (run has {len(diags)})")
+    diag = diags[idx] if isinstance(diags[idx], dict) else {"suggestions": [], "event_ids": []}
+    try:
+        res = await apply_option(db, run, diag, body.option_index)
+    except FixError as exc:
+        await db.rollback()
+        raise HTTPException(422, str(exc)) from exc
+    child_id: int | None = None
+    if body.re_solve:
+        child = ScheduleRun(
+            term_id=run.term_id,
+            kind=run.kind,
+            horizon=run.horizon,
+            horizon_params=dict(run.horizon_params or {}),
+            params=dict(run.params or {}),
+            parent_run_id=run.id,
+            prompt_text=f"fix: diagnosis {idx} option {body.option_index}: {res.message}",
+            label=body.label or f"fix #{run.id}.{idx}",
+            status="QUEUED",
+            stats={"progress": 0, "phase": "queued", "fix": {"diagnosis": idx, "option": body.option_index}},
+            created_by=user.id,
+        )
+        db.add(child)
+        await db.commit()
+        await db.refresh(child)
+        child_id = child.id
+        _enqueue(child.id)
+    else:
+        await db.commit()
+    return DiagnosisApplyOut(
+        run_id=run.id,
+        child_run_id=child_id,
+        action=res.action,
+        message=res.message,
+        details=res.details,
+        constraint_id=res.constraint_id,
+    )
 
 
 @router.get("/{run_id}/summary")

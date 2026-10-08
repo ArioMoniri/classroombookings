@@ -100,6 +100,9 @@ class Enrichment:
         }
 
 
+_CELL_SKIP = {"display_label", "room_codes", "week_set"}
+
+
 def assignment_weeks(a: Assignment) -> set[int]:
     if a.weeks:
         return {int(w) for w in a.weeks}
@@ -126,9 +129,16 @@ async def enrich_assignments(
     """Return ``assignment.id -> Enrichment`` for ``rows``.
 
     Conflicts are computed against *every* non-archived assignment of the run (``all_rows``; loaded
-    when not given) and the term's blocks: two assignments share a room on the same day with
-    overlapping periods and weeks, an assignment sits on a block, or the group does not fit the room.
+    when not given) and the term's blocks:
+
+    * course runs: two assignments hold a room on the same day with overlapping periods and weeks,
+      or the group does not fit the room(s) (lecture capacity);
+    * exam runs: exams may share a room (the solver's ``share_room``), so a clash is reported only when
+      the seats of the distinct cohorts in a room exceed its exam capacity; members of one merged
+      cohort (same ``merge_key``) are one group;
+    * any run: an assignment sits on a block (HAZIRLIK, UZEM, ...).
     """
+    exam = run.kind == "EXAM"
     if rooms_by_id is None:
         rooms_by_id = {r.id: r for r in (await session.execute(select(Room))).scalars()}
     if all_rows is None:
@@ -145,12 +155,14 @@ async def enrich_assignments(
                 await session.execute(select(Block).where(Block.term_id == run.term_id, Block.archived.is_(False)))
             ).scalars()
         )
+    by_id = {a.id: a for a in all_rows}
+    for a in rows:
+        by_id[a.id] = a  # ``rows`` win: lets callers preview an unsaved move against the saved run
+    every = list(by_id.values())
     labels = await assignment_labels(session, rows)
-    out: dict[int, Enrichment] = {}
 
-    # request / section / course / instructor lookups
-    mr_ids = [a.meeting_request_id for a in rows if a.meeting_request_id]
-    ex_ids = [a.exam_request_id for a in rows if a.exam_request_id]
+    mr_ids = {a.meeting_request_id for a in every if a.meeting_request_id}
+    ex_ids = {a.exam_request_id for a in every if a.exam_request_id}
     meetings: dict[int, MeetingRequest] = {}
     if mr_ids:
         q = (
@@ -169,21 +181,54 @@ async def enrich_assignments(
     if ex_ids:
         qe = select(ExamRequest).where(ExamRequest.id.in_(ex_ids)).options(selectinload(ExamRequest.program))
         exams = {e.id: e for e in (await session.execute(qe)).scalars()}
-    # exam cohorts merged by merge_key share a room: size = sum of the cohort
+    # merged exam cohorts (same merge_key) sit together: size = the whole cohort
     cohort_size: dict[str, int] = defaultdict(int)
-    if exams:
-        keys = {e.merge_key for e in exams.values() if e.merge_key}
-        if keys:
-            for mk, enrol in await session.execute(
-                select(ExamRequest.merge_key, ExamRequest.enrolment).where(
-                    ExamRequest.term_id == run.term_id, ExamRequest.merge_key.in_(keys), ExamRequest.archived.is_(False)
-                )
-            ):
-                cohort_size[mk] += int(enrol or 0)
+    keys = {e.merge_key for e in exams.values() if e.merge_key}
+    if keys:
+        for mk, enrol in await session.execute(
+            select(ExamRequest.merge_key, ExamRequest.enrolment).where(
+                ExamRequest.term_id == run.term_id,
+                ExamRequest.merge_key.in_(keys),
+                ExamRequest.archived.is_(False),
+            )
+        ):
+            cohort_size[str(mk)] += int(enrol or 0)
 
-    # index of the whole run for overlap checks: (room, day) -> assignments
+    def cohort_of(a: Assignment) -> str:
+        ex = exams.get(a.exam_request_id or 0)
+        return f"MK:{ex.merge_key}" if ex is not None and ex.merge_key else f"A:{a.id}"
+
+    def size_of(a: Assignment) -> int:
+        if a.meeting_request_id and a.meeting_request_id in meetings:
+            mr = meetings[a.meeting_request_id]
+            return int(mr.section.enrolment or mr.requested_capacity or 0)
+        if a.exam_request_id and a.exam_request_id in exams:
+            ex = exams[a.exam_request_id]
+            if ex.merge_key and cohort_size.get(ex.merge_key):
+                return cohort_size[ex.merge_key]
+            return int(ex.enrolment or 0)
+        return 0
+
+    def room_cap(rid: int) -> int:
+        r = rooms_by_id.get(rid)
+        if r is None:
+            return 0
+        return int((r.exam_capacity or r.capacity or 0) if exam else (r.capacity or 0))
+
+    def room_code(rid: int) -> str:
+        r = rooms_by_id.get(rid)
+        return r.display_name if r is not None else str(rid)
+
+    def seat_share(a: Assignment, rid: int) -> float:
+        """Seats ``a`` uses in room ``rid`` when it is split across several rooms (pro rata capacity)."""
+        rids = [int(r) for r in a.room_ids or []]
+        total = sum(room_cap(r) for r in rids)
+        if len(rids) <= 1 or total <= 0:
+            return float(size_of(a))
+        return size_of(a) * room_cap(rid) / total
+
     by_room_day: dict[tuple[int, int], list[Assignment]] = defaultdict(list)
-    for a in all_rows:
+    for a in every:
         for r in a.room_ids or []:
             by_room_day[(int(r), a.day)].append(a)
     blocks_by_room_day: dict[tuple[int, int], list[Block]] = defaultdict(list)
@@ -192,12 +237,20 @@ async def enrich_assignments(
         if bday is not None:
             blocks_by_room_day[(b.room_id, bday)].append(b)
 
+    def clashes(a: Assignment, other: Assignment) -> bool:
+        if other.id == a.id or not _overlap(a.start_period, a.end_period, other.start_period, other.end_period):
+            return False
+        if a.date and other.date and a.date != other.date:
+            return False
+        return _weeks_overlap(assignment_weeks(a), assignment_weeks(other))
+
+    out: dict[int, Enrichment] = {}
     for a in rows:
         e = Enrichment(display_label=labels[a.id])
         room_ids = [int(r) for r in a.room_ids or []]
-        e.room_codes = [rooms_by_id[r].display_name if r in rooms_by_id else str(r) for r in room_ids]
+        e.room_codes = [room_code(r) for r in room_ids]
         e.week_set = sorted(assignment_weeks(a))
-        exam = run.kind == "EXAM"
+        e.size = size_of(a)
         if a.meeting_request_id and a.meeting_request_id in meetings:
             mr = meetings[a.meeting_request_id]
             sec = mr.section
@@ -207,7 +260,6 @@ async def enrich_assignments(
             e.program_name = sec.program.name if sec.program else None
             e.class_year = sec.class_year
             e.enrolment = sec.enrolment
-            e.size = int(sec.enrolment or mr.requested_capacity or 0)
             e.instructors = [si.instructor.full_name for si in sec.instructors]
         elif a.exam_request_id and a.exam_request_id in exams:
             ex = exams[a.exam_request_id]
@@ -216,45 +268,34 @@ async def enrich_assignments(
             e.program_name = ex.program.name if ex.program else None
             e.class_year = ex.class_year
             e.enrolment = ex.enrolment
-            e.size = cohort_size[ex.merge_key] if ex.merge_key and cohort_size[ex.merge_key] else int(ex.enrolment or 0)
             e.instructors = [ex.instructor_text] if ex.instructor_text else []
         elif a.course_codes:
             e.course_code = str(a.course_codes[0])
-        caps = [
-            (rooms_by_id[r].exam_capacity if exam else rooms_by_id[r].capacity) or 0 for r in room_ids if r in rooms_by_id
-        ]
+        caps = [room_cap(r) for r in room_ids if r in rooms_by_id]
         e.capacity = sum(caps) if caps else None
         reasons: list[str] = []
-        if e.capacity is not None and e.size and e.size > e.capacity and not exam:
+        if e.capacity is not None and e.size and e.size > e.capacity:
             reasons.append(f"capacity: {e.size} > {e.capacity}")
-        aw = assignment_weeks(a)
         for r in room_ids:
-            for other in by_room_day[(r, a.day)]:
-                if other.id == a.id or not _overlap(a.start_period, a.end_period, other.start_period, other.end_period):
-                    continue
-                if not _weeks_overlap(aw, assignment_weeks(other)):
-                    continue
-                if exam and other.exam_request_id and a.exam_request_id:
-                    ea, eb = exams.get(a.exam_request_id), None
-                    if ea is not None and ea.merge_key:
-                        # members of the same merged cohort legitimately share the room(s)
-                        eb_key = (
-                            await session.execute(select(ExamRequest.merge_key).where(ExamRequest.id == other.exam_request_id))
-                        ).scalar_one_or_none()
-                        if eb_key == ea.merge_key:
-                            continue
-                    del eb
-                    continue  # exams may share a room (seat budget is checked by the solver)
-                rc = rooms_by_id[r].display_name if r in rooms_by_id else str(r)
-                reasons.append(f"room overlap: {rc} with #{other.id}")
-                break
+            others = [o for o in by_room_day[(r, a.day)] if clashes(a, o)]
+            if exam:
+                mine = cohort_of(a)
+                seats: dict[str, float] = {mine: seat_share(a, r)}
+                for o in others:
+                    seats.setdefault(cohort_of(o), seat_share(o, r))
+                load = round(sum(seats.values()))
+                if len(seats) > 1 and load > room_cap(r):
+                    reasons.append(f"seats: {room_code(r)} {load} > {room_cap(r)}")
+            elif others:
+                reasons.append(f"room overlap: {room_code(r)} with #{others[0].id}")
             for b in blocks_by_room_day[(r, a.day)]:
                 if not _overlap(a.start_period, a.end_period, b.start_period, b.end_period):
                     continue
-                if not _weeks_overlap(aw, {int(w) for w in (b.weeks or [])}):
+                if a.date and b.date and a.date != b.date:
                     continue
-                rc = rooms_by_id[r].display_name if r in rooms_by_id else str(r)
-                reasons.append(f"block: {rc} {b.label}")
+                if not _weeks_overlap(assignment_weeks(a), {int(w) for w in (b.weeks or [])}):
+                    continue
+                reasons.append(f"block: {room_code(r)} {b.label}")
                 break
         e.conflict_reasons = reasons
         e.is_conflict = bool(reasons)
@@ -314,7 +355,7 @@ async def build_grid(
                         "week": a.week,
                         "weeks": en.week_set,
                         "date": a.date.isoformat() if a.date else None,
-                        **{k: v for k, v in en.as_dict().items() if k not in {"display_label", "room_codes", "week_set"}},
+                        **{k: v for k, v in en.as_dict().items() if k not in _CELL_SKIP},
                         "room_codes": en.room_codes,
                     }
             for b in blocks:

@@ -32,12 +32,28 @@ class UsageOut(BaseModel):
 class ResolvedEntity(BaseModel):
     """One name the model used, resolved (or not) to a database id. Ids are never invented by the model."""
 
-    type: Literal["room", "program", "course", "event", "instructor", "building", "date"]
+    type: Literal["room", "program", "course", "event", "instructor", "building", "date", "section", "assignment"]
     text: str
     resolved_id: int | None = None
     resolved_label: str | None = None
     confidence: float = 0.0
     candidates: list[dict[str, Any]] = []
+
+
+class SourceRef(BaseModel):
+    """Where a proposal came from: the prompt, or a row/paragraph/page of an uploaded file."""
+
+    filename: str | None = None
+    kind: Literal["prompt", "row", "paragraph", "page", "line"] = "prompt"
+    ref: int | None = None  # 1-based row / paragraph / page / line number
+    sheet: str | None = None
+    excerpt: str | None = None
+
+    @property
+    def label(self) -> str:
+        if self.filename is None:
+            return "prompt"
+        return f"{self.filename}{' [' + self.sheet + ']' if self.sheet else ''} {self.kind} {self.ref}"
 
 
 class ProposedConstraint(BaseModel):
@@ -52,6 +68,38 @@ class ProposedConstraint(BaseModel):
     status: Literal["ok", "needs_review", "rejected"] = "ok"
     issues: list[str] = []
     entities: list[ResolvedEntity] = []
+    source: SourceRef | None = None
+
+
+SectionField = Literal["enrolment", "day", "time", "mode", "preferred_rooms"]
+SectionMode = Literal["F2F", "ONLINE", "HYBRID", "UZEM", "ASYNC", "HOSPITAL", "SIMULATION", "OTHER"]
+
+
+class SectionChanges(BaseModel):
+    """Field changes for ``set_field`` (``None`` = keep)."""
+
+    enrolment: int | None = Field(default=None, ge=0, le=5000)
+    day: int | None = Field(default=None, ge=1, le=7)
+    start_period: int | None = Field(default=None, ge=1, le=18)
+    end_period: int | None = Field(default=None, ge=1, le=18)
+    mode: SectionMode | None = None
+    preferred_room_ids: list[int] | None = None
+
+
+class ProposedSectionEdit(BaseModel):
+    """Data edit on sections (include/exclude from room planning, or field changes). Never auto-applied."""
+
+    op: Literal["include", "exclude", "set_field"]
+    section_ids: list[int] = []
+    changes: SectionChanges = SectionChanges()
+    nl_text: str = ""
+    rationale: str = ""
+    confidence: float = 0.0
+    status: Literal["ok", "needs_review", "rejected"] = "ok"
+    issues: list[str] = []
+    entities: list[ResolvedEntity] = []
+    labels: list[str] = []  # human labels of the targeted sections ("PHAR 240 §1 (eczacılık)")
+    source: SourceRef | None = None
 
 
 class ElicitIn(BaseModel):
@@ -61,19 +109,32 @@ class ElicitIn(BaseModel):
 
 class ElicitOut(BaseModel):
     proposals: list[ProposedConstraint]
-    unparsed: list[dict[str, str]] = []
+    section_edits: list[ProposedSectionEdit] = []
+    unparsed: list[dict[str, Any]] = []
     assistant_message: str = ""
     usage: UsageOut = UsageOut()
 
 
+class IngestOut(ElicitOut):
+    filename: str
+    file_kind: Literal["xlsx", "csv", "docx", "pdf", "txt"]
+    units: int = 0  # rows / paragraphs / pages read
+    chunks: int = 0
+    truncated: bool = False
+    detected_columns: dict[str, str] = {}  # role -> header text (tabular files)
+    warnings: list[str] = []
+
+
 class AcceptIn(BaseModel):
-    proposals: list[ProposedConstraint]
-    run_id: int | None = None  # attach to a run instead of the term
+    proposals: list[ProposedConstraint] = []
+    section_edits: list[ProposedSectionEdit] = []
+    run_id: int | None = None  # attach constraints to a run instead of the term
 
 
 class AcceptOut(BaseModel):
     created: list[int]
     rejected: list[dict[str, Any]] = []
+    section_edits_applied: list[dict[str, Any]] = []
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +151,7 @@ class MoveOp(BaseModel):
     room_ids: list[int] | None = None
     weeks: list[int] | None = None
     label: str | None = None
+    reason: str = ""
     before: dict[str, Any] = {}
     after: dict[str, Any] = {}
     preview_conflicts: list[dict[str, Any]] = []
@@ -100,6 +162,7 @@ class SwapOp(BaseModel):
     assignment_id_a: int
     assignment_id_b: int
     label: str | None = None
+    reason: str = ""
     preview_conflicts: list[dict[str, Any]] = []
 
 
@@ -107,6 +170,7 @@ class LockOp(BaseModel):
     op: Literal["lock", "unlock"]
     assignment_id: int
     label: str | None = None
+    reason: str = ""
 
 
 class AddConstraintOp(BaseModel):
@@ -118,6 +182,7 @@ class RemoveConstraintOp(BaseModel):
     op: Literal["remove_constraint"] = "remove_constraint"
     constraint_id: int
     label: str | None = None
+    reason: str = ""
 
 
 class SetWeightOp(BaseModel):
@@ -126,10 +191,16 @@ class SetWeightOp(BaseModel):
     weight: int | None = None
     hardness: Literal["hard", "soft"] | None = None
     label: str | None = None
+    reason: str = ""
+
+
+class SectionEditOp(BaseModel):
+    op: Literal["section_edit"] = "section_edit"
+    edit: ProposedSectionEdit
 
 
 DiffOp = Annotated[
-    MoveOp | SwapOp | LockOp | AddConstraintOp | RemoveConstraintOp | SetWeightOp,
+    MoveOp | SwapOp | LockOp | AddConstraintOp | RemoveConstraintOp | SetWeightOp | SectionEditOp,
     Field(discriminator="op"),
 ]
 
@@ -181,7 +252,10 @@ class ApplyOut(BaseModel):
     rejected: list[dict[str, Any]] = []
     constraints_created: list[int] = []
     re_solve_queued: bool = False
+    mode: Literal["patch", "repair", "full", "none"] = "none"
     status: str | None = None
+    hard_score: int | None = None
+    soft_score: int | None = None
 
 
 class ExplainIn(BaseModel):

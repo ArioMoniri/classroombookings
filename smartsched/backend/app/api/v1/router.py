@@ -2,7 +2,20 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1 import auth, constraints, health, imports, reference, requests, rooms, runs, settings, terms
+from app.api.v1 import (
+    auth,
+    constraints,
+    dashboard,
+    health,
+    imports,
+    reference,
+    requests,
+    rooms,
+    runs,
+    settings,
+    terms,
+    users,
+)
 
 api_router = APIRouter()
 for r in (
@@ -16,5 +29,7 @@ for r in (
     imports.router,
     constraints.router,
     runs.router,
+    dashboard.router,
+    users.router,
 ):
     api_router.include_router(r)

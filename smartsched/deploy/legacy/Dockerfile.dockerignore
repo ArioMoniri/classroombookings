@@ -1,0 +1,20 @@
+# BuildKit reads <Dockerfile>.dockerignore next to the Dockerfile; the context is the repository root.
+# Allow-list: only the legacy PHP app and this directory's config files enter the build context.
+*
+!index.php
+!assets
+!crbs-core
+!local
+!uploads
+!smartsched/deploy/legacy/apache-crbs.conf
+!smartsched/deploy/legacy/config.php
+# never ship host state or secrets even if they live inside allowed dirs
+local/config.php
+local/installed
+local/.installed
+local/sessions/ci_session*
+local/logs/log-*
+local/cache/*
+!local/cache/index.html
+**/.env
+**/.env.*

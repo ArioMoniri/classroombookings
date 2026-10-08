@@ -10,7 +10,7 @@ import importlib
 import logging
 from collections import defaultdict
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -231,6 +231,10 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                 )
             )
             max_rooms = max(int(r.requested_room_count or 0) for r in rows) or 3
+            if locked is not None:
+                # the planner's definitive room set is the room count; a single locked room may then be
+                # shared with other exams (the solver only shares single-room events)
+                max_rooms = len(locked.room_ids)
             events.append(
                 sm.Event(
                     id=head.id,
@@ -253,6 +257,9 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                     cohort_keys=cohort,
                     instructor_keys=frozenset(f"INS:{r.instructor_text}" for r in rows if r.instructor_text),
                     locked=locked,
+                    # exams of different cohorts may sit in one room as long as the seats add up
+                    # (the Final plan does this routinely); the solver checks the seat budget
+                    share_room=True,
                 )
             )
             members[head.id] = [r.id for r in rows]
@@ -301,25 +308,47 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
 
     previous: list[sm.Assignment] = []
     if run.parent_run_id:
+        head_of = {rid: head for head, ids in members.items() for rid in ids}
+        events_by_id = {e.id: i for i, e in enumerate(events)}
+        seen_prev: set[int] = set()
         for a in (
             await session.execute(
                 select(Assignment).where(Assignment.run_id == run.parent_run_id, Assignment.archived.is_(False))
             )
         ).scalars():
-            ev_id = a.meeting_request_id if not exam else a.exam_request_id
-            if ev_id is None:
+            req_id = a.meeting_request_id if not exam else a.exam_request_id
+            if req_id is None:
                 continue
+            ev_id = head_of.get(req_id, req_id)
+            if ev_id in seen_prev:
+                continue  # merged exam cohorts: one assignment per member, one event
+            seen_prev.add(ev_id)
+            a_rooms = tuple(int(r) for r in a.room_ids or [])
             previous.append(
                 sm.Assignment(
                     ev_id,
                     a.day,
                     a.start_period,
                     a.end_period,
-                    tuple(int(r) for r in a.room_ids or []),
+                    a_rooms,
                     frozenset(int(w) for w in (a.weeks or [])),
                     a.date,
                 )
             )
+            idx = events_by_id.get(ev_id)
+            if a.is_locked and idx is not None and all(r in room_ids for r in a_rooms):
+                # a planner-locked (e.g. manually moved) assignment of the parent run is carried over as
+                # a hard lock; ``locked`` overrides the request's fixed day/time in the solver
+                ev = events[idx]
+                events[idx] = replace(
+                    ev,
+                    duration=a.end_period - a.start_period + 1,
+                    locked=sm.Assignment(
+                        ev.id, a.day, a.start_period, a.end_period, a_rooms, ev.weeks, a.date or ev.fixed_date
+                    ),
+                    forbidden_tags=frozenset(),
+                    max_rooms=max(len(a_rooms), 1) if ev.kind == "exam" else ev.max_rooms,
+                )
 
     if exam and extra_weeks:
         weeks = sorted(week_set | extra_weeks)

@@ -7,6 +7,10 @@
 #   ./deploy.sh --logs     follow logs
 #   ./deploy.sh --down     stop the stack (volumes are kept; add --volumes to delete data)
 #   ./deploy.sh --status   show container status + health
+#   extra flags: --no-build (start existing images), --no-pull (--update without git pull)
+#
+# The backend runs migrations (alembic upgrade head) and seeds the admin user on every start; solver
+# and import jobs run inside the backend process (no separate worker container).
 #
 # Secrets: on first run .env is created from .env.example and every "__GENERATE__" placeholder is
 # replaced with a random value (openssl, falling back to python). .env is git-ignored.
@@ -27,7 +31,7 @@ log()  { printf '\033[1;34m[deploy]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[deploy] warning:\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[deploy] error:\033[0m %s\n' "$*" >&2; exit 1; }
 
-usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
 
 for arg in "$@"; do
   case "$arg" in
@@ -54,7 +58,12 @@ elif command -v docker-compose >/dev/null 2>&1; then
 else
   die "docker compose v2 is required (https://docs.docker.com/compose/install/)"
 fi
-COMPOSE+=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE" "${PROFILE_ARGS[@]}")
+COMPOSE_VERSION="$("${COMPOSE[@]}" version --short 2>/dev/null || echo 0)"
+case "${COMPOSE_VERSION#v}" in
+  1.*|2.[0-9].*|2.1[0-6].*) warn "docker compose $COMPOSE_VERSION is old; >= 2.17 is recommended" ;;
+esac
+# ${arr[@]+...} keeps `set -u` happy with an empty array on bash 3.2 (macOS).
+COMPOSE+=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE" ${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"})
 
 # ---- .env with generated secrets ------------------------------------------------------------
 random_secret() {
@@ -95,7 +104,7 @@ ensure_env() {
     sed -i.bak "s|^${key}=__GENERATE__|${key}=${value}|" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
     created=1
   done
-  [[ $created -eq 1 ]] && log "generated secrets written to $ENV_FILE (keep it safe; it is git-ignored)"
+  if [[ $created -eq 1 ]]; then log "generated secrets written to $ENV_FILE (keep it safe; it is git-ignored)"; fi
   # Required keys must be present and non-empty.
   local k
   for k in APP_SECRET AUTH_SECRET POSTGRES_PASSWORD ADMIN_EMAIL ADMIN_PASSWORD; do
@@ -130,16 +139,6 @@ wait_healthy() {
   done
 }
 
-check_legacy_perms() {
-  # The legacy app writes to local/{cache,sessions,logs} and uploads/ as uid 33.
-  local d
-  for d in local/cache local/sessions local/logs uploads; do
-    if [[ -d "$REPO_ROOT/$d" && ! -w "$REPO_ROOT/$d" ]]; then
-      warn "$REPO_ROOT/$d is not writable; run: chmod -R a+rwX local uploads (repo root)"
-    fi
-  done
-}
-
 print_summary() {
   local port url
   port="$(env_get PROXY_PORT)"; port="${port:-8080}"
@@ -148,8 +147,10 @@ print_summary() {
   log "SmartSched is up:  $url"
   log "API docs:          $url/api/docs"
   log "Admin login:       $(env_get ADMIN_EMAIL)  (password: ADMIN_PASSWORD in $ENV_FILE)"
+  log "                   seeded on the first start only; later changes to .env do not reset it"
   if [[ ${#PROFILE_ARGS[@]} -gt 0 ]]; then
-    log "Legacy CRBS:       http://localhost:$(env_get CRBS_PORT)  (MySQL DSN for imports: mysql://$(env_get CRBS_DB_USER):<CRBS_DB_PASSWORD>@crbs-db:3306/$(env_get CRBS_DB_NAME))"
+    log "Legacy CRBS:       http://localhost:$(env_get CRBS_PORT)  (first visit runs the CRBS installer; DB host crbs-db)"
+    log "CRBS import DSN:   mysql://$(env_get CRBS_DB_USER):<CRBS_DB_PASSWORD>@crbs-db:3306/$(env_get CRBS_DB_NAME)  (needs BACKEND_EXTRA_PIP=pymysql)"
   fi
   log "Logs: ./deploy.sh --logs   Stop: ./deploy.sh --down   Update: ./deploy.sh --update"
 }
@@ -160,8 +161,10 @@ case "$ACTION" in
     [[ -f "$ENV_FILE" ]] || die "no $ENV_FILE; nothing to stop"
     if [[ $REMOVE_VOLUMES -eq 1 ]]; then
       warn "removing volumes: ALL DATA (Postgres, uploads, legacy MySQL) will be deleted"
-      read -r -p "type 'delete' to confirm: " answer
-      [[ "$answer" == "delete" ]] || die "aborted"
+      if [[ "${FORCE:-0}" != "1" ]]; then
+        read -r -p "type 'delete' to confirm (or run with FORCE=1): " answer
+        [[ "$answer" == "delete" ]] || die "aborted"
+      fi
       "${COMPOSE[@]}" --profile legacy down --volumes --remove-orphans
     else
       "${COMPOSE[@]}" --profile legacy down --remove-orphans
@@ -191,7 +194,6 @@ case "$ACTION" in
     ;;
   up)
     ensure_env
-    [[ ${#PROFILE_ARGS[@]} -gt 0 ]] && check_legacy_perms
     if [[ $NO_BUILD -eq 0 ]]; then
       log "building images (first build takes a few minutes)"
       "${COMPOSE[@]}" build

@@ -3,54 +3,135 @@
 Flow: catalogue + compact term context in a cached system prompt -> one strict ``propose_constraints``
 tool call -> every proposal is resolved (names -> ids, :mod:`app.ai.resolve`) and validated against the
 catalogue schema. Nothing is written to the database here; :func:`accept_proposals` does that after
-the planner reviewed the list.
+the planner reviewed the list, and it re-verifies every id against the database (the accepted list
+comes back from the browser and is not trusted either).
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import catalog
 from app.ai.client import AIClient, text_of, tool_uses
-from app.ai.resolve import TermContext, load_term_context, resolve_proposal
-from app.models import ConstraintRow
-from app.schemas.ai import ElicitOut, ProposedConstraint, UsageOut
+from app.ai.resolve import TermContext, load_term_context, resolve_proposal, resolve_section_edit
+from app.models import ConstraintRow, ExamRequest, MeetingRequest, Room, Section
+from app.schemas.ai import ElicitOut, ProposedConstraint, ProposedSectionEdit, SourceRef, UsageOut
 
 log = logging.getLogger(__name__)
 
-MAX_TOKENS = 8000
+PROMPTS = Path(__file__).parent / "prompts"
+MAX_TOKENS = 16000
+EFFORT = "medium"
 
-_RULES_EN = """You are SmartSched's constraint elicitation assistant for a university room-planning office.
-Turn the planner's free text into typed rules from the catalogue below by calling `propose_constraints` exactly once.
-
-Rules:
-- Name rooms, programmes, courses and instructors exactly as written by the planner (e.g. "A 206", "Psikoloji", "PHAR 240"). You never see or invent database ids; the server resolves names.
-- One proposal per rule; copy the originating sentence into `nl_text`; explain the mapping in `rationale` in the planner's language ({lang}).
-- Hardness: "must/never/only/sadece/olmasın/zorunlu" => hard; "prefer/should/keep/kalsın/tercihen/mümkünse" => soft with weight 1-10 (default 5). Overlap kinds are always hard.
-- Times: periods are 1..18 (P1 08:30-09:10 ... P11 16:50-17:30, P12 17:30-18:00, P13 18:00-18:40 ... P18 22:10-22:50). "after 17:30 no lectures" => day_window latest=11. "morning" => periods 1-5, "afternoon" => 6-11, "evening (İÖ)" => 12-18.
-- Days: 1=Monday/Pazartesi ... 5=Friday/Cuma, 6=Saturday, 7=Sunday.
-- Dates like "23 Şubat" / "from 23 Feb" => `from_date` as ISO date in the term's year; "last 7 weeks" => `last_n_weeks`=7; the server converts to week indexes.
-- Class year: "1. sınıf" => class_years [1]; "ilk yıl"/"first-year" => [1]; "hemşirelik 1. sınıf" => program_name "Hemşirelik", class_years [1].
-- "TIP rooms only for medicine" => room_tags hard with forbidden_tags ["TIP"] and selector match "" (all events) - the medicine programme itself keeps access via its own TIP requests; say so in the rationale.
-- "Keep pharmacy in C block Mondays" => building_preference soft, program_name "Eczacılık", building "C", days [1].
-- "PHAR 240 moves to A 206 from 23 Feb" => room_pin hard, course_codes ["PHAR 240"], room_codes ["A 206"], from_date.
-- "NRS 450 only last 7 weeks" => this is a week pattern, not a room rule: put it in `unparsed` with reason "week pattern - edit the meeting request's weeks" unless a room is also named.
-- If a sentence cannot be expressed with the catalogue, put it in `unparsed` with a short reason; never force a wrong kind.
-- Confidence: 1.0 when every name is explicit and the kind is unambiguous; lower when you guessed.
-"""
+_RULES_EN = (PROMPTS / "elicit.md").read_text(encoding="utf-8")
 
 
 def build_system(ctx: TermContext, lang: str) -> list[dict[str, Any]]:
     """Two blocks: rules + catalogue (stable, cached), term context (stable per term, cached)."""
     rules = _RULES_EN.format(lang="Turkish" if lang == "tr" else "English")
-    cat = "Catalogue of constraint kinds (kind [allowed hardness, default; params]: description, examples):\n" + catalog.catalog_prompt(lang)
+    cat = (
+        "Catalogue of constraint kinds (kind [allowed hardness, default; params]: description, examples):\n"
+        + catalog.catalog_prompt(lang)
+    )
     return [
         {"type": "text", "text": rules + "\n" + cat, "cache_control": {"type": "ephemeral"}},
         {"type": "text", "text": "Term context:\n" + ctx.prompt_block(), "cache_control": {"type": "ephemeral"}},
     ]
+
+
+SourceLookup = Callable[[int], SourceRef | None]
+
+
+def _validated_call_input(call: Any) -> tuple[dict[str, Any] | None, list[str]]:
+    data = call.input if isinstance(call.input, dict) else None
+    if data is None:
+        return None, ["tool input is not an object"]
+    issues = catalog.validate_tool_input(call.name, data)
+    return (data if not issues else None), issues
+
+
+async def propose(
+    client: AIClient,
+    ctx: TermContext,
+    user_content: str,
+    lang: str,
+    *,
+    lookup: SourceLookup | None = None,
+) -> tuple[list[ProposedConstraint], list[ProposedSectionEdit], list[dict[str, Any]], str]:
+    """One strict ``propose_constraints`` round -> resolved proposals, section edits, unparsed, note."""
+    message = await client.complete(
+        system=build_system(ctx, lang),
+        messages=[{"role": "user", "content": user_content}],
+        tools=[catalog.PROPOSE_CONSTRAINTS_TOOL],
+        max_tokens=MAX_TOKENS,
+        effort=EFFORT,
+        disable_parallel_tool_use=True,
+    )
+    note = text_of(message)
+    calls = [c for c in tool_uses(message) if c.name == "propose_constraints"]
+    if getattr(message, "stop_reason", None) == "max_tokens" and calls:
+        # a truncated tool input may still parse; never act on it
+        log.warning("elicit output truncated at max_tokens; dropping the partial tool call")
+        return [], [], [{"text": "", "reason": "model output truncated; split the input"}], note
+    proposals: list[ProposedConstraint] = []
+    edits: list[ProposedSectionEdit] = []
+    unparsed: list[dict[str, Any]] = []
+
+    def src(raw: dict[str, Any]) -> SourceRef | None:
+        ref = raw.get("source_ref")
+        if lookup is not None and isinstance(ref, int) and not isinstance(ref, bool) and ref > 0:
+            return lookup(ref)
+        return lookup(0) if lookup is not None else SourceRef(kind="prompt")
+
+    for call in calls:
+        data, schema_issues = _validated_call_input(call)
+        if data is None:
+            log.warning("propose_constraints input failed validation (%d issues)", len(schema_issues))
+            unparsed.append(
+                {"text": "", "reason": "model output failed schema validation: " + "; ".join(schema_issues[:3])}
+            )
+            continue
+        for raw in data.get("proposals") or []:
+            try:
+                p = resolve_proposal(ctx, dict(raw))
+                p.source = src(raw)
+                proposals.append(p)
+            except Exception as exc:  # noqa: BLE001 - one bad proposal must not lose the others
+                log.warning("proposal resolution failed: %s", type(exc).__name__)
+                proposals.append(
+                    ProposedConstraint(
+                        kind=str(raw.get("kind") or "?"),
+                        nl_text=str(raw.get("nl_text") or ""),
+                        status="rejected",
+                        issues=[f"resolution error: {type(exc).__name__}"],
+                        source=src(raw),
+                    )
+                )
+        for raw in data.get("section_edits") or []:
+            try:
+                e = resolve_section_edit(ctx, str(raw.get("op") or ""), dict(raw))
+                e.source = src(raw)
+                edits.append(e)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("section edit resolution failed: %s", type(exc).__name__)
+        for u in data.get("unparsed") or []:
+            ref = src(u)
+            unparsed.append(
+                {
+                    "text": str(u.get("text") or ""),
+                    "reason": str(u.get("reason") or ""),
+                    "source": ref.model_dump() if ref is not None else None,
+                }
+            )
+    if not calls and not note:
+        note = "No rules could be extracted."
+    return proposals, edits, unparsed, note
 
 
 async def elicit_constraints(
@@ -58,49 +139,71 @@ async def elicit_constraints(
 ) -> ElicitOut:
     """``text`` -> proposals (validated, resolved, never applied). ``client`` from :func:`app.ai.client.get_client`."""
     ctx = await load_term_context(session, term_id)
-    message = await client.complete(
-        system=build_system(ctx, lang),
-        messages=[
-            {
-                "role": "user",
-                "content": (
-                    f"Planner's preferences ({'Turkish' if lang == 'tr' else 'English'}):\n\n{text}\n\n"
-                    "Call propose_constraints once with every rule you can map."
-                ),
-            }
-        ],
-        tools=[catalog.PROPOSE_CONSTRAINTS_TOOL],
-        max_tokens=MAX_TOKENS,
-        disable_parallel_tool_use=True,
+    content = (
+        f"Planner's preferences ({'Turkish' if lang == 'tr' else 'English'}):\n\n{text}\n\n"
+        "Call propose_constraints once with every rule and section edit you can map."
     )
-    calls = [c for c in tool_uses(message) if c.name == "propose_constraints"]
-    proposals: list[ProposedConstraint] = []
-    unparsed: list[dict[str, str]] = []
-    for call in calls:
-        data: dict[str, Any] = dict(call.input or {})
-        for raw in data.get("proposals") or []:
-            try:
-                proposals.append(resolve_proposal(ctx, dict(raw)))
-            except Exception as exc:  # noqa: BLE001 - one bad proposal must not lose the others
-                log.warning("proposal resolution failed: %s", type(exc).__name__)
-                proposals.append(
-                    ProposedConstraint(kind=str(raw.get("kind") or "?"), nl_text=str(raw.get("nl_text") or ""), status="rejected", issues=[f"resolution error: {type(exc).__name__}"])
-                )
-        for u in data.get("unparsed") or []:
-            unparsed.append({"text": str(u.get("text") or ""), "reason": str(u.get("reason") or "")})
-    note = text_of(message)
-    if not calls:
-        note = note or ("Kural çıkarılamadı." if lang == "tr" else "No rules could be extracted.")
-    log.info("elicit term=%s proposals=%d unparsed=%d ok=%d", term_id, len(proposals), len(unparsed), sum(p.status == "ok" for p in proposals))
-    return ElicitOut(proposals=proposals, unparsed=unparsed, assistant_message=note, usage=UsageOut(**{k: v for k, v in client.usage.to_dict().items() if k != "type"}))
+    proposals, edits, unparsed, note = await propose(
+        client, ctx, content, lang, lookup=lambda _ref: SourceRef(kind="prompt")
+    )
+    if not proposals and not edits and not note:
+        note = "Kural çıkarılamadı." if lang == "tr" else "No rules could be extracted."
+    log.info(
+        "elicit term=%s proposals=%d edits=%d unparsed=%d ok=%d",
+        term_id,
+        len(proposals),
+        len(edits),
+        len(unparsed),
+        sum(p.status == "ok" for p in proposals),
+    )
+    return ElicitOut(
+        proposals=proposals,
+        section_edits=edits,
+        unparsed=unparsed,
+        assistant_message=note,
+        usage=UsageOut(**client.usage.to_out()),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Accept (persist) - every id re-verified against the database
+# ---------------------------------------------------------------------------
 
 
 def check_proposal(p: ProposedConstraint) -> list[str]:
     """Problems that block persisting a proposal (unresolved names, schema violations)."""
-    issues = [f"unresolved {e.type} '{e.text}'" for e in p.entities if e.resolved_id is None and e.type != "date"]
+    issues = [f"unresolved {e.type} '{e.text}'" for e in p.entities if e.resolved_id is None]
     issues += catalog.validate_params(p.kind, p.params, p.hardness)
     if p.status == "rejected":
         issues.append("proposal was rejected")
+    if p.hardness == "soft" and not 1 <= int(p.weight) <= 10:
+        issues.append("weight must be 1..10")
+    return issues
+
+
+async def verify_ids(session: AsyncSession, term_id: int | None, params: dict[str, Any]) -> list[str]:
+    """Every room / event id in ``params`` must exist (and belong to the term)."""
+    issues: list[str] = []
+    room_ids = [int(r) for r in params.get("room_ids") or []]
+    if params.get("room_id") is not None:
+        room_ids.append(int(params["room_id"]))
+    if room_ids:
+        found = set((await session.execute(select(Room.id).where(Room.id.in_(room_ids)))).scalars())
+        issues += [f"room id {r} does not exist" for r in room_ids if r not in found]
+    event_ids = [int(e) for e in params.get("event_ids") or []]
+    if event_ids:
+        q = select(MeetingRequest.id).join(Section, Section.id == MeetingRequest.section_id)
+        q = q.where(MeetingRequest.id.in_(event_ids))
+        if term_id is not None:
+            q = q.where(Section.term_id == term_id)
+        found = set((await session.execute(q)).scalars())
+        qe = select(ExamRequest.id).where(ExamRequest.id.in_(event_ids))
+        if term_id is not None:
+            qe = qe.where(ExamRequest.term_id == term_id)
+        found |= set((await session.execute(qe)).scalars())
+        missing = [e for e in event_ids if e not in found]
+        if missing:
+            issues.append(f"event ids not in this term: {missing[:10]}")
     return issues
 
 
@@ -112,13 +215,15 @@ async def accept_proposals(
     user_id: int | None = None,
     run_id: int | None = None,
     source: str = "AI",
+    commit: bool = True,
 ) -> tuple[list[int], list[dict[str, Any]]]:
     """Persist the proposals the planner accepted as ``ConstraintRow(source=AI)``; returns (ids, rejected)."""
-    created: list[int] = []
     rejected: list[dict[str, Any]] = []
     rows: list[ConstraintRow] = []
     for i, p in enumerate(proposals):
         issues = check_proposal(p)
+        if not issues:
+            issues = await verify_ids(session, term_id, p.params)
         if issues:
             rejected.append({"index": i, "kind": p.kind, "issues": issues})
             continue
@@ -130,7 +235,7 @@ async def accept_proposals(
             hardness=p.hardness,
             weight=max(1, min(10, int(p.weight))),
             source=source,
-            nl_text=p.nl_text or p.title,
+            nl_text=(p.nl_text or p.title or "")[:4000] or None,
             enabled=True,
             created_by=user_id,
         )
@@ -138,9 +243,17 @@ async def accept_proposals(
         rows.append(row)
     if rows:
         await session.flush()
-        created = [r.id for r in rows]
+    created = [r.id for r in rows]
+    if commit and rows:
         await session.commit()
     return created, rejected
 
 
-__all__ = ["accept_proposals", "build_system", "check_proposal", "elicit_constraints"]
+__all__ = [
+    "accept_proposals",
+    "build_system",
+    "check_proposal",
+    "elicit_constraints",
+    "propose",
+    "verify_ids",
+]

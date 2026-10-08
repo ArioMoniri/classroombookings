@@ -44,7 +44,7 @@ fi
 source "$VENV/bin/activate"
 log "installing backend (pip install -e .[dev])"
 pip install --quiet --upgrade pip
-pip install --quiet -e "$BACKEND[dev]"
+pip install --quiet -e "${BACKEND}[dev]"
 
 if [[ ! -f "$BACKEND/.env" ]]; then
   log "creating backend/.env (SQLite, dev admin)"
@@ -53,7 +53,34 @@ if [[ ! -f "$BACKEND/.env" ]]; then
   sed -i.bak "s|^APP_SECRET=.*|APP_SECRET=$secret|; s|^ADMIN_PASSWORD=.*|ADMIN_PASSWORD=admin|; s|^ADMIN_EMAIL=.*|ADMIN_EMAIL=admin@example.com|" "$BACKEND/.env"
   rm -f "$BACKEND/.env.bak"
 fi
-log "alembic upgrade head (SQLite)"
+# A SQLite file created by tests / `create_all` (ENVIRONMENT=dev) has tables but no alembic_version:
+# stamp it instead of failing with "table already exists".
+(cd "$BACKEND" && python - <<'PY'
+import asyncio
+from sqlalchemy import inspect
+from sqlalchemy.ext.asyncio import create_async_engine
+from app.core.config import get_settings
+
+async def main() -> None:
+    url = get_settings().database_url
+    if not url.startswith("sqlite"):
+        return
+    engine = create_async_engine(url)
+    async with engine.connect() as conn:
+        names = await conn.run_sync(lambda c: inspect(c).get_table_names())
+    await engine.dispose()
+    if names and "alembic_version" not in names:
+        print("STAMP")
+
+asyncio.run(main())
+PY
+) > "$BACKEND/.dev-stamp" || true
+if grep -q STAMP "$BACKEND/.dev-stamp" 2>/dev/null; then
+  log "existing SQLite schema without alembic_version: alembic stamp head"
+  (cd "$BACKEND" && alembic stamp head)
+fi
+rm -f "$BACKEND/.dev-stamp"
+log "alembic upgrade head"
 (cd "$BACKEND" && alembic upgrade head)
 log "seeding admin (no-op if users exist)"
 (cd "$BACKEND" && python -m app.cli seed-admin)
@@ -72,12 +99,25 @@ if [[ ! -f "$FRONTEND/.env.local" ]]; then
   } > "$FRONTEND/.env.local"
 fi
 
-log "bootstrap complete. Admin: admin@example.com / admin (see backend/.env)."
+env_val() { grep -E "^$1=" "$BACKEND/.env" | head -1 | cut -d= -f2-; }
+log "bootstrap complete. Admin: $(env_val ADMIN_EMAIL) / $(env_val ADMIN_PASSWORD) (from backend/.env; seeded only into an empty users table)"
+if grep -q '^NEXT_PUBLIC_API_MOCK=1' "$FRONTEND/.env.local" 2>/dev/null; then
+  log "note: frontend/.env.local has NEXT_PUBLIC_API_MOCK=1 (mock data); set 0 to use the backend"
+fi
 [[ $RUN -eq 1 ]] || { log "run both servers with: scripts/dev.sh --run   (or: make -C smartsched dev)"; exit 0; }
 
 # ---- run both servers -------------------------------------------------------------------------
 PIDS=()
-cleanup() { log "stopping"; for p in "${PIDS[@]:-}"; do [[ -n "$p" ]] && kill "$p" 2>/dev/null || true; done; wait 2>/dev/null || true; }
+cleanup() {
+  log "stopping"
+  local p
+  for p in "${PIDS[@]:-}"; do
+    [[ -n "$p" ]] || continue
+    pkill -TERM -P "$p" 2>/dev/null || true   # npm -> next, uvicorn --reload -> worker
+    kill "$p" 2>/dev/null || true
+  done
+  wait 2>/dev/null || true
+}
 trap cleanup EXIT INT TERM
 
 if [[ $MOCK -eq 0 ]]; then

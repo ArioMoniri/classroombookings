@@ -3,8 +3,12 @@
 # Services: db (Postgres), backend (FastAPI + in-process solver queue), frontend (Next.js),
 # proxy (nginx). Profile "legacy": crbs (php-apache) + crbs-db (MySQL) for the old CRBS app.
 #
-# There is no separate "worker" service: app/cli.py has no worker command and solver jobs run in
-# the backend's in-process asyncio queue (app/workers/queue.py). See README.md "Scaling".
+# There is no separate "worker" service: app/cli.py has no worker command and solver/import jobs run
+# in the backend's in-process asyncio queue (app/workers/queue.py, status persisted in the DB rows).
+# See README.md "Scaling" before running more than one backend replica.
+#
+# Every image tag is pinned to a patch release; locally built images are tagged ${SMARTSCHED_TAG}.
+# Resource limits below are examples sized for ~1 500 sections (README.md "Sizing").
 
 name: ${COMPOSE_PROJECT_NAME:-smartsched}
 
@@ -14,9 +18,13 @@ x-logging: &default-logging
     max-size: "20m"
     max-file: "5"
 
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+
 services:
   db:
-    image: postgres:16.10-alpine
+    image: postgres:16.15-alpine3.24
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-smartsched}
@@ -31,6 +39,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+    stop_grace_period: 30s
+    <<: *hardening
     deploy:
       resources:
         limits:
@@ -44,7 +54,7 @@ services:
       dockerfile: Dockerfile
       args:
         EXTRA_PIP: ${BACKEND_EXTRA_PIP:-}
-    image: smartsched-backend:${SMARTSCHED_TAG:-latest}
+    image: smartsched-backend:${SMARTSCHED_TAG:-0.1.0}
     restart: unless-stopped
     depends_on:
       db:
@@ -59,6 +69,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:8080"]}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-720}
       UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-1}
+      SEED_ADMIN: ${SEED_ADMIN:-1}
       SOLVER_DEFAULT_TIME_LIMIT: ${SOLVER_DEFAULT_TIME_LIMIT:-60}
       SOLVER_WORKERS: ${SOLVER_WORKERS:-8}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -74,7 +86,10 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 40s
+      start_period: 60s
+    # uvicorn gets 30 s to finish in-flight requests; running solver jobs are interrupted (README.md).
+    stop_grace_period: 40s
+    <<: *hardening
     deploy:
       resources:
         limits:
@@ -89,7 +104,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:8000}
         NEXT_PUBLIC_API_MOCK: ${NEXT_PUBLIC_API_MOCK:-0}
-    image: smartsched-frontend:${SMARTSCHED_TAG:-latest}
+    image: smartsched-frontend:${SMARTSCHED_TAG:-0.1.0}
     restart: unless-stopped
     depends_on:
       backend:
@@ -108,6 +123,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    <<: *hardening
     deploy:
       resources:
         limits:
@@ -116,7 +132,8 @@ services:
     logging: *default-logging
 
   proxy:
-    image: nginx:1.28-alpine
+    # Unprivileged build of the official nginx image: runs as uid 101 and listens on 8080.
+    image: nginxinc/nginx-unprivileged:1.28.2-alpine
     restart: unless-stopped
     depends_on:
       frontend:
@@ -124,15 +141,16 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "${PROXY_PORT:-8080}:80"
+      - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-8080}:8080"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null --spider http://127.0.0.1/api/v1/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 10s
+    <<: *hardening
     deploy:
       resources:
         limits:
@@ -143,7 +161,7 @@ services:
   # ---- optional legacy classroombookings (CRBS) so the live app can be imported from -------------
   crbs-db:
     profiles: ["legacy"]
-    image: mysql:8.4
+    image: mysql:8.4.11
     restart: unless-stopped
     command: ["mysqld", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     environment:
@@ -159,6 +177,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+    <<: *hardening
     deploy:
       resources:
         limits:
@@ -171,7 +190,7 @@ services:
     build:
       context: ../..
       dockerfile: smartsched/deploy/legacy/Dockerfile
-    image: smartsched-crbs:${SMARTSCHED_TAG:-latest}
+    image: smartsched-crbs:${SMARTSCHED_TAG:-0.1.0}
     restart: unless-stopped
     depends_on:
       crbs-db:
@@ -182,18 +201,19 @@ services:
       CRBS_DB_USER: ${CRBS_DB_USER:-crbs}
       CRBS_DB_PASSWORD: ${CRBS_DB_PASSWORD}
     volumes:
-      # The legacy app runs straight from the checkout; local/ and uploads/ must be writable by
-      # uid 33 (www-data): `chmod -R a+rwX local uploads` at the repo root (see README.md).
-      - ../..:/var/www/html
-      - ./legacy/config.php:/var/www/html/local/config.php:ro
+      # The PHP code is baked into the image (non-root, port 8080). local/ (install marker, sessions,
+      # logs, config.php) and uploads/ persist in named volumes, initialised from the image on first use.
+      - crbs-local:/var/www/html/local
+      - crbs-uploads:/var/www/html/uploads
     ports:
-      - "${CRBS_PORT:-8081}:80"
+      - "${CRBS_BIND:-127.0.0.1}:${CRBS_PORT:-8081}:8080"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1/ || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8080/ || exit 1"]
       interval: 20s
       timeout: 5s
       retries: 5
       start_period: 20s
+    <<: *hardening
     deploy:
       resources:
         limits:
@@ -205,3 +225,5 @@ volumes:
   pgdata:
   uploads:
   crbs-mysql:
+  crbs-local:
+  crbs-uploads:
