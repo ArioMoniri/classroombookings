@@ -59,7 +59,9 @@ def dimension_bomb() -> bytes:
     return rewrite(
         tiny_workbook(),
         "xl/worksheets/sheet1.xml",
-        lambda x: re.sub(rb'<dimension ref="[^"]+"', b'<dimension ref="A1:XFD1048576"', x),
+        lambda x: re.sub(rb'<dimension ref="[^"]+"', b'<dimension ref="A1:XFD1048576"', x).replace(
+            b"</sheetData>", b'<row r="1048576"><c r="XFD1048576" t="inlineStr"><is><t>x</t></is></c></row></sheetData>'
+        ),
     )
 
 
@@ -99,12 +101,13 @@ def test_generated_bombs_are_tiny():
 
 def test_dimension_bomb_is_clamped_to_the_real_extent():
     t0 = time.monotonic()
-    wb = sf.open_workbook(dimension_bomb(), read_only=True)
+    # old code: 1 048 576 rows x 16 384 values from an unbounded iter_rows() (CPU/memory bomb)
+    wb = sf.open_workbook(dimension_bomb(), read_only=True, max_rows=1000, max_cols=50)
     ws = wb.worksheets[0]
-    assert ws.max_row == 2 and ws.max_column == 2
+    assert ws.max_row == 1000 and ws.max_column == 50
     rows = list(ws.iter_rows(values_only=True))  # unbounded iteration stays bounded
     wb.close()
-    assert rows == [("Ders Kodu", "Derslik Talebi"), ("MAT 112", "A 101")]
+    assert len(rows) == 1000 and rows[1][:2] == ("MAT 112", "A 101")
     assert time.monotonic() - t0 < 5
 
 
