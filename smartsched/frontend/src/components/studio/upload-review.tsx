@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, CircleDot, Pencil, ShieldAlert, ShieldCheck, Undo2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -76,7 +76,7 @@ export function UploadReview({
   const pending = active.filter((i) => i.state === "pending");
   const counts = reviewCounts(pending);
   const files = new Set(items.map((i) => i.file ?? "")).size;
-  const shown = useMemo(() => active.filter((i) => tab === "all" || (i.state === "pending" && bucketOf(i) === tab)), [active, tab]);
+  const shown = active.filter((i) => tab === "all" || (i.state === "pending" && bucketOf(i) === tab));
   const ready = pending.filter((i) => bucketOf(i) === "ready");
   if (items.length === 0) return null;
 

@@ -583,10 +583,11 @@ export const assignmentsByRun = new Map<number, Assignment[]>([
 ]);
 
 export const constraints: Constraint[] = [
-  { id: 1, term_id: 1, run_id: null, kind: "room_tags", params: { tag: "TIP", programs: ["Tıp"] }, hardness: "hard", weight: 1, source: "FILE", nl_text: "TIP rooms only for the Faculty of Medicine", enabled: true },
-  { id: 2, term_id: 1, run_id: null, kind: "evening_programs_in_buildings", params: { buildings: ["B", "C"] }, hardness: "soft", weight: 3, source: "AI", nl_text: "İkinci öğretim B/C bloklarda kalsın", enabled: true },
-  { id: 3, term_id: 1, run_id: null, kind: "room_closed", params: { room: "A 204", day: 5, periods: [10, 11, 12], weeks: [7] }, hardness: "hard", weight: 1, source: "ADMIN", nl_text: "A 204 Cuma öğleden sonra etkinlik için kapalı", enabled: true },
-  { id: 4, term_id: 1, run_id: null, kind: "same_room_across_weeks", params: {}, hardness: "soft", weight: 4, source: "ADMIN", nl_text: null, enabled: true },
+  // params in the backend's solver shapes (app/ai/catalog.py): "TIP only for medicine" = forbidden for everyone else
+  { id: 1, term_id: 1, run_id: null, kind: "room_tags", params: { forbidden_tags: ["TIP"], programs: programs.filter((p) => p.name !== "Tıp").map((p) => p.name) }, hardness: "hard", weight: 5, source: "FILE", nl_text: "TIP rooms only for the Faculty of Medicine", enabled: true },
+  { id: 2, term_id: 1, run_id: null, kind: "evening_programs_in_buildings", params: { buildings: ["B", "C"] }, hardness: "soft", weight: 5, source: "AI", nl_text: "İkinci öğretim B/C bloklarda kalsın", enabled: true },
+  { id: 3, term_id: 1, run_id: null, kind: "room_closed", params: { room_id: 1, days: [5], periods: [10, 11, 12], weeks: [7] }, hardness: "hard", weight: 5, source: "ADMIN", nl_text: "A 204 Cuma öğleden sonra etkinlik için kapalı", enabled: true },
+  { id: 4, term_id: 1, run_id: null, kind: "same_room_across_weeks", params: {}, hardness: "soft", weight: 8, source: "ADMIN", nl_text: null, enabled: true },
 ];
 
 export const chatSeed: ChatMessage[] = [

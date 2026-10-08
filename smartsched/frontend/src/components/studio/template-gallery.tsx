@@ -47,27 +47,30 @@ export interface BuilderPrefill {
 
 /** (b) Pick a template: gallery (topic tabs + cards), then the builder (live sentence on top, fields below). */
 export function TemplateGallery({ open, onOpenChange, prefill }: { open: boolean; onOpenChange: (v: boolean) => void; prefill?: BuilderPrefill | null }) {
-  const { t, locale } = useI18n();
-  const { meta, kind } = useStudio();
-  const [topic, setTopic] = useState<Topic>("rooms");
-  const [chosen, setChosen] = useState<RuleTemplate | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const tpl = prefill?.templateId ? meta?.templates.find((x) => x.id === prefill.templateId) : undefined;
-    setChosen(tpl ?? null);
-  }, [open, prefill, meta]);
-
-  const list = (meta?.templates ?? []).filter((x) => x.topic === topic).filter((x) => kind === "EXAM" || x.topic !== "exams");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl" data-testid="template-gallery">
+        {open ? <GalleryBody prefill={prefill} onDone={() => onOpenChange(false)} /> : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onDone: () => void }) {
+  const { t, locale } = useI18n();
+  const { meta, kind } = useStudio();
+  const [topic, setTopic] = useState<Topic>("rooms");
+  const [chosen, setChosen] = useState<RuleTemplate | null>(() => (prefill?.templateId ? (meta?.templates.find((x) => x.id === prefill.templateId) ?? null) : null));
+
+  const list = (meta?.templates ?? []).filter((x) => x.topic === topic).filter((x) => kind === "EXAM" || x.topic !== "exams");
+  return (
+    <>
         <DialogHeader>
           <DialogTitle>{chosen ? chosen.title[locale] : t("studio.add.template")}</DialogTitle>
           <DialogDescription>{chosen ? t("studio.builder.help") : t("studio.gallery.help")}</DialogDescription>
         </DialogHeader>
         {chosen ? (
-          <Builder template={chosen} eventIds={prefill?.eventIds} onBack={() => setChosen(null)} onDone={() => onOpenChange(false)} />
+          <Builder template={chosen} eventIds={prefill?.eventIds} onBack={() => setChosen(null)} onDone={onDone} />
         ) : (
           <div className="grid gap-4 md:grid-cols-[10rem_1fr]">
             <div role="tablist" aria-orientation="vertical" aria-label={t("studio.gallery.topics")} className="flex gap-1 overflow-x-auto md:flex-col">
@@ -99,8 +102,7 @@ export function TemplateGallery({ open, onOpenChange, prefill }: { open: boolean
             </ul>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }
 
@@ -116,23 +118,23 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
   });
   const [hardness, setHardness] = useState<"hard" | "soft">(template.default_hardness);
   const [weight, setWeight] = useState(template.default_weight);
-  const [preview, setPreview] = useState<Preview | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [previewed, setPreviewed] = useState<{ key: string; data: Preview | null } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const toks = useMemo(() => tokens(template, params, sentence, { showEmptyOptional: true }), [template, params, sentence]);
   const missing = missingRequired(template, params, sentence);
   const paramsKey = JSON.stringify(params);
+  const previewKey = `${paramsKey}|${hardness}`;
+  const loading = previewed?.key !== previewKey;
+  const preview = previewed?.data ?? null;
 
   useEffect(() => {
     const ctrl = new AbortController();
-    setLoading(true);
     const id = setTimeout(() => {
       api.studio
         .preview({ term_id: termId, kind: template.kind, params: JSON.parse(paramsKey) as Params, hardness, draft_kind: kind }, ctrl.signal)
-        .then(setPreview)
-        .catch(() => undefined)
-        .finally(() => setLoading(false));
+        .then((p) => setPreviewed({ key: `${paramsKey}|${hardness}`, data: p }))
+        .catch(() => !ctrl.signal.aborted && setPreviewed({ key: `${paramsKey}|${hardness}`, data: null }));
     }, 400);
     return () => {
       clearTimeout(id);

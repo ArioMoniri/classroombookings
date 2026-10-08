@@ -89,10 +89,11 @@ report them. Consequences:
 - Live SSE progress (`/runs/{id}/events`) only streams from the process running the job. Other
   processes send keep-alives and the final `done` event from the DB. The UI polls `GET /runs/{id}`, so
   it is unaffected.
-- The CP-SAT call currently runs on the event loop, so a solving process answers no other requests
-  until the solve finishes (up to `time_limit`). Keep `UVICORN_WORKERS >= 2` so the API stays
-  responsive. The backlog item "run the solver in a worker thread/process" fixes this.
-- Restarting the backend kills running jobs. Their rows stay `RUNNING`, so re-run them from the UI.
+- The CP-SAT call runs in a worker thread (`asyncio.to_thread`), so the API and `/health` stay
+  responsive while a solve runs. CP-SAT still uses the process's CPU cores, so size `solver_workers`
+  and `UVICORN_WORKERS` to the host.
+- Restarting the backend kills running jobs. On startup, runs and import jobs left `QUEUED`/`RUNNING`
+  by a dead process on this host are marked `FAILED` ("interrupted by restart"); re-run them from the UI.
   `docker compose stop` gives uvicorn 30 s to finish requests (`stop_grace_period: 40s`).
 
 ## Scaling
@@ -228,8 +229,8 @@ ranges, so the backend sees the real scheme and client IP.
 | health wait times out | `./deploy.sh --logs`. Backend stuck at "waiting for database": wrong `POSTGRES_PASSWORD` for an existing `pgdata` volume. Alembic error: restore the last backup and report the migration |
 | login from another PC bounces back to `/login` | Secure cookie over plain http; use [TLS](#tls) |
 | 413 on upload | file > 50 MB. Raise `client_max_body_size` in `nginx/default.conf` (and in Caddy) |
-| run stays `RUNNING` forever | backend restarted mid-solve (in-process queue). Start the run again |
-| API slow or 502 while a solve runs | every uvicorn process is solving. Raise `UVICORN_WORKERS`, lower solve time limits, or move to dedicated workers ([Scaling](#scaling)) |
+| run shows `FAILED` "interrupted by restart" | backend restarted mid-solve (in-process queue). Start the run again |
+| API slow while a solve runs | CP-SAT is using all CPU cores. Lower `solver_workers` or solve time limits, or move to dedicated workers ([Scaling](#scaling)) |
 | SSE progress not live | a different uvicorn process holds the job (see [the job queue](#the-job-queue-read-before-scaling)); the UI polling still shows progress |
 | frontend shows mock data | the image was built with `NEXT_PUBLIC_API_MOCK=1`. Set 0 and `./deploy.sh --update` |
 | `port is already allocated` | change `PROXY_PORT` (or `CRBS_PORT`) in `.env` |

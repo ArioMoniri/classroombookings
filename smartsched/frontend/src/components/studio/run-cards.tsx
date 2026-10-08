@@ -52,7 +52,7 @@ function useElapsed(since: number, running: boolean): number {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [running]);
-  return Math.max(0, Math.round((now - since) / 1000));
+  return since ? Math.max(0, Math.round((now - since) / 1000)) : 0;
 }
 
 /** Run status → result card; the summary panel and Step 5 both show it. */
@@ -67,7 +67,7 @@ export function RunCard({ compact }: { compact?: boolean }) {
   const [compare, setCompare] = useState(false);
   const r = run.data;
   const running = r ? ACTIVE.has(r.status) : true;
-  const elapsed = useElapsed(active?.startedAt ?? Date.now(), running);
+  const elapsed = useElapsed(active?.startedAt ?? 0, running && active !== null);
   if (!active) return null;
 
   const adjust = () => {

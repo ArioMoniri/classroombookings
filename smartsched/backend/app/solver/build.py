@@ -58,7 +58,11 @@ def build_model(prep: Prepared, mode: Mode = "solve") -> ModelContext:
     if mode == "solve":
         ctx.model.Minimize(ctx.objective_expr())
     elif mode == "relax":
-        ctx.model.Minimize(sum(1 - p for p in ctx.placed.values()))
+        # lexicographic: first the number of unplaced events, then keep planner-locked events placed
+        # (a locked event and a free one competing for a room: the free one gives way)
+        locked = {e.id for e in prep.inp.events if e.locked is not None}
+        big = len(locked) + 1
+        ctx.model.Minimize(sum((big + (1 if eid in locked else 0)) * (1 - p) for eid, p in ctx.placed.items()))
     prep.stats[f"build_{mode}_s"] = round(time.perf_counter() - t0, 3)
     prep.stats[f"bools_{mode}"] = ctx.n_bools
     return ctx

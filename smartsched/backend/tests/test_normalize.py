@@ -189,7 +189,8 @@ def test_time_range_to_periods_exact(start, end, sp, ep):
     [
         (time(9, 0), time(10, 50), 1, 3),  # 09:00 is not on the grid -> snapped into P1
         (time(9, 30), time(12, 30), 2, 5),
-        (time(10, 0), time(12, 0), 2, 5),  # ends mid-P5 -> conservative occupancy
+        (time(10, 0), time(12, 0), 3, 5),  # 10:00 = end of P2 (uses none of it); ends mid-P5 -> conservative
+        (time(15, 0), time(16, 40), 9, 10),  # Bahar CSE 102: 15:00 is the P8/P9 break, not P8
         (time(13, 0), time(15, 0), 6, 8),
         (time(8, 0), time(10, 0), 1, 2),  # before grid start
         (time(17, 40), time(20, 20), 12, 15),

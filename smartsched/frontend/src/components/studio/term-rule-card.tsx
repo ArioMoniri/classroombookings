@@ -42,10 +42,12 @@ export function TermRuleCard({ eff, clash, compact }: { eff: EffectiveRule; clas
 
   // server copy changed (refetch / undo): drop local edits
   const paramsKey = JSON.stringify(rule.params);
-  useEffect(() => {
-    setParams(JSON.parse(paramsKey) as Params);
+  const [baseKey, setBaseKey] = useState(paramsKey);
+  if (baseKey !== paramsKey) {
+    setBaseKey(paramsKey);
+    setParams(rule.params);
     setPreview(null);
-  }, [paramsKey]);
+  }
   useEffect(() => () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     abort.current?.abort();

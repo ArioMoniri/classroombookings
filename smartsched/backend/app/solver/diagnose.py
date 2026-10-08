@@ -507,6 +507,7 @@ class _PlacedIndex:
         self.placed = placed
         self.room_occ: dict[tuple[int, int, int], list[int]] = defaultdict(list)
         self.key_occ: dict[tuple[str, int, int], list[int]] = defaultdict(list)
+        self.waived = {(key, min(a, b), max(a, b)) for _k, key, a, b in prep.doms.waived_conflicts}
         for eid, a in placed.items():
             e = prep.doms.events_by_id[eid]
             for p in range(a.start, a.end + 1):
@@ -532,12 +533,16 @@ class _PlacedIndex:
         cap = sharing_capacity(room, [*others, event])
         return ids if sum(o.size for o in others) + event.size > cap else []
 
-    def key_busy(self, key: str, t: TimeOption, weeks: frozenset[int]) -> list[int]:
+    def key_busy(self, key: str, t: TimeOption, weeks: frozenset[int], event_id: int | None = None) -> list[int]:
+        """Placed events holding ``key`` at ``t``; pairs waived as input conflicts do not count."""
         ids: list[int] = []
         for p in t.periods:
             for eid in self.key_occ.get((key, t.day, p), []):
-                if eid not in ids and weeks_intersect(self.prep.doms.events_by_id[eid].weeks, weeks):
-                    ids.append(eid)
+                if eid in ids or not weeks_intersect(self.prep.doms.events_by_id[eid].weeks, weeks):
+                    continue
+                if event_id is not None and (key, min(eid, event_id), max(eid, event_id)) in self.waived:
+                    continue
+                ids.append(eid)
         return ids
 
 
@@ -555,7 +560,7 @@ def explain_event(
     suggestions: list[str] = []
     free_options: list[str] = []
     for t in dom.times:
-        clashes = [(k, idx.key_busy(k, t, e.weeks)) for k in sorted(e.cohort_keys | e.instructor_keys)]
+        clashes = [(k, idx.key_busy(k, t, e.weeks, e.id)) for k in sorted(e.cohort_keys | e.instructor_keys)]
         clashes = [(k, ids) for k, ids in clashes if ids]
         if clashes:
             for k, ids in clashes[:2]:
@@ -661,7 +666,7 @@ def _alternative_periods(prep: Prepared, e: Event, idx: _PlacedIndex) -> list[st
         if start == fixed.start:
             continue
         t = TimeOption(fixed.day, start, max(1, e.duration))
-        if any(idx.key_busy(k, t, e.weeks) for k in e.cohort_keys | e.instructor_keys):
+        if any(idx.key_busy(k, t, e.weeks, e.id) for k in e.cohort_keys | e.instructor_keys):
             continue
         for rid in dom.rooms:
             if not idx.room_busy(rid, t, e.weeks, e) and not any(

@@ -169,7 +169,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
             <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("studio.rules.search")} aria-label={t("studio.rules.search")} className="pl-7" />
           </div>
-          <NativeSelect className="w-36" aria-label={t("studio.rules.source")} value={source} onChange={(e) => setSource(e.target.value)}>
+          <NativeSelect className="w-auto min-w-36" aria-label={t("studio.rules.source")} value={source} onChange={(e) => setSource(e.target.value)}>
             <option value="">{t("studio.rules.anySource")}</option>
             {SOURCES.map((s) => (
               <option key={s} value={s}>
@@ -177,7 +177,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
               </option>
             ))}
           </NativeSelect>
-          <NativeSelect className="w-32" aria-label={t("studio.rule.mustOrTry")} value={hard} onChange={(e) => setHard(e.target.value)}>
+          <NativeSelect className="w-auto min-w-40" aria-label={t("studio.rule.mustOrTry")} value={hard} onChange={(e) => setHard(e.target.value)}>
             <option value="">{t("studio.rules.mustAndTry")}</option>
             <option value="hard">{t("studio.rule.must")}</option>
             <option value="soft">{t("studio.rule.try")}</option>
@@ -185,7 +185,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
           <label className="flex items-center gap-1.5 text-sm">
             <input type="checkbox" checked={problemsOnly} onChange={(e) => setProblemsOnly(e.target.checked)} /> {t("studio.rules.problemsOnly")}
           </label>
-          <NativeSelect className="w-40" aria-label={t("studio.rules.groupBy")} value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
+          <NativeSelect className="w-auto min-w-48" aria-label={t("studio.rules.groupBy")} value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
             <option value="status">{t("studio.rules.groupByStatus")}</option>
             <option value="topic">{t("studio.rules.groupByTopic")}</option>
             <option value="source">{t("studio.rules.groupBySource")}</option>

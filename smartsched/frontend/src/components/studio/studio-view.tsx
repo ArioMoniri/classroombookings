@@ -127,8 +127,9 @@ function ConflictBanner() {
   const { t, locale } = useI18n();
   const qc = useQueryClient();
   const { state, dispatch, termId, kind, flush } = useStudio();
+  const [now] = useState(() => Date.now());
   if (state.status === "conflict" && state.conflict) {
-    const when = state.conflict.updated_at ? new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(Math.round((new Date(state.conflict.updated_at).getTime() - Date.now()) / 60_000), "minute") : "";
+    const when = state.conflict.updated_at ? new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(Math.round((new Date(state.conflict.updated_at).getTime() - now) / 60_000), "minute") : "";
     return (
       <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-status-warning-border bg-status-warning px-3 py-2 text-sm text-status-warning-fg" data-testid="conflict-banner">
         <AlertTriangle className="size-4" aria-hidden />

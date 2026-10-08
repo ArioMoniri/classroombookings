@@ -112,11 +112,13 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const saveNow = useCallback(async (): Promise<void> => {
+    // loop: edits made while a request is in flight are sent right after it
+    for (let round = 0; round < 10; round++) {
     if (saving.current) {
       await saving.current;
     }
     const s = store.getState().studio;
-    if (!s.server || s.dirty.length === 0 || s.status === "conflict") return;
+    if (!s.server || s.dirty.length === 0 || s.status === "conflict" || (round > 0 && s.status !== "idle")) return;
     const sent = [...s.dirty];
     const { dispatch } = store.getState();
     dispatch({ type: "saving" });
@@ -133,8 +135,7 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
     saving.current = run;
     await run;
     saving.current = null;
-    const after = store.getState().studio;
-    if (after.dirty.length && after.status === "idle") await saveNow();
+    }
   }, [store, termId, kind, qc]);
 
   useEffect(

@@ -24,14 +24,25 @@ const BUCKETS: { key: "will_match" | "needs_review" | "cannot_match"; label: Mes
 
 /** (d) Copy rules from a previous run or term: dry run → grouped review → copy the selected ones. */
 export function CopyDialog({ open, onOpenChange, initialRunId }: { open: boolean; onOpenChange: (v: boolean) => void; initialRunId?: number | null }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl" data-testid="copy-dialog">
+        {open ? <CopyBody onClose={() => onOpenChange(false)} initialRunId={initialRunId} /> : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CopyBody({ onClose, initialRunId }: { onClose: () => void; initialRunId?: number | null }) {
+  const onOpenChange = (v: boolean) => !v && onClose();
   const { t, locale } = useI18n();
   const { termId, meta, sentence, store, refresh } = useStudio();
   const runs = useRuns({ term_id: termId });
   const terms = useTerms();
-  const [source, setSource] = useState<string>("");
-  const [result, setResult] = useState<CopyResult | null>(null);
+  const [source, setSource] = useState<string>(initialRunId ? `run:${initialRunId}` : "");
+  const [loaded, setLoaded] = useState<{ key: string; data: CopyResult | null } | null>(null);
   const [checked, setChecked] = useState<Set<number>>(new Set());
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const options = useMemo(() => {
     const rs = (runs.data ?? []).filter((r) => r.status === "FEASIBLE" || r.status === "OPTIMAL" || r.status === "TIMEOUT").slice(0, 8);
@@ -41,29 +52,30 @@ export function CopyDialog({ open, onOpenChange, initialRunId }: { open: boolean
     ];
   }, [runs.data, terms.data, termId, t, locale]);
 
-  useEffect(() => {
-    if (open) setSource(initialRunId ? `run:${initialRunId}` : "");
-    setResult(null);
-  }, [open, initialRunId]);
   const effective = source || options.find((o) => o.value.startsWith("term:"))?.value || options[0]?.value || "";
+  const result = loaded?.key === effective ? loaded.data : null;
+  const loading = busy || (effective !== "" && loaded?.key !== effective);
 
   useEffect(() => {
-    if (!open || !effective) return;
+    if (!effective) return;
+    let alive = true;
     const [type, id] = effective.split(":");
-    setLoading(true);
     api.studio
       .copy({ to_term_id: termId, from_run_id: type === "run" ? Number(id) : null, from_term_id: type === "term" ? Number(id) : null, dry_run: true })
       .then((r) => {
-        setResult(r);
+        if (!alive) return;
+        setLoaded({ key: effective, data: r });
         setChecked(new Set([...r.will_match, ...r.needs_review].map((x) => x.source_id)));
       })
-      .catch(() => setResult(null))
-      .finally(() => setLoading(false));
-  }, [open, effective, termId]);
+      .catch(() => alive && setLoaded({ key: effective, data: null }));
+    return () => {
+      alive = false;
+    };
+  }, [effective, termId]);
 
   const copy = async () => {
     const [type, id] = effective.split(":");
-    setLoading(true);
+    setBusy(true);
     try {
       const r = await api.studio.copy({ to_term_id: termId, from_run_id: type === "run" ? Number(id) : null, from_term_id: type === "term" ? Number(id) : null, constraint_ids: [...checked], dry_run: false });
       await refresh(["rules", "classes", "summary"]);
@@ -81,15 +93,14 @@ export function CopyDialog({ open, onOpenChange, initialRunId }: { open: boolean
       toast.success(t("studio.copy.copied", { n: r.created.length }), { action: { label: t("common.undo"), onClick: () => void store.getState().undo() } });
       onOpenChange(false);
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
   const text = (c: CopyItem) => (c.nl_text ? plainRuleText(meta, c.kind, c.params, c.nl_text, sentence) : fallbackSentence(meta, c.kind, null, locale));
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl" data-testid="copy-dialog">
+    <>
         <DialogHeader>
           <DialogTitle>{t("studio.add.copy")}</DialogTitle>
           <DialogDescription>{t("studio.copy.help")}</DialogDescription>
@@ -157,7 +168,6 @@ export function CopyDialog({ open, onOpenChange, initialRunId }: { open: boolean
             {t("studio.copy.add", { n: checked.size })}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }

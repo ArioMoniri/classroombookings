@@ -33,7 +33,7 @@ repo root
     │   ├── alembic/
     │   ├── tests/                 pytest; fixtures/ holds the real Excel files
     │   └── pyproject.toml
-    ├── frontend/       Next.js 15 (App Router) + TypeScript + Tailwind 4 + motion; admin panel
+    ├── frontend/       Next.js 16 (App Router) + TypeScript + Tailwind 4 + motion; admin panel
     ├── deploy/         docker-compose.yml, Dockerfiles, nginx, .env.example, deploy.sh (one click)
     └── README.md
 ```

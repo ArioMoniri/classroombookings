@@ -135,6 +135,19 @@ def _joinable(a: sm.Event, b: sm.Event) -> bool:
     return bool(a.instructor_keys & b.instructor_keys) or (bool(ra) and ra == rb)
 
 
+def _base_label(label: str) -> str:
+    return " ".join(label.split())
+
+
+def _same_locked_lecture(a: sm.Event, b: sm.Event) -> bool:
+    if a.locked is None or b.locked is None or not a.weeks & b.weeks:
+        return False
+    la, lb = a.locked, b.locked
+    if la.day != lb.day or set(la.room_ids) != set(lb.room_ids) or la.start > lb.end or lb.start > la.end:
+        return False
+    return la.start == lb.start or _base_label(a.label) == _base_label(b.label)
+
+
 def merge_joint_lectures(
     events: list[sm.Event], members: dict[int, list[int]], room_capacity: dict[int, int] | None = None
 ) -> tuple[list[sm.Event], list[dict[str, Any]]]:
@@ -166,6 +179,18 @@ def merge_joint_lectures(
             for y in range(x + 1, len(idxs)):
                 if _joinable(events[idxs[x]], events[idxs[y]]):
                     parent[find(idxs[x])] = find(idxs[y])
+    # the planner locked two rows into the same room set at overlapping times: one lecture listed twice
+    # when both start together (cross-listed MBG 408 / MBG 598 in A 207) or it is the same course and
+    # section (CSE 102 §1 once per programme with slightly different times); the room holds the union
+    by_rooms: dict[tuple[int, tuple[int, ...]], list[int]] = defaultdict(list)
+    for i, e in enumerate(events):
+        if e.locked is not None and e.locked.room_ids and e.fixed_day is not None:
+            by_rooms[(e.locked.day, tuple(sorted(e.locked.room_ids)))].append(i)
+    for idxs in by_rooms.values():
+        for x in range(len(idxs)):
+            for y in range(x + 1, len(idxs)):
+                if _same_locked_lecture(events[idxs[x]], events[idxs[y]]):
+                    parent[find(idxs[x])] = find(idxs[y])
     groups: dict[int, list[int]] = defaultdict(list)
     for i in range(len(events)):
         groups[find(i)].append(i)
@@ -179,11 +204,20 @@ def merge_joint_lectures(
         evs = sorted((events[i] for i in idxs), key=lambda e: e.id)
         head = evs[0]
         locked_rooms = next((e.locked.room_ids for e in evs if e.locked), None)
+        first = min((e.locked.start if e.locked else e.fixed_start or 1) for e in evs)
+        last = max((e.locked.end if e.locked else (e.fixed_start or 1) + e.duration - 1) for e in evs)
+        span_changed = any(
+            (e.locked.start if e.locked else e.fixed_start, e.duration) != (first, last - first + 1) for e in evs
+        )
+        if span_changed:
+            head = replace(head, fixed_start=first, duration=last - first + 1)
         weeks = frozenset().union(*(e.weeks for e in evs))
         labels = list(dict.fromkeys(e.label for e in evs))
         label = " + ".join(labels) if len(labels) <= 3 else f"{labels[0]} + {len(labels) - 1} more"
         size = sum(e.size for e in evs)
         info: dict[str, Any] = {"event_id": head.id, "request_ids": [e.id for e in evs], "label": label, "size": size}
+        if span_changed:
+            info["span"] = [first, last]
         if locked_rooms:
             cap = sum(caps.get(r, 0) for r in locked_rooms)
             if cap and size > cap:
@@ -202,6 +236,8 @@ def merge_joint_lectures(
                 preferred_building=next((e.preferred_building for e in evs if e.preferred_building), None),
                 cohort_keys=frozenset().union(*(e.cohort_keys for e in evs)),
                 instructor_keys=frozenset().union(*(e.instructor_keys for e in evs)),
+                # a member held in a room outside the pool needs no pooled room, the others do
+                needs_room=bool(locked_rooms) or any(e.needs_room for e in evs),
                 locked=(
                     sm.Assignment(
                         head.id,

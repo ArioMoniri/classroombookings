@@ -306,8 +306,8 @@ class PeriodMatch:
 def time_to_period(t: time, kind: str = "start") -> PeriodMatch:
     """Map a clock time to the 18-period grid.
 
-    start: the period containing ``t`` (or the next one when ``t`` falls in a break); exact only when
-    ``t`` equals a period start. end: the last period that starts before ``t``.
+    start: the period containing ``t`` (or the next one when ``t`` falls in a break or equals a period's
+    end); exact only when ``t`` equals a period start. end: the last period that starts before ``t``.
     """
     m = _minutes(t)
     if kind == "end":
@@ -323,7 +323,8 @@ def time_to_period(t: time, kind: str = "start") -> PeriodMatch:
     if m < _minutes(PERIODS[0].start):
         return PeriodMatch(1, f"start time {t:%H:%M} is before the grid; snapped to P1")
     for p in PERIODS:
-        if _minutes(p.start) < m <= _minutes(p.end):
+        # a start at a period's end uses none of it (15:00 = end of P8): it falls in the break -> next one
+        if _minutes(p.start) < m < _minutes(p.end):
             return PeriodMatch(
                 p.index, f"start time {t:%H:%M} not on the grid; snapped to P{p.index} ({p.start:%H:%M})"
             )

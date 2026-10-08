@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api/endpoints";
 import { sk } from "@/lib/api/studio-hooks";
@@ -51,6 +51,7 @@ export function useClassEdit() {
   const { termId, kind, store } = useStudio();
   const key = sk.classes(termId, kind);
   const [warnings, setWarnings] = useState<Record<number, string[]>>({});
+  const retry = useRef<((items: { id: number; patch: MeetingPatch }[]) => Promise<boolean>) | null>(null);
 
   const patchCache = useCallback(
     (fn: (rows: ClassRow[]) => ClassRow[]) => qc.setQueryData<ClassPage>(key, (old) => (old ? { ...old, items: fn(old.items) } : old)),
@@ -87,7 +88,7 @@ export function useClassEdit() {
       } catch (e) {
         patchCache(() => before);
         toast.error(t("studio.classes.saveFailed", { reason: e instanceof Error ? e.message : String(e) }), {
-          action: { label: t("common.retry"), onClick: () => void send(items) },
+          action: { label: t("common.retry"), onClick: () => void retry.current?.(items) },
         });
         return false;
       }
@@ -95,6 +96,10 @@ export function useClassEdit() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [qc, patchCache, store, t, termId, kind],
   );
+
+  useEffect(() => {
+    retry.current = send;
+  }, [send]);
 
   const edit = useCallback(
     async (rows: ClassRow[], patch: MeetingPatch, label?: string) => {

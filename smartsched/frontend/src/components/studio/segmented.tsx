@@ -84,7 +84,7 @@ export function Segmented<T extends string>({
             onKeyDown={(e) => onKey(e, i)}
             onClick={() => onChange(o.value)}
             className={cn(
-              "relative z-0 min-w-0 flex-1 rounded-md px-2.5 text-center leading-tight outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:min-h-11",
+              "relative z-0 min-w-0 flex-auto rounded-md px-2.5 text-center leading-tight outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:min-h-11",
               size === "sm" ? "min-h-7 py-1 text-xs" : "min-h-8 py-1.5 text-sm",
               on ? "font-medium text-primary-foreground" : "text-muted-foreground hover:text-foreground",
             )}
