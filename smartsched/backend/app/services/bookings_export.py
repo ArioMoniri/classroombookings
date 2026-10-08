@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -25,8 +26,6 @@ from app.models import (
 )
 from app.models.booking import BOOKED
 from app.models.catalog import Room
-from app.services import settings_service
-from app.services.bookings import can_view_notes, can_view_user
 from app.services.bookings_perms import Access
 from app.services.bookings_settings import get_value
 
@@ -194,28 +193,42 @@ def _fold(line: str) -> list[str]:
     return [out[0]] + [" " + x for x in out[1:]]
 
 
-async def ics_feed(
-    session: AsyncSession, access: Access, *, title: str, user_id: int | None = None, room_id: int | None = None
-) -> str:
-    q = select(Booking).where(Booking.status == BOOKED).order_by(Booking.date, Booking.start_period)
-    if user_id is not None:
-        q = q.where(Booking.user_id == user_id)
-    if room_id is not None:
-        q = q.where(Booking.room_id == room_id)
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    # audit B11: the organisation's time zone. A zone with one offset all year (Europe/Istanbul) is written
-    # as TZID + VTIMEZONE; a zone with daylight saving is written in UTC, which every client reads correctly.
-    tz_name = str(await settings_service.get_value(session, "timezone") or "Europe/Istanbul")
+@dataclass(frozen=True)
+class IcsEvent:
+    """One VEVENT. ``start`` / ``end`` are naive local times of the organisation's zone; ``last_modified`` is naive
+    UTC (it is also the DTSTAMP, so an unchanged booking renders byte-identically and feeds keep their ETag)."""
+
+    uid: str
+    start: datetime
+    end: datetime
+    summary: str
+    location: str
+    description: str | None
+    status: str  # CONFIRMED | TENTATIVE | CANCELLED
+    sequence: int
+    last_modified: datetime
+
+
+def _utc(v: datetime) -> str:
+    return f"{v:%Y%m%dT%H%M%SZ}"
+
+
+def render_calendar(title: str, tz_name: str, events: list[IcsEvent], *, refresh_minutes: int = 60) -> str:
+    """RFC 5545 VCALENDAR. Audit B11: a zone with one offset all year (Europe/Istanbul) is written as TZID +
+    VTIMEZONE; a zone with daylight saving is written in UTC, which every client reads correctly."""
     tz = _tz(tz_name)
-    rows = list((await session.execute(q)).scalars())
-    fixed = _fixed_offset(tz, {b.date.year for b in rows} or {datetime.now(UTC).year})
+    fixed = _fixed_offset(tz, {e.start.year for e in events} or {datetime.now(UTC).year})
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
         "PRODID:-//SmartSched//Bookings//TR",
         "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
         f"X-WR-CALNAME:{_esc(title)}",
         f"X-WR-TIMEZONE:{tz.key}",
+        # polling hints (Outlook / Apple honour X-PUBLISHED-TTL, RFC 7986 REFRESH-INTERVAL)
+        f"REFRESH-INTERVAL;VALUE=DURATION:PT{refresh_minutes}M",
+        f"X-PUBLISHED-TTL:PT{refresh_minutes}M",
     ]
     if fixed is not None:
         lines += _vtimezone(tz.key, fixed)
@@ -223,39 +236,41 @@ async def ics_feed(
     def when(prop: str, local: datetime) -> str:
         if fixed is not None:
             return f"{prop};TZID={tz.key}:{local:%Y%m%dT%H%M%S}"
-        utc = local.replace(tzinfo=tz).astimezone(UTC)
-        return f"{prop}:{utc:%Y%m%dT%H%M%SZ}"
+        return f"{prop}:{_utc(local.replace(tzinfo=tz).astimezone(UTC))}"
 
-    for b in rows:
-        room = await session.get(Room, b.room_id)
-        period = await session.get(BookingPeriod, b.period_id)
-        if room is None or period is None:
-            continue
-        start = datetime.combine(b.date, period.time_start)
-        end = datetime.combine(b.date, period.time_end)
-        if end <= start:
-            end = start + timedelta(minutes=40)
-        summary = f"{room.display_name} – {period.name}"
-        desc = []
-        if b.notes and can_view_notes(access, b, room):
-            desc.append(b.notes)
-        if b.user_id and can_view_user(access, b, room):
-            u = await session.get(User, b.user_id)
-            if u is not None:
-                desc.append(u.full_name or u.username or u.email or "")
+    for e in events:
         ev = [
             "BEGIN:VEVENT",
-            f"UID:booking-{b.id}@smartsched",
-            f"DTSTAMP:{stamp}",
-            when("DTSTART", start),
-            when("DTEND", end),
-            f"SUMMARY:{_esc(summary)}",
-            f"LOCATION:{_esc(room.display_name)}",
+            f"UID:{e.uid}",
+            f"DTSTAMP:{_utc(e.last_modified)}",
+            f"LAST-MODIFIED:{_utc(e.last_modified)}",
+            f"SEQUENCE:{e.sequence}",
+            when("DTSTART", e.start),
+            when("DTEND", e.end),
+            f"SUMMARY:{_esc(e.summary)}",
+            f"LOCATION:{_esc(e.location)}",
+            f"STATUS:{e.status}",
+            "TRANSP:" + ("TRANSPARENT" if e.status == "CANCELLED" else "OPAQUE"),
         ]
-        if desc:
-            ev.append(f"DESCRIPTION:{_esc(' / '.join(x for x in desc if x))}")
+        if e.description:
+            ev.append(f"DESCRIPTION:{_esc(e.description)}")
         ev.append("END:VEVENT")
         for line in ev:
             lines.extend(_fold(line))
     lines.append("END:VCALENDAR")
     return "\r\n".join(lines) + "\r\n"
+
+
+async def ics_feed(
+    session: AsyncSession, access: Access, *, title: str, user_id: int | None = None, room_id: int | None = None
+) -> str:
+    """The CRBS-parity feeds (``/bookings/feed/*.ics``, ``/ics/{token}/*``): the same engine as the calendar
+    subscription feeds (``app.services.calendar_feeds``), so they carry SEQUENCE, STATUS and cancellations too."""
+    from app.services import calendar_feeds
+
+    if room_id is not None:
+        scope = calendar_feeds.FeedScope("room", room_id)
+    else:
+        scope = calendar_feeds.FeedScope("mine", user_id if user_id is not None else access.user_id)
+    feed = await calendar_feeds.build_feed(session, access, scope, title=title)
+    return feed.text

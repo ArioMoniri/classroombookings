@@ -313,6 +313,19 @@
       "goal": "the user asked: \"check features like this which is in classroombookings but you haven't added, and add them\". \"Like this\" refers to their previous request: reservable time slots you can click to reserve in the reservation panel, a department-separated view, Google and other calendar sync, and class details of other available rooms in the panel. Our existing parity gate (docs/testing/crbs-parity-re…",
       "ledger": "ui-parity-auditor",
       "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-08 15:45"
+    },
+    {
+      "id": "ada178026a7357749",
+      "description": "CRBS UI gaps: admin + shell screens",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-08 15:46",
+      "scope": "",
+      "goal": "the user asked us to add every classroombookings (CRBS) feature SmartSched lacks. A UI-level audit, docs/review/2026-10-08-crbs-ui-gap-audit.md, lists them with CRBS file:line, the SmartSched location and the smallest fix. Read it fully first. Implement every item owned by \"admin screens\" or \"auth/shell\", plus the small backend changes they need. The bookings-grid items belong to another agent (re…",
+      "ledger": "frontend-engineer (admin + shell UI gaps)",
+      "resumed": false,
       "status": "running"
     }
   ]

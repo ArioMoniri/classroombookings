@@ -41,7 +41,7 @@ async def test_department_rooms_count_bookings_and_timetable_classes(env):  # no
     assert made.json()["department_id"] == psy["id"]
 
     r = await env.client.get(
-        f"/api/v1/bookings/departments/{psy['id']}/rooms", params={"term_id": env.term_id}, headers=teacher
+        f"/api/v1/bookings/departments/{psy['id']}/rooms", params={"term_id": env.term_id, "limit": 50}, headers=teacher
     )
     assert r.status_code == 200, r.text
     body = r.json()
@@ -61,7 +61,7 @@ async def test_department_rooms_count_bookings_and_timetable_classes(env):  # no
     # cancelled bookings do not count
     await env.client.post(f"/api/v1/bookings/{made.json()['id']}/cancel", json={"scope": "one"}, headers=teacher)
     r = await env.client.get(
-        f"/api/v1/bookings/departments/{psy['id']}/rooms", params={"term_id": env.term_id}, headers=teacher
+        f"/api/v1/bookings/departments/{psy['id']}/rooms", params={"term_id": env.term_id, "limit": 50}, headers=teacher
     )
     assert {x["code"]: x for x in r.json()["rooms"]}.get("A101", {"bookings": 0})["bookings"] == 0
 

@@ -19,6 +19,7 @@ from app.models import (
     Assignment,
     Booking,
     Building,
+    Course,
     MeetingRequest,
     Program,
     RoomGroup,
@@ -536,15 +537,28 @@ async def department_rooms(
             .group_by(Booking.room_id)
         )
     }
+    # classes: published-timetable meetings of the department's sections (solver runs link the meeting
+    # request; imported boards carry only course codes, matched to the department's courses this term)
+    sections = {
+        int(sid): code
+        for sid, code in await db.execute(
+            select(Section.id, Course.code)
+            .join(Course, Course.id == Section.course_id)
+            .where(Section.term_id == info.term.id, Section.program_id == department_id)
+        )
+    }
+    codes = set(sections.values())
     classes: dict[int, int] = {}
     runs = select(ScheduleRun.id).where(ScheduleRun.term_id == info.term.id, ScheduleRun.is_active.is_(True))
     q = (
-        select(Assignment.room_ids)
-        .join(MeetingRequest, MeetingRequest.id == Assignment.meeting_request_id)
-        .join(Section, Section.id == MeetingRequest.section_id)
-        .where(Assignment.run_id.in_(runs), Assignment.archived.is_(False), Section.program_id == department_id)
+        select(Assignment.room_ids, Assignment.course_codes, MeetingRequest.section_id)
+        .outerjoin(MeetingRequest, MeetingRequest.id == Assignment.meeting_request_id)
+        .where(Assignment.run_id.in_(runs), Assignment.archived.is_(False))
     )
-    for (room_ids,) in await db.execute(q):
+    for room_ids, course_codes, section_id in await db.execute(q):
+        ours = section_id in sections if section_id is not None else bool(codes.intersection(course_codes or []))
+        if not ours:
+            continue
         for rid in {int(r) for r in room_ids or []}:
             classes[rid] = classes.get(rid, 0) + 1
     visible = await svc.visible_rooms(db, access)

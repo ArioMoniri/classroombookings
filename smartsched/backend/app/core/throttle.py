@@ -63,7 +63,14 @@ class Throttle:
 RESET_PER_ACCOUNT = Throttle(window_s=900, limit=3)
 RESET_PER_ADDRESS = Throttle(window_s=900, limit=20)
 
+#: calendar subscription feeds (``/calendar/feeds/{token}/…``, ``/ics/{token}/…``): per link (token hash) and per
+#: client address; calendar apps poll every few minutes to hours, so these only stop runaway clients and guessing
+FEED_PER_TOKEN = Throttle(window_s=300, limit=60)
+FEED_PER_ADDRESS = Throttle(window_s=300, limit=600)
+
 
 def reset_all() -> None:
     RESET_PER_ACCOUNT.reset()
     RESET_PER_ADDRESS.reset()
+    FEED_PER_TOKEN.reset()
+    FEED_PER_ADDRESS.reset()
