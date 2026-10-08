@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { StatusBadge } from "@/components/common/status-badge";
 import { trPercent } from "@/components/common/tr-suffix";
-import { partialCounts, runStatusBadge } from "@/components/runs/runs-list";
+import { isImportBoard, partialCounts, runStatusBadge } from "@/components/runs/runs-list";
 import { useActiveTerm, useTermKindLabel } from "@/components/shell/term-switcher";
 import { useRememberedTermWeek, weekOfTerm } from "@/components/shell/workspace";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ const DONE = new Set<ScheduleRun["status"]>(["FEASIBLE", "OPTIMAL", "FEASIBLE_PA
 
 /** The plan the planner works on: the newest finished solver run of the term (imports are boards, not plans). */
 function latestPlan(runs: ScheduleRun[] | undefined): ScheduleRun | undefined {
-  return runs?.find((r) => DONE.has(r.status) && r.params.source !== "GRID_IMPORT" && r.kind === "COURSE") ?? runs?.find((r) => DONE.has(r.status) && r.params.source !== "GRID_IMPORT");
+  return runs?.find((r) => DONE.has(r.status) && !isImportBoard(r) && r.kind === "COURSE") ?? runs?.find((r) => DONE.has(r.status) && !isImportBoard(r));
 }
 
 function HeroStatus({ plan }: { plan: ScheduleRun | undefined }) {
@@ -59,12 +59,14 @@ function HeroStatus({ plan }: { plan: ScheduleRun | undefined }) {
   const tone = complete ? "text-status-feasible-fg" : partial ? "text-status-warning-fg" : "text-status-infeasible-fg";
   const text = complete ? t("glass.dashboard.allPlaced", { id: plan.id }) : partial ? t("glass.dashboard.needRoom", { n: n(unplaced), id: plan.id }) : t("glass.dashboard.noTimetable", { id: plan.id });
   return (
-    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 type-title-3">
-      <Icon className={`size-5 shrink-0 stroke-[2] ${tone}`} aria-hidden />
-      <span className="text-label-1">{text}</span>
-      <Link href={`/runs/${plan.id}`} className="text-[14px] font-medium text-tint-text hover:underline">
-        {partial || !complete ? t("glass.dashboard.openReport") : t("glass.dashboard.openRun")}
-      </Link>
+    <p className="flex items-start gap-2 type-title-3">
+      <Icon className={`mt-0.5 size-5 shrink-0 stroke-[2] ${tone}`} aria-hidden />
+      <span className="min-w-0 text-label-1">
+        {text}{" "}
+        <Link href={`/runs/${plan.id}`} className="text-[14px] font-medium whitespace-nowrap text-tint-text hover:underline">
+          {partial || !complete ? t("glass.dashboard.openReport") : t("glass.dashboard.openRun")}
+        </Link>
+      </span>
     </p>
   );
 }
@@ -111,10 +113,8 @@ export function DashboardView() {
   const weekRow = weeks.data?.find((w) => w.index === week);
   const weekDates = weekRow ? `${formatDate(weekRow.start_date, locale, { day: "numeric", month: "short" })}` : "";
   const pct = d ? Math.round(d.utilisation * 100) : 0;
-  const pctParts = useMemo(() => {
-    const s = trPercent(0.44, locale);
-    return s.startsWith("%") ? { prefix: "%", suffix: undefined } : { prefix: undefined, suffix: s.replace(/[\d\s.,]/g, "") || "%" };
-  }, [locale]);
+  // Turkish writes the sign first (%44), English after (44%): read it from Intl, not from a guess
+  const pctParts = useMemo(() => (trPercent(0.5, locale).startsWith("%") ? { prefix: "%", suffix: undefined } : { prefix: undefined, suffix: "%" }), [locale]);
   const recent = (runs.data ?? []).slice(0, 6);
 
   if (!termsLoading && !term) {
@@ -214,7 +214,7 @@ export function DashboardView() {
                 <li key={r.id} className="[&:not(:last-child)]:hairline-b">
                   <Link href={`/runs/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 outline-none hover:bg-fill-3 focus-visible:bg-fill-3">
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium text-label-1">{r.params.source === "GRID_IMPORT" ? t("glass.dashboard.importedBoard", { id: r.id }) : t("glass.shell.runTitle", { id: r.id, term: r.term_code })}</span>
+                      <span className="block truncate text-[13px] font-medium text-label-1">{isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : t("glass.shell.runTitle", { id: r.id, term: r.term_code })}</span>
                       <span className="block truncate text-[12px] text-label-3">
                         {t(r.kind === "COURSE" ? "glass.dashboard.kindCourse" : "glass.dashboard.kindExam")} · {r.horizon_params.weeks.length ? t("glass.dashboard.weeksN", { list: r.horizon_params.weeks.join(", ") }) : t("glass.dashboard.wholeTerm")} · {relative(r.created_at, locale)}
                       </span>

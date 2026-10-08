@@ -78,7 +78,15 @@ SMTP_SPECS: dict[str, Spec] = {
         Spec("timeout_s", "int", 15),
     )
 }
-GROUPS = {"org": ORG_SPECS, "ldap": LDAP_SPECS, "smtp": SMTP_SPECS}
+BOOKINGS_SPECS: dict[str, Spec] = {
+    s.key: s
+    for s in (
+        # CRBS hides rooms that belong to no room group from the booking grid (Rooms_model::get_bookable_rooms);
+        # an administrator may show them (as an "ungrouped" tab) instead.
+        Spec("show_ungrouped_rooms", "bool", False),
+    )
+}
+GROUPS = {"org": ORG_SPECS, "ldap": LDAP_SPECS, "smtp": SMTP_SPECS, "bookings": BOOKINGS_SPECS}
 
 
 def _decode(spec: Spec, raw: str | None) -> Any:

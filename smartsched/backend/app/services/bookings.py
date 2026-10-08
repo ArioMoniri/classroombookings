@@ -53,6 +53,7 @@ from app.services.bookings_calendar import (
     terms_for_date,
 )
 from app.services.bookings_perms import Access, effective_limits
+from app.services.bookings_settings import get_value
 from app.services.calendar import date_for
 from app.services.grid import assignment_weeks
 
@@ -441,10 +442,20 @@ class SingleIn:
     department_given: bool = False
 
 
+async def ungrouped_rooms_hidden(session: AsyncSession) -> bool:
+    """CRBS behaviour: rooms without a room group are not offered for booking. Off when the room-group feature
+    is switched off (one flat list) or when ``bookings.show_ungrouped_rooms`` is set."""
+    if not await get_value(session, "org", "use_room_groups"):
+        return False
+    return not await get_value(session, "bookings", "show_ungrouped_rooms")
+
+
 async def visible_room(session: AsyncSession, access: Access, room_id: int) -> Room:
     room = await session.get(Room, room_id)
     if room is None or not access.can_view_room(room):
         raise BookingError(404, "room_not_found", f"room {room_id} not found")
+    if room.room_group_id is None and await ungrouped_rooms_hidden(session):
+        raise BookingError(404, "room_not_found", f"{room.display_name} belongs to no room group")
     if not room.is_bookable:
         raise _conflict("room_not_bookable", f"{room.display_name} cannot be booked")
     return room
@@ -1221,7 +1232,12 @@ async def visible_rooms(session: AsyncSession, access: Access, room_group_id: in
     q = select(Room).where(Room.is_bookable.is_(True))
     if room_group_id is not None:
         q = q.where(Room.room_group_id == room_group_id)
-    rooms = [r for r in (await session.execute(q)).scalars() if access.can_view_room(r)]
+    hide_ungrouped = await ungrouped_rooms_hidden(session)
+    rooms = [
+        r
+        for r in (await session.execute(q)).scalars()
+        if access.can_view_room(r) and not (hide_ungrouped and r.room_group_id is None)
+    ]
     rooms.sort(key=lambda r: (r.room_group_id is None, r.room_group_id or 0, r.pos or 0, r.code))
     return rooms
 
@@ -1254,7 +1270,7 @@ async def grid(
     rooms = await visible_rooms(session, access)
     if display == "day":
         if use_room_groups and rooms:
-            # group 0 = rooms without a group (CRBS hides them; SmartSched shows them, see CRBS_PARITY §6)
+            # group 0 = rooms without a group: only present when bookings.show_ungrouped_rooms is on (CRBS hides them)
             valid = sorted({r.room_group_id or 0 for r in rooms}, key=lambda g: (g == 0, g))
             room_group_id = room_group_id if room_group_id in valid else valid[0]
             rooms = [r for r in rooms if (r.room_group_id or 0) == room_group_id]

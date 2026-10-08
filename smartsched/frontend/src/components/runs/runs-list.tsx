@@ -24,6 +24,12 @@ export function partialCounts(r: ScheduleRun): { placed: number; total: number }
   return partial && placed > 0 && total > 0 ? { placed, total } : null;
 }
 
+/** An imported published board (grid import) rather than a solver run: it has no solver stats. The run
+ * schema drops `params.source`, so this reads the stats the solver always writes (`solver`, `events`). */
+export function isImportBoard(r: ScheduleRun): boolean {
+  return r.stats.solver === undefined && r.stats.events === undefined && r.prompt_text === null && r.diagnosis.length === 0;
+}
+
 export function runStatusBadge(r: ScheduleRun, t: (k: MessageKey, p?: Vars) => string): { kind: StatusKind; label: string } {
   const partial = partialCounts(r);
   if (partial) return { kind: "warning", label: t("runs.partial", partial) };
@@ -36,6 +42,21 @@ export function horizonLabel(r: ScheduleRun, t: (k: "generate.week" | "generate.
   return w.length ? `${base} W${w[0]}${w.length > 1 ? `–${w[w.length - 1]}` : ""}` : base;
 }
 
+function seconds(r: ScheduleRun): number | null {
+  if (!r.finished_at) return null;
+  return Math.max(0, Math.round((new Date(r.finished_at).getTime() - new Date(r.created_at).getTime()) / 1000));
+}
+
+/** "44 sn" / "1 dk 12 sn" in Turkish, "44 s" / "1 min 12 s" in English. */
+export function useDuration() {
+  const { t } = useI18n();
+  return (r: ScheduleRun) => {
+    const s = seconds(r);
+    if (s === null) return "—";
+    return s >= 60 ? t("glass.report.minSec", { m: Math.floor(s / 60), s: s % 60 }) : t("glass.report.sec", { s });
+  };
+}
+
 export function durationLabel(r: ScheduleRun): string {
   if (!r.finished_at) return "—";
   const s = Math.max(0, Math.round((new Date(r.finished_at).getTime() - new Date(r.created_at).getTime()) / 1000));
@@ -46,10 +67,11 @@ export function RunsList() {
   const { t, locale } = useI18n();
   const { term } = useActiveTerm();
   const runs = useRuns(term ? { term_id: term.id } : undefined);
+  const duration = useDuration();
   return (
     <div data-testid="runs">
-      <PageHeader title={t("runs.title")} subtitle={t("runs.subtitle")} actions={<Button nativeButton={false} render={<Link href="/generate" />}>{t("nav.generate")}</Button>} />
-      <div className="overflow-x-auto rounded-lg border">
+      <PageHeader title={t("runs.title")} subtitle={term ? `${term.name} · ${t("runs.subtitle")}` : t("runs.subtitle")} actions={<Button nativeButton={false} render={<Link href="/generate" />}>{t("nav.generate")}</Button>} />
+      <div className="glass-regular overflow-x-auto rounded-2xl" data-glass="regular">
         {runs.isLoading ? (
           <div className="space-y-1 p-2">{Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-10" />)}</div>
         ) : (
@@ -60,7 +82,7 @@ export function RunsList() {
                 <TableHead>{t("common.status")}</TableHead>
                 <TableHead>{t("runs.kind")}</TableHead>
                 <TableHead>{t("runs.horizon")}</TableHead>
-                <TableHead>{t("runs.hard")}</TableHead>
+                <TableHead>{t("glass.report.placed")}</TableHead>
                 <TableHead className="text-right">{t("runs.soft")}</TableHead>
                 <TableHead>{t("runs.duration")}</TableHead>
                 <TableHead>{t("runs.created")}</TableHead>
@@ -70,15 +92,18 @@ export function RunsList() {
             <TableBody>
               {(runs.data ?? []).map((r) => (
                 <TableRow key={r.id} data-testid="run-row">
-                  <TableCell className="font-mono font-medium">#{r.id}{r.parent_run_id ? <span className="ml-1 text-xs text-muted-foreground">← #{r.parent_run_id}</span> : null}</TableCell>
-                  <TableCell><StatusBadge {...runStatusBadge(r, t)} /></TableCell>
+                  <TableCell className="font-medium">
+                    {isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : `#${r.id}`}
+                    {r.parent_run_id ? <span className="ml-1.5 text-[12px] font-normal text-label-3">{t("glass.report.childOf", { id: r.parent_run_id })}</span> : null}
+                  </TableCell>
+                  <TableCell><StatusBadge variant="plain" {...runStatusBadge(r, t)} /></TableCell>
                   <TableCell>{t(r.kind === "COURSE" ? "generate.course" : "generate.exam")}</TableCell>
-                  <TableCell>{horizonLabel(r, t)}</TableCell>
-                  <TableCell><ScoreRing size="sm" value={r.hard_score} label={t("runs.hard")} /></TableCell>
+                  <TableCell>{r.horizon_params.weeks.length ? t("glass.dashboard.weeksN", { list: r.horizon_params.weeks.join(", ") }) : t("glass.dashboard.wholeTerm")}</TableCell>
+                  <TableCell><ScoreRing size="sm" value={r.hard_score} partial={partialCounts(r)} label={t("glass.report.placed")} /></TableCell>
                   <TableCell className="text-right tabular-nums">{r.soft_score ?? "—"}</TableCell>
-                  <TableCell className="tabular-nums">{durationLabel(r)}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(r.created_at))}</TableCell>
-                  <TableCell><Link href={`/runs/${r.id}`} className="text-primary hover:underline">{t("runs.open")}</Link></TableCell>
+                  <TableCell className="tabular-nums">{duration(r)}</TableCell>
+                  <TableCell className="text-[12px] text-label-3">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(r.created_at))}</TableCell>
+                  <TableCell><Link href={`/runs/${r.id}`} className="font-medium text-tint-text hover:underline">{t("runs.open")}</Link></TableCell>
                 </TableRow>
               ))}
             </TableBody>

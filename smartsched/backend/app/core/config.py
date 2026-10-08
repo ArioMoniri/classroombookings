@@ -7,6 +7,9 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_APP_SECRET = "change-me-change-me-change-me-change-me"
+MIN_SECRET_LEN = 32
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -19,10 +22,14 @@ class Settings(BaseSettings):
     create_tables_on_startup: bool = True
 
     app_secret: str = Field(
-        default="change-me-change-me-change-me-change-me",
+        default=DEFAULT_APP_SECRET,
         description="Master secret: JWT signing + Fernet key derivation for encrypted settings",
     )
+    #: JWT signing key (review M9). Required in prod (>= 32 chars, not APP_SECRET); dev/test fall back to
+    #: APP_SECRET when unset. APP_SECRET keeps encrypting stored API keys (Fernet) and sealing studio runs.
+    jwt_secret: str | None = None
     jwt_algorithm: str = "HS256"
+    metrics_token: str | None = None  # bearer token for scraping /metrics without a user session
     jwt_expire_minutes: int = 60 * 12
 
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
@@ -62,6 +69,37 @@ class Settings(BaseSettings):
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
+
+    @property
+    def signing_key(self) -> str:
+        return self.jwt_secret or self.app_secret
+
+    def insecure_reasons(self) -> list[str]:
+        """Why this configuration must not run in production (empty when it may)."""
+        out: list[str] = []
+        if self.environment != "prod":
+            return out
+        for name, value in (("APP_SECRET", self.app_secret), ("JWT_SECRET", self.jwt_secret)):
+            if not value:
+                out.append(f"{name} is not set")
+            elif value == DEFAULT_APP_SECRET or "change-me" in value or "__GENERATE__" in value:
+                out.append(f"{name} is a placeholder/default value")
+            elif len(value) < MIN_SECRET_LEN:
+                out.append(f"{name} is shorter than {MIN_SECRET_LEN} characters")
+        if self.jwt_secret and self.jwt_secret == self.app_secret:
+            out.append("JWT_SECRET must differ from APP_SECRET")
+        return out
+
+
+def assert_secure(settings: Settings) -> None:
+    """Refuse to start in production with a default, short or shared secret (forged admin JWTs)."""
+    reasons = settings.insecure_reasons()
+    if reasons:
+        raise RuntimeError(
+            "refusing to start with ENVIRONMENT=prod: "
+            + "; ".join(reasons)
+            + " (generate them with `openssl rand -base64 48`, see smartsched/deploy/.env.example)"
+        )
 
 
 @lru_cache

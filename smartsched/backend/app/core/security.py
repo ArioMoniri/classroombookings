@@ -65,9 +65,9 @@ def create_access_token(subject: str, extra: dict[str, Any] | None = None, expir
     }
     if extra:
         payload.update(extra)
-    return jwt.encode(payload, settings.app_secret, algorithm=settings.jwt_algorithm)
+    return jwt.encode(payload, settings.signing_key, algorithm=settings.jwt_algorithm)
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
     settings = get_settings()
-    return jwt.decode(token, settings.app_secret, algorithms=[settings.jwt_algorithm])
+    return jwt.decode(token, settings.signing_key, algorithms=[settings.jwt_algorithm])

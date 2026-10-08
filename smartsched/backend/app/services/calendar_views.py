@@ -33,6 +33,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.export_safety import neutralize_workbook, safe_writer
 from app.importers.normalize import PERIODS
 from app.models import (
     Assignment,
@@ -2175,6 +2176,7 @@ async def export_planning_list(session: AsyncSession, term: Term, data: ClassesO
     legend.append(["Yerleşmedi", "Bu çalıştırmada derslik bulunamadı."])
     legend.append(["Oda gerekmez", "Online / uzaktan ders."])
     buf = io.BytesIO()
+    neutralize_workbook(wb)  # review M8
     wb.save(buf)
     return buf.getvalue()
 
@@ -2182,7 +2184,7 @@ async def export_planning_list(session: AsyncSession, term: Term, data: ClassesO
 def export_csv_rows(data: ClassesOut) -> str:
     buf = io.StringIO()
     buf.write("﻿")  # BOM so Excel opens Turkish characters correctly (all-classes.md §11)
-    w = csv.writer(buf)
+    w = safe_writer(csv.writer(buf))  # review M8
     w.writerow(
         [
             "Ders",

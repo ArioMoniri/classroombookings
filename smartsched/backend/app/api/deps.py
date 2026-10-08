@@ -40,8 +40,8 @@ async def get_current_user(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "missing bearer token")
     try:
         payload = decode_access_token(creds.credentials)
-    except jwt.PyJWTError as exc:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"invalid token: {exc}") from exc
+    except jwt.PyJWTError as exc:  # generic message: no library internals to the client (review MINOR 5)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token") from exc
     try:
         user_id = int(payload.get("uid", 0))
     except (TypeError, ValueError):

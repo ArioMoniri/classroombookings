@@ -28,6 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.export_safety import neutralize_workbook
 from app.models import (
     Assignment,
     ExamRequest,
@@ -1057,6 +1058,7 @@ def to_xlsx(report: dict[str, Any]) -> bytes:
         for i, w in enumerate(widths[: len(headers)], start=1):
             ws.column_dimensions[get_column_letter(i)].width = w
     buf = io.BytesIO()
+    neutralize_workbook(wb)  # review M8
     wb.save(buf)
     return buf.getvalue()
 

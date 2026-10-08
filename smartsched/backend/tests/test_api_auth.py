@@ -18,6 +18,8 @@ async def test_health_and_login_flow(client):
     r = await client.get("/api/v1/auth/me", headers={"Authorization": "Bearer nope"})
     assert r.status_code == 401
     r = await client.get("/api/v1/metrics")
+    assert r.status_code == 401  # review MINOR 5: not anonymous
+    r = await client.get("/api/v1/metrics", headers=h)
     assert r.status_code == 200 and "terms" in r.json()
 
 

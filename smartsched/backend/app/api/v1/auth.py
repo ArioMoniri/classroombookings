@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.api.deps import DB, CurrentAccess, CurrentUser
 from app.core.config import get_settings
@@ -27,9 +27,31 @@ async def _local(db: DB, identifier: str, password: str) -> User | None:
 
 
 @router.post("/login", response_model=TokenOut)
-async def login(body: LoginIn, db: DB) -> TokenOut:
+async def login(body: LoginIn, db: DB, request: Request) -> TokenOut:
     """Local or LDAP sign-in (CRBS ``Userauth::log_in``): LDAP first when enabled, local auth when LDAP is
-    off or the directory cannot be reached; disabled accounts are refused."""
+    off or the directory cannot be reached; disabled accounts are refused. Repeated failures from one
+    address answer 429 for a while (review MINOR 5)."""
+    from app.core import ratelimit
+
+    address = request.client.host if request.client else "?"
+    wait = ratelimit.retry_after(address, body.identifier)
+    if wait:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "too many failed logins; try again later",
+            headers={"Retry-After": str(wait)},
+        )
+    try:
+        out = await _login(body, db)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            ratelimit.failure(address, body.identifier)
+        raise
+    ratelimit.success(address, body.identifier)
+    return out
+
+
+async def _login(body: LoginIn, db: DB) -> TokenOut:
     ident, method = body.identifier, "local"
     user: User | None = None
     if await get_value(db, "ldap", "enabled") and "@" not in ident:

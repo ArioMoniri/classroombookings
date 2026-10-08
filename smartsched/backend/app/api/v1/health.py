@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from typing import Any
+import hmac
+from typing import Annotated, Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import func, select, text
 
-from app.api.deps import DB
+from app.api.deps import DB, bearer, get_current_user
 from app.core.config import get_settings
 from app.models import Assignment, MeetingRequest, Room, ScheduleRun, Term
+from app.services.bookings_perms import load_access
 from app.services.solver_bridge import solver_name
 
 router = APIRouter(tags=["ops"])
@@ -29,7 +32,21 @@ async def health(db: DB) -> dict[str, Any]:
     }
 
 
-@router.get("/metrics")
+async def _metrics_access(
+    request: Request, creds: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)], db: DB
+) -> None:
+    """``/metrics`` is not anonymous (review MINOR 5): ``Authorization: Bearer <METRICS_TOKEN>`` for
+    scrapers, otherwise an ADMIN (``planning.admin``) session."""
+    token = get_settings().metrics_token
+    if token and creds is not None and hmac.compare_digest(creds.credentials, token):
+        return
+    user = await get_current_user(request, creds, db)
+    access = await load_access(db, user)
+    if "planning.admin" not in access.perms:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "requires permission planning.admin")
+
+
+@router.get("/metrics", dependencies=[Depends(_metrics_access)])
 async def metrics(db: DB) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for name, model in (

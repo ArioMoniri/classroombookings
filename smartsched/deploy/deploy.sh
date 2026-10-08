@@ -111,7 +111,7 @@ ensure_env() {
   if [[ $created -eq 1 ]]; then log "generated secrets written to $ENV_FILE (keep it safe; it is git-ignored)"; fi
   # Required keys must be present and non-empty.
   local k
-  for k in APP_SECRET AUTH_SECRET POSTGRES_PASSWORD ADMIN_EMAIL ADMIN_PASSWORD; do
+  for k in APP_SECRET JWT_SECRET AUTH_SECRET POSTGRES_PASSWORD ADMIN_EMAIL ADMIN_PASSWORD; do
     grep -Eq "^${k}=.+" "$ENV_FILE" || die "$k is empty in $ENV_FILE"
   done
 }

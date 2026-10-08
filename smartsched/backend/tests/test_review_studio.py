@@ -175,3 +175,41 @@ async def test_m5_exam_write_through_takes_a_snapshot(bahar):
         await s.refresh(ex)
         assert snap.values == {"requested_room_count": 1, "status": "LOCKED"}
         assert ex.requested_room_count == 3 and ex.status == "LOCKED"
+
+
+async def test_m10_constraint_crud_is_validated_and_builtins_protected(bahar):
+    c, h, adm = bahar.client, bahar.planner, bahar.admin
+    url = "/api/v1/constraints"
+    base = {"term_id": bahar.term_id, "hardness": "soft", "weight": 3}
+    bad = [
+        {**base, "kind": "capacity", "params": {}, "source": "BUILTIN"},  # spoofed source
+        {**base, "kind": "capacity", "params": {}, "source": "AI"},
+        {**base, "kind": "make_everyone_happy", "params": {}},  # unknown kind
+        {**base, "kind": "building_preference", "params": {"building": 42}},  # bad params
+        {**base, "kind": "building_preference", "params": {"building": "C"}, "weight": 10**6},
+        {**base, "kind": "x" * 200, "params": {}},  # MINOR 4: would be a Postgres-only 500
+        {**base, "kind": "building_preference", "params": {"building": "C"}, "nl_text": "y" * 5000},
+    ]
+    for body in bad:
+        r = await c.post(url, json=body, headers=h)
+        assert r.status_code == 422, (body, r.text)
+    ok = await c.post(url, json={**base, "kind": "building_preference", "params": {"building": "C"}}, headers=h)
+    assert ok.status_code == 201, ok.text
+    assert (await c.put(f"{url}/{ok.json()['id']}", json={"params": {"building": 7}}, headers=h)).status_code == 422
+    # an ADMIN switches a built-in off in their draft; the planner can neither see nor undo it
+    d = (await c.get(f"/api/v1/terms/{bahar.term_id}/studio", headers=adm)).json()
+    r = await c.put(
+        f"/api/v1/terms/{bahar.term_id}/studio",
+        json={"version": d["version"], "disabled_builtin_kinds": ["capacity"]},
+        headers=adm,
+    )
+    assert r.status_code == 200, r.text
+    from app.models import ConstraintRow
+
+    async with get_session_factory()() as s:
+        builtin = (await s.execute(select(ConstraintRow).where(ConstraintRow.source == "BUILTIN"))).scalar_one()
+    listed = (await c.get(url, params={"term_id": bahar.term_id}, headers=h)).json()
+    assert builtin.id not in {x["id"] for x in listed}
+    assert (await c.put(f"{url}/{builtin.id}", json={"enabled": True}, headers=h)).status_code == 403
+    assert (await c.delete(f"{url}/{builtin.id}", headers=h)).status_code == 403
+    assert (await c.delete(f"{url}/{builtin.id}", headers=adm)).status_code == 403

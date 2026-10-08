@@ -1,0 +1,244 @@
+/*
+ * Calendar v2 content tokens (docs/design/v2/calendar.md §7, §8.1, §15). Content is opaque; glass is only on
+ * chrome (capsules, sidebar, inspector, scrubber, popovers) via the liquid-glass utilities.
+ * Faculty fill/ink pairs are the computed values from calendar.md §8.1 (ink ≥ 5.0:1 on its fill).
+ */
+:root {
+  --fac-1-bar: #2a78d6; --fac-1-fill: #e1ecf9; --fac-1-ink: #2262af;
+  --fac-2-bar: #eb6834; --fac-2-fill: #fceae3; --fac-2-ink: #a44924;
+  --fac-3-bar: #1baf7a; --fac-3-fill: #dff4ec; --fac-3-ink: #127351;
+  --fac-4-bar: #eda100; --fac-4-fill: #fcf2db; --fac-4-ink: #8c5f00;
+  --fac-5-bar: #e87ba4; --fac-5-fill: #fcedf2; --fac-5-ink: #97506b;
+  --fac-6-bar: #008300; --fac-6-fill: #dbeedb; --fac-6-ink: #007200;
+  --fac-7-bar: #4a3aa7; --fac-7-fill: #e6e3f3; --fac-7-ink: #4a3aa7;
+  --fac-8-bar: #e34948; --fac-8-fill: #fbe6e5; --fac-8-ink: #af3837;
+  /* now-line: systemRed for the line, high-contrast red for the capsule (white text 5.38:1) */
+  --now: #ff3b30;
+  --now-strong: #d70015;
+  --now-strong-fg: #ffffff;
+  --cal-canvas: #ffffff;
+  --cal-line: rgba(20, 24, 36, 0.08);
+  --cal-line-strong: rgba(20, 24, 36, 0.14);
+  --cal-past: rgba(20, 24, 36, 0.04);
+  --cal-halo: #ffffff;
+  /* heat: sequential ramp at 40 % strength over the canvas (text is always label-1) */
+  --heat-0: transparent;
+  --heat-1: color-mix(in srgb, var(--seq-1) 40%, var(--cal-canvas));
+  --heat-2: color-mix(in srgb, var(--seq-2) 40%, var(--cal-canvas));
+  --heat-3: color-mix(in srgb, var(--seq-3) 40%, var(--cal-canvas));
+  --heat-4: color-mix(in srgb, var(--seq-4) 40%, var(--cal-canvas));
+  --heat-5: color-mix(in srgb, var(--seq-5) 40%, var(--cal-canvas));
+}
+
+.dark {
+  --fac-1-bar: #3987e5; --fac-1-fill: #173053; --fac-1-ink: #67a3eb;
+  --fac-2-bar: #d95926; --fac-2-fill: #412422; --fac-2-ink: #e2815a;
+  --fac-3-bar: #199e70; --fac-3-fill: #0f3635; --fac-3-ink: #49b28e;
+  --fac-4-bar: #c98500; --fac-4-fill: #3c3018; --fac-4-ink: #d19726;
+  --fac-5-bar: #d55181; --fac-5-fill: #402239; --fac-5-ink: #e07da0;
+  --fac-6-bar: #008300; --fac-6-fill: #082f18; --fac-6-ink: #52ab52;
+  --fac-7-bar: #9085e9; --fac-7-fill: #2e3054; --fac-7-ink: #a39aed;
+  --fac-8-bar: #e66767; --fac-8-fill: #442832; --fac-8-ink: #ea8282;
+  --now: #ff453a;
+  --now-strong: #ff453a;
+  --now-strong-fg: #0b1220;
+  --cal-canvas: #0b1220;
+  --cal-line: rgba(255, 255, 255, 0.08);
+  --cal-line-strong: rgba(255, 255, 255, 0.14);
+  --cal-past: rgba(255, 255, 255, 0.035);
+  --cal-halo: #000000;
+}
+
+@media (prefers-contrast: more) {
+  :root { --cal-line: rgba(20, 24, 36, 0.2); --cal-line-strong: rgba(20, 24, 36, 0.32); }
+  .dark { --cal-line: rgba(255, 255, 255, 0.2); --cal-line-strong: rgba(255, 255, 255, 0.32); }
+}
+
+/* ---------------------------------------------------------------- canvas */
+
+.cal-canvas {
+  background: var(--cal-canvas);
+  color: var(--label-1);
+}
+
+/* ---------------------------------------------------------------- event chip (Apple Calendar anatomy, §7.2) */
+
+.cal-chip {
+  --chip-fill: var(--fac-8-fill);
+  --chip-ink: var(--fac-8-ink);
+  --chip-bar: var(--fac-8-bar);
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 6px;
+  padding: 3px 6px 3px 9px;
+  background: var(--chip-fill);
+  color: var(--chip-ink);
+  font-size: 11px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: default;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  outline-offset: 2px;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.cal-chip::before {
+  /* the 3 px faculty bar, inset 2 px top/bottom */
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--chip-bar);
+  pointer-events: none;
+}
+.cal-chip[data-locked="true"]::before {
+  /* locked = double bar (two 1 px lines): a shape cue that survives grayscale */
+  background: linear-gradient(90deg, var(--chip-bar) 0 1px, transparent 1px 2px, var(--chip-bar) 2px 3px);
+}
+.cal-chip .cal-code { font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: -0.003em; }
+.cal-chip .cal-line2 { opacity: 0.8; }
+.cal-chip[data-editable="true"] { cursor: grab; }
+.cal-chip[data-selected="true"] {
+  /* ring in the faculty bar colour with an inner halo (white text fails on most hues, §8.1) */
+  box-shadow: 0 0 0 1px var(--cal-halo), 0 0 0 3px var(--chip-bar);
+  z-index: 3;
+}
+.cal-chip[data-conflict="true"] {
+  background: linear-gradient(rgba(255, 59, 48, 0.1), rgba(255, 59, 48, 0.1)), var(--chip-fill);
+  box-shadow: inset 0 0 0 1.5px var(--status-infeasible-border);
+}
+.cal-chip[data-conflict="true"][data-selected="true"] {
+  box-shadow: inset 0 0 0 1.5px var(--status-infeasible-border), 0 0 0 1px var(--cal-halo), 0 0 0 3px var(--chip-bar);
+}
+.cal-chip[data-culprit="true"] { box-shadow: 0 0 0 2px var(--status-infeasible-solid); z-index: 2; }
+.cal-chip[data-origin-drag="true"] { opacity: 0.4; outline: 1px dashed var(--chip-ink); outline-offset: -1px; }
+.cal-chip[data-dim="true"] { opacity: 0.35; }
+.cal-chip[data-saving="true"] { opacity: 0.6; }
+.cal-chip[data-past="true"] { filter: saturate(0.6); }
+.cal-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; z-index: 4; }
+
+/* booking chips are never faculty-coloured (§7.2) */
+.cal-chip.cal-booking {
+  --chip-fill: var(--fill-2);
+  --chip-ink: var(--label-2);
+  --chip-bar: var(--label-3);
+}
+
+/* pre-occupied: hatched frost without backdrop blur (§7.3) */
+.cal-block {
+  position: absolute;
+  border-radius: 6px;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 5px, var(--cal-line-strong) 5px 6px),
+    color-mix(in srgb, var(--fill-3) 72%, var(--cal-canvas));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  color: var(--label-2);
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 3px 6px;
+  pointer-events: none;
+}
+.dark .cal-block { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08); }
+
+/* compare ghost: dashed outline, no fill (§7.3) */
+.cal-ghost {
+  position: absolute;
+  border-radius: 6px;
+  border: 1px dashed var(--label-3);
+  color: var(--label-3);
+  font-size: 10px;
+  line-height: 12px;
+  padding: 2px 5px;
+  pointer-events: none;
+  animation: cal-fade-in var(--dur-base) var(--ease-out);
+}
+@keyframes cal-fade-in { from { opacity: 0; } }
+
+/* unplaced: dashed ink outline, no fill */
+.cal-unplaced {
+  border: 1px dashed currentColor;
+  border-radius: 6px;
+  background: transparent;
+}
+
+/* drop slot / quick-create selection / lasso */
+.cal-slot {
+  position: absolute;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 5;
+}
+.cal-slot[data-state="ok"] { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--accent-soft); }
+.cal-slot[data-state="soft"] { outline: 2px solid var(--status-warning-solid); outline-offset: -1px; }
+.cal-slot[data-state="hard"] { outline: 2px dashed var(--status-infeasible-solid); outline-offset: -1px; }
+.cal-slot[data-state="create"] { outline: 1.5px dashed var(--accent); outline-offset: -1px; background: var(--accent-soft); }
+.cal-slot[data-state="hint"] { outline: 1px solid var(--accent); outline-offset: -1px; }
+.cal-lasso {
+  position: absolute;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* now-line (never animated, §7.4) */
+.cal-now { position: absolute; background: var(--now); pointer-events: none; z-index: 4; }
+.cal-now-pill {
+  position: absolute;
+  border-radius: 999px;
+  padding: 0 6px;
+  background: var(--now-strong);
+  color: var(--now-strong-fg);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* heat cells: opaque, label-1 text only (§6.5, §15) */
+.cal-heat { background: var(--heat-0); color: var(--label-1); transition: background-color var(--dur-base) linear; }
+.cal-heat[data-step="1"] { background: var(--heat-1); }
+.cal-heat[data-step="2"] { background: var(--heat-2); }
+.cal-heat[data-step="3"] { background: var(--heat-3); }
+.cal-heat[data-step="4"] { background: var(--heat-4); }
+.cal-heat[data-step="5"] { background: var(--heat-5); }
+.cal-heat[data-out="true"] {
+  background: radial-gradient(circle, var(--label-4) 0.6px, transparent 0.8px) 0 0 / 6px 6px, var(--fill-3);
+  color: var(--label-3);
+}
+.cal-heat[data-holiday="true"] {
+  background: repeating-linear-gradient(45deg, transparent 0 5px, var(--cal-line-strong) 5px 6px), var(--heat-0);
+}
+
+/* grid background: one gradient per pane instead of 1,080 cell divs (§13.2) */
+.cal-cols {
+  background-image: linear-gradient(90deg, var(--cal-line) 1px, transparent 1px);
+  background-size: var(--col-w) 100%;
+}
+
+/* forced colours: chips get a border, hatch becomes dashed (§15) */
+@media (forced-colors: active) {
+  .cal-chip { border: 1px solid ButtonText; }
+  .cal-block { background: Canvas; border: 1px dashed CanvasText; }
+  .cal-slot { outline-color: Highlight !important; }
+  .cal-now, .cal-now-pill { background: Highlight; color: HighlightText; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-ghost { animation: none; }
+  .cal-heat { transition: none; }
+}
+:root[data-motion="reduced"] .cal-ghost { animation: none; }
+:root[data-motion="reduced"] .cal-heat { transition: none; }

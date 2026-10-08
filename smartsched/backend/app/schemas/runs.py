@@ -34,9 +34,9 @@ class RunCreate(BaseModel):
     horizon: str = Field(default="TERM", pattern="^(WEEK|MONTH|TERM)$")
     horizon_params: dict[str, Any] = {}
     params: dict[str, Any] = {}
-    prompt: str | None = None
+    prompt: str | None = Field(default=None, max_length=4000)
     parent_run_id: int | None = None
-    label: str | None = None
+    label: str | None = Field(default=None, max_length=255)
 
 
 class RunOut(ORMModel):
@@ -142,23 +142,29 @@ class DiagnosisApplyOut(BaseModel):
     constraint_id: int | None = None
 
 
+#: ``constraints.source`` values a client may write through ``/constraints`` (review M10); AI, UPLOAD,
+#: GRID_IMPORT, CRBS and BUILTIN rows are written by the server only
+CLIENT_CONSTRAINT_SOURCES = ("ADMIN", "FILE")
+CONSTRAINT_WEIGHT_MAX = 10
+
+
 class ConstraintIn(BaseModel):
     term_id: int | None = None
     run_id: int | None = None
-    kind: str
+    kind: str = Field(max_length=64)
     params: dict[str, Any] = {}
     hardness: str = Field(default="soft", pattern="^(hard|soft)$")
-    weight: int = 1
-    source: str = "ADMIN"
-    nl_text: str | None = None
+    weight: int = Field(default=1, ge=0, le=CONSTRAINT_WEIGHT_MAX)
+    source: str = Field(default="ADMIN", pattern="^(" + "|".join(CLIENT_CONSTRAINT_SOURCES) + ")$")
+    nl_text: str | None = Field(default=None, max_length=2000)
     enabled: bool = True
 
 
 class ConstraintUpdate(BaseModel):
     params: dict[str, Any] | None = None
     hardness: str | None = Field(default=None, pattern="^(hard|soft)$")
-    weight: int | None = None
-    nl_text: str | None = None
+    weight: int | None = Field(default=None, ge=0, le=CONSTRAINT_WEIGHT_MAX)
+    nl_text: str | None = Field(default=None, max_length=2000)
     enabled: bool | None = None
 
 

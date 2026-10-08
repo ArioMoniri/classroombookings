@@ -104,6 +104,10 @@ async def env(tmp_path_factory, tmp_path, monkeypatch) -> AsyncIterator[Env]:
             headers=admin,
         )
         assert r.status_code == 200, r.text
+        # the imported rooms have no room group; CRBS would hide them all (bookings.show_ungrouped_rooms off),
+        # these tests book them directly (test_ungrouped_rooms_hidden_like_crbs covers the default)
+        r = await c.put("/api/v1/org/settings", json={"show_ungrouped_rooms": True}, headers=admin)
+        assert r.status_code == 200, r.text
         yield Env(c, admin, planner, term_id, run_id, sid, periods, rooms, clock)
     await qmod.get_queue().shutdown()
     await dbmod.dispose_engine()

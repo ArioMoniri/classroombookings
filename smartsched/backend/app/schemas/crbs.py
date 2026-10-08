@@ -428,6 +428,8 @@ class OrgSettingsIn(BaseModel):
     bookings_show_name: bool | None = None
     max_active_bookings: int | None = Field(default=None, ge=0)
     max_active_bookings_unlimited: bool | None = None
+    #: CRBS hides rooms without a room group from the booking grid; True shows them in an ungrouped tab
+    show_ungrouped_rooms: bool | None = None
 
     @model_validator(mode="after")
     def _cols(self) -> OrgSettingsIn:

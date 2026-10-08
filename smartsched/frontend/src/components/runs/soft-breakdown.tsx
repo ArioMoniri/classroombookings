@@ -1,57 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { KpiNumber } from "@/components/dashboard/kpi-number";
+import { EvilBarChart } from "@/components/ui/evilcharts/charts/recharts-bar-chart";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-
-const CAT = ["var(--cat-1)", "var(--cat-2)", "var(--cat-3)", "var(--cat-4)", "var(--cat-5)", "var(--cat-6)", "var(--cat-7)", "var(--cat-8)"];
 
 const KNOWN = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
 type Known = (typeof KNOWN)[number];
 const isKnown = (k: string): k is Known => (KNOWN as readonly string[]).includes(k);
 
-function labelFor(kind: string, t: (k: `generate.weight.${Known}`) => string): string {
-  return isKnown(kind) ? t(`generate.weight.${kind}`) : kind.replace(/_/g, " ");
-}
+/* Penalty points are data marks: the categorical ramp, never the accent (G3); no grow-in on load (A9). */
+const CAT = { light: ["var(--cat-1)"], dark: ["var(--cat-1)"] };
 
-/** Stacked bar of points lost per soft-constraint family + legend list; table twin toggle (dataviz rule). */
+/** Soft score with the points lost per soft-rule family (evilcharts bar chart) and its text/table twin. */
 export function SoftBreakdown({ score, breakdown, weights, className }: { score: number | null; breakdown: Record<string, number>; weights?: Record<string, number>; className?: string }) {
   const { t, n } = useI18n();
   const [table, setTable] = useState(false);
-  const entries = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
-  const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
+  const rows = useMemo(
+    () =>
+      Object.entries(breakdown)
+        .sort((a, b) => b[1] - a[1])
+        .map(([kind, points]) => ({ kind, label: isKnown(kind) ? t(`generate.weight.${kind}`) : t("glass.report.otherRule"), points })),
+    [breakdown, t],
+  );
+  const config = useMemo(() => ({ points: { label: t("glass.report.points"), colors: CAT } }), [t]);
   return (
     <div className={cn("min-w-0", className)}>
-      <div className="flex items-baseline justify-between">
-        <p className="text-sm font-medium text-muted-foreground">{t("runs.softScore")}</p>
-        <p className="text-2xl font-bold tabular-nums">{score ?? "—"} <span className="text-sm font-normal text-muted-foreground">/ 100</span></p>
-      </div>
-      {!table ? (
-        <div className="mt-2 flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full" role="img" aria-label={entries.map(([k, v]) => `${labelFor(k, t)}: ${v}`).join(", ")}>
-          {entries.map(([k, v], i) => (
-            <div key={k} style={{ width: `${(v / total) * 100}%`, background: CAT[i % CAT.length] }} title={`${labelFor(k, t)} · ${n(v)}`} />
-          ))}
-        </div>
-      ) : null}
-      {table ? (
-        <table className="mt-2 w-full text-xs">
-          <thead className="text-muted-foreground"><tr><th scope="col" className="text-left font-medium">{t("runs.objective")}</th><th scope="col" className="text-right font-medium">pts</th><th scope="col" className="text-right font-medium">w</th></tr></thead>
-          <tbody>{entries.map(([k, v]) => <tr key={k}><th scope="row" className="py-0.5 text-left font-normal">{labelFor(k, t)}</th><td className="text-right tabular-nums">{n(v)}</td><td className="text-right tabular-nums">{weights?.[k] ?? "—"}</td></tr>)}</tbody>
+      <p className="text-[13px] text-label-2">{t("runs.softScore")}</p>
+      <p className="type-title-1 text-label-1">
+        {score === null ? "—" : <KpiNumber value={score} />}
+        <span className="ml-1 text-[13px] font-normal text-label-3">/ 100</span>
+      </p>
+      <p className="text-[12px] text-label-3">{t("glass.report.softHint")}</p>
+      {rows.length === 0 ? (
+        <p className="mt-3 text-[13px] text-label-2">{t("glass.report.noSoftLoss")}</p>
+      ) : table ? (
+        <table className="mt-3 w-full text-[12px]">
+          <thead className="text-label-3">
+            <tr>
+              <th scope="col" className="pb-1 text-left font-medium">{t("runs.objective")}</th>
+              <th scope="col" className="pb-1 text-right font-medium">{t("glass.report.points")}</th>
+              <th scope="col" className="pb-1 text-right font-medium">{t("glass.report.weight")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.kind} className="hairline-t">
+                <th scope="row" className="py-1 text-left font-normal text-label-1">{r.label}</th>
+                <td className="text-right tabular-nums">{n(r.points)}</td>
+                <td className="text-right tabular-nums">{weights?.[r.kind] ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
         </table>
       ) : (
-        <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-3">
-          {entries.map(([k, v], i) => (
-            <li key={k} className="flex items-center gap-1.5 truncate">
-              <span className="size-2 shrink-0 rounded-sm" style={{ background: CAT[i % CAT.length] }} aria-hidden />
-              <span className="truncate text-muted-foreground">{labelFor(k, t)}</span>
-              <span className="ml-auto tabular-nums">{n(v)}</span>
-            </li>
-          ))}
-        </ul>
+        <figure className="mt-2" style={{ height: Math.max(72, rows.length * 34 + 28) }}>
+          <div aria-hidden className="size-full">
+            <EvilBarChart config={config} data={rows} layout="horizontal" animationType="none" barRadius={5} className="aspect-auto size-full">
+              <EvilBarChart.XAxis type="number" hide />
+              <EvilBarChart.YAxis dataKey="label" width={150} />
+              <EvilBarChart.Tooltip variant="frosted-glass" />
+              <EvilBarChart.Bar dataKey="points" />
+            </EvilBarChart>
+          </div>
+          <figcaption className="sr-only">{rows.map((r) => `${r.label}: ${n(r.points)}`).join(", ")}</figcaption>
+        </figure>
       )}
-      <button type="button" className="mt-1 text-[11px] text-muted-foreground underline-offset-2 hover:underline" onClick={() => setTable((v) => !v)}>
-        {table ? "Chart" : "Table"}
-      </button>
+      {rows.length ? (
+        <button type="button" aria-pressed={table} className="mt-1 rounded-full px-2 py-0.5 text-[12px] font-medium text-tint-text outline-none hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={() => setTable((v) => !v)}>
+          {table ? t("glass.report.asChart") : t("glass.dashboard.asTable")}
+        </button>
+      ) : null}
     </div>
   );
 }

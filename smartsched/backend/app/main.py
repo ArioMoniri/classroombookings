@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
-from app.core.config import get_settings
+from app.core.config import assert_secure, get_settings
 from app.core.db import create_all, dispose_engine, get_engine, get_session_factory
 from app.services.seed import seed_admin
 from app.workers.queue import get_queue, recover_interrupted
@@ -105,6 +105,7 @@ async def init_database(url: str, environment: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+    assert_secure(settings)  # review M9: no default / short secrets in prod
     if settings.create_tables_on_startup and settings.environment != "prod":
         await init_database(settings.database_url, settings.environment)
     async with get_session_factory()() as session:

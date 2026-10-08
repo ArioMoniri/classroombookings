@@ -848,6 +848,13 @@ _TITLE_TOKENS = {
     "ecz": "Ecz.",
     "msc": "MSc",
     "phd": "PhD",
+    "öğretim": "Öğretim",
+    "ogretim": "Öğretim",
+    "görevlisi": "Görevlisi",
+    "gorevlisi": "Görevlisi",
+    "asst": "Asst.",
+    "assoc": "Assoc.",
+    "assist": "Assist.",
 }
 
 
@@ -883,17 +890,102 @@ def canon_person_name(value: Any) -> PersonParse | None:
     return PersonParse(full_name=rest, canonical=canonical, title=title, raw=text)
 
 
+_NAME_WORD = re.compile(r"^[A-Za-zÇĞİÖŞÜçğıöşüÂâÎîÛûÄäËëÉéÈèÁáÍíÓóÚúÑñ'’.-]+$")
+#: words that never occur in a person's name (sentences, units, companies written into the column)
+_NOT_NAME = frozenset(
+    tr_casefold(w)
+    for w in (
+        "ve", "ile", "için", "icin", "lütfen", "lutfen", "bu", "ders", "dersi", "sınıf", "sinif", "öğrenci",
+        "koordinatörü", "anabilim", "dalı", "bölümü", "fakültesi", "a.ş", "a.ş.", "ltd", "tic", "san",
+        "teknoloji", "teknolojileri", "hocalar", "tüm", "tum", "the", "and", "for",
+    )
+)  # fmt: skip
+_LIST_SEP = re.compile(r"\n|/|;|&|,|\s{2,}-\s{2,}|\s+ve\s+", re.IGNORECASE)
+
+
+def _title_and_rest(text: str) -> tuple[list[str], list[str]]:
+    tokens = [t for t in re.split(r"(?<=\.)\s*|\s+", text) if t]
+    titles: list[str] = []
+    i = 0
+    while i < len(tokens) and tr_casefold(tokens[i]).rstrip(".") in _TITLE_TOKENS:
+        titles.append(tokens[i])
+        i += 1
+    return titles, tokens[i:]
+
+
+def looks_like_person(text: str) -> bool:
+    """Title(s) + 1..5 name words of letters (initials allowed), no sentence / unit / company words."""
+    _titles, words = _title_and_rest(text)
+    if not 1 <= len(words) <= 5 or len(text) > 80:
+        return False
+    if len(words) == 1 and not _titles:
+        return False
+    if sum(1 for w in words if w[:1].isupper()) * 2 < len(words):  # names are capitalised ("ipek Bilge KILIÇ" ok)
+        return False
+    return all(_NAME_WORD.match(w) and tr_casefold(w).rstrip(".") not in _NOT_NAME for w in words)
+
+
+def _split_glued(part: str) -> list[str]:
+    """``Dr. Öğr. Üyesi A B Öğr. Gör. Dr. C D`` (two people, no separator) -> two parts at the 2nd title run."""
+    tokens = [t for t in re.split(r"(?<=\.)\s*|\s+", part) if t]
+    starts = [0]
+    seen_name = False
+    for i, t in enumerate(tokens):
+        is_title = tr_casefold(t).rstrip(".") in _TITLE_TOKENS
+        if is_title and seen_name:
+            starts.append(i)
+            seen_name = False
+        elif not is_title:
+            seen_name = True
+    if len(starts) == 1:
+        return [part]
+    bounds = [*starts, len(tokens)]
+    return [" ".join(tokens[a:b]) for a, b in zip(bounds, bounds[1:], strict=False)]
+
+
 def split_person_names(value: Any) -> list[str]:
+    """Split an instructor cell into people (review M11): ``\\n``, ``/``, ``;``, ``&``, ``,`` and `` ve ``
+    separate names **when the pieces are names** (``Arş. Gör. Ecenur Aydemir, Arş. Gör. Ahmet Can
+    Küçükkurt`` -> 2 people); a title-only piece (``Öğr,Gör. Nihan Laçin``) is glued to the next one, two
+    people written without a separator are split at the second title run, and free text (``Lütfen Program
+    Koordinatörü ... için ...``) stays one entry."""
     if value is None:
         return []
     text = str(value).replace("\xa0", " ")
-    parts = re.split(r"\n|/|;|\s{2,}-\s{2,}", text)
-    out = []
+    raw = [clean_text(p) for p in _LIST_SEP.split(text)]
+    parts: list[str] = []
+    carry = ""
+    for p in raw:
+        if not p:
+            continue
+        if carry:
+            p = f"{carry} {p}"
+            carry = ""
+        titles, words = _title_and_rest(p)
+        if titles and not words:  # "Öğr" of "Öğr,Gör." -> glue to the following piece
+            carry = p
+            continue
+        parts.append(p)
+    if carry:
+        parts.append(carry)
+    people: list[str] = []
     for p in parts:
-        c = clean_text(p)
-        if c:
-            out.append(c)
-    return out
+        glued = _split_glued(p)
+        if len(glued) > 1 and all(looks_like_person(g) for g in glued):
+            people.extend(glued)
+            continue
+        if not looks_like_person(p):  # "Prof Dr X Y. Lütfen ..." -> keep the leading name, drop the sentence
+            head = re.split(r"\.\s+(?=[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}\s)", p, maxsplit=1)[0]
+            if head != p and looks_like_person(head):
+                p = head
+        people.append(p)
+    persons = [x for x in people if looks_like_person(x)]
+    if len(people) > 1 and len(persons) < 2:
+        # not a list of people (a sentence with commas or "ve"): only the line structure is trusted
+        people = [c for c in (clean_text(x) for x in re.split(r"\n|;|\s{2,}-\s{2,}", text)) if c]
+    elif len(persons) >= 2:
+        people = persons  # a list of people: fragments of a trailing sentence are not instructors
+    return list(dict.fromkeys(people))
 
 
 # ---------------------------------------------------------------------------

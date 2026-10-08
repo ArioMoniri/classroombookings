@@ -309,20 +309,61 @@ def resolve_course(
     return ent, sorted(set(ids))
 
 
+_FOLD_ASCII = str.maketrans("çğıöşüâîû", "cgiosuaiu")
+#: a fuzzy given-name match must beat the runner-up by this much, or it is ambiguous (review M12)
+PERSON_TIE_MARGIN = 0.08
+PERSON_GIVEN_MIN = 0.85
+
+
+def _person_key(text: str) -> list[str]:
+    """Canonical name words without titles, Turkish-casefolded and diacritic-folded (``Süer`` = ``Suer``)."""
+    from app.importers.normalize import canon_person_name
+
+    parsed = canon_person_name(text)
+    canon = parsed.canonical if parsed is not None else tr_casefold(text)
+    return [w.translate(_FOLD_ASCII).strip(".") for w in canon.split() if w.strip(".")]
+
+
 def resolve_instructor(ctx: TermContext, text: str) -> ResolvedEntity:
-    key = tr_casefold(text)
-    scored = sorted(((_ratio(key, i.canonical_name), i) for i in ctx.instructors), key=lambda t: -t[0])
-    cands = [{"id": i.id, "label": i.full_name, "score": round(s, 2)} for s, i in scored[:3] if s >= FUZZY_SUGGEST]
-    if scored and scored[0][0] >= FUZZY_ACCEPT:
-        s, i = scored[0]
+    """Strict person resolution (review M12): an exact canonical name (titles ignored, Turkish case and
+    diacritics folded), or the **exact surname** plus given names that each fuzzily match one of the
+    candidate's given names, beating the runner-up by :data:`PERSON_TIE_MARGIN`. Anything else is left
+    unresolved with suggestions, so an invented or misspelt name ends in ``needs_review``."""
+    words = _person_key(text)
+    people = [(i, _person_key(i.canonical_name)) for i in ctx.instructors]
+    suggest = sorted(((_ratio(" ".join(words), " ".join(k)), i) for i, k in people if k), key=lambda t: -t[0])
+    cands = [{"id": i.id, "label": i.full_name, "score": round(sc, 2)} for sc, i in suggest[:3] if sc >= FUZZY_SUGGEST]
+    if not words:
+        return ResolvedEntity(type="instructor", text=text, candidates=cands)
+    exact = [i for i, k in people if k == words]
+    if len(exact) == 1:
         return ResolvedEntity(
-            type="instructor",
-            text=text,
-            resolved_id=i.id,
-            resolved_label=i.full_name,
-            confidence=round(s, 2),
-            candidates=cands,
-        )
+            type="instructor", text=text, resolved_id=exact[0].id, resolved_label=exact[0].full_name,
+            confidence=1.0, candidates=cands,
+        )  # fmt: skip
+    if len(exact) > 1:  # two people with one name: the planner must pick
+        return ResolvedEntity(
+            type="instructor", text=text,
+            candidates=[{"id": i.id, "label": i.full_name, "score": 1.0} for i in exact[:5]],
+        )  # fmt: skip
+    if len(words) < 2:
+        return ResolvedEntity(type="instructor", text=text, candidates=cands)
+    surname, given = words[-1], words[:-1]
+    scored: list[tuple[float, Any]] = []
+    for i, k in people:
+        if len(k) < 2 or k[-1] != surname:
+            continue
+        their = k[:-1]
+        per = [max((_ratio(g, t) for t in their), default=0.0) for g in given]
+        if per and min(per) >= PERSON_GIVEN_MIN:
+            scored.append((sum(per) / len(per), i))
+    scored.sort(key=lambda t: -t[0])
+    if scored and (len(scored) == 1 or scored[0][0] - scored[1][0] >= PERSON_TIE_MARGIN):
+        sc, i = scored[0]
+        return ResolvedEntity(
+            type="instructor", text=text, resolved_id=i.id, resolved_label=i.full_name,
+            confidence=round(min(0.95, sc), 2), candidates=cands,
+        )  # fmt: skip
     return ResolvedEntity(type="instructor", text=text, candidates=cands)
 
 

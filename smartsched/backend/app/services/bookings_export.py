@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.export_safety import safe_writer
 from app.models import (
     Booking,
     BookingPeriod,
@@ -81,7 +82,7 @@ async def export_csv(
     weeks = {(r.term_id, r.date): r.timetable_week_id for r in (await session.execute(select(TermDate))).scalars()}
     buf = io.StringIO()
     buf.write("\ufeff")
-    w = csv.writer(buf, lineterminator="\r\n")
+    w = safe_writer(csv.writer(buf, lineterminator="\r\n"))  # review M8
     w.writerow(CSV_COLUMNS)
     for b in rows:
         room: Room | None = await get(Room, b.room_id)

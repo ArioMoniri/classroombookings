@@ -516,3 +516,44 @@ async def test_date_picker_shows_weeks_and_holidays_to_staff(env):  # noqa: F811
     assert out["weeks"] == [{"id": wk["id"], "name": "B Haftası", "bgcol": "#FFD966", "fgcol": "#000000"}]
     # the admin calendar endpoint stays admin-only
     assert (await c.get(f"/api/v1/booking-admin/sessions/{env.term_id}/dates", headers=teacher)).status_code == 403
+
+
+async def test_ungrouped_rooms_hidden_like_crbs(env):  # noqa: F811
+    """CRBS default: rooms without a room group are not in the booking grid and cannot be booked; the
+    ``show_ungrouped_rooms`` org setting (or switching room groups off) brings them back."""
+    c = env.client
+    _, teacher = await env.user("grupsuz.oda@uni.edu.tr")
+    r = await c.put("/api/v1/org/settings", json={"show_ungrouped_rooms": False}, headers=env.admin)
+    assert r.status_code == 200 and r.json()["show_ungrouped_rooms"] is False, r.text
+    assert (await c.get("/api/v1/org/settings", headers=env.admin)).json()["show_ungrouped_rooms"] is False
+    # nothing is grouped yet: no rooms, no ungrouped tab, and A 101 cannot be booked
+    ctx = (await c.get("/api/v1/bookings/context", headers=teacher)).json()
+    assert ctx["room_groups"] == []
+    assert (await c.get("/api/v1/bookings/rooms", headers=teacher)).json() == []
+    grid = (await c.get("/api/v1/bookings/grid", params={"date": MON.isoformat()}, headers=teacher)).json()
+    assert grid["rooms"] == [] and "no_rooms" in grid["problems"]
+    r = await env.book(teacher, "A101", MON, "P1")
+    assert r.status_code == 404 and r.json()["detail"]["code"] == "room_not_found", r.text
+    # a group with A 101 makes it (and only it) bookable
+    g = await c.post(
+        "/api/v1/room-admin/groups", json={"name": "A Blok", "room_ids": [env.rooms["A101"]]}, headers=env.admin
+    )
+    assert g.status_code == 201, g.text
+    ctx = (await c.get("/api/v1/bookings/context", headers=teacher)).json()
+    assert [x["name"] for x in ctx["room_groups"]] == ["A Blok"]
+    grid = (await c.get("/api/v1/bookings/grid", params={"date": MON.isoformat()}, headers=teacher)).json()
+    assert [x["name"] for x in grid["rooms"]] == ["A 101"]
+    assert (await env.book(teacher, "A101", MON, "P1")).status_code == 201
+    assert (await env.book(teacher, "A102", THU, "P1")).json()["detail"]["code"] == "room_not_found"
+    # the admin option: ungrouped rooms come back as the "—" tab
+    r = await c.put("/api/v1/org/settings", json={"show_ungrouped_rooms": True}, headers=env.admin)
+    assert r.json()["show_ungrouped_rooms"] is True
+    ctx = (await c.get("/api/v1/bookings/context", headers=teacher)).json()
+    assert [x["id"] for x in ctx["room_groups"]][-1] == 0
+    assert (await env.book(teacher, "A102", THU, "P1")).status_code == 201  # A 102 Thu P1 is free all term
+    # room groups switched off: one flat list, nothing hidden even with the option off
+    await c.put(
+        "/api/v1/org/settings", json={"show_ungrouped_rooms": False, "use_room_groups": False}, headers=env.admin
+    )
+    rooms = (await c.get("/api/v1/bookings/rooms", headers=teacher)).json()
+    assert len(rooms) > 50

@@ -26,7 +26,7 @@ from app.solver.build import (
 from app.solver.diagnose import diagnose, diagnose_with_placement, explain_unplaced, static_check
 from app.solver.domains import normalize_input
 from app.solver.evaluate import Evaluation
-from app.solver.greedy import greedy_assignments
+from app.solver.greedy import greedy_assignments, prefer_rooms
 from app.solver.model import Assignment, Diagnosis, Event, SolverInput, SolverResult
 from app.solver.scoring import evaluate
 
@@ -287,6 +287,12 @@ def _best_effort(
     sub = replace(inp, events=tuple(e for e in inp.events if e.id in placed), best_effort=False)
     remaining = inp.time_limit_s - (time.perf_counter() - t0)
     assignments = [placed[e.id] for e in sub.events]
+    # the relaxation ignores soft terms: move events back into their preferred rooms where those are free
+    # (validated), so phase 2 starts from a good incumbent instead of an arbitrary room choice
+    better = prefer_rooms(prep, assignments)
+    if better != assignments and not evaluate(sub, better).hard_violations():
+        stats["hint_preferred_moves"] = sum(1 for x, y in zip(assignments, better, strict=True) if x != y)
+        assignments = better
     phase2 = None
     if remaining > 1.0:
         phase2 = solve(replace(sub, time_limit_s=remaining), _complete=False, _hints=assignments)

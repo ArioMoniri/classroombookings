@@ -206,3 +206,7 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - README and recording captions are in **English**.
 - No paid UI components: use the free parts the sites offer (only where their terms allow commercial use) or MIT alternatives — reverseui free components, beUI file-upload instead of kobra Magnetic Dropzone, TanStack grouping instead of kobra Grouped Table, free transitions.dev set only.
 - Status updates to the user are written BLUF (bottom line up front).
+
+### Phase 17 — Booking enhancements wave 1 (from docs/product/booking-enhancements.md)
+
+Foundation, in order: typed room features → find a room → notification hub → audit log + undo → approvals (TIP rooms, labs, amphitheatres, exam halls) → conflict resolver after publishing → booking policies → public day view → KVKK (retention, consent, export/delete). Waves 2–3 (availability portal ~6 weeks before term, check-in + door-sign kiosk + auto-release, invigilators, what-ifs, two-way calendar sync, API/webhooks, multi-campus) follow. Open questions for the user are listed in the doc §5.

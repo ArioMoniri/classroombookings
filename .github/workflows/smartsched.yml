@@ -81,6 +81,7 @@ jobs:
           ENVIRONMENT: prod
           DATABASE_URL: postgresql+psycopg://smartsched:ci-only-password@127.0.0.1:5432/smartsched
           APP_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+          JWT_SECRET: ci-only-jwt-0123456789abcdef0123456789abcdef01
           ADMIN_EMAIL: admin@example.edu.tr
           ADMIN_PASSWORD: ci-only-admin-password
           UPLOAD_DIR: /tmp/smartsched-uploads

@@ -13,6 +13,7 @@ from openpyxl.utils import get_column_letter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.export_safety import ics_text, neutralize_workbook, safe_writer
 from app.importers.normalize import PERIODS
 from app.models import Assignment, Room, ScheduleRun, Term
 from app.services.calendar import date_for, day_label, period_times
@@ -90,7 +91,7 @@ async def export_csv(session: AsyncSession, run: ScheduleRun) -> str:
         )
         if not k.startswith("_")
     ]
-    w = csv.DictWriter(buf, fieldnames=fields, extrasaction="ignore")
+    w = safe_writer(csv.DictWriter(buf, fieldnames=fields, extrasaction="ignore"))  # review M8
     w.writeheader()
     for r in rows:
         w.writerow(r)
@@ -98,7 +99,7 @@ async def export_csv(session: AsyncSession, run: ScheduleRun) -> str:
 
 
 def _ics_escape(s: str) -> str:
-    return s.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+    return ics_text(s)  # RFC 5545 escaping, no CR/LF (review M8)
 
 
 async def export_ics(session: AsyncSession, run: ScheduleRun) -> str:
@@ -214,5 +215,6 @@ async def export_xlsx(session: AsyncSession, run: ScheduleRun, weeks: list[int] 
         ws.column_dimensions["A"].width = 13
         ws.freeze_panes = "B3"
     buf = io.BytesIO()
+    neutralize_workbook(wb)  # review M8: formula-like text becomes plain text
     wb.save(buf)
     return buf.getvalue()

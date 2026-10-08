@@ -4,12 +4,15 @@ validation and client-safe import errors."""
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 import socket
 import threading
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
+import openpyxl
 from app.core.config import get_settings
 from app.core.db import get_session_factory
 from app.models import ImportJob, ScheduleRun
@@ -56,7 +59,12 @@ async def test_restart_marks_orphaned_runs_and_imports_failed(client):
         rows = [
             ScheduleRun(term_id=term["id"], status="RUNNING", stats={"worker": dead, "progress": 40}),
             ScheduleRun(term_id=term["id"], status="QUEUED", stats={}),  # pre-fix row without owner
-            ScheduleRun(term_id=term["id"], status="RUNNING", stats={"worker": {"host": "other-node", "pid": 1}}),
+            ScheduleRun(  # another live worker: other boot id, fresh heartbeat (review M6)
+                term_id=term["id"],
+                status="RUNNING",
+                heartbeat_at=datetime.now(UTC).replace(tzinfo=None),
+                stats={"worker": {"host": "other-node", "pid": 1, "boot": "live"}},
+            ),
             ScheduleRun(term_id=term["id"], status="FEASIBLE", stats={}),
         ]
         job = ImportJob(kind="planning-list", status="RUNNING", summary={"worker": dead})
@@ -124,7 +132,12 @@ async def test_create_term_defaults_name_and_rejects_bad_input(client):
 
 async def test_import_failure_returns_short_message_without_traceback(client):
     h = await login(client)
-    files = {"file": ("Bahar Derslik Planlama Listesi v5.xlsx", b"this is not a workbook", "application/octet-stream")}
+    # a real (safe) workbook without the planning-list columns: passes app.core.safe_files, fails parsing
+    wb = openpyxl.Workbook()
+    wb.active.append(["Ders", "Not"])  # type: ignore[union-attr]
+    buf = io.BytesIO()
+    wb.save(buf)
+    files = {"file": ("Bahar Derslik Planlama Listesi v5.xlsx", buf.getvalue(), "application/octet-stream")}
     r = await client.post("/api/v1/imports/planning-list", data={"term_code": "2026-BAHAR"}, files=files, headers=h)
     assert r.status_code == 202, r.text
     job_id = r.json()["id"]

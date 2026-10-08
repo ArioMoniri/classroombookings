@@ -160,6 +160,7 @@ async def _settings_out(db: DB) -> dict[str, Any]:
         teacher and all(p in {x.name for x in teacher.permissions} for p in SHOW_NAME_PERMS)
     )
     org["max_active_bookings"] = teacher.max_active_bookings if teacher else None
+    org["show_ungrouped_rooms"] = bool((await get_group(db, "bookings"))["show_ungrouped_rooms"])
     return org
 
 
@@ -175,6 +176,9 @@ async def put_org_settings(body: OrgSettingsIn, db: DB, _: SettingsAdmin) -> dic
     max_b = data.pop("max_active_bookings", None)
     unlimited = data.pop("max_active_bookings_unlimited", None)
     tz = data.pop("timezone", None)
+    show_ungrouped = data.pop("show_ungrouped_rooms", None)
+    if show_ungrouped is not None:
+        await set_group(db, "bookings", {"show_ungrouped_rooms": show_ungrouped})
     if tz is not None:
         from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 

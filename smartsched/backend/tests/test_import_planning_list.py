@@ -98,7 +98,9 @@ async def test_import_bahar_into_db_is_idempotent(session, parsed_bahar_list):
 
     rep2 = await import_planning_list(session, BAHAR_LIST, "2026-BAHAR")
     assert rep2.created["meeting_requests"] == 0 and rep2.created["sections"] == 0
-    assert rep2.updated["meeting_requests"] == rep1.rows_imported
+    # review M4: an identical re-import writes nothing (every row is matched and skipped as unchanged)
+    assert rep2.updated.get("meeting_requests", 0) == 0
+    assert rep2.extra["unchanged"]["meeting_requests"] == rep1.rows_imported
     assert (await session.execute(select(func.count(Section.id)))).scalar_one() == n_sec
     assert (await session.execute(select(func.count(MeetingRequest.id)))).scalar_one() == n_mr
     assert rep2.updated.get("meeting_requests_archived", 0) == 0
