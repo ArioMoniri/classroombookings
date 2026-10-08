@@ -6,7 +6,7 @@
  */
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Ellipsis, Lock, LockOpen, MessageSquareText, CalendarDays } from "lucide-react";
-import { animate, motion, useMotionValue } from "motion/react";
+import { animate, motion, useMotionValue, useTransform } from "motion/react";
 import Link from "next/link";
 import { memo, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,9 +33,11 @@ const Card = memo(function Card({ r, runId, selected, selectMode, onOpen, onTogg
   const p = r.placement;
   const hard = r.issues.some((i) => i.severity === "hard");
   const snap = (to: number) => (reduce ? x.set(to) : void animate(x, to, springs.snappy));
+  // the action underlay is only painted while the card is off its rest position (no coloured hairline at the rounded corners)
+  const underlay = useTransform(x, (v) => (Math.abs(v) < 0.5 ? 0 : 1));
   return (
     <div className="relative overflow-hidden rounded-xl" data-testid="classes-row" data-class-id={r.id}>
-      <div aria-hidden className="absolute inset-0 flex items-stretch justify-between">
+      <motion.div aria-hidden style={{ opacity: underlay }} className="absolute inset-0 flex items-stretch justify-between">
         <button type="button" tabIndex={-1} onClick={() => { onLock(); snap(0); }} className="flex w-[120px] items-center justify-center gap-1.5 bg-[var(--status-locked-solid,#5856d6)] text-[13px] font-semibold text-white">
           {p?.locked ? <LockOpen className="size-4" /> : <Lock className="size-4" />}
           {p?.locked ? t("calendar.insp.unlock") : t("classes.mobile.lock")}
@@ -44,7 +46,7 @@ const Card = memo(function Card({ r, runId, selected, selectMode, onOpen, onTogg
           <button type="button" tabIndex={-1} onClick={() => { onExplain(); snap(0); }} className="flex w-[60px] flex-col items-center justify-center gap-0.5 bg-fill-1 text-[11px] font-semibold"><MessageSquareText className="size-4" />{t("classes.mobile.explain")}</button>
           <Link tabIndex={-1} href={calendarHref(r, runId)} className="flex w-[60px] flex-col items-center justify-center gap-0.5 bg-tint text-[11px] font-semibold text-tint-foreground"><CalendarDays className="size-4" />{t("classes.mobile.calendar")}</Link>
         </span>
-      </div>
+      </motion.div>
       <motion.div
         drag={readOnly || selectMode ? false : "x"}
         dragConstraints={{ left: -REVEAL, right: REVEAL }}
@@ -87,13 +89,16 @@ const Card = memo(function Card({ r, runId, selected, selectMode, onOpen, onTogg
 });
 
 export function ClassCards({ rows, group, runId, selection, selectMode, onToggle, onOpen, onLock, onExplain, readOnly }: { rows: ClassRow[]; group: string | null; runId: number | null; selection: ReadonlySet<number>; selectMode: boolean; onToggle: (id: number) => void; onOpen: (r: ClassRow) => void; onLock: (r: ClassRow) => void; onExplain: (r: ClassRow) => void; readOnly: boolean }) {
+  const { locale } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
   const items = useMemo(() => {
     const out: ({ type: "h"; key: string; label: string; n: number } | { type: "r"; r: ClassRow })[] = [];
     let last = "";
     const counts = new Map<string, number>();
     if (group) for (const r of rows) counts.set(groupKey(r, group).key, (counts.get(groupKey(r, group).key) ?? 0) + 1);
-    for (const r of rows) {
+    // same group order as the table (stable: the view's sort survives inside each group)
+    const ordered = group ? rows.map((r, i) => ({ r, i, o: groupKey(r, group).order })).sort((a, b) => a.o.localeCompare(b.o, "tr") || a.i - b.i).map((x) => x.r) : rows;
+    for (const r of ordered) {
       if (group) {
         const g = groupKey(r, group);
         if (g.key !== last) {
@@ -105,16 +110,31 @@ export function ClassCards({ rows, group, runId, selection, selectMode, onToggle
     }
     return out;
   }, [rows, group]);
-  const v = useVirtualizer({ count: items.length, getScrollElement: () => ref.current, estimateSize: (i) => (items[i].type === "h" ? 36 : 96), overscan: 6 });
+  const heads = useMemo(() => items.map((it, i) => (it.type === "h" ? i : -1)).filter((i) => i >= 0), [items]);
+  const v = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => ref.current,
+    estimateSize: (i) => (items[i].type === "h" ? 40 : 96),
+    overscan: 6,
+    rangeExtractor: (range) => {
+      const prev = [...heads].reverse().find((i) => i <= range.startIndex) ?? -1;
+      const out = new Set<number>(prev >= 0 ? [prev] : []);
+      for (let i = range.startIndex; i <= range.endIndex; i++) out.add(i);
+      return [...out].sort((a, b) => a - b);
+    },
+  });
+  const firstVisible = v.range?.startIndex ?? 0;
+  const activeHead = [...heads].reverse().find((i) => i <= firstVisible) ?? -1;
   return (
     <div ref={ref} className="min-h-0 flex-1 overflow-auto px-3 pb-24" data-testid="classes-cards">
       <div style={{ height: v.getTotalSize(), position: "relative" }}>
         {v.getVirtualItems().map((vi) => {
           const it = items[vi.index];
+          const sticky = it.type === "h" && vi.index === activeHead;
           return (
-            <div key={vi.key} ref={v.measureElement} data-index={vi.index} className="absolute inset-x-0" style={{ transform: `translateY(${vi.start}px)` }}>
+            <div key={vi.key} ref={v.measureElement} data-index={vi.index} className={cn("inset-x-0", sticky ? "sticky top-0 z-10" : "absolute")} style={sticky ? { height: vi.size } : { transform: `translateY(${vi.start}px)` }}>
               {it.type === "h" ? (
-                <p className="glass-thick sticky top-0 rounded-lg px-2 py-2 text-[13px] font-semibold">{it.label} · {it.n}</p>
+                <p className="glass-thick rounded-lg px-3 py-2 text-[13px] font-semibold">{it.label} · {it.n.toLocaleString(locale)}</p>
               ) : (
                 <div className="py-1">
                   <Card r={it.r} runId={runId} selected={selection.has(it.r.id)} selectMode={selectMode} onOpen={() => onOpen(it.r)} onToggle={() => onToggle(it.r.id)} onLock={() => onLock(it.r)} onExplain={() => onExplain(it.r)} readOnly={readOnly} />
