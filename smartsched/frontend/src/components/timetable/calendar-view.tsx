@@ -17,7 +17,7 @@ import { api } from "@/lib/api/endpoints";
 import { useMe } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
-import { dayName, formatDate } from "@/lib/time";
+import { dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { AgendaLens } from "./agenda-lens";
 import { BoardStrip } from "./board-strip";
@@ -30,17 +30,18 @@ import { MoveDialog, MovePopover, type PendingMove, type ScopeValue } from "./mo
 import { QuickCreate, type CreateRequest } from "./quick-create";
 import { ShortcutsSheet } from "./shortcuts-sheet";
 import { TimeGrid, type CreateIntent, type GridColumn, type MoveIntent, type TimeGridHandle } from "./time-grid";
-import { checkMove, spanText, whenText } from "./model/check";
+import { checkMove, spanText } from "./model/check";
 import { compareRuns } from "./model/compare";
-import { addDays, dateOf, minutesNow, rangeTitle, todayIso, weekDayOf, weekTypeKey } from "./model/dates";
+import { dateOf, minutesNow, rangeTitle, todayIso, weekDayOf, weekTypeKey } from "./model/dates";
 import { EMPTY_FILTERS, activeFilterCount, eventPasses, queryMatchesRoom, roomPasses, type CalendarFilters } from "./model/filters";
-import { BAND_H, MINUTE_PX_STEPS, ROOM_COL, ROOM_HEADER_H, STRIP_SLOT_STEPS, clampZoom, rowHeightFor, type Density } from "./model/geometry";
+import { BAND_H, MINUTE_PX_STEPS, ROOM_COL, ROOM_HEADER_H, STRIP_SLOT_STEPS, clampZoom, periodAtMinute, rowHeightFor, type Density } from "./model/geometry";
 import { computeHeat, weeklyMean, type HeatMetric } from "./model/heat";
 import { blocksOf, bookingsOf, eventsOf, roomCap, termLongBlocks, type CalEvent, type CalendarModel } from "./model/index-model";
 import { useUndoStore } from "./model/undo-store";
 import { lensDirection, lensForKey, parseViewState, serializeViewState, weekInRun, type Lens, type Subject, type ViewState } from "./model/view-state";
 import { useCalendarActions } from "./use-calendar-actions";
 import { useCalendarData } from "./use-calendar-data";
+import { WeekScrubber } from "./week-scrubber";
 
 const ALLDAY_H = 22;
 
@@ -113,22 +114,20 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const now = useNow();
 
   // ------------------------------------------------------------------ view state ↔ URL
-  const [vs, setVs] = useState<ViewState>(() =>
-    parseViewState(typeof window !== "undefined" && !embedded ? new URLSearchParams(window.location.search) : new URLSearchParams(), { run: fixedRun ?? null, week: initialWeek ?? null }),
-  );
+  const [vs, setVs] = useState<ViewState>(() => {
+    const params = typeof window !== "undefined" && !embedded ? new URLSearchParams(window.location.search) : new URLSearchParams();
+    const s = parseViewState(params, { run: fixedRun ?? null, week: initialWeek ?? null });
+    return params.has("day") ? s : { ...s, day: 0 };
+  });
   const update = useCallback((patch: Partial<ViewState>) => setVs((s) => ({ ...s, ...patch })), []);
-  useEffect(() => {
-    if (embedded) return;
-    const p = serializeViewState(vs, new URLSearchParams(window.location.search));
-    const url = `${window.location.pathname}?${p.toString()}`;
-    if (url !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, "", url);
-  }, [vs, embedded]);
 
   const data = useCalendarData(fixedRun ?? vs.run);
   const model = data.model;
   const runId = data.runId;
-  const undoState = useUndoStore();
-  useEffect(() => undoState.setRun(runId), [runId, undoState]);
+  const setUndoRun = useUndoStore((s) => s.setRun);
+  const canUndo = useUndoStore((s) => s.past.length > 0);
+  const canRedo = useUndoStore((s) => s.future.length > 0);
+  useEffect(() => setUndoRun(runId), [runId, setUndoRun]);
 
   const [filters, setFilters] = useState<CalendarFilters>(EMPTY_FILTERS);
   const [selection, setSelection] = useState<Set<number>>(() => new Set(vs.sel ? [vs.sel] : []));
@@ -157,10 +156,14 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const todayPos = model ? weekDayOf(model.index.weeks, now.iso) : null;
   const week = vs.week ?? weekInRun(runWeeks, allWeeks, todayPos?.week ?? null);
   const mask = week >= 1 && week <= 31 ? 1 << (week - 1) : 0;
+  const day = vs.day || (todayPos && todayPos.week === week ? todayPos.day : 1);
+  const urlState = useMemo(() => ({ ...vs, week: model ? week : vs.week, day }), [vs, model, week, day]);
   useEffect(() => {
-    if (model && vs.week === null) update({ week, day: todayPos && todayPos.week === week ? todayPos.day : vs.day });
-  }, [model, vs.week, week, todayPos, update, vs.day]);
-  const day = vs.day;
+    if (embedded) return;
+    const p = serializeViewState(urlState, new URLSearchParams(window.location.search));
+    const url = `${window.location.pathname}?${p.toString()}`;
+    if (url !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, "", url);
+  }, [urlState, embedded]);
   const weekInfo = model?.index.weeks.find((w) => w.index === week);
   const dates = useMemo(() => [1, 2, 3, 4, 5, 6, 7].map((d) => (model ? dateOf(model.index.weeks, week, d) : null)), [model, week]);
   const isTodayWeek = todayPos?.week === week;
@@ -340,17 +343,12 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     update({ lens: l });
     if (l === "week" && !vs.subject && selectedEvents[0]) update({ lens: l, subject: { kind: "room", id: String(selectedEvents[0].room) } });
   }, [update, vs.subject, selectedEvents]);
-  const lensDir = useRef<number>(0);
-  const prevLens = useRef<Lens>(vs.lens);
-  if (prevLens.current !== vs.lens) {
-    lensDir.current = lensDirection(prevLens.current, vs.lens);
-    prevLens.current = vs.lens;
+  // travel direction of the last lens / week change ("storing information from previous renders")
+  const [travel, setTravel] = useState({ lens: vs.lens, week, lensDir: 0, weekDir: 0 });
+  if (travel.lens !== vs.lens || travel.week !== week) {
+    setTravel({ lens: vs.lens, week, lensDir: travel.lens !== vs.lens ? lensDirection(travel.lens, vs.lens) : travel.lensDir, weekDir: travel.week !== week ? (week > travel.week ? 1 : -1) : 0 });
   }
-  const prevWeek = useRef(week);
-  const weekDir = week > prevWeek.current ? 1 : week < prevWeek.current ? -1 : 0;
-  useEffect(() => {
-    prevWeek.current = week;
-  }, [week]);
+  const weekDir = travel.weekDir;
 
   const zoomBy = useCallback((delta: number) => {
     const z = clampZoom(vs.zoom + delta);
@@ -535,10 +533,30 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     );
   }, [model, rooms, vs.density, termLong, t, weekInfo]);
 
-  const shakeAid: number | null = null;
   const pendingList = pending && model
     ? [{ ev: pending.ev, col: vs.lens === "week" ? (dayIndex.get(pending.target.day) ?? -1) : (boardIndex.get(pending.target.room) ?? -1), sp: pending.target.sp, ep: pending.target.ep }].filter((x) => x.col >= 0)
     : [];
+
+  const subjectTitle = useMemo(() => {
+    if (!model || !vs.subject) return null;
+    const s = vs.subject;
+    if (s.kind === "room") {
+      const r = model.roomById.get(Number(s.id));
+      return r ? t("calendar.subject.roomHeader", { room: r.name, cap: model.exam ? r.exam_capacity : r.capacity }) + (r.tags.length ? ` · ${r.tags.join(" ")}` : "") : null;
+    }
+    const evs = model.events.filter(subjectKeep(s) ?? (() => false));
+    const ids = new Set(evs.map((e) => e.a.id));
+    if (s.kind === "instructor") {
+      const e = evs[0];
+      const i = e ? e.a.instr_ids.indexOf(Number(s.id)) : -1;
+      return e ? t("calendar.subject.instructorHeader", { name: e.a.instr[i] ?? "", n: ids.size }) : null;
+    }
+    if (s.kind === "cohort") {
+      const e = evs[0];
+      return e ? t("calendar.subject.cohortHeader", { name: t("calendar.subject.cohortLabel", { program: e.a.prog ?? "", year: e.a.year ?? "" }), n: ids.size }) : null;
+    }
+    return evs[0]?.a.label ?? null;
+  }, [model, vs.subject, t]);
 
   const renderLens = () => {
     if (!model) return null;
@@ -581,7 +599,6 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
           header={boardHeader}
           headerH={BAND_H + ALLDAY_H + ROOM_HEADER_H}
           pending={pendingList}
-          shakeAid={shakeAid}
           focusAid={vs.sel}
           line2={chipLine2}
           ariaFor={ariaFor}
@@ -635,7 +652,8 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     }
     if (vs.lens === "day") {
       const evs = weekEvents.filter((e) => e.day === day && roomSet.has(e.room));
-      const busyNow = new Set(evs.filter((e) => e.sp <= (todayPos?.day === day ? currentPeriod(now.minutes) : 0) && currentPeriod(now.minutes) <= e.ep).map((e) => e.room));
+      const cur = todayPos?.day === day ? (periodAtMinute(now.minutes) ?? 0) : 0;
+      const busyNow = new Set(evs.filter((e) => e.sp <= cur && cur <= e.ep).map((e) => e.room));
       const list = filters.freeNow ? [...rooms].sort((a, b) => Number(busyNow.has(a.id)) - Number(busyNow.has(b.id))) : rooms;
       return <DayTimeline model={model} rooms={list} day={day} mask={mask} pxPerMin={MINUTE_PX_STEPS[vs.zoom - 1]} events={evs} blocks={blocksOf(model, week, day).filter((b) => roomSet.has(b.room))} bookings={bookingsOf(model, week, day).filter((b) => roomSet.has(b.room))} nowMin={now.minutes} isToday={isTodayWeek && todayPos?.day === day} selection={selection} readOnly={readOnly} onSelect={onSelect} onOpen={onOpen} onMove={onMove} onCreate={onCreate} onAnnounce={setAnnounce} ariaFor={ariaFor} label={t("calendar.timelineLabel", { day: dayName(day, locale) })} />;
     }
@@ -645,26 +663,6 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     return <AgendaLens model={model} events={evs} days={[1, 2, 3, 4, 5, 6, 7]} dates={dates} todayIso={now.iso} nowMin={now.minutes} selection={selection} onOpen={onOpen} onSelect={onSelect} emptyLabel={t("calendar.empty.filtered")} />;
   };
 
-  const subjectTitle = useMemo(() => {
-    if (!model || !vs.subject) return null;
-    const s = vs.subject;
-    if (s.kind === "room") {
-      const r = model.roomById.get(Number(s.id));
-      return r ? t("calendar.subject.roomHeader", { room: r.name, cap: model.exam ? r.exam_capacity : r.capacity }) + (r.tags.length ? ` · ${r.tags.join(" ")}` : "") : null;
-    }
-    const evs = model.events.filter(subjectKeep(s) ?? (() => false));
-    const ids = new Set(evs.map((e) => e.a.id));
-    if (s.kind === "instructor") {
-      const e = evs[0];
-      const i = e ? e.a.instr_ids.indexOf(Number(s.id)) : -1;
-      return e ? t("calendar.subject.instructorHeader", { name: e.a.instr[i] ?? "", n: ids.size }) : null;
-    }
-    if (s.kind === "cohort") {
-      const e = evs[0];
-      return e ? t("calendar.subject.cohortHeader", { name: t("calendar.subject.cohortLabel", { program: e.a.prog ?? "", year: e.a.year ?? "" }), n: ids.size }) : null;
-    }
-    return evs[0]?.a.label ?? null;
-  }, [model, vs.subject, t]);
 
   // ------------------------------------------------------------------ states
   if (data.noRun) {
@@ -750,8 +748,8 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               conflicts={counts.conflicts}
               warnings={counts.warnings}
               onIssues={() => setFilters((f) => ({ ...f, status: f.status.includes("conflict") ? [] : ["conflict"] }))}
-              canUndo={undoState.past.length > 0}
-              canRedo={undoState.future.length > 0}
+              canUndo={canUndo}
+              canRedo={canRedo}
               onUndo={() => void actions.undo()}
               onRedo={() => void actions.redo()}
               density={vs.density}
@@ -808,7 +806,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
             <motion.div
               key={`${vs.lens}-${vs.board}`}
               className="absolute inset-0"
-              initial={reduce ? false : { x: 8 * lensDir.current }}
+              initial={reduce ? false : { x: 8 * travel.lensDir }}
               animate={{ x: 0 }}
               transition={springs.smooth}
             >
@@ -895,16 +893,8 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       ) : null}
       <ShortcutsSheet open={shortcuts} onOpenChange={setShortcuts} />
       <p className="sr-only" aria-live="polite" data-testid="calendar-live">{announce}</p>
-      <p className="sr-only">{whenText(day, 1, 1)[lang] ? "" : formatDate(addDays(now.iso, 0), locale)}</p>
     </div>
   );
-}
-
-function currentPeriod(min: number): number {
-  const starts = [510, 560, 610, 660, 710, 760, 810, 860, 910, 960, 1010, 1050, 1080, 1130, 1180, 1230, 1280, 1330];
-  let p = 0;
-  for (let i = 0; i < starts.length; i++) if (min >= starts[i]) p = i + 1;
-  return p;
 }
 
 function FilteredEmpty({ onClear }: { onClear: () => void }) {
@@ -916,7 +906,6 @@ function FilteredEmpty({ onClear }: { onClear: () => void }) {
   );
 }
 
-import { WeekScrubber } from "./week-scrubber";
 function WeekScrubberLazy({ model, week, heat, onWeek, onToday, todayWeek, runWeeks }: { model: CalendarModel; week: number; heat: ReturnType<typeof computeHeat>; onWeek: (w: number) => void; onToday: () => void; todayWeek: number | null; runWeeks: readonly number[] }) {
   const weeks = model.index.weeks.filter((w) => w.start_date || w.index <= 16);
   return <WeekScrubber weeks={weeks} week={week} occupancy={(w) => weeklyMean(heat, w)} onWeek={onWeek} onToday={onToday} todayWeek={todayWeek} runWeeks={runWeeks} />;

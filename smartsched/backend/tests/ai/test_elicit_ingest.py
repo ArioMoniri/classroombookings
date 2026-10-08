@@ -224,7 +224,12 @@ async def test_docx_upload_and_accept_endpoint(client, fake_sdk):
         mr = (
             await s.execute(select(MeetingRequest).join(Section).where(Section.id == sd.sections["NRS450"]))
         ).scalar_one()
-        assert mr.needs_room is False
+        # review MINOR 6: an accepted "exclude" leaves the class out of the accepting planner's draft only
+        assert mr.needs_room is True
+        from app.models import StudioDraft
+
+        draft = (await s.execute(select(StudioDraft).where(StudioDraft.term_id == sd.term_id))).scalar_one()
+        assert mr.id in draft.excluded_event_ids
 
     bad = await client.post(
         f"/api/v1/terms/{sd.term_id}/preferences/upload",

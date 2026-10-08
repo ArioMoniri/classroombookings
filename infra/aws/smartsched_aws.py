@@ -4,7 +4,8 @@
     python infra/aws/smartsched_aws.py up       [--region R|auto] [--instance-type T] [--ssh-cidr CIDR] ...
     python infra/aws/smartsched_aws.py status   # inventory, alarm/budget state, orphan check, est. monthly cost
     python infra/aws/smartsched_aws.py stop | start
-    python infra/aws/smartsched_aws.py down --yes   # delete everything tagged Project=smartsched
+    python infra/aws/smartsched_aws.py down --yes   # delete everything tagged Project=smartsched (the
+                                                    # budget is kept unless --delete-budget)
     python infra/aws/smartsched_aws.py cost     # month-to-date spend (Cost Explorer) + budget + estimate
     python infra/aws/smartsched_aws.py plan     # OFFLINE: what `up` creates + rendered user-data, no AWS calls
     python infra/aws/smartsched_aws.py preflight            # sts get-caller-identity with a clear error
@@ -17,8 +18,9 @@ What `up` creates (every resource tagged Project=smartsched; see docs/deploy/AWS
         arm64, 40 GB gp3 encrypted, IMDSv2 hop limit 1 so CI containers cannot read role credentials)
   CW    alarm smartsched-pod-idle-stop: CPU < 5 % for 60 min -> stop (pod CI disables the alarm's
         actions while a job runs and publishes Heartbeat/CIJobRunning metrics)
-  Budget smartsched-monthly: $100/month, e-mail at 50/80/100 % actual + 100 % forecast, budget action
-        that stops the instance at 100 % actual (AWS Budgets alerts; the stop action is the cap)
+  Budget smartsched-monthly-100usd (already created by aws-oidc-bootstrap.yml; reused, created only if
+        missing): $100/month, e-mail at 50/80/100 % actual + 100 % forecast, plus a budget action that
+        stops the instance at 100 % actual (AWS Budgets alerts; the stop action is the cap)
   SSM   /smartsched/panel_url (+ the pod writes /smartsched/admin_* and /smartsched/app/* itself)
 
 ARM64: ortools publishes manylinux aarch64 cp312 wheels (9.15.x), psycopg-binary/argon2/cryptography/
@@ -57,7 +59,9 @@ ROLE_NAME = "smartsched-pod-role"
 PROFILE_NAME = "smartsched-pod-profile"
 POD_POLICY_NAME = "smartsched-pod"
 BUDGET_ROLE_NAME = "smartsched-budget-action-role"
-BUDGET_NAME = "smartsched-monthly"
+# Created once by .github/workflows/aws-oidc-bootstrap.yml (docs/deploy/AWS-OIDC.md); `up` reuses it,
+# adds any missing alert and the stop action, and only creates it when it does not exist at all.
+BUDGET_NAME = "smartsched-monthly-100usd"
 ALARM_NAME = "smartsched-pod-idle-stop"
 SSM_PREFIX = "/smartsched"
 HEARTBEAT_NAMESPACE = "SmartSched/Pod"
@@ -995,14 +999,19 @@ def down_region(aws: Aws, region: str, keep_parameters: bool = False,
 
 
 def cmd_down(aws: Aws, account: str, regions: Iterable[str], keep_parameters: bool = False,
-             sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
+             delete_budget: bool = False, sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
+    """Delete every tagged resource. The budget itself predates the pod and keeps protecting the account,
+    so only its stop action is removed (the action's role is deleted below) unless delete_budget."""
     out: dict[str, Any] = {}
     b = aws.client("budgets")
     try:
-        for a in b.describe_budget_actions_for_budget(AccountId=account, BudgetName=BUDGET_NAME)["Actions"]:
+        actions = b.describe_budget_actions_for_budget(AccountId=account, BudgetName=BUDGET_NAME)["Actions"]
+        for a in actions:
             b.delete_budget_action(AccountId=account, BudgetName=BUDGET_NAME, ActionId=a["ActionId"])
-        b.delete_budget(AccountId=account, BudgetName=BUDGET_NAME)
-        out["budget"] = BUDGET_NAME
+        out["budget_actions_deleted"] = [a["ActionId"] for a in actions]
+        if delete_budget:
+            b.delete_budget(AccountId=account, BudgetName=BUDGET_NAME)
+        out["budget"] = "deleted" if delete_budget else f"kept ({BUDGET_NAME})"
     except Exception as exc:
         if error_code(exc) != "NotFoundException":
             raise
@@ -1014,8 +1023,12 @@ def cmd_down(aws: Aws, account: str, regions: Iterable[str], keep_parameters: bo
     _delete_role(iam, BUDGET_ROLE_NAME)
     leftovers: dict[str, list[str]] = {}
     for region in dict.fromkeys(regions):
-        resp = aws.client("resourcegroupstaggingapi", region).get_resources(
-            TagFilters=[{"Key": TAG_KEY, "Values": [TAG_VALUE]}])
+        try:
+            resp = aws.client("resourcegroupstaggingapi", region).get_resources(
+                TagFilters=[{"Key": TAG_KEY, "Values": [TAG_VALUE]}])
+        except Exception as exc:  # noqa: BLE001 - tag:GetResources is optional for the bootstrap role
+            leftovers[region] = [f"not checked ({error_code(exc) or exc}); grant tag:GetResources to verify"]
+            continue
         # terminated instances stay visible for ~1 h and cost nothing; everything else is a leftover
         arns = [r["ResourceARN"] for r in resp.get("ResourceTagMappingList", [])
                 if ":instance/" not in r["ResourceARN"]]
@@ -1100,6 +1113,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-budget-action", action="store_true")
     p.add_argument("--yes", action="store_true", help="confirm `down`")
     p.add_argument("--keep-parameters", action="store_true", help="`down` keeps /smartsched/* SSM parameters")
+    p.add_argument("--delete-budget", action="store_true", help=f"`down` also deletes the budget {BUDGET_NAME}")
     p.add_argument("--from-env", default="POD_GITHUB_TOKEN", help="env var holding the token (put-github-token)")
     p.add_argument("--json", action="store_true", help="print the result as JSON on stdout")
     p.add_argument("--output-json", default=None, help="also write the (secret-free) result to this file")
@@ -1171,7 +1185,8 @@ def main(argv: list[str] | None = None) -> int:
         elif a.command == "down":
             if not a.yes:
                 raise BootstrapError("`down` deletes the pod, its data and all tagged resources: pass --yes")
-            emit(cmd_down(aws, ident["account"], [region, *PRICE_REGIONS], keep_parameters=a.keep_parameters), a)
+            emit(cmd_down(aws, ident["account"], [region, *PRICE_REGIONS], keep_parameters=a.keep_parameters,
+                          delete_budget=a.delete_budget), a)
         elif a.command == "put-github-token":
             token = os.environ.get(a.from_env, "").strip()
             if not token:

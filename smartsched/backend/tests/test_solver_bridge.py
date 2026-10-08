@@ -284,3 +284,32 @@ async def test_cpsat_engine_if_available(engine):
     async with factory() as s:
         run = await s.get(ScheduleRun, run_id)
         assert run.stats["solver"] == "app.solver.cpsat" and run.stats["progress"] == 100
+
+
+def test_merged_joint_lecture_with_definitive_hints_uses_the_planners_seats():
+    """definitive_rooms=prefer: two programme rows of one joint lecture (same instructor, same slot)
+    whose planner rooms seat 156 are one event of at most 156 (and may use both planner rooms)."""
+    from app.services.solver_bridge import merge_joint_lectures
+    from app.solver import model as sm
+
+    def ev(i: int, size: int) -> sm.Event:
+        return sm.Event(
+            id=i,
+            kind="course",
+            label=f"MAT 112 §{i}",
+            size=size,
+            duration=2,
+            weeks=frozenset({1}),
+            fixed_day=4,
+            fixed_start=7,
+            allowed_days=frozenset({4}),
+            instructor_keys=frozenset({"INS:1"}),
+            preferred_room_ids=(10,),
+        )
+
+    members = {1: [1], 2: [2]}
+    out, merged = merge_joint_lectures([ev(1, 120), ev(2, 116)], members, {10: 156, 11: 90}, {1: [10], 2: [10, 11]})
+    assert len(out) == 1 and members == {1: [1, 2]}
+    assert out[0].size == 246 and merged[0]["clipped_to"] == 246 and out[0].max_rooms == 2
+    out2, merged2 = merge_joint_lectures([ev(1, 120), ev(2, 116)], {1: [1], 2: [2]}, {10: 156}, {1: [10], 2: [10]})
+    assert out2[0].size == 156 and merged2[0]["clipped_to"] == 156

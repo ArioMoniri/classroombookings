@@ -621,7 +621,9 @@ async def copy_rules(session: AsyncSession, body: Any, user: User) -> dict[str, 
             "created_id": None,
         }
         bucket = "cannot_match" if fatal else ("needs_review" if reasons else "will_match")
-        if bucket != "cannot_match" and not body.dry_run:
+        # review MINOR 7: only rules that match as they are are created; "needs_review" ones go to the
+        # review tray (returned, accepted later through /studio/proposals/accept)
+        if bucket == "will_match" and not body.dry_run:
             row = ConstraintRow(
                 term_id=target.id,
                 kind=r.kind,
