@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Eye, EyeOff, Loader2, Plus, X } from "lucide-react";
+import { Check, Eye, EyeOff, Loader2, Plus } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -9,7 +10,14 @@ import { NativeSelect } from "@/components/common/native-select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusBadge } from "@/components/common/status-badge";
+import { ACCENTS, useAccentPreference, type Accent } from "@/components/shell/appearance";
+import { AppearancePreferencesControl } from "@/components/ui/appearance-preferences";
+import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { HttpError } from "@/lib/api/client";
+import { aiFailureKind, testAiKey, useMeFull, usePermissions } from "@/lib/api/shell-extra";
+import { useHydrated } from "@/lib/use-hydrated";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,17 +26,44 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { initials } from "@/components/shell/user-menu";
 import { LocaleToggle } from "@/components/shell/locale-toggle";
-import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { api } from "@/lib/api/endpoints";
 import { useSettings, useUpdateSettings, useUsers } from "@/lib/api/hooks";
 import { useQueryClient } from "@tanstack/react-query";
-import type { Role, Settings, TestAiResponse } from "@/lib/api/schemas";
+import type { Role, Settings } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 
 const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
+
+type KeyTest = { state: "untested" } | { state: "testing" } | { state: "ok"; model: string | null; which: "typed" | "stored" } | { state: "failed"; kind: ReturnType<typeof aiFailureKind>; which: "typed" | "stored" };
+
+/** The status pill reflects the last backend test only: never "connected" unless the backend confirmed it. */
+function KeyStatus({ test, hasKey }: { test: KeyTest; hasKey: boolean }) {
+  const { t } = useI18n();
+  if (test.state === "testing")
+    return (
+      <span role="status" className="inline-flex items-center gap-1.5 text-[12.5px] text-label-2">
+        <Loader2 className="size-3.5 animate-spin" aria-hidden /> {t("settings.testing")}
+      </span>
+    );
+  if (test.state === "ok") return <span role="status" data-testid="test-result"><StatusBadge kind="feasible" label={test.model ? t("glass.settings.keyOkModel", { model: test.model }) : t("glass.settings.keyOk")} /></span>;
+  if (test.state === "failed") return <span role="status" data-testid="test-result"><StatusBadge kind="infeasible" label={t(`glass.settings.keyFail.${test.kind}`)} /></span>;
+  return <span className="text-[12.5px] text-label-3">{hasKey ? t("glass.settings.keyUntested") : t("settings.noKey")}</span>;
+}
+
+function SettingsRow({ label, hint, htmlFor, children }: { label: string; hint?: string; htmlFor?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 [&:not(:last-child)]:hairline-b">
+      <div className="min-w-0">
+        <Label htmlFor={htmlFor} className="text-[13px] font-medium text-label-1">{label}</Label>
+        {hint ? <p className="text-[12px] leading-4 text-label-2">{hint}</p> : null}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
 
 function AiCard() {
   const { t } = useI18n();
@@ -37,21 +72,21 @@ function AiCard() {
   const keyRef = useRef<HTMLInputElement>(null);
   const [replacing, setReplacing] = useState(false);
   const [show, setShow] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState<TestAiResponse | null>(null);
+  const [test, setTest] = useState<KeyTest>({ state: "untested" });
   const [modelState, setModel] = useState<string | null>(null);
   const s = settings.data;
   const model = modelState ?? s?.anthropic_model ?? "";
   const masked = s?.anthropic_api_key_masked ?? null;
-  const test = async () => {
-    setTesting(true);
+  const typing = !masked || replacing;
+  const runTest = async (which: "typed" | "stored") => {
+    const typed = keyRef.current?.value.trim() ?? "";
+    if (which === "typed" && !typed) return;
+    setTest({ state: "testing" });
     try {
-      const res = await api.settings.testAi();
-      setResult(res);
-      if (res.ok) toast.success(t("settings.testOk", { model: res.model ?? "", ms: res.latency_ms ?? 0 }));
-      else toast.error(t("settings.testFailed", { reason: res.error ?? "" }));
-    } finally {
-      setTesting(false);
+      const res = await testAiKey(which === "typed" ? { api_key: typed, model } : { model });
+      setTest(res.ok ? { state: "ok", model: res.model ?? model, which } : { state: "failed", kind: aiFailureKind(res.detail), which });
+    } catch (e) {
+      setTest({ state: "failed", kind: e instanceof HttpError && e.status === 0 ? "network" : "other", which });
     }
   };
   const saveKey = async () => {
@@ -60,23 +95,30 @@ function AiCard() {
     await update.mutateAsync({ anthropic_api_key: value });
     if (keyRef.current) keyRef.current.value = "";
     setReplacing(false);
+    // a saved key is not a working key: keep a typed-key test result, otherwise ask for a test
+    setTest((prev) => (prev.state === "ok" || prev.state === "failed" ? { ...prev, which: "stored" } : { state: "untested" }));
     toast.success(t("settings.saved"));
   };
   const saveModel = async () => {
     await update.mutateAsync({ anthropic_model: model });
+    setTest({ state: "untested" });
     toast.success(t("settings.saved"));
   };
+  const hint = (m: string) => (m.includes("opus") ? t("glass.settings.modelOpus") : m.includes("haiku") ? t("glass.settings.modelHaiku") : t("glass.settings.modelSonnet"));
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <Card>
-        <CardHeader><CardTitle>{t("settings.apiKey")}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t("settings.apiKey")}</CardTitle>
+          <CardDescription>{t("settings.apiKeyHint")}</CardDescription>
+        </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">{t("settings.apiKeyHint")}</p>
-          {masked && !replacing ? (
+          {!typing ? (
             <div className="flex flex-wrap items-center gap-2">
-              <span aria-label={t("settings.apiKeyMasked", { tail: masked.slice(-4) })} className="rounded-md border bg-muted px-3 py-1.5 font-mono text-sm" data-testid="api-key-masked">sk-ant-•••••••••••••••••••{masked.slice(-4)}</span>
-              <Badge variant="outline" className="border-status-feasible-border text-status-feasible-fg">connected</Badge>
-              <Button size="sm" variant="outline" onClick={() => void test()} disabled={testing} data-testid="test-key">{testing ? <><Loader2 className="animate-spin" /> {t("settings.testing")}</> : t("settings.test")}</Button>
+              <span aria-label={t("settings.apiKeyMasked", { tail: masked?.slice(-4) ?? "" })} className="rounded-lg bg-fill-3 px-3 py-1.5 font-mono text-[13px] shadow-[inset_0_0_0_1px_var(--hairline)]" data-testid="api-key-masked">sk-ant-•••••••{masked?.slice(-4)}</span>
+              <Button size="sm" variant="outline" onClick={() => void runTest("stored")} disabled={test.state === "testing"} data-testid="test-key">
+                {t("settings.test")}
+              </Button>
               <Button size="sm" variant="ghost" onClick={() => setReplacing(true)}>{t("settings.replaceKey")}</Button>
             </div>
           ) : (
@@ -84,34 +126,88 @@ function AiCard() {
               <div className="grid flex-1 gap-1 sm:max-w-md">
                 <Label htmlFor="api-key">{t("settings.apiKey")}</Label>
                 <div className="relative">
-                  <Input id="api-key" ref={keyRef} type={show ? "text" : "password"} placeholder="sk-ant-…" autoComplete="off" spellCheck={false} className="pr-9 font-mono" />
-                  <button type="button" aria-pressed={show} aria-label={show ? "Hide" : "Show"} onClick={() => setShow((v) => !v)} className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-muted-foreground">{show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
+                  <Input id="api-key" ref={keyRef} type={show ? "text" : "password"} placeholder="sk-ant-…" autoComplete="off" spellCheck={false} className="pr-10 font-mono" onChange={() => test.state !== "untested" && setTest({ state: "untested" })} />
+                  <button type="button" aria-pressed={show} aria-label={show ? t("glass.auth.hidePassword") : t("glass.auth.showPassword")} onClick={() => setShow((v) => !v)} className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-label-3 hover:text-label-1">{show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
                 </div>
               </div>
+              <Button size="sm" variant="outline" onClick={() => void runTest("typed")} disabled={test.state === "testing"} data-testid="test-key-typed">{t("glass.settings.testFirst")}</Button>
               <Button size="sm" onClick={() => void saveKey()} disabled={update.isPending}>{t("common.save")}</Button>
               {masked ? <Button size="sm" variant="ghost" onClick={() => setReplacing(false)}>{t("settings.cancelReplace")}</Button> : null}
             </div>
           )}
-          {result ? (
-            <p role="status" className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs", result.ok ? "border-status-feasible-border bg-status-feasible text-status-feasible-fg" : "border-status-infeasible-border bg-status-infeasible text-status-infeasible-fg")} data-testid="test-result">
-              {result.ok ? <Check className="size-3.5" /> : <X className="size-3.5" />} {result.ok ? t("settings.testOk", { model: result.model ?? "", ms: result.latency_ms ?? 0 }) : t("settings.testFailed", { reason: result.error ?? "" })}
-            </p>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2" aria-live="polite">
+            <KeyStatus test={test} hasKey={Boolean(masked)} />
+            {test.state === "failed" ? <span className="text-[12px] text-label-2">{t(`glass.settings.keyFixHint.${test.kind}`)}</span> : null}
+          </div>
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>{t("settings.model")}</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <div role="radiogroup" aria-label={t("settings.model")} className="space-y-1.5">
+        <CardHeader>
+          <CardTitle>{t("settings.model")}</CardTitle>
+          <CardDescription>{t("glass.settings.modelHint")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div role="radiogroup" aria-label={t("settings.model")}>
             {(s?.available_models ?? []).map((m) => (
-              <label key={m} className={cn("flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm", model === m && "border-primary bg-primary-tint")}>
-                <input type="radio" name="model" value={m} checked={model === m} onChange={() => setModel(m)} className="accent-primary" />
-                <span className="font-mono">{m}</span>
-                <span className="ml-auto text-xs text-muted-foreground">{m.includes("opus") ? "$$$ · strongest reasoning" : m.includes("haiku") ? "$ · fastest" : "$$ · default"}</span>
+              <label key={m} className="flex cursor-pointer items-center gap-3 py-2.5 text-[13px] [&:not(:last-child)]:hairline-b">
+                <input type="radio" name="model" value={m} checked={model === m} onChange={() => setModel(m)} className="accent-(--accent)" />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium text-label-1">{m}</span>
+                  <span className="block text-[12px] text-label-3">{hint(m)}</span>
+                </span>
               </label>
             ))}
           </div>
-          <Button size="sm" onClick={() => void saveModel()} disabled={!s || model === s.anthropic_model || update.isPending} data-testid="save-model">{t("common.save")}</Button>
+          <Button size="sm" className="mt-3" onClick={() => void saveModel()} disabled={!s || model === s.anthropic_model || update.isPending} data-testid="save-model">{t("common.save")}</Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+const ACCENT_SWATCH: Record<Accent, string> = { blue: "#0a63d1", indigo: "#4f46e5", teal: "#0b7268", graphite: "#3d3d44", orange: "#b9470b" };
+
+function AppearanceCard() {
+  const { t } = useI18n();
+  const me = useMeFull();
+  const { theme, setTheme } = useTheme();
+  const { accent, set } = useAccentPreference(me.data?.id);
+  const density = useUiStore((st) => st.density);
+  const setDensity = useUiStore((st) => st.setDensity);
+  const mounted = useHydrated();
+  const mode = mounted && (theme === "light" || theme === "dark") ? theme : "system";
+  return (
+    <div className="space-y-5" data-testid="appearance">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("glass.settings.appearance")}</CardTitle>
+          <CardDescription>{t("glass.settings.appearanceHint")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SettingsRow label={t("settings.theme")} hint={t("glass.settings.themeHint")}>
+            <SegmentedGlass size="sm" aria-label={t("settings.theme")} value={mode} onValueChange={(v) => setTheme(v)} options={[{ value: "system", label: t("theme.system") }, { value: "light", label: t("theme.light") }, { value: "dark", label: t("theme.dark") }]} />
+          </SettingsRow>
+          <SettingsRow label={t("glass.settings.accent")} hint={t("glass.settings.accentHint")}>
+            <div role="radiogroup" aria-label={t("glass.settings.accent")} className="flex items-center gap-2">
+              {ACCENTS.map((a) => (
+                <button key={a} type="button" role="radio" aria-checked={accent === a} aria-label={t(`glass.settings.accents.${a}`)} title={t(`glass.settings.accents.${a}`)} onClick={() => set(a)} data-testid={`accent-${a}`} className="relative flex size-7 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)" style={{ background: ACCENT_SWATCH[a] }}>
+                  {accent === a ? <Check className="size-4 text-white" aria-hidden /> : null}
+                </button>
+              ))}
+            </div>
+          </SettingsRow>
+          <SettingsRow label={t("glass.settings.density")} hint={t("glass.settings.densityHint")}>
+            <SegmentedGlass size="sm" aria-label={t("glass.settings.density")} value={density} onValueChange={(v) => setDensity(v === "compact" ? "compact" : "comfortable")} options={[{ value: "comfortable", label: t("glass.settings.comfortable") }, { value: "compact", label: t("glass.settings.compact") }]} />
+          </SettingsRow>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("glass.settings.accessibility")}</CardTitle>
+          <CardDescription>{t("glass.settings.accessibilityHint")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AppearancePreferencesControl userId={me.data?.id} labels={{ motion: t("glass.settings.reduceMotion"), motionHint: t("glass.settings.reduceMotionHint"), transparency: t("glass.settings.reduceTransparency"), transparencyHint: t("glass.settings.reduceTransparencyHint") }} />
         </CardContent>
       </Card>
     </div>
@@ -220,22 +316,30 @@ function UsersCard() {
 
 function GeneralCard() {
   const { t } = useI18n();
-  const density = useUiStore((s) => s.density);
-  const setDensity = useUiStore((s) => s.setDensity);
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <Card>
         <CardHeader><CardTitle>{t("settings.general")}</CardTitle></CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
-          <div className="grid gap-1"><Label>{t("settings.language")}</Label><LocaleToggle className="w-fit" /></div>
-          <div className="grid gap-1"><Label>{t("settings.theme")}</Label><ThemeToggle className="w-fit" /></div>
-          <div className="grid gap-1"><Label htmlFor="density">Density</Label><NativeSelect id="density" value={density} onChange={(e) => setDensity(e.target.value === "compact" ? "compact" : "comfortable")}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></NativeSelect></div>
+        <CardContent>
+          <SettingsRow label={t("settings.language")} hint={t("glass.settings.languageHint")}>
+            <LocaleToggle />
+          </SettingsRow>
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>{t("common.periods")}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t("common.periods")}</CardTitle>
+          <CardDescription>{t("glass.settings.periodsHint")}</CardDescription>
+        </CardHeader>
         <CardContent>
-          <ol className="grid grid-cols-2 gap-x-6 gap-y-0.5 font-mono text-xs sm:grid-cols-3">{PERIODS.map((p) => <li key={p.index}>P{p.index} {p.start}–{p.end}{p.index === 12 ? " · 30 dk" : ""}</li>)}</ol>
+          <ol className="grid grid-cols-2 gap-x-6 gap-y-1 text-[13px] tabular-nums sm:grid-cols-3">
+            {PERIODS.map((p) => (
+              <li key={p.index} className="flex gap-2">
+                <span className="w-6 text-label-3">{p.index}.</span>
+                <span className="text-label-1">{p.start}–{p.end}</span>
+              </li>
+            ))}
+          </ol>
         </CardContent>
       </Card>
     </div>
@@ -246,20 +350,30 @@ export function SettingsView() {
   const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
-  const tab = params.get("tab") ?? "ai";
+  const { can } = usePermissions();
+  const admin = can(["planning.admin", "setup.settings"]);
+  const tabs = [
+    { value: "general", label: t("settings.general"), show: true },
+    { value: "appearance", label: t("glass.settings.appearance"), show: true },
+    { value: "ai", label: t("settings.ai"), show: admin },
+    { value: "solver", label: t("settings.solver"), show: admin },
+    { value: "users", label: t("settings.users"), show: can("setup.users") },
+  ].filter((x) => x.show);
+  const requested = params.get("tab") ?? (admin ? "ai" : "appearance");
+  const tab = tabs.some((x) => x.value === requested) ? requested : "appearance";
   return (
     <div className="mx-auto max-w-[880px]" data-testid="settings">
-      <PageHeader title={t("settings.title")} subtitle={t("settings.subtitle")} />
+      <PageHeader title={t("settings.title")} subtitle={admin ? t("settings.subtitle") : t("glass.settings.subtitleUser")} />
       <Tabs value={tab} onValueChange={(v) => router.replace(`/settings?tab=${String(v)}`)}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="general">{t("settings.general")}</TabsTrigger>
-          <TabsTrigger value="ai" data-testid="tab-ai">{t("settings.ai")}</TabsTrigger>
-          <TabsTrigger value="solver" data-testid="tab-solver">{t("settings.solver")}</TabsTrigger>
-          <TabsTrigger value="users" data-testid="tab-users">{t("settings.users")}</TabsTrigger>
+        <TabsList className="mb-5 max-w-full overflow-x-auto">
+          {tabs.map((x) => (
+            <TabsTrigger key={x.value} value={x.value} data-testid={`tab-${x.value}`}>{x.label}</TabsTrigger>
+          ))}
         </TabsList>
         <TabsContent value="general"><GeneralCard /></TabsContent>
-        <TabsContent value="ai"><AiCard /></TabsContent>
-        <TabsContent value="solver"><SolverCard /></TabsContent>
+        <TabsContent value="appearance"><AppearanceCard /></TabsContent>
+        {admin ? <TabsContent value="ai"><AiCard /></TabsContent> : null}
+        {admin ? <TabsContent value="solver"><SolverCard /></TabsContent> : null}
         <TabsContent value="users"><UsersCard /></TabsContent>
       </Tabs>
     </div>
