@@ -105,3 +105,17 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Dedicated worker service (RQ/Celery on Redis, `python -m app.cli worker`) + progress fan-out via pub/sub, before running several backend replicas (deploy/README.md "Scaling")
 - [ ] Pin base images by digest and let Renovate/Dependabot bump them
 - [ ] Postgres locale: initdb uses `C.UTF-8`; evaluate `--locale-provider=icu --icu-locale=tr-TR` for Turkish ORDER BY (needs a fresh volume)
+
+### Phase 3 AI layer backlog (ai-engineer, 2026-10-08)
+
+- [ ] Backend deps: add `python-docx>=1.1` and `pypdf>=4` to `smartsched/backend/pyproject.toml` (+ lock); `app/ai/ingest.py` imports them lazily and returns HTTP 400 "not installed" without them (installed in the dev env, not declared)
+- [x] Settings default model (decided 2026-10-08: `claude-opus-5-5`): `settings_service.SPECS["anthropic_model"]` defaults to `claude-sonnet-5-5` while the claude-api skill / RESEARCH §4.3 recommend `claude-opus-5-5`; decide and align (AI layer falls back to `claude-opus-5-5` only when the setting is empty)
+- [ ] Constraints table: add a `source_ref` JSON column; today upload refs live in `params["_source_ref"]` (studio backend agent)
+- [ ] Chat-created constraints are term-wide (`term_id`) so they carry over to grandchild runs; add a run-scoped option ("only for this run") with inheritance through `parent_run_id` in `build_solver_input`
+- [ ] Week-limited room rules (`room_pin`/`room_forbid` with weeks other than room_closed) are flagged needs_review: the solver applies room rules to all weeks of an event; implement meeting splitting by week pattern ("PHAR 240 moves to A 206 from 23 Feb")
+- [ ] Moves to another day/period of a fixed-time request are rejected by the validator (`fixed_time` hard); offer "move + update the request" as one op in the diff UI instead of a separate `set_section_field`
+- [ ] Exam runs: section edits only touch meeting requests; add exam-request edits (enrolment, room count) and exam-specific chat tools (split across rooms)
+- [ ] Streaming chat (SSE) with `eager_input_streaming` + client-side tool-input validation; today `POST /runs/{id}/chat` returns when the loop ends
+- [ ] Red-team eval before launch (RESEARCH Recommendations 3): paraphrase / re-ordering / ambiguous room names / prompt-injection in uploaded files, measured against a fixed expected-constraint set
+- [ ] Persist the model id + verifier result per applied diff on the child run (audit, RESEARCH §4.3 step 6) - partly there via `chat_messages.tool_calls` usage + `stats.mode`
+- [ ] OCR for scanned PDFs (currently reported as "no extractable text")

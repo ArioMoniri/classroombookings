@@ -30,7 +30,7 @@ from app.services.diagnosis_fixes import FixError, apply_option, structure_diagn
 from app.services.exports import export_csv, export_ics, export_xlsx
 from app.services.grid import assignment_labels, build_grid, enrich_assignments
 from app.services.solver_bridge import run_schedule
-from app.workers.queue import JobState, get_queue
+from app.workers.queue import JobState, get_queue, worker_id
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -73,7 +73,7 @@ async def create_run(body: RunCreate, db: DB, user: Planner) -> RunCreated:
         parent_run_id=body.parent_run_id,
         label=body.label,
         status="QUEUED",
-        stats={"progress": 0, "phase": "queued"},
+        stats={"progress": 0, "phase": "queued", "worker": worker_id()},
         created_by=user.id,
     )
     db.add(run)
@@ -447,7 +447,12 @@ async def apply_diagnosis(run_id: int, idx: int, body: DiagnosisApplyIn, db: DB,
             prompt_text=f"fix: diagnosis {idx} option {body.option_index}: {res.message}",
             label=body.label or f"fix #{run.id}.{idx}",
             status="QUEUED",
-            stats={"progress": 0, "phase": "queued", "fix": {"diagnosis": idx, "option": body.option_index}},
+            stats={
+                "progress": 0,
+                "phase": "queued",
+                "fix": {"diagnosis": idx, "option": body.option_index},
+                "worker": worker_id(),
+            },
             created_by=user.id,
         )
         db.add(child)

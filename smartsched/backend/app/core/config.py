@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     admin_password: str | None = None
 
     anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-sonnet-5-5"
+    anthropic_model: str = "claude-opus-5-5"
 
     solver_default_time_limit: float = 60.0
     solver_workers: int = 8

@@ -159,8 +159,8 @@ Constraint kinds (v1): `capacity`, `no_room_overlap`, `no_cohort_overlap`, `no_i
 
 ## AI layer
 
-- SDK: `anthropic` (Python). Model default from settings (`claude-sonnet-5-5`; admins may pick
-  `claude-opus-5-5`). Key stored encrypted with `APP_SECRET` (Fernet). Never logged.
+- SDK: `anthropic` (Python). Model default from settings (`claude-opus-5-5`, per RESEARCH §4.3; admins may pick `claude-sonnet-5-5` for lower cost or `claude-haiku-5-5` for quick triage).
+  Key stored encrypted with `APP_SECRET` (Fernet). Never logged.
 - **Pre-generation**: free text ("TIP rooms only for medicine; keep pharmacy in C block Mondays;
   no lectures after 17:30 for first-year nursing") → tool-use call `propose_constraints` returning a
   list of typed `Constraint` objects with `hardness`, `weight`, `nl_text`. Admin reviews/accepts.

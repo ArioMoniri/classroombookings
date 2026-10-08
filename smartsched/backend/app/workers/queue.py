@@ -2,13 +2,24 @@
 
 Jobs are coroutines keyed by a (table, id); status/progress live in the DB row so the API (and later a
 Celery/RQ worker) can read them. Progress events are also fanned out in-memory for SSE streaming.
+
+* CPU-bound work (the CP-SAT solve) runs in a worker thread (``asyncio.to_thread`` in the job body);
+  the ``progress`` callback handed to jobs is thread-safe (it hops onto the loop when called from
+  another thread), so ``/health`` and every other request keep being served during a solve.
+* ``JobState.error`` is a short, path-free message safe to show to clients; the traceback is only
+  logged server-side.
+* Jobs live in this process only: :func:`recover_interrupted` (called on startup) marks runs and
+  import jobs that a dead process left QUEUED/RUNNING as FAILED.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import traceback
+import os
+import re
+import socket
+import threading
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -26,7 +37,7 @@ class JobState:
     status: str = "QUEUED"
     phase: str = "queued"
     progress: int = 0
-    error: str | None = None
+    error: str | None = None  # short, client-safe
     result: dict[str, Any] | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
@@ -86,17 +97,27 @@ class JobQueue:
                 if on_status:
                     await on_status(st)
 
-                def progress(phase: str, pct: int) -> None:
-                    st.phase, st.progress = phase, max(0, min(100, pct))
+                loop = asyncio.get_running_loop()
+                loop_thread = threading.get_ident()
+
+                def apply(phase: str, pct: int) -> None:
+                    st.phase, st.progress = phase, max(0, min(100, int(pct)))
                     self._emit(st)
+
+                def progress(phase: str, pct: int) -> None:
+                    # solver threads report through here: asyncio.Queue is not thread-safe
+                    if threading.get_ident() == loop_thread:
+                        apply(phase, pct)
+                    elif not loop.is_closed():
+                        loop.call_soon_threadsafe(apply, phase, pct)
 
                 try:
                     st.result = await fn(progress)
                     st.status, st.phase, st.progress = "DONE", "done", 100
                 except Exception as exc:  # noqa: BLE001
-                    log.exception("job %s failed", key)
+                    log.exception("job %s failed", key)  # full traceback stays in the server log
                     st.status, st.phase = "FAILED", "failed"
-                    st.error = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[-2000:]}"
+                    st.error = public_error(exc)
                 finally:
                     st.finished_at = datetime.now(UTC)
                     self._emit(st)
@@ -120,6 +141,69 @@ class JobQueue:
             t.cancel()
         if self._tasks:
             await asyncio.gather(*list(self._tasks), return_exceptions=True)
+
+
+_PATH = re.compile(r"(?:[A-Za-z]:)?(?:[\\/][^\s'\"\\/:]+){2,}")
+
+
+def public_error(exc: BaseException, limit: int = 300) -> str:
+    """``Type: message`` without server paths (``/srv/uploads/imports/12_x.xlsx`` -> ``12_x.xlsx``) or
+    tracebacks, for API responses."""
+    msg = _PATH.sub(lambda m: re.split(r"[\\/]", m.group(0))[-1], str(exc)).strip()
+    text = f"{type(exc).__name__}: {msg}" if msg else type(exc).__name__
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def worker_id() -> dict[str, Any]:
+    """Identity of this process, stored on runs/import jobs so a restart can tell its own orphans."""
+    return {"host": socket.gethostname(), "pid": os.getpid()}
+
+
+def _alive(owner: Any) -> bool:
+    """True when ``owner`` (a :func:`worker_id`) is another live process on this host. Owners on other
+    hosts are assumed alive (they recover their own jobs); unknown owners are treated as dead."""
+    if not isinstance(owner, dict) or "pid" not in owner:
+        return False
+    if owner.get("host") != socket.gethostname():
+        return True
+    pid = int(owner["pid"])
+    if pid == os.getpid():
+        return False  # we just started: nothing of ours can be running yet
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+async def recover_interrupted(session: Any) -> dict[str, int]:
+    """Mark runs / import jobs left QUEUED or RUNNING by a dead process as FAILED (startup hook)."""
+    from sqlalchemy import select
+
+    from app.models import ImportJob, ScheduleRun
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    msg = "interrupted by restart"
+    runs = imports = 0
+    for run in (
+        await session.execute(select(ScheduleRun).where(ScheduleRun.status.in_(("QUEUED", "RUNNING"))))
+    ).scalars():
+        if _alive((run.stats or {}).get("worker")):
+            continue
+        run.status, run.error, run.finished_at = "FAILED", msg, now
+        run.stats = {**(run.stats or {}), "error": msg, "phase": "failed"}
+        runs += 1
+    for job in (await session.execute(select(ImportJob).where(ImportJob.status.in_(("QUEUED", "RUNNING"))))).scalars():
+        if _alive((job.summary or {}).get("worker")):
+            continue
+        job.status, job.error, job.finished_at = "FAILED", msg, now
+        imports += 1
+    await session.commit()
+    if runs or imports:
+        log.warning("marked %d run(s) and %d import job(s) FAILED (%s)", runs, imports, msg)
+    return {"runs": runs, "imports": imports}
 
 
 _queue: JobQueue | None = None

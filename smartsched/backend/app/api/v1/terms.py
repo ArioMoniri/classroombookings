@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DB, Planner, Viewer
 from app.models import Term, Week
@@ -19,9 +20,18 @@ async def list_terms(db: DB, _: Viewer) -> list[Term]:
 async def create_term(body: TermIn, db: DB, _: Planner) -> Term:
     if (await db.execute(select(Term).where(Term.code == body.code))).scalar_one_or_none():
         raise HTTPException(status.HTTP_409_CONFLICT, "term code exists")
-    term = Term(**body.model_dump(), name=body.name or body.code) if body.name is None else Term(**body.model_dump())
+    data = body.model_dump()
+    data["name"] = (data.get("name") or "").strip() or body.code
+    term = Term(**data)
     db.add(term)
-    await db.commit()
+    if body.is_active:
+        for other in (await db.execute(select(Term).where(Term.is_active.is_(True)))).scalars():
+            other.is_active = False
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "term code exists") from exc
     await db.refresh(term)
     return term
 

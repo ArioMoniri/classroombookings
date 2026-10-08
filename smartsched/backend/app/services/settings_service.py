@@ -25,7 +25,7 @@ SPECS: dict[str, SettingSpec] = {
     s.key: s
     for s in (
         SettingSpec("anthropic_api_key", is_secret=True),
-        SettingSpec("anthropic_model", default="claude-sonnet-5-5"),
+        SettingSpec("anthropic_model", default="claude-opus-5-5"),
         SettingSpec("solver_default_time_limit", default=60.0, kind="float"),
         SettingSpec("solver_workers", default=8, kind="int"),
         SettingSpec("solver_weights", default="{}"),

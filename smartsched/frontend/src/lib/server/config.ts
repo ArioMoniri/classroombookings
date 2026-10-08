@@ -1,7 +1,8 @@
 import "server-only";
 
 export const AUTH_COOKIE = "smartsched_token";
-export const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days ("keep me signed in")
+/** Fallback only: the login handler uses the backend token lifetime (`expires_in`, 12 h by default). */
+export const COOKIE_MAX_AGE = 60 * 60 * 12;
 
 export function isMockMode(): boolean {
   return process.env.NEXT_PUBLIC_API_MOCK === "1";

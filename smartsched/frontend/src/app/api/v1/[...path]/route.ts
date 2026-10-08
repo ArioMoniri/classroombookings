@@ -53,7 +53,7 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
 
   if (segment === "auth/login") {
     if (!upstream.ok) return passthrough(upstream);
-    const data = (await upstream.json()) as { access_token?: string; user?: unknown };
+    const data = (await upstream.json()) as { access_token?: string; user?: unknown; expires_in?: number };
     if (!data.access_token) return NextResponse.json({ detail: "Login response missing token" }, { status: 502 });
     let user: unknown = data.user ?? null;
     if (!user) {
@@ -62,7 +62,9 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
       if (me.ok) user = await me.json();
     }
     const res = NextResponse.json({ user });
-    res.cookies.set({ name: AUTH_COOKIE, value: data.access_token, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: COOKIE_MAX_AGE });
+    // the cookie must not outlive the JWT (backend TokenOut.expires_in, seconds)
+    const maxAge = typeof data.expires_in === "number" && data.expires_in > 0 ? Math.floor(data.expires_in) : COOKIE_MAX_AGE;
+    res.cookies.set({ name: AUTH_COOKIE, value: data.access_token, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge });
     return res;
   }
   if (upstream.status === 401 && token) {

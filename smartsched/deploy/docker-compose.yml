@@ -74,7 +74,7 @@ services:
       SOLVER_DEFAULT_TIME_LIMIT: ${SOLVER_DEFAULT_TIME_LIMIT:-60}
       SOLVER_WORKERS: ${SOLVER_WORKERS:-8}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5-5}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5-5}
       UPLOAD_DIR: /data/uploads
     volumes:
       - uploads:/data/uploads

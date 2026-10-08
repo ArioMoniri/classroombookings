@@ -31,7 +31,7 @@ table is empty (in `dev`/`test` it also creates missing tables automatically).
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | – | Seed admin on first start |
 | `ENVIRONMENT` | `dev` | `dev` / `test` / `prod` (prod never auto-creates tables) |
 | `CORS_ORIGINS` | `["http://localhost:3000"]` | JSON list of allowed origins |
-| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | – / `claude-sonnet-5-5` | Fallbacks when no key is stored through `/settings` |
+| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | – / `claude-opus-5-5` | Fallbacks when no key is stored through `/settings` |
 | `SOLVER_DEFAULT_TIME_LIMIT`, `SOLVER_WORKERS` | `60`, `8` | Solver defaults (overridable per run) |
 | `UPLOAD_DIR` | `./uploads` | Uploaded workbooks, room photos (served under `/uploads`) |
 | `JWT_EXPIRE_MINUTES` | `720` | Token lifetime |

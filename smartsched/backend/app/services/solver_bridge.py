@@ -6,6 +6,7 @@ The real CP-SAT solver (``app.solver.cpsat``) is imported lazily; when it is abs
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import logging
 from collections import defaultdict
@@ -32,6 +33,7 @@ from app.models import (
 )
 from app.services.calendar import date_for, week_index_for_date
 from app.solver import model as sm
+from app.workers.queue import worker_id
 
 log = logging.getLogger(__name__)
 ProgressFn = Callable[[str, int], None]
@@ -532,7 +534,7 @@ async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn |
             raise ValueError(f"run {run_id} not found")
         run.status = "RUNNING"
         run.started_at = datetime.now(UTC).replace(tzinfo=None)
-        run.stats = {**(run.stats or {}), "progress": 5, "phase": "loading"}
+        run.stats = {**(run.stats or {}), "progress": 5, "phase": "loading", "worker": worker_id()}
         await session.commit()
         report("loading", 5)
         inp, members = await build_solver_input(session, run)
@@ -540,7 +542,9 @@ async def run_schedule(session_factory: Any, run_id: int, progress: ProgressFn |
         choice = str((run.params or {}).get("solver", "auto"))
         solver_mod = _solver_fn(choice).__module__
         report("solving", 20)
-        result = _call_solver(inp, lambda ph, pct: report(ph, 20 + int(pct * 0.7)), choice)
+        # CP-SAT holds the CPU for up to time_limit_s: solve in a worker thread so the event loop (health
+        # checks, the UI, SSE progress) keeps running; ``progress`` is thread-safe (see workers.queue)
+        result = await asyncio.to_thread(_call_solver, inp, lambda ph, pct: report(ph, 20 + int(pct * 0.7)), choice)
         report("persisting", 92)
         run = await session.get(ScheduleRun, run_id)
         assert run is not None

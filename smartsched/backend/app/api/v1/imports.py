@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 
 from app.api.deps import DB, Planner, Viewer
@@ -14,7 +15,7 @@ from app.core.db import get_session_factory
 from app.importers.report import ImportReport
 from app.models import ImportJob
 from app.schemas.runs import ImportJobOut
-from app.workers.queue import JobState, get_queue
+from app.workers.queue import JobState, get_queue, worker_id
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
@@ -48,7 +49,8 @@ async def _start_job(db: DB, job: ImportJob, run: Any) -> ImportJob:
             if st.result:
                 row.summary = st.result
             if st.error:
-                row.error = st.error
+                # short and path-free; the traceback is in the server log under the job key
+                row.error = f"import job {job.id} failed: {st.error} (details in the server log)"
             if st.finished_at:
                 row.finished_at = st.finished_at.replace(tzinfo=None)
             await session.commit()
@@ -58,7 +60,7 @@ async def _start_job(db: DB, job: ImportJob, run: Any) -> ImportJob:
 
 
 async def _new_job(db: DB, kind: str, filename: str | None, term_code: str | None) -> ImportJob:
-    job = ImportJob(kind=kind, filename=filename, term_code=term_code, status="QUEUED")
+    job = ImportJob(kind=kind, filename=filename, term_code=term_code, status="QUEUED", summary={"worker": worker_id()})
     db.add(job)
     await db.commit()
     await db.refresh(job)
@@ -138,6 +140,19 @@ async def get_job(job_id: int, db: DB, _: Viewer) -> ImportJob:
     if st and job.status in {"QUEUED", "RUNNING"}:
         job.summary = {**(job.summary or {}), "progress": st.progress, "phase": st.phase}
     return job
+
+
+@router.get("/{job_id}/file")
+async def get_job_file(job_id: int, db: DB, _: Planner, index: int = 0) -> FileResponse:
+    """Download the workbook / dump uploaded for an import job (planners only; never public)."""
+    job = await db.get(ImportJob, job_id)
+    if job is None:
+        raise HTTPException(404, "import job not found")
+    files = sorted((Path(get_settings().upload_dir) / "imports").glob(f"{job_id}_*"))
+    if not 0 <= index < len(files):
+        raise HTTPException(404, "no uploaded file for this job")
+    path = files[index]
+    return FileResponse(path, filename=path.name.split("_", 1)[1], media_type="application/octet-stream")
 
 
 def utcnow() -> datetime:

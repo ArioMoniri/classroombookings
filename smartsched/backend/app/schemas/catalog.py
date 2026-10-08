@@ -3,30 +3,55 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.common import ORMModel
 
+TERM_KIND = "^(REGULAR|FINAL|BUT|SUMMER)$"
+
+
+def _check_dates(start: date | None, end: date | None) -> None:
+    if start and end and end < start:
+        raise ValueError("end_date is before start_date")
+
 
 class TermIn(BaseModel):
-    code: str
-    name: str | None = None
-    kind: str = "REGULAR"
+    code: str = Field(min_length=1, max_length=32)
+    name: str | None = Field(default=None, max_length=128)
+    kind: str = Field(default="REGULAR", pattern=TERM_KIND)
     start_date: date | None = None
     end_date: date | None = None
-    week_count: int = 14
+    week_count: int = Field(default=14, ge=1, le=60)
     periods_json: list[Any] | None = None
     is_active: bool = False
 
+    @field_validator("code")
+    @classmethod
+    def _code(cls, v: str) -> str:
+        v = " ".join(v.replace("\xa0", " ").split())  # NBSP / stray spaces from copy-paste
+        if not v:
+            raise ValueError("code must not be blank")
+        return v
+
+    @model_validator(mode="after")
+    def _dates(self) -> TermIn:
+        _check_dates(self.start_date, self.end_date)
+        return self
+
 
 class TermUpdate(BaseModel):
-    name: str | None = None
-    kind: str | None = None
+    name: str | None = Field(default=None, max_length=128)
+    kind: str | None = Field(default=None, pattern=TERM_KIND)
     start_date: date | None = None
     end_date: date | None = None
-    week_count: int | None = None
+    week_count: int | None = Field(default=None, ge=1, le=60)
     periods_json: list[Any] | None = None
     is_active: bool | None = None
+
+    @model_validator(mode="after")
+    def _dates(self) -> TermUpdate:
+        _check_dates(self.start_date, self.end_date)
+        return self
 
 
 class TermOut(ORMModel):
