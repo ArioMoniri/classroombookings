@@ -4,12 +4,14 @@
  */
 import { z } from "zod";
 
-export const Role = z.enum(["ADMIN", "PLANNER", "VIEWER"]);
+/** backend roles (app/models: the three planning roles + the CRBS-parity TEACHER / CUSTOM / NONE) */
+export const Role = z.enum(["ADMIN", "PLANNER", "VIEWER", "TEACHER", "CUSTOM", "NONE"]);
 export type Role = z.infer<typeof Role>;
 
 export const User = z.object({
   id: z.number(),
-  email: z.string(),
+  /** null for username-only accounts (CRBS parity) */
+  email: z.string().nullable().default(null),
   full_name: z.string().nullable().optional(),
   role: Role,
   is_active: z.boolean().default(true),
