@@ -31,6 +31,7 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 | 5 Deploy & CI | compose, Dockerfiles, deploy.sh, GitHub Actions, watchdog | devops-engineer | fresh-host deploy documented & scripted |
 | 6 Review & test | strict-reviewer, user-tester, security-review, backlog grooming | reviewers, testers | findings triaged into backlog |
 | 7 Live import | connector to the deployed university panel (login details to be supplied) | backend-engineer | rooms/photos/lists synced |
+| 8 Generator Studio | one easy screen to shape a run: pick/adjust the list of classes (include, exclude, pin, edit size/day/time), change preferences per course/program/room, write rules in Turkish/English, upload preference files (Excel/CSV/Word/PDF/text) that AI turns into reviewable rules, reusable presets, live feasibility pre-check, plain-language summary before Generate | design-pro, backend-engineer, ai-engineer, frontend-engineer | planner builds and runs a scenario without help; every input becomes a visible, editable rule |
 
 ## TDD policy
 

@@ -29,3 +29,4 @@
 | 2026-10-07 23:17 | devops-engineer | 5 | milestone: backend/frontend Dockerfiles (+entrypoint: wait-db, alembic, seed), nginx routing (api via Next cookie proxy), legacy php image; no `worker` CLI exists → service omitted | compose + .env.example + deploy.sh + validate.sh |
 | 2026-10-07 23:17 | integration-engineer | 6 | started: reading backend API/schemas/services + frontend api client; planning dashboard/users/diagnosis-apply endpoints, AssignmentOut enrichment, real-backend e2e | backend endpoints + tests |
 | 2026-10-07 23:19 | orchestrator | 3-6 | backend+solver+frontend committed; ai, devops, integration, 2 strict reviewers running; watchdog re-armed 23:50 | merge reviews, launch user-tester after integration |
+| 2026-10-08 06:53 | orchestrator | 3-8 | 5 agents cut off by usage limit; partial work committed (4ea9862); user added Generator Studio requirement (phase 8) | relaunch ai, devops, integration; studio design; reviewers after builders |
