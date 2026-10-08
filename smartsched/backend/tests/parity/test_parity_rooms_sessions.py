@@ -253,11 +253,8 @@ async def test_deleting_a_session_removes_its_bookings_holidays_and_dates(env):
     bahar = (await env.book(teacher, "A101", MON, "P1")).json()
     assert (await c.delete(f"/api/v1/terms/{yaz['id']}", headers=env.planner)).status_code == 204
     assert (await c.get(f"/api/v1/bookings/{b.json()['id']}", headers=env.admin)).status_code == 404
-    assert (await c.get("/api/v1/holidays", params={"term_id": yaz["id"]}, headers=env.admin)).json() in ([], None) or (
-        await c.get("/api/v1/holidays", params={"term_id": yaz["id"]}, headers=env.admin)
-    ).status_code == 404
     assert (await c.get(f"/api/v1/booking-admin/sessions/{yaz['id']}/dates", headers=env.admin)).status_code == 404
-    # the other session is untouched, and the deleted booking's slot is free again
+    # the other session is untouched; the session's holidays, calendar dates and booking slots are gone
     assert (await c.get(f"/api/v1/bookings/{bahar['id']}", headers=env.admin)).json()["status"] == "BOOKED"
     from app.core import db as dbmod
     from app.models import BookingSlot, Holiday, TermDate

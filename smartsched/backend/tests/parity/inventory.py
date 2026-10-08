@@ -288,6 +288,15 @@ ROWS: tuple[Row, ...] = (
         FO + "test_b10_public_reset_is_throttled_and_keeps_the_earlier_code",
         difference="superset: CRBS has no throttling (audit B10)",
     ),
+    _r(
+        "B-AUTH-11",
+        "Sign out ends the session",
+        "Logout (destroys the PHP session)",
+        gap="SmartSched signs out on the client (the bearer token is dropped) but the token stays valid until it "
+        "expires (JWT_EXPIRE_MINUTES, 12 h); a disabled account is refused at once (B-AUTH-02). Proposed: a "
+        "per-user token_version claim bumped by POST /auth/logout and by password changes (app/core/security.py + "
+        "app/api/deps.py, outside the CRBS services: backend owner of app/core)",
+    ),
     # ---------------------------------------------------------------- users (#19-#23)
     _r(
         "B-USERS-01",
@@ -597,6 +606,18 @@ ROWS: tuple[Row, ...] = (
         "Context::init_week, Dates_model",
         FB + "test_b15_week_view_hides_days_without_periods_and_navigates_like_crbs",
         ui=(E2E[9],),
+    ),
+    _r(
+        "B-SESS-14",
+        "Overlapping sessions (Bahar and its Final); every booking keeps its session",
+        "Sessions::_date_check (CRBS refuses overlaps)",
+        difference="SmartSched allows overlapping terms (CRBS_PARITY #36); bookings store term_id and the grid "
+        "takes term_id",
+    ),
+    _r(
+        "B-SESS-15",
+        "Deleting a session deletes its bookings, holidays and calendar dates",
+        "Sessions_model::delete",
     ),
     # ---------------------------------------------------------------- bookings (#44-#59)
     _r(
