@@ -1,136 +1,171 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { FINISHED, PLANNING_LIST, REAL, SKIP_REASON, api, boardRun, login, solverRun, type Run } from "./helpers";
 
 /**
- * Smoke flow against the mock API (NEXT_PUBLIC_API_MOCK=1):
- * login → import → generate (studio) → run report → grid (events, move dialog + drag) → settings,
- * plus the Generator Studio flow (scope → classes → rules → upload → pre-check → generate).
+ * Smoke flows on the REAL backend with the Bahar 2026 fixtures (E2E_REAL=1; no mock API, no AI key):
+ * signed-out guard + public pages → import the real planning list → classes → calendar → run report →
+ * settings; the Generator Studio end to end; the phone layouts. The e2e stack is
+ * smartsched/deploy/pod-ci/gates/e2e-backend-entry.sh (see playwright.config.ts).
  */
+test.skip(!REAL, SKIP_REASON);
 
-async function login(page: Page) {
-  await page.goto("/login");
-  await expect(page.getByTestId("login-submit")).toBeVisible();
-  await page.getByLabel(/E-posta|E-mail/).fill("fatih.demir@example.edu.tr");
-  await page.getByLabel(/Şifre|Password/).fill("admin");
-  await page.getByTestId("login-submit").click();
-  await expect(page.getByTestId("dashboard")).toBeVisible();
-}
-
-test.describe("SmartSched smoke", () => {
-  test("login → import → generate → run → grid → settings", async ({ page }) => {
-    test.setTimeout(120_000);
-    await login(page);
-
-    // Unauthenticated routes redirect to /login (route guard).
+test.describe("SmartSched smoke (real backend)", () => {
+  test("signed out: app routes go to /login; /reset-password and /setup stay public", async ({ page }) => {
     await page.context().clearCookies();
     await page.goto("/rooms");
     await expect(page).toHaveURL(/\/login\?next=%2Frooms/);
+
+    // the login page: organisation notices (when set) and the forgot-password link to the public reset page
+    await expect(page.getByTestId("login-submit")).toBeVisible();
+    await expect(page.getByTestId("login-identifier")).toHaveValue("");
+    await expect(page.getByText(/demo/i)).toHaveCount(0);
+    await page.getByTestId("forgot-password").click();
+    await expect(page).toHaveURL(/\/reset-password$/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+
+    await page.goto("/reset-password");
+    await expect(page).toHaveURL(/\/reset-password$/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await page.goto("/setup");
+    await expect(page).toHaveURL(/\/setup$/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // the change-password page needs the session (it calls the authenticated POST /auth/change-password)
+    await page.goto("/login/change-password");
+    await expect(page).toHaveURL(/\/login\?next=%2Flogin%2Fchange-password/);
+  });
+
+  test("login → import (real planning list) → classes → calendar → run report → settings", async ({ page }) => {
+    test.setTimeout(240_000);
     await login(page);
-
-    // Dashboard shows the KPIs and last runs.
+    await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { level: 1 })).toContainText(/Özet|Dashboard/);
-    await expect(page.locator("a[href='/runs/1']").first()).toBeVisible();
 
-    // Import wizard: choose kind, upload a file, see the parse report.
+    // Import wizard: the Bahar planning list again (the import is idempotent: unchanged rows are not rewritten)
     await page.getByTestId("nav-import").click();
     await expect(page.getByTestId("import")).toBeVisible();
     await page.getByTestId("import-kind-planning-list").click();
-    await page.getByTestId("file-input").setInputFiles({ name: "Bahar Derslik Planlama Listesi v5.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("PK\u0003\u0004demo") });
+    await page.getByTestId("file-input").setInputFiles(PLANNING_LIST);
     await page.getByTestId("import-start").click();
+    await expect(page.getByTestId("import-report")).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByTestId("import-report")).toContainText("bahar_derslik_planlama_listesi_v5.xlsx");
     await expect(page.getByTestId("parse-warnings")).toBeVisible();
-    await expect(page.locator("[data-severity='error']")).toHaveCount(3);
-    await page.getByRole("button", { name: /^(Hata|Error)/ }).click();
-    await expect(page.locator("[data-severity]")).toHaveCount(3);
+    const total = await page.locator("[data-severity]").count();
+    expect(total, "the real workbook has parse warnings").toBeGreaterThan(0);
 
-    // Requests inbox: open a row drawer.
+    // Requests → the classes review view; a row opens the inspector
     await page.getByTestId("nav-requests").click();
-    await expect(page.getByTestId("request-row").first()).toBeVisible();
-    await page.getByTestId("request-row").first().click();
-    await expect(page.getByTestId("request-drawer")).toBeVisible();
+    await expect(page).toHaveURL(/\/classes/);
+    const rows = page.getByTestId("classes-row");
+    await expect(rows.first()).toBeVisible({ timeout: 30_000 });
+    await rows.first().click();
+    await expect(page.getByTestId("class-inspector")).toBeVisible();
     await page.keyboard.press("Escape");
 
-    // Generate (Generator Studio): one sentence and Generate from the summary panel → run page.
-    await page.getByTestId("nav-generate").click();
-    await expect(page.getByTestId("generate")).toBeVisible();
+    // Calendar: the imported board, week switcher
+    await page.goto(`/timetable?run=${boardRun()}&week=3`);
+    await expect(page.getByTestId("calendar-event").first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("week-label")).toContainText("3");
+    await page.getByTestId("week-next").click();
+    await expect(page.getByTestId("week-label")).toContainText("4");
+    await expect(page).toHaveURL(/week=4/);
+
+    // Run report of the full-term solver run: verdict, issue groups, diagnoses with fixes
+    const run = await api<Run>(page, `/runs/${solverRun()}`);
+    await page.goto(`/runs/${run.id}`);
+    await expect(page.getByTestId("run-view")).toBeVisible();
+    await expect(page.getByTestId("run-verdict")).toBeVisible({ timeout: 30_000 });
+    if (run.status !== "FEASIBLE" && run.status !== "OPTIMAL") {
+      await expect(page.getByTestId("diagnosis-card").first()).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator("[data-testid^=issue-group-]").first()).toBeVisible();
+    }
+    await expect(page.getByTestId("chat-panel")).toBeVisible();
+
+    // Settings: AI tab without a key says so (no fake masked key), solver tab, users tab
+    await page.getByTestId("nav-settings").click();
+    await expect(page.getByTestId("settings")).toBeVisible();
+    await page.getByTestId("tab-ai").click();
+    await expect(page.getByTestId("api-key-masked")).toHaveCount(0);
+    await page.getByTestId("tab-solver").click();
+    await expect(page.getByTestId("save-solver")).toBeVisible();
+  });
+
+  test("generator studio: scope → leave a class out → template rule → upload mapping → pre-check fix → generate → run page", async ({ page }) => {
+    test.setTimeout(360_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await login(page);
+    await page.goto("/generate?step=scope");
+    await expect(page.getByTestId("scope-step")).toBeVisible();
+
+    // 1. Scope: one week (W3); the scope sentence updates live and the draft saves
+    await page.getByTestId("horizon-WEEK").click();
+    const w3 = page.getByTestId("week-3");
+    if ((await w3.getAttribute("aria-pressed")) !== "true") await w3.click();
+    await expect(w3).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("scope-sentence")).toContainText(/\d/);
+    await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "saved", { timeout: 15_000 });
+
+    // 2. Classes: leave one class out (draft only); the "left out" chip counts it
+    await page.getByTestId("rail-step-classes").click();
+    await expect(page.getByTestId("classes-step")).toBeVisible();
+    const candidate = page.locator("[data-testid='class-row'][data-included='true']").first();
+    await expect(candidate).toBeVisible({ timeout: 30_000 });
+    const classId = await candidate.getAttribute("data-class-id");
+    const leftOut = page.getByTestId("quick-leftOut");
+    const leftOutBefore = Number((await leftOut.textContent())?.replace(/\D/g, "") || "0");
+    const row = page.locator(`[data-testid='class-row'][data-class-id='${classId}']`);
+    await row.getByTestId("in-plan").click();
+    await expect(row).toHaveAttribute("data-included", "false");
+    await expect(leftOut).toContainText(String(leftOutBefore + 1));
+
+    // 3. Rules: without an AI key the sentence reader says so; a template rule works without AI
+    await page.getByTestId("rail-step-rules").click();
+    await expect(page.getByTestId("rules-step")).toBeVisible();
+    await expect(page.getByTestId("no-key")).toBeVisible();
+    await expect(page.getByTestId("nl-analyse")).toBeDisabled();
+    const tryBefore = Number((await page.getByTestId("stat-try").first().textContent())?.replace(/\D/g, "") || "0");
+    await page.getByTestId("add-template").click();
+    await page.getByTestId("template-no_small_in_big").click();
+    await page.getByTestId("builder-add").click();
+    await expect(page.getByTestId("stat-try").first()).toHaveText(String(tryBefore + 1), { timeout: 15_000 });
+
+    // 4. Upload the real planning list: no AI key → the column mapping step (the backend answers 409)
+    if (!(await page.getByTestId("upload-panel").isVisible())) await page.getByTestId("add-upload").click();
+    await page.getByTestId("upload-input").setInputFiles(PLANNING_LIST);
+    await expect(page.getByTestId("mapping-step")).toBeVisible({ timeout: 60_000 });
+    expect(await page.getByTestId("mapping-row").count()).toBeGreaterThan(5);
+
+    // 5. Pre-check: a one-click fix on a hard-impossible class changes the draft (one more class left out)
+    await page.getByTestId("rail-step-check").click();
+    await expect(page.getByTestId("check-step")).toBeVisible();
+    const impossible = page.locator("[data-testid='issue-card'][data-severity='error']").first();
+    await expect(impossible).toBeVisible({ timeout: 60_000 });
+    const outBefore = Number((await page.getByTestId("stat-out").first().textContent())?.replace(/\D/g, "") || "0");
+    await impossible.getByTestId("fix-button").first().click();
+    await expect(page.getByTestId("stat-out").first()).toHaveText(String(outBefore + 1), { timeout: 20_000 });
+
+    // 6. Generate (the real data still has impossible classes: generate anyway) → result card → run page
     await page.getByTestId("rail-step-run").click();
     await expect(page.getByTestId("generate-step")).toBeVisible();
     await page.getByTestId("studio-generate").click();
     const blocked = page.getByTestId("blocked-confirm");
-    await expect(page.getByTestId("run-card").or(blocked).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("run-card").or(blocked).first()).toBeVisible({ timeout: 60_000 });
     if (await blocked.isVisible()) await page.getByTestId("blocked-confirm-cancel").click();
-    await expect(page.getByTestId("run-card").first()).toBeVisible();
-    await page.getByTestId("run-card").first().getByRole("link", { name: /Çalıştırmayı gör|View run/ }).click();
-    await expect(page).toHaveURL(/\/runs\/\d+/);
-    await expect(page.getByTestId("run-status")).toBeVisible();
-
-    // Open the known feasible run #1 and its grid.
-    await page.goto("/runs/1?tab=grid");
-    await expect(page.getByTestId("day-grid")).toBeVisible();
-    const events = page.locator("[data-testid='day-grid'] [data-assignment-id]");
-    await expect(events.first()).toBeVisible();
-    expect(await events.count()).toBeGreaterThan(5);
-    await expect(page.getByTestId("issues-pill")).toContainText("0");
-
-    // Week switcher and zoom.
-    await page.getByTestId("week-next").click();
-    await expect(page.getByTestId("week-label")).toHaveText("W2");
-    await page.getByTestId("zoom-week").click();
-    await expect(page.getByTestId("week-grid")).toBeVisible();
-    await page.getByTestId("zoom-day").click();
-
-    // Open an event sheet → move dialog → live validity preview → confirm.
-    const movable = page.locator("[data-testid='day-grid'] [data-assignment-id][data-status='ok']").first();
-    await movable.click();
-    await expect(page.getByTestId("event-sheet")).toBeVisible();
-    await page.getByTestId("sheet-move").click();
-    await expect(page.getByTestId("move-dialog")).toBeVisible();
-    await expect(page.getByTestId("move-preview")).toBeVisible();
-    await page.getByLabel(/Yeni gün|New day/).selectOption("7");
-    const confirm = page.getByTestId("move-confirm");
-    if (await confirm.isEnabled()) {
-      await confirm.click();
-      await expect(page.getByTestId("move-dialog")).toBeHidden();
-    } else {
-      await page.keyboard.press("Escape");
-    }
-
-    // Drag an event one period down with the mouse (dnd-kit pointer sensor).
-    const target = page.locator("[data-testid='day-grid'] [data-assignment-id][data-status='ok']").first();
-    const box = await target.boundingBox();
-    expect(box).not.toBeNull();
-    if (box) {
-      await page.mouse.move(box.x + box.width / 2, box.y + 8);
-      await page.mouse.down();
-      await page.mouse.move(box.x + box.width / 2, box.y + 20, { steps: 4 });
-      await page.mouse.move(box.x + box.width / 2 + 128, box.y + 20, { steps: 8 });
-      await page.mouse.up();
-    }
-    await expect(page.locator("[data-sonner-toast]").first()).toBeVisible();
-
-    // Chat panel proposes a move.
-    await page.getByTestId("chat-input").fill("BME 419'u A 204'e taşı");
-    await page.getByTestId("chat-send").click();
-    await expect(page.getByTestId("proposal-card").first()).toBeVisible();
-
-    // Settings: masked key + test button, solver tab.
-    await page.getByTestId("nav-settings").click();
-    await expect(page.getByTestId("settings")).toBeVisible();
-    await expect(page.getByTestId("api-key-masked")).toContainText("7Qx2");
-    await page.getByTestId("test-key").click();
-    await expect(page.getByTestId("test-result")).toContainText(/claude/);
-    await page.getByTestId("tab-solver").click();
-    await expect(page.getByTestId("save-solver")).toBeVisible();
-
-    // Infeasible run shows diagnosis cards.
-    await page.goto("/runs/2");
-    await expect(page.getByTestId("diagnosis-card").first()).toBeVisible();
-    await expect(page.getByTestId("apply-fix").first()).toBeVisible();
+    const card = page.getByTestId("run-card").first();
+    await expect(card).toHaveAttribute("data-status", FINISHED, { timeout: 240_000 });
+    await expect(card.getByTestId("run-open-report")).toBeVisible();
+    await card.getByTestId("run-open-report").click();
+    await expect(page).toHaveURL(/\/runs\/\d+$/);
+    await expect(page.getByTestId("run-view")).toBeVisible();
+    await expect(page.getByTestId("tab-grid")).toBeVisible();
   });
 
-  test("mobile agenda fallback and command palette", async ({ page }) => {
+  test("phone: calendar day list, drawer and the command palette finds A 204", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
     await login(page);
-    await page.goto("/runs/1?tab=grid");
-    await expect(page.getByTestId("agenda")).toBeVisible();
+    await page.goto(`/timetable?run=${boardRun()}&week=3`);
+    await expect(page.getByTestId("calendar-mobile").or(page.getByTestId("agenda")).first()).toBeVisible({ timeout: 30_000 });
+    const scrollW = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(scrollW).toBeLessThanOrEqual(1);
     await page.getByTestId("open-drawer").click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.keyboard.press("Escape");
@@ -138,74 +173,7 @@ test.describe("SmartSched smoke", () => {
     const palette = page.locator("[data-slot='command-input']");
     await expect(palette).toBeVisible();
     await palette.fill("A 204");
-    await expect(page.getByText(/156/).first()).toBeVisible();
-  });
-  test("generator studio: scope → exclude → NL rule → upload → pre-check fix → generate → run page", async ({ page }) => {
-    test.setTimeout(180_000);
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await login(page);
-    await page.goto("/generate?step=scope");
-    await expect(page.getByTestId("scope-step")).toBeVisible();
-
-    // 1. Scope: one week (W7); the scope sentence updates live.
-    await page.getByTestId("horizon-WEEK").click();
-    const w7 = page.getByTestId("week-7");
-    if ((await w7.getAttribute("aria-pressed")) !== "true") await w7.click();
-    await expect(w7).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByTestId("scope-sentence")).toContainText(/\d/);
-    await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "saved", { timeout: 10_000 });
-
-    // 2. Classes: leave one class out (draft only), the footer and the quick chip count it.
-    await page.getByTestId("rail-step-classes").click();
-    await expect(page.getByTestId("classes-step")).toBeVisible();
-    const candidate = page.locator("[data-testid='class-row'][data-included='true']").first();
-    await expect(candidate).toBeVisible();
-    const classId = await candidate.getAttribute("data-class-id");
-    const leftOutBefore = Number((await page.getByTestId("quick-leftOut").textContent())?.replace(/\D/g, "") || "0");
-    const row = page.locator(`[data-testid='class-row'][data-class-id='${classId}']`);
-    await row.getByTestId("in-plan").click();
-    await expect(row).toHaveAttribute("data-included", "false");
-    await expect(page.getByTestId("quick-leftOut")).toContainText(String(leftOutBefore + 1));
-
-    // 3. Rules: write a sentence → review tray → accept.
-    await page.getByTestId("rail-step-rules").click();
-    await expect(page.getByTestId("rules-step")).toBeVisible();
-    const before = Number((await page.getByTestId("stat-must").textContent()) ?? "0");
-    await page.getByTestId("rule-composer-input").fill("TIP derslikleri sadece Tıp için");
-    await page.getByTestId("nl-analyse").click();
-    await expect(page.getByTestId("review-tray")).toBeVisible();
-    await page.getByTestId("tray-accept").first().click();
-    await expect(page.getByTestId("review-tray")).toBeHidden();
-    await expect(page.getByTestId("stat-must")).toHaveText(String(before + 1));
-
-    // 4. Upload a small xlsx → review table with "from file · row N" → accept one row.
-    await page.getByTestId("add-upload").click();
-    await page.getByTestId("upload-input").setInputFiles({ name: "Eczacilik_talepler.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("PK\u0003\u0004demo") });
-    await expect(page.getByTestId("upload-row").first()).toHaveAttribute("data-stage", "ready", { timeout: 15_000 });
-    await expect(page.getByTestId("upload-review")).toBeVisible();
-    await expect(page.getByTestId("review-from").first()).toContainText(/Eczacilik_talepler\.xlsx/);
-    await page.locator("[data-testid='review-row'][data-bucket='ready']").first().getByTestId("review-accept").click();
-    await expect(page.locator("[data-testid='review-row'][data-state='accepted']")).toHaveCount(1);
-
-    // 5. Pre-check: the impossible class has one-click fixes that change the draft.
-    await page.getByTestId("rail-step-check").click();
-    await expect(page.getByTestId("check-step")).toBeVisible();
-    const impossible = page.locator("[data-testid='issue-card'][data-severity='error']").filter({ hasText: "BME 419" });
-    await expect(impossible).toBeVisible({ timeout: 15_000 });
-    await impossible.getByTestId("fix-button").first().click();
-    await expect(impossible).toHaveCount(0, { timeout: 15_000 });
-    await expect(page.getByTestId("check-step").getByTestId("readiness")).not.toHaveAttribute("data-readiness", "blocked");
-
-    // 6. Generate → run progress → result card → run page.
-    await page.getByTestId("rail-step-run").click();
-    await page.getByTestId("studio-generate").click();
-    await expect(page.getByTestId("run-card").first()).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator("[data-testid='run-card'][data-status='FEASIBLE']").first()).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId("run-result").first()).toBeVisible();
-    await page.getByTestId("run-open-report").first().click();
-    await expect(page).toHaveURL(/\/runs\/\d+$/);
-    await expect(page.getByTestId("run-view")).toBeVisible();
-    await expect(page.getByTestId("tab-grid")).toBeVisible();
+    await expect(page.getByRole("dialog").getByText(/156/).first()).toBeVisible({ timeout: 15_000 });
   });
 
   test("generator studio on a phone: one step per screen", async ({ page }) => {
@@ -215,7 +183,7 @@ test.describe("SmartSched smoke", () => {
     await expect(page.getByTestId("mobile-progress")).toContainText("1/5");
     await page.getByTestId("step-next").click();
     await expect(page.getByTestId("mobile-progress")).toContainText("2/5");
-    await expect(page.getByTestId("class-cards")).toBeVisible();
+    await expect(page.getByTestId("class-cards")).toBeVisible({ timeout: 30_000 });
     const scrollW = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(scrollW).toBeLessThanOrEqual(1);
     await page.getByTestId("summary-pill").click();

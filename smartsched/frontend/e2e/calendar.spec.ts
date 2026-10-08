@@ -1,15 +1,16 @@
 import { inflateRawSync } from "node:zlib";
 import { readFileSync } from "node:fs";
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { REAL, SKIP_REASON, login as signIn } from "./helpers";
 
 /**
  * Calendar, all classes and rooms against the REAL backend (no mock): FastAPI with the Bahar workbooks
- * imported (docs/testing/2026-10-08-real-backend-e2e.md), run #1 = the imported weekly board, run #5 = a
+ * imported (docs/testing/2026-10-08-real-backend-e2e.md): the board run is the grid import, the solver run (if any) a
  * solver run for the whole term. Start the frontend with NEXT_PUBLIC_API_MOCK=0 and NEXT_PUBLIC_API_URL
  * pointing at the backend, then:
  *
  *   E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test e2e/calendar.spec.ts
- *   (against an already running frontend: PW_PORT=3700 npx playwright test e2e/calendar.spec.ts)
+ *   (against an already running frontend: E2E_REAL=1 PW_PORT=3700 npx playwright test e2e/calendar.spec.ts)
  *
  * Data: only the gate's Bahar fixtures are assumed (weekly grid + planning list imported). The board run is the
  * term's grid import; moves use the latest usable solver run of the term when there is one, else the board
@@ -19,6 +20,9 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
  * undo (restores the backend state), /classes export with the "SmartSched Derslik" column, rooms list and
  * detail, and the motion audit for the calendar (.claude/skills/motion_designer/references/audit.md).
  */
+// E2E_REAL=1 says the backend is up (playwright.config.ts); in real mode nothing here is skipped
+test.skip(!REAL, SKIP_REASON);
+
 const EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@smartsched.local";
 const PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "Admin-2026!";
 const TERM = process.env.E2E_TERM_CODE ?? "2026-BAHAR";
@@ -35,11 +39,7 @@ test.use({ locale: "en-GB", timezoneId: "Europe/Istanbul", viewport: { width: 14
 async function login(page: Page) {
   const base = test.info().project.use.baseURL ?? "http://127.0.0.1:3100";
   await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: base }]);
-  await page.goto("/login");
-  await page.fill("#identifier", EMAIL);
-  await page.fill("#password", PASSWORD);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
+  await signIn(page, EMAIL, PASSWORD);
 }
 
 /** Same-origin API call through the Next proxy (the httpOnly cookie carries the JWT). */
@@ -61,10 +61,10 @@ async function setup(page: Page): Promise<{ board: number; editable: number; roo
   const raw = await api<RunRow[] | { items: RunRow[] }>(page, "/runs");
   const runs = (Array.isArray(raw) ? raw : raw.items).filter((r) => r.kind === "COURSE" && USABLE.includes(r.status) && (r.term_code ?? TERM) === TERM);
   const isImport = (r: RunRow) => r.params?.source === "GRID_IMPORT";
-  const board = runs.filter(isImport).sort((a, b) => a.id - b.id)[0];
+  const board = runs.find((r) => r.id === Number(process.env.E2E_BOARD_RUN)) ?? runs.filter(isImport).sort((a, b) => a.id - b.id)[0];
   expect(board, `${TERM}: the weekly grid import makes a board run`).toBeTruthy();
   const solver = runs.filter((r) => !isImport(r)).sort((a, b) => b.id - a.id)[0];
-  const editable = Number(process.env.E2E_EDIT_RUN ?? 0) || (solver ?? board).id;
+  const editable = Number(process.env.E2E_EDIT_RUN ?? 0) || Number(process.env.E2E_SOLVER_RUN ?? 0) || (solver ?? board).id;
   const idx = await api<Index>(page, `/runs/${board.id}/calendar-index`);
   const room = idx.rooms.find((r) => r.name === ROOM_CODE);
   expect(room, `${ROOM_CODE} exists`).toBeTruthy();

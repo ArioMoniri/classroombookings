@@ -313,7 +313,7 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
                 aria-label={label}
                 title={label}
                 data-conflict={c.kind === "class" && c.conflict ? "true" : undefined}
-                className={cn("h-7 min-w-0 overflow-hidden rounded-[4px] font-semibold whitespace-nowrap", cellClass(c), c.kind === "class" ? "!relative justify-center" : "flex items-center px-1.5")}
+                className={cn("!relative h-7 min-w-0 overflow-hidden rounded-[4px] font-semibold whitespace-nowrap", cellClass(c), c.kind === "class" ? "justify-center" : "flex items-center px-1.5")}
                 style={{ gridRow, gridColumn: `${sp + 1} / ${ep + 2}`, ...(c.kind === "class" ? chipVars(c.fac) : {}) }}
               >
                 <span className="truncate">{c.label}</span>

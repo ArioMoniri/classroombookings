@@ -46,8 +46,12 @@ async def test_recurring_series_follow_the_timetable_week(env):
     """``get_recurring_dates``: a series repeats on the same weekday **in the same timetable week** (CRBS
     A/B week rotation), skipping holidays; the other week's Thursdays stay free."""
     c = env.client
-    a = (await c.post("/api/v1/booking-admin/weeks", json={"name": "A Haftası", "bgcol": "#C6E0B4"}, headers=env.admin)).json()
-    b = (await c.post("/api/v1/booking-admin/weeks", json={"name": "B Haftası", "bgcol": "#F8CBAD"}, headers=env.admin)).json()
+    a = (
+        await c.post("/api/v1/booking-admin/weeks", json={"name": "A Haftası", "bgcol": "#C6E0B4"}, headers=env.admin)
+    ).json()
+    b = (
+        await c.post("/api/v1/booking-admin/weeks", json={"name": "B Haftası", "bgcol": "#F8CBAD"}, headers=env.admin)
+    ).json()
     mapping = {}
     d = TERM_START
     while d <= TERM_END:
@@ -57,7 +61,12 @@ async def test_recurring_series_follow_the_timetable_week(env):
     assert r.status_code == 200, r.text
     await c.post(
         "/api/v1/holidays",
-        json={"term_id": env.term_id, "name": "Ulusal Egemenlik ve Çocuk Bayramı", "date_start": "2026-04-23", "date_end": "2026-04-23"},
+        json={
+            "term_id": env.term_id,
+            "name": "Ulusal Egemenlik ve Çocuk Bayramı",
+            "date_start": "2026-04-23",
+            "date_end": "2026-04-23",
+        },
         headers=env.admin,
     )
     closed = await _closed_dates(env)
@@ -223,8 +232,14 @@ async def test_my_bookings_filters(env):
 async def test_export_filters_by_room_group(env):
     """``Export``: the room group filter keeps only that group's rooms."""
     c = env.client
-    a = (await c.post("/api/v1/room-admin/groups", json={"name": "A Blok", "room_ids": [env.rooms["A101"]]}, headers=env.admin)).json()
-    await c.post("/api/v1/room-admin/groups", json={"name": "A Blok 1. kat", "room_ids": [env.rooms["A102"]]}, headers=env.admin)
+    a = (
+        await c.post(
+            "/api/v1/room-admin/groups", json={"name": "A Blok", "room_ids": [env.rooms["A101"]]}, headers=env.admin
+        )
+    ).json()
+    await c.post(
+        "/api/v1/room-admin/groups", json={"name": "A Blok 1. kat", "room_ids": [env.rooms["A102"]]}, headers=env.admin
+    )
     _, teacher = await env.user("disari.grup@uni.edu.tr")
     await env.book(teacher, "A101", MON, "P1", notes="İlk grup")
     await env.book(teacher, "A102", THU, "P1", notes="İkinci grup")
@@ -250,4 +265,9 @@ async def test_permissions_are_grouped_like_crbs(env):
     assert len([p for scope in perms.values() for items in scope.values() for p in items]) == 31
     teacher = await role_id(c, env.admin, "TEACHER")
     role = (await c.get(f"/api/v1/roles/{teacher}", headers=env.admin)).json()
-    assert set(role["permissions"]) == {"room.view", "book_single.create", "book_single.view_other_notes", "book_recur.view_other_notes"}
+    assert set(role["permissions"]) == {
+        "room.view",
+        "book_single.create",
+        "book_single.view_other_notes",
+        "book_recur.view_other_notes",
+    }

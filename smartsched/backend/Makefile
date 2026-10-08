@@ -8,15 +8,15 @@ EXCL = --exclude app/solver --exclude tests/solver
 check: lint type test
 
 lint:
-	ruff check app tests $(EXCL)
-	ruff format --check app tests $(EXCL)
+	ruff check app tests tools $(EXCL)
+	ruff format --check app tests tools $(EXCL)
 
 format:
-	ruff check --fix app tests $(EXCL)
-	ruff format app tests $(EXCL)
+	ruff check --fix app tests tools $(EXCL)
+	ruff format app tests tools $(EXCL)
 
 type:
-	$(PY) -m mypy app/api app/ai app/importers app/services app/workers app/core app/solver/model.py app/solver/stub.py
+	$(PY) -m mypy app/api app/ai app/importers app/services app/workers app/core app/solver/model.py app/solver/stub.py tools
 
 # fast gate; the heaviest real-workbook tests (tests/conftest.py SLOW_TESTS) run in test-slow (CI runs both)
 test:

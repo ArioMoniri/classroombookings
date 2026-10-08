@@ -1,6 +1,6 @@
 "use client";
 /**
- * Room card (Liquid Glass v2): a glass card on the scene. A real photo when the room has one; otherwise a
+ * Room card (Liquid Glass v2): an opaque content card on the scene (A8: content is not glass; 80+ cards would also be 80+ blur passes). A real photo when the room has one; otherwise a
  * code tile (fills + type only: no gradient, no placeholder image, liquid-glass.md A1/A3). One state badge
  * at most ("Kapalı"), tags as plain words (A4). The Mon–Fri bars are opaque marks (A8), their heights are
  * the day shares of the chosen week; the line under them says what holds the room right now.
@@ -73,7 +73,7 @@ export function RoomCard({ room, grid, week, now, href }: { room: Room; grid: Ro
       aria-label={label}
       data-testid="room-card"
       data-room-id={room.id}
-      className="group/room glass-regular flex flex-col gap-3 rounded-2xl p-3 outline-none transition-colors duration-(--dur-fast) hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
+      className="group/room flex flex-col gap-3 rounded-2xl bg-(--mat-regular-solid) p-3 shadow-[0_0_0_1px_var(--hairline),var(--ambient-1)] outline-none transition-colors duration-(--dur-fast) hover:bg-[color-mix(in_srgb,var(--mat-regular-solid),var(--label-1)_4%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
     >
       <div className="flex items-start gap-3">
         <RoomVisual room={room} variant="tile" />

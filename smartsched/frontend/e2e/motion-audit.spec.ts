@@ -6,6 +6,7 @@
  * sets it to the full-term solver run), MOTION_CPU (1 in CI; 4 for the device check).
  */
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { login as signIn } from "./helpers";
 
 test.skip(process.env.E2E_REAL !== "1", "motion audit runs against the real backend: set E2E_REAL=1 (see playwright.config.ts)");
 
@@ -15,13 +16,7 @@ const RUN = process.env.AUDIT_RUN ?? process.env.E2E_SOLVER_RUN ?? "1";
 
 type FrameReport = { frames: number; dropped: number; p95: number; longFrames: number; worstLongFrame: number };
 
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.fill("#identifier", EMAIL);
-  await page.fill("#password", PASSWORD);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
-}
+const login = (page: Page) => signIn(page, EMAIL, PASSWORD);
 
 async function startFrameProbe(page: Page): Promise<void> {
   await page.evaluate(() => {

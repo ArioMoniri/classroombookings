@@ -17,6 +17,8 @@ import { useStudio, useStudioStore } from "./studio-context";
 
 const ACTIVE = new Set(["QUEUED", "RUNNING"]);
 const GOOD = new Set(["FEASIBLE", "OPTIMAL", "TIMEOUT"]);
+/** runs with a stored timetable to open: a best-effort FEASIBLE_PARTIAL run is one too (not a failed run) */
+const HAS_TIMETABLE = new Set([...GOOD, "FEASIBLE_PARTIAL"]);
 
 export interface RunDelta {
   soft: number | null;
@@ -118,7 +120,7 @@ export function RunCard({ compact }: { compact?: boolean }) {
             </Button>
           </div>
         </div>
-      ) : GOOD.has(r.status) ? (
+      ) : HAS_TIMETABLE.has(r.status) ? (
         <div className="mt-2 space-y-2">
           <p data-testid="run-result">
             {t("studio.run.resultLine", { soft: r.soft_score ?? "—", placed: n(num(r.stats.events) ?? 0), conflicts: n(num(r.stats.conflicts) ?? 0) })}

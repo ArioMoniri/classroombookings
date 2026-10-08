@@ -39,7 +39,6 @@ export default defineConfig({
     timeout: 300_000,
     env: {
       NEXT_PUBLIC_API_URL: API_URL,
-      AUTH_SECRET: "e2e-secret",
     },
   },
 });

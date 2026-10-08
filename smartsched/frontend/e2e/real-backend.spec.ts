@@ -1,63 +1,39 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { ADMIN_EMAIL, FINISHED, REAL, SKIP_REASON, TERM_CODE, api, boardRun, login, numberText, type Run, type Term } from "./helpers";
 
 /**
- * Real-backend flow (E2E_REAL=1; the mock is off): FastAPI on SQLite with the real Bahar workbooks
- * imported through `python -m app.cli` — see docs/testing/2026-10-08-real-backend-e2e.md.
+ * Real-backend data truth (E2E_REAL=1): FastAPI on SQLite with the real Bahar 2026 workbooks imported through
+ * `python -m app.cli` (smartsched/deploy/pod-ci/gates/e2e-backend-entry.sh). Every number checked here comes
+ * from the backend's own answer, read through the same Next proxy the UI uses.
  *
- * login → dashboard shows the backend's counts → requests inbox lists Bahar rows → rooms show A 204 (156)
- * → generate a one-week run → run report → grid of a feasible run shows events → move one event
- * (success, or the backend's conflict reason) → settings load.
+ * login → dashboard tiles = GET /dashboard → /requests lands on the classes review view with Bahar rows →
+ * rooms show A 204 (156 seats) → the Generator Studio queues a one-week CP-SAT run that the backend finishes
+ * → run report → the imported board's week has classes on the calendar → settings: users list has the admin.
  */
-test.skip(process.env.E2E_REAL !== "1", "real-backend spec: set E2E_REAL=1 and start the backend");
+test.skip(!REAL, SKIP_REASON);
 
-const EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@smartsched.local";
-const PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "Admin-2026!";
-const TERM = process.env.E2E_TERM_CODE ?? "2026-BAHAR";
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel(/E-posta|E-mail/).fill(EMAIL);
-  await page.getByLabel(/Şifre|Password/).fill(PASSWORD);
-  await page.getByTestId("login-submit").click();
-  await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 30_000 });
-}
-
-/** Same-origin API calls from the page through the Next proxy (the httpOnly, Secure cookie carries the
- * JWT; Playwright's APIRequestContext does not send Secure cookies over http://127.0.0.1). */
-async function api<T>(page: Page, path: string): Promise<T> {
-  const res = await page.evaluate(async (url) => {
-    const r = await fetch(url, { headers: { Accept: "application/json" } });
-    return { status: r.status, body: (await r.json()) as unknown };
-  }, `/api/v1${path}`);
-  expect(res.status, `${path} → ${res.status}`).toBe(200);
-  return res.body as T;
-}
-
-type Term = { id: number; code: string };
-type Run = { id: number; status: string; kind: string; term_code: string | null; params: Record<string, unknown> };
-
-test("real backend: login → dashboard → requests → rooms → run → grid → move → settings", async ({ page }) => {
-  test.setTimeout(240_000);
+test("real backend: login → dashboard → classes → rooms → studio run → report → calendar → settings", async ({ page }) => {
+  test.setTimeout(300_000);
   await login(page);
-  const req = page;
+  await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 30_000 });
 
-  // ---- dashboard numbers are the backend's (no mock, no client-side composition)
-  const terms = await api<Term[]>(req, "/terms");
-  const term = terms.find((t) => t.code === TERM) ?? terms[0];
-  expect(term, "a term must be imported").toBeTruthy();
-  const dash = await api<{ requests_needs_review: number; requests_total: number; sections_total: number; term: Term }>(req, `/dashboard?term_id=${term.id}`);
-  expect(dash.requests_total).toBeGreaterThan(1000); // Bahar list: 1 529 rows
-  // tiles animate to the value; accept plain (1271) or tr-TR grouped (1.271) rendering
-  const num = (n: number) => new RegExp(`^(${n}|${new Intl.NumberFormat("tr-TR").format(n).replace(".", "\\.")})$`);
+  // ---- dashboard numbers are the backend's
+  const terms = await api<Term[]>(page, "/terms");
+  const term = terms.find((t) => t.code === TERM_CODE);
+  expect(term, `${TERM_CODE} must be imported`).toBeTruthy();
+  const termId = term?.id ?? 0;
+  const dash = await api<{ requests_needs_review: number; requests_total: number; sections_total: number }>(page, `/dashboard?term_id=${termId}`);
+  expect(dash.requests_total).toBeGreaterThan(1000); // Bahar planning list: 1 524 requests
   const tiles = page.getByTestId("dashboard");
-  await expect(tiles.getByText(num(dash.sections_total)).first()).toBeVisible();
-  await expect(tiles.getByText(num(dash.requests_needs_review)).first()).toBeVisible();
+  await expect(tiles.getByText(numberText(dash.sections_total)).first()).toBeVisible();
+  await expect(tiles.getByText(numberText(dash.requests_needs_review)).first()).toBeVisible();
 
-  // ---- requests inbox: real Bahar rows (course codes, Turkish programme names)
+  // ---- the requests inbox is the classes review view: real Bahar rows with course codes
   await page.goto("/requests");
-  await expect(page.getByTestId("requests")).toBeVisible();
-  const rows = page.getByTestId("request-row");
-  await expect(rows.first()).toBeVisible({ timeout: 20_000 });
+  await expect(page).toHaveURL(/\/classes\?view=review/);
+  await expect(page.getByTestId("classes")).toBeVisible();
+  const rows = page.getByTestId("classes-row");
+  await expect(rows.first()).toBeVisible({ timeout: 30_000 });
   expect(await rows.count()).toBeGreaterThan(5);
   await expect(rows.first()).toContainText(/[A-ZÇĞİÖŞÜ]{2,5}\s?\d{3}/);
 
@@ -65,76 +41,48 @@ test("real backend: login → dashboard → requests → rooms → run → grid 
   await page.goto("/rooms");
   await expect(page.getByTestId("rooms")).toBeVisible();
   const a204 = page.getByTestId("room-card").filter({ hasText: "A 204" }).first();
-  await expect(a204).toBeVisible({ timeout: 20_000 });
+  await expect(a204).toBeVisible({ timeout: 30_000 });
   await expect(a204).toContainText("156");
 
-  // ---- generate a one-week run through the UI; the backend solves it (CP-SAT) and reports
-  await page.goto("/generate");
-  await expect(page.getByTestId("generate")).toBeVisible();
+  // ---- a one-week run from the Generator Studio; the backend solves it (CP-SAT) and reports
+  await page.goto("/generate?step=scope");
+  await expect(page.getByTestId("scope-step")).toBeVisible();
   await page.getByTestId("horizon-WEEK").click();
-  await page.getByTestId("generate-submit").click();
-  await expect(page).toHaveURL(/\/runs\/\d+/, { timeout: 30_000 });
-  const runId = Number(/\/runs\/(\d+)/.exec(page.url())?.[1]);
-  await expect(page.getByTestId("run-view")).toBeVisible();
-  await expect
-    .poll(async () => (await api<Run>(req, `/runs/${runId}`)).status, { timeout: 150_000, intervals: [2_000] })
-    .not.toMatch(/QUEUED|RUNNING/);
-  const run = await api<Run>(req, `/runs/${runId}`);
-  expect(run.term_code).toBe(term.code);
-  await page.reload();
-  if (run.status === "INFEASIBLE") {
-    // real data: the planner's own fixed times clash; the report explains why
-    await expect(page.getByTestId("diagnosis-card").first()).toBeVisible({ timeout: 20_000 });
-  } else {
-    await expect(page.getByTestId("tab-grid")).toBeVisible();
-  }
+  await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "saved", { timeout: 15_000 });
+  await page.getByTestId("rail-step-run").click();
+  await expect(page.getByTestId("generate-step")).toBeVisible();
+  await page.getByTestId("studio-generate").click();
+  // real data: Bahar has hard-impossible classes, so the studio asks first; generate anyway
+  const blocked = page.getByTestId("blocked-confirm");
+  await expect(page.getByTestId("run-card").or(blocked).first()).toBeVisible({ timeout: 60_000 });
+  if (await blocked.isVisible()) await page.getByTestId("blocked-confirm-cancel").click();
+  const card = page.getByTestId("run-card").first();
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card).toHaveAttribute("data-status", FINISHED, { timeout: 200_000 });
+  const runId = Number(/#(\d+)/.exec((await card.locator("h3").textContent()) ?? "")?.[1]);
+  expect(runId, "the run card names the run").toBeGreaterThan(0);
+  const run = await api<Run>(page, `/runs/${runId}`);
+  expect(run.term_code).toBe(TERM_CODE);
+  expect(run.horizon).toBe("WEEK");
+  expect(run.status).toBe(await card.getAttribute("data-status"));
 
-  // ---- grid of a feasible run (this one if feasible, else the imported published board)
-  const runs = await api<Run[]>(req, `/runs?term_id=${term.id}`);
-  const feasible = ["FEASIBLE", "OPTIMAL"].includes(run.status) ? run : runs.find((r) => r.kind === "COURSE" && ["FEASIBLE", "OPTIMAL"].includes(r.status));
-  expect(feasible, "a feasible COURSE run (solver or imported board)").toBeTruthy();
-  await page.goto(`/runs/${feasible?.id ?? 1}?tab=grid`);
-  await expect(page.getByTestId("day-grid")).toBeVisible({ timeout: 30_000 });
-  const events = page.locator("[data-testid='day-grid'] [data-assignment-id]");
+  // ---- the run report shows the backend's verdict (and the diagnoses when the data cannot be placed)
+  await page.goto(`/runs/${runId}`);
+  await expect(page.getByTestId("run-view")).toBeVisible();
+  await expect(page.getByTestId("run-verdict")).toBeVisible({ timeout: 30_000 });
+  if (run.status !== "FEASIBLE" && run.status !== "OPTIMAL") await expect(page.getByTestId("diagnosis-card").first()).toBeVisible({ timeout: 30_000 });
+
+  // ---- the imported board on the calendar: week 3 has the planner's classes
+  await page.goto(`/timetable?run=${boardRun()}&week=3`);
+  await expect(page.getByTestId("calendar")).toBeVisible();
+  await expect(page.getByTestId("week-label")).toContainText("3", { timeout: 30_000 });
+  const events = page.getByTestId("calendar-event");
   await expect(events.first()).toBeVisible({ timeout: 30_000 });
   expect(await events.count()).toBeGreaterThan(5);
 
-  // ---- move one event via the event sheet: success toast, or the backend's conflict reason
-  const movable = page.locator("[data-testid='day-grid'] [data-assignment-id][data-status='ok']").first();
-  await movable.click();
-  await expect(page.getByTestId("event-sheet")).toBeVisible();
-  const moveBtn = page.getByTestId("sheet-move");
-  if (await moveBtn.isEnabled()) {
-    await moveBtn.click();
-    await expect(page.getByTestId("move-dialog")).toBeVisible();
-    // look for a slot the client-side preview accepts (weekend first); the backend re-checks it
-    const confirm = page.getByTestId("move-confirm");
-    search: for (const day of ["7", "6", "5"]) {
-      await page.getByLabel(/Yeni gün|New day/).selectOption(day);
-      for (const start of ["1", "13", "15", "10", "4"]) {
-        await page.getByLabel(/Başlangıç saati|Start period/).selectOption(start).catch(() => undefined);
-        if (await confirm.isEnabled()) break search;
-      }
-    }
-    if (await confirm.isEnabled()) {
-      const moved = page.waitForResponse((r) => r.url().includes("/move") && r.request().method() === "POST");
-      await confirm.click();
-      const res = await moved;
-      expect([200, 409]).toContain(res.status());
-      const body = (await res.json()) as { ok: boolean; conflicts: { message: string }[]; assignment: { is_locked: boolean; origin: string } | null };
-      if (body.ok) expect(body.assignment).toMatchObject({ is_locked: true, origin: "MANUAL" });
-      else expect(body.conflicts[0]?.message).toBeTruthy();
-      await expect(page.locator("[data-sonner-toast]").first()).toBeVisible();
-    } else {
-      // the client-side preview already shows why the slot is not free
-      await expect(page.getByTestId("move-preview")).toBeVisible();
-      await page.keyboard.press("Escape");
-    }
-  }
-
-  // ---- settings load from the backend (masked key state, users list for admins)
+  // ---- settings load from the backend; the users tab lists the seeded admin
   await page.goto("/settings");
   await expect(page.getByTestId("settings")).toBeVisible();
   await page.getByTestId("tab-users").click();
-  await expect(page.getByText(EMAIL).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(ADMIN_EMAIL).first()).toBeVisible({ timeout: 20_000 });
 });

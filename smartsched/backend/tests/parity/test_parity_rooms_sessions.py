@@ -80,7 +80,9 @@ async def test_only_selectable_sessions_unless_view_all_sessions(env):
     july = date(2026, 7, 6)
     refused = await env.book(teacher, "A101", july, "P1", term_id=yid)
     assert refused.status_code == 409, refused.text
-    assert (await c.get("/api/v1/bookings/grid", params={"term_id": yid, "date": july.isoformat()}, headers=teacher)).status_code == 409
+    assert (
+        await c.get("/api/v1/bookings/grid", params={"term_id": yid, "date": july.isoformat()}, headers=teacher)
+    ).status_code == 409
     ok = await env.book(env.planner, "A101", july, "P1", term_id=yid)
     assert ok.status_code == 201 and ok.json()["term_id"] == yid, ok.text
     # opening the session lets staff in
@@ -117,15 +119,18 @@ async def test_timetable_weeks_can_be_recoloured_and_deleted(env):
     )
     assert up.status_code == 200 and up.json()["fgcol"] == "#ffffff" and up.json()["name"] == "Tek hafta"
     await c.put(
-        f"/api/v1/booking-admin/sessions/{env.term_id}/dates", json={"dates": {WED.isoformat(): wk["id"]}}, headers=env.admin
+        f"/api/v1/booking-admin/sessions/{env.term_id}/dates",
+        json={"dates": {WED.isoformat(): wk["id"]}},
+        headers=env.admin,
     )
-    closed = await env.book(teacher, "A101", THU, "P1")
+    closed = await env.book(teacher, "A102", THU, "P1")  # A 102 Thursday P1 is free all term
     assert closed.status_code == 409 and closed.json()["detail"]["code"] == "no_week"
     assert (await c.delete(f"/api/v1/booking-admin/weeks/{wk['id']}", headers=env.admin)).status_code == 204
     days = (await c.get(f"/api/v1/booking-admin/sessions/{env.term_id}/dates", headers=env.admin)).json()
     assert all(d.get("timetable_week_id") is None for d in days["dates"]), days["dates"][:3]
     # no week mapped any more: every date is open again (a term without weeks recurs weekly)
-    assert (await env.book(teacher, "A101", THU, "P1")).status_code == 201
+    again = await env.book(teacher, "A102", THU, "P1")
+    assert again.status_code == 201, again.text
 
 
 @pytest.mark.parity("B-SESS-12")
@@ -135,7 +140,12 @@ async def test_holidays_can_be_moved_and_deleted(env):
     _, teacher = await env.user("tatil.tasi@uni.edu.tr")
     h = await c.post(
         "/api/v1/holidays",
-        json={"term_id": env.term_id, "name": "Kurum\xa0içi eğitim günü", "date_start": TUE.isoformat(), "date_end": TUE.isoformat()},
+        json={
+            "term_id": env.term_id,
+            "name": "Kurum\xa0içi eğitim günü",
+            "date_start": TUE.isoformat(),
+            "date_end": TUE.isoformat(),
+        },
         headers=env.admin,
     )
     assert h.status_code == 201 and h.json()["name"] == "Kurum içi eğitim günü", h.text

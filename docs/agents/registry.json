@@ -85,7 +85,8 @@
       "goal": "- Per-week term splitting: the Bahar term should place at least 96 % of events. - Weight calibration: reproduce the planner's choices for at least 85 % of courses and at least 50 % of exams. Use app/solver/calibrate.py plus tests/solver/test_calibrate.py, which already exist as WIP. - Planner data-issues report plus its xlsx export. - FEASIBLE_PARTIAL status. - Planner-facing TR/EN diagnoses. - Ex…",
       "ledger": "solver-engineer (phase 9 follow-up)",
       "resumed": true,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 14:03"
     },
     {
       "id": "ad17ead17306ce06f",

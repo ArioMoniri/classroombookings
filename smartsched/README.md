@@ -184,7 +184,6 @@ is `claude-opus-5-5`; `claude-sonnet-5-5` and `claude-haiku-5-5` are selectable.
 | Variable | Default | Purpose |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | FastAPI base URL used by the `/api/v1` proxy |
-| `AUTH_SECRET` | none | cookie/session secret |
 
 Deployment variables (`UVICORN_WORKERS`, `RUN_MIGRATIONS`, `SEED_ADMIN`, limits, legacy, TLS) are in
 `deploy/.env.example`.

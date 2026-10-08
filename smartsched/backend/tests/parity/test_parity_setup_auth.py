@@ -32,7 +32,7 @@ def _names(groups: dict[str, Any]) -> set[str]:
     return {p["name"] for scope in groups.values() for items in scope.values() for p in items}
 
 
-@pytest.mark.parity("B-SETUP-05", "S-03")
+@pytest.mark.parity("B-SETUP-05")
 async def test_setup_menu_follows_the_setup_permissions(env):
     """``Menu_model::setup_menu``: an entry per ``setup.*`` permission the user holds; staff see none."""
     c = env.client
@@ -70,9 +70,7 @@ async def test_logo_is_shown_on_the_login_page_and_can_be_removed(env):
     """``settings/Organisation``: the uploaded logo is what the login page shows; "remove logo" clears it."""
     c = env.client
     assert (await c.get("/api/v1/org/public")).json()["logo_url"] in (None, "")
-    up = await c.post(
-        "/api/v1/org/logo", files={"file": ("Acıbadem logo.png", _png(), "image/png")}, headers=env.admin
-    )
+    up = await c.post("/api/v1/org/logo", files={"file": ("Acıbadem logo.png", _png(), "image/png")}, headers=env.admin)
     assert up.status_code == 200, up.text
     pub = (await c.get("/api/v1/org/public")).json()
     assert pub["logo_url"] == up.json()["logo_url"] and pub["logo_url"].endswith(".png")
@@ -117,7 +115,10 @@ async def test_disabled_local_accounts_are_refused(env):
     assert (await env.client.get("/api/v1/bookings/context", headers=h)).status_code == 200
     r = await env.client.put(f"/api/v1/users/{uid}", json={"is_active": False}, headers=env.admin)
     assert r.status_code == 200 and r.json()["is_active"] is False
-    for body in ({"username": "PASİF.HESAP", "password": "parola-1234"}, {"email": "pasif.hesap@uni.edu.tr", "password": "parola-1234"}):
+    for body in (
+        {"username": "PASİF.HESAP", "password": "parola-1234"},
+        {"email": "pasif.hesap@uni.edu.tr", "password": "parola-1234"},
+    ):
         assert (await env.client.post("/api/v1/auth/login", json=body)).status_code == 403
     # a token issued before the account was disabled stops working too
     assert (await env.client.get("/api/v1/bookings/context", headers=h)).status_code in (401, 403)
@@ -142,9 +143,7 @@ async def test_user_list_filters_sort_and_paging(env):
     by_dep = (await c.get("/api/v1/users/search", params={"department_id": psy["id"]}, headers=env.admin)).json()
     assert by_dep["total"] == 3 and {u["id"] for u in by_dep["items"]} == set(ids)
     enabled = (
-        await c.get(
-            "/api/v1/users/search", params={"department_id": psy["id"], "enabled": "true"}, headers=env.admin
-        )
+        await c.get("/api/v1/users/search", params={"department_id": psy["id"], "enabled": "true"}, headers=env.admin)
     ).json()
     assert {u["id"] for u in enabled["items"]} == {ids[0], ids[2]}
     # Turkish alphabetical order of display names: Ç < İ < Ö (tr_casefold), descending reverses it
@@ -162,10 +161,42 @@ async def test_user_list_filters_sort_and_paging(env):
         )
     ).json()
     assert page2["total"] == 3 and [u["displayname"] for u in page2["items"]] == ["Ömer Şen"]
+    # CRBS sort_map: department and role sort by their *names*; several keys may be combined ("role,-username")
+    viewer = await c.post(
+        "/api/v1/users",
+        json={"username": "zz.izleyici", "role": "VIEWER", "department_id": psy["id"], "password": "parola-1234"},
+        headers=env.admin,
+    )
+    assert viewer.status_code == 201, viewer.text
+    by_role = (
+        await c.get(
+            "/api/v1/users/search", params={"department_id": psy["id"], "sort": "role,-displayname"}, headers=env.admin
+        )
+    ).json()
+    assert [u["role_name"] for u in by_role["items"]] == ["Teacher", "Teacher", "Teacher", "Viewer"]
+    assert [u["displayname"] for u in by_role["items"][:3]] == ["Ömer Şen", "İpek Aydın", "Çağla Ünal"]
+    # never signed in (NULL last login) sorts first ascending and last descending, as in MySQL
+    asc = (
+        await c.get("/api/v1/users/search", params={"department_id": psy["id"], "sort": "lastlogin"}, headers=env.admin)
+    ).json()
+    assert asc["items"][0]["username"] == "zz.izleyici"
+    desc = (
+        await c.get(
+            "/api/v1/users/search", params={"department_id": psy["id"], "sort": "-lastlogin"}, headers=env.admin
+        )
+    ).json()
+    assert desc["items"][-1]["username"] == "zz.izleyici"
+    other = (await c.post("/api/v1/departments", json={"name": "Acil Durum Birimi"}, headers=env.admin)).json()
+    await c.put(f"/api/v1/users/{ids[2]}", json={"department_id": other["id"]}, headers=env.admin)
+    by_dep_name = (
+        await c.get(
+            "/api/v1/users/search", params={"q": "uni.edu.tr", "sort": "department", "limit": 500}, headers=env.admin
+        )
+    ).json()
+    named = [u for u in by_dep_name["items"] if u["department_name"]]
+    assert named[0]["id"] == ids[2] and named[0]["department_name"] == "Acil Durum Birimi"
     teacher_role = await role_id(c, env.admin, "TEACHER")
     both = (
-        await c.get(
-            "/api/v1/users/search", params={"role_id": teacher_role, "q": "ÇAĞLA"}, headers=env.admin
-        )
+        await c.get("/api/v1/users/search", params={"role_id": teacher_role, "q": "ÇAĞLA"}, headers=env.admin)
     ).json()
     assert [u["id"] for u in both["items"]] == [ids[0]]

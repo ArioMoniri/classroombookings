@@ -5,6 +5,8 @@ in docs/CRBS_PARITY.md §2.2; import / constraints / reset tokens live in ``app/
 
 from __future__ import annotations
 
+import datetime as dt
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -27,6 +29,19 @@ from app.services.bookings_perms import (
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+#: Turkish alphabetical order (TDK) with q, w, x where Latin puts them; CRBS sorts in MySQL with a Unicode
+#: collation, so "Çağla" comes before "İpek" -- a plain code-point sort would put Ç, Ö, Ş, Ü after Z
+_TR_ORDER = {ch: i for i, ch in enumerate("abcçdefgğhıijklmnoöpqrsştuüvwxyz")}
+
+
+def tr_sort_key(value: str | None) -> tuple[tuple[int, int], ...]:
+    """Sort key for Turkish names: ``tr_casefold`` (I/ı, İ/i, NBSP), then letters in Turkish order; digits and
+    punctuation sort before letters, other characters after them."""
+    return tuple(
+        (1, _TR_ORDER[ch]) if ch in _TR_ORDER else (0, ord(ch)) if ord(ch) < 128 else (2, ord(ch))
+        for ch in n.tr_casefold(value or "")
+    )
 
 
 async def user_out(db: DB, u: User) -> UserAdminOut:
@@ -134,16 +149,27 @@ async def search_users(
             for u in users
             if any(needle in n.tr_casefold(x) for x in (u.username, u.email, u.firstname, u.lastname, u.full_name) if x)
         ]
-    keys = {
-        "username": lambda u: n.tr_casefold(u.username or u.email or ""),
-        "displayname": lambda u: n.tr_casefold(u.full_name or ""),
-        "lastlogin": lambda u: (u.last_login_at is None, u.last_login_at or 0),
-        "enabled": lambda u: (not u.is_active,),
-        "role": lambda u: u.role or "",
-        "department": lambda u: u.department_id or 0,
+    # CRBS ``Users_model`` sort_map: role and department sort by their names, several comma-separated keys
+    # combine (``role,-username``), unknown keys are ignored; NULLs first ascending / last descending (MySQL)
+    role_names = {r.id: r.name for r in (await db.execute(select(Role))).scalars()}
+    dep_ids = {u.department_id for u in users if u.department_id is not None}
+    dep_names = (
+        {pid: name for pid, name in (await db.execute(select(Program.id, Program.name).where(Program.id.in_(dep_ids))))}
+        if dep_ids
+        else {}
+    )
+    keys: dict[str, Callable[[User], Any]] = {
+        "username": lambda u: tr_sort_key(u.username or u.email),
+        "displayname": lambda u: tr_sort_key(u.full_name),
+        "lastlogin": lambda u: (u.last_login_at is not None, u.last_login_at or dt.datetime.min),
+        "enabled": lambda u: (bool(u.is_active),),
+        "role": lambda u: (u.role_id is not None, tr_sort_key(role_names.get(u.role_id or 0) or u.role)),
+        "department": lambda u: (u.department_id is not None, tr_sort_key(dep_names.get(u.department_id or 0))),
     }
-    desc = sort.startswith("-")
-    users.sort(key=keys.get(sort.lstrip("-"), keys["username"]), reverse=desc)  # type: ignore[arg-type]
+    order = [(k.strip().lstrip("-"), k.strip().startswith("-")) for k in sort.split(",")]
+    order = [(k, desc) for k, desc in order if k in keys] or [("username", False)]
+    for k, desc in reversed(order):  # stable sorts, last key first
+        users.sort(key=keys[k], reverse=desc)
     page = users[offset : offset + max(1, min(limit, 500))]
     return {"total": len(users), "limit": limit, "offset": offset, "items": [await user_out(db, u) for u in page]}
 

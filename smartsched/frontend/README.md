@@ -35,7 +35,6 @@ Playwright: Chromium is expected under `PLAYWRIGHT_BROWSERS_PATH` (defaults to `
 | Variable | Default | Meaning |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | FastAPI base URL. The browser never calls it directly: `src/app/api/v1/[...path]/route.ts` proxies `/api/v1/*` to it and attaches the JWT from the httpOnly cookie. |
-| `AUTH_SECRET` | — | reserved for cookie signing in production deployments |
 
 ### Auth flow
 
