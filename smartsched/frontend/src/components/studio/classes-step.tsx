@@ -2,7 +2,7 @@
 
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { AlertTriangle, Search, X } from "lucide-react";
+import { AlertTriangle, Search, SlidersHorizontal, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -63,6 +63,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
   const [filters, setFilters] = useState<ClassFilters>(() => ({ ...EMPTY_FILTERS, ruleId: ruleParam ? Number(ruleParam) : null }));
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [changesOpen, setChangesOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [confirmRevertAll, setConfirmRevertAll] = useState(false);
   const [pinOpen, setPinOpen] = useState<number | null>(null);
   const [setStudents, setSetStudents] = useState("");
@@ -319,6 +320,62 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
 
   const sel = rows.filter((r) => selected.has(r.id));
 
+  const filterControls = (
+    <>
+        <NativeSelect className="w-40" aria-label={t("studio.classes.faculty")} value={filters.faculty ?? ""} onChange={(e) => set({ faculty: e.target.value ? Number(e.target.value) : null, program: null })} data-testid="filter-faculty">
+        <option value="">{t("studio.classes.faculty")}</option>
+        {opts.faculties.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.name}
+          </option>
+        ))}
+      </NativeSelect>
+      <NativeSelect className="w-44" aria-label={t("studio.classes.program")} value={filters.program ?? ""} onChange={(e) => set({ program: e.target.value ? Number(e.target.value) : null })} data-testid="filter-program">
+        <option value="">{t("studio.classes.program")}</option>
+        {opts.programs.filter((p) => filters.faculty === null || p.faculty === filters.faculty).map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </NativeSelect>
+      <NativeSelect className="w-28" aria-label={t("studio.classes.year")} value={filters.year ?? ""} onChange={(e) => set({ year: e.target.value ? Number(e.target.value) : null })}>
+        <option value="">{t("studio.classes.year")}</option>
+        {opts.years.map((y) => (
+          <option key={y} value={y}>
+            {t("studio.classes.yearN", { n: y })}
+          </option>
+        ))}
+      </NativeSelect>
+      <NativeSelect className="w-32" aria-label={t("common.day")} value={filters.day ?? ""} onChange={(e) => set({ day: e.target.value ? Number(e.target.value) : null })} data-testid="filter-day">
+        <option value="">{t("common.day")}</option>
+        {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+          <option key={d} value={d}>
+            {dayName(d, locale)}
+          </option>
+        ))}
+      </NativeSelect>
+      <NativeSelect className="w-28" aria-label={t("common.building")} value={filters.building ?? ""} onChange={(e) => set({ building: e.target.value || null })}>
+        <option value="">{t("common.building")}</option>
+        {opts.buildings.map((b) => (
+          <option key={b} value={b}>
+            {t("studio.slot.block", { b })}
+          </option>
+        ))}
+      </NativeSelect>
+      <NativeSelect className="w-36" aria-label={t("studio.classes.col.mode")} value={filters.mode ?? ""} onChange={(e) => set({ mode: e.target.value || null })}>
+        <option value="">{t("studio.classes.col.mode")}</option>
+        {opts.modes.map((m) => (
+          <option key={m} value={m}>
+            {t(`studio.mode.${m as "F2F"}`)}
+          </option>
+        ))}
+      </NativeSelect>
+      <label className="flex items-center gap-1.5 text-sm">
+        <input type="checkbox" checked={filters.changed} onChange={(e) => set({ changed: e.target.checked })} data-testid="filter-changed" /> {t("studio.classes.changedOnly")}
+      </label>
+    </>
+  );
+
   if (classesError)
     return (
       <div role="alert" className="flex items-center gap-2 rounded-md border border-status-infeasible-border bg-status-infeasible p-3 text-sm text-status-infeasible-fg">
@@ -338,57 +395,14 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input ref={search} value={filters.q} onChange={(e) => set({ q: e.target.value })} placeholder={t("studio.classes.search")} aria-label={t("studio.classes.search")} aria-keyshortcuts="/" className="pl-7" data-testid="class-search" />
         </div>
-        <NativeSelect className="w-40" aria-label={t("studio.classes.faculty")} value={filters.faculty ?? ""} onChange={(e) => set({ faculty: e.target.value ? Number(e.target.value) : null, program: null })} data-testid="filter-faculty">
-          <option value="">{t("studio.classes.faculty")}</option>
-          {opts.faculties.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect className="w-44" aria-label={t("studio.classes.program")} value={filters.program ?? ""} onChange={(e) => set({ program: e.target.value ? Number(e.target.value) : null })} data-testid="filter-program">
-          <option value="">{t("studio.classes.program")}</option>
-          {opts.programs.filter((p) => filters.faculty === null || p.faculty === filters.faculty).map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect className="w-28" aria-label={t("studio.classes.year")} value={filters.year ?? ""} onChange={(e) => set({ year: e.target.value ? Number(e.target.value) : null })}>
-          <option value="">{t("studio.classes.year")}</option>
-          {opts.years.map((y) => (
-            <option key={y} value={y}>
-              {t("studio.classes.yearN", { n: y })}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect className="w-32" aria-label={t("common.day")} value={filters.day ?? ""} onChange={(e) => set({ day: e.target.value ? Number(e.target.value) : null })} data-testid="filter-day">
-          <option value="">{t("common.day")}</option>
-          {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-            <option key={d} value={d}>
-              {dayName(d, locale)}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect className="w-28" aria-label={t("common.building")} value={filters.building ?? ""} onChange={(e) => set({ building: e.target.value || null })}>
-          <option value="">{t("common.building")}</option>
-          {opts.buildings.map((b) => (
-            <option key={b} value={b}>
-              {t("studio.slot.block", { b })}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect className="w-36" aria-label={t("studio.classes.col.mode")} value={filters.mode ?? ""} onChange={(e) => set({ mode: e.target.value || null })}>
-          <option value="">{t("studio.classes.col.mode")}</option>
-          {opts.modes.map((m) => (
-            <option key={m} value={m}>
-              {t(`studio.mode.${m as "F2F"}`)}
-            </option>
-          ))}
-        </NativeSelect>
-        <label className="flex items-center gap-1.5 text-sm">
-          <input type="checkbox" checked={filters.changed} onChange={(e) => set({ changed: e.target.checked })} data-testid="filter-changed" /> {t("studio.classes.changedOnly")}
-        </label>
+        {narrow ? (
+          <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="pointer-coarse:min-h-11" data-testid="open-filters">
+            <SlidersHorizontal aria-hidden /> {t("common.filter")}
+            {active ? ` (${active})` : ""}
+          </Button>
+        ) : (
+          filterControls
+        )}
         {active ? (
           <Button variant="ghost" size="sm" onClick={() => setFilters(EMPTY_FILTERS)}>
             <X aria-hidden /> {t("studio.classes.clear")}
@@ -447,7 +461,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           </button>
         </div>
       ) : narrow ? (
-        <div ref={scroller} className="h-[60dvh] overflow-y-auto overscroll-contain rounded-lg border" data-testid="class-cards">
+        <div ref={scroller} className="relative h-[60dvh] overflow-y-auto overscroll-contain rounded-lg border" data-testid="class-cards">
           <ul style={{ height: virt.getTotalSize(), position: "relative" }} aria-label={t("studio.step.classes")}>
             {vItems.map((v) => {
               const r = shown[v.index];
@@ -476,7 +490,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           </ul>
         </div>
       ) : (
-        <div ref={scroller} className="max-h-[62dvh] overflow-auto overscroll-contain rounded-lg border" data-testid="class-table">
+        <div ref={scroller} className="relative max-h-[62dvh] overflow-auto overscroll-contain rounded-lg border" data-testid="class-table">
           <table role="grid" aria-rowcount={shown.length} className="w-full min-w-[1100px] border-separate border-spacing-0 text-sm" style={{ tableLayout: "fixed" }}>
             <colgroup>
               {table.getAllLeafColumns().map((c) => (
@@ -581,6 +595,14 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
         </motion.div>
       ) : null}
 
+      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm" data-testid="filters-sheet">
+          <SheetHeader>
+            <SheetTitle>{t("common.filter")}</SheetTitle>
+          </SheetHeader>
+          <div className="grid gap-3 px-4 pb-4 [&>span]:w-full">{filterControls}</div>
+        </SheetContent>
+      </Sheet>
       <Sheet open={changesOpen} onOpenChange={setChangesOpen}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl" data-testid="changes-sheet">
           <SheetHeader>

@@ -245,9 +245,10 @@ export function createStudioHandlers(host: () => StudioHost) {
     const hit = list.filter((e) => ids.has(e.id) || progs.includes(e.program) || cohorts.includes(`PROG:${e.program}:Y${e.year ?? 0}`) || instr.includes(e.instructor) || match.some((m) => e.label.toLocaleLowerCase("tr-TR").includes(m) || e.program.toLocaleLowerCase("tr-TR").includes(m)));
     return { ids: new Set(hit.map((e) => e.id)), targeted };
   }
+  /** like the backend: only classes the solver sees (included, needs a room, has a day/time) */
   function affected(c: { kind: string; params: Rec }, d: MockDraft): number {
-    const excluded = new Set(d.excluded_event_ids);
-    return [...select(c.kind, c.params, d).ids].filter((i) => !excluded.has(i)).length;
+    const solvable = new Set(rows(d).filter((r) => r.included && r.schedulable).map((r) => r.id));
+    return [...select(c.kind, c.params, d).ids].filter((i) => solvable.has(i)).length;
   }
 
   function editMeeting(m: MeetingRequest, patch: Rec): { changed: string[]; warnings: string[]; errors: string[] } {

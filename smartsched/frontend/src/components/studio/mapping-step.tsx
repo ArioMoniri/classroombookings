@@ -115,7 +115,7 @@ export function MappingStep({
       {cols ? (
         <>
           <p className="text-xs text-muted-foreground">{t("studio.mapping.found", { n: cols.row_count, sheet: cols.sheet ?? "—" })}</p>
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted-foreground">

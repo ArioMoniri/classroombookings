@@ -130,15 +130,15 @@ export function UploadReview({
           </Button>
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm" aria-label={t("studio.review.title")}>
+      <div className="relative overflow-x-auto">
+        <table className="w-full min-w-[520px] text-sm" aria-label={t("studio.review.title")}>
           <thead>
             <tr className="text-left text-xs text-muted-foreground">
               <th className="w-8 py-1.5" scope="col">
                 <span className="sr-only">{t("studio.classes.select")}</span>
               </th>
               <th className="py-1.5 pr-2 font-medium" scope="col">{t("studio.review.col.from")}</th>
-              <th className="py-1.5 pr-2 font-medium" scope="col">{t("studio.review.col.text")}</th>
+              <th className="hidden py-1.5 pr-2 font-medium 2xl:table-cell" scope="col">{t("studio.review.col.text")}</th>
               <th className="py-1.5 pr-2 font-medium" scope="col">{t("studio.review.col.rule")}</th>
               <th className="hidden py-1.5 pr-2 font-medium lg:table-cell" scope="col">{t("studio.review.col.confidence")}</th>
               <th className="py-1.5 font-medium" scope="col">{t("common.actions")}</th>
@@ -178,12 +178,15 @@ export function UploadReview({
                       return n;
                     })} aria-label={t("studio.review.selectRow", { row: String(ref?.row ?? ref?.line ?? ref?.page ?? "") })} />
                   </td>
-                  <td className="py-2 pr-2">
-                    <button type="button" className="text-left text-xs text-primary underline-offset-2 hover:underline" onClick={() => setSource(it)} data-testid="review-from">
+                  <td className="max-w-40 py-2 pr-2">
+                    <button type="button" className="text-left text-xs break-words text-primary underline-offset-2 hover:underline" onClick={() => setSource(it)} data-testid="review-from">
                       {provenanceText(ref, t) ?? it.file}
                     </button>
+                    <q lang="tr" className="mt-1 line-clamp-2 text-xs break-words text-muted-foreground 2xl:hidden">
+                      {quoteOf(it)}
+                    </q>
                   </td>
-                  <td className="max-w-56 py-2 pr-2 text-xs">
+                  <td className="hidden max-w-56 py-2 pr-2 text-xs 2xl:table-cell">
                     <q lang="tr" className="line-clamp-3 text-muted-foreground">{quoteOf(it)}</q>
                   </td>
                   <td className="py-2 pr-2">
