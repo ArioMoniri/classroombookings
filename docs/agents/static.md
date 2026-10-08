@@ -25,7 +25,7 @@
 - Instance `i-0c04b735e03446110` (t4g.large, us-east-1), EIP `98.86.98.164`, panel `https://98-86-98-164.sslip.io`.
 - Admin `umutk@getvivax.com`; password in SSM `/smartsched/admin_password` (read with AWS CloudShell).
 - Budget `smartsched-monthly-100usd` with stop action at 100 %; idle-stop alarm (CPU < 5 % for 60 min).
-- Control by pushing `infra/aws/POD_ACTION` with `up|status|stop|start|cost|down destroy` (OIDC role, no keys).
+- Control by pushing `infra/aws/POD_ACTION` with `up|status|logs|stop|start|cost|down destroy` (OIDC role, no keys). `logs` prints the boot-script lines from the EC2 console with credentials redacted.
 - Pod CI polls both branches every 2 min, runs the gates in Docker, posts commit statuses, serves `/ci/`, redeploys the deploy branch.
 
 ## User decisions to respect (see docs/ROADMAP.md "User decisions" and docs/product/booking-enhancements.md)
