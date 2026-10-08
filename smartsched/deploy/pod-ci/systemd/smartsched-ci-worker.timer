@@ -1,0 +1,10 @@
+[Unit]
+Description=SmartSched pod CI: worker safety net (picks up runs queued while the worker was finishing)
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=5min
+Unit=smartsched-ci-worker.service
+
+[Install]
+WantedBy=timers.target

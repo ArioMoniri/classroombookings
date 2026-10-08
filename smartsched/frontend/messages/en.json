@@ -1513,7 +1513,8 @@
       "weekHint": "Click a week to plan only that week; hold ⌘, Ctrl or ⇧ to add more weeks.",
       "oneWeek": "week {w}",
       "placeOneWeek": "SmartSched will place {n} classes into {rooms} rooms for week {w}.",
-      "placeTerm": "SmartSched will place {n} classes into {rooms} rooms for the selected period."
+      "placeTerm": "SmartSched will place {n} classes into {rooms} rooms for the selected period.",
+      "lastPartial": "some classes were left without a room"
     },
     "import": {
       "steps": "Steps",

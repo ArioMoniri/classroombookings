@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { springs, useReduce } from "@/lib/motion";
 import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +40,7 @@ export function Segmented<T extends string>({
   className?: string;
   testId?: string;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReduce();
   const group = useId();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter((i) => i >= 0);
@@ -64,7 +65,7 @@ export function Segmented<T extends string>({
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
       data-testid={testId}
-      className={cn("relative inline-flex max-w-full flex-wrap items-stretch rounded-lg border bg-fill-3 p-0.5", className)}
+      className={cn("relative inline-flex max-w-full flex-wrap items-stretch gap-0.5 rounded-full bg-fill-2 p-[3px] shadow-[inset_0_0_0_1px_var(--hairline)]", className)}
     >
       {options.map((o, i) => {
         const on = o.value === value;
@@ -84,17 +85,18 @@ export function Segmented<T extends string>({
             onKeyDown={(e) => onKey(e, i)}
             onClick={() => onChange(o.value)}
             className={cn(
-              "relative z-0 min-w-0 flex-auto rounded-md px-2.5 text-center leading-tight outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:min-h-11",
+              "relative z-0 min-w-0 flex-auto rounded-full px-3 text-center leading-tight outline-none transition-colors duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-(--focus) disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:min-h-11",
               size === "sm" ? "min-h-7 py-1 text-xs" : "min-h-8 py-1.5 text-sm",
-              on ? "font-medium text-primary-foreground" : "text-label-2 hover:text-foreground",
+              on ? "font-medium text-label-1" : "text-label-2 hover:text-label-1",
             )}
           >
             {on ? (
               <motion.span
                 layoutId={reduce ? undefined : `seg-${group}`}
                 aria-hidden
-                className="absolute inset-0 -z-10 rounded-md bg-primary"
-                transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 520, damping: 40 }}
+                className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-(--mat-thick) shadow-[inset_0_1px_0_0_var(--specular),0_0_0_1px_var(--hairline),0_1px_3px_0_rgba(0,0,0,0.1)]"
+                style={{ borderRadius: 999 }}
+                transition={reduce ? { duration: 0 } : springs.glassMorph}
               />
             ) : null}
             {o.label}

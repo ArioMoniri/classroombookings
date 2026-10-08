@@ -1,0 +1,185 @@
+# SmartSched AWS pod: up / status / stop / start / down / cost via infra/aws/smartsched_aws.py.
+#
+# The ONLY GitHub Actions workflow that runs automatically, and only when infra/aws/POD_ACTION changes
+# (workflow_dispatch needs the default branch, which we do not push to). All CI runs ON the pod
+# (smartsched/deploy/pod-ci); this job only calls AWS APIs: no builds, no tests, <= 10 minutes.
+#
+# Trigger: commit + push a change to infra/aws/POD_ACTION whose first line is
+#     up | status | stop | start | cost | down destroy        (optional: region=<aws-region>)
+# e.g. `echo "up $(date -u +%FT%TZ)" > infra/aws/POD_ACTION` (the timestamp makes every push a change).
+# `down` deletes the pod and its data; it needs the second word `destroy`.
+#
+# Credentials (preferred first):
+#   1. secret AWS_ROLE_ARN -> GitHub OIDC role (role-to-assume, id-token: write); no keys stored.
+#      Created by aws-oidc-bootstrap.yml; see docs/deploy/AWS-OIDC.md and docs/deploy/AWS.md.
+#   2. otherwise access keys from secrets (names configurable on manual dispatch):
+#      AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN (temporary STS keys).
+# The job fails fast with a clear message when the credentials are expired (sts get-caller-identity).
+# It never prints secret values: only the panel URL and SSM parameter NAMES.
+name: aws-bootstrap
+
+on:
+  push:
+    paths:
+      - "infra/aws/POD_ACTION"
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "up | status | stop | start | cost | down"
+        type: choice
+        options: [status, up, stop, start, cost, down]
+        default: status
+      confirm_down:
+        description: "type destroy to allow `down`"
+        type: string
+        default: ""
+      region:
+        description: "AWS region ('' = AWS_REGION/AWS_DEFAULT_REGION secret, else us-east-1; 'auto' = cheaper of eu-central-1/eu-south-1)"
+        type: string
+        default: ""
+      access_key_secret:
+        description: "name of the secret holding the access key id (fallback when AWS_ROLE_ARN is unset)"
+        type: string
+        default: AWS_ACCESS_KEY_ID
+      secret_key_secret:
+        description: "name of the secret holding the secret access key"
+        type: string
+        default: AWS_SECRET_ACCESS_KEY
+      session_token_secret:
+        description: "name of the secret holding the session token (optional)"
+        type: string
+        default: AWS_SESSION_TOKEN
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: aws-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  pod:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      REGION_SECRET: ${{ secrets.AWS_REGION || secrets.AWS_DEFAULT_REGION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: infra/aws
+          persist-credentials: false
+
+      - name: Resolve command
+        id: cmd
+        env:
+          DISPATCH_COMMAND: ${{ inputs.command }}
+          DISPATCH_CONFIRM: ${{ inputs.confirm_down }}
+          DISPATCH_REGION: ${{ inputs.region }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            cmd="$DISPATCH_COMMAND"; confirm="$DISPATCH_CONFIRM"; region="$DISPATCH_REGION"
+          else
+            line="$(head -n1 infra/aws/POD_ACTION 2>/dev/null || true)"
+            read -r cmd confirm _ <<< "$line" || true
+            region="$(grep -oE 'region=[a-z0-9-]+' <<< "$line" | cut -d= -f2 || true)"
+          fi
+          case "$cmd" in
+            up|status|stop|start|cost) ;;
+            down)
+              if [ "$confirm" != "destroy" ]; then
+                echo "::error::'down' deletes the pod and its data; write 'down destroy' into infra/aws/POD_ACTION"
+                exit 1
+              fi ;;
+            *) echo "::error::unknown command '$cmd' (up|status|stop|start|cost|down destroy)"; exit 1 ;;
+          esac
+          region="${region:-${REGION_SECRET:-us-east-1}}"
+          if ! [[ "$region" =~ ^[a-z0-9-]+$ ]]; then echo "::error::invalid region '$region'"; exit 1; fi
+          echo "command=$cmd" >> "$GITHUB_OUTPUT"
+          echo "region=$region" >> "$GITHUB_OUTPUT"
+          # the AWS SDK needs a concrete region; `auto` is resolved by the script
+          if [ "$region" = "auto" ]; then echo "aws_region=us-east-1" >> "$GITHUB_OUTPUT"; else echo "aws_region=$region" >> "$GITHUB_OUTPUT"; fi
+          echo "pod action: $cmd (region $region)"
+
+      - name: AWS credentials (OIDC role)
+        if: env.ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          role-session-name: smartsched-pod-${{ steps.cmd.outputs.command }}
+          aws-region: ${{ steps.cmd.outputs.aws_region }}
+          role-duration-seconds: 3600
+
+      - name: AWS credentials (access keys)
+        if: env.ROLE_ARN == ''
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets[inputs.access_key_secret || 'AWS_ACCESS_KEY_ID'] }}
+          aws-secret-access-key: ${{ secrets[inputs.secret_key_secret || 'AWS_SECRET_ACCESS_KEY'] }}
+          aws-session-token: ${{ secrets[inputs.session_token_secret || 'AWS_SESSION_TOKEN'] }}
+          aws-region: ${{ steps.cmd.outputs.aws_region }}
+
+      - name: Install boto3 (pinned)
+        run: |
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install --quiet --disable-pip-version-check "$(grep -E '^boto3==' infra/aws/requirements.txt)" "$(grep -E '^botocore==' infra/aws/requirements.txt)"
+
+      - name: Preflight (fails fast on expired or invalid credentials)
+        env:
+          AWS_REGION_NAME: ${{ steps.cmd.outputs.aws_region }}
+        run: /tmp/venv/bin/python infra/aws/smartsched_aws.py preflight --region "$AWS_REGION_NAME" > /dev/null
+
+      - name: Store POD_GITHUB_TOKEN in SSM (/smartsched/github_token, SecureString)
+        if: steps.cmd.outputs.command == 'up'
+        env:
+          POD_GITHUB_TOKEN: ${{ secrets.POD_GITHUB_TOKEN }}
+          POD_REGION: ${{ steps.cmd.outputs.region }}
+        run: |
+          if [ "$POD_REGION" = "auto" ]; then
+            echo "::error::region=auto: pick the region explicitly for 'up' so the token lands next to the pod"; exit 1
+          fi
+          /tmp/venv/bin/python infra/aws/smartsched_aws.py put-github-token --from-env POD_GITHUB_TOKEN \
+            --region "$POD_REGION" > /dev/null
+          if [ -z "$POD_GITHUB_TOKEN" ]; then echo "::warning::POD_GITHUB_TOKEN is not set; the pod waits for /smartsched/github_token"; fi
+
+      - name: smartsched_aws.py ${{ steps.cmd.outputs.command }}
+        env:
+          POD_COMMAND: ${{ steps.cmd.outputs.command }}
+          POD_REGION: ${{ steps.cmd.outputs.region }}
+        run: |
+          set -euo pipefail
+          extra=()
+          if [ "$POD_COMMAND" = "down" ]; then extra+=(--yes); fi
+          /tmp/venv/bin/python infra/aws/smartsched_aws.py "$POD_COMMAND" \
+            --region "$POD_REGION" --output-json /tmp/result.json "${extra[@]}" > /dev/null
+          cat /tmp/result.json
+
+      - name: Summary (panel URL + SSM parameter names, never values)
+        if: always()
+        env:
+          POD_COMMAND: ${{ steps.cmd.outputs.command }}
+        run: |
+          [ -f /tmp/result.json ] || exit 0
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          r = json.load(open("/tmp/result.json"))
+          print(f"## SmartSched pod: {os.environ['POD_COMMAND']}\n")
+          for key in ("panel_url", "region", "instance_id", "public_ip", "admin_email"):
+              if r.get(key):
+                  print(f"- **{key}**: `{r[key]}`")
+          if r.get("read_admin_password"):
+              print(f"- admin password: `{r['read_admin_password']}`")
+          if r.get("panel_url"):
+              print(f"- CI results: {r['panel_url']}/ci/ (admin login, or basic auth from `/smartsched/ci/basic_auth`)")
+          params = r.get("parameters") or {}
+          if params:
+              print("\nSSM parameters (names only):\n")
+              for k, v in params.items():
+                  print(f"- {k}: `{v}`")
+          est = r.get("estimate") or (r.get("estimated_monthly_usd") or {}).get("if_running_24x7")
+          if est:
+              print(f"\nEstimated monthly cost if running 24/7: **${est['total']}**")
+          print("\n<details><summary>full result</summary>\n\n```json\n" + json.dumps(r, indent=2) + "\n```\n</details>")
+          PY

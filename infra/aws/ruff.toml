@@ -8,4 +8,4 @@ select = ["E", "F", "W", "I", "B", "UP", "RUF", "DTZ", "BLE", "S", "SIM"]
 ignore = ["S603", "S607"]
 
 [lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106", "S108"]
+"tests/**" = ["S101", "S105", "S106", "S108", "S310"]

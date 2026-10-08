@@ -95,14 +95,25 @@ async def _new_job(db: DB, kind: str, filename: str | None, term_code: str | Non
 
 @router.post("/planning-list", response_model=ImportJobOut, status_code=202)
 async def import_planning(
-    db: DB, _: Planner, file: UploadFile = File(...), term_code: str = Form(...), week_count: int = Form(14)
+    db: DB,
+    _: Planner,
+    file: UploadFile = File(...),
+    term_code: str = Form(...),
+    week_count: int = Form(14),
+    on_conflict: str = Form("keep", pattern="^(keep|take)$"),
 ) -> ImportJob:
+    """Re-imports keep planner edits of fields the file also changed (``on_conflict=keep``, reported in
+    ``summary.extra.conflicts``) or apply the file (``take``)."""
     from app.importers.planning_list import import_planning_list
 
     job = await _new_job(db, "planning-list", file.filename, term_code)
     path = await _save_upload(db, job, file)
     return await _start_job(
-        db, job, lambda s: import_planning_list(s, path, term_code, filename=file.filename, week_count=week_count)
+        db,
+        job,
+        lambda s: import_planning_list(
+            s, path, term_code, filename=file.filename, week_count=week_count, on_conflict=on_conflict
+        ),
     )
 
 

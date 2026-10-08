@@ -111,6 +111,27 @@ async def terms_for_date(session: AsyncSession, d: date) -> list[TermInfo]:
     return out
 
 
+async def current_term_ids(session: AsyncSession, today: date) -> set[int]:
+    """The current session. CRBS (``Sessions_model::auto_set_current``): the session whose dates contain
+    today, computed, never typed in; when sessions overlap here (Bahar and its Final) the latest-starting one,
+    like ``app.services.terms.current_term``. ``bookings.manual_current_term`` keeps the old manual flag
+    (``terms.is_active``) instead (audit B3 / deliberate difference i)."""
+    from app.services.bookings_settings import get_value
+
+    terms = list((await session.execute(select(Term).order_by(Term.id))).scalars())
+    if await get_value(session, "bookings", "manual_current_term"):
+        return {t.id for t in terms if t.is_active}
+    containing: list[TermInfo] = []
+    for t in terms:
+        info = await term_info(session, t)
+        if info is not None and info.start <= today <= info.end:
+            containing.append(info)
+    if not containing:
+        return set()
+    best = max(containing, key=lambda i: (i.start, i.term.id))
+    return {best.term.id}
+
+
 async def resolve_term(session: AsyncSession, d: date, term_id: int | None, *, view_all: bool) -> TermInfo:
     if term_id is not None:
         term = await session.get(Term, term_id)

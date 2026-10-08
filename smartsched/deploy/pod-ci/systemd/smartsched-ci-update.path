@@ -1,0 +1,9 @@
+[Unit]
+Description=SmartSched pod CI: self-update after a successful deploy
+
+[Path]
+PathChanged=/var/lib/smartsched-ci/update-request
+Unit=smartsched-ci-update.service
+
+[Install]
+WantedBy=paths.target

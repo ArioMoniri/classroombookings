@@ -150,7 +150,13 @@ export const BookingContext = z.object({
   ),
   current_term_id: z.number().nullish(),
   room_groups: z.array(z.object({ id: z.number(), name: z.string(), description: z.string().nullish() })),
-  display: z.object({ type: z.enum(["day", "room"]), columns: z.enum(["periods", "rooms", "days"]), use_room_groups: z.boolean() }),
+  display: z.object({
+    type: z.enum(["day", "room"]),
+    columns: z.enum(["periods", "rooms", "days"]),
+    use_room_groups: z.boolean(),
+    /** CRBS `grid_highlight`: crosshair highlight of the row and column under the pointer (backend B-item) */
+    grid_highlight: z.boolean().optional(),
+  }),
   date_patterns: z.object({ pattern_long: z.string().nullish(), pattern_weekday: z.string().nullish(), pattern_time: z.string().nullish() }),
   permissions: z.array(z.string()),
   limits: Limits,
@@ -679,6 +685,7 @@ export const OrgSettings = z.object({
   max_active_bookings: z.number().nullish(),
   /** CRBS hides rooms without a room group from the grid; true shows them in an ungrouped tab */
   show_ungrouped_rooms: z.boolean().default(false),
+  grid_highlight: z.boolean().optional(),
 });
 export type OrgSettings = z.infer<typeof OrgSettings>;
 export type OrgSettingsIn = Partial<Omit<OrgSettings, "logo_url">> & { max_active_bookings_unlimited?: boolean };
@@ -716,7 +723,8 @@ export const SmtpSettings = z.object({
   port: z.number().nullish(),
   security: z.enum(["starttls", "ssl", "none"]).nullish(),
   username: z.string().nullish(),
-  password: z.string().nullish(),
+  /** write-only: the backend answers `{set, masked}`; send a string to change it, "" to clear */
+  password: z.union([z.string(), z.object({ set: z.boolean(), masked: z.string().nullish() })]).nullish(),
   from_address: z.string().nullish(),
   from_name: z.string().nullish(),
   timeout_s: z.number().nullish(),
@@ -894,10 +902,28 @@ export const crbs = {
   },
   auth: {
     me: () => json("/auth/me", Me),
+    profile: () => json("/auth/profile", Profile),
+    putProfile: (body: Partial<Omit<Profile, "id" | "username" | "role" | "role_name" | "department_id">>) => send("PUT", "/auth/profile", body, Profile),
+    changePassword: (current: string | null, next: string) => send("POST", "/auth/change-password", { current_password: current, new_password: next }),
     requestReset: (email: string) => send("POST", "/auth/password-reset/request", { email }),
     confirmReset: (token: string, password: string) => send("POST", "/auth/password-reset/confirm", { token, password }, z.object({ ok: z.boolean() })),
   },
 };
+
+export const Profile = z.object({
+  id: z.number(),
+  email: z.string().nullish(),
+  username: z.string().nullish(),
+  firstname: z.string().nullish(),
+  lastname: z.string().nullish(),
+  displayname: z.string().nullish(),
+  ext: z.string().nullish(),
+  language: z.string().nullish(),
+  department_id: z.number().nullish(),
+  role: z.string(),
+  role_name: z.string().nullish(),
+});
+export type Profile = z.infer<typeof Profile>;
 
 export const Me = z.object({
   id: z.number(),
@@ -959,6 +985,7 @@ export const crbsKeys = {
   smtp: ["crbs", "smtp"] as const,
   translations: (lang?: string) => ["crbs", "translations", lang ?? null] as const,
   changelog: ["crbs", "changelog"] as const,
+  profile: ["crbs", "profile"] as const,
 };
 
 export const useCrbsMe = () => useQuery({ queryKey: crbsKeys.me, queryFn: crbs.auth.me, staleTime: 60_000, retry: false });
@@ -1003,6 +1030,7 @@ export const useOrgSettings = (enabled = true) => useQuery({ queryKey: crbsKeys.
 export const useLdapSettings = () => useQuery({ queryKey: crbsKeys.ldap, queryFn: crbs.org.ldap, retry: false });
 export const useSmtpSettings = () => useQuery({ queryKey: crbsKeys.smtp, queryFn: crbs.org.smtp, retry: false });
 export const useTranslations = (lang?: string) => useQuery({ queryKey: crbsKeys.translations(lang), queryFn: () => crbs.org.translations(lang), retry: false });
+export const useProfile = () => useQuery({ queryKey: crbsKeys.profile, queryFn: crbs.auth.profile, retry: false });
 export const useChangelog = () => useQuery({ queryKey: crbsKeys.changelog, queryFn: crbs.org.changelog, retry: false });
 
 /**

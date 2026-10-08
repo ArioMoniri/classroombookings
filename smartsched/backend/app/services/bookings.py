@@ -31,6 +31,7 @@ from app.models import (
     MultiBooking,
     MultiBookingSlot,
     Program,
+    RoomGroup,
     ScheduleRun,
     Term,
     User,
@@ -45,12 +46,12 @@ from app.services.bookings_calendar import (
     DateInfo,
     TermInfo,
     applied_schedule,
+    current_term_ids,
     date_infos,
     period_for,
     recurring_dates,
     resolve_term,
     term_info,
-    terms_for_date,
 )
 from app.services.bookings_perms import Access, effective_limits
 from app.services.bookings_settings import get_value
@@ -390,12 +391,15 @@ async def active_booking_count(session: AsyncSession, user_id: int) -> int:
     return sum(1 for b, p in rows if b.date > now.date() or p.time_start > now.time())
 
 
-async def check_window(session: AsyncSession, access: Access, info: TermInfo, d: date) -> None:
+async def check_window(
+    session: AsyncSession, access: Access, info: TermInfo, d: date, room: Room | None = None
+) -> None:
     """Single bookings: ``range_min`` / ``range_max`` days from today (``SingleAgent::check_constraints``);
-    users who can only make single bookings also cannot book the past (``Slot::check_free_constraints``)."""
+    users who can only make single bookings also cannot book the past (``Slot::check_free_constraints``).
+    "Only single" is decided for the room (role ∪ room ACL), exactly as the grid does (audit B5)."""
     limits = await effective_limits(session, access.user)
     lo, hi = limits["range_min"], limits["range_max"]
-    single_only = not access.can("book_recur.create")
+    single_only = not access.can("book_recur.create", room)
     if lo is None and hi is None and not single_only:
         return
     t = await today(session)
@@ -462,24 +466,37 @@ async def visible_room(session: AsyncSession, access: Access, room_id: int) -> R
 
 
 async def _who_and_department(
-    session: AsyncSession, access: Access, room: Room, kind: str, body: SingleIn
+    session: AsyncSession, access: Access, room: Room, kind: str, body: SingleIn, *, multi_recurring: bool = False
 ) -> tuple[int | None, int | None]:
+    """Who the booking is for and its department. Without ``set_user`` / ``set_department`` the choice is
+    refused with 403; ``bookings.ignore_unauthorised_user_department`` restores CRBS, which silently books
+    for the user and their own department (deliberate difference c). CRBS's multi-booking recurring step
+    asks ``book_recur.create`` for the department (``MultiAgent::process_recurring_defaults``) unless
+    ``bookings.recurring_department_needs_set_department`` is on (deliberate difference b)."""
+    ignore = bool(await get_value(session, "bookings", "ignore_unauthorised_user_department"))
     user_id: int | None = access.user_id
     if body.user_given and body.user_id != access.user_id:
         if not access.can(f"{kind}.set_user", room):
-            raise _forbid("set_user", "you may not book for another user")
-        if body.user_id is not None:
-            target = await session.get(User, body.user_id)
-            if target is None or not target.is_active:
-                raise BookingError(422, "user", f"user {body.user_id} not found")
-        user_id = body.user_id
+            if not ignore:
+                raise _forbid("set_user", "you may not book for another user")
+        else:
+            if body.user_id is not None:
+                target = await session.get(User, body.user_id)
+                if target is None or not target.is_active:
+                    raise BookingError(422, "user", f"user {body.user_id} not found")
+            user_id = body.user_id
     dep_id = access.user.department_id
     if body.department_given and body.department_id != dep_id:
-        if not access.can(f"{kind}.set_department", room):
-            raise _forbid("set_department", "you may not set the department of a booking")
-        if body.department_id is not None and await session.get(Program, body.department_id) is None:
-            raise BookingError(422, "department", f"department {body.department_id} not found")
-        dep_id = body.department_id
+        dept_perm = f"{kind}.set_department"
+        if multi_recurring and not await get_value(session, "bookings", "recurring_department_needs_set_department"):
+            dept_perm = "book_recur.create"
+        if not access.can(dept_perm, room):
+            if not ignore:
+                raise _forbid("set_department", "you may not set the department of a booking")
+        else:
+            if body.department_id is not None and await session.get(Program, body.department_id) is None:
+                raise BookingError(422, "department", f"department {body.department_id} not found")
+            dep_id = body.department_id
     return user_id, dep_id
 
 
@@ -536,8 +553,11 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
     except CalendarError as exc:
         raise _conflict("calendar", str(exc)) from exc
     user_id, dep_id = await _who_and_department(session, access, room, "book_single", body)
-    await check_window(session, access, info, body.date)
-    left = await remaining_bookings(session, access)
+    await check_window(session, access, info, body.date, room)
+    # CRBS checks the limit in the grid (Slot) and in multi-booking, not in SingleAgent (deliberate
+    # difference a); bookings.enforce_max_active_on_create refuses the POST too
+    enforce = bool(await get_value(session, "bookings", "enforce_max_active_on_create"))
+    left = await remaining_bookings(session, access) if enforce else None
     if left is not None and left < 1:
         limits = await effective_limits(session, access.user)
         raise _conflict(
@@ -589,6 +609,8 @@ class RecurIn:
     user_given: bool = False
     department_given: bool = False
     instances: dict[Day, dict[str, Any]] | None = None
+    #: created from a multi-booking selection (CRBS MultiAgent rules for the department)
+    multi: bool = False
 
 
 @dataclass
@@ -602,9 +624,12 @@ class RecurPlan:
     max_instances: int | None = None
 
 
-def _actions_for(access: Access, held: Held, existing: Booking | None, room: Room) -> list[str]:
-    """``BaseAgent::get_actions``: owners may replace their own booking; others need cancel_other."""
-    if held.kind != "booking" or existing is None:
+def _actions_for(access: Access, holders: list[Held], existing: Booking | None, room: Room) -> list[str]:
+    """``BaseAgent::get_actions``: owners may replace their own booking; others need cancel_other. "Replace"
+    is offered only when that booking is the only thing holding the slot: if the published timetable, a
+    block or a second booking holds it too, the new instance could not be booked after the cancellation
+    (audit B1), so only "do not book" remains."""
+    if existing is None or len(holders) != 1 or holders[0].kind != "booking":
         return ["do_not_book"]
     if is_owner(access, existing):
         return ["replace", "do_not_book"]
@@ -640,14 +665,12 @@ async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -
     else:
         bocc, tocc = {}, {}
     for di in chosen:
-        held = next(
-            (
-                h
-                for h in [*bocc.get((room.id, di.date), []), *tocc.get((room.id, di.date), [])]
-                if h.overlaps(period.start_period, period.end_period)
-            ),
-            None,
-        )
+        holders = [
+            h
+            for h in [*bocc.get((room.id, di.date), []), *tocc.get((room.id, di.date), [])]
+            if h.overlaps(period.start_period, period.end_period)
+        ]
+        held = holders[0] if holders else None
         item: dict[str, Any] = {"date": di.date.isoformat(), "term_week": di.term_week, "status": "free"}
         if held is None:
             item["actions"] = ["book", "do_not_book"]
@@ -656,9 +679,11 @@ async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -
             existing = await session.get(Booking, held.ref_id) if held.kind == "booking" else None
             item["status"] = "booked" if held.kind == "booking" else held.kind
             item["held"] = held.as_dict()
+            if len(holders) > 1:
+                item["also_held"] = [h.as_dict() for h in holders[1:]]
             if existing is not None:
                 item["booking"] = await booking_out(session, access, existing)
-            item["actions"] = _actions_for(access, held, existing, room)
+            item["actions"] = _actions_for(access, holders, existing, room)
         plan.instances.append(item)
     plan.max_instances = (await effective_limits(session, access.user))["recur_max_instances"]
     return plan
@@ -698,6 +723,7 @@ async def create_recurring(
             user_given=body.user_given,
             department_given=body.department_given,
         ),
+        multi_recurring=body.multi,
     )
     series = BookingSeries(
         term_id=plan.info.term.id,
@@ -717,6 +743,8 @@ async def create_recurring(
     skipped: list[dict[str, Any]] = []
     replaced: list[int] = []
     booked = 0
+    # CRBS counts only "book" instances against recur_max_instances (deliberate difference f)
+    count_replacements = bool(await get_value(session, "bookings", "recur_max_counts_replacements"))
     for item in plan.instances:
         d = date.fromisoformat(item["date"])
         wanted = (body.instances or {}).get(d, {})
@@ -728,13 +756,22 @@ async def create_recurring(
         if action == "do_not_book":
             skipped.append({"date": item["date"], "reason": "not selected", "status": item["status"]})
             continue
-        if plan.max_instances is not None and booked >= plan.max_instances:
+        counts = action == "book" or count_replacements
+        if counts and plan.max_instances is not None and booked >= plan.max_instances:
             skipped.append({"date": item["date"], "reason": "recur_max_instances", "status": item["status"]})
             continue
+        old: Booking | None = None
         if action == "replace":
             old = await session.get(Booking, item["held"]["id"])
-            if old is not None and old.status == BOOKED:
-                replaced += await _cancel_rows(session, access, [old], f"replaced by series #{series.id}")
+            if old is not None and old.status != BOOKED:
+                old = None
+            # audit B1: decide before cancelling anything - is the slot free apart from the old booking?
+            other = await find_conflict(
+                session, room.id, d, plan.period.start_period, plan.period.end_period, exclude={old.id} if old else None
+            )
+            if other is not None:
+                skipped.append({"date": item["date"], "reason": "conflict", "status": other.kind})
+                continue
         b = Booking(
             series_id=series.id,
             term_id=plan.info.term.id,
@@ -749,13 +786,32 @@ async def create_recurring(
             status=BOOKED,
             created_by=access.user_id,
         )
-        held = await find_conflict(session, room.id, d, b.start_period, b.end_period)
-        if held is not None:
-            skipped.append({"date": item["date"], "reason": "conflict", "status": held.kind})
+        if old is None:
+            held = await find_conflict(session, room.id, d, b.start_period, b.end_period)
+            if held is not None:
+                skipped.append({"date": item["date"], "reason": "conflict", "status": held.kind})
+                continue
+        # SAVEPOINT: the cancellation and the new instance stand or fall together (a concurrent booking that
+        # wins the unique slot key rolls back this instance only, and the old booking stays booked)
+        savepoint = await session.begin_nested()
+        try:
+            if old is not None:
+                ids = await _cancel_rows(session, access, [old], f"replaced by series #{series.id}")
+            session.add(b)
+            await session.flush()
+            for slot in _slot_rows(b):
+                session.add(slot)
+            await session.flush()
+        except IntegrityError:
+            await savepoint.rollback()
+            skipped.append({"date": item["date"], "reason": "conflict", "status": "booking"})
             continue
-        await _insert(session, b)
+        await savepoint.commit()
+        if old is not None:
+            replaced += ids
         created.append(b)
-        booked += 1
+        if counts:
+            booked += 1
     if not created:
         await session.rollback()
         raise _conflict("none_created", "no instances were booked", skipped=skipped)
@@ -821,6 +877,10 @@ async def cancel(
         q = select(Booking).where(Booking.series_id == b.series_id, Booking.status == BOOKED)
         if scope == "future":
             q = q.where(Booking.date >= b.date)
+        elif not await get_value(session, "bookings", "cancel_all_includes_past"):
+            # "all" = the whole series from today on; past instances stay as history (CRBS cancel_all
+            # cancels every instance: bookings.cancel_all_includes_past)
+            q = q.where(Booking.date >= await today(session))
         rows = list((await session.execute(q)).scalars())
     ids = await _cancel_rows(session, access, rows, reason)
     if scope == "all" and b.series_id:
@@ -878,6 +938,9 @@ async def update(
         raise _forbid("not_editable", "you may not edit this booking")
     if scope != "one" and not b.series_id:
         raise BookingError(422, "scope", "scope future/all needs a recurring booking")
+    for key in ("date", "period_id", "room_id"):
+        if key in data and data[key] is None:  # audit B6
+            raise BookingError(422, key, f"{key} cannot be empty")
     feats = edit_features(access, b, room, scope)
     need = {
         "date": "date",
@@ -920,6 +983,13 @@ async def update(
             period = await period_for(session, info, new_room, data.get("period_id", b.period_id), new_date)
         except CalendarError as exc:
             raise _conflict("calendar", str(exc)) from exc
+        if not access.can(f"{_kind(b)}.edit_other_booking") and "date" in data:
+            # owners (and room-level editors) move a booking within their own booking window only: never into
+            # the past, never beyond range_min / range_max (deliberate security difference)
+            t = await today(session)
+            if new_date < t:
+                raise _conflict("range_min", f"a booking cannot be moved into the past ({new_date:%d.%m.%Y})")
+            await check_window(session, access, info, new_date, new_room)
         held = await find_conflict(
             session, new_room.id, new_date, period.start_period, period.end_period, exclude={b.id}
         )
@@ -1122,6 +1192,7 @@ async def create_from_selection(
             term_id=mb.term_id,
             user_given="user_id" in c,
             department_given="department_id" in c,
+            multi=True,
         )
         if dry_run:
             results.append({"mbs_id": s.id, "preview": plan_out(await plan_recurring(session, access, rbody))})
@@ -1199,14 +1270,12 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
     total_all = (
         await session.execute(select(func.count(Booking.id)).where(Booking.user_id == access.user_id))
     ).scalar_one()
-    current = [ti for ti in await terms_for_date(session, t) if ti.term.is_active]
+    current = sorted(await current_term_ids(session, t))  # computed from the dates like CRBS (audit B3)
     total_session = 0
     if current:
         total_session = (
             await session.execute(
-                select(func.count(Booking.id)).where(
-                    Booking.user_id == access.user_id, Booking.term_id == current[0].term.id
-                )
+                select(func.count(Booking.id)).where(Booking.user_id == access.user_id, Booking.term_id == current[0])
             )
         ).scalar_one()
     return {
@@ -1238,7 +1307,16 @@ async def visible_rooms(session: AsyncSession, access: Access, room_group_id: in
         for r in (await session.execute(q)).scalars()
         if access.can_view_room(r) and not (hide_ungrouped and r.room_group_id is None)
     ]
-    rooms.sort(key=lambda r: (r.room_group_id is None, r.room_group_id or 0, r.pos or 0, r.code))
+    # audit B7: the configured order (room_groups.pos, then rooms.pos), ungrouped rooms last
+    group_pos = {g.id: (g.pos or 0, g.id) for g in (await session.execute(select(RoomGroup))).scalars()}
+    rooms.sort(
+        key=lambda r: (
+            r.room_group_id is None,
+            group_pos.get(r.room_group_id or 0, (0, 0)),
+            r.pos or 0,
+            r.code,
+        )
+    )
     return rooms
 
 

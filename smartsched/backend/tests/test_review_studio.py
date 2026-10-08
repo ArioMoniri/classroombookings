@@ -234,3 +234,44 @@ async def test_m10_constraint_crud_is_validated_and_builtins_protected(bahar):
     assert (await c.put(f"{url}/{builtin.id}", json={"enabled": True}, headers=h)).status_code == 403
     assert (await c.delete(f"{url}/{builtin.id}", headers=h)).status_code == 403
     assert (await c.delete(f"{url}/{builtin.id}", headers=adm)).status_code == 403
+
+
+async def test_minor10_planner_preset_cannot_switch_builtins_off_through_an_admin(bahar):
+    c = bahar.client
+    preset = {"name": "nazik", "rules": [], "disabled_builtin_kinds": ["capacity"]}
+    r = await c.post("/api/v1/presets", json=preset, headers=bahar.planner)
+    assert r.status_code == 201, r.text
+    pid = r.json()["id"]
+    r = await c.post(
+        f"/api/v1/presets/{pid}/apply", json={"term_id": bahar.term_id, "dry_run": False}, headers=bahar.admin
+    )
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["draft"]["disabled_builtin_kinds"] == []
+    assert any(u["kind"] == "builtin" for u in out["unresolved"])
+    # an ADMIN-authored preset keeps working
+    r = await c.post("/api/v1/presets", json={**preset, "name": "admin"}, headers=bahar.admin)
+    pid2 = r.json()["id"]
+    out = (
+        await c.post(
+            f"/api/v1/presets/{pid2}/apply", json={"term_id": bahar.term_id, "dry_run": False}, headers=bahar.admin
+        )
+    ).json()
+    assert out["draft"]["disabled_builtin_kinds"] == ["capacity"]
+
+
+async def test_minor12_sse_listener_queue_is_bounded():
+    from app.workers.queue import LISTENER_QUEUE_MAX, JobQueue, JobState
+
+    q = JobQueue()
+    listener = q.subscribe("run:1")
+    st_ = q.state("run:1")
+    assert isinstance(st_, JobState)
+    for i in range(10_000):
+        st_.progress = i % 100
+        q._emit(st_)
+    assert listener.qsize() == LISTENER_QUEUE_MAX
+    last = None
+    while not listener.empty():
+        last = listener.get_nowait()
+    assert last is not None and last["progress"] == 9_999 % 100  # the newest state survives

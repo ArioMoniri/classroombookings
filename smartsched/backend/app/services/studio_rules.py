@@ -1212,6 +1212,14 @@ async def apply_preset(
         if filters.get("exclude"):
             excluded |= await _filter_ids(session, draft, filters["exclude"])
     builtins = list(p.disabled_builtin_kinds or [])
+    author = await session.get(User, p.created_by) if p.created_by else None
+    if builtins and (author is None or author.role != "ADMIN"):
+        # review MINOR 10: only an ADMIN-authored preset may carry built-in switches; a planner's preset
+        # cannot switch them off through an ADMIN who applies it
+        unresolved.append(
+            {"index": None, "kind": "builtin", "problems": [f"the preset's author may not switch off {builtins}"]}
+        )
+        builtins = []
     if builtins and user.role != "ADMIN":
         unresolved.append({"index": None, "kind": "builtin", "problems": [f"only an ADMIN can switch off {builtins}"]})
         builtins_apply: list[str] | None = None

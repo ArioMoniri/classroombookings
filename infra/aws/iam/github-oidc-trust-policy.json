@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AwsBootstrapWorkflowOnDeployBranchOnly",
+      "Effect": "Allow",
+      "Principal": {"Federated": "arn:aws:iam::235229001983:oidc-provider/token.actions.githubusercontent.com"},
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+          "token.actions.githubusercontent.com:sub": "repo:ArioMoniri/classroombookings:ref:refs/heads/claude/gracious-cerf-w1598m:job_workflow_ref:ArioMoniri/classroombookings/.github/workflows/aws-bootstrap.yml@refs/heads/claude/gracious-cerf-w1598m"
+        }
+      }
+    }
+  ]
+}

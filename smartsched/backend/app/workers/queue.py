@@ -33,6 +33,8 @@ from typing import Any
 log = logging.getLogger(__name__)
 #: identity of this process start (a restarted container gets a new one even with the same PID/hostname)
 BOOT_ID = uuid.uuid4().hex
+#: progress snapshots kept per SSE listener (older ones are dropped: only the latest state matters)
+LISTENER_QUEUE_MAX = 64
 
 ProgressCallback = Callable[[str, int], None]
 JobFn = Callable[[ProgressCallback], Awaitable[dict[str, Any] | None]]
@@ -70,7 +72,7 @@ class JobQueue:
         return self._jobs.get(key)
 
     def subscribe(self, key: str) -> asyncio.Queue[dict[str, Any]]:
-        q: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        q: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=LISTENER_QUEUE_MAX)
         st = self._jobs.setdefault(key, JobState(key))
         st.listeners.append(q)
         q.put_nowait(st.snapshot())
@@ -84,6 +86,12 @@ class JobQueue:
     def _emit(self, st: JobState) -> None:
         snap = st.snapshot()
         for q in list(st.listeners):
+            # a slow SSE client keeps only the newest snapshots (review MINOR 12: 160 003 queued events)
+            while q.full():
+                try:
+                    q.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
             q.put_nowait(snap)
 
     def enqueue(

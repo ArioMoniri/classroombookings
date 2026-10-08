@@ -184,7 +184,11 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
               <Link href={`/runs/${summaryData.last_good_run.id}`} className="text-tint-text underline-offset-2 hover:underline">
                 {t("studio.scope.lastRun", { id: summaryData.last_good_run.id, when: relDays(summaryData.last_good_run.finished_at, locale) })}
               </Link>
-              {summaryData.last_good_run.hard_score === 100 ? <span className="text-label-2"> · {t("studio.scope.allRulesMet")}</span> : null}
+              {summaryData.last_good_run.status === "FEASIBLE_PARTIAL" ? (
+                <span className="text-status-warning-fg"> · {t("glass.studio.lastPartial")}</span>
+              ) : summaryData.last_good_run.hard_score === 100 ? (
+                <span className="text-label-2"> · {t("studio.scope.allRulesMet")}</span>
+              ) : null}
             </p>
           ) : (
             <p className="mt-2 text-sm text-label-2">{t("studio.scope.noRun")}</p>

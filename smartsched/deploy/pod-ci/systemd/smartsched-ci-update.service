@@ -1,0 +1,6 @@
+[Unit]
+Description=SmartSched pod CI: reinstall pod CI from the freshly deployed checkout
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/smartsched/src/smartsched/deploy/pod-ci/install.sh --upgrade

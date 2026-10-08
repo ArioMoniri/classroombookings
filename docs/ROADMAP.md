@@ -154,13 +154,19 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 ### Phase 9 real-data feasibility backlog (solver-engineer, 2026-10-08)
 
-- [ ] Week-granular blocks for TERM runs: a 14-week lecture whose locked room is blocked by the grid in one week (ETKİNLİK, exam) is unplaced for the whole term (Bahar term: 14 `locked_ineligible`); model "all weeks except w" (split the event's weeks around blocked weeks) instead of dropping the room
-- [ ] `api/v1/runs.py` `TERMINAL`, dashboard `GOOD`, studio filters: if a dedicated `FEASIBLE_PARTIAL` status is ever wanted, add it there first (today a best-effort run is `INFEASIBLE` + `stats.partial/placed/unplaced/events_total`, labelled "Partial · placed/total" in the UI)
+- [x] Week-granular blocks for TERM runs (week segments, `app/solver/weeksplit.py`, 2026-10-08): a 14-week lecture whose locked room is blocked by the grid in one week (ETKİNLİK, exam) is unplaced for the whole term (Bahar term: 14 `locked_ineligible`); model "all weeks except w" (split the event's weeks around blocked weeks) instead of dropping the room
+- [x] `FEASIBLE_PARTIAL` status (runs TERMINAL, schemas, dashboard USABLE, studio last_good, frontend runs labels; 2026-10-08). Was: if a dedicated `FEASIBLE_PARTIAL` status is ever wanted, add it there first (today a best-effort run is `INFEASIBLE` + `stats.partial/placed/unplaced/events_total`, labelled "Partial · placed/total" in the UI)
 - [ ] Studio drafts: expose the run modes (`trust_locked_rooms`, `fixed_conflicts_as_warnings`, `best_effort`, `definitive_rooms`) as draft switches; pre-check uses the defaults
 - [ ] Unlocked exam runs (`definitive_rooms=prefer`): the relaxation stops at FEASIBLE within 60 s below the greedy placement (greedy fallback is used); tune (LNS-only phase, hint completion for `seats[e, r]`)
-- [ ] Reproduction rate unlocked is 69–73 % (courses) / 6 % (exams): calibrate `room_preference` vs `min_capacity_waste` weights against the planner's definitive rooms
+- [x] (2026-10-08, see calibration in the feasibility doc) Reproduction rate unlocked was 69–73 % (courses) / 6 % (exams): calibrate `room_preference` vs `min_capacity_waste` weights against the planner's definitive rooms
 - [ ] Period snapping: ends 10 min into a period still claim it (BES 640 19:50 vs BES 560 20:00 both in P15); consider a ≥ ½-period rule with planner sign-off
 - [ ] Planner data fixes surfaced by the report: 7 Bahar / 3 Güz locked room overlaps, 131 Bahar fixed-vs-fixed instructor/cohort clashes (`input_conflict`), Final exams locked to rooms blocked by the Final grid (SYB 256/356/456, ODY 102/108)
+- [ ] Studio frontend (`components/studio/run-cards.tsx` `GOOD`, `copy-dialog.tsx`): treat `FEASIBLE_PARTIAL` as a usable (amber) result; render `diagnosis[].text` (planner TR/EN) instead of `message` (owned by the studio frontend agent)
+- [ ] Timetable frontend: card denominators of exam runs should use `exam_capacity` (backend `grid.enrich_assignments` already does; `components/timetable/*` reads `room.capacity`)
+- [ ] Run report UI: link "Veri sorunları (Excel)" to `GET /runs/{id}/data-issues?format=xlsx`, show the grouped JSON (no frontend client yet)
+- [ ] `app/ai/chat.py` treats only OPTIMAL/FEASIBLE as ok: add FEASIBLE_PARTIAL (owned by the ai-engineer)
+- [ ] Determinism of time-limited, unproven solves with `workers > 1` (canonical stages only run on proven optima); consider `interleave_search` for small instances
+- [ ] Week-1 bottleneck of Bahar (HAZIRLIK etc.): term runs place 577/603 room-needing events in every week, bound 578; report "events missing only week 1" separately in the UI
 
 
 ### Phase 8 Generator Studio frontend backlog (frontend-engineer, 2026-10-08)
@@ -218,3 +224,35 @@ Foundation, in order: typed room features → find a room → notification hub �
 - [ ] CRBS grid display options (`displaytype`, `d_columns`, `grid_highlight`), print views, room info popup, icons, week colours, login logo/message/maintenance banner, changelog indicator, profile language picker.
 - [ ] Legacy CRBS upgrade path: import a running classroombookings MySQL database (users with their passwords, roles, ACLs, constraints, room groups/fields, sessions/weeks/holidays, bookings and series) into SmartSched with a dry-run report — verified against a real CRBS install in the pod's `--profile legacy`.
 - [ ] Side-by-side check on the pod: run the legacy CRBS (`--profile legacy`) and SmartSched on the same data and diff grid states for a sample of dates/rooms/users.
+
+### Review follow-ups (docs/review/2026-10-08-backend-ai-studio-review.md + planner usability test)
+
+Done 2026-10-08 by backend-engineer (review fixes): B1-B3, M1-M13, MINOR 1, 2 (PDF page cap; parsing is off the event
+loop), 3, 4, 5, 6, 7, 8, 10, 12, 13, 14; usability U1-U6 and the default term. Still open:
+
+- [ ] **MINOR 9** — draft readiness and stored pre-check fixes go stale after other edits. The fix map is now only kept
+      for the draft version it was computed on (M1), but readiness is not recomputed in the background.
+- [ ] **MINOR 11** — `/studio/classes` builds the full SolverInput per call (0.86 s); cache the draft input per
+      (draft version, term data version). The pre-check still writes `last_precheck` on every run (it is skipped when
+      the draft changed meanwhile).
+- [ ] **If-Match mandatory on `/precheck/fix`** — the backend enforces it when sent (409 on a stale version); make it
+      required (428) once the frontend sends `version` / `If-Match` (frontend: `studio-endpoints.ts` `precheckFix`).
+- [ ] **Frontend follow-ups** (backend ready): settings pill from `anthropic_api_key.status`
+      (`none|unverified|ok|failed`, never "connected" on save); pre-check fixes show `applied.scope` (draft / term)
+      and offer the confirmed write-through; import screen offers `on_conflict` (keep|take form field of
+      `POST /imports/planning-list`) and shows `extra.conflicts` / `extra.remapped_ids`; run page cancel
+      button (`POST /runs/{id}/cancel`, status `CANCELLED`); exam studio texts use "sınav (talep)" from the summary.
+- [ ] **Per-field conflict review** — `on_conflict` (keep|take) applies to the whole import; add a per-field
+      keep/take review step before committing.
+- [ ] **Exam-list identity** — `exam_requests.source_key` is still a content hash (like the old meeting key); apply
+      the M4 identity (course + programme + date + occurrence) and the edit-preserving diff to exam imports.
+- [ ] **Chat "exclude" edits** stay term-wide (they re-solve a child run of the term data); they now take an
+      imported snapshot (revertable). A child run with draft-scoped exclusions needs a run-level snapshot.
+- [ ] **Login limiter** is per process (in memory); move it to the DB/Redis when the backend runs with several
+      workers behind a load balancer.
+- [ ] **CRBS SQL dumps** are size-capped (413) but still loaded in-process into SQLite; run them in the parse child.
+- [ ] **SVG logos** (`POST /org/logo`) are served from the public `/uploads/rooms` path: sanitise or rasterise SVG.
+- [ ] **Course-code folding** covers the dotted capital İ only (`BİF111` = `BIF111`); decide with the planner whether
+      `ÇEV`/`CEV`-style ASCII spellings are the same department code.
+- [ ] **Cancel across workers** — `CANCELLED` set by another process is picked up on the next heartbeat (15 s); a
+      DB-backed queue (Phase "real job control") would make it immediate and allow priorities.

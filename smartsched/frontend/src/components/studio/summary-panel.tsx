@@ -24,14 +24,15 @@ export function SummaryPanel({ className, showGenerate = true }: { className?: s
   ];
   return (
     <aside aria-label={t("studio.summary.title")} className={cn("space-y-4", className)} data-testid="summary-panel">
-      <h2 className="text-sm font-semibold">{t("studio.summary.title")}</h2>
+      <h2 className="type-headline text-label-1">{t("studio.summary.title")}</h2>
       {active ? <RunCard compact /> : null}
       <p className="text-sm leading-relaxed" aria-live="polite">
         {human}
       </p>
-      <dl className="grid grid-cols-3 gap-2">
+      {/* numbers in one quiet grid, not six bordered tiles (A2) */}
+      <dl className="grid grid-cols-3 gap-x-3 gap-y-2 py-3 hairline-t hairline-b">
         {stats.map((s) => (
-          <div key={s.label} className="rounded-md border bg-card px-2 py-1.5">
+          <div key={s.label} className="min-w-0">
             <dt className="truncate text-[11px] text-label-2" title={s.label}>
               {s.label}
             </dt>
@@ -41,13 +42,13 @@ export function SummaryPanel({ className, showGenerate = true }: { className?: s
           </div>
         ))}
       </dl>
-      <div className="space-y-2 rounded-lg border bg-card p-3">
+      <div className="glass-regular space-y-2 rounded-2xl p-3" data-glass="regular">
         <ReadinessMeter readiness={summary.readiness} compact />
         {summary.topIssues.length ? (
           <ul className="space-y-1 text-xs">
             {summary.topIssues.map((i) => (
               <li key={i.id}>
-                <button type="button" className="text-left text-label-2 hover:text-foreground hover:underline" onClick={() => goStep("check")}>
+                <button type="button" className="text-left text-label-2 hover:text-label-1 hover:underline" onClick={() => goStep("check")}>
                   · {i.title[locale] || i.title.en}
                 </button>
               </li>

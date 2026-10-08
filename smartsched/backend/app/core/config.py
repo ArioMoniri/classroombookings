@@ -47,8 +47,8 @@ class Settings(BaseSettings):
     # job control (review M6/M13)
     run_heartbeat_s: float = 15.0  # liveness beat of QUEUED/RUNNING runs and import jobs
     run_stale_after_s: float = 90.0  # a beat older than this (other boot) = orphaned at startup
-    run_wall_clock_factor: float = 3.0  # a run may take factor * time_limit_s + margin wall-clock seconds
-    run_wall_clock_margin_s: float = 180.0
+    run_wall_clock_factor: float = 5.0  # a run may take factor * time_limit_s + margin wall-clock seconds
+    run_wall_clock_margin_s: float = 300.0  # segmented term solves run several CP-SAT stages
     run_cancel_grace_s: float = 30.0  # wait this long for a stopped search to return
     max_active_runs_per_user: int = 3  # QUEUED + RUNNING runs one user may have (429 above)
     sqlite_busy_timeout_ms: int = 15_000

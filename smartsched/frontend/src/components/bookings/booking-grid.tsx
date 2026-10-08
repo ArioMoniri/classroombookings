@@ -5,12 +5,13 @@
  * Enter or Space activates (book, open, or toggle in multi-select mode).
  */
 import { Ban, CalendarOff, Check, GraduationCap, Plus, Repeat, User } from "lucide-react";
-import { memo, useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { memo, useCallback, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Grid, GridSlot } from "@/lib/api/crbs";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
-import { isSelectable, layoutGrid, moveFocus, slotKey, slotText, slotTone, type AxisItem, type SlotTone } from "./grid-model";
+import { crosshairCss, isSelectable, layoutGrid, moveFocus, slotKey, slotText, slotTone, type AxisItem, type SlotTone } from "./grid-model";
+import { EntityIcon } from "@/components/admin/icons";
 import type { DateFormatter } from "./date-format";
 
 export const TONE_CLASS: Record<SlotTone, string> = {
@@ -57,13 +58,29 @@ interface Props {
   multi: boolean;
   selected: ReadonlySet<string>;
   onActivate: (slot: GridSlot) => void;
+  /** CRBS `grid_highlight`: tint the row and column under the pointer */
+  crosshair?: boolean;
+  /** CRBS `?highlight=<booking id>`: outline that booking's slot */
+  highlightBookingId?: number | null;
+  /** room id → icon name (from /bookings/rooms) */
+  roomIcons?: ReadonlyMap<number, string | null | undefined>;
+  onRoomInfo?: (roomId: number) => void;
 }
 
-export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate }: Props) {
+export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, crosshair, highlightBookingId, roomIcons, onRoomInfo }: Props) {
   const t = useT();
   const layout = useMemo(() => layoutGrid(grid, columns), [grid, columns]);
   const [focus, setFocus] = useState({ r: 0, c: 0 });
+  const [hover, setHover] = useState<{ r: number; c: number } | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
+  const scope = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const onPointerOver = (e: PointerEvent<HTMLTableElement>) => {
+    if (!crosshair) return;
+    const cell = (e.target as HTMLElement).closest<HTMLElement>("[data-cell]")?.dataset.cell;
+    if (!cell) return setHover(null);
+    const [r, c] = cell.split("-").map(Number);
+    if (hover?.r !== r || hover?.c !== c) setHover({ r: r ?? 0, c: c ?? 0 });
+  };
 
   const header = useCallback(
     (item: AxisItem): { title: string; sub: string | null; tone?: string } => {
@@ -114,8 +131,18 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate }:
   const corner = columns === "periods" ? (grid.display === "day" ? t("crbs.grid.room") : t("crbs.grid.day")) : t("crbs.grid.period");
 
   return (
-    <div className="overflow-auto overscroll-x-contain rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)] scrollbar-thin max-h-[calc(100dvh-15rem)]" data-testid="booking-grid">
-      <table ref={tableRef} role="grid" aria-label={t("crbs.grid.label")} aria-rowcount={layout.rows.length + 1} className="w-max min-w-full table-fixed border-separate border-spacing-0 type-caption" onKeyDown={onKeyDown}>
+    <div className="booking-grid-scroll max-h-[calc(100dvh-15rem)] overflow-auto overscroll-x-contain rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)] scrollbar-thin print:max-h-none print:overflow-visible print:shadow-none" data-testid="booking-grid" data-grid-scope={scope}>
+      {crosshair ? <style>{crosshairCss(scope, hover)}</style> : null}
+      <table
+        ref={tableRef}
+        role="grid"
+        aria-label={t("crbs.grid.label")}
+        aria-rowcount={layout.rows.length + 1}
+        className="w-max min-w-full table-fixed border-separate border-spacing-0 type-caption print:w-full"
+        onKeyDown={onKeyDown}
+        onPointerOver={onPointerOver}
+        onPointerLeave={() => setHover(null)}
+      >
         <colgroup>
           <col className="w-[96px]" />
           {layout.cols.map((col) => (
@@ -136,8 +163,7 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate }:
                   scope="col"
                   className={cn("sticky top-0 z-20 bg-(--mat-thick-solid) px-1.5 py-1.5 text-left align-bottom font-semibold text-label-1 shadow-[inset_0_-1px_0_var(--hairline)]", closed && "text-label-3")}
                 >
-                  <span className="block whitespace-nowrap">{h.title}</span>
-                  {h.sub ? <span className="block truncate font-normal text-label-3 tabular-nums">{h.sub}</span> : null}
+                  <HeaderLabel item={col} title={h.title} sub={h.sub} icon={col.room ? roomIcons?.get(col.room.id) : undefined} onRoomInfo={onRoomInfo} />
                 </th>
               );
             })}
@@ -147,15 +173,14 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate }:
           {layout.rows.map((row, r) => {
             const h = header(row);
             return (
-              <tr key={row.key}>
+              <tr key={row.key} data-r={r}>
                 <th scope="row" className="sticky left-0 z-10 bg-(--mat-thick-solid) px-2 py-1 text-left align-middle font-semibold whitespace-nowrap text-label-1 shadow-[inset_-1px_0_0_var(--hairline),inset_0_-1px_0_var(--hairline)]">
-                  <span className="block">{h.title}</span>
-                  {h.sub ? <span className="block font-normal text-label-3 tabular-nums">{h.sub}</span> : null}
+                  <HeaderLabel item={row} title={h.title} sub={h.sub} icon={row.room ? roomIcons?.get(row.room.id) : undefined} onRoomInfo={onRoomInfo} />
                 </th>
                 {layout.cols.map((col, c) => {
                   const slot = layout.slot(row, col);
                   return (
-                    <td key={col.key} className="p-0 shadow-[inset_-1px_-1px_0_var(--hairline)]">
+                    <td key={col.key} data-c={c} className="p-0 shadow-[inset_-1px_-1px_0_var(--hairline)]">
                       <Cell
                         slot={slot}
                         index={`${r}-${c}`}
@@ -163,6 +188,7 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate }:
                         label={cellLabel(row, col, slot)}
                         multi={multi}
                         isSelected={!!slot && selected.has(slotKey(slot))}
+                        highlighted={!!highlightBookingId && slot?.booking?.id === highlightBookingId}
                         booked={t("crbs.slot.booked")}
                         mine={t("crbs.slot.mine")}
                         onFocus={() => setFocus({ r, c })}
@@ -180,6 +206,28 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate }:
   );
 }
 
+function HeaderLabel({ item, title, sub, icon, onRoomInfo }: { item: AxisItem; title: string; sub: string | null; icon?: string | null; onRoomInfo?: (id: number) => void }) {
+  const t = useT();
+  const inner = (
+    <>
+      <span className="flex items-center gap-1 whitespace-nowrap">
+        <EntityIcon name={icon} />
+        {title}
+      </span>
+      {sub ? <span className="block truncate font-normal text-label-3 tabular-nums">{sub}</span> : null}
+    </>
+  );
+  if (item.kind === "room" && item.room && onRoomInfo) {
+    const id = item.room.id;
+    return (
+      <button type="button" onClick={() => onRoomInfo(id)} aria-label={t("crbs.roomInfo.open", { name: title })} className="block w-full rounded-sm text-left outline-none hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid={`room-info-${item.room.code}`}>
+        {inner}
+      </button>
+    );
+  }
+  return inner;
+}
+
 const Cell = memo(function Cell({
   slot,
   index,
@@ -187,6 +235,7 @@ const Cell = memo(function Cell({
   label,
   multi,
   isSelected,
+  highlighted,
   booked,
   mine,
   onFocus,
@@ -198,6 +247,7 @@ const Cell = memo(function Cell({
   label: string;
   multi: boolean;
   isSelected: boolean;
+  highlighted?: boolean;
   booked: string;
   mine: string;
   onFocus: () => void;
@@ -225,7 +275,9 @@ const Cell = memo(function Cell({
         TONE_CLASS[tone],
         isSelected && "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_18%)] text-label-1 shadow-[inset_0_0_0_2px_var(--accent)]",
         multi && !selectable && "cursor-not-allowed",
+        highlighted && "z-10 shadow-[inset_0_0_0_2px_var(--status-warning-solid)]",
       )}
+      data-highlight={highlighted ? "true" : undefined}
     >
       {text.primary ? (
         <span className="flex w-full min-w-0 items-center gap-1 font-medium">

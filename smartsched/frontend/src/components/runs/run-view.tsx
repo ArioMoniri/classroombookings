@@ -220,7 +220,7 @@ export function RunView({ id }: { id: number }) {
                 </TabsTrigger>
                 <TabsTrigger value="chat" className="xl:hidden">{t("runs.chat")}</TabsTrigger>
               </TabsList>
-              <TabsContent value="report" className="space-y-5 pt-4">
+              <TabsContent value="report" keepMounted className="space-y-5 pt-4 data-[hidden]:hidden">
                 {problems === 0 ? (
                   <Card>
                     <CardContent className="flex items-center gap-2 text-[13px] text-status-feasible-fg">

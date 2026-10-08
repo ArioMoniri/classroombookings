@@ -1,0 +1,9 @@
+[Unit]
+Description=SmartSched pod CI: start the worker when the poller queues a run
+
+[Path]
+PathChanged=/var/lib/smartsched-ci/queue-signal
+Unit=smartsched-ci-worker.service
+
+[Install]
+WantedBy=paths.target

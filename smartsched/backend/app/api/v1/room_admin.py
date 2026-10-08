@@ -69,12 +69,13 @@ async def _assign(db: DB, g: RoomGroup, room_ids: list[int]) -> None:
     for r in (await db.execute(select(Room).where(Room.room_group_id == g.id))).scalars():
         if r.id not in room_ids:
             r.room_group_id = None
+            r.room_group = None  # audit B14: no stale free-text group label
     for rid in room_ids:
         member = await db.get(Room, rid)
         if member is None:
             raise HTTPException(422, f"room {rid} not found")
         member.room_group_id = g.id
-        r.room_group = g.name
+        member.room_group = g.name
 
 
 @router.get("/groups", response_model=list[RoomGroupOut])
@@ -148,6 +149,7 @@ async def delete_group(gid: int, db: DB, _: RoomsAdmin) -> None:
     g = await _group(db, gid)
     for r in (await db.execute(select(Room).where(Room.room_group_id == g.id))).scalars():
         r.room_group_id = None
+        r.room_group = None  # audit B14
     await db.execute(delete(RoomAcl).where(RoomAcl.entity_type == "room_group", RoomAcl.entity_id == g.id))
     await db.delete(g)
     await db.commit()
@@ -256,6 +258,8 @@ async def update_room(room_id: int, body: RoomBookingUpdate, db: DB, _: RoomsAdm
     if data.get("room_group_id") is not None:
         g = await _group(db, data["room_group_id"])
         r.room_group = g.name
+    elif "room_group_id" in data:  # audit B14: clearing the group clears the legacy free-text label too
+        r.room_group = None
     if "owner_user_id" in data:
         if data["owner_user_id"] is not None and await db.get(User, data["owner_user_id"]) is None:
             raise HTTPException(422, f"user {data['owner_user_id']} not found")

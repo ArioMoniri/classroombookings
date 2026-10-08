@@ -9,8 +9,8 @@ import subprocess
 from typing import Any
 
 import pytest
+from awsstub import StubAws, price_item
 from botocore.stub import ANY
-from conftest import StubAws, price_item
 
 import smartsched_aws as sa
 

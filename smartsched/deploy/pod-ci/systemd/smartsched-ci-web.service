@@ -1,0 +1,23 @@
+[Unit]
+Description=SmartSched pod CI results page (/ci/ behind the app's nginx)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=smartsched-ci
+Group=smartsched-ci
+SupplementaryGroups=docker
+EnvironmentFile=-/etc/smartsched-ci/ci.env
+Environment=PYTHONPATH=/opt/smartsched-ci PYTHONDONTWRITEBYTECODE=1 PODCI_CONFIG=/etc/smartsched-ci/ci.env
+WorkingDirectory=/opt/smartsched-ci
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+ExecStart=/usr/bin/python3 -m podci web
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

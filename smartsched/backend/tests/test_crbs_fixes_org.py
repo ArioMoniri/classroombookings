@@ -31,6 +31,15 @@ NEW_SETTINGS = {
 }
 
 
+async def _serve(url: str):  # type: ignore[no-untyped-def]
+    """GET a public upload: mounts are fixed when the app is created, so build one on the test upload dir."""
+    from app.main import create_app
+    from httpx import ASGITransport, AsyncClient
+
+    async with AsyncClient(transport=ASGITransport(app=create_app()), base_url="http://test") as c:
+        return await c.get(url)
+
+
 def _png(w: int = 40, h: int = 20, colour: str = "red") -> bytes:
     b = io.BytesIO()
     Image.new("RGB", (w, h), colour).save(b, "PNG")
@@ -73,7 +82,7 @@ async def test_b2_logo_is_reencoded_and_svg_is_refused(env):  # noqa: F811
     assert r.status_code == 200, r.text
     url = r.json()["logo_url"]
     assert url == "/uploads/rooms/org-logo.png"
-    served = await c.get(url)
+    served = await _serve(url)
     assert served.status_code == 200
     assert served.headers["x-content-type-options"] == "nosniff"
     assert served.headers["content-security-policy"] == "default-src 'none'"
@@ -97,7 +106,7 @@ async def test_b2_room_photo_is_decoded_and_reencoded(env):  # noqa: F811
     assert r.status_code == 200, r.text
     photo = r.json()["photo_url"]
     assert photo == f"/uploads/rooms/{env.rooms['A103']}.jpg"
-    served = await c.get(photo)
+    served = await _serve(photo)
     assert served.headers["content-security-policy"] == "default-src 'none'"
     assert Image.open(io.BytesIO(served.content)).size == (1600, 1200)
 

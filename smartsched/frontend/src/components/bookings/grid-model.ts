@@ -36,12 +36,31 @@ export function parseSlotKey(key: string): { date: string; period_id: number; ro
   return { date, period_id: Number(p), room_id: Number(r) };
 }
 
+/**
+ * Days a week view should not list (CRBS `Context` / `Dates_model`): outside the session, or with no period
+ * running that weekday. Holidays stay visible (they are shown as holidays).
+ */
+export function hiddenDays(grid: Grid): Set<string> {
+  const out = new Set<string>();
+  if (grid.display !== "room") return out;
+  for (const d of grid.dates) {
+    if (d.date < grid.term.start || d.date > grid.term.end || d.reason === "date_range") {
+      out.add(d.date);
+      continue;
+    }
+    const runs = grid.periods.some((p) => !p.days || p.days.includes(d.weekday));
+    if (!runs && d.reason !== "holiday") out.add(d.date);
+  }
+  return out;
+}
+
 export function layoutGrid(grid: Grid, columns: "periods" | "rooms" | "days"): GridLayout {
   const index = new Map<string, GridSlot>();
   for (const s of grid.slots) index.set(slotKey(s), s);
+  const hidden = hiddenDays(grid);
   const rooms: AxisItem[] = grid.rooms.map((r) => ({ kind: "room", key: `r${r.id}`, room: r }));
   const periods: AxisItem[] = grid.periods.map((p) => ({ kind: "period", key: `p${p.id}`, period: p }));
-  const dates: AxisItem[] = grid.dates.map((d) => ({ kind: "date", key: d.date, date: d }));
+  const dates: AxisItem[] = grid.dates.filter((d) => !hidden.has(d.date)).map((d) => ({ kind: "date", key: d.date, date: d }));
   const onlyRoom = grid.rooms[0];
   let rows: AxisItem[];
   let cols: AxisItem[];
@@ -122,4 +141,11 @@ export function moveFocus(pos: { r: number; c: number }, key: string, size: { ro
     default:
       return null;
   }
+}
+
+/** CRBS `grid_highlight`: CSS that tints the row and column under the pointer (one rule, no per-cell state). */
+export function crosshairCss(scope: string, pos: { r: number; c: number } | null): string {
+  if (!pos) return "";
+  const tint = "box-shadow: inset 0 0 0 999px color-mix(in oklab, var(--status-warning-solid) 16%, transparent);";
+  return `[data-grid-scope="${scope}"] tr[data-r="${pos.r}"] > td > button[data-tone="available"], [data-grid-scope="${scope}"] td[data-c="${pos.c}"] > button[data-tone="available"] { ${tint} }`;
 }

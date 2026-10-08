@@ -3,7 +3,7 @@
 import { BookOpen, FileUp, GraduationCap, Languages, ListChecks, Monitor, PlayCircle, UserRound, Warehouse } from "lucide-react";
 import { LayoutGroup, motion } from "motion/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
 import { StatusBadge } from "@/components/common/status-badge";
 import { runStatusBadge } from "@/components/runs/runs-list";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -56,6 +56,9 @@ function Row({ selected, children }: { selected: boolean; children: ReactNode })
 
 export function CommandPalette() {
   const open = useUiStore((s) => s.paletteOpen);
+  // the store update is synchronous (useSyncExternalStore); rendering the result groups in a deferred,
+  // time-sliced pass keeps the opening frame short (motion audit: LoAF on open)
+  const listReady = useDeferredValue(open);
   const setOpen = useUiStore((s) => s.setPaletteOpen);
   const router = useRouter();
   const { t, locale, setLocale } = useI18n();
@@ -131,6 +134,8 @@ export function CommandPalette() {
         <Command shouldFilter={false} loop value={selected} onValueChange={setSelected} label={t("palette.title")}>
           <CommandInput placeholder={t("glass.palette.placeholder")} value={query} onValueChange={setQuery} className="text-base sm:text-[16px]" />
           <CommandList className="max-h-[min(60vh,520px)]">
+            {listReady ? (
+              <>
             <CommandEmpty>{loading ? t("glass.palette.searching") : t("glass.palette.empty", { query: text })}</CommandEmpty>
             {sectionsByCourse.length ? (
               <CommandGroup heading={t("glass.palette.courses")}>
@@ -248,6 +253,8 @@ export function CommandPalette() {
                   ),
                 )}
               </CommandGroup>
+            ) : null}
+              </>
             ) : null}
           </CommandList>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pt-2 pb-1 text-[11px] text-label-3 hairline-t">

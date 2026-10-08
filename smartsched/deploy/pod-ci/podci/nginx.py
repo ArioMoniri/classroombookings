@@ -29,16 +29,16 @@ def block(upstream: str) -> str:
 
 
 def render(conf: str, upstream: str = "172.17.0.1:8095") -> str:
-    conf = re.sub(re.escape(BEGIN) + r".*?" + re.escape(END) + r"\n", "", conf, flags=re.S)
+    conf = re.sub(re.escape(BEGIN) + r".*?" + re.escape(END) + r"\n\n?", "", conf, flags=re.S)
     if "location /ci/" in conf:
         return conf  # the repo config already routes /ci/ itself
     # Before the catch-all `location / {` (the last one), so /ci/ wins by prefix length anyway and the
     # block sits inside the same server {} as the app.
-    matches = list(re.finditer(r"^\s*location / \{", conf, flags=re.M))
+    matches = list(re.finditer(r"^[ \t]*location / \{", conf, flags=re.M))
     if not matches:
         raise ValueError("nginx config has no `location / {` catch-all to insert /ci/ before")
     at = matches[-1].start()
-    return conf[:at] + block(upstream) + "\n\n" + conf[at:].lstrip("\n")
+    return conf[:at] + block(upstream) + "\n\n" + conf[at:]
 
 
 def apply(path: Path, upstream: str = "172.17.0.1:8095") -> bool:
