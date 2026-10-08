@@ -16,7 +16,7 @@ from app.importers import normalize as n
 from app.models import ConstraintRow, Program, Role, RoomAcl, ScheduleRun, User, UserConstraint
 from app.models.catalog import Room
 from app.schemas.users import PasswordIn, UserAdminOut, UserCreate, UserUpdate
-from app.services.bookings_perms import set_user_role
+from app.services.bookings_perms import may_grant_role, may_manage_user, set_user_role
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -39,6 +39,15 @@ async def _user(db: DB, user_id: int) -> User:
     if u is None:
         raise HTTPException(404, "user not found")
     return u
+
+
+async def guard_privileged(db: DB, me: User, role: Role | None = None, target: User | None = None) -> None:
+    """403 when ``me`` lacks setup.roles and grants a privileged role or manages a privileged account
+    (deliberate security difference from CRBS, ``app.services.bookings_perms.GRANT_GUARD``)."""
+    if role is not None and not await may_grant_role(db, me, role):
+        raise HTTPException(403, f"granting the role {role.name!r} requires permission setup.roles")
+    if target is not None and not await may_manage_user(db, me, target):
+        raise HTTPException(403, "managing this account requires permission setup.roles")
 
 
 async def _other_active_admins(db: DB, user_id: int) -> int:
@@ -125,10 +134,11 @@ async def search_users(
 
 
 @router.post("", response_model=UserAdminOut, status_code=201)
-async def create_user(body: UserCreate, db: DB, _: UsersAdmin) -> UserAdminOut:
+async def create_user(body: UserCreate, db: DB, me: UsersAdmin) -> UserAdminOut:
     await _check_unique(db, None, body.email, body.username)
     await check_department(db, body.department_id)
     role = await resolve_role(db, body.role_id, body.role)
+    await guard_privileged(db, me, role)
     u = User(
         email=body.email,
         username=body.username,
@@ -160,6 +170,7 @@ async def update_user(user_id: int, body: UserUpdate, db: DB, me: UsersAdmin) ->
     new_role: Role | None = None
     if data.get("role_id") is not None or data.get("role") is not None:
         new_role = await resolve_role(db, data.get("role_id"), data.get("role"))
+    await guard_privileged(db, me, new_role, target=u)
     demote = (new_role is not None and new_role.code != "ADMIN") or data.get("is_active") is False
     if u.role == "ADMIN" and demote and not await _other_active_admins(db, u.id):
         raise HTTPException(409, "cannot demote or deactivate the last active admin")
@@ -184,9 +195,10 @@ async def update_user(user_id: int, body: UserUpdate, db: DB, me: UsersAdmin) ->
 
 
 @router.post("/{user_id}/password", response_model=UserAdminOut)
-async def set_password(user_id: int, body: PasswordIn, db: DB, _: UsersAdmin) -> UserAdminOut:
+async def set_password(user_id: int, body: PasswordIn, db: DB, me: UsersAdmin) -> UserAdminOut:
     """Set / reset a user's password (admin action; the old password is not needed)."""
     u = await _user(db, user_id)
+    await guard_privileged(db, me, target=u)
     u.password_hash = hash_password(body.password)
     await db.commit()
     await db.refresh(u)
@@ -198,6 +210,7 @@ async def delete_user(user_id: int, db: DB, me: UsersAdmin) -> None:
     u = await _user(db, user_id)
     if u.id == me.id:
         raise HTTPException(409, "you cannot delete your own account")
+    await guard_privileged(db, me, target=u)
     if u.role == "ADMIN" and u.is_active and not await _other_active_admins(db, u.id):
         raise HTTPException(409, "cannot delete the last active admin")
     # keep the user's runs and rules; only drop the authorship link (FKs have no ON DELETE)

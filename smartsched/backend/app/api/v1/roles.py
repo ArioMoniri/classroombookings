@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import delete, func, select
 
 from app.api.deps import DB, UsersAdmin, require_permission
+from app.api.v1.users import guard_privileged
 from app.models import Permission, Program, Role, RoomAcl, User, UserConstraint
 from app.schemas.crbs import ConstraintsIO, ConstraintValue, RoleIn, RoleOut, RoleUpdate
 from app.services.bookings_perms import LIMIT_KEYS, PERMISSION_NAMES, forget_access, grouped_permissions
@@ -177,8 +178,10 @@ async def import_users(
     data = await file.read()
     if len(data) > 5 * 1024 * 1024:
         raise HTTPException(413, "CSV larger than 5 MB")
-    if role_id is not None and await db.get(Role, role_id) is None:
+    default_role = await db.get(Role, role_id) if role_id is not None else None
+    if role_id is not None and default_role is None:
         raise HTTPException(422, f"unknown role {role_id}")
+    await guard_privileged(db, me, default_role)
     if department_id is not None and await db.get(Program, department_id) is None:
         raise HTTPException(422, f"unknown department {department_id}")
     res = await import_users_csv(
@@ -201,6 +204,7 @@ async def import_users(
 async def reset_token(user_id: int, db: DB, me: UsersAdmin) -> dict[str, Any]:
     """One-time reset code. Shown here when it could not be e-mailed (no SMTP / no address), never both."""
     u = await _user(db, user_id)
+    await guard_privileged(db, me, target=u)
     issued = await issue_reset_token(db, u, me)
     await db.commit()
     return {

@@ -146,8 +146,8 @@ async def import_users_csv(
             role = roles.get(n.tr_casefold(role_name), role)
             if n.tr_casefold(role_name) not in roles:
                 result["warning"] = f"unknown role {role_name!r}; default used"
-        if actor is not None and not await may_grant_role(session, actor, role):
-            result.update(status="forbidden", error=f"granting the role {role.name if role else ''!r} needs setup.roles")
+        if actor is not None and role is not None and not await may_grant_role(session, actor, role):
+            result.update(status="forbidden", error=f"granting the role {role.name!r} needs setup.roles")
             continue
         dep_id = defaults.department_id
         dep_name = _val(row, 6)
