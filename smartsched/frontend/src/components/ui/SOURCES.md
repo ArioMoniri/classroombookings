@@ -27,3 +27,12 @@ Every file in `src/components/ui` and every pattern borrowed from a component si
 | Command palette footer legend | Devin / Supabase (Mobbin) | pattern only |
 
 No code from kobra.systems, reverseui.com, Kinetics or transitions.dev is included in this repository.
+
+## Generator Studio (src/components/studio, 2026-10-08)
+
+| Pattern | Reference | How it got here |
+|---|---|---|
+| Segmented control with sliding indicator (Must/Try, Low/Normal/High, kind, horizon) | beUI motion tabs (MIT) | re-implemented with `motion` `layoutId`, removed under reduced motion; no code copied |
+| Upload dropzone with per-file rows, real progress, retry/remove | beUI File Upload block (MIT) | re-implemented; progress comes from XHR upload events, no fake timers |
+| Diff list for preset apply / changes vs imported | beautifului.dev Diff Table (MIT) | re-implemented as plain tables; nothing imported |
+| Sentence-with-slots rule card, readiness meter, review tray | ClickUp, Base44, AirOps, Copy.ai (Mobbin screenshots) | pattern only |

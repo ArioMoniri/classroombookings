@@ -154,3 +154,16 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Period snapping: ends 10 min into a period still claim it (BES 640 19:50 vs BES 560 20:00 both in P15); consider a ≥ ½-period rule with planner sign-off
 - [ ] Planner data fixes surfaced by the report: 7 Bahar / 3 Güz locked room overlaps, 131 Bahar fixed-vs-fixed instructor/cohort clashes (`input_conflict`), Final exams locked to rooms blocked by the Final grid (SYB 256/356/456, ODY 102/108)
 
+
+### Phase 8 Generator Studio frontend backlog (frontend-engineer, 2026-10-08)
+- [ ] Rule list virtualisation for > 40 cards (compact density is in; `@tanstack/react-virtual` over variable-height cards is not).
+- [ ] Slot pickers and class edits as bottom sheets on coarse pointers (they are popovers at every width today).
+- [ ] Write-it box: highlight the source sentence while hovering a proposal (needs a mirrored overlay; the textarea can't highlight).
+- [ ] Upload: per-file server stages (Reading → Finding rules) need `GET /terms/{id}/preferences/uploads/{upload_id}` or SSE; today the UI shows real upload % and then one "Reading and finding rules" stage. "Files used" history (rail, advanced) not built.
+- [ ] Provenance panel: show 2 context rows and the header for Excel (needs `context_rows` from the backend); shows the excerpt only today.
+- [ ] Classes: Weeks inline editor, "Paste a column from Excel" (method h), bulk "Pin to room…" / "Set preferred building…" / Export, row ⋯ menu "Make a rule from this row", exam-kind columns (date, rooms needed, venue request).
+- [ ] Studio run status via SSE `GET /runs/{id}/events` (1 s polling of `GET /runs/{id}` today), "Must-rules broken" is not reported by the backend while running.
+- [ ] Undo after reload: the stack is in memory; revert-to-imported covers class edits only.
+- [ ] Global sidebar auto-collapse on /generate below 1440 px (navigation-shell §3.1) — not done to avoid overriding the persisted user choice.
+- [ ] Export draft as JSON (advanced).
+- [ ] Contract fixtures for the studio routes recorded from the real backend (`src/lib/api/__fixtures__/real/studio_*.json`) so `contract.test.ts` catches drift.
