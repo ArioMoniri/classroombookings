@@ -26,3 +26,4 @@ smartsched/deploy/.env
 smartsched/backend/*.egg-info/
 docs/agents/.lock
 docs/agents/registry.tmp
+*.pkl
