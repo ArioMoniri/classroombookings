@@ -5,6 +5,7 @@
  */
 import { useMemo } from "react";
 import { useCalendarIndex } from "@/lib/api/calendar";
+import { useHydrated } from "@/lib/use-hydrated";
 import { useActiveTerm } from "@/components/shell/term-switcher";
 import { useRun, useRuns } from "@/lib/api/hooks";
 import type { ScheduleRun, Term } from "@/lib/api/schemas";
@@ -25,8 +26,11 @@ export function defaultRun(runs: readonly ScheduleRun[], term: Term | undefined)
 /** The shell's working term (session pick → remembered → current by date), unless a deep-linked run says otherwise. */
 export function useTermContext(runTermId?: number | null): { term: Term | undefined; termId: number | null; terms: Term[] } {
   const active = useActiveTerm();
-  const term = (runTermId ? active.terms.find((t) => t.id === runTermId) : undefined) ?? active.term;
-  return { term, termId: term?.id ?? null, terms: active.terms };
+  // the query cache is restored on the client before hydration; render the term only after it (no SSR mismatch)
+  const hydrated = useHydrated();
+  const found = (runTermId ? active.terms.find((t) => t.id === runTermId) : undefined) ?? active.term;
+  const term = hydrated ? found : undefined;
+  return { term, termId: term?.id ?? null, terms: hydrated ? active.terms : [] };
 }
 
 export interface CalendarData {

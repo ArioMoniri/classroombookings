@@ -175,14 +175,15 @@ function ClassTableImpl(p: ClassTableProps) {
   }, [table, data, p.sort, grouping, p.collapsed, locale]);
 
   function groupLabel(field: string, r: ClassRow): ReactNode {
-    if (field === "faculty") return <span className="flex items-center gap-2"><span aria-hidden className="size-2 rounded-full" style={{ background: `var(--fac-${r.faculty_slot}-bar)` }} />{r.faculty_name ?? "—"}</span>;
+    if (field === "faculty") return <span className="flex items-center gap-2"><span aria-hidden className="size-2 rounded-full" style={{ background: `var(--fac-${r.faculty_slot}-bar)` }} />{r.faculty_name ?? t("classes.group.noFaculty")}</span>;
     if (field === "day") {
       const d = r.placement?.day ?? r.req.day;
-      return d ? dayName(d, locale) : "—";
+      return d ? dayName(d, locale) : t("classes.group.none");
     }
     if (field === "status") return t(`classes.status.${r.placement_status}`);
-    if (field === "year") return r.class_years[0] ? (lang === "tr" ? `${r.class_years[0]}. sınıf` : `Year ${r.class_years[0]}`) : "—";
-    return groupKey(r, field).label;
+    if (field === "year") return r.class_years[0] ? (lang === "tr" ? `${r.class_years[0]}. sınıf` : `Year ${r.class_years[0]}`) : t("classes.group.none");
+    const l = groupKey(r, field).label;
+    return l === "—" ? t("classes.group.none") : l;
   }
 
   const stickyIndexes = useMemo(() => flat.map((f, i) => (f.type === "group" && f.depth === 0 ? i : -1)).filter((i) => i >= 0), [flat]);
@@ -435,7 +436,7 @@ function ClassTableImpl(p: ClassTableProps) {
           </span>
         );
       case "faculty":
-        return <span className="flex min-w-0 items-center gap-1.5 truncate text-[12px]"><span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--fac-${r.faculty_slot}-bar)` }} />{r.faculty_name ?? "—"}</span>;
+        return <span className="flex min-w-0 items-center gap-1.5 truncate text-[12px]"><span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--fac-${r.faculty_slot}-bar)` }} />{r.faculty_name ?? t("classes.group.noFaculty")}</span>;
       case "program":
         return <span className="flex min-w-0 items-center gap-1 truncate text-[12px]">{r.program_name ?? dash}{r.is_evening ? <span className="shrink-0 rounded-full bg-fill-2 px-1.5 text-[10px] font-semibold text-label-2"><Moon className="inline size-2.5" aria-hidden /> {t("classes.evening")}</span> : null}</span>;
       case "year":
@@ -542,7 +543,7 @@ function ClassTableImpl(p: ClassTableProps) {
                 aria-level={f.depth + 1}
                 aria-expanded={open}
                 aria-rowindex={vi.index + 2}
-                className={cn("glass-thick left-0 flex items-center gap-2 pr-3 hairline-b", focused && "outline-2 -outline-offset-2 outline-(--focus)")}
+                className={cn("glass-thick left-0 flex items-center gap-2 pr-3 hairline-b", focused && "outline-2 -outline-offset-2 outline-(--focus) [[role=treegrid]:not(:focus-visible):not(:has(:focus-visible))_&]:outline-0")}
                 style={{ ...style, width: totalW, paddingLeft: 8 + f.depth * 16 }}
                 data-testid="classes-group"
               >

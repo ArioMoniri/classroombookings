@@ -136,9 +136,11 @@ async def test_recurring_series_skips_holidays_and_timetable_and_respects_limit(
     )
     assert res.status_code == 201, res.text
     out = res.json()
-    assert [b["date"] for b in out["created"]] == ["2026-02-19", "2026-02-26", "2026-03-05", "2026-03-12"]
+    # CRBS counts only "book" instances against the limit: 4 books + the replacement of 5 Mar
+    # (bookings.recur_max_counts_replacements counts it too: tests/test_crbs_fixes_bookings.py)
+    assert [b["date"] for b in out["created"]] == ["2026-02-19", "2026-02-26", "2026-03-05", "2026-03-12", "2026-03-19"]
     assert all(b["type"] == "recurring" and b["series_id"] == out["series_id"] for b in out["created"])
-    assert [s["reason"] for s in out["skipped"]].count("recur_max_instances") == 6
+    assert [s["reason"] for s in out["skipped"]].count("recur_max_instances") == 5
     # the teacher's replaced booking is cancelled with a reason, and she was notified (outbox: no SMTP)
     mine = (await env.client.get("/api/v1/bookings/mine", params={"status": "ALL"}, headers=teacher)).json()
     replaced = next(b for b in mine if b["date"] == "2026-03-05")
@@ -209,6 +211,8 @@ async def test_limits_max_active_window_and_past(env):  # noqa: F811
     assert far.status_code == 409 and far.json()["detail"]["code"] == "range_max"
     assert (await env.book(teacher, "A101", date(2026, 2, 17), "P1")).status_code == 201
     assert (await env.book(teacher, "A101", date(2026, 2, 18), "P11")).status_code == 201
+    # CRBS enforces the limit in the grid only; the POST check is the bookings.enforce_max_active_on_create switch
+    await env.client.put("/api/v1/org/settings", json={"enforce_max_active_on_create": True}, headers=env.admin)
     third = await env.book(teacher, "A101", date(2026, 2, 19), "P6")
     assert third.status_code == 409 and third.json()["detail"]["code"] == "max_active_bookings"
     grid = (

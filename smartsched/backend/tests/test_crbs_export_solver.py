@@ -24,6 +24,8 @@ async def test_csv_export_has_crbs_columns_and_turkish_text(env):  # noqa: F811
     cancelled = (await env.book(teacher, "A101", MON, "P2")).json()
     await env.client.post(f"/api/v1/bookings/{cancelled['id']}/cancel", json={}, headers=teacher)
     assert (await env.client.get("/api/v1/bookings/export.csv", headers=teacher)).status_code == 403
+    # the imported rooms have no room group; CRBS's export leaves ungrouped rooms out (export_ungrouped_rooms)
+    await env.client.put("/api/v1/org/settings", json={"export_ungrouped_rooms": True}, headers=env.admin)
     r = await env.client.get("/api/v1/bookings/export.csv", params={"term_id": env.term_id}, headers=env.planner)
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
     assert 'filename="bookings-2026-BAHAR.csv"' in r.headers["content-disposition"]
