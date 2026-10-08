@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { Loading, PageTitle, SectionTitle } from "./kit";
 import { RequirementsList } from "./requirements-list";
+import { wave1SectionsFor } from "./wave1-sections";
 
 const GROUPS: { id: AdminSection["group"]; key: MessageKey }[] = [
   { id: "people", key: "crbs.admin.group.people" },
@@ -24,7 +25,7 @@ export function AdminOverview() {
   // the installer's server checks stay visible after setup (they list versions and paths: setup.settings only)
   const showReqs = can("setup.settings");
   const reqs = useSetupRequirements(showReqs);
-  const sections = adminSectionsFor(perms);
+  const sections: Pick<AdminSection, "href" | "labelKey" | "descriptionKey" | "group">[] = [...adminSectionsFor(perms), ...wave1SectionsFor(perms)];
   // CRBS Setup menu "Export" (Menu_model.php:149): the CSV export form lives on /my-bookings (UI gap audit #14)
   const canExport = can("system.export_bookings");
   const version = useAppVersion();
@@ -85,7 +86,7 @@ export function AdminOverview() {
             <Card variant="plain" className="py-0">
               <ul>
                 {items.map((s) => (
-                  <li key={s.id} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+                  <li key={s.href} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
                     <Link href={s.href} className="flex items-center gap-3 px-4 py-3 outline-none hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
                       <span className="min-w-0 flex-1">
                         <span className="block type-headline text-label-1">{t(s.labelKey)}</span>

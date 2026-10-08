@@ -11,7 +11,8 @@ import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { HardnessControl } from "./hardness-control";
 import { AffectedBadge } from "./rule-card";
-import { defaultParams, missingRequired, plainSentence, readField, tokens, writeField, type Params } from "./rule-sentence";
+import { FIELD_KEY, issueMessages } from "./rule-helpers";
+import { defaultParams, plainSentence, readField, templateIssues, tokens, writeField, type Params } from "./rule-sentence";
 import { SlotChip, SlotEditor } from "./slot-picker";
 import { useStudio } from "./studio-context";
 import { useRuleActions } from "./use-rule-actions";
@@ -22,24 +23,6 @@ type Topic = (typeof TOPICS)[number];
 const TOPIC_ICON: Record<Topic, LucideIcon> = { rooms: DoorOpen, times: Clock, buildings: Building2, programmes: GraduationCap, exams: NotebookPen };
 const TOPIC_KEY: Record<Topic, MessageKey> = { rooms: "studio.topic.rooms", times: "studio.topic.times", buildings: "studio.topic.buildings", programmes: "studio.topic.programmes", exams: "studio.topic.exams" };
 
-const FIELD_KEY: Record<string, MessageKey> = {
-  applies_to: "studio.field.applies_to",
-  building: "studio.field.building",
-  buildings: "studio.field.buildings",
-  days: "studio.field.days",
-  latest: "studio.field.latest",
-  earliest: "studio.field.earliest",
-  tag: "studio.field.tag",
-  rooms: "studio.field.rooms",
-  room: "studio.field.room",
-  course: "studio.field.course",
-  courses: "studio.field.courses",
-  from_date: "studio.field.from_date",
-  periods: "studio.field.periods",
-  weeks: "studio.field.weeks",
-  unit: "studio.field.unit",
-  n: "studio.field.n",
-};
 
 export interface BuilderPrefill {
   templateId?: string;
@@ -108,7 +91,7 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
 }
 
 function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplate; eventIds?: number[]; onBack: () => void; onDone: () => void }) {
-  const { t, locale } = useI18n();
+  const { t, n, locale } = useI18n();
   const { sentence, meta, termId, kind, advanced } = useStudio();
   const actions = useRuleActions();
   const [params, setParams] = useState<Params>(() => {
@@ -123,7 +106,8 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
   const [saving, setSaving] = useState(false);
 
   const toks = useMemo(() => tokens(template, params, sentence, { showEmptyOptional: true }), [template, params, sentence]);
-  const missing = missingRequired(template, params, sentence);
+  const issues = templateIssues(template, params, sentence);
+  const problems = issueMessages(issues, t, (v) => n(v));
   const paramsKey = JSON.stringify(params);
   const previewKey = `${paramsKey}|${hardness}`;
   const loading = previewed?.key !== previewKey;
@@ -149,6 +133,7 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
   };
 
   const add = async () => {
+    if (issues.length) return;
     setSaving(true);
     try {
       await actions.create({ kind: template.kind, params, hardness, weight, nl_text: plainSentence(tokens(template, params, sentence)), source: "ADMIN" });
@@ -177,7 +162,7 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
           .map((f) => (
             <div key={f.name} className="grid gap-1.5">
               <span className="text-sm font-medium">
-                {t(FIELD_KEY[f.name] ?? "studio.slot.value")} {f.required ? <span className="text-xs font-normal text-label-2">{t("studio.builder.required")}</span> : <span className="text-xs font-normal text-label-2">{t("studio.builder.optional")}</span>}
+                {t(FIELD_KEY[f.name] ?? "studio.slot.value")} {f.required || f.type === "applies_to_others" ? <span className="text-xs font-normal text-label-2">{t("studio.builder.required")}</span> : <span className="text-xs font-normal text-label-2">{t("studio.builder.optional")}</span>}
               </span>
               <SlotEditor field={f} value={readField(f, params, sentence)} onChange={(v) => set(f.name, v)} />
             </div>
@@ -185,12 +170,18 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
       </div>
       {template.note ? <p className="rounded-md bg-fill-2/60 px-2.5 py-1.5 text-xs text-label-2">{template.note[pairLang(locale)]}</p> : null}
       <HardnessControl hardness={hardness} weight={weight} allowed={template.allowed_hardness} onHardness={setHardness} onWeight={setWeight} scale={meta?.weight_scale} advanced={advanced} idPrefix="builder" />
-      {missing.length ? <p className="text-xs text-status-warning-fg">{t("studio.builder.missing", { fields: missing.map((f) => t(FIELD_KEY[f.name] ?? "studio.slot.value")).join(", ") })}</p> : null}
+      {problems.length ? (
+        <ul id="builder-issues" className="space-y-0.5 text-xs text-status-warning-fg" data-testid="builder-issues" aria-live="polite">
+          {problems.map((m) => (
+            <li key={m}>{m}</li>
+          ))}
+        </ul>
+      ) : null}
       <div className="flex flex-wrap justify-between gap-2">
         <Button variant="ghost" onClick={onBack}>
           <ArrowLeft aria-hidden /> {t("studio.builder.back")}
         </Button>
-        <Button onClick={() => void add()} disabled={missing.length > 0 || saving} data-testid="builder-add">
+        <Button onClick={() => void add()} disabled={issues.length > 0 || saving} aria-describedby={problems.length ? "builder-issues" : undefined} data-testid="builder-add">
           {saving ? <Loader2 className="animate-spin" aria-hidden /> : <Plus aria-hidden />} {t("studio.builder.add")}
         </Button>
       </div>

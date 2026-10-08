@@ -1,13 +1,11 @@
 "use client";
 
-import { Check, Eye, EyeOff, Loader2, Plus } from "lucide-react";
+import { Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/page-header";
-import { NativeSelect } from "@/components/common/native-select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -17,21 +15,15 @@ import { SegmentedGlass } from "@/components/ui/segmented-glass";
 import { HttpError } from "@/lib/api/client";
 import { aiFailureKind, testAiKey, useMeFull, usePermissions } from "@/lib/api/shell-extra";
 import { useHydrated } from "@/lib/use-hydrated";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { initials } from "@/components/shell/user-menu";
 import { LocaleToggle } from "@/components/shell/locale-toggle";
-import { api } from "@/lib/api/endpoints";
-import { useSettings, useUpdateSettings, useUsers } from "@/lib/api/hooks";
-import { useQueryClient } from "@tanstack/react-query";
-import type { Role, Settings } from "@/lib/api/schemas";
+import { useSettings, useUpdateSettings } from "@/lib/api/hooks";
+import type { Settings } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS } from "@/lib/time";
-import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 
 const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
@@ -256,63 +248,6 @@ function SolverForm({ initial }: { initial: Settings }) {
   );
 }
 
-function UsersCard() {
-  const { t } = useI18n();
-  const users = useUsers();
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ email: "", full_name: "", role: "PLANNER" as Role, password: "" });
-  const [saving, setSaving] = useState(false);
-  const submit = async () => {
-    setSaving(true);
-    try {
-      await api.settings.createUser(form);
-      await qc.invalidateQueries({ queryKey: ["users"] });
-      setOpen(false);
-      setForm({ email: "", full_name: "", role: "PLANNER", password: "" });
-      toast.success(t("settings.saved"));
-    } finally {
-      setSaving(false);
-    }
-  };
-  if (users.isError) return null; // GET /users is ADMIN-only (403 for planners/viewers)
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>{t("settings.users")}</CardTitle>
-        <Button size="sm" onClick={() => setOpen(true)} data-testid="add-user"><Plus /> {t("settings.addUser")}</Button>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader><TableRow><TableHead>{t("settings.name")}</TableHead><TableHead>{t("settings.email")}</TableHead><TableHead>{t("settings.role")}</TableHead><TableHead>{t("common.status")}</TableHead></TableRow></TableHeader>
-          <TableBody>
-            {(users.data ?? []).map((u) => (
-              <TableRow key={u.id}>
-                <TableCell className="flex items-center gap-2"><Avatar className="size-6"><AvatarFallback className="text-[10px]">{initials(u.full_name, u.email ?? "")}</AvatarFallback></Avatar>{u.full_name ?? "—"}</TableCell>
-                <TableCell className="text-muted-foreground">{u.email ?? "—"}</TableCell>
-                <TableCell className="text-label-2">{t(`glass.role.${u.role}`)}</TableCell>
-                <TableCell><span className={cn("inline-flex items-center gap-1 text-xs", u.is_active ? "text-status-feasible-fg" : "text-muted-foreground")}><span className={cn("size-1.5 rounded-full", u.is_active ? "bg-status-feasible-solid" : "bg-border-strong")} aria-hidden />{u.is_active ? t("settings.active") : t("settings.inactive")}</span></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>{t("settings.addUser")}</DialogTitle><DialogDescription className="sr-only">{t("settings.users")}</DialogDescription></DialogHeader>
-          <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
-            <div className="grid gap-1"><Label htmlFor="u-name">{t("settings.name")}</Label><Input id="u-name" required value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
-            <div className="grid gap-1"><Label htmlFor="u-email">{t("settings.email")}</Label><Input id="u-email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-            <div className="grid gap-1"><Label htmlFor="u-role">{t("settings.role")}</Label><NativeSelect id="u-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>{(["ADMIN", "PLANNER", "VIEWER"] as const).map((r) => <option key={r} value={r}>{t(`glass.role.${r}`)}</option>)}</NativeSelect></div>
-            <div className="grid gap-1"><Label htmlFor="u-pass">{t("auth.password")}</Label><Input id="u-pass" type="password" required autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
-            <DialogFooter><Button type="submit" disabled={saving}>{t("common.save")}</Button></DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </Card>
-  );
-}
-
 function GeneralCard() {
   const { t } = useI18n();
   return (
@@ -373,7 +308,6 @@ export function SettingsView() {
         <TabsContent value="appearance"><AppearanceCard /></TabsContent>
         {admin ? <TabsContent value="ai"><AiCard /></TabsContent> : null}
         {admin ? <TabsContent value="solver"><SolverCard /></TabsContent> : null}
-        <TabsContent value="users"><UsersCard /></TabsContent>
       </Tabs>
     </div>
   );

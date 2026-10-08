@@ -7,6 +7,7 @@ import { KbdHint } from "@/components/ui/kbd-hint";
 import { SidebarGlass, SidebarGlassContent, SidebarGlassFooter, SidebarGlassHeader, SidebarGlassItem, SidebarGlassSection } from "@/components/ui/sidebar-glass";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMeetings, useRuns } from "@/lib/api/hooks";
+import { useApprovalInbox } from "@/lib/api/wave1";
 import { usePermissions } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
 import { useHydrated } from "@/lib/use-hydrated";
@@ -23,9 +24,13 @@ export function useNavBadges(): Record<NonNullable<NavItem["badge"]>, number> {
   const { term } = useActiveTerm();
   const meetings = useMeetings(term ? { status: "NEEDS_REVIEW", term_id: term.id, page_size: 1 } : { status: "NEEDS_REVIEW", page_size: 1 });
   const runs = useRuns();
+  // wave 1: open requests the designated approver may decide (GET /approvals/inbox answers [] without the right)
+  const { can } = usePermissions();
+  const inbox = useApprovalInbox("open", can("approvals.decide"));
   return {
     needsReview: meetings.data?.total ?? 0,
     running: runs.data?.filter((r) => r.status === "RUNNING" || r.status === "QUEUED").length ?? 0,
+    approvals: inbox.data?.length ?? 0,
   };
 }
 
@@ -45,7 +50,7 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
   const { t } = useI18n();
   const liveBadges = useNavBadges();
   const hydrated = useHydrated();
-  const badges = hydrated ? liveBadges : { needsReview: 0, running: 0 };
+  const badges = hydrated ? liveBadges : { needsReview: 0, running: 0, approvals: 0 };
   const { can } = usePermissions();
   const groups = hydrated ? visibleNavGroups(can) : [];
   return (
@@ -56,7 +61,7 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
             const active = isActive(pathname, search, item.href);
             const count = item.badge ? badges[item.badge] : 0;
             const label = t(item.labelKey);
-            const aria = item.badge && count > 0 ? `${label}, ${t(item.badge === "needsReview" ? "nav.needsReview" : "nav.running", { count })}` : label;
+            const aria = item.badge && count > 0 ? `${label}, ${t(item.badge === "needsReview" ? "nav.needsReview" : item.badge === "approvals" ? "wave1.nav.approvalsOpen" : "nav.running", { count })}` : label;
             const props = {
               active,
               icon: <item.icon aria-hidden />,

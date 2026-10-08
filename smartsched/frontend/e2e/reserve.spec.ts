@@ -13,7 +13,7 @@
  *   E2E_REAL=1 E2E_API_URL=http://127.0.0.1:8471 PW_PORT=3871 npx playwright test e2e/reserve.spec.ts
  */
 import { expect, request as pwRequest, test, type APIRequestContext, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, login } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, login, solverRun } from "./helpers";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 const STAMP = Date.now().toString(36);
@@ -423,5 +423,30 @@ test("13. room owner under the room name, group tabs with counts, grouped picker
   } finally {
     await api("PUT", `/room-admin/rooms/${ctx.rooms.A101}`, { owner_user_id: null });
     await api("PUT", `/users/${ctx.teacherId}/constraints`, { max_active_bookings: { type: "R" } });
+  }
+});
+
+test("14. a published SOLVER run names its classes by course and section, never a hard-coded Turkish word", async ({ page, context }) => {
+  const runs = await api<{ id: number; kind: string; term_id: number; label: string; is_active: boolean; status: string }[]>("GET", "/runs");
+  const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && r.label.startsWith("Grid import"));
+  const solver = runs.find((r) => r.id === solverRun() && r.term_id === ctx.termId && r.kind === "COURSE");
+  test.skip(!solver || solver.id === board?.id, "needs the full-term solver run of e2e-backend-entry.sh");
+  await api("POST", `/runs/${solver!.id}/activate`);
+  try {
+    const g = await dayGrid(TUESDAY, ctx.token);
+    const held = g.slots.filter((x) => x.status === "timetable");
+    expect(held.length).toBeGreaterThan(0);
+    expect(held.some((x) => x.label === "Ders")).toBe(false);
+    // the English UI shows course labels (or the English fallback), not "Ders"
+    const me = await api<{ id: number }>("GET", "/auth/me");
+    await context.addInitScript((id) => sessionStorage.setItem("crbs.profile-language", String(id)), me.id);
+    await login(page, ADMIN.username, ADMIN.password);
+    await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: new URL(page.url()).origin }]);
+    await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
+    const texts = await page.locator('button[data-tone="timetable"]').allTextContents();
+    expect(texts.length).toBeGreaterThan(0);
+    expect(texts.some((x) => /\bDers\b/.test(x))).toBe(false);
+  } finally {
+    if (board) await api("POST", `/runs/${board.id}/activate`);
   }
 });

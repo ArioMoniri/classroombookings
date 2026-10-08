@@ -214,7 +214,7 @@ async def timetable_occupancy(session: AsyncSession, room_ids: set[int] | None, 
     return out
 
 
-async def _request_labels(session: AsyncSession, request_ids: set[int | None]) -> dict[int, str]:
+async def _request_labels(session: AsyncSession, request_ids: set[int]) -> dict[int, str]:
     """Meeting request id -> "MAT 112-2" (course display code and section label) for unlabelled assignments."""
     from app.models import Course, MeetingRequest, Section  # local: keeps this module's import list unchanged
 

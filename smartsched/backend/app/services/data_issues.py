@@ -1335,13 +1335,13 @@ async def board_checks(session: AsyncSession, run: ScheduleRun) -> dict[str, lis
 
     # --- weeks without a sheet ----------------------------------------------------------------------
     covered = {w for a in cells for w in _weeks_of_row(a)}
-    for b in (
+    for blk in (
         await session.execute(
             select(Block).where(Block.term_id == run.term_id, Block.source == "GRID_IMPORT", Block.archived.is_(False))
         )
     ).scalars():
-        if b.weeks:
-            covered.add(int(b.weeks[0]))  # the sheet's own week (later weeks: carried forward by a setting)
+        if blk.weeks:
+            covered.add(int(blk.weeks[0]))  # the sheet's own week (later weeks: carried forward by a setting)
     if covered and not exam:
         term = await session.get(Term, run.term_id)
         horizon = (
@@ -1545,21 +1545,21 @@ async def board_checks(session: AsyncSession, run: ScheduleRun) -> dict[str, lis
                     for r in rs:
                         for ins in r.instructors:
                             per_ins.setdefault((ins, b.day), []).append((b, k, r))
-            for (ins, day), xs in per_ins.items():
-                for i, (a, ka, ra) in enumerate(xs):
-                    for b, kb, rb in xs[i + 1 :]:
-                        if ka == kb or set(a.rooms) & set(b.rooms) or a.start > b.end or b.start > a.end:
+            for (ins, day), pairs_of in per_ins.items():
+                for i, (p1, ka, qa) in enumerate(pairs_of):
+                    for p2, kb, qb in pairs_of[i + 1 :]:
+                        if ka == kb or set(p1.rooms) & set(p2.rooms) or p1.start > p2.end or p2.start > p1.end:
                             continue
-                        if set(ra.days) & set(rb.days) and ra.start <= rb.end and rb.start <= ra.end:
+                        if set(qa.days) & set(qb.days) and qa.start <= qb.end and qb.start <= qa.end:
                             continue  # the list itself clashes: fixed_instructor_clash reports it
-                        pair = tuple(sorted([(ka, a.start, a.end), (kb, b.start, b.end)]))
+                        pair = tuple(sorted([(ka, p1.start, p1.end), (kb, p2.start, p2.end)]))
                         c = case("board_instructor_clash", (day, ins, pair))
-                        for x in (a, b):
+                        for x in (p1, p2):
                             c.weeks.add(x.week)
                             c.rooms.update(x.rooms)
                             c.cells.update(x.refs[:1])
-                        c.request_ids = list(dict.fromkeys([*c.request_ids, ra.id, rb.id]))
-                        first, second = sorted((a, b), key=lambda x: (x.start, x.label))
+                        c.request_ids = list(dict.fromkeys([*c.request_ids, qa.id, qb.id]))
+                        first, second = sorted((p1, p2), key=lambda x: (x.start, x.label))
                         c.params = {
                             "instructor": names.get(ins, str(ins)),
                             "labels": [first.label, second.label],

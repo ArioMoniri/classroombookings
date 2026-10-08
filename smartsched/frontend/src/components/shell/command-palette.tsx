@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, FileUp, GraduationCap, Languages, ListChecks, Monitor, PlayCircle, UserRound, Warehouse } from "lucide-react";
+import { BookOpen, CalendarSearch, FileUp, GraduationCap, Languages, ListChecks, Monitor, PlayCircle, UserRound, Warehouse } from "lucide-react";
 import { LayoutGroup, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
@@ -90,6 +90,8 @@ export function CommandPalette() {
     { value: "action-generate", icon: PlayCircle, label: t("palette.generateWeek"), keys: ["G", "G"], run: () => go("/generate"), words: "generate oluştur plan solve", allowed: can("planning.edit") },
     { value: "action-import", icon: FileUp, label: t("palette.importFile"), keys: ["G", "I"], run: () => go("/import"), words: "import içe aktar excel", allowed: can("planning.edit") },
     // the create form lives in Admin → Rooms (setup.rooms; POST /rooms also accepts it, UI gap audit #4)
+    // T1 (wave 1): "boş derslik" / "find a room", for every signed-in user
+    { value: "action-find-room", icon: CalendarSearch, label: t("wave1.find.palette"), run: () => go("/find-room"), words: "boş derslik bul find free room oda ara salon amfi", allowed: true },
     { value: "action-room", icon: Warehouse, label: t("palette.newRoom"), run: () => go("/admin/rooms?tab=rooms&new=1"), words: "room derslik yeni new oda", allowed: can("setup.rooms") },
   ].filter((a) => a.allowed && matches(text, a.label, a.words));
   // the profile (names, language, password) belongs to every user, so it is always in "Go to" (UI gap audit #1)

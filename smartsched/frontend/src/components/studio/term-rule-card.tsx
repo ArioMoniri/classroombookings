@@ -9,8 +9,8 @@ import type { Preview, PrecheckItem, StudioRule } from "@/lib/api/studio-schemas
 import { useI18n } from "@/lib/i18n/provider";
 import { ConfirmDialog } from "./confirm-dialog";
 import { RuleCard } from "./rule-card";
-import { allowedHardness, fallbackSentence, plainRuleText, provenanceText, ruleTokens } from "./rule-helpers";
-import { writeField, type Params } from "./rule-sentence";
+import { allowedHardness, isFreeTextRule, issueMessages, plainRuleText, provenanceText, ruleDisplay } from "./rule-helpers";
+import { templateIssues, writeField, type Params } from "./rule-sentence";
 import { asSource } from "./source-chip";
 import { useStudio } from "./studio-context";
 import type { EffectiveRule } from "./studio-reducer";
@@ -28,7 +28,7 @@ export function flashCard(domId: string, reduce: boolean) {
 }
 
 export function TermRuleCard({ eff, clash, compact }: { eff: EffectiveRule; clash: PrecheckItem | null; compact?: boolean }) {
-  const { t, locale } = useI18n();
+  const { t, n, locale } = useI18n();
   const { meta, sentence, termId, kind, advanced, goStep, rules } = useStudio();
   const actions = useRuleActions();
   const fixes = useApplyFix();
@@ -54,8 +54,11 @@ export function TermRuleCard({ eff, clash, compact }: { eff: EffectiveRule; clas
     abort.current?.abort();
   }, []);
 
-  const { template, tokens } = useMemo(() => ruleTokens(meta, rule.kind, params, sentence), [meta, rule.kind, params, sentence]);
+  // structured rules render from their params in the UI language; free-text rules also keep their own words
+  const shown = useMemo(() => ruleDisplay(rule, meta, sentence, params), [rule, meta, sentence, params]);
+  const { template, tokens } = shown;
   const domId = `rule-${rule.id}`;
+  const unsaved = template ? issueMessages(templateIssues(template, params, sentence), t, (v) => n(v)) : [];
 
   const onSlot = (name: string, value: unknown) => {
     const field = template?.fields.find((f) => f.name === name);
@@ -64,6 +67,11 @@ export function TermRuleCard({ eff, clash, compact }: { eff: EffectiveRule; clas
     setParams(next);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     abort.current?.abort();
+    // an edit that would leave the rule blank or contradictory stays local until it is valid
+    if (template && templateIssues(template, next, sentence).length) {
+      setPreviewing(false);
+      return;
+    }
     const ctrl = new AbortController();
     abort.current = ctrl;
     setPreviewing(true);
@@ -77,7 +85,8 @@ export function TermRuleCard({ eff, clash, compact }: { eff: EffectiveRule; clas
         } finally {
           setPreviewing(false);
         }
-        await actions.updateParams(rule, next, plainRuleText(meta, rule.kind, next, rule.nl_text, sentence));
+        // a free-text rule keeps the planner's own words; a structured rule's text is rebuilt from its params
+        await actions.updateParams(rule, next, isFreeTextRule(rule) ? undefined : plainRuleText(meta, rule.kind, next, rule.nl_text, sentence));
         setSaved(true);
         window.setTimeout(() => setSaved(false), 1000);
       })();
@@ -109,8 +118,9 @@ export function TermRuleCard({ eff, clash, compact }: { eff: EffectiveRule; clas
       <RuleCard
         domId={domId}
         tokens={tokens}
-        fallback={fallbackSentence(meta, rule.kind, rule.nl_text, locale)}
-        nlText={rule.nl_text && tokens ? rule.nl_text : null}
+        fallback={shown.fallback}
+        nlText={shown.nlText}
+        writtenIn={shown.writtenIn}
         provenance={sub ? null : provenanceText(rule.source_ref, t)}
         subLabel={sub}
         source={asSource(rule.source)}
@@ -129,6 +139,7 @@ export function TermRuleCard({ eff, clash, compact }: { eff: EffectiveRule; clas
         kind={rule.kind}
         params={params}
         compact={compact}
+        issues={unsaved.length ? (JSON.stringify(params) !== paramsKey ? unsaved.map((m) => `${t("studio.builder.notSaved")} ${m}`) : unsaved) : undefined}
         clash={
           clash
             ? {

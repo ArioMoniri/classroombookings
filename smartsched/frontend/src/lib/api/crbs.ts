@@ -517,6 +517,8 @@ export const AdminUser = z.object({
   last_login_at: z.string().nullish(),
   force_password_reset: z.boolean().default(false),
   auth_source: z.string().default("local"),
+  /** P1: rooms this (administrator) account approves requests for (docs/product/wave1-api.md §4) */
+  approves_for: z.array(z.object({ type: z.enum(["all", "room", "room_group", "tag"]), id: z.number().nullish(), tag: z.string().nullish() })).default([]),
 });
 export type AdminUser = z.infer<typeof AdminUser>;
 export const UserPage = z.object({ total: z.number(), limit: z.number(), offset: z.number(), items: z.array(AdminUser) });
@@ -534,6 +536,8 @@ export interface UserIn {
   force_password_reset?: boolean;
   password?: string | null;
   is_active?: boolean;
+  /** P1 "approves for" scopes; omit to leave the designation unchanged, `[]` removes it */
+  approves_for?: { type: "all" | "room" | "room_group" | "tag"; id?: number | null; tag?: string | null }[];
 }
 
 export type ConstraintType = "R" | "U" | "X";
@@ -621,13 +625,14 @@ export interface AdminRoomIn {
 export const CustomField = z.object({
   id: z.number(),
   name: z.string(),
-  type: z.enum(["TEXT", "CHECKBOX", "SELECT"]),
+  /** CRBS TEXT / CHECKBOX / SELECT plus the wave-1 typed features (BOOLEAN, NUMBER, MULTISELECT) on the same table */
+  type: z.enum(["TEXT", "CHECKBOX", "SELECT", "BOOLEAN", "NUMBER", "MULTISELECT"]),
   options: z.array(z.object({ id: z.number(), value: z.string() })),
 });
 export type CustomField = z.infer<typeof CustomField>;
 export interface CustomFieldIn {
   name: string;
-  type: "TEXT" | "CHECKBOX" | "SELECT";
+  type: CustomField["type"];
   options: string[];
 }
 

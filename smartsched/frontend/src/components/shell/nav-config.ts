@@ -8,7 +8,7 @@ export interface NavItem {
   icon: LucideIcon;
   /** vim-style "g <key>" shortcut */
   key?: string;
-  badge?: "needsReview" | "running";
+  badge?: "needsReview" | "running" | "approvals";
   /** shown only with any of these permissions (GET /auth/me permissions[]) */
   permission?: string | string[];
 }
@@ -50,11 +50,11 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-const BOOKING_PREFIXES = ["/bookings", "/my-bookings"];
+const BOOKING_PREFIXES = ["/bookings", "/my-bookings", "/find-room", "/approvals"];
 
 /** The planning groups plus the CRBS-parity entries: bookings first, admin/setup/profile under "Admin". */
 export function allNavGroups(): NavGroup[] {
-  const extra = ADMIN_NAV_ITEMS.map((i): NavItem => ({ href: i.href, labelKey: i.labelKey, icon: i.icon, permission: i.permission }));
+  const extra = ADMIN_NAV_ITEMS.map((i): NavItem => ({ href: i.href, labelKey: i.labelKey, icon: i.icon, permission: i.permission, badge: i.badge }));
   const bookings = extra.filter((i) => BOOKING_PREFIXES.some((p) => i.href.startsWith(p)));
   const admin = extra.filter((i) => !bookings.includes(i));
   const groups = NAV_GROUPS.map((g) => (g.labelKey === "nav.admin" ? { ...g, items: [...g.items, ...admin.filter((a) => !g.items.some((x) => x.href === a.href))] } : g));

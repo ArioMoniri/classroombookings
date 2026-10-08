@@ -6,14 +6,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import type { MessageKey } from "@/lib/i18n";
 import { toast } from "sonner";
 import { crbsError } from "@/lib/api/crbs";
-import { adminSectionsFor, canAccessRoute, usePermissions } from "@/lib/permissions";
+import { adminSectionsFor, canAccessRoute, hasPermission, usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { Loading, NoAccess } from "./kit";
+import { wave1Requirement, wave1SectionsFor } from "./wave1-sections";
 
 export function AdminGate({ children }: { children: ReactNode }) {
   const { t } = useI18n();
@@ -21,8 +23,10 @@ export function AdminGate({ children }: { children: ReactNode }) {
   const { perms, loading } = usePermissions();
   useProfileLanguage();
   if (loading) return <Loading />;
-  if (!canAccessRoute(perms, pathname)) return <NoAccess title={t("crbs.admin.noAccessTitle")} body={t("crbs.admin.noAccessBody")} />;
-  const sections = adminSectionsFor(perms);
+  // wave-1 screens carry their own permission (audit.view need not come with a setup.* right)
+  const w1 = wave1Requirement(pathname);
+  if (!(w1 !== undefined ? hasPermission(perms, w1) : canAccessRoute(perms, pathname))) return <NoAccess title={t("crbs.admin.noAccessTitle")} body={t("crbs.admin.noAccessBody")} />;
+  const sections: { id: string; href: string; labelKey: MessageKey }[] = [...adminSectionsFor(perms), ...wave1SectionsFor(perms)];
   return (
     <div className="flex flex-col gap-5">
       {sections.length > 1 ? (

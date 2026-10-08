@@ -235,6 +235,12 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Audit log viewer with filters, CSV export and undo; in-app notifications (/me/notifications) in the shell.
 - [ ] Move approval e-mail/in-app texts into bookings_i18n; Postgres CI job for concurrent approvals.
 
+### Reservation panel follow-ups (2026-10-08)
+
+- [x] Click-to-reserve, department view, calendar sync, room details + alternatives, 11 CRBS booking-screen gaps (reserve.spec 14/14).
+- [ ] find_room busy labels ("Ders", "Blok", "Rezervasyon") are Turkish-only: return TR/EN pairs like the reasons.
+- [ ] Calendar sync link tokens are shown once (kept in sessionStorage per tab): add "copy again" by re-issuing on demand with a confirm.
+
 ### Test-stack follow-ups (2026-10-08)
 
 - [ ] SMTP sink (local debug server) in the e2e stack to close parity rows S-23 / X-02 without e-mailing reset codes.
@@ -288,10 +294,15 @@ Backend wave C part 1 (2026-10-08, backend-engineer; API contract docs/product/w
 ### Planner comparison follow-ups (docs/testing/2026-10-08-schedule-vs-planner.md)
 
 - [ ] R2/R3/R1 and the data-issues gaps: assigned to the solver review fix agent.
-- [ ] R4: allow multi-room splits for large groups without a definitive room set (ENG 105 §1, ING 301, NRS 204+304); optionally use the published board as a soft multi-room hint (also fixes R5 reshuffling).
-- [ ] Importer: `needs_room=false` for non-room venues (CASE, office, ONLINE); normalise leading zeros in codes (SYS 18/018); flag non-person instructor values ("Yüz yüze", "UZEM"); prefer sheet-name dates when day headers contradict them; optionally carry the last week's grid blocks forward when a week sheet is missing.
-- [ ] Data-issues: board-only checks (capacity, instructor clashes from board times, two classes in one cell); report unknown board codes and board cells at times the list lacks.
-- [ ] `POST /imports/room-master` (today only the CLI importer applies room_master.csv).
+- [x] R4: allow multi-room splits for large groups without a definitive room set (ENG 105 §1, ING 301, NRS 204+304) — `solver_bridge.allow_large_splits`, run params `split_large_classes` (default on) / `split_max_rooms` (4): a class larger than every suitable room free at its time may use rooms of one building (backend-engineer 2026-10-08).
+- [ ] R5: use the published board as a soft multi-room hint (fixes the reshuffling of rows without a definitive room).
+- [x] Importer: `needs_room=false` for non-room venues (CASE, office, ONLINE; `IMPORT_NON_ROOM_VENUES`); normalise leading zeros in codes (SYS 18/018; alembic 0016); flag non-person instructor values ("Yüz yüze", "UZEM"); prefer sheet-name dates when day headers contradict them; report missing week sheets and optionally carry the last week's grid blocks forward (`IMPORT_GRID_CARRY_FORWARD`); term end date when the board is short; `C 501-502` ranges (backend-engineer 2026-10-08).
+- [x] Data-issues: board-only checks (capacity, instructor clashes from board times, two classes in one cell); unknown board codes, board cells at times the list lacks, weeks without a board sheet; non-person instructors (backend-engineer 2026-10-08).
+- [x] `POST /imports/room-master` (CSV UTF-8/cp1254 or xlsx; `planning.edit` or `setup.rooms`).
+- [x] Studio drafts use the bridge's fallback sizes when part of a joint lecture is left out.
+- [x] `tools/validate_planner.py` as the blocking pod CI gate `planner` (after `backend`).
+- [ ] Studio rule lookups by course code (`studio_rules._term_code`) should compare `normalize.course_key` so `SYS 018` finds the merged `SYS18` course.
+- [ ] pod-ci README gate table: add the `planner` row (devops).
 
 ### Review follow-ups (docs/review/2026-10-08-backend-ai-studio-review.md + planner usability test)
 

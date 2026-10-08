@@ -93,3 +93,17 @@ def test_tags_and_tip_rooms_are_respected() -> None:
     # A 203 (TIP, 148) never counts as free for a class that may not use TIP rooms
     out, info = allow_large_splits([_ev(10, 140), _lock(20, 1)], ROOMS, [])
     assert info and info[0]["building"] == "C"
+
+
+def test_split_params_are_run_options() -> None:
+    import pytest
+    from app.services.run_params import ParamError, clean_client_params
+
+    assert clean_client_params({"split_large_classes": False, "split_max_rooms": 3}) == {
+        "split_large_classes": False,
+        "split_max_rooms": 3,
+    }
+    with pytest.raises(ParamError):
+        clean_client_params({"split_max_rooms": 20})
+    with pytest.raises(ParamError):
+        clean_client_params({"split_large_classes": "yes"})

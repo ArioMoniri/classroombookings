@@ -37,6 +37,8 @@ export interface RuleCardProps {
   /** used when no template matches the kind */
   fallback: string;
   nlText?: string | null;
+  /** the language `nlText` was written in, when it is not the UI language (a small "written in EN" tag) */
+  writtenIn?: "en" | "tr" | null;
   provenance?: string | null;
   source: SourceKind;
   subLabel?: string | null;
@@ -167,7 +169,14 @@ export function RuleCard(p: RuleCardProps) {
       {p.nlText || p.provenance ? (
         <p className="mt-2 text-xs text-label-2">
           {p.nlText ? (
-            <q lang={/[çğıöşüİ]/i.test(p.nlText) ? "tr" : locale}>{p.nlText}</q>
+            <>
+              <q lang={p.writtenIn ?? (/[çğıöşüİ]/i.test(p.nlText) ? "tr" : locale)}>{p.nlText}</q>
+              {p.writtenIn ? (
+                <span className="ml-1.5 inline-block rounded-sm px-1 py-px align-[1px] text-[10px] font-medium text-label-2 shadow-[inset_0_0_0_1px_var(--hairline)]" data-testid="written-in">
+                  {t("studio.rule.writtenIn", { lang: p.writtenIn.toUpperCase() })}
+                </span>
+              ) : null}
+            </>
           ) : null}
           {p.nlText && p.provenance ? " · " : null}
           {p.provenance}

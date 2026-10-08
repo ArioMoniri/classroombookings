@@ -1,13 +1,12 @@
 "use client";
 
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { motion, useMotionValueEvent, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { WhatsNewIndicator } from "@/components/admin/whats-new";
-import { StatusBadge } from "@/components/common/status-badge";
-import { runStatusBadge } from "@/components/runs/runs-list";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Button } from "@/components/ui/button";
 import { KbdHint } from "@/components/ui/kbd-hint";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -113,43 +112,6 @@ function RunIsland({ run }: { run: ScheduleRun }) {
   );
 }
 
-function RecentRuns() {
-  const { t, locale } = useI18n();
-  const runs = useRuns();
-  const hydrated = useHydrated();
-  const recent = hydrated ? (runs.data?.slice(0, 5) ?? []) : [];
-  const unread = recent.filter(isActive).length;
-  return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button variant="ghost" size="icon" aria-label={t("nav.notifications")} className="relative">
-            <Bell />
-            {unread > 0 ? <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-(--accent)" aria-hidden /> : null}
-          </Button>
-        }
-      />
-      <PopoverContent align="end" className="w-[22rem] p-1.5">
-        <p className="px-2.5 pt-1 pb-1 text-[11px] font-semibold text-label-3">{t("glass.shell.recentRuns")}</p>
-        <ul>
-          {recent.length === 0 ? <li className="px-2.5 py-2 text-[13px] text-label-2">{t("glass.shell.noRuns")}</li> : null}
-          {recent.map((r) => (
-            <li key={r.id}>
-              <Link href={`/runs/${r.id}`} className="flex items-center gap-3 rounded-[10px] px-2.5 py-2 outline-none hover:bg-fill-2 focus-visible:bg-fill-2">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium text-label-1">{t("glass.shell.runTitle", { id: r.id, term: r.term_code })}</span>
-                  <span className="block text-[12px] text-label-3">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(r.created_at))}</span>
-                </span>
-                <StatusBadge {...runStatusBadge(r, t)} />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 /** Desktop and tablet: two floating capsules (where am I · what can I do) that thicken on scroll. */
 export function TopBar() {
   const { t } = useI18n();
@@ -201,7 +163,7 @@ export function TopBar() {
           <KbdHint keys={["mod", "K"]} />
         </button>
         <WhatsNewIndicator />
-        <RecentRuns />
+        <NotificationBell />
       </ThickeningCapsule>
     </header>
   );
@@ -221,6 +183,7 @@ export function MobileTopBar() {
         {title}
       </motion.p>
       <WhatsNewIndicator />
+      <NotificationBell />
       <UserMenu compact />
     </header>
   );
