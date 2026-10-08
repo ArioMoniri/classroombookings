@@ -26,6 +26,7 @@ from app.models import (
     Block,
     Booking,
     BookingPeriod,
+    BookingSchedule,
     BookingSeries,
     BookingSlot,
     MultiBooking,
@@ -1348,8 +1349,9 @@ async def grid(
     rooms = await visible_rooms(session, access)
     if display == "day":
         if use_room_groups and rooms:
-            # group 0 = rooms without a group: only present when bookings.show_ungrouped_rooms is on (CRBS hides them)
-            valid = sorted({r.room_group_id or 0 for r in rooms}, key=lambda g: (g == 0, g))
+            # group 0 = rooms without a group: only present when bookings.show_ungrouped_rooms is on (CRBS hides
+            # them); the default tab is the first group in the configured order (audit B7)
+            valid = list(dict.fromkeys(r.room_group_id or 0 for r in rooms))
             room_group_id = room_group_id if room_group_id in valid else valid[0]
             rooms = [r for r in rooms if (r.room_group_id or 0) == room_group_id]
         dates = [target]
@@ -1361,11 +1363,32 @@ async def grid(
         rooms = [room] if room else []
         monday = target - timedelta(days=target.isoweekday() - 1)
         dates = [monday + timedelta(days=i) for i in range(7)]
-    dinfos = await date_infos(session, info, dates)
-    schedule = await applied_schedule(session, info, rooms[0]) if rooms else None
-    periods = [p for p in (schedule.periods if schedule else []) if p.bookable]
+    # audit B13: every room uses its own applied schedule (rooms of several groups share the grid when room
+    # groups are off); the period columns are the union, a period outside a room's schedule is "schedule"
+    by_group: dict[int, BookingSchedule | None] = {}
+    room_schedule: dict[int, BookingSchedule | None] = {}
+    for r in rooms:
+        key = r.room_group_id or 0
+        if key not in by_group:
+            by_group[key] = await applied_schedule(session, info, r)
+        room_schedule[r.id] = by_group[key]
+    schedule = room_schedule.get(rooms[0].id) if rooms else None
+    room_periods = {
+        rid: {p.id for p in sch.periods if p.bookable} if sch else set() for rid, sch in room_schedule.items()
+    }
+    seen_periods: dict[int, BookingPeriod] = {}
+    for sch in by_group.values():
+        for p in sch.periods if sch else []:
+            if p.bookable:
+                seen_periods.setdefault(p.id, p)
+    periods = sorted(seen_periods.values(), key=lambda p: (p.time_start, p.start_period, p.id))
+    period_days = {int(x) for p in periods for x in (p.days or [])}
     if display == "day":
         periods = [p for p in periods if target.isoweekday() in (p.days or [])]
+    elif period_days:
+        # CRBS Context::init_week: dates whose weekday has no period are not shown (audit B15)
+        dates = [x for x in dates if x.isoweekday() in period_days] or dates
+    dinfos = await date_infos(session, info, dates)
     room_ids = {r.id for r in rooms}
     d0, d1 = min(dates), max(dates)
     bocc = await booking_occupancy(session, room_ids, d0, d1)
@@ -1385,7 +1408,9 @@ async def grid(
                 status, reason, label = "available", None, None
                 held_b = next((h for h in bocc.get((r.id, day), []) if h.overlaps(p.start_period, p.end_period)), None)
                 held_t = next((h for h in tocc.get((r.id, day), []) if h.overlaps(p.start_period, p.end_period)), None)
-                if di.reason == "holiday":
+                if p.id not in room_periods.get(r.id, set()):
+                    status, reason = "unavailable", "schedule"
+                elif di.reason == "holiday":
                     status, reason, label = "unavailable", "holiday", di.holiday
                 elif day.isoweekday() not in (p.days or []):
                     status, reason = "unavailable", "period"
@@ -1413,8 +1438,7 @@ async def grid(
                         status, reason = "unavailable", "range_max"
                 slot.update(status=status, reason=reason, label=label)
                 slots.append(slot)
-    step = 1 if display == "day" else 7
-    prev_d, next_d = dates[0] - timedelta(days=step), dates[-1] + timedelta(days=1)
+    prev_d, next_d = await _prev_next(session, info, target, display, period_days)
     return {
         "display": display,
         "term": {
@@ -1427,6 +1451,7 @@ async def grid(
         "date": target.isoformat(),
         "room_group_id": room_group_id,
         "schedule": {"id": schedule.id, "name": schedule.name} if schedule else None,
+        "room_schedules": {str(rid): sch.id if sch else None for rid, sch in room_schedule.items()},
         "dates": [
             {
                 "date": x.date.isoformat(),
@@ -1463,13 +1488,40 @@ async def grid(
         ],
         "slots": slots,
         "nav": {
-            "prev": prev_d.isoformat() if prev_d >= info.start else None,
-            "next": next_d.isoformat() if next_d <= info.end else None,
+            "prev": prev_d.isoformat() if prev_d else None,
+            "next": next_d.isoformat() if next_d else None,
         },
         "limits": limits,
         "remaining_bookings": left,
         "problems": ([] if schedule else ["no_schedule"]) + ([] if rooms else ["no_rooms"]),
     }
+
+
+async def _prev_next(
+    session: AsyncSession, info: TermInfo, target: date, display: str, period_days: set[int]
+) -> tuple[date | None, date | None]:
+    """CRBS ``Dates_model::get_prev_next``: the nearest dates of the term whose weekday has periods (and, once
+    the term uses timetable weeks, that have a week); day view also skips holidays, week view jumps at least
+    7 days (audit B15)."""
+    if not period_days:
+        return None, None
+    span = (info.end - info.start).days
+    every = [info.start + timedelta(days=i) for i in range(span + 1)]
+    infos = await date_infos(session, info, every)
+    uses_weeks = any(x.mapped for x in infos.values())
+
+    def ok(x: DateInfo) -> bool:
+        if x.weekday not in period_days or (uses_weeks and not x.mapped):
+            return False
+        return not (display == "day" and x.holiday is not None)
+
+    if display == "day":
+        before = [d for d, x in infos.items() if d < target and ok(x)]
+        after = [d for d, x in infos.items() if d > target and ok(x)]
+    else:
+        before = [d for d, x in infos.items() if d <= target - timedelta(days=7) and ok(x)]
+        after = [d for d, x in infos.items() if d >= target + timedelta(days=7) and ok(x)]
+    return (max(before) if before else None), (min(after) if after else None)
 
 
 async def conflicts_with_timetable(session: AsyncSession, term_id: int | None) -> list[dict[str, Any]]:

@@ -3,7 +3,7 @@
  * /bookings — the CRBS booking grid on Liquid Glass. Chrome (toolbar, tray, sheets) is glass; the grid is
  * opaque. State lives in the URL (?display=day|room&date=&group=&room=&term=) so a view can be shared.
  */
-import { ChevronLeft, ChevronRight, CircleSlash, Layers, ListChecks, Wrench, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleSlash, Info, Layers, ListChecks, Printer, Wrench, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
@@ -25,6 +25,7 @@ import { bookingErrorMessage } from "./booking-errors";
 import { DatePicker } from "./date-picker";
 import { isSelectable, slotKey, type SlotTone } from "./grid-model";
 import { MultiBookDialog } from "./multi-book-dialog";
+import { RoomInfoSheet } from "./room-info-sheet";
 import { useBookingFormat } from "./use-booking-format";
 import { useIsPhone } from "./use-is-phone";
 
@@ -48,7 +49,10 @@ export function BookingsView() {
   const grid = useBookingGrid(query, ctx.isSuccess);
   const g = grid.data;
   const dates = useBookingDates({ term_id: g?.term.id }, !!g);
-  const rooms = useQuery({ queryKey: ["crbs", "booking-rooms"], queryFn: () => crbs.bookings.rooms(), enabled: display === "room" && ctx.isSuccess, retry: false });
+  const rooms = useQuery({ queryKey: ["crbs", "booking-rooms"], queryFn: () => crbs.bookings.rooms(), enabled: ctx.isSuccess, retry: false, staleTime: 60_000 });
+  const roomIcons = useMemo(() => new Map((rooms.data ?? []).map((r) => [r.id, r.icon])), [rooms.data]);
+  const highlight = num("highlight") ?? null;
+  const [roomInfo, setRoomInfo] = useState<number | null>(null);
 
   const [multi, setMulti] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -138,7 +142,16 @@ export function BookingsView() {
   ) : null;
 
   return (
-    <div className="flex flex-col gap-4 pb-24">
+    <div className="flex flex-col gap-4 pb-24 print:gap-2 print:pb-0" data-print-area>
+      <style>{PRINT_CSS}</style>
+      <div className="hidden print:block">
+        <p className="type-headline">{org.data?.name ?? ""}</p>
+        <p className="type-callout">
+          {g ? (display === "day" ? fmt.long(g.date) : `${fmt.long(g.dates[0]?.date ?? g.date)} – ${fmt.long(g.dates[g.dates.length - 1]?.date ?? g.date)}`) : ""}
+          {display === "day" && groups.length > 1 ? ` · ${groups.find((x) => x.id === g?.room_group_id)?.name ?? ""}` : ""}
+          {display === "room" && g?.rooms[0] ? ` · ${g.rooms[0].name}` : ""}
+        </p>
+      </div>
       <PageTitle
         title={t("crbs.bookings.title")}
         subtitle={subtitle}
@@ -149,12 +162,12 @@ export function BookingsView() {
             </p>
           ) : null
         }
-        className="mb-0"
+        className="mb-0 print:hidden"
       />
 
       {org.data?.maintenance_mode && caps.bypassMaintenance ? <Alert tone="warning" title={t("crbs.maintenance.bypassTitle")}>{org.data.maintenance_message || t("crbs.maintenance.bypass")}</Alert> : null}
 
-      <Toolbar placement="inline" className="sticky top-2 z-30 h-auto w-full flex-wrap justify-start gap-2 rounded-3xl p-1.5 md:rounded-full" aria-label={t("crbs.toolbar.label")}>
+      <Toolbar placement="inline" data-print-hide className="sticky top-2 z-30 h-auto w-full flex-wrap justify-start gap-2 rounded-3xl p-1.5 md:rounded-full" aria-label={t("crbs.toolbar.label")}>
         <SegmentedGlass<Display>
           aria-label={t("crbs.toolbar.display")}
           size="sm"
@@ -191,6 +204,9 @@ export function BookingsView() {
           </ToolbarButton>
           <ToolbarButton onClick={() => setParams({ date: dates.data?.today ?? null })}>{t("crbs.toolbar.today")}</ToolbarButton>
         </div>
+        <ToolbarButton size="icon-sm" aria-label={t("crbs.toolbar.print")} onClick={() => window.print()} data-testid="print">
+          <Printer />
+        </ToolbarButton>
         {display === "room" ? (
           <label className="flex min-w-40 items-center gap-2">
             <span className="sr-only">{t("crbs.toolbar.room")}</span>
@@ -201,6 +217,11 @@ export function BookingsView() {
                 </option>
               ))}
             </SelectField>
+            {g?.rooms[0] ? (
+              <ToolbarButton size="icon-sm" aria-label={t("crbs.roomInfo.open", { name: g.rooms[0].name })} onClick={() => setRoomInfo(g.rooms[0]?.id ?? null)}>
+                <Info />
+              </ToolbarButton>
+            ) : null}
           </label>
         ) : null}
         {sessions.length > 1 ? (
@@ -233,7 +254,7 @@ export function BookingsView() {
       </Toolbar>
 
       {display === "day" && groups.length > 1 ? (
-        <nav aria-label={t("crbs.toolbar.groups")} className="-mx-1 overflow-x-auto px-1 scrollbar-thin">
+        <nav aria-label={t("crbs.toolbar.groups")} data-print-hide className="-mx-1 overflow-x-auto px-1 scrollbar-thin">
           <SegmentedGlass<string>
             aria-label={t("crbs.toolbar.groups")}
             size="sm"
@@ -271,7 +292,7 @@ export function BookingsView() {
 
       <div aria-busy={grid.isFetching} className="relative">
         {g ? (
-          <BookingGrid grid={g} columns={fitColumns} fmt={fmt} multi={multi} selected={selected} onActivate={onActivate} />
+          <BookingGrid grid={g} columns={fitColumns} fmt={fmt} multi={multi} selected={selected} onActivate={onActivate} crosshair={!!ctx.data?.display.grid_highlight} highlightBookingId={highlight} roomIcons={roomIcons} onRoomInfo={setRoomInfo} />
         ) : grid.isLoading || ctx.isLoading ? (
           <Skeleton className="h-[420px] w-full rounded-xl" />
         ) : null}
@@ -280,7 +301,7 @@ export function BookingsView() {
       <Legend />
 
       {multi && selected.size > 0 ? (
-        <Toolbar placement="floating-bottom" aria-label={t("crbs.multi.tray")} data-testid="multi-tray">
+        <Toolbar placement="floating-bottom" aria-label={t("crbs.multi.tray")} data-testid="multi-tray" data-print-hide>
           <ToolbarLabel className="px-2 type-callout text-label-1" aria-live="polite">
             {t("crbs.multi.selected", { n: selected.size })}
           </ToolbarLabel>
@@ -297,6 +318,7 @@ export function BookingsView() {
       <BookSheet target={book} onOpenChange={(o) => !o && setBook(null)} fmt={fmt} />
       <BookingDetailSheet bookingId={detail} onOpenChange={(o) => !o && setDetail(null)} fmt={fmt} />
       <SlotInfoSheet info={info} onOpenChange={(o) => !o && setInfo(null)} />
+      <RoomInfoSheet roomId={roomInfo} onOpenChange={(o) => !o && setRoomInfo(null)} />
       <MultiBookDialog
         open={multiOpen}
         onOpenChange={setMultiOpen}
@@ -382,3 +404,15 @@ function Legend() {
     </ul>
   );
 }
+
+/* CRBS print.css: only the grid (with its title and legend) on paper, landscape, colours kept. The shell is
+   not ours, so everything outside the print area is hidden by visibility rather than by selectors. */
+const PRINT_CSS = `@media print {
+  @page { size: landscape; margin: 10mm; }
+  body * { visibility: hidden !important; }
+  [data-print-area], [data-print-area] * { visibility: visible !important; }
+  [data-print-area] { position: absolute; left: 0; top: 0; width: 100%; }
+  [data-print-hide], [data-print-hide] * { display: none !important; }
+  [data-print-area] * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  [data-testid="booking-grid"] th { position: static !important; }
+}`;

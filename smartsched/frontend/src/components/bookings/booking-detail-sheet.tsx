@@ -5,6 +5,7 @@
  * follow `edit_features[scope]`; future/all scopes only change notes, department and user (CRBS rule).
  */
 import { CalendarClock, Loader2, Pencil, Repeat, Trash2, User } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -125,6 +126,15 @@ function Detail({ id, fmt, onClose }: { id: number; fmt: DateFormatter; onClose:
         ) : (
           <EditForm booking={b} fmt={fmt} onDone={() => setMode("view")} />
         )}
+        {mode === "view" ? (
+          <Link
+            href={`/bookings?display=day&date=${b.date}${b.room?.room_group_id ? `&group=${b.room.room_group_id}` : ""}&highlight=${b.id}`}
+            className="self-start type-callout font-medium text-tint-text underline-offset-4 hover:underline"
+            onClick={onClose}
+          >
+            {t("crbs.detail.showInGrid")}
+          </Link>
+        ) : null}
         {b.series_id && mode === "view" ? (
           <section aria-label={t("crbs.detail.series")}>
             <Button variant="ghost" size="sm" onClick={() => setShowSeries((v) => !v)} aria-expanded={showSeries}>

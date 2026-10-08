@@ -43,7 +43,7 @@ from app.schemas.crbs import (
     TimetableWeekOut,
     TimetableWeekUpdate,
 )
-from app.services.bookings_calendar import date_infos, fgcol, grid_span, parse_clock, term_info
+from app.services.bookings_calendar import current_term_ids, date_infos, fgcol, grid_span, parse_clock, term_info
 from app.services.bookings_notify import deliver
 from app.services.bookings_perms import BOOKING_SCOPE_GROUPS, load_access
 
@@ -65,8 +65,12 @@ async def _term(db: DB, term_id: int) -> Term:
     return t
 
 
-async def _session_out(db: DB, t: Term) -> SessionOut:
+async def _session_out(db: DB, t: Term, current: set[int] | None = None) -> SessionOut:
     info = await term_info(db, t)
+    if current is None:
+        from app.services.bookings import today
+
+        current = await current_term_ids(db, await today(db))
     mapped = (
         await db.execute(
             select(func.count())
@@ -82,7 +86,7 @@ async def _session_out(db: DB, t: Term) -> SessionOut:
         kind=t.kind,
         date_start=info.start if info else t.start_date,
         date_end=info.end if info else t.end_date,
-        is_current=t.is_active,
+        is_current=t.id in current,  # CRBS auto_set_current (bookings.manual_current_term: terms.is_active)
         is_selectable=info.is_selectable if info else False,
         default_schedule_id=info.default_schedule_id if info else None,
         mapped_dates=int(mapped),
@@ -92,7 +96,11 @@ async def _session_out(db: DB, t: Term) -> SessionOut:
 
 @router.get("/sessions", response_model=list[SessionOut])
 async def list_sessions(db: DB, _: SessionsAdmin) -> list[SessionOut]:
-    return [await _session_out(db, t) for t in (await db.execute(select(Term).order_by(Term.id.desc()))).scalars()]
+    from app.services.bookings import today
+
+    current = await current_term_ids(db, await today(db))
+    terms = list((await db.execute(select(Term).order_by(Term.id.desc()))).scalars())
+    return [await _session_out(db, t, current) for t in terms]
 
 
 @router.put("/sessions/{term_id}", response_model=SessionOut)
@@ -294,13 +302,7 @@ async def delete_schedule(sid: int, db: DB, _: SchedulesAdmin) -> None:
     s = await _schedule(db, sid)
     pids = [p.id for p in s.periods]
     if pids:
-        used = (
-            await db.execute(
-                select(func.count(Booking.id)).where(Booking.period_id.in_(pids), Booking.status == "BOOKED")
-            )
-        ).scalar_one()
-        if used:
-            raise HTTPException(409, f"{used} active booking(s) use periods of {s.name}")
+        await _refuse_if_booked(db, Booking.period_id.in_(pids), f"periods of {s.name}")
     await db.delete(s)
     await db.commit()
 
@@ -401,14 +403,26 @@ async def update_period(pid: int, body: PeriodUpdate, db: DB, _: SchedulesAdmin)
     return _period_out(p)
 
 
+async def _refuse_if_booked(db: DB, where: Any, what: str) -> None:
+    """Audit B16: bookings (``ON DELETE CASCADE`` from periods and rooms) are history; deleting what they
+    point at would erase them silently. Refuse with the counts; the admin marks the period not bookable (or
+    cancels the bookings first, which notifies their owners)."""
+    q = select(Booking.status, func.count(Booking.id)).where(where).group_by(Booking.status)
+    rows = (await db.execute(q)).all()
+    counts = {status: int(n) for status, n in rows}
+    total = sum(counts.values())
+    if total:
+        active = counts.get("BOOKED", 0)
+        raise HTTPException(
+            409,
+            f"{total} booking(s) ({active} active) use {what}; mark it not bookable instead of deleting it",
+        )
+
+
 @router.delete("/periods/{pid}", status_code=204)
 async def delete_period(pid: int, db: DB, _: SchedulesAdmin) -> None:
     p = await _period(db, pid)
-    used = (
-        await db.execute(select(func.count(Booking.id)).where(Booking.period_id == p.id, Booking.status == "BOOKED"))
-    ).scalar_one()
-    if used:
-        raise HTTPException(409, f"{used} active booking(s) use {p.name}")
+    await _refuse_if_booked(db, Booking.period_id == p.id, p.name)
     await db.delete(p)
     await db.commit()
 

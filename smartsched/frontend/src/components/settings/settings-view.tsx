@@ -122,7 +122,7 @@ function AiCard() {
             </div>
           ) : (
             <div className="flex flex-wrap items-end gap-2">
-              <div className="grid flex-1 gap-1 sm:max-w-md">
+              <div className="grid w-full flex-1 basis-full gap-1 sm:max-w-md sm:basis-auto">
                 <Label htmlFor="api-key">{t("settings.apiKey")}</Label>
                 <div className="relative">
                   <Input id="api-key" ref={keyRef} type={show ? "text" : "password"} placeholder="sk-ant-…" autoComplete="off" spellCheck={false} className="pr-10 font-mono" onChange={() => test.state !== "untested" && setTest({ state: "untested" })} />

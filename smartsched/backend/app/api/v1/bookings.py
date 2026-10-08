@@ -201,6 +201,7 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
     """Sessions the user may use, room groups, display settings, the user's limits and active count."""
     org = await get_group(db, "org")
     view_all = access.can("system.view_all_sessions")
+    current = await cal.current_term_ids(db, await svc.today(db))  # CRBS: computed from the dates (audit B3)
     sessions = []
     for term in (await db.execute(select(Term).order_by(Term.start_date.desc().nullslast(), Term.id))).scalars():
         info = await term_info(db, term)
@@ -213,7 +214,7 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
                 "name": term.name,
                 "start": info.start.isoformat(),
                 "end": info.end.isoformat(),
-                "is_current": term.is_active,
+                "is_current": term.id in current,
                 "is_selectable": info.is_selectable,
             }
         )
