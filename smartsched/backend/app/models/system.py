@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, utcnow
@@ -24,13 +24,29 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    #: optional since CRBS parity (CRBS users may have only a username); unique when present
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    role: Mapped[str] = mapped_column(String(8), default="VIEWER")  # ADMIN, PLANNER, VIEWER
+    full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)  # = CRBS displayname
+    #: code of the user's role (ADMIN, PLANNER, VIEWER, TEACHER) or CUSTOM; kept in sync with role_id
+    role: Mapped[str] = mapped_column(String(8), default="VIEWER")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     legacy_crbs_user_id: Mapped[int | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    # CRBS parity (docs/CRBS_PARITY.md)
+    username: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
+    firstname: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    lastname: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ext: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    role_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id", ondelete="SET NULL"), nullable=True, index=True)
+    department_id: Mapped[int | None] = mapped_column(
+        ForeignKey("programs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    force_password_reset: Mapped[bool] = mapped_column(Boolean, default=False)
+    auth_source: Mapped[str] = mapped_column(String(8), default="local")  # local | ldap
+    calendar_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class ImportJob(Base):

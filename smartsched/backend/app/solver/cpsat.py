@@ -96,7 +96,7 @@ def solve(inp: SolverInput, *, _complete: bool = True, _hints: list[Assignment] 
         if errors:
             stats["solver_status"] = "STATIC_INFEASIBLE"
             if inp.best_effort:
-                return _best_effort(inp, prep, static, stats, t0, run_core=False)
+                return _best_effort(inp, prep, static, stats, t0, run_core=False, hints=_hints)
             stats["wall_s"] = round(time.perf_counter() - t0, 3)
             return SolverResult("INFEASIBLE", [], 0, 0, {}, static, stats)
         ctx = build_model(prep, "solve")
@@ -148,7 +148,7 @@ def solve(inp: SolverInput, *, _complete: bool = True, _hints: list[Assignment] 
             )
         if status == cp_model.INFEASIBLE:
             if inp.best_effort:
-                return _best_effort(inp, prep, static, stats, t0, run_core=True)
+                return _best_effort(inp, prep, static, stats, t0, run_core=True, hints=_hints)
             budget = max(2.0, min(inp.time_limit_s * 0.5, 120.0))
             diagnoses = static + diagnose(prep, budget)
             stats.update(prep.stats)
@@ -199,6 +199,7 @@ def _best_effort(
     t0: float,
     *,
     run_core: bool,
+    hints: list[Assignment] | None = None,
 ) -> SolverResult:
     """``best_effort``: the instance cannot be scheduled completely.  Phase 1 (slack relaxation,
     hinted with the greedy placement) maximises the number of placed events and explains every
@@ -210,6 +211,15 @@ def _best_effort(
     explained = {d.event_ids[0] for d in static if d.severity == "error" and len(d.event_ids) == 1}
     greedy = greedy_assignments(prep)
     stats["greedy_placed"] = len(greedy)
+    if hints is not None:
+        # a caller's partial schedule (e.g. the previous round of ``weeksplit.solve_segmented``) is the
+        # warm start when it places more events than greedy; it is re-checked like greedy below
+        known = {e.id for e in inp.events}
+        given = [a for a in hints if a.event_id in known]
+        if len(given) >= len(greedy):
+            greedy = given
+            stats["warm_start"] = "hints"
+            stats["hints_placed"] = len(given)
     diagnoses, placed = diagnose_with_placement(prep, budget, core=run_core, hints=greedy, explained=explained)
     stats.update(prep.stats)
     stats["diagnose_s"] = round(time.perf_counter() - t0 - stats.get("solve_s", 0.0), 3)

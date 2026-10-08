@@ -67,9 +67,16 @@ class Room(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     photo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     legacy_crbs_room_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
-    room_group: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    room_group: Mapped[str | None] = mapped_column(String(64), nullable=True)  # legacy CRBS group label
     custom_fields: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     pos: Mapped[int] = mapped_column(Integer, default=0)
+    # CRBS parity: booking-side room properties (docs/CRBS_PARITY.md)
+    room_group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("room_groups.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    location: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    icon: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     building: Mapped[Building | None] = relationship(back_populates="rooms")
 
@@ -91,6 +98,9 @@ class Program(Base):
     canonical_name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     is_evening: Mapped[bool] = mapped_column(Boolean, default=False)
     legacy_crbs_department_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # CRBS parity: a programme is the CRBS "department" users and bookings belong to
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    icon: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     faculty: Mapped[Faculty | None] = relationship()
 
