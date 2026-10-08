@@ -939,7 +939,14 @@ POD_DIAG = (
     "systemctl list-timers 'smartsched-*' --no-pager 2>&1 | head -8; "
     "systemctl is-active smartsched-ci-web.service 2>&1; "
     "docker ps --format '{{.Names}} {{.Status}}' 2>&1; "
-    "journalctl -u 'smartsched-ci-*' -n 120 --no-pager -o short-iso 2>&1 | grep -v -i 'basic_auth' | tail -120"
+    "journalctl -u 'smartsched-ci-*' -n 400 --no-pager -o short-iso 2>&1 | grep '\\[pod-ci\\]' | tail -25; "
+    # error lines of every failed gate in the newest finished run (logs/<run id>/<gate>.log)
+    "for d in $(ls -1dt /var/lib/smartsched-ci/logs/*/ 2>/dev/null | head -3); do "
+    "  for f in \"$d\"*.log; do [ -f \"$f\" ] || continue; "
+    "    if grep -qiE 'error|failed|✘' \"$f\"; then echo \"==== $f\"; "
+    "      grep -iE 'error|failed|✘|expected|received|not found|cannot|timeout' \"$f\" "
+    "        | grep -v -i 'basic_auth' | tail -25; "
+    "      echo '---- tail'; tail -8 \"$f\"; fi; done; done"
 )
 
 
@@ -965,7 +972,7 @@ def pod_runtime(aws: Aws, instance_id: str, sleep: Callable[[float], None] = tim
             continue
         text = (inv.get("StandardOutputContent") or "") + (inv.get("StandardErrorContent") or "")
         return [LOG_REDACT.sub(lambda m: (m.group(1) + " [redacted]") if m.group(1) else "[redacted]", line)
-                for line in text.splitlines()][-160:]
+                for line in text.splitlines()][-400:]
     return ["ssm command still running; try again"]
 
 
