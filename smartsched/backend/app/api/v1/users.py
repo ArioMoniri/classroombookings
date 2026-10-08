@@ -16,7 +16,15 @@ from app.importers import normalize as n
 from app.models import ConstraintRow, Program, Role, RoomAcl, ScheduleRun, User, UserConstraint
 from app.models.catalog import Room
 from app.schemas.users import PasswordIn, UserAdminOut, UserCreate, UserUpdate
-from app.services.bookings_perms import may_grant_role, may_manage_user, set_user_role
+from app.services.bookings_perms import (
+    GRANT_GUARD,
+    is_privileged_role,
+    may_grant_role,
+    may_manage_user,
+    missing_permissions,
+    role_permission_names,
+    set_user_role,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -45,9 +53,16 @@ async def guard_privileged(db: DB, me: User, role: Role | None = None, target: U
     """403 when ``me`` lacks setup.roles and grants a privileged role or manages a privileged account
     (deliberate security difference from CRBS, ``app.services.bookings_perms.GRANT_GUARD``)."""
     if role is not None and not await may_grant_role(db, me, role):
-        raise HTTPException(403, f"granting the role {role.name!r} requires permission setup.roles")
+        missing = await missing_permissions(
+            db,
+            me,
+            role_permission_names(role) | {GRANT_GUARD} if is_privileged_role(role) else role_permission_names(role),
+        )
+        raise HTTPException(
+            403, f"granting the role {role.name!r} requires permissions you do not hold: {', '.join(missing)}"
+        )
     if target is not None and not await may_manage_user(db, me, target):
-        raise HTTPException(403, "managing this account requires permission setup.roles")
+        raise HTTPException(403, "managing this account requires every permission its role holds")
 
 
 async def _other_active_admins(db: DB, user_id: int) -> int:

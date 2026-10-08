@@ -7,6 +7,7 @@ entries of that room and its room group whose context is the user, the user's ro
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -161,7 +162,9 @@ async def user_role(session: AsyncSession, user: User) -> Role | None:
 
 #: Deliberate security difference (docs/review/2026-10-08-crbs-parity-audit.md): CRBS ``Users::save`` lets
 #: anyone holding ``setup.users`` give any role, Administrator included. SmartSched also asks for
-#: ``setup.roles`` before user management grants -- or takes over the account of -- a privileged role.
+#: ``setup.roles`` before user management grants -- or takes over the account of -- a privileged role,
+#: and (user decision 2026-10-08, no escalation) the actor must hold every permission of a role they grant,
+#: of an account they manage, and of a role they create, edit or delete.
 GRANT_GUARD = "setup.roles"
 
 
@@ -170,8 +173,24 @@ def is_privileged_role(role: Role | None) -> bool:
     return role is not None and (role.code == "ADMIN" or any(p.name == GRANT_GUARD for p in role.permissions))
 
 
+def role_permission_names(role: Role | None) -> set[str]:
+    return {p.name for p in role.permissions} if role is not None else set()
+
+
+async def missing_permissions(session: AsyncSession, actor: User, names: Iterable[str]) -> list[str]:
+    """Permissions in ``names`` that ``actor`` does not hold (no-escalation rule, user decision 2026-10-08):
+    nobody may grant, edit or take over a role whose permissions exceed their own."""
+    held = (await load_access(session, actor)).perms
+    return sorted(set(names) - held)
+
+
 async def may_grant_role(session: AsyncSession, actor: User, role: Role | None) -> bool:
-    return not is_privileged_role(role) or GRANT_GUARD in (await load_access(session, actor)).perms
+    if role is None:
+        return True
+    acc = await load_access(session, actor)
+    if is_privileged_role(role) and GRANT_GUARD not in acc.perms:
+        return False
+    return role_permission_names(role) <= acc.perms
 
 
 async def may_manage_user(session: AsyncSession, actor: User, target: User) -> bool:

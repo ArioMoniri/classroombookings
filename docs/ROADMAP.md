@@ -217,6 +217,7 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - README and recording captions are in **English**.
 - No paid UI components: use the free parts the sites offer (only where their terms allow commercial use) or MIT alternatives — reverseui free components, beUI file-upload instead of kobra Magnetic Dropzone, TanStack grouping instead of kobra Grouped Table, free transitions.dev set only.
 - Status updates to the user are written BLUF (bottom line up front).
+- **No privilege escalation** (stricter than classroombookings, confirmed): nobody may grant a role, manage an account, or create/edit/delete a role whose permissions they do not all hold themselves; Administrator holds every permission and is unaffected. Implemented in `app/services/bookings_perms.py` (`may_grant_role`, `missing_permissions`) and `app/api/v1/{users,roles}.py`; tests in `tests/test_crbs_fixes_org.py`.
 
 ### Phase 17 — Booking enhancements wave 1 (from docs/product/booking-enhancements.md)
 

@@ -3,6 +3,7 @@ one-time password reset tokens (``setup.users``). CRBS: ``Roles``, ``Users::{imp
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -12,11 +13,25 @@ from app.api.deps import DB, UsersAdmin, require_permission
 from app.api.v1.users import guard_privileged
 from app.models import Permission, Program, Role, RoomAcl, User, UserConstraint
 from app.schemas.crbs import ConstraintsIO, ConstraintValue, RoleIn, RoleOut, RoleUpdate
-from app.services.bookings_perms import LIMIT_KEYS, PERMISSION_NAMES, forget_access, grouped_permissions
+from app.services.bookings_perms import (
+    LIMIT_KEYS,
+    PERMISSION_NAMES,
+    forget_access,
+    grouped_permissions,
+    missing_permissions,
+    role_permission_names,
+)
 from app.services.bookings_users import ImportDefaults, import_users_csv, issue_reset_token
 
 router = APIRouter(tags=["roles"])
 RolesAdmin = Annotated[User, Depends(require_permission("setup.roles"))]
+
+
+async def _no_escalation(db: DB, me: User, names: Iterable[str], what: str = "grant these permissions") -> None:
+    """403 unless ``me`` holds every permission in ``names`` (no-escalation rule, user decision 2026-10-08)."""
+    missing = await missing_permissions(db, me, names)
+    if missing:
+        raise HTTPException(403, f"to {what} you need permissions you do not hold: {', '.join(missing)}")
 
 
 async def _perms_by_name(db: DB, names: list[str]) -> list[Permission]:
@@ -68,11 +83,13 @@ async def list_roles(db: DB, _: RolesAdmin) -> list[RoleOut]:
 
 
 @router.post("/roles", response_model=RoleOut, status_code=201)
-async def create_role(body: RoleIn, db: DB, _: RolesAdmin) -> RoleOut:
+async def create_role(body: RoleIn, db: DB, me: RolesAdmin) -> RoleOut:
     if (await db.execute(select(Role.id).where(Role.name == body.name))).scalar_one_or_none() is not None:
         raise HTTPException(409, f"a role named {body.name} already exists")
     role = Role(**body.model_dump(exclude={"permissions"}))
-    role.permissions = await _perms_by_name(db, body.permissions)
+    perms = await _perms_by_name(db, body.permissions)  # 422 on unknown names first
+    await _no_escalation(db, me, body.permissions)
+    role.permissions = perms
     db.add(role)
     await db.commit()
     await db.refresh(role)
@@ -85,14 +102,17 @@ async def get_role(role_id: int, db: DB, _: RolesAdmin) -> RoleOut:
 
 
 @router.put("/roles/{role_id}", response_model=RoleOut)
-async def update_role(role_id: int, body: RoleUpdate, db: DB, _: RolesAdmin) -> RoleOut:
+async def update_role(role_id: int, body: RoleUpdate, db: DB, me: RolesAdmin) -> RoleOut:
     role = await _role(db, role_id)
+    await _no_escalation(db, me, role_permission_names(role), what="edit this role")
     data = body.model_dump(exclude_unset=True)
     perms = data.pop("permissions", None)
     if perms is not None:
         if role.code == "ADMIN" and set(perms) != PERMISSION_NAMES:
             raise HTTPException(409, "the Administrator role keeps every permission (lock-out guard)")
-        role.permissions = await _perms_by_name(db, perms)
+        new_perms = await _perms_by_name(db, perms)  # 422 on unknown names first
+        await _no_escalation(db, me, perms)
+        role.permissions = new_perms
     if "name" in data and data["name"] != role.name:
         clash = (await db.execute(select(Role.id).where(Role.name == data["name"], Role.id != role.id))).scalar()
         if clash is not None:
@@ -107,11 +127,12 @@ async def update_role(role_id: int, body: RoleUpdate, db: DB, _: RolesAdmin) -> 
 
 
 @router.delete("/roles/{role_id}", status_code=204)
-async def delete_role(role_id: int, db: DB, _: RolesAdmin) -> None:
+async def delete_role(role_id: int, db: DB, me: RolesAdmin) -> None:
     """CRBS ``Roles_model::delete``: members lose the role, the role's ACL entries go."""
     role = await _role(db, role_id)
     if role.code == "ADMIN":
         raise HTTPException(409, "the Administrator role cannot be deleted")
+    await _no_escalation(db, me, role_permission_names(role), what="delete this role")
     for u in (await db.execute(select(User).where(User.role_id == role.id))).scalars():
         u.role_id = None
         u.role = "NONE"

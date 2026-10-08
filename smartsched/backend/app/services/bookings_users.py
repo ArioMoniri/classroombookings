@@ -20,7 +20,13 @@ from app.models import PasswordResetToken, Program, Role, User
 from app.models.base import utcnow
 from app.services import bookings_events as events
 from app.services.bookings_notify import notify
-from app.services.bookings_perms import may_grant_role, set_user_role
+from app.services.bookings_perms import (
+    is_privileged_role,
+    may_grant_role,
+    missing_permissions,
+    role_permission_names,
+    set_user_role,
+)
 from app.services.bookings_settings import smtp_configured
 
 RESET_TTL = timedelta(hours=24)
@@ -147,7 +153,17 @@ async def import_users_csv(
             if n.tr_casefold(role_name) not in roles:
                 result["warning"] = f"unknown role {role_name!r}; default used"
         if actor is not None and role is not None and not await may_grant_role(session, actor, role):
-            result.update(status="forbidden", error=f"granting the role {role.name!r} needs setup.roles")
+            missing = await missing_permissions(
+                session,
+                actor,
+                role_permission_names(role) | {"setup.roles"}
+                if is_privileged_role(role)
+                else role_permission_names(role),
+            )
+            result.update(
+                status="forbidden",
+                error=f"granting the role {role.name!r} needs permissions you do not hold: {', '.join(missing)}",
+            )
             continue
         dep_id = defaults.department_id
         dep_name = _val(row, 6)

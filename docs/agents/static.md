@@ -33,4 +33,4 @@
 BLUF reports; no GitHub Actions on push; no paid UI components; English README/captions; CRBS behaviour by default with
 settings; departments = programmes; ungrouped rooms hidden by default with toggle; approvers = designated administrators;
 KVKK signed off by the user (AI booking + calendar sync on, switchable); check-in reminders-first; default model
-claude-opus-5-5; trust planner-locked rooms with visible data issues.
+claude-opus-5-5; trust planner-locked rooms with visible data issues; no privilege escalation (grant/manage/edit only roles whose permissions you hold).

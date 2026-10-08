@@ -353,14 +353,27 @@ async def test_setup_users_cannot_grant_or_take_over_administrator_without_setup
     ).json()
     admin_id = (await c.get("/api/v1/auth/me", headers=env.admin)).json()["id"]
 
-    # CRBS behaviour kept: ordinary roles are granted as before
+    # no escalation (user decision 2026-10-08): a role is granted only when the actor holds all its permissions
+    izleyici = (
+        await c.post(
+            "/api/v1/roles", json={"name": "Derslik İzleyici", "permissions": ["room.view"]}, headers=env.admin
+        )
+    ).json()
     ok = await c.post(
         "/api/v1/users",
-        json={"email": "ilker.sahin@uni.edu.tr", "role": "TEACHER", "password": "parola-1234"},
+        json={"email": "ilker.sahin@uni.edu.tr", "role_id": izleyici["id"], "password": "parola-1234"},
         headers=sekreter,
     )
     assert ok.status_code == 201, ok.text
     teacher_id = ok.json()["id"]
+    # Teacher holds booking permissions the secretary lacks (CRBS would allow this grant)
+    r = await c.post(
+        "/api/v1/users",
+        json={"email": "ozan.demir@uni.edu.tr", "role": "TEACHER", "password": "parola-1234"},
+        headers=sekreter,
+    )
+    assert r.status_code == 403, r.text
+    assert "booking" in r.json()["detail"] or "book" in r.json()["detail"]
     # ... but not Administrator, nor a role holding setup.roles, on create or on update
     for body in ({"role": "ADMIN"}, {"role_id": roles["ADMIN"]["id"]}, {"role_id": yetkili["id"]}):
         r = await c.post(
@@ -371,7 +384,7 @@ async def test_setup_users_cannot_grant_or_take_over_administrator_without_setup
         assert r.status_code == 403, r.text
         r = await c.put(f"/api/v1/users/{teacher_id}", json=body, headers=sekreter)
         assert r.status_code == 403, r.text
-    assert (await c.get(f"/api/v1/users/{teacher_id}", headers=env.admin)).json()["role"] == "TEACHER"
+    assert (await c.get(f"/api/v1/users/{teacher_id}", headers=env.admin)).json()["role_id"] == izleyici["id"]
     # nor take the Administrator's account over (password, reset code, e-mail, disable, delete)
     assert (
         await c.post(f"/api/v1/users/{admin_id}/password", json={"password": "ele-gecirme-1"}, headers=sekreter)
@@ -382,7 +395,7 @@ async def test_setup_users_cannot_grant_or_take_over_administrator_without_setup
     ).status_code == 403
     assert (await c.delete(f"/api/v1/users/{admin_id}", headers=sekreter)).status_code == 403
     # the CSV import refuses those rows (and an Administrator default) but imports the others
-    csv = "kullanıcı adı,ad,soyad,e-posta,parola,rol,bölüm\nayşe.yılmaz,Ayşe,Yılmaz,,parola-1234,Teacher,\n"
+    csv = "kullanıcı adı,ad,soyad,e-posta,parola,rol,bölüm\nayşe.yılmaz,Ayşe,Yılmaz,,parola-1234,Derslik İzleyici,\n"
     csv += "İLKNUR.ÇELİK,İlknur,Çelik,,parola-1234,Administrator,\n"
     r = await c.post(
         "/api/v1/users/import", files={"file": ("users.csv", csv.encode("utf-8"), "text/csv")}, headers=sekreter
@@ -392,6 +405,13 @@ async def test_setup_users_cannot_grant_or_take_over_administrator_without_setup
     assert res["created"] == 1
     assert [x["status"] for x in res["results"]] == ["success", "forbidden"]
     assert "setup.roles" in res["results"][1]["error"]
+    # a Teacher row is refused too: it needs booking permissions the secretary does not hold
+    r = await c.post(
+        "/api/v1/users/import",
+        files={"file": ("users.csv", b"zeynep.arslan,Zeynep,Arslan,,parola-1234,Teacher,\n", "text/csv")},
+        headers=sekreter,
+    )
+    assert [x["status"] for x in r.json()["results"]] == ["forbidden"]
     r = await c.post(
         "/api/v1/users/import",
         files={"file": ("users.csv", b"murat.kaya,Murat,Kaya,,parola-1234,,\n", "text/csv")},
@@ -443,3 +463,50 @@ async def test_missing6_installer_requirements_step(empty_client, tmp_path, monk
     admin = await login(c, "kurulum@uni.edu.tr", "kurulum-1234")
     r = await c.get("/api/v1/org/setup/requirements", headers=admin)
     assert r.status_code == 200 and r.json()["setup_required"] is False
+
+
+async def test_no_escalation_role_editors_cannot_grant_permissions_they_lack(env):  # noqa: F811
+    """User decision 2026-10-08 (stricter than CRBS): a role editor (setup.roles) may only put permissions
+    they hold into a role, may only edit or delete roles whose permissions they hold, and cannot raise
+    their own role."""
+    c = env.client
+    yonetici = (
+        await c.post(
+            "/api/v1/roles",
+            json={"name": "Rol Yöneticisi (sınırlı)", "permissions": ["setup.roles", "room.view"]},
+            headers=env.admin,
+        )
+    ).json()
+    _, rol_yon = await env.user("rol.yonetici@uni.edu.tr", role=None, role_id=yonetici["id"])
+    roles = {r["code"]: r for r in (await c.get("/api/v1/roles", headers=rol_yon)).json()}
+
+    # creating a role: only permissions the editor holds
+    ok = await c.post("/api/v1/roles", json={"name": "Görüntüleyici", "permissions": ["room.view"]}, headers=rol_yon)
+    assert ok.status_code == 201, ok.text
+    r = await c.post("/api/v1/roles", json={"name": "Süper", "permissions": ["setup.settings"]}, headers=rol_yon)
+    assert r.status_code == 403 and "setup.settings" in r.json()["detail"]
+    # raising their own role, or any role, is refused
+    r = await c.put(
+        f"/api/v1/roles/{yonetici['id']}",
+        json={"permissions": ["setup.roles", "room.view", "setup.users"]},
+        headers=rol_yon,
+    )
+    assert r.status_code == 403, r.text
+    r = await c.put(f"/api/v1/roles/{ok.json()['id']}", json={"permissions": ["setup.users"]}, headers=rol_yon)
+    assert r.status_code == 403, r.text
+    # editing or deleting a role whose permissions exceed theirs (Teacher can book) is refused
+    assert (
+        await c.put(f"/api/v1/roles/{roles['TEACHER']['id']}", json={"name": "Öğretmen"}, headers=rol_yon)
+    ).status_code == 403
+    assert (await c.delete(f"/api/v1/roles/{roles['TEACHER']['id']}", headers=rol_yon)).status_code == 403
+    # within their own permissions everything still works
+    r = await c.put(f"/api/v1/roles/{ok.json()['id']}", json={"name": "Derslik Görüntüleyici"}, headers=rol_yon)
+    assert r.status_code == 200, r.text
+    assert (await c.delete(f"/api/v1/roles/{ok.json()['id']}", headers=rol_yon)).status_code == 204
+    # the Administrator holds every permission and is unaffected
+    r = await c.put(
+        f"/api/v1/roles/{yonetici['id']}",
+        json={"permissions": ["setup.roles", "room.view", "setup.users"]},
+        headers=env.admin,
+    )
+    assert r.status_code == 200, r.text
