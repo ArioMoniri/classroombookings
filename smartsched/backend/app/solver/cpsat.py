@@ -118,6 +118,71 @@ def polish_preferred(prep: Prepared, inp: SolverInput, assignments: list[Assignm
     return current, kept
 
 
+#: share of the remaining time the full CP-SAT search gets when the day sweep can follow it
+SEARCH_SHARE = 0.6
+
+
+def _sweep_days(inp: SolverInput, by_event: dict[int, Assignment]) -> dict[int, list[Event]]:
+    """Day -> the events a day sweep re-rooms on that day: placed, room-needing, not locked."""
+    out: dict[int, list[Event]] = {}
+    for e in inp.events:
+        a = by_event.get(e.id)
+        if a is not None and e.needs_room and e.locked is None:
+            out.setdefault(a.day, []).append(e)
+    return out
+
+
+def day_sweep(
+    inp: SolverInput, assignments: list[Assignment], budget_s: float
+) -> tuple[list[Assignment], dict[str, Any]]:
+    """Room re-optimisation one day at a time, at the current times.
+
+    A time-limited search on a large instance (Bahar: ~640 events, ~60 rooms) can stop far from the
+    optimum (objective 1694 vs bound 1262 after 45 s), although with the times fixed the room choice
+    only couples events of the *same* day.  So, per day: that day's placed unlocked events, pinned to
+    their current day and start, plus the day's locked events are re-solved (hinted with the current
+    rooms; cohort/instructor rules are unaffected since no time moves).  A day's new rooms are kept only
+    if the whole timetable still satisfies every hard rule and its total penalty strictly drops
+    (validated with :func:`evaluate`, which also covers soft terms linking days such as
+    ``same_room_group``).  Each day gets a share of ``budget_s`` by its number of events."""
+    stats: dict[str, Any] = {"sweep_days": 0, "sweep_improved_days": 0}
+    t0 = time.perf_counter()
+    current = {a.event_id: a for a in assignments}
+    days = _sweep_days(inp, current)
+    if not days:
+        return assignments, stats
+    best = evaluate(inp, assignments).total_penalty()
+    stats["sweep_penalty_before"] = best
+    total = sum(len(v) for v in days.values())
+    for day in sorted(days):
+        remaining = budget_s - (time.perf_counter() - t0)
+        if remaining < 0.5:
+            break
+        free = days[day]
+        pinned = tuple(
+            replace(e, fixed_day=day, fixed_start=current[e.id].start, allowed_days=frozenset({day})) for e in free
+        )
+        locked = tuple(e for e in inp.events if e.locked is not None and e.id in current and current[e.id].day == day)
+        share = max(0.5, remaining * len(free) / max(1, total))
+        total -= len(free)
+        sub = replace(inp, events=pinned + locked, time_limit_s=share, best_effort=False)
+        res = solve(sub, _complete=False, _hints=[current[e.id] for e in sub.events], _sweep=False)
+        stats["sweep_days"] += 1
+        if res.status not in ("OPTIMAL", "FEASIBLE") or res.hard_score < 100:
+            continue
+        cand = dict(current)
+        cand.update({a.event_id: a for a in res.assignments if a.event_id in current})
+        ordered = [cand[a.event_id] for a in assignments]
+        ev = evaluate(inp, ordered)
+        if ev.hard_violations() or ev.total_penalty() >= best:
+            continue
+        current, best = cand, ev.total_penalty()
+        stats["sweep_improved_days"] += 1
+    stats["sweep_penalty_after"] = best
+    stats["sweep_s"] = round(time.perf_counter() - t0, 3)
+    return [current[a.event_id] for a in assignments], stats
+
+
 def neighbours_of_options(inp: SolverInput, placed: list[Assignment], e: Event) -> set[int]:
     """Placed events that could block any option of ``e`` (same key, or a room ``e`` may use)."""
     from app.solver.domains import TimeOption, build_domains, weeks_intersect
@@ -139,7 +204,13 @@ def neighbours_of_options(inp: SolverInput, placed: list[Assignment], e: Event) 
     return out
 
 
-def solve(inp: SolverInput, *, _complete: bool = True, _hints: list[Assignment] | None = None) -> SolverResult:
+def solve(
+    inp: SolverInput,
+    *,
+    _complete: bool = True,
+    _hints: list[Assignment] | None = None,
+    _sweep: bool = True,
+) -> SolverResult:
     t0 = time.perf_counter()
     stats: dict[str, Any] = {}
     try:
@@ -171,7 +242,17 @@ def solve(inp: SolverInput, *, _complete: bool = True, _hints: list[Assignment] 
         stats["hinted_events"] = ctx.add_hints([hints[e.id] for e in inp.events if e.id in hints])
         stats["warnings"].extend(ctx.warnings)
         elapsed = time.perf_counter() - t0
-        solver = make_solver(inp, max(0.5, inp.time_limit_s - elapsed))
+        search_s = inp.time_limit_s - elapsed
+        # a complete warm start guarantees a solution: keep part of the time for the day sweep, which
+        # closes most of the gap a time-limited search leaves on large instances (see day_sweep)
+        sweep = (
+            _sweep
+            and all(e.id in hints for e in inp.events)
+            and len(_sweep_days(inp, {e.id: hints[e.id] for e in inp.events})) > 1
+        )
+        if sweep:
+            search_s *= SEARCH_SHARE
+        solver = make_solver(inp, max(0.5, search_s))
         status = solver.Solve(ctx.model)
         name = status_name(solver, status)
         stats["solver_status"] = name
@@ -186,6 +267,10 @@ def solve(inp: SolverInput, *, _complete: bool = True, _hints: list[Assignment] 
                     assignments = canon
                     stats["canonical"] = True
             else:
+                if sweep:
+                    budget = inp.time_limit_s - (time.perf_counter() - t0)
+                    assignments, sweep_stats = day_sweep(inp, assignments, budget)
+                    stats.update(sweep_stats)
                 assignments, moves = polish_preferred(prep, inp, assignments)
                 if moves:
                     stats["polish_preferred_moves"] = moves
@@ -324,6 +409,7 @@ def _best_effort(
         phase2 = solve(replace(sub, time_limit_s=remaining), _complete=False, _hints=assignments)
         stats["phase2_status"] = phase2.status
         stats["phase2_s"] = phase2.stats.get("wall_s")
+        stats.update({f"phase2_{k}": v for k, v in phase2.stats.items() if k.startswith("sweep_")})
         if phase2.status in ("OPTIMAL", "FEASIBLE"):
             assignments = phase2.assignments
     if phase2 is None or phase2.status != "OPTIMAL":

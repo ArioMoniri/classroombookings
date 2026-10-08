@@ -97,7 +97,8 @@
       "goal": "finish fixing the B1–B16 bugs and \"missing 2–6\" items in docs/review/2026-10-08-crbs-parity-audit.md. Keep CRBS default behaviour, exposed through settings, and safer security defaults. Remaining per the last ledger lines: the remaining B-items, the i18n/date-pattern endpoints, check_session_dates, and tests. The user's standing requirement is that SmartSched has every classroombookings feature an…",
       "ledger": "backend-engineer (CRBS parity fixes)",
       "resumed": true,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-08 12:48"
     },
     {
       "id": "a5d36e79e1121e36b",

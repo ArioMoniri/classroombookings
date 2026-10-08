@@ -349,3 +349,30 @@ test("12. one-time reset code (shown once) and the reset-password page; setup is
   await target.goto("/setup");
   await expect(target.getByText("Bu kurulum zaten tamamlanmış")).toBeVisible();
 });
+
+test("13. planners see bookings the published timetable overlaps (conflicts after publishing); teachers cannot", async ({ page }) => {
+  // the real list from the API: one UI row per booking, however many timetable slots overlap it
+  const pairs = await api<{ booking_id: number }[]>("GET", `/bookings/conflicts?term_id=${ctx.termId}`);
+  const bookings = new Set(pairs.map((p) => p.booking_id)).size;
+  await uiLogin(page, ADMIN.username, ADMIN.password);
+  await page.goto("/admin/conflicts");
+  await expect(page.getByRole("heading", { name: "Rezervasyon çakışmaları" })).toBeVisible();
+  if (bookings === 0) {
+    // SmartSched refuses bookings on timetable slots (test 4), so a clash only appears after a new run is activated
+    await expect(page.getByTestId("conflicts-empty")).toHaveText("Yayımlanan ders programıyla çakışan rezervasyon yok.");
+  } else {
+    await expect(page.getByTestId("conflicts-list").locator("li")).toHaveCount(bookings);
+  }
+  await page.goto("/admin");
+  // listed in the setup tabs and in the overview's calendar group
+  await expect(page.getByRole("navigation", { name: "Kurulum" }).getByRole("link", { name: "Rezervasyon çakışmaları", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Rezervasyon çakışmaları Yayımlanan/ })).toHaveAttribute("href", "/admin/conflicts");
+
+  const teacher = await page.context().browser()!.newPage();
+  await uiLogin(teacher, TEACHER.username, TEACHER.password);
+  await teacher.goto("/admin/conflicts");
+  await expect(teacher.getByRole("heading", { name: /erişiminiz yok|do not have access/i })).toBeVisible();
+  const res = await ctx.api.get(`${API}/bookings/conflicts`, { headers: { Authorization: `Bearer ${await loginToken(TEACHER.username, TEACHER.password)}` } });
+  expect(res.status()).toBe(403);
+  await teacher.close();
+});

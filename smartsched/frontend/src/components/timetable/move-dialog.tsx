@@ -187,6 +187,9 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
                           type="button"
                           role="option"
                           aria-selected={room === r.room_id}
+                          data-testid="free-room"
+                          data-room-id={r.room_id}
+                          data-status={r.status}
                           disabled={g.key === "other"}
                           onClick={() => setRoom(r.room_id)}
                           className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-fill-2 disabled:opacity-50", room === r.room_id && "bg-tint-soft")}
@@ -223,7 +226,7 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
         </div>
         <div className="flex flex-col gap-1.5">
           {shown ? <Issues hard={shown.hard} soft={shown.soft} lang={lang} /> : null}
-          {server && server.ok ? <p className="text-[12px] text-status-feasible-fg">✓ {t("calendar.move.serverOk")}</p> : null}
+          {server && server.ok ? <p className="text-[12px] text-status-feasible-fg" data-testid="move-server-ok">✓ {t("calendar.move.serverOk")}</p> : null}
           {scope.scope === "from" && ok ? <p className="text-[12px] text-label-2">{t("calendar.move.split", { room: fromRoom })}</p> : null}
         </div>
         <DialogFooter>

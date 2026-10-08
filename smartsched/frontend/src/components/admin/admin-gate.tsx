@@ -50,6 +50,8 @@ function AdminLink({ href, active, children }: { href: string; active: boolean; 
   return (
     <Link
       href={href}
+      // on a phone the tab strip scrolls sideways: keep the current screen's tab in view
+      ref={active ? (el: HTMLAnchorElement | null) => el?.scrollIntoView?.({ block: "nearest", inline: "nearest" }) : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
         "inline-flex h-7 items-center rounded-full px-3 type-footnote font-medium whitespace-nowrap outline-none focus-visible:outline-2 focus-visible:outline-(--focus)",

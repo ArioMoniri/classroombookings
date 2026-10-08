@@ -126,6 +126,8 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
                   className={cn("cal-heat flex items-center justify-center rounded-[6px] text-[11px] font-semibold tabular-nums outline-offset-1", brushed && "outline-2 outline-(--accent)", w === p.currentWeek && !bld && "ring-1 ring-(--hairline-strong)")}
                   data-step={s}
                   data-holiday={kind === "holiday" ? "true" : undefined}
+                  data-week={bld ? undefined : w}
+                  data-day={bld ? undefined : d}
                   style={{ width: cellW, height: cellH }}
                   aria-label={label(w, d, v)}
                   onPointerDown={(e) => onCellDown(e, w)}

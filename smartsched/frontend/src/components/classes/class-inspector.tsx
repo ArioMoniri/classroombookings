@@ -168,7 +168,7 @@ export function ClassInspector(p: InspectorProps) {
     return { tone: "feasible", text: `${t("calendar.state.placed")}${locked ? ` · ${t("calendar.state.locked")}` : ""}`, glyph: <Check className="size-3.5" /> };
   })();
   const fit = cap ? Math.round((size / cap) * 100) : null;
-  const origin = placement?.origin ?? null;
+  const origin = a?.origin ?? placement?.origin ?? null;
   const allWeeks = p.allWeeks ?? row?.req.weeks ?? [];
   const placedWeeks = a?.weeks.length ? a.weeks : (placement?.weeks_placed ?? []);
   const checks = explain.out?.checks?.length ? explain.out.checks : (detail.data?.checks ?? []);
