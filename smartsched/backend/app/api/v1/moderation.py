@@ -222,6 +222,7 @@ async def moderation_resolve(
             user,
             radius=body.radius,
             time_limit_s=body.time_limit_s,
+            compare_to=body.compare_to,
         )
     except mod.ModerationError as exc:
         raise _raise(exc) from exc
@@ -238,13 +239,14 @@ async def moderation_resolve(
 
 
 @router.get("/moderation/runs/{run_id}/diff")
-async def moderation_diff(run_id: int, db: DB, _: Viewer) -> dict[str, Any]:
-    """The re-solve preview: moved / unchanged / newly placed / unplaceable against the base run."""
+async def moderation_diff(run_id: int, db: DB, _: Viewer, compare_to: int | None = None) -> dict[str, Any]:
+    """The re-solve preview: moved / unchanged / newly placed / unplaceable against the published run that started
+    the chain (``compared_to``: published / was_published / root), or against ``compare_to``."""
     run = await db.get(ScheduleRun, run_id)
     if run is None:
         raise HTTPException(404, "run not found")
     try:
-        return await mod.resolve_diff(db, run)
+        return await mod.resolve_diff(db, run, compare_to)
     except mod.ModerationError as exc:
         raise _raise(exc) from exc
 

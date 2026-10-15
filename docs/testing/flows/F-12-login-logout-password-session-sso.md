@@ -14,7 +14,7 @@ State on `d2ed4a8` (HEAD while this file was revised):
 - **Spec vs backend mismatch, to resolve before the frontend lands:**
   - sign-in.md §15.1 expects the button to point at `/api/v1/auth/oidc/microsoft/start?next=…` and errors as `?error=<code>`;
   - the backend serves `/api/v1/auth/sso/entra/start?return_path=…` and redirects errors to `/login?sso_error=<code>`.
-  - Testers check whatever the built page uses, end to end. A dead link is a FAIL. The suggester files the mismatch once (owner area `approval-first`/`integrations` → SSO frontend agent).
+  - Testers check whatever the built page uses, end to end. A dead link is a FAIL. The suggester files the mismatch once (owner area `integrations` → the SSO/channels frontend agent).
 
 Local login (S01–S10) is testable now.
 

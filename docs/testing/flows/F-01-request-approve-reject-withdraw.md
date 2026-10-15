@@ -6,7 +6,7 @@ Owner decision (ROADMAP "Approval-first bookings + user channels + credential-fr
 State on `b75047b`:
 - Backend done: `bookings.approval_mode`, `bookings.skip_approval`, reason codes, `notify_dispatch` (in-app + e-mail), `/me/notification-preferences`.
 - UI not built yet (frontend builder waits for the shell sweep): the approval-mode setting, the reject dialog with a required reason, the reason shown to the requester, and Profile › Bildirimler. Those steps carry **[UI pending]**. Run them anyway and report `FAIL` when the old UI is still there, or `BLOCKED: <what is missing>` when the step cannot be reached at all. Always also run the **API check** in the same step: it tells the builder whether the backend side holds.
-- External channels (a Pipedream-like provider) are not chosen: S13 is `BLOCKED: provider not chosen`.
+- External channels: the owner chose built-in Apprise + pywebpush (ROADMAP 22:45; push, Telegram, WhatsApp/SMS, Teams/Slack, each with a KVKK sign-off and a link-only mode). The backend builder is running and no channel API or UI exists on `d2ed4a8`: S13 is `BLOCKED: channels not built`.
 
 ## Preconditions
 
@@ -108,8 +108,12 @@ Each step lists what to do, what the UI must show (Turkish strings quoted exactl
 - API: `POST /bookings` → **201**, status `BOOKED`. No approval request is created.
 - Planner check (helper account): planner.test books a free cell → **202** request (the PLANNER role has no `approvals.decide` and no `bookings.skip_approval`). After the admin grants `bookings.skip_approval` to the planner role in `/admin/roles`, the next planner booking → **201**.
 
-**S13 · requester · a connected external channel** — `BLOCKED: provider not chosen`
-- Target once the provider exists: Profile › Bildirimler › "Bir kanal bağla" connects an account through the provider. SmartSched stores no token (verify: no secret column for the user in the database). A rejection then arrives on that channel with the same reason text.
+**S13 · requester · a linked external channel** — `BLOCKED: channels not built`
+- Target (owner decision 22:45): Profile › Bildirim kanalları lets the user **link an address** (for example a Telegram chat or a phone number for WhatsApp/SMS) to the institution's own sender. Browser push is offered through pywebpush.
+  - SmartSched holds no user token or password (verify: no secret column for the user in the database).
+  - A channel is only offered after its admin KVKK sign-off.
+  - A rejection then arrives on that channel with the same reason text.
+  - The test stack uses Apprise's test/`json://` target pointed at a local sink, never a real messenger.
 
 ### Part B · approval_mode = rules (the CRBS default of empty and universal installs)
 

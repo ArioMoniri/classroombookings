@@ -941,3 +941,18 @@ Orchestrator decisions (owner may override):
   - The backend contract went to the SSO builder.
   - The design-system builder received the StatusDot pending variant, the Alert neutral tone and action slot, the "Şifre" → "Parola" change, motion §3.12 and the settings-and-auth.md pointers.
 - Docs auto-sync: `scripts/docs/sync_docs.py` keeps 12 AUTO blocks in 4 files up to date. The pod CI validate gate runs `--check`. The README markers went to the README media agent. Every commit that touches a source now runs the sync first (docs/AGENTS.md). The `agents` block is `check=no`.
+
+### Flow scripts finished (2026-10-15): gaps to close before round 1
+
+The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and SUGGESTER.md. Each step names its locator, the Turkish UI text and an API check. Steps that can't run yet are marked BLOCKED or "[UI pending]". These gaps are routed or queued:
+- [ ] The approval-first UI: an approval-mode setting, a reject dialog that requires a reason code and text, the reason shown to the requester, and Profile › Bildirimler (F-01, F-11, F-13). This is the dedicated approval UI agent's job.
+- [ ] Channel UI and API: F-01 S13. Owned by the channels backend, then the channels/SSO frontend agent.
+- [ ] Calendar-sync KVKK sign-off admin screen: M-40 (F-04, F-11). Goes to the approval/admin UI agent.
+- [ ] Link a login to an instructor (F-05, major): asked of the SSO builder (an optional admin-set `instructor_id`).
+- [ ] Teacher nav entry to `/moderation` (F-05): goes to the shell sweep.
+- [ ] P19-T2 "Tercih ekle" and P19-T3 publish digests (F-05); the "Bu program için geçmiş veri yok" panel and the 30-day programme undo (F-07): the P19 UI follow-up agent.
+- [ ] Phase 19 intake UI: the stepper, the Fark step and remembered-mapping chips (F-08). Also the P19 UI follow-up agent.
+- [ ] A reason field for forced moves in the timetable UI (F-10): the P19 UI follow-up agent.
+- [ ] SSO route contract: the backend's `/auth/sso/entra/start?return_path=` and `?sso_error=` are canonical. The SSO builder updates sign-in.md §15 to match.
+- [ ] MOBILE M-06: add `viewportFit: "cover"` to the Next viewport export (shell sweep).
+- [ ] A full Entra round trip (F-12 S18) needs tenant credentials from university IT. The owner enters them in admin settings or SSM, never in chat.

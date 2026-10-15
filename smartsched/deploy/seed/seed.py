@@ -1,9 +1,10 @@
 """Deploy seed profile: what a one-click deploy loads on first boot (smartsched/deploy/profile.env).
 
     SEED_PROFILE=empty         nothing; the setup wizard + /onboarding (claude/smartsched-universal)
-    SEED_PROFILE=institution   the owner's files: Bahar / Güz / Final workbooks + room master, the preference rules the
-                               planning / exam importers derive from their free-text columns, then the learning
-                               extraction (claude/gracious-cerf-w1598m)
+    SEED_PROFILE=institution   bookings.approval_mode=all (every request is approved first), the owner's files: Bahar /
+                               Güz / Final workbooks + room master, the preference rules the planning / exam
+                               importers derive from their free-text columns, then the learning extraction
+                               (claude/gracious-cerf-w1598m)
 
 Both branches carry the same code; only profile.env differs (.gitattributes: merge=ours). A missing file or key
 means ``empty``.
@@ -47,8 +48,15 @@ class Step:
     optional_cli: bool = False  # the CLI command may not exist yet: skip + retry later instead of failing
 
 
+# The owner's policy for the institution (2026-10-15): every booking request goes to the administrators first.
+# Written through the PUT /org/settings validation (app.cli set-setting); first, so the policy holds even if an
+# import below fails. Recorded in the marker like every step: an administrator who later switches the mode back
+# in Ayarlar is not overridden by the next deploy. The empty profile sets nothing (the default stays "rules").
+APPROVAL_MODE = Step("approval-mode", ("set-setting", "bookings.approval_mode", "all"))
+
 # Same files and order as scripts/record/stack.sh (the e2e / record stacks).
 INSTITUTION: tuple[Step, ...] = (
+    APPROVAL_MODE,
     Step("bahar-grid", ("import", "weekly-grid", "{files}/bahar_derslikler_takvimi_2026.xlsx", "--term", "2026-BAHAR",
                         "--year", "2026"), ("bahar_derslikler_takvimi_2026.xlsx",)),
     Step("bahar-planning", ("import", "planning-list", "{files}/bahar_derslik_planlama_listesi_v5.xlsx", "--term",
@@ -62,7 +70,7 @@ INSTITUTION: tuple[Step, ...] = (
     Step("final-exams", ("import", "exam-list", "{files}/final_planlama_listesi_2026_v2.xlsx", "--term", "2026-FINAL"),
          ("final_planlama_listesi_2026_v2.xlsx",)),
     Step("room-master", ("import", "room-master", "{files}/room_master.csv"), ("room_master.csv",)),
-    # app.services.learning.refresh over every term; the CLI command is a backend hand-off (not in app/cli.py yet)
+    # app.services.learning.refresh over every term (app.cli learning-refresh)
     Step("learning", ("learning-refresh",), optional_cli=True),
 )
 

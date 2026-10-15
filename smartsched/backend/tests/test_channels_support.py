@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -95,7 +95,7 @@ class FakeNet:
 
 
 @pytest.fixture
-def net(monkeypatch) -> FakeNet:  # type: ignore[no-untyped-def]
+def net(monkeypatch) -> Iterator[FakeNet]:  # type: ignore[no-untyped-def]
     import apprise
     from app.services import webhooks
     from app.services.channels import transport
@@ -121,7 +121,11 @@ def net(monkeypatch) -> FakeNet:  # type: ignore[no-untyped-def]
     monkeypatch.setattr(transport, "http_client", client)
     monkeypatch.setattr(transport, "bridge_client", client)
     monkeypatch.setenv("WHATSAPP_BRIDGE_URL", "http://wa-bridge:8080")
-    return fake
+    from app.services import channels
+
+    channels.register()  # the start-up hook (explicit; nothing registers on import)
+    yield fake
+    channels.unregister()
 
 
 async def enable(  # type: ignore[no-untyped-def]

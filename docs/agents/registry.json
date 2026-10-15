@@ -1133,7 +1133,8 @@
       "goal": "the owner wants a standing loop: tester and suggester agents check each flow step by step (academician, staff and admin personas, on desktop AND mobile), then builder agents fix, then testers re-verify. Write the step-by-step test scripts and acceptance criteria those testers will run. They must be precise enough that a fresh agent can run them with Playwright on a real stack and report pass/fail …",
       "ledger": "flow-test-plan-2026-10-15 SCOPE: write only docs/testing/flows/** (new). No sour…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 23:07"
     },
     {
       "id": "a47e5f917e941a9b4",

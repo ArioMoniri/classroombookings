@@ -24,6 +24,8 @@ class ResolveIn(BaseModel):
     time_limit_s: float | None = Field(default=None, gt=0)
     #: solve inside the request and answer with the diff (200) instead of 202 + polling
     wait: bool = False
+    #: the preview's baseline (default: the published run that started the chain, even from a draft child)
+    compare_to: int | None = None
 
 
 class MatchingActionIn(BaseModel):

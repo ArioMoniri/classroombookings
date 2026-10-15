@@ -21,11 +21,11 @@ Inputs these scripts are built on (read them when a step is unclear):
 
 ## 1. Flow index and what can be tested today
 
-Snapshot read for this plan: `origin/claude/gracious-cerf-w1598m` at `b75047b` (2026-10-15 22:30). "Today" means on that commit.
+Snapshot read for this plan: `origin/claude/gracious-cerf-w1598m` at `b75047b` (2026-10-15 22:30); F-01 S13 and the F-12 SSO part were revised against `d2ed4a8` after the owner decisions of 22:45/22:50. "Today" means on those commits.
 
 | Flow | Name | Personas | Testable on b75047b | What blocks the rest |
 |---|---|---|---|---|
-| F-01 | Request an empty slot → approve / reject with reason → notified → withdraw | staff, academician, admin | **Partly.** Backend complete (approval_mode, reason codes, notify_dispatch, preferences API). UI: request, approve, withdraw, bell work | frontend builder not started: approval-mode setting, reject dialog with required reason code + text, reason in My bookings, Profile › Bildirimler. External channels wait for the provider decision |
+| F-01 | Request an empty slot → approve / reject with reason → notified → withdraw | staff, academician, admin | **Partly.** Backend complete (approval_mode, reason codes, notify_dispatch, preferences API). UI: request, approve, withdraw, bell work | frontend builder not started: approval-mode setting, reject dialog with required reason code + text, reason in My bookings, Profile › Bildirimler. External channels (Apprise + pywebpush, decided 22:45) have no API or UI yet |
 | F-02 | Direct booking (admin/approver bypass), recurring with book/skip/replace, cancel with scope | admin, staff | **Yes** | – |
 | F-03 | Find a room with capacity + feature → reserve from the results | staff, academician | **Yes** (features need the starter catalogue, see preconditions) | – |
 | F-04 | My bookings + ICS feed subscribe + regenerate | staff, academician | **Yes**, after the admin KVKK sign-off for calendar sync (API only: no admin screen, M-40) | admin KVKK screen |
@@ -36,7 +36,7 @@ Snapshot read for this plan: `origin/claude/gracious-cerf-w1598m` at `b75047b` (
 | F-09 | Generator Studio → run → honest run report → publish / partial-publish confirm | admin, planner | **Yes** | – |
 | F-10 | Timetable: open a class, keyboard move, forced move with a reason (admin), undo | admin, planner | **Partly.** Forced move with a written reason has backend support (M-02/M-09) but no UI field yet | forced-move reason UI (design-system agent hand-off) |
 | F-11 | Admin setup: users/roles (no escalation), rooms + features, approval rules / mode, KVKK sign-offs | admin, limited admin | **Partly.** Approval-mode setting and the calendar-sync KVKK screen have no UI; the AI-policy screen exists | approval-mode UI, KVKK screen (M-40) |
-| F-12 | Login, logout, password change, session expiry; later SSO | all | **Yes** for local login. **SSO: not testable** (provider not chosen; research doc `docs/product/2026-10-15-integrations-options.md` not written yet) | owner decision on the SSO provider |
+| F-12 | Login, logout, password change, session expiry; Microsoft Entra ID sign-in | all | **Yes** for local login. **SSO partly:** the provider is decided (Entra ID, 22:45/22:50) and the backend (`/auth/sso/*`) exists, so config guards, the start redirect, callback refusals, invites and break-glass are testable via API | sign-in page (docs/design/v2/sign-in.md) not built; a real round trip needs tenant credentials from IT; spec/backend path mismatch (`/auth/oidc/microsoft` vs `/auth/sso/entra`) |
 | F-13 | TR/EN, reduced motion, keyboard-only pass over F-01..F-04 | all | **Yes** (inherits F-01's UI gaps) | – |
 
 Live AI is never needed. Every flow runs with **no Anthropic key** and AI intake switched off. Steps that would need a key are marked `NEEDS-AI` and are skipped (report `SKIP`, reason "no AI key").

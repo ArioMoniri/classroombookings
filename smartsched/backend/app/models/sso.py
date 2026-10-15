@@ -6,7 +6,8 @@ docs/product/2026-10-15-integrations-options.md §5.5). Alembic ``0026_sso_entra
 * ``user_identities``: the IdP identity of a SmartSched user, keyed by the immutable ``(tenant id, oid)`` -- never
   the e-mail. ``email_at_login`` / ``display_name`` are kept for display only. No IdP token is ever stored.
 * ``sso_invites``: an administrator's "invite" (new account) or "bind on next SSO login" (existing account): the
-  first Entra login of the pinned tenant whose verified UPN equals ``email`` binds ``(tid, oid)`` once.
+  first Entra login of the pinned tenant whose verified UPN equals ``email`` binds ``(tid, oid)`` once. The invite
+  link token is stored hashed (lookup) and encrypted ("copy link").
 * ``sso_role_mappings``: optional (off by default) Entra app role / group object id -> SmartSched role.
 * ``sso_auth_states``: single-use, short-lived rows: the login / link ``state`` (hashed) with the PKCE verifier
   (encrypted) and the nonce (hashed), and the one-time ``ticket`` the panel exchanges for a session.
@@ -15,8 +16,9 @@ docs/product/2026-10-15-integrations-options.md §5.5). Alembic ``0026_sso_entra
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, false, true
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, false, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, utcnow
@@ -32,8 +34,11 @@ class SsoProvider(Base):
     tenant_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     client_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     client_secret_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
-    #: owner decision 2026-10-15: self sign-up of the pinned tenant is on, always as the lowest role
-    auto_provision: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    #: ``sso_self_signup`` (owner decision 2026-10-15, default on): a first sign-in of the pinned tenant creates an
+    #: account with the lowest role; off = invite-only
+    self_signup: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    #: the institution's sign-in domain shown on the login page (``uni.edu.tr``); display only, never a check
+    domain_hint: Mapped[str | None] = mapped_column(String(255), nullable=True)
     default_role_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id", ondelete="SET NULL"), nullable=True)
     #: password sign-in (local and LDAP) refused for everyone but administrators
     oidc_only_non_admins: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
@@ -78,6 +83,9 @@ class SsoInvite(Base):
     #: folded (Turkish-aware, lower case) UPN / e-mail the verified id_token must carry
     email: Mapped[str] = mapped_column(String(255))
     kind: Mapped[str] = mapped_column(String(8))  # invite | bind
+    #: the invite link token (``/login?invite=<token>``): SHA-256 for the lookup, Fernet so "copy link" works
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    token_enc: Mapped[str] = mapped_column(Text)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
@@ -108,5 +116,7 @@ class SsoAuthState(Base):
     #: link: the signed-in user who confirmed; ticket: the user the session is for
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     return_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    #: login: ``{"invite_id"}`` when started from an invite link; ticket: ``{"welcome", "inviter"}``
+    data: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)

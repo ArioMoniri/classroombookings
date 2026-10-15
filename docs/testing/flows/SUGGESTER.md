@@ -72,8 +72,8 @@ Rules:
 | `tests` | `docs/testing/flows/**` (the scripts themselves were wrong) | test planner |
 
 **Blocked by decisions** (a sub-list under "Flow loop tickets"; one line each, never a ticket):
-- `SSO provider not chosen` → F-12 S11–S13. Waiting for `docs/product/2026-10-15-integrations-options.md` and the owner's choice.
-- `External notification channel provider not chosen` → F-01 S13.
+- `No Entra tenant credentials` → F-12 S18 (the owner requests them from IT; never in chat). The provider itself is decided (Entra ID).
+- `Channels not built` → F-01 S13 (decided: Apprise + pywebpush; this is a build dependency, so track it as a ticket only once the channel API lands and the step still fails).
 - `No AI key on the test stacks` → F-03 (natural-language search, if built), F-08 S15, F-09 S03 (free-text path). These are environment, not product.
 
 ## 5. Enhancements, ranked by user value
@@ -128,3 +128,7 @@ Re-test list for round <n+1>: <flow steps per persona>, after the builders repor
       evidence: FL-01-006, FL-03-002 (staff, academician; phone)
       dedup: new
 ```
+
+## Committing the tickets
+
+After you append the round's tickets to `docs/ROADMAP.md` ("Flow loop tickets"), run `python3 -I scripts/docs/sync_docs.py`. Commit only your own paths: `docs/ROADMAP.md`, the regenerated docs and the round's report. The pod CI validate gate fails on stale docs (docs/AGENTS.md).

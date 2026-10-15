@@ -9,8 +9,8 @@ import importlib
 import logging
 import re
 from collections import Counter, defaultdict
-from collections.abc import Callable
-from dataclasses import asdict, replace
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -30,6 +30,7 @@ from app.models import (
     Room,
     ScheduleRun,
     Section,
+    SectionInstructor,
     Term,
     Week,
 )
@@ -1418,30 +1419,87 @@ def _apply_unlocks(
     return out
 
 
+@dataclass(frozen=True)
+class PriorityContext:
+    """Person- and programme-level priorities of one term (``priority_overrides``; P19-P-04)."""
+
+    person: Mapping[int, int] = field(default_factory=dict)
+    program: Mapping[int, int] = field(default_factory=dict)
+
+
+async def priority_context(session: AsyncSession, term_id: int) -> PriorityContext:
+    from app.models import PriorityOverride
+
+    person: dict[int, int] = {}
+    program: dict[int, int] = {}
+    rows = await session.execute(
+        select(PriorityOverride.subject_type, PriorityOverride.subject_id, PriorityOverride.priority).where(
+            PriorityOverride.term_id == term_id
+        )
+    )
+    for kind, sid, prio in rows.all():
+        (person if kind == "person" else program if kind == "program" else {})[int(sid)] = int(prio)
+    return PriorityContext(person, program)
+
+
+def resolve_priority(
+    request_priority: int | None,
+    section_priority: int | None,
+    instructor_ids: Iterable[int],
+    program_id: int | None,
+    ctx: PriorityContext,
+) -> tuple[int, str]:
+    """The effective coordinator priority and where it comes from, most specific first (priority-policy spec §4,
+    P19-P-04): ``request`` (``meeting_requests.priority``, null = inherit) > ``section`` (``sections.priority``,
+    0 = inherit) > ``person`` (the highest override among the section's instructors) > ``program`` > ``default``
+    (0). A request override of 0 is an explicit Normal and stops the inheritance."""
+    if request_priority is not None:
+        return int(request_priority), "request"
+    if section_priority:
+        return int(section_priority), "section"
+    people = [ctx.person[i] for i in instructor_ids if i in ctx.person]
+    if people:
+        return max(people), "person"
+    if program_id is not None and program_id in ctx.program:
+        return int(ctx.program[program_id]), "program"
+    return 0, "default"
+
+
 async def stored_priorities(session: AsyncSession, term_id: int, exam: bool) -> dict[int, int]:
-    """P19-M2: coordinator priority per request of the term from the DB: the request's override
-    (``meeting_requests.priority``) over its section's (``sections.priority``); 0 rows are left out. Exam
-    requests take their section's priority (they have no override column)."""
+    """P19-M2 + P19-P-04: coordinator priority per request of the term from the DB, by :func:`resolve_priority`
+    (request > section > person > programme); 0 rows are left out. Exam requests have no override column: their
+    section's, then its instructors', then the programme's (the exam's own ``program_id`` first)."""
     from app.solver.policy import clamp_priority
 
+    ctx = await priority_context(session, term_id)
+    links: dict[int, list[int]] = defaultdict(list)
+    if ctx.person:
+        q_links = (
+            select(SectionInstructor.section_id, SectionInstructor.instructor_id)
+            .join(Section, Section.id == SectionInstructor.section_id)
+            .where(Section.term_id == term_id)
+        )
+        for sid, iid in (await session.execute(q_links)).all():
+            links[int(sid)].append(int(iid))
     out: dict[int, int] = {}
     if exam:
         q = (
-            select(ExamRequest.id, Section.priority)
-            .join(Section, Section.id == ExamRequest.section_id)
+            select(ExamRequest.id, ExamRequest.program_id, Section.id, Section.priority, Section.program_id)
+            .outerjoin(Section, Section.id == ExamRequest.section_id)
             .where(ExamRequest.term_id == term_id, ExamRequest.archived.is_(False))
         )
-        for rid, sp in (await session.execute(q)).all():
-            if sp:
-                out[int(rid)] = clamp_priority(sp)
+        for rid, eprog, sid, sp, sprog in (await session.execute(q)).all():
+            v, _src = resolve_priority(None, sp, links.get(int(sid), []) if sid else [], eprog or sprog, ctx)
+            if v:
+                out[int(rid)] = clamp_priority(v)
         return out
     q2 = (
-        select(MeetingRequest.id, MeetingRequest.priority, Section.priority)
+        select(MeetingRequest.id, MeetingRequest.priority, Section.id, Section.priority, Section.program_id)
         .join(Section, Section.id == MeetingRequest.section_id)
         .where(Section.term_id == term_id, MeetingRequest.archived.is_(False))
     )
-    for rid, mp, sp in (await session.execute(q2)).all():
-        v = mp if mp is not None else sp
+    for rid, mp, sid, sp, prog in (await session.execute(q2)).all():
+        v, _src = resolve_priority(mp, sp, links.get(int(sid), []), prog, ctx)
         if v:
             out[int(rid)] = clamp_priority(v)
     return out
@@ -1457,7 +1515,8 @@ async def _apply_policy(
     """The run's relaxation policy (``params.relaxation_policy`` > the term setting
     ``term.<id>.relaxation_policy`` > ``lock_first``) and the coordinator priority of every event (P19-M2): per
     request the run param ``priorities`` (request id -> priority, for experiments) over the stored request
-    override (``meeting_requests.priority``) over the section's (``sections.priority``) over 0; an event standing
+    override (``meeting_requests.priority``) over the section's (``sections.priority``) over the person's and the
+    programme's term overrides (``priority_overrides``, :func:`resolve_priority`) over 0; an event standing
     for several requests (joint lecture, exam cohort) takes the highest of its members."""
     from app.services import run_params as rp
     from app.solver.policy import clamp_priority

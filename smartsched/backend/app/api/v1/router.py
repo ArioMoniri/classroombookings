@@ -123,3 +123,8 @@ api_router.include_router(moderation.router)
 from app.api.v1 import sso  # noqa: E402  (Entra ID sign-in, /auth/sso; app/services/sso.py)
 
 api_router.include_router(sso.router)
+
+# notification channels (Apprise + pywebpush; docs/product/2026-10-15-integrations-options.md)
+from app.api.v1 import channels as notify_channels  # noqa: E402
+
+api_router.include_router(notify_channels.router)

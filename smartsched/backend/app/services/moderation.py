@@ -1206,8 +1206,13 @@ async def create_resolve(
     *,
     radius: int = DEFAULT_RADIUS,
     time_limit_s: float | None = None,
+    compare_to: int | None = None,
 ) -> ScheduleRun:
-    """A QUEUED child run of ``base`` for a moderation re-solve (the caller enqueues :func:`run_resolve`)."""
+    """A QUEUED child run of ``base`` for a moderation re-solve (the caller enqueues :func:`run_resolve`).
+
+    The preview's baseline is fixed here (``params.moderation.compare_to_run_id``): ``compare_to`` when given,
+    else the published run that started the chain (:func:`chain_baseline`), so a re-solve of a draft child
+    still shows every change against what is published, not only the last step."""
     from app.services import run_params as rp
     from app.services.events import publish_event
 
@@ -1250,6 +1255,11 @@ async def create_resolve(
         missing = sorted(set(ids) - found)
         if missing:
             raise ModerationError(422, f"requests not in term {term.code}: {missing[:20]}")
+    if compare_to is not None:
+        baseline = await comparable_run(session, term, base, compare_to)
+        basis = "explicit"
+    else:
+        baseline, basis = await chain_baseline(session, base, include_self=True)
     params = {k: v for k, v in dict(base.params or {}).items() if k not in ("moderation",)}
     weights = dict(params.get("weights") or {})
     weights["stability"] = max(int(weights.get("stability", 1) or 1), RESOLVE_STABILITY_WEIGHT)
@@ -1267,6 +1277,8 @@ async def create_resolve(
                 "changed_request_ids": ids,
                 "mode": mode,
                 "radius": max(0, min(int(radius), 3)),
+                "compare_to_run_id": baseline.id,
+                "compare_basis": basis,
             },
         }
     )
@@ -1294,6 +1306,7 @@ async def create_resolve(
             "mode": mode,
             "changed_request_ids": ids,
             "radius": params["moderation"]["radius"],
+            "compare_to_run_id": baseline.id,
         },
         actor=actor,
         term_id=term.id,
@@ -1301,6 +1314,92 @@ async def create_resolve(
     await session.commit()
     await session.refresh(child)
     return child
+
+
+#: how far :func:`run_chain` walks up ``parent_run_id`` (cycle-safe; a moderation chain is a few steps)
+MAX_CHAIN = 64
+
+
+async def run_chain(session: AsyncSession, run: ScheduleRun) -> list[ScheduleRun]:
+    """``run`` and its ancestors, nearest first (``parent_run_id``; stops at a cycle or :data:`MAX_CHAIN`)."""
+    out = [run]
+    seen = {run.id}
+    cur = run
+    while cur.parent_run_id is not None and len(out) < MAX_CHAIN:
+        nxt = await session.get(ScheduleRun, int(cur.parent_run_id))
+        if nxt is None or nxt.id in seen:
+            break
+        out.append(nxt)
+        seen.add(nxt.id)
+        cur = nxt
+    return out
+
+
+async def _ever_published(session: AsyncSession, run_ids: Iterable[int]) -> set[int]:
+    """Runs that were published at some point (``run.activate`` audit events), active now or not."""
+    ids = [str(i) for i in run_ids]
+    if not ids:
+        return set()
+    rows = await session.execute(
+        select(AuditEvent.entity_id).where(AuditEvent.action == "run.activate", AuditEvent.entity_id.in_(ids))
+    )
+    return {int(e) for e in rows.scalars() if e and str(e).isdigit()}
+
+
+async def chain_baseline(
+    session: AsyncSession, run: ScheduleRun, *, include_self: bool = False
+) -> tuple[ScheduleRun, str]:
+    """The published run that started ``run``'s chain of re-solves, and why it was chosen:
+
+    * ``published``: the nearest ancestor that is the term's published run now (``is_active``);
+    * ``was_published``: else the nearest ancestor that was published once (``run.activate`` in the audit);
+    * ``root``: else the run the chain started from (a chain that never had a published run).
+
+    ``include_self`` counts ``run`` itself (the base of a new re-solve); the diff of a stored child starts at its
+    parent."""
+    chain = await run_chain(session, run)
+    cands = chain if include_self else chain[1:]
+    if not cands:
+        return run, "base"
+    for r in cands:
+        if r.is_active:
+            return r, "published"
+    once = await _ever_published(session, (r.id for r in cands))
+    for r in cands:
+        if r.id in once:
+            return r, "was_published"
+    return cands[-1], "root"
+
+
+async def comparable_run(session: AsyncSession, term: Term, run: ScheduleRun, other_id: int) -> ScheduleRun:
+    """``compare_to``: a finished run of the same term and kind (404 / 422 / 409 otherwise)."""
+    other = await session.get(ScheduleRun, int(other_id))
+    if other is None:
+        raise ModerationError(404, f"run {other_id} (compare_to) not found")
+    if other.term_id != term.id or other.kind != run.kind:
+        raise ModerationError(422, f"run {other.id} is not a {run.kind} run of term {term.code}")
+    if other.status not in BASE_STATUSES:
+        raise ModerationError(409, f"run {other.id} is {other.status}; compare against a finished run")
+    return other
+
+
+async def chain_edits(session: AsyncSession, chain: list[ScheduleRun]) -> set[int]:
+    """The requests edited along a chain of draft runs: each step's ``changed_request_ids``, its unlocks and the
+    targets of its pin / prefer rules (:func:`matching_action`)."""
+    from app.services.solver_bridge import UNLOCK_PARAM
+
+    out: set[int] = set()
+    ids = [r.id for r in chain]
+    for r in chain:
+        p = r.params or {}
+        out |= set(_ints((p.get("moderation") or {}).get("changed_request_ids")))
+        out |= set(_ints(p.get(UNLOCK_PARAM)))
+    if ids:
+        for c in (await session.execute(select(ConstraintRow).where(ConstraintRow.run_id.in_(ids)))).scalars():
+            rid = _moderation_ref(c).get("request_id")
+            if isinstance(rid, int):
+                out.add(rid)
+    return out
 
 
 async def _input_for(session: AsyncSession, run: ScheduleRun) -> tuple[sm.SolverInput, dict[int, list[int]]]:
@@ -1600,22 +1699,44 @@ def _touch(a: Place, b: Place, ma: MeetingRequest, mb: MeetingRequest) -> str | 
     return None
 
 
-async def resolve_diff(session: AsyncSession, child: ScheduleRun) -> dict[str, Any]:
-    """The re-solve against its base run, request by request (moderation spec §5.4 preview, needs §5.3):
+async def resolve_diff(session: AsyncSession, child: ScheduleRun, compare_to: int | None = None) -> dict[str, Any]:
+    """The re-solve against its baseline, request by request (moderation spec §5.4 preview, needs §5.3):
     moved (from -> to, with the cause), unchanged (count), newly placed, unplaceable (with the reason), the hard /
     soft score before and after and the waived rules. Pure read of the stored rows: re-running the same re-solve
-    gives the identical diff (one worker, deterministic time)."""
+    gives the identical diff (one worker, deterministic time).
+
+    Baseline (P19 gap 1): ``compare_to`` when given; else the one fixed when the re-solve was created
+    (``params.moderation.compare_to_run_id``: the published run that started the chain); else
+    :func:`chain_baseline`. A re-solve of a draft child therefore diffs against the published run, and the
+    edits of every draft step in between count as "changed" (``in_scope``)."""
     mod = (child.params or {}).get("moderation") or {}
     base_id = mod.get("base_run_id") or child.parent_run_id
-    base = await session.get(ScheduleRun, int(base_id)) if base_id else None
-    if base is None:
+    parent = await session.get(ScheduleRun, int(base_id)) if base_id else None
+    if parent is None:
         raise ModerationError(404, f"run {child.id} has no base run")
     term = await session.get(Term, child.term_id)
     assert term is not None
+    if compare_to is not None:
+        base = await comparable_run(session, term, child, compare_to)
+        basis = "explicit"
+    elif mod.get("compare_to_run_id"):
+        stored = await session.get(ScheduleRun, int(mod["compare_to_run_id"]))
+        base, basis = (stored, str(mod.get("compare_basis") or "published")) if stored else (parent, "base")
+    else:
+        base, basis = await chain_baseline(session, child)
+    chain = await run_chain(session, child)
+    between = []
+    for r in chain:  # child .. up to (not including) the baseline
+        if r.id == base.id:
+            break
+        between.append(r)
     status = child.status
     out: dict[str, Any] = {
         "run_id": child.id,
-        "base_run_id": base.id,
+        "base_run_id": parent.id,
+        "compare_to_run_id": base.id,
+        "compared_to": basis,
+        "chain": [r.id for r in between] + [base.id],
         "status": status,
         "mode": mod.get("mode"),
         "changed_request_ids": _ints(mod.get("changed_request_ids")),
@@ -1628,6 +1749,9 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun) -> dict[str, A
     after = await load_term(session, term, child, rooms=rooms)
     by_mr = {mr.id: mr for mr in after.meetings}
     changed = set(_ints(mod.get("changed_request_ids")))
+    if len(between) > 1 or base.id != parent.id:  # several draft steps: every step's edits are in scope
+        changed |= await chain_edits(session, between)
+    out["changed_request_ids"] = sorted(changed)
     st = child.stats or {}
     bst = base.stats or {}
     in_scope = [mr for mr in after.meetings if mr.needs_room and _in_horizon(mr, child)]
@@ -1946,6 +2070,7 @@ __all__ = [
     "FLAGS",
     "ModerationError",
     "Scope",
+    "chain_baseline",
     "create_resolve",
     "enqueue_resolve",
     "flags_for",
