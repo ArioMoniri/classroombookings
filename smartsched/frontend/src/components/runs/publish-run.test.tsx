@@ -33,7 +33,7 @@ describe("Publish a run (admin persona M-03)", () => {
     renderButton();
     await userEvent.click(screen.getByRole("button", { name: "Publish" }));
     const dialog = await screen.findByRole("dialog");
-    expect(dialog).toHaveTextContent("Weeks 3–4");
+    expect(dialog).toHaveTextContent("weeks 3–4");
     expect(dialog).toHaveTextContent("#7");
     expect(dialog).toHaveTextContent("660/683");
     expect(dialog).toHaveTextContent("123");

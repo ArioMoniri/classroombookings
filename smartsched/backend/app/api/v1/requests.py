@@ -135,14 +135,17 @@ async def _check_pinned_capacity(
 ) -> str | None:
     """Persona Q8: pinning a class to rooms that cannot seat it ("102 öğrenci 30 kişilik B 201'e sığmaz") is refused
     at the edit (422), unless a planning administrator overrides it with a written reason (returned, audited).
-    Only edits that touch the pinned rooms, the status or the size are checked."""
+    Only edits that change the pinned rooms or raise the requested size are checked."""
     from app.models import Room
     from app.services import publish_guard
     from app.services.bookings_perms import load_access
     from app.services.tr_grammar import dative
 
-    if not ({"definitive_room_ids", "status", "requested_capacity"} & set(data)):
-        return None
+    current = sorted(int(r) for r in mr.definitive_room_ids or [])
+    new_rooms = "definitive_room_ids" in data and sorted(int(r) for r in data["definitive_room_ids"] or []) != current
+    grows = "requested_capacity" in data and int(data["requested_capacity"] or 0) > int(mr.requested_capacity or 0)
+    if not (new_rooms or grows):
+        return None  # the planner's own rooms from the planning list stay an accepted exception (D1)
     rooms = [int(r) for r in (data.get("definitive_room_ids", mr.definitive_room_ids) or [])]
     if not rooms:
         return None
