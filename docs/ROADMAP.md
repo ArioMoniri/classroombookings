@@ -643,3 +643,12 @@ Decisions taken by the orchestrator (owner may override):
 Frontend follow-ups:
 - AI policy screen + status pill → shell/admin sweep
 - streaming client, update_request toggle, scope switches, refused proposals list → studio/calendar sweep
+
+### README media (user request 2026-10-15: "include Recordly GIFs and real screenshots in the README")
+- [ ] Refresh the 5 published recordings for the current UI.
+- [ ] Publish login-dashboard and run-report-fix (chat-edit only if an AI key is configured).
+- [ ] New journeys: reserve-panel, approval-flow, find-room, audit-undo, onboarding-intake.
+- [ ] Formats: GIF (≤ 4 MB) + MP4 + poster; replace the animated WebPs; total ≤ 45 MB.
+- [ ] Full real screenshot gallery by role (light/dark, mobile), stale screens removed.
+- [ ] KVKK: instructor names shown as title + initials on the throwaway recording DB only.
+- [ ] Refresh everything again with one command at the release (stabilisation) commit, so the media match the deployed version.
