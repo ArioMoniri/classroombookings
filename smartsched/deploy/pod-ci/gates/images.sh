@@ -5,7 +5,10 @@
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$WS/src"
 tags=()
-trap 'docker image rm "${tags[@]}" >/dev/null 2>&1 || true' EXIT
+# per-run tags and this run's dangling images go; the BuildKit cache stays (podci/disk.py trims it)
+trap 'docker image rm "${tags[@]}" >/dev/null 2>&1 || true
+docker image prune -f --filter "label=smartsched-ci.run=${RUN_TAG}" >/dev/null 2>&1 || true' EXIT
+section "disk before the builds"; df -h / | tail -n 1
 build() { local tag="$1"; shift; tags+=("$tag"); section "docker build $tag"; docker build --label "smartsched-ci.run=${RUN_TAG}" -t "$tag" "$@"; }
 # the build args compose passes (digest-pinned base images, NEXT_PUBLIC_API_URL default; smartsched/deploy/pins.py)
 args() {
