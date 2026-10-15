@@ -20,11 +20,11 @@ Worked example throughout: **Moleküler Biyoloji ve Genetik Tezli Yüksek Lisans
 | # | As a… | I want to… | So that… | Acceptance |
 |---|---|---|---|---|
 | W1 | institute coordinator | create a new graduate program with no Excel to import | a program that exists only on paper gets a timetable | `/programs/new` starts a draft with no file needed |
-| W2 | coordinator | paste my course list from Excel into the courses step | I don't retype 9 courses | pasting TSV fills rows (Kod, Ad, T, U, L, K, AKTS, Sınıf), with a preview of the parsed rows before insert |
+| W2 | coordinator | paste my course list from Excel into the courses step | I don't retype 7 courses | pasting TSV fills rows (Kod, Ad, T, U, L, K, AKTS, Sınıf), with a preview of the parsed rows before insert |
 | W3 | coordinator | link a course to an existing undergraduate course taught together | joint teaching is modelled, not double-booked | "Ortak ders: MBG 014 (Proteomiks, lisans 4. sınıf, 75 öğr.)" in Şubeler. Both share one meeting |
 | W4 | coordinator | pick instructors who already exist and see their load | I don't overbook a professor | the instructor combobox shows "Bu dönem 9 saat" next to each name, and warns above the configured limit |
 | W5 | coordinator | define how T3 becomes weekly blocks | "3 saat tek blok" vs "2+1" is my decision | the pattern picker shows options derived from T/U/L, with the total checked |
-| W6 | coordinator | be told early when no room fits | I fix it before solving | "MBG 598 + 3 ortak ders: 120 öğrenci; ≥ 120 kişilik boş oda: A 207 (120), A 204 (156)" or an error when none exists |
+| W6 | coordinator | be told early when no room fits | I fix it before solving | "MBG 598 + 3 ortak ders: 120 öğrenci · sığan odalar: A 207 (120), C 201 (126), A 203 (148), A 204 (156)" or an error when none exists |
 | W7 | coordinator | stop and resume tomorrow | creating a program takes several sittings | the draft is in Programlar › Taslaklar with "Kaldığınız yer: Kohortlar" |
 | W8 | coordinator | add the program to the published plan without reshuffling everyone | other programs keep their rooms | step 8 defaults to minimal change and lands in the moderation preview |
 | W9 | admin | undo a program created by mistake | data stays clean | the creation is one audit event with "Geri al" for 30 days (archives everything it created) |
@@ -54,13 +54,13 @@ Component sites: beUI **availability-scheduler** (`@beui/availability-scheduler`
 | **Spreadsheet-like grid with paste** (beUI table-editable, R8) for courses and sections | Coordinators think in Excel. Paste-to-grid is the fastest honest input |
 | **Derived defaults** (sections from courses, cohorts from Sınıf, patterns from T/U/L, capacity from enrolment) | Every later step starts pre-filled from earlier answers, so the wizard is mostly review |
 | **Weekly-hours editor** (R1, R6) for program windows and instructor unavailability | A known pattern for "when can this happen". Copy-to-days saves clicks |
-| **Live consequence lines** under each step ("En büyük ortak ders 120 öğrenci → sığan odalar: A 207, A 204") | Validation that teaches. The coordinator sees the room problem at the moment the number is typed |
+| **Live consequence lines** under each step ("En büyük ortak ders 120 öğrenci → 4 oda sığar: A 207, C 201, A 203, A 204") | Validation that teaches. The coordinator sees the room problem at the moment the number is typed |
 | **One transactional write + undo** | A program touches 6 tables. Partial creation would be worse than none |
 | **Minimal-change hand-off to the moderation preview** | Adding a program to a live term must not reshuffle 1,300 other classes |
 
 ## 4. Steps in detail
 
-The rail always shows: step name · status (✓ / ⚠ n / ✕ n / –) · one summary line once filled ("9 ders · 63 AKTS").
+The rail always shows: step name · status (✓ / ⚠ n / ✕ n / –) · one summary line once filled ("7 ders · 63 AKTS").
 
 ### 4.1 Program
 
@@ -68,7 +68,7 @@ Fields: **Program adı** (required, unique within the unit; "Moleküler Biyoloji
 
 Validation: an existing program with the same name in the unit → error with a link ("Bu birimde aynı adlı program var · Var olanı aç"). A prefix used by another program → warning, because shared prefixes are real (MBG is used by the lisans and the YL programs).
 
-Right side (R4): a **preview card** that grows as steps fill: "2026-GÜZ · Fen Bilimleri Enstitüsü · 0 ders". Later it reads "9 ders · 9 şube · 3 ortak ders · 5 öğretim elemanı · haftada 24 saat".
+Right side (R4): a **preview card** that grows as steps fill: "2026-GÜZ · Fen Bilimleri Enstitüsü · 0 ders". Later it reads "7 ders · 7 şube · 7 ortak ders bağlantısı · 5 öğretim elemanı · haftada 19 saat".
 
 ### 4.2 Dersler (courses)
 
@@ -110,7 +110,7 @@ Per section: **1. öğretim elemanı** (required for Yüz yüze) and **2. öğre
 Cohorts are pre-built from Sınıf: "MBG YL 1. sınıf". Each cohort lists its **compulsory** courses (must not overlap) and **elective groups** (may overlap within a group). Columns: **Kohort · Öğrenci · Zorunlu dersler · Seçmeli grupları**.
 
 - Validation: a compulsory course in no cohort is a warning. Two compulsory courses of one cohort that are joint-linked to sections fixed at the same published time is an error ("MBG 534 ve MBG 546 aynı kohortta ama ortak oldukları dersler aynı saatte").
-- Consequence line: "Haftada 21 saat zorunlu ders; kohort için en az 3 gün gerekir."
+- Consequence line: "Haftada 19 saat zorunlu ders; kohort için en az 3 gün gerekir."
 
 ### 4.6 Odalar ve haftalık düzen (rooms and weekly patterns)
 
@@ -123,9 +123,9 @@ Per course, three things:
 Program-level **Zaman penceresi** (time window) uses the weekly-hours editor (beUI availability-scheduler; R1, R6). Default: Mon–Fri 08:30–17:30 for Normal, 17:30–22:50 for İÖ. Days can be marked unavailable, and a window can be copied to other days.
 
 **Live consequence and validation** (using `GET /rooms` and the room pool):
-- MBG 598 + joint seminars, 120 students: "Sığan odalar: A 207 (120), A 204 (156)". There is exactly one room at 120, so a warning reads "Tek uygun oda sayısı 2; A 207 başka bir dersle çakışırsa yerleşmeyebilir".
+- MBG 598 + joint seminars, 120 students: "Sığan odalar: A 207 (120), C 201 (126), A 203 (148), A 204 (156)". Bahar used A 207, which fits exactly, so a warning reads **"A 207 tam 120 kişilik; kayıt artarsa sığmaz"**.
 - MBG 502 + MBG 613 asked for B 501 in Bahar: **"B 501: kapasite bilinmiyor ve planlanabilir oda havuzunda değil (room_master: 'named in definitive rooms only')"**. This is an error if B 501 is set as the required room, and a warning if it is only preferred.
-- MBG 532 (Epigenetik) + MBG 012: if the joint total is above 40, then "C 504 (40) yetmez".
+- MBG 532 (Epigenetik) + MBG 012 together have 80 students (Bahar R188), but the room asked for in Bahar was C 504 with 40 seats. If C 504 is set as the preferred room, the step says **"C 504 (40) 80 öğrenciye yetmez · 10 oda sığar: D 106 (82), A 206 (92), A 205 (94), …"**.
 - A pattern total ≠ T+U+L is an error ("MBG 541: 3 saatlik ders için yalnızca 2 saat yerleştirildi").
 - A lab without a Laboratuvar-tagged room in the pool is an error.
 
@@ -146,8 +146,8 @@ The Studio rule system, scoped to this program. Nothing new is invented here.
 2  Dersler        7 ders · 63 AKTS                                       ✓
 3  Şubeler        7 şube · 7 ortak ders bağlantısı                        ✓
 4  Öğretim el.    5 kişi (1 yeni)                                        ✓
-5  Kohortlar      1 kohort · 21 saat zorunlu                              ✓
-6  Odalar         ⚠ MBG 502: B 501 planlanabilir değil · ⚠ MBG 598: 2 uygun oda   [Düzelt]
+5  Kohortlar      1 kohort · 19 saat zorunlu                              ✓
+6  Odalar         ⚠ MBG 502: B 501 planlanabilir değil · ⚠ MBG 598: A 207 tam dolu   [Düzelt]
 7  Kısıtlar       4 kural · ön kontrol: 0 engel                           ✓
 Nasıl devam edilsin?
 (●) Oluştur ve mevcut plana ekle — 2026-GÜZ yayındaki planı en az değişiklikle yeniden çözer;
@@ -167,12 +167,12 @@ Nasıl devam edilsin?
 │       │ Yeni program               │ Odalar ve haftalık düzen                          │ MBG Tezli YL · 2026-GÜZ  │
 │       │ ✓ 1 Program                │ Ders            Düzen          Haftalar  Oda      │ Fen Bilimleri Enstitüsü  │
 │       │ ✓ 2 Dersler      7 ders    │ MBG 598 Seminer [1 saat]       1–14      ≥120 ⚠  │ 7 ders · 7 şube          │
-│       │ ✓ 3 Şubeler      7 ortak   │ MBG 532 Epigen. [3 tek blok ▾] 1–14      ≥80     │ 3 ortak kaynak program   │
+│       │ ✓ 3 Şubeler      7 ortak   │ MBG 532 Epigen. [3 tek blok ▾] 1–14      ≥80     │ 7 ortak ders bağlantısı  │
 │       │ ✓ 4 Öğretim el.  5 kişi    │ MBG 502 İleri…  [3 tek blok ▾] 1–14      B 501 ✕ │ haftada 19 saat          │
 │       │ ✓ 5 Kohortlar    1         │ ── MBG 598 ─────────────────────────────────────  │ ── Sığan odalar ──       │
-│       │ ⚠ 6 Odalar…      2 uyarı   │ 120 öğrenci (MBG 598 + 408 + 416 + 698)            │ A 207 120 · A 204 156    │
-│       │ – 7 Kısıtlar               │ Sığan odalar: A 207 (120), A 204 (156)             │ ── Zaman penceresi ──    │
-│       │ – 8 Oluştur ve çöz         │ ⚠ Yalnızca 2 uygun oda; A 207 doluysa yerleşmeyebilir│ Pzt–Cum 08:30–17:30      │
+│       │ ⚠ 6 Odalar…      2 uyarı   │ 120 öğrenci (MBG 598 + 408 + 416 + 698)            │ A 207 · C 201 · A 203 ·  │
+│       │ – 7 Kısıtlar               │ Sığan odalar: A 207 (120), C 201 (126), A 203, A 204│ A 204                    │
+│       │ – 8 Oluştur ve çöz         │ ⚠ A 207 tam 120 kişilik; kayıt artarsa sığmaz     │ Pzt–Cum 08:30–17:30      │
 │       │ ────────────────────────   │ Etiket [Derslik ×] [+]   Bina [fark etmez ▾]      │                          │
 │       │ ✓ Tüm değişiklikler        │ Zaman penceresi (program)                          │                          │
 │       │   kaydedildi · 1 dk önce   │ Pzt ●  08:30 – 17:30  + ⧉                          │                          │
@@ -196,7 +196,7 @@ Nasıl devam edilsin?
 │ ┌───────────────────────────────┐ │
 │ │ MBG 598 Seminer        ⚠      │ │
 │ │ 1 saat · 1–14 · ≥ 120         │ │
-│ │ Sığan: A 207, A 204           │ │
+│ │ Sığan: A 207, C 201, A 203, … │ │
 │ │ [Düzenle]                     │ │
 │ └───────────────────────────────┘ │
 │ ┌───────────────────────────────┐ │
@@ -290,7 +290,7 @@ Nasıl devam edilsin?
 ## 12. i18n (TR + EN)
 
 - Namespace `programWizard.*`. Step names: Program / Program · Dersler / Courses · Şubeler / Sections · Öğretim elemanları / Instructors · Kohortlar / Cohorts · Odalar ve haftalık düzen / Rooms and weekly patterns · Kısıtlar / Constraints · Oluştur ve çöz / Create and solve.
-- **Long Turkish strings**: "Odalar ve haftalık düzen" (24) in the rail at 260 px, wrapping to 2 lines and never truncating. "Moleküler Biyoloji ve Genetik Tezli Yüksek Lisans" (49) wraps in the header and the preview card. "Taslak · 2026-GÜZ'e henüz hiçbir şey yazılmadı" (45). "Yalnızca 2 uygun oda; A 207 doluysa yerleşmeyebilir" (51).
+- **Long Turkish strings**: "Odalar ve haftalık düzen" (24) in the rail at 260 px, wrapping to 2 lines and never truncating. "Moleküler Biyoloji ve Genetik Tezli Yüksek Lisans" (49) wraps in the header and the preview card. "Taslak · 2026-GÜZ'e henüz hiçbir şey yazılmadı" (45). "A 207 tam 120 kişilik; kayıt artarsa sığmaz" (44).
 - Level names: Önlisans / Associate · Lisans / Bachelor's · Tezli YL / Master's (thesis) · Tezsiz YL / Master's (non-thesis) · Doktora / PhD. Öğretim: Normal / Day · İkinci öğretim (İÖ) / Evening (İÖ).
 - T/U/L are kept as Turkish abbreviations in both locales, with EN tooltips (Theory / Practice / Lab), because they are what appears on the official course forms.
 - Course codes are uppercase ASCII with a space ("MBG 532"). Names keep Turkish letters. Search is Turkish-aware.
