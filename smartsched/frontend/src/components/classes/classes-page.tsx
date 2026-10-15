@@ -479,8 +479,9 @@ export function ClassesPage() {
   return (
     <div ref={rootRef} className="flex min-h-0 gap-2" style={{ height: fill }} data-testid="classes">
       <section className="flex min-w-0 flex-1 flex-col gap-2">
-        {/* title row (not glass) */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {/* title row (not glass); below 1600 px the inspector floats over the page's right edge, so the row keeps
+            its controls (Classes / Exams) clear of it (400 px panel + 12 px inset) */}
+        <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-2", active && !mobile && !wide && "pr-[412px]")} data-inspector-overlay={active && !mobile && !wide ? "" : undefined}>
           <h1 className={mobile ? "type-title-1" : "type-title-2"}>{t("classes.title")}</h1>
           <span className="text-[13px] text-label-2 tabular-nums">{term?.name}{runId ? ` · Run #${runId}` : ""}</span>
           {runs.length > 1 ? (
