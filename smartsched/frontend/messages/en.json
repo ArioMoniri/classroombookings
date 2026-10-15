@@ -1549,7 +1549,10 @@
         "planning": "Planning",
         "room": "Rooms",
         "book_single": "Single bookings",
-        "book_recur": "Recurring bookings"
+        "book_recur": "Recurring bookings",
+        "rooms": "Room features",
+        "audit": "Audit log",
+        "approvals": "Approvals"
       },
       "action_create": "Create bookings",
       "action_edit_other_booking": "Edit other people's bookings",
@@ -1575,6 +1578,11 @@
       "planning_edit": "Import, edit and publish timetables",
       "planning_admin": "Planning administration",
       "room_view": "See rooms and their bookings",
+      "rooms_features": "Manage room features and their values",
+      "audit_view": "View the audit log of every change",
+      "approvals_decide": "Approve or reject booking requests (designated approvers)",
+      "book_single_request": "Request single bookings that an approver confirms",
+      "book_recur_request": "Request recurring bookings that an approver confirms",
       "book_single_create": "Single: create",
       "book_single_edit_other_booking": "Single: edit others'",
       "book_single_cancel_other_booking": "Single: cancel others'",
@@ -3037,7 +3045,14 @@
         "holiday": "Holiday",
         "session": "Session",
         "term": "Term",
-        "department": "Department"
+        "department": "Department",
+        "room_field": "Room field",
+        "schedule": "Schedule",
+        "period": "Period",
+        "timetable_week": "Timetable week",
+        "translation": "Translation",
+        "building": "Building",
+        "user_constraints": "User limits"
       }
     },
     "sync": {

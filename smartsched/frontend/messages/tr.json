@@ -1548,7 +1548,10 @@
         "planning": "Planlama",
         "room": "Salonlar",
         "book_single": "Tek seferlik",
-        "book_recur": "Tekrarlayan"
+        "book_recur": "Tekrarlayan",
+        "rooms": "Derslik özellikleri",
+        "audit": "Denetim kaydı",
+        "approvals": "Onaylar"
       },
       "action_create": "Rezervasyon oluşturma",
       "action_edit_other_booking": "Başkalarının rezervasyonunu düzenleme",
@@ -1574,6 +1577,11 @@
       "planning_edit": "İçe aktarma, düzenleme ve ders programı yayımlama",
       "planning_admin": "Planlama yönetimi",
       "room_view": "Salonları ve rezervasyonlarını görme",
+      "rooms_features": "Derslik özelliklerini ve değerlerini yönet",
+      "audit_view": "Her değişikliğin denetim kaydını gör",
+      "approvals_decide": "Rezervasyon taleplerini onayla ya da reddet (atanmış onaycılar)",
+      "book_single_request": "Bir onaycının onaylayacağı tek seferlik rezervasyon iste",
+      "book_recur_request": "Bir onaycının onaylayacağı yinelenen rezervasyon iste",
       "book_single_create": "Tek seferlik: oluşturma",
       "book_single_edit_other_booking": "Tek seferlik: başkasınınkini düzenleme",
       "book_single_cancel_other_booking": "Tek seferlik: başkasınınkini iptal",
@@ -3036,7 +3044,14 @@
         "holiday": "Tatil",
         "session": "Dönem",
         "term": "Dönem",
-        "department": "Bölüm"
+        "department": "Bölüm",
+        "room_field": "Derslik alanı",
+        "schedule": "Ders saati planı",
+        "period": "Ders saati",
+        "timetable_week": "Takvim haftası",
+        "translation": "Çeviri",
+        "building": "Bina",
+        "user_constraints": "Kullanıcı sınırları"
       }
     },
     "sync": {

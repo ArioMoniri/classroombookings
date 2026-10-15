@@ -170,6 +170,14 @@ const ENTITY_KEYS: Record<string, MessageKey> = {
   session: "wave1.audit.e.session",
   term: "wave1.audit.e.term",
   department: "wave1.audit.e.department",
+  // admin persona M-36: these showed their raw API names in the Turkish filter
+  room_field: "wave1.audit.e.room_field",
+  schedule: "wave1.audit.e.schedule",
+  period: "wave1.audit.e.period",
+  timetable_week: "wave1.audit.e.timetable_week",
+  translation: "wave1.audit.e.translation",
+  building: "wave1.audit.e.building",
+  user_constraints: "wave1.audit.e.user_constraints",
 };
 
 function entityLabel(type: string, t: ReturnType<typeof useI18n>["t"]): string {

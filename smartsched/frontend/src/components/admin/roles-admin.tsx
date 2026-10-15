@@ -29,6 +29,10 @@ const GROUP_KEYS: Record<string, MessageKey> = {
   room: "crbs.perm.group.room",
   book_single: "crbs.perm.group.book_single",
   book_recur: "crbs.perm.group.book_recur",
+  // wave 1 groups (admin persona M-36: shown as raw "rooms", "audit", "approvals")
+  rooms: "crbs.perm.group.rooms",
+  audit: "crbs.perm.group.audit",
+  approvals: "crbs.perm.group.approvals",
 };
 const BOOK_ACTIONS = ["create", "edit_other_booking", "cancel_other_booking", "set_user", "set_department", "view_other_notes", "view_other_users"] as const;
 
