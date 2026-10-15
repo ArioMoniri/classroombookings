@@ -114,6 +114,7 @@ class Held:
     ref_id: int
     run_id: int | None = None
     series_id: int | None = None
+    pending: bool = False  # a PENDING approval request (P1), not a booking yet
 
     def overlaps(self, start: int, end: int) -> bool:
         return self.start <= end and start <= self.end
@@ -229,9 +230,19 @@ async def _request_labels(session: AsyncSession, request_ids: set[int]) -> dict[
 
 
 async def booking_occupancy(
-    session: AsyncSession, room_ids: set[int] | None, d_from: date, d_to: date, exclude: set[int] | None = None
+    session: AsyncSession,
+    room_ids: set[int] | None,
+    d_from: date,
+    d_to: date,
+    exclude: set[int] | None = None,
+    *,
+    viewer: Access | None = None,
 ) -> Occ:
-    """Active bookings, plus PENDING requests (P1) whose tentative hold has not run out."""
+    """Active bookings, plus PENDING requests (P1) whose tentative hold has not run out. With ``viewer`` (the grid),
+    PENDING requests without a live hold are listed too when the viewer made them or approves them (persona test
+    U-06: the requester saw the slot free again); they are marked ``pending`` and never block anyone."""
+    from app.services import approvals
+
     out: Occ = defaultdict(list)
     q = select(Booking).where(Booking.status.in_((BOOKED, PENDING)), Booking.date.between(d_from, d_to))
     if room_ids is not None:
@@ -242,10 +253,22 @@ async def booking_occupancy(
             continue
         if b.status == PENDING:
             now = now or await now_local(session)
-            if b.held_until is None or b.held_until <= now:
+            if (b.held_until is None or b.held_until <= now) and not (
+                viewer is not None and await approvals.sees_request(session, viewer, b)
+            ):
                 continue
         out[(b.room_id, b.date)].append(
-            Held("booking", b.room_id, b.date, b.start_period, b.end_period, b.notes or "", b.id, series_id=b.series_id)
+            Held(
+                "booking",
+                b.room_id,
+                b.date,
+                b.start_period,
+                b.end_period,
+                b.notes or "",
+                b.id,
+                series_id=b.series_id,
+                pending=b.status == PENDING,
+            )
         )
     return out
 
@@ -654,6 +677,35 @@ async def _conflict_error(held: Held, room: Room, d: date) -> BookingError:
     )
 
 
+async def _refuse_duplicate_request(
+    session: AsyncSession, access: Access, room: Room, d: date, period: BookingPeriod, user_id: int | None
+) -> None:
+    """U-06: the same user asking again for the same room, date and period gets the open request back (409)."""
+    from app.services import approvals
+
+    q = select(Booking).where(
+        Booking.status == PENDING,
+        Booking.room_id == room.id,
+        Booking.date == d,
+        Booking.period_id == period.id,
+        Booking.created_by == access.user_id,
+        Booking.user_id == user_id if user_id is not None else Booking.user_id.is_(None),
+    )
+    b = (await session.execute(q.order_by(Booking.id))).scalars().first()
+    if b is None:
+        return
+    req = await approvals.request_for_booking(session, b)
+    raise _conflict(
+        "duplicate_request",
+        f"you already asked for {room.display_name} on {d:%d.%m.%Y} {period.name}; the request is waiting for approval",
+        booking_id=b.id,
+        request_id=req.id if req is not None else None,
+        message_en=f"you already asked for {room.display_name} on {d:%d.%m.%Y} {period.name}; "
+        "the request is waiting for approval",
+        message_tr=f"{room.display_name} için {d:%d.%m.%Y} {period.name} talebiniz zaten var ve onay bekliyor",
+    )
+
+
 async def create_single(session: AsyncSession, access: Access, body: SingleIn, *, commit: bool = True) -> Booking:
     """A booking, or (P1) a PENDING request when the room needs approval (``booking.status``)."""
     from app.services import approvals
@@ -685,6 +737,8 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
             f"you already have {limits['max_active_bookings']} active booking(s), the maximum",
             limit=limits["max_active_bookings"],
         )
+    if need is not None:
+        await _refuse_duplicate_request(session, access, room, body.date, period, user_id)
     held = await find_conflict(session, room.id, body.date, period.start_period, period.end_period)
     if held is not None:
         raise await _conflict_error(held, room, body.date)
@@ -1673,7 +1727,7 @@ async def grid(
     dinfos = await date_infos(session, info, dates)
     room_ids = {r.id for r in rooms}
     d0, d1 = min(dates), max(dates)
-    bocc = await booking_occupancy(session, room_ids, d0, d1)
+    bocc = await booking_occupancy(session, room_ids, d0, d1, viewer=access)
     tocc = await timetable_occupancy(session, room_ids, d0, d1)
     limits = await effective_limits(session, access.user)
     left = await remaining_bookings(session, access)
@@ -1704,6 +1758,8 @@ async def grid(
                     assert b is not None
                     booking_cache[b.id] = b
                     status, reason = "booked", ("recurring" if b.series_id else "single")
+                    if held_b.pending:  # U-06: the viewer's own (or to-be-approved) request
+                        reason, slot["pending"] = "pending", True
                     slot["booking"] = await booking_out(session, access, b)
                 elif held_t is not None:
                     status, reason, label = "timetable", held_t.kind, held_t.label

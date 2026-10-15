@@ -708,6 +708,20 @@ async def request_for_booking(session: AsyncSession, b: Booking) -> ApprovalRequ
     return (await session.execute(q.order_by(ApprovalRequest.id.desc()))).scalars().first()
 
 
+async def sees_request(session: AsyncSession, access: Access, b: Booking) -> bool:
+    """U-06: the booking grid shows a PENDING request to whoever asked for it (or is booked for it) and to the
+    approvers of its current step; everyone else sees the slot free while requests compete."""
+    if access.user_id in (b.created_by, b.user_id):
+        return True
+    if not access.can(DECIDE):
+        return False
+    req = await request_for_booking(session, b)
+    room = await session.get(Room, b.room_id)
+    if req is None or room is None or req.status != PENDING:
+        return False
+    return access.user in await step_approvers(session, room, req.rule_snapshot or {}, req.step)
+
+
 async def inbox(session: AsyncSession, access: Access, status: str = "open") -> list[dict[str, Any]]:
     await sweep(session)
     q = select(ApprovalRequest).order_by(ApprovalRequest.requested_at, ApprovalRequest.id)
