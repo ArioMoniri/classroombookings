@@ -424,6 +424,8 @@
       "rephrase": "Yeniden yaz"
     },
     "tray": {
+      "accepting": "Ekleniyor…",
+      "dismissedLive": "{n} öneriden vazgeçildi",
       "title": "İncelenecek {n} öneri",
       "acceptAll": "Hazır olanların hepsini ekle ({n})",
       "dismissAll": "Hepsinden vazgeç",
@@ -658,6 +660,7 @@
       "scope": "Kapsam değişti"
     },
     "check": {
+      "applying": "Uygulanıyor…",
       "ready": "Hazır",
       "needsLook": "Bakılması gereken var",
       "blocked": "Engel var",

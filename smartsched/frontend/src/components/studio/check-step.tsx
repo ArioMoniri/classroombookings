@@ -1,12 +1,14 @@
 "use client";
 
 import { AlertTriangle, CheckCircle2, ChevronDown, Info, Loader2, OctagonX, RefreshCw } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph, BusyLabel, busyProps } from "@/components/ui/busy-label";
 import type { PrecheckCategory, PrecheckItem, Readiness } from "@/lib/api/studio-schemas";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { tween, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { estimateWords } from "./studio-reducer";
 import { useStudio } from "./studio-context";
@@ -47,7 +49,7 @@ export function ReadinessMeter({ readiness, compact }: { readiness: Readiness | 
   return (
     <div className={cn("space-y-1.5", readiness === "checking" && "studio-pulse")} data-testid="readiness" data-readiness={readiness}>
       <p className={cn("flex items-center gap-1.5 font-semibold", compact ? "text-sm" : "text-base", tone)}>
-        <Icon className={cn("size-4", readiness === "checking" && "animate-spin")} aria-hidden /> {t(READY_KEY[readiness])}
+        {readiness === "checking" ? <BusyGlyph className="size-4" /> : <Icon className="size-4" aria-hidden />} {t(READY_KEY[readiness])}
       </p>
       <div className="grid grid-cols-3 gap-1" aria-hidden>
         {[1, 2, 3].map((i) => (
@@ -82,7 +84,8 @@ export function IssueCard({ item, onFixed }: { item: PrecheckItem; onFixed?: () 
                 key={f.option}
                 size="sm"
                 variant="outline"
-                disabled={busy !== null || blocked}
+                {...busyProps(running, busy !== null || blocked)}
+                focusableWhenDisabled
                 title={blocked ? t("studio.builtin.adminOnly") : undefined}
                 onClick={async () => {
                   if (await apply(item, f)) onFixed?.();
@@ -90,8 +93,9 @@ export function IssueCard({ item, onFixed }: { item: PrecheckItem; onFixed?: () 
                 className="h-auto min-h-7 py-1 text-left whitespace-normal sm:max-w-80"
                 data-testid="fix-button"
               >
-                {running ? <Loader2 className="animate-spin" aria-hidden /> : null}
-                {f.label[pairLang(locale)] || f.label.en}
+                <BusyLabel busy={running} label={t("studio.check.applying")}>
+                  {f.label[pairLang(locale)] || f.label.en}
+                </BusyLabel>
               </Button>
             );
           })}
@@ -109,7 +113,7 @@ export function IssueCard({ item, onFixed }: { item: PrecheckItem; onFixed?: () 
 
 export function CheckStep() {
   const { t, n, locale } = useI18n();
-  const reduce = useReducedMotion();
+  const reduce = useReduce();
   const { precheck, checking, precheckError, runPrecheck, summary, summaryData } = useStudio();
   const est = useEstimateText();
   const [cat, setCat] = useState<PrecheckCategory | "all">("all");
@@ -151,8 +155,8 @@ export function CheckStep() {
           ) : null}
         </div>
         <div className="flex flex-col items-start gap-2 md:items-end">
-          <Button variant="outline" size="sm" onClick={() => void runPrecheck()} disabled={checking} data-testid="recheck">
-            <RefreshCw className={cn(checking && "animate-spin")} aria-hidden /> {checking ? t("studio.check.checking") : t("studio.check.again")}
+          <Button variant="outline" size="sm" onClick={() => void runPrecheck()} {...busyProps(checking)} data-testid="recheck">
+            {checking ? <BusyGlyph /> : <RefreshCw aria-hidden />} {checking ? t("studio.check.checking") : t("studio.check.again")}
           </Button>
           <p className="text-sm text-label-2">{t("studio.check.estimate", { words: est(summary.estimate) })}</p>
         </div>
@@ -190,12 +194,19 @@ export function CheckStep() {
                       </button>
                     ) : null}
                     <ul className="space-y-2">
-                      <AnimatePresence initial={false}>
-                        {g.items.slice(0, shown).map((it) => (
-                          <motion.li key={it.id} initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduce ? { opacity: 0, transition: { duration: 0.1 } } : { opacity: 0, height: 0, transition: { duration: 0.18 } }}>
-                            <IssueCard item={it} onFixed={() => focusNext(it.id)} />
-                          </motion.li>
-                        ))}
+                      {/* fixed issues leave with a fade (transform / opacity only, siblings reflow by FLIP); > 40 shown: no motion */}
+                      <AnimatePresence initial={false} mode="popLayout">
+                        {g.items.slice(0, shown).map((it) =>
+                          shown > 40 ? (
+                            <li key={it.id}>
+                              <IssueCard item={it} onFixed={() => focusNext(it.id)} />
+                            </li>
+                          ) : (
+                            <motion.li key={it.id} layout={!reduce} initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduce ? { opacity: 0, transition: tween.reduced } : { opacity: 0, scale: 0.98, transition: tween.fadeOut }}>
+                              <IssueCard item={it} onFixed={() => focusNext(it.id)} />
+                            </motion.li>
+                          ),
+                        )}
                       </AnimatePresence>
                     </ul>
                     {shown > 0 && shown < g.items.length ? (

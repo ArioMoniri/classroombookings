@@ -1,10 +1,12 @@
 "use client";
 
-import { AlertTriangle, Check, ChevronRight, Info, Loader2, OctagonX } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { AlertTriangle, Check, ChevronRight, Info, OctagonX } from "lucide-react";
+import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph } from "@/components/ui/busy-label";
 import { useI18n } from "@/lib/i18n/provider";
+import { pick, springs, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { HardnessControl } from "./hardness-control";
 import { plainSentence, type Token, type WeightScale } from "./rule-sentence";
@@ -74,7 +76,7 @@ export interface RuleCardProps {
  * importance, "applies to N classes", conflict line. Used for term rules, proposals and pins. */
 export function RuleCard(p: RuleCardProps) {
   const { t, locale } = useI18n();
-  const reduce = useReducedMotion();
+  const reduce = useReduce();
   const sentenceId = `${p.domId}-sentence`;
   const clashId = `${p.domId}-clash`;
   const zero = p.affected && !p.affected.loading && p.affected.count === 0 && p.affected.targeted !== false;
@@ -111,7 +113,7 @@ export function RuleCard(p: RuleCardProps) {
             : p.fallback}
         </p>
         {p.saved ? (
-          <motion.span initial={reduce ? false : { opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="inline-flex items-center gap-1 text-xs text-status-feasible-fg" role="status">
+          <motion.span initial={reduce ? false : { opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={pick(reduce, springs.bouncySubtle)} className="inline-flex items-center gap-1 text-xs text-status-feasible-fg" role="status">
             <Check className="size-3.5" aria-hidden /> {t("studio.rule.saved")}
           </motion.span>
         ) : null}
@@ -217,14 +219,14 @@ export function RuleCard(p: RuleCardProps) {
 export function AffectedBadge({ affected, onClick }: { affected?: AffectedInfo; onClick?: () => void }) {
   const { t, n } = useI18n();
   if (!affected) return null;
-  if (affected.loading && affected.count === null) return <span className="inline-block h-5 w-28 animate-pulse rounded-full bg-fill-2" aria-label={t("common.loading")} />;
+  if (affected.loading && affected.count === null) return <span className="inline-block h-5 w-28 rounded-full bg-fill-2" role="status" aria-label={t("common.loading")} />;
   if (affected.count === null) return null;
   const label = t("studio.rule.appliesTo", { n: affected.count });
   const pct = affected.percent !== null && affected.percent !== undefined ? ` (${n(affected.percent, { maximumFractionDigits: 1 })} %)` : "";
   const cls = cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs", affected.count === 0 && affected.targeted !== false ? "border-status-warning-border bg-status-warning text-status-warning-fg" : "bg-background");
   const body = (
     <>
-      {affected.loading ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
+      {affected.loading ? <BusyGlyph className="size-3" /> : null}
       <span data-testid="affected-count">{label}</span>
       {pct}
     </>

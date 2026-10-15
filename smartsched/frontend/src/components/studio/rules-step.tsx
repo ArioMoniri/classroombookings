@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, Copy, FileUp, LayoutTemplate, Lock, Search } from "lucide-react";
+import { LayoutGroup, motion } from "motion/react";
 import { useMemo, useState, type ReactNode } from "react";
 import { NativeSelect } from "@/components/common/native-select";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import type { PrecheckItem } from "@/lib/api/studio-schemas";
 import type { MessageKey } from "@/lib/i18n";
 import { useSettingsPeek } from "@/lib/api/studio-hooks";
 import { useI18n } from "@/lib/i18n/provider";
+import { springs, tween, useReduce } from "@/lib/motion";
 import { PERIODS } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { fold } from "./class-filters";
@@ -40,6 +42,8 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
   const settings = useSettingsPeek();
   const actions = useRuleActions();
   const tray = useStudioStore((s) => s.tray);
+  const travel = useStudioStore((s) => s.travel);
+  const reduce = useReduce();
   const [gallery, setGallery] = useState(false);
   const [upload, setUpload] = useState(false);
   const [copy, setCopy] = useState(false);
@@ -103,7 +107,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
 
   return (
     <div className="space-y-5" data-testid="rules-step">
-      <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-background/95 px-1 py-1.5 text-sm backdrop-blur-sm" aria-live="polite" data-testid="rules-counter">
+      <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-(--mat-thick-solid) px-1 py-1.5 text-sm hairline-b" aria-live="polite" data-testid="rules-counter">
         <span>
           <strong className="tabular-nums">{n(must)}</strong> {t("studio.rules.mustWord")}
         </span>
@@ -160,6 +164,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
           }}
         />
       ) : null}
+      <LayoutGroup id="studio-rules">
       <ReviewTray items={nlTray} meta={meta} onAccept={(items) => actions.accept(items)} onReject={onReject} onUpdate={onUpdate} />
 
       <PolicySwitches />
@@ -207,11 +212,23 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
             <RuleGroup key={g.key} id={g.key} label={g.label} count={g.items.length} collapsed={collapsed.has(g.key)} onToggle={() => toggleGroup(g.key)}>
               {g.items.length === 0 ? <p className="text-sm text-label-2">{t("studio.rules.groupEmpty")}</p> : null}
               <ul className="space-y-2">
-                {g.items.map((e) => (
-                  <li key={e.rule.id}>
-                    <TermRuleCard eff={e} clash={clashFor(e.rule.id)} compact={compact} />
-                  </li>
-                ))}
+                {g.items.map((e) => {
+                  // an accepted proposal travels from the tray into its group (shared layoutId, smooth spring);
+                  // reduced motion: it appears with a 100 ms fade. No other rule card ever animates.
+                  const tid = travel[e.rule.id];
+                  return (
+                    <motion.li
+                      key={e.rule.id}
+                      layoutId={tid && !reduce ? tid : undefined}
+                      data-travel-id={tid && !reduce ? tid : undefined}
+                      transition={springs.smooth}
+                      initial={tid && reduce ? { opacity: 0 } : false}
+                      animate={tid && reduce ? { opacity: 1, transition: tween.reduced } : undefined}
+                    >
+                      <TermRuleCard eff={e} clash={clashFor(e.rule.id)} compact={compact} />
+                    </motion.li>
+                  );
+                })}
               </ul>
             </RuleGroup>
           ))
@@ -302,6 +319,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
           <BuiltinRules />
         </RuleGroup>
       </section>
+      </LayoutGroup>
 
       <TemplateGallery
         open={galleryOpen}

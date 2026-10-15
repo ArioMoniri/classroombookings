@@ -54,6 +54,9 @@ export interface StudioStoreState {
   updateTray: (key: string, patch: Partial<TrayItem>) => void;
   setTrayState: (keys: string[], state: TrayItem["state"], createdIds?: number[]) => void;
   clearTray: (origin?: TrayItem["origin"]) => void;
+  /** created rule id → layoutId of the tray card it came from, for one travel (cleared after it) */
+  travel: Record<number, string>;
+  setTravel: (t: Record<number, string>) => void;
   activeRun: ActiveRun | null;
   setActiveRun: (r: ActiveRun | null) => void;
   /** the Write-it box text (kept across steps; "Rephrase as text…" moves an unreadable row here) */
@@ -99,6 +102,8 @@ export function createStudioStore() {
     updateTray: (key, patch) => set((s) => ({ tray: s.tray.map((x) => (x.key === key ? ({ ...x, ...patch } as TrayItem) : x)) })),
     setTrayState: (keys, state, createdIds) => set((s) => ({ tray: s.tray.map((x) => (keys.includes(x.key) ? { ...x, state, createdIds: createdIds ?? x.createdIds } : x)) })),
     clearTray: (origin) => set((s) => ({ tray: origin ? s.tray.filter((x) => x.origin !== origin) : [] })),
+    travel: {},
+    setTravel: (travel) => set({ travel }),
     activeRun: null,
     setActiveRun: (r) => set({ activeRun: r }),
     nlText: "",

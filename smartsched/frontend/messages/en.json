@@ -424,6 +424,8 @@
       "rephrase": "Rephrase"
     },
     "tray": {
+      "accepting": "Adding…",
+      "dismissedLive": "{n} suggestions dismissed",
       "title": "{n} suggestions to review",
       "acceptAll": "Accept all ready ({n})",
       "dismissAll": "Dismiss all",
@@ -658,6 +660,7 @@
       "scope": "Scope changed"
     },
     "check": {
+      "applying": "Applying…",
       "ready": "Ready",
       "needsLook": "Needs a look",
       "blocked": "Blocked",

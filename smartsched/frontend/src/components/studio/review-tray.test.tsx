@@ -1,11 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProposedConstraint } from "@/lib/api/schemas";
 import { StudioMeta } from "@/lib/api/studio-schemas";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { studioMeta } from "@/test/fixtures/studio-meta";
-import { ReviewTray, resolveCandidate, unresolvedCandidates } from "./review-tray";
+import { ReviewTray, resolveCandidate, trayTravelId, travelPairs, unresolvedCandidates } from "./review-tray";
 import type { TrayItem } from "./studio-store";
 import { UploadReview, bucketOf, reviewCounts } from "./upload-review";
 
@@ -116,5 +116,60 @@ describe("UploadReview", () => {
     await userEvent.click(screen.getByTestId("review-tab-unread"));
     await userEvent.click(screen.getByRole("button", { name: "Rephrase as text…" }));
     expect(onRephrase).toHaveBeenCalledWith("Pazartesi sabah toplantı", "u1");
+  });
+});
+
+describe("ReviewTray motion (audit T5)", () => {
+  afterEach(() => {
+    delete document.documentElement.dataset.motion;
+  });
+
+  it("≤ 40 pending: items animate (layout + exit) and carry a travel id for the accepted-rule hand-off", () => {
+    renderTray([item("a", ok), item("c", tip)]);
+    const lis = screen.getAllByTestId("tray-li");
+    expect(lis.map((l) => l.dataset.animate)).toEqual(["on", "on"]);
+    expect(lis[0].dataset.travelId).toBe(trayTravelId("a"));
+  });
+
+  it("more than 40 pending: no insert/remove animation, plain items", () => {
+    renderTray(Array.from({ length: 41 }, (_, i) => item(`k${i}`, ok)));
+    const lis = screen.getAllByTestId("tray-li");
+    expect(lis).toHaveLength(41);
+    expect(lis.every((l) => l.dataset.animate === "off" && !l.dataset.travelId)).toBe(true);
+  });
+
+  it("in-app Reduce motion switch: no layout animation and no travel", () => {
+    document.documentElement.dataset.motion = "reduced";
+    renderTray([item("a", ok)]);
+    const li = screen.getByTestId("tray-li");
+    expect(li.dataset.animate).toBe("off");
+    expect(li.dataset.travelId).toBeUndefined();
+  });
+
+  it("Accept keeps focus while the request runs (aria-disabled, not disabled) and says so", async () => {
+    let resolve: () => void = () => undefined;
+    const props = { items: [item("a", ok), item("c", tip)], meta, onAccept: vi.fn(() => new Promise<void>((r) => (resolve = r))), onReject: vi.fn(), onUpdate: vi.fn() };
+    render(
+      <I18nProvider initialLocale="en">
+        <ReviewTray {...props} />
+      </I18nProvider>,
+    );
+    const btn = within(screen.getAllByTestId("tray-item")[0]).getByTestId("tray-accept");
+    await userEvent.click(btn);
+    expect(btn).not.toBeDisabled();
+    expect(btn).toHaveAttribute("aria-disabled", "true");
+    expect(btn).toHaveAttribute("aria-busy", "true");
+    expect(document.activeElement).toBe(btn);
+    await act(async () => resolve());
+  });
+});
+
+describe("travelPairs", () => {
+  it("maps each created rule to its tray card, one-to-one and at most 12 at once", () => {
+    const items = [item("a", ok), item("c", tip)];
+    expect(travelPairs(items, [101, 102])).toEqual({ 101: trayTravelId("a"), 102: trayTravelId("c") });
+    expect(travelPairs(items, [101])).toEqual({}); // some were rejected: no reliable pairing
+    const many = Array.from({ length: 13 }, (_, i) => item(`k${i}`, ok));
+    expect(travelPairs(many, many.map((_, i) => 200 + i))).toEqual({});
   });
 });

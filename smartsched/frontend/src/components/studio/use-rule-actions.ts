@@ -8,6 +8,10 @@ import type { ProposedSectionEdit, StudioRule } from "@/lib/api/studio-schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { useStudio } from "./studio-context";
 import type { TrayItem } from "./studio-store";
+import { travelPairs } from "./tray-travel";
+
+/** after the smooth spring settles (≈ 280 ms) the rule cards drop their layoutId: filters and sorting never animate */
+const TRAVEL_CLEAR_MS = 400;
 
 export interface NewRule {
   kind: string;
@@ -148,8 +152,12 @@ export function useRuleActions() {
       if (!proposals.length && !edits.length) return 0;
       const res = await api.studio.accept(termId, proposals, edits);
       const keys = items.map((i) => i.key);
-      store.getState().setTrayState(keys, "accepted", res.created);
+      // the hand-off (motion audit T5): the new rule cards mount with the tray cards' layoutId while those are
+      // still in the tray, so each card travels into its rule group; then the tray lets them go
+      store.getState().setTravel(travelPairs(items, res.created));
       await refresh(["rules", "classes", "summary"]);
+      store.getState().setTrayState(keys, "accepted", res.created);
+      window.setTimeout(() => store.getState().setTravel({}), TRAVEL_CLEAR_MS);
       const added = res.created.length + edits.length;
       store.getState().record({
         label: t("studio.history.accepted", { n: added }),

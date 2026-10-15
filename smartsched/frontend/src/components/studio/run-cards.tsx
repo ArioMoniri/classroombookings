@@ -1,16 +1,18 @@
 "use client";
 
-import { CheckCircle2, Clock, Copy as CopyIcon, Loader2, OctagonX, RotateCcw, XCircle } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { CheckCircle2, Clock, Copy as CopyIcon, OctagonX, RotateCcw, XCircle } from "lucide-react";
+import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph } from "@/components/ui/busy-label";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/lib/api/endpoints";
 import { useRun, useRuns } from "@/lib/api/hooks";
 import type { ScheduleRun } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
+import { springs, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { CopyDialog } from "./copy-dialog";
 import { useStudio, useStudioStore } from "./studio-context";
@@ -60,7 +62,7 @@ function useElapsed(since: number, running: boolean): number {
 /** Run status → result card; the summary panel and Step 5 both show it. */
 export function RunCard({ compact }: { compact?: boolean }) {
   const { t, n } = useI18n();
-  const reduce = useReducedMotion();
+  const reduce = useReduce();
   const active = useStudioStore((s) => s.activeRun);
   const setActive = useStudioStore((s) => s.setActiveRun);
   const { goStep, lastEdited } = useStudio();
@@ -83,14 +85,14 @@ export function RunCard({ compact }: { compact?: boolean }) {
       layout={!reduce}
       initial={reduce ? false : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={springs.smooth}
       aria-labelledby="run-status-title"
       className={cn("rounded-xl border bg-card p-4 text-sm", r && GOOD.has(r.status) && "border-status-feasible-border", r && r.status === "INFEASIBLE" && "border-status-infeasible-border")}
       data-testid="run-card"
       data-status={r?.status ?? "QUEUED"}
     >
       <h3 id="run-status-title" tabIndex={-1} className="flex items-center gap-2 font-semibold outline-hidden" aria-live={live}>
-        {!r || running ? <Loader2 className="size-4 animate-spin text-tint-text" aria-hidden /> : GOOD.has(r.status) ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : r.status === "INFEASIBLE" ? <OctagonX className="size-4 text-status-infeasible-fg" aria-hidden /> : <XCircle className="size-4 text-status-infeasible-fg" aria-hidden />}
+        {!r || running ? <BusyGlyph className="size-4 text-tint-text" /> : GOOD.has(r.status) ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : r.status === "INFEASIBLE" ? <OctagonX className="size-4 text-status-infeasible-fg" aria-hidden /> : <XCircle className="size-4 text-status-infeasible-fg" aria-hidden />}
         {t("studio.run.title", { id: active.runId })} · {r ? t(`runs.status.${r.status}`) : t("runs.status.QUEUED")}
       </h3>
 

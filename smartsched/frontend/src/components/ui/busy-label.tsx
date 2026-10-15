@@ -79,9 +79,10 @@ type BusyButtonProps = ComponentProps<typeof Button> & {
   children: ReactNode;
 };
 
-export function BusyButton({ busy, busyLabel, icon, disabled, children, ...props }: BusyButtonProps) {
+export function BusyButton({ busy, busyLabel, icon, disabled, focusableWhenDisabled, children, ...props }: BusyButtonProps) {
+  const b = busyProps(busy, Boolean(disabled));
   return (
-    <Button {...props} {...busyProps(busy, Boolean(disabled))}>
+    <Button {...props} {...b} focusableWhenDisabled={b.focusableWhenDisabled || focusableWhenDisabled}>
       <BusyLabel busy={busy} label={busyLabel} icon={icon}>
         {children}
       </BusyLabel>

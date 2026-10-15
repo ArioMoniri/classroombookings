@@ -3,7 +3,7 @@
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { AlertTriangle, Search, SlidersHorizontal, X } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import type { ClassRow, MeetingPatch, Pin } from "@/lib/api/studio-schemas";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { springs, tween, useReduce } from "@/lib/motion";
 import { dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { ChangedMark, DayTimeCell, ModeCell, PinCell, RoomsCell, StudentsCell } from "./class-cells";
@@ -58,7 +59,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
   const params = useSearchParams();
   const { classes, classesLoading, classesError, rowState, dispatch, store, local, rooms, sentence, rules, meta, refresh, kind } = useStudio();
   const edits = useClassEdit();
-  const reduce = useReducedMotion();
+  const reduce = useReduce();
   const narrow = useIsNarrow();
   const ruleParam = params.get("rule");
   const [filters, setFilters] = useState<ClassFilters>(() => ({ ...EMPTY_FILTERS, ruleId: ruleParam ? Number(ruleParam) : null }));
@@ -569,8 +570,10 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
         ) : null}
       </div>
 
+      {/* selection bar (audit T8): rises 8 px + fades in on the smooth spring, leaves faster; reduced: 100 ms fade */}
+      <AnimatePresence>
       {selected.size > 0 ? (
-        <motion.div initial={reduce ? false : { y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.18 }} className="sticky bottom-20 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-popover p-2 text-sm shadow-[var(--shadow-2)] xl:bottom-3" role="toolbar" aria-label={t("studio.classes.bulk")} data-testid="bulk-bar">
+        <motion.div key="bulk-bar" initial={reduce ? { opacity: 0 } : { y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1, transition: reduce ? tween.reduced : springs.smooth }} exit={{ opacity: 0, transition: reduce ? tween.reduced : tween.fadeOut }} className="sticky bottom-20 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-popover p-2 text-sm shadow-[var(--shadow-2)] xl:bottom-3" role="toolbar" aria-label={t("studio.classes.bulk")} data-testid="bulk-bar">
           <span className="px-1 font-medium">{t("studio.classes.selected", { n: n(selected.size) })}</span>
           <Button size="sm" variant="outline" onClick={() => exclude([...selected], t("studio.history.leftOut"))} data-testid="bulk-leave-out">
             {t("studio.classes.leaveOut")}
@@ -598,6 +601,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           </Button>
         </motion.div>
       ) : null}
+      </AnimatePresence>
 
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm" data-testid="filters-sheet">
