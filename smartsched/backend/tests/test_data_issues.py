@@ -357,7 +357,13 @@ async def test_data_issues_groups_with_classes_and_xlsx(client):
         and summary["placed"] == run["placed"]
         and summary["events_total"] == run["events_total"]
     )
-    assert summary["headline"]["tr"] == f"{run['placed']}/{run['events_total']} ders yerleşti · hiçbir kural bozulmadı"
+    # persona M-07: the headline counts the data issues the seed plants (review groups are counted apart)
+    di = (await client.get(f"/api/v1/runs/{run_id}/data-issues", headers=h)).json()
+    n_issues = di["totals"]["issues"]
+    assert n_issues > 0 and di["totals"]["to_review"] == 0
+    assert summary["headline"]["tr"] == (
+        f"{run['placed']}/{run['events_total']} ders yerleşti · hiçbir kural bozulmadı · {n_issues} veri sorunu"
+    )
 
     rep = (await client.get(f"/api/v1/runs/{run_id}/data-issues", headers=h)).json()
     assert rep["run_id"] == run_id and rep["status"] == "FEASIBLE_PARTIAL"
