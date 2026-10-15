@@ -420,3 +420,22 @@ Phase 19 policy defaults (provisional, adopted 2026-10-15 from docs/testing/2026
 Parser bugs to fix before learning (sent to the importer agent): negation ("olmasın"), "veya" alternatives, alternative room groups, accessibility/furniture wishes, and the "Derse Özel Açıklama" column becoming soft preferences.
 Missing for the moderation tab (from the academician analysis): a user↔instructor link, a run-to-run diff endpoint and UI, approval before a re-solved run is published, and a refusal-reason field.
 Missing for programmes from scratch: create endpoints for faculties, courses, sections and meetings.
+
+### Phase 19 tickets (from docs/review/2026-10-15-phase19-engineering.md §5; full acceptance criteria are there)
+Wave 0, the gates:
+- [ ] P19-00a: refuse untargeted soft structural rules (D1 BLOCKER: a soft capacity rule seated 180 in a 50-seat room with hard 100). Backend agent.
+- [ ] P19-00b: per-source hardness allowlist (AI/UPLOAD/LEARNED); store rejected proposals. AI agent.
+- [ ] P19-00c: report waived structural rules in stats and the run report. Solver agent.
+- [ ] P19-01: publish guard (no FAILED activation), a single active run per term, 409 on deleting the active run; migration 0018 after 0017_council. Backend agent.
+- [ ] P19-02: audit planning entities and actions (D5). Backend agent.
+- [ ] P19-03: per-term write lock for imports and commits (D8). Backend agent, then the importer agent wires it in.
+- [ ] P19-04/05: council merge hardening (D2 safe_files caps and isolation, D3 no MSW, D13 Planner-only records, D14 dedupe). Merge agent.
+- [ ] P19-06: no dead nav/⌘K links (D6); find-room gated by permission; crawler e2e. Wave-1 frontend agent.
+- [ ] D15, D16, D19 (rooms PUT permission, CRBS DSN SSRF, setup race). Backend agent.
+- [ ] P19-Q1: normaliser D9–D12, plus the parser bugs from the academician analysis. Importer agent.
+- [ ] P19-Q2: parity gate requires the playwright JSON; fix the date-gated skip; reserve.spec in UI_SPECS. Devops agent.
+- [ ] P19-Q3: dependency pins (xlrd, defusedxml, pdfplumber, pypdfium2, icalendar in main deps) and a 30-day upload purge. Devops agent.
+Wave 1, structured intake (after 04): [ ] I1 magic-byte registry + CSV/TSV/JSON · [ ] I2 xls + ods · [ ] I3 xml + ics · [ ] I4 commit dry-run diff · [ ] I5 schedule map → baseline IMPORT run, deduped across jobs · [ ] I6 source_ref provenance · [ ] I7 room-master import UI + diff panel
+Wave 2, AI-assisted intake: [ ] A1 AI intake/vision switches (default off) + KVKK sign-off (backend part with the AI agent now) · [ ] A2 review required on every AI row · [ ] A3 PDF tables / scanned PDFs / EML / EXIF / PII redaction · [ ] A4 injection corpus test
+Wave 3, learning, from scratch, moderation: [ ] L1–L4 learning tables, extractors, priors and suggestions, reset/undo · [ ] C1–C2 CRUD for faculties, courses, instructors, sections, requests + pattern expander · [ ] S1–S2 priority-weighted placement, deterministic repair diff · [ ] M1–M3 moderation read models, priority + conflict_policy, re-solve endpoint · [ ] F1–F4 moderation UI, suggestion tray + reset UI, program wizard
+Proposed later (from the review): academician self-service portal, instructor availability and load rules, term workflow states, publish history and rollback, department-scoped planners, swap requests after publish, exam invigilator assignment, utilisation reports, what-if sandboxes, OBS enrolment sync, personal ICS feeds for assignments.
