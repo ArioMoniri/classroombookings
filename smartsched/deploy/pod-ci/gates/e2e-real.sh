@@ -11,6 +11,8 @@
 #   backend-empty  second backend on an EMPTY database (no users): the first-run installer (B-SETUP-02);
 #                  started once `backend` is healthy because it reuses its venv (/w/venv)
 # Playwright gets E2E_SMTP_HOST/E2E_SMTP_PORT/E2E_SMTP_API and E2E_EMPTY_API_URL for the specs that use them.
+# Before the specs, contract-record.py records the contract-test payloads from the seeded backend and reports
+# their schema drift against src/lib/api/__fixtures__/real (/w/contract/contract-drift.json; never fails).
 # The booking clock is checked before any spec runs: a clock outside Bahar 2026 fails the gate (the booking
 # specs would otherwise skip and the gate would look green).
 #   E2E_HEALTH_TRIES / E2E_HEALTH_SLEEP   backend health wait (default 300 x 2 s)
@@ -53,6 +55,9 @@ for _ in $(seq 1 "$tries"); do
   sleep "$pause"
 done
 if [ "$ok" != 1 ]; then echo "backend not healthy after $((tries * pause)) s"; exit 1; fi
+section "contract fixtures: record + shape diff (report only; copy /w/contract/*.json to re-record)"
+docker exec "$backend" python /ci/contract-record.py --api http://127.0.0.1:8000 --out /w/contract \
+  --compare /w/src/smartsched/frontend/src/lib/api/__fixtures__/real || echo "contract recording failed (report only)"
 section "empty backend (installer)"
 docker run -d "${docker_common[@]}" --name "$empty" --network "$net" --network-alias backend-empty \
   -e E2E_EMPTY=1 -e E2E_VENV=/w/venv -e E2E_WORKDIR=/w/e2e-empty -e E2E_BOOKING_CLOCK="$clock" \
