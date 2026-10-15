@@ -4,13 +4,24 @@
  * the right kind, and a week that run covers).
  */
 import { useMemo } from "react";
-import { useCalendarIndex } from "@/lib/api/calendar";
+import { useCalendarIndex, type CalendarIndex } from "@/lib/api/calendar";
 import { HttpError } from "@/lib/api/client";
 import { useHydrated } from "@/lib/use-hydrated";
 import { useActiveTerm } from "@/components/shell/term-switcher";
 import { useRun, useRuns } from "@/lib/api/hooks";
 import type { ScheduleRun, Term } from "@/lib/api/schemas";
 import { buildModel, type CalendarModel } from "./model/index-model";
+
+/** The last model per run: the next index of that run reuses its unchanged events (a move re-renders only the
+ * moved chips, motion audit T3). A few runs at most. */
+const lastModel = new Map<number, CalendarModel>();
+function modelFor(index: CalendarIndex): CalendarModel {
+  const m = buildModel(index, lastModel.get(index.run.id) ?? null);
+  lastModel.delete(index.run.id);
+  lastModel.set(index.run.id, m);
+  if (lastModel.size > 4) lastModel.delete(lastModel.keys().next().value as number);
+  return m;
+}
 
 const USABLE = new Set<ScheduleRun["status"]>(["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL", "TIMEOUT"]);
 
@@ -76,7 +87,7 @@ export function useCalendarData(requestedRun: number | null): CalendarData {
   const run = (requestedRun !== null ? (runsQ.data ?? []).find((r) => r.id === requestedRun) : undefined) ?? (hydrated ? defaultRun(runs, term) : undefined);
   const runId = requestedRun ?? run?.id ?? null;
   const index = useCalendarIndex(runId);
-  const model = useMemo(() => (index.data ? buildModel(index.data) : null), [index.data]);
+  const model = useMemo(() => (index.data ? modelFor(index.data) : null), [index.data]);
   const flags = calendarFlags({ hydrated, runsPending: runsQ.isPending, runsError: runsQ.error, requestedError: requested.error, indexError: index.error, indexPending: index.isPending, runId });
   return {
     term,

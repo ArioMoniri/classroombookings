@@ -95,7 +95,12 @@ export function isConflictReason(r: string): boolean {
   return r.startsWith("room overlap") || r.startsWith("block") || r.startsWith("seats");
 }
 
-export function buildModel(index: CalendarIndex): CalendarModel {
+/**
+ * `prev`: the model built from the previous index of the same run. Events of assignments whose object is
+ * unchanged (patchIndex and TanStack structural sharing keep them) are reused, so memoised chips skip the
+ * re-render after a move (motion audit T3).
+ */
+export function buildModel(index: CalendarIndex, prev?: CalendarModel | null): CalendarModel {
   const exam = index.run.kind === "EXAM";
   const weeks = index.weeks.length ? index.weeks.map((w) => w.index) : Array.from({ length: 14 }, (_, i) => i + 1);
   const allMask = maskOf(weeks);
@@ -106,7 +111,19 @@ export function buildModel(index: CalendarIndex): CalendarModel {
   const byRoomDay = new Map<string, CalEvent[]>();
   const byInstructorDay = new Map<string, CalEvent[]>();
   const byCohortDay = new Map<string, CalEvent[]>();
+  const reuse = prev && prev.allMask === allMask && prev.index.run.id === index.run.id ? prev.eventByAid : null;
   for (const a of index.assignments) {
+    const kept = reuse?.get(a.id);
+    if (kept && kept[0]?.a === a) {
+      for (const ev of kept) {
+        events.push(ev);
+        push(eventByAid, a.id, ev);
+        push(byRoomDay, `${ev.room}:${a.day}`, ev);
+      }
+      for (const i of a.instr_ids) push(byInstructorDay, `${i}:${a.day}`, kept[0]);
+      if (kept[0].cohort) push(byCohortDay, `${kept[0].cohort}:${a.day}`, kept[0]);
+      continue;
+    }
     const mask = a.weeks.length ? maskOf(a.weeks) : allMask;
     const cohort = a.prog_id && a.year ? `${a.prog_id}:${a.year}` : null;
     const conflict = a.reasons.some(isConflictReason);

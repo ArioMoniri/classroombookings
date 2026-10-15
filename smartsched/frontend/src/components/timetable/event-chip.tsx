@@ -102,4 +102,18 @@ function EventChipImpl(p: EventChipProps) {
   );
 }
 
-export const EventChip = memo(EventChipImpl);
+/** Shallow, except `rect` by value: the grid passes a fresh rect object per render, which defeated the memo and
+ * re-rendered every chip on each grid render (a move cost a 380-482 ms frame, motion audit T3). */
+export function sameChipProps(a: EventChipProps, b: EventChipProps): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof EventChipProps)[]);
+  for (const k of keys) {
+    if (k === "rect") {
+      const x = a.rect;
+      const y = b.rect;
+      if (x.left !== y.left || x.top !== y.top || x.width !== y.width || x.height !== y.height) return false;
+    } else if (!Object.is(a[k], b[k])) return false;
+  }
+  return true;
+}
+
+export const EventChip = memo(EventChipImpl, sameChipProps);
