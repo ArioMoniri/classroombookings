@@ -78,7 +78,7 @@ export function DepartmentBar({ grid, value, onChange, mine, termId, onRoomInfo 
         <label className="flex items-center gap-2 type-footnote font-medium text-label-2">
           <Building2 className="size-4" aria-hidden />
           {t("reserve.dept.label")}
-          <SelectField value={String(value)} onChange={(e) => onChange(e.target.value === "all" ? "all" : Number(e.target.value))} className="min-w-44" data-testid="department-select">
+          <SelectField value={String(value)} onChange={(e) => onChange(e.target.value === "all" ? "all" : Number(e.target.value))} className="w-auto min-w-48 max-w-72" data-testid="department-select">
             <option value="all">{t("reserve.dept.all")}</option>
             {ordered.map((d) => (
               <option key={d.id} value={d.id}>
