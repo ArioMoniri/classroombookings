@@ -1,0 +1,62 @@
+{
+ "id": 1,
+ "status": "QUEUED",
+ "mode": "auto",
+ "ai_mode": "heuristic",
+ "lang": "en",
+ "year_hint": 2026,
+ "progress": 0,
+ "phase": "starting",
+ "files": [
+  {
+   "index": 0,
+   "filename": "room_master.csv",
+   "size": 4546,
+   "status": "QUEUED",
+   "format": null,
+   "language": null,
+   "route": null,
+   "kinds": [],
+   "counts": {},
+   "rule_texts": 0,
+   "message": null,
+   "steps": []
+  },
+  {
+   "index": 1,
+   "filename": "bahar_requests_en.csv",
+   "size": 301579,
+   "status": "QUEUED",
+   "format": null,
+   "language": null,
+   "route": null,
+   "kinds": [],
+   "counts": {},
+   "rule_texts": 0,
+   "message": null,
+   "steps": []
+  },
+  {
+   "index": 2,
+   "filename": "rules_memo.docx",
+   "size": 38040,
+   "status": "QUEUED",
+   "format": null,
+   "language": null,
+   "route": null,
+   "kinds": [],
+   "counts": {},
+   "rule_texts": 0,
+   "message": null,
+   "steps": []
+  }
+ ],
+ "cross_steps": [],
+ "plan": null,
+ "summary": {},
+ "usage": {},
+ "commits": [],
+ "error": null,
+ "created_at": "2026-10-08T10:17:04.308601",
+ "finished_at": null
+}

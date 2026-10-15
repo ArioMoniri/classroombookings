@@ -93,6 +93,9 @@
       "week": "Semana"
     }
   },
+  "onboarding": {
+    "weekCount": "Semanas"
+  },
   "wave1": {
     "find": {
       "weeks": "Semanas"

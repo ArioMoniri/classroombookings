@@ -41,7 +41,7 @@ for r in (
     api_router.include_router(r)
 
 # Generator Studio (phase 8)
-from app.api.v1 import presets, studio  # noqa: E402
+from app.api.v1 import council, presets, studio  # noqa: E402
 
 api_router.include_router(studio.router)
 api_router.include_router(presets.router)
@@ -92,6 +92,8 @@ from app.api.v1 import calendar_sync, webhooks  # noqa: E402
 
 api_router.include_router(calendar_sync.router)
 api_router.include_router(webhooks.router)
+# Ingestion Council (universal onboarding)
+api_router.include_router(council.router)
 
 # P19-C1/C2 from-scratch programme creation: faculty/programme/course/instructor/section writes, weekly patterns
 from app.api.v1 import catalog_admin  # noqa: E402

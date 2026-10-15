@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class SettingsUpdate(BaseModel):
     anthropic_api_key: str | None = None
     anthropic_model: str | None = None
+    council_ai_enabled: bool | None = None  # Ingestion Council may send file content to Claude (KVKK opt-in)
     solver_default_time_limit: float | None = None
     solver_workers: int | None = None
     solver_weights: dict[str, Any] | None = None

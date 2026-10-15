@@ -657,6 +657,7 @@ More documentation:
 | [docs/CRBS_PARITY.md](docs/CRBS_PARITY.md) | classroombookings behaviour and the deliberate differences |
 | [docs/product/](docs/product/) | API contracts: calendar sync, booking enhancements wave 1 |
 | [docs/design/](docs/design/) | UI specs, including the Liquid Glass system and the calendar |
+| [docs/universal/](docs/universal/) | universal onboarding: [Ingestion Council architecture](docs/universal/ARCHITECTURE.md), [2026 research](docs/universal/RESEARCH-2026.md), [Ruflo dev harness](docs/universal/RUFLO.md) |
 | [docs/testing/](docs/testing/) | test reports: real-data feasibility, real-backend end to end, CRBS parity, planner comparison |
 | [docs/deploy/AWS.md](docs/deploy/AWS.md), [docs/deploy/calendar-oauth.md](docs/deploy/calendar-oauth.md) | the AWS pod; setting up the Google and Microsoft OAuth clients |
 | [docs/AGENTS.md](docs/AGENTS.md), [docs/PROGRESS.md](docs/PROGRESS.md), [docs/AGENT_STATE.md](docs/AGENT_STATE.md) | SmartSched is built by parallel Claude Code agents: their protocol, ledger and resume guide |

@@ -26,6 +26,8 @@ SPECS: dict[str, SettingSpec] = {
     for s in (
         SettingSpec("anthropic_api_key", is_secret=True),
         SettingSpec("anthropic_model", default="claude-opus-5-5"),
+        # KVKK: the Ingestion Council sends uploaded file content to Claude only after an administrator opts in
+        SettingSpec("council_ai_enabled", default=False, kind="bool"),
         SettingSpec("solver_default_time_limit", default=60.0, kind="float"),
         SettingSpec("solver_workers", default=8, kind="int"),
         SettingSpec("solver_weights", default="{}"),

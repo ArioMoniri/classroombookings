@@ -93,6 +93,9 @@
       "week": "Wythnos"
     }
   },
+  "onboarding": {
+    "weekCount": "Wythnosau"
+  },
   "wave1": {
     "find": {
       "weeks": "Wythnosau"

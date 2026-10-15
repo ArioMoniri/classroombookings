@@ -38,6 +38,7 @@ from app.models.booking import (
     UserConstraint,
 )
 from app.models.catalog import Building, Course, Faculty, Instructor, Program, Room, Term, Week
+from app.models.council import CouncilArtifact, CouncilJob, CouncilStep
 from app.models.integrations import (
     CalendarConnection,
     CalendarEventLink,
@@ -88,6 +89,9 @@ __all__ = [
     "ChatApplyClaim",
     "ChatMessage",
     "ConstraintRow",
+    "CouncilArtifact",
+    "CouncilJob",
+    "CouncilStep",
     "Course",
     "ExamRequest",
     "Faculty",

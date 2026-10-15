@@ -9,5 +9,6 @@
  "solver_workers": 8,
  "solver_weights": "{}",
  "ui_language": "tr",
- "timezone": "Europe/Istanbul"
+ "timezone": "Europe/Istanbul",
+ "council_ai_enabled": false
 }

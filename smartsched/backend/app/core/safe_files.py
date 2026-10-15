@@ -322,6 +322,8 @@ _PRELOAD = [
     "app.importers.weekly_grid",
     "app.importers.tables",
     "app.ai.ingest",
+    "app.council.render",
+    "app.council.fastpath",
 ]
 _ctx: Any = None
 

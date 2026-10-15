@@ -1,4 +1,4 @@
-import { CalendarDays, FileUp, Inbox, LayoutDashboard, ListChecks, type LucideIcon, PlayCircle, Settings, Users, Warehouse } from "lucide-react";
+import { CalendarDays, FileUp, Inbox, LayoutDashboard, ListChecks, type LucideIcon, PlayCircle, Settings, Sparkles, Users, Warehouse } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
 import type { MessageKey } from "@/lib/i18n";
 
@@ -24,6 +24,7 @@ export const NAV_GROUPS: NavGroup[] = [
     labelKey: "nav.plan",
     items: [
       { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, key: "d", permission: "planning.view" },
+      { href: "/onboarding", labelKey: "nav.onboarding", icon: Sparkles, key: "o", permission: "planning.edit" },
       { href: "/import", labelKey: "nav.import", icon: FileUp, key: "i", permission: "planning.edit" },
       { href: "/requests", labelKey: "nav.requests", icon: Inbox, key: "r", badge: "needsReview", permission: "planning.view" },
       { href: "/generate", labelKey: "nav.generate", icon: PlayCircle, key: "g", permission: "planning.edit" },
