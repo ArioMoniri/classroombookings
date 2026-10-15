@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import { useUiStore } from "@/stores/ui";
-import { ALL_NAV_ITEMS } from "./nav-config";
+import { hasPermission, usePermissions } from "@/lib/api/shell-extra";
+import { visibleNavGroups } from "./nav-config";
 import { useCycleTheme } from "./theme-toggle";
 
 function isEditable(target: EventTarget | null): boolean {
@@ -18,6 +19,10 @@ export function useGlobalShortcuts() {
   const { locale, setLocale, languages } = useI18n();
   const cycleTheme = useCycleTheme();
   const pending = useRef<number | null>(null);
+  // g+<key> only for pages this user may open (a teacher's "g d" must not open the planner dashboard);
+  // the booking entries (g b, g m) come from the same list
+  const { perms } = usePermissions();
+  const items = useMemo(() => visibleNavGroups((p) => hasPermission(perms, p)).flatMap((g) => g.items), [perms]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const store = useUiStore.getState();
@@ -35,7 +40,7 @@ export function useGlobalShortcuts() {
       if (pending.current !== null) {
         window.clearTimeout(pending.current);
         pending.current = null;
-        const item = ALL_NAV_ITEMS.find((i) => i.key === e.key.toLowerCase());
+        const item = items.find((i) => i.key === e.key.toLowerCase());
         if (item) {
           e.preventDefault();
           router.push(item.href);
@@ -62,5 +67,5 @@ export function useGlobalShortcuts() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [router, locale, setLocale, languages, cycleTheme]);
+  }, [router, locale, setLocale, languages, cycleTheme, items]);
 }

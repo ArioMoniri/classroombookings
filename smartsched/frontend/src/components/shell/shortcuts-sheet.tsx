@@ -3,16 +3,18 @@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useI18n } from "@/lib/i18n/provider";
 import { useUiStore } from "@/stores/ui";
-import { ALL_NAV_ITEMS } from "./nav-config";
+import { usePermissions } from "@/lib/api/shell-extra";
+import { visibleNavGroups } from "./nav-config";
 
 export function ShortcutsSheet() {
   const open = useUiStore((s) => s.shortcutsOpen);
   const setOpen = useUiStore((s) => s.setShortcutsOpen);
   const { t } = useI18n();
+  const { can } = usePermissions();
   const rows: [string, string][] = [
     ["⌘K", t("shortcuts.palette")],
     ["⌘B", t("shortcuts.sidebar")],
-    ...ALL_NAV_ITEMS.filter((i) => i.key).map((i): [string, string] => [`g ${i.key}`, t("shortcuts.goto", { page: t(i.labelKey) })]),
+    ...visibleNavGroups(can).flatMap((g) => g.items).filter((i) => i.key).map((i): [string, string] => [`g ${i.key}`, t("shortcuts.goto", { page: t(i.labelKey) })]),
     ["t", t("shortcuts.theme")],
     ["l", t("shortcuts.lang")],
     ["?", t("shortcuts.help")],

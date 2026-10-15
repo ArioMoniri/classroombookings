@@ -54,11 +54,15 @@ async def _setup(client, key: bool = True):
 async def test_stream_emits_text_tools_and_done(client, fake_sdk):
     h, sd = await _setup(client)
     fake_sdk.script = [
-        tool("find_assignments", {"query": "NRS 450", "room_code": "", "day": 0, "week": 0, "limit": 5}, say="Bakıyorum."),
+        tool(
+            "find_assignments", {"query": "NRS 450", "room_code": "", "day": 0, "week": 0, "limit": 5}, say="Bakıyorum."
+        ),
         tools(("move_event", _move(sd.assignments["NRS450"], "A 206"))),
         text("NRS 450'yi A 206'ya taşımayı öneriyorum."),
     ]
-    r = await client.post(f"/api/v1/runs/{sd.run_id}/chat/stream", json={"message": "NRS 450 A 206", "lang": "tr"}, headers=h)
+    r = await client.post(
+        f"/api/v1/runs/{sd.run_id}/chat/stream", json={"message": "NRS 450 A 206", "lang": "tr"}, headers=h
+    )
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream")
     ev = _events(r.text)
     kinds = [k for k, _ in ev]

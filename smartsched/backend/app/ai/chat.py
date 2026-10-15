@@ -31,7 +31,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import catalog
-from app.ai.client import AIClient, text_of, tool_uses
+from app.ai.client import AIClient, AIStreamJSONError, EventSink, text_of, tool_uses
 from app.ai.edits import apply_section_edits
 from app.ai.elicit import accept_proposals, build_system, enforce_source_policy
 from app.ai.resolve import (
@@ -73,6 +73,7 @@ _CHAT_RULES = (PROMPTS / "chat.md").read_text(encoding="utf-8")
 _EXPLAIN_RULES = (PROMPTS / "explain.md").read_text(encoding="utf-8")
 
 MAX_TOOL_ROUNDS = 8
+MAX_JSON_RETRIES = 2  # consecutive unparseable streamed turns re-issued before giving up
 MAX_EXAM_ENROLMENT = 5000
 MAX_EXAM_ROOMS = 10
 MAX_TOKENS = 16000
@@ -607,8 +608,13 @@ async def handle_chat(
     *,
     client: AIClient,
     user_id: int | None = None,
+    on_event: EventSink | None = None,
 ) -> ChatOut:
-    """One planner message -> assistant reply + ProposedDiff. Nothing is applied."""
+    """One planner message -> assistant reply + ProposedDiff. Nothing is applied.
+
+    With ``on_event`` the model is streamed (``POST /runs/{id}/chat/stream``): text deltas and tool events go to
+    ``on_event``; tool inputs then arrive without server-side validation (eager input streaming), so every input
+    is validated here before it runs, an unparseable turn is re-issued (at most :data:`MAX_JSON_RETRIES`)."""
     state = await load_run_state(session, run_id)
     diff = ProposedDiff(id=uuid.uuid4().hex[:12], run_id=run_id)
     system = build_system(state.term, lang, intro=_CHAT_RULES)
@@ -617,10 +623,31 @@ async def handle_chat(
     trace: list[dict[str, Any]] = []
     explanations: list[dict[str, Any]] = []
     final_text = ""
+    json_retries = 0
     for _round in range(MAX_TOOL_ROUNDS):
-        response = await client.complete(
-            system=system, messages=messages, tools=catalog.CHAT_TOOLS, max_tokens=MAX_TOKENS, effort="medium"
-        )
+        if on_event is None:
+            response = await client.complete(
+                system=system, messages=messages, tools=catalog.CHAT_TOOLS, max_tokens=MAX_TOKENS, effort="medium"
+            )
+        else:
+            try:
+                response = await client.stream_complete(
+                    system=system,
+                    messages=messages,
+                    tools=catalog.CHAT_TOOLS,
+                    max_tokens=MAX_TOKENS,
+                    effort="medium",
+                    on_event=on_event,
+                )
+            except AIStreamJSONError:
+                # raised before the tool_use block completed: there is no tool_use_id to answer -> re-issue
+                json_retries += 1
+                if json_retries > MAX_JSON_RETRIES:
+                    diff.warnings.append("the assistant's tool input could not be read; try again")
+                    break
+                await on_event({"type": "retry", "reason": "unreadable tool input"})
+                continue
+            json_retries = 0
         final_text = text_of(response) or final_text
         calls = tool_uses(response)
         if not calls or response.stop_reason != "tool_use":
@@ -632,8 +659,11 @@ async def handle_chat(
         for call in calls:
             data = call.input if isinstance(call.input, dict) else {}
             issues = catalog.validate_tool_input(call.name, data)
-            if issues:
-                result: dict[str, Any] = {"error": "invalid input: " + "; ".join(issues[:5])}
+            if issues:  # never run a tool on input that fails its schema (truncated / malformed)
+                result: dict[str, Any] = {
+                    "error": "invalid input: " + "; ".join(issues[:5]),
+                    "INVALID_JSON": json.dumps(call.input, ensure_ascii=False, default=str)[:4000],
+                }
             elif call.name in catalog.READ_TOOL_NAMES:
                 if call.name == "find_assignments":
                     result = tool_find_assignments(state, data, lang)
@@ -650,6 +680,8 @@ async def handle_chat(
             else:
                 result = {"error": f"unknown tool {call.name}"}
             trace.append({"type": "tool", "name": call.name, "input": data, "ok": "error" not in result})
+            if on_event is not None:
+                await on_event({"type": "tool", "name": call.name, "ok": "error" not in result})
             results.append(
                 {
                     "type": "tool_result",

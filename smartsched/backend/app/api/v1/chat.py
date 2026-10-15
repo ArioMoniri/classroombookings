@@ -7,11 +7,15 @@ Nothing the model proposes is applied without an explicit ``.../apply`` or ``...
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
+from collections.abc import AsyncIterator
 from pathlib import PurePath
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import catalog
@@ -22,6 +26,7 @@ from app.ai.elicit import accept_proposals, elicit_constraints
 from app.ai.ingest import MAX_FILE_BYTES, SUPPORTED, IngestError, extract_preferences
 from app.ai.policy import PolicyError, ai_allowed, get_policy, set_policy
 from app.api.deps import DB, Admin, Planner
+from app.core.db import get_session_factory
 from app.core.safe_files import UnsafeFileError, precheck_upload
 from app.core.security import redact_keys
 from app.models import ScheduleRun, Term
@@ -92,6 +97,53 @@ async def post_chat(run_id: int, body: ChatIn, db: DB, user: Planner) -> ChatOut
         raise _ai_error(exc) from exc
     except ChatError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/runs/{run_id}/chat/stream")
+async def post_chat_stream(run_id: int, body: ChatIn, db: DB, user: Planner) -> StreamingResponse:
+    """Same as ``POST /runs/{id}/chat``, streamed as ``text/event-stream``: ``text`` deltas, ``tool_start`` /
+    ``tool`` / ``retry`` events, then ``done`` (the :class:`ChatOut` body) or ``error`` (``status``, ``detail``).
+    404 / 409 are answered before the stream starts. Nothing is applied."""
+    await _run(db, run_id)
+    client = await _client(db)
+    await db.rollback()  # the stream writes through its own session; release this one's read transaction
+    queue: asyncio.Queue[tuple[str, dict[str, Any]] | None] = asyncio.Queue()
+
+    async def emit(event: dict[str, Any]) -> None:
+        data = dict(event)
+        await queue.put((str(data.pop("type")), data))
+
+    async def work() -> None:
+        try:
+            async with get_session_factory()() as s:
+                out = await handle_chat(
+                    s, run_id, body.message, body.lang, client=client, user_id=user.id, on_event=emit
+                )
+            await queue.put(("done", out.model_dump(mode="json")))
+        except (AIRefusal, AIUpstreamError) as exc:
+            err = _ai_error(exc)
+            await queue.put(("error", {"status": err.status_code, "detail": err.detail}))
+        except ChatError as exc:
+            await queue.put(("error", {"status": 400, "detail": str(exc)}))
+        except Exception as exc:  # noqa: BLE001 - reported as an event, never with the key
+            log.warning("chat stream failed: %s", redact_keys(type(exc).__name__))
+            await queue.put(("error", {"status": 502, "detail": "the AI service failed; try again later"}))
+        finally:
+            await queue.put(None)
+
+    async def events() -> AsyncIterator[str]:
+        task = asyncio.create_task(work())
+        try:
+            while (item := await queue.get()) is not None:
+                kind, data = item
+                yield f"event: {kind}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
+        finally:
+            if not task.done():
+                task.cancel()
+
+    return StreamingResponse(
+        events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
 
 
 @router.post("/runs/{run_id}/chat/apply", response_model=ApplyOut)
