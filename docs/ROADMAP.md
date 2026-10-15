@@ -474,6 +474,7 @@ Defaults adopted (owner may override):
 ### Motion audit tickets (docs/review/2026-10-15-motion-audit.md; 35 findings, 0 blocker / 12 major / 23 minor), queued for the frontend sweep
 - [ ] T1: busy buttons are spinner-only (56 `Loader2 animate-spin` uses in 39 files). Add a busy label and `aria-busy`, and a reduced-motion fallback.
 - [ ] T2: no stale-data signal on day/week navigation or find-room re-search. Dim the stale grid and show the pending date.
+  - shell/bookings/admin sweep (d9dedc6, 1453a08): T1 done in bookings, approvals, admin, find-room, audit, settings (BusyLabel + aria-busy; 41 spinner-only buttons); T2 done for /bookings (requested date in the input frame, grid dims after 120 ms, aria-busy); T3 partly: the booking grid is memoised (a sheet or the bell no longer re-renders 300+ cells), the bell panel stays mounted after the first open, roving focus moves in the DOM (U-18). Frame budgets not re-measured on a quiet machine; find-room T2/T3 open. T6 left to the intake agent (components/onboarding).
 - [ ] T3: main-thread stalls.
   - book sheet open: 36–48 dropped frames, up to 653 ms long frame
   - drag-span release: 96–138 dropped frames
@@ -626,15 +627,20 @@ Frontend, runs/studio/timetable (studio/calendar sweep agent):
 - [ ] The Studio card shows 716 placed vs 687 real.
 - [ ] The grid-move long frame is 380–482 ms.
 Imports (importer agent):
-- [ ] M-13 ImportKind lacks room-master, breaking /import history.
+- [x] M-13 ImportKind lacks room-master, breaking /import history. Done (importer agent zod .catch; room-master import + history in the wizard, P19-I7, sweep e2e).
 - [ ] Viewers read parsed rows with instructor names (KVKK) → planning.edit.
 - [ ] Generic wrong-file errors.
 Wave-1 frontend agent:
 - [ ] the approvals sheet slides under reduced motion
-- [ ] the CRBS legacy upgrade flow in the import wizard (backend crbs_upgrade.py exists)
+- [x] the CRBS legacy upgrade flow in the import wizard (backend crbs_upgrade.py exists) Done 2026-10-15 (shell/admin sweep, 0fded14 + de8cb87): dump (default) or admin DSN, dry-run diff, confirm with the fingerprint, result; e2e shell-admin-sweep.spec.ts on the repo install SQL.
 Languages (correction; P18-LANG was ticked too early):
-- [ ] Languages, owner decision 2026-10-15: reduce to TR + EN. The picker offers only tr/en; other stored codes render English and are kept; CRBS_PARITY lists it as a deliberate difference (shell/admin sweep agent).
+- [x] Languages, owner decision 2026-10-15: reduce to TR + EN. The picker offers only tr/en; other stored codes render English and are kept; CRBS_PARITY lists it as a deliberate difference (shell/admin sweep agent). Done (14d18ba): backend tr|en writes (de → 422), legacy codes kept and shown English, CRBS_PARITY §6.13, P18-LANG difference row; vitest + e2e languages.spec.ts 3/3.
 The 30 minors are in the report §3, for the shell/bookings/admin sweep.
+Shell/bookings/admin sweep 2026-10-15 (minors in scope, verified on HEAD first):
+- [x] M-14/M-25 CRBS upgrade with dry run; M-20 wrong-file "import as" offer; M-22 drop-zone statuses localised; M-24 room master (diff, apply); M-35 rules warn when nobody is designated (the approver field is on the edit form already); M-36 Turkish leaks (error boundary, audit entity names, wave-1 permission groups and names; sheet "Close" was already fixed); M-39 setup copy, own password hint, focus on the first invalid field; M-43 room tabs scroll on phones (main bottom padding was already there); M-44 ⌘K lists every permitted setup section; M-45 focus rings (U-01 sweep); M-46 photo upload toast; M-48 unsaved-settings guard.
+- [ ] Still open in scope: M-21 (warning dedupe is backend; the "first 500 of N" note needs warnings_count in the job summary), M-31 (term switcher following the opened run), M-34 (withdrawn requests are not in the approver's inbox: backend inbox filter), M-37 (hydration: verified absent by the studio sweep), M-38 (verified: limited admins land on /bookings, Çizelge hidden), M-40 (webhooks / calendar-sync admin screens), M-46 capacity edit in Setup → Rooms and the building-create confirm.
+- [x] User persona: U-08 Esc closes the book sheet in one press (verified, e2e regression), U-09 page titles per locale, U-13 palette rooms for room.view, U-16 44 px controls on touch, U-18 roving focus without grid re-render, U-20 neutral login subtitle, U-24 span live region.
+
 
 ### AI backlog finished (2026-10-15)
 Commits 767fc83, 208b017, 165895a, 3ec6ac3, 12944e9, bece4f7, 0bf42e7. Full suite 1365 passed / 11 skipped / 1 failed; the failure is the council migration test pinning the head, sent to the intake agent.
