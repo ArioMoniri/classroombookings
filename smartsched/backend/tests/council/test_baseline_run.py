@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import Counter
 
+import pytest
 from app.core.db import get_session_factory
 from app.models import Assignment, MeetingRequest, ScheduleRun, Section
 from app.services.solver_bridge import run_schedule
@@ -35,6 +36,7 @@ async def _rows() -> dict[str, int]:
         }
 
 
+@pytest.mark.slow  # the real Güz week-1 CP-SAT solve (one worker): about 6 minutes with the uploads
 async def test_guz_board_and_list_give_a_baseline_run_that_a_child_solve_keeps(client):
     h = await login(client)
     files = [(GUZ_GRID.name, GUZ_GRID.read_bytes()), (GUZ_LIST.name, GUZ_LIST.read_bytes())]
