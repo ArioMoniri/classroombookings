@@ -258,7 +258,8 @@ async def import_exam_list(
             merge_key=mk,
             status=status,
             parse_warnings=r.warnings,
-            notes=" | ".join(p for p in (r.venue.notes, n.venue_note(r.definitive)) if p) or None,
+            notes=" | ".join(p for p in (r.venue.notes, r.venue.alternatives_note(), n.venue_note(r.definitive)) if p)
+            or None,
             source_row=r.raw,
             source_key=key,
             source_row_index=r.row,

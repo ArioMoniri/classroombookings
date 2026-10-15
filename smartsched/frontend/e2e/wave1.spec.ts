@@ -145,7 +145,8 @@ test.afterAll(async () => {
   for (const r of (await call<{ id: number; room_id: number }[]>("GET", "/approval-rules")).body ?? []) if (r.room_id === ctx.room?.id) await call("DELETE", `/approval-rules/${r.id}`);
   if (ctx.approverId) await call("PUT", `/approvals/approvers/${ctx.approverId}`, { scopes: [] });
   for (const id of ctx.featureIds) await call("DELETE", `/room-admin/features/${id}?confirm=true`);
-  if (ctx.room) await call("DELETE", `/rooms/${ctx.room.id}`);
+  // a room with bookings cannot be deleted (409 room_has_bookings): take it out of booking instead
+  if (ctx.room && (await call("DELETE", `/rooms/${ctx.room.id}`)).status === 409) await call("PUT", `/room-admin/rooms/${ctx.room.id}`, { is_bookable: false });
   await ctx.api.dispose();
 });
 

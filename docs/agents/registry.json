@@ -489,8 +489,8 @@
       "ledger": "merge-universal-2026-10-15 SCOPE: your isolated git worktree only, on a local br…",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-15 17:12",
-      "left_off": "Waiting for parity_check."
+      "finished_at": "2026-10-15 17:44",
+      "left_off": "Waiting for the final targeted run."
     },
     {
       "id": "a574d83abdbb1d109",
@@ -578,7 +578,8 @@
       "goal": "(A) Close the open items of the \"Phase 9 real-data feasibility backlog\" and the solver items in the other two sections. (B) Implement the user's conflict policy (decision 2026-10-15): when not every request can be satisfied, locks first (trusted locked rows are never moved), then coordinator-set priority, then the most classes placed. It is configurable per term. Method for (A), for each unchecked…",
       "ledger": "solver-backlog-policy-2026-10-15 SCOPE: smartsched/backend/app/solver/**, app/se…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 17:28"
     },
     {
       "id": "a9e8a5103abcd620d",
@@ -805,6 +806,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-15 17:13",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a4e09e51d9875e467",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 17:15",
       "left_off": "continue n deploy to pod when green"
     }
   ]

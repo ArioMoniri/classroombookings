@@ -7,9 +7,10 @@ Two sources (docs/testing/2026-10-15-academician-needs.md §2.2-2.3):
   a furniture / accessibility feature - becomes an *active* soft rule (``review: "auto"``): it is the
   department's formal request, and before this module it already acted (inverted) through
   ``requested_building``;
-* the notes column ("Derse Özel Açıklama", 565 non-empty Bahar cells): every wish becomes a soft rule that is
-  *switched off until reviewed* (``enabled=False``, ``review: "pending"``), counted in
-  ``report.extra["preferences"]``.
+* the notes column ("Derse Özel Açıklama", 565 non-empty Bahar cells): every wish becomes a soft rule that acts
+  while it waits for review (``review: "pending"``; the planner accepts it or switches it off), counted in
+  ``report.extra["preferences"]``; a lock or placement against a wish is a data issue
+  (``data_issues.preference_checks``, persona A-06 / A-07).
 
 Free text never creates a hard rule. A feature becomes a rule only when the P10 catalogue
 (``room_custom_fields.solver_tag``) or the rooms' own tags know it; everything else is an *unparsed*
@@ -29,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
-from app.models import ConstraintRow, Room, RoomCustomField, Term
+from app.models import ConstraintRow, Room, RoomCustomField, RoomCustomFieldOption, Term
 
 WEIGHT_NORMAL = 5
 WEIGHT_STRONG = 8  # "mutlaka", "zorunlu": still soft (free text)
@@ -61,16 +62,41 @@ class _Rule:
     cell: TextCell
 
 
-async def _known_tags(session: AsyncSession) -> set[str]:
-    """Solver tags a wish may use: those of the P10 feature catalogue and those rooms already carry."""
-    tags = {
-        str(t).upper()
-        for (t,) in (await session.execute(select(RoomCustomField.solver_tag))).all()
-        if t and str(t).strip()
-    }
+@dataclass
+class _Catalogue:
+    tags: set[str]  # solver tags of the P10 catalogue + tags rooms already carry
+    named: list[tuple[str, str]]  # (folded feature name + option values, solver tag) of tagged features
+
+    def tags_for(self, feature: str, software: str | None) -> list[str]:
+        """Solver tags satisfying a wish: the lexicon's tags the rooms / catalogue know, else a catalogue feature
+        whose name or options name it ("JASP yüklü", a "Yazılım" feature with option "JAMOVI", "Engelli erişimi")."""
+        if software:
+            needle = n.fold(software)
+            return [t for text, t in self.named if needle in text][:1]
+        known = [t for t in n.feature_tags(feature) if t in self.tags]
+        if known:
+            return known[:1]
+        phrases = next((ph for key, ph, _t in n.FEATURE_LEXICON if key == feature), ())
+        return [t for text, t in self.named if any(ph in text for ph in phrases)][:1]
+
+
+async def _catalogue(session: AsyncSession) -> _Catalogue:
+    tags: set[str] = set()
+    named: list[tuple[str, str]] = []
+    options: dict[int, list[str]] = {}
+    for fid, value in (
+        await session.execute(select(RoomCustomFieldOption.field_id, RoomCustomFieldOption.value))
+    ).all():
+        options.setdefault(int(fid), []).append(str(value or ""))
+    for fid, name, tag in (
+        await session.execute(select(RoomCustomField.id, RoomCustomField.name, RoomCustomField.solver_tag))
+    ).all():
+        if tag and str(tag).strip():
+            tags.add(str(tag).upper())
+            named.append((n.fold(" ".join([str(name or ""), *options.get(int(fid), [])])), str(tag).upper()))
     for (room_tags,) in (await session.execute(select(Room.tags))).all():
         tags |= {str(t).upper() for t in room_tags or []}
-    return tags
+    return _Catalogue(tags, named)
 
 
 RoomLookup = Callable[[list[str]], Awaitable[list[int]]]
@@ -81,7 +107,7 @@ async def read_cells(
 ) -> tuple[list[_Rule], list[dict[str, Any]]]:
     """Classify every wish of ``cells``: the soft rules to write, and the unparsed wishes (no structure, a
     feature no room has, rooms not in the room list). Writes nothing (``data_issues`` re-reads with it)."""
-    tags = await _known_tags(session)
+    catalogue = await _catalogue(session)
     rules: list[_Rule] = []
     unparsed: list[dict[str, Any]] = []
     for cell in cells:
@@ -111,16 +137,17 @@ async def read_cells(
                 )
             elif it.kind == "feature":
                 feature = str(it.params["feature"])
+                software = it.params.get("software")
                 if not it.negated and set(n.feature_tags(feature)) & set(cell.covered_tags):
                     continue  # "amfi", "bilgisayar lab" in the request cell: requested_tags has it
-                usable = [t for t in n.feature_tags(feature) if t in tags]
+                usable = catalogue.tags_for(feature, software)
                 if not usable:
-                    unparsed.append(
-                        _unparsed(cell, it.text, "no room feature for this wish", {"feature": feature}, it.negated)
-                    )
+                    extra = {"feature": feature, **({"software": software} if software else {})}
+                    unparsed.append(_unparsed(cell, it.text, "no room feature for this wish", extra, it.negated))
                     continue
                 side = "forbidden_tags" if it.negated else "required_tags"
-                rule = _Rule(key, "room_tags", {**base, side: usable[:1], "feature": feature}, weight, it.text, cell)
+                params = {**base, side: usable, "feature": feature, **({"software": software} if software else {})}
+                rule = _Rule(key, "room_tags", params, weight, it.text, cell)
             elif not cell.structured:
                 unparsed.append(_unparsed(cell, it.text, "no rule could be read from this wish"))
             if rule is not None:
@@ -183,7 +210,7 @@ async def sync_text_preferences(
                     source="FILE",
                     source_ref=ref,
                     nl_text=r.nl_text,
-                    enabled=not r.cell.from_notes,
+                    enabled=True,  # soft wishes act while they wait for review (persona A-06 / A-07)
                 )
             )
             created += 1
@@ -273,7 +300,7 @@ async def request_cells(session: AsyncSession, term_id: int, exam: bool) -> list
         key, row = mr.source_key or str(mr.id), mr.source_row_index or 0
         for part in (mr.notes or "").split(" | "):
             part = part.strip()
-            if part and not part.startswith("Derslik dışı mekân ("):
+            if part and not part.startswith(("Derslik dışı mekân (", "Alternatif derslikler /")):  # importer notes
                 cells.append(TextCell(mr.id, key, row, NOTES_COLUMN, part, True))
         if mr.requested_room_text:
             v = n.parse_venue_request(mr.requested_room_text)

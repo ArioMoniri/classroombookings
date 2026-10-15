@@ -5,7 +5,9 @@ import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react
 import { useAppearancePreferences } from "@/components/ui/appearance-preferences";
 import { AlertTriangle } from "lucide-react";
 import { useOrgPublic } from "@/lib/api/crbs";
-import { useMeFull } from "@/lib/api/shell-extra";
+import { NoAccess } from "@/components/admin/kit";
+import { onUnauthorized } from "@/lib/api/client";
+import { hasPermission, useMeFull } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
 import { useHydrated } from "@/lib/use-hydrated";
 import { useUiStore } from "@/stores/ui";
@@ -16,6 +18,7 @@ import { ShortcutsSheet } from "./shortcuts-sheet";
 import { Sidebar } from "./sidebar";
 import { TabBar } from "./tab-bar";
 import { MobileTopBar, TopBar } from "./top-bar";
+import { planningRequirement } from "./nav-config";
 import { useGlobalShortcuts } from "./use-global-shortcuts";
 import { useWorkspaceStore, useWorkspaceUser } from "./workspace";
 
@@ -84,6 +87,22 @@ function UserSync() {
   const pathname = usePathname();
   const mustChange = me.data?.force_password_reset ?? false;
   useEffect(() => {
+    // a 401 anywhere = the session is gone (expired, revoked by a password change, signed out elsewhere):
+    // clear the cookie and go to the login page once, with a notice, instead of rendering empty lists
+    let leaving = false;
+    return onUnauthorized(() => {
+      if (leaving) return;
+      leaving = true;
+      const next = `${window.location.pathname}${window.location.search}`;
+      void fetch("/api/auth/logout", { method: "POST" })
+        .catch(() => undefined)
+        .finally(() => {
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load drops every cached query of the dead session
+          window.location.assign(`/login?next=${encodeURIComponent(next)}&reason=expired`);
+        });
+    });
+  }, []);
+  useEffect(() => {
     // a forced password change cannot be skipped by opening a page directly
     if (mustChange) router.replace(`/login/change-password?next=${encodeURIComponent(pathname)}`);
   }, [mustChange, pathname, router]);
@@ -97,6 +116,30 @@ function UserSync() {
     });
   }, [userKey, setUserKey]);
   return null;
+}
+
+/**
+ * Planning routes reached by URL, a bookmark or an old link: without the permission show the no-access page
+ * (the page is not mounted, so it calls nothing); /dashboard goes to /bookings. Nothing renders until the user
+ * is known after hydration (no #418 mismatch, no flash of planner chrome).
+ */
+function RouteGuard({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
+  const pathname = usePathname();
+  const router = useRouter();
+  const me = useMeFull();
+  const hydrated = useHydrated();
+  const need = planningRequirement(pathname);
+  const known = hydrated && !me.isLoading;
+  const denied = !!need && known && !me.isError && !hasPermission(me.data?.permissions, need);
+  const home = denied && pathname === "/dashboard";
+  useEffect(() => {
+    if (home) router.replace("/bookings");
+  }, [home, router]);
+  if (!need) return <>{children}</>;
+  if (!known || home) return null;
+  if (denied) return <NoAccess title={t("crbs.admin.noAccessTitle")} body={t("crbs.admin.noAccessBody")} />;
+  return <>{children}</>;
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -120,8 +163,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Suspense>
         <OfflineBanner />
         <MaintenanceBanner />
-        <main id="main" className="flex-1 px-4 pt-3 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-4 lg:pb-8">
-          <div className="mx-auto w-full max-w-[1600px]">{children}</div>
+        <main id="main" tabIndex={-1} className="flex-1 outline-hidden px-4 pt-3 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-4 lg:pb-8">
+          <div className="mx-auto w-full max-w-[1600px]">
+            <RouteGuard>{children}</RouteGuard>
+          </div>
         </main>
       </div>
       <Suspense fallback={null}>

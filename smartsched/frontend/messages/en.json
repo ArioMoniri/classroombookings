@@ -661,6 +661,9 @@
       "scope": "Scope changed"
     },
     "check": {
+      "scopeDraft": "Applied to this draft only; the term's data is unchanged.",
+      "scopeTerm": "Saved to the term's data (every draft sees it).",
+      "fixStale": "The draft changed meanwhile, so the list was checked again. Pick the fix again if it is still needed.",
       "applying": "Applying…",
       "ready": "Ready",
       "needsLook": "Needs a look",
@@ -2472,6 +2475,9 @@
       "showBusy": "Show busy rooms too",
       "otherDays": "Also try other days this week",
       "search": "Search",
+      "searching": "Searching…",
+      "noneText": "No room matches the text “{text}”.",
+      "clearText": "Clear the text",
       "results": "Results",
       "empty": "Choose when and how many people, then search.",
       "count": "{n, plural, one {# room} other {# rooms}}",
@@ -2522,7 +2528,11 @@
     },
     "grid": {
       "pending": "Request pending",
-      "pendingLegend": "Awaiting approval"
+      "pendingLegend": "Awaiting approval",
+      "pickToCancel": "press to select it for cancelling",
+      "noTimetable": "No timetable is published for this week: rooms may look free although classes use them.",
+      "noTimetableConfirm": "No timetable is published for this week. Book anyway?",
+      "bookAnyway": "Book anyway"
     },
     "book": {
       "needsApproval": "This room needs approval",
@@ -2799,6 +2809,18 @@
         "term": "Term",
         "department": "Department"
       }
+    },
+    "sync": {
+      "resetDone": "New links made; old subscriptions no longer update."
+    },
+    "notFound": {
+      "title": "Page not found",
+      "body": "The address may be mistyped, or the page has moved.",
+      "home": "Go to bookings"
+    },
+    "session": {
+      "expired": "Your session has ended. Sign in again to continue where you were.",
+      "password": "Your password was changed. Sign in again with the new password."
     },
     "bell": {
       "unread": "{count, plural, one {# unread} other {# unread}}",

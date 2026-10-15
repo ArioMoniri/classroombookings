@@ -29,11 +29,12 @@ import { useI18n } from "@/lib/i18n/provider";
 import { Alert, Field, SelectField } from "@/components/admin/kit";
 import { bookingErrorMessage } from "./booking-errors";
 import type { DateFormatter } from "./date-format";
-import { isSelectable, slotKey } from "./grid-model";
+import { isSelectable, slotKey, timetableMissing } from "./grid-model";
 import { holidaysOnWeekday, initialPreview, instancesPayload, previewReducer, summarise } from "./recurring-preview";
 import { RecurringPreviewTable } from "./recurring-preview-table";
 import { freeRun, roomDay, toggleRange } from "./reserve-model";
 import { useIsPhone } from "./use-is-phone";
+import { cellSelector, focusAfter } from "./focus-after";
 
 type Kind = "single" | "recurring";
 type StartMode = "date" | "session" | "custom";
@@ -52,7 +53,7 @@ export function BookSheet({ target, onOpenChange, fmt, onOtherRooms }: { target:
   return (
     <Sheet open={!!target} onOpenChange={onOpenChange}>
       <SheetContent side={phone ? "bottom" : "right"} className="gap-0 sm:max-w-lg data-[side=right]:sm:max-w-lg" data-testid="book-sheet">
-        {target ? <BookForm key={key} target={target} fmt={fmt} onDone={() => onOpenChange(false)} onOtherRooms={onOtherRooms} /> : null}
+        {target ? <BookForm key={key} target={target} fmt={fmt} onDone={() => onOpenChange(false)} onBooked={(s) => focusAfter([cellSelector(s)])} onOtherRooms={onOtherRooms} /> : null}
       </SheetContent>
     </Sheet>
   );
@@ -66,7 +67,7 @@ function initialRange(run: GridSlot[], target: BookTarget): { lo: number; hi: nu
   return { lo, hi };
 }
 
-function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; fmt: DateFormatter; onDone: () => void; onOtherRooms?: (target: BookTarget) => void }) {
+function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: BookTarget; fmt: DateFormatter; onDone: () => void; onBooked: (slot: GridSlot) => void; onOtherRooms?: (target: BookTarget) => void }) {
   const { t, locale } = useI18n();
   const { grid } = target;
   const me = useCrbsMe();
@@ -107,6 +108,8 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
   const summary = useMemo(() => summarise(preview), [preview]);
   const termDates = useBookingDates({ term_id: grid.term.id }, kind === "recurring");
 
+  const noTimetable = timetableMissing(grid);
+  const [ackTimetable, setAckTimetable] = useState(false);
   // P1: does this room need approval for me? (no rule → CRBS behaviour, "book")
   const check = useRoomApprovalCheck(first.room_id, grid.term.id);
   const asks = check.data?.action === "request";
@@ -173,6 +176,11 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
 
   const submit = () => {
     setError(null);
+    // A-24: no published timetable for the week: the first press asks, the second books
+    if (noTimetable && !ackTimetable) {
+      setAckTimetable(true);
+      return;
+    }
     if (isSpan) {
       spanM.mutate(undefined, {
         onSuccess: (res) => {
@@ -180,6 +188,7 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
           if (created.some((b) => b.status === "PENDING")) toast.success(t("wave1.book.requested", { room: room?.name ?? "" }));
           else toast.success(t("reserve.book.doneN", { room: room?.name ?? "", date: fmt.weekday(first.date), n: chosen.length }));
           onDone();
+          onBooked(first);
         },
         onError: explain,
       });
@@ -192,6 +201,7 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
           if (b.status === "PENDING") toast.success(t("wave1.book.requested", { room: b.room_name }));
           else toast.success(t("crbs.book.done", { room: b.room_name, date: fmt.weekday(b.date), period: b.period_name ?? "" }));
           onDone();
+          onBooked(first);
         },
         onError: explain,
       });
@@ -202,6 +212,7 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
         if (res.status === "PENDING") toast.success(t("wave1.book.requestedSeries", { room: room?.name ?? "", n: res.created.length }));
         else toast.success(t("crbs.recur.done", { created: res.created.length, skipped: res.skipped.length }));
         onDone();
+        onBooked(first);
       },
       onError: explain,
     });
@@ -378,6 +389,11 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
             )}
           </fieldset>
         ) : null}
+        {noTimetable ? (
+          <Alert tone="warning" testId="book-no-timetable">
+            {ackTimetable ? t("wave1.grid.noTimetableConfirm") : t("wave1.grid.noTimetable")}
+          </Alert>
+        ) : null}
         {asks ? (
           <Alert tone="info" title={t("wave1.book.needsApproval")} testId="book-approval">
             {ruleSummary}
@@ -399,9 +415,11 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
         <Button variant="ghost" onClick={onDone}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button onClick={submit} disabled={busy || !kinds.length || (kind === "recurring" && !isSpan && (!preview.plan || summary.willCreate === 0))} data-testid="book-submit">
+        <Button className="pointer-coarse:h-11" onClick={submit} disabled={busy || !kinds.length || (kind === "recurring" && !isSpan && (!preview.plan || summary.willCreate === 0))} data-testid="book-submit">
           {busy ? <Loader2 className="animate-spin" aria-hidden /> : asks ? <Stamp aria-hidden /> : null}
-          {asks
+          {noTimetable && ackTimetable
+            ? t("wave1.grid.bookAnyway")
+            : asks
             ? isSpan
               ? t("wave1.book.requestN", { n: chosen.length })
               : kind === "single"

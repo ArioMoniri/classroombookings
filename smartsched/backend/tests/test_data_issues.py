@@ -55,6 +55,7 @@ def test_classify_maps_every_named_group() -> None:
         # free-text wishes of the requests (importer preference_rules), not from diagnoses either
         "unparsed_preference",
         "preference_review",
+        "preference_not_met",
     }
     assert {g.code for g in GROUPS} == set(cases) | board_only
     for group, d in cases.items():

@@ -181,7 +181,7 @@ function RoomDay({ room, date, termId, fmt, onReserve }: { room: RoomInfo; date:
     if (same) last!.push(x);
     else runs.push([x]);
   }
-  const next = nextFreeSlot(g, room.id, now);
+  const next = nextFreeSlot(g, room.id, now, date);
   const np = next ? periods.get(next.period_id) : undefined;
   return (
     <>

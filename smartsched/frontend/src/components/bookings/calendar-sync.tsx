@@ -1,4 +1,5 @@
 "use client";
+import { focusAfter } from "./focus-after";
 /**
  * "Sync to calendar" (docs/product/calendar-sync-api.md): private subscription links for my bookings, a room
  * and a department (https + webcal, with copy buttons), "Add to Google Calendar" / "Add to Outlook" through
@@ -185,6 +186,9 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
             onSuccess: (made) => {
               onLink(made);
               setConfirm(false);
+              // say what happened and put focus on the new link (persona U-22)
+              toast.success(t("wave1.sync.resetDone"));
+              focusAfter(['[data-testid^="sync-url"]']);
             },
             onError: fail,
           })

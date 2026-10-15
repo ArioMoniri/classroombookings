@@ -189,6 +189,16 @@ GROUPS: tuple[GroupSpec, ...] = (
         "floor, armchair seats): define the room feature or write the rule by hand.",
     ),
     GroupSpec(
+        "preference_not_met",
+        "İstek karşılanmadı - Not met",
+        "Kilidi veya yerleşimi isteğe aykırı dersler",
+        "Classes whose lock or placement goes against a wish",
+        "Açıklama veya talep sütunundaki yumuşak istek (ör. B Blok olmasın, A veya C blok, alternatif derslikler) "
+        "kesin derslikle veya çözümle karşılanmadı; dersliği veya isteği kontrol edin.",
+        "A soft wish of the notes or request column (e.g. not block B, block A or C, alternative rooms) is not met "
+        "by the definitive room or the run's placement; check the room or the wish.",
+    ),
+    GroupSpec(
         "preference_review",
         "Onay bekleyen - To review",
         "Açıklama sütunundan okunan, onay bekleyen yumuşak istekler",
@@ -1924,22 +1934,38 @@ async def preference_checks(session: AsyncSession, run: ScheduleRun) -> dict[str
         room_ids=lookup,
     )
     rids = {int(u["request_id"]) for u in unparsed}
-    pending = [
-        c
-        for c in (
+    file_rules = list(
+        (
             await session.execute(
-                select(ConstraintRow).where(
-                    ConstraintRow.term_id == run.term_id,
-                    ConstraintRow.source == "FILE",
-                    ConstraintRow.enabled.is_(False),
-                )
+                select(ConstraintRow).where(ConstraintRow.term_id == run.term_id, ConstraintRow.source == "FILE")
             )
         ).scalars()
-        if (c.source_ref or {}).get("review") == "pending"
-    ]
+    )
+    kind = "exam" if exam else "course"
+    file_rules = [c for c in file_rules if kind in ((c.params or {}).get("kinds") or [kind])]
+    pending = [c for c in file_rules if (c.source_ref or {}).get("review") == "pending"]
     rids |= {int(i) for c in pending for i in (c.params or {}).get("event_ids") or []}
+    not_met = await _wishes_not_met(session, run, exam, file_rules, cells, codes)
+    rids |= {rid for rid, *_ in not_met}
     rows = await _class_rows(session, run, rids)
-    out: dict[str, list[dict[str, Any]]] = {"unparsed_preference": [], "preference_review": []}
+    out: dict[str, list[dict[str, Any]]] = {
+        "unparsed_preference": [],
+        "preference_review": [],
+        "preference_not_met": [],
+    }
+    for rid, wish, rooms, extra in not_met:
+        shown = ", ".join(f"{c[0]} {c[1:]}" for c in rooms)
+        item = _list_item(
+            "preference_not_met",
+            (
+                f"{wish} (yumuşak istek) – {shown} ile çelişiyor",
+                f"{wish} (soft wish) – not met by {shown}",
+            ),
+            [rid],
+            rows,
+            {"wish": wish, "rooms": rooms, **extra},
+        )
+        out["preference_not_met"].append(item)
     for u in unparsed:
         item = _list_item(
             "unparsed_preference",
@@ -1967,6 +1993,72 @@ async def preference_checks(session: AsyncSession, run: ScheduleRun) -> dict[str
         )
         item["severity"] = "info"
         out["preference_review"].append(item)
+    return out
+
+
+async def _wishes_not_met(
+    session: AsyncSession,
+    run: ScheduleRun,
+    exam: bool,
+    file_rules: list[Any],
+    cells: list[Any],
+    codes: dict[str, int],
+) -> list[tuple[int, str, list[str], dict[str, Any]]]:
+    """(request id, wish text, rooms against it, params) for soft wishes the run's placement - or, without
+    one, the locked definitive rooms - does not meet: building wishes (``buildings`` / ``avoid_buildings``)
+    and room alternatives of the request cell (each satisfied only as a whole)."""
+    from app.importers import normalize as n
+    from app.models import Assignment, Building, ExamRequest, MeetingRequest, Room
+
+    code_of = {i: c for c, i in codes.items()}
+    bcode = {int(i): str(c) for i, c in (await session.execute(select(Building.id, Building.code))).all()}
+    building_of = {
+        int(i): (bcode.get(int(b)) if b is not None else None) or str(c or "?")[:1]
+        for i, c, b in (await session.execute(select(Room.id, Room.code, Room.building_id))).all()
+    }
+    pool = set(building_of.values())
+    placed: dict[int, set[int]] = {}
+    col = Assignment.exam_request_id if exam else Assignment.meeting_request_id
+    for rid, rooms in (
+        await session.execute(select(col, Assignment.room_ids).where(Assignment.run_id == run.id, col.is_not(None)))
+    ).all():
+        placed.setdefault(int(rid), set()).update(int(x) for x in rooms or [])
+
+    async def rooms_of(rid: int) -> set[int]:
+        if rid in placed:
+            return placed[rid]
+        req: ExamRequest | MeetingRequest | None = (
+            await session.get(ExamRequest, rid) if exam else await session.get(MeetingRequest, rid)
+        )
+        if req is None or req.status != "LOCKED":
+            return set()
+        return {int(x) for x in req.definitive_room_ids or []}
+
+    out: list[tuple[int, str, list[str], dict[str, Any]]] = []
+    for c in file_rules:
+        prm = c.params or {}
+        if c.kind != "building_preference" or not c.enabled:
+            continue
+        wanted = {str(b) for b in prm.get("buildings") or ([prm["building"]] if prm.get("building") else [])}
+        avoid = {str(b) for b in prm.get("avoid_buildings") or []}
+        if not wanted and avoid:
+            wanted = pool - avoid
+        if not wanted:
+            continue
+        for rid in [int(i) for i in prm.get("event_ids") or []]:
+            against = sorted(code_of.get(r, str(r)) for r in await rooms_of(rid) if building_of.get(r) not in wanted)
+            if against:
+                params = {"rule_id": c.id, "buildings": sorted(wanted), "avoid_buildings": sorted(avoid)}
+                out.append((rid, str(c.nl_text or ""), against, params))
+    for cell in cells:
+        if cell.from_notes:
+            continue
+        v = n.parse_venue_request(cell.text)
+        if len(v.room_groups) < 2:
+            continue
+        got = {code_of.get(r, str(r)) for r in await rooms_of(cell.request_id)}
+        if got and not v.satisfied_by(got):
+            out.append((cell.request_id, cell.text, sorted(got), {"room_groups": v.room_groups}))
     return out
 
 

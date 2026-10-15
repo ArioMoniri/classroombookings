@@ -9,7 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Search, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -52,6 +52,8 @@ function RequestRow({ req: r, fmt, initiallyOpen }: { req: ApprovalRequest; fmt:
   const { t, locale } = useI18n();
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState(initiallyOpen);
+  // the timeline renders as a transition, so the tap answers at once (academician A-32: a 451 ms frame)
+  const [, startTransition] = useTransition();
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLLIElement>(null);
@@ -86,7 +88,7 @@ function RequestRow({ req: r, fmt, initiallyOpen }: { req: ApprovalRequest; fmt:
     <li ref={ref} className={cn("shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none", initiallyOpen && "bg-tint-soft/40")} data-request-id={r.id} data-status={r.status}>
       <button
         type="button"
-        onClick={() => setExpanded((x) => !x)}
+        onClick={() => startTransition(() => setExpanded((x) => !x))}
         aria-expanded={expanded}
         aria-controls={panel}
         className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)"

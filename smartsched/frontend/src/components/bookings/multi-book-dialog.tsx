@@ -1,4 +1,5 @@
 "use client";
+import { focusAfter } from "./focus-after";
 /**
  * Multi-booking (CRBS `MultiAgent`): the selected slots become a server-side selection, a dry run shows
  * what would be created and what blocks it, and the confirmation is all-or-nothing (the backend creates
@@ -187,6 +188,9 @@ function MultiBody({ slotKeys, termId, termEnd, fmt, onClose, onBooked }: { slot
         toast.success(t("crbs.multi.done", { n }));
         onBooked();
         onClose();
+        // the first booked cell, not <body> (persona U-07)
+        const first = slotKeys[0];
+        if (first) focusAfter([`button[data-slot-key="${first}"]`]);
       },
       onError: (e) => {
         const err = crbsError(e);

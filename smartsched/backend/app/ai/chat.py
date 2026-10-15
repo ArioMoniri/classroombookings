@@ -44,6 +44,7 @@ from app.ai.resolve import (
     section_label,
     split_program_and_years,
 )
+from app.ai.sanitize import strip_controls
 from app.importers.normalize import PERIODS, tr_casefold
 from app.models import Assignment, ChatMessage, ConstraintRow, ExamRequest, MeetingRequest, Room, ScheduleRun, Section
 from app.schemas.ai import (
@@ -618,6 +619,7 @@ async def handle_chat(
     With ``on_event`` the model is streamed (``POST /runs/{id}/chat/stream``): text deltas and tool events go to
     ``on_event``; tool inputs then arrive without server-side validation (eager input streaming), so every input
     is validated here before it runs, an unparseable turn is re-issued (at most :data:`MAX_JSON_RETRIES`)."""
+    message = strip_controls(message)  # invisible / bidi characters can hide instructions
     state = await load_run_state(session, run_id)
     diff = ProposedDiff(id=uuid.uuid4().hex[:12], run_id=run_id)
     system = build_system(state.term, lang, intro=_CHAT_RULES)
@@ -818,6 +820,7 @@ class _Plan:
     unlock: set[int] = field(default_factory=set)
     constraints_created: list[int] = field(default_factory=list)
     changed_constraints: list[ConstraintRow] = field(default_factory=list)
+    edited_assignments: set[int] = field(default_factory=set)  # data edits of one placement (exam edits)
     data_changed: bool = False
 
 
@@ -983,6 +986,7 @@ async def _apply_claimed(
                 plan.rejected.append({"index": i, "op": op.op, "reasons": [problem]})
             else:
                 plan.data_changed = True
+                plan.edited_assignments.add(op.assignment_id)
                 plan.applied.append(
                     {
                         "index": i,
@@ -1162,6 +1166,8 @@ async def _apply_claimed(
         else:
             _, viol = _hard_keys(inp, current)
             changed = set(plan.moved) | set(unassigned) | {e for v in viol for e in v.event_ids}
+            # an edited exam (room count, enrolment) is re-placed even when it breaks no hard rule yet
+            changed |= {event_of[a] for a in plan.edited_assignments if a in event_of}
             for c in plan.changed_constraints:
                 if c.enabled and c.params:
                     from app.services.solver_bridge import events_for_requests
@@ -1169,6 +1175,8 @@ async def _apply_claimed(
                     changed |= {e.id for e in select_events(inp, events_for_requests(dict(c.params), members))}
             out.mode = "repair"
         audit["verifier"].update(mode=out.mode, status="QUEUED")
+        audit["freed_events"] = len(changed)
+        audit["freed_event_ids"] = sorted(changed)[:200]
         child.stats = {**(child.stats or {}), "phase": "queued", "mode": out.mode, "ai": audit}
         out.status = "QUEUED"
         out.re_solve_queued = True

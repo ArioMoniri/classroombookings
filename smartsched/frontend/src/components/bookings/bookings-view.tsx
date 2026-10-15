@@ -28,7 +28,7 @@ import { BookingDetailSheet } from "./booking-detail-sheet";
 import { BookingGrid, pickKind, reasonKey, TONE_CLASS, TONE_ICON } from "./booking-grid";
 import { bookingErrorMessage } from "./booking-errors";
 import { DatePicker } from "./date-picker";
-import { isSelectable, slotKey, type SlotTone } from "./grid-model";
+import { isSelectable, slotKey, timetableMissing, type SlotTone } from "./grid-model";
 import { MultiBookDialog } from "./multi-book-dialog";
 import { RoomInfoSheet, useNow, type RoomContext } from "./room-info-sheet";
 import { CalendarSyncPanel } from "./calendar-sync";
@@ -406,6 +406,11 @@ export function BookingsView() {
 
       <DepartmentBar grid={g} value={department} onChange={setDepartment} mine={myDepartment} termId={g?.term.id} onRoomInfo={(id) => openRoom(id)} />
 
+      {timetableMissing(g) ? (
+        <Alert tone="warning" testId="grid-no-timetable">
+          {t("wave1.grid.noTimetable")}
+        </Alert>
+      ) : null}
       {g?.problems.includes("no_schedule") ? (
         <Alert tone="warning" title={t("crbs.problems.noScheduleTitle")}>
           {t("crbs.problems.noSchedule")}{" "}

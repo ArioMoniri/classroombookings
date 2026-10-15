@@ -94,7 +94,7 @@ export function MyBookingsView() {
 
       <section aria-labelledby="mine-list">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 id="mine-list" className="sr-only">
+          <h2 id="mine-list" className="sr-only" tabIndex={-1} data-focus-fallback>
             {t("crbs.mine.title")}
           </h2>
           <SegmentedGlass<Tab>

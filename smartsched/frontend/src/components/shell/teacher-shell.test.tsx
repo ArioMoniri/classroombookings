@@ -5,13 +5,14 @@
  * approvals.decide. The planner case proves the spy sees those requests when they are allowed.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { useUiStore } from "@/stores/ui";
 
+const nav = vi.hoisted(() => ({ pathname: "/bookings" }));
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/bookings",
+  usePathname: () => nav.pathname,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -56,7 +57,10 @@ function renderShell() {
 const planningCalls = () => calls.filter((u) => /\/api\/v1\/(runs|requests|terms)(\/|\?|$)/.test(new URL(u, "http://localhost").pathname + "/"));
 
 describe("teacher shell (no planning.view)", () => {
-  beforeEach(() => useUiStore.getState().setPaletteOpen(true));
+  beforeEach(() => {
+    nav.pathname = "/bookings";
+    useUiStore.getState().setPaletteOpen(true);
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
     useUiStore.getState().setPaletteOpen(false);
@@ -80,5 +84,14 @@ describe("teacher shell (no planning.view)", () => {
       const paths = planningCalls().map((u) => new URL(u, "http://localhost").pathname);
       expect(paths).toEqual(expect.arrayContaining(["/api/v1/runs", "/api/v1/terms", "/api/v1/requests/meetings"]));
     }, { timeout: 15_000 });
+  }, 30_000);
+
+  it("a planning URL shows the no-access page instead of mounting the page (no 403 toasts)", async () => {
+    nav.pathname = "/import";
+    stubFetch(TEACHER);
+    renderShell();
+    expect(await screen.findByText("Bu sayfaya erişiminiz yok", undefined, { timeout: 15_000 })).toBeInTheDocument();
+    expect(screen.queryByText("içerik")).toBeNull();
+    expect(planningCalls()).toEqual([]);
   }, 30_000);
 });

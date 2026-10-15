@@ -233,6 +233,8 @@ export const Grid = z.object({
   limits: Limits,
   remaining_bookings: z.number().nullish(),
   problems: z.array(z.string()).default([]),
+  /** A-24 (backend, in progress): whether a published timetable covers the shown dates; read leniently */
+  timetable_state: z.union([z.string(), z.object({ published: z.boolean().optional(), state: z.string().optional() }).passthrough()]).nullish(),
 });
 export type Grid = z.infer<typeof Grid>;
 

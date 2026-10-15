@@ -126,8 +126,10 @@ export const studioApi = {
   revertMany: (ids: number[], fields?: string[]) =>
     request("/studio/meetings/revert", { method: "POST", body: { ids, fields: fields ?? null }, schema: z.array(ClassRow) }),
   precheck: (termId: number, kind: StudioKind) => request(`/terms/${termId}/studio/precheck`, { method: "POST", query: kindQ(kind), body: {}, schema: Precheck, silent: true }),
-  applyFix: (termId: number, kind: StudioKind, itemId: string, option: string) =>
-    request(`/terms/${termId}/studio/precheck/fix`, { method: "POST", query: kindQ(kind), body: { item_id: itemId, option }, schema: FixResult }),
+  /** `version`: the draft version the fix was chosen on (409 when the draft changed meanwhile);
+   * `writeThrough` + `confirm`: write a class / exam edit into the term's data instead of this draft. */
+  applyFix: (termId: number, kind: StudioKind, itemId: string, option: string, opts: { version?: number; writeThrough?: boolean; confirm?: boolean } = {}) =>
+    request(`/terms/${termId}/studio/precheck/fix`, { method: "POST", query: kindQ(kind), body: { item_id: itemId, option, version: opts.version, write_through: opts.writeThrough ?? false, confirm: opts.confirm ?? false }, schema: FixResult }),
   rules: (termId: number, kind: StudioKind) => request(`/terms/${termId}/studio/rules`, { query: kindQ(kind), schema: RulesOut }),
   preview: (body: { term_id: number; kind: string; params: Record<string, unknown>; hardness: "hard" | "soft"; draft_kind: StudioKind; sample?: number }, signal?: AbortSignal) =>
     request("/studio/constraints/preview", { method: "POST", body, schema: Preview, silent: true, signal }),

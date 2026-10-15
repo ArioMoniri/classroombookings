@@ -6,7 +6,8 @@
    satisfied as a whole (the planner granted C 403 - C 404: satisfied);
 4. furniture / accessibility wishes map to a typed room feature (P10) when one exists, else they are an
    "unparsed preference" in the data-issues report;
-5. the planning list's "Derse Özel Açıklama" column becomes SOFT preferences with provenance, pending review.
+5. the planning list's "Derse Özel Açıklama" column becomes SOFT preferences with provenance, acting while they
+   wait for review; a lock or placement against a wish is reported (persona academician A-06 / A-07).
 
 Every rule made from free text is soft.
 """
@@ -148,7 +149,8 @@ async def test_notes_become_soft_preferences_pending_review(session, tmp_path) -
     mrs = {m.source_row_index: m for m in (await session.execute(select(MeetingRequest))).scalars()}
     cons = list((await session.execute(select(ConstraintRow))).scalars())
     assert cons and all(c.hardness == "soft" and c.source == "FILE" for c in cons)
-    assert all(c.enabled is False and (c.source_ref or {}).get("review") == "pending" for c in cons)
+    # soft wishes act while they wait for review (persona A-06 / A-07); the planner switches them off or accepts
+    assert all(c.enabled is True and (c.source_ref or {}).get("review") == "pending" for c in cons)
     by_row = {(c.source_ref or {}).get("row"): c for c in cons}
     nut = by_row[2]  # subset rows are renumbered: 296 -> 2
     assert nut.kind == "building_preference" and nut.params["buildings"] == ["A", "C"]
@@ -170,14 +172,14 @@ async def test_notes_become_soft_preferences_pending_review(session, tmp_path) -
     assert prefs["pending_review"] == len(cons) and prefs["notes_rows"] == 4
     assert prefs["unparsed"] >= 1  # 609: no step-free feature in the catalogue yet; 430: a capacity note
     # a re-import keeps the planner's review decision and creates no duplicates
-    nut.enabled = True
-    nut.source_ref = {**nut.source_ref, "review": "accepted"}
+    nut.enabled = False
+    nut.source_ref = {**nut.source_ref, "review": "rejected"}
     await session.commit()
     await import_planning_list(session, path, "T-NOTES")
     cons2 = list((await session.execute(select(ConstraintRow))).scalars())
     assert len(cons2) == len(cons)
     nut2 = next(c for c in cons2 if c.id == nut.id)
-    assert nut2.enabled is True and nut2.source_ref["review"] == "accepted"
+    assert nut2.enabled is False and nut2.source_ref["review"] == "rejected"
 
 
 async def test_step_free_feature_maps_to_its_solver_tag(session, tmp_path) -> None:
@@ -258,3 +260,101 @@ def test_real_notes_that_ask_for_no_pc_lab(text: str, kinds: list[str]) -> None:
 def test_pc_lab_wishes(text: str) -> None:
     feats = [i.params["feature"] for i in n.parse_preference_text(text) if i.kind == "feature"]
     assert feats == ["pc"]
+
+
+# --------------------------------------------------------------------------- persona academician 2026-10-15
+
+
+def test_a09_room_need_not_be_large(parsed_exam_list) -> None:
+    """A-09: Final rows 105-108 (NUT401-404 oral exams) say "dersliğin büyük olmasına gerek yok": no AMPHI
+    requirement, and a room is still needed ("1 derslik olacak")."""
+    rows = {r.row: r for r in parsed_exam_list.rows}
+    for row in (105, 106, 107, 108):
+        v = rows[row].venue
+        assert v.tags == [] and v.needs_room is True, (row, v)
+        assert v.room_count == 1
+    v = n.parse_venue_request("dersliğin büyük olmasına gerek yok")
+    assert v.tags == [] and v.needs_room is True
+    assert n.parse_venue_request("amfi olmasın").tags == []
+    assert n.parse_venue_request("Derslik talebi yok").needs_room is False  # a real "no room" stays one
+    assert n.parse_venue_request("2 büyük sınıf veya 3 küçük sınıf talep edilmektedir").tags == ["AMPHI"]
+
+
+def test_a04_software_wishes_are_features(parsed_bahar_list) -> None:
+    """A-04: Bahar rows 1119 ("kürsü bilgisayarına da JASP yüklenmesi gerekmektedir") and 1120 (JAMOVI on the
+    lab computers) ask for software."""
+    rows = {r.row: r for r in parsed_bahar_list.rows}
+    soft = [i for i in n.parse_preference_text(rows[1119].notes) if i.kind == "feature"]
+    assert [(i.params["feature"], i.params.get("software")) for i in soft] == [("software", "JASP")]
+    soft = [i for i in n.parse_preference_text(rows[1120].notes) if i.kind == "feature"]
+    assert ("software", "JAMOVI") in [(i.params["feature"], i.params.get("software")) for i in soft]
+    venue = [i for i in n.parse_preference_text(rows[1120].venue.raw) if i.kind == "feature"]
+    assert [(i.params["feature"], i.params.get("software")) for i in venue] == [("pc", None), ("software", "JAMOVI")]
+
+
+async def test_a04_software_wish_is_reported_with_provenance(session, tmp_path) -> None:
+    from app.importers.planning_list import import_planning_list
+
+    path = subset(BAHAR_LIST, [1119], tmp_path / "jasp.xlsx")
+    report = await import_planning_list(session, path, "T-JASP")
+    items = report.extra["preferences"]["unparsed_items"]
+    jasp = [u for u in items if u.get("software") == "JASP"]
+    assert jasp and jasp[0]["row"] == 2 and jasp[0]["column"] == "Derse Özel Açıklama"
+    assert "JASP" in jasp[0]["text"]
+
+
+async def test_a04_software_maps_to_a_catalogue_feature(session, tmp_path) -> None:
+    """A typed feature "Yazılım" (MULTISELECT, solver tag SW_JASP on its option... ) is matched by name: a
+    BOOLEAN feature "JASP" with solver tag SW_JASP turns the wish into a soft room_tags rule."""
+    from app.importers.planning_list import import_planning_list
+    from app.models import ConstraintRow, RoomCustomField
+
+    session.add(RoomCustomField(name="JASP yüklü", type="BOOLEAN", solver_tag="SW_JASP"))
+    await session.commit()
+    path = subset(BAHAR_LIST, [1119], tmp_path / "jasp2.xlsx")
+    await import_planning_list(session, path, "T-JASP2")
+    cons = list((await session.execute(select(ConstraintRow).where(ConstraintRow.kind == "room_tags"))).scalars())
+    assert [(c.params["required_tags"], c.hardness) for c in cons] == [(["SW_JASP"], "soft")]
+
+
+async def test_notes_rules_apply_and_conflicts_are_flagged(session, tmp_path) -> None:
+    """A-06 / A-07: the notes wishes act (soft) while they wait for review, and a lock or placement against the
+    wish is reported: ING 302 §10 (Bahar row 366, "Mümkünse B Blok olmasın") is locked to a set with B 202;
+    NUT 256 (row 297, "A veya C blokta") is locked to B 205."""
+    from app.importers.planning_list import import_planning_list
+    from app.models import ConstraintRow, ScheduleRun, Term
+    from app.services.data_issues import preference_checks
+
+    path = subset(BAHAR_LIST, [297, 366], tmp_path / "wish.xlsx")
+    await import_planning_list(session, path, "T-WISH")
+    cons = list((await session.execute(select(ConstraintRow))).scalars())
+    assert cons and all(c.enabled and c.hardness == "soft" and c.source_ref["review"] == "pending" for c in cons)
+    term = (await session.execute(select(Term).where(Term.code == "T-WISH"))).scalar_one()
+    run = ScheduleRun(term_id=term.id, kind="COURSE", horizon="WEEK", status="FEASIBLE", params={}, stats={})
+    session.add(run)
+    await session.commit()
+    out = await preference_checks(session, run)
+    against = {it["classes"][0]["course_code"]: it for it in out["preference_not_met"]}
+    assert set(against) == {"ING 302", "NUT 256"}, out["preference_not_met"]
+    assert "B202" in against["ING 302"]["params"]["rooms"] and "B 202" in against["ING 302"]["message_tr"]
+    assert against["NUT 256"]["params"]["rooms"] == ["B205"] and "B 205" in against["NUT 256"]["message_tr"]
+
+
+async def test_a08_room_alternatives_are_shown_and_judged(session, tmp_path) -> None:
+    """A-08: Final row 19 (PTL252) keeps its three alternatives as a data note and is satisfied by its
+    definitive C 403 - C 404; no building is invented."""
+    from app.importers.exam_list import import_exam_list
+    from app.models import ExamRequest, ScheduleRun, Term
+    from app.services.data_issues import preference_checks
+
+    path = subset(EXAM_LIST, [19], tmp_path / "ptl.xlsx")
+    await import_exam_list(session, path, "T-PTL")
+    ex = (await session.execute(select(ExamRequest))).scalar_one()
+    assert ex.requested_building is None
+    assert "Alternatif derslikler / room alternatives: A 206 veya C 403 + C 404 veya A 106 + A 107" in (ex.notes or "")
+    term = (await session.execute(select(Term).where(Term.code == "T-PTL"))).scalar_one()
+    run = ScheduleRun(term_id=term.id, kind="EXAM", horizon="TERM", status="FEASIBLE", params={}, stats={})
+    session.add(run)
+    await session.commit()
+    out = await preference_checks(session, run)
+    assert out["preference_not_met"] == []  # C 403 + C 404 is one of the alternatives

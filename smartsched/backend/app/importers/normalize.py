@@ -1331,7 +1331,34 @@ def split_program_names(value: Any) -> list[str]:
 #: negation in :func:`fold` form: "olmasın" (never "olmasını", which asks *for* it), "istemiyorum", "hariç",
 #: "dışında", "olmamalı", "verilmesin"
 _NEG_RX = re.compile(
-    r"\b(?:olmasin|olmasinlar|olmamali|olmamasi|verilmesin|istemiyor(?:um|uz|lar)?|istenmiyor|haric|disinda)\b"
+    r"\b(?:olmasin|olmasinlar|olmamali|olmamasi|verilmesin|istemiyor(?:um|uz|lar)?|istenmiyor|haric|disinda|"
+    r"gerek yok|gerekmiyor|gerek bulunmuyor|sart degil)\b"
+)
+#: "dersliğin büyük olmasına gerek yok" qualifies the room (need not be large); it is no "no room needed"
+_QUALIFIER_NOT_NEEDED_RX = re.compile(r"\w+\s+olmasina\s+(?:gerek yok|gerek bulunmuyor|gerekmiyor)")
+#: software a lab / lectern computer must have (persona A-04) -> canonical name
+SOFTWARE_NAMES: dict[str, str] = {
+    "jasp": "JASP",
+    "jamovi": "JAMOVI",
+    "spss": "SPSS",
+    "matlab": "MATLAB",
+    "rstudio": "RSTUDIO",
+    "r studio": "RSTUDIO",
+    "stata": "STATA",
+    "minitab": "MINITAB",
+    "eviews": "EVIEWS",
+    "nvivo": "NVIVO",
+    "maxqda": "MAXQDA",
+    "autocad": "AUTOCAD",
+    "solidworks": "SOLIDWORKS",
+    "arcgis": "ARCGIS",
+    "qgis": "QGIS",
+    "labview": "LABVIEW",
+    "anaconda": "ANACONDA",
+    "python": "PYTHON",
+}
+_SOFTWARE_RX = re.compile(
+    r"(?<![\w])(" + "|".join(sorted(map(re.escape, SOFTWARE_NAMES), key=len, reverse=True)) + r")(?![\w])"
 )
 #: wish wording: a clause with one of these words but nothing structured is an "unparsed preference"
 _WISH_RX = re.compile(
@@ -1406,7 +1433,8 @@ def _buildings_in(folded: str) -> list[str]:
 
 
 def _features_in(folded: str) -> list[tuple[str, bool]]:
-    """(feature key, negated by a "-sız/-siz/-suz/-süz" suffix) of each lexicon phrase in a folded clause."""
+    """(feature key, negated by a "-sız/-siz/-suz/-süz" suffix) of each lexicon phrase in a folded clause;
+    software is keyed ``software:<NAME>`` ("JASP", "JAMOVI" ...)."""
     out: dict[str, bool] = {}
     for key, phrases, _tags in FEATURE_LEXICON:
         for ph in phrases:
@@ -1414,6 +1442,8 @@ def _features_in(folded: str) -> list[tuple[str, bool]]:
             if m:
                 out.setdefault(key, bool(re.fullmatch(r"\w*s[iu]z", m.group(1))))
                 break
+    for m in _SOFTWARE_RX.finditer(folded):
+        out.setdefault(f"software:{SOFTWARE_NAMES[m.group(1)]}", False)
     return list(out.items())
 
 
@@ -1485,7 +1515,11 @@ def parse_preference_text(value: Any) -> list[PreferenceItem]:
     if avoid_rooms:
         items.append(PreferenceItem("avoid_room", {"room_codes": avoid_rooms}, text, True, strong))
     for key, (neg, clause) in feats.items():
-        items.append(PreferenceItem("feature", {"feature": key}, clause, neg, strong))
+        if key.startswith("software:"):
+            params = {"feature": "software", "software": key.split(":", 1)[1]}
+        else:
+            params = {"feature": key}
+        items.append(PreferenceItem("feature", params, clause, neg, strong))
     if not items and unparsed:
         items.append(PreferenceItem("unparsed", {}, text, False, strong))
     elif unparsed:
@@ -1519,6 +1553,13 @@ class VenueRequest:
     avoid_room_codes: list[str] = field(default_factory=list)
     #: alternatives, each satisfied as a whole: "A 206 veya C 403-404" -> [["A206"], ["C403", "C404"]]
     room_groups: list[list[str]] = field(default_factory=list)
+
+    def alternatives_note(self) -> str | None:
+        """Data note of a request that offers alternative room sets (shown with the request, persona A-08)."""
+        if len(self.room_groups) < 2:
+            return None
+        sets = " veya ".join(" + ".join(f"{c[0]} {c[1:]}" for c in g) for g in self.room_groups)
+        return f"Alternatif derslikler / room alternatives: {sets}"
 
     def satisfied_by(self, room_codes: Iterable[str]) -> bool:
         """True when ``room_codes`` (the definitive or placed rooms) is exactly one of the alternative groups."""
@@ -1587,23 +1628,29 @@ def parse_venue_request(value: Any) -> VenueRequest:
     im = _INVIG_RX.search(low)
     if im:
         v.invigilators = int(im.group(1))
+    # tags only from clauses that do not negate them: "dersliğin büyük olmasına gerek yok" is no AMPHI (A-09)
+    tag_low = " ".join(tr_casefold(c) for c in _clauses(text) if not _NEG_RX.search(fold(c)))
     tags: list[str] = []
-    if "bilg" in low or "pc" in low.split() or "bilgisayar" in low:
+    if "bilg" in tag_low or "pc" in tag_low.split() or "bilgisayar" in tag_low:
         tags.append("PC")
-    if ("lab" in low or "multidisiplin" in low) and "PC" not in tags:
+    if ("lab" in tag_low or "multidisiplin" in tag_low) and "PC" not in tags:
         tags.append("LAB")
-    if "amfi" in low or "anfi" in low or "büyük" in low:
+    if "amfi" in tag_low or "anfi" in tag_low or "büyük" in tag_low:
         tags.append("AMPHI")
-    if "toplantı" in low:
+    if "toplantı" in tag_low:
         tags.append("MEETING")
-    if "tip" in low.split():
+    if "tip" in tag_low.split():
         tags.append("TIP")
     v.tags = tags
-    has_room_word = any(w in low for w in ("derslik", "sınıf", "amfi", "anfi", "dersik", "derslk", "derlisk"))
+    has_room_word = any(
+        w in low for w in ("derslik", "dersliğ", "sınıf", "amfi", "anfi", "dersik", "derslk", "derlisk")
+    )
     folded = tr_fold(text)  # "ONLINE" is "onlıne" in Turkish lower case
-    no_room = any(tr_fold(w) in folded for w in _VENUE_NO_ROOM)
+    # "büyük olmasına gerek yok" says something about the room, not that no room is needed (A-09)
+    folded = _QUALIFIER_NOT_NEEDED_RX.sub(" ", fold(text))
+    no_room = any(fold(w) in folded for w in _VENUE_NO_ROOM)
     explicit_no = any(
-        tr_fold(w) in folded
+        fold(w) in folded
         for w in ("talebi yok", "gerek yok", "istenmiyor", "ihtiyaç bulunmuyor", "kullanılmayacak", "talebimiz yok")
     )
     if explicit_no and not v.room_codes:

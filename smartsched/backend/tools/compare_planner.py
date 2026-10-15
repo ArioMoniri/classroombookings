@@ -1380,6 +1380,7 @@ UNAUDITED_GROUPS = frozenset(
         "board_missing_week",
         "unparsed_preference",
         "preference_review",
+        "preference_not_met",
     }
 )
 

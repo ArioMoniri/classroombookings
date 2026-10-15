@@ -201,7 +201,8 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
           b?.status === "PENDING"
             ? [text.primary, text.secondary, b.notes, b.department_name].filter(Boolean).join(" · ")
             : [slot.reason === "recurring" ? t("crbs.legend.recurring") : t("crbs.legend.single"), text.primary, b?.notes, b?.department_name].filter(Boolean).join(" · ");
-        if (kind === "cancel") state += `, ${selected.has(slotKey(slot)) ? t("reserve.multi.selectedCancel") : t("crbs.slot.selectable")}`;
+        // never "free" for a booked cell (persona U-11): "press to select it for cancelling"
+        if (kind === "cancel") state += `, ${selected.has(slotKey(slot)) ? t("reserve.multi.selectedCancel") : t("wave1.grid.pickToCancel")}`;
       } else state = explain(slot) ?? "";
       return [...parts, state].join(", ");
     },
@@ -346,10 +347,15 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
     nextEl?.focus();
   };
 
+  // stable between renders, so the memoised cells do not all re-render on every pointer / focus change (U-18)
+  const labels = useMemo(
+    () => ({ booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class"), pending: t("wave1.grid.pending"), free: t("reserve.cell.free"), reserve: t("reserve.cell.reserve") }),
+    [t],
+  );
+
   if (!layout.rows.length || !layout.cols.length) return null;
 
   const corner = columns === "periods" ? (grid.display === "day" ? t("crbs.grid.room") : t("crbs.grid.day")) : t("crbs.grid.period");
-  const labels = { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class"), pending: t("wave1.grid.pending"), free: t("reserve.cell.free"), reserve: t("reserve.cell.reserve") };
 
   return (
     <div ref={wrapRef} className="relative">
@@ -551,7 +557,7 @@ const Cell = memo(function Cell({
           <span className="flex items-center gap-1 text-label-3 group-hover/cell:hidden group-focus-visible/cell:hidden print:hidden" data-free-label>
             {labels.free}
           </span>
-          <span className="hidden items-center gap-1 font-medium text-tint-text group-hover/cell:flex group-focus-visible/cell:flex print:hidden">
+          <span className="hidden items-center gap-1 font-medium text-tint-text group-hover/cell:flex group-focus-visible/cell:flex print:hidden!">
             <Plus className="size-3 shrink-0 stroke-[2]" aria-hidden />
             {multi ? labels.free : labels.reserve}
           </span>

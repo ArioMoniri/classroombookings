@@ -80,6 +80,17 @@ export function layoutGrid(grid: Grid, columns: "periods" | "rooms" | "days"): G
   return { rows, cols, slot: pick };
 }
 
+/**
+ * A-24: no published timetable covers the shown week, so free-looking rooms may be taken by classes.
+ * `timetable_state` is "published" | "none" | … (or `{published, state}`); unknown or absent = no warning.
+ */
+export function timetableMissing(grid: Pick<Grid, "timetable_state"> | undefined | null): boolean {
+  const s = grid?.timetable_state;
+  if (!s) return false;
+  const word = typeof s === "string" ? s : s.published === false ? "none" : (s.state ?? "");
+  return ["none", "missing", "unpublished", "empty", "no_timetable"].includes(word.toLowerCase());
+}
+
 export function isSelectable(slot: GridSlot | undefined): boolean {
   return !!slot && slot.status === "available" && !!(slot.allow_single || slot.allow_recur);
 }

@@ -46,9 +46,10 @@ export function LoginForm() {
       }
       const name = user?.full_name?.split(" ")[0];
       toast.success(name ? t("glass.auth.welcome", { name }) : t("auth.title"));
-      // a teacher has no planning dashboard: land on the timetable (permissions come from /auth/me)
+      // without planning.view there is no dashboard (and the timetable needs planning data too): land on
+      // the bookings grid, like classroombookings (permissions come from /auth/me)
       const planner = !user || user.permissions.includes("planning.view");
-      router.replace(target === "/dashboard" && !planner ? "/timetable" : target);
+      router.replace(target === "/dashboard" && !planner ? "/bookings" : target);
       router.refresh();
     } catch (e) {
       setError(e instanceof HttpError && e.status === 0 ? t("glass.auth.offline") : t("glass.auth.failed"));
@@ -62,6 +63,11 @@ export function LoginForm() {
       {/* CRBS Login::index: organisation logo + name, login message, maintenance banner, first-run hint */}
       <LoginBrand />
       <LoginNotices />
+      {params.get("reason") === "expired" || params.get("reason") === "password" ? (
+        <div role="status" className="mb-4 rounded-xl bg-status-warning px-3 py-2 text-[13px] text-status-warning-fg" data-testid="login-session-notice">
+          {t(params.get("reason") === "password" ? "wave1.session.password" : "wave1.session.expired")}
+        </div>
+      ) : null}
       {error ? (
         <div ref={alertRef} id="login-error" tabIndex={-1} role="alert" className="mb-4 rounded-xl bg-status-infeasible px-3 py-2 text-[13px] text-status-infeasible-fg outline-none">
           {error}

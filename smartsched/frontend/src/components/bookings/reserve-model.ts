@@ -152,11 +152,12 @@ export function freeSlotsByRoom(grids: Grid[], opts: { now?: Now; firstRooms?: R
 }
 
 /** First reservable slot of a room in the grid at or after `now` (and after `after`, when given). */
-export function nextFreeSlot(grid: Grid, roomId: number, now?: Now): GridSlot | null {
+export function nextFreeSlot(grid: Grid, roomId: number, now?: Now, from?: string): GridSlot | null {
   const periods = new Map(grid.periods.map((p) => [p.id, p]));
   const porder = periodOrder(grid);
+  // never a day before the one being viewed (persona U-12: viewing Friday suggested Monday)
   const slots = grid.slots
-    .filter((s) => s.room_id === roomId && isSelectable(s) && !over(s, periods.get(s.period_id), now))
+    .filter((s) => s.room_id === roomId && (!from || s.date >= from) && isSelectable(s) && !over(s, periods.get(s.period_id), now))
     .sort((a, b) => a.date.localeCompare(b.date) || (porder.get(a.period_id) ?? 0) - (porder.get(b.period_id) ?? 0));
   return slots[0] ?? null;
 }

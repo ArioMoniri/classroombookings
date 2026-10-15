@@ -306,7 +306,7 @@ export function FindRoomView() {
                   <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("wave1.find.buildings")}>
                     {buildings.map((b) => (
                       <Chip key={b} size="sm" icon={<Building2 aria-hidden />} selected={f.buildings.includes(b)} onSelectedChange={(on) => set("buildings", on ? [...f.buildings, b] : f.buildings.filter((x) => x !== b))}>
-                        {t("wave1.find.building", { b })}
+                        {buildingLabel(b, t)}
                       </Chip>
                     ))}
                   </div>
@@ -330,9 +330,9 @@ export function FindRoomView() {
                 ) : null}
               </div>
 
-              <Button type="submit" disabled={busy || !form} data-testid="fr-search">
+              <Button type="submit" disabled={busy || !form} aria-busy={busy || undefined} data-testid="fr-search">
                 {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Search aria-hidden />}
-                {t("wave1.find.search")}
+                {busy ? t("wave1.find.searching") : t("wave1.find.search")}
               </Button>
             </form>
           </Card>
@@ -355,7 +355,7 @@ export function FindRoomView() {
           {result ? (
             <>
               <div className="flex flex-wrap items-baseline justify-between gap-2" role="status" aria-live="polite">
-                <p className="type-title-3 text-label-1" data-testid="fr-summary">
+                <p className="type-title-3 text-label-1 outline-hidden" data-testid="fr-summary" tabIndex={-1} data-focus-fallback>
                   {result.summary ? (locale === "tr" ? result.summary.text_tr : result.summary.text_en) : t("wave1.find.count", { n: results.length })}
                 </p>
                 {result.time ? (
@@ -385,9 +385,23 @@ export function FindRoomView() {
                   </ul>
                 </Card>
               ) : (
-                <p className="type-callout text-label-2" data-testid="fr-none">
-                  {t("wave1.find.noneFree")}
-                </p>
+                <div className="flex flex-col items-start gap-2" data-testid="fr-none">
+                  <p className="type-callout text-label-2">{f.text.trim() ? t("wave1.find.noneText", { text: f.text.trim() }) : t("wave1.find.noneFree")}</p>
+                  {f.text.trim() ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const next = { ...f, text: "" };
+                        setForm(next);
+                        void run(next, false);
+                      }}
+                      data-testid="fr-clear-text"
+                    >
+                      {t("wave1.find.clearText")}
+                    </Button>
+                  ) : null}
+                </div>
               )}
               {result.alternatives.length ? (
                 <section aria-labelledby="fr-alts" className="flex flex-col gap-2">
@@ -438,6 +452,11 @@ export function FindRoomView() {
       />
     </div>
   );
+}
+
+/** "A Blok" stays "A Blok"; a bare "A" becomes "A Blok" / "A block" (persona U-10: no "A Blok Blok"). */
+function buildingLabel(b: string, t: ReturnType<typeof useI18n>["t"]): string {
+  return /\b(blok|bloğu|block|bina|building)\b/i.test(b) || b.length > 3 ? b : t("wave1.find.building", { b });
 }
 
 /* ------------------------------------------------------------------------------------- features */
@@ -558,7 +577,7 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve }: { row
           {multi ? <span className="type-footnote text-label-2 tabular-nums">{t("wave1.find.freeDates", { free: r.free_dates, open: r.open_dates })}</span> : null}
         </div>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 type-footnote text-label-2">
-          <span>{[r.capacity ? t("crbs.grid.seats", { n: r.capacity }) : t("wave1.find.status.capacity_unknown"), r.building ? t("wave1.find.building", { b: r.building }) : null, ...r.features.slice(0, 3)].filter(Boolean).join(" · ")}</span>
+          <span>{[r.capacity ? t("crbs.grid.seats", { n: r.capacity }) : t("wave1.find.status.capacity_unknown"), r.building ? buildingLabel(r.building, t) : null, ...r.features.slice(0, 3)].filter(Boolean).join(" · ")}</span>
           <FitBar capacity={r.capacity ?? 0} headcount={headcount} />
         </p>
         {reason ? <p className="mt-1 type-callout text-label-1">{reason}</p> : null}

@@ -66,6 +66,8 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
         if (o) {
           setMonth(value.slice(0, 7));
           setCursor(value);
+          // the selected day takes focus, not "previous month" (persona U-15): arrows then move by day / week
+          window.setTimeout(() => document.querySelector<HTMLButtonElement>(`button[data-day="${value}"]`)?.focus(), 60);
         }
       }}
     >

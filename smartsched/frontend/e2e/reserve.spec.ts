@@ -413,7 +413,8 @@ test("13. room owner under the room name, group tabs with counts, grouped picker
     await expect(page.getByTestId("room-info-A101")).toContainText(`${TEACHER.first} ${TEACHER.last}`);
     await expect(page.getByTestId("group-tabs").getByRole("tab").first()).toHaveText(/\(\d+\)/);
     await openBookings(page, `display=room&date=${TUESDAY}&room=${ctx.rooms.A101}&lens=grid`);
-    expect(await page.getByTestId("room-select").locator("optgroup").count()).toBeGreaterThan(0);
+    // the room list (GET /bookings/rooms) arrives after the grid: wait for the grouped options
+    await expect.poll(() => page.getByTestId("room-select").locator("optgroup").count()).toBeGreaterThan(0);
     // CRBS dashboard stats "bookings you can create" (shown when the user has a limit)
     await api("PUT", `/users/${ctx.teacherId}/constraints`, { max_active_bookings: { type: "U", value: 40 } });
     await page.goto("/my-bookings");

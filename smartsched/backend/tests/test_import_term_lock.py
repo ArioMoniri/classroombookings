@@ -77,6 +77,6 @@ async def test_two_parallel_imports_of_one_term_do_not_overlap(client, tmp_path)
         ).scalar_one()
         done = [j for j in jobs if j.status == "DONE"]
         assert n_meetings == done[0].summary["rows_imported"]  # the rows of one import, never twice
-        if len(done) == 2:  # the second waited for the lock and re-imported: nothing new
-            later = max(done, key=lambda j: j.id)
-            assert later.summary["created"].get("meeting_requests", 0) == 0
+        # whichever job got the lock first created the rows; one that waited re-imported and created nothing
+        created = sorted(j.summary["created"].get("meeting_requests", 0) for j in done)
+        assert created == [n_meetings] or created == [0, n_meetings], created

@@ -115,3 +115,17 @@ async def test_exam_edit_is_refused_on_course_runs_and_bad_values(session, seed,
     fake_sdk.script = [tool("set_exam_field", _edit(aid)), text("Değişiklik yok.")]
     out = await handle_chat(session, run_id, "aynı kalsın", "tr", client=client)
     assert out.proposed_diff is None  # nothing to change
+
+
+async def test_room_count_only_edit_is_re_solved(session, seed, fake_sdk):
+    """A room-count change adds no hard violation by itself: the edited exam must still be freed for the repair."""
+    run_id, ex_id, aid = await _exam_run(session, seed)
+    fake_sdk.script = [tool("set_exam_field", _edit(aid, rooms=2)), text("Öneriyorum.")]
+    client = AIClient("sk-ant-test", "claude-opus-5-5")
+    out = await handle_chat(session, run_id, "iki salona böl", "tr", client=client)
+    res = await apply_diff(session, run_id, diff_id=out.proposed_diff.id, enqueue=False)
+    assert res.mode == "repair" and not res.rejected
+    child = await session.get(ScheduleRun, res.child_run_id)
+    await session.refresh(child)
+    assert child.hard_score == 100
+    assert ex_id in child.stats["ai"]["freed_event_ids"]  # the exam event was re-placed by the repair

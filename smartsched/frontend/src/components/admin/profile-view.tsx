@@ -135,6 +135,7 @@ function PasswordForm({ forced }: { forced: boolean }) {
                 // B-AUTH-11 revoked the session and signing in again failed: say so and go to the login page
                 if (res && typeof res === "object" && "signedOut" in res && res.signedOut) {
                   toast.message(t("wave1.session.password"));
+                  // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load drops every cached query of the dead session
                   window.location.assign(`/login?next=${encodeURIComponent("/profile")}&reason=password`);
                   return;
                 }

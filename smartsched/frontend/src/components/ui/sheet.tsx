@@ -9,6 +9,7 @@ import { cn } from "cn"
 
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
+import { useT } from "@/lib/i18n/provider"
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -37,6 +38,12 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
       {...props}
     />
   )
+}
+
+/** The close button's name in the user's language (persona U-09: "Close" in the Turkish UI). */
+function SheetCloseLabel() {
+  const t = useT()
+  return <span className="sr-only">{t("common.close")}</span>
 }
 
 function SheetContent({
@@ -75,7 +82,7 @@ function SheetContent({
           >
             <XIcon
             />
-            <span className="sr-only">Close</span>
+            <SheetCloseLabel />
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>

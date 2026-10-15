@@ -35,6 +35,7 @@ import { STATUS_KEY } from "@/components/approvals/request-parts";
 import { bookingErrorMessage } from "./booking-errors";
 import type { DateFormatter } from "./date-format";
 import { useIsPhone } from "./use-is-phone";
+import { cellSelector, focusAfter } from "./focus-after";
 
 export function BookingDetailSheet({ bookingId, onOpenChange, fmt, onRoomInfo }: { bookingId: number | null; onOpenChange: (open: boolean) => void; fmt: DateFormatter; onRoomInfo?: (roomId: number, date: string) => void }) {
   const phone = useIsPhone();
@@ -291,6 +292,8 @@ function EditForm({ booking: b, fmt, onDone }: { booking: BookingDetail; fmt: Da
       onSuccess: (rows) => {
         toast.success(t("crbs.detail.saved", { n: rows.length }));
         onDone();
+        // back in view mode: the sheet's own Edit button, not <body>
+        focusAfter(['[data-testid="booking-edit"]', '[data-testid="booking-cancel"]'], 60);
       },
       onError: (e) => {
         setError(bookingErrorMessage(crbsError(e), t, { roomName: (id) => rooms.data?.find((r) => r.id === id)?.name ?? (id === b.room_id ? b.room_name : undefined), formatDate: fmt.short }));
@@ -401,6 +404,8 @@ function CancelDialog({ booking: b, open, onOpenChange, onCancelled, fmt }: { bo
             toast.success(t("crbs.cancel.done", { n: res.cancelled.length }));
             onOpenChange(false);
             onCancelled();
+            // the freed cell in the grid, else the next row of My bookings
+            focusAfter([cellSelector(b), `[data-booking-id="${b.id}"] ~ li button`, '[data-booking-id] button']);
           },
           onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
         });

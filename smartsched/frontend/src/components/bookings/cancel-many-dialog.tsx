@@ -1,5 +1,6 @@
 "use client";
 /** Cancel several bookings at once (CRBS `cancel_multi`): from /my-bookings and from the grid's multi-select. */
+import { focusAfter } from "./focus-after";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +29,7 @@ export function CancelManyDialog({ ids, open, onOpenChange, onDone, description 
             toast.success(t("crbs.mine.cancelManyDone", { n: res.cancelled.length, skipped: res.skipped.length }));
             setReason("");
             onDone();
+            focusAfter(['[data-testid="booking-list"] li button', '[data-testid="booking-grid"] button[data-tone="available"]']);
           },
           onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
         })

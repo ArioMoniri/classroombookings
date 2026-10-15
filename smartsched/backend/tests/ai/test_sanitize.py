@@ -71,3 +71,21 @@ def test_document_wrapper_cannot_be_closed_from_inside():
     assert "</document>" not in out and "<document>" not in out
     assert stats["tags"] == 2
     assert "PHAR 240 A 206" in out
+
+
+async def test_typed_chat_and_elicit_text_lose_control_characters(session, seed, fake_sdk):
+    from app.ai.chat import handle_chat
+    from app.ai.client import AIClient
+    from app.ai.elicit import elicit_constraints
+
+    from tests.ai.conftest import text, tool
+
+    client = AIClient("sk-ant-test", "claude-opus-5-5")
+    fake_sdk.script = [tool("propose_constraints", {"proposals": [], "section_edits": [], "unparsed": []})]
+    await elicit_constraints(session, seed.term_id, "PHAR 240\u202e A 206\u200b", "tr", client=client)
+    sent = fake_sdk.calls[-1]["messages"][-1]["content"]
+    assert "\u202e" not in sent and "\u200b" not in sent and "PHAR 240 A 206" in sent
+    fake_sdk.script = [text("Tamam.")]
+    await handle_chat(session, seed.run_id, "NRS 450\u2066 nerede?\u2069", "tr", client=client)
+    sent = fake_sdk.calls[-1]["messages"][-1]["content"]
+    assert sent == "NRS 450 nerede?"

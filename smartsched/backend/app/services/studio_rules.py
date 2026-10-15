@@ -565,7 +565,8 @@ async def copy_rules(session: AsyncSession, body: Any, user: User) -> dict[str, 
         wanted = set(body.constraint_ids)
         rows = [r for r in rows if r.id in wanted]
     else:
-        rows = [r for r in rows if r.enabled]
+        # wishes read from the source term's lists (FILE) belong to its rows; the target's own imports make its own
+        rows = [r for r in rows if r.enabled and r.source != "FILE"]
     rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
     existing = {
         (r.kind, _norm(r.params), r.hardness) for r in await st.term_rules(session, target.id, enabled_only=False)
@@ -1090,6 +1091,8 @@ async def create_preset(session: AsyncSession, body: Any, user: User) -> StudioP
     if body.from_term_id is not None:
         draft = await st.get_draft(session, body.from_term_id, user.id, body.kind)
         for r in await st.term_rules(session, body.from_term_id, enabled_only=False):
+            if r.source == "FILE":
+                continue  # wishes read from this term's lists: every import of a list re-creates them
             off = r.id in {int(i) for i in draft.disabled_rule_ids or []}
             ov = (draft.rule_overrides or {}).get(str(r.id)) or {}
             rules.append(

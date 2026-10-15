@@ -70,3 +70,24 @@ export function visibleNavGroups(can: (perm: string | readonly string[] | undefi
 }
 
 export const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+
+/**
+ * Planning pages and the permission each needs (the backend answers 403 without it). The shell renders the
+ * no-access page on them instead of mounting the page (no fake empty states, no stack of 403 toasts);
+ * /dashboard sends people without planning.view to their bookings. /settings (appearance) and /admin/*
+ * (AdminGate) are not listed.
+ */
+export const PLANNING_ROUTES: readonly { prefix: string; permission: string | string[] }[] = [
+  { prefix: "/dashboard", permission: "planning.view" },
+  { prefix: "/import", permission: "planning.edit" },
+  { prefix: "/requests", permission: "planning.view" },
+  { prefix: "/generate", permission: "planning.edit" },
+  { prefix: "/timetable", permission: "planning.view" },
+  { prefix: "/runs", permission: "planning.view" },
+  { prefix: "/rooms", permission: ["planning.view", "setup.rooms"] },
+  { prefix: "/classes", permission: "planning.view" },
+];
+
+export function planningRequirement(pathname: string): string | string[] | undefined {
+  return PLANNING_ROUTES.find((r) => pathname === r.prefix || pathname.startsWith(`${r.prefix}/`))?.permission;
+}

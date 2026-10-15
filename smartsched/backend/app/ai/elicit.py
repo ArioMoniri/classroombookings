@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai import catalog
 from app.ai.client import AIClient, text_of, tool_uses
 from app.ai.resolve import TermContext, load_term_context, resolve_proposal, resolve_section_edit
+from app.ai.sanitize import strip_controls
 from app.models import AIProposalDecision, ConstraintRow, ExamRequest, MeetingRequest, Room, Section
 from app.schemas.ai import ElicitOut, ProposedConstraint, ProposedSectionEdit, SourceRef, UsageOut
 
@@ -168,6 +169,7 @@ async def elicit_constraints(
 ) -> ElicitOut:
     """``text`` -> proposals (validated, resolved, never applied). ``client`` from :func:`app.ai.client.get_client`."""
     ctx = await load_term_context(session, term_id)
+    text = strip_controls(text)  # invisible / bidi characters can hide instructions from the reviewer
     content = (
         f"Planner's preferences ({'Turkish' if lang == 'tr' else 'English'}):\n\n{text}\n\n"
         "Call propose_constraints once with every rule and section edit you can map."

@@ -3,12 +3,18 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { HttpError } from "@/lib/api/client";
 import { api } from "@/lib/api/endpoints";
 import { sk } from "@/lib/api/studio-hooks";
 import type { ClassRow, Fix, MeetingPatch, PrecheckItem } from "@/lib/api/studio-schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { useStudio } from "./studio-context";
 import { pairLang } from "@/lib/i18n";
+
+/** Where an applied fix landed (`applied.scope` of POST /studio/precheck/fix). */
+export function fixScopeKey(applied: Record<string, unknown>): "studio.check.scopeDraft" | "studio.check.scopeTerm" {
+  return applied.scope === "term" ? "studio.check.scopeTerm" : "studio.check.scopeDraft";
+}
 
 const num = (v: unknown): number[] => (Array.isArray(v) ? v.map(Number).filter(Number.isFinite) : []);
 
@@ -30,7 +36,8 @@ export function useApplyFix() {
         const reqIds = num(payload.request_ids);
         const patch = (payload.patch ?? {}) as Record<string, unknown>;
         const prevRows: ClassRow[] = (classes ?? []).filter((c) => reqIds.includes(c.id));
-        const res = await api.studio.applyFix(termId, kind, item.id, fix.option);
+        // the version the fix was chosen on: a draft changed in another tab answers 409 instead of being overwritten
+        const res = await api.studio.applyFix(termId, kind, item.id, fix.option, { version: store.getState().studio.server?.version });
         dispatch({ type: "saved", draft: res.draft, sent: [] });
         qc.setQueryData(sk.draft(termId, kind), res.draft);
         store.getState().setPrecheck(res.precheck);
@@ -66,9 +73,15 @@ export function useApplyFix() {
             }
           },
         });
-        toast.success(t("studio.check.fixed", { label }), { action: { label: t("common.undo"), onClick: () => void store.getState().undo() }, duration: 8000 });
+        toast.success(t("studio.check.fixed", { label }), { description: t(fixScopeKey(res.applied)), action: { label: t("common.undo"), onClick: () => void store.getState().undo() }, duration: 8000 });
         return true;
       } catch (e) {
+        if (e instanceof HttpError && e.status === 409) {
+          // the draft changed since this list was computed: show the current list instead of a stale fix
+          toast.warning(t("studio.check.fixStale"));
+          store.getState().setPrecheck(await api.studio.precheck(termId, kind).catch(() => null));
+          return false;
+        }
         toast.error(t("studio.check.fixFailed", { reason: e instanceof Error ? e.message : String(e) }));
         return false;
       } finally {

@@ -773,6 +773,7 @@ def _join_notes(r: PlanningRow) -> str | None:
             r.day.note,
             r.weeks.note,
             r.venue.notes if r.venue.same_room_as else None,
+            r.venue.alternatives_note(),
             n.venue_note(r.definitive),
         )
         if p

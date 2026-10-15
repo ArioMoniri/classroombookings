@@ -661,6 +661,9 @@
       "scope": "Kapsam değişti"
     },
     "check": {
+      "scopeDraft": "Yalnızca bu taslağa uygulandı; dönemin verisi değişmedi.",
+      "scopeTerm": "Dönemin verisine kaydedildi (bütün taslaklar görür).",
+      "fixStale": "Taslak bu arada değişti, liste yeniden kontrol edildi. Hâlâ gerekiyorsa düzeltmeyi yeniden seçin.",
       "applying": "Uygulanıyor…",
       "ready": "Hazır",
       "needsLook": "Bakılması gereken var",
@@ -2472,6 +2475,9 @@
       "showBusy": "Dolu derslikleri de göster",
       "otherDays": "Bu haftanın diğer günlerine de bak",
       "search": "Ara",
+      "searching": "Aranıyor…",
+      "noneText": "Metinle eşleşen derslik yok: “{text}”.",
+      "clearText": "Metni temizle",
       "results": "Sonuçlar",
       "empty": "Ne zaman ve kaç kişi olduğunu seçip arayın.",
       "count": "{n, plural, other {# derslik}}",
@@ -2522,7 +2528,11 @@
     },
     "grid": {
       "pending": "Talep bekliyor",
-      "pendingLegend": "Onay bekliyor"
+      "pendingLegend": "Onay bekliyor",
+      "pickToCancel": "iptal için seçmek üzere basın",
+      "noTimetable": "Bu hafta için yayınlanmış ders programı yok — dersliklerin gerçek doluluğu görünmeyebilir.",
+      "noTimetableConfirm": "Bu hafta için yayınlanmış ders programı yok. Yine de rezerve edilsin mi?",
+      "bookAnyway": "Yine de rezerve et"
     },
     "book": {
       "needsApproval": "Bu derslik onay gerektirir",
@@ -2799,6 +2809,18 @@
         "term": "Dönem",
         "department": "Bölüm"
       }
+    },
+    "sync": {
+      "resetDone": "Yeni bağlantılar oluşturuldu; eski abonelikler artık güncellenmez."
+    },
+    "notFound": {
+      "title": "Sayfa bulunamadı",
+      "body": "Adres yanlış yazılmış ya da sayfa taşınmış olabilir.",
+      "home": "Rezervasyonlara git"
+    },
+    "session": {
+      "expired": "Oturumunuz sona erdi. Kaldığınız yerden devam etmek için yeniden giriş yapın.",
+      "password": "Parolanız değiştirildi. Yeni parolanızla yeniden giriş yapın."
     },
     "bell": {
       "unread": "{count, plural, other {# okunmamış}}",
