@@ -11,13 +11,16 @@
 //   scene   - the five mesh samples (base, highlight, tint corner, warm corner, cool corner)
 //   content - the darkest (light theme: #000) / lightest (dark theme: #fff) thing that can scroll
 //             under floating chrome. Only thick + chrome materials may float over content (rule G1).
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const cssPath = resolve(here, "../../../smartsched/frontend/src/app/globals.css");
 const css = readFileSync(cssPath, "utf8");
+// calendar content tokens (faculty fill/ink pairs) live next to the calendar (components/timetable/calendar.css)
+const calPath = resolve(here, "../../../smartsched/frontend/src/components/timetable/calendar.css");
+const calCss = readFileSync(calPath, "utf8");
 
 function block(name) {
   const m = css.match(new RegExp(`/\\* @tokens ${name}[^*]*\\*/([\\s\\S]*?)/\\* @end \\*/`));
@@ -166,6 +169,69 @@ function themeChecks(theme, v) {
 
 themeChecks("light", light);
 themeChecks("dark", dark);
+
+// ---- design-system overhaul 2026-10-15 (review §5 static gates) ----
+// 1. --border-control is the field / control boundary: >= 3:1 (WCAG 1.4.11) against the card in both themes,
+//    on the solid card (reduced transparency) and on the translucent card over every scene sample.
+for (const [theme, v] of [["light", light], ["dark", dark]]) {
+  const P = (k) => parse(v[k], v);
+  const scene = P("--scene");
+  const backs = [
+    ["regular solid", P("--mat-regular-solid")],
+    ["thick solid", P("--mat-thick-solid")],
+    ["regular/scene", over(P("--mat-regular"), scene)],
+    ["regular/scene-hi", over(P("--mat-regular"), P("--scene-hi"))],
+  ];
+  const bc = P("--border-control");
+  let worst = null;
+  for (const [n, b] of backs) {
+    const r = ratio(over(bc, b), b);
+    if (!worst || r < worst.r) worst = { r, n, b };
+  }
+  check(theme, `border-control vs card (worst: ${worst.n})`, over(bc, worst.b), worst.b, 3, "non-text 3:1");
+}
+// 2. Faculty ink on its fill (timetable chips, line 2 is 11 px) and under the conflict tint: >= 4.5:1.
+function calBlock(selector) {
+  const m = calCss.match(new RegExp(selector.replace(/[.:]/g, (c) => "\\" + c) + "\\s*\\{([^}]*)\\}"));
+  if (!m) throw new Error(`${selector} block not found in calendar.css`);
+  return decls(m[1]);
+}
+const calLight = calBlock(":root");
+const calDark = { ...calLight, ...calBlock(".dark") };
+for (const [theme, v] of [["light", calLight], ["dark", calDark]]) {
+  for (let i = 1; i <= 8; i++) {
+    const fill = parse(v[`--fac-${i}-fill`], v);
+    const ink = parse(v[`--fac-${i}-ink`], v);
+    check(theme, `fac-${i} ink on fill (timetable chip)`, ink, fill, 4.5);
+    check(theme, `fac-${i} ink on fill + conflict tint`, ink, over([255, 59, 48, 0.1], fill), 4.5);
+  }
+}
+// 3. label-4 is disabled / decorative only: every `text-label-4` must sit on an aria-hidden element or behind a
+//    disabled:/placeholder: variant. Files owned by agents that have not migrated yet are listed, not failed.
+const srcRoot = resolve(here, "../../../smartsched/frontend/src");
+const LABEL4_PENDING = new Set(["components/bookings/booking-grid.tsx", "components/admin/features-admin.tsx"]);
+const label4 = [];
+(function walk(dir) {
+  for (const f of readdirSync(dir)) {
+    const p = resolve(dir, f);
+    if (statSync(p).isDirectory()) walk(p);
+    else if (/\.tsx$/.test(f) && !/\.test\.tsx$/.test(f)) {
+      const rel = p.slice(srcRoot.length + 1);
+      readFileSync(p, "utf8").split("\n").forEach((line, n) => {
+        if (!/(?<![\w:-])text-label-4(?![\w-])/.test(line)) return;
+        if (/aria-hidden/.test(line)) return;
+        label4.push({ rel, n: n + 1, pending: LABEL4_PENDING.has(rel) });
+      });
+    }
+  }
+})(srcRoot);
+for (const h of label4) {
+  if (h.pending) console.error(`label-4 (pending owner migration): ${h.rel}:${h.n}`);
+  else {
+    failures++;
+    rows.push({ theme: "-", what: `label-4 used for text at ${h.rel}:${h.n}`, fg: "-", bg: "-", ratio: 0, min: 4.5, ok: false, note: "use label-3" });
+  }
+}
 
 if (process.argv.includes("--json")) {
   console.log(JSON.stringify({ failures, rows }, null, 2));

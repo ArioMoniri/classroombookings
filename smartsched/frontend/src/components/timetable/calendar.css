@@ -1,17 +1,19 @@
 /*
  * Calendar v2 content tokens (docs/design/v2/calendar.md §7, §8.1, §15). Content is opaque; glass is only on
  * chrome (capsules, sidebar, inspector, scrubber, popovers) via the liquid-glass utilities.
- * Faculty fill/ink pairs are the computed values from calendar.md §8.1 (ink ≥ 5.0:1 on its fill).
+ * Faculty fill/ink pairs: ink ≥ 5.0:1 on its fill and ≥ 4.8:1 under the conflict tint, in both themes
+ * (design-system overhaul 2026-10-15; gated by docs/design/v2/verify-contrast.mjs). Line 2 is drawn at full
+ * opacity: the old 0.8 opacity dropped the dark pairs to 3.78:1 at 11 px (review §3, timetable dark).
  */
 :root {
-  --fac-1-bar: #2a78d6; --fac-1-fill: #e1ecf9; --fac-1-ink: #2262af;
-  --fac-2-bar: #eb6834; --fac-2-fill: #fceae3; --fac-2-ink: #a44924;
-  --fac-3-bar: #1baf7a; --fac-3-fill: #dff4ec; --fac-3-ink: #127351;
-  --fac-4-bar: #eda100; --fac-4-fill: #fcf2db; --fac-4-ink: #8c5f00;
-  --fac-5-bar: #e87ba4; --fac-5-fill: #fcedf2; --fac-5-ink: #97506b;
-  --fac-6-bar: #008300; --fac-6-fill: #dbeedb; --fac-6-ink: #007200;
+  --fac-1-bar: #2a78d6; --fac-1-fill: #e1ecf9; --fac-1-ink: #205ca5;
+  --fac-2-bar: #eb6834; --fac-2-fill: #fceae3; --fac-2-ink: #9a4522;
+  --fac-3-bar: #1baf7a; --fac-3-fill: #dff4ec; --fac-3-ink: #116c4c;
+  --fac-4-bar: #eda100; --fac-4-fill: #fcf2db; --fac-4-ink: #845900;
+  --fac-5-bar: #e87ba4; --fac-5-fill: #fcedf2; --fac-5-ink: #8e4b65;
+  --fac-6-bar: #008300; --fac-6-fill: #dbeedb; --fac-6-ink: #006b00;
   --fac-7-bar: #4a3aa7; --fac-7-fill: #e6e3f3; --fac-7-ink: #4a3aa7;
-  --fac-8-bar: #e34948; --fac-8-fill: #fbe6e5; --fac-8-ink: #af3837;
+  --fac-8-bar: #e34948; --fac-8-fill: #fbe6e5; --fac-8-ink: #a53534;
   /* now-line: systemRed for the line, high-contrast red for the capsule (white text 5.38:1) */
   --now: #ff3b30;
   --now-strong: #d70015;
@@ -31,14 +33,14 @@
 }
 
 .dark {
-  --fac-1-bar: #3987e5; --fac-1-fill: #173053; --fac-1-ink: #67a3eb;
-  --fac-2-bar: #d95926; --fac-2-fill: #412422; --fac-2-ink: #e2815a;
-  --fac-3-bar: #199e70; --fac-3-fill: #0f3635; --fac-3-ink: #49b28e;
-  --fac-4-bar: #c98500; --fac-4-fill: #3c3018; --fac-4-ink: #d19726;
-  --fac-5-bar: #d55181; --fac-5-fill: #402239; --fac-5-ink: #e07da0;
-  --fac-6-bar: #008300; --fac-6-fill: #082f18; --fac-6-ink: #52ab52;
-  --fac-7-bar: #9085e9; --fac-7-fill: #2e3054; --fac-7-ink: #a39aed;
-  --fac-8-bar: #e66767; --fac-8-fill: #442832; --fac-8-ink: #ea8282;
+  --fac-1-bar: #3987e5; --fac-1-fill: #173053; --fac-1-ink: #6da7ec;
+  --fac-2-bar: #d95926; --fac-2-fill: #412422; --fac-2-ink: #e5906d;
+  --fac-3-bar: #199e70; --fac-3-fill: #0f3635; --fac-3-ink: #50b593;
+  --fac-4-bar: #c98500; --fac-4-fill: #3c3018; --fac-4-ink: #d6a33f;
+  --fac-5-bar: #d55181; --fac-5-fill: #402239; --fac-5-ink: #e48cab;
+  --fac-6-bar: #008300; --fac-6-fill: #082f18; --fac-6-ink: #59ae59;
+  --fac-7-bar: #9085e9; --fac-7-fill: #2e3054; --fac-7-ink: #aaa2ee;
+  --fac-8-bar: #e66767; --fac-8-fill: #442832; --fac-8-ink: #ec9090;
   --now: #ff453a;
   --now-strong: #ff453a;
   --now-strong-fg: #0b1220;
@@ -103,7 +105,7 @@
   background: linear-gradient(90deg, var(--chip-bar) 0 1px, transparent 1px 2px, var(--chip-bar) 2px 3px);
 }
 .cal-chip .cal-code { font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: -0.003em; }
-.cal-chip .cal-line2 { opacity: 0.8; }
+.cal-chip .cal-line2 { font-weight: 500; }
 .cal-chip[data-editable="true"] { cursor: grab; }
 .cal-chip[data-selected="true"] {
   /* ring in the faculty bar colour with an inner halo (white text fails on most hues, §8.1) */

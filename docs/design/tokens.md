@@ -1,8 +1,117 @@
 # Design tokens — SmartSched admin panel
 
-Owner: design-pro · Status: v1 (2026-10-07) · Consumers: `smartsched/frontend/src/app/globals.css`, every component in `src/components/ui`.
+Owner: design-pro → frontend-engineer (design-system overhaul) · Status: **v3 (2026-10-15)** · Consumers: `smartsched/frontend/src/app/globals.css`, every component in `src/components/ui`.
 
-The admin panel is built on **Next.js 15 + Tailwind 4 + shadcn/ui (Radix) + motion + @dnd-kit** (see `docs/ARCHITECTURE.md` "Frontend"). Tokens are plain CSS custom properties on `:root`, mapped into Tailwind with `@theme inline`, so every component (ours, shadcn, beUI, evilcharts) reads the same variables. Nothing below is brand-specific to a vendor; it is the one system the four surfaces in `docs/design/*.md` share.
+**Read §A first.** §A is the sizing, focus and edge system shipped by the design-system overhaul of
+2026-10-15 (`docs/review/2026-10-15-uiux-visual-review.md`). It is authoritative wherever it disagrees with
+the v1 sections below (§0–§9 are kept as history) or with `v2/liquid-glass.md` §6–§7 (type sizes, radii).
+Material and colour stay in `v2/liquid-glass.md`; motion stays in `v2/motion.md`.
+
+## A. Design-system overhaul (2026-10-15)
+
+### A.1 Focus (P0)
+
+| Token / rule | Value | Use |
+|---|---|---|
+| unlayered `:focus-visible { --tw-outline-style: solid }` | last rule of globals.css, outside every `@layer` | makes any `focus-visible:outline-*` width paint, even after `outline-hidden` |
+| `--focus-ring-width` | 2px | every tab stop |
+| `--focus-ring-offset` | 2px | free-standing controls |
+| `--focus-ring-offset-inset` | -2px | rows, cells and items inside scroll containers / grids (`focus-visible:-outline-offset-2`, utility `focus-ring-inset`) |
+| fields | 2 px outline at offset 0 + 3 px soft halo | Input, Select, NativeSelect, DateField; InputGroup draws it on the group |
+
+`outline-none` is banned in `src/` (gate: `npm run check:design`). Popup containers that are not tab stops
+(menu, dialog, command list) and items with a highlight use `outline-hidden`.
+
+### A.2 Edges and the control border
+
+| Token | Light | Dark | Use |
+|---|---|---|---|
+| `--border-control` | `rgba(20,24,36,.48)` (3.15:1 worst on the card) | `rgba(255,255,255,.34)` (3.07:1 worst) | field / checkbox / switch-off boundary (WCAG 1.4.11) |
+| `--edge-control` / utility `edge-control` | `inset 0 0 0 1px var(--border-control)` | same | every field surface |
+| `--edge-hairline` / `edge-hairline` | `inset 0 0 0 1px var(--hairline)` | same | plain cards, separators around blocks |
+| `--edge-hairline-b`, `--edge-hairline-t` / `edge-hairline-b` | inset 1 px bottom / top | same | rows, headers |
+| `--edge-glass` | `= --glass-edge` (specular + hairline) | same | glass chrome only |
+
+`shadow-[…]` arbitrary strings are allowed only inside `components/ui/**`; screens use `edge-*`,
+`shadow-elev-*` or the glass utilities. `--hairline` is for separators only, never for a control boundary.
+
+### A.3 Radius (`--corner-k`)
+
+Base × `--corner-k`; k = **1** without squircles and **1.25** with `corner-shape: squircle` (Chromium 139+).
+
+| Tailwind | Base | Use |
+|---|---|---|
+| `rounded-xs` | 4 | grid events, keycaps |
+| `rounded-sm` | 6 | menu items, checkboxes |
+| `rounded-md` | 8 | wells, inner rows |
+| `rounded-lg` | 12 | inputs, tooltips, select triggers (rect controls) |
+| `rounded-xl` | 14 | **page cards** (Card default) |
+| `rounded-2xl` | 18 | sidebar, sheets |
+| `rounded-3xl` | 24 | dialogs, bottom sheets, palette |
+| `rounded-4xl` | 24 | deprecated alias of 3xl |
+| `rounded-full` | capsule | pill buttons, chips, segmented controls, switches |
+
+Nesting: inner radius = outer − padding. No card or glass panel exceeds 24 × k (e2e check).
+
+### A.4 Type
+
+Fluid titles (390 → 1440 px viewport) and fixed data sizes. Use the `type-*` utilities, never `text-[Npx]`
+(gate: 0 outside the allow-list). `cn` (tailwind-merge semantics) treats an unknown `text-x` as a colour,
+which is why the scale is `type-*`.
+
+| Utility | Size | Line | Weight |
+|---|---|---|---|
+| `type-large-title` | `clamp(1.75rem, 1.611rem + .571vw, 2.125rem)` (28 → 34) | 1.18 | 700 — every `PageHeader` |
+| `type-title-1` | `clamp(1.375rem, 1.236rem + .571vw, 1.75rem)` (22 → 28) | 1.21 | 700 |
+| `type-title-2` | `clamp(1.125rem, 1.032rem + .381vw, 1.375rem)` (18 → 22) | 1.27 | 650 |
+| `type-title-3` | `clamp(1rem, .954rem + .19vw, 1.125rem)` (16 → 18) | 1.33 | 600 |
+| `type-kpi` | 28 / 32, tabular | — | 650 — KPI numerals (fixed so they align) |
+| `type-headline` / `type-body` | 14 / 20 | — | 600 / 400 |
+| `type-callout` | 13 / 18 | — | 400 — dense UI, table cells |
+| `type-footnote` | 12 / 16 | — | 400 — metadata |
+| `type-caption` | 11 / 14 | — | 500 — axis labels, badges; the floor |
+| `text-2xs` | 10 / 12 | — | week zoom only |
+
+Explicit `font-*` / `leading-*` utilities override the weight / line of a `type-*` (they sort later).
+`tabular-nums` is no longer global (it widened hyphens: "Güz 2026 - 27"); it applies to `td`, `th`, `time`,
+`kbd`, `[data-numeric]`, `[role=gridcell]`, `type-kpi` and the `tnum` utility.
+
+### A.5 Control heights
+
+| Token | Fine pointer | `pointer: coarse` | Used by |
+|---|---|---|---|
+| `--control-h-xs` | 24 | 32 | Button xs, IconButton xs, Chip sm |
+| `--control-h-sm` | 28 | 36 | Button sm, Segmented sm, toolbar fields |
+| `--control-h-md` | 32 | 44 | Button md (default), Input, Select, NativeSelect, DateField, Segmented md |
+| `--control-h-lg` | 40 | 48 | Button lg, mobile primary actions |
+| `--control-h` | = md | = md | fields read this |
+
+Horizontal padding `calc(var(--control-h) * .4375)`; gap 6 (md/lg) / 4 (sm/xs); icon 16 (md/lg) / 14 (sm/xs).
+Nothing in one row mixes heights (Apple A15, Weather scrubber; Arcade H19).
+
+### A.6 Spacing, density, gutters
+
+- 4 px base; steps 2, 4, 6, 8, 12, 16, 20, 24, 32, 40, 48, 64.
+- `--pad-card` 16 / `--pad-card-sm` 12; `--pad-toolbar` 6; `--page-gutter: clamp(16px, 2.2vw, 32px)`.
+- Rows: `--row-h` 44 (standard), 32 under `data-density="compact"`, 56 under `data-density="comfortable"`;
+  cells `--cell-py`/`--cell-px` 8 × 12 (standard), 4 × 8 (compact).
+
+### A.7 Contrast additions (gated by `docs/design/v2/verify-contrast.mjs`)
+
+- `--border-control` against the card ≥ 3:1 in both themes (worst-case composite).
+- Timetable faculty ink (`--fac-1..8-ink`, components/timetable/calendar.css) ≥ 4.5:1 on its fill and under
+  the conflict tint; dark inks were lifted (e.g. aqua `#49b28e → #50b593`, 5.23:1) and chip line 2 lost its
+  0.8 opacity (which made it 3.78:1 at 11 px).
+- `text-label-4` only on `aria-hidden` / `disabled:` / `placeholder:` (source scan in the same script).
+
+### A.8 References (Mobbin, collected in `v2/references.md`; no Mobbin tool in this session)
+
+Linear H4 (32 px rows, view switcher) and H5 (focus ring, left-aligned empty states); Vercel H6 (status = 8 px
+dot + word), H7 (key-value grid), H8 (heterogeneous cards, one hero); Apple Weather A15 and Arcade H19 (small
+segmented with a lit thumb, one height per row); Apple Music A1/A2 (labelled tab bar, chrome material);
+Apple Notes A6/A7 (continuous corners, plain counts); Amie H9 and Notion H12/H13 (calendar chips, today
+marker, timeline row grammar); Things H1 (type does the hierarchy). Airtable grid and Height column menu are
+cited by the review (all-classes.md §5) for the column system.
 
 ## 0. Rules that every surface follows
 
@@ -148,7 +257,7 @@ Diverging (run-vs-run comparison, "better/worse"): `--feasible-solid` ↔ `--sur
 
 ## 3. Typography
 
-Font: **Inter** (variable, `next/font/google`, `display: swap`) for UI; **JetBrains Mono** for course codes, room codes, run ids, and timestamps in tables (`font-variant-numeric: tabular-nums` is set globally on `html` so period times and capacities align without mono).
+Font: **Inter** (variable, `next/font/google`, `display: swap`) for UI; **JetBrains Mono** for course codes, room codes, run ids, and timestamps in tables. (v3: `tabular-nums` is no longer global; see §A.4.)
 
 | Token | Size / line-height | Weight | Use |
 |---|---|---|---|
