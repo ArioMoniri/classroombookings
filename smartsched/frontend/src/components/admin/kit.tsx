@@ -170,7 +170,8 @@ export function LimitInput({ value, onChange, label, id, placeholder }: { value:
       placeholder={placeholder}
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value === "" ? null : Math.max(0, Number(e.target.value)))}
-      className={cn(fieldSurface, "h-8 w-24 px-3 text-[13px] tabular-nums")}
+      // 13ch: "Unlimited" / "Sınırsız" placeholders fit (UI/UX review: "Unlimitec")
+      className={cn(fieldSurface, "h-8 w-[13ch] px-3 text-[13px] tabular-nums")}
     />
   );
 }

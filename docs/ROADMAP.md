@@ -797,3 +797,19 @@ Open:
 - [ ] Onboarding frontend for rows/decisions, dry-run diff, rerun_queued, remembered items, viewer content=false → design-system agent (owns onboarding)
 - [ ] Weekly boards in csv/ods/xls lose fill colours and comments (document as a limitation)
 - [ ] Optionally share importers/detect.py with council shape detection
+
+### Approval-first bookings + user channels + credential-free login (owner request 2026-10-15 22:15)
+Request: every request for an empty slot goes to an admin first; the admin approves or rejects with a reason; the user is notified by e-mail or the other channels they connected. Use a Pipedream-like (preferably open-source) layer, for those connections and for login, so SmartSched never handles the users' credentials.
+- [ ] Backend (running):
+  - org setting bookings.approval_mode = rules | all (institution profile: all; universal: rules = the CRBS default)
+  - approvers and admins book directly
+  - reject requires a reason (code + text)
+  - notify_dispatch with in_app + e-mail channels and per-user preferences
+  - an adapter interface for the external provider
+- [ ] Research (running): an open-source self-hosted Pipedream / Pipedream Connect equivalent for (A) per-user notification channels without SmartSched holding tokens, and (B) SSO login (Google Workspace / Microsoft 365 / IdP) without SmartSched holding passwords. Licence, RAM footprint on the pod, recommendation → docs/product/2026-10-15-integrations-options.md, then an owner decision.
+- [ ] Frontend after the backend lands (shell agent):
+  - the approval-mode setting
+  - reject dialog with a required reason (code + text)
+  - the requester sees the reason in My bookings, the bell and e-mail
+  - Profile › Bildirimler channel preferences
+  - later: "Connect a channel" and an SSO button once the provider is chosen

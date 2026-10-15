@@ -13,6 +13,7 @@ import { Input, useShake } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HttpError } from "@/lib/api/client";
 import { loginWithIdentifier } from "@/lib/api/shell-extra";
+import { applySessionLanguage } from "@/components/bookings/use-booking-format";
 import { useI18n } from "@/lib/i18n/provider";
 import { AuthCard } from "./auth-card";
 
@@ -21,7 +22,7 @@ const schema = z.object({ identifier: z.string().trim().min(2), password: z.stri
 type FormValues = z.infer<typeof schema>;
 
 export function LoginForm() {
-  const { t } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
   const [show, setShow] = useState(false);
@@ -44,6 +45,9 @@ export function LoginForm() {
         router.replace(`/login/change-password?next=${encodeURIComponent(target)}`);
         return;
       }
+      // the profile (or institution) language before the first page, so the UI does not flip TR/EN between
+      // routes later in the session (UI/UX review §3: "one locale source before first paint")
+      if (user) await applySessionLanguage(user.id, locale, setLocale);
       const name = user?.full_name?.split(" ")[0];
       toast.success(name ? t("glass.auth.welcome", { name }) : t("auth.title"));
       // without planning.view there is no dashboard (and the timetable needs planning data too): land on

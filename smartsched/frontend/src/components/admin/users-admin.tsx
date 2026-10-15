@@ -166,7 +166,8 @@ export function UsersAdmin() {
                   <TableCell className="pl-4">
                     <span className="block font-medium text-label-1">{u.displayname || u.full_name || u.username || u.email}</span>
                     <span className="block type-footnote text-label-3">
-                      {u.username ?? u.email}
+                      {/* the e-mail has its own column from md up: show it here only on phones (UI/UX review: e-mail twice) */}
+                      {u.username ?? <span className="md:hidden">{u.email}</span>}
                       {u.auth_source === "ldap" ? " · LDAP" : ""}
                     </span>
                   </TableCell>

@@ -21,6 +21,7 @@ import { MobileTopBar, TopBar } from "./top-bar";
 import { planningRequirement } from "./nav-config";
 import { useGlobalShortcuts } from "./use-global-shortcuts";
 import { useWorkspaceStore, useWorkspaceUser } from "./workspace";
+import { useProfileLanguage } from "@/components/bookings/use-booking-format";
 
 function OfflineBanner() {
   const { t } = useI18n();
@@ -144,6 +145,8 @@ function RouteGuard({ children }: { children: ReactNode }) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useI18n();
+  // the profile language applies on the first page of a session, whichever it is (was: bookings pages only)
+  useProfileLanguage();
   const density = useUiStore((s) => s.density);
   useEffect(() => {
     document.documentElement.dataset.density = density;

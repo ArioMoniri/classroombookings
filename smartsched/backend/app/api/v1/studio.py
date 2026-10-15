@@ -39,6 +39,7 @@ from app.schemas.studio import (
 )
 from app.services import precheck as pc
 from app.services import studio as st
+from app.services import studio_audit
 from app.services import studio_classes as sc
 from app.services import studio_rules as sr
 
@@ -110,7 +111,12 @@ async def put_studio(
                 },
             )
         raise _http(exc) from exc
-    return await st.draft_out(db, draft)
+    out = await st.draft_out(db, draft)
+    changed = body.model_dump(exclude_unset=True, exclude={"version", "kind"})
+    await studio_audit.record(
+        db, "studio.draft.update", "studio_draft", draft.id, user, term_id=term_id, after={"fields": changed}
+    )
+    return out
 
 
 @router.get("/terms/{term_id}/studio/summary")
@@ -173,9 +179,13 @@ async def bulk_edit(body: BulkEditIn, db: DB, user: Planner) -> dict[str, Any]:
     """Edit meeting requests (and their section's enrolment / mode) with per-row validation. Valid rows are
     written (the imported values are snapshotted first), invalid rows are reported and left unchanged."""
     try:
-        return await sc.bulk_edit(db, body, user)
+        out = await sc.bulk_edit(db, body, user)
     except st.StudioError as exc:
         raise _http(exc) from exc
+    await studio_audit.record(
+        db, "studio.meetings.bulk", "meeting_request", None, user, after={"request": body.model_dump(), "result": out}
+    )
+    return out
 
 
 @router.post("/studio/meetings/{mr_id}/revert", response_model=ClassRow)
@@ -184,6 +194,9 @@ async def revert_meeting(mr_id: int, body: RevertIn, db: DB, user: Planner) -> d
         rows = await sc.revert(db, [mr_id], body.fields, user)
     except st.StudioError as exc:
         raise _http(exc) from exc
+    await studio_audit.record(
+        db, "studio.meetings.revert", "meeting_request", mr_id, user, after={"fields": body.fields}
+    )
     return rows[0]
 
 
@@ -191,9 +204,13 @@ async def revert_meeting(mr_id: int, body: RevertIn, db: DB, user: Planner) -> d
 async def revert_meetings(body: BulkRevertIn, db: DB, user: Planner) -> list[dict[str, Any]]:
     """Revert several rows ("Revert all" in the changes sheet)."""
     try:
-        return await sc.revert(db, body.ids, body.fields, user)
+        out = await sc.revert(db, body.ids, body.fields, user)
     except st.StudioError as exc:
         raise _http(exc) from exc
+    await studio_audit.record(
+        db, "studio.meetings.revert", "meeting_request", None, user, after={"ids": body.ids, "fields": body.fields}
+    )
+    return out
 
 
 # --------------------------------------------------------------------------- pre-check
@@ -236,6 +253,15 @@ async def studio_precheck_fix(
         await db.rollback()
         raise _http(exc) from exc
     draft = await _draft(db, term_id, uid, kind)
+    await studio_audit.record(
+        db,
+        "studio.precheck.fix",
+        "studio_draft",
+        draft.id,
+        user,
+        term_id=term_id,
+        after={"item": body.item_id, "option": body.option, "write_through": body.write_through, "applied": applied},
+    )
     return {"applied": applied, "draft": await st.draft_out(db, draft), "precheck": await pc.run_precheck(db, draft)}
 
 
@@ -259,9 +285,20 @@ async def preview_constraint(body: PreviewIn, db: DB, user: Planner) -> dict[str
 @router.post("/studio/constraints/copy", response_model=CopyOut)
 async def copy_constraints(body: CopyIn, db: DB, user: Planner) -> dict[str, Any]:
     try:
-        return await sr.copy_rules(db, body, user)
+        out = await sr.copy_rules(db, body, user)
     except st.StudioError as exc:
         raise _http(exc) from exc
+    if not body.dry_run:
+        after = {
+            "from_term_id": body.from_term_id,
+            "from_run_id": body.from_run_id,
+            "created": out.get("created") or [],
+            "cannot_match": len(out.get("cannot_match") or []),
+        }
+        await studio_audit.record(
+            db, "studio.rules.copy", "constraint", None, user, term_id=body.to_term_id, after=after
+        )
+    return out
 
 
 @router.post("/terms/{term_id}/studio/proposals/accept")
@@ -269,9 +306,11 @@ async def accept_studio_proposals(term_id: int, body: AcceptIn, db: DB, user: Pl
     """``/elicit/accept`` for the studio review tray: same validation, and the upload provenance is stored
     in ``constraints.source_ref`` (column) instead of ``params._source_ref``."""
     try:
-        return await sr.accept(db, term_id, body, user)
+        out = await sr.accept(db, term_id, body, user)
     except st.StudioError as exc:
         raise _http(exc) from exc
+    await studio_audit.record(db, "studio.proposals.accept", "constraint", None, user, term_id=term_id, after=out)
+    return out
 
 
 @router.post("/terms/{term_id}/studio/preferences/mapping")

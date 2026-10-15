@@ -1928,7 +1928,7 @@
       "offline": "Sunucuya ulaşılamıyor. Bağlantıyı kontrol edip tekrar deneyin.",
       "failed": "E-posta, kullanıcı adı veya şifre yanlış.",
       "identifier": "E-posta veya kullanıcı adı",
-      "identifierHint": "E-posta veya kullanıcı adı",
+      "identifierHint": "ad.soyad@uni.edu.tr",
       "showPassword": "Şifreyi göster",
       "hidePassword": "Şifreyi gizle",
       "changeTitle": "Yeni şifre belirleyin",
@@ -3029,6 +3029,7 @@
         "user": "Kullanıcı",
         "system": "Sistem"
       },
+      "verb": {"create": "{entity} eklendi", "update": "{entity} değiştirildi", "delete": "{entity} silindi", "cancel": "{entity} iptal edildi", "move": "{entity} taşındı", "approve": "{entity} onaylandı", "reject": "{entity} reddedildi", "decide": "{entity} karara bağlandı", "undo": "{entity}: değişiklik geri alındı", "activate": "{entity} yayımlandı", "withdraw": "{entity} geri çekildi", "import": "{entity} içe aktarıldı", "policy": "{entity}: politika değişti", "login": "{entity} giriş yaptı", "logout": "{entity} çıkış yaptı", "lock": "{entity} kilitlendi", "unlock": "{entity} kilidi açıldı"},
       "e": {
         "booking": "Rezervasyon",
         "approval_request": "Onay talebi",

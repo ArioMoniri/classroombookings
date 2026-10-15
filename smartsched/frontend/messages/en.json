@@ -1440,7 +1440,7 @@
       "roleMissing": "{role} (missing: {list})",
       "privilegedHint": "This account's role has permissions you do not hold, so you cannot manage it.",
       "privileged": "Beyond your permissions",
-      "count": "{n} users",
+      "count": "{n, plural, one {# user} other {# users}}",
       "import": "Import CSV",
       "new": "New user",
       "search": "Search users",
@@ -1538,7 +1538,7 @@
       "limitsHint": "Empty = unlimited. People can have their own values under Users.",
       "delete": "Delete role",
       "deleteTitle": "Delete {name}?",
-      "deleteBody": "{n} user(s) will have no role (and no permissions) until you give them one; the role's room access entries go too."
+      "deleteBody": "{n, plural, one {# user} other {# users}} will have no role (and no permissions) until you give them one; the role's room access entries go too."
     },
     "perm": {
       "bookingsScope": "Bookings (can also be granted per room)",
@@ -1929,7 +1929,7 @@
       "offline": "The server cannot be reached. Check the connection and try again.",
       "failed": "The e-mail, username or password is wrong.",
       "identifier": "E-mail or username",
-      "identifierHint": "E-mail or username",
+      "identifierHint": "name.surname@uni.edu.tr",
       "showPassword": "Show password",
       "hidePassword": "Hide password",
       "changeTitle": "Choose a new password",
@@ -3030,6 +3030,7 @@
         "user": "User",
         "system": "System"
       },
+      "verb": {"create": "{entity} added", "update": "{entity} changed", "delete": "{entity} deleted", "cancel": "{entity} cancelled", "move": "{entity} moved", "approve": "{entity} approved", "reject": "{entity} rejected", "decide": "{entity} decided", "undo": "{entity}: change undone", "activate": "{entity} published", "withdraw": "{entity} withdrawn", "import": "{entity} imported", "policy": "{entity}: policy changed", "login": "{entity} signed in", "logout": "{entity} signed out", "lock": "{entity} locked", "unlock": "{entity} unlocked"},
       "e": {
         "booking": "Booking",
         "approval_request": "Approval request",

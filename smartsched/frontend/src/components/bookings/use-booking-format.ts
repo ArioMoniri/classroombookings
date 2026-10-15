@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo } from "react";
-import { useBookingContext, useCrbsMe, useOrgI18n, useProfile } from "@/lib/api/crbs";
-import { displayLocale } from "@/lib/i18n";
+import { crbs, useBookingContext, useCrbsMe, useOrgI18n, useProfile } from "@/lib/api/crbs";
+import { displayLocale, type Locale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { dateFormatter, type DateFormatter } from "./date-format";
 
@@ -21,6 +21,21 @@ export function useBookingFormat(): DateFormatter {
 }
 
 const SYNC_KEY = "crbs.profile-language";
+
+/**
+ * At sign-in: the profile language (or the institution default) becomes the session's language before the
+ * first page renders, and the per-session sync below then has nothing left to change. Never throws.
+ */
+export async function applySessionLanguage(userId: number, locale: Locale, setLocale: (l: Locale) => void): Promise<void> {
+  try {
+    const [profile, org] = await Promise.all([crbs.auth.profile(), crbs.org.public().catch(() => null)]);
+    const wanted = displayLocale(profile.language || org?.default_language || null);
+    if (wanted && wanted !== locale) setLocale(wanted);
+    sessionStorage.setItem(SYNC_KEY, String(userId));
+  } catch {
+    /* keep the current language */
+  }
+}
 
 /**
  * CRBS uses the language in the user's profile on every page. Apply it once per sign-in session (a later

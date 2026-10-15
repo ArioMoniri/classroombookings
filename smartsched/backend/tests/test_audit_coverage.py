@@ -141,10 +141,10 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "DELETE /api/v1/org/translations/{tid}": (T, "Translation"),
     "POST /api/v1/org/changelog/seen": (N, "the caller's own preference"),
     # presets, requests
-    "POST /api/v1/presets": (G, "studio presets (importer agent, app/services/studio_rules.py)"),
-    "PUT /api/v1/presets/{preset_id}": (G, "studio presets (importer agent)"),
-    "DELETE /api/v1/presets/{preset_id}": (G, "studio presets (importer agent)"),
-    "POST /api/v1/presets/{preset_id}/apply": (G, "studio presets: creates term rules (importer agent)"),
+    "POST /api/v1/presets": (E, "app.api.v1.presets"),
+    "PUT /api/v1/presets/{preset_id}": (E, "app.api.v1.presets"),
+    "DELETE /api/v1/presets/{preset_id}": (E, "app.api.v1.presets"),
+    "POST /api/v1/presets/{preset_id}/apply": (E, "app.api.v1.presets"),
     "PUT /api/v1/requests/meetings/{mr_id}": (E, "app.api.v1.requests"),
     "POST /api/v1/requests/meetings/{mr_id}/check-room": (N, "read-only check"),
     "PUT /api/v1/requests/exams/{ex_id}": (E, "app.api.v1.requests"),
@@ -210,11 +210,11 @@ DECISIONS: dict[str, tuple[str, str]] = {
     # settings, studio (importer agent), terms
     "PUT /api/v1/settings": (T, "Setting (secrets redacted)"),
     "POST /api/v1/settings/test-ai": (N, "probe"),
-    "PUT /api/v1/studio/meetings/bulk": (G, "studio class edits (importer agent, app/services/studio*.py)"),
-    "POST /api/v1/studio/meetings/{mr_id}/revert": (G, "studio class edits (importer agent)"),
-    "POST /api/v1/studio/meetings/revert": (G, "studio class edits (importer agent)"),
+    "PUT /api/v1/studio/meetings/bulk": (E, "app.api.v1.studio"),
+    "POST /api/v1/studio/meetings/{mr_id}/revert": (E, "app.api.v1.studio"),
+    "POST /api/v1/studio/meetings/revert": (E, "app.api.v1.studio"),
     "POST /api/v1/studio/constraints/preview": (N, "dry run"),
-    "POST /api/v1/studio/constraints/copy": (G, "studio copy-from-term creates term rules (importer agent)"),
+    "POST /api/v1/studio/constraints/copy": (E, "app.api.v1.studio"),
     "POST /api/v1/terms": (T, "Term"),
     "PUT /api/v1/terms/{term_id}": (T, "Term"),
     "DELETE /api/v1/terms/{term_id}": (T, "Term"),
@@ -223,11 +223,14 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/terms/{term_id}/elicit/accept": (J, "ai_proposal_decisions + constraints.source_ref (AI agent)"),
     "POST /api/v1/terms/{term_id}/preferences/upload": (N, "AI proposals, nothing written"),
     "PUT /api/v1/ai/policy": (E, "app.ai.policy"),
-    "PUT /api/v1/terms/{term_id}/studio": (G, "studio draft (importer agent)"),
+    "PUT /api/v1/terms/{term_id}/studio": (E, "app.api.v1.studio"),
     "POST /api/v1/terms/{term_id}/studio/precheck": (N, "computes the pre-check"),
-    "POST /api/v1/terms/{term_id}/studio/precheck/fix": (G, "studio fix buttons (importer agent)"),
-    "POST /api/v1/terms/{term_id}/studio/proposals/accept": (G, "studio rule tray (importer agent)"),
-    "POST /api/v1/terms/{term_id}/studio/preferences/mapping": (G, "studio preference mapping (importer agent)"),
+    "POST /api/v1/terms/{term_id}/studio/precheck/fix": (E, "app.api.v1.studio"),
+    "POST /api/v1/terms/{term_id}/studio/proposals/accept": (E, "app.api.v1.studio"),
+    "POST /api/v1/terms/{term_id}/studio/preferences/mapping": (
+        N,
+        "returns proposals only; they are written (and audited) by proposals/accept",
+    ),
     "POST /api/v1/terms/{term_id}/studio/generate": (J, "schedule_runs"),
     # users
     "POST /api/v1/users": (T, "User"),
@@ -250,7 +253,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)
-GAP_CEILING = 13
+GAP_CEILING = 0  # studio / presets closed 2026-10-15 (studio_audit)
 
 
 def mutating_routes() -> set[str]:

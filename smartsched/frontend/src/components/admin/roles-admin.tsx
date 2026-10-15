@@ -289,12 +289,10 @@ export function PermissionMatrix({
               <legend className="mb-2 type-headline text-label-1">{GROUP_KEYS[group] ? t(GROUP_KEYS[group]!) : group}</legend>
               <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
                 {items.map((p) => (
-                  <label key={p.name} className={cn("flex items-start gap-2 type-callout text-label-1", off(p.name) && "text-label-3")} title={why(p.name)} data-not-held={why(p.name) ? "true" : undefined}>
+                  <label key={p.name} className={cn("flex items-start gap-2 type-callout text-label-1", off(p.name) && "text-label-3")} title={why(p.name) ?? p.name} data-not-held={why(p.name) ? "true" : undefined} data-permission={p.name}>
                     <Checkbox className="mt-0.5" checked={value.has(p.name)} disabled={off(p.name)} onCheckedChange={(v) => onToggle(p.name, v === true)} />
-                    <span>
-                      {permLabel(t, p.name, p.description)}
-                      <span className="block font-mono type-caption text-label-3">{p.name}</span>
-                    </span>
+                    {/* the API key is in the tooltip, not under every label (UI/UX review §3) */}
+                    <span>{permLabel(t, p.name, p.description)}</span>
                   </label>
                 ))}
               </div>

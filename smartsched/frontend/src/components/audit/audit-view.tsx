@@ -180,6 +180,15 @@ const ENTITY_KEYS: Record<string, MessageKey> = {
   user_constraints: "wave1.audit.e.user_constraints",
 };
 
+const VERBS = ["create", "update", "delete", "cancel", "move", "approve", "reject", "decide", "undo", "activate", "withdraw", "import", "policy", "login", "logout", "lock", "unlock"] as const;
+
+/** "room_feature.create" → "Derslik özelliği eklendi"; an unknown verb keeps the entity name and the raw verb. */
+export function auditSentence(action: string, entityType: string, t: ReturnType<typeof useI18n>["t"]): string {
+  const verb = action.split(".").pop() ?? action;
+  const entity = entityLabel(entityType, t);
+  return (VERBS as readonly string[]).includes(verb) ? t(`wave1.audit.verb.${verb}` as MessageKey, { entity }) : `${entity} · ${action}`;
+}
+
 function entityLabel(type: string, t: ReturnType<typeof useI18n>["t"]): string {
   const key = ENTITY_KEYS[type];
   return key ? t(key) : type;
@@ -205,11 +214,9 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
           <ChevronDown className={cn("size-4 shrink-0 text-label-3 transition-transform duration-(--dur-fast)", open && "rotate-180")} aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-baseline gap-x-2">
-              <code className="type-callout font-semibold text-label-1">{e.action}</code>
-              <span className="type-footnote text-label-2">
-                {entityLabel(e.entity_type, t)}
-                {e.entity_id ? ` #${e.entity_id}` : ""}
-              </span>
+              {/* UI/UX review §3: a domain sentence ("Derslik özelliği eklendi · #2"), the raw key in the details */}
+              <span className="type-callout font-semibold text-label-1">{auditSentence(e.action, e.entity_type, t)}</span>
+              <span className="type-footnote text-label-2 tabular-nums">{e.entity_id ? `#${e.entity_id}` : ""}</span>
               {e.undone ? <span className="type-caption font-medium text-label-3">{t("wave1.audit.undone")}</span> : null}
               {e.undo_of ? <span className="type-caption font-medium text-label-3">{t("wave1.audit.undoOf", { id: e.undo_of })}</span> : null}
             </span>
@@ -228,6 +235,9 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
       </div>
       {open ? (
         <div id={panel} className="px-4 pb-3">
+          <p className="mb-2 font-mono type-caption text-label-3" data-testid={`audit-action-${e.id}`}>
+            {e.action}
+          </p>
           {rows.length === 0 ? (
             <p className="type-footnote text-label-2">{t("wave1.audit.noDiff")}</p>
           ) : (

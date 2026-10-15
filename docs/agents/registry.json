@@ -1077,6 +1077,38 @@
       "status": "finished",
       "finished_at": "2026-10-15 22:09",
       "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a854adf0ddf48e189",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 22:16",
+      "left_off": "deploy to pod when green and send me the panel url"
+    },
+    {
+      "id": "a2a0d3139d07ea7a6",
+      "description": "Approval-first booking + required reasons",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 22:21",
+      "scope": "smartsched/backend/app/services/{approvals,bookings,bookings_settings,bookings_notify,events}.py, app/api/v1/{approvals,bookings,booking_admin}.py, app/schemas related to those, the matching tests, one migration if needed (on the current single head; `git pull` first and check `alembic heads` == 1), and ticking docs/ROADMAP.md. No frontend. GOAL: owner requirement, verbatim: \"when someone sends a …",
+      "goal": "owner requirement, verbatim: \"when someone sends a req for reservation of empty slot it shows first to admin and they approve or not and put reasons why they didnt and these get notified to users by the email or other connections they added\". Build on the existing approvals engine (P1: designated approvers, PENDING state, approvals inbox, group decide, approvals sweeper) and the mail queue (outbox…",
+      "ledger": "approval-first-bookings-2026-10-15 SCOPE: smartsched/backend/app/services/{appro…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a575a3524dc098b21",
+      "description": "Research open-source Pipedream-like options",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-15 22:21",
+      "scope": "write only docs/product/2026-10-15-integrations-options.md. No code changes. GOAL: the owner wants this, verbatim: \"when someone sends a req for reservation of empty slot it shows first to admin and they approve or not and put reasons why they didnt and these get notified to users by the email or other connections they added also for this part or for the login via section add pipedream like maybe …",
+      "goal": "the owner wants this, verbatim: \"when someone sends a req for reservation of empty slot it shows first to admin and they approve or not and put reasons why they didnt and these get notified to users by the email or other connections they added also for this part or for the login via section add pipedream like maybe opensource version of it to not to deal with their crederntials\". We need a self-ho…",
+      "ledger": "integrations-research-2026-10-15 SCOPE: write only docs/product/2026-10-15-integ…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
