@@ -130,7 +130,13 @@ def test_only_turkish_and_english_are_offered_and_legacy_codes_read_as_english()
     assert i18n.format_pattern(time(9, 5), "HH:mm", "fi") == "09:05"
 
 
-async def _store_legacy(*, languages: list[str] | None = None, default: str | None = None, user_email: str | None = None, user_lang: str | None = None) -> None:
+async def _store_legacy(
+    *,
+    languages: list[str] | None = None,
+    default: str | None = None,
+    user_email: str | None = None,
+    user_lang: str | None = None,
+) -> None:
     """Write legacy values straight into the database, as an older SmartSched or a CRBS import left them."""
     from app.core import db as dbmod
     from app.models import User
@@ -166,7 +172,9 @@ async def test_new_writes_accept_only_tr_and_en_and_stored_legacy_values_are_kep
         "/api/v1/org/translations", json=[{"language": "de", "set": "crbs", "key": "a", "text": "b"}], headers=env.admin
     )
     assert bad.status_code == 422
-    ok = await c.put("/api/v1/org/settings", json={"languages": ["TR", "English"], "default_language": "en"}, headers=env.admin)
+    ok = await c.put(
+        "/api/v1/org/settings", json={"languages": ["TR", "English"], "default_language": "en"}, headers=env.admin
+    )
     assert ok.status_code == 200, ok.text
     assert (await c.put("/api/v1/auth/profile", json={"language": "EN"}, headers=env.admin)).json()["language"] == "en"
 
@@ -197,10 +205,15 @@ async def test_a_user_stored_as_german_keeps_the_code_and_gets_english_emails(en
     English dates; the Turkish teacher keeps Turkish."""
     c = env.client
     await _store_legacy(languages=["tr", "en", "de"])
-    r = await c.put("/api/v1/org/settings", json={"pattern_long": "EEEE d MMMM yyyy", "pattern_time": "HH:mm"}, headers=env.admin)
+    r = await c.put(
+        "/api/v1/org/settings", json={"pattern_long": "EEEE d MMMM yyyy", "pattern_time": "HH:mm"}, headers=env.admin
+    )
     assert r.status_code == 200, r.text
     sent: dict[str, dict[str, str]] = {}
-    for lang, email, day in (("de", "dil.almanca@uni.edu.tr", date(2026, 2, 17)), ("tr", "dil.turkce@uni.edu.tr", date(2026, 3, 3))):
+    for lang, email, day in (
+        ("de", "dil.almanca@uni.edu.tr", date(2026, 2, 17)),
+        ("tr", "dil.turkce@uni.edu.tr", date(2026, 3, 3)),
+    ):
         uid, headers = await env.user(email, displayname=f"Öğretmen {lang}")
         if lang == "de":
             await _store_legacy(user_email=email, user_lang="de")

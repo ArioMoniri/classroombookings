@@ -37,7 +37,9 @@ async def test_own_pending_request_is_shown_and_not_sent_twice(env):  # noqa: F8
         approves_for=[{"type": "tag", "tag": "tip"}],
     )
     r = await c.post(
-        "/api/v1/approval-rules", json={"name": "TIP derslikleri", "entity_type": "tag", "tag": "TIP"}, headers=env.admin
+        "/api/v1/approval-rules",
+        json={"name": "TIP derslikleri", "entity_type": "tag", "tag": "TIP"},
+        headers=env.admin,
     )
     assert r.status_code == 201, r.text
     _, ayse = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
