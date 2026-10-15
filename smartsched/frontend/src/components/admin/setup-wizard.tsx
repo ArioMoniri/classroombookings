@@ -53,9 +53,11 @@ export function SetupWizard() {
     );
   }
 
-  const fail = (msg: string) => {
+  /** the reason, and focus on the field to fix (admin persona M-39: focus stayed on the button) */
+  const fail = (msg: string, field?: string) => {
     setError(msg);
     shake();
+    if (field) requestAnimationFrame(() => document.getElementById(field)?.focus());
   };
   return (
     <PublicCard title={t("crbs.setup.title")} lead={t("crbs.setup.lead")} wide>
@@ -99,7 +101,7 @@ export function SetupWizard() {
             <Field label={t("crbs.users.displayname")} htmlFor="su-display" className="sm:col-span-2">
               <Input id="su-display" value={admin.display} onChange={(e) => setAdmin((a) => ({ ...a, display: e.target.value }))} />
             </Field>
-            <Field label={t("crbs.users.password")} htmlFor="su-pw" hint={t("crbs.users.passwordHint")}>
+            <Field label={t("crbs.users.password")} htmlFor="su-pw" hint={t("crbs.setup.passwordHint")}>
               <Input id="su-pw" type="password" autoComplete="new-password" value={admin.password} onChange={(e) => setAdmin((a) => ({ ...a, password: e.target.value }))} />
             </Field>
             <Field label={t("crbs.reset.again")} htmlFor="su-pw2">
@@ -126,7 +128,7 @@ export function SetupWizard() {
             {t("crbs.setup.next")}
           </Button>
         ) : step === 1 ? (
-          <Button onClick={() => (org.name.trim() ? (setError(null), setStep(2)) : fail(t("crbs.setup.needOrg")))}>{t("crbs.setup.next")}</Button>
+          <Button onClick={() => (org.name.trim() ? (setError(null), setStep(2)) : fail(t("crbs.setup.needOrg"), "su-org"))}>{t("crbs.setup.next")}</Button>
         ) : done ? (
           <Button nativeButton={false} render={<Link href="/login?next=/admin" />}>
             {t("crbs.setup.toLogin")}
@@ -135,9 +137,9 @@ export function SetupWizard() {
           <Button
             disabled={m.isPending}
             onClick={() => {
-              if (!admin.email.includes("@")) return fail(t("crbs.setup.needEmail"));
-              if (admin.password.length < 8) return fail(t("crbs.reset.tooShort"));
-              if (admin.password !== admin.again) return fail(t("crbs.reset.mismatch"));
+              if (!admin.email.includes("@")) return fail(t("crbs.setup.needEmail"), "su-email");
+              if (admin.password.length < 8) return fail(t("crbs.reset.tooShort"), "su-pw");
+              if (admin.password !== admin.again) return fail(t("crbs.reset.mismatch"), "su-pw2");
               setError(null);
               m.mutate(undefined, {
                 onSuccess: () => (setDone(true), setStep(3)),
