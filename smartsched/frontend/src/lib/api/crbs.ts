@@ -256,6 +256,8 @@ export interface SingleBookingIn {
   user_id?: number | null;
   department_id?: number | null;
   term_id?: number | null;
+  /** A-24: book although the shown week has no published timetable (the grid's `timetable_state`) */
+  confirm_unpublished?: boolean;
 }
 
 export type InstanceAction = "book" | "do_not_book" | "replace";
@@ -294,6 +296,7 @@ export interface RecurringIn {
   department_id?: number | null;
   term_id?: number | null;
   instances?: { date: string; action: InstanceAction }[];
+  confirm_unpublished?: boolean;
 }
 
 export const RecurCreated = z.object({
@@ -919,10 +922,10 @@ export const crbs = {
       send("POST", "/bookings/multi", { slots, term_id: termId ?? null }, Selection),
     selection: (id: number) => json(`/bookings/multi/${id}`, Selection),
     dropSelection: (id: number) => send("DELETE", `/bookings/multi/${id}`),
-    multiDryRun: (id: number, type: "single" | "recurring", slots: MultiSlotChoice[]) =>
-      send("POST", `/bookings/multi/${id}/create`, { type, slots, dry_run: true }, z.record(z.string(), z.unknown())),
-    multiCreate: (id: number, type: "single" | "recurring", slots: MultiSlotChoice[]) =>
-      send("POST", `/bookings/multi/${id}/create`, { type, slots, dry_run: false }, z.record(z.string(), z.unknown())),
+    multiDryRun: (id: number, type: "single" | "recurring", slots: MultiSlotChoice[], confirmUnpublished = false) =>
+      send("POST", `/bookings/multi/${id}/create`, { type, slots, dry_run: true, ...(confirmUnpublished ? { confirm_unpublished: true } : {}) }, z.record(z.string(), z.unknown())),
+    multiCreate: (id: number, type: "single" | "recurring", slots: MultiSlotChoice[], confirmUnpublished = false) =>
+      send("POST", `/bookings/multi/${id}/create`, { type, slots, dry_run: false, ...(confirmUnpublished ? { confirm_unpublished: true } : {}) }, z.record(z.string(), z.unknown())),
     get: (id: number) => json(`/bookings/${id}`, BookingDetail),
     series: (id: number) => json(`/bookings/${id}/series`, z.array(BookingOut)),
     update: (id: number, scope: Scope, body: Partial<Pick<SingleBookingIn, "date" | "period_id" | "room_id" | "notes" | "user_id" | "department_id">>) =>

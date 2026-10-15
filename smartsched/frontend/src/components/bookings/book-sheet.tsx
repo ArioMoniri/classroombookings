@@ -14,6 +14,7 @@
  * backend answers 202 with `status: PENDING`; the toast says it went to the approvers.
  */
 import { CalendarCheck, DoorOpen, Loader2, Repeat, Stamp } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useReducer, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,7 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
   const departments = useDepartments(canDept);
   const users = useBookingUsers(canUser);
   const [error, setError] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<number | null>(null);
   const { ref: shakeRef, shake } = useShake<HTMLDivElement>();
 
   const [startMode, setStartMode] = useState<StartMode>("date");
@@ -118,11 +120,16 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
 
   const roomName = (id: number) => grid.rooms.find((r) => r.id === id)?.name;
   const explain = (e: unknown) => {
-    setError(bookingErrorMessage(crbsError(e), t, { roomName, formatDate: fmt.short, locale }));
+    const err = crbsError(e);
+    // U-06: an identical open request exists; link to it instead of a second one
+    setDuplicate(err.code === "duplicate_request" ? (Number(err.data.request_id) || null) : null);
+    setError(err.code === "duplicate_request" ? t("reserve.book.duplicate") : bookingErrorMessage(err, t, { roomName, formatDate: fmt.short, locale }));
     shake();
   };
 
   const extras = () => ({
+    // A-24: the second press after the "no published timetable" warning books with the backend's confirmation
+    ...(noTimetable && ackTimetable ? { confirm_unpublished: true } : {}),
     notes: notes.trim() || null,
     ...(canDept && dept !== "" ? { department_id: dept === "none" ? null : Number(dept) } : {}),
     ...(canUser && user !== "" ? { user_id: user === "none" ? null : Number(user) } : {}),
@@ -156,7 +163,7 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
         : {}),
     }));
     try {
-      return await crbs.bookings.multiCreate(sel.id, kind, choices);
+      return await crbs.bookings.multiCreate(sel.id, kind, choices, noTimetable && ackTimetable);
     } catch (e) {
       void crbs.bookings.dropSelection(sel.id).catch(() => undefined);
       throw e;
@@ -403,6 +410,14 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
         {error ? (
           <Alert tone="error" testId="book-error">
             {error}
+            {duplicate ? (
+              <>
+                {" "}
+                <Link href={`/my-bookings?request=${duplicate}`} className="font-medium text-tint-text underline-offset-4 hover:underline" data-testid="book-duplicate-link">
+                  {t("reserve.book.duplicateOpen")}
+                </Link>
+              </>
+            ) : null}
           </Alert>
         ) : null}
       </div>

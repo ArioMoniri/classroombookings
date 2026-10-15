@@ -251,6 +251,46 @@ function SolverForm({ initial }: { initial: Settings }) {
   );
 }
 
+/** Review D16: the CRBS database servers a live-DSN upgrade may connect to (empty = SQL dumps only). */
+function ImportCard() {
+  const settings = useSettings();
+  if (!settings.data) return null;
+  return <ImportForm key={settings.dataUpdatedAt} initial={settings.data.crbs_dsn_allowed_hosts} />;
+}
+
+function ImportForm({ initial }: { initial: string }) {
+  const { t } = useI18n();
+  const update = useUpdateSettings();
+  const [hosts, setHosts] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setError(null);
+    try {
+      await update.mutateAsync({ crbs_dsn_allowed_hosts: hosts.trim() });
+      toast.success(t("settings.saved"));
+    } catch (e) {
+      setError(e instanceof HttpError && e.status === 422 ? e.message : t("settings.importHosts.failed"));
+    }
+  };
+  return (
+    <Card data-testid="settings-import">
+      <CardHeader>
+        <CardTitle>{t("settings.importHosts.title")}</CardTitle>
+        <CardDescription>{t("settings.importHosts.lead")}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid gap-1 sm:max-w-md">
+          <Label htmlFor="crbs-hosts">{t("settings.importHosts.label")}</Label>
+          <Input id="crbs-hosts" value={hosts} onChange={(e) => setHosts(e.target.value)} placeholder="db.uni.edu.tr, 10.0.4.12:3306" autoComplete="off" spellCheck={false} className="font-mono" aria-describedby="crbs-hosts-hint" data-testid="crbs-hosts" />
+          <p id="crbs-hosts-hint" className="text-[12px] text-label-3">{hosts.trim() ? t("settings.importHosts.hint") : t("settings.importHosts.empty")}</p>
+        </div>
+        {error ? <p role="alert" className="text-[12.5px] text-status-infeasible-fg">{error}</p> : null}
+        <Button size="sm" onClick={() => void save()} disabled={update.isPending || hosts.trim() === initial.trim()} data-testid="save-crbs-hosts">{t("common.save")}</Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function GeneralCard() {
   const { t } = useI18n();
   return (
@@ -294,6 +334,7 @@ export function SettingsView() {
     { value: "appearance", label: t("glass.settings.appearance"), show: true },
     { value: "ai", label: t("settings.ai"), show: admin },
     { value: "solver", label: t("settings.solver"), show: admin },
+    { value: "import", label: t("settings.importHosts.tab"), show: admin },
     { value: "users", label: t("settings.users"), show: can("setup.users") },
   ].filter((x) => x.show);
   const requested = params.get("tab") ?? (admin ? "ai" : "appearance");
@@ -311,6 +352,7 @@ export function SettingsView() {
         <TabsContent value="appearance"><AppearanceCard /></TabsContent>
         {admin ? <TabsContent value="ai"><AiCard /></TabsContent> : null}
         {admin ? <TabsContent value="solver"><SolverCard /></TabsContent> : null}
+        {admin ? <TabsContent value="import"><ImportCard /></TabsContent> : null}
       </Tabs>
     </div>
   );

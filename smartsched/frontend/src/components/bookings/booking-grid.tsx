@@ -52,6 +52,7 @@ const REASON_ICON: Record<string, typeof User> = {
   range_min: History,
   range_max: CalendarClock,
   date_range: CalendarX,
+  past: History,
 };
 
 /** The cell glyph: a check when selected, else per tone, and per reason for unavailable cells. */
@@ -74,6 +75,7 @@ const REASON_KEYS: Record<string, MessageKey> = {
   timetable: "crbs.slot.reason.timetable",
   block: "crbs.slot.reason.block",
   schedule: "reserve.reason.schedule",
+  past: "crbs.slot.reason.past",
 };
 
 export function reasonKey(reason: string | null | undefined): MessageKey {

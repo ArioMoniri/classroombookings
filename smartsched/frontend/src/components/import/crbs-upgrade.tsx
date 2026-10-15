@@ -14,6 +14,7 @@
  * The endpoint needs `planning.admin`; other planners see why the flow is closed instead of a 403.
  */
 import { AlertTriangle, Database, FileCode2, ShieldAlert } from "lucide-react";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -293,7 +294,12 @@ export function CrbsUpgrade({ onStep, onBack }: { onStep: (s: FlowStep) => void;
               {t("import.dsn")}
             </Label>
             <Input id="crbs-dsn" placeholder="mysql://user:pass@host:3306/crbs" value={dsn} onChange={(e) => setDsn(e.target.value)} autoComplete="off" spellCheck={false} className="font-mono" data-testid="crbs-upgrade-dsn" />
-            <p className="text-[12px] text-label-3">{t("importFlows.crbs.dsnHint")}</p>
+            <p className="text-[12px] text-label-3">
+              {t("importFlows.crbs.dsnHint")}{" "}
+              <Link href="/settings?tab=import" className="font-medium text-tint-text underline-offset-4 hover:underline">
+                {t("importFlows.crbs.dsnSettings")}
+              </Link>
+            </p>
           </div>
         )}
         {ErrorLine}

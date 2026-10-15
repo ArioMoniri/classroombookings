@@ -123,6 +123,7 @@
       "drop": "SQL döküm dosyalarını buraya bırakın ya da seçmek için tıklayın",
       "dropHint": "mysqldump çıktısı ya da CRBS kurulum betikleri (structure.sql, data.sql) · .sql",
       "dsnHint": "Salt okunur bağlantı. Yalnızca bir yöneticinin crbs_dsn_allowed_hosts ayarına yazdığı sunucular kabul edilir.",
+      "dsnSettings": "İzin verilen sunucuları düzenle",
       "dryRun": "Deneme çalıştırması",
       "reading": "Veritabanı okunuyor…",
       "diffTitle": "Yükseltmenin değiştirdikleri",
@@ -244,6 +245,7 @@
     "timeLimit": "Varsayılan süre sınırı (sn)", "workers": "İş parçacığı", "seed": "Tohum", "weights": "Varsayılan yumuşak ağırlıklar",
     "saved": "Ayarlar kaydedildi", "email": "E-posta", "role": "Rol", "active": "Etkin", "inactive": "Pasif",
     "addUser": "Kullanıcı ekle", "name": "Ad", "language": "Dil", "theme": "Tema", "replaceKey": "Anahtarı değiştir", "cancelReplace": "Mevcut anahtarı koru",
+    "importHosts": {"tab": "İçe aktarma", "title": "Canlı classroombookings veritabanları", "lead": "classroombookings'ten yükseltme SQL dökümlerini okur. Canlı bir MySQL bağlantısına yalnızca burada listelenen sunuculara (salt okunur) izin verilir.", "label": "İzin verilen veritabanı sunucuları", "hint": "Virgülle ayrılmış sunucu adları ya da IP adresleri, isteğe bağlı :port (yazılmazsa 3306). Joker karakter yok.", "empty": "Boş: canlı veritabanına izin yok; yükseltmeler yalnızca SQL dökümüyle yapılır.", "failed": "Liste kaydedilemedi."},
     "aiPolicy": {
       "title": "Yapay zekâ politikası (KVKK)",
       "lead": "Yüklenen dosyaların kural bulmak için Claude API'ye (Anthropic, yurt dışı) gönderilip gönderilemeyeceği. İki anahtar da bir yönetici KVKK sorumlusunun onayıyla açana kadar kapalıdır. Sohbete yazdığınız metin bundan etkilenmez.",
@@ -1001,6 +1003,7 @@
         "period": "Bu ders saati bu gün yok",
         "limit": "Rezervasyon sınırınıza ulaştınız",
         "permissions": "Bu salonu rezerve etme izniniz yok",
+        "past": "Bu ders saati başladı",
         "range_min": "Çok yakın: rezervasyonun daha önceden yapılması gerekiyor",
         "range_max": "Rezervasyon aralığınızın dışında, çok ileri bir tarih",
         "date_range": "Dönem dışında",
@@ -2401,6 +2404,8 @@
       "period": "Ders saati",
       "submitN": "{n} ders saatini rezerve et",
       "doneN": "{room}, {date}: {n} ders saati rezerve edildi",
+      "duplicate": "Bu talep zaten var ve onay bekliyor.",
+      "duplicateOpen": "Talebi aç",
       "spanRecurring": "Her ders saati {date} tarihine kadar haftalık seri olur. Dolu tarihler ve tatiller atlanır.",
       "otherRooms": "Diğer boş derslikler"
     },

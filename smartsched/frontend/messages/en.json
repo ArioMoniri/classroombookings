@@ -124,6 +124,7 @@
       "drop": "Drop the SQL dump files here or click to browse",
       "dropHint": "mysqldump output or the CRBS install scripts (structure.sql, data.sql) · .sql",
       "dsnHint": "Read-only connection. Only hosts an administrator listed in the crbs_dsn_allowed_hosts setting are accepted.",
+      "dsnSettings": "Edit the allowed servers",
       "dryRun": "Dry run",
       "reading": "Reading the database…",
       "diffTitle": "What the upgrade changes",
@@ -245,6 +246,7 @@
     "timeLimit": "Default time limit (s)", "workers": "Workers", "seed": "Seed", "weights": "Default soft weights",
     "saved": "Settings saved", "email": "E-mail", "role": "Role", "active": "Active", "inactive": "Inactive",
     "addUser": "Add user", "name": "Name", "language": "Language", "theme": "Theme", "replaceKey": "Replace key", "cancelReplace": "Keep current key",
+    "importHosts": {"tab": "Import", "title": "Live classroombookings databases", "lead": "The upgrade from classroombookings reads SQL dumps. A live MySQL connection is only allowed to the servers listed here (read-only).", "label": "Allowed database servers", "hint": "Comma separated host names or IP addresses, with an optional :port (3306 when omitted). No wildcards.", "empty": "Empty: no live database is allowed; upgrades use SQL dumps only.", "failed": "The list could not be saved."},
     "aiPolicy": {
       "title": "AI policy (KVKK)",
       "lead": "Whether uploaded files may be sent to the Claude API (Anthropic, outside Türkiye) to find rules. Both switches are off until an administrator turns them on with the KVKK officer's sign-off. Text you type in chat is not affected.",
@@ -1002,6 +1004,7 @@
         "period": "This period does not run on this day",
         "limit": "You have reached your booking limit",
         "permissions": "You may not book this room",
+        "past": "This period has already started",
         "range_min": "Too soon: bookings need more notice",
         "range_max": "Too far ahead for your booking window",
         "date_range": "Outside the session",
@@ -2402,6 +2405,8 @@
       "period": "Period",
       "submitN": "Reserve {n} periods",
       "doneN": "Reserved {room}, {date}: {n} periods",
+      "duplicate": "This request already exists and is waiting for approval.",
+      "duplicateOpen": "Open the request",
       "spanRecurring": "Each period becomes a weekly series until {date}. Taken dates and holidays are skipped.",
       "otherRooms": "Other available rooms"
     },

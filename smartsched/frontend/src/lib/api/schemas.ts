@@ -467,6 +467,8 @@ export const Settings = z.object({
   default_weights: z.record(z.string(), z.number()),
   /** KVKK opt-in: the Ingestion Council may send file content to Claude (backend `council_ai_enabled`) */
   council_ai_enabled: z.boolean().default(false),
+  /** review D16: hosts (and ports) a live CRBS MySQL DSN may name; empty = no live DSN (crbs_dsn.py) */
+  crbs_dsn_allowed_hosts: z.string().default(""),
 });
 export type Settings = z.infer<typeof Settings>;
 
@@ -478,6 +480,7 @@ export const SettingsUpdate = z.object({
   solver_default_seed: z.number().optional(),
   default_weights: z.record(z.string(), z.number()).optional(),
   council_ai_enabled: z.boolean().optional(),
+  crbs_dsn_allowed_hosts: z.string().optional(),
 });
 export type SettingsUpdate = z.infer<typeof SettingsUpdate>;
 

@@ -351,6 +351,7 @@ export function settings(v: unknown): unknown {
     solver_default_seed: num(v.solver_default_seed, 0),
     default_weights: Object.keys(parseWeights(v.default_weights)).length ? parseWeights(v.default_weights) : parseWeights(v.solver_weights),
     council_ai_enabled: v.council_ai_enabled === true,
+    crbs_dsn_allowed_hosts: str(v.crbs_dsn_allowed_hosts) ?? "",
   };
 }
 
@@ -361,6 +362,7 @@ export function settingsUpdateBody(body: Rec): Rec {
   if (body.anthropic_api_key !== undefined) out.anthropic_api_key = body.anthropic_api_key;
   if (body.anthropic_model !== undefined) out.anthropic_model = body.anthropic_model;
   if (body.council_ai_enabled !== undefined) out.council_ai_enabled = body.council_ai_enabled;
+  if (body.crbs_dsn_allowed_hosts !== undefined) out.crbs_dsn_allowed_hosts = body.crbs_dsn_allowed_hosts;
   if (body.solver_default_time_limit !== undefined) out.solver_default_time_limit = body.solver_default_time_limit;
   if (body.solver_default_workers !== undefined) out.solver_workers = body.solver_default_workers;
   if (body.default_weights !== undefined) out.solver_weights = body.default_weights;
