@@ -59,6 +59,7 @@ from app.models.integrations import (
 )
 from app.models.learning import LearnedObservation, LearnedPrior, LearningReset, SuggestionFeedback
 from app.models.locks import TermLock
+from app.models.planning_drafts import PriorityOverride, ProgramDraft
 from app.models.runs import Assignment, ChatApplyClaim, ChatMessage, ScheduleRun
 from app.models.scheduling import (
     Block,
@@ -121,6 +122,8 @@ __all__ = [
     "PasswordResetToken",
     "Permission",
     "Program",
+    "ProgramDraft",
+    "PriorityOverride",
     "Role",
     "RolePermission",
     "Room",

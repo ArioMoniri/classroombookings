@@ -99,6 +99,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/council/jobs/{job_id}/review": (J, "council job tables"),
     "POST /api/v1/council/jobs/{job_id}/commit": (E, "app.council.commit"),
     "POST /api/v1/council/jobs/{job_id}/rerun": (J, "council job tables"),
+    "POST /api/v1/council/jobs/{job_id}/rows/decisions": (E, "app.council.airows"),  # council.review
     # catalogue (P19-C1/C2)
     **{
         f"{m} /api/v1/{res}{suffix}": (E, "app.services.catalog_admin")
@@ -129,6 +130,20 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/imports/weekly-grid": (J, "import_jobs"),
     "POST /api/v1/imports/room-master": (J, "import_jobs"),
     "POST /api/v1/imports/crbs": (J, "import_jobs"),
+    # learned suggestions (P19-L2..L4)
+    "POST /api/v1/learning/refresh": (E, "app.api.v1.learning"),  # learning.refresh (actor, term, counts)
+    "POST /api/v1/learning/suggestions/{prior_id}/accept": (E, "app.services.learning"),
+    "POST /api/v1/learning/suggestions/{prior_id}/reject": (E, "app.services.learning"),
+    "POST /api/v1/learning/suggestions/{prior_id}/snooze": (E, "app.services.learning"),
+    "POST /api/v1/learning/reset": (E, "app.services.learning"),
+    "POST /api/v1/learning/resets/{reset_id}/undo": (E, "app.services.learning"),
+    "POST /api/v1/learning/purge": (E, "app.api.v1.learning"),  # learning.purge_run + one learning.purge per reset
+    "POST /api/v1/learning/erase": (E, "app.services.learning"),
+    # moderation (P19-M1..M3)
+    "PUT /api/v1/moderation/sections/{section_id}/priority": (E, "app.services.moderation"),
+    "PUT /api/v1/moderation/requests/{request_id}/priority": (E, "app.services.moderation"),
+    "POST /api/v1/terms/{term_id}/moderation/resolve": (E, "app.services.moderation"),
+    "PUT /api/v1/moderation/matchings/{request_id}": (E, "app.services.moderation"),
     # organisation
     "POST /api/v1/org/setup": (T, "User / Setting"),
     "PUT /api/v1/org/settings": (T, "Setting / Role"),

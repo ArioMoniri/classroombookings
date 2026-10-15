@@ -70,8 +70,8 @@ describe("LoginForm", () => {
 
   it.each(["en", "tr"] as const)("labels exactly one field as the password (%s), the toggle names its action", (locale) => {
     renderForm(locale);
-    const label = locale === "en" ? "Password" : "Şifre";
+    const label = locale === "en" ? "Password" : "Parola";
     expect(screen.getByLabelText(label, { exact: true })).toBe(screen.getByTestId("login-password"));
-    expect(screen.getByRole("button", { name: locale === "en" ? "Show password" : "Şifreyi göster" })).toHaveAttribute("aria-controls", "password");
+    expect(screen.getByRole("button", { name: locale === "en" ? "Show password" : "Parolayı göster" })).toHaveAttribute("aria-controls", "password");
   });
 });

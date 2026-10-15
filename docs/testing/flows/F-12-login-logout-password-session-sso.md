@@ -1,7 +1,22 @@
 # F-12 · Login, logout, password change, session expiry; later SSO
 
 Personas: **staff**, **academician**, **admin**, limited admin (landing page). Viewports: desktop, tablet, phone.
-Owner request (ROADMAP "Approval-first bookings + user channels + credential-free login"): login through a provider "so SmartSched never handles the users' credentials". The provider is **not chosen**. The research doc `docs/product/2026-10-15-integrations-options.md` does not exist on `b75047b`. So the SSO part (S11–S13) is written as acceptance criteria and reported `BLOCKED: SSO provider not chosen`. Everything about local login is testable now.
+Owner decisions (ROADMAP "Owner decisions 2026-10-15 ~22:45: channels + login" and "~22:50: identity and sign-up"):
+- **Who signs in how.** Everyone, admins included, signs in with the institution's **Microsoft Entra ID** (direct OIDC with Authlib, pinned to the university tenant). Users are identified by `(tid, oid)`, never by e-mail. Roles are SmartSched's (an admin mapping, off by default). A **local break-glass admin** is kept.
+- **Sign-up has two doors only:** (a) self sign-up through Entra, always as the lowest role; (b) an admin invite, bound on the first Entra login whose verified UPN/e-mail equals the invite (one-time, audited, expires after 30 days). There is no local self-registration.
+- **Credentials.** Everything is built and tested **without real university credentials** (fake OIDC / mock transports in the backend tests). The owner enters the real values later, never in chat.
+- **Design.** `docs/design/v2/sign-in.md` ("Microsoft first, one quiet second door"; 30 Playwright checks in its §15).
+
+State on `d2ed4a8` (HEAD while this file was revised):
+- Backend `app/api/v1/sso.py` + `app/services/sso.py` exist: providers, start, callback, exchange, admin config, invites, bind, mappings.
+- The sign-in page of the spec is **not built** (dedicated SSO/channels frontend agent, after the shell sweep).
+- No test stack has a tenant. So S11–S17 test everything **up to the redirect to Microsoft**, plus the guards, the invites and the break-glass rules. S18, a full round trip, is `BLOCKED: no tenant credentials (owner gets them from IT)`.
+- **Spec vs backend mismatch, to resolve before the frontend lands:**
+  - sign-in.md §15.1 expects the button to point at `/api/v1/auth/oidc/microsoft/start?next=…` and errors as `?error=<code>`;
+  - the backend serves `/api/v1/auth/sso/entra/start?return_path=…` and redirects errors to `/login?sso_error=<code>`.
+  - Testers check whatever the built page uses, end to end. A dead link is a FAIL. The suggester files the mismatch once (owner area `approval-first`/`integrations` → SSO frontend agent).
+
+Local login (S01–S10) is testable now.
 
 ## Preconditions
 
@@ -83,22 +98,72 @@ Owner request (ROADMAP "Approval-first bookings + user channels + credential-fre
 **S10 · all · 390 px login**
 - See MOBILE.md. In particular: the e-mail field has `type="email"` or `inputmode="email"`, plus `autocomplete="username"`. The password field has `autocomplete="current-password"`, and `new-password` on the change forms. The keyboard does not cover the submit button (M-12). The show/hide toggle is ≥ 44 px.
 
-### Later: SSO (credential-free login) — `BLOCKED: SSO provider not chosen`
+### SSO: Microsoft Entra ID (credential-free login)
 
-Acceptance criteria for the login builder, to be run once the owner picks a provider. Record them as BLOCKED rows now, so the suggester keeps them visible.
+Preconditions for S11–S18:
+- Fake but well-formed values (never real ones): tenant `11111111-2222-3333-4444-555555555555`, client id `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee`, secret `test-secret-not-real`.
+- `org.public_url` set to the stack's web URL, so the redirect URI is well formed.
+- **Never follow the redirect to login.microsoftonline.com.** Read the `Location` header only.
 
-**S11 · login with the institution's IdP**
-- `/login` shows one button per configured provider ("Google Workspace ile giriş", "Microsoft 365 ile giriş", or the institution IdP's name). No button for a provider that is not configured (no dead button today: check that `/login` has none).
-- An OIDC authorization-code flow with PKCE and `state` / `nonce` checks. SmartSched stores **no password** for SSO users: the `users` row has no password hash, or it is unusable.
-- An e-mail that is not in SmartSched, or is outside the allowed domains → refused with a Turkish message, unless just-in-time creation is switched on (then the role is the institution's default, never ADMIN).
-- An existing local account with the same verified e-mail is linked only after an admin allows it, or after the user proves both. Never silently.
+**S11 · admin · configure the provider, and the guards on the configuration**
+- UI target: Yönetim › Kimlik doğrulama shows a Microsoft Entra section (tenant, client id, secret, "Kendi kaydı" on/off with the default role, invite days, role mapping off, "yalnız Microsoft" for non-admins). Today: `BLOCKED: SSO admin UI not built` if absent.
+- API:
+  - `PUT /auth/sso/admin/entra {"enabled":true,"tenant_id":"1111…","client_id":"aaaa…","client_secret":"test-secret-not-real"}` → 200. The response **never contains the secret** (masked or `has_secret: true`). `GET` after it: the same.
+  - `tenant_id` = `common`, `organizations`, `consumers`, or the consumer tenant `9188040d-6c67-4c5b-b112-36a304b66dad` → **422** each.
+  - `default_role_id` = the ADMIN role → **422** (self sign-up is always the lowest role).
+  - limited.admin (F-11) → **403** on every `/auth/sso/admin/*` write.
+  - One audit row per change, without the secret.
 
-**S12 · logout and session**
-- Logout ends the SmartSched session (and optionally the IdP session, as configured). A disabled SmartSched user cannot log in through SSO either.
-- The session lifetime follows `jwt_expire_minutes`, and expiry behaves as S08.
+**S12 · anyone · the login page offers Microsoft first** [UI pending: sign-in.md]
+- `GET /auth/sso/providers` → enabled, with the TR/EN texts of the error codes.
+- UI target (sign-in.md §6.1, §15 1–7):
+  - one link **"Microsoft ile giriş yap"** (EN "Sign in with Microsoft") in Microsoft's colours, ≥ 44 px (≥ 48 px on touch);
+  - the hints "… iş veya okul hesabınızı kullanın …" and "İlk girişinizde hesabınız **{role}** olarak açılır. Rolünüzü yalnızca bir yönetici değiştirebilir.";
+  - the collapsed disclosure **"Kullanıcı adı ve parolayla giriş yap"** with "Yerel ve LDAP hesapları içindir. Bu hesapları yalnızca yöneticiler açar.";
+  - no "kaydol / kayıt ol / sign up / register / hesap oluştur" anywhere;
+  - the page text never says Azure, Active Directory, Entra or Office 365.
+- With SSO disabled (`enabled:false`): no Microsoft link, and the local form is open.
 
-**S13 · admin controls and audit**
-- The admin can require SSO and switch local login off, except for a break-glass admin account. Every SSO login, refusal and link writes an audit event. The provider's client secret is entered once and never shown again (like the SMTP password).
+**S13 · anyone · the start redirect is a correct, pinned OIDC request**
+- `curl -sS -o /dev/null -D - "$API/auth/sso/entra/start?return_path=/bookings"` (and the URL the UI link uses, if different).
+- Expect: **302** to `https://login.microsoftonline.com/11111111-2222-3333-4444-555555555555/oauth2/v2.0/authorize?…` with `response_type=code`, the `client_id`, a `redirect_uri` under the stack's public URL ending in `/auth/sso/entra/callback`, a `scope` containing `openid`, `code_challenge_method=S256`, a `code_challenge`, a `state` and a `nonce`. The tenant is the configured one, never `common`.
+- With SSO disabled: 302 to `/login?sso_error=not_configured`, and the page shows a Turkish message, not a blank page.
+- `return_path=//evil.example` or `https://evil.example` → dropped (the user lands on the role home after sign-in).
+
+**S14 · anyone · the callback refuses what it must**
+- `GET /auth/sso/entra/callback?state=forged&code=x` → 302 to `/login?sso_error=failed…` with a reference. The page shows **"Giriş yapılamadı."** with the reference code and focuses the alert.
+- `?error=access_denied&state=<a real state from S13>` → the **cancelled** status ("Microsoft girişi tamamlanmadı. Hazır olduğunuzda tekrar deneyin.", `role="status"`, focus not stolen).
+- Re-using a state after it was consumed or expired (10 min) → failed.
+- `failed` with an unknown code and `failed` with a nonsense code render **byte-identical** text, the reference aside (no enumeration, §15.16).
+
+**S15 · anyone · the one-time ticket**
+- `POST /auth/sso/exchange {"ticket":"random"}` → **401**, the generic "invalid or expired sign-in ticket". No user data in the body.
+
+**S16 · admin · invites and binding (door b)**
+- Do: invite `davet.test@smartsched.local`, name "D. T.", role TEACHER (`POST /auth/sso/admin/invites`). UI target: the Users screen invite sheet, with the status as "dot + word".
+- Expect:
+  - listed with an expiry of **30 days** (`invite_days`);
+  - limited.admin inviting with role ADMIN → **403** (no escalation);
+  - `POST /auth/sso/admin/users/<staff id>/bind` → the staff row shows "Sonraki Microsoft girişinde bağla";
+  - deleting the invite makes `/login?invite=<token>` show "Bu davet artık geçerli değil."
+- Audit rows for create, bind and revoke.
+
+**S17 · admin · break-glass stays**
+- `PUT /auth/sso/admin/entra {"oidc_only_non_admins":true}` while the seeded admin has a local password → 200.
+  - Non-admins no longer see the password door (or it is hidden behind `?method=local` for admins only).
+  - The admin can still sign in locally with `?method=local`.
+  - staff local login → refused with the generic 401 text.
+- Disable the seeded admin's local password (or make it SSO-only) while it is the only break-glass admin → **422**. The last break-glass admin can never be locked out.
+- Switch `oidc_only_non_admins` back off for the other flows.
+
+**S18 · a real Entra round trip** — `BLOCKED: no tenant credentials`
+- Kept for the round with IT's registration (`docs/deploy/sso-entra.md`):
+  - the first sign-in creates a TEACHER (door a) and shows `/welcome` "Hesabınız oluşturuldu";
+  - an invited address binds once;
+  - an e-mail that equals an existing local account without an invite is refused (`account_exists`);
+  - a guest or other-tenant account gets the `tenant` error;
+  - sign-out and disabling revoke the session;
+  - nothing of the IdP is stored except oid, tid, the e-mail and the display name.
 
 ## Mobile-specific expectations (phone 390×844; tablet 768×1024)
 
@@ -115,7 +180,7 @@ Acceptance criteria for the login builder, to be run once the owner picks a prov
 3. Logout revokes the token. Back and direct URLs lead to login.
 4. A password change and an expired session end in a clear re-login, never in a broken shell.
 5. Reset codes arrive through the SMTP sink and work once.
-6. SSO criteria S11–S13 stay listed as BLOCKED until the provider decision. Then they become this flow's steps.
+6. SSO is configured with pinned-tenant guards. The start redirect is a correct PKCE request. Forged callbacks and tickets are refused without enumeration. Invites follow no-escalation and expire. A break-glass admin always remains. The full round trip waits for the tenant credentials.
 7. MOBILE.md passes on `/login`, `/login/change-password`, `/reset-password` and `/profile` at 390 and 768.
 
 ## Earlier issues to re-verify here

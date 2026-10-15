@@ -31,7 +31,7 @@
     "navigate": "Gezin", "select": "Seç", "close": "Kapat", "toggleTheme": "Temayı değiştir", "toggleLang": "Dili değiştir"
   },
   "auth": {
-    "title": "Giriş yap", "subtitle": "Derslik rezervasyonu ve planlama", "email": "E-posta", "password": "Şifre",
+    "title": "Giriş yap", "subtitle": "Derslik rezervasyonu ve planlama", "email": "E-posta", "password": "Parola",
     "submit": "Giriş yap", "signingIn": "Giriş yapılıyor…", "failed": "Giriş başarısız. Bilgilerinizi kontrol edin."
   },
   "common": {
@@ -1928,23 +1928,23 @@
     "auth": {
       "welcome": "Hoş geldiniz, {name}",
       "offline": "Sunucuya ulaşılamıyor. Bağlantıyı kontrol edip tekrar deneyin.",
-      "failed": "E-posta, kullanıcı adı veya şifre yanlış.",
+      "failed": "E-posta, kullanıcı adı veya parola yanlış.",
       "identifier": "E-posta veya kullanıcı adı",
       "identifierHint": "E-posta veya kullanıcı adı",
-      "showPassword": "Şifreyi göster",
-      "hidePassword": "Şifreyi gizle",
-      "changeTitle": "Yeni şifre belirleyin",
-      "changeHint": "Devam etmeden önce yöneticiniz şifrenizi değiştirmenizi istiyor.",
-      "current": "Mevcut şifre",
-      "currentHint": "Geçici şifreyle girdiyseniz boş bırakın.",
-      "new": "Yeni şifre",
-      "newHint": "En az 8 karakter, mevcut şifreden farklı.",
-      "again": "Yeni şifre (tekrar)",
-      "mismatch": "İki şifre aynı değil.",
+      "showPassword": "Parolayı göster",
+      "hidePassword": "Parolayı gizle",
+      "changeTitle": "Yeni parola belirleyin",
+      "changeHint": "Devam etmeden önce yöneticiniz parolanızı değiştirmenizi istiyor.",
+      "current": "Mevcut parola",
+      "currentHint": "Geçici parolayla girdiyseniz boş bırakın.",
+      "new": "Yeni parola",
+      "newHint": "En az 8 karakter, mevcut paroladan farklı.",
+      "again": "Yeni parola (tekrar)",
+      "mismatch": "İki parola aynı değil.",
       "changeSubmit": "Kaydet ve devam et",
-      "changed": "Şifre değiştirildi",
-      "changeRejected": "Mevcut şifre yanlış ya da yeni şifre eskisiyle aynı.",
-      "changeFailed": "Şifre değiştirilemedi. Tekrar deneyin."
+      "changed": "Parola değiştirildi",
+      "changeRejected": "Mevcut parola yanlış ya da yeni parola eskisiyle aynı.",
+      "changeFailed": "Parola değiştirilemedi. Tekrar deneyin."
     },
     "dashboard": {
       "noPlan": "Bu dönem için henüz çizelge oluşturulmadı.",
