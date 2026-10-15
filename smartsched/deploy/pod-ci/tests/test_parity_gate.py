@@ -98,3 +98,13 @@ def test_parity_gate_always_passes_the_e2e_report(tmp_path: Path) -> None:
     script = (tmp_path / "docker.log").read_text()
     assert "--playwright-json /w/playwright-report.json" in script
     assert "[ -f /w/playwright-report.json ] &&" not in script  # no silent fallback to titles only
+
+
+def test_report_names_the_tested_commit_without_a_git_checkout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The pod exports the tree with `git archive` (no .git): the gate passes the commit instead of `?`."""
+    monkeypatch.setenv("PARITY_COMMIT", "e48ee08")
+    assert pc.commit_info() == ("e48ee08", False)
+    monkeypatch.delenv("PARITY_COMMIT")
+    monkeypatch.setattr(pc, "_git", lambda *a: "?")
+    assert pc.commit_info() == ("?", False)  # unknown, not "uncommitted changes"
+    assert 'PARITY_COMMIT="${RUN_TAG#*-}"' in (POD_CI / "gates/parity.sh").read_text()

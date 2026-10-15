@@ -296,6 +296,14 @@ def _git(*args: str) -> str:
         return "?"
 
 
+def commit_info() -> tuple[str, bool]:
+    """(short sha, dirty). PARITY_COMMIT (pod CI: the tested commit of a `git archive` export) wins over git."""
+    if os.environ.get("PARITY_COMMIT"):
+        return os.environ["PARITY_COMMIT"], False
+    sha = _git("rev-parse", "--short", "HEAD")
+    return sha, sha != "?" and bool(_git("status", "--porcelain"))
+
+
 def _md(text: str) -> str:
     return text.replace("|", "\\|").replace("\n", " ")
 
@@ -421,8 +429,8 @@ def main(argv: list[str] | None = None) -> int:
         run = results or {}
         meta = {
             "when": started.strftime("%Y-%m-%d %H:%M UTC"),
-            "commit": _git("rev-parse", "--short", "HEAD"),
-            "dirty": bool(_git("status", "--porcelain")),
+            "commit": commit_info()[0],
+            "dirty": commit_info()[1],
             "tests_run": len(run),
             "tests_passed": sum(1 for x in run.values() if x["outcome"] == "passed"),
             "seconds": seconds,
