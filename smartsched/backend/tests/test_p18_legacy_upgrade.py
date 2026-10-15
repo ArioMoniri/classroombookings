@@ -168,3 +168,29 @@ def test_cli_dry_run_then_commit(tmp_path, capsys):
         import asyncio
 
         asyncio.run(dbmod.dispose_engine())
+
+
+async def test_dumps_are_parsed_in_the_isolated_child(client, tmp_path, monkeypatch):
+    """Review follow-up: a CRBS SQL dump is not loaded in the API process but in the parse child
+    (``safe_files.run_isolated``: own process, memory and time limits)."""
+    from app.core import safe_files
+
+    calls: list[str] = []
+    real = safe_files.run_isolated
+
+    async def spy(fn, *args, **kwargs):  # type: ignore[no-untyped-def]
+        calls.append(fn.__name__)
+        return await real(fn, *args, **kwargs)
+
+    monkeypatch.setattr(safe_files, "run_isolated", spy)
+    rep = await up.dry_run(_dump(tmp_path))
+    assert calls == ["_load_dump_to_file"] and rep.source["users"] == 1
+    big = safe_files.UnsafeFileError(413, "the file needs too much memory to read")
+
+    async def refuse(fn, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise big
+
+    monkeypatch.setattr(safe_files, "run_isolated", refuse)
+    with pytest.raises(safe_files.UnsafeFileError):
+        await up.dry_run(_dump(tmp_path))
+    assert await term_lock.current(up.LOCK_KEY) is None  # the lock is released on failure too

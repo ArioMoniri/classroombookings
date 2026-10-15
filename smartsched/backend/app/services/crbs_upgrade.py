@@ -178,6 +178,47 @@ def open_crbs(source: str | Sequence[str | Path]) -> tuple[CrbsSource, list[str]
     return open_source(paths)
 
 
+def _load_dump_to_file(paths: list[str], target: str) -> list[str]:
+    """Child-process half of :func:`_open`: load the dump into an SQLite file, return the loader's warnings."""
+    import sqlite3
+
+    from app.importers.crbs_legacy import load_dump_into_sqlite
+
+    conn, warnings = load_dump_into_sqlite(paths)
+    out = sqlite3.connect(target)
+    try:
+        conn.backup(out)
+    finally:
+        out.close()
+        conn.close()
+    return warnings
+
+
+async def _open(source: str | Sequence[str | Path]) -> tuple[CrbsSource, list[str], Path | None]:
+    """Like :func:`open_crbs`, but a dump is parsed in the isolated parse child (``safe_files.run_isolated``:
+    separate process, memory and time limits; review follow-up "CRBS SQL dumps ... run them in the parse child")
+    into a temporary SQLite file the parent then reads. Returns the temporary directory to remove."""
+    import sqlite3
+    import tempfile
+
+    from app.core import safe_files
+    from app.importers.crbs_legacy import SqliteSource
+
+    if isinstance(source, str) and source.lower().startswith("mysql"):
+        return ReadOnlyMysqlSource(source), [], None
+    paths = [str(p) for p in ([source] if isinstance(source, str | Path) else source)]
+    tmp = Path(tempfile.mkdtemp(prefix="crbs-dump-"))
+    target = tmp / "crbs.sqlite"
+    try:
+        warnings = await safe_files.run_isolated(_load_dump_to_file, paths, str(target))
+    except BaseException:
+        import shutil
+
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
+    return SqliteSource(sqlite3.connect(str(target))), list(warnings), tmp
+
+
 def source_counts(src: CrbsSource) -> dict[str, int]:
     return {t: len(src.rows(t)) for t in SOURCE_TABLES if src.has_table(t)}
 
@@ -199,7 +240,7 @@ async def _counts(session: AsyncSession) -> dict[str, int]:
 async def _run(
     source: str | Sequence[str | Path], *, apply: bool, expect: str | None, filename: str | None
 ) -> UpgradeReport:
-    src, warnings = open_crbs(source)
+    src, warnings, tmp = await _open(source)
     try:
         counts = source_counts(src)
         paths = [] if isinstance(source, str) and source.lower().startswith("mysql") else list(source)
@@ -229,6 +270,12 @@ async def _run(
         close = getattr(src, "close", None)
         if callable(close):
             close()
+        elif hasattr(src, "conn"):
+            src.conn.close()
+        if tmp is not None:
+            import shutil
+
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 async def dry_run(source: str | Sequence[str | Path], *, filename: str | None = None) -> UpgradeReport:

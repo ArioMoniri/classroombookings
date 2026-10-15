@@ -68,6 +68,8 @@ async def crbs_upgrade(
             rep = await up.dry_run(source, filename=label)
     except up.SourceChanged as exc:
         raise HTTPException(409, str(exc)) from exc
+    except safe_files.UnsafeFileError as exc:  # the parse child refused the dump (memory / time limits)
+        raise HTTPException(exc.status, exc.message) from exc
     except term_lock.TermLocked as exc:
         raise term_lock.http_error(exc) from exc
     except RuntimeError as exc:  # pymysql missing / connection refused
