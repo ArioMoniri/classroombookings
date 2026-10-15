@@ -174,3 +174,115 @@ def test_native_intake_v1_is_read_as_records(tmp_path):
     assert meeting["rooms"] == ["A204"] and meeting["weeks"] == list(range(1, 15)) and meeting["enrolment"] == 180
     assert meeting["source"] == {"file": "intake.json", "table": "requests", "row": 1, "pointer": "/requests/0"}
     assert booking["day"] == 4 and booking["course_codes"] == ["MAT112"] and booking["room_code"] == "A204"
+
+
+# --------------------------------------------------------------------------- xls + ods (P19-I2)
+
+
+def _strip(r: dict) -> dict:
+    return {k: v for k, v in r.items() if k not in ("source", "warnings")}
+
+
+@pytest.fixture(scope="module")
+def libreoffice_copies(tmp_path_factory) -> dict[str, Path]:
+    if exports.soffice() is None:
+        pytest.skip("LibreOffice (soffice) is not installed: no writer for .xls / .ods on this machine")
+    d = tmp_path_factory.mktemp("lo")
+    return {fmt: exports.convert(BAHAR_LIST, fmt, d) for fmt in ("xls", "ods")}
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("fmt", ["xls", "ods"])
+def test_bahar_saved_as_xls_and_ods_gives_the_xlsx_records(libreoffice_copies, fmt):
+    """P19-I2 acceptance: the Bahar list saved by LibreOffice as .xls / .ods gives the xlsx records."""
+    path = libreoffice_copies[fmt]
+    rendered = render_file(path.read_bytes(), path.name)
+    assert rendered.format == fmt and [g.name for g in rendered.grids] == ["Sayfa1", "Sayfa2"]
+    assert fastpath.detect_shape(rendered) == "planning-list"
+    recs, _ = fastpath.records_for("planning-list", path, path.name, 2026)
+    base, _ = fastpath.planning_records(BAHAR_LIST, BAHAR_LIST.name)
+    meetings = [r for r in recs if r["type"] == "meeting"]
+    expected = [r for r in base if r["type"] == "meeting"]
+    assert len(meetings) == len(expected) == 1524
+    same = sum(_strip(a) == _strip(b) for a, b in zip(expected, meetings, strict=True))
+    # .ods: every record; .xls: LibreOffice writes row 219's course name and start as 0 (its own conversion)
+    assert same >= (1524 if fmt == "ods" else 1523), same
+    rooms = [_strip(r) for r in recs if r["type"] == "room"]
+    assert rooms == [_strip(r) for r in base if r["type"] == "room"] and len(rooms) == 54  # Sayfa2 buckets
+
+
+def _ods_row(*cells: str, repeat: int = 1) -> str:
+    rep = f' table:number-rows-repeated="{repeat}"' if repeat > 1 else ""
+    return f"<table:table-row{rep}>{''.join(cells)}</table:table-row>"
+
+
+def _ods_cell(text: str = "", repeat: int = 1, attrs: str = "") -> str:
+    extra = f" {attrs}" if attrs else ""
+    rep = f' table:number-columns-repeated="{repeat}"' if repeat > 1 else ""
+    body = f"<text:p>{text}</text:p>" if text else ""
+    return f"<table:table-cell{rep}{extra}>{body}</table:table-cell>"
+
+
+def test_ods_reader_values_repeats_and_merges():
+    content = (
+        '<table:table table:name="Sayfa1">'
+        + _ods_row(_ods_cell("Ders Kodu"), _ods_cell("Gün"), _ods_cell("Başlangıç"), _ods_cell("Kapasite"))
+        + _ods_row(
+            _ods_cell("MAT 112"),
+            _ods_cell("Perşembe"),
+            _ods_cell("13:30", attrs='office:value-type="time" office:time-value="PT13H29M59.999999S"'),
+            _ods_cell("180,0", attrs='office:value-type="float" office:value="180"'),
+            _ods_cell(repeat=16000),  # LibreOffice's trailing filler: dropped, never expanded
+        )
+        + _ods_row(_ods_cell("İŞL 101", repeat=2), _ods_cell(), _ods_cell("x"), repeat=2)
+        + _ods_row(_ods_cell(), repeat=1048000)  # trailing empty rows
+        + "</table:table>"
+    )
+    r = render_file(exports.ods_from_content(content), "liste.ods")
+    g = r.grids[0]
+    assert g.cells == [
+        ["Ders Kodu", "Gün", "Başlangıç", "Kapasite"],
+        ["MAT 112", "Perşembe", "13:30", "180"],
+        ["İŞL 101", "İŞL 101", "", "x"],
+        ["İŞL 101", "İŞL 101", "", "x"],
+    ]
+    merged = '<table:table table:name="S">' + _ods_row(
+        _ods_cell("A 101", attrs='table:number-columns-spanned="2"'), "<table:covered-table-cell/>", _ods_cell("z")
+    )
+    g = render_file(exports.ods_from_content(merged + "</table:table>"), "m.ods").grids[0]
+    assert g.cells == [["A 101", "A 101", "z"]] and g.merged == [(0, 0, 0, 1)]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        _ods_row(_ods_cell("bomb", repeat=16384)),  # one value repeated over 16 384 columns
+        _ods_row(_ods_cell("bomb"), repeat=1_000_000),  # one row repeated a million times
+        _ods_row(_ods_cell("bomb", attrs='table:number-columns-spanned="16384"')),
+    ],
+    ids=["columns-repeated", "rows-repeated", "spanned"],
+)
+def test_ods_repeat_bombs_are_413(content):
+    data = exports.ods_from_content(f'<table:table table:name="S">{content}</table:table>')
+    assert len(data) < 4096
+    with pytest.raises(UnsafeFileError) as e:
+        formats.precheck("bomb.ods", data)
+    assert e.value.status == 413
+    with pytest.raises(UnsafeFileError):
+        render_file(data, "bomb.ods")
+
+
+def test_ods_with_a_dtd_is_refused():
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(exports.ods_from_content(""))) as src, zipfile.ZipFile(buf, "w") as dst:
+        for info in src.infolist():
+            body = src.read(info)
+            if info.filename == "content.xml":
+                body = b'<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaa">]>' + body.split(b"?>", 1)[1]
+            dst.writestr(info, body)
+    with pytest.raises(UnsafeFileError) as e:
+        formats.precheck("dtd.ods", buf.getvalue())
+    assert e.value.status == 400

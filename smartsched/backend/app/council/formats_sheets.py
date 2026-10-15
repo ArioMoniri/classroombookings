@@ -230,7 +230,12 @@ def _ods_value(cell: Any) -> str:
         m = _DURATION.match(cell.get(A_TIME))
         if m:
             days, h, mi, s = (float(g) if g else 0.0 for g in m.groups())
-            return tx.cell_text(timedelta(days=days, hours=h, minutes=mi, seconds=s))
+            # LibreOffice writes 10:10 as PT10H09M59.999999S: round to the second like Excel's display
+            delta = timedelta(seconds=round(days * 86400 + h * 3600 + mi * 60 + s))
+            if delta >= timedelta(days=1):  # a date-time shown with a time format: Excel serial semantics
+                epoch = datetime(1899, 12, 31) if delta < timedelta(days=61) else datetime(1899, 12, 30)
+                return tx.cell_text(epoch + delta)
+            return tx.cell_text(delta)
     if vtype == "boolean" and cell.get(A_BOOL) is not None:
         return "TRUE" if cell.get(A_BOOL) == "true" else "FALSE"
     paras = [_para_text(p) for p in cell if p.tag in (TX_P, TX_H)]
