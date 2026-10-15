@@ -19,6 +19,7 @@ def _move(aid: int, room: str) -> dict:
         "end_period": 0,
         "room_codes": [room],
         "weeks": [],
+        "update_request": False,
         "reason": "t",
     }
 

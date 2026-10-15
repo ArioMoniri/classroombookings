@@ -185,6 +185,8 @@ class MoveOp(BaseModel):
     end_period: int | None = None
     room_ids: list[int] | None = None
     weeks: list[int] | None = None
+    #: also rewrite the meeting request's day/periods (term data, snapshotted) so a fixed-time meeting can move
+    update_request: bool = False
     label: str | None = None
     reason: str = ""
     before: dict[str, Any] = {}
@@ -236,8 +238,21 @@ class SectionEditOp(BaseModel):
     edit: ProposedSectionEdit
 
 
+class ExamEditOp(BaseModel):
+    """Exam runs: change an exam request's enrolment and/or how many rooms it may be split across."""
+
+    op: Literal["exam_edit"] = "exam_edit"
+    assignment_id: int
+    exam_request_id: int
+    enrolment: int | None = None
+    room_count: int | None = None
+    label: str | None = None
+    reason: str = ""
+    before: dict[str, Any] = {}
+
+
 DiffOp = Annotated[
-    MoveOp | SwapOp | LockOp | AddConstraintOp | RemoveConstraintOp | SetWeightOp | SectionEditOp,
+    MoveOp | SwapOp | LockOp | AddConstraintOp | RemoveConstraintOp | SetWeightOp | SectionEditOp | ExamEditOp,
     Field(discriminator="op"),
 ]
 

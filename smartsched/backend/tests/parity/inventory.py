@@ -9,7 +9,7 @@ screens of docs/CRBS_PARITY.md §5.
 A row is proven by
   * ``api``: existing test node ids (``tests/<file>.py::<test>``) — reused, not duplicated — plus every test
     under tests/parity marked ``@pytest.mark.parity("<row id>")``;
-  * ``ui``: Playwright test titles (``<spec>::<title>``) in smartsched/frontend/e2e/{bookings,calendar,admin-gaps}.spec.ts,
+  * ``ui``: Playwright test titles (``<spec>::<title>``) in smartsched/frontend/e2e/{bookings,calendar,admin-gaps,reserve,wave1}.spec.ts,
     which pod CI runs against the real backend (gate e2e-real).
 
 ``difference`` names a deliberate difference from CRBS (decided by the user or the orchestrator) that the
@@ -41,12 +41,23 @@ W1T = "tests/test_wave1_find_room.py::"
 W1A = "tests/test_wave1_audit.py::"
 W1P = "tests/test_wave1_approvals.py::"
 W1M = "tests/test_wave1_migrations.py::"
-WAVE1_UI_GAP = (
-    "booking enhancements wave 1 screens (feature editor, find-a-room sheet, audit page, approver inbox) are not "
-    "built yet; proposed: frontend against docs/product/wave1-api.md, then e2e steps on the real backend"
-)
 UI_C = "calendar.spec.ts::"
+UI_W = "wave1.spec.ts::"
+# booking enhancements wave 1 screens on the real backend: smartsched/frontend/e2e/wave1.spec.ts
+W1_E2E = {
+    "features": UI_W
+    + "wave1 1. room features: a typed feature, a value in the grid, the bulk CSV check and the solver-tag impact confirm (X-08)",
+    "find": UI_W
+    + "wave1 2. find a room: ⌘K, Wednesday 10:10–12:30 for 90 ranked like the API with its reasons, Reserve through the booking sheet, recent searches (X-09)",
+    "audit": UI_W
+    + "wave1 3. audit log: filter a booking, the before/after diff, Undo, a refused undo with its reason, CSV export (X-10)",
+    "approvals": UI_W
+    + "wave1 4. approvals: approves-for in the user form, a rule, the request (202) from the booking sheet, the inbox badge, approve; reject with a suggestion; part of a series; a 409 re-check; the requester's timeline and bell (X-11)",
+    "crawl": UI_W
+    + "wave1 5. every sidebar, ⌘K and setup link opens a page with no 404 and no 403, as administrator and as teacher",
+}
 UI_A = "admin-gaps.spec.ts::"
+UI_R = "reserve.spec.ts::"
 
 E2E = {
     1: UI_B + "1. the administrator creates a teacher in Setup → Users",
@@ -959,7 +970,7 @@ ROWS: tuple[Row, ...] = (
         CM + "test_plaintext_tokens_are_hashed_and_dropped",
         TE + "test_ics_feeds",
         difference="superset",
-        ui_gap=PANEL_UI_GAP,
+        ui=(UI_R + "7. calendar sync: private links for me, a room and a department, copy, Google / Outlook, reset",),
     ),
     _r(
         "X-CAL-02",
@@ -1034,7 +1045,7 @@ ROWS: tuple[Row, ...] = (
         W1F + "test_removing_a_solver_tag_feature_shows_its_impact_first",
         W1M + "test_wave1_upgrade_keeps_checkbox_values_adopts_tags_and_round_trips",
         difference="superset (booking enhancements P10, permission rooms.features)",
-        ui_gap=WAVE1_UI_GAP,
+        ui=(W1_E2E["features"],),
     ),
     _r(
         "X-09",
@@ -1046,7 +1057,7 @@ ROWS: tuple[Row, ...] = (
         W1T + "test_recurring_partial_results_and_holidays",
         W1T + "test_acl_hides_rooms_and_alternatives_when_few_are_free",
         difference="superset (booking enhancements T1)",
-        ui_gap=WAVE1_UI_GAP,
+        ui=(W1_E2E["find"],),
     ),
     _r(
         "X-10",
@@ -1060,7 +1071,7 @@ ROWS: tuple[Row, ...] = (
         W1A + "test_series_create_is_one_parent_event_and_undo_cancels_the_series",
         W1A + "test_admin_changes_are_tracked_with_secrets_redacted",
         difference="superset (booking enhancements P7, permission audit.view)",
-        ui_gap=WAVE1_UI_GAP,
+        ui=(W1_E2E["audit"],),
     ),
     _r(
         "X-11",
@@ -1073,7 +1084,7 @@ ROWS: tuple[Row, ...] = (
         W1P + "test_hold_blocks_the_slot_until_it_runs_out_then_expiry",
         W1P + "test_approval_rechecks_the_calendar_and_request_only_permissions",
         difference="superset (booking enhancements P1, permissions approvals.decide, book_*.request)",
-        ui_gap=WAVE1_UI_GAP,
+        ui=(W1_E2E["approvals"], W1_E2E["crawl"]),
     ),
     # ---------------------------------------------------------------- audit bugs (regressions)
     _r(
