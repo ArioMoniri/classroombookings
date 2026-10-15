@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `af22f40` (committed 2026-10-15 23:03 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `d2ed4a8` (committed 2026-10-15 23:04 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -142,9 +142,9 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 ## Agents
 
-<!-- AUTO:agents -->
+<!-- AUTO:agents check=no -->
 
-118 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 94 · stopped 7 · superseded 7.
+118 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 96 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -154,8 +154,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `flow-test-plan-2026-10-15` | user-tester | 2026-10-15 22:23 |
 | `notify-channels-apprise-2026-10-15` | backend-engineer | 2026-10-15 22:43 |
 | `sso-entra-2026-10-15` | backend-engineer | 2026-10-15 22:43 |
-| `signin-design-2026-10-15` | design-pro | 2026-10-15 22:46 |
-| `docs-autosync-2026-10-15` | general-purpose | 2026-10-15 22:48 |
 | `approval-notify-followups-2026-10-15` | backend-engineer | 2026-10-15 22:51 |
 | `p19-backend-gaps-2026-10-15` | backend-engineer | 2026-10-15 22:58 |
 

@@ -60,6 +60,12 @@ fences and their last ledger lines tell it which agents to relaunch and with whi
 - Commit only your own paths: `git add <paths>` and `git commit -- <paths>`, never `git add -A`; other agents
   have uncommitted work in the same tree.
 - Before pushing, `git pull --no-rebase origin <branch>`; never force-push.
+- Docs are generated: before every commit that touches a source (`docs/features.yml`, ROADMAP, the agent
+  registry, a migration, gates, formats, `messages/*.json`, the parity report), run
+  `python3 -I scripts/docs/sync_docs.py` and commit the rewritten docs with it. The pod CI validate gate
+  fails on `--check`.
+- Never commit a literal shaped like a real provider secret (Twilio `AC…`, Slack `xox…`, AWS `AKIA…`,
+  GitHub `ghp_…`); build test fakes by concatenation. GitHub push protection rejects the whole push.
 - Long-running local stacks use their own work directory and ports so they do not collide with another
   agent's dev server or e2e backend.
 
