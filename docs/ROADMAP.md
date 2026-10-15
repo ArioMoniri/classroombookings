@@ -127,10 +127,10 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Week-limited room rules (`room_pin`/`room_forbid` with weeks other than room_closed) are flagged needs_review: the solver applies room rules to all weeks of an event; implement meeting splitting by week pattern ("PHAR 240 moves to A 206 from 23 Feb") (2026-10-15: `room_pin` with weeks was not flagged although the solver ignores its weeks; now every week-limited kind except room_closed is needs_review, tests/ai/test_resolve.py::test_course_code_resolves_to_meeting_ids. needs decision: splitting a planning-list meeting request into week segments changes term data that the next planning-list re-import matches by `source_key`; split the request (and teach the importer to keep the split), or model week-limited room rules in the solver (app/solver, outside the AI fence)?)
 - [x] Moves to another day/period of a fixed-time request are rejected by the validator (`fixed_time` hard); offer "move + update the request" as one op in the diff UI instead of a separate `set_section_field` (2026-10-15 backend: `move_event.update_request` / `MoveOp.update_request` rewrites the meeting request (snapshotted) and is kept only if the move passes the validator, else the request is restored; the diff UI toggle is frontend work; tests/ai/test_move_update_request.py)
 - [x] Exam runs: section edits only touch meeting requests; add exam-request edits (enrolment, room count) and exam-specific chat tools (split across rooms) (2026-10-15: chat tool `set_exam_field` / `ExamEditOp` (exam runs only) sets enrolment and `requested_room_count` = rooms the exam may be split across, snapshot `imported_snapshots.entity='exam'`, applied as a repair; tests/ai/test_exam_edits.py)
-- [ ] Streaming chat (SSE) with `eager_input_streaming` + client-side tool-input validation; today `POST /runs/{id}/chat` returns when the loop ends
-- [ ] Red-team eval before launch (RESEARCH Recommendations 3): paraphrase / re-ordering / ambiguous room names / prompt-injection in uploaded files, measured against a fixed expected-constraint set
+- [x] Streaming chat (SSE) with `eager_input_streaming` + client-side tool-input validation; today `POST /runs/{id}/chat` returns when the loop ends (2026-10-15 backend: `POST /runs/{id}/chat/stream` (SSE text / tool_start / tool / retry / done / error), `AIClient.stream_complete` sets `eager_input_streaming` on every strict tool, `handle_chat(on_event=...)` validates every input (INVALID_JSON result), re-issues unparseable turns at most twice, never acts on max_tokens / refusal turns; tests/ai/test_chat_stream.py, live check tests/ai/test_live_smoke.py::test_live_streamed_chat; the frontend still calls the non-streamed endpoint)
+- [ ] Red-team eval before launch (RESEARCH Recommendations 3): paraphrase / re-ordering / ambiguous room names / prompt-injection in uploaded files, measured against a fixed expected-constraint set (2026-10-15: eval built - `app/ai/redteam.py` scorer + gate (recall/precision >= 0.8, 0 forbidden, 0 missed reviews), 12 fixed cases in `smartsched/backend/tests/ai/redteam_cases.json`, offline pipeline + compromised-model checks in tests/ai/test_redteam.py; open: the live measurement `ANTHROPIC_API_KEY=... pytest -s tests/ai/test_redteam.py::test_live_redteam` needs a key this agent does not have - record its score here)
 - [x] Persist the model id + verifier result per applied diff on the child run (audit, RESEARCH §4.3 step 6) - partly there via `chat_messages.tool_calls` usage + `stats.mode` (2026-10-15: `stats.ai` on every chat child run = diff id, model, edited flag, applied/rejected ops with reasons, verifier status / hard score / violations, final values written by the repair job; `app/ai/chat.py` `_apply_audit`; tests/ai/test_apply_audit.py)
-- [ ] OCR for scanned PDFs (currently reported as "no extractable text")
+- [x] OCR for scanned PDFs (currently reported as "no extractable text") (2026-10-15: a PDF without a text layer is read by the model as a PDF document block when the admin switch `ai.vision_enabled` (KVKK sign-off) is on, at most 20 pages, proposals point at `{file, page}` and go to review; vision off = needs AI, 0 calls; `app/ai/ingest.py` `_scanned_pdf`, tests/ai/test_scanned_pdf.py)
 
 ### Phase 6 integration backlog (integration-engineer, 2026-10-08)
 
@@ -498,6 +498,60 @@ Docs-refresh hand-off (2026-10-15):
   - calendar-sync/webhook settings
 - [ ] The old docs/images/screens/bookings-*.webp and my-bookings-*.webp are outdated: regenerate or delete them (frontend sweep).
 - [ ] The README table "Measured on the real data" is still the 2026-10-08 data. Re-run tools/validate_planner and real-data feasibility in the stabilisation pass.
+- [x] P19-C1/C2 (done 2026-10-15, c7e114c + checkpoints): CRUD for faculties, programmes, courses, instructors, sections and meeting/exam requests, plus the weekly-pattern expander (services/patterns.py). Evidence: on an empty term, the MBG Tezli YL programme (Bahar rows 188–190) solves OPTIMAL with hard 100, 6/6 placed and planner_check 0 violations; tests/test_p19_catalog_admin.py + test_p19_patterns.py give 87 passed. Purge is refused while ANY run references the row (stricter than briefed; kept).
+- [ ] P19-C3: importer keeps and matches MAN: sections. The guard diff went to the importer agent; afterwards remove the xfail on test_a_later_import_keeps_hand_made_sections.
+- [ ] P19-C4: migration batch, landing with the P19-L1 migration on the current head:
+  - source_key + archived on faculties, programs, courses and instructors
+  - sections.enrolment_estimated
+  - meeting_requests duration + bridge support for start_period=None (time-flexible requests)
+  - programs unique (faculty_id, canonical_name)
+  - instructors.user_id
+- [ ] P19-C5: drop the duplicate audit row on programme create (flush hook department.create + explicit program.create); keep one.
+- [ ] P19-C6: a "copy from an earlier programme" endpoint on the catalog_admin services.
+- Test infra note: concurrent agents collide on /tmp/pytest-of-root. Use `--basetemp=$(mktemp -d)` while several agents run tests.
+
+### Persona test: staff user (docs/testing/2026-10-15-persona-user.md: 0 blocker / 7 major / 18 minor), routed 2026-10-15
+- [ ] U-01 focus ring invisible: Tailwind v4 `outline-none` in 77 files → `outline-hidden`; one mechanical commit, plus a focus-style test. Studio/calendar sweep agent.
+- [ ] U-02 a Teacher on /timetable gets the planner empty state because a 403 is read as "no run":
+  - use-calendar-data.ts:69 → studio/calendar sweep agent
+  - landing on /bookings → wave-1 agent
+- [ ] U-03 the logo link and `g d` open the planner dashboard, with a toast storm; filter by permission. Wave-1 agent.
+- [ ] U-04 periods that already ended today can be booked, and the booking then can't be cancelled; check_window compares dates only. Backend agent.
+- [ ] U-05 a password change silently ends the session; add a global 401 → login redirect. Wave-1 agent.
+- [ ] U-06 the user's own PENDING request is missing from the grid; a duplicate request is accepted (202 → 409).
+  - backend: occupancy + 409
+  - frontend: show pending → wave-1 agent
+- [ ] U-07 focus drops to <body> after every booking action (also motion T4). Wave-1 agent.
+- [ ] U-08… 18 minors:
+  - TR leftovers: "Close", page titles, 404 page, "A Blok Blok"
+  - keyboard: Esc needs two presses, skip link, date-picker focus, `g b` does nothing
+  - 28 px touch targets
+  - print leaks "+ Rezerve et"
+  - grid re-renders on every pointerdown
+  - no screen-reader announcement during drag
+  Wave-1 agent and the shell/bookings sweep.
+- [ ] Re-test: the user persona on a new snapshot after the fixes. Frame numbers must be re-measured on a quiet machine; the run was at load 23–31.
+
+### Persona test: academician (docs/testing/2026-10-15-persona-academician.md: 0 blocker / 17 major / 15 minor), routed 2026-10-15
+- [ ] A-24 (safety): the booking grid shows every room free when the week has no published timetable. Needs `timetable_state` in the payload (backend), a banner, and a confirm before booking (wave-1 agent).
+- [ ] A-01/A-03/A-23: teachers are routed into planner screens and hit 403 dead ends. Same fix as U-02/U-03, plus hiding "Çizelge" (wave-1 agent).
+- [ ] A-12: a multi-period submission becomes N items in my-bookings, the inbox and ICS. Group them by submission id; keep per-period approve/reject (backend + wave-1).
+- [ ] A-11: `/rooms/facets` returns []; find-room needs feature filters, and "PC" typed in search should match features (backend + wave-1).
+- [ ] A-14: room and department ICS feeds lack class meetings. Add the published run's classes, course code only (backend).
+- [ ] A-04: request notes never shown. Show them in the class inspector with an "okunmadı" chip (studio/calendar sweep); map them to features or an unparsed data issue (importer).
+- [ ] A-06..A-09: parser bugs, confirmed in the UI:
+  - negation; "veya"; alternative room groups
+  - NEW A-09: "büyük olmasına gerek yok" is read as an amphitheatre requirement
+  Importer agent.
+- [ ] A-21 = U-07 (focus after actions). A-32: the my-bookings row expand takes a 451 ms frame (wave-1 agent).
+- [ ] The 15 minors: see the report §3 (wave-1 / shell-bookings sweep).
+New Phase 19 tickets proposed by the persona (report §5):
+- [ ] P19-T1 "Derslerim / where is my class this week": the academician's own timetable (needs P19-L1 user↔instructor).
+- [ ] P19-T2 the academician's own planning requests, with outcomes and coordinator reasons, plus adding a preference (builds on M1/M2; Q12).
+- [ ] P19-T3 per-academician notices after publish (owner decision: in-app + e-mail digest).
+- [ ] P19-T4 classes in personal calendar feeds (after L1).
+- [ ] P19-T5 equipment/software/step-free attributes for rooms and requests (JASP/JAMOVI, projector, armrest chairs, ground-floor entrance), as typed features.
+- [ ] Extend P19-06 to all per-role 403 dead ends (A-01, A-03, A-23).
 
 ### Universal SmartSched / Ingestion Council backlog (claude/smartsched-universal 2026-10-08, merged 2026-10-15; overlaps Phase 19 intake)
 

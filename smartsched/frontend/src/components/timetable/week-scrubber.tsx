@@ -90,7 +90,7 @@ export function WeekScrubber({ weeks, week, occupancy, onWeek, onToday, todayWee
           onPointerUp={() => setScrub(null)}
           onPointerCancel={() => setScrub(null)}
           onKeyDown={onKey}
-          className="relative flex h-9 touch-none items-end gap-[3px] overflow-x-auto px-1 pb-1.5 outline-none focus-visible:outline-2 focus-visible:outline-(--focus) [scrollbar-width:none]"
+          className="relative flex h-9 touch-none items-end gap-[3px] overflow-x-auto px-1 pb-1.5 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) [scrollbar-width:none]"
         >
           {weeks.map((w) => {
             const occ = occupancy(w.index);

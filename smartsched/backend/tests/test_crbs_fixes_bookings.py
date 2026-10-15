@@ -299,17 +299,28 @@ async def test_b5_window_uses_the_room_acl_like_the_grid(env):  # noqa: F811
         },
         headers=env.admin,
     )
-    fri = date(2026, 2, 12)  # last Thursday (A 102 P1 is free all term): in the past
-    grid = (
-        await env.client.get(
-            "/api/v1/bookings/grid",
-            params={"display": "room", "date": fri.isoformat(), "room_id": env.rooms["A102"]},
-            headers=teacher,
-        )
-    ).json()
-    slot = next(s for s in grid["slots"] if s["date"] == fri.isoformat() and s["period_id"] == env.periods["P1"])
-    assert slot["status"] == "available"
-    r = await env.book(teacher, "A102", fri, "P1")
+
+    async def p1(day: date) -> dict:  # type: ignore[type-arg]
+        grid = (
+            await env.client.get(
+                "/api/v1/bookings/grid",
+                params={"display": "room", "date": day.isoformat(), "room_id": env.rooms["A102"]},
+                headers=teacher,
+            )
+        ).json()
+        return next(s for s in grid["slots"] if s["date"] == day.isoformat() and s["period_id"] == env.periods["P1"])
+
+    # last Thursday (A 102 P1 is free all term) is in the past: since persona test U-04 neither the grid nor the
+    # POST offers a period that already started (the teacher could not cancel it afterwards)
+    past = date(2026, 2, 12)
+    slot = await p1(past)
+    assert slot["status"] == "unavailable" and slot["reason"] == "past" and slot["past"] is True
+    r = await env.book(teacher, "A102", past, "P1")
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "past", r.text
+    # the coming Thursday: the grid offers it (room ACL decides "single only", audit B5) and the POST accepts it
+    thu = date(2026, 2, 19)
+    assert (await p1(thu))["status"] == "available"
+    r = await env.book(teacher, "A102", thu, "P1")
     assert r.status_code == 201, r.text  # what the grid offered is bookable
 
 

@@ -56,7 +56,7 @@ const BOOKING_PREFIXES = ["/bookings", "/my-bookings", "/find-room", "/approvals
 
 /** The planning groups plus the CRBS-parity entries: bookings first, admin/setup/profile under "Admin". */
 export function allNavGroups(): NavGroup[] {
-  const extra = ADMIN_NAV_ITEMS.map((i): NavItem => ({ href: i.href, labelKey: i.labelKey, icon: i.icon, permission: i.permission, badge: i.badge }));
+  const extra = ADMIN_NAV_ITEMS.map((i): NavItem => ({ href: i.href, labelKey: i.labelKey, icon: i.icon, permission: i.permission, badge: i.badge, key: i.key }));
   const bookings = extra.filter((i) => BOOKING_PREFIXES.some((p) => i.href.startsWith(p)));
   const admin = extra.filter((i) => !bookings.includes(i));
   const groups = NAV_GROUPS.map((g) => (g.labelKey === "nav.admin" ? { ...g, items: [...g.items, ...admin.filter((a) => !g.items.some((x) => x.href === a.href))] } : g));

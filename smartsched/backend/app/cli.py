@@ -100,6 +100,32 @@ async def _seed(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _crbs_upgrade(args: argparse.Namespace) -> int:
+    """P18-LEGACY: dry run (default) or ``--commit --fingerprint <dry run's>``; prints the JSON report."""
+    from app.services import crbs_upgrade as up
+
+    if bool(args.files) == bool(args.dsn):
+        print("give SQL dump files or --dsn (one of them)", file=sys.stderr)
+        return 2
+    if args.commit and not args.fingerprint:
+        print("--commit needs --fingerprint from the dry run", file=sys.stderr)
+        return 2
+    configure_engine(args.database_url or get_settings().database_url)
+    await create_all()
+    source = args.dsn or [str(Path(f)) for f in args.files]
+    label = args.dsn.rsplit("@", 1)[-1] if args.dsn else ", ".join(Path(f).name for f in args.files)
+    try:
+        if args.commit:
+            rep = await up.commit(source, expect=args.fingerprint, filename=label)
+        else:
+            rep = await up.dry_run(source, filename=label)
+    except up.SourceChanged as exc:
+        print(str(exc), file=sys.stderr)
+        return 3
+    print(json.dumps(rep.to_dict(), indent=2, ensure_ascii=False, default=str))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="smartsched", description="SmartSched backend CLI")
     p.add_argument("--database-url", default=None)
@@ -131,6 +157,13 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--label", default=None)
     sv.add_argument("--solver", default="auto", choices=["auto", "cpsat"])
     sub.add_parser("seed-admin", help="create the admin user from ADMIN_EMAIL/ADMIN_PASSWORD")
+    upg = sub.add_parser(
+        "crbs-upgrade", help="upgrade a legacy classroombookings database: dry-run diff, then --commit --fingerprint"
+    )
+    upg.add_argument("files", nargs="*", help="mysqldump / CRBS install SQL files")
+    upg.add_argument("--dsn", default=None, help="mysql://user:pass@host/db (opened read-only)")
+    upg.add_argument("--commit", action="store_true", help="import for real (needs --fingerprint)")
+    upg.add_argument("--fingerprint", default=None, help="the fingerprint printed by the dry run")
     args = p.parse_args(argv)
     if args.cmd == "import":
         return asyncio.run(_run_import(args))
@@ -138,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(_run_solve(args))
     if args.cmd == "seed-admin":
         return asyncio.run(_seed(args))
+    if args.cmd == "crbs-upgrade":
+        return asyncio.run(_crbs_upgrade(args))
     return 1
 
 

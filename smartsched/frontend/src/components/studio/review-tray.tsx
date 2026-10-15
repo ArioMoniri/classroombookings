@@ -75,7 +75,7 @@ export function ProposalCard({ item, meta, onAccept, onReject, onChange, onKeyDo
   // the planner's own words stay as written; a small tag names their language when it is not the UI one
   const lang = p.nl_text ? detectTextLang(p.nl_text) : null;
   return (
-    <div tabIndex={-1} onKeyDown={onKeyDown} data-tray-key={item.key} className="rounded-[var(--radius-md)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50" data-testid="tray-item" data-status={p.status}>
+    <div tabIndex={-1} onKeyDown={onKeyDown} data-tray-key={item.key} className="rounded-[var(--radius-md)] outline-hidden focus-visible:ring-3 focus-visible:ring-ring/50" data-testid="tray-item" data-status={p.status}>
       <RuleCard
         domId={`tray-${item.key}`}
         testId="proposal-card"
@@ -162,7 +162,7 @@ export function ReviewTray({ items, meta, onAccept, onReject, onUpdate }: { item
   return (
     <section aria-labelledby="tray-title" className="rounded-xl border border-dashed border-primary/40 bg-tint-soft/30 p-3 sm:p-4" data-testid="review-tray">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h3 id="tray-title" ref={heading} tabIndex={-1} className="flex-1 text-sm font-semibold outline-none">
+        <h3 id="tray-title" ref={heading} tabIndex={-1} className="flex-1 text-sm font-semibold outline-hidden">
           {t("studio.tray.title", { n: pending.length })}
         </h3>
         <Button size="sm" onClick={() => void run(() => onAccept(ready))} disabled={busy || ready.length === 0} data-testid="tray-accept-all" aria-keyshortcuts="Meta+Shift+Enter">

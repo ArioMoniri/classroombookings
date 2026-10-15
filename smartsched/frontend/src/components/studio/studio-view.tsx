@@ -304,7 +304,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
                   const current = s === step;
                   return (
                     <li key={s}>
-                      <button type="button" onClick={() => goStep(s)} aria-current={current ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex min-h-14 w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left outline-none focus-visible:outline-2 focus-visible:outline-(--focus)", current ? "bg-fill-1 text-label-1" : "hover:bg-fill-3")} data-testid={`rail-step-${s}`}>
+                      <button type="button" onClick={() => goStep(s)} aria-current={current ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex min-h-14 w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", current ? "bg-fill-1 text-label-1" : "hover:bg-fill-3")} data-testid={`rail-step-${s}`}>
                         <span className={cn("mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums", current ? "bg-tint text-tint-foreground" : "bg-fill-2 text-label-2")}>{i + 1}</span>
                         <span className="min-w-0">
                           <span className="block text-sm font-medium">{t(STEP_KEY[s])}</span>

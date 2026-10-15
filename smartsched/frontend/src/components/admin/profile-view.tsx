@@ -131,7 +131,13 @@ function PasswordForm({ forced }: { forced: boolean }) {
             if (next.length < 8) return (setError(t("crbs.reset.tooShort")), shake());
             if (next !== again) return (setError(t("crbs.reset.mismatch")), shake());
             m.mutate(undefined, {
-              onSuccess: () => {
+              onSuccess: (res) => {
+                // B-AUTH-11 revoked the session and signing in again failed: say so and go to the login page
+                if (res && typeof res === "object" && "signedOut" in res && res.signedOut) {
+                  toast.message(t("wave1.session.password"));
+                  window.location.assign(`/login?next=${encodeURIComponent("/profile")}&reason=password`);
+                  return;
+                }
                 toast.success(t("crbs.profile.passwordChanged"));
                 setCurrent("");
                 setNext("");

@@ -489,8 +489,8 @@
       "ledger": "merge-universal-2026-10-15 SCOPE: your isolated git worktree only, on a local br…",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-15 16:37",
-      "left_off": "Still waiting on bnraig8aj, which is the active monitor."
+      "finished_at": "2026-10-15 17:12",
+      "left_off": "Waiting for parity_check."
     },
     {
       "id": "a574d83abdbb1d109",
@@ -650,7 +650,8 @@
       "goal": "tickets P19-C1 and P19-C2 from docs/review/2026-10-15-phase19-engineering.md §3c/§5. These let a coordinator create a brand-new programme with no import, the \"from-scratch program creation\" the user asked for. Read docs/testing/2026-10-15-academician-needs.md §4 (the coordinator's 8-step flow) and docs/design/v2/phase19-program-wizard.md, if the design agent has written it. Build, test-first, agai…",
       "ledger": "p19-c-from-scratch-api-2026-10-15 SCOPE: NEW files only: - smartsched/backend/ap…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 17:01"
     },
     {
       "id": "adf69c162c57808a8",
@@ -686,7 +687,8 @@
       "goal": "act as an ordinary university staff member who books rooms (the classroombookings \"Teacher\" role, not a planner or admin). Test every screen, button, form and motion this role can reach in SmartSched, and report bugs and enhancement ideas precisely enough that an engineer can fix them without asking you anything. Stack. Use only this one, which is isolated from the other testers: SNAP=/tmp/claude-…",
       "ledger": "persona-user-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona-user.m…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 17:06"
     },
     {
       "id": "a2adbc02f53e2d8cb",
@@ -698,7 +700,8 @@
       "goal": "act as a senior academician who teaches 3 courses in the Bahar 2026 term and has strong room and time wishes. Test every SmartSched screen, button and motion an academician uses or would need, and report bugs and enhancements precisely enough that an engineer can fix them without asking you anything. Read docs/testing/2026-10-15-academician-needs.md first; it is the needs analysis from this person…",
       "ledger": "persona-academician-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 17:13"
     },
     {
       "id": "a79b83fc2b496a84f",
@@ -763,6 +766,46 @@
       "ledger": "frontend-sweep-studio-calendar-2026-10-15 SCOPE: smartsched/frontend/src/compone…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a1a36404521251e78",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 16:54",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a04fc7154bb71ac69",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 17:02",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "af35dd80be3805072",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 17:04",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "aeb4bb9357df3d376",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 17:08",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "afb424590cc9fddd2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 17:13",
+      "left_off": "continue n deploy to pod when green"
     }
   ]
 }

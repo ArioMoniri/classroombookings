@@ -7,6 +7,7 @@ import { AlertTriangle } from "lucide-react";
 import { useOrgPublic } from "@/lib/api/crbs";
 import { useMeFull } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
+import { useHydrated } from "@/lib/use-hydrated";
 import { useUiStore } from "@/stores/ui";
 import { useAccentPreference } from "./appearance";
 import { CommandPalette } from "./command-palette";
@@ -48,7 +49,9 @@ export function MaintenanceBanner() {
   const { t } = useI18n();
   const pathname = usePathname();
   const org = useOrgPublic();
-  if (!org.data?.maintenance_mode || pathname === "/bookings" || pathname.startsWith("/bookings/")) return null;
+  // org data can land while the shell hydrates: render nothing until hydrated (no #418 mismatch)
+  const hydrated = useHydrated();
+  if (!hydrated || !org.data?.maintenance_mode || pathname === "/bookings" || pathname.startsWith("/bookings/")) return null;
   return (
     <div role="status" data-testid="shell-maintenance" className="mx-4 mt-2 flex items-start gap-2 rounded-xl bg-status-warning px-3 py-2 type-callout text-status-warning-fg sm:mx-6 lg:mx-8">
       <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />

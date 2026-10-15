@@ -370,10 +370,18 @@ export async function loginWithIdentifier(identifier: string, password: string):
  * password change (`signed_out: true`, token_version bump), so we sign in again with the new password; the
  * proxy then stores the fresh JWT in the httpOnly cookie exactly as on a normal login.
  */
-export async function changePassword(body: { current_password?: string | null; new_password: string }): Promise<{ ok: boolean }> {
+export async function changePassword(body: { current_password?: string | null; new_password: string }): Promise<{ ok: boolean; signedOut: boolean }> {
   const me = await request("/auth/me", { schema: MeFull, silent: true });
   const out = await request<{ ok?: boolean; signed_out?: boolean }>("/auth/change-password", { method: "POST", body, silent: true });
   const identifier = me.email || me.username;
-  if (out?.signed_out && identifier) await loginWithIdentifier(identifier, body.new_password);
-  return { ok: out?.ok ?? true };
+  if (!out?.signed_out) return { ok: out?.ok ?? true, signedOut: false };
+  // the old token is revoked: sign in again with the new password; if that fails the caller sends the
+  // user to /login (never a silently dead session with empty pages)
+  if (!identifier) return { ok: true, signedOut: true };
+  try {
+    await loginWithIdentifier(identifier, body.new_password);
+    return { ok: true, signedOut: false };
+  } catch {
+    return { ok: true, signedOut: true };
+  }
 }

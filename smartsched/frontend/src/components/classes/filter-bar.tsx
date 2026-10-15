@@ -173,7 +173,7 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
       <PopoverContent align="start" className="w-80 p-1.5">
         <div className="flex items-center gap-1">
           {field ? <Button variant="ghost" size="icon-xs" aria-label={t("calendar.nav.prev")} onClick={() => { setField(null); setQ(""); }}><ChevronLeft /></Button> : null}
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={field ? t("classes.f.searchValues") : t("classes.filter")} aria-label={field ? t("classes.f.searchValues") : t("classes.filter")} className="h-8 flex-1 rounded-lg bg-fill-2 px-2.5 text-[13px] outline-none focus-visible:outline-2 focus-visible:outline-(--focus)" />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={field ? t("classes.f.searchValues") : t("classes.filter")} aria-label={field ? t("classes.f.searchValues") : t("classes.filter")} className="h-8 flex-1 rounded-lg bg-fill-2 px-2.5 text-[13px] outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" />
         </div>
         {field ? (
           <div className="mt-1 flex flex-col gap-1">

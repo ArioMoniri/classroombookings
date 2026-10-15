@@ -99,3 +99,8 @@ api_router.include_router(council.router)
 from app.api.v1 import catalog_admin  # noqa: E402
 
 api_router.include_router(catalog_admin.router)
+
+# Phase 18 part 3 (P18-LEGACY): upgrade a legacy classroombookings database
+from app.api.v1 import crbs_upgrade  # noqa: E402
+
+api_router.include_router(crbs_upgrade.router)

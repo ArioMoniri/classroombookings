@@ -89,7 +89,7 @@ export function RunCard({ compact }: { compact?: boolean }) {
       data-testid="run-card"
       data-status={r?.status ?? "QUEUED"}
     >
-      <h3 id="run-status-title" tabIndex={-1} className="flex items-center gap-2 font-semibold outline-none" aria-live={live}>
+      <h3 id="run-status-title" tabIndex={-1} className="flex items-center gap-2 font-semibold outline-hidden" aria-live={live}>
         {!r || running ? <Loader2 className="size-4 animate-spin text-tint-text" aria-hidden /> : GOOD.has(r.status) ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : r.status === "INFEASIBLE" ? <OctagonX className="size-4 text-status-infeasible-fg" aria-hidden /> : <XCircle className="size-4 text-status-infeasible-fg" aria-hidden />}
         {t("studio.run.title", { id: active.runId })} · {r ? t(`runs.status.${r.status}`) : t("runs.status.QUEUED")}
       </h3>

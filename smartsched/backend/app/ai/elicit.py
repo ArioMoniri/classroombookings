@@ -84,7 +84,7 @@ def _validated_call_input(call: Any) -> tuple[dict[str, Any] | None, list[str]]:
 async def propose(
     client: AIClient,
     ctx: TermContext,
-    user_content: str,
+    user_content: str | list[dict[str, Any]],
     lang: str,
     *,
     lookup: SourceLookup | None = None,

@@ -78,7 +78,7 @@ export function SubjectPicker({ model, subject, onSubject, condensed }: { model:
         <ChevronDown className="size-3 text-label-3" aria-hidden />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-1.5">
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("calendar.subject.search")} aria-label={t("calendar.subject.search")} className="mb-1 h-8 w-full rounded-lg bg-fill-2 px-2.5 text-[13px] outline-none focus-visible:outline-2 focus-visible:outline-(--focus)" />
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("calendar.subject.search")} aria-label={t("calendar.subject.search")} className="mb-1 h-8 w-full rounded-lg bg-fill-2 px-2.5 text-[13px] outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" />
         <div className="max-h-80 overflow-y-auto" role="listbox" aria-label={t("calendar.subject.label")}>
           {groups.map((g) => {
             const items = filtered.filter((o) => o.group === g.key);

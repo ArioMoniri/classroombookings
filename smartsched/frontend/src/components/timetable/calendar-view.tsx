@@ -26,6 +26,7 @@ import { CapsuleToolbar } from "./capsule-toolbar";
 import { DayTimeline } from "./day-timeline";
 import { MonthHeat, TermHeat } from "./heat-lenses";
 import { MobileCalendar } from "./mobile-calendar";
+import { TimetableNoAccess } from "./no-access";
 import { MoveDialog, MovePopover, type PendingMove, type ScopeValue } from "./move-dialog";
 import { QuickCreate, type CreateRequest } from "./quick-create";
 import { ShortcutsSheet } from "./shortcuts-sheet";
@@ -676,6 +677,13 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
 
 
   // ------------------------------------------------------------------ states
+  if (data.forbidden) {
+    return (
+      <div ref={rootRef} className={cn("cal-canvas flex items-start p-8", className)} style={{ height: embedded ? undefined : fill }}>
+        <TimetableNoAccess />
+      </div>
+    );
+  }
   if (data.noRun) {
     return (
       <div ref={rootRef} className={cn("cal-canvas flex items-start p-8", className)} style={{ height: embedded ? undefined : fill }}>

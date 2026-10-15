@@ -114,6 +114,7 @@ class Held:
     ref_id: int
     run_id: int | None = None
     series_id: int | None = None
+    pending: bool = False  # a PENDING approval request (P1), not a booking yet
 
     def overlaps(self, start: int, end: int) -> bool:
         return self.start <= end and start <= self.end
@@ -229,9 +230,19 @@ async def _request_labels(session: AsyncSession, request_ids: set[int]) -> dict[
 
 
 async def booking_occupancy(
-    session: AsyncSession, room_ids: set[int] | None, d_from: date, d_to: date, exclude: set[int] | None = None
+    session: AsyncSession,
+    room_ids: set[int] | None,
+    d_from: date,
+    d_to: date,
+    exclude: set[int] | None = None,
+    *,
+    viewer: Access | None = None,
 ) -> Occ:
-    """Active bookings, plus PENDING requests (P1) whose tentative hold has not run out."""
+    """Active bookings, plus PENDING requests (P1) whose tentative hold has not run out. With ``viewer`` (the grid),
+    PENDING requests without a live hold are listed too when the viewer made them or approves them (persona test
+    U-06: the requester saw the slot free again); they are marked ``pending`` and never block anyone."""
+    from app.services import approvals
+
     out: Occ = defaultdict(list)
     q = select(Booking).where(Booking.status.in_((BOOKED, PENDING)), Booking.date.between(d_from, d_to))
     if room_ids is not None:
@@ -242,10 +253,22 @@ async def booking_occupancy(
             continue
         if b.status == PENDING:
             now = now or await now_local(session)
-            if b.held_until is None or b.held_until <= now:
+            if (b.held_until is None or b.held_until <= now) and not (
+                viewer is not None and await approvals.sees_request(session, viewer, b)
+            ):
                 continue
         out[(b.room_id, b.date)].append(
-            Held("booking", b.room_id, b.date, b.start_period, b.end_period, b.notes or "", b.id, series_id=b.series_id)
+            Held(
+                "booking",
+                b.room_id,
+                b.date,
+                b.start_period,
+                b.end_period,
+                b.notes or "",
+                b.id,
+                series_id=b.series_id,
+                pending=b.status == PENDING,
+            )
         )
     return out
 
@@ -450,6 +473,37 @@ async def check_window(
         )
 
 
+#: role-level permission that lets a user cancel a booking after its period ended (``can_cancel``): the same users
+#: may record a period that already started (persona test U-04)
+PAST_BOOKING_PERM = "book_single.cancel_other_booking"
+
+
+def period_started(d: date, period: BookingPeriod, now: datetime) -> bool:
+    """True when ``period`` of ``d`` has begun at ``now`` (local wall time of the organisation)."""
+    return datetime.combine(d, period.time_start) <= now
+
+
+async def check_not_started(session: AsyncSession, access: Access, d: date, period: BookingPeriod) -> None:
+    """U-04: a single booking for a period that already started is refused, unless the user may cancel other people's
+    bookings at role level (administrators record past use and can cancel it again). Everyone else could not cancel
+    such a booking once the period ended, so it is not creatable."""
+    if access.can(PAST_BOOKING_PERM):
+        return
+    now = await now_local(session)
+    if not period_started(d, period, now):
+        return
+    start = datetime.combine(d, period.time_start)
+    raise _conflict(
+        "past",
+        f"{period.name} on {d:%d.%m.%Y} already started at {period.time_start:%H:%M}; it can no longer be booked",
+        period_start=start.isoformat(),
+        message_en=f"{period.name} on {d:%d.%m.%Y} already started at {period.time_start:%H:%M}; "
+        "it can no longer be booked",
+        message_tr=f"{d:%d.%m.%Y} {period.name} saat {period.time_start:%H:%M} itibarıyla başladı (geçmiş saat); "
+        "artık rezerve edilemez",
+    )
+
+
 async def remaining_bookings(session: AsyncSession, access: Access) -> int | None:
     limits = await effective_limits(session, access.user)
     limit = limits["max_active_bookings"]
@@ -623,6 +677,35 @@ async def _conflict_error(held: Held, room: Room, d: date) -> BookingError:
     )
 
 
+async def _refuse_duplicate_request(
+    session: AsyncSession, access: Access, room: Room, d: date, period: BookingPeriod, user_id: int | None
+) -> None:
+    """U-06: the same user asking again for the same room, date and period gets the open request back (409)."""
+    from app.services import approvals
+
+    q = select(Booking).where(
+        Booking.status == PENDING,
+        Booking.room_id == room.id,
+        Booking.date == d,
+        Booking.period_id == period.id,
+        Booking.created_by == access.user_id,
+        Booking.user_id == user_id if user_id is not None else Booking.user_id.is_(None),
+    )
+    b = (await session.execute(q.order_by(Booking.id))).scalars().first()
+    if b is None:
+        return
+    req = await approvals.request_for_booking(session, b)
+    raise _conflict(
+        "duplicate_request",
+        f"you already asked for {room.display_name} on {d:%d.%m.%Y} {period.name}; the request is waiting for approval",
+        booking_id=b.id,
+        request_id=req.id if req is not None else None,
+        message_en=f"you already asked for {room.display_name} on {d:%d.%m.%Y} {period.name}; "
+        "the request is waiting for approval",
+        message_tr=f"{room.display_name} için {d:%d.%m.%Y} {period.name} talebiniz zaten var ve onay bekliyor",
+    )
+
+
 async def create_single(session: AsyncSession, access: Access, body: SingleIn, *, commit: bool = True) -> Booking:
     """A booking, or (P1) a PENDING request when the room needs approval (``booking.status``)."""
     from app.services import approvals
@@ -642,6 +725,7 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
         await approvals.check_lead_time(session, need, info.term.id, body.date)
     user_id, dep_id = await _who_and_department(session, access, room, "book_single", body)
     await check_window(session, access, info, body.date, room)
+    await check_not_started(session, access, body.date, period)
     # CRBS checks the limit in the grid (Slot) and in multi-booking, not in SingleAgent (deliberate
     # difference a); bookings.enforce_max_active_on_create refuses the POST too
     enforce = bool(await get_value(session, "bookings", "enforce_max_active_on_create"))
@@ -653,6 +737,8 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
             f"you already have {limits['max_active_bookings']} active booking(s), the maximum",
             limit=limits["max_active_bookings"],
         )
+    if need is not None:
+        await _refuse_duplicate_request(session, access, room, body.date, period, user_id)
     held = await find_conflict(session, room.id, body.date, period.start_period, period.end_period)
     if held is not None:
         raise await _conflict_error(held, room, body.date)
@@ -1207,6 +1293,8 @@ async def update(
             if new_date < t:
                 raise _conflict("range_min", f"a booking cannot be moved into the past ({new_date:%d.%m.%Y})")
             await check_window(session, access, info, new_date, new_room)
+        if "date" in data or "period_id" in data:
+            await check_not_started(session, access, new_date, period)
         held = await find_conflict(
             session, new_room.id, new_date, period.start_period, period.end_period, exclude={b.id}
         )
@@ -1639,20 +1727,23 @@ async def grid(
     dinfos = await date_infos(session, info, dates)
     room_ids = {r.id for r in rooms}
     d0, d1 = min(dates), max(dates)
-    bocc = await booking_occupancy(session, room_ids, d0, d1)
+    bocc = await booking_occupancy(session, room_ids, d0, d1, viewer=access)
     tocc = await timetable_occupancy(session, room_ids, d0, d1)
     limits = await effective_limits(session, access.user)
     left = await remaining_bookings(session, access)
     lo, hi = limits["range_min"], limits["range_max"]
     min_date = t + timedelta(days=lo or 0)
     max_date = t + timedelta(days=hi) if hi is not None else info.end
+    now = await now_local(session)
+    may_book_past = access.can(PAST_BOOKING_PERM)
     booking_cache: dict[int, Booking] = {}
     slots = []
     for day in dates:
         di = dinfos[day]
         for p in periods:
             for r in rooms:
-                slot: dict[str, Any] = {"date": day.isoformat(), "period_id": p.id, "room_id": r.id}
+                past = period_started(day, p, now)
+                slot: dict[str, Any] = {"date": day.isoformat(), "period_id": p.id, "room_id": r.id, "past": past}
                 status, reason, label = "available", None, None
                 held_b = next((h for h in bocc.get((r.id, day), []) if h.overlaps(p.start_period, p.end_period)), None)
                 held_t = next((h for h in tocc.get((r.id, day), []) if h.overlaps(p.start_period, p.end_period)), None)
@@ -1667,6 +1758,8 @@ async def grid(
                     assert b is not None
                     booking_cache[b.id] = b
                     status, reason = "booked", ("recurring" if b.series_id else "single")
+                    if held_b.pending:  # U-06: the viewer's own (or to-be-approved) request
+                        reason, slot["pending"] = "pending", True
                     slot["booking"] = await booking_out(session, access, b)
                 elif held_t is not None:
                     status, reason, label = "timetable", held_t.kind, held_t.label
@@ -1684,6 +1777,8 @@ async def grid(
                         status, reason = "unavailable", "range_min"
                     elif single and not recur and day > max_date:
                         status, reason = "unavailable", "range_max"
+                    elif past and not may_book_past:
+                        status, reason = "unavailable", "past"  # U-04: the period already started
                 slot.update(status=status, reason=reason, label=label)
                 slots.append(slot)
     prev_d, next_d = await _prev_next(session, info, target, display, period_days)

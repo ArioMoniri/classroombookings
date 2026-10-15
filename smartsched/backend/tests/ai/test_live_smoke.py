@@ -39,3 +39,18 @@ async def test_live_elicit_and_chat(session, seed):
         session, seed.run_id, "NRS 450 neden C 301'de? Daha küçük bir derslik öner.", "tr", client=client
     )
     assert chat.assistant_message
+
+
+async def test_live_streamed_chat(session, seed):
+    """Streamed chat: the API accepts strict tools with eager_input_streaming and text arrives as deltas."""
+    client = AIClient(os.environ["ANTHROPIC_API_KEY"], MODEL)
+    events: list[dict] = []
+
+    async def sink(ev: dict) -> None:
+        events.append(ev)
+
+    chat = await handle_chat(
+        session, seed.run_id, "PHAR 240 hangi derslikte? Kısaca söyle.", "tr", client=client, on_event=sink
+    )
+    assert chat.assistant_message
+    assert any(e["type"] == "text" for e in events)

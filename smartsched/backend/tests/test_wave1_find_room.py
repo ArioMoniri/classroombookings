@@ -135,6 +135,9 @@ async def test_recurring_partial_results_and_holidays(env):  # noqa: F811
     r = await env.book(ayse, "A102", date(2026, 3, 5), "P1")  # one Thursday taken
     assert r.status_code == 201, r.text
     body = {"term_id": env.term_id, "weekday": 4, "start": "08:30", "end": "09:10", "headcount": 90}
+    one = {**body, "weekday": None, "date": "2026-02-19"}
+    # warm-up: the caller's first search also creates their recent-searches row (one statement, once)
+    assert (await env.client.post(FIND, json=one, headers=ayse)).status_code == 200
     with _sql_statements() as every_thursday:
         out = (await env.client.post(FIND, json=body, headers=ayse)).json()
     assert {"date": "2026-04-23", "reason": "holiday"} == {
@@ -148,12 +151,13 @@ async def test_recurring_partial_results_and_holidays(env):  # noqa: F811
     # the caller sees their own booking as the holder
     assert "Rezervasyon" in a102["busy_with"]
     # performance: ~60 rooms x every Thursday of the term. Deterministic, not wall-clock (a `timing_ms < 3000`
-    # check failed under a load average > 30): the search issues as many SQL statements for every Thursday of
-    # the term as for one date, so the per-date work stays in memory (no query per date or per room).
-    one = {**body, "weekday": None, "date": "2026-02-19"}
+    # check failed under a load average > 30): the search issues (nearly) as many SQL statements for every
+    # Thursday of the term as for one date, so the per-date work stays in memory (no query per date or per room).
     with _sql_statements() as one_date:
         assert (await env.client.post(FIND, json=one, headers=ayse)).status_code == 200
-    assert 0 < every_thursday["n"] <= one_date["n"], (every_thursday, one_date)
+    # (a recurring search reads the term's closed dates once more: a constant, where a per-date query would add
+    # 14 statements for the 14 Thursdays)
+    assert 0 < every_thursday["n"] <= one_date["n"] + 2, (every_thursday, one_date)
     assert out["timing_ms"] >= 0  # still reported to the client
 
 

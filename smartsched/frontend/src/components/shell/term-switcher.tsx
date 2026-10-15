@@ -37,7 +37,10 @@ export function useTermKindLabel() {
 /** Terms are planning data (GET /terms needs planning.view): people without it get no switcher (and no 403). */
 export function TermSwitcher({ collapsed }: { collapsed: boolean }) {
   const { can } = usePermissions();
-  if (!can("planning.view")) return null;
+  // never on the server or the first client render: /auth/me can arrive while the sidebar's Suspense boundary
+  // hydrates, and a <button> the server did not render is React error #418 (/classes, /timetable)
+  const hydrated = useHydrated();
+  if (!hydrated || !can("planning.view")) return null;
   return <TermSwitcherInner collapsed={collapsed} />;
 }
 

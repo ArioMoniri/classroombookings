@@ -30,6 +30,7 @@ import { reasonKey } from "@/components/bookings/booking-grid";
 import { crbs, crbsKeys, type GridQuery } from "@/lib/api/crbs";
 import { APPROVAL_KEYS, errorText, pickLang, useApprovalInbox, useApprovalRequest, wave1, wave1Error, type ApprovalRequest, type DecideIn } from "@/lib/api/wave1";
 import { usePermissions } from "@/lib/permissions";
+import { useHydrated } from "@/lib/use-hydrated";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { conflictAlternatives, isOpen, openDates, requestSlots, type DecideAlternative } from "./approvals-model";
@@ -45,6 +46,7 @@ export function ApprovalsView() {
   const router = useRouter();
   const pathname = usePathname();
   const fmt = useBookingFormat();
+  const hydrated = useHydrated();
   const decider = can("approvals.decide");
   const [box, setBox] = useState<Box>("open");
   const list = useApprovalInbox(box, decider);
@@ -58,7 +60,8 @@ export function ApprovalsView() {
   }
   const rows = list.data ?? [];
 
-  if (loading) return <Loading />;
+  // permission-dependent markup only after hydration (the user can arrive mid-hydration: React #418)
+  if (!hydrated || loading) return <Loading />;
   if (!decider) {
     return (
       <div className="flex flex-col gap-4">
