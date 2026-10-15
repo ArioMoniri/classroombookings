@@ -650,7 +650,8 @@
       "goal": "tickets P19-C1 and P19-C2 from docs/review/2026-10-15-phase19-engineering.md §3c/§5. These let a coordinator create a brand-new programme with no import, the \"from-scratch program creation\" the user asked for. Read docs/testing/2026-10-15-academician-needs.md §4 (the coordinator's 8-step flow) and docs/design/v2/phase19-program-wizard.md, if the design agent has written it. Build, test-first, agai…",
       "ledger": "p19-c-from-scratch-api-2026-10-15 SCOPE: NEW files only: - smartsched/backend/ap…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 17:01"
     },
     {
       "id": "adf69c162c57808a8",
@@ -763,6 +764,14 @@
       "ledger": "frontend-sweep-studio-calendar-2026-10-15 SCOPE: smartsched/frontend/src/compone…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a1a36404521251e78",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 16:54",
+      "left_off": "continue n deploy to pod when green"
     }
   ]
 }

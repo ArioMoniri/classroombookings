@@ -498,3 +498,14 @@ Docs-refresh hand-off (2026-10-15):
   - calendar-sync/webhook settings
 - [ ] The old docs/images/screens/bookings-*.webp and my-bookings-*.webp are outdated: regenerate or delete them (frontend sweep).
 - [ ] The README table "Measured on the real data" is still the 2026-10-08 data. Re-run tools/validate_planner and real-data feasibility in the stabilisation pass.
+- [x] P19-C1/C2 (done 2026-10-15, c7e114c + checkpoints): CRUD for faculties, programmes, courses, instructors, sections and meeting/exam requests, plus the weekly-pattern expander (services/patterns.py). Evidence: on an empty term, the MBG Tezli YL programme (Bahar rows 188–190) solves OPTIMAL with hard 100, 6/6 placed and planner_check 0 violations; tests/test_p19_catalog_admin.py + test_p19_patterns.py give 87 passed. Purge is refused while ANY run references the row (stricter than briefed; kept).
+- [ ] P19-C3: importer keeps and matches MAN: sections. The guard diff went to the importer agent; afterwards remove the xfail on test_a_later_import_keeps_hand_made_sections.
+- [ ] P19-C4: migration batch, landing with the P19-L1 migration on the current head:
+  - source_key + archived on faculties, programs, courses and instructors
+  - sections.enrolment_estimated
+  - meeting_requests duration + bridge support for start_period=None (time-flexible requests)
+  - programs unique (faculty_id, canonical_name)
+  - instructors.user_id
+- [ ] P19-C5: drop the duplicate audit row on programme create (flush hook department.create + explicit program.create); keep one.
+- [ ] P19-C6: a "copy from an earlier programme" endpoint on the catalog_admin services.
+- Test infra note: concurrent agents collide on /tmp/pytest-of-root. Use `--basetemp=$(mktemp -d)` while several agents run tests.

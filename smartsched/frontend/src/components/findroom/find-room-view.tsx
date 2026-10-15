@@ -19,7 +19,8 @@ import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { SegmentedGlass } from "@/components/ui/segmented-glass";
 import { Switch } from "@/components/ui/switch";
-import { Alert, Field, PageTitle, SelectField } from "@/components/admin/kit";
+import { Alert, Field, Loading, PageTitle, SelectField } from "@/components/admin/kit";
+import { useHydrated } from "@/lib/use-hydrated";
 import { BookSheet, type BookTarget } from "@/components/bookings/book-sheet";
 import { useBookingFormat, useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { crbs, crbsKeys, useBookingContext, useBookingDates, type GridQuery } from "@/lib/api/crbs";
@@ -150,6 +151,9 @@ export function FindRoomView() {
   const free = results.filter((r) => ACTIONABLE.has(r.status));
   const others = results.filter((r) => !ACTIONABLE.has(r.status));
   const multi = (result?.slots.length ?? 0) > 1;
+  // the form starts from the backend's booking clock and the user's facets: client-only (no #418 mismatch)
+  const hydrated = useHydrated();
+  if (!hydrated) return <Loading />;
 
   return (
     <div className="flex flex-col gap-5" data-testid="find-room">

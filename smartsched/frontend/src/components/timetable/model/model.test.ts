@@ -19,6 +19,34 @@ import { assignment, fixtureIndex } from "@/test/fixtures/calendar-index";
 import { nearestValidStart, pullFactor, snapGhost } from "./magnet";
 import { lensDirection, lensForKey, parseViewState, serializeViewState, weekInRun } from "./view-state";
 
+/* ------------------------------------------------ perf budget helpers */
+const PERF_BUDGET_MS = 1;
+/** Median of the calibration loop on a quiet 4-core container (2026-10-15: 0.73–0.78 ms). */
+const CALIBRATION_REF_MS = 0.75;
+const MAX_SLOWDOWN = 4;
+const calibrationBuf = new Float64Array(4096);
+function median(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+function calibrationLoop(): number {
+  const t0 = performance.now();
+  const m = new Map<number, number>();
+  let acc = 0;
+  for (let i = 0; i < 20000; i++) {
+    m.set(i & 4095, i);
+    acc += (m.get((i * 7) & 4095) ?? 0) + calibrationBuf[i & 4095];
+  }
+  calibrationBuf[0] = acc % 2; // keep the loop observable so it is not optimised away
+  return performance.now() - t0;
+}
+/** How much slower than the quiet reference this machine is right now, clamped to [1, MAX_SLOWDOWN]. */
+function machineSlowdown(): number {
+  const now = median(Array.from({ length: 15 }, calibrationLoop));
+  return Math.min(MAX_SLOWDOWN, Math.max(1, now / CALIBRATION_REF_MS));
+}
+
 describe("layout math", () => {
   const t = rowTable(40);
   it("P12 is a 0.6× transition row and tops are a prefix sum", () => {
@@ -156,10 +184,26 @@ describe("index + live conflict preview", () => {
     const big = buildModel(fixtureIndex(many));
     const ev = big.eventByAid.get(1)?.[0];
     if (!ev) throw new Error("fixture");
-    for (let i = 0; i < 50; i++) checkMove(big, ev, { room: (i % 5) + 1, day: (i % 5) + 1, sp: 7, ep: 9 }); // warm-up
-    const t0 = performance.now();
-    for (let i = 0; i < 200; i++) checkMove(big, ev, { room: (i % 5) + 1, day: (i % 5) + 1, sp: 7, ep: 9 });
-    expect((performance.now() - t0) / 200).toBeLessThan(1);
+    // One timed loop is at the mercy of a GC pause or a preempted core (it read 1.8 ms under
+    // load while the median check takes ~0.01–0.2 ms). Take the median of 15 batches and scale
+    // the 1 ms budget by how slow the machine is right now, measured with a fixed calibration
+    // loop of similar work (Map + typed-array reads). The scale is capped at 4×, so an O(n)
+    // regression (a full 9,000-row scan per check) still fails on any machine.
+    const batch = () => {
+      const t0 = performance.now();
+      for (let i = 0; i < 20; i++) checkMove(big, ev, { room: (i % 5) + 1, day: (i % 5) + 1, sp: 7, ep: 9 });
+      return (performance.now() - t0) / 20;
+    };
+    for (let i = 0; i < 5; i++) { batch(); calibrationLoop(); } // warm-up (JIT)
+    const perCheck = median(Array.from({ length: 15 }, batch));
+    const budget = PERF_BUDGET_MS * machineSlowdown();
+    expect(perCheck, `median ${perCheck.toFixed(3)} ms per check, budget ${budget.toFixed(2)} ms`).toBeLessThan(budget);
+  });
+  it("perf budget helpers: median ignores outliers and the slowdown is clamped to [1, 4]", () => {
+    expect(median([0.1, 0.2, 50, 0.15, 0.12])).toBe(0.15);
+    const s = machineSlowdown();
+    expect(s).toBeGreaterThanOrEqual(1);
+    expect(s).toBeLessThanOrEqual(MAX_SLOWDOWN);
   });
 });
 

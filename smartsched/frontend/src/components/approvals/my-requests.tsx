@@ -17,6 +17,7 @@ import { ConfirmDialog, SectionTitle } from "@/components/admin/kit";
 import type { DateFormatter } from "@/components/bookings/date-format";
 import { APPROVAL_KEYS, errorText, pickLang, suggestionsOf, useMyRequests, wave1, wave1Error, type ApprovalRequest } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
+import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { isOpen, requestSlots, suggestionRooms } from "./approvals-model";
 import { RequestTimeline, SlotLine, StatusPill } from "./request-parts";
@@ -26,8 +27,9 @@ export function MyRequests({ fmt }: { fmt: DateFormatter }) {
   const mine = useMyRequests();
   const params = useSearchParams();
   const asked = Number(params.get("request")) || null;
+  const hydrated = useHydrated();
   const rows = mine.data ?? [];
-  if (!rows.length) return null;
+  if (!hydrated || !rows.length) return null;
   const open = rows.filter(isOpen).length;
   return (
     <section aria-labelledby="mine-requests" data-testid="my-requests">

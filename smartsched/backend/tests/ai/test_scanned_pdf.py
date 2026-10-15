@@ -50,7 +50,9 @@ async def test_scanned_pdf_is_read_by_the_model_when_vision_is_on(session, seed,
     out = await extract_preferences(session, seed.term_id, data, "tarama.pdf", "tr", client=client)
     assert out.needs_ai is False and out.file_kind == "pdf" and out.chunks == 1
     p = out.proposals[0]
-    assert p.status == "ok" and p.source == "UPLOAD" and p.source_ref["file"] == "tarama.pdf" and p.source_ref["page"] == 1
+    assert (
+        p.status == "ok" and p.source == "UPLOAD" and p.source_ref["file"] == "tarama.pdf" and p.source_ref["page"] == 1
+    )
     sent = fake_sdk.calls[0]["messages"][0]["content"]
     doc, instr = sent[0], sent[-1]
     assert doc["type"] == "document" and doc["source"]["media_type"] == "application/pdf"
