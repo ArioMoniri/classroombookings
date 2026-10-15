@@ -5,9 +5,13 @@
 # (smartsched/deploy/pod-ci); this job only calls AWS APIs: no builds, no tests, <= 10 minutes.
 #
 # Trigger: commit + push a change to infra/aws/POD_ACTION whose first line is
-#     up | status | logs | stop | start | cost | down destroy       (optional: region=<aws-region>)
-# e.g. `echo "up $(date -u +%FT%TZ)" > infra/aws/POD_ACTION` (the timestamp makes every push a change).
-# `down` deletes the pod and its data; it needs the second word `destroy`.
+#     up | status | logs | stop | start | cost | down destroy
+#     (optional: region=<aws-region>, pod=gracious|universal or branch=<deploy branch>; default pod gracious)
+# e.g. `echo "up $(date -u +%FT%TZ)" > infra/aws/POD_ACTION` (the timestamp makes every push a change), or
+#      `echo "up pod=universal $(date -u +%FT%TZ)" > infra/aws/POD_ACTION` for the empty (universal) deploy.
+# `down` deletes the pod and its data; it needs the second word `destroy` (`down destroy pod=universal`).
+# Each pod has its own instance, names (smartsched-<pod>-*), SSM prefix (/smartsched, /smartsched-universal) and
+# budget; what its first deploy loads comes from its branch's smartsched/deploy/profile.env.
 #
 # Credentials (preferred first):
 #   1. secret AWS_ROLE_ARN -> GitHub OIDC role (role-to-assume, id-token: write); no keys stored.
@@ -33,6 +37,11 @@ on:
         description: "type destroy to allow `down`"
         type: string
         default: ""
+      pod:
+        description: "which pod (gracious = imported institution data, universal = empty setup wizard)"
+        type: choice
+        options: [gracious, universal]
+        default: gracious
       region:
         description: "AWS region ('' = AWS_REGION/AWS_DEFAULT_REGION secret, else us-east-1; 'auto' = cheaper of eu-central-1/eu-south-1)"
         type: string
@@ -77,15 +86,22 @@ jobs:
           DISPATCH_COMMAND: ${{ inputs.command }}
           DISPATCH_CONFIRM: ${{ inputs.confirm_down }}
           DISPATCH_REGION: ${{ inputs.region }}
+          DISPATCH_POD: ${{ inputs.pod }}
         run: |
           set -euo pipefail
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            cmd="$DISPATCH_COMMAND"; confirm="$DISPATCH_CONFIRM"; region="$DISPATCH_REGION"
+            cmd="$DISPATCH_COMMAND"; confirm="$DISPATCH_CONFIRM"; region="$DISPATCH_REGION"; pod="$DISPATCH_POD"
           else
             line="$(head -n1 infra/aws/POD_ACTION 2>/dev/null || true)"
             read -r cmd confirm _ <<< "$line" || true
             region="$(grep -oE 'region=[a-z0-9-]+' <<< "$line" | cut -d= -f2 || true)"
+            pod="$(grep -oE '(pod|branch)=[A-Za-z0-9._/-]+' <<< "$line" | head -n1 | cut -d= -f2 || true)"
           fi
+          case "${pod:-gracious}" in
+            gracious|claude/gracious-cerf-w1598m) pod=gracious ;;
+            universal|claude/smartsched-universal) pod=universal ;;
+            *) echo "::error::unknown pod '$pod' (gracious | universal, or their branches)"; exit 1 ;;
+          esac
           case "$cmd" in
             up|status|logs|stop|start|cost) ;;
             down)
@@ -98,17 +114,18 @@ jobs:
           region="${region:-${REGION_SECRET:-us-east-1}}"
           if ! [[ "$region" =~ ^[a-z0-9-]+$ ]]; then echo "::error::invalid region '$region'"; exit 1; fi
           echo "command=$cmd" >> "$GITHUB_OUTPUT"
+          echo "pod=$pod" >> "$GITHUB_OUTPUT"
           echo "region=$region" >> "$GITHUB_OUTPUT"
           # the AWS SDK needs a concrete region; `auto` is resolved by the script
           if [ "$region" = "auto" ]; then echo "aws_region=us-east-1" >> "$GITHUB_OUTPUT"; else echo "aws_region=$region" >> "$GITHUB_OUTPUT"; fi
-          echo "pod action: $cmd (region $region)"
+          echo "pod action: $cmd (pod $pod, region $region)"
 
       - name: AWS credentials (OIDC role)
         if: env.ROLE_ARN != ''
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ env.ROLE_ARN }}
-          role-session-name: smartsched-pod-${{ steps.cmd.outputs.command }}
+          role-session-name: smartsched-${{ steps.cmd.outputs.pod }}-${{ steps.cmd.outputs.command }}
           aws-region: ${{ steps.cmd.outputs.aws_region }}
           role-duration-seconds: 3600
 
@@ -131,28 +148,30 @@ jobs:
           AWS_REGION_NAME: ${{ steps.cmd.outputs.aws_region }}
         run: /tmp/venv/bin/python infra/aws/smartsched_aws.py preflight --region "$AWS_REGION_NAME" > /dev/null
 
-      - name: Store POD_GITHUB_TOKEN in SSM (/smartsched/github_token, SecureString)
+      - name: Store POD_GITHUB_TOKEN in SSM (<pod prefix>/github_token, SecureString)
         if: steps.cmd.outputs.command == 'up'
         env:
           POD_GITHUB_TOKEN: ${{ secrets.POD_GITHUB_TOKEN }}
           POD_REGION: ${{ steps.cmd.outputs.region }}
+          POD_NAME: ${{ steps.cmd.outputs.pod }}
         run: |
           if [ "$POD_REGION" = "auto" ]; then
             echo "::error::region=auto: pick the region explicitly for 'up' so the token lands next to the pod"; exit 1
           fi
           /tmp/venv/bin/python infra/aws/smartsched_aws.py put-github-token --from-env POD_GITHUB_TOKEN \
-            --region "$POD_REGION" > /dev/null
+            --pod "$POD_NAME" --region "$POD_REGION" > /dev/null
           if [ -z "$POD_GITHUB_TOKEN" ]; then echo "::warning::POD_GITHUB_TOKEN is not set; the pod waits for /smartsched/github_token"; fi
 
       - name: smartsched_aws.py ${{ steps.cmd.outputs.command }}
         env:
           POD_COMMAND: ${{ steps.cmd.outputs.command }}
           POD_REGION: ${{ steps.cmd.outputs.region }}
+          POD_NAME: ${{ steps.cmd.outputs.pod }}
         run: |
           set -euo pipefail
           extra=()
           if [ "$POD_COMMAND" = "down" ]; then extra+=(--yes); fi
-          /tmp/venv/bin/python infra/aws/smartsched_aws.py "$POD_COMMAND" \
+          /tmp/venv/bin/python infra/aws/smartsched_aws.py "$POD_COMMAND" --pod "$POD_NAME" \
             --region "$POD_REGION" --output-json /tmp/result.json "${extra[@]}" > /dev/null
           cat /tmp/result.json
 
@@ -160,12 +179,13 @@ jobs:
         if: always()
         env:
           POD_COMMAND: ${{ steps.cmd.outputs.command }}
+          POD_NAME: ${{ steps.cmd.outputs.pod }}
         run: |
           [ -f /tmp/result.json ] || exit 0
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json, os
           r = json.load(open("/tmp/result.json"))
-          print(f"## SmartSched pod: {os.environ['POD_COMMAND']}\n")
+          print(f"## SmartSched pod {os.environ['POD_NAME']}: {os.environ['POD_COMMAND']}\n")
           for key in ("panel_url", "region", "instance_id", "public_ip", "admin_email"):
               if r.get(key):
                   print(f"- **{key}**: `{r[key]}`")
