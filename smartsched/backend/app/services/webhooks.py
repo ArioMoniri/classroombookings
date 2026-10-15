@@ -19,13 +19,17 @@ import hashlib
 import hmac
 import ipaddress
 import json
+import re
 import secrets
+import socket
 import time
 import uuid
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
 from urllib.parse import urlsplit
 
+import httpcore
 import httpx
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,19 +85,90 @@ ACTION_TYPES: dict[str, str] = {
 DISABLE_AFTER_FAILURES = 5
 TIMEOUT_S = 10.0
 USER_AGENT = "SmartSched-Webhooks/1"
+#: refused targets (admin persona 2026-10-15 M-41): the server's own network is never a webhook receiver
 _BLOCKED_NETS = (
+    ipaddress.ip_network("0.0.0.0/8"),  # "this network"
+    ipaddress.ip_network("127.0.0.0/8"),  # loopback
+    ipaddress.ip_network("10.0.0.0/8"),  # RFC 1918
+    ipaddress.ip_network("172.16.0.0/12"),  # RFC 1918
+    ipaddress.ip_network("192.168.0.0/16"),  # RFC 1918
     ipaddress.ip_network("169.254.0.0/16"),  # link-local, cloud metadata (169.254.169.254)
-    ipaddress.ip_network("fe80::/10"),
-    ipaddress.ip_network("fd00:ec2::254/128"),  # AWS IMDS over IPv6
-    ipaddress.ip_network("0.0.0.0/8"),
-    ipaddress.ip_network("::/128"),
+    ipaddress.ip_network("100.64.0.0/10"),  # CGNAT (RFC 6598; also Alibaba's metadata 100.100.100.200)
+    ipaddress.ip_network("224.0.0.0/4"),  # multicast
+    ipaddress.ip_network("240.0.0.0/4"),  # reserved, broadcast
+    ipaddress.ip_network("::/96"),  # unspecified, loopback, IPv4-compatible
+    ipaddress.ip_network("fe80::/10"),  # link-local
+    ipaddress.ip_network("fc00::/7"),  # unique-local (incl. AWS IMDS fd00:ec2::254)
+    ipaddress.ip_network("ff00::/8"),  # multicast
 )
-_BLOCKED_HOSTS = frozenset({"metadata.google.internal", "metadata", "instance-data"})
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
+_BLOCKED_HOSTS = frozenset(
+    {
+        "metadata.google.internal",
+        "metadata",
+        "instance-data",
+        "localhost",
+        "localhost.localdomain",
+        "ip6-localhost",
+        "ip6-loopback",
+    }
+)
+#: legacy IPv4 spellings that resolvers accept (``2130706433``, ``127.1``, ``0x7f.0.0.1``)
+_INET_ATON = re.compile(r"^(0x[0-9a-f]*|\d+)(\.(0x[0-9a-f]*|\d+)){0,3}$")
+BLOCKED_MESSAGE = (
+    "blocked address: webhook URLs may not point at loopback, private (RFC 1918), link-local / metadata, CGNAT "
+    "or unique-local addresses, or at localhost names"
+)
+
+
+class GuardedBackend(httpcore.AsyncNetworkBackend):
+    """Network backend of the delivery client: resolves the host itself, refuses the connection when any address
+    is blocked and connects to an address it checked, so a DNS answer cannot change between the check and the
+    connect (rebinding). TLS still verifies the URL's host name (httpcore passes it as SNI)."""
+
+    def __init__(self) -> None:
+        self._inner = httpcore.AnyIOBackend()
+
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: Iterable[Any] | None = None,
+    ) -> httpcore.AsyncNetworkStream:
+        name = host.lower().rstrip(".")
+        literal = literal_ip(name)
+        addresses = [str(literal)] if literal is not None else await resolve_host(name)
+        if blocked_name(name) or any(blocked_address(a) for a in addresses):
+            raise httpcore.ConnectError(BLOCKED_MESSAGE)
+        if not addresses:
+            raise httpcore.ConnectError(f"{name} does not resolve")
+        return await self._inner.connect_tcp(
+            addresses[0], port, timeout=timeout, local_address=local_address, socket_options=socket_options
+        )
+
+    async def connect_unix_socket(
+        self, path: str, timeout: float | None = None, socket_options: Iterable[Any] | None = None
+    ) -> httpcore.AsyncNetworkStream:
+        raise httpcore.ConnectError("webhooks do not use unix sockets")
+
+    async def sleep(self, seconds: float) -> None:
+        await self._inner.sleep(seconds)
+
+
+class _GuardedTransport(httpx.AsyncHTTPTransport):
+    def __init__(self) -> None:
+        super().__init__(trust_env=False)
+        self._pool = httpcore.AsyncConnectionPool(
+            ssl_context=httpx.create_ssl_context(), network_backend=GuardedBackend()
+        )
 
 
 def http_client() -> httpx.AsyncClient:
-    """Outbound client for deliveries (tests replace this function with one on an ``httpx.MockTransport``)."""
-    return httpx.AsyncClient(timeout=TIMEOUT_S, follow_redirects=False)
+    """Outbound client for deliveries (tests replace this function with one on an ``httpx.MockTransport``). It
+    connects only to addresses :func:`blocked_address` allows (:class:`GuardedBackend`); no environment proxy."""
+    return httpx.AsyncClient(transport=_GuardedTransport(), timeout=TIMEOUT_S, follow_redirects=False)
 
 
 async def resolve_host(host: str) -> list[str]:
@@ -105,18 +180,46 @@ async def resolve_host(host: str) -> list[str]:
     return sorted({str(i[4][0]) for i in infos})
 
 
-def _blocked_ip(text: str) -> bool:
+def literal_ip(text: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """The address a host written as an IP literal means, including the legacy IPv4 forms; None for a name."""
+    host = text.strip("[]").split("%")[0]
     try:
-        ip = ipaddress.ip_address(text.split("%")[0])
+        return ipaddress.ip_address(host)
     except ValueError:
+        pass
+    if _INET_ATON.match(host):
+        try:
+            return ipaddress.IPv4Address(socket.inet_aton(host))
+        except OSError:
+            return None
+    return None
+
+
+def blocked_address(text: str) -> bool:
+    """True for loopback, RFC 1918, link-local, CGNAT, unique-local, multicast and reserved addresses (also when
+    wrapped in IPv4-mapped, NAT64 or 6to4 IPv6). Not an address: False."""
+    ip = literal_ip(text)
+    if ip is None:
         return False
-    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
-        ip = ip.ipv4_mapped
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        elif ip.sixtofour is not None:
+            ip = ip.sixtofour
+        elif ip in _NAT64:
+            ip = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
     return any(ip in net for net in _BLOCKED_NETS if net.version == ip.version)
 
 
+def blocked_name(host: str) -> bool:
+    """``localhost`` and its sub-domains (RFC 6761), and the cloud metadata names."""
+    name = host.lower().rstrip(".")
+    return name in _BLOCKED_HOSTS or name.endswith(".localhost")
+
+
 def validate_url(value: Any) -> str:
-    """``http(s)://host[:port]/path``; no user info; no link-local / metadata targets. Raises ``ValueError``."""
+    """``http(s)://host[:port]/path``; no user info; no blocked literal address or localhost name (DNS is checked by
+    :func:`check_resolved` on save and again on every delivery). Raises ``ValueError``."""
     url = n.clean_text(value) or ""
     if len(url) > 2048:
         raise ValueError("URL too long")
@@ -128,13 +231,25 @@ def validate_url(value: Any) -> str:
     if parts.username or parts.password:
         raise ValueError("webhook URL must not contain user:password")
     host = parts.hostname.lower().rstrip(".")
-    if host in _BLOCKED_HOSTS or _blocked_ip(host):
-        raise ValueError("link-local and cloud metadata addresses are not allowed")
+    if blocked_name(host) or blocked_address(host):
+        raise ValueError(BLOCKED_MESSAGE)
     try:
         _ = parts.port
     except ValueError as exc:
         raise ValueError("invalid port") from exc
     return url
+
+
+async def check_resolved(url: str) -> None:
+    """Every address the URL's host resolves to must be allowed (save time). Raises ``ValueError``. A host that
+    does not resolve yet is accepted; the delivery checks again."""
+    host = (urlsplit(url).hostname or "").lower().rstrip(".")
+    if literal_ip(host) is not None:
+        return
+    addresses = await resolve_host(host)
+    bad = [a for a in addresses if blocked_address(a)]
+    if bad:
+        raise ValueError(f"{host} resolves to {', '.join(bad)}; {BLOCKED_MESSAGE}")
 
 
 def validate_events(values: list[Any]) -> list[str]:
@@ -393,10 +508,15 @@ async def _disable(session: AsyncSession, endpoint: WebhookEndpoint) -> None:
 
 async def _attempt(endpoint: WebhookEndpoint, d: WebhookDelivery, client: httpx.AsyncClient) -> tuple[bool, bool]:
     """POST once. Returns (delivered, retryable); fills the response fields on ``d``."""
-    host = (urlsplit(endpoint.url).hostname or "").lower()
-    addresses = await resolve_host(host)
-    if host in _BLOCKED_HOSTS or any(_blocked_ip(a) for a in [host, *addresses]):
-        d.last_error = "the URL resolves to a link-local / metadata address"
+    try:  # rows saved before the 2026-10-15 rules are checked like new ones
+        url = validate_url(endpoint.url)
+    except ValueError as exc:
+        d.last_error = f"refused: {exc}"[:300]
+        return False, False
+    host = (urlsplit(url).hostname or "").lower().rstrip(".")
+    addresses = await resolve_host(host)  # again on every attempt: the name may have been re-pointed (rebinding)
+    if any(blocked_address(a) for a in addresses):
+        d.last_error = f"refused: the URL resolves to a {BLOCKED_MESSAGE}"[:300]
         return False, False
     body = json.dumps(d.payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
     ts = str(int(time.time()))

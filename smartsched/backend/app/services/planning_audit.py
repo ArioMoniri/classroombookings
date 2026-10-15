@@ -13,7 +13,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Assignment, ScheduleRun, User
+from app.models import Assignment, AuditEvent, ScheduleRun, User
 from app.services.audit import jsonable, snapshot
 from app.services.events import Item, publish_event
 
@@ -71,13 +71,14 @@ async def record_assignments(
     actor: User | None,
     reason: str | None = None,
     parent_after: dict[str, Any] | None = None,
-) -> None:
-    """One row for one assignment, else a parent on the run plus one child per assignment."""
+) -> AuditEvent | None:
+    """One row for one assignment, else a parent on the run plus one child per assignment. Returns the row an
+    override should cite (the single row, or the parent)."""
     if not items:
-        return
+        return None
     if len(items) == 1:
         eid, before, after = items[0]
-        await publish_event(
+        return await publish_event(
             session,
             action,
             "assignment",
@@ -88,8 +89,7 @@ async def record_assignments(
             reason=reason,
             term_id=run.term_id,
         )
-        return
-    await publish_event(
+    return await publish_event(
         session,
         action,
         "run",

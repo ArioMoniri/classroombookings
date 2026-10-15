@@ -91,6 +91,7 @@ from app.schemas.calendar import (
 )
 from app.services.calendar import date_for, term_monday, week_index_for_date
 from app.services.grid import assignment_weeks, enrich_assignments
+from app.services.tr_grammar import dative
 
 N_PERIODS = len(PERIODS)
 DAY_TR = {1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi", 7: "Pazar"}
@@ -873,18 +874,21 @@ def check_candidate(
                     break
     # capacity (lecture or exam seats)
     cap = sum(ctx.cap(r) for r in c.rooms if r in ctx.rooms)
-    unit = "sınav koltuğu" if ctx.exam else "koltuk"
     unit_en = "exam seats" if ctx.exam else "seats"
     if c.rooms and c.size and cap < c.size:
         codes = " + ".join(ctx.code(r) for r in c.rooms)
-        soft.append(
+        # admin persona M-09 / Q8: a manual move into rooms that cannot seat the class breaks a hard rule (force +
+        # reason, admin). Keeping the rooms the class already has stays a warning: the planner's own room is an
+        # accepted, reported exception (D1).
+        keeps_rooms = set(c.rooms) <= set(c.current_rooms or [])
+        (soft if keeps_rooms else hard).append(
             Issue(
                 code="capacity",
-                severity="soft",
+                severity="soft" if keeps_rooms else "hard",
                 room_code=codes,
                 text=_t(
-                    f"{codes}: {cap} {unit}, bu ders {c.size} öğrenci",
-                    f"{codes}: {cap} {unit_en}, this class has {c.size} students",
+                    f"{c.size} öğrenci {cap} {'sınav koltuklu' if ctx.exam else 'kişilik'} {dative(codes)} sığmaz",
+                    f"{c.size} students do not fit {codes} ({cap} {unit_en})",
                 ),
             )
         )
@@ -1053,7 +1057,7 @@ def free_rooms(
             status, reason = "tag_mismatch", next(i.text for i in hard if i.code == "pc")
         elif size and cap < size:
             status = "too_small"
-            reason = next((i.text for i in soft if i.code == "capacity"), None)
+            reason = next((i.text for i in [*hard, *soft] if i.code == "capacity"), None)
         out.append(
             FreeRoom(
                 room_id=r.id,

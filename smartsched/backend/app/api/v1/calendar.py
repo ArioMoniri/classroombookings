@@ -38,6 +38,7 @@ from app.schemas.calendar import (
     SavedViewUpdate,
 )
 from app.services import calendar_views as cv
+from app.services import publish_guard
 from app.services.bookings_perms import load_access
 from app.services.events import Item
 from app.services.planning_audit import assignment_snapshot, record_assignments, snapshot_from_undo
@@ -228,6 +229,16 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
     except cv.CalendarError as exc:
         raise _http(exc) from exc
     bad = [p for p in plans if p.hard]
+    if body.force and bad and not body.dry_run and not publish_guard.valid_reason(body.reason):
+        rules = sorted({i.code for p in bad for i in p.hard})
+        raise HTTPException(
+            422,
+            {
+                "message": f"forcing moves that break {', '.join(rules)} needs a written reason",
+                "rules": rules,
+                "items": [ctx.label_of(p.base) for p in bad[:20]],
+            },
+        )
     can_apply = not body.dry_run and (body.force or not bad or not body.atomic)
     to_apply = plans if body.force else [p for p in plans if not p.hard]
     if not can_apply or not to_apply:
@@ -246,19 +257,38 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
     snap_before = {sn.id: snapshot_from_undo(sn) for sn in undo.snapshots}
     forced = [p for p in to_apply if p.hard]
     reason = (
-        f"forced despite {len(forced)} conflict(s): " + "; ".join(ctx.label_of(p.base) for p in forced[:5])
+        f"{(body.reason or '').strip()} (forced despite {len(forced)} conflict(s): "
+        + "; ".join(ctx.label_of(p.base) for p in forced[:5])
+        + ")"
         if forced
         else None
     )
-    await record_assignments(
+    actor = user if isinstance(user, User) else None
+    ev = await record_assignments(
         db,
         "assignment.bulk_move",
         run,
         [(r.id, snap_before.get(r.id) or befores.get(r.id), assignment_snapshot(r)) for r in rows],
-        actor=user if isinstance(user, User) else None,
+        actor=actor,
         reason=reason,
         parent_after={"forced": bool(forced), "conflicts": len(forced), "moves": len(to_apply)},
     )
+    for p in forced:  # persona M-02: every forced hard-rule break is an override on the run, listed in its report
+        moved, split = per_base.get(p.base.id, ([], []))
+        meeting = ctx.meeting_of(p.base)
+        publish_guard.record_override(
+            run,
+            assignment_ids=[p.base.id, *moved, *split],
+            request_ids=[
+                r for r in (p.base.meeting_request_id or (meeting.id if meeting else None), p.base.exam_request_id) if r
+            ],
+            rules=[i.code for i in p.hard],
+            conflicts=[i.text.tr for i in p.hard],
+            reason=body.reason or "",
+            actor=actor,
+            audit_id=ev.id if ev is not None else None,
+        )
+    await _rescore(db, run)
     await db.commit()
     applied_ids = {p.base.id for p in to_apply}
     items = [
@@ -315,6 +345,8 @@ async def restore(run_id: int, body: RestoreIn, db: DB, user: Planner) -> dict[s
     items = [(i, befores.get(i), after.get(i)) for i in restored]
     items += [(i, befores[i], None) for i in body.delete_ids if i in befores]
     await record_assignments(db, "assignment.restore", run, items, actor=user)
+    await db.flush()
+    await _rescore(db, run)
     await db.commit()
     return {"restored": restored, "deleted": body.delete_ids}
 
@@ -331,6 +363,9 @@ async def bulk_lock(run_id: int, body: BulkLockIn, db: DB, user: Planner) -> dic
             items.append((a.id, {"is_locked": bool(a.is_locked)}, {"is_locked": body.locked}))
         a.is_locked = body.locked
     await record_assignments(db, "assignment.lock" if body.locked else "assignment.unlock", run, items, actor=user)
+    if items:
+        await db.flush()
+        await _rescore(db, run)
     await db.commit()
     found = {a.id for a in rows}
     return {"updated": sorted(found), "missing": sorted(set(body.ids) - found)}
@@ -407,3 +442,10 @@ async def delete_view(view_id: str, db: DB, user: Viewer) -> Response:
     except cv.CalendarError as exc:
         raise _http(exc) from exc
     return Response(status_code=204)
+
+
+async def _rescore(db: DB, run: ScheduleRun) -> None:
+    """Persona M-02: every mutation path re-validates the run (the single move already did)."""
+    from app.api.v1.runs import _rescore as rescore
+
+    await rescore(db, run)

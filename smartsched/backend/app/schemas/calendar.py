@@ -223,6 +223,8 @@ class BulkMoveIn(BaseModel):
     atomic: bool = True
     dry_run: bool = False
     force: bool = False
+    #: required with ``force`` when a move breaks a hard rule (admins only); recorded as an override (persona M-02)
+    reason: str | None = Field(default=None, max_length=1000)
     lang: Lang = "tr"
 
 

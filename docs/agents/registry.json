@@ -388,7 +388,9 @@
       "goal": "build the UI for the wave-1 booking features. Their backend has landed; the contract is docs/product/wave1-api.md and the spec is docs/product/booking-enhancements.md §4.1/4.2/4.6/4.3. The list is in docs/ROADMAP.md under \"Wave 1 frontend\". 1. Room features admin: Admin → Rooms \"Features\" tab, per-room values, bulk CSV with template, the solver-tag impact confirm on 409, adopt tags. 2. Find a room…",
       "ledger": "frontend-engineer (wave 1 frontend)",
       "resumed": true,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 20:06",
+      "left_off": "The exit code 143 is from the e2e backend on port 8760 that I stopped on purpose after the last regression run. I had already sent the hand-off before it came in, and nothing in it changes."
     },
     {
       "id": "a62bed02424f9ce4c",

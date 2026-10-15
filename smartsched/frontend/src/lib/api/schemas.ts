@@ -195,12 +195,18 @@ export type ExamRequestUpdate = z.infer<typeof ExamRequestUpdate>;
 export const Paginated = <T extends z.ZodTypeAny>(item: T) =>
   z.object({ items: z.array(item), total: z.number(), page: z.number().default(1), page_size: z.number().default(50) });
 
-export const ImportKind = z.enum(["planning-list", "exam-list", "weekly-grid", "crbs"]);
+export const ImportKind = z.enum(["planning-list", "exam-list", "weekly-grid", "crbs", "room-master"]);
 export type ImportKind = z.infer<typeof ImportKind>;
+/** Kind of a listed job: one this build does not know (a newer backend) shows as "other" and is logged,
+ *  never a parse error that hides the whole history (admin persona M-13). */
+export const ImportJobKind = z.union([ImportKind, z.literal("other")]).catch((ctx) => {
+  console.warn("unknown import job kind", ctx.input);
+  return "other" as const;
+});
 
 export const ImportJob = z.object({
   id: z.number(),
-  kind: ImportKind,
+  kind: ImportJobKind,
   filename: z.string(),
   status: z.enum(["QUEUED", "RUNNING", "DONE", "FAILED"]),
   summary: z.object({
@@ -289,6 +295,10 @@ export const ScheduleRun = z.object({
   soft_score: z.number().nullable(),
   hard_score: z.number().nullable(),
   stats: z.record(z.string(), z.union([z.number(), z.string()])).default({}),
+  /** every stats key as sent, objects included (missing_only_week, waived_rules, waived_violations) */
+  stats_detail: z.record(z.string(), z.unknown()).optional(),
+  /** the published timetable of its term + kind */
+  is_active: z.boolean().optional(),
   objective_breakdown: z.record(z.string(), z.number()).default({}),
   diagnosis: z.array(Diagnosis).default([]),
   parent_run_id: z.number().nullable(),

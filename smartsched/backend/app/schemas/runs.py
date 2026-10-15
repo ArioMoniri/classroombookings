@@ -130,6 +130,8 @@ class MoveIn(BaseModel):
     room_ids: list[int] | None = None
     week: int | None = None
     force: bool = False
+    #: required with ``force`` when the move breaks a hard rule (admins only); recorded as an override
+    reason: str | None = Field(default=None, max_length=1000)
 
 
 class MoveOut(BaseModel):

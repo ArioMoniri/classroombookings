@@ -101,7 +101,8 @@ async def test_admin_only_crud_url_rules_and_secret_shown_once(env, receiver):  
         "booking.updated",
         "booking.cancelled",
     ]
-    in_pod = await create_hook(env, url="http://activepieces/api/v1/webhooks/abc")  # the optional in-pod engine
+    # a bare host name is fine while it resolves to an allowed address (tests/test_webhooks_ssrf.py has the refusals)
+    in_pod = await create_hook(env, url="http://activepieces/api/v1/webhooks/abc")
     assert in_pod["url"].startswith("http://activepieces/")
     assert (await c.delete(f"/api/v1/webhooks/{hook['id']}", headers=env.admin)).status_code == 204
     assert (await c.get(f"/api/v1/webhooks/{hook['id']}", headers=env.admin)).status_code == 404

@@ -3,10 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, Body, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -252,42 +253,65 @@ PUBLISHABLE = frozenset({"OPTIMAL", "FEASIBLE", PARTIAL_STATUS})
 RUN_AUDIT_FIELDS = ("term_id", "kind", "status", "label", "hard_score", "soft_score", "is_active", "parent_run_id")
 
 
-def publish_blockers(run: ScheduleRun) -> list[str]:
-    """Why ``run`` may not become the published timetable (review D4); empty = publishable. The hard score is
-    the planner-level one after manual edits (reported exceptions such as trusted locks are already excluded)."""
+async def publish_blockers(db: AsyncSession, run: ScheduleRun) -> list[str]:
+    """Why ``run`` may not become the published timetable (review D4, admin persona M-02); empty = publishable.
+
+    A run edited by hand (moves, forced overrides) is checked again at planner level now: every hard-rule finding
+    must be an accepted exception the run reports or a manual edit a recorded, reasoned override explains
+    (:func:`app.services.publish_guard.integrity`). An unedited run needs its own hard 100."""
+    from app.services import publish_guard
+    from app.services.planner_check import check_run
+
     out: list[str] = []
     if run.status not in PUBLISHABLE:
         out.append(f"run {run.id} is {run.status}; only a finished run ({', '.join(sorted(PUBLISHABLE))}) is published")
-    if run.hard_score != 100:
+        return out
+    edited = bool((run.stats or {}).get("manual_edits")) or bool(publish_guard.overrides(run))
+    if edited:
+        integ = publish_guard.integrity(await check_run(db, run), run)
+        out += [f"{f['rule']}: {f['message']}" for f in integ["blocking"][:20]]
+        if len(integ["blocking"]) > 20:
+            out.append(f"... and {len(integ['blocking']) - 20} more")
+    elif run.hard_score != 100:
         out.append(f"run {run.id} breaks hard rules (hard score {run.hard_score}); fix or re-solve before publishing")
     return out
 
 
+class ActivateIn(BaseModel):
+    #: admin persona M-04: publish a run that covers fewer weeks than the published one
+    confirm_scope_reduction: bool = False
+
+
 @router.post("/{run_id}/activate", response_model=RunOut)
-async def activate_run(run_id: int, db: DB, user: Planner) -> RunOut:
+async def activate_run(run_id: int, db: DB, user: Planner, body: Annotated[ActivateIn | None, Body()] = None) -> RunOut:
     """Publish this run as the timetable of its term + kind (it drives the booking grid; also the undo of AI child
-    runs). 409 unless the run finished with every hard rule held (review D4). Exactly one run per (term, kind) is
-    active: the switch is two conditional UPDATEs in one transaction, and ``uq_schedule_runs_active`` (a partial
-    unique index) makes a concurrent second activation fail instead of leaving two published runs."""
+    runs). 409 unless the run finished with every hard rule held or explained (review D4, persona M-02), and 409
+    ``scope_reduction`` when it covers fewer weeks than the published run unless ``confirm_scope_reduction``
+    (M-04). Exactly one run per (term, kind) is active: the switch is two conditional UPDATEs in one transaction,
+    and ``uq_schedule_runs_active`` (a partial unique index) makes a concurrent second activation fail instead of
+    leaving two published runs."""
     from sqlalchemy import update
     from sqlalchemy.exc import IntegrityError
 
+    from app.services import publish_guard
+
     run = await _run(db, run_id)
-    blockers = publish_blockers(run)
+    blockers = await publish_blockers(db, run)
     if blockers:
         raise HTTPException(409, {"message": "run cannot be published", "issues": blockers})
     if run.is_active:
         return (await runs_out(db, [run]))[0]
     scope = (ScheduleRun.term_id == run.term_id, ScheduleRun.kind == run.kind)
-    previous = (
-        (
-            await db.execute(
-                select(ScheduleRun.id).where(*scope, ScheduleRun.is_active.is_(True)).order_by(ScheduleRun.id)
-            )
-        )
+    active = (
+        (await db.execute(select(ScheduleRun).where(*scope, ScheduleRun.is_active.is_(True)).order_by(ScheduleRun.id)))
         .scalars()
         .first()
     )
+    previous = active.id if active is not None else None
+    if not (body and body.confirm_scope_reduction):
+        reduction = await publish_guard.scope_reduction(db, run, active)
+        if reduction is not None:
+            raise HTTPException(409, reduction)
     try:
         await db.execute(
             update(ScheduleRun)
@@ -297,11 +321,11 @@ async def activate_run(run_id: int, db: DB, user: Planner) -> RunOut:
         )
         res = await db.execute(
             update(ScheduleRun)
-            .where(ScheduleRun.id == run.id, ScheduleRun.status.in_(PUBLISHABLE), ScheduleRun.hard_score == 100)
+            .where(ScheduleRun.id == run.id, ScheduleRun.status.in_(PUBLISHABLE))
             .values(is_active=True)
             .execution_options(synchronize_session=False)
         )
-        if not getattr(res, "rowcount", 0):  # re-scored or cancelled meanwhile
+        if not getattr(res, "rowcount", 0):  # cancelled or re-run meanwhile
             await db.rollback()
             raise HTTPException(409, f"run {run_id} changed while it was being published; try again")
         await publish_event(
@@ -537,9 +561,13 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, user: Pla
         seat = [r for r in reasons if r.startswith("seats:") or r.startswith("capacity:")]
         conflicts = [c for c in conflicts if c.get("kind") != "assignment"]
         conflicts += [{"kind": "seats", "message": r} for r in seat]
+    else:
+        conflicts += await _capacity_conflict(db, run, a, room_ids)
     conflicts = await _conflict_messages(db, conflicts)
     if conflicts and not body.force:
         return MoveOut(ok=False, assignment=(await _assignment_out(db, run, [a]))[0], conflicts=conflicts)
+    if conflicts:  # forcing a hard-rule break: administrators only, with a written reason (persona M-02 / M-09)
+        await _check_force(db, user, body.reason, conflicts)
     original_id, before = a.id, assignment_snapshot(a)
     row_weeks = [int(w) for w in (a.weeks or ([a.week] if a.week else []))]
     if body.week and len(row_weeks) > 1:
@@ -571,11 +599,10 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, user: Pla
         if run.kind != "EXAM":
             a.date = await _date_of(db, run, body.week, day)
     await db.flush()
-    check = await _rescore(db, run)
     after = {**assignment_snapshot(a), "forced": bool(conflicts), "conflicts": [c.get("message") for c in conflicts]}
     if a.id != original_id:
         after["split_into"] = a.id  # this week moved to a new row; the original keeps its other weeks
-    await publish_event(
+    ev = await publish_event(
         db,
         "assignment.move",
         "assignment",
@@ -583,9 +610,23 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, user: Pla
         before=before,
         after=after,
         actor=user,
-        reason=forced_reason(conflicts) if conflicts else None,
+        reason=f"{(body.reason or '').strip()} ({forced_reason(conflicts)})" if conflicts else None,
         term_id=run.term_id,
     )
+    if conflicts:
+        from app.services import publish_guard
+
+        publish_guard.record_override(
+            run,
+            assignment_ids=sorted({original_id, a.id}),
+            request_ids=[r for r in (a.meeting_request_id, a.exam_request_id) if r],
+            rules=sorted({str(c.get("kind") or "conflict") for c in conflicts}),
+            conflicts=[str(c.get("message") or "") for c in conflicts],
+            reason=body.reason or "",
+            actor=user,
+            audit_id=ev.id if ev is not None else None,
+        )
+    check = await _rescore(db, run)  # after the override is recorded: it counts against the hard score
     await db.commit()
     await db.refresh(a)
     return MoveOut(
@@ -596,6 +637,43 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, user: Pla
         status=run.status,
         violations=[f.as_dict() for f in check.violations[:50]],
     )
+
+
+async def _capacity_conflict(
+    db: AsyncSession, run: ScheduleRun, a: Assignment, room_ids: list[int]
+) -> list[dict[str, Any]]:
+    """Persona M-09: a lecture moved into rooms that cannot seat it breaks a hard rule. Keeping the rooms the class
+    already has stays allowed (the planner's own room is an accepted, reported exception)."""
+    from app.services import calendar_views as cv
+    from app.services.tr_grammar import dative
+
+    if not room_ids or set(room_ids) <= {int(r) for r in a.room_ids or []}:
+        return []
+    ctx = await cv.load_run_context(db, run)
+    size = ctx.size_of(a)
+    seats = sum(ctx.cap(r) for r in room_ids)
+    if not size or seats >= size:
+        return []
+    codes = " + ".join(ctx.code(r) for r in room_ids)
+    return [{"kind": "capacity", "message": f"{size} öğrenci {seats} kişilik {dative(codes)} sığmaz"}]
+
+
+async def _check_force(db: AsyncSession, user: Any, reason: str | None, conflicts: list[dict[str, Any]]) -> None:
+    from app.services import publish_guard
+    from app.services.bookings_perms import load_access
+
+    rules = sorted({str(c.get("kind") or "conflict") for c in conflicts})
+    if "planning.admin" not in (await load_access(db, user)).perms:
+        raise HTTPException(403, {"message": "moving despite a conflict is admin-only", "rules": rules})
+    if not publish_guard.valid_reason(reason):
+        raise HTTPException(
+            422,
+            {
+                "message": f"forcing a move that breaks {', '.join(rules)} needs a written reason",
+                "rules": rules,
+                "conflicts": [c.get("message") for c in conflicts],
+            },
+        )
 
 
 async def _date_of(db: AsyncSession, run: ScheduleRun, week: int, day: int) -> Any:
@@ -617,7 +695,11 @@ async def _rescore(db: AsyncSession, run: ScheduleRun) -> Any:
     from app.services.run_params import trusted_studio_snapshot
 
     check = await check_run(db, run)
-    run.hard_score = check.hard_score
+    from app.services import publish_guard
+
+    integ = publish_guard.integrity(check, run)
+    # manual hard-rule breaks count, explained (forced with a reason) or not (persona M-02)
+    run.hard_score = integ["hard_score"]
     if run.status == "OPTIMAL":
         run.status = "FEASIBLE"
     if run.status in ("FEASIBLE", PARTIAL_STATUS) and trusted_studio_snapshot(run) is None:
@@ -626,6 +708,8 @@ async def _rescore(db: AsyncSession, run: ScheduleRun) -> Any:
     run.stats = {
         **(run.stats or {}),
         "planner_check": check.summary(),
+        "integrity": {k: integ[k] for k in ("hard_score", "overrides")}
+        | {"blocking": len(integ["blocking"]), "explained": len(integ["explained"])},
         "manual_edits": int((run.stats or {}).get("manual_edits") or 0) + 1,
     }
     return check
@@ -759,7 +843,26 @@ async def run_summary(run_id: int, db: DB, _: Viewer) -> dict[str, Any]:
         }
     else:
         headline = {"tr": f"Durum: {run.status}", "en": f"Status: {run.status}"}
+    # persona M-07: the summary counts the planner's data issues (an imported board said "Sorunlar 0" while the
+    # data-issues report listed its too-small locked rooms)
+    from app.services.data_issues import build_data_issues
+
+    issues = (await build_data_issues(db, run)).get("totals") or {}
+    n_issues = int(issues.get("issues") or 0)
+    if n_issues:
+        headline = {
+            "tr": f"{headline['tr']} · {n_issues} veri sorunu",
+            "en": f"{headline['en']} · {n_issues} data issues",
+        }
+    overrides = (run.stats or {}).get("forced_overrides") or []
+    if overrides:
+        headline = {
+            "tr": f"{headline['tr']} · {len(overrides)} gerekçeli zorunlu taşıma",
+            "en": f"{headline['en']} · {len(overrides)} forced move(s) with a reason",
+        }
     return {
+        "data_issues": {"issues": n_issues, "by_group": issues.get("by_group") or {}},
+        "forced_overrides": overrides,
         "run_id": run.id,
         "status": run.status,
         "partial": partial,

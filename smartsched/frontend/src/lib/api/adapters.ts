@@ -221,6 +221,9 @@ export function run(v: unknown): unknown {
     soft_score: num(v.soft_score),
     hard_score: num(v.hard_score),
     stats: flatStats,
+    // structured stats (missing_only_week, waived_rules, ...) for the report; `stats` keeps the flat numbers
+    stats_detail: stats,
+    is_active: v.is_active === true,
     objective_breakdown: Object.fromEntries(Object.entries(breakdown).map(([k, val]) => [k, num(val, 0)])),
     diagnosis: arr(v.diagnosis).map(diagnosis),
     parent_run_id: num(v.parent_run_id),

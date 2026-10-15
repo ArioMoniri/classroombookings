@@ -21,14 +21,10 @@ in :func:`app.core.safe_files.run_isolated` (child process, ``RLIMIT_AS``, wall-
 
 from __future__ import annotations
 
-import csv
-import hashlib
 import io
-import json
 import re
 import zipfile
 from dataclasses import dataclass, field
-from pathlib import PurePath
 from typing import Any
 
 from app.core import safe_files
@@ -38,28 +34,6 @@ MAX_ROWS = 20000
 MAX_COLS = 400
 SCAN_ROWS = 80
 
-FORMATS: dict[str, str] = {
-    ".xlsx": "xlsx",
-    ".xlsm": "xlsx",
-    ".csv": "csv",
-    ".tsv": "csv",
-    ".txt": "txt",
-    ".md": "txt",
-    ".docx": "docx",
-    ".pdf": "pdf",
-    ".json": "json",
-    ".png": "image",
-    ".jpg": "image",
-    ".jpeg": "image",
-    ".webp": "image",
-    ".gif": "image",
-}
-UNSUPPORTED_HINTS = {
-    ".xls": "legacy .xls workbooks are not read; save the file as .xlsx",
-    ".ods": "OpenDocument spreadsheets are not read; save the file as .xlsx",
-    ".doc": "legacy .doc files are not read; save the file as .docx",
-    ".pptx": "presentations are not read; export the slides as PDF",
-}
 IMAGE_TYPES = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp", "gif": "image/gif"}
 
 
@@ -171,26 +145,11 @@ def _ref_to_rc(ref: str) -> tuple[int, int]:
 
 
 def detect_format(filename: str, data: bytes) -> str:
-    ext = PurePath(filename or "upload").suffix.lower()
-    if ext in UNSUPPORTED_HINTS:
-        raise RenderError(UNSUPPORTED_HINTS[ext])
-    fmt = FORMATS.get(ext)
-    if data[:4] == b"%PDF":
-        return "pdf"
-    if data[:8] == b"\x89PNG\r\n\x1a\n" or data[:3] == b"\xff\xd8\xff":
-        return "image"
-    if data[:2] == b"PK" and fmt not in ("xlsx", "docx"):
-        try:
-            names = zipfile.ZipFile(io.BytesIO(data)).namelist()
-        except zipfile.BadZipFile:
-            names = []
-        if any(nm.startswith("xl/") for nm in names):
-            return "xlsx"
-        if any(nm.startswith("word/") for nm in names):
-            return "docx"
-    if fmt is None:
-        raise RenderError(f"unsupported file type '{ext or '?'}'")
-    return fmt
+    """Format name of an upload: magic bytes first, the extension only as a tie-break
+    (:func:`app.council.formats.detect`). Raises :class:`RenderError` (unsupported, empty, "save as" hint)."""
+    from app.council import formats
+
+    return formats.detect_format(filename, data)
 
 
 def _trim(rows: list[list[str]], numbers: list[int]) -> tuple[list[list[str]], list[int]]:
@@ -292,78 +251,6 @@ def _xlsx(data: bytes, out: Rendered) -> None:
                 out.grids.append(Grid(ws.title, "sheet", rows, sheet_merges, {"sheet": ws.title}, numbers))
     finally:
         wb.close()
-
-
-# ---------------------------------------------------------------------------
-# csv / tsv / json / txt
-# ---------------------------------------------------------------------------
-
-
-def decode(data: bytes) -> str:
-    for enc in ("utf-8-sig", "utf-16") if data[:2] in (b"\xff\xfe", b"\xfe\xff") else ("utf-8-sig",):
-        try:
-            return data.decode(enc)
-        except UnicodeDecodeError:
-            pass
-    for enc in ("cp1254", "cp1252", "latin-1"):
-        try:
-            return data.decode(enc)
-        except UnicodeDecodeError:
-            continue
-    return data.decode("utf-8", errors="replace")
-
-
-def _delimited(text: str, name: str, out: Rendered) -> bool:
-    # leading "# ..." comment lines (room master style) are kept as units, not table rows
-    lines = text.splitlines()
-    skip = 0
-    while skip < len(lines) and lines[skip].lstrip().startswith("#"):
-        skip += 1
-    body = "\n".join(lines[skip:])
-    try:
-        dialect: Any = csv.Sniffer().sniff(body[:8192], delimiters=",;\t|")
-    except csv.Error:
-        return False
-    rows = [[tx.cell_text(c) for c in r] for r in csv.reader(io.StringIO(body), dialect)]
-    if len(rows) < 2 or max((len(r) for r in rows[:20]), default=0) < 2:
-        return False
-    for i in range(skip):
-        t = tx.cell_text(lines[i].lstrip("# "))
-        if t:
-            out.units.append(Unit({"line": i + 1}, t))
-    numbers = list(range(skip + 1, skip + len(rows) + 1))
-    rows, numbers = _trim(rows[:MAX_ROWS], numbers[:MAX_ROWS])
-    out.grids.append(Grid(name, "csv", rows, [], {}, numbers))
-    return True
-
-
-def _json(data: bytes, out: Rendered) -> None:
-    try:
-        obj = json.loads(decode(data))
-    except json.JSONDecodeError as exc:
-        raise RenderError(f"invalid JSON: {exc.msg}") from exc
-    tables: list[tuple[str, list[Any]]] = []
-    if isinstance(obj, list):
-        tables.append(("records", obj))
-    elif isinstance(obj, dict):
-        tables.extend((k, v) for k, v in obj.items() if isinstance(v, list))
-    for name, items in tables:
-        dicts = [i for i in items if isinstance(i, dict)]
-        if not dicts:
-            continue
-        keys = list(dict.fromkeys(k for d in dicts for k in d))
-        rows = [keys] + [[tx.cell_text(d.get(k)) for k in keys] for d in dicts[:MAX_ROWS]]
-        out.grids.append(Grid(name, "json", rows, [], {"table": name}, list(range(1, len(rows) + 1))))
-
-
-def _txt(data: bytes, out: Rendered, filename: str) -> None:
-    text = decode(data)
-    if _delimited(text, filename, out):
-        return
-    for i, line in enumerate(text.splitlines(), start=1):
-        line = tx.cell_text(line.lstrip("#*->• \t"))
-        if line:
-            out.units.append(Unit({"line": i}, line))
 
 
 # ---------------------------------------------------------------------------
@@ -485,41 +372,14 @@ def _pdf(data: bytes, out: Rendered) -> None:
 
 
 def render_file(data: bytes, filename: str) -> Rendered:
-    """Bytes -> :class:`Rendered` (no model call). Raises :class:`RenderError`."""
-    name = PurePath(filename or "upload").name
+    """Bytes -> :class:`Rendered` (no model call) through the format registry (:mod:`app.council.formats`).
+    Raises :class:`RenderError` (unsupported / unreadable) or :class:`app.core.safe_files.UnsafeFileError`
+    (a cap or a forbidden construct: 400 / 413)."""
+    from app.council import formats
+
     if not data:
         raise RenderError("the file is empty")
-    fmt = detect_format(name, data)
-    if fmt in ("xlsx", "docx"):
-        try:
-            safe_files.inspect_zip(data, kind="workbook" if fmt == "xlsx" else "document")
-        except safe_files.UnsafeFileError as exc:
-            raise RenderError(exc.message) from exc
-    out = Rendered(name, fmt, hashlib.sha256(data).hexdigest(), len(data))
-    if fmt == "xlsx":
-        _xlsx(data, out)
-    elif fmt == "csv":
-        if not _delimited(decode(data), name, out):
-            _txt(data, out, name)
-    elif fmt == "txt":
-        _txt(data, out, name)
-    elif fmt == "json":
-        _json(data, out)
-    elif fmt == "docx":
-        _docx(data, out)
-    elif fmt == "pdf":
-        _pdf(data, out)
-    elif fmt == "image":
-        out.needs_vision = True
-        ext = PurePath(name).suffix.lower().lstrip(".")
-        out.media_type = IMAGE_TYPES.get(ext, "image/png" if data[:4] == b"\x89PNG" else "image/jpeg")
-    sample: list[str] = []
-    for g in out.grids:
-        for row in g.cells[:40]:
-            sample.extend(row)
-    sample.extend(u.text for u in out.units[:200])
-    out.language, out.language_confidence = tx.detect_language(sample)
-    return out
+    return formats.render(data, filename)
 
 
 __all__ = ["Grid", "Rendered", "RenderError", "Unit", "col_letter", "detect_format", "render_file"]

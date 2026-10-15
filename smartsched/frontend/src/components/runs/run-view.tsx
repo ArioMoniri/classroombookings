@@ -190,7 +190,7 @@ export function RunView({ id }: { id: number }) {
               <div className="min-w-0">
                 <Verdict r={r} headline={headline} />
                 <p className="mt-1 text-[13px] text-label-2">{partial ? t("glass.report.partialHint", { n: n(unplaced) }) : null}</p>
-                <MissingWeeks runId={r.id} stats={r.stats} />
+                <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
                 <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 pt-4 hairline-t sm:grid-cols-4">
                   {[
                     { k: t("glass.report.placed"), v: placed, suffix: total ? ` / ${n(total)}` : "" },

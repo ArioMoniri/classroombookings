@@ -68,6 +68,14 @@ def _snap(e: WebhookEndpoint) -> dict[str, Any]:
     return {"url": e.url, "events": list(e.events or []), "description": e.description, "active": e.active}
 
 
+async def _check_target(url: str) -> None:
+    """Save-time DNS check (M-41): every address the host resolves to must be allowed; 422 otherwise."""
+    try:
+        await svc.check_resolved(url)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
 async def _endpoint(db: DB, webhook_id: int) -> WebhookEndpoint:
     e = await db.get(WebhookEndpoint, webhook_id)
     if e is None:
@@ -88,6 +96,7 @@ async def list_webhooks(db: DB, _: SettingsAdmin) -> list[dict[str, Any]]:
 
 @router.post("", status_code=201)
 async def create_webhook(body: WebhookIn, db: DB, admin: SettingsAdmin) -> dict[str, Any]:
+    await _check_target(body.url)
     secret = svc.new_secret()
     e = WebhookEndpoint(
         url=body.url, events=body.events, description=body.description, active=body.active, created_by=admin.id
@@ -110,6 +119,8 @@ async def update_webhook(webhook_id: int, body: WebhookPatch, db: DB, admin: Set
     e = await _endpoint(db, webhook_id)
     before = _snap(e)
     data = body.model_dump(exclude_unset=True)
+    if data.get("url") is not None:
+        await _check_target(data["url"])
     for key in ("url", "events", "description"):
         if key in data and (data[key] is not None or key == "description"):
             setattr(e, key, data[key])

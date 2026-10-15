@@ -5,7 +5,14 @@ The four shapes are the user's university formats (``docs/DATA_ANALYSIS.md``):
 * ``planning-list``: the course request list (``app.importers.planning_list``);
 * ``exam-list``: the exam request list (``app.importers.exam_list``);
 * ``weekly-grid``: the room x time-slot board with one sheet per week (``app.importers.weekly_grid``);
-* ``room-master``: the planner's room CSV (``app.importers.room_master``).
+* ``room-master``: the planner's room CSV (``app.importers.room_master``);
+* ``intake-v1``: SmartSched's native JSON (``smartsched.intake.v1``: rooms, requests, timetable);
+* ``ics``: an iCalendar schedule map (VEVENTs -> booking records, :mod:`app.council.formats_ics`).
+
+The three university shapes are recognised in every tabular format of the registry (xlsx, xls, ods, csv/tsv,
+json, xml): a non-xlsx file is transcoded to a workbook (:func:`app.council.formats.workbook_for`, source row
+numbers kept), so a CSV or ODS export is read by the same importer as the original workbook. The two record
+shapes have no importer: their records are written by the council's own writer on commit.
 
 During analysis, the importers' *pure parsers* run (no database) and their output is converted to
 council records, so review, critic, reconciler and planner treat every file the same way. On commit,
@@ -24,7 +31,9 @@ from app.council.render import Rendered
 from app.importers import normalize as n
 from app.importers.xlsx import map_headers
 
-SHAPES = ("planning-list", "exam-list", "weekly-grid", "room-master")
+SHAPES = ("planning-list", "exam-list", "weekly-grid", "room-master", "intake-v1", "ics")
+#: shapes written by an importer of :mod:`app.importers` (the others by :class:`app.council.commit.Writer`)
+IMPORTER_SHAPES = frozenset({"planning-list", "exam-list", "weekly-grid", "room-master"})
 #: commit order: rooms first, then the board (weeks, blocks), then requests
 COMMIT_ORDER = {"room-master": 0, "weekly-grid": 1, "planning-list": 2, "exam-list": 3}
 
@@ -33,7 +42,14 @@ Record = dict[str, Any]
 
 def detect_shape(rendered: Rendered) -> str | None:
     """The known shape of a file, or ``None`` (then the general council path runs)."""
-    if rendered.format == "xlsx" and rendered.grids:
+    from app.council.formats import TABULAR
+    from app.council.formats_text import INTAKE_V1
+
+    if rendered.format == "ics":
+        return "ics"
+    if rendered.format == "json" and any(g.origin.get("schema") == INTAKE_V1 for g in rendered.grids):
+        return "intake-v1"
+    if rendered.format in TABULAR and rendered.grids:
         from app.importers.exam_list import HEADER_SPEC as EXAM_SPEC
         from app.importers.planning_list import HEADER_SPEC as PLAN_SPEC
 
@@ -50,7 +66,7 @@ def detect_shape(rendered: Rendered) -> str | None:
             slots = [n.parse_time_slot(g0.cell(r, 0)) for r in range(2, min(g0.n_rows, 8))]
             if sum(h is not None for h in heads) >= 5 and all(slots):
                 return "weekly-grid"
-    if rendered.format == "csv" and rendered.grids:
+    if rendered.format in ("csv", "txt") and rendered.grids and rendered.grids[0].kind == "csv":
         header = [tx.fold(h) for h in rendered.grids[0].cells[0]]
         if "code" in header and ("capacity" in header or "exam_capacity" in header):
             return "room-master"
@@ -195,7 +211,9 @@ def grid_records(path: Path, filename: str, year: int) -> tuple[list[Record], li
 def room_master_records(path: Path, filename: str) -> tuple[list[Record], list[str]]:
     from app.importers.room_master import parse_room_master
 
-    rows, errors = parse_room_master(path.read_text(encoding="utf-8-sig"))
+    from app.council.formats_text import decode_text
+
+    rows, errors = parse_room_master(decode_text(path.read_bytes())[0])
     out: list[Record] = []
     for r in rows:
         out.append(
@@ -219,15 +237,27 @@ def room_master_records(path: Path, filename: str) -> tuple[list[Record], list[s
 
 
 def records_for(shape: str, path: Path, filename: str, year: int) -> tuple[list[Record], list[str]]:
-    if shape == "planning-list":
-        return planning_records(path, filename)
-    if shape == "exam-list":
-        return exam_records(path, filename)
-    if shape == "weekly-grid":
-        return grid_records(path, filename, year)
+    """Records of a stored upload of a known shape (runs in ``safe_files.run_isolated``)."""
+    from app.council.formats import workbook_for
+
     if shape == "room-master":
         return room_master_records(path, filename)
+    if shape == "intake-v1":
+        from app.council.formats_text import intake_records
+
+        return intake_records(path.read_bytes(), filename)
+    if shape == "ics":
+        from app.council.formats_ics import ics_records
+
+        return ics_records(path.read_bytes(), filename)
+    book = workbook_for(path, filename)  # the upload itself, or its transcoded copy (csv / ods / xls / ...)
+    if shape == "planning-list":
+        return planning_records(book, filename)
+    if shape == "exam-list":
+        return exam_records(book, filename)
+    if shape == "weekly-grid":
+        return grid_records(book, filename, year)
     raise ValueError(f"unknown shape {shape}")
 
 
-__all__ = ["COMMIT_ORDER", "SHAPES", "detect_shape", "records_for"]
+__all__ = ["COMMIT_ORDER", "IMPORTER_SHAPES", "SHAPES", "detect_shape", "records_for"]

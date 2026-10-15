@@ -31,6 +31,7 @@ import { crbs, crbsKeys, type GridQuery } from "@/lib/api/crbs";
 import { APPROVAL_KEYS, errorText, pickLang, useApprovalInbox, useApprovalRequest, wave1, wave1Error, type ApprovalRequest, type DecideIn } from "@/lib/api/wave1";
 import { usePermissions } from "@/lib/permissions";
 import { useHydrated } from "@/lib/use-hydrated";
+import { useReduce } from "@/lib/motion";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { conflictAlternatives, isOpen, openDates, requestSlots, type DecideAlternative } from "./approvals-model";
@@ -174,9 +175,16 @@ function focusAfterClose(selector: string) {
 
 function RequestDrawer({ id, onClose, onSwitch, onDone }: { id: number | null; onClose: () => void; onSwitch: (id: number) => void; onDone: (id: number) => void }) {
   const phone = useIsPhone();
+  // the app's reduced-motion switch or the OS setting: the drawer appears and leaves at once (no slide)
+  const reduce = useReduce();
   return (
     <Sheet open={id !== null} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side={phone ? "bottom" : "right"} className="gap-0 data-[side=right]:sm:max-w-lg" data-testid="approval-drawer">
+      <SheetContent
+        side={phone ? "bottom" : "right"}
+        className={cn("gap-0 data-[side=right]:sm:max-w-lg", reduce && "transition-none! data-starting-style:translate-x-0! data-starting-style:translate-y-0! data-ending-style:translate-x-0! data-ending-style:translate-y-0!")}
+        data-testid="approval-drawer"
+        data-reduced-motion={reduce || undefined}
+      >
         {id !== null ? <RequestDetail key={id} id={id} onClose={onClose} onSwitch={onSwitch} onDone={onDone} /> : null}
       </SheetContent>
     </Sheet>

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import * as adapt from "./adapters";
 import { Assignment, GridResponse, ImportJob, MeetingRequest, MoveResponse, Paginated, Room, ScheduleRun, Settings, TestAiResponse } from "./schemas";
@@ -96,5 +96,22 @@ describe("backend adapters", () => {
     expect(done.created_at).toBe("2026-10-08T14:05:39.899007Z");
     const queued = ImportJob.parse(adapt.importJob({ id: 2, kind: "weekly-grid", filename: "grid.xlsx", status: "QUEUED", summary: {}, created_at: "2026-10-08T14:07:00" }));
     expect(queued.summary).toEqual({ rows: 0, created: 0, updated: 0, skipped: 0, warnings: [] });
+  });
+
+  it("lists room-master jobs and survives an unknown kind (admin persona M-13)", () => {
+    // GET /imports after POST /imports/room-master (room_master.csv, 87 rooms)
+    const rooms = ImportJob.parse(
+      adapt.importJob({
+        id: 7, kind: "room-master", filename: "room_master.csv", term_code: null, status: "DONE", error: null,
+        created_at: "2026-10-15T16:31:47", summary: { rows_total: 87, rows_imported: 87, created: {}, updated: { rooms: 87 } },
+      }),
+    );
+    expect(rooms.kind).toBe("room-master");
+    expect(rooms.summary).toMatchObject({ rows: 87, updated: 87 });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const later = ImportJob.parse(adapt.importJob({ id: 8, kind: "timetable-pdf", filename: "x.pdf", status: "DONE", summary: {}, created_at: "2026-10-15T17:00:00" }));
+    expect(later.kind).toBe("other");
+    expect(warn).toHaveBeenCalledWith("unknown import job kind", "timetable-pdf");
+    warn.mockRestore();
   });
 });
