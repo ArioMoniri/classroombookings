@@ -101,9 +101,16 @@ def repair(
         "moved_count": sum(1 for m in moved if m["to"] is not None and m["from"] is not None),
         "dropped": [m["event_id"] for m in moved if m["to"] is None],
         # the solver re-evaluated the result (cpsat.solve): a traded hard rule is an ``internal`` error there
-        "hard_violations": sum(1 for v in validate(new_inp, result.assignments) if v.hard) if result.assignments else 0,
+        "hard_violations": _hard_count(new_inp, result.assignments),
     }
     return result
+
+
+def _hard_count(inp: SolverInput, assignments: list[Assignment]) -> int:
+    """Hard violations of the placed events (a partial result's unplaced events are reported separately)."""
+    placed = {a.event_id for a in assignments}
+    sub = replace(inp, events=tuple(e for e in inp.events if e.id in placed), best_effort=False)
+    return sum(1 for v in validate(sub, assignments) if v.hard)
 
 
 def _place(a: Assignment | None) -> dict[str, Any] | None:

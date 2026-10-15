@@ -633,6 +633,18 @@
       "status": "finished",
       "finished_at": "2026-10-15 15:17",
       "left_off": "continue all phases n deploy to pod when green"
+    },
+    {
+      "id": "a3b34d727cb35732c",
+      "description": "P19-C1/C2 from-scratch program API",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 15:24",
+      "scope": "NEW files only: - smartsched/backend/app/api/v1/catalog_admin.py - smartsched/backend/app/services/catalog_admin.py - smartsched/backend/app/services/patterns.py - smartsched/backend/app/schemas/catalog_admin.py - smartsched/backend/tests/test_p19_catalog_admin.py - smartsched/backend/tests/test_p19_patterns.py You may also make a one-line router registration in app/api/v1/router.py, and tick P19-…",
+      "goal": "tickets P19-C1 and P19-C2 from docs/review/2026-10-15-phase19-engineering.md §3c/§5. These let a coordinator create a brand-new programme with no import, the \"from-scratch program creation\" the user asked for. Read docs/testing/2026-10-15-academician-needs.md §4 (the coordinator's 8-step flow) and docs/design/v2/phase19-program-wizard.md, if the design agent has written it. Build, test-first, agai…",
+      "ledger": "p19-c-from-scratch-api-2026-10-15 SCOPE: NEW files only: - smartsched/backend/ap…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

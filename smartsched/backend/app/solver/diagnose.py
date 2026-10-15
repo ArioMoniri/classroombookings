@@ -571,7 +571,7 @@ def _locked_conflicts(prep: Prepared) -> list[Diagnosis]:
                     + _top(Counter(reasons), 4),  # duplicate reasons collapsed ("... ×3")
                     ["unlock the event", "fix the room (capacity/tags) or the pin"],
                     "error",
-                    "locked_ineligible",
+                    "lock_accessibility" if any("accessibility" in x for x in reasons) else "locked_ineligible",
                     {
                         "rooms": bad_rooms,
                         "room_codes": codes,
