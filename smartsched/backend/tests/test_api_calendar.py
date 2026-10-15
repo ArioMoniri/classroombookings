@@ -248,10 +248,12 @@ async def test_move_preview_reasons_in_turkish(client):
     item = r["items"][0]
     assert r["dry_run"] and not r["applied"] and not item["ok"]
     codes = {i["code"] for i in item["hard"]}
-    assert codes == {"room_overlap"}
-    assert item["hard"][0]["text"]["tr"] == "ENG 102 §1 ile çakışıyor (A 101 Çar 14:20–15:50)"
-    assert {i["code"] for i in item["soft"]} == {"capacity"}
-    assert item["soft"][0]["text"]["tr"] == "A 101: 58 koltuk, bu ders 102 öğrenci"
+    # capacity is a hard move rule since the admin persona test (M-09)
+    assert codes == {"room_overlap", "capacity"}
+    texts = {i["code"]: i["text"]["tr"] for i in item["hard"]}
+    assert texts["room_overlap"] == "ENG 102 §1 ile çakışıyor (A 101 Çar 14:20–15:50)"
+    assert texts["capacity"] == "102 öğrenci 58 kişilik A 101'e sığmaz"
+    assert "capacity" not in {i["code"] for i in item["soft"]}
     # same instructor (Can Demir) teaches the lab Tuesday P3-P4: moving ENG there is an instructor clash
     r2 = (
         await client.post(
@@ -349,7 +351,9 @@ async def test_bulk_move_atomic_force_and_lock(client):
     # force is admin-only (orchestrator decision 4)
     hp = await login(client, "planner@example.com", "planner1234")
     assert (await client.post(url, json={"moves": moves[1:], "force": True}, headers=hp)).status_code == 403
-    out = (await client.post(url, json={"moves": moves[1:], "force": True}, headers=h)).json()
+    # forcing a hard-rule break needs a written reason (admin persona M-02)
+    assert (await client.post(url, json={"moves": moves[1:], "force": True}, headers=h)).status_code == 422
+    out = (await client.post(url, json={"moves": moves[1:], "force": True, "reason": "Bölüm onayı"}, headers=h)).json()
     assert out["applied"] and not out["ok"]
     lk = (
         await client.post(

@@ -78,7 +78,11 @@ async def test_meeting_request_edit_is_audited_with_before_and_after(env):  # no
 async def test_single_move_and_lock_are_audited(env):  # noqa: F811
     a, b = await _two_overlapping(env.run_id)
     url = f"/api/v1/runs/{env.run_id}/assignments/{a.id}"
-    r = await env.client.post(f"{url}/move", json={"room_ids": list(b.room_ids), "force": True}, headers=env.admin)
+    r = await env.client.post(
+        f"{url}/move",
+        json={"room_ids": list(b.room_ids), "force": True, "reason": "Bölüm başkanlığı onayı"},
+        headers=env.admin,
+    )
     assert r.status_code == 200 and r.json()["ok"] is True, r.text
     (ev,) = await _events("assignment.move")
     assert ev.entity_id == str(a.id) and ev.term_id == env.term_id
@@ -94,7 +98,7 @@ async def test_single_move_and_lock_are_audited(env):  # noqa: F811
 async def test_forced_bulk_move_restore_and_bulk_lock_are_audited(env):  # noqa: F811
     a, b = await _two_overlapping(env.run_id)
     base = f"/api/v1/runs/{env.run_id}/assignments"
-    body = {"moves": [{"aid": a.id, "room_ids": list(b.room_ids)}], "force": True}
+    body = {"moves": [{"aid": a.id, "room_ids": list(b.room_ids)}], "force": True, "reason": "Bölüm başkanlığı onayı"}
     r = await env.client.post(f"{base}/bulk-move", json=body, headers=env.planner)
     assert r.status_code == 403  # forcing is admin-only
     r = await env.client.post(f"{base}/bulk-move", json=body, headers=env.admin)

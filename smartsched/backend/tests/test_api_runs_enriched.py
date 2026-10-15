@@ -133,7 +133,14 @@ async def test_enriched_assignments_grid_move_lock_and_dashboard(client, stub_so
     # ---- forced overlap is flagged as a conflict on both sides
     r = await client.post(
         f"/api/v1/runs/{run_id}/assignments/{other['id']}/move",
-        json={"room_ids": [a204["room_id"]], "day": 1, "start_period": 4, "end_period": 4 + dur, "force": True},
+        json={
+            "room_ids": [a204["room_id"]],
+            "day": 1,
+            "start_period": 4,
+            "end_period": 4 + dur,
+            "force": True,
+            "reason": "Ortak sınav provası",
+        },
         headers=h,
     )
     assert r.json()["ok"] is True and r.json()["assignment"]["is_conflict"] is True

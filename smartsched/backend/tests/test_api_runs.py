@@ -115,7 +115,7 @@ async def test_run_lifecycle_with_stub_solver(client, stub_solver):
     assert r.status_code == 200 and r.json()["ok"] is False and r.json()["conflicts"]
     r = await client.post(
         f"/api/v1/runs/{run_id}/assignments/{other['id']}/move",
-        json={"room_ids": [a204["room_id"]], "force": True},
+        json={"room_ids": [a204["room_id"]], "force": True, "reason": "Planlama ofisi onayı"},
         headers=h,
     )
     assert r.json()["ok"] is True and r.json()["assignment"]["origin"] == "MANUAL"
