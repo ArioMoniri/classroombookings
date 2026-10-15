@@ -664,8 +664,6 @@ def _norm(params: dict[str, Any] | None) -> str:
 # --------------------------------------------------------------------------- no-AI column mapping
 
 
-
-
 def _building_wish(text: str, all_buildings: list[str]) -> list[str]:
     """Buildings a free-text cell asks for: a set ("A veya C blokta"), or every building but the avoided
     ones ("Mümkünse B Blok olmasın"); [] when it names none."""

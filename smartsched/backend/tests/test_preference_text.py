@@ -44,7 +44,7 @@ def test_negated_buildings_are_avoided(text: str, avoid: list[str]) -> None:
 
 
 def test_olmasini_is_no_negation() -> None:
-    """"olmasını rica etti" asks *for* something (Bahar 1529: "Dersliğin B blokta olmasını talep ediyor")."""
+    """ "olmasını rica etti" asks *for* something (Bahar 1529: "Dersliğin B blokta olmasını talep ediyor")."""
     items = n.parse_preference_text("Dersliğin B blokta olmasını talep ediyor hocamız.")
     assert [(i.kind, i.params) for i in items] == [("building_preference", {"buildings": ["B"]})]
 
@@ -191,9 +191,7 @@ async def test_step_free_feature_maps_to_its_solver_tag(session, tmp_path) -> No
     path = subset(BAHAR_LIST, [609], tmp_path / "acu.xlsx")
     report = await import_planning_list(session, path, "T-ACU")
     cons = list((await session.execute(select(ConstraintRow))).scalars())
-    assert [(c.kind, c.params.get("required_tags"), c.hardness) for c in cons] == [
-        ("room_tags", ["STEP_FREE"], "soft")
-    ]
+    assert [(c.kind, c.params.get("required_tags"), c.hardness) for c in cons] == [("room_tags", ["STEP_FREE"], "soft")]
     assert report.extra["preferences"]["unparsed"] == 0
 
 

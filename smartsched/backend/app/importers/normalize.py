@@ -1472,7 +1472,9 @@ def parse_preference_text(value: Any) -> list[PreferenceItem]:
     groups = [g for g in groups if g]
     if len(groups) > 1:
         flat = list(dict.fromkeys(r for g in groups for r in g))
-        items.append(PreferenceItem("room_alternatives", {"room_groups": groups, "room_codes": flat}, text, False, strong))
+        items.append(
+            PreferenceItem("room_alternatives", {"room_groups": groups, "room_codes": flat}, text, False, strong)
+        )
     elif groups:
         items.append(PreferenceItem("room_preference", {"room_codes": groups[0]}, text, False, strong))
     if avoid_rooms:
