@@ -675,3 +675,22 @@ Frontend follow-ups:
   - smartsched/deploy/profile.env with .gitattributes merge=ours, so branch syncs keep each profile
 - [ ] Intake/pipeline memory layer: confirmed column mappings, lexicon additions and file → term assignments are remembered per file signature and pre-applied as review-gated suggestions. Built on the learning lane's resettable memory (same reset scopes, KVKK purge).
 - Language note: Rust or Go are allowed where they measurably help. Policy: profile first. Candidates only if Python/TS miss the budget, e.g. large-file parsing in council render, occupancy computation for the booking grid, the ICS feed generation. The solver is already C++ (OR-Tools). No rewrite without a measured bottleneck and a test-backed parity check.
+
+### Studio/calendar frontend sweep finished (2026-10-15, last b1f5547)
+- Done:
+  - U-02, A-04
+  - M-03 publish button, M-06/07/08 one-definition counts (run-truth.ts), Studio placed count, M-12, M-16
+  - grid move perf (T3), missing_only_week card (plus the adapter bug that hid object stats)
+  - SSE chat client, diff-edit toggles, refused proposals list
+  - motion T1 (new ui/busy-label.tsx), T2, T3, T4, T5 (ESLint bans motion's useReducedMotion)
+  - Studio "Cancel" no longer deletes the run
+  - e2e studio/calendar 6/6 on the real backend
+- U-01 focus ring: done in studio/timetable/calendar/classes/runs/chat. The repo-wide change was blocked by the permission classifier, so it is being applied per owner instead:
+  - shell/admin sweep for its directories
+  - the design-system overhaul agent for components/ui
+  Note: Tailwind 4.3.3 needs `focus-visible:outline-solid` in addition to `outline-hidden`.
+- Left over:
+  - backend-blocked: per-file upload stages, provenance context_rows, run status over SSE, If-Match required
+  - frontend (later sweep): Write-it hover highlight, Classes extras, undo after reload, "move together" for joint lectures, request-level inspector edits, write-through offer, "sınav (talep)" texts, a full English-leak sweep, studio contract fixtures
+  - needs AI key/GPU: T5 e2e, GPU motion audit
+- Agent hygiene: never `pkill -f` by pattern; kill only own PIDs (a broad pkill at ~20:20 may have stopped another agent's server).

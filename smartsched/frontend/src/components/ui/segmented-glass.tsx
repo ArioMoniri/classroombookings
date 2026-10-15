@@ -66,7 +66,8 @@ function SegmentedGlass<V extends string>({
     requestAnimationFrame(() => listRef.current?.querySelector<HTMLElement>(`[data-tabs-value="${CSS.escape(next.value)}"]`)?.focus())
   }
 
-  const height = size === "sm" ? "h-7 text-[12px]" : "h-8 text-[13px]"
+  // 44 px segments on touch screens (persona U-16); the list grows with them
+  const height = size === "sm" ? "h-7 text-[12px] pointer-coarse:h-11" : "h-8 text-[13px] pointer-coarse:h-11"
 
   return (
     <div ref={listRef} className={cn("contents")} data-slot="segmented-glass">

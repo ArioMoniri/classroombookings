@@ -21,8 +21,9 @@ const toolbarVariants = cva(
         "floating-top": "sticky top-2 z-30",
       },
       size: {
-        sm: "h-9 [&_[data-slot=button]]:h-7",
-        md: "h-11",
+        // touch screens: the buttons inside are 44 px (button.tsx), so the bar grows with them
+        sm: "h-9 [&_[data-slot=button]]:h-7 pointer-coarse:h-auto",
+        md: "h-11 pointer-coarse:h-auto",
       },
     },
     defaultVariants: { placement: "inline", size: "md" },

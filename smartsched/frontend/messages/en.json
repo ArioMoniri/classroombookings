@@ -1899,6 +1899,8 @@
       "placeholder": "Search a course (PHAR 240), instructor, programme, room (A 206) or run…",
       "searching": "Searching…",
       "empty": "Nothing matches “{query}”. Try a course code (MAT 112), a room (A 206) or a surname.",
+      "emptyRooms": "Nothing matches “{query}”. Try a room (A 206) or a page name.",
+      "emptyPages": "Nothing matches “{query}”. Try a page name.",
       "courses": "Courses",
       "sections": "{n} sections",
       "instructors": "Instructors",

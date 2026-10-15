@@ -3,11 +3,14 @@
 import { BookOpen, CalendarSearch, FileUp, GraduationCap, Languages, ListChecks, Monitor, PlayCircle, UserRound, Warehouse } from "lucide-react";
 import { LayoutGroup, motion } from "motion/react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
 import { StatusBadge } from "@/components/common/status-badge";
 import { runStatusBadge } from "@/components/runs/runs-list";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { KbdHint } from "@/components/ui/kbd-hint";
+import { ADMIN_SECTION_NAV_ITEMS } from "@/components/admin/nav-items";
+import { crbs } from "@/lib/api/crbs";
 import { useRooms, useRuns } from "@/lib/api/hooks";
 import { normaliseQuery, usePermissions, useShellSearch } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
@@ -74,6 +77,10 @@ export function CommandPalette() {
   const search = useShellSearch(planner ? live : "", term?.id);
   const rooms = useRooms(live ? { q: live } : { q: "__none__" }, { enabled: planner });
   const runs = useRuns(undefined, { enabled: planner });
+  // persona U-13: without planning.view the planner search answers 403; a user with room.view searches the rooms
+  // they may book (GET /bookings/rooms, the find-room / booking-grid list) and opens one in the grid
+  const roomViewer = !planner && can("room.view");
+  const bookingRooms = useQuery({ queryKey: ["crbs", "booking-rooms"], queryFn: () => crbs.bookings.rooms(), enabled: roomViewer && open, retry: false, staleTime: 60_000 });
 
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
@@ -94,9 +101,11 @@ export function CommandPalette() {
     { value: "action-find-room", icon: CalendarSearch, label: t("wave1.find.palette"), run: () => go("/find-room"), words: "boş derslik bul find free room oda ara salon amfi", allowed: true },
     { value: "action-room", icon: Warehouse, label: t("palette.newRoom"), run: () => go("/admin/rooms?tab=rooms&new=1"), words: "room derslik yeni new oda", allowed: can("setup.rooms") },
   ].filter((a) => a.allowed && matches(text, a.label, a.words));
-  // the profile (names, language, password) belongs to every user, so it is always in "Go to" (UI gap audit #1)
-  const profileItem: NavItem = { href: "/profile", labelKey: "crbs.nav.profile", icon: UserRound };
-  const gotos = actionsOnly ? [] : [...visibleNavGroups(can).flatMap((g) => g.items), profileItem].filter((i) => matches(text, t(i.labelKey), i.href));
+  // the profile (names, language, password) belongs to every user, so it is always in "Go to" (UI gap audit #1);
+  // every setup section the user may open is too (admin persona M-44: "Onay kur" → "Onay kuralları")
+  const sectionItems: NavItem[] = ADMIN_SECTION_NAV_ITEMS.filter((i) => can(i.permission)).map((i) => ({ href: i.href, labelKey: i.labelKey, icon: i.icon }));
+  const gotoAll = [...visibleNavGroups(can).flatMap((g) => g.items), ...sectionItems];
+  const gotos = actionsOnly ? [] : gotoAll.filter((i, at) => gotoAll.findIndex((x) => x.href === i.href) === at).filter((i) => matches(text, t(i.labelKey), i.href)).slice(0, text ? 12 : 30);
   const prefs = [
     { value: "pref-theme", icon: Monitor, label: t("palette.toggleTheme"), keys: ["T"], run: () => { cycleTheme(); setOpen(false); }, words: "theme tema dark light koyu açık" },
     { value: "pref-lang", icon: Languages, label: t("palette.toggleLang"), keys: ["L"], run: () => { setLocale(languages[(languages.indexOf(locale) + 1) % languages.length]!); router.refresh(); setOpen(false); }, words: "language dil türkçe english" },
@@ -119,6 +128,7 @@ export function CommandPalette() {
     return [...seen.values()].slice(0, 6);
   }, [results]);
   const roomItems = live && planner ? (rooms.data ?? []).slice(0, 6) : [];
+  const bookingRoomItems = live && roomViewer ? (bookingRooms.data ?? []).filter((r) => matches(live, r.code, r.name)).slice(0, 6) : [];
   const runMatch = /^#?(\d+)$/.exec(text);
   const runItems = actionsOnly || !planner ? [] : (runs.data ?? []).filter((r) => (runMatch ? String(r.id).startsWith(runMatch[1] ?? "") : matches(text, r.term_code, `#${r.id}`, t(`runs.status.${r.status}`)))).slice(0, 5);
   const loading = live !== "" && search.isFetching && !results;
@@ -140,7 +150,7 @@ export function CommandPalette() {
           <CommandList className="max-h-[min(60vh,520px)]">
             {listReady ? (
               <>
-            <CommandEmpty>{loading ? t("glass.palette.searching") : t("glass.palette.empty", { query: text })}</CommandEmpty>
+            <CommandEmpty>{loading ? t("glass.palette.searching") : t(planner ? "glass.palette.empty" : roomViewer ? "glass.palette.emptyRooms" : "glass.palette.emptyPages", { query: text })}</CommandEmpty>
             {sectionsByCourse.length ? (
               <CommandGroup heading={t("glass.palette.courses")}>
                 {sectionsByCourse.map((c) =>
@@ -181,6 +191,23 @@ export function CommandPalette() {
                       <GraduationCap aria-hidden />
                       <span className="truncate">{p.name}</span>
                       {p.is_evening ? <span className="text-[12px] text-label-3">· {t("glass.palette.evening")}</span> : null}
+                    </>,
+                  ),
+                )}
+              </CommandGroup>
+            ) : null}
+            {bookingRoomItems.length ? (
+              <CommandGroup heading={t("palette.rooms")}>
+                {bookingRoomItems.map((r) =>
+                  item(
+                    `broom-${r.id}`,
+                    () => go(`/bookings?display=room&room=${r.id}`),
+                    <>
+                      <Warehouse aria-hidden />
+                      <span className="font-medium">{r.name}</span>
+                      <span className="truncate text-label-2">
+                        {[r.building, r.capacity ? t("glass.palette.seats", { n: r.capacity }) : null].filter(Boolean).map((x) => ` · ${x}`).join("")}
+                      </span>
                     </>,
                   ),
                 )}

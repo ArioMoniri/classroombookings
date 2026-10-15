@@ -772,7 +772,8 @@
       "goal": "close the open frontend items for these areas. For every unchecked `- [ ]` item, verify it against the code first. If it's already done, tick it with ` (verified 2026-10-15: <evidence>)`. If not, fix it test-first. The items: - docs/ROADMAP.md \"### Phase 8 Generator Studio frontend backlog\" - \"### Calendar follow-ups\" - \"### Frontend UX fixes for the Liquid Glass implementation wave\" (the items in…",
       "ledger": "frontend-sweep-studio-calendar-2026-10-15 SCOPE: smartsched/frontend/src/compone…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 20:59"
     },
     {
       "id": "a1a36404521251e78",
@@ -981,6 +982,14 @@
       "status": "finished",
       "finished_at": "2026-10-15 20:55",
       "left_off": "yes thats right, deploy when green"
+    },
+    {
+      "id": "a2bff21852d8938c8",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 20:57",
+      "left_off": "yes thats right deploy to pod when green"
     }
   ]
 }

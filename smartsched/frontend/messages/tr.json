@@ -1898,6 +1898,8 @@
       "placeholder": "Ders (PHAR 240), öğretim elemanı, program, derslik (A 206) veya çalıştırma arayın…",
       "searching": "Aranıyor…",
       "empty": "“{query}” ile eşleşen bir şey yok. Ders kodu (MAT 112), derslik (A 206) veya soyadı deneyin.",
+      "emptyRooms": "“{query}” ile eşleşen bir şey yok. Bir derslik (A 206) ya da sayfa adı deneyin.",
+      "emptyPages": "“{query}” ile eşleşen bir şey yok. Bir sayfa adı deneyin.",
       "courses": "Dersler",
       "sections": "{n} şube",
       "instructors": "Öğretim elemanları",
