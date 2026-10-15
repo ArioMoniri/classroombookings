@@ -439,3 +439,17 @@ Wave 1, structured intake (after 04): [ ] I1 magic-byte registry + CSV/TSV/JSON 
 Wave 2, AI-assisted intake: [ ] A1 AI intake/vision switches (default off) + KVKK sign-off (backend part with the AI agent now) · [ ] A2 review required on every AI row · [ ] A3 PDF tables / scanned PDFs / EML / EXIF / PII redaction · [ ] A4 injection corpus test
 Wave 3, learning, from scratch, moderation: [ ] L1–L4 learning tables, extractors, priors and suggestions, reset/undo · [ ] C1–C2 CRUD for faculties, courses, instructors, sections, requests + pattern expander · [ ] S1–S2 priority-weighted placement, deterministic repair diff · [ ] M1–M3 moderation read models, priority + conflict_policy, re-solve endpoint · [ ] F1–F4 moderation UI, suggestion tray + reset UI, program wizard
 Proposed later (from the review): academician self-service portal, instructor availability and load rules, term workflow states, publish history and rollback, department-scoped planners, swap requests after publish, exam invigilator assignment, utilisation reports, what-if sandboxes, OBS enrolment sync, personal ICS feeds for assignments.
+
+Phase 19 UX decisions (owner, 2026-10-15; specs in docs/design/v2/phase19-*.md):
+- Old pages: /import and /requests stay until the new import screen and Moderation › Requests pass the same tests, then they redirect.
+- AI rows: bulk accept of up to 50 visible rows with one confirm. Low-confidence rows still need an individual accept.
+- Recreate preview: pin-and-re-run only. No partial publish, so every published schedule is a full checked solver result.
+- Publish notifications: in-app bell plus one e-mail digest per affected academician (only their changed classes), with a per-user e-mail opt-out.
+Defaults adopted (owner may override):
+- Intake commit and program creation can be undone for 30 days.
+- AI inputs (page images) are kept for 30 days and purged with uploads.
+- The KVKK notice URL is an admin setting.
+- Suggestions need 2 terms of evidence, or 3 repeats within one term.
+- Priority has 3 tiers. Person-level priority is set by coordinator/admin only.
+- Exam terms use the same policy order.
+- A KVKK erasure request purges immediately; the undo window does not apply to erasure.
