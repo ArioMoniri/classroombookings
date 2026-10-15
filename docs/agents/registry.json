@@ -432,7 +432,8 @@
       "goal": "from the perspective of academicians and the faculty scheduling office, specify what the new features must do so they are actually useful in a Turkish university term.",
       "ledger": "academician-analysis-2026-10-15 SCOPE: docs/testing/2026-10-15-academician-needs…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 15:08"
     },
     {
       "id": "a131e5f2ed373a7de",
@@ -607,6 +608,14 @@
       "ledger": "devops-backlog-2026-10-15 SCOPE: smartsched/deploy/** (including pod-ci/), infra…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a11f728fa157aca76",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:06",
+      "left_off": "continue n deploy to pod when green"
     }
   ]
 }
