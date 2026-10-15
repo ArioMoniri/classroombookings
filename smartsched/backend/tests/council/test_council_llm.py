@@ -16,6 +16,7 @@ from sqlalchemy import select
 from tests.ai.conftest import empty_params, empty_selector, enable_intake, proposal, store_key, tool
 from tests.api_fixtures import login
 from tests.council.conftest import BAHAR_LIST, EXAM_PDF, MEMO_DOCX, SCAN_PNG, gen
+from tests.council.test_ai_rows import accept_ai_rows
 
 
 async def _key(opt_in: bool = True) -> None:
@@ -148,7 +149,7 @@ async def test_memo_council_votes_mines_rules_and_judges(client, fake_sdk):
     decisions = [
         {"id": disputed[0]["id"], "action": "accept"},
         # room_tags is a structural hard rule: an upload may re-weight it, never make it soft (gracious D1)
-        {"id": rule["id"], "action": "edit", "value": {"weight": 7}},
+        {"id": rule["id"], "action": "edit", "value": {"weight": 7, "hardness": "hard"}},  # a person sets hard
     ]
     decisions += [
         {"id": it["id"], "action": "accept"}
@@ -156,6 +157,8 @@ async def test_memo_council_votes_mines_rules_and_judges(client, fake_sdk):
         if it["blocking"] and it["id"] != disputed[0]["id"]
     ]
     r = await client.post(f"/api/v1/council/jobs/{job['id']}/review", headers=h, json={"decisions": decisions})
+    await accept_ai_rows(client, h, job["id"])  # a DOCX is an AI-route file: every row needs a person (P19-A2)
+    r = await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)
     assert r.json()["blocking"] == 0
     r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={"term_id": tid, "files": [0]})
     assert r.status_code == 200, r.text

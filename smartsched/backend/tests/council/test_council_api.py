@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 
 from tests.api_fixtures import login
 from tests.council.conftest import EN_CSV, EXAM_LIST, FINAL_GRID, MEMO_DOCX, ROOM_MASTER, SCAN_PNG
+from tests.council.test_ai_rows import accept_ai_rows
 from tests.test_safe_files import far_row_bomb, merge_bomb, shared_string_bomb
 
 
@@ -62,6 +63,8 @@ async def test_heuristic_job_reviews_and_commits_general_files(client):
     assert {"rule_text", "plan"} <= kinds
     plan_item = next(it for it in review["items"] if it["kind"] == "plan")
     assert plan_item["current"]["code"] == "BAHAR" and plan_item["files"] == [1]
+    assert await accept_ai_rows(client, h, job["id"]) == 36  # the memo (DOCX) is an AI-route file (P19-A2)
+    review = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
     pending = [it for it in review["items"] if it["blocking"] and it["decision"] is None]
     if pending:
         r = await client.post(

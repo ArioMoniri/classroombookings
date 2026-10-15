@@ -744,3 +744,13 @@ Open:
 - [ ] Operator-level webhook allowlist (env, empty by default) for in-pod automation such as the Activepieces engine. Until then those URLs are refused; fix docs/deploy/calendar-oauth.md and docs/product/calendar-sync-api.md, which still say they are allowed.
 - [ ] LDAP: check a disabled account after the directory bind, for equal timing
 - [ ] Admin KVKK screen showing the sign-off record (E-8 / M-40)
+
+### Moderation backend finished (M1–M3, 0024_moderation_indexes; ledger 00eebaf)
+- Real data (Bahar week 3): raising MAT 112 §1's priority and re-solving in repair mode moved 0 other classes. HEM 236 gave way (lock_clash_priority) and ING 202 §1 gave way (locked_row_kept); hard 100 → 100; the diff is identical on re-run.
+- Decision by the orchestrator (owner may override), Q9: when a coordinator raises a priority, a lower-priority neighbour may become unplaced rather than moved (placed 700 → 699 above). This follows the owner's policy (locks → priority → most classes). It is acceptable because the preview lists every such loss with its reason before anything is published (pin-and-rerun).
+- [ ] app/ai/chat.py rebuilds the current placements from stored rows, which gave false clashes (joint lectures, rooms outside the pool) → switch to solver_bridge.solver_assignments_of(run).
+- [ ] A comparable soft score in diffs (re-score with the base run's weights).
+- [ ] Flexible-start events for meeting_requests.duration_periods; today they get a `flexible_start` diagnosis.
+- [ ] A department-scoped role for secretaries (Q11); today planning.view sees all.
+- [ ] Link assignment-audit rows to requests in the moderation history (after P19-02).
+- F1–F4 frontend started 2026-10-15 ~21:45.

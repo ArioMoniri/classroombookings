@@ -944,7 +944,8 @@
       "goal": "the Phase 19 moderation tab backend. Read: - docs/review/2026-10-15-phase19-engineering.md §3d and tickets M1–M3 - docs/design/v2/phase19-moderation.md and phase19-priority-policy.md - docs/testing/2026-10-15-academician-needs.md §5 (Q9: 0 published moves outside scope; Q11: visibility; Q12: department form vs wish) - docs/ROADMAP.md decisions: pin-and-rerun only (no partial publish); workers=1 fo…",
       "ledger": "p19-moderation-backend-2026-10-15 SCOPE: you may create and edit: - NEW: smartsc…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 21:45"
     },
     {
       "id": "a1afe644065b79548",
@@ -964,7 +965,8 @@
       "goal": "act as a senior product designer and UI/UX QA lead. The product owner says: - many parts of the UI look AI-generated - dynamic sizing is missing: UI elements, button sizes and shapes, dynamic/resizable column widths - there are many UI and outline (focus ring/border) issues - the skills and Mobbin were not used properly Produce a precise, actionable visual-quality review that a designer-engineer c…",
       "ledger": "uiux-visual-review-2026-10-15 SCOPE: write only docs/review/2026-10-15-uiux-visu…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 21:45"
     },
     {
       "id": "a358f9dd6c1a5a8dd",
@@ -1026,6 +1028,26 @@
       "status": "finished",
       "finished_at": "2026-10-15 21:36",
       "left_off": "add the webhook allowlist and deploy to pod when green"
+    },
+    {
+      "id": "a4a5fb1da19d95810",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 21:39",
+      "left_off": "deploy to pod when green"
+    },
+    {
+      "id": "a8ecdc1378836e55a",
+      "description": "P19 F1–F4: moderation, suggestions, wizard UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 21:45",
+      "scope": "NEW frontend code only: - src/app/(app)/moderation/**, src/app/(app)/programs/new/** - src/components/{moderation,learning,program-wizard}/** - src/lib/api/{moderation,learning,catalog-admin}.ts (new API modules + their zod schemas) - your own new i18n keys in messages/en.json + tr.json (then `cd smartsched/backend && python -m tools.crbs_lang_import` and `--check`) - e2e/phase19.spec.ts (add it t…",
+      "goal": "Phase 19 frontend tickets F1–F4. The specs: - docs/design/v2/phase19-moderation.md, phase19-suggestions.md, phase19-program-wizard.md, phase19-priority-policy.md - docs/design/v2/motion.md §3.8–3.11 (follow the /motion_designer skill: read .claude/skills/motion_designer/SKILL.md, use @/lib/motion tokens, give every animation a reduced-motion and a reduced-transparency variant) - decisions in docs/…",
+      "ledger": "p19-frontend-f1-f4-2026-10-15 SCOPE: NEW frontend code only: - src/app/(app)/mod…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

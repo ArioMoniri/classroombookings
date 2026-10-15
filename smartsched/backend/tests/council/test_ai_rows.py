@@ -16,6 +16,19 @@ from tests.council.test_formats_api import upload
 TERM = {"code": "2026-MEMO", "week_count": 14}
 
 
+async def accept_ai_rows(client, h, job_id: int) -> int:
+    """Accept every pending AI row in confirmed batches of at most 50 (low-confidence rows one by one)."""
+    rows = [r for r in (await _rows(client, h, job_id, state="pending"))["items"]]
+    batch = [r["id"] for r in rows if not r["low_confidence"]]
+    for k in range(0, len(batch), airows.BULK_MAX):
+        r = await _decide(client, h, job_id, [{"row_id": i, "action": "accept"} for i in batch[k : k + 50]], True)
+        assert r.status_code == 200, r.text
+    for row in rows:
+        if row["low_confidence"]:
+            assert (await _decide(client, h, job_id, [{"row_id": row["id"], "action": "accept"}])).status_code == 200
+    return len(rows)
+
+
 async def _rows(client, h, job_id: int, **params) -> dict:
     r = await client.get(f"/api/v1/council/jobs/{job_id}/rows", headers=h, params={"limit": 500, **params})
     assert r.status_code == 200, r.text

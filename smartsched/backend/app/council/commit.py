@@ -679,6 +679,21 @@ async def commit(
                 rd = decided.get(f"rule:{i}:{n}")
                 if not rd or rd.get("action") == "reject":
                     continue
+                edited_hard = rd.get("action") == "edit" and (rd.get("value") or {}).get("hardness") == "hard"
+                if str(raw.get("hardness") or "hard") == "hard" and not edited_hard:
+                    # P19-A4: a hard rule the model read from a file is written only when the reviewer chose
+                    # hardness=hard themselves (edit); a plain accept of a model's hard rule is not enough
+                    rejected_rules.append(
+                        {
+                            "index": n,
+                            "file": i,
+                            "kind": raw.get("kind"),
+                            "issues": [
+                                "a hard rule read by the AI model needs the reviewer to set hardness=hard (edit)"
+                            ],
+                        }
+                    )
+                    continue
                 if ctx is None:
                     ctx = await load_term_context(session, tid)
                 clean = {k: v for k, v in raw.items() if not k.startswith("_")}
@@ -695,9 +710,8 @@ async def commit(
                 )
                 accepted.append(p)
         if accepted:
-            created_rules, rejected_rules = await accept_proposals(
-                session, tid, accepted, user_id=user_id, source="UPLOAD"
-            )
+            created_rules, refused = await accept_proposals(session, tid, accepted, user_id=user_id, source="UPLOAD")
+            rejected_rules += refused
     result = {
         "term_id": tid,
         "term_code": term_code,
