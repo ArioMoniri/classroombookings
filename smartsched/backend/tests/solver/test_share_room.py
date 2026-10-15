@@ -93,3 +93,33 @@ def test_sharing_across_disjoint_weeks_and_courses() -> None:
     assert res2.status in ("OPTIMAL", "FEASIBLE") and res2.hard_score == 100
     res3 = solve(make_input(rooms, (c1, replace(c2, size=29))))
     assert res3.status == "INFEASIBLE"
+
+
+def test_inconsistent_seat_hint_is_repaired() -> None:
+    """Roadmap Phase 9 (unlocked exam runs): the hint values ``seats[e, r]`` by a proportional split (80 over
+    A + B = 40 / 40), which overfills A next to a 30-student exam (exam capacity 60); the repair solves the
+    seats alone with the hinted placement fixed (A 30 / B 50), so the warm start is a real first solution."""
+    from app.solver.build import build_model, make_solver, prepare
+    from app.solver.model import Assignment
+    from ortools.sat.python import cp_model
+
+    rooms = (room(1, "A", 120, exam_capacity=60), room(2, "B", 120, exam_capacity=60))
+    split = event(1, size=80, kind="exam", weeks=(3,), day=1, start=1, max_rooms=2, share_room=True)
+    single = event(2, size=30, kind="exam", weeks=(3,), day=1, start=1, share_room=True)
+    inp = make_input(rooms, (split, single), weeks=(3,), workers=1)
+    wk = frozenset({3})
+    hint = [Assignment(1, 1, 1, 2, (1, 2), wk), Assignment(2, 1, 1, 2, (1,), wk)]
+
+    def fixed_status(ctx) -> int:  # type: ignore[no-untyped-def]
+        s = make_solver(inp, 5.0)
+        s.parameters.fix_variables_to_their_hinted_value = True
+        return s.Solve(ctx.model)  # type: ignore[no-any-return]
+
+    ctx = build_model(prepare(inp), "solve")
+    ctx.add_hints(hint)
+    assert fixed_status(ctx) == cp_model.INFEASIBLE  # the proportional seat hint is not a solution
+    ctx = build_model(prepare(inp), "solve")
+    ctx.add_hints(hint)
+    assert ctx.repair_derived_hints(5.0) > 0
+    assert fixed_status(ctx) in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+    assert ctx.repair_derived_hints(5.0) == 0  # consistent now

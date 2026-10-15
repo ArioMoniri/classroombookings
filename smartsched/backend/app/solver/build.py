@@ -211,9 +211,20 @@ def make_solver(
     # presolve probing over tens of thousands of optional intervals burns minutes of wall time
     # (its deterministic-time accounting is far off); search-time probing workers remain enabled
     solver.parameters.cp_model_probing_level = 0
+    if light_presolve(inp):
+        # split shared exams (cumulatives with variable seat demands): presolve's fix-point loops and repeated
+        # symmetry detection took 24 s of a 60 s budget on the Final in prefer mode (search never started
+        # beyond the hint); one presolve pass without symmetry starts the search at 7 s (roadmap Phase 9)
+        solver.parameters.symmetry_level = 0
+        solver.parameters.max_presolve_iterations = 1
     if lns_only:
         solver.parameters.use_lns_only = True
     return solver
+
+
+def light_presolve(inp: SolverInput) -> bool:
+    """Models with split room-sharing events (exam seats over several rooms) get a light presolve."""
+    return any(e.share_room and e.max_rooms > 1 for e in inp.events)
 
 
 def status_name(solver: Any, status: int) -> str:
