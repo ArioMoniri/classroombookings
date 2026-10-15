@@ -195,9 +195,9 @@ export function CapsuleToolbar(p: CapsuleToolbarProps) {
         {p.conflicts > 0 || p.warnings > 0 ? (
           <Button variant="ghost" size="sm" onClick={p.onIssues} data-testid="issues-capsule" className="text-status-infeasible-fg">
             <AlertTriangle aria-hidden />
-            {p.conflicts > 0 ? t("calendar.issues.conflicts", { n: p.conflicts }) : null}
+            {p.conflicts > 0 ? t("calendar.issues.conflictsWeek", { n: p.conflicts }) : null}
             {p.conflicts > 0 && p.warnings > 0 ? <span aria-hidden className="text-label-3">·</span> : null}
-            {p.warnings > 0 ? <span className="text-status-warning-fg">{t("calendar.issues.warnings", { n: p.warnings })}</span> : null}
+            {p.warnings > 0 ? <span className="text-status-warning-fg">{t("calendar.issues.warningsWeek", { n: p.warnings })}</span> : null}
           </Button>
         ) : null}
         {p.canUndo ? <Button variant="ghost" size="icon-sm" aria-label={t("calendar.toast.undo")} onClick={p.onUndo}><Undo2 /></Button> : null}

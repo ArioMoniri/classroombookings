@@ -35,3 +35,16 @@ describe("one source of truth for run counts (admin persona M-06/M-07/M-08 and t
     ]);
   });
 });
+
+describe("run parsing keeps structured stats (missing_only_week, waived_rules) and is_active", () => {
+  it("stats_detail has the objects the flat stats drop", async () => {
+    const { ScheduleRun } = await import("@/lib/api/schemas");
+    const adapt = await import("@/lib/api/adapters");
+    const r = ScheduleRun.parse(adapt.run({ id: 3, term_id: 1, term_code: "B", kind: "COURSE", horizon: "TERM", horizon_params: {}, status: "FEASIBLE", params: {}, objective_value: null, soft_score: 80, hard_score: 100, stats: { placed: 687, events: 716, missing_only_week: { "1": 2 }, waived_rules: ["capacity"] }, diagnosis: [], parent_run_id: null, prompt_text: null, is_active: true, created_at: "2026-10-15T10:00:00Z", finished_at: null }));
+    expect(r.stats.placed).toBe(687);
+    expect(r.stats.missing_only_week).toBeUndefined();
+    expect(r.stats_detail?.missing_only_week).toEqual({ "1": 2 });
+    expect(r.stats_detail?.waived_rules).toEqual(["capacity"]);
+    expect(r.is_active).toBe(true);
+  });
+});
