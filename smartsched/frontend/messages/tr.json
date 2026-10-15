@@ -2178,6 +2178,8 @@
     "density": {"label": "Yoğunluk", "compact": "Sıkı", "standard": "Standart", "comfortable": "Rahat"},
     "more": "Diğer",
     "export": "Excel'e aktar",
+    "exportWeek": "Bu haftayı Excel'e aktar",
+    "exportTerm": "Tüm dönemi Excel'e aktar",
     "print": "Yazdır",
     "shortcuts": "Klavye kısayolları",
     "heat": {"occupancy": "Doluluk", "conflicts": "Çakışma", "unplaced": "Yerleşmeyen", "changes": "Değişiklik", "metric": "Isı ölçütü", "split": "Binaya göre böl", "asTable": "Tablo olarak göster", "cell": "Hafta {w} · {date} · %{p} dolu ({occ}/{cap} oda-ders saati) · {c} çakışma", "split2": "%{a} ders + %{b} önceden dolu", "dayAvg": "Gün ortalaması", "outOfTerm": "Dönem dışı", "legend": "Lejant", "definition": "Doluluk: dolu oda-ders saati ÷ (açık oda × 18)", "drill": "Tıkla: o günün panosu · ⇧-sürükle: hafta aralığı seç", "cellShort": "%{p}", "exams": "Sınav: {n}", "conflictCount": "{n} çakışma"},

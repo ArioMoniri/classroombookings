@@ -2179,6 +2179,8 @@
     "density": {"label": "Density", "compact": "Compact", "standard": "Standard", "comfortable": "Comfortable"},
     "more": "More",
     "export": "Export to Excel",
+    "exportWeek": "Export this week to Excel",
+    "exportTerm": "Export the whole term to Excel",
     "print": "Print",
     "shortcuts": "Keyboard shortcuts",
     "heat": {"occupancy": "Occupancy", "conflicts": "Conflicts", "unplaced": "Unplaced", "changes": "Changes", "metric": "Heat metric", "split": "Split by building", "asTable": "Show as table", "cell": "Week {w} · {date} · {p}% full ({occ}/{cap} room-periods) · {c} conflicts", "split2": "{a}% classes + {b}% pre-occupied", "dayAvg": "Day average", "outOfTerm": "Outside the term", "legend": "Legend", "definition": "Occupancy: occupied room-periods ÷ (bookable rooms × 18)", "drill": "Click opens that day's board · ⇧-drag selects a week range", "cellShort": "{p}%", "exams": "Exams: {n}", "conflictCount": "{n} conflicts"},

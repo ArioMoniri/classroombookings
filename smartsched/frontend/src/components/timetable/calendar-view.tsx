@@ -804,7 +804,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               runs={data.runs}
               compare={vs.compare}
               onCompare={(id) => update({ compare: id })}
-              onExport={() => runId !== null && window.open(api.runs.exportUrl(runId, "xlsx"), "_blank")}
+              onExport={(scope) => runId !== null && window.open(api.runs.exportUrl(runId, "xlsx", scope === "week" ? [liveWeek] : undefined), "_blank")}
               onShortcuts={() => setShortcuts(true)}
               onSearch={() => {
                 setSidebarOpen(true);

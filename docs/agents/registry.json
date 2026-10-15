@@ -1048,6 +1048,18 @@
       "ledger": "p19-frontend-f1-f4-2026-10-15 SCOPE: NEW frontend code only: - src/app/(app)/mod…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a96fa57dd0aaecb53",
+      "description": "Design-system overhaul from UI/UX review",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 21:48",
+      "scope": "",
+      "goal": "the owner says many parts of the UI look AI-generated; dynamic sizing (elements, button sizes and shapes, column widths) is missing; there are many UI and outline issues; the skills and Mobbin were not used. Implement docs/review/2026-10-15-uiux-visual-review.md: - read it fully: §2 design system, §3 per-screen issues in your screens, §4 top 15, §5 acceptance checks - evidence screenshots: /tmp/cl…",
+      "ledger": "design-system-overhaul-2026-10-15 SCOPE (you own): - smartsched/frontend/src/com…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

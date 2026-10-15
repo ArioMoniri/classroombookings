@@ -140,7 +140,8 @@ export interface CapsuleToolbarProps {
   runs: ScheduleRun[];
   compare: number | null;
   onCompare: (id: number | null) => void;
-  onExport: () => void;
+  /** "week": the visible week only; "term": every week of the run (admin persona M-32) */
+  onExport: (scope: "week" | "term") => void;
   onShortcuts: () => void;
   onSearch: () => void;
   condensed: boolean;
@@ -225,7 +226,8 @@ export function CapsuleToolbar(p: CapsuleToolbarProps) {
               </DropdownMenuRadioGroup>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={p.onExport}>{t("calendar.export")}</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => p.onExport("week")} data-testid="export-week">{t("calendar.exportWeek")}</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => p.onExport("term")} data-testid="export-term">{t("calendar.exportTerm")}</DropdownMenuItem>
             <DropdownMenuItem onClick={() => window.print()}>{t("calendar.print")}</DropdownMenuItem>
             <DropdownMenuItem onClick={p.onShortcuts}>{t("calendar.shortcuts")}</DropdownMenuItem>
           </DropdownMenuContent>

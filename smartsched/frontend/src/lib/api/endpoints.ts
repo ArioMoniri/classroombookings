@@ -210,7 +210,9 @@ export const api = {
     /** `POST /runs/{id}/diagnoses/{idx}/apply {option_index}`; 422 = the suggestion has no structured fix. */
     applyFix: (runId: number, diagnosisIndex: number, optionIndex: number, reSolve = true) =>
       request(`/runs/${runId}/diagnoses/${diagnosisIndex}/apply`, { method: "POST", body: { option_index: optionIndex, re_solve: reSolve }, schema: DiagnosisApplyResult }),
-    exportUrl: (runId: number, format: "xlsx" | "ics" | "csv" | "crbs") => `/api/v1/runs/${runId}/export?format=${format}`,
+    /** `weeks` (term week numbers) limits the xlsx export to those weeks (admin persona M-32); the other formats export the whole run */
+    exportUrl: (runId: number, format: "xlsx" | "ics" | "csv" | "crbs", weeks?: readonly number[]) =>
+      `/api/v1/runs/${runId}/export?format=${format}${weeks?.length ? `&weeks=${weeks.join(",")}` : ""}`,
   },
   settings: {
     get: () => request("/settings", { schema: SettingsOut }),

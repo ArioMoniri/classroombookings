@@ -15,6 +15,7 @@ The model (when configured) is a second voter; see :mod:`app.council.llm`.
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass
 from dataclasses import field as dc_field
 from typing import Any
@@ -332,9 +333,16 @@ def _kind_from_fields(fields: set[str], header_text: str) -> tuple[str, float]:
     return "other", 0.3
 
 
+#: Turkish wishes are optative / imperative verbs ("A 206'da olsun", "C 301'de kalsın", "olmasın", "yapılsın")
+#: and a few wish words; folded (ı -> i, ş -> s), so "kalsın" is "kalsin"
+_TR_WISH = re.compile(
+    r"\b\w{2,}(?:sin|sun|siniz|sunuz)\b|\b(?:istiyor\w*|istemiyor\w*|isteni\w*|esnek|zorunlu\w*|mutlaka|lutfen)\b"
+)
+
+
 def is_rule_text(t: str) -> bool:
     f = " " + tx.fold(t) + " "
-    return len(t) >= 15 and any(w in f for w in _RULE_WORDS)
+    return len(t) >= 15 and (any(w in f for w in _RULE_WORDS) or bool(_TR_WISH.search(f)))
 
 
 def analyze_grid(grid: Grid, index: int) -> SheetAnalysis:
