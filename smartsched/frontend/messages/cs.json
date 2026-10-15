@@ -93,6 +93,9 @@
       "week": "Týden"
     }
   },
+  "onboarding": {
+    "weekCount": "Týdny"
+  },
   "wave1": {
     "find": {
       "weeks": "Týdny"

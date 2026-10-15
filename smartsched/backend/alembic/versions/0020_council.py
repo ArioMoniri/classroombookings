@@ -1,11 +1,11 @@
 """ingestion council: council_jobs, council_steps, council_artifacts
 
 (Written as 0003_council on claude/smartsched-universal; renumbered onto the single head
-(0017_course_code_fold) when it was merged, with the ``heartbeat_at`` liveness column every queued job
+(0019_publish_guard_term_locks) when it was merged, with the ``heartbeat_at`` liveness column every queued job
 carries since 0004_review_fixes.)
 
-Revision ID: 0018_council
-Revises: 0017_course_code_fold
+Revision ID: 0020_council
+Revises: 0019_publish_guard_term_locks
 Create Date: 2026-10-08 10:30:00
 
 """
@@ -16,8 +16,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0018_council"
-down_revision = "0017_course_code_fold"
+revision = "0020_council"
+down_revision = "0019_publish_guard_term_locks"
 branch_labels = None
 depends_on = None
 

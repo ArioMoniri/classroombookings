@@ -388,7 +388,7 @@ User decisions (2026-10-15):
 
 Execution order (2026-10-15):
 1. Analysis (running): strict-engineer gap analysis + academician needs; Phase 19 UX specs (design-pro, Mobbin research); motion audit + Phase 19 motion spec (motion_designer skill).
-2. Branch sync: merge claude/smartsched-universal (Ingestion Council + universal onboarding) into gracious; migration renumbered onto the single head (0018_council after 0017_course_code_fold); then universal fast-forwards to gracious and stays in sync at each green checkpoint.
+2. Branch sync: merge claude/smartsched-universal (Ingestion Council + universal onboarding) into gracious; migration renumbered onto the single head (0020_council after 0019_publish_guard_term_locks; whoever lands later renumbers onto the current single head); then universal fast-forwards to gracious and stays in sync at each green checkpoint.
 3. Build waves, in non-overlapping file scopes:
    - 3a. Structured intake (xlsx/xls/csv/tsv/ods/json/xml/ics) on the council
    - 3b. Moderation tab + matchings + minimal-change re-solve with diff

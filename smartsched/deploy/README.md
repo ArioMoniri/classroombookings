@@ -88,7 +88,7 @@ All settings live in `deploy/.env`, created from `.env.example` by `deploy.sh`. 
 calendars, staff lists and memos, in xlsx, csv, docx, pdf, txt, json or as images. The council in the
 backend reads them one by one; see `docs/universal/ARCHITECTURE.md`. Nothing extra needs deploying: the
 council runs in the backend container on the same job queue as imports and solves.
-`alembic upgrade head` (run on start) creates its tables (`0018_council`).
+`alembic upgrade head` (run on start) creates its tables (`0020_council`).
 
 - **Without an API key** the council runs its deterministic path: the university importers for known
   formats, and heuristic column mapping plus extraction for everything else. Images and scans, rule
