@@ -64,14 +64,15 @@ async def test_meeting_request_edit_is_audited_with_before_and_after(env):  # no
         assert mr is not None
         old_notes, old_status = mr.notes, mr.status
     note = "Bilgisayar laboratuvarı zorunlu (İÖ şubesi)"
+    new_status = "NEEDS_REVIEW" if old_status != "NEEDS_REVIEW" else "PARSED"
     r = await env.client.put(
-        f"/api/v1/requests/meetings/{mr.id}", json={"notes": note, "status": "LOCKED"}, headers=env.planner
+        f"/api/v1/requests/meetings/{mr.id}", json={"notes": note, "status": new_status}, headers=env.planner
     )
     assert r.status_code == 200, r.text
     (ev,) = await _events("meeting_request.update")
     assert ev.entity_id == str(mr.id) and ev.term_id == env.term_id
     assert ev.before == {"notes": old_notes, "status": old_status}
-    assert ev.after == {"notes": note, "status": "LOCKED"}
+    assert ev.after == {"notes": note, "status": new_status}
 
 
 async def test_single_move_and_lock_are_audited(env):  # noqa: F811

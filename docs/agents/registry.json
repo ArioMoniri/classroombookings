@@ -707,6 +707,14 @@
       "ledger": "persona-admin-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona-admin…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "af9f5ac2ccba2673e",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:48",
+      "left_off": "deploy to pod when green n send me panel url"
     }
   ]
 }

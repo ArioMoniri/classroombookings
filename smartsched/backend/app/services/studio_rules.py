@@ -25,6 +25,7 @@ from app.importers.normalize import (
     parse_class_year,
     parse_day,
     parse_mode,
+    parse_preference_text,
     parse_room_codes,
     parse_time,
     parse_time_slot,
@@ -663,7 +664,21 @@ def _norm(params: dict[str, Any] | None) -> str:
 # --------------------------------------------------------------------------- no-AI column mapping
 
 
-_BUILDING_RX = re.compile(r"\b([A-Da-d])\s*[-]?\s*(?:blok|BLOK|Blok|bloğu|BLOĞU|Bloğu)")
+
+
+def _building_wish(text: str, all_buildings: list[str]) -> list[str]:
+    """Buildings a free-text cell asks for: a set ("A veya C blokta"), or every building but the avoided
+    ones ("Mümkünse B Blok olmasın"); [] when it names none."""
+    wanted: list[str] = []
+    avoided: list[str] = []
+    for it in parse_preference_text(text):
+        if it.kind == "building_preference":
+            wanted = list(it.params["buildings"])
+        elif it.kind == "avoid_building":
+            avoided = list(it.params["avoid_buildings"])
+    if not wanted and avoided:
+        wanted = [b for b in all_buildings if b not in avoided]
+    return [b for b in wanted if b not in avoided]
 
 
 def _cell(v: Any) -> str:
@@ -771,6 +786,7 @@ async def _map_rows(
     unparsed: list[dict[str, Any]] = []
 
     by_key = {course_key(c.code): c.code for c in ctx.courses}
+    all_buildings = sorted({r.code[:1] for r in ctx.rooms if r.code})
 
     def _term_code(raw: str) -> str:
         """Course code as stored in the term, found by its code key (``normalize.course_key``): ``PSİ 116``
@@ -808,8 +824,8 @@ async def _map_rows(
         room_text = val(cells, "room")
         room_codes = parse_room_codes(room_text) if room_text else []
         building_text = val(cells, "building") or room_text
-        bm = _BUILDING_RX.search(building_text or "")
-        buildings = [tr_upper(bm.group(1))] if bm and not room_codes else []
+        # "A veya C blokta" = {A, C}; "Mümkünse B Blok olmasın" = every building but B (normalize.parse_preference_text)
+        buildings = [] if room_codes else _building_wish(building_text or "", all_buildings)
         if not buildings and val(cells, "building") and len(val(cells, "building").strip()) == 1:
             buildings = [tr_upper(val(cells, "building").strip())]
         raw_kind = kind_for_room if room_codes else ("building_preference" if buildings else None)

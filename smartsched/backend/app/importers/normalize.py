@@ -453,7 +453,6 @@ def parse_time_slot(value: Any) -> tuple[time, time] | None:
 
 _ROOM_RX = re.compile(r"(?<![A-Za-zÇĞİÖŞÜçğıöşü0-9])([A-Da-d])\s?([zZ]?\d{2,3})(?![0-9])")
 _ROOM_BLOCK_RX = re.compile(r"([A-Da-d])\s*[Bb][Ll][Oo][Kk]\w*\s*((?:\d{3}\s*[-,/]?\s*)+)")
-_BUILDING_RX = re.compile(r"\b([A-Da-d])\s*[Bb][Ll][Oo][Kk]")
 _ROOM_PAIR_RX = re.compile(r"\s*[-–/]\s*([zZ]?\d{2,3})(?![0-9.,]?\d)(?!\s*(?:kişi|kisi|öğr|ogr))")
 
 

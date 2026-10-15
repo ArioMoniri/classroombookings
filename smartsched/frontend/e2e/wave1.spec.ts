@@ -470,7 +470,8 @@ async function crawl(page: Page, paths: string[]): Promise<string[]> {
     const res = await page.goto(p);
     if (!res || res.status() === 404) problems.push(`${p}: 404`);
     await page.waitForLoadState("networkidle").catch(() => undefined);
-    if (await page.getByText(/^(404|This page could not be found\.?)$/).count()) problems.push(`${p}: not found page`);
+    // Next's default not-found screen (a room may well be called "404", so not the number alone)
+    if (await page.getByText(/^This page could not be found\.?$/).count()) problems.push(`${p}: not found page`);
     if (await page.getByText(/Bu sayfaya erişiminiz yok|You do not have access|yetkiniz yok/).count()) problems.push(`${p}: no-access screen`);
   }
   page.off("response", denied);
@@ -480,6 +481,8 @@ async function crawl(page: Page, paths: string[]): Promise<string[]> {
 test("wave1 5. every sidebar, ⌘K and setup link opens a page with no 404 and no 403, as administrator and as teacher", async ({ page }) => {
   test.setTimeout(300_000);
   await login(page, ADMIN.username, ADMIN.password);
+  // the crawler itself notices a missing page
+  expect((await crawl(page, ["/no-such-page-wave1"]))[0]).toContain("404");
   const admin = await destinations(page);
   for (const p of ["/find-room", "/approvals", "/admin/audit", "/admin/approval-rules"]) expect(admin).toContain(p);
   expect(await crawl(page, admin)).toEqual([]);

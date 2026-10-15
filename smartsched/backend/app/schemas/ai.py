@@ -162,6 +162,8 @@ class AcceptIn(BaseModel):
     proposals: list[ProposedConstraint] = []
     section_edits: list[ProposedSectionEdit] = []
     run_id: int | None = None  # attach constraints to a run instead of the term
+    #: proposals the planner dismissed in review (stored as ``declined`` decisions, never as rules)
+    declined: list[ProposedConstraint] = []
 
 
 class AcceptOut(BaseModel):

@@ -436,3 +436,25 @@ async def test_mapping_finds_courses_by_code_key(bahar):
     props = r.json()["proposals"]
     assert [p["status"] for p in props] == ["ok", "ok"], props
     assert props[0]["params"]["event_ids"] == props[1]["params"]["event_ids"] != []
+
+
+async def test_mapping_reads_building_sets_and_negation(bahar):
+    """The sheet's building column through ``normalize.parse_preference_text``: "A veya C blokta" (Bahar
+    note of NUT 254) is the set {A, C}; "Mümkünse B Blok olmasın" (ING 302) avoids B, i.e. any other building."""
+    c, h = bahar.client, bahar.planner
+    url = f"/api/v1/terms/{bahar.term_id}/studio/preferences/mapping"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Ders Kodu", "Blok"])
+    ws.append(["NUT 254", "A veya C blokta derslik verilmesi talep edilmektedir."])
+    ws.append(["ING 302", "Mümkünse B Blok olmasın"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    files = {"file": ("b.xlsx", buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    mapping = {"columns": {"course": 0, "building": 1}, "room_rule": "prefer"}
+    r = await c.post(url, files=files, data={"mapping": json.dumps(mapping)}, headers=h)
+    assert r.status_code == 200, r.text
+    props = r.json()["proposals"]
+    assert [p["kind"] for p in props] == ["building_preference", "building_preference"]
+    assert props[0]["params"]["buildings"] == ["A", "C"] and props[0]["hardness"] == "soft"
+    assert "B" not in props[1]["params"]["buildings"] and {"A", "C"} <= set(props[1]["params"]["buildings"])

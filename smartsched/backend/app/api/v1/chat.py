@@ -154,7 +154,7 @@ async def post_elicit_accept(term_id: int, body: AcceptIn, db: DB, user: Planner
         if run.term_id != term_id:
             raise HTTPException(400, "run belongs to another term")
     created, rejected = await accept_proposals(
-        db, term_id, body.proposals, user_id=user.id, run_id=body.run_id, commit=False
+        db, term_id, body.proposals, user_id=user.id, run_id=body.run_id, commit=False, declined=body.declined
     )
     applied, rejected_edits = await apply_section_edits(
         db, term_id, body.section_edits, commit=False, draft_user_id=user.id
