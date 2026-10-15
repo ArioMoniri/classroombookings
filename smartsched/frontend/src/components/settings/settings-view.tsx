@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocaleToggle } from "@/components/shell/locale-toggle";
+import { AiPolicyCard } from "./ai-policy";
 import { useSettings, useUpdateSettings } from "@/lib/api/hooks";
 import type { Settings } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
@@ -152,26 +153,8 @@ function AiCard() {
           <Button size="sm" className="mt-3" onClick={() => void saveModel()} disabled={!s || model === s.anthropic_model || update.isPending} data-testid="save-model">{t("common.save")}</Button>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("settings.councilAi")}</CardTitle>
-          <CardDescription>{t("settings.councilAiHint")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <label className="flex cursor-pointer items-center gap-3 text-[13px]">
-            <input
-              type="checkbox"
-              checked={s?.council_ai_enabled ?? false}
-              disabled={!s || update.isPending}
-              onChange={(e) => void update.mutateAsync({ council_ai_enabled: e.target.checked }).then(() => toast.success(t("settings.saved")))}
-              className="accent-(--accent)"
-              data-testid="council-ai-toggle"
-            />
-            <span className="font-medium text-label-1">{t("settings.councilAiToggle")}</span>
-          </label>
-          <p className="text-[12px] text-label-3">{t("settings.councilAiKvkk")}</p>
-        </CardContent>
-      </Card>
+      {/* the one AI-policy control: the council's council_ai_enabled setting is an alias of it (app/ai/policy.py) */}
+      <AiPolicyCard />
     </div>
   );
 }
