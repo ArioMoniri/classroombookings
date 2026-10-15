@@ -120,7 +120,7 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 ### Phase 3 AI layer backlog (ai-engineer, 2026-10-08)
 
-- [x] Backend deps: add `python-docx>=1.1` and `pypdf>=4` to `smartsched/backend/pyproject.toml` (+ lock); `app/ai/ingest.py` imports them lazily and returns HTTP 400 "not installed" without them (installed in the dev env, not declared) (verified 2026-10-15: smartsched/backend/pyproject.toml:25-26 declares both; the backend has no lock file)
+- [x] Backend deps: add `python-docx>=1.1` and `pypdf>=4` to `smartsched/backend/pyproject.toml` (+ lock); `app/ai/ingest.py` imports them lazily and returns HTTP 400 "not installed" without them (installed in the dev env, not declared) (verified 2026-10-15: smartsched/backend/pyproject.toml:25-26 declares both, pinned in smartsched/backend/requirements.lock)
 - [x] Settings default model (decided 2026-10-08: `claude-opus-5-5`): `settings_service.SPECS["anthropic_model"]` defaults to `claude-sonnet-5-5` while the claude-api skill / RESEARCH §4.3 recommend `claude-opus-5-5`; decide and align (AI layer falls back to `claude-opus-5-5` only when the setting is empty)
 - [x] Constraints table: add a `source_ref` JSON column; today upload refs live in `params["_source_ref"]` (studio backend agent) (2026-10-15: column existed since alembic 0002; `app/ai/elicit.py` `accept_proposals` now writes it and moves a legacy `params._source_ref` there; tests/ai/test_elicit_ingest.py::test_xlsx_upload_yields_proposals_and_section_edits_with_refs, ::test_docx_upload_and_accept_endpoint)
 - [ ] Chat-created constraints are term-wide (`term_id`) so they carry over to grandchild runs; add a run-scoped option ("only for this run") with inheritance through `parent_run_id` in `build_solver_input`
@@ -453,3 +453,24 @@ Defaults adopted (owner may override):
 - Priority has 3 tiers. Person-level priority is set by coordinator/admin only.
 - Exam terms use the same policy order.
 - A KVKK erasure request purges immediately; the undo window does not apply to erasure.
+
+### Motion audit tickets (docs/review/2026-10-15-motion-audit.md; 35 findings, 0 blocker / 12 major / 23 minor), queued for the frontend sweep
+- [ ] T1: busy buttons are spinner-only (56 `Loader2 animate-spin` uses in 39 files). Add a busy label and `aria-busy`, and a reduced-motion fallback.
+- [ ] T2: no stale-data signal on day/week navigation or find-room re-search. Dim the stale grid and show the pending date.
+- [ ] T3: main-thread stalls.
+  - book sheet open: 36–48 dropped frames, up to 653 ms long frame
+  - drag-span release: 96–138 dropped frames
+  - next day: 24–52 dropped frames
+  - bell popover: 14.5–33 dropped frames
+  - find-room results: 34–74 dropped frames
+  Fix: defer work out of the click handler, memoise grid cells, virtualise.
+- [ ] T4: focus falls to `<body>` after audit Undo, Withdraw, Delete feature, Approve/Reject, and onboarding Accept/Reject.
+- [ ] T5: studio review tray.
+  - It animates `height` on exit.
+  - It uses motion's useReducedMotion, which ignores the in-app switch; use the app's useReduce().
+  - The accepted proposal does not travel into the rule list (layoutId).
+  - It has no size limit above 40 items.
+- [ ] T6: onboarding progress. Replace the per-agent spinners with one progress row, add a live region, and keep focus while busy.
+- [ ] T7–T12: the minor items in the audit doc.
+- [ ] T13: the e2e reduced-transparency assertion reads `backgroundColor`, which is always transparent for gradient glass. Fix the spec, and the same check in .claude/skills/motion_designer/references/audit.md, then run `check_snippets.py` and expect PASS.
+- [ ] Re-run audit §1 for the features admin, approvals, audit viewer, find-room and onboarding once they land.

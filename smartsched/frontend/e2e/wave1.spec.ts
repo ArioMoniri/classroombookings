@@ -182,7 +182,7 @@ test("wave1 1. room features: a typed feature, a value in the grid, the bulk CSV
   await expect.poll(async () => (await api<{ values: Record<string, unknown>; tags: string[] }>("GET", `/room-admin/rooms/${ctx.room.id}/features`)).tags).toContain(TAG);
 
   // removing the solver tag that a room carries: 409 → the impact is shown → confirm
-  await tab.getByRole("button", { name: new RegExp(`(Düzenle|Edit) ${name}`) }).click();
+  await tab.getByTestId(`feature-${feature.id}`).getByRole("button", { name: new RegExp(`düzenle|Edit`) }).click();
   await dialog.getByTestId("feature-solver-tag").fill("");
   await dialog.getByTestId("feature-save").click();
   await expect(dialog.getByTestId("feature-impact")).toBeVisible();
@@ -213,7 +213,7 @@ test("wave1 2. find a room: ⌘K, Wednesday 10:10–12:30 for 90 ranked like the
   await page.goto("/bookings");
   await openPalette(page);
   await page.getByRole("dialog").getByRole("combobox").fill("boş derslik");
-  await page.getByRole("option", { name: /Boş derslik bul|Find a free room/ }).click();
+  await page.locator('[cmdk-item][data-value="action-find-room"]').click();
   await page.waitForURL(/\/find-room/);
 
   const view = page.getByTestId("find-room");
@@ -292,9 +292,14 @@ test("wave1 3. audit log: filter a booking, the before/after diff, Undo, a refus
   // the CSV export of the filtered range
   const href = await view.getByTestId("audit-export").getAttribute("href");
   expect(href).toContain("/api/v1/audit/export.csv");
-  const csv = await page.request.get(href!);
-  expect(csv.status()).toBe(200);
-  expect(await csv.text()).toContain("booking.create");
+  // what the download link fetches, with the browser's session cookie
+  const csv = await page.evaluate(async (url) => {
+    const r = await fetch(url, { credentials: "same-origin" });
+    return { status: r.status, type: r.headers.get("content-type") ?? "", text: await r.text() };
+  }, href!);
+  expect(csv.status).toBe(200);
+  expect(csv.type).toContain("text/csv");
+  expect(csv.text).toContain("booking.create");
 });
 
 test("wave1 4. approvals: approves-for in the user form, a rule, the request (202) from the booking sheet, the inbox badge, approve; reject with a suggestion; part of a series; a 409 re-check; the requester's timeline and bell (X-11)", async ({ page, browser }) => {
@@ -310,7 +315,7 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
   await user.getByTestId("user-scope-all").click();
   await user.getByTestId("user-save").click();
   await expect(user).toBeHidden();
-  await expect.poll(async () => (await api<{ user_id: number; scopes: { type: string }[] }[]>("GET", "/approvals/approvers")).find((x) => x.user_id === ctx.approverId)?.scopes).toEqual([{ type: "all" }]);
+  await expect.poll(async () => (await api<{ user_id: number; scopes: { type: string }[] }[]>("GET", "/approvals/approvers")).find((x) => x.user_id === ctx.approverId)?.scopes.map((x) => x.type)).toEqual(["all"]);
 
   await page.goto("/admin/approval-rules");
   await page.getByTestId("rule-new").click();

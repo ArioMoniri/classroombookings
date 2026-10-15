@@ -15,6 +15,18 @@ from tests.api_fixtures import login
 from tests.conftest import GUZ_GRID, GUZ_LIST
 
 
+async def publish_directly(run_id: int) -> None:
+    """Mark a stub-solver run active in the DB. ``POST /activate`` refuses it (its timetable is not hard-clean,
+    review D4); tests of the features that read the active run use this instead."""
+    from app.models import ScheduleRun
+
+    async with get_session_factory()() as s:
+        run = await s.get(ScheduleRun, run_id)
+        assert run is not None
+        run.is_active = True
+        await s.commit()
+
+
 async def _import_guz() -> int:
     async with get_session_factory()() as s:
         await import_weekly_grid(s, GUZ_GRID, "2026-GUZ", year=2026)  # room master with capacities
@@ -85,9 +97,13 @@ async def test_run_lifecycle_with_stub_solver(client, stub_solver):
     assert (
         r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream") and "event: status" in r.text
     )
-    # activate
+    # activate: only a finished run with every hard rule held is published (review D4)
     r = await client.post(f"/api/v1/runs/{run_id}/activate", headers=h)
-    assert r.status_code == 200 and r.json()["is_active"] is True
+    if run["status"] == "FEASIBLE" and run["hard_score"] == 100:
+        assert r.status_code == 200 and r.json()["is_active"] is True
+    else:
+        assert r.status_code == 409, r.text
+        await publish_directly(run_id)  # the checks below only need an active run
     runs = (await client.get("/api/v1/runs", params={"term_id": term_id}, headers=h)).json()
     assert runs[0]["id"] == run_id and runs[0]["is_active"]
     # manual move into an occupied room is rejected unless forced

@@ -224,3 +224,48 @@ def test_negative_percentages_are_refused() -> None:
     assert n.parse_pct("-") is None
     assert n.parse_pct("50") == 50
     assert n.parse_pct("0.5") == 50
+
+
+def test_fold_migration_on_a_real_upgrade_keeps_the_unique_keys(tmp_path) -> None:
+    """``alembic upgrade`` 0016 -> head on a database holding ``ÇEV 101`` / ``CEV 101`` twins (two terms'
+    imports before the decision): ``courses.code`` stays unique (the duplicate row is deleted, never
+    renamed), each section keeps its own ``source_key`` (``uq_sections_term_source`` cannot collide) and
+    points at the oldest course."""
+    import sqlite3
+
+    from alembic import command
+
+    from tests.test_crbs_migration import _run
+
+    path = tmp_path / "fold.db"
+    url = f"sqlite+aiosqlite:///{path}"
+    _run(url, command.upgrade, "0016_course_code_keys")
+    con = sqlite3.connect(path)
+    ts = "2026-10-15 00:00:00"
+    con.execute(
+        "insert into terms (id, code, name, kind, week_count, is_active, created_at, updated_at) "
+        "values (1, 'T', 'T', 'REGULAR', 14, 1, ?, ?)",
+        (ts, ts),
+    )
+    for cid, code, disp in ((1, "ÇEV101", "ÇEV 101"), (2, "CEV101", "CEV 101"), (3, "MAT112", "MAT 112")):
+        con.execute("insert into courses (id, code, display_code) values (?, ?, ?)", (cid, code, disp))
+    for sid, cid, key in ((10, 1, "ÇEV101|1"), (11, 2, "CEV101|1"), (12, 3, "MAT112|1")):
+        con.execute(
+            "insert into sections (id, term_id, course_id, class_years, mode, source_key, archived, created_at, "
+            "updated_at) values (?, 1, ?, '[]', 'F2F', ?, 0, ?, ?)",
+            (sid, cid, key, ts, ts),
+        )
+    con.commit()
+    con.close()
+    _run(url, command.upgrade, "head")
+    con = sqlite3.connect(path)
+    assert con.execute("select id, code, display_code from courses order by id").fetchall() == [
+        (1, "ÇEV101", "ÇEV 101"),
+        (3, "MAT112", "MAT 112"),
+    ]
+    assert con.execute("select id, course_id, source_key from sections order by id").fetchall() == [
+        (10, 1, "ÇEV101|1"),
+        (11, 1, "CEV101|1"),
+        (12, 3, "MAT112|1"),
+    ]
+    con.close()

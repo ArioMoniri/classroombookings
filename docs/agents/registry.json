@@ -498,7 +498,8 @@
       "goal": "(1) a motion audit of every SmartSched surface built or changed since 2026-10-08; (2) motion specs for the Phase 19 surfaces. First invoke the `/motion_designer` skill (the Skill tool, skill name \"motion_designer\") and follow its workflow, tokens, patterns, a11y notes and the §8 audit checklist exactly. Part 1: audit. Find the surfaces changed since 2026-10-08 with `git log --since=2026-10-08 --na…",
       "ledger": "motion-audit-phase19-2026-10-15 SCOPE: docs/design/v2/motion.md and docs/review/…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 15:39"
     },
     {
       "id": "a31e030beefbad347",
@@ -653,6 +654,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-15 15:25",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a96e459c5c8367b44",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:35",
       "left_off": "continue n deploy to pod when green"
     }
   ]
