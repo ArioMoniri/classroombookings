@@ -54,9 +54,7 @@ class ProgramDraft(Base):
 
 class PriorityOverride(Base):
     __tablename__ = "priority_overrides"
-    __table_args__ = (
-        UniqueConstraint("term_id", "subject_type", "subject_id", name="uq_priority_overrides_subject"),
-    )
+    __table_args__ = (UniqueConstraint("term_id", "subject_type", "subject_id", name="uq_priority_overrides_subject"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     term_id: Mapped[int] = mapped_column(ForeignKey("terms.id", ondelete="CASCADE"))

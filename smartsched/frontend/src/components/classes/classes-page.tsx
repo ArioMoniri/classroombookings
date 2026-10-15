@@ -19,6 +19,8 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { NativeSelect } from "@/components/ui/native-select";
+import { LoadingValue } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { ClassInspector, SelectionSummary } from "./class-inspector";
@@ -482,12 +484,12 @@ export function ClassesPage() {
         {/* title row (not glass); below 1600 px the inspector floats over the page's right edge, so the row keeps
             its controls (Classes / Exams) clear of it (400 px panel + 12 px inset) */}
         <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-2", active && !mobile && !wide && "pr-[412px]")} data-inspector-overlay={active && !mobile && !wide ? "" : undefined}>
-          <h1 className={mobile ? "type-title-1" : "type-title-2"}>{t("classes.title")}</h1>
+          <h1 className="type-large-title">{t("classes.title")}</h1>
           <span className="type-callout text-label-2 tabular-nums">{term?.name}{runId ? ` · Run #${runId}` : ""}</span>
           {runs.length > 1 ? (
-            <select aria-label={t("calendar.sidebar.run")} className="h-8 rounded-lg bg-fill-2 px-2 type-callout" value={runId ?? ""} onChange={(e) => setParam({ run: e.target.value })}>
+            <NativeSelect size="sm" className="w-auto min-w-40" aria-label={t("calendar.sidebar.run")} value={runId ?? ""} onChange={(e) => setParam({ run: e.target.value })}>
               {runs.map((r) => <option key={r.id} value={r.id}>Run #{r.id} · {t(`runs.status.${r.status}`)}</option>)}
-            </select>
+            </NativeSelect>
           ) : null}
           <div className="ml-auto">
             <SegmentedControl size="sm" aria-label={t("classes.kind.label")} options={[{ value: "meetings", label: t("classes.kind.meetings") }, { value: "exams", label: t("classes.kind.exams") }]} value={kind} onValueChange={(k) => setParam({ kind: k === "exams" ? "exams" : null, run: null, id: null })} />
@@ -503,7 +505,8 @@ export function ClassesPage() {
                 <button key={tab.id} type="button" role="tab" aria-selected={on} onClick={() => setParam({ view: tab.id === "all" ? null : tab.id, id: null })} className={cn("relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 type-callout font-medium", on ? "text-label-1" : "text-label-2 hover:text-label-1")}>
                   {on ? <motion.span layoutId="view-pill" transition={reduce ? { duration: 0 } : springs.glassMorph} aria-hidden className="absolute inset-0 -z-10 rounded-full bg-fill-2 edge-hairline" style={{ borderRadius: 999 }} /> : null}
                   {tab.label}
-                  {tab.count !== undefined ? <span className="type-footnote text-label-3 tabular-nums">{n(tab.count)}</span> : null}
+                  {/* no "Tümü 0" while the classes load: a glyph-sized skeleton (review §3 Classes loading) */}
+                  {tab.count !== undefined ? <LoadingValue className="type-footnote text-label-2" value={classes.isLoading ? undefined : tab.count} format={(v) => n(v)} chars={3} /> : null}
                 </button>
               );
             })}

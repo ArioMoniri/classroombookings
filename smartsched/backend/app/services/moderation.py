@@ -1312,7 +1312,9 @@ async def list_overrides(session: AsyncSession, term_id: int, subject_type: str 
     q = select(PriorityOverride).where(PriorityOverride.term_id == term_id)
     if subject_type:
         q = q.where(PriorityOverride.subject_type == subject_type)
-    rows = list((await session.execute(q.order_by(PriorityOverride.subject_type, PriorityOverride.subject_id))).scalars())
+    rows = list(
+        (await session.execute(q.order_by(PriorityOverride.subject_type, PriorityOverride.subject_id))).scalars()
+    )
     names: dict[tuple[str, int], str] = {}
     people = [r.subject_id for r in rows if r.subject_type == "person"]
     progs = [r.subject_id for r in rows if r.subject_type == "program"]
