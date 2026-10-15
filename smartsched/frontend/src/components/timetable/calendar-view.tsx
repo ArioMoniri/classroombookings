@@ -4,6 +4,7 @@
  * Chrome is glass (capsules, sidebar, inspector, scrubber, popovers); content is opaque.
  */
 import "./calendar.css";
+import { CalendarArrowDown } from "lucide-react";
 import { motion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -41,6 +42,7 @@ import { computeHeat, weeklyMean, type HeatMetric } from "./model/heat";
 import { blocksOf, bookingsOf, eventsOf, roomCap, termLongBlocks, type CalEvent, type CalendarModel } from "./model/index-model";
 import { useUndoStore } from "./model/undo-store";
 import { useActiveTerm } from "@/components/shell/term-switcher";
+import { buildIcs, icsNow } from "./model/ics";
 import { lensDirection, lensForKey, parseViewState, serializeViewState, weekInRun, type Lens, type Subject, type ViewState } from "./model/view-state";
 import { useCalendarActions } from "./use-calendar-actions";
 import { useCalendarData } from "./use-calendar-data";
@@ -577,6 +579,18 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     }
     return evs[0]?.a.label ?? null;
   }, [model, vs.subject, t]);
+  // .ics of the subject (room / instructor / cohort) across the run's weeks, built from the loaded index
+  const exportIcs = useCallback(() => {
+    const keep = subjectKeep(vs.subject);
+    if (!model || !keep) return;
+    const text = buildIcs(model, keep, { title: subjectTitle ?? "SmartSched", stamp: icsNow() });
+    const url = URL.createObjectURL(new Blob([text], { type: "text/calendar;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `smartsched-${vs.subject?.kind ?? "subject"}-${vs.subject?.id ?? ""}.ics`.replace(/[^\w.-]+/g, "_");
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, [model, vs.subject, subjectTitle]);
 
   const renderLens = () => {
     if (!model) return null;
@@ -802,6 +816,11 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               {t("calendar.nav.weekTitle", { n: liveWeek, type: weekType })}
               {vs.lens === "week" && subjectTitle ? ` · ${subjectTitle}` : ""}
             </p>
+          ) : null}
+          {vs.subject && model && vs.lens !== "month" && vs.lens !== "term" ? (
+            <Button size="xs" variant="ghost" onClick={exportIcs} data-testid="export-ics" title={t("calendar.exportIcsHint")}>
+              <CalendarArrowDown aria-hidden /> {t("calendar.exportIcs")}
+            </Button>
           ) : null}
           {compare && vs.compare ? (
             <p className="pb-0.5 text-[12px] text-label-2" role="status">

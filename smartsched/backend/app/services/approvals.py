@@ -1050,16 +1050,17 @@ async def decide(
         )
         await session.commit()
         return await request_out(session, access, req, detail=True)
+    # read before _finalise: a lost race rolls its savepoint back, which expires the booking rows (an async
+    # session cannot lazy-load them afterwards; seen on PostgreSQL, tests/test_postgres_concurrency.py)
+    first_slot = (rows[0].date, rows[0].start_period, rows[0].end_period, rows[0].headcount)
+    requested_by = req.requested_by
     booked, failed = await _finalise(session, access, req, room, rows, alt_out, instances)
     if not booked:
         from app.services.find_room import alternatives_for
 
-        first = rows[0]
-        requester = await session.get(User, req.requested_by) if req.requested_by else None
+        requester = await session.get(User, requested_by) if requested_by else None
         racc = await load_access(session, requester) if requester is not None else access
-        alts = await alternatives_for(
-            session, racc, room, first.date, first.start_period, first.end_period, first.headcount
-        )
+        alts = await alternatives_for(session, racc, room, *first_slot)
         await session.rollback()
         raise _err(
             409,

@@ -523,6 +523,15 @@ def _freeze_selectors(inp: sm.SolverInput, c: sm.Constraint, keys: tuple[str, ..
     return replace(c, params=params)
 
 
+_OTHER_SELECTORS = ("cohort", "cohorts", "program", "programs", "match", "instructor", "instructors")
+
+
+def _only_events(params: dict[str, Any] | Any) -> bool:
+    """The rule selects its classes by ``event_ids`` alone (a non-empty list, no other selector)."""
+    ids = params.get("event_ids") if isinstance(params, dict) else None
+    return bool(ids) and isinstance(ids, list) and not any(params.get(k) for k in _OTHER_SELECTORS)
+
+
 def apply_draft(
     inp: sm.SolverInput,
     members: dict[int, list[int]],
@@ -602,10 +611,13 @@ def apply_draft(
         events[idx] = ev
     off = {int(i) for i in snap.get("disabled_rule_ids") or []}
     overrides = snap.get("rule_overrides") or {}
+    gone = set(dropped)
     constraints: list[sm.Constraint] = []
     for c in inp.constraints:
         if c.id is not None and c.id in off:
             continue
+        if _only_events(c.params) and {int(i) for i in c.params["event_ids"]} <= gone:
+            continue  # every class it names is excluded from this draft: it cannot act here
         ov = overrides.get(str(c.id)) if c.id is not None else None
         if ov:
             c = replace(

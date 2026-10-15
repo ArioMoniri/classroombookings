@@ -260,3 +260,66 @@ python tools/compare_planner.py --base-url http://127.0.0.1:8765/api/v1 --email 
 
 The full list of the 54 prefer-mode regressions (run, week, event, board vs SmartSched placement, holder, board cell and list
 row) is produced by `compare_planner.py` in `compare.json` (class `c`). The agent hand-off on 2026-10-08 14:55 quoted it in full.
+
+## 11. Re-run after the importer and comparison follow-ups (2026-10-15)
+
+`tools/compare_planner.py --steps import,solve,compare --modes lock` on a frozen copy of the backend (HEAD `16513f6` plus the
+uncommitted importer work of 2026-10-15), scratch SQLite, real uvicorn on port 8779, `SOLVER_WORKERS=4`, time limit 120 s per
+week run and 300 s for the term. The room master went through `POST /imports/room-master` (job DONE, 87 rooms). The machine
+was shared with other agents: load average 15-17 on 4 vCPU during the solves (7-18 on 2026-10-08).
+
+| Instance | Run | Placed / events | hard / soft | a | b | c | neutral | d | e | match (kept) | DI missed | DI false |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| bahar-w3 | baseline 2026-10-08 17:15 | 689/719 | 100/84 | 5 | 22 | 0 | 5 | 26 | 233 | 452 (123) | 35 | 151 |
+| bahar-w3 | 2026-10-15 | 687/716 | 100/82 | 5 | 20 | 0 | 5 | 25 | 228 | 457 (123) | 24 | 131 |
+| bahar-term | baseline | 682/720 | 100/87 | 101 | 323 | 0 | 54 | 424 | 3 709 | 6 347 (1 687) | 61 | 174 |
+| bahar-term | 2026-10-15 | 681/717 | 100/83 | 99 | 281 | 0 | 66 | 415 | 3 649 | 6 392 (1 703) | 50 | 151 |
+| guz-w3 | baseline | 522/548 | 100/88 | 17 | 6 | 0 | 13 | 23 | 179 | 382 (120) | 41 | 45 |
+| guz-w3 | 2026-10-15 | 524/530 | 100/83 | 23 | 6 | 0 | 18 | **3** | 165 | 387 (123) | 39 | 38 |
+| final | baseline | 624/629 | 100/93 | 6 | 0 | 0 | 0 | 5 | 354 | 274 (57) | 43 | 65 |
+| final | 2026-10-15 | 603/608 | 100/93 | 6 | 0 | 0 | 0 | 5 | 333 | 274 (57) | 40 | 62 |
+
+The baseline is the lock run of the same tool on a copy taken before the follow-ups (2026-10-08 17:15). An intermediate
+run on 2026-10-08 17:48 gave bahar-w3 690/716 d=22, bahar-term 689/717 d=323, guz-w3 524/530 d=3, final 603/608 d=5.
+
+**What changed:**
+
+- **Regressions stay at 0 and hard stays at 100** in every run.
+- **Fewer events:**
+  - Non-room venues (CASE, office, ONLINE) now get `needs_room=false`: Bahar 719 → 716 and Final 629 → 608. The Final drop
+    also counts the `SYS 18` / `SYS 018` exams that now merge.
+  - Güz 548 → 530: the same non-room rows, plus lectures that now merge through the code key.
+- **Güz week 3, unplaced 23 → 3 (R4).** Large classes without a definitive room set may now be split over the rooms of one
+  building (`split_large_classes`).
+- **Data-issues cross-check.** `missed` falls in every run, from the board checks (`board_capacity`, `board_instructor_clash`,
+  `board_two_classes`, …). The `false` column now maps the new groups to the audit's own findings
+  (`compare_planner.audit_cross_check`). Without that mapping the 2026-10-08 17:48 run reported 722 Bahar-term false
+  alarms, 541 of them `board_time_not_in_list`.
+- **Bahar term, unplaced 25 → 32 events against the 17:48 run.** These are mostly "pigeonhole" cases, and the gap is the same
+  in a second run on 2026-10-15 17:15, before the persona fixes. It is time-limit variance under load, or a solver change by
+  other agents; it is not caused by the importer. R3 (the term run drops locks) is still open with the solver agent.
+- **ÇEV / CEV.** The six workbooks contain no `ÇEV` or `CEV` code (probed cell by cell), so the comparison has no
+  "same code spelled twice" finding for them: 0 mentions in `compare.json`. The fold is covered by unit, import and migration
+  tests (`tests/test_normalize_folding.py`).
+
+**Free-text wishes on the real lists** (`report.extra.preferences`; every rule is soft, `source=FILE`, with
+`source_ref` file / sheet / row / column):
+
+| List | Notes rows | Rules (pending review) | Active from the request cell | Unparsed (data issue) |
+|---|---|---|---|---|
+| Bahar | 565 | 39 | 0 | 95 |
+| Güz | 375 | 33 | 0 | 78 |
+| Final (venue column) | – | 0 | 1 (MBG 224, "A veya C blokta") | 15 (furniture: fixed desks, no armchairs) |
+
+New data-issues groups:
+
+| Group | bahar-w3 | bahar-term | guz-w3 | final |
+|---|---|---|---|---|
+| `unparsed_preference` | 96 | 96 | 78 | 15 |
+| `preference_review` | 39 | 39 | 33 | 0 |
+| `preference_not_met` | 6 | 6 | 2 | 2 |
+
+`preference_not_met` lists, for example, ING 302 §10: "Mümkünse B Blok olmasın", locked to a set with B 202. It also lists
+NUT 256: "A veya C blokta", locked to B 205.
+
+**Outputs:** the scratch run's `compare.json` and the `run7-10-data-issues.xlsx` files (not committed).

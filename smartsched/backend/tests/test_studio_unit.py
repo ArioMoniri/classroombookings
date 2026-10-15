@@ -107,3 +107,18 @@ def test_estimate_words():
     assert 50 <= big["low"] <= 120 and big["high"] <= 450 and "minute" in big["words"]["en"]
     assert "dakika" in big["words"]["tr"]
     assert estimate_seconds(0, 10, 1, 60)["high"] == 1
+
+
+def test_rules_of_excluded_classes_leave_the_draft() -> None:
+    """A rule that names only classes the draft excluded (e.g. a wish read from the notes column of an excluded
+    class) cannot act in the draft: it is left out, so the pre-check does not call it "matches no classes";
+    rules with other selectors, or with one kept class, stay."""
+    a, b = _ev(1, "PHAR 240 §1", 30, 1), _ev(2, "PSK 254 §1", 30, 3)
+    rules = (
+        sm.Constraint("building_preference", {"event_ids": [2], "buildings": ["A", "C"]}, False, 5, 7),
+        sm.Constraint("building_preference", {"event_ids": [1, 2], "buildings": ["C"]}, False, 5, 8),
+        sm.Constraint("building_preference", {"program": "psikoloji", "building": "C"}, False, 5, 9),
+    )
+    out, _, dropped = apply_draft(_inp(a, b, constraints=rules), {1: [1], 2: [2]}, {"excluded_event_ids": [2]})
+    assert dropped == [2]
+    assert [c.id for c in out.constraints] == [8, 9]
