@@ -6,7 +6,20 @@ from datetime import date as date_
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, utcnow
@@ -14,6 +27,17 @@ from app.models.base import Base, utcnow
 
 class ScheduleRun(Base):
     __tablename__ = "schedule_runs"
+    # review D4: at most one published (active) run per term + kind
+    __table_args__ = (
+        Index(
+            "uq_schedule_runs_active",
+            "term_id",
+            "kind",
+            unique=True,
+            sqlite_where=text("is_active = 1"),
+            postgresql_where=text("is_active"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     term_id: Mapped[int] = mapped_column(ForeignKey("terms.id", ondelete="CASCADE"), index=True)

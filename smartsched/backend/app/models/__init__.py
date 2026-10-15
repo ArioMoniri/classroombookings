@@ -48,6 +48,7 @@ from app.models.integrations import (
     WebhookDelivery,
     WebhookEndpoint,
 )
+from app.models.locks import TermLock
 from app.models.runs import Assignment, ChatApplyClaim, ChatMessage, ScheduleRun
 from app.models.scheduling import (
     Block,
@@ -120,6 +121,7 @@ __all__ = [
     "Term",
     "TermBookingSettings",
     "TermDate",
+    "TermLock",
     "TermSchedule",
     "TimetableWeek",
     "Translation",
