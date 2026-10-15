@@ -120,9 +120,9 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 ### Phase 3 AI layer backlog (ai-engineer, 2026-10-08)
 
-- [ ] Backend deps: add `python-docx>=1.1` and `pypdf>=4` to `smartsched/backend/pyproject.toml` (+ lock); `app/ai/ingest.py` imports them lazily and returns HTTP 400 "not installed" without them (installed in the dev env, not declared)
+- [x] Backend deps: add `python-docx>=1.1` and `pypdf>=4` to `smartsched/backend/pyproject.toml` (+ lock); `app/ai/ingest.py` imports them lazily and returns HTTP 400 "not installed" without them (installed in the dev env, not declared) (verified 2026-10-15: smartsched/backend/pyproject.toml:25-26 declares both; the backend has no lock file)
 - [x] Settings default model (decided 2026-10-08: `claude-opus-5-5`): `settings_service.SPECS["anthropic_model"]` defaults to `claude-sonnet-5-5` while the claude-api skill / RESEARCH §4.3 recommend `claude-opus-5-5`; decide and align (AI layer falls back to `claude-opus-5-5` only when the setting is empty)
-- [ ] Constraints table: add a `source_ref` JSON column; today upload refs live in `params["_source_ref"]` (studio backend agent)
+- [x] Constraints table: add a `source_ref` JSON column; today upload refs live in `params["_source_ref"]` (studio backend agent) (2026-10-15: column existed since alembic 0002; `app/ai/elicit.py` `accept_proposals` now writes it and moves a legacy `params._source_ref` there; tests/ai/test_elicit_ingest.py::test_xlsx_upload_yields_proposals_and_section_edits_with_refs, ::test_docx_upload_and_accept_endpoint)
 - [ ] Chat-created constraints are term-wide (`term_id`) so they carry over to grandchild runs; add a run-scoped option ("only for this run") with inheritance through `parent_run_id` in `build_solver_input`
 - [ ] Week-limited room rules (`room_pin`/`room_forbid` with weeks other than room_closed) are flagged needs_review: the solver applies room rules to all weeks of an event; implement meeting splitting by week pattern ("PHAR 240 moves to A 206 from 23 Feb")
 - [ ] Moves to another day/period of a fixed-time request are rejected by the validator (`fixed_time` hard); offer "move + update the request" as one op in the diff UI instead of a separate `set_section_field`
