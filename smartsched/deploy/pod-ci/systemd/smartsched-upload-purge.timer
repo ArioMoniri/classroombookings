@@ -1,0 +1,11 @@
+[Unit]
+Description=SmartSched: daily upload retention purge
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+# the pod idle-stops itself: a purge missed while it was stopped runs right after the next boot
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -51,6 +51,28 @@ def build_system(ctx: TermContext, lang: str, intro: str | None = None) -> list[
 SourceLookup = Callable[[int], SourceRef | None]
 
 
+def model_source(source: str | None) -> str:
+    """Effective source of a rule that passed through the AI layer: AI, UPLOAD or LEARNED. Anything else the
+    browser sends back (``ADMIN`` ...) is treated as ``AI``: a proposal cannot launder itself into a planner rule."""
+    src = (source or "").upper()
+    return src if src in catalog.MODEL_SOURCES else "AI"
+
+
+def enforce_source_policy(p: ProposedConstraint, source: str | None = None) -> ProposedConstraint:
+    """Mark ``p`` rejected (with the reasons) when its source may not produce it (review D1 / P19-00b)."""
+    issues = catalog.source_policy_issues(
+        p.kind, p.params, p.hardness, model_source(source or p.source), weight=p.weight
+    )
+    if any(e.resolved_id is None for e in p.entities):
+        # the model named a target that did not resolve: the planner fixes the name in review (accept
+        # re-checks), so "untargeted" is not final yet
+        issues = [i for i in issues if not i.startswith("untargeted")]
+    if issues:
+        p.status = "rejected"
+        p.issues = [*p.issues, *[i for i in issues if i not in p.issues]]
+    return p
+
+
 def _validated_call_input(call: Any) -> tuple[dict[str, Any] | None, list[str]]:
     data = call.input if isinstance(call.input, dict) else None
     if data is None:
@@ -109,7 +131,7 @@ async def propose(
             try:
                 p = resolve_proposal(ctx, dict(raw))
                 tag(p, raw)
-                proposals.append(p)
+                proposals.append(enforce_source_policy(p))
             except Exception as exc:  # noqa: BLE001 - one bad proposal must not lose the others
                 log.warning("proposal resolution failed: %s", type(exc).__name__)
                 bad = ProposedConstraint(
@@ -175,10 +197,14 @@ async def elicit_constraints(
 # ---------------------------------------------------------------------------
 
 
-def check_proposal(p: ProposedConstraint) -> list[str]:
-    """Problems that block persisting a proposal (unresolved names, schema violations)."""
+def check_proposal(p: ProposedConstraint, source: str | None = None) -> list[str]:
+    """Problems that block persisting a proposal (unresolved names, schema violations, the per-source
+    kind/hardness allowlist of :func:`app.ai.catalog.source_policy_issues`)."""
     issues = [f"unresolved {e.type} '{e.text}'" for e in p.entities if e.resolved_id is None]
     issues += catalog.validate_params(p.kind, p.params, p.hardness)
+    issues += catalog.source_policy_issues(
+        p.kind, p.params, p.hardness, model_source(source or p.source), weight=p.weight
+    )
     if p.status == "rejected":
         issues.append("proposal was rejected")
     if p.hardness == "soft" and not 1 <= int(p.weight) <= 10:
@@ -230,7 +256,8 @@ async def accept_proposals(
     rejected: list[dict[str, Any]] = []
     rows: list[ConstraintRow] = []
     for i, p in enumerate(proposals):
-        issues = check_proposal(p)
+        effective = model_source(source or p.source)
+        issues = check_proposal(p, effective)
         if not issues:
             issues = await verify_ids(session, term_id, p.params)
         if issues:
@@ -246,7 +273,7 @@ async def accept_proposals(
             params=params,
             hardness=p.hardness,
             weight=max(1, min(10, int(p.weight))),
-            source=source or p.source,
+            source=effective,
             nl_text=(p.nl_text or p.title or "")[:4000] or None,
             enabled=True,
             created_by=user_id,
@@ -264,6 +291,8 @@ async def accept_proposals(
 
 __all__ = [
     "accept_proposals",
+    "enforce_source_policy",
+    "model_source",
     "build_system",
     "check_proposal",
     "elicit_constraints",

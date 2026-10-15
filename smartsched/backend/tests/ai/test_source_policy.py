@@ -51,8 +51,12 @@ def test_learned_allowlist():
     ok = {"event_ids": [1], "room_ids": [2]}
     assert catalog.source_policy_issues("room_preference", ok, "soft", "LEARNED", weight=3) == []
     assert catalog.source_policy_issues("building_preference", {"event_ids": [1]}, "soft", "LEARNED", weight=1) == []
-    assert catalog.source_policy_issues("same_room_across_weeks", {"event_ids": [1, 2]}, "soft", "LEARNED", weight=5) == []
-    assert catalog.source_policy_issues("day_window", {"event_ids": [1], "latest": 9}, "soft", "LEARNED", weight=2) == []
+    assert (
+        catalog.source_policy_issues("same_room_across_weeks", {"event_ids": [1, 2]}, "soft", "LEARNED", weight=5) == []
+    )
+    assert (
+        catalog.source_policy_issues("day_window", {"event_ids": [1], "latest": 9}, "soft", "LEARNED", weight=2) == []
+    )
     assert catalog.source_policy_issues("day_window", {"event_ids": [1], "latest": 9}, "hard", "LEARNED")
     assert catalog.source_policy_issues("room_preference", ok, "soft", "LEARNED", weight=8)  # 1..5 only
     assert catalog.source_policy_issues("room_preference", {"room_ids": [2]}, "soft", "LEARNED", weight=3)

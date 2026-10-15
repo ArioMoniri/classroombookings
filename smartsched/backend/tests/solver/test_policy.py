@@ -66,7 +66,7 @@ def test_lock_first_keeps_the_lock_most_classes_first_keeps_two_classes() -> Non
         assert r["policy"] == "lock_first" and r["reason"] == "locked_row_kept" and r["winners"] == [1]
     msg = next(d.message for d in res.diagnoses if d.code == "unplaced" and d.event_ids == [2])
     assert "locked row kept: PHAR 114 §2" in msg
-    assert res.stats["relaxation_policy"]["policy"] == "lock_first"
+    assert res.stats["policy_tiers"]["policy"] == "lock_first"
 
     alt = replace(inp, relaxation_policy="most_classes_first")
     res2 = solve(alt)

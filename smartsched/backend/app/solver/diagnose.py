@@ -552,7 +552,7 @@ def _locked_conflicts(prep: Prepared) -> list[Diagnosis]:
                             "shared": False,
                             "priorities": {str(ea.id): pa, str(eb.id): pb},
                             "keeps": keeps,
-                            "policy": policy_name(inp.relaxation_policy),
+                            "relaxation_policy": policy_name(inp.relaxation_policy),
                         },
                     )
                 )

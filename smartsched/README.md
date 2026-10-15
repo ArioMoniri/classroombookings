@@ -159,9 +159,9 @@ translates, and a missing key falls back to English per key. `python -m tools.cr
 `backend/`) regenerates them from `crbs-core/application/language/` and writes
 `docs/testing/language-coverage.md`.
 
-State on 2026-10-15: the wave-1 frontend (approvals inbox, find-a-room page, audit viewer, room
-features admin, notification bell) is being built. Some of its components are already committed, and
-`npm run typecheck` fails on their missing `wave1.*` message keys until that work lands.
+State on 2026-10-15: the wave-1 frontend (`/approvals`, `/admin/approval-rules`, `/admin/audit`,
+`/find-room`, the room features tab, the notification bell) is being built; it is committed in progress
+checkpoints and has no Playwright spec yet. `npx tsc --noEmit` passes at commit `a0a6b4c`.
 
 ### Top-level make targets
 

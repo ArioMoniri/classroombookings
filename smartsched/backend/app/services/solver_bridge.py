@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.importers.normalize import LEADING_ZEROS_RX, non_person_reason
+from app.importers.normalize import LEADING_ZEROS_RX, fold_code_letters, non_person_reason
 from app.models import (
     Assignment,
     Block,
@@ -190,9 +190,10 @@ _LEADING_ZEROS = LEADING_ZEROS_RX
 
 def _course_code(label: str) -> str:
     """``"MAT 112 §1 + ..."`` -> ``"MAT 112"`` (the course of a course event label); leading zeros of the
-    number are dropped (``SYS 018`` = ``SYS 18``, orchestrator R1)."""
-    code = " ".join(label.split("§", 1)[0].split("+", 1)[0].split()).upper()
-    return _LEADING_ZEROS.sub("", code)
+    number are dropped (``SYS 018`` = ``SYS 18``, orchestrator R1) and the Turkish letters folded like
+    :func:`normalize.course_key` (``ÇEV 101`` = ``CEV 101``, product-owner decision 2026-10-15)."""
+    code = " ".join(label.split("§", 1)[0].split("+", 1)[0].split())
+    return _LEADING_ZEROS.sub("", fold_code_letters(code))
 
 
 def _section(label: str) -> str:
@@ -1159,6 +1160,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
 
     if exam and extra_weeks:
         weeks = sorted(week_set | extra_weeks)
+    policy, policy_source, events = await _apply_policy(session, run, events, members, bridge_diags)
     inp = sm.SolverInput(
         rooms=rooms,
         events=tuple(events),
@@ -1173,6 +1175,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         trust_locked_rooms=run_mode(params, "trust_locked_rooms"),
         fixed_conflicts_as_warnings=run_mode(params, "fixed_conflicts_as_warnings"),
         best_effort=run_mode(params, "best_effort"),
+        relaxation_policy=policy,  # type: ignore[arg-type]
     )
     if outside_pool:
         by_ev: dict[int, list[int]] = defaultdict(list)
@@ -1216,6 +1219,58 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         }
     run.stats = {**(run.stats or {}), "bridge_diagnoses": bridge_diags}
     return inp, members
+
+
+async def _apply_policy(
+    session: AsyncSession,
+    run: ScheduleRun,
+    events: list[sm.Event],
+    members: dict[int, list[int]],
+    bridge_diags: list[dict[str, Any]],
+) -> tuple[str, str, list[sm.Event]]:
+    """The run's relaxation policy (``params.relaxation_policy`` > the term setting
+    ``term.<id>.relaxation_policy`` > ``lock_first``) and the coordinator priorities of ``params.priorities``
+    (request id -> priority; an event standing for several requests takes the highest).
+
+    TODO(Phase 19 moderation tab, P19-M2): read the priority from the request rows once they store it."""
+    from app.services import run_params as rp
+    from app.solver.policy import clamp_priority
+
+    params = run.params or {}
+    policy, source = await rp.effective_relaxation_policy(session, run.term_id, params)
+    raw = params.get("priorities") or {}
+    prio: dict[int, int] = {}
+    if isinstance(raw, dict):
+        for k, v in raw.items():
+            if str(k).isdigit():
+                prio[int(str(k))] = clamp_priority(v)
+    out = events
+    if prio:
+        out = []
+        for e in events:
+            vals = [prio[r] for r in members.get(e.id, [e.id]) if r in prio]
+            out.append(replace(e, priority=max(vals)) if vals else e)
+    run.stats = {
+        **(run.stats or {}),
+        "relaxation_policy": {
+            "policy": policy,
+            "source": source,
+            "priorities": len(prio),
+            "prioritised_events": sum(1 for e in out if e.priority),
+        },
+    }
+    if source == "invalid_setting":
+        bridge_diags.append(
+            _bridge_diag(
+                [],
+                f"the term setting {rp.term_policy_key(run.term_id)} is not a relaxation policy; {policy} is used",
+                [f"set it to one of {', '.join(rp.RELAXATION_POLICIES)}"],
+                "invalid_setting",
+                [],
+                {"key": rp.term_policy_key(run.term_id), "used": policy},
+            )
+        )
+    return policy, source, out
 
 
 _FALLBACK_TEXT = {
@@ -1449,6 +1504,31 @@ async def persist_result(
     except Exception:  # noqa: BLE001 - texts are a convenience; the structured diagnosis is the truth
         log.exception("planner texts for run %s failed", run.id)
         ctx = None
+    # relaxation policy: who lost and why, per unplaced request and as one summary (TR / EN)
+    labels = dict(ctx.labels) if ctx is not None else {}
+    winners = {
+        int(w)
+        for d in diags
+        if d.get("code") == "unplaced" and isinstance((d.get("params") or {}).get("policy"), dict)
+        for w in d["params"]["policy"].get("winners") or []
+    }
+    if winners - set(labels) and ctx is not None:
+        try:
+            more = await text_context(session, run, [{"event_ids": sorted(winners - set(labels))}], members)
+            labels.update(more.labels)
+        except Exception:  # noqa: BLE001
+            log.exception("policy labels for run %s failed", run.id)
+    for d in diags:
+        extra = solver_code_text(d, labels)
+        if extra is not None:
+            d["text"] = extra
+    policy_name = str(((run.stats or {}).get("relaxation_policy") or {}).get("policy") or "lock_first")
+    summary = policy_report(diags, labels, policy_name)
+    if summary is not None:
+        # right after the partial summary (or first): the planner reads who lost before the per-class details
+        at = next((i + 1 for i, d in enumerate(diags) if d.get("code") == "partial"), 0)
+        diags = [*diags[:at], summary, *diags[at:]]
+        run.stats["policy_losses"] = dict(summary["params"]["by_reason"])
     overflows = [d for d in diags if d.get("code") == "trusted_lock_capacity" and (d.get("params") or {}).get("shared")]
     if overflows:
         run.stats["shared_room_overflows"] = [
@@ -1478,6 +1558,180 @@ async def persist_result(
     if not await run_jobs.commit_unless_cancelled(session, run, new_status):
         return -1
     return count
+
+
+#: planner texts of a policy loss (``app.solver.policy.LOSS_REASONS``); ``{w}`` = the winners' labels
+POLICY_LOSS_TEXT: dict[str, tuple[str, str]] = {
+    "locked_row_kept": (
+        "Kilitli satır korundu: {w} (kilitli satırlar taşınmaz).",
+        "Locked row kept: {w} (locked rows are never moved).",
+    ),
+    "lock_clash_priority": (
+        "Karşılanmadı: kilit çakışması; {w} daha yüksek öncelikli.",
+        "Not placed: lock clash; {w} has the higher priority.",
+    ),
+    "lock_clash_tie": (
+        "Karşılanmadı: kilit çakışması; {w} ile öncelik eşit, daha çok ders ve hafta, sonra daha kalabalık sınıf "
+        "korundu.",
+        "Not placed: lock clash with {w} at equal priority; more classes and weeks, then the larger class are kept.",
+    ),
+    "lock_clash_more_locks": (
+        "Karşılanmadı: kilit çakışması; bu satır korunsaydı daha çok kilitli satır düşecekti ({w}).",
+        "Not placed: lock clash; keeping it would drop more locked rows ({w}).",
+    ),
+    "lower_priority": (
+        "Daha düşük öncelik: önce {w} yerleştirildi.",
+        "Lower priority than {w}.",
+    ),
+    "most_classes": (
+        "Yerleştirilseydi en az bu kadar başka ders dışarıda kalacaktı ({w} yerleştirildi).",
+        "Placing it would leave at least as many other classes out ({w} kept).",
+    ),
+}
+POLICY_TEXT: dict[str, tuple[str, str]] = {
+    "lock_first": (
+        "önce kilitli satırlar, sonra koordinatör önceliği, sonra en çok ders",
+        "locked rows first, then coordinator priority, then the most classes",
+    ),
+    "most_classes_first": (
+        "önce en çok ders, sonra koordinatör önceliği, sonra kilitli satırlar",
+        "the most classes first, then coordinator priority, then locked rows",
+    ),
+}
+POLICY_REASON_SHORT: dict[str, tuple[str, str]] = {
+    "locked_row_kept": ("kilitli satır korundu", "locked row kept"),
+    "lock_clash_priority": ("kilit çakışması, öncelik", "lock clash, priority"),
+    "lock_clash_tie": ("kilit çakışması, eşit öncelik", "lock clash, equal priority"),
+    "lock_clash_more_locks": ("kilit çakışması, daha çok kilit", "lock clash, more locks"),
+    "lower_priority": ("daha düşük öncelik", "lower priority"),
+    "most_classes": ("en çok ders", "most classes"),
+    "no_option": ("uygun seçenek yok", "no option"),
+}
+
+
+RULE_TR = {
+    "capacity": "kapasite",
+    "room_tags": "derslik özelliği",
+    "room_pin": "derslik sabitleme",
+    "room_forbid": "derslik yasağı",
+    "fixed_time": "sabit saat",
+}
+
+
+def solver_code_text(d: dict[str, Any], labels: dict[int, str]) -> dict[str, str] | None:
+    """TR / EN planner texts of the solver codes added on 2026-10-15 (``waived_rules``, ``missing_only_week``,
+    ``lock_accessibility``); ``None`` for every other code (``data_issues.planner_text`` renders those)."""
+    code = d.get("code")
+    p = d.get("params") or {}
+    ids = [int(i) for i in d.get("event_ids") or []]
+    if code == "waived_rules":
+        rules = [str(r) for r in p.get("rules") or []]
+        n = int(p.get("events") or 0)
+        tr_rules = ", ".join(RULE_TR.get(r, r) for r in rules)
+        who = _names(ids, labels) if ids else ""
+        return {
+            "tr": f"Zorunlu kural(lar) bu çalışmada esnek: {tr_rules}. Kural puanı 100 yalnız diğer zorunlu kuralları "
+            + (
+                f"kapsar; {n} ders bu kuralı aşıyor: {who}." if n else "kapsar; yerleşen hiçbir ders bu kuralı aşmıyor."
+            ),
+            "en": f"Built-in hard rule(s) run as soft in this run: {', '.join(rules)}. Hard score 100 covers the other "
+            + (
+                f"hard rules only; {n} class(es) break them: {who}."
+                if n
+                else "hard rules only; no placed class breaks them."
+            ),
+        }
+    if code == "missing_only_week":
+        w = p.get("week")
+        n = int(p.get("count") or len(ids))
+        who = _names(ids, labels)
+        return {
+            "tr": f"{n} ders {w}. hafta dışında her hafta yerleşti ({who}); {w}. haftada boş derslik kalmadı.",
+            "en": f"{n} class(es) are placed in every week except week {w} ({who}); no room is free in week {w}.",
+        }
+    if code == "lock_accessibility":
+        rooms = " / ".join(str(c) for c in p.get("room_codes") or [])
+        who = _names(ids, labels)
+        return {
+            "tr": f"{who} kilitli dersliği ({rooms}) erişilebilirlik ihtiyacını karşılamıyor; kilit taşınmaz, "
+            "koordinatörün kilidi değiştirmesi gerekir.",
+            "en": f"The locked room of {who} ({rooms}) does not meet the accessibility need; locks are never moved, "
+            "the coordinator must change the lock.",
+        }
+    return None
+
+
+def _names(ids: list[int], labels: dict[int, str]) -> str:
+    names = [labels.get(int(i), f"#{i}") for i in ids[:3]]
+    return ", ".join(names) + (f" (+{len(ids) - 3})" if len(ids) > 3 else "")
+
+
+def policy_report(diags: list[dict[str, Any]], labels: dict[int, str], policy: str) -> dict[str, Any] | None:
+    """Run report of the relaxation policy: each ``unplaced`` diagnosis with a policy loss gets the TR / EN
+    reason appended to its text ("Kilitli satır korundu: ...", "Lower priority than ..."), and one
+    ``policy_losses`` summary lists every loser with its reason and winners.  ``None`` without losses."""
+    losses: list[dict[str, Any]] = []
+    for d in diags:
+        pol = (d.get("params") or {}).get("policy")
+        if d.get("code") != "unplaced" or not isinstance(pol, dict) or not d.get("event_ids"):
+            continue
+        reason = str(pol.get("reason") or "no_option")
+        wins = [int(w) for w in pol.get("winners") or []]
+        loser = int(d["event_ids"][0])
+        losses.append({"event_id": loser, "reason": reason, "winners": wins, "priority": pol.get("priority", 0)})
+        tmpl = POLICY_LOSS_TEXT.get(reason)
+        if tmpl is None or not wins:
+            continue
+        w = _names(wins, labels)
+        text = dict(d.get("text") or {"tr": str(d.get("message") or ""), "en": str(d.get("message") or "")})
+        text["tr"] = f"{text.get('tr', '')} {tmpl[0].format(w=w)}".strip()
+        text["en"] = f"{text.get('en', '')} {tmpl[1].format(w=w)}".strip()
+        d["text"] = text
+    if not losses:
+        return None
+    by_reason = dict(sorted(Counter(x["reason"] for x in losses).items()))
+    pol_tr, pol_en = POLICY_TEXT.get(policy, POLICY_TEXT["lock_first"])
+    parts_tr = "; ".join(f"{n} {POLICY_REASON_SHORT.get(r, (r, r))[0]}" for r, n in by_reason.items())
+    parts_en = "; ".join(f"{n} {POLICY_REASON_SHORT.get(r, (r, r))[1]}" for r, n in by_reason.items())
+    lines_tr = [
+        f"{labels.get(x['event_id'], '#' + str(x['event_id']))}: "
+        + (
+            POLICY_LOSS_TEXT[x["reason"]][0].format(w=_names(x["winners"], labels))
+            if x["reason"] in POLICY_LOSS_TEXT and x["winners"]
+            else "uygun oda/saat kalmadı."
+        )
+        for x in losses[:20]
+    ]
+    lines_en = [
+        f"{labels.get(x['event_id'], '#' + str(x['event_id']))}: "
+        + (
+            POLICY_LOSS_TEXT[x["reason"]][1].format(w=_names(x["winners"], labels))
+            if x["reason"] in POLICY_LOSS_TEXT and x["winners"]
+            else "no room or time survives the hard rules."
+        )
+        for x in losses[:20]
+    ]
+    more = len(losses) - 20
+    tail_tr = f" ... (+{more})" if more > 0 else ""
+    tail_en = f" ... (+{more})" if more > 0 else ""
+    message = f"relaxation policy {policy} ({pol_en}): {len(losses)} request(s) not placed: {parts_en}"
+    diag = _bridge_diag(
+        [x["event_id"] for x in losses],
+        message,
+        ["raise the coordinator priority of a request that must be placed, or unlock / move a locked row"],
+        "policy_losses",
+        [],
+        {"policy": policy, "losses": losses[:500], "by_reason": by_reason},
+    )
+    diag["text"] = {
+        "tr": f"Çakışma politikası ({pol_tr}): {len(losses)} talep karşılanmadı ({parts_tr}). "
+        + " ".join(lines_tr)
+        + tail_tr,
+        "en": f"Conflict policy ({pol_en}): {len(losses)} request(s) not placed ({parts_en}). "
+        + " ".join(lines_en)
+        + tail_en,
+    }
+    return diag
 
 
 _INS_RX = re.compile(r"INS:(\d+)")

@@ -510,7 +510,8 @@
       "goal": "production-ready UX specs for the Phase 19 surfaces of SmartSched, a university timetabling + room booking admin panel and a superset of classroombookings, built with Next.js and a Liquid Glass UI. Users are Turkish university schedulers and academicians.",
       "ledger": "design-phase19-surfaces-2026-10-15 SCOPE: docs/design/v2/phase19-*.md (new files…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 15:29"
     },
     {
       "id": "abf480ad4db816b36",
@@ -645,6 +646,14 @@
       "ledger": "p19-c-from-scratch-api-2026-10-15 SCOPE: NEW files only: - smartsched/backend/ap…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "adf69c162c57808a8",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:25",
+      "left_off": "continue n deploy to pod when green"
     }
   ]
 }

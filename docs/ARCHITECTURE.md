@@ -124,6 +124,8 @@ class Event:
     same_room_group: str | None = None               # events sharing this key should share room
     locked: "Assignment | None" = None
     needs_room: bool = True
+    share_room: bool = False; lock_trusted: bool = True
+    priority: int = 0                                # coordinator priority (higher wins), -100..100; relaxation tiers
 
 @dataclass(frozen=True)
 class Constraint:   kind: str; params: Mapping[str, Any]; hard: bool; weight: int = 1; id: int | None = None
@@ -141,6 +143,10 @@ class SolverInput:
     # parent run (fix button, MANUAL, AI edit) set lock_trusted=False and must pass capacity and tag checks
     fixed_conflicts_as_warnings: bool = False  # D2 fixed-vs-fixed key clash = input warning for that pair
     best_effort: bool = False                  # D3 infeasible -> maximum placement, stats.partial/placed/unplaced
+    # who loses in a best-effort placement (app/solver/policy.py, user decision 2026-10-15): "lock_first"
+    # (trusted locks, then Event.priority, then most requests/weeks) or "most_classes_first"; bridge: run param
+    # relaxation_policy > settings key term.<id>.relaxation_policy > lock_first
+    relaxation_policy: Literal["lock_first","most_classes_first"] = "lock_first"
 @dataclass(frozen=True)
 class Assignment:   event_id: int; day: int; start: int; end: int; room_ids: tuple[int, ...]; weeks: frozenset[int]; date: date | None = None
 @dataclass
@@ -154,6 +160,8 @@ class SolverResult:
     objective_breakdown: dict[str, int]; diagnoses: list[Diagnosis]; stats: dict[str, Any]
     # best_effort + INFEASIBLE: assignments = maximum placement; stats.partial=True, placed, unplaced,
     # events_total, unplaced_ids; hard/soft scores are those of the placed events (100 = all hard rules hold)
+    # every result: stats.waived_rules / waived_violations + a "waived_rules" warning when a built-in hard rule
+    # (capacity, room_tags, room_pin, room_forbid, fixed_time) runs as soft: hard 100 then covers the rest only
 ```
 
 Constraint kinds (v1): `capacity`, `no_room_overlap`, `no_cohort_overlap`, `no_instructor_overlap`,

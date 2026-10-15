@@ -6,6 +6,7 @@ Everything here is side-effect free and DB-agnostic so it can be unit-tested on 
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
@@ -52,6 +53,20 @@ def tr_fold(s: str) -> str:
     """Keyword-matching form: Turkish casefold with the dotless ``ı`` folded to ``i`` too, so a word typed
     in capitals without the Turkish dot matches (``"ONLINE"`` casefolds to ``"onlıne"`` in Turkish)."""
     return tr_casefold(s).replace("ı", "i")
+
+
+def fold(value: Any) -> str:
+    """The shared matching form (one lexicon for the importers and the council's ``council/text.fold``):
+    Turkish dotted/dotless i folded, every other diacritic stripped (``ÇARŞAMBA`` = ``carsamba``), NBSP and
+    runs of whitespace collapsed. Never for display."""
+    if value is None:
+        return ""
+    s = str(value).replace("\xa0", " ").replace("İ", "i").replace("I", "ı")
+    s = s.casefold().replace("ı", "i")
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = s.replace("ß", "ss")
+    return _WS_RX.sub(" ", s).strip()
 
 
 def has_phrase(folded_text: str, phrase: str) -> bool:
@@ -124,10 +139,21 @@ def strip_code_zeros(code: str) -> str:
     return LEADING_ZEROS_RX.sub("", code)
 
 
+#: Turkish letters of a subject prefix -> ASCII (product-owner decision 2026-10-15: ``ÇEV`` = ``CEV``)
+_CODE_FOLD = str.maketrans("ÇŞĞÜÖİ", "CSGUOI")
+
+
+def fold_code_letters(code: str) -> str:
+    """Upper case with the Turkish letters folded to ASCII: ``"çev 101"`` -> ``"CEV 101"``, ``"İŞL"`` -> ``"ISL"``."""
+    return code_upper(code).translate(_CODE_FOLD)
+
+
 def course_key(code: str | None) -> str:
-    """Identity of a course code for matching (never for display): no spaces, the dotted ``İ`` folded
-    (``BİF111`` = ``BIF111``) and no leading zeros in the number (``SYS018`` = ``SYS18``, comparison R1)."""
-    return strip_code_zeros(code_upper(re.sub(r"\s+", "", code or "")))
+    """Identity of a course code for matching (never for display): no spaces, the Turkish letters folded to
+    ASCII (``BİF111`` = ``BIF111``, ``ÇEV101`` = ``CEV101``, ``İŞL101`` = ``ISL101``) and no leading zeros in
+    the number (``SYS018`` = ``SYS18``, comparison R1). The stored code and ``display_code`` keep the planner's
+    spelling. Frozen copies live in alembic 0016/0017 (``_key``)."""
+    return strip_code_zeros(fold_code_letters(re.sub(r"\s+", "", code or "")))
 
 
 _LOOSE_CODE_RX = re.compile(rf"([{_TR_LETTERS}]{{2,5}})\s?(\d[\dO ]{{1,4}}\d|[\dO]{{2,4}})(?![{_TR_LETTERS}])")
@@ -182,6 +208,9 @@ DAY_NAMES: dict[str, int] = {
 }
 DAY_LABELS_TR: dict[int, str] = {v: _tr_title(k) for k, v in DAY_NAMES.items()}
 _DAY_RX = re.compile(r"\b(pazartesi|cumartesi|salı|çarşamba|perşembe|cuma|pazar)\b")
+#: day names in :func:`fold` form: ASCII spellings (``PAZARTESI``, ``CARSAMBA``, ``Sali``) match too (review D9)
+_DAY_FOLDED = {fold(k): v for k, v in DAY_NAMES.items()}
+_DAY_FOLD_RX = re.compile(r"\b(pazartesi|cumartesi|sali|carsamba|persembe|cuma|pazar)\b")
 
 _NO_ROOM_WORDS = (
     "asenkron",
@@ -223,18 +252,18 @@ def parse_day(value: Any) -> DayParse:
     text = clean_text(value)
     if not text:
         return DayParse(needs_room=None)
-    low = tr_casefold(text)
-    days = [DAY_NAMES[m.group(1)] for m in _DAY_RX.finditer(low)]
+    low = fold(text)
+    days = [_DAY_FOLDED[m.group(1)] for m in _DAY_FOLD_RX.finditer(low)]
     days = list(dict.fromkeys(days))
     note_m = re.search(r"\(([^)]*)\)", text)
     note = note_m.group(1).strip() if note_m else None
     needs_room: bool | None = True
     flexible = False
-    if any(w in low for w in _NO_ROOM_WORDS):
+    if any(fold(w) in low for w in _NO_ROOM_WORDS):
         needs_room = False
-    if any(w in low for w in _FLEX_WORDS):
+    if any(fold(w) in low for w in _FLEX_WORDS):
         flexible = True
-    if "hergün" in low or "her gün" in low:
+    if "hergun" in low or "her gun" in low:
         days = [1, 2, 3, 4, 5]
     warnings: list[str] = []
     if not days and needs_room and not flexible:
@@ -247,6 +276,8 @@ def parse_day(value: Any) -> DayParse:
 # ---------------------------------------------------------------------------
 
 _TIME_RX = re.compile(r"(\d{1,2})\s*[.:,hH]\s*(\d{2})")
+#: ``24:00`` (an end time "until midnight"): the last minute of the day, never 00:00 (review D12)
+END_OF_DAY = time(23, 59)
 _HOUR_ONLY_RX = re.compile(r"^(\d{1,2})$")
 
 
@@ -270,8 +301,10 @@ def parse_time(value: Any) -> time | None:
         if 0 < value < 1:
             minutes = round(value * 24 * 60)
             return time(minutes // 60 % 24, minutes % 60)
-        if 1 <= value <= 24 and float(value).is_integer():
-            return time(int(value) % 24, 0)
+        if value == 24:
+            return END_OF_DAY
+        if 1 <= value < 24 and float(value).is_integer():
+            return time(int(value), 0)
         return None
     text = clean_text(value)
     if not text:
@@ -279,12 +312,16 @@ def parse_time(value: Any) -> time | None:
     m = _TIME_RX.search(text)
     if m:
         h, mi = int(m.group(1)), int(m.group(2))
-        if 0 <= h <= 24 and 0 <= mi < 60:
-            return time(h % 24, mi)
+        if (h, mi) == (24, 0):
+            return END_OF_DAY
+        if 0 <= h < 24 and 0 <= mi < 60:
+            return time(h, mi)
         return None
     m = _HOUR_ONLY_RX.match(text)
-    if m and 0 < int(m.group(1)) <= 24:
-        return time(int(m.group(1)) % 24, 0)
+    if m and int(m.group(1)) == 24:
+        return END_OF_DAY
+    if m and 0 < int(m.group(1)) < 24:
+        return time(int(m.group(1)), 0)
     return None
 
 
@@ -795,6 +832,8 @@ def parse_pct(value: Any) -> int | None:
     if value is None or isinstance(value, bool):
         return None
     if isinstance(value, int | float):
+        if value < 0:
+            return None  # review D12: "-5" is no 5 %
         if 0 < value <= 1:
             return int(round(value * 100))
         if 0 <= value <= 100:
@@ -811,6 +850,8 @@ def parse_pct(value: Any) -> int | None:
     m = re.search(r"(\d+(?:[.,]\d+)?)\s*%*", low)
     if not m:
         return None
+    if re.match(r"^\s*[-–—−]\s*\d", low):
+        return None  # a negative percentage (review D12)
     num = float(m.group(1).replace(",", "."))
     if "%" in low or num > 1:
         return int(round(num)) if num <= 100 else None
@@ -843,10 +884,45 @@ def parse_int_loose(value: Any) -> int | None:
     text = clean_text(value)
     if not text:
         return None
+    if _TIME_SHAPED_RX.match(text):
+        return None  # "12:30:00" is a shifted time cell, not 12 (review D11, DATA_ANALYSIS §A.13)
     m = re.match(r"^\s*(\d+)", text)
     if not m:
         return None
     return int(m.group(1))
+
+
+#: a time written as text (``12:30``, ``12.30``, ``12:30:00``)
+_TIME_SHAPED_RX = re.compile(r"^\s*\d{1,2}\s*[:.]\s*\d{2}(?:\s*[:.]\s*\d{2})?\s*$")
+#: the largest plausible enrolment of one class (the biggest real group is ~200; the largest hall seats 156)
+MAX_ENROLMENT = 5000
+
+
+def parse_enrolment(value: Any) -> tuple[int | None, str | None]:
+    """Enrolment cell -> (students, warning). Refuses time values (the shifted row of Bahar 1529 carries
+    12:30), negatives and numbers above :data:`MAX_ENROLMENT`; the warning names the cell value."""
+    if value is None or isinstance(value, bool):
+        return None, None
+    if isinstance(value, time | datetime):
+        return None, f"enrolment {value!s} is a time value (shifted row?); ignored"
+    if isinstance(value, int | float):
+        n_ = int(value)
+        if n_ < 0 or n_ > MAX_ENROLMENT:
+            return None, f"enrolment {value!r} is out of range (0-{MAX_ENROLMENT}); ignored"
+        return n_, None
+    text = clean_text(value)
+    if not text:
+        return None, None
+    if _TIME_SHAPED_RX.match(text):
+        return None, f"enrolment {text!r} is a time value (shifted row?); ignored"
+    if re.match(r"^\s*[-–—−]\s*\d", text):
+        return None, f"enrolment {text!r} is negative; ignored"
+    got = parse_int_loose(text)
+    if got is None:
+        return None, f"unparseable enrolment {text!r}"
+    if got > MAX_ENROLMENT:
+        return None, f"enrolment {text!r} is out of range (0-{MAX_ENROLMENT}); ignored"
+    return got, None
 
 
 def parse_float_loose(value: Any) -> float | None:

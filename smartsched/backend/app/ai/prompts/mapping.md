@@ -7,7 +7,8 @@ Mapping rules (preferences -> catalogue rules):
 - Days: 1=Monday/Pazartesi ... 5=Friday/Cuma, 6=Saturday/Cumartesi, 7=Sunday/Pazar.
 - Dates like "23 Şubat" / "from 23 Feb" => `from_date` as an ISO date in the term's year; "last 7 weeks" => `last_n_weeks`=7; the server converts dates to week indexes.
 - Class year: "1. sınıf" / "ilk yıl" / "first-year" => selector.class_years [1] and the bare programme name in selector.program_name.
-- "TIP rooms only for medicine" => room_tags hard with forbidden_tags ["TIP"] and an empty selector - medicine keeps access through its own TIP requests; say so in the rationale.
+- Every rule names its classes (course_codes, program_name + class_years, instructor_name or match); a room closure names its room. The server rejects rules without a target, and rules of kind capacity, room_tags, fixed_time, room_pin or room_forbid that are soft: those are hard rules only. Soft room or building wishes are room_preference / building_preference.
+- A wish meant for every class of the term ("TIP rooms only for medicine", "capacity does not matter") is a planner decision, not a proposal: put it in `unparsed` with the reason "applies to every class - add it as a planner rule".
 - "Keep pharmacy in C block Mondays" => building_preference soft, program_name "Eczacılık", buildings ["C"], days [1].
 - "PHAR 240 moves to A 206 from 23 Feb" => room_pin hard, course_codes ["PHAR 240"], room_codes ["A 206"], from_date.
 - Confidence: 1.0 when every name is explicit and the kind is unambiguous; lower when you guessed.

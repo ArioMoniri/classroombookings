@@ -544,7 +544,7 @@ def _best_effort(
             diagnoses = [d for d in diagnoses if d.code not in ("unplaced", "unplaced_summary", "relax_timeout")]
             diagnoses += explain_unplaced(prep, placed, explained)
     unplaced_ids = [e.id for e in inp.events if e.id not in placed]
-    stats["relaxation_policy"] = policy.describe(inp)
+    stats["policy_tiers"] = policy.describe(inp)
     stats["policy_cost"] = list(policy.cost(inp, placed))
     stats.update(
         partial=True,

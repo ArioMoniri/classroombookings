@@ -86,6 +86,11 @@ def test_blocked_week_without_any_free_room_is_reported_and_the_rest_stays() -> 
     assert out.stats["placed"] == 0 and out.stats["partially_placed_ids"] == [1] and out.stats["unplaced_ids"] == [1]
     assert [(sorted(a.weeks), a.room_ids) for a in out.assignments] == [([1, 3], (1,))]
     assert all(seg_id not in d.event_ids for d in out.diagnoses)  # ids translated back to the request
+    # the week-1 bottleneck of Bahar as its own number: classes missing only one week (roadmap Phase 9)
+    assert out.stats["missing_weeks"] == {"2": 1} and out.stats["missing_only_week"] == {"2": 1}
+    only = next(d for d in out.diagnoses if d.code == "missing_only_week")
+    assert only.event_ids == [1] and only.params["week"] == 2 and "every week except week 2" in only.message
+    assert "MAT 112" in only.message and "[w" not in only.message
 
 
 def test_trusted_small_lock_needs_a_full_room_in_the_moved_week() -> None:

@@ -27,6 +27,12 @@ dependencies = [
   "ldap3>=2.9",
   "Pillow>=10.0",  # uploaded logos / room photos are decoded and re-encoded (app/core/images.py)
   "bcrypt>=4.0",  # legacy CRBS password hashes ($2y$ / sha1:) verified once, then rehashed to argon2
+  # Phase 19 intake parsers (docs/review/2026-10-15-phase19-engineering.md P19-Q3); exact versions in requirements.lock
+  "xlrd>=2.0.1",  # legacy .xls only
+  "defusedxml>=0.7.1",  # .ods content.xml and XML / SpreadsheetML 2003 without DTDs or entities
+  "pdfplumber>=0.11",  # PDF tables (text PDFs)
+  "pypdfium2>=4.30",  # scanned PDF pages rendered for the vision transcription
+  "icalendar>=6.0",  # .ics intake (and the calendar-feed tests)
 ]
 
 [project.optional-dependencies]
@@ -35,7 +41,6 @@ dev = [
   "pytest-asyncio>=0.23",
   "ruff>=0.5",
   "mypy>=1.10",
-  "icalendar>=6.0",  # tests parse the calendar feeds with an independent RFC 5545 parser
 ]
 
 [build-system]

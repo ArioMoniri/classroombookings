@@ -187,7 +187,12 @@ async def test_docx_upload_and_accept_endpoint(client, fake_sdk):
                         params=empty_params(latest=11),
                         source_ref=2,
                     ),
-                    proposal("room_tags", params=empty_params(forbidden_tags=["TIP"]), source_ref=3),
+                    proposal(  # targeted: an untargeted room_tags row is refused for AI/UPLOAD (review D1)
+                        "room_tags",
+                        selector=empty_selector(program_name="Hemşirelik"),
+                        params=empty_params(forbidden_tags=["TIP"]),
+                        source_ref=3,
+                    ),
                 ],
                 [section_edit("exclude", course_codes=["NRS 450"], source_ref=1)],
             ),

@@ -24,10 +24,12 @@ from app.schemas.runs import (
     RunCreated,
     RunOut,
 )
+from app.services import audit
 from app.services import settings_service as ss
 from app.services.calendar import day_label
 from app.services.conflicts import check_room_conflicts
 from app.services.diagnosis_fixes import FixError, apply_option, structure_diagnosis
+from app.services.events import publish_event
 from app.services.exports import export_csv, export_ics, export_xlsx
 from app.services.grid import assignment_labels, build_grid, enrich_assignments
 from app.services.solver_bridge import PARTIAL_STATUS, run_schedule
@@ -189,8 +191,12 @@ async def get_run(run_id: int, db: DB, _: Viewer) -> RunOut:
 @router.delete("/{run_id}", status_code=204)
 async def delete_run(run_id: int, db: DB, user: Planner) -> None:
     run = await _run(db, run_id)
+    if run.is_active:  # review D4: the published timetable drives the booking grid
+        raise HTTPException(409, f"run {run_id} is the published timetable; activate another run first")
     if run.status in {"QUEUED", "RUNNING"}:
         await _cancel(db, run, user)  # never leave a solver running for a deleted run
+    before = audit.snapshot(run, RUN_AUDIT_FIELDS)
+    await publish_event(db, "run.delete", "run", run.id, before=before, actor=user, term_id=run.term_id)
     await db.delete(run)
     await db.commit()
 
@@ -239,20 +245,78 @@ async def _check_user_limit(db: AsyncSession, user_id: int) -> None:
     await check_user_limit(db, user_id)
 
 
+#: statuses of a finished run whose timetable may be published (a best-effort partial run places fewer classes,
+#: every placed one holding the hard rules)
+PUBLISHABLE = frozenset({"OPTIMAL", "FEASIBLE", PARTIAL_STATUS})
+RUN_AUDIT_FIELDS = ("term_id", "kind", "status", "label", "hard_score", "soft_score", "is_active", "parent_run_id")
+
+
+def publish_blockers(run: ScheduleRun) -> list[str]:
+    """Why ``run`` may not become the published timetable (review D4); empty = publishable. The hard score is
+    the planner-level one after manual edits (reported exceptions such as trusted locks are already excluded)."""
+    out: list[str] = []
+    if run.status not in PUBLISHABLE:
+        out.append(f"run {run.id} is {run.status}; only a finished run ({', '.join(sorted(PUBLISHABLE))}) is published")
+    if run.hard_score != 100:
+        out.append(f"run {run.id} breaks hard rules (hard score {run.hard_score}); fix or re-solve before publishing")
+    return out
+
+
 @router.post("/{run_id}/activate", response_model=RunOut)
-async def activate_run(run_id: int, db: DB, _: Planner) -> RunOut:
-    """Mark this run as the active/published schedule of its term+kind (used for undo of AI child runs)."""
+async def activate_run(run_id: int, db: DB, user: Planner) -> RunOut:
+    """Publish this run as the timetable of its term + kind (it drives the booking grid; also the undo of AI child
+    runs). 409 unless the run finished with every hard rule held (review D4). Exactly one run per (term, kind) is
+    active: the switch is two conditional UPDATEs in one transaction, and ``uq_schedule_runs_active`` (a partial
+    unique index) makes a concurrent second activation fail instead of leaving two published runs."""
+    from sqlalchemy import update
+    from sqlalchemy.exc import IntegrityError
+
     run = await _run(db, run_id)
-    for other in (
-        await db.execute(
-            select(ScheduleRun).where(
-                ScheduleRun.term_id == run.term_id, ScheduleRun.kind == run.kind, ScheduleRun.is_active.is_(True)
+    blockers = publish_blockers(run)
+    if blockers:
+        raise HTTPException(409, {"message": "run cannot be published", "issues": blockers})
+    if run.is_active:
+        return (await runs_out(db, [run]))[0]
+    scope = (ScheduleRun.term_id == run.term_id, ScheduleRun.kind == run.kind)
+    previous = (
+        (
+            await db.execute(
+                select(ScheduleRun.id).where(*scope, ScheduleRun.is_active.is_(True)).order_by(ScheduleRun.id)
             )
         )
-    ).scalars():
-        other.is_active = False
-    run.is_active = True
-    await db.commit()
+        .scalars()
+        .first()
+    )
+    try:
+        await db.execute(
+            update(ScheduleRun)
+            .where(*scope, ScheduleRun.is_active.is_(True), ScheduleRun.id != run.id)
+            .values(is_active=False)
+            .execution_options(synchronize_session=False)
+        )
+        res = await db.execute(
+            update(ScheduleRun)
+            .where(ScheduleRun.id == run.id, ScheduleRun.status.in_(PUBLISHABLE), ScheduleRun.hard_score == 100)
+            .values(is_active=True)
+            .execution_options(synchronize_session=False)
+        )
+        if not getattr(res, "rowcount", 0):  # re-scored or cancelled meanwhile
+            await db.rollback()
+            raise HTTPException(409, f"run {run_id} changed while it was being published; try again")
+        await publish_event(
+            db,
+            "run.activate",
+            "run",
+            run.id,
+            before={"active_run_id": previous},
+            after={"active_run_id": run.id, "status": run.status, "hard_score": run.hard_score, "label": run.label},
+            actor=user,
+            term_id=run.term_id,
+        )
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(409, "another run of this term was published at the same time; reload") from exc
     await db.refresh(run)
     return (await runs_out(db, [run]))[0]
 

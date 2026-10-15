@@ -13,7 +13,7 @@ from app.solver.context import ModelContext
 from app.solver.domains import Domains
 from app.solver.evaluate import Evaluation
 from app.solver.model import Constraint, Event
-from app.solver.weights import constraint_weight
+from app.solver.weights import constraint_weight, preference_name
 
 
 def _prefs(c: Constraint, event: Event) -> tuple[int, ...]:
@@ -50,7 +50,7 @@ def prune(doms: Domains, c: Constraint) -> None:
 def apply(ctx: ModelContext, c: Constraint) -> None:
     if c.hard:
         return
-    w = constraint_weight(ctx.inp.weights, "room_preference", c.weight)
+    w = constraint_weight(ctx.inp.weights, "room_preference", c.weight, preference_name("room_preference", c.params))
     for event in select_events(ctx.inp, c.params):
         prefs = _prefs(c, event)
         if not prefs:
@@ -62,7 +62,7 @@ def apply(ctx: ModelContext, c: Constraint) -> None:
 
 
 def score(ev: Evaluation, c: Constraint) -> None:
-    w = constraint_weight(ev.inp.weights, "room_preference", c.weight)
+    w = constraint_weight(ev.inp.weights, "room_preference", c.weight, preference_name("room_preference", c.params))
     for event in select_events(ev.inp, c.params):
         prefs = _prefs(c, event)
         if not prefs or not event.needs_room:

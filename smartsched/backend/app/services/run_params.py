@@ -41,6 +41,12 @@ DEFINITIVE = ("lock", "prefer", "ignore")
 MAX_WEIGHT = 10_000
 MAX_WEIGHT_KEYS = 50
 MAX_BLOCK_RUNS = 20
+#: relaxation policies (``app/solver/policy.py``; user decision 2026-10-15, ``lock_first`` is the default)
+RELAXATION_POLICIES = ("lock_first", "most_classes_first")
+DEFAULT_RELAXATION_POLICY = "lock_first"
+#: coordinator priorities of one run: ``{"<request id>": int}`` (higher wins; ``app.solver.policy`` bounds)
+MAX_PRIORITY_KEYS = 20_000
+PRIORITY_RANGE = (-100, 100)
 
 
 class ParamError(ValueError):
@@ -101,6 +107,12 @@ def clean_client_params(params: dict[str, Any]) -> dict[str, Any]:
                     raise ParamError("params.weights keys must be names of at most 64 characters")
                 w[wk] = int(_num(wv, f"weights.{wk}", 0, MAX_WEIGHT, integer=True))
             out[key] = w
+        elif key == "relaxation_policy":
+            if value not in RELAXATION_POLICIES:
+                raise ParamError(f"params.relaxation_policy must be one of {RELAXATION_POLICIES}")
+            out[key] = value
+        elif key == "priorities":
+            out[key] = clean_priorities(value)
         elif key == "block_run_ids":
             if not isinstance(value, list) or len(value) > MAX_BLOCK_RUNS:
                 raise ParamError(f"params.block_run_ids must be a list of at most {MAX_BLOCK_RUNS} run ids")
@@ -108,6 +120,65 @@ def clean_client_params(params: dict[str, Any]) -> dict[str, Any]:
         else:
             raise ParamError(f"unknown run param {key!r}")
     return out
+
+
+def clean_priorities(value: Any) -> dict[str, int]:
+    """``{"<request id>": priority}`` (meeting / exam request ids of the run's term, higher wins).
+
+    TODO(Phase 19 moderation tab, P19-M2): persist the coordinator's priority per request (Section /
+    MeetingRequest / ExamRequest column) and let the bridge read it from there; until then a run carries the
+    mapping in its params (a child run copies its parent's params)."""
+    if not isinstance(value, dict) or len(value) > MAX_PRIORITY_KEYS:
+        raise ParamError(f"params.priorities must be an object of at most {MAX_PRIORITY_KEYS} request ids")
+    lo, hi = PRIORITY_RANGE
+    out: dict[str, int] = {}
+    for k, v in value.items():
+        if not str(k).isdigit() or int(str(k)) <= 0:
+            raise ParamError("params.priorities keys must be request ids")
+        out[str(int(str(k)))] = int(_num(v, f"priorities.{k}", lo, hi, integer=True))
+    return out
+
+
+# --------------------------------------------------------------------------- per-term relaxation policy
+
+#: the per-term setting (``settings`` table, the dotted ``term.<id>.*`` namespace; admins write it with
+#: ``PUT /settings {"extra": {"term.<id>.relaxation_policy": "most_classes_first"}}`` or
+#: :func:`set_term_relaxation_policy`)
+TERM_POLICY_KEY = "term.{term_id}.relaxation_policy"
+
+
+def term_policy_key(term_id: int) -> str:
+    return TERM_POLICY_KEY.format(term_id=int(term_id))
+
+
+async def term_relaxation_policy(session: Any, term_id: int) -> tuple[str, str]:
+    """``(policy, source)`` of a term: the stored setting (``term``), or the default (``default``; also when
+    the stored value is not a policy name — ``source`` is then ``invalid_setting``)."""
+    from app.services.settings_service import get_value
+
+    value = await get_value(session, term_policy_key(term_id))
+    if value is None or value == "":
+        return DEFAULT_RELAXATION_POLICY, "default"
+    if value in RELAXATION_POLICIES:
+        return str(value), "term"
+    return DEFAULT_RELAXATION_POLICY, "invalid_setting"
+
+
+async def set_term_relaxation_policy(session: Any, term_id: int, policy: str | None) -> None:
+    """Store (or with ``None`` clear) the term's policy; raises :class:`ParamError` for an unknown name."""
+    from app.services.settings_service import set_value
+
+    if policy is not None and policy not in RELAXATION_POLICIES:
+        raise ParamError(f"relaxation_policy must be one of {RELAXATION_POLICIES}")
+    await set_value(session, term_policy_key(term_id), policy)
+
+
+async def effective_relaxation_policy(session: Any, term_id: int, params: dict[str, Any] | None) -> tuple[str, str]:
+    """The run's policy: ``params.relaxation_policy`` (``run``) over the term setting over the default."""
+    value = (params or {}).get("relaxation_policy")
+    if value in RELAXATION_POLICIES:
+        return str(value), "run"
+    return await term_relaxation_policy(session, term_id)
 
 
 def clamp_server_params(params: dict[str, Any]) -> dict[str, Any]:
@@ -156,10 +227,17 @@ def trusted_studio_snapshot(run: Any) -> dict[str, Any] | None:
 
 
 __all__ = [
+    "DEFAULT_RELAXATION_POLICY",
+    "RELAXATION_POLICIES",
     "RESERVED_KEYS",
     "ParamError",
     "clamp_server_params",
     "clean_client_params",
+    "clean_priorities",
+    "effective_relaxation_policy",
+    "set_term_relaxation_policy",
+    "term_policy_key",
+    "term_relaxation_policy",
     "seal_studio",
     "trusted_studio_snapshot",
 ]

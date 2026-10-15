@@ -98,7 +98,9 @@ report them. Consequences:
   responsive while a solve runs. CP-SAT still uses the process's CPU cores, so size `solver_workers`
   and `UVICORN_WORKERS` to the host.
 - Restarting the backend kills running jobs. On startup, runs and import jobs left `QUEUED`/`RUNNING`
-  by a dead process on this host are marked `FAILED` ("interrupted by restart"); re-run them from the UI.
+  by a previous boot of the process, or whose heartbeat is older than `RUN_STALE_AFTER_S`, are marked
+  `FAILED` ("interrupted by restart"); re-run them from the UI. Workbook parsing runs in a short-lived
+  child process (`app/core/safe_files.run_isolated`), off the event loop like the solve.
   `docker compose stop` gives uvicorn 30 s to finish requests (`stop_grace_period: 40s`).
 
 ## Scaling
@@ -156,6 +158,22 @@ decrypts the stored API keys.
 (`smartsched_uploads` is `<COMPOSE_PROJECT_NAME>_uploads`. Copy `/var/backups/smartsched` off the
 host. Legacy MySQL: `docker compose exec -T crbs-db sh -c 'mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'`.)
 
+### Upload retention
+
+Stored uploads (source workbooks under `uploads/imports`, intake documents) hold personal data (instructor
+names, enrolments). `purge-uploads.sh` deletes files older than `UPLOAD_RETENTION_DAYS` (`.env`, default 30)
+and the job directories left empty; `uploads/rooms` (room photos, the organisation logo) is never purged.
+It runs in a one-off backend container (`docker compose run --no-deps`), so it uses the backend's own
+`UPLOAD_DIR` and works while the stack is stopped. `--dry-run` lists what would go.
+
+```bash
+./purge-uploads.sh --dry-run
+# /etc/cron.d/smartsched-upload-purge (the AWS pod uses the systemd timer smartsched-upload-purge.timer)
+17 3 * * * root /opt/classroombookings/smartsched/deploy/purge-uploads.sh >> /var/log/smartsched-purge.log 2>&1
+```
+
+After the purge, `GET /api/v1/imports/{id}/file` returns 404 for old jobs; the imported data stays.
+
 ### Restore
 
 ```bash
@@ -182,6 +200,13 @@ Restore into the same or a newer SmartSched version. Alembic only migrates forwa
 
 Pinned base images: bump the tags in the Dockerfiles / compose deliberately (Renovate or Dependabot
 can open the PRs). For bit-for-bit pulls, append `@sha256:` digests.
+
+Python dependencies: the backend image installs with `smartsched/backend/requirements.lock` as pip
+constraints (exact versions of every transitive dependency, universal markers so amd64 and the arm64 pod
+resolve the same set). After changing `pyproject.toml`:
+`cd smartsched/backend && uv pip compile pyproject.toml --universal --python-version 3.12 --no-annotate -o requirements.lock`.
+The pod CI `backend` gate installs with the same constraints, and the `images` gate imports the intake
+parsers (xlrd, defusedxml, pdfplumber, pypdfium2, icalendar, ...) in the freshly built image.
 
 ## TLS
 

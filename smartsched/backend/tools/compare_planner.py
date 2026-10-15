@@ -229,7 +229,16 @@ def step_solve(api: Api, todo: Iterable[Instance], workers: int, log: list[str])
 
 
 def norm_code(code: str | None) -> str:
+    """Room codes (``A 101`` -> ``A101``; course codes use :func:`course_code_key`)."""
     return (code or "").replace("İ", "I").replace("ı", "i").replace(" ", "").replace("\n", "").upper()
+
+
+def course_code_key(code: str | None) -> str:
+    """Course identity exactly as the importers hold it (``normalize.course_key``: Turkish letters folded,
+    ``ÇEV 101`` = ``CEV 101``; no leading zeros, ``SYS 018`` = ``SYS 18``)."""
+    from app.importers.normalize import course_key
+
+    return course_key(code)
 
 
 @dataclass
@@ -341,7 +350,7 @@ def load_grid(path: Path, exam: bool) -> tuple[list[Entry], dict[int, Any], list
                     e.room_code,
                     e.start_period,
                     e.end_period,
-                    [norm_code(c) for c in e.cell.codes],
+                    [course_code_key(c) for c in e.cell.codes],
                     e.cell.raw,
                     e.cell.kind,
                     e.coord,
@@ -420,7 +429,7 @@ def load_requests(
             out.append(
                 Req(
                     id=int(m["id"]),
-                    code=norm_code(m["course_code"]),
+                    code=course_code_key(m["course_code"]),
                     label=label,
                     row=m.get("source_row_index"),
                     status=str(m["status"]),
@@ -449,7 +458,7 @@ def load_requests(
     for r in rows.values():
         by_key[
             (
-                norm_code(r.course_code),
+                course_code_key(r.course_code),
                 r.date,
                 r.periods.start_period,
                 tr_casefold(r.program or ""),
@@ -459,7 +468,7 @@ def load_requests(
     for x in api.paged("/requests/exams", 5000, term_id=term_id):
         d = date.fromisoformat(x["date"]) if x.get("date") else None
         key = (
-            norm_code(x["course_code"]),
+            course_code_key(x["course_code"]),
             d,
             x.get("start_period"),
             tr_casefold(x.get("program_name") or ""),
@@ -470,7 +479,7 @@ def load_requests(
         out.append(
             Req(
                 id=int(x["id"]),
-                code=norm_code(x["course_code"]),
+                code=course_code_key(x["course_code"]),
                 label=f"{x['course_code']} ({x.get('program_name') or '?'})",
                 row=row.row if row else None,
                 status=str(x["status"]),

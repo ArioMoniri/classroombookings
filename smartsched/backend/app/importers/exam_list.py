@@ -117,6 +117,9 @@ def parse_exam_row(
         warnings.append(f"unparseable exam date {raw_date!r}")
     if d_end:
         warnings.append(f"exam date range {d}..{d_end}; using first day")
+    enrolment, enrol_warning = n.parse_enrolment(g("enrolment"))
+    if enrol_warning:
+        warnings.append(enrol_warning)
     venue = n.parse_venue_request(g("venue"))
     definitive = n.parse_definitive_rooms(g("definitive"), non_room_venues)
     no_exam = n.clean_text(g("no_exam")) is not None
@@ -136,7 +139,7 @@ def parse_exam_row(
         faculty=n.clean_text(g("faculty")),
         program=n.clean_text(g("program")),
         class_years=n.parse_class_year(g("class_year")),
-        enrolment=n.parse_int_loose(g("enrolment")),
+        enrolment=enrolment,
         instructor=n.clean_text(g("instructor")),
         date=d,
         date_end=d_end,

@@ -81,3 +81,27 @@ def test_relaxation_keeps_the_hint_rooms_when_placement_allows() -> None:
     _d, stats, placed = relaxation_diagnosis(prepare(inp), 5.0, hints=hint)
     assert stats["relax_status"] == "OPTIMAL" and stats["relax_hint_terms"] == 2
     assert {e: a.room_ids for e, a in placed.items()} == {3: (1,), 1: (2,)}
+
+
+def test_learned_preference_weighs_less_than_the_explicit_wish() -> None:
+    """Policy Q7: an accepted learned suggestion (``params.learned``) weighs 5, the explicit room wish of this
+    term 10: when both cannot hold, the explicit one wins; each alone is honoured; weights stay overridable."""
+    from app.solver.cpsat import solve
+    from app.solver.model import Constraint
+    from app.solver.weights import DEFAULT_WEIGHTS
+    from tests.solver.conftest import assigned, event, make_input, room
+
+    assert DEFAULT_WEIGHTS["learned_room_preference"] < DEFAULT_WEIGHTS["room_preference"]
+    rooms = (room(1, "A101", 60), room(2, "B201", 60))
+    e = event(1, weeks=(3,), day=1, start=1)
+    explicit = Constraint("room_preference", {"event_ids": [1], "room_ids": [1]}, hard=False)
+    learned = Constraint("room_preference", {"event_ids": [1], "room_ids": [2], "learned": True}, hard=False)
+    res = solve(make_input(rooms, (e,), (explicit, learned), weeks=(3,), workers=1))
+    assert assigned(res.assignments, 1).room_ids == (1,)
+    assert res.objective_breakdown.get("room_preference") == 5  # the learned wish is the one given up
+    res = solve(make_input(rooms, (e,), (learned,), weeks=(3,), workers=1))
+    assert assigned(res.assignments, 1).room_ids == (2,)
+    res = solve(
+        make_input(rooms, (e,), (explicit, learned), weeks=(3,), workers=1, weights={"learned_room_preference": 50})
+    )
+    assert assigned(res.assignments, 1).room_ids == (2,)

@@ -1,0 +1,16 @@
+[Unit]
+Description=SmartSched: purge stored uploads older than UPLOAD_RETENTION_DAYS (default 30; room photos kept)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=smartsched-ci
+Group=smartsched-ci
+SupplementaryGroups=docker
+WorkingDirectory=/opt/smartsched/src/smartsched/deploy
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+ExecStart=/opt/smartsched/src/smartsched/deploy/purge-uploads.sh
+TimeoutStartSec=600
