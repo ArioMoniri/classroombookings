@@ -40,7 +40,8 @@ class Config:
     idle_cpu: float = 5.0
     gate_cpus: str = "2"
     gate_memory: str = "3g"
-    python_image: str = "python:3.12.15-slim-bookworm"
+    # = the backend PYTHON_IMAGE build arg in docker-compose.yml (deploy/pins.py checks they agree)
+    python_image: str = "python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258"  # noqa: E501
     max_attempts: int = 2
     extra: dict[str, str] = field(default_factory=dict)
 

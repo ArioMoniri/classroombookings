@@ -53,7 +53,10 @@ def test_images_gate_imports_the_parsers_in_the_built_backend_image(tmp_path: Pa
     bin_dir.mkdir()
     (bin_dir / "docker").write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$FAKE_LOG"\n')
     (bin_dir / "docker").chmod(0o755)
-    (tmp_path / "ws/src").mkdir(parents=True)
+    deploy = tmp_path / "ws/src/smartsched/deploy"
+    deploy.mkdir(parents=True)
+    for name in ("pins.py", "docker-compose.yml", "docker-compose.caddy.yml"):
+        (deploy / name).write_text((REPO / "smartsched/deploy" / name).read_text())
     env = {"PATH": f"{bin_dir}:{os.environ['PATH']}", "FAKE_LOG": str(tmp_path / "docker.log"),
            "WS": str(tmp_path / "ws"), "CACHE_DIR": str(tmp_path / "c"), "RUN_TAG": "3-abc", "CI_UID": "1",
            "CI_GID": "1", "GATES_DIR": str(POD_CI / "gates")}

@@ -198,8 +198,14 @@ Restore into the same or a newer SmartSched version. Alembic only migrates forwa
 3. Rollback: `git checkout <previous tag>`, then `./deploy.sh --update --no-pull`. If the newer version
    ran a migration, restore the pre-upgrade dump (there are no down-migrations in production).
 
-Pinned base images: bump the tags in the Dockerfiles / compose deliberately (Renovate or Dependabot
-can open the PRs). For bit-for-bit pulls, append `@sha256:` digests.
+Pinned base images: every third-party image is `name:version@sha256:<multi-arch index digest>`: the
+compose `image:` lines, and the Dockerfile bases, which compose passes as build args (`PYTHON_IMAGE`,
+`NODE_IMAGE`, `PHP_IMAGE`; the Dockerfile `ARG` defaults name the same tag without the digest, so a plain
+`docker build` still works). The pod CI python image uses the backend's `PYTHON_IMAGE`. `validate.sh`
+fails on a missing digest or a tag that differs between compose and a Dockerfile (`pins.py check`).
+`./pin-digests.sh` re-resolves the digests of the pinned tags (security rebuilds of the same tag); bump a
+tag by editing compose and the Dockerfile default together. A bot (Dependabot/Renovate) could open these
+PRs; it is not configured.
 
 Python dependencies: the backend image installs with `smartsched/backend/requirements.lock` as pip
 constraints (exact versions of every transitive dependency, universal markers so amd64 and the arm64 pod
