@@ -73,12 +73,41 @@ def test_parse_start(value: object, want: int) -> None:
     assert p.parse_start(value) == want
 
 
-@pytest.mark.parametrize("bad", ["09:00", "07:00", "23:30", 0, 19, "yarın", "", True])
-def test_parse_start_refuses_off_grid_values(bad: object) -> None:
-    """An off-grid start is a question for the coordinator, never a silent snap (the importer snaps with a
-    warning because the file cannot be asked; the API can)."""
+@pytest.mark.parametrize("bad", ["23:30", "22:40", 0, 19, "yarın", "", True])
+def test_parse_start_refuses_values_off_the_day(bad: object) -> None:
     with pytest.raises(p.PatternError):
         p.parse_start(bad)
+
+
+@pytest.mark.parametrize(
+    ("value", "want"),
+    [
+        ("10.20", 3),  # owner decision: covers 30 of P3's 40 minutes -> P3
+        ("10:35", 4),  # 15 of 40 minutes: not half -> P4
+        ("09:00", 2),  # 10 of P1's 40 minutes -> P2
+        ("10:55", 4),  # in the break -> the next period
+        ("07:00", 1),  # before the grid: P1, which it covers fully
+    ],
+)
+def test_off_grid_starts_snap_by_the_half_rule(value: object, want: int) -> None:
+    """Product-owner decision 2026-10-15: a hand-made class's off-grid start snaps like the planning list's
+    (periods covered for at least half), with a warning, and the written time is kept."""
+    period, written, warning = p.start_snap(value)
+    assert period == want and written is not None and warning and f"P{want}" in warning
+    assert p.parse_start(value) == want
+
+
+def test_off_grid_start_is_kept_and_warned_on_the_meeting() -> None:
+    spec = p.build_spec({"theory": 2, "days": "Salı", "start": "10.20"}, course_hours=(2, 0, 0), max_week=14)
+    (m,) = p.expand(spec, enrolment=30, needs_room=True)
+    assert (m.start_period, m.end_period) == (3, 4) and m.start_time == time(10, 20)
+    assert m.warnings and "10:20" in m.warnings[0] and "P3" in m.warnings[0]
+    on_grid = p.expand(
+        p.build_spec({"theory": 2, "days": "Salı", "start": "10.10"}, course_hours=(2, 0, 0), max_week=14),
+        enrolment=30,
+        needs_room=True,
+    )
+    assert on_grid[0].start_time == time(10, 10) and on_grid[0].warnings == ()
 
 
 # --------------------------------------------------------------------------- weeks

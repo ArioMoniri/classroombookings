@@ -44,7 +44,7 @@ def test_bad_lines_fail(tmp_path: Path, line: str, needle: str) -> None:
 
 
 def test_every_bootstrap_call_names_the_pod() -> None:
-    text = WORKFLOW.read_text()
+    text = WORKFLOW.read_text().replace("\\\n", " ")  # join shell line continuations
     calls = [ln for ln in text.splitlines() if "smartsched_aws.py" in ln and "/tmp/venv/bin/python" in ln]
     assert calls
     for ln in calls:
