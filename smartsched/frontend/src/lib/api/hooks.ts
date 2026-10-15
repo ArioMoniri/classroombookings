@@ -35,14 +35,18 @@ export function useMe() {
 export function useDashboard(termId?: number) {
   return useQuery({ queryKey: qk.dashboard(termId), queryFn: () => api.dashboard.summary(termId) });
 }
-export function useTerms() {
-  return useQuery({ queryKey: qk.terms, queryFn: api.terms.list, staleTime: 10 * 60_000 });
+/** `enabled: false` for people without planning.view (the shell must not call planning routes for teachers). */
+export interface HookOpts {
+  enabled?: boolean;
+}
+export function useTerms(opts: HookOpts = {}) {
+  return useQuery({ queryKey: qk.terms, queryFn: api.terms.list, staleTime: 10 * 60_000, enabled: opts.enabled ?? true });
 }
 export function useWeeks(termId: number | undefined) {
   return useQuery({ queryKey: qk.weeks(termId ?? 0), queryFn: () => api.terms.weeks(termId ?? 0), enabled: termId !== undefined });
 }
-export function useRooms(q?: Query) {
-  return useQuery({ queryKey: qk.rooms(q), queryFn: () => api.rooms.list(q), staleTime: 60_000 });
+export function useRooms(q?: Query, opts: HookOpts = {}) {
+  return useQuery({ queryKey: qk.rooms(q), queryFn: () => api.rooms.list(q), staleTime: 60_000, enabled: opts.enabled ?? true });
 }
 export function useRoom(id: number) {
   return useQuery({ queryKey: qk.room(id), queryFn: () => api.rooms.get(id) });
@@ -53,8 +57,8 @@ export function useBuildings() {
 export function usePrograms() {
   return useQuery({ queryKey: qk.programs, queryFn: api.programs.list, staleTime: 10 * 60_000 });
 }
-export function useMeetings(q?: Query) {
-  return useQuery({ queryKey: qk.meetings(q), queryFn: () => api.requests.meetings(q), placeholderData: (prev) => prev });
+export function useMeetings(q?: Query, opts: HookOpts = {}) {
+  return useQuery({ queryKey: qk.meetings(q), queryFn: () => api.requests.meetings(q), placeholderData: (prev) => prev, enabled: opts.enabled ?? true });
 }
 export function useExams(q?: Query) {
   return useQuery({ queryKey: qk.exams(q), queryFn: () => api.requests.exams(q), placeholderData: (prev) => prev });
@@ -84,10 +88,11 @@ export function useImportJob(id: number | null) {
     refetchInterval: (query) => (query.state.data && (query.state.data.status === "QUEUED" || query.state.data.status === "RUNNING") ? 800 : false),
   });
 }
-export function useRuns(q?: Query) {
+export function useRuns(q?: Query, opts: HookOpts = {}) {
   return useQuery({
     queryKey: qk.runs(q),
     queryFn: () => api.runs.list(q),
+    enabled: opts.enabled ?? true,
     refetchInterval: (query) => (query.state.data?.some((r) => RUN_ACTIVE.has(r.status)) ? 1500 : false),
   });
 }

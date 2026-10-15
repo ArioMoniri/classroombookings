@@ -21,11 +21,13 @@ import { UserMenu } from "./user-menu";
 
 /** Counts are scoped to the selected term (usability M14: the FINAL term showed Bahar's 231). */
 export function useNavBadges(): Record<NonNullable<NavItem["badge"]>, number> {
-  const { term } = useActiveTerm();
-  const meetings = useMeetings(term ? { status: "NEEDS_REVIEW", term_id: term.id, page_size: 1 } : { status: "NEEDS_REVIEW", page_size: 1 });
-  const runs = useRuns();
-  // wave 1: open requests the designated approver may decide (GET /approvals/inbox answers [] without the right)
+  // planning counts only for planning.view (teachers would get a 403 toast on every page); the approvals
+  // count only for designated approvers (approvals.decide)
   const { can } = usePermissions();
+  const planner = can("planning.view");
+  const { term } = useActiveTerm({ enabled: planner });
+  const meetings = useMeetings(term ? { status: "NEEDS_REVIEW", term_id: term.id, page_size: 1 } : { status: "NEEDS_REVIEW", page_size: 1 }, { enabled: planner });
+  const runs = useRuns(undefined, { enabled: planner });
   const inbox = useApprovalInbox("open", can("approvals.decide"));
   return {
     needsReview: meetings.data?.total ?? 0,

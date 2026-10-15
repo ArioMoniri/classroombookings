@@ -980,7 +980,8 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
             f"SmartSched will place {_en(ne, 'class', 'classes')} into {_en(nr, 'room', 'rooms')} for "
             f"{'week' if len(weeks) == 1 else 'weeks'} {week_span(weeks)}. It must follow {_en(must, 'rule', 'rules')} "
             f"and will try to follow {_en(try_, 'preference', 'preferences')}. "
-            f"{_en(pinned_n, 'class is', 'classes are')} pinned. {_n(out_n, 'en')} {'is' if out_n == 1 else 'are'} left out. "
+            f"{_en(pinned_n, 'class is', 'classes are')} pinned. "
+            f"{_n(out_n, 'en')} {'is' if out_n == 1 else 'are'} left out. "
             f"Estimated time: {est['words']['en']}."
         ),
     }

@@ -465,6 +465,50 @@
       "ledger": "docs-refresh-2026-10-15 SCOPE: README.md, smartsched/README.md, docs/ARCHITECTUR…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a53420f98a643573d",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 14:58",
+      "left_off": "start the pod and deploy when green"
+    },
+    {
+      "id": "affef72e5d3bb1720",
+      "description": "Merge universal branch into gracious",
+      "subagent_type": "general-purpose",
+      "isolation": "worktree",
+      "started_at": "2026-10-15 14:59",
+      "scope": "your isolated git worktree only, on a local branch named merge/universal-into-gracious. Never push any branch. Never force anything. GOAL: merge origin/claude/smartsched-universal into origin/claude/gracious-cerf-w1598m with every conflict resolved correctly and all checks green, so the main session can fast-forward both branches.",
+      "goal": "merge origin/claude/smartsched-universal into origin/claude/gracious-cerf-w1598m with every conflict resolved correctly and all checks green, so the main session can fast-forward both branches.",
+      "ledger": "merge-universal-2026-10-15 SCOPE: your isolated git worktree only, on a local br…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a574d83abdbb1d109",
+      "description": "Motion audit + Phase 19 motion spec",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-15 15:00",
+      "scope": "docs/design/v2/motion.md and docs/review/2026-10-15-motion-audit.md only. No source code edits: four agents are editing smartsched/frontend right now, and your findings become tickets for them. GOAL: (1) a motion audit of every SmartSched surface built or changed since 2026-10-08; (2) motion specs for the Phase 19 surfaces. First invoke the `/motion_designer` skill (the Skill tool, skill name \"mot…",
+      "goal": "(1) a motion audit of every SmartSched surface built or changed since 2026-10-08; (2) motion specs for the Phase 19 surfaces. First invoke the `/motion_designer` skill (the Skill tool, skill name \"motion_designer\") and follow its workflow, tokens, patterns, a11y notes and the §8 audit checklist exactly. Part 1: audit. Find the surfaces changed since 2026-10-08 with `git log --since=2026-10-08 --na…",
+      "ledger": "motion-audit-phase19-2026-10-15 SCOPE: docs/design/v2/motion.md and docs/review/…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a31e030beefbad347",
+      "description": "Design Phase 19 surfaces with Mobbin",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-15 15:00",
+      "scope": "docs/design/v2/phase19-*.md (new files only) and docs/design/v2/README.md or index (if one exists, add links). No source code edits: four agents are editing smartsched/frontend right now. Do not edit docs/design/v2/motion.md (the motion agent owns it). GOAL: production-ready UX specs for the Phase 19 surfaces of SmartSched, a university timetabling + room booking admin panel and a superset of clas…",
+      "goal": "production-ready UX specs for the Phase 19 surfaces of SmartSched, a university timetabling + room booking admin panel and a superset of classroombookings, built with Next.js and a Liquid Glass UI. Users are Turkish university schedulers and academicians.",
+      "ledger": "design-phase19-surfaces-2026-10-15 SCOPE: docs/design/v2/phase19-*.md (new files…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
