@@ -6,6 +6,7 @@
  * re-solve whose preview is /moderation/recreate/[runId]. A user without planning.view sees "Taleplerim"
  * (their own requests, Q11) or a plain explanation when no instructor record is linked to the account.
  */
+import { useQuery } from "@tanstack/react-query";
 import { CircleDashed, RefreshCw, Search, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
@@ -23,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTermContext } from "@/components/timetable/use-calendar-data";
 import { HttpError } from "@/lib/api/client";
 import { useBookingContext } from "@/lib/api/crbs";
-import { useMatchings, usePeople, usePreferences, type Matching, type PersonRow, type Preference } from "@/lib/api/moderation";
+import { moderationApi, useMatchings, usePeople, usePreferences, type Matching, type PersonRow, type Preference } from "@/lib/api/moderation";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { springs, tween, useReduce } from "@/lib/motion";
@@ -458,7 +459,10 @@ function MyRequests() {
   const term = session ?? (termId !== null ? { code: "" } : undefined);
   const q = useMatchings(termId);
   const mobile = usePhone();
-  const forbidden = q.error instanceof HttpError && q.error.status === 403;
+  // no term visible to this account (unselectable sessions): ask the scope check alone. The history read checks
+  // the instructor link before the id, so id 0 answers 403 (not linked) or 404 (linked)
+  const probe = useQuery({ queryKey: ["moderation", "link-probe"], queryFn: () => moderationApi.history(0), enabled: ctx.isFetched && termId === null, retry: false });
+  const forbidden = (q.error instanceof HttpError && q.error.status === 403) || (probe.error instanceof HttpError && probe.error.status === 403);
   const items = sortMatchings(q.data?.items ?? []);
   const me = ownInstructorId(items);
   return (
@@ -468,7 +472,7 @@ function MyRequests() {
         <EmptyState data-testid="mine-unlinked" title={t("moderation.mine.unlinkedTitle")} description={t("moderation.mine.unlinked")} />
       ) : q.isError ? (
         <p role="alert" className="type-callout text-label-2">{t("moderation.loadError")}</p>
-      ) : ctx.data && termId === null ? (
+      ) : ctx.data && termId === null && probe.isFetched ? (
         <EmptyState title={t("moderation.mine.emptyTitle")} description={t("moderation.mine.noTerm")} />
       ) : !q.data ? (
         <ConsoleSkeleton />
