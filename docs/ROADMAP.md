@@ -813,3 +813,15 @@ Request: every request for an empty slot goes to an admin first; the admin appro
   - the requester sees the reason in My bookings, the bell and e-mail
   - Profile › Bildirimler channel preferences
   - later: "Connect a channel" and an SSO button once the provider is chosen
+
+### Standing flow loop: test → suggest → build → re-test (owner request 2026-10-15 22:20)
+For every feature flow (e.g. request an empty slot → admin approves or rejects with a reason → the user is notified):
+1. Testers: staff, academician and admin personas run the flow step by step on a frozen snapshot of HEAD, at 1440, 768 and 390 px (touch), from scripts in docs/testing/flows/F-xx-*.md.
+2. Suggester: consolidates their reports into tickets under "Flow loop tickets" (id, flow, step, severity, owner area, file hints, acceptance check), de-duplicated against this roadmap, plus enhancements ranked by user value.
+3. Builders: the owner agents implement in non-overlapping scopes, test-first.
+4. Re-test: the same personas re-run the flow; each ticket is marked verified or reopened.
+Mobile is part of the definition of done for every screen: docs/testing/flows/MOBILE.md (390×844 and 768×1024). That means no horizontal scroll, 44 px targets, bottom sheets, sticky primary actions, card lists for tables, a day/agenda timetable on phones, and no hover-only affordances. The builders already have these criteria.
+- [ ] Flow scripts + MOBILE.md + SUGGESTER.md (test planner, running)
+- [ ] First loop round when the design-system overhaul, the shell sweep, approval-first bookings and the P19 UI land.
+### Flow loop tickets
+(The suggester appends here.)

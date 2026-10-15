@@ -1,7 +1,7 @@
 "use client";
 /**
- * Room card (Liquid Glass v2): an opaque content card on the scene (A8: content is not glass; 80+ cards would also be 80+ blur passes). A real photo when the room has one; otherwise a
- * code tile (fills + type only: no gradient, no placeholder image, liquid-glass.md A1/A3). One state badge
+ * Room card (Liquid Glass v2): an opaque content card on the scene (A8: content is not glass; 80+ cards would also be 80+ blur passes). A real photo when the room has one; no
+ * avatar circle otherwise (it only repeated the title, review 2026-10-15 §3 Rooms). One state badge
  * at most ("Kapalı"), tags as plain words (A4). The Mon–Fri bars are opaque marks (A8), their heights are
  * the day shares of the chosen week; the line under them says what holds the room right now.
  */
@@ -73,16 +73,19 @@ export function RoomCard({ room, grid, week, now, href }: { room: Room; grid: Ro
       aria-label={label}
       data-testid="room-card"
       data-room-id={room.id}
-      className="group/room flex flex-col gap-3 rounded-2xl bg-(--mat-regular-solid) p-3 shadow-[0_0_0_1px_var(--hairline),var(--ambient-1)] transition-colors duration-(--dur-fast) hover:bg-[color-mix(in_srgb,var(--mat-regular-solid),var(--label-1)_4%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
+      className="group/room flex flex-col gap-3 rounded-xl bg-(--mat-regular-solid) p-3 edge-hairline transition-colors duration-(--dur-fast) hover:bg-[color-mix(in_srgb,var(--mat-regular-solid),var(--label-1)_4%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
     >
       <div className="flex items-start gap-3">
-        <RoomVisual room={room} variant="tile" />
+        {room.photo_url ? <RoomVisual room={room} variant="tile" /> : null}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-center gap-2">
             <span className="type-headline truncate">{room.display_name}</span>
             {!room.is_bookable ? <Badge variant="secondary" tone="preoccupied">{t("roomsV2.notBookable")}</Badge> : null}
           </span>
-          <span className="truncate type-callout text-label-1 tabular-nums">{meta}</span>
+          <span className="flex flex-wrap gap-x-2 type-callout text-label-1 tnum">
+            <span>{t("roomsV2.seats", { n: room.capacity })}</span>
+            <span className="text-label-2">{t("roomsV2.examSeats", { n: room.exam_capacity })}</span>
+          </span>
           <span className="truncate type-footnote text-label-2">{[floor, ...tags].filter(Boolean).join(" · ") || " "}</span>
         </div>
       </div>
@@ -90,11 +93,11 @@ export function RoomCard({ room, grid, week, now, href }: { room: Room; grid: Ro
         {shares ? (
           <span className="flex h-8 items-end gap-[3px]" aria-hidden>
             {shares.map((s, i) => (
-              <span key={TEACHING_DAYS[i]} className="flex w-3 flex-col items-center gap-0.5">
+              <span key={TEACHING_DAYS[i]} className="flex w-6 flex-col items-center gap-0.5">
                 <span className="flex h-6 w-full items-end overflow-hidden rounded-[3px] bg-fill-3">
                   <span className="w-full rounded-[3px] bg-label-2" style={{ height: `${Math.max(s > 0 ? 8 : 0, Math.round(s * 100))}%` }} />
                 </span>
-                <span className="text-2xs leading-none text-label-3">{dayName(TEACHING_DAYS[i], locale, "short").slice(0, 1)}</span>
+                <span className="text-2xs leading-none text-label-3">{dayName(TEACHING_DAYS[i], locale, "short")}</span>
               </span>
             ))}
           </span>

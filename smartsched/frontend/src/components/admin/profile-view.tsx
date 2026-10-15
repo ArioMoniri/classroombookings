@@ -79,7 +79,8 @@ function ProfileForm({ data }: { data: Profile }) {
             });
           }}
         >
-          <div className="grid gap-3 sm:grid-cols-2">
+          {/* UI/UX review §3: one column of 360 px fields */}
+          <div className="grid max-w-[360px] gap-3">
             <Field label={t("crbs.users.firstname")} htmlFor="pf-first">
               <Input id="pf-first" value={f.firstname} onChange={(e) => set("firstname", e.target.value)} />
             </Field>
@@ -161,7 +162,7 @@ function PasswordForm({ forced }: { forced: boolean }) {
             });
           }}
         >
-          <div ref={ref} className="t-input grid gap-3 sm:grid-cols-3">
+          <div ref={ref} className="t-input grid max-w-[360px] gap-3">
             <Field label={t("crbs.profile.current")} htmlFor="pw-cur">
               <Input id="pw-cur" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
             </Field>

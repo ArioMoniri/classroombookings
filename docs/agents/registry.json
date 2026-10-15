@@ -1109,6 +1109,26 @@
       "ledger": "integrations-research-2026-10-15 SCOPE: write only docs/product/2026-10-15-integ…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a1991d934e97daccb",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 22:22",
+      "left_off": "go with the recommended ones n deploy to pod when green"
+    },
+    {
+      "id": "ac220d60fc5d6be6f",
+      "description": "Flow test scripts + mobile criteria",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-15 22:23",
+      "scope": "write only docs/testing/flows/** (new). No source edits. GOAL: the owner wants a standing loop: tester and suggester agents check each flow step by step (academician, staff and admin personas, on desktop AND mobile), then builder agents fix, then testers re-verify. Write the step-by-step test scripts and acceptance criteria those testers will run. They must be precise enough that a fresh agent can…",
+      "goal": "the owner wants a standing loop: tester and suggester agents check each flow step by step (academician, staff and admin personas, on desktop AND mobile), then builder agents fix, then testers re-verify. Write the step-by-step test scripts and acceptance criteria those testers will run. They must be precise enough that a fresh agent can run them with Playwright on a real stack and report pass/fail …",
+      "ledger": "flow-test-plan-2026-10-15 SCOPE: write only docs/testing/flows/** (new). No sour…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

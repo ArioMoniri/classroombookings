@@ -139,6 +139,11 @@ function AiCard() {
           <CardDescription>{t("glass.settings.modelHint")}</CardDescription>
         </CardHeader>
         <CardContent>
+          {/* UI/UX review §3: without a key the card held only a disabled Save */}
+          {!masked ? (
+            <p className="type-callout text-label-2" data-testid="model-needs-key">{t("settings.modelNeedsKey")}</p>
+          ) : (
+            <>
           <div role="radiogroup" aria-label={t("settings.model")}>
             {(s?.available_models ?? []).map((m) => (
               <label key={m} className="flex cursor-pointer items-center gap-3 py-2.5 text-[13px] [&:not(:last-child)]:hairline-b">
@@ -151,6 +156,8 @@ function AiCard() {
             ))}
           </div>
           <Button size="sm" className="mt-3" onClick={() => void saveModel()} disabled={!s || model === s.anthropic_model || update.isPending} data-testid="save-model">{t("common.save")}</Button>
+            </>
+          )}
         </CardContent>
       </Card>
       {/* the one AI-policy control: the council's council_ai_enabled setting is an alias of it (app/ai/policy.py) */}
@@ -340,7 +347,7 @@ export function SettingsView() {
   const requested = params.get("tab") ?? (admin ? "ai" : "appearance");
   const tab = tabs.some((x) => x.value === requested) ? requested : "appearance";
   return (
-    <div className="mx-auto max-w-[880px]" data-testid="settings">
+    <div className="max-w-[960px]" data-testid="settings">
       <PageHeader title={t("settings.title")} subtitle={admin ? t("settings.subtitle") : t("glass.settings.subtitleUser")} />
       <Tabs value={tab} onValueChange={(v) => router.replace(`/settings?tab=${String(v)}`)}>
         <TabsList className="mb-5 max-w-full overflow-x-auto">
