@@ -12,6 +12,8 @@ export interface NavItem {
   badge?: "needsReview" | "running" | "approvals";
   /** shown only with any of these permissions (GET /auth/me permissions[]) */
   permission?: string | string[];
+  /** hidden for users who hold this permission */
+  hideWith?: string;
 }
 export interface NavGroup {
   labelKey: MessageKey;
@@ -61,8 +63,8 @@ const BOOKING_PREFIXES = ["/bookings", "/my-bookings", "/find-room", "/approvals
 
 /** The planning groups plus the CRBS-parity entries: bookings first, admin/setup/profile under "Admin". */
 export function allNavGroups(): NavGroup[] {
-  const extra = ADMIN_NAV_ITEMS.map((i): NavItem => ({ href: i.href, labelKey: i.labelKey, icon: i.icon, permission: i.permission, badge: i.badge, key: i.key }));
-  const bookings = extra.filter((i) => BOOKING_PREFIXES.some((p) => i.href.startsWith(p)));
+  const extra = ADMIN_NAV_ITEMS.map((i): NavItem & { bookings?: boolean } => ({ href: i.href, labelKey: i.labelKey, icon: i.icon, permission: i.permission, badge: i.badge, key: i.key, hideWith: i.hideWith, bookings: i.bookings }));
+  const bookings = extra.filter((i) => i.bookings || BOOKING_PREFIXES.some((p) => i.href.startsWith(p)));
   const admin = extra.filter((i) => !bookings.includes(i));
   const groups = NAV_GROUPS.map((g) => (g.labelKey === "nav.admin" ? { ...g, items: [...g.items, ...admin.filter((a) => !g.items.some((x) => x.href === a.href))] } : g));
   return bookings.length ? [{ labelKey: "glass.shell.bookings", items: bookings }, ...groups] : groups;
@@ -71,7 +73,7 @@ export function allNavGroups(): NavGroup[] {
 /** Groups and items the user may open (`can` from usePermissions). Empty groups disappear. */
 export function visibleNavGroups(can: (perm: string | readonly string[] | undefined) => boolean): NavGroup[] {
   return allNavGroups()
-    .map((g) => ({ ...g, items: g.items.filter((i) => can(i.permission)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => can(i.permission) && !(i.hideWith && can(i.hideWith))) }))
     .filter((g) => g.items.length > 0);
 }
 

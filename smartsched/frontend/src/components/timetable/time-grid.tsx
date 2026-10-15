@@ -1051,7 +1051,7 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
         {drag ? (
           <motion.div ref={ghostRef} className="pointer-events-none absolute top-0 left-0 z-30" style={{ x: ghostX, y: ghostY, width: colW - 4 }}>
             <motion.div initial={{ scale: 1 }} animate={{ scale: reduce ? 1 : 1.03 }} transition={springs.snappy} className="relative">
-              <motion.div aria-hidden className="pointer-events-none absolute inset-0 -z-10 rounded-[6px] shadow-[0_12px_32px_-8px_rgb(0_0_0/0.35)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: dur.fast }} />
+              <motion.div aria-hidden className="pointer-events-none absolute inset-0 -z-10 rounded-[6px] shadow-elev-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: dur.fast }} />
               <div className="cal-chip" style={{ ...chipVars(drag.ev.a.slot), position: "relative", height: spanHeight(rows, drag.ev.sp, drag.ev.ep) }}>
                 <span className="cal-code truncate">{drag.ev.a.code ?? drag.ev.a.label}{multi ? ` +${drag.aids.length - 1}` : ""}</span>
                 <span className="cal-line2 truncate">{props.line2(drag.ev)}</span>

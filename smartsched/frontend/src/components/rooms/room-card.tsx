@@ -47,7 +47,7 @@ export function RoomVisual({ room, variant, className }: { room: Pick<Room, "pho
   const number = room.display_name.replace(new RegExp(`^${room.building_code}\\s*`), "") || room.code;
   if (variant === "hero") return null;
   return (
-    <span aria-hidden className={cn("flex size-14 shrink-0 flex-col items-center justify-center rounded-xl bg-fill-2 leading-none shadow-[inset_0_0_0_1px_var(--hairline)]", className)}>
+    <span aria-hidden className={cn("flex size-14 shrink-0 flex-col items-center justify-center rounded-xl bg-fill-2 leading-none edge-hairline", className)}>
       <span className="type-caption font-semibold text-label-2">{room.building_code}</span>
       <span className="mt-0.5 type-title-3 font-semibold tracking-[-0.01em] text-label-1 tabular-nums">{number}</span>
     </span>

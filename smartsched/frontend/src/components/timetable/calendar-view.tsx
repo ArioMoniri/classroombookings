@@ -746,7 +746,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       {sidebarOpen && model && runId !== null && !embedded ? (
         <CalendarSidebar
           ref={searchRef}
-          className={cn("w-[272px] shrink-0", !wide && "absolute inset-y-0 left-0 z-40 shadow-[var(--ambient-3)]")}
+          className={cn("w-[272px] shrink-0", !wide && "absolute inset-y-0 left-0 z-40 shadow-elev-3")}
           model={model}
           term={data.term}
           runs={data.runs}

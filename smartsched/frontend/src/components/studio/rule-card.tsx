@@ -92,7 +92,7 @@ export function RuleCard(p: RuleCardProps) {
       onMouseEnter={p.onHover ? () => p.onHover?.(true) : undefined}
       onMouseLeave={p.onHover ? () => p.onHover?.(false) : undefined}
       className={cn(
-        "outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) group/rule rounded-[var(--radius-md)] border bg-card p-3 text-sm shadow-[var(--shadow-1)] sm:p-4",
+        "outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) group/rule rounded-[var(--radius-md)] border bg-card p-3 text-sm shadow-elev-1 sm:p-4",
         p.proposal && "border-dashed border-primary/50 bg-tint-soft/40",
         p.enabled === false && "opacity-60",
         p.clash && "border-status-infeasible-border",
@@ -176,7 +176,7 @@ export function RuleCard(p: RuleCardProps) {
             <>
               <q lang={p.writtenIn ?? (/[çğıöşüİ]/i.test(p.nlText) ? "tr" : locale)}>{p.nlText}</q>
               {p.writtenIn ? (
-                <span className="ml-1.5 inline-block rounded-sm px-1 py-px align-[1px] text-2xs font-medium text-label-2 shadow-[inset_0_0_0_1px_var(--hairline)]" data-testid="written-in">
+                <span className="ml-1.5 inline-block rounded-sm px-1 py-px align-[1px] text-2xs font-medium text-label-2 edge-hairline" data-testid="written-in">
                   {t("studio.rule.writtenIn", { lang: p.writtenIn.toUpperCase() })}
                 </span>
               ) : null}

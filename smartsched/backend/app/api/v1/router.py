@@ -119,3 +119,7 @@ api_router.include_router(learning.router)
 from app.api.v1 import moderation  # noqa: E402
 
 api_router.include_router(moderation.router)
+
+from app.api.v1 import sso  # noqa: E402  (Entra ID sign-in, /auth/sso; app/services/sso.py)
+
+api_router.include_router(sso.router)

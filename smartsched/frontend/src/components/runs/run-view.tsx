@@ -111,7 +111,7 @@ function SolveProgress({ r }: { r: ScheduleRun }) {
       variant="list"
       rows={rows}
       labels={{ completed: t("glass.report.taskDone"), failed: t("glass.report.taskFailed"), retry: t("common.retry"), running: t("glass.report.taskRunning"), pending: t("glass.report.taskPending") }}
-      className="mt-4 ![background:var(--fill-3)] ![backdrop-filter:none] ![-webkit-backdrop-filter:none] !shadow-[inset_0_0_0_1px_var(--hairline)]"
+      className="mt-4 ![background:var(--fill-3)] ![backdrop-filter:none] ![-webkit-backdrop-filter:none] !edge-hairline"
     />
   );
 }

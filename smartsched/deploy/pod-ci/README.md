@@ -20,7 +20,7 @@ nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
 | Gate | Where | What | Blocking |
 |---|---|---|---|
 | `prepare` | host | builds `smartsched-podci-python:<hash>` (backend base image + make/git/PyYAML), pulls `mcr.microsoft.com/playwright:v<locked version>-noble` | yes |
-| `validate` | host | `smartsched/deploy/validate.sh` | yes |
+| `validate` | host | `smartsched/deploy/validate.sh`, then the docs check: `python3 -I scripts/docs/sync_docs.py --check` (every generated `<!-- AUTO:... -->` block matches its source) and the generator's unit tests | yes |
 | `backend` | python CI container | `make check` (PostgreSQL tests against a `postgres` service container: the compose-pinned image, tmpfs, `TEST_POSTGRES_URL`), solver gate, AI gate, exactly one Alembic head, fresh `alembic upgrade head` on SQLite and PostgreSQL; installs with `requirements.lock` as constraints | yes |
 | `infra` | python CI container | ruff + pytest for `infra/aws` and this directory | yes |
 | `frontend` | Playwright container | `npm ci`, `npm run check` (tsc + eslint + vitest) | yes |

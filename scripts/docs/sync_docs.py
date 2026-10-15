@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import datetime as dt
 import difflib
 import json
@@ -292,6 +293,9 @@ def gen_status(ctx: Context) -> str:
 
     out = [f"{summary} (from {ctx.link(FEATURES, '`docs/features.yml`')}).", ""]
     if only:
+        out[0] = (f"{summary}. {STATUSES[only]} items only; the full list is in "
+                  f"{ctx.link('docs/STATUS.md', '`docs/STATUS.md`')} "
+                  f"(source: {ctx.link(FEATURES, '`docs/features.yml`')}).")
         chosen = [i for i in items if i["status"] == only]
         out += table(["Feature", "Area", "Evidence"],
                      [[i["feature"], AREAS[i["area"]].split(" (")[0], evidence(i)] for i in chosen])
@@ -352,7 +356,8 @@ def gen_roadmap(ctx: Context) -> str:
 
 #: "User decisions (...)", "Owner decisions ...", "Solver decisions (owner, ...)", "Phase 19 UX decisions (owner, ...)"
 DECISION_LINE_RE = re.compile(
-    r"^(?:#{2,4}\s+)?(?P<title>(?=[A-Z])[^\n]*?(?:\b(?:[Oo]wner|[Uu]ser) decisions\b|\bdecisions \((?:owner|user),)[^\n]*)$")
+    r"^(?:#{2,4}\s+)?(?P<title>(?=[A-Z])[^\n]*?"
+    r"(?:\b(?:[Oo]wner|[Uu]ser) decisions\b|\bdecisions \((?:owner|user),)[^\n]*)$")
 
 
 @dataclass
@@ -509,7 +514,7 @@ def _const_strings(node: ast.AST | None) -> tuple[str, ...]:
 
 def first_sentence(doc: str) -> str:
     para = " ".join(doc.strip().split("\n\n", 1)[0].split())
-    sentence = re.split(r"(?<=[a-z0-9)\]`])\.\s|:\s(?=[A-Z])", para, maxsplit=1)[0]
+    sentence = re.split(r"(?<=[A-Za-z0-9)\]`])\.\s", para, maxsplit=1)[0]
     return shorten(sentence.rstrip(".:"), 120)
 
 
@@ -696,7 +701,7 @@ def record_podci(root: Path, db: Path, branch: str | None) -> dict[str, Any]:
         steps = con.execute("SELECT * FROM steps WHERE run_id=? ORDER BY seq", (run["id"],)).fetchall()
     finally:
         con.close()
-    finished = dt.datetime.fromtimestamp(float(run["finished_at"]), tz=dt.timezone.utc)
+    finished = dt.datetime.fromtimestamp(float(run["finished_at"]), tz=dt.UTC)
     entry = {
         "where": "pod",
         "branch": run["branch"],
@@ -836,10 +841,8 @@ def read_formats(root: Path) -> tuple[list[dict[str, Any]], list[tuple[str, str]
     defaults: dict[str, int] = {}
     for node in core.body:
         if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
-            try:
+            with contextlib.suppress(SyncError):  # only the numeric constants (MiB, ...) matter
                 names[node.targets[0].id] = _num(node.value, names)
-            except SyncError:
-                pass
         if isinstance(node, ast.ClassDef) and node.name == "FormatLimits":
             for f in node.body:
                 if isinstance(f, ast.AnnAssign) and isinstance(f.target, ast.Name) and f.value is not None:
@@ -912,7 +915,7 @@ def git_head(root: Path) -> tuple[str, str] | None:
     if res.returncode != 0 or "\t" not in res.stdout:
         return None
     sha, ts = res.stdout.strip().split("\t", 1)
-    when = dt.datetime.fromtimestamp(int(ts), tz=dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    when = dt.datetime.fromtimestamp(int(ts), tz=dt.UTC).strftime("%Y-%m-%d %H:%M UTC")
     return sha[:7], when
 
 
@@ -972,7 +975,8 @@ def render_text(text: str, ctx: Context, where: str = "<text>") -> tuple[str, li
         if content is None:
             body = b.body
         else:
-            body = (nl.join(content.strip("\n").split("\n")) + nl) if content.strip() else ""
+            # a blank line on each side, so a table or list never runs into a marker line
+            body = (nl + nl.join(content.strip("\n").split("\n")) + nl + nl) if content.strip() else ""
         if body != b.body and b.name not in VOLATILE:
             stale.append(b.label)
         out.append(body)
@@ -984,7 +988,7 @@ def render_text(text: str, ctx: Context, where: str = "<text>") -> tuple[str, li
 def markdown_files(root: Path) -> list[Path]:
     found = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".") or d == ".github")
+        dirnames[:] = sorted(d for d in dirnames if (d not in SKIP_DIRS and not d.startswith(".")) or d == ".github")
         for fn in filenames:
             if fn.endswith(".md"):
                 found.append(Path(dirpath) / fn)

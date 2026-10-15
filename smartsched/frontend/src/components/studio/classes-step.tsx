@@ -452,14 +452,14 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-2xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] p-6 text-center text-sm">
+        <div className="rounded-2xl bg-fill-3 edge-hairline p-6 text-center text-sm">
           <p>{t("studio.scope.nothingToPlan")}</p>
           <Button className="mt-3" render={<Link href={kind === "EXAM" ? "/import?source=exam" : "/import?source=planning"} />}>
             {t("studio.scope.importCta")}
           </Button>
         </div>
       ) : shown.length === 0 ? (
-        <div className="rounded-2xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] p-6 text-center text-sm text-label-2" data-testid="classes-empty">
+        <div className="rounded-2xl bg-fill-3 edge-hairline p-6 text-center text-sm text-label-2" data-testid="classes-empty">
           {t("studio.classes.empty")}{" "}
           <button type="button" className="font-medium text-tint-text underline" onClick={() => setFilters(EMPTY_FILTERS)}>
             {t("studio.classes.clear")}
@@ -573,7 +573,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
       {/* selection bar (audit T8): rises 8 px + fades in on the smooth spring, leaves faster; reduced: 100 ms fade */}
       <AnimatePresence>
       {selected.size > 0 ? (
-        <motion.div key="bulk-bar" initial={reduce ? { opacity: 0 } : { y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1, transition: reduce ? tween.reduced : springs.smooth }} exit={{ opacity: 0, transition: reduce ? tween.reduced : tween.fadeOut }} className="sticky bottom-20 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-popover p-2 text-sm shadow-[var(--shadow-2)] xl:bottom-3" role="toolbar" aria-label={t("studio.classes.bulk")} data-testid="bulk-bar">
+        <motion.div key="bulk-bar" initial={reduce ? { opacity: 0 } : { y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1, transition: reduce ? tween.reduced : springs.smooth }} exit={{ opacity: 0, transition: reduce ? tween.reduced : tween.fadeOut }} className="sticky bottom-20 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-popover p-2 text-sm shadow-elev-2 xl:bottom-3" role="toolbar" aria-label={t("studio.classes.bulk")} data-testid="bulk-bar">
           <span className="px-1 font-medium">{t("studio.classes.selected", { n: n(selected.size) })}</span>
           <Button size="sm" variant="outline" onClick={() => exclude([...selected], t("studio.history.leftOut"))} data-testid="bulk-leave-out">
             {t("studio.classes.leaveOut")}

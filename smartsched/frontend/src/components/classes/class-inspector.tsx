@@ -61,7 +61,7 @@ function WeekSquares({ all, placed, label }: { all: number[]; placed: number[]; 
   return (
     <span className="flex flex-wrap items-center gap-[3px]" role="img" aria-label={label}>
       {all.map((w) => (
-        <span key={w} aria-hidden className={cn("size-2.5 rounded-[2px]", set.has(w) ? "bg-label-2" : "shadow-[inset_0_0_0_1px_var(--hairline-strong)]")} title={String(w)} />
+        <span key={w} aria-hidden className={cn("size-2.5 rounded-[2px]", set.has(w) ? "bg-label-2" : "edge-hairline-strong")} title={String(w)} />
       ))}
     </span>
   );

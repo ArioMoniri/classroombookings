@@ -149,7 +149,7 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
                       onClick={(e) => pickWeek(w.index, e.metaKey || e.ctrlKey || e.shiftKey)}
                       className={cn(
                         "flex min-w-14 flex-col items-center rounded-xl px-2.5 py-1.5 type-footnote outline-hidden transition-[background-color,color,transform] duration-(--dur-fast) ease-(--spring-snappy) active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus) pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
-                        on ? "bg-tint-soft text-tint-text shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_35%,transparent)]" : "bg-fill-3 text-label-1 shadow-[inset_0_0_0_1px_var(--hairline)] hover:bg-fill-2",
+                        on ? "bg-tint-soft text-tint-text edge-tint" : "bg-fill-3 text-label-1 edge-hairline hover:bg-fill-2",
                         holiday && "hatch-preoccupied",
                       )}
                       data-testid={`week-${w.index}`}

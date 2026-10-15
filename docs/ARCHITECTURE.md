@@ -99,6 +99,7 @@ repo root
 Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.py` (do not edit the block).
 
 <!-- AUTO:migrations -->
+
 21 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0025_approval_first`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
@@ -115,7 +116,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 10 | `0014_audit_events` | `0013_find_room` | Booking enhancements wave 1, P7 audit log (docs/product/booking-enhancements.md §4.6): the append-only… |
 | 11 | `0015_approvals` | `0014_audit_events` | Booking enhancements wave 1, P1 approval workflows (docs/product/booking-enhancements.md §4.3, user decisions… |
 | 12 | `0016_course_code_keys` | `0015_approvals` | Course codes: one course per code key (planner comparison follow-up, importer item 1b) |
-| 13 | `0017_course_code_fold` | `0016_course_code_keys` | Course codes |
+| 13 | `0017_course_code_fold` | `0016_course_code_keys` | Course codes: Turkish letters folded in the code key (product-owner decision 2026-10-15) |
 | 14 | `0018_ai_proposal_decisions` | `0017_course_code_fold` | AI proposal decisions: every reviewed AI / upload / learned proposal and its outcome |
 | 15 | `0019_publish_guard_term_locks` | `0018_ai_proposal_decisions` | Publish guard + per-term write lock (review 2026-10-15 D4 / D8) |
 | 16 | `0020_council` | `0019_publish_guard_term_locks` | ingestion council: council_jobs, council_steps, council_artifacts |
@@ -124,6 +125,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 19 | `0023_learning` | `0022_kvkk_signoff_unseed` | Phase 19 learning lane (P19-L1) + catalogue batch (P19-C4) + priority columns (P19-M2) |
 | 20 | `0024_moderation_indexes` | `0023_learning` | Phase 19 moderation read models (P19-M1): indexes for a person's sections across terms and a term's sections of one… |
 | 21 | `0025_approval_first` | `0024_moderation_indexes` | Approval-first bookings (owner requirement 2026-10-15; docs/ROADMAP.md "Approval-first bookings") |
+
 <!-- /AUTO:migrations -->
 
 ## Solver contract (`app/solver/model.py`) — frozen for parallel work
@@ -257,6 +259,7 @@ on the server; the AI route only runs when an administrator has enabled AI intak
 a person's review. Generated from the registry entries by `scripts/docs/sync_docs.py`:
 
 <!-- AUTO:formats -->
+
 12 formats registered in [`app/council/formats*.py`](../smartsched/backend/app/council), detected by magic bytes first (the extension only breaks ties). Limits not listed are the `FormatLimits` defaults.
 
 | Format | Label | Extensions | Route | Limit | Registered in |
@@ -275,6 +278,7 @@ a person's review. Generated from the registry entries by `scripts/docs/sync_doc
 | `txt` | plain text | .txt .md .text | AI-assisted: off by default; every row reviewed | 2 MiB | `formats_text.py` |
 
 Recognised but refused, with a hint: `doc` (legacy .doc files are not read; save the file as .docx); `ppt` (legacy .ppt presentations are not read; export the slides as PDF); `pptx` (presentations are not read; export the slides as PDF); `odf-other` (OpenDocument text and presentations are not read; save the file as .docx or PDF); `zip` (zip archives are not unpacked; upload the files inside it); `ole2-other` (this Office file is not a workbook the council can read; save it as .xlsx).
+
 <!-- /AUTO:formats -->
 
 ## Event bus (booking side)

@@ -192,7 +192,7 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
                   return (
                     <li key={v.k}>
                       <button type="button" role="option" aria-selected={on} onClick={() => onChange(toggleValue(filters, field, v.k))} className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2", on && "bg-tint-soft")}>
-                        <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-[5px] text-2xs", on ? "bg-tint text-tint-foreground" : "shadow-[inset_0_0_0_1px_var(--hairline-strong)]")} aria-hidden>{on ? "✓" : ""}</span>
+                        <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-[5px] text-2xs", on ? "bg-tint text-tint-foreground" : "edge-hairline-strong")} aria-hidden>{on ? "✓" : ""}</span>
                         {field === "faculty" ? <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--fac-${rows.find((r) => String(r.faculty_id) === v.k)?.faculty_slot ?? 8}-bar)` }} /> : null}
                         <span className="min-w-0 flex-1 truncate">{v.l}</span>
                         <span className="type-caption text-label-3 tabular-nums">{n(v.c)}</span>

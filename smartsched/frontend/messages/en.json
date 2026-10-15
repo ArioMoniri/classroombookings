@@ -246,6 +246,7 @@
     "timeLimit": "Default time limit (s)", "workers": "Workers", "seed": "Seed", "weights": "Default soft weights",
     "saved": "Settings saved", "email": "E-mail", "role": "Role", "active": "Active", "inactive": "Inactive",
     "addUser": "Add user", "name": "Name", "language": "Language", "theme": "Theme", "replaceKey": "Replace key", "cancelReplace": "Keep current key", "modelNeedsKey": "Add an API key first; the models appear once it is saved.",
+    "learningTab": "Learning memory",
     "importHosts": {"tab": "Import", "title": "Live classroombookings databases", "lead": "The upgrade from classroombookings reads SQL dumps. A live MySQL connection is only allowed to the servers listed here (read-only).", "label": "Allowed database servers", "hint": "Comma separated host names or IP addresses, with an optional :port (3306 when omitted). No wildcards.", "empty": "Empty: no live database is allowed; upgrades use SQL dumps only.", "failed": "The list could not be saved."},
     "aiPolicy": {
       "title": "AI policy (KVKK)",
@@ -1247,6 +1248,7 @@
     },
     "nav": {
       "bookings": "Bookings",
+      "myRequests": "My requests",
       "myBookings": "My bookings",
       "admin": "Setup",
       "profile": "Profile"

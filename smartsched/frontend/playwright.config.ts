@@ -18,7 +18,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: /(real-backend|bookings|calendar|languages|motion-audit|smoke|admin-gaps|reserve|wave1|studio-calendar-sweep|shell-admin-sweep|phase19)\.spec\.ts/,
+  testMatch: /(real-backend|bookings|calendar|languages|motion-audit|smoke|admin-gaps|reserve|wave1|studio-calendar-sweep|shell-admin-sweep|phase19|visual-quality)\.spec\.ts/,
   globalSetup: REAL ? "./e2e/global-setup.ts" : undefined,
   timeout: 60_000,
   expect: { timeout: 10_000 },
@@ -31,7 +31,11 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    // design-system gate on a phone: 390 × 844, touch (pointer: coarse), visual-quality.spec.ts only
+    { name: "mobile", testMatch: /visual-quality\.spec\.ts/, use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } },
+  ],
   webServer: {
     command: `npx next build && npx next start -p ${PORT}`,
     url: `http://127.0.0.1:${PORT}/login`,

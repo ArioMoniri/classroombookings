@@ -20,6 +20,15 @@ Built-in channels
 * ``email``: a row in the e-mail outbox (``notification_outbox``, alembic 0021), sent after the commit by the
   integrations worker with retries; ``UNSENT`` without SMTP or without an address, as before.
 
+Events
+------
+:data:`EVENTS` lists every event a user can switch per channel: the approval workflow (``approval.*``, sent by
+:mod:`app.services.approvals`; approvers get one ``approval.requested`` per submission and an
+``approval.withdrawn`` when the requester withdraws) and the CRBS booking e-mails (``booking.created``,
+``booking.cancelled``, ``room_owner.booking``, sent by :mod:`app.services.bookings_notify` with their translatable
+templates). The e-mail channel stores the event as the outbox ``kind`` with ``_`` for ``.`` (``booking_created``,
+``approval_requested``), so the outbox screen and its filters keep their names.
+
 Extension point: a third channel
 --------------------------------
 An external integration provider (chosen after the research in docs/product/2026-10-15-integrations-options.md) is
@@ -68,8 +77,15 @@ EVENTS: dict[str, tuple[str, str]] = {
     "approval.requested": ("Onayımı bekleyen yeni oda talepleri", "New room requests awaiting my approval"),
     "approval.approved": ("Talebim onaylandı", "My request was approved"),
     "approval.rejected": ("Talebim reddedildi (gerekçesiyle)", "My request was declined (with the reason)"),
-    "approval.withdrawn": ("Talebimi geri çektim", "I withdrew my request"),
+    "approval.withdrawn": (
+        "Bir talep geri çekildi (benim ya da onayımı bekleyen)",
+        "A request was withdrawn (mine, or one awaiting my approval)",
+    ),
     "approval.expired": ("Talebimin süresi doldu", "My request expired"),
+    # the CRBS booking e-mails (app.services.bookings_notify), same templates and outbox kinds as before
+    "booking.created": ("Biri benim adıma rezervasyon yaptı", "Someone booked a room for me"),
+    "booking.cancelled": ("Rezervasyonum iptal edildi", "My booking was cancelled"),
+    "room_owner.booking": ("Sorumlu olduğum odaya rezervasyon yapıldı", "A room I look after was booked"),
 }
 
 

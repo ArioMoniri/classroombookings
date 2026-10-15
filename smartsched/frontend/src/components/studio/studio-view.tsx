@@ -309,7 +309,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
         <ol className="flex gap-1">
           {STUDIO_STEPS.map((s, i) => (
             <li key={s} className="shrink-0">
-              <button type="button" onClick={() => goStep(s)} aria-current={s === step ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex flex-col rounded-xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] px-3 py-1.5 text-left text-sm", s === step ? "bg-tint-soft text-tint-text" : "hover:bg-fill-2")} data-testid={`tab-step-${s}`}>
+              <button type="button" onClick={() => goStep(s)} aria-current={s === step ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex flex-col rounded-xl bg-fill-3 edge-hairline px-3 py-1.5 text-left text-sm", s === step ? "bg-tint-soft text-tint-text" : "hover:bg-fill-2")} data-testid={`tab-step-${s}`}>
                 <span className="font-medium">
                   {i + 1} {t(STEP_KEY[s])}
                 </span>

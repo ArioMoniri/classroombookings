@@ -307,7 +307,7 @@ function DayTimelineImpl(p: DayTimelineProps) {
           <>
             <motion.div className="cal-slot" layoutId={reduce ? undefined : "drop-slot"} transition={reduce ? { duration: 0 } : springs.snappy} data-state={!drag.check ? "ok" : !drag.check.ok ? "hard" : drag.check.soft.some((s) => s.code === "capacity") ? "soft" : "ok"} style={{ left: xOf(drag.sp), width: wOf(drag.sp, drag.sp + drag.ev.ep - drag.ev.sp), top: HEAD_H + drag.row * ROW_H + 4, height: ROW_H - 8 }} />
             <motion.div className="pointer-events-none absolute top-0 left-0 z-30" style={{ x: gx, y: gy }}>
-              <motion.div initial={{ scale: 1 }} animate={{ scale: reduce ? 1 : 1.03 }} transition={springs.snappy} className="cal-chip shadow-[0_12px_32px_-8px_rgb(0_0_0/0.35)]" style={{ ...chipVars(drag.ev.a.slot), position: "relative", width: wOf(drag.ev.sp, drag.ev.ep), height: ROW_H - 8, justifyContent: "center" }}>
+              <motion.div initial={{ scale: 1 }} animate={{ scale: reduce ? 1 : 1.03 }} transition={springs.snappy} className="cal-chip shadow-elev-3" style={{ ...chipVars(drag.ev.a.slot), position: "relative", width: wOf(drag.ev.sp, drag.ev.ep), height: ROW_H - 8, justifyContent: "center" }}>
                 <span className="cal-code truncate">{drag.ev.a.code ?? drag.ev.a.label}</span>
               </motion.div>
               <div className="glass-thick mt-1 w-max max-w-[320px] rounded-full px-2.5 py-1 type-caption font-medium" role="status">

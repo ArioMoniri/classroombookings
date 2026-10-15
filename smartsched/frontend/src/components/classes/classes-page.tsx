@@ -501,7 +501,7 @@ export function ClassesPage() {
               const on = tab.id === viewParam;
               return (
                 <button key={tab.id} type="button" role="tab" aria-selected={on} onClick={() => setParam({ view: tab.id === "all" ? null : tab.id, id: null })} className={cn("relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 type-callout font-medium", on ? "text-label-1" : "text-label-2 hover:text-label-1")}>
-                  {on ? <motion.span layoutId="view-pill" transition={reduce ? { duration: 0 } : springs.glassMorph} aria-hidden className="absolute inset-0 -z-10 rounded-full bg-fill-2 shadow-[inset_0_0_0_1px_var(--hairline)]" style={{ borderRadius: 999 }} /> : null}
+                  {on ? <motion.span layoutId="view-pill" transition={reduce ? { duration: 0 } : springs.glassMorph} aria-hidden className="absolute inset-0 -z-10 rounded-full bg-fill-2 edge-hairline" style={{ borderRadius: 999 }} /> : null}
                   {tab.label}
                   {tab.count !== undefined ? <span className="type-footnote text-label-3 tabular-nums">{n(tab.count)}</span> : null}
                 </button>

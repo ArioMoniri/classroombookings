@@ -549,6 +549,13 @@
 @utility edge-control {
   box-shadow: var(--edge-control);
 }
+@utility edge-hairline-strong {
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+/* selection / pick ring drawn inside the element (cells, slots) */
+@utility edge-tint {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
 /* tabular numerals where numbers line up (cells, KPIs, times); never global (it widens hyphens) */
 @utility tnum {
   font-variant-numeric: tabular-nums;
@@ -705,7 +712,7 @@
 .studio-flash { outline: 2px solid var(--status-infeasible-border); outline-offset: 2px; transition: outline-color var(--dur-fast) var(--ease-out); }
 
 /* ---------- P0 focus (docs/review/2026-10-15-uiux-visual-review.md §2, row 1) ----------
-   Tailwind 4: `outline-none` / `outline-hidden` set --tw-outline-style:none and `focus-visible:outline-2`
+   Tailwind 4: the outline "none" / `outline-hidden` utilities set --tw-outline-style:none and `focus-visible:outline-2`
    reads outline-style:var(--tw-outline-style), so the pair drew nothing. This rule is deliberately
    UNLAYERED: unlayered declarations beat every @layer (utilities included), so any focus-visible width
    now paints a solid ring. It only sets the variable; elements that opt out with a literal

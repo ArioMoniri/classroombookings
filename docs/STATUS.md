@@ -16,7 +16,9 @@ catalogues); otherwise the validate gate fails on the stale block. Text outside 
 never rewritten.
 
 <!-- AUTO:last-updated -->
-Generated blocks last synced on top of commit `c1e0c9d` (committed 2026-10-15 22:57 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+
+Generated blocks last synced on top of commit `9b12ae3` (committed 2026-10-15 22:58 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+
 <!-- /AUTO:last-updated -->
 
 ## What is built
@@ -26,6 +28,7 @@ yet. *In progress* means an agent is building it now. Source: [`docs/features.ym
 lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays the detailed log.
 
 <!-- AUTO:status -->
+
 Done 22 · Backend only 8 · In progress 10 · Planned 3 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
@@ -100,12 +103,15 @@ Done 22 · Backend only 8 · In progress 10 · Planned 3 (from [`docs/features.y
 | Design-system overhaul from the UI/UX review (sizing, controls, columns, de-AI changes) | In progress | owner feedback 2026-10-15 | [`2026-10-15-uiux-visual-review.md`](review/2026-10-15-uiux-visual-review.md) |
 | README recordings and a real screenshot gallery for the current UI | In progress | 16 | [`record`](../scripts/record) |
 | Mobile optimisation of every screen (390 and 768 px) | Planned | owner instruction 2026-10-15 |  |
+
 <!-- /AUTO:status -->
 
 ## CRBS parity
 
 <!-- AUTO:parity -->
+
 **CRBS superset gate: PASS**: PASS 179 · GAP 13 · FAIL 0 · MISSING 0 of 192 rows, measured on commit `5d0e6c2` (2026-10-15 22:10 UTC) by `scripts/parity_check.py`. Full table: [`crbs-parity-report.md`](testing/crbs-parity-report.md).
+
 <!-- /AUTO:parity -->
 
 ## Pod CI gates
@@ -114,28 +120,31 @@ The validate gate also runs `sync_docs.py --check` and the generator's own tests
 (`smartsched/deploy/pod-ci/gates/validate.sh`).
 
 <!-- AUTO:gates -->
-10 gates in [`podci/gates.py`](../smartsched/deploy/pod-ci/podci/gates.py), run in this order for every new commit; `deploy` runs only on the deploy branch after every blocking gate is green.
-No recorded results (docs/testing/gate-results.json does not exist): pod CI keeps its runs in SQLite on the pod (`/ci/` page); `sync_docs.py --record-podci` copies the last one here.
 
-| Gate | Runs | Blocking | Needs |
-|---|---|---|---|
-| `prepare` | CI images (python CI image, Playwright image) | yes | - |
-| `validate` | deploy/validate.sh | yes | prepare |
-| `backend` | ruff + mypy + pytest + solver + migrations | yes | prepare |
-| `infra` | pod CI + AWS bootstrap tests | yes | prepare |
-| `frontend` | tsc + eslint + vitest | yes | prepare |
-| `e2e-real` | Playwright (all specs) vs real backend + Bahar fixtures | yes | frontend, backend |
-| `parity` | CRBS superset gate (scripts/parity_check.py) | yes | backend |
-| `planner` | planner-level validation (tools/validate_planner.py) | yes | backend |
-| `images` | docker build backend/frontend/crbs | yes | prepare |
-| `watchdog` | agent ledger report | no (report only) | prepare |
-| `deploy` | deploy.sh --update | yes | - |
+10 gates in [`podci/gates.py`](../smartsched/deploy/pod-ci/podci/gates.py), run in this order for every new commit; `deploy` runs only on the deploy branch after every blocking gate is green.
+Results with their commit and date from [`gate-results.json`](testing/gate-results.json) (local: the devops agent's run of every pod gate (docs/ROADMAP.md, 'Devops agent finished')).
+
+| Gate | Runs | Blocking | Needs | Local `5d0e6c2` (2026-10-15) |
+|---|---|---|---|---|
+| `prepare` | CI images (python CI image, Playwright image) | yes | - | success |
+| `validate` | deploy/validate.sh | yes | prepare | success |
+| `backend` | ruff + mypy + pytest + solver + migrations | yes | prepare | failure (a lint failure stopped it before pytest; formatted locally 1197 passed) |
+| `infra` | pod CI + AWS bootstrap tests | yes | prepare | success |
+| `frontend` | tsc + eslint + vitest | yes | prepare | success (378 tests) |
+| `e2e-real` | Playwright (all specs) vs real backend + Bahar fixtures | yes | frontend, backend | failure (forced; 72 passed, 1 failed (studio mapping-step)) |
+| `parity` | CRBS superset gate (scripts/parity_check.py) | yes | backend | success (forced; PASS 179 / GAP 13 / FAIL 0) |
+| `planner` | planner-level validation (tools/validate_planner.py) | yes | backend | success (forced; 0 violations on all 4) |
+| `images` | docker build backend/frontend/crbs | yes | prepare | error (did not finish: disk, needs 8 GB free) |
+| `watchdog` | agent ledger report | no (report only) | prepare | not recorded |
+| `deploy` | deploy.sh --update | yes | - | success (deploy smoke OK) |
+
 <!-- /AUTO:gates -->
 
 ## Agents
 
 <!-- AUTO:agents -->
-116 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 93 · stopped 7 · superseded 7.
+
+117 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 93 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -148,11 +157,14 @@ No recorded results (docs/testing/gate-results.json does not exist): pod CI keep
 | `signin-design-2026-10-15` | design-pro | 2026-10-15 22:46 |
 | `docs-autosync-2026-10-15` | general-purpose | 2026-10-15 22:48 |
 | `approval-notify-followups-2026-10-15` | backend-engineer | 2026-10-15 22:51 |
+| `p19-backend-gaps-2026-10-15` | backend-engineer | 2026-10-15 22:58 |
+
 <!-- /AUTO:agents -->
 
 ## Owner decisions
 
 <!-- AUTO:decisions -->
+
 Owner and user decisions recorded in [`docs/ROADMAP.md`](ROADMAP.md), newest first (title lines only; the full text is in the roadmap).
 
 - **2026-10-15 ~22:50**: Owner decisions: identity and sign-up
@@ -192,23 +204,27 @@ Owner and user decisions recorded in [`docs/ROADMAP.md`](ROADMAP.md), newest fir
   - No paid UI components: use the free parts the sites offer (only where their terms allow commercial use) or…
   - Status updates to the user are written BLUF (bottom line up front)
   - No privilege escalation
+
 <!-- /AUTO:decisions -->
 
 ## Languages
 
 <!-- AUTO:languages -->
+
 | Language | Backend offers | Frontend offers | Message catalogue |
 |---|---|---|---|
 | Turkish (`tr`) | yes | yes | complete (a value for every English key) |
 | English (`en`) | yes | yes | source catalogue |
 
 Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de es fi fr it nl pt pt-br sv. Their catalogues stay in [`messages/`](../smartsched/frontend/messages); a stored code is kept and shown in English.
+
 <!-- /AUTO:languages -->
 
 ## Roadmap progress
 
 <!-- AUTO:roadmap -->
-[`docs/ROADMAP.md`](ROADMAP.md): **136 ticked · 233 open** checkboxes in 47 sections (44 with open items).
+
+[`docs/ROADMAP.md`](ROADMAP.md): **137 ticked · 236 open** checkboxes in 48 sections (45 with open items).
 
 <details><summary>Per section</summary>
 
@@ -259,8 +275,10 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Devops agent finished: first full gate table (5d0e6c2) + seed profiles + per-branch pods | 0 | 1 |
 | Owner decisions 2026-10-15 ~22:45: channels + login (from… | 0 | 1 |
 | Owner decisions 2026-10-15 ~22:50: identity and sign-up | 0 | 1 |
-| Docs update automatically (owner request 2026-10-15 ~22:55) | 0 | 1 |
+| Docs update automatically (owner request 2026-10-15 ~22:55) | 1 | 1 |
 | Approval-first backend finished (0025_approval_first) | 0 | 2 |
+| Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend) | 0 | 3 |
 
 </details>
+
 <!-- /AUTO:roadmap -->

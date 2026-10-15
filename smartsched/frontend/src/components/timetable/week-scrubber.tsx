@@ -105,13 +105,13 @@ export function WeekScrubber({ weeks, week, occupancy, onWeek, onToday, todayWee
                     layoutId="scrubber-thumb"
                     transition={reduce ? { duration: 0 } : springs.snappy}
                     aria-hidden
-                    className="pointer-events-none absolute -inset-x-0.5 -top-0.5 -bottom-0.5 rounded-[7px] bg-(--mat-thick) shadow-[inset_0_1px_0_0_var(--specular),0_0_0_1px_var(--hairline-strong),0_1px_3px_rgba(0,0,0,0.12)]"
+                    className="pointer-events-none absolute -inset-x-0.5 -top-0.5 -bottom-0.5 rounded-[7px] bg-(--mat-thick) shadow-elev-1"
                     style={{ borderRadius: 7 }}
                   />
                 ) : null}
                 <span
                   aria-hidden
-                  className={cn("relative h-5 w-3 overflow-hidden rounded-[3px]", exam ? "shadow-[inset_0_0_0_1px_var(--label-3)]" : "bg-fill-2", outside && "opacity-40")}
+                  className={cn("relative h-5 w-3 overflow-hidden rounded-[3px]", exam ? "edge-control" : "bg-fill-2", outside && "opacity-40")}
                   style={holiday ? { background: "repeating-linear-gradient(45deg, transparent 0 3px, var(--cal-line-strong) 3px 4px)" } : undefined}
                 >
                   {!holiday ? <span className="absolute inset-x-0 bottom-0 h-full origin-bottom bg-[var(--seq-3)]" style={{ transform: `scaleY(${Math.max(0.06, Math.min(1, occ))})`, opacity: exam ? 0.5 : 0.85 }} /> : null}

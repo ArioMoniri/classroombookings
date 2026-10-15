@@ -881,7 +881,7 @@ Before the first `up pod=universal`: re-apply the OIDC bootstrap once with infra
 - [ ] Sign-in page designed with the Mobbin connector (design agent running → docs/design/v2/sign-in.md); implemented by the dedicated SSO/channels frontend agent.
 
 ### Docs update automatically (owner request 2026-10-15 ~22:55)
-- [ ] scripts/docs/sync_docs.py rewrites only `<!-- AUTO:<name> -->` blocks from the sources of truth:
+- [x] scripts/docs/sync_docs.py rewrites only `<!-- AUTO:<name> -->` blocks from the sources of truth:
   - docs/features.yml
   - the parity report
   - the Alembic chain
@@ -890,7 +890,8 @@ Before the first `up pod=universal`: re-apply the OIDC bootstrap once with infra
   - the owner decisions
   - the intake formats
   - HEAD
-  It is idempotent; `--check` fails CI when the docs are stale. Agent running.
+  It is idempotent; `--check` fails CI when the docs are stale. (done 2026-10-15: blocks status [`only=done`], roadmap, decisions, parity [`gaps=yes`], migrations, gates, agents, languages, formats, last-updated; `--check` / `--list` / `--diff` / `--record-podci`; standard library only (features.yml is a YAML subset); 24 tests in scripts/docs/tests; the pod CI validate gate runs `sync_docs.py --check` + the tests. Blocks: docs/STATUS.md (all), docs/ARCHITECTURE.md (migrations, formats), docs/CRBS_PARITY.md §9 (parity gaps=yes), docs/PROGRESS.md (last-updated); README.md is handled once the media agent adds its markers. Recorded gate results: docs/testing/gate-results.json (the devops run at 5d0e6c2))
+- [ ] Every agent that touches a source (features.yml, ROADMAP, the registry, a migration, gates.py, formats, messages/*.json, the parity report) runs `python3 -I scripts/docs/sync_docs.py` before its commit, or the validate gate fails: add the line to docs/AGENTS.md and the agent prompts (orchestrator).
 - New docs/STATUS.md is the single "where are we" page. The README carries status/parity/last-updated blocks; the README agent inserts the markers.
 - The 30-min watchdog runs the sync before every commit. When a feature lands, it also updates docs/features.yml and the affected prose.
 

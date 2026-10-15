@@ -115,7 +115,7 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
                         aria-current={isToday ? "date" : undefined}
                         aria-pressed={!!isSel}
                         aria-label={`${iso}${inTerm ? `, ${t("calendar.sidebar.heatDot", { p: Math.round(occ * 100), c: h?.conflicts ?? 0 })}` : ""}`}
-                        className={cn("relative mx-auto flex size-7 flex-col items-center justify-center rounded-full", Number(iso.slice(5, 7)) !== m && "text-label-3", !inTerm && "text-label-3", isToday && "bg-tint font-semibold text-tint-foreground", isSel && !isToday && "shadow-[inset_0_0_0_1.5px_var(--accent)]")}
+                        className={cn("relative mx-auto flex size-7 flex-col items-center justify-center rounded-full", Number(iso.slice(5, 7)) !== m && "text-label-3", !inTerm && "text-label-3", isToday && "bg-tint font-semibold text-tint-foreground", isSel && !isToday && "edge-tint")}
                         title={inTerm ? t("calendar.sidebar.heatDot", { p: Math.round(occ * 100), c: h?.conflicts ?? 0 }) : undefined}
                       >
                         {Number(iso.slice(8))}

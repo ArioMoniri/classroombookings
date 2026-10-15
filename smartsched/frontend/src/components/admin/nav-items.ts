@@ -4,6 +4,7 @@
 // (CRBS shows Bookings to everyone; room-level rights come from ACLs the role list cannot see).
 import {
   BookMarked,
+  ClipboardList,
   Building2,
   CalendarDays,
   CalendarOff,
@@ -38,6 +39,10 @@ export interface AdminNavItem {
   key?: string;
   /** a live count next to the entry (the shell resolves it; wave 1: open approval requests) */
   badge?: "approvals";
+  /** hidden for users who hold this permission (they have a fuller entry for the same page) */
+  hideWith?: string;
+  /** listed with the bookings entries (sidebar group, tab bar) */
+  bookings?: boolean;
 }
 
 /** Primary destinations: put these in the sidebar / tab bar. */
@@ -49,6 +54,9 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // permission here; the approver inbox needs approvals.decide (GET /approvals/inbox answers [] without it)
   { href: "/find-room", labelKey: "wave1.nav.findRoom", icon: CalendarSearch },
   { href: "/approvals", labelKey: "wave1.nav.approvals", icon: Stamp, permission: "approvals.decide", badge: "approvals" },
+  // Phase 19: an academician (can book, no planning.view) sees their own planning requests on /moderation;
+  // planners keep the "Moderasyon" entry of the planning group
+  { href: "/moderation", labelKey: "crbs.nav.myRequests", icon: ClipboardList, permission: ["book_single.create", "book_recur.create"], hideWith: "planning.view", bookings: true },
   { href: "/admin", labelKey: "crbs.nav.admin", icon: Settings2, permission: [...SETUP_PERMISSIONS] },
 ];
 

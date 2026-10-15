@@ -60,7 +60,7 @@ class FakeEntra:
     def __post_init__(self) -> None:
         self.published = [self.key]
 
-    def claims(self, nonce: str, **over: Any) -> dict[str, Any]:
+    def claims(self, sent_nonce: str, /, **over: Any) -> dict[str, Any]:
         now = int(time.time())
         base: dict[str, Any] = {
             "ver": "2.0",
@@ -69,7 +69,7 @@ class FakeEntra:
             "tid": self.tenant,
             "oid": "00000000-0000-0000-66f3-3332eca7ea81",
             "sub": "AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ",
-            "nonce": nonce,
+            "nonce": sent_nonce,
             "iat": now,
             "nbf": now,
             "exp": now + 3600,

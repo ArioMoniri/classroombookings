@@ -434,6 +434,7 @@ The user's requirement: SmartSched has every classroombookings function and more
 `scripts/docs/sync_docs.py`; the dated measurements further down are the history):
 
 <!-- AUTO:parity gaps=yes -->
+
 **CRBS superset gate: PASS**: PASS 179 · GAP 13 · FAIL 0 · MISSING 0 of 192 rows, measured on commit `5d0e6c2` (2026-10-15 22:10 UTC) by `scripts/parity_check.py`. Full table: [`crbs-parity-report.md`](testing/crbs-parity-report.md).
 
 Rows not passing (13):
@@ -453,6 +454,7 @@ Rows not passing (13):
 | S-09 | Cancel dialog (one / future / all, reason) and cancel many | PASS (1) | PASS | GAP |
 | S-10 | Staff dashboard (my upcoming, rooms I own, totals, limits) | PASS (1) | GAP | GAP |
 | S-23 | E-mail (SMTP) settings, test message and outbox | PASS (1) | PASS | GAP |
+
 <!-- /AUTO:parity -->
 
 * **Inventory** — `smartsched/backend/tests/parity/inventory.py`, 192 rows since the wave-1 and calendar-sync

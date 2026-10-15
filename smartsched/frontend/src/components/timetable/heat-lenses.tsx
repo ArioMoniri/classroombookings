@@ -224,7 +224,7 @@ function HeatLegend({ metric, max }: { metric: HeatMetric; max: number }) {
     <div className="mt-3 flex flex-wrap items-center gap-1.5 type-caption text-label-2" aria-label={t("calendar.heat.legend")}>
       {labels.map((l, i) => (
         <span key={l + i} className="flex items-center gap-1">
-          <span className="cal-heat inline-block size-3.5 rounded-[4px] shadow-[inset_0_0_0_1px_var(--hairline)]" data-step={i} />
+          <span className="cal-heat inline-block size-3.5 rounded-[4px] edge-hairline" data-step={i} />
           {l}
         </span>
       ))}

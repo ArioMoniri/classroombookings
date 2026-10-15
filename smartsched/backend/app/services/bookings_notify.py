@@ -9,6 +9,7 @@ worker sends them after the commit (retries with backoff); see :func:`notify`.""
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import smtplib
 import ssl
 from datetime import datetime
@@ -149,7 +150,10 @@ async def next_due() -> datetime | None:
 
 
 # --------------------------------------------------------------------------------------------------
-# Booking notifications (event handlers)
+# Booking notifications (event handlers). Since 2026-10-15 they go through app.services.notify_dispatch: the
+# recipients' channel preferences apply (events booking.created / booking.cancelled / room_owner.booking), the
+# e-mail keeps its template and outbox kind, the in-app bell gets the same text, and the delivery ledger makes a
+# repeated hook a no-op.
 # --------------------------------------------------------------------------------------------------
 
 
@@ -177,6 +181,38 @@ async def _language(session: AsyncSession, user: User | None) -> str:
     return org_default
 
 
+async def _dispatch(
+    session: AsyncSession,
+    user: User,
+    *,
+    event: str,
+    key: str,
+    subject: str,
+    body: str,
+    link: str,
+    rows: list[Booking],
+    data: dict[str, Any],
+) -> None:
+    """Hand one booking notice to :mod:`app.services.notify_dispatch`: the user's channel preferences apply, the
+    e-mail keeps its outbox kind (``booking.created`` -> ``booking_created``) and its template text, the in-app copy
+    carries the same title and body, and the ledger key makes a re-run of the hook a no-op."""
+    from app.services import notify_dispatch as nd  # notify_dispatch imports this module
+
+    await nd.dispatch(
+        session,
+        user,
+        nd.Notice(
+            event=event,
+            key=key,
+            title=subject,
+            body=body,
+            link=link,
+            booking_id=rows[0].id,
+            data={"booking_ids": [b.id for b in rows], "room_id": rows[0].room_id, **data},
+        ),
+    )
+
+
 async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
     ids = payload.get("booking_ids") or [payload["booking_id"]]
     actor = await session.get(User, payload.get("actor_id")) if payload.get("actor_id") else None
@@ -185,6 +221,7 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
         return
     rows = [b for b in [await session.get(Booking, i) for i in ids] if b is not None]
     series = payload.get("series_id")
+    who = {"actor": {"id": actor.id, "name": _who(actor)} if actor else None, "series_id": series}
 
     async def items(lang: str) -> str:
         fmt = await bookings_i18n.formatter(session, lang)
@@ -195,14 +232,16 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
         if target is not None:
             lang = await _language(session, target)
             what = await items(lang)
-            await notify(
+            await _dispatch(
                 session,
-                kind="booking_created",
-                to_email=target.email,
+                target,
+                event="booking.created",
+                key=f"booking:{first.id}:created",
                 subject=await T(session, lang, "booking_created.subject", actor=_who(actor), count=len(rows)),
                 body=await T(session, lang, "booking_created.body", actor=_who(actor), count=len(rows), items=what),
-                user_id=target.id,
-                booking_id=first.id,
+                link="/bookings/mine",
+                rows=rows,
+                data=who,
             )
     room = await session.get(Room, first.room_id)
     if (
@@ -218,14 +257,16 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
         if owner is not None:
             lang = await _language(session, owner)
             tag = await T(session, lang, "room_owner.series", series_id=series) if series else ""
-            await notify(
+            await _dispatch(
                 session,
-                kind="room_owner_booking",
-                to_email=owner.email,
+                owner,
+                event="room_owner.booking",
+                key=f"booking:{first.id}:room_owner",
                 subject=await T(session, lang, "room_owner.subject", room=room.display_name),
                 body=await T(session, lang, "room_owner.body", actor=_who(actor), series=tag, items=await items(lang)),
-                user_id=owner.id,
-                booking_id=first.id,
+                link="/bookings",
+                rows=rows,
+                data={**who, "room": room.display_name},
             )
 
 
@@ -246,10 +287,16 @@ async def _on_cancelled(session: AsyncSession, payload: dict[str, Any]) -> None:
         fmt = await bookings_i18n.formatter(session, lang)
         what = "\n".join([f"- {await _describe(session, b, fmt)}" for b in bookings])
         why = await T(session, lang, "booking_cancelled.reason", reason=reason) if reason else ""
-        await notify(
+        # one occurrence = these bookings cancelled at this moment (a booking restored by an undo and cancelled
+        # again is a new occurrence and is announced again)
+        when = max((b.cancelled_at for b in bookings if b.cancelled_at is not None), default=None)
+        stamp = when.isoformat(timespec="seconds") if when is not None else "-"
+        digest = hashlib.sha1(",".join(str(b.id) for b in sorted(bookings, key=lambda x: x.id)).encode()).hexdigest()
+        await _dispatch(
             session,
-            kind="booking_cancelled",
-            to_email=target.email,
+            target,
+            event="booking.cancelled",
+            key=f"booking_cancel:{digest[:16]}:{stamp}",
             subject=await T(session, lang, "booking_cancelled.subject", actor=_who(actor), count=len(bookings)),
             body=await T(
                 session,
@@ -260,8 +307,9 @@ async def _on_cancelled(session: AsyncSession, payload: dict[str, Any]) -> None:
                 items=what,
                 reason=why,
             ),
-            user_id=uid,
-            booking_id=bookings[0].id,
+            link="/bookings/mine",
+            rows=bookings,
+            data={"actor": {"id": actor.id, "name": _who(actor)} if actor else None, "reason": reason},
         )
 
 

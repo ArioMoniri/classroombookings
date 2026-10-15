@@ -22,7 +22,7 @@ function ToggleChip({ on, onClick, children, label }: { on: boolean; onClick: ()
       aria-pressed={on}
       aria-label={label}
       onClick={onClick}
-      className={cn("min-h-8 rounded-xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] px-2 text-xs pointer-coarse:min-h-11", on ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")}
+      className={cn("min-h-8 rounded-xl bg-fill-3 edge-hairline px-2 text-xs pointer-coarse:min-h-11", on ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")}
     >
       {children}
     </button>

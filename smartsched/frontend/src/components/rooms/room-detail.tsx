@@ -297,11 +297,11 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
                     const ep = p < PERIODS_PER_DAY && row[p].kind === "free" ? p + 1 : p;
                     onPick({ day, sp: p, ep, length: ep - p + 1 });
                   }}
-                  className={cn("h-7 rounded-[4px] bg-fill-3 hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", isPicked && "bg-tint-soft shadow-[inset_0_0_0_1.5px_var(--accent)]", isNow && "shadow-[inset_0_-2px_0_var(--now)]")}
+                  className={cn("h-7 rounded-[4px] bg-fill-3 hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", isPicked && "bg-tint-soft edge-tint", isNow && "border-b-2 border-(--now)")}
                   style={{ gridRow, gridColumn: p + 1 }}
                 />
               ) : (
-                <span key={p} role="gridcell" aria-label={label} className={cn("h-7 rounded-[4px] bg-fill-3", isNow && "shadow-[inset_0_-2px_0_var(--now)]")} style={{ gridRow, gridColumn: p + 1 }} />
+                <span key={p} role="gridcell" aria-label={label} className={cn("h-7 rounded-[4px] bg-fill-3", isNow && "border-b-2 border-(--now)")} style={{ gridRow, gridColumn: p + 1 }} />
               );
             }
             const { cell: c, sp, ep } = seg;
@@ -338,7 +338,7 @@ function Legend() {
     <p className="flex flex-wrap items-center gap-x-4 gap-y-1 type-footnote text-label-2">
       <span className="flex items-center gap-1.5"><span aria-hidden className="size-3 rounded-[3px]" style={{ background: "var(--fac-1-fill)", boxShadow: "inset 2px 0 0 var(--fac-1-bar)" }} />{t("roomsV2.legendClass")}</span>
       <span className="flex items-center gap-1.5"><span aria-hidden className="cal-block size-3 rounded-[3px]" />{t("roomsV2.legendBlock")}</span>
-      <span className="flex items-center gap-1.5"><span aria-hidden className="size-3 rounded-[3px] bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)]" />{t("roomsV2.legendFree")}</span>
+      <span className="flex items-center gap-1.5"><span aria-hidden className="size-3 rounded-[3px] bg-fill-3 edge-hairline" />{t("roomsV2.legendFree")}</span>
     </p>
   );
 }

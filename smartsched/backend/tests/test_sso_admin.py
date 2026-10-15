@@ -222,7 +222,8 @@ async def test_mapping_to_admin_needs_explicit_allow_and_editor_needs_the_permis
     assert me["role"] == "ADMIN"
     # the switch goes off again: an existing ADMIN mapping no longer grants anything at login
     assert (await sso.configure(allow_admin_mapping=False)).status_code == 200
-    me = await _me(sso, await sso.headers(oid="50000000-0000-4000-8000-000000000006", roles=["SmartSched.Admin"]))
+    me = await _me(sso, await sso.headers(oid="50000000-0000-4000-8000-000000000006", roles=["SmartSched.Admin"],
+                                          preferred_username="ikinci@uni.edu.tr"))
     assert me["role"] == "TEACHER"
     # a planning admin without setup.roles cannot map to roles they could not grant (no escalation)
     custom = await sso.client.post(

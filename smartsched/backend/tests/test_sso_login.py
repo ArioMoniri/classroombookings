@@ -255,7 +255,10 @@ async def test_existing_identity_whose_user_was_deleted_is_provisioned_again(sso
     assert await _rows(UserIdentity) == []  # the identity went with the user (cascade)
     h2 = await sso.headers(oid="88888888-9999-4000-8111-222222222222")
     me2 = (await sso.client.get("/api/v1/auth/me", headers=h2)).json()
-    assert me2["id"] != me["id"] and me2["role"] == "TEACHER"
+    assert me2["role"] == "TEACHER"  # a fresh account (SQLite may reuse the freed id)
+    (ident,) = await _rows(UserIdentity)
+    assert ident.user_id == me2["id"] and ident.origin == "provision"
+    assert (await _actions("auth.sso_provision")).count("auth.sso_provision") == 2
 
 
 def test_issuer_constant_matches_the_pinned_tenant() -> None:

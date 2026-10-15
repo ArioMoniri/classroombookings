@@ -31,12 +31,14 @@ Approval-first bookings (owner requirement 2026-10-15)
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, event, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.util import await_only
 
 from app.importers import normalize as n
 from app.models import (
@@ -614,6 +616,11 @@ TEXTS: dict[str, dict[str, tuple[str, str]]] = {
         "tr": ("Oda talebinizi geri çektiniz: {what}", "Talebiniz geri çekildi: {what}."),
         "en": ("You withdrew your room request: {what}", "Your request was withdrawn: {what}."),
     },
+    # to the approvers of the withdrawn request
+    "approval.withdrawn.approver": {
+        "tr": ("Oda talebi geri çekildi: {what}", "{who} onayınızı bekleyen talebini geri çekti: {what}."),
+        "en": ("Room request withdrawn: {what}", "{who} withdrew the request awaiting your approval: {what}."),
+    },
     "approval.expired": {
         "tr": ("Oda talebinizin süresi doldu: {what}", "Talebiniz başlangıçtan önce onaylanmadı: {what}.{note}"),
         "en": ("Your room request expired: {what}", "Your request was not approved before it started: {what}.{note}"),
@@ -684,24 +691,144 @@ def _person(u: User | None) -> dict[str, Any] | None:
     return {"id": u.id, "name": audit.user_label(u)} if u is not None else None
 
 
+#: ``sync_session.info`` keys: approver notices queued in this transaction / the commit hook is installed
+_APPROVER_QUEUE = "approvals.approver_notices"
+_APPROVER_HOOK = "approvals.approver_hook"
+
+
 async def notify_approvers(
     session: AsyncSession, req: ApprovalRequest, room: Room, rows: list[Booking], requester: User
 ) -> None:
-    """``approval.requested`` to the approvers of the request's current step (not to the requester)."""
+    """``approval.requested`` to the approvers of the request's current step (not to the requester).
+
+    The notice is queued and sent when the transaction commits, so that the periods of one submission (a
+    multi-booking: ``group_id``, assigned by the caller after every period was created) reach every approver as
+    ONE message listing them; a request outside a group gets its own message as before. A rollback drops the
+    queue together with the requests. :func:`flush_approver_notices` sends the queue earlier."""
+    sync = session.sync_session
+    queue: list[tuple[ApprovalRequest, Room, list[Booking], User]] = sync.info.setdefault(_APPROVER_QUEUE, [])
+    queue.append((req, room, list(rows), requester))
+    if not sync.info.get(_APPROVER_HOOK):
+        sync.info[_APPROVER_HOOK] = True
+
+        def _before_commit(s: Any) -> None:
+            if s.info.get(_APPROVER_QUEUE):
+                # inside AsyncSession.commit's greenlet: run the async dispatch on the same connection and
+                # transaction (the rows it adds are flushed by this commit)
+                await_only(flush_approver_notices(session))
+
+        def _drop(s: Any, *_: Any) -> None:
+            s.info.pop(_APPROVER_QUEUE, None)
+
+        event.listen(sync, "before_commit", _before_commit)
+        event.listen(sync, "after_rollback", _drop)
+
+
+async def flush_approver_notices(session: AsyncSession) -> int:
+    """Send the queued ``approval.requested`` notices: one per approver and submission (``group_id``) and step, or
+    per request outside a submission. Returns the number of messages handed to the dispatcher."""
+    queue = session.sync_session.info.pop(_APPROVER_QUEUE, None) or []
+    buckets: dict[tuple[Any, int], list[tuple[ApprovalRequest, Room, list[Booking], User]]] = {}
+    seen: set[tuple[int, int]] = set()
+    for req, room, rows, requester in queue:
+        if not rows or (req.id, req.step) in seen or req.status != PENDING:
+            continue
+        seen.add((req.id, req.step))
+        first = min(rows, key=lambda b: (b.date, b.start_period))
+        gid = _group_of(req, first)
+        buckets.setdefault((("group", gid) if gid is not None else ("request", req.id), req.step), []).append(
+            (req, room, rows, requester)
+        )
+    sent = 0
+    for (scope, step), entries in buckets.items():
+        per_user: dict[int, tuple[User, list[tuple[ApprovalRequest, Room, list[Booking], User]]]] = {}
+        for entry in entries:
+            req, room, _rows, requester = entry
+            for u in await step_approvers(session, room, req.rule_snapshot or {}, req.step):
+                if u.id != requester.id:
+                    per_user.setdefault(u.id, (u, []))[1].append(entry)
+        for u, mine in per_user.values():
+            await _send_requested(session, u, mine, scope, step)
+            sent += 1
+    return sent
+
+
+async def _send_requested(
+    session: AsyncSession,
+    approver: User,
+    entries: list[tuple[ApprovalRequest, Room, list[Booking], User]],
+    scope: tuple[str, Any],
+    step: int,
+) -> None:
+    entries = sorted(entries, key=lambda e: (min((b.date, b.start_period) for b in e[2]), e[0].id))
+    req, room, _rows, requester = entries[0]
+    by_room: dict[int, tuple[Room, list[Booking]]] = {}
+    for _r, rm, rows, _u in entries:
+        by_room.setdefault(rm.id, (rm, []))[1].extend(rows)
+    parts = [await summary(session, rm, rows) for rm, rows in by_room.values()]
+    what = "; ".join(p[0] for p in parts)
+    base = dict(parts[0][1])
+    if len(parts) > 1:
+        base["rooms"] = [p[1] for p in parts]
+        base["booking_ids"] = [i for p in parts for i in p[1]["booking_ids"]]
+    first = min((b for e in entries for b in e[2]), key=lambda b: (b.date, b.start_period))
+    ids = sorted(e[0].id for e in entries)
+    title, body, _lang = await _render(
+        session, approver, "approval.requested", who=audit.user_label(requester) or "-", what=what, note=""
+    )
+    gid = scope[1] if scope[0] == "group" else None
+    if gid is not None:
+        digest = hashlib.sha1(",".join(map(str, ids)).encode()).hexdigest()[:16]
+        key, link = f"approval_group:{gid}:requested:{step}:{digest}", f"/approvals?request={req.id}&group={gid}"
+    else:
+        key, link = f"approval_request:{req.id}:requested:{step}", f"/approvals?request={req.id}"
+    await nd.dispatch(
+        session,
+        approver,
+        nd.Notice(
+            event="approval.requested",
+            key=key,
+            title=title,
+            body=body,
+            link=link,
+            booking_id=first.id,
+            request_id=req.id,
+            data={
+                **base,
+                "request_id": req.id,
+                "request_ids": ids,
+                "series_id": req.series_id,
+                "group_id": gid,
+                "step": step,
+                "decision": "requested",
+                "requester": _person(requester),
+                "source": (req.rule_snapshot or {}).get("source") or "rule",
+            },
+        ),
+    )
+
+
+async def notify_approvers_withdrawn(
+    session: AsyncSession, req: ApprovalRequest, room: Room, rows: list[Booking], requester: User
+) -> None:
+    """``approval.withdrawn`` to the approvers of the request's current step: the request they were asked to decide
+    is gone (their own preferences for ``approval.withdrawn`` apply)."""
+    if not rows:
+        return
     what, base = await summary(session, room, rows)
     first = min(rows, key=lambda b: (b.date, b.start_period))
     for u in await step_approvers(session, room, req.rule_snapshot or {}, req.step):
         if u.id == requester.id:
             continue
         title, body, _lang = await _render(
-            session, u, "approval.requested", who=audit.user_label(requester) or "-", what=what, note=""
+            session, u, "approval.withdrawn.approver", who=audit.user_label(requester) or "-", what=what
         )
         await nd.dispatch(
             session,
             u,
             nd.Notice(
-                event="approval.requested",
-                key=f"approval_request:{req.id}:requested:{req.step}",
+                event="approval.withdrawn",
+                key=f"approval_request:{req.id}:withdrawn",
                 title=title,
                 body=body,
                 link=f"/approvals?request={req.id}",
@@ -710,12 +837,13 @@ async def notify_approvers(
                 data={
                     **base,
                     "request_id": req.id,
+                    "request_ids": [req.id],
                     "series_id": req.series_id,
                     "group_id": _group_of(req, first),
                     "step": req.step,
-                    "decision": "requested",
+                    "decision": "withdrawn",
+                    "status": req.status,
                     "requester": _person(requester),
-                    "source": (req.rule_snapshot or {}).get("source") or "rule",
                 },
             ),
         )
@@ -759,8 +887,6 @@ async def notify_requester(
     )
     ids = sorted(r.id for r in reqs)
     if group is not None:
-        import hashlib
-
         digest = hashlib.sha1(",".join(map(str, ids)).encode()).hexdigest()[:16]
         key = f"approval_group:{group_id}:{DECISION_OF[kind]}:{digest}"
     else:
@@ -1030,17 +1156,27 @@ async def decide_group(
 
 
 async def _notify_group(session: AsyncSession, access: Access, group_id: int, ids: list[int]) -> None:
-    """One notification per requester and outcome for the requests of a submission decided together."""
+    """One notification per requester and outcome for the requests of a submission decided together, and one
+    ``approval.requested`` per next-step approver for the requests the decision moved on to their next step."""
     if not ids:
         return
     q = select(ApprovalRequest).where(ApprovalRequest.id.in_(ids)).execution_options(populate_existing=True)
     by_outcome: dict[tuple[int | None, str], list[ApprovalRequest]] = {}
+    advanced: list[ApprovalRequest] = []
     for r in (await session.execute(q.order_by(ApprovalRequest.id))).scalars():
         kind = {APPROVED: "approval.approved", REJECTED: "approval.rejected"}.get(r.status)
         if kind is not None:
             by_outcome.setdefault((r.requested_by, kind), []).append(r)
+        elif r.status == PENDING:
+            advanced.append(r)
     for (_uid, kind), reqs in by_outcome.items():
         await notify_requester(session, reqs[0], kind, access.user, group=reqs, group_id=group_id)
+    # requests that moved on to their next step: one approval.requested per next-step approver for the submission
+    for r in advanced:
+        room = await session.get(Room, r.room_id)
+        requester = await session.get(User, r.requested_by) if r.requested_by else None
+        if room is not None:
+            await notify_approvers(session, r, room, await bookings_of(session, r), requester or access.user)
     await session.commit()
 
 
@@ -1114,18 +1250,20 @@ async def sweep(session: AsyncSession) -> dict[str, int]:
 
 
 async def withdraw(session: AsyncSession, access: Access, request_id: int) -> ApprovalRequest:
-    req, _room = await _load(session, request_id)
+    req, room = await _load(session, request_id)
     if req.requested_by != access.user_id:
         raise _err(
             403, "not_requester", "only the requester can withdraw a request", "talebi yalnız sahibi geri çekebilir"
         )
     if req.status != PENDING:
         raise _err(409, "not_pending", f"the request is {req.status}", f"talep {req.status} durumunda")
-    await _close(session, req, await bookings_of(session, req), WITHDRAWN, "withdrawn by the requester", access.user)
+    rows = await bookings_of(session, req)
+    await _close(session, req, rows, WITHDRAWN, "withdrawn by the requester", access.user)
     await publish_event(
         session, "approval.withdraw", "approval_request", req.id, after={"status": WITHDRAWN}, actor=access.user
     )
     await notify_requester(session, req, "approval.withdrawn", access.user)
+    await notify_approvers_withdrawn(session, req, room, rows, access.user)
     await session.commit()
     return req
 
@@ -1271,8 +1409,9 @@ async def decide(
     if len(got) < need or req.step < len(steps):
         if len(got) >= need:
             req.step += 1
-            requester = await session.get(User, req.requested_by) if req.requested_by else None
-            await notify_approvers(session, req, room, rows, requester or access.user)
+            if notify:  # a group decision queues the next step's notice once for the submission (_notify_group)
+                requester = await session.get(User, req.requested_by) if req.requested_by else None
+                await notify_approvers(session, req, room, rows, requester or access.user)
         await publish_event(
             session,
             "approval.step",

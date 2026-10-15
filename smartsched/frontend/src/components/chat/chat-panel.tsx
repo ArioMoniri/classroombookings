@@ -83,7 +83,7 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
       {rows.length ? (
         <DiffTable
           // inside the glass chat panel: a well, not a second glass (G2 / A8)
-          className="![background:var(--fill-3)] ![backdrop-filter:none] ![-webkit-backdrop-filter:none] !shadow-[inset_0_0_0_1px_var(--hairline)]"
+          className="![background:var(--fill-3)] ![backdrop-filter:none] ![-webkit-backdrop-filter:none] !edge-hairline"
           title={proposal.summary || t("chat.proposal")}
           columns={[
             { key: "class", label: t("glass.chat.colClass"), width: "28%" },
@@ -102,7 +102,7 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
         />
       ) : null}
       {!proposal.applied && (proposal.moves.length || proposal.section_edits.length) ? (
-        <fieldset className="space-y-1.5 rounded-xl bg-fill-3 px-3 py-2 type-footnote shadow-[inset_0_0_0_1px_var(--hairline)]" disabled={busy} data-testid="diff-edits">
+        <fieldset className="space-y-1.5 rounded-xl bg-fill-3 px-3 py-2 type-footnote edge-hairline" disabled={busy} data-testid="diff-edits">
           <legend className="sr-only">{t("glass.chat.editsTitle")}</legend>
           {proposal.moves.map((m) => (
             <label key={m.assignment_id} className="flex items-start gap-2 pointer-coarse:min-h-11">
@@ -137,7 +137,7 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
         </fieldset>
       ) : null}
       {proposal.constraints.length ? (
-        <ul className="rounded-xl bg-fill-3 px-3 py-2 type-footnote shadow-[inset_0_0_0_1px_var(--hairline)]">
+        <ul className="rounded-xl bg-fill-3 px-3 py-2 type-footnote edge-hairline">
           {proposal.constraints.map((c, i) => (
             <li key={i} className="py-0.5 text-label-1">
               {c.nl_text} <span className="text-label-3">· {c.hardness === "hard" ? t("glass.report.must") : t("glass.report.try")}</span>
