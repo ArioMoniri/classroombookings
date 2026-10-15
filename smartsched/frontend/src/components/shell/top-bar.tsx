@@ -84,7 +84,7 @@ function RunIsland({ run }: { run: ScheduleRun }) {
     <Popover>
       <PopoverTrigger
         render={
-          <button type="button" className="flex h-8 items-center gap-2 rounded-full bg-tint-soft px-3 text-[12.5px] font-medium text-tint-text outline-none focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="run-island">
+          <button type="button" className="flex h-8 items-center gap-2 rounded-full bg-tint-soft px-3 text-[12.5px] font-medium text-tint-text outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="run-island">
             <span className="relative flex size-2" aria-hidden>
               <span className="absolute inset-0 rounded-full bg-(--accent) opacity-60 motion-safe:animate-ping" />
               <span className="relative size-2 rounded-full bg-(--accent)" />
@@ -143,7 +143,7 @@ export function TopBar() {
                       {c.label}
                     </span>
                   ) : (
-                    <Link href={c.href} className="text-label-2 outline-none hover:text-label-1 focus-visible:underline">
+                    <Link href={c.href} className="text-label-2 outline-hidden hover:text-label-1 focus-visible:underline">
                       {c.label}
                     </Link>
                   )}
@@ -160,7 +160,7 @@ export function TopBar() {
           type="button"
           onClick={() => setPaletteOpen(true)}
           data-testid="open-palette"
-          className="flex h-8 items-center gap-2 rounded-full px-3 text-[13px] text-label-2 outline-none transition-colors duration-(--dur-fast) hover:bg-fill-2 hover:text-label-1 focus-visible:outline-2 focus-visible:outline-(--focus)"
+          className="flex h-8 items-center gap-2 rounded-full px-3 text-[13px] text-label-2 outline-hidden transition-colors duration-(--dur-fast) hover:bg-fill-2 hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
         >
           <Search className="size-4 stroke-[1.75]" aria-hidden />
           <span className="pr-6">{t("glass.shell.searchShort")}</span>

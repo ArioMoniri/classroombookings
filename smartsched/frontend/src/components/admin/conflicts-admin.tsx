@@ -93,7 +93,7 @@ export function ConflictsAdmin() {
                   type="button"
                   onClick={() => setOpen(r.bookingId)}
                   aria-label={t("crbs.conflicts.open", { id: r.bookingId, room: roomName(r.roomId), date: fmt.long(r.date) })}
-                  className="flex w-full items-start gap-3 px-4 py-3 text-left outline-none hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)"
+                  className="flex w-full items-start gap-3 px-4 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)"
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block type-headline text-label-1">

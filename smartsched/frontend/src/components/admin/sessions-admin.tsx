@@ -64,7 +64,7 @@ export function SessionsAdmin() {
                   type="button"
                   aria-current={current?.term_id === s.term_id ? "true" : undefined}
                   onClick={() => setPick(s.term_id)}
-                  className={cn("flex w-full items-center gap-3 px-4 py-2.5 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", current?.term_id === s.term_id ? "bg-tint-soft" : "hover:bg-fill-3")}
+                  className={cn("flex w-full items-center gap-3 px-4 py-2.5 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", current?.term_id === s.term_id ? "bg-tint-soft" : "hover:bg-fill-3")}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block type-headline text-label-1">{s.name}</span>
@@ -234,7 +234,7 @@ function DatePainter({ session }: { session: Session }) {
               role="radio"
               aria-checked={state.brush === b.value}
               onClick={() => dispatch({ type: "brush", brush: b.value })}
-              className={cn("inline-flex h-8 items-center gap-1.5 rounded-full px-3 type-footnote font-medium outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)", state.brush === b.value ? "shadow-[0_0_0_2px_var(--accent)]" : "shadow-[0_0_0_1px_var(--hairline)]", !b.week && "bg-fill-2 text-label-1")}
+              className={cn("inline-flex h-8 items-center gap-1.5 rounded-full px-3 type-footnote font-medium outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus)", state.brush === b.value ? "shadow-[0_0_0_2px_var(--accent)]" : "shadow-[0_0_0_1px_var(--hairline)]", !b.week && "bg-fill-2 text-label-1")}
               style={b.week ? { background: b.week.bgcol, color: b.week.fgcol } : undefined}
             >
               {b.week ? <Brush className="size-3.5" aria-hidden /> : <Eraser className="size-3.5" aria-hidden />}
@@ -264,7 +264,7 @@ function DatePainter({ session }: { session: Session }) {
                 <div key={wk.monday} role="row" className="grid grid-cols-[28px_repeat(7,1fr)] gap-0.5">
                   <span role="rowheader">
                     {wk.days.some((d) => d && d in state.pending) ? (
-                      <button type="button" aria-label={t("crbs.painter.paintWeek", { date: wk.monday })} onClick={() => dispatch({ type: "week", monday: wk.monday })} className="h-8 w-full rounded-md type-caption text-label-3 outline-none hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)">
+                      <button type="button" aria-label={t("crbs.painter.paintWeek", { date: wk.monday })} onClick={() => dispatch({ type: "week", monday: wk.monday })} className="h-8 w-full rounded-md type-caption text-label-3 outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
                         {info.get(wk.days.find((d) => d && info.get(d)) ?? "")?.term_week ?? ""}
                       </button>
                     ) : null}
@@ -291,7 +291,7 @@ function DatePainter({ session }: { session: Session }) {
                               dispatch({ type: "up" });
                             }
                           }}
-                          className={cn("relative flex h-8 w-full touch-none items-center justify-center rounded-md type-caption tabular-nums outline-none select-none focus-visible:outline-2 focus-visible:outline-(--focus)", !w && "bg-fill-3 text-label-2", changed && "shadow-[inset_0_0_0_1.5px_var(--label-1)]", di?.holiday && "line-through")}
+                          className={cn("relative flex h-8 w-full touch-none items-center justify-center rounded-md type-caption tabular-nums outline-hidden select-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", !w && "bg-fill-3 text-label-2", changed && "shadow-[inset_0_0_0_1.5px_var(--label-1)]", di?.holiday && "line-through")}
                           style={w ? { background: w.bgcol, color: w.fgcol } : undefined}
                         >
                           {Number(d.slice(8))}

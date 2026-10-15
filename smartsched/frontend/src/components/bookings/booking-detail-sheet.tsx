@@ -148,7 +148,7 @@ function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatt
                 <dd className="flex flex-col items-start gap-1 text-label-1">
                   <span>{[b.room.group, b.room.location, b.room.capacity ? t("crbs.grid.seats", { n: b.room.capacity }) : null, b.room.owner ? t("crbs.detail.owner", { name: b.room.owner }) : null].filter(Boolean).join(" · ")}</span>
                   {onRoomInfo ? (
-                    <button type="button" onClick={() => onRoomInfo(b.room_id, b.date)} className="inline-flex min-h-11 items-center gap-1 rounded-sm font-medium text-tint-text outline-none focus-visible:outline-2 focus-visible:outline-(--focus) sm:min-h-0" data-testid="detail-room-info">
+                    <button type="button" onClick={() => onRoomInfo(b.room_id, b.date)} className="inline-flex min-h-11 items-center gap-1 rounded-sm font-medium text-tint-text outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) sm:min-h-0" data-testid="detail-room-info">
                       <Info className="size-3.5" aria-hidden />
                       {t("reserve.slotInfo.room")}
                     </button>

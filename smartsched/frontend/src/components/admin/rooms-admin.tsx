@@ -586,7 +586,7 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
         <section aria-label={t("crbs.rooms.photo")} className="flex flex-col gap-2">
           <p className="type-headline text-label-1">{t("crbs.rooms.photo")}</p>
           {photoUrl ? (
-            <button type="button" onClick={() => setZoom(true)} aria-label={t("admingaps.rooms.enlargePhoto", { name: room.display_name })} className="group relative block overflow-hidden rounded-xl outline-none focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="room-photo-enlarge">
+            <button type="button" onClick={() => setZoom(true)} aria-label={t("admingaps.rooms.enlargePhoto", { name: room.display_name })} className="group relative block overflow-hidden rounded-xl outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="room-photo-enlarge">
               {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
               <img src={photoUrl} alt={t("crbs.rooms.photoAlt", { name: room.display_name })} className="max-h-48 w-full object-cover" />
               <span className="absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-(--mat-thick-solid) text-label-1 shadow-[0_0_0_1px_var(--hairline)]" aria-hidden>

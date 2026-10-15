@@ -121,7 +121,7 @@ export function DepartmentBar({ grid, value, onChange, mine, termId, onRoomInfo 
                     onClick={() => onRoomInfo(r.room_id)}
                     title={t("reserve.dept.roomUse", { bookings: r.bookings, classes: r.classes })}
                     aria-label={`${t("crbs.roomInfo.open", { name: r.name })} · ${t("reserve.dept.roomUse", { bookings: r.bookings, classes: r.classes })}`}
-                    className="h-11 shrink-0 rounded-full bg-fill-2 px-2.5 font-medium text-label-1 outline-none hover:bg-fill-1 focus-visible:outline-2 focus-visible:outline-(--focus) sm:h-6"
+                    className="h-11 shrink-0 rounded-full bg-fill-2 px-2.5 font-medium text-label-1 outline-hidden hover:bg-fill-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) sm:h-6"
                   >
                     {r.name}
                   </button>

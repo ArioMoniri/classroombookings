@@ -72,7 +72,7 @@ function TermSwitcherInner({ collapsed }: { collapsed: boolean }) {
             aria-label={`${t("nav.term")}: ${term?.name ?? "…"}. ${t("nav.switchTerm")}`}
             data-testid="term-switcher"
             className={cn(
-              "flex w-full items-center gap-2 rounded-xl bg-fill-3 px-2.5 py-1.5 text-left outline-none shadow-[inset_0_0_0_1px_var(--hairline)] transition-colors duration-(--dur-fast) hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)",
+              "flex w-full items-center gap-2 rounded-xl bg-fill-3 px-2.5 py-1.5 text-left outline-hidden shadow-[inset_0_0_0_1px_var(--hairline)] transition-colors duration-(--dur-fast) hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)",
               collapsed && "justify-center px-0",
             )}
           >
@@ -103,7 +103,7 @@ function TermSwitcherInner({ collapsed }: { collapsed: boolean }) {
                     <button
                       type="button"
                       aria-current={x.id === term?.id ? "true" : undefined}
-                      className="flex w-full items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-left outline-none hover:bg-fill-2 focus-visible:bg-fill-2"
+                      className="flex w-full items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-left outline-hidden hover:bg-fill-2 focus-visible:bg-fill-2"
                       onClick={() => choose(x)}
                     >
                       <span className="min-w-0 flex-1">

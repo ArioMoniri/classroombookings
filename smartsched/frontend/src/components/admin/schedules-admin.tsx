@@ -39,7 +39,7 @@ function DaysPicker({ value, onChange, label }: { value: number[]; onChange: (v:
             type="button"
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((x) => x !== d.day) : [...value, d.day].sort())}
-            className={cn("h-7 min-w-9 rounded-md px-1.5 type-caption outline-none focus-visible:outline-2 focus-visible:outline-(--focus)", on ? "bg-tint-soft font-semibold text-tint-text" : "bg-fill-2 text-label-3")}
+            className={cn("h-7 min-w-9 rounded-md px-1.5 type-caption outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", on ? "bg-tint-soft font-semibold text-tint-text" : "bg-fill-2 text-label-3")}
           >
             {d.label}
           </button>
@@ -71,7 +71,7 @@ export function SchedulesAdmin() {
                     type="button"
                     aria-current={current?.id === s.id ? "true" : undefined}
                     onClick={() => setPick(s.id)}
-                    className={cn("w-full px-4 py-2 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", current?.id === s.id ? "bg-tint-soft" : "hover:bg-fill-3")}
+                    className={cn("w-full px-4 py-2 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", current?.id === s.id ? "bg-tint-soft" : "hover:bg-fill-3")}
                   >
                     <span className="block type-headline text-label-1">{s.name}</span>
                     <span className="block truncate type-footnote text-label-3">{[t("crbs.schedules.periodCount", { n: s.periods.length }), s.description].filter(Boolean).join(" · ")}</span>

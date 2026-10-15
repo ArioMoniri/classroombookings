@@ -77,7 +77,7 @@ export function RecurringPreviewTable({ summary, dispatch, fmt }: { summary: Pre
                       aria-checked={row.action === a}
                       onClick={() => dispatch({ type: "set", date: row.date, action: a })}
                       className={cn(
-                        "h-6 rounded-full px-2.5 type-caption text-label-2 outline-none focus-visible:outline-2 focus-visible:outline-(--focus)",
+                        "h-6 rounded-full px-2.5 type-caption text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)",
                         row.action === a && "bg-(--mat-thick-solid) text-label-1 shadow-[0_0_0_1px_var(--hairline),0_1px_2px_rgba(0,0,0,0.08)]",
                       )}
                     >

@@ -60,7 +60,7 @@ function AdminLink({ href, active, children }: { href: string; active: boolean; 
       ref={active ? (el: HTMLAnchorElement | null) => el?.scrollIntoView?.({ block: "nearest", inline: "nearest" }) : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex h-7 items-center rounded-full px-3 type-footnote font-medium whitespace-nowrap outline-none focus-visible:outline-2 focus-visible:outline-(--focus)",
+        "inline-flex h-7 items-center rounded-full px-3 type-footnote font-medium whitespace-nowrap outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)",
         active ? "bg-tint-soft text-tint-text" : "text-label-2 hover:bg-fill-2 hover:text-label-1",
       )}
     >

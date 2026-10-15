@@ -204,13 +204,13 @@ function BookingList({
             <span className="min-w-0">
               <span className="block type-headline text-label-1">
                 {/* CRBS user_bookings.php: the room name opens the room-info drawer */}
-                <button type="button" onClick={() => onRoom?.(b.room_id, b.date)} disabled={!onRoom} className="rounded-sm outline-none hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus) disabled:hover:text-label-1" aria-label={t("crbs.roomInfo.open", { name: b.room_name })} data-testid={`mine-room-${b.id}`}>
+                <button type="button" onClick={() => onRoom?.(b.room_id, b.date)} disabled={!onRoom} className="rounded-sm outline-hidden hover:text-tint-text focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) disabled:hover:text-label-1" aria-label={t("crbs.roomInfo.open", { name: b.room_name })} data-testid={`mine-room-${b.id}`}>
                   {b.room_name}
                 </button>
                 <span> · {b.period_name}</span>
                 {b.time_start ? <span className="ml-1.5 font-normal text-label-3 tabular-nums">{fmt.time(b.time_start)}</span> : null}
               </span>
-              <button type="button" onClick={() => onOpen(b.id)} className="flex w-full items-center gap-1 truncate rounded-sm text-left type-footnote text-label-2 outline-none hover:text-label-1 focus-visible:outline-2 focus-visible:outline-(--focus)">
+              <button type="button" onClick={() => onOpen(b.id)} className="flex w-full items-center gap-1 truncate rounded-sm text-left type-footnote text-label-2 outline-hidden hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
                 {b.type === "recurring" ? <Repeat className="size-3 shrink-0" aria-label={t("crbs.legend.recurring")} /> : null}
                 {fmt.long(b.date)}
                 {showUser && b.user_name ? ` · ${b.user_name}` : ""}

@@ -69,7 +69,7 @@ export function LoginForm() {
         </div>
       ) : null}
       {error ? (
-        <div ref={alertRef} id="login-error" tabIndex={-1} role="alert" className="mb-4 rounded-xl bg-status-infeasible px-3 py-2 text-[13px] text-status-infeasible-fg outline-none">
+        <div ref={alertRef} id="login-error" tabIndex={-1} role="alert" className="mb-4 rounded-xl bg-status-infeasible px-3 py-2 text-[13px] text-status-infeasible-fg outline-hidden">
           {error}
         </div>
       ) : null}
@@ -89,7 +89,7 @@ export function LoginForm() {
                 aria-controls="password"
                 aria-label={show ? t("glass.auth.hidePassword") : t("glass.auth.showPassword")}
                 onClick={() => setShow((s) => !s)}
-                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-lg text-label-3 outline-none hover:text-label-1 focus-visible:outline-2 focus-visible:outline-(--focus)"
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-lg text-label-3 outline-hidden hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
               >
                 {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>

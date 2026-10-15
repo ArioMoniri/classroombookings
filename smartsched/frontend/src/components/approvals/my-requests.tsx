@@ -91,7 +91,7 @@ function RequestRow({ req: r, fmt, initiallyOpen }: { req: ApprovalRequest; fmt:
         onClick={() => startTransition(() => setExpanded((x) => !x))}
         aria-expanded={expanded}
         aria-controls={panel}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)"
         data-testid={`my-request-${r.id}`}
       >
         <span className="min-w-0 flex-1">

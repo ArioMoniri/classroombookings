@@ -48,7 +48,7 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
             type="button"
             aria-label={t("nav.account")}
             data-testid="user-menu"
-            className={cn("flex items-center gap-2 rounded-xl text-left text-sm outline-none transition-colors duration-(--dur-fast) hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)", compact ? "size-9 justify-center rounded-full" : collapsed ? "size-9 justify-center" : "w-full px-2 py-1.5")}
+            className={cn("flex items-center gap-2 rounded-xl text-left text-sm outline-hidden transition-colors duration-(--dur-fast) hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", compact ? "size-9 justify-center rounded-full" : collapsed ? "size-9 justify-center" : "w-full px-2 py-1.5")}
           >
             <Avatar className="size-7">
               <AvatarFallback className="text-[11px]">{user ? initials(user.full_name, user.email ?? user.username ?? "?") : "…"}</AvatarFallback>

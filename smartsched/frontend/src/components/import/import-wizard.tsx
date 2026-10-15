@@ -161,7 +161,7 @@ export function ImportWizard() {
             <ul>
               {KINDS.map((k) => (
                 <li key={k.kind} className="[&:not(:last-child)]:hairline-b">
-                  <button type="button" onClick={() => chooseKind(k.kind)} data-testid={`import-kind-${k.kind}`} className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-(--focus)">
+                  <button type="button" onClick={() => chooseKind(k.kind)} data-testid={`import-kind-${k.kind}`} className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-fill-2 text-label-1"><k.icon className="size-[18px] stroke-[1.75]" aria-hidden /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[14px] font-medium text-label-1">{t(k.label)}</span>

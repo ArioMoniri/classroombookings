@@ -141,7 +141,7 @@ export function NotificationBell({ className }: { className?: string }) {
                     onClick={() => openItem(n)}
                     data-testid={`notification-${n.id}`}
                     data-unread={!n.read_at}
-                    className="flex w-full items-start gap-2.5 rounded-[10px] px-2.5 py-2 text-left outline-none hover:bg-fill-2 focus-visible:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)"
+                    className="flex w-full items-start gap-2.5 rounded-[10px] px-2.5 py-2 text-left outline-hidden hover:bg-fill-2 focus-visible:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
                   >
                     <span aria-hidden className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.read_at ? "bg-transparent" : "bg-(--accent)")} />
                     <span className="min-w-0 flex-1">
@@ -164,7 +164,7 @@ export function NotificationBell({ className }: { className?: string }) {
             <ul>
               {recentRuns.map((r) => (
                 <li key={r.id}>
-                  <Link href={`/runs/${r.id}`} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-[10px] px-2.5 py-2 outline-none hover:bg-fill-2 focus-visible:bg-fill-2">
+                  <Link href={`/runs/${r.id}`} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-[10px] px-2.5 py-2 outline-hidden hover:bg-fill-2 focus-visible:bg-fill-2">
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px] font-medium text-label-1">{t("glass.shell.runTitle", { id: r.id, term: r.term_code })}</span>
                       <span className="block text-[12px] text-label-3">{new Intl.DateTimeFormat(tag, { dateStyle: "medium", timeStyle: "short" }).format(new Date(r.created_at))}</span>

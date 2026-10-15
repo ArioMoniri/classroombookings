@@ -118,7 +118,7 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
                       onClick={() => pick(day)}
                       onFocus={() => setCursor(day)}
                       className={cn(
-                        "relative flex h-9 w-full flex-col items-center justify-center rounded-md type-callout tabular-nums outline-none focus-visible:outline-2 focus-visible:outline-(--focus) disabled:opacity-30",
+                        "relative flex h-9 w-full flex-col items-center justify-center rounded-md type-callout tabular-nums outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) disabled:opacity-30",
                         selected ? "bg-tint text-tint-foreground" : "text-label-1 hover:bg-fill-2",
                         !selected && d && !d.open && "text-label-3",
                         d?.holiday && "line-through decoration-1",

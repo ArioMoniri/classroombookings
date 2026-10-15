@@ -423,7 +423,7 @@ export function FindRoomView() {
               ) : null}
               {others.length ? (
                 <details className="group rounded-xl">
-                  <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg py-1 type-callout text-label-2 outline-none focus-visible:outline-2 focus-visible:outline-(--focus)">
+                  <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg py-1 type-callout text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
                     <ChevronDown className="size-4 transition-transform duration-(--dur-fast) group-open:rotate-180" aria-hidden />
                     {t("wave1.find.othersN", { n: others.length })}
                   </summary>
@@ -586,7 +586,7 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve }: { row
         {request ? <p className="mt-1 type-footnote text-tint-text">{t("wave1.find.needsApproval")}</p> : null}
         {multi && r.per_date?.length ? (
           <details className="mt-1">
-            <summary className="cursor-pointer type-footnote text-label-2 outline-none focus-visible:outline-2 focus-visible:outline-(--focus)">{t("wave1.find.perDate")}</summary>
+            <summary className="cursor-pointer type-footnote text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">{t("wave1.find.perDate")}</summary>
             <ul className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 type-footnote sm:grid-cols-3">
               {r.per_date.map((d) => (
                 <li key={d.date} className="flex items-center gap-1.5 text-label-2">
@@ -657,7 +657,7 @@ function RecentSearches({ items, onPick }: { items: Record<string, unknown>[]; o
       <ul className="flex flex-col gap-1" data-testid="fr-recent">
         {items.slice(0, 6).map((body, i) => (
           <li key={i}>
-            <button type="button" onClick={() => onPick(body)} className="w-full truncate rounded-lg px-2 py-1.5 text-left type-callout text-label-1 outline-none hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)">
+            <button type="button" onClick={() => onPick(body)} className="w-full truncate rounded-lg px-2 py-1.5 text-left type-callout text-label-1 outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
               {label(body)}
             </button>
           </li>

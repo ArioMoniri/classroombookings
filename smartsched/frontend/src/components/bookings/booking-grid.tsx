@@ -477,7 +477,7 @@ function HeaderLabel({ item, title, sub, icon, onRoomInfo }: { item: AxisItem; t
   if (item.kind === "room" && item.room && onRoomInfo) {
     const id = item.room.id;
     return (
-      <button type="button" onClick={() => onRoomInfo(id)} aria-label={t("crbs.roomInfo.open", { name: title })} title={sub ?? undefined} className="block w-full rounded-sm text-left outline-none hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid={`room-info-${item.room.code}`}>
+      <button type="button" onClick={() => onRoomInfo(id)} aria-label={t("crbs.roomInfo.open", { name: title })} title={sub ?? undefined} className="block w-full rounded-sm text-left outline-hidden hover:text-tint-text focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid={`room-info-${item.room.code}`}>
         {inner}
       </button>
     );
@@ -535,7 +535,7 @@ const Cell = memo(function Cell({
       onClick={(e) => slot && onClick(slot, e)}
       style={style}
       className={cn(
-        "group/cell relative flex h-11 w-full touch-manipulation flex-col items-start justify-center gap-0.5 overflow-hidden px-1.5 py-1 text-left outline-none focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
+        "group/cell relative flex h-11 w-full touch-manipulation flex-col items-start justify-center gap-0.5 overflow-hidden px-1.5 py-1 text-left outline-hidden focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
         TONE_CLASS[tone],
         free && "cursor-pointer",
         muted && "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--label-1)_4%)] text-label-3",

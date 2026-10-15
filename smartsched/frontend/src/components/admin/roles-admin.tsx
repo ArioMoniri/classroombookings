@@ -71,7 +71,7 @@ export function RolesAdmin() {
                         type="button"
                         aria-current={active ? "true" : undefined}
                         onClick={() => setSelectedId(r.id)}
-                        className={cn("flex w-full items-center justify-between gap-2 px-4 py-2 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", active ? "bg-tint-soft" : "hover:bg-fill-3")}
+                        className={cn("flex w-full items-center justify-between gap-2 px-4 py-2 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", active ? "bg-tint-soft" : "hover:bg-fill-3")}
                       >
                         <span className="min-w-0">
                           <span className="block truncate type-headline text-label-1">{r.name}</span>
@@ -224,7 +224,7 @@ function RoleUsers({ role }: { role: Role }) {
           {t("admingaps.roles.users", { n: total })}
         </h3>
         {allowed && total > 0 ? (
-          <Link href={`/admin/users?role=${role.id}`} className="inline-flex items-center gap-1 type-callout text-tint-text outline-none hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="role-users-all">
+          <Link href={`/admin/users?role=${role.id}`} className="inline-flex items-center gap-1 type-callout text-tint-text outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="role-users-all">
             {t("admingaps.roles.openInUsers")}
             <ChevronRight className="size-4" aria-hidden />
           </Link>

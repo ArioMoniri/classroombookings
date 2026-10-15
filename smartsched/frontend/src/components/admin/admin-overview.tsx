@@ -55,7 +55,7 @@ export function AdminOverview() {
             <ul>
               {checks.map((x) => (
                 <li key={x.key} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
-                  <Link href={x.href} className="flex items-center gap-3 px-4 py-2.5 outline-none hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
+                  <Link href={x.href} className="flex items-center gap-3 px-4 py-2.5 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
                     {x.done ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : <Circle className="size-4 text-label-3" aria-hidden />}
                     <span className="flex-1 type-callout text-label-1">
                       {t(x.key)}
@@ -87,7 +87,7 @@ export function AdminOverview() {
               <ul>
                 {items.map((s) => (
                   <li key={s.href} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
-                    <Link href={s.href} className="flex items-center gap-3 px-4 py-3 outline-none hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
+                    <Link href={s.href} className="flex items-center gap-3 px-4 py-3 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
                       <span className="min-w-0 flex-1">
                         <span className="block type-headline text-label-1">{t(s.labelKey)}</span>
                         <span className="block type-footnote text-label-2">{t(s.descriptionKey)}</span>
@@ -105,7 +105,7 @@ export function AdminOverview() {
         <section aria-labelledby="grp-data">
           <SectionTitle id="grp-data">{t("admingaps.overview.data")}</SectionTitle>
           <Card variant="plain" className="py-0">
-            <Link href="/my-bookings#export-title" data-testid="admin-export" className="flex items-center gap-3 px-4 py-3 outline-none hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
+            <Link href="/my-bookings#export-title" data-testid="admin-export" className="flex items-center gap-3 px-4 py-3 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
               <Download className="size-4 text-label-2" aria-hidden />
               <span className="min-w-0 flex-1">
                 <span className="block type-headline text-label-1">{t("crbs.export.title")}</span>

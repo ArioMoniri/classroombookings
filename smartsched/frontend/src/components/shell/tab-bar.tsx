@@ -108,7 +108,7 @@ export function TabBar() {
         </AnimatePresence>
       </>
     );
-    const cls = cn(ITEM, "outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)");
+    const cls = cn(ITEM, "outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)");
     const aria = extra.count ? `${label}, ${t("nav.needsReview", { count: extra.count })}` : label;
     return (
       <motion.li key={key} layout="position" transition={morph} className="list-none">
@@ -146,7 +146,7 @@ export function TabBar() {
           </ul>
         </motion.nav>
       </LayoutGroup>
-      <button type="button" onClick={() => setPaletteOpen(true)} aria-label={t("nav.search")} data-glass="chrome" className="glass-chrome pointer-events-auto flex size-[52px] shrink-0 items-center justify-center rounded-full text-label-1 outline-none focus-visible:outline-2 focus-visible:outline-(--focus) [&_svg]:size-5 [&_svg]:stroke-[1.75]" data-testid="open-palette-mobile">
+      <button type="button" onClick={() => setPaletteOpen(true)} aria-label={t("nav.search")} data-glass="chrome" className="glass-chrome pointer-events-auto flex size-[52px] shrink-0 items-center justify-center rounded-full text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) [&_svg]:size-5 [&_svg]:stroke-[1.75]" data-testid="open-palette-mobile">
         <Search aria-hidden />
       </button>
     </div>

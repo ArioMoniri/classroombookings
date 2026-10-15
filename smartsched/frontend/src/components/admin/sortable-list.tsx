@@ -102,7 +102,7 @@ function Row({ item, children, onKeyMove }: { item: SortableItem; children: Reac
         {...listeners}
         onKeyDown={onKeyDown}
         aria-label={t("crbs.sort.handle", { name: item.label })}
-        className="relative flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-label-3 outline-none hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus) active:cursor-grabbing"
+        className="relative flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-label-3 outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) active:cursor-grabbing"
       >
         <GripVertical className="size-4" aria-hidden />
       </button>

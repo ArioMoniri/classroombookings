@@ -115,7 +115,7 @@ export function ApprovalsView() {
                 <button
                   type="button"
                   onClick={() => setOpenId(r.id)}
-                  className="flex w-full flex-col gap-1 px-4 py-3 text-left outline-none hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus) sm:flex-row sm:items-center sm:gap-4"
+                  className="flex w-full flex-col gap-1 px-4 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus) sm:flex-row sm:items-center sm:gap-4"
                   data-testid={`approval-${r.id}`}
                   aria-label={t("wave1.approvals.openRequest", { room: r.room_name ?? "", name: r.requester_name ?? "" })}
                 >

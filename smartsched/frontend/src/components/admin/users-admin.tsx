@@ -448,7 +448,7 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
         </label>
         {canDesignate ? (
           <details className="group rounded-xl bg-fill-3 px-3 py-2" open={approves.length > 0 || undefined} data-testid="user-approves-for">
-            <summary className="cursor-pointer list-none type-callout font-medium text-label-1 outline-none focus-visible:outline-2 focus-visible:outline-(--focus)">
+            <summary className="cursor-pointer list-none type-callout font-medium text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
               {t("wave1.scope.title")}
               <span className="block type-footnote font-normal text-label-3">{approves.length ? approves.map((x) => scopeLabel(x, lookups, t)).join(", ") : t("wave1.scope.hint")}</span>
             </summary>
@@ -467,7 +467,7 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
         ) : null}
         {user ? <ConstraintsEditor userId={user.id} /> : null}
         {user ? (
-          <Link href={`/admin/access?user=${user.id}`} className="inline-flex items-center gap-1.5 self-start type-callout text-tint-text outline-none hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="user-form-check-access">
+          <Link href={`/admin/access?user=${user.id}`} className="inline-flex items-center gap-1.5 self-start type-callout text-tint-text outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="user-form-check-access">
             <ShieldQuestion className="size-4" aria-hidden />
             {t("admingaps.access.checkUser")}
           </Link>

@@ -516,7 +516,7 @@ function CellInput({ feature: f, value, onChange, label }: { feature: Feature; v
     const ids = Array.isArray(value) ? value : [];
     return (
       <details className="relative">
-        <summary className="max-w-40 cursor-pointer list-none truncate rounded-md px-1.5 py-1 text-label-1 outline-none hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)" aria-label={label}>
+        <summary className="max-w-40 cursor-pointer list-none truncate rounded-md px-1.5 py-1 text-label-1 outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" aria-label={label}>
           {valueLabel(f, ids, { yes: "", no: "" }) || <span className="text-label-3">{t("wave1.features.pick")}</span>}
         </summary>
         <div className="absolute z-30 mt-1 flex min-w-40 flex-col gap-1 rounded-xl bg-(--mat-thick-solid) p-2 shadow-lg">

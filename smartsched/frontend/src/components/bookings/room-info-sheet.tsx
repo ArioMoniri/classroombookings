@@ -106,7 +106,7 @@ function RoomBody({ r, context, fmt, onReserve }: { r: RoomInfo; context?: RoomC
       </SheetHeader>
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-5">
         {r.photo_url ? (
-          <button type="button" onClick={() => setPhoto(true)} aria-label={t("reserve.room.photoOpen")} className="block overflow-hidden rounded-xl outline-none focus-visible:outline-2 focus-visible:outline-(--focus)">
+          <button type="button" onClick={() => setPhoto(true)} aria-label={t("reserve.room.photoOpen")} className="block overflow-hidden rounded-xl outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
             {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
             <img src={r.photo_url} alt={t("crbs.rooms.photoAlt", { name: r.name })} className="max-h-60 w-full object-cover" />
           </button>

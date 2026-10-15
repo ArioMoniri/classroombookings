@@ -33,7 +33,7 @@ export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve,
               type="button"
               onClick={() => onRoomInfo(r.room.id, r.days[0]?.date ?? r.grid.date)}
               aria-label={t("crbs.roomInfo.open", { name: r.room.name })}
-              className="flex min-h-11 w-full shrink-0 items-center justify-between gap-2 rounded-md text-left outline-none focus-visible:outline-2 focus-visible:outline-(--focus) sm:w-40 sm:flex-col sm:items-start sm:justify-start sm:gap-0"
+              className="flex min-h-11 w-full shrink-0 items-center justify-between gap-2 rounded-md text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) sm:w-40 sm:flex-col sm:items-start sm:justify-start sm:gap-0"
             >
               <span className="type-headline text-label-1">{r.room.name}</span>
               <span className="flex items-center gap-1 type-footnote text-label-3">
@@ -75,7 +75,7 @@ function SlotButton({ slot, room, fmt, onReserve }: { slot: GridSlot; room: Free
       aria-label={t("reserve.free.reserveAt", { room: room.room.name, date: fmt.weekday(slot.date), time: `${p?.name ?? ""} ${time}` })}
       data-slot-key={slotKey(slot)}
       data-testid="free-slot"
-      className="flex min-h-11 min-w-16 flex-col items-start justify-center rounded-md bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_7%)] px-2.5 py-1 text-left shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_22%,transparent)] outline-none transition-transform duration-(--dur-fast) ease-(--spring-snappy) hover:bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_13%)] focus-visible:outline-2 focus-visible:outline-(--focus) active:scale-[0.97]"
+      className="flex min-h-11 min-w-16 flex-col items-start justify-center rounded-md bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_7%)] px-2.5 py-1 text-left shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_22%,transparent)] outline-hidden transition-transform duration-(--dur-fast) ease-(--spring-snappy) hover:bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_13%)] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) active:scale-[0.97]"
     >
       <span className="type-caption font-semibold text-tint-text">{p?.name}</span>
       <span className="type-caption text-label-2 tabular-nums">{p ? fmt.time(p.time_start) : ""}</span>

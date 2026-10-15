@@ -130,7 +130,7 @@ export function ScopePicker({ value, onChange, lookups, idPrefix }: { value: Sco
                     <li key={scopeKey(s)}>
                       <span className="inline-flex h-7 items-center gap-1 rounded-full bg-fill-2 pr-1 pl-2.5 type-footnote text-label-1">
                         {scopeLabel(s, lookups, t)}
-                        <button type="button" onClick={() => onChange(toggleScope(value, s, false))} className="flex size-5 items-center justify-center rounded-full outline-none hover:bg-fill-1 focus-visible:outline-2 focus-visible:outline-(--focus)" aria-label={t("wave1.scope.remove", { name: scopeLabel(s, lookups, t) })}>
+                        <button type="button" onClick={() => onChange(toggleScope(value, s, false))} className="flex size-5 items-center justify-center rounded-full outline-hidden hover:bg-fill-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" aria-label={t("wave1.scope.remove", { name: scopeLabel(s, lookups, t) })}>
                           <X className="size-3" aria-hidden />
                         </button>
                       </span>

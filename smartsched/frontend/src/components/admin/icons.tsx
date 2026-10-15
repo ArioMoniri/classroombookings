@@ -68,7 +68,7 @@ export function IconPicker({ value, onChange, id }: { value: string | null | und
         role="radio"
         aria-checked={!value}
         onClick={() => onChange(null)}
-        className={cn("h-8 rounded-md px-2 type-footnote outline-none focus-visible:outline-2 focus-visible:outline-(--focus)", !value ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-2 hover:bg-fill-1")}
+        className={cn("h-8 rounded-md px-2 type-footnote outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", !value ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-2 hover:bg-fill-1")}
       >
         {t("crbs.common.none")}
       </button>
@@ -81,7 +81,7 @@ export function IconPicker({ value, onChange, id }: { value: string | null | und
           aria-label={name}
           title={name}
           onClick={() => onChange(name)}
-          className={cn("flex size-8 items-center justify-center rounded-md outline-none focus-visible:outline-2 focus-visible:outline-(--focus)", value === name ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-2 hover:bg-fill-1")}
+          className={cn("flex size-8 items-center justify-center rounded-md outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", value === name ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-2 hover:bg-fill-1")}
         >
           <Icon className="size-4 stroke-[1.75]" aria-hidden />
         </button>

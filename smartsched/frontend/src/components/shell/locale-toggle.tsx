@@ -32,7 +32,7 @@ export function LocaleToggle({ className }: { className?: string }) {
           title={LOCALE_INFO[l].name}
           data-testid={`locale-option-${l}`}
           className={cn(
-            "relative h-full rounded-full px-2.5 font-medium uppercase outline-hidden transition-colors duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-(--focus)",
+            "relative h-full rounded-full px-2.5 font-medium uppercase outline-hidden transition-colors duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)",
             // 44 px hit area on coarse pointers without changing the drawn pill (skill §8)
             "pointer-coarse:after:absolute pointer-coarse:after:-inset-x-1 pointer-coarse:after:top-1/2 pointer-coarse:after:h-11 pointer-coarse:after:-translate-y-1/2 pointer-coarse:after:content-['']",
             locale === l ? "bg-(--mat-thick) text-label-1 shadow-[inset_0_1px_0_0_var(--specular),0_0_0_1px_var(--hairline)]" : "text-label-2 hover:text-label-1",
