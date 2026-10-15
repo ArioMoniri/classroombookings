@@ -29,6 +29,7 @@ from typing import Any, TypeVar
 from sqlalchemy import func, select
 
 from app.ai.client import AIClient, AIConfigError, AIError, get_client
+from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
 from app.council import critic, fastpath, llm, planner, reconcile, rules, storage
@@ -38,6 +39,7 @@ from app.council.review import build_items
 from app.council.structure import SheetAnalysis, analyze
 from app.models import CouncilJob, CouncilStep
 from app.models.base import utcnow
+from app.services import settings_service as ss
 from app.workers.queue import public_error
 
 log = logging.getLogger(__name__)
@@ -177,10 +179,17 @@ async def make_ctx(job: CouncilJob) -> Ctx:
         note = "AI disabled for the council (COUNCIL_AI=false or ai=false); deterministic path only"
     else:
         async with get_session_factory()() as s:
-            try:
-                client = await get_client(s, model=model)
-            except AIConfigError:
-                note = "no Anthropic API key configured: deterministic path only (heuristic mapping + importers)"
+            # KVKK opt-in (Settings > AI): no file content leaves the server until an administrator allows it
+            if not await ss.get_value(s, "council_ai_enabled"):
+                note = (
+                    "AI is off for the council (an administrator has not allowed sending file content to Claude "
+                    "under Settings > AI); deterministic path only"
+                )
+            else:
+                try:
+                    client = await get_client(s, model=model)
+                except AIConfigError:
+                    note = "no Anthropic API key configured: deterministic path only (heuristic mapping + importers)"
     return Ctx(
         job_id=job.id,
         mode=job.mode,
@@ -219,10 +228,14 @@ async def process_file(ctx: Ctx, entry: dict[str, Any]) -> None:
     async with step(ctx, "intake", i) as st:
         data = path.read_bytes()
         try:
-            rendered = await st.run(asyncio.to_thread(render_file, data, name))
+            # child process with RLIMIT_AS and a wall-clock kill (asyncio.wait_for cannot stop a thread)
+            rendered = await st.run(safe_files.run_isolated(render_file, data, name))
         except RenderError as exc:
             st.status = "FAILED"
             st.say(str(exc))
+        except safe_files.UnsafeFileError as exc:
+            st.status = "FAILED"
+            st.say(exc.message)
         if rendered is not None and rendered.needs_vision:
             ok, why = ctx.llm_ok()
             if ok and ctx.client is not None:
@@ -271,7 +284,7 @@ async def process_file(ctx: Ctx, entry: dict[str, Any]) -> None:
             )
         async with step(ctx, "extract", i) as st:
             records, warnings = await st.run(
-                asyncio.to_thread(fastpath.records_for, shape, path, name, _year(ctx, name))
+                safe_files.run_isolated(fastpath.records_for, shape, path, name, _year(ctx, name))
             )
             st.say(f"read by the {shape} importer's parser: {len(records)} records")
     else:

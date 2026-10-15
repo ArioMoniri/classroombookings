@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import shutil
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -102,6 +103,16 @@ async def job_out(db: DB, job: CouncilJob) -> CouncilJobOut:
     )
 
 
+def _inspect(data: bytes, fmt: str) -> None:
+    """OOXML pre-inspection; workbooks also pass the full-load caps, because a known shape is read by the
+    university importers (the weekly-grid parser loads the whole workbook)."""
+    lim = safe_files.Limits.from_settings()
+    kind = "workbook" if fmt == "xlsx" else "document"
+    rep = safe_files.inspect_zip(data, limits=lim, kind=kind)
+    if fmt == "xlsx":
+        safe_files.check_full_load(rep, lim, kind)
+
+
 @router.post("/jobs", response_model=CouncilJobOut, status_code=202)
 async def create_job(
     db: DB,
@@ -120,35 +131,10 @@ async def create_job(
         raise HTTPException(400, "upload at least one file")
     if len(files) > st.council_max_files:
         raise HTTPException(413, f"at most {st.council_max_files} files per job")
-    blobs: list[tuple[str, bytes]] = []
-    # the same intake rules as /imports (app/core/safe_files.py): streamed with a byte cap, a readable type,
-    # OOXML containers (and anything zip-shaped the sniffer would open as one) inspected before any parser
+    # the same intake rules as /imports (app/core/safe_files.py): each upload streamed to disk with a byte cap,
+    # a readable type, and OOXML containers (by extension or sniffed) inspected before any parser sees them
     limit = int(min(float(st.council_max_file_mb), float(st.upload_max_mb)) * safe_files.MiB)
     job_limit = int(float(st.council_max_job_mb) * safe_files.MiB)
-    total = 0
-    for f in files:
-        name = f.filename or f"upload-{len(blobs)}"
-        try:
-            data = await safe_files.read_upload(f, limit)
-        except safe_files.UnsafeFileError as exc:
-            raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
-        if not data:
-            raise HTTPException(400, f"{name}: empty file")
-        total += len(data)
-        if total > job_limit:
-            raise HTTPException(413, f"the files of one job may total at most {st.council_max_job_mb} MiB")
-        try:
-            fmt = detect_format(name, data)
-        except RenderError as exc:
-            raise HTTPException(400, f"{name}: {exc}") from exc
-        if fmt in ("xlsx", "docx"):  # by extension or sniffed from the zip's parts
-            try:
-                kind = "workbook" if fmt == "xlsx" else "document"
-                lim = safe_files.Limits.from_settings()
-                await asyncio.to_thread(safe_files.inspect_zip, data, limits=lim, kind=kind)
-            except safe_files.UnsafeFileError as exc:
-                raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
-        blobs.append((name, data))
     job = CouncilJob(
         status="QUEUED",
         mode=mode,
@@ -163,19 +149,46 @@ async def create_job(
     )
     db.add(job)
     await db.flush()
-    entries = []
-    for i, (name, data) in enumerate(blobs):
-        stored = storage.save_upload(job.id, i, name, data)
-        entries.append(
-            {
-                "index": i,
-                "filename": name,
-                "stored": stored,
-                "size": len(data),
-                "sha256": hashlib.sha256(data).hexdigest(),
-                "status": "QUEUED",
-            }
-        )
+    entries: list[dict[str, Any]] = []
+    total = 0
+    try:
+        for i, f in enumerate(files):
+            name = f.filename or f"upload-{i}"
+            stored = storage.stored_name(i, name)
+            target = storage.job_dir(job.id) / stored
+            try:
+                size = await safe_files.save_upload(f, target, limit)
+            except safe_files.UnsafeFileError as exc:
+                raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
+            if not size:
+                raise HTTPException(400, f"{name}: empty file")
+            total += size
+            if total > job_limit:
+                raise HTTPException(413, f"the files of one job may total at most {st.council_max_job_mb} MiB")
+            data = target.read_bytes()  # at most `limit` bytes
+            try:
+                fmt = detect_format(name, data)
+            except RenderError as exc:
+                raise HTTPException(400, f"{name}: {exc}") from exc
+            if fmt in ("xlsx", "docx"):
+                try:
+                    await asyncio.to_thread(_inspect, data, fmt)
+                except safe_files.UnsafeFileError as exc:
+                    raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
+            entries.append(
+                {
+                    "index": i,
+                    "filename": name,
+                    "stored": stored,
+                    "size": size,
+                    "sha256": hashlib.sha256(data).hexdigest(),
+                    "status": "QUEUED",
+                }
+            )
+    except BaseException:
+        await db.rollback()  # the job row was only flushed: a refused upload leaves no job and no file
+        shutil.rmtree(storage.job_dir(job.id), ignore_errors=True)
+        raise
     job.files = entries
     await db.commit()
     await db.refresh(job)

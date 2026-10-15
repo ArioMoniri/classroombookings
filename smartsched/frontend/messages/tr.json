@@ -135,7 +135,9 @@
     "testOk": "Anahtar çalışıyor ({model}, {ms} ms)", "testFailed": "Anahtar sınaması başarısız: {reason}", "model": "Model",
     "timeLimit": "Varsayılan süre sınırı (sn)", "workers": "İş parçacığı", "seed": "Tohum", "weights": "Varsayılan yumuşak ağırlıklar",
     "saved": "Ayarlar kaydedildi", "email": "E-posta", "role": "Rol", "active": "Etkin", "inactive": "Pasif",
-    "addUser": "Kullanıcı ekle", "name": "Ad", "language": "Dil", "theme": "Tema", "replaceKey": "Anahtarı değiştir", "cancelReplace": "Mevcut anahtarı koru"
+    "addUser": "Kullanıcı ekle", "name": "Ad", "language": "Dil", "theme": "Tema", "replaceKey": "Anahtarı değiştir", "cancelReplace": "Mevcut anahtarı koru",
+    "councilAi": "Kurulumda yapay zekâ", "councilAiHint": "Veri Alım Kurulu (Kurulum) dosyaları yapay zekâ olmadan okur. Bu açıkken sütunları eşlemek, taranmış belgeleri okumak ve kendi sonucunu denetlemek için dosya içeriğini (satırlar, taramalar, yazılar) Claude'a da gönderebilir.",
+    "councilAiToggle": "Kurulumun dosya içeriğini Claude'a göndermesine izin ver", "councilAiKvkk": "KVKK: dosya içeriği bu durumda sunucudan Anthropic API'sine (yurt dışına) aktarılır. Yalnızca kişisel verileri koruma sorumlunuzun onayıyla açın. Değişiklik denetim kaydına yazılır."
   },
   "shortcuts": { "title": "Klavye kısayolları", "palette": "Komut paleti", "sidebar": "Kenar çubuğunu aç/kapat", "goto": "{page} sayfasına git", "theme": "Temayı değiştir", "lang": "Dili değiştir", "help": "Bu pencere" },
   "days": { "1": "Pazartesi", "2": "Salı", "3": "Çarşamba", "4": "Perşembe", "5": "Cuma", "6": "Cumartesi", "7": "Pazar" },

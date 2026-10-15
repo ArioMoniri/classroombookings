@@ -55,6 +55,10 @@ describe("backend adapters", () => {
     expect(s.available_models[0]).toBe("claude-opus-5-5");
     expect(adapt.DEFAULT_MODELS[0]).toBe("claude-opus-5-5");
     expect(Settings.parse(adapt.settings({ anthropic_api_key: { set: false }, solver_default_time_limit: 60 })).anthropic_model).toBe("claude-opus-5-5");
+    // the council AI opt-in (KVKK) is off unless the backend says true
+    expect(s.council_ai_enabled).toBe(false);
+    expect(Settings.parse(adapt.settings({ anthropic_api_key: { set: false }, council_ai_enabled: true })).council_ai_enabled).toBe(true);
+    expect(adapt.settingsUpdateBody({ council_ai_enabled: true })).toEqual({ council_ai_enabled: true });
     // only backend field names: no frontend duplicates ride along
     expect(adapt.settingsUpdateBody({ anthropic_model: "claude-opus-5-5", solver_default_workers: 6, default_weights: { stability: 2 }, solver_default_seed: 9 })).toEqual({ anthropic_model: "claude-opus-5-5", solver_workers: 6, solver_weights: { stability: 2 }, extra: { solver_default_seed: 9 } });
     expect(TestAiResponse.parse(adapt.testAi({ ok: false, model: "claude-sonnet-5-5", detail: "AuthenticationError: invalid", used_key: "stored" }))).toMatchObject({ ok: false, error: "AuthenticationError: invalid" });

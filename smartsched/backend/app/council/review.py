@@ -26,6 +26,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import safe_files
 from app.council import critic, planner, reconcile, storage
 from app.council.lexicon import FIELDS
 from app.council.structure import KIND_LABELS, KINDS, SheetAnalysis
@@ -228,7 +229,7 @@ async def rerun_deterministic(session: AsyncSession, job: CouncilJob, file_index
             confidence=min((a.confidence for a in analyses if a.grid >= 0), default=None),
         )
         path = storage.file_path(job.id, entry)
-        rendered = await asyncio.to_thread(render_file, path.read_bytes(), entry["filename"])
+        rendered = await safe_files.run_isolated(render_file, path.read_bytes(), entry["filename"])
         records = await asyncio.to_thread(extract, rendered, analyses, year_hint=job.year_hint)
         texts = rule_texts(rendered, analyses, records)
         counts = dict(Counter(r["type"] for r in records))

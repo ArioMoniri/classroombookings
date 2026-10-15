@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
+from app.core.config import get_settings
 from app.core.db import get_session_factory
 from app.importers.exam_list import parse_exam_list
-from app.models import Block, ExamRequest, Instructor, MeetingRequest, Room, Term
+from app.models import AuditEvent, Block, ExamRequest, Instructor, MeetingRequest, Room, Term, User
 from app.workers import queue as qmod
 from sqlalchemy import func, select
 
 from tests.api_fixtures import login
 from tests.council.conftest import EN_CSV, EXAM_LIST, FINAL_GRID, MEMO_DOCX, ROOM_MASTER, SCAN_PNG
+from tests.test_safe_files import far_row_bomb, merge_bomb, shared_string_bomb
 
 
 def _files(*paths: Path) -> list[tuple[str, tuple[str, bytes, str]]]:
@@ -42,7 +45,7 @@ async def test_heuristic_job_reviews_and_commits_general_files(client):
     h = await login(client)
     job = await _run(client, h, ROOM_MASTER, EN_CSV, MEMO_DOCX)
     assert job["status"] in ("READY", "REVIEW"), job
-    assert job["ai_mode"] == "heuristic" and "no Anthropic API key" in job["summary"]["ai"]
+    assert job["ai_mode"] == "heuristic" and "AI is off for the council" in job["summary"]["ai"]  # no KVKK opt-in
     routes = [f["route"] for f in job["files"]]
     assert routes == ["fast:room-master", "general", "general"]
     assert all(f["status"] == "DONE" for f in job["files"])
@@ -93,7 +96,9 @@ async def test_heuristic_job_reviews_and_commits_general_files(client):
         term = (await s.execute(select(Term).where(Term.code == "2026-BAHAR-EN"))).scalar_one()
     assert a101.capacity == 58 and a101.exam_capacity == 30  # room master, not overwritten
     assert term.periods_json and term.periods_json[0]["start"] == "08:30"
-    n = await _count(MeetingRequest, MeetingRequest.source_key.like(f"CC:{job['id']}:1:%"))
+    # rows are keyed on term + file content, so the same file in a new job updates instead of duplicating
+    keys = f"CC:{term.id}:{hashlib.sha256(EN_CSV.read_bytes()).hexdigest()[:16]}:%"
+    n = await _count(MeetingRequest, MeetingRequest.source_key.like(keys))
     assert n == out["general"]["meeting_requests"]
     locked = await _count(MeetingRequest, MeetingRequest.status == "LOCKED", MeetingRequest.source_key.like("CC:%"))
     assert locked > 0.5 * n  # assigned rooms of the export are the planner's definitive rooms
@@ -102,7 +107,13 @@ async def test_heuristic_job_reviews_and_commits_general_files(client):
     r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json=body)
     assert r.status_code == 200
     assert r.json()["general"].get("meeting_requests", 0) == 0
-    assert await _count(MeetingRequest, MeetingRequest.source_key.like(f"CC:{job['id']}:1:%")) == n
+    assert await _count(MeetingRequest, MeetingRequest.source_key.like(keys)) == n
+    # every commit is one audit event on the event bus (app/services/events.py)
+    async with get_session_factory()() as s:
+        q = select(AuditEvent).where(AuditEvent.action == "council.commit").order_by(AuditEvent.id)
+        ev = (await s.execute(q)).scalars().all()
+    assert len(ev) == 2 and ev[0].entity_id == str(job["id"]) and ev[0].term_id == term.id
+    assert ev[0].after["term_code"] == "2026-BAHAR-EN" and ev[0].actor_id is not None
 
 
 async def test_low_confidence_mapping_blocks_until_reviewed(client):
@@ -149,6 +160,14 @@ async def test_fast_path_commit_uses_the_university_importers(client):
     assert [f["route"] for f in job["files"]] == ["fast:exam-list", "fast:weekly-grid"]
     plan = job["plan"]["groups"]
     assert len(plan) == 1 and plan[0]["code"] == "2026-FINAL" and plan[0]["kind"] == "FINAL"
+    # gracious's instructor normalisation leaves near-identical spellings across the two files (e.g. "Dr. Emel
+    # GÜR" / "Dr. Öğretim Üyesi Emel Uğur"): the reviewer keeps them apart (reject) and accepts the rest
+    review = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
+    pending = [it for it in review["items"] if it["blocking"] and it["decision"] is None]
+    decisions = [{"id": it["id"], "action": "reject" if it["kind"] == "merge" else "accept"} for it in pending]
+    if decisions:
+        r = await client.post(f"/api/v1/council/jobs/{job['id']}/review", headers=h, json={"decisions": decisions})
+        assert r.status_code == 200 and r.json()["blocking"] == 0, r.text
     r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={"group": 0})
     assert r.status_code == 200, r.text
     out = r.json()
@@ -190,3 +209,47 @@ async def test_upload_limits_and_auth(client):
     assert r.status_code == 400
     r = await client.get("/api/v1/council/jobs/999", headers=h)
     assert r.status_code == 404
+
+
+async def test_uploads_follow_the_safe_intake_rules(client, monkeypatch):
+    """Same rules as /imports (app/core/safe_files.py): zip bombs 413, unreadable types and broken containers
+    400, the per-file cap 413; a refused upload leaves no job behind."""
+    h = await login(client)
+    cases = [
+        ("ss.xlsx", shared_string_bomb(), 413),
+        ("merge.xlsx", merge_bomb(), 413),
+        ("far.xlsx", far_row_bomb(), 413),
+        ("memo.docx", shared_string_bomb(), 413),
+        ("broken.xlsx", b"PK\x03\x04 not really a zip", 400),
+        ("old.xls", b"\xd0\xcf\x11\xe0 legacy", 400),
+        ("program.exe", b"MZ\x90\x00", 400),
+    ]
+    for name, data, status in cases:
+        files = [("files", (name, data, "application/octet-stream"))]
+        r = await client.post("/api/v1/council/jobs", headers=h, files=files)
+        assert r.status_code == status, (name, r.status_code, r.text)
+    monkeypatch.setattr(get_settings(), "council_max_file_mb", 1)
+    files = [("files", ("big.csv", b"a;b\n" * 400_000, "text/csv"))]
+    r = await client.post("/api/v1/council/jobs", headers=h, files=files)
+    assert r.status_code == 413 and "too large" in r.text
+    assert (await client.get("/api/v1/council/jobs", headers=h)).json() == []
+
+
+async def test_viewers_read_progress_but_not_file_content(client):
+    from app.core.security import hash_password
+
+    h = await login(client)
+    job = await _run(client, h, ROOM_MASTER)
+    async with get_session_factory()() as s:
+        s.add(User(email="viewer@example.com", password_hash=hash_password("viewer123"), role="VIEWER"))
+        await s.commit()
+    hv = await login(client, "viewer@example.com", "viewer123")
+    assert (await client.get(f"/api/v1/council/jobs/{job['id']}", headers=hv)).status_code == 200
+    assert (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=hv)).status_code == 200
+    for path in ("records?file=0", "artifacts"):
+        assert (await client.get(f"/api/v1/council/jobs/{job['id']}/{path}", headers=hv)).status_code == 403
+        assert (await client.get(f"/api/v1/council/jobs/{job['id']}/{path}", headers=h)).status_code == 200
+    r = await client.post("/api/v1/council/jobs", headers=hv, files=_files(ROOM_MASTER))
+    assert r.status_code == 403
+    r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=hv, json={"group": 0})
+    assert r.status_code == 403

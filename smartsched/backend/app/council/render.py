@@ -12,7 +12,11 @@ Every uploaded file becomes a :class:`Rendered`:
 
 Workbooks are read with openpyxl in read-only mode (fast, bounded memory, even when Excel reports
 16k used columns). Merged ranges come from the sheet XML directly, because read-only mode does not
-expose them.
+expose them. Every OOXML container (``.xlsx`` / ``.docx``, by extension or sniffed) is pre-inspected with
+:func:`app.core.safe_files.inspect_zip` (member count, expanded sizes, compression ratio, real sheet
+extent) before any parser or ``zipfile.read`` touches it, and workbooks open through
+:func:`app.core.safe_files.open_workbook` (dimensions clamped). The orchestrator runs :func:`render_file`
+in :func:`app.core.safe_files.run_isolated` (child process, ``RLIMIT_AS``, wall-clock kill).
 """
 
 from __future__ import annotations
@@ -27,6 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import PurePath
 from typing import Any
 
+from app.core import safe_files
 from app.council import text as tx
 
 MAX_ROWS = 20000
@@ -246,10 +251,10 @@ def _sheet_merges(data: bytes) -> dict[str, list[tuple[int, int, int, int]]]:
 
 
 def _xlsx(data: bytes, out: Rendered) -> None:
-    from openpyxl import load_workbook
-
     try:
-        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        wb = safe_files.open_workbook(data, read_only=True, data_only=True, max_rows=MAX_ROWS, max_cols=MAX_COLS)
+    except safe_files.UnsafeFileError as exc:
+        raise RenderError(exc.message) from exc
     except Exception as exc:  # noqa: BLE001 - reported on the file
         raise RenderError(f"cannot read workbook: {type(exc).__name__}") from exc
     merges = _sheet_merges(data)
@@ -485,6 +490,11 @@ def render_file(data: bytes, filename: str) -> Rendered:
     if not data:
         raise RenderError("the file is empty")
     fmt = detect_format(name, data)
+    if fmt in ("xlsx", "docx"):
+        try:
+            safe_files.inspect_zip(data, kind="workbook" if fmt == "xlsx" else "document")
+        except safe_files.UnsafeFileError as exc:
+            raise RenderError(exc.message) from exc
     out = Rendered(name, fmt, hashlib.sha256(data).hexdigest(), len(data))
     if fmt == "xlsx":
         _xlsx(data, out)

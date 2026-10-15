@@ -132,7 +132,7 @@ functions over typed artifacts) can be put behind an adapter. That item is in th
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `COUNCIL_AI` | `1` | Use Claude when a key is configured (`0` = deterministic only). The per-job form field `ai=false` does the same for one job. |
+| `COUNCIL_AI` | `1` | Use Claude when a key is configured (`0` = deterministic only). The per-job form field `ai=false` does the same for one job. Even then nothing is sent to Claude until an administrator enables `council_ai_enabled` (Settings > AI, KVKK opt-in, default off). |
 | `COUNCIL_MODEL` | `""` | Model for the council; empty = `ANTHROPIC_MODEL` / Settings (`claude-opus-5-5`). |
 | `COUNCIL_FAST_MODEL` | `""` | Model for vision and the judge; empty = `COUNCIL_MODEL`. Set `claude-haiku-5-5` to cut cost. |
 | `COUNCIL_REVIEW_THRESHOLD` | `0.75` | Below this confidence an item needs review; per job via the form field `review_threshold`. |

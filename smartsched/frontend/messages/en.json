@@ -135,7 +135,9 @@
     "testOk": "Key works ({model}, {ms} ms)", "testFailed": "Key check failed: {reason}", "model": "Model",
     "timeLimit": "Default time limit (s)", "workers": "Workers", "seed": "Seed", "weights": "Default soft weights",
     "saved": "Settings saved", "email": "E-mail", "role": "Role", "active": "Active", "inactive": "Inactive",
-    "addUser": "Add user", "name": "Name", "language": "Language", "theme": "Theme", "replaceKey": "Replace key", "cancelReplace": "Keep current key"
+    "addUser": "Add user", "name": "Name", "language": "Language", "theme": "Theme", "replaceKey": "Replace key", "cancelReplace": "Keep current key",
+    "councilAi": "AI in onboarding", "councilAiHint": "The Ingestion Council (Onboarding) reads files without AI. With this on, it may also send file content (rows, scans, memos) to Claude to map columns, read scans and check its own work.",
+    "councilAiToggle": "Allow onboarding to send file content to Claude", "councilAiKvkk": "KVKK: file content then leaves the server for the Anthropic API (cross-border transfer). Turn this on only with your data protection officer's approval. The change is written to the audit log."
   },
   "shortcuts": { "title": "Keyboard shortcuts", "palette": "Command palette", "sidebar": "Toggle sidebar", "goto": "Go to {page}", "theme": "Cycle theme", "lang": "Switch language", "help": "This sheet" },
   "days": { "1": "Monday", "2": "Tuesday", "3": "Wednesday", "4": "Thursday", "5": "Friday", "6": "Saturday", "7": "Sunday" },

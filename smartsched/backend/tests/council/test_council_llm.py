@@ -18,9 +18,26 @@ from tests.api_fixtures import login
 from tests.council.conftest import BAHAR_LIST, EXAM_PDF, MEMO_DOCX, SCAN_PNG, gen
 
 
-async def _key() -> None:
+async def _key(opt_in: bool = True) -> None:
+    """Store a Claude key; ``opt_in`` = the administrator allowed the council to use it (KVKK, Settings > AI)."""
+    from app.services import settings_service as ss
+
     async with get_session_factory()() as s:
         await store_key(s)
+        if opt_in:
+            await ss.set_value(s, "council_ai_enabled", True)
+
+
+async def test_stored_key_is_not_used_without_the_admin_opt_in(client, fake_sdk):
+    await _key(opt_in=False)
+    h = await login(client)
+    job = await _job(client, h, MEMO_DOCX)
+    assert job["ai_mode"] == "heuristic" and "AI is off for the council" in job["summary"]["ai"]
+    assert fake_sdk.calls == []
+    # the administrator opts in under Settings > AI (default off)
+    assert (await client.get("/api/v1/settings", headers=h)).json()["council_ai_enabled"] is False
+    r = await client.put("/api/v1/settings", headers=h, json={"council_ai_enabled": True})
+    assert r.status_code == 200 and r.json()["council_ai_enabled"] is True
 
 
 async def _job(client, h, path, **form) -> dict:

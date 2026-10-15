@@ -16,10 +16,13 @@ rule the university path has. General-path files are written here:
   come from the request lists;
 * weeks from the planner; staff as instructors.
 
-Every written row carries ``source_key = CC:<job>:<file>:<record>`` so a re-commit updates instead of
-duplicating. Rule proposals the reviewer accepted are resolved against the new term
-(:func:`app.ai.resolve.resolve_proposal`) and saved with :func:`app.ai.elicit.accept_proposals`
-(source ``UPLOAD``, file reference in ``source_ref``).
+Every written row carries ``source_key = CC:<term>:<file sha256[:16]>:<record>`` so a re-commit, or the same
+file uploaded again in a new job and committed into the same term, updates instead of duplicating (the
+deterministic paths list a file's records in a stable order). TODO(P19-I5): key on the record's natural key
+(course, section, day, time / date, room) as well, so an edited re-export of a file matches its old rows.
+
+Rule proposals the reviewer accepted are resolved against the new term (:func:`app.ai.resolve.resolve_proposal`)
+and saved with :func:`app.ai.elicit.accept_proposals` (source ``UPLOAD``, file reference in ``source_ref``).
 """
 
 from __future__ import annotations
@@ -86,10 +89,19 @@ async def _term(session: AsyncSession, spec: dict[str, Any]) -> tuple[Term, bool
 
 
 class Writer:
-    def __init__(self, session: AsyncSession, term: Term, job_id: int, periods: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        term: Term,
+        job_id: int,
+        periods: list[dict[str, Any]],
+        shas: dict[int, str] | None = None,
+    ) -> None:
         self.s = session
         self.term = term
         self.job_id = job_id
+        #: file index -> sha256 of its bytes (job.files), the stable part of the row keys
+        self.shas = shas or {}
         self.periods = periods
         self.report = ImportReport(kind="council", term_code=term.code)
         self.cat = Catalog(session, self.report)
@@ -101,7 +113,10 @@ class Writer:
         self.person_alias: dict[str, str] = {}
 
     def key(self, fi: int, i: int) -> str:
-        return f"CC:{self.job_id}:{fi}:{i}"
+        sha = self.shas.get(fi)
+        if not sha:  # a job stored before sha256 was recorded per file
+            return f"CC:{self.job_id}:{fi}:{i}"
+        return f"CC:{self.term.id}:{sha[:16]}:{i}"
 
     async def room(self, rec: dict[str, Any]) -> Room | None:
         k = rec.get("key") or room_key(rec.get("code") or "")
@@ -463,7 +478,8 @@ async def commit(
 
     term = await session.get(Term, tid)
     assert term is not None
-    writer = Writer(session, term, job.id, periods)
+    shas = {int(f["index"]): str(f.get("sha256") or "") for f in job.files}
+    writer = Writer(session, term, job.id, periods, shas)
     dataset_art = await storage.latest(session, job.id, "dataset")
     dataset = dataset_art.payload if dataset_art is not None else {}
     for m in dataset.get("merges", []):

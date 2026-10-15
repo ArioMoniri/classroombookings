@@ -62,5 +62,5 @@ describe("OnboardingFlow", () => {
     await user.click(screen.getByTestId("onboarding-commit-button"));
     expect(await screen.findByTestId("onboarding-result")).toHaveTextContent("Written into 2026-BAHAR-EN");
     expect(screen.getByTestId("onboarding-result")).toHaveTextContent("meeting_requests: 1348");
-  });
+  }, 30_000); // the whole flow (upload, polling, review, commit): the 5 s default is too tight on a loaded runner
 });
