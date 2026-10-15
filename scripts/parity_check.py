@@ -4,7 +4,7 @@
 Reads the parity inventory (smartsched/backend/tests/parity/inventory.py), runs every API acceptance test it
 names -- the tests under tests/parity (``@pytest.mark.parity("<row>")``) and the existing tests it references --
 on the real Bahar 2026 fixtures, maps the UI rows to Playwright test titles in
-smartsched/frontend/e2e/{bookings,calendar,admin-gaps}.spec.ts, prints one line per row and writes
+smartsched/frontend/e2e/{bookings,calendar,admin-gaps,reserve}.spec.ts, prints one line per row and writes
 docs/testing/crbs-parity-report.md.
 
 Row result: PASS (API tests passed, UI titles present / passed), FAIL (a test failed or was skipped), MISSING
@@ -15,8 +15,10 @@ inventory with a reason and a proposed fix). Exit status 1 on any FAIL or MISSIN
     python3 scripts/parity_check.py --dry-run        # mapping only (no tests run, no report)
     python3 scripts/parity_check.py --playwright-json results.json   # UI column from a Playwright JSON report
 
-UI titles are checked statically unless ``--playwright-json`` (``npx playwright test --reporter=json``) is given;
-pod CI runs the specs themselves in the e2e-real gate.
+UI titles are checked statically unless ``--playwright-json`` (``npx playwright test --reporter=json``) is given.
+With a report, a mapped UI title that was skipped, failed or not run fails its row; a report path that does not
+exist is an error (every UI row then counts as not run). Pod CI (gates/parity.sh) always passes the report of
+the e2e-real gate, so the UI column there is never "the title exists".
 """
 
 from __future__ import annotations
@@ -38,7 +40,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "smartsched" / "backend"
 E2E_DIR = ROOT / "smartsched" / "frontend" / "e2e"
-UI_SPECS = ("bookings.spec.ts", "calendar.spec.ts", "admin-gaps.spec.ts")
+UI_SPECS = ("bookings.spec.ts", "calendar.spec.ts", "admin-gaps.spec.ts", "reserve.spec.ts")
 DEFAULT_REPORT = ROOT / "docs" / "testing" / "crbs-parity-report.md"
 
 PASS, FAIL, MISSING, GAP, NA, SPEC, NOTRUN = "PASS", "FAIL", "MISSING", "GAP", "-", "SPEC", "NOT RUN"
@@ -119,7 +121,9 @@ def ui_titles() -> dict[str, set[str]]:
 
 
 def playwright_results(path: Path) -> dict[str, str]:
-    """``<spec>::<title>`` -> passed / failed / skipped from a Playwright JSON report."""
+    """``<spec>::<title>`` -> passed / failed / skipped from a Playwright JSON report ({} when it is absent)."""
+    if not path.is_file():
+        return {}
     data = json.loads(path.read_text(encoding="utf-8"))
     out: dict[str, str] = {}
 
@@ -385,6 +389,9 @@ def main(argv: list[str] | None = None) -> int:
     found = existing_nodeids(referenced)
     titles = ui_titles()
     pw = playwright_results(args.playwright_json) if args.playwright_json else None
+    if args.playwright_json and not args.playwright_json.is_file():
+        errors.append(f"no Playwright report at {args.playwright_json} (did the e2e-real gate run?): "
+                      "every UI row counts as not run")
 
     results: dict[str, dict[str, Any]] | None = None
     started = dt.datetime.now(dt.UTC)

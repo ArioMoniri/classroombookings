@@ -19,6 +19,7 @@ from app.core.safe_files import UnsafeFileError, run_isolated
 from app.importers.normalize import (
     PERIODS,
     canon_course_code,
+    course_key,
     extract_course_codes,
     normalize_selector_params,
     parse_class_year,
@@ -665,13 +666,6 @@ def _norm(params: dict[str, Any] | None) -> str:
 _BUILDING_RX = re.compile(r"\b([A-Da-d])\s*[-]?\s*(?:blok|BLOK|Blok|bloğu|BLOĞU|Bloğu)")
 
 
-_ASCII = str.maketrans("İIıÇçĞğÖöŞşÜü", "IIICCGGOOSSUU")
-
-
-def _ascii_code(code: str) -> str:
-    return re.sub(r"\s+", "", str(code)).translate(_ASCII).upper()
-
-
 def _cell(v: Any) -> str:
     return table_cell(v)
 
@@ -776,12 +770,13 @@ async def _map_rows(
     edits: list[dict[str, Any]] = []
     unparsed: list[dict[str, Any]] = []
 
-    by_ascii = {_ascii_code(c.code): c.code for c in ctx.courses}
+    by_key = {course_key(c.code): c.code for c in ctx.courses}
 
     def _term_code(raw: str) -> str:
-        """Course code as stored in the term: ``PSİ 116`` (Turkish keyboard) -> ``PSI116``."""
+        """Course code as stored in the term, found by its code key (``normalize.course_key``): ``PSİ 116``
+        (Turkish keyboard) -> ``PSI116``, ``SYS 018`` -> ``SYS18``, ``CEV 101`` -> ``ÇEV101``."""
         canon = canon_course_code(raw) or raw
-        return by_ascii.get(_ascii_code(canon), canon)
+        return by_key.get(course_key(canon), canon)
 
     def val(cells: list[str], role: str) -> str:
         i = cols.get(role)

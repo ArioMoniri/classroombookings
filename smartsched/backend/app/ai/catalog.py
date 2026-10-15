@@ -532,6 +532,75 @@ def validate_params(kind: str, params: dict[str, Any], hardness: str | None = No
 
 
 # ---------------------------------------------------------------------------
+# Per-source allowlist (review 2026-10-15 D1 / P19-00b)
+# ---------------------------------------------------------------------------
+
+#: rule sources whose content was written by a model or read from a file (never by a person in a form)
+MODEL_SOURCES: frozenset[str] = frozenset({"AI", "UPLOAD", "LEARNED"})
+#: the only kinds a learned suggestion may become (all soft, weight 1..5, targeted)
+LEARNED_KINDS: frozenset[str] = frozenset(
+    {"room_preference", "building_preference", "same_room_across_weeks", "day_window"}
+)
+LEARNED_MAX_WEIGHT = 5
+#: kinds whose subject is a room, not a set of classes: targeted when they name the room
+ROOM_SUBJECT_KINDS: frozenset[str] = frozenset({"room_closed"})
+
+
+def _structural_kinds() -> frozenset[str]:
+    from app.solver.constraints import STRUCTURAL
+
+    return frozenset(STRUCTURAL)
+
+
+def is_targeted_params(kind: str, params: dict[str, Any] | None) -> bool:
+    """The solver's own definition (``_common.is_targeted``): the row names classes, cohorts, a programme or
+    an instructor. Room-subject kinds (``room_closed``) are targeted when they name a room."""
+    from app.solver.constraints._common import is_targeted
+    from app.solver.model import Constraint
+
+    clean = {k: v for k, v in dict(params or {}).items() if not str(k).startswith("_")}
+    if kind in ROOM_SUBJECT_KINDS:
+        return clean.get("room_id") is not None or bool(clean.get("room_ids"))
+    return bool(is_targeted(Constraint(kind, clean, hard=False)))
+
+
+def source_policy_issues(
+    kind: str, params: dict[str, Any] | None, hardness: str | None, source: str | None, *, weight: int | None = None
+) -> list[str]:
+    """Problems that forbid a rule from ``source``; empty list = allowed.
+
+    AI / UPLOAD / LEARNED rules are never soft structural rules (capacity, room_tags, fixed_time, room_pin,
+    room_forbid: softening one, even for one class, lets the solver report a broken hard rule as 100/100) and
+    never untargeted (an untargeted row reconfigures the rule for every class of the term). LEARNED rules are
+    limited to :data:`LEARNED_KINDS`, soft, weight 1..:data:`LEARNED_MAX_WEIGHT`. Rules typed by a planner or
+    admin are left to :mod:`app.services.constraint_guard` (waivers with a reason)."""
+    src = (source or "").upper()
+    if src not in MODEL_SOURCES:
+        return []
+    issues: list[str] = []
+    hard = (hardness or "hard") == "hard"
+    if kind in _structural_kinds() and not hard:
+        issues.append(
+            f"'{kind}' is a structural hard rule; rules from {src} may never make it soft "
+            "(only a planning administrator can waive it, with a reason)"
+        )
+    if not is_targeted_params(kind, params):
+        target = "a room" if kind in ROOM_SUBJECT_KINDS else "the classes (course, programme, cohort or instructor)"
+        issues.append(
+            f"untargeted '{kind}' rule: rules from {src} must name {target}; "
+            "an untargeted row would change the rule for every class"
+        )
+    if src == "LEARNED":
+        if kind not in LEARNED_KINDS:
+            issues.append(f"learned suggestions may only be {', '.join(sorted(LEARNED_KINDS))}; not '{kind}'")
+        if hard:
+            issues.append("learned suggestions are soft preferences only")
+        if weight is not None and not 1 <= int(weight) <= LEARNED_MAX_WEIGHT:
+            issues.append(f"learned suggestions carry weight 1..{LEARNED_MAX_WEIGHT}")
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # Tool definitions (strict)
 # ---------------------------------------------------------------------------
 

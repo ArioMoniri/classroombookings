@@ -143,7 +143,7 @@ functions over typed artifacts) can be put behind an adapter. That item is in th
 | `COUNCIL_JUDGE_SAMPLE` | `12` | Records per file for the judge; `0` = off. |
 
 Deployment is unchanged: `smartsched/deploy/deploy.sh` (one click). It runs Alembic up to
-`0017_council`, the variables above are in `.env.example` and `docker-compose.yml`, and nginx streams
+`0018_council`, the variables above are in `.env.example` and `docker-compose.yml`, and nginx streams
 `/api/v1/council/jobs/{id}/events` unbuffered. See `smartsched/deploy/README.md` → "Onboarding (Ingestion
 Council)".
 
@@ -174,5 +174,5 @@ Council)".
   consensus with a disputed column, rule proposal → committed `ConstraintRow` (`UPLOAD`, source ref),
   judge mismatch issue, vision intake, truncated or invalid outputs discarded, token budget.
   `test_live_council.py` runs against the real API when `ANTHROPIC_API_KEY` is set.
-* **Migration** (`test_council_migration.py`): `0017_council` creates the three tables, which match the
+* **Migration** (`test_council_migration.py`): `0018_council` creates the three tables, which match the
   models.

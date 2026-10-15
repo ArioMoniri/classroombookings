@@ -57,6 +57,11 @@ file upload ─┘   names only, ids resolved server-side └── review in th
 6. **Secrets.** The key is read decrypted from `settings` per request, passed to the SDK, never logged,
    never returned (`AIClient.__repr__` shows only the last 4 characters). Prompts and outputs are logged
    only as sizes/counts.
+8. **Per-source allowlist (review D1 / P19-00b).** `catalog.source_policy_issues`: rules from AI, UPLOAD or
+   LEARNED are never soft structural rules (capacity, room_tags, fixed_time, room_pin, room_forbid) and never
+   untargeted; LEARNED rules are only room_preference / building_preference / same_room_across_weeks /
+   day_window, soft, weight 1..5. Checked when the proposal comes back (`status=rejected` with the reason), on
+   accept (any source the browser sends is treated as AI) and in the chat diff.
 7. **Uploaded files are data.** File text is wrapped in `<document>` and the system prompt tells the model
    not to follow instructions in it. Files > 5 MiB are refused; > 1500 units or > 8 chunks are cut with a
    warning (`truncated=true`), never silently.
@@ -64,8 +69,8 @@ file upload ─┘   names only, ids resolved server-side └── review in th
 ## Data written
 
 * `constraints`: `source` = `AI` (prompt/chat) or `UPLOAD` (file); `nl_text` = the originating sentence;
-  upload refs live in `params["_source_ref"]` until the table has a `source_ref` column (solver selectors
-  and `validate_params` ignore keys starting with `_`).
+  upload refs live in the `source_ref` JSON column (`accept_proposals`; a legacy `params["_source_ref"]`
+  sent back by the browser is moved there, and `validate_params` still ignores keys starting with `_`).
 * `chat_messages`: user text; assistant text with `tool_calls` = tool trace, `{"type": "diff", "diff": ..., "applied": <child run id | null>}`
   and `{"type": "usage", "model", "input_tokens", "output_tokens", "cache_*", "estimated_cost_usd"}`.
 * `schedule_runs`: child runs with `parent_run_id`, `prompt_text`, `label`, `stats.mode` (`patch` / `repair` / `full`).

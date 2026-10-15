@@ -4,7 +4,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 in_python -- '
 python -m venv /w/venv && . /w/venv/bin/activate
 pip install -q --upgrade pip
-pip install -q -e "./smartsched/backend[dev]"
+# the versions the image ships (smartsched/backend/requirements.lock, as constraints like the Dockerfile)
+lock=(); [ -f smartsched/backend/requirements.lock ] && lock=(-c smartsched/backend/requirements.lock)
+pip install -q "${lock[@]}" -e "./smartsched/backend[dev]"
 cd smartsched/backend
 echo "==== make check"; make check
 echo "==== solver gate"; ruff check app/solver && python -m mypy app/solver && python -m pytest tests/solver -q

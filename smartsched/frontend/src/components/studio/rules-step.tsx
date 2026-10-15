@@ -262,7 +262,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
                 const lines = [
                   ov.unlock ? t("studio.pin.unlockedSentence", { cls }) : null,
                   ov.required_tags ? (ov.required_tags.length ? t("studio.pin.tagsSentence", { cls, tags: ov.required_tags.map(sentence.tagLabel).join(", ") }) : t("studio.pin.noTagsSentence", { cls })) : null,
-                  ov.size != null ? t("studio.pin.seatsSentence", { cls, n: n(ov.size) }) : null,
+                  ov.size != null ? t("studio.pin.seatsSentence", { cls, n: ov.size }) : null,
                   ov.max_rooms != null ? t("studio.pin.roomsSentence", { cls, n: ov.max_rooms }) : null,
                 ].filter((x): x is string => x !== null);
                 return (

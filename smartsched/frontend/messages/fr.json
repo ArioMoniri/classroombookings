@@ -92,5 +92,13 @@
       "day": "Jour",
       "week": "Semaine"
     }
+  },
+  "onboarding": {
+    "weekCount": "Semaines"
+  },
+  "wave1": {
+    "find": {
+      "weeks": "Semaines"
+    }
   }
 }

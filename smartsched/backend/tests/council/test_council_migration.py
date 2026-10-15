@@ -1,4 +1,4 @@
-"""Alembic 0017_council creates the blackboard tables and matches the ORM models."""
+"""Alembic 0018_council creates the blackboard tables and matches the ORM models."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ async def test_council_tables_are_migrated(tmp_path):
         for table in ("council_jobs", "council_steps", "council_artifacts"):
             cols = {r[1] for r in con.execute(f"pragma table_info({table})")}
             assert cols == {c.name for c in Base.metadata.tables[table].columns}, table
-        assert con.execute("select version_num from alembic_version").fetchone()[0] == "0017_council"
+        assert con.execute("select version_num from alembic_version").fetchone()[0] == "0018_council"
         con.close()
     finally:
         await dbmod.dispose_engine()

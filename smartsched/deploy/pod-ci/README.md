@@ -9,7 +9,7 @@ GitHub Actions minutes are not used for CI. The pod polls GitHub, runs the same 
 systemd timer (2 min) -> podci poll -> git ls-remote (token from SSM) -> new head? -> SQLite queue
                                      -> heartbeat metrics + idle check
 path unit (queue-signal) -> podci work (flock, one job at a time)
-    prepare -> validate -> backend -> infra -> frontend -> e2e-real -> images -> watchdog
+    prepare -> validate -> backend -> infra -> frontend -> e2e-real -> parity -> planner -> images -> watchdog
     -> deploy (deploy branch only, all blocking gates green, commit still the branch head)
     -> POST /repos/{owner}/{repo}/statuses/{sha} per gate + overall ("pod-ci", "pod-ci/<gate>")
 nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
@@ -21,11 +21,13 @@ nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
 |---|---|---|---|
 | `prepare` | host | builds `smartsched-podci-python:<hash>` (backend base image + make/git/PyYAML), pulls `mcr.microsoft.com/playwright:v<locked version>-noble` | yes |
 | `validate` | host | `smartsched/deploy/validate.sh` | yes |
-| `backend` | python CI container | `make check`, solver gate, AI gate, `alembic upgrade head` on SQLite | yes |
+| `backend` | python CI container | `make check`, solver gate, AI gate, `alembic upgrade head` on SQLite; installs with `requirements.lock` as constraints | yes |
 | `infra` | python CI container | ruff + pytest for `infra/aws` and this directory | yes |
 | `frontend` | Playwright container | `npm ci`, `npm run check` (tsc + eslint + vitest) | yes |
-| `e2e-real` | backend + Playwright containers on a per-run network | backend imports the real Bahar fixtures (`tests/fixtures/*.xlsx`), seeds the admin, solves the full term, serves with the booking clock pinned inside Bahar 2026 (`gates/e2e-backend-entry.sh`); `E2E_REAL=1 npx playwright test` runs every spec (smoke, real-backend, bookings, calendar, motion-audit), then the standalone build is checked for mock/demo code (`validate.sh --no-mock-build`). There is no mock-API gate. | yes |
-| `images` | host | `docker build` backend, frontend, legacy CRBS (no push; tags removed, cache kept) | yes |
+| `e2e-real` | backend + Playwright containers on a per-run network | backend imports the real Bahar fixtures (`tests/fixtures/*.xlsx`), seeds the admin, solves the full term, serves with the booking clock pinned inside Bahar 2026 (`gates/e2e-backend-entry.sh`); `E2E_REAL=1 npx playwright test` runs every spec (smoke, real-backend, bookings, calendar, motion-audit), then the standalone build is checked for mock/demo code (`validate.sh --no-mock-build`). There is no mock-API gate. Also on the network: `smtp` (`gates/smtp-sink.py`: SMTP 1025, JSON API 8025, nothing delivered) and `backend-empty` (an empty database, no users: the first-run installer). Playwright gets `E2E_SMTP_HOST/PORT/API` and `E2E_EMPTY_API_URL`. A booking clock outside Bahar 2026 fails the gate before any spec runs. | yes |
+| `parity` | python CI container | `scripts/parity_check.py` (CRBS superset): API rows run here, UI rows are judged by this run's `/w/playwright-report.json` (skipped / failed / not run = FAIL; no report = gate fails) | yes |
+| `planner` | python CI container | `tools/validate_planner.py` on the real workbooks (4 solves) | yes |
+| `images` | host | `docker build` backend, frontend, legacy CRBS (no push; tags removed, cache kept); the backend image must import the intake parsers | yes |
 | `watchdog` | python CI container | `scripts/watchdog.py` report | no |
 | `deploy` | host | checkout the commit in `/opt/smartsched/src`, render `/ci/` into nginx, `deploy.sh --update --no-pull --tls`, restart proxy, health check, then self-update pod CI | yes (deploy branch) |
 
@@ -39,7 +41,7 @@ The stack smoke test of the Actions workflow is replaced by the real deploy plus
 |---|---|
 | `podci/` | the service (stdlib + `python3-boto3`): `state.py` SQLite state machine, `runner.py` poller/worker/heartbeat, `github.py` statuses, `gitops.py` token-in-header git, `web.py` `/ci/`, `nginx.py`, `envfile.py`, `disk.py`, `cloud.py` |
 | `gates/*.sh` | one script per gate (host side, starts its own containers) |
-| `systemd/` | `smartsched-ci-poll.{service,timer}`, `smartsched-ci-worker.{service,path,timer}`, `smartsched-ci-web.service`, `smartsched-ci-update.{service,path}` |
+| `systemd/` | `smartsched-ci-poll.{service,timer}`, `smartsched-ci-worker.{service,path,timer}`, `smartsched-ci-web.service`, `smartsched-ci-update.{service,path}`, `smartsched-upload-purge.{service,timer}` (daily `../purge-uploads.sh`, `Persistent=true` so a purge missed during an idle stop runs after the next boot) |
 | `install.sh` | root: user, `/var/lib/smartsched-ci`, `/opt/smartsched-ci` (atomic swap), units, `/etc/smartsched-ci/ci.env` |
 | `pod-bootstrap.sh` | first boot: `.env` with secrets generated on the pod, SSM sync, `/ci/` basic auth, first deploy, start CI |
 | `ci.env.example` | configuration keys (`PODCI_*`) |

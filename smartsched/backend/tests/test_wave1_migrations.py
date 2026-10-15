@@ -17,7 +17,10 @@ from tests.test_crbs_migration import _cfg, _run
 def test_wave1_upgrade_keeps_checkbox_values_adopts_tags_and_round_trips(tmp_path):
     path = tmp_path / "w1.db"
     url = f"sqlite+aiosqlite:///{path}"
-    assert ScriptDirectory.from_config(_cfg(url)).get_heads() == ["0015_approvals"]
+    script = ScriptDirectory.from_config(_cfg(url))
+    # one head, and the wave-1 revisions are on its path (later migrations such as 0016 ride along)
+    (head,) = script.get_heads()
+    assert "0015_approvals" in {r.revision for r in script.walk_revisions("base", head)}
     _run(url, command.upgrade, "0011_integrations")
     con = sqlite3.connect(path)
     con.execute(

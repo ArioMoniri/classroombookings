@@ -296,6 +296,8 @@ export interface RecurringIn {
 
 export const RecurCreated = z.object({
   series_id: z.number(),
+  /** P1: "PENDING" (202) when the series went to the approvers */
+  status: z.string().optional(),
   created: z.array(BookingOut),
   skipped: z.array(z.object({ date: z.string(), reason: z.string(), status: z.string().nullish() })),
 });
@@ -1232,7 +1234,7 @@ export function useCrbsMutation<TVars, TOut>(fn: (vars: TVars) => Promise<TOut>,
 }
 
 /** Everything a booking can change: the grid, the lists, the context counters. */
-export const BOOKING_KEYS: QueryKey[] = [["crbs", "grid"], ["crbs", "mine"], ["crbs", "dashboard"], ["crbs", "owned-rooms"], crbsKeys.context, ["crbs", "booking"], ["crbs", "series"], ["crbs", "conflicts"]];
+export const BOOKING_KEYS: QueryKey[] = [["crbs", "grid"], ["crbs", "mine"], ["crbs", "dashboard"], ["crbs", "owned-rooms"], crbsKeys.context, ["crbs", "booking"], ["crbs", "series"], ["crbs", "conflicts"], ["w1", "approvals"], ["w1", "notifications"]];
 
 /* ------------------------------------------------------------- admin gaps (UI gap audit 2026-10-08) */
 

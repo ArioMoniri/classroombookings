@@ -2,9 +2,11 @@
 /**
  * /my-bookings (CRBS `Dashboard` + `Bookings_model::ByUser/ByRoomOwner` + `Export`): my upcoming and past
  * bookings with multi-cancel, bookings by others in rooms I own, a calendar subscription link and, with
- * `system.export_bookings`, the CSV export.
+ * `system.export_bookings`, the CSV export. Wave 1 (P1): my approval requests with their timeline come first
+ * (`?request=<id>` from the in-app notification opens one).
  */
-import { CalendarSync, Download, Repeat, Trash2 } from "lucide-react";
+import { CalendarSync, Download, Repeat, Search, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,6 +25,8 @@ import {
 import { bookingCapabilities } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { Field, Loading, PageTitle, SectionTitle, SelectField } from "@/components/admin/kit";
+import { MyRequests } from "@/components/approvals/my-requests";
+import { StatusPill } from "@/components/approvals/request-parts";
 import { addDays } from "./date-format";
 import { BookingDetailSheet } from "./booking-detail-sheet";
 import { CalendarSyncPanel } from "./calendar-sync";
@@ -67,6 +71,12 @@ export function MyBookingsView() {
     <div className="flex flex-col gap-8 pb-16">
       <PageTitle
         title={t("crbs.mine.title")}
+        actions={
+          <Button variant="outline" render={<Link href="/find-room" />} nativeButton={false} data-testid="mine-find-room">
+            <Search aria-hidden />
+            {t("wave1.find.title")}
+          </Button>
+        }
         subtitle={
           dash.data ? (
             <span data-testid="mine-totals">
@@ -79,6 +89,8 @@ export function MyBookingsView() {
           ) : null
         }
       />
+
+      <MyRequests fmt={fmt} />
 
       <section aria-labelledby="mine-list">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -205,7 +217,7 @@ function BookingList({
                 {b.notes ? ` · ${b.notes}` : ""}
               </button>
             </span>
-            {b.status !== "BOOKED" ? <span className="shrink-0 type-footnote font-medium text-label-3">{t("crbs.status.cancelled")}</span> : null}
+            {b.status === "CANCELLED" ? <span className="shrink-0 type-footnote font-medium text-label-3">{t("crbs.status.cancelled")}</span> : b.status !== "BOOKED" ? <StatusPill status={b.status} /> : null}
           </div>
         </li>
       ))}

@@ -415,3 +415,24 @@ async def test_minor7_copied_rules_that_need_review_land_in_the_tray(bahar):
     ).json()
     assert [x["source_id"] for x in out["needs_review"]] == [rid] and out["created"] == []
     assert out["needs_review"][0]["created_id"] is None
+
+
+async def test_mapping_finds_courses_by_code_key(bahar):
+    """ROADMAP: ``SYS 018`` (Bahar row 92's spelling) finds the course imported as ``SYS 18`` (row 68): the
+    sheet's codes are matched by ``normalize.course_key`` (no leading zeros, Turkish letters folded)."""
+    c, h = bahar.client, bahar.planner
+    url = f"/api/v1/terms/{bahar.term_id}/studio/preferences/mapping"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Ders Kodu", "Derslik"])
+    ws.append(["SYS 018", "A 204"])
+    ws.append(["SYS18", "A 204"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    files = {"file": ("sys.xlsx", buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    mapping = {"columns": {"course": 0, "room": 1}, "room_rule": "prefer"}
+    r = await c.post(url, files=files, data={"mapping": json.dumps(mapping)}, headers=h)
+    assert r.status_code == 200, r.text
+    props = r.json()["proposals"]
+    assert [p["status"] for p in props] == ["ok", "ok"], props
+    assert props[0]["params"]["event_ids"] == props[1]["params"]["event_ids"] != []

@@ -101,3 +101,29 @@ def test_score_helper_matches_validate() -> None:
     hard, soft, breakdown = score(inp, planted)
     assert hard == 100 and 0 <= soft <= 100
     assert sum(breakdown.values()) == sum(v.penalty for v in validate(inp, planted) if not v.hard)
+
+
+def test_repair_returns_a_moved_diff_and_is_deterministic_with_one_worker() -> None:
+    """P19-S2: the repair lists every moved event (from -> to) and, in deterministic mode (workers=1), gives
+    the same child for the same input; the result never trades a hard rule (re-evaluated)."""
+    from app.solver.repair import moved_diff
+
+    rooms = (room(1, "A101", 60), room(2, "A102", 60))
+    a = event(1, weeks=(3,), day=1, start=1)
+    b = event(2, weeks=(3,), day=1, start=1, allowed_days=(1,))
+    b = replace(b, fixed_day=None, fixed_start=None, allowed_days=frozenset({1}))
+    inp = make_input(rooms, (a, b), weeks=(3,), workers=1, time_limit_s=5.0)
+    wk = frozenset({3})
+    current = [Assignment(1, 1, 1, 2, (1,), wk), Assignment(2, 1, 1, 2, (2,), wk)]
+    edited = [Assignment(1, 1, 1, 2, (2,), wk), current[1]]  # the user moves #1 into #2's room
+    first = repair(inp, edited, [1], time_limit_s=5.0)
+    second = repair(inp, edited, [1], time_limit_s=5.0)
+    assert first.status in ("OPTIMAL", "FEASIBLE") and first.hard_score == 100
+    assert first.assignments == second.assignments and first.stats["repair"] == second.stats["repair"]
+    rep = first.stats["repair"]
+    assert rep["hard_violations"] == 0 and rep["dropped"] == []
+    moved = {m["event_id"]: m for m in rep["moved"]}
+    assert 2 in moved and moved[2]["from"]["room_ids"] == [2]  # #2 gave way
+    assert moved[2]["to"]["room_ids"] == [1] and 1 not in moved  # the edit's room set is the input
+    assert moved_diff(current, current) == []
+    assert moved_diff(current, current[:1]) == [{"event_id": 2, "from": moved_diff(current, [])[1]["from"], "to": None}]

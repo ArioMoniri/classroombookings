@@ -32,4 +32,20 @@ describe("studio plurals", () => {
     expect(translate("en", "studio.summary.h.rules", { must: 1, try: 2 })).toBe("It must follow 1 rule and will try to follow 2 preferences.");
     expect(translate("tr", "studio.summary.h.pinned", { n: 1 })).toBe("1 ders sabitlendi, yeri değişmeyecek.");
   });
+
+  it("counts in the classes, rules, presets and generate steps", () => {
+    expect(translate("en", "studio.classes.matchBar", { n: 1 })).toBe("1 class matches");
+    expect(translate("en", "studio.classes.matchBar", { n: 1200 })).toBe("1,200 classes match");
+    expect(translate("tr", "studio.classes.matchBar", { n: 1200 })).toBe("1.200 ders eşleşiyor");
+    expect(translate("en", "studio.rule.appliesTo", { n: 1 })).toBe("applies to 1 class");
+    expect(translate("en", "studio.rule.nClasses", { n: 2 })).toBe("2 classes");
+    expect(translate("en", "studio.copy.copied", { n: 1 })).toBe("1 rule copied");
+    expect(translate("en", "studio.preset.meta", { n: 1, author: "A", date: "D" })).toBe("1 rule · A · D");
+    expect(translate("en", "studio.pin.seatsSentence", { cls: "X", n: 1 })).toBe("Plan X for 1 seat");
+    expect(translate("en", "studio.review.summary", { files: 1, n: 1, ready: 1, look: 1, unread: 0 })).toBe("From 1 file we found 1 item: 1 ready, 1 needs a look, 0 couldn't be read.");
+    expect(translate("en", "glass.studio.placeOneWeek", { n: 1, rooms: 1, w: 3 })).toBe("SmartSched will place 1 class into 1 room for week 3.");
+    expect(translate("tr", "glass.studio.placeOneWeek", { n: 1234, rooms: 61, w: 3 })).toBe("SmartSched 3. hafta için 1.234 dersi 61 dersliğe yerleştirecek.");
+    expect(translate("en", "studio.check.blockedConfirm", { n: 1 })).toMatch(/^1 class can't be placed/);
+    expect(translate("en", "studio.summary.h.unlocked", { n: 1 })).toBe("1 class is unlocked for this draft and may move to a room that fits.");
+  });
 });

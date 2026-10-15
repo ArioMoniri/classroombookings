@@ -11,7 +11,7 @@
  * hint never animates (frequent action, motion.md §2) and is aria-hidden: the same text is in the
  * cell's accessible name.
  */
-import { Ban, CalendarClock, CalendarOff, CalendarX, Check, GraduationCap, History, Lock, OctagonX, Plus, Repeat, User } from "lucide-react";
+import { Ban, CalendarClock, CalendarOff, CalendarX, Check, GraduationCap, History, Hourglass, Lock, OctagonX, Plus, Repeat, User } from "lucide-react";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import type { Grid, GridSlot } from "@/lib/api/crbs";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,8 @@ export const TONE_CLASS: Record<SlotTone, string> = {
   "booked-single": "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--label-1)_8%)] text-label-1",
   "booked-recurring": "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--cat-7)_13%)] text-label-1",
   "booked-mine": "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--cat-3)_17%)] text-label-1",
+  // P1: a held request; dashed inner edge + hourglass, so it never reads as a confirmed booking
+  "booked-pending": "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_8%)] text-label-1 outline-1 -outline-offset-2 outline-dashed outline-(--accent)",
   timetable: "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--status-locked-solid)_12%)] text-label-1",
   holiday: "hatch-preoccupied text-label-2",
   unavailable: "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--label-1)_3%)] text-label-4",
@@ -37,6 +39,7 @@ export const TONE_ICON: Record<SlotTone, typeof User> = {
   "booked-single": User,
   "booked-recurring": Repeat,
   "booked-mine": User,
+  "booked-pending": Hourglass,
   timetable: GraduationCap,
   holiday: CalendarOff,
   unavailable: Ban,
@@ -169,9 +172,9 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
     (slot: GridSlot | undefined): string | null => {
       if (!slot) return t("crbs.slot.reason.unavailable");
       if (slot.status === "booked" && slot.booking) {
-        const text = slotText(slot, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class") });
+        const text = slotText(slot, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class"), pending: t("wave1.grid.pending") });
         const b = slot.booking;
-        return [text.primary, b.notes, b.department_name && b.department_name !== text.secondary ? b.department_name : null].filter(Boolean).join(" · ") || null;
+        return [text.primary, b.status === "PENDING" ? text.secondary : null, b.notes, b.department_name && b.department_name !== text.secondary ? b.department_name : null].filter(Boolean).join(" · ") || null;
       }
       if (slot.status === "timetable") return `${t("crbs.legend.timetable")} · ${slot.label || t("reserve.cell.class")}`;
       if (isSelectable(slot)) return null;
@@ -192,9 +195,12 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
       if (isSelectable(slot)) {
         state = multi ? (selected.has(slotKey(slot)) ? t("crbs.slot.selected") : t("crbs.slot.selectable")) : inSpan ? t("reserve.cell.selectedSpan", { n: span.length }) : `${t("crbs.slot.free")}, ${t("reserve.cell.reserve")}`;
       } else if (slot.status === "booked") {
-        const text = slotText(slot, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class") });
+        const text = slotText(slot, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class"), pending: t("wave1.grid.pending") });
         const b = slot.booking;
-        state = [slot.reason === "recurring" ? t("crbs.legend.recurring") : t("crbs.legend.single"), text.primary, b?.notes, b?.department_name].filter(Boolean).join(" · ");
+        state =
+          b?.status === "PENDING"
+            ? [text.primary, text.secondary, b.notes, b.department_name].filter(Boolean).join(" · ")
+            : [slot.reason === "recurring" ? t("crbs.legend.recurring") : t("crbs.legend.single"), text.primary, b?.notes, b?.department_name].filter(Boolean).join(" · ");
         if (kind === "cancel") state += `, ${selected.has(slotKey(slot)) ? t("reserve.multi.selectedCancel") : t("crbs.slot.selectable")}`;
       } else state = explain(slot) ?? "";
       return [...parts, state].join(", ");
@@ -343,7 +349,7 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
   if (!layout.rows.length || !layout.cols.length) return null;
 
   const corner = columns === "periods" ? (grid.display === "day" ? t("crbs.grid.room") : t("crbs.grid.day")) : t("crbs.grid.period");
-  const labels = { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class"), free: t("reserve.cell.free"), reserve: t("reserve.cell.reserve") };
+  const labels = { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class"), pending: t("wave1.grid.pending"), free: t("reserve.cell.free"), reserve: t("reserve.cell.reserve") };
 
   return (
     <div ref={wrapRef} className="relative">
@@ -494,7 +500,7 @@ const Cell = memo(function Cell({
   multi: boolean;
   isSelected: boolean;
   highlighted?: boolean;
-  labels: { booked: string; mine: string; class: string; free: string; reserve: string };
+  labels: { booked: string; mine: string; class: string; pending: string; free: string; reserve: string };
   deptColor: string | null;
   muted: boolean;
   onFocus: () => void;

@@ -58,8 +58,8 @@
         "time": "H:mm"
       },
       "short": "dd. MM. yyyy",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     },
     "cy": {
       "name": "Cymraeg",
@@ -118,8 +118,8 @@
         "time": "HH:mm"
       },
       "short": "dd/MM/yyyy",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     },
     "da": {
       "name": "Dansk",
@@ -178,8 +178,8 @@
         "time": "HH.mm"
       },
       "short": "dd.MM.yyyy",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     },
     "de": {
       "name": "Deutsch",
@@ -238,8 +238,8 @@
         "time": "HH:mm"
       },
       "short": "dd.MM.yyyy",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     },
     "es": {
       "name": "Español",
@@ -298,8 +298,8 @@
         "time": "H:mm"
       },
       "short": "dd/MM/yyyy",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     },
     "fi": {
       "name": "Suomi",
@@ -358,8 +358,8 @@
         "time": "H.mm"
       },
       "short": "dd.MM.yyyy",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     },
     "fr": {
       "name": "Français",
@@ -418,8 +418,8 @@
         "time": "HH:mm"
       },
       "short": "dd/MM/yyyy",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     },
     "it": {
       "name": "Italiano",
@@ -478,8 +478,8 @@
         "time": "HH:mm"
       },
       "short": "dd/MM/yyyy",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     },
     "nl": {
       "name": "Nederlands",
@@ -538,8 +538,8 @@
         "time": "HH:mm"
       },
       "short": "dd-MM-yyyy",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     },
     "pt": {
       "name": "Português",
@@ -598,8 +598,8 @@
         "time": "HH:mm"
       },
       "short": "dd/MM/yyyy",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     },
     "pt-br": {
       "name": "Português (Brasil)",
@@ -658,8 +658,8 @@
         "time": "HH:mm"
       },
       "short": "dd/MM/yyyy",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     },
     "sv": {
       "name": "Svenska",
@@ -718,8 +718,8 @@
         "time": "HH:mm"
       },
       "short": "yyyy-MM-dd",
-      "translated": 36,
-      "total": 2743
+      "translated": 38,
+      "total": 3157
     }
   }
 }

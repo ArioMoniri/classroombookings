@@ -36,6 +36,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from app.solver import policy
 from app.solver.constraints import effective_constraints
 from app.solver.constraints._common import int_list, week_runs
 from app.solver.constraints.room_closed import _blocks as room_closed_blocks
@@ -680,6 +681,8 @@ def to_original(split: WeekSplit, result: SolverResult) -> SolverResult:
                 ]
         if isinstance(out.get("clash_ids"), list):
             out["clash_ids"] = map_ids(out["clash_ids"])
+        if isinstance(out.get("policy"), dict) and isinstance(out["policy"].get("winners"), list):
+            out["policy"] = {**out["policy"], "winners": map_ids(out["policy"]["winners"])}
         return out
 
     diags = [replace(d, event_ids=map_ids(d.event_ids), params=map_params(d.params)) for d in result.diagnoses]
@@ -703,6 +706,34 @@ def to_original(split: WeekSplit, result: SolverResult) -> SolverResult:
         )
     else:
         stats.update(placed=len(full), unplaced=0, events_total=len(roots))
+    missing = missing_weeks(split, result.assignments, partial_ids)
+    extra: list[Diagnosis] = []
+    if missing:
+        only: dict[int, list[int]] = defaultdict(list)
+        counts: dict[int, int] = defaultdict(int)
+        for root, weeks in missing.items():
+            for w in weeks:
+                counts[w] += 1
+            if len(weeks) == 1:
+                only[weeks[0]].append(root)
+        stats["missing_weeks"] = {str(w): n for w, n in sorted(counts.items())}
+        stats["missing_only_week"] = {str(w): len(ids) for w, ids in sorted(only.items())}
+        labels = {e.id: e.label for e in split.inp.events}
+        for w, ids in sorted(only.items(), key=lambda x: (-len(x[1]), x[0])):
+            extra.append(
+                Diagnosis(
+                    ids[:200],
+                    ["no_room_overlap"],
+                    f"{len(ids)} class(es) are placed in every week except week {w} (no room free in that week "
+                    "once the rest is placed): "
+                    + ", ".join(_base_label(labels.get(i, f"#{i}")) for i in ids[:10])
+                    + (" ..." if len(ids) > 10 else ""),
+                    [f"free a room in week {w} (grid blocks, events) or move the classes in week {w} only"],
+                    "warning",
+                    "missing_only_week",
+                    {"week": w, "count": len(ids), "event_ids": ids[:500]},
+                )
+            )
     stats["week_split"] = {
         "events_split": len(split.segments),
         "segments": sum(len(v) for v in split.segments.values()),
@@ -711,7 +742,24 @@ def to_original(split: WeekSplit, result: SolverResult) -> SolverResult:
     }
     if split.segments and not stats.get("partial") and partial_ids:
         stats["partial"] = True
-    return replace(result, assignments=merged, diagnoses=[*diags, *kept_notes], stats=stats)
+    return replace(result, assignments=merged, diagnoses=[*diags, *kept_notes, *extra], stats=stats)
+
+
+def missing_weeks(split: WeekSplit, assignments: Iterable[Assignment], roots: Iterable[int]) -> dict[int, list[int]]:
+    """Original event id -> the weeks it is not placed in, for partially placed originals (some segments
+    placed): the Bahar week-1 bottleneck (577/603 events placed in every week but one) as its own number."""
+    placed_weeks: dict[int, set[int]] = defaultdict(set)
+    all_weeks: dict[int, set[int]] = defaultdict(set)
+    for e in split.inp.events:
+        all_weeks[split.origin_of(e.id)] |= set(e.weeks)
+    for a in assignments:
+        placed_weeks[split.origin_of(a.event_id)] |= set(a.weeks)
+    out: dict[int, list[int]] = {}
+    for r in roots:
+        gone = sorted(all_weeks.get(r, set()) - placed_weeks.get(r, set()))
+        if gone:
+            out[r] = gone
+    return out
 
 
 def solve_segmented(
@@ -752,9 +800,11 @@ def solve_segmented(
             break
         cand = solve(replace(cand_split.inp, time_limit_s=remaining), _hints=hints)
         clock.charge_s(cand.stats.get("clock_s"))
-        before = len(fully_placed(split, res.assignments))
-        after = len(fully_placed(cand_split, cand.assignments))
-        if after <= before or cand.hard_score < res.hard_score:
+        # a round is kept only if it is better under the relaxation policy (counted per original request:
+        # lock_first never trades a kept lock for more classes) and loses no hard score
+        before = policy.cost(inp, fully_placed(split, res.assignments))
+        after = policy.cost(inp, fully_placed(cand_split, cand.assignments))
+        if after >= before or cand.hard_score < res.hard_score:
             break
         split, res = cand_split, cand
         done += 1
@@ -764,6 +814,7 @@ def solve_segmented(
 
 
 __all__ = [
+    "missing_weeks",
     "REASON_BLOCKED",
     "REASON_RESIDUAL",
     "REASON_ROOM_CHANGES",

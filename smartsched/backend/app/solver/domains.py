@@ -73,6 +73,12 @@ def fixed_time_of(event: Event) -> TimeOption | None:
     return None
 
 
+#: required tags a trusted lock never waives (policy default Q4, 2026-10-15): an accessibility need of the
+#: class or its instructor ("step-free room") outranks the planner's locked room; the bridge sets the tag
+#: once the data exists (Phase 19: instructor accessibility + a room-master access attribute)
+NEVER_WAIVED_TAGS = frozenset({"ACCESSIBLE"})
+
+
 def trusted_lock(inp: SolverInput, event: Event) -> bool:
     """``trust_locked_rooms``: the planner's locked room set wins over the (estimated) size.  Only the
     planner's own locks (``Event.lock_trusted``) are trusted; a tool-made lock is checked like any room."""
@@ -229,6 +235,11 @@ def _room_options(event: Event, inp: SolverInput, soft: frozenset[str]) -> tuple
             reasons[room.id] = "room is forbidden for this event (room_forbid)"
             continue
         if trusted and room.id in locked_rooms:
+            access = (event.required_tags & NEVER_WAIVED_TAGS) - room.tags
+            if access and "room_tags" not in soft:
+                # policy Q4: a lock never overrides an accessibility need (static error ``lock_accessibility``)
+                reasons[room.id] = f"room lacks the accessibility requirement {sorted(access)} (room_tags)"
+                continue
             chosen.append(room.id)  # the planner's room: capacity / tag mismatches are reported, not enforced
             continue
         missing = event.required_tags - room.tags

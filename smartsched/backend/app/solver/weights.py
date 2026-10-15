@@ -19,6 +19,10 @@ DEFAULT_WEIGHTS: dict[str, int] = {
     # genuinely soft preferences
     "room_preference": 10,
     "building_preference": 5,
+    # accepted learned suggestions (Phase 19, ``Constraint.params["learned"]``) rank below the explicit wishes
+    # of this term (policy default Q7: learned 5 < explicit 10)
+    "learned_room_preference": 5,
+    "learned_building_preference": 2,
     "min_capacity_waste": 1,
     "same_room_group": 8,
     "same_room_across_weeks": 8,
@@ -46,3 +50,8 @@ def base_weight(weights: Mapping[str, int], name: str) -> int:
 def constraint_weight(weights: Mapping[str, int], kind: str, multiplier: int, name: str | None = None) -> int:
     """Effective weight of a soft term: ``base_weight(name or kind) * Constraint.weight``."""
     return base_weight(weights, name or kind) * max(0, int(multiplier))
+
+
+def preference_name(kind: str, params: Mapping[str, object]) -> str:
+    """Weight name of a preference rule: ``learned_<kind>`` for an accepted learned suggestion."""
+    return f"learned_{kind}" if params.get("learned") else kind

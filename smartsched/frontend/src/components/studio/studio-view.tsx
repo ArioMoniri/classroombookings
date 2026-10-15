@@ -405,7 +405,7 @@ function SummaryPill() {
   const word = summary.readiness === "ready" ? `${t("studio.check.ready")} ✓` : summary.readiness === "blocked" ? t("studio.check.blocked") : summary.readiness === "needs_look" ? t("studio.check.needsLook") : summary.readiness === "checking" ? t("studio.check.checking") : "";
   return (
     <>
-      {t("studio.summary.pill", { n: n(summary.classesIn) })}
+      {t("studio.summary.pill", { n: summary.classesIn })}
       {word ? ` · ${word}` : ""}
     </>
   );

@@ -219,9 +219,9 @@ def parse_planning_row(
         needs_room = False
     if definitive.status == "ROOMS":
         needs_room = True
-    enrol = n.parse_int_loose(g("enrolment"))
-    if g("enrolment") is not None and enrol is None and n.clean_text(g("enrolment")):
-        warnings.append(f"unparseable enrolment {g('enrolment')!r}")
+    enrol, enrol_warning = n.parse_enrolment(g("enrolment"))  # time-shaped / out-of-range values refused (D11)
+    if enrol_warning:
+        warnings.append(enrol_warning)
     return PlanningRow(
         row=row,
         raw=row_dict(headers, values),

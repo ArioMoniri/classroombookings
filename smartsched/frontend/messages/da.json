@@ -92,5 +92,13 @@
       "day": "Dag",
       "week": "Uge"
     }
+  },
+  "onboarding": {
+    "weekCount": "Uger"
+  },
+  "wave1": {
+    "find": {
+      "weeks": "Uger"
+    }
   }
 }

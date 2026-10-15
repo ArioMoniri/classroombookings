@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from app.solver.model import Assignment, Block, Constraint, Diagnosis, Event, Room, SolverInput, SolverResult
+from app.solver.policy import policy_name
 
 
 def _date(value: Any) -> date | None:
@@ -115,6 +116,7 @@ def event_from_dict(d: Mapping[str, Any]) -> Event:
         needs_room=bool(d.get("needs_room", True)),
         share_room=bool(d.get("share_room", False)),
         lock_trusted=bool(d.get("lock_trusted", True)),
+        priority=int(d.get("priority", 0) or 0),
     )
 
 
@@ -163,6 +165,7 @@ def input_to_dict(inp: SolverInput) -> dict[str, Any]:
         "trust_locked_rooms": inp.trust_locked_rooms,
         "fixed_conflicts_as_warnings": inp.fixed_conflicts_as_warnings,
         "best_effort": inp.best_effort,
+        "relaxation_policy": inp.relaxation_policy,
     }
 
 
@@ -183,6 +186,7 @@ def input_from_dict(d: Mapping[str, Any]) -> SolverInput:
         trust_locked_rooms=bool(d.get("trust_locked_rooms", False)),
         fixed_conflicts_as_warnings=bool(d.get("fixed_conflicts_as_warnings", False)),
         best_effort=bool(d.get("best_effort", False)),
+        relaxation_policy=policy_name(d.get("relaxation_policy")),
     )
 
 

@@ -53,6 +53,7 @@ import { useErrorToast } from "./admin-gate";
 import { EntityIcon, IconPicker } from "./icons";
 import { permLabel } from "./roles-admin";
 import { SortableList } from "./sortable-list";
+import { FeaturesTab } from "./features-admin";
 
 const fold = (s: string) => s.toLocaleLowerCase("tr-TR");
 
@@ -61,9 +62,12 @@ export function RoomsAdmin() {
   const { can } = usePermissions();
   const rooms = can("setup.rooms");
   const acl = can("setup.rooms_acl");
+  // P10 (wave 1): the typed feature catalogue, values grid and bulk CSV
+  const features = can(["rooms.features", "setup.rooms"]);
   const params = useSearchParams();
   const asked = params.get("tab");
-  const [tab, setTab] = useState(() => (asked && ["groups", "rooms", "fields", "acl"].includes(asked) && (asked === "acl" ? acl : rooms) ? asked : rooms ? "groups" : "acl"));
+  const allowed = (x: string) => (x === "acl" ? acl : x === "features" ? features : rooms);
+  const [tab, setTab] = useState(() => (asked && ["groups", "rooms", "features", "fields", "acl"].includes(asked) && allowed(asked) ? asked : rooms ? "groups" : features ? "features" : "acl"));
   return (
     <div className="flex flex-col gap-5">
       <PageTitle title={t("crbs.admin.rooms.title")} subtitle={t("crbs.admin.rooms.lead")} />
@@ -71,6 +75,7 @@ export function RoomsAdmin() {
         <TabsList aria-label={t("crbs.admin.rooms.title")}>
           {rooms ? <TabsTrigger value="groups">{t("crbs.rooms.tabGroups")}</TabsTrigger> : null}
           {rooms ? <TabsTrigger value="rooms">{t("crbs.rooms.tabRooms")}</TabsTrigger> : null}
+          {features ? <TabsTrigger value="features" data-testid="tab-features">{t("wave1.features.tab")}</TabsTrigger> : null}
           {rooms ? <TabsTrigger value="fields">{t("crbs.rooms.tabFields")}</TabsTrigger> : null}
           {acl ? <TabsTrigger value="acl">{t("crbs.rooms.tabAcl")}</TabsTrigger> : null}
         </TabsList>
@@ -82,6 +87,11 @@ export function RoomsAdmin() {
         {rooms ? (
           <TabsContent value="rooms">
             <RoomsTab />
+          </TabsContent>
+        ) : null}
+        {features ? (
+          <TabsContent value="features">
+            <FeaturesTab />
           </TabsContent>
         ) : null}
         {rooms ? (
@@ -643,7 +653,30 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
 function CustomFieldInput({ field, value, onChange }: { field: CustomField; value: unknown; onChange: (v: unknown) => void }) {
   const { t } = useI18n();
   const id = `cf-${field.id}`;
-  if (field.type === "CHECKBOX")
+  // wave-1 typed features share the table: yes/no like a checkbox, numbers and several options natively
+  if (field.type === "NUMBER")
+    return (
+      <Field label={field.name} htmlFor={id}>
+        <Input id={id} type="number" min={0} step="any" inputMode="decimal" value={typeof value === "number" ? value : ""} onChange={(e) => onChange(e.target.value === "" ? null : Math.max(0, Number(e.target.value)))} />
+      </Field>
+    );
+  if (field.type === "MULTISELECT") {
+    const ids = Array.isArray(value) ? value.map(Number) : [];
+    return (
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="mb-1 type-footnote font-medium text-label-2">{field.name}</legend>
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+          {field.options.map((o) => (
+            <label key={o.id} className="flex items-center gap-2 type-callout text-label-1">
+              <Checkbox checked={ids.includes(o.id)} onCheckedChange={(v) => onChange(v === true ? [...ids, o.id] : ids.filter((x) => x !== o.id))} />
+              {o.value}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
+  if (field.type === "CHECKBOX" || field.type === "BOOLEAN")
     return (
       <label className="flex items-center gap-2 type-callout text-label-1">
         <Checkbox checked={value === true} onCheckedChange={(v) => onChange(v === true)} />
@@ -679,7 +712,15 @@ function FieldsTab() {
   const [deleting, setDeleting] = useState<CustomField | null>(null);
   const toastError = useErrorToast();
   const del = useCrbsMutation((f: CustomField) => crbs.roomAdmin.deleteField(f.id), [["crbs", "fields"], ["crbs", "room-fields"]]);
-  const typeLabel = { TEXT: t("crbs.fields.text"), CHECKBOX: t("crbs.fields.checkbox"), SELECT: t("crbs.fields.select") };
+  const typeLabel: Record<CustomField["type"], string> = {
+    TEXT: t("crbs.fields.text"),
+    CHECKBOX: t("crbs.fields.checkbox"),
+    SELECT: t("crbs.fields.select"),
+    // wave-1 typed features live in the same table (edited in the Features tab)
+    BOOLEAN: t("wave1.features.kind.BOOLEAN"),
+    NUMBER: t("wave1.features.kind.NUMBER"),
+    MULTISELECT: t("wave1.features.kind.MULTISELECT"),
+  };
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">

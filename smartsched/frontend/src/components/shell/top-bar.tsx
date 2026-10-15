@@ -12,6 +12,7 @@ import { KbdHint } from "@/components/ui/kbd-hint";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress, ProgressIndicator, ProgressTrack } from "@/components/ui/progress";
 import { useRuns } from "@/lib/api/hooks";
+import { usePermissions } from "@/lib/api/shell-extra";
 import type { ScheduleRun } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { tween, useReduce, useReducedTransparency } from "@/lib/motion";
@@ -117,9 +118,12 @@ export function TopBar() {
   const { t } = useI18n();
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const crumbs = useBreadcrumbs();
-  const runs = useRuns();
+  // the run island is planning data: no GET /runs without planning.view
+  const { can } = usePermissions();
+  const planner = can("planning.view");
+  const runs = useRuns(undefined, { enabled: planner });
   const hydrated = useHydrated();
-  const running = hydrated ? runs.data?.find(isActive) : undefined;
+  const running = hydrated && planner ? runs.data?.find(isActive) : undefined;
   const tintOnly = useTintOnlyChrome();
   return (
     <header className="pointer-events-none sticky top-0 z-30 hidden items-center gap-3 px-4 pt-2 pb-1 sm:px-6 lg:flex lg:px-8">

@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai import catalog
 from app.ai.client import AIClient, text_of, tool_uses
 from app.ai.edits import apply_section_edits
-from app.ai.elicit import accept_proposals, build_system
+from app.ai.elicit import accept_proposals, build_system, enforce_source_policy
 from app.ai.resolve import (
     TermContext,
     load_term_context,
@@ -484,7 +484,7 @@ async def record_edit(
         )
         return {"recorded": name.replace("_assignment", "") + " (proposal only)"}
     if name == "add_constraint":
-        p = resolve_proposal(state.term, inp)
+        p = enforce_source_policy(resolve_proposal(state.term, inp), "AI")
         diff.operations.append(AddConstraintOp(constraint=p))
         return {
             "recorded": "add_constraint (proposal only)",

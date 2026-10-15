@@ -49,7 +49,7 @@ export function NotificationBell({ className }: { className?: string }) {
     refetchInterval: 60_000,
     staleTime: 20_000,
   });
-  const runs = useRuns();
+  const runs = useRuns(undefined, { enabled: hydrated && planner });
   const count = hydrated ? (unread.data?.length ?? 0) : 0;
   const label = unreadLabel(count);
 

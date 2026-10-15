@@ -62,9 +62,9 @@ export function CommandPalette() {
   const router = useRouter();
   const { t, locale, setLocale, languages } = useI18n();
   const cycleTheme = useCycleTheme();
-  const { term } = useActiveTerm();
   const { can } = usePermissions();
   const planner = can("planning.view");
+  const { term } = useActiveTerm({ enabled: planner });
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("");
   const debounced = normaliseQuery(useDebounced(query, 150));
@@ -72,8 +72,8 @@ export function CommandPalette() {
   const text = actionsOnly ? query.slice(1).trim() : query.trim();
   const live = !actionsOnly && debounced.length >= 2 ? debounced : "";
   const search = useShellSearch(planner ? live : "", term?.id);
-  const rooms = useRooms(live ? { q: live } : { q: "__none__" });
-  const runs = useRuns();
+  const rooms = useRooms(live ? { q: live } : { q: "__none__" }, { enabled: planner });
+  const runs = useRuns(undefined, { enabled: planner });
 
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {

@@ -120,9 +120,9 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 ### Phase 3 AI layer backlog (ai-engineer, 2026-10-08)
 
-- [ ] Backend deps: add `python-docx>=1.1` and `pypdf>=4` to `smartsched/backend/pyproject.toml` (+ lock); `app/ai/ingest.py` imports them lazily and returns HTTP 400 "not installed" without them (installed in the dev env, not declared)
+- [x] Backend deps: add `python-docx>=1.1` and `pypdf>=4` to `smartsched/backend/pyproject.toml` (+ lock); `app/ai/ingest.py` imports them lazily and returns HTTP 400 "not installed" without them (installed in the dev env, not declared) (verified 2026-10-15: smartsched/backend/pyproject.toml:25-26 declares both; the backend has no lock file)
 - [x] Settings default model (decided 2026-10-08: `claude-opus-5-5`): `settings_service.SPECS["anthropic_model"]` defaults to `claude-sonnet-5-5` while the claude-api skill / RESEARCH §4.3 recommend `claude-opus-5-5`; decide and align (AI layer falls back to `claude-opus-5-5` only when the setting is empty)
-- [ ] Constraints table: add a `source_ref` JSON column; today upload refs live in `params["_source_ref"]` (studio backend agent)
+- [x] Constraints table: add a `source_ref` JSON column; today upload refs live in `params["_source_ref"]` (studio backend agent) (2026-10-15: column existed since alembic 0002; `app/ai/elicit.py` `accept_proposals` now writes it and moves a legacy `params._source_ref` there; tests/ai/test_elicit_ingest.py::test_xlsx_upload_yields_proposals_and_section_edits_with_refs, ::test_docx_upload_and_accept_endpoint)
 - [ ] Chat-created constraints are term-wide (`term_id`) so they carry over to grandchild runs; add a run-scoped option ("only for this run") with inheritance through `parent_run_id` in `build_solver_input`
 - [ ] Week-limited room rules (`room_pin`/`room_forbid` with weeks other than room_closed) are flagged needs_review: the solver applies room rules to all weeks of an event; implement meeting splitting by week pattern ("PHAR 240 moves to A 206 from 23 Feb")
 - [ ] Moves to another day/period of a fixed-time request are rejected by the validator (`fixed_time` hard); offer "move + update the request" as one op in the diff UI instead of a separate `set_section_field`
@@ -382,6 +382,77 @@ User decisions (2026-10-15):
 - Suggestion memory reset: per person, per term, or all; admin-only, audited, undoable for 30 days.
 - Conflict policy: locks first (never moved), then coordinator-set priority, then most classes placed; configurable per term. (Resolves the PHAR 114 §2 lock-first vs most-classes-first question.)
 - Learned suggestions are never auto-applied: suggest only; accepting one adds a SOFT preference. Hard-rule integrity (100/100 or explained infeasibility) is unchanged.
+
+Execution order (2026-10-15):
+1. Analysis (running): strict-engineer gap analysis + academician needs; Phase 19 UX specs (design-pro, Mobbin research); motion audit + Phase 19 motion spec (motion_designer skill).
+2. Branch sync: merge claude/smartsched-universal (Ingestion Council + universal onboarding) into gracious; migration renumbered onto the single head (0018_council after 0017_course_code_fold); then universal fast-forwards to gracious and stays in sync at each green checkpoint.
+3. Build waves, in non-overlapping file scopes:
+   - 3a. Structured intake (xlsx/xls/csv/tsv/ods/json/xml/ics) on the council
+   - 3b. Moderation tab + matchings + minimal-change re-solve with diff
+   - 3c. Learned suggestions + scoped resettable memory
+   - 3d. From-scratch program wizard
+   - 3e. AI-assisted intake (pdf/docx/txt/eml/images, coordinator review)
+   - Running alongside these: remaining CRBS parity GAPs, P18-LEGACY, motion-audit fixes
+4. Stabilisation: every pod gate green on one commit; then pod start + deploy + BLUF report.
+
+Backlog sweep (2026-10-15): 160 unticked items. Each owner agent verifies every item (tick with evidence if already done, otherwise implement test-first):
+- AI: "Phase 3 AI layer backlog" + AI review follow-ups
+- Solver: "Phase 9 real-data feasibility backlog" + solver review/comparison follow-ups + the per-term relaxation_policy (lock_first default)
+- Devops: "Phase 5", "Phase 6 integration", "Test-stack follow-ups" + a local run of every pod gate
+- Backend: "Backend Phase 1", "Phase 11", "No-placeholder", "Phase 17/18", "Calendar sync follow-ups" + parity GAP rows + P18-LEGACY
+- Importer (running): planner comparison follow-ups + ÇEV≡CEV folding
+- Queued for the frontend, starting once the wave-1 and studio agents release their files: "Phase 8 Generator Studio frontend backlog", "Frontend UX fixes for the Liquid Glass implementation wave", "UI polish backlog", "Calendar follow-ups", "Reservation panel (+ follow-ups)", "Shell follow-ups", the frontend review follow-ups, the motion-audit tickets and the UI parts handed over by the backend sweep.
+User decisions recovered from the agent registry: ÇEV and CEV are the same course code; webhooks off by default; start the pod and deploy when green.
+
+Phase 19 policy defaults (provisional, adopted 2026-10-15 from docs/testing/2026-10-15-academician-needs.md §6; the owner may override any):
+- Q1: priority attaches per request, with tier defaults.
+- Q2: seniority does not raise priority (it's an opt-in per-term toggle).
+- Q3: everything received before the deadline is equal; late requests rank lower; no first-come tie-break.
+- Q4: a lock that contradicts an accessibility need blocks the run at pre-check.
+- Q5: a lock/lock double booking is listed at pre-check; if the run goes ahead, the higher priority wins and is reported.
+- Q6: repeated denials are shown as a badge, with no automatic boost.
+- Q7: learned preference weight 5 < explicit soft preference 10.
+- Q8: a lock over room capacity is refused at the edit unless explicitly overridden.
+- Q9: a recreate moves 0 published classes outside its scope by default; extra moves are listed with their cause.
+- Q10: department satisfaction is reported only (v1), not balanced.
+- Q11: visibility: academician sees their own, the department secretary sees the department, coordinator/admin see all; accessibility is yes/no only.
+- Q12: the department form is the official request; the academician's own wish is a lower-ranked soft preference.
+Parser bugs to fix before learning (sent to the importer agent): negation ("olmasın"), "veya" alternatives, alternative room groups, accessibility/furniture wishes, and the "Derse Özel Açıklama" column becoming soft preferences.
+Missing for the moderation tab (from the academician analysis): a user↔instructor link, a run-to-run diff endpoint and UI, approval before a re-solved run is published, and a refusal-reason field.
+Missing for programmes from scratch: create endpoints for faculties, courses, sections and meetings.
+
+### Phase 19 tickets (from docs/review/2026-10-15-phase19-engineering.md §5; full acceptance criteria are there)
+Wave 0, the gates:
+- [ ] P19-00a: refuse untargeted soft structural rules (D1 BLOCKER: a soft capacity rule seated 180 in a 50-seat room with hard 100). Backend agent.
+- [ ] P19-00b: per-source hardness allowlist (AI/UPLOAD/LEARNED); store rejected proposals. AI agent.
+- [ ] P19-00c: report waived structural rules in stats and the run report. Solver agent.
+- [ ] P19-01: publish guard (no FAILED activation), a single active run per term, 409 on deleting the active run; migration on the current single head (0018_council at the universal merge). Backend agent.
+- [ ] P19-02: audit planning entities and actions (D5). Backend agent.
+- [ ] P19-03: per-term write lock for imports and commits (D8). Backend agent, then the importer agent wires it in.
+- [ ] P19-04/05: council merge hardening (D2 safe_files caps and isolation, D3 no MSW, D13 Planner-only records, D14 dedupe). Merge agent.
+- [ ] P19-06: no dead nav/⌘K links (D6); find-room gated by permission; crawler e2e. Wave-1 frontend agent.
+- [ ] D15, D16, D19 (rooms PUT permission, CRBS DSN SSRF, setup race). Backend agent.
+- [ ] P19-Q1: normaliser D9–D12, plus the parser bugs from the academician analysis. Importer agent.
+- [ ] P19-Q2: parity gate requires the playwright JSON; fix the date-gated skip; reserve.spec in UI_SPECS. Devops agent.
+- [ ] P19-Q3: dependency pins (xlrd, defusedxml, pdfplumber, pypdfium2, icalendar in main deps) and a 30-day upload purge. Devops agent.
+Wave 1, structured intake (after 04): [ ] I1 magic-byte registry + CSV/TSV/JSON · [ ] I2 xls + ods · [ ] I3 xml + ics · [ ] I4 commit dry-run diff · [ ] I5 schedule map → baseline IMPORT run, deduped across jobs · [ ] I6 source_ref provenance · [ ] I7 room-master import UI + diff panel
+Wave 2, AI-assisted intake: [ ] A1 AI intake/vision switches (default off) + KVKK sign-off (backend part with the AI agent now) · [ ] A2 review required on every AI row · [ ] A3 PDF tables / scanned PDFs / EML / EXIF / PII redaction · [ ] A4 injection corpus test
+Wave 3, learning, from scratch, moderation: [ ] L1–L4 learning tables, extractors, priors and suggestions, reset/undo · [ ] C1–C2 CRUD for faculties, courses, instructors, sections, requests + pattern expander · [ ] S1–S2 priority-weighted placement, deterministic repair diff · [ ] M1–M3 moderation read models, priority + conflict_policy, re-solve endpoint · [ ] F1–F4 moderation UI, suggestion tray + reset UI, program wizard
+Proposed later (from the review): academician self-service portal, instructor availability and load rules, term workflow states, publish history and rollback, department-scoped planners, swap requests after publish, exam invigilator assignment, utilisation reports, what-if sandboxes, OBS enrolment sync, personal ICS feeds for assignments.
+
+Phase 19 UX decisions (owner, 2026-10-15; specs in docs/design/v2/phase19-*.md):
+- Old pages: /import and /requests stay until the new import screen and Moderation › Requests pass the same tests, then they redirect.
+- AI rows: bulk accept of up to 50 visible rows with one confirm. Low-confidence rows still need an individual accept.
+- Recreate preview: pin-and-re-run only. No partial publish, so every published schedule is a full checked solver result.
+- Publish notifications: in-app bell plus one e-mail digest per affected academician (only their changed classes), with a per-user e-mail opt-out.
+Defaults adopted (owner may override):
+- Intake commit and program creation can be undone for 30 days.
+- AI inputs (page images) are kept for 30 days and purged with uploads.
+- The KVKK notice URL is an admin setting.
+- Suggestions need 2 terms of evidence, or 3 repeats within one term.
+- Priority has 3 tiers. Person-level priority is set by coordinator/admin only.
+- Exam terms use the same policy order.
+- A KVKK erasure request purges immediately; the undo window does not apply to erasure.
 
 ### Universal SmartSched / Ingestion Council backlog (claude/smartsched-universal 2026-10-08, merged 2026-10-15; overlaps Phase 19 intake)
 

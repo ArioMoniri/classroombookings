@@ -10,7 +10,7 @@
  */
 import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Loader2, PackageX, Search, Stamp, Users, type LucideIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import { errorText, pickLang, useFacets, useRecentSearches, w1Keys, wave1, wave1
 import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { ACTIONABLE, buildQuery, emptyForm, firstFreeDate, formFromRecent, recentParts, reserveSpan, slotsFor, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { ACTIONABLE, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, recentParts, reserveSpan, slotsFor, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
 
 const STATUS: Record<string, { icon: LucideIcon; cls: string; key: MessageKey }> = {
   free: { icon: CheckCircle2, cls: "bg-status-feasible text-status-feasible-fg", key: "wave1.find.status.free" },
@@ -124,12 +124,13 @@ export function FindRoomView() {
   // reserve: the room's day grid (the sheet needs it), its periods for the result's span
   const [target, setTarget] = useState<BookTarget | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
-  const reserve = async (key: string, roomId: number, date: string, start: number, end: number) => {
+  const reserve = async (key: string, roomId: number, date: string, start: number, end: number, request = false) => {
     setOpening(key);
     try {
       const info = rooms.data?.find((r) => r.id === roomId) ?? (await crbs.bookings.room(roomId));
       const q: GridQuery = { display: "day", date, term_id: termId, room_group_id: info.room_group_id ?? undefined };
-      const grid = await qc.fetchQuery({ queryKey: crbsKeys.grid(q), queryFn: () => crbs.bookings.grid(q), staleTime: 0 });
+      const fetched = await qc.fetchQuery({ queryKey: crbsKeys.grid(q), queryFn: () => crbs.bookings.grid(q), staleTime: 0 });
+      const grid = request ? asRequestable(fetched, roomId, date, start, end) : fetched;
       const span = reserveSpan(slotsFor(grid, roomId, date, start, end));
       if (!span) {
         toast.error(t("wave1.find.notFree"));
@@ -374,7 +375,7 @@ export function FindRoomView() {
                     {free.map((r, i) => (
                       <ResultRow key={r.room_id} row={r} rank={i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={opening === `r${r.room_id}`} onReserve={() => {
                         const date = firstFreeDate(r, result.slots);
-                        if (date) void reserve(`r${r.room_id}`, r.room_id, date, r.start_period, r.end_period);
+                        if (date) void reserve(`r${r.room_id}`, r.room_id, date, r.start_period, r.end_period, r.action === "request");
                       }} />
                     ))}
                   </ul>

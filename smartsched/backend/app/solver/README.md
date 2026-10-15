@@ -18,6 +18,7 @@ serialization.py  JSON in/out of the contract
 seats.py          seat budgets of shared rooms (split exams): targets, allocation, max-flow validation
 options.py        structured suggestion options (Diagnosis.params["options"])
 weeksplit.py      week segments for term runs (blocked weeks move only those weeks), residual split, merge back
+policy.py         relaxation policy: who loses when not every request fits (lock_first / most_classes_first)
 ```
 
 Not shipped in the image (audit m10): `tests/solver/generators.py` (synthetic + Bahar-like instance
@@ -107,7 +108,9 @@ feasible incumbent and spends its budget on LNS improvement.
 Weighted sum of penalty terms. `weight = base_weight(name) × Constraint.weight`, where
 `base_weight` comes from `SolverInput.weights` with the defaults in `weights.py`
 (`room_preference` 10, `building_preference` 5, `min_capacity_waste` 1 per 10 wasted seats,
-`same_room_group` / `same_room_across_weeks` 8 per extra room, `stability_room` 20,
+`same_room_group` / `same_room_across_weeks` 8 per extra room, accepted learned suggestions
+(`Constraint.params["learned"]`) `learned_room_preference` 5 / `learned_building_preference` 2 (policy Q7:
+learned < explicit), `stability_room` 20,
 `stability_time` 30, `exam_gap` 10, `max_exams_per_day` 10, `day_window` 5,
 `evening_programs_in_buildings` 5, and 20–50 for the *softened* structural rules). The reported
 `objective_breakdown` and both scores are computed by `scoring.evaluate` on the extracted
@@ -147,6 +150,19 @@ remainder) allocation.
 softened explicitly (`Constraint("capacity", {}, hard=False)` → seats short are penalised). Locked
 assignments always win (also over the request's fixed day/time — a lock is the planner's decision).
 
+**Waived rules are always reported (P19-00c).** A built-in hard rule run as soft (for every event or a
+targeted set) is named on every result: `stats.waived_rules` (e.g. `["capacity"]`),
+`stats.waived_violations` (kind → breaches among the placed events, re-evaluated with `evaluate`) and a
+`waived_rules` warning listing them and the breaking events ("ING 101 needs 180 seats but A101 offers
+50"); `hard_score` then covers the other hard rules only and the message says so. `Evaluation.waived` /
+`waived_violations()` expose the same on `validate`/`score`; the accepted-exception cause is `waived`.
+
+**Accessibility is never waived by a lock (policy Q4).** `domains.NEVER_WAIVED_TAGS` (`ACCESSIBLE`): a
+trusted lock into a room without the tag is not kept with a `trusted_lock_tags` warning but is a
+`lock_accessibility` static error (the pre-check blocks on it); `room_tags.score` keeps checking the tag
+for trusted locks, so `validate()` refuses such a manual edit too.  The bridge sets the tag once the
+data exists (Phase 19: instructor accessibility + a room-master access attribute).
+
 ## Real-data modes (D1–D3)
 
 Three `SolverInput` switches, **off by default** in the pure solver (strict semantics, every older test
@@ -173,8 +189,9 @@ a rule silently: each produces a structured warning per case.
   event whose window only fits on top of a fixed pair stays an error).
 * **`best_effort`** — on a static error or a CP-SAT infeasibility proof, phase 1 is the slack
   relaxation, warm-started with the greedy placement (complete hint: unhinted events hinted unplaced),
-  minimising `(L+1)·#unplaced + #unplaced locked` (lexicographic: the most events, then keep the
-  planner's locked ones); phase 2 re-solves the placed events with the normal objective, hinted with
+  minimising the lexicographic tiers of `SolverInput.relaxation_policy` (see "Relaxation policy" below;
+  default `lock_first`: the planner's trusted locks, then priority, then the most requests and
+  event-weeks); phase 2 re-solves the placed events with the normal objective, hinted with
   phase 1. Status stays `INFEASIBLE` (the full request set has no solution; the bridge stores such a run as
   `FEASIBLE_PARTIAL`, keeping `stats.partial`); `assignments` is the partial timetable, `stats.partial=True`, `placed`, `unplaced`, `events_total`, `unplaced_ids`; hard /
   soft scores are evaluated on the placed events (hard 100 = every hard rule holds for them). The first
@@ -189,6 +206,39 @@ a rule silently: each produces a structured warning per case.
 
 Also: an event locked to *k* rooms may use *k* rooms (`normalize_input`; the Bahar list locks large
 lectures to `A 101 / A 106 / …` while the request is a single-room event).
+
+## Relaxation policy (`policy.py`, user decision 2026-10-15)
+
+Who loses when not every request can be placed (best effort only; a feasible instance is unchanged and a
+strict run stays `INFEASIBLE` with its diagnosis — nothing is relaxed silently).  A *request* is one event
+or all week segments of one request.  Tiers, most significant first:
+
+| `relaxation_policy` | tiers |
+|---|---|
+| `lock_first` (default) | trusted locks kept (`Event.locked` + `lock_trusted`, count) → coordinator priority levels (highest first; each level counts its unplaced requests, so one more request of a higher level beats any number of lower ones) → requests (only when all priorities are equal) → event-weeks → tool-made locks |
+| `most_classes_first` | requests → event-weeks → priority levels → locks (the pre-2026-10-15 objective when no priority is set) |
+
+`Event.priority` (int, higher wins, clamped to −100..100, default 0) comes from the bridge (run param
+`priorities`: request id → int; Phase 19 persists it per request).  `policy.tiers(inp)` builds the tiers,
+`policy.objective_groups` folds tiers into one weighted CP-SAT objective while `Π(ub+1) ≤ 2^42`
+(`SINGLE_OBJECTIVE_LIMIT`), otherwise the groups are **staged**: solve, add `group ≤ value`, re-hint, solve
+the next group (`stats.relax_stages`); the canonical tie-break stage keeps every stage's bound.  The same
+tiers are evaluated in Python by `policy.cost(inp, placed_ids)`, which ranks the greedy fallback of
+`_best_effort` and the residual week-split rounds, so every comparison follows the policy.  Ties after
+every tier: more students, then a fixed id rank — never the input / submission order (policy Q3; the greedy
+order also breaks ties by `stable_rank`).  Exchanges (`canonical_exchange`) never trade a higher-priority
+request for a lower one.
+
+Every unplaced event's `unplaced` diagnosis carries `params.policy = {policy, priority, reason, winners}`
+with `reason` ∈ `lock_clash_priority`, `lock_clash_tie`, `lock_clash_more_locks`, `locked_row_kept`,
+`lower_priority`, `most_classes`, `no_option` (`policy.loss_reason`: the placed events holding a room or
+key of one of its options); the bridge renders TR / EN texts ("Kilitli satır korundu: …", "Lower priority
+than …", "Karşılanmadı: kilit çakışması; … daha yüksek öncelikli") and a `policy_losses` summary
+(`stats.policy_losses` by reason).  Two locks in one room at once (`locked_overlap`, policy Q5) carry
+`params.priorities` and `params.keeps` (the id a run keeps, `None` on equal priority) so the pre-check
+names the pair and the winner before any run.  Stats: `stats.policy_tiers` (solver), the bridge's
+`stats.relaxation_policy = {policy, source: run|term|default|invalid_setting, priorities,
+prioritised_events}`.
 
 ## Week segments for term runs (`weeksplit.py`)
 
@@ -330,10 +380,12 @@ Stats: `sweep_days`, `sweep_improved_days`, `sweep_penalty_before/after`, `sweep
 | `fixed_conflict` / `input_conflict` | error / warning | `noun`, `key`, `kind`, `keys` (`[[kind, key], …]`), `day`, `start` |
 | `trusted_lock_capacity` / `trusted_lock_tags` | warning | `rooms`, `room_codes`, `seats`, `size`, `fitting_rooms` / `missing_tags`, `forbidden_tags` |
 | `trusted_hint_capacity` (bridge, prefer mode) | warning | `size`, `seats`, `room_codes`, `request_id` |
-| `locked_overlap` | error | `rooms`, `room_codes`, `day`, `period`, `shared` (+ `week`, `need`, `seats` for shared rooms) |
-| `locked_ineligible`, `locked_blocked` | error | `rooms`, `room_codes`, `reasons`, `categories`, `day`, `start`, `end` |
+| `locked_overlap` | error | `rooms`, `room_codes`, `day`, `period`, `shared` (+ `week`, `need`, `seats` for shared rooms), `priorities`, `keeps`, `relaxation_policy` |
+| `locked_ineligible`, `lock_accessibility`, `locked_blocked` | error | `rooms`, `room_codes`, `reasons`, `categories`, `day`, `start`, `end` |
+| `waived_rules` | warning | `rules`, `violations` (kind → breaches), `events` |
+| `policy_losses` (bridge), `invalid_setting` (bridge) | warning | `policy`, `losses` (`[{event_id, reason, winners, priority}]`), `by_reason` / `key`, `used` |
 | `pigeonhole` | error | `n`, `day`, `period`, `week`, `rooms` |
-| `unplaced` | error | `size`, `duration`, `day`/`start`/`end` (fixed time), `problem` (`capacity`/`rooms_busy`/`clash`/`excluded`), `busy` (`[{room, capacity, day, start, end, holders}]`), `clashes` (`[{kind, key, day, start, end, holders}]`), `free`, `excluded` (reason category → count), `fitting_rooms`, `largest_capacity` |
+| `unplaced` | error | `size`, `duration`, `day`/`start`/`end` (fixed time), `problem` (`capacity`/`rooms_busy`/`clash`/`excluded`), `busy` (`[{room, capacity, day, start, end, holders}]`), `clashes` (`[{kind, key, day, start, end, holders}]`), `free`, `excluded` (reason category → count), `fitting_rooms`, `largest_capacity`, `policy` (`{policy, priority, reason, winners}`) |
 | `week_split` | warning | `reason`, `kept_weeks`, `moved_weeks`, `uncovered_weeks`, `rooms`/`room_codes`/`affected_rooms`, `segments` |
 | `core`, `unplaced_summary`, `partial` | error / warning | `minimal` (core), `exceptions` / `reason` (partial) |
 | `missing_enrolment`, `joint_lecture_clipped`, `outside_pool_overlap` (bridge) | warning | `request_ids`, `size`, `sizes`, `sources` / `seats`, `room_codes` / `rooms`, `day`/`date`, `start`, `end` |
@@ -378,6 +430,11 @@ or an instructor key at an overlapping time, within `radius` conflict hops); wit
 the edited events are locked to their new position (that is the user's intent), otherwise they are
 freed too. The residual model is tiny, `previous=assignments` drives the stability objective and the
 hints, and an impossible edit comes back `INFEASIBLE` with a diagnosis.
+
+`stats["repair"]` lists `changed`, `freed`, `locked`, and (P19-S2) `moved` — every event whose placement
+changed, `{event_id, from, to}` (`moved_diff`; `to` None = dropped), `moved_count`, `dropped` and
+`hard_violations` of the placed events (re-evaluated: a repair never trades a hard rule silently).  With
+`workers=1` the repair runs in deterministic time: the same input gives the same child, bit for bit.
 
 `validate(inp, assignments) -> list[Violation]` and `score(inp, assignments)` run the same
 constraint modules in pure Python (no CP-SAT) for the API's manual/AI edits.

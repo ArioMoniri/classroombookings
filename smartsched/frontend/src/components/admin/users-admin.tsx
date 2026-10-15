@@ -41,6 +41,9 @@ import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
+import { normaliseScopes } from "@/components/approvals/approvals-model";
+import { ScopePicker, scopeLabel, useScopeLookups } from "@/components/approvals/scope-picker";
+import type { Scope } from "@/lib/api/wave1";
 
 const PAGE = 25;
 const SEEDED = [
@@ -332,6 +335,12 @@ function UserDialog({ user, onClose, canListRoles }: { user: AdminUser | "new" |
 function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onClose: () => void; canListRoles: boolean }) {
   const { t } = useI18n();
   const departments = useDepartments();
+  // P1 "approves for" (wave 1): only an approver who may manage users designates others
+  const { can } = usePermissions();
+  const canDesignate = can("approvals.decide") && can("setup.users");
+  const lookups = useScopeLookups(canDesignate);
+  const [approves, setApproves] = useState<Scope[]>(() => (user?.approves_for ?? []).map((x) => ({ type: x.type, id: x.id ?? null, tag: x.tag ?? null })));
+  const [approvesDirty, setApprovesDirty] = useState(false);
   const [f, setF] = useState({
     username: user?.username ?? "",
     email: user?.email ?? "",
@@ -361,6 +370,7 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
     force_password_reset: f.force_password_reset,
     ...(f.password ? { password: f.password } : {}),
     ...roleBody(f.role),
+    ...(canDesignate && approvesDirty ? { approves_for: normaliseScopes(approves) } : {}),
   });
   const save = useCrbsMutation(() => (user ? crbs.users.update(user.id, body()) : crbs.users.create(body())), [["crbs", "users"]]);
   return (
@@ -436,6 +446,25 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
           </span>
           <Switch checked={f.force_password_reset} onCheckedChange={(v) => set("force_password_reset", v)} aria-label={t("crbs.users.forceReset")} />
         </label>
+        {canDesignate ? (
+          <details className="group rounded-xl bg-fill-3 px-3 py-2" open={approves.length > 0 || undefined} data-testid="user-approves-for">
+            <summary className="cursor-pointer list-none type-callout font-medium text-label-1 outline-none focus-visible:outline-2 focus-visible:outline-(--focus)">
+              {t("wave1.scope.title")}
+              <span className="block type-footnote font-normal text-label-3">{approves.length ? approves.map((x) => scopeLabel(x, lookups, t)).join(", ") : t("wave1.scope.hint")}</span>
+            </summary>
+            <div className="pt-3">
+              <ScopePicker
+                value={approves}
+                onChange={(v) => {
+                  setApproves(v);
+                  setApprovesDirty(true);
+                }}
+                lookups={lookups}
+                idPrefix="user"
+              />
+            </div>
+          </details>
+        ) : null}
         {user ? <ConstraintsEditor userId={user.id} /> : null}
         {user ? (
           <Link href={`/admin/access?user=${user.id}`} className="inline-flex items-center gap-1.5 self-start type-callout text-tint-text outline-none hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="user-form-check-access">

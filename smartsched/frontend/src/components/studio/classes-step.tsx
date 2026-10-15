@@ -433,7 +433,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
 
       {active > 0 && shown.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-fill-3 px-2.5 py-1.5 text-sm" data-testid="only-these-bar">
-          <span>{t("studio.classes.matchBar", { n: n(shown.length) })}</span>
+          <span>{t("studio.classes.matchBar", { n: shown.length })}</span>
           <Button size="sm" variant="outline" onClick={onlyThese} data-testid="only-these">
             {t("studio.classes.onlyThese", { n: n(shown.length) })}
           </Button>

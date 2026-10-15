@@ -74,6 +74,9 @@ class Event:
     #: ``trust_locked_rooms`` (D1); a lock made by a tool (the fix button, a manual move, an AI edit carried
     #: into a child run) sets ``False`` and must satisfy capacity and tags like any placement (review B2)
     lock_trusted: bool = True
+    #: coordinator-set priority (higher wins) when not every request can be placed; ranked by
+    #: ``SolverInput.relaxation_policy`` (``app/solver/policy.py``).  0 = default; bounded to -100..100
+    priority: int = 0
 
 
 @dataclass(frozen=True)
@@ -110,6 +113,10 @@ class SolverInput:
     #: an infeasible instance still returns the maximum placement (status INFEASIBLE, ``stats.partial``,
     #: ``stats.placed`` / ``stats.unplaced``; hard/soft scores are those of the placed events)
     best_effort: bool = False
+    #: who loses when not every request can be placed (best-effort relaxation, ``app/solver/policy.py``):
+    #: ``lock_first`` (user decision 2026-10-15: trusted locks, then ``Event.priority``, then the most classes)
+    #: or ``most_classes_first`` (the most classes, then priority, then locks)
+    relaxation_policy: Literal["lock_first", "most_classes_first"] = "lock_first"
 
 
 @dataclass

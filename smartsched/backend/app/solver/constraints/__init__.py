@@ -163,8 +163,14 @@ def effective_constraints(inp: SolverInput) -> tuple[list[Constraint], list[str]
     return out, warnings, soft_structural
 
 
+def waived_rules(constraints: list[Constraint] | tuple[Constraint, ...]) -> list[str]:
+    """Built-in hard rules (``STRUCTURAL``) an explicit constraint runs as soft, for every event or for the
+    events it names (P19-00c: a run never claims hard 100 without naming them)."""
+    return sorted({c.kind for c in constraints if c.kind in STRUCTURAL and not c.hard})
+
+
 def handler(kind: str) -> Handler:
     return HANDLERS[kind]
 
 
-__all__ = ["HANDLERS", "STRUCTURAL", "Handler", "effective_constraints", "handler"]
+__all__ = ["HANDLERS", "STRUCTURAL", "Handler", "effective_constraints", "handler", "waived_rules"]

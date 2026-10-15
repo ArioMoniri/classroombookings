@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useTerms } from "@/lib/api/hooks";
+import { usePermissions } from "@/lib/api/shell-extra";
 import type { Term } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { formatDate } from "@/lib/time";
@@ -18,8 +19,8 @@ import { currentTermByDate, useRememberedTermId } from "./workspace";
  * The term every page works on: the one picked in this session, else the one this user last used
  * (workspace memory), else the **current term by date** (not the last imported, usability M1).
  */
-export function useActiveTerm() {
-  const terms = useTerms();
+export function useActiveTerm(opts: { enabled?: boolean } = {}) {
+  const terms = useTerms({ enabled: opts.enabled });
   const termId = useUiStore((s) => s.termId);
   const [remembered] = useRememberedTermId();
   const list = terms.data ?? [];
@@ -33,7 +34,14 @@ export function useTermKindLabel() {
   return (kind: Term["kind"]) => t(`glass.term.kind.${kind}`);
 }
 
+/** Terms are planning data (GET /terms needs planning.view): people without it get no switcher (and no 403). */
 export function TermSwitcher({ collapsed }: { collapsed: boolean }) {
+  const { can } = usePermissions();
+  if (!can("planning.view")) return null;
+  return <TermSwitcherInner collapsed={collapsed} />;
+}
+
+function TermSwitcherInner({ collapsed }: { collapsed: boolean }) {
   const { t, locale } = useI18n();
   const hydrated = useHydrated();
   const active = useActiveTerm();

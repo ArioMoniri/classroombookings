@@ -12,6 +12,7 @@ from app.solver.constraints import HANDLERS, effective_constraints
 from app.solver.context import Mode, ModelContext
 from app.solver.domains import Domains, build_domains, normalize_input, shares_room, trusted_lock
 from app.solver.model import Assignment, Constraint, SolverInput
+from app.solver.policy import objective_groups, segment_groups, tiers, units
 
 
 @dataclass
@@ -105,47 +106,39 @@ def stable_rank(*key: int, modulus: int = 997) -> int:
 def week_segment_groups(inp: SolverInput) -> list[list[int]]:
     """Events that are week segments of one request (``weeksplit.split_blocked_weeks`` marks their
     ``same_room_across_weeks`` group with ``week_segments``)."""
-    ids = {e.id for e in inp.events}
-    out: list[list[int]] = []
-    for c in inp.constraints:
-        if c.kind == "same_room_across_weeks" and c.params.get("week_segments"):
-            for g in c.params.get("groups") or []:
-                members = [int(i) for i in g if int(i) in ids]
-                if len(members) > 1:
-                    out.append(members)
-    return out
+    return segment_groups(inp)
 
 
 def _relax_objective(ctx: ModelContext, inp: SolverInput) -> Any:
-    """Lexicographic: (1) requests not completely placed, (2) unplaced event-weeks of every request (a
-    request that loses one week beats one that loses the term), (3) keep planner-locked events placed (a
-    locked event and a free one competing for a room: the free one gives way).
-    Without week segments this is the plain ``(L+1)·#unplaced + #unplaced locked``."""
-    locked = {e.id for e in inp.events if e.locked is not None}
-    weeks = {e.id: max(1, len(e.weeks)) for e in inp.events}
-    groups = [[i for i in g if i in ctx.placed] for g in week_segment_groups(inp)]
-    groups = [g for g in groups if len(g) > 1]
-    segmented = {i for g in groups for i in g}
-    tier3 = len(locked) + 1
-    # unplaced event-weeks count for *every* event: a request dropped for all 14 weeks costs 14 weeks, not
-    # fewer than one segment of another request (orchestrator R3: PHAR 114 §2 lost its lock for the term so
-    # that another request's 7-week segment could take the room)
-    tier2 = tier3 * (sum(weeks[i] for i in ctx.placed) + 1)
-    terms: list[Any] = []
-    for eid, p in ctx.placed.items():
-        lock = 1 if eid in locked else 0
-        if eid in segmented:
-            terms.append((tier3 * weeks[eid] + lock) * (1 - p))
-        else:
-            terms.append((tier2 + tier3 * weeks[eid] + lock) * (1 - p))
-    for n, g in enumerate(groups):
+    """Lexicographic placement objective of the relaxation under ``inp.relaxation_policy``
+    (:mod:`app.solver.policy`): ``lock_first`` = (1) trusted locks kept, (2) coordinator priority levels,
+    (3) requests (one event, or all week segments of one request) and (4) event-weeks placed (a request
+    that loses one week beats one that loses the term: orchestrator R3, PHAR 114 §2), (5) tool-made locks;
+    ``most_classes_first`` = requests, event-weeks, priority, locks.  Tiers that fit one weighted sum are
+    folded (:func:`policy.objective_groups`); ``ctx.relax_stages`` holds one expression per stage (most
+    significant first) and the first stage is returned (the only one in the common case)."""
+    us = units(inp)
+    unit_miss: list[Any] = []
+    for n, u in enumerate(us):
+        ids = [i for i in u.ids if i in ctx.placed]
+        if len(ids) == 1:
+            unit_miss.append(1 - ctx.placed[ids[0]])
+            continue
         full = ctx.new_bool(f"segments_placed_{n}")
-        for i in g:
+        for i in ids:
             ctx.model.AddImplication(full, ctx.placed[i])
-        ctx.model.AddBoolOr([full] + [ctx.placed[i].Not() for i in g])
-        ctx.derive(full, lambda h, ids=tuple(g): int(all(i in h.by_event for i in ids)))
-        terms.append(tier2 * (1 - full))
-    return sum(terms) if terms else 0
+        ctx.model.AddBoolOr([full] + [ctx.placed[i].Not() for i in ids])
+        ctx.derive(full, lambda h, ids=tuple(ids): int(all(i in h.by_event for i in ids)))
+        unit_miss.append(1 - full)
+
+    def indicator(kind: str, key: int) -> Any:
+        return unit_miss[key] if kind == "unit" else 1 - ctx.placed[key]
+
+    stages: list[Any] = []
+    for group in objective_groups(tiers(inp, us)):
+        stages.append(sum(w * c * indicator(*ind) for t, w in group for c, ind in t.terms))
+    ctx.relax_stages = stages
+    return stages[0] if stages else 0
 
 
 def hint_assignments(inp: SolverInput) -> list[Assignment]:

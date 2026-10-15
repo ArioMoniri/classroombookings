@@ -18,10 +18,11 @@ it can into a room and a period without breaking a hard rule, and says plainly w
 not place and why.
 
 It is a superset of [classroombookings](https://www.classroombookings.com/) (CRBS): rooms, room
-groups, periods, sessions, holidays, single and recurring bookings, roles and permissions all work
-the way they do in CRBS, checked row by row by a parity gate. The planning side (imports, the solver,
-the calendar, the run report) is new. The legacy PHP app is still in this repository and SmartSched
-can import its database.
+groups, periods, sessions, holidays, single and recurring bookings, roles and permissions work the
+way they do in CRBS, checked row by row by a parity gate. The planning side (imports, the solver, the
+calendar, the run report) is new, and so are the reservation panel, calendar sync, approvals, the audit
+log with undo and 14 interface languages. The legacy PHP app is still in this repository and
+SmartSched can import its database.
 
 <p align="center">
   <a href="docs/images/recordings/import-generate.mp4">
@@ -58,6 +59,45 @@ Four more recordings, each under a minute, all made against the real backend wit
   </tr>
 </table>
 
+## What is built
+
+Status on branch `claude/gracious-cerf-w1598m`, 2026-10-15. *Done* means code, tests and a screen.
+*Backend only* means the API and its tests exist and the screen does not yet.
+
+**Planning**
+
+| Feature | Status |
+|---|---|
+| Import of planning lists, exam lists, weekly room grids, a room master CSV and the CRBS database, each with an import report | Done |
+| Rules from settings, templates, the workbooks and (with an API key) sentences or uploaded files; AI rules need a person's approval | Done |
+| Generator Studio: scope, classes, rules, pre-check with fixes, generate | Done |
+| CP-SAT solver for a week, a month, the whole term or the exam period; partial runs; every unplaced class explained | Done |
+| Planner-level validator: stored runs re-checked against the raw workbook rows (`tools/validate_planner.py`) | Done, runs in pod CI |
+| Calendar with six views and an inspector; move with a server check, then undo | Done |
+| Exports to Excel, CSV and iCal | Done |
+
+**Bookings (the classroombookings side)**
+
+| Feature | Status |
+|---|---|
+| Booking grid by day or by room, single, recurring and multi bookings, limits, holidays, timetable weeks; the published timetable blocks its slots | Done |
+| Reservation panel: click a free slot to reserve it, drag or Shift-click to book several periods, a reason on cells you cannot book, a *Free slots* list (the default on phones), a department view, room details with the next free slot and other rooms free at the same time | Done (`e2e/reserve.spec.ts`) |
+| Calendar sync: private ICS feed links (my bookings, a room, a department) with copy, webcal and Google / Outlook / Apple buttons, in the reservation panel and on My bookings; room-group feeds through the API | Done |
+| Organisation switch for calendar sync (KVKK): off turns every feed link into a 404; switching it is audited | Backend only (`PUT /calendar/admin/settings`, no settings screen yet); on by default |
+| Google Calendar and Microsoft 365 push, once an administrator enters the organisation's OAuth client | Backend only (client set through `PUT /calendar/admin/settings`, no settings screen yet); tested against mocked Google and Microsoft APIs, not yet against a live tenant. The reservation panel shows a *Connect* button only when a client is configured |
+| Signed outgoing webhooks (HMAC-SHA256), off by default | Backend only |
+| Typed room features (yes/no, number, option, text) and find-a-room (`POST /rooms/find`) | Backend done; the reservation panel's *other available rooms* uses find-a-room. A features tab in Setup → Rooms and a `/find-room` page are in the tree as work in progress |
+| Approvals by designated approvers: rules per room, room group or room type, requests wait as `PENDING`, a sweeper expires them | Backend done; `/approvals` (inbox) and `/admin/approval-rules` are in the tree as work in progress |
+| Append-only audit log with undo of booking create, series create, move and cancel | Backend done; `/admin/audit` is in the tree as work in progress |
+| In-app notifications (`GET /me/notifications`) next to the e-mail outbox | Backend done; the notification bell in the top bar is work in progress |
+| No privilege escalation: nobody grants a role, or edits a role, whose permissions they do not all hold | Done |
+| Sign-out, a password change, disabling an account and a role change revoke the user's tokens on every device | Done |
+| 14 interface languages (the 13 CRBS languages plus Turkish); a missing string falls back to English per key | Done |
+
+*Work in progress* means the wave-1 frontend agent is still building these screens: they were
+committed in progress checkpoints on 2026-10-15, no Playwright spec covers them yet, and the CRBS parity
+gate still lists them as gaps. This README does not describe them as finished.
+
 ## Quick start
 
 ### Docker, one command
@@ -73,16 +113,40 @@ cd smartsched/deploy
 This starts PostgreSQL, the FastAPI backend, the Next.js frontend and nginx. Useful flags:
 `--tls` adds a Caddy HTTPS edge, `--legacy` also runs the original classroombookings (PHP 8.3 and
 MySQL 8.4) for live imports, `--update` pulls, rebuilds and migrates, `--down` stops the stack and
-keeps the data. The full list, backups and sizing are in
+keeps the data. Set `PUBLIC_URL` to the address browsers use: calendar feed links and the OAuth
+redirect addresses are built from it. The full list, backups and sizing are in
 [smartsched/deploy/README.md](smartsched/deploy/README.md).
 
 ### On AWS
 
-One EC2 instance (t4g.large) runs the whole stack behind Caddy TLS, plus the project's CI. It is
-created and controlled by pushing one word (`up`, `status`, `stop`, `start`, `down`) to
-`infra/aws/POD_ACTION`; a GitHub OIDC role does the AWS calls, so no keys are stored. A budget
-action stops the instance at 100 USD a month and an alarm stops it after an idle hour; running all
-month costs about 57 USD in us-east-1. Setup and costs: [docs/deploy/AWS.md](docs/deploy/AWS.md).
+One EC2 instance (t4g.large, us-east-1 by default) runs the whole stack behind Caddy TLS, plus the
+project's CI. It is controlled by pushing a change to `infra/aws/POD_ACTION`; the first line is the
+command, and `.github/workflows/aws-bootstrap.yml` runs it with a GitHub OIDC role, so no AWS keys are
+stored in the repository.
+
+```bash
+echo "status $(date -u +%FT%TZ)" > infra/aws/POD_ACTION   # the timestamp makes every push a change
+git add infra/aws/POD_ACTION && git commit -m "pod: status" && git push
+```
+
+| First line | What it does |
+|---|---|
+| `up` | create or update everything (IAM role, security group, Elastic IP, instance, alarm, budget) and print the panel URL |
+| `status` | inventory, alarm and budget state, orphaned resources, estimated monthly cost |
+| `logs` | boot progress from the instance's serial console (no SSH or SSM session needed) |
+| `stop` / `start` | stop or start the instance; data is kept |
+| `cost` | month-to-date spend from Cost Explorer, the budget and the estimate |
+| `down destroy` | delete everything tagged `Project=smartsched`; the budget is kept (a plain `down` is refused) |
+
+Cost control: the budget `smartsched-monthly-100usd` e-mails at 50, 80 and 100 % of actual spend and
+at 100 % of forecast, and a budget action stops the instance at 100 % actual. The pod stops itself
+after 60 minutes with no CI job and CPU below 5 %, and the CloudWatch alarm `smartsched-pod-idle-stop`
+does the same as a backstop. Running all month costs about 57 USD in us-east-1; stopped, about 8 USD
+([docs/deploy/AWS.md](docs/deploy/AWS.md)).
+
+The pod generates its own secrets. The administrator's password is stored in the SSM SecureString
+parameter `/smartsched/admin_password` (the e-mail in `/smartsched/admin_email`); read it with
+`aws ssm get-parameter --name /smartsched/admin_password --with-decryption`. No workflow prints it.
 
 ### Local development
 
@@ -93,7 +157,7 @@ scripts/dev.sh --run     # venv + npm ci, SQLite, seeded admin, backend :8000, f
 ```
 
 The admin is your `git config user.email` (or `DEV_ADMIN_EMAIL`) with a random password printed once.
-The frontend always talks to the real backend.
+The frontend always talks to the real backend; there is no mock or demo mode.
 
 ### Load the real 2026 data
 
@@ -111,6 +175,9 @@ python -m app.cli solve --term 2026-BAHAR --kind COURSE --horizon TERM --time-li
 Importing a weekly grid also stores the planner's own published board as a run, so the calendar has
 something to show straight away. The same importers are on the Import page. The CRBS importer reads
 SQL dumps (`import crbs structure.sql data.sql`) or a live server (`import crbs --dsn mysql://…`).
+Requests and room grids are read today from the office's three workbook shapes (`.xlsx`), a room
+master CSV and the CRBS database. Reading requests and schedule maps from other formats is planned
+in Phase 19 ([Roadmap](#roadmap)).
 
 ## How it works
 
@@ -120,9 +187,10 @@ SQL dumps (`import crbs structure.sql data.sql`) or a live server (`import crbs 
    ([docs/DATA_ANALYSIS.md](docs/DATA_ANALYSIS.md)). Every import ends with a report of what was read,
    what was skipped and why.
 2. **Rules.** Settings, rule templates, the workbooks themselves and, with an Anthropic API key,
-   sentences in Turkish or English all become the same thing: a typed rule that is either *Must*
-   (hard) or *Try to* (soft, weighted), with a link to where it came from. Nothing written by the AI is
-   used until a person accepts it.
+   sentences in Turkish or English and uploaded preference files (`.xlsx`, `.csv`, `.docx`, `.pdf`,
+   `.txt`, `.md`) all become the same thing: a typed rule that is either *Must* (hard) or *Try to*
+   (soft, weighted), with a link to where it came from. Nothing written by the AI is used until a
+   person accepts it.
 3. **Pre-check.** Before solving, the Generator Studio checks the plan against the data and lists what
    cannot work (a locked room that is too small, two classes locked into one room at once), each with
    fixes.
@@ -130,7 +198,11 @@ SQL dumps (`import crbs structure.sql data.sql`) or a live server (`import crbs 
    term (14 weeks), or exams into exam slots.
 5. **Validate and explain.** Scores are computed again in plain Python from the finished timetable, so
    the solver, manual moves and AI edits are judged by the same code. Anything not placed is explained
-   one class at a time.
+   one class at a time. A second, independent check compares the stored timetable with the raw
+   workbook rows (`app/services/planner_check.py`); pod CI runs it on four real instances for every
+   commit.
+6. **Publish and book.** Activating a run publishes it: its classes hold their slots in the booking
+   grid, and staff book the free periods around them.
 
 <table>
   <tr>
@@ -162,7 +234,8 @@ locked into a room with fewer seats than its enrolment estimate; two fixed class
 instructor overlap; two rows lock the same room at the same time. SmartSched does not overrule the
 planner here. It keeps the planner's decision, records each case as a *waived exception* with the
 class and the room named, and lists them under *Problems in your data* in the run report, grouped and
-exportable to Excel. Three switches control this, all on by default and all per run:
+exportable to Excel. Only the planner's own locks are trusted this way: a lock made by a fix button, a
+manual move or an AI edit (`lock_trusted=False`) must fit the room like any other placement. Three switches control this, all on by default and all per run:
 trust the planner's locked rooms, treat clashes between fixed classes as warnings, and keep the best
 partial timetable when not everything fits
 ([solver README](smartsched/backend/app/solver/README.md#real-data-modes-d1d3)).
@@ -181,6 +254,31 @@ proposes edits from the chat panel, and writes explanations. Every proposal goes
 validation as a manual move. Import, solving, the calendar, bookings and manual edits work without a
 key. Details: [solver README](smartsched/backend/app/solver/README.md),
 [AI README](smartsched/backend/app/ai/README.md), [research notes](docs/RESEARCH.md).
+
+### Bookings, calendar sync and approvals
+
+Every change to a booking, a series or an approval goes through one function,
+`app/services/events.publish_event`, inside the database transaction of the change. It writes the
+audit row, sends the e-mail notification when there is one, and calls its subscribers: the calendar
+push outbox and the outgoing webhooks. A failing subscriber is logged and never undoes the booking.
+
+- **Audit log.** `audit_events` is append-only; database triggers refuse updates and deletes on SQLite
+  and PostgreSQL. Secrets are redacted. A booking create, series create, move or cancel can be undone
+  while nothing later has changed it, within 24 hours or before it starts.
+- **Calendar sync.** A feed link carries a random token; only its SHA-256 hash is stored. A user can
+  hold several links, revoke one or reset all. The organisation switch `calendar_sync_enabled` (KVKK)
+  turns every feed into a 404. Google Calendar and Microsoft 365 push appears only after an
+  administrator enters the organisation's OAuth client; no client ships with the product.
+- **Webhooks.** Signed with HMAC-SHA256, retried with backoff, switched off after five failures in a
+  row. They send data outside the server, so `webhooks_enabled` is off by default; payloads carry no
+  notes and no e-mail addresses.
+- **Approvals.** A rule on a room, a room group or a room type sends requests to designated approvers.
+  The booking answers `202` and waits as `PENDING`; the approver approves, rejects or suggests another
+  room. A background sweep every 60 seconds expires overdue requests and releases tentative holds. With
+  no rule, booking works as in CRBS.
+- **Sessions.** Each token carries the user's token version. Sign-out, a password change or reset,
+  disabling the account, a role change and deleting the role raise the version, so every earlier
+  token stops working on every device.
 
 ## Measured on the real data
 
@@ -209,21 +307,22 @@ When the planner's rooms are only hints instead of locks, the solver picks exact
 set for 89.5 % of the placed Bahar week 3 requests and 94.9 % of the Güz ones; for the Final exams it is
 74.1 % exact and 93.4 % sharing at least one room, every run with planner-level hard 100.
 
+These figures were measured on 2026-10-08. The importer changed after that (non-room venues such as
+CASE or ONLINE need no room, course codes with leading zeros are merged, a missing week sheet is
+reported), so the counts of the next run will differ. The pod CI gate `planner` now repeats this check
+on every commit (`python -m tools.validate_planner`, the four instances above at 120 s each) and fails
+the run on any planner-level violation.
+
 The recordings and screenshots on this page come from a fresh import of the same workbooks and two
 runs made through the API for Güz 2026-27: week 3 placed 522 of 548 solver events (the row above) and
 the whole term 519 of 548, both with hard score 100.
 
-The classroombookings side is checked by the CRBS superset gate
-([docs/testing/crbs-parity-report.md](docs/testing/crbs-parity-report.md)): one row per CRBS behaviour,
-audit item or screen, each tied to API tests on the real Bahar data and, where there is a screen, to a
-Playwright test against the real backend. The run of 2026-10-08 16:27 UTC passed with 192 rows:
-157 pass, 35 are declared gaps with a reason and a proposed fix, none fail; 157 API tests ran. The
-gate runs in CI, so the report file always shows the latest run.
-
 ## Screenshots
 
-All screenshots show the real 2026 data, at 1440 px wide, in light or dark mode following your GitHub
-theme.
+All screenshots show the real 2026 data, taken at 1440 px wide, in light or dark mode following your
+GitHub theme. Most were taken on 2026-10-08; the booking screenshots were retaken on 2026-10-15 after the
+reservation panel landed. Screens of the wave-1 features (approvals, find-a-room page, audit viewer,
+room features admin) will be added when those screens are finished.
 
 **Dashboard.** Room use for the week, classes that still need a room, requests waiting for review,
 and use by building and day for the published run.
@@ -324,18 +423,30 @@ room; every room with its seats, tags and use through the week.
   </tr>
 </table>
 
-**Bookings.** The classroombookings grid: rooms by period for a day, with the published timetable
-already in place, and each person's own bookings with a calendar feed and CSV export.
+**Bookings and the reservation panel.** The classroombookings grid with the published Güz 2026-27
+timetable in place. Free cells say *Free* and offer *Reserve* on hover; drag or Shift-click books
+several periods. These shots are cropped to the page content: the sidebar is mid-change (see
+[What is built](#what-is-built)).
 
 <table>
   <tr>
     <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/bookings-dark.webp">
-      <img alt="Booking grid by day for A building: rooms as rows and the 18 periods as columns, slots held by the timetable, and one booking of the signed-in user" src="docs/images/screens/bookings-light.webp" width="480">
+      <source media="(prefers-color-scheme: dark)" srcset="docs/media/reserve-grid-dark.png">
+      <img alt="Booking grid for A Blok on Friday 16 October 2026: periods P10 to P18 as columns, classes of the published timetable such as BME 573-1 and RTT 101-1 holding their slots, every other cell marked Free, and one cell under the pointer offering Reserve; Grid and Free slots switch, By day and By room, Calendar sync and Select several in the toolbar, room group tabs with room counts and a department filter" src="docs/media/reserve-grid-light.png" width="480">
     </picture></td>
     <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/my-bookings-dark.webp">
-      <img alt="My bookings: upcoming, past and cancelled tabs, one upcoming booking, a calendar subscription link and a CSV export" src="docs/images/screens/my-bookings-light.webp" width="480">
+      <source media="(prefers-color-scheme: dark)" srcset="docs/media/reserve-free-slots-dark.png">
+      <img alt="Free slots view of the same day: each room of A Blok with its seats and a button for every free period, ready to reserve" src="docs/media/reserve-free-slots-light.png" width="480">
+    </picture></td>
+  </tr>
+  <tr>
+    <td><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/media/reserve-room-details-dark.png">
+      <img alt="Room details for A 103: seats, exam seats, building, floor, room group and the PC feature; its classes that day; the next free slot with a Reserve button; and other available rooms at the chosen period with at least as many seats and the same feature, ranked by the room finder, each with Reserve" src="docs/media/reserve-room-details-light.png" width="480">
+    </picture></td>
+    <td><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/media/calendar-sync-dark.png">
+      <img alt="Sync to calendar panel: private links for my bookings, a room and a department, each with copy, webcal and Google, Outlook and Apple buttons, and a reset; the link addresses are blurred because they contain the private token" src="docs/media/calendar-sync-light.png" width="480">
     </picture></td>
   </tr>
 </table>
@@ -389,7 +500,8 @@ On a phone the sidebar becomes a tab bar, and the calendar's Day view becomes a 
   </tr>
 </table>
 
-The interface is in Turkish and English; these two are in Turkish.
+The interface is in 14 languages (the 13 classroombookings languages plus Turkish); these two are in
+Turkish.
 
 <table>
   <tr>
@@ -406,60 +518,139 @@ This repository is a fork of classroombookings by Craig A Rodway. The original P
 the root (`crbs-core/`, `index.php`, `assets/`), and `./deploy.sh --legacy` runs it next to
 SmartSched. SmartSched imports its database: users with their password hashes, roles, access lists and
 bookings. The import is tested on CRBS's own install SQL; an upgrade of a running CRBS server is still a
-declared gap in the parity report.
+declared gap.
 
 What stays the same: the booking grid by day or by room, single and recurring bookings, booking
 limits, holidays and timetable weeks, roles with the CRBS permissions, room access lists, LDAP
-sign-in, the CSV export columns. What is added: the planning side, calendar feeds, an e-mail outbox,
-and a published timetable that bookings can never collide with. Where SmartSched behaves differently
-on purpose (mostly security, such as no privilege escalation in the role editor, or keeping booking
-history when a user is deleted), the difference is listed with its setting, if there is one, in
-[docs/CRBS_PARITY.md](docs/CRBS_PARITY.md) and asserted by the parity gate.
+sign-in, the CSV export columns, and the 13 CRBS interface languages. What is added: the planning side,
+a published timetable that bookings can never collide with, the reservation panel, calendar feeds and
+push, approvals, an audit log with undo, in-app notifications and an e-mail outbox. Where SmartSched
+behaves differently on purpose (mostly security, such as no privilege escalation in the role editor,
+sign-out ending every session, or keeping booking history when a user is deleted), the difference is
+listed with its setting, if there is one, in [docs/CRBS_PARITY.md](docs/CRBS_PARITY.md).
+
+The CRBS superset gate (`python3 scripts/parity_check.py`) holds one row per CRBS behaviour, audit item
+or screen, each tied to API tests on the real Bahar data and, where there is a screen, to a Playwright
+test title. Run on 2026-10-15 at commit `bd0db48`: **192 rows, 172 pass, 19 declared gaps, 1 fail, 0
+missing**; 157 API tests ran and 156 passed. The failure is a stale assertion:
+`tests/test_wave1_migrations.py` still expects the Alembic head `0015_approvals`, while
+`0016_course_code_keys` landed after it. The test stops there, so the rest of it (the room-features
+upgrade path) did not run, and row X-08 fails until the test is updated. The 19 gaps, each declared in the inventory with a reason and a proposed fix: 11 rows have a screen
+that no Playwright step in the inventory drives yet (multi-booking, cancel many, the staff dashboard, SMTP, the
+installer's requirements step on an empty database, and others); 3 are wave-1 screens not built yet
+(find-a-room, audit viewer, approvals inbox); 2 are the Google/Microsoft push and the webhooks, which
+have no settings screen and no live tenant test; 3 are the legacy MySQL upgrade and a side-by-side
+comparison with a running CRBS (Phase 18 parts 3 and 4). The UI column
+of this run checks that the Playwright titles exist; the specs themselves run in the pod CI `e2e-real`
+gate. Details: [docs/CRBS_PARITY.md](docs/CRBS_PARITY.md) §9.
+
+## Roadmap
+
+The full plan, with every backlog item, is [docs/ROADMAP.md](docs/ROADMAP.md). In short:
+
+| Phase | Where it stands on this branch |
+|---|---|
+| 1-6: backend and importers, solver, AI layer, frontend, deploy, CI and reviews | Built and in the pod CI gates; open backlog items are listed per phase in the roadmap |
+| 8 Generator Studio, 9 real-data feasibility, 10 Liquid Glass redesign | Built; polish and solver backlog items open |
+| 11 CRBS parity, 18 CRBS superset gate | Gate runs in CI; open: the declared gaps above, the legacy MySQL upgrade, the side-by-side check |
+| 13 AWS pod, 14 no placeholders, 15 schedule comparison, 16 recordings | Built |
+| 17 Booking enhancements wave 1 (room features, find-a-room, audit with undo, approvals, notifications) | Backend built; screens being built. Conflict resolver, booking policies, public view and KVKK retention not started |
+| 7 Live import from the university's panel | Not started (needs access details) |
+| 12 Universal edition: any-format intake through an "Ingestion Council" (branch `claude/smartsched-universal`) | On its own branch, being merged into this one; not part of this branch yet |
+| **19 Intake, learned suggestions, from-scratch programmes, moderation** | **Planned, in design** (requested 2026-10-15) |
+
+### Phase 19 (planned, in design)
+
+None of this is built yet. The analysis and the UX specs are being written; the build waves come after
+the universal branch is merged. What the user asked for, and the decisions already taken:
+
+- **Multi-format intake** of new requests and schedule maps. Structured formats first, read without
+  AI: Excel (`.xlsx`, `.xls`), CSV and TSV (UTF-8 or Windows-1254, delimiter sniffed), ODS, JSON, XML
+  and ICS. Then AI-assisted formats: PDF, DOCX, TXT and EML, and images. Rows read from an
+  AI-assisted format always need a coordinator's review before they are saved; extraction uses the
+  organisation's own Claude API key, shows a KVKK notice and can be switched off by an administrator.
+- **Learned suggestions** from earlier changes and requests. They are never applied automatically:
+  accepting one adds a soft preference, so the hard-rule guarantee (every hard rule kept, or each
+  failure explained) does not change. The memory can be reset per person, per term or entirely, by
+  an administrator only; a reset is audited and can be undone for 30 days.
+- **From-scratch programme creation**: a wizard for a term that has no workbook yet.
+- **A moderation tab** per class, person, academician, request, preference and matching, with the
+  person's request history, administrator edits and a minimal-change re-solve that shows the diff.
+- **Conflict policy**: locks first (a locked class is never moved), then the priority a coordinator
+  sets, then the largest number of classes placed. Configurable per term.
+
+Order of work: analysis; merge of the universal branch; then structured intake, moderation and
+re-solve, learned suggestions, the programme wizard, and AI-assisted intake, with the remaining CRBS
+gaps alongside; then one commit with every pod gate green before deploying.
 
 ## Development
 
 ```
 smartsched/
   backend/    FastAPI, SQLAlchemy 2, Alembic, OR-Tools CP-SAT, Anthropic SDK; tests/fixtures holds the real workbooks
-  frontend/   Next.js 16, TypeScript, Tailwind 4, TanStack Query, dnd-kit, motion
+  frontend/   Next.js 16, TypeScript, Tailwind 4, TanStack Query, dnd-kit, motion; 14 message files in messages/
   deploy/     docker compose, deploy.sh, nginx, Caddy, the legacy CRBS image, pod CI
-infra/aws/    the AWS pod (boto3 CLI, IAM, user data)
-scripts/      dev.sh, record/ (recordings and screenshots), parity_check.py, watchdog.py
-docs/         architecture, roadmap, data analysis, design specs, test reports
+infra/aws/    the AWS pod (boto3 CLI, IAM, user data) and POD_ACTION
+scripts/      dev.sh, record/ (recordings and screenshots), parity_check.py, watchdog.py, agent_state.py
+docs/         architecture, roadmap, data analysis, product contracts, design specs, test reports
 ```
 
 | Command | What it runs |
 |---|---|
-| `make -C smartsched check` | backend ruff, mypy and pytest (including the real workbooks), frontend tsc, eslint and vitest |
+| `make -C smartsched check` | backend ruff, mypy and the fast pytest suite (including the real workbooks), frontend tsc, eslint and vitest |
 | `make -C smartsched check-all` | the above plus the solver and AI gates and `deploy/validate.sh` |
+| `cd smartsched/backend && make test-slow` | the heaviest real-workbook tests |
+| `cd smartsched/backend && python -m tools.validate_planner` | solve Bahar week 3, Güz week 3, the Final exams and the Bahar term and check each run at planner level |
+| `python3 scripts/parity_check.py` | the CRBS superset gate; writes `docs/testing/crbs-parity-report.md` (`--report PATH` to write elsewhere) |
 | `E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test` | every Playwright spec against a real backend started with `smartsched/deploy/pod-ci/gates/e2e-backend-entry.sh` |
-| `python3 scripts/parity_check.py` | the CRBS superset gate; writes `docs/testing/crbs-parity-report.md` |
-| `cd smartsched/backend && SMARTSCHED_SLOW=1 python -m pytest tests/test_real_feasibility.py -q` | the real-data feasibility assertions |
 
-CI runs on the AWS pod, not on GitHub-hosted runners: it polls the repository, runs the gates in
-Docker (including the real-backend Playwright run and the parity gate), posts commit statuses and
-redeploys the deploy branch when it is green ([smartsched/deploy/pod-ci/README.md](smartsched/deploy/pod-ci/README.md)).
-`.github/workflows/smartsched.yml` runs the same gates by hand.
+End-to-end tests run only against a real backend. There is no mock API: without `E2E_REAL=1` every
+spec skips with a pointer to the setup. The e2e backend imports the real Bahar 2026 workbooks, seeds
+an administrator, solves the term and pins the booking clock inside Bahar 2026.
 
-Configuration is through environment variables (`DATABASE_URL`, `APP_SECRET`, `ADMIN_EMAIL`,
-`ADMIN_PASSWORD`, `ANTHROPIC_API_KEY`, `SOLVER_WORKERS`, …), documented in
-[smartsched/README.md](smartsched/README.md) and `smartsched/deploy/.env.example`. The Anthropic key
-can also be stored, encrypted, under Settings → AI; the default model is `claude-opus-5-5`.
+CI runs on the AWS pod, not on GitHub-hosted runners. A systemd timer polls the repository every two
+minutes, runs one job at a time in Docker, posts a commit status per gate and shows the results at
+`/ci/` on the panel ([smartsched/deploy/pod-ci/README.md](smartsched/deploy/pod-ci/README.md)):
+
+| Gate | What it checks |
+|---|---|
+| `prepare` | builds the Python CI image and pulls the Playwright image |
+| `validate` | `smartsched/deploy/validate.sh` (compose, env completeness, no secrets, pinned images, nginx) |
+| `backend` | ruff, mypy, pytest, the solver gate and `alembic upgrade head` |
+| `infra` | tests for `infra/aws` and the pod CI itself |
+| `frontend` | `npm run check` (tsc, eslint, vitest) |
+| `e2e-real` | every Playwright spec against the real backend with the Bahar fixtures, then a check that the build holds no mock code |
+| `parity` | the CRBS superset gate |
+| `planner` | `tools/validate_planner.py` on the four real instances; any planner-level violation fails |
+| `images` | `docker build` of the backend, frontend and legacy CRBS images |
+| `watchdog` | the agent ledger report (not blocking) |
+
+The pod redeploys the deploy branch only when every blocking gate is green and the commit is still
+the head of that branch. `.github/workflows/smartsched.yml` is manual-only (backend, frontend, Docker
+build and stack smoke jobs, without the e2e, parity and planner gates); `aws-bootstrap.yml` is the
+only workflow that runs on its own, and only when `infra/aws/POD_ACTION` changes.
+
+Configuration is through environment variables (`DATABASE_URL`, `APP_SECRET`, `JWT_SECRET`,
+`PUBLIC_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ANTHROPIC_API_KEY`, `SOLVER_WORKERS`, …), listed with
+comments in `smartsched/backend/.env.example` and `smartsched/deploy/.env.example` and described in
+[smartsched/README.md](smartsched/README.md). In production the backend refuses to start with a default,
+short or shared secret. The Anthropic key can also be stored, encrypted, under Settings → AI.
 
 More documentation:
 
 | Document | Contents |
 |---|---|
-| [smartsched/README.md](smartsched/README.md) | developer guide: backend, frontend, CLI, environment, API |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | design principles, domain model, solver contract, API surface |
+| [smartsched/README.md](smartsched/README.md) | developer guide: modules, environment, make targets, CLI, API |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | design principles, domain model, solver contract, event bus, API surface |
 | [docs/DATA_ANALYSIS.md](docs/DATA_ANALYSIS.md) | the workbook shapes, column meanings and quirks |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | phases, decisions and backlog |
 | [docs/CRBS_PARITY.md](docs/CRBS_PARITY.md) | classroombookings behaviour and the deliberate differences |
+| [docs/product/](docs/product/) | API contracts: calendar sync, booking enhancements wave 1 |
 | [docs/design/](docs/design/) | UI specs, including the Liquid Glass system and the calendar |
 | [docs/universal/](docs/universal/) | universal onboarding: [Ingestion Council architecture](docs/universal/ARCHITECTURE.md), [2026 research](docs/universal/RESEARCH-2026.md), [Ruflo dev harness](docs/universal/RUFLO.md) |
-| [docs/testing/](docs/testing/) | test reports: real-data feasibility, real-backend end to end, CRBS parity |
-| [docs/deploy/AWS.md](docs/deploy/AWS.md) | the AWS pod |
-| [docs/AGENTS.md](docs/AGENTS.md), [docs/PROGRESS.md](docs/PROGRESS.md) | SmartSched is built by parallel Claude Code agents; their protocol and ledger |
+| [docs/testing/](docs/testing/) | test reports: real-data feasibility, real-backend end to end, CRBS parity, planner comparison |
+| [docs/deploy/AWS.md](docs/deploy/AWS.md), [docs/deploy/calendar-oauth.md](docs/deploy/calendar-oauth.md) | the AWS pod; setting up the Google and Microsoft OAuth clients |
+| [docs/AGENTS.md](docs/AGENTS.md), [docs/PROGRESS.md](docs/PROGRESS.md), [docs/AGENT_STATE.md](docs/AGENT_STATE.md) | SmartSched is built by parallel Claude Code agents: their protocol, ledger and resume guide |
 
 ### Recordings and screenshots
 

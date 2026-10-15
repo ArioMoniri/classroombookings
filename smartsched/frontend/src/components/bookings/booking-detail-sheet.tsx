@@ -31,6 +31,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { Alert, ConfirmDialog, Field, Loading, SelectField } from "@/components/admin/kit";
+import { STATUS_KEY } from "@/components/approvals/request-parts";
 import { bookingErrorMessage } from "./booking-errors";
 import type { DateFormatter } from "./date-format";
 import { useIsPhone } from "./use-is-phone";
@@ -87,7 +88,18 @@ function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatt
         </SheetDescription>
       </SheetHeader>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pb-4">
-        {cancelled ? (
+        {b.status === "PENDING" ? (
+          // P1: a request the designated approvers decide; the timeline is in My bookings
+          <Alert tone="info" title={t("wave1.detail.pending")} testId="booking-pending">
+            <Link href={b.is_owner ? "/my-bookings" : "/approvals"} className="text-tint-text hover:underline">
+              {b.is_owner ? t("wave1.detail.pendingMine") : t("wave1.detail.pendingInbox")}
+            </Link>
+          </Alert>
+        ) : b.status === "REJECTED" || b.status === "EXPIRED" || b.status === "WITHDRAWN" ? (
+          <Alert tone="warning" title={t(STATUS_KEY[b.status]!)}>
+            {b.cancel_reason ? t("crbs.detail.reason", { reason: b.cancel_reason }) : null}
+          </Alert>
+        ) : cancelled ? (
           <Alert tone="warning" title={t("crbs.detail.cancelled")}>
             {b.cancel_reason ? t("crbs.detail.reason", { reason: b.cancel_reason }) : null}
           </Alert>

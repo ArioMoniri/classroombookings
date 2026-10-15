@@ -140,18 +140,17 @@ async def test_bahar_week3_is_deterministic(workdir: Path) -> None:
 
 async def test_final_is_valid_at_planner_level(workdir: Path) -> None:
     """B1 for exams (each programme row keeps its own room of a split exam), M1 and R2: the size-0 Final
-    exams TDS102 / BES250 / DYZ146 get a fallback size and a room."""
+    exams TDS102 / BES250 get a fallback size and a room.  DYZ146 (Final row 503) is held in ``CASE``, a
+    non-room venue (importer follow-up 1a): it needs no classroom, so it gets none."""
     db, run_id = await _solved(workdir, "final")
     run, res = await _check(db, run_id)
     _assert_valid(run, res)
     assert res.placed_pct >= 97.0, res.summary()
     async with dbmod.get_session_factory()() as s:
-        codes = {"TDS102", "BES250", "DYZ146"}
-        ids = {
-            int(i)
-            for i, c in (await s.execute(select(ExamRequest.id, ExamRequest.course_code))).all()
-            if c.replace(" ", "") in codes
-        }
+        rows = (await s.execute(select(ExamRequest.id, ExamRequest.course_code, ExamRequest.needs_room))).all()
+        ids = {int(i) for i, c, _nr in rows if c.replace(" ", "") in {"TDS102", "BES250"}}
+        case = {int(i) for i, c, nr in rows if c.replace(" ", "") == "DYZ146"}
+        assert case and all(not nr for i, _c, nr in rows if int(i) in case)
         placed = {
             int(a.exam_request_id)
             for a in (await s.execute(select(Assignment).where(Assignment.run_id == run_id))).scalars()

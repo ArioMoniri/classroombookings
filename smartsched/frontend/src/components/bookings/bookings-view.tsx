@@ -8,7 +8,7 @@
  * Reserve: a free cell (or a period in the "Free slots" lens) opens the booking sheet with room, date and
  * period; drag / Shift-click selects a span. Room names open the room details with "Other available rooms".
  */
-import { CalendarSync, ChevronLeft, ChevronRight, CircleSlash, DoorOpen, Info, LayoutGrid, Layers, List, ListChecks, Printer, Trash2, Wrench, X } from "lucide-react";
+import { CalendarSync, ChevronLeft, ChevronRight, CircleSlash, DoorOpen, Info, LayoutGrid, Layers, List, ListChecks, Printer, Search, Trash2, Wrench, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -228,11 +228,18 @@ export function BookingsView() {
         title={t("crbs.bookings.title")}
         subtitle={subtitle}
         actions={
-          max != null ? (
-            <p className="type-callout text-label-2" data-testid="limits" aria-live="polite">
-              {t("crbs.limits.pill", { remaining: remaining ?? 0, max })}
-            </p>
-          ) : null
+          <>
+            {max != null ? (
+              <p className="type-callout text-label-2" data-testid="limits" aria-live="polite">
+                {t("crbs.limits.pill", { remaining: remaining ?? 0, max })}
+              </p>
+            ) : null}
+            {/* T1: the same day in "Find a room" (wave 1) */}
+            <Button variant="outline" size="sm" render={<Link href={g ? `/find-room?date=${display === "day" ? g.date : (g.dates[0]?.date ?? g.date)}` : "/find-room"} />} nativeButton={false} data-testid="bookings-find-room">
+              <Search aria-hidden />
+              {t("wave1.find.title")}
+            </Button>
+          </>
         }
         className="mb-0 print:hidden"
       />
@@ -578,6 +585,7 @@ const LEGEND: { tone: SlotTone; key: Parameters<ReturnType<typeof useI18n>["t"]>
   { tone: "booked-mine", key: "crbs.legend.mine" },
   { tone: "booked-single", key: "crbs.legend.single" },
   { tone: "booked-recurring", key: "crbs.legend.recurring" },
+  { tone: "booked-pending", key: "wave1.grid.pendingLegend" },
   { tone: "timetable", key: "crbs.legend.timetable" },
   { tone: "holiday", key: "crbs.legend.holiday" },
   { tone: "unavailable", key: "crbs.legend.unavailable" },
