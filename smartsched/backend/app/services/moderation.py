@@ -295,6 +295,8 @@ class TermData:
     occupancy: dict[tuple[int, int], list[tuple[int, int, frozenset[int], int]]]  # (room, day) -> spans
     labels: dict[int, str]
     member_of: dict[int, int]  # request -> its solver event (joint lecture head)
+    #: person / programme priorities of the term (``priority_overrides``, P19-P-04)
+    priorities: Any = None
 
 
 def label_of(mr: MeetingRequest) -> str:
@@ -377,7 +379,10 @@ async def load_term(
             for eid in _ints(d.get("event_ids")):
                 for rid in members.get(eid, [eid]):
                     diag_by_request.setdefault(rid, d)
-    return TermData(term, run, rooms, meetings, rows_by_mr, diag_by_request, occupancy, labels, member_of)
+    from app.services.solver_bridge import priority_context
+
+    prios = await priority_context(session, term.id)
+    return TermData(term, run, rooms, meetings, rows_by_mr, diag_by_request, occupancy, labels, member_of, prios)
 
 
 def _in_horizon(mr: MeetingRequest, run: ScheduleRun) -> bool:
@@ -560,11 +565,21 @@ def _place_out(place: Place | None, rooms: Mapping[int, Room]) -> dict[str, Any]
     }
 
 
-def effective_priority(mr: MeetingRequest) -> dict[str, Any]:
-    if mr.priority is not None:
-        return {"value": int(mr.priority), "source": "request"}
-    sp = int(mr.section.priority or 0)
-    return {"value": sp, "source": "section" if sp else "default"}
+def effective_priority(mr: MeetingRequest, ctx: Any = None) -> dict[str, Any]:
+    """``{value, source}``: request > section > person > programme > default (``solver_bridge.resolve_priority``,
+    the bridge's own rule); ``ctx`` is the term's :class:`solver_bridge.PriorityContext` (none: request / section
+    only)."""
+    from app.services.solver_bridge import PriorityContext, resolve_priority
+
+    sec = mr.section
+    value, source = resolve_priority(
+        mr.priority,
+        sec.priority,
+        [si.instructor_id for si in sec.instructors] if ctx is not None and ctx.person else [],
+        sec.program_id,
+        ctx or PriorityContext(),
+    )
+    return {"value": value, "source": source}
 
 
 def match_one(td: TermData, mr: MeetingRequest) -> dict[str, Any]:
@@ -651,7 +666,7 @@ def match_one(td: TermData, mr: MeetingRequest) -> dict[str, Any]:
         "verdict": verdict,
         "verdict_text": _t(*VERDICT_TEXT[verdict]),
         "reason": reason,
-        "priority": effective_priority(mr),
+        "priority": effective_priority(mr, td.priorities),
         "source": source,
         "provenance": {"row": mr.source_row_index, "source_key": mr.source_key},
     }
@@ -1187,6 +1202,127 @@ async def set_request_priority(
         )
     await session.commit()
     return {"request_id": mr.id, "priority": new, "previous": before, "effective": effective_priority(mr)}
+
+
+SUBJECTS = {"person": ("instructor", "person.priority"), "program": ("program", "program.priority")}
+
+
+def _override_out(o: Any) -> dict[str, Any]:
+    return {
+        "subject_type": o.subject_type,
+        "subject_id": o.subject_id,
+        "term_id": o.term_id,
+        "priority": int(o.priority),
+        "note": o.note,
+        "updated_by": o.updated_by,
+        "updated_at": o.updated_at.isoformat() if o.updated_at else None,
+    }
+
+
+async def set_subject_priority(
+    session: AsyncSession,
+    subject_type: str,
+    subject_id: int,
+    term_id: int,
+    value: Any,
+    actor: User,
+    note: str | None = None,
+) -> dict[str, Any]:
+    """P19-P-04: a person's (instructor) or a programme's default priority for one term; ``null`` / normal clears
+    it. Every request of the subject without a more specific value inherits it (request > section > person >
+    programme). Audited as ``person.priority`` / ``program.priority`` with the term, so it shows in
+    ``changes-since-publish``."""
+    from app.models import PriorityOverride
+    from app.services.events import publish_event
+
+    if subject_type not in SUBJECTS:
+        raise ModerationError(422, f"subject must be one of {sorted(SUBJECTS)}")
+    term = await session.get(Term, term_id)
+    if term is None:
+        raise ModerationError(404, "term not found")
+    model = Instructor if subject_type == "person" else Program
+    subject = await session.get(model, subject_id)
+    if subject is None:
+        raise ModerationError(404, f"{SUBJECTS[subject_type][0]} not found")
+    new = parse_priority(value)
+    if new == 0:
+        new = None  # Normal at person / programme level is "nothing set"
+    row = (
+        await session.execute(
+            select(PriorityOverride).where(
+                PriorityOverride.term_id == term_id,
+                PriorityOverride.subject_type == subject_type,
+                PriorityOverride.subject_id == subject_id,
+            )
+        )
+    ).scalar_one_or_none()
+    before = int(row.priority) if row is not None else None
+    text = (note or "").strip() or None
+    if new is None and row is not None:
+        await session.delete(row)
+    elif new is not None:
+        if row is None:
+            row = PriorityOverride(term_id=term_id, subject_type=subject_type, subject_id=subject_id, priority=new)
+            session.add(row)
+        row.priority, row.note, row.updated_by = new, text, actor.id
+    if new != before:
+        await publish_event(
+            session,
+            SUBJECTS[subject_type][1],
+            SUBJECTS[subject_type][0],
+            subject_id,
+            before={"priority": before, "term_id": term_id},
+            after={"priority": new, "term_id": term_id},
+            actor=actor,
+            reason=text,
+            term_id=term_id,
+        )
+    await session.commit()
+    affected = await subject_request_ids(session, subject_type, subject_id, term_id)
+    return {
+        "subject_type": subject_type,
+        "subject_id": subject_id,
+        "term_id": term_id,
+        "priority": new,
+        "previous": before,
+        "source": subject_type if new is not None else None,
+        "request_ids": affected,
+    }
+
+
+async def subject_request_ids(session: AsyncSession, subject_type: str, subject_id: int, term_id: int) -> list[int]:
+    """The term's live meeting requests of a person (their sections) or a programme."""
+    q = (
+        select(MeetingRequest.id)
+        .join(Section, Section.id == MeetingRequest.section_id)
+        .where(Section.term_id == term_id, MeetingRequest.archived.is_(False), Section.archived.is_(False))
+    )
+    if subject_type == "person":
+        q = q.join(SectionInstructor, SectionInstructor.section_id == Section.id).where(
+            SectionInstructor.instructor_id == subject_id
+        )
+    else:
+        q = q.where(Section.program_id == subject_id)
+    return sorted({int(i) for i in (await session.execute(q)).scalars()})
+
+
+async def list_overrides(session: AsyncSession, term_id: int, subject_type: str | None = None) -> list[dict[str, Any]]:
+    from app.models import PriorityOverride
+
+    q = select(PriorityOverride).where(PriorityOverride.term_id == term_id)
+    if subject_type:
+        q = q.where(PriorityOverride.subject_type == subject_type)
+    rows = list((await session.execute(q.order_by(PriorityOverride.subject_type, PriorityOverride.subject_id))).scalars())
+    names: dict[tuple[str, int], str] = {}
+    people = [r.subject_id for r in rows if r.subject_type == "person"]
+    progs = [r.subject_id for r in rows if r.subject_type == "program"]
+    if people:
+        for i in (await session.execute(select(Instructor).where(Instructor.id.in_(people)))).scalars():
+            names[("person", i.id)] = i.full_name
+    if progs:
+        for p in (await session.execute(select(Program).where(Program.id.in_(progs)))).scalars():
+            names[("program", p.id)] = p.name
+    return [{**_override_out(r), "name": names.get((r.subject_type, r.subject_id))} for r in rows]
 
 
 # ------------------------------------------------------------------------------------------- re-solve (M3)
@@ -2082,6 +2218,7 @@ __all__ = [
     "run_resolve",
     "set_request_priority",
     "set_section_priority",
+    "set_subject_priority",
     "term_matchings",
     "verdict_of",
     "visibility",

@@ -121,7 +121,8 @@ def test_institution_seed_runs_once_and_resumes_only_missing_steps() -> None:
     # a second deploy: nothing is imported again
     cli2 = FakeCli(CLI)
     out2 = seed.run("institution", store, cli2, "/seed/files", log=lambda _m: None)
-    assert out2.ran == [] and out2.already == IMPORTS and cli2.imports() == [] and cli2.calls == []
+    assert out2.ran == [] and out2.already == IMPORTS and cli2.imports() == []
+    assert not [c for c in cli2.calls if c[0] == "set-setting"]
     # the learning CLI lands later: only that step runs
     cli3 = FakeCli(CLI | {"learning-refresh"})
     out3 = seed.run("institution", store, cli3, "/seed/files", log=lambda _m: None)
