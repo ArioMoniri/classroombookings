@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { EvilAreaChart } from "@/components/ui/evilcharts/charts/recharts-area-chart";
-import { EvilBarChart } from "@/components/ui/evilcharts/charts/recharts-bar-chart";
+import { BarList } from "@/components/ui/bar-list";
 import type { DashboardSummary } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS } from "@/lib/time";
@@ -29,6 +29,8 @@ export function PeriodArea({ data, className }: { data: DashboardSummary; classN
   const series = useMemo(() => periodSeries(data), [data]);
   const config = useMemo(() => ({ util: { label: t("glass.dashboard.occupied"), colors: SEQ } }), [t]);
   const peak = series.reduce((a, b) => (b.util > a.util ? b : a), series[0] ?? { period: "", index: 0, util: 0 });
+  // an empty week draws no axes or frame, only the sentence (review 2026-10-15 §3 Dashboard)
+  if (!series.some((s) => s.util > 0)) return <p className={cn("flex items-center type-callout text-label-2", className, "h-auto")}>{t("common.noData")}</p>;
   return (
     <figure className={cn("relative", className)}>
       <div aria-hidden className="size-full">
@@ -58,31 +60,18 @@ export function PeriodArea({ data, className }: { data: DashboardSummary; classN
 }
 
 export function BuildingBars({ data, className }: { data: DashboardSummary; className?: string }) {
-  const { t } = useI18n();
+  const { t, n } = useI18n();
   const rows = useMemo(() => data.utilisation_by_building.map((b) => ({ building: b.building, util: Math.round(b.utilisation * 100), rooms: b.rooms })), [data]);
-  const config = useMemo(() => ({ util: { label: t("glass.dashboard.occupied"), colors: SEQ } }), [t]);
+  if (!rows.length) return <p className={cn("type-callout text-label-2", className)}>{t("common.noData")}</p>;
+  // values at the bar end, no axes (review 2026-10-15 §3 Dashboard: "building bars have no value labels")
   return (
-    <figure className={cn("relative", className)}>
-      <div aria-hidden className="size-full">
-        <EvilBarChart config={config} data={rows} layout="horizontal" animationType="none" barRadius={6} className="aspect-auto size-full">
-          <EvilBarChart.XAxis type="number" domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} />
-          <EvilBarChart.YAxis dataKey="building" width={28} />
-          <EvilBarChart.Tooltip variant="frosted-glass" />
-          <EvilBarChart.Bar dataKey="util" />
-        </EvilBarChart>
-      </div>
-      <figcaption className="sr-only">
-        <table>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.building}>
-                <th scope="row">{r.building}</th>
-                <td>{t("glass.dashboard.buildingRow", { pct: r.util, rooms: r.rooms })}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </figcaption>
-    </figure>
-  );
+    <BarList
+      className={className}
+      aria-label={t("glass.dashboard.buildings")}
+      labelWidth="3rem"
+      max={100}
+      tone="var(--seq-4)"
+      items={rows.map((r) => ({ key: r.building, label: <span title={t("glass.dashboard.buildingRow", { pct: r.util, rooms: r.rooms })}>{r.building}</span>, value: r.util, display: `${n(r.util)}%` }))}
+    />
+  )
 }

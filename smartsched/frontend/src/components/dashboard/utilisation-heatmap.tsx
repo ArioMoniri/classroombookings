@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { DashboardSummary } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-/** Sequential 5-step scale from tokens §2.5; text colour flips at step 4. */
+/** Sequential 5-step scale from tokens §2.5; text colour flips at step 4. 0 % / no data is NOT step 1: it is
+ *  drawn as `--fill-3` with a dot pattern and a label-3 numeral, so empty days stop weighing like data
+ *  (review 2026-10-15 §3 Dashboard; tokens.md §2.5 "No data"). */
 export function seqStep(v: number): { bg: string; fg: string; step: number } {
   const step = v <= 0 ? 1 : v <= 0.25 ? 2 : v <= 0.5 ? 3 : v <= 0.75 ? 4 : 5;
   return { bg: `var(--seq-${step})`, fg: step >= 4 ? "var(--primary-fg)" : "var(--fg)", step };
@@ -42,7 +44,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <SegmentedGlass
+        <SegmentedControl
           size="sm"
           aria-label={t("dashboard.heatmap")}
           value={mode}
@@ -54,7 +56,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
         />
         <div className="flex flex-wrap items-center gap-2 type-caption text-label-3">
           {[1, 2, 3, 4, 5].map((s) => (
-            <span key={s} className="inline-flex items-center gap-1"><span className="size-2.5 rounded-[3px] shadow-[inset_0_0_0_1px_var(--hairline)]" style={{ background: `var(--seq-${s})` }} aria-hidden />{[0, 25, 50, 75, 100][s - 1]}</span>
+            <span key={s} className="inline-flex items-center gap-1"><span className="size-2.5 rounded-[3px] edge-hairline" style={s === 1 ? undefined : { background: `var(--seq-${s})` }} aria-hidden data-empty={s === 1 || undefined} />{[0, 25, 50, 75, 100][s - 1]}</span>
           ))}
           <button type="button" aria-pressed={table} className="rounded-full px-2 py-0.5 font-medium text-tint-text hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={() => setTable((v) => !v)}>{table ? t("glass.dashboard.asHeatmap") : t("glass.dashboard.asTable")}</button>
         </div>
@@ -80,6 +82,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
                   const v = mode === "day" ? dayValue(row.building, row.utilisation, c) : periodValue(row.building, c);
                   const { bg, fg } = seqStep(v);
                   const pct = Math.round(v * 100);
+                  const empty = pct === 0;
                   const label = mode === "day" ? `${row.building} · ${dayName(c, locale)} · ${pct}%` : `${row.building} · ${PERIODS[c - 1]?.start ?? c} · ${pct}%`;
                   const href = mode === "day" ? `/timetable?day=${c}&building=${row.building}` : `/timetable?period=${c}`;
                   return (
@@ -87,7 +90,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
                       <Tooltip>
                         <TooltipTrigger
                           render={
-                            <Link href={href} aria-label={label} className={cn("flex h-8 items-center justify-center rounded-[6px] type-caption font-medium tabular-nums focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", mode === "day" ? "w-10" : "w-[18px] sm:w-6")} style={table ? undefined : { background: bg, color: fg }}>
+                            <Link href={href} aria-label={label} data-empty={empty || undefined} className={cn("flex h-8 items-center justify-center rounded-[6px] type-caption font-medium tabular-nums focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", mode === "day" ? "w-10" : "w-[18px] sm:w-6", empty && !table && "bg-fill-3 bg-[radial-gradient(var(--hairline-strong)_0.75px,transparent_0.75px)] bg-[length:5px_5px] font-normal text-label-3")} style={table || empty ? undefined : { background: bg, color: fg }}>
                               {mode === "day" || table ? pct : ""}
                             </Link>
                           }
