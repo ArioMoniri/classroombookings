@@ -455,59 +455,53 @@ def _record_text(el: Any) -> str:
 
 
 def _generic_xml(root: Any, out: Rendered, lim: FormatLimits) -> None:
-    """Runs of repeated sibling elements become tables (one per container, largest first)."""
-    from collections import Counter
+    """Repeated records become tables. A *record path* (``kampus/bina/derslik``) has at least two elements
+    with attributes or child elements; the leaf record paths (no record path below them) are the tables,
+    largest first. Columns: the record's attributes (``@kod``), its child elements (repeated ones joined),
+    and the attributes of its ancestors (``bina@ad``), so nesting is not lost."""
+    from collections import defaultdict
 
-    parents: dict[int, Any] = {}
-    candidates: list[tuple[int, Any, str]] = []
-    for el in root.iter():
-        kids = list(el)
-        for k in kids:
-            parents[id(k)] = el
-        counts = Counter(k.tag for k in kids)
-        for tag, n in counts.items():
-            if n >= 2:
-                sample = next(k for k in kids if k.tag == tag)
-                if len(sample) or sample.attrib:
-                    candidates.append((n, el, tag))
-    if not candidates:
+    paths: dict[tuple[str, ...], list[Any]] = defaultdict(list)
+    ancestors: dict[int, list[Any]] = {}
+    stack: list[tuple[Any, tuple[str, ...], list[Any]]] = [(root, (_local(root.tag),), [])]
+    while stack:
+        el, path, anc = stack.pop()
+        paths[path].append(el)
+        ancestors[id(el)] = anc
+        for ch in reversed(list(el)):
+            stack.append((ch, (*path, _local(ch.tag)), [*anc, el]))
+    records = {p for p, els in paths.items() if len(els) >= 2 and any(len(e) or e.attrib for e in els)}
+    # repeated text-only children of a record (<tr><td/><td/></tr>) are its cells, not records
+    records = {p for p in records if not (p[:-1] in records and all(not len(e) for e in paths[p]))}
+    leaves = [p for p in records if not any(q != p and q[: len(p)] == p for q in records)]
+    if not leaves:
         raise RenderError("the XML has no repeated records to read as rows")
-    candidates.sort(key=lambda t: -t[0])
-    chosen_rows: set[int] = set()
-    tables = 0
-    for _, container, tag in candidates:
-        node, inside = container, False
-        while node is not None:  # skip containers that sit inside a row already taken
-            if id(node) in chosen_rows:
-                inside = True
-                break
-            node = parents.get(id(node))
-        if inside:
-            continue
-        records = [k for k in container if k.tag == tag][: lim.max_rows]
+    leaves.sort(key=lambda p: (-len(paths[p]), p))
+    for p in leaves[:10]:
         cols: list[str] = []
         values: list[dict[str, str]] = []
-        for rec in records:
-            chosen_rows.add(id(rec))
+        for rec in paths[p][: lim.max_rows]:
             row: dict[str, str] = {}
             for a, v in rec.attrib.items():
                 row[f"@{_local(a)}"] = tx.cell_text(v)
             for ch in rec:
                 key = _local(ch.tag)
                 text = _record_text(ch) if len(ch) else tx.cell_text(ch.text)
-                row[key] = f"{row[key]}, {text}" if key in row and text else (text or row.get(key, ""))
+                row[key] = f"{row[key]}, {text}" if row.get(key) and text else (text or row.get(key, ""))
             if not len(rec) and rec.text and rec.text.strip():
                 row[_local(rec.tag)] = tx.cell_text(rec.text)
+            for anc in reversed(ancestors[id(rec)][1:]):  # the root's attributes are document metadata
+                for a, v in anc.attrib.items():
+                    row.setdefault(f"{_local(anc.tag)}@{_local(a)}", tx.cell_text(v))
             for k in row:
                 if k not in cols and len(cols) < lim.max_cols:
                     cols.append(k)
             values.append(row)
         grid_rows = [cols] + [[r.get(k, "") for k in cols] for r in values]
-        name = f"{_local(container.tag)}/{_local(tag)}"
-        out.grids.append(Grid(name, "table", grid_rows, [], {"xpath": name}, list(range(1, len(grid_rows) + 1))))
-        tables += 1
-        if tables >= 10:
-            break
+        name = "/".join(p[-2:])
+        out.grids.append(
+            Grid(name, "table", grid_rows, [], {"xpath": "/" + "/".join(p)}, list(range(1, len(grid_rows) + 1)))
+        )
 
 
 def _render_xml(data: bytes, out: Rendered, lim: FormatLimits) -> None:

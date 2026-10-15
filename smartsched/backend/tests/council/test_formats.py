@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -286,3 +287,96 @@ def test_ods_with_a_dtd_is_refused():
     with pytest.raises(UnsafeFileError) as e:
         formats.precheck("dtd.ods", buf.getvalue())
     assert e.value.status == 400
+
+
+# --------------------------------------------------------------------------- xml + ics (P19-I3)
+
+BILLION_LAUGHS = b"""<?xml version="1.0"?>
+<!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+<!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">]>
+<rooms><room code="A 101">&lol3;</room><room code="A 102">&lol3;</room></rooms>"""
+
+
+def test_spreadsheetml_2003_export_gives_the_xlsx_meetings(tmp_path, xlsx_meetings):
+    shape, recs, rendered = _fast(tmp_path, "bahar_v5.xml", exports.spreadsheetml(BAHAR_LIST))
+    assert shape == "planning-list" and rendered.format == "xml"
+    assert [g.name for g in rendered.grids] == ["Sayfa1", "Sayfa2"]
+    assert _overlap(xlsx_meetings, recs) >= 0.99
+    assert len([r for r in recs if r["type"] == "room"]) == 54  # the Sayfa2 capacity buckets survive
+
+
+def test_generic_xml_repeated_siblings_become_rows():
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<kampus><bina ad="A"><derslik kod="A 101"><kapasite>58</kapasite><etiket>AMFİ</etiket></derslik>
+<derslik kod="A 102"><kapasite>40</kapasite></derslik></bina>
+<bina ad="B"><derslik kod="B 201"><kapasite>36</kapasite></derslik></bina></kampus>""".encode()
+    g = render_file(xml, "kampus.xml").grids
+    assert [x.name for x in g] == ["bina/derslik"]  # the leaf records; the building is carried as a column
+    rooms = g[0].cells
+    assert rooms[0] == ["@kod", "kapasite", "etiket", "bina@ad"]
+    assert rooms[1] == ["A 101", "58", "AMFİ", "A"] and rooms[3] == ["B 201", "36", "", "B"]
+    table = b"<t><tr><td>kod</td><td>kapasite</td></tr><tr><td>A 101</td><td>58</td></tr></t>"
+    assert render_file(table, "t.xml").grids[0].cells == [["td"], ["kod, kapasite"], ["A 101, 58"]]
+
+
+def test_xml_with_entities_is_400_and_too_many_elements_413():
+    for data in (BILLION_LAUGHS, b'<?xml version="1.0"?><!DOCTYPE a SYSTEM "file:///etc/passwd"><a/>'):
+        with pytest.raises(UnsafeFileError) as e:
+            formats.precheck("rooms.xml", data)
+        assert e.value.status == 400 and "DTD" in e.value.message
+    many = b"<a>" + b"<b/>" * 200_001 + b"</a>"
+    with pytest.raises(UnsafeFileError) as e:
+        formats.precheck("many.xml", many)
+    assert e.value.status == 413
+
+
+def _ics(*events: str) -> bytes:
+    body = "".join(f"BEGIN:VEVENT\r\n{e.strip()}\r\nEND:VEVENT\r\n" for e in events)
+    return f"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//t//EN\r\n{body}END:VCALENDAR\r\n".encode()
+
+
+def test_ics_rrule_is_clipped_and_people_are_dropped():
+    from app.council.formats_ics import ics_records, instances
+
+    weekly = """UID:mat112@uni
+DTSTART;TZID=Europe/Istanbul:20260302T133000
+DTEND;TZID=Europe/Istanbul:20260302T160000
+RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20260601T000000Z
+EXDATE;TZID=Europe/Istanbul:20260420T133000
+SUMMARY:MAT 112 §1 Kalkülüs II
+LOCATION:A 204 / A 205
+ORGANIZER;CN=Elçim Kırımlı:mailto:elcim@uni.edu.tr
+ATTENDEE;CN=Öğrenci:mailto:ogr@uni.edu.tr
+DESCRIPTION:Sorular: elcim@uni.edu.tr"""
+    utc = "UID:u2\r\nDTSTART:20260303T053000Z\r\nDTEND:20260303T071000Z\r\nSUMMARY:FZT 2002\r\nLOCATION:B 101"
+    data = _ics(weekly, utc)
+    found, warnings = instances(data, formats.REGISTRY["ics"].limits)
+    mondays = [i for i in found if i.uid == "mat112@uni"]
+    assert len(mondays) == 12 and all(i.when.isoweekday() == 1 for i in mondays)  # 2 Mar-25 May, no 20 Apr
+    assert str(mondays[0].start) == "13:30:00" and str(mondays[0].end) == "16:00:00"
+    recs, _ = ics_records(data, "feed.ics")
+    first = recs[0]
+    assert first["room_code"] == "A204" and recs[1]["room_code"] == "A205" and first["course_codes"] == ["MAT112"]
+    assert first["section"] == "1" and first["day"] == 1 and first["date"] == "2026-03-02"
+    blob = json.dumps(recs, ensure_ascii=False)
+    assert "elcim@" not in blob and "Kırımlı" not in blob and "ogr@" not in blob  # no ORGANIZER / ATTENDEE
+    fzt = next(r for r in recs if r["course_codes"] == ["FZT2002"])
+    assert (fzt["start"], fzt["end"]) == ("08:30", "10:10")  # UTC -> Europe/Istanbul
+    # a window (the term) clips the expansion
+    found, _ = instances(data, formats.REGISTRY["ics"].limits, window=(date(2026, 3, 1), date(2026, 3, 31)))
+    assert len([i for i in found if i.uid == "mat112@uni"]) == 5
+
+
+def test_ics_expansion_is_bounded():
+    from app.council.formats_ics import instances
+
+    lim = formats.REGISTRY["ics"].limits
+    endless = "UID:e\r\nDTSTART:20260101T080000\r\nRRULE:FREQ=DAILY\r\nSUMMARY:x\r\nLOCATION:A 101"
+    found, warnings = instances(_ics(endless), lim, window=(date(2026, 1, 1), date(2100, 1, 1)))
+    assert len(found) == lim.max_instances == 5000 and "stopped at 5000" in warnings[-1]
+    secondly = "UID:s\r\nDTSTART:20260101T080000\r\nRRULE:FREQ=SECONDLY\r\nSUMMARY:x\r\nLOCATION:A 101"
+    found, warnings = instances(_ics(secondly), lim)
+    assert found == [] and "SECONDLY recurrence is not a timetable" in warnings[0]
+    old = "UID:o\r\nDTSTART:14000101T080000\r\nRRULE:FREQ=DAILY\r\nSUMMARY:x\r\nLOCATION:A 101"
+    found, warnings = instances(_ics(old), lim, window=(date(2026, 1, 1), date(2026, 2, 1)))
+    assert "steps" in warnings[-1]  # 626 years of daily steps before the window: stopped, not hung

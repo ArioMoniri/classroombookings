@@ -4,17 +4,22 @@ same importers as the originals, committed, and bombs are refused at upload."""
 from __future__ import annotations
 
 import json
+import re
+from collections import Counter
 
 from app.core.db import get_session_factory
+from app.importers.normalize import PERIODS
 from app.importers.planning_list import import_planning_list
-from app.models import CouncilJob, MeetingRequest, Room, Section, Term
+from app.importers.weekly_grid import import_weekly_grid, parse_weekly_grid
+from app.models import CouncilJob, MeetingRequest, Room, ScheduleRun, Section, Term
+from app.services.exports import export_ics
 from app.workers import queue as qmod
 from sqlalchemy import func, select
 
 from tests.api_fixtures import login
 from tests.council import exports
-from tests.council.conftest import BAHAR_LIST
-from tests.council.test_formats import intake_v1_doc
+from tests.council.conftest import BAHAR_GRID, BAHAR_LIST
+from tests.council.test_formats import BILLION_LAUGHS, intake_v1_doc
 
 
 async def upload(client, headers, *files: tuple[str, bytes], **form) -> dict:
@@ -100,4 +105,64 @@ async def test_unreadable_and_dangerous_uploads_are_refused_before_a_job_exists(
     assert status == 413 and "levels deep" in text
     status, text = await refused(client, h, "memo.xls", exports.ole2_with_stream("WordDocument"))
     assert status == 400 and "save the file as .docx" in text
+    status, text = await refused(client, h, "odalar.xml", BILLION_LAUGHS)
+    assert status == 400 and "DTD" in text
+    bomb = exports.ods_from_content(
+        '<table:table table:name="S"><table:table-row><table:table-cell table:number-columns-repeated="16384">'
+        "<text:p>x</text:p></table:table-cell></table:table-row></table:table>"
+    )
+    status, text = await refused(client, h, "liste.ods", bomb)
+    assert status == 413 and "number-columns-repeated" in text
     assert await count(CouncilJob) == 0
+
+
+def norm(t: str | None) -> str:
+    return re.sub(r"\s+", " ", (t or "").replace("\xa0", " ")).strip()
+
+
+async def week_ics(week: int) -> tuple[bytes, Counter]:
+    """SmartSched's own ICS export of the imported Bahar board, cut to one week, and that week's grid cells."""
+    async with get_session_factory()() as s:
+        rep = await import_weekly_grid(s, BAHAR_GRID, "2026-BAHAR", year=2026)
+        run = await s.get(ScheduleRun, rep.extra["run_ids"]["COURSE"])
+        assert run is not None
+        ics = await export_ics(s, run)
+    head = ics.split("BEGIN:VEVENT", 1)[0]
+    events = [e for e in re.findall(r"BEGIN:VEVENT\r\n.*?END:VEVENT\r\n", ics, re.S) if f"-w{week}@" in e]
+    parsed = parse_weekly_grid(BAHAR_GRID, 2026)
+    idx = next(i for i, sh in enumerate(parsed.sheets, start=1) if sh.week_index == week and sh.kind == "LECTURE")
+    cells = Counter(
+        (
+            e.room_code,
+            e.date.isoformat(),
+            PERIODS[e.start_period - 1].start.strftime("%H:%M"),
+            PERIODS[e.end_period - 1].end.strftime("%H:%M"),
+            norm(e.cell.raw),
+        )
+        for e in parsed.entries
+        if e.sheet_index == idx and e.cell.kind == "COURSE"
+    )
+    return (head + "".join(events) + "END:VCALENDAR\r\n").encode(), cells
+
+
+async def test_ics_of_a_bahar_week_from_our_own_export_equals_the_grid_cells(client):
+    """P19-I3 acceptance: export week 3 of the imported Bahar board as ICS, upload it: the booking records
+    are exactly the board's course cells of week 3 (room, date, start, end, text)."""
+    h = await login(client)
+    data, cells = await week_ics(3)
+    assert sum(cells.values()) == 601
+    job = await upload(client, h, ("bahar_hafta3.ics", data))
+    f = job["files"][0]
+    assert f["route"] == "fast:ics" and f["format"] == "ics" and f["counts"] == {"booking": 601}
+    items = (
+        await client.get(
+            f"/api/v1/council/jobs/{job['id']}/records", headers=h, params={"file": 0, "limit": 500, "offset": 0}
+        )
+    ).json()["items"]
+    items += (
+        await client.get(
+            f"/api/v1/council/jobs/{job['id']}/records", headers=h, params={"file": 0, "limit": 500, "offset": 500}
+        )
+    ).json()["items"]
+    got = Counter((r["room_code"], r["date"], r["start"], r["end"], norm(r["text"])) for r in items)
+    assert got == cells
