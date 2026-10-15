@@ -400,7 +400,8 @@
       "goal": "fix the bugs the recording agent found on the real backend. 1. Studio readiness stays \"Not checked yet\" after a rule is added, although the automatic pre-check ran. This is a race with the draft version (components/studio/studio-reducer.ts ~323). 2. The Studio \"Unlock …\" fix shows as a pin. The draft stores a pin with unlock:true (backend app/services/studio.py ~555). Show it as an unlock and do n…",
       "ledger": "frontend-engineer (studio + calendar polish bugs)",
       "resumed": true,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 16:52"
     },
     {
       "id": "a5e46ad9de1e4d6ac",
@@ -488,8 +489,8 @@
       "ledger": "merge-universal-2026-10-15 SCOPE: your isolated git worktree only, on a local br…",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-15 16:36",
-      "left_off": "The full suite is near 87%. Still waiting on monitor bnraig8aj."
+      "finished_at": "2026-10-15 16:37",
+      "left_off": "Still waiting on bnraig8aj, which is the active monitor."
     },
     {
       "id": "a574d83abdbb1d109",
@@ -742,6 +743,26 @@
       "status": "finished",
       "finished_at": "2026-10-15 16:30",
       "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a58e75d0fe0adb9cd",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 16:37",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "aff1ba64c4ae10ccd",
+      "description": "Frontend sweep: studio + calendar areas",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 16:53",
+      "scope": "smartsched/frontend/src/components/{studio,timetable,calendar,classes,runs,generate,chat}/** and their tests, the matching src/app/(app)/{timetable,classes,generate,runs}/** routes, and your own new keys in messages/en.json and tr.json. Do NOT edit: - components/shell/**, bookings/**, approvals/**, admin/**, findroom/**, notifications/**, audit/** and lib/api/hooks.ts (the wave-1 frontend agent ow…",
+      "goal": "close the open frontend items for these areas. For every unchecked `- [ ]` item, verify it against the code first. If it's already done, tick it with ` (verified 2026-10-15: <evidence>)`. If not, fix it test-first. The items: - docs/ROADMAP.md \"### Phase 8 Generator Studio frontend backlog\" - \"### Calendar follow-ups\" - \"### Frontend UX fixes for the Liquid Glass implementation wave\" (the items in…",
+      "ledger": "frontend-sweep-studio-calendar-2026-10-15 SCOPE: smartsched/frontend/src/compone…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

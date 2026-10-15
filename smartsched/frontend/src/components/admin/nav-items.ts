@@ -23,7 +23,9 @@ export interface AdminNavItem {
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/bookings", labelKey: "crbs.nav.bookings", icon: CalendarRange, key: "b" },
   { href: "/my-bookings", labelKey: "crbs.nav.myBookings", icon: BookMarked, key: "m" },
-  // wave 1 (docs/product/wave1-api.md): T1 for everyone, the approver inbox for designated approvers
+  // wave 1 (docs/product/wave1-api.md): T1 follows its backend guard — POST /rooms/find takes any signed-in
+  // user (CurrentAccess) and searches only the rooms they may view (room.view by role or ACL), so no
+  // permission here; the approver inbox needs approvals.decide (GET /approvals/inbox answers [] without it)
   { href: "/find-room", labelKey: "wave1.nav.findRoom", icon: CalendarSearch },
   { href: "/approvals", labelKey: "wave1.nav.approvals", icon: Stamp, permission: "approvals.decide", badge: "approvals" },
   { href: "/admin", labelKey: "crbs.nav.admin", icon: Settings2, permission: [...SETUP_PERMISSIONS] },

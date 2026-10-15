@@ -7,6 +7,8 @@ national holiday; A 201-A 203 carry the TIP tag; A 103-A 105 the PC tag."""
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import Iterator
 from datetime import date
 
 from app.api.v1 import find_room as find_api
@@ -14,6 +16,27 @@ from app.api.v1 import find_room as find_api
 from tests.crbs_env import env  # noqa: F401
 
 FIND = "/api/v1/rooms/find"
+
+
+@contextlib.contextmanager
+def _sql_statements() -> Iterator[dict[str, int]]:
+    """Count the SQL statements executed inside the block (on the app's engine)."""
+    from app.core import db as dbmod
+    from sqlalchemy import event
+
+    eng = dbmod.get_engine().sync_engine
+    box = {"n": 0}
+
+    def count(*_args: object, **_kw: object) -> None:
+        box["n"] += 1
+
+    event.listen(eng, "before_cursor_execute", count)
+    try:
+        yield box
+    finally:
+        event.remove(eng, "before_cursor_execute", count)
+
+
 WED = date(2026, 2, 18)
 THU = date(2026, 2, 19)
 BIG = {"A102": 96, "A201": 96, "A202": 96, "A203": 148, "A204": 156, "A205": 94, "A206": 92, "A207": 120, "C201": 126}
@@ -112,7 +135,8 @@ async def test_recurring_partial_results_and_holidays(env):  # noqa: F811
     r = await env.book(ayse, "A102", date(2026, 3, 5), "P1")  # one Thursday taken
     assert r.status_code == 201, r.text
     body = {"term_id": env.term_id, "weekday": 4, "start": "08:30", "end": "09:10", "headcount": 90}
-    out = (await env.client.post(FIND, json=body, headers=ayse)).json()
+    with _sql_statements() as every_thursday:
+        out = (await env.client.post(FIND, json=body, headers=ayse)).json()
     assert {"date": "2026-04-23", "reason": "holiday"} == {
         k: v for k, v in next(x for x in out["closed_dates"] if x["date"] == "2026-04-23").items() if k != "holiday"
     }
@@ -123,8 +147,14 @@ async def test_recurring_partial_results_and_holidays(env):  # noqa: F811
     assert f"{a102['free_dates']}/{a102['open_dates']} tarih boş" in a102["reason"]["tr"]
     # the caller sees their own booking as the holder
     assert "Rezervasyon" in a102["busy_with"]
-    # performance: ~60 rooms x every Thursday of the term on SQLite
-    assert out["timing_ms"] < 3000
+    # performance: ~60 rooms x every Thursday of the term. Deterministic, not wall-clock (a `timing_ms < 3000`
+    # check failed under a load average > 30): the search issues as many SQL statements for every Thursday of
+    # the term as for one date, so the per-date work stays in memory (no query per date or per room).
+    one = {**body, "weekday": None, "date": "2026-02-19"}
+    with _sql_statements() as one_date:
+        assert (await env.client.post(FIND, json=one, headers=ayse)).status_code == 200
+    assert 0 < every_thursday["n"] <= one_date["n"], (every_thursday, one_date)
+    assert out["timing_ms"] >= 0  # still reported to the client
 
 
 async def test_acl_hides_rooms_and_alternatives_when_few_are_free(env):  # noqa: F811

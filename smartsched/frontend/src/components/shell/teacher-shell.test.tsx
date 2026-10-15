@@ -65,13 +65,13 @@ describe("teacher shell (no planning.view)", () => {
   it("makes no /runs, /requests or /terms requests and no approvals inbox request", async () => {
     stubFetch(TEACHER);
     renderShell();
-    await waitFor(() => expect(calls.some((u) => u.includes("/auth/me"))).toBe(true));
+    await waitFor(() => expect(calls.some((u) => u.includes("/auth/me"))).toBe(true), { timeout: 15_000 });
     // let the permission-gated queries settle (they would start right after /auth/me answers)
-    await waitFor(() => expect(calls.some((u) => u.includes("/me/notifications"))).toBe(true));
+    await waitFor(() => expect(calls.some((u) => u.includes("/me/notifications"))).toBe(true), { timeout: 15_000 });
     await new Promise((r) => setTimeout(r, 50));
     expect(planningCalls()).toEqual([]);
     expect(calls.some((u) => u.includes("/approvals/inbox"))).toBe(false);
-  });
+  }, 30_000);
 
   it("a planner's shell does ask for runs, review counts and terms (the spy works)", async () => {
     stubFetch(PLANNER);
@@ -79,6 +79,6 @@ describe("teacher shell (no planning.view)", () => {
     await waitFor(() => {
       const paths = planningCalls().map((u) => new URL(u, "http://localhost").pathname);
       expect(paths).toEqual(expect.arrayContaining(["/api/v1/runs", "/api/v1/terms", "/api/v1/requests/meetings"]));
-    });
-  });
+    }, { timeout: 15_000 });
+  }, 30_000);
 });
