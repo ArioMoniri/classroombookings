@@ -427,9 +427,9 @@ Wave 0, the gates:
 - [ ] P19-00a: refuse untargeted soft structural rules (D1 BLOCKER: a soft capacity rule seated 180 in a 50-seat room with hard 100). Backend agent.
 - [ ] P19-00b: per-source hardness allowlist (AI/UPLOAD/LEARNED); store rejected proposals. AI agent.
 - [ ] P19-00c: report waived structural rules in stats and the run report. Solver agent.
-- [ ] P19-01: publish guard (no FAILED activation), a single active run per term, 409 on deleting the active run; migration 0018 after 0017_council. Backend agent.
+- [x] P19-01 (done cc9c45d + c1ef5e0, 0019 index): publish guard (no FAILED activation), a single active run per term, 409 on deleting the active run; migration 0018 after 0017_council. Backend agent.
 - [ ] P19-02: audit planning entities and actions (D5). Backend agent.
-- [ ] P19-03: per-term write lock for imports and commits (D8). Backend agent, then the importer agent wires it in.
+- [x] P19-03 (lock service landed c1ef5e0; wiring into imports/council tracked below): per-term write lock for imports and commits (D8). Backend agent, then the importer agent wires it in.
 - [ ] P19-04/05: council merge hardening (D2 safe_files caps and isolation, D3 no MSW, D13 Planner-only records, D14 dedupe). Merge agent.
 - [ ] P19-06: no dead nav/⌘K links (D6); find-room gated by permission; crawler e2e. Wave-1 frontend agent.
 - [ ] D15, D16, D19 (rooms PUT permission, CRBS DSN SSRF, setup race). Backend agent.

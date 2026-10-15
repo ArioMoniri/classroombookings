@@ -488,8 +488,8 @@
       "ledger": "merge-universal-2026-10-15 SCOPE: your isolated git worktree only, on a local br…",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-15 16:26",
-      "left_off": "Still running (84%). Waiting for it to finish."
+      "finished_at": "2026-10-15 16:29",
+      "left_off": "Waiting for the full suite to finish before the final gracious merge."
     },
     {
       "id": "a574d83abdbb1d109",
