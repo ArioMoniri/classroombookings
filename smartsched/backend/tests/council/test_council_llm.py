@@ -148,7 +148,8 @@ async def test_memo_council_votes_mines_rules_and_judges(client, fake_sdk):
         tid = (await s.execute(select(Term.id).where(Term.code == "2026-BAHAR"))).scalar_one()
     decisions = [
         {"id": disputed[0]["id"], "action": "accept"},
-        {"id": rule["id"], "action": "edit", "value": {"weight": 7, "hardness": "soft"}},
+        # room_tags is a structural hard rule: an upload may re-weight it, never make it soft (gracious D1)
+        {"id": rule["id"], "action": "edit", "value": {"weight": 7}},
     ]
     decisions += [
         {"id": it["id"], "action": "accept"}
@@ -160,13 +161,14 @@ async def test_memo_council_votes_mines_rules_and_judges(client, fake_sdk):
     r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={"term_id": tid, "files": [0]})
     assert r.status_code == 200, r.text
     out = r.json()
-    assert len(out["constraints_created"]) == 1, out
+    assert len(out["constraints_created"]) == 1, out["constraints_rejected"]
     async with get_session_factory()() as s:
         row = await s.get(ConstraintRow, out["constraints_created"][0])
     assert row is not None and row.kind == "room_tags" and row.source == "UPLOAD"
-    assert row.hardness == "soft" and row.weight == 7
+    assert row.hardness == "hard" and row.weight == 7
     assert row.params["required_tags"] == ["LAB"] and row.params["event_ids"]
-    assert row.params["_source_ref"]["file"] == MEMO_DOCX.name
+    assert row.source_ref is not None and row.source_ref["file"] == MEMO_DOCX.name  # a column, not a param
+    assert "_source_ref" not in row.params
 
 
 async def test_scan_is_read_by_the_vision_path(client, fake_sdk):
