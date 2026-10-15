@@ -94,6 +94,38 @@ repo root
 | Calendar sync (alembic 0011) | `calendar_feed_tokens` (SHA-256 of the token only), `calendar_connections` (Fernet-encrypted OAuth tokens), `calendar_event_links`, `calendar_event_revisions`, `calendar_sync_jobs` (outbox), `oauth_states`, `webhook_endpoints`, `webhook_deliveries` — docs/product/calendar-sync-api.md |
 | `users.token_version` (alembic 0006) | raised to revoke every token of the user (see "Sessions and token revocation") |
 
+### Migrations (Alembic chain)
+
+Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.py` (do not edit the block).
+
+<!-- AUTO:migrations -->
+21 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0025_approval_first`**. A new migration goes on top of it (`alembic heads` must print one line).
+
+| # | Revision | Revises | Summary (first line of the docstring) |
+|---:|---|---|---|
+| 1 | `0001` | (base) | initial schema |
+| 2 | `0002_studio` | `0001` | generator studio: drafts, presets, imported snapshots, constraints.source_ref |
+| 3 | `0003_crbs_parity` | `0002_studio` | CRBS parity: roles/permissions, room groups/ACL/custom fields, booking calendar, bookings, outbox, translations… |
+| 4 | `0004_review_fixes` | `0003_crbs_parity` | Review 2026-10-08 fixes: chat-apply claims (M2), job heartbeats (M6), canonical cohort keys in stored constraint… |
+| 5 | `0005_crbs_legacy_ids` | `0004_review_fixes` | CRBS parity audit B4: ``legacy_crbs_id`` on the parity tables, so that importing a CRBS database twice updates the… |
+| 6 | `0006_token_version` | `0005_crbs_legacy_ids` | Parity B-AUTH-11: ``users.token_version`` |
+| 7 | `0011_integrations` | `0006_token_version` | Calendar sync and outgoing webhooks (docs/product/calendar-sync-api.md): hashed feed tokens, event revisions, Google /… |
+| 8 | `0012_room_features` | `0011_integrations` | Booking enhancements wave 1, P10 typed room features (docs/product/booking-enhancements.md §4.1)… |
+| 9 | `0013_find_room` | `0012_room_features` | Booking enhancements wave 1, T1 find a room (docs/product/booking-enhancements.md §4.2): bookings remember what they… |
+| 10 | `0014_audit_events` | `0013_find_room` | Booking enhancements wave 1, P7 audit log (docs/product/booking-enhancements.md §4.6): the append-only… |
+| 11 | `0015_approvals` | `0014_audit_events` | Booking enhancements wave 1, P1 approval workflows (docs/product/booking-enhancements.md §4.3, user decisions… |
+| 12 | `0016_course_code_keys` | `0015_approvals` | Course codes: one course per code key (planner comparison follow-up, importer item 1b) |
+| 13 | `0017_course_code_fold` | `0016_course_code_keys` | Course codes |
+| 14 | `0018_ai_proposal_decisions` | `0017_course_code_fold` | AI proposal decisions: every reviewed AI / upload / learned proposal and its outcome |
+| 15 | `0019_publish_guard_term_locks` | `0018_ai_proposal_decisions` | Publish guard + per-term write lock (review 2026-10-15 D4 / D8) |
+| 16 | `0020_council` | `0019_publish_guard_term_locks` | ingestion council: council_jobs, council_steps, council_artifacts |
+| 17 | `0021_outbox_queue` | `0020_council` | E-mail outbox on the integrations queue (ROADMAP Phase 11): ``notification_outbox`` gains ``next_attempt_at`` (when… |
+| 18 | `0022_kvkk_signoff_unseed` | `0021_outbox_queue` | KVKK sign-off is never seeded (admin persona 2026-10-15 M-18) |
+| 19 | `0023_learning` | `0022_kvkk_signoff_unseed` | Phase 19 learning lane (P19-L1) + catalogue batch (P19-C4) + priority columns (P19-M2) |
+| 20 | `0024_moderation_indexes` | `0023_learning` | Phase 19 moderation read models (P19-M1): indexes for a person's sections across terms and a term's sections of one… |
+| 21 | `0025_approval_first` | `0024_moderation_indexes` | Approval-first bookings (owner requirement 2026-10-15; docs/ROADMAP.md "Approval-first bookings") |
+<!-- /AUTO:migrations -->
+
 ## Solver contract (`app/solver/model.py`) — frozen for parallel work
 
 ```python
@@ -216,6 +248,34 @@ The full route list is in smartsched/README.md ("API overview") and the live Ope
   is read on the server and its units are left for a person. Text the planner types is not governed by
   these switches.
 - Always load the `claude-api` skill before editing `app/ai/*`.
+
+## Intake formats (Ingestion Council)
+
+Uploads go through the council's format registry (`app/council/formats.py`): magic bytes decide the format, every
+format has its own caps, and a bomb is refused at upload (400 / 413) before a job exists. Structured formats are read
+on the server; the AI route only runs when an administrator has enabled AI intake, and every row it produces waits for
+a person's review. Generated from the registry entries by `scripts/docs/sync_docs.py`:
+
+<!-- AUTO:formats -->
+12 formats registered in [`app/council/formats*.py`](../smartsched/backend/app/council), detected by magic bytes first (the extension only breaks ties). Limits not listed are the `FormatLimits` defaults.
+
+| Format | Label | Extensions | Route | Limit | Registered in |
+|---|---|---|---|---|---|
+| `xlsx` | Excel workbook | .xlsx .xlsm | structured: read on the server, no AI | 25 MiB | `formats_builtin.py` |
+| `ics` | iCalendar | .ics .ical .ifb | structured: read on the server, no AI | 10 MiB | `formats_ics.py` |
+| `xls` | Excel 97-2003 workbook | .xls | structured: read on the server, no AI | 20 MiB | `formats_sheets.py` |
+| `ods` | OpenDocument spreadsheet | .ods | structured: read on the server, no AI | 20 MiB | `formats_sheets.py` |
+| `xml` | XML | .xml | structured: read on the server, no AI | 10 MiB | `formats_sheets.py` |
+| `csv` | CSV / TSV | .csv .tsv | structured: read on the server, no AI | 15 MiB | `formats_text.py` |
+| `json` | JSON | .json | structured: read on the server, no AI | 10 MiB | `formats_text.py` |
+| `docx` | Word document | .docx | AI-assisted: off by default; every row reviewed | 15 MiB | `formats_builtin.py` |
+| `pdf` | PDF | .pdf | AI-assisted: off by default; every row reviewed | 15 MiB | `formats_builtin.py` |
+| `image` | image | .png .jpg .jpeg .webp .gif | AI-assisted: off by default; every row reviewed | 10 MiB | `formats_builtin.py` |
+| `eml` | e-mail | .eml | AI-assisted: off by default; every row reviewed | 15 MiB | `formats_mail.py` |
+| `txt` | plain text | .txt .md .text | AI-assisted: off by default; every row reviewed | 2 MiB | `formats_text.py` |
+
+Recognised but refused, with a hint: `doc` (legacy .doc files are not read; save the file as .docx); `ppt` (legacy .ppt presentations are not read; export the slides as PDF); `pptx` (presentations are not read; export the slides as PDF); `odf-other` (OpenDocument text and presentations are not read; save the file as .docx or PDF); `zip` (zip archives are not unpacked; upload the files inside it); `ole2-other` (this Office file is not a workbook the council can read; save it as .xlsx).
+<!-- /AUTO:formats -->
 
 ## Event bus (booking side)
 

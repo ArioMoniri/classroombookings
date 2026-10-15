@@ -56,7 +56,7 @@ async def test_happy_path_provisions_teacher_with_turkish_name_and_drops_idp_tok
     assert len(q["state"]) >= 32 and len(q["nonce"]) >= 32 and q["state"] != q["nonce"]
     loc = await sso.callback(
         q,
-        name=f"  {real_name.replace(' ', ' ', 1)}​ ",  # NBSP + zero-width as Entra may pass them on
+        name=f"  {real_name.replace(' ', '\u00a0', 1)}\u200b ",  # NBSP + zero-width as Entra may pass them on
         preferred_username="SEHRIBAN.SERBEST@UNI.EDU.TR",
         email=None,
         oid="11111111-2222-4333-8444-555555555555",

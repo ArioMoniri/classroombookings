@@ -1,0 +1,248 @@
+# SmartSched feature registry: the source of the "What is built" tables (docs/STATUS.md, README.md).
+# scripts/docs/sync_docs.py renders it; edit this file, not the generated tables, then run
+#   python3 -I scripts/docs/sync_docs.py
+# When an agent finishes a feature it updates its row here (status + evidence); docs/ROADMAP.md stays the
+# detailed log. Seeded 2026-10-15 from the README "What is built" table and docs/ROADMAP.md.
+#
+# Format (a YAML subset the generator reads without PyYAML): one "- feature:" item per feature, each key on its
+# own line, values in double quotes when they contain ": " or start with a YAML symbol.
+#   feature   what a user gets, one sentence
+#   area      planning | intake | bookings | identity | languages | platform
+#   status    done (code, tests and a screen) | backend-only (API + tests, no screen yet) |
+#             in-progress (an agent is building it now) | planned
+#   phase     the roadmap phase or ticket
+#   evidence  a repo path that proves it (a test, an e2e spec, a module); must exist
+#   note      optional, one short clause
+
+- feature: "Import of planning lists, exam lists, weekly room grids, a room master CSV and the CRBS database, each with an import report"
+  area: planning
+  status: done
+  phase: "1"
+  evidence: smartsched/backend/app/importers
+- feature: "Rules from settings, templates, the workbooks and, with an API key, sentences; AI rules need a person's approval"
+  area: planning
+  status: done
+  phase: "3, 8"
+  evidence: smartsched/backend/app/ai
+- feature: "Generator Studio: scope, classes, rules, pre-check with fixes, generate"
+  area: planning
+  status: done
+  phase: "8"
+  evidence: smartsched/frontend/e2e/studio-calendar-sweep.spec.ts
+- feature: "CP-SAT solver for a week, a month, the whole term or the exam period; partial runs; every unplaced class explained"
+  area: planning
+  status: done
+  phase: "2, 9"
+  evidence: smartsched/backend/app/solver
+- feature: "Planner-level validator: stored runs re-checked against the raw workbook rows"
+  area: planning
+  status: done
+  phase: "9"
+  evidence: smartsched/backend/tools/validate_planner.py
+  note: "runs in pod CI (planner gate)"
+- feature: "Calendar with six views and an inspector; move with a server check, then undo"
+  area: planning
+  status: done
+  phase: "4, 10"
+  evidence: smartsched/frontend/e2e/calendar.spec.ts
+- feature: "Publish button with a scope confirmation; the publish guard refuses failed runs and keeps one active run per term"
+  area: planning
+  status: done
+  phase: "P19-01, M-03"
+  evidence: smartsched/frontend/e2e/studio-calendar-sweep.spec.ts
+- feature: "Exports to Excel, CSV and iCal"
+  area: planning
+  status: done
+  phase: "1"
+  evidence: smartsched/backend/app/services
+- feature: "Relaxation policy when not every class fits: lock_first (default) or most_classes_first, per run or per term"
+  area: planning
+  status: backend-only
+  phase: "19"
+  evidence: smartsched/backend/app/solver
+  note: "priorities are run parameters; no screen yet"
+- feature: "Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff"
+  area: planning
+  status: in-progress
+  phase: "P19 M1-M3, F1"
+  evidence: smartsched/backend/alembic/versions/0024_moderation_indexes.py
+  note: "backend done; screen being built"
+- feature: "Learned suggestions from earlier terms, with a resettable memory (per person, per term or all)"
+  area: planning
+  status: in-progress
+  phase: "P19 L1-L4, F2"
+  evidence: smartsched/backend/alembic/versions/0023_learning.py
+  note: "backend done; screen being built"
+- feature: "Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander"
+  area: planning
+  status: in-progress
+  phase: "P19 C1-C4, F3"
+  evidence: smartsched/backend/tests/test_p19_catalog_admin.py
+  note: "backend done; wizard being built"
+- feature: "Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment"
+  area: planning
+  status: planned
+  phase: "backlog"
+
+- feature: "Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff"
+  area: intake
+  status: in-progress
+  phase: "P19 I1-I5"
+  evidence: smartsched/backend/app/council/formats.py
+  note: "readers, limits and dry-run API done; onboarding screen updates open"
+- feature: "AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default"
+  area: intake
+  status: in-progress
+  phase: "P19 A1-A4"
+  evidence: smartsched/backend/app/council/airows.py
+  note: "council side done; review screen open"
+- feature: "Schedule map to a baseline import run, so a re-solve keeps the published board"
+  area: intake
+  status: backend-only
+  phase: "P19 I5"
+  evidence: smartsched/backend/app/council/baseline.py
+- feature: "Intake memory: confirmed column mappings and lexicon additions remembered per file signature"
+  area: intake
+  status: backend-only
+  phase: "P19"
+  evidence: smartsched/backend/app/council/memory.py
+
+- feature: "Booking grid by day or by room; single, recurring and multi bookings, limits, holidays, timetable weeks; the published timetable blocks its slots"
+  area: bookings
+  status: done
+  phase: "11"
+  evidence: smartsched/frontend/e2e/bookings.spec.ts
+- feature: "Reservation panel: click a free slot, drag to book several periods, reasons on cells you cannot book, a Free slots list, a department view, room details with other free rooms"
+  area: bookings
+  status: done
+  phase: "11, 17"
+  evidence: smartsched/frontend/e2e/reserve.spec.ts
+- feature: "Calendar sync: private ICS feed links (my bookings, a room, a department) with Google / Outlook / Apple buttons; room feeds carry the published classes"
+  area: bookings
+  status: done
+  phase: "17"
+  evidence: smartsched/backend/tests/test_a14_class_feeds.py
+- feature: "Typed room features and find-a-room with ranked results and reasons"
+  area: bookings
+  status: done
+  phase: "17 (P10, T1)"
+  evidence: smartsched/frontend/e2e/wave1.spec.ts
+- feature: "Approvals by designated approvers: rules per room, room group or room type, PENDING requests, an inbox, a sweeper"
+  area: bookings
+  status: done
+  phase: "17 (P1)"
+  evidence: smartsched/frontend/e2e/wave1.spec.ts
+- feature: "Append-only audit log with a viewer, CSV export and undo of booking create, series create, move and cancel"
+  area: bookings
+  status: done
+  phase: "17 (P7)"
+  evidence: smartsched/frontend/e2e/wave1.spec.ts
+- feature: "In-app notifications (bell) next to the e-mail outbox"
+  area: bookings
+  status: done
+  phase: "17"
+  evidence: smartsched/frontend/e2e/wave1.spec.ts
+- feature: "Approval-first bookings: every request can go to an admin first; a rejection needs a reason; per-user notification preferences"
+  area: bookings
+  status: backend-only
+  phase: "owner request 2026-10-15"
+  evidence: smartsched/backend/alembic/versions/0025_approval_first.py
+  note: "frontend waits for the shell sweep"
+- feature: "Organisation switch for calendar sync with a dated KVKK sign-off; off turns every feed link into a 404"
+  area: bookings
+  status: backend-only
+  phase: "M-18"
+  evidence: smartsched/backend/alembic/versions/0022_kvkk_signoff_unseed.py
+  note: "no KVKK settings screen yet"
+- feature: "Google Calendar and Microsoft 365 push, once an administrator enters the organisation's OAuth client"
+  area: bookings
+  status: backend-only
+  phase: "17"
+  evidence: smartsched/backend/tests/test_calendar_connectors.py
+  note: "tested against mocked APIs, not yet a live tenant"
+- feature: "Signed outgoing webhooks (HMAC-SHA256) with an SSRF guard, off by default"
+  area: bookings
+  status: backend-only
+  phase: "17"
+  evidence: smartsched/backend/tests/test_webhooks.py
+- feature: "CRBS legacy upgrade: import a running classroombookings database with a dry-run report"
+  area: bookings
+  status: backend-only
+  phase: "P18-LEGACY"
+  evidence: smartsched/backend/tests/test_p18_legacy_upgrade.py
+  note: "import-wizard flow open; live MySQL run on the pod open"
+- feature: "CRBS superset gate: every classroombookings behaviour and screen has an acceptance test"
+  area: bookings
+  status: done
+  phase: "18"
+  evidence: scripts/parity_check.py
+  note: "runs in pod CI (parity gate)"
+- feature: "Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows"
+  area: bookings
+  status: planned
+  phase: "17 (P2, P8, V2, A4)"
+
+- feature: "No privilege escalation: nobody grants or edits a role whose permissions they do not all hold"
+  area: identity
+  status: done
+  phase: "11"
+  evidence: smartsched/backend/tests/test_crbs_fixes_org.py
+- feature: "Sign-out, a password change, disabling an account and a role change revoke the user's tokens on every device"
+  area: identity
+  status: done
+  phase: "18 (B-AUTH-11)"
+  evidence: smartsched/backend/alembic/versions/0006_token_version.py
+- feature: "Microsoft Entra ID sign-in pinned to the university tenant, with invites and a break-glass local admin"
+  area: identity
+  status: in-progress
+  phase: "owner decision 2026-10-15"
+  evidence: docs/ROADMAP.md
+  note: "backend builder running"
+- feature: "Notification channels through Apprise (push, Telegram, WhatsApp/SMS, Teams/Slack); users only link an address"
+  area: identity
+  status: in-progress
+  phase: "owner decision 2026-10-15"
+  evidence: docs/ROADMAP.md
+  note: "backend builder running"
+
+- feature: "Turkish and English interface; other stored language codes are kept and shown in English"
+  area: languages
+  status: in-progress
+  phase: "P18-LANG (owner decision 2026-10-15)"
+  evidence: smartsched/frontend/src/lib/i18n/index.ts
+  note: "picker reduced to TR + EN; shell sweep running"
+
+- feature: "One-command Docker deploy (PostgreSQL, FastAPI, Next.js, nginx; optional TLS edge and legacy CRBS)"
+  area: platform
+  status: done
+  phase: "5"
+  evidence: smartsched/deploy/deploy.sh
+- feature: "Pod CI on a single AWS node: every gate in Docker for each new commit, then deploy; idle auto-stop and a budget cap"
+  area: platform
+  status: done
+  phase: "13"
+  evidence: smartsched/deploy/pod-ci/podci/gates.py
+- feature: "Seed profiles (institution or empty) and per-branch AWS pods"
+  area: platform
+  status: done
+  phase: "13"
+  evidence: smartsched/deploy/seed
+- feature: "Docs that update themselves: generated blocks from the sources of truth, checked in pod CI"
+  area: platform
+  status: done
+  phase: "owner request 2026-10-15"
+  evidence: scripts/docs/sync_docs.py
+- feature: "Design-system overhaul from the UI/UX review (sizing, controls, columns, de-AI changes)"
+  area: platform
+  status: in-progress
+  phase: "owner feedback 2026-10-15"
+  evidence: docs/review/2026-10-15-uiux-visual-review.md
+- feature: "README recordings and a real screenshot gallery for the current UI"
+  area: platform
+  status: in-progress
+  phase: "16"
+  evidence: scripts/record
+- feature: "Mobile optimisation of every screen (390 and 768 px)"
+  area: platform
+  status: planned
+  phase: "owner instruction 2026-10-15"

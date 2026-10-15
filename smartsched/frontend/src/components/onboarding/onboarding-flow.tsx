@@ -4,12 +4,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph } from "@/components/ui/busy-label";
+import { cn } from "@/lib/utils";
 import { ACTIVE_JOB, councilApi, type CommitIn, type CommitOut, type DecisionIn } from "@/lib/api/council";
 import { useI18n } from "@/lib/i18n/provider";
 import { CommitPanel } from "./commit-panel";
 import { CouncilProgress } from "./council-progress";
+import { useOnboardingCopy } from "./copy";
 import { FileDrop, type DropOptions } from "./file-drop";
 import { ReviewPanel } from "./review-panel";
+import { RowsPanel, rowsKey } from "./rows-panel";
 import { councilKey, useCouncilJob } from "./use-council-job";
 
 /**
@@ -23,7 +27,9 @@ export function OnboardingFlow() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CommitOut | null>(null);
-  const job = useCouncilJob(jobId);
+  const [follow, setFollow] = useState(0);
+  const c = useOnboardingCopy();
+  const job = useCouncilJob(jobId, follow);
   const status = job.data?.status;
   const reviewable = status === "REVIEW" || status === "READY" || status === "COMMITTED";
   const review = useQuery({
@@ -54,6 +60,11 @@ export function OnboardingFlow() {
     try {
       const out = await councilApi.decide(jobId, decisions);
       qc.setQueryData(["council-review", jobId, status], out);
+      if (out.rerun_queued) {
+        // the job is RUNNING again until the re-read finished: show progress, hide commit, follow /events
+        qc.setQueryData(councilKey(jobId), (old: typeof job.data) => (old ? { ...old, status: "RUNNING" as const } : old));
+        setFollow((f) => f + 1);
+      }
       await qc.invalidateQueries({ queryKey: councilKey(jobId) });
     } finally {
       setBusy(false);
@@ -74,6 +85,10 @@ export function OnboardingFlow() {
     }
   };
 
+  // ① Dosyalar ② İnceleme ③ Fark ④ Kaydet: where the job is (phase19-intake, one header stepper)
+  const stepNow = jobId === null || !job.data || ACTIVE_JOB.has(job.data.status) ? 0 : result ? 3 : review.data && review.data.blocking > 0 ? 1 : 2;
+  const rerunning = review.data?.rerun_queued && job.data && ACTIVE_JOB.has(job.data.status);
+
   return (
     <div data-testid="onboarding" className="space-y-4">
       <PageHeader
@@ -87,13 +102,36 @@ export function OnboardingFlow() {
           ) : null
         }
       />
-      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+      <ol aria-label={c.stepsLabel} className="flex flex-wrap items-center gap-x-2 gap-y-1 type-callout" data-testid="onboarding-steps">
+        {c.steps.map((label, i) => (
+          <li key={label} aria-current={i === stepNow ? "step" : undefined} className={cn("flex items-center gap-2", i === stepNow ? "font-semibold text-label-1" : i < stepNow ? "text-label-1" : "text-label-2")}>
+            <span aria-hidden className={cn("flex size-5 items-center justify-center rounded-full type-caption tnum", i === stepNow ? "bg-tint text-tint-foreground" : i < stepNow ? "bg-fill-1 text-label-1" : "bg-fill-3 text-label-2")}>{i + 1}</span>
+            {label}
+            {i < c.steps.length - 1 ? <span aria-hidden className="text-label-3">›</span> : null}
+          </li>
+        ))}
+      </ol>
+      {error ? <p className="type-callout text-status-infeasible-fg" role="alert">{error}</p> : null}
+      {rerunning ? (
+        <p role="status" className="flex items-center gap-2 type-callout text-label-1" data-testid="onboarding-rerun">
+          <BusyGlyph /> {c.rerunning}
+        </p>
+      ) : null}
       {jobId === null ? <FileDrop busy={busy} onStart={start} /> : null}
       {job.data ? <CouncilProgress job={job.data} /> : null}
-      {job.data?.status === "FAILED" ? <p className="text-sm text-destructive" role="alert">{job.data.error}</p> : null}
+      {job.data?.status === "FAILED" ? <p className="type-callout text-status-infeasible-fg" role="alert">{job.data.error}</p> : null}
       {job.data && !ACTIVE_JOB.has(job.data.status) && review.data ? (
         <>
           <ReviewPanel review={review.data} busy={busy} onDecide={(d) => void decide(d)} />
+          {review.data.content && jobId !== null ? (
+            <RowsPanel
+              jobId={jobId}
+              onChanged={() => {
+                void qc.invalidateQueries({ queryKey: ["council-review", jobId] });
+                void qc.invalidateQueries({ queryKey: rowsKey(jobId) });
+              }}
+            />
+          ) : null}
           <CommitPanel job={job.data} blocking={review.data.blocking} busy={busy} result={result} onCommit={(b) => void commit(b)} />
         </>
       ) : null}

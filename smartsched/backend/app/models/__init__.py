@@ -39,6 +39,13 @@ from app.models.booking import (
     UserConstraint,
 )
 from app.models.catalog import Building, Course, Faculty, Instructor, Program, Room, Term, Week
+from app.models.channels import (  # noqa: F401
+    ChannelDelivery,
+    ChannelDepartmentTarget,
+    ChannelLinkCode,
+    NotifyChannelConfig,
+    UserChannel,
+)
 from app.models.council import CouncilArtifact, CouncilJob, CouncilStep
 from app.models.integrations import (
     CalendarConnection,
@@ -61,6 +68,7 @@ from app.models.scheduling import (
     Section,
     SectionInstructor,
 )
+from app.models.sso import SsoAuthState, SsoInvite, SsoProvider, SsoRoleMapping, UserIdentity  # noqa: F401
 from app.models.studio import ImportedSnapshot, StudioDraft, StudioPreset
 from app.models.system import ImportJob, Setting, User
 

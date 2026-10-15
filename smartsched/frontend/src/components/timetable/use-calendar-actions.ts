@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { HttpError } from "@/lib/api/client";
+import { askForceReason, forceRefusal } from "./force-reason";
 import { calendarApi, calKeys, patchIndex, type BulkMoveOut, type CalendarIndex, type IndexAssignment, type MoveItem, type UndoToken } from "@/lib/api/calendar";
 import { useI18n } from "@/lib/i18n/provider";
 import { useUndoStore } from "./model/undo-store";
@@ -63,12 +64,18 @@ export function useCalendarActions(runId: number | null, opts: { isAdmin?: boole
   }, [lang]);
 
   const move = useCallback(
-    async function run(items: MoveItem[], label: string, toRoom: string, force = false): Promise<MoveOutcome> {
+    async function run(items: MoveItem[], label: string, toRoom: string, force = false, why?: string): Promise<MoveOutcome> {
       if (runId === null || items.length === 0) return { ok: false, applied: false };
       let res: BulkMoveOut;
       try {
-        res = await calendarApi.bulkMove(runId, { moves: items, atomic: true, force });
+        res = await calendarApi.bulkMove(runId, { moves: items, atomic: true, force, reason: force ? why : undefined, lang });
       } catch (e) {
+        // forcing needs a written reason: the 422 names the broken rules; ask, then resend (2026-10-15 contract)
+        const refusal = force && e instanceof HttpError && e.status === 422 ? forceRefusal(e.detail) : null;
+        if (refusal) {
+          const again = await askForceReason(refusal.conflicts, refusal.rules);
+          return again ? run(items, label, toRoom, true, again) : { ok: false, applied: false };
+        }
         const reason = e instanceof HttpError ? (e.status === 403 ? t("calendar.move.forceAdmin") : e.message) : String(e);
         toast.error(t("calendar.move.cannot", { reason }));
         return { ok: false, applied: false, reason };
@@ -77,7 +84,13 @@ export function useCalendarActions(runId: number | null, opts: { isAdmin?: boole
         const reason = reasonOf(res);
         toast.error(t("calendar.move.cannot", { reason }), {
           description: opts.isAdmin ? undefined : t("calendar.move.forceAdmin"),
-          action: opts.isAdmin ? { label: t("calendar.move.force"), onClick: () => void run(items, label, toRoom, true) } : undefined,
+          action: opts.isAdmin
+            ? {
+                label: t("calendar.move.force"),
+                onClick: () =>
+                  void askForceReason(res.items.flatMap((i) => i.hard.map((h) => h.text[lang]))).then((why) => (why ? run(items, label, toRoom, true, why) : undefined)),
+              }
+            : undefined,
           duration: 8000,
         });
         opts.announce?.(t("calendar.move.cannot", { reason }));
@@ -96,7 +109,7 @@ export function useCalendarActions(runId: number | null, opts: { isAdmin?: boole
           refreshSoon();
         },
         forward: async () => {
-          const again = await calendarApi.bulkMove(runId, { moves: items, atomic: true, force });
+          const again = await calendarApi.bulkMove(runId, { moves: items, atomic: true, force, reason: force ? why : undefined, lang });
           if (!again.applied) throw new Error(reasonOf(again));
           current = again.undo;
           setIndex((old) => patchIndex(old, again.assignments));
@@ -119,7 +132,7 @@ export function useCalendarActions(runId: number | null, opts: { isAdmin?: boole
       });
       return { ok: res.ok, applied: true, result: res };
     },
-    [runId, t, reasonOf, opts, setIndex, refreshSoon, push],
+    [runId, t, reasonOf, opts, setIndex, refreshSoon, push, lang],
   );
 
   const lock = useCallback(

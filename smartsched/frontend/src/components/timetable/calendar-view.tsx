@@ -32,6 +32,7 @@ import { TimetableNoAccess } from "./no-access";
 import { MoveDialog, MovePopover, type PendingMove, type ScopeValue } from "./move-dialog";
 import { QuickCreate, type CreateRequest } from "./quick-create";
 import { ShortcutsSheet } from "./shortcuts-sheet";
+import { ForceReasonHost } from "./force-reason";
 import { TimeGrid, type CreateIntent, type GridColumn, type MoveIntent, type TimeGridHandle } from "./time-grid";
 import { checkMove, spanText } from "./model/check";
 import { compareRuns } from "./model/compare";
@@ -951,6 +952,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         </>
       ) : null}
       <ShortcutsSheet open={shortcuts} onOpenChange={setShortcuts} />
+      <ForceReasonHost />
       <p className="sr-only" aria-live="polite" data-testid="calendar-live">{announce}</p>
     </div>
   );

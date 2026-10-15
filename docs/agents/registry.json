@@ -1050,7 +1050,8 @@
       "goal": "Phase 19 frontend tickets F1–F4. The specs: - docs/design/v2/phase19-moderation.md, phase19-suggestions.md, phase19-program-wizard.md, phase19-priority-policy.md - docs/design/v2/motion.md §3.8–3.11 (follow the /motion_designer skill: read .claude/skills/motion_designer/SKILL.md, use @/lib/motion tokens, give every animation a reduced-motion and a reduced-transparency variant) - decisions in docs/…",
       "ledger": "p19-frontend-f1-f4-2026-10-15 SCOPE: NEW frontend code only: - src/app/(app)/mod…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 22:58"
     },
     {
       "id": "a96fa57dd0aaecb53",
@@ -1231,6 +1232,18 @@
       "scope": "",
       "goal": "close the follow-ups of the approval-first backend (read its hand-off in docs/ROADMAP.md \"Approval-first bookings\" and the notify_dispatch.py docstring), plus the audit gaps. 1. The institution profile seeds `bookings.approval_mode=all` (owner: every request goes to admins first): - add a CLI `python -m app.cli set-setting <key> <value>` that writes through the same validation as PUT /org/settings…",
       "ledger": "approval-notify-followups-2026-10-15 SCOPE (the previous owners of these files h…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "aba4592248c9ed2b6",
+      "description": "P19 backend gaps from the UI agent",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 22:58",
+      "scope": "- smartsched/backend/app/services/{moderation,catalog_admin,patterns}.py, app/api/v1/{moderation,catalog_admin,runs}.py, app/services/learning.py + app/api/v1/learning.py (see the ordering note), and their schemas and tests - NEW app/services/program_drafts.py + app/api/v1/program_drafts.py - ONE migration if needed (on the single current head; git pull first; alembic heads == 1) - ticking docs/RO…",
+      "goal": "close the backend gaps the Phase 19 UI agent found (frontend code in smartsched/frontend/src/components/{moderation,learning,program-wizard} and lib/api/{moderation,learning,catalog-admin}.ts shows the intended usage; specs in docs/design/v2/phase19-*.md): 1. Re-solve diff baseline: a re-solve from a draft child must diff against the PUBLISHED run that started the chain by default, with an optiona…",
+      "ledger": "p19-backend-gaps-2026-10-15 SCOPE: - smartsched/backend/app/services/{moderation…",
       "resumed": false,
       "status": "running"
     }

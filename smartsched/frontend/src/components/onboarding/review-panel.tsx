@@ -1,15 +1,26 @@
 "use client";
 
-import { Check, Loader2, X } from "lucide-react";
+import { Check, History, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { NativeSelect } from "@/components/common/native-select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Badge } from "@/components/ui/badge";
+import { BusyGlyph } from "@/components/ui/busy-label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { REVIEW_KINDS, type DecisionIn, type ReviewItem, type ReviewOut } from "@/lib/api/council";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { useOnboardingCopy } from "./copy";
+
+/** Intake memory (2026-10-15): `remembered` {at, job, label, label_tr} + `suggestion` {action, value} on an item. */
+function memoryOf(item: ReviewItem): { at: string; job: string | number; suggestion: DecisionIn | null } | null {
+  const r = item.remembered as Record<string, unknown> | undefined;
+  if (!r || typeof r !== "object") return null;
+  const sug = item.suggestion as { action?: string; value?: Record<string, unknown> | null } | undefined;
+  const action = sug?.action === "accept" || sug?.action === "reject" || sug?.action === "edit" ? sug.action : null;
+  return { at: String(r.at ?? "").slice(0, 10), job: (r.job as string | number) ?? "?", suggestion: action ? { id: item.id, action, value: sug?.value ?? null } : null };
+}
 
 const KIND_LABEL: Record<(typeof REVIEW_KINDS)[number], MessageKey> = {
   classification: "onboarding.kinds.classification",
@@ -34,17 +45,31 @@ function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: Dec
   const editable = item.kind === "mapping" || item.kind === "classification";
   const rejectable = item.kind !== "plan";
   const done = decisionLabel(item);
+  const c = useOnboardingCopy();
+  const memory = memoryOf(item);
   return (
     <li className="space-y-1 py-2" data-testid={`review-${item.id}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 text-sm">
-          <p className="font-medium">{item.title}</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="type-callout font-medium text-label-1">{item.title}</p>
+          <p className="type-footnote text-label-2">
             {item.confidence != null ? `${t("onboarding.confidence")} ${Math.round(item.confidence * 100)} %` : null}
             {item.severity ? ` · ${item.severity}` : null}
             {item.blocking ? ` · ${t("onboarding.blockingItem")}` : null}
           </p>
-          {item.samples?.length ? <p className="truncate text-xs text-muted-foreground">{t("onboarding.samples")}: {item.samples.join(" · ")}</p> : null}
+          {item.samples?.length ? <p className="truncate type-footnote text-label-2">{t("onboarding.samples")}: {item.samples.join(" · ")}</p> : null}
+          {memory ? (
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 type-footnote text-label-2" data-testid="review-remembered">
+              <History aria-hidden className="size-3.5 stroke-[1.75]" />
+              <span>{c.remembered(memory.at, memory.job)}</span>
+              {!done ? <span className="text-label-1">{c.stillDecide}</span> : null}
+              {!done && memory.suggestion ? (
+                <Button size="xs" variant="secondary" disabled={busy} onClick={() => onDecide(memory.suggestion as DecisionIn)}>
+                  {c.applySuggestion}
+                </Button>
+              ) : null}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {done ? <Badge variant="secondary">{done}</Badge> : null}
@@ -99,6 +124,7 @@ export function ReviewPanel({ review, busy, onDecide }: { review: ReviewOut; bus
     return REVIEW_KINDS.filter((k) => out.has(k)).map((k) => [k, out.get(k) ?? []] as const);
   }, [review.items]);
   const open = review.items.filter((it) => it.blocking && !it.decision);
+  const c = useOnboardingCopy();
 
   return (
     <Card data-testid="onboarding-review">
@@ -106,7 +132,7 @@ export function ReviewPanel({ review, busy, onDecide }: { review: ReviewOut; bus
         <CardTitle className="flex flex-wrap items-center justify-between gap-2">
           <span>{t("onboarding.review")}</span>
           <span className="flex items-center gap-2 text-sm font-normal">
-            {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+            {busy ? <BusyGlyph className="size-4" /> : null}
             <Badge variant={open.length ? "destructive" : "secondary"} data-testid="blocking-count">
               {t("onboarding.blocking", { count: open.length })}
             </Badge>
@@ -117,15 +143,29 @@ export function ReviewPanel({ review, busy, onDecide }: { review: ReviewOut; bus
             ) : null}
           </span>
         </CardTitle>
-        <p className="text-sm text-muted-foreground">{t("onboarding.reviewHint", { threshold: Math.round(review.threshold * 100) })}</p>
+        <p className="type-callout text-label-2">{t("onboarding.reviewHint", { threshold: Math.round(review.threshold * 100) })}</p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {review.errors.length ? <p className="text-sm text-destructive">{review.errors.join("; ")}</p> : null}
-        {!review.items.length ? <p className="text-sm text-muted-foreground">{t("onboarding.noItems")}</p> : null}
-        {groups.map(([kind, items]) => (
+        {review.errors.length ? <p className="type-callout text-status-infeasible-fg">{review.errors.join("; ")}</p> : null}
+        {!review.items.length ? <p className="type-callout text-label-2">{t("onboarding.noItems")}</p> : null}
+        {!review.content ? (
+          // viewers (planning.view only): counts per kind, no samples, texts or names
+          <div data-testid="review-counts-only" className="grid gap-2">
+            <p className="type-callout text-label-2">{c.viewerOnly}</p>
+            <dl className="grid gap-x-6 gap-y-2 [grid-template-columns:repeat(auto-fit,minmax(9rem,1fr))]">
+              {groups.map(([kind, items]) => (
+                <div key={kind}>
+                  <dt className="type-footnote text-label-2">{t(KIND_LABEL[kind])}</dt>
+                  <dd className="type-headline tnum">{items.length}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null}
+        {review.content && groups.map(([kind, items]) => (
           <section key={kind} aria-label={t(KIND_LABEL[kind])}>
-            <h3 className="text-sm font-semibold">
-              {t(KIND_LABEL[kind])} <span className="font-normal text-muted-foreground">({items.length})</span>
+            <h3 className="type-callout font-semibold">
+              {t(KIND_LABEL[kind])} <span className="font-normal text-label-2">({items.length})</span>
             </h3>
             <ul className="divide-y">
               {items.slice(0, 100).map((it) => (
@@ -142,16 +182,16 @@ export function ReviewPanel({ review, busy, onDecide }: { review: ReviewOut; bus
 export function PlanTermFields({ value, onChange }: { value: { code: string; name: string; weekCount: number }; onChange: (v: { code: string; name: string; weekCount: number }) => void }) {
   const { t } = useI18n();
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
-      <label className="text-xs">
+    <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))]">
+      <label className="grid gap-1 type-footnote font-medium text-label-2">
         {t("onboarding.termCode")}
         <Input value={value.code} onChange={(e) => onChange({ ...value, code: e.target.value })} data-testid="term-code" />
       </label>
-      <label className="text-xs">
+      <label className="grid gap-1 type-footnote font-medium text-label-2">
         {t("onboarding.termName")}
         <Input value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} />
       </label>
-      <label className="text-xs">
+      <label className="grid gap-1 type-footnote font-medium text-label-2">
         {t("onboarding.weekCount")}
         <Input type="number" min={1} max={60} value={value.weekCount} onChange={(e) => onChange({ ...value, weekCount: Number(e.target.value) || 1 })} />
       </label>

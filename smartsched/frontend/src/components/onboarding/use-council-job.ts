@@ -10,7 +10,8 @@ export const councilKey = (id: number) => ["council", id] as const;
  * Live council job: server-sent `snapshot` events (GET /council/jobs/{id}/events) update the cache;
  * when EventSource is unavailable or the stream fails, the query polls every 1.5 s while the job runs.
  */
-export function useCouncilJob(id: number | null) {
+/** `follow`: bump it to subscribe again after the job went back to RUNNING (a review change queued a re-read). */
+export function useCouncilJob(id: number | null, follow = 0) {
   const qc = useQueryClient();
   const [streaming, setStreaming] = useState(false);
 
@@ -50,7 +51,7 @@ export function useCouncilJob(id: number | null) {
       es.close();
       setStreaming(false);
     };
-  }, [id, qc]);
+  }, [id, qc, follow]);
 
   return query;
 }

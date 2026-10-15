@@ -117,7 +117,6 @@ export function ColumnResizeHandle({ id, label, width, min, max, onResize, onAut
 function SortableColumnRow({ spec, visible, onToggle }: { spec: ColumnHead; visible: boolean; onToggle: (on: boolean) => void }) {
   const copy = useTableCopy()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: spec.id })
-  const cbId = React.useId()
   return (
     <li
       ref={setNodeRef}
@@ -133,9 +132,9 @@ function SortableColumnRow({ spec, visible, onToggle }: { spec: ColumnHead; visi
       >
         <GripVertical aria-hidden className="size-3.5" />
       </button>
-      <Checkbox id={cbId} checked={visible} disabled={spec.hideable === false} onCheckedChange={(v) => onToggle(Boolean(v))} />
-      <label htmlFor={cbId} className="min-w-0 flex-1 truncate type-callout text-label-1">
-        {spec.header}
+      <label className="flex min-w-0 flex-1 items-center gap-2 type-callout text-label-1">
+        <Checkbox checked={visible} disabled={spec.hideable === false} onCheckedChange={(v) => onToggle(Boolean(v))} />
+        <span className="truncate">{spec.header}</span>
       </label>
     </li>
   )

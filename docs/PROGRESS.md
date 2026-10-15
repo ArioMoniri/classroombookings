@@ -1,5 +1,9 @@
 # Progress ledger (append-only; see docs/AGENTS.md)
 
+<!-- AUTO:last-updated -->
+Generated blocks last synced on top of commit `c1e0c9d` (committed 2026-10-15 22:57 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+<!-- /AUTO:last-updated -->
+
 | time (UTC) | agent | phase | status | next |
 |---|---|---|---|---|
 | 2026-10-07 22:10 | orchestrator | 0 | data analysed, architecture/roadmap/agents docs written, deps installed | launch researcher, backend, solver, design agents |

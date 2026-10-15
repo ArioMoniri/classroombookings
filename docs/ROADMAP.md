@@ -907,3 +907,23 @@ Orchestrator decisions (owner may override):
 - The planner role is not exempt in "all" mode. Admins can grant bookings.skip_approval to the planner role in Roles if the planning office should book directly.
 - [ ] Follow-ups (dedicated agent running): seed approval_mode=all for the institution profile (CLI set-setting + seed step), one approver message per submission, withdraw notifies approvers, old booking e-mails via the dispatcher, audit gaps in learning/moderation/council.
 - [ ] Approval UI: a dedicated frontend agent after the shell sweep (setting, reject dialog with reason codes, reasons for the requester, Profile › Bildirimler, TR/EN labels for the new permission).
+
+### Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend)
+- Moderation tab (5 tabs, inspector, priority editor, person profile timeline, re-solve preview + diff + calendar compare, pin/prefer/unlock on drafts, publish through the guard); suggestions (cards, accept soft only, reject with reason, snooze, receipts); memory panel at /moderation/learning; program wizard at /programs/new.
+- [ ] Backend gaps (dedicated agent running):
+  - re-solve diff vs the published run
+  - person-level priority
+  - changes-since-publish
+  - suggestion restore/undo + accept scope
+  - teacher current term + /moderation/me
+  - PROGRAM DRAFTS (the wizard must stop writing live rows as you type), with a program-scoped pre-check, rooms-fit, a transactional commit and 30-day undo
+  - instructor load + section search (joint teaching, cohorts)
+  - activate notify_people (digest)
+- [ ] After the gaps land, a dedicated UI follow-up:
+  - switch the wizard to drafts; joint-teaching + cohorts steps
+  - person priority; server-side staged changes
+  - suggestion undo
+  - the policy page /moderation/policy + "Politika etkisi" card
+  - the intake mount for suggestions (when onboarding has a slot)
+- [ ] Mounts (shell agent): LearningMemoryPanel in Settings; "Taleplerim" nav for teachers.
+- Mobile: partial (card lists, list diff, bottom sheets). The dedicated mobile agent completes it.

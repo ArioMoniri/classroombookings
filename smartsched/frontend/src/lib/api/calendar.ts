@@ -278,7 +278,8 @@ export const calendarApi = {
     }),
   movePreview: (runId: number, aid: number, body: Omit<MoveItem, "aid">) =>
     request(`/runs/${runId}/assignments/${aid}/move-preview`, { method: "POST", body, schema: BulkMoveOut, ...silently }),
-  bulkMove: (runId: number, body: { moves: MoveItem[]; atomic?: boolean; dry_run?: boolean; force?: boolean }) =>
+  /** `force` + `reason` (admins only, ≥ 3 characters) when a move breaks a hard rule; 422 names the rules otherwise. */
+  bulkMove: (runId: number, body: { moves: MoveItem[]; atomic?: boolean; dry_run?: boolean; force?: boolean; reason?: string; lang?: "tr" | "en" }) =>
     request(`/runs/${runId}/assignments/bulk-move`, { method: "POST", body, schema: BulkMoveOut, ...silently }),
   restore: (runId: number, undo: UndoToken) =>
     request(`/runs/${runId}/assignments/restore`, { method: "POST", body: undo, schema: z.object({ restored: z.array(z.number()), deleted: z.array(z.number()) }), ...silently }),
