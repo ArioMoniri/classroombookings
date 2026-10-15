@@ -744,7 +744,15 @@ EDIT_TOOLS: list[dict[str, Any]] = [
     _tool(
         "add_constraint",
         "Propose a new rule from the catalogue (names only, ids are resolved by the server).",
-        _proposal_props(),
+        {
+            **_proposal_props(),
+            "scope": _s(
+                "string",
+                enum=["term", "run"],
+                description="term = every later run of the term (default); run = only this edit's run "
+                "('only for this run' / 'sadece bu çalıştırma için')",
+            ),
+        },
     ),
     _tool(
         "remove_constraint",

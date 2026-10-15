@@ -97,11 +97,15 @@ export function Sidebar() {
   const { t } = useI18n();
   const toggleLabel = collapsed ? t("nav.expand") : t("nav.collapse");
   const tintOnly = useTintOnlyChrome();
+  // the dashboard is planning data: people without planning.view go home to their bookings (no 403)
+  const { can, me } = usePermissions();
+  const hydrated = useHydrated();
+  const home = hydrated && me && !can("planning.view") ? "/bookings" : "/dashboard";
   return (
     <aside aria-label={t("glass.shell.sidebar")} data-collapsed={collapsed} data-chrome={tintOnly ? "tint" : "glass"} className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col lg:flex", collapsed ? "w-[72px]" : "w-[264px]", tintOnly && TINT_ONLY_OVER_SCENE)}>
       <SidebarGlass aria-label={t("glass.shell.primary")} className="flex-1">
         <SidebarGlassHeader className={cn(collapsed && "flex-col px-2")}>
-          <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-2 rounded-lg outline-none focus-visible:outline-2 focus-visible:outline-(--focus)" aria-label={t("app.name")}>
+          <Link href={home} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg outline-none focus-visible:outline-2 focus-visible:outline-(--focus)" aria-label={t("app.name")}>
             <span className="flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-tint text-tint-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.28)]">
               <CalendarRange className="size-4 stroke-[1.75]" aria-hidden />
             </span>

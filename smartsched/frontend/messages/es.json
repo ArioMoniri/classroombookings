@@ -92,5 +92,10 @@
       "day": "Día",
       "week": "Semana"
     }
+  },
+  "wave1": {
+    "find": {
+      "weeks": "Semanas"
+    }
   }
 }

@@ -92,5 +92,10 @@
       "day": "Dag",
       "week": "Uge"
     }
+  },
+  "wave1": {
+    "find": {
+      "weeks": "Uger"
+    }
   }
 }

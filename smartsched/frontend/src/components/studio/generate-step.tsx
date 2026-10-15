@@ -19,7 +19,7 @@ const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_wa
 
 /** The plain-language "What will happen" paragraph (TR/EN), built from the live summary. */
 export function useHumanSummary(): string {
-  const { t, n } = useI18n();
+  const { t } = useI18n();
   const { summary } = useStudio();
   const est = useEstimateText();
   const parts = [

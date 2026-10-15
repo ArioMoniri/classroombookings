@@ -92,5 +92,10 @@
       "day": "Dydd",
       "week": "Wythnos"
     }
+  },
+  "wave1": {
+    "find": {
+      "weeks": "Wythnosau"
+    }
   }
 }

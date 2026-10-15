@@ -237,3 +237,23 @@ async def test_unparsed_preferences_in_the_data_issues(session, tmp_path) -> Non
     assert unparsed[0]["params"]["feature"] == "step_free"
     review = out["preference_review"]
     assert len(review) == 1 and review[0]["params"]["kind"] == "building_preference"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Bilgisayar Mühendisliği öğrencileri için 15 kontenjan isteniyor.",  # a department, not a PC lab
+        "Seminer öncesi bilgisayar hazırlığı için gerekli.",  # Bahar rows 34/35 (MBG 408/416): no PC lab
+        "Derslik gerekiyor.",  # Bahar row 50: a classroom is needed - nothing to review
+    ],
+)
+def test_real_notes_that_ask_for_nothing_structured(text: str) -> None:
+    assert n.parse_preference_text(text) == []
+
+
+@pytest.mark.parametrize(
+    "text", ["C 202 BİLG. LAB BU DERSTE ZORUNLU", "Bilgisayar laboratuvarında yapılacaktır", "bilgisayarlı derslik"]
+)
+def test_pc_lab_wishes(text: str) -> None:
+    feats = [i.params["feature"] for i in n.parse_preference_text(text) if i.kind == "feature"]
+    assert feats == ["pc"]

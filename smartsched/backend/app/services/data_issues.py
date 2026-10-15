@@ -180,7 +180,7 @@ GROUPS: tuple[GroupSpec, ...] = (
     ),
     GroupSpec(
         "unparsed_preference",
-        "Okunamayan istek - Unparsed wish",
+        "Okunamayan istek - Unparsed",
         "Kurala çevrilemeyen serbest metin istekleri",
         "Free-text wishes no rule could be read from",
         "Açıklama veya derslik talebi sütunundaki bir istek kurala çevrilemedi (ör. giriş kata yakın derslik, "
@@ -190,7 +190,7 @@ GROUPS: tuple[GroupSpec, ...] = (
     ),
     GroupSpec(
         "preference_review",
-        "Onay bekleyen istek - Wish to review",
+        "Onay bekleyen - To review",
         "Açıklama sütunundan okunan, onay bekleyen yumuşak istekler",
         "Soft wishes read from the notes column, waiting for review",
         "Derse Özel Açıklama sütunundan okunan istekler yumuşak kural olarak kapalı oluşturuldu; kontrol edip "

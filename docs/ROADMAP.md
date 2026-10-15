@@ -482,3 +482,16 @@ Defaults adopted (owner may override):
   1. Each issue gets a ticket here, with its owner area: frontend sweep, backend, solver, AI, importer, devops or i18n. It goes to the running owner agent, or into the next sweep.
   2. Enhancements map to an existing P19 ticket or become a new one.
   3. After the fixes land, the same persona re-tests on a new snapshot and marks each issue verified or reopened.
+
+Docs-refresh hand-off (2026-10-15):
+- [ ] Screenshots still to capture once the wave-1 screens land:
+  - approvals inbox and approval rules
+  - find-a-room
+  - audit viewer
+  - room features tab
+  - notification bell
+  - full-page booking views with the sidebar
+  - my bookings with the sync panel (dark)
+  - calendar-sync/webhook settings
+- [ ] The old docs/images/screens/bookings-*.webp and my-bookings-*.webp are outdated: regenerate or delete them (frontend sweep).
+- [ ] The README table "Measured on the real data" is still the 2026-10-08 data. Re-run tools/validate_planner and real-data feasibility in the stabilisation pass.

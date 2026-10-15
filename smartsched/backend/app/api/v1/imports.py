@@ -3,13 +3,13 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 
-from app.api.deps import DB, CurrentAccess, Planner, Viewer, require_permission
+from app.api.deps import DB, CurrentAccess, Planner, require_permission
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
@@ -182,8 +182,20 @@ async def import_crbs_endpoint(
 
 
 @router.get("", response_model=list[ImportJobOut])
-async def list_jobs(db: DB, _: Viewer, limit: int = 50) -> list[ImportJob]:
-    return list((await db.execute(select(ImportJob).order_by(ImportJob.id.desc()).limit(limit))).scalars())
+async def list_jobs(
+    db: DB,
+    access: CurrentAccess,
+    limit: int = 50,
+    kind: Literal["planning-list", "exam-list", "weekly-grid", "room-master", "crbs"] | None = None,
+) -> list[ImportJob]:
+    """Newest first. ``kind`` filters (the room wizard lists ``room-master``). Planners (``planning.view``)
+    list every kind; a room administrator (``setup.rooms``) lists the room-master imports only."""
+    if "planning.view" not in access.perms and not (kind == "room-master" and "setup.rooms" in access.perms):
+        raise HTTPException(403, "requires permission planning.view")
+    q = select(ImportJob)
+    if kind is not None:
+        q = q.where(ImportJob.kind == kind)
+    return list((await db.execute(q.order_by(ImportJob.id.desc()).limit(max(1, min(limit, 500))))).scalars())
 
 
 @router.get("/{job_id}", response_model=ImportJobOut)

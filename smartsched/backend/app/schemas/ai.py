@@ -211,6 +211,8 @@ class LockOp(BaseModel):
 class AddConstraintOp(BaseModel):
     op: Literal["add_constraint"] = "add_constraint"
     constraint: ProposedConstraint
+    #: ``term``: every later run of the term; ``run``: only the child run of this diff (and chat edits of it)
+    scope: Literal["term", "run"] = "term"
 
 
 class RemoveConstraintOp(BaseModel):

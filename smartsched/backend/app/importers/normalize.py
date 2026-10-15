@@ -1344,6 +1344,8 @@ _STRONG_RX = re.compile(r"\b(?:mutlaka|zorunlu\w*|gerekmektedir|sart)\b")
 _BUILDING_SET_RX = re.compile(
     r"(?<![\w])((?:[a-d]\s*(?:,|/|-|\+|&|\bveya\b|\bya da\b|\bve\b|\bile\b)\s*)*[a-d])\s*blo[kg]"
 )
+#: "Derslik gerekiyor." asks for nothing beyond the request itself (Bahar row 50)
+_NO_OP_RX = re.compile(r"^(?:bir\s+)?(?:derslik|sinif)\s+(?:gerekiyor|gereklidir|gerekmektedir|gerekli)\W*$")
 _ALTERNATIVE_RX = re.compile(r"\b(?:veya|ya da|yahut)\b", re.IGNORECASE)
 _CLAUSE_RX = re.compile(r"(?<=[.;!?])\s+|\n+|[()]|\s\|\s|,\s*")
 
@@ -1363,7 +1365,8 @@ FEATURE_LEXICON: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     ("fixed_desks", ("siralar olan", "sirali sinif", "sira olan", "sabit sira"), ("FIXED_DESKS",)),
     ("armchair", ("kolcakli sandalye", "kolcakli"), ("ARMCHAIR",)),
     ("amphi", ("amfi", "anfi"), ("AMPHI",)),
-    ("pc", ("bilgisayar", "bilg. lab", "bilg lab"), ("PC",)),
+    # a computer *lab* only ("Bilgisayar Mühendisliği", "bilgisayar hazırlığı" are no PC wish)
+    ("pc", ("bilgisayar lab", "bilgisayarli", "bilg. lab", "bilg lab", "pc lab"), ("PC",)),
 )
 _FEATURE_TAGS = {key: tags for key, _ph, tags in FEATURE_LEXICON}
 
@@ -1458,7 +1461,7 @@ def parse_preference_text(value: Any) -> list[PreferenceItem]:
                 positive_parts.append(clause)
         for key, suffix_neg in fts:
             feats.setdefault(key, (neg or suffix_neg, clause))
-        if not (blds or rooms or fts) and _WISH_RX.search(f):
+        if not (blds or rooms or fts) and _WISH_RX.search(f) and not _NO_OP_RX.match(f):
             unparsed.append(clause)
     items: list[PreferenceItem] = []
     want_b = [b for b in dict.fromkeys(want_b) if b not in avoid_b]

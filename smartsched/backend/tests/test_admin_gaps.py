@@ -69,3 +69,27 @@ async def test_term_usage_counts_what_a_delete_erases(env):  # noqa: F811
     assert (await c.get(f"/api/v1/terms/{env.term_id}/usage", headers=env.admin)).status_code == 404
     mine = (await c.get("/api/v1/bookings/mine", params={"status": "ALL"}, headers=teacher)).json()
     assert mine == [] or all(b["term_id"] != env.term_id for b in mine)
+
+
+async def test_setup_rooms_may_edit_a_room_and_its_photo(env):  # noqa: F811
+    """Review 2026-10-15 D15: ``PUT /rooms/{id}`` and the photo upload were Planner-only, so CRBS's room
+    administrator could add and delete rooms but not edit them (``setup/rooms/Rooms::edit``)."""
+    import io
+
+    from PIL import Image
+
+    rid = await _role(env, "Derslik düzenleyici", ["setup.rooms"])
+    _, clerk = await env.user("derslik.duzenleyici@uni.edu.tr", role=None, role_id=rid)
+    _, teacher = await env.user("ogretmen.duzenleme@uni.edu.tr")
+    c, a101 = env.client, env.rooms["A101"]
+    body = {"notes": "Projeksiyon arızalı (İç Hastalıkları dersi öncesi kontrol)", "capacity": 56}
+    assert (await c.put(f"/api/v1/rooms/{a101}", json=body, headers=teacher)).status_code == 403
+    r = await c.put(f"/api/v1/rooms/{a101}", json=body, headers=clerk)
+    assert r.status_code == 200, r.text
+    assert r.json()["notes"] == body["notes"] and r.json()["capacity"] == 56
+    buf = io.BytesIO()
+    Image.new("RGB", (8, 8), (200, 30, 30)).save(buf, "PNG")
+    files = {"file": ("a101.png", buf.getvalue(), "image/png")}
+    assert (await c.post(f"/api/v1/rooms/{a101}/photo", files=files, headers=teacher)).status_code == 403
+    r = await c.post(f"/api/v1/rooms/{a101}/photo", files=files, headers=clerk)
+    assert r.status_code == 200 and r.json()["photo_url"], r.text

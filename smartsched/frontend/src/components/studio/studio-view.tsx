@@ -400,7 +400,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
 }
 
 function SummaryPill() {
-  const { t, n } = useI18n();
+  const { t } = useI18n();
   const { summary } = useStudio();
   const word = summary.readiness === "ready" ? `${t("studio.check.ready")} ✓` : summary.readiness === "blocked" ? t("studio.check.blocked") : summary.readiness === "needs_look" ? t("studio.check.needsLook") : summary.readiness === "checking" ? t("studio.check.checking") : "";
   return (
