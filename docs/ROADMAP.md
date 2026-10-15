@@ -382,3 +382,15 @@ User decisions (2026-10-15):
 - Suggestion memory reset: per person, per term, or all; admin-only, audited, undoable for 30 days.
 - Conflict policy: locks first (never moved), then coordinator-set priority, then most classes placed; configurable per term. (Resolves the PHAR 114 §2 lock-first vs most-classes-first question.)
 - Learned suggestions are never auto-applied: suggest only; accepting one adds a SOFT preference. Hard-rule integrity (100/100 or explained infeasibility) is unchanged.
+
+Execution order (2026-10-15):
+1. Analysis (running): strict-engineer gap analysis + academician needs; Phase 19 UX specs (design-pro, Mobbin research); motion audit + Phase 19 motion spec (motion_designer skill).
+2. Branch sync: merge claude/smartsched-universal (Ingestion Council + universal onboarding) into gracious; migration renumbered to 0017_council; then universal fast-forwards to gracious and stays in sync at each green checkpoint.
+3. Build waves, in non-overlapping file scopes:
+   - 3a. Structured intake (xlsx/xls/csv/tsv/ods/json/xml/ics) on the council
+   - 3b. Moderation tab + matchings + minimal-change re-solve with diff
+   - 3c. Learned suggestions + scoped resettable memory
+   - 3d. From-scratch program wizard
+   - 3e. AI-assisted intake (pdf/docx/txt/eml/images, coordinator review)
+   - Running alongside these: remaining CRBS parity GAPs, P18-LEGACY, motion-audit fixes
+4. Stabilisation: every pod gate green on one commit; then pod start + deploy + BLUF report.
