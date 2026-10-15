@@ -372,17 +372,16 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
   await others.locator("li").first().getByRole("button", { name: /Reddet, öner|Reject, suggest/ }).click();
   await expect.poll(async () => (await api<{ status: string }>("GET", `/approvals/${req2.id}`, undefined, ctx.approverToken)).status).toBe("REJECTED");
 
-  // part of a series: a weekly request for four Fridays, approve three
+  // part of a series: a weekly request (the administrator: teachers have no recurring right in CRBS) for four Fridays, approve three
   const [slot3] = await ownFree(FRIDAY);
   const series = await call<{ series_id: number; status: string; created: { date: string }[] }>(
     "POST",
     "/bookings/recurring",
     { room_id: ctx.room.id, period_id: slot3!.period_id, date: FRIDAY, term_id: ctx.termId, start: FRIDAY, end: "2026-03-13" },
-    ctx.teacherToken,
   );
   expect(series.status).toBe(202);
   expect(series.body.status).toBe("PENDING");
-  const req3 = (await api<{ id: number; series_id: number | null }[]>("GET", "/approvals/mine", undefined, ctx.teacherToken)).find((r) => r.series_id === series.body.series_id)!;
+  const req3 = (await api<{ id: number; series_id: number | null }[]>("GET", "/approvals/mine")).find((r) => r.series_id === series.body.series_id)!;
   await approver.goto(`/approvals?request=${req3.id}`);
   const instances = drawer.getByTestId("approval-instances");
   await expect(instances.getByRole("checkbox")).toHaveCount(series.body.created.length);
