@@ -27,6 +27,9 @@ Blocks (sources in brackets):
     last-updated  HEAD's commit and date (git). Volatile: ``--check`` does not compare it, and without git (pod CI
                   exports the tree with git archive) the block keeps its text.
 
+Any block marked ``check=no`` (``<!-- AUTO:agents check=no -->``) is rewritten by a sync but never fails ``--check``:
+the switch for a source that changes faster than its commits are synced.
+
 Usage (standard library only; run it isolated):
 
     python3 -I scripts/docs/sync_docs.py            # rewrite every stale block
@@ -947,6 +950,11 @@ GENERATORS: dict[str, Callable[[Context], str | None]] = {
 VOLATILE = frozenset({"last-updated"})
 
 
+def unchecked(b: Block) -> bool:
+    """Rewritten by a sync but never reported stale: the volatile blocks, and any block marked ``check=no``."""
+    return b.name in VOLATILE or b.args.get("check") == "no"
+
+
 @dataclass
 class FileResult:
     path: Path
@@ -977,7 +985,7 @@ def render_text(text: str, ctx: Context, where: str = "<text>") -> tuple[str, li
         else:
             # a blank line on each side, so a table or list never runs into a marker line
             body = (nl + nl.join(content.strip("\n").split("\n")) + nl + nl) if content.strip() else ""
-        if body != b.body and b.name not in VOLATILE:
+        if body != b.body and not unchecked(b):
             stale.append(b.label)
         out.append(body)
         pos = b.end
@@ -1041,7 +1049,7 @@ def main(argv: list[str] | None = None) -> int:
             print(r.path.relative_to(root).as_posix())
             stale = set(r.stale)
             for b in r.blocks:
-                state = "volatile" if b.name in VOLATILE else ("STALE" if b.label in stale else "ok")
+                state = "not checked" if unchecked(b) else ("STALE" if b.label in stale else "ok")
                 print(f"  {b.label:<28} lines {b.start + 1}-{b.end + 1}  {state}")
         if not results:
             print("no AUTO blocks found")

@@ -124,6 +124,12 @@ class MarkerTests(unittest.TestCase):
             new, _, _ = sd.render_text(text, sd.Context(root=REPO, target=REPO / "x.md"))
         self.assertEqual(new, text)
 
+    def test_check_no_blocks_are_rewritten_but_never_stale(self) -> None:
+        new, blocks, stale = self.render("<!-- AUTO:beta n=3 check=no -->\nold\n<!-- /AUTO:beta -->\n")
+        self.assertIn("\nB3\n", new)
+        self.assertEqual(blocks[0].args, {"n": "3", "check": "no"})
+        self.assertEqual(stale, [])
+
     def test_git_head_without_a_repository_is_none(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self.assertIsNone(sd.git_head(Path(tmp)))
