@@ -447,6 +447,7 @@ async def test_reject_suppresses_and_snooze_waits_for_the_next_solve(env: Env):
 
 async def test_person_reset_hides_undo_restores_and_planner_gets_403(env: Env):
     term, _ = await _next_bahar(["SYS 19", "RAD 202"])
+    await env.client.post(f"{API}/learning/refresh", json={}, headers=env.planner)  # the new term's evidence
     before = await _suggestions(env, term)
     person = _pick(before, "instructor", "building")
     pid = person["subject"]["id"]
@@ -535,7 +536,7 @@ async def test_purge_removes_expired_observations_and_they_stay_unlearned(env: E
     # the Güz term itself is untouched (a reset is memory only)
     async with _session() as s:
         q = (
-            select(func.count())
+            select(func.count(MeetingRequest.id))
             .join(Section, Section.id == MeetingRequest.section_id)
             .where(Section.term_id == env.guz)
         )
@@ -545,7 +546,8 @@ async def test_purge_removes_expired_observations_and_they_stay_unlearned(env: E
 
 
 async def test_kvkk_erasure_purges_a_person_at_once(env: Env):
-    term, _ = await _next_bahar(["SYS 19"])
+    term, _ = await _next_bahar(["SYS 19", "RAD 202"])
+    await env.client.post(f"{API}/learning/refresh", json={}, headers=env.planner)  # the new term's evidence
     person = _pick(await _suggestions(env, term), "instructor", "building")
     pid = person["subject"]["id"]
     body = {"instructor_id": pid, "reason": "KVKK md. 11 silme talebi"}
@@ -591,3 +593,30 @@ async def test_run_with_an_accepted_learned_preference_keeps_hard_100(env: Env):
     print(
         f"P19-L run {run_id}: status={run['status']} hard={run['hard_score']} soft={run['soft_score']} rows={len(rows)}"
     )
+
+
+async def test_daily_purge_job_runs_on_start_and_stops(env: Env):
+    """The loop main.py's lifespan starts next to the approvals sweeper: it purges at once, then daily."""
+    r = await env.client.post(
+        f"{API}/learning/reset", json={"scope": "all", "reason": "yeni yönetmelik"}, headers=env.admin
+    )
+    rid = r.json()["id"]
+    async with _session() as s:
+        rs = await s.get(LearningReset, rid)
+        assert rs is not None
+        rs.expires_at = utcnow() - timedelta(minutes=1)
+        await s.commit()
+    learning.start_purge_job(interval=3600)
+    try:
+        for _ in range(200):
+            async with _session() as s:
+                rs = await s.get(LearningReset, rid)
+                if rs is not None and rs.purged_at is not None:
+                    break
+            await asyncio.sleep(0.05)
+    finally:
+        await learning.stop_purge_job()
+    async with _session() as s:
+        assert (await s.execute(select(func.count(LearnedObservation.id)))).scalar_one() == 0
+        rs = await s.get(LearningReset, rid)
+        assert rs is not None and rs.purged_at is not None
