@@ -5,7 +5,6 @@
  * `check_session_dates`); with the "confirm" setting the backend answers 409 first and the dialog asks.
  * Deleting a session deletes its bookings, as in CRBS: the confirm step names how many (`GET /terms/{id}/usage`).
  */
-import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

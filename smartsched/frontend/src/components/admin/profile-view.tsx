@@ -3,7 +3,6 @@
  * /profile (CRBS `Profile`): own e-mail, names, display name, extension and language (per user, as in
  * CRBS), and the password change (current password required unless an administrator forced a change).
  */
-import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";

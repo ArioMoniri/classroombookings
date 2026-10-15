@@ -3,7 +3,6 @@
  * /reset-password: request a one-time code (never reveals whether the account exists; without SMTP the
  * administrators are notified) and set a new password with the code (`?token=` pre-fills it).
  */
-import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
