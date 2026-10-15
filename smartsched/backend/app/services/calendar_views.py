@@ -1199,10 +1199,11 @@ def _snapshot(a: Assignment) -> Snapshot:
 
 
 async def apply_plans(
-    session: AsyncSession, ctx: RunContext, plans: list[PlannedMove]
+    session: AsyncSession, ctx: RunContext, plans: list[PlannedMove], *, commit: bool = True
 ) -> tuple[list[Assignment], UndoToken, dict[int, tuple[list[int], list[int]]]]:
     """Commit the planned moves (MANUAL + locked, like the single move endpoint). Returns changed rows, the undo
-    token and, per base assignment, (moved row ids, created split ids)."""
+    token and, per base assignment, (moved row ids, created split ids). ``commit=False`` only flushes: the caller
+    adds its audit row and commits (review D5)."""
     changed: list[Assignment] = []
     undo = UndoToken()
     created: list[Assignment] = []
@@ -1255,7 +1256,10 @@ async def apply_plans(
         created.extend(new_rows)
         per_base[p.base.id] = (moved_ids, [r.id for r in new_rows])
         undo.delete_ids.extend(r.id for r in new_rows)
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     for r in [*changed, *created]:
         await session.refresh(r)
     gone = {c.id for c in changed}
@@ -1264,7 +1268,7 @@ async def apply_plans(
 
 
 async def restore(
-    session: AsyncSession, run: ScheduleRun, snapshots: list[Snapshot], delete_ids: list[int]
+    session: AsyncSession, run: ScheduleRun, snapshots: list[Snapshot], delete_ids: list[int], *, commit: bool = True
 ) -> list[int]:
     touched: list[int] = []
     for did in delete_ids:
@@ -1283,7 +1287,10 @@ async def restore(
             if term is not None:
                 a.date = date_for(term, a.week, a.day)
         touched.append(a.id)
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return touched
 
 

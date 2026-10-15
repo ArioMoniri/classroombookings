@@ -663,6 +663,50 @@
       "status": "finished",
       "finished_at": "2026-10-15 15:35",
       "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a19e07f0ab7a24443",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:40",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "ae1886426ecd593fb",
+      "description": "Persona test: staff room-booking user",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-15 15:47",
+      "scope": "write only docs/testing/2026-10-15-persona-user.md. Evidence (screenshots, traces, logs) goes in /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/persona-user/. Never edit source code. GOAL: act as an ordinary university staff member who books rooms (the classroombookings \"Teacher\" role, not a planner or admin). Test every screen, button, form and motion t…",
+      "goal": "act as an ordinary university staff member who books rooms (the classroombookings \"Teacher\" role, not a planner or admin). Test every screen, button, form and motion this role can reach in SmartSched, and report bugs and enhancement ideas precisely enough that an engineer can fix them without asking you anything. Stack. Use only this one, which is isolated from the other testers: SNAP=/tmp/claude-…",
+      "ledger": "persona-user-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona-user.m…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a2adbc02f53e2d8cb",
+      "description": "Persona test: academician",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-15 15:47",
+      "scope": "write only docs/testing/2026-10-15-persona-academician.md. Evidence goes in /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/persona-academician/. Never edit source code. GOAL: act as a senior academician who teaches 3 courses in the Bahar 2026 term and has strong room and time wishes. Test every SmartSched screen, button and motion an academician uses or …",
+      "goal": "act as a senior academician who teaches 3 courses in the Bahar 2026 term and has strong room and time wishes. Test every SmartSched screen, button and motion an academician uses or would need, and report bugs and enhancements precisely enough that an engineer can fix them without asking you anything. Read docs/testing/2026-10-15-academician-needs.md first; it is the needs analysis from this person…",
+      "ledger": "persona-academician-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a79b83fc2b496a84f",
+      "description": "Persona test: administrator/coordinator",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-15 15:47",
+      "scope": "write only docs/testing/2026-10-15-persona-admin.md. Evidence goes in /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/persona-admin/. Never edit source code. GOAL: act as the faculty's system administrator, who is also the timetabling coordinator. Test every admin and planning screen, button, form and motion in SmartSched, and report bugs and enhancements…",
+      "goal": "act as the faculty's system administrator, who is also the timetabling coordinator. Test every admin and planning screen, button, form and motion in SmartSched, and report bugs and enhancements precisely enough that an engineer can fix them without asking you anything. Stack. Use only this one, which is isolated; you may change settings freely here: SNAP=/tmp/claude-0/-home-user-classroombookings/…",
+      "ledger": "persona-admin-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona-admin…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

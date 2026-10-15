@@ -66,7 +66,11 @@ class PatternError(ValueError):
 
 
 #: block kinds in output order: (key in the request, short code stored on the meeting, Turkish label)
-KINDS: tuple[tuple[str, str, str], ...] = (("theory", "T", "Teorik"), ("practice", "U", "Uygulama"), ("lab", "L", "Lab"))
+KINDS: tuple[tuple[str, str, str], ...] = (
+    ("theory", "T", "Teorik"),
+    ("practice", "U", "Uygulama"),
+    ("lab", "L", "Lab"),
+)
 #: clock starts of the 18 periods ("08:30", "09:20", ...): the only start times a pattern accepts
 PERIOD_STARTS: tuple[str, ...] = tuple(f"{p.start:%H:%M}" for p in n.PERIODS)
 _START_BY_MINUTE = {p.start.hour * 60 + p.start.minute: p.index for p in n.PERIODS}
@@ -246,7 +250,9 @@ def _kind_blocks(raw: Mapping[str, Any], hours: tuple[int, int, int]) -> list[tu
     return out
 
 
-def _course_hours(raw: Mapping[str, Any], course_hours: tuple[int | None, int | None, int | None]) -> tuple[int, int, int]:
+def _course_hours(
+    raw: Mapping[str, Any], course_hours: tuple[int | None, int | None, int | None]
+) -> tuple[int, int, int]:
     vals = []
     for (key, _code, _label), default in zip(KINDS, course_hours, strict=True):
         v = raw.get(key)
@@ -427,7 +433,9 @@ def _check_fit(blocks: Sequence[Block]) -> None:
             continue
         peak = max(sum(1 for b in group if b.start <= p <= b.end) for p in range(1, n.PERIODS_PER_DAY + 1))
         if peak > len(days):
-            raise PatternError(f"{peak} blocks share a time but only {len(days)} days are allowed: give more days or other starts")
+            raise PatternError(
+                f"{peak} blocks share a time but only {len(days)} days are allowed: give more days or other starts"
+            )
 
 
 def build_spec(
@@ -463,9 +471,16 @@ def build_spec(
             got = len(slots) if isinstance(slots, Sequence) and not isinstance(slots, str) else 0
             raise PatternError(f"slots lists {got} slot(s) but the pattern has {len(kinds)} block(s)")
         for (kind, length), slot in zip(kinds, slots, strict=True):
-            if not isinstance(slot, Mapping) or set(slot) - {"day", "start"} or "day" not in slot or "start" not in slot:
+            if (
+                not isinstance(slot, Mapping)
+                or set(slot) - {"day", "start"}
+                or "day" not in slot
+                or "start" not in slot
+            ):
                 raise PatternError("every slot is {day, start}")
-            blocks.append(Block(kind, length, (_one_day(slot["day"]),), parse_start(slot["start"]), needs.get(kind, base)))
+            blocks.append(
+                Block(kind, length, (_one_day(slot["day"]),), parse_start(slot["start"]), needs.get(kind, base))
+            )
     else:
         if raw.get("days") is None:
             raise PatternError("days is required (e.g. TUE|THU, Salı / Perşembe) unless slots are given")

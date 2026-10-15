@@ -92,3 +92,8 @@ from app.api.v1 import calendar_sync, webhooks  # noqa: E402
 
 api_router.include_router(calendar_sync.router)
 api_router.include_router(webhooks.router)
+
+# P19-C1/C2 from-scratch programme creation: faculty/programme/course/instructor/section writes, weekly patterns
+from app.api.v1 import catalog_admin  # noqa: E402
+
+api_router.include_router(catalog_admin.router)

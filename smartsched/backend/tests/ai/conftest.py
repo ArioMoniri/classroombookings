@@ -311,3 +311,24 @@ def section_edit(op: str, **kw: Any) -> dict[str, Any]:
         "source_ref": 0,
     }
     return {**base, **kw}
+
+
+async def enable_intake(session, *, vision: bool = False) -> None:
+    """Switch AI intake on with a KVKK sign-off record (default off, app/ai/policy.py)."""
+    import json
+
+    from app.ai.policy import INTAKE_KEY, SIGNOFF_KEY, VISION_KEY
+    from app.models import Setting
+
+    features = ["intake", "vision"] if vision else ["intake"]
+    for key, value in (
+        (INTAKE_KEY, "true"),
+        (VISION_KEY, "true" if vision else "false"),
+        (SIGNOFF_KEY, json.dumps({"by": 1, "features": features, "enabled": True})),
+    ):
+        row = await session.get(Setting, key)
+        if row is None:
+            session.add(Setting(key=key, value=value, is_secret=False))
+        else:
+            row.value = value
+    await session.commit()

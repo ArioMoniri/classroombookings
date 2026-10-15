@@ -82,6 +82,17 @@ All settings live in `deploy/.env`, created from `.env.example` by `deploy.sh`. 
 - `.env` is `chmod 600` and git-ignored. Back it up together with the database: `APP_SECRET` also
   encrypts the API keys stored in settings.
 
+### Postgres locale and Turkish sorting
+
+`initdb` uses `--encoding=UTF8 --locale=C.UTF-8` (byte order: `Ç Ö Ş Ü İ ı` sort after `z`, capitals before
+lower case). Evaluated 2026-10-15 on `postgres:16.15-alpine3.24`: `--locale-provider=icu --icu-locale=tr-TR`
+gives Turkish alphabetical order (`Cebir Çevre … Isı ışık iktisat İşletme … Sanat Şehir`) but also Turkish
+*case mapping* for the whole database: `lower('ADMIN')` = `admın` and `'admin' ILIKE 'ADMIN'` is false, which
+breaks case-insensitive matching of e-mails / user names / codes in SQL, and it needs a fresh volume. Keep
+`C.UTF-8`; sort Turkish text with the ICU collation that the image already ships, per column or per query:
+`ORDER BY name COLLATE "tr-TR-x-icu"` (works on the existing database; SQLite ignores it, so the backend
+should add it only for PostgreSQL).
+
 ## The job queue (read before scaling)
 
 Solver runs and imports execute inside the backend process, in an in-process asyncio queue

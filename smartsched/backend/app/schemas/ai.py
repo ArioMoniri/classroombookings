@@ -143,6 +143,19 @@ class IngestOut(ElicitOut):
     truncated: bool = False
     detected_columns: dict[str, str] = {}  # role -> header text (tabular files)
     warnings: list[str] = []
+    #: AI intake is switched off (Settings > AI, KVKK): the file was read locally, nothing was sent
+    needs_ai: bool = False
+    #: personal data masked before sending: {"emails": n, "phones": n}
+    redactions: dict[str, int] = {}
+
+
+class AIPolicyIn(BaseModel):
+    """``PUT /ai/policy`` (admin). Turning a switch on needs ``kvkk_ack`` (the KVKK officer signed off)."""
+
+    intake_enabled: bool | None = None
+    vision_enabled: bool | None = None
+    kvkk_ack: bool = False
+    reason: str | None = None
 
 
 class AcceptIn(BaseModel):

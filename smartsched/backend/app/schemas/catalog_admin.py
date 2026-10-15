@@ -135,7 +135,7 @@ class SectionUpdate(BaseModel):
 
 class SectionAdminOut(SectionOut):
     source_key: str
-    instructors: list[SectionInstructorOut] = []  # type: ignore[assignment]
+    instructors: list[SectionInstructorOut] = []
     meeting_count: int = 0
 
 

@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from sqlalchemy import select
 
 from app.api.deps import DB, Planner, Viewer
-from app.models import Assignment, ScheduleRun, Term
+from app.models import Assignment, ScheduleRun, Term, User
 from app.schemas.calendar import (
     AssignmentExplainOut,
     BulkLockIn,
@@ -39,6 +39,8 @@ from app.schemas.calendar import (
 )
 from app.services import calendar_views as cv
 from app.services.bookings_perms import load_access
+from app.services.events import Item
+from app.services.planning_audit import assignment_snapshot, record_assignments, snapshot_from_undo
 
 log = logging.getLogger(__name__)
 
@@ -238,7 +240,26 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
             ok_count=len(plans) - len(bad),
             conflict_count=len(bad),
         )
-    rows, undo, per_base = await cv.apply_plans(db, ctx, to_apply)
+    befores = {p.base.id: assignment_snapshot(p.base) for p in to_apply}
+    rows, undo, per_base = await cv.apply_plans(db, ctx, to_apply, commit=False)
+    # review D5: one audit row per changed / split-off assignment; a forced move names the conflicts it overrode
+    snap_before = {sn.id: snapshot_from_undo(sn) for sn in undo.snapshots}
+    forced = [p for p in to_apply if p.hard]
+    reason = (
+        f"forced despite {len(forced)} conflict(s): " + "; ".join(ctx.label_of(p.base) for p in forced[:5])
+        if forced
+        else None
+    )
+    await record_assignments(
+        db,
+        "assignment.bulk_move",
+        run,
+        [(r.id, snap_before.get(r.id) or befores.get(r.id), assignment_snapshot(r)) for r in rows],
+        actor=user if isinstance(user, User) else None,
+        reason=reason,
+        parent_after={"forced": bool(forced), "conflicts": len(forced), "moves": len(to_apply)},
+    )
+    await db.commit()
     applied_ids = {p.base.id for p in to_apply}
     items = [
         cv.plan_item_out(ctx, p, *(per_base.get(p.base.id, ([], []))))
@@ -277,20 +298,39 @@ async def move_preview(run_id: int, aid: int, body: MovePreviewIn, db: DB, _: Vi
 
 
 @router.post("/runs/{run_id}/assignments/restore")
-async def restore(run_id: int, body: RestoreIn, db: DB, _: Planner) -> dict[str, list[int]]:
+async def restore(run_id: int, body: RestoreIn, db: DB, user: Planner) -> dict[str, list[int]]:
     """Undo of a bulk move: put every snapshot back and delete the rows a ``from``/``week`` split created."""
     run = await _run(db, run_id)
-    return {"restored": await cv.restore(db, run, body.snapshots, body.delete_ids), "deleted": body.delete_ids}
+    ids = [sn.id for sn in body.snapshots] + list(body.delete_ids)
+    current = (
+        list(
+            (await db.execute(select(Assignment).where(Assignment.run_id == run.id, Assignment.id.in_(ids)))).scalars()
+        )
+        if ids
+        else []
+    )
+    befores = {a.id: assignment_snapshot(a) for a in current}
+    restored = await cv.restore(db, run, body.snapshots, body.delete_ids, commit=False)
+    after = {a.id: assignment_snapshot(a) for a in current if a.id in set(restored)}
+    items = [(i, befores.get(i), after.get(i)) for i in restored]
+    items += [(i, befores[i], None) for i in body.delete_ids if i in befores]
+    await record_assignments(db, "assignment.restore", run, items, actor=user)
+    await db.commit()
+    return {"restored": restored, "deleted": body.delete_ids}
 
 
 @router.post("/runs/{run_id}/assignments/bulk-lock")
-async def bulk_lock(run_id: int, body: BulkLockIn, db: DB, _: Planner) -> dict[str, list[int]]:
+async def bulk_lock(run_id: int, body: BulkLockIn, db: DB, user: Planner) -> dict[str, list[int]]:
     run = await _run(db, run_id)
     rows = list(
         (await db.execute(select(Assignment).where(Assignment.run_id == run.id, Assignment.id.in_(body.ids)))).scalars()
     )
+    items: list[Item] = []
     for a in rows:
+        if bool(a.is_locked) != body.locked:
+            items.append((a.id, {"is_locked": bool(a.is_locked)}, {"is_locked": body.locked}))
         a.is_locked = body.locked
+    await record_assignments(db, "assignment.lock" if body.locked else "assignment.unlock", run, items, actor=user)
     await db.commit()
     found = {a.id for a in rows}
     return {"updated": sorted(found), "missing": sorted(set(body.ids) - found)}

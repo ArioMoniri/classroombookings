@@ -13,7 +13,16 @@ from app.models import ConstraintRow, MeetingRequest, Section
 from openpyxl import Workbook
 from sqlalchemy import select
 
-from tests.ai.conftest import empty_params, empty_selector, proposal, section_edit, seed_small, store_key, tool
+from tests.ai.conftest import (
+    empty_params,
+    empty_selector,
+    enable_intake,
+    proposal,
+    section_edit,
+    seed_small,
+    store_key,
+    tool,
+)
 from tests.api_fixtures import login
 
 
@@ -153,6 +162,7 @@ async def test_xlsx_upload_yields_proposals_and_section_edits_with_refs(session,
             ),
         )
     ]
+    await enable_intake(session)
     client = AIClient("sk-ant-test", "claude-opus-5-5")
     out = await extract_preferences(session, seed.term_id, _xlsx(), "prefs.xlsx", "tr", client=client)
     assert out.file_kind == "xlsx" and out.units == 2 and out.chunks == 1 and not out.truncated
@@ -176,6 +186,7 @@ async def test_docx_upload_and_accept_endpoint(client, fake_sdk):
     async with get_session_factory()() as s:
         sd = await seed_small(s)
         await store_key(s)
+        await enable_intake(s)
     fake_sdk.script = [
         tool(
             "propose_constraints",

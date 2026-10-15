@@ -21,6 +21,8 @@ from app.schemas.requests import (
     MeetingRequestUpdate,
 )
 from app.services.conflicts import check_meeting_room
+from app.services.events import publish_event
+from app.services.planning_audit import changed_fields
 
 router = APIRouter(prefix="/requests", tags=["requests"])
 
@@ -102,12 +104,26 @@ async def get_meeting(mr_id: int, db: DB, _: Viewer) -> MeetingRequestOut:
 
 
 @router.put("/meetings/{mr_id}", response_model=MeetingRequestOut)
-async def update_meeting(mr_id: int, body: MeetingRequestUpdate, db: DB, _: Planner) -> MeetingRequestOut:
+async def update_meeting(mr_id: int, body: MeetingRequestUpdate, db: DB, user: Planner) -> MeetingRequestOut:
     mr = await _meeting(db, mr_id)
-    for k, v in body.model_dump(exclude_unset=True).items():
-        setattr(mr, k, v)
+    data = body.model_dump(exclude_unset=True)
     if body.days is not None and len(body.days) == 1:
-        mr.day = body.days[0]
+        data["day"] = body.days[0]
+    before, after = changed_fields(mr, data)
+    for k, v in data.items():
+        setattr(mr, k, v)
+    if after:  # review D5: planning edits are audited
+        term_id = mr.section.term_id if mr.section is not None else None
+        await publish_event(
+            db,
+            "meeting_request.update",
+            "meeting_request",
+            mr.id,
+            before=before,
+            after=after,
+            actor=user,
+            term_id=term_id,
+        )
     await db.commit()
     return _meeting_out(await _meeting(db, mr_id))
 
@@ -198,14 +214,20 @@ async def list_exams(
 
 
 @router.put("/exams/{ex_id}", response_model=ExamRequestOut)
-async def update_exam(ex_id: int, body: ExamRequestUpdate, db: DB, _: Planner) -> ExamRequestOut:
+async def update_exam(ex_id: int, body: ExamRequestUpdate, db: DB, user: Planner) -> ExamRequestOut:
     ex = (
         await db.execute(select(ExamRequest).where(ExamRequest.id == ex_id).options(selectinload(ExamRequest.program)))
     ).scalar_one_or_none()
     if ex is None:
         raise HTTPException(404, "exam request not found")
-    for k, v in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    before, after = changed_fields(ex, data)
+    for k, v in data.items():
         setattr(ex, k, v)
+    if after:
+        await publish_event(
+            db, "exam_request.update", "exam_request", ex.id, before=before, after=after, actor=user, term_id=ex.term_id
+        )
     await db.commit()
     await db.refresh(ex)
     return _exam_out(ex)

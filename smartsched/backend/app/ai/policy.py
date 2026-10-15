@@ -125,7 +125,9 @@ async def set_policy(
         raise PolicyError("vision needs intake: enable intake_enabled too")
     turning_on = (intake and not before["intake_enabled"]) or (vision and not before["vision_enabled"])
     if turning_on and not kvkk_ack:
-        raise PolicyError("enabling AI intake needs the KVKK acknowledgement (kvkk_ack=true) after the officer's sign-off")
+        raise PolicyError(
+            "enabling AI intake needs the KVKK acknowledgement (kvkk_ack=true) after the officer's sign-off"
+        )
     features = [f for f, on in (("intake", intake), ("vision", vision)) if on]
     record = {
         "by": actor.id,

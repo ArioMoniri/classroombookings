@@ -171,6 +171,10 @@ async def test_from_scratch_programme_is_placed_with_hard_100(client: AsyncClien
         res = await check_run(s, stored)
     assert res.violations == [], [f.as_dict() for f in res.violations[:5]]
     assert res.hard_score == 100 and res.requests_placed == res.requests_total == 6
+    print(  # evidence line for the hand-off (pytest -s)
+        f"P19-C run {run_id}: status={run['status']} hard={run['hard_score']} soft={run['soft_score']} "
+        f"assignments={len(rows)} planner_check={res.summary()}"
+    )
 
     # (d) every create is audited, with the after-snapshot and the actor
     for action, count in (
@@ -187,7 +191,9 @@ async def test_from_scratch_programme_is_placed_with_hard_100(client: AsyncClien
         ev = (await s.execute(select(AuditEvent).where(AuditEvent.action == "course.create"))).scalars().first()
         assert ev is not None and ev.actor_id is not None and ev.before is None
         assert ev.after is not None and ev.after["display_code"] == "MBG 532"
-        pattern_ev = (await s.execute(select(AuditEvent).where(AuditEvent.action == "section.pattern"))).scalars().first()
+        pattern_ev = (
+            (await s.execute(select(AuditEvent).where(AuditEvent.action == "section.pattern"))).scalars().first()
+        )
         assert pattern_ev is not None and pattern_ev.term_id == term_id and pattern_ev.after["count"] == 2
 
 
@@ -230,7 +236,9 @@ async def test_duplicates_answer_409_naming_the_existing_row(client: AsyncClient
     r = await client.post(f"{API}/instructors", json={"full_name": "Prof. Dr. Eda Tahir Turanlı"}, headers=h)
     assert r.status_code == 409 and r.json()["detail"]["existing"]["id"] == person.json()["id"]
     # a placeholder is not a person: "not yet assigned" is a section without instructors
-    r = await client.post(f"{API}/instructors", json={"full_name": "Dersi verecek öğretim üyesi henüz belli değildir"}, headers=h)
+    r = await client.post(
+        f"{API}/instructors", json={"full_name": "Dersi verecek öğretim üyesi henüz belli değildir"}, headers=h
+    )
     assert r.status_code == 422
 
 
@@ -321,7 +329,9 @@ async def test_archive_never_orphans_assignments_of_a_run(client: AsyncClient, s
     assert await _audit_count("meeting.archive") == 1
     # re-applying a pattern replaces the hand-made meetings (archived, listed) instead of duplicating them
     again = await client.post(
-        f"{API}/sections/{sec['id']}/pattern", json={"days": "Salı", "start": "13:30", "weeks": "İlk 7 hafta"}, headers=h
+        f"{API}/sections/{sec['id']}/pattern",
+        json={"days": "Salı", "start": "13:30", "weeks": "İlk 7 hafta"},
+        headers=h,
     )
     assert again.status_code == 201 and again.json()["archived_ids"] == []  # the only one was archived above
     second = await client.post(
@@ -398,3 +408,45 @@ async def test_meeting_and_exam_requests_by_hand(client: AsyncClient, parsed_bah
     r = await client.delete(f"{API}/requests/exams/{ex['id']}", headers=h)
     assert r.status_code == 200 and r.json()["action"] == "archived"
     assert await _audit_count("exam.create") == 1 and await _audit_count("exam.archive") == 1
+
+
+def _one_row_list(parsed: Any, number: int, path: Any) -> Any:
+    """A planning list holding one real Bahar row (its own headers and cells), for import interplay tests."""
+    from openpyxl import Workbook
+
+    raw = _row(parsed, number).raw
+    wb = Workbook()
+    ws = wb.active
+    assert ws is not None
+    ws.title = "Sayfa1"
+    ws.append(list(raw))
+    ws.append(list(raw.values()))
+    wb.save(path)
+    return path
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="importers/planning_list.py archives every section of the term missing from the file, MAN: ones too "
+    "(diff routed to the importer agent in the P19-C hand-off)",
+)
+async def test_a_later_import_keeps_hand_made_sections(
+    client: AsyncClient, parsed_bahar_list: Any, tmp_path: Any
+) -> None:
+    from app.importers.planning_list import import_planning_list
+    from app.models import Section
+
+    h = await login(client)
+    term_id = await _term(client, h, "2026-BAHAR")
+    course = (await client.post(f"{API}/courses", json={"code": "MBG 532", "t_hours": 3}, headers=h)).json()
+    sec = (
+        await client.post(
+            f"{API}/sections", json={"term_id": term_id, "course_id": course["id"], "enrolment": 20}, headers=h
+        )
+    ).json()
+    path = _one_row_list(parsed_bahar_list, 189, tmp_path / "bahar_row189.xlsx")  # MBG 534, another course
+    async with get_session_factory()() as s:
+        await import_planning_list(s, path, "2026-BAHAR")
+    async with get_session_factory()() as s:
+        row = await s.get(Section, sec["id"])
+        assert row is not None and row.archived is False

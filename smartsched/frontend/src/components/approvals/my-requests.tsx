@@ -65,6 +65,8 @@ function RequestRow({ req: r, fmt, initiallyOpen }: { req: ApprovalRequest; fmt:
       await Promise.all(APPROVAL_KEYS.map((k) => qc.invalidateQueries({ queryKey: k })));
       toast.success(t("wave1.mine.withdrawn"));
       setConfirm(false);
+      // the Withdraw button goes away with the open state: focus the request's own row (motion audit T4)
+      window.setTimeout(() => document.querySelector<HTMLElement>(`[data-testid="my-request-${r.id}"]`)?.focus(), 320);
     } catch (e) {
       toast.error(errorText(wave1Error(e), locale));
     } finally {

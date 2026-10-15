@@ -31,6 +31,8 @@ file upload ─┘   names only, ids resolved server-side └── review in th
 | `resolve.py` | Term context (rooms, programmes, courses, sections, weeks) and name -> id resolution with `app.importers.normalize` + conservative fuzzy matching. Unresolved names become entities with candidates and `needs_review`; ids are never invented. |
 | `elicit.py` | `propose()` (one strict `propose_constraints` round) and `elicit_constraints()`; `accept_proposals()` re-verifies every id against the DB before creating `ConstraintRow`s. |
 | `ingest.py` | `extract_preferences()`: file -> numbered units (sheet row / paragraph / table row / PDF line / text line) with heuristic column detection, chunking and explicit limits; each proposal carries `source="UPLOAD"` and `source_ref` (`{"file": "prefs.xlsx", "row": 12, "sheet": ..., "excerpt": ...}`). |
+| `policy.py` | Admin switches `ai.intake_enabled` / `ai.vision_enabled` (default **off**) with the KVKK sign-off record `ai.kvkk_signoff` (who, when, legal basis, notice version); `ai_allowed(db, "intake" \| "vision")` is the one check every path that sends uploaded content calls. `GET/PUT /ai/policy`. |
+| `sanitize.py` | `clean_for_model()`: strips zero-width / bidi / C0 controls, redacts e-mail and phone numbers, neutralises `<document>` tags inside uploaded text. |
 | `edits.py` | `apply_section_edits()`: include / exclude / set enrolment, day/time, mode, preferred rooms. |
 | `chat.py` | `handle_chat()` (read tools run, edit tools only record), `apply_diff()` (validation + child run), `explain_run()` (template, or grounded model prose). |
 | `prompts/*.md` | System prompts (`mapping.md` is shared by elicitation and chat). |
@@ -63,7 +65,10 @@ file upload ─┘   names only, ids resolved server-side └── review in th
    day_window, soft, weight 1..5. Checked when the proposal comes back (`status=rejected` with the reason), on
    accept (any source the browser sends is treated as AI) and in the chat diff.
 7. **Uploaded files are data.** File text is wrapped in `<document>` and the system prompt tells the model
-   not to follow instructions in it. Files > 5 MiB are refused; > 1500 units or > 8 chunks are cut with a
+   not to follow instructions in it. Nothing from a file is sent unless an admin switched AI intake on with
+   the KVKK sign-off (`policy.ai_allowed`; off = the file is read locally and every unit comes back as
+   "needs AI", 0 network calls). Sent text is cleaned first (`sanitize.clean_for_model`: control and bidi
+   characters, e-mail / phone redaction, wrapper tags). Files > 5 MiB are refused; > 1500 units or > 8 chunks are cut with a
    warning (`truncated=true`), never silently.
 
 ## Data written

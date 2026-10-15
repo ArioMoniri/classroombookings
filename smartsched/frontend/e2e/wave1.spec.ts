@@ -393,11 +393,11 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
   expect(after.bookings.filter((x) => x.status === "BOOKED")).toHaveLength(series.body.created.length - 1);
 
   // a 409 re-check: two teachers ask for the same slot; one is approved behind the drawer's back
+  // the hold blocks the slot for others: drop the hold first so a second teacher can ask for the same slot
+  await api("PUT", `/approval-rules/${ctx.ruleId}`, { entity_type: "room", entity_id: ctx.room.id, steps: [{ approvers: { type: "designated" }, min_approvals: 1 }], hold_minutes: 0, lead_time_workdays: 0, expires_before_start_minutes: 0, allow_self_approve: false, active: true, name: null, tag: null, term_id: null });
   const [slot4] = await ownFree(THURSDAY);
   const a = await call<{ id: number }>("POST", "/bookings", { room_id: ctx.room.id, date: THURSDAY, period_id: slot4!.period_id, term_id: ctx.termId }, ctx.teacherToken);
   expect(a.status).toBe(202);
-  // the hold blocks the slot for others: drop the hold so the second teacher can ask too
-  await api("PUT", `/approval-rules/${ctx.ruleId}`, { entity_type: "room", entity_id: ctx.room.id, steps: [{ approvers: { type: "designated" }, min_approvals: 1 }], hold_minutes: 0, lead_time_workdays: 0, expires_before_start_minutes: 0, allow_self_approve: false, active: true, name: null, tag: null, term_id: null });
   const reqA = (await api<{ id: number; booking_id: number }[]>("GET", "/approvals/mine", undefined, ctx.teacherToken)).find((r) => r.booking_id === a.body.id)!;
   const b = await call<{ id: number }>("POST", "/bookings", { room_id: ctx.room.id, date: THURSDAY, period_id: slot4!.period_id, term_id: ctx.termId }, ctx.teacher2Token);
   expect(b.status).toBe(202);
@@ -416,8 +416,9 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
   await expect(rejected).toHaveAttribute("data-status", "REJECTED");
   await expect(rejected.getByTestId("request-timeline")).toContainText("Bu saatte bakım var");
   await expect(rejected.getByTestId("request-suggestions")).toBeVisible();
-  await expect(teacher.getByTestId("notification-count").first()).toBeVisible();
-  await teacher.getByTestId("notification-bell").first().click();
+  // the desktop top bar's bell (the phone top bar has its own, hidden here)
+  await expect(teacher.locator('[data-testid="notification-count"]:visible')).toBeVisible();
+  await teacher.locator('[data-testid="notification-bell"]:visible').click();
   const panel = teacher.getByTestId("notification-panel");
   await expect(panel.locator('[data-unread="true"]').first()).toBeVisible();
   await panel.locator('[data-unread="true"]').first().click();
@@ -428,7 +429,7 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
 
 /* ------------------------------------------------------------------------------- crawler */
 
-/** Sidebar links and ⌘K destinations ("Go to" entries and the actions that navigate). */
+/** Sidebar links, ⌘K destinations ("Go to" entries and the actions that navigate) and the setup index's links. */
 async function destinations(page: Page): Promise<string[]> {
   await page.goto("/bookings");
   await expect(page.getByTestId("booking-grid").or(page.getByTestId("free-slots"))).toBeVisible({ timeout: 30_000 });
@@ -446,7 +447,14 @@ async function destinations(page: Page): Promise<string[]> {
     if (page.url() !== before) actions.push(new URL(page.url()).pathname + new URL(page.url()).search);
     await page.goto("/bookings");
   }
-  return [...new Set([...sidebar, ...gotos, ...actions].filter(Boolean))];
+  // the setup index (/admin, when the sidebar offers it) links every setup screen the user may open
+  const setup: string[] = [];
+  if (sidebar.includes("/admin") || gotos.includes("/admin")) {
+    await page.goto("/admin");
+    await expect(page.locator("main a[href^='/admin/']").first()).toBeVisible({ timeout: 30_000 });
+    setup.push(...(await page.locator("main a[href^='/admin/']").evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""))));
+  }
+  return [...new Set([...sidebar, ...gotos, ...actions, ...setup].filter(Boolean))];
 }
 
 /** Opens each path: the document is not a 404, no API call answers 403, and the page does not say "no access". */
@@ -469,7 +477,7 @@ async function crawl(page: Page, paths: string[]): Promise<string[]> {
   return problems;
 }
 
-test("wave1 5. every sidebar and ⌘K link opens a page with no 404 and no 403, as administrator and as teacher", async ({ page }) => {
+test("wave1 5. every sidebar, ⌘K and setup link opens a page with no 404 and no 403, as administrator and as teacher", async ({ page }) => {
   test.setTimeout(300_000);
   await login(page, ADMIN.username, ADMIN.password);
   const admin = await destinations(page);

@@ -79,6 +79,9 @@ export function ApprovalsView() {
   return (
     <div className="flex flex-col gap-5" data-testid="approvals">
       <PageTitle title={t("wave1.approvals.title")} subtitle={t("wave1.approvals.lead")} />
+      <h2 tabIndex={-1} data-approvals-heading className="sr-only">
+        {t("wave1.approvals.box")}
+      </h2>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedGlass<Box>
           aria-label={t("wave1.approvals.box")}
@@ -142,11 +145,26 @@ export function ApprovalsView() {
         onDone={(id) => {
           const next = box === "open" ? nextOpen(id) : null;
           if (next) setOpenId(next);
-          else close();
+          else {
+            close();
+            // the decided row leaves the open list: keep focus in the list, not on <body> (motion audit T4)
+            focusAfterClose(nextRowSelector(rows, id));
+          }
         }}
       />
     </div>
   );
+}
+
+/** After the drawer's exit, focus the next row (or the first, or the page heading). */
+function nextRowSelector(rows: ApprovalRequest[], id: number): string {
+  const i = rows.findIndex((r) => r.id === id);
+  const next = rows[i + 1] ?? rows[i - 1];
+  return next ? `[data-testid="approval-${next.id}"]` : "[data-approvals-heading]";
+}
+
+function focusAfterClose(selector: string) {
+  window.setTimeout(() => document.querySelector<HTMLElement>(selector)?.focus(), 320);
 }
 
 /* --------------------------------------------------------------------------------------- drawer */
