@@ -8,7 +8,7 @@ Celery/RQ worker) can read them. Progress events are also fanned out in-memory f
   another thread), so ``/health`` and every other request keep being served during a solve.
 * ``JobState.error`` is a short, path-free message safe to show to clients; the traceback is only
   logged server-side.
-* Jobs live in this process only. While a ``run:<id>`` / ``import:<id>`` job is queued or running the
+* Jobs live in this process only. While a ``run:<id>`` / ``import:<id>`` / ``council:<id>`` job is queued or running the
   queue writes ``heartbeat_at`` every ``RUN_HEARTBEAT_S`` (and picks up a ``CANCELLED`` status set by
   another process). :func:`recover_interrupted` (called on startup) marks runs and import jobs FAILED
   whose owner is a previous boot of this process (``worker.boot``) or whose heartbeat is older than
@@ -183,16 +183,16 @@ def worker_id() -> dict[str, Any]:
 
 
 def _beats(key: str) -> bool:
-    return key.startswith(("run:", "import:"))
+    return key.startswith(("run:", "import:", "council:"))
 
 
 async def _beat(key: str) -> None:
     """One heartbeat: ``heartbeat_at = now``; a run cancelled by another process is stopped here too."""
     from app.core.db import get_session_factory
-    from app.models import ImportJob, ScheduleRun
+    from app.models import CouncilJob, ImportJob, ScheduleRun
 
     kind, _, raw = key.partition(":")
-    model: Any = ScheduleRun if kind == "run" else ImportJob
+    model: Any = {"run": ScheduleRun, "council": CouncilJob}.get(kind, ImportJob)
     try:
         row_id = int(raw)
     except ValueError:
@@ -256,6 +256,13 @@ async def recover_interrupted(session: Any) -> dict[str, int]:
         if _alive((job.summary or {}).get("worker"), job.heartbeat_at, now, stale):
             continue
         job.status, job.error, job.finished_at = "FAILED", msg, now
+        imports += 1
+    from app.models import CouncilJob
+
+    for cj in (await session.execute(select(CouncilJob).where(CouncilJob.status.in_(("QUEUED", "RUNNING"))))).scalars():
+        if _alive((cj.settings or {}).get("worker"), cj.heartbeat_at, now, stale):
+            continue
+        cj.status, cj.error, cj.finished_at = "FAILED", f"{msg}; re-run the job", now
         imports += 1
     await session.commit()
     if runs or imports:

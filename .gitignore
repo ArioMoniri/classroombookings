@@ -29,3 +29,10 @@ docs/agents/registry.tmp
 *.pkl
 __pycache__/
 *.pyc
+# Ruflo / claude-flow runtime state (developer harness; config lives in .claude-flow/)
+.swarm/
+.hive-mind/
+ruvector.db
+.mcp.json
+.claude/proven-config.json
+.claude/.proven-config-version

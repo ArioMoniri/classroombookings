@@ -456,6 +456,7 @@ More documentation:
 | [docs/ROADMAP.md](docs/ROADMAP.md) | phases, decisions and backlog |
 | [docs/CRBS_PARITY.md](docs/CRBS_PARITY.md) | classroombookings behaviour and the deliberate differences |
 | [docs/design/](docs/design/) | UI specs, including the Liquid Glass system and the calendar |
+| [docs/universal/](docs/universal/) | universal onboarding: [Ingestion Council architecture](docs/universal/ARCHITECTURE.md), [2026 research](docs/universal/RESEARCH-2026.md), [Ruflo dev harness](docs/universal/RUFLO.md) |
 | [docs/testing/](docs/testing/) | test reports: real-data feasibility, real-backend end to end, CRBS parity |
 | [docs/deploy/AWS.md](docs/deploy/AWS.md) | the AWS pod |
 | [docs/AGENTS.md](docs/AGENTS.md), [docs/PROGRESS.md](docs/PROGRESS.md) | SmartSched is built by parallel Claude Code agents; their protocol and ledger |

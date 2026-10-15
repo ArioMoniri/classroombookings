@@ -382,3 +382,15 @@ User decisions (2026-10-15):
 - Suggestion memory reset: per person, per term, or all; admin-only, audited, undoable for 30 days.
 - Conflict policy: locks first (never moved), then coordinator-set priority, then most classes placed; configurable per term. (Resolves the PHAR 114 §2 lock-first vs most-classes-first question.)
 - Learned suggestions are never auto-applied: suggest only; accepting one adds a SOFT preference. Hard-rule integrity (100/100 or explained infeasibility) is unchanged.
+
+### Universal SmartSched / Ingestion Council backlog (claude/smartsched-universal 2026-10-08, merged 2026-10-15; overlaps Phase 19 intake)
+
+- [ ] Optional parser adapters behind `council.render.render_file`: Docling (MIT) for complex PDF layouts and TableFormer tables, or a commercial layout API (Azure/Google/LlamaParse); off by default (heavy models / data leaves the server)
+- [ ] `.xls` / `.ods` / `.pptx` / `.html` readers (today refused with a "save as" hint)
+- [ ] Day-level calendar (holidays inside a week): calendar records are reported, only full-week holidays could map to `weeks.kind`
+- [ ] Course entries of a *general-path* timetable board are reported as observed, not imported: link them to meeting requests as an imported snapshot run (the fast path's `import_weekly_grid` already does this for the university board)
+- [ ] Accepted reconciler merges are applied to general-path files only; the fast-path importers keep their own normalisation
+- [ ] Model vote for the reconciler's ambiguous name clusters and for the planner's term groups (deterministic today)
+- [ ] Solver: read `terms.periods_json` for `periods_per_day` when an institution's grid is not the 18-period default (the council stores the grid; the bridge still assumes 18)
+- [ ] Ruflo runtime adapter for the council if Ruflo ships an embeddable runtime with safe permission defaults (docs/universal/RESEARCH-2026.md §1.6); today Ruflo is a dev harness only
+- [ ] Onboarding UI: restyle with the redesign branch; virtualise long review lists; per-file record browser (`GET /council/jobs/{id}/records`)

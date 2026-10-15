@@ -1,0 +1,20 @@
+[
+ {
+  "id": 1,
+  "status": "COMMITTED",
+  "files": 3,
+  "ai_mode": "heuristic",
+  "created_at": "2026-10-08T10:17:04.308601",
+  "summary": {
+   "files": 3,
+   "files_failed": 0,
+   "records": {
+    "room": 123,
+    "meeting": 1348
+   },
+   "review_items": 14,
+   "blocking_items": 0,
+   "ai": "no Anthropic API key configured: deterministic path only (heuristic mapping + importers)"
+  }
+ }
+]

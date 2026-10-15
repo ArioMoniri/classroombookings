@@ -1,0 +1,5 @@
+# Ruflo runtime state is local and machine-specific: only the reviewed config files are versioned.
+*
+!.gitignore
+!config.yaml
+!smartsched-swarm.yaml

@@ -16,7 +16,7 @@ format:
 	ruff format app tests tools $(EXCL)
 
 type:
-	$(PY) -m mypy app/api app/ai app/importers app/services app/workers app/core app/solver/model.py app/solver/stub.py tools
+	$(PY) -m mypy app/api app/ai app/importers app/services app/workers app/core app/council app/solver/model.py app/solver/stub.py tools
 
 # fast gate; the heaviest real-workbook tests (tests/conftest.py SLOW_TESTS) run in test-slow (CI runs both)
 test:

@@ -1,0 +1,435 @@
+{
+ "id": 1,
+ "status": "REVIEW",
+ "mode": "auto",
+ "ai_mode": "heuristic",
+ "lang": "en",
+ "year_hint": 2026,
+ "progress": 100,
+ "phase": null,
+ "files": [
+  {
+   "index": 0,
+   "filename": "room_master.csv",
+   "size": 4546,
+   "status": "DONE",
+   "format": "csv",
+   "language": "en",
+   "route": "fast:room-master",
+   "kinds": [
+    "room-master"
+   ],
+   "counts": {
+    "room": 87
+   },
+   "rule_texts": 0,
+   "message": null,
+   "steps": [
+    {
+     "id": 1,
+     "file_index": 0,
+     "agent": "intake",
+     "status": "DONE",
+     "attempt": 1,
+     "started_at": "2026-10-08T10:17:04.457186",
+     "finished_at": "2026-10-08T10:17:04.505761",
+     "duration_ms": 33,
+     "model": null,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost_usd": 0.0,
+     "message": null
+    },
+    {
+     "id": 2,
+     "file_index": 0,
+     "agent": "structure",
+     "status": "SKIPPED",
+     "attempt": 1,
+     "started_at": "2026-10-08T10:17:04.549571",
+     "finished_at": "2026-10-08T10:17:04.604224",
+     "duration_ms": 31,
+     "model": null,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost_usd": 0.0,
+     "message": "known shape 'room-master': the existing importer reads this file (deterministic fast path)"
+    },
+    {
+     "id": 3,
+     "file_index": 0,
+     "agent": "extract",
+     "status": "DONE",
+     "attempt": 1,
+     "started_at": "2026-10-08T10:17:04.631514",
+     "finished_at": "2026-10-08T10:17:04.654742",
+     "duration_ms": 7,
+     "model": null,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost_usd": 0.0,
+     "message": "read by the room-master importer's parser: 87 records"
+    }
+   ]
+  },
+  {
+   "index": 1,
+   "filename": "bahar_requests_en.csv",
+   "size": 301579,
+   "status": "DONE",
+   "format": "csv",
+   "language": "tr",
+   "route": "general",
+   "kinds": [
+    "request_list"
+   ],
+   "counts": {
+    "meeting": 1348
+   },
+   "rule_texts": 193,
+   "message": null,
+   "steps": [
+    {
+     "id": 4,
+     "file_index": 1,
+     "agent": "intake",
+     "status": "DONE",
+     "attempt": 1,
+     "started_at": "2026-10-08T10:17:04.764891",
+     "finished_at": "2026-10-08T10:17:04.847779",
+     "duration_ms": 78,
+     "model": null,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost_usd": 0.0,
+     "message": null
+    },
+    {
+     "id": 5,
+     "file_index": 1,
+     "agent": "structure",
+     "status": "DONE",
+     "attempt": 1,
+     "started_at": "2026-10-08T10:17:04.879387",
+     "finished_at": "2026-10-08T10:17:05.735769",
+     "duration_ms": 851,
+     "model": null,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost_usd": 0.0,
+     "message": "no Anthropic API key configured: deterministic path only (heuristic mapping + importers)"
+    },
+    {
+     "id": 6,
+     "file_index": 1,
+     "agent": "extract",
+     "status": "DONE",
+     "attempt": 1,
+     "started_at": "2026-10-08T10:17:05.757006",
+     "finished_at": "2026-10-08T10:17:05.931450",
+     "duration_ms": 156,
+     "model": null,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost_usd": 0.0,
+     "message": "1348 records"
+    },
+    {
+     "id": 12,
+     "file_index": 1,
+     "agent": "rules",
+     "status": "DONE",
+     "attempt": 1,
+     "started_at": "2026-10-08T10:17:06.820699",
+     "finished_at": "2026-10-08T10:17:06.828644",
+     "duration_ms": 4,
+     "model": null,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost_usd": 0.0,
+     "message": "no Anthropic API key configured: deterministic path only (heuristic mapping + importers)\n193 rule-like text(s) found; turning them into constraints needs the AI model (no Anthropic API key configured). They are listed for review; add them as rules in the Generator Studio or configure a key and re-run."
+    }
+   ]
+  },
+  {
+   "index": 2,
+   "filename": "rules_memo.docx",
+   "size": 38040,
+   "status": "DONE",
+   "format": "docx",
+   "language": "tr",
+   "route": "general",
+   "kinds": [
+    "room_list",
+    "rules"
+   ],
+   "counts": {
+    "room": 36
+   },
+   "rule_texts": 17,
+   "message": null,
+   "steps": [
+    {
+     "id": 7,
+     "file_index": 2,
+     "agent": "intake",
+     "status": "DONE",
+     "attempt": 1,
+     "started_at": "2026-10-08T10:17:06.024310",
+     "finished_at": "2026-10-08T10:17:06.163839",
+     "duration_ms": 101,
+     "model": null,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost_usd": 0.0,
+     "message": null
+    },
+    {
+     "id": 8,
+     "file_index": 2,
+     "agent": "structure",
+     "status": "DONE",
+     "attempt": 1,
+     "started_at": "2026-10-08T10:17:06.228040",
+     "finished_at": "2026-10-08T10:17:06.425281",
+     "duration_ms": 180,
+     "model": null,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost_usd": 0.0,
+     "message": "no Anthropic API key configured: deterministic path only (heuristic mapping + importers)"
+    },
+    {
+     "id": 9,
+     "file_index": 2,
+     "agent": "extract",
+     "status": "DONE",
+     "attempt": 1,
+     "started_at": "2026-10-08T10:17:06.445433",
+     "finished_at": "2026-10-08T10:17:06.464916",
+     "duration_ms": 2,
+     "model": null,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost_usd": 0.0,
+     "message": "36 records"
+    },
+    {
+     "id": 13,
+     "file_index": 2,
+     "agent": "rules",
+     "status": "DONE",
+     "attempt": 1,
+     "started_at": "2026-10-08T10:17:06.831920",
+     "finished_at": "2026-10-08T10:17:06.836875",
+     "duration_ms": 3,
+     "model": null,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost_usd": 0.0,
+     "message": "no Anthropic API key configured: deterministic path only (heuristic mapping + importers)\n17 rule-like text(s) found; turning them into constraints needs the AI model (no Anthropic API key configured). They are listed for review; add them as rules in the Generator Studio or configure a key and re-run."
+    }
+   ]
+  }
+ ],
+ "cross_steps": [
+  {
+   "id": 10,
+   "file_index": null,
+   "agent": "reconcile",
+   "status": "DONE",
+   "attempt": 1,
+   "started_at": "2026-10-08T10:17:06.555765",
+   "finished_at": "2026-10-08T10:17:06.741245",
+   "duration_ms": 175,
+   "model": null,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": 0.0,
+   "message": "87 rooms, 855 courses, 0 duplicate records, 2 merge suggestions"
+  },
+  {
+   "id": 11,
+   "file_index": null,
+   "agent": "planner",
+   "status": "DONE",
+   "attempt": 1,
+   "started_at": "2026-10-08T10:17:06.756457",
+   "finished_at": "2026-10-08T10:17:06.806264",
+   "duration_ms": 32,
+   "model": null,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": 0.0,
+   "message": "1 term group(s); period grid: default-18"
+  },
+  {
+   "id": 14,
+   "file_index": null,
+   "agent": "critic",
+   "status": "DONE",
+   "attempt": 1,
+   "started_at": "2026-10-08T10:17:06.840356",
+   "finished_at": "2026-10-08T10:17:07.499788",
+   "duration_ms": 657,
+   "model": null,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": 0.0,
+   "message": "model judge skipped: no Anthropic API key configured: deterministic path only (heuristic mapping + importers)\n6 finding(s)"
+  }
+ ],
+ "plan": {
+  "groups": [
+   {
+    "key": "SPRING:?",
+    "code": "BAHAR",
+    "name": "Spring",
+    "kind": "REGULAR",
+    "year": null,
+    "files": [
+     1
+    ],
+    "week_count": 16,
+    "start_date": null,
+    "end_date": null,
+    "weeks": [],
+    "days": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "evidence": [
+     "bahar_requests_en.csv: SPRING"
+    ],
+    "confidence": 0.6
+   }
+  ],
+  "unassigned_files": [],
+  "global_files": [
+   0,
+   2
+  ],
+  "period_grid": {
+   "source": "default-18",
+   "periods": [
+    {
+     "index": 1,
+     "start": "08:30",
+     "end": "09:10"
+    },
+    {
+     "index": 2,
+     "start": "09:20",
+     "end": "10:00"
+    },
+    {
+     "index": 3,
+     "start": "10:10",
+     "end": "10:50"
+    },
+    {
+     "index": 4,
+     "start": "11:00",
+     "end": "11:40"
+    },
+    {
+     "index": 5,
+     "start": "11:50",
+     "end": "12:30"
+    },
+    {
+     "index": 6,
+     "start": "12:40",
+     "end": "13:20"
+    },
+    {
+     "index": 7,
+     "start": "13:30",
+     "end": "14:10"
+    },
+    {
+     "index": 8,
+     "start": "14:20",
+     "end": "15:00"
+    },
+    {
+     "index": 9,
+     "start": "15:10",
+     "end": "15:50"
+    },
+    {
+     "index": 10,
+     "start": "16:00",
+     "end": "16:40"
+    },
+    {
+     "index": 11,
+     "start": "16:50",
+     "end": "17:30"
+    },
+    {
+     "index": 12,
+     "start": "17:30",
+     "end": "18:00"
+    },
+    {
+     "index": 13,
+     "start": "18:00",
+     "end": "18:40"
+    },
+    {
+     "index": 14,
+     "start": "18:50",
+     "end": "19:30"
+    },
+    {
+     "index": 15,
+     "start": "19:40",
+     "end": "20:20"
+    },
+    {
+     "index": 16,
+     "start": "20:30",
+     "end": "21:10"
+    },
+    {
+     "index": 17,
+     "start": "21:20",
+     "end": "22:00"
+    },
+    {
+     "index": 18,
+     "start": "22:10",
+     "end": "22:50"
+    }
+   ],
+   "coverage": 0.908
+  },
+  "horizons": [
+   "WEEK",
+   "MONTH",
+   "TERM"
+  ]
+ },
+ "summary": {
+  "files": 3,
+  "files_failed": 0,
+  "records": {
+   "room": 123,
+   "meeting": 1348
+  },
+  "review_items": 14,
+  "blocking_items": 5,
+  "ai": "no Anthropic API key configured: deterministic path only (heuristic mapping + importers)"
+ },
+ "usage": {},
+ "commits": [],
+ "error": null,
+ "created_at": "2026-10-08T10:17:04.308601",
+ "finished_at": "2026-10-08T10:17:07.541303"
+}
