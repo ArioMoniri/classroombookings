@@ -50,11 +50,11 @@ async def test_users_crud_and_password_reset(client):
     assert bad.status_code == 401
     await login(client, "fatih.demir@uni.edu.tr", "yeni-parola-99")
 
-    # update: role + deactivate; inactive users cannot log in
+    # update: role + deactivate; inactive users cannot log in (same answer as a wrong password, persona M-42)
     r = await client.put(f"/api/v1/users/{planner['id']}", json={"role": "VIEWER", "is_active": False}, headers=h)
     assert r.status_code == 200 and r.json()["role"] == "VIEWER" and r.json()["is_active"] is False
     r = await client.post("/api/v1/auth/login", json={"email": "fatih.demir@uni.edu.tr", "password": "yeni-parola-99"})
-    assert r.status_code == 403
+    assert (r.status_code, r.json()) == (bad.status_code, bad.json())
 
     # last-admin protection and no self-delete
     me = users[0]

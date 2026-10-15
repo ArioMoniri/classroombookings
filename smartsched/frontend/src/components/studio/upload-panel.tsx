@@ -16,6 +16,7 @@ import { MappingStep } from "./mapping-step";
 import { useStudio } from "./studio-context";
 import type { TrayItem } from "./studio-store";
 import { pairLang } from "@/lib/i18n";
+import { refusedAsDecisions, splitRefused } from "./refused";
 
 export const ACCEPT = [".xlsx", ".xlsm", ".csv", ".docx", ".pdf", ".txt", ".md"];
 export const MAX_FILES = 10;
@@ -49,7 +50,9 @@ export function rejectReason(file: File, t: (k: "studio.upload.badType" | "studi
 /** Turn an extraction (AI reader or column mapping) into review-tray items. */
 export function toTrayItems(res: Pick<Extraction, "proposals" | "section_edits" | "unparsed">, file: string, prefix: string): TrayItem[] {
   return [
-    ...res.proposals.filter((p) => p.status !== "rejected").map((proposal, i): TrayItem => ({ key: `${prefix}-r${i}`, origin: "upload", file, state: "pending", type: "rule", proposal })),
+    ...splitRefused(res.proposals).usable.map((proposal, i): TrayItem => ({ key: `${prefix}-r${i}`, origin: "upload", file, state: "pending", type: "rule", proposal })),
+    // refused by the AI source policy: listed for a planner decision with the reason
+    ...refusedAsDecisions(splitRefused(res.proposals).refused).map((unparsed, i): TrayItem => ({ key: `${prefix}-d${i}`, origin: "upload", file, state: "pending", type: "unparsed", unparsed })),
     ...res.section_edits.map((edit, i): TrayItem => ({ key: `${prefix}-e${i}`, origin: "upload", file, state: "pending", type: "edit", edit })),
     ...res.unparsed.map((unparsed, i): TrayItem => ({ key: `${prefix}-u${i}`, origin: "upload", file, state: "pending", type: "unparsed", unparsed })),
   ];

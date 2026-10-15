@@ -12,6 +12,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useStudio, useStudioStore } from "./studio-context";
 import { pairLang } from "@/lib/i18n";
+import { refusedAsDecisions, splitRefused } from "./refused";
 
 const CHIPS: MessageKey[] = ["studio.write.chip.tip", "studio.write.chip.evening", "studio.write.chip.sameRoom", "studio.write.chip.fit", "studio.write.chip.pharmacy", "studio.write.chip.nursing", "studio.write.chip.a204", "studio.write.chip.examGap"];
 
@@ -53,9 +54,11 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
     try {
       const res = await api.studio.elicit(termId, text, pairLang(locale));
       const stamp = Date.now();
-      store.getState().addTray(res.proposals.filter((p) => p.status !== "rejected").map((proposal, i) => ({ key: `nl-${stamp}-${i}`, origin: "nl" as const, state: "pending" as const, type: "rule" as const, proposal })));
+      const { usable, refused } = splitRefused(res.proposals);
+      store.getState().addTray(usable.map((proposal, i) => ({ key: `nl-${stamp}-${i}`, origin: "nl" as const, state: "pending" as const, type: "rule" as const, proposal })));
       store.getState().addTray(res.section_edits.map((edit, i) => ({ key: `nle-${stamp}-${i}`, origin: "nl" as const, state: "pending" as const, type: "edit" as const, edit })));
-      setUnparsed(res.unparsed);
+      // refused by the AI source policy: the planner decides, with the reason (never dropped silently)
+      setUnparsed([...refusedAsDecisions(refused), ...res.unparsed]);
       if (!res.proposals.length && !res.section_edits.length && !res.unparsed.length) setError(t("studio.write.nothing"));
     } catch (e) {
       if (e instanceof HttpError && e.status === 409) setKeyRejected(true);
@@ -119,7 +122,7 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
         <ul className="space-y-1.5" aria-label={t("studio.write.unparsedTitle")}>
           {unparsed.map((u, i) => (
             <li key={`${u.text}-${i}`} className="rounded-md border border-status-warning-border bg-status-warning px-2.5 py-1.5 text-xs text-status-warning-fg" data-testid="unparsed-note">
-              {t("studio.write.unparsed", { text: u.text, reason: u.reason })}{" "}
+              {u.decision ? t("studio.write.decision", { text: u.text, reason: u.reason }) : t("studio.write.unparsed", { text: u.text, reason: u.reason })}{" "}
               <span className="inline-flex flex-wrap gap-2">
                 {/hafta|week/i.test(`${u.text} ${u.reason}`) ? (
                   <button type="button" className="font-medium underline underline-offset-2" onClick={() => goStep("classes")}>

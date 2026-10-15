@@ -120,9 +120,7 @@ async def test_a_planner_edit_the_file_also_changes_is_a_conflict_keep_or_take(c
             await s.execute(
                 select(MeetingRequest)
                 .options(selectinload(MeetingRequest.section))
-                .join(Section)
-                .join(Course)
-                .where(Course.code == "MAT112", Section.label == "1", MeetingRequest.day == 4)
+                .where(MeetingRequest.source_row_index == 2, MeetingRequest.archived.is_(False))
             )
         ).scalar_one()
         mr_id, file_periods = mr.id, (mr.start_period, mr.end_period)

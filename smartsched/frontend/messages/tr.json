@@ -442,6 +442,7 @@
       "preset": "Hazır ayar kullan"
     },
     "write": {
+      "decision": "Planlamacı kararı gerekiyor: “{text}” — {reason}",
       "label": "Kendi cümlenizle yazın",
       "placeholder": "ör. TIP derslikleri sadece Tıp Fakültesi için olsun. Eczacılık pazartesi C blokta kalsın. Hemşirelik 1. sınıf 17:30'dan sonra ders almasın.",
       "analyse": "Kurala çevir",
@@ -536,6 +537,7 @@
       "read": "Satırları oku"
     },
     "review": {
+      "decisionNeeded": "Planlamacı kararı gerekiyor",
       "title": "Dosyalarınızda bulduklarımızı inceleyin",
       "summary": "{files, plural, other {# dosyadan}} {n, plural, other {# madde}} bulduk: {ready} hazır, {look} bakılmalı, {unread} okunamadı.",
       "tab": {

@@ -169,6 +169,9 @@ def _zip_facts(data: bytes) -> tuple[str, frozenset[str], str]:
     return "zip", names, ""
 
 
+_CONTROL = re.compile(rb"[\x00-\x08\x0b\x0e-\x19\x1b-\x1f]")
+
+
 def _is_image(head: bytes) -> bool:
     return (
         head[:8] == b"\x89PNG\r\n\x1a\n"
@@ -197,7 +200,8 @@ def probe(filename: str, data: bytes) -> Probe:
     if _is_image(head):
         return Probe(family="image", **base)  # type: ignore[arg-type]
     bom = head[:3] == b"\xef\xbb\xbf" or head[:2] in (b"\xff\xfe", b"\xfe\xff")
-    if not bom and b"\x00" in head[:4096]:
+    # text never holds C0 control bytes other than tab / newlines / form feed (a cut OLE2 header, an .exe)
+    if not bom and _CONTROL.search(head[:4096]):
         return Probe(family="binary", **base)  # type: ignore[arg-type]
     try:
         text, _ = decode_text(head)

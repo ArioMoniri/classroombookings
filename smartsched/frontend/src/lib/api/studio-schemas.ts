@@ -331,7 +331,7 @@ export const ProposedSectionEdit = z.object({
 });
 export type ProposedSectionEdit = z.infer<typeof ProposedSectionEdit>;
 
-export const Unparsed = z.object({ text: z.string().default(""), reason: z.string().default(""), source_ref: SourceRef.nullable().optional() });
+export const Unparsed = z.object({ text: z.string().default(""), reason: z.string().default(""), source_ref: SourceRef.nullable().optional(), /** a proposal the AI source policy refused (untargeted, soft structural ...): the planner decides */ decision: z.boolean().optional() });
 export type Unparsed = z.infer<typeof Unparsed>;
 
 /** `POST /terms/{id}/preferences/upload` (IngestOut) and NL elicit (ElicitOut), studio view. */

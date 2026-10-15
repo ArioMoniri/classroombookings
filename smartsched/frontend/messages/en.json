@@ -443,6 +443,7 @@
       "preset": "Use a preset"
     },
     "write": {
+      "decision": "Planner decision needed: “{text}” — {reason}",
       "label": "Write it in your own words",
       "placeholder": "e.g. TIP rooms only for the Faculty of Medicine. Keep Pharmacy in C block on Mondays. No first-year Nursing classes after 17:30.",
       "analyse": "Turn into rules",
@@ -537,6 +538,7 @@
       "read": "Read the rows"
     },
     "review": {
+      "decisionNeeded": "Planner decision needed",
       "title": "Review what we found in your files",
       "summary": "From {files, plural, one {# file} other {# files}} we found {n, plural, one {# item} other {# items}}: {ready} ready, {look, plural, one {# needs} other {# need}} a look, {unread} couldn't be read.",
       "tab": {

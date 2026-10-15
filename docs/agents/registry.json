@@ -891,6 +891,26 @@
       "status": "finished",
       "finished_at": "2026-10-15 20:17",
       "left_off": "deploy to pod when green"
+    },
+    {
+      "id": "aab562ba8db96b350",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 20:34",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a92ff39985c9bfe99",
+      "description": "Recordly GIFs + real screenshots for README",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-15 20:41",
+      "scope": "scripts/record/** (journeys, lib, screens.mjs, record-all.sh, publish.sh, check_readme.py), docs/images/recordings/**, docs/images/screens/**, docs/media/**, docs/recording/RECORDLY.md, and the media sections of README.md only (the hero recordings block, the \"Screenshots\" section, the \"Recordings and screenshots\" dev section). No product source code edits. GOAL: the user asked: \"include Recordly G…",
+      "goal": "the user asked: \"include Recordly GIFs and real screenshots in the README\". Today the README embeds 5 recordings from 2026-10-08 as animated WebP + MP4 links. They show the old UI and miss most features built since. Produce up-to-date, real-backend GIF recordings plus a full set of real screenshots, and embed them.",
+      "ledger": "readme-media-2026-10-15 SCOPE: scripts/record/** (journeys, lib, screens.mjs, re…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

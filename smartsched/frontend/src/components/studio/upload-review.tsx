@@ -194,6 +194,7 @@ export function UploadReview({
                     {it.type === "rule" ? (
                       <span className={cn("mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium", it.proposal.hardness === "hard" ? "bg-foreground text-background" : "border border-border-strong")}>{it.proposal.hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
                     ) : null}
+                    {it.type === "unparsed" && it.unparsed.decision ? <span className="mt-1 inline-block rounded-full bg-status-warning px-2 py-0.5 text-[11px] font-medium text-status-warning-fg" data-testid="decision-needed">{t("studio.review.decisionNeeded")}</span> : null}
                     {issues.filter(Boolean).length ? <span className="mt-1 block text-xs text-status-warning-fg">{issues.filter(Boolean).join("; ")}</span> : null}
                   </td>
                   <td className="hidden py-2 pr-2 text-xs lg:table-cell">
