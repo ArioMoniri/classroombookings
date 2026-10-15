@@ -31,7 +31,7 @@ function Disclosure({ title, count, hint, children, defaultOpen = false, testId 
   const { n } = useI18n();
   return (
     <section className="[&:not(:last-child)]:hairline-b" data-testid={testId}>
-      <button type="button" aria-expanded={open} aria-controls={`${id}-body`} onClick={() => setOpen((v) => !v)} className="flex w-full items-start gap-2 py-3 text-left outline-none focus-visible:outline-2 focus-visible:outline-(--focus)">
+      <button type="button" aria-expanded={open} aria-controls={`${id}-body`} onClick={() => setOpen((v) => !v)} className="flex w-full items-start gap-2 py-3 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
         <ChevronRight className={cn("mt-0.5 size-4 shrink-0 text-label-3 transition-transform duration-(--dur-fast)", open && "rotate-90")} aria-hidden />
         <span className="min-w-0 flex-1">
           <span className="text-[13.5px] font-semibold text-label-1">{title}</span> <span className="text-[13px] text-label-3 tabular-nums">{n(count)}</span>

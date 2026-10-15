@@ -761,7 +761,7 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
       aria-activedescendant={`${gridId}-${cursor.col}-${cursor.p}`}
       aria-describedby="cal-grid-help"
       tabIndex={0}
-      className="cal-canvas relative h-full min-h-0 overflow-auto overscroll-contain outline-none focus-visible:outline-none"
+      className="cal-canvas relative h-full min-h-0 overflow-auto overscroll-contain outline-hidden focus-visible:outline-hidden"
       style={{ touchAction: drag || create || lasso ? "none" : "pan-x pan-y" }}
       onPointerDown={onCanvasPointerDown}
       onPointerMove={onPointerMove}

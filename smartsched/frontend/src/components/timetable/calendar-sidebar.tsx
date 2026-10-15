@@ -167,7 +167,7 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
         onChange={(e) => set({ query: e.target.value })}
         placeholder={t("calendar.sidebar.search")}
         aria-label={t("calendar.sidebar.search")}
-        className="h-8 rounded-lg bg-fill-2 px-2.5 text-[13px] outline-none focus-visible:outline-2 focus-visible:outline-(--focus)"
+        className="h-8 rounded-lg bg-fill-2 px-2.5 text-[13px] outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
         data-testid="calendar-search"
       />
       <Section title={t("calendar.sidebar.buildings")} onReset={f.buildings.length ? () => set({ buildings: [] }) : undefined}>

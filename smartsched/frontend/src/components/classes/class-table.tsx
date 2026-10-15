@@ -523,7 +523,7 @@ function ClassTableImpl(p: ClassTableProps) {
       aria-multiselectable
       tabIndex={0}
       onKeyDown={onKey}
-      className="relative min-h-0 flex-1 overflow-auto outline-none focus-visible:outline-none"
+      className="relative min-h-0 flex-1 overflow-auto outline-hidden focus-visible:outline-hidden"
       data-testid="classes-table"
     >
       {header}

@@ -68,7 +68,7 @@ export function SoftBreakdown({ score, breakdown, weights, className }: { score:
         </figure>
       )}
       {rows.length ? (
-        <button type="button" aria-pressed={table} className="mt-1 rounded-full px-2 py-0.5 text-[12px] font-medium text-tint-text outline-none hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={() => setTable((v) => !v)}>
+        <button type="button" aria-pressed={table} className="mt-1 rounded-full px-2 py-0.5 text-[12px] font-medium text-tint-text outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" onClick={() => setTable((v) => !v)}>
           {table ? t("glass.report.asChart") : t("glass.dashboard.asTable")}
         </button>
       ) : null}

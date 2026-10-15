@@ -533,7 +533,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                     aria-rowindex={v.index + 1}
                     aria-selected={selected.has(r.id)}
                     onKeyDown={(e) => onRowKey(e, r, v.index)}
-                    className={cn("group/row outline-none focus-visible:bg-tint-soft", out && "opacity-60", selected.has(r.id) && "bg-tint-soft/60")}
+                    className={cn("group/row outline-hidden focus-visible:bg-tint-soft", out && "opacity-60", selected.has(r.id) && "bg-tint-soft/60")}
                     data-testid="class-row"
                     data-class-id={r.id}
                     data-included={!out}

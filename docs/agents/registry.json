@@ -489,8 +489,8 @@
       "ledger": "merge-universal-2026-10-15 SCOPE: your isolated git worktree only, on a local br…",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-15 17:06",
-      "left_off": "Waiting for the targeted backend run."
+      "finished_at": "2026-10-15 17:12",
+      "left_off": "Waiting for parity_check."
     },
     {
       "id": "a574d83abdbb1d109",
@@ -788,6 +788,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-15 17:04",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "aeb4bb9357df3d376",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 17:08",
       "left_off": "continue n deploy to pod when green"
     }
   ]

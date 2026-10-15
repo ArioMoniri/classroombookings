@@ -450,6 +450,37 @@ async def check_window(
         )
 
 
+#: role-level permission that lets a user cancel a booking after its period ended (``can_cancel``): the same users
+#: may record a period that already started (persona test U-04)
+PAST_BOOKING_PERM = "book_single.cancel_other_booking"
+
+
+def period_started(d: date, period: BookingPeriod, now: datetime) -> bool:
+    """True when ``period`` of ``d`` has begun at ``now`` (local wall time of the organisation)."""
+    return datetime.combine(d, period.time_start) <= now
+
+
+async def check_not_started(session: AsyncSession, access: Access, d: date, period: BookingPeriod) -> None:
+    """U-04: a single booking for a period that already started is refused, unless the user may cancel other people's
+    bookings at role level (administrators record past use and can cancel it again). Everyone else could not cancel
+    such a booking once the period ended, so it is not creatable."""
+    if access.can(PAST_BOOKING_PERM):
+        return
+    now = await now_local(session)
+    if not period_started(d, period, now):
+        return
+    start = datetime.combine(d, period.time_start)
+    raise _conflict(
+        "past",
+        f"{period.name} on {d:%d.%m.%Y} already started at {period.time_start:%H:%M}; it can no longer be booked",
+        period_start=start.isoformat(),
+        message_en=f"{period.name} on {d:%d.%m.%Y} already started at {period.time_start:%H:%M}; "
+        "it can no longer be booked",
+        message_tr=f"{d:%d.%m.%Y} {period.name} saat {period.time_start:%H:%M} itibarıyla başladı (geçmiş saat); "
+        "artık rezerve edilemez",
+    )
+
+
 async def remaining_bookings(session: AsyncSession, access: Access) -> int | None:
     limits = await effective_limits(session, access.user)
     limit = limits["max_active_bookings"]
@@ -642,6 +673,7 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
         await approvals.check_lead_time(session, need, info.term.id, body.date)
     user_id, dep_id = await _who_and_department(session, access, room, "book_single", body)
     await check_window(session, access, info, body.date, room)
+    await check_not_started(session, access, body.date, period)
     # CRBS checks the limit in the grid (Slot) and in multi-booking, not in SingleAgent (deliberate
     # difference a); bookings.enforce_max_active_on_create refuses the POST too
     enforce = bool(await get_value(session, "bookings", "enforce_max_active_on_create"))
@@ -1207,6 +1239,8 @@ async def update(
             if new_date < t:
                 raise _conflict("range_min", f"a booking cannot be moved into the past ({new_date:%d.%m.%Y})")
             await check_window(session, access, info, new_date, new_room)
+        if "date" in data or "period_id" in data:
+            await check_not_started(session, access, new_date, period)
         held = await find_conflict(
             session, new_room.id, new_date, period.start_period, period.end_period, exclude={b.id}
         )
@@ -1646,13 +1680,16 @@ async def grid(
     lo, hi = limits["range_min"], limits["range_max"]
     min_date = t + timedelta(days=lo or 0)
     max_date = t + timedelta(days=hi) if hi is not None else info.end
+    now = await now_local(session)
+    may_book_past = access.can(PAST_BOOKING_PERM)
     booking_cache: dict[int, Booking] = {}
     slots = []
     for day in dates:
         di = dinfos[day]
         for p in periods:
             for r in rooms:
-                slot: dict[str, Any] = {"date": day.isoformat(), "period_id": p.id, "room_id": r.id}
+                past = period_started(day, p, now)
+                slot: dict[str, Any] = {"date": day.isoformat(), "period_id": p.id, "room_id": r.id, "past": past}
                 status, reason, label = "available", None, None
                 held_b = next((h for h in bocc.get((r.id, day), []) if h.overlaps(p.start_period, p.end_period)), None)
                 held_t = next((h for h in tocc.get((r.id, day), []) if h.overlaps(p.start_period, p.end_period)), None)
@@ -1684,6 +1721,8 @@ async def grid(
                         status, reason = "unavailable", "range_min"
                     elif single and not recur and day > max_date:
                         status, reason = "unavailable", "range_max"
+                    elif past and not may_book_past:
+                        status, reason = "unavailable", "past"  # U-04: the period already started
                 slot.update(status=status, reason=reason, label=label)
                 slots.append(slot)
     prev_d, next_d = await _prev_next(session, info, target, display, period_days)

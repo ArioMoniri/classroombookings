@@ -79,18 +79,70 @@ def tools(*calls: tuple[str, dict[str, Any]]) -> Message:
     )
 
 
+class BadJSON:
+    """Script marker: the stream's tolerant JSON parser gives up mid tool input (``ValueError`` from iteration)."""
+
+
+@dataclass
+class _Event:
+    type: str
+    text: str = ""
+    partial_json: str = ""
+    content_block: Any = None
+
+
+class _FakeStream:
+    """``async with client.messages.stream(...) as stream`` stand-in: text / input_json events, final message."""
+
+    def __init__(self, nxt: Any) -> None:
+        self.nxt = nxt
+
+    async def __aenter__(self) -> _FakeStream:
+        if isinstance(self.nxt, Exception):
+            raise self.nxt
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+    def __aiter__(self) -> Any:
+        return self._events()
+
+    async def _events(self) -> Any:
+        import json as _json
+
+        if isinstance(self.nxt, BadJSON):
+            yield _Event("content_block_start", content_block=Block("tool_use", name="move_event", id="toolu_bad"))
+            raise ValueError("Unable to parse tool parameter JSON from model")
+        for b in self.nxt.content:
+            yield _Event("content_block_start", content_block=b)
+            if b.type == "text":
+                yield _Event("text", text=b.text)
+            else:
+                yield _Event("input_json", partial_json=_json.dumps(b.input))
+
+    async def get_final_message(self) -> Message:
+        return self.nxt
+
+
 class _Endpoint:
     def __init__(self, owner: FakeSDK, beta: bool) -> None:
         self.owner, self.beta = owner, beta
 
-    async def create(self, **kwargs: Any) -> Message:
-        self.owner.calls.append({"beta": self.beta, **copy.deepcopy(kwargs)})  # snapshot: callers mutate lists
+    def _next(self, kwargs: dict[str, Any], *, stream: bool) -> Any:
+        self.owner.calls.append({"beta": self.beta, "stream": stream, **copy.deepcopy(kwargs)})  # snapshot
         if not self.owner.script:
             raise AssertionError("fake SDK: no scripted response left")
-        nxt = self.owner.script.pop(0)
+        return self.owner.script.pop(0)
+
+    async def create(self, **kwargs: Any) -> Message:
+        nxt = self._next(kwargs, stream=False)
         if isinstance(nxt, Exception):
             raise nxt
         return nxt
+
+    def stream(self, **kwargs: Any) -> _FakeStream:
+        return _FakeStream(self._next(kwargs, stream=True))
 
 
 class _NS:

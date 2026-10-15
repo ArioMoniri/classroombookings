@@ -219,7 +219,7 @@ function DayTimelineImpl(p: DayTimelineProps) {
       aria-label={p.label}
       aria-rowcount={p.rooms.length + 1}
       tabIndex={0}
-      className="cal-canvas relative h-full overflow-auto outline-none"
+      className="cal-canvas relative h-full overflow-auto outline-hidden"
       onPointerDown={(e) => onDown(e, null)}
       onPointerMove={onMove}
       onPointerUp={onUp}

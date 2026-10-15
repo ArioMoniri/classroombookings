@@ -66,7 +66,7 @@ export function IssueCard({ item, onFixed }: { item: PrecheckItem; onFixed?: () 
   const Icon = item.severity === "error" ? OctagonX : item.severity === "warning" ? AlertTriangle : Info;
   const tone = item.severity === "error" ? "text-status-infeasible-fg" : item.severity === "warning" ? "text-status-warning-fg" : "text-label-2";
   return (
-    <article tabIndex={-1} data-issue-id={item.id} aria-labelledby={`issue-${item.id}`} className="rounded-[var(--radius-md)] border bg-card p-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50" data-testid="issue-card" data-severity={item.severity}>
+    <article tabIndex={-1} data-issue-id={item.id} aria-labelledby={`issue-${item.id}`} className="rounded-[var(--radius-md)] border bg-card p-3 text-sm outline-hidden focus-visible:ring-3 focus-visible:ring-ring/50" data-testid="issue-card" data-severity={item.severity}>
       <h4 id={`issue-${item.id}`} className={cn("flex items-start gap-1.5 font-medium", tone)}>
         <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
         <span className="text-foreground">{item.title[pairLang(locale)] || item.title.en}</span>
@@ -137,7 +137,7 @@ export function CheckStep() {
     <div className="space-y-4" data-testid="check-step">
       <div className="grid gap-4 rounded-xl border bg-card p-4 md:grid-cols-[1fr_auto]">
         <div>
-          <h3 ref={heading} tabIndex={-1} className="sr-only outline-none">
+          <h3 ref={heading} tabIndex={-1} className="sr-only outline-hidden">
             {t("studio.step.check")}
           </h3>
           <ReadinessMeter readiness={summary.readiness} />
