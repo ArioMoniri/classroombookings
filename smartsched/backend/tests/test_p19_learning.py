@@ -202,7 +202,8 @@ async def _next_bahar(codes: list[str]) -> tuple[int, dict[str, list[int]]]:
                     )
                     s.add(copy)
                     await s.flush()
-                    out.setdefault(code, []).append(copy.id)
+                    if copy.needs_room:  # online / UZEM rows are copied but never targeted
+                        out.setdefault(code, []).append(copy.id)
         await s.commit()
         return term.id, out
 

@@ -607,8 +607,8 @@
       "ledger": "backend-backlog-2026-10-15 SCOPE: smartsched/backend/app/api/v1/** and app/servi…",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-15 20:44",
-      "left_off": "Waiting for the background runs to report back."
+      "finished_at": "2026-10-15 20:56",
+      "left_off": "Waiting for the full suite to finish."
     },
     {
       "id": "a284d15d95bf61925",
@@ -973,6 +973,14 @@
       "ledger": "brand-logo-2026-10-15 SCOPE: you may write: - docs/images/brand/** (logo SVGs an…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a230d562e80568c81",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 20:55",
+      "left_off": "yes thats right, deploy when green"
     }
   ]
 }

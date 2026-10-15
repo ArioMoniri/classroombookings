@@ -261,7 +261,8 @@ async def as_baseline_run(
     run.params = {**(run.params or {}), "source": SOURCE, "sources": sources}
     run.stats = {**(run.stats or {}), "baseline": dict(counts)}
     await session.flush()
-    return {"run_id": run.id, "run_created": created, **dict(counts)}
+    zero = dict.fromkeys(("created", "updated", "unchanged", "linked", "unlinked"), 0)
+    return {"run_id": run.id, "run_created": created, **zero, **dict(counts)}
 
 
 __all__ = ["LABEL", "SOURCE", "as_baseline_run", "natural_key"]
