@@ -700,7 +700,8 @@
       "goal": "act as a senior academician who teaches 3 courses in the Bahar 2026 term and has strong room and time wishes. Test every SmartSched screen, button and motion an academician uses or would need, and report bugs and enhancements precisely enough that an engineer can fix them without asking you anything. Read docs/testing/2026-10-15-academician-needs.md first; it is the needs analysis from this person…",
       "ledger": "persona-academician-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 17:13"
     },
     {
       "id": "a79b83fc2b496a84f",
@@ -796,6 +797,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-15 17:08",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "afb424590cc9fddd2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 17:13",
       "left_off": "continue n deploy to pod when green"
     }
   ]

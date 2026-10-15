@@ -531,3 +531,24 @@ Docs-refresh hand-off (2026-10-15):
   - no screen-reader announcement during drag
   Wave-1 agent and the shell/bookings sweep.
 - [ ] Re-test: the user persona on a new snapshot after the fixes. Frame numbers must be re-measured on a quiet machine; the run was at load 23–31.
+
+### Persona test: academician (docs/testing/2026-10-15-persona-academician.md: 0 blocker / 17 major / 15 minor), routed 2026-10-15
+- [ ] A-24 (safety): the booking grid shows every room free when the week has no published timetable. Needs `timetable_state` in the payload (backend), a banner, and a confirm before booking (wave-1 agent).
+- [ ] A-01/A-03/A-23: teachers are routed into planner screens and hit 403 dead ends. Same fix as U-02/U-03, plus hiding "Çizelge" (wave-1 agent).
+- [ ] A-12: a multi-period submission becomes N items in my-bookings, the inbox and ICS. Group them by submission id; keep per-period approve/reject (backend + wave-1).
+- [ ] A-11: `/rooms/facets` returns []; find-room needs feature filters, and "PC" typed in search should match features (backend + wave-1).
+- [ ] A-14: room and department ICS feeds lack class meetings. Add the published run's classes, course code only (backend).
+- [ ] A-04: request notes never shown. Show them in the class inspector with an "okunmadı" chip (studio/calendar sweep); map them to features or an unparsed data issue (importer).
+- [ ] A-06..A-09: parser bugs, confirmed in the UI:
+  - negation; "veya"; alternative room groups
+  - NEW A-09: "büyük olmasına gerek yok" is read as an amphitheatre requirement
+  Importer agent.
+- [ ] A-21 = U-07 (focus after actions). A-32: the my-bookings row expand takes a 451 ms frame (wave-1 agent).
+- [ ] The 15 minors: see the report §3 (wave-1 / shell-bookings sweep).
+New Phase 19 tickets proposed by the persona (report §5):
+- [ ] P19-T1 "Derslerim / where is my class this week": the academician's own timetable (needs P19-L1 user↔instructor).
+- [ ] P19-T2 the academician's own planning requests, with outcomes and coordinator reasons, plus adding a preference (builds on M1/M2; Q12).
+- [ ] P19-T3 per-academician notices after publish (owner decision: in-app + e-mail digest).
+- [ ] P19-T4 classes in personal calendar feeds (after L1).
+- [ ] P19-T5 equipment/software/step-free attributes for rooms and requests (JASP/JAMOVI, projector, armrest chairs, ground-floor entrance), as typed features.
+- [ ] Extend P19-06 to all per-role 403 dead ends (A-01, A-03, A-23).

@@ -23,6 +23,19 @@ export class HttpError extends Error {
 type Listener = (error: HttpError) => void;
 const errorListeners = new Set<Listener>();
 
+type UnauthorizedListener = (path: string) => void;
+const unauthorizedListeners = new Set<UnauthorizedListener>();
+
+/**
+ * Every 401 (silent requests included): the session is gone (expired, revoked after a password change or a
+ * sign-out elsewhere). The app shell subscribes and sends the user to /login?next=… instead of rendering
+ * false empty states. Not for the sign-in call itself.
+ */
+export function onUnauthorized(listener: UnauthorizedListener): () => void {
+  unauthorizedListeners.add(listener);
+  return () => unauthorizedListeners.delete(listener);
+}
+
 /** UI layers (toaster, auth guard) subscribe here; keeps the client free of React. */
 export function onApiError(listener: Listener): () => void {
   errorListeners.add(listener);
@@ -95,6 +108,7 @@ export async function request<T = unknown>(path: string, opts: RequestOptions<T>
   }
   if (!res.ok) {
     const err = await parseError(res);
+    if (res.status === 401 && !/^\/?auth\/(login|change-password)\b/.test(path)) unauthorizedListeners.forEach((l) => l(path));
     if (!silent) errorListeners.forEach((l) => l(err));
     throw err;
   }

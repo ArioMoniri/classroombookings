@@ -15,6 +15,7 @@ Prompts and model outputs are only ever logged at DEBUG level and only as length
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -106,6 +107,15 @@ class AIRefusal(AIError):
 
 class AIUpstreamError(AIError):
     """The SDK raised an error (auth, rate limit, server error) that we do not retry further."""
+
+
+class AIStreamJSONError(AIError):
+    """A streamed tool input could not be parsed at all (eager input streaming): the turn has no ``tool_use_id``
+    to answer, so the caller re-issues it (bounded)."""
+
+
+EventSink = Callable[[dict[str, Any]], Awaitable[None]]
+EAGER_FIELD = "eager_input_streaming"
 
 
 def estimate_cost_usd(
@@ -209,8 +219,76 @@ class AIClient:
         model: str | None = None,
     ) -> Any:
         """One ``POST /v1/messages``. Returns the SDK ``Message``; raises :class:`AIRefusal` on refusal."""
-        import anthropic
+        kwargs = self._kwargs(
+            system=system,
+            messages=messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            output_format=output_format,
+            effort=effort,
+            disable_parallel_tool_use=disable_parallel_tool_use,
+            model=model,
+        )
+        try:
+            message = await self._send(kwargs)
+        except Exception as exc:
+            mapped = self._translate(exc, kwargs["model"])
+            if mapped is exc:  # not an SDK error: unchanged
+                raise
+            raise mapped from exc
+        return self._finish(message)
 
+    async def stream_complete(
+        self,
+        *,
+        system: str | list[dict[str, Any]],
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 8000,
+        effort: str | None = None,
+        disable_parallel_tool_use: bool = False,
+        model: str | None = None,
+        on_event: EventSink | None = None,
+    ) -> Any:
+        """Like :meth:`complete`, streamed: ``on_event`` gets ``{"type": "text", "text"}`` deltas and
+        ``{"type": "tool_start", "name"}``. Every tool carries ``eager_input_streaming: true``, so the server no
+        longer validates tool input: the caller must validate each parsed input before running it, and an input
+        the SDK cannot parse at all raises :class:`AIStreamJSONError` (re-issue the turn)."""
+        kwargs = self._kwargs(
+            system=system,
+            messages=messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            output_format=None,
+            effort=effort,
+            disable_parallel_tool_use=disable_parallel_tool_use,
+            model=model,
+            eager=True,
+        )
+        try:
+            message = await self._stream(kwargs, on_event)
+        except ValueError as exc:  # the SDK's partial-JSON parser gave up on a tool input
+            raise AIStreamJSONError("a streamed tool input could not be parsed") from exc
+        except Exception as exc:
+            mapped = self._translate(exc, kwargs["model"])
+            if mapped is exc:
+                raise
+            raise mapped from exc
+        return self._finish(message)
+
+    def _kwargs(
+        self,
+        *,
+        system: str | list[dict[str, Any]],
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+        max_tokens: int,
+        output_format: dict[str, Any] | None,
+        effort: str | None,
+        disable_parallel_tool_use: bool,
+        model: str | None,
+        eager: bool = False,
+    ) -> dict[str, Any]:
         kwargs: dict[str, Any] = {
             "model": model or self.model,
             "max_tokens": max_tokens,
@@ -218,7 +296,7 @@ class AIClient:
             "messages": messages,
         }
         if tools:
-            kwargs["tools"] = tools
+            kwargs["tools"] = [{**t, EAGER_FIELD: True} for t in tools] if eager else tools
             kwargs["tool_choice"] = {"type": "auto", "disable_parallel_tool_use": disable_parallel_tool_use}
         output_config: dict[str, Any] = {}
         if output_format:
@@ -228,29 +306,39 @@ class AIClient:
         if output_config:
             kwargs["output_config"] = output_config
         log.debug(
-            "ai request model=%s system_chars=%d messages=%d tools=%d",
+            "ai request model=%s system_chars=%d messages=%d tools=%d stream=%s",
             kwargs["model"],
             len(str(system)),
             len(messages),
             len(tools or []),
+            eager,
         )
-        try:
-            message = await self._send(kwargs)
-        except anthropic.AuthenticationError as exc:
-            raise AIUpstreamError("Anthropic rejected the API key (authentication error)") from exc
-        except anthropic.PermissionDeniedError as exc:
-            raise AIUpstreamError("the API key lacks permission for this model") from exc
-        except anthropic.NotFoundError as exc:
-            raise AIUpstreamError(f"model {kwargs['model']!r} not found") from exc
-        except anthropic.RateLimitError as exc:
-            raise AIUpstreamError("rate limited by Anthropic; retry later") from exc
-        except anthropic.BadRequestError as exc:  # the upstream text may echo input: log it, return a generic one
+        return kwargs
+
+    @staticmethod
+    def _translate(exc: Exception, model: str) -> Exception:
+        """Typed SDK errors -> our short texts, most specific first (the upstream body may echo input and is
+        only logged, redacted). Anything else is returned unchanged (re-raised by the caller)."""
+        import anthropic
+
+        if isinstance(exc, anthropic.AuthenticationError):
+            return AIUpstreamError("Anthropic rejected the API key (authentication error)")
+        if isinstance(exc, anthropic.PermissionDeniedError):
+            return AIUpstreamError("the API key lacks permission for this model")
+        if isinstance(exc, anthropic.NotFoundError):
+            return AIUpstreamError(f"model {model!r} not found")
+        if isinstance(exc, anthropic.RateLimitError):
+            return AIUpstreamError("rate limited by Anthropic; retry later")
+        if isinstance(exc, anthropic.BadRequestError):
             log.warning("ai bad request: %s", redact_keys(str(exc.message)[:500]))
-            raise AIUpstreamError("the AI service rejected the request (bad request)") from exc
-        except anthropic.APIStatusError as exc:
-            raise AIUpstreamError(f"Anthropic API error {exc.status_code}") from exc
-        except anthropic.APIConnectionError as exc:
-            raise AIUpstreamError("could not reach the Anthropic API") from exc
+            return AIUpstreamError("the AI service rejected the request (bad request)")
+        if isinstance(exc, anthropic.APIStatusError):
+            return AIUpstreamError(f"Anthropic API error {exc.status_code}")
+        if isinstance(exc, anthropic.APIConnectionError):
+            return AIUpstreamError("could not reach the Anthropic API")
+        return exc
+
+    def _finish(self, message: Any) -> Any:
         self.usage.add(message)
         if getattr(message, "stop_reason", None) == "refusal":
             details = getattr(message, "stop_details", None)
@@ -272,6 +360,48 @@ class AIClient:
                 log.debug("server-side fallbacks rejected by the API; retrying without")
                 self.use_fallbacks = False
         return await self._raw.messages.create(**kwargs)
+
+    async def _stream(self, kwargs: dict[str, Any], on_event: EventSink | None) -> Any:
+        """Streamed request (refusal fallbacks as in :meth:`_send`). A deployment that rejects
+        ``eager_input_streaming`` (a proxy, an older serving stack) is retried once without it."""
+        import anthropic
+
+        for attempt in range(2):
+            try:
+                if self.use_fallbacks:
+                    try:
+                        return await self._consume(
+                            self._raw.beta.messages.stream(betas=[FALLBACK_BETA], fallbacks="default", **kwargs),
+                            on_event,
+                        )
+                    except anthropic.BadRequestError as exc:
+                        if "fallback" not in exc.message.lower() and "beta" not in exc.message.lower():
+                            raise
+                        log.debug("server-side fallbacks rejected by the API; retrying without")
+                        self.use_fallbacks = False
+                return await self._consume(self._raw.messages.stream(**kwargs), on_event)
+            except anthropic.BadRequestError as exc:
+                if attempt or EAGER_FIELD not in exc.message or not kwargs.get("tools"):
+                    raise
+                log.info("eager_input_streaming rejected by the API; streaming without it")
+                kwargs = {
+                    **kwargs,
+                    "tools": [{k: v for k, v in t.items() if k != EAGER_FIELD} for t in kwargs["tools"]],
+                }
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    @staticmethod
+    async def _consume(manager: Any, on_event: EventSink | None) -> Any:
+        async with manager as stream:
+            async for event in stream:
+                if on_event is None:
+                    continue
+                kind = getattr(event, "type", None)
+                if kind == "text":
+                    await on_event({"type": "text", "text": event.text})
+                elif kind == "content_block_start" and getattr(event.content_block, "type", None) == "tool_use":
+                    await on_event({"type": "tool_start", "name": event.content_block.name})
+            return await stream.get_final_message()
 
 
 async def resolve_key_and_model(
