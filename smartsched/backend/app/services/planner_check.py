@@ -150,6 +150,8 @@ class CheckData:
     lock_mode: bool = True  # definitive_rooms == "lock"
     trust: bool = True  # trust_locked_rooms (D1)
     fixed_waiver: bool = True  # fixed_conflicts_as_warnings (D2)
+    #: the run's relaxation policy (``stats.relaxation_policy.policy``; runs before 2026-10-15: lock_first)
+    policy: str = "lock_first"
 
 
 @dataclass
@@ -325,6 +327,12 @@ def check(data: CheckData) -> PlannerCheck:
         if dcode == "input_conflict":
             pair_diags.append(set(ids))
     named["manual"] |= set(data.carried)
+    #: solver event id -> the relaxation policy's loss reason of its ``unplaced`` diagnosis
+    loss_by_head: dict[int, dict[str, Any]] = {}
+    for d in data.diagnoses:
+        pol = (d.get("params") or {}).get("policy")
+        if d.get("code") == "unplaced" and isinstance(pol, dict) and d.get("event_ids"):
+            loss_by_head[int(d["event_ids"][0])] = pol
 
     findings: list[Finding] = []
 
@@ -633,6 +641,17 @@ def check(data: CheckData) -> PlannerCheck:
             continue
         what = "not placed" if not covered else f"not placed in week(s) {sorted(missing)}"
         add("unplaced", [rid], f"{r.label}: {what}", "D3", rid in errors)
+        if data.policy == "lock_first" and r.locked and not covered:
+            # lock_first: a locked row gives way only to another locked row (a lock clash) or to nothing at all;
+            # losing it to unlocked classes is a policy breach, whatever the count (user decision 2026-10-15)
+            pol = loss_by_head.get(head(rid)) or {}
+            winners = [int(w) for w in pol.get("winners") or []]
+            if winners and not any(reqs[m].locked for w in winners for m in group(w) if m in reqs):
+                add(
+                    "policy_lock_dropped",
+                    [rid],
+                    f"{r.label}: locked row left out for unlocked classes under lock_first ({pol.get('reason')})",
+                )
 
     return PlannerCheck(data.run_id, findings, len(reqs), placed, len(rows))
 
@@ -835,6 +854,7 @@ async def load(session: AsyncSession, run: ScheduleRun, assignments: list[Assign
         lock_mode=run_mode(params, "definitive_rooms") == "lock",
         trust=bool(run_mode(params, "trust_locked_rooms")),
         fixed_waiver=bool(run_mode(params, "fixed_conflicts_as_warnings")),
+        policy=str((stats.get("relaxation_policy") or {}).get("policy") or "lock_first"),
     )
 
 

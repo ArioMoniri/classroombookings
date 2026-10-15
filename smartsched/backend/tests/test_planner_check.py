@@ -207,3 +207,23 @@ def test_shared_exam_rooms_use_one_seat_flow() -> None:
     assert flow.violations == []
     flow_over = check(_data([ex(1, 80), ex(2, 30)], [row(1, (1, 2)), row(2, (2,))], exam=True, rooms=rooms))
     assert [f.rule for f in flow_over.violations] == ["capacity"]
+
+
+def test_lock_first_policy_breach_is_a_violation() -> None:
+    """Relaxation policy lock_first (2026-10-15): a LOCKED row left out for unlocked classes is a planner-level
+    violation even when reported; losing a lock clash to another locked row is the accepted D3; under
+    most_classes_first the same result is allowed."""
+    lock = _req(1, locked=True, definitive=frozenset({1}))
+    free = _req(2)
+    rows = [_row(1, 2, (1,))]
+
+    def unplaced(winner: int, reason: str) -> dict[str, Any]:
+        return {**_diag("unplaced", [1], "error"), "params": {"policy": {"reason": reason, "winners": [winner]}}}
+
+    res = check(_data([lock, free], rows, [unplaced(2, "most_classes")]))
+    assert [f.rule for f in res.violations] == ["policy_lock_dropped"]
+    ok = check(_data([lock, free], rows, [unplaced(2, "most_classes")], policy="most_classes_first"))
+    assert ok.violations == [] and ok.exceptions_by_cause() == {"D3": 1}
+    other = _req(2, locked=True, definitive=frozenset({1}))
+    clash = check(_data([lock, other], rows, [unplaced(2, "lock_clash_tie")]))
+    assert clash.violations == [] and clash.exceptions_by_cause() == {"D3": 1}
