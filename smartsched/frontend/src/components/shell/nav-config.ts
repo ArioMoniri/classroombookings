@@ -1,4 +1,5 @@
 import { CalendarDays, FileUp, Inbox, LayoutDashboard, ListChecks, type LucideIcon, PlayCircle, Settings, Sparkles, Users, Warehouse } from "lucide-react";
+import { ClipboardCheck, FolderPlus } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
 import type { MessageKey } from "@/lib/i18n";
 
@@ -28,6 +29,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/import", labelKey: "nav.import", icon: FileUp, key: "i", permission: "planning.edit" },
       { href: "/requests", labelKey: "nav.requests", icon: Inbox, key: "r", badge: "needsReview", permission: "planning.view" },
       { href: "/generate", labelKey: "nav.generate", icon: PlayCircle, key: "g", permission: "planning.edit" },
+      // Phase 19 F1-F4 (p19-frontend): the moderation console and the program-from-scratch wizard
+      { href: "/moderation", labelKey: "moderation.title", icon: ClipboardCheck, permission: "planning.view" },
+      { href: "/programs/new", labelKey: "programWizard.nav", icon: FolderPlus, permission: "planning.edit" },
     ],
   },
   {

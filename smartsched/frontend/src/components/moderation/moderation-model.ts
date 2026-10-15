@@ -133,10 +133,10 @@ function chipAllows(chip: MatchChip, v: Verdict): boolean {
 
 /** Turkish-aware search over course, name, section, program and people (İ/ı casefold) */
 export function matchesQuery(m: Matching, q: string): boolean {
-  const needle = fold(q.trim());
-  if (!needle) return true;
+  const words = q.trim().split(/\s+/).map(fold).filter(Boolean);
+  if (!words.length) return true;
   const hay = fold([m.label, m.course_code, m.course_name, m.program, m.faculty, ...m.instructors.map((i) => i.name), ...(m.assigned?.rooms ?? []), ...m.requested.rooms].filter(Boolean).join(" "));
-  return needle.split(/\s+/).every((w) => hay.includes(w));
+  return words.every((w) => hay.includes(w));
 }
 
 export function filterMatchings(items: readonly Matching[], chip: MatchChip, q: string): Matching[] {
