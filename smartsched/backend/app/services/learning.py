@@ -202,27 +202,30 @@ def _proposal(attribute: str, value: str, tagged: Mapping[str, list[int]]) -> di
 def _value_text(attribute: str, value: str, rooms: Mapping[int, Room]) -> dict[str, str]:
     if attribute == "room" and value.isdigit() and int(value) in rooms:
         name = rooms[int(value)].display_name
-        return {"tr": name, "en": name, "tr_loc": locative(name)}
+        return {"tr": name, "en": name, "tr_loc": locative(name), "en_loc": f"in {name}"}
     if attribute == "building":
-        return {"tr": f"{value} Blok", "en": f"{value} block", "tr_loc": locative(f"{value} Blok")}
+        return {"tr": f"{value} Blok", "en": f"{value} block", "tr_loc": locative(f"{value} Blok"), "en_loc": f"in {value} block"}
     if attribute == "period":
         band, hours = _BAND_TR.get(value, value), _BAND_TIME.get(value, "")
         return {
             "tr": f"{band} saatleri ({hours})",
             "en": f"the {value} ({hours})",
             "tr_loc": f"{band} saatlerinde ({hours})",
+            "en_loc": f"in the {value} ({hours})",
         }
     if attribute == "tag":
         return {"tr": f"{value} özellikli derslik", "en": f"a {value} room", "tr_loc": f"{value} özellikli derslikte"}
     if attribute == "day" and value.isdigit():
         d = int(value)
-        return {"tr": _DAYS_TR.get(d, value), "en": _DAYS_EN.get(d, value), "tr_loc": f"{_DAYS_TR.get(d, value)} günü"}
+        tr_day, en_day = _DAYS_TR.get(d, value), _DAYS_EN.get(d, value)
+        return {"tr": tr_day, "en": en_day, "tr_loc": f"{tr_day} günü", "en_loc": f"on {en_day}"}
     if attribute == "day_period" and ":" in value:
         day_s, b = value.split(":", 1)
         day_i = int(day_s) if day_s.isdigit() else 0
         tr = f"{_DAYS_TR.get(day_i, day_s)} {_BAND_TR.get(b, b)}"
-        return {"tr": tr, "en": f"{_DAYS_EN.get(day_i, day_s)} {b}", "tr_loc": tr}
-    return {"tr": value, "en": value, "tr_loc": value}
+        en = f"{_DAYS_EN.get(day_i, day_s)} {b}"
+        return {"tr": tr, "en": en, "tr_loc": tr, "en_loc": f"on {en}"}
+    return {"tr": value, "en": value, "tr_loc": value, "en_loc": f"in {value}"}
 
 
 def explanation(
@@ -234,7 +237,7 @@ def explanation(
     k = len(seen)
     breakdown = ", ".join(f"{t['code']}: {t['pos']}/{t['total']}" for t in terms)
     if attribute == "period":
-        where_tr, where_en = vt["tr_loc"], vt["en"]
+        where_tr, where_en = vt["tr_loc"], vt.get("en_loc", vt["en"])
         tr = (
             f"{{subject}} {k} dönemdir {where_tr} ders veriyor: {support}/{total} ders ({breakdown})."
             if k >= 2
@@ -248,7 +251,7 @@ def explanation(
             else f"{{subject}}: tek dönemde {support}/{total} talepte {where_tr} istendi ({breakdown})."
         )
     else:
-        where_tr, where_en = vt["tr_loc"], vt["en"]
+        where_tr, where_en = vt["tr_loc"], vt.get("en_loc", vt["en"])
         tr = (
             f"{{subject}} {k} dönemdir {where_tr}: {support}/{total} kayıt ({breakdown})."
             if k >= 2
@@ -262,9 +265,9 @@ def explanation(
         )
     else:
         en = (
-            f"{{subject}} has been in {where_en} for {k} terms: {support} of {total} records ({breakdown})."
+            f"{{subject}} has been {where_en} for {k} terms: {support} of {total} records ({breakdown})."
             if k >= 2
-            else f"{{subject}}: {support} of {total} records in one term were in {where_en} ({breakdown})."
+            else f"{{subject}}: {support} of {total} records in one term were {where_en} ({breakdown})."
         )
     if cross:
         tr += " Farklı dönem verisi içerir."
