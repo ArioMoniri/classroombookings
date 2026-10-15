@@ -19,11 +19,18 @@ import { useRuleActions } from "./use-rule-actions";
 import { pairLang } from "@/lib/i18n";
 import { useReduce } from "@/lib/motion";
 import { focusSoon, successorOf } from "./focus-after";
+import { revealRule } from "./virtual-rule-list";
 
 /** Flash-outline another card ("Show both"). */
-export function flashCard(domId: string, reduce: boolean) {
+export function flashCard(domId: string, reduce: boolean, retry = true) {
   const el = document.getElementById(domId);
-  if (!el) return;
+  if (!el) {
+    // a virtualised list (> 40 cards) may not render it: scroll its index into view, then flash it
+    if (!retry) return;
+    revealRule(domId);
+    requestAnimationFrame(() => requestAnimationFrame(() => flashCard(domId, reduce, false)));
+    return;
+  }
   el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
   el.classList.add("studio-flash");
   window.setTimeout(() => el.classList.remove("studio-flash"), 1600);

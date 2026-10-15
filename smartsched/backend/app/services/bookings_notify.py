@@ -3,17 +3,20 @@
 Every notification becomes a ``notification_outbox`` row. Only when SMTP is configured (host + from
 address) is the message handed to the SMTP server; the row becomes ``SENT`` only after the server accepted
 it, ``FAILED`` with the error otherwise. Without SMTP the row stays ``UNSENT`` ("SMTP is not configured"):
-nothing pretends to have sent anything."""
+nothing pretends to have sent anything. Since 2026-10-15 notifications are ``PENDING`` until the integrations
+worker sends them after the commit (retries with backoff); see :func:`notify`."""
 
 from __future__ import annotations
 
 import asyncio
 import smtplib
 import ssl
+from datetime import datetime
 from email.message import EmailMessage
 from email.utils import formataddr
 from typing import Any
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Booking, BookingPeriod, NotificationOutbox, User
@@ -24,6 +27,7 @@ from app.services import bookings_i18n
 from app.services.bookings_settings import get_group, get_value
 
 NOT_CONFIGURED = "SMTP is not configured"
+QUEUED = "PENDING"  # the integrations worker's queue status (app.models.integrations.PENDING)
 T = bookings_i18n.text  # e-mail texts: admin overrides (translations, set "email") over the shipped ones
 
 
@@ -82,15 +86,66 @@ async def notify(
     body: str,
     user_id: int | None = None,
     booking_id: int | None = None,
+    deliver_now: bool = False,
 ) -> NotificationOutbox:
+    """Record an e-mail in the outbox. Without an address or SMTP it is ``UNSENT`` at once. ``deliver_now`` (password
+    reset codes, the SMTP test: the caller needs the result) sends inside the request as before; everything else is
+    ``PENDING`` and sent by the integrations worker after the commit, with retries and backoff (ROADMAP Phase 11)."""
     row = NotificationOutbox(
         kind=kind, to_email=to_email, subject=subject[:255], body=body, user_id=user_id, booking_id=booking_id
     )
     session.add(row)
     await session.flush()
-    await deliver(session, row)
+    smtp = await get_group(session, "smtp", reveal=True)
+    if deliver_now or not row.to_email or not (smtp["host"] and smtp["from_address"]):
+        await deliver(session, row)  # UNSENT without an address / SMTP, else sent now
+    else:
+        from app.workers import integrations as worker
+
+        row.status, row.next_attempt_at = QUEUED, utcnow()
+        worker.kick_after_commit(session)
     await session.flush()
     return row
+
+
+async def drain_due(now: datetime, limit: int = 200) -> int:
+    """Send the queued e-mails that are due (called by the integrations worker); one transaction per row. A failed
+    send is retried after 1 min, 5 min, 30 min, 2 h and 6 h, then the row is ``FAILED``."""
+    from app.core.db import get_session_factory
+    from app.workers import integrations as worker
+
+    factory = get_session_factory()
+    async with factory() as s:
+        ids = list((await s.execute(worker.due(NotificationOutbox, now).limit(limit))).scalars())
+    done = 0
+    for rid in ids:
+        async with factory() as s:
+            if not await worker.claim(s, NotificationOutbox, rid, now):
+                continue
+            row = await s.get(NotificationOutbox, rid)
+            if row is None:
+                continue
+            await deliver(s, row)
+            row.locked_until = None
+            if row.status == "FAILED":
+                again = worker.next_attempt(row.attempts or 1, now)
+                if again is not None:
+                    row.status, row.next_attempt_at = QUEUED, again
+                else:
+                    row.next_attempt_at = None
+            elif row.status in ("SENT", "UNSENT"):
+                row.next_attempt_at = None
+            await s.commit()
+            done += 1
+    return done
+
+
+async def next_due() -> datetime | None:
+    from app.core.db import get_session_factory
+
+    async with get_session_factory()() as s:
+        q = select(func.min(NotificationOutbox.next_attempt_at)).where(NotificationOutbox.status == QUEUED)
+        return (await s.execute(q)).scalar_one_or_none()
 
 
 # --------------------------------------------------------------------------------------------------

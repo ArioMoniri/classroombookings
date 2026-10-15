@@ -189,6 +189,16 @@ GROUPS: tuple[GroupSpec, ...] = (
         "floor, armchair seats): define the room feature or write the rule by hand.",
     ),
     GroupSpec(
+        "time_snapped",
+        "Saat yuvarlandı - Time snapped",
+        "Saati ders periyotlarına oturmayan satırlar",
+        "Rows whose time is off the period grid",
+        "Listedeki saat periyot başlangıç/bitişlerine denk gelmiyor; ders, en az yarısını kapsadığı periyotlara "
+        "yerleştirildi. Satırdaki saati ve yeni periyotları kontrol edin.",
+        "The list's time is not on the period starts / ends; the class was put in the periods it covers for at "
+        "least half their length. Check the row's time and the new periods.",
+    ),
+    GroupSpec(
         "preference_not_met",
         "İstek karşılanmadı - Not met",
         "Kilidi veya yerleşimi isteğe aykırı dersler",
@@ -1912,6 +1922,55 @@ async def capacity_warnings(session: AsyncSession, term_id: int, kind: str = "CO
     return out
 
 
+async def time_snaps(session: AsyncSession, run: ScheduleRun) -> dict[str, list[dict[str, Any]]]:
+    """``time_snapped``: every request of the run's term whose list time is off the period grid, with the row,
+    the original time and the periods it was snapped to (product-owner decision 2026-10-15, re-derived from
+    the stored ``start_time`` / ``end_time`` with the importer's own rule)."""
+    from app.importers import normalize as n
+
+    model: Any = ExamRequest if run.kind == "EXAM" else MeetingRequest
+    q = select(model.id, model.start_time, model.end_time, model.source_row_index).where(
+        model.start_time.is_not(None), model.end_time.is_not(None)
+    )
+    if run.kind == "EXAM":
+        q = q.where(ExamRequest.term_id == run.term_id)
+    else:
+        q = q.join(Section, Section.id == MeetingRequest.section_id).where(
+            Section.term_id == run.term_id, MeetingRequest.archived.is_(False)
+        )
+    found: list[tuple[int, Any, Any, int | None, Any]] = []
+    for rid, start, end, row in (await session.execute(q.order_by(model.source_row_index, model.id))).all():
+        pr = n.snap_to_periods(start, end)
+        if pr.snapped and pr.start_period and pr.end_period:
+            found.append((int(rid), start, end, row, pr))
+    rows = await _class_rows(session, run, {f[0] for f in found})
+    out: dict[str, list[dict[str, Any]]] = {"time_snapped": []}
+    for rid, start, end, row, pr in found:
+        original = f"{start:%H:%M}-{end:%H:%M}"
+        a, b = n.PERIODS[pr.start_period - 1], n.PERIODS[pr.end_period - 1]
+        snapped = f"{a.start:%H:%M}-{b.end:%H:%M}"
+        where = f"satır {row}: " if row else ""
+        where_en = f"row {row}: " if row else ""
+        out["time_snapped"].append(
+            _list_item(
+                "time_snapped",
+                (
+                    f"{where}{original} → P{pr.start_period}-P{pr.end_period} ({snapped})",
+                    f"{where_en}{original} → P{pr.start_period}-P{pr.end_period} ({snapped})",
+                ),
+                [rid],
+                rows,
+                {
+                    "row": row,
+                    "original": original,
+                    "periods": [pr.start_period, pr.end_period],
+                    "snapped": snapped,
+                },
+            )
+        )
+    return out
+
+
 async def preference_checks(session: AsyncSession, run: ScheduleRun) -> dict[str, list[dict[str, Any]]]:
     """Free-text wishes of the run's term (importer ``preference_rules``): ``unparsed_preference`` - wishes
     no rule could be read from, re-read from the stored notes / request cells with the importer's own
@@ -2093,6 +2152,7 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
     # the published board's own errors (comparison §7.3 / §7.5); not part of the solver's input
     from_board = await board_checks(session, run)
     from_text = await preference_checks(session, run)
+    from_text.update(await time_snaps(session, run))
     groups_out: list[dict[str, Any]] = []
     for spec in GROUPS:
         items: list[dict[str, Any]] = []

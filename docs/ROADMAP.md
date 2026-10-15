@@ -587,3 +587,39 @@ New Phase 19 tickets proposed by the persona (report §5):
   - Bahar week 3: 687/716 placed under both policies (6 vs 8 locks lost)
   - Bahar term: 681 vs 683 of 717 placed (11 vs 14 locks lost)
   - Final: 603/608 placed under both (5 locks lost)
+
+### Persona test: admin/coordinator (docs/testing/2026-10-15-persona-admin.md on snapshot cc9c45d: 1 blocker / 18 major / 30 minor / 1 trivial), routed 2026-10-15
+Already fixed on HEAD after the snapshot (to re-verify in the persona re-test):
+- M-01 installer race / D19 (2e8076a)
+- the uq_schedule_runs_active index (c1ef5e0, migration 0019)
+- D16 CRBS DSN admin-only + allowlist (crbs_dsn.py)
+D6 refuted: all 42 crawled URLs return 200.
+Hard-rule integrity (backend agent, top priority):
+- [ ] M-02 a forced bulk move/lock/restore never rescores, so a clash run is publishable with hard 100 → rescore on every mutation; the publish guard re-checks the current evaluation.
+- [ ] Manual moves treat capacity as soft (80 → 30 seats) → a hard violation needs force + reason, else 422.
+- [ ] M-04 a one-week run can replace the term-wide published timetable → 409 unless confirm_scope_reduction.
+- [ ] Q8: the request edit pinning 102 into the 30-seat B 201 is refused at the edit with a named message.
+- [ ] Imported boards show "Sorunlar 0" while the server has 35–383 locked_room_too_small items.
+Security/KVKK (second backend agent):
+- [ ] KVKK sign-off pre-seeded on every install → never seed; a sign-off is an explicit dated admin action.
+- [ ] Webhooks accept loopback/private URLs → SSRF guard at save and at send (DNS rebinding).
+- [ ] Login reveals "user disabled" → generic message.
+- [ ] constraint_guard counts empty match / empty id lists as targeted.
+- [ ] The week export exports all 14 weeks.
+Frontend, runs/studio/timetable (studio/calendar sweep agent):
+- [ ] M-03 no publish button → "Yayınla" with a scope confirmation + guard reasons.
+- [ ] M-06/07/08 contradictory headlines ("hiçbir kural bozulmadı" vs waived capacity, 308 clashes, issue counts).
+- [ ] M-12 the Studio presets menu crashes (Base UI #31).
+- [ ] M-16 Enter on a class chip opens quick-create instead of the inspector.
+- [ ] The Studio card shows 716 placed vs 687 real.
+- [ ] The grid-move long frame is 380–482 ms.
+Imports (importer agent):
+- [ ] M-13 ImportKind lacks room-master, breaking /import history.
+- [ ] Viewers read parsed rows with instructor names (KVKK) → planning.edit.
+- [ ] Generic wrong-file errors.
+Wave-1 frontend agent:
+- [ ] the approvals sheet slides under reduced motion
+- [ ] the CRBS legacy upgrade flow in the import wizard (backend crbs_upgrade.py exists)
+Languages (correction; P18-LANG was ticked too early):
+- [ ] 12 of the 14 languages have only the ~36 strings that CRBS itself ships, out of 2,743 UI strings. The rest falls back to English. Owner decision pending: machine translation flagged "needs review", or English fallback documented as is.
+The 30 minors are in the report §3, for the shell/bookings/admin sweep.

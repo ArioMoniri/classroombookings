@@ -203,7 +203,7 @@ def parse_planning_row(
     warnings: list[str] = list(day.warnings)
     if code_warning:
         warnings.append(code_warning)
-    periods = n.time_range_to_periods(start, end) if (start and end) else n.PeriodRange(None, None)
+    periods = n.snap_to_periods(start, end) if (start and end) else n.PeriodRange(None, None)
     if start and end:
         warnings.extend(periods.warnings)
     elif (g("start") is not None and n.clean_text(g("start")) and start is None) and day.days:

@@ -714,7 +714,8 @@
       "goal": "act as the faculty's system administrator, who is also the timetabling coordinator. Test every admin and planning screen, button, form and motion in SmartSched, and report bugs and enhancements precisely enough that an engineer can fix them without asking you anything. Stack. Use only this one, which is isolated; you may change settings freely here: SNAP=/tmp/claude-0/-home-user-classroombookings/…",
       "ledger": "persona-admin-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona-admin…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 19:57"
     },
     {
       "id": "af9f5ac2ccba2673e",
@@ -825,6 +826,26 @@
       "scope": "smartsched/backend/app/council/** (new files council/formats*.py welcome), app/api/v1/council.py, app/schemas/council.py, tests/council/**, and ticking P19-I1..I5 plus the \"Council gaps still open\" items in docs/ROADMAP.md. Do NOT edit any of the following. If you need a change there, put the exact diff in your final message. - app/importers/** (importer agent) - app/ai/** (AI agent) - app/solver/…",
       "goal": "Phase 19 wave 1, structured intake with NO AI, on top of the merged Ingestion Council. The tickets are P19-I1 to I5 in docs/review/2026-10-15-phase19-engineering.md §3a/§5. The decisions are in docs/ROADMAP.md \"Phase 19\" and the UX spec in docs/design/v2/phase19-intake.md. 1. I1, a pluggable format registry (council/formats.py): - Detect by magic bytes first: OOXML `[Content_Types].xml` + xl/ or w…",
       "ledger": "p19-intake-structured-2026-10-15 SCOPE: smartsched/backend/app/council/** (new f…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a744a08f2bd5e9ae9",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 19:45",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "ac2e5ffa68bb1372d",
+      "description": "Admin persona backend security fixes",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 19:59",
+      "scope": "only these files and their tests: - smartsched/backend/app/api/v1/webhooks.py, app/services/webhooks.py - app/api/v1/auth.py - app/api/v1/exports.py (if present), app/services/exports.py, app/services/bookings_export.py - app/services/constraint_guard.py - app/services/bookings_settings.py and app/services/seed.py, for the KVKK seed only Also yours: ticking the matching items in docs/ROADMAP.md. D…",
+      "goal": "fix these findings from the admin persona test (docs/testing/2026-10-15-persona-admin.md; read its exact repro requests in /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/persona-admin/curl/). Work test-first. 1. KVKK sign-off pre-seeded: a KVKK sign-off appears as a default on every installation. A sign-off must be an explicit, dated action by a named ad…",
+      "ledger": "admin-persona-backend-fixes-2026-10-15 SCOPE: only these files and their tests: …",
       "resumed": false,
       "status": "running"
     }

@@ -11,8 +11,12 @@ administrator turned it on through :func:`set_policy` with the KVKK acknowledgem
 record ``ai.kvkk_signoff`` (who, when, legal basis, notice version, features) and an ``ai.policy`` audit event.
 A flag set any other way (the generic ``PUT /settings`` ``extra``) is ignored by :func:`ai_allowed`.
 
-Every AI path that sends uploaded content calls :func:`ai_allowed` first (the chat upload today; the council
-intake path once merged). Text the planner types (chat, elicitation) is not governed by these switches.
+Every AI path that sends uploaded content calls :func:`ai_allowed` first: the chat upload
+(``app/api/v1/chat.py``, ``app/ai/ingest.py``) and the Ingestion Council (``app/council/orchestrator.make_ctx``:
+``intake`` for text, ``vision`` for scans and images). The council's Settings toggle ``council_ai_enabled`` is
+the same switch (``PUT /settings`` writes intake + vision through :func:`set_policy`, ``GET /settings`` reports
+the effective intake switch); the env kill switch ``COUNCIL_AI`` and a job's ``ai=false`` can only turn it off.
+Text the planner types (chat, elicitation) is not governed by these switches.
 """
 
 from __future__ import annotations
@@ -121,6 +125,8 @@ async def set_policy(
     before = await get_policy(session)
     intake = before["intake_enabled"] if intake_enabled is None else bool(intake_enabled)
     vision = before["vision_enabled"] if vision_enabled is None else bool(vision_enabled)
+    if not intake and vision_enabled is None:
+        vision = False  # switching intake off switches vision off with it
     if vision and not intake:
         raise PolicyError("vision needs intake: enable intake_enabled too")
     turning_on = (intake and not before["intake_enabled"]) or (vision and not before["vision_enabled"])

@@ -419,9 +419,13 @@ class NotificationOutbox(Base):
     booking_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     subject: Mapped[str] = mapped_column(String(255))
     body: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String(10), default="UNSENT", index=True)  # UNSENT | SENT | FAILED
+    #: UNSENT (no SMTP / no address) | PENDING (queued, also between retries) | RUNNING | SENT | FAILED
+    status: Mapped[str] = mapped_column(String(10), default="UNSENT", index=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
+    #: the integrations worker's queue fields (app/workers/integrations.py): next try, lease of a running send
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

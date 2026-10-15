@@ -30,6 +30,7 @@ import { TermRuleCard } from "./term-rule-card";
 import { UploadPanel } from "./upload-panel";
 import { UploadReview } from "./upload-review";
 import { useRuleActions } from "./use-rule-actions";
+import { VIRTUAL_MIN, VirtualRuleList } from "./virtual-rule-list";
 import { WriteIt } from "./write-it";
 import type { ProposedConstraint } from "@/lib/api/schemas";
 import type { TrayItem } from "./studio-store";
@@ -213,25 +214,32 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
           groups.map((g) => (
             <RuleGroup key={g.key} id={g.key} label={g.label} count={g.items.length} collapsed={collapsed.has(g.key)} onToggle={() => toggleGroup(g.key)}>
               {g.items.length === 0 ? <p className="text-sm text-label-2">{t("studio.rules.groupEmpty")}</p> : null}
-              <ul className="space-y-2">
-                {g.items.map((e) => {
-                  // an accepted proposal travels from the tray into its group (shared layoutId, smooth spring);
-                  // reduced motion: it appears with a 100 ms fade. No other rule card ever animates.
-                  const tid = travel[e.rule.id];
-                  return (
-                    <motion.li
-                      key={e.rule.id}
-                      layoutId={tid && !reduce ? tid : undefined}
-                      data-travel-id={tid && !reduce ? tid : undefined}
-                      transition={springs.smooth}
-                      initial={tid && reduce ? { opacity: 0 } : false}
-                      animate={tid && reduce ? { opacity: 1, transition: tween.reduced } : undefined}
-                    >
-                      <TermRuleCard eff={e} clash={clashFor(e.rule.id)} compact={compact} />
-                    </motion.li>
-                  );
-                })}
-              </ul>
+              {compact && g.items.length > VIRTUAL_MIN ? (
+                // > 40 cards: only the cards near the viewport are rendered, and none animates
+                <VirtualRuleList items={g.items} domIdOf={(e) => `rule-${e.rule.id}`}>
+                  {(e) => <TermRuleCard eff={e} clash={clashFor(e.rule.id)} compact />}
+                </VirtualRuleList>
+              ) : (
+                <ul className="space-y-2">
+                  {g.items.map((e) => {
+                    // an accepted proposal travels from the tray into its group (shared layoutId, smooth spring);
+                    // reduced motion: it appears with a 100 ms fade. No other rule card ever animates.
+                    const tid = travel[e.rule.id];
+                    return (
+                      <motion.li
+                        key={e.rule.id}
+                        layoutId={tid && !reduce ? tid : undefined}
+                        data-travel-id={tid && !reduce ? tid : undefined}
+                        transition={springs.smooth}
+                        initial={tid && reduce ? { opacity: 0 } : false}
+                        animate={tid && reduce ? { opacity: 1, transition: tween.reduced } : undefined}
+                      >
+                        <TermRuleCard eff={e} clash={clashFor(e.rule.id)} compact={compact} />
+                      </motion.li>
+                    );
+                  })}
+                </ul>
+              )}
             </RuleGroup>
           ))
         )}

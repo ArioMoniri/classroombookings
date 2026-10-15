@@ -1381,6 +1381,7 @@ UNAUDITED_GROUPS = frozenset(
         "unparsed_preference",
         "preference_review",
         "preference_not_met",
+        "time_snapped",
     }
 )
 

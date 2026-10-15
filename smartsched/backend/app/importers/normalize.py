@@ -410,6 +410,8 @@ class PeriodRange:
     start_period: int | None
     end_period: int | None
     warnings: list[str] = field(default_factory=list)
+    #: the list's time was off the grid and moved to whole periods (:func:`snap_to_periods`)
+    snapped: bool = False
 
     @property
     def duration(self) -> int:
@@ -432,6 +434,42 @@ def time_range_to_periods(start: time | None, end: time | None) -> PeriodRange:
         e = PeriodMatch(s.period, f"end time {end:%H:%M} inside start period; using a single period")
         warnings.append(e.warning or "")
     return PeriodRange(s.period, e.period, warnings)
+
+
+def _on_grid(start: time, end: time) -> bool:
+    """Starts at a period start and ends at a period end, or at the next period's start ("13:30-16:00")."""
+    starts = {_minutes(p.start) for p in PERIODS}
+    return _minutes(start) in starts and _minutes(end) in starts | {_minutes(p.end) for p in PERIODS}
+
+
+def snap_to_periods(start: time | None, end: time | None) -> PeriodRange:
+    """Periods of a planning / exam list time (product-owner decision 2026-10-15): every period the class covers
+    for at least half of its length. ``10:20-11:40`` -> P3-P4 (30 of P3's 40 minutes); ``10:35-11:40`` -> P4.
+    A class that covers no period for half of it gets the period it covers most. An off-grid time is
+    ``snapped`` and says so in a warning; the data-issues report lists it (``time_snapped``).
+
+    Booking, find-room and CRBS conflict checks keep :func:`time_range_to_periods` (any overlap counts)."""
+    if start is None or end is None:
+        return PeriodRange(None, None, ["missing start or end time"])
+    s, e = _minutes(start), _minutes(end)
+    if e <= s:
+        return PeriodRange(None, None, [f"end time {end:%H:%M} is not after start {start:%H:%M}"])
+    if _on_grid(start, end):
+        return time_range_to_periods(start, end)
+    cover = {p.index: min(e, _minutes(p.end)) - max(s, _minutes(p.start)) for p in PERIODS}
+    half = [p.index for p in PERIODS if cover[p.index] * 2 >= _minutes(p.end) - _minutes(p.start)]
+    if half:
+        first, last = half[0], half[-1]
+        how = "periods covered for at least half their length"
+    else:
+        best = max(cover.values())
+        if best <= 0:
+            return PeriodRange(None, None, [f"time {start:%H:%M}-{end:%H:%M} is outside the period grid"])
+        first = last = next(i for i, c in cover.items() if c == best)
+        how = "no period is covered for half its length; the one it covers most"
+    a, b = PERIODS[first - 1], PERIODS[last - 1]
+    msg = f"time {start:%H:%M}-{end:%H:%M} snapped to P{first}-P{last} ({a.start:%H:%M}-{b.end:%H:%M}): {how}"
+    return PeriodRange(first, last, [msg], snapped=True)
 
 
 _SLOT_RX = re.compile(r"(\d{1,2})[.:](\d{2})\s*-\s*(\d{1,2})[.:\-](\d{2})")

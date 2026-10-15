@@ -241,6 +241,7 @@ async def issue_reset_token(
                 f"{token}\n\nUse this one-time code to reset your password (valid for 24 hours):\n{token}\n"
             ),
             user_id=user.id,
+            deliver_now=True,  # the caller shows the code when the e-mail could not be sent
         )
         emailed = row.status == "SENT"
         # the outbox keeps a record of the e-mail, never the live token

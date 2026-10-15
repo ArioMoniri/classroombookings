@@ -56,6 +56,7 @@ def test_classify_maps_every_named_group() -> None:
         "unparsed_preference",
         "preference_review",
         "preference_not_met",
+        "time_snapped",  # the list's times, not a diagnosis
     }
     assert {g.code for g in GROUPS} == set(cases) | board_only
     for group, d in cases.items():

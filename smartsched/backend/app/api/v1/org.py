@@ -370,6 +370,7 @@ async def test_smtp(body: SmtpTestIn, db: DB, me: SettingsAdmin) -> dict[str, An
         subject="SmartSched SMTP test",
         body="Bu bir deneme iletisidir. / This is a test message.\n",
         user_id=me.id,
+        deliver_now=True,  # the administrator waits for the SMTP server's answer
     )
     await db.commit()
     return {"status": row.status, "error": row.error, "outbox_id": row.id}

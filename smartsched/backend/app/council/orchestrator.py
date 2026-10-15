@@ -29,6 +29,7 @@ from typing import Any, TypeVar
 from sqlalchemy import func, select
 
 from app.ai.client import AIClient, AIConfigError, AIError, get_client
+from app.ai.policy import ai_allowed
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
@@ -39,7 +40,6 @@ from app.council.review import build_items
 from app.council.structure import SheetAnalysis, analyze
 from app.models import CouncilJob, CouncilStep
 from app.models.base import utcnow
-from app.services import settings_service as ss
 from app.workers.queue import public_error
 
 log = logging.getLogger(__name__)
@@ -61,6 +61,8 @@ class Ctx:
     judge_n: int
     model: str | None
     fast_model: str | None
+    #: scans / images may be sent to the model (``app.ai.policy.ai_allowed(db, "vision")``)
+    vision: bool = False
     rendered: dict[int, Rendered] = field(default_factory=dict)
 
     def tokens_used(self) -> int:
@@ -174,13 +176,15 @@ async def make_ctx(job: CouncilJob) -> Ctx:
     st = get_settings()
     client: AIClient | None = None
     note = ""
+    vision = False
     model = (job.settings or {}).get("model") or st.council_model or None
     if not st.council_ai or (job.settings or {}).get("ai") is False:
         note = "AI disabled for the council (COUNCIL_AI=false or ai=false); deterministic path only"
     else:
         async with get_session_factory()() as s:
-            # KVKK opt-in (Settings > AI): no file content leaves the server until an administrator allows it
-            if not await ss.get_value(s, "council_ai_enabled"):
+            # KVKK opt-in (Settings > AI): no file content leaves the server until an administrator allows it -
+            # the one AI policy of app/ai/policy.py (intake = text, vision = scans/images; sign-off required)
+            if not await ai_allowed(s, "intake"):
                 note = (
                     "AI is off for the council (an administrator has not allowed sending file content to Claude "
                     "under Settings > AI); deterministic path only"
@@ -188,6 +192,7 @@ async def make_ctx(job: CouncilJob) -> Ctx:
             else:
                 try:
                     client = await get_client(s, model=model)
+                    vision = await ai_allowed(s, "vision")
                 except AIConfigError:
                     note = "no Anthropic API key configured: deterministic path only (heuristic mapping + importers)"
     return Ctx(
@@ -204,6 +209,7 @@ async def make_ctx(job: CouncilJob) -> Ctx:
         judge_n=max(0, int(st.council_judge_sample)),
         model=model,
         fast_model=st.council_fast_model or model,
+        vision=vision,
     )
 
 
@@ -238,6 +244,8 @@ async def process_file(ctx: Ctx, entry: dict[str, Any]) -> None:
             st.say(exc.message)
         if rendered is not None and rendered.needs_vision:
             ok, why = ctx.llm_ok()
+            if ok and not ctx.vision:
+                ok, why = False, "AI vision is off (Settings > AI)"
             if ok and ctx.client is not None:
                 st.model = ctx.fast_model or ctx.client.model
                 try:

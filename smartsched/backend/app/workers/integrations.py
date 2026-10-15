@@ -1,7 +1,8 @@
 """Outbox dispatcher of the integrations (calendar push connectors, outgoing webhooks).
 
 Request handlers never call a provider or a webhook URL. The services write durable outbox rows
-(``calendar_sync_jobs``, ``webhook_deliveries``) inside the transaction of the change; after the commit
+(``calendar_sync_jobs``, ``webhook_deliveries``, ``notification_outbox`` e-mails) inside the transaction of the
+change; after the commit
 :func:`kick_after_commit` schedules :func:`drain` on a dedicated :class:`app.workers.queue.JobQueue` (one slot, so
 a long CP-SAT solve never delays a calendar update). Rows are claimed with a conditional UPDATE (``PENDING`` ->
 ``RUNNING`` with a lease), so several processes can drain the same tables. Failed attempts back off 1 min, 5 min,
@@ -80,15 +81,15 @@ async def claim(session: AsyncSession, model: Any, row_id: int, now: datetime) -
 
 
 def _drainers() -> list[Drainer]:
-    from app.services import calendar_connectors, webhooks
+    from app.services import bookings_notify, calendar_connectors, webhooks
 
-    return [calendar_connectors.drain_due, webhooks.drain_due]
+    return [calendar_connectors.drain_due, webhooks.drain_due, bookings_notify.drain_due]
 
 
 def _next_due_fns() -> list[Callable[[], Awaitable[datetime | None]]]:
-    from app.services import calendar_connectors, webhooks
+    from app.services import bookings_notify, calendar_connectors, webhooks
 
-    return [calendar_connectors.next_due, webhooks.next_due]
+    return [calendar_connectors.next_due, webhooks.next_due, bookings_notify.next_due]
 
 
 async def drain(now: datetime | None = None, limit: int = 200) -> int:

@@ -13,19 +13,18 @@ from app.models import ConstraintRow, Term
 from app.workers import queue as qmod
 from sqlalchemy import select
 
-from tests.ai.conftest import empty_params, empty_selector, proposal, store_key, tool
+from tests.ai.conftest import empty_params, empty_selector, enable_intake, proposal, store_key, tool
 from tests.api_fixtures import login
 from tests.council.conftest import BAHAR_LIST, EXAM_PDF, MEMO_DOCX, SCAN_PNG, gen
 
 
 async def _key(opt_in: bool = True) -> None:
     """Store a Claude key; ``opt_in`` = the administrator allowed the council to use it (KVKK, Settings > AI)."""
-    from app.services import settings_service as ss
 
     async with get_session_factory()() as s:
         await store_key(s)
-        if opt_in:
-            await ss.set_value(s, "council_ai_enabled", True)
+        if opt_in:  # the one AI policy (app/ai/policy.py): intake + vision with the KVKK sign-off
+            await enable_intake(s, vision=True)
 
 
 async def test_stored_key_is_not_used_without_the_admin_opt_in(client, fake_sdk):

@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from app.ai.client import DEFAULT_MODEL, test_connection
+from app.ai.policy import get_policy, set_policy
 from app.api.deps import DB, Admin
 from app.core.security import redact_keys, validate_api_key
 from app.schemas.settings import SettingsUpdate, TestAiIn, TestAiOut
@@ -16,14 +17,35 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 log = logging.getLogger(__name__)
 
 
+async def _view(db: DB) -> dict[str, Any]:
+    out = await ss.get_all_masked(db)
+    # one AI policy (app/ai/policy.py): the council toggle reports the effective intake switch
+    policy = await get_policy(db)
+    out["council_ai_enabled"] = policy["intake_enabled"]
+    out["ai_policy"] = policy
+    return out
+
+
 @router.get("")
 async def get_settings_view(db: DB, _: Admin) -> dict[str, Any]:
-    return await ss.get_all_masked(db)
+    return await _view(db)
 
 
 @router.put("")
-async def update_settings(body: SettingsUpdate, db: DB, _: Admin) -> dict[str, Any]:
+async def update_settings(body: SettingsUpdate, db: DB, user: Admin) -> dict[str, Any]:
     data = body.model_dump(exclude_unset=True)
+    if "council_ai_enabled" in data:
+        # the council toggle is the AI intake + vision switch; it carries the KVKK text, so switching it on is
+        # the administrator's acknowledgement (sign-off record + ai.policy audit event)
+        on = bool(data.pop("council_ai_enabled"))
+        await set_policy(
+            db,
+            user,
+            intake_enabled=on,
+            vision_enabled=on,
+            kvkk_ack=on,
+            reason="Settings > AI toggle council_ai_enabled",
+        )
     if data.get("anthropic_api_key"):
         try:
             data["anthropic_api_key"] = validate_api_key(data["anthropic_api_key"])
@@ -43,7 +65,7 @@ async def update_settings(body: SettingsUpdate, db: DB, _: Admin) -> dict[str, A
 
             value = json.dumps(value)
         await ss.set_value(db, key, value)
-    return await ss.get_all_masked(db)
+    return await _view(db)
 
 
 async def _probe_ai(api_key: str, model: str) -> tuple[bool, str]:

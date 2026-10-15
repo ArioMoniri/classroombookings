@@ -264,7 +264,7 @@ async def test_b10_public_reset_is_throttled_and_keeps_the_earlier_code(env, mon
 def _notify_with(deliver):  # type: ignore[no-untyped-def]
     from app.models import NotificationOutbox
 
-    async def notify(session, *, kind, to_email, subject, body, user_id=None, booking_id=None):  # type: ignore[no-untyped-def]
+    async def notify(session, *, kind, to_email, subject, body, user_id=None, booking_id=None, **_kw):  # type: ignore[no-untyped-def]
         row = NotificationOutbox(kind=kind, to_email=to_email, subject=subject, body=body, user_id=user_id)
         session.add(row)
         await session.flush()
