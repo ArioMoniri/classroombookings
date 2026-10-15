@@ -30,7 +30,9 @@ export function AdminGate({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col gap-5">
       {sections.length > 1 ? (
-        <nav aria-label={t("crbs.admin.title")} className="-mx-1 overflow-x-auto px-1 pb-1 scrollbar-thin">
+        // UI/UX review §3: 15 sections overflow; the strip scrolls with faded edges so a cut-off tab reads as
+        // "more this way" instead of a clipped label ("Sign-", "Acce")
+        <nav aria-label={t("crbs.admin.title")} className="-mx-1 overflow-x-auto px-3 pb-1 scrollbar-thin [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-24px),transparent)]">
           <ul className="flex w-max gap-1">
             <li>
               <AdminLink href="/admin" active={pathname === "/admin"}>
@@ -60,7 +62,7 @@ function AdminLink({ href, active, children }: { href: string; active: boolean; 
       ref={active ? (el: HTMLAnchorElement | null) => el?.scrollIntoView?.({ block: "nearest", inline: "nearest" }) : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex h-7 items-center rounded-full px-3 type-footnote font-medium whitespace-nowrap outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)",
+        "inline-flex h-7 items-center rounded-full px-3 type-footnote pointer-coarse:h-11 font-medium whitespace-nowrap outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)",
         active ? "bg-tint-soft text-tint-text" : "text-label-2 hover:bg-fill-2 hover:text-label-1",
       )}
     >
