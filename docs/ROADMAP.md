@@ -86,8 +86,8 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Weekly-grid import stores one `assignment` per cell with `course_codes` list; linking to meeting requests is by (code, day, start period) and takes the first match — add an interactive reconciliation view
 - [ ] Job queue is in-process asyncio; swap for Celery/RQ worker (interface in `app/workers/queue.py`) before horizontal scaling
 - [ ] Holidays from CRBS only mark whole-week `weeks.kind = HOLIDAY`; partial-week holidays are kept as labels
-- [ ] **Exam room sharing**: the real Final plan puts several small exams in one room at the same time (grid cells like `MAT 102 / MAT 112`); the solver contract models one event per room-slot, so an EXAM run with the planner's locked definitive rooms is reported INFEASIBLE (`no_room_overlap`+`fixed_time` ×112 on 2026-FINAL). Needs a `shared_room` option (sum of cohort sizes ≤ exam capacity) in the contract and bridge
-- [ ] 20 rooms referenced by the Final list (labs, D 3xx, A 7xx…) have no exam capacity in any grid header; add a room-master CSV import or admin bulk edit so capacity-0 rooms are not dropped from solver input
+- [x] **Exam room sharing**: the real Final plan puts several small exams in one room at the same time (grid cells like `MAT 102 / MAT 112`); the solver contract models one event per room-slot, so an EXAM run with the planner's locked definitive rooms is reported INFEASIBLE (`no_room_overlap`+`fixed_time` ×112 on 2026-FINAL). Needs a `shared_room` option (sum of cohort sizes ≤ exam capacity) in the contract and bridge (verified 2026-10-15: exams share a room within its exam seats (seat-budget check in app/api/v1/runs.py move, bridge exam sharing); tests/test_api_exam_share.py::test_locked_exams_share_one_room_within_seats, ::test_final_fixture_locked_single_room_exams_no_longer_clash)
+- [x] 20 rooms referenced by the Final list (labs, D 3xx, A 7xx…) have no exam capacity in any grid header; add a room-master CSV import or admin bulk edit so capacity-0 rooms are not dropped from solver input (verified 2026-10-15: `python -m app.cli import room-master`, `POST /imports/room-master`; tests/test_import_room_master.py::test_real_bahar_import_room_master_end_to_end, tests/test_room_master_endpoint.py::test_room_master_csv_through_the_api)
 
 ### Phase 8 Generator Studio backlog (from docs/design/generator-studio.md, 2026-10-08)
 
@@ -199,17 +199,17 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 ### Phase 11 CRBS parity backend backlog (backend-engineer, 2026-10-08)
 
 - Frontend screens listed in docs/CRBS_PARITY.md §5 (bookings grid, booking sheet, recurring preview, multi-booking wizard, setup screens) — frontend agent.
-- E-mail delivery runs inside the request (bounded by the SMTP timeout); move `deliver()` onto the job queue with retries/backoff.
-- `users.calendar_token` is a stored capability URL; store a hash and show the link once on rotation.
-- `timetable_occupancy()` re-reads every term's range and the active run per check; cache per request/term for big recurring series and the day grid.
+- [ ] E-mail delivery runs inside the request (bounded by the SMTP timeout); move `deliver()` onto the job queue with retries/backoff.
+- [x] `users.calendar_token` is a stored capability URL; store a hash and show the link once on rotation. (verified 2026-10-15: alembic 0011_integrations hashes and drops it, multi-link `calendar_feed_tokens`; tests/test_calendar_migration.py::test_plaintext_tokens_are_hashed_and_dropped, tests/test_calendar_feeds.py::test_mine_feed_is_valid_rfc5545_and_token_is_stored_hashed)
+- [ ] `timetable_occupancy()` re-reads every term's range and the active run per check; cache per request/term for big recurring series and the day grid.
 - [x] The legacy CRBS importer imports into the parity tables (roles + permissions, users with usernames and legacy `$2y$`/`sha1:` hashes rehashed to argon2 at first login, constraints, room groups/owners/fields, ACLs, schedules/periods, sessions, weeks + dates, holidays, bookings + series + slots; alembic `0005_crbs_legacy_ids`) — audit B4.
 - CRBS parity audit 2026-10-08 (docs/review/2026-10-08-crbs-parity-audit.md), items deferred from the backend fix pass, with reasons:
-  - [ ] MISSING 1 — the CRBS screens are frontend work (CRBS booking + admin screens agent); the backend API they need exists.
-  - [ ] MISSING 2 (UI half) — the backend serves `GET /org/i18n` (shipped strings + admin overrides + patterns), `GET /org/date-patterns` and applies overrides/patterns/profile language in e-mails; the frontend must load the bundle and format dates with the patterns on every page.
-  - [ ] MISSING 5 (print half) — CRBS's printable bookings page is `assets/css/print.css` over the same grid; the frontend needs a print stylesheet / print view of `GET /bookings/grid` (no backend change needed). `grid_highlight` is done (`GET /bookings/context` → `display.grid_highlight`).
-  - [ ] MISSING 6 (UI half) — the first-run screen should show `GET /org/setup/requirements` (backend done: Python, Pillow, ldap3, uploads folder, database, migration state, secrets, SMTP; `POST /org/setup` answers 409 while a check is `err`).
-- Booking race: the `booking_slots` unique key is verified on SQLite and Postgres 16 schema-wise; add a concurrent-insert test on Postgres in CI.
-- Optional: per-room iCal feed of the published timetable (today the room feed lists bookings only).
+  - [x] MISSING 1 — the CRBS screens are frontend work (CRBS booking + admin screens agent); the backend API they need exists. (verified 2026-10-15: docs/review/2026-10-15-phase19-engineering.md §2 truth table, every CRBS controller action PRESENT; parity S-* rows)
+  - [x] MISSING 2 (UI half) — the backend serves `GET /org/i18n` (shipped strings + admin overrides + patterns), `GET /org/date-patterns` and applies overrides/patterns/profile language in e-mails; the frontend must load the bundle and format dates with the patterns on every page. (verified 2026-10-15: frontend/src/components/bookings/date-format.ts + use-booking-format.ts load `/org/i18n` / `/org/date-patterns`; parity MISS-2 PASS)
+  - [x] MISSING 5 (print half) — CRBS's printable bookings page is `assets/css/print.css` over the same grid; the frontend needs a print stylesheet / print view of `GET /bookings/grid` (no backend change needed). `grid_highlight` is done (`GET /bookings/context` → `display.grid_highlight`). (verified 2026-10-15: print view in frontend/src/components/bookings/bookings-view.tsx + booking-grid.tsx `print:` styles; parity S-27 PASS)
+  - [x] MISSING 6 (UI half) — the first-run screen should show `GET /org/setup/requirements` (backend done: Python, Pillow, ldap3, uploads folder, database, migration state, secrets, SMTP; `POST /org/setup` answers 409 while a check is `err`). (verified 2026-10-15: frontend/src/components/admin/setup-wizard.tsx + requirements-model.ts; e2e still missing, see B-SETUP-02)
+- [ ] Booking race: the `booking_slots` unique key is verified on SQLite and Postgres 16 schema-wise; add a concurrent-insert test on Postgres in CI.
+- [x] Optional: per-room iCal feed of the published timetable (today the room feed lists bookings only). (done 2026-10-15, persona A-14: room / room-group / department feeds carry the active run's classes, app/services/calendar_feeds.py `class_events`; tests/test_a14_class_feeds.py)
 
 ### User decisions (2026-10-08)
 
@@ -250,9 +250,9 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 ### Calendar sync follow-ups (2026-10-08)
 
-- [ ] Timetable classes (not only bookings) in the "mine" feed and push (T7).
+- [ ] Timetable classes (not only bookings) in the "mine" feed and push (T7). (partial 2026-10-15: room / room-group / department feeds carry the published classes, tests/test_a14_class_feeds.py; the personal feed and push need the user-instructor link, P19-L1 `Instructor.user_id`)
 - [ ] Read busy/free from Google/Microsoft to warn about clashes (two-way half of T6); optional dedicated SmartSched calendar per user.
-- [ ] `run.published` webhook event; remove pushed events when a user disconnects.
+- [x] `run.published` webhook event; remove pushed events when a user disconnects. (done 2026-10-15: app/services/webhooks.py `run.activate` -> `run.published`, app/services/calendar_connectors.py `disconnect` deletes pushed events then revokes; tests/test_webhooks.py::test_run_published_event, tests/test_calendar_connectors.py::test_disconnect_deletes_tokens_and_revokes_at_google)
 - [ ] Optional Activepieces `--profile automations` compose service.
 - [ ] Pod smoke test against a real Google Workspace / Entra ID tenant once the university creates its OAuth clients (docs/deploy/calendar-oauth.md).
 
@@ -273,8 +273,8 @@ Backend wave C part 1 (2026-10-08, backend-engineer; API contract docs/product/w
 
 - [ ] Every row of the CRBS parity inventory (docs/review/2026-10-08-crbs-parity-audit.md, 91 behaviours + every CRBS screen) has an automated acceptance test (API + Playwright on the real backend); `scripts/parity_check.py` prints a pass/fail table and runs in pod CI; the README states the measured result.
 - [x] All 13 classroombookings UI languages (Czech, Danish, Dutch, English, Finnish, French, German, Italian, Portuguese, Portuguese-Brazilian, Spanish, Swedish, Welsh) **plus Turkish**, in the frontend and in backend texts (e-mails, ICS, exports, diagnoses); strings shared with CRBS reuse its language files; per-user language and admin translation overrides applied at runtime.
-- [ ] CRBS grid display options (`displaytype`, `d_columns`, `grid_highlight`), print views, room info popup, icons, week colours, login logo/message/maintenance banner, changelog indicator, profile language picker.
-- [ ] Legacy CRBS upgrade path: import a running classroombookings MySQL database (users with their passwords, roles, ACLs, constraints, room groups/fields, sessions/weeks/holidays, bookings and series) into SmartSched with a dry-run report — verified against a real CRBS install in the pod's `--profile legacy`.
+- [x] CRBS grid display options (`displaytype`, `d_columns`, `grid_highlight`), print views, room info popup, icons, week colours, login logo/message/maintenance banner, changelog indicator, profile language picker. (verified 2026-10-15: docs/review/2026-10-08-crbs-ui-gap-audit.md all 25 gaps PRESENT per docs/review/2026-10-15-phase19-engineering.md §2; parity S-02, S-27, S-28 PASS)
+- [x] Legacy CRBS upgrade path: import a running classroombookings MySQL database (users with their passwords, roles, ACLs, constraints, room groups/fields, sessions/weeks/holidays, bookings and series) into SmartSched with a dry-run report — verified against a real CRBS install in the pod's `--profile legacy`. (done 2026-10-15, P18-LEGACY: app/services/crbs_upgrade.py, `POST /api/v1/crbs-upgrade`, `python -m app.cli crbs-upgrade`; dry-run diff, commit on the reviewed fingerprint, live DSN read-only behind the D16 allowlist; tests/test_p18_legacy_upgrade.py on the repo's own CRBS structure.sql + data.sql + Installer rows. A run against the pod's live `--profile legacy` MySQL is still to do: no MySQL server in this container)
 - [ ] Side-by-side check on the pod: run the legacy CRBS (`--profile legacy`) and SmartSched on the same data and diff grid states for a sample of dates/rooms/users.
 
 ### Shell follow-ups (from the CRBS screens hand-off, 2026-10-08)
@@ -369,13 +369,13 @@ loop), 3, 4, 5, 6, 7, 8, 10, 12, 13, 14; usability U1-U6 and the default term. S
 - [ ] UI gaps (frontend): Playwright steps for the admin screens S-16..S-24, the staff dashboard (S-10), the
       multi-booking wizard (S-06), cancel-many (S-09); mount login logo / message / forgot link, "What's new", i18n
       overlay (ROADMAP 'Shell follow-ups'); then run the gate with `--strict`.
-- [ ] B-AUTH-11 sign-out: per-user `token_version` claim bumped by `POST /auth/logout` and password changes
-      (`app/core/security.py`, `app/api/deps.py`).
-- [ ] Part 2 (P18-LANG): import the 13 CRBS language files as message catalogues, widen the backend language list
+- [x] B-AUTH-11 sign-out: per-user `token_version` claim bumped by `POST /auth/logout` and password changes
+      (`app/core/security.py`, `app/api/deps.py`). (verified 2026-10-15: alembic 0006_token_version, `revoke_tokens` on logout, password change/set/reset, disable, role change and role deletion (app/api/v1/{auth,users,roles,org}.py); tests/parity/test_parity_setup_auth.py::test_sign_out_revokes_the_token_on_every_device, ::test_password_changes_and_resets_revoke_older_tokens)
+- [x] Part 2 (P18-LANG): import the 13 CRBS language files as message catalogues, widen the backend language list
       (`app/services/bookings_i18n.py`, `schemas/crbs.py` language validation, shipped e-mail strings), frontend
-      locale files + an e2e language switch.
-- [ ] Part 3 (P18-LEGACY): `POST /imports/crbs?dry_run=1` report (counts per table, unmapped rows) and a run against
-      the pod's `--profile legacy` MySQL with a real dump.
+      locale files + an e2e language switch. (verified 2026-10-15: tools/crbs_lang_import.py, 14 SHIPPED_LANGUAGES in app/services/bookings_i18n.py; tests/test_crbs_languages.py, parity B-LANG rows)
+- [x] Part 3 (P18-LEGACY): `POST /imports/crbs?dry_run=1` report (counts per table, unmapped rows) and a run against
+      the pod's `--profile legacy` MySQL with a real dump. (done 2026-10-15 as `POST /api/v1/crbs-upgrade` (dry run by default, `confirm` + `fingerprint` commits) and `python -m app.cli crbs-upgrade`: per-table before/after/delta, CRBS source counts, importer created/updated/skipped, unmapped statements; tests/test_p18_legacy_upgrade.py. The live pod MySQL run remains for the devops gate)
 - [ ] Part 4 (P18-DIFF): sampler of (date, room, user) + CRBS grid scraper on the pod, diffed against `GET /bookings/grid`.
 
 ### Phase 19 — Intake, learning suggestions, from-scratch programs, moderation (user request 2026-10-15)
