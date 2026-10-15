@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { useChat, useSendChat, useSettings, useUndoProposal } from "@/lib/api/hooks";
 import type { ChatMessage, ChatProposal } from "@/lib/api/schemas";
 import { usePermissions } from "@/lib/api/shell-extra";
+import { qk } from "@/lib/api/hooks";
+import { BusyGlyph } from "@/components/ui/busy-label";
+import { INITIAL_STREAM, streamChat, streamReducer, type StreamState } from "./chat-stream";
 import { applyEdited, type Scope } from "./diff-edits";
 import { useI18n } from "@/lib/i18n/provider";
 import { useReduce } from "@/lib/motion";
@@ -172,6 +175,32 @@ function Message({ m, runId }: { m: ChatMessage; runId: number }) {
   );
 }
 
+/** The streamed turn: tokens appended as they arrive (no typing animation, so nothing to reduce), each tool call
+ * shown as pending and then its result. */
+function LiveTurn({ user, s }: { user: string; s: StreamState }) {
+  const { t } = useI18n();
+  return (
+    <>
+      <div className="flex flex-col items-end gap-1">
+        <div className="max-w-[92%] rounded-2xl rounded-br-md bg-fill-1 px-3 py-2 text-[13.5px] leading-5 whitespace-pre-wrap text-label-1">{user}</div>
+      </div>
+      <div className="flex flex-col items-start gap-1" data-testid="chat-live">
+        {s.tools.length ? (
+          <ul className="space-y-0.5 text-[12px] text-label-2" data-testid="chat-tools">
+            {s.tools.map((tool, i) => (
+              <li key={`${tool.name}-${i}`} className="flex items-center gap-1.5" data-state={tool.state}>
+                {tool.state === "pending" ? <BusyGlyph className="size-3" /> : <span aria-hidden>{tool.state === "ok" ? "✓" : "✕"}</span>}
+                {t(tool.state === "pending" ? "glass.chat.toolPending" : tool.state === "ok" ? "glass.chat.toolDone" : "glass.chat.toolFailed", { name: tool.name.replace(/_/g, " ") })}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {s.text ? <div className="max-w-[92%] text-[13.5px] leading-5 whitespace-pre-wrap text-label-1">{s.text}</div> : null}
+      </div>
+    </>
+  );
+}
+
 /** "Thinking" label: one looping indicator of real ongoing work (pattern §17); static under reduced motion. */
 function Thinking() {
   const { t } = useI18n();
@@ -198,22 +227,50 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
   const listRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const messages = chat.data?.messages ?? [];
+  // the turn being streamed: the planner's message and the reply as it arrives (POST /chat/stream)
+  const [live, setLive] = useState<{ user: string; s: StreamState } | null>(null);
+  const streaming = live !== null;
   const noKey = settings.data ? !settings.data.anthropic_api_key_masked : false;
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight });
-  }, [messages.length, send.isPending]);
+  }, [messages.length, send.isPending, live?.s.text, live?.s.tools.length]);
   useEffect(() => {
     const root = composerRef.current;
     root?.querySelector("textarea")?.setAttribute("data-testid", "chat-input");
     root?.querySelector(`button[aria-label="${CSS.escape(t("chat.send"))}"]`)?.setAttribute("data-testid", "chat-send");
   });
+  const lang = locale === "en" ? "en" : "tr";
+  const qc = useQueryClient();
   const submit = async (msg: string) => {
+    let last = INITIAL_STREAM;
+    let started = false;
+    setLive({ user: msg, s: INITIAL_STREAM });
     try {
-      await send.mutateAsync(msg);
+      await streamChat(runId, msg, lang, (e) => {
+        started = true;
+        last = streamReducer(last, e);
+        const s = last;
+        setLive((l) => (l ? { ...l, s } : l));
+      });
+      if (last.error) toast.error(t("glass.chat.sendFailed"), { description: last.error.detail });
+      await qc.invalidateQueries({ queryKey: qk.chat(runId) });
     } catch {
-      toast.error(noKey ? t("glass.chat.noKeyToast") : t("glass.chat.sendFailed"));
+      if (!started) {
+        // the stream could not start (proxy without streaming, older backend): the non-streaming call
+        setLive(null);
+        try {
+          await send.mutateAsync(msg);
+        } catch {
+          toast.error(noKey ? t("glass.chat.noKeyToast") : t("glass.chat.sendFailed"));
+        }
+        return;
+      }
+      toast.error(t("glass.chat.sendFailed"));
+      await qc.invalidateQueries({ queryKey: qk.chat(runId) });
+    } finally {
+      setLive(null);
     }
   };
   return (
@@ -223,12 +280,14 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
         <h2 className="type-headline text-label-1">{t("chat.title")}</h2>
         {!noKey && settings.data ? <span className="ml-auto truncate text-[11px] text-label-3">{settings.data.anthropic_model}</span> : null}
       </div>
-      <div ref={listRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3" aria-live="polite" aria-busy={send.isPending}>
+      {/* aria-busy while a reply streams: the polite region announces the finished reply, not every token */}
+      <div ref={listRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3" aria-live="polite" aria-busy={send.isPending || streaming}>
         {messages.length === 0 ? <p className="text-[13px] text-label-2">{t("chat.empty")}</p> : null}
         {messages.map((m) => (
           <Message key={m.id} m={m} runId={runId} />
         ))}
-        {send.isPending ? <Thinking /> : null}
+        {live ? <LiveTurn user={live.user} s={live.s} /> : null}
+        {send.isPending || (live && !live.s.text && !live.s.tools.length) ? <Thinking /> : null}
       </div>
       <div ref={composerRef} className="p-3 hairline-t">
         {noKey ? (
@@ -246,7 +305,7 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
         <PromptComposer
           className="[&_.glass-thick]:![backdrop-filter:none] [&_.glass-thick]:![-webkit-backdrop-filter:none]"
           onSend={(text) => void submit(text)}
-          disabled={noKey || send.isPending}
+          disabled={noKey || send.isPending || streaming}
           placeholder={t("chat.placeholder")}
           label={t("chat.placeholder")}
           sendLabel={t("chat.send")}

@@ -49,7 +49,8 @@ async def test_guz_board_and_list_give_a_baseline_run_that_a_child_solve_keeps(c
     async with get_session_factory()() as s:
         run = await s.get(ScheduleRun, base["run_id"])
         assert run is not None and run.label == "Baseline: imported schedule" and run.kind == "COURSE"
-        assert run.params["source"] == "COUNCIL_BASELINE" and len(run.params["sources"]) == 2
+        assert run.params["source"] == "COUNCIL_BASELINE"
+        assert [x["file"] for x in run.params["sources"]] == [GUZ_GRID.name]  # the file the entries came from
         rows = list((await s.execute(select(Assignment).where(Assignment.run_id == run.id))).scalars())
         assert {a.origin for a in rows} == {"IMPORT"} and {a.week for a in rows} == {1, 2}
         linked = {a.meeting_request_id: a for a in rows if a.meeting_request_id and a.week == 1}
@@ -94,4 +95,4 @@ async def test_guz_board_and_list_give_a_baseline_run_that_a_child_solve_keeps(c
     assert after == before, (before, after)
     async with get_session_factory()() as s:
         run = await s.get(ScheduleRun, base["run_id"])
-        assert run is not None and len(run.params["sources"]) == 2  # sources deduped by sha256
+        assert run is not None and len(run.params["sources"]) == 1  # the same board twice: one source (sha256)

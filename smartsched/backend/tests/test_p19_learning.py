@@ -284,19 +284,22 @@ async def test_extraction_is_idempotent_and_skips_planner_errors(env: Env):
         hem = await _requests(env.bahar, "HEM 236")
         mat_thu = [m for m in await _requests(env.bahar, "MAT 112") if m.day == 4]
         assert hem and mat_thu and all(m.definitive_room_ids == [rooms["A 204"]] for m in hem + mat_thu)
-        q = select(func.count()).where(
-            LearnedObservation.kind == "definitive_room",
-            LearnedObservation.source_id.in_([m.id for m in hem + mat_thu]),
-        )
-        assert (await s.execute(q)).scalar_one() == 0  # L5: the A 204 double booking teaches nothing
+        ids = [m.id for m in hem + mat_thu]
+        q = select(LearnedObservation.kind, LearnedObservation.weight).where(LearnedObservation.source_id.in_(ids))
+        kinds = {(k, w) for k, w in (await s.execute(q.where(LearnedObservation.source_table == "meeting_requests")))}
+        assert ("definitive_room", 3) not in kinds and ("excluded_lock", 0) in kinds  # L5: A 204 teaches nothing
         mbg = [m for m in await _requests(env.bahar, "MBG 034") if m.definitive_room_ids == [rooms["B 407"]]]
-        assert mbg, "MBG 034 §1 is locked to B 407 (30 seats) with 80 students"
-        q = select(func.count()).where(
+        assert len(mbg) >= 2, "MBG 034 §1 is locked to B 407 (30 seats): 80 students, plus a 15-student listing"
+        q = select(LearnedObservation.weight, LearnedObservation.detail).where(
             LearnedObservation.attribute == "room",
             LearnedObservation.value == str(rooms["B 407"]),
+            LearnedObservation.source_table == "meeting_requests",
             LearnedObservation.source_id.in_([m.id for m in mbg]),
         )
-        assert (await s.execute(q)).scalar_one() == 0  # L6: no over-capacity lock is evidence
+        found = (await s.execute(q)).all()
+        # L6: no row of the over-capacity lecture is evidence, not even its 15-student listing
+        assert found and {w for w, _ in found} == {0}
+        assert {d["excluded"] for _, d in found} == {"over_capacity_lock"} and {d["seats"] for _, d in found} == {30}
         # subjects are ids, never names (KVKK)
         q = select(LearnedObservation.subject_key).where(LearnedObservation.subject_type == "instructor").limit(50)
         assert all(k.isdigit() for k in (await s.execute(q)).scalars())
@@ -310,23 +313,32 @@ async def test_mat112_prior_names_its_definitive_room(env: Env):
         headers=env.planner,
     )
     assert r.status_code == 200, r.text
-    rooms = [p for p in r.json() if p["attribute"] == "room"]
+    rooms = {p["value_label"]["tr"]: p for p in r.json() if p["attribute"] == "room"}
     definitive = {m.definitive_room_text for m in await _requests(env.bahar, "MAT 112")}
-    assert [p["value_label"]["tr"] for p in rooms] == ["C 201"] and "C 201" in definitive
-    prior = rooms[0]
-    assert prior["explanation"]["tr"] == "MAT 112: tek dönemde 1/1 kayıt C 201'de (2026-BAHAR: 1/1)."
-    assert prior["explanation"]["en"] == "MAT 112: 1 of 1 records in one term were in C 201 (2026-BAHAR: 1/1)."
-    assert prior["evidence"]["kinds"] == {"definitive_room": 1}
-    assert not prior["suggestible"]  # one lecture in one term is not enough evidence
-    # neither side of the A 204 double booking learned A 204
+    assert set(rooms) == definitive == {"C 201", "A 204"}  # the prior names both definitive rooms ...
+    assert all(p["support"] == 0 and p["score"] == 0 and not p["suggestible"] for p in rooms.values())
+    # ... and says why neither is learned (180 students: over capacity in C 201, double-booked in A 204)
+    assert rooms["C 201"]["explanation"]["tr"] == (
+        "MAT 112: C 201 kesinleşen derslikti ama öğrenilmedi "
+        "(kapasite üstü kilit: 180 öğrenci, 126 koltuk; 2026-BAHAR: 1 ders)."
+    )
+    assert rooms["C 201"]["explanation"]["en"] == (
+        "MAT 112: C 201 was the definitive room but is not learned "
+        "(over-capacity lock: 180 students, 126 seats; 2026-BAHAR: 1 lecture)."
+    )
+    assert rooms["A 204"]["explanation"]["tr"] == (
+        "MAT 112: A 204 kesinleşen derslikti ama öğrenilmedi (kilitli çift rezervasyon; 2026-BAHAR: 1 ders)."
+    )
+    assert [e["reason"] for e in rooms["A 204"]["evidence"]["excluded"]] == ["locked_double_booking"]
+    # the other side of the A 204 double booking learned nothing either (L5)
     hem = await _course_id("HEM 236")
-    for cid in (mat, hem):
-        r = await env.client.get(
-            f"{API}/learning/priors",
-            params={"term_id": env.bahar, "subject_type": "course", "subject_id": cid},
-            headers=env.planner,
-        )
-        assert "A 204" not in {(p["value_label"] or {}).get("tr") for p in r.json() if p["attribute"] == "room"}
+    r = await env.client.get(
+        f"{API}/learning/priors",
+        params={"term_id": env.bahar, "subject_type": "course", "subject_id": hem},
+        headers=env.planner,
+    )
+    a204 = [p for p in r.json() if p["attribute"] == "room" and p["value_label"]["tr"] == "A 204"]
+    assert a204 and a204[0]["support"] == 0 and not a204[0]["suggestible"]
 
 
 # ------------------------------------------------------------------------------------------------ L3

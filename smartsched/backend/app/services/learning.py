@@ -198,6 +198,7 @@ class _Group:
     row_term: dict[Unit, int | None] = field(default_factory=dict)
     kinds: dict[str, dict[str, int]] = field(default_factory=lambda: defaultdict(lambda: defaultdict(int)))
     requests: dict[str, set[int]] = field(default_factory=lambda: defaultdict(set))
+    excluded: dict[str, dict[str, dict[str, Any]]] = field(default_factory=lambda: defaultdict(dict))
 
 
 def _proposal(attribute: str, value: str, tagged: Mapping[str, list[int]]) -> dict[str, Any] | None:
@@ -289,6 +290,44 @@ def explanation(
         tr += " Farklı dönem verisi içerir."
         en += " Includes other-season data."
     return {"tr": tr, "en": en}
+
+
+_EXCLUDED_TEXT = {
+    "locked_double_booking": ("kilitli çift rezervasyon", "locked double booking"),
+    "over_capacity_lock": ("kapasite üstü kilit", "over-capacity lock"),
+}
+
+
+def _excluded_out(raw: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
+    out = []
+    for reason, info in sorted(raw.items()):
+        out.append(
+            {
+                "reason": reason,
+                "lectures": len(info["units"]),
+                "terms": sorted(info["terms"]),
+                "size": int(info["size"]) or None,
+                "seats": info["seats"],
+            }
+        )
+    return out
+
+
+def excluded_explanation(vt: Mapping[str, str], excluded: list[dict[str, Any]]) -> dict[str, str]:
+    """Why a definitive room is not learned (academician needs §3.4: planner errors are no evidence)."""
+    tr_parts, en_parts = [], []
+    for e in excluded:
+        tr, en = _EXCLUDED_TEXT.get(e["reason"], (e["reason"], e["reason"]))
+        if e.get("size") and e.get("seats"):
+            tr += f": {e['size']} öğrenci, {e['seats']} koltuk"
+            en += f": {e['size']} students, {e['seats']} seats"
+        when = ", ".join(e["terms"])
+        tr_parts.append(f"{tr}; {when}: {e['lectures']} ders")
+        en_parts.append(f"{en}; {when}: {e['lectures']} lecture{'s' if e['lectures'] != 1 else ''}")
+    return {
+        "tr": f"{{subject}}: {vt['tr']} kesinleşen derslikti ama öğrenilmedi ({' | '.join(tr_parts)}).",
+        "en": f"{{subject}}: {vt['en']} was the definitive room but is not learned ({' | '.join(en_parts)}).",
+    }
 
 
 def _claim(vt: Mapping[str, str]) -> dict[str, str]:
@@ -385,6 +424,14 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
             continue
         g = groups[(st, sk, attr)]
         row = evidence_unit(t_id, src, sid, sign, detail)
+        if not weight:  # a planner lock that is never learned: named on the prior, counted nowhere
+            reason = str((detail or {}).get("excluded") or "excluded")
+            info = g.excluded[val].setdefault(reason, {"units": set(), "size": 0, "seats": None, "terms": set()})
+            info["units"].add(row)
+            info["terms"].add(terms[tid_k].code if known else "—")
+            info["size"] = max(int(info["size"]), int((detail or {}).get("size") or 0))
+            info["seats"] = (detail or {}).get("seats") or info["seats"]
+            continue
         g.row_term[row] = t_id
         if (val, row, kind) not in g.scored:  # a lecture listed once per programme counts once
             g.scored.add((val, row, kind))
@@ -403,9 +450,10 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
     now = utcnow()
     computed: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     for (st, sk, attr), g in groups.items():
-        for val in set(g.rows_pos) | set(g.rows_neg):
+        for val in set(g.rows_pos) | set(g.rows_neg) | set(g.excluded):
             pos = g.rows_pos.get(val, set())
-            if not pos:
+            excluded = _excluded_out(g.excluded.get(val, {}))
+            if not pos and not excluded:
                 continue
             universe = g.all_pos | g.rows_neg.get(val, set())
             support, total = len(pos), len(universe)
@@ -444,7 +492,11 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
                 "active": True,
                 "proposal": proposal,
                 "explanation": {
-                    **explanation(attr, vt, support, total, term_rows, is_cross),
+                    **(
+                        explanation(attr, vt, support, total, term_rows, is_cross)
+                        if pos
+                        else excluded_explanation(vt, excluded)
+                    ),
                     "claim_tr": _claim(vt)["tr"],
                     "claim_en": _claim(vt)["en"],
                 },
@@ -454,6 +506,7 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
                     "request_ids": sorted(g.requests.get(val, set()))[:50],
                     "cross_season": is_cross,
                     "value_label": {"tr": vt["tr"], "en": vt["en"]},
+                    "excluded": excluded,
                 },
                 "computed_at": now,
             }

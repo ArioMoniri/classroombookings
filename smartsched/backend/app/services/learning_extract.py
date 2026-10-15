@@ -83,6 +83,9 @@ SIGNALS: dict[str, tuple[int, int]] = {
     "approval_rejected": (-1, 2),
     "suggestion_accepted": (1, 2),
     "suggestion_rejected": (-1, 3),
+    # a planner lock that is never learned (double booking, over capacity): weight 0, kept so the prior can name
+    # the definitive room and say why it is not evidence
+    "excluded_lock": (1, 0),
 }
 #: delivery modes whose room is evidence of a preference (rule 5: online / UZEM / hospital rooms are not)
 ROOM_MODES = frozenset({"F2F", "HYBRID", "SIMULATION"})
@@ -217,6 +220,8 @@ class _Ctx:
         self.building: dict[int, str] = {}  # room id -> building code
         self.reqs: dict[int, _Req] = {}
         self.double_booked: set[int] = set()
+        #: request id -> the largest enrolment of its lecture, for rows of a lecture that does not fit its rooms
+        self.over_capacity_lectures: dict[int, int] = {}
         self.instructor_user: dict[int, int] = {}  # instructor id -> user id
         self.user_instructor: dict[int, int] = {}
         self.resets: list[LearningReset] = []
@@ -331,6 +336,7 @@ async def _load(session: AsyncSession) -> _Ctx:
             instructors=tuple(sorted(people.get(sec.id, []))),
         )
     ctx.double_booked = locked_double_bookings(ctx.reqs.values())
+    ctx.over_capacity_lectures = over_capacity_lectures(ctx)
     ctx.resets = list((await session.execute(select(LearningReset).where(LearningReset.undone_at.is_(None)))).scalars())
     return ctx
 
@@ -364,6 +370,30 @@ def locked_double_bookings(reqs: Iterable[_Req]) -> set[int]:
     return out
 
 
+def over_capacity_lectures(ctx: _Ctx) -> dict[int, int]:
+    """Requests of a lecture locked to rooms too small for it: a row whose enrolment exceeds the known seats
+    (Bahar 34 rows, MBG 034 §1: 80 students in B 407 with 30 seats), and every row of the same lecture (the same
+    room set at the same time, same start or same course: MBG 034's 15-student listing, MAT 112's listing without
+    a count). Maps request id -> the lecture's largest enrolment."""
+    rows = [r for r in ctx.reqs.values() if r.definitive and r.day is not None and r.start is not None]
+    by_slot: dict[tuple[int, int, tuple[int, ...]], list[_Req]] = defaultdict(list)
+    for r in rows:
+        by_slot[(r.term_id, r.day or 0, tuple(sorted(r.definitive)))].append(r)
+    out: dict[int, int] = {}
+    for group in by_slot.values():
+        for r in group:
+            if not ctx.over_capacity(r, r.definitive):
+                continue
+            out[r.id] = max(out.get(r.id, 0), r.enrolment)
+            for o in group:
+                assert o.start is not None and o.end is not None and r.start is not None and r.end is not None
+                overlap = not (o.start > r.end or r.start > o.end)
+                weeks = not (o.weeks and r.weeks) or bool(o.weeks & r.weeks)
+                if o.id != r.id and overlap and weeks and _same_lecture(o, r):
+                    out[o.id] = max(out.get(o.id, 0), r.enrolment)
+    return out
+
+
 # --------------------------------------------------------------------------------------------- extractors
 
 
@@ -374,15 +404,18 @@ def _definitive(ctx: _Ctx, rep: Report) -> Iterator[Obs]:
         if not ctx.room_evidence(r):
             rep.skip("definitive_no_room_need")
             continue
+        detail = ctx.detail(r, r.definitive)
+        kind = "definitive_room"
         if r.id in ctx.double_booked:
             rep.excluded_requests.setdefault("locked_double_booking", []).append(r.id)
-            continue
-        if ctx.over_capacity(r, r.definitive):
+            kind, detail = "excluded_lock", {**detail, "excluded": "locked_double_booking"}
+        elif r.id in ctx.over_capacity_lectures:
             rep.excluded_requests.setdefault("over_capacity_lock", []).append(r.id)
-            continue
-        detail = ctx.detail(r, r.definitive)
+            seats = ctx.seats(r.definitive)
+            size = ctx.over_capacity_lectures[r.id]
+            kind, detail = "excluded_lock", {**detail, "excluded": "over_capacity_lock", "size": size, "seats": seats}
         for (st, sk), (attr, val) in itertools.product(ctx.subjects(r), ctx.room_values(r.definitive)):
-            yield Obs(r.ts, r.term_id, "definitive_room", st, sk, attr, val, "meeting_requests", r.id, None, detail)
+            yield Obs(r.ts, r.term_id, kind, st, sk, attr, val, "meeting_requests", r.id, None, detail)
 
 
 def _requests(ctx: _Ctx, rep: Report) -> Iterator[Obs]:

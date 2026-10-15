@@ -1,12 +1,13 @@
 """Schedule map -> baseline IMPORT run (P19-I5).
 
 The course entries of every schedule map in a commit (a weekly board read by the fast path, an ICS feed, an
-``intake.v1`` timetable, a general-path timetable) become assignments of one run per term,
-``Baseline: imported schedule`` (``params.source = "COUNCIL_BASELINE"``, ``origin = "IMPORT"``). Contiguous cells of one class are one
+``intake.v1`` timetable, a general-path timetable) become assignments of one run per term, ``Baseline: imported
+schedule`` (``params.source = "COUNCIL_BASELINE"``, ``origin = "IMPORT"``). Contiguous cells of one class are one
 entry, matched to a meeting request by ``(course key, section, day, start period)``, generalising the board
 importer's link (``app/importers/weekly_grid.py``, request linking index): the course key is ASCII-folded
 (``normalize.course_key``), a request whose periods hold the entry's start matches when none starts in the same
-period, the section is used when the entry names one, and a request whose weeks hold the week is preferred. The run is then the ``parent_run_id`` of a new solve, which keeps placements stable.
+period, the section is used when the entry names one, and a request whose weeks hold the week is preferred. The run
+is then the ``parent_run_id`` of a new solve, which keeps placements stable.
 
 Weeks: the record's week (board sheet), else its date counted from the term's first Monday; entries outside
 the term's dates are clipped (counted, not written). Exam sheets are skipped (exam boards link exam requests).

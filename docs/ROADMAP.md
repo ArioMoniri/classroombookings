@@ -652,3 +652,26 @@ Frontend follow-ups:
 - [ ] Full real screenshot gallery by role (light/dark, mobile), stale screens removed.
 - [ ] KVKK: instructor names shown as title + initials on the throwaway recording DB only.
 - [ ] Refresh everything again with one command at the release (stabilisation) commit, so the media match the deployed version.
+
+### Owner feedback 2026-10-15 21:00: design quality, README, branches, memory
+- [ ] The UI looks AI-generated in many places.
+  - Missing dynamic sizing for elements, button sizes and shapes, and auto-sized/resizable columns.
+  - Many UI and outline issues.
+  - Plan: a professional UI/UX visual review (docs/review/2026-10-15-uiux-visual-review.md) → a design-system overhaul agent owning components/ui, tokens and globals:
+    - fluid clamp() type/spacing
+    - control size variants
+    - radius and outline tokens
+    - table columns: auto width, resizable, hide/pin, persisted per user
+    - the top-15 "de-AI" changes
+    - /motion_designer and Mobbin references required
+- [ ] Logo/brand is AI-looking. The brand agent uses github.com/kaankiziltug/logo-design-skill (licence-checked; markdown only vendored) → docs/images/brand, components/brand/Logo, favicons, brand.md. Swap it into the app and README.
+- [ ] GIFs are laggy and low quality:
+  - short 6–12 s clips, ≥ 1000 px, 20–24 fps, two-pass palette, ≤ 9 MB
+  - recorded on the newest UI and refreshed again after the overhaul (one command)
+- [ ] The README is too long and full of roadmap chunks. Make it a concise landing page: coloured logo + Lottie elements back, accurate tagline and badges, GIF journeys, short features list, quick start, details moved into docs/.
+- [ ] Branch profiles (same code, different seed):
+  - gracious deploys with the owner's imported files + derived rules + learned memory (`SEED_PROFILE=institution`)
+  - universal deploys empty, with its own one-click AWS deploy (`SEED_PROFILE=empty`)
+  - smartsched/deploy/profile.env with .gitattributes merge=ours, so branch syncs keep each profile
+- [ ] Intake/pipeline memory layer: confirmed column mappings, lexicon additions and file → term assignments are remembered per file signature and pre-applied as review-gated suggestions. Built on the learning lane's resettable memory (same reset scopes, KVKK purge).
+- Language note: Rust or Go are allowed where they measurably help. Policy: profile first. Candidates only if Python/TS miss the budget, e.g. large-file parsing in council render, occupancy computation for the booking grid, the ICS feed generation. The solver is already C++ (OR-Tools). No rewrite without a measured bottleneck and a test-backed parity check.
