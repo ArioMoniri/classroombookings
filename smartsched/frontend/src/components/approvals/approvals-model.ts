@@ -152,3 +152,29 @@ export function conflictAlternatives(data: Record<string, unknown>): DecideAlter
   }
   return out;
 }
+
+/** A-12: one inbox entry per submission. Requests of one multi-period submission (`group_id`) are shown as one
+ *  row, in period order; a request without a group is its own entry. Order follows the first request. */
+export interface InboxEntry {
+  key: string;
+  groupId: number | null;
+  requests: ApprovalRequest[];
+}
+
+export function groupInbox(rows: readonly ApprovalRequest[]): InboxEntry[] {
+  const out: InboxEntry[] = [];
+  const byGroup = new Map<string, InboxEntry>();
+  for (const r of rows) {
+    const b = r.bookings[0];
+    const key = r.group_id ? `g${r.group_id}|${b?.date ?? ""}|${r.room_id}` : `r${r.id}`;
+    let entry = byGroup.get(key);
+    if (!entry) {
+      entry = { key, groupId: r.group_id ?? null, requests: [] };
+      byGroup.set(key, entry);
+      out.push(entry);
+    }
+    entry.requests.push(r);
+  }
+  for (const e of out) e.requests.sort((a, b) => (a.bookings[0]?.start_period ?? 0) - (b.bookings[0]?.start_period ?? 0) || a.id - b.id);
+  return out;
+}

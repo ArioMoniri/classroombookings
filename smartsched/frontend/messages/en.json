@@ -2768,6 +2768,12 @@
       "pendingInbox": "Open the approvals inbox"
     },
     "approvals": {
+      "groupN": "{n} periods",
+      "groupTitle": "One submission: {n} periods. Decide each period, or all open ones at once.",
+      "approveAll": "Approve all {n}",
+      "rejectAll": "Reject all {n}",
+      "groupApproved": "Approved {n} periods: {room}.",
+      "groupRejected": "Rejected {n} periods. The requester was told.",
       "title": "Approvals",
       "lead": "Requests for rooms you approve. Approve, reject, or offer another room.",
       "box": "Requests",

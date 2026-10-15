@@ -2767,6 +2767,12 @@
       "pendingInbox": "Onay kutusunu açın"
     },
     "approvals": {
+      "groupN": "{n} ders saati",
+      "groupTitle": "Tek talep: {n} ders saati. Her saati ayrı ya da açık olanların hepsini birden karara bağlayın.",
+      "approveAll": "{n} saatin hepsini onayla",
+      "rejectAll": "{n} saatin hepsini reddet",
+      "groupApproved": "{n} ders saati onaylandı: {room}.",
+      "groupRejected": "{n} ders saati reddedildi. Talep edene bildirildi.",
       "title": "Onaylar",
       "lead": "Onayladığınız derslikler için talepler. Onaylayın, reddedin ya da başka derslik önerin.",
       "box": "Talepler",

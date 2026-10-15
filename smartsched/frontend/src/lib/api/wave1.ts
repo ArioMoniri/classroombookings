@@ -247,6 +247,8 @@ export const ApprovalRequest = z.object({
   note: z.string().nullish(),
   /** reject: the approver's alternative, or `{alternatives: [...]}` the service suggested */
   suggestion: z.union([z.object({ alternatives: z.array(Suggested) }), Suggested]).nullish(),
+  /** A-12: the submission (multi-period request) this request belongs to; null for a request of its own */
+  group_id: z.number().nullish(),
   bookings: z.array(RequestBooking).default([]),
   decisions: z.array(Decision).default([]),
   approvers: z.array(z.object({ id: z.number(), name: z.string().nullish() })).default([]),
@@ -407,6 +409,8 @@ export const wave1 = {
     get: (id: number) => get(`/approvals/${id}`, ApprovalRequest),
     decide: (id: number, body: DecideIn) => send("POST", `/approvals/${id}/decide`, body, ApprovalRequest),
     withdraw: (id: number) => send("POST", `/approvals/${id}/withdraw`, undefined, ApprovalRequest),
+    /** A-12: approve or reject every open request of one submission (per-period decisions stay possible) */
+    decideGroup: (groupId: number, body: { decision: "approve" | "reject"; note?: string | null }) => send("POST", `/approvals/groups/${groupId}/decide`, body, z.record(z.string(), z.unknown())),
     approvers: () => get("/approvals/approvers", z.array(Approver)),
     setApprover: (userId: number, scopes: Scope[]) => send("PUT", `/approvals/approvers/${userId}`, { scopes }, Approver),
     rules: () => get("/approval-rules", z.array(Rule)),

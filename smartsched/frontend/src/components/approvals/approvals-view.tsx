@@ -16,7 +16,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { BusyLabel } from "@/components/ui/busy-label";
+import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { KbdHint } from "@/components/ui/kbd-hint";
@@ -35,7 +35,7 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { useReduce } from "@/lib/motion";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { conflictAlternatives, isOpen, openDates, requestSlots, type DecideAlternative } from "./approvals-model";
+import { conflictAlternatives, groupInbox, isOpen, openDates, requestSlots, type DecideAlternative } from "./approvals-model";
 import { RequestTimeline, SlotLine, StatusPill } from "./request-parts";
 
 type Box = "open" | "decided";
@@ -61,6 +61,9 @@ export function ApprovalsView() {
     setOpenId(asked);
   }
   const rows = list.data ?? [];
+  // A-12: one row per submission; the drawer still decides each period, or the whole submission at once
+  const entries = groupInbox(rows);
+  const groupOf = (id: number | null) => (id === null ? [] : (entries.find((e) => e.requests.some((r) => r.id === id))?.requests ?? []));
 
   // permission-dependent markup only after hydration (the user can arrive mid-hydration: React #418)
   if (!hydrated || loading) return <Loading />;
@@ -111,8 +114,10 @@ export function ApprovalsView() {
           </p>
         ) : (
           <ul data-testid="approvals-list">
-            {rows.map((r) => (
-              <li key={r.id} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+            {entries.map(({ key, requests }) => {
+              const r = requests[0]!;
+              return (
+              <li key={key} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
                 <button
                   type="button"
                   onClick={() => setOpenId(r.id)}
@@ -124,6 +129,11 @@ export function ApprovalsView() {
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="type-headline text-label-1">{r.room_name}</span>
                       <StatusPill status={r.status} />
+                      {requests.length > 1 ? (
+                        <span className="inline-flex h-5 items-center rounded-full bg-fill-2 px-2 type-caption text-label-2" data-testid={`approval-group-${r.id}`}>
+                          {t("wave1.approvals.groupN", { n: requests.length })}
+                        </span>
+                      ) : null}
                       {r.competing.length ? (
                         <span className="inline-flex items-center gap-1 type-caption text-status-warning-fg">
                           <Users className="size-3.5" aria-hidden />
@@ -139,7 +149,8 @@ export function ApprovalsView() {
                   </span>
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </Card>
@@ -147,6 +158,7 @@ export function ApprovalsView() {
         id={openId}
         onClose={close}
         onSwitch={setOpenId}
+        group={groupOf(openId)}
         onDone={(id) => {
           const next = box === "open" ? nextOpen(id) : null;
           if (next) setOpenId(next);
@@ -174,7 +186,7 @@ function focusAfterClose(selector: string) {
 
 /* --------------------------------------------------------------------------------------- drawer */
 
-function RequestDrawer({ id, onClose, onSwitch, onDone }: { id: number | null; onClose: () => void; onSwitch: (id: number) => void; onDone: (id: number) => void }) {
+function RequestDrawer({ id, onClose, onSwitch, onDone, group }: { id: number | null; onClose: () => void; onSwitch: (id: number) => void; onDone: (id: number) => void; group: ApprovalRequest[] }) {
   const phone = useIsPhone();
   // the app's reduced-motion switch or the OS setting: the drawer appears and leaves at once (no slide)
   const reduce = useReduce();
@@ -186,13 +198,13 @@ function RequestDrawer({ id, onClose, onSwitch, onDone }: { id: number | null; o
         data-testid="approval-drawer"
         data-reduced-motion={reduce || undefined}
       >
-        {id !== null ? <RequestDetail key={id} id={id} onClose={onClose} onSwitch={onSwitch} onDone={onDone} /> : null}
+        {id !== null ? <RequestDetail key={id} id={id} onClose={onClose} onSwitch={onSwitch} onDone={onDone} group={group} /> : null}
       </SheetContent>
     </Sheet>
   );
 }
 
-function RequestDetail({ id, onClose, onSwitch, onDone }: { id: number; onClose: () => void; onSwitch: (id: number) => void; onDone: (id: number) => void }) {
+function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; onClose: () => void; onSwitch: (id: number) => void; onDone: (id: number) => void; group: ApprovalRequest[] }) {
   const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const qc = useQueryClient();
@@ -206,6 +218,25 @@ function RequestDetail({ id, onClose, onSwitch, onDone }: { id: number; onClose:
   const [instances, setInstances] = useState<Set<string> | null>(null);
   const chosen = instances ?? new Set(pending);
   const open = !!r && isOpen(r);
+  const siblings = group.length > 1 ? group : [];
+  const openSiblings = siblings.filter(isOpen);
+  const [groupBusy, setGroupBusy] = useState<"approve" | "reject" | null>(null);
+  const decideAll = async (decision: "approve" | "reject") => {
+    const gid = r?.group_id;
+    if (!gid || groupBusy) return;
+    setGroupBusy(decision);
+    setError(null);
+    try {
+      await wave1.approvals.decideGroup(gid, { decision, note: note.trim() || null });
+      await Promise.all(APPROVAL_KEYS.map((k) => qc.invalidateQueries({ queryKey: k })));
+      toast.success(t(decision === "approve" ? "wave1.approvals.groupApproved" : "wave1.approvals.groupRejected", { n: openSiblings.length, room: r?.room_name ?? "" }));
+      onDone(r!.id);
+    } catch (e) {
+      setError({ text: errorText(wave1Error(e), locale), alternatives: [] });
+    } finally {
+      setGroupBusy(null);
+    }
+  };
 
   const decide = async (decision: "approve" | "reject", alternative?: DecideIn["alternative"]) => {
     if (!r || busy) return;
@@ -268,6 +299,33 @@ function RequestDetail({ id, onClose, onSwitch, onDone }: { id: number; onClose:
         </SheetDescription>
       </SheetHeader>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pb-4">
+        {siblings.length ? (
+          <section aria-label={t("wave1.approvals.groupTitle", { n: siblings.length })} className="flex flex-col gap-2 rounded-xl bg-fill-3 p-3" data-testid="approval-group-bar">
+            <p className="type-footnote text-label-2">{t("wave1.approvals.groupTitle", { n: siblings.length })}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {siblings.map((s) => {
+                const sb = s.bookings[0];
+                const label = sb ? (sb.start_period === sb.end_period ? `P${sb.start_period}` : `P${sb.start_period}–P${sb.end_period}`) : `#${s.id}`;
+                return (
+                  <Button key={s.id} size="xs" variant={s.id === r.id ? "default" : "outline"} aria-current={s.id === r.id ? "true" : undefined} onClick={() => onSwitch(s.id)} data-testid={`approval-sibling-${s.id}`}>
+                    {label}
+                    {isOpen(s) ? null : <span className="sr-only">, {s.status}</span>}
+                  </Button>
+                );
+              })}
+            </div>
+            {openSiblings.length > 1 ? (
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" className="text-status-infeasible-fg" onClick={() => void decideAll("reject")} {...busyProps(groupBusy === "reject", groupBusy !== null || busy !== null)} data-testid="approval-group-reject">
+                  <BusyLabel busy={groupBusy === "reject"} label={t("busy.rejecting")}>{t("wave1.approvals.rejectAll", { n: openSiblings.length })}</BusyLabel>
+                </Button>
+                <Button size="sm" onClick={() => void decideAll("approve")} {...busyProps(groupBusy === "approve", groupBusy !== null || busy !== null)} data-testid="approval-group-approve">
+                  <BusyLabel busy={groupBusy === "approve"} label={t("busy.approving")}>{t("wave1.approvals.approveAll", { n: openSiblings.length })}</BusyLabel>
+                </Button>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 type-callout">
           <dt className="text-label-3">{t("wave1.approvals.requester")}</dt>
           <dd className="text-label-1">{r.requester_name ?? "—"}</dd>
