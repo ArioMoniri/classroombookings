@@ -11,6 +11,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { AlertTriangle, ArrowDown, ArrowUp, ChevronRight, Circle, CircleDashed, Contrast, Lock, LockOpen, Minus, Moon } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { BusyGlyph } from "@/components/ui/busy-label";
 import type { ClassRow } from "@/lib/api/classes";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
@@ -420,7 +421,7 @@ function ClassTableImpl(p: ClassTableProps) {
     return (
       <span className="relative flex min-w-0 items-center gap-1">
         {content}
-        {saving ? <span aria-hidden className="absolute -right-1 size-2.5 animate-spin rounded-full border border-label-4 border-t-label-1" /> : null}
+        {saving ? <span className="absolute -right-1 flex text-label-2" role="status"><BusyGlyph className="size-2.5" /><span className="sr-only">{t("studio.save.saving")}</span></span> : null}
         {flash ? <span className="absolute right-0 text-[11px] text-status-feasible-fg" role="status">✓</span> : null}
       </span>
     );

@@ -1,10 +1,11 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { BookmarkPlus, ChevronDown, Layers, Loader2, Trash2 } from "lucide-react";
+import { BookmarkPlus, ChevronDown, Layers, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph, BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -129,7 +130,7 @@ function ApplyPresetDialog({ preset, onClose }: { preset: Preset | null; onClose
         </DialogHeader>
         {!diff ? (
           <p className="flex items-center gap-2 text-sm text-label-2" role="status">
-            <Loader2 className="size-4 animate-spin" aria-hidden /> {t("common.loading")}
+            <BusyGlyph className="size-4" /> {t("common.loading")}
           </p>
         ) : (
           <div className="space-y-3 text-sm">
@@ -169,8 +170,8 @@ function ApplyPresetDialog({ preset, onClose }: { preset: Preset | null; onClose
           <Button variant="outline" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button onClick={() => void run()} disabled={!diff || busy} data-testid="preset-apply-confirm">
-            {busy ? <Loader2 className="animate-spin" aria-hidden /> : null} {t("common.apply")}
+          <Button onClick={() => void run()} {...busyProps(busy, !diff)} data-testid="preset-apply-confirm">
+            <BusyLabel busy={busy} label={t("studio.check.applying")}>{t("common.apply")}</BusyLabel>
           </Button>
         </DialogFooter>
       </DialogContent>

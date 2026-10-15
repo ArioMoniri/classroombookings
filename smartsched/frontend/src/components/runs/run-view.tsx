@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowLeft, CheckCircle2, Download, Loader2, XOctagon } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Download, XOctagon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { KpiNumber } from "@/components/dashboard/kpi-number";
 import { useRememberRunOnView } from "@/components/shell/workspace";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph } from "@/components/ui/busy-label";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassPanel } from "@/components/ui/glass-panel";
@@ -165,7 +166,7 @@ export function RunView({ id }: { id: number }) {
       {active ? (
         <GlassPanel material="regular" radius="2xl" className="max-w-xl p-6" render={<section role="status" aria-live="polite" data-testid="run-status" />}>
           <p className="flex items-center gap-2 type-title-3 text-label-1">
-            <Loader2 className="size-5 animate-spin text-tint-text motion-reduce:animate-none" aria-hidden />
+            <BusyGlyph className="size-5 text-tint-text" />
             {r.status === "QUEUED" ? t("generate.queued") : t("glass.shell.solving", { pct: r.progress })}
           </p>
           <Progress value={r.progress} aria-label={t("generate.status")} className="mt-4">

@@ -1,8 +1,9 @@
 "use client";
 
-import { AlertTriangle, Loader2, Sparkles } from "lucide-react";
+import { AlertTriangle, Sparkles } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph, busyProps } from "@/components/ui/busy-label";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api/endpoints";
 import { HttpError } from "@/lib/api/client";
@@ -89,8 +90,8 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
         data-testid="rule-composer-input"
       />
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={() => void analyse()} disabled={!text.trim() || busy || keyMissing} data-testid="nl-analyse" aria-keyshortcuts="Meta+Enter">
-          {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}
+        <Button onClick={() => void analyse()} {...busyProps(busy, !text.trim() || keyMissing)} data-testid="nl-analyse" aria-keyshortcuts="Meta+Enter">
+          {busy ? <BusyGlyph /> : <Sparkles aria-hidden />}
           {busy ? t("studio.write.reading") : t("studio.write.analyse")}
         </Button>
         <span id="studio-write-hint" className="text-xs text-label-2">

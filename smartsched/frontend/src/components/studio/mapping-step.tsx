@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertTriangle, Loader2, TableProperties } from "lucide-react";
+import { AlertTriangle, TableProperties } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NativeSelect } from "@/components/common/native-select";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph, BusyLabel, busyProps } from "@/components/ui/busy-label";
 import type { MappingColumns, MappingProposals, MappingRole, MappingSpec, RoomRule } from "@/lib/api/studio-schemas";
 import { MAPPING_ROLES } from "@/lib/api/studio-schemas";
 import type { MessageKey } from "@/lib/i18n";
@@ -110,7 +111,7 @@ export function MappingStep({
       </div>
       {!cols && !error ? (
         <p className="flex items-center gap-2 text-sm text-label-2" role="status">
-          <Loader2 className="size-4 animate-spin" aria-hidden /> {t("studio.mapping.loading")}
+          <BusyGlyph className="size-4" /> {t("studio.mapping.loading")}
         </p>
       ) : null}
       {cols ? (
@@ -210,8 +211,8 @@ export function MappingStep({
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => void read()} disabled={!cols || !canRead || busy} data-testid="mapping-read">
-          {busy ? <Loader2 className="animate-spin" aria-hidden /> : null} {t("studio.mapping.read")}
+        <Button size="sm" onClick={() => void read()} {...busyProps(busy, !cols || !canRead)} data-testid="mapping-read">
+          <BusyLabel busy={busy} label={t("studio.upload.stage.reading")}>{t("studio.mapping.read")}</BusyLabel>
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel}>
           {t("common.cancel")}

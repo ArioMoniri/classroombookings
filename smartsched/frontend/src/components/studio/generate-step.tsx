@@ -1,7 +1,8 @@
 "use client";
 
-import { Loader2, PlayCircle } from "lucide-react";
+import { PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph, busyProps } from "@/components/ui/busy-label";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -43,8 +44,8 @@ export function GenerateButton({ className, size = "lg", testId = "studio-genera
   const { generate, busy } = useGenerate();
   const active = useStudioStore((s) => s.activeRun);
   return (
-    <Button size={size} className={className} onClick={() => void generate()} disabled={busy} data-testid={testId} aria-keyshortcuts="Meta+Enter Control+Enter">
-      {busy ? <Loader2 className="animate-spin" aria-hidden /> : <PlayCircle aria-hidden />}
+    <Button size={size} className={className} onClick={() => void generate()} {...busyProps(busy)} data-testid={testId} aria-keyshortcuts="Meta+Enter Control+Enter">
+      {busy ? <BusyGlyph /> : <PlayCircle aria-hidden />}
       {busy ? t("studio.run.preparing") : active ? t("studio.run.again") : t("studio.run.generate")}
     </Button>
   );

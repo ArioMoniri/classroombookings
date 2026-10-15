@@ -1,10 +1,10 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { NativeSelect } from "@/components/common/native-select";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph } from "@/components/ui/busy-label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api/endpoints";
@@ -117,7 +117,7 @@ function CopyBody({ onClose, initialRunId }: { onClose: () => void; initialRunId
         </label>
         {loading && !result ? (
           <p className="flex items-center gap-2 text-sm text-label-2" role="status">
-            <Loader2 className="size-4 animate-spin" aria-hidden /> {t("common.loading")}
+            <BusyGlyph className="size-4" /> {t("common.loading")}
           </p>
         ) : null}
         {result

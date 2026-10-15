@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph } from "@/components/ui/busy-label";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedGlass } from "@/components/ui/segmented-glass";
 import { ClassInspector, SelectionSummary } from "@/components/classes/class-inspector";
@@ -818,7 +819,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         ) : null}
         <div className="relative min-h-0 flex-1">
           {data.loading && !model ? (
-            <p className="flex h-full items-start gap-2 px-6 py-6 text-[13px] text-label-2" role="status"><span className="size-3 animate-spin rounded-full border-2 border-label-4 border-t-label-2" aria-hidden />{t("calendar.loading")}</p>
+            <p className="flex h-full items-start gap-2 px-6 py-6 text-[13px] text-label-2" role="status"><BusyGlyph className="size-3.5 text-label-2" />{t("calendar.loading")}</p>
           ) : data.error && !model ? (
             <div className="px-6 py-6"><p className="mb-2 text-[13px]">{t("calendar.error")}</p><Button size="sm" variant="secondary" onClick={data.refetch}>{t("calendar.retry")}</Button></div>
           ) : model ? (

@@ -1,8 +1,9 @@
 "use client";
 
-import { AlertTriangle, ChevronRight, Info, Loader2, MessageSquare, XOctagon } from "lucide-react";
+import { AlertTriangle, ChevronRight, Info, MessageSquare, XOctagon } from "lucide-react";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import type { Diagnosis } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -52,8 +53,8 @@ export function DiagnosisCard({ d, section, count = 1, onApply, applying, onChat
               ) : null}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {/* secondary: many cards share the region, so none of them is the page's single tint action (A6) */}
-                <Button size="sm" variant="secondary" onClick={() => onApply(choice)} disabled={!chosen || applying} aria-label={`${t("glass.report.applyFix")}: ${chosen?.text ?? ""}`} data-testid="diagnosis-apply">
-                  {applying ? <Loader2 className="animate-spin" /> : null} {t("glass.report.applyFix")}
+                <Button size="sm" variant="secondary" onClick={() => onApply(choice)} {...busyProps(applying, !chosen)} aria-label={applying ? t("studio.check.applying") : `${t("glass.report.applyFix")}: ${chosen?.text ?? ""}`} data-testid="diagnosis-apply">
+                  <BusyLabel busy={applying} label={t("studio.check.applying")}>{t("glass.report.applyFix")}</BusyLabel>
                 </Button>
                 <span className="text-[12px] text-label-3">{t("glass.report.applyHint")}</span>
               </div>

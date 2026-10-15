@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowLeft, Building2, Clock, DoorOpen, GraduationCap, Loader2, NotebookPen, Plus, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Building2, Clock, DoorOpen, GraduationCap, NotebookPen, Plus, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api/endpoints";
 import type { Preview, RuleTemplate } from "@/lib/api/studio-schemas";
@@ -181,8 +182,8 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
         <Button variant="ghost" onClick={onBack}>
           <ArrowLeft aria-hidden /> {t("studio.builder.back")}
         </Button>
-        <Button onClick={() => void add()} disabled={issues.length > 0 || saving} aria-describedby={problems.length ? "builder-issues" : undefined} data-testid="builder-add">
-          {saving ? <Loader2 className="animate-spin" aria-hidden /> : <Plus aria-hidden />} {t("studio.builder.add")}
+        <Button onClick={() => void add()} {...busyProps(saving, issues.length > 0)} aria-describedby={problems.length ? "builder-issues" : undefined} data-testid="builder-add">
+          <BusyLabel busy={saving} label={t("studio.tray.accepting")} icon={<Plus aria-hidden />}>{" "}{t("studio.builder.add")}</BusyLabel>
         </Button>
       </div>
     </div>

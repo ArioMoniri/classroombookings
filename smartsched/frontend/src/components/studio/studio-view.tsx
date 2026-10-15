@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, CloudOff, Loader2, Redo2, Undo2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, CloudOff, Redo2, Undo2 } from "lucide-react";
 import { motion } from "motion/react";
 import { springs, useReduce } from "@/lib/motion";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/common/page-header";
 import { useActiveTerm } from "@/components/shell/term-switcher";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph } from "@/components/ui/busy-label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -81,7 +82,7 @@ function SaveStatus() {
   if (s === "saving" || state.dirty.length)
     return (
       <span className="inline-flex items-center gap-1 text-xs text-label-2" role="status" data-testid="save-status" data-state="saving">
-        <Loader2 className="size-3 animate-spin" aria-hidden /> {t("studio.save.saving")}
+        <BusyGlyph className="size-3" /> {t("studio.save.saving")}
       </span>
     );
   if (s === "error")

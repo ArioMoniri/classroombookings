@@ -7,9 +7,10 @@
  * - `MovePopover`: after a drop on a valid slot; old → new, soft warnings, the same scope radio; Enter saves,
  *   Esc reverts, auto-save after 4 s when untouched.
  */
-import { Check, Loader2, TriangleAlert } from "lucide-react";
+import { Check, TriangleAlert } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph } from "@/components/ui/busy-label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calendarApi, useFreeRooms, type FreeRoom, type MoveScope } from "@/lib/api/calendar";
 import { useI18n } from "@/lib/i18n/provider";
@@ -175,7 +176,7 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
             <p className="text-[12px] font-semibold text-label-2">{t("calendar.move.finder")}</p>
             <div className="max-h-[300px] overflow-y-auto rounded-xl bg-fill-3 p-1" role="listbox" aria-label={t("calendar.move.room")}>
               {finder.isLoading ? (
-                <p className="flex items-center gap-2 p-3 text-[12px] text-label-2"><Loader2 className="size-3.5 animate-spin" aria-hidden />{t("calendar.move.checking")}</p>
+                <p className="flex items-center gap-2 p-3 text-[12px] text-label-2"><BusyGlyph className="size-3.5" />{t("calendar.move.checking")}</p>
               ) : (
                 groups.map((g) =>
                   g.rooms.length ? (

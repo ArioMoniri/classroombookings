@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, FileUp, Loader2, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileUp, RotateCcw, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useRef, useState, type DragEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyGlyph, BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api/endpoints";
@@ -198,8 +199,8 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
       ) : (
         <div className="space-y-2">
           <Textarea rows={5} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={t("studio.upload.pastePlaceholder")} aria-label={t("studio.upload.tabPaste")} lang={locale} />
-          <Button size="sm" onClick={() => void readPaste()} disabled={!paste.trim() || pasting}>
-            {pasting ? <Loader2 className="animate-spin" aria-hidden /> : null} {t("studio.upload.readPaste")}
+          <Button size="sm" onClick={() => void readPaste()} {...busyProps(pasting, !paste.trim())}>
+            <BusyLabel busy={pasting} label={t("studio.upload.stage.reading")}>{t("studio.upload.readPaste")}</BusyLabel>
           </Button>
         </div>
       )}
@@ -208,7 +209,7 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
           {rows.map((r) => (
             <li key={r.id} className="rounded-md border p-2" data-testid="upload-row" data-stage={r.stage}>
               <div className="flex items-center gap-2 text-sm">
-                {r.stage === "ready" ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : r.stage === "error" || r.stage === "rejected" ? <AlertTriangle className="size-4 text-status-infeasible-fg" aria-hidden /> : r.stage === "mapping" ? <AlertTriangle className="size-4 text-status-warning-fg" aria-hidden /> : <Loader2 className="size-4 animate-spin text-label-2" aria-hidden />}
+                {r.stage === "ready" ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : r.stage === "error" || r.stage === "rejected" ? <AlertTriangle className="size-4 text-status-infeasible-fg" aria-hidden /> : r.stage === "mapping" ? <AlertTriangle className="size-4 text-status-warning-fg" aria-hidden /> : <BusyGlyph className="size-4 text-label-2" />}
                 <span className="min-w-0 flex-1 truncate font-medium" title={r.file.name}>
                   {r.file.name}
                 </span>
