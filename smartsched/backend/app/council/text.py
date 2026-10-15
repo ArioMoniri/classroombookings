@@ -9,7 +9,6 @@ dates. Everything here is pure and DB-free.
 from __future__ import annotations
 
 import re
-import unicodedata
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
@@ -18,16 +17,9 @@ from app.importers import normalize as n
 _WS = re.compile(r"\s+")
 
 
-def fold(value: Any) -> str:
-    """Casefold for matching: Turkish dotted/dotless i, diacritics stripped, whitespace collapsed."""
-    if value is None:
-        return ""
-    s = str(value).replace("\xa0", " ").replace("İ", "i").replace("I", "ı")
-    s = s.casefold().replace("ı", "i")
-    s = unicodedata.normalize("NFKD", s)
-    s = "".join(ch for ch in s if not unicodedata.combining(ch))
-    s = s.replace("ß", "ss")
-    return _WS.sub(" ", s).strip()
+#: casefold for matching (Turkish dotted/dotless i, diacritics stripped, whitespace collapsed): the one shared
+#: form of the importers and the council (review D9), so a value matches the same way in both paths
+fold = n.fold
 
 
 def cell_text(value: Any) -> str:
