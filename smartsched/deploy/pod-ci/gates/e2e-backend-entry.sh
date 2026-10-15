@@ -9,6 +9,8 @@
 # Env: E2E_WORKDIR (default /w: DB, uploads, venv), E2E_VENV (default $E2E_WORKDIR/venv; "none" = the
 # current python), E2E_HOST/E2E_PORT (0.0.0.0:8000), E2E_BOOKING_CLOCK (default 2026-02-16T08:00, empty =
 # wall clock), E2E_SOLVE_TIME_LIMIT (seconds for the full-term run, default 120).
+# E2E_EMPTY=1: the second, EMPTY backend (installer / requirements step, B-SETUP-02): migrations only, no
+# imports, no users and no ADMIN_* (seed_admin skips), so the first-run installer is reachable.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 W="${E2E_WORKDIR:-/w}"
@@ -27,6 +29,11 @@ export ENVIRONMENT=dev DATABASE_URL="sqlite+aiosqlite:///$W/e2e.db" UPLOAD_DIR="
        APP_SECRET=pod-ci-e2e-secret-0123456789abcdef0123456789 JWT_SECRET=pod-ci-e2e-jwt-0123456789abcdef0123456789ab
 export E2E_BOOKING_CLOCK="${E2E_BOOKING_CLOCK-2026-02-16T08:00}"
 rm -f "$W/e2e.db"
+if [ "${E2E_EMPTY:-0}" = "1" ]; then
+  export ADMIN_EMAIL="" ADMIN_PASSWORD=""
+  alembic upgrade head
+  exec "$PY" "$HERE/e2e-backend-serve.py" --host "${E2E_HOST:-0.0.0.0}" --port "${E2E_PORT:-8000}"
+fi
 alembic upgrade head
 "$PY" -m app.cli import weekly-grid tests/fixtures/bahar_derslikler_takvimi_2026.xlsx --term 2026-BAHAR --year 2026
 "$PY" -m app.cli import planning-list tests/fixtures/bahar_derslik_planlama_listesi_v5.xlsx --term 2026-BAHAR

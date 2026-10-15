@@ -20,6 +20,7 @@ import argparse
 import asyncio
 import base64
 import binascii
+import contextlib
 import json
 import threading
 from datetime import UTC, datetime
@@ -206,7 +207,7 @@ def api_handler(box: Mailbox) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(body)
 
-        def do_GET(self) -> None:  # noqa: N802 - http.server API
+        def do_GET(self) -> None:  # http.server API
             path = self.path.split("?", 1)[0].rstrip("/")
             if path == "/health":
                 self._json(200, {"ok": True, "messages": len(box.list())})
@@ -215,13 +216,13 @@ def api_handler(box: Mailbox) -> type[BaseHTTPRequestHandler]:
             else:
                 self._json(404, {"detail": "not found"})
 
-        def do_DELETE(self) -> None:  # noqa: N802
+        def do_DELETE(self) -> None:
             if self.path.split("?", 1)[0].rstrip("/") == "/messages":
                 self._json(200, {"deleted": box.clear()})
             else:
                 self._json(404, {"detail": "not found"})
 
-        def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - quiet access log
+        def log_message(self, format: str, *args: Any) -> None:  # quiet access log
             return
 
     return Handler
@@ -229,8 +230,6 @@ def api_handler(box: Mailbox) -> type[BaseHTTPRequestHandler]:
 
 async def serve(host: str, smtp_port: int, api_port: int) -> None:
     box = Mailbox()
-    httpd = ThreadingHTTPServer((host, api_port), api_handler(box))
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
 
     async def on_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         try:
@@ -241,6 +240,9 @@ async def serve(host: str, smtp_port: int, api_port: int) -> None:
             writer.close()
 
     server = await asyncio.start_server(on_client, host, smtp_port)
+    # the API (and /health) only once SMTP is bound: a healthy sink accepts mail
+    httpd = ThreadingHTTPServer((host, api_port), api_handler(box))
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
     print(f"{NAME}: SMTP on {host}:{smtp_port}, API on http://{host}:{api_port}", flush=True)
     async with server:
         await server.serve_forever()
@@ -252,10 +254,8 @@ def main() -> int:
     p.add_argument("--smtp-port", type=int, default=1025)
     p.add_argument("--api-port", type=int, default=8025)
     a = p.parse_args()
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(serve(a.host, a.smtp_port, a.api_port))
-    except KeyboardInterrupt:
-        pass
     return 0
 
 
