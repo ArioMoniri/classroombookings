@@ -928,3 +928,16 @@ Orchestrator decisions (owner may override):
   - the intake mount for suggestions (when onboarding has a slot)
 - [ ] Mounts (shell agent): LearningMemoryPanel in Settings; "Taleplerim" nav for teachers.
 - Mobile: partial (card lists, list diff, bottom sheets). The dedicated mobile agent completes it.
+
+### Sign-in design and docs auto-sync finished (2026-10-15)
+
+- Sign-in spec: `docs/design/v2/sign-in.md` with 23 mockups in `docs/design/v2/sign-in/`. It shows the institution sheet with one Microsoft button and a quieter local/LDAP option, has no sign-up link, and handles invites on first Microsoft sign-in. It includes 30 Playwright checks for the sign-in frontend agent, which starts after the shell sweep and the SSO backend finish.
+- Interim defaults for the spec's open questions (§16); the owner can override any of them:
+  1. Admins can turn self sign-up off with a setting, `sso_self_signup`, which is on by default.
+  2. Signing in with an expired invite is refused.
+  3. Nothing about the term or week is shown before sign-in.
+  4. The welcome page offers optional channel linking.
+- Routed:
+  - The backend contract went to the SSO builder.
+  - The design-system builder received the StatusDot pending variant, the Alert neutral tone and action slot, the "Şifre" → "Parola" change, motion §3.12 and the settings-and-auth.md pointers.
+- Docs auto-sync: `scripts/docs/sync_docs.py` keeps 12 AUTO blocks in 4 files up to date. The pod CI validate gate runs `--check`. The README markers went to the README media agent. Every commit that touches a source now runs the sync first (docs/AGENTS.md). The `agents` block is `check=no`.
