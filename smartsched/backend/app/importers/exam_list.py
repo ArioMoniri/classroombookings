@@ -165,7 +165,9 @@ def parse_exam_list(
     mapping = map_headers(headers, HEADER_SPEC)
     missing = [k for k in ("code", "date", "start") if k not in mapping]
     if missing:
-        raise ValueError(f"exam list is missing columns: {missing}; headers={headers}")
+        from app.importers.detect import WrongFileError
+
+        raise WrongFileError.build("exam-list", headers, missing)
     parsed: list[ExamRow] = []
     skipped: list[tuple[int, str, str | None]] = []
     total = 0

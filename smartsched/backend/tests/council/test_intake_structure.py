@@ -23,6 +23,7 @@ from tests.council.conftest import (
     SCAN_PNG,
     TRANSPOSED,
 )
+from tests.council.exports import ole2_with_stream
 
 
 @lru_cache(maxsize=16)
@@ -120,7 +121,10 @@ def test_grid_axes_on_the_real_board():
 def test_image_needs_vision_and_unsupported_formats_are_explained():
     r = _render(SCAN_PNG)
     assert r.needs_vision and r.media_type == "image/png" and not r.grids
-    with pytest.raises(RenderError, match="save the file as .xlsx"):
-        render_file(b"\xd0\xcf\x11\xe0legacy", "old.xls")
+    # magic bytes decide (app/council/formats.py): a legacy Word file is explained, whatever its name
+    with pytest.raises(RenderError, match="save the file as .docx"):
+        render_file(ole2_with_stream("WordDocument"), "old.xls")
+    with pytest.raises(RenderError, match="cannot read .xls"):
+        render_file(ole2_with_stream("Workbook"), "old.xls")  # a Workbook stream that is not BIFF
     with pytest.raises(RenderError, match="empty"):
         render_file(b"", "x.csv")

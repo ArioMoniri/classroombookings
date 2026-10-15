@@ -32,6 +32,8 @@ class CouncilFileOut(BaseModel):
     size: int
     status: str
     format: str | None = None
+    #: the registry's route for the format: structured (read on the server) | ai (needs the model)
+    route_kind: str | None = None
     language: str | None = None
     route: str | None = None
     kinds: list[str] = Field(default_factory=list)

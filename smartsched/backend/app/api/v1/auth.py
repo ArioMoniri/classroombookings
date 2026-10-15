@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from functools import cache
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
@@ -10,6 +11,7 @@ from app.core.security import hash_password, password_needs_rehash, revoke_token
 from app.models import User
 from app.models.base import utcnow
 from app.schemas.auth import LoginIn, TokenOut, UserOut
+from app.services import audit
 from app.services import bookings_events as events
 from app.services import bookings_ldap
 from app.services.bookings_settings import get_value
@@ -17,6 +19,32 @@ from app.services.bookings_users import find_login_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 log = logging.getLogger(__name__)
+#: the one answer for every refused sign-in (admin persona M-42: a disabled account is not told apart)
+INVALID = "invalid credentials"
+
+
+@cache
+def _dummy_hash() -> str:
+    return hash_password("smartsched-timing-equaliser")
+
+
+def _spend_hash_time(password: str) -> None:
+    """A hash check against a throw-away hash, so refusals without a stored hash take as long as a wrong one."""
+    verify_password(password, _dummy_hash())
+
+
+async def _refuse_disabled(db: DB, user: User | None, method: str) -> HTTPException:
+    """Disabled account: the reason goes to the audit log and the server log, the caller sees ``INVALID``."""
+    log.warning("login refused for user %s (%s): account disabled", user.id if user else "?", method)
+    await audit.record(
+        db,
+        "auth.login_refused",
+        "user",
+        user.id if user else None,
+        after={"reason": "account disabled", "auth_method": method},
+    )
+    await db.commit()
+    return HTTPException(status.HTTP_401_UNAUTHORIZED, INVALID)
 
 
 async def _local(db: DB, identifier: str, password: str, *, ldap_rejected: bool = False) -> User | None:
@@ -25,9 +53,8 @@ async def _local(db: DB, identifier: str, password: str, *, ldap_rejected: bool 
     password, the local copy is not tried for directory accounts (``auth_source = ldap``): only when the
     directory cannot be reached (deliberate security difference; CRBS always falls back)."""
     user = await find_login_user(db, identifier)
-    if user is None or not user.password_hash:
-        return None
-    if ldap_rejected and user.auth_source == "ldap":
+    if user is None or not user.password_hash or (ldap_rejected and user.auth_source == "ldap"):
+        _spend_hash_time(password)  # unknown names cost a hash check too (M-42 timing)
         return None
     if not verify_password(password, user.password_hash):
         return None
@@ -39,7 +66,8 @@ async def _local(db: DB, identifier: str, password: str, *, ldap_rejected: bool 
 @router.post("/login", response_model=TokenOut)
 async def login(body: LoginIn, db: DB, request: Request) -> TokenOut:
     """Local or LDAP sign-in (CRBS ``Userauth::log_in``): LDAP first when enabled, local auth when LDAP is
-    off or the directory cannot be reached; disabled accounts are refused. Repeated failures from one
+    off or the directory cannot be reached; disabled accounts are refused with the same 401 as a wrong password
+    (the reason is audited as ``auth.login_refused``, persona M-42). Repeated failures from one
     address answer 429 for a while (review MINOR 5)."""
     from app.core import ratelimit
 
@@ -70,16 +98,17 @@ async def _login(body: LoginIn, db: DB) -> TokenOut:
         if res.ok and res.user is not None:
             user, method = res.user, "ldap"
         elif "user_not_enabled" in res.errors:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "user disabled")
+            _spend_hash_time(body.password)  # the directory answers before any bind for a disabled account
+            raise await _refuse_disabled(db, await find_login_user(db, ident), "ldap")
         elif not res.connection_error:
             ldap_rejected = True
             log.info("LDAP login failed for %s: %s", ident, res.errors)
     if user is None:
         user = await _local(db, ident, body.password, ldap_rejected=ldap_rejected)
     if user is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid credentials")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, INVALID)
     if not user.is_active:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "user disabled")
+        raise await _refuse_disabled(db, user, method)
     user.last_login_at = utcnow()
     await events.emit(db, "user.logged_in", {"user_id": user.id, "auth_method": method})
     await db.commit()

@@ -54,11 +54,11 @@ def test_magic_bytes_win_over_the_extension():
     xlsx = BAHAR_LIST.read_bytes()
     assert formats.detect_format("liste.csv", xlsx) == "xlsx"  # a workbook renamed .csv is still a workbook
     assert formats.detect_format("odalar.xlsx", ROOM_MASTER.read_bytes()) == "csv"  # and a CSV renamed .xlsx
-    assert formats.detect_format("x.json", b'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n') == "ics"
+    assert formats.detect_format("x.json", b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n") == "ics"
     assert formats.detect_format("x.txt", b'{"schema": "smartsched.intake.v1"}') == "json"
     assert formats.detect_format("x.dat", b'<?xml version="1.0"?><a><b>1</b><b>2</b></a>') == "xml"
     # the extension breaks a tie inside the text family only: the same delimited bytes as .txt stay text
-    data = "kod;kapasite\nA101;58\nA102;40\n".encode()
+    data = b"kod;kapasite\nA101;58\nA102;40\n"
     assert formats.detect_format("odalar.csv", data) == "csv"
     assert formats.detect_format("odalar.txt", data) == "txt"
 

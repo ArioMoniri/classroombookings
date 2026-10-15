@@ -84,8 +84,9 @@ def integrity(check: Any, run: ScheduleRun) -> dict[str, Any]:
             explained.append(f)
         else:
             blocking.append(f)
-    bad_reqs = {r for f in [*blocking, *explained] for r in f.request_ids}
-    # forced edits of imported board rows (no request id) still break a rule: count their assignments
+    # every recorded override is a hard rule broken on purpose, seen by the planner-level check or not (board rows
+    # carry no request id there): it counts against the hard score, explained or not
+    bad_reqs = {r for f in [*blocking, *explained] for r in f.request_ids} | explained_reqs
     board_only = {a for o in ovs if not o.get("request_ids") for a in o.get("assignment_ids") or []}
     hard = _score(len(bad_reqs) + len(board_only), check.requests_placed or check.rows)
     return {

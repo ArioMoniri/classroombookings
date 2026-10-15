@@ -29,7 +29,9 @@ def sheets(path: Path) -> list[tuple[str, list[list[Any]]]]:
     try:
         for ws in wb.worksheets:
             rows = [list(r) for r in ws.iter_rows(max_col=40, values_only=True)]
-            width = max((max((i + 1 for i, v in enumerate(r) if v not in (None, "")), default=0) for r in rows), default=0)
+            width = max(
+                (max((i + 1 for i, v in enumerate(r) if v not in (None, "")), default=0) for r in rows), default=0
+            )
             rows = [r[:width] for r in rows]
             while rows and not any(v not in (None, "") for v in rows[-1]):
                 rows.pop()

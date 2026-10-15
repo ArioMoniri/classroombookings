@@ -268,7 +268,9 @@ def parse_planning_list(
     mapping = map_headers(headers, HEADER_SPEC)
     missing = [k for k in ("code", "day", "start", "end") if k not in mapping]
     if missing:
-        raise ValueError(f"planning list is missing columns: {missing}; headers={headers}")
+        from app.importers.detect import WrongFileError
+
+        raise WrongFileError.build("planning-list", headers, missing)
     parsed: list[PlanningRow] = []
     skipped: list[tuple[int, str, str | None]] = []
     total = 0

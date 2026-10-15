@@ -209,9 +209,8 @@ def grid_records(path: Path, filename: str, year: int) -> tuple[list[Record], li
 
 
 def room_master_records(path: Path, filename: str) -> tuple[list[Record], list[str]]:
-    from app.importers.room_master import parse_room_master
-
     from app.council.formats_text import decode_text
+    from app.importers.room_master import parse_room_master
 
     rows, errors = parse_room_master(decode_text(path.read_bytes())[0])
     out: list[Record] = []

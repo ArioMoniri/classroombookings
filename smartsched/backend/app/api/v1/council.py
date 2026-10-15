@@ -34,10 +34,10 @@ from app.api.deps import DB, Planner, Viewer
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
-from app.council import storage
+from app.council import formats, storage
 from app.council.commit import CommitError, commit
 from app.council.orchestrator import enqueue
-from app.council.render import RenderError, detect_format
+from app.council.render import RenderError
 from app.council.review import _threshold, apply_decisions, build_items, decisions, effective_plan
 from app.models import CouncilArtifact, CouncilJob
 from app.schemas.council import (
@@ -103,16 +103,6 @@ async def job_out(db: DB, job: CouncilJob) -> CouncilJobOut:
     )
 
 
-def _inspect(data: bytes, fmt: str) -> None:
-    """OOXML pre-inspection; workbooks also pass the full-load caps, because a known shape is read by the
-    university importers (the weekly-grid parser loads the whole workbook)."""
-    lim = safe_files.Limits.from_settings()
-    kind = "workbook" if fmt == "xlsx" else "document"
-    rep = safe_files.inspect_zip(data, limits=lim, kind=kind)
-    if fmt == "xlsx":
-        safe_files.check_full_load(rep, lim, kind)
-
-
 @router.post("/jobs", response_model=CouncilJobOut, status_code=202)
 async def create_job(
     db: DB,
@@ -167,14 +157,13 @@ async def create_job(
                 raise HTTPException(413, f"the files of one job may total at most {st.council_max_job_mb} MiB")
             data = target.read_bytes()  # at most `limit` bytes
             try:
-                fmt = detect_format(name, data)
+                # magic-byte detection + the format's caps (zip bombs, ODS repeat bombs, XML entities, JSON
+                # depth, ICS expansion) in the rlimit child, before a job exists (app/council/formats.py)
+                fmt = await safe_files.run_isolated(formats.precheck, name, data)
             except RenderError as exc:
                 raise HTTPException(400, f"{name}: {exc}") from exc
-            if fmt in ("xlsx", "docx"):
-                try:
-                    await asyncio.to_thread(_inspect, data, fmt)
-                except safe_files.UnsafeFileError as exc:
-                    raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
+            except safe_files.UnsafeFileError as exc:
+                raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
             entries.append(
                 {
                     "index": i,
@@ -182,6 +171,8 @@ async def create_job(
                     "stored": stored,
                     "size": size,
                     "sha256": hashlib.sha256(data).hexdigest(),
+                    "format": fmt,
+                    "route_kind": formats.route_of(fmt),
                     "status": "QUEUED",
                 }
             )
