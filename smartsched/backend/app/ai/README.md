@@ -106,5 +106,7 @@ the model params in `resolve.resolve_proposal`.
 ## Tests
 
 `python -m pytest tests/ai -q` (mocked SDK, in-memory / temp SQLite, real CP-SAT for the repair path).
-`tests/ai/test_live_smoke.py` calls the real API only when `ANTHROPIC_API_KEY` is set
+Red-team eval: `app/ai/redteam.py` scores the fixed cases of `tests/ai/redteam_cases.json` (paraphrase, re-ordering,
+ambiguous rooms, injection in uploads); `tests/ai/test_redteam.py` runs them offline with scripted output and live
+(`::test_live_redteam`, prints the summary) when a key is set. `tests/ai/test_live_smoke.py` calls the real API only when `ANTHROPIC_API_KEY` is set
 (`SMARTSCHED_LIVE_MODEL` overrides the model) and checks that the strict schemas compile server-side.

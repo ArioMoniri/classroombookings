@@ -425,11 +425,6 @@ def _one_row_list(parsed: Any, number: int, path: Any) -> Any:
     return path
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="importers/planning_list.py archives every section of the term missing from the file, MAN: ones too "
-    "(diff routed to the importer agent in the P19-C hand-off)",
-)
 async def test_a_later_import_keeps_hand_made_sections(
     client: AsyncClient, parsed_bahar_list: Any, tmp_path: Any
 ) -> None:

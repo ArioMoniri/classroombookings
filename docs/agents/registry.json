@@ -489,8 +489,8 @@
       "ledger": "merge-universal-2026-10-15 SCOPE: your isolated git worktree only, on a local br…",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-15 16:37",
-      "left_off": "Still waiting on bnraig8aj, which is the active monitor."
+      "finished_at": "2026-10-15 17:06",
+      "left_off": "Waiting for the targeted backend run."
     },
     {
       "id": "a574d83abdbb1d109",
@@ -687,7 +687,8 @@
       "goal": "act as an ordinary university staff member who books rooms (the classroombookings \"Teacher\" role, not a planner or admin). Test every screen, button, form and motion this role can reach in SmartSched, and report bugs and enhancement ideas precisely enough that an engineer can fix them without asking you anything. Stack. Use only this one, which is isolated from the other testers: SNAP=/tmp/claude-…",
       "ledger": "persona-user-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona-user.m…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 17:06"
     },
     {
       "id": "a2adbc02f53e2d8cb",
@@ -779,6 +780,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-15 17:02",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "af35dd80be3805072",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 17:04",
       "left_off": "continue n deploy to pod when green"
     }
   ]

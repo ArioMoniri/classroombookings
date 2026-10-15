@@ -564,7 +564,8 @@ async def import_planning_list(
             + ("the file's values were taken" if take else "the planner's edits were kept (see extra.conflicts)")
         )
     for key, sec in existing_sections.items():
-        if key not in seen_section_keys and not sec.archived:
+        # hand-made sections (``MAN:<uuid>``, from-scratch API) are never in a file: a list import keeps them
+        if key not in seen_section_keys and not sec.archived and not (key or "").startswith("MAN:"):
             sec.archived = True
             report.updated["sections_archived"] += 1
 
