@@ -30,7 +30,7 @@
     "navigate": "Gezin", "select": "Seç", "close": "Kapat", "toggleTheme": "Temayı değiştir", "toggleLang": "Dili değiştir"
   },
   "auth": {
-    "title": "Giriş yap", "subtitle": "Planlama ofisi erişimi", "email": "E-posta", "password": "Şifre",
+    "title": "Giriş yap", "subtitle": "Derslik rezervasyonu ve planlama", "email": "E-posta", "password": "Şifre",
     "submit": "Giriş yap", "signingIn": "Giriş yapılıyor…", "failed": "Giriş başarısız. Bilgilerinizi kontrol edin."
   },
   "common": {

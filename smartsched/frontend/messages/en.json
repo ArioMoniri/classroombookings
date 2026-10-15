@@ -31,7 +31,7 @@
     "navigate": "Navigate", "select": "Select", "close": "Close", "toggleTheme": "Toggle theme", "toggleLang": "Switch language"
   },
   "auth": {
-    "title": "Sign in", "subtitle": "Planning office access", "email": "E-mail", "password": "Password",
+    "title": "Sign in", "subtitle": "Room booking and planning", "email": "E-mail", "password": "Password",
     "submit": "Sign in", "signingIn": "Signing in…", "failed": "Sign-in failed. Check your credentials."
   },
   "common": {
