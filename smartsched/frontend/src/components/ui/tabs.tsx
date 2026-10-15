@@ -104,7 +104,7 @@ function TabsTrigger({ className, children, ...props }: TabsPrimitive.Tab.Props)
         </button>
       )}
       className={cn(
-        "relative isolate inline-flex h-full flex-1 items-center pointer-coarse:min-h-11 justify-center gap-1.5 rounded-full px-3 text-[13px] font-medium whitespace-nowrap text-label-2 transition-colors duration-(--dur-fast) outline-hidden group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-(--focus) disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 data-active:text-label-1 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative isolate inline-flex h-full flex-1 items-center pointer-coarse:min-h-11 justify-center gap-1.5 rounded-full px-3 text-[13px] font-medium whitespace-nowrap text-label-2 transition-colors duration-(--dur-fast) group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-(--focus) disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 data-active:text-label-1 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         "group-data-[variant=line]/tabs-list:px-0.5 group-data-[variant=line]/tabs-list:data-active:text-label-1",
         className
       )}
@@ -119,7 +119,7 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel
       data-slot="tabs-content"
-      className={cn("flex-1 text-sm outline-hidden", className)}
+      className={cn("flex-1 rounded-[inherit] text-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", className)}
       {...props}
     />
   )

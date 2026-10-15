@@ -89,7 +89,7 @@ function SidebarGlassItem({ className, active = false, icon, count, hint, childr
     props: mergeProps<"a">(
       {
         className: cn(
-          "group/sidebar-item relative flex h-8 items-center gap-2.5 rounded-[10px] px-2.5 text-[13px] font-medium text-label-1 outline-none transition-colors duration-(--dur-fast) hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus) aria-[current=page]:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]",
+          "group/sidebar-item relative flex h-8 items-center gap-2.5 rounded-[10px] px-2.5 text-[13px] font-medium text-label-1 transition-colors duration-(--dur-fast) hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus) aria-[current=page]:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]",
           className
         ),
         "aria-current": active ? "page" : undefined,

@@ -72,7 +72,7 @@ function PromptComposer({
       <div
         role="presentation"
         onClick={() => ref.current?.focus()}
-        className="glass-thick flex cursor-text flex-col gap-2 rounded-[20px] p-2.5 focus-within:shadow-[var(--glass-edge),0_0_0_3px_color-mix(in_oklab,var(--focus)_22%,transparent)]"
+        className="glass-thick flex cursor-text flex-col gap-2 rounded-[20px] p-2.5 has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:outline-(--focus) focus-within:shadow-[var(--glass-edge),0_0_0_3px_color-mix(in_oklab,var(--focus)_22%,transparent)]"
       >
         <textarea
           ref={ref}
@@ -89,7 +89,7 @@ function PromptComposer({
             }
           }}
           style={{ maxHeight: `${maxRows * 20 + 8}px` }}
-          className="field-sizing-content min-h-5 w-full resize-none bg-transparent px-1 text-[14px] leading-5 text-label-1 outline-none placeholder:text-label-3 disabled:opacity-50"
+          className="field-sizing-content min-h-5 w-full resize-none bg-transparent px-1 text-[14px] leading-5 text-label-1 outline-hidden placeholder:text-label-3 disabled:opacity-50"
         />
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">{leading}</div>
@@ -98,7 +98,7 @@ function PromptComposer({
               type="button"
               aria-label={stopLabel}
               onClick={onStop}
-              className="flex size-8 items-center justify-center rounded-full bg-label-1 text-(--scene) outline-none transition-transform duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:scale-95"
+              className="flex size-8 items-center justify-center rounded-full bg-label-1 text-(--scene) transition-transform duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:scale-95"
             >
               <SquareIcon className="size-3 fill-current" />
             </button>
@@ -109,7 +109,7 @@ function PromptComposer({
               disabled={!canSend}
               onClick={send}
               className={cn(
-                "flex size-8 items-center justify-center rounded-full outline-none transition-[background-color,color,transform] duration-(--dur-base) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) enabled:active:scale-95",
+                "flex size-8 items-center justify-center rounded-full transition-[background-color,color,transform] duration-(--dur-base) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) enabled:active:scale-95",
                 canSend ? "bg-tint text-tint-foreground" : "bg-fill-1 text-label-3"
               )}
             >

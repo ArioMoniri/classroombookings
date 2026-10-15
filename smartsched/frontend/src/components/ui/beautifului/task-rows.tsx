@@ -109,7 +109,7 @@ function TaskRows({ rows, variant = "capsules", labels, className, defaultOpen =
                   setOpen((cur) => ({ ...cur, [row.key]: !isOpen }))
                   onToggleRow?.(row.key, !isOpen)
                 }}
-                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg text-left outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) disabled:cursor-default"
+                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) disabled:cursor-default"
               >
                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-label-1">{row.label}</span>
                 {row.meta ? <span className="text-[12.5px] text-label-2 tabular-nums">{row.meta}</span> : null}
@@ -129,7 +129,7 @@ function TaskRows({ rows, variant = "capsules", labels, className, defaultOpen =
                 <button
                   type="button"
                   onClick={() => onRetry?.(row.key)}
-                  className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-status-infeasible px-2 text-[11.5px] font-medium text-status-infeasible-fg outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
+                  className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-status-infeasible px-2 text-[11.5px] font-medium text-status-infeasible-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
                 >
                   {copy.failed} · {copy.retry}
                   <RotateCwIcon aria-hidden className="size-3 stroke-[2.5]" />

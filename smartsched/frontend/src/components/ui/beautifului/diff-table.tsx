@@ -155,7 +155,7 @@ function DiffTable({ title, columns, rows, included, onIncludedChange, onApply, 
                         event.stopPropagation()
                         toggle(row.key)
                       }}
-                      className="flex rounded-[6px] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
+                      className="flex rounded-[6px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
                     >
                       <IncludedMark included={on} tone={tone} />
                     </button>

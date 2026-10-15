@@ -34,7 +34,7 @@ function DropdownMenuContent({
   return (
     <MenuPrimitive.Portal>
       <MenuPrimitive.Positioner
-        className="isolate z-50 outline-none"
+        className="isolate z-50 outline-hidden"
         align={align}
         alignOffset={alignOffset}
         side={side}
@@ -42,7 +42,7 @@ function DropdownMenuContent({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
-          className={cn("z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl glass-thick t-panel-slide text-label-1 p-1 outline-none data-closed:overflow-hidden", className )}
+          className={cn("z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl glass-thick t-panel-slide text-label-1 p-1 outline-hidden data-closed:overflow-hidden", className )}
           {...props}
         />
       </MenuPrimitive.Positioner>

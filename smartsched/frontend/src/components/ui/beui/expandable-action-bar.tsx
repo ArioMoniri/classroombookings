@@ -302,7 +302,7 @@ export function ExpandableActionBar({
                 whileTap={reduce || item.disabled ? undefined : { scale: 0.96 }}
                 transition={ITEM_TRANSITION}
                 className={cn(
-                  "relative isolate inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-medium text-muted-foreground outline-none transition-[color,background-color] duration-150 ease-out",
+                  "relative isolate inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-medium text-muted-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus) transition-[color,background-color] duration-150 ease-out",
                   "focus-visible:text-foreground disabled:pointer-events-none disabled:opacity-40",
                   isHighlighted && "text-foreground",
                   ITEM_SIZE_CLASS[size],

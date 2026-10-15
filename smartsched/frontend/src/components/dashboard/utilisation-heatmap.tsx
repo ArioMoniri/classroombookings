@@ -56,7 +56,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
           {[1, 2, 3, 4, 5].map((s) => (
             <span key={s} className="inline-flex items-center gap-1"><span className="size-2.5 rounded-[3px] shadow-[inset_0_0_0_1px_var(--hairline)]" style={{ background: `var(--seq-${s})` }} aria-hidden />{[0, 25, 50, 75, 100][s - 1]}</span>
           ))}
-          <button type="button" aria-pressed={table} className="rounded-full px-2 py-0.5 font-medium text-tint-text outline-none hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={() => setTable((v) => !v)}>{table ? t("glass.dashboard.asHeatmap") : t("glass.dashboard.asTable")}</button>
+          <button type="button" aria-pressed={table} className="rounded-full px-2 py-0.5 font-medium text-tint-text hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={() => setTable((v) => !v)}>{table ? t("glass.dashboard.asHeatmap") : t("glass.dashboard.asTable")}</button>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -87,7 +87,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
                       <Tooltip>
                         <TooltipTrigger
                           render={
-                            <Link href={href} aria-label={label} className={cn("flex h-8 items-center justify-center rounded-[6px] text-[11px] font-medium tabular-nums outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--focus)", mode === "day" ? "w-10" : "w-[18px] sm:w-6")} style={table ? undefined : { background: bg, color: fg }}>
+                            <Link href={href} aria-label={label} className={cn("flex h-8 items-center justify-center rounded-[6px] text-[11px] font-medium tabular-nums focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", mode === "day" ? "w-10" : "w-[18px] sm:w-6")} style={table ? undefined : { background: bg, color: fg }}>
                               {mode === "day" || table ? pct : ""}
                             </Link>
                           }

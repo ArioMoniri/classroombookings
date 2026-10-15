@@ -10,7 +10,7 @@ import { cn } from "cn"
    spring curve (CSS linear() mirror of springs.snappy), removed under reduced motion by the global rule.
    Only transform/opacity/colour transition — never box-shadow (motion.md §8). */
 const buttonVariants = cva(
-  "group/button relative inline-flex pointer-coarse:min-h-11 shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-[13px] font-medium tracking-[-0.003em] whitespace-nowrap outline-hidden select-none transition-[background-color,color,transform,opacity] duration-(--dur-fast) ease-(--spring-snappy) focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:not-aria-[haspopup]:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 aria-invalid:outline-2 aria-invalid:outline-(--status-infeasible-border) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg]:stroke-[1.75]",
+  "group/button relative inline-flex pointer-coarse:min-h-11 shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-[13px] font-medium tracking-[-0.003em] whitespace-nowrap select-none transition-[background-color,color,transform,opacity] duration-(--dur-fast) ease-(--spring-snappy) focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:not-aria-[haspopup]:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 aria-invalid:outline-2 aria-invalid:outline-(--status-infeasible-border) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg]:stroke-[1.75]",
   {
     variants: {
       variant: {

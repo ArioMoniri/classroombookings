@@ -73,7 +73,7 @@ export function RoomCard({ room, grid, week, now, href }: { room: Room; grid: Ro
       aria-label={label}
       data-testid="room-card"
       data-room-id={room.id}
-      className="group/room flex flex-col gap-3 rounded-2xl bg-(--mat-regular-solid) p-3 shadow-[0_0_0_1px_var(--hairline),var(--ambient-1)] outline-none transition-colors duration-(--dur-fast) hover:bg-[color-mix(in_srgb,var(--mat-regular-solid),var(--label-1)_4%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
+      className="group/room flex flex-col gap-3 rounded-2xl bg-(--mat-regular-solid) p-3 shadow-[0_0_0_1px_var(--hairline),var(--ambient-1)] transition-colors duration-(--dur-fast) hover:bg-[color-mix(in_srgb,var(--mat-regular-solid),var(--label-1)_4%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
     >
       <div className="flex items-start gap-3">
         <RoomVisual room={room} variant="tile" />

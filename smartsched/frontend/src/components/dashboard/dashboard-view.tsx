@@ -86,7 +86,7 @@ function QuietNumbers({ d }: { d: DashboardSummary }) {
         <div key={i.label} className="min-w-0">
           <dt className="text-[12px] text-label-3">{i.label}</dt>
           <dd>
-            <Link href={i.href} className="rounded-md text-[22px] leading-7 font-semibold tracking-[-0.017em] text-label-1 outline-none hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus)">
+            <Link href={i.href} className="rounded-md text-[22px] leading-7 font-semibold tracking-[-0.017em] text-label-1 hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus)">
               <KpiNumber value={i.value} format={fmt} />
             </Link>
             {i.hint ? <span className="block text-[12px] text-label-3">{i.hint}</span> : null}
@@ -212,7 +212,7 @@ export function DashboardView() {
             <ul>
               {recent.map((r) => (
                 <li key={r.id} className="[&:not(:last-child)]:hairline-b">
-                  <Link href={`/runs/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 outline-none hover:bg-fill-3 focus-visible:bg-fill-3">
+                  <Link href={`/runs/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] font-medium text-label-1">{isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : t("glass.shell.runTitle", { id: r.id, term: r.term_code })}</span>
                       <span className="block truncate text-[12px] text-label-3">
@@ -242,7 +242,7 @@ export function DashboardView() {
             <ul>
               {pending.data?.items.map((m) => (
                 <li key={m.id} className="[&:not(:last-child)]:hairline-b">
-                  <Link href={`/requests?kind=meetings&id=${m.id}`} className="-mx-2 flex min-w-0 flex-col rounded-lg px-2 py-2 outline-none hover:bg-fill-3 focus-visible:bg-fill-3">
+                  <Link href={`/requests?kind=meetings&id=${m.id}`} className="-mx-2 flex min-w-0 flex-col rounded-lg px-2 py-2 hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
                     <span className="text-[13px] font-medium text-label-1">
                       {m.course_code}
                       {m.day && m.start_period && m.end_period ? <span className="font-normal text-label-2"> · {dayName(m.day, locale, "short")} {periodRangeLabel(m.start_period, m.end_period)}</span> : null}

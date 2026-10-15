@@ -5,8 +5,10 @@
  * `focus-visible:outline-2` (which reads `outline-style: var(--tw-outline-style)`) draws nothing
  * unless the focused state also sets the style (`focus-visible:outline-solid`).
  *
- * Two guards: the real Tailwind compiler proves the semantics, and a scan of the calendar, studio,
- * classes, runs and chat sources proves every hidden-outline class string restores a solid ring.
+ * Three guards: the real Tailwind compiler proves the semantics, globals.css ends with the UNLAYERED
+ * `:focus-visible{--tw-outline-style:solid}` that makes any focus-visible width paint (review 2026-10-15 §2),
+ * and a scan of every component and route proves no `outline-none` is left and every hidden-outline class
+ * string restores a solid ring.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -44,7 +46,13 @@ function focusedOutlineStyle(sheet: string, classes: string[]): string {
   return style;
 }
 
-const SCOPE = ["components/studio", "components/timetable", "components/classes", "components/runs", "components/chat", "app/(app)/timetable", "app/(app)/classes", "app/(app)/generate", "app/(app)/runs"];
+/** design-system overhaul 2026-10-15: the scan covers every source under components/ and app/. */
+const SCOPE = ["components", "app"];
+/**
+ * Files owned by other agents that still fail the scan. They are reported (docs/PROGRESS.md hand-off) instead
+ * of edited here; remove an entry once its owner migrates it. Only exact `path: reason` pairs are skipped.
+ */
+const PENDING_MIGRATION = new Set<string>([]);
 function sources(dir: string): string[] {
   const abs = path.join(root, dir);
   return readdirSync(abs).flatMap((f) => {
@@ -77,6 +85,24 @@ describe("focus ring (U-01)", () => {
         if (/(?<![\w:-])focus-visible:outline(?:-\d+)?(?![\w(\[-])/.test(s) && !s.includes("focus-visible:outline-solid")) offenders.push(`${rel}: ${s.slice(0, 80)}`);
       }
     }
-    expect(offenders).toEqual([]);
+    expect(offenders.filter((o) => !PENDING_MIGRATION.has(o))).toEqual([]);
+  });
+
+  it("globals.css restores the outline style for :focus-visible outside every @layer", () => {
+    const sheet = readFileSync(path.join(root, "app/globals.css"), "utf8");
+    // strip comments, then walk the braces: the rule must sit at depth 0 (unlayered)
+    const src = sheet.replace(/\/\*[\s\S]*?\*\//g, "");
+    let depth = 0;
+    let found = false;
+    for (let i = 0; i < src.length; i++) {
+      if (src[i] === "{") depth++;
+      else if (src[i] === "}") depth--;
+      else if (depth === 0 && src.startsWith(":focus-visible", i)) {
+        const body = src.slice(src.indexOf("{", i), src.indexOf("}", i));
+        if (/--tw-outline-style:\s*solid/.test(body)) found = true;
+      }
+    }
+    expect(found).toBe(true);
+    expect(sheet).not.toMatch(/outline-ring\/50/);
   });
 });

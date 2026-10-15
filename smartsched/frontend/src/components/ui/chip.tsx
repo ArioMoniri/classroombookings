@@ -31,7 +31,7 @@ function Chip({ className, selected, onSelectedChange, icon, removeLabel, onRemo
           if (!event.defaultPrevented && toggle) onSelectedChange?.(!selected)
         }}
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full font-medium whitespace-nowrap outline-none select-none transition-[background-color,color,transform] duration-(--dur-fast) ease-(--spring-snappy) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-3.5 [&_svg]:shrink-0",
+          "inline-flex items-center gap-1.5 rounded-full font-medium whitespace-nowrap select-none transition-[background-color,color,transform] duration-(--dur-fast) ease-(--spring-snappy) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-3.5 [&_svg]:shrink-0",
           height,
           selected
             ? "bg-tint-soft text-tint-text shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_30%,transparent)]"
@@ -60,7 +60,7 @@ function Chip({ className, selected, onSelectedChange, icon, removeLabel, onRemo
           aria-label={removeLabel ?? "Remove"}
           onClick={onRemove}
           className={cn(
-            "inline-flex items-center justify-center rounded-r-full pr-2 pl-1 text-label-3 outline-none transition-colors hover:text-label-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) [&_svg]:size-3",
+            "inline-flex items-center justify-center rounded-r-full pr-2 pl-1 text-label-3 transition-colors hover:text-label-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) [&_svg]:size-3",
             size === "sm" ? "h-6" : "h-7",
             selected ? "bg-tint-soft" : "bg-fill-2 shadow-[inset_0_1px_0_0_var(--hairline),inset_0_-1px_0_0_var(--hairline),inset_-1px_0_0_0_var(--hairline)] hover:bg-fill-1"
           )}

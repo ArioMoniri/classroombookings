@@ -519,7 +519,7 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   html {
     @apply font-sans;
@@ -619,3 +619,14 @@
 }
 .studio-pulse { animation: studio-pulse 1.2s var(--ease-in-out) infinite; }
 .studio-flash { outline: 2px solid var(--status-infeasible-border); outline-offset: 2px; transition: outline-color var(--dur-fast) var(--ease-out); }
+
+/* ---------- P0 focus (docs/review/2026-10-15-uiux-visual-review.md §2, row 1) ----------
+   Tailwind 4: `outline-none` / `outline-hidden` set --tw-outline-style:none and `focus-visible:outline-2`
+   reads outline-style:var(--tw-outline-style), so the pair drew nothing. This rule is deliberately
+   UNLAYERED: unlayered declarations beat every @layer (utilities included), so any focus-visible width
+   now paints a solid ring. It only sets the variable; elements that opt out with a literal
+   `outline-style:none` and no focus-visible width (menu items with a highlight, fields inside an
+   InputGroup that draws the ring) keep their own indicator. Do not move this into a layer. */
+:focus-visible {
+  --tw-outline-style: solid;
+}

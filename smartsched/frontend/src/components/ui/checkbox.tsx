@@ -11,7 +11,7 @@ function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "peer relative flex size-4 shrink-0 items-center justify-center rounded-[5px] bg-(--mat-thick) shadow-[inset_0_0_0_1px_var(--hairline-strong)] transition-colors duration-(--dur-fast) outline-none group-has-disabled/field:opacity-50 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) disabled:cursor-not-allowed disabled:opacity-45 aria-invalid:shadow-[inset_0_0_0_1px_var(--status-infeasible-border)] data-checked:bg-tint data-checked:text-tint-foreground data-checked:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25)]",
+        "peer relative flex size-4 shrink-0 items-center justify-center rounded-[5px] bg-(--mat-thick) shadow-[inset_0_0_0_1px_var(--hairline-strong)] transition-colors duration-(--dur-fast) group-has-disabled/field:opacity-50 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) disabled:cursor-not-allowed disabled:opacity-45 aria-invalid:shadow-[inset_0_0_0_1px_var(--status-infeasible-border)] data-checked:bg-tint data-checked:text-tint-foreground data-checked:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25)]",
         className
       )}
       {...props}

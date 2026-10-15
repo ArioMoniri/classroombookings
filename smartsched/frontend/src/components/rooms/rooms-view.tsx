@@ -122,14 +122,14 @@ export function RoomsView() {
 
       {/* one glass capsule over the scene: search, building, tags, seats, sort, layout */}
       <div className="glass-chrome flex flex-wrap items-center gap-2 rounded-[22px] p-1.5">
-        <label className="flex h-8 min-w-0 flex-1 basis-56 items-center gap-2 rounded-full bg-fill-3 px-3 text-[13px]">
+        <label className="flex h-8 min-w-0 flex-1 basis-56 items-center gap-2 rounded-full bg-fill-3 px-3 text-[13px] has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-(--focus)">
           <Search aria-hidden className="size-4 shrink-0 text-label-2" />
           <input
             value={q}
             onChange={(e) => set({ q: e.target.value })}
             placeholder={t("roomsV2.search")}
             aria-label={t("roomsV2.search")}
-            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-label-3"
+            className="min-w-0 flex-1 bg-transparent outline-hidden placeholder:text-label-3"
             data-testid="rooms-search"
           />
           {q ? <button type="button" aria-label={t("roomsV2.clearFilters")} onClick={() => set({ q: null })} className="text-label-2 hover:text-label-1"><X className="size-3.5" /></button> : null}

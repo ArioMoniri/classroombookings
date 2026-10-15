@@ -174,7 +174,7 @@ export function RoomDetail({ id }: { id: number }) {
 
         <div className="flex min-w-0 flex-col gap-4">
           <Card className="gap-3 p-4">
-            <h2 id="free-finder" tabIndex={-1} className="type-headline outline-none">{t("roomsV2.freeFinder")}</h2>
+            <h2 id="free-finder" tabIndex={-1} className="type-headline outline-hidden">{t("roomsV2.freeFinder")}</h2>
             <SegmentedGlass
               size="sm"
               aria-label={t("roomsV2.minLen", { n: minLen })}
@@ -297,7 +297,7 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
                     const ep = p < PERIODS_PER_DAY && row[p].kind === "free" ? p + 1 : p;
                     onPick({ day, sp: p, ep, length: ep - p + 1 });
                   }}
-                  className={cn("h-7 rounded-[4px] bg-fill-3 hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)", isPicked && "bg-tint-soft shadow-[inset_0_0_0_1.5px_var(--accent)]", isNow && "shadow-[inset_0_-2px_0_var(--now)]")}
+                  className={cn("h-7 rounded-[4px] bg-fill-3 hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", isPicked && "bg-tint-soft shadow-[inset_0_0_0_1.5px_var(--accent)]", isNow && "shadow-[inset_0_-2px_0_var(--now)]")}
                   style={{ gridRow, gridColumn: p + 1 }}
                 />
               ) : (
@@ -365,7 +365,7 @@ function TermStrip({ cells, week, onWeek }: { cells: { week: number | null; day:
             onClick={() => onWeek(w)}
             aria-label={`${t("roomsV2.heatWeek", { w })} · ${t("roomsV2.occupancyShort", { p: Math.round(mean * 100) })}`}
             aria-current={w === week ? "true" : undefined}
-            className={cn("grid grid-cols-[32px_repeat(7,1fr)] items-center gap-[3px] rounded-md p-0.5 text-left focus-visible:outline-2 focus-visible:outline-(--focus)", w === week ? "bg-tint-soft" : "hover:bg-fill-3")}
+            className={cn("grid grid-cols-[32px_repeat(7,1fr)] items-center gap-[3px] rounded-md p-0.5 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", w === week ? "bg-tint-soft" : "hover:bg-fill-3")}
           >
             <span className="text-[11px] font-semibold text-label-2 tabular-nums">H{w}</span>
             {row.map((c, i) => (
