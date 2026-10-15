@@ -13,9 +13,10 @@ Item kinds (``blocking`` items must be decided before commit):
 | ``plan`` | planner: one term group | no | accept, edit {code, name, kind, week_count, start_date, year} |
 | ``file`` | a file that could not be read | no | accept (acknowledged) |
 
-Decisions are stored as ``review`` artifacts (append-only; the latest decision per item wins). A
-mapping or classification edit re-runs extract -> reconcile -> planner -> critic for the job
-deterministically (no model calls), so the reviewer sees the effect immediately.
+Decisions are stored as ``review`` artifacts (append-only; the latest decision per item wins) and each post is
+one ``council.review`` audit event. A mapping or classification edit re-runs extract -> reconcile -> planner ->
+critic for the job deterministically (no model calls) on the job queue (the job is ``RUNNING`` meanwhile).
+Decisions are also remembered for the next upload with the same file signature (:mod:`app.council.memory`).
 """
 
 from __future__ import annotations
@@ -30,8 +31,9 @@ from app.core import safe_files
 from app.council import critic, planner, reconcile, storage
 from app.council.lexicon import FIELDS
 from app.council.structure import KIND_LABELS, KINDS, SheetAnalysis
-from app.models import CouncilJob
+from app.models import CouncilJob, User
 from app.models.base import utcnow
+from app.services.events import publish_event
 
 BLOCKING = {"classification", "mapping", "merge"}
 ACTIONS = {"accept", "reject", "edit"}
@@ -177,6 +179,13 @@ async def build_items(session: AsyncSession, job: CouncilJob) -> list[dict[str, 
                 files=g["files"],
                 evidence=g.get("evidence", []),
             )
+    # intake memory: remembered decisions of earlier jobs as visible suggestions (never applied by themselves)
+    from app.council import memory
+
+    for extra in await memory.recall(session, job, items):
+        extra["decision"] = decided.get(extra["id"])
+        extra["options"] = ["", *FIELDS]
+        items.append(extra)
     return items
 
 
@@ -271,9 +280,24 @@ async def rerun_deterministic(session: AsyncSession, job: CouncilJob, file_index
     await storage.add_artifact(session, job.id, "issues", {"issues": issues})
 
 
+async def _status_after_review(session: AsyncSession, job: CouncilJob, before: str) -> list[dict[str, Any]]:
+    items = await build_items(session, job)
+    blocking = [it for it in items if it["blocking"] and it["decision"] is None]
+    if before in ("REVIEW", "READY"):
+        job.status = "REVIEW" if blocking else "READY"
+    else:
+        job.status = before
+    job.summary = {**(job.summary or {}), "review_items": len(items), "blocking_items": len(blocking)}
+    return blocking
+
+
 async def apply_decisions(
-    session: AsyncSession, job: CouncilJob, items_in: list[dict[str, Any]], user_id: int | None
+    session: AsyncSession, job: CouncilJob, items_in: list[dict[str, Any]], actor: User | None
 ) -> dict[str, Any]:
+    """Store the decisions (one ``council.review`` audit event) and, when a mapping or classification changed,
+    queue the deterministic re-run of the affected files (:func:`enqueue_rerun`): the job is ``RUNNING`` until
+    it has finished (commit is refused meanwhile), then ``REVIEW`` / ``READY`` again."""
+    user_id = actor.id if actor is not None else None
     known = {it["id"]: it for it in await build_items(session, job)}
     stored: dict[str, dict[str, Any]] = {}
     errors: list[str] = []
@@ -307,20 +331,101 @@ async def apply_decisions(
     if stored:
         await storage.add_artifact(session, job.id, "review", {"decisions": stored})
         await session.flush()
+        # one audit event per review post: which items, which action (values are field / kind names, no content)
+        await publish_event(
+            session,
+            "council.review",
+            "council_job",
+            job.id,
+            after={
+                "decisions": {
+                    i: {
+                        "kind": known[i]["kind"],
+                        "action": d["action"],
+                        **(
+                            {"value": d["value"]}
+                            if d["value"] and known[i]["kind"] in ("mapping", "classification", "rule", "plan")
+                            else {}
+                        ),
+                    }
+                    for i, d in stored.items()
+                },
+                "count": len(stored),
+            },
+            actor=actor,
+        )
+        from app.council import memory
+
+        await memory.remember(session, job, {i: (known[i], d) for i, d in stored.items()}, actor)
     rerun = {
         known[i]["file_index"]
         for i, d in stored.items()
         if known[i]["kind"] in ("mapping", "classification") and d["action"] in ("edit", "reject")
     }
+    before = job.status
     if rerun:
-        await rerun_deterministic(session, job, rerun)
-    items = await build_items(session, job)
-    blocking = [it for it in items if it["blocking"] and it["decision"] is None]
-    if job.status in ("REVIEW", "READY"):
-        job.status = "REVIEW" if blocking else "READY"
-    job.summary = {**(job.summary or {}), "review_items": len(items), "blocking_items": len(blocking)}
+        job.settings = {**(job.settings or {}), "status_before_rerun": before}
+        job.status = "RUNNING"
+        items = await build_items(session, job)
+        blocking = [it for it in items if it["blocking"] and it["decision"] is None]
+    else:
+        blocking = await _status_after_review(session, job, before)
     await session.commit()
-    return {"saved": len(stored), "errors": errors, "rerun_files": sorted(rerun), "blocking": len(blocking)}
+    if rerun:
+        enqueue_rerun(job.id, sorted(rerun))
+    return {
+        "saved": len(stored),
+        "errors": errors,
+        "rerun_files": sorted(rerun),
+        "rerun_queued": bool(rerun),
+        "blocking": len(blocking),
+    }
 
 
-__all__ = ["BLOCKING", "apply_decisions", "build_items", "decisions", "effective_plan", "rerun_deterministic"]
+async def run_rerun(job_id: int, files: list[int]) -> dict[str, Any]:
+    """Queue body of a review re-run (deterministic, no model calls)."""
+    from app.core.db import get_session_factory
+
+    async with get_session_factory()() as s:
+        job = await s.get(CouncilJob, job_id)
+        if job is None:
+            raise ValueError(f"council job {job_id} not found")
+        await rerun_deterministic(s, job, set(files))
+        before = str((job.settings or {}).get("status_before_rerun") or "REVIEW")
+        blocking = await _status_after_review(s, job, before)
+        await s.commit()
+        return {"status": job.status, "blocking": len(blocking), "files": files}
+
+
+def enqueue_rerun(job_id: int, files: list[int]) -> None:
+    from app.core.db import get_session_factory
+    from app.workers.queue import JobState, get_queue
+
+    async def body(progress: Any) -> dict[str, Any]:
+        if progress:
+            progress(f"re-reading {len(files)} file(s) with the reviewed mapping", 10)
+        return await run_rerun(job_id, files)
+
+    async def on_status(st: JobState) -> None:
+        if st.status != "FAILED":
+            return
+        async with get_session_factory()() as s:
+            job = await s.get(CouncilJob, job_id)
+            if job is not None and job.status == "RUNNING":
+                job.status = str((job.settings or {}).get("status_before_rerun") or "REVIEW")
+                job.error = f"review re-run failed: {(st.error or 'failed')[:1900]}"
+                await s.commit()
+
+    get_queue().enqueue(f"council-review:{job_id}:{utcnow().timestamp():.0f}", body, on_status=on_status)
+
+
+__all__ = [
+    "BLOCKING",
+    "apply_decisions",
+    "build_items",
+    "decisions",
+    "effective_plan",
+    "enqueue_rerun",
+    "rerun_deterministic",
+    "run_rerun",
+]

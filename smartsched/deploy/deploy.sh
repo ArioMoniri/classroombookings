@@ -13,6 +13,12 @@
 # The backend runs migrations (alembic upgrade head) and seeds the admin user on every start; solver
 # and import jobs run inside the backend process (no separate worker container).
 #
+# Seed profile (profile.env, SEED_PROFILE; missing = empty): after the stack is healthy, `institution` imports the
+# owner's files once (seed/seed.py: workbooks + room master from smartsched/backend/tests/fixtures, mounted
+# read-only; their preference rules; learning extraction). A settings row records the finished steps, so later
+# deploys and --update skip them. `empty` loads nothing (setup wizard + /onboarding). SEED_PROFILE=... in the
+# environment overrides the file for one run.
+#
 # Secrets: on first run .env is created from .env.example and every "__GENERATE__" placeholder is
 # replaced with a random value (openssl, falling back to python). .env is git-ignored.
 # ADMIN_EMAIL has no default: set it in .env or pass it on the first run (ADMIN_EMAIL=you@uni.edu.tr ./deploy.sh).
@@ -23,6 +29,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${ENV_FILE:-$HERE/.env}"
 COMPOSE_FILE="$HERE/docker-compose.yml"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
+PROFILE_FILE="${PROFILE_FILE:-$HERE/profile.env}"
+SEED_FILES_DIR="${SEED_FILES_DIR:-$REPO_ROOT/smartsched/backend/tests/fixtures}"
 
 PROFILE_ARGS=()
 FILE_ARGS=(-f "$COMPOSE_FILE")
@@ -35,7 +43,7 @@ log()  { printf '\033[1;34m[deploy]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[deploy] warning:\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[deploy] error:\033[0m %s\n' "$*" >&2; exit 1; }
 
-usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
 
 for arg in "$@"; do
   case "$arg" in
@@ -163,6 +171,31 @@ wait_healthy() {
   done
 }
 
+# ---- seed profile ----------------------------------------------------------------------------
+seed_profile() {
+  local v=""
+  [[ -f "$PROFILE_FILE" ]] && v="$(grep -E '^[[:space:]]*(export[[:space:]]+)?SEED_PROFILE=' "$PROFILE_FILE" | tail -n 1 \
+    | cut -d= -f2- | sed 's/[[:space:]]*#.*$//; s/^[[:space:]]*//; s/[[:space:]]*$//' | tr -d "\"'")"
+  v="${SEED_PROFILE:-${v:-empty}}"
+  case "$v" in empty|institution) printf '%s\n' "$v" ;; *) die "SEED_PROFILE=$v in $PROFILE_FILE: expected empty or institution" ;; esac
+}
+
+run_seed() {
+  local profile
+  profile="$(seed_profile)"
+  if [[ "$profile" == empty ]]; then
+    log "seed profile: empty (the instance opens on the setup wizard)"
+    return 0
+  fi
+  [[ -d "$SEED_FILES_DIR" ]] || die "seed profile $profile needs the seed files in $SEED_FILES_DIR"
+  log "seed profile: $profile (owner files, once; finished steps are recorded in the database)"
+  # same image + DATABASE_URL as the running backend; the entrypoint skips migrations/admin (already done)
+  "${COMPOSE[@]}" run --rm --no-deps -T -e RUN_MIGRATIONS=0 -e SEED_ADMIN=0 -e SEED_PROFILE="$profile" \
+    -e SEED_FORCE="${SEED_FORCE:-0}" -v "$SEED_FILES_DIR:/seed/files:ro" -v "$HERE/seed:/seed/tool:ro" \
+    backend python /seed/tool/seed.py run \
+    || die "seeding ($profile) failed; finished steps are kept, rerun ./deploy.sh --no-build to resume"
+}
+
 print_summary() {
   local port url
   port="$(env_get PROXY_PORT)"; port="${port:-8080}"
@@ -177,6 +210,7 @@ print_summary() {
     log "Legacy CRBS:       http://localhost:$(env_get CRBS_PORT)  (first visit runs the CRBS installer; DB host crbs-db)"
     log "CRBS import DSN:   mysql://$(env_get CRBS_DB_USER):<CRBS_DB_PASSWORD>@crbs-db:3306/$(env_get CRBS_DB_NAME)  (needs BACKEND_EXTRA_PIP=pymysql)"
   fi
+  log "Seed profile:      $(seed_profile)  ($PROFILE_FILE)"
   log "Logs: ./deploy.sh --logs   Stop: ./deploy.sh --down   Update: ./deploy.sh --update"
 }
 
@@ -214,6 +248,7 @@ case "$ACTION" in
     log "restarting (migrations run in the backend entrypoint)"
     "${COMPOSE[@]}" up -d --remove-orphans
     wait_healthy "http://localhost:$(env_get PROXY_PORT)/api/v1/health"
+    run_seed
     docker image prune -f >/dev/null 2>&1 || true
     print_summary
     ;;
@@ -229,6 +264,7 @@ case "$ACTION" in
     log "starting"
     "${COMPOSE[@]}" up -d --remove-orphans
     wait_healthy "http://localhost:$(env_get PROXY_PORT)/api/v1/health"
+    run_seed
     print_summary
     ;;
 esac

@@ -34,3 +34,11 @@ def aws() -> StubAws:
 @pytest.fixture
 def bootstrap_policy() -> dict[str, Any]:
     return json.loads((Path(sa.__file__).parent / "iam" / "bootstrap-policy.json").read_text())
+
+
+@pytest.fixture(autouse=True)
+def _first_pod() -> Any:
+    """main() / use_pod() rebind the module's resource names; every test starts and ends on the first pod."""
+    sa.use_pod(sa.PODS["gracious"])
+    yield
+    sa.use_pod(sa.PODS["gracious"])

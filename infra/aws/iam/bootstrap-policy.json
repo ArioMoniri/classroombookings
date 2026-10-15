@@ -67,7 +67,8 @@
         "ssm:DeleteParameters",
         "ssm:AddTagsToResource"
       ],
-      "Resource": ["arn:aws:ssm:*:*:parameter/smartsched", "arn:aws:ssm:*:*:parameter/smartsched/*"]
+      "Resource": ["arn:aws:ssm:*:*:parameter/smartsched", "arn:aws:ssm:*:*:parameter/smartsched/*",
+                   "arn:aws:ssm:*:*:parameter/smartsched-universal", "arn:aws:ssm:*:*:parameter/smartsched-universal/*"]
     },
     {
       "Sid": "IdleAlarm",

@@ -30,7 +30,8 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
-from app.api.deps import DB, Planner, Viewer
+from app.api.deps import DB, CurrentAccess, Planner, Viewer
+from app.api.v1.imports import locked_409
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
@@ -245,28 +246,72 @@ async def job_events(job_id: int, db: DB, _: Viewer) -> StreamingResponse:
     )
 
 
-async def _review_out(db: DB, job: CouncilJob, **extra: Any) -> ReviewOut:
+#: review item keys that carry file content (cell values, rule texts, names in merges): planning.edit only
+CONTENT_KEYS = ("samples", "text", "texts", "sources", "evidence", "source", "alternatives")
+
+
+def _redact(item: dict[str, Any]) -> dict[str, Any]:
+    out = {k: v for k, v in item.items() if k not in CONTENT_KEYS}
+    if item.get("kind") == "merge":  # the two spellings are names of people or rooms
+        out["current"] = {k: v for k, v in (item.get("current") or {}).items() if k in ("kind", "score")}
+        out["title"] = f"Same {(item.get('current') or {}).get('kind', 'entity')}?"
+    if item.get("kind") in ("issue", "rule", "rule_text", "file"):
+        out["title"] = {"issue": "Finding", "rule": "Rule proposal", "rule_text": "Rule-like texts", "file": "File"}[
+            item["kind"]
+        ]
+        if item.get("kind") == "rule":
+            out["current"] = {k: v for k, v in (item.get("current") or {}).items() if k != "nl_text"}
+    if item.get("kind") == "mapping":
+        out["title"] = f"column {item.get('column')} -> {(item.get('current') or {}).get('field') or '(not used)'}?"
+    return out
+
+
+async def _review_out(db: DB, job: CouncilJob, *, content: bool = True, **extra: Any) -> ReviewOut:
     items = await build_items(db, job)
     plan = effective_plan(job.plan or {}, await decisions(db, job.id)) if job.plan else None
     blocking = sum(1 for it in items if it["blocking"] and it["decision"] is None)
+    if not content:
+        items = [_redact(it) for it in items]
+        if plan:
+            plan = {**plan, "groups": [{**g, "evidence": []} for g in plan.get("groups", [])]}
     return ReviewOut(
-        job_id=job.id, status=job.status, blocking=blocking, items=items, plan=plan, threshold=_threshold(job), **extra
+        job_id=job.id,
+        status=job.status,
+        blocking=blocking,
+        items=items,
+        plan=plan,
+        threshold=_threshold(job),
+        content=content,
+        **extra,
     )
 
 
 @router.get("/jobs/{job_id}/review", response_model=ReviewOut)
-async def get_review(job_id: int, db: DB, _: Viewer) -> ReviewOut:
-    return await _review_out(db, await _job(db, job_id))
+async def get_review(job_id: int, db: DB, _: Viewer, access: CurrentAccess) -> ReviewOut:
+    """Review items. Sample cell values, rule texts, sources and the names of merge pairs are file content
+    (names, notes): they are returned to planning.edit only, like ``/records``; viewers see the items' kinds,
+    confidences and decisions."""
+    return await _review_out(db, await _job(db, job_id), content=access.can("planning.edit"))
 
 
 @router.post("/jobs/{job_id}/review", response_model=ReviewOut)
 async def post_review(job_id: int, body: ReviewIn, db: DB, user: Planner) -> ReviewOut:
+    """Decide items (one ``council.review`` audit event). A mapping or classification change queues the
+    deterministic re-read of its files (``rerun_queued``); the job is ``RUNNING`` until it has finished (watch
+    ``GET /council/jobs/{id}/events``)."""
     job = await _job(db, job_id)
     if job.status not in ("REVIEW", "READY", "COMMITTED"):
         raise HTTPException(409, f"job is {job.status}; review opens when the council has finished")
-    res = await apply_decisions(db, job, [d.model_dump() for d in body.decisions], user.id)
+    res = await apply_decisions(db, job, [d.model_dump() for d in body.decisions], user)
     await db.refresh(job)
-    return await _review_out(db, job, saved=res["saved"], errors=res["errors"], rerun_files=res["rerun_files"])
+    return await _review_out(
+        db,
+        job,
+        saved=res["saved"],
+        errors=res["errors"],
+        rerun_files=res["rerun_files"],
+        rerun_queued=res["rerun_queued"],
+    )
 
 
 async def _commit_term_code(db: DB, job: CouncilJob, body: CommitIn) -> str | None:
@@ -312,7 +357,7 @@ async def post_commit(job_id: int, body: CommitIn, db: DB, user: Planner) -> dic
         async with term_lock.term_write_lock(key, f"council-commit:{job.id}"):
             return await commit(db, job, actor=user, **kwargs)
     except term_lock.TermLocked as exc:
-        raise term_lock.http_error(exc) from exc
+        raise locked_409(exc) from exc  # the imports' 409: holder and since when, TR + EN
     except CommitError as exc:
         raise HTTPException(409, str(exc)) from exc
 

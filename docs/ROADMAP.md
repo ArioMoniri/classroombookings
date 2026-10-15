@@ -694,3 +694,31 @@ Frontend follow-ups:
   - frontend (later sweep): Write-it hover highlight, Classes extras, undo after reload, "move together" for joint lectures, request-level inspector edits, write-through offer, "sınav (talep)" texts, a full English-leak sweep, studio contract fixtures
   - needs AI key/GPU: T5 e2e, GPU motion audit
 - Agent hygiene: never `pkill -f` by pattern; kill only own PIDs (a broad pkill at ~20:20 may have stopped another agent's server).
+
+### Hand-offs 2026-10-15 ~21:30
+- Brand (4fe999c): the "Fitted S" logo system, favicons, README header, a <Logo> component, docs/design/brand.md. The logo-design skill (MIT) is vendored as markdown only in .claude/skills/logo-design. The swap into the app goes to the shell agent; the README header to the media agent.
+  - [ ] Trademark clearance (TÜRKPATENT / EUIPO / WIPO) before external use; owner action.
+  - [ ] GitHub social preview image.
+- Learning lane finished: L1–L4 + C4 (0023_learning).
+  - Real data: 24,653 observations; 31 locked double bookings and 91 over-capacity rows excluded.
+  - Sample suggestion "SYS 19 → A Blok" (5/5 across 2 terms); a run with it accepted reaches hard 100.
+  - The daily purge is started in main.py (4191751).
+  - Confidence uses a Wilson lower bound with z=1 (z=1.96 could never satisfy the owner's 2-terms/3-repeats rule).
+  - [ ] Soft "prefer weekday" rule kind, so avoided-day priors can propose something.
+  - [ ] Exam-term priors.
+  - [ ] Persist the priors fingerprint for multi-worker deployments.
+  - [ ] The P19-02 audit reader hook (learning_extract._planning_audit).
+- Importer finished:
+  - period snapping, plus `time_snapped` issues
+  - note-column wishes as active soft rules with provenance, plus `preference_not_met` (owner: keep active)
+  - parser fixes A-04/06/07/08/09
+  - term lock in the imports; D16 at the endpoint; MAN: guard
+  - M-13, KVKK counts-only, M-20 detected_kind; the D9 lexicon unified with the council
+  Comparison: 0 regressions, hard 100 on all 4; Final matches 274 → 399.
+  - [ ] Owner decision: exams are never moved. Exams cover any overlapped period; the half rule applies to classes only (sent to the importer).
+  - [ ] Soft "one of these room sets" solver kind.
+  - [ ] A "Yazılım" room feature for JASP/JAMOVI.
+  - [ ] An "import as …" button on wrong-file errors.
+  - [ ] Adopt a matching MAN section on import.
+  - [ ] Council commit lock (intake agent).
+- Agent hygiene, repeated: two agents used broad `pkill -f` (next-server, make check) and may have killed others' processes. Rule for all prompts: kill only your own PIDs.

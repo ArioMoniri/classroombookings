@@ -1,0 +1,1923 @@
+"""Phase 19 moderation tab, backend (P19-M1..M3; docs/design/v2/phase19-moderation.md, review §3d).
+
+Read models (M1):
+
+* :func:`people` - one row per academician of a term: sections, requests, the match rate against the
+  published run (or the planner's definitive rooms when the term has no published run), active preferences,
+  learned priors (``app/services/learning.py``), accessibility as yes / no only and the
+  "N dönemdir karşılanmadı" badge (academician needs Q6: shown, never an automatic boost).
+* :func:`history` - a cross-term timeline per request: the raw cell and the parsed request, the definitive
+  room, the published run's placement and verdict, the planner's edits (imported snapshot diff, audit events)
+  and the bookings of the linked user (``Instructor.user_id``).
+* :func:`matchings` - request -> assignment with satisfied flags for room / building / tags / day / period and
+  one reason; the API adds ``calendar_views.classes`` issues and ``planner_check`` findings.
+
+Visibility (Q11, KVKK data minimisation): :func:`visibility`.
+
+Priorities (M2): :func:`set_section_priority`, :func:`set_request_priority` (audited); the bridge reads them
+(``solver_bridge.stored_priorities``).
+
+Re-solve (M3): :func:`create_resolve` + :func:`run_resolve` - a child run of a finished run with stability and
+the carried locks, one CP-SAT worker, never activated; ``repair`` frees only the neighbourhood of the changed
+requests (``app.solver.repair.repair``), ``full`` re-solves everything with stability. :func:`resolve_diff`
+compares the child with its base: moved (from -> to, with the cause), unchanged, newly placed, unplaceable
+(with the reason), hard / soft score, waived rules. Academician needs Q9: in ``repair`` mode no published class
+outside the changed requests moves unless that places more (:func:`_minimal_change`).
+
+Draft edits (M3): :func:`matching_action` writes a targeted pin / preference (``constraint_guard``) or an unlock
+on a draft child run, never on the published run.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections import defaultdict
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.importers import normalize as n
+from app.models import (
+    Assignment,
+    AuditEvent,
+    Booking,
+    ConstraintRow,
+    ImportedSnapshot,
+    Instructor,
+    MeetingRequest,
+    Program,
+    Room,
+    ScheduleRun,
+    Section,
+    SectionInstructor,
+    Term,
+    User,
+)
+from app.services.bookings_perms import Access
+from app.services.calendar_views import clock, tr_fold, when
+from app.solver import model as sm
+
+log = logging.getLogger(__name__)
+
+FLAGS = ("room", "building", "tags", "day", "period")
+ROOM_SIDE = ("room", "building", "tags")
+#: verdicts (moderation spec §13: Karşılandı / Kısmen / Karşılanmadı / Yerleşmedi; plus the not-evaluated ones)
+VERDICTS = ("satisfied", "partial", "not_as_requested", "unplaced", "not_evaluated", "pending")
+UNSATISFIED = frozenset({"partial", "not_as_requested", "unplaced"})
+VERDICT_TEXT: dict[str, tuple[str, str]] = {
+    "satisfied": ("Karşılandı", "Satisfied"),
+    "partial": ("Kısmen", "Partly"),
+    "not_as_requested": ("Karşılanmadı", "Not as requested"),
+    "unplaced": ("Yerleşmedi", "Not placed"),
+    "not_evaluated": ("Değerlendirilmedi", "Not evaluated"),
+    "pending": ("Karar yok", "No decision yet"),
+}
+NO_ROOM_MODES = frozenset({"ONLINE", "UZEM", "ASYNC", "HOSPITAL"})
+#: run statuses whose timetable a re-solve may start from (a finished run with placements)
+BASE_STATUSES = frozenset({"OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL"})
+#: the "N dönemdir karşılanmadı" badge is shown from this many terms in a row (Q6)
+STREAK_BADGE_FROM = 2
+#: priority tiers of the priority-policy spec (3 tiers, Normal = 0); any int in run_params.PRIORITY_RANGE works
+PRIORITY_TIERS = {"high": 1, "normal": 0, "low": -1}
+#: stability weight multiplier of a moderation re-solve: moving a published class costs more than any soft wish
+RESOLVE_STABILITY_WEIGHT = 10
+DEFAULT_RADIUS = 1
+MAX_CHANGED = 500
+#: policy step of a loss reason (``app.solver.policy.LOSS_REASONS``; priority-policy spec §5.4)
+POLICY_STEP: dict[str, tuple[int, str, str]] = {
+    "locked_row_kept": (1, "adım 1 · kilit", "step 1 · lock"),
+    "lock_clash_tie": (1, "adım 1 · kilit", "step 1 · lock"),
+    "lock_clash_more_locks": (1, "adım 1 · kilit", "step 1 · lock"),
+    "lock_clash_priority": (2, "adım 2 · öncelik", "step 2 · priority"),
+    "lower_priority": (2, "adım 2 · öncelik", "step 2 · priority"),
+    "most_classes": (3, "adım 3 · en çok ders", "step 3 · most classes"),
+}
+
+
+class ModerationError(Exception):
+    def __init__(self, status: int, detail: Any) -> None:
+        super().__init__(str(detail))
+        self.status = status
+        self.detail = detail
+
+
+def _t(tr: str, en: str) -> dict[str, str]:
+    return {"tr": tr, "en": en}
+
+
+# ------------------------------------------------------------------------------------------- visibility (Q11)
+
+
+@dataclass(frozen=True)
+class Scope:
+    """Whose requests the caller may see: everyone (``all``) or the instructors linked to the caller."""
+
+    all: bool
+    instructor_ids: frozenset[int] = frozenset()
+    basis: str = "planning.view"
+
+    def allows(self, instructor_ids: Iterable[int]) -> bool:
+        return self.all or bool(self.instructor_ids & set(instructor_ids))
+
+
+async def visibility(session: AsyncSession, access: Access) -> Scope:
+    """Q11: an academician sees only their own requests (``Instructor.user_id``); a coordinator / admin sees all.
+
+    The department secretary ("sees their department") has no role or permission of its own in the user model:
+    ``users.department_id`` names a programme, but nothing marks a user as that programme's secretary.
+    TODO(Q11 department scope): once a department-scoped planning role exists, return the instructors of the
+    sections of ``users.department_id`` here; until then ``planning.view`` sees all (the Viewer role is the
+    institution's read-only plan role)."""
+    if "planning.view" in access.perms:
+        return Scope(True)
+    linked = frozenset(
+        int(i)
+        for i in (await session.execute(select(Instructor.id).where(Instructor.user_id == access.user.id))).scalars()
+    )
+    if not linked:
+        raise ModerationError(
+            403, "requires permission planning.view, or an instructor record linked to your account (own requests)"
+        )
+    return Scope(False, linked, "own")
+
+
+# ------------------------------------------------------------------------------------------- matching core
+
+
+@dataclass(frozen=True)
+class Place:
+    day: int
+    start: int
+    end: int
+    room_ids: tuple[int, ...]
+    weeks: tuple[int, ...]
+    locked: bool = False
+    origin: str = "SOLVER"
+
+
+@dataclass
+class Want:
+    """What the department form asked for (Q12: the form is the official request)."""
+
+    room_groups: list[frozenset[str]] = field(default_factory=list)  # canonical codes, alternatives
+    avoid_rooms: frozenset[str] = frozenset()
+    building: str | None = None
+    buildings: frozenset[str] = frozenset()
+    tags: frozenset[str] = frozenset()
+    days: frozenset[int] = frozenset()
+    start: int | None = None
+    end: int | None = None
+
+
+def _ints(values: Iterable[Any] | None) -> list[int]:
+    out: list[int] = []
+    for v in values or []:
+        try:
+            out.append(int(v))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def wanted(mr: MeetingRequest, rooms: Mapping[int, Room]) -> Want:
+    """The request's wishes: room ids when the importer resolved them, else the codes in the cell text (a room
+    outside the room master, e.g. PHY 102's ``D 204``), alternatives kept as groups."""
+    vr = n.parse_venue_request(mr.requested_room_text) if mr.requested_room_text else None
+    ids = [r for r in _ints(mr.requested_room_ids) if r in rooms]
+    groups: list[frozenset[str]] = []
+    if vr is not None and vr.room_groups:
+        groups = [frozenset(g) for g in vr.room_groups if g]
+    elif vr is not None and vr.room_codes:
+        groups = [frozenset(vr.room_codes)]
+    if ids and not groups:
+        groups = [frozenset(rooms[r].code for r in ids)]
+    days = frozenset(_ints(mr.days) or ([mr.day] if mr.day else []))
+    return Want(
+        room_groups=groups,
+        avoid_rooms=frozenset(vr.avoid_room_codes) if vr is not None else frozenset(),
+        building=mr.requested_building or (vr.building if vr is not None else None),
+        buildings=frozenset(vr.buildings) if vr is not None else frozenset(),
+        tags=frozenset(str(t).upper() for t in (mr.requested_tags or []) if str(t).upper() not in ("LAB",)),
+        days=days,
+        start=mr.start_period,
+        end=mr.end_period,
+    )
+
+
+def _building(room: Room | None) -> str | None:
+    return room.code[:1] if room is not None and room.code else None
+
+
+def flags_for(want: Want, place: Place | None, rooms: Mapping[int, Room]) -> dict[str, bool | None]:
+    """``True`` asked and got, ``False`` asked and not got, ``None`` nothing asked (or nothing placed)."""
+    out: dict[str, bool | None] = dict.fromkeys(FLAGS)
+    if place is None:
+        return out
+    codes = {rooms[r].code for r in place.room_ids if r in rooms}
+    if want.room_groups:
+        out["room"] = any(g <= codes for g in want.room_groups) and not (codes & want.avoid_rooms)
+    elif want.avoid_rooms:
+        out["room"] = not (codes & want.avoid_rooms)
+    blds = {_building(rooms.get(r)) for r in place.room_ids if r in rooms}
+    if want.building:
+        out["building"] = bool(blds) and blds == {want.building}
+    elif want.buildings:
+        out["building"] = bool(blds) and blds <= set(want.buildings)
+    if want.tags:
+        have = {str(t).upper() for r in place.room_ids if r in rooms for t in (rooms[r].tags or [])}
+        out["tags"] = want.tags <= have
+    if want.days:
+        out["day"] = place.day in want.days
+    if want.start is not None and want.end is not None:
+        out["period"] = (place.start, place.end) == (want.start, want.end)
+    return out
+
+
+def verdict_of(flags: Mapping[str, bool | None]) -> str:
+    """``satisfied``: every evaluated wish holds; ``partial``: a room-side wish (room / building / tags) holds and
+    another fails; ``not_as_requested``: otherwise (no room-side wish holds, or the day / period differ)."""
+    evaluated = {k: v for k, v in flags.items() if v is not None}
+    if all(evaluated.values()):
+        return "satisfied"
+    if flags.get("day") is False or flags.get("period") is False:
+        return "not_as_requested"
+    room_side = [flags.get(k) for k in ROOM_SIDE if flags.get(k) is not None]
+    if any(room_side):
+        return "partial"
+    return "not_as_requested"
+
+
+def place_of(rows: list[Assignment]) -> Place | None:
+    """The request's placement in a run: the row covering most weeks gives day / time; rooms and weeks are the
+    union (a week-segmented term run stores one row per room set)."""
+    if not rows:
+        return None
+    first = sorted(rows, key=lambda a: (-len(a.weeks or []), a.id))[0]
+    rids: list[int] = []
+    for a in rows:
+        for r in _ints(a.room_ids):
+            if r not in rids:
+                rids.append(r)
+    weeks = sorted({int(w) for a in rows for w in (a.weeks or ([a.week] if a.week else []))})
+    return Place(
+        first.day,
+        first.start_period,
+        first.end_period,
+        tuple(rids),
+        tuple(weeks),
+        all(a.is_locked for a in rows),
+        str(first.origin or "SOLVER"),
+    )
+
+
+def _definitive_place(mr: MeetingRequest) -> Place | None:
+    ids = tuple(_ints(mr.definitive_room_ids))
+    if not ids or not mr.day or mr.start_period is None or mr.end_period is None:
+        return None
+    return Place(mr.day, mr.start_period, mr.end_period, ids, tuple(_ints(mr.weeks)), mr.status == "LOCKED", "IMPORT")
+
+
+# ------------------------------------------------------------------------------------------- term context
+
+
+@dataclass
+class TermData:
+    term: Term
+    run: ScheduleRun | None
+    rooms: dict[int, Room]
+    meetings: list[MeetingRequest]
+    rows_by_mr: dict[int, list[Assignment]]
+    diag_by_request: dict[int, dict[str, Any]]
+    occupancy: dict[tuple[int, int], list[tuple[int, int, frozenset[int], int]]]  # (room, day) -> spans
+    labels: dict[int, str]
+    member_of: dict[int, int]  # request -> its solver event (joint lecture head)
+
+
+def label_of(mr: MeetingRequest) -> str:
+    sec = mr.section
+    code = sec.course.display_code if sec.course else f"#{sec.course_id}"
+    return f"{code}{f' §{sec.label}' if sec.label else ''}"
+
+
+async def published_run(session: AsyncSession, term_id: int, kind: str = "COURSE") -> ScheduleRun | None:
+    return (
+        (
+            await session.execute(
+                select(ScheduleRun)
+                .where(ScheduleRun.term_id == term_id, ScheduleRun.kind == kind, ScheduleRun.is_active.is_(True))
+                .order_by(ScheduleRun.id.desc())
+            )
+        )
+        .scalars()
+        .first()
+    )
+
+
+async def all_rooms(session: AsyncSession) -> dict[int, Room]:
+    return {r.id: r for r in (await session.execute(select(Room))).scalars()}
+
+
+def _meeting_query() -> Any:
+    return select(MeetingRequest).options(
+        selectinload(MeetingRequest.section).selectinload(Section.course),
+        selectinload(MeetingRequest.section).selectinload(Section.program).selectinload(Program.faculty),
+        selectinload(MeetingRequest.section)
+        .selectinload(Section.instructors)
+        .selectinload(SectionInstructor.instructor),
+    )
+
+
+async def load_term(
+    session: AsyncSession,
+    term: Term,
+    run: ScheduleRun | None,
+    *,
+    rooms: dict[int, Room] | None = None,
+    request_ids: Iterable[int] | None = None,
+) -> TermData:
+    rooms = rooms if rooms is not None else await all_rooms(session)
+    q = (
+        _meeting_query()
+        .join(Section, Section.id == MeetingRequest.section_id)
+        .where(Section.term_id == term.id, MeetingRequest.archived.is_(False))
+        .order_by(MeetingRequest.source_row_index, MeetingRequest.id)
+    )
+    if request_ids is not None:
+        q = q.where(MeetingRequest.id.in_(list(request_ids)))
+    meetings = list((await session.execute(q)).scalars())
+    rows_by_mr: dict[int, list[Assignment]] = defaultdict(list)
+    occupancy: dict[tuple[int, int], list[tuple[int, int, frozenset[int], int]]] = defaultdict(list)
+    diag_by_request: dict[int, dict[str, Any]] = {}
+    member_of: dict[int, int] = {}
+    labels = {mr.id: label_of(mr) for mr in meetings}
+    if run is not None:
+        rows = list(
+            (
+                await session.execute(
+                    select(Assignment).where(Assignment.run_id == run.id, Assignment.archived.is_(False))
+                )
+            ).scalars()
+        )
+        for a in rows:
+            if a.meeting_request_id is None:
+                continue
+            rows_by_mr[a.meeting_request_id].append(a)
+            weeks = frozenset(_ints(a.weeks) or ([a.week] if a.week else []))
+            for r in _ints(a.room_ids):
+                occupancy[(r, a.day)].append((a.start_period, a.end_period, weeks, a.meeting_request_id))
+        members = {int(k): _ints(v) for k, v in ((run.stats or {}).get("event_members") or {}).items()}
+        member_of = {m: h for h, ms in members.items() for m in ms}
+        for d in run.diagnosis or []:
+            if not isinstance(d, dict) or d.get("severity") != "error":
+                continue
+            for eid in _ints(d.get("event_ids")):
+                for rid in members.get(eid, [eid]):
+                    diag_by_request.setdefault(rid, d)
+    return TermData(term, run, rooms, meetings, rows_by_mr, diag_by_request, occupancy, labels, member_of)
+
+
+def _in_horizon(mr: MeetingRequest, run: ScheduleRun) -> bool:
+    if run.horizon != "WEEK":
+        return True
+    horizon = set(_ints((run.horizon_params or {}).get("weeks")))
+    req = set(_ints(mr.weeks))
+    return not horizon or not req or bool(horizon & req)
+
+
+def _accessibility_phrases() -> tuple[str, ...]:
+    return next((ph for key, ph, _t in n.FEATURE_LEXICON if key == "step_free"), ())
+
+
+ACCESS_TAGS = frozenset({"STEP_FREE", "ACCESSIBLE"})
+
+
+def mentions_accessibility(text: str | None) -> bool:
+    """A free-text wish about step-free access ("Giriş kata yakın olsun"): never shown, only counted as yes."""
+    if not text:
+        return False
+    f = n.fold(text)
+    return any(p in f for p in _accessibility_phrases())
+
+
+def needs_access(mr: MeetingRequest) -> bool:
+    tags = {str(t).upper() for t in mr.requested_tags or []}
+    return (
+        bool(tags & ACCESS_TAGS) or mentions_accessibility(mr.notes) or mentions_accessibility(mr.requested_room_text)
+    )
+
+
+def _room_codes(ids: Iterable[int], rooms: Mapping[int, Room]) -> list[str]:
+    return [rooms[r].display_name if r in rooms else f"#{r}" for r in ids]
+
+
+def _holders(td: TermData, mr: MeetingRequest, place: Place, want: Want) -> list[dict[str, Any]]:
+    """Requests of the run sitting in one of the requested rooms at the placed time (the "room taken" reason)."""
+    code_to_id = {r.code: r.id for r in td.rooms.values()}
+    wanted_ids = {code_to_id[c] for g in want.room_groups for c in g if c in code_to_id}
+    weeks = set(place.weeks)
+    out: list[dict[str, Any]] = []
+    for rid in sorted(wanted_ids):
+        for s, e, wk, other in td.occupancy.get((rid, place.day), []):
+            if other == mr.id or td.member_of.get(other, other) == td.member_of.get(mr.id, mr.id):
+                continue
+            if s <= place.end and place.start <= e and (not weeks or not wk or weeks & wk):
+                item = {
+                    "request_id": other,
+                    "label": td.labels.get(other, f"#{other}"),
+                    "room": td.rooms[rid].display_name,
+                }
+                if item not in out:
+                    out.append(item)
+    return out[:5]
+
+
+def reason_for(
+    td: TermData, mr: MeetingRequest, want: Want, place: Place | None, flags: Mapping[str, bool | None], verdict: str
+) -> dict[str, Any] | None:
+    """One reason for a verdict that is not ``satisfied``: the run's diagnosis for an unplaced request (with the
+    policy step), the planning office's decision when the planner's own room was kept (academician needs M2), the
+    request that holds the wished room, the room's capacity, or the solver's trade-off."""
+    if verdict == "satisfied":
+        return None
+    size = int(mr.section.enrolment or mr.requested_capacity or 0)
+    if verdict == "unplaced":
+        d = td.diag_by_request.get(mr.id)
+        if d is None:
+            return {
+                "code": "unplaced",
+                "text": _t("Bu çözümde yerleşmedi.", "Not placed in this run."),
+                "culprits": [],
+                "policy_step": None,
+            }
+        pol = ((d.get("params") or {}).get("policy") or {}) if isinstance(d.get("params"), dict) else {}
+        step = POLICY_STEP.get(str(pol.get("reason") or ""))
+        text = d.get("text") if isinstance(d.get("text"), dict) else None
+        culprits = [{"request_id": w, "label": td.labels.get(int(w), f"#{w}")} for w in _ints(pol.get("winners"))[:5]]
+        return {
+            "code": str(d.get("code") or "unplaced"),
+            "text": text or _t(str(d.get("message") or "Yerleşmedi"), str(d.get("message") or "Not placed")),
+            "culprits": culprits,
+            "policy_step": {"step": step[0], "text": _t(step[1], step[2])} if step else None,
+            "policy_reason": pol.get("reason"),
+        }
+    if place is None:
+        return None
+    definitive = set(_ints(mr.definitive_room_ids))
+    if flags.get("room") is False or flags.get("building") is False:
+        if definitive and set(place.room_ids) == definitive:
+            return {
+                "code": "planner_decision",
+                "text": _t(
+                    "Karşılanmadı: planlama birimi kararı (gerekçe girilmemiş)",
+                    "Not as requested: planning-office decision (no reason given)",
+                ),
+                "culprits": [],
+                "policy_step": None,
+            }
+        holders = _holders(td, mr, place, want) if want.room_groups else []
+        if holders:
+            names = ", ".join(f"{h['label']} ({h['room']})" for h in holders)
+            return {
+                "code": "room_taken",
+                "text": _t(
+                    f"İstenen derslik bu saatte dolu: {names}", f"The wished room is taken at this time: {names}"
+                ),
+                "culprits": holders,
+                "policy_step": None,
+            }
+        code_to = {r.code: r for r in td.rooms.values()}
+        small = [
+            code_to[c]
+            for g in want.room_groups
+            for c in sorted(g)
+            if c in code_to and size and int(code_to[c].capacity or 0) < size
+        ]
+        if small:
+            r = small[0]
+            return {
+                "code": "capacity",
+                "text": _t(
+                    f"{size} öğrenci {r.capacity} kişilik {r.display_name}'e sığmaz",
+                    f"{size} students do not fit {r.display_name} ({r.capacity} seats)",
+                ),
+                "culprits": [],
+                "policy_step": None,
+            }
+        missing = sorted(c for g in want.room_groups for c in g if c not in code_to or not code_to[c].is_bookable)
+        if missing:
+            return {
+                "code": "room_unavailable",
+                "text": _t(
+                    f"İstenen derslik planlamada yok: {', '.join(missing)}",
+                    f"The wished room is not in the planning pool: {', '.join(missing)}",
+                ),
+                "culprits": [],
+                "policy_step": None,
+            }
+    if flags.get("tags") is False:
+        return {
+            "code": "tags",
+            "text": _t("İstenen özellik atanan derslikte yok", "The assigned room lacks a wished feature"),
+            "culprits": [],
+            "policy_step": None,
+        }
+    if flags.get("day") is False or flags.get("period") is False:
+        return {
+            "code": "time_changed",
+            "text": _t("Gün / saat istenenden farklı", "Day / time differ from the request"),
+            "culprits": [],
+            "policy_step": None,
+        }
+    return {
+        "code": "solver_choice",
+        "text": _t(
+            "Çözücü başka bir tercihle dengeledi (yumuşak tercih)",
+            "The solver traded this wish for another (soft preference)",
+        ),
+        "culprits": [],
+        "policy_step": None,
+    }
+
+
+def _place_out(place: Place | None, rooms: Mapping[int, Room]) -> dict[str, Any] | None:
+    if place is None:
+        return None
+    return {
+        "day": place.day,
+        "start_period": place.start,
+        "end_period": place.end,
+        "time": f"{clock(place.start)}–{clock(place.end, True)}",
+        "when": _t(when(place.day, place.start, place.end, "tr"), when(place.day, place.start, place.end, "en")),
+        "room_ids": list(place.room_ids),
+        "rooms": _room_codes(place.room_ids, rooms),
+        "weeks": list(place.weeks),
+        "locked": place.locked,
+        "origin": place.origin,
+    }
+
+
+def effective_priority(mr: MeetingRequest) -> dict[str, Any]:
+    if mr.priority is not None:
+        return {"value": int(mr.priority), "source": "request"}
+    sp = int(mr.section.priority or 0)
+    return {"value": sp, "source": "section" if sp else "default"}
+
+
+def match_one(td: TermData, mr: MeetingRequest) -> dict[str, Any]:
+    """The request against the run's assignment (or the planner's definitive room without a run)."""
+    sec = mr.section
+    rooms = td.rooms
+    want = wanted(mr, rooms)
+    source = "run" if td.run is not None else "planner"
+    place: Place | None
+    verdict: str
+    reason: dict[str, Any] | None = None
+    no_room = not mr.needs_room or (sec.mode or "F2F") in NO_ROOM_MODES
+    no_time = not mr.day or mr.start_period is None or mr.end_period is None
+    if no_room or (td.run is not None and (no_time or not _in_horizon(mr, td.run))):
+        place = place_of(td.rows_by_mr.get(mr.id, [])) if td.run is not None else None
+        verdict = "not_evaluated"
+        why = (
+            _t("Derslik gerekmiyor", "No room needed")
+            if no_room
+            else _t("Gün / saat yok", "No day / time")
+            if no_time
+            else _t("Bu çözümün haftalarında değil", "Not in this run's weeks")
+        )
+        reason = {
+            "code": "no_room" if no_room else "no_time" if no_time else "out_of_scope",
+            "text": why,
+            "culprits": [],
+            "policy_step": None,
+        }
+        flags = dict.fromkeys(FLAGS)
+    else:
+        if td.run is not None:
+            place = place_of(td.rows_by_mr.get(mr.id, []))
+        else:
+            place = _definitive_place(mr)
+        flags = flags_for(want, place, rooms)
+        if place is None:
+            verdict = "unplaced" if td.run is not None else "pending"
+        else:
+            verdict = verdict_of(flags)
+        reason = reason_for(td, mr, want, place, flags, verdict) if verdict != "pending" else None
+    definitive_ids = _ints(mr.definitive_room_ids)
+    return {
+        "request_id": mr.id,
+        "section_id": sec.id,
+        "term_id": sec.term_id,
+        "course_code": sec.course.display_code if sec.course else None,
+        "course_name": sec.course.name if sec.course else None,
+        "section": sec.label,
+        "label": label_of(mr),
+        "program": sec.program.name if sec.program else None,
+        "faculty": sec.program.faculty.name if sec.program and sec.program.faculty else None,
+        "enrolment": sec.enrolment,
+        "instructors": [
+            {"id": si.instructor_id, "name": si.instructor.full_name, "role": si.role} for si in sec.instructors
+        ],
+        "requested": {
+            "day": mr.day,
+            "days": _ints(mr.days),
+            "start_period": mr.start_period,
+            "end_period": mr.end_period,
+            "time": (
+                f"{clock(mr.start_period)}–{clock(mr.end_period, True)}"
+                if mr.start_period is not None and mr.end_period is not None
+                else None
+            ),
+            "weeks": _ints(mr.weeks),
+            "room_text": (mr.requested_room_text or "").strip() or None,
+            "rooms": [" + ".join(f"{c[:1]} {c[1:]}" for c in sorted(g)) for g in want.room_groups],
+            "building": want.building,
+            "tags": sorted(want.tags),
+            "capacity": mr.requested_capacity,
+            "status": mr.status,
+        },
+        "definitive": {
+            "text": (mr.definitive_room_text or "").strip() or None,
+            "room_ids": definitive_ids,
+            "rooms": _room_codes(definitive_ids, rooms),
+        },
+        "assigned": _place_out(place, rooms) if verdict != "pending" else None,
+        "satisfied": flags,
+        "verdict": verdict,
+        "verdict_text": _t(*VERDICT_TEXT[verdict]),
+        "reason": reason,
+        "priority": effective_priority(mr),
+        "source": source,
+        "provenance": {"row": mr.source_row_index, "source_key": mr.source_key},
+    }
+
+
+def counts_of(items: Iterable[Mapping[str, Any]]) -> dict[str, int]:
+    out = dict.fromkeys(VERDICTS, 0)
+    for it in items:
+        out[str(it["verdict"])] = out.get(str(it["verdict"]), 0) + 1
+    return out
+
+
+def match_rate(counts: Mapping[str, int]) -> float | None:
+    evaluated = sum(counts.get(v, 0) for v in ("satisfied", *UNSATISFIED))
+    return round(counts.get("satisfied", 0) / evaluated, 3) if evaluated else None
+
+
+async def term_matchings(
+    session: AsyncSession, term: Term, run: ScheduleRun | None, scope: Scope, *, rooms: dict[int, Room] | None = None
+) -> tuple[TermData, list[dict[str, Any]]]:
+    td = await load_term(session, term, run, rooms=rooms)
+    items = []
+    for mr in td.meetings:
+        if not scope.allows(si.instructor_id for si in mr.section.instructors):
+            continue
+        items.append(match_one(td, mr))
+    return td, items
+
+
+async def run_for(session: AsyncSession, term: Term, run_id: int | None) -> ScheduleRun | None:
+    if run_id is None:
+        return await published_run(session, term.id)
+    run = await session.get(ScheduleRun, run_id)
+    if run is None or run.term_id != term.id:
+        raise ModerationError(404, f"run {run_id} is not a run of term {term.code}")
+    if run.kind != "COURSE":
+        raise ModerationError(422, "matchings cover course runs (meeting requests)")
+    return run
+
+
+# ------------------------------------------------------------------------------------------- learning seam
+
+
+async def learned_priors(
+    session: AsyncSession, term_id: int, instructor_id: int | None = None
+) -> list[dict[str, Any]] | None:
+    """Learned priors of the term's instructors (``learning.priors_for``); ``None`` when the learning lane cannot
+    answer (its tables or code are not there): the moderation views never fail because of it."""
+    try:
+        from app.services import learning
+    except ImportError:  # pragma: no cover - the learning lane is part of the tree since 0023
+        return None
+    fn = getattr(learning, "priors_for", None)
+    if fn is None:
+        return None
+    try:
+        async with session.begin_nested():
+            return list(await fn(session, term_id, "instructor", str(instructor_id) if instructor_id else None))
+    except Exception:  # noqa: BLE001 - a seam to a lane still in progress; logged, the view degrades
+        log.warning("learning priors for term %s unavailable", term_id, exc_info=True)
+        return None
+
+
+# ------------------------------------------------------------------------------------------- people (M1)
+
+
+async def _terms_by_date(session: AsyncSession) -> list[Term]:
+    from app.services.learning import term_date
+
+    terms = list((await session.execute(select(Term))).scalars())
+    return sorted(terms, key=lambda t: (term_date(t), t.id), reverse=True)
+
+
+async def _preferences(session: AsyncSession, term_id: int) -> list[ConstraintRow]:
+    return list(
+        (
+            await session.execute(
+                select(ConstraintRow).where(
+                    ConstraintRow.term_id == term_id,
+                    ConstraintRow.enabled.is_(True),
+                    ConstraintRow.hardness == "soft",
+                    ConstraintRow.source != "BUILTIN",
+                )
+            )
+        ).scalars()
+    )
+
+
+def _rule_targets(c: ConstraintRow, request_ids: set[int], names: set[str]) -> bool:
+    params = c.params or {}
+    if request_ids & set(_ints(params.get("event_ids"))):
+        return True
+    ins = params.get("instructor") or params.get("instructors")
+    vals = ins if isinstance(ins, list) else [ins] if ins else []
+    return any(tr_fold(str(v)) in names for v in vals)
+
+
+def _streak(verdicts_by_term: list[list[str]]) -> int:
+    """Terms in a row (newest first, from the asked term back) with at least one unsatisfied request; a term
+    without requests of the person neither counts nor breaks the run (moderation spec "3 of 4 terms" rule)."""
+    streak = 0
+    for vs in verdicts_by_term:
+        if not vs:
+            continue
+        if any(v in UNSATISFIED for v in vs):
+            streak += 1
+        else:
+            break
+    return streak
+
+
+def streak_badge(streak: int) -> dict[str, str] | None:
+    if streak < STREAK_BADGE_FROM:
+        return None
+    return _t(f"{streak} dönemdir karşılanmadı", f"not satisfied for {streak} terms")
+
+
+async def _verdicts_per_term(
+    session: AsyncSession, terms: list[Term], rooms: dict[int, Room]
+) -> dict[int, dict[int, list[str]]]:
+    """term id -> instructor id -> verdicts of their requests (published run, else the planner's rooms)."""
+    out: dict[int, dict[int, list[str]]] = {}
+    for t in terms:
+        run = await published_run(session, t.id)
+        td = await load_term(session, t, run, rooms=rooms)
+        per: dict[int, list[str]] = defaultdict(list)
+        for mr in td.meetings:
+            v = match_one(td, mr)["verdict"]
+            for si in mr.section.instructors:
+                per[si.instructor_id].append(v)
+        out[t.id] = per
+    return out
+
+
+async def people(session: AsyncSession, term: Term, scope: Scope, q: str | None = None) -> dict[str, Any]:
+    rooms = await all_rooms(session)
+    run = await published_run(session, term.id)
+    td, items = await term_matchings(session, term, run, Scope(True), rooms=rooms)
+    terms = await _terms_by_date(session)
+    from app.services.learning import term_date
+
+    older = [t for t in terms if t.id != term.id and term_date(t) <= term_date(term)]
+    past = await _verdicts_per_term(session, older, rooms)
+    prefs = await _preferences(session, term.id)
+    priors = await learned_priors(session, term.id)
+    priors_by: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for p in priors or []:
+        subj = p.get("subject") or {}
+        if subj.get("type") == "instructor":
+            priors_by[str(subj.get("id"))].append(p)
+    by_mr = {mr.id: mr for mr in td.meetings}
+    person: dict[int, dict[str, Any]] = {}
+    for it in items:
+        mr = by_mr[it["request_id"]]
+        for si in mr.section.instructors:
+            row = person.setdefault(
+                si.instructor_id,
+                {
+                    "instructor": si.instructor,
+                    "sections": set(),
+                    "requests": [],
+                    "roles": set(),
+                    "units": defaultdict(int),
+                    "access": False,
+                },
+            )
+            row["sections"].add(mr.section_id)
+            row["requests"].append(it)
+            row["roles"].add(si.role)
+            if it["faculty"] or it["program"]:
+                row["units"][it["faculty"] or it["program"]] += 1
+            row["access"] = row["access"] or needs_access(mr)
+    needle = tr_fold(q) if q and q.strip() else None
+    out: list[dict[str, Any]] = []
+    for iid, row in person.items():
+        ins: Instructor = row["instructor"]
+        if not scope.allows([iid]):
+            continue
+        codes = {str(r["course_code"] or "") for r in row["requests"]}
+        if needle and needle not in tr_fold(ins.full_name) and not any(needle in tr_fold(c) for c in codes):
+            continue
+        counts = counts_of(row["requests"])
+        req_ids = {int(r["request_id"]) for r in row["requests"]}
+        names = {tr_fold(ins.full_name), tr_fold(ins.canonical_name)}
+        n_prefs = sum(1 for c in prefs if _rule_targets(c, req_ids, names))
+        history = [[str(r["verdict"]) for r in row["requests"]]] + [past.get(t.id, {}).get(iid, []) for t in older]
+        streak = _streak(history)
+        unit = max(row["units"].items(), key=lambda kv: (kv[1], kv[0]))[0] if row["units"] else None
+        prios = [r["priority"]["value"] for r in row["requests"]]
+        out.append(
+            {
+                "id": iid,
+                "name": ins.full_name,
+                "title": ins.title,
+                "unit": unit,
+                "roles": sorted(row["roles"]),
+                "sections": len(row["sections"]),
+                "requests": len(row["requests"]),
+                "counts": counts,
+                "match_rate": match_rate(counts),
+                "active_preferences": n_prefs,
+                "learned_priors": len(priors_by.get(str(iid), [])) if priors is not None else None,
+                "priority_max": max(prios) if prios else 0,
+                "accessibility": "yes" if row["access"] else "no",
+                "unsatisfied_streak": streak,
+                "badge": streak_badge(streak),
+                "linked_user": ins.user_id is not None,
+            }
+        )
+
+    def unmet(r: Mapping[str, Any]) -> int:
+        c = r["counts"]
+        return int(c["unplaced"]) + int(c["not_as_requested"]) + int(c["partial"])
+
+    out.sort(key=lambda r: (-unmet(r), tr_fold(str(r["name"]))))
+    return {
+        "term_id": term.id,
+        "term_code": term.code,
+        "run_id": run.id if run else None,
+        "source": "run" if run else "planner",
+        "visibility": "all" if scope.all else "own",
+        "learning_available": priors is not None,
+        "total": len(out),
+        "items": out,
+    }
+
+
+# ------------------------------------------------------------------------------------------- history (M1)
+
+#: imported fields a planner edit may change (ImportedSnapshot ``meeting`` / ``section`` values)
+_SNAPSHOT_FIELDS = {
+    "meeting": (
+        "day",
+        "days",
+        "start_period",
+        "end_period",
+        "weeks",
+        "requested_room_text",
+        "requested_room_ids",
+        "requested_building",
+        "requested_tags",
+        "requested_capacity",
+        "definitive_room_ids",
+        "needs_room",
+        "status",
+    ),
+    "section": ("enrolment", "mode", "label", "class_years"),
+}
+
+
+def _json(v: Any) -> Any:
+    from app.services.audit import jsonable
+
+    return jsonable(v)
+
+
+async def planner_edits(session: AsyncSession, mr: MeetingRequest) -> list[dict[str, Any]]:
+    """The planner's edits of a request: the diff against the imported values (``imported_snapshots``) and the
+    audit events on the request and its section. TODO(P19-02): when the backend lane records assignment moves
+    and locks with the request id, add them here (``audit_events`` of entity ``assignment``)."""
+    out: list[dict[str, Any]] = []
+    snaps = {
+        (s.entity, s.entity_id): s
+        for s in (
+            await session.execute(
+                select(ImportedSnapshot).where(
+                    ((ImportedSnapshot.entity == "meeting") & (ImportedSnapshot.entity_id == mr.id))
+                    | ((ImportedSnapshot.entity == "section") & (ImportedSnapshot.entity_id == mr.section_id))
+                )
+            )
+        ).scalars()
+    }
+    for (entity, _eid), snap in sorted(snaps.items()):
+        obj: Any = mr if entity == "meeting" else mr.section
+        changes = {}
+        for k, imported in (snap.values or {}).items():
+            if k not in _SNAPSHOT_FIELDS.get(entity, ()):
+                continue
+            cur = _json(getattr(obj, k, None))
+            if cur != imported:
+                changes[k] = {"imported": imported, "current": cur}
+        if changes:
+            out.append({"kind": "snapshot", "entity": entity, "at": snap.created_at.isoformat(), "changes": changes})
+    events = list(
+        (
+            await session.execute(
+                select(AuditEvent)
+                .where(
+                    ((AuditEvent.entity_type == "meeting_request") & (AuditEvent.entity_id == str(mr.id)))
+                    | ((AuditEvent.entity_type == "section") & (AuditEvent.entity_id == str(mr.section_id)))
+                )
+                .order_by(AuditEvent.id)
+                .limit(50)
+            )
+        ).scalars()
+    )
+    for ev in events:
+        out.append(
+            {
+                "kind": "audit",
+                "id": ev.id,
+                "action": ev.action,
+                "at": ev.ts.isoformat() if ev.ts else None,
+                "actor": ev.actor_label,
+                "before": ev.before,
+                "after": ev.after,
+                "reason": ev.reason,
+            }
+        )
+    return out
+
+
+async def _bookings(
+    session: AsyncSession, user_id: int, term_ids: list[int], rooms: Mapping[int, Room]
+) -> dict[int, list[dict[str, Any]]]:
+    out: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    rows = (
+        await session.execute(
+            select(Booking)
+            .where(Booking.user_id == user_id, Booking.term_id.in_(term_ids))
+            .order_by(Booking.date, Booking.start_period, Booking.id)
+            .limit(500)
+        )
+    ).scalars()
+    for b in rows:
+        out[b.term_id].append(
+            {
+                "id": b.id,
+                "date": b.date.isoformat(),
+                "start_period": b.start_period,
+                "end_period": b.end_period,
+                "time": f"{clock(b.start_period)}–{clock(b.end_period, True)}",
+                "room": rooms[b.room_id].display_name if b.room_id in rooms else f"#{b.room_id}",
+                "status": b.status,
+            }
+        )
+    return out
+
+
+async def _resolve_terms(session: AsyncSession, terms: str | None) -> list[Term]:
+    ordered = await _terms_by_date(session)
+    if not terms or not terms.strip():
+        return ordered
+    want: list[Term] = []
+    for part in [p.strip() for p in terms.split(",") if p.strip()]:
+        key = tr_fold(part)
+        hit = next((t for t in ordered if str(t.id) == part or tr_fold(t.code) == key), None)
+        if hit is None:
+            raise ModerationError(404, f"term {part!r} not found")
+        if hit not in want:
+            want.append(hit)
+    return [t for t in ordered if t in want]
+
+
+async def history(session: AsyncSession, instructor_id: int, scope: Scope, terms: str | None = None) -> dict[str, Any]:
+    ins = await session.get(Instructor, instructor_id)
+    if ins is None:
+        raise ModerationError(404, "instructor not found")
+    if not scope.allows([instructor_id]):
+        raise ModerationError(403, "you can see only your own requests")
+    rooms = await all_rooms(session)
+    chosen = await _resolve_terms(session, terms)
+    mr_ids = {
+        int(i)
+        for i in (
+            await session.execute(
+                select(MeetingRequest.id)
+                .join(SectionInstructor, SectionInstructor.section_id == MeetingRequest.section_id)
+                .where(SectionInstructor.instructor_id == instructor_id, MeetingRequest.archived.is_(False))
+            )
+        ).scalars()
+    }
+    bookings = await _bookings(session, ins.user_id, [t.id for t in chosen], rooms) if ins.user_id else {}
+    groups = []
+    access = False
+    for t in chosen:
+        run = await published_run(session, t.id)
+        td = await load_term(session, t, run, rooms=rooms, request_ids=mr_ids)
+        if not td.meetings and not bookings.get(t.id):
+            continue
+        items = []
+        for mr in td.meetings:
+            m = match_one(td, mr)
+            access = access or needs_access(mr)
+            role = next((si.role for si in mr.section.instructors if si.instructor_id == instructor_id), None)
+            notes = mr.notes
+            items.append(
+                {
+                    **m,
+                    "role": role,
+                    "raw": {
+                        "room_text": mr.requested_room_text
+                        if not mentions_accessibility(mr.requested_room_text)
+                        else None,
+                        # Q11: an accessibility wish is shown as yes / no only, never its words
+                        "notes": None if mentions_accessibility(notes) else notes,
+                        "row": mr.source_row_index,
+                        "source_row": _raw_cells(mr.section.source_row),
+                    },
+                    "parsed": {
+                        "day": mr.day,
+                        "days": _ints(mr.days),
+                        "start_period": mr.start_period,
+                        "end_period": mr.end_period,
+                        "start_time": mr.start_time.isoformat() if mr.start_time else None,
+                        "end_time": mr.end_time.isoformat() if mr.end_time else None,
+                        "weeks": _ints(mr.weeks),
+                        "rooms": _room_codes(_ints(mr.requested_room_ids), rooms),
+                        "building": mr.requested_building,
+                        "tags": [str(x) for x in mr.requested_tags or []],
+                        "capacity": mr.requested_capacity,
+                        "status": mr.status,
+                        "warnings": [
+                            str(w.get("message") if isinstance(w, dict) else w) for w in mr.parse_warnings or []
+                        ],
+                    },
+                    "planner_edits": await planner_edits(session, mr),
+                }
+            )
+        groups.append(
+            {
+                "term_id": t.id,
+                "term_code": t.code,
+                "term_name": t.name,
+                "run": (
+                    {"id": run.id, "label": run.label, "status": run.status, "published": bool(run.is_active)}
+                    if run
+                    else None
+                ),
+                "source": "run" if run else "planner",
+                "counts": counts_of(items),
+                "match_rate": match_rate(counts_of(items)),
+                "items": items,
+                "bookings": bookings.get(t.id, []),
+                "learned": await learned_priors(session, t.id, instructor_id) if items else [],
+            }
+        )
+    return {
+        "instructor": {
+            "id": ins.id,
+            "name": ins.full_name,
+            "title": ins.title,
+            "linked_user": ins.user_id is not None,
+        },
+        "accessibility": "yes" if access else "no",
+        "terms": groups,
+    }
+
+
+def _raw_cells(row: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """The planning-list cells of the section row, minus free-text notes that mention accessibility."""
+    if not row:
+        return None
+    return {str(k): (None if isinstance(v, str) and mentions_accessibility(v) else v) for k, v in row.items()}
+
+
+# ------------------------------------------------------------------------------------------- priorities (M2)
+
+
+def parse_priority(value: Any) -> int | None:
+    """An int within ``run_params.PRIORITY_RANGE`` or a tier name (high / normal / low); ``None`` clears."""
+    from app.services.run_params import PRIORITY_RANGE
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        key = tr_fold(value)
+        tiers = {**PRIORITY_TIERS, "yuksek": 1, "dusuk": -1}
+        if key in tiers:
+            return tiers[key]
+        raise ModerationError(422, f"priority must be an integer or one of {sorted(PRIORITY_TIERS)}")
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ModerationError(422, "priority must be an integer")
+    lo, hi = PRIORITY_RANGE
+    if not lo <= value <= hi:
+        raise ModerationError(422, f"priority must be within {lo}..{hi}")
+    return value
+
+
+async def set_section_priority(
+    session: AsyncSession, section_id: int, value: Any, actor: User, note: str | None = None
+) -> dict[str, Any]:
+    from app.services.events import publish_event
+
+    sec = await session.get(Section, section_id)
+    if sec is None or sec.archived:
+        raise ModerationError(404, "section not found")
+    new = parse_priority(value) or 0
+    before = int(sec.priority or 0)
+    if new != before:
+        sec.priority = new
+        await publish_event(
+            session,
+            "section.priority",
+            "section",
+            sec.id,
+            before={"priority": before},
+            after={"priority": new},
+            actor=actor,
+            reason=(note or "").strip() or None,
+            term_id=sec.term_id,
+        )
+    await session.commit()
+    return {"section_id": sec.id, "priority": new, "previous": before}
+
+
+async def set_request_priority(
+    session: AsyncSession, request_id: int, value: Any, actor: User, note: str | None = None
+) -> dict[str, Any]:
+    from app.services.events import publish_event
+
+    mr = (
+        await session.execute(
+            select(MeetingRequest).where(MeetingRequest.id == request_id).options(selectinload(MeetingRequest.section))
+        )
+    ).scalar_one_or_none()
+    if mr is None or mr.archived:
+        raise ModerationError(404, "meeting request not found")
+    new = parse_priority(value)
+    before = mr.priority
+    if new != before:
+        mr.priority = new
+        await publish_event(
+            session,
+            "meeting_request.priority",
+            "meeting_request",
+            mr.id,
+            before={"priority": before},
+            after={"priority": new},
+            actor=actor,
+            reason=(note or "").strip() or None,
+            term_id=mr.section.term_id,
+        )
+    await session.commit()
+    return {"request_id": mr.id, "priority": new, "previous": before, "effective": effective_priority(mr)}
+
+
+# ------------------------------------------------------------------------------------------- re-solve (M3)
+
+
+def _members_of(run: ScheduleRun) -> dict[int, list[int]]:
+    return {int(k): _ints(v) for k, v in ((run.stats or {}).get("event_members") or {}).items()}
+
+
+async def create_resolve(
+    session: AsyncSession,
+    term: Term,
+    base: ScheduleRun,
+    changed_request_ids: list[int],
+    mode: str,
+    actor: User,
+    *,
+    radius: int = DEFAULT_RADIUS,
+    time_limit_s: float | None = None,
+) -> ScheduleRun:
+    """A QUEUED child run of ``base`` for a moderation re-solve (the caller enqueues :func:`run_resolve`)."""
+    from app.services import run_params as rp
+    from app.services.events import publish_event
+
+    if base.term_id != term.id:
+        raise ModerationError(422, f"run {base.id} is not a run of term {term.code}")
+    if base.status not in BASE_STATUSES:
+        raise ModerationError(
+            409,
+            f"run {base.id} is {base.status}; a re-solve starts from a finished run "
+            f"({', '.join(sorted(BASE_STATUSES))})",
+        )
+    if mode not in ("repair", "full"):
+        raise ModerationError(422, "mode must be repair or full")
+    ids = sorted({int(i) for i in changed_request_ids})
+    if len(ids) > MAX_CHANGED:
+        raise ModerationError(422, f"at most {MAX_CHANGED} changed requests per re-solve")
+    if mode == "repair" and not ids:
+        raise ModerationError(422, "a repair names the changed requests (changed_request_ids); use mode full otherwise")
+    if ids:
+        if base.kind == "EXAM":
+            from app.models import ExamRequest
+
+            found = set(
+                (
+                    await session.execute(
+                        select(ExamRequest.id).where(ExamRequest.id.in_(ids), ExamRequest.term_id == term.id)
+                    )
+                ).scalars()
+            )
+        else:
+            found = set(
+                (
+                    await session.execute(
+                        select(MeetingRequest.id)
+                        .join(Section, Section.id == MeetingRequest.section_id)
+                        .where(MeetingRequest.id.in_(ids), Section.term_id == term.id)
+                    )
+                ).scalars()
+            )
+        missing = sorted(set(ids) - found)
+        if missing:
+            raise ModerationError(422, f"requests not in term {term.code}: {missing[:20]}")
+    params = {k: v for k, v in dict(base.params or {}).items() if k not in ("moderation",)}
+    weights = dict(params.get("weights") or {})
+    weights["stability"] = max(int(weights.get("stability", 1) or 1), RESOLVE_STABILITY_WEIGHT)
+    lo, hi = rp.bounds()["time_limit_s"]
+    limit = float(time_limit_s) if time_limit_s is not None else float(params.get("time_limit_s", 60.0))
+    params.update(
+        {
+            "stability": True,
+            rp.PUBLISH_CANDIDATE: True,
+            "workers": 1,
+            "weights": weights,
+            "time_limit_s": min(max(limit, lo), hi),
+            "moderation": {
+                "base_run_id": base.id,
+                "changed_request_ids": ids,
+                "mode": mode,
+                "radius": max(0, min(int(radius), 3)),
+            },
+        }
+    )
+    child = ScheduleRun(
+        term_id=term.id,
+        kind=base.kind,
+        horizon=base.horizon,
+        horizon_params=dict(base.horizon_params or {}),
+        params=params,
+        status="QUEUED",
+        parent_run_id=base.id,
+        label=f"Moderasyon yeniden çözüm #{base.id} ({'en az değişiklik' if mode == 'repair' else 'baştan'})"[:255],
+        stats={"progress": 0, "phase": "queued", "moderation": {"base_run_id": base.id, "mode": mode}},
+        created_by=actor.id,
+    )
+    session.add(child)
+    await session.flush()
+    await publish_event(
+        session,
+        "moderation.resolve",
+        "run",
+        child.id,
+        after={
+            "base_run_id": base.id,
+            "mode": mode,
+            "changed_request_ids": ids,
+            "radius": params["moderation"]["radius"],
+        },
+        actor=actor,
+        term_id=term.id,
+    )
+    await session.commit()
+    await session.refresh(child)
+    return child
+
+
+async def _input_for(session: AsyncSession, run: ScheduleRun) -> tuple[sm.SolverInput, dict[int, list[int]]]:
+    """The bridge input, keeping a studio draft's snapshot when the run descends from one (B3 seal)."""
+    from app.services import solver_bridge
+
+    if solver_bridge._studio_run(run):  # noqa: SLF001 - the bridge's own predicate, one definition
+        from app.services.studio import build_solver_input_for_run
+
+        return await build_solver_input_for_run(session, run)
+    return await solver_bridge.build_solver_input(session, run)
+
+
+def _overlaps(a: sm.Assignment, b: sm.Assignment) -> bool:
+    if a.day != b.day or a.start > b.end or b.start > a.end:
+        return False
+    return not a.weeks or not b.weeks or bool(a.weeks & b.weeks)
+
+
+def _slot_of(e: sm.Event) -> sm.Assignment | None:
+    """The cell an event asks for (its lock, else its fixed day + start), for finding who blocks it."""
+    if e.locked is not None:
+        return e.locked
+    if e.fixed_day is None or e.fixed_start is None:
+        return None
+    return sm.Assignment(e.id, e.fixed_day, e.fixed_start, e.fixed_start + e.duration - 1, (), e.weeks)
+
+
+def _fits(e: sm.Event, r: sm.Room) -> bool:
+    cap = r.exam_capacity if e.kind == "exam" else r.capacity
+    return cap >= e.size and e.required_tags <= r.tags and not (e.forbidden_tags & r.tags)
+
+
+def slot_blockers(inp: sm.SolverInput, current: Iterable[sm.Assignment], seeds: Iterable[int]) -> set[int]:
+    """Events placed in the requested cell of a changed event (a shared room it could use, its cohort or its
+    instructor at that time): the repair frees them too, so an edited or re-prioritised request that is not placed
+    (or asks for a new cell) gets its chance (``repair.neighbours`` only looks at current placements)."""
+    events = {e.id: e for e in inp.events}
+    cur = list(current)
+    out: set[int] = set()
+    for sid in seeds:
+        e = events.get(sid)
+        if e is None:
+            continue
+        slot = _slot_of(e)
+        if slot is None:
+            continue
+        slot = replace(slot, weeks=e.weeks)
+        cand = set(slot.room_ids) or set(e.required_room_ids) or set(e.preferred_room_ids)
+        if not cand:
+            cand = {r.id for r in inp.rooms if _fits(e, r)}
+        for a in cur:
+            other = events.get(a.event_id)
+            if other is None or a.event_id == sid or not _overlaps(slot, a):
+                continue
+            if set(a.room_ids) & cand or e.cohort_keys & other.cohort_keys or e.instructor_keys & other.instructor_keys:
+                out.add(a.event_id)
+    return out
+
+
+def _rescore(inp: sm.SolverInput, assignments: list[sm.Assignment]) -> tuple[int, int, dict[str, int], int]:
+    """(hard, soft, breakdown, hard violations) of the placed events (a partial result's unplaced events are
+    reported apart, as in ``repair``)."""
+    from app.solver.repair import score, validate
+
+    placed = {a.event_id for a in assignments}
+    sub = replace(inp, events=tuple(e for e in inp.events if e.id in placed), best_effort=False)
+    hard, soft, breakdown = score(sub, assignments)
+    return hard, soft, breakdown, sum(1 for v in validate(sub, assignments) if v.hard)
+
+
+def _minimal_change(
+    inp: sm.SolverInput, current: list[sm.Assignment], result: sm.SolverResult, scope: set[int]
+) -> list[int]:
+    """Academician needs Q9: a published class outside the changed requests keeps its cell unless moving it was
+    needed. Every moved event outside ``scope`` whose old cell is still free (reverting it keeps every hard rule)
+    is put back; deterministic (sorted order, repeated until nothing changes). Returns the reverted event ids and
+    rewrites ``result`` in place (assignments, scores, ``stats.repair.moved``)."""
+    from app.solver.repair import moved_diff
+
+    before = {a.event_id: a for a in current}
+    after = {a.event_id: a for a in result.assignments}
+    _hard0, _s0, _b0, viol0 = _rescore(inp, list(after.values()))
+    reverted: list[int] = []
+    changed = True
+    while changed:
+        changed = False
+        for m in moved_diff(list(before.values()), list(after.values())):
+            eid = int(m["event_id"])
+            if eid in scope or m["from"] is None or m["to"] is None or eid in reverted:
+                continue
+            trial = dict(after)
+            trial[eid] = before[eid]
+            if _rescore(inp, list(trial.values()))[3] <= viol0:
+                after = trial
+                reverted.append(eid)
+                changed = True
+    if reverted:
+        final = [after[k] for k in sorted(after)]
+        hard, soft, breakdown, _v = _rescore(inp, final)
+        result.assignments = final
+        result.hard_score, result.soft_score = hard, soft
+        result.objective_breakdown = breakdown
+        rep = dict(result.stats.get("repair") or {})
+        moved = moved_diff(current, final)
+        rep.update(
+            {
+                "moved": moved,
+                "moved_count": sum(1 for x in moved if x["to"] is not None and x["from"] is not None),
+                "reverted": sorted(reverted),
+            }
+        )
+        result.stats["repair"] = rep
+    return sorted(reverted)
+
+
+async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -> dict[str, Any]:
+    """Queue job of a moderation re-solve: the bridge input of the child (previous = the base run's placements,
+    the base's locks carried, stability on, one worker), then ``repair`` on the neighbourhood of the changed
+    requests or a full solve. Infeasible stays INFEASIBLE with its diagnosis (nothing is relaxed silently)."""
+    from app.services import solver_bridge
+    from app.solver.repair import repair
+    from app.workers import run_jobs
+
+    def report(phase: str, pct: int) -> None:
+        if progress:
+            progress(phase, pct)
+
+    async with session_factory() as session:
+        run = await session.get(ScheduleRun, run_id)
+        if run is None:
+            raise ValueError(f"run {run_id} not found")
+        if not await run_jobs.start_run(session, run):
+            return await run_jobs.finish_cancelled(session_factory, run_id)
+        run.stats = {**(run.stats or {}), "progress": 5, "phase": "loading"}
+        await session.commit()
+        report("loading", 5)
+        inp, members = await _input_for(session, run)
+        mod = dict((run.params or {}).get("moderation") or {})
+        if not inp.events:
+            await solver_bridge._finish_empty_scope(session, run)  # noqa: SLF001
+            return {"status": "FAILED", "assignments": 0}
+        await session.commit()
+    head_of = {m: h for h, ms in members.items() for m in ms}
+    ids = {e.id for e in inp.events}
+    changed = {head_of.get(int(r), int(r)) for r in mod.get("changed_request_ids") or []} & ids
+    current = [a for a in inp.previous if a.event_id in ids]
+    mode = str(mod.get("mode") or "repair")
+    limit = float(inp.time_limit_s)
+    report("solving", 20)
+    seeds: set[int] = set()
+    reverted: list[int] = []
+    try:
+        if mode == "repair":
+            seeds = changed | slot_blockers(inp, current, changed)
+            result = await run_jobs.solve_off_loop(
+                run_id,
+                limit,
+                repair,
+                inp,
+                current,
+                sorted(seeds),
+                limit,
+                keep_changed=False,
+                radius=int(mod.get("radius", DEFAULT_RADIUS)),
+            )
+            if result.status in ("OPTIMAL", "FEASIBLE") and current:
+                reverted = _minimal_change(inp, current, result, changed)
+        else:
+            result = await run_jobs.solve_off_loop(
+                run_id,
+                limit,
+                solver_bridge._call_solver,  # noqa: SLF001 - the bridge's solve entry (week splitting included)
+                inp,
+                None,
+                str((run.params or {}).get("solver", "auto")),
+                split_weeks=solver_bridge.run_mode(dict(run.params or {}), "split_blocked_weeks"),
+            )
+    except run_jobs.RunCancelled:
+        return await run_jobs.finish_cancelled(session_factory, run_id)
+    report("persisting", 90)
+    result.stats = {
+        **result.stats,
+        "solver": "app.solver.repair" if mode == "repair" else solver_bridge.CPSAT_MODULE,
+        "mode": mode,
+        "moderation": {
+            **mod,
+            "changed_events": sorted(changed),
+            "seeds": sorted(seeds),
+            "reverted": reverted,
+            "workers": inp.workers,
+        },
+    }
+    async with session_factory() as session:
+        run = await session.get(ScheduleRun, run_id)
+        if run is None:
+            raise ValueError(f"run {run_id} was deleted while solving")
+        if run.status == "CANCELLED":
+            return {"status": "CANCELLED"}
+        count = await solver_bridge.persist_result(session, run, result, members)
+        if count < 0:
+            return {"status": "CANCELLED"}
+    report("done", 100)
+    return {"status": solver_bridge.run_status(result), "assignments": count}
+
+
+def enqueue_resolve(run_id: int) -> None:
+    from app.core.db import get_session_factory
+    from app.workers.queue import JobState, get_queue
+
+    factory = get_session_factory()
+
+    async def body(progress: Any) -> dict[str, Any]:
+        return await run_resolve(factory, run_id, progress)
+
+    async def on_status(st: JobState) -> None:
+        async with factory() as s:
+            row = await s.get(ScheduleRun, run_id)
+            if row is None:
+                return
+            if st.status == "FAILED":
+                row.status = "FAILED"
+                row.error = (st.error or "")[:4000]
+                row.finished_at = datetime.now(UTC).replace(tzinfo=None)
+            row.stats = {**(row.stats or {}), "progress": st.progress, "phase": st.phase}
+            await s.commit()
+
+    get_queue().enqueue(f"run:{run_id}", body, on_status=on_status)
+
+
+# ------------------------------------------------------------------------------------------- diff (M3)
+
+
+def _cell_set(rows: list[Assignment]) -> frozenset[tuple[int, int, int, tuple[int, ...], tuple[int, ...]]]:
+    return frozenset(
+        (a.day, a.start_period, a.end_period, tuple(sorted(_ints(a.room_ids))), tuple(sorted(_ints(a.weeks))))
+        for a in rows
+    )
+
+
+def _touch(a: Place, b: Place, ma: MeetingRequest, mb: MeetingRequest) -> str | None:
+    """Why ``b``'s new cell displaces ``a``'s old one: a shared room, the same cohort or the same instructor."""
+    if a.day != b.day or a.start > b.end or b.start > a.end:
+        return None
+    if a.weeks and b.weeks and not set(a.weeks) & set(b.weeks):
+        return None
+    if set(a.room_ids) & set(b.room_ids):
+        return "room"
+    sa, sb = ma.section, mb.section
+    if sa.program_id and sa.program_id == sb.program_id:
+        ya = set(_ints(sa.class_years) or ([sa.class_year] if sa.class_year else []))
+        yb = set(_ints(sb.class_years) or ([sb.class_year] if sb.class_year else []))
+        if ya & yb:
+            return "cohort"
+    if {si.instructor_id for si in sa.instructors} & {si.instructor_id for si in sb.instructors}:
+        return "instructor"
+    return None
+
+
+async def resolve_diff(session: AsyncSession, child: ScheduleRun) -> dict[str, Any]:
+    """The re-solve against its base run, request by request (moderation spec §5.4 preview, needs §5.3):
+    moved (from -> to, with the cause), unchanged (count), newly placed, unplaceable (with the reason), the hard /
+    soft score before and after and the waived rules. Pure read of the stored rows: re-running the same re-solve
+    gives the identical diff (one worker, deterministic time)."""
+    mod = (child.params or {}).get("moderation") or {}
+    base_id = mod.get("base_run_id") or child.parent_run_id
+    base = await session.get(ScheduleRun, int(base_id)) if base_id else None
+    if base is None:
+        raise ModerationError(404, f"run {child.id} has no base run")
+    term = await session.get(Term, child.term_id)
+    assert term is not None
+    status = child.status
+    out: dict[str, Any] = {
+        "run_id": child.id,
+        "base_run_id": base.id,
+        "status": status,
+        "mode": mod.get("mode"),
+        "changed_request_ids": _ints(mod.get("changed_request_ids")),
+        "is_active": bool(child.is_active),
+    }
+    if status in ("QUEUED", "RUNNING"):
+        return {**out, "ready": False}
+    rooms = await all_rooms(session)
+    before = await load_term(session, term, base, rooms=rooms)
+    after = await load_term(session, term, child, rooms=rooms)
+    by_mr = {mr.id: mr for mr in after.meetings}
+    changed = set(_ints(mod.get("changed_request_ids")))
+    st = child.stats or {}
+    bst = base.stats or {}
+    in_scope = [mr for mr in after.meetings if mr.needs_room and _in_horizon(mr, child)]
+    moved: list[dict[str, Any]] = []
+    newly: list[dict[str, Any]] = []
+    unplaceable: list[dict[str, Any]] = []
+    unchanged = 0
+    old_place: dict[int, Place | None] = {}
+    new_place: dict[int, Place | None] = {}
+    for mr in in_scope:
+        b_rows, a_rows = before.rows_by_mr.get(mr.id, []), after.rows_by_mr.get(mr.id, [])
+        old_place[mr.id], new_place[mr.id] = place_of(b_rows), place_of(a_rows)
+    for mr in in_scope:
+        b_rows, a_rows = before.rows_by_mr.get(mr.id, []), after.rows_by_mr.get(mr.id, [])
+        op, np_ = old_place[mr.id], new_place[mr.id]
+        people_ids = [si.instructor_id for si in mr.section.instructors]
+        base_item = {
+            "request_id": mr.id,
+            "label": label_of(mr),
+            "in_scope": mr.id in changed,
+            "instructor_ids": people_ids,
+        }
+        if op is None and np_ is None:
+            if mr.start_period is None or not mr.day:
+                continue
+            d = after.diag_by_request.get(mr.id)
+            unplaceable.append({**base_item, "was_placed": False, "reason": _diag_reason(after, mr, d)})
+            continue
+        if np_ is None:
+            d = after.diag_by_request.get(mr.id)
+            unplaceable.append(
+                {
+                    **base_item,
+                    "was_placed": True,
+                    "from": _place_out(op, rooms),
+                    "reason": _diag_reason(after, mr, d),
+                }
+            )
+            continue
+        if op is None:
+            newly.append({**base_item, "to": _place_out(np_, rooms)})
+            continue
+        if _cell_set(b_rows) == _cell_set(a_rows):
+            unchanged += 1
+            continue
+        causes: list[dict[str, Any]] = []
+        if mr.id in changed:
+            causes.append({"code": "changed", "text": _t("Değiştirilen talep", "Edited request")})
+        else:
+            for oid, other_new in new_place.items():
+                if oid == mr.id or other_new is None:
+                    continue
+                if old_place.get(oid) == other_new:
+                    continue  # the other class did not move: it is no cause
+                why = _touch(op, other_new, mr, by_mr[oid])
+                if why:
+                    lbl = label_of(by_mr[oid])
+                    tr_why = {"room": "dersliği", "cohort": "aynı sınıfın saatini", "instructor": "hocanın saatini"}[
+                        why
+                    ]
+                    en_why = {"room": "the room", "cohort": "the cohort's slot", "instructor": "the instructor's slot"}[
+                        why
+                    ]
+                    causes.append(
+                        {
+                            "code": f"displaced_{why}",
+                            "request_id": oid,
+                            "label": lbl,
+                            "text": _t(
+                                f"{lbl} {tr_why} aldığı için {label_of(mr)} taşındı",
+                                f"{label_of(mr)} moved because {lbl} took {en_why}",
+                            ),
+                        }
+                    )
+            causes = causes[:5]
+            if not causes:
+                # no class took its old cell: Q9 counts it (repair mode reverts such moves, _minimal_change)
+                causes.append(
+                    {
+                        "code": "unexplained",
+                        "text": _t(
+                            "Taşındı; eski yerini başka bir ders almadı",
+                            "Moved although no other class took its old cell",
+                        ),
+                    }
+                )
+        moved.append({**base_item, "from": _place_out(op, rooms), "to": _place_out(np_, rooms), "causes": causes})
+    outside = [m for m in moved if not m["in_scope"]]
+    touched = [*moved, *newly, *(u for u in unplaceable if u["was_placed"])]
+    affected = sorted({i for m in touched for i in m["instructor_ids"]})
+    rep = st.get("repair") or {}
+    diags = [
+        {"code": d.get("code"), "text": d.get("text"), "message": d.get("message"), "event_ids": d.get("event_ids")}
+        for d in child.diagnosis or []
+        if isinstance(d, dict) and d.get("severity") == "error"
+    ][:50]
+    return {
+        **out,
+        "ready": True,
+        "counts": {
+            "moved": len(moved),
+            "moved_outside_scope": len(outside),
+            "moved_unexplained": sum(1 for m in outside if m["causes"][0]["code"] == "unexplained"),
+            "unchanged": unchanged,
+            "newly_placed": len(newly),
+            "unplaceable": len(unplaceable),
+            "newly_unplaced": sum(1 for u in unplaceable if u["was_placed"]),
+            "affected_people": len(affected),
+        },
+        "moved": moved,
+        "newly_placed": newly,
+        "unplaceable": unplaceable,
+        "affected_instructor_ids": affected,
+        "scores": {
+            "hard": {"before": base.hard_score, "after": child.hard_score},
+            "soft": {"before": base.soft_score, "after": child.soft_score},
+            "placed": {"before": bst.get("placed"), "after": st.get("placed"), "total": st.get("events_total")},
+        },
+        "waived_rules": list(st.get("waived_rules") or []),
+        "neighbourhood": {
+            "seeds": len((st.get("moderation") or {}).get("seeds") or []),
+            "freed": len(rep.get("freed") or []),
+            "reverted": len((st.get("moderation") or {}).get("reverted") or []),
+            "radius": (st.get("moderation") or {}).get("radius"),
+        },
+        "workers": (st.get("moderation") or {}).get("workers"),
+        "diagnosis": diags,
+    }
+
+
+def _diag_reason(td: TermData, mr: MeetingRequest, d: Mapping[str, Any] | None) -> dict[str, Any]:
+    if d is None:
+        return {"code": "unplaced", "text": _t("Yerleşmedi", "Not placed"), "policy_step": None, "culprits": []}
+    r = reason_for(td, mr, wanted(mr, td.rooms), None, dict.fromkeys(FLAGS), "unplaced")
+    assert r is not None
+    return r
+
+
+# ------------------------------------------------------------------------------------------- draft edits (M3)
+
+ACTIONS = ("pin", "prefer", "unlock")
+#: the explicit soft weight of a coordinator wish (academician needs Q7: explicit 10 > learned 5)
+PREFER_WEIGHT = 10
+
+
+def _moderation_ref(c: ConstraintRow) -> dict[str, Any]:
+    ref = c.source_ref if isinstance(c.source_ref, dict) else {}
+    mod = ref.get("moderation")
+    return mod if isinstance(mod, dict) else {}
+
+
+def _draft_child(run: ScheduleRun) -> None:
+    if run.is_active:
+        raise ModerationError(409, "the published run is never edited; re-solve it and edit the draft child run")
+    if run.parent_run_id is None:
+        raise ModerationError(409, "edits go to a draft child run (POST /terms/{id}/moderation/resolve first)")
+
+
+async def matching_action(
+    session: AsyncSession,
+    request_id: int,
+    *,
+    run_id: int,
+    action: str,
+    actor: User,
+    may_override: bool,
+    room_ids: list[int] | None = None,
+    day: int | None = None,
+    start_period: int | None = None,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    """``pin``: the class keeps a cell (default: its cell in the base run, "Bu taşımayı engelle"), written as hard
+    targeted ``room_pin`` + ``fixed_time`` rules of the draft child run; ``prefer``: a soft targeted
+    ``room_preference``; ``unlock``: the child's pins / preferences of the class are switched off and its lock is
+    released for the next re-solve (``solver_bridge.UNLOCK_PARAM``). Rules go through ``constraint_guard`` and the
+    constraint catalogue; a pin that seats more students than the rooms hold is refused unless a planning
+    administrator gives a reason (Q8). The rule takes effect at the next re-solve from this run (rules are
+    inherited by child runs)."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app.ai.catalog import validate_params
+    from app.services.constraint_guard import guard_rule
+    from app.services.events import publish_event
+    from app.services.solver_bridge import UNLOCK_PARAM
+
+    if action not in ACTIONS:
+        raise ModerationError(422, f"action must be one of {ACTIONS}")
+    run = await session.get(ScheduleRun, run_id)
+    if run is None:
+        raise ModerationError(404, "run not found")
+    _draft_child(run)
+    if run.kind != "COURSE":
+        raise ModerationError(422, "matchings cover course runs (meeting requests)")
+    mr = (await session.execute(_meeting_query().where(MeetingRequest.id == request_id))).scalar_one_or_none()
+    if mr is None or mr.archived or mr.section.term_id != run.term_id:
+        raise ModerationError(404, "meeting request not found in this run's term")
+    term_id = run.term_id
+    existing = list(
+        (
+            await session.execute(
+                select(ConstraintRow).where(ConstraintRow.run_id == run.id, ConstraintRow.enabled.is_(True))
+            )
+        ).scalars()
+    )
+    mine = [c for c in existing if _moderation_ref(c).get("request_id") == mr.id]
+    created: list[int] = []
+    disabled: list[int] = []
+    if action == "unlock":
+        for c in mine:
+            c.enabled = False
+            disabled.append(c.id)
+        params = dict(run.params or {})
+        cur = _ints(params.get(UNLOCK_PARAM))
+        if mr.id not in cur:
+            params[UNLOCK_PARAM] = sorted([*cur, mr.id])
+            run.params = params
+            flag_modified(run, "params")
+        detail: dict[str, Any] = {"unlocked": True}
+    else:
+        parent = await session.get(ScheduleRun, run.parent_run_id) if run.parent_run_id else None
+        ref_place = None
+        if parent is not None:
+            rows = list(
+                (
+                    await session.execute(
+                        select(Assignment).where(
+                            Assignment.run_id == parent.id,
+                            Assignment.meeting_request_id == mr.id,
+                            Assignment.archived.is_(False),
+                        )
+                    )
+                ).scalars()
+            )
+            ref_place = place_of(rows)
+        rooms = await all_rooms(session)
+        rids = [int(r) for r in room_ids] if room_ids else list(ref_place.room_ids) if ref_place else []
+        unknown = [r for r in rids if r not in rooms]
+        if unknown:
+            raise ModerationError(422, f"unknown room ids {unknown}")
+        if not rids:
+            raise ModerationError(422, "name the rooms (room_ids): the class has no cell in the base run")
+        specs: list[tuple[str, dict[str, Any], str, int]] = []
+        if action == "pin":
+            d = day if day is not None else ref_place.day if ref_place else mr.day
+            s = start_period if start_period is not None else ref_place.start if ref_place else mr.start_period
+            if d is None or s is None:
+                raise ModerationError(422, "name the day and start_period of the pin")
+            size = int(mr.section.enrolment or 0)
+            seats = sum(int(rooms[r].capacity or 0) for r in rids)
+            if size and seats < size and not (may_override and len((reason or "").strip()) >= 3):
+                names = " + ".join(rooms[r].display_name for r in rids)
+                raise ModerationError(
+                    422,
+                    {
+                        "message": f"{size} öğrenci {seats} kişilik {names}'e sığmaz / {size} students do not fit "
+                        f"{names} ({seats} seats)",
+                        "issues": ["capacity"],
+                        "override": "planning.admin with a reason",
+                    },
+                )
+            specs.append(("room_pin", {"event_ids": [mr.id], "room_ids": rids}, "hard", 1))
+            specs.append(("fixed_time", {"event_ids": [mr.id], "day": int(d), "start": int(s)}, "hard", 1))
+        else:
+            specs.append(("room_preference", {"event_ids": [mr.id], "room_ids": rids}, "soft", PREFER_WEIGHT))
+        for c in mine:  # one wish per class and draft: the new one replaces the old
+            c.enabled = False
+            disabled.append(c.id)
+        for kind, params_, hardness, weight in specs:
+            issues = validate_params(kind, dict(params_), hardness) + guard_rule(
+                kind, params_, hardness, source="ADMIN", may_waive=False, reason=None
+            )
+            if issues:
+                raise ModerationError(422, {"message": "invalid rule", "issues": issues[:10]})
+            row = ConstraintRow(
+                term_id=None,
+                run_id=run.id,
+                kind=kind,
+                params=params_,
+                hardness=hardness,
+                weight=weight,
+                source="ADMIN",
+                nl_text=f"{label_of(mr)}: {action} " + " + ".join(rooms[r].display_name for r in rids),
+                enabled=True,
+                created_by=actor.id,
+                source_ref={
+                    "moderation": {"request_id": mr.id, "action": action, "reason": (reason or "").strip() or None}
+                },
+            )
+            session.add(row)
+            await session.flush()
+            created.append(row.id)
+        detail = {"room_ids": rids}
+    await publish_event(
+        session,
+        f"moderation.{action}",
+        "meeting_request",
+        mr.id,
+        after={"run_id": run.id, "action": action, "constraints": created, "disabled": disabled, **detail},
+        actor=actor,
+        reason=(reason or "").strip() or None,
+        term_id=term_id,
+    )
+    await session.commit()
+    return {
+        "request_id": mr.id,
+        "run_id": run.id,
+        "action": action,
+        "constraint_ids": created,
+        "disabled_constraint_ids": disabled,
+        "effective": _t("Bir sonraki yeniden çözümde etkili olur", "Takes effect at the next re-solve"),
+        **detail,
+    }
+
+
+__all__ = [
+    "FLAGS",
+    "ModerationError",
+    "Scope",
+    "create_resolve",
+    "enqueue_resolve",
+    "flags_for",
+    "history",
+    "match_one",
+    "matching_action",
+    "people",
+    "resolve_diff",
+    "run_resolve",
+    "set_request_priority",
+    "set_section_priority",
+    "term_matchings",
+    "verdict_of",
+    "visibility",
+    "wanted",
+]

@@ -1,0 +1,4 @@
+# Branch-specific deploy profile: a merge keeps the receiving branch's copy (claude/gracious-cerf-w1598m =
+# institution, claude/smartsched-universal = empty). Every clone that merges between them runs once:
+#     git config merge.ours.driver true
+smartsched/deploy/profile.env merge=ours

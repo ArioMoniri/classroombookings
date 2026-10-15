@@ -353,10 +353,12 @@ Wizard (`F/app/(app)/programs/new/page.tsx`):
 
 ## 5. Tickets
 
-**Migrations:**
-- the head is `0016_course_code_keys`
-- the council merge becomes `0017_council`
-- new migrations start at 0018, one backend agent at a time, created after the 0017 merge
+**Migrations** (as landed, corrected 2026-10-15):
+- the head was `0016_course_code_keys` when this review was written
+- gracious then gained `0017`–`0019` (0019_publish_guard_term_locks), so the council merge landed as `0020_council`
+  on top of 0019, not as 0017
+- new migrations build on the single current head (0021_outbox_queue, 0022_kvkk_signoff_unseed, 0023_learning,
+  ...), one backend agent at a time; `alembic heads` must show one head
 
 **Wave 0 — gates that must land before any Phase 19 feature:**
 

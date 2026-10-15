@@ -13,6 +13,15 @@ const mono = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["latin", "
 export const metadata: Metadata = {
   title: { default: "SmartSched", template: "%s · SmartSched" },
   description: "AI classroom planner — import, optimise, converse, publish.",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
 };
 
 export const viewport: Viewport = {

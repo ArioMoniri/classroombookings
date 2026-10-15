@@ -1,4 +1,7 @@
-"""Blackboard access: uploads on disk, jobs, steps and append-only artifacts in the database."""
+"""Blackboard access: uploads on disk, jobs, steps and append-only artifacts in the database.
+
+Uploads are written by ``POST /council/jobs`` through ``app.core.safe_files.save_upload`` (streamed, capped) to
+:func:`job_dir` / :func:`stored_name`."""
 
 from __future__ import annotations
 
@@ -26,14 +29,6 @@ def stored_name(index: int, filename: str) -> str:
 
 def file_path(job_id: int, entry: dict[str, Any]) -> Path:
     return job_dir(job_id) / str(entry["stored"])
-
-
-def save_upload(job_id: int, index: int, filename: str, data: bytes) -> str:
-    d = job_dir(job_id)
-    d.mkdir(parents=True, exist_ok=True)
-    name = stored_name(index, filename)
-    (d / name).write_bytes(data)
-    return name
 
 
 async def add_artifact(
@@ -104,7 +99,6 @@ __all__ = [
     "latest",
     "latest_by_file",
     "records_by_file",
-    "save_upload",
     "steps",
     "stored_name",
 ]

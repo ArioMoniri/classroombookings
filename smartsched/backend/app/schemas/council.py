@@ -92,6 +92,10 @@ class ReviewOut(BaseModel):
     saved: int | None = None
     errors: list[str] = Field(default_factory=list)
     rerun_files: list[int] = Field(default_factory=list)
+    #: a mapping / classification change re-reads files on the job queue (job RUNNING until it finished)
+    rerun_queued: bool = False
+    #: False for planning.view-only readers: sample cell values, texts and sources are left out
+    content: bool = True
 
 
 class TermSpec(BaseModel):

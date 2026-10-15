@@ -161,6 +161,21 @@ def resolve_building_sets(params: dict[str, Any], buildings: set[str] | frozense
     return {**params, "buildings": wanted} if wanted else params
 
 
+def solver_workers(params: dict[str, Any] | None) -> int:
+    """CP-SAT threads of a run: ``params.workers`` (default 8), but always 1 for a publish candidate or a moderation
+    re-solve (owner decision 2026-10-15: those runs must give the identical schedule when re-run; one worker
+    solves in deterministic time, see ``app/solver/build.py``)."""
+    from app.services.run_params import deterministic_run
+
+    p = params or {}
+    if deterministic_run(p):
+        return 1
+    try:
+        return max(1, int(p.get("workers", 8)))
+    except (TypeError, ValueError):
+        return 8
+
+
 def run_mode(params: dict[str, Any] | None, key: str) -> Any:
     value = (params or {}).get(key, MODE_DEFAULTS[key])
     if key == "definitive_rooms":
@@ -651,6 +666,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             )
         )
         sizes = SizeFallback()
+        flexible: list[int] = []  # time-flexible requests (duration, no start): not placed yet, reported
         for cid, pid, cy, cys, enr in (
             await session.execute(
                 select(
@@ -665,6 +681,12 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
             sizes.add(cid, pid, _years(cys, cy), int(enr or 0))
         for mr in (await session.execute(q)).scalars():
             if mr.start_period is None or mr.end_period is None:
+                if mr.duration_periods:
+                    # TODO(P19-C4 time-flexible requests): a request with ``duration_periods`` and no start needs a
+                    # flexible-start event (``fixed_start=None`` + ``earliest_start`` / ``latest_end``); the joint
+                    # lecture merge, the lock carry and planner_check all assume a fixed start today. Until then it
+                    # is reported (``flexible_start``), never dropped silently.
+                    flexible.append(mr.id)
                 continue
             ev_weeks = frozenset(int(w) for w in (mr.weeks or weeks) if int(w) in week_set)
             if not ev_weeks:
@@ -785,6 +807,19 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
                         severity="info",
                     )
                 )
+        if flexible:
+            bridge_diags.append(
+                _bridge_diag(
+                    sorted(flexible),
+                    f"{len(flexible)} time-flexible request(s) (a duration, no start period) are not placed by this "
+                    "solver version",
+                    ["give them a day and a start period, or wait for flexible-start placement"],
+                    "flexible_start",
+                    [],
+                    {"request_ids": sorted(flexible)},
+                    severity="warning",
+                )
+            )
     else:
         qe = (
             select(ExamRequest)
@@ -1033,17 +1068,25 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
 
     blocks.extend(await booking_blocks(session, term, weeks_rows, week_set))
 
-    cons = (
+    cons = list(
         (
             await session.execute(
                 select(ConstraintRow)
                 .where(ConstraintRow.enabled.is_(True))
                 .where((ConstraintRow.term_id == term.id) | (ConstraintRow.run_id == run.id))
+                .order_by(ConstraintRow.id)
             )
         )
         .scalars()
         .all()
     )
+    inherited_rules = await inherited_run_rules(session, run)
+    if inherited_rules:
+        cons.extend(inherited_rules)
+        run.stats = {
+            **(run.stats or {}),
+            "inherited_run_rules": {str(r.id): int(r.run_id or 0) for r in inherited_rules},
+        }
     from app.importers.normalize import normalize_selector_params
 
     pool_buildings = frozenset(r.building for r in rooms if r.building)
@@ -1069,6 +1112,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
 
     previous: list[sm.Assignment] = []
     carried: dict[int, str] = {}  # request id -> origin of a tool-made lock carried over from the parent run
+    pre_carry = {e.id: e for e in events}  # the events before a parent's lock is carried over (moderation unlock)
     if run.parent_run_id:
         events_by_id = {e.id: i for i, e in enumerate(events)}
         seen_prev: set[int] = set()
@@ -1156,6 +1200,12 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         if carried:
             run.stats = {**(run.stats or {}), "carried_locks": {str(k): v for k, v in sorted(carried.items())}}
 
+    events = _apply_unlocks(params, events, pre_carry, members, tip_requested, carried, bridge_diags, labels)
+    if carried:
+        run.stats = {**(run.stats or {}), "carried_locks": {str(k): v for k, v in sorted(carried.items())}}
+    elif "carried_locks" in (run.stats or {}):
+        run.stats = {k: v for k, v in (run.stats or {}).items() if k != "carried_locks"}
+
     if not exam and run_mode(params, "split_large_classes"):
         events, splits = allow_large_splits(
             events, rooms, blocks, int(params.get("split_max_rooms", SPLIT_MAX_ROOMS) or SPLIT_MAX_ROOMS)
@@ -1189,7 +1239,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         previous=tuple(previous),
         time_limit_s=float(params.get("time_limit_s", 60.0)),
         seed=int(params.get("seed", 0)),
-        workers=int(params.get("workers", 8)),
+        workers=solver_workers(params),
         weights=dict(params.get("weights", {})),
         trust_locked_rooms=run_mode(params, "trust_locked_rooms"),
         fixed_conflicts_as_warnings=run_mode(params, "fixed_conflicts_as_warnings"),
@@ -1240,6 +1290,163 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     return inp, members
 
 
+#: run param of a moderation draft child (``PUT /moderation/matchings/{id}`` action ``unlock``): request ids whose
+#: lock (the planner's LOCKED row or a lock carried from the parent run) is released for this run and its
+#: moderation re-solves; the request keeps its day / time, the old rooms become the first preference
+UNLOCK_PARAM = "unlock_request_ids"
+#: the parent chain walked for run-scoped rules (a guard against a cycle in hand-edited data)
+MAX_RUN_CHAIN = 50
+
+
+async def run_ancestors(session: AsyncSession, run: ScheduleRun) -> list[ScheduleRun]:
+    """``run``'s parent, grandparent ... (nearest first; stops at a missing row or a cycle)."""
+    out: list[ScheduleRun] = []
+    seen = {run.id}
+    pid = run.parent_run_id
+    while pid is not None and pid not in seen and len(out) < MAX_RUN_CHAIN:
+        parent = await session.get(ScheduleRun, int(pid))
+        if parent is None:
+            break
+        out.append(parent)
+        seen.add(parent.id)
+        pid = parent.parent_run_id
+    return out
+
+
+async def inherited_run_rules(session: AsyncSession, run: ScheduleRun) -> list[ConstraintRow]:
+    """Run-scoped rules (``constraints.run_id``) of ``run``'s ancestors that apply to ``run`` too (decision "AI
+    backlog finished", 2026-10-15): every child run (POST /runs with ``parent_run_id``, studio and moderation
+    re-solves) inherits them unless ``params.inherit_run_rules`` is false.
+
+    A rule already present nearer to ``run`` is not counted twice: a chat child holds a copy of its parent's
+    run rules (``source_ref.inherited_from``), and a disabled copy switches the ancestor's rule off for the
+    descendants (the "explicitly cleared" case). Enabled rows of ``run`` itself come from the main query."""
+    if (run.params or {}).get("inherit_run_rules") is False or run.parent_run_id is None:
+        return []
+    chain = await run_ancestors(session, run)
+    if not chain:
+        return []
+    ids = [run.id] + [r.id for r in chain]
+    rows = list(
+        (
+            await session.execute(select(ConstraintRow).where(ConstraintRow.run_id.in_(ids)).order_by(ConstraintRow.id))
+        ).scalars()
+    )
+    by_run: dict[int, list[ConstraintRow]] = defaultdict(list)
+    for r in rows:
+        by_run[int(r.run_id or 0)].append(r)
+    covered: set[int] = set()
+
+    def cover(r: ConstraintRow) -> None:
+        covered.add(r.id)
+        src = (r.source_ref or {}).get("inherited_from") if isinstance(r.source_ref, dict) else None
+        if isinstance(src, int) or (isinstance(src, str) and src.isdigit()):
+            covered.add(int(src))
+
+    for r in by_run.get(run.id, []):
+        cover(r)
+    out: list[ConstraintRow] = []
+    for anc in chain:  # nearest first: a nearer copy (enabled or not) wins over the original
+        for r in by_run.get(anc.id, []):
+            if r.id in covered:
+                cover(r)
+                continue
+            cover(r)
+            if r.enabled and r.term_id is None:
+                out.append(r)
+    return out
+
+
+def _apply_unlocks(
+    params: dict[str, Any],
+    events: list[sm.Event],
+    pre_carry: dict[int, sm.Event],
+    members: dict[int, list[int]],
+    tip_requested: set[int],
+    carried: dict[int, str],
+    bridge_diags: list[dict[str, Any]],
+    labels: dict[int, str],
+) -> list[sm.Event]:
+    """Release the locks of :data:`UNLOCK_PARAM` (moderation ``unlock`` on a draft child run): the event goes back
+    to its request (day / time / duration of the request, no lock), its locked rooms lead the preferences and the
+    TIP ban returns unless the class asks for a medicine room."""
+    raw = params.get(UNLOCK_PARAM) or []
+    wanted = {int(x) for x in raw if isinstance(x, int) or (isinstance(x, str) and str(x).isdigit())}
+    if not wanted:
+        return events
+    out: list[sm.Event] = []
+    released: list[int] = []
+    for e in events:
+        ids = set(members.get(e.id, [e.id]))
+        if e.locked is None or not ids & wanted:
+            out.append(e)
+            continue
+        base = pre_carry.get(e.id, e)
+        rooms = tuple(dict.fromkeys([*e.locked.room_ids, *base.preferred_room_ids]))
+        out.append(
+            replace(
+                base,
+                locked=None,
+                lock_trusted=True,
+                preferred_room_ids=rooms,
+                forbidden_tags=base.forbidden_tags
+                if (ids & tip_requested) or "TIP" in base.required_tags
+                else base.forbidden_tags | frozenset({"TIP"}),
+            )
+        )
+        released.append(e.id)
+        for m in ids:
+            carried.pop(m, None)
+    if released:
+        gone = set(released)
+        bridge_diags[:] = [
+            d for d in bridge_diags if not (d.get("code") == "manual_lock" and set(d.get("event_ids") or []) <= gone)
+        ]
+        bridge_diags.append(
+            _bridge_diag(
+                sorted(released),
+                f"{len(released)} lock(s) released for this run by the coordinator: "
+                + ", ".join(labels.get(i, str(i)) for i in sorted(released)[:10])
+                + (" ..." if len(released) > 10 else ""),
+                ["pin the class again to keep its old cell"],
+                "unlocked",
+                [],
+                {"request_ids": sorted(wanted)},
+                severity="info",
+            )
+        )
+    return out
+
+
+async def stored_priorities(session: AsyncSession, term_id: int, exam: bool) -> dict[int, int]:
+    """P19-M2: coordinator priority per request of the term from the DB: the request's override
+    (``meeting_requests.priority``) over its section's (``sections.priority``); 0 rows are left out. Exam
+    requests take their section's priority (they have no override column)."""
+    from app.solver.policy import clamp_priority
+
+    out: dict[int, int] = {}
+    if exam:
+        q = (
+            select(ExamRequest.id, Section.priority)
+            .join(Section, Section.id == ExamRequest.section_id)
+            .where(ExamRequest.term_id == term_id, ExamRequest.archived.is_(False))
+        )
+        for rid, sp in (await session.execute(q)).all():
+            if sp:
+                out[int(rid)] = clamp_priority(sp)
+        return out
+    q2 = (
+        select(MeetingRequest.id, MeetingRequest.priority, Section.priority)
+        .join(Section, Section.id == MeetingRequest.section_id)
+        .where(Section.term_id == term_id, MeetingRequest.archived.is_(False))
+    )
+    for rid, mp, sp in (await session.execute(q2)).all():
+        v = mp if mp is not None else sp
+        if v:
+            out[int(rid)] = clamp_priority(v)
+    return out
+
+
 async def _apply_policy(
     session: AsyncSession,
     run: ScheduleRun,
@@ -1248,10 +1455,10 @@ async def _apply_policy(
     bridge_diags: list[dict[str, Any]],
 ) -> tuple[str, str, list[sm.Event]]:
     """The run's relaxation policy (``params.relaxation_policy`` > the term setting
-    ``term.<id>.relaxation_policy`` > ``lock_first``) and the coordinator priorities of ``params.priorities``
-    (request id -> priority; an event standing for several requests takes the highest).
-
-    TODO(Phase 19 moderation tab, P19-M2): read the priority from the request rows once they store it."""
+    ``term.<id>.relaxation_policy`` > ``lock_first``) and the coordinator priority of every event (P19-M2): per
+    request the run param ``priorities`` (request id -> priority, for experiments) over the stored request
+    override (``meeting_requests.priority``) over the section's (``sections.priority``) over 0; an event standing
+    for several requests (joint lecture, exam cohort) takes the highest of its members."""
     from app.services import run_params as rp
     from app.solver.policy import clamp_priority
 
@@ -1263,12 +1470,12 @@ async def _apply_policy(
         for k, v in raw.items():
             if str(k).isdigit():
                 prio[int(str(k))] = clamp_priority(v)
-    out = events
-    if prio:
-        out = []
-        for e in events:
-            vals = [prio[r] for r in members.get(e.id, [e.id]) if r in prio]
-            out.append(replace(e, priority=max(vals)) if vals else e)
+    stored = await stored_priorities(session, run.term_id, run.kind == "EXAM")
+    out: list[sm.Event] = []
+    for e in events:
+        vals = [prio[r] if r in prio else stored.get(r, 0) for r in members.get(e.id, [e.id])]
+        best = max(vals) if vals else 0
+        out.append(replace(e, priority=best) if best != e.priority else e)
     run.stats = {
         **(run.stats or {}),
         "relaxation_policy": {
@@ -1276,6 +1483,7 @@ async def _apply_policy(
             "source": source,
             "priorities": len(prio),
             "prioritised_events": sum(1 for e in out if e.priority),
+            **({"stored_priorities": len(stored)} if stored else {}),
         },
     }
     if source == "invalid_setting":

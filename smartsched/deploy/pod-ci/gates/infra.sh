@@ -4,6 +4,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 in_python -- '
 python -m venv /w/venv-infra && . /w/venv-infra/bin/activate
 pip install -q -r smartsched/deploy/pod-ci/requirements-test.txt
-echo "==== ruff"; ruff check infra/aws smartsched/deploy/pod-ci
+echo "==== ruff"; ruff check infra/aws smartsched/deploy/pod-ci; ruff check --config smartsched/deploy/pod-ci/ruff.toml smartsched/deploy/seed
 echo "==== pytest"; python -m pytest infra/aws/tests smartsched/deploy/pod-ci/tests -q -p no:cacheprovider
 '

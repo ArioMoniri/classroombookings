@@ -114,3 +114,8 @@ api_router.include_router(admin_docs.router)
 from app.api.v1 import learning  # noqa: E402
 
 api_router.include_router(learning.router)
+
+# Phase 19 P19-M1..M3: moderation tab (people, history, matchings, priorities, re-solve with diff, draft edits)
+from app.api.v1 import moderation  # noqa: E402
+
+api_router.include_router(moderation.router)

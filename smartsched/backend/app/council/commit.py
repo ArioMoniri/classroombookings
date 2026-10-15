@@ -698,6 +698,9 @@ async def commit(
     job = fresh if fresh is not None else job
     job.commits = [*(job.commits or []), result]
     job.status = "COMMITTED"
+    from app.council import memory
+
+    await memory.attach_term(session, job.id, tid)  # the job's intake memory now belongs to the term
     await storage.add_artifact(session, job.id, "commit", result)
     # one audit event (and the event-bus subscribers) per commit, inside the commit's transaction
     await publish_event(

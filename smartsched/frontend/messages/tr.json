@@ -2349,6 +2349,7 @@
       "reserve": "Rezerve et",
       "span": "{n} ders saati",
       "selectedSpan": "{n} ders saatlik rezervasyon için seçildi",
+      "spanLive": "{n} ders saati seçildi, {from}–{to}, {room}.",
       "class": "Ders"
     },
     "reason": {

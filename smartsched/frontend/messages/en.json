@@ -2350,6 +2350,7 @@
       "reserve": "Reserve",
       "span": "{n} periods",
       "selectedSpan": "selected for a {n}-period booking",
+      "spanLive": "{n} periods selected, {from}–{to}, {room}.",
       "class": "Class"
     },
     "reason": {

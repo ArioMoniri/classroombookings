@@ -11,6 +11,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     ForeignKey,
+    Index,
     Integer,
     SmallInteger,
     String,
@@ -29,7 +30,11 @@ from app.models.catalog import Course, Instructor, Program, Room, Term
 
 class Section(TimestampMixin, Base):
     __tablename__ = "sections"
-    __table_args__ = (UniqueConstraint("term_id", "source_key", name="uq_sections_term_source"),)
+    __table_args__ = (
+        UniqueConstraint("term_id", "source_key", name="uq_sections_term_source"),
+        # P19-M1 moderation read models: a term's sections of one course (alembic 0024)
+        Index("ix_sections_term_course", "term_id", "course_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     term_id: Mapped[int] = mapped_column(ForeignKey("terms.id", ondelete="CASCADE"), index=True)
@@ -63,6 +68,8 @@ class Section(TimestampMixin, Base):
 
 class SectionInstructor(Base):
     __tablename__ = "section_instructors"
+    # P19-M1: a person's sections across terms (the primary key leads with section_id; alembic 0024)
+    __table_args__ = (Index("ix_section_instructors_instructor", "instructor_id"),)
 
     section_id: Mapped[int] = mapped_column(ForeignKey("sections.id", ondelete="CASCADE"), primary_key=True)
     instructor_id: Mapped[int] = mapped_column(ForeignKey("instructors.id"), primary_key=True)

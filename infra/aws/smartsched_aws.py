@@ -74,6 +74,69 @@ DEFAULT_EMAIL = "umutk@getvivax.com"
 DEFAULT_REPO = "ArioMoniri/classroombookings"
 DEFAULT_DEPLOY_BRANCH = "claude/gracious-cerf-w1598m"
 DEFAULT_CI_BRANCHES = ("claude/gracious-cerf-w1598m", "claude/smartsched-universal")
+POD_TAG_KEY = "Pod"
+
+
+@dataclass(frozen=True)
+class PodSpec:
+    """One pod per deploy branch (same scripts, same image; the branch's smartsched/deploy/profile.env decides
+    what the first deploy loads). ``suffix == ""`` is the first pod: it keeps the names above, and its live
+    resources predate the Pod tag, so it is matched by Project and other pods' resources are dropped client-side
+    (``mine``); every other pod is matched by its Pod tag server-side. Names: smartsched<suffix>-pod, -pod-sg,
+    ..., SSM prefix /smartsched<suffix> (a separate top-level path: one pod's `down` never lists another's)."""
+
+    name: str
+    branch: str
+    suffix: str
+    ci_branches: tuple[str, ...]
+
+    @property
+    def legacy(self) -> bool:
+        return self.suffix == ""
+
+
+PODS = {
+    "gracious": PodSpec("gracious", DEFAULT_DEPLOY_BRANCH, "", DEFAULT_CI_BRANCHES),
+    "universal": PodSpec("universal", "claude/smartsched-universal", "-universal", ("claude/smartsched-universal",)),
+}
+POD = PODS["gracious"]
+
+
+def pod_names(p: PodSpec) -> dict[str, str]:
+    x = f"smartsched{p.suffix}"
+    return {"INSTANCE_NAME": f"{x}-pod", "SG_NAME": f"{x}-pod-sg", "EIP_NAME": f"{x}-pod-eip",
+            "ROLE_NAME": f"{x}-pod-role", "PROFILE_NAME": f"{x}-pod-profile", "POD_POLICY_NAME": f"{x}-pod",
+            "BUDGET_ROLE_NAME": f"{x}-budget-action-role", "BUDGET_NAME": f"{x}-monthly-100usd",
+            "ALARM_NAME": f"{x}-pod-idle-stop", "SSM_PREFIX": f"/{x}"}
+
+
+def resolve_pod(value: str | None) -> PodSpec:
+    """`--pod gracious|universal` or a deploy branch name; default gracious."""
+    if not value:
+        return PODS["gracious"]
+    for p in PODS.values():
+        if value in (p.name, p.branch):
+            return p
+    known = ", ".join(f"{p.name} ({p.branch})" for p in PODS.values())
+    raise BootstrapError(f"unknown pod or branch {value!r}; known: {known}")
+
+
+def use_pod(p: PodSpec) -> PodSpec:
+    """Point the module's resource names at pod ``p`` (called once by main before any AWS call)."""
+    global POD
+    globals().update(pod_names(p))
+    POD = p
+    return p
+
+
+def mine(items: Iterable[dict[str, Any]], key: str = "Tags") -> list[dict[str, Any]]:
+    """Drop resources tagged for another pod (the first pod's filters match Project only)."""
+    out = []
+    for it in items:
+        pod = next((t.get("Value") for t in it.get(key) or [] if t.get("Key") == POD_TAG_KEY), None)
+        if pod is None or pod == POD.name:
+            out.append(it)
+    return out
 BUDGET_ALERTS = (("ACTUAL", 50.0), ("ACTUAL", 80.0), ("ACTUAL", 100.0), ("FORECASTED", 100.0))
 GLOBAL_REGION = "us-east-1"  # IAM, Budgets, Cost Explorer and the Pricing API endpoint
 
@@ -113,7 +176,8 @@ class BootstrapError(Exception):
 # small helpers
 # ------------------------------------------------------------------------------------------------
 def tags(name: str | None = None, extra: dict[str, str] | None = None) -> list[dict[str, str]]:
-    out = [{"Key": TAG_KEY, "Value": TAG_VALUE}, {"Key": "ManagedBy", "Value": "infra/aws/smartsched_aws.py"}]
+    out = [{"Key": TAG_KEY, "Value": TAG_VALUE}, {"Key": POD_TAG_KEY, "Value": POD.name},
+           {"Key": "ManagedBy", "Value": "infra/aws/smartsched_aws.py"}]
     if name:
         out.append({"Key": "Name", "Value": name})
     for k, v in (extra or {}).items():
@@ -123,6 +187,8 @@ def tags(name: str | None = None, extra: dict[str, str] | None = None) -> list[d
 
 def tag_filter(name: str | None = None) -> list[dict[str, Any]]:
     f: list[dict[str, Any]] = [{"Name": f"tag:{TAG_KEY}", "Values": [TAG_VALUE]}]
+    if not POD.legacy:
+        f.append({"Name": f"tag:{POD_TAG_KEY}", "Values": [POD.name]})
     if name:
         f.append({"Name": "tag:Name", "Values": [name]})
     return f
@@ -543,7 +609,7 @@ def ensure_security_group(aws: Aws, vpc_id: str, ssh_cidr: str | None) -> str:
 def ensure_eip(aws: Aws, instance_id: str | None = None) -> tuple[str, str]:
     """Reuse the tagged EIP; release extra unassociated tagged EIPs so none is left orphaned."""
     ec2 = aws.client("ec2")
-    addrs = ec2.describe_addresses(Filters=tag_filter())["Addresses"]
+    addrs = mine(ec2.describe_addresses(Filters=tag_filter())["Addresses"])
     keep = None
     for a in addrs:
         if instance_id and a.get("InstanceId") == instance_id:
@@ -579,7 +645,7 @@ def find_instances(aws: Aws, region: str | None = None) -> list[dict[str, Any]]:
     ec2 = aws.client("ec2", region)
     resp = ec2.describe_instances(Filters=[*tag_filter(), {"Name": "instance-state-name",
                                                           "Values": ["pending", "running", "stopping", "stopped"]}])
-    return [i for r in resp["Reservations"] for i in r["Instances"]]
+    return mine(i for r in resp["Reservations"] for i in r["Instances"])
 
 
 def render_user_data(s: Settings, domain: str, template: Path | None = None) -> str:
@@ -749,7 +815,8 @@ def ensure_budget_action(aws: Aws, account: str, s: Settings, role_arn: str, ins
             resp = b.create_budget_action(
                 AccountId=account, BudgetName=BUDGET_NAME, NotificationType="ACTUAL", ActionType="RUN_SSM_DOCUMENTS",
                 ActionThreshold=threshold, Definition=want, ExecutionRoleArn=role_arn, ApprovalModel="AUTOMATIC",
-                Subscribers=subscribers, ResourceTags=[{"Key": TAG_KEY, "Value": TAG_VALUE}])
+                Subscribers=subscribers, ResourceTags=[{"Key": TAG_KEY, "Value": TAG_VALUE},
+                                                       {"Key": POD_TAG_KEY, "Value": POD.name}])
             log(f"budget action {resp['ActionId']} created: stop {instance_id} at 100 % actual")
             return str(resp["ActionId"])
         except Exception as exc:
@@ -864,8 +931,8 @@ def cmd_up(aws: Aws, s: Settings, account: str, sleep: Callable[[float], None] =
 
 def orphans(aws: Aws, region: str | None = None) -> dict[str, list[str]]:
     ec2 = aws.client("ec2", region)
-    vols = ec2.describe_volumes(Filters=[*tag_filter(), {"Name": "status", "Values": ["available"]}])["Volumes"]
-    addrs = ec2.describe_addresses(Filters=tag_filter())["Addresses"]
+    vols = mine(ec2.describe_volumes(Filters=[*tag_filter(), {"Name": "status", "Values": ["available"]}])["Volumes"])
+    addrs = mine(ec2.describe_addresses(Filters=tag_filter())["Addresses"])
     return {"volumes": [v["VolumeId"] for v in vols],
             "eips": [a["PublicIp"] for a in addrs if not a.get("AssociationId")]}
 
@@ -877,7 +944,7 @@ def cmd_status(aws: Aws, s: Settings, account: str) -> dict[str, Any]:
     gp3, _ = gp3_price(aws, s.region)
     out["instances"] = [{"id": i["InstanceId"], "type": i["InstanceType"], "state": i["State"]["Name"],
                          "public_ip": i.get("PublicIpAddress"), "launched": str(i.get("LaunchTime"))} for i in insts]
-    addrs = aws.client("ec2").describe_addresses(Filters=tag_filter())["Addresses"]
+    addrs = mine(aws.client("ec2").describe_addresses(Filters=tag_filter())["Addresses"])
     out["eips"] = [{"ip": a["PublicIp"], "instance": a.get("InstanceId")} for a in addrs]
     if addrs:
         out["panel_url"] = f"https://{panel_domain(addrs[0]['PublicIp'])}"
@@ -1022,7 +1089,7 @@ def cmd_start(aws: Aws, sleep: Callable[[float], None] = time.sleep) -> list[str
         for iid in ids:
             wait_for(lambda iid=iid: instance_state(aws, iid) == "running", f"{iid} running", sleep=sleep)
     for inst in insts:  # the EIP survives stop/start; re-associate defensively
-        addrs = aws.client("ec2").describe_addresses(Filters=tag_filter())["Addresses"]
+        addrs = mine(aws.client("ec2").describe_addresses(Filters=tag_filter())["Addresses"])
         if addrs and addrs[0].get("InstanceId") != inst["InstanceId"]:
             associate_eip(aws, addrs[0]["AllocationId"], inst["InstanceId"])
     return ids
@@ -1059,7 +1126,10 @@ def down_region(aws: Aws, region: str, keep_parameters: bool = False,
     ec2 = aws.client("ec2", region)
     done: dict[str, list[str]] = {"instances": [], "eips": [], "volumes": [], "security_groups": [],
                                   "alarms": [], "parameters": []}
-    alarms = aws.client("cloudwatch", region).describe_alarms(AlarmNamePrefix="smartsched-")["MetricAlarms"]
+    own = f"smartsched{POD.suffix}-"  # the first pod's prefix also matches other pods' alarms: drop those
+    others = tuple(f"smartsched{p.suffix}-" for p in PODS.values() if p.name != POD.name and p.suffix)
+    alarms = [a for a in aws.client("cloudwatch", region).describe_alarms(AlarmNamePrefix=own)["MetricAlarms"]
+              if not a["AlarmName"].startswith(others)]
     if alarms:
         names = [a["AlarmName"] for a in alarms]
         aws.client("cloudwatch", region).delete_alarms(AlarmNames=names)
@@ -1074,15 +1144,16 @@ def down_region(aws: Aws, region: str, keep_parameters: bool = False,
             return all(i["State"]["Name"] == "terminated" for r in resp["Reservations"] for i in r["Instances"])
 
         wait_for(all_terminated, f"{ids} terminated", sleep=sleep)
-    for a in ec2.describe_addresses(Filters=tag_filter())["Addresses"]:
+    for a in mine(ec2.describe_addresses(Filters=tag_filter())["Addresses"]):
         if a.get("AssociationId"):
             ec2.disassociate_address(AssociationId=a["AssociationId"])
         ec2.release_address(AllocationId=a["AllocationId"])
         done["eips"].append(a["PublicIp"])
-    for v in ec2.describe_volumes(Filters=[*tag_filter(), {"Name": "status", "Values": ["available"]}])["Volumes"]:
+    available = {"Name": "status", "Values": ["available"]}
+    for v in mine(ec2.describe_volumes(Filters=[*tag_filter(), available])["Volumes"]):
         ec2.delete_volume(VolumeId=v["VolumeId"])
         done["volumes"].append(v["VolumeId"])
-    for sg in ec2.describe_security_groups(Filters=tag_filter())["SecurityGroups"]:
+    for sg in mine(ec2.describe_security_groups(Filters=tag_filter())["SecurityGroups"]):
         for attempt in range(12):  # ENIs of a just-terminated instance release the SG asynchronously
             try:
                 ec2.delete_security_group(GroupId=sg["GroupId"])
@@ -1127,13 +1198,15 @@ def cmd_down(aws: Aws, account: str, regions: Iterable[str], keep_parameters: bo
     leftovers: dict[str, list[str]] = {}
     for region in dict.fromkeys(regions):
         try:
-            resp = aws.client("resourcegroupstaggingapi", region).get_resources(
-                TagFilters=[{"Key": TAG_KEY, "Values": [TAG_VALUE]}])
+            filters = [{"Key": TAG_KEY, "Values": [TAG_VALUE]}]
+            if not POD.legacy:
+                filters.append({"Key": POD_TAG_KEY, "Values": [POD.name]})
+            resp = aws.client("resourcegroupstaggingapi", region).get_resources(TagFilters=filters)
         except Exception as exc:  # noqa: BLE001 - tag:GetResources is optional for the bootstrap role
             leftovers[region] = [f"not checked ({error_code(exc) or exc}); grant tag:GetResources to verify"]
             continue
         # terminated instances stay visible for ~1 h and cost nothing; everything else is a leftover
-        arns = [r["ResourceARN"] for r in resp.get("ResourceTagMappingList", [])
+        arns = [r["ResourceARN"] for r in mine(resp.get("ResourceTagMappingList", []))
                 if ":instance/" not in r["ResourceARN"]]
         if arns:
             leftovers[region] = arns
@@ -1207,16 +1280,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--admin-email", default=DEFAULT_EMAIL)
     p.add_argument("--acme-email", default=DEFAULT_EMAIL)
     p.add_argument("--repo", default=DEFAULT_REPO)
-    p.add_argument("--deploy-branch", default=DEFAULT_DEPLOY_BRANCH)
-    p.add_argument("--ci-branches", default=",".join(DEFAULT_CI_BRANCHES))
+    p.add_argument("--pod", default=None,
+                   help=f"which pod: {' | '.join(PODS)} or its branch (default: from --deploy-branch, else gracious); "
+                        "each pod has its own instance, names, SSM prefix and budget")
+    p.add_argument("--deploy-branch", default=None, help="default: the pod's branch")
+    p.add_argument("--ci-branches", default=None, help="comma-separated; default: the pod's CI branches")
     p.add_argument("--cpu-credits", choices=["standard", "unlimited"], default="standard",
                    help="burstable credit mode; standard never bills surplus CPU credits")
     p.add_argument("--idle-minutes", type=int, default=60)
     p.add_argument("--docker-version", default="", help="pin docker-ce, e.g. 5:28.5.1-1~ubuntu.24.04~noble")
     p.add_argument("--no-budget-action", action="store_true")
     p.add_argument("--yes", action="store_true", help="confirm `down`")
-    p.add_argument("--keep-parameters", action="store_true", help="`down` keeps /smartsched/* SSM parameters")
-    p.add_argument("--delete-budget", action="store_true", help=f"`down` also deletes the budget {BUDGET_NAME}")
+    p.add_argument("--keep-parameters", action="store_true", help="`down` keeps the pod's SSM parameters")
+    p.add_argument("--delete-budget", action="store_true", help="`down` also deletes the pod's budget")
     p.add_argument("--from-env", default="POD_GITHUB_TOKEN", help="env var holding the token (put-github-token)")
     p.add_argument("--json", action="store_true", help="print the result as JSON on stdout")
     p.add_argument("--output-json", default=None, help="also write the (secret-free) result to this file")
@@ -1233,8 +1309,9 @@ def resolve_region(arg: str | None, env: dict[str, str] | None = None) -> str | 
 def settings_from_args(a: argparse.Namespace, region: str) -> Settings:
     return Settings(region=region, instance_type=a.instance_type, volume_gb=a.volume_gb, ssh_cidr=a.ssh_cidr,
                     budget_usd=a.budget_usd, alert_email=a.alert_email, admin_email=a.admin_email,
-                    acme_email=a.acme_email, repo=a.repo, deploy_branch=a.deploy_branch,
-                    ci_branches=tuple(b for b in a.ci_branches.split(",") if b), cpu_credits=a.cpu_credits,
+                    acme_email=a.acme_email, repo=a.repo, deploy_branch=a.deploy_branch or POD.branch,
+                    ci_branches=tuple(b for b in a.ci_branches.split(",") if b) if a.ci_branches else POD.ci_branches,
+                    cpu_credits=a.cpu_credits,
                     idle_minutes=a.idle_minutes, docker_version=a.docker_version,
                     budget_action=not a.no_budget_action)
 
@@ -1250,6 +1327,8 @@ def main(argv: list[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
     region = resolve_region(a.region)
     try:
+        use_pod(resolve_pod(a.pod or a.deploy_branch))
+        log(f"pod {POD.name}: branch {a.deploy_branch or POD.branch}, SSM {SSM_PREFIX}, instance {INSTANCE_NAME}")
         if a.command in ("plan", "render-user-data"):
             s = settings_from_args(a, region or NEAR_TURKIYE[0])
             if a.command == "render-user-data":

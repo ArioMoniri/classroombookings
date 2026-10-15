@@ -23,6 +23,12 @@ log = logging.getLogger(__name__)
 
 #: keys only the server may write
 RESERVED_KEYS = frozenset({"studio", "studio_sig", "draft_id"})
+#: keys a moderation re-solve writes (``app/services/moderation.py``): the re-solve's scope and the coordinator's
+#: unlocks on a draft child run (``solver_bridge.UNLOCK_PARAM``); a client cannot set them through ``POST /runs``
+MODERATION_KEYS = frozenset({"moderation", "unlock_request_ids"})
+#: owner decision 2026-10-15: a run meant for publishing is solved with one CP-SAT worker, so re-running it gives
+#: the identical schedule (``solver_bridge.solver_workers``); moderation re-solves always are
+PUBLISH_CANDIDATE = "publish_candidate"
 BOOL_KEYS = frozenset(
     {
         "trust_locked_rooms",
@@ -33,6 +39,9 @@ BOOL_KEYS = frozenset(
         "split_large_classes",
         "strict_horizon",
         "stability",
+        PUBLISH_CANDIDATE,
+        # "AI backlog finished" decision: a child run inherits its ancestors' run-scoped rules unless this is false
+        "inherit_run_rules",
     }
 )
 #: run solvers a client may choose (the greedy stub is a test helper, not a run option: audit M1)
@@ -77,6 +86,12 @@ def clean_client_params(params: dict[str, Any]) -> dict[str, Any]:
         raise ParamError(
             f"params {reserved} are reserved (studio runs are created by POST /terms/{{id}}/studio/generate)"
         )
+    moderation = sorted(set(params) & MODERATION_KEYS)
+    if moderation:
+        raise ParamError(
+            f"params {moderation} are reserved "
+            "(moderation re-solves are created by POST /terms/{id}/moderation/resolve)"
+        )
     b = bounds()
     out: dict[str, Any] = {}
     for key, value in params.items():
@@ -119,15 +134,23 @@ def clean_client_params(params: dict[str, Any]) -> dict[str, Any]:
             out[key] = [int(_num(v, key, 1, 2**31 - 1, integer=True)) for v in value]
         else:
             raise ParamError(f"unknown run param {key!r}")
+    if out.get(PUBLISH_CANDIDATE):
+        out["workers"] = 1
     return out
+
+
+def deterministic_run(params: dict[str, Any] | None) -> bool:
+    """True for a publish candidate or a moderation re-solve: solved with ``workers=1`` (owner decision)."""
+    p = params or {}
+    return bool(p.get(PUBLISH_CANDIDATE)) or isinstance(p.get("moderation"), dict)
 
 
 def clean_priorities(value: Any) -> dict[str, int]:
     """``{"<request id>": priority}`` (meeting / exam request ids of the run's term, higher wins).
 
-    TODO(Phase 19 moderation tab, P19-M2): persist the coordinator's priority per request (Section /
-    MeetingRequest / ExamRequest column) and let the bridge read it from there; until then a run carries the
-    mapping in its params (a child run copies its parent's params)."""
+    P19-M2: the coordinator's priority is stored on ``sections.priority`` / ``meeting_requests.priority``
+    (``PUT /moderation/sections|requests/{id}/priority``) and read by the bridge; this run param still overrides
+    it per request, for experiments and counterfactual runs."""
     if not isinstance(value, dict) or len(value) > MAX_PRIORITY_KEYS:
         raise ParamError(f"params.priorities must be an object of at most {MAX_PRIORITY_KEYS} request ids")
     lo, hi = PRIORITY_RANGE
@@ -190,6 +213,8 @@ def clamp_server_params(params: dict[str, Any]) -> dict[str, Any]:
             lo, hi = b[key]
             v = min(max(out[key], lo), hi)
             out[key] = int(v) if key == "workers" else float(v)
+    if deterministic_run(out):  # the server default must not bring the threads back
+        out["workers"] = 1
     return out
 
 
@@ -228,6 +253,9 @@ def trusted_studio_snapshot(run: Any) -> dict[str, Any] | None:
 
 __all__ = [
     "DEFAULT_RELAXATION_POLICY",
+    "MODERATION_KEYS",
+    "PUBLISH_CANDIDATE",
+    "deterministic_run",
     "RELAXATION_POLICIES",
     "RESERVED_KEYS",
     "ParamError",

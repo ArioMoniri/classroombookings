@@ -266,6 +266,28 @@ else
   note "no frontend build at smartsched/frontend/.next/standalone; build check skipped (pod CI e2e-real runs it)"
 fi
 
+echo "== seed profile (profile.env + seed/seed.py, both branch profiles)"
+SEED_PY="$HERE/seed/seed.py"; FIXTURES="$HERE/../backend/tests/fixtures"
+if prof="$(python3 "$SEED_PY" profile --profile-file "$HERE/profile.env" 2>"$TMP/seed.err")"; then
+  ok "profile.env: SEED_PROFILE=$prof"
+else
+  fail "profile.env: $(cat "$TMP/seed.err")"
+fi
+for p in empty institution; do
+  if python3 "$SEED_PY" plan --profile "$p" --files-dir "$FIXTURES" >"$TMP/seed.out" 2>&1; then
+    ok "seed plan $p: $(tail -n 1 "$TMP/seed.out" | sed 's/^\[seed\] //')"
+  else
+    fail "seed plan $p: $(tr '\n' ' ' < "$TMP/seed.out")"
+  fi
+done
+if [[ "$(git -C "$HERE" check-attr merge smartsched/deploy/profile.env 2>/dev/null | awk '{print $NF}')" == ours ]] \
+   || grep -qxF 'smartsched/deploy/profile.env merge=ours' "$HERE/../../.gitattributes" 2>/dev/null; then
+  ok ".gitattributes: profile.env merge=ours (each clone: git config merge.ours.driver true)"
+else
+  fail ".gitattributes must mark smartsched/deploy/profile.env merge=ours (branch-specific profile)"
+fi
+echo
+
 echo "== docker compose config (CLI only, no daemon needed)"
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
   # .env.example ships ADMIN_EMAIL empty on purpose (deploy.sh / the pod fill in the real address)

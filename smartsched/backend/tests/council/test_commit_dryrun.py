@@ -153,13 +153,19 @@ async def test_a_planner_edit_the_file_also_changes_is_a_conflict_keep_or_take(c
 async def test_a_real_commit_holds_the_terms_write_lock(client):
     h = await login(client)
     job = await upload(client, h, ("bahar_v5.csv", bahar_csv()))
+    # the holder text a running planning-list import writes (api/v1/imports.py: f"import:{job.id} {job.kind}")
     handle = await term_lock.acquire(term_lock.term_key("2026-bahar"), "import:99 planning-list")
     try:
         r = await client.post(
             f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={"term": TERM, "allow_pending": True}
         )
-        assert r.status_code == 409 and r.json()["detail"]["code"] == "term_locked"
-        assert r.json()["detail"]["holder"] == "import:99 planning-list"
+        detail = r.json()["detail"]
+        assert r.status_code == 409 and detail["code"] == "term_locked"
+        assert (
+            detail["holder"] == "import:99 planning-list"
+            and "locked by import:99 planning-list since" in detail["message"]
+        )
+        assert "2026-BAHAR dönemi şu anda kilitli: import:99 planning-list" in detail["message_tr"]
         # a dry-run writes nothing, so it does not need the lock
         r = await client.post(
             f"/api/v1/council/jobs/{job['id']}/commit",

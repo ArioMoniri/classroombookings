@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarRange } from "lucide-react";
+import { Logo } from "@/components/brand";
 import type { ReactNode } from "react";
 import { LocaleToggle } from "@/components/shell/locale-toggle";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
@@ -16,9 +16,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
   return (
     <GlassPanel material="regular" radius="2xl" className="w-full max-w-[400px] p-6 sm:p-8">
       <div className="mb-8 flex items-center gap-3">
-        <span className="flex size-9 items-center justify-center rounded-[11px] bg-tint text-tint-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.28)]">
-          <CalendarRange className="size-[18px] stroke-[1.75]" aria-hidden />
-        </span>
+        <Logo variant="tile" size={36} decorative />
         <div>
           <p className="type-headline text-label-1">{t("app.name")}</p>
           <p className="type-footnote text-label-3">{t("auth.subtitle")}</p>

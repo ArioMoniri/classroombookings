@@ -1,6 +1,7 @@
 "use client";
 
-import { CalendarRange, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Logo } from "@/components/brand";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { KbdHint } from "@/components/ui/kbd-hint";
@@ -106,9 +107,7 @@ export function Sidebar() {
       <SidebarGlass aria-label={t("glass.shell.primary")} className="flex-1">
         <SidebarGlassHeader className={cn(collapsed && "flex-col px-2")}>
           <Link href={home} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" aria-label={t("app.name")}>
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-tint text-tint-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.28)]">
-              <CalendarRange className="size-4 stroke-[1.75]" aria-hidden />
-            </span>
+            <Logo variant="mark" size={28} decorative />
             {!collapsed ? <span className="type-headline truncate text-label-1">{t("app.name")}</span> : null}
           </Link>
           <Tooltip>

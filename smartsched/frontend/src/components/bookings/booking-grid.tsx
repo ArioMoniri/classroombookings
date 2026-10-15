@@ -120,7 +120,9 @@ const HOLD_MS = 450;
 export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, onSpan, crosshair, highlightBookingId, roomIcons, onRoomInfo, department = "all" }: Props) {
   const t = useT();
   const layout = useMemo(() => layoutGrid(grid, columns), [grid, columns]);
-  const [focus, setFocus] = useState({ r: 0, c: 0 });
+  // the roving tab stop lives in a ref: moving focus swaps tabIndex on two cells instead of re-rendering the
+  // whole grid (persona U-18: every pointerdown ran a 39-120 ms focus handler)
+  const focusRef = useRef({ r: 0, c: 0 });
   const [hover, setHover] = useState<{ r: number; c: number } | null>(null);
   // span and hint belong to the grid they were made on: a new grid (date, group, a booking made) drops them
   const [spanState, setSpanState] = useState<{ grid: Grid; slots: GridSlot[] }>({ grid, slots: [] });
@@ -331,6 +333,7 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
       onSpan(span);
       return;
     }
+    const focus = focusRef.current;
     const next = moveFocus(focus, e.key, { rows: layout.rows.length, cols: layout.cols.length });
     if (!next) return;
     e.preventDefault();
@@ -343,9 +346,18 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
         setSpan(clampSpan(grid, from, to));
       }
     } else if (span.length) setSpan([]);
-    setFocus(next);
-    nextEl?.focus();
+    nextEl?.focus(); // onCellFocus moves the tab stop
   };
+
+  /** a cell got focus (click, tap, arrow key, programmatic): it becomes the one tab stop, no re-render */
+  const onCellFocus = useCallback((el: HTMLButtonElement) => {
+    const [r, c] = (el.dataset.cell ?? "0-0").split("-").map(Number);
+    const prev = focusRef.current;
+    if (prev.r === r && prev.c === c) return;
+    tableRef.current?.querySelector<HTMLButtonElement>(`[data-cell="${prev.r}-${prev.c}"]`)?.setAttribute("tabindex", "-1");
+    el.setAttribute("tabindex", "0");
+    focusRef.current = { r: r ?? 0, c: c ?? 0 };
+  }, []);
 
   // stable between renders, so the memoised cells do not all re-render on every pointer / focus change (U-18)
   const labels = useMemo(
@@ -354,6 +366,16 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
   );
 
   if (!layout.rows.length || !layout.cols.length) return null;
+
+  const spanAnnouncement = (() => {
+    if (span.length < 2) return "";
+    const byId = new Map(grid.periods.map((p) => [p.id, p]));
+    const periods = span.map((s) => byId.get(s.period_id)).filter((p) => p !== undefined);
+    const first = periods[0];
+    const last = periods[periods.length - 1];
+    const room = grid.rooms.find((x) => x.id === span[0]!.room_id)?.name ?? "";
+    return t("reserve.cell.spanLive", { n: span.length, from: first ? fmt.time(first.time_start) : "", to: last ? fmt.time(last.time_end) : "", room });
+  })();
 
   const corner = columns === "periods" ? (grid.display === "day" ? t("crbs.grid.room") : t("crbs.grid.day")) : t("crbs.grid.period");
 
@@ -426,7 +448,7 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
                         <Cell
                           slot={slot}
                           index={`${r}-${c}`}
-                          focusable={focus.r === r && focus.c === c}
+                          focusable={focusRef.current.r === r && focusRef.current.c === c}
                           label={cellLabel(row, col, slot, inSpan)}
                           multi={multi}
                           isSelected={!!slot && (selected.has(key) || inSpan)}
@@ -434,7 +456,7 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
                           labels={labels}
                           deptColor={muted ? null : departmentColor(dept)}
                           muted={muted}
-                          onFocus={() => setFocus({ r, c })}
+                          onFocus={onCellFocus}
                           onClick={onCellClick}
                         />
                       </td>
@@ -448,6 +470,10 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
       </div>
       <p id={`${scope}-hint`} className="sr-only">
         {t("reserve.grid.hint")}
+      </p>
+      {/* persona U-24: the span is announced while it is drawn (pointer drag, Shift+arrows, Shift-click) */}
+      <p role="status" aria-live="polite" className="sr-only" data-testid="grid-span-status">
+        {spanAnnouncement}
       </p>
       {hint ? (
         <div
@@ -509,7 +535,7 @@ const Cell = memo(function Cell({
   labels: { booked: string; mine: string; class: string; pending: string; free: string; reserve: string };
   deptColor: string | null;
   muted: boolean;
-  onFocus: () => void;
+  onFocus: (el: HTMLButtonElement) => void;
   onClick: (slot: GridSlot, e: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const tone = slotTone(slot);
@@ -531,7 +557,7 @@ const Cell = memo(function Cell({
       aria-label={label}
       aria-pressed={multi && kind ? isSelected : undefined}
       disabled={!slot}
-      onFocus={onFocus}
+      onFocus={(e) => onFocus(e.currentTarget)}
       onClick={(e) => slot && onClick(slot, e)}
       style={style}
       className={cn(
