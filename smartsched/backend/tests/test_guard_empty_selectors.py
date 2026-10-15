@@ -20,7 +20,7 @@ UNTARGETED = (
     {"match": ""},  # D1-f
     {"event_ids": []},  # D1-g
     {"match": " "},  # D1-i
-    {"match": " "},  # NBSP pasted from Excel
+    {"match": "\u00a0"},  # NBSP pasted from Excel
     {"match": ["", " \t"]},
     {"cohort": "", "cohorts": [], "program": "  ", "programs": [""], "instructor": "\u200b", "instructors": []},
     {"event_ids": [], "_source_ref": {"row": 12}},

@@ -870,6 +870,18 @@
       "status": "finished",
       "finished_at": "2026-10-15 20:11",
       "left_off": "deploy to pod when green and send me the panel url"
+    },
+    {
+      "id": "a77b5de352c2c9168",
+      "description": "P19 learning lane L1–L4 + column batch",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 20:16",
+      "scope": "you may create and edit the following. Do NOT edit importers, studio*, solver, ai, council, or the api/v1 files other than your own (runs/calendar/requests/audit belong to the backend agent; imports.py to the importer agent). If you need a change elsewhere, put the exact diff in your final message. - NEW files: smartsched/backend/app/models/learning.py, app/services/learning.py, app/services/learn…",
+      "goal": "Phase 19 learned suggestions with resettable memory. Read: - docs/review/2026-10-15-phase19-engineering.md §3b (the model, weights, thresholds), the tickets L1–L4 and C4 - docs/testing/2026-10-15-academician-needs.md §3: learn at building/feature/time-band level; never learn from the planner's 7 locked double bookings or the 33 over-capacity locks - docs/design/v2/phase19-suggestions.md - the deci…",
+      "ledger": "p19-learning-lane-2026-10-15 SCOPE: you may create and edit the following. Do NO…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

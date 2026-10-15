@@ -55,7 +55,7 @@ CLASSES: dict[str, tuple[tuple[str, ...], str]] = {
             "http://api.localhost/x",
             "http://localhost.localdomain/x",
             "http://ip6-localhost/x",
-            " http://localhost/x ",  # NBSP pasted around the URL
+            "\u00a0http://localhost/x\u00a0",  # NBSP pasted around the URL
         ),
         "",
     ),

@@ -117,9 +117,10 @@ async def test_b2_room_photo_is_decoded_and_reencoded(env):  # noqa: F811
     [
         {"website": "javascript:alert(1)"},
         {"website": "data:text/html,<script>alert(1)</script>"},
-        {"languages": ["tr", "xx"]},  # not a shipped language (de, fr, ... are: P18-LANG)
+        {"languages": ["tr", "xx"]},  # not a language
+        {"languages": ["tr", "de"]},  # a CRBS language, no longer offered (P18-LANG decision 2026-10-15)
         {"languages": []},
-        {"default_language": "fr"},  # a shipped language, but not among the org's enabled ones (tr, en)
+        {"default_language": "fr"},  # a CRBS language, not offered (P18-LANG: tr, en only)
         {"default_language": "xx"},
         {"languages": ["en"], "default_language": "tr"},
         {"pattern_long": "<b>yyyy</b>"},
@@ -181,7 +182,9 @@ async def test_missing2_i18n_bundle_merges_overrides(env):  # noqa: F811
     en = (await c.get("/api/v1/org/i18n", params={"language": "en"})).json()
     assert en["messages"]["bookings"]["grid.title"] == "Room bookings"
     assert en["messages"]["email"]["booking_created.subject"] == "A booking was made for you"
-    assert (await c.get("/api/v1/org/i18n", params={"language": "de"})).status_code == 422
+    # P18-LANG (TR + EN only): a known legacy code is served in English, an unknown one is refused
+    assert (await c.get("/api/v1/org/i18n", params={"language": "de"})).json()["language"] == "en"
+    assert (await c.get("/api/v1/org/i18n", params={"language": "xx"})).status_code == 422
     default = (await c.get("/api/v1/org/i18n")).json()
     assert default["language"] == "tr"
 
