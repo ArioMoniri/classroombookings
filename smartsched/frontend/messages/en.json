@@ -1992,6 +1992,11 @@
       "subtitleUser": "Language, appearance and accessibility."
     },
     "chat": {
+      "editsTitle": "Before applying",
+      "updateRequest": "{label}: also update the request, so the next solve keeps the new time",
+      "scopeTerm": "Term data",
+      "scopeRun": "Only this run",
+      "op": {"include": "Put back", "exclude": "Leave out"},
       "moveLabel": "Move {label} from {from} to {to}",
       "applied": "{n} changes applied",
       "applyFailed": "The changes could not be applied. Nothing was changed.",

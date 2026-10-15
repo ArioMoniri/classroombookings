@@ -174,13 +174,28 @@ def _term_label(t: Term) -> str:
 # ------------------------------------------------------------------------------------------------ priors
 
 
+Unit = tuple[Any, ...]
+
+
+def evidence_unit(term_id: int | None, src: str, sid: int, sign: int, detail: Mapping[str, Any] | None) -> Unit:
+    """One piece of evidence: a request row, except that the rows of one lecture (FIZ 111 §1 listed once per
+    programme: same course, day, periods and rooms in one term) are one lecture, not five repeats."""
+    tag = "neg" if sign < 0 else "pos"
+    if src == "meeting_requests" and detail and detail.get("course"):
+        periods = tuple(detail.get("periods") or ())
+        rooms = tuple(sorted(str(r) for r in detail.get("rooms") or ()))
+        return ("lecture", term_id, n.fold(detail["course"]), detail.get("day"), periods, rooms, tag)
+    return (src, sid, tag)
+
+
 @dataclass
 class _Group:
-    rows_pos: dict[str, set[tuple[str, int, str]]] = field(default_factory=lambda: defaultdict(set))
-    rows_neg: dict[str, set[tuple[str, int, str]]] = field(default_factory=lambda: defaultdict(set))
+    rows_pos: dict[str, set[Unit]] = field(default_factory=lambda: defaultdict(set))
+    rows_neg: dict[str, set[Unit]] = field(default_factory=lambda: defaultdict(set))
     score: dict[str, float] = field(default_factory=lambda: defaultdict(float))
-    all_pos: set[tuple[str, int, str]] = field(default_factory=set)
-    row_term: dict[tuple[str, int, str], int | None] = field(default_factory=dict)
+    scored: set[tuple[str, Unit, str]] = field(default_factory=set)
+    all_pos: set[Unit] = field(default_factory=set)
+    row_term: dict[Unit, int | None] = field(default_factory=dict)
     kinds: dict[str, dict[str, int]] = field(default_factory=lambda: defaultdict(lambda: defaultdict(int)))
     requests: dict[str, set[int]] = field(default_factory=lambda: defaultdict(set))
 
@@ -204,7 +219,8 @@ def _value_text(attribute: str, value: str, rooms: Mapping[int, Room]) -> dict[s
         name = rooms[int(value)].display_name
         return {"tr": name, "en": name, "tr_loc": locative(name), "en_loc": f"in {name}"}
     if attribute == "building":
-        return {"tr": f"{value} Blok", "en": f"{value} block", "tr_loc": locative(f"{value} Blok"), "en_loc": f"in {value} block"}
+        tr_b = f"{value} Blok"
+        return {"tr": tr_b, "en": f"{value} block", "tr_loc": locative(tr_b), "en_loc": f"in {value} block"}
     if attribute == "period":
         band, hours = _BAND_TR.get(value, value), _BAND_TIME.get(value, "")
         return {
@@ -365,10 +381,12 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
         if attr in SAME_SEASON_ATTRS and (t is None or other):
             continue
         g = groups[(st, sk, attr)]
-        row = (src, sid, "neg" if sign < 0 else "pos")
+        row = evidence_unit(t_id, src, sid, sign, detail)
         g.row_term[row] = t_id
-        decay = 0.5 ** (term_distance(terms, term_id, t_id) / 2) if t_id is not None else 1.0
-        g.score[val] += weight * sign * decay
+        if (val, row, kind) not in g.scored:  # a lecture listed once per programme counts once
+            g.scored.add((val, row, kind))
+            decay = 0.5 ** (term_distance(terms, term_id, t_id) / 2) if t_id is not None else 1.0
+            g.score[val] += weight * sign * decay
         g.kinds[val][kind] += 1
         if detail and detail.get("request_id"):
             g.requests[val].add(int(detail["request_id"]))

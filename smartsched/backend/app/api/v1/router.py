@@ -109,3 +109,8 @@ api_router.include_router(crbs_upgrade.router)
 from app.api.v1 import admin_docs  # noqa: E402
 
 api_router.include_router(admin_docs.router)
+
+# Phase 19 P19-L2..L4: learned suggestions (suggest only), memory reset / undo / purge, KVKK erasure
+from app.api.v1 import learning  # noqa: E402
+
+api_router.include_router(learning.router)

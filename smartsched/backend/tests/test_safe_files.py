@@ -191,7 +191,8 @@ async def test_dimension_bomb_import_finishes_fast(client):
     assert r.status_code == 202, r.text
     await get_queue().wait_idle(timeout=60)
     job = (await client.get(f"/api/v1/imports/{r.json()['id']}", headers=h)).json()
-    assert job["status"] == "FAILED" and "missing columns" in job["error"]  # parsed (2 rows), not expanded
+    # parsed (2 rows), not expanded: it fails on the layout (the wrong-file message, persona M-20)
+    assert job["status"] == "FAILED" and "does not look like an exam list" in job["error"]
     assert time.monotonic() - t0 < 30
 
 

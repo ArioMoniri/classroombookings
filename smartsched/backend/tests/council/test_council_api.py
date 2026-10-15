@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 from app.core.config import get_settings
@@ -96,8 +95,9 @@ async def test_heuristic_job_reviews_and_commits_general_files(client):
         term = (await s.execute(select(Term).where(Term.code == "2026-BAHAR-EN"))).scalar_one()
     assert a101.capacity == 58 and a101.exam_capacity == 30  # room master, not overwritten
     assert term.periods_json and term.periods_json[0]["start"] == "08:30"
-    # rows are keyed on term + file content, so the same file in a new job updates instead of duplicating
-    keys = f"CC:{term.id}:{hashlib.sha256(EN_CSV.read_bytes()).hexdigest()[:16]}:%"
+    # rows are keyed on the term + their natural key (D14), so the same file in a new job updates instead of
+    # duplicating
+    keys = f"CC:{term.id}:M:%"
     n = await _count(MeetingRequest, MeetingRequest.source_key.like(keys))
     assert n == out["general"]["meeting_requests"]
     locked = await _count(MeetingRequest, MeetingRequest.status == "LOCKED", MeetingRequest.source_key.like("CC:%"))

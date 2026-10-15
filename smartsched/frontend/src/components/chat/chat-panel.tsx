@@ -12,7 +12,8 @@ import { PromptComposer } from "@/components/ui/beautifului/prompt-composer";
 import { Button } from "@/components/ui/button";
 import { useChat, useSendChat, useSettings, useUndoProposal } from "@/lib/api/hooks";
 import type { ChatMessage, ChatProposal } from "@/lib/api/schemas";
-import { applyProposalSubset, usePermissions } from "@/lib/api/shell-extra";
+import { usePermissions } from "@/lib/api/shell-extra";
+import { applyEdited, type Scope } from "./diff-edits";
 import { useI18n } from "@/lib/i18n/provider";
 import { useReduce } from "@/lib/motion";
 import { PERIODS, dayName } from "@/lib/time";
@@ -41,6 +42,9 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
   const wrapRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const ids = proposal.moves.map((m) => m.assignment_id);
+  // the planner's choices before applying: keep the new time in the request; term data vs this run only
+  const [updateRequest, setUpdateRequest] = useState<Set<number>>(() => new Set(proposal.moves.filter((m) => m.update_request).map((m) => m.assignment_id)));
+  const [scopes, setScopes] = useState<Record<number, Scope>>(() => Object.fromEntries(proposal.section_edits.map((e) => [e.index, e.scope])));
   const rows: DiffTableRow[] = proposal.moves.map((m) => ({
     key: String(m.assignment_id),
     change: "added",
@@ -54,7 +58,7 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
   const apply = async (keys: string[]) => {
     setBusy(true);
     try {
-      const res = await applyProposalSubset(runId, proposal.id, keys.map(Number), ids);
+      const res = await applyEdited(runId, proposal.id, { keep: new Set(keys.map(Number)), updateRequest, scopes });
       await qc.invalidateQueries({ queryKey: ["chat", runId] });
       void qc.invalidateQueries({ queryKey: ["runs"] });
       void qc.invalidateQueries({ queryKey: ["grid", runId] });
@@ -93,6 +97,41 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
             applied: (c) => t("glass.chat.appliedN", { n: n(c) }),
           }}
         />
+      ) : null}
+      {!proposal.applied && (proposal.moves.length || proposal.section_edits.length) ? (
+        <fieldset className="space-y-1.5 rounded-xl bg-fill-3 px-3 py-2 text-[12.5px] shadow-[inset_0_0_0_1px_var(--hairline)]" disabled={busy} data-testid="diff-edits">
+          <legend className="sr-only">{t("glass.chat.editsTitle")}</legend>
+          {proposal.moves.map((m) => (
+            <label key={m.assignment_id} className="flex items-start gap-2 pointer-coarse:min-h-11">
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-(--accent)"
+                checked={updateRequest.has(m.assignment_id)}
+                onChange={(e) =>
+                  setUpdateRequest((s) => {
+                    const next = new Set(s);
+                    if (e.target.checked) next.add(m.assignment_id);
+                    else next.delete(m.assignment_id);
+                    return next;
+                  })
+                }
+                data-testid="diff-update-request"
+              />
+              <span>{t("glass.chat.updateRequest", { label: m.label })}</span>
+            </label>
+          ))}
+          {proposal.section_edits.map((e) => (
+            <div key={e.index} className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label={`${t(`glass.chat.op.${e.op}`)}: ${e.label}`}>
+              <span className="min-w-0 flex-1">{t(`glass.chat.op.${e.op}`)}: {e.label}</span>
+              {(["term", "run"] as const).map((sc) => (
+                <label key={sc} className="inline-flex items-center gap-1 pointer-coarse:min-h-11">
+                  <input type="radio" name={`scope-${proposal.id}-${e.index}`} className="accent-(--accent)" checked={scopes[e.index] === sc} onChange={() => setScopes((x) => ({ ...x, [e.index]: sc }))} data-testid={`diff-scope-${sc}`} />
+                  {sc === "term" ? t("glass.chat.scopeTerm") : t("glass.chat.scopeRun")}
+                </label>
+              ))}
+            </div>
+          ))}
+        </fieldset>
       ) : null}
       {proposal.constraints.length ? (
         <ul className="rounded-xl bg-fill-3 px-3 py-2 text-[12.5px] shadow-[inset_0_0_0_1px_var(--hairline)]">

@@ -11,13 +11,33 @@ export type UploadState = { phase: "idle" } | { phase: "uploading"; pct: number 
 
 /**
  * beUI file-upload (MIT) with SmartSched behaviour:
- * - one .xlsx file; the queue row shows **real** upload bytes (XMLHttpRequest), then "reading on the server";
+ * - one .xlsx file by default (`accept` / `multiple` for CSV room masters and SQL dumps); the queue row shows
+ *   **real** upload bytes (XMLHttpRequest), then "reading on the server";
  * - magnetic drop (motion patterns §7 + §14, no kobra code): while a file is dragged over the page the
  *   dropzone lifts (snappy), and over the zone it leans ≤ 4 px toward the pointer (pointerSpring) so the
  *   target "pulls" the file. Transform only; reduced motion keeps the outline change and nothing moves;
- * - the vendored component's English screen-reader labels are localised in place (it has no label props).
+ * - the vendored component's screen-reader texts come localised through its `labels` / `statusLabel` props, and
+ *   the status says "reading on the server" while the server parses (admin persona M-22: it said "Uploading").
  */
-export function MagneticDrop({ file, onFile, upload, disabled }: { file: File | null; onFile: (f: File | null) => void; upload: UploadState; disabled?: boolean }) {
+export function MagneticDrop({
+  files,
+  onFiles,
+  upload,
+  disabled,
+  accept = ".xlsx,.xlsm",
+  multiple = false,
+  title,
+  hint,
+}: {
+  files: readonly File[];
+  onFiles: (files: File[]) => void;
+  upload: UploadState;
+  disabled?: boolean;
+  accept?: string;
+  multiple?: boolean;
+  title?: string;
+  hint?: string;
+}) {
   const { t } = useI18n();
   const reduce = useReduce();
   const root = useRef<HTMLDivElement>(null);
@@ -69,29 +89,23 @@ export function MagneticDrop({ file, onFile, upload, disabled }: { file: File | 
   };
 
   const status: FileUploadItem["status"] = upload.phase === "error" ? "error" : upload.phase === "done" ? "success" : upload.phase === "idle" ? "queued" : "uploading";
-  const items: FileUploadItem[] = file
-    ? [{ id: `${file.name}-${file.size}`, name: file.name, size: file.size, type: file.type, file, status, progress: upload.phase === "uploading" ? upload.pct : upload.phase === "processing" || upload.phase === "done" ? 100 : 0, error: upload.phase === "error" ? upload.message : undefined }]
-    : [];
+  const statusLabel =
+    upload.phase === "processing" ? t("glass.import.reading") : upload.phase === "uploading" ? t("glass.import.uploading") : upload.phase === "done" ? t("glass.import.uploaded") : upload.phase === "error" ? t("glass.import.failedShort") : t("glass.import.queued");
+  const items: FileUploadItem[] = files.map((file) => ({
+    id: `${file.name}-${file.size}`,
+    name: file.name,
+    size: file.size,
+    type: file.type,
+    file,
+    status,
+    statusLabel,
+    progress: upload.phase === "uploading" ? upload.pct : upload.phase === "processing" || upload.phase === "done" ? 100 : 0,
+    error: upload.phase === "error" ? upload.message : undefined,
+  }));
 
-  // stable test ids + Turkish/English accessible names on the vendored markup
+  // a stable test id on the vendored input (it takes no props for it)
   useEffect(() => {
-    const el = root.current;
-    if (!el) return;
-    const input = el.querySelector<HTMLInputElement>('input[type="file"]');
-    input?.setAttribute("data-testid", "file-input");
-    input?.setAttribute("aria-label", t("import.dropzone"));
-    el.querySelectorAll<HTMLElement>("[aria-label]").forEach((node) => {
-      const label = node.getAttribute("aria-label") ?? "";
-      const name = file?.name ?? "";
-      if (label.startsWith("Remove ")) node.setAttribute("aria-label", t("glass.import.remove", { name }));
-      else if (label.startsWith("Retry ")) node.setAttribute("aria-label", t("glass.import.retry", { name }));
-      else if (label.endsWith(" upload progress")) node.setAttribute("aria-label", t("glass.import.progressOf", { name }));
-    });
-    el.querySelectorAll<HTMLElement>(".sr-only").forEach((node) => {
-      const map: Record<string, string> = { Queued: t("glass.import.queued"), Uploading: t("glass.import.uploading"), Uploaded: t("glass.import.uploaded"), Failed: t("glass.import.failedShort") };
-      const next = map[node.textContent ?? ""];
-      if (next) node.textContent = next;
-    });
+    root.current?.querySelector<HTMLInputElement>('input[type="file"]')?.setAttribute("data-testid", "file-input");
   });
 
   const lifted = !reduce && (pageDrag || over);
@@ -118,13 +132,19 @@ export function MagneticDrop({ file, onFile, upload, disabled }: { file: File | 
       >
         <FileUpload
           value={items}
-          onValueChange={(next) => onFile(next.at(-1)?.file ?? null)}
-          accept=".xlsx,.xlsm"
-          multiple={false}
+          onValueChange={(next) => onFiles(multiple ? next.flatMap((i) => (i.file ? [i.file] : [])) : next.at(-1)?.file ? [next.at(-1)!.file!] : [])}
+          accept={accept}
+          multiple={multiple}
+          labels={{
+            input: title ?? t("import.dropzone"),
+            remove: (name) => t("glass.import.remove", { name }),
+            retry: (name) => t("glass.import.retry", { name }),
+            progress: (name) => t("glass.import.progressOf", { name }),
+          }}
           disabled={disabled}
           variant="centered"
-          title={over ? t("glass.import.dropNow") : t("import.dropzone")}
-          description={t("import.dropzoneHint")}
+          title={over ? t("glass.import.dropNow") : (title ?? t("import.dropzone"))}
+          description={hint ?? t("import.dropzoneHint")}
           browseLabel={t("glass.import.browse")}
           classNames={{ dropzone: "border-hairline-strong bg-fill-3 data-[dragging=true]:border-(--accent) data-[dragging=true]:bg-tint-soft", item: "bg-fill-2 border-transparent" }}
         />

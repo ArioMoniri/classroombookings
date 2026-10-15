@@ -1991,6 +1991,11 @@
       "subtitleUser": "Dil, görünüm ve erişilebilirlik."
     },
     "chat": {
+      "editsTitle": "Uygulamadan önce",
+      "updateRequest": "{label}: talebi de güncelle, sonraki çözüm yeni saati korusun",
+      "scopeTerm": "Dönem verisi",
+      "scopeRun": "Yalnız bu çalıştırma",
+      "op": {"include": "Geri al", "exclude": "Dışarıda bırak"},
       "moveLabel": "{label}: {from} → {to}",
       "applied": "{n} değişiklik uygulandı",
       "applyFailed": "Değişiklikler uygulanamadı. Hiçbir şey değişmedi.",

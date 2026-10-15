@@ -158,7 +158,9 @@ export function importJob(v: unknown): unknown {
         ...skippedRows.map((r) => ({ row: num(r.row, 0), field: "", value: str(r.detail), message: str(r.reason) ?? "", severity: "error" })),
         ...arr(summary.warnings).map(warning),
       ],
+      detected_kind: str(summary.detected_kind) ?? null,
     },
+    error: str(v.error) ?? null,
     created_at: utcIso(v.created_at) ?? new Date().toISOString(),
   };
 }
@@ -394,6 +396,12 @@ export function proposalFromDiff(diff: unknown, applied: unknown): unknown {
   const moves: Rec[] = [];
   const constraints: Rec[] = [];
   const notes: string[] = [];
+  const sectionEdits: Rec[] = [];
+  arr(diff.operations).forEach((op, index) => {
+    // include / exclude can be term-wide or this draft run only; the planner chooses before applying
+    if (isRec(op) && op.op === "section_edit" && isRec(op.edit) && (op.edit.op === "include" || op.edit.op === "exclude"))
+      sectionEdits.push({ index, op: op.edit.op, label: str(op.edit.nl_text) || strs(op.edit.labels).join(", ") || `#${strs(op.edit.section_ids).join(",")}`, scope: op.scope === "run" ? "run" : "term" });
+  });
   for (const op of arr(diff.operations)) {
     if (!isRec(op)) continue;
     const kind = str(op.op);
@@ -407,6 +415,7 @@ export function proposalFromDiff(diff: unknown, applied: unknown): unknown {
         label: str(op.label) ?? str(b.label) ?? `#${num(op.assignment_id, 0)}`,
         from: { room: roomsText(b.rooms), day: num(b.day, 1), start_period: bs, end_period: be },
         to: { room: roomsText(a.rooms), day: num(a.day, num(b.day, 1)), start_period: as, end_period: ae },
+        update_request: op.update_request === true,
       });
     } else if (kind === "add_constraint" && isRec(op.constraint)) {
       const c = op.constraint;
@@ -424,7 +433,7 @@ export function proposalFromDiff(diff: unknown, applied: unknown): unknown {
   if (diff.re_solve === true) notes.push(diff.stability === false ? "re-solve" : "re-solve (stable)");
   notes.push(...strs(diff.warnings));
   const child = num(applied);
-  return { id: str(diff.id) ?? "", summary: str(diff.summary) ?? "", moves, constraints, notes, applied: child !== null, child_run_id: child };
+  return { id: str(diff.id) ?? "", summary: str(diff.summary) ?? "", moves, constraints, notes, section_edits: sectionEdits, applied: child !== null, child_run_id: child };
 }
 
 /** `GET /runs/{id}/chat` (list of ChatMessageOut) or the mock's `{messages}` → `{messages: ChatMessage[]}`. */

@@ -606,7 +606,9 @@
       "goal": "close every open backend item in those sections, and drive the CRBS parity gate's backend GAP rows to PASS. Method, for each unchecked item: 1. Verify it against the code and tests. - If it is done: tick it `- [x]` and add ` (verified 2026-10-15: <file:line/test>)`. - If it is open: implement it test-first, using the real fixtures (tests/crbs_env, the Bahar import). 2. If it needs a decision: ` (n…",
       "ledger": "backend-backlog-2026-10-15 SCOPE: smartsched/backend/app/api/v1/** and app/servi…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 20:44",
+      "left_off": "Waiting for the background runs to report back."
     },
     {
       "id": "a284d15d95bf61925",
@@ -911,6 +913,14 @@
       "ledger": "readme-media-2026-10-15 SCOPE: scripts/record/** (journeys, lib, screens.mjs, re…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a958f1deb9d2dc610",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 20:42",
+      "left_off": "deploy to pod when green"
     }
   ]
 }

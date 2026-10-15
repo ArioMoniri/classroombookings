@@ -215,7 +215,11 @@ export const ImportJob = z.object({
     updated: z.number(),
     skipped: z.number(),
     warnings: z.array(ParseWarning),
+    /** the kind the file looks like when it is not the chosen one (backend WrongFileError, admin persona M-20) */
+    detected_kind: z.string().nullable().optional(),
   }),
+  /** short, path-free reason of a FAILED job */
+  error: z.string().nullable().optional(),
   created_at: z.string(),
 });
 export type ImportJob = z.infer<typeof ImportJob>;
@@ -417,6 +421,8 @@ export const ChatMove = z.object({
   label: z.string(),
   from: z.object({ room: z.string(), day: z.number(), start_period: z.number(), end_period: z.number() }),
   to: z.object({ room: z.string(), day: z.number(), start_period: z.number(), end_period: z.number() }),
+  /** also rewrite the meeting request, so the next solve keeps the new time */
+  update_request: z.boolean().default(false),
 });
 export const ChatConstraintDiff = z.object({
   op: z.enum(["add", "remove", "update"]),
@@ -432,6 +438,8 @@ export const ChatProposal = z.object({
   constraints: z.array(ChatConstraintDiff),
   /** swaps / locks / re-solve flags and model warnings, as short human-readable lines */
   notes: z.array(z.string()).default([]),
+  /** include / exclude section edits: operation index, label and term-wide or this-run scope */
+  section_edits: z.array(z.object({ index: z.number(), op: z.enum(["include", "exclude"]), label: z.string(), scope: z.enum(["term", "run"]) })).default([]),
   applied: z.boolean().default(false),
   child_run_id: z.number().nullable().optional(),
 });

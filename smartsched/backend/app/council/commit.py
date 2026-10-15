@@ -27,6 +27,7 @@ and saved with :func:`app.ai.elicit.accept_proposals` (source ``UPLOAD``, file r
 
 from __future__ import annotations
 
+import hashlib
 from collections import Counter
 from datetime import date, time
 from typing import Any
@@ -37,11 +38,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import safe_files
 from app.council import critic, fastpath, formats, storage
 from app.council import text as tx
+from app.council.baseline import as_baseline_run
 from app.council.dryrun import ChangeRecorder, summarize
 from app.council.reconcile import rid, room_key
 from app.council.review import build_items, decisions, effective_plan
 from app.importers.catalog import Catalog
 from app.importers.identity import plain
+from app.importers.normalize import PERIODS
 from app.importers.planning_list import _META, _merge
 from app.importers.report import ImportReport
 from app.models import (
@@ -108,6 +111,7 @@ class Writer:
         self.take = on_conflict == "take"
         self.conflicts: list[dict[str, Any]] = []
         self.unchanged: Counter[str] = Counter()
+        self.occurrence: Counter[tuple[str, str]] = Counter()
         self.term = term
         self.job_id = job_id
         #: file index -> sha256 of its bytes (job.files), the stable part of the row keys
@@ -123,10 +127,30 @@ class Writer:
         self.person_alias: dict[str, str] = {}
 
     def key(self, fi: int, i: int) -> str:
+        """The key rows had before natural keys (job / file sha + record index): looked up to re-key them."""
         sha = self.shas.get(fi)
         if not sha:  # a job stored before sha256 was recorded per file
             return f"CC:{self.job_id}:{fi}:{i}"
         return f"CC:{self.term.id}:{sha[:16]}:{i}"
+
+    def natural(self, kind: str, *parts: Any) -> str:
+        """``CC:<term>:<kind>:<hash of the natural key>`` (D14): the same row in any job, any format and any
+        file version maps to the same key; identical rows in one commit are numbered (occurrence)."""
+        raw = "|".join("" if p is None else str(p) for p in parts)
+        self.occurrence[(kind, raw)] += 1
+        occ = self.occurrence[(kind, raw)]
+        digest = hashlib.sha256(f"{raw}|{occ}".encode()).hexdigest()[:32]
+        return f"CC:{self.term.id}:{kind}:{digest}"
+
+    async def find(self, model: Any, natural: str, legacy: str) -> Any:
+        """The row of ``natural``, else a row still under its ``legacy`` key (re-keyed to ``natural``)."""
+        row = (await self.s.execute(select(model).where(model.source_key == natural))).scalar_one_or_none()
+        if row is None:
+            row = (await self.s.execute(select(model).where(model.source_key == legacy))).scalar_one_or_none()
+            if row is not None:
+                row.source_key = natural
+                self.counts["rekeyed_to_natural_keys"] += 1
+        return row
 
     @staticmethod
     def assign(obj: Any, fields: dict[str, Any]) -> bool:
@@ -280,13 +304,11 @@ class Writer:
             status=status,
             parse_warnings=warnings,
             notes=r.get("notes"),
-            source_key=self.key(fi, i),
+            source_key=self.natural("M", skey, ",".join(map(str, days)), r.get("start")),
             source_row_index=r["source"].get("row"),
             archived=False,
         )
-        mr = (
-            await self.s.execute(select(MeetingRequest).where(MeetingRequest.source_key == fields["source_key"]))
-        ).scalar_one_or_none()
+        mr = await self.find(MeetingRequest, fields["source_key"], self.key(fi, i))
         if mr is None:
             self.s.add(MeetingRequest(**fields))
             self.counts["meeting_requests"] += 1
@@ -332,13 +354,13 @@ class Writer:
             status="LOCKED" if definitive else ("NEEDS_REVIEW" if r.get("warnings") else "PARSED"),
             parse_warnings=r.get("warnings") or [],
             source_row=r["source"],
-            source_key=self.key(fi, i),
+            source_key=self.natural(
+                "E", r["course_code"], program.canonical_name if program else "", r.get("date"), r.get("start")
+            ),
             source_row_index=r["source"].get("row"),
             archived=False,
         )
-        ex = (
-            await self.s.execute(select(ExamRequest).where(ExamRequest.source_key == fields["source_key"]))
-        ).scalar_one_or_none()
+        ex = await self.find(ExamRequest, fields["source_key"], self.key(fi, i))
         if ex is None:
             self.s.add(ExamRequest(**fields))
             self.counts["exam_requests"] += 1
@@ -348,8 +370,9 @@ class Writer:
             self.unchanged["exam_requests"] += 1
 
     async def booking(self, fi: int, i: int, r: dict[str, Any], week_of: dict[str, int]) -> None:
-        if r.get("course_codes"):
+        if r.get("course_codes"):  # course entries go to the baseline run (app/council/baseline.py)
             self.counts["timetable_course_entries_observed"] += 1
+            await self.room({"code": r["room_code"], "label": r.get("room_label"), "tags": r.get("room_tags")})
             return
         room = await self.room(
             {
@@ -379,10 +402,10 @@ class Writer:
             tags=[],
             notes=f"from {r['source'].get('file')} {r['source'].get('cell', '')}".strip(),
             source="COUNCIL",
-            source_key=self.key(fi, i),
+            source_key=self.natural("B", room.id, week, r["day"], sp, str(r["text"])[:255]),
             archived=False,
         )
-        b = (await self.s.execute(select(Block).where(Block.source_key == fields["source_key"]))).scalar_one_or_none()
+        b = await self.find(Block, fields["source_key"], self.key(fi, i))
         if b is None:
             self.s.add(Block(**fields))
             self.counts["blocks"] += 1
@@ -599,6 +622,22 @@ async def commit(
         await writer.cat.finalize_rooms(lecture_side=True)
         await session.commit()
 
+    # schedule maps (board, ICS, intake.v1 timetable, general timetables) -> the term's baseline IMPORT run
+    schedule: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for i in chosen:
+        src = {"sha256": shas.get(i) or None, "file": entries[i]["filename"], "job": job.id}
+        schedule.extend((r, src) for r in records.get(i, []) if r["type"] == "booking")
+    baseline = None
+    if schedule:
+        grid = periods or [
+            {"index": k + 1, "start": p.start.strftime("%H:%M"), "end": p.end.strftime("%H:%M")}
+            for k, p in enumerate(PERIODS)
+        ]
+        term = await session.get(Term, tid)
+        assert term is not None
+        baseline = await as_baseline_run(session, term, schedule, grid)
+        await session.commit()
+
     created_rules: list[int] = []
     rejected_rules: list[dict[str, Any]] = []
     if include_rules:
@@ -645,6 +684,7 @@ async def commit(
         "constraints_created": created_rules,
         "constraints_rejected": rejected_rules,
         "unchanged": dict(writer.unchanged),
+        "baseline_run": baseline,
         "conflicts": writer.conflicts[:500],
         "on_conflict": on_conflict,
         "at": utcnow().isoformat(),

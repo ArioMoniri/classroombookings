@@ -1922,6 +1922,10 @@ async def capacity_warnings(session: AsyncSession, term_id: int, kind: str = "CO
     return out
 
 
+#: groups that list rows for the planner to check, not errors (``totals.to_review``)
+REVIEW_GROUPS = frozenset({"time_snapped", "preference_review", "unparsed_preference"})
+
+
 async def time_snaps(session: AsyncSession, run: ScheduleRun) -> dict[str, list[dict[str, Any]]]:
     """``time_snapped``: every request of the run's term whose list time is off the period grid, with the row,
     the original time and the periods it was snapped to (product-owner decision 2026-10-15, re-derived from
@@ -2207,7 +2211,10 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
         "kind": run.kind,
         "status": run.status,
         "totals": {
-            "issues": sum(g["count"] for g in groups_out),
+            # problems; the groups that only ask the planner to look (snapped times, wishes to review or not
+            # read) are counted apart, so a summary headline does not say "1 300 data issues" for them
+            "issues": sum(g["count"] for g in groups_out if g["code"] not in REVIEW_GROUPS),
+            "to_review": sum(g["count"] for g in groups_out if g["code"] in REVIEW_GROUPS),
             "events_total": stats.get("events_total"),
             "placed": stats.get("placed"),
             "unplaced": stats.get("unplaced"),
