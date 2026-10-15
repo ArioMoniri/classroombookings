@@ -352,7 +352,7 @@ async def class_page(
         if f.rule_id not in await st.rules_in_play(session, draft):
             raise st.StudioError(404, f"rule {f.rule_id} is not in play for this draft")
     excluded = {int(i) for i in draft.excluded_event_ids or []}
-    pinned = {int(p["event_id"]) for p in draft.pins or []}
+    pinned = st.placement_pin_ids(draft.pins)
     rows = [_meeting_row(m, rooms, excluded, pinned, snaps, rules) for m in meetings]
     counts = {
         "total": len(rows),
@@ -391,7 +391,7 @@ async def _exam_page(
     )
     rooms = await _room_codes(session)
     excluded = {int(i) for i in draft.excluded_event_ids or []}
-    pinned = {int(p["event_id"]) for p in draft.pins or []}
+    pinned = st.placement_pin_ids(draft.pins)
     rules = await rule_matches(session, draft)
     rows: list[dict[str, Any]] = []
     for ex in exams:
@@ -667,7 +667,7 @@ async def rows_for(session: AsyncSession, ids: list[int], user: User) -> list[di
     rooms = await _room_codes(session)
     snaps = await load_snapshots(session, meetings.values())
     excluded = {int(i) for i in draft.excluded_event_ids or []}
-    pinned = {int(p["event_id"]) for p in draft.pins or []}
+    pinned = st.placement_pin_ids(draft.pins)
     return [_meeting_row(meetings[i], rooms, excluded, pinned, snaps, {}) for i in ids if i in meetings]
 
 

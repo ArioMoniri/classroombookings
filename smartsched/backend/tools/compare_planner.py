@@ -1333,74 +1333,87 @@ def verify_unplaced(
 
 # --------------------------------------------------------------------------- data-issues cross-check
 
-#: (rule, source) of a planner error -> the data-issues group that should list it
-DI_GROUP = {
-    ("double_booking", "list"): "locked_room_overlap",
-    ("blocked", "list"): "locked_room_blocked",
-    ("capacity", "list"): "locked_room_too_small",
-    ("capacity", "board"): "locked_room_too_small",
-    ("capacity_joint", "board"): "locked_room_too_small",
-    ("tags", "list"): "missing_tags",
-    ("tags", "board"): "missing_tags",
-    ("instructor_clash", "board"): "fixed_instructor_clash",
-    ("cohort_clash", "board"): "fixed_cohort_clash",
-    ("instructor_clash", "list"): "fixed_instructor_clash",
-    ("cohort_clash", "list"): "fixed_cohort_clash",
+#: (rule, source) of a planner error -> the data-issues groups that may list it (missed when in none of them;
+#: the first one is named in the miss). Board-only errors have their own groups since 2026-10-08.
+DI_GROUP: dict[tuple[str, str], tuple[str, ...]] = {
+    ("double_booking", "list"): ("locked_room_overlap",),
+    ("blocked", "list"): ("locked_room_blocked",),
+    ("capacity", "list"): ("locked_room_too_small",),
+    ("capacity", "board"): ("locked_room_too_small", "board_capacity"),
+    ("capacity_joint", "board"): ("locked_room_too_small", "board_capacity"),
+    ("tags", "list"): ("missing_tags",),
+    ("tags", "board"): ("missing_tags",),
+    ("instructor_clash", "board"): ("fixed_instructor_clash", "board_instructor_clash"),
+    ("cohort_clash", "board"): ("fixed_cohort_clash",),
+    ("instructor_clash", "list"): ("fixed_instructor_clash",),
+    ("cohort_clash", "list"): ("fixed_cohort_clash",),
 }
+#: the audit's data rules (DATA_RULES) -> the data-issues group reporting the same thing
+DATA_RULE_GROUP = {"same_course_two_rows": "same_lecture_twice", "joint_cell_not_in_list": "board_two_classes"}
+#: class-e finding sub-classes -> the data-issues groups they confirm (board cells the list has no row for,
+#: or has at another time; board codes missing from the list)
+FINDING_GROUP: dict[str, tuple[str, ...]] = {
+    "board_vs_list": ("board_vs_list",),
+    "list_only": ("board_vs_list",),
+    "board_only_no_request_at_time": ("board_time_not_in_list",),
+    "time_differs": ("board_time_not_in_list",),
+    "time_list_wider_than_board": ("board_time_not_in_list",),
+    "board_time_differs": ("board_time_not_in_list",),
+    "board_only_unknown_code": ("board_unknown_code",),
+}
+#: groups the audit cannot confirm or refute (no independent check): never counted as false alarms
+UNAUDITED_GROUPS = frozenset({"no_free_room", "other", "rooms_outside_pool", "week_room_changes", "board_missing_week"})
 
 
-def cross_check(api: Api, res: dict[str, Any], work: Path) -> dict[str, Any]:
-    """The run's data-issues report against the independent audit: planner errors it does not list
-    (by source: the list, which it checks, or the board, which it only compares room-wise) and items
-    the independent audit does not confirm (with the likely reason)."""
-    from openpyxl import load_workbook
-
-    rid = res["run_id"]
-    di = api.get(f"/runs/{rid}/data-issues")
-    xlsx = api.get_bytes(f"/runs/{rid}/data-issues", format="xlsx")
-    path = work / f"run{rid}-data-issues.xlsx"
-    path.write_bytes(xlsx)
-    wb = load_workbook(path, read_only=True)
-    sheets = {str(ws.title): max(0, int(ws.max_row or 1) - 1) for ws in wb.worksheets}
-    wb.close()
-    groups = {g["code"]: g for g in di["groups"]}
-    di_reqs = {code: {int(x) for it in g["items"] for x in it["request_ids"]} for code, g in groups.items()}
+def audit_cross_check(
+    res: dict[str, Any], groups: dict[str, list[dict[str, Any]]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The pure half of :func:`cross_check`: ``groups`` maps a data-issues group code to its items.
+    Returns (planner errors the report does not list, report items the independent audit does not confirm)."""
+    di_reqs = {code: {int(x) for it in items for x in it["request_ids"]} for code, items in groups.items()}
     if res["instance"]["kind"] == "EXAM":
-        di_reqs["locked_room_too_small"] |= di_reqs.get("shared_room_overflow", set())
+        di_reqs["locked_room_too_small"] = di_reqs.get("locked_room_too_small", set()) | di_reqs.get(
+            "shared_room_overflow", set()
+        )
     # term runs move a lock's blocked weeks to another room and report it as a week room change
     di_reqs["locked_room_blocked"] = di_reqs.get("locked_room_blocked", set()) | di_reqs.get("week_room_changes", set())
     mine: dict[str, set[int]] = defaultdict(set)
     missed: list[dict[str, Any]] = []
     for e in res["planner_errors"]:
         tip = e["rule"] == "tags" and "TIP" in e["text"] and "missing PC" not in e["text"]
-        key = "tip_room" if tip else DI_GROUP.get((e["rule"], e["source"]), f"{e['rule']}:{e['source']}")
-        mine[key].add(int(e["request_id"]))
-        if int(e["request_id"]) not in di_reqs.get(key, set()):
-            missed.append({**e, "group": key})
-    for code, ids in res.get("data_rule_requests", {}).items():
-        mine[code] |= {int(x) for x in ids}
+        keys = ("tip_room",) if tip else DI_GROUP.get((e["rule"], e["source"]), (f"{e['rule']}:{e['source']}",))
+        rid = int(e["request_id"])
+        for key in keys:
+            mine[key].add(rid)
+        if not any(rid in di_reqs.get(key, set()) for key in keys):
+            missed.append({**e, "group": keys[0]})
+    for rule, ids in res.get("data_rule_requests", {}).items():
+        mine[DATA_RULE_GROUP.get(rule, rule)] |= {int(x) for x in ids}
     for f in res["findings"]:
-        if f["cls"] == "e" and f["sub"] in ("board_vs_list", "list_only"):
-            mine["board_vs_list"] |= set(f["request_ids"])
-            if not set(f["request_ids"]) & di_reqs.get("board_vs_list", set()):
-                missed.append(
-                    {
-                        "source": "board",
-                        "request_id": f["request_ids"][0],
-                        "label": f["label"],
-                        "rule": f["sub"],
-                        "severity": 30,
-                        "text": f["detail"],
-                        "refs": f["refs"],
-                        "group": "board_vs_list",
-                    }
-                )
+        if f["cls"] != "e" or f["sub"] not in FINDING_GROUP:
+            continue
+        ids = {int(x) for x in f["request_ids"]}
+        for key in FINDING_GROUP[f["sub"]]:
+            mine[key] |= ids
+        if f["sub"] in ("board_vs_list", "list_only") and not ids & di_reqs.get("board_vs_list", set()):
+            missed.append(
+                {
+                    "source": "board",
+                    "request_id": f["request_ids"][0],
+                    "label": f["label"],
+                    "rule": f["sub"],
+                    "severity": 30,
+                    "text": f["detail"],
+                    "refs": f["refs"],
+                    "group": "board_vs_list",
+                }
+            )
     false_alarms: list[dict[str, Any]] = []
-    for code, g in groups.items():
-        if code in ("no_free_room", "other", "rooms_outside_pool", "week_room_changes"):
+    for code, items in groups.items():
+        if code in UNAUDITED_GROUPS:
             continue
         ours = mine.get(code, set())
-        for it in g["items"]:
+        for it in items:
             ids = {int(x) for x in it["request_ids"]}
             if not ids or ids & ours:
                 continue
@@ -1420,6 +1433,25 @@ def cross_check(api: Api, res: dict[str, Any], work: Path) -> dict[str, Any]:
                     "why": why,
                 }
             )
+    return missed, false_alarms
+
+
+def cross_check(api: Api, res: dict[str, Any], work: Path) -> dict[str, Any]:
+    """The run's data-issues report against the independent audit: planner errors it does not list
+    (by source: the list, which it checks, or the board, which it only compares room-wise) and items
+    the independent audit does not confirm (with the likely reason)."""
+    from openpyxl import load_workbook
+
+    rid = res["run_id"]
+    di = api.get(f"/runs/{rid}/data-issues")
+    xlsx = api.get_bytes(f"/runs/{rid}/data-issues", format="xlsx")
+    path = work / f"run{rid}-data-issues.xlsx"
+    path.write_bytes(xlsx)
+    wb = load_workbook(path, read_only=True)
+    sheets = {str(ws.title): max(0, int(ws.max_row or 1) - 1) for ws in wb.worksheets}
+    wb.close()
+    groups = {g["code"]: g for g in di["groups"]}
+    missed, false_alarms = audit_cross_check(res, {code: g["items"] for code, g in groups.items()})
     dedup = list({(m["group"], m["request_id"], m["text"]): m for m in missed}.values())
     return {
         "run_id": rid,

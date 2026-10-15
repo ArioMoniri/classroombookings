@@ -445,6 +445,26 @@
       "ledger": "strict-engineer-analysis-2026-10-15 SCOPE: read-only analysis of /home/user/clas…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "ad24294ef1180ac4e",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 14:55",
+      "left_off": "ÇEV and CEV are same, webhooks off by default"
+    },
+    {
+      "id": "a0fa8e8718c35c949",
+      "description": "Update README and project docs",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-15 14:57",
+      "scope": "README.md, smartsched/README.md, docs/ARCHITECTURE.md, docs/CRBS_PARITY.md, docs/PROGRESS.md, docs/AGENTS.md, smartsched/backend/.env.example (comments only), smartsched/deploy/README* (if present), docs/media/** (new screenshots only). Do NOT edit docs/ROADMAP.md, docs/AGENT_STATE.md, docs/agents/*, RECORDLY.md, or any source code. GOAL: bring the README and project docs up to date with what is a…",
+      "goal": "bring the README and project docs up to date with what is actually built on branch claude/gracious-cerf-w1598m, and document the planned Phase 19 clearly as planned.",
+      "ledger": "docs-refresh-2026-10-15 SCOPE: README.md, smartsched/README.md, docs/ARCHITECTUR…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

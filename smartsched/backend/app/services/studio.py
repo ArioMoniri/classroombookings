@@ -706,9 +706,24 @@ def enqueue_studio_run(run_id: int) -> None:
     get_queue().enqueue(f"run:{run_id}", body_fn, on_status=on_status)
 
 
+def is_placement_pin(pin: dict[str, Any]) -> bool:
+    """A real pin keeps a room and/or a day and time. A draft entry that only carries a pre-check fix override
+    (``unlock``, room tags, seats, room count) is not a pin: it must not be shown or counted as pinned."""
+    return bool(pin.get("room_ids")) or pin.get("day") is not None or pin.get("start_period") is not None
+
+
+def placement_pin_ids(pins: Iterable[dict[str, Any]] | None) -> set[int]:
+    return {int(p["event_id"]) for p in pins or [] if is_placement_pin(p)}
+
+
 def _n(n: int, lang: str) -> str:
     s = f"{n:,}"
     return s.replace(",", ".") if lang == "tr" else s
+
+
+def _en(n: int, one: str, many: str) -> str:
+    """English count with the right noun form ("1 week", "14 weeks"); Turkish keeps the singular after a number."""
+    return f"{_n(n, 'en')} {one if n == 1 else many}"
 
 
 def week_span(weeks: list[int]) -> str:
@@ -939,29 +954,33 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
     pre = draft.last_precheck or {}
     readiness = pre.get("readiness") if pre.get("version") == draft.version else "unknown"
     nr, nw, ne = len(din.inp.rooms), len(weeks), classes_in
+    pinned_n = len(placement_pin_ids(draft.pins))
+    unlocked_n = sum(1 for p in draft.pins or [] if p.get("unlock") and not is_placement_pin(p))
     sentence = {
         "tr": f"{nw} hafta boyunca {_n(nr, 'tr')} derslikte {_n(ne, 'tr')} ders planlıyorsunuz.",
-        "en": f"You are planning {_n(ne, 'en')} classes in {_n(nr, 'en')} rooms for {nw} weeks.",
+        "en": f"You are planning {_en(ne, 'class', 'classes')} in {_en(nr, 'room', 'rooms')} "
+        f"for {_en(nw, 'week', 'weeks')}.",
     }
     if exam:  # merged cohorts sit one exam: say sittings, with the request count in brackets
         nx = len(din.inp.events)
         sentence = {
             "tr": f"{nw} sınav haftasında {_n(nr, 'tr')} salonda {_n(nx, 'tr')} sınav ({_n(ne, 'tr')} talep) "
             "planlıyorsunuz.",
-            "en": f"You are planning {_n(nx, 'en')} exams ({_n(ne, 'en')} requests) in {_n(nr, 'en')} rooms "
-            f"over {nw} exam weeks.",
+            "en": f"You are planning {_en(nx, 'exam', 'exams')} ({_en(ne, 'request', 'requests')}) in "
+            f"{_en(nr, 'room', 'rooms')} over {_en(nw, 'exam week', 'exam weeks')}.",
         }
     human = {
         "tr": (
             f"SmartSched {week_span(weeks)}. haftalar için {_n(ne, 'tr')} dersi {_n(nr, 'tr')} dersliğe "
             f"yerleştirecek. {must} kesin kurala uyacak, {try_} tercihi mümkün olduğunca gözetecek. "
-            f"{len(draft.pins or [])} ders sabitlendi. {_n(out_n, 'tr')} ders plan dışında. "
+            f"{pinned_n} ders sabitlendi. {_n(out_n, 'tr')} ders plan dışında. "
             f"Tahmini süre: {est['words']['tr']}."
         ),
         "en": (
-            f"SmartSched will place {_n(ne, 'en')} classes into {_n(nr, 'en')} rooms for weeks "
-            f"{week_span(weeks)}. It must follow {must} rules and will try to follow {try_} preferences. "
-            f"{len(draft.pins or [])} classes are pinned. {_n(out_n, 'en')} are left out. "
+            f"SmartSched will place {_en(ne, 'class', 'classes')} into {_en(nr, 'room', 'rooms')} for "
+            f"{'week' if len(weeks) == 1 else 'weeks'} {week_span(weeks)}. It must follow {_en(must, 'rule', 'rules')} "
+            f"and will try to follow {_en(try_, 'preference', 'preferences')}. "
+            f"{_en(pinned_n, 'class is', 'classes are')} pinned. {_n(out_n, 'en')} {'is' if out_n == 1 else 'are'} left out. "
             f"Estimated time: {est['words']['en']}."
         ),
     }
@@ -974,9 +993,11 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
                 f"gözetecek. {_n(out_n, 'tr')} talep plan dışında. Tahmini süre: {est['words']['tr']}."
             ),
             "en": (
-                f"SmartSched will place {_n(nx, 'en')} exams ({_n(ne, 'en')} requests) into {_n(nr, 'en')} rooms "
-                f"in exam weeks {week_span(weeks)}. It must follow {must} rules and will try to follow {try_} "
-                f"preferences. {_n(out_n, 'en')} requests are left out. Estimated time: {est['words']['en']}."
+                f"SmartSched will place {_en(nx, 'exam', 'exams')} ({_en(ne, 'request', 'requests')}) into "
+                f"{_en(nr, 'room', 'rooms')} in exam {'week' if len(weeks) == 1 else 'weeks'} {week_span(weeks)}. "
+                f"It must follow {_en(must, 'rule', 'rules')} and will try to follow "
+                f"{_en(try_, 'preference', 'preferences')}. {_en(out_n, 'request is', 'requests are')} left out. "
+                f"Estimated time: {est['words']['en']}."
             ),
         }
     return {
@@ -992,7 +1013,8 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
             "events": len(din.inp.events),
             "rooms": nr,
             "weeks": nw,
-            "pinned": len(draft.pins or []),
+            "pinned": pinned_n,
+            "unlocked": unlocked_n,
             "rules_must": must,
             "rules_try": try_,
             "builtins_off": len(builtins),
