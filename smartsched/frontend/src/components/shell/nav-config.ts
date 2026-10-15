@@ -80,6 +80,7 @@ export const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
  */
 export const PLANNING_ROUTES: readonly { prefix: string; permission: string | string[] }[] = [
   { prefix: "/dashboard", permission: "planning.view" },
+  { prefix: "/onboarding", permission: "planning.edit" },
   { prefix: "/import", permission: "planning.edit" },
   { prefix: "/requests", permission: "planning.view" },
   { prefix: "/generate", permission: "planning.edit" },

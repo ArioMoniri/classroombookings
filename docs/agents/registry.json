@@ -815,6 +815,18 @@
       "status": "finished",
       "finished_at": "2026-10-15 17:15",
       "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a6f7d0c0a58958f2a",
+      "description": "P19 intake I1–I5 on council",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 19:44",
+      "scope": "smartsched/backend/app/council/** (new files council/formats*.py welcome), app/api/v1/council.py, app/schemas/council.py, tests/council/**, and ticking P19-I1..I5 plus the \"Council gaps still open\" items in docs/ROADMAP.md. Do NOT edit any of the following. If you need a change there, put the exact diff in your final message. - app/importers/** (importer agent) - app/ai/** (AI agent) - app/solver/…",
+      "goal": "Phase 19 wave 1, structured intake with NO AI, on top of the merged Ingestion Council. The tickets are P19-I1 to I5 in docs/review/2026-10-15-phase19-engineering.md §3a/§5. The decisions are in docs/ROADMAP.md \"Phase 19\" and the UX spec in docs/design/v2/phase19-intake.md. 1. I1, a pluggable format registry (council/formats.py): - Detect by magic bytes first: OOXML `[Content_Types].xml` + xl/ or w…",
+      "ledger": "p19-intake-structured-2026-10-15 SCOPE: smartsched/backend/app/council/** (new f…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
