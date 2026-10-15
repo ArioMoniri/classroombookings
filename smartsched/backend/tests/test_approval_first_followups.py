@@ -328,7 +328,9 @@ async def test_learning_refresh_and_purge_are_audited(env):  # noqa: F811
         rows = {
             e.action: e
             for e in (
-                await s.execute(select(AuditEvent).where(AuditEvent.action.in_(["learning.refresh", "learning.purge_run"])))
+                await s.execute(
+                    select(AuditEvent).where(AuditEvent.action.in_(["learning.refresh", "learning.purge_run"]))
+                )
             ).scalars()
         }
     assert set(rows) == {"learning.refresh", "learning.purge_run"}
@@ -344,7 +346,9 @@ async def test_withdrawn_request_row_keeps_its_audit(env):  # noqa: F811
     _gid, _gozde, _aid, ayse = await _people(env)
     r = await env.book(ayse, "A102", THU, "P1")
     async with dbmod.get_session_factory()() as s:
-        rid = (await s.execute(select(ApprovalRequest.id).where(ApprovalRequest.booking_id == r.json()["id"]))).scalar_one()
+        rid = (
+            await s.execute(select(ApprovalRequest.id).where(ApprovalRequest.booking_id == r.json()["id"]))
+        ).scalar_one()
     assert (await c.post(f"{APPR}/{rid}/withdraw", headers=ayse)).status_code == 200
     async with dbmod.get_session_factory()() as s:
         acts = list((await s.execute(select(AuditEvent.action).where(AuditEvent.entity_id == str(rid)))).scalars())

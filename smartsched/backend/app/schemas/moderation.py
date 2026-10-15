@@ -15,6 +15,12 @@ class PriorityIn(BaseModel):
     note: str | None = Field(default=None, max_length=500)
 
 
+class SubjectPriorityIn(PriorityIn):
+    """A person's or a programme's priority for one term (P19-P-04); ``null`` / ``normal`` clears it."""
+
+    term_id: int
+
+
 class ResolveIn(BaseModel):
     base_run_id: int
     changed_request_ids: list[int] = Field(default_factory=list, max_length=500)
@@ -41,4 +47,4 @@ class MatchingActionIn(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
-__all__ = ["MatchingActionIn", "PriorityIn", "ResolveIn"]
+__all__ = ["MatchingActionIn", "PriorityIn", "ResolveIn", "SubjectPriorityIn"]

@@ -145,6 +145,50 @@ async def visibility(session: AsyncSession, access: Access) -> Scope:
     return Scope(False, linked, "own")
 
 
+async def current_term_brief(session: AsyncSession) -> dict[str, Any] | None:
+    """The current term (``terms.load_current_term``: active, else today's) in a form any signed-in user may read:
+    no planning data beyond the published course run's id."""
+    from app.services.terms import load_current_term
+
+    term = await load_current_term(session)
+    if term is None:
+        return None
+    pub = await published_run(session, term.id)
+    return {
+        "id": term.id,
+        "code": term.code,
+        "name": term.name,
+        "kind": term.kind,
+        "start_date": term.start_date.isoformat() if term.start_date else None,
+        "end_date": term.end_date.isoformat() if term.end_date else None,
+        "week_count": term.week_count,
+        "published_run_id": pub.id if pub else None,
+    }
+
+
+async def me(session: AsyncSession, access: Access) -> dict[str, Any]:
+    """``GET /moderation/me``: the caller's instructor link and visibility (Q11), plus the current term."""
+    linked = list(
+        (
+            await session.execute(
+                select(Instructor).where(Instructor.user_id == access.user.id).order_by(Instructor.id)
+            )
+        ).scalars()
+    )
+    sees_all = "planning.view" in access.perms
+    return {
+        "user_id": access.user.id,
+        "instructor_id": linked[0].id if linked else None,
+        "instructor_ids": [i.id for i in linked],
+        "instructor": (
+            {"id": linked[0].id, "full_name": linked[0].full_name, "title": linked[0].title} if linked else None
+        ),
+        "visibility": "all" if sees_all else ("own" if linked else "none"),
+        "can_edit": "planning.edit" in access.perms,
+        "current_term": await current_term_brief(session),
+    }
+
+
 # ------------------------------------------------------------------------------------------- matching core
 
 

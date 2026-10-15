@@ -169,7 +169,11 @@ def _setting_field(key: str) -> tuple[str, str]:
     # ASCII keys: NBSP / spaces from a pasted runbook go, the case is folded (no Turkish letters in keys)
     text = (n.clean_text(key) or "").replace(" ", "").lower()
     group, _, name = text.rpartition(".")
-    stored = {**{k: f"org.{k}" for k in ORG_SPECS}, **{k: f"bookings.{k}" for k in BOOKINGS_SPECS}, "timezone": "timezone"}
+    stored = {
+        **{k: f"org.{k}" for k in ORG_SPECS},
+        **{k: f"bookings.{k}" for k in BOOKINGS_SPECS},
+        "timezone": "timezone",
+    }
     ok = name in OrgSettingsIn.model_fields and name in stored and (not group or stored[name].startswith(f"{group}."))
     if not ok or (group and group not in _SETTING_GROUPS):
         allowed = sorted(stored[f] for f in OrgSettingsIn.model_fields if f in stored)

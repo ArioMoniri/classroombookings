@@ -16,10 +16,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import DB, CurrentAccess, Planner, Viewer
+from app.api.deps import DB, CurrentAccess, CurrentUser, Planner, Viewer
 from app.core.db import get_session_factory
 from app.models import ScheduleRun, Term
-from app.schemas.moderation import MatchingActionIn, PriorityIn, ResolveIn
+from app.schemas.moderation import MatchingActionIn, PriorityIn, ResolveIn, SubjectPriorityIn
 from app.services import moderation as mod
 from app.services.bookings_perms import load_access
 
@@ -196,6 +196,53 @@ async def put_request_priority(request_id: int, body: PriorityIn, db: DB, user: 
         return await mod.set_request_priority(db, request_id, body.priority, user, body.note)
     except mod.ModerationError as exc:
         raise _raise(exc) from exc
+
+
+@router.put("/moderation/people/{instructor_id}/priority")
+async def put_person_priority(instructor_id: int, body: SubjectPriorityIn, db: DB, user: Planner) -> dict[str, Any]:
+    """A person's default priority for one term (inherited by their requests: request > section > person >
+    programme; audited ``person.priority``). Coordinators and admins only (``planning.edit``)."""
+    try:
+        return await mod.set_subject_priority(db, "person", instructor_id, body.term_id, body.priority, user, body.note)
+    except mod.ModerationError as exc:
+        raise _raise(exc) from exc
+
+
+@router.put("/moderation/programs/{program_id}/priority")
+async def put_program_priority(program_id: int, body: SubjectPriorityIn, db: DB, user: Planner) -> dict[str, Any]:
+    """A programme's default priority for one term (audited ``program.priority``)."""
+    try:
+        return await mod.set_subject_priority(db, "program", program_id, body.term_id, body.priority, user, body.note)
+    except mod.ModerationError as exc:
+        raise _raise(exc) from exc
+
+
+@router.get("/terms/{term_id}/moderation/priorities")
+async def list_subject_priorities(
+    term_id: int, db: DB, _: Viewer, subject: str | None = Query(default=None, pattern="^(person|program)$")
+) -> dict[str, Any]:
+    """The person / programme priorities set for the term (the overview's Kişiler / Programlar lists)."""
+    await _term(db, term_id)
+    return {"term_id": term_id, "items": await mod.list_overrides(db, term_id, subject)}
+
+
+@router.get("/moderation/me")
+async def moderation_me(db: DB, user: CurrentUser) -> dict[str, Any]:
+    """Who the caller is for moderation (any signed-in user): the instructor record linked to the account
+    (``instructor_id``, null when none; several links are listed in ``instructor_ids``), whether they see every
+    request (``planning.view``) or only their own, and the current term (readable without ``planning.view``).
+    Replaces the UI's 403 probe on ``/moderation/people/0/history``."""
+    return await mod.me(db, await load_access(db, user))
+
+
+@router.get("/moderation/current-term")
+async def moderation_current_term(db: DB, _user: CurrentUser) -> dict[str, Any]:
+    """The current term for any signed-in user (``GET /terms/current`` needs ``planning.view``): id, code,
+    name, kind, dates and the published course run, or 404 when there are no terms."""
+    term = await mod.current_term_brief(db)
+    if term is None:
+        raise HTTPException(404, "no terms yet")
+    return term
 
 
 @router.post("/terms/{term_id}/moderation/resolve", status_code=202)

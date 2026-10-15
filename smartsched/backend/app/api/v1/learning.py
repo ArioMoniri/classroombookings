@@ -3,7 +3,7 @@
 ==============================================================  ===============  ======================================
 Route                                                           Permission       Notes
 ==============================================================  ===============  ======================================
-``POST /learning/refresh`` {term_id?}                           planning.edit    extractors (idempotent) + priors; audited
+``POST /learning/refresh`` {term_id?}                           planning.edit    extract + priors (audited)
 ``GET /learning/suggestions?term_id=&person_id=&course_id=``    planning.view    ``state`` open (default) / accepted /
                                                                                  dismissed / snoozed / hidden / all
 ``GET /learning/priors?term_id=&subject_type=&subject_id=``     planning.view    every prior with its evidence
