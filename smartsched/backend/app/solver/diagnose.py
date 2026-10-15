@@ -39,6 +39,7 @@ from app.solver.build import (
 from app.solver.constraints import HANDLERS
 from app.solver.context import ModelContext
 from app.solver.domains import (
+    NEVER_WAIVED_TAGS,
     EventDomain,
     TimeOption,
     effective_capacity,

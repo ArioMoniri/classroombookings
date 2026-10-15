@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from app.solver.constraints._common import is_targeted, select_events, str_list
 from app.solver.context import ModelContext
-from app.solver.domains import Domains
+from app.solver.domains import NEVER_WAIVED_TAGS, Domains
 from app.solver.evaluate import Evaluation
 from app.solver.model import Constraint, Event, Room
 from app.solver.weights import constraint_weight
@@ -58,7 +58,12 @@ def score(ev: Evaluation, c: Constraint) -> None:
         if not c.hard:
             ev.add_bound("room_tags", (len(req) + len(forb)) * max(1, event.max_rooms) * w)
         if c.hard and not is_targeted(c) and ev.trusted(event.id):
-            continue  # trust_locked_rooms: the planner's room; reported as a warning by the static check
+            # trust_locked_rooms: the planner's room; reported as a warning by the static check — except an
+            # accessibility need, which no lock waives (policy Q4)
+            req = req & NEVER_WAIVED_TAGS
+            forb = frozenset()
+            if not req:
+                continue
         for room in ev.rooms_of(event.id):
             units = _bad(room, req, forb)
             if not units:

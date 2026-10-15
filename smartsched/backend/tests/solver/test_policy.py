@@ -224,3 +224,28 @@ def test_serialization_round_trip_keeps_priority_and_policy() -> None:
     inp = replace(base, events=tuple(replace(e, priority=7) for e in base.events))
     back = input_from_dict(input_to_dict(inp))
     assert back.relaxation_policy == "most_classes_first" and {e.priority for e in back.events} == {7}
+
+
+# --------------------------------------------------------------------------- accessibility vs a lock (Q4)
+
+
+def test_a_lock_never_overrides_an_accessibility_need() -> None:
+    """Policy Q4: the planner's lock into a room without step-free access is a named static error
+    (``lock_accessibility``), never a kept room with a warning; an accessible lock is fine; other missing tags
+    of a trusted lock stay warnings (D1)."""
+    rooms = (room(1, "C602", 60), room(2, "A106", 60, tags=("ACCESSIBLE",)))
+    need = event(1, weeks=W1, day=2, start=4, required_tags={"ACCESSIBLE"}, locked=_lock(1, (1,), 2, 4))
+    inp = make_input(rooms, (need,), weeks=W1, trust_locked_rooms=True, workers=1)
+    pre = static_check(prepare(inp))
+    d = next(d for d in pre if d.code == "lock_accessibility")
+    assert d.severity == "error" and d.event_ids == [1] and "accessibility" in d.message
+    assert not any(x.code == "trusted_lock_tags" for x in pre)
+    res = solve(inp)
+    assert res.status == "INFEASIBLE" and res.assignments == []
+    # validate() of a manual edit refuses it too (the trusted-lock waiver does not cover it)
+    assert [v for v in validate(inp, [need.locked]) if v.hard and v.kind == "room_tags"]  # type: ignore[list-item]
+    ok = replace(need, locked=_lock(1, (2,), 2, 4))
+    assert solve(replace(inp, events=(ok,))).status in OK
+    pc = replace(need, required_tags=frozenset({"PC"}))
+    warn = static_check(prepare(replace(inp, events=(pc,))))
+    assert any(x.code == "trusted_lock_tags" for x in warn) and not any(x.severity == "error" for x in warn)
