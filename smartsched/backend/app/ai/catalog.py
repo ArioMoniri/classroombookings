@@ -628,6 +628,13 @@ SECTION_TARGET_PROPS: dict[str, dict[str, Any]] = {
     "section_label": _s("string", description="şube / section label, e.g. '1'; '' = all sections"),
 }
 
+_SCOPE = _s(
+    "string",
+    enum=["term", "run"],
+    description="term = the term data, every later run (moved online, cancelled); run = only this edit's run "
+    "('only for this run' / 'sadece bu çalıştırma için')",
+)
+
 SECTION_FIELD_PROPS: dict[str, dict[str, Any]] = {
     "enrolment": _s("integer", description="new student count; 0 = keep"),
     "day": _s("integer", description="new day 1..7; 0 = keep"),
@@ -777,12 +784,12 @@ EDIT_TOOLS: list[dict[str, Any]] = [
     _tool(
         "include_sections",
         "Propose including sections in room planning again (they get rooms on the next solve).",
-        {**SECTION_TARGET_PROPS, **_REASON},
+        {**SECTION_TARGET_PROPS, "scope": _SCOPE, **_REASON},
     ),
     _tool(
         "exclude_sections",
         "Propose excluding sections from room planning (e.g. moved online, cancelled).",
-        {**SECTION_TARGET_PROPS, **_REASON},
+        {**SECTION_TARGET_PROPS, "scope": _SCOPE, **_REASON},
     ),
     _tool(
         "set_section_field",

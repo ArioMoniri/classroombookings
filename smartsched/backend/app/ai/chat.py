@@ -529,10 +529,13 @@ async def record_edit(
         return {"recorded": "set_weight (proposal only)"}
     if name in ("include_sections", "exclude_sections", "set_section_field"):
         sop = {"include_sections": "include", "exclude_sections": "exclude", "set_section_field": "set_field"}[name]
-        edit = resolve_section_edit(state.term, sop, {**inp, "nl_text": reason})
-        diff.operations.append(SectionEditOp(edit=edit))
+        edit = resolve_section_edit(
+            state.term, sop, {**{k: v for k, v in inp.items() if k != "scope"}, "nl_text": reason}
+        )
+        scope = "run" if sop in ("include", "exclude") and inp.get("scope") == "run" else "term"
+        diff.operations.append(SectionEditOp(edit=edit, scope=scope))
         return {
-            "recorded": f"section {sop} (proposal only)",
+            "recorded": f"section {sop}{' for this run only' if scope == 'run' else ''} (proposal only)",
             "sections": edit.labels,
             "status": edit.status,
             "issues": edit.issues,
@@ -993,6 +996,13 @@ async def _apply_claimed(
                         },
                     }
                 )
+        elif isinstance(op, SectionEditOp) and op.scope == "run":
+            problem, details = await _run_scoped_section_edit(session, parent, child, op)
+            if problem:
+                plan.rejected.append({"index": i, "op": op.op, "reasons": [problem]})
+            else:
+                plan.data_changed = True
+                plan.applied.append({"index": i, "op": op.op, "scope": "run", **details})
         elif isinstance(op, SectionEditOp):
             ok, rej = await apply_section_edits(session, parent.term_id, [op.edit], commit=False)
             if ok:
@@ -1190,6 +1200,49 @@ async def _apply_claimed(
         len(plan.rejected),
     )
     return out
+
+
+async def _run_scoped_section_edit(
+    session: AsyncSession, parent: ScheduleRun, child: ScheduleRun, op: SectionEditOp
+) -> tuple[str | None, dict[str, Any]]:
+    """Leave classes out of / put them back into ``child`` only: edit the child's sealed run-level snapshot
+    (``params.studio.excluded_event_ids``, the studio draft mechanism; chat children copy it). The term data is
+    not touched. Returns ``(problem, details)``."""
+    from sqlalchemy.orm import selectinload
+
+    from app.ai.edits import blocking_issues
+    from app.services.run_params import seal_studio, trusted_studio_snapshot
+
+    edit = op.edit
+    if edit.op not in ("include", "exclude"):
+        return "only include / exclude can be limited to one run", {}
+    if parent.kind != "COURSE":
+        return "run-only section edits apply to course runs", {}
+    issues = blocking_issues(edit)
+    if issues:
+        return "; ".join(issues), {}
+    sections = list(
+        (
+            await session.execute(
+                select(Section)
+                .where(Section.id.in_(edit.section_ids), Section.term_id == parent.term_id)
+                .options(selectinload(Section.meeting_requests))
+            )
+        ).scalars()
+    )
+    missing = sorted(set(edit.section_ids) - {s.id for s in sections})
+    if missing:
+        return f"sections not in this term: {missing}", {}
+    active = [m for s in sections for m in s.meeting_requests if not m.archived]
+    ids = sorted(m.id for m in active)
+    if edit.op == "include" and any(not m.needs_room for m in active):
+        return "these classes are excluded in the term data; include them for the term (scope term)", {}
+    snap = dict(trusted_studio_snapshot(child) or {})
+    current = [int(x) for x in snap.get("excluded_event_ids") or []]
+    new = [x for x in current if x not in ids] if edit.op == "include" else list(dict.fromkeys([*current, *ids]))
+    snap["excluded_event_ids"] = new
+    child.params = seal_studio({**(child.params or {}), "studio": snap}, child.term_id, child.kind)
+    return None, {"section_ids": [s.id for s in sections], "request_ids": ids, "excluded_now": len(new)}
 
 
 async def _apply_exam_edit(

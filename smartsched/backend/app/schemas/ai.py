@@ -236,6 +236,9 @@ class SetWeightOp(BaseModel):
 class SectionEditOp(BaseModel):
     op: Literal["section_edit"] = "section_edit"
     edit: ProposedSectionEdit
+    #: include / exclude only: ``term`` changes the term data; ``run`` leaves the classes out of (or puts them back
+    #: into) the child run only, through its sealed run-level snapshot
+    scope: Literal["term", "run"] = "term"
 
 
 class ExamEditOp(BaseModel):

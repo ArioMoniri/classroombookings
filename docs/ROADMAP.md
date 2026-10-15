@@ -326,8 +326,10 @@ loop), 3, 4, 5, 6, 7, 8, 10, 12, 13, 14; usability U1-U6 and the default term. S
       keep/take review step before committing.
 - [ ] **Exam-list identity** — `exam_requests.source_key` is still a content hash (like the old meeting key); apply
       the M4 identity (course + programme + date + occurrence) and the edit-preserving diff to exam imports.
-- [ ] **Chat "exclude" edits** stay term-wide (they re-solve a child run of the term data); they now take an
-      imported snapshot (revertable). A child run with draft-scoped exclusions needs a run-level snapshot.
+- [x] **Chat "exclude" edits** stay term-wide (they re-solve a child run of the term data); they now take an
+      imported snapshot (revertable). A child run with draft-scoped exclusions needs a run-level snapshot. (2026-10-15: `include_sections` / `exclude_sections` take
+      `scope` term | run; run scope edits the child's sealed run-level snapshot `params.studio.excluded_event_ids`
+      (term data untouched, inherited by chat children); tests/ai/test_run_scope_exclusions.py)
 - [ ] **Login limiter** is per process (in memory); move it to the DB/Redis when the backend runs with several
       workers behind a load balancer.
 - [ ] **CRBS SQL dumps** are size-capped (413) but still loaded in-process into SQLite; run them in the parse child.
