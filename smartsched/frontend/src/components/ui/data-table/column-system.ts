@@ -114,7 +114,7 @@ export interface ColumnLayout {
 export function layoutColumns<Row>(
   specs: readonly ColumnSpec<Row>[],
   base: Record<string, number>,
-  opts: { container: number; hidden?: ReadonlySet<string>; userSized?: ReadonlySet<string>; order?: readonly string[] },
+  opts: { container: number; hidden?: ReadonlySet<string>; userSized?: ReadonlySet<string>; order?: readonly string[]; squeeze?: boolean },
 ): ColumnLayout {
   const order = opts.order?.length ? [...opts.order, ...specs.map((s) => s.id).filter((id) => !opts.order!.includes(id))] : specs.map((s) => s.id)
   const byId = new Map(specs.map((s) => [s.id, s]))
@@ -124,7 +124,7 @@ export function layoutColumns<Row>(
   const width = (id: string) => base[id] ?? autoWidth(byId.get(id)!, [])
   const minOf = (id: string) => Math.min(width(id), byId.get(id)!.minSize ?? DEFAULT_MIN)
   const squeezed: string[] = []
-  if (opts.container > 0) {
+  if (opts.container > 0 && opts.squeeze !== false) {
     const candidates = visible
       .filter((id) => byId.get(id)!.pin !== "left" && (byId.get(id)!.priority ?? 3) > 1)
       .sort((a, b) => (byId.get(b)!.priority ?? 3) - (byId.get(a)!.priority ?? 3) || visible.indexOf(b) - visible.indexOf(a))

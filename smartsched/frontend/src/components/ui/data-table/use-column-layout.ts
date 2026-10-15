@@ -114,6 +114,7 @@ export function useColumnLayout<Row>({
   containerRef,
   sortable,
   defaultHidden,
+  squeeze = true,
 }: {
   tableId: string
   userId: string | number | null | undefined
@@ -122,17 +123,18 @@ export function useColumnLayout<Row>({
   containerRef: React.RefObject<HTMLElement | null>
   sortable?: ReadonlySet<string>
   defaultHidden?: readonly string[]
+  /** hide low-priority columns when the minimums do not fit (false = scroll horizontally instead) */
+  squeeze?: boolean
 }): ColumnLayoutApi {
   const { prefs, update } = useTablePrefs(tableId, userId)
   const container = useContainerWidth(containerRef)
   // auto widths are measured once per data set (header + first 200 rows), not per render
-  const sample = rows.length > 200 ? rows.slice(0, 200) : rows
   const auto = React.useMemo(() => {
+    const sample = rows.length > 200 ? rows.slice(0, 200) : rows
     const out: Record<string, number> = {}
     for (const s of specs) out[s.id] = autoWidth(s, sample, { sortable: sortable?.has(s.id) })
     return out
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [specs, sample.length, sample[0], sample[sample.length - 1], sortable])
+  }, [specs, rows, sortable])
   const sizing = React.useMemo(() => prefs.sizing ?? {}, [prefs.sizing])
   const base = React.useMemo(() => ({ ...auto, ...sizing }), [auto, sizing])
   const userSized = React.useMemo(() => new Set(Object.keys(sizing)), [sizing])
@@ -146,8 +148,8 @@ export function useColumnLayout<Row>({
     return h
   }, [prefs.visibility, defaultHidden, specs])
   const layout = React.useMemo(
-    () => layoutColumns(specs, base, { container, hidden, userSized, order: prefs.order }),
-    [specs, base, container, hidden, userSized, prefs.order],
+    () => layoutColumns(specs, base, { container, hidden, userSized, order: prefs.order, squeeze }),
+    [specs, base, container, hidden, userSized, prefs.order, squeeze],
   )
   const byId = React.useMemo(() => new Map(specs.map((s) => [s.id, s])), [specs])
   const setWidth = React.useCallback(

@@ -120,6 +120,28 @@ Nothing in one row mixes heights (Apple A15, Weather scrubber; Arcade H19).
 | `BusyButton` (`ui/busy-label.tsx`) | `busy`, `busyLabel` | 150 ms delay before the busy glyph |
 | `DataTable` (`ui/data-table/`) | see §A.10 | column system |
 
+### A.10 Table column system (`src/components/ui/data-table/`)
+
+- `column-system.ts` (pure, unit-tested): `ColumnSpec {id, header, minSize, maxSize, size: number | "auto",
+  grow, align, pin: "left", hideable, priority 1–5, text(row), extra, font}`; `autoWidth` measures the header and
+  the first 200 rows with `canvas.measureText` in the cell font, clamps to [min, max] and adds the cell padding;
+  `layoutColumns` hides by priority (5 first; never priority 1 or pinned) while the minimums do not fit, gives the
+  slack to `grow` columns (never to user-sized ones), pins left columns first with sticky offsets, and returns ONE
+  `grid-template-columns` string.
+- `use-column-layout.ts`: per-user prefs `{order, sizing, visibility, pinning, density}` in
+  `localStorage["smartsched.table.<tableId>.<userId>"]` (useSyncExternalStore, so SSR and hydration agree),
+  container width from a ResizeObserver, `squeeze: false` for tables that should scroll instead (classes).
+- `parts.tsx`: `ColumnResizeHandle` (8 px hit area, 1 px `--border-control` line on hover/focus,
+  `role="separator" aria-orientation="vertical" aria-valuenow`, ←/→ 8 px, Shift 32 px, Home/Enter or
+  double-click = auto-fit, pointer drag 1:1), `ColumnsMenu` ("Görünüm › Sütunlar": toggles, dnd-kit reorder with
+  keyboard sensor, density, reset), `SqueezedChip` ("+3 sütun").
+- `data-table.tsx`: `DataTable` (TanStack sorting + Virtual above 80 rows; header and body rows are
+  `grid grid-cols-(--cols)`; pinned cells get an inset hairline edge once scrolled; rows on `--row-h`;
+  card-list mode under 600 px containers) and `StatusDot` (Vercel H6: 8 px dot + word).
+- Adopted by: `/runs` (dot + word status, plain "517 / 530" numerals, no ring gauge), `/rooms` (default view =
+  table), `/classes` (measured widths, resize handles, persisted sizing; the page keeps its own Görünüm menu
+  for order and visibility).
+
 ### A.8 References (Mobbin, collected in `v2/references.md`; no Mobbin tool in this session)
 
 Linear H4 (32 px rows, view switcher) and H5 (focus ring, left-aligned empty states); Vercel H6 (status = 8 px

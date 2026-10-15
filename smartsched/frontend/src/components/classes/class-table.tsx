@@ -5,12 +5,18 @@
  * group/row list, sticky (tint over the opaque canvas, no nested blur) group headers with aggregates, one tab stop with a roving cell cursor,
  * inline edit (double-click / Enter / F2; Esc cancels; Enter saves and moves down; Tab saves and moves right).
  * Opaque rows (no glass on data, A8); hairline separators; no zebra; numbers right-aligned.
+ * Columns (design-system overhaul 2026-10-15): the ui column system replaced the fixed WIDTH map — widths are
+ * measured from the header + first 200 rows (canvas.measureText), clamped, the slack goes to Course and
+ * Program, every header has a keyboard-resizable handle (double-click auto-fits), widths persist per user
+ * (localStorage smartsched.table.classes.<user>), and header + virtual body share one grid-template-columns.
  */
 import { getCoreRowModel, getGroupedRowModel, getSortedRowModel, useReactTable, type ColumnDef, type Row, type SortingState } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { AlertTriangle, ArrowDown, ArrowUp, ChevronRight, Circle, CircleDashed, Contrast, Lock, LockOpen, Minus, Moon } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ColumnResizeHandle, useColumnLayout, type ColumnSpec } from "@/components/ui/data-table";
+import { useMe } from "@/lib/api/hooks";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import type { ClassRow } from "@/lib/api/classes";
 import { useI18n } from "@/lib/i18n/provider";
@@ -55,7 +61,31 @@ export interface ClassTableProps {
 
 type Flat = { type: "group"; id: string; depth: number; label: ReactNode; field: string; leaves: ClassRow[] } | { type: "row"; id: string; depth: number; row: ClassRow };
 
-const WIDTH: Record<string, number> = { select: 40, status: 122, course: 190, faculty: 180, program: 200, year: 58, instructor: 180, students: 84, mode: 104, reqTime: 150, weeks: 88, reqRoom: 170, definitive: 130, placement: 196, fit: 116, issues: 210, lock: 56, changed: 70, reqStatus: 140, source: 140, notes: 210 };
+/** Column specs: fixed sizes only where the content is a glyph; everything else is measured (min / max clamp).
+ *  select + course stay sticky through `pinned()` below, in the order the page chose. */
+const SPEC: Record<string, Omit<ColumnSpec<ClassRow>, "id" | "header">> = {
+  select: { size: 40, minSize: 40, maxSize: 40, hideable: false },
+  status: { minSize: 104, maxSize: 160, extra: 20, text: (r) => r.placement_status.replace(/_/g, " ") },
+  course: { minSize: 120, maxSize: 340, grow: 2, font: "400 11px Inter, system-ui, sans-serif", text: (r) => r.course_name ?? `${r.course_code} §${r.section ?? ""}` },
+  faculty: { minSize: 120, maxSize: 260, text: (r) => r.faculty_name ?? "" },
+  program: { minSize: 120, maxSize: 300, grow: 1, text: (r) => r.program_name ?? "" },
+  year: { size: 58, minSize: 48, maxSize: 80, align: "end" },
+  instructor: { minSize: 120, maxSize: 240, text: (r) => r.instructors[0]?.name ?? "" },
+  students: { minSize: 72, maxSize: 110, align: "end", text: (r) => String(r.enrolment ?? "") },
+  mode: { minSize: 88, maxSize: 140, text: (r) => r.mode },
+  reqTime: { minSize: 120, maxSize: 200 },
+  weeks: { minSize: 72, maxSize: 140 },
+  reqRoom: { minSize: 110, maxSize: 240, extra: 12, text: (r) => r.req.room_text ?? "" },
+  definitive: { minSize: 96, maxSize: 220, text: (r) => r.definitive.room_codes.join(", ") },
+  placement: { minSize: 150, maxSize: 240 },
+  fit: { minSize: 88, maxSize: 140, align: "end" },
+  issues: { minSize: 140, maxSize: 300 },
+  lock: { size: 56, minSize: 48, maxSize: 72 },
+  changed: { size: 70, minSize: 56, maxSize: 96 },
+  reqStatus: { minSize: 110, maxSize: 180 },
+  source: { minSize: 110, maxSize: 200 },
+  notes: { minSize: 140, maxSize: 320, text: (r) => r.req.notes ?? "" },
+};
 const RIGHT = new Set(["year", "students", "fit"]);
 const HEAD_KEY: Record<string, MessageKey> = {
   select: "classes.col.select", status: "classes.col.status", course: "classes.col.course", faculty: "classes.col.faculty", program: "classes.col.program", year: "classes.col.year", instructor: "classes.col.instructor", students: "classes.col.students", mode: "classes.col.mode", reqTime: "classes.col.reqTime", weeks: "classes.col.weeks", reqRoom: "classes.col.reqRoom", definitive: "classes.col.definitive", placement: "classes.col.placement", fit: "classes.col.fit", issues: "classes.col.issues", lock: "classes.col.lock", changed: "classes.col.changed", reqStatus: "classes.col.reqStatus", source: "classes.col.source", notes: "classes.col.notes",
@@ -206,9 +236,15 @@ function ClassTableImpl(p: ClassTableProps) {
 
   const firstVisible = v.range?.startIndex ?? 0;
   const activeSticky = [...stickyIndexes].reverse().find((i) => i <= firstVisible) ?? -1;
-  const cols = p.columns;
-  const totalW = cols.reduce((s, c) => s + (WIDTH[c] ?? 120), 0);
-  const leftOf = (i: number) => cols.slice(0, i).reduce((s, c) => s + (WIDTH[c] ?? 120), 0);
+  const specs = useMemo<ColumnSpec<ClassRow>[]>(() => p.columns.map((c) => ({ id: c, header: t(HEAD_KEY[c] ?? "classes.col.course"), ...(SPEC[c] ?? { minSize: 96, maxSize: 240 }) })), [p.columns, t]);
+  const me = useMe();
+  const colApi = useColumnLayout({ tableId: "classes", userId: me.data?.id, specs, rows: p.rows, containerRef: scroller, squeeze: false });
+  const { layout } = colApi;
+  // the page owns visibility and order (Görünüm menu); the layout keeps pinned columns first
+  const cols = layout.ids;
+  const W = (c: string) => layout.widths[c] ?? 120;
+  const totalW = layout.total;
+  const leftOf = (i: number) => cols.slice(0, i).reduce((s, c) => s + W(c), 0);
   const pinned = (c: string) => c === "select" || c === "course";
 
   // keep the cursor in range
@@ -249,9 +285,9 @@ function ClassTableImpl(p: ClassTableProps) {
     const el = scroller.current;
     if (el) {
       const x = leftOf(col);
-      const pinW = (WIDTH.select ?? 40) + (WIDTH.course ?? 190);
+      const pinW = cols.filter(pinned).reduce((sum, c) => sum + W(c), 0);
       if (x - el.scrollLeft < pinW && !pinned(cols[col])) el.scrollLeft = Math.max(0, x - pinW);
-      else if (x + (WIDTH[cols[col]] ?? 120) > el.scrollLeft + el.clientWidth) el.scrollLeft = x + (WIDTH[cols[col]] ?? 120) - el.clientWidth;
+      else if (x + W(cols[col]) > el.scrollLeft + el.clientWidth) el.scrollLeft = x + W(cols[col]) - el.clientWidth;
     }
   };
 
@@ -356,7 +392,7 @@ function ClassTableImpl(p: ClassTableProps) {
   }, [activeId, flat, v]);
 
   const header = (
-    <div role="row" className="cal-sticky sticky top-0 z-20 flex hairline-b" style={{ width: totalW, height: HEADER_H }}>
+    <div role="row" className="cal-sticky sticky top-0 z-20 grid grid-cols-(--cols) hairline-b" style={{ width: totalW, height: HEADER_H }}>
       {cols.map((c, i) => {
         const col = table.getColumn(c);
         const sorted = col?.getIsSorted();
@@ -366,8 +402,8 @@ function ClassTableImpl(p: ClassTableProps) {
             key={c}
             role="columnheader"
             aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : "none"}
-            className={cn("flex shrink-0 items-center px-2 type-footnote font-semibold text-label-2", RIGHT.has(c) && "justify-end", pinned(c) && "cal-sticky sticky z-10")}
-            style={{ width: WIDTH[c] ?? 120, left: pinned(c) ? leftOf(i) : undefined }}
+            className={cn("relative flex min-w-0 items-center px-2 type-footnote font-semibold text-label-2", RIGHT.has(c) && "justify-end", pinned(c) && "cal-sticky sticky z-10")}
+            style={{ left: pinned(c) ? leftOf(i) : undefined }}
           >
             {c === "select" ? (
               <Checkbox aria-label={t("classes.col.select")} checked={allSel} onCheckedChange={(v2) => p.onSelection(v2 ? new Set(p.rows.map((r) => r.id)) : new Set())} />
@@ -379,6 +415,9 @@ function ClassTableImpl(p: ClassTableProps) {
             ) : (
               <span className="truncate">{t(HEAD_KEY[c])}</span>
             )}
+            {c !== "select" ? (
+              <ColumnResizeHandle id={c} label={t(HEAD_KEY[c])} width={W(c)} min={SPEC[c]?.minSize} max={SPEC[c]?.maxSize} onResize={(px) => colApi.setWidth(c, px)} onAutoFit={() => colApi.autoFit(c)} />
+            ) : null}
           </div>
         );
       })}
@@ -525,6 +564,7 @@ function ClassTableImpl(p: ClassTableProps) {
       tabIndex={0}
       onKeyDown={onKey}
       className="relative min-h-0 flex-1 overflow-auto outline-hidden focus-visible:outline-hidden"
+      style={colApi.style}
       data-testid="classes-table"
     >
       {header}
@@ -587,7 +627,7 @@ function ClassTableImpl(p: ClassTableProps) {
               aria-selected={selected}
               data-testid="classes-row"
               data-class-id={r.id}
-              className={cn("group/row left-0 flex hairline-b hover:bg-fill-3", selected && "bg-tint-soft", p.activeId === r.id && "bg-fill-2")}
+              className={cn("group/row left-0 grid grid-cols-(--cols) hairline-b hover:bg-fill-3", selected && "bg-tint-soft", p.activeId === r.id && "bg-fill-2")}
               style={{ ...style, width: totalW }}
               onClick={(e) => {
                 setCursor((cc) => ({ ...cc, row: vi.index }));
@@ -609,8 +649,8 @@ function ClassTableImpl(p: ClassTableProps) {
                     data-col={c}
                     aria-colindex={ci + 1}
                     aria-readonly={!EDITABLE.has(c) || p.readOnly}
-                    className={cn("flex shrink-0 items-center overflow-hidden px-2", RIGHT.has(c) && "justify-end", pinned(c) && "cal-canvas sticky z-[5] group-hover/row:bg-[color-mix(in_srgb,var(--cal-canvas),var(--label-1)_4%)]", pinned(c) && selected && "bg-[color-mix(in_srgb,var(--cal-canvas),var(--accent)_12%)]", focused && "outline-2 -outline-offset-2 outline-(--focus) [[role=grid]:not(:focus-within)_&]:outline-0 [[role=treegrid]:not(:focus-within)_&]:outline-0")}
-                    style={{ width: WIDTH[c] ?? 120, left: pinned(c) ? leftOf(ci) : undefined }}
+                    className={cn("flex min-w-0 items-center overflow-hidden px-2", RIGHT.has(c) && "justify-end", pinned(c) && "cal-canvas sticky z-[5] group-hover/row:bg-[color-mix(in_srgb,var(--cal-canvas),var(--label-1)_4%)]", pinned(c) && selected && "bg-[color-mix(in_srgb,var(--cal-canvas),var(--accent)_12%)]", focused && "outline-2 -outline-offset-2 outline-(--focus) [[role=grid]:not(:focus-within)_&]:outline-0 [[role=treegrid]:not(:focus-within)_&]:outline-0")}
+                    style={{ left: pinned(c) ? leftOf(ci) : undefined }}
                     onClick={(e) => {
                       if (e.altKey) {
                         e.stopPropagation();
