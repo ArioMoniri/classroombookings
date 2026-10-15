@@ -104,3 +104,8 @@ api_router.include_router(catalog_admin.router)
 from app.api.v1 import crbs_upgrade  # noqa: E402
 
 api_router.include_router(crbs_upgrade.router)
+
+# no-placeholder audit m6 (b): the API schema for planning administrators (production has no public docs)
+from app.api.v1 import admin_docs  # noqa: E402
+
+api_router.include_router(admin_docs.router)
