@@ -440,7 +440,15 @@ Wave 0, the gates:
 - [x] P19-Q1: normaliser D9–D12, plus the parser bugs from the academician analysis. Importer agent. (2026-10-15: `normalize.fold` shared lexicon + ASCII days, `parse_enrolment` refuses time-shaped / out-of-range values, `24:00` = end of day, negative % refused; `parse_preference_text` negation / building sets / room alternative groups (`VenueRequest.satisfied_by`) / feature lexicon; `importers/preference_rules.py`: notes -> soft FILE rules switched off pending review with `source_ref` file/sheet/row/column, request-cell avoid/sets active soft, never hard; data-issues `unparsed_preference` + `preference_review`. Real data: Bahar 565 notes -> 39 pending rules / 92 unparsed, Güz 375 -> 33 / 76. Tests: test_normalize_folding.py, test_preference_text.py)
 - [ ] P19-Q2: parity gate requires the playwright JSON; fix the date-gated skip; reserve.spec in UI_SPECS. Devops agent.
 - [x] P19-Q3: dependency pins (xlrd, defusedxml, pdfplumber, pypdfium2, icalendar in main deps) and a 30-day upload purge. Devops agent. (done 2026-10-15: pyproject main deps + requirements.lock, images-gate import smoke, `purge-uploads.sh` + pod timer `smartsched-upload-purge` (daily, Persistent=true), UPLOAD_RETENTION_DAYS=30, uploads/rooms kept)
-Wave 1, structured intake (after 04): [ ] I1 magic-byte registry + CSV/TSV/JSON · [ ] I2 xls + ods · [ ] I3 xml + ics · [ ] I4 commit dry-run diff · [ ] I5 schedule map → baseline IMPORT run, deduped across jobs · [ ] I6 source_ref provenance · [ ] I7 room-master import UI + diff panel
+Wave 1, structured intake (after 04), done 2026-10-15 by the intake agent (no AI on any of it):
+  - [x] I1 magic-byte registry + CSV/TSV/JSON (`council/formats.py`, `formats_builtin.py`, `formats_text.py`; tests/council/test_formats.py): the Bahar list exported as cp1254 `;` CSV (comma decimals, dotted times), UTF-8-BOM TSV and JSON each gives >= 99 % of the 1 524 xlsx meetings by natural key; the CSV commit equals the xlsx import (test_formats_api.py)
+  - [x] I2 xls (xlrd) + ods (own defusedxml reader; `formats_sheets.py`): LibreOffice-written .ods gives 1 524/1 524 identical meetings and the 54 Sayfa2 rooms, .xls 1 523/1 524 (LibreOffice writes row 219 as 0); repeat / span bombs -> 413, a DTD -> 400
+  - [x] I3 xml + ics (`formats_sheets.py`, `formats_ics.py`): SpreadsheetML Bahar >= 99 %; billion-laughs -> 400 at upload; SmartSched's own ICS export of Bahar week 3 = the 601 board cells exactly; RRULE <= 5000 instances / 200k steps, ORGANIZER/ATTENDEE never read
+  - [x] I4 commit dry-run diff (`council/dryrun.py`): same writer, flush-only session, rolled back; counts == the real commit's; keep/take conflicts vs studio snapshots; real commits hold the term write lock (TR/EN 409)
+  - [x] I5 schedule map -> baseline IMPORT run (`council/baseline.py`): Güz board + list -> one IMPORT run, a week-1 child solve (workers=1) keeps >= 95 % slots / >= 90 % rooms, re-upload in a new job changes 0 rows; D14 natural keys in the general writer
+  - [x] Intake memory (owner request): `council/memory.py` on `learned_observations` (subject_type `intake`), covered by the learning resets
+  - [ ] I6 source_ref provenance (records carry file/sheet/row; no source_ref columns yet: needs a migration on the current head)
+  - [ ] I7 room-master import UI + diff panel (frontend; the dry-run API is ready)
 Wave 2, AI-assisted intake: [ ] A1 AI intake/vision switches (default off) + KVKK sign-off (backend part with the AI agent now) · [ ] A2 review required on every AI row · [ ] A3 PDF tables / scanned PDFs / EML / EXIF / PII redaction · [ ] A4 injection corpus test
 Wave 3, learning, from scratch, moderation: [x] L1–L4 learning tables, extractors, priors and suggestions, reset/undo (2026-10-15: alembic 0023_learning; `services/learning_extract.py` (idempotent, 24 653 observations on Bahar + Güz, re-run 0; locked double bookings and over-capacity lectures kept only as weight-0 `excluded_lock` evidence), `services/learning.py` (decayed score, Wilson z=1 >= 0.6, 2 terms or 3 lectures in one term, room/time same season only), `api/v1/learning.py` (suggest only; accept = one soft targeted LEARNED rule, weight 5, via constraint_guard; reject -3 + hidden; snooze; reset person/term/all admin-only + audited + 30-day undo + daily purge; KVKK erase); tests/test_p19_learning*.py; open: the purge loop needs its line in main.py lifespan, planning-audit hook TODO) · [x] C1–C2 CRUD for faculties, courses, instructors, sections, requests + pattern expander (2026-10-15: `api/v1/catalog_admin.py`, `services/{catalog_admin,patterns}.py`; planning.edit, `MAN:` keys, audited, archive + guarded purge; from-scratch MBG Tezli YL term solved OPTIMAL hard 100, planner_check 0; open: importer archives `MAN:` sections on a later list import, xfail in tests/test_p19_catalog_admin.py) · [ ] S1–S2 priority-weighted placement, deterministic repair diff · [ ] M1–M3 moderation read models, priority + conflict_policy, re-solve endpoint · [ ] F1–F4 moderation UI, suggestion tray + reset UI, program wizard
 Proposed later (from the review): academician self-service portal, instructor availability and load rules, term workflow states, publish history and rollback, department-scoped planners, swap requests after publish, exam invigilator assignment, utilisation reports, what-if sandboxes, OBS enrolment sync, personal ICS feeds for assignments.
@@ -569,13 +577,13 @@ New Phase 19 tickets proposed by the persona (report §5):
 
 ### Universal merge landed (2026-10-15, d714c5b; both branches at 102eda5)
 - [x] claude/smartsched-universal merged into gracious, then universal fast-forwarded. Migration 0020_council is the single head. The council is hardened: D2 (safe_files caps + isolation), D7 (admin council_ai_enabled, default off, with a KVKK notice), D13 (raw rows need planning.edit) and D14 (sha-keyed dedupe), plus one council.commit audit event per commit and no MSW mocks.
-- [ ] Council gaps still open, for the intake agent:
-  - the review endpoint (planning.view) still returns sample cell values; gate them by planning.edit
-  - review decisions are not audit events
-  - no dated KVKK sign-off record for the AI switch (P19-A1)
-  - apply_decisions re-renders synchronously inside the request
-  - storage.save_upload is now unused; remove it
-  - the docs still say 0017_council in docs/review/2026-10-15-phase19-engineering.md
+- [x] Council gaps (intake agent, 2026-10-15):
+  - review sample values, texts, sources and merge names need planning.edit (`content=false` for viewers; tests/council/test_intake_memory.py)
+  - every review post is one `council.review` audit event (publish_event)
+  - KVKK sign-off record for the AI switch: `app/ai/policy.py` set_policy writes `ai.kvkk_signoff` and the council asks `ai_allowed` (AI agent)
+  - apply_decisions re-reads on the job queue (job RUNNING, `rerun_queued`, commit refused meanwhile)
+  - storage.save_upload removed
+  - docs/review/2026-10-15-phase19-engineering.md now says 0020_council
 
 ### Solver decisions (owner, 2026-10-15)
 - Determinism: draft explorations use all threads. Recreate-schedule / moderation re-solves and "publish candidate" runs use workers=1, so a re-run gives the identical schedule. Implement in run_params (a publish-candidate flag) and in P19-M3.
