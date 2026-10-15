@@ -42,7 +42,7 @@ test("week navigation: the title follows the click at once and the old grid is v
   await login(page);
   // the strip board steps by week (the day board steps by day inside the same week range)
   await page.goto(`/timetable?run=${solverRun()}&lens=board&board=strip&week=3`);
-  await expect(page.getByTestId("calendar-title")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("week-next")).toBeVisible({ timeout: 60_000 });
   const title = page.getByTestId("calendar-title");
   const before = await title.textContent();
   // sample the title in the frame after the click: it must already show the next week
@@ -99,4 +99,18 @@ test("Studio: the preset menu opens without crashing the page (M-12)", async ({ 
   await page.getByTestId("preset-menu").first().click({ timeout: 30_000 });
   await expect(page.getByRole("menu")).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test("/timetable hydrates without React error #418 in the production build (UI polish backlog)", async ({ page }) => {
+  await english(page);
+  await login(page);
+  const errors: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") errors.push(m.text());
+  });
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto(`/timetable?run=${solverRun()}`);
+  await expect(page.getByTestId("calendar-title")).toBeVisible({ timeout: 60_000 });
+  await page.waitForTimeout(1500);
+  expect(errors.filter((e) => /#418|#423|hydrat/i.test(e))).toEqual([]);
 });

@@ -147,7 +147,7 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 ### UI polish backlog (screenshot pass, 2026-10-08)
 
 - [x] `/timetable` run selector truncates its label ("…Feasible · 1(") on desktop and mobile (fixed 2026-10-15: options are short (weeks as ranges, kind only when both kinds are listed) with the full label as tooltip; `components/timetable/model/run-label.ts`, run-label.test.ts, 94c16e1)
-- [ ] `/timetable` throws React hydration error #418 in production (page recovers)
+- [x] `/timetable` throws React hydration error #418 in production (page recovers) (verified 2026-10-15: production `next build` against the real e2e backend, no #418/#423 or hydration error on /timetable — `e2e/studio-calendar-sweep.spec.ts` "hydrates without React error #418"; the remembered run/week are read only after hydration)
 - [x] Run page sticky header is translucent; hero text shows through when the chat panel scrolls — make it opaque or scroll the chat independently (verified 2026-10-15: the chat scrolls independently — `components/chat/chat-panel.tsx` list is `overflow-y-auto` inside a fixed-height `sticky top-16` panel (`runs/run-view.tsx`); the translucent bar itself is the shell top bar (shell owner))
 - [ ] Mock room photos use random picsum images; replace with neutral tiles or real room photos (phase 7 live import)
 - [x] Every Playwright config should use its own port (`PW_PORT`) so parallel agents don't share a server and mock state (verified 2026-10-15: `smartsched/frontend/playwright.config.ts` reads `PW_PORT` (default 3100); specs document it)
