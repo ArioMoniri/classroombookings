@@ -7,6 +7,7 @@ import io
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from fastapi import HTTPException
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -15,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.export_safety import ics_text, neutralize_workbook, safe_writer
 from app.importers.normalize import PERIODS
-from app.models import Assignment, Room, ScheduleRun, Term
+from app.models import Assignment, Room, ScheduleRun, Term, Week
 from app.services.calendar import date_for, day_label, period_times
 from app.services.grid import assignment_labels, build_grid
 
@@ -258,11 +259,21 @@ _FILLS = {
 }
 
 
+async def _term_weeks(session: AsyncSession, term_id: int) -> list[Week]:
+    return list((await session.execute(select(Week).where(Week.term_id == term_id))).scalars())
+
+
 async def export_xlsx(session: AsyncSession, run: ScheduleRun, weeks: list[int] | None = None) -> bytes:
     """One sheet per week laid out like the planner's board: day labels merged over the rooms, room
     headers with capacity, 18 time-slot rows, vertically merged multi-period lessons."""
     term = await session.get(Term, run.term_id)
     assert term is not None
+    if weeks:  # the weeks asked for (persona M-32: the visible week), once each, in week order
+        last = max(int(term.week_count or 0), *(int(w.index) for w in await _term_weeks(session, term.id)), 1)
+        bad = sorted({w for w in weeks if not 1 <= w <= last})
+        if bad:
+            raise HTTPException(422, f"weeks {', '.join(map(str, bad))} are outside the term (1-{last})")
+        weeks = sorted(set(weeks))
     if not weeks:
         found = sorted(
             {

@@ -50,7 +50,11 @@ async def test_planner_cannot_untarget_an_existing_rule_with_an_empty_selector(e
     for params in ({"match": ""}, {"event_ids": []}, {"match": " "}):
         r = await env.client.put(f"{C}/{rid}", json={"params": params}, headers=env.planner)
         assert r.status_code == 422, (params, r.text)
-    row = next(x for x in (await env.client.get(C, params={"term_id": env.term_id}, headers=env.planner)).json() if x["id"] == rid)
+    row = next(
+        x
+        for x in (await env.client.get(C, params={"term_id": env.term_id}, headers=env.planner)).json()
+        if x["id"] == rid
+    )
     assert row["params"] == {"match": "MAT 112"}
 
 

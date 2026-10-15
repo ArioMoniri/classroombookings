@@ -51,6 +51,7 @@ from app.models import (
     Translation,
     User,
     UserConstraint,
+    Week,
 )
 from app.models.catalog import Room
 
@@ -245,6 +246,7 @@ TRACKED: dict[type, tuple[str, frozenset[str]]] = {
     Program: ("department", frozenset()),
     Translation: ("translation", frozenset()),
     Term: ("term", frozenset({"created_at", "updated_at"})),
+    Week: ("term_week", frozenset()),  # the term's week calendar (PUT /terms/{id}/weeks)
 }
 #: collection relationships logged as {"added": [...], "removed": [...]}
 COLLECTIONS: dict[type, dict[str, str]] = {Role: {"permissions": "name"}, RoomAcl: {"permissions": "name"}}

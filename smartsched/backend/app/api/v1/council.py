@@ -6,7 +6,7 @@ GET  /council/jobs/{id}             progress per file and step, plan, summary, u
 GET  /council/jobs/{id}/events      server-sent events (snapshot on every change) until done
 GET  /council/jobs/{id}/review      review items (low confidence, merges, issues, rules, plan)
 POST /council/jobs/{id}/review      decisions: accept / reject / edit
-POST /council/jobs/{id}/commit      write into a term (planner group, existing term or new term)
+POST /council/jobs/{id}/commit      write into a term (planner group, existing term or new term); dry_run = diff only
 POST /council/jobs/{id}/rerun       run the council again on the stored files (new attempt)
 GET  /council/jobs/{id}/records     extracted records of one file (paged), with source references
 GET  /council/jobs/{id}/artifacts   audit trail: artifact metadata (kind, file, step, time, size)
@@ -36,10 +36,11 @@ from app.core.config import get_settings
 from app.core.db import get_session_factory
 from app.council import formats, storage
 from app.council.commit import CommitError, commit
+from app.council.dryrun import dry_run
 from app.council.orchestrator import enqueue
 from app.council.render import RenderError
 from app.council.review import _threshold, apply_decisions, build_items, decisions, effective_plan
-from app.models import CouncilArtifact, CouncilJob
+from app.models import CouncilArtifact, CouncilJob, Term
 from app.schemas.council import (
     CommitIn,
     CouncilFileOut,
@@ -50,6 +51,7 @@ from app.schemas.council import (
     ReviewIn,
     ReviewOut,
 )
+from app.services import term_lock
 from app.workers.queue import get_queue, worker_id
 
 router = APIRouter(prefix="/council", tags=["council"])
@@ -267,22 +269,50 @@ async def post_review(job_id: int, body: ReviewIn, db: DB, user: Planner) -> Rev
     return await _review_out(db, job, saved=res["saved"], errors=res["errors"], rerun_files=res["rerun_files"])
 
 
+async def _commit_term_code(db: DB, job: CouncilJob, body: CommitIn) -> str | None:
+    """The code of the term a commit writes (for its write lock): the chosen term, the new term's code, or the
+    planner group's (as reviewed)."""
+    if body.term_id is not None:
+        term = await db.get(Term, body.term_id)
+        return term.code if term is not None else None
+    if body.term is not None and body.term.code:
+        return body.term.code
+    groups = effective_plan(job.plan or {}, await decisions(db, job.id)).get("groups", [])
+    if body.group is not None and 0 <= body.group < len(groups):
+        return str(groups[body.group].get("code") or "") or None
+    if body.group is None and not body.files and len(groups) == 1:
+        return str(groups[0].get("code") or "") or None
+    return None
+
+
 @router.post("/jobs/{job_id}/commit")
 async def post_commit(job_id: int, body: CommitIn, db: DB, user: Planner) -> dict[str, Any]:
+    """Write the job into a term. ``dry_run`` runs the same importers and writer in a transaction that is
+    rolled back and answers the per-entity create / update / unchanged / conflict counts with the row diffs
+    (app/council/dryrun.py). A real commit holds the term's write lock (app/services/term_lock.py): while an
+    import or another commit writes the same term, it answers 409 ``term_locked``."""
     job = await _job(db, job_id)
+    kwargs: dict[str, Any] = dict(
+        group=body.group,
+        term_id=body.term_id,
+        term_spec=body.term.model_dump(mode="json", exclude_none=True) if body.term else None,
+        files=body.files,
+        include_rules=body.include_rules,
+        allow_pending=body.allow_pending,
+        user_id=user.id,
+        on_conflict=body.on_conflict,
+    )
     try:
-        return await commit(
-            db,
-            job,
-            group=body.group,
-            term_id=body.term_id,
-            term_spec=body.term.model_dump(mode="json", exclude_none=True) if body.term else None,
-            files=body.files,
-            include_rules=body.include_rules,
-            allow_pending=body.allow_pending,
-            user_id=user.id,
-            actor=user,
-        )
+        if body.dry_run:
+            return await dry_run(get_session_factory(), job.id, **kwargs)
+        code = await _commit_term_code(db, job, body)
+        if code is None:  # no term to lock: commit() refuses with the reason
+            return await commit(db, job, actor=user, **kwargs)
+        key = term_lock.term_key(code)
+        async with term_lock.term_write_lock(key, f"council-commit:{job.id}"):
+            return await commit(db, job, actor=user, **kwargs)
+    except term_lock.TermLocked as exc:
+        raise term_lock.http_error(exc) from exc
     except CommitError as exc:
         raise HTTPException(409, str(exc)) from exc
 

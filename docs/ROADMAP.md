@@ -601,11 +601,11 @@ Hard-rule integrity (backend agent, top priority):
 - [ ] Q8: the request edit pinning 102 into the 30-seat B 201 is refused at the edit with a named message.
 - [ ] Imported boards show "Sorunlar 0" while the server has 35–383 locked_room_too_small items.
 Security/KVKK (second backend agent):
-- [ ] KVKK sign-off pre-seeded on every install → never seed; a sign-off is an explicit dated admin action.
-- [ ] Webhooks accept loopback/private URLs → SSRF guard at save and at send (DNS rebinding).
-- [ ] Login reveals "user disabled" → generic message.
-- [ ] constraint_guard counts empty match / empty id lists as targeted.
-- [ ] The week export exports all 14 weeks.
+- [x] KVKK sign-off pre-seeded on every install → never seed; a sign-off is an explicit dated admin action. (2026-10-15: defaults `calendar_sync_enabled:false`, `calendar_sync_signoff:null`; `bookings_settings.kvkk_signed` gates the switch (named admin + user id + date) so feeds and push stay off until `PUT /calendar/admin/settings` records one; alembic 0022_kvkk_signoff_unseed marks seeded copies not signed and switches sync off; AI intake keeps its own sign-off, off on a fresh stack; CHANGELOG 0.4.1; tests/test_kvkk_signoff.py)
+- [x] Webhooks accept loopback/private URLs → SSRF guard at save and at send (DNS rebinding). (2026-10-15: loopback, RFC 1918, link-local, CGNAT, unique-local IPv6, multicast/reserved, IPv4-mapped/NAT64/6to4, inet_aton spellings, localhost names, non-http(s) refused at save (literal + every resolved address) and at send (re-resolved; rows saved earlier re-validated); the delivery client's `GuardedBackend` checks again inside `connect_tcp` and connects to the checked address; tests/test_webhooks_ssrf.py, one test per class)
+- [x] Login reveals "user disabled" → generic message. (2026-10-15: 401 "invalid credentials" like a wrong password, local and LDAP; reason in audit `auth.login_refused` + server log; unknown names also cost one hash check; tests/test_login_enumeration.py)
+- [x] constraint_guard counts empty match / empty id lists as targeted. (2026-10-15: `is_targeted_params` needs a non-blank selector value, NBSP/zero-width count as blank; tests/test_guard_empty_selectors.py)
+- [ ] The week export exports all 14 weeks. (2026-10-15 backend done: `?weeks=` sheets deduplicated and sorted, out-of-term weeks 422, tests/test_export_weeks.py; open: the timetable menu does not send `weeks` — frontend diff in the admin-persona-backend-fixes hand-off: "Bu haftayı / Tüm dönemi Excel'e aktar")
 Frontend, runs/studio/timetable (studio/calendar sweep agent):
 - [ ] M-03 no publish button → "Yayınla" with a scope confirmation + guard reasons.
 - [ ] M-06/07/08 contradictory headlines ("hiçbir kural bozulmadı" vs waived capacity, 308 clashes, issue counts).
@@ -623,3 +623,23 @@ Wave-1 frontend agent:
 Languages (correction; P18-LANG was ticked too early):
 - [ ] Languages, owner decision 2026-10-15: reduce to TR + EN. The picker offers only tr/en; other stored codes render English and are kept; CRBS_PARITY lists it as a deliberate difference (shell/admin sweep agent).
 The 30 minors are in the report §3, for the shell/bookings/admin sweep.
+
+### AI backlog finished (2026-10-15)
+Commits 767fc83, 208b017, 165895a, 3ec6ac3, 12944e9, bece4f7, 0bf42e7. Full suite 1365 passed / 11 skipped / 1 failed; the failure is the council migration test pinning the head, sent to the intake agent.
+Done:
+- P19-00b source allowlist
+- rejected proposals stored (0018)
+- ai.intake_enabled / ai.vision_enabled behind a KVKK sign-off, unified with the council
+- upload sanitising (zero-width/bidi, e-mail/phone redaction)
+- streaming chat (SSE)
+- move + update-request in one op
+- exam edits in chat
+- scanned PDFs via vision
+- run-scope chat exclusions
+Decisions taken by the orchestrator (owner may override):
+- [ ] Run-scoped chat rules are inherited by every child run of that run (POST /runs with parent_run_id, studio re-solve, moderation re-solve), unless explicitly cleared. Implement in solver_bridge.build_solver_input together with P19-M3.
+- [ ] Week-limited room rules are modelled in the solver as a week-scoped room constraint, not by splitting meeting requests (that would fight re-import matching). Ticket for the next solver pass. Until then, the AI marks such rules needs_review.
+- [ ] Live red-team measurement (tests/ai/test_redteam.py::test_live_redteam) needs an Anthropic key. It runs only where the admin has stored one; never ask for keys in chat.
+Frontend follow-ups:
+- AI policy screen + status pill → shell/admin sweep
+- streaming client, update_request toggle, scope switches, refused proposals list → studio/calendar sweep

@@ -14,6 +14,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
 import httpx
+from app.workers import integrations as worker
 
 GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
 GOOGLE_API = "https://www.googleapis.com/calendar/v3"
@@ -330,3 +331,13 @@ def client_factory(handler: Any) -> Any:
         return httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=False)
 
     return make
+
+
+async def kvkk_sign_off(env: Any) -> None:
+    """The administrator's KVKK sign-off (admin persona M-18): calendar sync (feeds and push) is off on a fresh
+    stack until a named administrator switches it on, which records who and when."""
+    r = await env.client.put("/api/v1/calendar/admin/settings", json={"calendar_sync_enabled": True}, headers=env.admin)
+    assert r.status_code == 200 and r.json()["calendar_sync_enabled"] is True, r.text
+    # switching it on schedules a drain on this (fixture) event loop; let it finish so a test starts with no task
+    await worker.wait_idle()
+    await worker.shutdown()

@@ -110,6 +110,12 @@ class CommitIn(BaseModel):
     files: list[int] | None = Field(default=None, description="file indexes (default: the group's files)")
     include_rules: bool = True
     allow_pending: bool = Field(default=False, description="commit although blocking review items are open")
+    dry_run: bool = Field(
+        default=False, description="run the same writer in a transaction that is rolled back; returns the diff"
+    )
+    on_conflict: Literal["keep", "take"] = Field(
+        default="keep", description="a planner's studio edit vs a changed file value: keep the edit or take the file"
+    )
 
 
 class RerunIn(BaseModel):

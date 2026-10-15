@@ -11,9 +11,8 @@ from app.core.security import hash_password, password_needs_rehash, revoke_token
 from app.models import User
 from app.models.base import utcnow
 from app.schemas.auth import LoginIn, TokenOut, UserOut
-from app.services import audit
+from app.services import audit, bookings_ldap
 from app.services import bookings_events as events
-from app.services import bookings_ldap
 from app.services.bookings_settings import get_value
 from app.services.bookings_users import find_login_user
 

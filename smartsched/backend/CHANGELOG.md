@@ -3,6 +3,17 @@
 Shown to signed-in users as "What's new" (`GET /api/v1/org/changelog`). Newest first; one
 `## [version] YYYY-MM-DD` heading per release, `### Added` / `### Updated` / `### Fixed` sections.
 
+## [0.4.1] 2026-10-15
+
+### Updated
+- KVKK: no installation ships a KVKK sign-off any more. Calendar sync (subscription links and Google / Microsoft push) stays off until an administrator switches it on under Calendar settings, which records that administrator's name and the date as the sign-off. On upgrade, a sign-off that was only the pre-seeded default of 2026-10-08 is marked as not signed and calendar sync is switched off; subscription links answer "not found" until an administrator signs off. AI intake keeps its own sign-off and stays off until an administrator turns it on.
+
+### Fixed
+- Webhooks refuse addresses on the server's own network (loopback, private, link-local, CGNAT, unique-local IPv6, localhost names) and non-http(s) links, when saved and again before every delivery.
+- Signing in to a disabled account gives the same "invalid credentials" answer as a wrong password; the reason is kept in the audit log.
+- A rule whose class filter is empty or only spaces no longer counts as naming classes.
+- The timetable's Excel export of selected weeks gives one sheet per week, without duplicates; weeks outside the term are refused.
+
 ## [0.4.0] 2026-10-08
 
 ### Added

@@ -323,3 +323,25 @@ New data-issues groups:
 NUT 256: "A veya C blokta", locked to B 205.
 
 **Outputs:** the scratch run's `compare.json` and the `run7-10-data-issues.xlsx` files (not committed).
+
+### 11.1 After period snapping (product-owner decision, 2026-10-15 19:56)
+
+This re-run used the same tool and the same settings on a frozen copy that includes `normalize.snap_to_periods`. The rule:
+a list time that is off the grid gets every period the class covers for at least half of its length. Load average was 6-14.
+
+| Instance | Placed / events | hard / soft | a | b | c | neutral | d | e | match (kept) | DI missed | DI false | `time_snapped` |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| bahar-w3 | 688/716 | 100/82 | 5 | 20 | 0 | 5 | 24 | 221 | 465 (124) | 26 | 131 | 158 |
+| bahar-term | 682/717 | 100/83 | 99 | 267 | 0 | 67 | 401 | 3 562 | 6 506 (1 716) | 54 | 151 | 158 |
+| guz-w3 | 524/530 | 100/83 | 23 | 6 | 0 | 18 | 3 | 164 | 388 (123) | 39 | 38 | 54 |
+| final | 603/608 | 100/93 | 7 | 0 | 0 | 0 | 5 | 214 | 399 (104) | 48 | 38 | 658 |
+
+**What snapping changed:**
+
+- **More classes sit where the planner put them.** The board's periods now match the list's time more often.
+  - Final: e 333 → 214, match 274 → 399.
+  - Bahar term: match 6 392 → 6 506.
+- **"Planner error" counts fell.** Final went from 658 to 551 and Bahar from 1 180 to 1 150: the old rule had counted a
+  touched period as part of the class.
+- **One rise.** Final DI-missed rose 40 → 48, because `board_time_not_in_list` (8 → 15) now judges the periods that were
+  snapped. The new `time_snapped` group lists every one of them, with the row, the original time and the periods.

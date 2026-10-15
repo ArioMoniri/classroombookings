@@ -13,11 +13,20 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import icalendar
+import pytest
 from app.core import db as dbmod
 from app.models import Assignment, Course, Instructor, MeetingRequest, Room, Section, SectionInstructor
 from sqlalchemy import select
 
 from tests.crbs_env import env  # noqa: F401
+from tests.integrations_support import kvkk_sign_off
+
+
+@pytest.fixture(autouse=True)
+async def _kvkk_signed(env):  # noqa: F811
+    """Calendar sync needs the administrator's KVKK sign-off (M-18); these tests start from a signed-off stack."""
+    await kvkk_sign_off(env)
+
 
 MON = date(2026, 2, 16)
 IST = ZoneInfo("Europe/Istanbul")

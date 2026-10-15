@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from sqlalchemy import select
@@ -121,22 +122,34 @@ BOOKINGS_SPECS: dict[str, Spec] = {
         Spec("audit_undo_hours", "int", 24),
     )
 }
-#: the user's KVKK officer sign-off of 2026-10-08 (docs/product/booking-enhancements.md, "Decisions by the user" 2);
-#: replaced by a dated record of the administrator whenever the calendar sync switch is changed
-KVKK_SIGNOFF_2026_10_08 = {
-    "by": "KVKK officer (institution user decision)",
-    "at": "2026-10-08",
-    "features": ["ai_nl_booking", "calendar_sync"],
-    "legal_basis": "KVKK Art. 9 as amended by Law 7499 (cross-border transfer)",
-    "enabled": True,
-}
+#: KVKK sign-off (admin persona 2026-10-15 M-18): never shipped as a default. It exists only after a named
+#: administrator switched calendar sync on through ``PUT /calendar/admin/settings`` (who, user id, when);
+#: until then ``calendar_sync_enabled`` reads as off whatever is stored (:func:`kvkk_signed`). alembic
+#: 0022_kvkk_signoff_unseed marks copies of the former pre-seeded 2026-10-08 record as not signed.
+SIGNOFF_GATED = ("integrations", "calendar_sync_enabled", "calendar_sync_signoff")
+
+
+def kvkk_signed(record: Any) -> bool:
+    """A real sign-off: enabled, by a named administrator (``by`` + integer ``by_user_id``) at an ISO date."""
+    if not isinstance(record, dict) or record.get("enabled") is not True or record.get("signed") is False:
+        return False
+    uid, by, at = record.get("by_user_id"), record.get("by"), record.get("at")
+    if not isinstance(uid, int) or isinstance(uid, bool) or not isinstance(by, str) or not by.strip():
+        return False
+    try:
+        date.fromisoformat(str(at)[:10])
+    except ValueError:
+        return False
+    return True
+
+
 # Calendar sync, push connectors and webhooks (docs/product/calendar-sync-api.md). Client secrets are stored
 # encrypted with APP_SECRET; no client id ships with the product (connectors report configured: false).
 INTEGRATIONS_SPECS: dict[str, Spec] = {
     s.key: s
     for s in (
-        Spec("calendar_sync_enabled", "bool", True),
-        Spec("calendar_sync_signoff", "json", KVKK_SIGNOFF_2026_10_08),
+        Spec("calendar_sync_enabled", "bool", False),  # off until an administrator signs off (kvkk_signed)
+        Spec("calendar_sync_signoff", "json", None),
         Spec("webhooks_enabled", "bool", False),
         Spec("public_url", default=""),
         Spec("feed_past_days", "int", 90),
@@ -199,6 +212,8 @@ async def get_group(session: AsyncSession, group: str, *, reveal: bool = False) 
             out[key] = plain if reveal else {"set": bool(plain), "masked": mask_secret(plain)}
         else:
             out[key] = _decode(spec, raw)
+    if group == SIGNOFF_GATED[0]:
+        out[SIGNOFF_GATED[1]] = bool(out[SIGNOFF_GATED[1]]) and kvkk_signed(out[SIGNOFF_GATED[2]])
     return out
 
 
@@ -223,6 +238,13 @@ async def set_group(session: AsyncSession, group: str, values: dict[str, Any]) -
 
 
 async def get_value(session: AsyncSession, group: str, key: str) -> Any:
+    if (group, key) == SIGNOFF_GATED[:2]:  # the KVKK switch counts only with a real sign-off (M-18)
+        on = await _stored_value(session, group, key)
+        return bool(on) and kvkk_signed(await _stored_value(session, group, SIGNOFF_GATED[2]))
+    return await _stored_value(session, group, key)
+
+
+async def _stored_value(session: AsyncSession, group: str, key: str) -> Any:
     spec = GROUPS[group][key]
     row = await session.get(Setting, f"{group}.{key}")
     if row is None:

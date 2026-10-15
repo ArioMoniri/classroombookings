@@ -49,6 +49,7 @@ from app.models.integrations import (
     WebhookDelivery,
     WebhookEndpoint,
 )
+from app.models.learning import LearnedObservation, LearnedPrior, LearningReset, SuggestionFeedback
 from app.models.locks import TermLock
 from app.models.runs import Assignment, ChatApplyClaim, ChatMessage, ScheduleRun
 from app.models.scheduling import (
@@ -99,6 +100,9 @@ __all__ = [
     "ImportJob",
     "ImportedSnapshot",
     "InAppNotification",
+    "LearnedObservation",
+    "LearnedPrior",
+    "LearningReset",
     "Instructor",
     "MeetingRequest",
     "MultiBooking",
@@ -122,6 +126,7 @@ __all__ = [
     "Setting",
     "StudioDraft",
     "StudioPreset",
+    "SuggestionFeedback",
     "Term",
     "TermBookingSettings",
     "TermDate",

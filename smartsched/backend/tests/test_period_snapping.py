@@ -92,3 +92,11 @@ async def test_snapped_exam_rows_are_listed(session, tmp_path) -> None:
     assert [(it["params"]["row"], it["params"]["original"], it["params"]["periods"]) for it in items] == [
         (2, "14:00-16:00", [8, 9])  # Final row 10 is row 2 of the subset
     ]
+
+
+def test_bes640_and_bes560_no_longer_share_p15(parsed_bahar_list) -> None:
+    """ROADMAP: "ends 10 min into a period still claim it" - Bahar rows 435 (BES 640 17:30-19:50, C 501) and 436
+    (BES 560 20:00-21:30, C 501) both claimed P15 (19:40-20:20) and were a locked overlap."""
+    rows = {r.row: r for r in parsed_bahar_list.rows}
+    a, b = rows[435].periods, rows[436].periods
+    assert (a.start_period, a.end_period) == (12, 14) and (b.start_period, b.end_period) == (15, 16)

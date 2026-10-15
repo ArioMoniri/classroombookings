@@ -51,9 +51,7 @@ async def test_disabled_account_answers_like_a_wrong_password(env, caplog, monke
     assert len(calls) == 4  # one hash check per attempt, unknown names included
 
     async with dbmod.get_session_factory()() as s:
-        refused = (
-            (await s.execute(select(AuditEvent).where(AuditEvent.action == "auth.login_refused"))).scalars().all()
-        )
+        refused = (await s.execute(select(AuditEvent).where(AuditEvent.action == "auth.login_refused"))).scalars().all()
     assert [(e.entity_type, e.entity_id, (e.after or {}).get("reason")) for e in refused] == [
         ("user", str(uid), "account disabled")
     ] * 2  # only the attempts with the right password reveal (to the audit log) that the account is disabled

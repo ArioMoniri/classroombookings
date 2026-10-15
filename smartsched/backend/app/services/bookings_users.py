@@ -247,6 +247,17 @@ async def issue_reset_token(
         # the outbox keeps a record of the e-mail, never the live token
         row.body = "(one-time password reset code; not stored)"
     await session.flush()
+    from app.services import audit as audit_log
+
+    # audit coverage: who issued a reset code for whom (never the code itself)
+    await audit_log.record(
+        session,
+        "user.reset_code",
+        "user",
+        user.id,
+        after={"expires_at": expires, "emailed": emailed, "self_service": actor is None},
+        actor=actor,
+    )
     await events.emit(session, "password.reset_requested", {"user_id": user.id, "expires_at": expires.isoformat()})
     return IssuedToken(token, expires, emailed)
 

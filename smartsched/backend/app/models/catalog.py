@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, Date, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Date, Float, ForeignKey, Integer, String, Text, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -87,10 +87,16 @@ class Faculty(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
     canonical_name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    #: P19-C4: where the row came from (``MAN:<uuid>`` for hand-made rows); archived rows are kept, never deleted
+    source_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
 
 class Program(Base):
     __tablename__ = "programs"
+    #: P19-C4: one programme name per faculty (the global ``canonical_name`` index still holds until the
+    #: importers look programmes up by faculty too)
+    __table_args__ = (UniqueConstraint("faculty_id", "canonical_name", name="uq_programs_faculty_canonical"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     faculty_id: Mapped[int | None] = mapped_column(ForeignKey("faculties.id"), nullable=True, index=True)
@@ -101,6 +107,9 @@ class Program(Base):
     # CRBS parity: a programme is the CRBS "department" users and bookings belong to
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     icon: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    #: P19-C4: where the row came from (``MAN:<uuid>`` for hand-made rows); archived rows are kept, never deleted
+    source_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
     faculty: Mapped[Faculty | None] = relationship()
 
@@ -113,6 +122,11 @@ class Instructor(Base):
     canonical_name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     title: Mapped[str | None] = mapped_column(String(64), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    #: P19-L1: the user account of this instructor (self-service, personal feeds, learning subject link)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), unique=True, nullable=True)
+    #: P19-C4: where the row came from (``MAN:<uuid>`` for hand-made rows); archived rows are kept, never deleted
+    source_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
 
 class Course(Base):
@@ -127,3 +141,6 @@ class Course(Base):
     l_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     credits: Mapped[float | None] = mapped_column(Float, nullable=True)
     ects: Mapped[float | None] = mapped_column(Float, nullable=True)
+    #: P19-C4: where the row came from (``MAN:<uuid>`` for hand-made rows); archived rows are kept, never deleted
+    source_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())

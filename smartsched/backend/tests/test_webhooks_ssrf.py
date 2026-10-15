@@ -45,9 +45,15 @@ CLASSES: dict[str, tuple[tuple[str, ...], str]] = {
         ("http://10.0.4.12/x", "http://172.16.5.4/x", "http://172.31.255.1/x", "https://192.168.1.10/x"),
         "192.168.10.20",
     ),
-    "link_local": (("http://169.254.10.1/x", "http://169.254.169.254/latest/meta-data/", "http://[fe80::1]/x"), "169.254.1.1"),
+    "link_local": (
+        ("http://169.254.10.1/x", "http://169.254.169.254/latest/meta-data/", "http://[fe80::1]/x"),
+        "169.254.1.1",
+    ),
     "cgnat": (("http://100.64.0.1/x", "http://100.127.255.254/x"), "100.100.100.200"),
-    "unique_local_ipv6": (("http://[fd12:3456:789a::1]/x", "http://[fc00::5]/x", "http://[fd00:ec2::254]/x"), "fd00::1"),
+    "unique_local_ipv6": (
+        ("http://[fd12:3456:789a::1]/x", "http://[fc00::5]/x", "http://[fd00:ec2::254]/x"),
+        "fd00::1",
+    ),
     "localhost_names": (
         (
             "http://localhost:8000/x",

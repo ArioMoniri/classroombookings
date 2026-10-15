@@ -37,15 +37,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import safe_files
 from app.council import critic, fastpath, formats, storage
 from app.council import text as tx
+from app.council.dryrun import ChangeRecorder, summarize
 from app.council.reconcile import rid, room_key
 from app.council.review import build_items, decisions, effective_plan
 from app.importers.catalog import Catalog
+from app.importers.identity import plain
+from app.importers.planning_list import _META, _merge
 from app.importers.report import ImportReport
 from app.models import (
     Block,
     Building,
     CouncilJob,
     ExamRequest,
+    ImportedSnapshot,
     MeetingRequest,
     Room,
     Section,
@@ -97,8 +101,13 @@ class Writer:
         job_id: int,
         periods: list[dict[str, Any]],
         shas: dict[int, str] | None = None,
+        on_conflict: str = "keep",
     ) -> None:
         self.s = session
+        #: planner edits (studio snapshots) vs the file: keep the planner's value (default) or take the file's
+        self.take = on_conflict == "take"
+        self.conflicts: list[dict[str, Any]] = []
+        self.unchanged: Counter[str] = Counter()
         self.term = term
         self.job_id = job_id
         #: file index -> sha256 of its bytes (job.files), the stable part of the row keys
@@ -118,6 +127,26 @@ class Writer:
         if not sha:  # a job stored before sha256 was recorded per file
             return f"CC:{self.job_id}:{fi}:{i}"
         return f"CC:{self.term.id}:{sha[:16]}:{i}"
+
+    @staticmethod
+    def assign(obj: Any, fields: dict[str, Any]) -> bool:
+        """Set only the fields that differ; True when content (not bookkeeping) changed."""
+        changed = False
+        for k, v in fields.items():
+            if plain(getattr(obj, k)) != plain(v):
+                setattr(obj, k, v)
+                changed = changed or k not in _META
+        return changed
+
+    async def snapshot(self, entity: str, entity_id: int) -> ImportedSnapshot | None:
+        """The values imported before a planner's first studio edit (``app.services.studio_classes``)."""
+        return (
+            await self.s.execute(
+                select(ImportedSnapshot).where(
+                    ImportedSnapshot.entity == entity, ImportedSnapshot.entity_id == entity_id
+                )
+            )
+        ).scalar_one_or_none()
 
     async def room(self, rec: dict[str, Any]) -> Room | None:
         k = rec.get("key") or room_key(rec.get("code") or "")
@@ -262,9 +291,14 @@ class Writer:
             self.s.add(MeetingRequest(**fields))
             self.counts["meeting_requests"] += 1
         else:
-            for k, v in fields.items():
-                setattr(mr, k, v)
-            self.counts["meeting_requests_updated"] += 1
+            if mr.status == "LOCKED" and fields["status"] != "LOCKED":
+                fields.pop("status")  # never downgrade a planner lock
+            snap = await self.snapshot("meeting", mr.id)
+            ctx = {"entity": "meeting", "id": mr.id, "row": r["source"].get("row"), "course": r["course_code"]}
+            if _merge(mr, fields, snap, self.take, self.conflicts, ctx):
+                self.counts["meeting_requests_updated"] += 1
+            else:
+                self.unchanged["meeting_requests"] += 1
 
     async def exam(self, fi: int, i: int, r: dict[str, Any]) -> None:
         faculty = await self.cat.faculty(r.get("faculty"))
@@ -308,10 +342,10 @@ class Writer:
         if ex is None:
             self.s.add(ExamRequest(**fields))
             self.counts["exam_requests"] += 1
-        else:
-            for k, v in fields.items():
-                setattr(ex, k, v)
+        elif self.assign(ex, fields):
             self.counts["exam_requests_updated"] += 1
+        else:
+            self.unchanged["exam_requests"] += 1
 
     async def booking(self, fi: int, i: int, r: dict[str, Any], week_of: dict[str, int]) -> None:
         if r.get("course_codes"):
@@ -352,9 +386,10 @@ class Writer:
         if b is None:
             self.s.add(Block(**fields))
             self.counts["blocks"] += 1
+        elif self.assign(b, fields):
+            self.counts["blocks_updated"] += 1
         else:
-            for k, v in fields.items():
-                setattr(b, k, v)
+            self.unchanged["blocks"] += 1
 
     async def weeks(self, group: dict[str, Any]) -> dict[str, int]:
         existing = {
@@ -427,7 +462,15 @@ async def commit(
     user_id: int | None = None,
     actor: User | None = None,
     on_conflict: str = "keep",
+    recorder: ChangeRecorder | None = None,
 ) -> dict[str, Any]:
+    """Write the chosen files into a term (see the module notes). ``on_conflict``: ``keep`` a planner's studio
+    edit when the file changed the same field (default) or ``take`` the file's value; both are reported.
+    ``recorder`` (the dry-run's) collects the row changes; otherwise the commit records its own counts."""
+    if on_conflict not in ("keep", "take"):
+        raise CommitError("on_conflict must be keep or take")
+    own_recorder = recorder is None
+    rec = recorder if recorder is not None else ChangeRecorder().attach(session)
     if job.status not in ("REVIEW", "READY", "COMMITTED"):
         raise CommitError(f"job is {job.status}; wait until the council has finished")
     decided = await decisions(session, job.id)
@@ -501,13 +544,15 @@ async def commit(
                 "updated": d["updated"],
                 "rows_imported": d["rows_imported"],
                 "warnings_count": d["warnings_count"],
+                "unchanged": dict(d["extra"].get("unchanged") or {}),
+                "conflicts": list(d["extra"].get("conflicts") or [])[:500],
             }
         )
 
     term = await session.get(Term, tid)
     assert term is not None
     shas = {int(f["index"]): str(f.get("sha256") or "") for f in job.files}
-    writer = Writer(session, term, job.id, periods, shas)
+    writer = Writer(session, term, job.id, periods, shas, on_conflict=on_conflict)
     dataset_art = await storage.latest(session, job.id, "dataset")
     dataset = dataset_art.payload if dataset_art is not None else {}
     for m in dataset.get("merges", []):
@@ -599,9 +644,16 @@ async def commit(
         "notes": writer.notes[:50] + writer.report.warnings[:50],
         "constraints_created": created_rules,
         "constraints_rejected": rejected_rules,
+        "unchanged": dict(writer.unchanged),
+        "conflicts": writer.conflicts[:500],
+        "on_conflict": on_conflict,
         "at": utcnow().isoformat(),
         "by": user_id,
     }
+    # the same per-entity counts a dry-run reports (app/council/dryrun.py), so both can be compared
+    result["changes"] = summarize(rec, result, on_conflict)["counts"]
+    if own_recorder:
+        rec.detach(session)
     fresh = await session.get(CouncilJob, job.id)
     job = fresh if fresh is not None else job
     job.commits = [*(job.commits or []), result]

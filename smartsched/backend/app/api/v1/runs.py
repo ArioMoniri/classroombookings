@@ -754,6 +754,24 @@ async def apply_diagnosis(run_id: int, idx: int, body: DiagnosisApplyIn, db: DB,
     except FixError as exc:
         await db.rollback()
         raise HTTPException(422, str(exc)) from exc
+    # audit coverage: a fix button changes requests / rules / locks of the term
+    await publish_event(
+        db,
+        "run.fix",
+        "run",
+        run.id,
+        after={
+            "diagnosis": idx,
+            "option": body.option_index,
+            "action": res.action,
+            "message": res.message,
+            "details": res.details,
+            "constraint_id": res.constraint_id,
+            "re_solve": body.re_solve,
+        },
+        actor=user,
+        term_id=run.term_id,
+    )
     child_id: int | None = None
     if body.re_solve:
         child = ScheduleRun(

@@ -6,7 +6,21 @@ from datetime import date as date_
 from datetime import time
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, Date, ForeignKey, Integer, String, Text, Time, UniqueConstraint, event
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    Time,
+    UniqueConstraint,
+    event,
+    false,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -33,6 +47,10 @@ class Section(TimestampMixin, Base):
     source_row: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     source_key: Mapped[str] = mapped_column(String(255))
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: P19-C4: the enrolment is a guess (from-scratch programme, copied from an earlier term), not a count
+    enrolment_estimated: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    #: P19-M2: coordinator priority of the section's requests (higher wins in a best-effort placement)
+    priority: Mapped[int] = mapped_column(SmallInteger, default=0, server_default=text("0"))
 
     term: Mapped[Term] = relationship()
     course: Mapped[Course] = relationship()
@@ -81,6 +99,11 @@ class MeetingRequest(TimestampMixin, Base):
     source_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     source_row_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: P19-C4: number of consecutive periods of a time-flexible request (``start_period`` may then be null; the
+    #: solver bridge owner decides how such a request is placed)
+    duration_periods: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: P19-M2: per-request priority override (null: the section's priority)
+    priority: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
 
     section: Mapped[Section] = relationship(back_populates="meeting_requests")
 
@@ -155,7 +178,8 @@ class Block(TimestampMixin, Base):
 
 
 #: allowed ``constraints.source`` values (``BUILTIN`` rows are read-only switches of always-on rules)
-CONSTRAINT_SOURCES = ("FILE", "ADMIN", "AI", "UPLOAD", "BUILTIN")
+#: (``LEARNED`` rows come from an accepted learned suggestion: soft, targeted, ``app/services/learning.py``)
+CONSTRAINT_SOURCES = ("FILE", "ADMIN", "AI", "UPLOAD", "BUILTIN", "LEARNED")
 
 
 class ConstraintRow(TimestampMixin, Base):
@@ -170,7 +194,7 @@ class ConstraintRow(TimestampMixin, Base):
     params: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     hardness: Mapped[str] = mapped_column(String(8), default="soft")  # hard | soft
     weight: Mapped[int] = mapped_column(Integer, default=1)
-    source: Mapped[str] = mapped_column(String(8), default="ADMIN")  # FILE, ADMIN, AI, UPLOAD, BUILTIN
+    source: Mapped[str] = mapped_column(String(8), default="ADMIN")  # FILE, ADMIN, AI, UPLOAD, BUILTIN, LEARNED
     #: provenance: {"file", "sheet", "row"|"paragraph"|"page"|"line", "excerpt"} for UPLOAD rows,
     #: {"draft_id"} for BUILTIN rows (built-in rule switched off in one studio draft),
     #: {"copied_from": {...}} / {"preset_id"} for copied / preset rules

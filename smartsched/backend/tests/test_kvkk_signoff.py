@@ -98,7 +98,9 @@ def test_migration_marks_seeded_signoffs_as_not_signed(tmp_path):
             rows.append(("integrations.calendar_sync_signoff", json.dumps(SEEDED, ensure_ascii=False)))
         if case == "real":
             rows.append(("integrations.calendar_sync_signoff", json.dumps(real, ensure_ascii=False)))
-        con.executemany("INSERT INTO settings (key, value, is_secret) VALUES (?, ?, 0)", rows)
+        con.executemany(
+            "INSERT INTO settings (key, value, is_secret, updated_at) VALUES (?, ?, 0, '2026-10-08 12:00:00')", rows
+        )
         con.commit()
         con.close()
         _run(url, command.upgrade, "head")

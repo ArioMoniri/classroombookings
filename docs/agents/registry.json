@@ -593,7 +593,8 @@
       "goal": "close every open item of the \"Phase 3 AI layer backlog\" and the AI-related items in \"Review follow-ups\" in docs/ROADMAP.md. Method, for each unchecked `- [ ]` item in those sections: 1. Verify against the code and tests whether it is already done. - If it is done, tick it `- [x]` and append ` (verified 2026-10-15: <file:line or test name>)`. - If it is open, implement it test-first: write a failin…",
       "ledger": "ai-backlog-2026-10-15 SCOPE: smartsched/backend/app/ai/** and its tests (tests/t…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 20:33"
     },
     {
       "id": "a4099861302047bdb",
@@ -882,6 +883,14 @@
       "ledger": "p19-learning-lane-2026-10-15 SCOPE: you may create and edit the following. Do NO…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a7fa325ac77e9922c",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 20:17",
+      "left_off": "deploy to pod when green"
     }
   ]
 }
