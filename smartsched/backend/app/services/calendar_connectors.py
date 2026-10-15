@@ -595,30 +595,55 @@ async def choose_calendar(session: AsyncSession, conn: CalendarConnection, calen
         conn.calendar_name = name
 
 
-async def disconnect(session: AsyncSession, conn: CalendarConnection) -> None:
-    """Delete the stored tokens, links and jobs now; revoke the grant at the provider in the background."""
+async def disconnect(session: AsyncSession, conn: CalendarConnection, *, remove_events: bool = True) -> None:
+    """Delete the stored tokens, links and jobs now; in the background, delete the events SmartSched pushed into the
+    user's calendar (``remove_events``; ROADMAP calendar-sync follow-up) and then revoke the grant at the provider."""
     provider = PROVIDERS[conn.provider]
-    tokens = [t for t in (conn.refresh_token_enc, conn.access_token_enc) if t]
-    plain: list[str] = []
-    for t in tokens:
+    plain: dict[str, str] = {}
+    for name, enc in (("refresh", conn.refresh_token_enc), ("access", conn.access_token_enc)):
+        if not enc:
+            continue
         try:
-            plain.append(decrypt_secret(t))
+            plain[name] = decrypt_secret(enc)
         except ValueError:
             continue
+    links = [
+        (link.calendar_id, link.external_id)
+        for link in (
+            await session.execute(select(CalendarEventLink).where(CalendarEventLink.connection_id == conn.id))
+        ).scalars()
+    ]
+    cfg = await client_config(session, provider) if (remove_events and links) else None
+    # a detached copy of the credentials: the row itself is deleted below
+    ghost = CalendarConnection(
+        provider=conn.provider,
+        user_id=conn.user_id,
+        access_token_enc=conn.access_token_enc,
+        refresh_token_enc=conn.refresh_token_enc,
+        token_expires_at=conn.token_expires_at,
+    )
     await session.execute(delete(CalendarSyncJob).where(CalendarSyncJob.connection_id == conn.id))
     await session.execute(delete(CalendarEventLink).where(CalendarEventLink.connection_id == conn.id))
     await session.delete(conn)
     await session.flush()
-    if plain:
+    if not plain:
+        return
 
-        async def revoke() -> None:
-            async with http_client() as client:
-                try:
-                    await provider.revoke(client, plain[0])
-                except httpx.HTTPError:
-                    pass
+    async def cleanup() -> None:
+        async with http_client() as client:
+            if cfg is not None and links:
+                api = Api(ghost, provider, cfg, client)
+                for calendar_id, external_id in links:
+                    try:
+                        await provider.delete(api, calendar_id, external_id)
+                    except (ProviderError, httpx.HTTPError):
+                        continue  # already gone, or the grant no longer works: nothing more to do
+            try:
+                await provider.revoke(client, plain.get("refresh") or plain["access"])
+            except (httpx.HTTPError, KeyError):
+                pass
 
-        worker.run_detached(revoke, f"integrations:revoke:{conn.provider}:{conn.user_id}")
+    worker.run_detached(cleanup, f"integrations:revoke:{conn.provider}:{conn.user_id}")
 
 
 # --------------------------------------------------------------------------------------------------

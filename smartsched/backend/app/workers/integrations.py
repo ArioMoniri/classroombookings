@@ -248,5 +248,5 @@ async def on_domain_event(session: AsyncSession, ev: Any) -> None:
 def register() -> None:
     from app.services import events
 
-    for pattern in ("booking.*", "series.*", "approval.*"):
+    for pattern in ("booking.*", "series.*", "approval.*", "run.activate"):
         events.subscribe(pattern, on_domain_event)

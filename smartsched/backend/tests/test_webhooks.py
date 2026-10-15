@@ -259,3 +259,34 @@ async def test_approval_events_carry_the_request(env, receiver):  # noqa: F811
         receiver.received[0].headers["x-smartsched-timestamp"],
         receiver.received[0].headers["x-smartsched-signature"],
     )
+
+
+async def test_run_published_event(env, receiver):  # noqa: F811
+    """ROADMAP calendar-sync follow-up: publishing (activating) a timetable run is a webhook event."""
+    from app.models import ScheduleRun
+
+    c = env.client
+    hook = await create_hook(env, ["run.published"])
+    await enable(env)
+    async with dbmod.get_session_factory()() as s:
+        old = await s.get(ScheduleRun, env.run_id)
+        assert old is not None
+        new = ScheduleRun(
+            term_id=old.term_id, kind="COURSE", horizon="TERM", status="OPTIMAL", hard_score=100, label="Bahar v2"
+        )
+        s.add(new)
+        await s.commit()
+        new_id = new.id
+    _, teacher = await env.user("yayin.izleyici@uni.edu.tr")
+    await env.book(teacher, "A101", MON, "P2")  # a booking event the hook did not subscribe to
+    r = await c.post(f"/api/v1/runs/{new_id}/activate", headers=env.planner)
+    assert r.status_code == 200, r.text
+    await worker.wait_idle()
+    (got,) = receiver.received
+    assert got.headers["x-smartsched-event"] == "run.published"
+    assert verify(
+        hook["secret"], got.content, got.headers["x-smartsched-timestamp"], got.headers["x-smartsched-signature"]
+    )
+    data = json.loads(got.content)["data"]["run"]
+    assert data["id"] == new_id and data["previous_run_id"] == env.run_id and data["term_code"] == "2026-BAHAR"
+    assert data["kind"] == "COURSE" and data["hard_score"] == 100 and data["label"] == "Bahar v2"

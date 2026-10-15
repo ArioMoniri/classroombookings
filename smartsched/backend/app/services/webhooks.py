@@ -59,6 +59,7 @@ EVENT_TYPES: tuple[str, ...] = (
     "approval.rejected",
     "approval.expired",
     "approval.withdrawn",
+    "run.published",
     "ping",
 )
 #: ``publish_event`` actions (the audit action names) -> webhook event types
@@ -75,6 +76,7 @@ ACTION_TYPES: dict[str, str] = {
     "approval.reject": "approval.rejected",
     "approval.expire": "approval.expired",
     "approval.withdraw": "approval.withdrawn",
+    "run.activate": "run.published",  # a timetable run became the published one (POST /runs/{id}/activate)
 }
 DISABLE_AFTER_FAILURES = 5
 TIMEOUT_S = 10.0
@@ -263,6 +265,25 @@ async def event_payload(
                 "series_id": req.series_id,
                 "room_id": req.room_id,
                 "requested_by": req.requested_by,
+            }
+    if ev.entity_type == "run" and str(ev.entity_id or "").isdigit():
+        from app.models import ScheduleRun, Term
+
+        run = await session.get(ScheduleRun, int(ev.entity_id))
+        if run is not None:
+            term = await session.get(Term, run.term_id)
+            before = (ev.items[0][1] or {}) if ev.items else {}
+            data["run"] = {
+                "id": run.id,
+                "term_id": run.term_id,
+                "term_code": term.code if term else None,
+                "kind": run.kind,
+                "horizon": run.horizon,
+                "status": run.status,
+                "hard_score": run.hard_score,
+                "soft_score": run.soft_score,
+                "label": run.label,
+                "previous_run_id": before.get("active_run_id"),
             }
     return {
         "id": event_id,

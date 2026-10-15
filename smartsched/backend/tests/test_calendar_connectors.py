@@ -242,13 +242,18 @@ async def test_disconnect_deletes_tokens_and_revokes_at_google(env, monkeypatch)
     _, teacher = await env.user("ayrilan@uni.edu.tr")
     await env.book(teacher, "A101", MON, "P1")
     await connect(env, fake, teacher, "google")
+    await worker.wait_idle()
+    assert len(fake.events) == 1  # the booking was pushed
     assert (await env.client.delete("/api/v1/calendar/connectors/google", headers=teacher)).status_code == 204
     await worker.wait_idle()
     async with dbmod.get_session_factory()() as s:
         assert (await s.execute(select(CalendarConnection))).first() is None
         assert (await s.execute(select(CalendarEventLink))).first() is None
+    # ROADMAP follow-up: the events SmartSched pushed are removed from the user's calendar, then the grant revoked
+    assert fake.events == {} and len(fake.calls("DELETE", "/events/")) == 1
     revoke = fake.calls("POST", "oauth2.googleapis.com/revoke")
     assert len(revoke) == 1 and fake.form(revoke[0])["token"] == "1//0gLkXtestRefreshTokenGoogle"
+    assert fake.requests.index(revoke[0]) > fake.requests.index(fake.calls("DELETE", "/events/")[0])
     assert (await env.client.delete("/api/v1/calendar/connectors/google", headers=teacher)).status_code == 404
 
 
