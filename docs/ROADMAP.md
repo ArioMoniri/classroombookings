@@ -566,3 +566,24 @@ New Phase 19 tickets proposed by the persona (report §5):
 - [ ] Solver: read `terms.periods_json` for `periods_per_day` when an institution's grid is not the 18-period default (the council stores the grid; the bridge still assumes 18)
 - [ ] Ruflo runtime adapter for the council if Ruflo ships an embeddable runtime with safe permission defaults (docs/universal/RESEARCH-2026.md §1.6); today Ruflo is a dev harness only
 - [ ] Onboarding UI: restyle with the redesign branch; virtualise long review lists; per-file record browser (`GET /council/jobs/{id}/records`)
+
+### Universal merge landed (2026-10-15, d714c5b; both branches at 102eda5)
+- [x] claude/smartsched-universal merged into gracious, then universal fast-forwarded. Migration 0020_council is the single head. The council is hardened: D2 (safe_files caps + isolation), D7 (admin council_ai_enabled, default off, with a KVKK notice), D13 (raw rows need planning.edit) and D14 (sha-keyed dedupe), plus one council.commit audit event per commit and no MSW mocks.
+- [ ] Council gaps still open, for the intake agent:
+  - the review endpoint (planning.view) still returns sample cell values; gate them by planning.edit
+  - review decisions are not audit events
+  - no dated KVKK sign-off record for the AI switch (P19-A1)
+  - apply_decisions re-renders synchronously inside the request
+  - storage.save_upload is now unused; remove it
+  - the docs still say 0017_council in docs/review/2026-10-15-phase19-engineering.md
+
+### Solver decisions (owner, 2026-10-15)
+- Determinism: draft explorations use all threads. Recreate-schedule / moderation re-solves and "publish candidate" runs use workers=1, so a re-run gives the identical schedule. Implement in run_params (a publish-candidate flag) and in P19-M3.
+- Off-grid times: snap to the period(s) the class covers for at least half their length, and list every snapped row in the data-issues report. Importer agent.
+- Tier semantics: the solver's ordering (locks → priority levels → event-weeks) is adopted, so priority decides a 1:1 lock clash (Q5). Update docs/design/v2/phase19-priority-policy.md to match.
+- R5 (published board as soft hints) = P19-I5 (schedule map → baseline IMPORT run as parent).
+- Planner data to fix in the source files (reported, not code): Bahar week 3 has 6 locked_overlap and 201 input_conflict; Final has 5 locks in grid-blocked rooms.
+- Solver results (relaxation_policy), all hard 100 with 0 planner violations:
+  - Bahar week 3: 687/716 placed under both policies (6 vs 8 locks lost)
+  - Bahar term: 681 vs 683 of 717 placed (11 vs 14 locks lost)
+  - Final: 603/608 placed under both (5 locks lost)
