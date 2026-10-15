@@ -38,7 +38,11 @@ test("a focused class chip: Enter opens its inspector, closing it returns focus 
 });
 
 test("week navigation: the title follows the click at once and the old grid is veiled while it renders (T2/T3)", async ({ page }) => {
-  await openTimetable(page);
+  await english(page);
+  await login(page);
+  // the strip board steps by week (the day board steps by day inside the same week range)
+  await page.goto(`/timetable?run=${solverRun()}&lens=board&board=strip&week=3`);
+  await expect(page.getByTestId("calendar-title")).toBeVisible({ timeout: 30_000 });
   const title = page.getByTestId("calendar-title");
   const before = await title.textContent();
   // sample the title in the frame after the click: it must already show the next week

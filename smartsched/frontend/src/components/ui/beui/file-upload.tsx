@@ -1,7 +1,8 @@
 "use client";
 // Source: https://beui.dev (components/motion/file-upload.tsx) via shadcn registry @beui/file-upload — https://github.com/starc007/ui-components
 // Licence: MIT, Copyright (c) 2026 Saurabh Chauhan (full text: src/components/ui/LICENSES/beui-MIT.txt)
-// Modified: yes — import paths re-pointed to src/components/ui/beui/*
+// Modified: yes — import paths re-pointed to src/components/ui/beui/*; `labels` / `item.statusLabel` props localise the
+//   screen-reader texts (SmartSched admin persona M-22: they were English, patched in the DOM)
 // beui.dev/components/blocks/file-upload
 /* eslint-disable react-hooks/static-components -- vendored upstream code kept byte-identical for diffing against the registry; patterns are intentional upstream. Re-check these rules when re-syncing from the registry. */
 
@@ -38,6 +39,16 @@ export type FileUploadItem = {
   status?: FileUploadStatus;
   error?: string;
   file?: File;
+  /** screen-reader text of the status (default: the English STATUS_LABEL), e.g. "reading on the server" */
+  statusLabel?: string;
+};
+
+/** accessible names of the vendored controls (default: upstream English) */
+export type FileUploadLabels = {
+  remove?: (name: string) => string;
+  retry?: (name: string) => string;
+  progress?: (name: string) => string;
+  input?: string;
 };
 
 export type FileUploadClassNames = {
@@ -70,6 +81,7 @@ export interface FileUploadProps {
   browseLabel?: string;
   className?: string;
   classNames?: FileUploadClassNames;
+  labels?: FileUploadLabels;
 }
 
 const ROW_TRANSITION = { duration: 0.22, ease: EASE_OUT } as const;
@@ -213,9 +225,11 @@ export function createFileUploadItem(file: File, index = 0): FileUploadItem {
 function StatusIcon({
   status,
   reduce,
+  label,
 }: {
   status: FileUploadStatus;
   reduce: boolean;
+  label?: string;
 }) {
   const iconClassName = "h-4 w-4";
 
@@ -252,7 +266,7 @@ function StatusIcon({
         ) : (
           <FileIcon className={iconClassName} />
         )}
-        <span className="sr-only">{STATUS_LABEL[status]}</span>
+        <span className="sr-only">{label ?? STATUS_LABEL[status]}</span>
       </motion.span>
     </AnimatePresence>
   );
@@ -263,11 +277,13 @@ function FileUploadRow({
   onRemove,
   onRetry,
   classNames,
+  labels,
 }: {
   item: FileUploadItem;
   onRemove: (item: FileUploadItem) => void;
   onRetry: (item: FileUploadItem) => void;
   classNames?: FileUploadClassNames;
+  labels?: FileUploadLabels;
 }) {
   const reduce = useReducedMotion() ?? false;
   const status = item.status ?? "queued";
@@ -325,12 +341,12 @@ function FileUploadRow({
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
-              <StatusIcon status={status} reduce={reduce} />
+              <StatusIcon status={status} reduce={reduce} label={item.statusLabel} />
               {status === "error" ? (
                 <button
                   type="button"
                   onClick={() => onRetry(item)}
-                  aria-label={`Retry ${item.name}`}
+                  aria-label={labels?.retry?.(item.name) ?? `Retry ${item.name}`}
                   className={cn(
                     "grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground active:scale-95",
                     classNames?.action,
@@ -342,7 +358,7 @@ function FileUploadRow({
               <button
                 type="button"
                 onClick={() => onRemove(item)}
-                aria-label={`Remove ${item.name}`}
+                aria-label={labels?.remove?.(item.name) ?? `Remove ${item.name}`}
                 className={cn(
                   "grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground active:scale-95",
                   classNames?.action,
@@ -359,7 +375,7 @@ function FileUploadRow({
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(progress)}
-              aria-label={`${item.name} upload progress`}
+              aria-label={labels?.progress?.(item.name) ?? `${item.name} upload progress`}
               className={cn(
                 "mt-3 h-1.5 overflow-hidden rounded-full bg-muted",
                 classNames?.progress,
@@ -407,6 +423,7 @@ export function FileUpload({
   browseLabel = "Browse",
   className,
   classNames,
+  labels,
 }: FileUploadProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -487,7 +504,7 @@ export function FileUpload({
         ref={inputRef}
         id={inputId}
         type="file"
-        aria-label="Upload files"
+        aria-label={labels?.input ?? "Upload files"}
         accept={accept}
         multiple={multiple}
         disabled={disabled || maxReached}
@@ -602,6 +619,7 @@ export function FileUpload({
               onRemove={removeItem}
               onRetry={retryItem}
               classNames={classNames}
+              labels={labels}
             />
           ))}
         </AnimatePresence>
