@@ -105,5 +105,13 @@
     "flag": {
       "day": "Den"
     }
+  },
+  "programWizard": {
+    "col": {
+      "year": "Rok"
+    },
+    "patterns": {
+      "weeks": "Týdny"
+    }
   }
 }

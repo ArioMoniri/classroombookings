@@ -105,5 +105,13 @@
     "flag": {
       "day": "päivää"
     }
+  },
+  "programWizard": {
+    "col": {
+      "year": "vuosi"
+    },
+    "patterns": {
+      "weeks": "viikot"
+    }
   }
 }

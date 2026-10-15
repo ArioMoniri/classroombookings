@@ -105,5 +105,13 @@
     "flag": {
       "day": "Dydd"
     }
+  },
+  "programWizard": {
+    "col": {
+      "year": "Blwyddyn"
+    },
+    "patterns": {
+      "weeks": "Wythnosau"
+    }
   }
 }

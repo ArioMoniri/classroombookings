@@ -105,5 +105,13 @@
     "flag": {
       "day": "dag"
     }
+  },
+  "programWizard": {
+    "col": {
+      "year": "jaar"
+    },
+    "patterns": {
+      "weeks": "weken"
+    }
   }
 }

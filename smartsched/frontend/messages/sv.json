@@ -105,5 +105,13 @@
     "flag": {
       "day": "Dag"
     }
+  },
+  "programWizard": {
+    "col": {
+      "year": "År"
+    },
+    "patterns": {
+      "weeks": "Veckor"
+    }
   }
 }
