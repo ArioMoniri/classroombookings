@@ -403,3 +403,20 @@ Backlog sweep (2026-10-15): 160 unticked items. Each owner agent verifies every 
 - Importer (running): planner comparison follow-ups + ÇEV≡CEV folding
 - Queued for the frontend, starting once the wave-1 and studio agents release their files: "Phase 8 Generator Studio frontend backlog", "Frontend UX fixes for the Liquid Glass implementation wave", "UI polish backlog", "Calendar follow-ups", "Reservation panel (+ follow-ups)", "Shell follow-ups", the frontend review follow-ups, the motion-audit tickets and the UI parts handed over by the backend sweep.
 User decisions recovered from the agent registry: ÇEV and CEV are the same course code; webhooks off by default; start the pod and deploy when green.
+
+Phase 19 policy defaults (provisional, adopted 2026-10-15 from docs/testing/2026-10-15-academician-needs.md §6; the owner may override any):
+- Q1: priority attaches per request, with tier defaults.
+- Q2: seniority does not raise priority (it's an opt-in per-term toggle).
+- Q3: everything received before the deadline is equal; late requests rank lower; no first-come tie-break.
+- Q4: a lock that contradicts an accessibility need blocks the run at pre-check.
+- Q5: a lock/lock double booking is listed at pre-check; if the run goes ahead, the higher priority wins and is reported.
+- Q6: repeated denials are shown as a badge, with no automatic boost.
+- Q7: learned preference weight 5 < explicit soft preference 10.
+- Q8: a lock over room capacity is refused at the edit unless explicitly overridden.
+- Q9: a recreate moves 0 published classes outside its scope by default; extra moves are listed with their cause.
+- Q10: department satisfaction is reported only (v1), not balanced.
+- Q11: visibility: academician sees their own, the department secretary sees the department, coordinator/admin see all; accessibility is yes/no only.
+- Q12: the department form is the official request; the academician's own wish is a lower-ranked soft preference.
+Parser bugs to fix before learning (sent to the importer agent): negation ("olmasın"), "veya" alternatives, alternative room groups, accessibility/furniture wishes, and the "Derse Özel Açıklama" column becoming soft preferences.
+Missing for the moderation tab (from the academician analysis): a user↔instructor link, a run-to-run diff endpoint and UI, approval before a re-solved run is published, and a refusal-reason field.
+Missing for programmes from scratch: create endpoints for faculties, courses, sections and meetings.
