@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Slider } from "@/components/ui/slider";
 import type { ClassRow } from "@/lib/api/classes";
 import { useI18n } from "@/lib/i18n/provider";
@@ -139,7 +139,7 @@ function TimeWindow({ f, onChange }: { f: ClassFilters; onChange: (f: ClassFilte
         const [a, b] = Array.isArray(v) ? v : [v, v];
         onChange({ ...f, time: { from: Math.min(a, b), to: Math.max(a, b), mode: w.mode } });
       }} />
-      <SegmentedGlass size="sm" aria-label={t("classes.f.time")} options={[{ value: "overlap", label: t("classes.f.overlap") }, { value: "within", label: t("classes.f.within") }]} value={w.mode} onValueChange={(m) => onChange({ ...f, time: { ...w, mode: m } })} />
+      <SegmentedControl size="sm" aria-label={t("classes.f.time")} options={[{ value: "overlap", label: t("classes.f.overlap") }, { value: "within", label: t("classes.f.within") }]} value={w.mode} onValueChange={(m) => onChange({ ...f, time: { ...w, mode: m } })} />
       <div className="flex gap-1.5">
         <Chip size="sm" onClick={() => onChange({ ...f, time: { from: 12, to: PERIODS.length, mode: "within" } })}>{t("classes.f.after1730")}</Chip>
         {f.time ? <Button size="xs" variant="ghost" onClick={() => onChange({ ...f, time: null })}>{t("classes.clear")}</Button> : null}
@@ -180,7 +180,7 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
             <p className="px-2 pt-1 type-caption font-semibold text-label-3">{t(FIELD_KEY[field])}</p>
             {whereField ? (
               <div className="px-1">
-                <SegmentedGlass size="sm" fill aria-label={t(FIELD_KEY[field])} options={[{ value: "placed", label: t("classes.f.placed") }, { value: "requested", label: t("classes.f.requested") }]} value={field === "day" || field === "time" ? filters.dayWhere : filters.buildingWhere} onValueChange={(v) => onChange(field === "day" || field === "time" ? { ...filters, dayWhere: v } : { ...filters, buildingWhere: v })} />
+                <SegmentedControl size="sm" fill aria-label={t(FIELD_KEY[field])} options={[{ value: "placed", label: t("classes.f.placed") }, { value: "requested", label: t("classes.f.requested") }]} value={field === "day" || field === "time" ? filters.dayWhere : filters.buildingWhere} onValueChange={(v) => onChange(field === "day" || field === "time" ? { ...filters, dayWhere: v } : { ...filters, buildingWhere: v })} />
               </div>
             ) : null}
             {field === "time" ? (

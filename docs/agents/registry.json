@@ -1180,6 +1180,26 @@
       "ledger": "notify-channels-apprise-2026-10-15 SCOPE: NEW backend files only: - app/services…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a9bbad118c0e01874",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 22:45",
+      "left_off": "deploy to pod when all green"
+    },
+    {
+      "id": "a1147d25551ad9b4b",
+      "description": "Design sign-in/sign-up with Mobbin",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-15 22:46",
+      "scope": "docs/design/v2/sign-in.md (new) and docs/design/v2/sign-in/*.png|svg (your own mockups/renders). No source edits: the login screens' code is owned by another agent, and a dedicated frontend agent will implement your spec. GOAL: design SmartSched's sign-in experience using the Mobbin connector (mcp__Mobbin__search_screens / search_flows / search_sections). The owner explicitly asked for Mobbin. Req…",
+      "goal": "design SmartSched's sign-in experience using the Mobbin connector (mcp__Mobbin__search_screens / search_flows / search_sections). The owner explicitly asked for Mobbin. Requirements (owner decisions): - Login methods: - \"Microsoft ile giriş yap\" (the university's Microsoft Entra ID tenant), primary for everyone, admins included - local e-mail/username + password (kept for local and break-glass acc…",
+      "ledger": "signin-design-2026-10-15 SCOPE: docs/design/v2/sign-in.md (new) and docs/design/…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

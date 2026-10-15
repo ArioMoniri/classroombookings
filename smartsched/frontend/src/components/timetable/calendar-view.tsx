@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { EmptyState } from "@/components/ui/empty-state";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ClassInspector, SelectionSummary } from "@/components/classes/class-inspector";
 import { useCalendarIndex } from "@/lib/api/calendar";
 import { api } from "@/lib/api/endpoints";
@@ -836,7 +836,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
           ) : null}
           {dayLens && model ? (
             <div className="ml-auto">
-              <SegmentedGlass size="sm" aria-label={t("calendar.lens.day")} options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: String(d), label: `${dayName(d, locale, "short")} ${liveDates[d - 1]?.slice(8) ?? ""}` }))} value={String(liveDay)} onValueChange={(v) => update({ day: Number(v) })} />
+              <SegmentedControl size="sm" aria-label={t("calendar.lens.day")} options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: String(d), label: `${dayName(d, locale, "short")} ${liveDates[d - 1]?.slice(8) ?? ""}` }))} value={String(liveDay)} onValueChange={(v) => update({ day: Number(v) })} />
             </div>
           ) : null}
           {vs.lens === "day" ? (

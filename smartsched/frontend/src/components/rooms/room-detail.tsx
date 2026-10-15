@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { spanText } from "@/components/timetable/model/check";
@@ -175,7 +175,7 @@ export function RoomDetail({ id }: { id: number }) {
         <div className="flex min-w-0 flex-col gap-4">
           <Card className="gap-3 p-4">
             <h2 id="free-finder" tabIndex={-1} className="type-headline outline-hidden">{t("roomsV2.freeFinder")}</h2>
-            <SegmentedGlass
+            <SegmentedControl
               size="sm"
               aria-label={t("roomsV2.minLen", { n: minLen })}
               value={String(minLen)}

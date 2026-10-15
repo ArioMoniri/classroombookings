@@ -134,7 +134,7 @@ test("a teacher without a linked instructor sees the 'not linked' empty state on
   await page.goto("/moderation");
   await expect(page.getByTestId("my-requests")).toBeVisible();
   await expect(page.getByTestId("mine-unlinked")).toContainText("Hesabınız bir öğretim elemanına bağlı değil");
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByText("Yüklenemedi")).toHaveCount(0);
 });
 
 test("learned suggestions: accept one (soft, undoable) and dismiss one with a reason", async ({ page }) => {

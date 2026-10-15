@@ -8,7 +8,7 @@ import { CalendarDays, Search } from "lucide-react";
 import { useMemo, useRef, useState, type PointerEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ClassInspector } from "@/components/classes/class-inspector";
 import { useI18n } from "@/lib/i18n/provider";
@@ -126,7 +126,7 @@ export function MobileCalendar(p: MobileCalendarProps) {
             })}
           </div>
           <div className="px-4 pt-2">
-            <SegmentedGlass fill size="md" aria-label={t("calendar.mobile.list")} options={[{ value: "list", label: t("calendar.mobile.list") }, { value: "timeline", label: t("calendar.mobile.timeline") }]} value={mode} onValueChange={setMode} />
+            <SegmentedControl fill size="md" aria-label={t("calendar.mobile.list")} options={[{ value: "list", label: t("calendar.mobile.list") }, { value: "timeline", label: t("calendar.mobile.timeline") }]} value={mode} onValueChange={setMode} />
           </div>
           <div className="flex gap-2 overflow-x-auto px-4 py-3 [scrollbar-width:none]">
             <Button size="sm" variant={p.subject ? "secondary" : "default"} onClick={() => p.onSubject(null)}>{t("calendar.subject.all")}</Button>

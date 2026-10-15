@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, Info, Loader2, OctagonX, Refr
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { BusyGlyph, BusyLabel, busyProps } from "@/components/ui/busy-label";
 import type { PrecheckCategory, PrecheckItem, Readiness } from "@/lib/api/studio-schemas";
 import type { MessageKey } from "@/lib/i18n";
@@ -166,16 +167,17 @@ export function CheckStep() {
 
       {precheck ? (
         <>
-          <div role="tablist" aria-label={t("studio.check.categories")} className="flex flex-wrap gap-1.5">
-            {(["all", "impossible", "clash", "no_match", "info"] as const).map((c) => {
+          <SegmentedControl
+            size="sm"
+            aria-label={t("studio.check.categories")}
+            value={cat}
+            onValueChange={(c) => setCat(c)}
+            options={(["all", "impossible", "clash", "no_match", "info"] as const).map((c) => {
               const count = c === "all" ? precheck.items.length : (precheck.counts[c] ?? precheck.items.filter((i) => i.category === c).length);
-              return (
-                <button key={c} type="button" role="tab" aria-selected={cat === c} onClick={() => setCat(c)} className={cn("rounded-xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] px-2.5 py-1 text-xs pointer-coarse:min-h-11", cat === c ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")} data-testid={`check-tab-${c}`}>
-                  {c === "all" ? t("studio.check.cat.all") : t(CAT_KEY[c])} <span className="tabular-nums">{n(count)}</span>
-                </button>
-              );
+              const name = c === "all" ? t("studio.check.cat.all") : t(CAT_KEY[c]);
+              return { value: c, text: `${name} ${n(count)}`, testId: `check-tab-${c}`, label: <>{name} <span className="tnum text-label-2">{n(count)}</span></> };
             })}
-          </div>
+          />
           <div className={cn("space-y-4 transition-opacity", checking && "opacity-60")} role="tabpanel">
             {items.length === 0 ? (
               <p className="flex items-center gap-2 rounded-md border p-4 text-sm text-status-feasible-fg">

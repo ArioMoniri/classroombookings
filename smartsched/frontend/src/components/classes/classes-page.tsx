@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { ClassInspector, SelectionSummary } from "./class-inspector";
@@ -490,7 +490,7 @@ export function ClassesPage() {
             </select>
           ) : null}
           <div className="ml-auto">
-            <SegmentedGlass size="sm" aria-label={t("classes.kind.label")} options={[{ value: "meetings", label: t("classes.kind.meetings") }, { value: "exams", label: t("classes.kind.exams") }]} value={kind} onValueChange={(k) => setParam({ kind: k === "exams" ? "exams" : null, run: null, id: null })} />
+            <SegmentedControl size="sm" aria-label={t("classes.kind.label")} options={[{ value: "meetings", label: t("classes.kind.meetings") }, { value: "exams", label: t("classes.kind.exams") }]} value={kind} onValueChange={(k) => setParam({ kind: k === "exams" ? "exams" : null, run: null, id: null })} />
           </div>
         </div>
 

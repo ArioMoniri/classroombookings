@@ -863,3 +863,13 @@ Before the first `up pod=universal`: re-apply the OIDC bootstrap once with infra
 - Login: direct Microsoft 365 / Entra ID sign-in (Authlib, BSD-3), pinned to the university tenant. Users are identified by oid/tid, never by e-mail. Roles come only from an admin mapping; a local break-glass admin is kept; no automatic linking to admins. Dedicated backend builder running; the IT registration checklist goes to docs/deploy/sso-entra.md.
 - Calendar sync keeps its encrypted per-user OAuth tokens (the one exception, because it writes into the user's own calendar). Orchestrator default; owner may override.
 - [ ] Frontend for channels (Profile › Bildirim kanalları, admin channel config + sign-off) and SSO (login button, admin config, role mapping): a dedicated agent, after the shell sweep releases profile/settings/auth.
+
+### Owner decisions 2026-10-15 ~22:50: identity and sign-up
+- Admins and users both sign in with the institution's Microsoft Entra ID. Roles are managed in SmartSched by admins; the Entra app-role mapping is optional and off by default. A break-glass local admin is kept.
+- Sign-up has only two doors:
+  - (a) self sign-up via Entra (pinned tenant), always as the lowest role; admins later change the status
+  - (b) an admin creates the user (an invite; the first Entra login binds oid+tid when the verified UPN/e-mail equals the invite; one-time, audited, expires after 30 days)
+  There is no local self-registration; admin rights only come from another admin (no-escalation rules apply).
+- Credentials: everything is built and tested without real university credentials (fake OIDC / mock transports in tests). The owner will request the real values from IT and enter them in the admin settings or SSM, never in chat. Checklists: docs/deploy/sso-entra.md and docs/deploy/notification-channels.md.
+- WhatsApp: the official WhatsApp Business Cloud API (via Apprise) is the default. An optional "WhatsApp (Web bridge)" adapter uses an open-source tool if one is licence-compatible: off by default, needs an admin's ToS/ban-risk acknowledgement and a dedicated institution number.
+- [ ] Sign-in page designed with the Mobbin connector (design agent running → docs/design/v2/sign-in.md); implemented by the dedicated SSO/channels frontend agent.

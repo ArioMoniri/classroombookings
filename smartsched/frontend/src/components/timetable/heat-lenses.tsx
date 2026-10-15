@@ -8,7 +8,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { memo, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/lib/i18n/provider";
 import { dayName, formatDate } from "@/lib/time";
@@ -54,7 +54,7 @@ function MetricSwitch({ metric, onMetric, compareOn }: { metric: HeatMetric; onM
     { value: "unplaced", label: t("calendar.heat.unplaced") },
     { value: "changes", label: t("calendar.heat.changes"), disabled: !compareOn },
   ];
-  return <SegmentedGlass size="sm" aria-label={t("calendar.heat.metric")} options={options} value={metric} onValueChange={onMetric} />;
+  return <SegmentedControl size="sm" aria-label={t("calendar.heat.metric")} options={options} value={metric} onValueChange={onMetric} />;
 }
 
 function cellText(metric: HeatMetric, v: number, t: ReturnType<typeof useI18n>["t"]): string {

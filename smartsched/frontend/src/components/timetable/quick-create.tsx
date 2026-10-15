@@ -13,7 +13,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { calendarApi, calKeys } from "@/lib/api/calendar";
 import { HttpError } from "@/lib/api/client";
 import { api } from "@/lib/api/endpoints";
@@ -170,7 +170,7 @@ export function QuickCreate({ model, req, week, onClose, onMoveHere }: { model: 
             <p className={cn("type-footnote", free ? "text-status-feasible-fg" : "text-status-warning-fg")}>{free ? `✓ ${t("calendar.create.free", { cap: roomCap(model, room) })}` : t("calendar.create.busy")}</p>
           </div>
         </div>
-        <SegmentedGlass
+        <SegmentedControl
           fill
           size="sm"
           aria-label={t("calendar.create.label", { room: room?.name ?? "" })}

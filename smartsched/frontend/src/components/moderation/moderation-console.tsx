@@ -453,8 +453,9 @@ function MyRequests() {
   // GET /terms is planning data: an academician's term comes from the booking context (current session)
   const ctx = useBookingContext();
   const session = ctx.data ? (ctx.data.sessions.find((s) => s.id === ctx.data?.current_term_id) ?? ctx.data.sessions.find((s) => s.is_current) ?? ctx.data.sessions[0]) : undefined;
-  const termId = session?.id ?? null;
-  const term = session;
+  // the session list hides unselectable terms from a teacher; the current term id still names the term
+  const termId = ctx.data?.current_term_id ?? session?.id ?? null;
+  const term = session ?? (termId !== null ? { code: "" } : undefined);
   const q = useMatchings(termId);
   const mobile = usePhone();
   const forbidden = q.error instanceof HttpError && q.error.status === 403;

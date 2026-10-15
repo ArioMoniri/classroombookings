@@ -3,6 +3,7 @@
 import { Check, CircleDot, Pencil, ShieldAlert, ShieldCheck, Undo2, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { ProposedConstraint } from "@/lib/api/schemas";
@@ -111,13 +112,13 @@ export function UploadReview({
         <p className="text-label-2">{t("studio.review.summary", { files, n: pending.length, ready: counts.ready, look: counts.look, unread: counts.unread })}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <div role="tablist" aria-label={t("studio.review.title")} className="flex flex-wrap gap-1">
-          {(["all", "ready", "look", "unread"] as const).map((k) => (
-            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={cn("rounded-xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] px-2 py-1 text-xs pointer-coarse:min-h-11", tab === k ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")} data-testid={`review-tab-${k}`}>
-              {t(TAB_KEY[k])} <span className="tabular-nums">{k === "all" ? counts.all : counts[k]}</span>
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          size="sm"
+          aria-label={t("studio.review.title")}
+          value={tab}
+          onValueChange={setTab}
+          options={(["all", "ready", "look", "unread"] as const).map((k) => ({ value: k, testId: `review-tab-${k}`, text: `${t(TAB_KEY[k])} ${k === "all" ? counts.all : counts[k]}`, label: <>{t(TAB_KEY[k])} <span className="tnum text-label-2">{k === "all" ? counts.all : counts[k]}</span></> }))}
+        />
         <div className="ml-auto flex flex-wrap gap-2">
           <Button size="sm" variant="outline" disabled={busy || selected.size === 0} onClick={() => {
             onReject([...selected]);

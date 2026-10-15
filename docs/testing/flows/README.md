@@ -153,11 +153,12 @@ const next = (from, wd, minDays) => { const d = new Date(from); d.setDate(d.getD
 const D1 = next(today, 4, 3);                    // a Thursday ≥ 3 days ahead
 if (iso(D1) === "2026-10-29") D1.setDate(D1.getDate() + 7);   // never the holiday
 const D2 = next(D1, 1, 1);                        // the Monday after D1
-const D3 = next(D1, 4, 7);                        // the Thursday after D1
-console.log(JSON.stringify({ TODAY: iso(today), D1: iso(D1), D2: iso(D2), D3: iso(D3) }));
+const plus = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const D3 = plus(D1, 14), D4 = plus(D1, 21), D6 = plus(D1, 35);   // Thursdays 2, 3 and 5 weeks after D1
+console.log(JSON.stringify({ TODAY: iso(today), D1: iso(D1), D2: iso(D2), D3: iso(D3), D4: iso(D4), D6: iso(D6) }));
 ```
 
-On 2026-10-15 this gives `D1 = 2026-10-22`, `D2 = 2026-10-26`, `D3 = 2026-11-05`. If `TODAY` is after 2026-12-10, the Güz term is too short for the recurring steps: report F-02 S05–S10 as `BLOCKED (term ends)`.
+On 2026-10-15 this gives `D1 = 2026-10-22`, `D2 = 2026-10-26`, `D3 = 2026-11-05`, `D4 = 2026-11-12`, `D6 = 2026-11-26`; the holiday 29 Oct lies between D1 and D3, which F-02 relies on. If `TODAY` is after 2026-12-10, the Güz term is too short for the recurring steps: report F-02 S05–S10 as `BLOCKED (term ends)`.
 
 Planning flows (F-05, F-09, F-10) use **Bahar 2026** (`2026-BAHAR`, week 1 starts Mon 2 Feb 2026), where the scenario data lives (PHAR 240 §1, nursing year 1, ING 302).
 
@@ -297,7 +298,7 @@ One report per flow, persona and round: `docs/testing/flows/reports/<YYYY-MM-DD>
 ```
 # F-01 · staff · round 1 · 2026-10-16
 Snapshot: b75047b (origin/claude/gracious-cerf-w1598m) · stack API :19110 web :19111 · load 11.8/4 cores
-Dates: TODAY 2026-10-16 · D1 2026-10-22 · D2 2026-10-26 · D3 2026-11-05 · Chromium 141 (chromium-1194)
+Dates: TODAY 2026-10-16 · D1 2026-10-22 · D2 2026-10-26 · D3 2026-11-05 · D4 2026-11-12 · D6 2026-11-26 · Chromium 141 (chromium-1194)
 Preconditions applied: approval_mode=all, approver=admin(all rooms), SMTP sink :2526
 ```
 
