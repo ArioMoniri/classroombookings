@@ -23,6 +23,7 @@ export function useHumanSummary(): string {
   const { t } = useI18n();
   const { summary } = useStudio();
   const est = useEstimateText();
+  if (!summary.ready) return "";
   const parts = [
     summary.weeks.length === 1
       ? t("glass.studio.placeOneWeek", { n: summary.classesIn, rooms: summary.rooms, w: summary.weeks[0] ?? 0 })

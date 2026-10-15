@@ -400,19 +400,20 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
         </div>
       </div>
 
-      {/* < xl: sticky bottom bar — Back · summary pill · Next / Generate */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 px-3 lg:bottom-3 xl:hidden" data-testid="studio-bottom-bar">
+      {/* < xl: bottom bar — Back · summary pill · Next / Generate. Sticky INSIDE main, not fixed to the viewport:
+          the fixed bar covered the sidebar footer at 1024 (review 2026-10-15 §3 Generate 1024). */}
+      <div className="pointer-events-none sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 mt-4 lg:bottom-3 xl:hidden" data-testid="studio-bottom-bar">
         <div data-glass="chrome" className="glass-chrome pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-full p-1.5">
-          <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => goStep(STUDIO_STEPS[index - 1])} className="pointer-coarse:min-h-11">
+          <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => goStep(STUDIO_STEPS[index - 1])}>
             <ChevronLeft aria-hidden /> {t("common.back")}
           </Button>
-          <button type="button" onClick={() => setSummaryOpen(true)} className="min-w-0 flex-1 truncate rounded-full bg-fill-3 px-3 py-1.5 text-left text-xs pointer-coarse:min-h-11" data-testid="summary-pill">
+          <button type="button" onClick={() => setSummaryOpen(true)} className="min-h-(--control-h-sm) min-w-0 flex-1 truncate rounded-full bg-fill-3 px-3 text-left type-footnote focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="summary-pill">
             <SummaryPill />
           </button>
           {step === "run" ? (
             <GenerateButton size="sm" testId="bar-generate" />
           ) : (
-            <Button size="sm" onClick={() => goStep(STUDIO_STEPS[index + 1])} className="pointer-coarse:min-h-11" data-testid="step-next">
+            <Button size="sm" onClick={() => goStep(STUDIO_STEPS[index + 1])} data-testid="step-next">
               {t("common.next")} <ChevronRight aria-hidden />
             </Button>
           )}

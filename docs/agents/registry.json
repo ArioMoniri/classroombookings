@@ -1110,7 +1110,8 @@
       "goal": "the owner wants this, verbatim: \"when someone sends a req for reservation of empty slot it shows first to admin and they approve or not and put reasons why they didnt and these get notified to users by the email or other connections they added also for this part or for the login via section add pipedream like maybe opensource version of it to not to deal with their crederntials\". We need a self-ho…",
       "ledger": "integrations-research-2026-10-15 SCOPE: write only docs/product/2026-10-15-integ…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 22:39"
     },
     {
       "id": "a1991d934e97daccb",
@@ -1147,6 +1148,38 @@
       "status": "finished",
       "finished_at": "2026-10-15 22:30",
       "left_off": "continue all and deploy to pod when green"
+    },
+    {
+      "id": "ac2c2c9294cedd254",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 22:34",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a9c6d214e2a9309ea",
+      "description": "Microsoft Entra ID SSO login",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 22:43",
+      "scope": "NEW backend files only: - app/services/sso.py, app/api/v1/sso.py, app/schemas/sso.py, app/models/sso.py (+ its import line in app/models/__init__.py) - ONE alembic migration - tests/test_sso*.py - pyproject/requirements.lock (Authlib, pinned) - a one-line router registration - docs/deploy/sso-entra.md - ticking docs/ROADMAP.md Do NOT edit auth.py, users.py, bookings_perms.py or the frontend; call …",
+      "goal": "owner decision (2026-10-15): staff log in with their university Microsoft 365 account (Microsoft Entra ID), so SmartSched holds no password for them. Direct OIDC from the backend with Authlib (BSD-3-Clause), no broker. Local accounts + LDAP stay. The design and guard rules are in docs/product/2026-10-15-integrations-options.md (section B and the login guard rules); read them fully. Reuse the PKCE …",
+      "ledger": "sso-entra-2026-10-15 SCOPE: NEW backend files only: - app/services/sso.py, app/a…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a6645642a3f84d3c9",
+      "description": "Notification channels via Apprise",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 22:43",
+      "scope": "NEW backend files only: - app/services/channels/** (package), app/api/v1/channels.py, app/schemas/channels.py, app/models/channels.py (+ its import line in app/models/__init__.py) - ONE alembic migration - tests/test_channels*.py - pyproject.toml / requirements.lock (add apprise and pywebpush, pinned) - a one-line router registration - ticking docs/ROADMAP.md Do NOT edit app/services/notify_dispat…",
+      "goal": "owner decision (2026-10-15): users get notifications (approval decisions with reasons, etc.) on the channels they linked, beyond e-mail + in-app, WITHOUT SmartSched ever holding the users' OAuth tokens or passwords. Approach: Apprise (BSD-2-Clause) + pywebpush (MPL-2.0) inside the backend; the institution owns one sender per service; users only link an address. The full design is in docs/product/2…",
+      "ledger": "notify-channels-apprise-2026-10-15 SCOPE: NEW backend files only: - app/services…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

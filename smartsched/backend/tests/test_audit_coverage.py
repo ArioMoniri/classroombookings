@@ -43,6 +43,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/approval-rules/{rule_id}": (E, "app.api.v1.approvals"),
     "DELETE /api/v1/approval-rules/{rule_id}": (E, "app.api.v1.approvals"),
     "POST /api/v1/me/notifications/read": (N, "the user's own in-app notifications"),
+    "PUT /api/v1/me/notification-preferences": (T, "Setting (user.<id>.notification_prefs)"),
     # audit (P7)
     "POST /api/v1/audit/{event_id}/undo": (E, "app.services.bookings_undo"),
     # auth

@@ -355,6 +355,8 @@ export interface SummaryInput {
 }
 
 export interface SummaryView {
+  /** false until the classes or the server summary arrived: show skeletons, never "0 dersi 0 dersliğe" */
+  ready: boolean;
   classesIn: number;
   classesOut: number;
   classesTotal: number;
@@ -392,6 +394,7 @@ export function deriveSummary(i: SummaryInput): SummaryView {
   const est = i.precheck?.estimate_s ?? i.summary?.estimate_s ?? null;
   const lastGood = i.summary?.last_good_run?.id ?? null;
   return {
+    ready: Boolean(i.classes || i.summary),
     classesIn,
     classesOut: excluded.size,
     classesTotal: i.classes ? i.classes.length : (i.summary?.counts.classes_total ?? 0),

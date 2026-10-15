@@ -146,7 +146,12 @@ async def test_self_approval_reject_with_suggestion_and_withdraw(env):  # noqa: 
     # reject without an alternative: free rooms are suggested automatically
     await env.book(ayse, "A201", WED, "P4")
     req = (await c.get(f"{APPR}/mine", headers=ayse)).json()[0]
-    await c.post(f"{APPR}/{req['id']}/decide", json={"decision": "reject"}, headers=gozde)
+    r = await c.post(f"{APPR}/{req['id']}/decide", json={"decision": "reject"}, headers=gozde)
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "reason_required"  # approval-first: a reason
+    r = await c.post(
+        f"{APPR}/{req['id']}/decide", json={"decision": "reject", "reason_code": "room_unavailable"}, headers=gozde
+    )
+    assert r.status_code == 200, r.text
     mine = (await c.get(f"{APPR}/mine", headers=ayse)).json()[0]
     assert mine["suggestion"]["alternatives"] and all(a["code"] != "A201" for a in mine["suggestion"]["alternatives"])
     # withdraw an open request

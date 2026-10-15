@@ -69,7 +69,11 @@ async def _inapp(user_id: int, kind: str | None = None) -> list[InAppNotificatio
 
 async def _deliveries(user_id: int) -> list[tuple[str, str, str]]:
     async with dbmod.get_session_factory()() as s:
-        q = select(NotificationDelivery).where(NotificationDelivery.user_id == user_id).order_by(NotificationDelivery.id)
+        q = (
+            select(NotificationDelivery)
+            .where(NotificationDelivery.user_id == user_id)
+            .order_by(NotificationDelivery.id)
+        )
         return [(d.event, d.channel, d.status) for d in (await s.execute(q)).scalars()]
 
 
@@ -190,7 +194,9 @@ async def test_reject_needs_a_reason_and_the_requester_gets_it_in_app_and_by_ema
     assert (await c.get(f"{APPR}/{req['id']}", headers=ayse)).json()["status"] == "PENDING"
 
     reason = "A 102 o saatte  bölüm toplantısına ayrıldı"
-    r = await c.post(url, json={"decision": "reject", "reason_code": "room_unavailable", "reason": reason}, headers=gozde)
+    r = await c.post(
+        url, json={"decision": "reject", "reason_code": "room_unavailable", "reason": reason}, headers=gozde
+    )
     assert r.status_code == 200, r.text
     out = r.json()
     clean = "A 102 o saatte bölüm toplantısına ayrıldı"
@@ -248,7 +254,9 @@ async def test_group_reject_needs_a_reason_stores_it_per_period_and_notifies_onc
     c = env.client
     gid, gozde, aid, ayse = await _people(env)
     await c.post("/api/v1/approval-rules", json={"entity_type": "tag", "tag": "TIP"}, headers=env.admin)
-    slots = [{"date": WED.isoformat(), "period_id": env.periods[p], "room_id": env.rooms["A201"]} for p in ("P3", "P4", "P5")]
+    slots = [
+        {"date": WED.isoformat(), "period_id": env.periods[p], "room_id": env.rooms["A201"]} for p in ("P3", "P4", "P5")
+    ]
     mb = (await c.post("/api/v1/bookings/multi", json={"slots": slots}, headers=ayse)).json()
     r = await c.post(
         f"/api/v1/bookings/multi/{mb['id']}/create",
@@ -259,7 +267,9 @@ async def test_group_reject_needs_a_reason_stores_it_per_period_and_notifies_onc
     url = f"{APPR}/groups/{mb['id']}/decide"
     r = await c.post(url, json={"decision": "reject"}, headers=gozde)
     assert r.status_code == 422 and r.json()["detail"]["code"] == "reason_required"
-    r = await c.post(url, json={"decision": "reject", "reason_code": "policy", "reason": "Tıp Fakültesi sınavı"}, headers=gozde)
+    r = await c.post(
+        url, json={"decision": "reject", "reason_code": "policy", "reason": "Tıp Fakültesi sınavı"}, headers=gozde
+    )
     assert r.status_code == 200 and [x["ok"] for x in r.json()["results"]] == [True, True, True], r.text
     mine = (await c.get(f"{APPR}/mine", headers=ayse)).json()
     assert {(m["status"], m["reason"], m["reason_code"]) for m in mine} == {
@@ -308,7 +318,9 @@ async def test_preferences_email_off_means_in_app_only(env):  # noqa: F811
     assert r.status_code == 200
     req = await _request(env, ayse)
     assert await _inapp(gid) == [] and len(await _outbox(gid, "approval_requested")) == 1
-    r = await c.post(f"{APPR}/{req['id']}/decide", json={"decision": "reject", "reason": "Salon bakımda"}, headers=gozde)
+    r = await c.post(
+        f"{APPR}/{req['id']}/decide", json={"decision": "reject", "reason": "Salon bakımda"}, headers=gozde
+    )
     assert r.status_code == 200, r.text
     assert len(await _inapp(aid, "approval.rejected")) == 1
     assert await _outbox(aid) == []
@@ -323,7 +335,9 @@ async def test_no_duplicate_notifications_on_retry(env):  # noqa: F811
     await _mode(env, "all")
     gid, gozde, aid, ayse = await _people(env)
     req = await _request(env, ayse)
-    r = await c.post(f"{APPR}/{req['id']}/decide", json={"decision": "reject", "reason": "Salon bakımda"}, headers=gozde)
+    r = await c.post(
+        f"{APPR}/{req['id']}/decide", json={"decision": "reject", "reason": "Salon bakımda"}, headers=gozde
+    )
     assert r.status_code == 200
     # the same occurrence dispatched again (a retried job, a second worker): nothing new on either channel
     async with dbmod.get_session_factory()() as s:

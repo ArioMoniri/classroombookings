@@ -370,3 +370,48 @@ This was a Final-only re-run with the same tool and settings (`--only final`). L
   period. Claiming P2 would create false clashes with exams that end at 10:00 in the same room.
   `tests/test_period_snapping.py::test_no_exam_starts_later_than_written` checks that no overlapped period is ever
   left out.
+
+### 11.3 Section identity: rows that differ only in class year (owner decision, 2026-10-15 22:31)
+
+The owner's decision: planning-list rows that are identical except for the class year are one section taught once.
+"Identical" means the same course, section, programme, instructors, days, times, weeks, definitive rooms and mode
+(`planning_list._class_year_merges`). The merged section:
+
+- has the union of the class years;
+- has one set of meeting requests;
+- takes the largest enrolment of the rows (the rows repeat the class total). When the rows' enrolments differ, the
+  import warns;
+- keeps every source row in the meeting's notes ("Sınıf yılları birleşik / class years merged: satır 52 (2. sınıf),
+  55 (3. sınıf), 56 (4. sınıf)") and in `report.extra.merged_class_years`.
+
+This was a full re-run of all four instances with the same tool and settings. Load average was 13-18.
+
+| Term | Sections before / after | Meeting requests before / after | Multi-year sections before / after | Merged groups (rows) |
+|---|---|---|---|---|
+| 2026-BAHAR | 1 271 / 1 271 | 1 524 / 1 511 | 2 / 11 | 10 (23) |
+| 2026-GUZ | 877 / 877 | 1 036 / 1 031 | 0 / 4 | 5 (10) |
+
+| Instance | Placed / events | hard | a | b | c | d | e | match | `fixed_cohort_clash` before → after | planner_check violations |
+|---|---|---|---|---|---|---|---|---|---|---|
+| bahar-w3 | 688/716 | 100 | 5 | 21 | 0 | 24 | 220 | 465 | 63 → 64 | 0 |
+| bahar-term | 682/717 | 100 | 99 | 281 | 0 | 401 | 3 548 | 6 506 | 68 → 69 | 0 |
+| guz-w3 | 524/530 | 100 | 23 | 6 | 0 | 3 | 164 | 388 | 20 → 20 | 0 |
+| final | 603/608 | 100 | 6 | 0 | 0 | 5 | 333 | 274 | 54 → 71 (§11.2, the exam rule) | 0 |
+
+**Why the section count does not change:** the section key never contained the class year, so these rows already
+shared a section. What changed:
+
+- **One meeting per merged unit.** The section no longer has one meeting request per year.
+- **Every listed year is blocked.** Before, the section carried only the first row's year: MBG 023 carried year 2
+  alone, though rows 55 and 56 list years 3 and 4.
+- **One clash became visible.** MBG 023 (Friday P9-P11, now years 2, 3 and 4) overlaps MBG 408 (year 4, P8-P9). That
+  is the extra Bahar `fixed_cohort_clash` in both runs.
+
+The solver's event counts are unchanged, because the bridge had already joined same-time lectures into one event.
+
+`planner_check` was run directly (`planner_check.check_run`) on runs 7-10: 393 / 405 / 215 / 275 findings, 0
+violations.
+
+Tests: `tests/test_class_year_merge.py`, on real Bahar rows 52/55/56, 421/422, 257/275 and 34. They cover the merged
+count, the cohort keys of both years, the MBG 408 clash, an idempotent re-import, and rows with another time staying
+separate.

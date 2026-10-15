@@ -23,7 +23,7 @@ import { useMemoryActions, useMemorySummary, useResets, type ResetRow, type Rese
 import { useI18n } from "@/lib/i18n/provider";
 import { tween, useReduce } from "@/lib/motion";
 import { usePermissions } from "@/lib/permissions";
-import { useTermContext } from "@/components/timetable/use-calendar-data";
+import { useActiveTerm } from "@/components/shell/term-switcher";
 import { resetStatus } from "./learning-model";
 import { ResetDialog } from "./reset-dialog";
 
@@ -92,7 +92,7 @@ export function LearningMemoryPanel() {
   const reduce = useReduce();
   const { can, loading } = usePermissions();
   const admin = can("planning.admin");
-  const { termId } = useTermContext();
+  const termId = useActiveTerm({ enabled: admin }).term?.id ?? null;
   const terms = useTerms({ enabled: admin });
   const summary = useMemorySummary(termId, admin);
   const resets = useResets(admin);

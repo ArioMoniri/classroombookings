@@ -800,12 +800,14 @@ Open:
 
 ### Approval-first bookings + user channels + credential-free login (owner request 2026-10-15 22:15)
 Request: every request for an empty slot goes to an admin first; the admin approves or rejects with a reason; the user is notified by e-mail or the other channels they connected. Use a Pipedream-like (preferably open-source) layer, for those connections and for login, so SmartSched never handles the users' credentials.
-- [ ] Backend (running):
-  - org setting bookings.approval_mode = rules | all (institution profile: all; universal: rules = the CRBS default)
-  - approvers and admins book directly
-  - reject requires a reason (code + text)
-  - notify_dispatch with in_app + e-mail channels and per-user preferences
-  - an adapter interface for the external provider
+- [x] Backend (2026-10-15, alembic 0025_approval_first; tests/test_approval_first_{bookings,migration}.py):
+  - [x] org setting `bookings.approval_mode` = rules | all (`PUT /org/settings {"approval_mode": ...}`, default rules)
+  - [x] approvers (`approvals.decide`), `planning.admin` and the new `bookings.skip_approval` (Administrator only, no-escalation) book directly; a room's own approval rule still applies in both modes
+  - [x] reject requires a reason (codes room_unavailable / capacity / policy / other + text; "other" needs the text; 422 TR/EN; per period in group decisions); requests show `reason`, `reason_code`, `decided_by`
+  - [x] `services/notify_dispatch.py`: in_app + e-mail channels, per-user preferences (`GET/PUT /me/notification-preferences`), ledger `notification_deliveries` (once per occurrence, recipient, channel), `inapp_notifications.data` payload; withdrawn now notified too
+  - [x] the adapter interface for the external provider (`ChannelAdapter` + `register_channel`, documented in the module; no adapter ships)
+  - [ ] institution profile = all: deploy/seed sets no org settings today; devops: a seed step (or the owner once) runs `PUT /api/v1/org/settings {"approval_mode": "all"}` (SQL: `insert into settings (key, value, is_secret) values ('bookings.approval_mode', 'all', false)`)
+  - [ ] follow-ups: one approver notification per multi-period submission (today one per period, the requester already gets one per group decision); the legacy booking_created / booking_cancelled e-mails through the dispatcher; TR/EN label of `bookings.skip_approval` in the roles screen (frontend)
 - [ ] Research (running): an open-source self-hosted Pipedream / Pipedream Connect equivalent for (A) per-user notification channels without SmartSched holding tokens, and (B) SSO login (Google Workspace / Microsoft 365 / IdP) without SmartSched holding passwords. Licence, RAM footprint on the pod, recommendation → docs/product/2026-10-15-integrations-options.md, then an owner decision.
 - [ ] Frontend after the backend lands (shell agent):
   - the approval-mode setting
@@ -855,3 +857,9 @@ Done:
 - per-branch AWS pods: `--pod gracious|universal` with separate names, SSM prefix and budget
 Before the first `up pod=universal`: re-apply the OIDC bootstrap once with infra/aws/iam/bootstrap-policy.json (owner action with AWS admin rights; the policy gained /smartsched-universal paths).
 - [ ] Stabilisation needs: a backend gate fully green, the studio e2e fixed, ≥ 8 GB disk for the images gate, and stale ledger rows cleaned (the watchdog gate is report-only).
+
+### Owner decisions 2026-10-15 ~22:45: channels + login (from docs/product/2026-10-15-integrations-options.md)
+- Notifications: built in via Apprise (BSD-2) + pywebpush (MPL-2.0). No new containers. The institution owns one sender per service; users only link an address, so SmartSched never holds user tokens or passwords. First channels: phone/browser push, Telegram, WhatsApp/SMS, Teams/Slack (department channels first). Each foreign channel needs a KVKK sign-off and has a link-only mode. Dedicated backend builder running.
+- Login: direct Microsoft 365 / Entra ID sign-in (Authlib, BSD-3), pinned to the university tenant. Users are identified by oid/tid, never by e-mail. Roles come only from an admin mapping; a local break-glass admin is kept; no automatic linking to admins. Dedicated backend builder running; the IT registration checklist goes to docs/deploy/sso-entra.md.
+- Calendar sync keeps its encrypted per-user OAuth tokens (the one exception, because it writes into the user's own calendar). Orchestrator default; owner may override.
+- [ ] Frontend for channels (Profile › Bildirim kanalları, admin channel config + sign-off) and SSO (login button, admin config, role mapping): a dedicated agent, after the shell sweep releases profile/settings/auth.

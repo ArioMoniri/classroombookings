@@ -167,18 +167,23 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
       ) : null}
 
       {nothing ? (
-        <div className="rounded-2xl bg-fill-3 p-4 text-sm shadow-[inset_0_0_0_1px_var(--hairline)]" data-testid="scope-empty">
+        <div className="rounded-xl bg-fill-3 p-4 type-callout edge-hairline" data-testid="scope-empty">
           <p>{t("studio.scope.nothingToPlan")}</p>
           <Button className="mt-3" render={<Link href={kind === "EXAM" ? "/import?source=exam" : "/import?source=planning"} />}>
             {t("studio.scope.importCta")}
           </Button>
         </div>
       ) : (
-        <div className="rounded-2xl bg-fill-3 p-4 shadow-[inset_0_0_0_1px_var(--hairline)]">
-          <p className="text-base" aria-live="polite" data-testid="scope-sentence">
+        <div className="rounded-xl bg-fill-3 p-4 edge-hairline">
+          {/* one loading signal, no zero counts while counting (review 2026-10-15 §2 "Loading states") */}
+          <p className="type-body text-label-1" aria-live="polite" data-testid="scope-sentence">
             {classesLoading && !classes ? t("studio.scope.counting") : t("studio.scope.sentence", { n: summary.classesIn, rooms: summary.rooms, weeks: summary.weeks.length })}
           </p>
-          <p className="mt-1 text-sm text-label-2">{t("studio.scope.line2", { out: n(summary.classesOut), pinned: n(summary.pinned), holidays })}</p>
+          {classesLoading && !classes ? (
+            <Skeleton className="mt-1.5 h-3.5 w-2/3 rounded-sm" />
+          ) : (
+            <p className="mt-1 type-callout text-label-2">{t("studio.scope.line2", { out: n(summary.classesOut), pinned: n(summary.pinned), holidays })}</p>
+          )}
           {summaryData?.last_good_run ? (
             <p className="mt-2 text-sm">
               <Link href={`/runs/${summaryData.last_good_run.id}`} className="text-tint-text underline-offset-2 hover:underline">

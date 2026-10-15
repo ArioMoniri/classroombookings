@@ -48,7 +48,6 @@ from app.models import (
     BookingPeriod,
     BookingSeries,
     BookingSlot,
-    InAppNotification,
     RoomGroup,
     User,
 )
@@ -652,7 +651,7 @@ def reason_text(code: str | None, note: str | None, lang: str) -> str:
 def check_reason(code: str | None, text: str | None) -> tuple[str | None, str | None]:
     """A rejection's reason, normalised (NBSP, whitespace): ``(code, text)``; 422 when there is none."""
     clean = n.clean_text(text) if text else None
-    code = (n.clean_text(code) or "").lower() or None if code is not None else None
+    code = (n.clean_text(code) or "").lower() or None  # codes are ASCII; blank / NBSP = no code
     if code is not None and code not in REASON_CODES:
         raise _err(
             422,
@@ -675,6 +674,10 @@ async def _render(session: AsyncSession, user: User, kind: str, **fmt: str) -> t
     lang = await mail._language(session, user)
     title_t, body_t = TEXTS[kind]["tr" if lang == "tr" else "en"]
     return title_t.format(**fmt), body_t.format(**fmt), lang
+
+
+def _group_of(req: ApprovalRequest, first: Booking) -> int | None:
+    return first.multi_booking_id if req.series_id is None else None
 
 
 def _person(u: User | None) -> dict[str, Any] | None:
@@ -708,7 +711,7 @@ async def notify_approvers(
                     **base,
                     "request_id": req.id,
                     "series_id": req.series_id,
-                    "group_id": first.multi_booking_id if req.series_id is None else None,
+                    "group_id": _group_of(req, first),
                     "step": req.step,
                     "decision": "requested",
                     "requester": _person(requester),
@@ -779,7 +782,7 @@ async def notify_requester(
                 "request_id": req.id,
                 "request_ids": ids,
                 "series_id": req.series_id,
-                "group_id": group_id if group is not None else (first.multi_booking_id if req.series_id is None else None),
+                "group_id": group_id if group is not None else _group_of(req, first),
                 "decision": DECISION_OF[kind],
                 "status": req.status,
                 "reason": (req.note or reason_both(req.reason_code)) if kind == "approval.rejected" else None,

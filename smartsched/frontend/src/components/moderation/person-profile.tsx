@@ -15,6 +15,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResetDialog } from "@/components/learning/reset-dialog";
 import { SuggestionList } from "@/components/learning/suggestion-list";
+import { useActiveTerm } from "@/components/shell/term-switcher";
 import { HttpError } from "@/lib/api/client";
 import { useHistory } from "@/lib/api/moderation";
 import { useSuggestions } from "@/lib/api/learning";
@@ -34,7 +35,9 @@ export function PersonProfile({ instructorId }: { instructorId: number }) {
   const [tab, setTab] = useState<"timeline" | "suggestions">("timeline");
   const [reset, setReset] = useState<"person" | "erase" | null>(null);
   const terms = q.data?.terms ?? [];
-  const current = terms[0];
+  // the working term of the shell when the person has requests in it, else their newest term
+  const working = useActiveTerm({ enabled: canView }).term?.id ?? null;
+  const current = terms.find((g) => g.term_id === working) ?? terms[0];
   const sugg = useSuggestions(canView ? (current?.term_id ?? null) : null, instructorId);
   const openSugg = (sugg.data ?? []).filter((s) => s.state === "open").length;
 

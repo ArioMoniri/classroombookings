@@ -88,6 +88,12 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
       patch(id, { stage: "uploading", percent: 0, message: undefined });
       try {
         const res = await api.studio.uploadPreferences(termId, file, pairLang(locale), (p) => patch(id, { stage: p.stage, percent: p.percent }));
+        // AI intake off (the default since P19-A1): the backend answers 200 with every row unparsed instead of
+        // 409. A spreadsheet with nothing read goes to the column mapping, like the old 409 path.
+        if (TABULAR.test(file.name) && res.proposals.length === 0 && res.section_edits.length === 0 && res.unparsed.length > 0) {
+          patch(id, { stage: "mapping", percent: 100 });
+          return;
+        }
         ingest(id, file, res);
       } catch (e) {
         if (e instanceof HttpError && e.status === 409) {

@@ -33,8 +33,8 @@ from app.schemas.approvals import (
 )
 from app.services import approvals as svc
 from app.services import audit
-from app.services import notify_dispatch as nd
 from app.services import bookings as bsvc
+from app.services import notify_dispatch as nd
 from app.services.bookings_perms import load_access, may_manage_user
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
