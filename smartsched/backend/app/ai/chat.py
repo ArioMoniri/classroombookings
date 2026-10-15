@@ -50,6 +50,7 @@ from app.schemas.ai import (
     AddConstraintOp,
     ApplyOut,
     ChatOut,
+    ExamEditOp,
     ExplainOut,
     LockOp,
     MoveOp,
@@ -72,6 +73,8 @@ _CHAT_RULES = (PROMPTS / "chat.md").read_text(encoding="utf-8")
 _EXPLAIN_RULES = (PROMPTS / "explain.md").read_text(encoding="utf-8")
 
 MAX_TOOL_ROUNDS = 8
+MAX_EXAM_ENROLMENT = 5000
+MAX_EXAM_ROOMS = 10
 MAX_TOKENS = 16000
 HISTORY_MESSAGES = 10
 DAY_NAMES = {
@@ -436,6 +439,7 @@ async def record_edit(
             end_period=end if end != a.end_period else None,
             room_ids=room_ids,
             weeks=weeks,
+            update_request=bool(inp.get("update_request")) and (day, start) != (a.day, a.start_period),
             label=state.labels.get(a.id),
             reason=reason,
             before=state.brief(a, lang),
@@ -532,6 +536,31 @@ async def record_edit(
             "status": edit.status,
             "issues": edit.issues,
         }
+    if name == "set_exam_field":
+        if state.run.kind != "EXAM":
+            return {"error": "set_exam_field is for exam runs; use set_section_field for course sections"}
+        a = rows.get(int(inp["assignment_id"]))
+        if a is None or a.exam_request_id is None:
+            return {"error": "unknown exam assignment_id for this run; call find_assignments first"}
+        enrolment = int(inp.get("enrolment") or 0) or None
+        room_count = int(inp.get("room_count") or 0) or None
+        if enrolment is not None and not 1 <= enrolment <= MAX_EXAM_ENROLMENT:
+            return {"error": f"enrolment must be 1..{MAX_EXAM_ENROLMENT}"}
+        if room_count is not None and not 1 <= room_count <= MAX_EXAM_ROOMS:
+            return {"error": f"room_count must be 1..{MAX_EXAM_ROOMS}"}
+        if enrolment is None and room_count is None:
+            return {"error": "nothing to change"}
+        diff.operations.append(
+            ExamEditOp(
+                assignment_id=a.id,
+                exam_request_id=int(a.exam_request_id),
+                enrolment=enrolment,
+                room_count=room_count,
+                label=state.labels.get(a.id),
+                reason=reason,
+            )
+        )
+        return {"recorded": "exam edit (proposal only; applying it re-solves the run)"}
     if name == "re_solve":
         diff.re_solve = True
         diff.stability = bool(inp.get("stability", True))
@@ -666,9 +695,10 @@ def _diff_summary(diff: ProposedDiff, lang: str) -> str:
     names = {
         "tr": {"move": "taşıma", "swap": "derslik değişimi", "lock": "kilit", "unlock": "kilit açma",
                "add_constraint": "yeni kural", "remove_constraint": "kural kaldırma", "set_weight": "ağırlık",
-               "section_edit": "şube düzenleme"},
+               "section_edit": "şube düzenleme", "exam_edit": "sınav düzenleme"},
         "en": {"move": "move", "swap": "swap", "lock": "lock", "unlock": "unlock", "add_constraint": "new rule",
-               "remove_constraint": "rule removal", "set_weight": "weight change", "section_edit": "section edit"},
+               "remove_constraint": "rule removal", "set_weight": "weight change", "section_edit": "section edit",
+               "exam_edit": "exam edit"},
     }[lang if lang in ("tr", "en") else "en"]  # fmt: skip
     parts = [f"{n} {names.get(k, k)}" for k, n in counts.items()]
     if diff.re_solve:
@@ -912,6 +942,25 @@ async def _apply_claimed(
             plan.changed_constraints.append(row)
             plan.data_changed = True
             plan.applied.append({"index": i, "op": op.op, "constraint_id": row.id})
+        elif isinstance(op, ExamEditOp):
+            problem, before = await _apply_exam_edit(session, parent, state, op)
+            if problem:
+                plan.rejected.append({"index": i, "op": op.op, "reasons": [problem]})
+            else:
+                plan.data_changed = True
+                plan.applied.append(
+                    {
+                        "index": i,
+                        "op": op.op,
+                        "exam_request_id": op.exam_request_id,
+                        "before": before,
+                        "after": {
+                            k: v
+                            for k, v in (("enrolment", op.enrolment), ("requested_room_count", op.room_count))
+                            if v is not None
+                        },
+                    }
+                )
         elif isinstance(op, SectionEditOp):
             ok, rej = await apply_section_edits(session, parent.term_id, [op.edit], commit=False)
             if ok:
@@ -919,6 +968,14 @@ async def _apply_claimed(
                 plan.applied.append({"index": i, "op": op.op, **{k: v for k, v in ok[0].items() if k != "index"}})
             else:
                 plan.rejected.append({"index": i, "op": op.op, "reasons": rej[0]["issues"] if rej else ["invalid"]})
+    # moves that also rewrite their meeting request: tentatively now (the child's input below must carry the new
+    # requested time), reverted in step 3 if the move itself fails the validator
+    request_updates: dict[int, tuple[MeetingRequest, dict[str, Any]]] = {}
+    for i, op in enumerate(diff.operations):
+        if isinstance(op, MoveOp) and op.update_request:
+            problem = await _update_request_for_move(session, parent, state, op, i, request_updates)
+            if problem:
+                plan.rejected.append({"index": i, "op": op.op, "reasons": [problem]})
     await session.flush()
 
     # 2. solver input of the child (term data + constraints as they are now, parent as `previous`)
@@ -931,7 +988,11 @@ async def _apply_claimed(
     baseline_hard = len(base_keys)
 
     # 3. moves / swaps validated one by one with the independent validator
+    pre_rejected = {r["index"] for r in plan.rejected}
+    rebuild = False
     for i, op in enumerate(diff.operations):
+        if i in pre_rejected and isinstance(op, MoveOp):
+            continue
         if isinstance(op, MoveOp | SwapOp):
             trial = dict(current)
             reasons: list[str] = []
@@ -979,17 +1040,27 @@ async def _apply_claimed(
                     reasons += [f"{v.kind}: {v.message}" for v in new[:5]]
                     if any(v.kind == "fixed_time" for v in new):
                         reasons.append(
-                            "the meeting's requested day/time is fixed; change it with set_section_field "
-                            "(section edit) or relax the fixed_time rule"
+                            "the meeting's requested day/time is fixed; propose the move with update_request=true "
+                            "(it changes the request too), use set_section_field or relax the fixed_time rule"
                         )
             if reasons:
                 plan.rejected.append({"index": i, "op": op.op, "reasons": reasons})
+                if i in request_updates:
+                    _revert_request(*request_updates.pop(i))
+                    rebuild = True
                 continue
             current = trial
             base_keys = keys
             for eid in touched:
                 plan.moved[eid] = current[eid]
-            plan.applied.append({"index": i, "op": op.op, "event_ids": touched})
+            plan.applied.append(
+                {
+                    "index": i,
+                    "op": op.op,
+                    "event_ids": touched,
+                    **({"request_updated": True} if i in request_updates else {}),
+                }
+            )
         elif isinstance(op, LockOp):
             eid = event_of.get(op.assignment_id)
             if op.assignment_id not in state.rows_by_id or eid is None:
@@ -1005,6 +1076,10 @@ async def _apply_claimed(
             (plan.unlock if op.op == "lock" else plan.lock).discard(eid)
             plan.applied.append({"index": i, "op": op.op, "event_ids": [eid]})
 
+    if rebuild:  # a reverted request update: score and solve against the request as it is again
+        await session.flush()
+        inp, members = await _run_input(session, child)
+        events = {e.id: e for e in inp.events}
     if diff.re_solve and not plan.rejected:
         plan.applied.append({"index": len(diff.operations), "op": "re_solve", "stability": diff.stability})
     if not plan.applied:
@@ -1083,6 +1158,89 @@ async def _apply_claimed(
         len(plan.rejected),
     )
     return out
+
+
+async def _apply_exam_edit(
+    session: AsyncSession, parent: ScheduleRun, state: RunState, op: ExamEditOp
+) -> tuple[str | None, dict[str, Any]]:
+    """Re-validate and apply one exam edit (snapshot of the old values first). ``(problem, before)``."""
+    from app.models import ImportedSnapshot
+
+    a = state.rows_by_id.get(op.assignment_id)
+    if parent.kind != "EXAM":
+        return "exam edits apply to exam runs only", {}
+    if a is None or a.exam_request_id != op.exam_request_id:
+        return f"assignment {op.assignment_id} is not this exam of run #{parent.id}", {}
+    ex = await session.get(ExamRequest, op.exam_request_id)
+    if ex is None or ex.term_id != parent.term_id or ex.archived:
+        return "the exam request is not part of this term", {}
+    if op.enrolment is not None and not 1 <= op.enrolment <= MAX_EXAM_ENROLMENT:
+        return f"enrolment must be 1..{MAX_EXAM_ENROLMENT}", {}
+    if op.room_count is not None and not 1 <= op.room_count <= MAX_EXAM_ROOMS:
+        return f"room_count must be 1..{MAX_EXAM_ROOMS}", {}
+    if op.enrolment is None and op.room_count is None:
+        return "nothing to change", {}
+    before = {"enrolment": ex.enrolment, "requested_room_count": ex.requested_room_count}
+    snap = (
+        await session.execute(
+            select(ImportedSnapshot).where(ImportedSnapshot.entity == "exam", ImportedSnapshot.entity_id == ex.id)
+        )
+    ).scalar_one_or_none()
+    if snap is None:  # the imported values, kept once (revert / audit)
+        session.add(ImportedSnapshot(entity="exam", entity_id=ex.id, values=dict(before)))
+    if op.enrolment is not None:
+        ex.enrolment = op.enrolment
+    if op.room_count is not None:
+        ex.requested_room_count = op.room_count
+    return None, before
+
+
+_REQUEST_TIME_FIELDS = ("day", "days", "start_period", "end_period", "start_time", "end_time")
+
+
+async def _update_request_for_move(
+    session: AsyncSession,
+    parent: ScheduleRun,
+    state: RunState,
+    op: MoveOp,
+    index: int,
+    updates: dict[int, tuple[MeetingRequest, dict[str, Any]]],
+) -> str | None:
+    """Rewrite the meeting request of ``op`` to the move's day/periods (snapshot first). Returns a rejection
+    reason, or None when the request was updated (recorded in ``updates`` for a possible revert)."""
+    from sqlalchemy.orm import selectinload
+
+    from app.services import studio_classes as sc
+
+    a = state.rows_by_id.get(op.assignment_id)
+    if parent.kind != "COURSE" or a is None or a.meeting_request_id is None:
+        return "update_request applies to a course meeting of this run"
+    mr = (
+        await session.execute(
+            select(MeetingRequest)
+            .where(MeetingRequest.id == a.meeting_request_id)
+            .options(selectinload(MeetingRequest.section))
+        )
+    ).scalar_one_or_none()
+    if mr is None or mr.archived:
+        return "the meeting request no longer exists"
+    day = op.day or a.day
+    start = op.start_period or a.start_period
+    end = op.end_period or (start + (a.end_period - a.start_period))
+    if not (1 <= day <= 7 and 1 <= start <= end <= len(PERIODS)):
+        return f"invalid time: day {day} P{start}-P{end}"
+    old = {f: (list(v) if isinstance(v := getattr(mr, f), list) else v) for f in _REQUEST_TIME_FIELDS}
+    await sc.ensure_snapshots(session, mr, await sc.load_snapshots(session, [mr]))
+    mr.day, mr.days = day, [day]
+    mr.start_period, mr.end_period = start, end
+    mr.start_time, mr.end_time = PERIODS[start - 1].start, PERIODS[end - 1].end
+    updates[index] = (mr, old)
+    return None
+
+
+def _revert_request(mr: MeetingRequest, old: dict[str, Any]) -> None:
+    for f, v in old.items():
+        setattr(mr, f, v)
 
 
 async def _inherit_run_rules(

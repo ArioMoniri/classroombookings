@@ -20,6 +20,7 @@ EXPECTED_TOOLS = {
     "include_sections",
     "exclude_sections",
     "set_section_field",
+    "set_exam_field",
     "re_solve",
 }
 

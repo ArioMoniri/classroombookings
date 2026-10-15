@@ -727,6 +727,11 @@ EDIT_TOOLS: list[dict[str, Any]] = [
             "end_period": _s("integer", description="0 = keep (duration preserved)"),
             "room_codes": _arr(_s("string"), description="[] = keep"),
             "weeks": _arr(_s("integer"), description="[] = keep"),
+            "update_request": _s(
+                "boolean",
+                description="true = also change the meeting's requested day/time (term data) so a fixed-time "
+                "meeting can move; false = room-only or within the request",
+            ),
             **_REASON,
         },
     ),
@@ -783,6 +788,17 @@ EDIT_TOOLS: list[dict[str, Any]] = [
         "set_section_field",
         "Propose changing a section's enrolment, day/time, mode or preferred rooms (0 / '' / [] = keep).",
         {**SECTION_TARGET_PROPS, **SECTION_FIELD_PROPS, **_REASON},
+    ),
+    _tool(
+        "set_exam_field",
+        "Exam runs only: propose changing an exam's enrolment and/or the number of rooms it may be split across "
+        "(0 = keep). Use the assignment_id of the exam from find_assignments.",
+        {
+            "assignment_id": _s("integer"),
+            "enrolment": _s("integer", description="students sitting the exam; 0 = keep"),
+            "room_count": _s("integer", description="rooms the exam may be split across (1..10); 0 = keep"),
+            **_REASON,
+        },
     ),
     _tool(
         "re_solve",

@@ -125,8 +125,8 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [x] Constraints table: add a `source_ref` JSON column; today upload refs live in `params["_source_ref"]` (studio backend agent) (2026-10-15: column existed since alembic 0002; `app/ai/elicit.py` `accept_proposals` now writes it and moves a legacy `params._source_ref` there; tests/ai/test_elicit_ingest.py::test_xlsx_upload_yields_proposals_and_section_edits_with_refs, ::test_docx_upload_and_accept_endpoint)
 - [ ] Chat-created constraints are term-wide (`term_id`) so they carry over to grandchild runs; add a run-scoped option ("only for this run") with inheritance through `parent_run_id` in `build_solver_input` (partly 2026-10-15: `add_constraint.scope` = term | run; run rules live on the child run and are copied to every chat child of it, edits touch the copy; tests/ai/test_run_scope.py. needs decision: should `build_solver_input` (app/services/solver_bridge.py, outside the AI fence) also walk the `parent_run_id` chain for non-chat child runs (POST /runs, studio re-solve), or is inheritance along chat edits enough?)
 - [ ] Week-limited room rules (`room_pin`/`room_forbid` with weeks other than room_closed) are flagged needs_review: the solver applies room rules to all weeks of an event; implement meeting splitting by week pattern ("PHAR 240 moves to A 206 from 23 Feb") (2026-10-15: `room_pin` with weeks was not flagged although the solver ignores its weeks; now every week-limited kind except room_closed is needs_review, tests/ai/test_resolve.py::test_course_code_resolves_to_meeting_ids. needs decision: splitting a planning-list meeting request into week segments changes term data that the next planning-list re-import matches by `source_key`; split the request (and teach the importer to keep the split), or model week-limited room rules in the solver (app/solver, outside the AI fence)?)
-- [ ] Moves to another day/period of a fixed-time request are rejected by the validator (`fixed_time` hard); offer "move + update the request" as one op in the diff UI instead of a separate `set_section_field`
-- [ ] Exam runs: section edits only touch meeting requests; add exam-request edits (enrolment, room count) and exam-specific chat tools (split across rooms)
+- [x] Moves to another day/period of a fixed-time request are rejected by the validator (`fixed_time` hard); offer "move + update the request" as one op in the diff UI instead of a separate `set_section_field` (2026-10-15 backend: `move_event.update_request` / `MoveOp.update_request` rewrites the meeting request (snapshotted) and is kept only if the move passes the validator, else the request is restored; the diff UI toggle is frontend work; tests/ai/test_move_update_request.py)
+- [x] Exam runs: section edits only touch meeting requests; add exam-request edits (enrolment, room count) and exam-specific chat tools (split across rooms) (2026-10-15: chat tool `set_exam_field` / `ExamEditOp` (exam runs only) sets enrolment and `requested_room_count` = rooms the exam may be split across, snapshot `imported_snapshots.entity='exam'`, applied as a repair; tests/ai/test_exam_edits.py)
 - [ ] Streaming chat (SSE) with `eager_input_streaming` + client-side tool-input validation; today `POST /runs/{id}/chat` returns when the loop ends
 - [ ] Red-team eval before launch (RESEARCH Recommendations 3): paraphrase / re-ordering / ambiguous room names / prompt-injection in uploaded files, measured against a fixed expected-constraint set
 - [x] Persist the model id + verifier result per applied diff on the child run (audit, RESEARCH §4.3 step 6) - partly there via `chat_messages.tool_calls` usage + `stats.mode` (2026-10-15: `stats.ai` on every chat child run = diff id, model, edited flag, applied/rejected ops with reasons, verifier status / hard score / violations, final values written by the repair job; `app/ai/chat.py` `_apply_audit`; tests/ai/test_apply_audit.py)
@@ -302,7 +302,7 @@ Backend wave C part 1 (2026-10-08, backend-engineer; API contract docs/product/w
 - [x] `POST /imports/room-master` (CSV UTF-8/cp1254 or xlsx; `planning.edit` or `setup.rooms`).
 - [x] Studio drafts use the bridge's fallback sizes when part of a joint lecture is left out.
 - [x] `tools/validate_planner.py` as the blocking pod CI gate `planner` (after `backend`).
-- [ ] Studio rule lookups by course code (`studio_rules._term_code`) should compare `normalize.course_key` so `SYS 018` finds the merged `SYS18` course.
+- [x] Studio rule lookups by course code (`studio_rules._term_code`) should compare `normalize.course_key` so `SYS 018` finds the merged `SYS18` course (backend-engineer 2026-10-15, tests/test_studio_rules.py).
 - [ ] pod-ci README gate table: add the `planner` row (devops).
 
 ### Review follow-ups (docs/review/2026-10-08-backend-ai-studio-review.md + planner usability test)
@@ -332,8 +332,10 @@ loop), 3, 4, 5, 6, 7, 8, 10, 12, 13, 14; usability U1-U6 and the default term. S
       workers behind a load balancer.
 - [ ] **CRBS SQL dumps** are size-capped (413) but still loaded in-process into SQLite; run them in the parse child.
 - [ ] **SVG logos** (`POST /org/logo`) are served from the public `/uploads/rooms` path: sanitise or rasterise SVG.
-- [ ] **Course-code folding** covers the dotted capital İ only (`BİF111` = `BIF111`); decide with the planner whether
-      `ÇEV`/`CEV`-style ASCII spellings are the same department code.
+- [x] **Course-code folding** covers the dotted capital İ only (`BİF111` = `BIF111`); decide with the planner whether
+      `ÇEV`/`CEV`-style ASCII spellings are the same department code. (2026-10-15, decision ÇEV = CEV: `normalize.course_key`
+      folds Ç Ş Ğ Ü Ö İ in the code key, display spelling kept; bridge merge, studio rules and compare use it; alembic
+      `0017_course_code_fold` merges existing twins; D10 `İŞL101` = `ISL101`. The six workbooks contain no ÇEV/CEV code.)
 - [ ] **Cancel across workers** — `CANCELLED` set by another process is picked up on the next heartbeat (15 s); a
       DB-backed queue (Phase "real job control") would make it immediate and allow priorities.
 
@@ -418,7 +420,7 @@ Phase 19 policy defaults (provisional, adopted 2026-10-15 from docs/testing/2026
 - Q10: department satisfaction is reported only (v1), not balanced.
 - Q11: visibility: academician sees their own, the department secretary sees the department, coordinator/admin see all; accessibility is yes/no only.
 - Q12: the department form is the official request; the academician's own wish is a lower-ranked soft preference.
-Parser bugs to fix before learning (sent to the importer agent): negation ("olmasın"), "veya" alternatives, alternative room groups, accessibility/furniture wishes, and the "Derse Özel Açıklama" column becoming soft preferences.
+Parser bugs to fix before learning (sent to the importer agent): negation ("olmasın"), "veya" alternatives, alternative room groups, accessibility/furniture wishes, and the "Derse Özel Açıklama" column becoming soft preferences. (Done 2026-10-15, see P19-Q1. Open: the solver has no soft "one of these room sets" kind, so alternative groups are an ordered preference list; group cohesion is checked, not optimised.)
 Missing for the moderation tab (from the academician analysis): a user↔instructor link, a run-to-run diff endpoint and UI, approval before a re-solved run is published, and a refusal-reason field.
 Missing for programmes from scratch: create endpoints for faculties, courses, sections and meetings.
 
@@ -429,11 +431,11 @@ Wave 0, the gates:
 - [ ] P19-00c: report waived structural rules in stats and the run report. Solver agent.
 - [x] P19-01 (done cc9c45d + c1ef5e0, 0019 index): publish guard (no FAILED activation), a single active run per term, 409 on deleting the active run; migration 0018 after 0017_council. Backend agent.
 - [ ] P19-02: audit planning entities and actions (D5). Backend agent.
-- [x] P19-03 (lock service landed c1ef5e0; wiring into imports/council tracked below): per-term write lock for imports and commits (D8). Backend agent, then the importer agent wires it in.
+- [x] P19-03 (lock service landed c1ef5e0; wired into `api/v1/imports.py` 2026-10-15: planning/exam/grid imports, early 409 TR/EN, job holds the lock; tests/test_import_term_lock.py; council wiring open): per-term write lock for imports and commits (D8). Backend agent, then the importer agent wires it in.
 - [ ] P19-04/05: council merge hardening (D2 safe_files caps and isolation, D3 no MSW, D13 Planner-only records, D14 dedupe). Merge agent.
 - [ ] P19-06: no dead nav/⌘K links (D6); find-room gated by permission; crawler e2e. Wave-1 frontend agent.
-- [ ] D15, D16, D19 (rooms PUT permission, CRBS DSN SSRF, setup race). Backend agent.
-- [ ] P19-Q1: normaliser D9–D12, plus the parser bugs from the academician analysis. Importer agent.
+- [ ] D15, D16, D19 (rooms PUT permission, CRBS DSN SSRF, setup race). Backend agent. (D16 call site wired in `POST /imports/crbs` 2026-10-15, tests/test_import_crbs_dsn_endpoint.py)
+- [x] P19-Q1: normaliser D9–D12, plus the parser bugs from the academician analysis. Importer agent. (2026-10-15: `normalize.fold` shared lexicon + ASCII days, `parse_enrolment` refuses time-shaped / out-of-range values, `24:00` = end of day, negative % refused; `parse_preference_text` negation / building sets / room alternative groups (`VenueRequest.satisfied_by`) / feature lexicon; `importers/preference_rules.py`: notes -> soft FILE rules switched off pending review with `source_ref` file/sheet/row/column, request-cell avoid/sets active soft, never hard; data-issues `unparsed_preference` + `preference_review`. Real data: Bahar 565 notes -> 39 pending rules / 92 unparsed, Güz 375 -> 33 / 76. Tests: test_normalize_folding.py, test_preference_text.py)
 - [ ] P19-Q2: parity gate requires the playwright JSON; fix the date-gated skip; reserve.spec in UI_SPECS. Devops agent.
 - [x] P19-Q3: dependency pins (xlrd, defusedxml, pdfplumber, pypdfium2, icalendar in main deps) and a 30-day upload purge. Devops agent. (done 2026-10-15: pyproject main deps + requirements.lock, images-gate import smoke, `purge-uploads.sh` + pod timer `smartsched-upload-purge` (daily, Persistent=true), UPLOAD_RETENTION_DAYS=30, uploads/rooms kept)
 Wave 1, structured intake (after 04): [ ] I1 magic-byte registry + CSV/TSV/JSON · [ ] I2 xls + ods · [ ] I3 xml + ics · [ ] I4 commit dry-run diff · [ ] I5 schedule map → baseline IMPORT run, deduped across jobs · [ ] I6 source_ref provenance · [ ] I7 room-master import UI + diff panel
