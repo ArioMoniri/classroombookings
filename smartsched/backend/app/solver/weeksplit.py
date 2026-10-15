@@ -36,6 +36,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from app.solver import policy
 from app.solver.constraints import effective_constraints
 from app.solver.constraints._common import int_list, week_runs
 from app.solver.constraints.room_closed import _blocks as room_closed_blocks
@@ -680,6 +681,8 @@ def to_original(split: WeekSplit, result: SolverResult) -> SolverResult:
                 ]
         if isinstance(out.get("clash_ids"), list):
             out["clash_ids"] = map_ids(out["clash_ids"])
+        if isinstance(out.get("policy"), dict) and isinstance(out["policy"].get("winners"), list):
+            out["policy"] = {**out["policy"], "winners": map_ids(out["policy"]["winners"])}
         return out
 
     diags = [replace(d, event_ids=map_ids(d.event_ids), params=map_params(d.params)) for d in result.diagnoses]
@@ -752,9 +755,11 @@ def solve_segmented(
             break
         cand = solve(replace(cand_split.inp, time_limit_s=remaining), _hints=hints)
         clock.charge_s(cand.stats.get("clock_s"))
-        before = len(fully_placed(split, res.assignments))
-        after = len(fully_placed(cand_split, cand.assignments))
-        if after <= before or cand.hard_score < res.hard_score:
+        # a round is kept only if it is better under the relaxation policy (counted per original request:
+        # lock_first never trades a kept lock for more classes) and loses no hard score
+        before = policy.cost(inp, fully_placed(split, res.assignments))
+        after = policy.cost(inp, fully_placed(cand_split, cand.assignments))
+        if after >= before or cand.hard_score < res.hard_score:
             break
         split, res = cand_split, cand
         done += 1

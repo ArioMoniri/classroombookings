@@ -21,15 +21,21 @@ repo root
     │   │   ├── core/              config (pydantic-settings), db session, security (JWT, Fernet), logging
     │   │   ├── models/            SQLAlchemy ORM (see Domain model)
     │   │   ├── schemas/           Pydantic I/O schemas
-    │   │   ├── api/v1/            routers: auth, settings, terms, rooms, sections, requests, imports,
-    │   │   │                       runs, assignments, constraints, chat, exports, health
+    │   │   ├── api/v1/            routers: auth, settings, terms, rooms, reference, requests, imports,
+    │   │   │                       runs, constraints, chat, studio, presets, calendar, data_issues, health;
+    │   │   │                       CRBS parity: bookings, booking_admin, room_admin, roles, users, departments,
+    │   │   │                       holidays, org; wave 1: room_features, find_room, approvals, audit;
+    │   │   │                       integrations: calendar_sync, webhooks
     │   │   ├── importers/         normalize.py (TR text/time/room parsing), planning_list.py,
     │   │   │                       exam_list.py, weekly_grid.py, crbs_legacy.py
     │   │   ├── solver/            PURE PYTHON, DB-agnostic: model.py (dataclasses), cpsat.py,
     │   │   │                       constraints/*.py, diagnose.py (infeasibility), repair.py (LNS)
     │   │   ├── ai/                anthropic client, tool schemas, prompt → ConstraintDiff, chat loop
-    │   │   ├── services/          orchestration: build SolverInput from DB, persist results, export
-    │   │   └── workers/           background job runner (in-process asyncio queue; Celery-ready)
+    │   │   ├── services/          orchestration: build SolverInput from DB, persist results, export,
+    │   │   │                       planner_check, events (publish_event), audit, approvals, calendar
+    │   │   │                       feeds/connectors, webhooks, find_room, bookings_* (CRBS parity)
+    │   │   └── workers/           in-process asyncio job queue (runs, imports), integrations outbox,
+    │   │                           approvals sweeper
     │   ├── alembic/
     │   ├── tests/                 pytest; fixtures/ holds the real Excel files
     │   └── pyproject.toml
@@ -52,6 +58,12 @@ repo root
   P10, split across A 101+A 106").
 - **Stability**: re-solves accept `previous_assignments` and minimise perturbation unless told otherwise.
 - **Importable, exportable, replaceable**: all state can be rebuilt from the Excel files + CRBS DB.
+- **Only the planner's locks are trusted**: with `trust_locked_rooms` (D1) a planning-list LOCKED row keeps
+  its room even when the room is too small (reported as a waived exception). A lock carried from a parent
+  run by a fix button, a manual move or an AI edit sets `Event.lock_trusted=False` and must pass the
+  capacity and tag checks like any placement (`app/solver/domains.py`, `app/ai/chat.py`).
+- **One hook for booking-side changes**: every booking, series and approval mutation goes through
+  `app/services/events.publish_event` (see "Event bus").
 
 ## Domain model (SQLAlchemy, Postgres in prod / SQLite in tests)
 
@@ -78,6 +90,9 @@ repo root
 | `users` | id, email (optional), username (Turkish-insensitive), password_hash, full_name (= CRBS displayname), role_id → `roles`, role (code `ADMIN`,`PLANNER`,`VIEWER`,`TEACHER` or `CUSTOM`, kept in sync), department_id → `programs`, force_password_reset, auth_source (`local`/`ldap`), is_active |
 | CRBS parity (bookings) | `roles`/`permissions`/`role_permissions`, `user_constraints`, `room_groups`, `room_custom_fields`(+options/values), `room_acl`(+permissions), `booking_schedules`/`booking_periods` (on the 18-period grid), `term_booking_settings`, `term_schedules`, `timetable_weeks`, `term_dates`, `holidays`, `bookings` + `booking_slots` (unique room/date/period), `booking_series`, `multi_bookings`(+slots), `password_reset_tokens`, `notification_outbox`, `translations` — see docs/CRBS_PARITY.md |
 | `import_jobs` | id, kind, filename, status, summary (JSON: rows, created, updated, warnings), created_at |
+| Booking enhancements wave 1 | `room_custom_fields` typed (BOOLEAN/NUMBER/SELECT/MULTISELECT/TEXT, filterable, solver_tag; alembic 0012), `audit_events` (append-only, triggers; 0014), `approver_scopes`, `approval_rules`, `approval_requests`, `approval_decisions`, `inapp_notifications` (0015) — docs/product/wave1-api.md |
+| Calendar sync (alembic 0011) | `calendar_feed_tokens` (SHA-256 of the token only), `calendar_connections` (Fernet-encrypted OAuth tokens), `calendar_event_links`, `calendar_event_revisions`, `calendar_sync_jobs` (outbox), `oauth_states`, `webhook_endpoints`, `webhook_deliveries` — docs/product/calendar-sync-api.md |
+| `users.token_version` (alembic 0006) | raised to revoke every token of the user (see "Sessions and token revocation") |
 
 ## Solver contract (`app/solver/model.py`) — frozen for parallel work
 
@@ -167,11 +182,18 @@ Constraint kinds (v1): `capacity`, `no_room_overlap`, `no_cohort_overlap`, `no_i
 | `GET /runs/{id}/export?format=xlsx|ics|csv|crbs` | exports (xlsx reproduces the weekly grid layout) |
 | `GET /runs/{id}/grid?week=` | room × period matrix for the UI |
 | `GET /health`, `GET /metrics` | ops |
+| `POST /auth/logout` | revokes every token of the user (token version) |
+| `/bookings/*`, `/booking-admin/*`, `/room-admin/*`, `/org/*`, `/roles`, `/departments`, `/holidays` | CRBS parity (docs/CRBS_PARITY.md §4) |
+| `/calendar/*`, `/webhooks/*` | calendar feeds, Google / Microsoft push connectors, integration settings, webhooks (docs/product/calendar-sync-api.md) |
+| `/room-admin/features*`, `GET /rooms/facets`, `POST /rooms/find`, `/approvals/*`, `/approval-rules`, `/me/notifications`, `/audit/*` | booking enhancements wave 1 (docs/product/wave1-api.md) |
+
+The full route list is in smartsched/README.md ("API overview") and the live OpenAPI at `/api/docs`.
 
 ## AI layer
 
-- SDK: `anthropic` (Python). Model default from settings (`claude-opus-5-5`, per RESEARCH §4.3; admins may pick `claude-sonnet-5-5` for lower cost or `claude-haiku-5-5` for quick triage).
-  Key stored encrypted with `APP_SECRET` (Fernet). Never logged.
+- SDK: `anthropic` (Python). The model is chosen under Settings → AI (default and alternatives per
+  RESEARCH §4.3; `ANTHROPIC_MODEL` is only the fallback). Key stored encrypted with `APP_SECRET` (Fernet).
+  Never logged.
 - **Pre-generation**: free text ("TIP rooms only for medicine; keep pharmacy in C block Mondays;
   no lectures after 17:30 for first-year nursing") → tool-use call `propose_constraints` returning a
   list of typed `Constraint` objects with `hardness`, `weight`, `nl_text`. Admin reviews/accepts.
@@ -182,6 +204,83 @@ Constraint kinds (v1): `capacity`, `no_room_overlap`, `no_cohort_overlap`, `no_i
   structured data as the only source of truth.
 - Always load the `claude-api` skill before editing `app/ai/*`.
 
+## Event bus (booking side)
+
+```
+booking / series / approval change (inside its DB transaction)
+  └─ app/services/events.publish_event(action, entity, items, actor, ...)
+       1. audit.record            -> audit_events row (parent + one child per booking for bulk changes);
+                                     the row id is what POST /audit/{id}/undo targets
+       2. bookings_events (legacy) -> e-mail notifications through notification_outbox, when `notify` names one
+       3. subscribers             -> workers/integrations.on_domain_event, registered for
+                                     booking.*, series.*, approval.*:
+                                       calendar_connectors.queue_bookings  (calendar_sync_jobs outbox)
+                                       webhooks.on_event                   (webhook_deliveries, if enabled)
+```
+
+Actions are the audit action names: `booking.create`, `booking.move`, `booking.update`, `booking.cancel`,
+`booking.restore`, `series.create`, `approval.request`, `approval.step`, `approval.approve`,
+`approval.reject`, `approval.expire`, `approval.withdraw`. Subscribers run after the flush and before the
+commit; a failing subscriber is logged and never propagated, so a broken webhook cannot undo a booking.
+Anything that talks to the outside world only enqueues an outbox row; `app/workers/integrations.py`
+delivers them (retries 1 min, 5 min, 30 min, 2 h, 6 h) and picks up rows left by a previous process on
+start. In-app notifications for approvals are written by `services/approvals.py` into
+`inapp_notifications` (`GET /me/notifications`); approvers and requesters also get e-mail through the
+outbox. Administration tables (users, roles, rooms, ACLs, settings) are audited by a session flush hook,
+with secrets redacted and client networks stored as an HMAC of the /24.
+
+Audit rules: `audit_events` refuses UPDATE and DELETE by trigger (SQLite and PostgreSQL; a future KVKK
+retention job must drop and recreate the trigger in its own migration). Undo is allowed for booking
+create, series create, move and cancel when nothing later changed the same booking, within
+`bookings.audit_undo_hours` (24 h) or before the booking starts, and when the caller holds the permission
+the inverse action needs (`services/bookings_undo.py`).
+
+## Calendar sync
+
+- **Feeds** (`services/calendar_feeds.py`): `GET /api/v1/calendar/feeds/{token}/mine.ics`,
+  `/room/{id}.ics`, `/department/{id}.ics`, `/room-group/{id}.ics`. The token is the credential; only
+  its SHA-256 is stored (`calendar_feed_tokens`), a user may hold several, revoke one or reset all.
+  RFC 5545 output with ETag / 304 and throttling. nginx does not log the feed paths. Links are built from
+  `PUBLIC_URL` (or the admin setting `integrations.public_url`). The older `/ics/{token}/…` links use the
+  same engine.
+- **KVKK switch**: `integrations.calendar_sync_enabled` (default on, with the institution's sign-off of
+  2026-10-08 stored as the default `calendar_sync_signoff`). Off turns every token feed into a 404;
+  switching it records a new sign-off and an audit event.
+- **Push connectors** (`services/calendar_connectors.py`): Google Calendar and Microsoft 365. They are
+  available only after an administrator stores the organisation's OAuth client under
+  `PUT /calendar/admin/settings` (client secrets Fernet-encrypted; none ships with the product, so
+  `configured: false` until then). Per user: PKCE + state, encrypted tokens, calendar choice,
+  create / update / delete through the `calendar_sync_jobs` outbox, refresh and re-auth. Verified against
+  mocked provider APIs; not yet against a live tenant (docs/deploy/calendar-oauth.md).
+- **Webhooks** (`services/webhooks.py`): administrator-registered endpoints with an event list, signed
+  with HMAC-SHA256 over `"<timestamp>.<body>"`, retried, logged, redeliverable, switched off after five
+  failed deliveries in a row (the creator gets an in-app note). `integrations.webhooks_enabled` is off by
+  default because webhooks send data off the server; payloads carry no notes and no e-mail addresses.
+
+## Approvals
+
+`services/approvals.py`, rules in `approval_rules` per room, room group or room type (e.g. TIP, PC),
+approvers designated per user (`approves_for`, `approver_scopes`). A booking or series that matches a
+rule is stored as `PENDING` and the API answers `202`; an optional tentative hold keeps the slot. Steps
+can be multi-stage; lead time is in working days; requests expire. Decisions: approve, reject, reject with
+a suggestion, approve in another room, approve a subset of a series; competing requests for the same
+slot are rejected when one is approved. Every transition is audited and notified (e-mail + in-app).
+Expiry and hold release run lazily on every approvals call and in `workers/approvals_sweeper.py` every
+60 s (not started when `ENVIRONMENT=test`). With no rule, booking behaves as in CRBS.
+
+## Sessions and token revocation
+
+A JWT carries `uid`, the role code and `tv` = `users.token_version` (`core/security.py`). A request whose
+`tv` differs from the user's current version answers 401. `revoke_tokens` raises the version on
+`POST /auth/logout`, an own password change, an administrator setting the password or a reset code,
+disabling the account, a role change and deleting the role. Sign-out therefore ends the user's sessions
+on every device (a deliberate difference from CRBS, CRBS_PARITY row B-AUTH-11). The own password change
+signs the current browser in again with the new password.
+
+Permission changes follow the no-escalation rule (`services/bookings_perms.py`: `may_grant_role`,
+`missing_permissions`): nobody grants a role, manages an account or creates, edits or deletes a role whose
+permissions they do not all hold.
+
 ## Frontend (admin panel)
 
 Next.js App Router, TypeScript strict, Tailwind 4, `motion` (framer-motion) for animated components,
@@ -189,20 +288,52 @@ TanStack Query for data, Zustand for UI state, `@dnd-kit` for drag-drop, `lucide
 Dashboard (utilisation, pending requests, last runs), Import wizard, Rooms (grid/cards, photos),
 Requests inbox, Generate (horizon picker + preference prompt), Timetable (room × period grid, week
 switcher, conflicts highlighted, drag-drop), Run report (scores, diagnoses, fixes), Chat edit panel,
-Settings (API key, model, weights). Fully responsive (phone to 4K), dark mode, Turkish/English i18n.
+Settings (API key, model, weights). Fully responsive (phone to 4K), dark mode. CRBS screens (booking
+grid with the reservation panel, my bookings, admin setup) live under `/bookings`, `/my-bookings` and
+`/admin/*`. 14 languages (`messages/*.json`: the 13 CRBS languages plus Turkish) with per-key English
+fallback and organisation overrides from `GET /org/i18n`.
 
 ## Deployment
 
 `smartsched/deploy/docker-compose.yml`: `db` (postgres:16), `backend` (uvicorn, 2 workers + solver
 worker), `frontend` (next start), `proxy` (nginx), optional `crbs` (php-apache + mysql) profile for the
-legacy app. `deploy.sh` = generate `.env`, build, migrate, seed admin, open browser. Horizontal scaling:
-backend is stateless; solver jobs go through the DB-backed queue so N workers can run.
+legacy app, optional `caddy` TLS edge. `deploy.sh` = generate `.env`, build, migrate, seed admin, wait
+for health. Jobs (solver runs, imports, calendar push, webhooks, the approvals sweep) run inside the
+backend process; with several replicas each job stays in the replica that accepted it, and a dedicated
+worker service is planned (smartsched/deploy/README.md, "Scaling").
+
+The AWS pod (docs/deploy/AWS.md) is one EC2 instance running this stack plus the pod CI, controlled by
+`infra/aws/POD_ACTION` (`up`, `status`, `logs`, `stop`, `start`, `cost`, `down destroy`) through
+`.github/workflows/aws-bootstrap.yml` with a GitHub OIDC role. The pod writes its secrets to SSM itself
+(the administrator password in `/smartsched/admin_password`); a $100 budget action and an idle stop cap
+the cost.
 
 ## Testing & quality gates
 
-- Backend: `pytest` ≥ 90 % on importers/solver; the real Excel fixtures are parsed in CI; solver has
-  synthetic feasibility/infeasibility tests and a "reproduce the human planner" regression (≥ 95 % of
-  definitive rooms satisfiable without hard violations).
-- Frontend: `vitest` + Playwright smoke (login → import → generate → view grid).
-- Lint: `ruff`, `mypy --strict` on solver, `eslint`, `tsc --noEmit`.
-- CI: `.github/workflows/smartsched.yml` runs all of the above on every push.
+- Backend: `make check` (ruff, mypy, pytest without the slow marker) and `make test-slow`; the real Excel
+  fixtures are imported in tests; the solver has feasible / infeasible / soft-weight tests per constraint
+  kind and scale tests behind `SMARTSCHED_SLOW=1`.
+- Planner level: `python -m tools.validate_planner` imports the fixtures, solves Bahar week 3, Güz week 3,
+  the Final exams and the Bahar term like `POST /runs`, and checks each stored run against the raw request
+  rows (`services/planner_check.py`); any unwaived finding fails.
+- CRBS superset gate: `scripts/parity_check.py` runs the API acceptance tests of every inventory row on
+  the real Bahar import and maps UI rows to Playwright titles (docs/CRBS_PARITY.md §9).
+- Frontend: `npm run check` (tsc, eslint, vitest); Playwright specs run only against a real backend
+  (`E2E_REAL=1`; `deploy/pod-ci/gates/e2e-backend-entry.sh` imports the Bahar fixtures, seeds the admin,
+  solves the term and pins the booking clock). There is no mock API.
+
+### Pod CI flow
+
+```
+systemd timer (2 min) -> podci poll -> git ls-remote (token from SSM) -> new head? -> SQLite queue
+worker (one job at a time, flock):
+  prepare -> validate -> backend -> infra -> frontend -> e2e-real -> parity -> planner -> images -> watchdog
+  -> deploy (deploy branch only; every blocking gate green; the commit is still the branch head)
+  -> commit statuses "pod-ci" and "pod-ci/<gate>"; results at /ci/ on the panel
+```
+
+Gate dependencies: `validate`, `backend`, `infra`, `frontend`, `images`, `watchdog` need `prepare`;
+`e2e-real` needs `frontend` and `backend`; `parity` and `planner` need `backend`. `watchdog` is the only
+non-blocking gate. A gate whose dependency failed is reported as an error, never green. Definitions:
+`smartsched/deploy/pod-ci/podci/gates.py`; scripts: `smartsched/deploy/pod-ci/gates/*.sh`.
+`.github/workflows/smartsched.yml` is manual-only.

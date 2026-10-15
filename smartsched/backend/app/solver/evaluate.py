@@ -33,6 +33,9 @@ class Evaluation:
     penalties: dict[str, int] = field(default_factory=dict)  # term -> weighted penalty
     bounds: dict[str, int] = field(default_factory=dict)  # term -> weighted worst case (normalisation)
     soft_structural: frozenset[str] = frozenset()  # structural kinds an explicit constraint made soft
+    #: built-in hard rules this input runs as soft (default or targeted; ``constraints.waived_rules``): their
+    #: breaches are soft penalties, so ``hard_score`` covers the remaining hard rules only (P19-00c)
+    waived: tuple[str, ...] = ()
 
     # ------------------------------------------------------------------ helpers
     def assignment(self, event_id: int) -> Assignment | None:
@@ -96,6 +99,10 @@ class Evaluation:
     # ------------------------------------------------------------------ scores
     def hard_violations(self) -> list[Violation]:
         return [v for v in self.violations if v.hard]
+
+    def waived_violations(self) -> list[Violation]:
+        """Breaches of a waived built-in hard rule (counted as soft penalties, reported as waived)."""
+        return [v for v in self.violations if not v.hard and v.kind in self.waived]
 
     def hard_score(self) -> int:
         hard = self.hard_violations()

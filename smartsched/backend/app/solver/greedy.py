@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Mapping
 
-from app.solver.build import Prepared, hint_assignments
+from app.solver.build import Prepared, hint_assignments, stable_rank
 from app.solver.domains import (
     EventDomain,
     TimeOption,
@@ -23,6 +23,7 @@ from app.solver.domains import (
     weeks_intersect,
 )
 from app.solver.model import Assignment, Event, Room
+from app.solver.policy import clamp_priority
 from app.solver.seats import seat_target
 from app.solver.weights import CAPACITY_WASTE_UNIT, base_weight
 
@@ -96,10 +97,18 @@ def _preferred_set(e: Event, dom: EventDomain, t: TimeOption) -> list[int]:
 def _order(prep: Prepared) -> list[EventDomain]:
     doms = [prep.doms.domain(e.id) for e in prep.inp.events]
 
-    def key(d: EventDomain) -> tuple[int, int, int]:
+    def key(d: EventDomain) -> tuple[int, int, int, int, int]:
         locked = 0 if d.event.locked is not None else 1
         fixed = 0 if d.fixed_time else 1
-        return (locked, fixed, -d.event.size if d.fixed_time else d.option_count())
+        # higher coordinator priority first (relaxation policy); equal keys by a fixed id rank, never by the
+        # input order (no first-come tie-break, policy Q3)
+        return (
+            locked,
+            -clamp_priority(d.event.priority),
+            fixed,
+            -d.event.size if d.fixed_time else d.option_count(),
+            stable_rank(d.event.id, modulus=2**31 - 1),
+        )
 
     return sorted(doms, key=key)
 

@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import time
 import traceback
+from collections import Counter
 from dataclasses import replace
 from typing import Any
 
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
 
+from app.solver import policy
 from app.solver.build import (
     CANONICAL_DETERMINISTIC_S,
     Clock,
@@ -25,6 +27,7 @@ from app.solver.build import (
     stable_rank,
     status_name,
 )
+from app.solver.constraints import effective_constraints, waived_rules
 from app.solver.diagnose import (
     accepted_exceptions,
     diagnose,
@@ -233,6 +236,57 @@ def neighbours_of_options(inp: SolverInput, placed: list[Assignment], e: Event) 
 
 
 def solve(
+    inp: SolverInput,
+    *,
+    _complete: bool = True,
+    _hints: list[Assignment] | None = None,
+    _sweep: bool = True,
+) -> SolverResult:
+    """Solve ``inp``; every result names the built-in hard rules the input runs as soft (P19-00c)."""
+    return report_waived(inp, _solve(inp, _complete=_complete, _hints=_hints, _sweep=_sweep))
+
+
+def report_waived(inp: SolverInput, res: SolverResult) -> SolverResult:
+    """A built-in hard rule (capacity, tags, pins, forbids, fixed times) switched to soft by an explicit
+    constraint is not enforced: its breaches are soft penalties and ``hard_score`` covers the other hard rules
+    only.  Record ``stats.waived_rules`` / ``stats.waived_violations`` and a ``waived_rules`` warning naming
+    the rules and every placed event that breaks one (re-evaluated, never assumed), so no run claims
+    "hard 100" silently."""
+    waived = waived_rules(effective_constraints(inp)[0])
+    if not waived:
+        return res
+    placed = {a.event_id for a in res.assignments}
+    sub = replace(inp, events=tuple(e for e in inp.events if e.id in placed), best_effort=False)
+    breaches = evaluate(sub, res.assignments).waived_violations() if res.assignments else []
+    by_kind = dict(sorted(Counter(v.kind for v in breaches).items()))
+    ids = sorted({i for v in breaches for i in v.event_ids})
+    msg = (
+        f"built-in hard rule(s) run as soft in this run: {', '.join(waived)}; hard score {res.hard_score} covers "
+        "the other hard rules only; "
+        + (
+            f"{len(ids)} placed event(s) break them: " + "; ".join(v.message for v in breaches[:5])
+            if breaches
+            else "no placed event breaks them"
+        )
+    )
+    res.stats["waived_rules"] = waived
+    res.stats["waived_violations"] = by_kind
+    res.diagnoses = [
+        *res.diagnoses,
+        Diagnosis(
+            ids[:200],
+            list(waived),
+            msg,
+            ["switch the rule back to hard to enforce it"],
+            "warning",
+            "waived_rules",
+            {"rules": list(waived), "violations": by_kind, "events": len(ids)},
+        ),
+    ]
+    return res
+
+
+def _solve(
     inp: SolverInput,
     *,
     _complete: bool = True,
@@ -479,9 +533,10 @@ def _best_effort(
     stats.update(prep.stats)
     stats["diagnose_s"] = round(time.perf_counter() - t0 - stats.get("solve_s", 0.0), 3)
     stats["partial_source"] = "relaxation"
-    if len(greedy) > len(placed):
-        # the relaxation timed out or stopped early below the greedy warm start: keep the greedy
-        # placement if it satisfies every hard rule for its events (checked, never assumed)
+    if policy.better(inp, (a.event_id for a in greedy), placed):
+        # the relaxation timed out or stopped early below the greedy warm start (ranked by the relaxation
+        # policy, not by the bare count): keep the greedy placement if it satisfies every hard rule for its
+        # events (checked, never assumed)
         g_sub = replace(inp, events=tuple(e for e in inp.events if e.id in {a.event_id for a in greedy}))
         if not evaluate(g_sub, greedy).hard_violations():
             placed = {a.event_id: a for a in greedy}
@@ -489,6 +544,8 @@ def _best_effort(
             diagnoses = [d for d in diagnoses if d.code not in ("unplaced", "unplaced_summary", "relax_timeout")]
             diagnoses += explain_unplaced(prep, placed, explained)
     unplaced_ids = [e.id for e in inp.events if e.id not in placed]
+    stats["relaxation_policy"] = policy.describe(inp)
+    stats["policy_cost"] = list(policy.cost(inp, placed))
     stats.update(
         partial=True,
         placed=len(placed),

@@ -32,7 +32,36 @@ and testers are read-mostly and may run in `isolation: worktree`.
 4. **Definition of Done per launch**: tests green in scope, ledger updated, no TODOs left silently —
    unfinished items go to `docs/ROADMAP.md` backlog.
 5. **Script**: `scripts/watchdog.py` prints stale ledger entries (> 45 min without update) and failing
-   checks; CI runs it in "report" mode.
+   checks; the pod CI `watchdog` gate runs it in "report" mode (not blocking).
+
+## Agent memory (resume after a session or usage limit)
+
+`scripts/agent_state.py` keeps one entry per subagent in `docs/agents/registry.json` (id, workstream, start
+time, write scope, goal, where it left off, next step) and regenerates `docs/AGENT_STATE.md` from that
+registry, the ledger `docs/PROGRESS.md` and the hand-written sections in `docs/agents/static.md`. Two Claude
+Code hooks in `.claude/settings.json` call it, so the resume guide is current without anyone remembering to
+update it:
+
+| Hook | Command | Effect |
+|---|---|---|
+| `PostToolUse` on `Agent` | `agent_state.py hook-launch` | registers the launched agent and its scope |
+| `SubagentStop` | `agent_state.py hook-stop` | marks it finished and keeps the start of its final message as "left off" |
+
+Hook modes never raise and always exit 0, so they cannot break a tool call. By hand:
+`python3 scripts/agent_state.py render` (regenerate `docs/AGENT_STATE.md`) and
+`python3 scripts/agent_state.py set ID KEY=VALUE …` (edit an entry, e.g. `status` or `next`).
+`docs/AGENT_STATE.md` is generated: edit `docs/agents/static.md` or use `set`, never the file itself.
+
+After a limit or a restart, the orchestrator reads `docs/AGENT_STATE.md` first: the running agents, their
+fences and their last ledger lines tell it which agents to relaunch and with which `next:` line.
+
+## Shared-tree rules (several agents on one branch)
+
+- Commit only your own paths: `git add <paths>` and `git commit -- <paths>`, never `git add -A`; other agents
+  have uncommitted work in the same tree.
+- Before pushing, `git pull --no-rebase origin <branch>`; never force-push.
+- Long-running local stacks use their own work directory and ports so they do not collide with another
+  agent's dev server or e2e backend.
 
 ## Worktree protocol
 

@@ -57,6 +57,7 @@ docker compose --env-file .env run --rm backend python -m app.cli import plannin
 | `/` | frontend | Next.js pages; `/_next/static` cached 1 year (hashed names) |
 | `/api/v1/*` | frontend route handler, then backend | the handler turns the httpOnly cookie into `Authorization: Bearer`; the browser never talks to FastAPI directly |
 | `/api/v1/runs/{id}/events` | same | SSE: `proxy_buffering off`, no upstream gzip, 1 h read timeout |
+| `/api/v1/calendar/feeds/*`, `/api/v1/ics/*` | same | calendar subscription feeds; `access_log off` because the URL holds the feed token |
 | `/api/docs`, `/api/openapi.json` | backend | Swagger UI for operators |
 | `/uploads/rooms/*` | backend StaticFiles | room photos |
 | `/uploads/*` (anything else) | 404 | imported workbooks live in `/uploads/imports/` and FastAPI serves that mount without auth |
@@ -72,6 +73,10 @@ All settings live in `deploy/.env`, created from `.env.example` by `deploy.sh`. 
 - Put comments on their own line. Compose reads `KEY=   # comment` as the value `# comment`.
 - `NEXT_PUBLIC_*` values are inlined at build time. After changing them, run `./deploy.sh --update`.
 - `ADMIN_PASSWORD` only applies on the first start. Changing it later does nothing; change it in the UI.
+- `PUBLIC_URL` is how browsers reach the panel. The backend builds calendar feed links and the Google /
+  Microsoft OAuth redirect URIs from it (an administrator can override it in the integration settings).
+- In production the backend refuses to start with a default, short (< 32 characters) or shared
+  `APP_SECRET` / `JWT_SECRET`, or a placeholder `ADMIN_PASSWORD`. `deploy.sh` generates suitable values.
 - `POSTGRES_PASSWORD` is fixed when the `pgdata` volume is first created. To rotate it, run
   `ALTER USER` inside the DB, then update `.env`.
 - `.env` is `chmod 600` and git-ignored. Back it up together with the database: `APP_SECRET` also
@@ -238,8 +243,17 @@ ranges, so the backend sees the real scheme and client IP.
 
 ## Verification status
 
-`validate.sh` runs on every CI build (YAML, env completeness, no committed secrets, no inline-comment
-values, pinned images, non-root final stages, COPY sources, shellcheck, `nginx -t`,
-`docker compose config` for the base stack and the Caddy override). The CI jobs `docker` (buildx
-build of all three images) and `stack-smoke` (`deploy.sh`, login through nginx, non-root check,
-`--down --volumes`) exercise the real containers.
+`validate.sh` runs in pod CI (gate `validate`): YAML, env completeness, no committed secrets, no
+inline-comment values, pinned images, non-root final stages, COPY sources, shellcheck, `nginx -t`,
+`docker compose config` for the base stack and the Caddy override. The pod CI `images` gate builds all
+three images, and the `deploy` step runs `deploy.sh --update --no-pull --tls` with a health check on the
+pod for the deploy branch ([pod-ci/README.md](pod-ci/README.md)). The manual workflow
+`.github/workflows/smartsched.yml` still has the `docker` (buildx) and `stack-smoke` (`deploy.sh`, login
+through nginx, non-root check, `--down --volumes`) jobs.
+
+## AWS pod
+
+The project's own deployment is one EC2 instance driven by `infra/aws/POD_ACTION` (`up`, `status`,
+`logs`, `stop`, `start`, `cost`, `down destroy`). The pod generates its `.env` and stores the
+administrator password in the SSM SecureString `/smartsched/admin_password`. Setup, costs and the budget
+stop: [docs/deploy/AWS.md](../../docs/deploy/AWS.md).

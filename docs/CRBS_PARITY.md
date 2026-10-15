@@ -322,6 +322,15 @@ Guard = permission checked on the route (role ∪ room ACL where a room is invol
    unset, so it has no permissions until an admin assigns a role).
 10. **`users.role` values** seen by the frontend are now `ADMIN`, `PLANNER`, `VIEWER`, `TEACHER`, `CUSTOM`
     (a custom role) or `NONE` (no role); permissions come from `GET /auth/me` → `permissions[]`.
+11. **Sign-out ends every session of the user** (B-AUTH-11). CRBS destroys one PHP session; a JWT cannot be
+    destroyed, so `POST /auth/logout` raises `users.token_version` and every earlier token answers 401, on every
+    device. A password change or reset, disabling the account, a role change and deleting the role revoke the same
+    way (CRBS keeps other sessions alive). No switch.
+12. **Booking-side additions that CRBS does not have** (rows X-*): the reservation panel, calendar feeds with hashed
+    tokens and an organisation KVKK switch, Google / Microsoft push and signed webhooks (both configured by an
+    administrator; webhooks off by default), typed room features and find-a-room, approvals by designated approvers
+    (CRBS default: no rule, so booking behaves as in CRBS), an append-only audit log with undo, and in-app
+    notifications. See docs/ARCHITECTURE.md ("Event bus", "Calendar sync", "Approvals").
 
 ### 6.1 Switches (audit 2026-10-08, `docs/review/2026-10-08-crbs-parity-audit.md`)
 
@@ -407,7 +416,8 @@ UTF-8 with a BOM; ICS text is RFC 5545-escaped and folded on UTF-8 byte boundari
 The user's requirement: SmartSched has every classroombookings function and more, not less in any way.
 `python3 scripts/parity_check.py` proves it row by row and writes `docs/testing/crbs-parity-report.md`.
 
-* **Inventory** — `smartsched/backend/tests/parity/inventory.py`, 182 rows: 109 CRBS behaviours (§2 features
+* **Inventory** — `smartsched/backend/tests/parity/inventory.py`, 192 rows since the wave-1 and calendar-sync
+  rows were added (182 at the first measurement below): 109 CRBS behaviours (§2 features
   split per behaviour: B-SETUP, B-AUTH, B-USERS, B-ROLES, B-ROOMS, B-SESS, B-BOOK), 7 "more than CRBS" rows (X-*),
   the audit's 16 bugs (BUG-B01..B16), 6 missing items (MISS-1..6), 12 deliberate differences (DIFF-*), the three
   later parts of Phase 18 (P18-*) and the 29 screens of §5 (S-01..S-29). The audit counted 91 behaviours but kept
@@ -416,7 +426,8 @@ The user's requirement: SmartSched has every classroombookings function and more
 * **API column** — the row's tests: existing `tests/test_crbs_*` / `test_import_crbs` / `test_review_security`
   tests referenced by node id (reused, not duplicated) plus `tests/parity/test_parity_*.py` tests marked
   `@pytest.mark.parity("<row>")`, all on the real Bahar 2026 import (`tests/crbs_env`).
-* **UI column** — Playwright titles in `smartsched/frontend/e2e/bookings.spec.ts` / `calendar.spec.ts` (present =
+* **UI column** — Playwright titles in `smartsched/frontend/e2e/bookings.spec.ts` / `calendar.spec.ts` /
+  `admin-gaps.spec.ts` (present =
   `SPEC`; with `--playwright-json` the real results). The specs run against the real backend in pod CI `e2e-real`.
 * **Result** — PASS, FAIL, MISSING (no test and no declared gap, a stale test reference or a vanished UI title) or
   GAP (declared in the inventory with reason, owner and proposed fix). Exit 1 on FAIL / MISSING (`--strict`: GAP
@@ -432,3 +443,25 @@ sign-out not revoking the bearer token (B-AUTH-11 — closed since: `users.token
 password change/reset, disable, role change and role deletion; the UI's sign-out calls it and a password change re-signs
 in transparently; deliberate difference: sign-out ends the user's sessions on every device), the CRBS migration verified on CRBS's own install SQL but not yet on a running MySQL (BUG-B04), and the
 later Phase 18 parts (13 languages — closed since: P18-LANG —, legacy MySQL upgrade, side-by-side diff).
+
+**Measured 2026-10-15 14:58 UTC** (commit `bd0db48`, on a working tree that also held other agents' uncommitted
+studio changes; `python3 scripts/parity_check.py`, UI column static): **192 rows — PASS 172 · GAP 19 · FAIL 1 ·
+MISSING 0**; 157 API tests, 156 passed, in 289 s. Between 2026-10-08 16:27 (PASS 157 · GAP 35) and this run the admin
+and shell UI gaps (commit `62a82db`) and the reservation panel's CRBS booking-screen gaps (`da6f8c8`) moved 16 rows
+out of GAP: 15 now pass, and X-08 now fails (below). The committed `docs/testing/crbs-parity-report.md` still holds the 2026-10-08 16:27 run; the pod CI `parity`
+gate rewrites it on the next green run.
+
+The one FAIL is a stale test, found by this run and present on a clean checkout of `bd0db48` too:
+`tests/test_wave1_migrations.py::test_wave1_upgrade_keeps_checkbox_values_adopts_tags_and_round_trips` asserts that
+the Alembic head is `0015_approvals`, but `0016_course_code_keys` (importer follow-ups) landed after it. The test stops
+at that assertion, so the room-features upgrade path it covers (row X-08) was not exercised. Fix: assert the current
+single head instead of a fixed revision.
+
+The 19 declared gaps:
+
+| Kind | Rows | Proposed fix (from the inventory) |
+|---|---|---|
+| Screen exists, no Playwright step in the inventory | B-SETUP-02 (requirements step on an empty database), B-BOOK-15 / S-06 (multi-booking wizard), B-BOOK-26 / S-09 (cancel many), B-BOOK-29 / S-10 (staff dashboard), X-02 / S-23 (SMTP settings and outbox; the e2e stack has no SMTP server), MISS-1 (UI-only row), X-CAL-01 (calendar links) | add e2e steps; a second, empty backend for B-SETUP-02; an SMTP sink for X-02 / S-23. X-CAL-01 is driven by `e2e/reserve.spec.ts` test 7 since `da6f8c8`, but its inventory entry still says the screens are to be built and names no title: map it to close the row |
+| Wave-1 screens not built yet | X-09 (find-a-room page), X-10 (audit viewer), X-11 (approvals inbox) | the wave-1 frontend, in progress on 2026-10-15 |
+| No settings screen, no live provider test | X-CAL-05 (Google / Microsoft push), X-HOOK-01 (webhooks) | admin screens; a pod smoke test against a real Google Workspace / Entra ID tenant |
+| Legacy CRBS on MySQL | BUG-B04, P18-LEGACY, P18-DIFF | Phase 18 parts 3 and 4: import a running CRBS MySQL on the pod (`--profile legacy`) with a dry-run report, then a side-by-side grid comparison |

@@ -174,6 +174,8 @@ class ConstraintIn(BaseModel):
     source: str = Field(default="ADMIN", pattern="^(" + "|".join(CLIENT_CONSTRAINT_SOURCES) + ")$")
     nl_text: str | None = Field(default=None, max_length=2000)
     enabled: bool = True
+    #: written justification; required (planning.admin only) for a soft untargeted structural rule (D1)
+    reason: str | None = Field(default=None, max_length=1000)
 
 
 class ConstraintUpdate(BaseModel):
@@ -182,6 +184,7 @@ class ConstraintUpdate(BaseModel):
     weight: int | None = Field(default=None, ge=0, le=CONSTRAINT_WEIGHT_MAX)
     nl_text: str | None = Field(default=None, max_length=2000)
     enabled: bool | None = None
+    reason: str | None = Field(default=None, max_length=1000)
 
 
 class ConstraintOut(ORMModel):

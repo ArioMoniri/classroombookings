@@ -221,7 +221,7 @@ function FeatureForm({ feature, onClose }: { feature: Feature | null; onClose: (
     public: f.public,
     icon: f.icon,
     unit: f.type === "NUMBER" ? f.unit.trim() || null : null,
-    solver_tag: f.solver_tag.trim() ? f.solver_tag.trim().toLocaleUpperCase("tr-TR") : null,
+    solver_tag: f.solver_tag.trim() ? f.solver_tag.trim().toUpperCase() : null,
     category: (f.category || null) as FeatureIn["category"],
   });
   const save = async (confirm: boolean) => {

@@ -206,7 +206,7 @@ function RuleForm({ rule, approvers, lookups: l, onClose }: { rule: Rule | null;
     name: f.name.trim() || null,
     entity_type: f.entity_type,
     entity_id: f.entity_type === "tag" ? null : f.entity_id ? Number(f.entity_id) : null,
-    tag: f.entity_type === "tag" ? f.tag.trim().toLocaleUpperCase("tr-TR") || null : null,
+    tag: f.entity_type === "tag" ? f.tag.trim().toUpperCase() || null : null,
     term_id: f.term_id ? Number(f.term_id) : null,
     steps: steps.map((s): StepIn => ({ approvers: s.mode === "users" ? { type: "users", ids: s.ids } : { type: "designated" }, min_approvals: Math.max(1, s.min) })),
     hold_minutes: num(f.hold_minutes, 10080),

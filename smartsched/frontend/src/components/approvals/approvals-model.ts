@@ -92,7 +92,7 @@ export function stepApprovers(step: { approvers: { type: string; ids?: number[] 
 /* -------------------------------------------------------------------------------------- scopes */
 
 export function scopeKey(s: Pick<Scope, "type" | "id" | "tag">): string {
-  return s.type === "all" ? "all" : s.type === "tag" ? `tag:${(s.tag ?? "").toLocaleUpperCase("tr-TR")}` : `${s.type}:${s.id ?? ""}`;
+  return s.type === "all" ? "all" : s.type === "tag" ? `tag:${(s.tag ?? "").toUpperCase()}` : `${s.type}:${s.id ?? ""}`;
 }
 
 /** Adds or removes one scope; "all" replaces everything else (and is replaced by any narrower pick). */
@@ -104,7 +104,7 @@ export function toggleScope(list: Scope[], s: Scope, on: boolean): Scope[] {
   return [...rest.filter((x) => x.type !== "all"), s];
 }
 
-/** Clean scopes for `approves_for` / `PUT /approvals/approvers/{id}`: no duplicates, upper-case tags. */
+/** Clean scopes for `approves_for` / `PUT /approvals/approvers/{id}`: no duplicates, upper-case tags (solver tags are ASCII: TIP, not TİP). */
 export function normaliseScopes(list: Scope[]): { type: Scope["type"]; id?: number | null; tag?: string | null }[] {
   const seen = new Set<string>();
   const out: { type: Scope["type"]; id?: number | null; tag?: string | null }[] = [];
@@ -114,7 +114,7 @@ export function normaliseScopes(list: Scope[]): { type: Scope["type"]; id?: numb
     seen.add(k);
     if (s.type === "all") out.push({ type: "all" });
     else if (s.type === "tag") {
-      if (s.tag?.trim()) out.push({ type: "tag", tag: s.tag.trim().toLocaleUpperCase("tr-TR") });
+      if (s.tag?.trim()) out.push({ type: "tag", tag: s.tag.trim().toUpperCase() });
     } else if (s.id != null) out.push({ type: s.type, id: s.id });
   }
   return out.some((x) => x.type === "all") ? [{ type: "all" }] : out;

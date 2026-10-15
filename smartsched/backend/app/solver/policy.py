@@ -196,7 +196,8 @@ def describe(inp: SolverInput) -> dict[str, Any]:
 #: reason codes of an unplaced request under the policy (README "Relaxation policy"; TR / EN texts in the bridge)
 LOSS_REASONS = (
     "lock_clash_priority",  # two locks hold one room at once: the other lock has the higher priority (Q5)
-    "lock_clash_tie",  # two locks, equal priority: the larger class is kept (then a fixed rank, never row order)
+    "lock_clash_tie",  # two locks, equal priority: more classes / weeks, then the larger class (never row order)
+    "lock_clash_more_locks",  # keeping this lock would drop more locked rows (they have a lower priority)
     "locked_row_kept",  # a trusted locked row holds what this request needs (locks are never moved)
     "lower_priority",  # a request of higher coordinator priority holds it
     "most_classes",  # placing it would leave at least as many other requests out
@@ -224,7 +225,10 @@ def loss_reason(inp: SolverInput, e: Event, competitors: Iterable[int], by_id: M
             hi = [x for x in locks if clamp_priority(x.priority) > clamp_priority(e.priority)]
             if hi:
                 return {**out, "reason": "lock_clash_priority", "winners": ids(hi)}
-            return {**out, "reason": "lock_clash_tie", "winners": ids(locks)}
+            eq = [x for x in locks if clamp_priority(x.priority) == clamp_priority(e.priority)]
+            if eq:
+                return {**out, "reason": "lock_clash_tie", "winners": ids(eq)}
+            return {**out, "reason": "lock_clash_more_locks", "winners": ids(locks)}
         if locks and not trusted_locked(e):
             return {**out, "reason": "locked_row_kept", "winners": ids(locks)}
         if higher:

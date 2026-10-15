@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import replace
+from typing import Any
 
 from app.solver.cpsat import solve
 from app.solver.domains import TimeOption, weeks_intersect
@@ -67,6 +68,8 @@ def repair(
     events are freed too.  Every other event is locked to its current assignment, so the residual
     model is tiny and the stability objective keeps the freed events where they were if possible.
     If the edit is impossible the result is INFEASIBLE with a diagnosis — never a silent relaxation.
+    ``stats["repair"]["moved"]`` lists every event whose placement changed (:func:`moved_diff`); with
+    ``inp.workers == 1`` the solve runs in deterministic time, so the same input gives the same child.
     """
     current = list(assignments)
     by_id = index_assignments(current)
@@ -86,14 +89,40 @@ def repair(
             events.append(e)
     new_inp = replace(inp, events=tuple(events), previous=tuple(current), time_limit_s=time_limit_s)
     result = solve(new_inp)
+    moved = moved_diff(current, result.assignments)
     result.stats["repair"] = {
         "changed": sorted(changed),
         "freed": sorted(free),
         "locked": sum(1 for e in events if e.locked is not None),
         "radius": radius,
         "keep_changed": keep_changed,
+        # P19-S2: what the repair moved, event by event (the changed events' own edit included)
+        "moved": moved,
+        "moved_count": sum(1 for m in moved if m["to"] is not None and m["from"] is not None),
+        "dropped": [m["event_id"] for m in moved if m["to"] is None],
+        # the solver re-evaluated the result (cpsat.solve): a traded hard rule is an ``internal`` error there
+        "hard_violations": sum(1 for v in validate(new_inp, result.assignments) if v.hard) if result.assignments else 0,
     }
     return result
+
+
+def _place(a: Assignment | None) -> dict[str, Any] | None:
+    if a is None:
+        return None
+    return {"day": a.day, "start": a.start, "end": a.end, "room_ids": list(a.room_ids), "weeks": sorted(a.weeks)}
+
+
+def moved_diff(before: Iterable[Assignment], after: Iterable[Assignment]) -> list[dict[str, Any]]:
+    """Events whose placement differs between ``before`` and ``after`` (time, rooms or weeks), sorted by id:
+    ``{"event_id", "from", "to"}`` (``to`` None = no longer placed, ``from`` None = newly placed)."""
+    b = index_assignments(list(before))
+    a = index_assignments(list(after))
+    out: list[dict[str, Any]] = []
+    for eid in sorted(set(b) | set(a)):
+        x, y = b.get(eid), a.get(eid)
+        if _place(x) != _place(y):
+            out.append({"event_id": eid, "from": _place(x), "to": _place(y)})
+    return out
 
 
 def validate(inp: SolverInput, assignments: Iterable[Assignment]) -> list[Violation]:
@@ -107,4 +136,4 @@ def score(inp: SolverInput, assignments: Iterable[Assignment]) -> tuple[int, int
     return ev.hard_score(), ev.soft_score(), dict(sorted(ev.penalties.items()))
 
 
-__all__ = ["Violation", "neighbours", "repair", "score", "validate"]
+__all__ = ["Violation", "moved_diff", "neighbours", "repair", "score", "validate"]

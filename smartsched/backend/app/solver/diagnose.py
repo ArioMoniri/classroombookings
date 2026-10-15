@@ -49,6 +49,7 @@ from app.solver.domains import (
     weeks_intersect,
 )
 from app.solver.model import Assignment, Diagnosis, Event, Room
+from app.solver.policy import clamp_priority, loss_reason, policy_name
 from app.solver.seats import seat_conflicts
 
 # --------------------------------------------------------------------------- helpers
@@ -522,15 +523,36 @@ def _locked_conflicts(prep: Prepared) -> list[Diagnosis]:
                     continue  # seat budget of shared rooms is checked by the model / evaluation
                 seen.add(key)
                 code = prep.doms.rooms_by_id[r].code if r in prep.doms.rooms_by_id else str(r)
+                # policy Q5: never chosen silently — the pre-check names the pair and who a run would keep
+                pa, pb = clamp_priority(ea.priority), clamp_priority(eb.priority)
+                keeps = ea.id if pa > pb else eb.id if pb > pa else None
+                if keeps is not None:
+                    winner = ea if keeps == ea.id else eb
+                    then = f"; a run keeps {_label(winner)} (higher priority) and reports the other"
+                else:
+                    then = (
+                        "; equal priority: a run keeps the one that lets more classes and weeks be placed (then the "
+                        "larger class) and reports the other"
+                    )
                 out.append(
                     Diagnosis(
                         [ea.id, eb.id],
                         ["no_room_overlap", "fixed_time"],
-                        f"locked assignments overlap: {_label(ea)} and {_label(eb)} both hold {code} on day {day} P{p}",
+                        f"locked assignments overlap: {_label(ea)} and {_label(eb)} both hold {code} on day {day} P{p}"
+                        + then,
                         [f"unlock {ea.label} or {eb.label}"],
                         "error",
                         "locked_overlap",
-                        {"rooms": [r], "room_codes": [code], "day": day, "period": p, "shared": False},
+                        {
+                            "rooms": [r],
+                            "room_codes": [code],
+                            "day": day,
+                            "period": p,
+                            "shared": False,
+                            "priorities": {str(ea.id): pa, str(eb.id): pb},
+                            "keeps": keeps,
+                            "policy": policy_name(inp.relaxation_policy),
+                        },
                     )
                 )
     for e, a in locked:
@@ -738,9 +760,12 @@ def explain_event(
     free_options: list[str] = []
     busy_keys: list[tuple[TimeOption, int]] = []  # (time, room) of each busy_rooms entry
     free_by_time: dict[TimeOption, list[int]] = {}
+    competitors: set[int] = set()  # placed events holding a room or key of one of its options (policy reason)
     for t in dom.times:
         clashes = [(k, idx.key_busy(k, t, e.weeks, e.id)) for k in sorted(e.cohort_keys | e.instructor_keys)]
         clashes = [(k, ids) for k, ids in clashes if ids]
+        for _k, ids in clashes:
+            competitors.update(ids)
         if clashes:
             for k, ids in clashes[:2]:
                 kinds["no_cohort_overlap" if k in e.cohort_keys else "no_instructor_overlap"] += 1
@@ -770,6 +795,7 @@ def explain_event(
                 continue
             holders = idx.room_busy(rid, t, e.weeks, e)
             room = doms.rooms_by_id[rid]
+            competitors.update(holders)
             if holders:
                 kinds["no_room_overlap"] += 1
                 names = ", ".join(_label(doms.events_by_id[i]) for i in holders[:2])
@@ -870,9 +896,34 @@ def explain_event(
     }
     if dom.fixed_time:
         params.update(day=dom.times[0].day, start=dom.times[0].start, end=dom.times[0].end)
+    # who won under the relaxation policy and why (run report: "locked row kept", "lower priority than X")
+    policy = loss_reason(prep.inp, e, competitors, doms.events_by_id)
+    params["policy"] = policy
+    if policy["winners"]:
+        msg += " | " + policy_text(policy, [_label(doms.events_by_id[i]) for i in policy["winners"]])
     return Diagnosis(
         [event_id], [k for k, _ in kinds.most_common()] or ["capacity"], msg, suggestions, "error", "unplaced", params
     )
+
+
+def policy_text(policy: dict[str, Any], winners: list[str]) -> str:
+    """English one-liner of a policy loss (the bridge renders the planner's TR / EN texts)."""
+    names = ", ".join(winners[:3]) + (" ..." if len(winners) > 3 else "")
+    reason = policy.get("reason")
+    head = f"policy {policy_name(policy.get('policy'))}: "
+    if reason == "lock_clash_priority":
+        return head + f"lock clash, {names} (higher priority) keeps the room"
+    if reason == "lock_clash_tie":
+        return head + f"lock clash with {names} at equal priority: more classes / weeks, then the larger class"
+    if reason == "lock_clash_more_locks":
+        return head + f"lock clash: keeping it would drop more locked rows ({names})"
+    if reason == "locked_row_kept":
+        return head + f"locked row kept: {names}"
+    if reason == "lower_priority":
+        return head + f"lower priority than {names}"
+    if reason == "most_classes":
+        return head + f"placing it would leave at least as many classes out ({names} kept)"
+    return head + "no option survives the hard rules"
 
 
 def _suggest_from_reasons(prep: Prepared, e: Event, dom: EventDomain) -> list[str]:
@@ -1052,7 +1103,7 @@ def relaxation_diagnosis(
     by_id.update({a.event_id: a for a in hint_assignments(prep.inp)})
     # lowest tier: stay in the warm start's rooms (the greedy hint follows the soft preferences, the
     # relaxation itself has none), so maximising the placement does not scatter the planner's rooms
-    base_objective = ctx.relax_objective  # the placement tiers only (requests, event-weeks, locks)
+    stages = list(ctx.relax_stages) or [ctx.relax_objective]  # the policy's placement tiers (app/solver/policy.py)
     devs = []
     for e in prep.inp.events:
         h = by_id.get(e.id)
@@ -1062,17 +1113,48 @@ def relaxation_diagnosis(
             lit = ctx.room_use(e.id, r)
             if lit is not None and lit is not True:
                 devs.append(1 - lit)
-    if devs and ctx.relax_objective is not None:
-        ctx.relax_objective = (len(devs) + 1) * ctx.relax_objective + sum(devs)
-        ctx.model.Minimize(ctx.relax_objective)
+    if devs:
         stats["relax_hint_terms"] = len(devs)
+    if len(stages) > 1:
+        stats["relax_stages"] = len(stages)
     ctx.add_hints([by_id[e.id] for e in prep.inp.events if e.id in by_id], unplaced_rest=True)
-    solver = make_solver(prep.inp, max(0.5, budget_s))
-    status = solver.Solve(ctx.model)
-    clock.charge(solver)
-    stats["relax_status"] = solver.StatusName(status)
+    #: (expression, value) of every finished stage: the bounds the canonical stage keeps
+    tiers: list[tuple[Any, int]] = []
+    assignments: list[Assignment] = []
+    all_optimal = True
+    status = cp_model.UNKNOWN
+    for k, stage in enumerate(stages):
+        last = k == len(stages) - 1
+        objective = (len(devs) + 1) * stage + sum(devs) if last and devs else stage
+        ctx.model.Minimize(objective)
+        remaining = budget_s - (clock.elapsed() - c0)
+        # earlier stages are usually proven fast (few locks / priority levels); each gets an equal share of what
+        # is left, the last stage everything that remains
+        share = remaining if last else remaining / (len(stages) - k)
+        solver = make_solver(prep.inp, max(0.5, share))
+        status = solver.Solve(ctx.model)
+        clock.charge(solver)
+        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            all_optimal = False
+            break
+        assignments = ctx.extract(solver)
+        all_optimal = all_optimal and status == cp_model.OPTIMAL
+        value = int(round(solver.ObjectiveValue()))
+        if last:
+            # the optimum of the placement tiers (the room-deviation tier is the remainder of the scaled sum)
+            base_value = value // (len(devs) + 1) if devs else value
+            tiers.append((stage, base_value))
+            if devs:  # the warm start's rooms: as close as the optimum (two inequalities, no weighted equality)
+                tiers.append((sum(devs), value - base_value * (len(devs) + 1)))
+        else:
+            # lexicographic stage: keep this tier group at its value (proven or found), then the next one
+            ctx.model.Add(stage <= value)
+            tiers.append((stage, value))
+            ctx.model.ClearHints()
+            ctx.add_hints(assignments, unplaced_rest=True)
+    stats["relax_status"] = solver.StatusName(status) if assignments or status != cp_model.UNKNOWN else "UNKNOWN"
     stats["relax_s"] = round(time.perf_counter() - t0, 3)
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+    if not assignments and status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         return (
             [
                 Diagnosis(
@@ -1087,16 +1169,11 @@ def relaxation_diagnosis(
             stats,
             {},
         )
-    stats["relax_optimal"] = status == cp_model.OPTIMAL
-    assignments = ctx.extract(solver)
-    if status == cp_model.OPTIMAL and ctx.relax_objective is not None:
+    if not all_optimal and status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        stats["relax_status"] = "FEASIBLE"  # an earlier stage's placement is kept (a later one found nothing)
+    stats["relax_optimal"] = all_optimal
+    if all_optimal and tiers:
         remaining = budget_s - (clock.elapsed() - c0)
-        # the optimum of the placement tiers (the room-deviation tier is the remainder of the scaled sum)
-        value = int(round(solver.ObjectiveValue()))
-        base_value = value // (len(devs) + 1) if devs else value
-        tiers = [(base_objective, base_value)]
-        if devs:  # the warm start's rooms: as close as the optimum (two inequalities, no weighted equality)
-            tiers.append((sum(devs), value - base_value * (len(devs) + 1)))
         canon = _canonical_placement(prep, ctx, tiers, assignments, remaining, clock)
         if canon is not None:
             assignments = canon
@@ -1134,25 +1211,26 @@ def _interchangeable(u: Event, p: Event, prep: Prepared, a: Assignment) -> bool:
 def canonical_exchange(prep: Prepared, placed: dict[int, Assignment]) -> int:
     """A cheap, always-sound canonicalisation when the proof-based stage could not finish: an unplaced
     event takes the exact place of a placed event it is interchangeable with (``_interchangeable``) whenever
-    it ranks higher (more students, then a fixed id rank).  Rows listed twice (``ING 302`` 100 vs 90
-    students at one slot) then no longer depend on thread timing.  The placement count, the event-weeks
-    and every hard rule are unchanged.  Returns the number of exchanges (``placed`` is updated in place)."""
+    it ranks higher (higher coordinator priority, then more students, then a fixed id rank).  Rows listed
+    twice (``ING 302`` 100 vs 90 students at one slot) then no longer depend on thread timing.  The
+    placement count, the event-weeks and every hard rule are unchanged.  Returns the number of exchanges
+    (``placed`` is updated in place)."""
     events = prep.doms.events_by_id
     by_slot: dict[tuple[int, int, int], list[int]] = defaultdict(list)
     for eid, a in placed.items():
         by_slot[(a.day, a.start, a.end)].append(eid)
-    unplaced = sorted((e for e in prep.inp.events if e.id not in placed), key=lambda e: -_tie_weight(e))
+    unplaced = sorted((e for e in prep.inp.events if e.id not in placed), key=lambda e: _neg(_tie_key(e)))
     swaps = 0
     for u in unplaced:
         best: int | None = None
         for t in prep.doms.domain(u.id).times:
             for pid in by_slot.get((t.day, t.start, t.end), []):
                 p = events[pid]
-                if pid not in placed or _tie_weight(p) >= _tie_weight(u):
+                if pid not in placed or _tie_key(p) >= _tie_key(u):
                     continue
                 if not _interchangeable(u, p, prep, placed[pid]):
                     continue
-                if best is None or _tie_weight(p) < _tie_weight(events[best]):
+                if best is None or _tie_key(p) < _tie_key(events[best]):
                     best = pid
         if best is None:
             continue
@@ -1166,8 +1244,18 @@ def canonical_exchange(prep: Prepared, placed: dict[int, Assignment]) -> int:
 
 def _tie_weight(e: Event) -> int:
     """Tie-break among maximum placements: keep the event with more students; a fixed pseudo-random
-    rank of the id separates equal sizes."""
+    rank of the id separates equal sizes (never the input order: no first-come tie-break, policy Q3)."""
     return min(e.size, 2000) * 1000 + stable_rank(e.id)
+
+
+def _tie_key(e: Event) -> tuple[int, int]:
+    """Exchange order: the coordinator priority first (an exchange never trades a higher-priority request for a
+    lower one), then :func:`_tie_weight`."""
+    return (clamp_priority(e.priority), _tie_weight(e))
+
+
+def _neg(key: tuple[int, int]) -> tuple[int, int]:
+    return (-key[0], -key[1])
 
 
 def _canonical_placement(
@@ -1313,8 +1401,18 @@ EXCEPTION_CAUSES: dict[str, str] = {
     "outside_pool_overlap": "outside_pool",
     "missing_enrolment": "missing_enrolment",
     "manual_lock": "manual",
+    "waived_rules": "waived",
 }
-CAUSE_ORDER: tuple[str, ...] = ("D1", "D2", "D3", "week_split", "outside_pool", "missing_enrolment", "manual")
+CAUSE_ORDER: tuple[str, ...] = (
+    "D1",
+    "D2",
+    "D3",
+    "week_split",
+    "outside_pool",
+    "missing_enrolment",
+    "manual",
+    "waived",
+)
 CAUSE_TEXT: dict[str, str] = {
     "D1": "planner's room kept although too small / missing a tag",
     "D2": "clashes of two classes fixed at the same time",
@@ -1323,6 +1421,7 @@ CAUSE_TEXT: dict[str, str] = {
     "outside_pool": "overlaps in rooms outside the pool",
     "missing_enrolment": "fallback sizes for missing enrolments",
     "manual": "planner's manual placements",
+    "waived": "built-in hard rules run as soft",
 }
 
 

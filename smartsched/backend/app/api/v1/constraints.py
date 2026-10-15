@@ -6,9 +6,16 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 
 from app.api.deps import DB, Planner, Viewer
-from app.models import ConstraintRow, ScheduleRun, Term
+from app.models import ConstraintRow, ScheduleRun, Term, User
 from app.schemas.runs import ConstraintIn, ConstraintOut, ConstraintUpdate
+from app.services import audit
+from app.services.bookings_perms import load_access
+from app.services.constraint_guard import guard_rule, is_waiver, waiver_ref, without_waiver
+from app.services.events import publish_event
 from app.solver.model import CONSTRAINT_KINDS_V1
+
+#: columns of a constraint row kept in its audit snapshots (review 2026-10-15 D5)
+AUDIT_FIELDS = ("term_id", "run_id", "kind", "params", "hardness", "weight", "source", "nl_text", "enabled")
 
 router = APIRouter(prefix="/constraints", tags=["constraints"])
 
@@ -40,33 +47,102 @@ async def create_constraint(body: ConstraintIn, db: DB, user: Planner) -> Constr
     _validate(body.kind, body.params, body.hardness)
     if body.term_id is not None and await db.get(Term, body.term_id) is None:
         raise HTTPException(404, "term not found")
-    if body.run_id is not None and await db.get(ScheduleRun, body.run_id) is None:
+    run = await db.get(ScheduleRun, body.run_id) if body.run_id is not None else None
+    if body.run_id is not None and run is None:
         raise HTTPException(404, "run not found")
-    row = ConstraintRow(**body.model_dump(), created_by=user.id)
+    waived = await _guard(db, user, body.kind, body.params, body.hardness, body.source, body.reason)
+    row = ConstraintRow(**body.model_dump(exclude={"reason"}), created_by=user.id)
+    if waived:
+        row.source_ref = waiver_ref(None, reason=body.reason or "", actor_id=user.id)
     db.add(row)
+    await db.flush()
+    term_id = body.term_id if body.term_id is not None else (run.term_id if run is not None else None)
+    after = audit.snapshot(row, AUDIT_FIELDS)
+    await publish_event(db, "constraint.create", "constraint", row.id, after=after, actor=user, term_id=term_id)
+    if waived:
+        await _audit_waiver(db, row, user, body.reason, term_id)
     await db.commit()
     await db.refresh(row)
     return row
 
 
 @router.put("/{cid}", response_model=ConstraintOut)
-async def update_constraint(cid: int, body: ConstraintUpdate, db: DB, _: Planner) -> ConstraintRow:
+async def update_constraint(cid: int, body: ConstraintUpdate, db: DB, user: Planner) -> ConstraintRow:
     row = await _editable(db, cid)
-    data = body.model_dump(exclude_unset=True)
+    data = body.model_dump(exclude_unset=True, exclude={"reason"})
     params: dict[str, Any] = data["params"] if data.get("params") is not None else dict(row.params or {})
-    _validate(row.kind, params, data.get("hardness") or row.hardness)
+    hardness = data.get("hardness") or row.hardness
+    _validate(row.kind, params, hardness)
+    enabled = data["enabled"] if data.get("enabled") is not None else row.enabled
+    was_waiver = bool(row.enabled) and is_waiver(row.kind, row.params, row.hardness)
+    becomes_waiver = bool(enabled) and is_waiver(row.kind, params, hardness)
+    # a waiver is (re)decided whenever the rule's reach changes: params, hardness or switching it back on
+    reach_changed = any(data.get(k) is not None for k in ("params", "hardness", "enabled"))
+    waived = False
+    if becomes_waiver and (reach_changed or not was_waiver):
+        waived = await _guard(db, user, row.kind, params, hardness, row.source, body.reason)
+    before = audit.snapshot(row, AUDIT_FIELDS)
     for k, v in data.items():
         setattr(row, k, v)
+    if waived:
+        row.source_ref = waiver_ref(row.source_ref, reason=body.reason or "", actor_id=user.id)
+    elif not becomes_waiver and (row.source_ref or {}).get("waiver"):
+        row.source_ref = without_waiver(row.source_ref)
+    await db.flush()
+    term_id = await _term_of(db, row)
+    after = audit.snapshot(row, AUDIT_FIELDS)
+    await publish_event(
+        db, "constraint.update", "constraint", row.id, before=before, after=after, actor=user, term_id=term_id
+    )
+    if waived:
+        await _audit_waiver(db, row, user, body.reason, term_id)
     await db.commit()
     await db.refresh(row)
     return row
 
 
 @router.delete("/{cid}", status_code=204)
-async def delete_constraint(cid: int, db: DB, _: Planner) -> None:
+async def delete_constraint(cid: int, db: DB, user: Planner) -> None:
     row = await _editable(db, cid)
+    before = audit.snapshot(row, AUDIT_FIELDS)
+    term_id = await _term_of(db, row)
+    await publish_event(db, "constraint.delete", "constraint", row.id, before=before, actor=user, term_id=term_id)
     await db.delete(row)
     await db.commit()
+
+
+async def _guard(
+    db: DB, user: User, kind: str, params: dict[str, Any], hardness: str | None, source: str | None, reason: str | None
+) -> bool:
+    """D1: refuse an untargeted soft structural rule unless a planning admin gives a reason. True = waiver."""
+    if not is_waiver(kind, params, hardness):
+        return False
+    may_waive = "planning.admin" in (await load_access(db, user)).perms
+    issues = guard_rule(kind, params, hardness, source=source, may_waive=may_waive, reason=reason)
+    if issues:
+        raise HTTPException(422, {"message": "structural rule cannot be waived", "issues": issues})
+    return True
+
+
+async def _audit_waiver(db: DB, row: ConstraintRow, user: User, reason: str | None, term_id: int | None) -> None:
+    after = audit.snapshot(row, AUDIT_FIELDS)
+    await audit.record(
+        db,
+        "constraint.waive",
+        "constraint",
+        row.id,
+        after=after,
+        actor=user,
+        reason=(reason or "").strip(),
+        term_id=term_id,
+    )
+
+
+async def _term_of(db: DB, row: ConstraintRow) -> int | None:
+    if row.term_id is not None:
+        return row.term_id
+    run = await db.get(ScheduleRun, row.run_id) if row.run_id is not None else None
+    return run.term_id if run is not None else None
 
 
 def _validate(kind: str, params: dict[str, Any], hardness: str | None) -> None:
