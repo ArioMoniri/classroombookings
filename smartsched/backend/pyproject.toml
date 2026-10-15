@@ -33,6 +33,9 @@ dependencies = [
   "pdfplumber>=0.11",  # PDF tables (text PDFs)
   "pypdfium2>=4.30",  # scanned PDF pages rendered for the vision transcription
   "icalendar>=6.0",  # .ics intake (and the calendar-feed tests)
+  # Microsoft Entra ID sign-in (app/services/sso.py; owner decision 2026-10-15); exact versions in requirements.lock
+  "authlib>=1.9.1,<2",  # OIDC client, PKCE (BSD-3-Clause)
+  "joserfc>=1.6.8,<2",  # ID token / JWKS verification, Authlib's JOSE library (BSD-3-Clause)
 ]
 
 [project.optional-dependencies]

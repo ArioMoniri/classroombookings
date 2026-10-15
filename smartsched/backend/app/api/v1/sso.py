@@ -11,7 +11,7 @@ Signed in: ``GET /me``, ``POST /entra/link`` (password + confirm), ``DELETE /ent
 from __future__ import annotations
 
 from collections.abc import Awaitable
-from typing import Any, TypeVar
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from fastapi.responses import RedirectResponse
@@ -37,10 +37,9 @@ from app.schemas.sso import (
 from app.services import sso as svc
 
 router = APIRouter(prefix="/auth/sso", tags=["sso"])
-T = TypeVar("T")
 
 
-async def _guarded(coro: Awaitable[T]) -> T:
+async def _guarded[T](coro: Awaitable[T]) -> T:
     try:
         return await coro
     except svc.SsoAdminError as exc:

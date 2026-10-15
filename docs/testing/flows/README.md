@@ -130,7 +130,9 @@ export REC_TEACHER=1 REC_LANG=tr
 bash "$SNAP/scripts/record/stack.sh" up          # ≈ 2–4 min: all three terms + room master, prod build
 REC_RUNS="2026-BAHAR:WEEK:3:120 2026-BAHAR:TERM:-:240 2026-GUZ:WEEK:3:120 2026-GUZ:TERM:-:240" \
   bash "$SNAP/scripts/record/stack.sh" runs      # ≈ 15 min: real solver runs; full-term runs are published
-bash "$SCR/flow-seed.sh"                        # §4.4: accounts, link, masking, SMTP sink, approver
+export SMTP_PORT=2526 SINK="$SCR/flow-mail-<persona>"   # one port per tester: 2526 staff, 2527 academician, 2528 admin
+python3 -I "$SCR/smtp_sink.py" "$SMTP_PORT" "$SINK" &      # §4.5; keep it running for the whole round (or start it as a background task)
+bash "$SCR/flow-seed.sh"                        # §4.4: accounts, link, masking, SMTP settings, approver
 bash "$SNAP/scripts/record/stack.sh" snapshot    # every flow then starts from this state in seconds
 ```
 

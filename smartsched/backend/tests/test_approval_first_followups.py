@@ -36,6 +36,7 @@ WED = date(2026, 2, 18)
 APPR = "/api/v1/approvals"
 PREFS = "/api/v1/me/notification-preferences"
 BACKEND = Path(__file__).resolve().parents[1]
+FAKE_SECRET = "s3" + "cr3t-" + "parola"  # a test fake, built so no secret-shaped literal is committed
 
 
 async def _outbox(user_id: int, kind: str | None = None) -> list[NotificationOutbox]:
@@ -113,7 +114,7 @@ async def test_set_setting_writes_through_the_org_settings_validation(env):  # n
         ("bookings.approval_mode", "", "approval_mode"),
         ("org.website", "javascript:alert(1)", "website"),
         ("timezone", "Europe/Ankara", "timezone"),  # unknown zone (Turkey is Europe/Istanbul)
-        ("smtp.password", "s3cr3t-parola", "unknown setting"),  # not whitelisted: secrets are not set here
+        ("smtp.password", FAKE_SECRET, "unknown setting"),  # not whitelisted: secrets are not set here
         ("org.logo_url", "/x.png", "unknown setting"),
         ("bookings.audit_undo_hours", "48", "unknown setting"),  # not in PUT /org/settings either
     ):
@@ -122,7 +123,7 @@ async def test_set_setting_writes_through_the_org_settings_validation(env):  # n
                 await cli.apply_setting(s, key, value)
             except cli.SettingError as exc:
                 assert why in str(exc), (key, str(exc))
-                assert "s3cr3t" not in str(exc)
+                assert FAKE_SECRET not in str(exc) and "cr3t" not in str(exc)
             else:
                 raise AssertionError(f"{key}={value!r} was accepted")
     assert (await c.get("/api/v1/org/settings", headers=env.admin)).json()["approval_mode"] == "all"
@@ -142,9 +143,9 @@ def test_set_setting_command_line(tmp_path: Path) -> None:
     ok = run("bookings.approval_mode", "all")
     assert ok.returncode == 0, ok.stderr
     assert json.loads(ok.stdout) == {"key": "bookings.approval_mode", "value": "all", "changed": True}
-    bad = run("smtp.password", "s3cr3t-parola")
+    bad = run("smtp.password", FAKE_SECRET)
     assert bad.returncode == 2 and "unknown setting" in bad.stderr
-    assert "s3cr3t" not in bad.stdout + bad.stderr
+    assert "cr3t" not in bad.stdout + bad.stderr
     wrong = run("bookings.approval_mode", "hepsi")
     assert wrong.returncode == 2 and "rules" in wrong.stderr and "all" in wrong.stderr
 

@@ -284,14 +284,17 @@ export function DataTable<Row>({
   )
 }
 
-/** Vercel-style status: an 8 px dot + one word; colour is never the only cue (G4). */
-export function StatusDot({ tone, children, className }: { tone: "feasible" | "infeasible" | "warning" | "locked" | "neutral" | "tint"; children: React.ReactNode; className?: string }) {
+/** Vercel-style status: an 8 px dot + one word; colour is never the only cue (G4). `pending` is a hollow ring in
+ *  label-2 ("Davet bekliyor", "Bağlantı bekliyor"; sign-in.md §14): the shape, not a hue, says "not yet". */
+export function StatusDot({ tone, children, className }: { tone: "feasible" | "infeasible" | "warning" | "locked" | "neutral" | "tint" | "pending"; children: React.ReactNode; className?: string }) {
   const dot =
     tone === "neutral"
       ? "bg-label-3"
-      : tone === "tint"
-        ? "bg-tint"
-        : { feasible: "bg-status-feasible-solid", infeasible: "bg-status-infeasible-solid", warning: "bg-status-warning-solid", locked: "bg-status-locked-solid" }[tone]
+      : tone === "pending"
+        ? "bg-transparent shadow-[inset_0_0_0_1.5px_var(--label-2)]"
+        : tone === "tint"
+          ? "bg-tint"
+          : { feasible: "bg-status-feasible-solid", infeasible: "bg-status-infeasible-solid", warning: "bg-status-warning-solid", locked: "bg-status-locked-solid" }[tone]
   return (
     <span data-slot="status-dot" data-tone={tone} className={cn("inline-flex min-w-0 items-center gap-2 type-callout text-label-1", className)}>
       <span aria-hidden className={cn("size-2 shrink-0 rounded-full", dot)} />

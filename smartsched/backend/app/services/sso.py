@@ -121,7 +121,8 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     "not_configured": {
         "tr": "Microsoft 365 ile giriş bu kurulumda etkin değil. Kullanıcı adı ve parolanızla giriş yapın.",
-        "en": "Sign-in with Microsoft 365 is not enabled on this installation. Sign in with your username and password.",
+        "en": "Sign-in with Microsoft 365 is not enabled on this installation. Sign in with your username and "
+        "password.",
     },
     "exchange": {
         "tr": "Microsoft oturum açma işlemi tamamlanamadı. Lütfen yeniden deneyin.",
@@ -493,7 +494,8 @@ async def update_config(db: AsyncSession, actor: User, values: dict[str, Any]) -
                 "no_public_url",
                 "enabling needs the public URL of the panel (PUBLIC_URL or integrations.public_url): the redirect URI "
                 "is built from it",
-                "Etkinleştirmek için panelin genel adresi (PUBLIC_URL) gereklidir: yönlendirme adresi ondan oluşturulur",
+                "Etkinleştirmek için panelin genel adresi (PUBLIC_URL) gereklidir: yönlendirme adresi ondan "
+                "oluşturulur",
             )
     if row.oidc_only_non_admins and await break_glass_admins(db) < 1:
         raise SsoAdminError(
@@ -565,7 +567,9 @@ async def list_mappings(db: AsyncSession) -> list[dict[str, Any]]:
     for m in rows:
         role = await db.get(Role, m.role_id)
         if role is not None:
-            out.append({"id": m.id, "claim": m.claim, "value": m.value, "role": _role_ref(role), "created_at": m.created_at})
+            out.append(
+                {"id": m.id, "claim": m.claim, "value": m.value, "role": _role_ref(role), "created_at": m.created_at}
+            )
     return out
 
 
@@ -640,9 +644,7 @@ async def delete_mapping(db: AsyncSession, actor: User, mapping_id: int) -> None
 
 async def _mapped_role(db: AsyncSession, row: SsoProvider, claims: dict[str, Any]) -> tuple[Role | None, str]:
     """(target role, why) from the mapping, or (None, reason) when the mapping does not apply to this login."""
-    mappings = list(
-        (await db.execute(select(SsoRoleMapping).where(SsoRoleMapping.provider == PROVIDER))).scalars()
-    )
+    mappings = list((await db.execute(select(SsoRoleMapping).where(SsoRoleMapping.provider == PROVIDER))).scalars())
     if not row.role_mapping_enabled or not mappings:
         return None, "mapping off"
     names = claims.get("_claim_names")
@@ -893,9 +895,7 @@ async def start_link(db: AsyncSession, user: User, password: str) -> str:
         raise SsoAdminError(409, "already_linked", MESSAGES["already_linked"]["en"], MESSAGES["already_linked"]["tr"])
     active = await active_client(db)
     if active is None:
-        raise SsoAdminError(
-            409, "not_configured", MESSAGES["not_configured"]["en"], MESSAGES["not_configured"]["tr"]
-        )
+        raise SsoAdminError(409, "not_configured", MESSAGES["not_configured"]["en"], MESSAGES["not_configured"]["tr"])
     return await _authorize(db, active[1], "link", user_id=user.id, return_path=None)
 
 
@@ -930,7 +930,7 @@ async def finish(db: AsyncSession, *, code: str | None, state: str | None, error
     await db.delete(row)  # single use, whatever happens next
     await db.commit()
     if error or not code:
-        return await _fail(db, SsoError("denied" if error or not code else "exchange", str(error or "")), purpose)
+        return await _fail(db, SsoError("denied", str(error or "no code")), purpose)
     active = await active_client(db)
     if active is None:
         return await _fail(db, SsoError("not_configured"), purpose)
@@ -949,9 +949,7 @@ async def finish(db: AsyncSession, *, code: str | None, state: str | None, error
     return await _issue_ticket(db, user, return_path)
 
 
-async def _exchange_and_validate(
-    cfg: EntraClient, code: str, verifier: str, nonce_hash: str | None
-) -> dict[str, Any]:
+async def _exchange_and_validate(cfg: EntraClient, code: str, verifier: str, nonce_hash: str | None) -> dict[str, Any]:
     try:
         async with _oauth(cfg) as client:
             token = await client.fetch_token(
@@ -997,6 +995,9 @@ def _touch(ident: UserIdentity, claims: dict[str, Any]) -> None:
 async def _resolve_login(db: AsyncSession, prov: SsoProvider, cfg: EntraClient, claims: dict[str, Any]) -> User:
     ident = await _find_identity(db, claims)
     user = await db.get(User, ident.user_id) if ident is not None else None
+    if ident is not None and user is None:  # orphan (no FK enforcement): the identity starts over
+        await db.delete(ident)
+        await db.flush()
     if user is None:
         user, ident = await _first_login(db, prov, cfg, claims)
     assert ident is not None
@@ -1363,4 +1364,3 @@ def providers_out(enabled: bool) -> dict[str, Any]:
         ],
         "messages": MESSAGES,
     }
-

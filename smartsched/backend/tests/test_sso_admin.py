@@ -97,7 +97,8 @@ async def test_enabling_needs_tenant_client_secret_and_public_url(client, monkey
     r = await client.put(ADMIN_URL, json={"enabled": True}, headers=admin)
     assert r.status_code == 422 and "tenant" in r.text
     r = await client.put(
-        ADMIN_URL, json={"enabled": True, "tenant_id": TENANT, "client_id": CLIENT_ID, "client_secret": FAKE_SECRET},
+        ADMIN_URL,
+        json={"enabled": True, "tenant_id": TENANT, "client_id": CLIENT_ID, "client_secret": FAKE_SECRET},
         headers=admin,
     )
     assert r.status_code == 422 and "public" in r.text.lower()
@@ -157,8 +158,9 @@ async def test_mapping_never_demotes_the_last_break_glass_admin(sso):  # noqa: F
         headers=sso.admin,
     )
     assert r.status_code == 201, r.text
-    h = await sso.headers(oid="20000000-0000-4000-8000-000000000002", preferred_username="admin@example.com",
-                          roles=["SmartSched.Teacher"])
+    h = await sso.headers(
+        oid="20000000-0000-4000-8000-000000000002", preferred_username="admin@example.com", roles=["SmartSched.Teacher"]
+    )
     assert (await _me(sso, h))["role"] == "ADMIN"  # kept: the last local admin
     assert await _all(AuditEvent, AuditEvent.action == "sso.demotion_blocked")
 
@@ -173,7 +175,8 @@ async def test_role_mapping_promotes_and_demotion_revokes_sessions(sso):  # noqa
     group = "8f3c2a1b-4d5e-4f60-9a7b-1c2d3e4f5a6b"
     assert (await sso.configure(role_mapping_enabled=True)).status_code == 200
     r = await sso.client.post(
-        f"{ADMIN_URL}/mappings", json={"claim": "group", "value": group.upper(), "role_id": planner_id},
+        f"{ADMIN_URL}/mappings",
+        json={"claim": "group", "value": group.upper(), "role_id": planner_id},
         headers=sso.admin,
     )
     assert r.status_code == 201, r.text
@@ -198,7 +201,8 @@ async def test_role_mapping_promotes_and_demotion_revokes_sessions(sso):  # noqa
 async def test_mapping_off_keeps_roles_managed_in_smartsched(sso):  # noqa: F811
     group = "8f3c2a1b-4d5e-4f60-9a7b-1c2d3e4f5a6b"
     r = await sso.client.post(
-        f"{ADMIN_URL}/mappings", json={"claim": "group", "value": group, "role_id": await _role_id("PLANNER")},
+        f"{ADMIN_URL}/mappings",
+        json={"claim": "group", "value": group, "role_id": await _role_id("PLANNER")},
         headers=sso.admin,
     )
     assert r.status_code == 201
@@ -222,8 +226,14 @@ async def test_mapping_to_admin_needs_explicit_allow_and_editor_needs_the_permis
     assert me["role"] == "ADMIN"
     # the switch goes off again: an existing ADMIN mapping no longer grants anything at login
     assert (await sso.configure(allow_admin_mapping=False)).status_code == 200
-    me = await _me(sso, await sso.headers(oid="50000000-0000-4000-8000-000000000006", roles=["SmartSched.Admin"],
-                                          preferred_username="ikinci@uni.edu.tr"))
+    me = await _me(
+        sso,
+        await sso.headers(
+            oid="50000000-0000-4000-8000-000000000006",
+            roles=["SmartSched.Admin"],
+            preferred_username="ikinci@uni.edu.tr",
+        ),
+    )
     assert me["role"] == "TEACHER"
     # a planning admin without setup.roles cannot map to roles they could not grant (no escalation)
     custom = await sso.client.post(
@@ -239,7 +249,8 @@ async def test_mapping_to_admin_needs_explicit_allow_and_editor_needs_the_permis
 
     h = await login(sso.client, "planlama@uni.edu.tr", "parola-1234")
     r = await sso.client.post(
-        f"{ADMIN_URL}/mappings", json={"claim": "role", "value": "Planner", "role_id": await _role_id("PLANNER")},
+        f"{ADMIN_URL}/mappings",
+        json={"claim": "role", "value": "Planner", "role_id": await _role_id("PLANNER")},
         headers=h,
     )
     assert r.status_code == 403, r.text
@@ -288,14 +299,24 @@ async def test_invite_is_not_bound_by_an_unverified_email_claim(sso):  # noqa: F
     assert r.status_code == 201
     invited = r.json()["user_id"]
     # the e-mail claim alone (mutable, not domain-verified) is ignored: no binding, a separate account under the UPN
-    me = await _me(sso, await sso.headers(oid="70000000-0000-4000-8000-000000000007",
-                                          preferred_username="other@uni.edu.tr", email="d.kaya@uni.edu.tr"))
+    me = await _me(
+        sso,
+        await sso.headers(
+            oid="70000000-0000-4000-8000-000000000007", preferred_username="other@uni.edu.tr", email="d.kaya@uni.edu.tr"
+        ),
+    )
     assert me["id"] != invited and me["email"] == "other@uni.edu.tr"
     assert len(await _all(SsoInvite)) == 1
     # an e-mail with the domain-owner-verified flag (optional claim xms_edov) counts
-    me = await _me(sso, await sso.headers(oid="70000000-0000-4000-8000-000000000008",
-                                          preferred_username="other2@uni.edu.tr", email="D.Kaya@uni.edu.tr",
-                                          xms_edov=True))
+    me = await _me(
+        sso,
+        await sso.headers(
+            oid="70000000-0000-4000-8000-000000000008",
+            preferred_username="other2@uni.edu.tr",
+            email="D.Kaya@uni.edu.tr",
+            xms_edov=True,
+        ),
+    )
     assert me["id"] == invited
 
 
@@ -309,8 +330,9 @@ async def test_expired_invite_is_refused(sso):  # noqa: F811
         await s.commit()
     status = (await sso.client.get("/api/v1/auth/sso/admin/user-status", headers=sso.admin)).json()
     assert status[str(r.json()["user_id"])] == "invite_expired"
-    loc = await sso.callback(await sso.start(), oid="80000000-0000-4000-8000-000000000008",
-                             preferred_username="e.demir@uni.edu.tr")
+    loc = await sso.callback(
+        await sso.start(), oid="80000000-0000-4000-8000-000000000008", preferred_username="e.demir@uni.edu.tr"
+    )
     assert error_of(loc) == "invite_expired"
     assert await _all(UserIdentity) == []
 
@@ -318,7 +340,8 @@ async def test_expired_invite_is_refused(sso):  # noqa: F811
 async def test_invite_creation_follows_no_escalation(sso):  # noqa: F811
     _, users_admin = await make_user(sso.client, sso.admin, "kullanici.yonetici@uni.edu.tr", role="TEACHER")
     custom = await sso.client.post(
-        "/api/v1/roles", json={"name": "Kullanıcı Yöneticisi", "permissions": ["setup.users", "room.view"]},
+        "/api/v1/roles",
+        json={"name": "Kullanıcı Yöneticisi", "permissions": ["setup.users", "room.view"]},
         headers=sso.admin,
     )
     uid = (await _one(User, User.email == "kullanici.yonetici@uni.edu.tr")).id
@@ -326,8 +349,9 @@ async def test_invite_creation_follows_no_escalation(sso):  # noqa: F811
     from tests.api_fixtures import login
 
     h = await login(sso.client, "kullanici.yonetici@uni.edu.tr", "parola-1234")
-    r = await sso.client.post("/api/v1/auth/sso/admin/invites", json={"email": "x@uni.edu.tr", "role": "ADMIN"},
-                              headers=h)
+    r = await sso.client.post(
+        "/api/v1/auth/sso/admin/invites", json={"email": "x@uni.edu.tr", "role": "ADMIN"}, headers=h
+    )
     assert r.status_code == 403
     admin_id = (await _one(User, User.email == "admin@example.com")).id
     r = await sso.client.post(f"/api/v1/auth/sso/admin/users/{admin_id}/bind", json={}, headers=h)
@@ -340,8 +364,9 @@ async def test_admin_marks_existing_admin_account_bind_on_next_login(sso):  # no
     uid, _ = await make_user(sso.client, sso.admin, "ikinci.admin@uni.edu.tr", role="ADMIN")
     r = await sso.client.post(f"/api/v1/auth/sso/admin/users/{uid}/bind", json={"days": 7}, headers=sso.admin)
     assert r.status_code == 201 and r.json()["kind"] == "bind", r.text
-    me = await _me(sso, await sso.headers(oid="90000000-0000-4000-8000-000000000009",
-                                          preferred_username="IKINCI.ADMIN@UNI.EDU.TR"))
+    me = await _me(
+        sso, await sso.headers(oid="90000000-0000-4000-8000-000000000009", preferred_username="IKINCI.ADMIN@UNI.EDU.TR")
+    )
     assert me["id"] == uid and me["role"] == "ADMIN"
     r = await sso.client.post(f"/api/v1/auth/sso/admin/users/{uid}/bind", json={}, headers=sso.admin)
     assert r.status_code == 409  # already linked

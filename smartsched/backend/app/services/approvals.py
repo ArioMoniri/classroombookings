@@ -37,6 +37,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import delete, event, select
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.util import await_only
 
@@ -717,11 +718,12 @@ async def notify_approvers(
                 # transaction (the rows it adds are flushed by this commit)
                 await_only(flush_approver_notices(session))
 
-        def _drop(s: Any, *_: Any) -> None:
-            s.info.pop(_APPROVER_QUEUE, None)
+        def _drop(s: Any, transaction: Any) -> None:
+            if transaction.parent is None:  # the root transaction ended (after a commit the queue is empty already)
+                s.info.pop(_APPROVER_QUEUE, None)
 
         event.listen(sync, "before_commit", _before_commit)
-        event.listen(sync, "after_rollback", _drop)
+        event.listen(sync, "after_transaction_end", _drop)
 
 
 async def flush_approver_notices(session: AsyncSession) -> int:
@@ -731,8 +733,8 @@ async def flush_approver_notices(session: AsyncSession) -> int:
     buckets: dict[tuple[Any, int], list[tuple[ApprovalRequest, Room, list[Booking], User]]] = {}
     seen: set[tuple[int, int]] = set()
     for req, room, rows, requester in queue:
-        if not rows or (req.id, req.step) in seen or req.status != PENDING:
-            continue
+        if not sa_inspect(req).persistent or (req.id, req.step) in seen or req.status != PENDING or not rows:
+            continue  # rolled back with a savepoint, already queued, or closed meanwhile
         seen.add((req.id, req.step))
         first = min(rows, key=lambda b: (b.date, b.start_period))
         gid = _group_of(req, first)

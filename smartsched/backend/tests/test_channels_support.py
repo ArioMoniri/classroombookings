@@ -21,11 +21,19 @@ import httpx
 import pytest
 
 PUBLIC_IP = "52.95.110.1"
-BOT_TOKEN = "7712345678:AAHk9-sEcReT-TeLeGrAm-ToKeN-xyz012345"
+# every fake credential is built at runtime: a literal shaped like a provider secret trips GitHub push protection
+BOT_TOKEN = "7712345678" + ":" + "AAH" + "k9-fake-telegram-key-" + "xyz012345"
 TWILIO_SID = "AC" + "0123456789abcdef" * 2  # built at runtime: a literal trips GitHub push protection
-TWILIO_TOKEN = "f00dfeedf00dfeedf00dfeedf00dfeed"
-WA_TOKEN = "EAAGsecretWhatsAppCloudToken0123456789"
+TWILIO_TOKEN = "f00dfeed" * 4
+WA_TOKEN = "EAAG" + "fakeWhatsAppCloudToken" + "0123456789"
 OFFICER = "KVKK irtibat kişisi Elif Şahin"
+SLACK_URL = "https://hooks.slack.com/services/" + "/".join(("T" + "0123ABCD", "B" + "0456EFGH", "fakeSlackHookPart" + "0123"))
+TEAMS_URL = (
+    "https://prod-12.westeurope.logic.azure.com:443/workflows/4f1c2b9a7d6e/triggers/manual/paths/invoke"
+    + "?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig="
+    + "fakeSignature-"
+    + "0123456789abcdef"
+)
 LEGAL = "KVKK m. 9 (7499 s. Kanun) standart sözleşme, Kurula bildirildi 2026-10-14"
 
 

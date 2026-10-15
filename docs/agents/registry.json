@@ -1201,7 +1201,8 @@
       "goal": "design SmartSched's sign-in experience using the Mobbin connector (mcp__Mobbin__search_screens / search_flows / search_sections). The owner explicitly asked for Mobbin. Requirements (owner decisions): - Login methods: - \"Microsoft ile giriş yap\" (the university's Microsoft Entra ID tenant), primary for everyone, admins included - local e-mail/username + password (kept for local and break-glass acc…",
       "ledger": "signin-design-2026-10-15 SCOPE: docs/design/v2/sign-in.md (new) and docs/design/…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 23:05"
     },
     {
       "id": "a1b35b91d37cc0743",
@@ -1221,7 +1222,8 @@
       "goal": "the owner wants the README and the other docs updated dynamically every time things change. Build a deterministic generator that rewrites ONLY marked blocks from the sources of truth, so prose written by people or agents is never clobbered. 1. Marker format, in any markdown file: `<!-- AUTO:<name> -->` … `<!-- /AUTO:<name> -->`. Generated content goes between the markers. The generator is idempote…",
       "ledger": "docs-autosync-2026-10-15 SCOPE: new scripts/docs/** (sync_docs.py + tests), the …",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 23:05"
     },
     {
       "id": "a2f54ad5d7b2bb38e",

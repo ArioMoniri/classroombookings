@@ -18,7 +18,7 @@ from app.services.channels import outbox
 from sqlalchemy import select
 
 from tests.crbs_env import env  # noqa: F401
-from tests.test_channels_support import BOT_TOKEN, drain, enable, enable_telegram, link_telegram, net  # noqa: F401
+from tests.test_channels_support import BOT_TOKEN, TEAMS_URL, drain, enable, enable_telegram, link_telegram, net  # noqa: F401
 
 THU = date(2026, 2, 19)
 APPR = "/api/v1/approvals"
@@ -181,10 +181,7 @@ async def test_department_channel_gets_one_link_only_post_per_new_request_for_it
         await env.user(email, role="ADMIN", firstname=first, lastname="Onaycı", approves_for=[{"type": "all"}], department_id=dept_id)
     _, ayse = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
     await enable(c, env.admin, "teams")
-    url = (
-        "https://prod-12.westeurope.logic.azure.com:443/workflows/4f1c2b9a7d6e/triggers/manual/paths/invoke"
-        "?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=s1GnAtUrE-0123456789abcdef"
-    )
+    url = TEAMS_URL
     assert (await c.put(f"/api/v1/channels/admin/teams/departments/{dept_id}", json={"url": url}, headers=env.admin)).status_code == 200
     r = await env.book(ayse, "A102", THU, "P1")
     assert r.status_code == 202, r.text

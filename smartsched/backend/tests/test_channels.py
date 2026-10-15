@@ -22,6 +22,8 @@ from tests.test_channels_support import (
     LEGAL,
     OFFICER,
     TWILIO_SID,
+    SLACK_URL,
+    TEAMS_URL,
     TWILIO_TOKEN,
     WA_TOKEN,
     drain,
@@ -407,11 +409,6 @@ async def test_unlink_deletes_the_address_and_what_was_waiting_for_it(client, ne
 # Teams / Slack: department channel webhooks through the SSRF guard and the vendor allowlist
 # --------------------------------------------------------------------------------------------------
 
-TEAMS_URL = (
-    "https://prod-12.westeurope.logic.azure.com:443/workflows/4f1c2b9a7d6e/triggers/manual/paths/invoke"
-    "?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=s1GnAtUrE-0123456789abcdef"
-)
-SLACK_URL = "https://hooks.slack.com/services/T0123ABCD/B0456EFGH/sEcReTsLaCkHoOkPaRt0123"
 
 
 async def test_department_webhooks_refuse_urls_outside_the_vendor_allowlist_and_private_addresses(client, net):  # noqa: F811
@@ -452,9 +449,9 @@ async def test_department_webhooks_refuse_urls_outside_the_vendor_allowlist_and_
     assert r.status_code == 200, r.text
     listing = await client.get(f"{ADMIN}/departments", headers=admin)
     assert {(t["kind"], t["department"]) for t in listing.json()} == {("teams", "Psikoloji"), ("slack", "Psikoloji")}
-    assert "sEcReT" not in listing.text and "s1GnAtUrE" not in listing.text
+    assert "fakeSlackHookPart" not in listing.text and "fakeSignature" not in listing.text
     (row,) = [t for t in await _rows(__import__("app.models", fromlist=["x"]).ChannelDepartmentTarget) if t.kind == "slack"]
-    assert "sEcReT" not in row.url_enc
+    assert "fakeSlackHookPart" not in row.url_enc
     assert (await client.delete(f"{ADMIN}/slack/departments/{dept_id}", headers=admin)).status_code == 204
 
 

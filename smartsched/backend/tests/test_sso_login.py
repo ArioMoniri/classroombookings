@@ -165,8 +165,9 @@ async def test_identity_is_oid_not_email(sso):  # noqa: F811
     (ident,) = await _rows(UserIdentity)
     assert ident.email_at_login == "mehmet.ozturk@uni.edu.tr" and ident.display_name == "Mehmet Öztürk"
     # someone else (another oid) presenting the first user's old e-mail is a different person
-    h3 = await sso.headers(oid="33333333-4444-4555-8666-777777777777", preferred_username="x.y@uni.edu.tr",
-                           email="m.ozturk@uni.edu.tr")
+    h3 = await sso.headers(
+        oid="33333333-4444-4555-8666-777777777777", preferred_username="x.y@uni.edu.tr", email="m.ozturk@uni.edu.tr"
+    )
     me3 = (await sso.client.get("/api/v1/auth/me", headers=h3)).json()
     assert me3["id"] != me1["id"]
 
