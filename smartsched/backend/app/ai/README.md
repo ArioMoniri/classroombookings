@@ -64,8 +64,8 @@ file upload ─┘   names only, ids resolved server-side └── review in th
 ## Data written
 
 * `constraints`: `source` = `AI` (prompt/chat) or `UPLOAD` (file); `nl_text` = the originating sentence;
-  upload refs live in `params["_source_ref"]` until the table has a `source_ref` column (solver selectors
-  and `validate_params` ignore keys starting with `_`).
+  upload refs live in the `source_ref` JSON column (`accept_proposals`; a legacy `params["_source_ref"]`
+  sent back by the browser is moved there, and `validate_params` still ignores keys starting with `_`).
 * `chat_messages`: user text; assistant text with `tool_calls` = tool trace, `{"type": "diff", "diff": ..., "applied": <child run id | null>}`
   and `{"type": "usage", "model", "input_tokens", "output_tokens", "cache_*", "estimated_cost_usd"}`.
 * `schedule_runs`: child runs with `parent_run_id`, `prompt_text`, `label`, `stats.mode` (`patch` / `repair` / `full`).

@@ -224,8 +224,9 @@ async def accept_proposals(
 ) -> tuple[list[int], list[dict[str, Any]]]:
     """Persist accepted proposals as ``ConstraintRow`` (source ``AI`` or ``UPLOAD``); returns (ids, rejected).
 
-    The upload reference (``{"file": ..., "row": 12}``) is kept in ``params["_source_ref"]`` until the
-    constraints table gets its own column (solver selectors ignore unknown keys)."""
+    The upload reference (``{"file": ..., "row": 12}``) is stored in the ``constraints.source_ref``
+    column; the solver params stay free of metadata (a stray ``_source_ref`` key sent back by the
+    browser is moved to the column too)."""
     rejected: list[dict[str, Any]] = []
     rows: list[ConstraintRow] = []
     for i, p in enumerate(proposals):
@@ -236,8 +237,8 @@ async def accept_proposals(
             rejected.append({"index": i, "kind": p.kind, "issues": issues})
             continue
         params = dict(p.params)
-        if p.source_ref:
-            params["_source_ref"] = p.source_ref
+        legacy_ref = params.pop("_source_ref", None)
+        source_ref = p.source_ref or (legacy_ref if isinstance(legacy_ref, dict) else None)
         row = ConstraintRow(
             term_id=term_id if run_id is None else None,
             run_id=run_id,
@@ -249,6 +250,7 @@ async def accept_proposals(
             nl_text=(p.nl_text or p.title or "")[:4000] or None,
             enabled=True,
             created_by=user_id,
+            source_ref=source_ref,
         )
         session.add(row)
         rows.append(row)

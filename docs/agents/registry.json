@@ -445,7 +445,8 @@
       "goal": "produce an implementation-ready gap analysis + technical design for the user's new requirements, and a verified list of CRBS features still missing. You are a strict principal engineer. Do not write files; return your full report as your final message (markdown). Verify claims by reading code / running commands (backend: `cd smartsched/backend && .venv/bin/python -m pytest -q -x` is allowed but sl…",
       "ledger": "strict-engineer-analysis-2026-10-15 SCOPE: read-only analysis of /home/user/clas…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 15:13"
     },
     {
       "id": "ad24294ef1180ac4e",
@@ -615,6 +616,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-15 15:06",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a6dfe25ee0bab4589",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:09",
       "left_off": "continue n deploy to pod when green"
     }
   ]

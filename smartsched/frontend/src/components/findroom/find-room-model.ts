@@ -231,6 +231,21 @@ export function slotsFor(grid: Grid, roomId: number, date: string, start: number
 }
 
 /**
+ * A result the backend marked `action: "request"` (P1): the caller may only *request* this room, so the
+ * grid (which offers `book_*.create` cells only) shows those periods as "no permission". Open them for the
+ * sheet as single bookings; the backend turns the POST into a PENDING request (202) or refuses it.
+ */
+export function asRequestable(grid: Grid, roomId: number, date: string, start: number, end: number): Grid {
+  const inSpan = new Set(grid.periods.filter((p) => p.start_period >= start && p.end_period <= end).map((p) => p.id));
+  return {
+    ...grid,
+    slots: grid.slots.map((s) =>
+      s.room_id === roomId && s.date === date && inSpan.has(s.period_id) && s.status === "unavailable" && s.reason === "permissions" ? { ...s, status: "available", reason: null, allow_single: true, allow_recur: false } : s,
+    ),
+  };
+}
+
+/**
  * What the booking sheet opens with: the longest leading run of reservable slots (all of them when the room
  * is free for the whole span). `null` when none of them can be booked from the grid (taken meanwhile, or no
  * right in that room).

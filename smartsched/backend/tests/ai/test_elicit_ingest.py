@@ -167,7 +167,8 @@ async def test_xlsx_upload_yields_proposals_and_section_edits_with_refs(session,
     created, rejected = await accept_proposals(session, seed.term_id, out.proposals)
     assert created and not rejected
     row = await session.get(ConstraintRow, created[0])
-    assert row.source == "UPLOAD" and row.params["_source_ref"]["row"] == 3
+    # the reference lives in the constraints.source_ref column, not in the solver params
+    assert row.source == "UPLOAD" and row.source_ref["row"] == 3 and "_source_ref" not in row.params
 
 
 async def test_docx_upload_and_accept_endpoint(client, fake_sdk):
@@ -216,11 +217,12 @@ async def test_docx_upload_and_accept_endpoint(client, fake_sdk):
     async with get_session_factory()() as s:
         rows = list((await s.execute(select(ConstraintRow).order_by(ConstraintRow.id))).scalars())
         assert [c.source for c in rows] == ["UPLOAD", "UPLOAD"]
-        assert rows[0].params["_source_ref"] == {
+        assert rows[0].source_ref == {
             "file": "notlar.docx",
             "paragraph": 2,
-            "excerpt": rows[0].params["_source_ref"]["excerpt"],
+            "excerpt": rows[0].source_ref["excerpt"],
         }
+        assert all("_source_ref" not in c.params for c in rows)
         mr = (
             await s.execute(select(MeetingRequest).join(Section).where(Section.id == sd.sections["NRS450"]))
         ).scalar_one()
