@@ -145,6 +145,7 @@
   "studio": {
     "title": "Plan oluşturucu",
     "subtitle": "Hangi derslerin nasıl yerleşeceğini adım adım belirleyin, sonra planı oluşturun.",
+    "exportDraft": "Taslağı JSON olarak indir",
     "advanced": "Gelişmiş ayarları göster",
     "redo": "Yinele",
     "undone": "Geri alındı: {label}",

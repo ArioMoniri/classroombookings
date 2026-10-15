@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, CloudOff, Redo2, Undo2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, CloudOff, FileDown, Redo2, Undo2 } from "lucide-react";
 import { motion } from "motion/react";
 import { springs, useReduce } from "@/lib/motion";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -10,7 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/common/page-header";
 import { useActiveTerm } from "@/components/shell/term-switcher";
 import { Button } from "@/components/ui/button";
-import { BusyGlyph } from "@/components/ui/busy-label";
+import { BusyButton, BusyGlyph } from "@/components/ui/busy-label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -21,6 +21,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { CheckStep } from "./check-step";
+import { downloadJson, draftExport, draftFileName } from "./draft-export";
 import { ClassesStep } from "./classes-step";
 import { GenerateButton, GenerateStep } from "./generate-step";
 import { PresetMenu } from "./presets";
@@ -101,6 +102,36 @@ function SaveStatus() {
       </span>
     );
   return null;
+}
+
+/** Advanced: download the saved draft (pending edits are saved first) as versioned JSON. */
+function ExportDraftButton() {
+  const { t } = useI18n();
+  const { store, flush } = useStudio();
+  const [busy, setBusy] = useState(false);
+  return (
+    <BusyButton
+      variant="ghost"
+      size="sm"
+      className="w-full justify-start"
+      busy={busy}
+      busyLabel={t("studio.save.saving")}
+      icon={<FileDown aria-hidden />}
+      data-testid="export-draft"
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await flush();
+          const draft = store.getState().studio.server;
+          if (draft) downloadJson(draftFileName(draft), draftExport(draft));
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {" "}{t("studio.exportDraft")}
+    </BusyButton>
+  );
 }
 
 function UndoRedo({ className }: { className?: string }) {
@@ -326,6 +357,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
                 <Switch checked={advanced} onCheckedChange={setAdvanced} data-testid="advanced-toggle" aria-keyshortcuts="Meta+Shift+A" />
                 {t("studio.advanced")}
               </label>
+              {advanced ? <ExportDraftButton /> : null}
             </div>
           </div>
         </div>

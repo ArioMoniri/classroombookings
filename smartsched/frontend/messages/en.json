@@ -145,6 +145,7 @@
   "studio": {
     "title": "Generator Studio",
     "subtitle": "Decide step by step what to plan and how, then generate the timetable.",
+    "exportDraft": "Export draft as JSON",
     "advanced": "Show advanced",
     "redo": "Redo",
     "undone": "Undone: {label}",
