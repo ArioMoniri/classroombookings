@@ -412,7 +412,7 @@ const h = (v: unknown) => JSON.stringify(v);
 export const hashes = {
   program: (d: Draft) => h([d.program.name.trim(), d.program.facultyId, d.program.evening, d.program.level, d.program.language]),
   course: (c: CourseDraft) => h([normalizeCode(c.code).code, c.name.trim(), c.t, c.u, c.l, c.ects]),
-  section: (d: Draft, c: CourseDraft, s: SectionDraft) => h([d.termId, d.program.id, c.id, s.label, c.year, s.enrolment, c.mode, s.instructors.map((i) => i?.id ?? null)]),
+  section: (d: Draft, c: CourseDraft, s: SectionDraft) => h([d.termId, d.program.id, c.id, s.label, c.year, s.enrolment, c.mode, s.instructors.map((i) => (i ? (i.id ?? `new:${i.name}`) : null))]),
   pattern: (c: CourseDraft, s: SectionDraft) => h([c.t, c.u, c.l, c.pattern, c.room, s.enrolment, s.id]),
   rules: (d: Draft) => h([d.rules.window, d.rules.sameRoom, meetingIds(d)]),
 };

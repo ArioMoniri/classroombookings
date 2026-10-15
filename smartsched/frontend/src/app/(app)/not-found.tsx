@@ -1,8 +1,6 @@
 import { NotFoundView } from "@/components/shell/not-found-view";
-import { localizedTitle } from "@/lib/i18n/server";
 
-export const generateMetadata = localizedTitle("titles.notFound");
-
+/** UI/UX review §3: the 404 inside the shell (sidebar, top bar), left-aligned, with a role-aware home link. */
 export default function AppNotFound() {
   return <NotFoundView inShell />;
 }

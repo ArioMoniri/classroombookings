@@ -835,3 +835,23 @@ New streams get their OWN builder agents and must not interfere with the builder
 | Mobile optimisation (all screens) | a dedicated mobile builder, working per screen against docs/testing/flows/MOBILE.md | per screen, after its current owner finishes |
 | Flow loop | test planner (running) → 3 persona testers → suggester → dedicated loop builders (separate from the roadmap builders) → re-test | after the screen builders above finish |
 Final step: finish all phases and features, stabilise, keep the branches clean (gracious and universal differ only in profile.env; no stray branches or worktrees), deploy.
+
+### Devops agent finished: first full gate table (5d0e6c2) + seed profiles + per-branch pods
+| Gate | Result |
+|---|---|
+| prepare | green |
+| validate | green |
+| infra | green |
+| frontend | green (378 tests) |
+| parity (forced) | PASS 179 / GAP 13 / FAIL 0 |
+| planner (forced) | 0 violations on all 4 |
+| deploy smoke | OK |
+| backend | **red**: a format/lint failure stops it before pytest (now normalize.py:450 E501 → importer). Formatted locally: 1197 passed, 2 AI tests, since fixed on HEAD. |
+| e2e-real (forced) | 72 passed, 1 failed (studio `mapping-step` → design-system agent) |
+| images | did not finish: disk; needs ≥ 8 GB free |
+Done:
+- seed profiles: deploy/seed/seed.py, idempotent with markers, 7 owner files + file-derived rules + learning via the new `python -m app.cli learning-refresh` (added by the orchestrator; smoke: 14,367 observations, re-run 0)
+- the universal profile commit (e8feab2)
+- per-branch AWS pods: `--pod gracious|universal` with separate names, SSM prefix and budget
+Before the first `up pod=universal`: re-apply the OIDC bootstrap once with infra/aws/iam/bootstrap-policy.json (owner action with AWS admin rights; the policy gained /smartsched-universal paths).
+- [ ] Stabilisation needs: a backend gate fully green, the studio e2e fixed, ≥ 8 GB disk for the images gate, and stale ledger rows cleaned (the watchdog gate is report-only).
