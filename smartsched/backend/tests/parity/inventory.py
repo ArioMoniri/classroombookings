@@ -30,6 +30,7 @@ FB = "tests/test_crbs_fixes_bookings.py::"
 FO = "tests/test_crbs_fixes_org.py::"
 TM = "tests/test_crbs_migration.py::"
 IC = "tests/test_import_crbs.py::"
+LU = "tests/test_p18_legacy_upgrade.py::"  # P18-LEGACY on the repo's own CRBS install SQL
 RS = "tests/test_review_security.py::"
 CF = "tests/test_calendar_feeds.py::"
 CC = "tests/test_calendar_connectors.py::"
@@ -1114,8 +1115,7 @@ ROWS: tuple[Row, ...] = (
         IC + "test_import_crbs_fills_the_parity_tables",
         IC + "test_imported_users_log_in_with_their_crbs_passwords",
         IC + "test_install_scripts_load_into_sqlite",
-        gap="verified on CRBS's own install SQL (structure.sql + data.sql) in SQLite, not yet against a running "
-        "classroombookings MySQL: Phase 18 part 3 (pod --profile legacy, dry-run report)",
+        LU + "test_commit_needs_the_reviewed_fingerprint_then_imports_what_was_shown",
     ),
     _r(
         "BUG-B05",
@@ -1330,8 +1330,10 @@ ROWS: tuple[Row, ...] = (
         "constraints, groups/fields, sessions/weeks/holidays, bookings and series) with a dry-run report",
         "Upgrade controller",
         IC + "test_import_crbs_fills_the_parity_tables",
-        gap="Phase 18 part 3: needs the pod's --profile legacy CRBS with a real dump, a dry-run mode on "
-        "POST /imports/crbs and a report diffing counts per table",
+        LU + "test_dry_run_reports_the_diff_and_writes_nothing",
+        LU + "test_commit_needs_the_reviewed_fingerprint_then_imports_what_was_shown",
+        LU + "test_admin_api_dry_run_then_confirm",
+        LU + "test_cli_dry_run_then_commit",
     ),
     _r(
         "P18-DIFF",
