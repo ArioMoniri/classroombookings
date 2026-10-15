@@ -63,7 +63,9 @@ async def test_two_parallel_imports_of_one_term_do_not_overlap(client, tmp_path)
     await get_queue().wait_idle()
     async with get_session_factory()() as s:
         jobs = list((await s.execute(select(ImportJob).where(ImportJob.kind == "planning-list"))).scalars())
-        assert jobs and all(j.status == "DONE" for j in jobs if j.status != "QUEUED"), [(j.status, j.error) for j in jobs]
+        assert jobs and all(j.status == "DONE" for j in jobs if j.status != "QUEUED"), [
+            (j.status, j.error) for j in jobs
+        ]
         assert not any("IntegrityError" in (j.error or "") for j in jobs)
         term = (await s.execute(select(Term).where(Term.code == "2026-BAHAR"))).scalar_one()
         n_meetings = (

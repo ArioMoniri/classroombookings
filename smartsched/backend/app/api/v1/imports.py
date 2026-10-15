@@ -215,13 +215,17 @@ async def import_room_master_endpoint(db: DB, _: RoomsEditor, file: UploadFile =
 
 @router.post("/crbs", response_model=ImportJobOut, status_code=202)
 async def import_crbs_endpoint(
-    db: DB, _: Planner, dsn: str | None = Form(None), files: list[UploadFile] = File(default=[])
+    db: DB, user: Planner, dsn: str | None = Form(None), files: list[UploadFile] = File(default=[])
 ) -> ImportJob:
-    """Either a MySQL DSN (``mysql://user:pass@host/db``) or one or more SQL dump files."""
+    """Either a MySQL DSN (``mysql://user:pass@host/db``) or one or more SQL dump files. A live DSN is for
+    planning admins and allow-listed hosts only (``crbs_dsn.check_dsn``, review D16); dumps never connect."""
     from app.importers.crbs_legacy import import_crbs
+    from app.services import crbs_dsn
 
     if not dsn and not files:
         raise HTTPException(400, "provide a dsn or SQL dump files")
+    if dsn:
+        await crbs_dsn.check_dsn(db, dsn, user)  # 403 / 422 before any job or connection exists
     job = await _new_job(
         db, "crbs", ", ".join(f.filename or "?" for f in files) if files else dsn.split("@")[-1] if dsn else None, None
     )
