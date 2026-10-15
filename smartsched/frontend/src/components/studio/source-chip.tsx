@@ -1,13 +1,13 @@
 "use client";
 
-import { FileSpreadsheet, FileUp, Shield, Sparkles, UserRound, type LucideIcon } from "lucide-react";
+import { BotMessageSquare, FileSpreadsheet, FileUp, Shield, UserRound, type LucideIcon } from "lucide-react";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 export type SourceKind = "FILE" | "ADMIN" | "AI" | "UPLOAD" | "BUILTIN";
 
-const ICON: Record<SourceKind, LucideIcon> = { FILE: FileSpreadsheet, ADMIN: UserRound, AI: Sparkles, UPLOAD: FileUp, BUILTIN: Shield };
+const ICON: Record<SourceKind, LucideIcon> = { FILE: FileSpreadsheet, ADMIN: UserRound, AI: BotMessageSquare, UPLOAD: FileUp, BUILTIN: Shield };
 const KEY: Record<SourceKind, MessageKey> = {
   FILE: "studio.source.FILE",
   ADMIN: "studio.source.ADMIN",

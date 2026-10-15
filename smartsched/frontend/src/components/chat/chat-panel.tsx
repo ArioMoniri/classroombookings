@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Sparkles, Undo2 } from "lucide-react";
+import { MessageSquareText, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -276,7 +276,7 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
   return (
     <section className={cn("glass-regular flex min-h-0 flex-col overflow-hidden rounded-2xl", className)} data-glass="regular" data-testid="chat-panel" aria-label={t("chat.title")}>
       <div className="flex items-center gap-2 px-4 py-3 hairline-b">
-        <Sparkles className="size-4 text-label-2" aria-hidden />
+        <MessageSquareText className="size-4 text-label-2" aria-hidden />
         <h2 className="type-headline text-label-1">{t("chat.title")}</h2>
         {!noKey && settings.data ? <span className="ml-auto truncate type-caption text-label-3">{settings.data.anthropic_model}</span> : null}
       </div>

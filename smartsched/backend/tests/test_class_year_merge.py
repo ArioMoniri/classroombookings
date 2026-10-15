@@ -43,7 +43,9 @@ async def _sections(session, term="T-YEARS"):  # type: ignore[no-untyped-def]
         meetings = list(
             (
                 await session.execute(
-                    select(MeetingRequest).where(MeetingRequest.section_id == sec.id, MeetingRequest.archived.is_(False))
+                    select(MeetingRequest).where(
+                        MeetingRequest.section_id == sec.id, MeetingRequest.archived.is_(False)
+                    )
                 )
             ).scalars()
         )

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Sparkles } from "lucide-react";
+import { AlertTriangle, PenLine, ScanText } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph, busyProps } from "@/components/ui/busy-label";
@@ -71,7 +71,7 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
   return (
     <div className="space-y-2" data-testid="write-it">
       <label htmlFor="studio-write" className="flex items-center gap-1.5 text-sm font-medium">
-        <Sparkles className="size-4 text-label-2" aria-hidden /> {t("studio.write.label")}
+        <PenLine className="size-4 text-label-2" aria-hidden /> {t("studio.write.label")}
       </label>
       <Textarea
         id="studio-write"
@@ -94,7 +94,7 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
       />
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => void analyse()} {...busyProps(busy, !text.trim() || keyMissing)} data-testid="nl-analyse" aria-keyshortcuts="Meta+Enter">
-          {busy ? <BusyGlyph /> : <Sparkles aria-hidden />}
+          {busy ? <BusyGlyph /> : <ScanText aria-hidden />}
           {busy ? t("studio.write.reading") : t("studio.write.analyse")}
         </Button>
         <span id="studio-write-hint" className="text-xs text-label-2">
