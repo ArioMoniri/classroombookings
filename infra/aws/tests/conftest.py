@@ -17,6 +17,15 @@ from awsstub import StubAws
 import smartsched_aws as sa
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_aws_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The caller's AWS session (e.g. an expired AWS_CREDENTIAL_EXPIRATION, AWS_PROFILE) must not leak into
+    the tests: tests that need these variables set them with monkeypatch."""
+    for name in ("AWS_CREDENTIAL_EXPIRATION", "AWS_PROFILE", "AWS_DEFAULT_PROFILE", "AWS_ROLE_ARN",
+                 "AWS_WEB_IDENTITY_TOKEN_FILE", "AWS_CONFIG_FILE", "AWS_SHARED_CREDENTIALS_FILE"):
+        monkeypatch.delenv(name, raising=False)
+
+
 @pytest.fixture
 def aws() -> StubAws:
     return StubAws()
