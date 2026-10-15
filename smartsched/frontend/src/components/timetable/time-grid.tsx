@@ -590,9 +590,18 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
     ensureVisible(c, q);
   };
 
+  /** the class whose chip has focus (a click or a returning inspector focuses it); keys act on it (M-16) */
+  const chipEventOf = (target: EventTarget | null): CalEvent | null => {
+    const el = target instanceof HTMLElement ? target.closest<HTMLElement>('[data-testid="calendar-event"]') : null;
+    if (!el) return null;
+    return events.find((x) => String(x.a.id) === el.dataset.assignmentId && String(x.room) === el.dataset.roomId) ?? null;
+  };
+
   const onGridKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     const meta = e.metaKey || e.ctrlKey;
-    const at = eventAt(cursor.col, cursor.p);
+    const focused = kbMove ? null : chipEventOf(e.target);
+    if (focused && (colOf(focused) !== cursor.col || cursor.p < focused.sp || cursor.p > focused.ep)) setCursor({ col: colOf(focused), p: focused.sp });
+    const at = focused ?? eventAt(cursor.col, cursor.p);
     if (kbMove) {
       const span = kbMove.ev.ep - kbMove.ev.sp;
       let next = kbMove;
@@ -663,7 +672,7 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
       case " ":
         if (at && !readOnly) {
           e.preventDefault();
-          setKbMove({ ev: at, col: cursor.col, sp: at.sp });
+          setKbMove({ ev: at, col: colOf(at), sp: at.sp });
           props.onSelect(at.a.id, "replace");
           props.onAnnounce(t("calendar.drag.pickedUp", { label: at.a.label }));
         }
