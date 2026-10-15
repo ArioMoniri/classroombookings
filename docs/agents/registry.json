@@ -836,7 +836,8 @@
       "ledger": "p19-intake-structured-2026-10-15 SCOPE: smartsched/backend/app/council/** (new f…",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-15 22:12"
+      "finished_at": "2026-10-15 22:33",
+      "left_off": "A leftover wait loop (begj3mh6w) hit its time limit and was stopped. Nothing is lost and there is nothing to re-run: its pgrep condition also matched other agents' pytest processes, so it could never exit on its own. The gate it was waiting for had already finished: `make lint` and `make type` are clean, and `tests/council` + `tests/test_safe_files.py` gave 119 passed, 2 skipped. Those results are…"
     },
     {
       "id": "a744a08f2bd5e9ae9",
@@ -1138,6 +1139,14 @@
       "status": "finished",
       "finished_at": "2026-10-15 22:25",
       "left_off": "deploy to pod when all green"
+    },
+    {
+      "id": "ac7330d9759a13eff",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 22:30",
+      "left_off": "continue all and deploy to pod when green"
     }
   ]
 }

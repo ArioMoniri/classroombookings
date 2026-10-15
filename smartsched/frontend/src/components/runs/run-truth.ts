@@ -54,3 +54,39 @@ export function verdictExceptions(p: { waiver: Waiver; counts: { conflicts: numb
   if (p.lockedTooSmall > 0) out.push({ key: "lockedTooSmall", n: p.lockedTooSmall });
   return out;
 }
+
+export interface ForcedOverride {
+  assignment_ids: number[];
+  rules: string[];
+  conflicts: string[];
+  reason: string;
+  by_name: string | null;
+  at: string | null;
+}
+
+/**
+ * Fields the run summary (`GET /runs/{id}/summary`) added on 2026-10-15: `data_issues.issues` (the planner's data
+ * issues, already folded into the headline) and `stats.forced_overrides` (admin moves that broke a hard rule,
+ * each with its reason). Parsed defensively: the summary schema passes unknown keys through.
+ */
+export function summaryExtras(summary: Record<string, unknown> | null | undefined): { dataIssues: number | null; forcedOverrides: ForcedOverride[] } {
+  const di = summary?.data_issues;
+  const dataIssues = di && typeof di === "object" ? num((di as Record<string, unknown>).issues) : null;
+  const raw = Array.isArray(summary?.forced_overrides) ? (summary.forced_overrides as unknown[]) : [];
+  const forcedOverrides = raw.flatMap((x): ForcedOverride[] => {
+    if (!x || typeof x !== "object") return [];
+    const o = x as Record<string, unknown>;
+    const arr = (v: unknown) => (Array.isArray(v) ? v : []);
+    return [
+      {
+        assignment_ids: arr(o.assignment_ids).map(Number).filter(Number.isFinite),
+        rules: arr(o.rules).map(String),
+        conflicts: arr(o.conflicts).map(String),
+        reason: typeof o.reason === "string" ? o.reason : "",
+        by_name: typeof o.by_name === "string" ? o.by_name : null,
+        at: typeof o.at === "string" ? o.at : null,
+      },
+    ];
+  });
+  return { dataIssues, forcedOverrides };
+}

@@ -43,9 +43,24 @@ describe("Publish a run (admin persona M-03)", () => {
     vi.spyOn(api.runs, "activate").mockRejectedValue(new HttpError(409, "409", { detail: { message: "run cannot be published", issues: ["run 12 is TIMEOUT; only a finished run (FEASIBLE, FEASIBLE_PARTIAL, OPTIMAL) is published"] } }));
     renderButton();
     await userEvent.click(screen.getByRole("button", { name: "Publish" }));
-    await userEvent.click(await screen.findByTestId("publish-confirm"));
+    // a partial run needs the explicit acknowledgement first
+    expect(await screen.findByTestId("publish-confirm")).toBeDisabled();
+    await userEvent.click(screen.getByTestId("publish-partial-ack"));
+    await userEvent.click(screen.getByTestId("publish-confirm"));
     expect(await screen.findByRole("alert")).toHaveTextContent("run 12 is TIMEOUT; only a finished run (FEASIBLE, FEASIBLE_PARTIAL, OPTIMAL) is published");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("409 scope_reduction names the weeks lost and resends with confirm_scope_reduction", async () => {
+    const spy = vi.spyOn(api.runs, "activate")
+      .mockRejectedValueOnce(new HttpError(409, "409", { detail: { code: "scope_reduction", message: "run 12 covers weeks [3, 4] only", weeks_lost: [1, 2, 5], active: { run_id: 7 }, confirm_field: "confirm_scope_reduction" } }))
+      .mockResolvedValueOnce(run({ is_active: true }));
+    renderButton(run({ status: "FEASIBLE", stats: { placed: 683, events_total: 683 } }));
+    await userEvent.click(screen.getByRole("button", { name: "Publish" }));
+    await userEvent.click(await screen.findByTestId("publish-confirm"));
+    expect(await screen.findByTestId("publish-scope-reduction")).toHaveTextContent("#7");
+    await userEvent.click(screen.getByTestId("publish-confirm-reduction"));
+    expect(spy).toHaveBeenLastCalledWith(12, { confirmScopeReduction: true });
   });
 
   it("the published run says so instead of offering to publish", () => {

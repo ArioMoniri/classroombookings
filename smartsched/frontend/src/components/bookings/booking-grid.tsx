@@ -579,6 +579,7 @@ const Cell = memo(function Cell({
         "group/cell relative flex h-11 w-full touch-manipulation flex-col items-start justify-center gap-0.5 overflow-hidden px-1.5 py-1 text-left outline-hidden focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
         TONE_CLASS[tone],
         free && "cursor-pointer",
+        free && slot?.past && "text-label-4 opacity-60", // started: still bookable for administrators, but dim
         muted && "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--label-1)_4%)] text-label-3",
         isSelected && "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_18%)] text-label-1 shadow-[inset_0_0_0_2px_var(--accent)]",
         isSelected && slot?.status === "booked" && "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--status-infeasible-solid)_14%)] shadow-[inset_0_0_0_2px_var(--status-infeasible-solid)]",
@@ -594,10 +595,8 @@ const Cell = memo(function Cell({
         </span>
       ) : free && !isSelected ? (
         <>
-          {/* "Free" at rest; "+ Reserve" on hover / focus (touch has no hover: the cell is one tap) */}
-          <span className="flex items-center gap-1 text-label-3 group-hover/cell:hidden group-focus-visible/cell:hidden print:hidden" data-free-label>
-            {labels.free}
-          </span>
+          {/* UI/UX review §3: a blank cell at rest ("Free" ~100× was noise); "+ Reserve" on hover / focus. The
+              accessible name still says "free, Reserve", and touch needs no hover: the cell is one tap. */}
           <span className="hidden items-center gap-1 font-medium text-tint-text group-hover/cell:flex group-focus-visible/cell:flex print:hidden!">
             <Plus className="size-3 shrink-0 stroke-[2]" aria-hidden />
             {multi ? labels.free : labels.reserve}

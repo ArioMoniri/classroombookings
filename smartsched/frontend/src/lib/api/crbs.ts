@@ -202,6 +202,10 @@ export const GridSlot = z.object({
   allow_single: z.boolean().optional(),
   allow_recur: z.boolean().optional(),
   booking: BookingOut.optional(),
+  /** U-04: the period already started (bookable only for those who may book the past; dimmed) */
+  past: z.boolean().optional(),
+  /** U-06: the viewer's own pending request */
+  pending: z.boolean().optional(),
 });
 export type GridSlot = z.infer<typeof GridSlot>;
 

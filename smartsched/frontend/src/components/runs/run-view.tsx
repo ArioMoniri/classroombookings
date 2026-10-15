@@ -28,13 +28,12 @@ import { DiagnosisCard } from "./diagnosis-card";
 import { groupDiagnoses } from "./diagnosis-format";
 import { IssueGroups, LocalIssueGroups } from "./issue-groups";
 import { isImportBoard, partialCounts, runStatusBadge, useDuration } from "./runs-list";
-import { ScoreRing } from "./score-ring";
 import { SoftBreakdown } from "./soft-breakdown";
 import { usePermissions } from "@/lib/permissions";
 import { CancelRunButton } from "./cancel-run";
 import { MissingWeeks } from "./missing-weeks";
 import { PublishRunButton } from "./publish-run";
-import { runIssueCounts, verdictExceptions, waiverOf, type VerdictException } from "./run-truth";
+import { runIssueCounts, summaryExtras, verdictExceptions, waiverOf, type VerdictException } from "./run-truth";
 import { useCalendarIndex } from "@/lib/api/calendar";
 
 /** Built-in rule names as the planner says them (the solver's codes are English). */
@@ -139,11 +138,7 @@ export function RunView({ id }: { id: number }) {
   const publishedId = termRuns.data?.find((x) => x.is_active && x.kind === r?.kind && x.id !== r?.id)?.id ?? null;
   const summary = useRunSummary(id, finished);
   useRememberRunOnView(r?.term_id, r?.id);
-  // the ring draws and numbers tick only if the run finishes while this page is open (motion.md §3.5)
-  const [sawActive, setSawActive] = useState(false);
   const [allUnplaced, setAllUnplaced] = useState(false);
-  if (active && !sawActive) setSawActive(true);
-  const live = sawActive && finished;
   const sections = useMemo(() => (r ? groupDiagnoses(r.diagnosis, locale) : []), [r, locale]);
   const setTab = (next: string) => {
     const sp = new URLSearchParams(params.toString());
@@ -163,7 +158,9 @@ export function RunView({ id }: { id: number }) {
   const cardCount = (s: typeof unplacedCards) => (s ? [...s.codes.values()].reduce((a, rows) => a + rows.reduce((b, x) => b + x.count, 0), 0) : 0);
   const solverProblems = r.diagnosis.filter((d) => d.code !== "partial" && d.code !== "unplaced_summary").length;
   const dataProblems = issues.data ? issues.data.groups.reduce((a, g) => a + g.items.filter((i) => i.severity !== "info").length, 0) : 0;
-  const problems = Math.max(solverProblems, dataProblems);
+  const extras = summaryExtras(summary.data as Record<string, unknown> | undefined);
+  // the summary's data-issue count (2026-10-15) is the same definition the headline uses
+  const problems = Math.max(solverProblems, dataProblems, extras.dataIssues ?? 0);
   const exceptions = verdictExceptions({
     waiver: waiverOf(r.stats_detail ?? r.stats, r.diagnosis),
     counts: index.data ? runIssueCounts(index.data.assignments) : { conflicts: 0, overCapacity: 0 },
@@ -220,41 +217,60 @@ export function RunView({ id }: { id: number }) {
         </GlassPanel>
       ) : (
         <>
-          <GlassPanel material="regular" radius="2xl" className="p-5 sm:p-6" render={<section aria-label={t("runs.report")} data-testid="run-hero" />}>
-            <div className="grid gap-6 md:grid-cols-[auto_minmax(0,1fr)] xl:grid-cols-[auto_minmax(0,1fr)_minmax(280px,380px)]">
-              <ScoreRing live={live} value={r.hard_score} partial={partial} label={partial ? t("glass.report.placedShort") : r.hard_score === 100 ? t("runs.status.FEASIBLE") : t("runs.status.INFEASIBLE")} />
+          {/* One plain card: the headline sentence, then one KPI row (Vercel H7). The 517/530 ring gauge is gone — it
+              repeated the KPI and the headline (review 2026-10-15 §3 Run report). */}
+          <Card className="gap-0 p-5 sm:p-6" role="region" data-testid="run-hero" aria-label={t("runs.report")}>
+            <div className="grid gap-6 @container/hero xl:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
               <div className="min-w-0">
                 <Verdict r={r} headline={headline} exceptions={exceptions} />
-                <p className="mt-1 type-callout text-label-2">{partial ? t("glass.report.partialHint", { n: n(unplaced) }) : null}</p>
+                {partial ? <p className="mt-1 type-callout text-label-2">{t("glass.report.partialHint", { n: n(unplaced) })}</p> : null}
                 <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
                 {canPlan && finished && r.status !== "CANCELLED" ? (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <PublishRunButton run={r} published={publishedId} exceptions={exceptions} />
                   </div>
                 ) : null}
-                <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 pt-4 hairline-t sm:grid-cols-4">
+                <dl className="mt-5 grid gap-x-6 gap-y-4 pt-4 hairline-t [grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))]">
                   {[
                     { k: t("glass.report.placed"), v: placed, suffix: total ? ` / ${n(total)}` : "" },
                     { k: t("runs.unplaced"), v: unplaced },
                     { k: t("glass.report.problems"), v: problems },
                   ].map((x) => (
-                    <div key={x.k}>
-                      <dt className="type-footnote text-label-3">{x.k}</dt>
-                      <dd className="type-title-2 leading-7 font-semibold tracking-[-0.017em] text-label-1">
+                    <div key={x.k} className="min-w-0">
+                      <dt className="type-footnote text-label-2">{x.k}</dt>
+                      <dd className="flex items-baseline type-kpi text-label-1">
                         <KpiNumber value={x.v} format={(v) => new Intl.NumberFormat(locale).format(v)} />
-                        {x.suffix ? <span className="type-callout font-normal text-label-3">{x.suffix}</span> : null}
+                        {x.suffix ? <span className="type-callout font-normal text-label-2">{x.suffix}</span> : null}
                       </dd>
                     </div>
                   ))}
-                  <div>
-                    <dt className="type-footnote text-label-3">{t("runs.solveTime")}</dt>
-                    <dd className="type-title-2 leading-7 font-semibold tracking-[-0.017em] text-label-1">{duration(r)}</dd>
+                  <div className="min-w-0">
+                    <dt className="type-footnote text-label-2">{t("runs.solveTime")}</dt>
+                    <dd className="type-kpi text-label-1">{duration(r)}</dd>
                   </div>
                 </dl>
+                {extras.forcedOverrides.length ? (
+                  <section className="mt-4 grid gap-1.5 rounded-lg bg-status-warning px-3 py-2" data-testid="forced-overrides" aria-labelledby="forced-title">
+                    <h3 id="forced-title" className="flex items-center gap-1.5 type-callout font-semibold text-status-warning-fg">
+                      <AlertTriangle aria-hidden className="size-4" />
+                      {locale === "tr" ? `${n(extras.forcedOverrides.length)} gerekçeli zorunlu taşıma` : `${n(extras.forcedOverrides.length)} forced move(s) with a reason`}
+                    </h3>
+                    <ul className="grid gap-1 type-footnote text-label-1">
+                      {extras.forcedOverrides.map((o, i) => (
+                        <li key={i}>
+                          <span className="font-medium">{o.reason}</span>
+                          {o.conflicts.length ? <span className="text-label-2"> · {o.conflicts.slice(0, 3).join("; ")}</span> : null}
+                          {o.by_name ? <span className="text-label-2"> · {o.by_name}</span> : null}
+                          {o.at ? <time dateTime={o.at} className="text-label-2"> · {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(o.at))}</time> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
               </div>
-              <SoftBreakdown className="md:col-span-2 xl:col-span-1" score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} />
+              <SoftBreakdown score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} />
             </div>
-          </GlassPanel>
+          </Card>
 
           <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
             <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="min-w-0">

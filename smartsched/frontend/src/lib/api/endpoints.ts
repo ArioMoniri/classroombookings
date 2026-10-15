@@ -206,7 +206,9 @@ export const api = {
       const { messages } = await api.runs.chat(runId);
       return { ok: true, messages };
     },
-    activate: (runId: number) => request(`/runs/${runId}/activate`, { method: "POST", schema: RunOne }),
+    /** `confirmScopeReduction`: resend after a 409 `scope_reduction` (the run covers fewer weeks than the published one). */
+    activate: (runId: number, opts: { confirmScopeReduction?: boolean } = {}) =>
+      request(`/runs/${runId}/activate`, { method: "POST", body: opts.confirmScopeReduction ? { confirm_scope_reduction: true } : undefined, schema: RunOne }),
     /** `POST /runs/{id}/diagnoses/{idx}/apply {option_index}`; 422 = the suggestion has no structured fix. */
     applyFix: (runId: number, diagnosisIndex: number, optionIndex: number, reSolve = true) =>
       request(`/runs/${runId}/diagnoses/${diagnosisIndex}/apply`, { method: "POST", body: { option_index: optionIndex, re_solve: reSolve }, schema: DiagnosisApplyResult }),

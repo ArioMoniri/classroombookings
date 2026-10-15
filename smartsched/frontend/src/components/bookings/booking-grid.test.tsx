@@ -49,11 +49,11 @@ function renderGrid(props: Partial<Parameters<typeof BookingGrid>[0]> = {}) {
 const cellOf = (p: number, room: number) => document.querySelector<HTMLButtonElement>(`button[data-slot-key="${D}|${p}|${room}"]`)!;
 
 describe("BookingGrid reservation affordances", () => {
-  it("free cells say Free at rest and Reserve in their accessible name", () => {
+  it("free cells are blank at rest, show Reserve on hover/focus and say free in their accessible name", () => {
     renderGrid();
     const c = cellOf(1, 1);
-    expect(c.textContent).toContain("Free");
-    expect(c.textContent).toContain("Reserve");
+    expect(c.textContent).not.toContain("Free");
+    expect(c.textContent).toContain("Reserve"); // the hover / focus label (CSS-shown)
     expect(c.getAttribute("aria-label")).toMatch(/free, Reserve/);
   });
 

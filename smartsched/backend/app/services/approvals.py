@@ -14,8 +14,19 @@
 * Approving re-validates everything in one transaction (holiday added since, the timetable, other bookings; the
   unique slot key is the referee): a lost race answers 409 with free alternatives (T1).
 * A request expires ``expires_before_start_minutes`` before the booking starts (default: at the start).
-* The requester and the approvers are notified by e-mail (``notification_outbox``) and in-app
-  (``inapp_notifications``); every transition is audited (P7).
+* The requester and the approvers are notified through :mod:`app.services.notify_dispatch` (in-app
+  ``inapp_notifications`` + the e-mail outbox ``notification_outbox``, per-user channel preferences, once per
+  occurrence, recipient and channel); every transition is audited (P7).
+
+Approval-first bookings (owner requirement 2026-10-15)
+-----------------------------------------------------
+* ``bookings.approval_mode`` = ``rules`` (default; above) or ``all``: every booking request without a rule of its
+  own goes to the approvers first (designated approvers of the room, else the fallback chain). Users holding
+  ``approvals.decide``, ``planning.admin`` or ``bookings.skip_approval`` book directly. A room's own approval rule
+  applies in both modes exactly as before (its steps, hold, lead time, self-approval).
+* A rejection needs a reason: a reason code (:data:`REASON_CODES`) other than ``other``, or a non-blank free text
+  (``other`` needs the text); 422 ``reason_required`` otherwise. Stored on the request and on every decision (per
+  period in group decisions). The requester sees the reason and who decided.
 """
 
 from __future__ import annotations
@@ -47,12 +58,26 @@ from app.models.catalog import Room
 from app.services import audit
 from app.services import bookings as bsvc
 from app.services import bookings_notify as mail
+from app.services import notify_dispatch as nd
 from app.services.bookings_calendar import CalendarError, date_infos, holidays_by_date, term_info
-from app.services.bookings_perms import Access, load_access
+from app.services.bookings_perms import SKIP_APPROVAL, Access, load_access
+from app.services.bookings_settings import get_value
 from app.services.events import publish_event
 
 DECIDE = "approvals.decide"
 APPROVED = "APPROVED"
+MODE_ALL = "all"
+#: structured rejection reasons: code -> (Turkish, English). "other" needs a free text; "slot_taken" is set by the
+#: system when a competing request for the same slot was approved (not accepted from the API).
+REASON_CODES: dict[str, tuple[str, str]] = {
+    "room_unavailable": ("Oda uygun değil", "Room unavailable"),
+    "capacity": ("Kapasite yetersiz", "Not enough seats"),
+    "policy": ("Rezervasyon kurallarına uygun değil", "Against the booking policy"),
+    "other": ("Diğer", "Other"),
+}
+SYSTEM_REASONS: dict[str, tuple[str, str]] = {
+    "slot_taken": ("Aynı saat başka bir talebe verildi", "The slot was given to another request"),
+}
 DEFAULT_STEPS: list[dict[str, Any]] = [{"approvers": {"type": "designated"}, "min_approvals": 1}]
 SCOPE_TYPES = ("all", "room", "room_group", "tag")
 
@@ -253,18 +278,39 @@ def rule_out(rule: ApprovalRule) -> dict[str, Any]:
     }
 
 
+async def approval_mode(session: AsyncSession) -> str:
+    """``bookings.approval_mode``: ``all`` or ``rules`` (anything else reads as ``rules``)."""
+    return MODE_ALL if await get_value(session, "bookings", "approval_mode") == MODE_ALL else "rules"
+
+
+def skips_approval(access: Access) -> bool:
+    """Approvers, planning administrators and holders of ``bookings.skip_approval`` are not sent to the approvers
+    by ``approval_mode = all`` (a room's own rule still applies)."""
+    return access.can(DECIDE) or access.can("planning.admin") or access.can(SKIP_APPROVAL)
+
+
+def mode_snapshot() -> dict[str, Any]:
+    """The snapshot of a request made only because ``approval_mode`` is ``all`` (no rule of its own)."""
+    return {**rule_snapshot(None), "source": "approval_mode"}
+
+
 class RulesIndex:
     """The active rules, loaded once per request; the most specific rule wins (room > room group > room type),
-    a rule of the booking's term before a rule of every term."""
+    a rule of the booking's term before a rule of every term. ``mode``: ``bookings.approval_mode``."""
 
-    def __init__(self, rules: list[ApprovalRule]) -> None:
+    def __init__(self, rules: list[ApprovalRule], mode: str = "rules") -> None:
         self.rules = rules
+        self.mode = mode
         self._approvers: dict[int, bool] = {}
 
     @classmethod
     async def load(cls, session: AsyncSession) -> RulesIndex:
         q = select(ApprovalRule).where(ApprovalRule.active.is_(True)).order_by(ApprovalRule.id)
-        return cls(list((await session.execute(q)).scalars()))
+        return cls(list((await session.execute(q)).scalars()), await approval_mode(session))
+
+    def mode_requires(self, access: Access, create: bool, request: bool) -> bool:
+        """``approval_mode = all`` sends this booking (no rule of its own) to the approvers."""
+        return self.mode == MODE_ALL and (create or request) and not skips_approval(access)
 
     def rule_for(self, room: Room, term_id: int | None) -> ApprovalRule | None:
         def applies(r: ApprovalRule) -> int | None:
@@ -289,6 +335,8 @@ class RulesIndex:
         request = access.can("book_single.request", room)
         rule = self.rule_for(room, term_id)
         if rule is None:
+            if self.mode_requires(access, create, request):
+                return "request"
             if create:
                 return "book"
             if request:
@@ -384,6 +432,10 @@ async def need_for(session: AsyncSession, access: Access, room: Room, kind: str,
     rule = rules.rule_for(room, term_id)
     word = "single" if kind == "book_single" else "recurring"
     if rule is None:
+        if rules.mode_requires(access, create, request):
+            # every request is approved first; step_approvers falls back to the approvers of every room, the room
+            # owner, then the Administrators, so the request is never orphaned
+            return Need(None, mode_snapshot())
         if create:
             return None
         if request:
@@ -491,23 +543,62 @@ async def open_request(
         actor=access.user,
         term_id=first.term_id,
     )
-    await _notify_approvers(session, req, room, first, access.user)
+    await notify_approvers(session, req, room, bookings, access.user)
     return req
 
 
 # --------------------------------------------------------------------------------------------------
-# Notifications (e-mail outbox + in-app)
+# Notifications (app.services.notify_dispatch: in-app + e-mail outbox, per-user preferences, idempotent)
 # --------------------------------------------------------------------------------------------------
 
 
-async def _describe(session: AsyncSession, b: Booking, room: Room) -> str:
-    period = await session.get(BookingPeriod, b.period_id)
-    times = f"{period.time_start:%H:%M}-{period.time_end:%H:%M}" if period else f"P{b.start_period}-P{b.end_period}"
-    return f"{room.display_name}, {b.date:%d.%m.%Y} {period.name if period else ''} {times}".replace("  ", " ")
+def _hm(t: Any) -> str:
+    return f"{t:%H:%M}" if t is not None else ""
+
+
+async def summary(session: AsyncSession, room: Room, rows: list[Booking]) -> tuple[str, dict[str, Any]]:
+    """``A 201, 18.02.2026 P3-P5 10:10-12:30`` and the structured facts (room, dates, periods) of ``rows``."""
+    rows = sorted(rows, key=lambda b: (b.date, b.start_period, b.id))
+    dates = sorted({b.date for b in rows})
+    seen: dict[tuple[int, int], dict[str, Any]] = {}
+    for b in rows:
+        if (b.start_period, b.end_period) in seen:
+            continue
+        p = await session.get(BookingPeriod, b.period_id)
+        seen[(b.start_period, b.end_period)] = {
+            "name": p.name if p else f"P{b.start_period}",
+            "start": _hm(p.time_start) if p else "",
+            "end": _hm(p.time_end) if p else "",
+            "start_period": b.start_period,
+            "end_period": b.end_period,
+        }
+    periods = [seen[k] for k in sorted(seen)]
+    contiguous = all(b["start_period"] == a["end_period"] + 1 for a, b in zip(periods, periods[1:], strict=False))
+    if len(periods) == 1:
+        span = f"{periods[0]['name']} {periods[0]['start']}-{periods[0]['end']}"
+    elif periods and contiguous:
+        span = f"{periods[0]['name']}-{periods[-1]['name']} {periods[0]['start']}-{periods[-1]['end']}"
+    else:
+        span = ", ".join(f"{p['name']} {p['start']}-{p['end']}" for p in periods)
+    if len(dates) == 1:
+        when = f"{dates[0]:%d.%m.%Y}"
+    elif dates:
+        when = f"{dates[0]:%d.%m.%Y} - {dates[-1]:%d.%m.%Y} ({len(dates)} tarih / dates)"
+    else:
+        when = ""
+    what = f"{room.display_name}, {when} {span.replace('  ', ' ').strip()}".strip().rstrip(",")
+    data = {
+        "room_id": room.id,
+        "room": room.display_name,
+        "dates": [d.isoformat() for d in dates],
+        "periods": periods,
+        "booking_ids": [b.id for b in rows],
+    }
+    return what, data
 
 
 TEXTS: dict[str, dict[str, tuple[str, str]]] = {
-    # kind -> language -> (title, body); placeholders: who, what, note, alt
+    # kind -> language -> (title, body); placeholders: who, what, note, alt, reason
     "approval.requested": {
         "tr": ("Onay bekleyen oda talebi: {what}", "{who} şu oda için onay istiyor: {what}.{note}"),
         "en": ("Room request awaiting approval: {what}", "{who} asks for approval: {what}.{note}"),
@@ -517,90 +608,187 @@ TEXTS: dict[str, dict[str, tuple[str, str]]] = {
         "en": ("Your room request was approved: {what}", "{who} approved your request: {what}.{note}"),
     },
     "approval.rejected": {
-        "tr": ("Oda talebiniz reddedildi: {what}", "{who} talebinizi reddetti: {what}.{note}{alt}"),
-        "en": ("Your room request was declined: {what}", "{who} declined your request: {what}.{note}{alt}"),
+        "tr": ("Oda talebiniz reddedildi: {what}", "{who} talebinizi reddetti: {what}.\nGerekçe: {reason}{alt}"),
+        "en": ("Your room request was declined: {what}", "{who} declined your request: {what}.\nReason: {reason}{alt}"),
+    },
+    "approval.withdrawn": {
+        "tr": ("Oda talebinizi geri çektiniz: {what}", "Talebiniz geri çekildi: {what}."),
+        "en": ("You withdrew your room request: {what}", "Your request was withdrawn: {what}."),
     },
     "approval.expired": {
         "tr": ("Oda talebinizin süresi doldu: {what}", "Talebiniz başlangıçtan önce onaylanmadı: {what}.{note}"),
         "en": ("Your room request expired: {what}", "Your request was not approved before it started: {what}.{note}"),
     },
 }
+DECISION_OF = {
+    "approval.approved": "approved",
+    "approval.rejected": "rejected",
+    "approval.withdrawn": "withdrawn",
+    "approval.expired": "expired",
+}
 
 
-async def _send(
-    session: AsyncSession, user: User, kind: str, link: str, b: Booking | None, req: ApprovalRequest, **fmt: str
-) -> None:
+def reason_label(code: str | None, lang: str) -> str | None:
+    pair = REASON_CODES.get(code or "") or SYSTEM_REASONS.get(code or "")
+    if pair is None:
+        return None
+    return pair[0] if lang == "tr" else pair[1]
+
+
+def reason_both(code: str | None) -> str | None:
+    """``Kapasite yetersiz / not enough seats``: the code in both languages (stored where one text is needed)."""
+    pair = REASON_CODES.get(code or "") or SYSTEM_REASONS.get(code or "")
+    return f"{pair[0]} / {pair[1][:1].lower()}{pair[1][1:]}" if pair else None
+
+
+def reason_text(code: str | None, note: str | None, lang: str) -> str:
+    """What the requester reads after "Gerekçe / Reason:" -- the code's label and the free text."""
+    label = reason_label(code, lang)
+    if code in SYSTEM_REASONS or not note:
+        return label or note or "-"
+    return f"{label}: {note}" if label and code != "other" else note
+
+
+def check_reason(code: str | None, text: str | None) -> tuple[str | None, str | None]:
+    """A rejection's reason, normalised (NBSP, whitespace): ``(code, text)``; 422 when there is none."""
+    clean = n.clean_text(text) if text else None
+    code = (n.clean_text(code) or "").lower() or None if code is not None else None
+    if code is not None and code not in REASON_CODES:
+        raise _err(
+            422,
+            "reason_code",
+            f"reason_code must be one of {', '.join(REASON_CODES)}",
+            f"gerekçe kodu şunlardan biri olmalı: {', '.join(REASON_CODES)}",
+        )
+    if clean is None and (code is None or code == "other"):
+        raise _err(
+            422,
+            "reason_required",
+            "a rejection needs a reason: pick a reason code or write why (required for 'other')",
+            "reddetmek için bir gerekçe gerekir: bir gerekçe seçin ya da nedenini yazın ('diğer' için zorunlu)",
+            reason_codes=list(REASON_CODES),
+        )
+    return code, clean
+
+
+async def _render(session: AsyncSession, user: User, kind: str, **fmt: str) -> tuple[str, str, str]:
     lang = await mail._language(session, user)
     title_t, body_t = TEXTS[kind]["tr" if lang == "tr" else "en"]
-    title, body = title_t.format(**fmt), body_t.format(**fmt)
-    session.add(
-        InAppNotification(
-            user_id=user.id,
-            kind=kind,
-            title=title[:255],
-            body=body,
-            link=link,
-            booking_id=b.id if b else None,
-            request_id=req.id,
-        )
-    )
-    await mail.notify(
-        session,
-        kind=kind.replace(".", "_")[:32],
-        to_email=user.email,
-        subject=title,
-        body=body,
-        user_id=user.id,
-        booking_id=b.id if b else None,
-    )
+    return title_t.format(**fmt), body_t.format(**fmt), lang
 
 
-async def _notify_approvers(
-    session: AsyncSession, req: ApprovalRequest, room: Room, b: Booking, requester: User
+def _person(u: User | None) -> dict[str, Any] | None:
+    return {"id": u.id, "name": audit.user_label(u)} if u is not None else None
+
+
+async def notify_approvers(
+    session: AsyncSession, req: ApprovalRequest, room: Room, rows: list[Booking], requester: User
 ) -> None:
-    what = await _describe(session, b, room)
+    """``approval.requested`` to the approvers of the request's current step (not to the requester)."""
+    what, base = await summary(session, room, rows)
+    first = min(rows, key=lambda b: (b.date, b.start_period))
     for u in await step_approvers(session, room, req.rule_snapshot or {}, req.step):
         if u.id == requester.id:
             continue
-        await _send(
+        title, body, _lang = await _render(
+            session, u, "approval.requested", who=audit.user_label(requester) or "-", what=what, note=""
+        )
+        await nd.dispatch(
             session,
             u,
-            "approval.requested",
-            f"/approvals?request={req.id}",
-            b,
-            req,
-            who=audit.user_label(requester) or "-",
-            what=what,
-            note="",
-            alt="",
+            nd.Notice(
+                event="approval.requested",
+                key=f"approval_request:{req.id}:requested:{req.step}",
+                title=title,
+                body=body,
+                link=f"/approvals?request={req.id}",
+                booking_id=first.id,
+                request_id=req.id,
+                data={
+                    **base,
+                    "request_id": req.id,
+                    "series_id": req.series_id,
+                    "group_id": first.multi_booking_id if req.series_id is None else None,
+                    "step": req.step,
+                    "decision": "requested",
+                    "requester": _person(requester),
+                    "source": (req.rule_snapshot or {}).get("source") or "rule",
+                },
+            ),
         )
 
 
-async def _notify_requester(
-    session: AsyncSession, req: ApprovalRequest, kind: str, actor: User | None, alt: str = ""
+async def notify_requester(
+    session: AsyncSession,
+    req: ApprovalRequest,
+    kind: str,
+    actor: User | None,
+    alt: str = "",
+    *,
+    group: list[ApprovalRequest] | None = None,
+    group_id: int | None = None,
 ) -> None:
+    """``approval.approved`` / ``rejected`` / ``withdrawn`` / ``expired`` to the requester: room, dates, periods,
+    the decision, the reason and who decided. ``group``: one notice for every request of a submission (A-12)."""
     if not req.requested_by:
         return
     user = await session.get(User, req.requested_by)
-    if user is None:
-        return
-    b = await _first_booking(session, req)
     room = await session.get(Room, req.room_id)
-    if b is None or room is None:
+    if user is None or room is None:
         return
+    reqs = group or [req]
+    rows = [b for r in reqs for b in await bookings_of(session, r)]
+    if not rows:
+        return
+    what, base = await summary(session, room, rows)
     lang = await mail._language(session, user)
     note = f" {'Not' if lang == 'tr' else 'Note'}: {req.note}" if req.note else ""
-    await _send(
+    reason = reason_text(req.reason_code, req.note, lang) if kind == "approval.rejected" else ""
+    title, body, _lang = await _render(
         session,
         user,
         kind,
-        f"/bookings/mine?request={req.id}",
-        b,
-        req,
         who=audit.user_label(actor) or "SmartSched",
-        what=await _describe(session, b, room),
+        what=what,
         note=note,
         alt=alt,
+        reason=reason,
+    )
+    ids = sorted(r.id for r in reqs)
+    if group is not None:
+        import hashlib
+
+        digest = hashlib.sha1(",".join(map(str, ids)).encode()).hexdigest()[:16]
+        key = f"approval_group:{group_id}:{DECISION_OF[kind]}:{digest}"
+    else:
+        key = f"approval_request:{req.id}:{DECISION_OF[kind]}"
+    first = min(rows, key=lambda b: (b.date, b.start_period))
+    await nd.dispatch(
+        session,
+        user,
+        nd.Notice(
+            event=kind,
+            key=key,
+            title=title,
+            body=body,
+            link=f"/bookings/mine?request={req.id}",
+            booking_id=first.id,
+            request_id=req.id,
+            data={
+                **base,
+                "request_id": req.id,
+                "request_ids": ids,
+                "series_id": req.series_id,
+                "group_id": group_id if group is not None else (first.multi_booking_id if req.series_id is None else None),
+                "decision": DECISION_OF[kind],
+                "status": req.status,
+                "reason": (req.note or reason_both(req.reason_code)) if kind == "approval.rejected" else None,
+                "reason_code": req.reason_code if kind == "approval.rejected" else None,
+                "note": req.note,
+                "suggestion": alt.strip() or None,
+                "decided_by": _person(actor),
+            },
+        ),
     )
 
 
@@ -644,7 +832,12 @@ async def request_out(
         "requested_at": req.requested_at.isoformat() if req.requested_at else None,
         "expires_at": req.expires_at.isoformat() if req.expires_at else None,
         "decided_at": req.decided_at.isoformat() if req.decided_at else None,
+        # who closed it (the requester may see the deciding approver); None while open or when it expired
+        "decided_by": _person(await session.get(User, req.decided_by)) if req.decided_by else None,
         "note": req.note,
+        # a rejection's reason: the free text, else the reason code in Turkish / English
+        "reason": (req.note or reason_both(req.reason_code)) if req.status == REJECTED else None,
+        "reason_code": req.reason_code if req.status == REJECTED else None,
         "suggestion": req.suggestion,
         "bookings": [await bsvc.booking_out(session, access, b) for b in rows],
         # A-12: the periods of one submission share the multi-booking id (series requests are one request already)
@@ -665,6 +858,7 @@ async def request_out(
                 else None,
                 "decision": d.decision,
                 "note": d.note,
+                "reason_code": d.reason_code,
                 "alternative": d.alternative,
                 "decided_at": d.decided_at.isoformat() if d.decided_at else None,
             }
@@ -794,13 +988,21 @@ def group_requests(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 async def decide_group(
-    session: AsyncSession, access: Access, group_id: int, decision: str, note: str | None = None
+    session: AsyncSession,
+    access: Access,
+    group_id: int,
+    decision: str,
+    note: str | None = None,
+    reason_code: str | None = None,
 ) -> dict[str, Any]:
     """A-12: decide every open request of one submission whose current step the caller may decide, in period
     order; each is decided (and audited) like ``POST /approvals/{id}/decide``, a failure is reported per request.
-    Per-period decisions stay possible through the single endpoint."""
+    Per-period decisions stay possible through the single endpoint. A rejection needs a reason (stored on every
+    period's request and decision); the requester gets one notification for the submission."""
     if not access.can(DECIDE):
         raise _err(403, "not_an_approver", "you may not decide approval requests", "onay talebi karara bağlayamazsınız")
+    if decision == "reject":
+        reason_code, note = check_reason(reason_code, note)
     await sweep(session)
     q = (
         select(ApprovalRequest)
@@ -815,12 +1017,28 @@ async def decide_group(
         if room is None or access.user not in await step_approvers(session, room, req.rule_snapshot or {}, req.step):
             continue
         try:
-            out = await decide(session, access, req.id, decision, note)
+            out = await decide(session, access, req.id, decision, note, reason_code=reason_code, notify=False)
             results.append({"request_id": req.id, "ok": True, "status": out.get("status")})
         except (ApprovalError, bsvc.BookingError) as exc:
             await session.rollback()
             results.append({"request_id": req.id, "ok": False, "code": exc.code, "message": exc.message})
+    await _notify_group(session, access, group_id, [r["request_id"] for r in results if r["ok"]])
     return {"group_id": group_id, "decision": decision, "results": results}
+
+
+async def _notify_group(session: AsyncSession, access: Access, group_id: int, ids: list[int]) -> None:
+    """One notification per requester and outcome for the requests of a submission decided together."""
+    if not ids:
+        return
+    q = select(ApprovalRequest).where(ApprovalRequest.id.in_(ids)).execution_options(populate_existing=True)
+    by_outcome: dict[tuple[int | None, str], list[ApprovalRequest]] = {}
+    for r in (await session.execute(q.order_by(ApprovalRequest.id))).scalars():
+        kind = {APPROVED: "approval.approved", REJECTED: "approval.rejected"}.get(r.status)
+        if kind is not None:
+            by_outcome.setdefault((r.requested_by, kind), []).append(r)
+    for (_uid, kind), reqs in by_outcome.items():
+        await notify_requester(session, reqs[0], kind, access.user, group=reqs, group_id=group_id)
+    await session.commit()
 
 
 async def mine(session: AsyncSession, access: Access) -> list[dict[str, Any]]:
@@ -860,6 +1078,7 @@ async def _close(
         if series is not None and series.status == PENDING:
             series.status = status
     req.status, req.decided_at = status, now
+    req.decided_by = actor.id if actor is not None else None
     await session.flush()
 
 
@@ -883,7 +1102,7 @@ async def sweep(session: AsyncSession) -> dict[str, int]:
         req.note = req.note or "Başlangıçtan önce onaylanmadı / not approved before the start"
         await _close(session, req, rows, EXPIRED, "approval expired", None)
         await publish_event(session, "approval.expire", "approval_request", req.id, after={"status": EXPIRED})
-        await _notify_requester(session, req, "approval.expired", None)
+        await notify_requester(session, req, "approval.expired", None)
         expired += 1
     released = await bsvc.release_expired_holds(session)
     if expired or released:
@@ -903,6 +1122,7 @@ async def withdraw(session: AsyncSession, access: Access, request_id: int) -> Ap
     await publish_event(
         session, "approval.withdraw", "approval_request", req.id, after={"status": WITHDRAWN}, actor=access.user
     )
+    await notify_requester(session, req, "approval.withdrawn", access.user)
     await session.commit()
     return req
 
@@ -942,9 +1162,14 @@ async def decide(
     note: str | None = None,
     alternative: Alternative | None = None,
     instances: list[date] | None = None,
+    *,
+    reason_code: str | None = None,
+    notify: bool = True,
 ) -> dict[str, Any]:
     """``approve`` (optionally in another room = ``alternative``), ``reject`` (optionally suggesting
-    ``alternative``). Approval of the last step books the slot after re-checking it."""
+    ``alternative``; needs a reason: ``reason_code`` and / or the free text ``note``, :func:`check_reason`).
+    Approval of the last step books the slot after re-checking it. ``notify=False``: the caller notifies the
+    requester (group decisions send one notice per submission)."""
     await sweep(session)
     req, room = await _load(session, request_id)
     if req.status != PENDING:
@@ -970,7 +1195,10 @@ async def decide(
             "you cannot approve your own request",
             "kendi talebinizi onaylayamazsınız",
         )
-    note = n.clean_text(note) if note else None
+    if decision == "reject":
+        reason_code, note = check_reason(reason_code, note)
+    else:
+        note, reason_code = (n.clean_text(note) if note else None), None
     rows = await bookings_of(session, req)
     if not rows:
         raise _err(409, "no_bookings", "the request has no bookings any more", "talebin rezervasyonu kalmadı")
@@ -982,10 +1210,11 @@ async def decide(
             approver_user_id=access.user_id,
             decision=APPROVED if decision == "approve" else REJECTED,
             note=note,
+            reason_code=reason_code,
             alternative=alt_out,
         )
     )
-    req.note = note
+    req.note, req.reason_code = note, reason_code
     if decision == "reject":
         suggestion = alt_out
         requester = await session.get(User, req.requested_by) if req.requested_by else None
@@ -998,16 +1227,17 @@ async def decide(
             )
             suggestion = {"alternatives": alts} if alts else None
         req.suggestion = suggestion
-        await _close(session, req, rows, REJECTED, note or "rejected by the approver", access.user)
+        why = note or reason_both(reason_code) or "rejected by the approver"
+        await _close(session, req, rows, REJECTED, why, access.user)
         await publish_event(
             session,
             "approval.reject",
             "approval_request",
             req.id,
             before={"status": PENDING},
-            after={"status": REJECTED, "suggestion": suggestion},
+            after={"status": REJECTED, "suggestion": suggestion, "reason_code": reason_code},
             actor=access.user,
-            reason=note,
+            reason=why,
         )
         alt_txt = ""
         if alt_out:
@@ -1015,7 +1245,8 @@ async def decide(
             alt_txt = f" Öneri / suggestion: {alt_out['room_name']} {alt_out['date']} {span}."
         elif suggestion:
             alt_txt = " Öneri / suggestions: " + ", ".join(a["name"] for a in suggestion["alternatives"]) + "."
-        await _notify_requester(session, req, "approval.rejected", access.user, alt_txt)
+        if notify:
+            await notify_requester(session, req, "approval.rejected", access.user, alt_txt)
         await session.commit()
         return await request_out(session, access, req, detail=True)
     # approve
@@ -1037,8 +1268,8 @@ async def decide(
     if len(got) < need or req.step < len(steps):
         if len(got) >= need:
             req.step += 1
-            first = rows[0]
-            await _notify_approvers(session, req, room, first, await session.get(User, req.requested_by) or access.user)
+            requester = await session.get(User, req.requested_by) if req.requested_by else None
+            await notify_approvers(session, req, room, rows, requester or access.user)
         await publish_event(
             session,
             "approval.step",
@@ -1070,7 +1301,7 @@ async def decide(
             problems=failed,
             alternatives=alts,
         )
-    req.status, req.decided_at = APPROVED, utcnow()
+    req.status, req.decided_at, req.decided_by = APPROVED, utcnow(), access.user_id
     if req.series_id is not None:
         series = await session.get(BookingSeries, req.series_id)
         if series is not None:
@@ -1104,6 +1335,7 @@ async def decide(
         if not clash:
             continue
         other.note = "Aynı saat başka bir talebe verildi / the slot was given to another request"
+        other.reason_code = "slot_taken"
         await _close(session, other, other_rows, REJECTED, other.note, access.user)
         await publish_event(
             session,
@@ -1114,8 +1346,9 @@ async def decide(
             actor=access.user,
             reason=other.note,
         )
-        await _notify_requester(session, other, "approval.rejected", access.user)
-    await _notify_requester(session, req, "approval.approved", access.user)
+        await notify_requester(session, other, "approval.rejected", access.user)
+    if notify:
+        await notify_requester(session, req, "approval.approved", access.user)
     await session.commit()
     return await request_out(session, access, req, detail=True)
 
