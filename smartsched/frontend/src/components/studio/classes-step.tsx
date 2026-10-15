@@ -12,7 +12,7 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AdaptiveContent, AdaptivePopover, AdaptiveTrigger } from "./adaptive-popover";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -581,9 +581,9 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           <Button size="sm" variant="outline" onClick={() => include([...selected], t("studio.history.putBack"))}>
             {t("studio.classes.putBack")}
           </Button>
-          <Popover>
-            <PopoverTrigger render={<Button size="sm" variant="outline" />}>{t("studio.classes.setStudents")}</PopoverTrigger>
-            <PopoverContent className="w-56">
+          <AdaptivePopover>
+            <AdaptiveTrigger render={<Button size="sm" variant="outline" />}>{t("studio.classes.setStudents")}</AdaptiveTrigger>
+            <AdaptiveContent title={t("studio.classes.setStudents")} className="w-56">
               <label className="grid gap-1 text-sm">
                 <span>{t("studio.classes.col.students")}</span>
                 <Input type="number" min={0} value={setStudents} onChange={(e) => setSetStudents(e.target.value)} />
@@ -591,8 +591,8 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
               <Button size="sm" disabled={!setStudents} onClick={() => void edits.edit(sel, { enrolment: Number(setStudents) }, t("studio.classes.setStudents"))}>
                 {t("common.apply")}
               </Button>
-            </PopoverContent>
-          </Popover>
+            </AdaptiveContent>
+          </AdaptivePopover>
           <Button size="sm" variant="outline" onClick={() => onMakeRule([...selected])} data-testid="bulk-make-rule">
             {t("studio.classes.makeRule")}
           </Button>

@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 import { NativeSelect } from "@/components/common/native-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AdaptiveContent, AdaptivePopover, AdaptiveTrigger } from "./adaptive-popover";
 import type { ClassMode, ClassRow, MeetingPatch, Pin } from "@/lib/api/studio-schemas";
 import { ClassMode as ClassModeEnum } from "@/lib/api/studio-schemas";
 import type { MessageKey } from "@/lib/i18n";
@@ -130,7 +130,7 @@ export function DayTimeCell({ row, onSave }: { row: ClassRow; onSave: (patch: Me
   const [open, setOpen] = useState(false);
   const label = dayTimeLabel(row, locale, t("studio.classes.noTime"));
   return (
-    <Popover
+    <AdaptivePopover
       open={open}
       onOpenChange={(o) => {
         setOpen(o);
@@ -142,10 +142,10 @@ export function DayTimeCell({ row, onSave }: { row: ClassRow; onSave: (patch: Me
         }
       }}
     >
-      <PopoverTrigger render={<button type="button" className={cn("rounded px-1 text-left whitespace-nowrap hover:bg-fill-2", row.start_period === null && "text-status-warning-fg")} aria-label={t("studio.classes.editValue", { field: t("studio.classes.col.dayTime"), value: label })} data-edit="dayTime" />}>
+      <AdaptiveTrigger render={<button type="button" className={cn("rounded px-1 text-left whitespace-nowrap hover:bg-fill-2", row.start_period === null && "text-status-warning-fg")} aria-label={t("studio.classes.editValue", { field: t("studio.classes.col.dayTime"), value: label })} data-edit="dayTime" />}>
         {label}
-      </PopoverTrigger>
-      <PopoverContent className="w-80" align="start">
+      </AdaptiveTrigger>
+      <AdaptiveContent title={t("studio.classes.col.dayTime")} className="w-80" align="start">
         <div className="grid gap-2 text-sm">
           <label className="grid gap-1">
             <span className="text-xs font-medium">{t("common.day")}</span>
@@ -193,8 +193,8 @@ export function DayTimeCell({ row, onSave }: { row: ClassRow; onSave: (patch: Me
             {t("common.save")}
           </Button>
         </div>
-      </PopoverContent>
-    </Popover>
+      </AdaptiveContent>
+    </AdaptivePopover>
   );
 }
 
@@ -203,22 +203,22 @@ export function RoomsCell({ row, onSave }: { row: ClassRow; onSave: (patch: Meet
   const [ids, setIds] = useState<number[]>(row.requested_room_ids);
   const chips = row.requested_room_codes.length ? row.requested_room_codes : row.requested_building ? [t("studio.slot.block", { b: row.requested_building })] : [];
   return (
-    <Popover
+    <AdaptivePopover
       onOpenChange={(o) => {
         if (o) setIds(row.requested_room_ids);
         else if (JSON.stringify(ids) !== JSON.stringify(row.requested_room_ids)) onSave({ requested_room_ids: ids });
       }}
     >
-      <PopoverTrigger render={<button type="button" className="flex max-w-56 flex-wrap gap-1 rounded px-1 text-left hover:bg-fill-2" aria-label={t("studio.classes.editValue", { field: t("studio.classes.col.rooms"), value: chips.join(", ") || "—" })} data-edit="rooms" />}>
+      <AdaptiveTrigger render={<button type="button" className="flex max-w-56 flex-wrap gap-1 rounded px-1 text-left hover:bg-fill-2" aria-label={t("studio.classes.editValue", { field: t("studio.classes.col.rooms"), value: chips.join(", ") || "—" })} data-edit="rooms" />}>
         {chips.length ? chips.slice(0, 3).map((c) => <span key={c} className="rounded border px-1 font-mono text-[11px]">{c}</span>) : <span className="text-label-2">—</span>}
         {chips.length > 3 ? <span className="text-[11px] text-label-2">+{chips.length - 3}</span> : null}
-      </PopoverTrigger>
-      <PopoverContent className="w-80" align="start">
+      </AdaptiveTrigger>
+      <AdaptiveContent title={t("studio.classes.col.rooms")} className="w-80" align="start">
         <p className="text-xs font-medium text-label-2">{t("studio.classes.col.rooms")}</p>
         <SlotEditor field={{ name: "rooms", type: "rooms", param: "requested_room_ids", required: false, ordered: true }} value={ids} onChange={(v) => setIds(Array.isArray(v) ? v.map(Number) : [])} />
         <p className="text-[11px] text-label-2">{t("studio.classes.roomsHint", { n: row.enrolment ?? 0 })}</p>
-      </PopoverContent>
-    </Popover>
+      </AdaptiveContent>
+    </AdaptivePopover>
   );
 }
 
@@ -229,12 +229,12 @@ export function PinCell({ row, pin, unlocked, roomCode, rooms, onPin, onUnpin, o
   const fit = rooms.filter((r) => r.is_bookable && r.capacity >= (row.enrolment ?? 0));
   const label = pin ? (pin.room_ids.length ? pin.room_ids.map(roomCode).join(", ") : pin.day ? `${dayName(pin.day, locale, "short")} P${pin.start_period ?? ""}` : t("studio.pin.pinned")) : null;
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger render={<button type="button" className={cn("inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs pointer-coarse:min-h-11", pin ? "bg-status-locked text-status-locked-fg" : "text-label-2 hover:bg-fill-2")} aria-label={pin ? t("studio.pin.pinnedTo", { where: label ?? "" }) : unlocked ? t("studio.pin.unlockedHint") : t("studio.pin.title")} data-testid="pin-button" data-unlocked={!pin && unlocked ? "true" : undefined} />}>
+    <AdaptivePopover open={open} onOpenChange={onOpenChange}>
+      <AdaptiveTrigger render={<button type="button" className={cn("inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs pointer-coarse:min-h-11", pin ? "bg-status-locked text-status-locked-fg" : "text-label-2 hover:bg-fill-2")} aria-label={pin ? t("studio.pin.pinnedTo", { where: label ?? "" }) : unlocked ? t("studio.pin.unlockedHint") : t("studio.pin.title")} data-testid="pin-button" data-unlocked={!pin && unlocked ? "true" : undefined} />}>
         {pin ? <Lock className="size-3.5" aria-hidden /> : <LockOpen className="size-3.5" aria-hidden />}
         {label ? <span className="max-w-24 truncate">{label}</span> : unlocked ? <span className="max-w-24 truncate">{t("studio.pin.unlocked")}</span> : null}
-      </PopoverTrigger>
-      <PopoverContent className="w-72" align="end">
+      </AdaptiveTrigger>
+      <AdaptiveContent title={t("studio.pin.title")} className="w-72" align="end">
         <div className="grid gap-2 text-sm">
           <p className="text-xs font-medium text-label-2">{t("studio.pin.title")}</p>
           <label className="grid gap-1">
@@ -260,7 +260,7 @@ export function PinCell({ row, pin, unlocked, roomCode, rooms, onPin, onUnpin, o
             </Button>
           ) : null}
         </div>
-      </PopoverContent>
-    </Popover>
+      </AdaptiveContent>
+    </AdaptivePopover>
   );
 }

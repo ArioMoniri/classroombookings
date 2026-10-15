@@ -3,7 +3,6 @@
 import { Minus, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { NativeSelect } from "@/components/common/native-select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import type { TemplateField } from "@/lib/api/studio-schemas";
 import { useI18n } from "@/lib/i18n/provider";
@@ -12,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { fold } from "./class-filters";
 import type { AppliesTo, Slot } from "./rule-sentence";
 import { useStudioData } from "./studio-data";
+import { AdaptiveContent, AdaptivePopover, AdaptiveTrigger } from "./adaptive-popover";
 
 const TAGS = ["TIP", "PC", "LAB", "AMPHI"] as const;
 
@@ -282,34 +282,39 @@ export function SlotChip({ slot, onChange, readOnly, uncertain }: { slot: Slot; 
     uncertain && "underline decoration-dotted underline-offset-4",
   );
   if (readOnly || !onChange) return <span className={cls}>{slot.display}</span>;
+  const label = t("studio.slot.change", { name: t(slotNameKey(slot.field.type)), value: slot.display });
+  const editor = (
+    <>
+      <p className="text-xs font-medium text-label-2">
+        {t(slotNameKey(slot.field.type))}
+        {slot.field.required ? ` ${t("studio.builder.required")}` : ""}
+      </p>
+      <SlotEditor
+        field={slot.field}
+        value={draft}
+        onChange={(v) => {
+          setDraft(v);
+          onChange(v);
+        }}
+      />
+    </>
+  );
   return (
-    <Popover
+    <AdaptivePopover
       onOpenChange={(open) => {
         if (open) setDraft(slot.value);
       }}
     >
-      <PopoverTrigger
-        render={<button type="button" className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11")} aria-label={t("studio.slot.change", { name: t(slotNameKey(slot.field.type)), value: slot.display })} data-testid={`slot-${slot.name}`} />}
-      >
+      <AdaptiveTrigger render={<button type="button" className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11")} aria-label={label} data-testid={`slot-${slot.name}`} />}>
         <span className="truncate">{slot.display}</span>
-      </PopoverTrigger>
-      <PopoverContent className="w-80" align="start">
-        <p className="text-xs font-medium text-label-2">
-          {t(slotNameKey(slot.field.type))}
-          {slot.field.required ? ` ${t("studio.builder.required")}` : ""}
-        </p>
-        <SlotEditor
-          field={slot.field}
-          value={draft}
-          onChange={(v) => {
-            setDraft(v);
-            onChange(v);
-          }}
-        />
-      </PopoverContent>
-    </Popover>
+      </AdaptiveTrigger>
+      <AdaptiveContent className="w-80" title={t(slotNameKey(slot.field.type))}>
+        {editor}
+      </AdaptiveContent>
+    </AdaptivePopover>
   );
 }
+
 
 export function slotNameKey(type: string) {
   switch (type) {
