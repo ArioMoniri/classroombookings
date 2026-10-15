@@ -102,6 +102,8 @@ export interface ColumnLayoutApi {
   /** style for the scroll container: --cols (shared template) and --table-w */
   style: React.CSSProperties
   hidden: Set<string>
+  /** measured container width (0 before the first measurement) */
+  container: number
 }
 
 export function useColumnLayout<Row>({
@@ -177,5 +179,6 @@ export function useColumnLayout<Row>({
     reset: () => update(() => ({})),
     style: { "--cols": layout.template, "--table-w": `${layout.total}px` } as React.CSSProperties,
     hidden,
+    container,
   }
 }

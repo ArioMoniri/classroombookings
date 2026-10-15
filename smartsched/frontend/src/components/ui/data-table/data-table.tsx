@@ -41,6 +41,12 @@ export interface DataTableProps<Row> {
   toolbar?: React.ReactNode
   /** cap the scroll height (the header sticks); default: grows with the page */
   maxHeight?: string
+  /**
+   * Narrow containers (< `narrowBelow` px, default 600): "cards" (default) stacks each row as a card with the
+   * priority 1–2 columns as label/value pairs; "scroll" keeps the grid with the first column pinned.
+   */
+  narrow?: "cards" | "scroll"
+  narrowBelow?: number
   className?: string
   "data-testid"?: string
 }
@@ -62,6 +68,8 @@ export function DataTable<Row>({
   empty,
   toolbar,
   maxHeight,
+  narrow = "cards",
+  narrowBelow = 600,
   className,
   "data-testid": testId,
 }: DataTableProps<Row>) {
@@ -103,6 +111,7 @@ export function DataTable<Row>({
   const v = useVirtualizer({ count: virtual ? model.length : 0, getScrollElement: () => scroller.current, estimateSize: () => rowH, overscan: 12 })
   const { layout } = api
   const loading = rows === undefined
+  const asCards = narrow === "cards" && api.container > 0 && api.container < narrowBelow
 
   const cellClass = (id: string) => {
     const c = byId.get(id)!
@@ -114,6 +123,37 @@ export function DataTable<Row>({
     )
   }
   const pinStyle = (id: string): React.CSSProperties | undefined => (byId.get(id)?.pin === "left" ? { left: layout.pinLeft[id] } : undefined)
+
+  const renderCard = (r: (typeof model)[number]) => {
+    const extra = rowProps?.(r.original) ?? {}
+    const [first, ...rest] = columns.filter((c) => !api.hidden.has(c.id) && (c.pin === "left" || (c.priority ?? 3) <= 2))
+    return (
+      <div
+        key={r.id}
+        role="row"
+        aria-rowindex={r.index + 2}
+        tabIndex={onRowActivate ? 0 : undefined}
+        onClick={onRowActivate ? () => onRowActivate(r.original) : undefined}
+        onKeyDown={onRowActivate ? (e) => { if (e.key === "Enter" && e.target === e.currentTarget) onRowActivate(r.original) } : undefined}
+        {...extra}
+        className={cn(
+          "flex min-h-11 flex-col gap-1 px-(--cell-px) py-2.5 edge-hairline-b type-callout text-label-1",
+          onRowActivate && "cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
+          extra.className,
+        )}
+      >
+        {first ? <div role="cell" className="flex min-w-0 items-center type-headline">{first.cell(r.original)}</div> : null}
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+          {rest.map((c) => (
+            <div key={c.id} role="cell" className="contents">
+              <dt className="type-footnote text-label-2">{c.header}</dt>
+              <dd className={cn("flex min-w-0 items-center type-footnote", c.align === "end" && "tnum")}>{c.cell(r.original)}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    )
+  }
 
   const renderRow = (r: (typeof model)[number], style?: React.CSSProperties) => {
     const extra = rowProps?.(r.original) ?? {}
@@ -152,7 +192,7 @@ export function DataTable<Row>({
     <div data-slot="data-table" data-testid={testId} className={cn("flex min-w-0 flex-col gap-2", className)}>
       <div className="flex min-h-(--control-h-sm) flex-wrap items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">{toolbar}</div>
-        <SqueezedChip api={api} specs={columns} />
+        {asCards ? null : <SqueezedChip api={api} specs={columns} />}
         <ColumnsMenu api={api} specs={columns} />
       </div>
       <div
@@ -162,6 +202,7 @@ export function DataTable<Row>({
         aria-rowcount={loading ? undefined : model.length + 1}
         aria-busy={loading || undefined}
         data-density={api.density}
+        data-mode={asCards ? "cards" : "grid"}
         data-scrolled={scrolled}
         onScroll={(e) => {
           const s = e.currentTarget.scrollLeft > 0
@@ -170,7 +211,7 @@ export function DataTable<Row>({
         style={{ ...api.style, maxHeight }}
         className="relative min-w-0 overflow-auto rounded-xl bg-(--mat-regular-solid) edge-hairline"
       >
-        <div role="rowgroup" className="sticky top-0 z-[3]">
+        <div role="rowgroup" className={cn("sticky top-0 z-[3]", asCards && "sr-only")}>
           <div role="row" aria-rowindex={1} className="grid h-(--control-h-md) w-max min-w-full grid-cols-(--cols) bg-(--mat-regular-solid) edge-hairline-b [--row-bg:var(--mat-regular-solid)]">
             {layout.ids.map((id) => {
               const c = byId.get(id)!
@@ -228,6 +269,8 @@ export function DataTable<Row>({
                 {empty ?? copy.empty}
               </div>
             </div>
+          ) : asCards ? (
+            model.map((r) => renderCard(r))
           ) : virtual ? (
             <div style={{ height: v.getTotalSize(), position: "relative" }}>
               {v.getVirtualItems().map((vi) => renderRow(model[vi.index], { position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start}px)` }))}

@@ -11,6 +11,7 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePhone } from "./use-media";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -57,18 +58,6 @@ import { RecreateSheet } from "./recreate-sheet";
 import { useStaged, useStagedStore } from "./staged-store";
 import { SuggestionList } from "@/components/learning/suggestion-list";
 import { TierLabel, VerdictBadge } from "./verdict-badge";
-
-function useMedia(q: string) {
-  const [m, setM] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia(q);
-    const on = () => setM(mq.matches);
-    on();
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, [q]);
-  return m;
-}
 
 const typing = (el: EventTarget | null) => el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || (el instanceof HTMLElement && el.isContentEditable);
 
@@ -131,7 +120,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const reduce = useReduce();
-  const mobile = useMedia("(max-width: 767px)");
+  const mobile = usePhone();
   const tab = parseTab(params.get("tab"));
   const { term, termId } = useTermContext();
   const matchings = useMatchings(termId);
@@ -366,7 +355,12 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
         ) : !prefs.data ? (
           loadingRows
         ) : (
-          <ModTable rows={prefRows} columns={prefCols} getId={(p) => p.id} caption={t("moderation.caption.prefs", { n: n(prefRows.length) })} testId="prefs-table" empty={<EmptyState size="sm" title={t("moderation.empty.prefs")} description={t("moderation.empty.prefsHint")} actions={<Button size="sm" variant="outline" render={<Link href="/generate?step=rules" />} nativeButton={false}>{t("moderation.empty.prefsAction")}</Button>} />} />
+          <ModTable rows={prefRows} columns={prefCols} getId={(p) => p.id} mobile={mobile} card={(p) => (
+            <div className="flex flex-col gap-0.5 rounded-xl border border-hairline bg-card p-3">
+              <span className="type-callout">{p.nl_text ?? p.kind}</span>
+              <span className="type-footnote text-label-2">{t(`moderation.prefSource.${prefSource(p)}`)} · {t("moderation.col.weight")} {n(p.weight)} · {p.enabled ? `✓ ${t("common.yes")}` : `✕ ${t("common.no")}`}</span>
+            </div>
+          )} caption={t("moderation.caption.prefs", { n: n(prefRows.length) })} testId="prefs-table" empty={<EmptyState size="sm" title={t("moderation.empty.prefs")} description={t("moderation.empty.prefsHint")} actions={<Button size="sm" variant="outline" render={<Link href="/generate?step=rules" />} nativeButton={false}>{t("moderation.empty.prefsAction")}</Button>} />} />
         )}
       </>
     );
@@ -462,7 +456,7 @@ function MyRequests() {
   const termId = session?.id ?? null;
   const term = session;
   const q = useMatchings(termId);
-  const mobile = useMedia("(max-width: 767px)");
+  const mobile = usePhone();
   const forbidden = q.error instanceof HttpError && q.error.status === 403;
   const items = sortMatchings(q.data?.items ?? []);
   const me = ownInstructorId(items);

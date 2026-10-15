@@ -825,3 +825,13 @@ Mobile is part of the definition of done for every screen: docs/testing/flows/MO
 - [ ] First loop round when the design-system overhaul, the shell sweep, approval-first bookings and the P19 UI land.
 ### Flow loop tickets
 (The suggester appends here.)
+
+### Dedicated agents per new stream (owner instruction 2026-10-15 22:30)
+New streams get their OWN builder agents and must not interfere with the builders already in plan (design-system overhaul, shell/admin sweep, P19 UI, importer, devops, README media). Non-interference is at FILE level: a dedicated agent starts on a screen or file only after its current owner has finished and listed the files it touched.
+| Stream | Dedicated agents | Starts |
+|---|---|---|
+| Approval-first bookings | backend builder (running); frontend builder (setting, required-reason reject dialog, reasons shown to the requester, notification preferences) | the frontend builder after the backend lands AND the shell sweep releases bookings/approvals/settings/profile |
+| Open-source Pipedream-like channels + SSO | researcher (running); then an integration builder (docker-compose service, connect-a-channel flow, dispatcher adapter) and a login builder (OIDC/SSO) | after the owner chooses from the research |
+| Mobile optimisation (all screens) | a dedicated mobile builder, working per screen against docs/testing/flows/MOBILE.md | per screen, after its current owner finishes |
+| Flow loop | test planner (running) → 3 persona testers → suggester → dedicated loop builders (separate from the roadmap builders) → re-test | after the screen builders above finish |
+Final step: finish all phases and features, stabilise, keep the branches clean (gracious and universal differ only in profile.env; no stray branches or worktrees), deploy.

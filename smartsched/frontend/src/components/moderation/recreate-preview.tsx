@@ -14,7 +14,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Progress } from "@/components/ui/progress";
@@ -25,6 +24,8 @@ import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
 import { usePermissions } from "@/lib/permissions";
 import { CompareCalendar } from "./compare-calendar";
+import { ResponsiveDialog } from "./responsive-dialog";
+import { usePhone } from "./use-media";
 import { ModTable, type ModColumn } from "./mod-table";
 import { DIFF_GROUPS, canPublish, diffCount, diffRows, isDraftChild, pairText, type DiffGroup, type DiffRow } from "./moderation-model";
 
@@ -44,7 +45,10 @@ export function RecreatePreview({ runId }: { runId: number }) {
   const rules = useRunRules(diffQ.data?.ready ? runId : null);
   const d = diffQ.data;
   const [group, setGroup] = useState<DiffGroup>("moved");
-  const [mode, setMode] = useState<"table" | "calendar">("table");
+  const [chosenMode, setMode] = useState<"table" | "calendar">("table");
+  const phone = usePhone();
+  // the calendar compare is a tablet / desktop view; phones get the grouped list (owner requirement 2026-10-15)
+  const mode = phone ? "table" : chosenMode;
   const [confirm, setConfirm] = useState(false);
   const [rerunning, setRerunning] = useState(false);
   const [edited, setEdited] = useState<number[]>([]);
@@ -175,7 +179,7 @@ export function RecreatePreview({ runId }: { runId: number }) {
             <span data-testid="preview-state">{d.is_active ? `✓ ${t("moderation.preview.published")}` : t("moderation.preview.notPublished")}</span>
           </p>
         </div>
-        <SegmentedControl<"table" | "calendar">
+        {!phone ? <SegmentedControl<"table" | "calendar">
           aria-label={t("moderation.preview.mode")}
           size="sm"
           value={mode}
@@ -184,7 +188,7 @@ export function RecreatePreview({ runId }: { runId: number }) {
             { value: "table", label: t("moderation.preview.table"), icon: <Table2 aria-hidden /> },
             { value: "calendar", label: t("moderation.preview.calendar"), icon: <CalendarRange aria-hidden /> },
           ]}
-        />
+        /> : null}
       </div>
       {failed ? <p role="alert" className="type-callout text-status-infeasible-fg">{t("moderation.preview.failed", { status: d.status })}</p> : null}
       {/* summary: static on arrival, no count-up (motion.md §3.9) */}
@@ -215,7 +219,13 @@ export function RecreatePreview({ runId }: { runId: number }) {
             {group === "unchanged" ? (
               <p className="type-callout text-label-2" data-testid="unchanged-note">{t("moderation.diff.unchangedNote", { n: n(c.unchanged) })}</p>
             ) : (
-              <ModTable rows={list} columns={columns} getId={(r) => r.requestId} caption={t("moderation.caption.diff", { n: n(list.length), group: t(`moderation.diff.${group}`) })} testId="diff-table" rowTestId="diff-row" empty={<p className="type-callout text-label-2" data-testid="diff-empty">{t("moderation.diff.empty")}</p>} />
+              <ModTable rows={list} columns={columns} getId={(r) => r.requestId} caption={t("moderation.caption.diff", { n: n(list.length), group: t(`moderation.diff.${group}`) })} testId="diff-table" rowTestId="diff-row" mobile={phone} card={(r) => (
+                <div className="flex flex-col gap-0.5 rounded-xl border border-hairline bg-card p-3">
+                  <div className="flex items-center justify-between gap-2"><span className="type-headline">{r.label}</span>{draft ? columns[columns.length - 1]!.cell(r) : null}</div>
+                  <span className="type-footnote text-label-2">{r.before} → {r.after}</span>
+                  {r.reason ? <span className="type-footnote text-label-2">{r.group === "unplaceable" ? "✕ " : ""}{r.reason}</span> : null}
+                </div>
+              )} empty={<p className="type-callout text-label-2" data-testid="diff-empty">{t("moderation.diff.empty")}</p>} />
             )}
           </motion.div>
         </>
@@ -289,41 +299,45 @@ export function PublishDialog({ open, onOpenChange, diff, onPublished }: { open:
     }
   };
   return (
-    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setError(null); }}>
-      <DialogContent role="alertdialog" initialFocus={cancel} className="sm:max-w-md" data-testid="publish-dialog">
-        <DialogHeader>
-          <DialogTitle>{t("moderation.publish.title")}</DialogTitle>
-          <DialogDescription>{t("moderation.publish.body")}</DialogDescription>
-        </DialogHeader>
-        <table className="w-full type-callout">
-          <tbody>
-            {([["moved", c.moved], ["newly_placed", c.newly_placed], ["unplaceable", c.unplaceable], ["people", c.affected_people]] as const).map(([k, v]) => (
-              <tr key={k} className="border-b border-hairline">
-                <th scope="row" className="py-1 text-left font-normal text-label-2">{t(`moderation.diff.${k}`)}</th>
-                <td className="py-1 text-right font-semibold tabular-nums">{n(v)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {error ? (
-          <div role="alert" className="flex flex-col gap-1 rounded-xl border border-status-infeasible-border bg-status-infeasible p-3 type-footnote text-status-infeasible-fg" data-testid="publish-refused">
-            <p className="font-semibold">{error.message}</p>
-            {error.issues.length ? <ul className="list-disc pl-4">{error.issues.map((i) => <li key={i}>{i}</li>)}</ul> : null}
-            {error.scopeReduction ? (
-              <label className="mt-1 flex items-center gap-2 text-label-1">
-                <input type="checkbox" checked={confirmScope} onChange={(e) => setConfirmScope(e.target.checked)} className="accent-(--accent)" />
-                {t("moderation.publish.confirmScope")}
-              </label>
-            ) : null}
-          </div>
-        ) : null}
-        <DialogFooter>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={(o) => { onOpenChange(o); if (!o) setError(null); }}
+      alert
+      initialFocus={cancel}
+      title={t("moderation.publish.title")}
+      description={t("moderation.publish.body")}
+      testId="publish-dialog"
+      footer={
+        <>
           <Button ref={cancel} variant="ghost" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
           <Button onClick={() => void publish()} disabled={busy || (error?.scopeReduction === true && !confirmScope)} data-testid="publish-confirm" aria-busy={busy || undefined}>
             {busy ? t("busy.working") : t("moderation.publish.go")}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <table className="w-full type-callout">
+        <tbody>
+          {([["moved", c.moved], ["newly_placed", c.newly_placed], ["unplaceable", c.unplaceable], ["people", c.affected_people]] as const).map(([k, v]) => (
+            <tr key={k} className="border-b border-hairline">
+              <th scope="row" className="py-1 text-left font-normal text-label-2">{t(`moderation.diff.${k}`)}</th>
+              <td className="py-1 text-right font-semibold tabular-nums">{n(v)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {error ? (
+        <div role="alert" className="flex flex-col gap-1 rounded-xl border border-status-infeasible-border bg-status-infeasible p-3 type-footnote text-status-infeasible-fg" data-testid="publish-refused">
+          <p className="font-semibold">{error.message}</p>
+          {error.issues.length ? <ul className="list-disc pl-4">{error.issues.map((i) => <li key={i}>{i}</li>)}</ul> : null}
+          {error.scopeReduction ? (
+            <label className="mt-1 flex items-center gap-2 text-label-1">
+              <input type="checkbox" checked={confirmScope} onChange={(e) => setConfirmScope(e.target.checked)} className="accent-(--accent)" />
+              {t("moderation.publish.confirmScope")}
+            </label>
+          ) : null}
+        </div>
+      ) : null}
+    </ResponsiveDialog>
   );
 }
