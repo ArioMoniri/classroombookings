@@ -7,6 +7,7 @@ from app.models.approvals import (
     ApprovalRule,
     ApproverScope,
     InAppNotification,
+    NotificationDelivery,
 )
 from app.models.audit import AuditEvent
 from app.models.base import Base
@@ -100,6 +101,7 @@ __all__ = [
     "ImportJob",
     "ImportedSnapshot",
     "InAppNotification",
+    "NotificationDelivery",
     "LearnedObservation",
     "LearnedPrior",
     "LearningReset",

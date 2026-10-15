@@ -120,8 +120,15 @@ BOOKINGS_SPECS: dict[str, Spec] = {
         # P7 (beyond CRBS): a booking create / move / cancel can be undone within this many hours (or until the
         #     booking starts), as long as nothing changed it since (POST /audit/{id}/undo).
         Spec("audit_undo_hours", "int", 24),
+        # approval-first bookings (owner requirement 2026-10-15): "rules" = only rooms / room groups / room types
+        #     with an approval rule need approval (CRBS + P1, the default of empty and universal installs);
+        #     "all" = every booking request goes to the approvers first, except for users holding
+        #     approvals.decide, planning.admin or bookings.skip_approval (app/services/approvals.py need_for).
+        #     The institution install sets it once: PUT /api/v1/org/settings {"approval_mode": "all"}.
+        Spec("approval_mode", default="rules"),
     )
 }
+APPROVAL_MODES = ("rules", "all")
 #: KVKK sign-off (admin persona 2026-10-15 M-18): never shipped as a default. It exists only after a named
 #: administrator switched calendar sync on through ``PUT /calendar/admin/settings`` (who, user id, when);
 #: until then ``calendar_sync_enabled`` reads as off whatever is stored (:func:`kvkk_signed`). alembic

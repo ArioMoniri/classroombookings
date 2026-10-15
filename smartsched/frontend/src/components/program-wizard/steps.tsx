@@ -9,7 +9,8 @@ import { ClipboardPaste, Minus, Plus, Trash2, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/moderation/responsive-dialog";
+import { usePhone } from "@/components/moderation/use-media";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -141,43 +142,42 @@ function PasteDialog({ open, onOpenChange, onInsert }: { open: boolean; onOpenCh
   const [text, setText] = useState("");
   const parsed = useMemo(() => parseTsv(text), [text]);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl" data-testid="paste-dialog">
-        <DialogHeader>
-          <DialogTitle>{t("programWizard.courses.pasteTitle")}</DialogTitle>
-          <DialogDescription>{t("programWizard.courses.pasteHint")}</DialogDescription>
-        </DialogHeader>
-        <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} className="font-mono" aria-label={t("programWizard.courses.pasteTitle")} data-testid="paste-text" />
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="ghost" onClick={() => setText(MBG_TSV)} data-testid="paste-example">{t("programWizard.courses.example")}</Button>
-        </div>
-        {parsed.rows.length ? (
-          <div className="max-h-56 overflow-auto rounded-lg border border-hairline">
-            <table className="w-full type-footnote">
-              <thead><tr className="text-left text-label-2"><th className="px-2 py-1">{t("programWizard.col.code")}</th><th className="px-2 py-1">{t("programWizard.col.name")}</th><th className="px-2 py-1">T</th><th className="px-2 py-1">U</th><th className="px-2 py-1">L</th><th className="px-2 py-1">{t("programWizard.col.ects")}</th><th className="px-2 py-1">{t("programWizard.col.year")}</th></tr></thead>
-              <tbody>
-                {parsed.rows.map((r) => {
-                  const nc = normalizeCode(r.code);
-                  return (
-                    <tr key={r.line} className="border-t border-hairline">
-                      <td className="px-2 py-1">{nc.error ? r.code : nc.code}{nc.info ? <span className="text-label-3"> ← {r.code}</span> : null}</td>
-                      <td className="px-2 py-1">{r.name}</td><td className="px-2 py-1">{r.t ?? "—"}</td><td className="px-2 py-1">{r.u ?? "—"}</td><td className="px-2 py-1">{r.l ?? "—"}</td><td className="px-2 py-1">{r.ects ?? "—"}</td><td className="px-2 py-1">{r.year ?? "—"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-        <p className="type-footnote text-label-2" aria-live="polite">{t("programWizard.courses.pasteCount", { n: parsed.rows.length, ignored: parsed.ignored.length })}</p>
-        <DialogFooter>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("programWizard.courses.pasteTitle")}
+      description={t("programWizard.courses.pasteHint")}
+      className="sm:max-w-2xl"
+      testId="paste-dialog"
+      footer={
+        <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
           <Button disabled={!parsed.rows.length} onClick={() => { onInsert(coursesFromPaste(parsed.rows, text === MBG_TSV ? MBG_ENROLMENT : {})); setText(""); onOpenChange(false); }} data-testid="paste-insert">
             {t("programWizard.courses.insert", { n: parsed.rows.length })}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} className="font-mono" aria-label={t("programWizard.courses.pasteTitle")} data-testid="paste-text" />
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="ghost" onClick={() => setText(MBG_TSV)} data-testid="paste-example">{t("programWizard.courses.example")}</Button>
+      </div>
+      {parsed.rows.length ? (
+        <ul className="flex max-h-56 flex-col overflow-auto rounded-lg border border-hairline type-footnote" aria-label={t("programWizard.courses.previewRows")}>
+          {parsed.rows.map((r) => {
+            const nc = normalizeCode(r.code);
+            return (
+              <li key={r.line} className="flex flex-wrap gap-x-3 border-b border-hairline px-2 py-1 last:border-b-0">
+                <span className="font-semibold">{nc.error ? r.code : nc.code}{nc.info ? <span className="font-normal text-label-3"> ← {r.code}</span> : null}</span>
+                <span className="min-w-0 flex-1">{r.name}</span>
+                <span className="tabular-nums text-label-2">T{r.t ?? "—"} U{r.u ?? "—"} L{r.l ?? "—"} · {t("programWizard.col.ects")} {r.ects ?? "—"} · {t("programWizard.col.year")} {r.year ?? "—"}</span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      <p className="type-footnote text-label-2" aria-live="polite">{t("programWizard.courses.pasteCount", { n: parsed.rows.length, ignored: parsed.ignored.length })}</p>
+    </ResponsiveDialog>
   );
 }
 
@@ -186,6 +186,7 @@ const num = (v: number | null) => (v === null || Number.isNaN(v) ? "" : String(v
 export function CoursesStep({ d, update, issues }: { d: Draft; update: Update; issues: readonly Issue[] }) {
   const { t, n } = useI18n();
   const [paste, setPaste] = useState(false);
+  const phone = usePhone();
   const [codeFix, setCodeFix] = useState<Record<string, string>>({});
   const blurCode = (c: CourseDraft) => {
     const nc = normalizeCode(c.code);
@@ -201,7 +202,33 @@ export function CoursesStep({ d, update, issues }: { d: Draft; update: Update; i
         <Button variant="ghost" onClick={() => update((x) => ({ ...x, courses: [...x.courses, newCourse({ code: x.program.prefix ? `${x.program.prefix} ` : "" })] }))} data-testid="wizard-add-course"><Plus aria-hidden />{t("programWizard.courses.add")}</Button>
         <span className="ml-auto self-center type-footnote text-label-2 tabular-nums">{t("programWizard.courses.count", { n: n(d.courses.length) })}</span>
       </div>
-      {d.courses.length ? (
+      {d.courses.length && phone ? (
+        <ul className="flex flex-col gap-2" data-testid="courses-grid">
+          {d.courses.map((c) => {
+            const p = `courses.${c.key}`;
+            return (
+              <li key={c.key} className="flex flex-col gap-2 rounded-xl border border-hairline p-3" data-testid="course-row">
+                <div className="flex gap-2">
+                  <Input value={c.code} onChange={(e) => patchCourse(update, c.key, (x) => ({ ...x, code: e.target.value }))} onBlur={() => blurCode(c)} className="w-28" aria-label={t("programWizard.col.code")} data-path={`${p}.code`} aria-invalid={hasError(issues, `${p}.code`) || undefined} aria-describedby={`e-${c.key}-code`} />
+                  <Input value={c.name} onChange={(e) => patchCourse(update, c.key, (x) => ({ ...x, name: e.target.value }))} aria-label={t("programWizard.col.name")} data-path={`${p}.name`} />
+                  <Button variant="ghost" size="icon-sm" aria-label={t("programWizard.courses.remove", { code: c.code || "—" })} onClick={() => update((x) => ({ ...x, courses: x.courses.filter((y) => y.key !== c.key) }))}><Trash2 aria-hidden /></Button>
+                </div>
+                {codeFix[c.key] ? <span className="type-caption text-label-2">ⓘ {codeFix[c.key]}</span> : null}
+                <FieldMsg issues={issues} path={`${p}.code`} id={`e-${c.key}-code`} />
+                <div className="grid grid-cols-5 gap-2">
+                  {(["t", "u", "l", "ects"] as const).map((k) => (
+                    <label key={k} className="flex flex-col gap-0.5 type-caption text-label-2">{k === "ects" ? t("programWizard.col.ects") : k.toUpperCase()}<Input inputMode="decimal" value={num(c[k])} onChange={(e) => patchCourse(update, c.key, (x) => ({ ...x, [k]: parseNumber(e.target.value) }))} /></label>
+                  ))}
+                  <label className="flex flex-col gap-0.5 type-caption text-label-2">{t("programWizard.col.year")}<Input inputMode="numeric" value={String(c.year)} onChange={(e) => patchCourse(update, c.key, (x) => ({ ...x, year: Math.max(1, Number(e.target.value) || 1) }))} /></label>
+                </div>
+                <NativeSelect value={c.mode} onChange={(e) => patchCourse(update, c.key, (x) => ({ ...x, mode: e.target.value as CourseDraft["mode"] }))} aria-label={t("programWizard.col.mode")}>
+                  {MODES.map((m) => <option key={m} value={m}>{t(`programWizard.mode.${m}`)}</option>)}
+                </NativeSelect>
+              </li>
+            );
+          })}
+        </ul>
+      ) : d.courses.length ? (
         <div className="overflow-x-auto rounded-xl border border-hairline">
           <table className="w-full min-w-[52rem] type-callout" data-testid="courses-grid">
             <thead className="bg-(--mat-thick-solid) text-left type-caption text-label-2">
@@ -270,9 +297,9 @@ function InstructorPicker({ value, onChange, label, testId }: { value: Instructo
   }
   return (
     <div className="relative">
-      <Input value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} placeholder={t("programWizard.sections.searchPerson")} aria-label={label} className="w-56" data-testid={testId} />
+      <Input value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} placeholder={t("programWizard.sections.searchPerson")} aria-label={label} className="w-full sm:w-56" data-testid={testId} />
       {open && q.trim().length >= 2 ? (
-        <ul role="listbox" aria-label={label} className="absolute z-20 mt-1 flex max-h-56 w-72 flex-col overflow-auto rounded-lg border border-hairline bg-(--mat-thick-solid) p-1">
+        <ul role="listbox" aria-label={label} className="absolute z-20 mt-1 flex max-h-56 w-full flex-col sm:w-72 overflow-auto rounded-lg border border-hairline bg-(--mat-thick-solid) p-1">
           {(found.data?.items ?? []).map((i) => (
             <li key={i.id} role="option" aria-selected={false}>
               <Button variant="ghost" size="sm" className="w-full justify-start" onMouseDown={(e) => e.preventDefault()} onClick={() => { onChange({ id: i.id, name: i.full_name, title: i.title }); setQ(""); }}>

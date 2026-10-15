@@ -62,10 +62,31 @@ WAVE1_PERMISSIONS: tuple[tuple[str, str], ...] = (
     ("book_single.request", "Request single bookings that an approver confirms"),
     ("book_recur.request", "Request recurring bookings that an approver confirms"),
 )
-ALL_PERMISSIONS: tuple[tuple[str, str], ...] = CRBS_PERMISSIONS + SMARTSCHED_PERMISSIONS + WAVE1_PERMISSIONS
+#: approval-first bookings (owner requirement 2026-10-15, alembic 0025): with ``bookings.approval_mode = all`` every
+#: booking request goes to the approvers first; holders of this permission (and of ``approvals.decide`` or
+#: ``planning.admin``) book directly. Administrator only by default; granted to other roles under the no-escalation
+#: rule like every permission (:func:`missing_permissions`, :func:`may_grant_role`).
+SKIP_APPROVAL = "bookings.skip_approval"
+APPROVAL_FIRST_PERMISSIONS: tuple[tuple[str, str], ...] = (
+    (SKIP_APPROVAL, "Book directly when every booking request needs approval (bookings.approval_mode)"),
+)
+ALL_PERMISSIONS: tuple[tuple[str, str], ...] = (
+    CRBS_PERMISSIONS + SMARTSCHED_PERMISSIONS + WAVE1_PERMISSIONS + APPROVAL_FIRST_PERMISSIONS
+)
 PERMISSION_NAMES: frozenset[str] = frozenset(n for n, _ in ALL_PERMISSIONS)
 
-GROUP_ORDER = ("system", "setup", "planning", "rooms", "audit", "approvals", "room", "book_single", "book_recur")
+GROUP_ORDER = (
+    "system",
+    "setup",
+    "planning",
+    "rooms",
+    "audit",
+    "approvals",
+    "bookings",
+    "room",
+    "book_single",
+    "book_recur",
+)
 ACTION_ORDER = (
     "create",
     "request",

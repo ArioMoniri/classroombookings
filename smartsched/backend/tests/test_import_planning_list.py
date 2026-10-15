@@ -87,7 +87,10 @@ async def test_import_bahar_into_db_is_idempotent(session, parsed_bahar_list):
     rep1 = await import_planning_list(session, BAHAR_LIST, "2026-BAHAR")
     assert rep1.rows_total == parsed_bahar_list.rows_total
     assert rep1.rows_imported == len(parsed_bahar_list.rows)
-    assert rep1.created["meeting_requests"] == rep1.rows_imported
+    # owner decision 2026-10-15: rows identical except for the class year are taught once (one meeting)
+    merged = rep1.extra["merged_class_years"]
+    folded = merged["rows"] - merged["groups"]
+    assert folded == 13 and rep1.created["meeting_requests"] == rep1.rows_imported - folded == 1511
     assert rep1.created["sections"] > 900
     assert rep1.created["courses"] > 900 and rep1.created["programs"] > 80
     assert rep1.created["instructors"] > 400
@@ -100,7 +103,7 @@ async def test_import_bahar_into_db_is_idempotent(session, parsed_bahar_list):
     assert rep2.created["meeting_requests"] == 0 and rep2.created["sections"] == 0
     # review M4: an identical re-import writes nothing (every row is matched and skipped as unchanged)
     assert rep2.updated.get("meeting_requests", 0) == 0
-    assert rep2.extra["unchanged"]["meeting_requests"] == rep1.rows_imported
+    assert rep2.extra["unchanged"]["meeting_requests"] == rep1.rows_imported - folded
     assert (await session.execute(select(func.count(Section.id)))).scalar_one() == n_sec
     assert (await session.execute(select(func.count(MeetingRequest.id)))).scalar_one() == n_mr
     assert rep2.updated.get("meeting_requests_archived", 0) == 0

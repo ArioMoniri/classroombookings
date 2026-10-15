@@ -621,7 +621,8 @@
       "goal": "(A) Close the open items in those three sections. (B) Make the pod CI ready for the first green deploy: - Run every pod gate script LOCALLY in Docker exactly as the pod does: smartsched/deploy/pod-ci/podci/gates.py lists prepare, validate, backend, infra, frontend, e2e-real, parity, planner, images and watchdog. Report which are red on the current HEAD and why. - Fix any red that sits in your scop…",
       "ledger": "devops-backlog-2026-10-15 SCOPE: smartsched/deploy/** (including pod-ci/), infra…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 22:28"
     },
     {
       "id": "a11f728fa157aca76",
@@ -1129,6 +1130,14 @@
       "ledger": "flow-test-plan-2026-10-15 SCOPE: write only docs/testing/flows/** (new). No sour…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a47e5f917e941a9b4",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 22:25",
+      "left_off": "deploy to pod when all green"
     }
   ]
 }

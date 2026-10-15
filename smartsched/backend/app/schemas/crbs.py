@@ -447,6 +447,9 @@ class OrgSettingsIn(BaseModel):
     ignore_unauthorised_user_department: bool | None = None
     cancel_all_includes_past: bool | None = None
     term_date_change: Literal["cancel", "confirm"] | None = None
+    #: approval-first bookings: "rules" (only rooms with an approval rule) or "all" (every booking request is
+    #: approved first; approvers, planning administrators and bookings.skip_approval book directly)
+    approval_mode: Literal["rules", "all"] | None = None
 
     @field_validator("website")
     @classmethod
