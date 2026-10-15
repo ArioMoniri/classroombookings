@@ -158,7 +158,7 @@ export function importJob(v: unknown): unknown {
         ...skippedRows.map((r) => ({ row: num(r.row, 0), field: "", value: str(r.detail), message: str(r.reason) ?? "", severity: "error" })),
         ...arr(summary.warnings).map(warning),
       ],
-      detected_kind: str(summary.detected_kind) ?? null,
+      ...(str(summary.detected_kind) ? { detected_kind: str(summary.detected_kind) } : {}),
     },
     error: str(v.error) ?? null,
     created_at: utcIso(v.created_at) ?? new Date().toISOString(),

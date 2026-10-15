@@ -2085,6 +2085,9 @@
       "subtitleUser": "Dil, görünüm ve erişilebilirlik."
     },
     "chat": {
+      "toolPending": "{name}…",
+      "toolDone": "{name} tamam",
+      "toolFailed": "{name} başarısız",
       "editsTitle": "Uygulamadan önce",
       "updateRequest": "{label}: talebi de güncelle, sonraki çözüm yeni saati korusun",
       "scopeTerm": "Dönem verisi",

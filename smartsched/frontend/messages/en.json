@@ -2086,6 +2086,9 @@
       "subtitleUser": "Language, appearance and accessibility."
     },
     "chat": {
+      "toolPending": "{name}…",
+      "toolDone": "{name} done",
+      "toolFailed": "{name} failed",
       "editsTitle": "Before applying",
       "updateRequest": "{label}: also update the request, so the next solve keeps the new time",
       "scopeTerm": "Term data",
