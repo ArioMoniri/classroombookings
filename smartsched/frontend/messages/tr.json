@@ -10,11 +10,11 @@
     "adminConflicts": "Rezervasyon çakışmaları", "adminAuthentication": "Kimlik doğrulama", "adminWeeks": "Takvim haftaları",
     "adminSchedules": "Ders saati planları", "login": "Giriş yap", "changePassword": "Parola değiştir", "resetPassword": "Parola sıfırlama",
     "setup": "Kurulum", "notFound": "Sayfa bulunamadı", "timetable": "Çizelge", "classes": "Dersler", "generate": "Program oluşturucu",
-    "runs": "Çalıştırmalar", "run": "Çalıştırma", "onboarding": "Başlangıç", "requests": "Talepler"
+    "runs": "Çalıştırmalar", "run": "Çalıştırma", "onboarding": "Dosyalardan kur", "requests": "Talepler"
   },
   "nav": {
     "plan": "Planlama", "results": "Sonuçlar", "master": "Ana veriler", "admin": "Yönetim",
-    "dashboard": "Özet", "import": "İçe aktar", "onboarding": "Kurulum", "requests": "Talepler", "generate": "Oluştur",
+    "dashboard": "Özet", "import": "İçe aktar", "onboarding": "Dosyalardan kur", "requests": "Talepler", "generate": "Oluştur",
     "timetable": "Çizelge", "runs": "Çalıştırmalar", "rooms": "Derslikler", "buildings": "Binalar",
     "programs": "Programlar", "instructors": "Öğretim elemanları", "settings": "Ayarlar", "users": "Kullanıcılar",
     "collapse": "Kenar çubuğunu daralt", "expand": "Kenar çubuğunu genişlet", "menu": "Menüyü aç",

@@ -4,7 +4,7 @@
  * CHANGELOG.md with a per-user unread flag. `WhatsNewIndicator` is a self-contained header button (dot when
  * unread, opens a sheet, marks as seen) that the shell can mount; `WhatsNewPanel` is the inline list.
  */
-import { Sparkles } from "lucide-react";
+import { Megaphone } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -85,7 +85,7 @@ export function WhatsNewIndicator({ className }: { className?: string }) {
         data-testid="whats-new"
       >
         <span className="relative">
-          <Sparkles aria-hidden />
+          <Megaphone aria-hidden />
           {unread ? <span aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-tint shadow-[0_0_0_2px_var(--mat-chrome-solid,white)]" /> : null}
         </span>
       </Button>

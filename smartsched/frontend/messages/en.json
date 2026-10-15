@@ -10,12 +10,12 @@
     "adminRoles": "Roles", "adminConflicts": "Booking conflicts", "adminAuthentication": "Authentication",
     "adminWeeks": "Timetable weeks", "adminSchedules": "Schedules", "login": "Sign in", "changePassword": "Change password",
     "resetPassword": "Reset password", "setup": "Setup", "notFound": "Page not found", "timetable": "Timetable",
-    "classes": "Classes", "generate": "Generator Studio", "runs": "Runs", "run": "Run", "onboarding": "Onboarding",
+    "classes": "Classes", "generate": "Generator Studio", "runs": "Runs", "run": "Run", "onboarding": "Set up from files",
     "requests": "Requests"
   },
   "nav": {
     "plan": "Plan", "results": "Results", "master": "Master data", "admin": "Admin",
-    "dashboard": "Dashboard", "import": "Import", "onboarding": "Onboarding", "requests": "Requests", "generate": "Generate",
+    "dashboard": "Dashboard", "import": "Import", "onboarding": "Set up from files", "requests": "Requests", "generate": "Generate",
     "timetable": "Timetable", "runs": "Runs", "rooms": "Rooms", "buildings": "Buildings",
     "programs": "Programs", "instructors": "Instructors", "settings": "Settings", "users": "Users",
     "collapse": "Collapse sidebar", "expand": "Expand sidebar", "menu": "Open menu",
