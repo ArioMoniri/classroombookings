@@ -225,12 +225,13 @@ async def moderation_resolve(
         )
     except mod.ModerationError as exc:
         raise _raise(exc) from exc
+    child_id, base_id = child.id, base.id
     if not body.wait:
-        mod.enqueue_resolve(child.id)
-        return {"run_id": child.id, "status": "QUEUED", "base_run_id": base.id}
-    await mod.run_resolve(get_session_factory(), child.id)
+        mod.enqueue_resolve(child_id)
+        return {"run_id": child_id, "status": "QUEUED", "base_run_id": base_id}
+    await mod.run_resolve(get_session_factory(), child_id)
     db.expire_all()
-    fresh = await db.get(ScheduleRun, child.id)
+    fresh = await db.get(ScheduleRun, child_id)
     assert fresh is not None
     response.status_code = 200
     return await mod.resolve_diff(db, fresh)

@@ -35,7 +35,8 @@ from app.api.v1.imports import locked_409
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
-from app.council import formats, storage
+from app.council import airows, formats, formats_mail, storage
+from app.council import text as tx
 from app.council.commit import CommitError, commit
 from app.council.dryrun import dry_run
 from app.council.orchestrator import enqueue
@@ -51,6 +52,7 @@ from app.schemas.council import (
     RerunIn,
     ReviewIn,
     ReviewOut,
+    RowDecisionsIn,
 )
 from app.services import term_lock
 from app.workers.queue import get_queue, worker_id
@@ -144,10 +146,43 @@ async def create_job(
     await db.flush()
     entries: list[dict[str, Any]] = []
     total = 0
+
+    async def admit(name: str, stored: str, size: int, data: bytes, parent: int | None = None) -> str:
+        """Precheck one stored file and add it to the job (attachments too); returns its format."""
+        nonlocal total
+        total += size
+        if total > job_limit:
+            raise HTTPException(413, f"the files of one job may total at most {st.council_max_job_mb} MiB")
+        if len(entries) >= st.council_max_files:
+            raise HTTPException(413, f"at most {st.council_max_files} files per job (attachments included)")
+        try:
+            # magic-byte detection + the format's caps (zip bombs, ODS repeat bombs, XML entities, JSON
+            # depth, ICS expansion, image pixels) in the rlimit child, before a job exists (app/council/formats.py)
+            fmt = await safe_files.run_isolated(formats.precheck, name, data)
+        except RenderError as exc:
+            raise HTTPException(400, f"{name}: {exc}") from exc
+        except safe_files.UnsafeFileError as exc:
+            raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
+        entries.append(
+            {
+                "index": len(entries),
+                "filename": name,
+                "stored": stored,
+                "size": size,
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "format": fmt,
+                "route_kind": formats.route_of(fmt),
+                "status": "QUEUED",
+                **({"parent": parent} if parent is not None else {}),
+            }
+        )
+        return fmt
+
     try:
         for i, f in enumerate(files):
             name = f.filename or f"upload-{i}"
-            stored = storage.stored_name(i, name)
+            index = len(entries)
+            stored = storage.stored_name(index, name)
             target = storage.job_dir(job.id) / stored
             try:
                 size = await safe_files.save_upload(f, target, limit)
@@ -155,30 +190,18 @@ async def create_job(
                 raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
             if not size:
                 raise HTTPException(400, f"{name}: empty file")
-            total += size
-            if total > job_limit:
-                raise HTTPException(413, f"the files of one job may total at most {st.council_max_job_mb} MiB")
             data = target.read_bytes()  # at most `limit` bytes
-            try:
-                # magic-byte detection + the format's caps (zip bombs, ODS repeat bombs, XML entities, JSON
-                # depth, ICS expansion) in the rlimit child, before a job exists (app/council/formats.py)
-                fmt = await safe_files.run_isolated(formats.precheck, name, data)
-            except RenderError as exc:
-                raise HTTPException(400, f"{name}: {exc}") from exc
-            except safe_files.UnsafeFileError as exc:
-                raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
-            entries.append(
-                {
-                    "index": i,
-                    "filename": name,
-                    "stored": stored,
-                    "size": size,
-                    "sha256": hashlib.sha256(data).hexdigest(),
-                    "format": fmt,
-                    "route_kind": formats.route_of(fmt),
-                    "status": "QUEUED",
-                }
-            )
+            fmt = await admit(name, stored, size, data)
+            if fmt != "eml":
+                continue
+            # e-mail attachments re-enter the registry as files of this job (depth 1, at most 10; P19-A3)
+            for att_name, att in await safe_files.run_isolated(formats_mail.attachments, data):
+                if len(att) > limit:
+                    raise HTTPException(413, f"{name}: attachment {att_name} is larger than the per-file limit")
+                child = f"{name} - {att_name}"
+                child_stored = storage.stored_name(len(entries), child)
+                (storage.job_dir(job.id) / child_stored).write_bytes(att)
+                await admit(child, child_stored, len(att), att, parent=index)
     except BaseException:
         await db.rollback()  # the job row was only flushed: a refused upload leaves no job and no file
         shutil.rmtree(storage.job_dir(job.id), ignore_errors=True)
@@ -377,6 +400,57 @@ async def rerun(job_id: int, db: DB, _: Planner, body: RerunIn | None = None) ->
     enqueue(job.id)
     await db.refresh(job)
     return await job_out(db, job)
+
+
+@router.get("/jobs/{job_id}/rows")
+async def get_rows(
+    job_id: int,
+    db: DB,
+    _: Planner,
+    state: str | None = None,
+    method: str | None = None,
+    file: int | None = None,
+    q: str | None = None,
+    offset: int = 0,
+    limit: int = 100,
+) -> dict[str, Any]:
+    """Cross-file review rows (P19-I-01 / P19-A2): state pending | ready | accepted | edited | rejected, method
+    direct | ai, confidence, provenance and values. File content: planners only, like ``/records``."""
+    job = await _job(db, job_id)
+    all_rows = await airows.rows(db, job)
+    sel = [
+        r
+        for r in all_rows
+        if (state is None or r["state"] == state)
+        and (method is None or r["method"] == method)
+        and (file is None or r["file_index"] == file)
+        and (not q or tx.fold(q) in tx.fold(json.dumps(r["values"], ensure_ascii=False)))
+    ]
+    limit = max(1, min(limit, 500))
+    return {
+        "total": len(sel),
+        "offset": offset,
+        "limit": limit,
+        "items": sel[offset : offset + limit],
+        "counts": airows.counts(all_rows),
+        "bulk_max": airows.BULK_MAX,
+    }
+
+
+@router.post("/jobs/{job_id}/rows/decisions")
+async def post_row_decisions(job_id: int, body: RowDecisionsIn, db: DB, user: Planner) -> dict[str, Any]:
+    """Accept / edit / reject rows. Rows read by the AI model: at most 50 in one call and only with
+    ``confirm=true``; a low-confidence AI row is decided on its own (owner decision 2026-10-15)."""
+    job = await _job(db, job_id)
+    if job.status not in ("REVIEW", "READY", "COMMITTED"):
+        raise HTTPException(409, f"job is {job.status}; rows can be decided when the council has finished")
+    try:
+        res = await airows.decide(db, job, [d.model_dump() for d in body.decisions], user, confirm=body.confirm)
+    except airows.RowDecisionError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    await db.refresh(job)
+    all_rows = await airows.rows(db, job)
+    return {**res, "status": job.status, "counts": airows.counts(all_rows)}
 
 
 @router.get("/jobs/{job_id}/records")

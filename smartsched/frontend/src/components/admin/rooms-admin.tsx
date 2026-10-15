@@ -7,7 +7,7 @@
  * audit #4; `POST/DELETE /rooms` accept setup.rooms); later capacity changes stay on /rooms (the room master).
  * `?tab=rooms&new=1` (⌘K "New room") opens the create form.
  */
-import { Building2, ImageUp, Loader2, Maximize2, Pencil, Plus, ShieldQuestion, Trash2 } from "lucide-react";
+import { Building2, ImageUp, Maximize2, Pencil, Plus, ShieldQuestion, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -402,9 +403,9 @@ function RoomCreateForm({ groups, defaultGroup, onClose }: { groups: RoomGroup[]
         <Button type="button" variant="ghost" onClick={onClose}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button type="submit" disabled={!f.code.trim() || save.isPending} data-testid="room-create">
-          {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("crbs.common.create")}
+        <Button type="submit" disabled={!f.code.trim() || save.isPending} data-testid="room-create" aria-busy={save.isPending || undefined}>
+          <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+          {t("crbs.common.create")}</BusyLabel>
         </Button>
       </DialogFooter>
     </form>
@@ -641,9 +642,9 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
           disabled={save.isPending}
           data-testid="room-save"
           onClick={() => save.mutate(undefined, { onSuccess: () => (toast.success(t("crbs.common.saved")), onClose()), onError: (e) => setError(bookingErrorMessage(crbsError(e), t)) })}
-        >
-          {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("crbs.common.save")}
+         aria-busy={save.isPending || undefined}>
+          <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+          {t("crbs.common.save")}</BusyLabel>
         </Button>
       </SheetFooter>
     </>

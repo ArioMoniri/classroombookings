@@ -256,9 +256,10 @@ the inverse action needs (`services/bookings_undo.py`).
   RFC 5545 output with ETag / 304 and throttling. nginx does not log the feed paths. Links are built from
   `PUBLIC_URL` (or the admin setting `integrations.public_url`). The older `/ics/{token}/…` links use the
   same engine.
-- **KVKK switch**: `integrations.calendar_sync_enabled` (default on, with the institution's sign-off of
-  2026-10-08 stored as the default `calendar_sync_signoff`). Off turns every token feed into a 404;
-  switching it records a new sign-off and an audit event.
+- **KVKK switch**: `integrations.calendar_sync_enabled` (default **off**; `calendar_sync_signoff` is
+  `null` on a new install). Sync counts as on only with a real sign-off (an admin's user id and an ISO date),
+  recorded when an admin switches it on via `PUT /calendar/admin/settings`; migration `0022` un-seeds the
+  former default sign-off. Off turns every token feed into a 404; each change records an audit event.
 - **Push connectors** (`services/calendar_connectors.py`): Google Calendar and Microsoft 365. They are
   available only after an administrator stores the organisation's OAuth client under
   `PUT /calendar/admin/settings` (client secrets Fernet-encrypted; none ships with the product, so

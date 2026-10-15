@@ -7,10 +7,11 @@
  * taken now, too old) in the backend's words, with the free alternatives when the slot was taken.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Download, Filter, Loader2, RotateCcw, Undo2 } from "lucide-react";
+import { ChevronDown, Download, Filter, RotateCcw, Undo2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -141,9 +142,9 @@ export function AuditView() {
         )}
       </Card>
       {log.hasNextPage ? (
-        <Button variant="outline" className="self-center" disabled={log.isFetchingNextPage} onClick={() => void log.fetchNextPage()} data-testid="audit-more">
-          {log.isFetchingNextPage ? <Loader2 className="animate-spin" aria-hidden /> : <ChevronDown aria-hidden />}
-          {t("wave1.audit.more")}
+        <Button variant="outline" className="self-center" disabled={log.isFetchingNextPage} onClick={() => void log.fetchNextPage()} data-testid="audit-more" aria-busy={log.isFetchingNextPage || undefined}>
+          <BusyLabel busy={log.isFetchingNextPage} label={t("busy.loading")} icon={<ChevronDown aria-hidden />}>
+          {t("wave1.audit.more")}</BusyLabel>
         </Button>
       ) : items.length ? (
         <p className="text-center type-footnote text-label-3">{t("wave1.audit.end", { n: items.length })}</p>

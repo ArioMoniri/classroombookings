@@ -400,7 +400,7 @@ def _load() -> None:
     if _LOADED:
         return
     _LOADED = True
-    from app.council import formats_builtin, formats_ics, formats_sheets, formats_text  # noqa: F401
+    from app.council import formats_builtin, formats_ics, formats_mail, formats_sheets, formats_text  # noqa: F401
 
 
 __all__ = [

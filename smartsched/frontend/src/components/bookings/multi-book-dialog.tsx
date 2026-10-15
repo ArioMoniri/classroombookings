@@ -10,10 +10,11 @@ import { focusAfter } from "./focus-after";
  * recurring bookings the start / end of the series plus a per-date book / skip / replace choice from the
  * dry-run preview.
  */
-import { ArrowDownToLine, CalendarCheck, Loader2, Repeat } from "lucide-react";
+import { ArrowDownToLine, CalendarCheck, Repeat } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -356,14 +357,14 @@ function MultiBody({ slotKeys, termId, termEnd, fmt, onClose, onBooked }: { slot
           {t("crbs.common.cancel")}
         </Button>
         {problems === null || problems.length ? (
-          <Button variant="outline" onClick={check} disabled={!selection || dry.isPending || !included.length} data-testid="multi-check">
-            {dry.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {kind === "recurring" ? t("reserve.multi.previewDates") : t("crbs.multi.check")}
+          <Button variant="outline" onClick={check} disabled={!selection || dry.isPending || !included.length} data-testid="multi-check" aria-busy={dry.isPending || undefined}>
+            <BusyLabel busy={dry.isPending} label={t("busy.checking")}>
+            {kind === "recurring" ? t("reserve.multi.previewDates") : t("crbs.multi.check")}</BusyLabel>
           </Button>
         ) : (
-          <Button onClick={confirm} disabled={create.isPending || !included.length} data-testid="multi-confirm">
-            {create.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("crbs.multi.confirm", { n: wouldCreate ?? included.length })}
+          <Button onClick={confirm} disabled={create.isPending || !included.length} data-testid="multi-confirm" aria-busy={create.isPending || undefined}>
+            <BusyLabel busy={create.isPending} label={t("busy.saving")}>
+            {t("crbs.multi.confirm", { n: wouldCreate ?? included.length })}</BusyLabel>
           </Button>
         )}
       </DialogFooter>

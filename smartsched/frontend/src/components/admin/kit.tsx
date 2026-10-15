@@ -7,6 +7,7 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, Info, Loader2, XOctagon } from "lucide-react";
 import { useId, type ReactNode, type SelectHTMLAttributes } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fieldSurface } from "@/components/ui/field-styles";
 import { cn } from "@/lib/utils";
@@ -146,9 +147,9 @@ export function ConfirmDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             {t("crbs.common.cancel")}
           </Button>
-          <Button variant={destructive ? "destructive" : "default"} onClick={onConfirm} disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {confirmLabel}
+          <Button variant={destructive ? "destructive" : "default"} onClick={onConfirm} disabled={busy} aria-busy={busy || undefined}>
+            <BusyLabel busy={!!busy} label={t("busy.working")}>
+            {confirmLabel}</BusyLabel>
           </Button>
         </DialogFooter>
       </DialogContent>

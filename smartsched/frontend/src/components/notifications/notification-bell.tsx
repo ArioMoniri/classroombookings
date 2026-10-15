@@ -12,7 +12,7 @@ import { Bell, CheckCheck, Inbox } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/common/status-badge";
 import { runStatusBadge } from "@/components/runs/runs-list";
@@ -39,7 +39,14 @@ export function NotificationBell({ className }: { className?: string }) {
   const reduce = useReduce();
   const { can } = usePermissions();
   const planner = can("planning.view");
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  // motion audit T3: after the first open the panel stays mounted (hidden) and its body is memoised, so
+  // opening the bell again only flips the popup's state instead of rendering the list in the click frame
+  const [mounted, setMounted] = useState(false);
+  const setOpen = useCallback((next: boolean) => {
+    if (next) setMounted(true);
+    setOpenState(next);
+  }, []);
   const list = useNotifications(hydrated);
   const unread = useQuery({
     queryKey: UNREAD_KEY,
@@ -62,6 +69,8 @@ export function NotificationBell({ className }: { className?: string }) {
     if (prev.current !== null && count > prev.current) {
       setBump((b) => b + 1);
       setAnnounce(t("wave1.bell.newArrived", { count: count - prev.current }));
+      // cleared again, so the same text is announced the next time too (motion audit #21)
+      window.setTimeout(() => setAnnounce(""), 1000);
     }
     prev.current = count;
   }, [count, unread.isSuccess, t]);
@@ -115,7 +124,7 @@ export function NotificationBell({ className }: { className?: string }) {
       <span className="sr-only" role="status" aria-live="polite">
         {announce}
       </span>
-      <PopoverContent align="end" className="w-[min(24rem,calc(100vw-1rem))] p-1.5" data-testid="notification-panel">
+      <PopoverContent align="end" keepMounted={mounted} className="w-[min(24rem,calc(100vw-1rem))] p-1.5" data-testid="notification-panel">
         <div className="flex items-center justify-between gap-2 px-2.5 pt-1 pb-1.5">
           <p className="type-headline text-label-1">{t("nav.notifications")}</p>
           {count > 0 ? (
@@ -164,7 +173,7 @@ export function NotificationBell({ className }: { className?: string }) {
             <ul>
               {recentRuns.map((r) => (
                 <li key={r.id}>
-                  <Link href={`/runs/${r.id}`} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-[10px] px-2.5 py-2 outline-hidden hover:bg-fill-2 focus-visible:bg-fill-2">
+                  <Link href={`/runs/${r.id}`} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-[10px] px-2.5 py-2 outline-hidden hover:bg-fill-2 focus-visible:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px] font-medium text-label-1">{t("glass.shell.runTitle", { id: r.id, term: r.term_code })}</span>
                       <span className="block text-[12px] text-label-3">{new Intl.DateTimeFormat(tag, { dateStyle: "medium", timeStyle: "short" }).format(new Date(r.created_at))}</span>

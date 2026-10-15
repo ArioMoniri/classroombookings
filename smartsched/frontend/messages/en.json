@@ -1,5 +1,6 @@
 {
   "app": { "name": "SmartSched", "tagline": "AI classroom planner", "skip": "Skip to content", "version": "v0.1" },
+  "busy": {"saving": "Saving…", "working": "Working…", "checking": "Checking…", "deleting": "Deleting…", "loading": "Loading…", "opening": "Opening…", "searching": "Searching…", "approving": "Approving…", "rejecting": "Declining…", "sending": "Sending…"},
   "titles": {
     "bookings": "Bookings", "myBookings": "My bookings", "findRoom": "Find a room", "approvals": "Approvals",
     "profile": "Profile", "settings": "Settings", "import": "Import", "dashboard": "Dashboard", "rooms": "Rooms",

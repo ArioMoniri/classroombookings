@@ -4,11 +4,12 @@
  * as the viewer may see them, the series, and the edit / cancel actions the backend allows. Edit fields
  * follow `edit_features[scope]`; future/all scopes only change notes, department and user (CRBS rule).
  */
-import { CalendarClock, Info, Loader2, Pencil, Repeat, Trash2, User } from "lucide-react";
+import { CalendarClock, Info, Pencil, Repeat, Trash2, User } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Input, useShake } from "@/components/ui/input";
 import { SegmentedGlass } from "@/components/ui/segmented-glass";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -373,9 +374,9 @@ function EditForm({ booking: b, fmt, onDone }: { booking: BookingDetail; fmt: Da
         <Button variant="ghost" onClick={onDone}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button onClick={submit} disabled={save.isPending} data-testid="edit-save">
-          {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("crbs.common.save")}
+        <Button onClick={submit} disabled={save.isPending} data-testid="edit-save" aria-busy={save.isPending || undefined}>
+          <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+          {t("crbs.common.save")}</BusyLabel>
         </Button>
       </div>
     </div>

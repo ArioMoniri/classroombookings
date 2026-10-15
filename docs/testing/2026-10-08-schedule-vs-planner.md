@@ -345,3 +345,28 @@ a list time that is off the grid gets every period the class covers for at least
   touched period as part of the class.
 - **One rise.** Final DI-missed rose 40 → 48, because `board_time_not_in_list` (8 → 15) now judges the periods that were
   snapped. The new `time_snapped` group lists every one of them, with the row, the original time and the periods.
+
+### 11.2 Final after the exam rule (owner decision, 2026-10-15 21:31)
+
+The owner's decision: **exams are never moved.** An exam occupies every period its written time overlaps
+(`normalize.exam_periods`): a 14:00 exam holds P7 (13:30-14:10) and later, and keeps its written start time. The
+half-period rule (§11.1) applies to classes only: the planning list and hand-made meetings.
+
+This was a Final-only re-run with the same tool and settings (`--only final`). Load average was 14-19.
+
+| Instance | Placed / events | hard / soft | a | b | c | neutral | d | e | match (kept) | DI missed | DI false | `time_snapped` |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| final, half rule (§11.1) | 603/608 | 100/93 | 7 | 0 | 0 | 0 | 5 | 214 | 399 (104) | 48 | 38 | 658 |
+| final, exam rule (this run) | 603/608 | 100/93 | 6 | 0 | 0 | 0 | 5 | 333 | 274 (57) | 40 | 62 | 551 (info) |
+
+- **Same as the 2026-10-15 run before snapping.** Any-overlap is the rule the exam list used before §11.1, so every
+  number matches.
+- **The planner's board is closer to the half rule.** It places a 14:00 exam from P8, so 125 more exams count as
+  "different period" (e) than under §11.1. This is not a regression (c = 0), but the owner should know.
+- **551 exams cover a period only partly.** Each is listed as info, for example "satır 10: 14:00-16:00: P7'yi kısmen
+  kapsıyor; sınav P7-P9 periyotlarını tutuyor (kaydırılmadı)".
+- **166 exams start at a period's end or in a break.** Most start at 10:00: P2 ends at 10:00 and P3 starts at 10:10.
+  Their first occupied period starts after the written time; the minutes in between are a break, which belongs to no
+  period. Claiming P2 would create false clashes with exams that end at 10:00 in the same room.
+  `tests/test_period_snapping.py::test_no_exam_starts_later_than_written` checks that no overlapped period is ever
+  left out.

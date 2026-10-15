@@ -1,9 +1,10 @@
 "use client";
 /** /admin/authentication (CRBS `settings/Authentication`): LDAP sign-in with a "test" that binds without saving. */
-import { Loader2, PlugZap } from "lucide-react";
+import { PlugZap } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -98,9 +99,9 @@ function LdapForm({ data }: { data: LdapSettings }) {
       </Card>
       {error ? <Alert tone="error">{error}</Alert> : null}
       <div className="flex justify-end">
-        <Button disabled={!Object.keys(d).length || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => (toast.success(t("crbs.common.saved")), setD({})), onError: (e) => setError(bookingErrorMessage(crbsError(e), t)) })}>
-          {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("crbs.common.save")}
+        <Button disabled={!Object.keys(d).length || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => (toast.success(t("crbs.common.saved")), setD({})), onError: (e) => setError(bookingErrorMessage(crbsError(e), t)) })} aria-busy={save.isPending || undefined}>
+          <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+          {t("crbs.common.save")}</BusyLabel>
         </Button>
       </div>
       <section aria-labelledby="ldap-test" className="flex flex-col gap-3">
@@ -120,9 +121,9 @@ function LdapForm({ data }: { data: LdapSettings }) {
           <Field label={t("crbs.users.password")} htmlFor="ldap-tp">
             <Input id="ldap-tp" type="password" autoComplete="off" value={pass} onChange={(e) => setPass(e.target.value)} />
           </Field>
-          <Button type="submit" variant="outline" disabled={!user || !pass || test.isPending}>
-            {test.isPending ? <Loader2 className="animate-spin" aria-hidden /> : <PlugZap aria-hidden />}
-            {t("crbs.ldap.runTest")}
+          <Button type="submit" variant="outline" disabled={!user || !pass || test.isPending} aria-busy={test.isPending || undefined}>
+            <BusyLabel busy={test.isPending} label={t("busy.checking")} icon={<PlugZap aria-hidden />}>
+            {t("crbs.ldap.runTest")}</BusyLabel>
           </Button>
         </form>
         {result ? (

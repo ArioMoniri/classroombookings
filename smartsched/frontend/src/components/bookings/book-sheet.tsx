@@ -17,6 +17,7 @@ import { CalendarCheck, DoorOpen, Loader2, Repeat, Stamp } from "lucide-react";
 import { useMemo, useReducer, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Chip } from "@/components/ui/chip";
 import { Input, useShake } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -380,9 +381,9 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
               <p className="type-footnote text-label-2">{t("reserve.book.spanRecurring", { date: fmt.short(endMode === "custom" ? endDate : grid.term.end) })}</p>
             ) : (
               <>
-                <Button variant="outline" onClick={runPreview} disabled={previewM.isPending} className="self-start" data-testid="recur-preview-btn">
-                  {previewM.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-                  {preview.plan ? t("crbs.recur.refresh") : t("crbs.recur.preview")}
+                <Button variant="outline" onClick={runPreview} disabled={previewM.isPending} className="self-start" data-testid="recur-preview-btn" aria-busy={previewM.isPending || undefined}>
+                  <BusyLabel busy={previewM.isPending} label={t("busy.checking")}>
+                  {preview.plan ? t("crbs.recur.refresh") : t("crbs.recur.preview")}</BusyLabel>
                 </Button>
                 {preview.plan ? <RecurringPreviewTable summary={summary} dispatch={dispatch} fmt={fmt} /> : null}
               </>

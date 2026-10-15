@@ -3,11 +3,12 @@
  * /admin/email: SMTP server, "send a test" and the notification outbox. Without SMTP every notification
  * stays in the outbox as UNSENT (nothing pretends to send); an administrator can retry after configuring.
  */
-import { Loader2, RotateCw, Send } from "lucide-react";
+import { RotateCw, Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMutation, useOutbox, useSmtpSettings, type SmtpSettings } from "@/lib/api/crbs";
@@ -82,9 +83,9 @@ function SmtpForm({ data }: { data: SmtpSettings }) {
           <Field label={t("crbs.email.testTo")} htmlFor="smtp-to">
             <Input id="smtp-to" type="email" className="w-64" value={to} onChange={(e) => setTo(e.target.value)} />
           </Field>
-          <Button type="submit" variant="outline" disabled={!to || test.isPending}>
-            {test.isPending ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
-            {t("crbs.email.sendTest")}
+          <Button type="submit" variant="outline" disabled={!to || test.isPending} aria-busy={test.isPending || undefined}>
+            <BusyLabel busy={test.isPending} label={t("busy.checking")} icon={<Send aria-hidden />}>
+            {t("crbs.email.sendTest")}</BusyLabel>
           </Button>
         </form>
         <Button disabled={!Object.keys(d).length || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => (toast.success(t("crbs.common.saved")), setD({})), onError: (e) => setError(bookingErrorMessage(crbsError(e), t)) })}>

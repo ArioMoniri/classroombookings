@@ -10,12 +10,13 @@
  * Deep link: `?request=<id>` (the in-app notification). Motion: the drawer's own; none on the list.
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, DoorOpen, Inbox, Loader2, Users, XCircle } from "lucide-react";
+import { CheckCircle2, DoorOpen, Inbox, Users, XCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { KbdHint } from "@/components/ui/kbd-hint";
@@ -392,13 +393,13 @@ function RequestDetail({ id, onClose, onSwitch, onDone }: { id: number; onClose:
             <DoorOpen aria-hidden />
             {t("wave1.approvals.otherRoom")}
           </Button>
-          <Button variant="outline" className="text-status-infeasible-fg" disabled={!!busy} onClick={() => void decide("reject")} aria-keyshortcuts="D" data-testid="approval-reject">
-            {busy === "reject" ? <Loader2 className="animate-spin" aria-hidden /> : <XCircle aria-hidden />}
-            {t("wave1.approvals.reject")}
+          <Button variant="outline" className="text-status-infeasible-fg" disabled={!!busy} onClick={() => void decide("reject")} aria-keyshortcuts="D" data-testid="approval-reject" aria-busy={busy === "reject" || undefined}>
+            <BusyLabel busy={busy === "reject"} label={t("busy.rejecting")} icon={<XCircle aria-hidden />}>
+            {t("wave1.approvals.reject")}</BusyLabel>
           </Button>
-          <Button disabled={!!busy} onClick={() => void decide("approve")} aria-keyshortcuts="A" data-testid="approval-approve">
-            {busy === "approve" ? <Loader2 className="animate-spin" aria-hidden /> : <CheckCircle2 aria-hidden />}
-            {pending.length > 1 && chosen.size < pending.length ? t("wave1.approvals.approveN", { n: chosen.size }) : t("wave1.approvals.approve")}
+          <Button disabled={!!busy} onClick={() => void decide("approve")} aria-keyshortcuts="A" data-testid="approval-approve" aria-busy={busy === "approve" || undefined}>
+            <BusyLabel busy={busy === "approve"} label={t("busy.approving")} icon={<CheckCircle2 aria-hidden />}>
+            {pending.length > 1 && chosen.size < pending.length ? t("wave1.approvals.approveN", { n: chosen.size }) : t("wave1.approvals.approve")}</BusyLabel>
           </Button>
         </SheetFooter>
       ) : (

@@ -1,9 +1,10 @@
 "use client";
 /** /admin/holidays (CRBS `Holidays`): named date ranges inside a session; no bookings, series skip them. */
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -173,9 +174,9 @@ function HolidayForm({ holiday, term, onClose }: { holiday: Holiday; term: Sessi
         <Button type="button" variant="ghost" onClick={onClose}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button type="submit" disabled={!name.trim() || !start || save.isPending || (!!end && end < start)} data-testid="holiday-save">
-          {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("crbs.common.save")}
+        <Button type="submit" disabled={!name.trim() || !start || save.isPending || (!!end && end < start)} data-testid="holiday-save" aria-busy={save.isPending || undefined}>
+          <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+          {t("crbs.common.save")}</BusyLabel>
         </Button>
       </DialogFooter>
     </form>

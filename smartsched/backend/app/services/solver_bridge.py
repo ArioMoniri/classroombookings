@@ -1696,6 +1696,9 @@ async def persist_result(
         # solver event -> its requests where one event stands for several (joint lectures, exam cohorts);
         # diagnosis event ids are solver events, the data-issues report lists every request involved
         "event_members": {str(k): list(v) for k, v in members.items() if len(v) > 1},
+        # the solver's own event-level placements (before the member split and the outside-pool rooms): a
+        # moderation re-solve starts its repair from exactly these (app/services/moderation.base_assignments)
+        "solver_assignments": [solver_assignment_row(a) for a in result.assignments],
     }
     diags = [asdict(d) for d in result.diagnoses] + bridge_diags
     # accepted exceptions of the whole run (solver, week segments and bridge) by cause; the best-effort
@@ -1785,6 +1788,46 @@ async def persist_result(
     if not await run_jobs.commit_unless_cancelled(session, run, new_status):
         return -1
     return count
+
+
+def solver_assignment_row(a: sm.Assignment) -> list[Any]:
+    """``[event, day, start, end, rooms, weeks, date]`` of one solver assignment (``stats.solver_assignments``)."""
+    return [
+        a.event_id,
+        a.day,
+        a.start,
+        a.end,
+        list(a.room_ids),
+        sorted(a.weeks),
+        a.date.isoformat() if a.date else None,
+    ]
+
+
+def solver_assignments_of(run: ScheduleRun) -> list[sm.Assignment] | None:
+    """The run's stored event-level solver placements (``None`` for runs persisted before they were kept)."""
+    from datetime import date as date_
+
+    raw = (run.stats or {}).get("solver_assignments")
+    if not isinstance(raw, list):
+        return None
+    out: list[sm.Assignment] = []
+    for r in raw:
+        try:
+            eid, day, start, end, rooms, weeks, d = r
+            out.append(
+                sm.Assignment(
+                    int(eid),
+                    int(day),
+                    int(start),
+                    int(end),
+                    tuple(int(x) for x in rooms),
+                    frozenset(int(w) for w in weeks),
+                    date_.fromisoformat(d) if d else None,
+                )
+            )
+        except (TypeError, ValueError):
+            return None
+    return out
 
 
 #: planner texts of a policy loss (``app.solver.policy.LOSS_REASONS``); ``{w}`` = the winners' labels

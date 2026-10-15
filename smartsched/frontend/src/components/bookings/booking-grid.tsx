@@ -117,7 +117,11 @@ interface Hint {
 const HOVER_MS = 350;
 const HOLD_MS = 450;
 
-export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, onSpan, crosshair, highlightBookingId, roomIcons, onRoomInfo, department = "all" }: Props) {
+/**
+ * Memoised (motion audit T3): opening the book sheet, the room sheet or the bell re-renders the bookings page,
+ * and re-rendering 300+ cells cost the 344-653 ms frame that delayed the sheet. With stable props it skips.
+ */
+export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, onSpan, crosshair, highlightBookingId, roomIcons, onRoomInfo, department = "all" }: Props) {
   const t = useT();
   const layout = useMemo(() => layoutGrid(grid, columns), [grid, columns]);
   // the roving tab stop lives in a ref: moving focus swaps tabIndex on two cells instead of re-rendering the
@@ -496,7 +500,7 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
       ) : null}
     </div>
   );
-}
+});
 
 function HeaderLabel({ item, title, sub, icon, onRoomInfo }: { item: AxisItem; title: string; sub: string | null; icon?: string | null; onRoomInfo?: (id: number) => void }) {
   const t = useT();

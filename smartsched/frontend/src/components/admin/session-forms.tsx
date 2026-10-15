@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -131,14 +132,14 @@ function SessionForm({ session, onClose, onSaved }: { session: Session | null; o
           {t("crbs.common.cancel")}
         </Button>
         {outside !== null ? (
-          <Button type="button" variant="destructive" disabled={save.isPending} onClick={() => submit(true)} data-testid="session-confirm-dates">
-            {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("admingaps.sessions.outsideConfirm", { n: outside })}
+          <Button type="button" variant="destructive" disabled={save.isPending} onClick={() => submit(true)} data-testid="session-confirm-dates" aria-busy={save.isPending || undefined}>
+            <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+            {t("admingaps.sessions.outsideConfirm", { n: outside })}</BusyLabel>
           </Button>
         ) : (
-          <Button type="submit" disabled={save.isPending || !name.trim() || !start || !end || badDates} data-testid="session-save">
-            {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {session ? t("crbs.common.save") : t("crbs.common.create")}
+          <Button type="submit" disabled={save.isPending || !name.trim() || !start || !end || badDates} data-testid="session-save" aria-busy={save.isPending || undefined}>
+            <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+            {session ? t("crbs.common.save") : t("crbs.common.create")}</BusyLabel>
           </Button>
         )}
       </DialogFooter>
@@ -209,9 +210,9 @@ export function DeleteSessionDialog({ session, onClose, onDeleted }: { session: 
                 onError: (err) => setError(bookingErrorMessage(crbsError(err), t)),
               })
             }
-          >
-            {del.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("admingaps.sessions.deleteConfirm")}
+           aria-busy={del.isPending || undefined}>
+            <BusyLabel busy={del.isPending} label={t("busy.deleting")}>
+            {t("admingaps.sessions.deleteConfirm")}</BusyLabel>
           </Button>
         </DialogFooter>
       </DialogContent>

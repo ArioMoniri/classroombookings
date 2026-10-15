@@ -608,8 +608,8 @@
       "ledger": "backend-backlog-2026-10-15 SCOPE: smartsched/backend/app/api/v1/** and app/servi…",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-15 21:19",
-      "left_off": "About a third done, with 2 failures so far; I'll review them when it finishes."
+      "finished_at": "2026-10-15 21:36",
+      "left_off": "Waiting for the suite to finish."
     },
     {
       "id": "a284d15d95bf61925",
@@ -854,7 +854,8 @@
       "goal": "fix these findings from the admin persona test (docs/testing/2026-10-15-persona-admin.md; read its exact repro requests in /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/persona-admin/curl/). Work test-first. 1. KVKK sign-off pre-seeded: a KVKK sign-off appears as a default on every installation. A sign-off must be an explicit, dated action by a named ad…",
       "ledger": "admin-persona-backend-fixes-2026-10-15 SCOPE: only these files and their tests: …",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 21:35"
     },
     {
       "id": "a3b246b42b94fb35b",
@@ -1009,6 +1010,14 @@
       "status": "finished",
       "finished_at": "2026-10-15 21:20",
       "left_off": "deploy to pod when green and send panel url"
+    },
+    {
+      "id": "acf23f6d5ab5d7e09",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 21:23",
+      "left_off": "deploy to pod when green"
     }
   ]
 }

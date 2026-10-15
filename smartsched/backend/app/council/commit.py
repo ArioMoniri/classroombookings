@@ -36,7 +36,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import safe_files
-from app.council import critic, fastpath, formats, storage
+from app.council import airows, critic, fastpath, formats, storage
 from app.council import text as tx
 from app.council.baseline import as_baseline_run
 from app.council.dryrun import ChangeRecorder, summarize
@@ -514,6 +514,13 @@ async def commit(
     pending = [
         it for it in items if it["blocking"] and it["decision"] is None and it.get("file_index") in (None, *chosen)
     ]
+    ai_pending = await airows.pending_ai(session, job, chosen)
+    if ai_pending:  # P19-A2: allow_pending never covers rows the AI model read
+        raise CommitError(
+            f"{len(ai_pending)} row(s) read by the AI model must be accepted, edited or rejected first "
+            f"(e.g. {ai_pending[0]}); allow_pending does not apply to them"
+        )
+    pending = [it for it in pending if it["kind"] != "ai_rows"]
     if pending and not allow_pending:
         raise CommitError(f"{len(pending)} review item(s) must be decided first (e.g. {pending[0]['title']})")
 
@@ -592,20 +599,34 @@ async def commit(
     general = [i for i in chosen if not routes[i].startswith("fast:") or routes[i][5:] not in fastpath.IMPORTER_SHAPES]
     week_of = await writer.weeks(g) if g else {}
     if general:
-        file_rooms = {
-            room_key(r.get("code") or r.get("room_code") or "")
-            for i in general
-            for r in records.get(i, [])
-            if r["type"] in ("room", "booking")
-        }
+        file_rooms: set[str] = set()
+        room_edits: dict[str, dict[str, Any]] = {}
+        for i in general:
+            for n, r in enumerate(records.get(i, [])):
+                if r["type"] not in ("room", "booking"):
+                    continue
+                d = decided.get(airows.row_id(i, n)) or {}
+                if d.get("action") == "reject":  # a rejected row names no room
+                    continue
+                k = room_key(r.get("code") or r.get("room_code") or "")
+                file_rooms.add(k)
+                if d.get("action") == "edit" and r["type"] == "room":
+                    room_edits[k] = {kk: v for kk, v in (d.get("value") or {}).items() if kk not in airows.FROZEN}
         for room in dataset.get("rooms", []):
             if room["key"] in file_rooms:
-                await writer.room(room)
+                await writer.room({**room, **room_edits.get(room["key"], {})})
         for i in general:
             for n, r in enumerate(records.get(i, [])):
                 if rid(i, n) in duplicates:
                     writer.counts["duplicates_skipped"] += 1
                     continue
+                row_decision = decided.get(airows.row_id(i, n))
+                if row_decision and row_decision.get("action") == "reject":
+                    writer.counts["rows_rejected"] += 1
+                    continue
+                if row_decision and row_decision.get("action") == "edit":
+                    r = {**r, **{k: v for k, v in (row_decision.get("value") or {}).items() if k not in airows.FROZEN}}
+                    writer.counts["rows_edited"] += 1
                 if r["type"] == "meeting":
                     await writer.meeting(i, n, r)
                 elif r["type"] == "exam":
@@ -626,7 +647,11 @@ async def commit(
     schedule: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for i in chosen:
         src = {"sha256": shas.get(i) or None, "file": entries[i]["filename"], "job": job.id}
-        schedule.extend((r, src) for r in records.get(i, []) if r["type"] == "booking")
+        schedule.extend(
+            (r, src)
+            for n, r in enumerate(records.get(i, []))
+            if r["type"] == "booking" and (decided.get(airows.row_id(i, n)) or {}).get("action") != "reject"
+        )
     baseline = None
     if schedule:
         grid = periods or [

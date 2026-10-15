@@ -20,6 +20,7 @@ from app.ai import catalog
 from app.ai.client import AIClient, text_of, tool_uses
 from app.ai.elicit import MAX_TOKENS, build_system
 from app.ai.resolve import TermContext
+from app.council.llm import clean
 from app.models import Course, Program, Room, Term
 
 log = logging.getLogger(__name__)
@@ -97,7 +98,9 @@ async def mine(
     for part, chunk in enumerate(chunks, start=1):
         by_n = {n: t for n, t in chunk}
         lines = "\n".join(
-            f"[{n}] " + (f"({', '.join(t['course_codes'][:6])}) " if t.get("course_codes") else "") + t["text"][:700]
+            f"[{n}] "
+            + (f"({', '.join(t['course_codes'][:6])}) " if t.get("course_codes") else "")
+            + clean(t["text"][:700])
             for n, t in chunk
         )
         content = (
@@ -133,6 +136,10 @@ async def mine(
                     ref = raw.get("source_ref")
                     src = by_n[ref]["source"] if isinstance(ref, int) and ref in by_n else None
                     text = by_n[ref]["text"] if isinstance(ref, int) and ref in by_n else None
+                    if src is None and key != "unparsed":
+                        # every value must trace to a source unit (P19-A4): a rule citing no line is dropped
+                        result["messages"].append(f"part {part}: a {key[:-1]} citing no source line was dropped")
+                        continue
                     result[key].append({**raw, "_source": src, "_text": text})
     log.info(
         "rule miner: texts=%d chunks=%d proposals=%d edits=%d",

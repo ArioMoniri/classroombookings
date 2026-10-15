@@ -882,7 +882,7 @@ async def _write_meetings(
             definitive_room_text=None,
             definitive_room_ids=[],
             status="PARSED",
-            parse_warnings=[],
+            parse_warnings=list(spec.warnings),  # an off-grid start snapped by the half rule (owner decision)
             notes=notes,
             source_key=man_key(),
             source_row_index=None,
@@ -895,10 +895,12 @@ async def _write_meetings(
 
 
 def _tag_warnings(specs: Iterable[pt.MeetingSpec]) -> list[str]:
+    specs = list(specs)
+    snapped = list(dict.fromkeys(w for s in specs for w in s.warnings))  # off-grid starts (half rule)
     tags = sorted({t for s in specs for t in s.requested_tags} - ENFORCED_TAGS)
     if not tags:
-        return []
-    return [
+        return snapped
+    return snapped + [
         f"room tag(s) {', '.join(tags)} are recorded on the request but the solver enforces only PC (required) "
         "and TIP (allowed); name a preferred room or add a room rule to enforce them"
     ]
@@ -969,19 +971,27 @@ async def create_meeting(session: AsyncSession, actor: User, data: dict[str, Any
     if sec.archived:
         raise Conflict("the section is archived")
     term = await _get(session, Term, sec.term_id, "term")
+    written: tuple[Any, Any, list[str]] | None = None  # (start, end, warnings) of an off-grid clock range
     try:
-        start = pt.parse_start(data.get("start"))
+        start, start_t, _snap = pt.start_snap(data.get("start"))
+        start_raw: Any = data.get("start")
         periods = data.get("periods")
         if periods is None:
             end_text = n.clean_text(data.get("end"))
             end_t = n.parse_time(end_text) if end_text else None
             if end_t is None:
                 raise pt.PatternError("periods or end (e.g. 13:20) is required")
-            match = n.time_to_period(end_t, "end")
-            if match.period is None or match.warning or match.period < start:
-                raise pt.PatternError(f"end {end_t:%H:%M} is not the end of a period after the start")
-            periods = match.period - start + 1
-        raw: dict[str, Any] = {"theory": int(periods), "days": data.get("days"), "start": start}
+            t0 = start_t or n.PERIODS[start - 1].start
+            if end_t <= t0:
+                raise pt.PatternError(f"end {end_t:%H:%M} is not after the start {t0:%H:%M}")
+            # the class's clock range snaps like the planning list's (periods covered for at least half)
+            rng = n.snap_to_periods(t0, end_t)
+            if rng.start_period is None or rng.end_period is None:
+                raise pt.PatternError("; ".join(rng.warnings) or f"end {end_t:%H:%M} is outside the period grid")
+            start_raw, periods = rng.start_period, rng.end_period - rng.start_period + 1
+            if rng.snapped:
+                written = (t0, end_t, list(rng.warnings))
+        raw: dict[str, Any] = {"theory": int(periods), "days": data.get("days"), "start": start_raw}
         for k in ("weeks", "room_needs"):
             if data.get(k) is not None:
                 raw[k] = data[k]
@@ -992,6 +1002,8 @@ async def create_meeting(session: AsyncSession, actor: User, data: dict[str, Any
         raise Invalid(str(exc)) from exc
     specs = pt.expand(spec, enrolment=sec.enrolment, needs_room=sec.mode in n.ROOM_MODES)
     specs = [dc_replace(s, notes="") for s in specs]  # a single hand-made meeting carries only the caller's note
+    if written is not None:  # keep the written clock range; the data-issues report lists it (time_snapped)
+        specs = [dc_replace(s, start_time=written[0], end_time=written[1], warnings=tuple(written[2])) for s in specs]
     (mr,) = await _write_meetings(session, sec, specs, data.get("notes"))
     await _audit(session, "meeting.create", "meeting", mr.id, actor, after=_meeting_snap(mr), term_id=sec.term_id)
     return mr, _tag_warnings(specs)
@@ -1058,7 +1070,7 @@ async def create_exam(session: AsyncSession, actor: User, data: dict[str, Any]) 
     start, end = _clock(data.get("start"), "start"), _clock(data.get("end"), "end")
     if start is not None and end is not None and end <= start:
         raise Invalid("end is not after start")
-    periods = n.time_range_to_periods(start, end)
+    periods = n.exam_periods(start, end)  # exams are never moved: every overlapped period (owner decision)
     try:
         needs = pt.parse_room_needs(
             {"tags": data.get("requested_tags"), "building": data.get("requested_building")},

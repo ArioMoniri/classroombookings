@@ -14,6 +14,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
@@ -331,8 +332,8 @@ export function FindRoomView() {
               </div>
 
               <Button type="submit" disabled={busy || !form} aria-busy={busy || undefined} data-testid="fr-search">
-                {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Search aria-hidden />}
-                {busy ? t("wave1.find.searching") : t("wave1.find.search")}
+                <BusyLabel busy={busy} label={t("busy.searching")} icon={<Search aria-hidden />}>
+                {busy ? t("wave1.find.searching") : t("wave1.find.search")}</BusyLabel>
               </Button>
             </form>
           </Card>
@@ -627,9 +628,9 @@ function AlternativeRow({ alt: a, opening, onReserve }: { alt: FindAlternative; 
         <p className="type-footnote text-label-2">{pickLang(a.reason, locale)}</p>
       </div>
       {a.kind !== "near_miss" ? (
-        <Button size="sm" variant="outline" className="min-h-11 sm:min-h-0" onClick={onReserve} disabled={opening} aria-label={t("wave1.find.reserveRoom", { room: a.name })}>
-          {opening ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("wave1.find.reserve")}
+        <Button size="sm" variant="outline" className="min-h-11 sm:min-h-0" onClick={onReserve} disabled={opening} aria-label={t("wave1.find.reserveRoom", { room: a.name })} aria-busy={opening || undefined}>
+          <BusyLabel busy={opening} label={t("busy.opening")}>
+          {t("wave1.find.reserve")}</BusyLabel>
         </Button>
       ) : null}
     </li>

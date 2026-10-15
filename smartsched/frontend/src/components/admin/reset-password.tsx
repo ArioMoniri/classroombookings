@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Input, useShake } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMutation } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
@@ -42,9 +43,9 @@ function RequestForm({ onHaveCode }: { onHaveCode: () => void }) {
           <Field label={t("crbs.reset.identifier")} htmlFor="rs-email">
             <Input id="rs-email" autoComplete="username" autoCapitalize="none" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <Button type="submit" size="lg" disabled={!email.trim() || m.isPending}>
-            {m.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("crbs.reset.send")}
+          <Button type="submit" size="lg" disabled={!email.trim() || m.isPending} aria-busy={m.isPending || undefined}>
+            <BusyLabel busy={m.isPending} label={t("busy.working")}>
+            {t("crbs.reset.send")}</BusyLabel>
           </Button>
         </form>
       )}
@@ -104,9 +105,9 @@ function ConfirmForm({ initialToken, onBack }: { initialToken: string; onBack: (
             </Field>
           </div>
           {error ? <Alert tone="error">{error}</Alert> : null}
-          <Button type="submit" size="lg" disabled={!token.trim() || !pw || m.isPending}>
-            {m.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("crbs.reset.setPassword")}
+          <Button type="submit" size="lg" disabled={!token.trim() || !pw || m.isPending} aria-busy={m.isPending || undefined}>
+            <BusyLabel busy={m.isPending} label={t("busy.working")}>
+            {t("crbs.reset.setPassword")}</BusyLabel>
           </Button>
           <Button type="button" variant="link" className="self-start px-0" onClick={onBack}>
             {t("crbs.reset.needCode")}

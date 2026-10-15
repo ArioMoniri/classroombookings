@@ -10,11 +10,12 @@
  * 409 `solver_tag_impact`; the admin sees "removes PC from 5 rooms; 37 requests need PC" and confirms.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { FileDown, FileUp, Loader2, Pencil, Plus, Sparkles, Tags, Trash2 } from "lucide-react";
+import { FileDown, FileUp, Pencil, Plus, Sparkles, Tags, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -80,13 +81,13 @@ export function FeaturesTab() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <p className="max-w-prose type-callout text-label-2">{t("wave1.features.lead")}</p>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => void starter("adopt")} disabled={!!busy} data-testid="features-adopt">
-            {busy === "adopt" ? <Loader2 className="animate-spin" aria-hidden /> : <Tags aria-hidden />}
-            {t("wave1.features.adopt")}
+          <Button variant="outline" onClick={() => void starter("adopt")} disabled={!!busy} data-testid="features-adopt" aria-busy={busy === "adopt" || undefined}>
+            <BusyLabel busy={busy === "adopt"} label={t("busy.working")} icon={<Tags aria-hidden />}>
+            {t("wave1.features.adopt")}</BusyLabel>
           </Button>
-          <Button variant="outline" onClick={() => void starter("template")} disabled={!!busy} data-testid="features-starter">
-            {busy === "template" ? <Loader2 className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}
-            {t("wave1.features.starter")}
+          <Button variant="outline" onClick={() => void starter("template")} disabled={!!busy} data-testid="features-starter" aria-busy={busy === "template" || undefined}>
+            <BusyLabel busy={busy === "template"} label={t("busy.working")} icon={<Sparkles aria-hidden />}>
+            {t("wave1.features.starter")}</BusyLabel>
           </Button>
           <Button variant="outline" onClick={() => setBulk(true)} data-testid="features-bulk">
             <FileUp aria-hidden />
@@ -322,9 +323,9 @@ function FeatureForm({ feature, onClose }: { feature: Feature | null; onClose: (
         <Button type="button" variant="ghost" onClick={onClose}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button type="submit" disabled={saving} variant={impact ? "destructive" : "default"} data-testid="feature-save">
-          {saving ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {impact ? t("wave1.features.saveAnyway") : t("crbs.common.save")}
+        <Button type="submit" disabled={saving} variant={impact ? "destructive" : "default"} data-testid="feature-save" aria-busy={saving || undefined}>
+          <BusyLabel busy={saving} label={t("busy.saving")}>
+          {impact ? t("wave1.features.saveAnyway") : t("crbs.common.save")}</BusyLabel>
         </Button>
       </DialogFooter>
     </form>
@@ -437,9 +438,9 @@ function ValuesGrid({ features, rooms }: { features: Feature[]; rooms: AdminRoom
         </div>
         <div className="flex items-center gap-2">
           <Input type="search" aria-label={t("wave1.features.filterRooms")} placeholder={t("wave1.features.filterRooms")} value={q} onChange={(e) => setQ(e.target.value)} className="w-48" />
-          <Button onClick={() => void saveAll()} disabled={!changed.length || saving} data-testid="feature-values-save">
-            {saving ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("wave1.features.saveRooms", { n: changed.length })}
+          <Button onClick={() => void saveAll()} disabled={!changed.length || saving} data-testid="feature-values-save" aria-busy={saving || undefined}>
+            <BusyLabel busy={saving} label={t("busy.saving")}>
+            {t("wave1.features.saveRooms", { n: changed.length })}</BusyLabel>
           </Button>
         </div>
       </div>
@@ -649,13 +650,13 @@ function BulkDialog({ features, rooms, onClose }: { features: Feature[]; rooms: 
         <Button variant="ghost" onClick={onClose}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button variant="outline" disabled={!file || !!busy} onClick={() => void run(true)} data-testid="features-check">
-          {busy === "check" ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("wave1.features.check")}
+        <Button variant="outline" disabled={!file || !!busy} onClick={() => void run(true)} data-testid="features-check" aria-busy={busy === "check" || undefined}>
+          <BusyLabel busy={busy === "check"} label={t("busy.checking")}>
+          {t("wave1.features.check")}</BusyLabel>
         </Button>
-        <Button disabled={!file || !report || !!busy || (report.errors > 0 && !skip)} onClick={() => void run(false)} data-testid="features-apply">
-          {busy === "apply" ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("wave1.features.apply")}
+        <Button disabled={!file || !report || !!busy || (report.errors > 0 && !skip)} onClick={() => void run(false)} data-testid="features-apply" aria-busy={busy === "apply" || undefined}>
+          <BusyLabel busy={busy === "apply"} label={t("busy.working")}>
+          {t("wave1.features.apply")}</BusyLabel>
         </Button>
       </DialogFooter>
     </div>

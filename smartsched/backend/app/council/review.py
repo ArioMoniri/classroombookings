@@ -12,6 +12,7 @@ Item kinds (``blocking`` items must be decided before commit):
 | ``rule_text`` | rule-like text with no model available | no | accept (acknowledged) |
 | ``plan`` | planner: one term group | no | accept, edit {code, name, kind, week_count, start_date, year} |
 | ``file`` | a file that could not be read | no | accept (acknowledged) |
+| ``ai_rows`` | rows read by the AI model (:mod:`app.council.airows`) | yes | per row via ``/rows/decisions`` |
 
 Decisions are stored as ``review`` artifacts (append-only; the latest decision per item wins) and each post is
 one ``council.review`` audit event. A mapping or classification edit re-runs extract -> reconcile -> planner ->
@@ -179,6 +180,10 @@ async def build_items(session: AsyncSession, job: CouncilJob) -> list[dict[str, 
                 files=g["files"],
                 evidence=g.get("evidence", []),
             )
+    # rows read by the AI model: one blocking item per file until a person decided each row (P19-A2)
+    from app.council import airows
+
+    items.extend(await airows.review_items(session, job, decided))
     # intake memory: remembered decisions of earlier jobs as visible suggestions (never applied by themselves)
     from app.council import memory
 
@@ -310,6 +315,9 @@ async def apply_decisions(
             errors.append(f"{d['id']}: unknown action {d['action']}")
             continue
         value = d.get("value") if isinstance(d.get("value"), dict) else None
+        if item["kind"] == "ai_rows":
+            errors.append(f"{d['id']}: decide the rows themselves (POST /council/jobs/{{id}}/rows/decisions)")
+            continue
         if d["action"] == "edit":
             if item["kind"] == "mapping" and (value is None or (value.get("field") or "") not in ("", *FIELDS)):
                 errors.append(f"{d['id']}: edit needs value.field from the field list")
@@ -324,7 +332,7 @@ async def apply_decisions(
                 if value.get("weight") is not None and not 1 <= int(value["weight"]) <= 10:
                     errors.append(f"{d['id']}: weight must be 1..10")
                     continue
-            if item["kind"] in ("merge", "issue", "rule_text", "file"):
+            if item["kind"] in ("merge", "issue", "rule_text", "file", "ai_rows"):
                 errors.append(f"{d['id']}: {item['kind']} items can only be accepted or rejected")
                 continue
         stored[d["id"]] = {"action": d["action"], "value": value, "by": user_id, "at": utcnow().isoformat()}

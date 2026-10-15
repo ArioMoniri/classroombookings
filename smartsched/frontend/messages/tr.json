@@ -1,5 +1,6 @@
 {
   "app": { "name": "SmartSched", "tagline": "Yapay zekâ destekli derslik planlayıcı", "skip": "İçeriğe atla", "version": "v0.1" },
+  "busy": {"saving": "Kaydediliyor…", "working": "İşleniyor…", "checking": "Kontrol ediliyor…", "deleting": "Siliniyor…", "loading": "Yükleniyor…", "opening": "Açılıyor…", "searching": "Aranıyor…", "approving": "Onaylanıyor…", "rejecting": "Reddediliyor…", "sending": "Gönderiliyor…"},
   "titles": {
     "bookings": "Rezervasyonlar", "myBookings": "Rezervasyonlarım", "findRoom": "Boş derslik bul", "approvals": "Onaylar",
     "profile": "Profil", "settings": "Ayarlar", "import": "İçe aktar", "dashboard": "Özet", "rooms": "Derslikler",

@@ -9,6 +9,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Input, useShake } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, useOrgPublic, useProfile, type Profile } from "@/lib/api/crbs";
@@ -108,9 +109,9 @@ function ProfileForm({ data }: { data: Profile }) {
           </div>
           {error ? <Alert tone="error">{error}</Alert> : null}
           <div>
-            <Button type="submit" disabled={save.isPending} data-testid="profile-save">
-              {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              {t("crbs.common.save")}
+            <Button type="submit" disabled={save.isPending} data-testid="profile-save" aria-busy={save.isPending || undefined}>
+              <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+              {t("crbs.common.save")}</BusyLabel>
             </Button>
           </div>
         </form>

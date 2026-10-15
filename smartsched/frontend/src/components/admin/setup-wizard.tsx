@@ -6,10 +6,11 @@
  * sign-in. Any requirement in error blocks the wizard, as in CRBS; `POST /org/setup` answers 409 then, and
  * the wizard returns to the checklist with the blocking checks marked. Back keeps what was typed.
  */
-import { Check, Loader2 } from "lucide-react";
+import { Check } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Input, useShake } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMutation, useSetupRequirements, useSetupStatus } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
@@ -156,9 +157,9 @@ export function SetupWizard() {
                 },
               });
             }}
-          >
-            {m.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("crbs.setup.finish")}
+           aria-busy={m.isPending || undefined}>
+            <BusyLabel busy={m.isPending} label={t("busy.working")}>
+            {t("crbs.setup.finish")}</BusyLabel>
           </Button>
         )}
       </div>

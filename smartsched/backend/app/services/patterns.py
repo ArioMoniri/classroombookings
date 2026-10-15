@@ -28,8 +28,9 @@ yalnızca 2 saat yerleştirildi"). ``block_size`` is either the explicit theory 
 block (``2``: every kind is split greedily, 3 -> 2 + 1).
 
 Turkish text is normalised like the importers do: NBSP and newlines collapse, day names match with or without
-Turkish letters (``SALI``, ``PERSEMBE``, ``Çarşamba``), dotted times (``09.20``) parse, and off-grid start times are
-refused rather than snapped (the importer snaps with a warning because a file cannot be asked; the API can).
+Turkish letters (``SALI``, ``PERSEMBE``, ``Çarşamba``), dotted times (``09.20``) parse. An off-grid start snaps like
+the planning list (product-owner decision 2026-10-15): to the first period the class covers for at least half of
+its length (``10.20`` -> P3, ``10.35`` -> P4), with a warning on the meeting; the written time is kept.
 """
 
 from __future__ import annotations
@@ -71,7 +72,7 @@ KINDS: tuple[tuple[str, str, str], ...] = (
     ("practice", "U", "Uygulama"),
     ("lab", "L", "Lab"),
 )
-#: clock starts of the 18 periods ("08:30", "09:20", ...): the only start times a pattern accepts
+#: clock starts of the 18 periods ("08:30", "09:20", ...): exact starts (others snap, see start_snap)
 PERIOD_STARTS: tuple[str, ...] = tuple(f"{p.start:%H:%M}" for p in n.PERIODS)
 _START_BY_MINUTE = {p.start.hour * 60 + p.start.minute: p.index for p in n.PERIODS}
 
@@ -147,13 +148,29 @@ def parse_days(value: Any) -> tuple[int, ...]:
 
 
 def parse_start(value: Any) -> int:
-    """A start period (1..18) from ``4``, ``"P4"``, ``"11:00"``, ``"11.00"`` or a ``time``; off-grid times are
-    refused with the grid's start times in the message."""
+    """A start period (1..18) from ``4``, ``"P4"``, ``"11:00"``, ``"11.00"`` or a ``time`` (off-grid times snap,
+    see :func:`start_snap`)."""
+    return start_snap(value)[0]
+
+
+def _half_rule_start(t: time) -> int | None:
+    """First period a class starting at ``t`` (and running on) covers for at least half of its length."""
+    m = t.hour * 60 + t.minute
+    for p in n.PERIODS:
+        ps, pe = p.start.hour * 60 + p.start.minute, p.end.hour * 60 + p.end.minute
+        if (pe - max(m, ps)) * 2 >= pe - ps:
+            return p.index
+    return None
+
+
+def start_snap(value: Any) -> tuple[int, time | None, str | None]:
+    """(start period, the written off-grid time or None, warning or None). ``4`` / ``"P4"`` / on-grid times are
+    exact; an off-grid time snaps by the half rule; a time after the last period is refused."""
     if isinstance(value, bool) or value is None:
         raise PatternError(f"start {value!r} is not a time or period")
     if isinstance(value, int):
         if 1 <= value <= n.PERIODS_PER_DAY:
-            return value
+            return value, None, None
         raise PatternError(f"start period {value} is not 1..{n.PERIODS_PER_DAY}")
     if isinstance(value, time):
         t: time | None = value
@@ -161,16 +178,25 @@ def parse_start(value: Any) -> int:
         text = n.clean_text(value) or ""
         m = re.fullmatch(r"[pP]\s*(\d{1,2})", text)
         if m:
-            return parse_start(int(m.group(1)))
+            return start_snap(int(m.group(1)))
         if text.isdigit():
-            return parse_start(int(text))
+            return start_snap(int(text))
         t = n.parse_time(text) if re.search(r"\d\s*[.:,hH]\s*\d{2}", text) else None
     if t is None:
         raise PatternError(f"start {value!r} is not a time (e.g. 09.20) or period (e.g. P2)")
     period = _START_BY_MINUTE.get(t.hour * 60 + t.minute)
-    if period is None:
-        raise PatternError(f"start {t:%H:%M} is not on the period grid; use one of {', '.join(PERIOD_STARTS)}")
-    return period
+    if period is not None:
+        return period, None, None
+    snapped = _half_rule_start(t)
+    if snapped is None:
+        last = n.PERIODS[-1]
+        raise PatternError(f"start {t:%H:%M} is after the last period ({last.start:%H:%M}-{last.end:%H:%M})")
+    p = n.PERIODS[snapped - 1]
+    warning = (
+        f"start time {t:%H:%M} not on the grid; snapped to P{snapped} ({p.start:%H:%M}): the first period "
+        "it covers for at least half its length"
+    )
+    return snapped, t, warning
 
 
 def parse_weeks_spec(value: Any, max_week: int) -> tuple[int, ...]:
@@ -359,6 +385,8 @@ class Block:
     days: tuple[int, ...]
     start: int
     needs: RoomNeeds
+    written: time | None = None  # the off-grid start as written (kept on the meeting)
+    snap: str | None = None  # the snapping warning
 
     @property
     def end(self) -> int:
@@ -396,7 +424,7 @@ class MeetingSpec:
     warnings: tuple[str, ...] = field(default=())
 
 
-def _starts(raw: Mapping[str, Any], count: int) -> list[int]:
+def _starts(raw: Mapping[str, Any], count: int) -> list[tuple[int, time | None, str | None]]:
     value = raw.get("start")
     if value is None:
         raise PatternError(
@@ -406,8 +434,8 @@ def _starts(raw: Mapping[str, Any], count: int) -> list[int]:
     if isinstance(value, Sequence) and not isinstance(value, str):
         if len(value) != count:
             raise PatternError(f"start lists {len(value)} time(s) but the pattern has {count} block(s)")
-        return [parse_start(v) for v in value]
-    return [parse_start(value)] * count
+        return [start_snap(v) for v in value]
+    return [start_snap(value)] * count
 
 
 def _check_fit(blocks: Sequence[Block]) -> None:
@@ -478,17 +506,16 @@ def build_spec(
                 or "start" not in slot
             ):
                 raise PatternError("every slot is {day, start}")
-            blocks.append(
-                Block(kind, length, (_one_day(slot["day"]),), parse_start(slot["start"]), needs.get(kind, base))
-            )
+            st, written, snap = start_snap(slot["start"])
+            blocks.append(Block(kind, length, (_one_day(slot["day"]),), st, needs.get(kind, base), written, snap))
     else:
         if raw.get("days") is None:
             raise PatternError("days is required (e.g. TUE|THU, Salı / Perşembe) unless slots are given")
         days = parse_days(raw["days"])
         starts = _starts(raw, len(kinds))
         blocks = [
-            Block(kind, length, days, start, needs.get(kind, base))
-            for (kind, length), start in zip(kinds, starts, strict=True)
+            Block(kind, length, days, st, needs.get(kind, base), written, snap)
+            for (kind, length), (st, written, snap) in zip(kinds, starts, strict=True)
         ]
     _check_fit(blocks)
     return PatternSpec(blocks=tuple(blocks), weeks=parse_weeks_spec(raw.get("weeks"), max_week), hours=hours)
@@ -512,7 +539,7 @@ def expand(spec: PatternSpec, *, enrolment: int | None, needs_room: bool) -> lis
                 days=b.days,
                 start_period=b.start,
                 end_period=b.end,
-                start_time=n.PERIODS[b.start - 1].start,
+                start_time=b.written or n.PERIODS[b.start - 1].start,
                 end_time=n.PERIODS[b.end - 1].end,
                 weeks=spec.weeks,
                 flexible_day=len(b.days) > 1,
@@ -523,6 +550,7 @@ def expand(spec: PatternSpec, *, enrolment: int | None, needs_room: bool) -> lis
                 requested_room_text=b.needs.room_text,
                 requested_capacity=b.needs.capacity if b.needs.capacity is not None else enrolment,
                 notes=f"{labels[b.kind]}{part}: {b.length} saat / period(s)",
+                warnings=(b.snap,) if b.snap else (),
             )
         )
     return out

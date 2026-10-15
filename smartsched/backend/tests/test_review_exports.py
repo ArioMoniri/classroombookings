@@ -65,3 +65,32 @@ def test_m8_helpers():
     ws = wb.active
     ws.append(["=1+1", "+cmd", "MAT 112", 3])
     assert neutralize_workbook(wb) == 2 and ws["C1"].data_type == "s" and ws["A1"].data_type == "s"
+
+
+async def test_export_weeks_parameter_is_validated(client):
+    """Security fix follow-up: ``weeks`` used a bare ``int()`` (``weeks=4-6`` or text gave a 500). It takes a comma
+    list with ranges ("4,6-8"); anything else, or weeks outside the term, is a 422 with a Turkish and an English
+    message. Only the xlsx board honours it (csv / ics / crbs export the whole run)."""
+    from app.core.db import get_session_factory
+    from app.models import ScheduleRun, Term
+
+    h = await login(client)
+    async with get_session_factory()() as s:
+        term = Term(code="2026-BAHAR", name="2026 Bahar", week_count=14)
+        s.add(term)
+        await s.flush()
+        run = ScheduleRun(term_id=term.id, kind="COURSE", horizon="TERM", status="FEASIBLE", hard_score=100)
+        s.add(run)
+        await s.commit()
+        rid = run.id
+    url = f"/api/v1/runs/{rid}/export"
+    for ok in ("4-6", "4,6-8", " 3 , 5 ", "14"):
+        r = await client.get(url, params={"format": "xlsx", "weeks": ok}, headers=h)
+        assert r.status_code == 200, (ok, r.text)
+    for bad in ("abc", "4-", "6-4", "0", "15", "1;2", "3-99"):
+        r = await client.get(url, params={"format": "xlsx", "weeks": bad}, headers=h)
+        assert r.status_code == 422, (bad, r.text)
+        d = r.json()["detail"]
+        assert d["code"] == "weeks" and d["message_tr"] and d["message_en"], d
+    r = await client.get(url, params={"format": "csv", "weeks": "4-6"}, headers=h)
+    assert r.status_code == 200  # accepted, the whole run is exported

@@ -34,6 +34,8 @@ class CouncilFileOut(BaseModel):
     format: str | None = None
     #: the registry's route for the format: structured (read on the server) | ai (needs the model)
     route_kind: str | None = None
+    #: the e-mail this file was attached to (its index in the job)
+    parent: int | None = None
     language: str | None = None
     route: str | None = None
     kinds: list[str] = Field(default_factory=list)
@@ -96,6 +98,18 @@ class ReviewOut(BaseModel):
     rerun_queued: bool = False
     #: False for planning.view-only readers: sample cell values, texts and sources are left out
     content: bool = True
+
+
+class RowDecisionIn(BaseModel):
+    row_id: str = Field(max_length=64)
+    action: Literal["accept", "reject", "edit"]
+    value: dict[str, Any] | None = None
+
+
+class RowDecisionsIn(BaseModel):
+    decisions: list[RowDecisionIn] = Field(min_length=1, max_length=500)
+    #: the one confirmation a bulk decision of several AI rows needs (at most 50 per call)
+    confirm: bool = False
 
 
 class TermSpec(BaseModel):

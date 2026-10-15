@@ -14,6 +14,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { useBusyDelay } from "@/components/ui/busy-label";
 import { Chip } from "@/components/ui/chip";
 import { SegmentedGlass } from "@/components/ui/segmented-glass";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -64,6 +65,10 @@ export function BookingsView() {
   const query: GridQuery = { display, date: params.get("date") ?? undefined, term_id: num("term"), room_group_id: num("group"), room_id: num("room") };
   const grid = useBookingGrid(query, ctx.isSuccess);
   const g = grid.data;
+  // motion audit T2: the previous grid stays while the next one loads (keepPreviousData). The date control shows
+  // the requested day in the input frame, and after 120 ms the stale grid dims (opacity only, no travel)
+  const pendingDate = grid.isPlaceholderData ? (query.date ?? null) : null;
+  const stale = useBusyDelay(!!g && grid.isPlaceholderData, 120);
   const dates = useBookingDates({ term_id: g?.term.id }, !!g);
   const rooms = useQuery({ queryKey: ["crbs", "booking-rooms"], queryFn: () => crbs.bookings.rooms(), enabled: ctx.isSuccess, retry: false, staleTime: 60_000 });
   const roomIcons = useMemo(() => new Map((rooms.data ?? []).map((r) => [r.id, r.icon])), [rooms.data]);
@@ -122,6 +127,8 @@ export function BookingsView() {
 
   const onSpan = useCallback((slots: GridSlot[]) => g && slots[0] && setBook({ slot: slots[0], grid: g, span: slots }), [g]);
   const openRoom = useCallback((id: number, context: RoomContext = {}) => setRoomInfo({ id, context: { termId: g?.term.id, date: g?.display === "day" ? g.date : undefined, ...context } }), [g]);
+  // stable, so the memoised grid does not re-render when a sheet opens (motion audit T3)
+  const onGridRoomInfo = useCallback((id: number) => openRoom(id), [openRoom]);
   const otherRooms = useCallback(
     (target: BookTarget) => {
       const span = target.span?.length ? target.span : [target.slot];
@@ -281,7 +288,7 @@ export function BookingsView() {
           </ToolbarButton>
           {g ? (
             <DatePicker
-              value={display === "day" ? g.date : (g.dates[0]?.date ?? g.date)}
+              value={pendingDate ?? (display === "day" ? g.date : (g.dates[0]?.date ?? g.date))}
               onChange={(d) => setParams({ date: d })}
               dates={dates.data?.dates ?? []}
               weeks={dates.data?.weeks ?? []}
@@ -433,7 +440,7 @@ export function BookingsView() {
       ) : null}
       {grid.isError ? <Alert tone="error">{bookingErrorMessage(crbsError(grid.error), t, { formatDate: fmt.short })}</Alert> : null}
 
-      <div aria-busy={grid.isFetching} className="relative">
+      <div aria-busy={grid.isFetching} data-stale={stale ? "true" : undefined} className="relative transition-opacity duration-(--dur-fast) data-[stale=true]:opacity-60" data-testid="booking-grid-wrap">
         {g && lens === "free" ? (
           <FreeSlotsList
             rooms={freeRooms}
@@ -456,7 +463,7 @@ export function BookingsView() {
             crosshair={!!ctx.data?.display.grid_highlight}
             highlightBookingId={highlight}
             roomIcons={roomIcons}
-            onRoomInfo={(id) => openRoom(id)}
+            onRoomInfo={onGridRoomInfo}
             department={department}
           />
         ) : grid.isLoading || ctx.isLoading ? (

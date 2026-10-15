@@ -4,10 +4,11 @@
  * booking, the default schedule and the schedule per room group, and the calendar that assigns a
  * timetable week to each date (paint with a week, or apply one week to the whole term).
  */
-import { Brush, Eraser, Loader2, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Brush, Eraser, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useReducer, useState, type PointerEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -213,9 +214,9 @@ function DatePainter({ session }: { session: Session }) {
                 {t("crbs.painter.revert")}
               </Button>
             ) : null}
-            <Button size="sm" disabled={!pending || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => toast.success(t("crbs.painter.saved", { n: pending })), onError: toastError })} data-testid="painter-save">
-              {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              {t("crbs.painter.save", { n: pending })}
+            <Button size="sm" disabled={!pending || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => toast.success(t("crbs.painter.saved", { n: pending })), onError: toastError })} data-testid="painter-save" aria-busy={save.isPending || undefined}>
+              <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+              {t("crbs.painter.save", { n: pending })}</BusyLabel>
             </Button>
           </div>
         }

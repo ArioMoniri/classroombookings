@@ -447,7 +447,8 @@ def _on_grid(start: time, end: time) -> bool:
 
 def snap_to_periods(start: time | None, end: time | None) -> PeriodRange:
     """Periods of a CLASS time - planning list and hand-made meetings (product-owner decision 2026-10-15): every
-    period the class covers for at least half of its length; exams are never moved (:func:`exam_periods`). ``10:20-11:40`` -> P3-P4 (30 of P3's 40 minutes); ``10:35-11:40`` -> P4.
+    period the class covers for at least half of its length; exams are never moved (:func:`exam_periods`).
+    ``10:20-11:40`` -> P3-P4 (30 of P3's 40 minutes); ``10:35-11:40`` -> P4.
     A class that covers no period for half of it gets the period it covers most. An off-grid time is
     ``snapped`` and says so in a warning; the data-issues report lists it (``time_snapped``).
 

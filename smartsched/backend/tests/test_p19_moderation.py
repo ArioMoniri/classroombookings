@@ -369,8 +369,9 @@ async def test_priority_is_persisted_audited_and_decides_the_real_lock_clash(rea
     )
     won = solve(sub)
     assert [a.event_id for a in won.assignments] == [lev] and won.hard_score == 100
-    tie = solve(replace(sub, events=tuple(replace(e, priority=0) for e in sub.events)))
-    assert [a.event_id for a in tie.assignments] == [wev]  # equal priority: the published winner keeps it
+    # and the other way round: the priority, not the data order, decides
+    flipped = solve(replace(sub, events=(replace(by_id[lev], priority=-1), replace(by_id[wev], priority=1))))
+    assert [a.event_id for a in flipped.assignments] == [wev] and flipped.hard_score == 100
 
 
 # ------------------------------------------------------------------------------------------- M3 re-solve

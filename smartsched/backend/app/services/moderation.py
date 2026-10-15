@@ -77,7 +77,6 @@ VERDICT_TEXT: dict[str, tuple[str, str]] = {
     "not_evaluated": ("Değerlendirilmedi", "Not evaluated"),
     "pending": ("Karar yok", "No decision yet"),
 }
-NO_ROOM_MODES = frozenset({"ONLINE", "UZEM", "ASYNC", "HOSPITAL"})
 #: run statuses whose timetable a re-solve may start from (a finished run with placements)
 BASE_STATUSES = frozenset({"OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL"})
 #: the "N dönemdir karşılanmadı" badge is shown from this many terms in a row (Q6)
@@ -577,7 +576,9 @@ def match_one(td: TermData, mr: MeetingRequest) -> dict[str, Any]:
     place: Place | None
     verdict: str
     reason: dict[str, Any] | None = None
-    no_room = not mr.needs_room or (sec.mode or "F2F") in NO_ROOM_MODES
+    # the bridge's rule: a meeting needs a room unless its row says otherwise (a section's ``mode`` is the mode of
+    # one of its rows: PHAR 114 §2 has an online row and a classroom row)
+    no_room = not mr.needs_room
     no_time = not mr.day or mr.start_period is None or mr.end_period is None
     if no_room or (td.run is not None and (no_time or not _in_horizon(mr, td.run))):
         place = place_of(td.rows_by_mr.get(mr.id, [])) if td.run is not None else None
@@ -1117,7 +1118,7 @@ def parse_priority(value: Any) -> int | None:
     if value is None:
         return None
     if isinstance(value, str):
-        key = tr_fold(value)
+        key = n.fold(value).strip()
         tiers = {**PRIORITY_TIERS, "yuksek": 1, "dusuk": -1}
         if key in tiers:
             return tiers[key]
@@ -1360,6 +1361,42 @@ def slot_blockers(inp: sm.SolverInput, current: Iterable[sm.Assignment], seeds: 
     return out
 
 
+def base_assignments(inp: sm.SolverInput, base: ScheduleRun | None) -> list[sm.Assignment]:
+    """The base run's placements per solver event: the solver's own (``stats.solver_assignments``), else the
+    bridge's ``previous`` (rebuilt from the stored rows) cleaned of rooms outside the pool."""
+    from app.services.solver_bridge import solver_assignments_of
+
+    events = {e.id: e for e in inp.events}
+    stored = solver_assignments_of(base) if base is not None else None
+    if stored is not None:
+        seen: set[int] = set()
+        out = []
+        for a in stored:
+            if a.event_id in events and a.event_id not in seen:
+                seen.add(a.event_id)
+                out.append(a)
+        return out
+    pool = {r.id for r in inp.rooms}
+    out = []
+    for a in inp.previous:
+        e = events.get(a.event_id)
+        if e is None:
+            continue
+        rooms = tuple(r for r in a.room_ids if r in pool) if e.needs_room else ()
+        out.append(replace(a, room_ids=rooms, weeks=a.weeks or e.weeks))
+    return out
+
+
+def violating(inp: sm.SolverInput, assignments: list[sm.Assignment]) -> set[int]:
+    """Events of ``assignments`` in a hard violation of ``inp`` (the base placements against the child's rules:
+    a pin written on the draft, a request edited since). The repair frees them instead of locking them there."""
+    from app.solver.repair import validate
+
+    placed = {a.event_id for a in assignments}
+    sub = replace(inp, events=tuple(e for e in inp.events if e.id in placed), best_effort=False)
+    return {int(i) for v in validate(sub, assignments) if v.hard for i in v.event_ids}
+
+
 def _rescore(inp: sm.SolverInput, assignments: list[sm.Assignment]) -> tuple[int, int, dict[str, int], int]:
     """(hard, soft, breakdown, hard violations) of the placed events (a partial result's unplaced events are
     reported apart, as in ``repair``)."""
@@ -1439,6 +1476,7 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
         report("loading", 5)
         inp, members = await _input_for(session, run)
         mod = dict((run.params or {}).get("moderation") or {})
+        base = await session.get(ScheduleRun, int(mod.get("base_run_id") or run.parent_run_id or 0))
         if not inp.events:
             await solver_bridge._finish_empty_scope(session, run)  # noqa: SLF001
             return {"status": "FAILED", "assignments": 0}
@@ -1446,15 +1484,17 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
     head_of = {m: h for h, ms in members.items() for m in ms}
     ids = {e.id for e in inp.events}
     changed = {head_of.get(int(r), int(r)) for r in mod.get("changed_request_ids") or []} & ids
-    current = [a for a in inp.previous if a.event_id in ids]
+    current = base_assignments(inp, base)
     mode = str(mod.get("mode") or "repair")
     limit = float(inp.time_limit_s)
     report("solving", 20)
     seeds: set[int] = set()
+    broken: set[int] = set()
     reverted: list[int] = []
     try:
         if mode == "repair":
-            seeds = changed | slot_blockers(inp, current, changed)
+            broken = violating(inp, current) - changed
+            seeds = changed | broken | slot_blockers(inp, current, changed)
             result = await run_jobs.solve_off_loop(
                 run_id,
                 limit,
@@ -1466,7 +1506,7 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
                 keep_changed=False,
                 radius=int(mod.get("radius", DEFAULT_RADIUS)),
             )
-            if result.status in ("OPTIMAL", "FEASIBLE") and current:
+            if result.assignments and current and result.status != "ERROR":  # best effort: INFEASIBLE + placements
                 reverted = _minimal_change(inp, current, result, changed)
         else:
             result = await run_jobs.solve_off_loop(
@@ -1489,6 +1529,7 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
             **mod,
             "changed_events": sorted(changed),
             "seeds": sorted(seeds),
+            "base_violations": sorted(broken),
             "reverted": reverted,
             "workers": inp.workers,
         },

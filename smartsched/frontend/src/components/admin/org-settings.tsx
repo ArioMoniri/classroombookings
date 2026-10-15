@@ -5,10 +5,11 @@
  * highlight, max active bookings); date patterns with a live preview; login message; maintenance mode;
  * languages and translation overrides; what's new.
  */
-import { ImageUp, Loader2, Plus, Trash2 } from "lucide-react";
+import { ImageUp, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -255,9 +256,9 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
               setError(null);
               save.mutate(undefined, { onSuccess: () => toast.success(t("crbs.common.saved")), onError: (e) => setError(bookingErrorMessage(crbsError(e), t)) });
             }}
-          >
-            {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("crbs.common.save")}
+           aria-busy={save.isPending || undefined}>
+            <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+            {t("crbs.common.save")}</BusyLabel>
           </Button>
         </div>
       ) : null}

@@ -4,11 +4,12 @@
  * limits and the permission matrix grouped like CRBS (`Permissions_model::get_scoped`): system and setup
  * permissions as lists, booking permissions as a table with single and recurring side by side.
  */
-import { ChevronRight, Loader2, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -181,9 +182,9 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
               onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
             });
           }}
-        >
-          {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {role ? t("crbs.common.save") : t("crbs.roles.create")}
+         aria-busy={save.isPending || undefined}>
+          <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+          {role ? t("crbs.common.save") : t("crbs.roles.create")}</BusyLabel>
         </Button>
       </div>
       <ConfirmDialog

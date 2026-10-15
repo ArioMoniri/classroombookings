@@ -4,13 +4,14 @@
  * force-password-change flag, per-user booking limits (R = role value, U = own value, X = unlimited),
  * one-time reset codes (shown once), delete, and the CSV import with a per-row result table.
  */
-import { Copy, KeyRound, Loader2, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
+import { Copy, KeyRound, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -477,9 +478,9 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
           <Button type="button" variant="ghost" onClick={onClose}>
             {t("crbs.common.cancel")}
           </Button>
-          <Button type="submit" disabled={save.isPending} data-testid="user-save">
-            {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {user ? t("crbs.common.save") : t("crbs.common.create")}
+          <Button type="submit" disabled={save.isPending} data-testid="user-save" aria-busy={save.isPending || undefined}>
+            <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+            {user ? t("crbs.common.save") : t("crbs.common.create")}</BusyLabel>
           </Button>
         </DialogFooter>
       </form>
@@ -705,9 +706,9 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
                 })
               }
               data-testid="import-run"
-            >
-              {m.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              {t("crbs.import.run")}
+             aria-busy={m.isPending || undefined}>
+              <BusyLabel busy={m.isPending} label={t("busy.working")}>
+              {t("crbs.import.run")}</BusyLabel>
             </Button>
           ) : null}
         </DialogFooter>

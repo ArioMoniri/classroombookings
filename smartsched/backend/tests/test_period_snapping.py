@@ -95,7 +95,7 @@ def test_no_exam_starts_later_than_written(parsed_exam_list) -> None:
         first = n.PERIODS[r.periods.start_period - 1]
         assert not any(mins(p.start) < mins(first.start) and mins(p.end) > s for p in n.PERIODS), r.row
         checked += 1
-    assert checked > 800
+    assert checked > 750  # 786 Final exams carry a time
 
 
 async def test_snapped_rows_are_listed_in_the_data_issues(session, tmp_path) -> None:

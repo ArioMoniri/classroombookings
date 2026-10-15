@@ -4,10 +4,11 @@
  * mapped onto the university's 18-period grid (08:30–22:50), so bookings, the published timetable and the
  * solver share one clock; "Create the 18 university periods" fills an empty schedule in one step.
  */
-import { Grid3x3, Loader2, Plus, Trash2 } from "lucide-react";
+import { Grid3x3, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -137,9 +138,9 @@ function ScheduleEditor({ schedule, onDeleted }: { schedule: Schedule; onDeleted
           <p className="type-callout text-label-2">{t("crbs.schedules.fromGridLead")}</p>
           <DaysPicker value={days} onChange={setDays} label={t("crbs.schedules.days")} />
           <div>
-            <Button disabled={!days.length || fromGrid.isPending} onClick={() => fromGrid.mutate(undefined, { onSuccess: () => toast.success(t("crbs.schedules.fromGridDone")), onError: toastError })} data-testid="periods-from-grid">
-              {fromGrid.isPending ? <Loader2 className="animate-spin" aria-hidden /> : <Grid3x3 aria-hidden />}
-              {t("crbs.schedules.fromGrid")}
+            <Button disabled={!days.length || fromGrid.isPending} onClick={() => fromGrid.mutate(undefined, { onSuccess: () => toast.success(t("crbs.schedules.fromGridDone")), onError: toastError })} data-testid="periods-from-grid" aria-busy={fromGrid.isPending || undefined}>
+              <BusyLabel busy={fromGrid.isPending} label={t("busy.working")} icon={<Grid3x3 aria-hidden />}>
+              {t("crbs.schedules.fromGrid")}</BusyLabel>
             </Button>
           </div>
         </section>
