@@ -42,6 +42,7 @@ import { computeHeat, weeklyMean, type HeatMetric } from "./model/heat";
 import { blocksOf, bookingsOf, eventsOf, roomCap, termLongBlocks, type CalEvent, type CalendarModel } from "./model/index-model";
 import { useUndoStore } from "./model/undo-store";
 import { useActiveTerm } from "@/components/shell/term-switcher";
+import { useRememberedWeek } from "@/components/shell/workspace";
 import { buildIcs, icsNow } from "./model/ics";
 import { lensDirection, lensForKey, parseViewState, serializeViewState, weekInRun, type Lens, type Subject, type ViewState } from "./model/view-state";
 import { useCalendarActions } from "./use-calendar-actions";
@@ -173,11 +174,16 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   // live = what the user asked for (toolbar, title, URL, the next step); week / day = what the grid renders,
   // deferred so the lens re-render never blocks the click frame (motion audit T3); the old grid is veiled
   // while they differ (T2)
-  const liveWeek = vs.week ?? weekInRun(runWeeks, allWeeks, todayPos?.week ?? null);
+  // per user: the week last looked at in this run (localStorage; the model exists only after hydration)
+  const [rememberedWeek, rememberWeek] = useRememberedWeek(runId);
+  const liveWeek = vs.week ?? (model && rememberedWeek !== undefined && allWeeks.includes(rememberedWeek) ? rememberedWeek : weekInRun(runWeeks, allWeeks, todayPos?.week ?? null));
   const liveDay = vs.day || (todayPos && todayPos.week === liveWeek ? todayPos.day : 1);
   const { week, day, stale } = useDeferredView(liveWeek, liveDay);
   const mask = week >= 1 && week <= 31 ? 1 << (week - 1) : 0;
   const urlState = useMemo(() => ({ ...vs, week: model ? liveWeek : vs.week, day: liveDay }), [vs, model, liveWeek, liveDay]);
+  useEffect(() => {
+    if (model && !embedded) rememberWeek(liveWeek);
+  }, [model, embedded, liveWeek, rememberWeek]);
   useEffect(() => {
     if (embedded) return;
     const p = serializeViewState(urlState, new URLSearchParams(window.location.search));

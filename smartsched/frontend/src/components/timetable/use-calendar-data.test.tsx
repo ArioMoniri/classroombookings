@@ -44,3 +44,15 @@ describe("TimetableNoAccess", () => {
     expect(screen.getByRole("link", { name: "Rezervasyonlara git" })).toHaveAttribute("href", "/bookings");
   });
 });
+
+describe("pickRun (UX fix: remember term, run and week per user)", () => {
+  const r = (id: number, kind: "COURSE" | "EXAM" = "COURSE") => ({ id, kind }) as never;
+  const usable = [r(9), r(7), r(5, "EXAM")];
+  it("a deep link wins; then the run this user last opened (if still usable in the term); then the default", async () => {
+    const { pickRun } = await import("./use-calendar-data");
+    expect(pickRun({ requested: 3, remembered: 7, runs: usable, term: undefined })).toBe(3);
+    expect(pickRun({ requested: null, remembered: 7, runs: usable, term: undefined })).toBe(7);
+    expect(pickRun({ requested: null, remembered: 42, runs: usable, term: undefined })).toBe(9);
+    expect(pickRun({ requested: null, remembered: undefined, runs: [], term: undefined })).toBeNull();
+  });
+});

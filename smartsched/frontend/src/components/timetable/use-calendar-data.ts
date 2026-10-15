@@ -3,11 +3,12 @@
  * Term → run → index for the calendar (planner usability M1: open the selected term's latest usable run of
  * the right kind, and a week that run covers).
  */
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useCalendarIndex, type CalendarIndex } from "@/lib/api/calendar";
 import { HttpError } from "@/lib/api/client";
 import { useHydrated } from "@/lib/use-hydrated";
 import { useActiveTerm } from "@/components/shell/term-switcher";
+import { useRememberedRun } from "@/components/shell/workspace";
 import { useRun, useRuns } from "@/lib/api/hooks";
 import type { ScheduleRun, Term } from "@/lib/api/schemas";
 import { buildModel, type CalendarModel } from "./model/index-model";
@@ -76,6 +77,13 @@ export function calendarFlags(q: { hydrated: boolean; runsPending: boolean; runs
   };
 }
 
+/** Requested (deep link) → the run this user last opened, if still usable in the term → the term's default. */
+export function pickRun(p: { requested: number | null; remembered: number | undefined; runs: readonly ScheduleRun[]; term: Term | undefined }): number | null {
+  if (p.requested !== null) return p.requested;
+  if (p.remembered !== undefined && p.runs.some((r) => r.id === p.remembered)) return p.remembered;
+  return defaultRun(p.runs, p.term)?.id ?? null;
+}
+
 export function useCalendarData(requestedRun: number | null): CalendarData {
   const requested = useRun(requestedRun);
   // server render and the client's first render must agree (the query cache is restored before hydration)
@@ -84,8 +92,14 @@ export function useCalendarData(requestedRun: number | null): CalendarData {
   const runsQ = useRuns(termId !== null ? { term_id: termId } : undefined);
   const runs = useMemo(() => usableRuns(runsQ.data, termId), [runsQ.data, termId]);
   // the default run waits for hydration: the restored cache must not pick a run the server could not
-  const run = (requestedRun !== null ? (runsQ.data ?? []).find((r) => r.id === requestedRun) : undefined) ?? (hydrated ? defaultRun(runs, term) : undefined);
-  const runId = requestedRun ?? run?.id ?? null;
+  // the remembered run is per user in localStorage: read it only after hydration (the server cannot know it)
+  const [rememberedRun, rememberRun] = useRememberedRun(termId ?? undefined);
+  const picked = hydrated ? pickRun({ requested: requestedRun, remembered: rememberedRun, runs, term }) : requestedRun;
+  const run = picked !== null ? ((runsQ.data ?? []).find((r) => r.id === picked) ?? runs.find((r) => r.id === picked)) : undefined;
+  const runId = picked;
+  useEffect(() => {
+    if (hydrated && runId !== null && run && run.term_id === termId) rememberRun(runId);
+  }, [hydrated, runId, run, termId, rememberRun]);
   const index = useCalendarIndex(runId);
   const model = useMemo(() => (index.data ? modelFor(index.data) : null), [index.data]);
   const flags = calendarFlags({ hydrated, runsPending: runsQ.isPending, runsError: runsQ.error, requestedError: requested.error, indexError: index.error, indexPending: index.isPending, runId });
