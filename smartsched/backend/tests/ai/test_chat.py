@@ -145,13 +145,16 @@ async def test_constraint_add_and_resolve_runs_repair(client, fake_sdk):
         tools(
             (
                 "add_constraint",
-                proposal(
-                    "room_forbid",
-                    "hard",
-                    selector=empty_selector(course_codes=["PSI 101"]),
-                    params=empty_params(room_codes=["A 204"]),
-                    nl_text="PSI 101 A 204'te olmasın",
-                ),
+                {
+                    **proposal(
+                        "room_forbid",
+                        "hard",
+                        selector=empty_selector(course_codes=["PSI 101"]),
+                        params=empty_params(room_codes=["A 204"]),
+                        nl_text="PSI 101 A 204'te olmasın",
+                    ),
+                    "scope": "term",
+                },
             ),
             ("re_solve", {"stability": True, "reason": "kural değişti"}),
         ),

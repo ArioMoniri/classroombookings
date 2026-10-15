@@ -50,11 +50,14 @@ async def test_repair_apply_records_final_verifier(session, seed, fake_sdk):
     fake_sdk.script = [
         tool(
             "add_constraint",
-            proposal(
-                "room_forbid",
-                selector=empty_selector(course_codes=["PSI 101"]),
-                params=empty_params(room_codes=["A 204"]),
-            ),
+            {
+                **proposal(
+                    "room_forbid",
+                    selector=empty_selector(course_codes=["PSI 101"]),
+                    params=empty_params(room_codes=["A 204"]),
+                ),
+                "scope": "term",
+            },
         ),
         text("Öneriyorum."),
     ]

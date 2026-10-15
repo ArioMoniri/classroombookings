@@ -1347,7 +1347,9 @@ _BUILDING_SET_RX = re.compile(
 #: "Derslik gerekiyor." asks for nothing beyond the request itself (Bahar row 50)
 _NO_OP_RX = re.compile(r"^(?:bir\s+)?(?:derslik|sinif)\s+(?:gerekiyor|gereklidir|gerekmektedir|gerekli)\W*$")
 _ALTERNATIVE_RX = re.compile(r"\b(?:veya|ya da|yahut)\b", re.IGNORECASE)
-_CLAUSE_RX = re.compile(r"(?<=[.;!?])\s+|\n+|[()]|\s\|\s|,\s*")
+#: clause breaks: ";", "!", "?", a sentence-ending "." (after a word of 5+ letters, so "Bilg. Lab.", "min. 40"
+#: and "2. öğretim" stay whole), newlines, brackets, " | " (joined notes) and commas
+_CLAUSE_RX = re.compile(r"(?<=[;!?])\s+|(?<=[^\W\d_]{5}\.)\s+|\n+|[()]|\s\|\s|,\s*")
 
 #: room features people ask for in free text (fold form) -> (feature key, solver tags that satisfy it).
 #: A feature becomes a rule only through the P10 catalogue (``services/rooms_features.py``) or a tag the rooms

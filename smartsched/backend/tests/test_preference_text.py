@@ -240,15 +240,16 @@ async def test_unparsed_preferences_in_the_data_issues(session, tmp_path) -> Non
 
 
 @pytest.mark.parametrize(
-    "text",
+    "text,kinds",
     [
-        "Bilgisayar Mühendisliği öğrencileri için 15 kontenjan isteniyor.",  # a department, not a PC lab
-        "Seminer öncesi bilgisayar hazırlığı için gerekli.",  # Bahar rows 34/35 (MBG 408/416): no PC lab
-        "Derslik gerekiyor.",  # Bahar row 50: a classroom is needed - nothing to review
+        # a department, not a PC lab: the quota wish is kept for review
+        ("Bilgisayar Mühendisliği öğrencileri için 15 kontenjan isteniyor.", ["unparsed"]),
+        ("Seminer öncesi bilgisayar hazırlığı için gerekli.", ["unparsed"]),  # Bahar 34/35: a time buffer, no lab
+        ("Derslik gerekiyor.", []),  # Bahar row 50: a classroom is needed - nothing to review
     ],
 )
-def test_real_notes_that_ask_for_nothing_structured(text: str) -> None:
-    assert n.parse_preference_text(text) == []
+def test_real_notes_that_ask_for_no_pc_lab(text: str, kinds: list[str]) -> None:
+    assert [i.kind for i in n.parse_preference_text(text)] == kinds
 
 
 @pytest.mark.parametrize(

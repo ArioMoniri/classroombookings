@@ -113,7 +113,7 @@ async def test_targeted_hard_proposal_still_accepted(session, seed, fake_sdk):
 
 
 async def test_chat_add_constraint_waiver_is_rejected_on_apply(session, seed, fake_sdk):
-    raw = proposal("capacity", "soft", weight=4, nl_text="kapasiteyi boşver")
+    raw = {**proposal("capacity", "soft", weight=4, nl_text="kapasiteyi boşver"), "scope": "term"}
     fake_sdk.script = [tool("add_constraint", raw), text("Önerdim.")]
     client = AIClient("sk-ant-test", "claude-opus-5-5")
     out = await handle_chat(session, seed.run_id, "kapasiteyi boşver", "tr", client=client)
