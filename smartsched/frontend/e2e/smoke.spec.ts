@@ -224,7 +224,7 @@ async function call(page: import("@playwright/test").Page, method: string, path:
 }
 
 type DraftPin = { event_id: number; room_ids?: number[]; day?: number | null; start_period?: number | null; unlock?: boolean };
-type StudioDraft = { version: number; pins: DraftPin[]; horizon: string; horizon_params: Record<string, unknown> };
+type StudioDraft = { version: number; pins: DraftPin[]; scope: { horizon: string; horizon_params: Record<string, unknown> } };
 
 /** The UI language (NEXT_LOCALE cookie; the app default is Turkish). */
 async function setLang(page: import("@playwright/test").Page, baseURL: string | undefined, lang: "en" | "tr"): Promise<void> {
@@ -259,6 +259,7 @@ test.describe("studio + calendar polish (real backend)", () => {
     await login(page);
     const termId = await openStudio(page, "rules");
     await page.getByTestId("add-template").click();
+    await page.getByTestId("template-gallery").getByRole("tab", { name: "Times" }).click();
     await page.getByTestId("template-no_classes_after").click();
     const builder = page.getByTestId("rule-builder");
     // no time chosen: Add is disabled and the builder says what is missing
@@ -325,7 +326,7 @@ test.describe("studio + calendar polish (real backend)", () => {
       await expect(card.getByRole("button", { name: /Lock again/ })).toBeVisible();
     } finally {
       const now = (await call(page, "GET", `/terms/${termId}/studio?kind=COURSE`)).body as StudioDraft;
-      await call(page, "PUT", `/terms/${termId}/studio`, { kind: "COURSE", version: now.version, pins: draft.pins, horizon: draft.horizon, horizon_params: draft.horizon_params });
+      await call(page, "PUT", `/terms/${termId}/studio`, { kind: "COURSE", version: now.version, pins: draft.pins, horizon: draft.scope.horizon, horizon_params: draft.scope.horizon_params });
     }
   });
 
@@ -366,5 +367,29 @@ test.describe("studio + calendar polish (real backend)", () => {
     } finally {
       for (const id of made) await call(page, "DELETE", `/constraints/${id}`);
     }
+  });
+
+  test("no hydration errors on /timetable and /classes (React #418)", async ({ page, baseURL }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await setLang(page, baseURL, "en");
+    await login(page);
+    const errors: string[] = [];
+    let at = "";
+    page.on("pageerror", (e) => {
+      if (/#418|#423|hydrat/i.test(String(e))) errors.push(`${at}: ${String(e).slice(0, 200)}`);
+    });
+    page.on("console", (m) => {
+      if (m.type() === "error" && /hydrat|didn't match/i.test(m.text())) errors.push(`${at}: ${m.text().slice(0, 200)}`);
+    });
+    // hard loads: the race needs the shell's /auth/me to land while the page's boundaries still hydrate
+    for (const path of ["/timetable", "/classes"]) {
+      for (let i = 0; i < 3; i++) {
+        at = `${path} #${i + 1}`;
+        await page.goto(path, { waitUntil: "networkidle" });
+        await expect(page.getByTestId(path === "/timetable" ? "calendar" : "classes").first()).toBeVisible({ timeout: 30_000 });
+      }
+    }
+    expect(errors).toEqual([]);
   });
 });

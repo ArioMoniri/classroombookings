@@ -259,7 +259,7 @@ async def accept_proposals(
     browser is moved to the column too)."""
     rejected: list[dict[str, Any]] = []
     rows: list[ConstraintRow] = []
-    decisions: list[tuple[AIProposalDecision, ConstraintRow | None]] = []
+    decisions: list[tuple[AIProposalDecision, ConstraintRow]] = []
 
     def decide(p: ProposedConstraint, decision: str, reasons: list[str], src: str) -> AIProposalDecision:
         d = AIProposalDecision(
@@ -311,8 +311,8 @@ async def accept_proposals(
     for p in declined or []:
         decide(p, "declined", ["declined by the planner in review"], model_source(source or p.source))
     await session.flush()
-    for d, row in decisions:
-        d.constraint_id = row.id if row is not None else None
+    for d, made in decisions:
+        d.constraint_id = made.id
     created = [r.id for r in rows]
     if commit:
         await session.commit()

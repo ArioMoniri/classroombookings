@@ -1371,7 +1371,17 @@ FINDING_GROUP: dict[str, tuple[str, ...]] = {
     "board_only_unknown_code": ("board_unknown_code",),
 }
 #: groups the audit cannot confirm or refute (no independent check): never counted as false alarms
-UNAUDITED_GROUPS = frozenset({"no_free_room", "other", "rooms_outside_pool", "week_room_changes", "board_missing_week"})
+UNAUDITED_GROUPS = frozenset(
+    {
+        "no_free_room",
+        "other",
+        "rooms_outside_pool",
+        "week_room_changes",
+        "board_missing_week",
+        "unparsed_preference",
+        "preference_review",
+    }
+)
 
 
 def audit_cross_check(

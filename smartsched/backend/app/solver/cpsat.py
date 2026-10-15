@@ -323,6 +323,8 @@ def _solve(
         hints.update({a.event_id: a for a in hint_assignments(inp)})  # previous / locked win
         stats["greedy_s"] = round(time.perf_counter() - t_greedy, 3)
         stats["hinted_events"] = ctx.add_hints([hints[e.id] for e in inp.events if e.id in hints])
+        if ctx.seats and stats["hinted_events"]:  # split shared exams: make the seat hint consistent
+            stats["hint_repaired"] = ctx.repair_derived_hints(min(10.0, max(1.0, inp.time_limit_s * 0.05)), clock)
         stats["warnings"].extend(ctx.warnings)
         search_s = inp.time_limit_s - clock.elapsed()
         # a complete warm start guarantees a solution: keep part of the time for the day sweep, which

@@ -1336,7 +1336,7 @@ _NEG_RX = re.compile(
 #: wish wording: a clause with one of these words but nothing structured is an "unparsed preference"
 _WISH_RX = re.compile(
     r"\b(?:rica|talep|olsun|olmasin|mumkunse|tercih|istiyor\w*|isteniyor|istenmektedir|lutfen|"
-    r"olmamasi|konmamasi|gerek\w*|olabilir)\b"
+    r"olmamasi|konmamasi|gerekli|gerekiyor|gerekmektedir|olabilir)\b"
 )
 #: "mutlaka", "zorunlu", "gerekmektedir": a strong wish (higher weight) - still soft when it comes from free text
 _STRONG_RX = re.compile(r"\b(?:mutlaka|zorunlu\w*|gerekmektedir|sart)\b")

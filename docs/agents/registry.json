@@ -486,7 +486,9 @@
       "goal": "merge origin/claude/smartsched-universal into origin/claude/gracious-cerf-w1598m with every conflict resolved correctly and all checks green, so the main session can fast-forward both branches.",
       "ledger": "merge-universal-2026-10-15 SCOPE: your isolated git worktree only, on a local br…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 16:07",
+      "left_off": "Waiting on the full backend test run. I'll pick up again when it finishes."
     },
     {
       "id": "a574d83abdbb1d109",
@@ -715,6 +717,14 @@
       "status": "finished",
       "finished_at": "2026-10-15 15:48",
       "left_off": "deploy to pod when green n send me panel url"
+    },
+    {
+      "id": "a052cc002303e29d2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:58",
+      "left_off": "continue n deploy to pod when green"
     }
   ]
 }

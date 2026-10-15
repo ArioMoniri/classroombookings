@@ -149,6 +149,18 @@ def events_for_requests(params: dict[str, Any], members: dict[int, list[int]]) -
     return params if mapped == ids else {**params, "event_ids": mapped}
 
 
+def resolve_building_sets(params: dict[str, Any], buildings: set[str] | frozenset[str]) -> dict[str, Any]:
+    """``building_preference`` rules read from free text may say "avoid B" (``avoid_buildings``, importer
+    ``preference_rules``): the solver's form is the wanted set, i.e. every building of the room pool but the
+    avoided ones. A rule that already names ``building(s)`` is left as is; avoiding every building is no
+    wish (no ``buildings`` key, so the solver ignores it)."""
+    avoid = {str(b).upper() for b in params.get("avoid_buildings") or []}
+    if not avoid or params.get("buildings") or params.get("building"):
+        return params
+    wanted = sorted(b for b in buildings if b not in avoid)
+    return {**params, "buildings": wanted} if wanted else params
+
+
 def run_mode(params: dict[str, Any] | None, key: str) -> Any:
     value = (params or {}).get(key, MODE_DEFAULTS[key])
     if key == "definitive_rooms":
@@ -1034,11 +1046,18 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     )
     from app.importers.normalize import normalize_selector_params
 
+    pool_buildings = frozenset(r.building for r in rooms if r.building)
     constraints = [  # cohort / programme selectors in the one canonical form (usability U1); request ids of
-        # merged joint-lecture members point at their solver event (usability U3)
+        # merged joint-lecture members point at their solver event (usability U3); "avoid building B" read
+        # from free text becomes the set of the other buildings (resolve_building_sets)
         sm.Constraint(
             c.kind,
-            events_for_requests(normalize_selector_params(c.params), members),
+            events_for_requests(
+                resolve_building_sets(normalize_selector_params(c.params), pool_buildings)
+                if c.kind == "building_preference"
+                else normalize_selector_params(c.params),
+                members,
+            ),
             c.hardness == "hard",
             int(c.weight or 1),
             c.id,

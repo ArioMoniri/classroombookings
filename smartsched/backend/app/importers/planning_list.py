@@ -26,9 +26,10 @@ from app.importers.identity import (
     section_snapshot_fp,
     time_sort_key,
 )
+from app.importers.preference_rules import TextCell, sync_text_preferences
 from app.importers.report import ImportReport
 from app.importers.settings import importer_settings
-from app.importers.xlsx import iter_sheet_rows, map_headers, row_dict
+from app.importers.xlsx import iter_sheet_rows, map_headers, row_dict, sheet_title
 from app.models import ImportedSnapshot, MeetingRequest, Section, SectionInstructor, StudioDraft
 
 HEADER_SPEC: dict[str, list[str]] = {
@@ -132,6 +133,7 @@ class ParsedPlanningList:
     skipped: list[tuple[int, str, str | None]]
     headers: list[str | None]
     capacities: list[CapacityEntry] = field(default_factory=list)
+    sheet_name: str | None = None
 
 
 def parse_capacity_buckets(path: str | Path, skip_sheet: int = 0) -> list[CapacityEntry]:
@@ -278,7 +280,7 @@ def parse_planning_list(
         else:
             parsed.append(res)
     capacities = parse_capacity_buckets(path, skip_sheet=sheet if isinstance(sheet, int) else 0)
-    return ParsedPlanningList(parsed, total, skipped, headers, capacities)
+    return ParsedPlanningList(parsed, total, skipped, headers, capacities, sheet_title(path, sheet))
 
 
 async def import_planning_list(
@@ -343,6 +345,7 @@ async def import_planning_list(
     conflicts: list[dict[str, Any]] = []
     unchanged = Counter[str]()
     created_now: list[MeetingRequest] = []
+    text_rows: list[tuple[MeetingRequest, PlanningRow]] = []
     take = on_conflict == "take"
     seen_meeting_keys: set[str] = set()
     seen_section_keys: set[str] = set()
@@ -494,6 +497,7 @@ async def import_planning_list(
             if msnap is not None:
                 msnap.fingerprint = meeting_snapshot_fp(section.source_row, mkey, r.row)
         report.rows_imported += 1
+        text_rows.append((mr, r))
 
     # rows absent from the new file are archived, never deleted
     archived_now: list[MeetingRequest] = []
@@ -503,6 +507,49 @@ async def import_planning_list(
             archived_now.append(mr)
             report.updated["meeting_requests_archived"] += 1
     await session.flush()
+    # free-text wishes: the notes column -> soft rules pending review; the request cell -> what the request
+    # fields cannot carry (avoid / building sets / features), active (preference_rules)
+    cols = map_headers(parsed.headers, HEADER_SPEC)
+
+    def _header(key: str, default: str) -> str:
+        i = cols.get(key)
+        return str(parsed.headers[i]) if i is not None and i < len(parsed.headers) and parsed.headers[i] else default
+
+    notes_col, venue_col = _header("notes", "Derse Özel Açıklama"), _header("request", "Derslik Talebi")
+    cells: list[TextCell] = []
+    for mr, r in text_rows:
+        if r.notes:
+            cells.append(TextCell(mr.id, mr.source_key or str(mr.id), r.row, notes_col, r.notes, True))
+        if r.venue.raw:
+            structured = bool(r.venue.room_codes or r.venue.min_capacity or r.venue.room_count or r.venue.tags)
+            cells.append(
+                TextCell(
+                    mr.id,
+                    mr.source_key or str(mr.id),
+                    r.row,
+                    venue_col,
+                    r.venue.raw,
+                    False,
+                    structured,
+                    tuple(r.venue.tags),
+                )
+            )
+    prefs = await sync_text_preferences(
+        session,
+        term,
+        cat,
+        cells,
+        origin="planning-list",
+        kind="course",
+        filename=report.filename,
+        sheet=parsed.sheet_name,
+    )
+    report.extra["preferences"] = prefs
+    if prefs["pending_review"]:
+        report.warn(
+            f"{prefs['pending_review']} wish(es) read from the notes column wait for review (soft, switched off); "
+            f"{prefs['unparsed']} could not be read as a rule"
+        )
     remapped = _successors(archived_now, created_now)
     if remapped:
         await remap_request_ids(session, term.id, remapped)

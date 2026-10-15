@@ -100,15 +100,22 @@ async def test_forced_bulk_move_restore_and_bulk_lock_are_audited(env):  # noqa:
     r = await env.client.post(f"{base}/bulk-move", json=body, headers=env.admin)
     assert r.status_code == 200 and r.json()["applied"] is True, r.text
     assert r.json()["conflict_count"] == 1
-    (ev,) = await _events("assignment.bulk_move")
-    assert ev.entity_type == "assignment" and ev.entity_id == str(a.id)  # one row: no parent
+    # scope "all" moves the whole weekly series (the board has one row per week): a parent on the run + children
+    events = await _events("assignment.bulk_move")
+    (top,) = [e for e in events if e.parent_id is None]
+    assert top.reason and "forced" in top.reason and "1 conflict" in top.reason
+    ev = next(e for e in events if e.entity_type == "assignment" and e.entity_id == str(a.id))
     assert ev.before["room_ids"] == list(a.room_ids) and ev.after["room_ids"] == list(b.room_ids)
-    assert ev.reason and "forced" in ev.reason and "1 conflict" in ev.reason
+    assert ev.after["origin"] == "MANUAL" and ev.before["origin"] == "IMPORT"
+    if len(events) > 1:
+        assert top.entity_type == "run" and top.after["forced"] is True and top.after["count"] == len(events) - 1
     undo = r.json()["undo"]
     r = await env.client.post(f"{base}/restore", json=undo, headers=env.planner)
     assert r.status_code == 200, r.text
-    (rs,) = await _events("assignment.restore")
+    restored = await _events("assignment.restore")
+    rs = next(e for e in restored if e.entity_type == "assignment" and e.entity_id == str(a.id))
     assert rs.before["room_ids"] == list(b.room_ids) and rs.after["room_ids"] == list(a.room_ids)
+    assert rs.after["origin"] == "IMPORT"
     r = await env.client.post(f"{base}/bulk-lock", json={"ids": [a.id, b.id], "locked": False}, headers=env.planner)
     assert r.status_code == 200, r.text
     r = await env.client.post(f"{base}/bulk-lock", json={"ids": [a.id, b.id], "locked": True}, headers=env.planner)
