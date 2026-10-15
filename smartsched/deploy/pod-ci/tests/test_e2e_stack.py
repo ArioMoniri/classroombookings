@@ -138,6 +138,9 @@ def test_e2e_real_starts_smtp_sink_and_empty_backend_for_playwright(tmp_path: Pa
     first_exec = next(i for i, c in enumerate(calls) if c.startswith("exec "))
     assert calls.index(empty) > first_exec
     playwright = runs[-1]
+    # next build runs (and warms .next/cache) before playwright: its webServer build must fit 300 s
+    log = (tmp_path / "docker.log").read_text()  # the playwright script spans several lines of the log
+    assert log.index("npx next build") < log.index("npx playwright test")
     for flag in ("-e E2E_REAL=1", "-e E2E_SMTP_HOST=smtp", "-e E2E_SMTP_PORT=1025",
                  "-e E2E_SMTP_API=http://smtp:8025", "-e E2E_EMPTY_API_URL=http://backend-empty:8000"):
         assert flag in playwright

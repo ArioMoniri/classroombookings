@@ -90,6 +90,9 @@ const api = \"http://backend:8000/api/v1\";
   process.exit(today >= \"2026-02-02\" && today <= \"2026-06-28\" ? 0 : 1);
 })().catch((e) => { console.log(String(e)); process.exit(1); });
 "
+echo "==== next build (warms .next/cache: the playwright webServer builds again and must start within 300 s)"
+start=$(date +%s); npx next build >/w/next-build.log 2>&1 || { tail -n 60 /w/next-build.log; exit 1; }
+echo "next build: $(( $(date +%s) - start )) s"
 npx playwright test --reporter=list,json
 echo "==== no mock/demo code in the production build"
 bash ../deploy/validate.sh --no-mock-build .next/standalone
