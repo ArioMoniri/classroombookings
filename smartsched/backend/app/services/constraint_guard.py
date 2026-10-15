@@ -17,7 +17,9 @@ and audits it (``constraint.waive``). Targeted soft structural rules ("MAT 112 m
 normal planner decision: they touch only the classes they name.
 
 The definitions come from the solver (``STRUCTURAL`` and ``is_targeted``), read-only, so the guard cannot drift
-from what the solver actually does.
+from what the solver actually does. The solver's ``is_targeted`` looks at key presence only, while its
+``select_events`` reads an empty selector as "every event"; so the guard also requires a non-blank value
+(admin persona 2026-10-15 M-47: ``{"match": ""}``, ``{"match": " "}``, ``{"event_ids": []}`` are untargeted).
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
+from app.importers import normalize as n
 from app.solver.constraints import STRUCTURAL
 from app.solver.constraints._common import is_targeted
 from app.solver.model import Constraint
@@ -35,6 +38,17 @@ STRUCTURAL_KINDS: frozenset[str] = frozenset(STRUCTURAL)
 #: rule sources that may never carry a waiver, whoever accepts them
 UNWAIVABLE_SOURCES: frozenset[str] = frozenset({"AI", "UPLOAD", "LEARNED"})
 REASON_MIN = 3
+#: the selector keys of ``app.solver.constraints._common.is_targeted`` / ``select_events``
+SELECTOR_KEYS: tuple[str, ...] = (
+    "event_ids",
+    "cohort",
+    "cohorts",
+    "program",
+    "programs",
+    "match",
+    "instructor",
+    "instructors",
+)
 
 
 def _clean_params(params: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -42,11 +56,33 @@ def _clean_params(params: Mapping[str, Any] | None) -> dict[str, Any]:
     return {k: v for k, v in dict(params or {}).items() if not str(k).startswith("_")}
 
 
+def _names_something(value: Any) -> bool:
+    """A selector value that names at least one thing: a number, a non-blank text (NBSP, zero-width and other
+    spaces are blank) or a list holding one of these."""
+    if value is None or isinstance(value, bool):
+        return False
+    if isinstance(value, int | float):
+        return True
+    if isinstance(value, str):
+        return n.clean_text(value) is not None
+    if isinstance(value, list | tuple | set | frozenset):
+        return any(_names_something(v) for v in value)
+    return False
+
+
+def is_targeted_params(params: Mapping[str, Any] | None) -> bool:
+    """True when the params name specific classes: the solver's ``is_targeted`` *and* a non-blank selector."""
+    clean = _clean_params(params)
+    if not is_targeted(Constraint("capacity", clean, hard=False)):
+        return False
+    return any(_names_something(clean.get(k)) for k in SELECTOR_KEYS)
+
+
 def is_waiver(kind: str, params: Mapping[str, Any] | None, hardness: str | None) -> bool:
     """True when the row would switch a structural hard rule off for the whole term."""
     if kind not in STRUCTURAL_KINDS or (hardness or "soft") != "soft":
         return False
-    return not is_targeted(Constraint(kind, _clean_params(params), hard=False))
+    return not is_targeted_params(params)
 
 
 def guard_rule(
@@ -88,4 +124,13 @@ def without_waiver(source_ref: Mapping[str, Any] | None) -> dict[str, Any] | Non
     return out or None
 
 
-__all__ = ["STRUCTURAL_KINDS", "UNWAIVABLE_SOURCES", "guard_rule", "is_waiver", "waiver_ref", "without_waiver"]
+__all__ = [
+    "SELECTOR_KEYS",
+    "STRUCTURAL_KINDS",
+    "UNWAIVABLE_SOURCES",
+    "guard_rule",
+    "is_targeted_params",
+    "is_waiver",
+    "waiver_ref",
+    "without_waiver",
+]

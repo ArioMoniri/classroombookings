@@ -12,11 +12,11 @@ from app.council.formats import (
     FormatSpec,
     MiB,
     Probe,
-    Rendered,
     Unsupported,
     register,
     register_unsupported,
 )
+from app.council.render import Rendered
 
 
 def _ooxml(part: str) -> object:

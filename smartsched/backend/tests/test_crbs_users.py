@@ -300,11 +300,10 @@ async def test_ldap_login_creates_updates_and_falls_back(env, monkeypatch):  # n
     ).status_code == 200
     FakeDirectory.down = False
 
-    # a disabled account is refused even though the directory would accept it
+    # a disabled account is refused even though the directory would accept it, like a wrong password (M-42)
     await c.put(f"/api/v1/users/{me['id']}", json={"is_active": False}, headers=env.admin)
-    assert (
-        await c.post("/api/v1/auth/login", json={"username": "ilker.sahin", "password": "doğru-parola"})
-    ).status_code == 403
+    r = await c.post("/api/v1/auth/login", json={"username": "ilker.sahin", "password": "doğru-parola"})
+    assert (r.status_code, r.json()) == (401, {"detail": "invalid credentials"})
     # unknown people are not created when create_users is off
     FakeDirectory.people["yeni.kisi"] = {"givenName": "Yeni", "sn": "Kişi", "mail": "yeni@uni.edu.tr"}
     await c.put("/api/v1/org/auth/ldap", json={"create_users": False}, headers=env.admin)

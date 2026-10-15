@@ -110,7 +110,8 @@ async def test_login_triggers_the_logged_in_event_and_stamps_last_login(env):
 
 @pytest.mark.parity("B-AUTH-02")
 async def test_disabled_local_accounts_are_refused(env):
-    """``Userauth::log_in``: a disabled user cannot sign in even with the right password."""
+    """``Userauth::log_in``: a disabled user cannot sign in even with the right password. The answer is the same
+    401 as a wrong password (deliberate difference, admin persona M-42: no account-state enumeration)."""
     uid, h = await env.user("pasif.hesap@uni.edu.tr", username="pasif.hesap")
     assert (await env.client.get("/api/v1/bookings/context", headers=h)).status_code == 200
     r = await env.client.put(f"/api/v1/users/{uid}", json={"is_active": False}, headers=env.admin)
@@ -119,7 +120,8 @@ async def test_disabled_local_accounts_are_refused(env):
         {"username": "PASİF.HESAP", "password": "parola-1234"},
         {"email": "pasif.hesap@uni.edu.tr", "password": "parola-1234"},
     ):
-        assert (await env.client.post("/api/v1/auth/login", json=body)).status_code == 403
+        r = await env.client.post("/api/v1/auth/login", json=body)
+        assert (r.status_code, r.json()) == (401, {"detail": "invalid credentials"})
     # a token issued before the account was disabled stops working too
     assert (await env.client.get("/api/v1/bookings/context", headers=h)).status_code in (401, 403)
     await env.client.put(f"/api/v1/users/{uid}", json={"is_active": True}, headers=env.admin)

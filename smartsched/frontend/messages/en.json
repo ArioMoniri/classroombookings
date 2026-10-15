@@ -101,6 +101,7 @@
     "horizon": "Horizon", "hard": "Hard", "soft": "Soft", "created": "Created", "duration": "Duration", "open": "Open",
     "partial": "Partial · {placed}/{total} placed",
     "cancelRun": "Cancel run", "cancelling": "Cancelling…", "cancelled": "Run cancelled", "cancelFailed": "Couldn't cancel the run", 
+    "publish": {"button": "Publish", "published": "Published", "title": "Publish run #{id}?", "scopeWeeks": "{term}, weeks {weeks}", "scopeTerm": "{term}, the whole term", "replaces": "It replaces run #{id} as the published timetable: the booking grid and the calendar feeds follow it.", "first": "It becomes this term's first published timetable: the booking grid and the calendar feeds follow it.", "weeksOnly": "This run covers only these weeks, but once published it is the term's timetable for every week.", "partial": "{missing} classes have no room in this run ({placed}/{total} placed).", "refused": "The server did not publish it:", "publishing": "Publishing…", "confirm": "Publish", "done": "Run #{id} is now the published timetable"},
     "partialRing": "{placed}/{total} placed · no rule broken",
     "status": { "QUEUED": "Queued", "RUNNING": "Running", "FEASIBLE": "Feasible", "OPTIMAL": "Optimal", "FEASIBLE_PARTIAL": "Partial", "INFEASIBLE": "Infeasible", "TIMEOUT": "Timed out", "ERROR": "Solver error", "FAILED": "Failed", "CANCELLED": "Cancelled" },
     "report": "Report", "grid": "Timetable", "chat": "Chat", "hardScore": "Hard constraints", "softScore": "Soft preferences",

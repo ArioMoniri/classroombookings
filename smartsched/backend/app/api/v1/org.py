@@ -87,8 +87,9 @@ async def public_info(db: DB) -> dict[str, Any]:
         "maintenance_message": org["maintenance_mode_message"] if org["maintenance_mode"] else None,
         "ldap_enabled": bool((await get_group(db, "ldap"))["enabled"]),
         "setup_required": users == 0,
-        "default_language": org["default_language"],
-        "languages": org["languages"],
+        # as shown (P18-LANG): Turkish / English; a stored legacy code reads as English
+        "default_language": bookings_i18n.display_language(org["default_language"]),
+        "languages": bookings_i18n.effective_languages(org["languages"]),
     }
 
 
@@ -234,7 +235,9 @@ async def put_org_settings(body: OrgSettingsIn, db: DB, _: SettingsAdmin) -> dic
         raise HTTPException(422, f"columns {cols!r} do not fit display type {dtype!r}")
     langs = data.get("languages") or current["languages"] or []
     default_lang = data.get("default_language") or current["default_language"]
-    if default_lang not in langs:  # B8
+    # B8, compared as shown (P18-LANG: a stored legacy code such as "de" is kept and shown in English)
+    shown_default = bookings_i18n.display_language(default_lang)
+    if shown_default not in bookings_i18n.effective_languages(langs):
         raise HTTPException(422, f"default language {default_lang!r} is not among the enabled languages {langs}")
     for k in ("name", "website", "login_message_text", "maintenance_mode_message"):
         if k in data and data[k] is not None:
@@ -416,10 +419,14 @@ async def delete_translation(tid: int, db: DB, _: SettingsAdmin) -> None:
 
 
 async def _language_or_default(db: DB, language: str | None) -> tuple[str, dict[str, Any]]:
+    """The language to serve, as shown (P18-LANG: ``tr`` / ``en``; a known legacy code such as ``de``, asked for
+    or stored as the org default, is served in English). Unknown or not enabled: 422."""
     org = await get_group(db, "org")
-    lang = (language or org["default_language"] or "tr").strip().lower()
-    if lang not in bookings_i18n.SHIPPED_LANGUAGES or lang not in (org["languages"] or []):
-        raise HTTPException(422, f"language {lang!r} is not enabled ({', '.join(org['languages'] or [])})")
+    asked = (language or org["default_language"] or "tr").strip().lower()
+    enabled = bookings_i18n.effective_languages(org["languages"])
+    lang = bookings_i18n.display_language(asked)
+    if bookings_i18n.normalize_language(asked) is None or lang not in enabled:
+        raise HTTPException(422, f"language {asked!r} is not enabled ({', '.join(enabled)})")
     return lang, org
 
 
@@ -431,9 +438,10 @@ async def i18n_bundle(db: DB, language: str | None = None) -> dict[str, Any]:
     lang, org = await _language_or_default(db, language)
     return {
         "language": lang,
-        "default_language": org["default_language"],
-        "languages": org["languages"],
-        "language_names": {k: bookings_i18n.LANGUAGE_NAMES[k] for k in org["languages"] or []},
+        # as shown: Turkish / English only (a stored legacy code is kept in /org/settings, shown here as English)
+        "default_language": bookings_i18n.display_language(org["default_language"]),
+        "languages": (enabled := bookings_i18n.effective_languages(org["languages"])),
+        "language_names": {k: bookings_i18n.LANGUAGE_NAMES[k] for k in enabled},
         "messages": await bookings_i18n.bundle(db, lang),
         "date_patterns": {k: org[k] for k in ("pattern_long", "pattern_weekday", "pattern_time")},
         "date_defaults": bookings_i18n.DEFAULT_PATTERNS[lang],
@@ -573,8 +581,14 @@ async def put_profile(body: ProfileIn, db: DB, user: CurrentUser) -> ProfileOut:
         else:
             data["email"] = None
     org = await get_group(db, "org")
-    if data.get("language") and data["language"] not in (org["languages"] or []):
-        raise HTTPException(422, f"language {data['language']!r} is not enabled")
+    if data.get("language"):
+        # P18-LANG (owner decision 2026-10-15): new writes are Turkish or English; a stored legacy code is kept
+        code = bookings_i18n.offered_language(data["language"])
+        if code is None:
+            raise HTTPException(422, f"language {data['language']!r} is not offered (tr, en)")
+        if code not in bookings_i18n.effective_languages(org["languages"]):
+            raise HTTPException(422, f"language {code!r} is not enabled")
+        data["language"] = code
     if "displayname" in data:
         data["full_name"] = data.pop("displayname")
     for k, v in data.items():

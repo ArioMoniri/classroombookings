@@ -124,7 +124,7 @@ def instances(
             )
             if rrule is not None:
                 try:
-                    rs.rrule(rrulestr(rrule.to_ical().decode(), dtstart=naive, ignoretz=True))  # type: ignore[arg-type]
+                    rs.rrule(rrulestr(rrule.to_ical().decode(), dtstart=naive, ignoretz=True))
                 except (ValueError, TypeError) as exc:
                     warnings.append(f"event {uid or summary!r}: unreadable RRULE ({exc}); only its first date used")
                     rs.rdate(naive)

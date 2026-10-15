@@ -101,6 +101,7 @@
     "horizon": "Ufuk", "hard": "Katı", "soft": "Yumuşak", "created": "Oluşturulma", "duration": "Süre", "open": "Aç",
     "partial": "Kısmi · {placed}/{total} yerleşti",
     "cancelRun": "Çalıştırmayı iptal et", "cancelling": "İptal ediliyor…", "cancelled": "Çalıştırma iptal edildi", "cancelFailed": "Çalıştırma iptal edilemedi", 
+    "publish": {"button": "Yayınla", "published": "Yayında", "title": "Çalıştırma #{id} yayınlansın mı?", "scopeWeeks": "{term}, {weeks}. haftalar", "scopeTerm": "{term}, dönemin tamamı", "replaces": "Yayımlanan program olarak #{id} çalıştırmasının yerini alır: rezervasyon ızgarası ve takvim akışları bunu izler.", "first": "Bu dönemin ilk yayımlanan programı olur: rezervasyon ızgarası ve takvim akışları bunu izler.", "weeksOnly": "Bu çalıştırma yalnız bu haftaları kapsıyor, ama yayımlanınca dönemin bütün haftaları için program olur.", "partial": "Bu çalıştırmada {missing} dersin dersliği yok ({placed}/{total} yerleşti).", "refused": "Sunucu yayınlamadı:", "publishing": "Yayınlanıyor…", "confirm": "Yayınla", "done": "Çalıştırma #{id} artık yayımlanan program"},
     "partialRing": "{placed}/{total} ders yerleşti · hiçbir kural bozulmadı",
     "status": { "QUEUED": "Kuyrukta", "RUNNING": "Çalışıyor", "FEASIBLE": "Uygun", "OPTIMAL": "En iyi", "FEASIBLE_PARTIAL": "Kısmi", "INFEASIBLE": "Uygunsuz", "TIMEOUT": "Süre doldu", "ERROR": "Çözücü hatası", "FAILED": "Başarısız", "CANCELLED": "İptal" },
     "report": "Rapor", "grid": "Çizelge", "chat": "Sohbet", "hardScore": "Katı kısıtlar", "softScore": "Yumuşak tercihler",

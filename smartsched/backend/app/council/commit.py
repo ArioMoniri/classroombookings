@@ -34,7 +34,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.council import critic, fastpath, storage
+from app.core import safe_files
+from app.council import critic, fastpath, formats, storage
 from app.council import text as tx
 from app.council.reconcile import rid, room_key
 from app.council.review import build_items, decisions, effective_plan
@@ -379,6 +380,40 @@ class Writer:
         return out
 
 
+async def _import_fast(
+    session: AsyncSession,
+    shape: str,
+    stored: Any,
+    name: str,
+    term_code: str,
+    *,
+    year: int,
+    week_count: int,
+    on_conflict: str,
+) -> ImportReport:
+    """One fast-path file through its university importer. A csv / tsv / ods / xls / json / xml export of a
+    known shape is read from its workbook transcoding (:func:`app.council.formats.workbook_for`)."""
+    if shape == "room-master":
+        from app.importers.room_master import import_room_master
+
+        text = await safe_files.run_isolated(formats.utf8_for, stored)  # a cp1254 / UTF-16 room master too
+        return await import_room_master(session, text, filename=name)
+    path = await safe_files.run_isolated(formats.workbook_for, stored, name)
+    if shape == "weekly-grid":
+        from app.importers.weekly_grid import import_weekly_grid
+
+        return await import_weekly_grid(session, path, term_code, year=year, filename=name)
+    if shape == "planning-list":
+        from app.importers.planning_list import import_planning_list
+
+        return await import_planning_list(
+            session, path, term_code, filename=name, week_count=week_count, on_conflict=on_conflict
+        )
+    from app.importers.exam_list import import_exam_list
+
+    return await import_exam_list(session, path, term_code, filename=name)
+
+
 async def commit(
     session: AsyncSession,
     job: CouncilJob,
@@ -391,6 +426,7 @@ async def commit(
     allow_pending: bool = False,
     user_id: int | None = None,
     actor: User | None = None,
+    on_conflict: str = "keep",
 ) -> dict[str, Any]:
     if job.status not in ("REVIEW", "READY", "COMMITTED"):
         raise CommitError(f"job is {job.status}; wait until the council has finished")
@@ -438,31 +474,23 @@ async def commit(
     records = await storage.records_by_file(session, job)
     routes = {f["index"]: f.get("route") or "" for f in job.files}
     fast = sorted(
-        (i for i in chosen if routes[i].startswith("fast:")), key=lambda i: fastpath.COMMIT_ORDER.get(routes[i][5:], 9)
+        (i for i in chosen if routes[i].startswith("fast:") and routes[i][5:] in fastpath.IMPORTER_SHAPES),
+        key=lambda i: fastpath.COMMIT_ORDER.get(routes[i][5:], 9),
     )
     entries = {f["index"]: f for f in job.files}
     for i in fast:
         shape = routes[i][5:]
-        path = storage.file_path(job.id, entries[i])
         name = entries[i]["filename"]
-        if shape == "room-master":
-            from app.importers.room_master import import_room_master
-
-            rep = await import_room_master(session, path, filename=name)
-        elif shape == "weekly-grid":
-            from app.importers.weekly_grid import import_weekly_grid
-
-            rep = await import_weekly_grid(session, path, term_code, year=year, filename=name)
-        elif shape == "planning-list":
-            from app.importers.planning_list import import_planning_list
-
-            rep = await import_planning_list(
-                session, path, term_code, filename=name, week_count=int(g.get("week_count") or 14)
-            )
-        else:
-            from app.importers.exam_list import import_exam_list
-
-            rep = await import_exam_list(session, path, term_code, filename=name)
+        rep = await _import_fast(
+            session,
+            shape,
+            storage.file_path(job.id, entries[i]),
+            name,
+            term_code,
+            year=year,
+            week_count=int(g.get("week_count") or 14),
+            on_conflict=on_conflict,
+        )
         d = rep.to_dict()
         reports.append(
             {
@@ -492,7 +520,8 @@ async def commit(
             writer.person_alias[tx.person_key(m["b"])] = m["a"]
         writer.counts["merges_applied"] += 1
     duplicates = dataset.get("duplicates", {})
-    general = [i for i in chosen if not routes[i].startswith("fast:")]
+    # general-path files and the record shapes without an importer (intake.v1 JSON, ICS schedule maps)
+    general = [i for i in chosen if not routes[i].startswith("fast:") or routes[i][5:] not in fastpath.IMPORTER_SHAPES]
     week_of = await writer.weeks(g) if g else {}
     if general:
         file_rooms = {

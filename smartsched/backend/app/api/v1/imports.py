@@ -276,7 +276,7 @@ async def list_jobs(
     access: CurrentAccess,
     limit: int = 50,
     kind: Literal["planning-list", "exam-list", "weekly-grid", "room-master", "crbs"] | None = None,
-) -> list[ImportJob]:
+) -> list[ImportJobOut]:
     """Newest first. ``kind`` filters (the room wizard lists ``room-master``). Planners (``planning.view``)
     list every kind; a room administrator (``setup.rooms``) lists the room-master imports only."""
     if "planning.view" not in access.perms and not (kind == "room-master" and "setup.rooms" in access.perms):

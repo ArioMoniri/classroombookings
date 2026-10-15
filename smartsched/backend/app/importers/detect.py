@@ -59,6 +59,10 @@ class WrongFileError(ValueError):
         self.message_tr, self.message_en = message_tr, message_en
         super().__init__(f"{message_tr} / {message_en}")
 
+    def __reduce__(self) -> tuple[Any, ...]:
+        # the list parsers run in an isolated child process (safe_files.run_isolated): the error must cross it
+        return (type(self), (self.expected, self.detected, self.missing, self.message_tr, self.message_en))
+
     @classmethod
     def build(cls, expected: str, headers: list[Any], missing: list[str]) -> WrongFileError:
         detected = detect_kind(headers)

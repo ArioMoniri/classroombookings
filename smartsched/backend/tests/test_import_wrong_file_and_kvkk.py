@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+import pickle
+
 import pytest
 from app.importers import detect
 from app.importers.exam_list import parse_exam_list
@@ -29,6 +31,8 @@ def test_planning_list_slot_given_an_exam_list() -> None:
     assert "Bu dosya bir sınav listesi gibi görünüyor; planlama listesi bekleniyordu" in e.message_tr
     assert "looks like an exam list; a planning list was expected" in e.message_en
     assert isinstance(e, ValueError)  # callers that catch ValueError keep working
+    back = pickle.loads(pickle.dumps(e))  # crosses the isolated parse process
+    assert (back.detected, back.message_tr, str(back)) == (e.detected, e.message_tr, str(e))
 
 
 def test_planning_list_slot_given_the_weekly_grid() -> None:
@@ -90,7 +94,10 @@ async def test_viewers_get_counts_only(env, tmp_path) -> None:  # noqa: F811
     seen = (await env.client.get(f"/api/v1/imports/{jid}", headers=viewer)).json()
     listed = (await env.client.get("/api/v1/imports", headers=viewer)).json()
     for s in (seen["summary"], next(j for j in listed if j["id"] == jid)["summary"]):
-        assert s["rows_total"] == full["summary"]["rows_total"] and s["warnings_count"] == full["summary"]["warnings_count"]
+        assert (
+            s["rows_total"] == full["summary"]["rows_total"]
+            and s["warnings_count"] == full["summary"]["warnings_count"]
+        )
         assert s["created"] == full["summary"]["created"]
         for key in ("warnings", "rows_skipped", "warning_summary", "extra", "skip_reasons"):
             assert key not in s, key
