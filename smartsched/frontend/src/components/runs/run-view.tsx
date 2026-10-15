@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { optionIndex } from "@/lib/api/adapters";
 import { api } from "@/lib/api/endpoints";
-import { useApplyFix, useConstraints, useRun } from "@/lib/api/hooks";
+import { useApplyFix, useConstraints, useRun, useRuns } from "@/lib/api/hooks";
 import type { ScheduleRun } from "@/lib/api/schemas";
 import { useRunDataIssues, useRunSummary } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
@@ -33,6 +33,7 @@ import { SoftBreakdown } from "./soft-breakdown";
 import { usePermissions } from "@/lib/permissions";
 import { CancelRunButton } from "./cancel-run";
 import { MissingWeeks } from "./missing-weeks";
+import { PublishRunButton } from "./publish-run";
 import { runIssueCounts, verdictExceptions, waiverOf, type VerdictException } from "./run-truth";
 import { useCalendarIndex } from "@/lib/api/calendar";
 
@@ -133,6 +134,9 @@ export function RunView({ id }: { id: number }) {
   const issues = useRunDataIssues(id, finished);
   // the grid's own conflict / capacity flags, so the report and the grid header count the same things (M-07)
   const index = useCalendarIndex(finished ? id : null);
+  // the term's published run of this kind (the one a publish replaces)
+  const termRuns = useRuns(r ? { term_id: r.term_id } : undefined, { enabled: Boolean(r) && finished });
+  const publishedId = termRuns.data?.find((x) => x.is_active && x.kind === r?.kind && x.id !== r?.id)?.id ?? null;
   const summary = useRunSummary(id, finished);
   useRememberRunOnView(r?.term_id, r?.id);
   // the ring draws and numbers tick only if the run finishes while this page is open (motion.md §3.5)
@@ -223,6 +227,11 @@ export function RunView({ id }: { id: number }) {
                 <Verdict r={r} headline={headline} exceptions={exceptions} />
                 <p className="mt-1 text-[13px] text-label-2">{partial ? t("glass.report.partialHint", { n: n(unplaced) }) : null}</p>
                 <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
+                {canPlan && finished && r.status !== "CANCELLED" ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <PublishRunButton run={r} published={publishedId} exceptions={exceptions} />
+                  </div>
+                ) : null}
                 <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 pt-4 hairline-t sm:grid-cols-4">
                   {[
                     { k: t("glass.report.placed"), v: placed, suffix: total ? ` / ${n(total)}` : "" },
