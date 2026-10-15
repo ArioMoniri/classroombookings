@@ -1922,6 +1922,11 @@ async def capacity_warnings(session: AsyncSession, term_id: int, kind: str = "CO
     return out
 
 
+#: exams are never moved: their group says "partly covered", not "snapped" (owner decision 2026-10-15)
+EXAM_TIME_TITLE = (
+    "Periyotları kısmen kapsayan sınavlar (bilgi)",
+    "Exams that cover periods partly (info)",
+)
 #: groups that list rows for the planner to check, not errors (``totals.to_review``)
 REVIEW_GROUPS = frozenset({"time_snapped", "preference_review", "unparsed_preference"})
 
@@ -1943,8 +1948,10 @@ async def time_snaps(session: AsyncSession, run: ScheduleRun) -> dict[str, list[
             Section.term_id == run.term_id, MeetingRequest.archived.is_(False)
         )
     found: list[tuple[int, Any, Any, int | None, Any]] = []
+    exam = run.kind == "EXAM"
+    rule = n.exam_periods if exam else n.snap_to_periods  # exams are never moved (owner decision)
     for rid, start, end, row in (await session.execute(q.order_by(model.source_row_index, model.id))).all():
-        pr = n.snap_to_periods(start, end)
+        pr = rule(start, end)
         if pr.snapped and pr.start_period and pr.end_period:
             found.append((int(rid), start, end, row, pr))
     rows = await _class_rows(session, run, {f[0] for f in found})
@@ -1955,23 +1962,31 @@ async def time_snaps(session: AsyncSession, run: ScheduleRun) -> dict[str, list[
         snapped = f"{a.start:%H:%M}-{b.end:%H:%M}"
         where = f"satır {row}: " if row else ""
         where_en = f"row {row}: " if row else ""
-        out["time_snapped"].append(
-            _list_item(
-                "time_snapped",
-                (
-                    f"{where}{original} → P{pr.start_period}-P{pr.end_period} ({snapped})",
-                    f"{where_en}{original} → P{pr.start_period}-P{pr.end_period} ({snapped})",
-                ),
-                [rid],
-                rows,
-                {
-                    "row": row,
-                    "original": original,
-                    "periods": [pr.start_period, pr.end_period],
-                    "snapped": snapped,
-                },
+        span = f"P{pr.start_period}-P{pr.end_period}"
+        if exam:
+            parts = ", ".join(f"P{i}" for i in pr.partial)
+            msg = (
+                f"{where}{original}: {parts}'yi kısmen kapsıyor; sınav {span} periyotlarını tutuyor (kaydırılmadı)",
+                f"{where_en}{original}: covers {parts} partly; the exam holds {span} (not moved)",
             )
+        else:
+            msg = (f"{where}{original} → {span} ({snapped})", f"{where_en}{original} → {span} ({snapped})")
+        item = _list_item(
+            "time_snapped",
+            msg,
+            [rid],
+            rows,
+            {
+                "row": row,
+                "original": original,
+                "periods": [pr.start_period, pr.end_period],
+                "snapped": snapped,
+                **({"partial": pr.partial} if exam else {}),
+            },
         )
+        if exam:
+            item["severity"] = "info"
+        out["time_snapped"].append(item)
     return out
 
 
@@ -2194,6 +2209,8 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
         title_tr, title_en = spec.title_tr, spec.title_en
         if spec.code == "locked_room_blocked" and run.kind == "EXAM":
             title_tr, title_en = EXAM_BLOCKED_TITLE
+        if spec.code == "time_snapped" and run.kind == "EXAM":
+            title_tr, title_en = EXAM_TIME_TITLE
         groups_out.append(
             {
                 "code": spec.code,
