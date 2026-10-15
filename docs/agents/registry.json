@@ -608,8 +608,8 @@
       "ledger": "backend-backlog-2026-10-15 SCOPE: smartsched/backend/app/api/v1/** and app/servi…",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-15 21:36",
-      "left_off": "Waiting for the suite to finish."
+      "finished_at": "2026-10-15 21:39",
+      "left_off": "Done. Waiting for the full suite result."
     },
     {
       "id": "a284d15d95bf61925",
@@ -1018,6 +1018,14 @@
       "status": "finished",
       "finished_at": "2026-10-15 21:23",
       "left_off": "deploy to pod when green"
+    },
+    {
+      "id": "af5e11a3b7ecc1594",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 21:36",
+      "left_off": "add the webhook allowlist and deploy to pod when green"
     }
   ]
 }

@@ -53,8 +53,8 @@ def clean_image(data: bytes) -> tuple[bytes, str, dict[str, Any]]:
     w, h = check_image(data)
     with Image.open(io.BytesIO(data)) as im:
         had_exif = bool(im.info.get("exif")) or bool(getattr(im, "getexif", lambda: {})())
-        im = ImageOps.exif_transpose(im)  # keep the visible orientation, then drop the tag with the rest
         photo = im.format == "JPEG"
+        im = ImageOps.exif_transpose(im)  # keep the visible orientation, then drop the tag with the rest
         im = im.convert("RGB" if photo or im.mode in ("CMYK", "P", "LA") else ("RGBA" if "A" in im.mode else "RGB"))
         im.thumbnail((MAX_SIDE, MAX_SIDE))
         out = io.BytesIO()
