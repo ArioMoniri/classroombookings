@@ -34,7 +34,7 @@ file upload ─┘   names only, ids resolved server-side └── review in th
 | `policy.py` | Admin switches `ai.intake_enabled` / `ai.vision_enabled` (default **off**) with the KVKK sign-off record `ai.kvkk_signoff` (who, when, legal basis, notice version); `ai_allowed(db, "intake" \| "vision")` is the one check every path that sends uploaded content calls. `GET/PUT /ai/policy`. |
 | `sanitize.py` | `clean_for_model()`: strips zero-width / bidi / C0 controls, redacts e-mail and phone numbers, neutralises `<document>` tags inside uploaded text. |
 | `edits.py` | `apply_section_edits()`: include / exclude / set enrolment, day/time, mode, preferred rooms. |
-| `chat.py` | `handle_chat()` (read tools run, edit tools only record), `apply_diff()` (validation + child run), `explain_run()` (template, or grounded model prose). |
+| `chat.py` | `handle_chat()` (read tools run, edit tools only record; with `on_event` streamed for `POST /runs/{id}/chat/stream` (SSE `text` / `tool_start` / `tool` / `retry` / `done` / `error`): tools get `eager_input_streaming`, every input is validated client-side (`INVALID_JSON` error result), unparseable turns are re-issued at most twice, `max_tokens` / refusal turns never act), `apply_diff()` (validation + child run), `explain_run()` (template, or grounded model prose). |
 | `prompts/*.md` | System prompts (`mapping.md` is shared by elicitation and chat). |
 
 ## Safety rules

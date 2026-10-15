@@ -106,6 +106,7 @@ async def post_chat_stream(run_id: int, body: ChatIn, db: DB, user: Planner) -> 
     404 / 409 are answered before the stream starts. Nothing is applied."""
     await _run(db, run_id)
     client = await _client(db)
+    user_id = user.id  # read before the rollback expires the ORM objects of this session
     await db.rollback()  # the stream writes through its own session; release this one's read transaction
     queue: asyncio.Queue[tuple[str, dict[str, Any]] | None] = asyncio.Queue()
 
@@ -117,7 +118,7 @@ async def post_chat_stream(run_id: int, body: ChatIn, db: DB, user: Planner) -> 
         try:
             async with get_session_factory()() as s:
                 out = await handle_chat(
-                    s, run_id, body.message, body.lang, client=client, user_id=user.id, on_event=emit
+                    s, run_id, body.message, body.lang, client=client, user_id=user_id, on_event=emit
                 )
             await queue.put(("done", out.model_dump(mode="json")))
         except (AIRefusal, AIUpstreamError) as exc:
