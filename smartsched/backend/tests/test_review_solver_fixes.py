@@ -398,7 +398,17 @@ async def test_manual_move_rescores_and_splits_by_week(client, stub_solver):
     y = next(a for a in rows if a["meeting_request_id"] == seed.ids["y"])
     # forced double booking: y onto x's room and time -> the run is re-scored below 100
     body = {"day": 1, "start_period": 1, "end_period": 2, "room_ids": [seed.ids["room:A101"]], "force": True}
-    moved = (await client.post(f"/api/v1/runs/{run_id}/assignments/{y['id']}/move", json=body, headers=h)).json()
+    url = f"/api/v1/runs/{run_id}/assignments/{y['id']}/move"
+    # forcing a hard-rule break needs a written reason (admin persona M-02): 422 naming the rule, nothing moves
+    r = await client.post(url, json=body, headers=h)
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"]["rules"] and "reason" in r.json()["detail"]["message"]
+    still = next(
+        a for a in (await client.get(f"/api/v1/runs/{run_id}/assignments", headers=h)).json() if a["id"] == y["id"]
+    )
+    assert (still["start_period"], still["room_ids"]) == (y["start_period"], y["room_ids"])
+    body["reason"] = "Bölüm başkanlığı onayı: ortak ders provası"
+    moved = (await client.post(url, json=body, headers=h)).json()
     assert moved["ok"] and moved["hard_score"] < 100
     assert any(v["rule"] == "room_double_booking" for v in moved["violations"])
     run = (await client.get(f"/api/v1/runs/{run_id}", headers=h)).json()
