@@ -98,9 +98,17 @@ git add infra/aws/POD_ACTION && git commit -m "pod: up" && git push
 | `status` | inventory, alarm and budget state, orphan check (unattached volumes, idle EIPs), estimated cost |
 | `stop` / `start` | stop / start the instance (data kept) |
 | `cost` | month-to-date spend from Cost Explorer (account, and tagged once the `Project` cost-allocation tag is activated) + budget + estimate |
-| `down destroy` | delete everything tagged `Project=smartsched` in us-east-1, eu-central-1 and eu-south-1, plus the two `smartsched-*` IAM roles; keeps the budget |
+| `down destroy` | delete the pod's resources (tagged `Project=smartsched`, scoped to its `Pod` tag and names) in us-east-1, eu-central-1 and eu-south-1, plus its two IAM roles; keeps the budget |
 
-Append `region=<aws-region>` to override the region. Every run first calls `sts:GetCallerIdentity` and
+Append `region=<aws-region>` to override the region, and `pod=universal` (or `branch=claude/smartsched-universal`)
+to act on the second pod: `up pod=universal <timestamp>`, `down destroy pod=universal`. The default pod is
+`gracious` (`claude/gracious-cerf-w1598m`, starts with the institution's imported data); `universal` deploys
+`claude/smartsched-universal`, which starts empty (setup wizard). What a pod loads comes from its branch's
+`smartsched/deploy/profile.env` (smartsched/deploy/README.md "Seed profile"). The pods share nothing: names
+`smartsched-pod*` / `smartsched-universal-pod*`, SSM prefixes `/smartsched` / `/smartsched-universal`, a `Pod`
+tag on every resource (a pod's `down` never touches the other's), one budget each (both budgets watch the whole
+account; each stops its own instance). The universal SSM prefix needs the updated `iam/bootstrap-policy.json`
+(re-run the OIDC bootstrap once); the pod CI on the universal pod tests only its own branch. Every run first calls `sts:GetCallerIdentity` and
 fails in seconds with "credentials are EXPIRED" or "AWS rejected the credentials" when they are bad;
 nothing is half-created that a re-run would not finish (find-or-create everywhere, including after
 renewing temporary keys). `up` takes ~3-5 minutes in Actions. The pod then needs ~15-25 more minutes on

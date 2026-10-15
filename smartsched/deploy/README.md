@@ -82,6 +82,31 @@ All settings live in `deploy/.env`, created from `.env.example` by `deploy.sh`. 
 - `.env` is `chmod 600` and git-ignored. Back it up together with the database: `APP_SECRET` also
   encrypts the API keys stored in settings.
 
+## Seed profile (what the first deploy loads)
+
+Both branches carry the same code; `profile.env` decides what a one-click deploy loads:
+
+| Branch | `SEED_PROFILE` | First deploy |
+|---|---|---|
+| `claude/gracious-cerf-w1598m` | `institution` | imports the owner's Bahar / Güz / Final workbooks and the room master (`smartsched/backend/tests/fixtures`, the files the e2e / record stacks use), the soft preference rules the planning / exam importers derive from their free-text columns, then the learning extraction |
+| `claude/smartsched-universal` | `empty` | nothing: the setup wizard + `/onboarding` |
+
+`deploy.sh` runs `seed/seed.py` after the stack is healthy (`up` and `--update`), in the backend image with
+the files mounted read-only. Each finished step is recorded in the settings row `deploy.seed_profile`, so later
+deploys skip it and a failed seed resumes where it stopped (`./deploy.sh --no-build`). A database that already
+has terms but no marker is not touched (`SEED_FORCE=1` overrides). A missing `profile.env` means `empty`;
+`SEED_PROFILE=empty ./deploy.sh` overrides the file for one run. `validate.sh` plans both profiles.
+
+The learning step calls `python -m app.cli learning-refresh`; until that command exists the step is
+skipped and retried on the next deploy.
+
+`profile.env` is branch-specific: `.gitattributes` marks it `merge=ours`, so merging one branch into the other
+keeps the receiving branch's profile. Every clone that merges between the branches needs once:
+
+```bash
+git config merge.ours.driver true
+```
+
 ## Onboarding (Ingestion Council)
 
 `/onboarding` accepts any schedule files: room lists, request lists, existing boards, exam lists,

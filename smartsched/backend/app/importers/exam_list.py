@@ -112,7 +112,7 @@ def parse_exam_row(
     d, d_end = n.parse_date_range(g("date"))
     start = n.parse_time(g("start"))
     end = n.parse_time(g("end"))
-    periods = n.snap_to_periods(start, end) if (start and end) else n.PeriodRange(None, None)
+    periods = n.exam_periods(start, end) if (start and end) else n.PeriodRange(None, None)  # never moved
     if start and end:
         warnings.extend(periods.warnings)
     raw_date = n.clean_text(g("date"))

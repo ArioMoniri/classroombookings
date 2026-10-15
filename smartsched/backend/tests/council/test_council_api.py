@@ -133,6 +133,12 @@ async def test_low_confidence_mapping_blocks_until_reviewed(client):
     )
     body = r.json()
     assert body["saved"] == 1 and body["rerun_files"] == [0] and "unknown review item nope" in body["errors"]
+    assert body["rerun_queued"] is True and body["status"] == "RUNNING"  # the re-read runs on the job queue
+    r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={"group": 0})
+    assert r.status_code == 409 and "RUNNING" in r.json()["detail"]
+    await qmod.get_queue().wait_idle(600)
+    body = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
+    assert body["status"] == "REVIEW"
     recs = (
         await client.get(f"/api/v1/council/jobs/{job['id']}/records", headers=h, params={"file": 0, "limit": 500})
     ).json()["items"]
