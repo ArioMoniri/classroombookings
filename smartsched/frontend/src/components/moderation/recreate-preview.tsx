@@ -19,7 +19,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { EmptyState } from "@/components/ui/empty-state";
 import { Progress } from "@/components/ui/progress";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useRun } from "@/lib/api/hooks";
 import { moderationApi, refusal, useDiff, useRunRules, type DiffOut } from "@/lib/api/moderation";
 import { useI18n } from "@/lib/i18n/provider";
@@ -62,7 +61,6 @@ export function RecreatePreview({ runId }: { runId: number }) {
   useEffect(() => {
     if (d?.ready && d.counts && !said.current) {
       said.current = true;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one announcement when the server finishes
       setAnnounce(t("moderation.preview.ready", { moved: d.counts.moved, newly: d.counts.newly_placed, unplaceable: d.counts.unplaceable }));
     }
   }, [d, t]);

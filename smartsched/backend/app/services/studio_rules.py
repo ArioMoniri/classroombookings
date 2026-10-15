@@ -52,6 +52,7 @@ from app.models import (
 )
 from app.services import solver_bridge
 from app.services import studio as st
+from app.services.constraint_guard import guard_rule
 from app.solver import model as sm
 
 WEIGHT_SCALE = {"low": 2, "normal": 5, "high": 8}
@@ -612,6 +613,11 @@ async def copy_rules(session: AsyncSession, body: Any, user: User) -> dict[str, 
                 reasons.append("matches no classes in this term")
         if (r.kind, _norm(params), r.hardness) in existing:
             reasons.append("an identical rule already exists in this term")
+            fatal = True
+        # review D1: a copy never waives a structural hard rule (no waiver travels with a copied row)
+        guard = guard_rule(r.kind, params, r.hardness, source=r.source, may_waive=False, reason=None)
+        if guard:
+            reasons.extend(guard)
             fatal = True
         item = {
             "source_id": r.id,
@@ -1192,6 +1198,11 @@ async def apply_preset(
             and any(k in (rule.get("params") or {}) for k in ("courses", "room_codes", "room_code", "instructor_names"))
         ):
             unresolved.append({"index": i, "kind": rule["kind"], "problems": problems, "nl_text": rule.get("nl_text")})
+            continue
+        # review D1: a preset never waives a structural hard rule (neither as a new rule nor as an override)
+        guard = guard_rule(rule["kind"], params, rule["hardness"], source="ADMIN", may_waive=False, reason=None)
+        if guard and rule.get("enabled", True):
+            unresolved.append({"index": i, "kind": rule["kind"], "problems": guard, "nl_text": rule.get("nl_text")})
             continue
         match = by_key.get((rule["kind"], _norm(params)))
         entry = {

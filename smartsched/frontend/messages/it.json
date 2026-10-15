@@ -100,5 +100,10 @@
     "find": {
       "weeks": "Settimane"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Giorno"
+    }
   }
 }

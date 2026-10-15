@@ -100,5 +100,10 @@
     "find": {
       "weeks": "Uger"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Dag"
+    }
   }
 }

@@ -124,10 +124,13 @@ export function DateField({
     [locale],
   )
 
-  React.useEffect(() => {
+  // re-sync the text when the value or locale changes from outside (state adjusted during render, no effect)
+  const [synced, setSynced] = React.useState(`${value}|${locale}`)
+  if (synced !== `${value}|${locale}`) {
+    setSynced(`${value}|${locale}`)
     setText(formatDateField(value, locale))
     setInvalid(false)
-  }, [value, locale])
+  }
 
   const inRange = (iso: string) => (!min || iso >= min) && (!max || iso <= max)
   const commit = (raw: string) => {

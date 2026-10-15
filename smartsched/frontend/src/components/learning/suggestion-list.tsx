@@ -16,13 +16,14 @@ import { HttpError } from "@/lib/api/client";
 import { lk, useSuggestionActions, useSuggestions, type SnoozeUntil, type Suggestion } from "@/lib/api/learning";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, staggerDelay, tween, useReduce } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 import { splitSuggestions } from "./learning-model";
 import { SuggestionCard, type Receipt } from "./suggestion-card";
 
 const RECEIPT_MS = 8000;
 const ANIMATE_MAX = 40;
 
-export function SuggestionList({ termId, personId, canAct, surface, max, compact = false, title }: { termId: number; personId?: number; canAct: boolean; surface: "moderation" | "studio" | "intake"; max?: number; compact?: boolean; title?: string }) {
+export function SuggestionList({ termId, personId, canAct, surface, max, compact = false, title, className }: { termId: number; personId?: number; canAct: boolean; surface: "moderation" | "studio" | "intake"; max?: number; compact?: boolean; title?: string; className?: string }) {
   const { t, locale } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
   const reduce = useReduce();
@@ -35,10 +36,11 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
   const [announce, setAnnounce] = useState("");
   const held = useRef(new Set<number>());
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
-  const firstReveal = useRef(true);
+  // the stagger is for the first reveal only, never for later inserts (motion.md §3.10)
+  const [firstReveal, setFirstReveal] = useState(true);
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    const id = window.setTimeout(() => (firstReveal.current = false), 400);
+    const id = window.setTimeout(() => setFirstReveal(false), 400);
     const all = timers.current;
     return () => {
       window.clearTimeout(id);
@@ -125,6 +127,7 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
   const heading_ = title ?? t(surface === "studio" ? "learning.list.studioTitle" : "learning.list.title", { n: pending.length });
 
   if (q.isLoading) {
+    if (surface === "studio") return null;
     return (
       <div className="flex flex-col gap-2" aria-busy>
         <Skeleton className="h-28 w-full rounded-xl" />
@@ -148,7 +151,7 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
 
   const animate = !reduce && shown.length <= ANIMATE_MAX;
   return (
-    <section aria-labelledby={`sugg-${surface}-${personId ?? "all"}`} className="flex flex-col gap-2" data-testid={`suggestions-${surface}`}>
+    <section aria-labelledby={`sugg-${surface}-${personId ?? "all"}`} className={cn("flex flex-col gap-2", className)} data-testid={`suggestions-${surface}`}>
       <p className="sr-only" role="status" aria-live="polite">{announce}</p>
       <div className="flex flex-wrap items-center gap-2">
         <h2 id={`sugg-${surface}-${personId ?? "all"}`} ref={heading} tabIndex={-1} className="type-headline outline-hidden">{heading_}</h2>
@@ -192,8 +195,8 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
               <motion.li
                 key={s.id}
                 layout={animate}
-                initial={animate && firstReveal.current ? { opacity: 0, y: 6 } : false}
-                animate={{ opacity: 1, y: 0, transition: animate ? { ...springs.smooth, delay: firstReveal.current ? staggerDelay(i) : 0 } : { duration: 0 } }}
+                initial={animate && firstReveal ? { opacity: 0, y: 6 } : false}
+                animate={{ opacity: 1, y: 0, transition: animate ? { ...springs.smooth, delay: firstReveal ? staggerDelay(i) : 0 } : { duration: 0 } }}
                 exit={{ opacity: 0, transition: reduce ? tween.reduced : tween.fadeOut }}
                 transition={springs.smooth}
               >

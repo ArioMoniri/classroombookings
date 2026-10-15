@@ -100,5 +100,10 @@
     "find": {
       "weeks": "viikot"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "päivää"
+    }
   }
 }

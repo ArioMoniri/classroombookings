@@ -100,5 +100,10 @@
     "find": {
       "weeks": "Semanas"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Día"
+    }
   }
 }

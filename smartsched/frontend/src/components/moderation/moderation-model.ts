@@ -87,8 +87,8 @@ export function requestedText(m: Pick<Matching, "requested" | "definitive">, loc
 /** the accessible sentence of a matching ("İstenen Salı 11:00, A 306 ve C 602; atanan yok"), spec §11 */
 export function matchingSentence(m: Matching, locale: Lang): string {
   const asked = requestedText(m, locale);
-  const got = m.assigned ? placeText(m.assigned, locale) : locale === "tr" ? "atanan yok" : "nothing assigned";
-  return locale === "tr" ? `İstenen ${asked}; atanan ${got}` : `Requested ${asked}; assigned ${got}`;
+  if (locale === "tr") return `İstenen ${asked}; ${m.assigned ? `atanan ${placeText(m.assigned, locale)}` : "atanan yok"}`;
+  return `Requested ${asked}; ${m.assigned ? `assigned ${placeText(m.assigned, locale)}` : "nothing assigned"}`;
 }
 
 export function pairText(p: { tr: string; en: string } | null | undefined, lang: Lang): string {

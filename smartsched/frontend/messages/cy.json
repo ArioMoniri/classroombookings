@@ -100,5 +100,10 @@
     "find": {
       "weeks": "Wythnosau"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Dydd"
+    }
   }
 }

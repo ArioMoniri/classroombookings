@@ -834,7 +834,8 @@
       "goal": "Phase 19 wave 1, structured intake with NO AI, on top of the merged Ingestion Council. The tickets are P19-I1 to I5 in docs/review/2026-10-15-phase19-engineering.md §3a/§5. The decisions are in docs/ROADMAP.md \"Phase 19\" and the UX spec in docs/design/v2/phase19-intake.md. 1. I1, a pluggable format registry (council/formats.py): - Detect by magic bytes first: OOXML `[Content_Types].xml` + xl/ or w…",
       "ledger": "p19-intake-structured-2026-10-15 SCOPE: smartsched/backend/app/council/** (new f…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 22:12"
     },
     {
       "id": "a744a08f2bd5e9ae9",
@@ -1068,6 +1069,14 @@
       "status": "finished",
       "finished_at": "2026-10-15 21:48",
       "left_off": "deploy to pod when green and send me the panel url"
+    },
+    {
+      "id": "aac1180b4a3941999",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 22:09",
+      "left_off": "continue n deploy to pod when green"
     }
   ]
 }

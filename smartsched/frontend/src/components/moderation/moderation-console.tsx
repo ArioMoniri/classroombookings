@@ -90,7 +90,7 @@ function ConsoleSkeleton() {
 }
 
 function StagedPopover({ termId, canEdit }: { termId: number; canEdit: boolean }) {
-  const { t, n } = useI18n();
+  const { t } = useI18n();
   const staged = useStaged(termId);
   const remove = useStagedStore((s) => s.remove);
   const reduce = useReduce();
@@ -100,7 +100,7 @@ function StagedPopover({ termId, canEdit }: { termId: number; canEdit: boolean }
         <CircleDashed aria-hidden />
         {/* the bump is the user's own edit only (motion.md §3.9 staged-count-bump); keyed on the count */}
         <motion.span key={staged.length} className="tabular-nums" initial={reduce ? false : { scale: 1.08 }} animate={{ scale: 1 }} transition={springs.bouncySubtle}>
-          {t("moderation.staged.link", { n: staged.length, count: n(staged.length) })}
+          {t("moderation.staged.link", { count: staged.length })}
         </motion.span>
       </PopoverTrigger>
       <PopoverContent className="w-96" align="start">
@@ -145,21 +145,20 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   const [inspect, setInspect] = useState<number | null>(null);
   const [recreate, setRecreate] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const tabRef = useRef<ModerationTab>(tab);
+  /** the travel direction of the tab switch: content enters from the side of the new tab */
+  const [dir, setDir] = useState(1);
 
   const setTab = useCallback(
     (next: ModerationTab) => {
+      setDir(TABS.indexOf(next) >= TABS.indexOf(tab) ? 1 : -1);
       const sp = new URLSearchParams(params.toString());
       sp.set("tab", next);
       router.replace(`/moderation?${sp.toString()}`, { scroll: false });
       // focus lands on the first row, not on the page top (spec §7)
       window.requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-testid="mod-row"][tabindex="0"]')?.focus());
     },
-    [params, router],
+    [params, router, tab],
   );
-  useEffect(() => {
-    tabRef.current = tab;
-  }, [tab]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -432,7 +431,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
         id="moderation-panel"
         role="tabpanel"
         className="flex flex-col gap-3"
-        initial={reduce ? { opacity: 0 } : { opacity: 0, x: (TABS.indexOf(tab) - TABS.indexOf(tabRef.current)) >= 0 ? 8 : -8 }}
+        initial={reduce ? { opacity: 0 } : { opacity: 0, x: 8 * dir }}
         animate={{ opacity: 1, x: 0 }}
         transition={reduce ? tween.reduced : springs.smooth}
       >

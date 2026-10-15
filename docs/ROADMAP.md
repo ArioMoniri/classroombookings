@@ -782,3 +782,18 @@ Open:
 - [ ] Frontend:
   - forced-move reason + rules list, scope_reduction confirm, partial-publish confirm, precheckFix version → design-system agent
   - past/pending cells, duplicate_request, grouped inbox, crbs_dsn_allowed_hosts → shell agent
+
+### Intake agent finished (I1–I5, council gaps, intake memory, commit lock, A2–A4; head 4f00982)
+- Formats: xlsx/xls/ods/csv/tsv/json/xml/ics read directly; pdf/docx/txt/eml/images AI-assisted with row review. Each format has its own limits; bomb tests return 400/413.
+- Results:
+  - Bahar CSV/TSV/JSON ≥ 99 % of the xlsx meetings; ODS 1524/1524; XLS 1523/1524 (LibreOffice's own conversion zeroes one name)
+  - SmartSched's own ICS → 601/601 cells
+  - a baseline IMPORT run keeps ≥ 95 % of classes in their slot in a child solve
+  - the injection corpus wrote 0 unsafe rules
+- Fixed: the real xlsx lists were refused (413) because of 16,375 formatting-only columns; the column cap is now exempt from the full-load check.
+- The intake rows are excluded from the learning priors (one-line filter in learning.recompute_priors, applied by the orchestrator; 15 tests pass).
+- Decision (orchestrator, consistent with "never auto-apply"): a hard rule proposed by the model is written only if the reviewer explicitly sets hardness=hard; a plain accept keeps it soft.
+- [ ] I6 source_ref columns (migration on the current head) + inspector display
+- [ ] Onboarding frontend for rows/decisions, dry-run diff, rerun_queued, remembered items, viewer content=false → design-system agent (owns onboarding)
+- [ ] Weekly boards in csv/ods/xls lose fill colours and comments (document as a limitation)
+- [ ] Optionally share importers/detect.py with council shape detection

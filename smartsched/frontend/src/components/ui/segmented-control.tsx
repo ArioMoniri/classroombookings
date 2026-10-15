@@ -141,7 +141,6 @@ export function SegmentedControl<V extends string>({
     <div
       data-slot="segmented-control"
       data-seg={name}
-      data-testid={testId}
       className={cn("min-w-0 max-w-full shrink", fill ? "w-full" : "w-(--seg-w)", className)}
       style={{ "--seg-w": `${natural}px`, containerType: collapse ? "inline-size" : undefined, containerName: collapse ? name : undefined } as React.CSSProperties}
     >
@@ -152,6 +151,7 @@ export function SegmentedControl<V extends string>({
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
         data-part="track"
+        data-testid={testId}
         onKeyDown={onKeyDown}
         className={cn(segmentedTrack, heights[size], fill && "w-full")}
       >

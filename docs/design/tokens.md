@@ -104,6 +104,22 @@ Nothing in one row mixes heights (Apple A15, Weather scrubber; Arcade H19).
   0.8 opacity (which made it 3.78:1 at 11 px).
 - `text-label-4` only on `aria-hidden` / `disabled:` / `placeholder:` (source scan in the same script).
 
+### A.9 Primitives (`src/components/ui`)
+
+| Primitive | API | Notes |
+|---|---|---|
+| `Button` | `size xs \| sm \| md \| lg` (default md), `shape pill \| rect` (default pill), `variant` unchanged | heights from `--control-h-*`; `rect` (radius lg) for buttons that sit in a row with fields; xs/sm get a 44 × 44 hit area on coarse pointers. `size="default"` and `icon*` are deprecated aliases |
+| `IconButton` | `label` (required), `size`, `variant` (default ghost), `shape` | `label` → `aria-label` + `title` |
+| `Input` | `fieldSize sm \| md \| lg` | `fieldSurface` + `--edge-control`, 16 px text on touch phones |
+| `SelectTrigger` | `size sm \| md` | same surface and heights |
+| `NativeSelect` (`ui/native-select.tsx`; `common/native-select.tsx` re-exports) | `size`, `className` (wrapper), `selectClassName` | chevron centred (`inset-y-0 my-auto`) |
+| `SegmentedControl` | `options[{value,label,icon,controls,disabled,text,title,testId}]`, `value` (`null` = none), `onValueChange`, `size sm \| md \| lg`, `fill`, `semantics tablist \| radiogroup`, `collapse` | the only segmented control. nowrap equal columns, CSS thumb at rest (transform-only on `--spring-glass-morph`), falls back to a NativeSelect under `@container` when narrower than its natural width. `SegmentedGlass` is a deprecated alias; `beui/tabs` and `studio/segmented` were deleted; `ui/tabs` default variant shares the track and thumb |
+| `DateField` | `value` / `onChange` ISO, `min`, `max`, `size`, `required` | `Intl.DateTimeFormat(locale)` (tr `15.10.2026`), typed entry, Popover month grid (APG keys) |
+| `Card` | `variant plain (default) \| glass \| ghost \| inset`, `size` | plain = opaque surface + hairline, radius xl; glass only for floating chrome / one hero |
+| `Skeleton`, `LoadingValue` | `value` (`undefined` = loading), `format`, `chars`, `empty` | never 0 while loading; one loading signal per region |
+| `BusyButton` (`ui/busy-label.tsx`) | `busy`, `busyLabel` | 150 ms delay before the busy glyph |
+| `DataTable` (`ui/data-table/`) | see §A.10 | column system |
+
 ### A.8 References (Mobbin, collected in `v2/references.md`; no Mobbin tool in this session)
 
 Linear H4 (32 px rows, view switcher) and H5 (focus ring, left-aligned empty states); Vercel H6 (status = 8 px

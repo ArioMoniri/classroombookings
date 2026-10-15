@@ -411,7 +411,7 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
         LearnedObservation.source_table,
         LearnedObservation.source_id,
         LearnedObservation.detail,
-    ).where(LearnedObservation.reset_id.is_(None))
+    ).where(LearnedObservation.reset_id.is_(None), LearnedObservation.subject_type != "intake")
     groups: dict[tuple[str, str, str], _Group] = defaultdict(_Group)
     cross: dict[tuple[str, str, str, str], bool] = defaultdict(bool)
     seasons = {tid: season_of(t) for tid, t in terms.items()}

@@ -100,5 +100,10 @@
     "find": {
       "weeks": "Týdny"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Den"
+    }
   }
 }

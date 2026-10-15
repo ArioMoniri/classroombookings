@@ -100,5 +100,10 @@
     "find": {
       "weeks": "Veckor"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Dag"
+    }
   }
 }
