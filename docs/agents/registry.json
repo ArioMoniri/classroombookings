@@ -1098,7 +1098,8 @@
       "goal": "owner requirement, verbatim: \"when someone sends a req for reservation of empty slot it shows first to admin and they approve or not and put reasons why they didnt and these get notified to users by the email or other connections they added\". Build on the existing approvals engine (P1: designated approvers, PENDING state, approvals inbox, group decide, approvals sweeper) and the mail queue (outbox…",
       "ledger": "approval-first-bookings-2026-10-15 SCOPE: smartsched/backend/app/services/{appro…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 22:50"
     },
     {
       "id": "a575a3524dc098b21",
@@ -1218,6 +1219,18 @@
       "scope": "new scripts/docs/** (sync_docs.py + tests), the auto-generated blocks in docs/ARCHITECTURE.md, docs/CRBS_PARITY.md, docs/PROGRESS.md (header block only), a new docs/STATUS.md, smartsched/deploy/pod-ci/gates/validate.sh or a new docs-check step in an existing gate (coordinate: devops has finished, so you may add it), and ticking docs/ROADMAP.md. Do NOT edit README.md yourself: the README media agen…",
       "goal": "the owner wants the README and the other docs updated dynamically every time things change. Build a deterministic generator that rewrites ONLY marked blocks from the sources of truth, so prose written by people or agents is never clobbered. 1. Marker format, in any markdown file: `<!-- AUTO:<name> -->` … `<!-- /AUTO:<name> -->`. Generated content goes between the markers. The generator is idempote…",
       "ledger": "docs-autosync-2026-10-15 SCOPE: new scripts/docs/** (sync_docs.py + tests), the …",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a2f54ad5d7b2bb38e",
+      "description": "Approval/notify follow-ups + audit gaps",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 22:51",
+      "scope": "",
+      "goal": "close the follow-ups of the approval-first backend (read its hand-off in docs/ROADMAP.md \"Approval-first bookings\" and the notify_dispatch.py docstring), plus the audit gaps. 1. The institution profile seeds `bookings.approval_mode=all` (owner: every request goes to admins first): - add a CLI `python -m app.cli set-setting <key> <value>` that writes through the same validation as PUT /org/settings…",
+      "ledger": "approval-notify-followups-2026-10-15 SCOPE (the previous owners of these files h…",
       "resumed": false,
       "status": "running"
     }

@@ -4,7 +4,7 @@
  * name "Show password", so label regexes match two elements).
  */
 import path from "node:path";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 export const REAL = process.env.E2E_REAL === "1";
 export const SKIP_REASON = "runs against the real backend: start it and set E2E_REAL=1 (see playwright.config.ts)";
@@ -43,3 +43,17 @@ export const numberText = (n: number) => new RegExp(`^(${n}|${new Intl.NumberFor
 export type Term = { id: number; code: string };
 export type Run = { id: number; status: string; kind: string; horizon: string; term_code: string | null };
 export const FINISHED = /^(FEASIBLE|OPTIMAL|FEASIBLE_PARTIAL|INFEASIBLE|TIMEOUT|FAILED|ERROR|CANCELLED)$/;
+
+/**
+ * Pick a segment of the design system's SegmentedControl: the tab / radio when the track is shown, else the
+ * select it collapses into when its container is narrower than its natural width (sheets, phones).
+ */
+export async function pickSegment(page: Page, name: string, scope: Page | Locator = page): Promise<void> {
+  const seg = scope.getByRole("tab", { name, exact: true }).or(scope.getByRole("radio", { name, exact: true })).first();
+  if (await seg.isVisible().catch(() => false)) {
+    await seg.click();
+    return;
+  }
+  const select = scope.locator("select").filter({ has: page.locator("option", { hasText: name }) }).first();
+  await select.selectOption({ label: name });
+}

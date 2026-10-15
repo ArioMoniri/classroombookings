@@ -893,3 +893,17 @@ Before the first `up pod=universal`: re-apply the OIDC bootstrap once with infra
   It is idempotent; `--check` fails CI when the docs are stale. Agent running.
 - New docs/STATUS.md is the single "where are we" page. The README carries status/parity/last-updated blocks; the README agent inserts the markers.
 - The 30-min watchdog runs the sync before every commit. When a feature lands, it also updates docs/features.yml and the affected prose.
+
+### Approval-first backend finished (0025_approval_first)
+API delivered:
+- org setting approval_mode rules|all; new permission bookings.skip_approval (admin-granted)
+- reject with reason_code + reason (422 reason_required)
+- decided_by and reasons on requests
+- GET/PUT /me/notification-preferences
+- notification data payloads
+- notify_dispatch ChannelAdapter interface with notification_deliveries idempotency
+Orchestrator decisions (owner may override):
+- A room's own approval rule (e.g. TIP) still applies to admins unless the rule allows self-approval; admins skip only the "all" mode.
+- The planner role is not exempt in "all" mode. Admins can grant bookings.skip_approval to the planner role in Roles if the planning office should book directly.
+- [ ] Follow-ups (dedicated agent running): seed approval_mode=all for the institution profile (CLI set-setting + seed step), one approver message per submission, withdraw notifies approvers, old booking e-mails via the dispatcher, audit gaps in learning/moderation/council.
+- [ ] Approval UI: a dedicated frontend agent after the shell sweep (setting, reject dialog with reason codes, reasons for the requester, Profile › Bildirimler, TR/EN labels for the new permission).

@@ -137,13 +137,15 @@ test.afterAll(async () => {
 });
 
 test("1. a free slot says Free, offers Reserve, and one click reserves it", async ({ page }) => {
+  // UI/UX review §3: the free cell is blank at rest; "free" is in its accessible name, "Reserve" on hover
   const g = await dayGrid(TUESDAY);
   const [slot] = run(g, 1);
   await login(page, TEACHER.username, TEACHER.password);
   await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
   const c = cell(page, slot!);
   await expect(c).toHaveAttribute("data-tone", "available");
-  await expect(c).toContainText(/Boş|Free/);
+  await expect(c).toHaveAccessibleName(/boş|free/i);
+  await expect(c).not.toContainText(/Boş|Free/);
   await c.hover();
   await expect(c).toContainText(/Rezerve et|Reserve/);
   await expect(c).toHaveAccessibleName(/Rezerve et|Reserve/);

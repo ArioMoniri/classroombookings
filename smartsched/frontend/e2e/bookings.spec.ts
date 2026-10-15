@@ -16,6 +16,7 @@
  */
 import { expect, request as pwRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import fs from "node:fs";
+import { pickSegment } from "./helpers";
 
 const REAL = process.env.E2E_REAL === "1";
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
@@ -187,7 +188,7 @@ test("5. a recurring booking skips the 23 Nisan holiday", async ({ page }) => {
   const free = page.locator(`button[data-slot-key^="${THURSDAY}|"][data-slot-key$="|${ctx.rooms.A102}"][data-tone="available"]`).first();
   await free.click();
   const sheet = page.getByTestId("book-sheet");
-  await sheet.getByRole("tab", { name: "Her hafta" }).click();
+  await pickSegment(page, "Her hafta", sheet);
   await sheet.getByTestId("recur-preview-btn").click();
   const preview = sheet.getByTestId("recur-preview");
   const holidayRow = preview.locator(`li[data-date="${HOLIDAY}"]`);
@@ -220,7 +221,7 @@ test("6. the teacher cancels with a reason (one booking, then the whole series)"
   await page.goto("/my-bookings");
   await page.locator(`[data-booking-id="${ctx.seriesBookingId}"] button`).last().click();
   await page.getByTestId("booking-cancel").click();
-  await page.getByRole("tab", { name: "Tüm seri" }).click();
+  await pickSegment(page, "Tüm seri");
   await page.locator("#cancel-reason").fill("Dönem planı değişti");
   await page.getByRole("button", { name: "İptal et", exact: true }).click();
   await expect(page.getByTestId("booking-sheet")).toBeHidden();
