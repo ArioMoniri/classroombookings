@@ -10,6 +10,7 @@ from app.api.deps import DB, Admin
 from app.core.security import redact_keys, validate_api_key
 from app.schemas.settings import SettingsUpdate, TestAiIn, TestAiOut
 from app.services import settings_service as ss
+from app.services.crbs_dsn import format_allowlist, parse_allowlist
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 log = logging.getLogger(__name__)
@@ -29,6 +30,13 @@ async def update_settings(body: SettingsUpdate, db: DB, _: Admin) -> dict[str, A
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
     extra = data.pop("extra", None) or {}
+    if "crbs_dsn_allowed_hosts" in extra:  # one validated path for the SSRF allowlist (review D16)
+        data["crbs_dsn_allowed_hosts"] = extra.pop("crbs_dsn_allowed_hosts")
+    if data.get("crbs_dsn_allowed_hosts") is not None:
+        try:
+            data["crbs_dsn_allowed_hosts"] = format_allowlist(parse_allowlist(str(data["crbs_dsn_allowed_hosts"])))
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
     for key, value in {**data, **extra}.items():
         if key == "solver_weights" and isinstance(value, dict):
             import json

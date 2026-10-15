@@ -488,8 +488,8 @@
       "ledger": "merge-universal-2026-10-15 SCOPE: your isolated git worktree only, on a local br…",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-15 16:29",
-      "left_off": "Waiting for the full suite to finish before the final gracious merge."
+      "finished_at": "2026-10-15 16:36",
+      "left_off": "The full suite is near 87%. Still waiting on monitor bnraig8aj."
     },
     {
       "id": "a574d83abdbb1d109",
@@ -733,6 +733,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-15 16:08",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a397386b4fbecd673",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 16:30",
       "left_off": "continue n deploy to pod when green"
     }
   ]
