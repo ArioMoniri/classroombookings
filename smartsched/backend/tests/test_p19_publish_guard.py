@@ -59,7 +59,9 @@ async def test_good_run_replaces_the_published_one_and_is_audited(env):  # noqa:
     assert await _active(env.term_id) == [good]
     async with dbmod.get_session_factory()() as s:
         ev = (
-            await s.execute(select(AuditEvent).where(AuditEvent.action == "run.activate", AuditEvent.entity_id == str(good)))
+            await s.execute(
+                select(AuditEvent).where(AuditEvent.action == "run.activate", AuditEvent.entity_id == str(good))
+            )
         ).scalar_one()
     assert ev.before == {"active_run_id": env.run_id} and ev.after["active_run_id"] == good
     assert ev.term_id == env.term_id
@@ -86,9 +88,9 @@ async def test_the_published_run_cannot_be_deleted(env):  # noqa: F811
     async with dbmod.get_session_factory()() as s:
         n = (
             await s.execute(
-                select(func.count()).select_from(AuditEvent).where(
-                    AuditEvent.action == "run.delete", AuditEvent.entity_id == str(other)
-                )
+                select(func.count())
+                .select_from(AuditEvent)
+                .where(AuditEvent.action == "run.delete", AuditEvent.entity_id == str(other))
             )
         ).scalar_one()
     assert n == 1
