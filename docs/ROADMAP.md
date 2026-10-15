@@ -509,3 +509,25 @@ Docs-refresh hand-off (2026-10-15):
 - [ ] P19-C5: drop the duplicate audit row on programme create (flush hook department.create + explicit program.create); keep one.
 - [ ] P19-C6: a "copy from an earlier programme" endpoint on the catalog_admin services.
 - Test infra note: concurrent agents collide on /tmp/pytest-of-root. Use `--basetemp=$(mktemp -d)` while several agents run tests.
+
+### Persona test: staff user (docs/testing/2026-10-15-persona-user.md: 0 blocker / 7 major / 18 minor), routed 2026-10-15
+- [ ] U-01 focus ring invisible: Tailwind v4 `outline-none` in 77 files → `outline-hidden`; one mechanical commit, plus a focus-style test. Studio/calendar sweep agent.
+- [ ] U-02 a Teacher on /timetable gets the planner empty state because a 403 is read as "no run":
+  - use-calendar-data.ts:69 → studio/calendar sweep agent
+  - landing on /bookings → wave-1 agent
+- [ ] U-03 the logo link and `g d` open the planner dashboard, with a toast storm; filter by permission. Wave-1 agent.
+- [ ] U-04 periods that already ended today can be booked, and the booking then can't be cancelled; check_window compares dates only. Backend agent.
+- [ ] U-05 a password change silently ends the session; add a global 401 → login redirect. Wave-1 agent.
+- [ ] U-06 the user's own PENDING request is missing from the grid; a duplicate request is accepted (202 → 409).
+  - backend: occupancy + 409
+  - frontend: show pending → wave-1 agent
+- [ ] U-07 focus drops to <body> after every booking action (also motion T4). Wave-1 agent.
+- [ ] U-08… 18 minors:
+  - TR leftovers: "Close", page titles, 404 page, "A Blok Blok"
+  - keyboard: Esc needs two presses, skip link, date-picker focus, `g b` does nothing
+  - 28 px touch targets
+  - print leaks "+ Rezerve et"
+  - grid re-renders on every pointerdown
+  - no screen-reader announcement during drag
+  Wave-1 agent and the shell/bookings sweep.
+- [ ] Re-test: the user persona on a new snapshot after the fixes. Frame numbers must be re-measured on a quiet machine; the run was at load 23–31.

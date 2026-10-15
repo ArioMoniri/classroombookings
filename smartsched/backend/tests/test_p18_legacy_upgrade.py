@@ -144,3 +144,27 @@ async def test_admin_api_dry_run_then_confirm(client, tmp_path):
     r = await client.post(url, data={"dsn": "mysql://crbs:x@crbs-db.uni.edu.tr/crbs"}, headers=admin)
     assert r.status_code == 422 and "crbs_dsn_allowed_hosts" in r.text
     assert (await client.post(url, headers=admin)).status_code == 400  # neither files nor a DSN
+
+
+def test_cli_dry_run_then_commit(tmp_path, capsys):
+    """``python -m app.cli crbs-upgrade <dump...>`` prints the report; ``--commit --fingerprint`` imports."""
+    import json
+
+    from app import cli
+
+    url = f"sqlite+aiosqlite:///{tmp_path}/cli.db"
+    dump = [str(p) for p in _dump(tmp_path)]
+    try:
+        assert cli.main(["--database-url", url, "crbs-upgrade", *dump]) == 0
+        plan = json.loads(capsys.readouterr().out)
+        assert plan["dry_run"] is True and plan["changed"]["terms"]["delta"] == 1
+        args = ["--database-url", url, "crbs-upgrade", *dump, "--commit"]
+        assert cli.main(args) == 2  # no fingerprint
+        assert cli.main([*args, "--fingerprint", "0" * 64]) == 3  # not the reviewed source
+        assert cli.main([*args, "--fingerprint", plan["fingerprint"]]) == 0
+        done = json.loads(capsys.readouterr().out)
+        assert done["dry_run"] is False and done["tables"]["terms"]["after"] == plan["tables"]["terms"]["after"]
+    finally:
+        import asyncio
+
+        asyncio.run(dbmod.dispose_engine())
