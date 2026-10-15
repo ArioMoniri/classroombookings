@@ -873,3 +873,17 @@ Before the first `up pod=universal`: re-apply the OIDC bootstrap once with infra
 - Credentials: everything is built and tested without real university credentials (fake OIDC / mock transports in tests). The owner will request the real values from IT and enter them in the admin settings or SSM, never in chat. Checklists: docs/deploy/sso-entra.md and docs/deploy/notification-channels.md.
 - WhatsApp: the official WhatsApp Business Cloud API (via Apprise) is the default. An optional "WhatsApp (Web bridge)" adapter uses an open-source tool if one is licence-compatible: off by default, needs an admin's ToS/ban-risk acknowledgement and a dedicated institution number.
 - [ ] Sign-in page designed with the Mobbin connector (design agent running → docs/design/v2/sign-in.md); implemented by the dedicated SSO/channels frontend agent.
+
+### Docs update automatically (owner request 2026-10-15 ~22:55)
+- [ ] scripts/docs/sync_docs.py rewrites only `<!-- AUTO:<name> -->` blocks from the sources of truth:
+  - docs/features.yml
+  - the parity report
+  - the Alembic chain
+  - pod-ci gates and results
+  - the agent registry
+  - the owner decisions
+  - the intake formats
+  - HEAD
+  It is idempotent; `--check` fails CI when the docs are stale. Agent running.
+- New docs/STATUS.md is the single "where are we" page. The README carries status/parity/last-updated blocks; the README agent inserts the markers.
+- The 30-min watchdog runs the sync before every commit. When a feature lands, it also updates docs/features.yml and the affected prose.

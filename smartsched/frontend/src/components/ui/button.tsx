@@ -92,7 +92,8 @@ type IconButtonProps = Omit<ButtonPrimitive.Props, "aria-label" | "children"> &
     /** the accessible name; also the native tooltip. Required: an icon alone has no name. */
     label: string
     size?: keyof typeof iconButtonSize
-    children: React.ReactNode
+    /** the icon; optional only when used as a render prop target (Base UI triggers pass their own children) */
+    children?: React.ReactNode
   }
 
 /** A square control with an icon only. `label` is required and becomes `aria-label` + `title`. */
