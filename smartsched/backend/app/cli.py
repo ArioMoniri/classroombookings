@@ -126,6 +126,30 @@ async def _crbs_upgrade(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _learning_refresh(args: argparse.Namespace) -> int:
+    """P19-L2/L3: extract learning evidence (idempotent) and recompute priors for every term (or ``--term``)."""
+    from sqlalchemy import select
+
+    from app.models import Term
+    from app.services import learning
+
+    configure_engine(args.database_url or get_settings().database_url)
+    await create_all()
+    async with get_session_factory()() as session:
+        q = select(Term.id, Term.code).order_by(Term.id)
+        if args.term:
+            q = q.where(Term.code == args.term)
+        terms = (await session.execute(q)).all()
+        if args.term and not terms:
+            print(f"unknown term {args.term}", file=sys.stderr)
+            return 2
+        extract = (await learning.refresh(session))["extract"]
+        priors = {code: (await learning.refresh(session, term_id)).get("priors") for term_id, code in terms}
+        await session.commit()
+    print(json.dumps({"extract": extract, "terms": priors}, indent=2, ensure_ascii=False, default=str))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="smartsched", description="SmartSched backend CLI")
     p.add_argument("--database-url", default=None)
@@ -164,7 +188,11 @@ def main(argv: list[str] | None = None) -> int:
     upg.add_argument("--dsn", default=None, help="mysql://user:pass@host/db (opened read-only)")
     upg.add_argument("--commit", action="store_true", help="import for real (needs --fingerprint)")
     upg.add_argument("--fingerprint", default=None, help="the fingerprint printed by the dry run")
+    lr = sub.add_parser("learning-refresh", help="extract learning evidence and recompute suggestions (all terms)")
+    lr.add_argument("--term", default=None, help="only this term code, e.g. 2026-BAHAR")
     args = p.parse_args(argv)
+    if args.cmd == "learning-refresh":
+        return asyncio.run(_learning_refresh(args))
     if args.cmd == "import":
         return asyncio.run(_run_import(args))
     if args.cmd == "solve":
