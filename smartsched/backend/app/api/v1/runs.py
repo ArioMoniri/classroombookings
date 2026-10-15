@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -452,10 +453,12 @@ async def export_run(
     format: str = Query("xlsx", pattern="^(xlsx|csv|ics|crbs)$"),
     weeks: str | None = None,
 ) -> Response:
+    """``xlsx`` (the weekly board; ``weeks`` = "3" / "4,6-8" picks the sheets), ``csv``, ``ics`` and ``crbs``
+    (CRBS's booking export columns). Only xlsx honours ``weeks``; the other formats export the whole run."""
     run = await _run(db, run_id)
     name = f"smartsched-run{run.id}"
+    wk = await _export_weeks(db, run, weeks) if weeks else None
     if format == "xlsx":
-        wk = [int(w) for w in weeks.split(",")] if weeks else None
         data = await export_xlsx(db, run, wk)
         return Response(
             data,
@@ -476,6 +479,39 @@ async def export_run(
         )
     text = await export_csv(db, run)
     return Response(text, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}.csv"'})
+
+
+_WEEKS_RX = re.compile(r"^\s*\d+\s*(-\s*\d+\s*)?$")
+
+
+async def _export_weeks(db: AsyncSession, run: ScheduleRun, raw: str) -> list[int]:
+    """``"4"``, ``"4,6-8"`` -> sorted week numbers inside the run's term; 422 (TR/EN) otherwise."""
+    from app.services import publish_guard
+
+    def bad(en: str, tr: str) -> HTTPException:
+        return HTTPException(422, {"code": "weeks", "message": en, "message_en": en, "message_tr": tr})
+
+    out: set[int] = set()
+    for part in raw.split(","):
+        if not _WEEKS_RX.match(part):
+            raise bad(
+                f"weeks must be numbers or ranges like 4,6-8 (got {raw!r})",
+                f"haftalar 4,6-8 gibi sayı veya aralık olmalı (gelen: {raw!r})",
+            )
+        lo, _, hi = part.partition("-")
+        a, b = int(lo), int(hi or lo)
+        if a > b:
+            raise bad(f"week range {a}-{b} runs backwards", f"{a}-{b} hafta aralığı ters")
+        out.update(range(a, b + 1))
+    term_weeks = set(await publish_guard.run_weeks(db, ScheduleRun(term_id=run.term_id, horizon="TERM")))
+    outside = sorted(out - term_weeks) if term_weeks else sorted(w for w in out if w < 1)
+    if outside:
+        last = max(term_weeks) if term_weeks else 0
+        raise bad(
+            f"week(s) {outside} are outside the term (weeks 1-{last})",
+            f"{', '.join(map(str, outside))}. hafta dönemin dışında (1-{last}. haftalar)",
+        )
+    return sorted(out)
 
 
 async def _assignment(db: AsyncSession, run_id: int, aid: int) -> Assignment:
