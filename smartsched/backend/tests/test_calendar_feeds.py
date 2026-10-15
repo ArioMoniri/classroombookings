@@ -165,9 +165,20 @@ async def test_room_acl_department_and_room_group_feeds(env):  # noqa: F811
     assert (await c.get(f"{base}/room/999999.ics")).status_code == 404
     dep = await c.get(f"{base}/department/{psy['id']}.ics")
     assert dep.status_code == 200
-    assert set(events(dep.text)) == {f"booking-{in_a102['id']}@smartsched"}
+    # bookings (class meetings of the published run are in these feeds too since persona test A-14: only in the
+    # rooms the guest may view, here A 102)
+    a102_classes = f"-{env.rooms['A102']}-"
+
+    def split(text: str) -> tuple[set[str], set[str]]:
+        uids = set(events(text))
+        return {u for u in uids if u.startswith("booking-")}, {u for u in uids if u.startswith("class-")}
+
+    dep_b, dep_c = split(dep.text)
+    assert dep_b == {f"booking-{in_a102['id']}@smartsched"} and all(a102_classes in u for u in dep_c)
     grp = await c.get(f"{base}/room-group/{group['id']}.ics")
-    assert grp.status_code == 200 and set(events(grp.text)) == {f"booking-{in_a102['id']}@smartsched"}
+    grp_b, grp_c = split(grp.text)
+    assert grp.status_code == 200 and grp_b == {f"booking-{in_a102['id']}@smartsched"}
+    assert grp_c and all(a102_classes in u for u in grp_c)
     assert (await c.get(f"{base}/department/999999.ics")).status_code == 404
     assert (await c.get(f"{base}/room-group/999999.ics")).status_code == 404
     opts = (await c.get("/api/v1/calendar/feeds/options", headers=guest)).json()

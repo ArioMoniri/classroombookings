@@ -479,9 +479,166 @@ async def build_feed(session: AsyncSession, access: Access, scope: FeedScope, *,
         )
         for v in views
     ]
+    if scope.kind in ("room", "room_group", "department"):  # A-14: the published classes too
+        horizon = today + timedelta(days=CLASS_HORIZON_DAYS)
+        events += await class_events(
+            session,
+            access,
+            since,
+            horizon,
+            room_ids=[scope.id] if scope.kind == "room" else room_filter,
+            program_id=scope.id if scope.kind == "department" else None,
+        )
+        events.sort(key=lambda e: (e.start, e.uid))
     tz_name = str(await settings_service.get_value(session, "timezone") or "Europe/Istanbul")
     final_title = title or default_title
     return Feed(final_title, filename, render_calendar(final_title, tz_name, events))
+
+
+CLASS_HORIZON_DAYS = 200  # published classes are listed this far ahead (the rest of a term)
+
+
+async def class_events(
+    session: AsyncSession,
+    access: Access,
+    d_from: date,
+    d_to: date,
+    *,
+    room_ids: list[int] | None = None,
+    program_id: int | None = None,
+) -> list[IcsEvent]:
+    """A-14: the published (active-run) class meetings in ``room_ids`` or of the department ``program_id`` as busy
+    events. SUMMARY is the course code(s) (or the request's code and section), never the board text, which may
+    name people; no instructor names at all (KVKK). Times come from the term's booking periods, else the standard
+    grid. Rooms the viewer may not see are left out."""
+    from app.models import Assignment, Course, ScheduleRun, Section, Term
+    from app.services.bookings_calendar import term_info
+    from app.services.calendar import period_times
+
+    wanted_ids: set[int] | None = None
+    if program_id is not None:
+        # the department's classes: requests of its sections, and board rows whose course codes are its courses
+        run_ids = list((await session.execute(select(ScheduleRun.id).where(ScheduleRun.is_active.is_(True)))).scalars())
+        if not run_ids:
+            return []
+        keys = {
+            n.course_key(code)
+            for code in (
+                await session.execute(
+                    select(Course.code)
+                    .join(Section, Section.course_id == Course.id)
+                    .where(Section.program_id == program_id)
+                )
+            ).scalars()
+        }
+        rows = list(
+            (
+                await session.execute(
+                    select(Assignment).where(Assignment.run_id.in_(run_ids), Assignment.archived.is_(False))
+                )
+            ).scalars()
+        )
+        mrs = {a.meeting_request_id for a in rows if a.meeting_request_id}
+        own_mr: set[int] = set()
+        if mrs:
+            from app.models import MeetingRequest
+
+            own_mr = set(
+                (
+                    await session.execute(
+                        select(MeetingRequest.id)
+                        .join(Section, Section.id == MeetingRequest.section_id)
+                        .where(MeetingRequest.id.in_(mrs), Section.program_id == program_id)
+                    )
+                ).scalars()
+            )
+        wanted_ids = {
+            a.id
+            for a in rows
+            if (a.meeting_request_id in own_mr) or any(n.course_key(c) in keys for c in (a.course_codes or []))
+        }
+        if not wanted_ids:
+            return []
+        room_ids = sorted({int(r) for a in rows if a.id in wanted_ids for r in (a.room_ids or [])})
+    occ = await booking_svc.timetable_occupancy(session, set(room_ids) if room_ids else None, d_from, d_to)
+    helds = [h for hs in occ.values() for h in hs if h.kind == "timetable"]
+    if wanted_ids is not None:
+        helds = [h for h in helds if h.ref_id in wanted_ids]
+    if not helds:
+        return []
+    assigns = {
+        a.id: a
+        for a in (
+            await session.execute(select(Assignment).where(Assignment.id.in_({h.ref_id for h in helds})))
+        ).scalars()
+    }
+    labels = await booking_svc._request_labels(
+        session, {a.meeting_request_id for a in assigns.values() if a.meeting_request_id}
+    )
+    runs = {
+        r.id: r
+        for r in (
+            await session.execute(select(ScheduleRun).where(ScheduleRun.id.in_({a.run_id for a in assigns.values()})))
+        ).scalars()
+    }
+    # booking-period times per term (start_period -> time_start, end_period -> time_end)
+    times: dict[int, tuple[dict[int, Any], dict[int, Any]]] = {}
+
+    async def period_clock(term_id: int, sp: int, ep: int) -> tuple[Any, Any]:
+        if term_id not in times:
+            term = await session.get(Term, term_id)
+            info = await term_info(session, term) if term is not None else None
+            starts: dict[int, Any] = {}
+            ends: dict[int, Any] = {}
+            if info is not None and info.default_schedule_id:
+                for p in (
+                    await session.execute(
+                        select(BookingPeriod).where(BookingPeriod.schedule_id == info.default_schedule_id)
+                    )
+                ).scalars():
+                    starts.setdefault(p.start_period, p.time_start)
+                    ends.setdefault(p.end_period, p.time_end)
+            times[term_id] = (starts, ends)
+        starts, ends = times[term_id]
+        if sp in starts and ep in ends:
+            return starts[sp], ends[ep]
+        s_txt, e_txt = period_times(sp, ep)
+        return datetime.strptime(s_txt, "%H:%M").time(), datetime.strptime(e_txt, "%H:%M").time()
+
+    # course codes as the planner writes them ("PSY 262"), looked up by course key
+    all_codes = {n.course_key(c) for a in assigns.values() for c in (a.course_codes or []) if c}
+    display: dict[str, str] = {}
+    if all_codes:
+        for code, disp in (await session.execute(select(Course.code, Course.display_code))).all():
+            k = n.course_key(code)
+            if k in all_codes and disp:
+                display.setdefault(k, disp)
+    cache = _Cache(session)
+    out: list[IcsEvent] = []
+    for h in sorted(helds, key=lambda x: (x.date, x.start, x.room_id, x.ref_id)):
+        a = assigns.get(h.ref_id)
+        room: Room | None = await cache.get(Room, h.room_id)
+        if a is None or room is None or not access.can_view_room(room):
+            continue
+        run = runs.get(a.run_id)
+        codes = [display.get(n.course_key(c), c) for c in (a.course_codes or []) if c]
+        what = " / ".join(dict.fromkeys(codes)) or labels.get(a.meeting_request_id or 0, "")
+        t0, t1 = await period_clock(run.term_id if run else 0, h.start, h.end)
+        stamp = (run.finished_at or run.created_at) if run is not None else utcnow()
+        out.append(
+            IcsEvent(
+                uid=f"class-{a.id}-{h.room_id}-{h.date:%Y%m%d}@smartsched",
+                start=datetime.combine(h.date, t0),
+                end=datetime.combine(h.date, t1),
+                summary=f"{what} ({room.display_name})" if what else room.display_name,
+                location=room.display_name,
+                description=None,
+                status="CONFIRMED",
+                sequence=0,
+                last_modified=stamp,
+            )
+        )
+    return out
 
 
 async def feed_options(session: AsyncSession, access: Access) -> dict[str, Any]:
