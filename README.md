@@ -93,7 +93,7 @@ Status on branch `claude/gracious-cerf-w1598m`, 2026-10-15. *Done* means code, t
 | In-app notifications (`GET /me/notifications`) next to the e-mail outbox | Backend done; the notification bell in the top bar is work in progress |
 | No privilege escalation: nobody grants a role, or edits a role, whose permissions they do not all hold | Done |
 | Sign-out, a password change, disabling an account and a role change revoke the user's tokens on every device | Done |
-| 14 interface languages (the 13 CRBS languages plus Turkish); a missing string falls back to English per key | Done |
+| 14 interface languages (the 13 CRBS languages plus Turkish). Turkish and English are complete; the other 12 carry only the strings classroombookings itself translates (about 36 of 2,743) and fall back to English per key | Partial |
 
 *Work in progress* means the wave-1 frontend agent is still building these screens. They were
 committed in progress checkpoints on 2026-10-15 together with a real-backend Playwright spec
