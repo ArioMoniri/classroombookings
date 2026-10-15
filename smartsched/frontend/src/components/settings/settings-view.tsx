@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { StatusBadge } from "@/components/common/status-badge";
 import { ACCENTS, useAccentPreference, type Accent } from "@/components/shell/appearance";
 import { AppearancePreferencesControl } from "@/components/ui/appearance-preferences";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { HttpError } from "@/lib/api/client";
 import { aiFailureKind, testAiKey, useMeFull, usePermissions } from "@/lib/api/shell-extra";
 import { useHydrated } from "@/lib/use-hydrated";
@@ -186,7 +186,7 @@ function AppearanceCard() {
         </CardHeader>
         <CardContent>
           <SettingsRow label={t("settings.theme")} hint={t("glass.settings.themeHint")}>
-            <SegmentedGlass size="sm" aria-label={t("settings.theme")} value={mode} onValueChange={(v) => setTheme(v)} options={[{ value: "system", label: t("theme.system") }, { value: "light", label: t("theme.light") }, { value: "dark", label: t("theme.dark") }]} />
+            <SegmentedControl size="sm" aria-label={t("settings.theme")} value={mode} onValueChange={(v) => setTheme(v)} options={[{ value: "system", label: t("theme.system") }, { value: "light", label: t("theme.light") }, { value: "dark", label: t("theme.dark") }]} />
           </SettingsRow>
           <SettingsRow label={t("glass.settings.accent")} hint={t("glass.settings.accentHint")}>
             <div role="radiogroup" aria-label={t("glass.settings.accent")} className="flex items-center gap-2">
@@ -198,7 +198,7 @@ function AppearanceCard() {
             </div>
           </SettingsRow>
           <SettingsRow label={t("glass.settings.density")} hint={t("glass.settings.densityHint")}>
-            <SegmentedGlass size="sm" aria-label={t("glass.settings.density")} value={density} onValueChange={(v) => setDensity(v === "compact" ? "compact" : "comfortable")} options={[{ value: "comfortable", label: t("glass.settings.comfortable") }, { value: "compact", label: t("glass.settings.compact") }]} />
+            <SegmentedControl size="sm" aria-label={t("glass.settings.density")} value={density} onValueChange={(v) => setDensity(v === "compact" ? "compact" : "comfortable")} options={[{ value: "comfortable", label: t("glass.settings.comfortable") }, { value: "compact", label: t("glass.settings.compact") }]} />
           </SettingsRow>
         </CardContent>
       </Card>

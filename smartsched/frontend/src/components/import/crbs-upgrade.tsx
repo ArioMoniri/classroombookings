@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { HttpError } from "@/lib/api/client";
 import { SQL_DUMP, changedTables, crbsUpgrade, importerRows, type UpgradeReport, type UpgradeSource } from "@/lib/api/crbs-upgrade";
 import { usePermissions } from "@/lib/api/shell-extra";
@@ -259,7 +259,7 @@ export function CrbsUpgrade({ onStep, onBack }: { onStep: (s: FlowStep) => void;
         <p className="text-[13px] text-label-2">{t("importFlows.crbs.lead")}</p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <SegmentedGlass
+        <SegmentedControl
           size="sm"
           aria-label={t("importFlows.crbs.source")}
           value={mode}

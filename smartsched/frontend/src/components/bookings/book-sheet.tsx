@@ -22,7 +22,7 @@ import { BusyLabel } from "@/components/ui/busy-label";
 import { Chip } from "@/components/ui/chip";
 import { Input, useShake } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Textarea } from "@/components/ui/textarea";
 import { BOOKING_KEYS, crbs, crbsError, useBookingDates, useBookingUsers, useCrbsMe, useCrbsMutation, useDepartments, type Grid, type GridSlot, type MultiSlotChoice, type RecurringIn } from "@/lib/api/crbs";
 import { bookingCapabilities } from "@/lib/permissions";
@@ -284,7 +284,7 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
           </fieldset>
         ) : null}
         {kinds.length > 1 ? (
-          <SegmentedGlass<Kind>
+          <SegmentedControl<Kind>
             aria-label={t("crbs.book.kind")}
             value={kind}
             onValueChange={(v) => {

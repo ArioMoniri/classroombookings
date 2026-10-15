@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
   exportCsvUrl,
   useBookingContext,
@@ -97,7 +97,7 @@ export function MyBookingsView() {
           <h2 id="mine-list" className="sr-only" tabIndex={-1} data-focus-fallback>
             {t("crbs.mine.title")}
           </h2>
-          <SegmentedGlass<Tab>
+          <SegmentedControl<Tab>
             aria-label={t("crbs.mine.filter")}
             value={tab}
             onValueChange={(v) => {

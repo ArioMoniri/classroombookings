@@ -17,8 +17,9 @@ import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Switch } from "@/components/ui/switch";
 import { Alert, Field, Loading, PageTitle, SelectField } from "@/components/admin/kit";
 import { useHydrated } from "@/lib/use-hydrated";
@@ -172,7 +173,7 @@ export function FindRoomView() {
             >
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-2 type-headline text-label-1">{t("wave1.find.when")}</legend>
-                <SegmentedGlass<WhenMode>
+                <SegmentedControl<WhenMode>
                   aria-label={t("wave1.find.when")}
                   size="sm"
                   fill
@@ -186,7 +187,7 @@ export function FindRoomView() {
                 />
                 {f.when === "date" ? (
                   <Field label={t("wave1.find.date")} htmlFor="fr-date" error={formError === "date" ? t(ERROR_KEY.date) : null}>
-                    <Input id="fr-date" type="date" value={f.date} onChange={(e) => set("date", e.target.value)} data-testid="fr-date" />
+                    <DateField id="fr-date" value={f.date} onChange={(v) => set("date", v)} data-testid="fr-date" />
                   </Field>
                 ) : f.when === "weekday" ? (
                   <div className="grid grid-cols-2 gap-2">
@@ -207,10 +208,10 @@ export function FindRoomView() {
                   <div className="flex flex-col gap-2">
                     <div className="grid grid-cols-2 gap-2">
                       <Field label={t("wave1.find.from")} htmlFor="fr-from" error={formError === "range" ? t(ERROR_KEY.range) : null}>
-                        <Input id="fr-from" type="date" value={f.dateFrom} onChange={(e) => set("dateFrom", e.target.value)} />
+                        <DateField id="fr-from" value={f.dateFrom} onChange={(v) => set("dateFrom", v)} />
                       </Field>
                       <Field label={t("wave1.find.to")} htmlFor="fr-to">
-                        <Input id="fr-to" type="date" value={f.dateTo} min={f.dateFrom} onChange={(e) => set("dateTo", e.target.value)} />
+                        <DateField id="fr-to" value={f.dateTo} min={f.dateFrom || undefined} onChange={(v) => set("dateTo", v)} />
                       </Field>
                     </div>
                     <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("wave1.find.onDays")}>
@@ -226,7 +227,7 @@ export function FindRoomView() {
 
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-2 type-headline text-label-1">{t("wave1.find.time")}</legend>
-                <SegmentedGlass<TimeMode>
+                <SegmentedControl<TimeMode>
                   aria-label={t("wave1.find.time")}
                   size="sm"
                   fill

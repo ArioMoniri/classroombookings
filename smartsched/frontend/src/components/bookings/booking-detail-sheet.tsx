@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { Input, useShake } from "@/components/ui/input";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -234,7 +234,7 @@ function ScopePicker({ value, onChange, booking }: { value: Scope; onChange: (s:
   if (!booking.series_id) return null;
   return (
     <Field label={t("crbs.scope.label")}>
-      <SegmentedGlass<Scope>
+      <SegmentedControl<Scope>
         aria-label={t("crbs.scope.label")}
         value={value}
         onValueChange={onChange}

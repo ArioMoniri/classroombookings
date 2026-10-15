@@ -18,7 +18,7 @@ import { BusyLabel } from "@/components/ui/busy-label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Textarea } from "@/components/ui/textarea";
 import { BOOKING_KEYS, crbs, crbsError, useBookingUsers, useCrbsMe, useCrbsMutation, useDepartments, type InstanceAction, type MultiSlotChoice, type RecurInstance, type Selection } from "@/lib/api/crbs";
 import { bookingCapabilities } from "@/lib/permissions";
@@ -217,7 +217,7 @@ function MultiBody({ slotKeys, termId, termEnd, fmt, onClose, onBooked }: { slot
       {selection ? (
         <div className="flex max-h-[60dvh] flex-col gap-3 overflow-y-auto pr-1">
           {selection.can_book_single && selection.can_book_recur ? (
-            <SegmentedGlass<Kind>
+            <SegmentedControl<Kind>
               aria-label={t("crbs.book.kind")}
               value={kind}
               onValueChange={(v) => {

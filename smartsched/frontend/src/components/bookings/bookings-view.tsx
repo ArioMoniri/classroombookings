@@ -16,7 +16,7 @@ import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useBusyDelay } from "@/components/ui/busy-label";
 import { Chip } from "@/components/ui/chip";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Toolbar, ToolbarButton, ToolbarLabel } from "@/components/ui/toolbar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -254,7 +254,7 @@ export function BookingsView() {
       {org.data?.maintenance_mode && caps.bypassMaintenance ? <Alert tone="warning" title={t("crbs.maintenance.bypassTitle")}>{org.data.maintenance_message || t("crbs.maintenance.bypass")}</Alert> : null}
 
       <Toolbar placement="inline" data-print-hide className="sticky top-2 z-30 h-auto w-full flex-wrap justify-start gap-2 rounded-3xl p-1.5 md:rounded-full" aria-label={t("crbs.toolbar.label")}>
-        <SegmentedGlass<Lens>
+        <SegmentedControl<Lens>
           aria-label={t("reserve.lens.label")}
           size="sm"
           value={lens}
@@ -269,7 +269,7 @@ export function BookingsView() {
           ]}
           data-testid="lens"
         />
-        <SegmentedGlass<Display>
+        <SegmentedControl<Display>
           aria-label={t("crbs.toolbar.display")}
           size="sm"
           value={display}
@@ -362,7 +362,7 @@ export function BookingsView() {
         ) : null}
         <div className="ml-auto flex items-center gap-1">
           {lens === "free" && display === "day" ? (
-            <SegmentedGlass<Scope>
+            <SegmentedControl<Scope>
               aria-label={t("reserve.free.scope")}
               size="sm"
               value={scope}
@@ -395,7 +395,7 @@ export function BookingsView() {
 
       {display === "day" && groups.length > 1 ? (
         <nav aria-label={t("crbs.toolbar.groups")} data-print-hide className="-mx-1 overflow-x-auto px-1 scrollbar-thin" data-testid="group-tabs">
-          <SegmentedGlass<string>
+          <SegmentedControl<string>
             aria-label={t("crbs.toolbar.groups")}
             size="sm"
             value={String(g?.room_group_id ?? groups[0]?.id ?? "")}

@@ -20,7 +20,7 @@ import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { KbdHint } from "@/components/ui/kbd-hint";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, Loading, NoAccess, PageTitle } from "@/components/admin/kit";
@@ -91,7 +91,7 @@ export function ApprovalsView() {
         {t("wave1.approvals.box")}
       </h2>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedGlass<Box>
+        <SegmentedControl<Box>
           aria-label={t("wave1.approvals.box")}
           value={box}
           onValueChange={setBox}
