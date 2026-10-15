@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { crbs, crbsError, useCrbsMutation, useDatePatternOptions, useOrgSettings, useTranslations, type OrgSettings, type OrgSettingsIn } from "@/lib/api/crbs";
-import { LOCALES, LOCALE_INFO, coverage } from "@/lib/i18n";
+import { LOCALES, LOCALE_INFO, displayLocale, isLocale, type Locale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { dateFormatter } from "@/components/bookings/date-format";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
@@ -25,8 +25,14 @@ import { WhatsNewPanel } from "./whats-new";
 
 const KEYS = [["crbs", "org-settings"], ["crbs", "org-public"], ["crbs", "context"], ["crbs", "grid"], ["crbs", "roles"]];
 const TIMEZONES = ["Europe/Istanbul", "Europe/London", "Europe/Berlin", "UTC", "Asia/Baku", "Asia/Dubai", "America/New_York"];
-/** the 14 shipped languages (Turkish, English, the 12 other CRBS languages), named in themselves */
-const LANGS = LOCALES.map((code) => ({ code, label: LOCALE_INFO[code].name, partial: coverage(code) }));
+/** the offered languages (P18-LANG, owner decision 2026-10-15: Turkish and English), named in themselves */
+const LANGS = LOCALES.map((code) => ({ code, label: LOCALE_INFO[code].name }));
+/** stored org languages as shown: a legacy code (`de`, from a CRBS import) counts as English */
+function shownLanguages(list: readonly string[] | null | undefined): Locale[] {
+  const set = new Set((list ?? []).map((l) => displayLocale(l)));
+  const out = LOCALES.filter((l) => set.has(l));
+  return out.length ? out : [...LOCALES];
+}
 
 export function OrgSettingsView() {
   const { t } = useI18n();
@@ -37,7 +43,7 @@ export function OrgSettingsView() {
 }
 
 function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } }) {
-  const { t, n, locale } = useI18n();
+  const { t, locale } = useI18n();
   const [d, setD] = useState<OrgSettingsIn & { grid_highlight?: boolean }>({});
   const v = { ...data, ...d } as OrgSettings & { grid_highlight?: boolean };
   const set = <K extends keyof typeof v>(k: K, val: (typeof v)[K]) => setD((p) => ({ ...p, [k]: val }));
@@ -56,6 +62,11 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
   );
   const dirty = Object.keys(d).length > 0;
   const columnsFor = v.displaytype === "day" ? (["periods", "rooms"] as const) : (["periods", "days"] as const);
+  // P18-LANG: Turkish and English are offered; legacy stored codes are listed, shown English and kept until
+  // the administrator changes the list (only the changed fields are sent)
+  const enabled = shownLanguages(v.languages);
+  const shownDefault: Locale = displayLocale(v.default_language) ?? "tr";
+  const legacy = [...new Set([...(data.languages ?? []), data.default_language ?? ""].filter((c) => c && !isLocale(c)))];
 
   return (
     <div className="flex flex-col gap-8 pb-20">
@@ -184,44 +195,45 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
         <SectionTitle id="org-lang">{t("crbs.org.languages")}</SectionTitle>
         <Card variant="glass" className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.org.enabledLanguages")} hint={t("crbs.org.enabledLanguagesHint")}>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3" data-testid="org-languages">
-            {LANGS.map((l) => (
-              <label key={l.code} lang={l.code} className="flex items-center gap-1.5 type-callout text-label-1">
-                <Checkbox
-                  checked={(v.languages ?? []).includes(l.code)}
-                  onCheckedChange={(x) => {
-                    const cur = new Set(v.languages ?? []);
-                    if (x === true) cur.add(l.code);
-                    else cur.delete(l.code);
-                    if (cur.size) set("languages", LANGS.map((z) => z.code).filter((c) => cur.has(c)));
-                  }}
-                  data-testid={`org-language-${l.code}`}
-                />
-                <span className="flex min-w-0 flex-col leading-tight">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5" data-testid="org-languages">
+              {LANGS.map((l) => (
+                <label key={l.code} lang={l.code} className="flex min-h-8 items-center gap-1.5 type-callout text-label-1">
+                  <Checkbox
+                    checked={enabled.includes(l.code)}
+                    onCheckedChange={(x) => {
+                      const cur = new Set<Locale>(enabled);
+                      if (x === true) cur.add(l.code);
+                      else cur.delete(l.code);
+                      if (!cur.size) return;
+                      const next = LOCALES.filter((c) => cur.has(c));
+                      // the default must stay among the enabled ones (B8); a legacy default reads as English
+                      setD((p) => ({ ...p, languages: next, ...(next.includes(shownDefault) ? {} : { default_language: next[0] }) }));
+                    }}
+                    data-testid={`org-language-${l.code}`}
+                  />
                   {l.label}
-                  {l.partial.partial ? (
-                    <span className="type-caption text-label-3" lang={locale}>
-                      {t("nav.languagePartial", { pct: n(Math.max(l.partial.ratio, 0.01), { style: "percent", maximumFractionDigits: 0 }) })}
-                    </span>
-                  ) : null}
-                </span>
-              </label>
-            ))}
+                </label>
+              ))}
             </div>
           </FieldRow>
           <FieldRow label={t("crbs.org.defaultLanguage")} htmlFor="org-deflang" className="hairline-t">
-            <SelectField id="org-deflang" className="w-40" value={v.default_language ?? "tr"} onChange={(e) => set("default_language", e.target.value)}>
-              {LANGS.filter((l) => (v.languages ?? []).includes(l.code)).map((l) => (
+            <SelectField id="org-deflang" className="w-40" value={shownDefault} onChange={(e) => set("default_language", e.target.value)} data-testid="org-default-language">
+              {LANGS.filter((l) => enabled.includes(l.code)).map((l) => (
                 <option key={l.code} value={l.code} lang={l.code}>
                   {l.label}
                 </option>
               ))}
             </SelectField>
           </FieldRow>
+          {legacy.length ? (
+            <p className="pb-3 type-footnote text-label-3" data-testid="org-languages-legacy">
+              {t("crbs.org.languagesLegacy", { codes: legacy.join(", ") })}
+            </p>
+          ) : null}
         </Card>
       </section>
 
-      <TranslationsEditor languages={v.languages ?? ["tr", "en"]} />
+      <TranslationsEditor languages={enabled} />
 
       <section aria-labelledby="org-news">
         <SectionTitle id="org-news">{t("crbs.news.title")}</SectionTitle>
@@ -254,7 +266,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
 }
 
 /** CRBS `setup/Language`: per-language overrides of any interface string (set + key → text). */
-function TranslationsEditor({ languages }: { languages: string[] }) {
+function TranslationsEditor({ languages }: { languages: readonly Locale[] }) {
   const { t } = useI18n();
   const [lang, setLang] = useState(languages[0] ?? "tr");
   const list = useTranslations(lang);
@@ -270,7 +282,7 @@ function TranslationsEditor({ languages }: { languages: string[] }) {
       <SectionTitle
         id="org-tr"
         actions={
-          <SelectField aria-label={t("crbs.org.language")} className="w-36" value={lang} onChange={(e) => setLang(e.target.value)}>
+          <SelectField aria-label={t("crbs.org.language")} className="w-36" value={lang} onChange={(e) => setLang(e.target.value as Locale)}>
             {languages.map((l) => (
               <option key={l} value={l}>
                 {LANGS.find((x) => x.code === l)?.label ?? l}

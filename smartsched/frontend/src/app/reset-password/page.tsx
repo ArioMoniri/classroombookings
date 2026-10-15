@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ResetPassword } from "@/components/admin/reset-password";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Reset password" };
+export const generateMetadata = localizedTitle("titles.resetPassword");
 
 export default function ResetPasswordPage() {
   return (

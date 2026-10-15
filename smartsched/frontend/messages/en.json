@@ -1,5 +1,17 @@
 {
   "app": { "name": "SmartSched", "tagline": "AI classroom planner", "skip": "Skip to content", "version": "v0.1" },
+  "titles": {
+    "bookings": "Bookings", "myBookings": "My bookings", "findRoom": "Find a room", "approvals": "Approvals",
+    "profile": "Profile", "settings": "Settings", "import": "Import", "dashboard": "Dashboard", "rooms": "Rooms",
+    "room": "Room", "admin": "Setup", "adminUsers": "Users", "adminRooms": "Rooms", "adminAudit": "Audit log",
+    "adminAccess": "Access checker", "adminSettings": "Organisation settings", "adminSessions": "Sessions",
+    "adminApprovalRules": "Approval rules", "adminHolidays": "Holidays", "adminEmail": "E-mail", "adminDepartments": "Departments",
+    "adminRoles": "Roles", "adminConflicts": "Booking conflicts", "adminAuthentication": "Authentication",
+    "adminWeeks": "Timetable weeks", "adminSchedules": "Schedules", "login": "Sign in", "changePassword": "Change password",
+    "resetPassword": "Reset password", "setup": "Setup", "notFound": "Page not found", "timetable": "Timetable",
+    "classes": "Classes", "generate": "Generator Studio", "runs": "Runs", "run": "Run", "onboarding": "Onboarding",
+    "requests": "Requests"
+  },
   "nav": {
     "plan": "Plan", "results": "Results", "master": "Master data", "admin": "Admin",
     "dashboard": "Dashboard", "import": "Import", "onboarding": "Onboarding", "requests": "Requests", "generate": "Generate",
@@ -7,7 +19,7 @@
     "programs": "Programs", "instructors": "Instructors", "settings": "Settings", "users": "Users",
     "collapse": "Collapse sidebar", "expand": "Expand sidebar", "menu": "Open menu",
     "search": "Search…", "searchHint": "⌘K", "notifications": "Notifications", "account": "Account",
-    "logout": "Log out", "theme": "Theme", "language": "Language", "languagePartial": "Partial translation · {pct}", "languagePartialHint": "Texts without a translation are shown in English.", "needsReview": "{count} need review",
+    "logout": "Log out", "theme": "Theme", "language": "Language", "needsReview": "{count} need review",
     "running": "{count} running", "term": "Term", "switchTerm": "Switch term", "switched": "Switched to {term}"
   },
   "theme": { "system": "System", "light": "Light", "dark": "Dark" },
@@ -1277,6 +1289,7 @@
       "displayHint": "Shown on your bookings when others may see names.",
       "language": "Language",
       "languageHint": "Used for SmartSched and the e-mails you get.",
+      "languageLegacy": "Your stored language ({code}) is no longer offered; SmartSched shows English and keeps it until you pick another.",
       "orgDefault": "Institution default ({lang})",
       "password": "Password",
       "current": "Current password",
@@ -1652,6 +1665,7 @@
       "languages": "Languages",
       "enabledLanguages": "Languages people can choose",
       "enabledLanguagesHint": "Each person picks theirs in Profile.",
+      "languagesLegacy": "Stored by an earlier version or a classroombookings import: {codes}. No longer offered; shown in English and kept until you change the list.",
       "defaultLanguage": "Default language",
       "language": "Language",
       "translations": "Your own wording",

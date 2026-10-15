@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LoginForm } from "@/components/auth/login-form";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const generateMetadata = localizedTitle("titles.login");
 
 /* The login canvas paints the scene mesh itself (liquid-glass.md §3, §16.3): the glass card needs
    something to refract, so no flat page background here. */

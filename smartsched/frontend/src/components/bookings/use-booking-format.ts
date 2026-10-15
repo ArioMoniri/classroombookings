@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo } from "react";
 import { useBookingContext, useCrbsMe, useOrgI18n, useProfile } from "@/lib/api/crbs";
-import { isLocale } from "@/lib/i18n";
+import { displayLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { dateFormatter, type DateFormatter } from "./date-format";
 
@@ -32,9 +32,10 @@ export function useProfileLanguage(): void {
   const profile = useProfile();
   const org = useOrgI18n(undefined);
   const userId = me.data?.id;
-  const wanted = profile.data ? profile.data.language || org.data?.default_language || null : null;
+  // a stored legacy code (`de`, from a CRBS import) is kept in the profile and shown English (P18-LANG)
+  const wanted = profile.data ? displayLocale(profile.data.language || org.data?.default_language || null) : null;
   useEffect(() => {
-    if (!userId || !wanted || !isLocale(wanted)) return;
+    if (!userId || !wanted) return;
     let synced: string | null = null;
     try {
       synced = sessionStorage.getItem(SYNC_KEY);

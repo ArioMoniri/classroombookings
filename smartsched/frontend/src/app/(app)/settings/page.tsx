@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { HydrationGate } from "@/components/common/hydration-gate";
 import { Suspense } from "react";
 import { SettingsView } from "@/components/settings/settings-view";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Settings" };
+export const generateMetadata = localizedTitle("titles.settings");
 
 /**
  * The old "Users" tab (`?tab=users`: e-mail, name, role code and password only) is replaced by the full CRBS

@@ -1,8 +1,7 @@
 /**
  * Dates in the organisation's patterns (CRBS `settings/General`: `pattern_long` "EEEE d MMMM yyyy",
- * `pattern_weekday` "EEE d MMM", `pattern_time` "HH:mm"), in any of the 14 languages: Turkish and English are
- * SmartSched's own tables, the 12 other CRBS languages use CRBS's day and month names (`calendar_lang.php`, via
- * `lib/i18n/locale-data.json`, the file the backend reads too) and English AM/PM (CRBS has none).
+ * `pattern_weekday` "EEE d MMM", `pattern_time` "HH:mm") in Turkish or English (the two offered languages,
+ * ROADMAP P18-LANG decision 2026-10-15), with the same tables as the backend (`bookings_i18n`).
  *
  * Supported tokens (the ICU subset of the CRBS option lists): `EEEE` `EEE` (weekday long/short), `d` `dd`,
  * `M` `MM` `MMM` `MMMM`, `yy` `yyyy`, `H` `HH`, `h` `hh`, `m` `mm`, `a` (ÖÖ/ÖS, AM/PM); text in single quotes is
@@ -10,15 +9,8 @@
  * Booking dates are plain calendar dates ("2026-02-16"), so they are parsed as local dates: no time-zone
  * shift can move a booking to the previous day.
  */
-import type { CrbsLocale, Locale } from "@/lib/i18n";
-import localeData from "@/lib/i18n/locale-data.json";
+import type { Locale } from "@/lib/i18n";
 
-const CRBS = localeData.languages as Record<CrbsLocale, (typeof localeData)["languages"][CrbsLocale]>;
-const CRBS_CODES = Object.keys(CRBS) as CrbsLocale[];
-/** one table per locale: Turkish and English as written here, the CRBS languages from the generated data */
-function withCrbs<T>(own: Record<"tr" | "en", T>, pick: (d: (typeof CRBS)[CrbsLocale]) => T): Record<Locale, T> {
-  return { ...own, ...(Object.fromEntries(CRBS_CODES.map((c) => [c, pick(CRBS[c])])) as Record<CrbsLocale, T>) };
-}
 
 export const DEFAULT_PATTERNS = { long: "EEEE d MMMM yyyy", weekday: "EEE d MMM", time: "HH:mm" } as const;
 
@@ -30,47 +22,32 @@ export interface PatternDefaults {
 
 /** An empty org pattern is CRBS "(Default)": the locale's FULL / MEDIUM / SHORT format. Same table as the
  *  backend (`bookings_i18n.DEFAULT_PATTERNS`, served as `GET /org/i18n` → `date_defaults`). */
-export const LOCALE_DEFAULTS: Record<Locale, PatternDefaults> = withCrbs(
-  {
-    tr: { long: "d MMMM yyyy EEEE", weekday: "d MMM yyyy", time: "HH:mm" },
-    en: { long: "EEEE, d MMMM yyyy", weekday: "d MMM yyyy", time: "HH:mm" },
-  },
-  (d) => d.date_defaults,
-);
+export const LOCALE_DEFAULTS: Record<Locale, PatternDefaults> = {
+  tr: { long: "d MMMM yyyy EEEE", weekday: "d MMM yyyy", time: "HH:mm" },
+  en: { long: "EEEE, d MMMM yyyy", weekday: "d MMM yyyy", time: "HH:mm" },
+};
 /** numeric day-month-year of each locale (tables, error messages): ICU's order and separators */
-const SHORT: Record<Locale, string> = withCrbs({ tr: "dd.MM.yyyy", en: "dd/MM/yyyy" }, (d) => d.short);
+const SHORT: Record<Locale, string> = { tr: "dd.MM.yyyy", en: "dd/MM/yyyy" };
 
 /* Month and day names: the backend's tables, so the grid and the e-mails read the same ("Sep", not Intl's "Sept"). */
-const MONTHS: Record<Locale, readonly string[]> = withCrbs(
-  {
-    tr: ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"],
-    en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
-  },
-  (d) => d.months,
-);
-const MONTHS_SHORT: Record<Locale, readonly string[]> = withCrbs(
-  {
-    tr: ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
-    en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-  },
-  (d) => d.months_short,
-);
+const MONTHS: Record<Locale, readonly string[]> = {
+  tr: ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"],
+  en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+};
+const MONTHS_SHORT: Record<Locale, readonly string[]> = {
+  tr: ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+};
 /** Monday first, like Python's `date.weekday()` */
-const WEEKDAYS: Record<Locale, readonly string[]> = withCrbs(
-  {
-    tr: ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"],
-    en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-  },
-  (d) => d.weekdays,
-);
-const WEEKDAYS_SHORT: Record<Locale, readonly string[]> = withCrbs(
-  {
-    tr: ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"],
-    en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-  },
-  (d) => d.weekdays_short,
-);
-const AM_PM: Record<Locale, readonly [string, string]> = withCrbs<readonly [string, string]>({ tr: ["ÖÖ", "ÖS"], en: ["AM", "PM"] }, () => ["AM", "PM"]);
+const WEEKDAYS: Record<Locale, readonly string[]> = {
+  tr: ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"],
+  en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+};
+const WEEKDAYS_SHORT: Record<Locale, readonly string[]> = {
+  tr: ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"],
+  en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+};
+const AM_PM: Record<Locale, readonly [string, string]> = { tr: ["ÖÖ", "ÖS"], en: ["AM", "PM"] };
 
 export interface DatePatterns {
   pattern_long?: string | null;

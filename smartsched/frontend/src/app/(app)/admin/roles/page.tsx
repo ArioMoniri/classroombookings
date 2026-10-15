@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { RolesAdmin } from "@/components/admin/roles-admin";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Roles" };
+export const generateMetadata = localizedTitle("titles.adminRoles");
 
 export default function Page() {
   return <RolesAdmin />;

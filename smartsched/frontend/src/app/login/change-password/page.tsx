@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Change password" };
+export const generateMetadata = localizedTitle("titles.changePassword");
 
 export default function ChangePasswordPage() {
   return (

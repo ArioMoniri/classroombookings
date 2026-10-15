@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
 import { HydrationGate } from "@/components/common/hydration-gate";
 import { Suspense } from "react";
 import { ImportWizard } from "@/components/import/import-wizard";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import" };
+export const generateMetadata = localizedTitle("titles.import");
 
 export default function ImportPage() {
   return (

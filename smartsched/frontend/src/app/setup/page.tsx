@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { SetupWizard } from "@/components/admin/setup-wizard";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Setup" };
+export const generateMetadata = localizedTitle("titles.setup");
 
 export default function SetupPage() {
   return <SetupWizard />;

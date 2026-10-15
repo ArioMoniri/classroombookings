@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { WeeksAdmin } from "@/components/admin/weeks-admin";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Weeks" };
+export const generateMetadata = localizedTitle("titles.adminWeeks");
 
 export default function Page() {
   return <WeeksAdmin />;

@@ -1314,15 +1314,21 @@ ROWS: tuple[Row, ...] = (
     # ---------------------------------------------------------------- later parts of Phase 18 (declared gaps)
     _r(
         "P18-LANG",
-        "The 13 CRBS UI languages (cs, da, nl, en, fi, fr, de, it, pt, pt-BR, es, sv, cy) plus Turkish in "
-        "the frontend and backend texts",
+        "Interface languages: Turkish and English only (owner decision 2026-10-15); a stored CRBS language code is "
+        "kept and shown in English",
         "application/language/*",
         FO + "test_missing2_i18n_bundle_merges_overrides",
-        # + the tests/parity/test_parity_languages.py tests marked P18-LANG (tools/crbs_lang_import.py imports the
-        # CRBS files; docs/testing/language-coverage.md has the per-language coverage). The browser step is
-        # e2e/languages.spec.ts (German and French in the bookings grid header); parity_check.py reads only
-        # bookings/calendar.spec.ts titles, so it is not listed as a UI reference here.
+        # + the tests/parity/test_parity_languages.py tests marked P18-LANG: only tr/en are offered and accepted for
+        # new writes (org languages / default, profile, translation overrides -> 422 for "de"), a stored "de" (org or
+        # user) is kept and read as English, a CRBS legacy import keeps known codes and maps unknown ones to "en".
+        # tools/crbs_lang_import.py still imports the CRBS files (generated files kept, not offered). The browser
+        # step is e2e/languages.spec.ts (two options; a legacy "de" cookie renders English).
         TA + "test_org_settings_translations_changelog_and_events",
+        difference=(
+            "CRBS offers 13 languages; SmartSched offers Turkish and English only, the two fully translated ones "
+            "(the 12 other CRBS languages had about 36 of 2,743 strings). Stored codes are kept, shown in English "
+            "(docs/CRBS_PARITY.md §6.13)"
+        ),
     ),
     _r(
         "P18-LEGACY",

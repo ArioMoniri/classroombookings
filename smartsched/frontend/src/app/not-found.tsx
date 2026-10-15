@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { NotFoundView } from "@/components/shell/not-found-view";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "404" };
+export const generateMetadata = localizedTitle("titles.notFound");
 
 export default function NotFound() {
   return <NotFoundView />;

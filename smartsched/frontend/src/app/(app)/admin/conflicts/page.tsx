@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { ConflictsAdmin } from "@/components/admin/conflicts-admin";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Booking conflicts" };
+export const generateMetadata = localizedTitle("titles.adminConflicts");
 
 export default function Page() {
   return <ConflictsAdmin />;

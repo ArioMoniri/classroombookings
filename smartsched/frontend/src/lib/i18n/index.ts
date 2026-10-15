@@ -1,31 +1,18 @@
 import en from "../../../messages/en.json";
 import tr from "../../../messages/tr.json";
-import cs from "../../../messages/cs.json";
-import cy from "../../../messages/cy.json";
-import da from "../../../messages/da.json";
-import de from "../../../messages/de.json";
-import es from "../../../messages/es.json";
-import fi from "../../../messages/fi.json";
-import fr from "../../../messages/fr.json";
-import it from "../../../messages/it.json";
-import nl from "../../../messages/nl.json";
-import pt from "../../../messages/pt.json";
-import ptBr from "../../../messages/pt-br.json";
-import sv from "../../../messages/sv.json";
-import localeData from "./locale-data.json";
 
 /**
- * Turkish and English (SmartSched's own) plus the 12 other classroombookings languages (ROADMAP P18-LANG).
- * Codes are lower case, the same in the cookie, the profile (`PUT /auth/profile`), the org settings and
- * `GET /org/i18n` (the API lower-cases the query). The 12 message files are generated from the CRBS language
- * files by `smartsched/backend/tools/crbs_lang_import.py` and carry only the strings CRBS translates; every
- * other key falls back to English per key (`translate`), and an organisation can fill in the rest
- * (Admin → Settings → Translations, overlaid at runtime by the provider).
+ * Turkish and English, the two fully translated languages (product-owner decision 2026-10-15, ROADMAP P18-LANG;
+ * docs/CRBS_PARITY.md §6 "Languages"). The 12 other classroombookings languages had about 36 of 2,743 strings,
+ * so they are no longer offered: `smartsched/backend/tools/crbs_lang_import.py` still generates their message
+ * files (`messages/<code>.json`), but the app does not ship them. Codes are lower case, the same in the cookie,
+ * the profile (`PUT /auth/profile`), the org settings and `GET /org/i18n`. A user or an organisation whose
+ * stored language is another code (an older SmartSched, a CRBS import) keeps it and is shown English
+ * ({@link displayLocale}); an organisation can still override any text (Admin → Settings → Translations,
+ * overlaid at runtime by the provider).
  */
-export const LOCALES = ["tr", "en", "cs", "cy", "da", "de", "es", "fi", "fr", "it", "nl", "pt", "pt-br", "sv"] as const;
+export const LOCALES = ["tr", "en"] as const;
 export type Locale = (typeof LOCALES)[number];
-/** the CRBS languages besides English: partial catalogues, English per missing key */
-export type CrbsLocale = Exclude<Locale, "tr" | "en">;
 export const DEFAULT_LOCALE: Locale = "tr";
 export const LOCALE_COOKIE = "NEXT_LOCALE";
 /** the backend's default `languages` org setting (what the picker offers before `GET /org/i18n` answers) */
@@ -40,38 +27,42 @@ type Leaves<T, Prefix extends string = ""> = {
 
 export type MessageKey = Leaves<Messages>;
 
-const dictionaries: Record<Locale, DeepPartial<Messages>> = { en, tr, cs, cy, da, de, es, fi, fr, it, nl, pt, "pt-br": ptBr, sv };
+const dictionaries: Record<Locale, DeepPartial<Messages>> = { en, tr };
 
 export interface LocaleInfo {
-  /** endonym: the language's name in itself (ICU display names) */
+  /** endonym: the language's name in itself */
   name: string;
   /** BCP 47 tag for Intl (numbers, plural rules) */
   tag: string;
-  /** CRBS `application/language/<folder>` the strings came from */
-  crbs: string | null;
 }
 
-type CrbsData = (typeof localeData)["languages"][CrbsLocale];
-const CRBS_DATA = localeData.languages as Record<CrbsLocale, CrbsData>;
-
 export const LOCALE_INFO: Record<Locale, LocaleInfo> = {
-  tr: { name: "Türkçe", tag: "tr", crbs: null },
-  en: { name: "English", tag: "en", crbs: "english" },
-  ...(Object.fromEntries(Object.entries(CRBS_DATA).map(([code, d]) => [code, { name: d.name, tag: d.tag, crbs: d.crbs }])) as Record<CrbsLocale, LocaleInfo>),
+  tr: { name: "Türkçe", tag: "tr" },
+  en: { name: "English", tag: "en" },
 };
 
 export function isLocale(value: string | undefined | null): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }
 
-/** `DE`, `pt_BR`, `pt-BR` → a shipped code; anything else → null */
+/** `TR`, ` en ` → an offered code; anything else (also the 12 CRBS codes such as `de`) → null */
 export function normalizeLocale(value: string | undefined | null): Locale | null {
   if (!value) return null;
   const v = value.trim().toLowerCase().replace(/_/g, "-");
   return isLocale(v) ? v : null;
 }
 
-/** BCP 47 tag of a locale for `Intl` (`pt` → `pt-PT`, `pt-br` → `pt-BR`). */
+/**
+ * The language a stored value is shown in: `tr` / `en` as they are; any other non-empty code (a legacy CRBS
+ * language such as `de`, kept in the profile or the org settings) is English; empty → null (use the default).
+ * Mirrors the backend's `bookings_i18n.display_language`.
+ */
+export function displayLocale(value: string | undefined | null): Locale | null {
+  if (!value || !value.trim()) return null;
+  return normalizeLocale(value) ?? "en";
+}
+
+/** BCP 47 tag of a locale for `Intl`. */
 export function intlLocale(locale: Locale): string {
   return LOCALE_INFO[locale]?.tag ?? locale;
 }
@@ -83,36 +74,6 @@ function lookup(dict: DeepPartial<Messages> | Messages, key: string): string | u
     node = (node as Record<string, unknown>)[part];
   }
   return typeof node === "string" ? node : undefined;
-}
-
-function countLeaves(node: unknown): number {
-  if (typeof node === "string") return 1;
-  if (typeof node !== "object" || node === null) return 0;
-  return Object.values(node).reduce<number>((n, v) => n + countLeaves(v), 0);
-}
-
-const TOTAL = countLeaves(en);
-
-export interface Coverage {
-  /** keys the locale ships (for the CRBS languages: translated by CRBS) */
-  translated: number;
-  total: number;
-  /** 0 … 1 */
-  ratio: number;
-  /** some keys fall back to English */
-  partial: boolean;
-}
-
-const coverageCache = new Map<Locale, Coverage>();
-
-/** Share of the message keys a locale translates; the rest falls back to English per key. */
-export function coverage(locale: Locale): Coverage {
-  const hit = coverageCache.get(locale);
-  if (hit) return hit;
-  const translated = locale === "en" ? TOTAL : Math.min(TOTAL, countLeaves(dictionaries[locale]));
-  const out = { translated, total: TOTAL, ratio: TOTAL ? translated / TOTAL : 1, partial: translated < TOTAL };
-  coverageCache.set(locale, out);
-  return out;
 }
 
 export type Vars = Record<string, string | number>;
@@ -171,8 +132,8 @@ function closing(text: string, open: number): number {
 
 /**
  * ICU-style plurals in a message (`{n, plural, =0 {none} one {# room} other {# rooms}}`), chosen with the
- * locale's CLDR rules; `#` is the number in the locale's format. Shipped messages do not use them yet; they let
- * translators and organisation overrides write correct plurals in any of the 14 languages.
+ * locale's CLDR rules; `#` is the number in the locale's format. They let translators and organisation
+ * overrides write correct plurals.
  */
 function formatPlurals(raw: string, vars: Vars, locale: Locale): string {
   const head = /\{(\w+),\s*plural,/g;
@@ -220,10 +181,7 @@ export function upperCode(text: string, locale: Locale): string {
   return text.toLocaleUpperCase(locale === "tr" ? "tr-TR" : "en-US");
 }
 
-/**
- * The side of a Turkish/English text pair (`{ tr, en }` from the solver, studio and diagnosis APIs) to show:
- * Turkish for Turkish, English for every other language (those texts have no CRBS source).
- */
+/** The side of a Turkish/English text pair (`{ tr, en }` from the solver, studio and diagnosis APIs) to show. */
 export function pairLang(locale: Locale): "tr" | "en" {
   return locale === "tr" ? "tr" : "en";
 }

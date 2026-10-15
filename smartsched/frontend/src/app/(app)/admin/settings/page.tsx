@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { OrgSettingsView } from "@/components/admin/org-settings";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Settings" };
+export const generateMetadata = localizedTitle("titles.adminSettings");
 
 export default function Page() {
   return <OrgSettingsView />;

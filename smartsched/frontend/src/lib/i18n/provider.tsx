@@ -3,7 +3,7 @@
 import { QueryClientContext, keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { OrgI18n } from "@/lib/api/crbs";
-import { DEFAULT_ENABLED, DEFAULT_LOCALE, LOCALES, LOCALE_COOKIE, formatNumber, overridesFromBundle, translate, type Locale, type MessageKey, type MessageOverrides, type Vars } from "./index";
+import { DEFAULT_ENABLED, DEFAULT_LOCALE, LOCALES, LOCALE_COOKIE, displayLocale, formatNumber, overridesFromBundle, translate, type Locale, type MessageKey, type MessageOverrides, type Vars } from "./index";
 
 interface I18nContextValue {
   locale: Locale;
@@ -44,10 +44,11 @@ interface LoadedOverrides {
   overrides: MessageOverrides;
 }
 
-/** org `languages` → shipped locales in shipped order; null when unknown */
+/** org `languages` → offered locales in offered order (a legacy code such as `de` counts as English); null
+ *  when unknown */
 function enabledLocales(list: readonly string[] | null | undefined): readonly Locale[] | null {
   if (!list?.length) return null;
-  const set = new Set(list.map((l) => l.toLowerCase()));
+  const set = new Set(list.map((l) => displayLocale(l)));
   const out = LOCALES.filter((l) => set.has(l));
   return out.length ? out : null;
 }

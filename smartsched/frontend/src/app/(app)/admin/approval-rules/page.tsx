@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { ApprovalRulesAdmin } from "@/components/approvals/rules-admin";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Approval rules" };
+export const generateMetadata = localizedTitle("titles.adminApprovalRules");
 
 export default function Page() {
   return <ApprovalRulesAdmin />;

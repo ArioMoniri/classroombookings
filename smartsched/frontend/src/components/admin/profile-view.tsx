@@ -12,13 +12,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, useShake } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, useOrgPublic, useProfile, type Profile } from "@/lib/api/crbs";
-import { LOCALE_INFO, isLocale } from "@/lib/i18n";
+import { LOCALE_INFO, displayLocale, isLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, Field, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
 
-/** language names in themselves (the 14 shipped languages) */
-const langLabel = (code: string | null | undefined) => (code && isLocale(code) ? LOCALE_INFO[code].name : (code ?? ""));
+/** language names in themselves (Turkish, English); a legacy stored code (`de`) reads as English */
+const langLabel = (code: string | null | undefined) => {
+  const shown = displayLocale(code);
+  return shown ? LOCALE_INFO[shown].name : "";
+};
 
 export function ProfileView() {
   const { t } = useI18n();
@@ -43,14 +46,19 @@ function ProfileForm({ data }: { data: Profile }) {
   const { t, setLocale } = useI18n();
   const org = useOrgPublic();
   const qc = useQueryClient();
-  const [f, setF] = useState({ email: data.email ?? "", firstname: data.firstname ?? "", lastname: data.lastname ?? "", displayname: data.displayname ?? "", ext: data.ext ?? "", language: data.language ?? "" });
+  // P18-LANG (TR + EN only): a stored legacy code (`de`, from a CRBS import) is shown as English and kept: the
+  // save sends `language` only when the user picks another one
+  const storedLanguage = data.language ?? "";
+  const legacyLanguage = storedLanguage !== "" && !isLocale(storedLanguage) ? storedLanguage : null;
+  const initialLanguage = displayLocale(storedLanguage) ?? "";
+  const [f, setF] = useState({ email: data.email ?? "", firstname: data.firstname ?? "", lastname: data.lastname ?? "", displayname: data.displayname ?? "", ext: data.ext ?? "", language: initialLanguage });
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof typeof f>(k: K, v: string) => setF((p) => ({ ...p, [k]: v }));
   const save = useCrbsMutation(
-    () => crbs.auth.putProfile({ email: f.email.trim() || null, firstname: f.firstname.trim() || null, lastname: f.lastname.trim() || null, displayname: f.displayname.trim() || null, ext: f.ext.trim() || null, ...(f.language ? { language: f.language } : {}) }),
+    () => crbs.auth.putProfile({ email: f.email.trim() || null, firstname: f.firstname.trim() || null, lastname: f.lastname.trim() || null, displayname: f.displayname.trim() || null, ext: f.ext.trim() || null, ...(f.language && f.language !== initialLanguage ? { language: f.language } : {}) }),
     [["crbs", "profile"], ["crbs", "me"], ["me"]],
   );
-  const languages = org.data?.languages ?? ["tr", "en"];
+  const languages = [...new Set((org.data?.languages ?? ["tr", "en"]).map((l) => displayLocale(l)).filter((l) => l !== null))];
   return (
     <section aria-labelledby="pf-details">
       <SectionTitle id="pf-details">{t("crbs.profile.details")}</SectionTitle>
@@ -63,7 +71,8 @@ function ProfileForm({ data }: { data: Profile }) {
             save.mutate(undefined, {
               onSuccess: (p) => {
                 toast.success(t("crbs.common.saved"));
-                if (p.language && isLocale(p.language)) setLocale(p.language);
+                const shown = displayLocale(p.language);
+                if (shown) setLocale(shown);
                 void qc.invalidateQueries({ queryKey: ["me"] });
               },
               onError: (err) => setError(bookingErrorMessage(crbsError(err), t)),
@@ -86,7 +95,7 @@ function ProfileForm({ data }: { data: Profile }) {
             <Field label={t("crbs.users.ext")} htmlFor="pf-ext">
               <Input id="pf-ext" value={f.ext} onChange={(e) => set("ext", e.target.value)} />
             </Field>
-            <Field label={t("crbs.profile.language")} htmlFor="pf-lang" hint={t("crbs.profile.languageHint")}>
+            <Field label={t("crbs.profile.language")} htmlFor="pf-lang" hint={legacyLanguage && f.language === initialLanguage ? t("crbs.profile.languageLegacy", { code: legacyLanguage }) : t("crbs.profile.languageHint")}>
               <SelectField id="pf-lang" value={f.language} onChange={(e) => set("language", e.target.value)} data-testid="profile-language">
                 <option value="">{t("crbs.profile.orgDefault", { lang: langLabel(org.data?.default_language ?? "tr") })}</option>
                 {languages.map((l) => (

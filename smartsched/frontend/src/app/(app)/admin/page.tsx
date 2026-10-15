@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { AdminOverview } from "@/components/admin/admin-overview";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Setup" };
+export const generateMetadata = localizedTitle("titles.admin");
 
 export default function AdminPage() {
   return <AdminOverview />;

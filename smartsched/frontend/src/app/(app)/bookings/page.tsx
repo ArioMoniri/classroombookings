@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 import { BookingsView } from "@/components/bookings/bookings-view";
+import { localizedTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Bookings" };
+export const generateMetadata = localizedTitle("titles.bookings");
 
 export default function BookingsPage() {
   return (
