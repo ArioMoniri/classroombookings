@@ -51,7 +51,7 @@ class Mailbox:
             item = {
                 "id": self._next, "received_at": datetime.now(UTC).isoformat(timespec="seconds"),
                 "from": envelope_from, "to": rcpts, "auth_user": auth_user,
-                "subject": str(msg.get("Subject", "")), "text": text,
+                "subject": str(msg.get("Subject", "")), "text": text.replace("\r\n", "\n"),
                 "headers": {k: str(v) for k, v in msg.items()},
             }
             self._next += 1

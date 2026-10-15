@@ -105,6 +105,9 @@ class ModelContext:
         self.warnings: list[str] = []
         #: ``relax`` mode: the minimised expression (re-used by the canonical tie-break stage)
         self.relax_objective: Any = None
+        #: ``relax`` mode: the policy's placement objective, one expression per lexicographic stage
+        #: (most significant first; one stage unless the tiers do not fit one weighted sum)
+        self.relax_stages: list[Any] = []
         self.n_bools = 0
         self.n_intervals = 0
         self._build_variables()
