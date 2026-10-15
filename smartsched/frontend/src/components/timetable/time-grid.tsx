@@ -36,7 +36,8 @@ import { cn } from "@/lib/utils";
 import { EventChip, chipVars } from "./event-chip";
 import { checkMove, slotFree, spanText, whenText, type CheckResult } from "./model/check";
 import type { GhostPlacement } from "./model/compare";
-import { GUTTER_W, layoutLanes, nowOffset, periodAt, rowTable, spanHeight, visibleRange, type RowTable } from "./model/geometry";
+import { GUTTER_W, MIN_CHIP_W, layoutLanes, nowOffset, periodAt, rowTable, spanHeight, visibleRange, type RowTable } from "./model/geometry";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { CalBlock, CalBooking, CalEvent, CalendarModel, WeekMask } from "./model/index-model";
 import { roomCap } from "./model/index-model";
 import { nearestValidStart, snapGhost } from "./model/magnet";
@@ -230,26 +231,38 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
       list.push(e);
       byCol.set(c, list);
     }
-    // at most two side-by-side lanes (calendar.md §7.3 double booking); deeper clashes fold into one "+N" stack
+    // at most two side-by-side lanes (calendar.md §7.3 double booking), and only while each lane keeps the 72 px
+    // minimum chip width; deeper (or too narrow) clashes fold into one "+N çakışma" chip with a list popover
+    const maxLanes = colW - 4 >= 2 * MIN_CHIP_W ? 2 : 1;
     const out = new Map<string, { lane: number; lanes: number; col: number }>();
-    const stacks: { key: string; col: number; sp: number; ep: number; aids: number[] }[] = [];
+    const stacks: { key: string; col: number; sp: number; ep: number; aids: number[]; items: { aid: number; code: string }[]; corner: boolean }[] = [];
     for (const [c, list] of byCol) {
       const l = layoutLanes(list.map((e) => ({ id: e.key, sp: e.sp, ep: e.ep })));
       const overflow = new Map<number, CalEvent[]>();
       for (const e of list) {
         const x = l.get(e.key) ?? { lane: 0, lanes: 1, cluster: -1 };
-        if (x.lanes > 2 && x.lane >= 1) {
+        const fold = maxLanes === 1 ? x.lanes > 1 && x.lane >= 1 : x.lanes > 2 && x.lane >= 1;
+        if (fold) {
           overflow.set(x.cluster, [...(overflow.get(x.cluster) ?? []), e]);
           continue;
         }
-        out.set(e.key, { lane: x.lane, lanes: Math.min(2, x.lanes), col: c });
+        out.set(e.key, { lane: x.lane, lanes: Math.min(maxLanes, x.lanes), col: c });
       }
       for (const [cl, evs] of overflow) {
-        stacks.push({ key: `stack-${c}-${cl}`, col: c, sp: Math.min(...evs.map((e) => e.sp)), ep: Math.max(...evs.map((e) => e.ep)), aids: evs.map((e) => e.a.id) });
+        stacks.push({
+          key: `stack-${c}-${cl}`,
+          col: c,
+          sp: Math.min(...evs.map((e) => e.sp)),
+          ep: Math.max(...evs.map((e) => e.ep)),
+          aids: evs.map((e) => e.a.id),
+          items: evs.map((e) => ({ aid: e.a.id, code: e.a.code ?? e.a.label })),
+          // one lane: the chip sits on the top-right corner of the cluster instead of a squeezed second lane
+          corner: maxLanes === 1,
+        });
       }
     }
     return { lanes: out, stacks };
-  }, [events, colOf]);
+  }, [events, colOf, colW]);
   const lanes = laneLayout.lanes;
 
   const rectFor = useCallback(
@@ -925,20 +938,48 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
 
         {laneLayout.stacks.map((st) => {
           if (st.col < c0 || st.col > c1) return null;
-          const r = rectFor(st.col, st.sp, st.ep, 1, 2);
+          const lane = rectFor(st.col, st.sp, st.ep, 1, 2);
+          const full = rectFor(st.col, st.sp, st.ep);
+          // "+3 çakışma": says what the stack is (the bare red "+3" box meant nothing, review §3 Timetable)
+          const label = locale === "tr" ? `+${st.aids.length} çakışma` : `+${st.aids.length} ${st.aids.length === 1 ? "conflict" : "conflicts"}`;
+          const style = st.corner
+            ? { left: full.left + full.width - Math.min(full.width - 8, 88) - 2, top: full.top + 2, width: Math.min(full.width - 8, 88), height: 20, zIndex: 4 }
+            : { left: lane.left, top: lane.top, width: lane.width, height: lane.height, zIndex: 2 };
           return (
-            <button
-              key={st.key}
-              type="button"
-              className="cal-chip items-center justify-center"
-              data-conflict="true"
-              style={{ ...chipVars(8), left: r.left, top: r.top, width: r.width, height: r.height, zIndex: 2 }}
-              aria-label={t("calendar.issues.conflicts", { n: st.aids.length + 1 })}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => props.onSelectMany(st.aids, false)}
-            >
-              <span className="cal-code">+{st.aids.length}</span>
-            </button>
+            <Popover key={st.key}>
+              <PopoverTrigger
+                render={
+                  <button
+                    type="button"
+                    className={cn("cal-chip items-center justify-center", st.corner && "!flex-row !p-0 !px-1.5 shadow-elev-1")}
+                    data-conflict="true"
+                    data-testid="conflict-stack"
+                    style={{ ...chipVars(8), ...style }}
+                    aria-label={t("calendar.issues.conflicts", { n: st.aids.length + 1 })}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  />
+                }
+              >
+                <span className="cal-code truncate">{label}</span>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64 gap-1 p-1.5">
+                <p className="px-1.5 pt-1 type-caption text-label-2">{t("calendar.issues.conflicts", { n: st.aids.length + 1 })}</p>
+                <ul className="grid">
+                  {st.items.map((it) => (
+                    <li key={it.aid}>
+                      <button type="button" className="flex h-8 w-full items-center rounded-md px-1.5 text-left type-callout hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)" onClick={() => props.onSelectMany([it.aid], false)}>
+                        {it.code}
+                      </button>
+                    </li>
+                  ))}
+                  <li>
+                    <button type="button" className="flex h-8 w-full items-center rounded-md px-1.5 text-left type-footnote font-medium text-tint-text hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)" onClick={() => props.onSelectMany(st.aids, false)}>
+                      {locale === "tr" ? "Hepsini seç" : "Select all"}
+                    </button>
+                  </li>
+                </ul>
+              </PopoverContent>
+            </Popover>
           );
         })}
 

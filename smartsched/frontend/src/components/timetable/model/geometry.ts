@@ -16,7 +16,10 @@ export const STRIP_SLOT_STEPS = [6, 10, 14, 20, 28] as const;
 /** Day-timeline pixels per minute per zoom step (1.4 px/min standard → 860 min ≈ 1,204 px). */
 export const MINUTE_PX_STEPS = [0.8, 1.1, 1.4, 1.8, 2.3] as const;
 
-export const ROOM_COL: Record<Density, number> = { compact: 96, standard: 120, comfortable: 152 };
+/** Room column widths; never under 112 px so two 72 px chips or one chip with its full code fit (review 2026-10-15 §3). */
+export const ROOM_COL: Record<Density, number> = { compact: 112, standard: 128, comfortable: 160 };
+/** The narrowest an event chip may be: the course code never truncates below this (review 2026-10-15 §3 Timetable). */
+export const MIN_CHIP_W = 72;
 export const GUTTER_W = 56;
 export const ROOM_HEADER_H = 48;
 export const BAND_H = 24;

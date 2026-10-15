@@ -82,8 +82,9 @@ function EventChipImpl(p: EventChipProps) {
       onFocus={p.onFocus ? () => p.onFocus?.(ev) : undefined}
     >
       <span className="flex min-w-0 items-center gap-1">
-        <span className="cal-code truncate">{a.code ?? a.label.split(" §")[0]}</span>
-        {a.sec ? <span className="truncate type-caption opacity-80">§{a.sec}</span> : null}
+        {/* the code never truncates; the section and the name lines give way first (review 2026-10-15 §3) */}
+        <span className="cal-code shrink-0 whitespace-nowrap">{a.code ?? a.label.split(" §")[0]}</span>
+        {a.sec ? <span className="min-w-0 truncate type-caption">§{a.sec}</span> : null}
         {a.evening ? <Moon className="size-3 shrink-0" aria-hidden /> : null}
         {p.exam ? <PencilLine className="size-3 shrink-0" aria-hidden /> : null}
         {p.compareMoved ? <span aria-hidden className="shrink-0 text-2xs">↔</span> : null}
