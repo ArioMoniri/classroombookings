@@ -27,6 +27,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // MOBILE.md M-06: without cover the env(safe-area-inset-*) paddings are 0 on iOS (notch, home indicator)
+  viewportFit: "cover",
   themeColor: [
     /* --scene (liquid-glass.md §3, §16.6): the browser chrome continues the scene behind the glass */
     { media: "(prefers-color-scheme: light)", color: "#eef0f4" },
