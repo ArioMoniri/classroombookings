@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -137,6 +138,10 @@ async def setup_requirements(
     return {"setup_required": setup_required, "ok": not bookings_setup.failing(checks), "requirements": checks}
 
 
+#: written with the first administrator (dotted: internal, not listed by GET /settings)
+SETUP_SENTINEL = "setup.first_run"
+
+
 @router.post("/setup", status_code=201)
 async def first_run_setup(body: SetupIn, db: DB) -> dict[str, Any]:
     """First-run wizard (CRBS ``install/info``): organisation name, timezone and the first administrator.
@@ -151,18 +156,30 @@ async def first_run_setup(body: SetupIn, db: DB) -> dict[str, Any]:
         username = fold_username(body.admin_username) if body.admin_username else None
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
-    roles = await ensure_permissions_and_roles(db)
-    await set_group(db, "org", {"name": body.org_name})
-    await settings_service.set_value(db, "timezone", body.timezone)
-    user = User(
-        email=email,
-        username=username,
-        full_name=n.clean_text(body.admin_displayname) or "Administrator",
-        password_hash=hash_password(body.admin_password),
-    )
-    set_user_role(user, roles["ADMIN"])
-    db.add(user)
-    await db.commit()
+    from sqlalchemy.exc import IntegrityError
+
+    from app.models import Setting
+
+    try:
+        # review D19: the sentinel row (primary key) is written first, so of two concurrent wizards only one gets
+        # past this flush; the other fails on the key and answers 409 instead of creating a second administrator
+        db.add(Setting(key=SETUP_SENTINEL, value=datetime.now(UTC).isoformat(timespec="seconds"), is_secret=False))
+        await db.flush()
+        roles = await ensure_permissions_and_roles(db)
+        await set_group(db, "org", {"name": body.org_name})
+        await settings_service.set_value(db, "timezone", body.timezone)
+        user = User(
+            email=email,
+            username=username,
+            full_name=n.clean_text(body.admin_displayname) or "Administrator",
+            password_hash=hash_password(body.admin_password),
+        )
+        set_user_role(user, roles["ADMIN"])
+        db.add(user)
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(409, "setup is already complete") from exc
     return {"user_id": user.id, "email": user.email, "username": user.username}
 
 
