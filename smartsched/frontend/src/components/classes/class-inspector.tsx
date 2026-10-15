@@ -19,6 +19,7 @@ import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { chipVars } from "@/components/timetable/event-chip";
 import { spanText } from "@/components/timetable/model/check";
+import { NotesSection } from "./notes-section";
 
 export interface InspectorProps {
   termId: number | null;
@@ -267,6 +268,8 @@ export function ClassInspector(p: InspectorProps) {
           {row?.req.warnings.length ? <ul className="text-[12px] text-status-warning-fg">{row.req.warnings.slice(0, 3).map((w) => <li key={w}>{w}</li>)}</ul> : null}
           {placement?.matched === "board" ? <p className="text-[11px] text-label-3">{t("calendar.insp.matchedBoard")}</p> : null}
         </SectionBlock>
+
+        {mr !== null ? <NotesSection requestId={mr} notes={row?.req.notes} termId={p.termId} runId={p.runId} /> : null}
 
         <SectionBlock title={t("calendar.insp.who")}>
           <p className="text-[13px] tabular-nums">{size || "—"} {lang === "tr" ? "öğrenci" : "students"}{cap ? ` · ${cap} ${lang === "tr" ? "koltuk" : "seats"}` : ""}</p>

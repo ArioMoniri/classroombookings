@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { assignment } from "@/test/fixtures/calendar-index";
 import { I18nProvider } from "@/lib/i18n/provider";
+import { ClassRow } from "@/lib/api/classes";
 import { ClassInspector, type InspectorProps } from "./class-inspector";
 
 function wrap(ui: ReactNode) {
@@ -66,5 +67,31 @@ describe("ClassInspector", () => {
     expect(screen.queryByTestId("inspector-move")).toBeNull();
     expect(screen.getByText("Why here")).toBeInTheDocument();
     expect(screen.getByTestId("explain-placement")).toBeInTheDocument();
+  });
+});
+
+describe("ClassInspector notes (A-04)", () => {
+  const row = ClassRow.parse({
+    id: 42,
+    kind: "meeting",
+    course_code: "PSK 201",
+    req: { notes: "JASP kürsü bilgisayarında kurulu olsun" },
+    definitive: {},
+    placement: null,
+    placement_status: "unplaced",
+    provenance: { kind: "planning_list" },
+  });
+
+  it("shows the request's own words and flags a note that produced no rule as not read", async () => {
+    wrap(<ClassInspector {...base({ assignment: undefined, row, runId: null, surface: "classes" })} />);
+    const notes = screen.getByTestId("inspector-notes");
+    expect(notes).toHaveTextContent("JASP kürsü bilgisayarında kurulu olsun");
+    expect(await screen.findByTestId("notes-unread")).toHaveTextContent("not read");
+    expect(notes).toHaveTextContent("No rule was read from this note");
+  });
+
+  it("no notes → no notes section", () => {
+    wrap(<ClassInspector {...base({ assignment: undefined, row: { ...row, req: { ...row.req, notes: null } }, runId: null, surface: "classes" })} />);
+    expect(screen.queryByTestId("inspector-notes")).toBeNull();
   });
 });
