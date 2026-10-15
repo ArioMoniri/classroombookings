@@ -474,3 +474,11 @@ Defaults adopted (owner may override):
 - [ ] T7–T12: the minor items in the audit doc.
 - [ ] T13: the e2e reduced-transparency assertion reads `backgroundColor`, which is always transparent for gradient glass. Fix the spec, and the same check in .claude/skills/motion_designer/references/audit.md, then run `check_snippets.py` and expect PASS.
 - [ ] Re-run audit §1 for the features admin, approvals, audit viewer, find-room and onboarding once they land.
+
+### Persona test loop (user request 2026-10-15: "user, academician and admin subagents test each part, button, motion design and feature, report issues and enhancements, and wire them")
+- Three user-tester agents (staff booking user, academician, admin/coordinator), each on its own isolated real stack built from a frozen snapshot (commit cc9c45d): real backend, real Bahar/Güz/Final workbooks, production frontend. Every reachable screen, button and form, TR + EN, 390 px, keyboard-only, reduced motion, plus frame-drop measurement against the motion_designer audit checklist.
+- Reports go to docs/testing/2026-10-15-persona-{user,academician,admin}.md. Issue ids: U-/A-/M-.
+- Wiring:
+  1. Each issue gets a ticket here, with its owner area: frontend sweep, backend, solver, AI, importer, devops or i18n. It goes to the running owner agent, or into the next sweep.
+  2. Enhancements map to an existing P19 ticket or become a new one.
+  3. After the fixes land, the same persona re-tests on a new snapshot and marks each issue verified or reopened.
