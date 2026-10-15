@@ -69,6 +69,10 @@ async def find(body: FindIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
             },
             headers={"Retry-After": str(FIND_LIMIT.retry_after(key))},
         )
+    from app.services import rooms_features as feat
+
+    if await feat.ensure_tag_features(db):  # A-11: imported room tags are features (facets) too
+        await db.commit()
     try:
         out = await svc.find_rooms(db, access, to_query(body))
     except svc.FindError as exc:

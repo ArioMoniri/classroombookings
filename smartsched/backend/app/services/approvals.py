@@ -647,6 +647,8 @@ async def request_out(
         "note": req.note,
         "suggestion": req.suggestion,
         "bookings": [await bsvc.booking_out(session, access, b) for b in rows],
+        # A-12: the periods of one submission share the multi-booking id (series requests are one request already)
+        "group_id": rows[0].multi_booking_id if (rows and req.series_id is None) else None,
     }
     if detail:
         decisions = (
@@ -749,6 +751,76 @@ async def inbox(session: AsyncSession, access: Access, status: str = "open") -> 
                 continue
         out.append(await request_out(session, access, req, detail=True))
     return out
+
+
+def group_requests(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A-12: inbox entries -> one entry per submission (``group_id``, its requests in period order, the span); a
+    request without a group is an entry of its own (``group_id`` None, one request)."""
+    out: list[dict[str, Any]] = []
+    by_group: dict[tuple[int, str, int], dict[str, Any]] = {}
+    for it in items:
+        b = (it.get("bookings") or [{}])[0]
+        gid = it.get("group_id")
+        key = (int(gid), str(b.get("date")), int(it["room_id"])) if gid else None
+        entry = by_group.get(key) if key else None
+        if entry is None:
+            entry = {
+                "group_id": gid,
+                "room_id": it["room_id"],
+                "room_name": it.get("room_name"),
+                "date": b.get("date"),
+                "requested_by": it.get("requested_by"),
+                "requester_name": it.get("requester_name"),
+                "requested_at": it.get("requested_at"),
+                "expires_at": it.get("expires_at"),
+                "status": it.get("status"),
+                "requests": [],
+            }
+            out.append(entry)
+            if key:
+                by_group[key] = entry
+        entry["requests"].append(it)
+    for e in out:
+        e["requests"].sort(key=lambda r: ((r.get("bookings") or [{}])[0].get("start_period") or 0, r["id"]))
+        spans = [b for r in e["requests"] for b in (r.get("bookings") or [])]
+        e["start_period"] = min((b.get("start_period") or 0 for b in spans), default=None)
+        e["end_period"] = max((b.get("end_period") or 0 for b in spans), default=None)
+        e["request_ids"] = [r["id"] for r in e["requests"]]
+        exp = [r["expires_at"] for r in e["requests"] if r.get("expires_at")]
+        e["expires_at"] = min(exp) if exp else None
+        statuses = {r.get("status") for r in e["requests"]}
+        e["status"] = statuses.pop() if len(statuses) == 1 else "MIXED"
+    return out
+
+
+async def decide_group(
+    session: AsyncSession, access: Access, group_id: int, decision: str, note: str | None = None
+) -> dict[str, Any]:
+    """A-12: decide every open request of one submission whose current step the caller may decide, in period
+    order; each is decided (and audited) like ``POST /approvals/{id}/decide``, a failure is reported per request.
+    Per-period decisions stay possible through the single endpoint."""
+    if not access.can(DECIDE):
+        raise _err(403, "not_an_approver", "you may not decide approval requests", "onay talebi karara bağlayamazsınız")
+    await sweep(session)
+    q = (
+        select(ApprovalRequest)
+        .join(Booking, Booking.id == ApprovalRequest.booking_id)
+        .where(ApprovalRequest.status == PENDING, Booking.multi_booking_id == group_id)
+        .order_by(Booking.date, Booking.start_period, ApprovalRequest.id)
+    )
+    reqs = list((await session.execute(q)).scalars())
+    results: list[dict[str, Any]] = []
+    for req in reqs:
+        room = await session.get(Room, req.room_id)
+        if room is None or access.user not in await step_approvers(session, room, req.rule_snapshot or {}, req.step):
+            continue
+        try:
+            out = await decide(session, access, req.id, decision, note)
+            results.append({"request_id": req.id, "ok": True, "status": out.get("status")})
+        except (ApprovalError, bsvc.BookingError) as exc:
+            await session.rollback()
+            results.append({"request_id": req.id, "ok": False, "code": exc.code, "message": exc.message})
+    return {"group_id": group_id, "decision": decision, "results": results}
 
 
 async def mine(session: AsyncSession, access: Access) -> list[dict[str, Any]]:

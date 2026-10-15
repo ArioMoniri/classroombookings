@@ -273,6 +273,85 @@ async def booking_occupancy(
     return out
 
 
+UNPUBLISHED_TR = (
+    "Bu dönemin ders programı henüz yayımlanmadı: derslikler boş görünebilir ama dersler planlanıyor. "
+    "Rezervasyon, yayımlanan programla çakışabilir."
+)
+UNPUBLISHED_EN = (
+    "The timetable of this term has not been published yet: rooms may look free although classes are being "
+    "planned. A booking may clash with the timetable once it is published."
+)
+
+
+def _run_covers(run: ScheduleRun, info: TermInfo, d_from: date, d_to: date) -> bool:
+    """Does the active ``run`` hold the timetable of some date in ``d_from..d_to``? A TERM run does; a WEEK / MONTH
+    run only for its weeks."""
+    from app.services.calendar import week_index_for_date
+
+    if (run.horizon or "TERM") == "TERM":
+        return True
+    hp = run.horizon_params or {}
+    weeks = {int(w) for w in (hp.get("weeks") or ([hp["week"]] if hp.get("week") else []))}
+    if not weeks:
+        return True
+    d = max(d_from, info.start)
+    while d <= min(d_to, info.end):
+        if week_index_for_date(info.term, d, info.weeks) in weeks:
+            return True
+        d += timedelta(days=1)
+    return False
+
+
+async def timetable_state(session: AsyncSession, d_from: date, d_to: date) -> dict[str, Any]:
+    """Persona test A-24: is the timetable behind the booking grid published for these dates?
+
+    ``published``: an active run covers them; ``unpublished``: a planning term overlapping them has meeting / exam
+    requests but no active run covering the dates (rooms look free although classes are planned); ``none``: no
+    planning data. Bookings in the ``unpublished`` state need ``confirm_unpublished``."""
+    from app.models import ExamRequest, MeetingRequest, Section
+
+    states: list[str] = []
+    total = 0
+    term_ids: list[int] = []
+    for term in (await session.execute(select(Term))).scalars():
+        info = await term_info(session, term)
+        if info is None or not (info.start <= d_to and d_from <= info.end):
+            continue
+        runs = list(
+            (
+                await session.execute(
+                    select(ScheduleRun).where(ScheduleRun.term_id == term.id, ScheduleRun.is_active.is_(True))
+                )
+            ).scalars()
+        )
+        if any(_run_covers(r, info, d_from, d_to) for r in runs):
+            states.append("published")
+            term_ids.append(term.id)
+            continue
+        n = int(
+            (
+                await session.execute(
+                    select(func.count(MeetingRequest.id))
+                    .join(Section, Section.id == MeetingRequest.section_id)
+                    .where(Section.term_id == term.id)
+                )
+            ).scalar_one()
+        ) + int(
+            (
+                await session.execute(select(func.count(ExamRequest.id)).where(ExamRequest.term_id == term.id))
+            ).scalar_one()
+        )
+        if n:
+            states.append("unpublished")
+            term_ids.append(term.id)
+            total += n
+    state = "unpublished" if "unpublished" in states else ("published" if states else "none")
+    out: dict[str, Any] = {"state": state, "term_ids": term_ids, "meeting_requests": total}
+    if state == "unpublished":
+        out.update(message_tr=UNPUBLISHED_TR, message_en=UNPUBLISHED_EN)
+    return out
+
+
 async def find_conflict(
     session: AsyncSession, room_id: int, d: date, start: int, end: int, exclude: set[int] | None = None
 ) -> Held | None:
@@ -376,6 +455,7 @@ async def booking_out(session: AsyncSession, access: Access, b: Booking, *, deta
         "id": b.id,
         "type": "recurring" if b.series_id else "single",
         "series_id": b.series_id,
+        "group_id": b.multi_booking_id,  # A-12: one submission (multi-booking) = one group
         "term_id": b.term_id,
         "status": b.status,
         "date": b.date.isoformat(),
@@ -532,6 +612,8 @@ class SingleIn:
     #: T1: what the booking was searched for (kept for P2 alternatives)
     headcount: int | None = None
     required_features: list[Any] | None = None
+    #: A-24: the user saw the "timetable not published yet" warning and books anyway
+    confirm_unpublished: bool = False
 
 
 async def ungrouped_rooms_hidden(session: AsyncSession) -> bool:
@@ -742,6 +824,17 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
     held = await find_conflict(session, room.id, body.date, period.start_period, period.end_period)
     if held is not None:
         raise await _conflict_error(held, room, body.date)
+    if not body.confirm_unpublished:
+        st = await timetable_state(session, body.date, body.date)
+        if st["state"] == "unpublished":
+            raise _conflict(
+                "timetable_unpublished",
+                UNPUBLISHED_EN,
+                confirm_field="confirm_unpublished",
+                message_en=UNPUBLISHED_EN,
+                message_tr=UNPUBLISHED_TR,
+                meeting_requests=st["meeting_requests"],
+            )
     b = Booking(
         term_id=info.term.id,
         period_id=period.id,
@@ -1154,6 +1247,7 @@ async def booking_summary(session: AsyncSession, b: Booking) -> dict[str, Any]:
         "period_name": period.name if period else None,
         "user_id": b.user_id,
         "series_id": b.series_id,
+        "group_id": b.multi_booking_id,  # A-12: one submission (multi-booking) = one group
     }
 
 
@@ -1448,7 +1542,14 @@ async def get_selection(session: AsyncSession, access: Access, mb_id: int) -> Mu
 
 
 async def create_from_selection(
-    session: AsyncSession, access: Access, mb_id: int, kind: str, choices: dict[int, dict[str, Any]], dry_run: bool
+    session: AsyncSession,
+    access: Access,
+    mb_id: int,
+    kind: str,
+    choices: dict[int, dict[str, Any]],
+    dry_run: bool,
+    *,
+    confirm_unpublished: bool = False,
 ) -> dict[str, Any]:
     mb = await get_selection(session, access, mb_id)
     selected = [s for s in mb.slots if choices.get(s.id, {}).get("create", True)]
@@ -1474,6 +1575,7 @@ async def create_from_selection(
                 term_id=mb.term_id,
                 user_given="user_id" in c,
                 department_given="department_id" in c,
+                confirm_unpublished=confirm_unpublished,
             )
             bodies.append(body)
             room = await session.get(Room, s.room_id)
@@ -1600,17 +1702,22 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
         if owned
         else []
     )
-    total_all = (
-        await session.execute(select(func.count(Booking.id)).where(Booking.user_id == access.user_id))
-    ).scalar_one()
-    current = sorted(await current_term_ids(session, t))  # computed from the dates like CRBS (audit B3)
-    total_session = 0
-    if current:
-        total_session = (
-            await session.execute(
-                select(func.count(Booking.id)).where(Booking.user_id == access.user_id, Booking.term_id == current[0])
+    # A-12: totals count sessions -- the periods of one submission (multi-booking) on one day and room are one
+    # session; ``*_periods`` keep CRBS's row counts
+    rows = (
+        await session.execute(
+            select(Booking.id, Booking.multi_booking_id, Booking.date, Booking.room_id, Booking.term_id).where(
+                Booking.user_id == access.user_id
             )
-        ).scalar_one()
+        )
+    ).all()
+    current = sorted(await current_term_ids(session, t))  # computed from the dates like CRBS (audit B3)
+
+    def sessions(items: list[Any]) -> int:
+        return len({(r.multi_booking_id, r.date, r.room_id) if r.multi_booking_id else r.id for r in items})
+
+    in_session = [r for r in rows if current and r.term_id == current[0]]
+    total_all, total_session = sessions(list(rows)), sessions(in_session)
     return {
         "user_bookings": mine,
         "room_bookings": in_my_rooms,
@@ -1618,6 +1725,8 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
         "totals": {
             "all": int(total_all),
             "session": int(total_session),
+            "all_periods": len(rows),
+            "session_periods": len(in_session),
             "active": await active_booking_count(session, access.user_id),
         },
         "limits": await effective_limits(session, access.user),
@@ -1783,6 +1892,7 @@ async def grid(
                 slots.append(slot)
     prev_d, next_d = await _prev_next(session, info, target, display, period_days)
     return {
+        "timetable_state": await timetable_state(session, d0, d1),
         "display": display,
         "term": {
             "id": info.term.id,

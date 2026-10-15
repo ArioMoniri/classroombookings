@@ -177,4 +177,6 @@ async def facets(db: DB, access: CurrentAccess) -> list[dict[str, Any]]:
     hide_ungrouped = await booking_svc.ungrouped_rooms_hidden(db)
     rooms = [r for r in rooms if r.is_bookable and not (hide_ungrouped and r.room_group_id is None)]
     admin = access.can("rooms.features") or access.can("setup.rooms")
+    if await feat.ensure_tag_features(db):  # A-11: imported room tags become yes/no facets
+        await db.commit()
     return await feat.facets(db, rooms, include_private=admin)

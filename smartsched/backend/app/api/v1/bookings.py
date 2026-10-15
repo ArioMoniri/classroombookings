@@ -92,6 +92,8 @@ class BookingIn(BaseModel):
     #: T1: filled when the booking comes from "find me a room" (P2 ranks alternatives with them)
     headcount: int | None = Field(default=None, ge=0, le=5000)
     required_features: list[Any] | None = Field(default=None, max_length=20)
+    #: A-24: book although the term's timetable is not published yet (the grid's timetable_state warning)
+    confirm_unpublished: bool = False
 
     @model_validator(mode="after")
     def _clean(self) -> BookingIn:
@@ -149,6 +151,7 @@ class MultiCreateIn(BaseModel):
     type: Literal["single", "recurring"] = "single"
     slots: list[SlotChoice] = Field(default_factory=list)
     dry_run: bool = False
+    confirm_unpublished: bool = False  # A-24
 
 
 class UpdateIn(BaseModel):
@@ -184,6 +187,7 @@ def _single(body: BookingIn) -> svc.SingleIn:
         department_given="department_id" in sent,
         headcount=body.headcount,
         required_features=body.required_features,
+        confirm_unpublished=body.confirm_unpublished,
     )
 
 
@@ -542,7 +546,9 @@ async def multi_create(mb_id: int, body: MultiCreateIn, db: DB, access: Acc) -> 
             d.pop("instances", None)
         choices[c.mbs_id] = d
     try:
-        return await svc.create_from_selection(db, access, mb_id, body.type, choices, body.dry_run)
+        return await svc.create_from_selection(
+            db, access, mb_id, body.type, choices, body.dry_run, confirm_unpublished=body.confirm_unpublished
+        )
     except svc.BookingError as exc:
         raise _err(exc) from exc
 

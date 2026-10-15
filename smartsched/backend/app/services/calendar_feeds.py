@@ -303,6 +303,50 @@ async def event_view(cache: _Cache, access: Access | None, b: Booking) -> EventV
     )
 
 
+def merge_blocks(views: list[EventView]) -> list[EventView]:
+    """A-12: the periods of one submission (same multi-booking, room, date and status, consecutive periods) are one
+    VEVENT from the first period's start to the last one's end. The block keeps the first booking's UID; its
+    fingerprint covers every member, so SEQUENCE moves when the block changes (a period rejected or cancelled
+    leaves the block and appears on its own)."""
+    out: list[EventView] = []
+    members: list[list[EventView]] = []
+    for v in sorted(views, key=lambda x: (x.booking.date, x.booking.room_id, x.booking.start_period, x.booking.id)):
+        last = members[-1][-1] if members else None
+        if (
+            last is not None
+            and v.booking.multi_booking_id is not None
+            and v.booking.multi_booking_id == last.booking.multi_booking_id
+            and v.booking.room_id == last.booking.room_id
+            and v.booking.date == last.booking.date
+            and v.status == last.status
+            and v.booking.start_period == last.booking.end_period + 1
+        ):
+            members[-1].append(v)
+        else:
+            members.append([v])
+    for block in members:
+        if len(block) == 1:
+            out.append(block[0])
+            continue
+        first, final = block[0], block[-1]
+        notes = list(dict.fromkeys(x.description for x in block if x.description))
+        out.append(
+            EventView(
+                booking=first.booking,
+                room=first.room,
+                period=first.period,
+                start=first.start,
+                end=final.end,
+                summary=f"{first.room.display_name} – {first.period.name}–{final.period.name}",
+                location=first.location,
+                description="\n".join(notes) or None,
+                status=first.status,
+                fingerprint=hashlib.sha256("|".join(x.fingerprint for x in block).encode()).hexdigest(),
+            )
+        )
+    return sorted(out, key=lambda x: (x.start, x.booking.id))
+
+
 async def revisions(session: AsyncSession, views: list[EventView]) -> dict[int, tuple[int, datetime]]:
     """``booking_id -> (SEQUENCE, LAST-MODIFIED)``; a changed fingerprint bumps the sequence (persisted)."""
     out: dict[int, tuple[int, datetime]] = {}
@@ -419,6 +463,7 @@ async def build_feed(session: AsyncSession, access: Access, scope: FeedScope, *,
         view = await event_view(cache, access, b)
         if view is not None:
             views.append(view)
+    views = merge_blocks(views)
     revs = await revisions(session, views)
     events = [
         IcsEvent(

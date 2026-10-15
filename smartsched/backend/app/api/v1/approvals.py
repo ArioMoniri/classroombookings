@@ -48,13 +48,28 @@ def _err(exc: bsvc.BookingError) -> HTTPException:
 
 
 @router.get("/inbox")
-async def inbox(db: DB, access: CurrentAccess, status: str = "open") -> list[dict[str, Any]]:
-    """Requests whose current step the caller may decide (``open``), or that the caller decided (``decided``)."""
+async def inbox(db: DB, access: CurrentAccess, status: str = "open", grouped: bool = False) -> list[dict[str, Any]]:
+    """Requests whose current step the caller may decide (``open``), or that the caller decided (``decided``).
+    ``grouped``: one entry per submission (A-12: the periods of one multi-period request), with its requests."""
     if status not in ("open", "decided", "all"):
         raise HTTPException(422, "status must be open, decided or all")
     if not access.can(svc.DECIDE):
         return []
-    return await svc.inbox(db, access, status)
+    items = await svc.inbox(db, access, status)
+    return svc.group_requests(items) if grouped else items
+
+
+@router.post("/groups/{group_id}/decide")
+async def decide_group(group_id: int, body: DecideIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """A-12: approve or reject every open request of one submission at once (alternatives and series instances are
+    decided per request)."""
+    if body.alternative is not None or body.instances:
+        raise HTTPException(422, "alternatives and instances are decided per request (POST /approvals/{id}/decide)")
+    try:
+        return await svc.decide_group(db, access, group_id, body.decision, body.note)
+    except bsvc.BookingError as exc:
+        await db.rollback()
+        raise _err(exc) from exc
 
 
 @router.get("/mine")

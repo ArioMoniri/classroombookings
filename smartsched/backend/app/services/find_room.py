@@ -218,6 +218,18 @@ async def _building_codes(session: AsyncSession, texts: list[str]) -> set[str]:
     return out
 
 
+def _tags_named_in(text: str | None) -> set[str]:
+    """Solver tags whose name or a synonym appears in the free search text as whole words (Turkish-insensitive)."""
+    if not text:
+        return set()
+    folded = n.tr_casefold(text)
+    return {
+        tag
+        for tag, syns in feat.TAG_SYNONYMS.items()
+        if any(n.has_phrase(folded, n.tr_casefold(s)) for s in (tag.lower(), *syns))
+    }
+
+
 def _tags_from_words(words: list[str]) -> set[str]:
     out = set()
     for w in words:
@@ -336,6 +348,7 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
     except feat.FeatureError as exc:
         raise FindError(exc.status, exc.code, exc.message, exc.message) from exc
     tags = _tags_from_words(q.tags)
+    tags |= _tags_named_in(q.text)  # A-11: "PC" in the search text asks for PC rooms (no "not asked for" penalty)
     vals = await feat.room_values(session, rooms, fields)
     if q.text:
         words = [w for w in n.tr_casefold(q.text).split(" ") if w]

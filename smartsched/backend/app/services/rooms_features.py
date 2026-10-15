@@ -616,6 +616,27 @@ async def adopt_tags(session: AsyncSession, actor: User | None = None) -> list[R
     return created
 
 
+async def ensure_tag_features(session: AsyncSession) -> list[RoomCustomField]:
+    """A-11: rooms imported after the 0012 adoption carry solver tags (PC, TIP ...) that no typed feature maps, so
+    ``GET /rooms/facets`` was empty. Adopt them on first use; the new features are attributed to the system (not
+    to whoever happened to open the finder). Returns the created features (the caller commits)."""
+    mapped = {f.solver_tag for f in await catalogue(session) if f.solver_tag}
+    present = {norm_tag(str(t)) for tags in (await session.execute(select(Room.tags))).scalars() for t in tags or []}
+    if not (present - mapped - {""}):
+        return []
+    previous = audit.context(session)
+    audit.set_context(
+        session, audit.AuditContext(actor_type="system", request_id=previous.request_id if previous else None)
+    )
+    try:
+        return await adopt_tags(session, None)
+    finally:
+        if previous is not None:
+            audit.set_context(session, previous)
+        else:
+            session.info.pop(audit.CTX_KEY, None)
+
+
 async def apply_template(session: AsyncSession, actor: User | None = None) -> list[RoomCustomField]:
     """The suggested catalogue, skipping names that exist (only on an administrator's request)."""
     created = []

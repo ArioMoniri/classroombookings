@@ -71,8 +71,11 @@ async def test_unpublished_runs_do_not_block_but_activation_reports_conflicts(en
         run = await s.get(ScheduleRun, env.run_id)
         run.is_active = False
         await s.commit()
+    # FZT 132 is in an unpublished run now: not blocked, but warned first (persona test A-24)
     r = await env.book(ayse, "A101", MON, "P4")
-    assert r.status_code == 201, r.text  # FZT 132 is in an unpublished run now
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "timetable_unpublished", r.text
+    r = await env.book(ayse, "A101", MON, "P4", confirm_unpublished=True)
+    assert r.status_code == 201, r.text
     r = await env.client.post(f"/api/v1/runs/{env.run_id}/activate", headers=env.planner)
     assert r.status_code == 200
     conflicts = (
