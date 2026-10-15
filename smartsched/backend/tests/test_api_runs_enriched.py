@@ -9,7 +9,7 @@ from app.services.solver_bridge import build_solver_input
 from app.workers.queue import get_queue
 
 from tests.api_fixtures import login
-from tests.test_api_runs import _import_guz
+from tests.test_api_runs import _import_guz, publish_directly
 
 PSI155_NAME = "Felsefede Temel Kavramlar ve Sorunlar"  # Güz list row 2: PSI 155, Psikoloji, 120 students, A 204
 
@@ -142,7 +142,9 @@ async def test_enriched_assignments_grid_move_lock_and_dashboard(client, stub_so
     assert next(a for a in rows if a["id"] == psi["id"])["is_conflict"] is True
 
     # ---- dashboard with the run: real utilisation matrices + last runs
-    await client.post(f"/api/v1/runs/{run_id}/activate", headers=h)
+    r = await client.post(f"/api/v1/runs/{run_id}/activate", headers=h)
+    assert r.status_code == 409, r.text  # the forced overlap breaks a hard rule: not publishable (review D4)
+    await publish_directly(run_id)
     d = (await client.get("/api/v1/dashboard", params={"term_id": term_id}, headers=h)).json()
     assert d["active_run_id"] == run_id and d["utilisation_run_id"] == run_id and d["utilisation_week"] == 3
     assert d["last_runs"][0]["id"] == run_id and d["last_runs"][0]["hard_score"] is not None

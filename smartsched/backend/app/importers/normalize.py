@@ -453,7 +453,6 @@ def parse_time_slot(value: Any) -> tuple[time, time] | None:
 
 _ROOM_RX = re.compile(r"(?<![A-Za-zÇĞİÖŞÜçğıöşü0-9])([A-Da-d])\s?([zZ]?\d{2,3})(?![0-9])")
 _ROOM_BLOCK_RX = re.compile(r"([A-Da-d])\s*[Bb][Ll][Oo][Kk]\w*\s*((?:\d{3}\s*[-,/]?\s*)+)")
-_BUILDING_RX = re.compile(r"\b([A-Da-d])\s*[Bb][Ll][Oo][Kk]")
 _ROOM_PAIR_RX = re.compile(r"\s*[-–/]\s*([zZ]?\d{2,3})(?![0-9.,]?\d)(?!\s*(?:kişi|kisi|öğr|ogr))")
 
 
@@ -1326,6 +1325,175 @@ def split_program_names(value: Any) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Free-text preferences (docs/testing/2026-10-15-academician-needs.md §2.3)
+# ---------------------------------------------------------------------------
+
+#: negation in :func:`fold` form: "olmasın" (never "olmasını", which asks *for* it), "istemiyorum", "hariç",
+#: "dışında", "olmamalı", "verilmesin"
+_NEG_RX = re.compile(
+    r"\b(?:olmasin|olmasinlar|olmamali|olmamasi|verilmesin|istemiyor(?:um|uz|lar)?|istenmiyor|haric|disinda)\b"
+)
+#: wish wording: a clause with one of these words but nothing structured is an "unparsed preference"
+_WISH_RX = re.compile(
+    r"\b(?:rica|talep|olsun|olmasin|mumkunse|tercih|istiyor\w*|isteniyor|istenmektedir|lutfen|"
+    r"olmamasi|konmamasi|gerekli|gerekiyor|gerekmektedir|olabilir)\b"
+)
+#: "mutlaka", "zorunlu", "gerekmektedir": a strong wish (higher weight) - still soft when it comes from free text
+_STRONG_RX = re.compile(r"\b(?:mutlaka|zorunlu\w*|gerekmektedir|sart)\b")
+#: one or more building letters before "blok": "a veya c blokta", "b ve d blok", "a/c blok", "c blok'ta"
+_BUILDING_SET_RX = re.compile(
+    r"(?<![\w])((?:[a-d]\s*(?:,|/|-|\+|&|\bveya\b|\bya da\b|\bve\b|\bile\b)\s*)*[a-d])\s*blo[kg]"
+)
+#: "Derslik gerekiyor." asks for nothing beyond the request itself (Bahar row 50)
+_NO_OP_RX = re.compile(r"^(?:bir\s+)?(?:derslik|sinif)\s+(?:gerekiyor|gereklidir|gerekmektedir|gerekli)\W*$")
+_ALTERNATIVE_RX = re.compile(r"\b(?:veya|ya da|yahut)\b", re.IGNORECASE)
+#: clause breaks: ";", "!", "?", a sentence-ending "." (after a word of 5+ letters, so "Bilg. Lab.", "min. 40"
+#: and "2. öğretim" stay whole), newlines, brackets, " | " (joined notes) and commas
+_CLAUSE_RX = re.compile(r"(?<=[;!?])\s+|(?<=[^\W\d_]{5}\.)\s+|\n+|[()]|\s\|\s|,\s*")
+
+#: room features people ask for in free text (fold form) -> (feature key, solver tags that satisfy it).
+#: A feature becomes a rule only through the P10 catalogue (``services/rooms_features.py``) or a tag the rooms
+#: already carry; anything else is reported as an unparsed preference.
+FEATURE_LEXICON: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    (
+        "step_free",
+        ("giris kat", "zemin kat", "engelli", "asansor", "erisilebilir", "tekerlekli sandalye", "erisim"),
+        ("STEP_FREE",),
+    ),
+    ("projector", ("projeksiyon", "barkovizyon", "projektor"), ("PROJECTOR",)),
+    ("smart_board", ("akilli tahta",), ("SMART_BOARD",)),
+    ("whiteboard", ("beyaz tahta",), ("WHITEBOARD",)),
+    ("microphone", ("mikrofon", "ses sistemi"), ("MICROPHONE",)),
+    ("fixed_desks", ("siralar olan", "sirali sinif", "sira olan", "sabit sira"), ("FIXED_DESKS",)),
+    ("armchair", ("kolcakli sandalye", "kolcakli"), ("ARMCHAIR",)),
+    ("amphi", ("amfi", "anfi"), ("AMPHI",)),
+    # a computer *lab* only ("Bilgisayar Mühendisliği", "bilgisayar hazırlığı" are no PC wish)
+    ("pc", ("bilgisayar lab", "bilgisayarli", "bilg. lab", "bilg lab", "pc lab"), ("PC",)),
+)
+_FEATURE_TAGS = {key: tags for key, _ph, tags in FEATURE_LEXICON}
+
+
+def feature_tags(feature: str) -> tuple[str, ...]:
+    """Solver tags that satisfy a :data:`FEATURE_LEXICON` feature key."""
+    return _FEATURE_TAGS.get(feature, ())
+
+
+@dataclass
+class PreferenceItem:
+    """One wish read from free text. ``kind``: ``building_preference`` (``buildings``), ``avoid_building``
+    (``avoid_buildings``), ``room_preference`` (``room_codes``), ``room_alternatives`` (``room_groups`` +
+    ``room_codes`` in preference order), ``avoid_room`` (``room_codes``), ``feature`` (``feature``) or
+    ``unparsed``. Free text never yields a hard rule: ``hardness`` is always ``soft``; ``strong`` marks
+    "mutlaka / zorunlu" wording (a higher weight)."""
+
+    kind: str
+    params: dict[str, Any] = field(default_factory=dict)
+    text: str = ""
+    negated: bool = False
+    strong: bool = False
+    hardness: str = "soft"
+
+
+def _clauses(text: str) -> list[str]:
+    return [c.strip() for c in _CLAUSE_RX.split(text) if c and c.strip()]
+
+
+def _buildings_in(folded: str) -> list[str]:
+    out: list[str] = []
+    for m in _BUILDING_SET_RX.finditer(folded):
+        out.extend(x.upper() for x in re.findall(r"(?<![\w])[a-d](?![\w])", m.group(1)))
+    return list(dict.fromkeys(out))
+
+
+def _features_in(folded: str) -> list[tuple[str, bool]]:
+    """(feature key, negated by a "-sız/-siz/-suz/-süz" suffix) of each lexicon phrase in a folded clause."""
+    out: dict[str, bool] = {}
+    for key, phrases, _tags in FEATURE_LEXICON:
+        for ph in phrases:
+            m = re.search(rf"(?<![\w]){re.escape(ph)}(\w*)", folded)
+            if m:
+                out.setdefault(key, bool(re.fullmatch(r"\w*s[iu]z", m.group(1))))
+                break
+    return list(out.items())
+
+
+def room_alternative_groups(value: Any) -> list[list[str]]:
+    """Room sets a text offers as alternatives ("A 206 veya C 403-404 veya A 106-107" -> three groups; one
+    set "A 101 / A 106" -> one group). Each group is satisfied only as a whole."""
+    text = clean_text(value)
+    if not text:
+        return []
+    groups = [parse_room_codes(part) for part in _ALTERNATIVE_RX.split(text)]
+    out: list[list[str]] = []
+    for g in groups:
+        if g and g not in out:
+            out.append(g)
+    return out
+
+
+def parse_preference_text(value: Any) -> list[PreferenceItem]:
+    """Free text (planning-list notes, request / venue cells, e-mails) -> soft wishes.
+
+    Negation is read per clause ("Mümkünse B Blok olmasın" = avoid B; "olmasını rica etti" is a wish *for*
+    it), alternatives stay alternatives ("A veya C blokta" = {A, C}; "A 206 veya C 403-404" = two room
+    groups), and furniture / accessibility words map to :data:`FEATURE_LEXICON`. A clause with wish wording
+    and nothing structured is kept as ``unparsed`` so it is reviewed, never dropped."""
+    text = clean_text(value)
+    if not text:
+        return []
+    strong = bool(_STRONG_RX.search(fold(text)))
+    want_b: list[str] = []
+    avoid_b: list[str] = []
+    avoid_rooms: list[str] = []
+    feats: dict[str, tuple[bool, str]] = {}
+    positive_parts: list[str] = []
+    unparsed: list[str] = []
+    for clause in _clauses(text):
+        f = fold(clause)
+        neg = bool(_NEG_RX.search(f))
+        blds = _buildings_in(f)
+        rooms = parse_room_codes(clause)
+        fts = _features_in(f)
+        if neg:
+            avoid_b.extend(blds)
+            avoid_rooms.extend(r for r in rooms if r not in avoid_rooms)
+        else:
+            want_b.extend(blds)
+            if rooms:
+                positive_parts.append(clause)
+        for key, suffix_neg in fts:
+            feats.setdefault(key, (neg or suffix_neg, clause))
+        if not (blds or rooms or fts) and _WISH_RX.search(f) and not _NO_OP_RX.match(f):
+            unparsed.append(clause)
+    items: list[PreferenceItem] = []
+    want_b = [b for b in dict.fromkeys(want_b) if b not in avoid_b]
+    avoid_b = list(dict.fromkeys(avoid_b))
+    if avoid_b:
+        items.append(PreferenceItem("avoid_building", {"avoid_buildings": sorted(avoid_b)}, text, True, strong))
+    if want_b:
+        items.append(PreferenceItem("building_preference", {"buildings": sorted(want_b)}, text, False, strong))
+    groups = room_alternative_groups(" ".join(positive_parts)) if positive_parts else []
+    groups = [[r for r in g if r not in avoid_rooms] for g in groups]
+    groups = [g for g in groups if g]
+    if len(groups) > 1:
+        flat = list(dict.fromkeys(r for g in groups for r in g))
+        items.append(
+            PreferenceItem("room_alternatives", {"room_groups": groups, "room_codes": flat}, text, False, strong)
+        )
+    elif groups:
+        items.append(PreferenceItem("room_preference", {"room_codes": groups[0]}, text, False, strong))
+    if avoid_rooms:
+        items.append(PreferenceItem("avoid_room", {"room_codes": avoid_rooms}, text, True, strong))
+    for key, (neg, clause) in feats.items():
+        items.append(PreferenceItem("feature", {"feature": key}, clause, neg, strong))
+    if not items and unparsed:
+        items.append(PreferenceItem("unparsed", {}, text, False, strong))
+    elif unparsed:
+        items.extend(PreferenceItem("unparsed", {}, u, False, strong) for u in unparsed)
+    return items
+
+
+# ---------------------------------------------------------------------------
 # Venue request (free text -> structured preference)
 # ---------------------------------------------------------------------------
 
@@ -1343,6 +1511,19 @@ class VenueRequest:
     confidence: str = "none"  # none | low | medium | high
     needs_room: bool | None = None
     raw: str | None = None
+    #: "A veya C blokta" -> ["A", "C"] (``building`` then stays None: no single building wish)
+    buildings: list[str] = field(default_factory=list)
+    #: "Mümkünse B Blok olmasın" -> ["B"] (a soft *avoid*, never a preference for B)
+    avoid_buildings: list[str] = field(default_factory=list)
+    #: "A 204 olmasın" -> ["A204"] (removed from ``room_codes``)
+    avoid_room_codes: list[str] = field(default_factory=list)
+    #: alternatives, each satisfied as a whole: "A 206 veya C 403-404" -> [["A206"], ["C403", "C404"]]
+    room_groups: list[list[str]] = field(default_factory=list)
+
+    def satisfied_by(self, room_codes: Iterable[str]) -> bool:
+        """True when ``room_codes`` (the definitive or placed rooms) is exactly one of the alternative groups."""
+        got = set(room_codes)
+        return bool(got) and any(got == set(g) for g in self.room_groups)
 
 
 _VENUE_NO_ROOM = (
@@ -1378,11 +1559,25 @@ def parse_venue_request(value: Any) -> VenueRequest:
         v.same_room_as = extract_course_codes(same.group(1))
     v.room_codes = parse_room_codes(text)
     v.room_codes = [c for c in v.room_codes if c not in {x[:4] for x in v.same_room_as}]
-    bm = _BUILDING_RX.search(text)
-    if bm:
-        v.building = bm.group(1).upper()
-    elif v.room_codes:
-        v.building = v.room_codes[0][0]
+    items = parse_preference_text(text)
+    for it in items:
+        if it.kind == "avoid_building":
+            v.avoid_buildings = list(it.params["avoid_buildings"])
+        elif it.kind == "building_preference":
+            v.buildings = list(it.params["buildings"])
+        elif it.kind == "avoid_room":
+            v.avoid_room_codes = list(it.params["room_codes"])
+    if v.avoid_room_codes:
+        v.room_codes = [c for c in v.room_codes if c not in v.avoid_room_codes]
+    v.room_groups = [
+        [c for c in g if c in v.room_codes] for g in room_alternative_groups(text) if any(c in v.room_codes for c in g)
+    ]
+    if len(v.buildings) == 1:
+        v.building, v.buildings = v.buildings[0], []
+    elif not v.buildings and not v.avoid_buildings and v.room_codes:
+        # rooms of one building say "that building"; alternatives over several buildings say no single one
+        blds = {c[0] for c in v.room_codes}
+        v.building = v.room_codes[0][0] if len(blds) == 1 or len(v.room_groups) <= 1 else None
     cm = _CAP_RX.search(low)
     if cm:
         v.min_capacity = int(cm.group(1))
@@ -1426,7 +1621,7 @@ def parse_venue_request(value: Any) -> VenueRequest:
     elif "LAB" in tags and not has_room_word:
         v.confidence = "medium"
         v.needs_room = False  # specialised lab, not a plannable classroom
-    elif v.building or v.min_capacity or v.room_count or tags:
+    elif v.building or v.buildings or v.avoid_buildings or v.min_capacity or v.room_count or tags:
         v.confidence = "medium"
         v.needs_room = True
     elif has_room_word or low in {"evet", "var", "yüz yüze", "talep edilmektedir.", "1", "2"}:

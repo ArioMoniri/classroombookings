@@ -466,7 +466,8 @@
       "goal": "bring the README and project docs up to date with what is actually built on branch claude/gracious-cerf-w1598m, and document the planned Phase 19 clearly as planned.",
       "ledger": "docs-refresh-2026-10-15 SCOPE: README.md, smartsched/README.md, docs/ARCHITECTUR…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 16:19"
     },
     {
       "id": "a53420f98a643573d",
@@ -486,7 +487,9 @@
       "goal": "merge origin/claude/smartsched-universal into origin/claude/gracious-cerf-w1598m with every conflict resolved correctly and all checks green, so the main session can fast-forward both branches.",
       "ledger": "merge-universal-2026-10-15 SCOPE: your isolated git worktree only, on a local br…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 16:36",
+      "left_off": "The full suite is near 87%. Still waiting on monitor bnraig8aj."
     },
     {
       "id": "a574d83abdbb1d109",
@@ -498,7 +501,8 @@
       "goal": "(1) a motion audit of every SmartSched surface built or changed since 2026-10-08; (2) motion specs for the Phase 19 surfaces. First invoke the `/motion_designer` skill (the Skill tool, skill name \"motion_designer\") and follow its workflow, tokens, patterns, a11y notes and the §8 audit checklist exactly. Part 1: audit. Find the surfaces changed since 2026-10-08 with `git log --since=2026-10-08 --na…",
       "ledger": "motion-audit-phase19-2026-10-15 SCOPE: docs/design/v2/motion.md and docs/review/…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-15 15:39"
     },
     {
       "id": "a31e030beefbad347",
@@ -653,6 +657,90 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-15 15:25",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a96e459c5c8367b44",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:35",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a19e07f0ab7a24443",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:40",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "ae1886426ecd593fb",
+      "description": "Persona test: staff room-booking user",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-15 15:47",
+      "scope": "write only docs/testing/2026-10-15-persona-user.md. Evidence (screenshots, traces, logs) goes in /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/persona-user/. Never edit source code. GOAL: act as an ordinary university staff member who books rooms (the classroombookings \"Teacher\" role, not a planner or admin). Test every screen, button, form and motion t…",
+      "goal": "act as an ordinary university staff member who books rooms (the classroombookings \"Teacher\" role, not a planner or admin). Test every screen, button, form and motion this role can reach in SmartSched, and report bugs and enhancement ideas precisely enough that an engineer can fix them without asking you anything. Stack. Use only this one, which is isolated from the other testers: SNAP=/tmp/claude-…",
+      "ledger": "persona-user-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona-user.m…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a2adbc02f53e2d8cb",
+      "description": "Persona test: academician",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-15 15:47",
+      "scope": "write only docs/testing/2026-10-15-persona-academician.md. Evidence goes in /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/persona-academician/. Never edit source code. GOAL: act as a senior academician who teaches 3 courses in the Bahar 2026 term and has strong room and time wishes. Test every SmartSched screen, button and motion an academician uses or …",
+      "goal": "act as a senior academician who teaches 3 courses in the Bahar 2026 term and has strong room and time wishes. Test every SmartSched screen, button and motion an academician uses or would need, and report bugs and enhancements precisely enough that an engineer can fix them without asking you anything. Read docs/testing/2026-10-15-academician-needs.md first; it is the needs analysis from this person…",
+      "ledger": "persona-academician-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a79b83fc2b496a84f",
+      "description": "Persona test: administrator/coordinator",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-15 15:47",
+      "scope": "write only docs/testing/2026-10-15-persona-admin.md. Evidence goes in /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/persona-admin/. Never edit source code. GOAL: act as the faculty's system administrator, who is also the timetabling coordinator. Test every admin and planning screen, button, form and motion in SmartSched, and report bugs and enhancements…",
+      "goal": "act as the faculty's system administrator, who is also the timetabling coordinator. Test every admin and planning screen, button, form and motion in SmartSched, and report bugs and enhancements precisely enough that an engineer can fix them without asking you anything. Stack. Use only this one, which is isolated; you may change settings freely here: SNAP=/tmp/claude-0/-home-user-classroombookings/…",
+      "ledger": "persona-admin-2026-10-15 SCOPE: write only docs/testing/2026-10-15-persona-admin…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "af9f5ac2ccba2673e",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:48",
+      "left_off": "deploy to pod when green n send me panel url"
+    },
+    {
+      "id": "a052cc002303e29d2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:58",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a54139ad7767acd6a",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 16:08",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "a397386b4fbecd673",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 16:30",
       "left_off": "continue n deploy to pod when green"
     }
   ]

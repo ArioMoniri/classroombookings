@@ -107,6 +107,17 @@ council runs in the backend container on the same job queue as imports and solve
 - A job interrupted by a restart is marked FAILED on start and can be re-run from the stored files
   (`POST /api/v1/council/jobs/{id}/rerun`).
 
+### Postgres locale and Turkish sorting
+
+`initdb` uses `--encoding=UTF8 --locale=C.UTF-8` (byte order: `Ç Ö Ş Ü İ ı` sort after `z`, capitals before
+lower case). Evaluated 2026-10-15 on `postgres:16.15-alpine3.24`: `--locale-provider=icu --icu-locale=tr-TR`
+gives Turkish alphabetical order (`Cebir Çevre … Isı ışık iktisat İşletme … Sanat Şehir`) but also Turkish
+*case mapping* for the whole database: `lower('ADMIN')` = `admın` and `'admin' ILIKE 'ADMIN'` is false, which
+breaks case-insensitive matching of e-mails / user names / codes in SQL, and it needs a fresh volume. Keep
+`C.UTF-8`; sort Turkish text with the ICU collation that the image already ships, per column or per query:
+`ORDER BY name COLLATE "tr-TR-x-icu"` (works on the existing database; SQLite ignores it, so the backend
+should add it only for PostgreSQL).
+
 ## The job queue (read before scaling)
 
 Solver runs and imports execute inside the backend process, in an in-process asyncio queue
@@ -223,8 +234,14 @@ Restore into the same or a newer SmartSched version. Alembic only migrates forwa
 3. Rollback: `git checkout <previous tag>`, then `./deploy.sh --update --no-pull`. If the newer version
    ran a migration, restore the pre-upgrade dump (there are no down-migrations in production).
 
-Pinned base images: bump the tags in the Dockerfiles / compose deliberately (Renovate or Dependabot
-can open the PRs). For bit-for-bit pulls, append `@sha256:` digests.
+Pinned base images: every third-party image is `name:version@sha256:<multi-arch index digest>`: the
+compose `image:` lines, and the Dockerfile bases, which compose passes as build args (`PYTHON_IMAGE`,
+`NODE_IMAGE`, `PHP_IMAGE`; the Dockerfile `ARG` defaults name the same tag without the digest, so a plain
+`docker build` still works). The pod CI python image uses the backend's `PYTHON_IMAGE`. `validate.sh`
+fails on a missing digest or a tag that differs between compose and a Dockerfile (`pins.py check`).
+`./pin-digests.sh` re-resolves the digests of the pinned tags (security rebuilds of the same tag); bump a
+tag by editing compose and the Dockerfile default together. A bot (Dependabot/Renovate) could open these
+PRs; it is not configured.
 
 Python dependencies: the backend image installs with `smartsched/backend/requirements.lock` as pip
 constraints (exact versions of every transitive dependency, universal markers so amd64 and the arm64 pod

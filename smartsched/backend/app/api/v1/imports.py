@@ -3,19 +3,20 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 
-from app.api.deps import DB, CurrentAccess, Planner, Viewer, require_permission
+from app.api.deps import DB, CurrentAccess, Planner, require_permission
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
 from app.importers.report import ImportReport
 from app.models import ImportJob, User
 from app.schemas.runs import ImportJobOut
+from app.services import term_lock
 from app.workers.queue import JobState, get_queue, worker_id
 
 router = APIRouter(prefix="/imports", tags=["imports"])
@@ -50,14 +51,55 @@ async def _save_upload(db: DB, job: ImportJob, file: UploadFile, *, full_load: b
     return target
 
 
-async def _start_job(db: DB, job: ImportJob, run: Any) -> ImportJob:
+#: how long a queued import waits for another writer of its term (term_lock) before it fails
+IMPORT_LOCK_WAIT_S = 900.0
+
+
+def locked_409(exc: term_lock.TermLocked) -> HTTPException:
+    """409 for a term another writer holds (P19-03): the holder and since when, in Turkish and English."""
+    err = term_lock.http_error(exc)
+    detail = dict(err.detail) if isinstance(err.detail, dict) else {"message": str(exc)}
+    since = f" ({exc.since:%Y-%m-%d %H:%M} UTC'den beri)" if exc.since else ""
+    term = exc.key.split(":", 1)[-1]
+    detail["message_tr"] = (
+        f"{term} dönemi şu anda kilitli: {exc.holder or 'başka bir işlem'}{since} bu dönemin verisini yazıyor. "
+        "İşlem bitince yeniden deneyin."
+    )
+    return HTTPException(409, detail)
+
+
+async def _refuse_if_locked(term_code: str) -> None:
+    """A request handler's early 409 when the term is being written (the job itself also waits for the lock)."""
+    try:
+        await term_lock.assert_unlocked(term_lock.term_key(term_code))
+    except term_lock.TermLocked as exc:
+        raise locked_409(exc) from exc
+
+
+async def _start_job(db: DB, job: ImportJob, run: Any, *, term_code: str | None = None) -> ImportJob:
+    """Queue the import. With ``term_code`` the job holds that term's write lock (``term_lock``) for the whole
+    import - the API's early check and the worker share the one lock row, so two imports of a term never write
+    at once; the lock's heartbeat extends it while a long workbook is parsed, and it is released in ``finally``
+    (also when the import fails)."""
     factory = get_session_factory()
 
     async def body(progress: Any) -> dict[str, Any]:
         progress("importing", 10)
         try:
-            async with factory() as session:
-                report: ImportReport = await run(session)
+            if term_code is None:
+                async with factory() as session:
+                    report: ImportReport = await run(session)
+            else:
+                progress("waiting for the term lock", 5)
+                async with term_lock.term_write_lock(
+                    term_lock.term_key(term_code), f"import:{job.id} {job.kind}", wait_s=IMPORT_LOCK_WAIT_S
+                ):
+                    progress("importing", 10)
+                    async with factory() as session:
+                        report = await run(session)
+        except term_lock.TermLocked as exc:
+            _cleanup(job.id)
+            raise ValueError(locked_409(exc).detail["message"]) from exc  # type: ignore[index]
         except safe_files.UnsafeFileError as exc:
             _cleanup(job.id)
             raise ValueError(exc.message) from exc
@@ -106,6 +148,7 @@ async def import_planning(
     ``summary.extra.conflicts``) or apply the file (``take``)."""
     from app.importers.planning_list import import_planning_list
 
+    await _refuse_if_locked(term_code)
     job = await _new_job(db, "planning-list", file.filename, term_code)
     path = await _save_upload(db, job, file)
     return await _start_job(
@@ -114,6 +157,7 @@ async def import_planning(
         lambda s: import_planning_list(
             s, path, term_code, filename=file.filename, week_count=week_count, on_conflict=on_conflict
         ),
+        term_code=term_code,
     )
 
 
@@ -121,9 +165,12 @@ async def import_planning(
 async def import_exams(db: DB, _: Planner, file: UploadFile = File(...), term_code: str = Form(...)) -> ImportJob:
     from app.importers.exam_list import import_exam_list
 
+    await _refuse_if_locked(term_code)
     job = await _new_job(db, "exam-list", file.filename, term_code)
     path = await _save_upload(db, job, file)
-    return await _start_job(db, job, lambda s: import_exam_list(s, path, term_code, filename=file.filename))
+    return await _start_job(
+        db, job, lambda s: import_exam_list(s, path, term_code, filename=file.filename), term_code=term_code
+    )
 
 
 @router.post("/weekly-grid", response_model=ImportJobOut, status_code=202)
@@ -137,12 +184,14 @@ async def import_grid(
 ) -> ImportJob:
     from app.importers.weekly_grid import import_weekly_grid
 
+    await _refuse_if_locked(term_code)
     job = await _new_job(db, "weekly-grid", file.filename, term_code)
     path = await _save_upload(db, job, file, full_load=True)
     return await _start_job(
         db,
         job,
         lambda s: import_weekly_grid(s, path, term_code, year=year, filename=file.filename, term_kind=term_kind),
+        term_code=term_code,
     )
 
 
@@ -166,13 +215,17 @@ async def import_room_master_endpoint(db: DB, _: RoomsEditor, file: UploadFile =
 
 @router.post("/crbs", response_model=ImportJobOut, status_code=202)
 async def import_crbs_endpoint(
-    db: DB, _: Planner, dsn: str | None = Form(None), files: list[UploadFile] = File(default=[])
+    db: DB, user: Planner, dsn: str | None = Form(None), files: list[UploadFile] = File(default=[])
 ) -> ImportJob:
-    """Either a MySQL DSN (``mysql://user:pass@host/db``) or one or more SQL dump files."""
+    """Either a MySQL DSN (``mysql://user:pass@host/db``) or one or more SQL dump files. A live DSN is for
+    planning admins and allow-listed hosts only (``crbs_dsn.check_dsn``, review D16); dumps never connect."""
     from app.importers.crbs_legacy import import_crbs
+    from app.services import crbs_dsn
 
     if not dsn and not files:
         raise HTTPException(400, "provide a dsn or SQL dump files")
+    if dsn:
+        await crbs_dsn.check_dsn(db, dsn, user)  # 403 / 422 before any job or connection exists
     job = await _new_job(
         db, "crbs", ", ".join(f.filename or "?" for f in files) if files else dsn.split("@")[-1] if dsn else None, None
     )
@@ -182,8 +235,20 @@ async def import_crbs_endpoint(
 
 
 @router.get("", response_model=list[ImportJobOut])
-async def list_jobs(db: DB, _: Viewer, limit: int = 50) -> list[ImportJob]:
-    return list((await db.execute(select(ImportJob).order_by(ImportJob.id.desc()).limit(limit))).scalars())
+async def list_jobs(
+    db: DB,
+    access: CurrentAccess,
+    limit: int = 50,
+    kind: Literal["planning-list", "exam-list", "weekly-grid", "room-master", "crbs"] | None = None,
+) -> list[ImportJob]:
+    """Newest first. ``kind`` filters (the room wizard lists ``room-master``). Planners (``planning.view``)
+    list every kind; a room administrator (``setup.rooms``) lists the room-master imports only."""
+    if "planning.view" not in access.perms and not (kind == "room-master" and "setup.rooms" in access.perms):
+        raise HTTPException(403, "requires permission planning.view")
+    q = select(ImportJob)
+    if kind is not None:
+        q = q.where(ImportJob.kind == kind)
+    return list((await db.execute(q.order_by(ImportJob.id.desc()).limit(max(1, min(limit, 500))))).scalars())
 
 
 @router.get("/{job_id}", response_model=ImportJobOut)

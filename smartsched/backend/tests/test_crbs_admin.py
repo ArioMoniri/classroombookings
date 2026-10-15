@@ -299,3 +299,23 @@ async def test_first_run_setup_wizard(empty_client):
     assert (
         await c.post("/api/v1/auth/login", json={"username": "YÖNETİCİ", "password": "kurulum-parolası"})
     ).status_code == 200
+
+
+async def test_concurrent_first_run_setup_creates_one_administrator(empty_client):
+    """Review 2026-10-15 D19: the wizard counted users and then inserted, so two browsers submitting at once
+    created two administrators. A sentinel row inserted with the first administrator lets exactly one win."""
+    import asyncio
+
+    from app.models import User
+    from sqlalchemy import func, select
+
+    c = empty_client
+    bodies = [
+        {"org_name": "Acıbadem Üniversitesi", "admin_email": f"kurulum{i}@uni.edu.tr", "admin_password": "kurulum-1234"}
+        for i in range(3)
+    ]
+    rs = await asyncio.gather(*(c.post("/api/v1/org/setup", json=b) for b in bodies))
+    codes = sorted(r.status_code for r in rs)
+    assert codes == [201, 409, 409], [r.text for r in rs]
+    async with dbmod.get_session_factory()() as s:
+        assert (await s.execute(select(func.count(User.id)))).scalar_one() == 1

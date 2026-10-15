@@ -161,7 +161,8 @@ translates, and a missing key falls back to English per key. `python -m tools.cr
 
 State on 2026-10-15: the wave-1 frontend (`/approvals`, `/admin/approval-rules`, `/admin/audit`,
 `/find-room`, the room features tab, the notification bell) is being built; it is committed in progress
-checkpoints and has no Playwright spec yet. `npx tsc --noEmit` passes at commit `a0a6b4c`.
+checkpoints together with `e2e/wave1.spec.ts` (real backend). `npx tsc --noEmit` passed at commit
+`a0a6b4c`.
 
 ### Top-level make targets
 
@@ -300,7 +301,7 @@ OpenAPI is at **`/api/docs`** (schema at `/api/openapi.json`).
 | Constraints | `GET /constraints/kinds`, `/constraints` CRUD |
 | Runs | `POST /runs` (`202`), `GET /runs[/{id}]`, `DELETE /runs/{id}`, `POST /runs/{id}/activate`, `GET /runs/{id}/events` (SSE progress), `/assignments`, `/grid?week=`, `/summary`, `/export?format=xlsx\|csv\|ics\|crbs` |
 | Edits and fixes | `POST /runs/{id}/assignments/{aid}/move`, `/lock`; `POST /runs/{id}/diagnoses/{idx}/apply` |
-| AI | `POST /terms/{id}/elicit`, `/elicit/accept`, `/preferences/upload`; `GET/POST /runs/{id}/chat`, `POST /runs/{id}/chat/apply`, `POST /runs/{id}/explain`; `GET /ai/catalog` |
+| AI | `POST /terms/{id}/elicit`, `/elicit/accept`, `/preferences/upload`; `GET/POST /runs/{id}/chat`, `POST /runs/{id}/chat/apply`, `POST /runs/{id}/explain`; `GET /ai/catalog`; `GET/PUT /ai/policy` (AI intake / vision switches with KVKK sign-off, off by default) |
 | Generator Studio | `GET /studio/meta`; `GET/PUT /terms/{id}/studio` (draft, `If-Match`), `/studio/summary`, `/studio/classes`, `/studio/rules`, `POST /terms/{id}/studio/precheck`, `/precheck/fix`, `/proposals/accept`, `/preferences/mapping`, `/generate`; `PUT /studio/meetings/bulk`, `POST /studio/meetings[/{id}]/revert`, `POST /studio/constraints/preview`, `/copy` |
 | Presets | `/presets` CRUD, `POST /presets/{id}/apply` |
 | Dashboard | `GET /dashboard` |
@@ -339,7 +340,7 @@ service is planned before running several replicas ([deploy/README.md](deploy/RE
 | `cd backend && python -m pytest tests/ai -q` | AI layer with a scripted fake SDK; `test_live_smoke.py` runs only when `ANTHROPIC_API_KEY` is set |
 | `cd backend && python -m tools.validate_planner` | planner-level check of four real runs (pod CI gate `planner`) |
 | `python3 scripts/parity_check.py` | CRBS superset gate on the real Bahar data (pod CI gate `parity`); `--dry-run` checks the mapping only |
-| `cd frontend && E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test` | every Playwright spec (smoke, real-backend, bookings, calendar, reserve, admin-gaps, languages, motion-audit) against the real e2e backend (`deploy/pod-ci/gates/e2e-backend-entry.sh`; [setup](../docs/testing/2026-10-08-real-backend-e2e.md)) |
+| `cd frontend && E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test` | every Playwright spec (smoke, real-backend, bookings, calendar, reserve, admin-gaps, wave1, languages, motion-audit) against the real e2e backend (`deploy/pod-ci/gates/e2e-backend-entry.sh`; [setup](../docs/testing/2026-10-08-real-backend-e2e.md)) |
 
 Policy ([docs/ROADMAP.md](../docs/ROADMAP.md), "TDD policy"): every importer function starts from a
 failing test on a real fixture row; every solver constraint has a feasible, an infeasible and a
@@ -362,9 +363,13 @@ On 2026-10-15:
 - Bookings: CRBS parity, the reservation panel and calendar feeds are built with screens. Room
   features, find-a-room, approvals, the audit log with undo and in-app notifications are built in the
   backend; their screens are in progress.
-- The CRBS superset gate run of 2026-10-15 (commit `bd0db48`): 192 rows, 172 pass, 19 declared gaps,
-  1 fail (a stale Alembic-head assertion in `tests/test_wave1_migrations.py`), 0 missing.
-- Planned: Phase 19 (multi-format intake, learned suggestions, from-scratch programmes, moderation);
+- The CRBS superset gate run of 2026-10-15 (commit `a0a6b4c`): 192 rows, 172 pass, 20 declared gaps,
+  0 fail, 0 missing; 157 of 157 API tests passed.
+- Phase 19 (multi-format intake, learned suggestions, from-scratch programmes, moderation) is planned and in
+  design. Already in the backend: the relaxation policy (`app/solver/policy.py`; run parameter
+  `relaxation_policy` = `lock_first` (default) or `most_classes_first`, or the setting
+  `term.<id>.relaxation_policy`; priorities through `params.priorities`), the AI intake and vision
+  switches (`GET/PUT /ai/policy`, off by default) and the weekly-pattern expander (`services/patterns.py`);
   see the [root README](../README.md#roadmap) and [docs/ROADMAP.md](../docs/ROADMAP.md).
 
 Live status per agent is in [docs/AGENT_STATE.md](../docs/AGENT_STATE.md) and the ledger

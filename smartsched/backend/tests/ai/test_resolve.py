@@ -55,11 +55,22 @@ async def test_course_code_resolves_to_meeting_ids(session, seed):
             params=empty_params(room_codes=["A 206"], from_date="2026-02-23"),
         ),
     )
-    # from 23 Feb = week 3 of a term starting 9 Feb; room_pin honours weeks
+    # from 23 Feb = week 3 of a term starting 9 Feb
     assert p.params["event_ids"] == [seed.mr["PHAR240"]]
     assert p.params["room_ids"] == [seed.rooms["A206"]]
     assert p.params["weeks"] == list(range(3, 15))
     assert any(e.type == "date" and e.resolved_id == 3 for e in p.entities)
+    # the solver applies room_pin to every week of the event: a week-limited pin is never silently "ok"
+    assert p.status == "needs_review" and any("week-limited" in i for i in p.issues)
+    whole = resolve_proposal(
+        ctx,
+        proposal(
+            "room_pin",
+            selector=empty_selector(course_codes=["PHAR 240"]),
+            params=empty_params(room_codes=["A 206"]),
+        ),
+    )
+    assert whole.status == "ok" and "weeks" not in whole.params
 
 
 async def test_unresolvable_names_need_review_with_candidates(session, seed):

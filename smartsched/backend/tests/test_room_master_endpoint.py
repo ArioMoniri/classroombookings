@@ -84,3 +84,23 @@ async def test_room_master_permission(env) -> None:  # noqa: F811
     assert (await _upload(env.client, teacher, ROOM_MASTER)).status_code == 403
     job = await _job(env.client, clerk, await _upload(env.client, clerk, ROOM_MASTER))
     assert job["summary"]["rows_imported"] == 87
+
+
+async def test_import_jobs_list_by_kind_for_the_room_wizard(env) -> None:  # noqa: F811
+    """P19-I7 (backend part): ``GET /imports?kind=room-master`` lists the room-master jobs; a room
+    administrator (``setup.rooms`` only) may list exactly those, never the planning imports."""
+    from tests.test_admin_gaps import _role
+
+    planner = await login(env.client)
+    rid = await _role(env, "Derslik yöneticisi", ["setup.rooms"])
+    _, clerk = await env.user("derslik.liste@uni.edu.tr", role=None, role_id=rid)
+    _, teacher = await env.user("ogretmen.liste@uni.edu.tr")
+    job = await _job(env.client, planner, await _upload(env.client, planner, ROOM_MASTER))
+    jobs = (await env.client.get("/api/v1/imports", params={"kind": "room-master"}, headers=planner)).json()
+    assert [j["id"] for j in jobs] == [job["id"]] and all(j["kind"] == "room-master" for j in jobs)
+    mine = await env.client.get("/api/v1/imports", params={"kind": "room-master"}, headers=clerk)
+    assert mine.status_code == 200 and [j["id"] for j in mine.json()] == [job["id"]]
+    assert (await env.client.get("/api/v1/imports", headers=clerk)).status_code == 403  # every kind: planners only
+    assert (await env.client.get("/api/v1/imports", params={"kind": "room-master"}, headers=teacher)).status_code == 403
+    bad = await env.client.get("/api/v1/imports", params={"kind": "nope"}, headers=planner)
+    assert bad.status_code == 422

@@ -11,7 +11,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from podfakes import POD_CI
@@ -50,7 +50,7 @@ def test_diff_reports_removed_added_and_type_changes() -> None:
 
 
 class Api(BaseHTTPRequestHandler):
-    payloads: dict[str, Any] = {}
+    payloads: ClassVar[dict[str, Any]] = {}
 
     def _send(self, code: int, body: Any) -> None:
         raw = json.dumps(body).encode()
@@ -98,7 +98,8 @@ def test_records_and_reports_drift_against_committed_fixtures(api: str, tmp_path
     rc = cr.main(["--api", api, "--out", str(out), "--compare", str(committed), "--only", "me", "terms", "runs"])
     assert rc == 0  # report only
     report = json.loads((out / "contract-drift.json").read_text())
-    assert report["fixtures"]["me"]["drift"] == [["removed", "$.full_name", "string"], ["added", "$.language", "string"]]
+    assert report["fixtures"]["me"]["drift"] == [["removed", "$.full_name", "string"],
+                                                 ["added", "$.language", "string"]]
     assert report["fixtures"]["terms"]["drift"] == []
     assert report["fixtures"]["runs"]["status"] == "no committed fixture"
     assert "run_infeasible" in report["not_recorded"]

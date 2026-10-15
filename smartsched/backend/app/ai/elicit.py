@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai import catalog
 from app.ai.client import AIClient, text_of, tool_uses
 from app.ai.resolve import TermContext, load_term_context, resolve_proposal, resolve_section_edit
-from app.models import ConstraintRow, ExamRequest, MeetingRequest, Room, Section
+from app.models import AIProposalDecision, ConstraintRow, ExamRequest, MeetingRequest, Room, Section
 from app.schemas.ai import ElicitOut, ProposedConstraint, ProposedSectionEdit, SourceRef, UsageOut
 
 log = logging.getLogger(__name__)
@@ -247,14 +247,39 @@ async def accept_proposals(
     run_id: int | None = None,
     source: str | None = None,
     commit: bool = True,
+    declined: list[ProposedConstraint] | None = None,
 ) -> tuple[list[int], list[dict[str, Any]]]:
     """Persist accepted proposals as ``ConstraintRow`` (source ``AI`` or ``UPLOAD``); returns (ids, rejected).
+
+    Every proposal's outcome is kept in ``ai_proposal_decisions`` (``accepted`` / ``rejected`` with the reasons /
+    ``declined`` for the ones the planner dismissed in review), the learning lane's input.
 
     The upload reference (``{"file": ..., "row": 12}``) is stored in the ``constraints.source_ref``
     column; the solver params stay free of metadata (a stray ``_source_ref`` key sent back by the
     browser is moved to the column too)."""
     rejected: list[dict[str, Any]] = []
     rows: list[ConstraintRow] = []
+    decisions: list[tuple[AIProposalDecision, ConstraintRow]] = []
+
+    def decide(p: ProposedConstraint, decision: str, reasons: list[str], src: str) -> AIProposalDecision:
+        d = AIProposalDecision(
+            term_id=term_id,
+            run_id=run_id,
+            decision=decision,
+            kind=str(p.kind)[:64],
+            params={k: v for k, v in dict(p.params or {}).items() if not str(k).startswith("_")},
+            hardness=str(p.hardness or "hard")[:8],
+            weight=int(p.weight or 1),
+            source=src,
+            source_ref=p.source_ref,
+            nl_text=(p.nl_text or p.title or "")[:4000] or None,
+            status=p.status,
+            reasons=[str(r)[:500] for r in reasons][:20],
+            created_by=user_id,
+        )
+        session.add(d)
+        return d
+
     for i, p in enumerate(proposals):
         effective = model_source(source or p.source)
         issues = check_proposal(p, effective)
@@ -262,6 +287,7 @@ async def accept_proposals(
             issues = await verify_ids(session, term_id, p.params)
         if issues:
             rejected.append({"index": i, "kind": p.kind, "issues": issues})
+            decide(p, "rejected", issues, effective)
             continue
         params = dict(p.params)
         legacy_ref = params.pop("_source_ref", None)
@@ -281,10 +307,14 @@ async def accept_proposals(
         )
         session.add(row)
         rows.append(row)
-    if rows:
-        await session.flush()
+        decisions.append((decide(p, "accepted", [], effective), row))
+    for p in declined or []:
+        decide(p, "declined", ["declined by the planner in review"], model_source(source or p.source))
+    await session.flush()
+    for d, made in decisions:
+        d.constraint_id = made.id
     created = [r.id for r in rows]
-    if commit and rows:
+    if commit:
         await session.commit()
     return created, rejected
 

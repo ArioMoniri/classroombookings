@@ -106,30 +106,30 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 ### Phase 5 deploy/devops backlog (devops-engineer, 2026-10-08)
 
-- [ ] Backend: run the CP-SAT call off the event loop (`asyncio.to_thread` / process pool) in `services/solver_bridge.run_schedule`; today a solve blocks its whole uvicorn process (API + healthcheck) for up to `time_limit`
-- [ ] Backend: on startup mark `schedule_runs`/`import_jobs` left in `RUNNING`/`QUEUED` by a previous process as `FAILED (interrupted)` (in-process queue loses jobs on restart)
-- [ ] Backend: do not serve `/uploads/imports/*` from the public StaticFiles mount (nginx 404s it today); serve room photos only, or require auth
-- [ ] Backend: `POST /terms` with no `name` raises `TypeError: Term() got multiple values for keyword argument 'name'` (500): `Term(**body.model_dump(), name=...)` duplicates the key; use `body.model_dump(exclude={"name"})`
-- [ ] Backend: import-job `error` returns a full traceback with absolute server paths to API clients; log it, return a short message
-- [ ] Backend: commit `smartsched/backend/requirements.lock` (`pip-compile`/`uv pip compile` for py3.12) so Docker builds pin transitive deps; the Dockerfile already uses it as a constraints file when present
-- [ ] Frontend: session cookie is `Secure` whenever `NODE_ENV=production`, so plain-http logins from another machine fail silently; add `COOKIE_SECURE=auto` (derive from `X-Forwarded-Proto`) or document TLS-only (deploy/README.md "TLS" does)
-- [ ] Frontend: cookie `maxAge` (30 days) outlives the JWT (`JWT_EXPIRE_MINUTES=720`); align them
-- [ ] Dedicated worker service (RQ/Celery on Redis, `python -m app.cli worker`) + progress fan-out via pub/sub, before running several backend replicas (deploy/README.md "Scaling")
-- [ ] Pin base images by digest and let Renovate/Dependabot bump them
-- [ ] Postgres locale: initdb uses `C.UTF-8`; evaluate `--locale-provider=icu --icu-locale=tr-TR` for Turkish ORDER BY (needs a fresh volume)
+- [x] Backend: run the CP-SAT call off the event loop (`asyncio.to_thread` / process pool) in `services/solver_bridge.run_schedule`; today a solve blocks its whole uvicorn process (API + healthcheck) for up to `time_limit` (verified 2026-10-15: `app/workers/run_jobs.solve_off_loop` runs the solve in `asyncio.to_thread`, cancellable and wall-clock limited; tests/test_api_ops_fixes.py::test_solve_runs_off_the_event_loop_and_reports_progress and tests/test_review_jobs.py::test_m7_writes_succeed_quickly_during_a_solve pass)
+- [x] Backend: on startup mark `schedule_runs`/`import_jobs` left in `RUNNING`/`QUEUED` by a previous process as `FAILED (interrupted)` (in-process queue loses jobs on restart) (verified 2026-10-15: `app/workers/queue.recover_interrupted` runs in `main.lifespan` (boot id + stale heartbeat, not hostname/PID); test_restart_marks_orphaned_runs_and_imports_failed, test_m6_heartbeats_and_restart_recovery_by_boot_id pass)
+- [x] Backend: do not serve `/uploads/imports/*` from the public StaticFiles mount (nginx 404s it today); serve room photos only, or require auth (verified 2026-10-15: `main.create_app` mounts only `/uploads/rooms` (SafeStaticFiles); workbooks via the authenticated `GET /api/v1/imports/{id}/file`; nginx 404s every other /uploads path; test_uploaded_workbooks_are_not_public)
+- [x] Backend: `POST /terms` with no `name` raises `TypeError: Term() got multiple values for keyword argument 'name'` (500): `Term(**body.model_dump(), name=...)` duplicates the key; use `body.model_dump(exclude={"name"})` (verified 2026-10-15: `api/v1/terms.create_term` defaults the name to the code; test_create_term_defaults_name_and_rejects_bad_input)
+- [x] Backend: import-job `error` returns a full traceback with absolute server paths to API clients; log it, return a short message (verified 2026-10-15: `api/v1/imports.py` stores "import job N failed: <short error> (details in the server log)", the traceback is only logged (`workers/queue.py`); test_import_failure_returns_short_message_without_traceback)
+- [x] Backend: commit `smartsched/backend/requirements.lock` (`pip-compile`/`uv pip compile` for py3.12) so Docker builds pin transitive deps; the Dockerfile already uses it as a constraints file when present (done 2026-10-15: `uv pip compile --universal --python-version 3.12` (74 pins, same set on amd64 and the arm64 pod), used by the Dockerfile (`-c`) and the pod CI backend gate; a clean image build imports the intake parsers (images gate smoke, local build ok); pod-ci/tests/test_backend_deps.py)
+- [ ] Frontend: session cookie is `Secure` whenever `NODE_ENV=production`, so plain-http logins from another machine fail silently; add `COOKIE_SECURE=auto` (derive from `X-Forwarded-Proto`) or document TLS-only (deploy/README.md "TLS" does) (2026-10-15: still open, frontend: `route.ts` sets `secure: NODE_ENV === "production"`; TLS-only is documented and the pod deploys with `--tls`. Decision: implement `COOKIE_SECURE=auto` (nginx already forwards Caddy's X-Forwarded-Proto) or keep TLS-only)
+- [x] Frontend: cookie `maxAge` (30 days) outlives the JWT (`JWT_EXPIRE_MINUTES=720`); align them (verified 2026-10-15: `app/api/v1/[...path]/route.ts` sets maxAge = `TokenOut.expires_in` (= JWT_EXPIRE_MINUTES x 60, api/v1/auth.py), fallback `COOKIE_MAX_AGE` 12 h = 720 min (lib/server/config.ts); no unit test)
+- [ ] Dedicated worker service (RQ/Celery on Redis, `python -m app.cli worker`) + progress fan-out via pub/sub, before running several backend replicas (deploy/README.md "Scaling") (2026-10-15: still open, needs a decision (Redis + RQ/Celery adds a service). Today jobs heartbeat in the DB, cancel across processes and are recovered on restart, so several replicas are safe but a job lives in the process that accepted it. Order: backend `python -m app.cli worker`, then deploy adds the service)
+- [ ] Pin base images by digest and let Renovate/Dependabot bump them (2026-10-15: digests pinned for every base image (compose images + Dockerfile bases as compose build args + the pod CI python image), `pins.py check` in validate.sh, `./pin-digests.sh` refresh, images gate builds with the compose args; open: Dependabot/Renovate config needs a decision (`.github/dependabot.yml` is outside the devops scope; bot PRs trigger no Actions, the workflows are manual-only))
+- [x] Postgres locale: initdb uses `C.UTF-8`; evaluate `--locale-provider=icu --icu-locale=tr-TR` for Turkish ORDER BY (needs a fresh volume) (verified 2026-10-15: evaluated on postgres:16.15-alpine3.24: ICU tr-TR as the database default sorts Turkish correctly but applies Turkish case mapping everywhere (`lower('ADMIN')` = `admın`, `'admin' ILIKE 'ADMIN'` is false). Decision recorded in deploy/README.md: keep C.UTF-8, sort with `COLLATE "tr-TR-x-icu"` per column/query (backend follow-up, PostgreSQL only))
 
 ### Phase 3 AI layer backlog (ai-engineer, 2026-10-08)
 
-- [x] Backend deps: add `python-docx>=1.1` and `pypdf>=4` to `smartsched/backend/pyproject.toml` (+ lock); `app/ai/ingest.py` imports them lazily and returns HTTP 400 "not installed" without them (installed in the dev env, not declared) (verified 2026-10-15: smartsched/backend/pyproject.toml:25-26 declares both; the backend has no lock file)
+- [x] Backend deps: add `python-docx>=1.1` and `pypdf>=4` to `smartsched/backend/pyproject.toml` (+ lock); `app/ai/ingest.py` imports them lazily and returns HTTP 400 "not installed" without them (installed in the dev env, not declared) (verified 2026-10-15: smartsched/backend/pyproject.toml:25-26 declares both, pinned in smartsched/backend/requirements.lock)
 - [x] Settings default model (decided 2026-10-08: `claude-opus-5-5`): `settings_service.SPECS["anthropic_model"]` defaults to `claude-sonnet-5-5` while the claude-api skill / RESEARCH §4.3 recommend `claude-opus-5-5`; decide and align (AI layer falls back to `claude-opus-5-5` only when the setting is empty)
 - [x] Constraints table: add a `source_ref` JSON column; today upload refs live in `params["_source_ref"]` (studio backend agent) (2026-10-15: column existed since alembic 0002; `app/ai/elicit.py` `accept_proposals` now writes it and moves a legacy `params._source_ref` there; tests/ai/test_elicit_ingest.py::test_xlsx_upload_yields_proposals_and_section_edits_with_refs, ::test_docx_upload_and_accept_endpoint)
-- [ ] Chat-created constraints are term-wide (`term_id`) so they carry over to grandchild runs; add a run-scoped option ("only for this run") with inheritance through `parent_run_id` in `build_solver_input`
-- [ ] Week-limited room rules (`room_pin`/`room_forbid` with weeks other than room_closed) are flagged needs_review: the solver applies room rules to all weeks of an event; implement meeting splitting by week pattern ("PHAR 240 moves to A 206 from 23 Feb")
+- [ ] Chat-created constraints are term-wide (`term_id`) so they carry over to grandchild runs; add a run-scoped option ("only for this run") with inheritance through `parent_run_id` in `build_solver_input` (partly 2026-10-15: `add_constraint.scope` = term | run; run rules live on the child run and are copied to every chat child of it, edits touch the copy; tests/ai/test_run_scope.py. needs decision: should `build_solver_input` (app/services/solver_bridge.py, outside the AI fence) also walk the `parent_run_id` chain for non-chat child runs (POST /runs, studio re-solve), or is inheritance along chat edits enough?)
+- [ ] Week-limited room rules (`room_pin`/`room_forbid` with weeks other than room_closed) are flagged needs_review: the solver applies room rules to all weeks of an event; implement meeting splitting by week pattern ("PHAR 240 moves to A 206 from 23 Feb") (2026-10-15: `room_pin` with weeks was not flagged although the solver ignores its weeks; now every week-limited kind except room_closed is needs_review, tests/ai/test_resolve.py::test_course_code_resolves_to_meeting_ids. needs decision: splitting a planning-list meeting request into week segments changes term data that the next planning-list re-import matches by `source_key`; split the request (and teach the importer to keep the split), or model week-limited room rules in the solver (app/solver, outside the AI fence)?)
 - [ ] Moves to another day/period of a fixed-time request are rejected by the validator (`fixed_time` hard); offer "move + update the request" as one op in the diff UI instead of a separate `set_section_field`
 - [ ] Exam runs: section edits only touch meeting requests; add exam-request edits (enrolment, room count) and exam-specific chat tools (split across rooms)
 - [ ] Streaming chat (SSE) with `eager_input_streaming` + client-side tool-input validation; today `POST /runs/{id}/chat` returns when the loop ends
 - [ ] Red-team eval before launch (RESEARCH Recommendations 3): paraphrase / re-ordering / ambiguous room names / prompt-injection in uploaded files, measured against a fixed expected-constraint set
-- [ ] Persist the model id + verifier result per applied diff on the child run (audit, RESEARCH §4.3 step 6) - partly there via `chat_messages.tool_calls` usage + `stats.mode`
+- [x] Persist the model id + verifier result per applied diff on the child run (audit, RESEARCH §4.3 step 6) - partly there via `chat_messages.tool_calls` usage + `stats.mode` (2026-10-15: `stats.ai` on every chat child run = diff id, model, edited flag, applied/rejected ops with reasons, verifier status / hard score / violations, final values written by the repair job; `app/ai/chat.py` `_apply_audit`; tests/ai/test_apply_audit.py)
 - [ ] OCR for scanned PDFs (currently reported as "no extractable text")
 
 ### Phase 6 integration backlog (integration-engineer, 2026-10-08)
@@ -140,9 +140,9 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [x] Solver: `share_room` for split (multi-room) exams — the Final plan seats two split exams in one room pair (79 remaining locked overlaps)
 - [x] Solver/bridge: persist the relaxation's partial placement of an INFEASIBLE run as a draft so the grid is not empty
 - [x] Dev DB: run Alembic on dev startup (or document "delete the dev DB"); `create_all` + later `alembic upgrade` do not compose (studio tables / `constraints.source_ref`)
-- [ ] Imports still parse workbooks on the event loop (10–25 s for Bahar); move parsing to a worker thread like the solve
-- [ ] Re-record `smartsched/frontend/src/lib/api/__fixtures__/real/*.json` (contract test) whenever backend schemas change; a CI job could run the backend, record and diff
-- [ ] Dashboard: KPI deltas vs. the previous run/week (the fake "+3 pt / −2" were removed); stats tiles on the run report read `stats.unplaced/conflicts`, which CP-SAT runs do not set
+- [x] Imports still parse workbooks on the event loop (10–25 s for Bahar); move parsing to a worker thread like the solve (verified 2026-10-15: planning list, exam list, weekly grid and room master parse in `app/core/safe_files.run_isolated` (forkserver child, RLIMIT_AS, timeout); tests/test_safe_files.py pass. Remaining: the CRBS SQL dump (`importers/crbs_legacy.open_source`) still parses on the loop)
+- [x] Re-record `smartsched/frontend/src/lib/api/__fixtures__/real/*.json` (contract test) whenever backend schemas change; a CI job could run the backend, record and diff (done 2026-10-15: pod CI `gates/contract-record.py` runs in e2e-real against the seeded backend, writes `/w/contract/*.json` (ready to copy) and `contract-drift.json` (shape diff: removed / added / retyped fields; report only); `run_infeasible` / `move_conflict` are scenario fixtures, re-record by hand; pod-ci/tests/test_contract_record.py)
+- [ ] Dashboard: KPI deltas vs. the previous run/week (the fake "+3 pt / −2" were removed); stats tiles on the run report read `stats.unplaced/conflicts`, which CP-SAT runs do not set (2026-10-15: still open, frontend + backend. Note: CP-SAT `stats.conflicts` is the solver's search-conflict count (`cpsat.py` `solver.NumConflicts()`), not timetable conflicts, so a tile reading it is misleading)
 
 ### UI polish backlog (screenshot pass, 2026-10-08)
 
@@ -156,17 +156,18 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 - [x] Week-granular blocks for TERM runs (week segments, `app/solver/weeksplit.py`, 2026-10-08): a 14-week lecture whose locked room is blocked by the grid in one week (ETKİNLİK, exam) is unplaced for the whole term (Bahar term: 14 `locked_ineligible`); model "all weeks except w" (split the event's weeks around blocked weeks) instead of dropping the room
 - [x] `FEASIBLE_PARTIAL` status (runs TERMINAL, schemas, dashboard USABLE, studio last_good, frontend runs labels; 2026-10-08). Was: if a dedicated `FEASIBLE_PARTIAL` status is ever wanted, add it there first (today a best-effort run is `INFEASIBLE` + `stats.partial/placed/unplaced/events_total`, labelled "Partial · placed/total" in the UI)
-- [ ] Studio drafts: expose the run modes (`trust_locked_rooms`, `fixed_conflicts_as_warnings`, `best_effort`, `definitive_rooms`) as draft switches; pre-check uses the defaults
-- [ ] Unlocked exam runs (`definitive_rooms=prefer`): the relaxation stops at FEASIBLE within 60 s below the greedy placement (greedy fallback is used); tune (LNS-only phase, hint completion for `seats[e, r]`)
+- [ ] Studio drafts: expose the run modes (`trust_locked_rooms`, `fixed_conflicts_as_warnings`, `best_effort`, `definitive_rooms`) as draft switches; pre-check uses the defaults (open 2026-10-15, owner: studio agent — `app/services/studio.py` `DRAFT_PARAM_KEYS` lacks them; `run_params.clean_client_params` already validates them and `relaxation_policy` / `priorities`; studio runs already follow the term's `relaxation_policy` through the bridge)
+- [x] Unlocked exam runs (`definitive_rooms=prefer`): the relaxation stops at FEASIBLE within 60 s below the greedy placement (greedy fallback is used); tune (LNS-only phase, hint completion for `seats[e, r]`) (done 2026-10-15: the cause was an inconsistent hint — 473 proportional `seats[e, r]` values overfilled shared rooms, so CP-SAT dropped the warm start — plus 24 s of presolve; `ModelContext.repair_derived_hints` re-solves the seats with the hinted placement fixed and `build.light_presolve` (one pass, no symmetry) starts the search at 7 s. Real Final prefer: greedy fallback gone, 593 → 595 placed via the bridge (600 in a direct solve) of 608, phase 2 FEASIBLE (was TIMEOUT), 0 planner-level violations; lock mode unchanged 603/608 OPTIMAL. `tests/solver/test_share_room.py::test_inconsistent_seat_hint_is_repaired`. The relaxation still ends FEASIBLE, not proven, in prefer mode)
 - [x] (2026-10-08, see calibration in the feasibility doc) Reproduction rate unlocked was 69–73 % (courses) / 6 % (exams): calibrate `room_preference` vs `min_capacity_waste` weights against the planner's definitive rooms
-- [ ] Period snapping: ends 10 min into a period still claim it (BES 640 19:50 vs BES 560 20:00 both in P15); consider a ≥ ½-period rule with planner sign-off
-- [ ] Planner data fixes surfaced by the report: 7 Bahar / 3 Güz locked room overlaps, 131 Bahar fixed-vs-fixed instructor/cohort clashes (`input_conflict`), Final exams locked to rooms blocked by the Final grid (SYB 256/356/456, ODY 102/108)
-- [ ] Studio frontend (`components/studio/run-cards.tsx` `GOOD`, `copy-dialog.tsx`): treat `FEASIBLE_PARTIAL` as a usable (amber) result; render `diagnosis[].text` (planner TR/EN) instead of `message` (owned by the studio frontend agent)
-- [ ] Timetable frontend: card denominators of exam runs should use `exam_capacity` (backend `grid.enrich_assignments` already does; `components/timetable/*` reads `room.capacity`)
-- [ ] Run report UI: link "Veri sorunları (Excel)" to `GET /runs/{id}/data-issues?format=xlsx`, show the grouped JSON (no frontend client yet)
-- [ ] `app/ai/chat.py` treats only OPTIMAL/FEASIBLE as ok: add FEASIBLE_PARTIAL (owned by the ai-engineer)
-- [ ] Determinism of time-limited, unproven solves with `workers > 1` (canonical stages only run on proven optima); consider `interleave_search` for small instances
-- [ ] Week-1 bottleneck of Bahar (HAZIRLIK etc.): term runs place 577/603 room-needing events in every week, bound 578; report "events missing only week 1" separately in the UI
+- [ ] Period snapping: ends 10 min into a period still claim it (BES 640 19:50 vs BES 560 20:00 both in P15); consider a ≥ ½-period rule with planner sign-off (needs decision: planner sign-off on the ≥ ½-period rule; the snapping lives in `app/importers/normalize.py` (importer agent). Until then BES 640 vs BES 560 is a named `locked_overlap`; a coordinator priority now decides it — verified 2026-10-15 on Bahar w3: `priorities {433: 5}` keeps BES 640, BES 560 is reported "Karşılanmadı: kilit çakışması; BES 640 daha yüksek öncelikli")
+- [ ] Planner data fixes surfaced by the report: 7 Bahar / 3 Güz locked room overlaps, 131 Bahar fixed-vs-fixed instructor/cohort clashes (`input_conflict`), Final exams locked to rooms blocked by the Final grid (SYB 256/356/456, ODY 102/108) (needs decision: the planner must fix the rows. 2026-10-15 run: Bahar w3 6 `locked_overlap` + 201 `input_conflict`, Final the same 5 `locked_ineligible` (SYB 256/356/456, ODY 102/108); every lock clash is now resolved by the relaxation policy — priority, then classes/weeks, then size — and named in the pre-check (`locked_overlap.params.keeps`) and the run report (`policy_losses`))
+- [ ] Studio frontend (`components/studio/run-cards.tsx` `GOOD`, `copy-dialog.tsx`): treat `FEASIBLE_PARTIAL` as a usable (amber) result; render `diagnosis[].text` (planner TR/EN) instead of `message` (owned by the studio frontend agent) (open 2026-10-15: `run-cards.tsx` `HAS_TIMETABLE` includes `FEASIBLE_PARTIAL`, but the infeasible list still renders `d.message`; frontend)
+- [x] Timetable frontend: card denominators of exam runs should use `exam_capacity` (backend `grid.enrich_assignments` already does; `components/timetable/*` reads `room.capacity`) (verified 2026-10-15: `components/timetable/model/index-model.ts:91` returns `exam_capacity` for exam models; agenda-lens, day-timeline, board-strip, calendar-view headers use it)
+- [x] Run report UI: link "Veri sorunları (Excel)" to `GET /runs/{id}/data-issues?format=xlsx`, show the grouped JSON (no frontend client yet) (verified 2026-10-15: `components/runs/issue-groups.tsx` downloads `dataIssuesXlsxUrl`, `run-view.tsx` renders `useRunDataIssues` groups)
+- [ ] `app/ai/chat.py` treats only OPTIMAL/FEASIBLE as ok: add FEASIBLE_PARTIAL (owned by the ai-engineer) (open 2026-10-15: `app/ai/chat.py:1298` still `status in ("OPTIMAL", "FEASIBLE")`; outside the solver scope)
+- [ ] Determinism of time-limited, unproven solves with `workers > 1` (canonical stages only run on proven optima); consider `interleave_search` for small instances (needs decision 2026-10-15: probed `interleave_search` + a deterministic time limit with 4 workers on a 150-event generated instance — CP-SAT's deterministic clock barely advances on these models, the wall cap binds and three runs gave objectives 804 / 1049 / 907, so it is not deterministic in practice. Deterministic mode (`workers=1`) is bit-identical (`test_bahar_week3_is_deterministic`, `tests/solver/test_policy.py::test_deterministic_mode_is_bit_identical_with_priorities`, repair: `test_repair_returns_a_moved_diff_and_is_deterministic_with_one_worker`). Decision: should publishable / studio runs default to `workers=1` (slower, reproducible)?)
+- [ ] Week-1 bottleneck of Bahar (HAZIRLIK etc.): term runs place 577/603 room-needing events in every week, bound 578; report "events missing only week 1" separately in the UI (backend done 2026-10-15: `weeksplit.to_original` adds `stats.missing_weeks` / `stats.missing_only_week` and one `missing_only_week` warning per week with TR/EN text — real Bahar term: "2 ders 1. hafta dışında her hafta yerleşti (EHM 312 §1, EHM 212 §1)"; `tests/solver/test_week_split.py`. Open: the UI card (frontend))
+- [x] Per-term relaxation policy (user decision 2026-10-15; solver-backlog-policy-2026-10-15): `SolverInput.relaxation_policy` `lock_first` (default: trusted locks never moved and kept first, then `Event.priority` levels, then most requests / event-weeks) or `most_classes_first`; lexicographic tiers (`app/solver/policy.py`), one weighted objective when it fits 2^42, else staged solves; run param `relaxation_policy` > settings key `term.<id>.relaxation_policy` > default; priorities from run param `priorities` (TODO P19-M2: persist per request); every loser named in TR/EN (`unplaced.params.policy`, `policy_losses`); lock/lock clashes name the winner at pre-check (`locked_overlap.params.keeps`); planner_check flags a lock dropped for unlocked classes. Real data, 0 planner-level violations, hard 100: Bahar w3 lock_first 687/716 events, 6 locked requests lost vs most_classes_first 687/716, 8 lost; Bahar term 681/717, 11 lost vs 683/717, 14 lost; Final 603/608 both
 
 
 ### Phase 8 Generator Studio frontend backlog (frontend-engineer, 2026-10-08)
@@ -243,9 +244,9 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 ### Test-stack follow-ups (2026-10-08)
 
-- [ ] SMTP sink (local debug server) in the e2e stack to close parity rows S-23 / X-02 without e-mailing reset codes.
-- [ ] Second, empty backend in e2e for the installer-requirements step (B-SETUP-02).
-- [ ] Next.js dev/e2e proxies `/uploads/rooms/*` so room photos and the org logo show without nginx.
+- [x] SMTP sink (local debug server) in the e2e stack to close parity rows S-23 / X-02 without e-mailing reset codes. (done 2026-10-15: `gates/smtp-sink.py` runs as `smtp` on the e2e-real network (SMTP 1025, JSON API 8025, no STARTTLS, nothing delivered); Playwright gets `E2E_SMTP_HOST/PORT/API`; pod-ci/tests/test_e2e_stack.py. Closing S-23 / X-02 still needs the spec (frontend): SMTP host `smtp`, port 1025, security `none`, send the test message, read `GET $E2E_SMTP_API/messages`, then clear `smtp.host` so the other specs keep showing codes)
+- [x] Second, empty backend in e2e for the installer-requirements step (B-SETUP-02). (done 2026-10-15: `backend-empty` (`E2E_EMPTY=1`: migrations only, no users, no ADMIN_*) on the e2e-real network, `E2E_EMPTY_API_URL`; B-SETUP-02 still needs the spec plus a second `next start` with `NEXT_PUBLIC_API_URL=$E2E_EMPTY_API_URL` in playwright.config.ts (read at run time, same build; frontend))
+- [ ] Next.js dev/e2e proxies `/uploads/rooms/*` so room photos and the org logo show without nginx. (2026-10-15: still open, frontend: next.config.ts has no rewrites; proposed `rewrites()` -> `/uploads/rooms/:path*` to `${NEXT_PUBLIC_API_URL}/uploads/rooms/:path*` (nginx still serves it in production))
 
 ### Calendar sync follow-ups (2026-10-08)
 
@@ -293,9 +294,9 @@ Backend wave C part 1 (2026-10-08, backend-engineer; API contract docs/product/w
 
 ### Planner comparison follow-ups (docs/testing/2026-10-08-schedule-vs-planner.md)
 
-- [ ] R2/R3/R1 and the data-issues gaps: assigned to the solver review fix agent.
+- [x] R2/R3/R1 and the data-issues gaps: assigned to the solver review fix agent. (verified 2026-10-15: `tests/solver/test_review_fixes.py` R2 size-0 exams / R3 week accounting + residual lock round, `tests/test_review_solver_fixes.py::test_same_lecture_rules_in_lock_and_prefer_mode` (R1) and `::test_prefer_mode_report_keeps_the_list_checks_and_labels_duplicates`, `outside_pool_overlap` in the bridge + `tests/test_data_issues.py`; R3 is now also a policy rule: lock_first keeps the lock)
 - [x] R4: allow multi-room splits for large groups without a definitive room set (ENG 105 §1, ING 301, NRS 204+304) — `solver_bridge.allow_large_splits`, run params `split_large_classes` (default on) / `split_max_rooms` (4): a class larger than every suitable room free at its time may use rooms of one building (backend-engineer 2026-10-08).
-- [ ] R5: use the published board as a soft multi-room hint (fixes the reshuffling of rows without a definitive room).
+- [ ] R5: use the published board as a soft multi-room hint (fixes the reshuffling of rows without a definitive room). (needs decision: the board's class placements are not an input today (`importers/weekly_grid.py` stores blocks only); if the planner wants them as hints, the importer stores the cell placements and the bridge passes them as `preferred_room_ids` (weight `room_preference` 10, or the Q7 learned weight 5). Solver side ready: preferences are soft and never decide who is placed)
 - [x] Importer: `needs_room=false` for non-room venues (CASE, office, ONLINE; `IMPORT_NON_ROOM_VENUES`); normalise leading zeros in codes (SYS 18/018; alembic 0016); flag non-person instructor values ("Yüz yüze", "UZEM"); prefer sheet-name dates when day headers contradict them; report missing week sheets and optionally carry the last week's grid blocks forward (`IMPORT_GRID_CARRY_FORWARD`); term end date when the board is short; `C 501-502` ranges (backend-engineer 2026-10-08).
 - [x] Data-issues: board-only checks (capacity, instructor clashes from board times, two classes in one cell); unknown board codes, board cells at times the list lacks, weeks without a board sheet; non-person instructors (backend-engineer 2026-10-08).
 - [x] `POST /imports/room-master` (CSV UTF-8/cp1254 or xlsx; `planning.edit` or `setup.rooms`).
@@ -426,18 +427,18 @@ Wave 0, the gates:
 - [ ] P19-00a: refuse untargeted soft structural rules (D1 BLOCKER: a soft capacity rule seated 180 in a 50-seat room with hard 100). Backend agent.
 - [ ] P19-00b: per-source hardness allowlist (AI/UPLOAD/LEARNED); store rejected proposals. AI agent.
 - [ ] P19-00c: report waived structural rules in stats and the run report. Solver agent.
-- [ ] P19-01: publish guard (no FAILED activation), a single active run per term, 409 on deleting the active run; migration on the current single head (0018_council at the universal merge). Backend agent.
+- [x] P19-01 (done cc9c45d + c1ef5e0, 0019 index): publish guard (no FAILED activation), a single active run per term, 409 on deleting the active run; migration 0018 after 0017_council. Backend agent.
 - [ ] P19-02: audit planning entities and actions (D5). Backend agent.
-- [ ] P19-03: per-term write lock for imports and commits (D8). Backend agent, then the importer agent wires it in.
+- [x] P19-03 (lock service landed c1ef5e0; wiring into imports/council tracked below): per-term write lock for imports and commits (D8). Backend agent, then the importer agent wires it in.
 - [ ] P19-04/05: council merge hardening (D2 safe_files caps and isolation, D3 no MSW, D13 Planner-only records, D14 dedupe). Merge agent.
 - [ ] P19-06: no dead nav/⌘K links (D6); find-room gated by permission; crawler e2e. Wave-1 frontend agent.
 - [ ] D15, D16, D19 (rooms PUT permission, CRBS DSN SSRF, setup race). Backend agent.
 - [ ] P19-Q1: normaliser D9–D12, plus the parser bugs from the academician analysis. Importer agent.
 - [ ] P19-Q2: parity gate requires the playwright JSON; fix the date-gated skip; reserve.spec in UI_SPECS. Devops agent.
-- [ ] P19-Q3: dependency pins (xlrd, defusedxml, pdfplumber, pypdfium2, icalendar in main deps) and a 30-day upload purge. Devops agent.
+- [x] P19-Q3: dependency pins (xlrd, defusedxml, pdfplumber, pypdfium2, icalendar in main deps) and a 30-day upload purge. Devops agent. (done 2026-10-15: pyproject main deps + requirements.lock, images-gate import smoke, `purge-uploads.sh` + pod timer `smartsched-upload-purge` (daily, Persistent=true), UPLOAD_RETENTION_DAYS=30, uploads/rooms kept)
 Wave 1, structured intake (after 04): [ ] I1 magic-byte registry + CSV/TSV/JSON · [ ] I2 xls + ods · [ ] I3 xml + ics · [ ] I4 commit dry-run diff · [ ] I5 schedule map → baseline IMPORT run, deduped across jobs · [ ] I6 source_ref provenance · [ ] I7 room-master import UI + diff panel
 Wave 2, AI-assisted intake: [ ] A1 AI intake/vision switches (default off) + KVKK sign-off (backend part with the AI agent now) · [ ] A2 review required on every AI row · [ ] A3 PDF tables / scanned PDFs / EML / EXIF / PII redaction · [ ] A4 injection corpus test
-Wave 3, learning, from scratch, moderation: [ ] L1–L4 learning tables, extractors, priors and suggestions, reset/undo · [ ] C1–C2 CRUD for faculties, courses, instructors, sections, requests + pattern expander · [ ] S1–S2 priority-weighted placement, deterministic repair diff · [ ] M1–M3 moderation read models, priority + conflict_policy, re-solve endpoint · [ ] F1–F4 moderation UI, suggestion tray + reset UI, program wizard
+Wave 3, learning, from scratch, moderation: [ ] L1–L4 learning tables, extractors, priors and suggestions, reset/undo · [x] C1–C2 CRUD for faculties, courses, instructors, sections, requests + pattern expander (2026-10-15: `api/v1/catalog_admin.py`, `services/{catalog_admin,patterns}.py`; planning.edit, `MAN:` keys, audited, archive + guarded purge; from-scratch MBG Tezli YL term solved OPTIMAL hard 100, planner_check 0; open: importer archives `MAN:` sections on a later list import, xfail in tests/test_p19_catalog_admin.py) · [ ] S1–S2 priority-weighted placement, deterministic repair diff · [ ] M1–M3 moderation read models, priority + conflict_policy, re-solve endpoint · [ ] F1–F4 moderation UI, suggestion tray + reset UI, program wizard
 Proposed later (from the review): academician self-service portal, instructor availability and load rules, term workflow states, publish history and rollback, department-scoped planners, swap requests after publish, exam invigilator assignment, utilisation reports, what-if sandboxes, OBS enrolment sync, personal ICS feeds for assignments.
 
 Phase 19 UX decisions (owner, 2026-10-15; specs in docs/design/v2/phase19-*.md):
@@ -453,6 +454,48 @@ Defaults adopted (owner may override):
 - Priority has 3 tiers. Person-level priority is set by coordinator/admin only.
 - Exam terms use the same policy order.
 - A KVKK erasure request purges immediately; the undo window does not apply to erasure.
+
+### Motion audit tickets (docs/review/2026-10-15-motion-audit.md; 35 findings, 0 blocker / 12 major / 23 minor), queued for the frontend sweep
+- [ ] T1: busy buttons are spinner-only (56 `Loader2 animate-spin` uses in 39 files). Add a busy label and `aria-busy`, and a reduced-motion fallback.
+- [ ] T2: no stale-data signal on day/week navigation or find-room re-search. Dim the stale grid and show the pending date.
+- [ ] T3: main-thread stalls.
+  - book sheet open: 36–48 dropped frames, up to 653 ms long frame
+  - drag-span release: 96–138 dropped frames
+  - next day: 24–52 dropped frames
+  - bell popover: 14.5–33 dropped frames
+  - find-room results: 34–74 dropped frames
+  Fix: defer work out of the click handler, memoise grid cells, virtualise.
+- [ ] T4: focus falls to `<body>` after audit Undo, Withdraw, Delete feature, Approve/Reject, and onboarding Accept/Reject.
+- [ ] T5: studio review tray.
+  - It animates `height` on exit.
+  - It uses motion's useReducedMotion, which ignores the in-app switch; use the app's useReduce().
+  - The accepted proposal does not travel into the rule list (layoutId).
+  - It has no size limit above 40 items.
+- [ ] T6: onboarding progress. Replace the per-agent spinners with one progress row, add a live region, and keep focus while busy.
+- [ ] T7–T12: the minor items in the audit doc.
+- [ ] T13: the e2e reduced-transparency assertion reads `backgroundColor`, which is always transparent for gradient glass. Fix the spec, and the same check in .claude/skills/motion_designer/references/audit.md, then run `check_snippets.py` and expect PASS.
+- [ ] Re-run audit §1 for the features admin, approvals, audit viewer, find-room and onboarding once they land.
+
+### Persona test loop (user request 2026-10-15: "user, academician and admin subagents test each part, button, motion design and feature, report issues and enhancements, and wire them")
+- Three user-tester agents (staff booking user, academician, admin/coordinator), each on its own isolated real stack built from a frozen snapshot (commit cc9c45d): real backend, real Bahar/Güz/Final workbooks, production frontend. Every reachable screen, button and form, TR + EN, 390 px, keyboard-only, reduced motion, plus frame-drop measurement against the motion_designer audit checklist.
+- Reports go to docs/testing/2026-10-15-persona-{user,academician,admin}.md. Issue ids: U-/A-/M-.
+- Wiring:
+  1. Each issue gets a ticket here, with its owner area: frontend sweep, backend, solver, AI, importer, devops or i18n. It goes to the running owner agent, or into the next sweep.
+  2. Enhancements map to an existing P19 ticket or become a new one.
+  3. After the fixes land, the same persona re-tests on a new snapshot and marks each issue verified or reopened.
+
+Docs-refresh hand-off (2026-10-15):
+- [ ] Screenshots still to capture once the wave-1 screens land:
+  - approvals inbox and approval rules
+  - find-a-room
+  - audit viewer
+  - room features tab
+  - notification bell
+  - full-page booking views with the sidebar
+  - my bookings with the sync panel (dark)
+  - calendar-sync/webhook settings
+- [ ] The old docs/images/screens/bookings-*.webp and my-bookings-*.webp are outdated: regenerate or delete them (frontend sweep).
+- [ ] The README table "Measured on the real data" is still the 2026-10-08 data. Re-run tools/validate_planner and real-data feasibility in the stabilisation pass.
 
 ### Universal SmartSched / Ingestion Council backlog (claude/smartsched-universal 2026-10-08, merged 2026-10-15; overlaps Phase 19 intake)
 

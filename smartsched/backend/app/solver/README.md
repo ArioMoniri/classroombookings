@@ -142,6 +142,15 @@ static checker runs the same test on locked sharing exams (`locked_overlap` with
 greedy fills sharing rooms seat-aware, and hints value `seats` with a proportional (largest
 remainder) allocation.
 
+**Consistent seat hints and a light presolve (2026-10-15).** The hint values `seats[e, r]` by a
+proportional split, which may overfill a shared room that the hinted events can in fact share with another
+split; CP-SAT then ignores the warm start.  `ModelContext.repair_derived_hints` solves a clone with every
+primary hinted variable fixed and no objective (one worker, ≤ 10 s) and re-hints the derived variables
+(Final, prefer mode: 473 seat hints corrected).  Models with split sharing events also get one presolve pass
+without symmetry detection (`build.light_presolve`: the default presolve took 24 s of a 60 s relaxation).
+Final in prefer mode: the relaxation no longer falls back to greedy (593 → 595–600 placed of 608) and phase 2
+finishes (was `TIMEOUT`); lock mode unchanged (603/608, `OPTIMAL`).
+
 ### Hard constraints that are always hard
 
 `no_room_overlap`, `no_cohort_overlap`, `no_instructor_overlap` cannot be made soft; a

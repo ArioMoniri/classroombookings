@@ -143,12 +143,27 @@ class IngestOut(ElicitOut):
     truncated: bool = False
     detected_columns: dict[str, str] = {}  # role -> header text (tabular files)
     warnings: list[str] = []
+    #: AI intake is switched off (Settings > AI, KVKK): the file was read locally, nothing was sent
+    needs_ai: bool = False
+    #: personal data masked before sending: {"emails": n, "phones": n}
+    redactions: dict[str, int] = {}
+
+
+class AIPolicyIn(BaseModel):
+    """``PUT /ai/policy`` (admin). Turning a switch on needs ``kvkk_ack`` (the KVKK officer signed off)."""
+
+    intake_enabled: bool | None = None
+    vision_enabled: bool | None = None
+    kvkk_ack: bool = False
+    reason: str | None = None
 
 
 class AcceptIn(BaseModel):
     proposals: list[ProposedConstraint] = []
     section_edits: list[ProposedSectionEdit] = []
     run_id: int | None = None  # attach constraints to a run instead of the term
+    #: proposals the planner dismissed in review (stored as ``declined`` decisions, never as rules)
+    declined: list[ProposedConstraint] = []
 
 
 class AcceptOut(BaseModel):
@@ -196,6 +211,8 @@ class LockOp(BaseModel):
 class AddConstraintOp(BaseModel):
     op: Literal["add_constraint"] = "add_constraint"
     constraint: ProposedConstraint
+    #: ``term``: every later run of the term; ``run``: only the child run of this diff (and chat edits of it)
+    scope: Literal["term", "run"] = "term"
 
 
 class RemoveConstraintOp(BaseModel):

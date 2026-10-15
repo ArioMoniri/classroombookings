@@ -206,3 +206,190 @@ test.describe("SmartSched smoke (real backend)", () => {
     await expect(page.getByRole("dialog").getByTestId("summary-panel")).toBeVisible();
   });
 });
+
+/* ---------------------------------------------------------------------------------------------------------
+ * Studio + calendar polish (bugs the recording agent found on the real backend, 2026-10-08)
+ * ------------------------------------------------------------------------------------------------------- */
+
+type Call = { status: number; body: unknown };
+/** Same-origin call through the Next proxy (the httpOnly cookie carries the JWT). */
+async function call(page: import("@playwright/test").Page, method: string, path: string, body?: unknown): Promise<Call> {
+  return page.evaluate(
+    async ({ method, url, body }) => {
+      const r = await fetch(url, { method, headers: { Accept: "application/json", "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+      return { status: r.status, body: (await r.json().catch(() => null)) as unknown };
+    },
+    { method, url: `/api/v1${path}`, body },
+  );
+}
+
+type DraftPin = { event_id: number; room_ids?: number[]; day?: number | null; start_period?: number | null; unlock?: boolean };
+type StudioDraft = { version: number; pins: DraftPin[]; scope: { horizon: string; horizon_params: Record<string, unknown> } };
+
+/** The UI language (NEXT_LOCALE cookie; the app default is Turkish). */
+async function setLang(page: import("@playwright/test").Page, baseURL: string | undefined, lang: "en" | "tr"): Promise<void> {
+  await page.context().addCookies([{ name: "NEXT_LOCALE", value: lang, url: baseURL ?? "http://127.0.0.1:3100" }]);
+}
+
+/** Open the studio and learn which term it plans (the shell's current term by date). */
+async function openStudio(page: import("@playwright/test").Page, step: string): Promise<number> {
+  const draftRes = page.waitForResponse((r) => /\/api\/v1\/terms\/\d+\/studio(\?|$)/.test(r.url()) && r.request().method() === "GET");
+  await page.goto(`/generate?step=${step}`);
+  const termId = Number(/\/terms\/(\d+)\/studio/.exec((await draftRes).url())![1]);
+  await expect(page.getByTestId(`${step}-step`)).toBeVisible({ timeout: 30_000 });
+  return termId;
+}
+
+test.describe("studio + calendar polish (real backend)", () => {
+  test("login: the identifier hint is neutral in English and Turkish", async ({ page, baseURL }) => {
+    await page.context().clearCookies();
+    for (const [lang, hint] of [["en", "E-mail or username"], ["tr", "E-posta veya kullanıcı adı"]] as const) {
+      await setLang(page, baseURL, lang);
+      await page.goto("/login");
+      const field = page.getByTestId("login-identifier");
+      await expect(field).toHaveAttribute("placeholder", hint);
+      expect(await field.getAttribute("placeholder")).not.toMatch(/@/);
+    }
+  });
+
+  test("studio: 'No classes after' cannot be saved without a time; after adding it the automatic pre-check sets readiness", async ({ page, baseURL }) => {
+    test.setTimeout(240_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await setLang(page, baseURL, "en");
+    await login(page);
+    const termId = await openStudio(page, "rules");
+    await page.getByTestId("add-template").click();
+    await page.getByTestId("template-gallery").getByRole("tab", { name: "Times" }).click();
+    await page.getByTestId("template-no_classes_after").click();
+    const builder = page.getByTestId("rule-builder");
+    // no time chosen: Add is disabled and the builder says what is missing
+    await expect(page.getByTestId("builder-add")).toBeDisabled();
+    await expect(page.getByTestId("builder-issues")).toContainText(/no classes after/i);
+    // a "before" time later than the "after" time is refused too
+    await builder.getByLabel("latest", { exact: true }).selectOption("4");
+    await builder.getByLabel("earliest", { exact: true }).selectOption("9");
+    await expect(page.getByTestId("builder-add")).toBeDisabled();
+    await builder.getByLabel("earliest", { exact: true }).selectOption("");
+    await builder.getByLabel("latest", { exact: true }).selectOption("16");
+    await expect(page.getByTestId("builder-issues")).toHaveCount(0);
+    await expect(page.getByTestId("builder-add")).toBeEnabled();
+    const before = (await call(page, "GET", `/constraints?term_id=${termId}`)).body as { id: number }[] | { data?: { id: number }[]; items?: { id: number }[] };
+    const ids = new Set((Array.isArray(before) ? before : (before.items ?? before.data ?? [])).map((c) => c.id));
+    await page.getByTestId("builder-add").click();
+    await expect(page.getByTestId("template-gallery")).toBeHidden();
+    try {
+      // recording bug 1: readiness stayed "Not checked yet" although the automatic pre-check ran
+      const meter = page.getByTestId("summary-panel").getByTestId("readiness");
+      await expect(meter).toHaveAttribute("data-readiness", /^(ready|warnings|blocked)$/, { timeout: 120_000 });
+      // it stays current when only the open step changes (a navigation save bumps the draft version)
+      await page.getByTestId("rail-step-scope").click();
+      await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "saved", { timeout: 15_000 });
+      await expect(meter).toHaveAttribute("data-readiness", /^(ready|warnings|blocked|checking)$/);
+      await expect(meter).toHaveAttribute("data-readiness", /^(ready|warnings|blocked)$/, { timeout: 60_000 });
+    } finally {
+      const after = (await call(page, "GET", `/constraints?term_id=${termId}`)).body as { id: number; kind: string }[] | { data?: { id: number; kind: string }[]; items?: { id: number; kind: string }[] };
+      for (const c of Array.isArray(after) ? after : (after.items ?? after.data ?? [])) if (!ids.has(c.id) && c.kind === "day_window") await call(page, "DELETE", `/constraints/${c.id}`);
+    }
+  });
+
+  test("studio: an 'Unlock' fix is shown as unlocked, not as a pin, and the scope sentence uses singular forms", async ({ page, baseURL }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await setLang(page, baseURL, "en");
+    await login(page);
+    const termId = await openStudio(page, "scope");
+    const draft = (await call(page, "GET", `/terms/${termId}/studio?kind=COURSE`)).body as StudioDraft;
+    const locked = ((await call(page, "GET", `/terms/${termId}/studio/classes?kind=COURSE&status=LOCKED&limit=1`)).body as { items: { id: number; course_code: string }[] }).items[0];
+    test.skip(!locked, "the term has no locked class");
+    const others = draft.pins.filter((p) => p.event_id !== locked!.id);
+    const placed = others.filter((p) => (p.room_ids?.length ?? 0) > 0 || p.day != null || p.start_period != null).length;
+    // what the pre-check "Unlock …" fix stores: a draft entry with only unlock:true; and a one-week scope
+    const put = await call(page, "PUT", `/terms/${termId}/studio`, { kind: "COURSE", version: draft.version, pins: [...others, { event_id: locked!.id, unlock: true }], horizon: "WEEK", horizon_params: { weeks: [3] } });
+    expect(put.status, JSON.stringify(put.body)).toBe(200);
+    try {
+      await page.goto("/generate?step=scope");
+      await expect(page.getByTestId("scope-sentence")).toContainText(/ for 1 week\.$/, { timeout: 30_000 });
+      await expect(page.getByTestId("summary-panel").getByTestId("stat-pinned")).toHaveText(String(placed));
+      const summary = (await call(page, "GET", `/terms/${termId}/studio/summary?kind=COURSE`)).body as { counts: { pinned: number; unlocked: number }; sentence: { en: string } };
+      expect(summary.counts).toMatchObject({ pinned: placed, unlocked: 1 });
+      expect(summary.sentence.en).toMatch(/ for 1 week\.$/);
+      // Classes: the row says "Unlocked", not a pinned room
+      await page.getByTestId("rail-step-classes").click();
+      await page.getByTestId("class-search").fill(locked!.course_code);
+      const row = page.locator(`[data-testid='class-row'][data-class-id='${locked!.id}']`).first();
+      await expect(row.getByTestId("pin-button")).toHaveAttribute("data-unlocked", "true", { timeout: 30_000 });
+      await expect(row.getByTestId("pin-button")).toHaveText(/Unlocked/);
+      // Rules: listed with the other fix changes, with "Lock again"
+      await page.getByTestId("rail-step-rules").click();
+      const card = page.locator(`#override-${locked!.id}`);
+      await expect(card).toContainText(/Unlocked: .* may move/);
+      await expect(card.getByRole("button", { name: /Lock again/ })).toBeVisible();
+    } finally {
+      const now = (await call(page, "GET", `/terms/${termId}/studio?kind=COURSE`)).body as StudioDraft;
+      await call(page, "PUT", `/terms/${termId}/studio`, { kind: "COURSE", version: now.version, pins: draft.pins, horizon: draft.scope.horizon, horizon_params: draft.scope.horizon_params });
+    }
+  });
+
+  test("studio: rules from templates follow the UI language; free-text rules keep their words with a 'written in' tag", async ({ page, baseURL }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await setLang(page, baseURL, "en");
+    await login(page);
+    const termId = await openStudio(page, "rules");
+    const cls = ((await call(page, "GET", `/terms/${termId}/studio/classes?kind=COURSE&limit=1`)).body as { items: { id: number; course_code: string }[] }).items[0]!;
+    const made: number[] = [];
+    const create = async (body: Record<string, unknown>) => {
+      const r = await call(page, "POST", "/constraints", { term_id: termId, run_id: null, kind: "building_preference", params: { building: "A", event_ids: [cls.id] }, hardness: "soft", weight: 5, enabled: true, ...body });
+      expect(r.status, JSON.stringify(r.body)).toBeLessThan(300);
+      made.push((r.body as { id: number }).id);
+      return (r.body as { id: number }).id;
+    };
+    try {
+      // a builder rule stores its English sentence; a planning-file note is the planner's original text
+      const built = await create({ source: "ADMIN", nl_text: `Keep ${cls.course_code} in building A` });
+      const own = await create({ source: "FILE", nl_text: `Please keep ${cls.course_code} classes in building A` });
+      await setLang(page, baseURL, "tr");
+      await page.goto("/generate?step=rules");
+      const builtCard = page.locator(`#rule-${built}`);
+      await expect(builtCard).toBeVisible({ timeout: 30_000 });
+      await expect(builtCard).toContainText(/A blokta tut/);
+      await expect(builtCard).not.toContainText("Keep ");
+      await expect(builtCard.getByTestId("written-in")).toHaveCount(0);
+      const ownCard = page.locator(`#rule-${own}`);
+      await expect(ownCard).toContainText(/A blokta tut/);
+      await expect(ownCard).toContainText(`Please keep ${cls.course_code} classes in building A`);
+      await expect(ownCard.getByTestId("written-in")).toHaveText("EN dilinde yazıldı");
+      // back in English the free-text rule needs no tag
+      await setLang(page, baseURL, "en");
+      await page.goto("/generate?step=rules");
+      await expect(page.locator(`#rule-${own}`)).toContainText(/Keep .* in building A/);
+      await expect(page.locator(`#rule-${own}`).getByTestId("written-in")).toHaveCount(0);
+    } finally {
+      for (const id of made) await call(page, "DELETE", `/constraints/${id}`);
+    }
+  });
+
+  test("no hydration errors on /timetable and /classes (React #418)", async ({ page, baseURL }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await setLang(page, baseURL, "en");
+    await login(page);
+    const errors: string[] = [];
+    let at = "";
+    page.on("pageerror", (e) => {
+      if (/#418|#423|hydrat/i.test(String(e))) errors.push(`${at}: ${String(e).slice(0, 200)}`);
+    });
+    page.on("console", (m) => {
+      if (m.type() === "error" && /hydrat|didn't match/i.test(m.text())) errors.push(`${at}: ${m.text().slice(0, 200)}`);
+    });
+    // hard loads: the race needs the shell's /auth/me to land while the page's boundaries still hydrate
+    for (const path of ["/timetable", "/classes"]) {
+      for (let i = 0; i < 3; i++) {
+        at = `${path} #${i + 1}`;
+        await page.goto(path, { waitUntil: "networkidle" });
+        await expect(page.getByTestId(path === "/timetable" ? "calendar" : "classes").first()).toBeVisible({ timeout: 30_000 });
+      }
+    }
+    expect(errors).toEqual([]);
+  });
+});

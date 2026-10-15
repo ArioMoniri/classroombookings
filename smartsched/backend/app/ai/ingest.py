@@ -26,7 +26,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.client import AIClient
 from app.ai.elicit import propose
+from app.ai.policy import ai_allowed
 from app.ai.resolve import load_term_context
+from app.ai.sanitize import clean_for_model, strip_controls
 from app.core.safe_files import inspect_zip, open_workbook, run_isolated
 from app.importers.normalize import tr_casefold
 from app.schemas.ai import IngestOut, ProposedConstraint, ProposedSectionEdit, SourceRef, UsageOut
@@ -323,12 +325,19 @@ async def extract_preferences(
     filename: str,
     lang: str = "tr",
     *,
-    client: AIClient,
+    client: AIClient | None,
 ) -> IngestOut:
-    """Uploaded file -> reviewed-later proposals with source references (nothing is applied)."""
+    """Uploaded file -> reviewed-later proposals with source references (nothing is applied).
+
+    Nothing is sent to Anthropic unless the admin switch ``ai.intake_enabled`` is on with its KVKK sign-off
+    (:func:`app.ai.policy.ai_allowed`) and a client is given; otherwise the file is read locally and every unit
+    comes back in ``unparsed`` as "needs AI" (``needs_ai=True``). Sent text is cleaned first
+    (:func:`app.ai.sanitize.clean_for_model`: control characters, e-mail / phone redaction, wrapper tags)."""
     # the local read runs off the event loop in a memory-capped child process (review B1)
     ex = await run_isolated(extract_units, file_bytes, filename)
     name = PurePath(filename or "upload").name
+    for unit in ex.units:  # invisible / bidi characters never reach the reviewer's screen either
+        unit.ref.excerpt = strip_controls(unit.ref.excerpt or "") or None
     if not ex.units:
         return IngestOut(
             proposals=[],
@@ -337,6 +346,13 @@ async def extract_preferences(
             warnings=ex.warnings or ["no text found in the file"],
             assistant_message="Dosyada metin bulunamadı." if lang == "tr" else "No text found in the file.",
         )
+    if client is None or not await ai_allowed(session, "intake"):
+        return _needs_ai(name, ex, lang)
+    redactions = {"emails": 0, "phones": 0}
+    for unit in ex.units:
+        unit.text, st = clean_for_model(unit.text)
+        redactions["emails"] += st["emails"]
+        redactions["phones"] += st["phones"]
     ctx = await load_term_context(session, term_id)
     chunks = chunk_units(ex.units)
     if len(chunks) > MAX_CHUNKS:
@@ -385,6 +401,43 @@ async def extract_preferences(
         truncated=ex.truncated,
         detected_columns=ex.columns,
         warnings=ex.warnings,
+        redactions=redactions,
+    )
+
+
+NEEDS_AI_LIMIT = 500
+
+
+def _needs_ai(name: str, ex: Extracted, lang: str) -> IngestOut:
+    """AI intake is off: every unit goes to review as "needs AI" (nothing was sent anywhere)."""
+    tr = lang == "tr"
+    reason = (
+        "yapay zekâ ile okuma kapalı (Ayarlar > Yapay zekâ); elle kural ekleyin"
+        if tr
+        else "AI intake is off (Settings > AI); add the rule by hand"
+    )
+    unparsed = [
+        {"text": strip_controls(u.text), "reason": f"needs AI: {reason}", "source_ref": u.ref.to_ref()}
+        for u in ex.units[:NEEDS_AI_LIMIT]
+    ]
+    warnings = [*ex.warnings, "AI intake is switched off by the administrator: the file was not sent to the AI"]
+    if len(ex.units) > NEEDS_AI_LIMIT:
+        warnings.append(f"only the first {NEEDS_AI_LIMIT} of {len(ex.units)} rows/paragraphs are listed")
+    return IngestOut(
+        proposals=[],
+        unparsed=unparsed,
+        assistant_message=(
+            "Yapay zekâ ile dosya okuma kapalı; satırlar elle inceleme için listelendi."
+            if tr
+            else "AI file intake is off; the rows are listed for manual review."
+        ),
+        filename=name,
+        file_kind=ex.file_kind,
+        units=len(ex.units),
+        truncated=ex.truncated,
+        detected_columns=ex.columns,
+        warnings=warnings,
+        needs_ai=True,
     )
 
 

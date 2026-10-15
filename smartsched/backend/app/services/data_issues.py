@@ -179,6 +179,26 @@ GROUPS: tuple[GroupSpec, ...] = (
         "the week sheet.",
     ),
     GroupSpec(
+        "unparsed_preference",
+        "Okunamayan istek - Unparsed",
+        "Kurala çevrilemeyen serbest metin istekleri",
+        "Free-text wishes no rule could be read from",
+        "Açıklama veya derslik talebi sütunundaki bir istek kurala çevrilemedi (ör. giriş kata yakın derslik, "
+        "kolçaklı sandalye): derslik özelliği tanımlayın veya kuralı elle yazın.",
+        "A wish in the notes or request column could not be read as a rule (e.g. a room near the entrance "
+        "floor, armchair seats): define the room feature or write the rule by hand.",
+    ),
+    GroupSpec(
+        "preference_review",
+        "Onay bekleyen - To review",
+        "Açıklama sütunundan okunan, onay bekleyen yumuşak istekler",
+        "Soft wishes read from the notes column, waiting for review",
+        "Derse Özel Açıklama sütunundan okunan istekler yumuşak kural olarak kapalı oluşturuldu; kontrol edip "
+        "açın veya silin.",
+        "Wishes read from the notes column were created as soft rules, switched off; check them and switch "
+        "them on or delete them.",
+    ),
+    GroupSpec(
         "locked_room_too_small",
         "Küçük derslik - Room too small",
         "Planlanan derslik öğrenci sayısından küçük",
@@ -1882,6 +1902,74 @@ async def capacity_warnings(session: AsyncSession, term_id: int, kind: str = "CO
     return out
 
 
+async def preference_checks(session: AsyncSession, run: ScheduleRun) -> dict[str, list[dict[str, Any]]]:
+    """Free-text wishes of the run's term (importer ``preference_rules``): ``unparsed_preference`` - wishes
+    no rule could be read from, re-read from the stored notes / request cells with the importer's own
+    classifier; ``preference_review`` - soft FILE rules read from the notes column, still switched off."""
+    from app.importers.preference_rules import read_cells, request_cells
+    from app.models import ConstraintRow, Room
+
+    exam = run.kind == "EXAM"
+    codes = {str(c): int(i) for i, c in (await session.execute(select(Room.id, Room.code))).all()}
+
+    async def lookup(room_codes: list[str]) -> list[int]:
+        return [codes[c] for c in room_codes if c in codes]
+
+    cells = await request_cells(session, run.term_id, exam)
+    _rules, unparsed = await read_cells(
+        session,
+        cells,
+        origin="exam-list" if exam else "planning-list",
+        kind="exam" if exam else "course",
+        room_ids=lookup,
+    )
+    rids = {int(u["request_id"]) for u in unparsed}
+    pending = [
+        c
+        for c in (
+            await session.execute(
+                select(ConstraintRow).where(
+                    ConstraintRow.term_id == run.term_id,
+                    ConstraintRow.source == "FILE",
+                    ConstraintRow.enabled.is_(False),
+                )
+            )
+        ).scalars()
+        if (c.source_ref or {}).get("review") == "pending"
+    ]
+    rids |= {int(i) for c in pending for i in (c.params or {}).get("event_ids") or []}
+    rows = await _class_rows(session, run, rids)
+    out: dict[str, list[dict[str, Any]]] = {"unparsed_preference": [], "preference_review": []}
+    for u in unparsed:
+        item = _list_item(
+            "unparsed_preference",
+            (
+                f"Kurala çevrilemeyen istek ({u['column']}, satır {u['row']}): {u['text']}",
+                f"Wish not read as a rule ({u['column']}, row {u['row']}): {u['text']} - {u['reason']}",
+            ),
+            [int(u["request_id"])],
+            rows,
+            {k: v for k, v in u.items() if k != "request_id"},
+        )
+        item["severity"] = "info"
+        out["unparsed_preference"].append(item)
+    for c in pending:
+        ref = c.source_ref or {}
+        item = _list_item(
+            "preference_review",
+            (
+                f"Onay bekleyen istek ({ref.get('column')}, satır {ref.get('row')}): {c.nl_text}",
+                f"Wish waiting for review ({ref.get('column')}, row {ref.get('row')}): {c.nl_text}",
+            ),
+            [int(i) for i in (c.params or {}).get("event_ids") or []],
+            rows,
+            {"rule_id": c.id, "kind": c.kind, "text": c.nl_text, "source_ref": ref},
+        )
+        item["severity"] = "info"
+        out["preference_review"].append(item)
+    return out
+
+
 async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str, Any]:
     """The grouped report (JSON shape of ``GET /runs/{id}/data-issues``)."""
     diags = [d for d in (run.diagnosis or []) if isinstance(d, dict)]
@@ -1912,6 +2000,7 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
     from_list = await list_checks(session, run) if run_mode(run.params or {}, "definitive_rooms") != "lock" else {}
     # the published board's own errors (comparison §7.3 / §7.5); not part of the solver's input
     from_board = await board_checks(session, run)
+    from_text = await preference_checks(session, run)
     groups_out: list[dict[str, Any]] = []
     for spec in GROUPS:
         items: list[dict[str, Any]] = []
@@ -1940,7 +2029,12 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
             items = board
         if spec.code == "locked_room_too_small":
             items = items + capacity
-        items = items + list(from_list.get(spec.code, [])) + list(from_board.get(spec.code, []))
+        items = (
+            items
+            + list(from_list.get(spec.code, []))
+            + list(from_board.get(spec.code, []))
+            + list(from_text.get(spec.code, []))
+        )
         title_tr, title_en = spec.title_tr, spec.title_en
         if spec.code == "locked_room_blocked" and run.kind == "EXAM":
             title_tr, title_en = EXAM_BLOCKED_TITLE

@@ -60,6 +60,7 @@ from app.schemas.ai import (
     SwapOp,
     UsageOut,
 )
+from app.schemas.runs import USABLE_STATUSES
 from app.services.grid import assignment_labels
 from app.services.solver_bridge import persist_result
 from app.solver import model as sm
@@ -484,10 +485,11 @@ async def record_edit(
         )
         return {"recorded": name.replace("_assignment", "") + " (proposal only)"}
     if name == "add_constraint":
-        p = enforce_source_policy(resolve_proposal(state.term, inp), "AI")
-        diff.operations.append(AddConstraintOp(constraint=p))
+        p = enforce_source_policy(resolve_proposal(state.term, {k: v for k, v in inp.items() if k != "scope"}), "AI")
+        scope = "run" if inp.get("scope") == "run" else "term"
+        diff.operations.append(AddConstraintOp(constraint=p, scope=scope))
         return {
-            "recorded": "add_constraint (proposal only)",
+            "recorded": f"add_constraint for {'this run only' if scope == 'run' else 'the term'} (proposal only)",
             "status": p.status,
             "resolved_params": p.params,
             "issues": p.issues,
@@ -858,12 +860,18 @@ async def _apply_claimed(
     session.add(child)
     await session.flush()
     plan = _Plan()
+    inherited = await _inherit_run_rules(session, parent, child)
 
     # 1. data ops first: they change the solver input the moves are validated against
     for i, op in enumerate(diff.operations):
         if isinstance(op, AddConstraintOp):
             created, rej = await accept_proposals(
-                session, parent.term_id, [op.constraint], user_id=user_id, commit=False
+                session,
+                parent.term_id,
+                [op.constraint],
+                user_id=user_id,
+                run_id=child.id if op.scope == "run" else None,
+                commit=False,
             )
             if created:
                 plan.constraints_created += created
@@ -875,7 +883,10 @@ async def _apply_claimed(
             else:
                 plan.rejected.append({"index": i, "op": op.op, "reasons": rej[0]["issues"] if rej else ["invalid"]})
         elif isinstance(op, RemoveConstraintOp | SetWeightOp):
-            row = next((c for c in state.constraints if c.id == op.constraint_id), None)
+            # a rule of the parent run itself: edit the child's inherited copy, never the parent's row
+            row = inherited.get(op.constraint_id) or next(
+                (c for c in state.constraints if c.id == op.constraint_id), None
+            )
             if row is None:
                 plan.rejected.append(
                     {"index": i, "op": op.op, "reasons": [f"constraint #{op.constraint_id} not found for this run"]}
@@ -917,6 +928,7 @@ async def _apply_claimed(
     events = {e.id: e for e in inp.events}
     room_ids_ok = {r.id for r in inp.rooms}
     base_keys, _ = _hard_keys(inp, current)
+    baseline_hard = len(base_keys)
 
     # 3. moves / swaps validated one by one with the independent validator
     for i, op in enumerate(diff.operations):
@@ -993,6 +1005,8 @@ async def _apply_claimed(
             (plan.unlock if op.op == "lock" else plan.lock).discard(eid)
             plan.applied.append({"index": i, "op": op.op, "event_ids": [eid]})
 
+    if diff.re_solve and not plan.rejected:
+        plan.applied.append({"index": len(diff.operations), "op": "re_solve", "stability": diff.stability})
     if not plan.applied:
         await session.rollback()
         if claim is not None:
@@ -1009,10 +1023,19 @@ async def _apply_claimed(
         rejected=plan.rejected,
         constraints_created=plan.constraints_created,
     )
+    audit = _apply_audit(diff, stored_msg, plan, user_id, baseline_hard)
     if not needs_solve:
         await _write_patch(session, child, parent, state, event_of, current, plan, locks, inp)
         out.mode, out.status = "patch", child.status
         out.hard_score, out.soft_score = child.hard_score, child.soft_score
+        audit["verifier"].update(
+            mode="patch",
+            status=child.status,
+            hard_score=child.hard_score,
+            soft_score=child.soft_score,
+            hard_violations=len(child.diagnosis or []),
+        )
+        child.stats = {**(child.stats or {}), "ai": audit}
     else:
         from app.solver.constraints._common import select_events
 
@@ -1028,7 +1051,8 @@ async def _apply_claimed(
 
                     changed |= {e.id for e in select_events(inp, events_for_requests(dict(c.params), members))}
             out.mode = "repair"
-        child.stats = {**(child.stats or {}), "phase": "queued", "mode": out.mode}
+        audit["verifier"].update(mode=out.mode, status="QUEUED")
+        child.stats = {**(child.stats or {}), "phase": "queued", "mode": out.mode, "ai": audit}
         out.status = "QUEUED"
         out.re_solve_queued = True
     if stored_msg is not None:
@@ -1059,6 +1083,78 @@ async def _apply_claimed(
         len(plan.rejected),
     )
     return out
+
+
+async def _inherit_run_rules(
+    session: AsyncSession, parent: ScheduleRun, child: ScheduleRun
+) -> dict[int, ConstraintRow]:
+    """Copy the parent's run-only rules (``constraints.run_id = parent``) to the child, so "only for this run"
+    rules carry over along chat edits while the term's other runs never see them. Returns parent rule id ->
+    the child's copy (diff ops on a parent rule edit the copy)."""
+    rows = list(
+        (
+            await session.execute(
+                select(ConstraintRow).where(ConstraintRow.run_id == parent.id).order_by(ConstraintRow.id)
+            )
+        ).scalars()
+    )
+    out: dict[int, ConstraintRow] = {}
+    for r in rows:
+        copy = ConstraintRow(
+            term_id=None,
+            run_id=child.id,
+            kind=r.kind,
+            params=dict(r.params or {}),
+            hardness=r.hardness,
+            weight=r.weight,
+            source=r.source,
+            nl_text=r.nl_text,
+            enabled=r.enabled,
+            created_by=r.created_by,
+            source_ref={**(r.source_ref or {}), "inherited_from": r.id},
+        )
+        session.add(copy)
+        out[r.id] = copy
+    if out:
+        await session.flush()
+    return out
+
+
+def _apply_audit(
+    diff: ProposedDiff, msg: ChatMessage | None, plan: _Plan, user_id: int | None, baseline_hard: int
+) -> dict[str, Any]:
+    """``stats["ai"]`` of the child run (RESEARCH §4.3 step 6): which model proposed the diff, what was applied
+    and rejected, and the verifier's verdict (filled in by the patch writer or the repair job)."""
+    model = None
+    if msg is not None:
+        usage = next((tc for tc in msg.tool_calls or [] if isinstance(tc, dict) and tc.get("type") == "usage"), {})
+        model = usage.get("model")
+    stored_ops = None
+    if msg is not None:
+        stored = next(
+            (
+                tc.get("diff")
+                for tc in msg.tool_calls or []
+                if isinstance(tc, dict) and tc.get("type") == "diff" and (tc.get("diff") or {}).get("id") == diff.id
+            ),
+            None,
+        )
+        stored_ops = (stored or {}).get("operations")
+    return {
+        "diff_id": diff.id,
+        "model": model,
+        # the browser may post back an edited diff: the model only proposed the stored version
+        "edited": msg is None or stored_ops != diff.model_dump(mode="json")["operations"],
+        "applied_by": user_id,
+        "applied_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "applied_ops": len(plan.applied),
+        "rejected_ops": len(plan.rejected),
+        "rejected": [
+            {"index": r.get("index"), "op": r.get("op"), "reasons": [str(x)[:300] for x in r.get("reasons", [])][:5]}
+            for r in plan.rejected[:20]
+        ],
+        "verifier": {"validator": "app.solver.repair.validate", "baseline_hard_violations": baseline_hard},
+    }
 
 
 async def _prompt_for(session: AsyncSession, run_id: int, msg: ChatMessage | None) -> str | None:
@@ -1201,6 +1297,16 @@ def _solve_job(
             assert run is not None
             result.stats = {**result.stats, "solver": "app.solver.repair", "mode": "full" if full else "repair"}
             await persist_result(s, run, result, members)
+            ai = dict((run.stats or {}).get("ai") or {})
+            if ai:  # the verifier's verdict on the re-solved child (hard rules 100/100 or explained)
+                ai["verifier"] = {
+                    **(ai.get("verifier") or {}),
+                    "status": run.status,
+                    "hard_score": run.hard_score,
+                    "soft_score": run.soft_score,
+                    "hard_violations": sum(1 for d in run.diagnosis or [] if d.get("severity") == "error"),
+                }
+                run.stats = {**(run.stats or {}), "ai": ai}
             rows = list((await s.execute(select(Assignment).where(Assignment.run_id == child_id))).scalars())
             for a in rows:
                 rid = a.exam_request_id if run.kind == "EXAM" else a.meeting_request_id
@@ -1277,6 +1383,9 @@ def run_facts(run: ScheduleRun) -> dict[str, Any]:
         "events": stats.get("events"),
         "rooms": stats.get("rooms"),
         "assignments": stats.get("assignments"),
+        # best-effort runs (FEASIBLE_PARTIAL): the stored timetable places `placed` of `events_total`
+        "placed": stats.get("placed") if stats.get("partial") else None,
+        "events_total": stats.get("events_total") if stats.get("partial") else None,
         "warnings": list(stats.get("warnings") or [])[:10],
         "diagnoses": [
             {
@@ -1295,7 +1404,7 @@ def run_facts(run: ScheduleRun) -> dict[str, Any]:
 def render_template(facts: dict[str, Any], lang: str) -> tuple[str, list[dict[str, Any]]]:
     tr = lang == "tr"
     status = facts["status"]
-    ok = status in ("OPTIMAL", "FEASIBLE")
+    ok = status in USABLE_STATUSES
     if ok:
         hs, ss_ = facts["hard_score"], facts["soft_score"]
         head = (
@@ -1303,6 +1412,13 @@ def render_template(facts: dict[str, Any], lang: str) -> tuple[str, list[dict[st
             if tr
             else f"Run #{facts['run_id']}: {status}, hard rules {hs}/100, soft score {ss_}/100."
         )
+        if facts.get("placed") is not None and facts.get("events_total"):
+            placed, total = facts["placed"], facts["events_total"]
+            head += (
+                f" Kısmi plan: {placed}/{total} ders yerleşti; kalanlar teşhiste."
+                if tr
+                else f" Partial plan: {placed}/{total} events placed; the rest are in the diagnosis."
+            )
     else:
         head = (
             f"Çalıştırma #{facts['run_id']}: {status} - {facts['diagnoses_total']} sorun bulundu."

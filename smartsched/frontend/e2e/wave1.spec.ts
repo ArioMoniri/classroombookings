@@ -182,7 +182,7 @@ test("wave1 1. room features: a typed feature, a value in the grid, the bulk CSV
   await expect.poll(async () => (await api<{ values: Record<string, unknown>; tags: string[] }>("GET", `/room-admin/rooms/${ctx.room.id}/features`)).tags).toContain(TAG);
 
   // removing the solver tag that a room carries: 409 → the impact is shown → confirm
-  await tab.getByRole("button", { name: new RegExp(`(Düzenle|Edit) ${name}`) }).click();
+  await tab.getByTestId(`feature-${feature.id}`).getByRole("button", { name: new RegExp(`düzenle|Edit`) }).click();
   await dialog.getByTestId("feature-solver-tag").fill("");
   await dialog.getByTestId("feature-save").click();
   await expect(dialog.getByTestId("feature-impact")).toBeVisible();
@@ -213,7 +213,7 @@ test("wave1 2. find a room: ⌘K, Wednesday 10:10–12:30 for 90 ranked like the
   await page.goto("/bookings");
   await openPalette(page);
   await page.getByRole("dialog").getByRole("combobox").fill("boş derslik");
-  await page.getByRole("option", { name: /Boş derslik bul|Find a free room/ }).click();
+  await page.locator('[cmdk-item][data-value="action-find-room"]').click();
   await page.waitForURL(/\/find-room/);
 
   const view = page.getByTestId("find-room");
@@ -292,9 +292,14 @@ test("wave1 3. audit log: filter a booking, the before/after diff, Undo, a refus
   // the CSV export of the filtered range
   const href = await view.getByTestId("audit-export").getAttribute("href");
   expect(href).toContain("/api/v1/audit/export.csv");
-  const csv = await page.request.get(href!);
-  expect(csv.status()).toBe(200);
-  expect(await csv.text()).toContain("booking.create");
+  // what the download link fetches, with the browser's session cookie
+  const csv = await page.evaluate(async (url) => {
+    const r = await fetch(url, { credentials: "same-origin" });
+    return { status: r.status, type: r.headers.get("content-type") ?? "", text: await r.text() };
+  }, href!);
+  expect(csv.status).toBe(200);
+  expect(csv.type).toContain("text/csv");
+  expect(csv.text).toContain("booking.create");
 });
 
 test("wave1 4. approvals: approves-for in the user form, a rule, the request (202) from the booking sheet, the inbox badge, approve; reject with a suggestion; part of a series; a 409 re-check; the requester's timeline and bell (X-11)", async ({ page, browser }) => {
@@ -310,7 +315,7 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
   await user.getByTestId("user-scope-all").click();
   await user.getByTestId("user-save").click();
   await expect(user).toBeHidden();
-  await expect.poll(async () => (await api<{ user_id: number; scopes: { type: string }[] }[]>("GET", "/approvals/approvers")).find((x) => x.user_id === ctx.approverId)?.scopes).toEqual([{ type: "all" }]);
+  await expect.poll(async () => (await api<{ user_id: number; scopes: { type: string }[] }[]>("GET", "/approvals/approvers")).find((x) => x.user_id === ctx.approverId)?.scopes.map((x) => x.type)).toEqual(["all"]);
 
   await page.goto("/admin/approval-rules");
   await page.getByTestId("rule-new").click();
@@ -367,17 +372,16 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
   await others.locator("li").first().getByRole("button", { name: /Reddet, öner|Reject, suggest/ }).click();
   await expect.poll(async () => (await api<{ status: string }>("GET", `/approvals/${req2.id}`, undefined, ctx.approverToken)).status).toBe("REJECTED");
 
-  // part of a series: a weekly request for four Fridays, approve three
+  // part of a series: a weekly request (the administrator: teachers have no recurring right in CRBS) for four Fridays, approve three
   const [slot3] = await ownFree(FRIDAY);
   const series = await call<{ series_id: number; status: string; created: { date: string }[] }>(
     "POST",
     "/bookings/recurring",
     { room_id: ctx.room.id, period_id: slot3!.period_id, date: FRIDAY, term_id: ctx.termId, start: FRIDAY, end: "2026-03-13" },
-    ctx.teacherToken,
   );
   expect(series.status).toBe(202);
   expect(series.body.status).toBe("PENDING");
-  const req3 = (await api<{ id: number; series_id: number | null }[]>("GET", "/approvals/mine", undefined, ctx.teacherToken)).find((r) => r.series_id === series.body.series_id)!;
+  const req3 = (await api<{ id: number; series_id: number | null }[]>("GET", "/approvals/mine")).find((r) => r.series_id === series.body.series_id)!;
   await approver.goto(`/approvals?request=${req3.id}`);
   const instances = drawer.getByTestId("approval-instances");
   await expect(instances.getByRole("checkbox")).toHaveCount(series.body.created.length);
@@ -389,11 +393,11 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
   expect(after.bookings.filter((x) => x.status === "BOOKED")).toHaveLength(series.body.created.length - 1);
 
   // a 409 re-check: two teachers ask for the same slot; one is approved behind the drawer's back
+  // the hold blocks the slot for others: drop the hold first so a second teacher can ask for the same slot
+  await api("PUT", `/approval-rules/${ctx.ruleId}`, { entity_type: "room", entity_id: ctx.room.id, steps: [{ approvers: { type: "designated" }, min_approvals: 1 }], hold_minutes: 0, lead_time_workdays: 0, expires_before_start_minutes: 0, allow_self_approve: false, active: true, name: null, tag: null, term_id: null });
   const [slot4] = await ownFree(THURSDAY);
   const a = await call<{ id: number }>("POST", "/bookings", { room_id: ctx.room.id, date: THURSDAY, period_id: slot4!.period_id, term_id: ctx.termId }, ctx.teacherToken);
   expect(a.status).toBe(202);
-  // the hold blocks the slot for others: drop the hold so the second teacher can ask too
-  await api("PUT", `/approval-rules/${ctx.ruleId}`, { entity_type: "room", entity_id: ctx.room.id, steps: [{ approvers: { type: "designated" }, min_approvals: 1 }], hold_minutes: 0, lead_time_workdays: 0, expires_before_start_minutes: 0, allow_self_approve: false, active: true, name: null, tag: null, term_id: null });
   const reqA = (await api<{ id: number; booking_id: number }[]>("GET", "/approvals/mine", undefined, ctx.teacherToken)).find((r) => r.booking_id === a.body.id)!;
   const b = await call<{ id: number }>("POST", "/bookings", { room_id: ctx.room.id, date: THURSDAY, period_id: slot4!.period_id, term_id: ctx.termId }, ctx.teacher2Token);
   expect(b.status).toBe(202);
@@ -412,8 +416,9 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
   await expect(rejected).toHaveAttribute("data-status", "REJECTED");
   await expect(rejected.getByTestId("request-timeline")).toContainText("Bu saatte bakım var");
   await expect(rejected.getByTestId("request-suggestions")).toBeVisible();
-  await expect(teacher.getByTestId("notification-count").first()).toBeVisible();
-  await teacher.getByTestId("notification-bell").first().click();
+  // the desktop top bar's bell (the phone top bar has its own, hidden here)
+  await expect(teacher.locator('[data-testid="notification-count"]:visible')).toBeVisible();
+  await teacher.locator('[data-testid="notification-bell"]:visible').click();
   const panel = teacher.getByTestId("notification-panel");
   await expect(panel.locator('[data-unread="true"]').first()).toBeVisible();
   await panel.locator('[data-unread="true"]').first().click();
@@ -424,7 +429,7 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
 
 /* ------------------------------------------------------------------------------- crawler */
 
-/** Sidebar links and ⌘K destinations ("Go to" entries and the actions that navigate). */
+/** Sidebar links, ⌘K destinations ("Go to" entries and the actions that navigate) and the setup index's links. */
 async function destinations(page: Page): Promise<string[]> {
   await page.goto("/bookings");
   await expect(page.getByTestId("booking-grid").or(page.getByTestId("free-slots"))).toBeVisible({ timeout: 30_000 });
@@ -442,7 +447,14 @@ async function destinations(page: Page): Promise<string[]> {
     if (page.url() !== before) actions.push(new URL(page.url()).pathname + new URL(page.url()).search);
     await page.goto("/bookings");
   }
-  return [...new Set([...sidebar, ...gotos, ...actions].filter(Boolean))];
+  // the setup index (/admin, when the sidebar offers it) links every setup screen the user may open
+  const setup: string[] = [];
+  if (sidebar.includes("/admin") || gotos.includes("/admin")) {
+    await page.goto("/admin");
+    await expect(page.locator("main a[href^='/admin/']").first()).toBeVisible({ timeout: 30_000 });
+    setup.push(...(await page.locator("main a[href^='/admin/']").evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""))));
+  }
+  return [...new Set([...sidebar, ...gotos, ...actions, ...setup].filter(Boolean))];
 }
 
 /** Opens each path: the document is not a 404, no API call answers 403, and the page does not say "no access". */
@@ -458,16 +470,19 @@ async function crawl(page: Page, paths: string[]): Promise<string[]> {
     const res = await page.goto(p);
     if (!res || res.status() === 404) problems.push(`${p}: 404`);
     await page.waitForLoadState("networkidle").catch(() => undefined);
-    if (await page.getByText(/^(404|This page could not be found\.?)$/).count()) problems.push(`${p}: not found page`);
+    // Next's default not-found screen (a room may well be called "404", so not the number alone)
+    if (await page.getByText(/^This page could not be found\.?$/).count()) problems.push(`${p}: not found page`);
     if (await page.getByText(/Bu sayfaya erişiminiz yok|You do not have access|yetkiniz yok/).count()) problems.push(`${p}: no-access screen`);
   }
   page.off("response", denied);
   return problems;
 }
 
-test("wave1 5. every sidebar and ⌘K link opens a page with no 404 and no 403, as administrator and as teacher", async ({ page }) => {
+test("wave1 5. every sidebar, ⌘K and setup link opens a page with no 404 and no 403, as administrator and as teacher", async ({ page }) => {
   test.setTimeout(300_000);
   await login(page, ADMIN.username, ADMIN.password);
+  // the crawler itself notices a missing page
+  expect((await crawl(page, ["/no-such-page-wave1"]))[0]).toContain("404");
   const admin = await destinations(page);
   for (const p of ["/find-room", "/approvals", "/admin/audit", "/admin/approval-rules"]) expect(admin).toContain(p);
   expect(await crawl(page, admin)).toEqual([]);

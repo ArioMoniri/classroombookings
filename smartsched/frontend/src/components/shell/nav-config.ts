@@ -17,8 +17,8 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/* Planning pages need planning.*; a teacher (book_single.create + room.view) sees only the timetable here
-   plus the bookings entries from components/admin/nav-items.ts. */
+/* Planning pages need planning.*; a teacher (book_single.create + room.view) sees only the bookings entries
+   from components/admin/nav-items.ts (the timetable needs planning data the backend keeps behind planning.view). */
 export const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "nav.plan",
@@ -33,7 +33,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "nav.results",
     items: [
-      { href: "/timetable", labelKey: "nav.timetable", icon: CalendarDays, key: "t", permission: ["planning.view", "room.view"] },
+      // the timetable reads GET /terms and /runs (planning.view): room.view alone answers 403 there (wave1 crawler)
+      { href: "/timetable", labelKey: "nav.timetable", icon: CalendarDays, key: "t", permission: "planning.view" },
       { href: "/runs", labelKey: "nav.runs", icon: ListChecks, badge: "running", permission: "planning.view" },
     ],
   },

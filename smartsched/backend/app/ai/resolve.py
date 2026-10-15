@@ -603,11 +603,12 @@ def resolve_proposal(ctx: TermContext, raw: dict[str, Any]) -> ProposedConstrain
     ):
         issues.append(f"{kind} without a selector applies to every event (review)")
 
-    # --- weeks / dates (room_closed honours weeks; other kinds: review) ----
+    # --- weeks / dates (only room_closed honours weeks in the solver; every other kind - room_pin and
+    # room_forbid included - applies to all weeks of an event, so a week-limited rule needs review) -----
     weeks = _weeks_from(ctx, mp, entities, issues)
     if weeks:
         params["weeks"] = weeks
-        if kind not in ("room_closed", "room_pin"):
+        if kind != "room_closed":
             issues.append(
                 "week-limited rule: the solver applies this rule to all weeks of an event; "
                 "split the meeting by week pattern first (needs review)"

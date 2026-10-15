@@ -52,6 +52,9 @@ def test_classify_maps_every_named_group() -> None:
         "board_unknown_code",
         "board_time_not_in_list",
         "board_missing_week",
+        # free-text wishes of the requests (importer preference_rules), not from diagnoses either
+        "unparsed_preference",
+        "preference_review",
     }
     assert {g.code for g in GROUPS} == set(cases) | board_only
     for group, d in cases.items():

@@ -88,7 +88,7 @@ async def get_room(room_id: int, db: DB, _: Viewer) -> Room:
 
 
 @router.put("/rooms/{room_id}", response_model=RoomOut)
-async def update_room(room_id: int, body: RoomUpdate, db: DB, _: Planner) -> Room:
+async def update_room(room_id: int, body: RoomUpdate, db: DB, _: RoomsEditor) -> Room:
     room = await _room(db, room_id)
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(room, k, v)
@@ -132,7 +132,7 @@ async def delete_room(room_id: int, db: DB, _: RoomsEditor) -> None:
 
 
 @router.post("/rooms/{room_id}/photo", response_model=RoomOut)
-async def upload_photo(room_id: int, db: DB, _: Planner, file: UploadFile = File(...)) -> Room:
+async def upload_photo(room_id: int, db: DB, _: RoomsEditor, file: UploadFile = File(...)) -> Room:
     room = await _room(db, room_id)
     ext = Path(file.filename or "photo.jpg").suffix.lower() or ".jpg"
     if ext not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:

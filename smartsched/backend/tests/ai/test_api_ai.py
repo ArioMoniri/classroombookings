@@ -13,7 +13,7 @@ from app.core.db import get_session_factory
 from app.core.security import hash_password
 from app.models import ScheduleRun, User
 
-from tests.ai.conftest import Message, seed_small, store_key, text
+from tests.ai.conftest import Message, enable_intake, seed_small, store_key, text
 from tests.api_fixtures import login
 
 
@@ -28,6 +28,8 @@ async def _seed(client, key: bool = True):
 
 async def test_409_without_key_and_planner_role_required(client, fake_sdk):
     h, sd = await _seed(client, key=False)
+    async with get_session_factory()() as s:
+        await enable_intake(s)  # intake on but no key: 409 (intake off answers needs_ai without a key)
     for path, body in (
         (f"/api/v1/runs/{sd.run_id}/chat", {"message": "hi", "lang": "tr"}),
         (f"/api/v1/terms/{sd.term_id}/elicit", {"text": "TIP derslikleri sadece Tıp için", "lang": "tr"}),

@@ -69,12 +69,13 @@ Status on branch `claude/gracious-cerf-w1598m`, 2026-10-15. *Done* means code, t
 | Feature | Status |
 |---|---|
 | Import of planning lists, exam lists, weekly room grids, a room master CSV and the CRBS database, each with an import report | Done |
-| Rules from settings, templates, the workbooks and (with an API key) sentences or uploaded files; AI rules need a person's approval | Done |
+| Rules from settings, templates, the workbooks and, with an API key, sentences and (once an administrator enables AI intake) uploaded files; AI rules need a person's approval | Done |
 | Generator Studio: scope, classes, rules, pre-check with fixes, generate | Done |
 | CP-SAT solver for a week, a month, the whole term or the exam period; partial runs; every unplaced class explained | Done |
 | Planner-level validator: stored runs re-checked against the raw workbook rows (`tools/validate_planner.py`) | Done, runs in pod CI |
 | Calendar with six views and an inspector; move with a server check, then undo | Done |
 | Exports to Excel, CSV and iCal | Done |
+| Relaxation policy when not every class fits: `lock_first` (default: locks, then coordinator priority, then most classes) or `most_classes_first`, per run or per term | Backend (2026-10-15, Phase 19 decision); priorities are passed as run parameters, no screen yet |
 
 **Bookings (the classroombookings side)**
 
@@ -94,9 +95,10 @@ Status on branch `claude/gracious-cerf-w1598m`, 2026-10-15. *Done* means code, t
 | Sign-out, a password change, disabling an account and a role change revoke the user's tokens on every device | Done |
 | 14 interface languages (the 13 CRBS languages plus Turkish); a missing string falls back to English per key | Done |
 
-*Work in progress* means the wave-1 frontend agent is still building these screens: they were
-committed in progress checkpoints on 2026-10-15, no Playwright spec covers them yet, and the CRBS parity
-gate still lists them as gaps. This README does not describe them as finished.
+*Work in progress* means the wave-1 frontend agent is still building these screens. They were
+committed in progress checkpoints on 2026-10-15 together with a real-backend Playwright spec
+(`e2e/wave1.spec.ts`), which this documentation pass did not run. This README does not describe them as
+finished.
 
 ## Quick start
 
@@ -190,7 +192,9 @@ in Phase 19 ([Roadmap](#roadmap)).
    sentences in Turkish or English and uploaded preference files (`.xlsx`, `.csv`, `.docx`, `.pdf`,
    `.txt`, `.md`) all become the same thing: a typed rule that is either *Must* (hard) or *Try to*
    (soft, weighted), with a link to where it came from. Nothing written by the AI is used until a
-   person accepts it.
+   person accepts it. The contents of an uploaded file go to the Claude API only after an
+   administrator turns on AI intake (`PUT /api/v1/ai/policy`, off by default, with a KVKK
+   acknowledgement); otherwise the file is read on the server and its rows are left for a person.
 3. **Pre-check.** Before solving, the Generator Studio checks the plan against the data and lists what
    cannot work (a locked room that is too small, two classes locked into one room at once), each with
    fixes.
@@ -425,28 +429,28 @@ room; every room with its seats, tags and use through the week.
 
 **Bookings and the reservation panel.** The classroombookings grid with the published Güz 2026-27
 timetable in place. Free cells say *Free* and offer *Reserve* on hover; drag or Shift-click books
-several periods. These shots are cropped to the page content: the sidebar is mid-change (see
-[What is built](#what-is-built)).
+several periods. These shots are cropped to the page content because the sidebar is changing with the
+wave-1 screens; the feed links in the sync panel are blurred on purpose.
 
 <table>
   <tr>
     <td><picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/media/reserve-grid-dark.png">
-      <img alt="Booking grid for A Blok on Friday 16 October 2026: periods P10 to P18 as columns, classes of the published timetable such as BME 573-1 and RTT 101-1 holding their slots, every other cell marked Free, and one cell under the pointer offering Reserve; Grid and Free slots switch, By day and By room, Calendar sync and Select several in the toolbar, room group tabs with room counts and a department filter" src="docs/media/reserve-grid-light.png" width="480">
+      <img alt="Booking grid for A Blok on Friday 16 October 2026: rooms as rows, periods P1 to P10 as columns, classes of the published timetable such as NUT 343 and CSE 413-1 holding their slots, every other cell marked Free, and the cell under the pointer offering Reserve; the toolbar has Grid and Free slots, By day and By room, Calendar sync and Select several, with room group tabs and a department filter below" src="docs/media/reserve-grid-light.png" width="480">
     </picture></td>
     <td><picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/media/reserve-free-slots-dark.png">
-      <img alt="Free slots view of the same day: each room of A Blok with its seats and a button for every free period, ready to reserve" src="docs/media/reserve-free-slots-light.png" width="480">
+      <img alt="Free slots view of the same day: 285 free periods in 20 rooms, each room of A Blok with its seats and one button per free period" src="docs/media/reserve-free-slots-light.png" width="480">
     </picture></td>
   </tr>
   <tr>
     <td><picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/media/reserve-room-details-dark.png">
-      <img alt="Room details for A 103: seats, exam seats, building, floor, room group and the PC feature; its classes that day; the next free slot with a Reserve button; and other available rooms at the chosen period with at least as many seats and the same feature, ranked by the room finder, each with Reserve" src="docs/media/reserve-room-details-light.png" width="480">
+      <img alt="Room details for A 103: seats, exam seats, building, floor, room group and the PC feature; its class that day (CSE 413-1, P3 to P5); the next free slot with a Reserve button; and other available rooms at P1 with at least 47 seats and a PC, ranked by the room finder, here A 105 with a Reserve button" src="docs/media/reserve-room-details-light.png" width="480">
     </picture></td>
     <td><picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/media/calendar-sync-dark.png">
-      <img alt="Sync to calendar panel: private links for my bookings, a room and a department, each with copy, webcal and Google, Outlook and Apple buttons, and a reset; the link addresses are blurred because they contain the private token" src="docs/media/calendar-sync-light.png" width="480">
+      <img alt="Sync to calendar panel: private links for my bookings, room A 101 and a department, each with copy and calendar buttons and Add to Google Calendar, Add to Outlook and Apple Calendar, and Reset private link; the link addresses are blurred because they contain the private token" src="docs/media/calendar-sync-light.png" width="480">
     </picture></td>
   </tr>
 </table>
@@ -531,16 +535,14 @@ listed with its setting, if there is one, in [docs/CRBS_PARITY.md](docs/CRBS_PAR
 
 The CRBS superset gate (`python3 scripts/parity_check.py`) holds one row per CRBS behaviour, audit item
 or screen, each tied to API tests on the real Bahar data and, where there is a screen, to a Playwright
-test title. Run on 2026-10-15 at commit `bd0db48`: **192 rows, 172 pass, 19 declared gaps, 1 fail, 0
-missing**; 157 API tests ran and 156 passed. The failure is a stale assertion:
-`tests/test_wave1_migrations.py` still expects the Alembic head `0015_approvals`, while
-`0016_course_code_keys` landed after it. The test stops there, so the rest of it (the room-features
-upgrade path) did not run, and row X-08 fails until the test is updated. The 19 gaps, each declared in the inventory with a reason and a proposed fix: 11 rows have a screen
-that no Playwright step in the inventory drives yet (multi-booking, cancel many, the staff dashboard, SMTP, the
-installer's requirements step on an empty database, and others); 3 are wave-1 screens not built yet
-(find-a-room, audit viewer, approvals inbox); 2 are the Google/Microsoft push and the webhooks, which
-have no settings screen and no live tenant test; 3 are the legacy MySQL upgrade and a side-by-side
-comparison with a running CRBS (Phase 18 parts 3 and 4). The UI column
+test title. Run on 2026-10-15 at commit `a0a6b4c` on a clean checkout: **192 rows, 172 pass, 20
+declared gaps, 0 fail, 0 missing**; all 157 API tests passed. Each gap is declared in the inventory
+with a reason and a proposed fix: 11 rows have a screen that no Playwright step in the inventory drives
+yet (multi-booking, cancel many, the staff dashboard, SMTP, the installer's requirements step on an
+empty database, and others); 4 are wave-1 screens still in progress (room features, find-a-room,
+audit viewer, approvals); 2 are the Google/Microsoft push and the webhooks, which have no settings
+screen and no live tenant test; 3 are the legacy MySQL upgrade and a side-by-side comparison with a
+running CRBS (Phase 18 parts 3 and 4). The UI column
 of this run checks that the Playwright titles exist; the specs themselves run in the pod CI `e2e-real`
 gate. Details: [docs/CRBS_PARITY.md](docs/CRBS_PARITY.md) §9.
 
@@ -557,18 +559,25 @@ The full plan, with every backlog item, is [docs/ROADMAP.md](docs/ROADMAP.md). I
 | 17 Booking enhancements wave 1 (room features, find-a-room, audit with undo, approvals, notifications) | Backend built; screens being built. Conflict resolver, booking policies, public view and KVKK retention not started |
 | 7 Live import from the university's panel | Not started (needs access details) |
 | 12 Universal edition: any-format intake through an "Ingestion Council" (branch `claude/smartsched-universal`) | On its own branch, being merged into this one; not part of this branch yet |
-| **19 Intake, learned suggestions, from-scratch programmes, moderation** | **Planned, in design** (requested 2026-10-15) |
+| **19 Intake, learned suggestions, from-scratch programmes, moderation** | **Planned, in design** (requested 2026-10-15); conflict policy and AI intake switches in the backend |
 
 ### Phase 19 (planned, in design)
 
-None of this is built yet. The analysis and the UX specs are being written; the build waves come after
-the universal branch is merged. What the user asked for, and the decisions already taken:
+Most of Phase 19 is not built. The UX specs are written ([docs/design/v2/](docs/design/v2/),
+`phase19-*.md`) together with an engineering gap analysis
+([docs/review/2026-10-15-phase19-engineering.md](docs/review/2026-10-15-phase19-engineering.md)) and the
+academicians' needs ([docs/testing/2026-10-15-academician-needs.md](docs/testing/2026-10-15-academician-needs.md)).
+On 2026-10-15 the first backend pieces landed: the conflict policy below (solver, run parameters and
+the planner-level check), the AI intake and vision switches (both off by default), and a weekly-pattern
+expander for the programme wizard (in progress). There are no Phase 19 screens yet. What the user asked
+for, and the decisions already taken:
 
 - **Multi-format intake** of new requests and schedule maps. Structured formats first, read without
   AI: Excel (`.xlsx`, `.xls`), CSV and TSV (UTF-8 or Windows-1254, delimiter sniffed), ODS, JSON, XML
   and ICS. Then AI-assisted formats: PDF, DOCX, TXT and EML, and images. Rows read from an
   AI-assisted format always need a coordinator's review before they are saved; extraction uses the
-  organisation's own Claude API key, shows a KVKK notice and can be switched off by an administrator.
+  organisation's own Claude API key and stays off until an administrator turns it on with a KVKK
+  acknowledgement (that switch, `ai.intake_enabled`, already exists).
 - **Learned suggestions** from earlier changes and requests. They are never applied automatically:
   accepting one adds a soft preference, so the hard-rule guarantee (every hard rule kept, or each
   failure explained) does not change. The memory can be reset per person, per term or entirely, by
@@ -577,7 +586,8 @@ the universal branch is merged. What the user asked for, and the decisions alrea
 - **A moderation tab** per class, person, academician, request, preference and matching, with the
   person's request history, administrator edits and a minimal-change re-solve that shows the diff.
 - **Conflict policy**: locks first (a locked class is never moved), then the priority a coordinator
-  sets, then the largest number of classes placed. Configurable per term.
+  sets, then the largest number of classes placed. Configurable per term. Implemented in the backend
+  (`app/solver/policy.py`); the moderation tab is where coordinators will set priorities.
 
 Order of work: analysis; merge of the universal branch; then structured intake, moderation and
 re-solve, learned suggestions, the programme wizard, and AI-assisted intake, with the remaining CRBS

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import PurePath
+from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,13 +20,15 @@ from app.ai.client import AIClient, AIConfigError, AIRefusal, AIUpstreamError, g
 from app.ai.edits import apply_section_edits
 from app.ai.elicit import accept_proposals, elicit_constraints
 from app.ai.ingest import MAX_FILE_BYTES, SUPPORTED, IngestError, extract_preferences
-from app.api.deps import DB, Planner
+from app.ai.policy import PolicyError, ai_allowed, get_policy, set_policy
+from app.api.deps import DB, Admin, Planner
 from app.core.safe_files import UnsafeFileError, precheck_upload
 from app.core.security import redact_keys
 from app.models import ScheduleRun, Term
 from app.schemas.ai import (
     AcceptIn,
     AcceptOut,
+    AIPolicyIn,
     ApplyIn,
     ApplyOut,
     CatalogOut,
@@ -151,7 +154,7 @@ async def post_elicit_accept(term_id: int, body: AcceptIn, db: DB, user: Planner
         if run.term_id != term_id:
             raise HTTPException(400, "run belongs to another term")
     created, rejected = await accept_proposals(
-        db, term_id, body.proposals, user_id=user.id, run_id=body.run_id, commit=False
+        db, term_id, body.proposals, user_id=user.id, run_id=body.run_id, commit=False, declined=body.declined
     )
     applied, rejected_edits = await apply_section_edits(
         db, term_id, body.section_edits, commit=False, draft_user_id=user.id
@@ -183,7 +186,8 @@ async def post_preferences_upload(
         await precheck_upload(data, file.filename)
     except UnsafeFileError as exc:
         raise HTTPException(exc.status, exc.message) from exc
-    client = await _client(db)
+    # D7 / P19-A1: with AI intake off (the default) no client is built and nothing leaves the server
+    client = await _client(db) if await ai_allowed(db, "intake") else None
     try:
         return await extract_preferences(
             db, term_id, data, file.filename or "upload", "en" if lang == "en" else "tr", client=client
@@ -194,6 +198,32 @@ async def post_preferences_upload(
         raise HTTPException(400, str(exc)) from exc
     except (AIRefusal, AIUpstreamError) as exc:
         raise _ai_error(exc) from exc
+
+
+# ------------------------------------------------------- AI intake policy (KVKK)
+
+
+@router.get("/ai/policy")
+async def get_ai_policy(db: DB, _: Planner) -> dict[str, Any]:
+    """Effective intake / vision switches, the KVKK sign-off record and the notice texts (TR/EN)."""
+    return await get_policy(db)
+
+
+@router.put("/ai/policy")
+async def put_ai_policy(body: AIPolicyIn, db: DB, user: Admin) -> dict[str, Any]:
+    """Admin: switch AI intake / vision. Turning one on needs ``kvkk_ack``; every change is a new sign-off
+    record and an ``ai.policy`` audit event."""
+    try:
+        return await set_policy(
+            db,
+            user,
+            intake_enabled=body.intake_enabled,
+            vision_enabled=body.vision_enabled,
+            kvkk_ack=body.kvkk_ack,
+            reason=body.reason,
+        )
+    except PolicyError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 # -------------------------------------------------------------------- catalogue

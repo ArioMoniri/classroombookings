@@ -550,6 +550,48 @@ class ModelContext:
                 self.model.AddHint(var, fn(view))
         return hinted
 
+    def repair_derived_hints(self, budget_s: float, clock: Any = None) -> int:
+        """Make the hint consistent: derived variables (``seats[e, r]`` of split shared exams above all) are
+        hinted by evaluators (``derive``), e.g. a proportional seat split, which may overfill a shared room the
+        hinted events really can share (another split fits).  An inconsistent hint is useless to CP-SAT (the
+        Final in prefer mode: 454 seat hints off, the greedy placement never became the first solution and the
+        relaxation stopped below it, roadmap Phase 9).  Solve a clone with every primary hinted variable
+        (placed / time / room) fixed and no objective, and re-hint the derived variables with its values.
+        Returns the number of hints changed (0 when consistent, nothing derived, or no answer in budget)."""
+        derived = {var.Index() for var, _fn in self._derived}
+        if not derived:
+            return 0
+        from app.solver.build import make_solver
+
+        proto = self.model.Proto()
+        hint = dict(zip(proto.solution_hint.vars, proto.solution_hint.values, strict=True))
+        if not hint or not (derived & set(hint)):
+            return 0
+        clone = self.model.Clone()
+        clone.ClearObjective()
+        clone.ClearHints()
+        for idx, val in hint.items():
+            if idx not in derived:
+                clone.Add(clone.GetIntVarFromProtoIndex(idx) == int(val))
+        solver = make_solver(self.inp, max(0.5, budget_s), workers=1, deterministic_s=max(0.5, budget_s))
+        status = solver.Solve(clone)
+        if clock is not None:
+            clock.charge(solver)
+        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            return 0
+        changed = 0
+        fixed: dict[int, int] = {}
+        for idx, val in hint.items():
+            new = int(solver.Value(clone.GetIntVarFromProtoIndex(idx))) if idx in derived else int(val)
+            changed += int(new != int(val))
+            fixed[idx] = new
+        if not changed:
+            return 0
+        self.model.ClearHints()
+        for idx, val in fixed.items():
+            self.model.AddHint(self.model.GetIntVarFromProtoIndex(idx), val)
+        return changed
+
     def fix_assignment(self, a: Assignment, guard: Lit | None) -> bool:
         """Force an event onto an assignment (used for locked events).  Returns False if impossible.
         In ``relax`` mode the lock binds only if the event is placed (an impossible lock unplaces it)."""

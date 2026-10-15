@@ -44,6 +44,16 @@ def iter_sheet_rows(
     return headers, gen()
 
 
+def sheet_title(path: str | Path, sheet: str | int = 0) -> str | None:
+    """The title of a sheet (``Sayfa1``), for provenance (``source_ref.sheet``)."""
+    wb = open_workbook(path, read_only=True, data_only=True, max_cols=1)
+    try:
+        ws = wb[sheet] if isinstance(sheet, str) else wb.worksheets[sheet]
+        return str(ws.title)
+    finally:
+        wb.close()
+
+
 def map_headers(headers: list[str | None], spec: dict[str, list[str]]) -> dict[str, int]:
     """Map logical field names to column indexes by substring match on casefolded header text.
 

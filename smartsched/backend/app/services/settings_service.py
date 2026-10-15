@@ -33,6 +33,8 @@ SPECS: dict[str, SettingSpec] = {
         SettingSpec("solver_weights", default="{}"),
         SettingSpec("ui_language", default="tr"),
         SettingSpec("timezone", default="Europe/Istanbul"),
+        # review D16: hosts a live CRBS MySQL DSN may name (app/services/crbs_dsn.py); empty = none
+        SettingSpec("crbs_dsn_allowed_hosts", default=""),
     )
 }
 

@@ -349,6 +349,8 @@ function DeleteFeature({ feature, onClose }: { feature: Feature | null; onClose:
       await invalidate();
       toast.success(t("wave1.features.deleted", { name: feature.name }));
       onClose();
+      // the deleted row's buttons are gone: focus "New feature" instead of <body> (motion audit T4)
+      window.setTimeout(() => document.querySelector<HTMLElement>('[data-testid="feature-new"]')?.focus(), 320);
     } catch (e) {
       const i = impactOf(e);
       if (i) setImpact(i);

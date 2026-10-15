@@ -210,6 +210,11 @@ The full route list is in smartsched/README.md ("API overview") and the live Ope
   is validated by the solver (never trust the model's claim), result summarised back to the admin.
 - **Explanations**: Diagnosis objects are rendered to Turkish/English prose by the model with the
   structured data as the only source of truth.
+- **Uploaded content and KVKK**: text or images from uploaded files go to the Claude API only when an
+  administrator has turned on `ai.intake_enabled` / `ai.vision_enabled` through `PUT /ai/policy` with the
+  KVKK acknowledgement (`app/ai/policy.py`; both off by default, every change audited). Otherwise the file
+  is read on the server and its units are left for a person. Text the planner types is not governed by
+  these switches.
 - Always load the `claude-api` skill before editing `app/ai/*`.
 
 ## Event bus (booking side)

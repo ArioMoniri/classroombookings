@@ -32,6 +32,7 @@ from app.services.diagnosis_fixes import FixError, apply_option, structure_diagn
 from app.services.events import publish_event
 from app.services.exports import export_csv, export_ics, export_xlsx
 from app.services.grid import assignment_labels, build_grid, enrich_assignments
+from app.services.planning_audit import assignment_snapshot, forced_reason, record_assignments
 from app.services.solver_bridge import PARTIAL_STATUS, run_schedule
 from app.workers.queue import JobState, get_queue, worker_id
 
@@ -488,7 +489,7 @@ async def _conflict_messages(db: AsyncSession, conflicts: list[dict[str, Any]]) 
 
 
 @router.post("/{run_id}/assignments/{aid}/move", response_model=MoveOut)
-async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, _: Planner) -> MoveOut:
+async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, user: Planner) -> MoveOut:
     """Manual drag-drop edit. A successful move marks the assignment ``MANUAL`` and **locked** so that
     re-solves (child runs) keep it where the planner put it (``Event.locked`` overrides the request's
     fixed day/time). Conflicts are returned with ``ok=false`` unless ``force``."""
@@ -537,6 +538,7 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, _: Planne
     conflicts = await _conflict_messages(db, conflicts)
     if conflicts and not body.force:
         return MoveOut(ok=False, assignment=(await _assignment_out(db, run, [a]))[0], conflicts=conflicts)
+    original_id, before = a.id, assignment_snapshot(a)
     row_weeks = [int(w) for w in (a.weeks or ([a.week] if a.week else []))]
     if body.week and len(row_weeks) > 1:
         if body.week not in row_weeks:
@@ -568,6 +570,20 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, _: Planne
             a.date = await _date_of(db, run, body.week, day)
     await db.flush()
     check = await _rescore(db, run)
+    after = {**assignment_snapshot(a), "forced": bool(conflicts), "conflicts": [c.get("message") for c in conflicts]}
+    if a.id != original_id:
+        after["split_into"] = a.id  # this week moved to a new row; the original keeps its other weeks
+    await publish_event(
+        db,
+        "assignment.move",
+        "assignment",
+        original_id,
+        before=before,
+        after=after,
+        actor=user,
+        reason=forced_reason(conflicts) if conflicts else None,
+        term_id=run.term_id,
+    )
     await db.commit()
     await db.refresh(a)
     return MoveOut(
@@ -614,10 +630,19 @@ async def _rescore(db: AsyncSession, run: ScheduleRun) -> Any:
 
 
 @router.post("/{run_id}/assignments/{aid}/lock", response_model=AssignmentOut)
-async def lock_assignment(run_id: int, aid: int, db: DB, _: Planner, locked: bool = True) -> AssignmentOut:
+async def lock_assignment(run_id: int, aid: int, db: DB, user: Planner, locked: bool = True) -> AssignmentOut:
     run = await _run(db, run_id)
     a = await _assignment(db, run_id, aid)
+    was = bool(a.is_locked)
     a.is_locked = locked
+    if was != locked:
+        await record_assignments(
+            db,
+            "assignment.lock" if locked else "assignment.unlock",
+            run,
+            [(a.id, {"is_locked": was}, {"is_locked": locked})],
+            actor=user,
+        )
     await db.commit()
     await db.refresh(a)
     return (await _assignment_out(db, run, [a]))[0]

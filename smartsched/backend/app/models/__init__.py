@@ -1,5 +1,6 @@
 """ORM models. Import this package to register all tables on ``Base.metadata``."""
 
+from app.models.ai import AIProposalDecision
 from app.models.approvals import (
     ApprovalDecision,
     ApprovalRequest,
@@ -48,6 +49,7 @@ from app.models.integrations import (
     WebhookDelivery,
     WebhookEndpoint,
 )
+from app.models.locks import TermLock
 from app.models.runs import Assignment, ChatApplyClaim, ChatMessage, ScheduleRun
 from app.models.scheduling import (
     Block,
@@ -61,6 +63,7 @@ from app.models.studio import ImportedSnapshot, StudioDraft, StudioPreset
 from app.models.system import ImportJob, Setting, User
 
 __all__ = [
+    "AIProposalDecision",
     "CalendarConnection",
     "CalendarEventLink",
     "CalendarEventRevision",
@@ -122,6 +125,7 @@ __all__ = [
     "Term",
     "TermBookingSettings",
     "TermDate",
+    "TermLock",
     "TermSchedule",
     "TimetableWeek",
     "Translation",

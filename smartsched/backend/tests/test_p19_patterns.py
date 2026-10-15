@@ -247,9 +247,7 @@ def test_build_spec_requires_a_start_or_slots() -> None:
     with pytest.raises(p.PatternError, match="start"):
         p.build_spec({"days": "TUE|THU"}, course_hours=(3, 0, 0), max_week=14)
     with pytest.raises(p.PatternError, match="start"):
-        p.build_spec(
-            {"block_size": [2, 1], "days": "TUE|THU", "start": ["11:00"]}, course_hours=(3, 0, 0), max_week=14
-        )
+        p.build_spec({"block_size": [2, 1], "days": "TUE|THU", "start": ["11:00"]}, course_hours=(3, 0, 0), max_week=14)
     with pytest.raises(p.PatternError, match="slots"):
         p.build_spec(
             {"block_size": [2, 1], "slots": [{"day": 2, "start": "11:00"}]}, course_hours=(3, 0, 0), max_week=14
@@ -298,7 +296,9 @@ def test_expansion_invariants_over_a_thousand_seeded_specs() -> None:
             continue
         enrol = rng.randint(1, 150)
         out = p.expand(spec, enrolment=enrol, needs_room=True)
-        again = p.expand(p.build_spec(dict(raw), course_hours=hours, max_week=max_week), enrolment=enrol, needs_room=True)
+        again = p.expand(
+            p.build_spec(dict(raw), course_hours=hours, max_week=max_week), enrolment=enrol, needs_room=True
+        )
         assert out == again  # deterministic
         assert len(out) == len(blocks)
         for kind, total in zip("TUL", hours, strict=True):

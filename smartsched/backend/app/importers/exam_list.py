@@ -15,9 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.safe_files import run_isolated
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
+from app.importers.preference_rules import TextCell, sync_text_preferences
 from app.importers.report import ImportReport
 from app.importers.settings import importer_settings
-from app.importers.xlsx import iter_sheet_rows, map_headers, row_dict
+from app.importers.xlsx import iter_sheet_rows, map_headers, row_dict, sheet_title
 from app.models import ExamRequest
 
 HEADER_SPEC: dict[str, list[str]] = {
@@ -89,6 +90,8 @@ class ParsedExamList:
     rows: list[ExamRow]
     rows_total: int
     skipped: list[tuple[int, str, str | None]]
+    headers: list[str | None] = field(default_factory=list)
+    sheet_name: str | None = None
 
 
 def parse_exam_row(
@@ -173,7 +176,7 @@ def parse_exam_list(
             skipped.append((row, res[0], res[1]))
         else:
             parsed.append(res)
-    return ParsedExamList(parsed, total, skipped)
+    return ParsedExamList(parsed, total, skipped, headers, sheet_title(path, sheet))
 
 
 async def import_exam_list(
@@ -202,6 +205,7 @@ async def import_exam_list(
     seen_keys: set[str] = set()
     merge_groups: dict[str, int] = {}
     venue_rows = 0
+    text_rows: list[tuple[ExamRequest, ExamRow]] = []
     for r in parsed.rows:
         for w in r.warnings:
             report.warn(w, r.row)
@@ -273,10 +277,36 @@ async def import_exam_list(
                 setattr(ex, k, v)
             report.updated["exam_requests"] += 1
         report.rows_imported += 1
+        text_rows.append((ex, r))
     for skey, ex in existing.items():
         if skey and skey not in seen_keys and not ex.archived:
             ex.archived = True
             report.updated["exam_requests_archived"] += 1
+    await session.flush()
+    # the venue cell's wishes the request fields cannot carry (avoid / building sets / features): soft rules
+    # (preference_rules); furniture wishes without a room feature are reported as unparsed
+    cols = map_headers(parsed.headers, HEADER_SPEC)
+    vi = cols.get("venue")
+    venue_col = str(parsed.headers[vi]).strip() if vi is not None and parsed.headers[vi] else "Sınavın Yapılacağı Yer"
+    cells = [
+        TextCell(
+            ex.id,
+            ex.source_key or str(ex.id),
+            r.row,
+            venue_col,
+            r.venue.raw,
+            False,
+            bool(
+                r.venue.room_codes or r.venue.min_capacity or r.venue.room_count or r.venue.tags or r.venue.invigilators
+            ),
+            tuple(r.venue.tags),
+        )
+        for ex, r in text_rows
+        if r.venue.raw
+    ]
+    report.extra["preferences"] = await sync_text_preferences(
+        session, term, cat, cells, origin="exam-list", kind="exam", filename=report.filename, sheet=parsed.sheet_name
+    )
     await cat.finalize_rooms(lecture_side=False)
     report.extra["non_room_venues"] = venue_rows
     report.extra["merge_groups"] = len(merge_groups)

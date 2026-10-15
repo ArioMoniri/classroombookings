@@ -4,7 +4,8 @@
 #   - every ${VAR} referenced by docker-compose.yml is declared in .env.example; no secrets committed;
 #     no inline comments after empty values (compose would read the comment as the value)
 #   - every build context / dockerfile / bind-mount source referenced by compose exists
-#   - every image is pinned to a patch release (no :latest, no bare major tags)
+#   - every image is pinned to a patch release (no :latest, no bare major tags) and by @sha256 digest
+#     (pins.py: compose images, the Dockerfile base images compose passes as build args, the pod CI image)
 #   - Dockerfiles: pinned FROM (ARG defaults resolved), non-root USER in the final stage, COPY sources
 #     exist in the build context
 #   - bash -n / sh -n on every shell script (+ shellcheck when installed), nginx config sanity
@@ -106,7 +107,7 @@ here = Path(sys.argv[1])
 root = here.parent.parent
 doc = yaml.safe_load((here / "docker-compose.yml").read_text())
 rc = 0
-PIN = re.compile(r"^[\w./-]+:\d+\.\d+(\.\d+)?[\w.-]*$")
+PIN = re.compile(r"^[\w./-]+:\d+\.\d+(\.\d+)?[\w.-]*(@sha256:[0-9a-f]{64})?$")
 def check(p: Path, what: str) -> None:
     global rc
     if p.exists():
@@ -141,6 +142,9 @@ print(f"  ok   named volumes: {', '.join(doc.get('volumes') or {})}")
 sys.exit(rc)
 PY
 
+echo "== base images pinned by digest (pins.py; refresh: ./pin-digests.sh)"
+"$PY" "$HERE/pins.py" check || FAIL=1
+
 echo "== Dockerfiles (pinned FROM, non-root USER, COPY sources)"
 "$PY" - "$ROOT" <<'PY' || FAIL=1
 import re, sys
@@ -151,7 +155,7 @@ targets = [
     (root / "smartsched/frontend/Dockerfile", root / "smartsched/frontend"),
     (root / "smartsched/deploy/legacy/Dockerfile", root),
 ]
-PIN = re.compile(r"^[\w./-]+:\d+\.\d+(\.\d+)?[\w.-]*$")
+PIN = re.compile(r"^[\w./-]+:\d+\.\d+(\.\d+)?[\w.-]*(@sha256:[0-9a-f]{64})?$")
 rc = 0
 for df, ctx in targets:
     rel = df.relative_to(root)

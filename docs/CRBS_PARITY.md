@@ -444,24 +444,28 @@ password change/reset, disable, role change and role deletion; the UI's sign-out
 in transparently; deliberate difference: sign-out ends the user's sessions on every device), the CRBS migration verified on CRBS's own install SQL but not yet on a running MySQL (BUG-B04), and the
 later Phase 18 parts (13 languages — closed since: P18-LANG —, legacy MySQL upgrade, side-by-side diff).
 
-**Measured 2026-10-15 14:58 UTC** (commit `bd0db48`, on a working tree that also held other agents' uncommitted
-studio changes; `python3 scripts/parity_check.py`, UI column static): **192 rows — PASS 172 · GAP 19 · FAIL 1 ·
-MISSING 0**; 157 API tests, 156 passed, in 289 s. Between 2026-10-08 16:27 (PASS 157 · GAP 35) and this run the admin
-and shell UI gaps (commit `62a82db`) and the reservation panel's CRBS booking-screen gaps (`da6f8c8`) moved 16 rows
-out of GAP: 15 now pass, and X-08 now fails (below). The committed `docs/testing/crbs-parity-report.md` still holds the 2026-10-08 16:27 run; the pod CI `parity`
-gate rewrites it on the next green run.
+**Measured 2026-10-15 15:24 UTC** (commit `a0a6b4c`, clean checkout; `python3 scripts/parity_check.py`, UI column
+static): **192 rows — PASS 172 · GAP 20 · FAIL 0 · MISSING 0**; 157 API tests, 157 passed, in 754 s. Between
+2026-10-08 16:27 (PASS 157 · GAP 35) and this run, the admin and shell UI gaps (commit `62a82db`) and the reservation
+panel's CRBS booking-screen gaps (`da6f8c8`) moved 15 rows from GAP to PASS. The committed
+`docs/testing/crbs-parity-report.md` still holds the 2026-10-08 16:27 run; the pod CI `parity` gate rewrites it on its
+next run.
 
-The one FAIL is a stale test, found by this run and present on a clean checkout of `bd0db48` too:
-`tests/test_wave1_migrations.py::test_wave1_upgrade_keeps_checkbox_values_adopts_tags_and_round_trips` asserts that
-the Alembic head is `0015_approvals`, but `0016_course_code_keys` (importer follow-ups) landed after it. The test stops
-at that assertion, so the room-features upgrade path it covers (row X-08) was not exercised. Fix: assert the current
-single head instead of a fixed revision.
+An earlier run the same day (14:58 UTC, commit `bd0db48`) had one FAIL: `tests/test_wave1_migrations.py` asserted the
+Alembic head `0015_approvals` after `0016_course_code_keys` had landed, so row X-08 failed and the room-features upgrade
+path it covers was not exercised. Commit `c00b09e` changed the test to assert the single current head; it passes at
+`a0a6b4c`.
 
-The 19 declared gaps:
+A third run at commit `814c8e9` (15:47 UTC, load average above 30, the machine's disk nearly full) gave the same
+rows except X-08 and X-09, whose tests failed with "No space left on device". Run again on their own at `814c8e9`:
+the room-features and find-a-room tests pass, except `test_wave1_find_room.py::test_recurring_partial_results_and_holidays`,
+which failed once in the batch under load and passed when run alone (a timing-sensitive test).
+
+The 20 declared gaps:
 
 | Kind | Rows | Proposed fix (from the inventory) |
 |---|---|---|
-| Screen exists, no Playwright step in the inventory | B-SETUP-02 (requirements step on an empty database), B-BOOK-15 / S-06 (multi-booking wizard), B-BOOK-26 / S-09 (cancel many), B-BOOK-29 / S-10 (staff dashboard), X-02 / S-23 (SMTP settings and outbox; the e2e stack has no SMTP server), MISS-1 (UI-only row), X-CAL-01 (calendar links) | add e2e steps; a second, empty backend for B-SETUP-02; an SMTP sink for X-02 / S-23. X-CAL-01 is driven by `e2e/reserve.spec.ts` test 7 since `da6f8c8`, but its inventory entry still says the screens are to be built and names no title: map it to close the row |
-| Wave-1 screens not built yet | X-09 (find-a-room page), X-10 (audit viewer), X-11 (approvals inbox) | the wave-1 frontend, in progress on 2026-10-15 |
+| Screen exists, no Playwright step in the inventory | B-SETUP-02 (requirements step on an empty database), B-BOOK-15 / S-06 (multi-booking wizard), B-BOOK-26 / S-09 (cancel many), B-BOOK-29 / S-10 (staff dashboard), X-02 / S-23 (SMTP settings and outbox; the e2e stack has no SMTP server), MISS-1 (UI-only row), X-CAL-01 (calendar links) | add e2e steps (the e2e stack gained an SMTP sink and a second, empty backend in `9b2e929`; the steps for B-SETUP-02 and X-02 / S-23 still have to be written and mapped). X-CAL-01 is driven by `e2e/reserve.spec.ts` test 7 since `da6f8c8`, but its inventory entry still says the screens are to be built and names no title: map it to close the row |
+| Wave-1 screens in progress (API rows pass) | X-08 (room features admin), X-09 (find-a-room page), X-10 (audit viewer), X-11 (approvals inbox and rules) | the wave-1 frontend, committed in progress on 2026-10-15, plus Playwright steps |
 | No settings screen, no live provider test | X-CAL-05 (Google / Microsoft push), X-HOOK-01 (webhooks) | admin screens; a pod smoke test against a real Google Workspace / Entra ID tenant |
 | Legacy CRBS on MySQL | BUG-B04, P18-LEGACY, P18-DIFF | Phase 18 parts 3 and 4: import a running CRBS MySQL on the pod (`--profile legacy`) with a dry-run report, then a side-by-side grid comparison |

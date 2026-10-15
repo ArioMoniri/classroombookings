@@ -2,3 +2,4 @@
 # only python3 (stdlib) + python3-boto3 from Ubuntu 24.04.
 -r ../../../infra/aws/requirements.txt
 ruff==0.16.10
+pyyaml==6.0.2  # pins.py / council deploy guard (same pin as gates/python-ci.Dockerfile)

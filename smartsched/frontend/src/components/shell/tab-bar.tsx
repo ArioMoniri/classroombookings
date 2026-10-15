@@ -21,7 +21,8 @@ const TABS: Tab[] = [
   { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, permission: "planning.view" },
   { href: "/requests", labelKey: "nav.requests", icon: Inbox, badge: "needsReview", permission: "planning.view" },
   { href: "/generate", labelKey: "nav.generate", icon: PlayCircle, permission: "planning.edit" },
-  { href: "/timetable", labelKey: "nav.timetable", icon: CalendarDays, permission: ["planning.view", "room.view"] },
+  // the timetable reads GET /terms and /runs (planning.view): room.view alone answers 403 there (wave1 crawler)
+  { href: "/timetable", labelKey: "nav.timetable", icon: CalendarDays, permission: "planning.view" },
 ];
 
 const PILL = "pointer-events-none absolute inset-0 -z-10 rounded-full bg-(--mat-thick) shadow-[inset_0_1px_0_0_var(--specular),0_0_0_1px_var(--hairline)]";

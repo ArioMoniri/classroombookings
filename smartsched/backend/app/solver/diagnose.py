@@ -1119,6 +1119,8 @@ def relaxation_diagnosis(
     if len(stages) > 1:
         stats["relax_stages"] = len(stages)
     ctx.add_hints([by_id[e.id] for e in prep.inp.events if e.id in by_id], unplaced_rest=True)
+    if ctx.seats:  # split shared exams: a proportional seat hint may be inconsistent (roadmap Phase 9, L160)
+        stats["relax_hint_repaired"] = ctx.repair_derived_hints(min(10.0, max(1.0, budget_s * 0.05)), clock)
     #: (expression, value) of every finished stage: the bounds the canonical stage keeps
     tiers: list[tuple[Any, int]] = []
     assignments: list[Assignment] = []
