@@ -346,7 +346,9 @@
       "goal": "close the importer and data follow-ups found by the planner comparison (docs/testing/2026-10-08-schedule-vs-planner.md §6, §7, §10) and the solver review hand-off. Work test-first on the real workbooks (fixtures in tests/conftest.py) and use the comparison script smartsched/backend/tools/compare_planner.py to verify. The solver fix agent has finished; its validator is app/services/planner_check.py…",
       "ledger": "backend-engineer (importer + comparison follow-ups)",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "stopped by weekly usage limit 2026-10-08 ~17:55 UTC",
+      "finished_at": "2026-10-15 14:49"
     },
     {
       "id": "aa03ce834ead2834a",
@@ -358,7 +360,9 @@
       "goal": "fix the real bugs the recording agent found while recording SmartSched on the real backend. Product code only, test-first. The repro stack is `REC_WORKDIR=<your scratch dir> scripts/record/stack.sh up && scripts/record/stack.sh runs`; use unique ports (8650/3650) and your own scratch dir. 1. Studio readiness stays \"Not checked yet\" after a rule is added, although the automatic pre-check runs and i…",
       "ledger": "frontend-engineer (studio + calendar polish bugs)",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "stopped by weekly usage limit 2026-10-08 ~17:55 UTC",
+      "finished_at": "2026-10-15 14:49"
     },
     {
       "id": "a5b33b80f7bb1593e",
@@ -370,7 +374,9 @@
       "goal": "build the user interface for the wave-1 booking features. Their backend has landed. The API contract is docs/product/wave1-api.md and the product spec is docs/product/booking-enhancements.md §4.1 P10, §4.2 T1, §4.6 P7 and §4.3 P1. The items are listed in docs/ROADMAP.md under \"Wave 1 frontend\". Follow the Liquid Glass v2 design (docs/design/v2/liquid-glass.md) and the /motion_designer guidance (.c…",
       "ledger": "frontend-engineer (wave 1 frontend)",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "stopped by weekly usage limit 2026-10-08 ~17:55 UTC",
+      "finished_at": "2026-10-15 14:49"
     }
   ]
 }
