@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph, BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api/endpoints";
@@ -37,6 +37,8 @@ export function PresetMenu({ className, compact }: { className?: string; compact
           <ChevronDown aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
+          {/* a group label must sit inside a group (Base UI error #31 crashed the page, admin persona M-12) */}
+          <DropdownMenuGroup>
           <DropdownMenuLabel>{t("studio.preset.shared")}</DropdownMenuLabel>
           {(presets.data ?? []).map((p) => (
             <DropdownMenuItem key={p.id} onClick={() => setApply(p)} data-testid="preset-item">
@@ -49,6 +51,7 @@ export function PresetMenu({ className, compact }: { className?: string; compact
             </DropdownMenuItem>
           ))}
           {presets.data?.length === 0 ? <DropdownMenuItem disabled>{t("studio.preset.none")}</DropdownMenuItem> : null}
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setSaveOpen(true)} data-testid="preset-save">
             <BookmarkPlus aria-hidden /> {t("studio.preset.saveCurrent")}
