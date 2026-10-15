@@ -6,9 +6,10 @@ import { useRef, useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import type { ProposedConstraint } from "@/lib/api/schemas";
 import type { StudioMeta } from "@/lib/api/studio-schemas";
+import { pairLang } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { RuleCard, type Candidate } from "./rule-card";
-import { allowedHardness, fallbackSentence, provenanceText, ruleTokens } from "./rule-helpers";
+import { allowedHardness, detectTextLang, fallbackSentence, provenanceText, ruleTokens } from "./rule-helpers";
 import { writeField } from "./rule-sentence";
 import { asSource } from "./source-chip";
 import { useStudioData } from "./studio-data";
@@ -71,6 +72,8 @@ export function ProposalCard({ item, meta, onAccept, onReject, onChange, onKeyDo
   const { template, tokens } = ruleTokens(meta, p.kind, p.params, sentence, editing);
   const candidates: Candidate[] = unresolvedCandidates(p).map((c) => ({ text: c.text, options: c.options, onPick: (id) => onChange(resolveCandidate(p, c.index, id)) }));
   const ready = p.status === "ok";
+  // the planner's own words stay as written; a small tag names their language when it is not the UI one
+  const lang = p.nl_text ? detectTextLang(p.nl_text) : null;
   return (
     <div tabIndex={-1} onKeyDown={onKeyDown} data-tray-key={item.key} className="rounded-[var(--radius-md)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50" data-testid="tray-item" data-status={p.status}>
       <RuleCard
@@ -79,6 +82,7 @@ export function ProposalCard({ item, meta, onAccept, onReject, onChange, onKeyDo
         tokens={tokens}
         fallback={fallbackSentence(meta, p.kind, p.title ?? p.nl_text, locale)}
         nlText={p.nl_text || null}
+        writtenIn={lang && lang !== pairLang(locale) ? lang : null}
         provenance={provenanceText(p.source_ref, t)}
         source={asSource(item.origin === "upload" ? "UPLOAD" : p.source === "UPLOAD" ? "UPLOAD" : "AI")}
         proposal

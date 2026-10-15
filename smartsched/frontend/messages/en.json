@@ -1762,7 +1762,7 @@
       "offline": "The server cannot be reached. Check the connection and try again.",
       "failed": "The e-mail, username or password is wrong.",
       "identifier": "E-mail or username",
-      "identifierHint": "Your e-mail address or username",
+      "identifierHint": "E-mail or username",
       "showPassword": "Show password",
       "hidePassword": "Hide password",
       "changeTitle": "Choose a new password",

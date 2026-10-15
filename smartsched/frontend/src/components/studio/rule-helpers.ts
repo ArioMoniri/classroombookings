@@ -1,4 +1,4 @@
-import type { Locale, MessageKey, Vars } from "@/lib/i18n";
+import { pairLang, type Locale, type MessageKey, type Vars } from "@/lib/i18n";
 import type { RuleTemplate, SourceRef, StudioMeta } from "@/lib/api/studio-schemas";
 import type { TemplateField } from "@/lib/api/studio-schemas";
 import { plainSentence, templateFor, tokens, type Params, type SentenceContext, type TemplateIssue, type Token } from "./rule-sentence";
@@ -109,7 +109,7 @@ export function ruleDisplay(rule: { kind: string; params: Params; nl_text?: stri
   const nlText = free ? (rule.nl_text ?? null) : null;
   const fallback = toks ? fallbackSentence(meta, rule.kind, null, ctx.locale) : free ? catalogTitle(meta, rule.kind, ctx.locale) : fallbackSentence(meta, rule.kind, rule.nl_text, ctx.locale);
   const lang = nlText ? detectTextLang(nlText) : null;
-  return { template, tokens: toks, fallback, nlText, writtenIn: lang && lang !== ctx.locale ? lang : null };
+  return { template, tokens: toks, fallback, nlText, writtenIn: lang && lang !== pairLang(ctx.locale) ? lang : null };
 }
 
 export function allowedHardness(meta: StudioMeta | undefined, kind: string): ("hard" | "soft")[] {

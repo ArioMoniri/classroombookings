@@ -1762,7 +1762,7 @@
       "offline": "Sunucuya ulaşılamıyor. Bağlantıyı kontrol edip tekrar deneyin.",
       "failed": "E-posta, kullanıcı adı veya şifre yanlış.",
       "identifier": "E-posta veya kullanıcı adı",
-      "identifierHint": "E-posta adresiniz veya kullanıcı adınız",
+      "identifierHint": "E-posta veya kullanıcı adı",
       "showPassword": "Şifreyi göster",
       "hidePassword": "Şifreyi gizle",
       "changeTitle": "Yeni şifre belirleyin",

@@ -32,8 +32,8 @@ describe("LoginForm", () => {
   });
 
   it.each([
-    ["en", "Your e-mail address or username"],
-    ["tr", "E-posta adresiniz veya kullanıcı adınız"],
+    ["en", "E-mail or username"],
+    ["tr", "E-posta veya kullanıcı adı"],
   ] as const)("hints the identifier field without a person-like address (%s)", (locale, hint) => {
     renderForm(locale);
     const field = screen.getByTestId("login-identifier");
