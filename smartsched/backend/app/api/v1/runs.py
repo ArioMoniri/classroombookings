@@ -30,7 +30,7 @@ from app.services.calendar import day_label
 from app.services.conflicts import check_room_conflicts
 from app.services.diagnosis_fixes import FixError, apply_option, structure_diagnosis
 from app.services.events import publish_event
-from app.services.exports import export_csv, export_ics, export_xlsx
+from app.services.exports import export_crbs, export_csv, export_ics, export_xlsx
 from app.services.grid import assignment_labels, build_grid, enrich_assignments
 from app.services.planning_audit import assignment_snapshot, forced_reason, record_assignments
 from app.services.solver_bridge import PARTIAL_STATUS, run_schedule
@@ -444,12 +444,14 @@ async def export_run(
             media_type="text/calendar",
             headers={"Content-Disposition": f'attachment; filename="{name}.ics"'},
         )
+    if format == "crbs":  # CRBS's booking export columns, one row per class meeting date
+        return Response(
+            await export_crbs(db, run),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{name}-crbs.csv"'},
+        )
     text = await export_csv(db, run)
-    return Response(
-        text,
-        media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{name}{"-crbs" if format == "crbs" else ""}.csv"'},
-    )
+    return Response(text, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}.csv"'})
 
 
 async def _assignment(db: AsyncSession, run_id: int, aid: int) -> Assignment:

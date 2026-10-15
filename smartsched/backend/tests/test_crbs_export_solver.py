@@ -89,3 +89,28 @@ async def test_confirmed_bookings_are_solver_blocks(env):  # noqa: F811
     assert sm.Block(a101, 3, 1, 1, 1) in mine
     assert sm.Block(a101, 3, 1, 2, 2) not in inp.blocks  # cancelled bookings free the slot
     assert all(b.week in (3, None) for b in inp.blocks)
+
+
+async def test_run_export_in_crbs_booking_format(env):  # noqa: F811
+    """ROADMAP Phase 1: ``GET /runs/{id}/export?format=crbs`` writes the published timetable in CRBS's booking
+    export columns (``bookings_export.CSV_COLUMNS``): one row per class meeting date, the room as CRBS names it, the
+    term's booking period names and times, the session; no person data. PSY 262 is on the Bahar board on Mondays
+    P7-P9 in C 504."""
+    from app.services.bookings_export import CSV_COLUMNS
+
+    r = await env.client.get(f"/api/v1/runs/{env.run_id}/export", params={"format": "crbs"}, headers=env.planner)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv"), r.text
+    assert f"smartsched-run{env.run_id}-crbs.csv" in r.headers["content-disposition"]
+    assert r.content.startswith("﻿".encode())
+    reader = csv.DictReader(io.StringIO(r.content.decode("utf-8-sig")))
+    assert tuple(reader.fieldnames or ()) == CSV_COLUMNS
+    rows = list(reader)
+    psy = [x for x in rows if "PSY 262" in x["Notes"] and x["Date"] == MON.isoformat()]
+    assert psy, "PSY 262 meets on Monday 16 Feb 2026"
+    row = psy[0]
+    assert row["Weekday"] == "Monday" and row["Room"] == "C 504" and row["Status"] == "Booked"
+    assert (row["Start Time"], row["End Time"]) == ("13:30", "15:50") and row["Period"] == "P7-P9"
+    assert row["Schedule"] == "Ders saatleri" and row["Session"] and row["Booking ID"] == ""
+    assert row["Username"] == "" and row["User"] == ""  # no person data in the timetable export
+    dates = sorted({x["Date"] for x in rows if "PSY 262" in x["Notes"] and x["Room"] == "C 504"})
+    assert len(dates) >= 10 and all(date.fromisoformat(d).isoweekday() == 1 for d in dates)

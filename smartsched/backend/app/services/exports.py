@@ -98,6 +98,119 @@ async def export_csv(session: AsyncSession, run: ScheduleRun) -> str:
     return buf.getvalue()
 
 
+async def export_crbs(session: AsyncSession, run: ScheduleRun) -> str:
+    """The run's timetable in CRBS's booking export columns (``bookings_export.CSV_COLUMNS``, UTF-8 with a BOM):
+    one row per class meeting date (holidays skipped), the room's CRBS name, the term's booking period (or
+    ``P7-P9`` for a span, timed from its first and last period), the session and timetable week. Weekly classes
+    are ``Recurring`` with the assignment id as the recurring id. No person data: user columns stay empty."""
+    from app.models import BookingPeriod, BookingSchedule, Holiday, RoomGroup, TermDate, TimetableWeek, Week
+    from app.services.bookings_calendar import term_info
+    from app.services.bookings_export import CSV_COLUMNS, WEEKDAYS_EN
+
+    term = await session.get(Term, run.term_id)
+    assert term is not None
+    info = await term_info(session, term)
+    weeks_rows = list((await session.execute(select(Week).where(Week.term_id == term.id))).scalars())
+    sched = await session.get(BookingSchedule, info.default_schedule_id) if info and info.default_schedule_id else None
+    periods = (
+        list((await session.execute(select(BookingPeriod).where(BookingPeriod.schedule_id == sched.id))).scalars())
+        if sched
+        else []
+    )
+    exact = {(p.start_period, p.end_period): p for p in periods}
+    starts = {p.start_period: p for p in periods}
+    ends = {p.end_period: p for p in periods}
+    holidays: set[Any] = set()
+    for h in (await session.execute(select(Holiday).where(Holiday.term_id == term.id))).scalars():
+        d = h.date_start
+        while d <= (h.date_end or h.date_start):
+            holidays.add(d)
+            d += timedelta(days=1)
+    tw_of = {
+        td.date: td.timetable_week_id
+        for td in (await session.execute(select(TermDate).where(TermDate.term_id == term.id))).scalars()
+    }
+    tw_names = {t.id: t.name for t in (await session.execute(select(TimetableWeek))).scalars()}
+    groups = {g.id: g.name for g in (await session.execute(select(RoomGroup))).scalars()}
+    rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
+    assignments = list(
+        (
+            await session.execute(
+                select(Assignment)
+                .where(Assignment.run_id == run.id, Assignment.archived.is_(False))
+                .order_by(Assignment.day, Assignment.start_period, Assignment.id)
+            )
+        ).scalars()
+    )
+    labels = await assignment_labels(session, assignments)
+    stamp = (
+        (run.finished_at or run.created_at).strftime("%Y-%m-%d %H:%M:%S") if (run.finished_at or run.created_at) else ""
+    )
+    out: list[tuple[Any, ...]] = []
+    for a in assignments:
+        weeks = [int(w) for w in (a.weeks or ([a.week] if a.week else []))]
+        dates = (
+            [a.date] if a.date else [occ for w in weeks if (occ := date_for(term, w, a.day, weeks_rows)) is not None]
+        )
+        span = exact.get((a.start_period, a.end_period))
+        if span is not None:
+            pname, t0, t1 = span.name, f"{span.time_start:%H:%M}", f"{span.time_end:%H:%M}"
+        else:
+            pname = f"P{a.start_period}" if a.start_period == a.end_period else f"P{a.start_period}-P{a.end_period}"
+            first, last = starts.get(a.start_period), ends.get(a.end_period)
+            t0, t1 = period_times(a.start_period, a.end_period)
+            if first is not None and last is not None:
+                t0, t1 = f"{first.time_start:%H:%M}", f"{last.time_end:%H:%M}"
+        recurring = len(dates) > 1
+        for d in sorted(dates):
+            if d in holidays:
+                continue
+            for rid in [int(r) for r in a.room_ids or []]:
+                room = rooms.get(rid)
+                if room is None:
+                    continue
+                out.append(
+                    (
+                        d,
+                        a.start_period,
+                        room.display_name,
+                        [
+                            "",
+                            a.id if recurring else "",
+                            "Recurring" if recurring else "Single",
+                            "Booked",
+                            term.name or term.code,
+                            d.isoformat(),
+                            WEEKDAYS_EN[d.weekday()],
+                            tw_names.get(tw_of.get(d) or 0, ""),
+                            pname,
+                            sched.name if sched else "",
+                            t0,
+                            t1,
+                            room.display_name,
+                            groups.get(room.room_group_id or 0, ""),
+                            labels.get(a.id, ""),
+                            "",
+                            "",
+                            "",
+                            stamp,
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                        ],
+                    )
+                )
+    buf = io.StringIO()
+    buf.write("\ufeff")
+    w = safe_writer(csv.writer(buf, lineterminator="\r\n"))
+    w.writerow(CSV_COLUMNS)
+    for _d, _p, _r, row in sorted(out, key=lambda x: (x[0], x[1], x[2])):
+        w.writerow(row)
+    return buf.getvalue()
+
+
 def _ics_escape(s: str) -> str:
     return ics_text(s)  # RFC 5545 escaping, no CR/LF (review M8)
 
