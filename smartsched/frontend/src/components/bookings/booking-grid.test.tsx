@@ -93,6 +93,33 @@ describe("BookingGrid reservation affordances", () => {
   });
 });
 
+describe("keyboard and screen readers (persona U-18, U-24)", () => {
+  it("one tab stop that follows focus without re-rendering, and arrow keys move it", () => {
+    renderGrid();
+    const stops = () => [...document.querySelectorAll('[data-cell][tabindex="0"]')].map((e) => e.getAttribute("data-cell"));
+    expect(stops()).toEqual(["0-0"]);
+    fireEvent.focus(cellOf(2, 1));
+    expect(stops()).toEqual([cellOf(2, 1).getAttribute("data-cell")]);
+    cellOf(2, 1).focus();
+    fireEvent.keyDown(cellOf(2, 1), { key: "ArrowRight" });
+    expect(stops()).toEqual([cellOf(3, 1).getAttribute("data-cell")]);
+    expect(document.activeElement).toBe(cellOf(3, 1));
+  });
+
+  it("announces the span in a polite live region while it is drawn", () => {
+    renderGrid();
+    const status = screen.getByTestId("grid-span-status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status.textContent).toBe("");
+    fireEvent.click(cellOf(1, 1));
+    fireEvent.click(cellOf(3, 1), { shiftKey: true });
+    // the fixture's P3 ends at "011:20" (zero-padded hour built from 8 + 3)
+    expect(status.textContent).toBe("3 periods selected, 08:30–011:20, A 101.");
+    fireEvent.keyDown(cellOf(3, 1), { key: "Escape" });
+    expect(status.textContent).toBe("");
+  });
+});
+
 describe("timetable cells without a course label (solver rows)", () => {
   it("fall back to a localised word, not a hard-coded Turkish one", async () => {
     const { slotText } = await import("./grid-model");

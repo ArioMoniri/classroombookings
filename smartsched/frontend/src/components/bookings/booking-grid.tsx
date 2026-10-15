@@ -349,6 +349,15 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
     nextEl?.focus(); // onCellFocus moves the tab stop
   };
 
+  // the rendered tab stop is the first cell; afterwards onCellFocus moves it in the DOM. A new layout that
+  // dropped the moved stop gets one back on the first cell.
+  useEffect(() => {
+    const table = tableRef.current;
+    if (!table || table.querySelector('[data-cell][tabindex="0"]')) return;
+    table.querySelector<HTMLButtonElement>('[data-cell="0-0"]')?.setAttribute("tabindex", "0");
+    focusRef.current = { r: 0, c: 0 };
+  }, [layout]);
+
   /** a cell got focus (click, tap, arrow key, programmatic): it becomes the one tab stop, no re-render */
   const onCellFocus = useCallback((el: HTMLButtonElement) => {
     const [r, c] = (el.dataset.cell ?? "0-0").split("-").map(Number);
@@ -448,7 +457,7 @@ export function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, o
                         <Cell
                           slot={slot}
                           index={`${r}-${c}`}
-                          focusable={focusRef.current.r === r && focusRef.current.c === c}
+                          focusable={r === 0 && c === 0}
                           label={cellLabel(row, col, slot, inSpan)}
                           multi={multi}
                           isSelected={!!slot && (selected.has(key) || inSpan)}
