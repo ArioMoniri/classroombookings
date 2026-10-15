@@ -456,11 +456,16 @@ Alembic head `0015_approvals` after `0016_course_code_keys` had landed, so row X
 path it covers was not exercised. Commit `c00b09e` changed the test to assert the single current head; it passes at
 `a0a6b4c`.
 
+A third run at commit `814c8e9` (15:47 UTC, load average above 30, the machine's disk nearly full) gave the same
+rows except X-08 and X-09, whose tests failed with "No space left on device". Run again on their own at `814c8e9`:
+the room-features and find-a-room tests pass, except `test_wave1_find_room.py::test_recurring_partial_results_and_holidays`,
+which failed once in the batch under load and passed when run alone (a timing-sensitive test).
+
 The 20 declared gaps:
 
 | Kind | Rows | Proposed fix (from the inventory) |
 |---|---|---|
-| Screen exists, no Playwright step in the inventory | B-SETUP-02 (requirements step on an empty database), B-BOOK-15 / S-06 (multi-booking wizard), B-BOOK-26 / S-09 (cancel many), B-BOOK-29 / S-10 (staff dashboard), X-02 / S-23 (SMTP settings and outbox; the e2e stack has no SMTP server), MISS-1 (UI-only row), X-CAL-01 (calendar links) | add e2e steps; a second, empty backend for B-SETUP-02; an SMTP sink for X-02 / S-23. X-CAL-01 is driven by `e2e/reserve.spec.ts` test 7 since `da6f8c8`, but its inventory entry still says the screens are to be built and names no title: map it to close the row |
+| Screen exists, no Playwright step in the inventory | B-SETUP-02 (requirements step on an empty database), B-BOOK-15 / S-06 (multi-booking wizard), B-BOOK-26 / S-09 (cancel many), B-BOOK-29 / S-10 (staff dashboard), X-02 / S-23 (SMTP settings and outbox; the e2e stack has no SMTP server), MISS-1 (UI-only row), X-CAL-01 (calendar links) | add e2e steps (the e2e stack gained an SMTP sink and a second, empty backend in `9b2e929`; the steps for B-SETUP-02 and X-02 / S-23 still have to be written and mapped). X-CAL-01 is driven by `e2e/reserve.spec.ts` test 7 since `da6f8c8`, but its inventory entry still says the screens are to be built and names no title: map it to close the row |
 | Wave-1 screens in progress (API rows pass) | X-08 (room features admin), X-09 (find-a-room page), X-10 (audit viewer), X-11 (approvals inbox and rules) | the wave-1 frontend, committed in progress on 2026-10-15, plus Playwright steps |
 | No settings screen, no live provider test | X-CAL-05 (Google / Microsoft push), X-HOOK-01 (webhooks) | admin screens; a pod smoke test against a real Google Workspace / Entra ID tenant |
 | Legacy CRBS on MySQL | BUG-B04, P18-LEGACY, P18-DIFF | Phase 18 parts 3 and 4: import a running CRBS MySQL on the pod (`--profile legacy`) with a dry-run report, then a side-by-side grid comparison |
