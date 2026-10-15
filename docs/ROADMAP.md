@@ -372,3 +372,13 @@ loop), 3, 4, 5, 6, 7, 8, 10, 12, 13, 14; usability U1-U6 and the default term. S
 - [ ] Part 3 (P18-LEGACY): `POST /imports/crbs?dry_run=1` report (counts per table, unmapped rows) and a run against
       the pod's `--profile legacy` MySQL with a real dump.
 - [ ] Part 4 (P18-DIFF): sampler of (date, room, user) + CRBS grid scraper on the pod, diffed against `GET /bookings/grid`.
+
+### Phase 19 — Intake, learning suggestions, from-scratch programs, moderation (user request 2026-10-15)
+Request: upload PDF/DOCX/JSON/XLSX/CSV of new requests or schedule maps; learn from previous changes/requests and suggest (resettable memory); all remaining CRBS features; from-scratch program creation; moderation tab per class / person / academician / request / preference / matching with request history, admin edits and re-solve.
+Analysis: strict-engineer report (docs/review/2026-10-15-phase19-engineering.md) + academician needs (docs/testing/2026-10-15-academician-needs.md) → tickets below.
+
+User decisions (2026-10-15):
+- PDF/DOCX extraction may use the Claude API (Settings key); every extracted row needs coordinator review before save; KVKK notice; admin switch to disable.
+- Suggestion memory reset: per person, per term, or all; admin-only, audited, undoable for 30 days.
+- Conflict policy: locks first (never moved), then coordinator-set priority, then most classes placed; configurable per term. (Resolves the PHAR 114 §2 lock-first vs most-classes-first question.)
+- Learned suggestions are never auto-applied: suggest only; accepting one adds a SOFT preference. Hard-rule integrity (100/100 or explained infeasibility) is unchanged.
