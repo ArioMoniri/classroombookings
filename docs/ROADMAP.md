@@ -130,7 +130,7 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 - [ ] Streaming chat (SSE) with `eager_input_streaming` + client-side tool-input validation; today `POST /runs/{id}/chat` returns when the loop ends
 - [ ] Red-team eval before launch (RESEARCH Recommendations 3): paraphrase / re-ordering / ambiguous room names / prompt-injection in uploaded files, measured against a fixed expected-constraint set
 - [x] Persist the model id + verifier result per applied diff on the child run (audit, RESEARCH §4.3 step 6) - partly there via `chat_messages.tool_calls` usage + `stats.mode` (2026-10-15: `stats.ai` on every chat child run = diff id, model, edited flag, applied/rejected ops with reasons, verifier status / hard score / violations, final values written by the repair job; `app/ai/chat.py` `_apply_audit`; tests/ai/test_apply_audit.py)
-- [ ] OCR for scanned PDFs (currently reported as "no extractable text")
+- [x] OCR for scanned PDFs (currently reported as "no extractable text") (2026-10-15: a PDF without a text layer is read by the model as a PDF document block when the admin switch `ai.vision_enabled` (KVKK sign-off) is on, at most 20 pages, proposals point at `{file, page}` and go to review; vision off = needs AI, 0 calls; `app/ai/ingest.py` `_scanned_pdf`, tests/ai/test_scanned_pdf.py)
 
 ### Phase 6 integration backlog (integration-engineer, 2026-10-08)
 
