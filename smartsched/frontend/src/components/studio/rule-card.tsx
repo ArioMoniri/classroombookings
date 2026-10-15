@@ -84,13 +84,15 @@ export function RuleCard(p: RuleCardProps) {
   return (
     <article
       id={p.domId}
+      tabIndex={-1}
+      data-focus-card
       aria-labelledby={sentenceId}
       aria-describedby={p.clash ? clashId : undefined}
       data-testid={p.testId ?? "rule-card"}
       onMouseEnter={p.onHover ? () => p.onHover?.(true) : undefined}
       onMouseLeave={p.onHover ? () => p.onHover?.(false) : undefined}
       className={cn(
-        "group/rule rounded-[var(--radius-md)] border bg-card p-3 text-sm shadow-[var(--shadow-1)] sm:p-4",
+        "outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) group/rule rounded-[var(--radius-md)] border bg-card p-3 text-sm shadow-[var(--shadow-1)] sm:p-4",
         p.proposal && "border-dashed border-primary/50 bg-tint-soft/40",
         p.enabled === false && "opacity-60",
         p.clash && "border-status-infeasible-border",

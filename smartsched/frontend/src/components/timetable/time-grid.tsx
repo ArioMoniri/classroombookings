@@ -30,7 +30,7 @@ import {
   type ReactNode,
 } from "react";
 import { PERIODS, PERIODS_PER_DAY } from "@/lib/time";
-import { springs, useReduce } from "@/lib/motion";
+import { dur, ease, springs, useReduce } from "@/lib/motion";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { EventChip, chipVars } from "./event-chip";
@@ -1001,7 +1001,7 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
         {drag ? (
           <motion.div ref={ghostRef} className="pointer-events-none absolute top-0 left-0 z-30" style={{ x: ghostX, y: ghostY, width: colW - 4 }}>
             <motion.div initial={{ scale: 1 }} animate={{ scale: reduce ? 1 : 1.03 }} transition={springs.snappy} className="relative">
-              <motion.div aria-hidden className="pointer-events-none absolute inset-0 -z-10 rounded-[6px] shadow-[0_12px_32px_-8px_rgb(0_0_0/0.35)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }} />
+              <motion.div aria-hidden className="pointer-events-none absolute inset-0 -z-10 rounded-[6px] shadow-[0_12px_32px_-8px_rgb(0_0_0/0.35)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: dur.fast }} />
               <div className="cal-chip" style={{ ...chipVars(drag.ev.a.slot), position: "relative", height: spanHeight(rows, drag.ev.sp, drag.ev.ep) }}>
                 <span className="cal-code truncate">{drag.ev.a.code ?? drag.ev.a.label}{multi ? ` +${drag.aids.length - 1}` : ""}</span>
                 <span className="cal-line2 truncate">{props.line2(drag.ev)}</span>
@@ -1026,7 +1026,7 @@ const ShakeWrap = memo(function ShakeWrap({ active, reduce, left, top, children 
       className="absolute"
       style={{ left, top }}
       animate={active && !reduce ? { x: [0, -3, 3, -2, 2, 0] } : { x: 0 }}
-      transition={{ duration: 0.24, ease: "easeOut" }}
+      transition={{ duration: dur.slow, ease: ease.out }} /* pattern 9: conflict shake, tween 240 ms */
     >
       {children}
     </motion.div>

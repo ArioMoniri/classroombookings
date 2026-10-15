@@ -18,6 +18,7 @@ import { fold } from "./class-filters";
 import { CopyDialog } from "./copy-dialog";
 import { BuiltinRules, PolicySwitches } from "./policy-switches";
 import { PresetMenu } from "./presets";
+import { focusSoon, successorOf } from "./focus-after";
 import { ReviewTray } from "./review-tray";
 import { RuleCard } from "./rule-card";
 import { plainRuleText } from "./rule-helpers";
@@ -171,7 +172,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
 
       <section aria-labelledby="rule-list-title" className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 id="rule-list-title" className="mr-auto text-base font-semibold">
+          <h3 id="rule-list-title" tabIndex={-1} className="mr-auto text-base font-semibold outline-hidden">
             {t("studio.rules.listTitle")}
           </h3>
           <div className="relative w-full sm:w-56">
@@ -255,6 +256,8 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
                           size="sm"
                           variant="outline"
                           onClick={() => {
+                            const card = document.getElementById(`pin-${p.event_id}`);
+                            focusSoon(successorOf(card), "rule-list-title", card);
                             dispatch({ type: "unpin", eventId: p.event_id });
                             store.getState().record({ label: t("studio.pin.removed"), undo: () => dispatch({ type: "setPin", pin: p }), redo: () => dispatch({ type: "unpin", eventId: p.event_id }) });
                           }}
@@ -300,6 +303,8 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
                           size="sm"
                           variant="outline"
                           onClick={() => {
+                            const card = document.getElementById(`override-${p.event_id}`);
+                            focusSoon(successorOf(card), "rule-list-title", card);
                             dispatch({ type: "dropOverrides", eventId: p.event_id });
                             store.getState().record({ label: ov.unlock ? t("studio.pin.relocked") : t("studio.pin.overrideRemoved"), undo: () => dispatch({ type: "setPin", pin: p }), redo: () => dispatch({ type: "dropOverrides", eventId: p.event_id }) });
                           }}

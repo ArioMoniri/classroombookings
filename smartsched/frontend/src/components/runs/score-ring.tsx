@@ -2,7 +2,7 @@
 
 import { AlertTriangle, CheckCircle2, XOctagon } from "lucide-react";
 import { motion } from "motion/react";
-import { tween, useReduce } from "@/lib/motion";
+import { pick, springs, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /** Hard-score proof badge: ring (lg) or pill (sm). Colour + icon + text, never colour alone. */
@@ -23,7 +23,7 @@ export function ScoreRing({ value, label, size = "lg", className, partial, live 
         <div className="relative size-28">
           <svg viewBox="0 0 112 112" className="size-28 -rotate-90">
             <circle cx="56" cy="56" r={r} fill="none" stroke="var(--fill-2)" strokeWidth="8" />
-            <motion.circle cx="56" cy="56" r={r} fill="none" stroke="var(--status-warning-solid)" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} initial={reduce ? false : { strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - pct) }} transition={{ ...tween.fadeIn, duration: 0.28 }} />
+            <motion.circle cx="56" cy="56" r={r} fill="none" stroke="var(--status-warning-solid)" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} initial={reduce ? false : { strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - pct) }} transition={pick(reduce, springs.ticker)} />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-3xl font-bold tracking-[-0.01em] tabular-nums">{partial.placed}</span>
@@ -80,7 +80,7 @@ export function ScoreRing({ value, label, size = "lg", className, partial, live 
             strokeDasharray={c}
             initial={reduce ? false : { strokeDashoffset: c }}
             animate={{ strokeDashoffset: c * (1 - pct) }}
-            transition={{ ...tween.fadeIn, duration: 0.28 }}
+            transition={pick(reduce, springs.ticker)}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">

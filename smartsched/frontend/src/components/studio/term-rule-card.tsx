@@ -17,6 +17,8 @@ import type { EffectiveRule } from "./studio-reducer";
 import { useApplyFix } from "./use-fixes";
 import { useRuleActions } from "./use-rule-actions";
 import { pairLang } from "@/lib/i18n";
+import { useReduce } from "@/lib/motion";
+import { focusSoon, successorOf } from "./focus-after";
 
 /** Flash-outline another card ("Show both"). */
 export function flashCard(domId: string, reduce: boolean) {
@@ -103,7 +105,8 @@ export function TermRuleCard({ eff, clash, compact }: { eff: EffectiveRule; clas
 
   const other = clash ? clash.constraint_ids.find((id) => id !== rule.id) : undefined;
   const otherRule = other !== undefined ? rules?.rules.find((r) => r.id === other) : undefined;
-  const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // OS query or the in-app switch (motion audit T5)
+  const reduce = useReduce();
 
   const affected = {
     count: preview ? preview.affected_count : (rule.affected_count ?? null),
@@ -158,7 +161,15 @@ export function TermRuleCard({ eff, clash, compact }: { eff: EffectiveRule; clas
               <DropdownMenuItem onClick={() => actions.setInPlay(rule, !eff.inPlay)}>{eff.inPlay ? t("studio.rules.turnOff") : t("studio.rules.turnOn")}</DropdownMenuItem>
               <DropdownMenuItem onClick={() => void actions.duplicate(rule)}>{t("studio.rules.duplicate")}</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => void actions.remove(rule)}>
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => {
+                  // the menu trigger leaves with the card: focus the neighbouring rule, else the list heading (T4)
+                  const card = document.getElementById(domId);
+                  const next = successorOf(card);
+                  void actions.remove(rule).then(() => focusSoon(next, "rule-list-title", card));
+                }}
+              >
                 {t("common.delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>

@@ -17,7 +17,7 @@ import { useCalendarIndex } from "@/lib/api/calendar";
 import { api } from "@/lib/api/endpoints";
 import { useMe } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
-import { springs, useReduce } from "@/lib/motion";
+import { springs, tween, useReduce } from "@/lib/motion";
 import { dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { AgendaLens } from "./agenda-lens";
@@ -44,6 +44,7 @@ import { useActiveTerm } from "@/components/shell/term-switcher";
 import { lensDirection, lensForKey, parseViewState, serializeViewState, weekInRun, type Lens, type Subject, type ViewState } from "./model/view-state";
 import { useCalendarActions } from "./use-calendar-actions";
 import { useCalendarData } from "./use-calendar-data";
+import { StaleVeil, useDeferredView } from "./stale-veil";
 import { WeekScrubber } from "./week-scrubber";
 
 const ALLDAY_H = 22;
@@ -167,10 +168,14 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const allWeeks = useMemo(() => model?.weeks ?? [], [model]);
   const runWeeks = model?.index.run.horizon === "WEEK" ? model.index.run.weeks : [];
   const todayPos = model ? weekDayOf(model.index.weeks, now.iso) : null;
-  const week = vs.week ?? weekInRun(runWeeks, allWeeks, todayPos?.week ?? null);
+  // live = what the user asked for (toolbar, title, URL, the next step); week / day = what the grid renders,
+  // deferred so the lens re-render never blocks the click frame (motion audit T3); the old grid is veiled
+  // while they differ (T2)
+  const liveWeek = vs.week ?? weekInRun(runWeeks, allWeeks, todayPos?.week ?? null);
+  const liveDay = vs.day || (todayPos && todayPos.week === liveWeek ? todayPos.day : 1);
+  const { week, day, stale } = useDeferredView(liveWeek, liveDay);
   const mask = week >= 1 && week <= 31 ? 1 << (week - 1) : 0;
-  const day = vs.day || (todayPos && todayPos.week === week ? todayPos.day : 1);
-  const urlState = useMemo(() => ({ ...vs, week: model ? week : vs.week, day }), [vs, model, week, day]);
+  const urlState = useMemo(() => ({ ...vs, week: model ? liveWeek : vs.week, day: liveDay }), [vs, model, liveWeek, liveDay]);
   useEffect(() => {
     if (embedded) return;
     const p = serializeViewState(urlState, new URLSearchParams(window.location.search));
@@ -178,7 +183,9 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     if (url !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, "", url);
   }, [urlState, embedded]);
   const weekInfo = model?.index.weeks.find((w) => w.index === week);
+  const liveWeekInfo = model?.index.weeks.find((w) => w.index === liveWeek);
   const dates = useMemo(() => [1, 2, 3, 4, 5, 6, 7].map((d) => (model ? dateOf(model.index.weeks, week, d) : null)), [model, week]);
+  const liveDates = useMemo(() => [1, 2, 3, 4, 5, 6, 7].map((d) => (model ? dateOf(model.index.weeks, liveWeek, d) : null)), [model, liveWeek]);
   const isTodayWeek = todayPos?.week === week;
 
   // ------------------------------------------------------------------ compare
@@ -327,7 +334,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     update({ week: Math.min(last, Math.max(first, w)) });
   }, [allWeeks, update]);
   const [month, setMonth] = useState<string | null>(null);
-  const monthValue = month ?? (dates[0] ?? now.iso).slice(0, 7);
+  const monthValue = month ?? (liveDates[0] ?? now.iso).slice(0, 7);
   const step = useCallback(
     (dir: 1 | -1) => {
       if (vs.lens === "month") {
@@ -337,15 +344,15 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         return;
       }
       if ((vs.lens === "board" && vs.board === "day") || vs.lens === "day") {
-        const nd = day + dir;
-        if (nd < 1) update({ week: Math.max(allWeeks[0] ?? 1, week - 1), day: 7 });
-        else if (nd > 7) update({ week: Math.min(allWeeks[allWeeks.length - 1] ?? 14, week + 1), day: 1 });
+        const nd = liveDay + dir;
+        if (nd < 1) update({ week: Math.max(allWeeks[0] ?? 1, liveWeek - 1), day: 7 });
+        else if (nd > 7) update({ week: Math.min(allWeeks[allWeeks.length - 1] ?? 14, liveWeek + 1), day: 1 });
         else update({ day: nd });
         return;
       }
-      setWeek(week + dir);
+      setWeek(liveWeek + dir);
     },
-    [vs.lens, vs.board, day, week, allWeeks, update, setWeek, monthValue],
+    [vs.lens, vs.board, liveDay, liveWeek, allWeeks, update, setWeek, monthValue],
   );
   const goToday = useCallback(() => {
     if (todayPos && model?.weeks.includes(todayPos.week)) update({ week: todayPos.week, day: todayPos.day });
@@ -415,7 +422,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       if (e.code === "BracketRight" || e.code === "BracketLeft") {
         e.preventDefault();
         const dir = e.code === "BracketRight" ? 1 : -1;
-        if (e.shiftKey) setWeek(week + 4 * dir);
+        if (e.shiftKey) setWeek(liveWeek + 4 * dir);
         else step(dir as 1 | -1);
         return;
       }
@@ -467,7 +474,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [embedded, setSidebarOpen, actions, vs.lens, vs.board, weekEvents, day, roomSet, selection.size, t, setWeek, week, step, update, setLens, goToday, zoomBy, selectedEvents, readOnly]);
+  }, [embedded, setSidebarOpen, actions, vs.lens, vs.board, weekEvents, day, roomSet, selection.size, t, setWeek, liveWeek, step, update, setLens, goToday, zoomBy, selectedEvents, readOnly]);
 
   // ------------------------------------------------------------------ lens content
   const chipLine2 = useCallback(
@@ -693,22 +700,22 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     );
   }
   if (mobile && !embedded && model) {
-    return <MobileCalendar model={model} week={week} day={day} dates={dates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} lens={vs.lens} onLens={setLens} />;
+    return <MobileCalendar model={model} week={liveWeek} day={liveDay} dates={liveDates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} lens={vs.lens} onLens={setLens} />;
   }
 
   const showScrubber = model && vs.lens !== "month" && vs.lens !== "term";
-  const rangeStart = dates[0];
-  const rangeEnd = dates[6];
+  const rangeStart = liveDates[0];
+  const rangeEnd = liveDates[6];
   const title = vs.lens === "month"
     ? new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${monthValue}-01T00:00:00Z`))
     : vs.lens === "term"
       ? (data.term?.name ?? "")
       : rangeStart && rangeEnd
         ? rangeTitle(rangeStart, rangeEnd, locale)
-        : t("calendar.nav.weekTitle", { n: week, type: "" });
-  const weekType = t(`calendar.weekType.${weekTypeKey(weekInfo?.kind ?? "LECTURE")}`);
+        : t("calendar.nav.weekTitle", { n: liveWeek, type: "" });
+  const weekType = t(`calendar.weekType.${weekTypeKey(liveWeekInfo?.kind ?? "LECTURE")}`);
   const dayLens = (vs.lens === "board" && vs.board === "day") || vs.lens === "day";
-  const outside = runWeeks.length > 0 && !runWeeks.includes(week);
+  const outside = runWeeks.length > 0 && !runWeeks.includes(liveWeek);
   const selected = selectedEvents.length === 1 ? selectedEvents[0] : null;
   const inspectorVisible = inspectorOpen && selectedEvents.length > 0 && !embedded;
   const docked = wide;
@@ -727,8 +734,8 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
             update({ run: id, sel: null });
             setSelection(new Set());
           }}
-          week={week}
-          day={day}
+          week={liveWeek}
+          day={liveDay}
           onPickDate={(w, d) => update({ week: w, day: d, ...(vs.lens === "month" || vs.lens === "term" ? { lens: "board" as Lens, board: "day" as const } : {}) })}
           heat={heat}
           todayIso={now.iso}
@@ -755,9 +762,9 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               onLens={setLens}
               board={vs.board}
               onBoard={(b) => update({ board: b })}
-              weekLabel={t("calendar.nav.weekTitle", { n: week, type: "" }).replace(/ · $/, "")}
+              weekLabel={t("calendar.nav.weekTitle", { n: liveWeek, type: "" }).replace(/ · $/, "")}
               weeks={model.index.weeks}
-              week={week}
+              week={liveWeek}
               onWeek={setWeek}
               onPrev={() => step(-1)}
               onNext={() => step(1)}
@@ -789,10 +796,10 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
           ) : null}
         </div>
         <div className="flex flex-wrap items-end gap-x-3 gap-y-1 px-4 pt-2 pb-2">
-          <h1 className="type-title-2 capitalize" data-testid="calendar-title">{title}</h1>
+          <h1 id="calendar-title" tabIndex={-1} className="type-title-2 capitalize outline-hidden" data-testid="calendar-title">{title}</h1>
           {vs.lens !== "month" && vs.lens !== "term" ? (
             <p className="pb-0.5 text-[13px] text-label-2">
-              {t("calendar.nav.weekTitle", { n: week, type: weekType })}
+              {t("calendar.nav.weekTitle", { n: liveWeek, type: weekType })}
               {vs.lens === "week" && subjectTitle ? ` · ${subjectTitle}` : ""}
             </p>
           ) : null}
@@ -804,7 +811,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
           ) : null}
           {dayLens && model ? (
             <div className="ml-auto">
-              <SegmentedGlass size="sm" aria-label={t("calendar.lens.day")} options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: String(d), label: `${dayName(d, locale, "short")} ${dates[d - 1]?.slice(8) ?? ""}` }))} value={String(day)} onValueChange={(v) => update({ day: Number(v) })} />
+              <SegmentedGlass size="sm" aria-label={t("calendar.lens.day")} options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: String(d), label: `${dayName(d, locale, "short")} ${liveDates[d - 1]?.slice(8) ?? ""}` }))} value={String(liveDay)} onValueChange={(v) => update({ day: Number(v) })} />
             </div>
           ) : null}
           {vs.lens === "day" ? (
@@ -817,7 +824,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
             <Button size="xs" variant="secondary" onClick={() => setWeek(runWeeks[0])}>{t("calendar.empty.goToRunWeek", { n: runWeeks[0] })}</Button>
           </div>
         ) : null}
-        <div className="relative min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1" aria-busy={stale || undefined} data-stale={stale ? "" : undefined} data-testid="calendar-canvas">
           {data.loading && !model ? (
             <p className="flex h-full items-start gap-2 px-6 py-6 text-[13px] text-label-2" role="status"><BusyGlyph className="size-3.5 text-label-2" />{t("calendar.loading")}</p>
           ) : data.error && !model ? (
@@ -835,15 +842,16 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               </motion.div>
               {/* veil on top fades out instead of fading the lens (keeps the glass headers' blur, backdrop-root rule) */}
               {!reduce ? (
-                <motion.div key={`veil-${vs.lens}-${week}-${day}`} aria-hidden className="cal-canvas pointer-events-none absolute inset-0 z-30" initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: 0.18 }} />
+                <motion.div key={`veil-${vs.lens}-${week}-${day}`} aria-hidden className="cal-canvas pointer-events-none absolute inset-0 z-30" initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={tween.fadeIn} />
               ) : null}
+              <StaleVeil stale={stale} />
             </motion.div>
           ) : null}
           {zoomBadge !== null ? <span role="status" className="glass-thick absolute top-3 right-3 z-40 rounded-full px-3 py-1 text-[12px] font-medium">{t("calendar.zoom", { n: zoomBadge })}</span> : null}
         </div>
         {showScrubber && model ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center">
-            <WeekScrubberLazy model={model} week={week} heat={heat} onWeek={setWeek} onToday={goToday} todayWeek={todayPos?.week ?? null} runWeeks={runWeeks} />
+            <WeekScrubberLazy model={model} week={liveWeek} heat={heat} onWeek={setWeek} onToday={goToday} todayWeek={todayPos?.week ?? null} runWeeks={runWeeks} />
           </div>
         ) : null}
       </section>
@@ -863,9 +871,15 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               allWeeks={model.weeks.filter((w) => w <= 16)}
               readOnly={readOnly}
               onClose={() => {
+                // the close button leaves with the inspector: focus returns to the class it showed (T4)
+                const aid = selected?.a.id;
                 setInspectorOpen(false);
                 setSelection(new Set());
                 update({ sel: null });
+                requestAnimationFrame(() => {
+                  const chip = aid !== undefined ? document.querySelector<HTMLElement>(`[data-testid="calendar-event"][data-assignment-id="${aid}"]`) : null;
+                  (chip ?? document.getElementById("calendar-title"))?.focus();
+                });
               }}
               onMove={() => setMoveFor(selected)}
               onLock={(locked) => actions.lock([selected.a.id], locked, selected.a.label)}

@@ -14,7 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { calendarApi, type ExplainOut, type IndexAssignment } from "@/lib/api/calendar";
 import { classesApi, useClassDetail, type ClassKind, type ClassRow } from "@/lib/api/classes";
 import { useI18n } from "@/lib/i18n/provider";
-import { springs, useReduce } from "@/lib/motion";
+import { springs, tween, useReduce } from "@/lib/motion";
 import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { chipVars } from "@/components/timetable/event-chip";
@@ -192,7 +192,7 @@ export function ClassInspector(p: InspectorProps) {
       data-testid="class-inspector"
       initial={p.appear === false ? false : reduce ? { opacity: 0 } : { opacity: 0, x: 16 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={reduce ? { duration: 0.1 } : { x: springs.sheet, opacity: { duration: 0.1 } }}
+      transition={reduce ? tween.reduced : { x: springs.sheet, opacity: tween.reduced }}
     >
       <header className="flex items-start gap-3 px-4 pt-4 pb-3" style={chipVars(slot)}>
         <span aria-hidden className="mt-1 h-10 w-[3px] shrink-0 rounded-full" style={{ background: "var(--chip-bar)" }} />
