@@ -33,12 +33,34 @@ import { SoftBreakdown } from "./soft-breakdown";
 import { usePermissions } from "@/lib/permissions";
 import { CancelRunButton } from "./cancel-run";
 import { MissingWeeks } from "./missing-weeks";
+import { runIssueCounts, verdictExceptions, waiverOf, type VerdictException } from "./run-truth";
+import { useCalendarIndex } from "@/lib/api/calendar";
+
+/** Built-in rule names as the planner says them (the solver's codes are English). */
+const RULE_TR: Record<string, string> = { capacity: "kapasite", room_tags: "derslik özelliği", tags: "derslik özelliği", pins: "sabitlenen derslik", fixed_times: "sabit saat", forbids: "yasak derslik", locks: "kilitli derslik" };
 
 /** The status headline: honest for partial runs (amber "660/683 placed · no rule broken", never green 100/100). */
-function Verdict({ r, headline }: { r: ScheduleRun; headline?: string }) {
-  const { t, n } = useI18n();
+function Verdict({ r, headline, exceptions = [] }: { r: ScheduleRun; headline?: string; exceptions?: VerdictException[] }) {
+  const { t, n, locale } = useI18n();
   const partial = partialCounts(r);
   const complete = !partial && (r.status === "FEASIBLE" || r.status === "OPTIMAL");
+  if ((partial || complete) && exceptions.length) {
+    // never "no rule broken" while a waiver, a grid conflict or a too-small locked room is on record (M-06..M-08)
+    const ruleName = (k: string) => (locale === "tr" ? (RULE_TR[k] ?? k) : k.replace(/_/g, " "));
+    return (
+      <div className="flex items-start gap-2 text-status-warning-fg" data-testid="run-verdict" data-state="exceptions">
+        <AlertTriangle className="mt-1 size-5 shrink-0 stroke-[2]" aria-hidden />
+        <div>
+          <p className="type-title-3">{partial ? t("glass.report.partialHeld", { placed: n(partial.placed), total: n(partial.total) }) : t("glass.report.heldWithExceptions")}</p>
+          <ul className="mt-1 list-disc pl-5 text-[13px] text-label-1" data-testid="verdict-exceptions">
+            {exceptions.map((e) => (
+              <li key={e.key} data-key={e.key}>{t(`glass.report.exc.${e.key}`, { n: n(e.n), rules: (e.rules ?? []).map(ruleName).join(", ") })}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
   if (partial)
     return (
       <p className="flex items-start gap-2 type-title-3 text-status-warning-fg" data-testid="run-verdict" data-state="partial">
@@ -107,7 +129,10 @@ export function RunView({ id }: { id: number }) {
   const r = run.data;
   const active = r ? r.status === "QUEUED" || r.status === "RUNNING" : false;
   const finished = Boolean(r) && !active;
-  const issues = useRunDataIssues(id, finished && Boolean(r?.diagnosis.length));
+  // every finished run: an imported board has no solver diagnoses but the data checks still find issues (M-08)
+  const issues = useRunDataIssues(id, finished);
+  // the grid's own conflict / capacity flags, so the report and the grid header count the same things (M-07)
+  const index = useCalendarIndex(finished ? id : null);
   const summary = useRunSummary(id, finished);
   useRememberRunOnView(r?.term_id, r?.id);
   // the ring draws and numbers tick only if the run finishes while this page is open (motion.md §3.5)
@@ -132,7 +157,14 @@ export function RunView({ id }: { id: number }) {
   const unplacedCards = sections.find((s) => s.section === "unplaced");
   const ruleCards = sections.find((s) => s.section === "rules");
   const cardCount = (s: typeof unplacedCards) => (s ? [...s.codes.values()].reduce((a, rows) => a + rows.reduce((b, x) => b + x.count, 0), 0) : 0);
-  const problems = r.diagnosis.filter((d) => d.code !== "partial" && d.code !== "unplaced_summary").length;
+  const solverProblems = r.diagnosis.filter((d) => d.code !== "partial" && d.code !== "unplaced_summary").length;
+  const dataProblems = issues.data ? issues.data.groups.reduce((a, g) => a + g.items.filter((i) => i.severity !== "info").length, 0) : 0;
+  const problems = Math.max(solverProblems, dataProblems);
+  const exceptions = verdictExceptions({
+    waiver: waiverOf(r.stats_detail ?? r.stats, r.diagnosis),
+    counts: index.data ? runIssueCounts(index.data.assignments) : { conflicts: 0, overCapacity: 0 },
+    lockedTooSmall: issues.data?.groups.find((g) => g.code === "locked_room_too_small")?.count ?? 0,
+  });
 
   const onApply = async (diagnosisIndex: number, suggestionId: string) => {
     try {
@@ -188,7 +220,7 @@ export function RunView({ id }: { id: number }) {
             <div className="grid gap-6 md:grid-cols-[auto_minmax(0,1fr)] xl:grid-cols-[auto_minmax(0,1fr)_minmax(280px,380px)]">
               <ScoreRing live={live} value={r.hard_score} partial={partial} label={partial ? t("glass.report.placedShort") : r.hard_score === 100 ? t("runs.status.FEASIBLE") : t("runs.status.INFEASIBLE")} />
               <div className="min-w-0">
-                <Verdict r={r} headline={headline} />
+                <Verdict r={r} headline={headline} exceptions={exceptions} />
                 <p className="mt-1 text-[13px] text-label-2">{partial ? t("glass.report.partialHint", { n: n(unplaced) }) : null}</p>
                 <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
                 <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 pt-4 hairline-t sm:grid-cols-4">

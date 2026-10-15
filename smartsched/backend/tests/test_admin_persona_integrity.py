@@ -94,16 +94,29 @@ async def test_an_unexplained_manual_clash_blocks_publishing(env):  # noqa: F811
         assert len(mrs) == 2
         a101 = env.rooms["A101"]
         run = ScheduleRun(
-            term_id=env.term_id, kind="COURSE", horizon="WEEK", horizon_params={"week": 3, "weeks": [3]},
-            status="FEASIBLE", hard_score=100, stats={"manual_edits": 1},
+            term_id=env.term_id,
+            kind="COURSE",
+            horizon="WEEK",
+            horizon_params={"week": 3, "weeks": [3]},
+            status="FEASIBLE",
+            hard_score=100,
+            stats={"manual_edits": 1},
         )
         s.add(run)
         await s.flush()
         for mr in mrs:  # both in A 101 at the same time, the second one moved there by hand
             s.add(
                 Assignment(
-                    run_id=run.id, meeting_request_id=mr.id, week=3, weeks=[3], day=1, start_period=1,
-                    end_period=mr.end_period or 1, room_ids=[a101], origin="MANUAL", is_locked=True,
+                    run_id=run.id,
+                    meeting_request_id=mr.id,
+                    week=3,
+                    weeks=[3],
+                    day=1,
+                    start_period=1,
+                    end_period=mr.end_period or 1,
+                    room_ids=[a101],
+                    origin="MANUAL",
+                    is_locked=True,
                 )
             )
         await s.commit()
@@ -144,8 +157,13 @@ async def _big_class(env, rows, seats):  # type: ignore[no-untyped-def]  # noqa:
 async def test_a_week_run_cannot_silently_replace_the_term_timetable(env):  # noqa: F811
     async with dbmod.get_session_factory()() as s:
         week = ScheduleRun(
-            term_id=env.term_id, kind="COURSE", horizon="WEEK", horizon_params={"week": 3, "weeks": [3]},
-            status="OPTIMAL", hard_score=100, label="Hafta 3",
+            term_id=env.term_id,
+            kind="COURSE",
+            horizon="WEEK",
+            horizon_params={"week": 3, "weeks": [3]},
+            status="OPTIMAL",
+            hard_score=100,
+            label="Hafta 3",
         )
         s.add(week)
         await s.commit()
@@ -155,7 +173,9 @@ async def test_a_week_run_cannot_silently_replace_the_term_timetable(env):  # no
     d = r.json()["detail"]
     assert d["code"] == "scope_reduction" and d["new"]["weeks"] == [3] and d["active"]["run_id"] == env.run_id
     assert 4 in d["weeks_lost"] and 3 not in d["weeks_lost"]
-    r = await env.client.post(f"/api/v1/runs/{wid}/activate", json={"confirm_scope_reduction": True}, headers=env.planner)
+    r = await env.client.post(
+        f"/api/v1/runs/{wid}/activate", json={"confirm_scope_reduction": True}, headers=env.planner
+    )
     assert r.status_code == 200 and r.json()["is_active"] is True, r.text
 
 
@@ -182,7 +202,9 @@ async def test_request_edit_pinning_too_many_students_is_refused(env):  # noqa: 
     async with dbmod.get_session_factory()() as s:
         ev = (
             await s.execute(
-                select(AuditEvent).where(AuditEvent.action == "meeting_request.update", AuditEvent.entity_id == str(mr.id))
+                select(AuditEvent).where(
+                    AuditEvent.action == "meeting_request.update", AuditEvent.entity_id == str(mr.id)
+                )
             )
         ).scalar_one()
     assert ev.reason and "yarısı uzaktan" in ev.reason

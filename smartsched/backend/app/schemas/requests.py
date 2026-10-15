@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.common import ORMModel
 
@@ -58,6 +58,8 @@ class MeetingRequestUpdate(BaseModel):
     status: str | None = None
     notes: str | None = None
     archived: bool | None = None
+    #: persona Q8: pin rooms that cannot seat the class anyway (planning.admin, audited reason)
+    override_reason: str | None = Field(default=None, max_length=1000)
 
 
 class CheckRoomIn(BaseModel):

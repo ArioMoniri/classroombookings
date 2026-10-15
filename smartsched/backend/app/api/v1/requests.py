@@ -106,9 +106,10 @@ async def get_meeting(mr_id: int, db: DB, _: Viewer) -> MeetingRequestOut:
 @router.put("/meetings/{mr_id}", response_model=MeetingRequestOut)
 async def update_meeting(mr_id: int, body: MeetingRequestUpdate, db: DB, user: Planner) -> MeetingRequestOut:
     mr = await _meeting(db, mr_id)
-    data = body.model_dump(exclude_unset=True)
+    data = body.model_dump(exclude_unset=True, exclude={"override_reason"})
     if body.days is not None and len(body.days) == 1:
         data["day"] = body.days[0]
+    override = await _check_pinned_capacity(db, mr, data, user, body.override_reason)
     before, after = changed_fields(mr, data)
     for k, v in data.items():
         setattr(mr, k, v)
@@ -123,9 +124,50 @@ async def update_meeting(mr_id: int, body: MeetingRequestUpdate, db: DB, user: P
             after=after,
             actor=user,
             term_id=term_id,
+            reason=override,
         )
     await db.commit()
     return _meeting_out(await _meeting(db, mr_id))
+
+
+async def _check_pinned_capacity(
+    db: DB, mr: MeetingRequest, data: dict[str, Any], user: Any, override_reason: str | None
+) -> str | None:
+    """Persona Q8: pinning a class to rooms that cannot seat it ("102 öğrenci 30 kişilik B 201'e sığmaz") is refused
+    at the edit (422), unless a planning administrator overrides it with a written reason (returned, audited).
+    Only edits that touch the pinned rooms, the status or the size are checked."""
+    from app.models import Room
+    from app.services import publish_guard
+    from app.services.bookings_perms import load_access
+    from app.services.tr_grammar import dative
+
+    if not ({"definitive_room_ids", "status", "requested_capacity"} & set(data)):
+        return None
+    rooms = [int(r) for r in (data.get("definitive_room_ids", mr.definitive_room_ids) or [])]
+    if not rooms:
+        return None
+    size = int((mr.section.enrolment if mr.section is not None else 0) or 0)
+    size = size or int(data.get("requested_capacity", mr.requested_capacity) or 0)
+    found = {r.id: r for r in (await db.execute(select(Room).where(Room.id.in_(rooms)))).scalars()}
+    seats = sum(int(found[r].capacity or 0) for r in rooms if r in found)
+    if not size or not seats or seats >= size:
+        return None
+    codes = " + ".join(found[r].display_name for r in rooms if r in found)
+    msg_tr = f"{size} öğrenci {seats} kişilik {dative(codes)} sığmaz"
+    msg_en = f"{size} students do not fit {codes} ({seats} seats)"
+    admin = "planning.admin" in (await load_access(db, user)).perms
+    if admin and publish_guard.valid_reason(override_reason):
+        return f"{(override_reason or '').strip()} (override: {msg_en})"
+    raise HTTPException(
+        422,
+        {
+            "code": "capacity",
+            "message": msg_en,
+            "message_tr": msg_tr,
+            "message_en": msg_en,
+            "override": "an administrator may pin it anyway with override_reason",
+        },
+    )
 
 
 @router.post("/meetings/{mr_id}/check-room", response_model=CheckRoomOut)

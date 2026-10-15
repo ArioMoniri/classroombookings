@@ -850,6 +850,18 @@
       "ledger": "admin-persona-backend-fixes-2026-10-15 SCOPE: only these files and their tests: …",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a3b246b42b94fb35b",
+      "description": "Shell/bookings/admin sweep + TR/EN only",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 20:09",
+      "scope": "- smartsched/frontend/src/components/{shell,bookings,approvals,admin,findroom,notifications,audit,import,auth,profile,settings,ui}/** and their tests - the matching src/app/(app) routes, lib/api, lib/i18n, messages/*.json, e2e specs for those areas - backend, only for the language change: app/services/bookings_i18n.py, app/schemas/crbs.py and app/api/v1/org.py (the language lists) and their tests …",
+      "goal": "1. Product-owner decision: reduce the interface languages to Turkish and English. - The language picker, profile and org settings offer only tr and en. - Users or orgs whose stored language is another code are shown English and keep their stored value, so nothing is lost on a CRBS import. - A CRBS legacy import maps unknown languages to en. - Backend validation accepts only tr|en for new writes; i…",
+      "ledger": "frontend-sweep-shell-admin-2026-10-15 SCOPE: - smartsched/frontend/src/component…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

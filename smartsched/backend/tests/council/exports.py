@@ -173,3 +173,34 @@ def convert(path: Path, fmt: str, outdir: Path) -> Path:
     out = outdir / f"{path.stem}.{fmt}"
     assert out.exists(), f"LibreOffice did not write {out.name}"
     return out
+
+
+def ole2_with_stream(name: str) -> bytes:
+    """A minimal valid OLE2 compound file (v3, 512-byte sectors) holding one empty stream ``name``: enough for
+    detection to see a ``Workbook`` or ``WordDocument`` stream without a real Office file."""
+    import struct
+
+    free, end, fat = 0xFFFFFFFF, 0xFFFFFFFE, 0xFFFFFFFD
+    header = bytearray(512)
+    header[0:8] = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+    struct.pack_into("<HHHHH", header, 24, 0x3E, 3, 0xFFFE, 9, 6)
+    struct.pack_into("<I", header, 44, 1)  # FAT sectors
+    struct.pack_into("<I", header, 48, 1)  # first directory sector
+    struct.pack_into("<I", header, 56, 4096)  # mini stream cutoff
+    struct.pack_into("<IIII", header, 60, end, 0, end, 0)  # mini FAT, DIFAT
+    struct.pack_into("<I", header, 76, 0)  # DIFAT[0] = FAT in sector 0
+    for i in range(1, 109):
+        struct.pack_into("<I", header, 76 + 4 * i, free)
+    fat_sector = bytearray(struct.pack("<II", fat, end) + struct.pack("<I", free) * 126)
+
+    def entry(n: str, kind: int, child: int, start: int) -> bytes:
+        e = bytearray(128)
+        raw = n.encode("utf-16-le")
+        e[0 : len(raw)] = raw
+        struct.pack_into("<HBB", e, 64, len(raw) + 2, kind, 1)
+        struct.pack_into("<III", e, 68, free, free, child)
+        struct.pack_into("<II", e, 116, start, 0)
+        return bytes(e)
+
+    directory = entry("Root Entry", 5, 1, end) + entry(name, 2, free, end) + bytes(128) * 2
+    return bytes(header) + bytes(fat_sector) + directory

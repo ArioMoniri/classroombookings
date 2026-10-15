@@ -621,5 +621,5 @@ Wave-1 frontend agent:
 - [ ] the approvals sheet slides under reduced motion
 - [ ] the CRBS legacy upgrade flow in the import wizard (backend crbs_upgrade.py exists)
 Languages (correction; P18-LANG was ticked too early):
-- [ ] 12 of the 14 languages have only the ~36 strings that CRBS itself ships, out of 2,743 UI strings. The rest falls back to English. Owner decision pending: machine translation flagged "needs review", or English fallback documented as is.
+- [ ] Languages, owner decision 2026-10-15: reduce to TR + EN. The picker offers only tr/en; other stored codes render English and are kept; CRBS_PARITY lists it as a deliberate difference (shell/admin sweep agent).
 The 30 minors are in the report §3, for the shell/bookings/admin sweep.
