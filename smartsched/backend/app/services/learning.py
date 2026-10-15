@@ -184,7 +184,7 @@ def evidence_unit(term_id: int | None, src: str, sid: int, sign: int, detail: Ma
     if src == "meeting_requests" and detail and detail.get("course"):
         periods = tuple(detail.get("periods") or ())
         rooms = tuple(sorted(str(r) for r in detail.get("rooms") or ()))
-        return ("lecture", term_id, n.fold(detail["course"]), detail.get("day"), periods, rooms, tag)
+        return ("lecture", term_id, str(detail["course"]), detail.get("day"), periods, rooms, tag)
     return (src, sid, tag)
 
 
@@ -375,18 +375,20 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
     ).where(LearnedObservation.reset_id.is_(None))
     groups: dict[tuple[str, str, str], _Group] = defaultdict(_Group)
     cross: dict[tuple[str, str, str, str], bool] = defaultdict(bool)
+    seasons = {tid: season_of(t) for tid, t in terms.items()}
+    decays = {tid: 0.5 ** (term_distance(terms, term_id, tid) / 2) for tid in terms}
     for t_id, kind, st, sk, attr, val, sign, weight, src, sid, detail in (await session.execute(q)).all():
-        t = terms.get(t_id) if t_id is not None else None
-        other = t is not None and season_of(t) != season
-        if attr in SAME_SEASON_ATTRS and (t is None or other):
+        tid_k = int(t_id) if t_id is not None else -1
+        known = tid_k in terms
+        other = known and seasons[tid_k] != season
+        if attr in SAME_SEASON_ATTRS and (not known or other):
             continue
         g = groups[(st, sk, attr)]
         row = evidence_unit(t_id, src, sid, sign, detail)
         g.row_term[row] = t_id
         if (val, row, kind) not in g.scored:  # a lecture listed once per programme counts once
             g.scored.add((val, row, kind))
-            decay = 0.5 ** (term_distance(terms, term_id, t_id) / 2) if t_id is not None else 1.0
-            g.score[val] += weight * sign * decay
+            g.score[val] += weight * sign * (decays[tid_k] if known else 1.0)
         g.kinds[val][kind] += 1
         if detail and detail.get("request_id"):
             g.requests[val].add(int(detail["request_id"]))
@@ -456,14 +458,26 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
                 "computed_at": now,
             }
 
-    existing = {
-        (p.subject_type, p.subject_key, p.attribute, p.value): p
-        for p in (await session.execute(select(LearnedPrior).where(LearnedPrior.term_id == term_id))).scalars()
-    }
-    fresh_rows = []
+    fields = tuple(k for k in next(iter(computed.values()), {}) if k != "computed_at")
+    cols = [getattr(LearnedPrior, k) for k in fields]
+    q_old = select(
+        LearnedPrior.id,
+        LearnedPrior.subject_type,
+        LearnedPrior.subject_key,
+        LearnedPrior.attribute,
+        LearnedPrior.value,
+        LearnedPrior.active,
+        LearnedPrior.suggestible,
+        *cols,
+    ).where(LearnedPrior.term_id == term_id)
+    existing: dict[tuple[str, str, str, str], tuple[int, bool, bool, dict[str, Any]]] = {}
+    for row in (await session.execute(q_old)).all():
+        existing[(row[1], row[2], row[3], row[4])] = (row[0], row[5], row[6], dict(zip(fields, row[7:], strict=True)))
+    fresh_rows: list[dict[str, Any]] = []
+    changed: list[dict[str, Any]] = []
     for key, data in computed.items():
-        p = existing.get(key)
-        if p is None:
+        old = existing.get(key)
+        if old is None:
             fresh_rows.append(
                 {
                     "term_id": term_id,
@@ -474,14 +488,14 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
                     **data,
                 }
             )
-            continue
-        for k, v in data.items():
-            if k != "computed_at" and getattr(p, k) != v:
-                setattr(p, k, v)
-        p.computed_at = now
-    for key, p in existing.items():
-        if key not in computed and (p.active or p.suggestible):
-            p.active, p.suggestible = False, False
+        elif any(old[3].get(k) != data[k] for k in fields):
+            changed.append({"id": old[0], **data})
+    for key, (pid, active, suggestible, _) in existing.items():
+        if key not in computed and (active or suggestible):
+            changed.append({"id": pid, "active": False, "suggestible": False, "computed_at": now})
+    # bulk executemany by primary key (thousands of priors change at once after a reset or a new import)
+    for chunk in range(0, len(changed), 2000):
+        await session.execute(update(LearnedPrior), changed[chunk : chunk + 2000])
     for chunk in range(0, len(fresh_rows), 2000):
         await session.execute(insert(LearnedPrior), fresh_rows[chunk : chunk + 2000])
     await session.flush()

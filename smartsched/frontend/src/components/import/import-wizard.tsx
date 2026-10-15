@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronRight, Database, FileSpreadsheet, Grid3x3, ListChecks, Loader2, type LucideIcon } from "lucide-react";
+import { Check, ChevronRight, Database, FileSpreadsheet, Grid3x3, ListChecks, Warehouse, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -9,8 +9,8 @@ import { PageHeader } from "@/components/common/page-header";
 import { NativeSelect } from "@/components/common/native-select";
 import { useActiveTerm } from "@/components/shell/term-switcher";
 import { Button } from "@/components/ui/button";
+import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HttpError } from "@/lib/api/client";
 import { uploadImportWithProgress } from "@/lib/api/shell-extra";
@@ -22,13 +22,19 @@ import { useI18n } from "@/lib/i18n/provider";
 import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { ParseWarningsTable, countBySeverity } from "./parse-warnings-table";
+import { CrbsUpgrade } from "./crbs-upgrade";
+import { RoomMasterImport, type FlowStep } from "./room-master-import";
 
 const KINDS: { kind: ImportKind; icon: LucideIcon; label: MessageKey; desc: MessageKey }[] = [
   { kind: "planning-list", icon: FileSpreadsheet, label: "import.planning", desc: "import.planningDesc" },
   { kind: "exam-list", icon: ListChecks, label: "import.exam", desc: "import.examDesc" },
   { kind: "weekly-grid", icon: Grid3x3, label: "import.grid", desc: "import.gridDesc" },
+  { kind: "room-master", icon: Warehouse, label: "importFlows.roomMaster.kind", desc: "importFlows.roomMaster.kindDesc" },
   { kind: "crbs", icon: Database, label: "import.crbs", desc: "import.crbsDesc" },
 ];
+/** kinds with their own review step before anything is written (dry run / diff, then confirm) */
+const REVIEWED: readonly ImportKind[] = ["room-master", "crbs"];
+const FLOW_STEP: Record<FlowStep, number> = { upload: 1, preview: 2, done: 3 };
 
 const STEPS: MessageKey[] = ["import.stepKind", "import.stepUpload", "import.stepPreview", "import.stepDone"];
 
@@ -58,25 +64,43 @@ export function ImportWizard() {
   const { term, terms } = useActiveTerm();
   const [termId, setTermId] = useState<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [dsn, setDsn] = useState("");
   const [upload, setUpload] = useState<UploadState>({ phase: "idle" });
+  const [flow, setFlow] = useState<FlowStep>("upload");
+  /** the kind the server says the file is (wrong-file refusal, admin persona M-20) */
+  const [suggested, setSuggested] = useState<ImportKind | null>(null);
   const busy = upload.phase === "uploading" || upload.phase === "processing";
   const [job, setJob] = useState<ImportJob | null>(null);
   const [done, setDone] = useState(false);
   const imports = useImports();
-  const step = !kind ? 0 : job ? (done ? 3 : 2) : 1;
+  const reviewed = kind !== null && REVIEWED.includes(kind);
+  const step = !kind ? 0 : reviewed ? FLOW_STEP[flow] : job ? (done ? 3 : 2) : 1;
   const effectiveTerm = termId ?? term?.id ?? 1;
+
+  const chooseKindReset = () => {
+    setFlow("upload");
+    router.replace("/import");
+  };
 
   const chooseKind = (k: ImportKind) => {
     setJob(null);
     setDone(false);
     setFile(null);
     setUpload({ phase: "idle" });
+    setFlow("upload");
+    setSuggested(null);
+    router.replace(`/import?kind=${k}`);
+  };
+
+  /** keep the file and import it as the kind the server recognised */
+  const switchKind = (k: ImportKind) => {
+    setUpload({ phase: "idle" });
+    setSuggested(null);
     router.replace(`/import?kind=${k}`);
   };
 
   const onFile = (f: File | null) => {
     setUpload({ phase: "idle" });
+    setSuggested(null);
     if (f && !/\.(xlsx|xlsm)$/i.test(f.name)) {
       toast.error(t("glass.import.onlyXlsx"));
       return;
@@ -92,7 +116,6 @@ export function ImportWizard() {
     setUpload({ phase: "uploading", pct: 0 });
     try {
       const j = await uploadImportWithProgress(kind, file, t0, {
-        dsn: kind === "crbs" ? dsn : undefined,
         onProgress: ({ loaded, total }) => {
           const pct = total ? Math.round((loaded / total) * 100) : 0;
           setUpload(pct >= 100 ? { phase: "processing" } : { phase: "uploading", pct });
@@ -103,11 +126,28 @@ export function ImportWizard() {
       void imports.refetch();
     } catch (e) {
       const status = e instanceof HttpError ? e.status : 0;
-      setUpload({ phase: "error", message: status === 413 ? t("glass.import.tooLarge") : status === 0 ? t("glass.auth.offline") : status === 400 || status === 422 ? t("glass.import.badFile") : t("glass.import.failed") });
+      // a FAILED job comes back as the detail: the server's reason and, for a wrong file, what it looks like
+      const failed = e instanceof HttpError && e.detail && typeof e.detail === "object" && "summary" in e.detail ? (e.detail as ImportJob) : null;
+      const detected = KINDS.find((k) => k.kind === failed?.summary.detected_kind && k.kind !== kind)?.kind ?? null;
+      setSuggested(detected);
+      setUpload({
+        phase: "error",
+        message: detected
+          ? t("importFlows.wrongFile", { kind: t(KINDS.find((k) => k.kind === detected)!.label) })
+          : status === 413
+            ? t("glass.import.tooLarge")
+            : status === 0
+              ? t("glass.auth.offline")
+              : status === 409
+                ? t("importFlows.locked")
+                : status === 400 || status === 422
+                  ? t("glass.import.badFile")
+                  : t("glass.import.failed"),
+      });
     }
   };
 
-  const canStart = kind === "crbs" ? dsn.trim().length > 3 : file !== null;
+  const canStart = file !== null;
   const counts = job ? countBySeverity(job.summary.warnings) : null;
 
   return (
@@ -121,7 +161,7 @@ export function ImportWizard() {
             <ul>
               {KINDS.map((k) => (
                 <li key={k.kind} className="[&:not(:last-child)]:hairline-b">
-                  <button type="button" onClick={() => chooseKind(k.kind)} data-testid={`import-kind-${k.kind}`} className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left outline-none hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-(--focus)">
+                  <button type="button" onClick={() => chooseKind(k.kind)} data-testid={`import-kind-${k.kind}`} className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-(--focus)">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-fill-2 text-label-1"><k.icon className="size-[18px] stroke-[1.75]" aria-hidden /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[14px] font-medium text-label-1">{t(k.label)}</span>
@@ -136,7 +176,15 @@ export function ImportWizard() {
         </Card>
       ) : null}
 
-      {step === 1 && kind ? (
+      {kind && reviewed ? (
+        kind === "crbs" ? (
+          <CrbsUpgrade onStep={setFlow} onBack={() => chooseKindReset()} />
+        ) : (
+          <RoomMasterImport term={terms.find((x) => x.id === effectiveTerm) ?? term ?? null} onStep={setFlow} onBack={() => chooseKindReset()} />
+        )
+      ) : null}
+
+      {step === 1 && kind && !reviewed ? (
         <Card className="max-w-3xl">
           <CardHeader><CardTitle>{t(KINDS.find((k) => k.kind === kind)?.label ?? "import.title")}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -146,25 +194,23 @@ export function ImportWizard() {
                 {terms.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
               </NativeSelect>
             </div>
-            {kind === "crbs" ? (
-              <div className="grid gap-1.5">
-                <Label htmlFor="dsn">{t("import.dsn")}</Label>
-                <Input id="dsn" placeholder="mysql://user:pass@host:3306/crbs" value={dsn} onChange={(e) => setDsn(e.target.value)} autoComplete="off" />
-              </div>
-            ) : (
-              <MagneticDrop file={file} onFile={onFile} upload={upload} disabled={busy} />
-            )}
+            <MagneticDrop files={file ? [file] : []} onFiles={(f) => onFile(f[0] ?? null)} upload={upload} disabled={busy} />
+            {suggested ? (
+              <Button variant="outline" size="sm" onClick={() => switchKind(suggested)} data-testid="import-switch-kind">
+                {t("importFlows.importAs", { kind: t(KINDS.find((k) => k.kind === suggested)!.label) })}
+              </Button>
+            ) : null}
             <div className="flex items-center justify-between">
               <Button variant="ghost" onClick={() => router.replace("/import")}>{t("common.back")}</Button>
-              <Button onClick={() => void start()} disabled={!canStart || busy} data-testid="import-start">
-                {busy ? <><Loader2 className="animate-spin motion-reduce:animate-none" /> {upload.phase === "processing" ? t("glass.import.reading") : t("import.importing")}</> : t("import.start")}
+              <Button onClick={() => void start()} {...busyProps(busy, !canStart)} data-testid="import-start">
+                <BusyLabel busy={busy} label={upload.phase === "processing" ? t("glass.import.reading") : t("import.importing")}>{t("import.start")}</BusyLabel>
               </Button>
             </div>
           </CardContent>
         </Card>
       ) : null}
 
-      {(step === 2 || step === 3) && job && counts ? (
+      {!reviewed && (step === 2 || step === 3) && job && counts ? (
         <div className="space-y-5" data-testid="import-report">
           <Card>
             <CardHeader>

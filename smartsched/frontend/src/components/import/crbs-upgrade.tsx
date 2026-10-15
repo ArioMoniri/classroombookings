@@ -35,7 +35,9 @@ type Mode = "dump" | "dsn";
 /** the backend's reason, for the messages the UI can name */
 function errorKey(e: unknown): { key: "dsnForbidden" | "dsnRefused" | "changed" | "locked" | "badDump" | "tooLarge" | "offline" | "unavailable" | "failed"; issues?: string[] } {
   if (!(e instanceof HttpError)) return { key: "failed" };
-  const detail = e.detail as unknown;
+  // a dict detail ({message, issues, setting}) arrives as the whole body ({detail: {...}})
+  const raw = e.detail as unknown;
+  const detail = raw && typeof raw === "object" && "detail" in raw ? (raw as { detail: unknown }).detail : raw;
   if (e.status === 0) return { key: "offline" };
   if (e.status === 403) return { key: "dsnForbidden" };
   if (e.status === 413) return { key: "tooLarge" };

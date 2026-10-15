@@ -30,8 +30,11 @@ def _inspect(kind: str) -> object:
     def check(data: bytes, lim: FormatLimits) -> None:
         sl = safe_files.Limits.from_settings()
         rep = safe_files.inspect_zip(data, limits=sl, kind=kind)
-        if kind == "workbook":  # a known shape is read by the importers, which load the whole workbook
-            safe_files.check_full_load(rep, sl, kind)
+        if kind == "workbook":
+            # rows, cells and merges are capped as for a full load (the board importer loads the whole workbook);
+            # columns are not: the planning lists declare 16 375 formatted columns and are read read-only, which
+            # clamps them, and a full load (open_workbook(read_only=False)) checks its own caps again
+            safe_files.check_full_load(rep, safe_files.replace_limits(sl, max_cols=16_384), kind)
 
     return check
 

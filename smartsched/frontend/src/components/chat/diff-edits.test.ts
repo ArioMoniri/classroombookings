@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as adapt from "@/lib/api/adapters";
 import { ChatProposal } from "@/lib/api/schemas";
-import { editedDiff } from "./diff-edits";
+import { editedDiff, type RawDiff } from "./diff-edits";
 
 const raw = {
   id: "d1",
@@ -13,7 +13,7 @@ const raw = {
     { op: "section_edit", edit: { op: "exclude", section_ids: [7], nl_text: "PHAR 240 §1", labels: ["PHAR 240 §1"] }, scope: "term" },
     { op: "section_edit", edit: { op: "set_field", section_ids: [8], changes: { enrolment: 40 } }, scope: "term" },
   ],
-};
+} as unknown as RawDiff;
 
 describe("chat diff edits (ai-engineer follow-up: update_request per move, term vs run scope for include/exclude)", () => {
   it("the proposal exposes each move's update_request and the include/exclude edits with their scope", () => {
