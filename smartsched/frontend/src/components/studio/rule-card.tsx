@@ -219,7 +219,7 @@ export function AffectedBadge({ affected, onClick }: { affected?: AffectedInfo; 
   if (!affected) return null;
   if (affected.loading && affected.count === null) return <span className="inline-block h-5 w-28 animate-pulse rounded-full bg-fill-2" aria-label={t("common.loading")} />;
   if (affected.count === null) return null;
-  const label = t("studio.rule.appliesTo", { n: n(affected.count) });
+  const label = t("studio.rule.appliesTo", { n: affected.count });
   const pct = affected.percent !== null && affected.percent !== undefined ? ` (${n(affected.percent, { maximumFractionDigits: 1 })} %)` : "";
   const cls = cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs", affected.count === 0 && affected.targeted !== false ? "border-status-warning-border bg-status-warning text-status-warning-fg" : "bg-background");
   const body = (

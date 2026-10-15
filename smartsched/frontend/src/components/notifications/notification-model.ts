@@ -5,18 +5,18 @@
 
 /**
  * The backend links approvers to `/approvals?request=<id>` and requesters to `/bookings/mine?request=<id>`
- * (docs/product/wave1-api.md §4). This frontend's "My bookings" is /my-bookings, and the requester timeline
- * lives on /approvals (tab "My requests") until My bookings mounts it, so requester links go there.
- * Anything that is not a same-origin path is dropped (no open redirects from stored text).
+ * (docs/product/wave1-api.md §4). This frontend's "My bookings" is /my-bookings and shows the requester's
+ * timeline there, so requester links go to `/my-bookings?request=<id>`. Anything that is not a same-origin
+ * path is dropped (no open redirects from stored text).
  */
 export function notificationHref(link: string | null | undefined, requestId?: number | null): string | null {
-  if (!link) return requestId ? `/approvals?tab=mine&request=${requestId}` : null;
+  if (!link) return requestId ? `/my-bookings?request=${requestId}` : null;
   if (!link.startsWith("/") || link.startsWith("//")) return null;
   const [path = "", query = ""] = link.split("?");
   const params = new URLSearchParams(query);
   if (path === "/bookings/mine" || path === "/my-bookings") {
     const req = params.get("request") ?? (requestId ? String(requestId) : null);
-    return req ? `/approvals?tab=mine&request=${encodeURIComponent(req)}` : "/my-bookings";
+    return req ? `/my-bookings?request=${encodeURIComponent(req)}` : "/my-bookings";
   }
   return link;
 }

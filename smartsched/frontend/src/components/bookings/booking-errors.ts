@@ -45,6 +45,8 @@ export interface ErrorContext {
   roomName?: (id: number) => string | undefined;
   /** "2026-02-16" → "16.02.2026" */
   formatDate?: (day: string) => string;
+  /** the user's language: wave-1 refusals (no_approver, lead_time …) carry the backend's Turkish text */
+  locale?: string;
 }
 
 function periods(start: number, end: number): string {
@@ -79,6 +81,9 @@ export function bookingErrorMessage(err: CrbsError, t: T, ctx: ErrorContext = {}
       message: err.message,
     });
   }
+  // wave 1 (docs/product/wave1-api.md): `{code, message, message_tr}`, shown as the backend wrote it
+  const tr = typeof err.data.message_tr === "string" ? err.data.message_tr : null;
+  if (tr && err.code !== "conflict") return ctx.locale === "tr" ? tr : err.message;
   if (err.status === 0) return t("crbs.errors.offline");
   // the backend's 403 detail says what is missing (e.g. the no-escalation rule lists the permissions)
   if (err.status === 403) {

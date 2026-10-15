@@ -24,12 +24,13 @@ export function useHumanSummary(): string {
   const est = useEstimateText();
   const parts = [
     summary.weeks.length === 1
-      ? t("glass.studio.placeOneWeek", { n: n(summary.classesIn), rooms: n(summary.rooms), w: summary.weeks[0] ?? 0 })
+      ? t("glass.studio.placeOneWeek", { n: summary.classesIn, rooms: summary.rooms, w: summary.weeks[0] ?? 0 })
       : summary.weeks.length === 0
-        ? t("glass.studio.placeTerm", { n: n(summary.classesIn), rooms: n(summary.rooms) })
-        : t("studio.summary.h.place", { n: n(summary.classesIn), rooms: n(summary.rooms), weeks: compactRange(summary.weeks) }),
+        ? t("glass.studio.placeTerm", { n: summary.classesIn, rooms: summary.rooms })
+        : t("studio.summary.h.place", { n: summary.classesIn, rooms: summary.rooms, weeks: compactRange(summary.weeks) }),
     t("studio.summary.h.rules", { must: summary.must, try: summary.tryTo }),
     summary.pinned ? t("studio.summary.h.pinned", { n: summary.pinned }) : "",
+    summary.unlocked ? t("studio.summary.h.unlocked", { n: summary.unlocked }) : "",
     summary.classesOut ? t("studio.summary.h.out", { n: summary.classesOut }) : "",
     summary.stability && summary.lastGoodRunId ? t("studio.summary.h.stable", { id: summary.lastGoodRunId }) : "",
     summary.estimate ? t("studio.summary.h.time", { words: est(summary.estimate) }) : "",

@@ -84,12 +84,14 @@ export function isSelectable(slot: GridSlot | undefined): boolean {
   return !!slot && slot.status === "available" && !!(slot.allow_single || slot.allow_recur);
 }
 
-export type SlotTone = "available" | "booked-single" | "booked-recurring" | "booked-mine" | "timetable" | "holiday" | "unavailable";
+export type SlotTone = "available" | "booked-single" | "booked-recurring" | "booked-mine" | "booked-pending" | "timetable" | "holiday" | "unavailable";
 
 export function slotTone(slot: GridSlot | undefined): SlotTone {
   if (!slot) return "unavailable";
   if (slot.status === "available") return isSelectable(slot) ? "available" : "unavailable";
   if (slot.status === "booked") {
+    // P1: a request waiting for approval that holds the slot (rule with hold_minutes > 0)
+    if (slot.booking?.status === "PENDING") return "booked-pending";
     if (slot.booking?.is_owner) return "booked-mine";
     return slot.reason === "recurring" ? "booked-recurring" : "booked-single";
   }
@@ -109,11 +111,12 @@ export interface SlotText {
  * blanks `user_name` / `notes` when the viewer may not see them (`user_hidden`, `notes_hidden`), so the
  * label falls back to a neutral "Booked" instead of a name.
  */
-export function slotText(slot: GridSlot | undefined, labels: { booked: string; mine: string; class?: string }): SlotText {
+export function slotText(slot: GridSlot | undefined, labels: { booked: string; mine: string; class?: string; pending?: string }): SlotText {
   if (!slot) return { primary: null, secondary: null };
   if (slot.status === "booked" && slot.booking) {
     const b = slot.booking;
     const who = b.is_owner ? labels.mine : b.user_name || labels.booked;
+    if (b.status === "PENDING" && labels.pending) return { primary: labels.pending, secondary: who };
     const secondary = b.notes || b.department_name || null;
     return { primary: who, secondary };
   }

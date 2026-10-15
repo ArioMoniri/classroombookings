@@ -8,8 +8,12 @@
  * Reservation panel: the sheet can hold a span of consecutive free periods (drag / Shift-click in the grid,
  * or the period chips here). One period books as before; a span books every period in one transaction
  * through the multi-booking selection (all or nothing), recurring spans become one weekly series per period.
+ *
+ * Approvals (P1, wave 1): before submit the sheet asks `GET /approvals/rooms/{id}/check`; a room that needs
+ * approval shows the rule ("Talep et" + who approves, lead time) and the submit button sends a request. The
+ * backend answers 202 with `status: PENDING`; the toast says it went to the approvers.
  */
-import { CalendarCheck, DoorOpen, Loader2, Repeat } from "lucide-react";
+import { CalendarCheck, DoorOpen, Loader2, Repeat, Stamp } from "lucide-react";
 import { useMemo, useReducer, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,6 +24,7 @@ import { SegmentedGlass } from "@/components/ui/segmented-glass";
 import { Textarea } from "@/components/ui/textarea";
 import { BOOKING_KEYS, crbs, crbsError, useBookingDates, useBookingUsers, useCrbsMe, useCrbsMutation, useDepartments, type Grid, type GridSlot, type MultiSlotChoice, type RecurringIn } from "@/lib/api/crbs";
 import { bookingCapabilities } from "@/lib/permissions";
+import { useRoomApprovalCheck } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { Alert, Field, SelectField } from "@/components/admin/kit";
 import { bookingErrorMessage } from "./booking-errors";
@@ -62,7 +67,7 @@ function initialRange(run: GridSlot[], target: BookTarget): { lo: number; hi: nu
 }
 
 function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; fmt: DateFormatter; onDone: () => void; onOtherRooms?: (target: BookTarget) => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { grid } = target;
   const me = useCrbsMe();
   const caps = bookingCapabilities(me.data?.permissions);
@@ -102,9 +107,14 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
   const summary = useMemo(() => summarise(preview), [preview]);
   const termDates = useBookingDates({ term_id: grid.term.id }, kind === "recurring");
 
+  // P1: does this room need approval for me? (no rule → CRBS behaviour, "book")
+  const check = useRoomApprovalCheck(first.room_id, grid.term.id);
+  const asks = check.data?.action === "request";
+  const ruleSummary = check.data ? (locale === "tr" ? check.data.summary_tr : check.data.summary_en) : "";
+
   const roomName = (id: number) => grid.rooms.find((r) => r.id === id)?.name;
   const explain = (e: unknown) => {
-    setError(bookingErrorMessage(crbsError(e), t, { roomName, formatDate: fmt.short }));
+    setError(bookingErrorMessage(crbsError(e), t, { roomName, formatDate: fmt.short, locale }));
     shake();
   };
 
@@ -165,8 +175,10 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
     setError(null);
     if (isSpan) {
       spanM.mutate(undefined, {
-        onSuccess: () => {
-          toast.success(t("reserve.book.doneN", { room: room?.name ?? "", date: fmt.weekday(first.date), n: chosen.length }));
+        onSuccess: (res) => {
+          const created = Array.isArray(res.created) ? (res.created as { status?: unknown }[]) : [];
+          if (created.some((b) => b.status === "PENDING")) toast.success(t("wave1.book.requested", { room: room?.name ?? "" }));
+          else toast.success(t("reserve.book.doneN", { room: room?.name ?? "", date: fmt.weekday(first.date), n: chosen.length }));
           onDone();
         },
         onError: explain,
@@ -176,7 +188,9 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
     if (kind === "single") {
       single.mutate(undefined, {
         onSuccess: (b) => {
-          toast.success(t("crbs.book.done", { room: b.room_name, date: fmt.weekday(b.date), period: b.period_name ?? "" }));
+          // 202 PENDING: a request the approvers decide (P1)
+          if (b.status === "PENDING") toast.success(t("wave1.book.requested", { room: b.room_name }));
+          else toast.success(t("crbs.book.done", { room: b.room_name, date: fmt.weekday(b.date), period: b.period_name ?? "" }));
           onDone();
         },
         onError: explain,
@@ -185,7 +199,8 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
     }
     recur.mutate(undefined, {
       onSuccess: (res) => {
-        toast.success(t("crbs.recur.done", { created: res.created.length, skipped: res.skipped.length }));
+        if (res.status === "PENDING") toast.success(t("wave1.book.requestedSeries", { room: room?.name ?? "", n: res.created.length }));
+        else toast.success(t("crbs.recur.done", { created: res.created.length, skipped: res.skipped.length }));
         onDone();
       },
       onError: explain,
@@ -363,6 +378,11 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
             )}
           </fieldset>
         ) : null}
+        {asks ? (
+          <Alert tone="info" title={t("wave1.book.needsApproval")} testId="book-approval">
+            {ruleSummary}
+          </Alert>
+        ) : null}
         {error ? (
           <Alert tone="error" testId="book-error">
             {error}
@@ -380,8 +400,18 @@ function BookForm({ target, fmt, onDone, onOtherRooms }: { target: BookTarget; f
           {t("crbs.common.cancel")}
         </Button>
         <Button onClick={submit} disabled={busy || !kinds.length || (kind === "recurring" && !isSpan && (!preview.plan || summary.willCreate === 0))} data-testid="book-submit">
-          {busy ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {isSpan ? t("reserve.book.submitN", { n: chosen.length }) : kind === "single" ? t("crbs.book.submit") : t("crbs.recur.submit", { n: summary.willCreate })}
+          {busy ? <Loader2 className="animate-spin" aria-hidden /> : asks ? <Stamp aria-hidden /> : null}
+          {asks
+            ? isSpan
+              ? t("wave1.book.requestN", { n: chosen.length })
+              : kind === "single"
+                ? t("wave1.book.request")
+                : t("wave1.book.requestSeries", { n: summary.willCreate })
+            : isSpan
+              ? t("reserve.book.submitN", { n: chosen.length })
+              : kind === "single"
+                ? t("crbs.book.submit")
+                : t("crbs.recur.submit", { n: summary.willCreate })}
         </Button>
       </SheetFooter>
     </>

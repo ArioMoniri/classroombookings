@@ -5,11 +5,13 @@ quality), or automatically with the pipeline in `scripts/record/`, which drives 
 Playwright and adds Recordly-style polish. The pipeline can also hand its result to Recordly, either
 to render on Linux or to fine-tune in the Recordly editor.
 
-> **Status (2026-10-08).** The UI is being redesigned, so no recordings are committed yet. The
-> pipeline was tested end to end once, on the sample journey `login-dashboard`, against the current
-> UI and the real backend. The six product journeys are scripted but not run yet: their selectors
-> target today's `data-testid`s, with role/label fallbacks. Re-check them after the redesign (see
-> [Journeys](#journeys)).
+> **Status (2026-10-15).** Five journeys are recorded on the real backend and published in the README
+> (`docs/images/recordings/`, 1280×848 MP4 + animated WebP + poster, light theme, English captions):
+> `import-generate`, `calendar-move`, `studio-rule-fix`, `room-booking` and `admin-user`. All five were
+> verified on 2026-10-08 against the Liquid Glass v2 UI. They were made with the **Playwright video →
+> ffmpeg** route (§2 b), not with Recordly's renderer: in this container Recordly renders with software
+> WebGL at about 45 s per second of video, which was too slow for five takes. Every take still writes a
+> `.recordly` project, so a take can be opened and re-exported in Recordly on a Mac. See [Journeys](#journeys).
 
 ## 1. Recordly facts (checked on 2026-10-08)
 
@@ -83,19 +85,23 @@ toasts and devtools.
 
 ## Journeys
 
-Each journey is a module in `scripts/record/journeys/`, and its captions are the step texts below
-(English; `--lang tr` uses the Turkish ones in the file). To record by hand with Recordly, follow
-the same steps. Pause about 1 s after each step so auto-zoom has something to frame.
+Each journey is a module in `scripts/record/journeys/`. Its captions are the step texts below (English;
+`--lang tr` uses the Turkish texts in the same file). To record one by hand with Recordly, follow the same
+steps and pause about 1 s after each step, so auto-zoom has something to frame. `scripts/record/record-all.sh`
+records the five README journeys in this order: `calendar-move`, `studio-rule-fix`, `room-booking`,
+`admin-user`, `import-generate`.
 
-| # | Journey (`--journey`) | DB | Steps (= captions) | Verified |
+| Journey (`--journey`) | DB | Captions (= steps) | Published | Verified |
 |---|---|---|---|---|
-| 0 | `login-dashboard` (sample) | seeded | Sign in with your planner account → The dashboard shows this term at a glance → Requests that need review are one click away (hover the *Needs review* tile) → Room use by building and day (hover the heatmap) | **yes**, current UI |
-| 1 | `import-planning` | **fresh** | *Import* → *Weekly room grid* → drop `smartsched/backend/tests/fixtures/bahar_derslikler_takvimi_2026.xlsx` → *Start* → wait for the report; repeat with *Planning list* + `bahar_derslik_planlama_listesi_v5.xlsx` | no |
-| 2 | `generator-studio` | seeded | *Generate* → Scope: one week of courses → Classes: search `ACU`, review → Rules: type "No classes on Friday after 16:00 for first-year students" → *Analyse* → accept → Pre-check: apply a fix → Generate → result | no |
-| 3 | `run-report-fix` | seeded | open a run with diagnoses → *Report* tab → read a diagnosis card → pick a suggestion → *Apply fix* | no (needs a run with diagnoses: run journey 2 first or `POST /runs`) |
-| 4 | `calendar-drag` | seeded | open the imported board's grid → drag a class to a free slot in its room → confirm (if a dialog asks) → toast | partly: two trial takes on the current grid. The dnd-kit drag starts and drops, and take 1 showed the client-side rejection toast "Move rejected: slot occupied (SYB 294)". Neither take sent `POST …/move`, so choosing a free cell has to be redone for the redesigned grid. |
-| 5 | `chat-edit` | seeded | run view → chat: "Move ACU244 to Friday morning, same room if possible" → proposal card → *Apply* | no; needs an AI key in Settings → AI |
-| 6 | `teacher-booking` | seeded + teacher | log in as the teacher → bookings grid → free slot → note "Make-up lecture, ACU 132" → confirm | **no, verify later**: written against the documented endpoints `GET /bookings/context`, `GET /bookings/grid`, `POST /bookings` (docs/CRBS_PARITY.md) before the booking UI existed |
+| `import-generate` | **fresh** (`stack.sh up --fresh`: admin + an empty 2026-BAHAR term) | Import the weekly room grid workbook → Then the planning list with every section → The import report: rows read, rows skipped and why → Generator Studio: plan week 3 of the term → The pre-check warns before solving: some classes cannot fit → Generate anyway to get the full diagnosis (solving time skipped) → The run report: every placed class keeps every hard rule → What could not be placed is listed with the reason and fixes. The waits for the import jobs and the solver are cut from the video. | `import-generate.{mp4,webp}`, 67 s; README hero | 2026-10-08 |
+| `calendar-move` | seeded + `stack.sh runs` (published full-term COURSE run of 2026-GUZ; `REC_CAL_TERM`) | One room's week, from the published timetable → Click a class: the inspector shows when, where and why → Move it: only rooms that are free and fit are offered → The server re-checks every rule before it saves → Changed your mind? Undo puts it back | `calendar-move.{mp4,webp}`, 34 s | 2026-10-08 |
+| `studio-rule-fix` | seeded | Rules are sentences: start from a template → Fill in the blanks; the preview counts the classes it affects → The pre-check tests the plan against the data before solving → Each problem names the classes involved and offers fixes. Uses the template path: plain-language rules need an Anthropic key, which the recording stack does not have. | `studio-rule-fix.{mp4,webp}`, 34 s | 2026-10-08 |
+| `room-booking` | seeded (booking setup by `setup_api.py bookings`: Güz 2026-27 open) | Rooms by period for one day; classes from the timetable are already there → Pick a free period in a room that fits → Add a note and book it → It is listed under My bookings, with a calendar feed and CSV export. Booked as the seeded administrator in `REC_BOOK_ROOM` (A203) on the next teaching day. | `room-booking.{mp4,webp}`, 28 s | 2026-10-08 |
+| `admin-user` | seeded | Setup → Users lists every account with its role → Add an account for the planning office → Pick the role; roles with rights you lack are greyed out → Save: the account can sign in straight away. The account is a functional one (`planlama`), not an invented person; the setup step deletes it from an earlier take. | `admin-user.{mp4,webp}`, 31 s | 2026-10-08 |
+
+Older modules that are **not** part of the README set and were not re-verified on the v2 UI:
+`login-dashboard` (the original sample journey), `run-report-fix` (covered by the last two captions of
+`import-generate`) and `chat-edit` (needs an AI key; the model's answer varies between takes).
 
 ## 5. Automated pipeline
 
@@ -105,26 +111,29 @@ Requirements: the dev setup from `smartsched/README.md` (Python deps, `npm ci` i
 `xvfb-run` plus the extracted AppImage for `--engine recordly`.
 
 ```bash
-# 1. isolated stack: SQLite + real Bahar fixtures on :8200, real-mode frontend build on :3500
+# 1. isolated stack: SQLite + the real workbooks on :8610, production frontend build on :3610
+#    (REC_API_PORT / REC_WEB_PORT to change them)
 #    (everything under $REC_WORKDIR, default /tmp/smartsched-rec; nothing is written to the repo)
-scripts/record/stack.sh up            # or: up --fresh (empty term, for import-planning)
+scripts/record/stack.sh up && scripts/record/stack.sh runs   # or: up --fresh (empty term, for import-generate)
 
 # 2. one journey
 node scripts/record/record.mjs --list
-node scripts/record/record.mjs --journey login-dashboard --theme light --out recordings/login-light
-node scripts/record/record.mjs --journey login-dashboard --theme dark --lang tr
+node scripts/record/record.mjs --journey calendar-move --theme light --out recordings/calendar-move-light
+node scripts/record/record.mjs --journey room-booking --theme dark --lang tr
 
-# 3. everything, light + dark (restarts the stack per take so the data is identical)
+# 3. the five README journeys (one seeded stack + snapshot; a fresh stack for import-generate),
+#    then the README copies under stable names
 scripts/record/record-all.sh recordings
+scripts/record/publish.sh recordings light
 
 # 4. optional: let Recordly render the same take (Linux: Xvfb + SwiftShader, ~45 s per video second)
 RECORDLY_BIN=~/tools/recordly/squashfs-root/recordly \
-  node scripts/record/record.mjs --journey login-dashboard --engine both
+  node scripts/record/record.mjs --journey calendar-move --engine both
 
 scripts/record/stack.sh down
 ```
 
-Parameters: `REC_BASE_URL` (default `http://127.0.0.1:3500`), `REC_EMAIL`/`REC_PASSWORD`
+Parameters: `REC_BASE_URL` (default `http://127.0.0.1:3610`), `REC_EMAIL`/`REC_PASSWORD`
 (admin; default `admin@smartsched.local` / `Admin-2026!`), `REC_TEACHER_EMAIL`/`REC_TEACHER_PASSWORD`,
 `REC_TERM_CODE` (2026-BAHAR), `--theme light|dark`, `--lang en|tr`, `--speed 1.3` (slower, more
 deliberate), `--engine ffmpeg|recordly|both|raw`, `REC_VIEWPORT=1440x900`, `REC_CRF`,
@@ -136,7 +145,8 @@ Output per take (`<journey>-<theme>[-tr]`):
 | File | What |
 |---|---|
 | `*.mp4` | H.264 yuv420p, 30 fps, 1600×1060, `+faststart`; zoom, cursor, ripple, captions, framed |
-| `*.gif` | palette GIF, looped, **≤ 8 MB** (the width/fps ladder starts at 1000 px/15 fps and steps down until it fits) |
+| `*.webp` | animated WebP, looped, under `REC_WEBP_MAX_BYTES` (4 MB); `publish.sh` re-encodes it for the README under 2.6 MB |
+| `*.gif` | only with `REC_GIF=1`: palette GIF, looped, under 4 MB |
 | `*.poster.png` | frame from the step marked `poster` (else 60 % in): the GIF/MP4 placeholder |
 | `*.raw.mp4`, `*.raw.mp4.cursor.json`, `*.recordly` | the trimmed raw take and a Recordly project. Open it in Recordly on any OS and fine-tune; on another machine, re-link the video if Recordly asks |
 | `*.timeline.json` | steps, targets (bounding boxes), pointer track and sync data on the video clock |
@@ -165,40 +175,34 @@ How it works:
 
 ## 6. Embedding in the README
 
-Commit the outputs under `docs/images/recordings/` (only the MP4, GIF and poster: the raw take,
-timeline and project are build artefacts). Follow the README's existing light/dark `<picture>`
-pattern:
+`scripts/record/publish.sh RECORD_ALL_OUT_DIR light` writes the README copies under stable names into
+`docs/images/recordings/`: `<journey>.mp4` (H.264, 1280 px wide, CRF 28), `<journey>.webp` (animated, the
+first width/fps/quality rung under 2.6 MB) and `<journey>-poster.webp`. Build into a scratch DEST first and
+copy once: every re-encode committed to `docs/images` stays in git history. Commit only these three files
+per journey (the raw take, timeline and Recordly project are build artefacts).
+
+The README shows the animated WebP and links it to the MP4:
 
 ```html
-<!-- GIF: autoplays on GitHub, light/dark aware -->
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/recordings/generator-studio-dark.gif">
-  <img alt="Generator Studio: scope, classes, a plain-language rule, pre-check fix, generate"
-       src="docs/images/recordings/generator-studio-light.gif" width="960">
-</picture>
-
-<!-- Longer journeys: poster image linking to the MP4 in the repository. GitHub does not play
-     a <video> tag whose src is a repository path; for an inline player, drag the MP4 into the
-     README in GitHub's web editor (it becomes a github.com/user-attachments URL on its own line). -->
-<a href="docs/images/recordings/run-report-fix-light.mp4">
-  <img alt="Run report → apply a fix (MP4)" src="docs/images/recordings/run-report-fix-light.poster.png" width="960">
+<a href="docs/images/recordings/calendar-move.mp4">
+  <img alt="Screen recording: room A 204's week in the calendar; a class is opened in the inspector,
+       moved to a free room that the server confirms fits, and the move is undone."
+       src="docs/images/recordings/calendar-move.webp">
 </a>
 ```
 
-Guidelines: one GIF per README section, each under 8 MB (the pipeline enforces this), 960 px
-display width. Write `alt` text that describes the action. Keep the poster PNG next to each video,
-so a reader with reduced motion or a slow connection still sees the result.
-`scripts/record/record-all.sh` writes everything in one go. Copy the three files per take into
-`docs/images/recordings/` and keep the names `<journey>-<theme>.{gif,mp4,poster.png}`.
+GitHub does not play a `<video>` whose src is a repository path; for an inline player, drag the MP4 into
+the README in GitHub's web editor (it becomes a github.com/user-attachments URL on its own line). Write
+`alt` text that describes the action, and keep the poster next to each video for readers with reduced
+motion or a slow connection.
 
 ## 7. Known limitations
 
-- Journeys 1-6 have not been run. Re-check their selectors after the redesign; each step falls back
-  to role/label queries, and a failing step writes `*.failure.png` and keeps the raw take.
-- The booking journey (6) waits for the booking UI and API (`/bookings/*`).
-- The chat journey (5) needs an Anthropic key in the backend, and the model's answer varies between
-  takes. Record it more than once and keep the best take.
-- GIF size: long journeys (> 30 s) fall back to 640-720 px. Use the MP4 + poster pattern for them.
+- The five README journeys run on the v2 UI (2026-10-08). A failing step writes `*.failure.png` and keeps
+  the raw take; re-check the selectors after a UI change (they use `data-testid`s with role/label fallbacks).
+- `chat-edit` needs an Anthropic key in the backend, and the model's answer varies between takes. Record it
+  more than once and keep the best take.
+- Size: long journeys fall back to smaller WebP rungs (`import-generate`, 67 s). Link the MP4 for detail.
 - With `stack.sh`, the backend schema comes from `create_all` (the CLI), not from Alembic, so a
   recording never waits for a migration that in-flight backend work has not written yet.
 - `--engine recordly` on Linux is CPU-bound (software WebGL). Use it for one-off renders, or open

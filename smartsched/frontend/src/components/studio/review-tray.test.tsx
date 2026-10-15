@@ -109,7 +109,7 @@ describe("UploadReview", () => {
         <UploadReview items={items} meta={meta} onAccept={onAccept} onReject={vi.fn()} onUpdate={vi.fn()} onRephrase={onRephrase} />
       </I18nProvider>,
     );
-    expect(screen.getByText("From 1 files we found 3 items: 1 ready, 1 need a look, 1 couldn't be read.")).toBeInTheDocument();
+    expect(screen.getByText("From 1 file we found 3 items: 1 ready, 1 needs a look, 1 couldn't be read.")).toBeInTheDocument();
     expect(screen.getAllByTestId("review-from")[0]).toHaveTextContent("from Eczacilik.xlsx · Sayfa1 · row 2");
     await userEvent.click(screen.getByTestId("review-accept-all"));
     expect(onAccept.mock.calls[0][0].map((i: TrayItem) => i.key)).toEqual(["r1"]);
