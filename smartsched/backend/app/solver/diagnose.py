@@ -320,7 +320,7 @@ def _trusted_lock_warnings(prep: Prepared) -> list[Diagnosis]:
                     },
                 )
             )
-        missing = sorted({t for r in rooms for t in e.required_tags - r.tags})
+        missing = sorted({t for r in rooms for t in e.required_tags - r.tags - NEVER_WAIVED_TAGS})
         clash = sorted({t for r in rooms for t in e.forbidden_tags & r.tags})
         if missing or clash:
             parts = ([f"lacks {missing}"] if missing else []) + ([f"carries {clash}"] if clash else [])
