@@ -104,7 +104,7 @@ function ToolbarGroup({ className, ...props }: React.ComponentProps<"div">) {
 
 /** Short status text inside a toolbar (e.g. "3 selected"). */
 function ToolbarLabel({ className, ...props }: React.ComponentProps<"span">) {
-  return <span data-slot="toolbar-label" className={cn("px-2.5 text-[13px] font-medium whitespace-nowrap text-label-2 tabular-nums", className)} {...props} />
+  return <span data-slot="toolbar-label" className={cn("px-2.5 type-callout font-medium whitespace-nowrap text-label-2 tabular-nums", className)} {...props} />
 }
 
 export { Toolbar, ToolbarButton, ToolbarSeparator, ToolbarGroup, ToolbarLabel, toolbarVariants }

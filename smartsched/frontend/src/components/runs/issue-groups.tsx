@@ -34,8 +34,8 @@ function Disclosure({ title, count, hint, children, defaultOpen = false, testId 
       <button type="button" aria-expanded={open} aria-controls={`${id}-body`} onClick={() => setOpen((v) => !v)} className="flex w-full items-start gap-2 py-3 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
         <ChevronRight className={cn("mt-0.5 size-4 shrink-0 text-label-3 transition-transform duration-(--dur-fast)", open && "rotate-90")} aria-hidden />
         <span className="min-w-0 flex-1">
-          <span className="text-[13.5px] font-semibold text-label-1">{title}</span> <span className="text-[13px] text-label-3 tabular-nums">{n(count)}</span>
-          {hint ? <span className="mt-0.5 block text-[12.5px] text-label-2">{hint}</span> : null}
+          <span className="type-callout font-semibold text-label-1">{title}</span> <span className="type-callout text-label-3 tabular-nums">{n(count)}</span>
+          {hint ? <span className="mt-0.5 block type-footnote text-label-2">{hint}</span> : null}
         </span>
       </button>
       {open ? (
@@ -73,7 +73,7 @@ export function IssueGroups({ runId, groups }: { runId: number; groups: DataIssu
           <Download /> {t("glass.report.downloadIssues")}
         </Button>
       </div>
-      <p className="text-[12.5px] text-label-2">{t("glass.report.dataHint")}</p>
+      <p className="type-footnote text-label-2">{t("glass.report.dataHint")}</p>
       <div className="mt-1">
         {ordered.map((g) => {
           const rows = collapse(g.items, text);
@@ -84,10 +84,10 @@ export function IssueGroups({ runId, groups }: { runId: number; groups: DataIssu
                 {rows.slice(0, shown).map(({ item, count }, i) => {
                   const rowsOf = item.classes.map((c) => c.source_row).filter((r): r is number => typeof r === "number");
                   return (
-                    <li key={i} className="py-1.5 text-[13px] text-label-1 [&:not(:last-child)]:hairline-b">
+                    <li key={i} className="py-1.5 type-callout text-label-1 [&:not(:last-child)]:hairline-b">
                       {text(item)}
-                      {count > 1 ? <span className="ml-1.5 text-[12px] text-label-3 tabular-nums">{t("glass.report.times", { n: count })}</span> : null}
-                      {rowsOf.length ? <span className="mt-0.5 block text-[12px] text-label-3">{t("glass.report.excelRows", { rows: [...new Set(rowsOf)].slice(0, 6).join(", ") })}</span> : null}
+                      {count > 1 ? <span className="ml-1.5 type-footnote text-label-3 tabular-nums">{t("glass.report.times", { n: count })}</span> : null}
+                      {rowsOf.length ? <span className="mt-0.5 block type-footnote text-label-3">{t("glass.report.excelRows", { rows: [...new Set(rowsOf)].slice(0, 6).join(", ") })}</span> : null}
                     </li>
                   );
                 })}
@@ -125,9 +125,9 @@ export function LocalIssueGroups({ sections }: { sections: { section: string; co
         <Disclosure key={code} title={t(CODE_TITLES[code] ?? "glass.report.code.other")} count={rows.reduce((s, r) => s + r.count, 0)}>
           <ul>
             {rows.map((r) => (
-              <li key={r.d.id} className="py-1.5 text-[13px] text-label-1 [&:not(:last-child)]:hairline-b" data-testid="diagnosis-card" data-code={r.d.code ?? ""}>
+              <li key={r.d.id} className="py-1.5 type-callout text-label-1 [&:not(:last-child)]:hairline-b" data-testid="diagnosis-card" data-code={r.d.code ?? ""}>
                 {plannerText(r.d, locale)}
-                {r.count > 1 ? <span className="ml-1.5 text-[12px] text-label-3">{t("glass.report.times", { n: r.count })}</span> : null}
+                {r.count > 1 ? <span className="ml-1.5 type-footnote text-label-3">{t("glass.report.times", { n: r.count })}</span> : null}
               </li>
             ))}
           </ul>

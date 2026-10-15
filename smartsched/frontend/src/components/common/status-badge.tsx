@@ -29,14 +29,14 @@ export function StatusBadge({ kind, label, className, variant = "tint" }: { kind
   const Icon = STATUS_ICON[kind];
   if (variant === "plain") {
     return (
-      <span className={cn("inline-flex items-center gap-1 text-[12px] font-medium whitespace-nowrap", STATUS_CLASS[kind].split(" ").filter((c) => c.startsWith("text-")).join(" "), className)}>
+      <span className={cn("inline-flex items-center gap-1 type-footnote font-medium whitespace-nowrap", STATUS_CLASS[kind].split(" ").filter((c) => c.startsWith("text-")).join(" "), className)}>
         <Icon className="size-3.5 stroke-[2]" aria-hidden />
         {label}
       </span>
     );
   }
   return (
-    <span className={cn("inline-flex h-5 items-center gap-1 rounded-full px-2 text-[11px] font-medium whitespace-nowrap", STATUS_CLASS[kind], className)}>
+    <span className={cn("inline-flex h-5 items-center gap-1 rounded-full px-2 type-caption font-medium whitespace-nowrap", STATUS_CLASS[kind], className)}>
       <Icon className="size-3 stroke-[2]" aria-hidden />
       {label}
     </span>

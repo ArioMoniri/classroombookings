@@ -50,7 +50,7 @@ export interface InspectorProps {
 function SectionBlock({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
   return (
     <section className="flex flex-col gap-1.5 py-3 hairline-t first:shadow-none" aria-labelledby={id}>
-      <h3 id={id} className="text-[11px] font-semibold text-label-3">{title}</h3>
+      <h3 id={id} className="type-caption font-semibold text-label-3">{title}</h3>
       {children}
     </section>
   );
@@ -197,17 +197,17 @@ export function ClassInspector(p: InspectorProps) {
       <header className="flex items-start gap-3 px-4 pt-4 pb-3" style={chipVars(slot)}>
         <span aria-hidden className="mt-1 h-10 w-[3px] shrink-0 rounded-full" style={{ background: "var(--chip-bar)" }} />
         <div className="min-w-0 flex-1">
-          <h2 className="text-[17px] leading-[22px] font-semibold">{code}{section ? ` §${section}` : ""}</h2>
-          {name ? <p className="truncate text-[13px] text-label-2">{name}</p> : null}
-          <p className="truncate text-[12px] text-label-2">{[prog, years.length ? (lang === "tr" ? `${years.join("–")}. sınıf` : `year ${years.join("–")}`) : null].filter(Boolean).join(" · ")}</p>
-          <p className={cn("mt-1 flex items-center gap-1.5 text-[12px] font-medium", statusLine.tone === "feasible" && "text-status-feasible-fg", statusLine.tone === "warning" && "text-status-warning-fg", statusLine.tone === "infeasible" && "text-status-infeasible-fg", statusLine.tone === "neutral" && "text-label-2")} data-testid="inspector-status">
+          <h2 className="type-title-3 leading-[22px] font-semibold">{code}{section ? ` §${section}` : ""}</h2>
+          {name ? <p className="truncate type-callout text-label-2">{name}</p> : null}
+          <p className="truncate type-footnote text-label-2">{[prog, years.length ? (lang === "tr" ? `${years.join("–")}. sınıf` : `year ${years.join("–")}`) : null].filter(Boolean).join(" · ")}</p>
+          <p className={cn("mt-1 flex items-center gap-1.5 type-footnote font-medium", statusLine.tone === "feasible" && "text-status-feasible-fg", statusLine.tone === "warning" && "text-status-warning-fg", statusLine.tone === "infeasible" && "text-status-infeasible-fg", statusLine.tone === "neutral" && "text-label-2")} data-testid="inspector-status">
             <span aria-hidden>{statusLine.glyph}</span>
             <span className="min-w-0">{statusLine.text}</span>
           </p>
         </div>
         <div className="flex shrink-0 items-center">
           {save !== "idle" ? (
-            <span role="status" className={cn("mr-1 text-[11px] font-medium", save === "error" ? "text-status-infeasible-fg" : "text-label-2")} data-testid="inspector-save">
+            <span role="status" className={cn("mr-1 type-caption font-medium", save === "error" ? "text-status-infeasible-fg" : "text-label-2")} data-testid="inspector-save">
               {save === "saving" ? t("calendar.insp.saving") : save === "saved" ? t("calendar.insp.saved") : t("calendar.insp.saveFailed")}
             </span>
           ) : null}
@@ -236,17 +236,17 @@ export function ClassInspector(p: InspectorProps) {
       ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         <SectionBlock title={p.surface === "classes" ? t("classes.insp.request") : t("calendar.insp.whenWhere")}>
-          {row?.req.room_text ? <p className="text-[12px] text-label-2 italic">“{row.req.room_text}”</p> : null}
+          {row?.req.room_text ? <p className="type-footnote text-label-2 italic">“{row.req.room_text}”</p> : null}
           {day && sp && ep ? (
-            <p className="text-[13px] tabular-nums">
+            <p className="type-callout tabular-nums">
               {dayName(day, locale)} {spanText(sp, ep)} <span className="text-label-2">(P{sp}–P{ep})</span>
             </p>
           ) : null}
           {row?.definitive.room_codes.length || row?.definitive.text ? (
-            <p className="text-[13px]"><span className="text-label-2">{t("calendar.insp.definitive")}:</span> <span className="font-semibold">{row.definitive.room_codes.join(" + ") || row.definitive.text}</span></p>
+            <p className="type-callout"><span className="text-label-2">{t("calendar.insp.definitive")}:</span> <span className="font-semibold">{row.definitive.room_codes.join(" + ") || row.definitive.text}</span></p>
           ) : null}
           {rooms.length ? (
-            <p className="text-[13px]" data-testid="inspector-room">
+            <p className="type-callout" data-testid="inspector-room">
               <span className="text-label-2">{t("calendar.insp.placement")}:</span> <span className="font-semibold">{rooms.join(" + ")}</span>
               {cap ? <span className="text-label-2 tabular-nums"> · {t("calendar.insp.studentsLine", { size, cap, fit: fit ?? 0 })}</span> : null}
             </p>
@@ -257,33 +257,33 @@ export function ClassInspector(p: InspectorProps) {
             </span>
           ) : null}
           {origin && rooms.length ? (
-            <p className="text-[12px] text-label-2">{t("calendar.insp.originLine", { origin: t(`calendar.insp.origin.${(origin in ORIGINS ? origin : "SOLVER") as keyof typeof ORIGINS}`) })}{locked ? ` · ${t("calendar.state.locked")}` : ""}</p>
+            <p className="type-footnote text-label-2">{t("calendar.insp.originLine", { origin: t(`calendar.insp.origin.${(origin in ORIGINS ? origin : "SOLVER") as keyof typeof ORIGINS}`) })}{locked ? ` · ${t("calendar.state.locked")}` : ""}</p>
           ) : null}
           {allWeeks.length > 1 ? (
-            <div className="flex items-center gap-2 text-[12px] text-label-2">
+            <div className="flex items-center gap-2 type-footnote text-label-2">
               <span>{t("calendar.insp.weeks", { weeks: weeksText(placedWeeks.length ? placedWeeks : allWeeks) })}{placedWeeks.length ? "" : ` · ${t("classes.insp.requestedWeeks")}`}</span>
               <WeekSquares all={allWeeks} placed={placedWeeks} label={t("calendar.insp.weeks", { weeks: weeksText(placedWeeks.length ? placedWeeks : allWeeks) })} />
             </div>
           ) : null}
-          {row?.req.warnings.length ? <ul className="text-[12px] text-status-warning-fg">{row.req.warnings.slice(0, 3).map((w) => <li key={w}>{w}</li>)}</ul> : null}
-          {placement?.matched === "board" ? <p className="text-[11px] text-label-3">{t("calendar.insp.matchedBoard")}</p> : null}
+          {row?.req.warnings.length ? <ul className="type-footnote text-status-warning-fg">{row.req.warnings.slice(0, 3).map((w) => <li key={w}>{w}</li>)}</ul> : null}
+          {placement?.matched === "board" ? <p className="type-caption text-label-3">{t("calendar.insp.matchedBoard")}</p> : null}
         </SectionBlock>
 
         {mr !== null ? <NotesSection requestId={mr} notes={row?.req.notes} termId={p.termId} runId={p.runId} /> : null}
 
         <SectionBlock title={t("calendar.insp.who")}>
-          <p className="text-[13px] tabular-nums">{size || "—"} {lang === "tr" ? "öğrenci" : "students"}{cap ? ` · ${cap} ${lang === "tr" ? "koltuk" : "seats"}` : ""}</p>
+          <p className="type-callout tabular-nums">{size || "—"} {lang === "tr" ? "öğrenci" : "students"}{cap ? ` · ${cap} ${lang === "tr" ? "koltuk" : "seats"}` : ""}</p>
           {(row?.instructors.length ? row.instructors.map((i) => ({ id: i.id ?? null, name: i.name })) : (a?.instr ?? []).map((n, i) => ({ id: a?.instr_ids[i] ?? null, name: n }))).map((i) => (
-            i.id ? <Link key={`${i.id}-${i.name}`} href={`/timetable?lens=week&subject=instructor:${i.id}${p.runId ? `&run=${p.runId}` : ""}`} className="w-fit text-[13px] text-tint-text hover:underline">{i.name}</Link> : <span key={i.name} className="text-[13px]">{i.name}</span>
+            i.id ? <Link key={`${i.id}-${i.name}`} href={`/timetable?lens=week&subject=instructor:${i.id}${p.runId ? `&run=${p.runId}` : ""}`} className="w-fit type-callout text-tint-text hover:underline">{i.name}</Link> : <span key={i.name} className="type-callout">{i.name}</span>
           ))}
           {prog && (row?.program_id ?? a?.prog_id) && years[0] ? (
-            <Link href={`/timetable?lens=week&subject=cohort:${row?.program_id ?? a?.prog_id}:${years[0]}${p.runId ? `&run=${p.runId}` : ""}`} className="w-fit text-[13px] text-tint-text hover:underline">{t("calendar.subject.cohortLabel", { program: prog, year: years[0] })}</Link>
+            <Link href={`/timetable?lens=week&subject=cohort:${row?.program_id ?? a?.prog_id}:${years[0]}${p.runId ? `&run=${p.runId}` : ""}`} className="w-fit type-callout text-tint-text hover:underline">{t("calendar.subject.cohortLabel", { program: prog, year: years[0] })}</Link>
           ) : null}
         </SectionBlock>
 
         <SectionBlock title={t("calendar.insp.why")}>
           {checks.length ? (
-            <ul className="flex flex-col gap-1 text-[12px]">
+            <ul className="flex flex-col gap-1 type-footnote">
               {checks.map((c) => (
                 <li key={c.key} className="flex items-start gap-1.5">
                   <span aria-hidden className={cn("mt-px", c.state === "ok" ? "text-status-feasible-fg" : c.state === "fail" ? "text-status-infeasible-fg" : "text-label-3")}>{c.state === "ok" ? "✓" : c.state === "fail" ? "✕" : "–"}</span>
@@ -294,11 +294,11 @@ export function ClassInspector(p: InspectorProps) {
             </ul>
           ) : null}
           {row?.placement_status === "unplaced" ? (
-            <p className="text-[12px] text-label-2">{t("classes.insp.unplacedHint")}</p>
+            <p className="type-footnote text-label-2">{t("classes.insp.unplacedHint")}</p>
           ) : null}
-          {row?.placement_status === "no_room_needed" ? <p className="text-[12px] text-label-2">{t("classes.insp.noRoomHint")}</p> : null}
+          {row?.placement_status === "no_room_needed" ? <p className="type-footnote text-label-2">{t("classes.insp.noRoomHint")}</p> : null}
           {(row?.issues ?? []).filter((i) => i.code !== "unplaced").slice(0, 4).map((i, k) => (
-            <p key={k} className={cn("text-[12px]", i.severity === "hard" ? "text-status-infeasible-fg" : "text-status-warning-fg")}>{i.severity === "hard" ? "▲" : "•"} {i.text[lang]}</p>
+            <p key={k} className={cn("type-footnote", i.severity === "hard" ? "text-status-infeasible-fg" : "text-status-warning-fg")}>{i.severity === "hard" ? "▲" : "•"} {i.text[lang]}</p>
           ))}
           {aid !== null && exactAssignment !== false && p.runId !== null ? (
             <div className="flex flex-col gap-2">
@@ -308,13 +308,13 @@ export function ClassInspector(p: InspectorProps) {
                 </Button>
               ) : null}
               {explain.state === "loading" ? (
-                <div className="flex items-center gap-2 text-[12px]" role="status">
+                <div className="flex items-center gap-2 type-footnote" role="status">
                   <span className={cn("font-medium", !reduce && "cal-thinking")}>{t("calendar.insp.explaining")}</span>
                   <Button size="xs" variant="ghost" onClick={() => abort.current?.abort()}>{t("calendar.insp.cancel")}</Button>
                 </div>
               ) : null}
               {explain.state === "error" ? (
-                <p className="flex items-center gap-2 text-[12px] text-status-infeasible-fg" role="alert">
+                <p className="flex items-center gap-2 type-footnote text-status-infeasible-fg" role="alert">
                   {t("calendar.insp.explainError")}
                   <Button size="xs" variant="ghost" onClick={() => void runExplain()}>{t("calendar.retry")}</Button>
                 </p>
@@ -323,11 +323,11 @@ export function ClassInspector(p: InspectorProps) {
                 <div className="flex flex-col gap-2 rounded-xl bg-fill-3 p-3" data-testid="explain-result">
                   {explain.out.sections.filter((s) => s.key !== "why" || explain.out?.source === "model").map((s) => (
                     <div key={s.key} className="flex flex-col gap-0.5">
-                      <p className="text-[12px] font-semibold">{s.title}</p>
-                      {s.lines.map((l, i) => <p key={i} className="text-[12px] leading-[17px] text-label-1">{l}</p>)}
+                      <p className="type-footnote font-semibold">{s.title}</p>
+                      {s.lines.map((l, i) => <p key={i} className="type-footnote leading-[17px] text-label-1">{l}</p>)}
                     </div>
                   ))}
-                  <div className="flex items-center gap-2 pt-1 text-[11px] text-label-3">
+                  <div className="flex items-center gap-2 pt-1 type-caption text-label-3">
                     <span>{explain.out.source === "model" ? t("calendar.insp.sourceModel") : t("calendar.insp.sourceTemplate")}</span>
                     <Button size="xs" variant="ghost" onClick={() => void runExplain()}>{t("calendar.insp.regenerate")}</Button>
                     <Button
@@ -352,20 +352,20 @@ export function ClassInspector(p: InspectorProps) {
         {prov || mr ? (
           <SectionBlock title={t("calendar.insp.source")}>
             {prov ? (
-              <p className="text-[13px]" data-testid="inspector-source">
+              <p className="type-callout" data-testid="inspector-source">
                 {t("calendar.insp.sourceLine", { file: prov.file_name ?? (prov.kind === "exam-list" ? t("calendar.insp.examList") : t("calendar.insp.planningList")), sheet: prov.sheet ?? "—", row: prov.row ?? "—" })}
               </p>
             ) : a && !a.mr ? (
-              <p className="text-[13px]">{t("calendar.insp.board")}</p>
+              <p className="type-callout">{t("calendar.insp.board")}</p>
             ) : detail.isLoading ? (
-              <p className="text-[12px] text-label-3">{t("calendar.loading")}</p>
+              <p className="type-footnote text-label-3">{t("calendar.loading")}</p>
             ) : null}
             <div className="flex flex-wrap gap-1.5">
               {raw ? <Button size="xs" variant="ghost" onClick={() => setShowRaw((v) => !v)} aria-expanded={showRaw}>{showRaw ? t("calendar.insp.hideRow") : t("calendar.insp.showRow")}</Button> : null}
               {prov?.import_job_id ? <Button size="xs" variant="ghost" render={<a href={classesApi.importFileUrl(prov.import_job_id)} />}>{t("calendar.insp.download")}</Button> : null}
             </div>
             {showRaw && raw ? (
-              <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-xl bg-fill-3 p-2.5 text-[12px]" data-testid="raw-row">
+              <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-xl bg-fill-3 p-2.5 type-footnote" data-testid="raw-row">
                 {Object.entries(raw).map(([k, v]) => (
                   <div key={k} className="contents">
                     <dt className="text-label-2">{k}</dt>
@@ -379,12 +379,12 @@ export function ClassInspector(p: InspectorProps) {
 
         {detail.data && !detail.data.history.length && p.runId !== null ? (
           <SectionBlock title={t("calendar.insp.history")}>
-            <p className="text-[12px] text-label-2">{t("calendar.insp.noHistory")}</p>
+            <p className="type-footnote text-label-2">{t("calendar.insp.noHistory")}</p>
           </SectionBlock>
         ) : null}
         {detail.data?.history.length ? (
           <SectionBlock title={t("calendar.insp.history")}>
-            <ul className="flex flex-col gap-1 text-[12px] tabular-nums">
+            <ul className="flex flex-col gap-1 type-footnote tabular-nums">
               {detail.data.history.map((h) => (
                 <li key={h.run_id} className={cn("flex items-baseline gap-2", h.run_id === p.runId && "font-semibold")}>
                   <span className="w-14 shrink-0">Run #{h.run_id}</span>

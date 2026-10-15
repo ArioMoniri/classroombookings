@@ -134,7 +134,7 @@ function TimeWindow({ f, onChange }: { f: ClassFilters; onChange: (f: ClassFilte
   const w = f.time ?? { from: 1, to: PERIODS.length, mode: "overlap" as const };
   return (
     <div className="flex flex-col gap-3 p-1">
-      <p className="text-[13px] font-medium tabular-nums">{PERIODS[w.from - 1].start}–{PERIODS[w.to - 1].end}</p>
+      <p className="type-callout font-medium tabular-nums">{PERIODS[w.from - 1].start}–{PERIODS[w.to - 1].end}</p>
       <Slider min={1} max={PERIODS.length} step={1} value={[w.from, w.to]} onValueChange={(v) => {
         const [a, b] = Array.isArray(v) ? v : [v, v];
         onChange({ ...f, time: { from: Math.min(a, b), to: Math.max(a, b), mode: w.mode } });
@@ -173,11 +173,11 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
       <PopoverContent align="start" className="w-80 p-1.5">
         <div className="flex items-center gap-1">
           {field ? <Button variant="ghost" size="icon-xs" aria-label={t("calendar.nav.prev")} onClick={() => { setField(null); setQ(""); }}><ChevronLeft /></Button> : null}
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={field ? t("classes.f.searchValues") : t("classes.filter")} aria-label={field ? t("classes.f.searchValues") : t("classes.filter")} className="h-8 flex-1 rounded-lg bg-fill-2 px-2.5 text-[13px] outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={field ? t("classes.f.searchValues") : t("classes.filter")} aria-label={field ? t("classes.f.searchValues") : t("classes.filter")} className="h-8 flex-1 rounded-lg bg-fill-2 px-2.5 type-callout outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" />
         </div>
         {field ? (
           <div className="mt-1 flex flex-col gap-1">
-            <p className="px-2 pt-1 text-[11px] font-semibold text-label-3">{t(FIELD_KEY[field])}</p>
+            <p className="px-2 pt-1 type-caption font-semibold text-label-3">{t(FIELD_KEY[field])}</p>
             {whereField ? (
               <div className="px-1">
                 <SegmentedGlass size="sm" fill aria-label={t(FIELD_KEY[field])} options={[{ value: "placed", label: t("classes.f.placed") }, { value: "requested", label: t("classes.f.requested") }]} value={field === "day" || field === "time" ? filters.dayWhere : filters.buildingWhere} onValueChange={(v) => onChange(field === "day" || field === "time" ? { ...filters, dayWhere: v } : { ...filters, buildingWhere: v })} />
@@ -191,11 +191,11 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
                   const on = isOn(filters, field, v.k);
                   return (
                     <li key={v.k}>
-                      <button type="button" role="option" aria-selected={on} onClick={() => onChange(toggleValue(filters, field, v.k))} className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-fill-2", on && "bg-tint-soft")}>
-                        <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-[5px] text-[10px]", on ? "bg-tint text-tint-foreground" : "shadow-[inset_0_0_0_1px_var(--hairline-strong)]")} aria-hidden>{on ? "✓" : ""}</span>
+                      <button type="button" role="option" aria-selected={on} onClick={() => onChange(toggleValue(filters, field, v.k))} className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2", on && "bg-tint-soft")}>
+                        <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-[5px] text-2xs", on ? "bg-tint text-tint-foreground" : "shadow-[inset_0_0_0_1px_var(--hairline-strong)]")} aria-hidden>{on ? "✓" : ""}</span>
                         {field === "faculty" ? <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--fac-${rows.find((r) => String(r.faculty_id) === v.k)?.faculty_slot ?? 8}-bar)` }} /> : null}
                         <span className="min-w-0 flex-1 truncate">{v.l}</span>
-                        <span className="text-[11px] text-label-3 tabular-nums">{n(v.c)}</span>
+                        <span className="type-caption text-label-3 tabular-nums">{n(v.c)}</span>
                       </button>
                     </li>
                   );
@@ -211,7 +211,7 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
           <ul className="mt-1" role="menu">
             {fields.map((x) => (
               <li key={x}>
-                <button type="button" role="menuitem" onClick={() => { setField(x); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-fill-2">
+                <button type="button" role="menuitem" onClick={() => { setField(x); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2">
                   {t(FIELD_KEY[x])}
                   {activeFields(filters).includes(x) ? <span aria-hidden className="size-1.5 rounded-full bg-tint" /> : null}
                 </button>

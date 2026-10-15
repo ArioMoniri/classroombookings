@@ -78,7 +78,7 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
                         <Icon className="size-4 text-tint-text" aria-hidden /> {tpl.title[pairLang(locale)]}
                       </span>
                       <span className="text-xs text-label-2">{tpl.sentence[pairLang(locale)].replace(/[[\]]/g, "").replace(/\{(\w+)\}/g, "…")}</span>
-                      <span className="text-[11px] text-label-2">{tpl.default_hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
+                      <span className="type-caption text-label-2">{tpl.default_hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
                     </button>
                   </li>
                 );

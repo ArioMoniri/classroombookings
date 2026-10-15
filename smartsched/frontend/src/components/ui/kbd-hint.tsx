@@ -32,7 +32,7 @@ type KbdHintProps = React.ComponentProps<"kbd"> & {
 
 function KbdHint({ keys, sequence = false, thenLabel = "then", size = "sm", className, ...props }: KbdHintProps) {
   const apple = usePlatformMod()
-  const cap = size === "sm" ? "h-[18px] min-w-[18px] px-1 text-[11px]" : "h-[22px] min-w-[22px] px-1.5 text-[12px]"
+  const cap = size === "sm" ? "h-[18px] min-w-[18px] px-1 type-caption" : "h-[22px] min-w-[22px] px-1.5 type-footnote"
   return (
     <kbd
       data-slot="kbd"
@@ -44,7 +44,7 @@ function KbdHint({ keys, sequence = false, thenLabel = "then", size = "sm", clas
         const sym = SYMBOLS[k.toLowerCase()]
         return (
           <React.Fragment key={`${k}-${i}`}>
-            {sequence && i > 0 ? <span aria-hidden className="px-0.5 text-[10px] text-label-3">{thenLabel}</span> : null}
+            {sequence && i > 0 ? <span aria-hidden className="px-0.5 text-2xs text-label-3">{thenLabel}</span> : null}
             <span
               aria-hidden
               className={cn(

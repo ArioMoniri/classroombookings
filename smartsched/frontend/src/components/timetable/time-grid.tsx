@@ -797,10 +797,10 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
                 style={{ left: GUTTER_W + col * colW, width: colW }}
               >
                 <span className="flex items-baseline justify-between gap-1">
-                  <span className="truncate text-[13px] leading-4 font-semibold">{c.label}</span>
-                  {c.tag ? <span className="text-[10px] font-semibold text-status-tip-fg">{c.tag}</span> : null}
+                  <span className="truncate type-callout leading-4 font-semibold">{c.label}</span>
+                  {c.tag ? <span className="text-2xs font-semibold text-status-tip-fg">{c.tag}</span> : null}
                 </span>
-                {c.sub ? <span className="truncate text-[11px] leading-[14px] text-label-2 tabular-nums">{c.sub}</span> : null}
+                {c.sub ? <span className="truncate type-caption leading-[14px] text-label-2 tabular-nums">{c.sub}</span> : null}
               </div>
             );
           })}
@@ -809,7 +809,7 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
         {/* sticky time gutter */}
         <div className="cal-canvas sticky left-0 z-10" style={{ width: GUTTER_W, height: rows.total, marginTop: 0 }} aria-hidden>
           {PERIODS.map((p, i) => (
-            <div key={p.index} className={cn("absolute right-2 -translate-y-1.5 text-[11px] leading-[14px] tabular-nums", cursor.p === p.index ? "text-tint-text" : "text-label-3")} style={{ top: rows.tops[i] + (i === 0 ? 6 : 0) }} title={`P${p.index} · ${p.start}–${p.end}${p.index === 12 ? ` · ${t("calendar.transition")}` : ""}`}>
+            <div key={p.index} className={cn("absolute right-2 -translate-y-1.5 type-caption leading-[14px] tabular-nums", cursor.p === p.index ? "text-tint-text" : "text-label-3")} style={{ top: rows.tops[i] + (i === 0 ? 6 : 0) }} title={`P${p.index} · ${p.start}–${p.end}${p.index === 12 ? ` · ${t("calendar.transition")}` : ""}`}>
               {p.start}
             </div>
           ))}
@@ -984,20 +984,20 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
         ) : null}
         {hintSlot ? (
           <div className="cal-slot" data-state="hint" style={{ left: hintSlot.left, top: hintSlot.top, width: hintSlot.width, height: hintSlot.height }}>
-            <span className="glass-thick absolute -top-6 left-0 rounded-full px-2 py-0.5 text-[11px] whitespace-nowrap text-label-1">{t("calendar.drag.free", { range: spanText(hint ?? 1, (hint ?? 1) + (drag?.span ?? 1) - 1) })}</span>
+            <span className="glass-thick absolute -top-6 left-0 rounded-full px-2 py-0.5 type-caption whitespace-nowrap text-label-1">{t("calendar.drag.free", { range: spanText(hint ?? 1, (hint ?? 1) + (drag?.span ?? 1) - 1) })}</span>
           </div>
         ) : null}
         {kbSlot ? <div className="cal-slot" data-state={slotState(check)} style={{ left: kbSlot.left, top: kbSlot.top, width: kbSlot.width, height: kbSlot.height }} /> : null}
         {resizeSlot && resize ? (
           <div className="cal-slot" data-state={slotState(check)} style={{ left: resizeSlot.left, top: resizeSlot.top, width: resizeSlot.width, height: resizeSlot.height }}>
-            <span className="glass-thick absolute -bottom-7 left-0 rounded-full px-2 py-0.5 text-[11px] whitespace-nowrap text-label-1">
+            <span className="glass-thick absolute -bottom-7 left-0 rounded-full px-2 py-0.5 type-caption whitespace-nowrap text-label-1">
               {t("calendar.drag.resize", { range: `P${resize.sp}–P${resize.ep} · ${spanText(resize.sp, resize.ep)}`, delta: `${resize.ep - resize.sp - (resize.ev.ep - resize.ev.sp) >= 0 ? "+" : ""}${resize.ep - resize.sp - (resize.ev.ep - resize.ev.sp)}` })}
             </span>
           </div>
         ) : null}
         {createSlot && create ? (
           <div className="cal-slot" data-state="create" style={{ left: createSlot.left, top: createSlot.top, width: createSlot.width, height: createSlot.height }}>
-            <span className="absolute top-1 left-2 text-[11px] font-medium text-tint-text tabular-nums">
+            <span className="absolute top-1 left-2 type-caption font-medium text-tint-text tabular-nums">
               {t("calendar.create.slot", { room: columns[create.col]?.label ?? "", when: whenText(columns[create.col]?.day ?? 1, Math.min(create.p0, create.p1), Math.max(create.p0, create.p1))[lang], n: Math.abs(create.p1 - create.p0) + 1 })}
             </span>
           </div>
@@ -1016,7 +1016,7 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
                 <span className="cal-line2 truncate">{props.line2(drag.ev)}</span>
               </div>
             </motion.div>
-            <div className="glass-thick mt-1.5 w-max max-w-[340px] rounded-full px-2.5 py-1 text-[11px] leading-[14px] font-medium text-label-1" role="status">
+            <div className="glass-thick mt-1.5 w-max max-w-[340px] rounded-full px-2.5 py-1 type-caption leading-[14px] font-medium text-label-1" role="status">
               {reason(check, dragTarget)}
             </div>
           </motion.div>

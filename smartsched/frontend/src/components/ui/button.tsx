@@ -1,65 +1,113 @@
 // Source: shadcn/ui button (style base-nova, https://ui.shadcn.com) — Licence: MIT
-// Modified: yes — restyled for Liquid Glass v2 (docs/design/v2/liquid-glass.md §9). API unchanged.
-//   Touch screens (pointer: coarse): every size is at least 44 × 44 px (persona U-16, motion skill §8);
-//   the `link` variant is text and keeps its line height.
+// Modified: yes — Liquid Glass v2 colours + the design-system overhaul 2026-10-15 sizing system
+// (docs/design/tokens.md §A.5): `size xs | sm | md | lg` reads --control-h-* (24/28/32/40 on fine pointers,
+// 32/36/44/48 on coarse ones), padding-x = control height × .4375, gap 4 (xs/sm) / 6 (md/lg), icon 14 / 16.
+// `shape "pill" | "rect"`: pills for actions that float or stand alone, rect (radius lg) for controls that sit
+// in a row with fields, so a button and an input next to each other share height and corner.
+// Legacy sizes (`default`, `icon*`) stay as aliases until every caller migrates; prefer `IconButton`.
+import * as React from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
-/* Controls are capsules; containers use continuous radii. Press = 0.97 scale on the snappy
-   spring curve (CSS linear() mirror of springs.snappy), removed under reduced motion by the global rule.
-   Only transform/opacity/colour transition — never box-shadow (motion.md §8). */
+/* Press = 0.97 scale on the snappy spring curve (CSS linear() mirror of springs.snappy; motion skill §5 press),
+   removed under reduced motion by the global rule. Only transform/opacity/colour transition — never box-shadow. */
+/** Touch: xs/sm stay 32/36 px tall (the coarse control scale) but their hit area is at least 44 × 44 (HIG). */
+const coarseHitArea =
+  "pointer-coarse:after:absolute pointer-coarse:after:content-[''] pointer-coarse:after:top-[min(0px,calc(50%-22px))] pointer-coarse:after:bottom-[min(0px,calc(50%-22px))] pointer-coarse:after:left-[min(0px,calc(50%-22px))] pointer-coarse:after:right-[min(0px,calc(50%-22px))]"
+
 const buttonVariants = cva(
-  "group/button relative inline-flex pointer-coarse:min-h-11 shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-[13px] font-medium tracking-[-0.003em] whitespace-nowrap select-none transition-[background-color,color,transform,opacity] duration-(--dur-fast) ease-(--spring-snappy) focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:not-aria-[haspopup]:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 aria-invalid:outline-2 aria-invalid:outline-(--status-infeasible-border) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg]:stroke-[1.75]",
+  "group/button relative inline-flex shrink-0 items-center justify-center bg-clip-padding font-medium tracking-[-0.003em] whitespace-nowrap select-none transition-[background-color,color,transform,opacity] duration-(--dur-fast) ease-(--spring-snappy) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) active:not-aria-[haspopup]:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 aria-invalid:outline-2 aria-invalid:outline-(--status-infeasible-border) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:stroke-[1.75] " + coarseHitArea,
   {
     variants: {
       variant: {
         /* the single tint, with a 1px specular top edge so it reads as lit glass, not flat paint */
         default:
           "bg-tint text-tint-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.28),0_1px_2px_0_rgba(0,0,0,0.12)] hover:bg-(--accent-hover)",
-        /* "glass" control: thick tint + edge, no own backdrop-filter (it usually sits on glass) */
+        /* quiet control on any surface: thick colour + the 3:1 control edge */
         outline:
-          "bg-(--mat-thick) text-label-1 glass-edge hover:bg-(--mat-thick-solid) aria-expanded:bg-(--mat-thick-solid)",
-        secondary:
-          "bg-fill-2 text-label-1 hover:bg-fill-1 aria-expanded:bg-fill-1",
-        ghost:
-          "text-label-1 hover:bg-fill-2 aria-expanded:bg-fill-2",
+          "bg-(--mat-thick) text-label-1 shadow-(--edge-control) hover:bg-(--mat-thick-solid) aria-expanded:bg-(--mat-thick-solid)",
+        secondary: "bg-fill-2 text-label-1 hover:bg-fill-1 aria-expanded:bg-fill-1",
+        ghost: "text-label-1 hover:bg-fill-2 aria-expanded:bg-fill-2",
         destructive:
           "bg-status-infeasible text-status-infeasible-fg hover:bg-[color-mix(in_oklab,var(--status-infeasible-bg),var(--status-infeasible-fg)_8%)]",
-        link: "rounded-sm text-tint-text underline-offset-4 hover:underline active:scale-100 pointer-coarse:min-h-0 pointer-coarse:min-w-0",
+        link: "h-auto! rounded-sm px-0! text-tint-text underline-offset-4 hover:underline active:scale-100",
       },
       size: {
-        default:
-          "h-8 gap-1.5 px-3.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
-        xs: "h-6 gap-1 px-2.5 text-xs has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-1 px-3 text-[12.5px] has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-10 gap-2 px-5 text-sm has-data-[icon=inline-end]:pr-4 has-data-[icon=inline-start]:pl-4",
-        icon: "size-8 pointer-coarse:min-w-11",
-        "icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3 pointer-coarse:min-w-11",
-        "icon-sm": "size-7 [&_svg:not([class*='size-'])]:size-3.5 pointer-coarse:min-w-11",
-        "icon-lg": "size-10",
+        xs: "h-(--control-h-xs) gap-1 px-[calc(var(--control-h-xs)*0.4375)] type-footnote font-medium [&_svg:not([class*='size-'])]:size-3.5",
+        sm: "h-(--control-h-sm) gap-1 px-[calc(var(--control-h-sm)*0.4375)] type-footnote font-medium [&_svg:not([class*='size-'])]:size-3.5",
+        md: "h-(--control-h-md) gap-1.5 px-[calc(var(--control-h-md)*0.4375)] type-callout font-medium [&_svg:not([class*='size-'])]:size-4",
+        lg: "h-(--control-h-lg) gap-1.5 px-[calc(var(--control-h-lg)*0.4375)] type-body font-medium [&_svg:not([class*='size-'])]:size-4",
+        /** @deprecated use size="md" */
+        default: "h-(--control-h-md) gap-1.5 px-[calc(var(--control-h-md)*0.4375)] type-callout font-medium [&_svg:not([class*='size-'])]:size-4",
+        /** @deprecated use <IconButton size="md" label=…> */
+        icon: "size-(--control-h-md) [&_svg:not([class*='size-'])]:size-4",
+        /** @deprecated use <IconButton size="xs" label=…> */
+        "icon-xs": "size-(--control-h-xs) [&_svg:not([class*='size-'])]:size-3.5",
+        /** @deprecated use <IconButton size="sm" label=…> */
+        "icon-sm": "size-(--control-h-sm) [&_svg:not([class*='size-'])]:size-3.5",
+        /** @deprecated use <IconButton size="lg" label=…> */
+        "icon-lg": "size-(--control-h-lg) [&_svg:not([class*='size-'])]:size-4",
+      },
+      shape: {
+        pill: "rounded-full",
+        rect: "rounded-lg",
       },
     },
+    compoundVariants: [
+      /* trailing / leading icon: tighten the padding on that side by 2 px */
+      { size: ["md", "default", "lg"], className: "has-data-[icon=inline-end]:pr-[calc(var(--control-h-md)*0.4375-2px)] has-data-[icon=inline-start]:pl-[calc(var(--control-h-md)*0.4375-2px)]" },
+    ],
     defaultVariants: {
       variant: "default",
-      size: "default",
+      size: "md",
+      shape: "pill",
     },
   }
 )
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+type ButtonProps = ButtonPrimitive.Props & VariantProps<typeof buttonVariants>
+
+function Button({ className, variant = "default", size = "md", shape = "pill", ...props }: ButtonProps) {
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-size={size}
+      data-shape={shape}
+      className={cn(buttonVariants({ variant, size, shape, className }))}
       {...props}
     />
   )
 }
 
-export { Button, buttonVariants }
+const iconButtonSize = {
+  xs: "size-(--control-h-xs) [&_svg:not([class*='size-'])]:size-3.5",
+  sm: "size-(--control-h-sm) [&_svg:not([class*='size-'])]:size-3.5",
+  md: "size-(--control-h-md) [&_svg:not([class*='size-'])]:size-4",
+  lg: "size-(--control-h-lg) [&_svg:not([class*='size-'])]:size-4",
+} as const
+
+type IconButtonProps = Omit<ButtonPrimitive.Props, "aria-label" | "children"> &
+  Pick<VariantProps<typeof buttonVariants>, "variant" | "shape"> & {
+    /** the accessible name; also the native tooltip. Required: an icon alone has no name. */
+    label: string
+    size?: keyof typeof iconButtonSize
+    children: React.ReactNode
+  }
+
+/** A square control with an icon only. `label` is required and becomes `aria-label` + `title`. */
+function IconButton({ className, label, size = "md", variant = "ghost", shape = "pill", title, children, ...props }: IconButtonProps) {
+  return (
+    <ButtonPrimitive
+      data-slot="icon-button"
+      aria-label={label}
+      title={title ?? label}
+      className={cn(buttonVariants({ variant, shape }), "p-0", iconButtonSize[size], className)}
+      {...props}
+    >
+      {children}
+    </ButtonPrimitive>
+  )
+}
+
+export { Button, IconButton, buttonVariants, type ButtonProps, type IconButtonProps }

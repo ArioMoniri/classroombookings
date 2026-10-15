@@ -106,7 +106,7 @@ export function RoomsView() {
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         <div className="flex flex-col gap-0.5">
           <h1 className="type-title-2">{t("roomsV2.title")}</h1>
-          <p className="text-[13px] text-label-2 tabular-nums">
+          <p className="type-callout text-label-2 tabular-nums">
             {rooms.data ? t("roomsV2.subtitle", { n: total, b: buildings.data?.length ?? new Set(rooms.data.map((r) => r.building_code)).size }) : " "}
             {cal.runId ? ` · ${t("roomsV2.run", { run: cal.runId })}` : ""}
           </p>
@@ -114,7 +114,7 @@ export function RoomsView() {
         {week !== null && weekList.length ? (
           <div className="ml-auto flex items-center gap-1" role="group" aria-label={t("roomsV2.week")}>
             <Button variant="ghost" size="icon-sm" aria-label={t("roomsV2.prevWeek")} disabled={weekIdx <= 0} onClick={() => set({ week: String(weekList[weekIdx - 1]) })}><ChevronLeft /></Button>
-            <span className="min-w-20 text-center text-[13px] font-semibold tabular-nums" aria-live="polite" data-testid="rooms-week">{t("roomsV2.weekLabel", { w: week })}</span>
+            <span className="min-w-20 text-center type-callout font-semibold tabular-nums" aria-live="polite" data-testid="rooms-week">{t("roomsV2.weekLabel", { w: week })}</span>
             <Button variant="ghost" size="icon-sm" aria-label={t("roomsV2.nextWeek")} disabled={weekIdx < 0 || weekIdx >= weekList.length - 1} onClick={() => set({ week: String(weekList[weekIdx + 1]) })}><ChevronRight /></Button>
           </div>
         ) : null}
@@ -122,7 +122,7 @@ export function RoomsView() {
 
       {/* one glass capsule over the scene: search, building, tags, seats, sort, layout */}
       <div className="glass-chrome flex flex-wrap items-center gap-2 rounded-[22px] p-1.5">
-        <label className="flex h-8 min-w-0 flex-1 basis-56 items-center gap-2 rounded-full bg-fill-3 px-3 text-[13px] has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-(--focus)">
+        <label className="flex h-8 min-w-0 flex-1 basis-56 items-center gap-2 rounded-full bg-fill-3 px-3 type-callout has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-(--focus)">
           <Search aria-hidden className="size-4 shrink-0 text-label-2" />
           <input
             value={q}
@@ -148,15 +148,15 @@ export function RoomsView() {
             </Chip>
           ))}
         </span>
-        <label className="flex items-center gap-1.5 text-[12px] text-label-2">
+        <label className="flex items-center gap-1.5 type-footnote text-label-2">
           {t("roomsV2.minCapacity")}
-          <select value={minSeats} onChange={(e) => set({ seats: e.target.value === "0" ? null : e.target.value })} className="h-7 rounded-full bg-fill-2 px-2 text-[12px] text-label-1" data-testid="rooms-seats">
+          <select value={minSeats} onChange={(e) => set({ seats: e.target.value === "0" ? null : e.target.value })} className="h-7 rounded-full bg-fill-2 px-2 type-footnote text-label-1" data-testid="rooms-seats">
             {SEAT_STEPS.map((s) => <option key={s} value={s}>{s === 0 ? t("roomsV2.any") : `≥ ${s}`}</option>)}
           </select>
         </label>
-        <label className="flex items-center gap-1.5 text-[12px] text-label-2">
+        <label className="flex items-center gap-1.5 type-footnote text-label-2">
           {t("roomsV2.sort")}
-          <select value={sort} onChange={(e) => set({ sort: e.target.value === "code" ? null : e.target.value })} className="h-7 rounded-full bg-fill-2 px-2 text-[12px] text-label-1">
+          <select value={sort} onChange={(e) => set({ sort: e.target.value === "code" ? null : e.target.value })} className="h-7 rounded-full bg-fill-2 px-2 type-footnote text-label-1">
             <option value="code">{t("roomsV2.sortCode")}</option>
             <option value="capacity">{t("roomsV2.sortCapacity")}</option>
             <option value="busy" disabled={!cal.model}>{t("roomsV2.sortBusy")}</option>
@@ -176,7 +176,7 @@ export function RoomsView() {
         />
       </div>
 
-      <p className="text-[12px] text-label-2 tabular-nums" role="status">
+      <p className="type-footnote text-label-2 tabular-nums" role="status">
         {t("roomsV2.count", { shown: list.length, total })}
         {cal.noRun ? ` · ${t("roomsV2.noRun")}` : ""}
       </p>
@@ -185,7 +185,7 @@ export function RoomsView() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-6">{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-[132px] rounded-2xl" />)}</div>
       ) : list.length === 0 ? (
         <div className="flex flex-col items-start gap-2 py-8">
-          <p className="text-[15px]">{t("roomsV2.noMatch")}</p>
+          <p className="type-headline">{t("roomsV2.noMatch")}</p>
           {filtersOn ? <Button variant="outline" size="sm" onClick={() => set({ building: null, tags: null, seats: null, q: null })}>{t("roomsV2.clearFilters")}</Button> : null}
         </div>
       ) : layout === "cards" ? (
@@ -197,7 +197,7 @@ export function RoomsView() {
                 {g.label ? (
                   <h2 id={`bld-${g.key}`} className="flex items-baseline gap-2">
                     <span className="type-title-3">{g.label}</span>
-                    <span className="text-[13px] text-label-2 tabular-nums">{avg !== null ? t("roomsV2.buildingSummary", { n: g.rooms.length, p: avg }) : t("roomsV2.count", { shown: g.rooms.length, total: g.rooms.length })}</span>
+                    <span className="type-callout text-label-2 tabular-nums">{avg !== null ? t("roomsV2.buildingSummary", { n: g.rooms.length, p: avg }) : t("roomsV2.count", { shown: g.rooms.length, total: g.rooms.length })}</span>
                   </h2>
                 ) : null}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-6">
@@ -209,9 +209,9 @@ export function RoomsView() {
         </div>
       ) : (
         <Card variant="plain" className="overflow-x-auto p-0">
-          <table className="w-full min-w-[760px] text-[13px]" data-testid="rooms-table">
+          <table className="w-full min-w-[760px] type-callout" data-testid="rooms-table">
             <thead>
-              <tr className="hairline-b text-left text-[12px] text-label-2">
+              <tr className="hairline-b text-left type-footnote text-label-2">
                 <th scope="col" className="py-2 pr-2 pl-4 font-semibold">{t("roomsV2.code")}</th>
                 <th scope="col" className="px-2 font-semibold">{t("roomsV2.floor")}</th>
                 <th scope="col" className="px-2 text-right font-semibold">{t("roomsV2.capacity")}</th>
@@ -230,7 +230,7 @@ export function RoomsView() {
                   <tr key={r.id} className="hairline-b hover:bg-fill-3" data-testid="room-row">
                     <td className="py-1.5 pr-2 pl-4">
                       <Link href={href(r)} className="flex items-center gap-2 font-semibold hover:underline">
-                        <RoomVisual room={r} variant="tile" className="size-7 rounded-md [&>span:first-child]:hidden [&>span:last-child]:mt-0 [&>span:last-child]:text-[11px]" />
+                        <RoomVisual room={r} variant="tile" className="size-7 rounded-md [&>span:first-child]:hidden [&>span:last-child]:mt-0 [&>span:last-child]:type-caption" />
                         {r.display_name}
                       </Link>
                     </td>

@@ -27,7 +27,7 @@ export function ScoreRing({ value, label, size = "lg", className, partial, live 
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-3xl font-bold tracking-[-0.01em] tabular-nums">{partial.placed}</span>
-            <span className="text-[11px] text-label-3 tabular-nums">/ {partial.total}</span>
+            <span className="type-caption text-label-3 tabular-nums">/ {partial.total}</span>
           </div>
         </div>
         <span className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-status-warning-fg">
@@ -85,7 +85,7 @@ export function ScoreRing({ value, label, size = "lg", className, partial, live 
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-4xl font-bold tracking-[-0.01em]">{value ?? "—"}</span>
-          <span className="text-[11px] text-label-3">/ 100</span>
+          <span className="type-caption text-label-3">/ 100</span>
         </div>
       </div>
       <span className={cn("mt-2 inline-flex items-center gap-1 text-sm font-medium", value === null ? "text-label-3" : feasible ? "text-status-feasible-fg" : "text-status-infeasible-fg")}>

@@ -102,7 +102,7 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
         />
       ) : null}
       {!proposal.applied && (proposal.moves.length || proposal.section_edits.length) ? (
-        <fieldset className="space-y-1.5 rounded-xl bg-fill-3 px-3 py-2 text-[12.5px] shadow-[inset_0_0_0_1px_var(--hairline)]" disabled={busy} data-testid="diff-edits">
+        <fieldset className="space-y-1.5 rounded-xl bg-fill-3 px-3 py-2 type-footnote shadow-[inset_0_0_0_1px_var(--hairline)]" disabled={busy} data-testid="diff-edits">
           <legend className="sr-only">{t("glass.chat.editsTitle")}</legend>
           {proposal.moves.map((m) => (
             <label key={m.assignment_id} className="flex items-start gap-2 pointer-coarse:min-h-11">
@@ -137,7 +137,7 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
         </fieldset>
       ) : null}
       {proposal.constraints.length ? (
-        <ul className="rounded-xl bg-fill-3 px-3 py-2 text-[12.5px] shadow-[inset_0_0_0_1px_var(--hairline)]">
+        <ul className="rounded-xl bg-fill-3 px-3 py-2 type-footnote shadow-[inset_0_0_0_1px_var(--hairline)]">
           {proposal.constraints.map((c, i) => (
             <li key={i} className="py-0.5 text-label-1">
               {c.nl_text} <span className="text-label-3">· {c.hardness === "hard" ? t("glass.report.must") : t("glass.report.try")}</span>
@@ -146,7 +146,7 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
         </ul>
       ) : null}
       {proposal.notes.length ? (
-        <ul className="space-y-0.5 px-1 text-[12px] text-label-3">
+        <ul className="space-y-0.5 px-1 type-footnote text-label-3">
           {proposal.notes.map((note, i) => (
             <li key={i}>{note}</li>
           ))}
@@ -169,7 +169,7 @@ function Message({ m, runId }: { m: ChatMessage; runId: number }) {
   const mine = m.role === "user";
   return (
     <div className={cn("flex flex-col gap-1", mine ? "items-end" : "items-start")}>
-      <div className={cn("max-w-[92%] text-[13.5px] leading-5 whitespace-pre-wrap", mine ? "rounded-2xl rounded-br-md bg-fill-1 px-3 py-2 text-label-1" : m.role === "system" ? "text-label-3 italic" : "text-label-1")}>{m.content}</div>
+      <div className={cn("max-w-[92%] type-callout leading-5 whitespace-pre-wrap", mine ? "rounded-2xl rounded-br-md bg-fill-1 px-3 py-2 text-label-1" : m.role === "system" ? "text-label-3 italic" : "text-label-1")}>{m.content}</div>
       {m.proposal ? <ProposalDiff runId={runId} proposal={m.proposal} /> : null}
     </div>
   );
@@ -182,11 +182,11 @@ function LiveTurn({ user, s }: { user: string; s: StreamState }) {
   return (
     <>
       <div className="flex flex-col items-end gap-1">
-        <div className="max-w-[92%] rounded-2xl rounded-br-md bg-fill-1 px-3 py-2 text-[13.5px] leading-5 whitespace-pre-wrap text-label-1">{user}</div>
+        <div className="max-w-[92%] rounded-2xl rounded-br-md bg-fill-1 px-3 py-2 type-callout leading-5 whitespace-pre-wrap text-label-1">{user}</div>
       </div>
       <div className="flex flex-col items-start gap-1" data-testid="chat-live">
         {s.tools.length ? (
-          <ul className="space-y-0.5 text-[12px] text-label-2" data-testid="chat-tools">
+          <ul className="space-y-0.5 type-footnote text-label-2" data-testid="chat-tools">
             {s.tools.map((tool, i) => (
               <li key={`${tool.name}-${i}`} className="flex items-center gap-1.5" data-state={tool.state}>
                 {tool.state === "pending" ? <BusyGlyph className="size-3" /> : <span aria-hidden>{tool.state === "ok" ? "✓" : "✕"}</span>}
@@ -195,7 +195,7 @@ function LiveTurn({ user, s }: { user: string; s: StreamState }) {
             ))}
           </ul>
         ) : null}
-        {s.text ? <div className="max-w-[92%] text-[13.5px] leading-5 whitespace-pre-wrap text-label-1">{s.text}</div> : null}
+        {s.text ? <div className="max-w-[92%] type-callout leading-5 whitespace-pre-wrap text-label-1">{s.text}</div> : null}
       </div>
     </>
   );
@@ -211,7 +211,7 @@ function Thinking() {
     return () => clearInterval(id);
   }, []);
   return (
-    <p role="status" className={cn("text-[13px] text-label-2", !reduce && "animate-pulse")}>
+    <p role="status" className={cn("type-callout text-label-2", !reduce && "animate-pulse")}>
       {t("chat.thinking")}
       {secs >= 5 ? <span className="ml-1 text-label-3 tabular-nums">{t("glass.chat.elapsed", { s: secs })}</span> : null}
     </p>
@@ -278,11 +278,11 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
       <div className="flex items-center gap-2 px-4 py-3 hairline-b">
         <Sparkles className="size-4 text-label-2" aria-hidden />
         <h2 className="type-headline text-label-1">{t("chat.title")}</h2>
-        {!noKey && settings.data ? <span className="ml-auto truncate text-[11px] text-label-3">{settings.data.anthropic_model}</span> : null}
+        {!noKey && settings.data ? <span className="ml-auto truncate type-caption text-label-3">{settings.data.anthropic_model}</span> : null}
       </div>
       {/* aria-busy while a reply streams: the polite region announces the finished reply, not every token */}
       <div ref={listRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3" aria-live="polite" aria-busy={send.isPending || streaming}>
-        {messages.length === 0 ? <p className="text-[13px] text-label-2">{t("chat.empty")}</p> : null}
+        {messages.length === 0 ? <p className="type-callout text-label-2">{t("chat.empty")}</p> : null}
         {messages.map((m) => (
           <Message key={m.id} m={m} runId={runId} />
         ))}
@@ -291,7 +291,7 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
       </div>
       <div ref={composerRef} className="p-3 hairline-t">
         {noKey ? (
-          <p className="mb-2 text-[12.5px] text-status-warning-fg">
+          <p className="mb-2 type-footnote text-status-warning-fg">
             {t("glass.chat.noKey")}{" "}
             {can(["planning.admin", "setup.settings"]) ? (
               <Link href="/settings?tab=ai" className="font-medium text-tint-text hover:underline">

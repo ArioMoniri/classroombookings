@@ -92,7 +92,9 @@ export function ApprovalRulesAdmin() {
                       {r.steps
                         .map((s, i) => {
                           const a = stepApprovers(s, { user: userName });
-                          const who = a.designated ? t("wave1.rules.designated") : a.names.join(", ");
+                          // admin persona M-35: a "designated approvers" step with nobody designated would never be decided
+                          const none = a.designated && approvers.isSuccess && !approvers.data.some((x) => x.can_decide && x.scopes.length > 0);
+                          const who = a.designated ? (none ? `${t("wave1.rules.designated")} (${t("wave1.rules.noneDesignated")})` : t("wave1.rules.designated")) : a.names.join(", ");
                           return r.steps.length > 1 ? `${i + 1}. ${who}` : who;
                         })
                         .join(" → ")}

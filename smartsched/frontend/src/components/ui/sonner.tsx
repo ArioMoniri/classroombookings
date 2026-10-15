@@ -32,7 +32,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            "cn-toast !shadow-(--shadow-3) backdrop-blur-[32px] backdrop-saturate-[1.8] !text-[13px] !gap-2.5 !px-4 !py-3",
+            "cn-toast !shadow-(--shadow-3) backdrop-blur-[32px] backdrop-saturate-[1.8] !type-callout !gap-2.5 !px-4 !py-3",
           title: "!font-semibold !text-label-1",
           description: "!text-label-2",
           actionButton: "!rounded-full !bg-tint !text-tint-foreground !font-medium",

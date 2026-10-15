@@ -34,7 +34,7 @@ export function SummaryPanel({ className, showGenerate = true }: { className?: s
       <dl className="grid grid-cols-3 gap-x-3 gap-y-2 py-3 hairline-t hairline-b">
         {stats.map((s) => (
           <div key={s.label} className="min-w-0">
-            <dt className="truncate text-[11px] text-label-2" title={s.label}>
+            <dt className="truncate type-caption text-label-2" title={s.label}>
               {s.label}
             </dt>
             <dd className="text-base font-semibold tabular-nums" data-testid={s.testId}>
@@ -61,7 +61,7 @@ export function SummaryPanel({ className, showGenerate = true }: { className?: s
       {showGenerate ? (
         <div className="space-y-3">
           <GenerateButton className="w-full" testId="summary-generate" />
-          <p className="text-center text-[11px] text-label-2">{t("studio.summary.shortcut")}</p>
+          <p className="text-center type-caption text-label-2">{t("studio.summary.shortcut")}</p>
           <KeepSmallToggle />
         </div>
       ) : null}

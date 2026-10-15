@@ -9,7 +9,7 @@ export function PageHeader({ title, subtitle, actions, className }: { title: str
         <h1 tabIndex={-1} className="type-title-1 text-label-1 outline-hidden lg:type-large-title">
           {title}
         </h1>
-        {subtitle ? <p className="mt-1 text-[13px] text-label-2">{subtitle}</p> : null}
+        {subtitle ? <p className="mt-1 type-callout text-label-2">{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </div>

@@ -27,16 +27,16 @@ export function SoftBreakdown({ score, breakdown, weights, className }: { score:
   const config = useMemo(() => ({ points: { label: t("glass.report.points"), colors: CAT } }), [t]);
   return (
     <div className={cn("min-w-0", className)}>
-      <p className="text-[13px] text-label-2">{t("runs.softScore")}</p>
+      <p className="type-callout text-label-2">{t("runs.softScore")}</p>
       <p className="type-title-1 text-label-1">
         {score === null ? "—" : <KpiNumber value={score} />}
-        <span className="ml-1 text-[13px] font-normal text-label-3">/ 100</span>
+        <span className="ml-1 type-callout font-normal text-label-3">/ 100</span>
       </p>
-      <p className="text-[12px] text-label-3">{t("glass.report.softHint")}</p>
+      <p className="type-footnote text-label-3">{t("glass.report.softHint")}</p>
       {rows.length === 0 ? (
-        <p className="mt-3 text-[13px] text-label-2">{t("glass.report.noSoftLoss")}</p>
+        <p className="mt-3 type-callout text-label-2">{t("glass.report.noSoftLoss")}</p>
       ) : table ? (
-        <table className="mt-3 w-full text-[12px]">
+        <table className="mt-3 w-full type-footnote">
           <thead className="text-label-3">
             <tr>
               <th scope="col" className="pb-1 text-left font-medium">{t("glass.report.ruleCol")}</th>
@@ -68,7 +68,7 @@ export function SoftBreakdown({ score, breakdown, weights, className }: { score:
         </figure>
       )}
       {rows.length ? (
-        <button type="button" aria-pressed={table} className="mt-1 rounded-full px-2 py-0.5 text-[12px] font-medium text-tint-text outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" onClick={() => setTable((v) => !v)}>
+        <button type="button" aria-pressed={table} className="mt-1 rounded-full px-2 py-0.5 type-footnote font-medium text-tint-text outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" onClick={() => setTable((v) => !v)}>
           {table ? t("glass.report.asChart") : t("glass.dashboard.asTable")}
         </button>
       ) : null}

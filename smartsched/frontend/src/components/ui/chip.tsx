@@ -20,7 +20,7 @@ type ChipProps = Omit<React.ComponentProps<"button">, "onChange"> & {
 
 function Chip({ className, selected, onSelectedChange, icon, removeLabel, onRemove, size = "md", children, onClick, ...props }: ChipProps) {
   const toggle = typeof selected === "boolean"
-  const height = size === "sm" ? "h-6 text-[12px] px-2.5" : "h-7 text-[13px] px-3"
+  const height = size === "sm" ? "h-6 type-footnote px-2.5" : "h-7 type-callout px-3"
   return (
     <span data-slot="chip" className="inline-flex shrink-0 items-center">
       <button

@@ -70,7 +70,7 @@ export function RoomDetail({ id }: { id: number }) {
   if (room.isError) {
     return (
       <div className="flex flex-col items-start gap-3">
-        <p className="text-[15px]">{t("roomsV2.notFound")}</p>
+        <p className="type-headline">{t("roomsV2.notFound")}</p>
         <Button variant="outline" size="sm" render={<Link href="/rooms" />} nativeButton={false}>{t("roomsV2.back")}</Button>
       </div>
     );
@@ -86,7 +86,7 @@ export function RoomDetail({ id }: { id: number }) {
 
   return (
     <div className="flex flex-col gap-4" data-testid="room-detail">
-      <Link href="/rooms" className="inline-flex w-fit items-center gap-1 text-[13px] text-label-2 hover:text-label-1">
+      <Link href="/rooms" className="inline-flex w-fit items-center gap-1 type-callout text-label-2 hover:text-label-1">
         <ArrowLeft className="size-4" aria-hidden /> {t("roomsV2.back")}
       </Link>
 
@@ -97,10 +97,10 @@ export function RoomDetail({ id }: { id: number }) {
             {r.display_name}
             {!r.is_bookable ? <Badge variant="secondary" tone="preoccupied">{t("roomsV2.notBookable")}</Badge> : null}
           </h1>
-          <p className="text-[13px] text-label-2 tabular-nums">
+          <p className="type-callout text-label-2 tabular-nums">
             {[t("roomsV2.building", { b: r.building_code }), floor, t("roomsV2.seats", { n: r.capacity }), t("roomsV2.examSeats", { n: r.exam_capacity }), ...tags].filter(Boolean).join(" · ")}
           </p>
-          {nowCell !== undefined ? <p className={cn("text-[13px]", nowCell ? "text-label-1" : "text-status-feasible-fg")}>{nowLine(nowCell, t)}</p> : null}
+          {nowCell !== undefined ? <p className={cn("type-callout", nowCell ? "text-label-1" : "text-status-feasible-fg")}>{nowLine(nowCell, t)}</p> : null}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" render={<Link href={calHref} />} nativeButton={false} data-testid="room-open-calendar">
@@ -112,7 +112,7 @@ export function RoomDetail({ id }: { id: number }) {
         </div>
       </div>
 
-      {cal.noRun ? <p className="text-[13px] text-label-2">{t("roomsV2.noRun")}</p> : null}
+      {cal.noRun ? <p className="type-callout text-label-2">{t("roomsV2.noRun")}</p> : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-4">
@@ -121,11 +121,11 @@ export function RoomDetail({ id }: { id: number }) {
           <Card className="gap-3 p-4">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="type-headline">{t("roomsV2.weekly")}</h2>
-              {pct !== null ? <span className="text-[13px] text-label-2 tabular-nums">{t("roomsV2.occupancy", { p: pct, w: week ?? "" })}</span> : null}
+              {pct !== null ? <span className="type-callout text-label-2 tabular-nums">{t("roomsV2.occupancy", { p: pct, w: week ?? "" })}</span> : null}
               {week !== null && weekList.length ? (
                 <span className="ml-auto flex items-center gap-1" role="group" aria-label={t("roomsV2.week")}>
                   <Button variant="ghost" size="icon-sm" aria-label={t("roomsV2.prevWeek")} disabled={weekIdx <= 0} onClick={() => setWeek(weekList[weekIdx - 1])}><ChevronLeft /></Button>
-                  <span className="min-w-20 text-center text-[13px] font-semibold tabular-nums" aria-live="polite" data-testid="room-week">{t("roomsV2.weekLabel", { w: week })}</span>
+                  <span className="min-w-20 text-center type-callout font-semibold tabular-nums" aria-live="polite" data-testid="room-week">{t("roomsV2.weekLabel", { w: week })}</span>
                   <Button variant="ghost" size="icon-sm" aria-label={t("roomsV2.nextWeek")} disabled={weekIdx < 0 || weekIdx >= weekList.length - 1} onClick={() => setWeek(weekList[weekIdx + 1])}><ChevronRight /></Button>
                 </span>
               ) : null}
@@ -137,12 +137,12 @@ export function RoomDetail({ id }: { id: number }) {
           <Card variant="plain" className="gap-0 p-0">
             <h2 className="type-headline px-4 pt-3 pb-2">{week !== null ? t("roomsV2.classesThisWeek", { w: week }) : t("roomsV2.weekly")}</h2>
             {classes.length === 0 ? (
-              <p className="px-4 pb-4 text-[13px] text-label-2">{week !== null ? t("roomsV2.noClasses", { w: week }) : "—"}</p>
+              <p className="px-4 pb-4 type-callout text-label-2">{week !== null ? t("roomsV2.noClasses", { w: week }) : "—"}</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[560px] text-[13px]" data-testid="room-classes">
+                <table className="w-full min-w-[560px] type-callout" data-testid="room-classes">
                   <thead>
-                    <tr className="hairline-b text-left text-[12px] text-label-2">
+                    <tr className="hairline-b text-left type-footnote text-label-2">
                       <th scope="col" className="py-1.5 pr-2 pl-4 font-semibold">{t("roomsV2.dayCol")}</th>
                       <th scope="col" className="px-2 font-semibold">{t("roomsV2.timeCol")}</th>
                       <th scope="col" className="px-2 font-semibold">{t("roomsV2.courseCol")}</th>
@@ -185,7 +185,7 @@ export function RoomDetail({ id }: { id: number }) {
               }}
               options={[1, 2, 3, 4, 6].map((n) => ({ value: String(n), label: `≥ ${n}` }))}
             />
-            <label className="flex items-center justify-between gap-2 text-[13px]">
+            <label className="flex items-center justify-between gap-2 type-callout">
               {t("roomsV2.includeEvening")}
               <Switch checked={evening} onCheckedChange={(v) => setEvening(!!v)} />
             </label>
@@ -201,20 +201,20 @@ export function RoomDetail({ id }: { id: number }) {
                           aria-pressed={on}
                           disabled={!bookingsOn}
                           onClick={() => setPicked(on ? null : f)}
-                          className={cn("flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] tabular-nums transition-colors duration-(--dur-fast) disabled:cursor-default", on ? "bg-tint-soft text-tint-text" : "bg-fill-3 hover:bg-fill-2")}
+                          className={cn("flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left type-callout tabular-nums transition-colors duration-(--dur-fast) disabled:cursor-default", on ? "bg-tint-soft text-tint-text" : "bg-fill-3 hover:bg-fill-2")}
                         >
                           <span>{dayName(f.day, locale, "short")} {spanText(f.sp, f.ep)}</span>
-                          <span className="text-[12px] text-label-2">P{f.sp}–P{f.ep}</span>
+                          <span className="type-footnote text-label-2">P{f.sp}–P{f.ep}</span>
                         </button>
                       </li>
                     );
                   })}
                 </ul>
               ) : (
-                <p className="text-[13px] text-label-2">{t("roomsV2.noFree", { w: week ?? "" })}</p>
+                <p className="type-callout text-label-2">{t("roomsV2.noFree", { w: week ?? "" })}</p>
               )
             ) : null}
-            {!bookingsOn ? <p className="text-[12px] text-label-2">{t("roomsV2.bookingsOff")}</p> : picked ? null : <p className="text-[12px] text-label-2">{t("roomsV2.pickSlot")}</p>}
+            {!bookingsOn ? <p className="type-footnote text-label-2">{t("roomsV2.bookingsOff")}</p> : picked ? null : <p className="type-footnote text-label-2">{t("roomsV2.pickSlot")}</p>}
             {picked && cal.model && week !== null ? (
               <BookingForm
                 roomId={id}
@@ -238,7 +238,7 @@ export function RoomDetail({ id }: { id: number }) {
 
           <Card variant="plain" className="gap-2 p-4">
             <h2 className="type-headline">{t("roomsV2.facts")}</h2>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 type-callout">
               <dt className="text-label-2">{t("roomsV2.code")}</dt><dd className="tabular-nums">{r.code}</dd>
               <dt className="text-label-2">{t("roomsV2.capacity")}</dt><dd className="tabular-nums">{r.capacity}</dd>
               <dt className="text-label-2">{t("roomsV2.examCapacity")}</dt><dd className="tabular-nums">{r.exam_capacity}</dd>
@@ -264,13 +264,13 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
   const { t, locale } = useI18n();
   return (
     <div className="overflow-x-auto" data-testid="room-week-grid">
-      <div role="grid" aria-label={t("roomsV2.weekly")} className="grid min-w-[720px] gap-[2px] text-[11px]" style={{ gridTemplateColumns: `44px repeat(${PERIODS_PER_DAY}, minmax(30px, 1fr))` }}>
+      <div role="grid" aria-label={t("roomsV2.weekly")} className="grid min-w-[720px] gap-[2px] type-caption" style={{ gridTemplateColumns: `44px repeat(${PERIODS_PER_DAY}, minmax(30px, 1fr))` }}>
         <div role="row" className="contents">
           <span role="columnheader" style={{ gridRow: 1, gridColumn: 1 }} />
           {PERIODS.map((p) => (
             <span key={p.index} role="columnheader" className="pb-0.5 text-center leading-tight text-label-2 tabular-nums" title={`${p.start}–${p.end}`} style={{ gridRow: 1, gridColumn: p.index + 1 }}>
               P{p.index}
-              <span className="block text-[9px] text-label-3">{p.start}</span>
+              <span className="block text-2xs text-label-3">{p.start}</span>
             </span>
           ))}
         </div>
@@ -322,7 +322,7 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
           });
           return (
             <div key={day} role="row" className="contents">
-              <span role="rowheader" className="flex items-center text-[12px] font-semibold text-label-2" style={{ gridRow, gridColumn: 1 }}>{dayName(day, locale, "short")}</span>
+              <span role="rowheader" className="flex items-center type-footnote font-semibold text-label-2" style={{ gridRow, gridColumn: 1 }}>{dayName(day, locale, "short")}</span>
               {cells}
             </div>
           );
@@ -335,7 +335,7 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
 function Legend() {
   const { t } = useI18n();
   return (
-    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-label-2">
+    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 type-footnote text-label-2">
       <span className="flex items-center gap-1.5"><span aria-hidden className="size-3 rounded-[3px]" style={{ background: "var(--fac-1-fill)", boxShadow: "inset 2px 0 0 var(--fac-1-bar)" }} />{t("roomsV2.legendClass")}</span>
       <span className="flex items-center gap-1.5"><span aria-hidden className="cal-block size-3 rounded-[3px]" />{t("roomsV2.legendBlock")}</span>
       <span className="flex items-center gap-1.5"><span aria-hidden className="size-3 rounded-[3px] bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)]" />{t("roomsV2.legendFree")}</span>
@@ -351,7 +351,7 @@ function TermStrip({ cells, week, onWeek }: { cells: { week: number | null; day:
   const at = new Map(cells.map((c) => [`${c.week}:${c.day}`, c]));
   return (
     <div className="flex flex-col gap-[3px]" data-testid="room-term-heat">
-      <div className="grid grid-cols-[32px_repeat(7,1fr)] gap-[3px] text-center text-[10px] text-label-3" aria-hidden>
+      <div className="grid grid-cols-[32px_repeat(7,1fr)] gap-[3px] text-center text-2xs text-label-3" aria-hidden>
         <span />
         {[1, 2, 3, 4, 5, 6, 7].map((d) => <span key={d}>{dayName(d, locale, "short").slice(0, 2)}</span>)}
       </div>
@@ -367,7 +367,7 @@ function TermStrip({ cells, week, onWeek }: { cells: { week: number | null; day:
             aria-current={w === week ? "true" : undefined}
             className={cn("grid grid-cols-[32px_repeat(7,1fr)] items-center gap-[3px] rounded-md p-0.5 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", w === week ? "bg-tint-soft" : "hover:bg-fill-3")}
           >
-            <span className="text-[11px] font-semibold text-label-2 tabular-nums">H{w}</span>
+            <span className="type-caption font-semibold text-label-2 tabular-nums">H{w}</span>
             {row.map((c, i) => (
               <span key={i} title={c ? t("roomsV2.heatCell", { w, day: dayName(i + 1, locale), p: Math.round(c.occupancy * 100) }) : undefined} className="cal-heat h-3.5 rounded-[3px]" data-step={c ? heatStep(c.occupancy) : 0} data-out={c && !c.in_term ? "true" : undefined} />
             ))}
@@ -395,7 +395,7 @@ function BookingForm({ roomId, roomName, termId, date, run, onDone, lang }: { ro
       alive = false;
     };
   }, [roomId, date]);
-  if (!date) return <p className="text-[12px] text-label-2">{t("roomsV2.noDate")}</p>;
+  if (!date) return <p className="type-footnote text-label-2">{t("roomsV2.noDate")}</p>;
   const inRange = (periods ?? []).filter((p) => p.start_period >= run.sp && p.end_period <= run.ep);
   const when = t("roomsV2.bookingFor", { day: dayName(run.day, locale), date: new Date(`${date}T12:00:00`).toLocaleDateString(lang === "tr" ? "tr-TR" : "en-GB", { day: "numeric", month: "long" }), range: spanText(run.sp, run.ep) });
   const book = async () => {
@@ -412,11 +412,11 @@ function BookingForm({ roomId, roomName, termId, date, run, onDone, lang }: { ro
   };
   return (
     <div className="flex flex-col gap-2 rounded-xl bg-fill-3 p-3" data-testid="room-booking-form">
-      <p className="text-[13px] font-semibold">{when}</p>
+      <p className="type-callout font-semibold">{when}</p>
       {periods === null ? (
-        <p className="text-[12px] text-label-2" role="status">{t("roomsV2.loadingPeriods")}</p>
+        <p className="type-footnote text-label-2" role="status">{t("roomsV2.loadingPeriods")}</p>
       ) : inRange.length === 0 ? (
-        <p className="text-[12px] text-label-2">{t("roomsV2.bookingsOff")}</p>
+        <p className="type-footnote text-label-2">{t("roomsV2.bookingsOff")}</p>
       ) : (
         <>
           <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("roomsV2.bookingNote")} aria-label={t("roomsV2.bookingNote")} />

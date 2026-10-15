@@ -11,7 +11,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
-import { Segmented } from "./segmented";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useStudio } from "./studio-context";
 import type { Horizon } from "./studio-reducer";
 
@@ -94,20 +94,20 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
           <span id="scope-kind" className="text-sm font-medium">
             {t("studio.scope.kind")}
           </span>
-          <Segmented labelledBy="scope-kind" value={kind} onChange={onKind} testId="scope-kind" options={[{ value: "COURSE", label: t("studio.kind.COURSE"), testId: "kind-COURSE" }, { value: "EXAM", label: t("studio.kind.EXAM"), testId: "kind-EXAM" }]} />
+          <SegmentedControl semantics="radiogroup" aria-labelledby="scope-kind" value={kind} onValueChange={onKind} data-testid="scope-kind" options={[{ value: "COURSE", label: t("studio.kind.COURSE"), testId: "kind-COURSE" }, { value: "EXAM", label: t("studio.kind.EXAM"), testId: "kind-EXAM" }]} />
         </div>
         <div className="grid gap-1.5">
           <span id="scope-horizon" className="text-sm font-medium">
             {t("studio.scope.horizon")}
           </span>
           {kind === "EXAM" ? (
-            <Segmented labelledBy="scope-horizon" value={local.horizon === "TERM" ? "TERM" : "WEEK"} onChange={(h) => setScope(h as Horizon, h === "WEEK" ? (chosen.length ? chosen : selectable.slice(0, 1).map((w) => w.index)) : undefined)} options={[{ value: "WEEK", label: t("studio.horizon.EXAM_WEEKS") }, { value: "TERM", label: t("studio.horizon.EXAM") }]} />
+            <SegmentedControl semantics="radiogroup" aria-labelledby="scope-horizon" value={local.horizon === "TERM" ? "TERM" : "WEEK"} onValueChange={(h) => setScope(h as Horizon, h === "WEEK" ? (chosen.length ? chosen : selectable.slice(0, 1).map((w) => w.index)) : undefined)} options={[{ value: "WEEK", label: t("studio.horizon.EXAM_WEEKS") }, { value: "TERM", label: t("studio.horizon.EXAM") }]} />
           ) : (
-            <Segmented
-              labelledBy="scope-horizon"
+            <SegmentedControl semantics="radiogroup"
+              aria-labelledby="scope-horizon"
               value={local.horizon}
-              onChange={(h) => setScope(h, h === "WEEK" ? (chosen.length ? chosen : selectable.slice(0, 1).map((w) => w.index)) : undefined)}
-              testId="scope-horizon"
+              onValueChange={(h) => setScope(h, h === "WEEK" ? (chosen.length ? chosen : selectable.slice(0, 1).map((w) => w.index)) : undefined)}
+              data-testid="scope-horizon"
               options={[
                 { value: "WEEK", label: t("studio.horizon.WEEK"), testId: "horizon-WEEK" },
                 { value: "MONTH", label: t("studio.horizon.MONTH"), testId: "horizon-MONTH" },
@@ -148,20 +148,20 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
                       aria-label={`${t("glass.studio.weekN", { n: w.index })} ${formatDate(w.start_date, locale)}${holiday ? `, ${t("studio.scope.holiday", { label: w.label })}` : ""}`}
                       onClick={(e) => pickWeek(w.index, e.metaKey || e.ctrlKey || e.shiftKey)}
                       className={cn(
-                        "flex min-w-14 flex-col items-center rounded-xl px-2.5 py-1.5 text-[12px] outline-hidden transition-[background-color,color,transform] duration-(--dur-fast) ease-(--spring-snappy) active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus) pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
+                        "flex min-w-14 flex-col items-center rounded-xl px-2.5 py-1.5 type-footnote outline-hidden transition-[background-color,color,transform] duration-(--dur-fast) ease-(--spring-snappy) active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus) pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
                         on ? "bg-tint-soft text-tint-text shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_35%,transparent)]" : "bg-fill-3 text-label-1 shadow-[inset_0_0_0_1px_var(--hairline)] hover:bg-fill-2",
                         holiday && "hatch-preoccupied",
                       )}
                       data-testid={`week-${w.index}`}
                     >
                       <span className="font-semibold tabular-nums">{t("glass.studio.weekShort", { n: w.index })}</span>
-                      <span className={cn("text-[11px]", on ? "text-tint-text" : "text-label-3")}>{formatDate(w.start_date, locale, { day: "numeric", month: "short" })}</span>
+                      <span className={cn("type-caption", on ? "text-tint-text" : "text-label-3")}>{formatDate(w.start_date, locale, { day: "numeric", month: "short" })}</span>
                     </button>
                   );
                 })}
             </div>
           )}
-          {local.horizon === "WEEK" ? <p className="text-[12px] text-label-3">{t("glass.studio.weekHint")}</p> : null}
+          {local.horizon === "WEEK" ? <p className="type-footnote text-label-3">{t("glass.studio.weekHint")}</p> : null}
           {local.horizon === "WEEK" && chosen.length === 0 ? <p className="text-xs text-status-warning-fg">{t("studio.scope.pickWeeks")}</p> : null}
         </div>
       ) : null}

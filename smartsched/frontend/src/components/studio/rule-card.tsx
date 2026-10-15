@@ -176,7 +176,7 @@ export function RuleCard(p: RuleCardProps) {
             <>
               <q lang={p.writtenIn ?? (/[çğıöşüİ]/i.test(p.nlText) ? "tr" : locale)}>{p.nlText}</q>
               {p.writtenIn ? (
-                <span className="ml-1.5 inline-block rounded-sm px-1 py-px align-[1px] text-[10px] font-medium text-label-2 shadow-[inset_0_0_0_1px_var(--hairline)]" data-testid="written-in">
+                <span className="ml-1.5 inline-block rounded-sm px-1 py-px align-[1px] text-2xs font-medium text-label-2 shadow-[inset_0_0_0_1px_var(--hairline)]" data-testid="written-in">
                   {t("studio.rule.writtenIn", { lang: p.writtenIn.toUpperCase() })}
                 </span>
               ) : null}
@@ -209,7 +209,7 @@ export function RuleCard(p: RuleCardProps) {
           <summary className="cursor-pointer select-none">
             <span className="font-mono">{p.kind}</span> · {t("studio.rule.rawParams")}
           </summary>
-          <pre className="mt-1 max-h-40 overflow-auto rounded bg-fill-2 p-2 font-mono text-[11px]">{JSON.stringify(p.params ?? {}, null, 2)}</pre>
+          <pre className="mt-1 max-h-40 overflow-auto rounded bg-fill-2 p-2 font-mono type-caption">{JSON.stringify(p.params ?? {}, null, 2)}</pre>
         </details>
       ) : null}
 

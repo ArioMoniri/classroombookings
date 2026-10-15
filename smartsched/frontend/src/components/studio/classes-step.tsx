@@ -167,7 +167,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-xs font-semibold">{(r.course_code ?? "").toLocaleUpperCase(locale === "tr" ? "tr-TR" : "en-US")}</span>
                 {r.section_label ? <span className="text-xs text-label-2">§{r.section_label}</span> : null}
-                {rowState.excluded.has(r.id) ? <span className="rounded border px-1 text-[10px] text-label-2">{t("studio.classes.leftOutChip")}</span> : null}
+                {rowState.excluded.has(r.id) ? <span className="rounded border px-1 text-2xs text-label-2">{t("studio.classes.leftOutChip")}</span> : null}
               </div>
               <div className="truncate text-xs text-label-2" title={r.course_name ?? ""}>
                 {r.course_name}
@@ -184,7 +184,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           <div className="min-w-0 text-xs">
             <div className="truncate" title={`${row.original.faculty_name ?? ""} › ${row.original.program_name ?? ""}`}>
               {row.original.program_name}
-              {row.original.is_evening ? <span className="ml-1 rounded bg-fill-2 px-1 text-[10px]">İÖ</span> : null}
+              {row.original.is_evening ? <span className="ml-1 rounded bg-fill-2 px-1 text-2xs">İÖ</span> : null}
             </div>
             <div className="truncate text-label-2">{row.original.faculty_name}</div>
           </div>
@@ -477,7 +477,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                     <Checkbox checked={selected.has(r.id)} onClick={(e) => { e.preventDefault(); toggleSelect(r.id, false); }} aria-label={t("studio.classes.selectRow", { name: `${r.course_code} §${r.section_label ?? ""}` })} className="mt-1" />
                     <div className="min-w-0 flex-1 text-sm">
                       <p className="font-mono text-xs font-semibold">
-                        {r.course_code} <span className="text-label-2">§{r.section_label}</span> {out ? <span className="ml-1 rounded border px-1 font-sans text-[10px] font-normal text-label-2">{t("studio.classes.leftOutChip")}</span> : null}
+                        {r.course_code} <span className="text-label-2">§{r.section_label}</span> {out ? <span className="ml-1 rounded border px-1 font-sans text-2xs font-normal text-label-2">{t("studio.classes.leftOutChip")}</span> : null}
                       </p>
                       <p className="truncate text-xs">{r.course_name}</p>
                       <p className="truncate text-xs text-label-2">{r.program_name}</p>

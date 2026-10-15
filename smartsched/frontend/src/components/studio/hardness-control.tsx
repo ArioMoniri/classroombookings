@@ -5,7 +5,7 @@ import { useId, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useI18n } from "@/lib/i18n/provider";
 import { DEFAULT_SCALE, importanceOf, type WeightScale } from "./rule-sentence";
-import { Segmented } from "./segmented";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 const SEEN_KEY = "smartsched.studio.mustHelpSeen";
 
@@ -63,13 +63,13 @@ export function HardnessControl({
         <span id={`${id}-hl`} className="sr-only">
           {t("studio.rule.mustOrTry")}
         </span>
-        <Segmented
+        <SegmentedControl semantics="radiogroup"
           size="sm"
-          labelledBy={`${id}-hl`}
-          describedBy={`${id}-help`}
+          aria-labelledby={`${id}-hl`}
+          aria-describedby={`${id}-help`}
           value={hardness}
-          onChange={change}
-          testId="rule-hardness"
+          onValueChange={change}
+          data-testid="rule-hardness"
           options={[
             { value: "hard", label: t("studio.rule.must"), disabled: !allowed.includes("hard"), title: !allowed.includes("hard") ? t("studio.rule.onlyTry") : undefined, testId: "hardness-hard" },
             { value: "soft", label: t("studio.rule.try"), disabled: !allowed.includes("soft"), title: !allowed.includes("soft") ? t("studio.rule.onlyMust") : undefined, testId: "hardness-soft" },
@@ -105,13 +105,13 @@ export function HardnessControl({
           <span id={`${id}-il`} className="text-xs text-label-2">
             {t("studio.rule.importance")}
           </span>
-          <Segmented
+          <SegmentedControl semantics="radiogroup"
             size="sm"
-            labelledBy={`${id}-il`}
-            describedBy={`${id}-ih`}
+            aria-labelledby={`${id}-il`}
+            aria-describedby={`${id}-ih`}
             value={imp === "custom" ? null : imp}
-            onChange={(v) => onWeight(scale[v as "low" | "normal" | "high"])}
-            testId="rule-importance"
+            onValueChange={(v) => onWeight(scale[v as "low" | "normal" | "high"])}
+            data-testid="rule-importance"
             options={[
               { value: "low", label: t("studio.rule.low") },
               { value: "normal", label: t("studio.rule.normal") },

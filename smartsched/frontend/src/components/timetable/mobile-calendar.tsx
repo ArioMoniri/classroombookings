@@ -85,7 +85,7 @@ export function MobileCalendar(p: MobileCalendarProps) {
       <header className="flex items-start justify-between gap-2 px-4 pt-4">
         <div>
           <h1 className="type-title-1 capitalize" data-testid="calendar-title">{big}</h1>
-          <p className="text-[13px] text-label-2">{sub}</p>
+          <p className="type-callout text-label-2">{sub}</p>
         </div>
         <div className="flex gap-2 pt-1">
           <DropdownMenu>
@@ -118,8 +118,8 @@ export function MobileCalendar(p: MobileCalendarProps) {
               const today = iso === p.now.iso;
               return (
                 <button key={d} type="button" role="tab" aria-selected={selected} onClick={() => p.onDay(d)} className="flex min-h-11 flex-col items-center gap-0.5 py-1" aria-label={`${dayName(d, locale)} ${iso ?? ""}`}>
-                  <span className="text-[11px] font-semibold text-label-3">{dayName(d, locale, "short").slice(0, 1)}</span>
-                  <span className={cn("flex size-9 items-center justify-center rounded-full text-[15px] tabular-nums", selected && "bg-label-1 font-semibold text-(--cal-canvas)", !selected && today && "font-semibold text-[var(--now-strong)]")}>{iso ? Number(iso.slice(8)) : ""}</span>
+                  <span className="type-caption font-semibold text-label-3">{dayName(d, locale, "short").slice(0, 1)}</span>
+                  <span className={cn("flex size-9 items-center justify-center rounded-full type-headline tabular-nums", selected && "bg-label-1 font-semibold text-(--cal-canvas)", !selected && today && "font-semibold text-[var(--now-strong)]")}>{iso ? Number(iso.slice(8)) : ""}</span>
                   <span aria-hidden className={cn("size-1 rounded-full", occ > 0.75 ? "bg-label-1" : occ > 0.4 ? "bg-label-2" : occ > 0 ? "bg-label-4" : "bg-transparent")} />
                 </button>
               );
@@ -141,7 +141,7 @@ export function MobileCalendar(p: MobileCalendarProps) {
                 <TimeGrid model={p.model} mask={1 << (p.week - 1)} columns={columns} colW={Math.max(240, typeof window !== "undefined" ? window.innerWidth - 72 : 300)} rowH={rowHeightFor(3)} events={dayEvents} colOf={() => 0} blocks={room !== null ? blocksOf(p.model, p.week, p.day).filter((b) => b.room === room) : []} blockCol={() => 0} bookings={[]} bookingCol={() => 0} selection={p.selection} onSelect={p.onSelect} onSelectMany={() => undefined} onOpen={(ev) => setOpen(ev)} onMove={() => undefined} onCreate={() => undefined} onResize={() => undefined} onAnnounce={() => undefined} readOnly nowMin={p.dates[p.day - 1] === p.now.iso ? p.now.minutes : null} nowCols={p.dates[p.day - 1] === p.now.iso ? [0] : []} gridLabel={t("calendar.timelineLabel", { day: dayName(p.day, locale) })} headerH={48} line2={(e) => `${p.model.roomById.get(e.room)?.name ?? ""} · ${e.a.size}/${roomCap(p.model, p.model.roomById.get(e.room))}`} ariaFor={(e) => e.a.label} />
               </div>
             ) : (
-              <p className="px-4 text-[13px] text-label-2">{t("calendar.empty.pickSubject")}</p>
+              <p className="px-4 type-callout text-label-2">{t("calendar.empty.pickSubject")}</p>
             )}
           </div>
         </>

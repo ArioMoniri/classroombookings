@@ -44,8 +44,8 @@ export function ScopeRadio({ model, ev, value, onChange, day }: { model: Calenda
     </label>
   );
   return (
-    <fieldset className="flex flex-col gap-0.5 text-[13px]">
-      <legend className="mb-1 text-[12px] font-semibold text-label-2">{t("calendar.move.scope")}</legend>
+    <fieldset className="flex flex-col gap-0.5 type-callout">
+      <legend className="mb-1 type-footnote font-semibold text-label-2">{t("calendar.move.scope")}</legend>
       {opt("all", t("calendar.move.scopeAll", { weeks: range }))}
       {opt("week", t("calendar.move.scopeWeek", { n: value.week, date: label(value.week) }))}
       {opt(
@@ -54,9 +54,9 @@ export function ScopeRadio({ model, ev, value, onChange, day }: { model: Calenda
         null,
       )}
       {value.scope !== "all" ? (
-        <label className="mt-1 flex items-center gap-2 text-[12px] text-label-2">
+        <label className="mt-1 flex items-center gap-2 type-footnote text-label-2">
           {t("calendar.move.fromWeek")}
-          <select className="h-7 rounded-lg bg-fill-2 px-2 text-[12px] text-label-1" value={value.week} onChange={(e) => onChange({ ...value, week: Number(e.target.value) })}>
+          <select className="h-7 rounded-lg bg-fill-2 px-2 type-footnote text-label-1" value={value.week} onChange={(e) => onChange({ ...value, week: Number(e.target.value) })}>
             {weeks.map((w) => (
               <option key={w} value={w}>
                 {t("calendar.nav.weekShort", { n: w })} · {label(w)}
@@ -78,7 +78,7 @@ function scopeMask(ev: CalEvent, s: ScopeValue): number {
 function Issues({ hard, soft, lang }: { hard: CheckIssue[] | { text: { tr: string; en: string } }[]; soft: { text: { tr: string; en: string } }[]; lang: "tr" | "en" }) {
   if (!hard.length && !soft.length) return null;
   return (
-    <ul className="flex flex-col gap-1 text-[12px]" aria-live="polite">
+    <ul className="flex flex-col gap-1 type-footnote" aria-live="polite">
       {hard.map((h, i) => (
         <li key={`h${i}`} className="flex gap-1.5 text-status-infeasible-fg"><TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />{h.text[lang]}</li>
       ))}
@@ -173,15 +173,15 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-[1fr_220px]">
           <div className="flex min-w-0 flex-col gap-2">
-            <p className="text-[12px] font-semibold text-label-2">{t("calendar.move.finder")}</p>
+            <p className="type-footnote font-semibold text-label-2">{t("calendar.move.finder")}</p>
             <div className="max-h-[300px] overflow-y-auto rounded-xl bg-fill-3 p-1" role="listbox" aria-label={t("calendar.move.room")}>
               {finder.isLoading ? (
-                <p className="flex items-center gap-2 p-3 text-[12px] text-label-2"><BusyGlyph className="size-3.5" />{t("calendar.move.checking")}</p>
+                <p className="flex items-center gap-2 p-3 type-footnote text-label-2"><BusyGlyph className="size-3.5" />{t("calendar.move.checking")}</p>
               ) : (
                 groups.map((g) =>
                   g.rooms.length ? (
                     <div key={g.key} role="group" aria-label={g.label}>
-                      <p className="px-2 pt-2 pb-1 text-[11px] font-semibold text-label-2">{g.label} · {g.rooms.length}</p>
+                      <p className="px-2 pt-2 pb-1 type-caption font-semibold text-label-2">{g.label} · {g.rooms.length}</p>
                       {g.rooms.slice(0, g.key === "free" ? 40 : 12).map((r) => (
                         <button
                           key={r.room_id}
@@ -193,11 +193,11 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
                           data-status={r.status}
                           disabled={g.key === "other"}
                           onClick={() => setRoom(r.room_id)}
-                          className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-fill-2 disabled:opacity-50", room === r.room_id && "bg-tint-soft")}
+                          className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2 disabled:opacity-50", room === r.room_id && "bg-tint-soft")}
                         >
                           <span className="w-14 shrink-0 font-semibold">{r.code}</span>
-                          <span className="w-16 shrink-0 text-[12px] text-label-2 tabular-nums">{t(model.exam ? "calendar.move.examSeats" : "calendar.move.seats", { n: r.capacity })}</span>
-                          <span className="min-w-0 flex-1 truncate text-[12px] text-label-2">{r.room_id === ev.room ? t("calendar.move.current") : r.status === "free" && r.fit ? t("calendar.move.fit", { p: Math.round(r.fit * 100) }) : (r.reason?.[lang] ?? "")}</span>
+                          <span className="w-16 shrink-0 type-footnote text-label-2 tabular-nums">{t(model.exam ? "calendar.move.examSeats" : "calendar.move.seats", { n: r.capacity })}</span>
+                          <span className="min-w-0 flex-1 truncate type-footnote text-label-2">{r.room_id === ev.room ? t("calendar.move.current") : r.status === "free" && r.fit ? t("calendar.move.fit", { p: Math.round(r.fit * 100) }) : (r.reason?.[lang] ?? "")}</span>
                           {room === r.room_id ? <Check className="size-3.5 shrink-0 text-tint-text" aria-hidden /> : null}
                         </button>
                       ))}
@@ -208,15 +208,15 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
             </div>
           </div>
           <div className="flex flex-col gap-3">
-            <label className="flex flex-col gap-1 text-[12px] font-semibold text-label-2">
+            <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
               {t("calendar.move.day")}
-              <select className="h-8 rounded-lg bg-fill-2 px-2 text-[13px] font-normal text-label-1" value={day} onChange={(e) => setDay(Number(e.target.value))}>
+              <select className="h-8 rounded-lg bg-fill-2 px-2 type-callout font-normal text-label-1" value={day} onChange={(e) => setDay(Number(e.target.value))}>
                 {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{dayName(d, locale)}</option>)}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-[12px] font-semibold text-label-2">
+            <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
               {t("calendar.move.start")}
-              <select className="h-8 rounded-lg bg-fill-2 px-2 text-[13px] font-normal text-label-1" value={sp} onChange={(e) => setSp(Number(e.target.value))}>
+              <select className="h-8 rounded-lg bg-fill-2 px-2 type-callout font-normal text-label-1" value={sp} onChange={(e) => setSp(Number(e.target.value))}>
                 {PERIODS.filter((p) => p.index + span <= PERIODS_PER_DAY).map((p) => (
                   <option key={p.index} value={p.index}>P{p.index} · {p.start}–{PERIODS[p.index + span - 1].end}</option>
                 ))}
@@ -227,8 +227,8 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
         </div>
         <div className="flex flex-col gap-1.5">
           {shown ? <Issues hard={shown.hard} soft={shown.soft} lang={lang} /> : null}
-          {server && server.ok ? <p className="text-[12px] text-status-feasible-fg" data-testid="move-server-ok">✓ {t("calendar.move.serverOk")}</p> : null}
-          {scope.scope === "from" && ok ? <p className="text-[12px] text-label-2">{t("calendar.move.split", { room: fromRoom })}</p> : null}
+          {server && server.ok ? <p className="type-footnote text-status-feasible-fg" data-testid="move-server-ok">✓ {t("calendar.move.serverOk")}</p> : null}
+          {scope.scope === "from" && ok ? <p className="type-footnote text-label-2">{t("calendar.move.split", { room: fromRoom })}</p> : null}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>{t("calendar.insp.cancel")}</Button>
@@ -291,10 +291,10 @@ export function MovePopover({ model, pending, week, onSave, onCancel }: { model:
           onSave(scope);
         }
       }}>
-        <p id={id} className="text-[13px] font-semibold">
+        <p id={id} className="type-callout font-semibold">
           {pending.extra.length ? t("calendar.drag.multi", { n: pending.extra.length + 1, ok: pending.extra.length + 1, bad: 0 }) : `${pending.ev.a.label} → ${to?.name ?? ""}`}
         </p>
-        <p className="text-[12px] text-label-2 tabular-nums">
+        <p className="type-footnote text-label-2 tabular-nums">
           <span className="line-through decoration-label-3">{from} {whenText(pending.ev.day, pending.ev.sp, pending.ev.ep)[lang]}</span>
           {" → "}
           <span className="text-label-1">{to?.name} {whenText(pending.target.day, pending.target.sp, pending.target.ep)[lang]} · {roomCap(model, to)} {lang === "tr" ? "koltuk" : "seats"}</span>
@@ -302,8 +302,8 @@ export function MovePopover({ model, pending, week, onSave, onCancel }: { model:
         <Issues hard={[]} soft={pending.soft} lang={lang} />
         {pending.extra.length === 0 ? <ScopeRadio model={model} ev={pending.ev} value={scope} onChange={(v) => { setTouched(true); setScope(v); }} day={pending.target.day} /> : null}
         <div className="flex justify-end gap-2 pt-1">
-          <Button variant="ghost" size="sm" onClick={onCancel}>{t("calendar.toast.undo")} <kbd className="ml-1 text-[11px] text-label-3">esc</kbd></Button>
-          <Button size="sm" data-testid="move-confirm" data-autofocus onClick={() => onSave(scope)}>{t("calendar.move.confirm")} <kbd className="ml-1 text-[11px] opacity-80">↵</kbd></Button>
+          <Button variant="ghost" size="sm" onClick={onCancel}>{t("calendar.toast.undo")} <kbd className="ml-1 type-caption text-label-3">esc</kbd></Button>
+          <Button size="sm" data-testid="move-confirm" data-autofocus onClick={() => onSave(scope)}>{t("calendar.move.confirm")} <kbd className="ml-1 type-caption opacity-80">↵</kbd></Button>
         </div>
       </div>
     </FloatingPanel>

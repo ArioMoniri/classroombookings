@@ -116,7 +116,7 @@ export function WeekScrubber({ weeks, week, occupancy, onWeek, onToday, todayWee
                 >
                   {!holiday ? <span className="absolute inset-x-0 bottom-0 h-full origin-bottom bg-[var(--seq-3)]" style={{ transform: `scaleY(${Math.max(0.06, Math.min(1, occ))})`, opacity: exam ? 0.5 : 0.85 }} /> : null}
                 </span>
-                {active ? <span className="absolute -top-4 text-[10px] leading-3 font-semibold text-label-1 tabular-nums">{t("calendar.nav.weekShort", { n: w.index })}</span> : null}
+                {active ? <span className="absolute -top-4 text-2xs leading-3 font-semibold text-label-1 tabular-nums">{t("calendar.nav.weekShort", { n: w.index })}</span> : null}
                 {todayWeek === w.index && !active ? <span aria-hidden className="absolute -bottom-1 size-1 rounded-full bg-[var(--now)]" /> : null}
               </div>
             );
@@ -126,7 +126,7 @@ export function WeekScrubber({ weeks, week, occupancy, onWeek, onToday, todayWee
       <Button variant="ghost" size="icon-sm" aria-label={t("calendar.nav.next")} onClick={() => onWeek(Math.min(last, week + 1))} disabled={week >= last}><ChevronRight /></Button>
       <Button variant="ghost" size="sm" onClick={onToday}>{t("calendar.nav.today")}</Button>
       {scrub !== null ? (
-        <span role="status" className="glass-thick absolute -top-9 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[12px] font-medium whitespace-nowrap">
+        <span role="status" className="glass-thick absolute -top-9 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 type-footnote font-medium whitespace-nowrap">
           {t("calendar.scrubberValue", { n: scrub, range: range(weeks.find((w) => w.index === scrub)) })}
         </span>
       ) : null}

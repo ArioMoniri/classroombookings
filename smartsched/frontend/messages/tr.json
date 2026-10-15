@@ -1636,6 +1636,7 @@
       "bookable": "Rezerve edilebilir",
       "photo": "Fotoğraf",
       "photoAlt": "{name} fotoğrafı",
+      "photoSaved": "Fotoğraf yüklendi",
       "uploadPhoto": "Fotoğraf yükle",
       "removePhoto": "Kaldır"
     },
@@ -1802,6 +1803,7 @@
       "trKey": "Anahtar",
       "trKeyHint": "Anahtar, ör. bookings.title",
       "trText": "Metin",
+      "leaveUnsaved": "Kaydedilmemiş ayarlarınız var. Kaydetmeden çıkılsın mı?",
       "unsaved": "Kaydedilmemiş değişiklikler"
     },
     "ldap": {
@@ -2857,6 +2859,7 @@
       "active": "Etkin",
       "inactive": "Kapalı",
       "everyTerm": "Tüm dönemler",
+      "noneDesignated": "henüz atanmış onaycı yok",
       "designated": "Atanmış onaycılar",
       "namedUsers": "Belirli onaycılar",
       "kind": {

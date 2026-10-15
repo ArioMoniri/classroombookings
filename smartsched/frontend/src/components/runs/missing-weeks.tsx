@@ -22,7 +22,7 @@ export function MissingWeeks({ runId, stats }: { runId: number; stats: Record<st
   const rows = missingOnlyWeek(stats);
   if (!rows.length) return null;
   return (
-    <ul className="mt-2 space-y-1 text-[13px] text-status-warning-fg" data-testid="missing-weeks">
+    <ul className="mt-2 space-y-1 type-callout text-status-warning-fg" data-testid="missing-weeks">
       {rows.map((r) => (
         <li key={r.week} className="flex flex-wrap items-baseline gap-x-2">
           <span>{t("glass.report.missingOnlyWeek", { n: n(r.count), week: r.week })}</span>

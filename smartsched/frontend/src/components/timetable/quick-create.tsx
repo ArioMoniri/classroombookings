@@ -164,10 +164,10 @@ export function QuickCreate({ model, req, week, onClose, onMoveHere }: { model: 
       >
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p id={titleId} className="text-[13px] font-semibold" data-testid="booking-slot" data-room-id={req.room} data-day={req.column.day} data-period={req.sp}>
+            <p id={titleId} className="type-callout font-semibold" data-testid="booking-slot" data-room-id={req.room} data-day={req.column.day} data-period={req.sp}>
               {t("calendar.create.slot", { room: room?.name ?? "", when, n: req.ep - req.sp + 1 })}
             </p>
-            <p className={cn("text-[12px]", free ? "text-status-feasible-fg" : "text-status-warning-fg")}>{free ? `✓ ${t("calendar.create.free", { cap: roomCap(model, room) })}` : t("calendar.create.busy")}</p>
+            <p className={cn("type-footnote", free ? "text-status-feasible-fg" : "text-status-warning-fg")}>{free ? `✓ ${t("calendar.create.free", { cap: roomCap(model, room) })}` : t("calendar.create.busy")}</p>
           </div>
         </div>
         <SegmentedGlass
@@ -183,13 +183,13 @@ export function QuickCreate({ model, req, week, onClose, onMoveHere }: { model: 
         />
         {tab === "booking" ? (
           <div className="flex flex-col gap-2.5">
-            {periods !== null && periods.length === 0 ? <p className="text-[12px] text-label-2">{t("calendar.create.noPeriods")}</p> : null}
-            <label className="flex flex-col gap-1 text-[12px] font-semibold text-label-2">
+            {periods !== null && periods.length === 0 ? <p className="type-footnote text-label-2">{t("calendar.create.noPeriods")}</p> : null}
+            <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
               {t("calendar.create.title")}
               <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={255} placeholder={t("calendar.create.note")} />
             </label>
-            <fieldset className="flex flex-col gap-1 text-[13px]">
-              <legend className="mb-1 text-[12px] font-semibold text-label-2">{t("calendar.create.repeat")}</legend>
+            <fieldset className="flex flex-col gap-1 type-callout">
+              <legend className="mb-1 type-footnote font-semibold text-label-2">{t("calendar.create.repeat")}</legend>
               {(["week", "term"] as const).map((r) => (
                 <label key={r} className="flex items-center gap-2">
                   <input type="radio" name={`${titleId}-repeat`} checked={repeat === r} onChange={() => setRepeat(r)} className="accent-(--accent)" />
@@ -199,28 +199,28 @@ export function QuickCreate({ model, req, week, onClose, onMoveHere }: { model: 
             </fieldset>
             <div className="flex justify-end">
               <Button size="sm" data-testid="booking-create" disabled={busy || !inRange.length || !free} onClick={() => void book()}>
-                {t("calendar.create.book")} <kbd className="ml-1 text-[11px] opacity-80">⌘↵</kbd>
+                {t("calendar.create.book")} <kbd className="ml-1 type-caption opacity-80">⌘↵</kbd>
               </Button>
             </div>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             <Input data-autofocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("calendar.create.search")} aria-label={t("calendar.create.search")} />
-            <p className="text-[11px] font-semibold text-label-2">{query ? t("calendar.create.allClasses") : t("calendar.create.unplacedFirst", { n: model.unplaced.length })}</p>
+            <p className="type-caption font-semibold text-label-2">{query ? t("calendar.create.allClasses") : t("calendar.create.unplacedFirst", { n: model.unplaced.length })}</p>
             <ul className="max-h-48 overflow-y-auto" role="listbox" aria-label={t("calendar.create.search")}>
-              {candidates.length === 0 ? <li className="px-2 py-1.5 text-[12px] text-label-2">{t("calendar.create.noMatch")}</li> : null}
+              {candidates.length === 0 ? <li className="px-2 py-1.5 type-footnote text-label-2">{t("calendar.create.noMatch")}</li> : null}
               {candidates.map((c) => (
                 <li key={c.key}>
                   <button type="button" role="option" aria-selected={picked?.key === c.key} onClick={() => setPicked(c)} className={cn("flex w-full flex-col rounded-lg px-2 py-1 text-left hover:bg-fill-2", picked?.key === c.key && "bg-tint-soft", c.aid === null && "cal-unplaced my-0.5 border-[var(--label-3)]")}>
-                    <span className="text-[13px] font-semibold">{c.label}</span>
-                    <span className="truncate text-[11px] text-label-2">{c.sub}</span>
+                    <span className="type-callout font-semibold">{c.label}</span>
+                    <span className="truncate type-caption text-label-2">{c.sub}</span>
                   </button>
                 </li>
               ))}
             </ul>
             <div className="flex justify-end">
               <Button size="sm" disabled={busy || !picked} onClick={() => void place()}>
-                {picked?.aid ? t("calendar.create.place") : t("calendar.create.later")} <kbd className="ml-1 text-[11px] opacity-80">⌘↵</kbd>
+                {picked?.aid ? t("calendar.create.place") : t("calendar.create.later")} <kbd className="ml-1 type-caption opacity-80">⌘↵</kbd>
               </Button>
             </div>
           </div>

@@ -11,7 +11,7 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
       data-slot="textarea"
       className={cn(
         fieldSurface,
-        "flex field-sizing-content min-h-16 w-full rounded-xl px-3 py-2 text-base md:text-[13px]",
+        "flex field-sizing-content min-h-16 w-full rounded-xl px-3 py-2 text-base md:type-callout",
         className
       )}
       {...props}

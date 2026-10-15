@@ -53,7 +53,7 @@ function Verdict({ r, headline, exceptions = [] }: { r: ScheduleRun; headline?: 
         <AlertTriangle className="mt-1 size-5 shrink-0 stroke-[2]" aria-hidden />
         <div>
           <p className="type-title-3">{partial ? t("glass.report.partialHeld", { placed: n(partial.placed), total: n(partial.total) }) : t("glass.report.heldWithExceptions")}</p>
-          <ul className="mt-1 list-disc pl-5 text-[13px] text-label-1" data-testid="verdict-exceptions">
+          <ul className="mt-1 list-disc pl-5 type-callout text-label-1" data-testid="verdict-exceptions">
             {exceptions.map((e) => (
               <li key={e.key} data-key={e.key}>{t(`glass.report.exc.${e.key}`, { n: n(e.n), rules: (e.rules ?? []).map(ruleName).join(", ") })}</li>
             ))}
@@ -185,7 +185,7 @@ export function RunView({ id }: { id: number }) {
 
   return (
     <div data-testid="run-view">
-      <Link href="/runs" className="mb-2 inline-flex items-center gap-1 text-[13px] text-label-2 hover:text-label-1">
+      <Link href="/runs" className="mb-2 inline-flex items-center gap-1 type-callout text-label-2 hover:text-label-1">
         <ArrowLeft className="size-4" aria-hidden /> {t("runs.title")}
       </Link>
       <PageHeader
@@ -215,7 +215,7 @@ export function RunView({ id }: { id: number }) {
             </ProgressTrack>
           </Progress>
           <SolveProgress r={r} />
-          <p className="mt-3 text-[12px] text-label-3">{t("glass.report.solverInfo", { s: r.params.time_limit_s })}</p>
+          <p className="mt-3 type-footnote text-label-3">{t("glass.report.solverInfo", { s: r.params.time_limit_s })}</p>
           {canPlan ? <CancelRunButton runId={r.id} className="mt-3" /> : null}
         </GlassPanel>
       ) : (
@@ -225,7 +225,7 @@ export function RunView({ id }: { id: number }) {
               <ScoreRing live={live} value={r.hard_score} partial={partial} label={partial ? t("glass.report.placedShort") : r.hard_score === 100 ? t("runs.status.FEASIBLE") : t("runs.status.INFEASIBLE")} />
               <div className="min-w-0">
                 <Verdict r={r} headline={headline} exceptions={exceptions} />
-                <p className="mt-1 text-[13px] text-label-2">{partial ? t("glass.report.partialHint", { n: n(unplaced) }) : null}</p>
+                <p className="mt-1 type-callout text-label-2">{partial ? t("glass.report.partialHint", { n: n(unplaced) }) : null}</p>
                 <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
                 {canPlan && finished && r.status !== "CANCELLED" ? (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -239,16 +239,16 @@ export function RunView({ id }: { id: number }) {
                     { k: t("glass.report.problems"), v: problems },
                   ].map((x) => (
                     <div key={x.k}>
-                      <dt className="text-[12px] text-label-3">{x.k}</dt>
-                      <dd className="text-[22px] leading-7 font-semibold tracking-[-0.017em] text-label-1">
+                      <dt className="type-footnote text-label-3">{x.k}</dt>
+                      <dd className="type-title-2 leading-7 font-semibold tracking-[-0.017em] text-label-1">
                         <KpiNumber value={x.v} format={(v) => new Intl.NumberFormat(locale).format(v)} />
-                        {x.suffix ? <span className="text-[13px] font-normal text-label-3">{x.suffix}</span> : null}
+                        {x.suffix ? <span className="type-callout font-normal text-label-3">{x.suffix}</span> : null}
                       </dd>
                     </div>
                   ))}
                   <div>
-                    <dt className="text-[12px] text-label-3">{t("runs.solveTime")}</dt>
-                    <dd className="text-[22px] leading-7 font-semibold tracking-[-0.017em] text-label-1">{duration(r)}</dd>
+                    <dt className="type-footnote text-label-3">{t("runs.solveTime")}</dt>
+                    <dd className="type-title-2 leading-7 font-semibold tracking-[-0.017em] text-label-1">{duration(r)}</dd>
                   </div>
                 </dl>
               </div>
@@ -271,7 +271,7 @@ export function RunView({ id }: { id: number }) {
               <TabsContent value="report" keepMounted className="space-y-5 pt-4 data-[hidden]:hidden">
                 {problems === 0 ? (
                   <Card>
-                    <CardContent className="flex items-center gap-2 text-[13px] text-status-feasible-fg">
+                    <CardContent className="flex items-center gap-2 type-callout text-status-feasible-fg">
                       <CheckCircle2 className="size-4" aria-hidden /> {t("runs.noDiagnosis")}
                     </CardContent>
                   </Card>
@@ -282,7 +282,7 @@ export function RunView({ id }: { id: number }) {
                       <h3 className="type-headline text-label-1">
                         {t("glass.report.unplacedTitle")} <span className="font-normal text-label-3 tabular-nums">{n(cardCount(unplacedCards))}</span>
                       </h3>
-                      <p className="text-[12.5px] text-label-2">{t("glass.report.unplacedHint")}</p>
+                      <p className="type-footnote text-label-2">{t("glass.report.unplacedHint")}</p>
                       <div className="mt-1">
                         {[...unplacedCards.codes.values()].flat().slice(0, allUnplaced ? undefined : 8).map((row) => (
                           <DiagnosisCard key={row.d.id} d={row.d} section="unplaced" count={row.count} applying={applyFix.isPending} onApply={(sid) => void onApply(row.d.index ?? Number(row.d.id), sid)} onChat={() => setTab("chat")} />
@@ -302,7 +302,7 @@ export function RunView({ id }: { id: number }) {
                       <h3 className="type-headline text-label-1">
                         {t("glass.report.rulesTitle")} <span className="font-normal text-label-3 tabular-nums">{n(cardCount(ruleCards))}</span>
                       </h3>
-                      <p className="text-[12.5px] text-label-2">{t("glass.report.rulesHint")}</p>
+                      <p className="type-footnote text-label-2">{t("glass.report.rulesHint")}</p>
                       <div className="mt-1">
                         {[...ruleCards.codes.values()].flat().map((row) => (
                           <DiagnosisCard key={row.d.id} d={row.d} section="rules" count={row.count} applying={applyFix.isPending} onApply={(sid) => void onApply(row.d.index ?? Number(row.d.id), sid)} />
@@ -321,7 +321,7 @@ export function RunView({ id }: { id: number }) {
                 {/* the calendar lives on its own page (owned by the calendar view); deep-link run + week */}
                 <Card>
                   <CardContent className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[13px] text-label-2">{t("glass.report.gridHint", { week: r.horizon_params.weeks[0] ?? 1 })}</p>
+                    <p className="type-callout text-label-2">{t("glass.report.gridHint", { week: r.horizon_params.weeks[0] ?? 1 })}</p>
                     <Button nativeButton={false} render={<Link href={`/timetable?run=${r.id}&week=${r.horizon_params.weeks[0] ?? 1}`} />} data-testid="open-grid">
                       {t("glass.report.openGrid")}
                     </Button>
@@ -331,12 +331,12 @@ export function RunView({ id }: { id: number }) {
               <TabsContent value="constraints" className="pt-4">
                 <Card>
                   <CardContent>
-                    {(constraints.data ?? []).length === 0 ? <p className="text-[13px] text-label-2">{t("glass.report.noRules")}</p> : null}
+                    {(constraints.data ?? []).length === 0 ? <p className="type-callout text-label-2">{t("glass.report.noRules")}</p> : null}
                     <ul>
                       {(constraints.data ?? []).map((c) => (
-                        <li key={c.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 py-2 text-[13px] [&:not(:last-child)]:hairline-b">
+                        <li key={c.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 py-2 type-callout [&:not(:last-child)]:hairline-b">
                           <span className="min-w-0 flex-1 text-label-1">{c.nl_text ?? t("glass.report.ruleOf", { kind: c.kind.replace(/_/g, " ") })}</span>
-                          <span className="text-[12px] text-label-3">
+                          <span className="type-footnote text-label-3">
                             {c.hardness === "hard" ? t("glass.report.must") : t("glass.report.try")}
                             {!c.enabled ? ` · ${t("glass.report.off")}` : ""}
                           </span>

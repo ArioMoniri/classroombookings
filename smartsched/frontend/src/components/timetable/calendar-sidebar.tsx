@@ -49,9 +49,9 @@ function Section({ title, onReset, children, count }: { title: string; onReset?:
   return (
     <section className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between px-1">
-        <h3 className="text-[11px] font-semibold text-label-3">{title}{count ? ` · ${count}` : ""}</h3>
+        <h3 className="type-caption font-semibold text-label-3">{title}{count ? ` · ${count}` : ""}</h3>
         {onReset ? (
-          <button type="button" onClick={onReset} className="flex items-center gap-1 rounded-full px-1.5 text-[11px] text-label-2 hover:text-label-1" aria-label={`${t("calendar.sidebar.reset")} ${title}`}>
+          <button type="button" onClick={onReset} className="flex items-center gap-1 rounded-full px-1.5 type-caption text-label-2 hover:text-label-1" aria-label={`${t("calendar.sidebar.reset")} ${title}`}>
             <RotateCcw className="size-3" aria-hidden />
           </button>
         ) : null}
@@ -77,13 +77,13 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
   return (
     <div className="px-1">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-[13px] font-semibold capitalize">{title}</span>
+        <span className="type-callout font-semibold capitalize">{title}</span>
         <span className="flex">
           <Button variant="ghost" size="icon-xs" aria-label={t("calendar.nav.prev")} onClick={() => shift(-1)}><ChevronLeft /></Button>
           <Button variant="ghost" size="icon-xs" aria-label={t("calendar.nav.next")} onClick={() => shift(1)}><ChevronRight /></Button>
         </span>
       </div>
-      <table className="w-full table-fixed text-center text-[11px] tabular-nums" role="grid" aria-label={t("calendar.sidebar.miniMonth")}>
+      <table className="w-full table-fixed text-center type-caption tabular-nums" role="grid" aria-label={t("calendar.sidebar.miniMonth")}>
         <thead>
           <tr className="text-label-3">
             <th className="w-6 font-medium" aria-label={t("calendar.scrubber")}>{locale === "tr" ? "H" : "W"}</th>
@@ -97,7 +97,7 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
             const exam = model.index.weeks.find((w) => w.index === wk)?.kind === "EXAM";
             return (
               <tr key={r[0]} className={cn(selected && "bg-tint-soft")}>
-                <td className="text-[10px] text-label-3">{wk ?? ""}{exam ? <span className="block text-[8px] leading-none">S</span> : null}</td>
+                <td className="text-2xs text-label-3">{wk ?? ""}{exam ? <span className="block text-2xs leading-none">S</span> : null}</td>
                 {r.map((iso) => {
                   const pos = weekDayOf(model.index.weeks, iso);
                   const inTerm = !!pos && model.weeks.includes(pos.week);
@@ -153,10 +153,10 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
     <aside aria-label={t("calendar.sidebar.label")} className={cn("glass-chrome flex min-h-0 flex-col gap-4 overflow-y-auto rounded-2xl p-3 text-label-1", p.className)} data-glass="chrome" data-testid="calendar-sidebar">
       <div className="flex flex-col gap-1.5 px-1">
         <p className="type-headline">{p.term?.name ?? ""}</p>
-        <label className="flex flex-col gap-0.5 text-[11px] font-semibold text-label-3">
+        <label className="flex flex-col gap-0.5 type-caption font-semibold text-label-3">
           {t("calendar.sidebar.run")}
           {/* short option text (weeks as ranges, kind only when both kinds are listed); the full text is the tooltip */}
-          <select className="h-8 w-full min-w-0 truncate rounded-lg bg-fill-2 px-2 text-[13px] font-medium text-label-1" value={p.runId} title={runLabels.get(p.runId)?.full} onChange={(e) => p.onRun(Number(e.target.value))} data-testid="run-picker">
+          <select className="h-8 w-full min-w-0 truncate rounded-lg bg-fill-2 px-2 type-callout font-medium text-label-1" value={p.runId} title={runLabels.get(p.runId)?.full} onChange={(e) => p.onRun(Number(e.target.value))} data-testid="run-picker">
             {p.runs.map((r) => (
               <option key={r.id} value={r.id} title={runLabels.get(r.id)?.full}>
                 {runLabels.get(r.id)?.short}
@@ -172,7 +172,7 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
         onChange={(e) => set({ query: e.target.value })}
         placeholder={t("calendar.sidebar.search")}
         aria-label={t("calendar.sidebar.search")}
-        className="h-8 rounded-lg bg-fill-2 px-2.5 text-[13px] outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
+        className="h-8 rounded-lg bg-fill-2 px-2.5 type-callout outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
         data-testid="calendar-search"
       />
       <Section title={t("calendar.sidebar.buildings")} onReset={f.buildings.length ? () => set({ buildings: [] }) : undefined}>
@@ -195,11 +195,11 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
                   type="button"
                   aria-pressed={f.slots.includes(slot)}
                   onClick={(e) => set({ slots: e.altKey ? (f.slots.length === 1 && f.slots[0] === slot ? [] : [slot]) : toggle(f.slots, slot) })}
-                  className={cn("flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-[12px] hover:bg-fill-2", !on && "opacity-50")}
+                  className={cn("flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left type-footnote hover:bg-fill-2", !on && "opacity-50")}
                 >
                   <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: `var(--fac-${slot}-bar)` }} />
                   <span className="min-w-0 flex-1 truncate" title={names.join(", ")}>{names[0]}{names.length > 1 ? ` +${names.length - 1}` : ""}</span>
-                  <span className="text-[11px] text-label-3 tabular-nums">{p.counts.slots.get(slot) ?? 0}</span>
+                  <span className="type-caption text-label-3 tabular-nums">{p.counts.slots.get(slot) ?? 0}</span>
                 </button>
               </li>
             );
@@ -235,9 +235,9 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
           <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto px-1">
             {p.model.unplaced.slice(0, 60).map((u) => (
               <li key={u.mr}>
-                <Link href={`/classes?view=unplaced&id=${u.mr}`} className="cal-unplaced flex flex-col px-2 py-1 text-[12px] hover:bg-fill-2" style={{ ...chipVars(u.slot), color: "var(--chip-ink)" }}>
+                <Link href={`/classes?view=unplaced&id=${u.mr}`} className="cal-unplaced flex flex-col px-2 py-1 type-footnote hover:bg-fill-2" style={{ ...chipVars(u.slot), color: "var(--chip-ink)" }}>
                   <span className="font-semibold">{u.label}</span>
-                  <span className="truncate text-[11px] opacity-80">{u.size} · {u.room_text ?? ""}</span>
+                  <span className="truncate type-caption opacity-80">{u.size} · {u.room_text ?? ""}</span>
                 </Link>
               </li>
             ))}
@@ -246,17 +246,17 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
       ) : null}
       <Section title={t("calendar.sidebar.compare")}>
         <div className="flex flex-col gap-2 px-1">
-          <select className="h-8 rounded-lg bg-fill-2 px-2 text-[13px]" value={p.compare ?? ""} onChange={(e) => p.onCompare(e.target.value ? Number(e.target.value) : null)} aria-label={t("calendar.compare.pick")}>
+          <select className="h-8 rounded-lg bg-fill-2 px-2 type-callout" value={p.compare ?? ""} onChange={(e) => p.onCompare(e.target.value ? Number(e.target.value) : null)} aria-label={t("calendar.compare.pick")}>
             <option value="">{t("calendar.sidebar.compareNone")}</option>
             {p.runs.filter((r) => r.id !== p.runId && r.kind === p.model.index.run.kind).map((r) => <option key={r.id} value={r.id}>Run #{r.id}</option>)}
           </select>
           {p.compare !== null ? (
-            <label className="flex items-center gap-2 text-[12px]"><Switch checked={p.ghosts} onCheckedChange={p.onGhosts} />{t("calendar.sidebar.ghosts")}</label>
+            <label className="flex items-center gap-2 type-footnote"><Switch checked={p.ghosts} onCheckedChange={p.onGhosts} />{t("calendar.sidebar.ghosts")}</label>
           ) : null}
         </div>
       </Section>
       <Section title={t("calendar.sidebar.legend")}>
-        <ul className="flex flex-col gap-1.5 px-1 text-[12px]">
+        <ul className="flex flex-col gap-1.5 px-1 type-footnote">
           {[
             { label: t("calendar.state.placed"), attrs: {} },
             { label: t("calendar.state.locked"), attrs: { "data-locked": "true" } },

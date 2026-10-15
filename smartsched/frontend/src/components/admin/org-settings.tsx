@@ -23,6 +23,7 @@ import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, FieldRow, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
 import { WhatsNewPanel } from "./whats-new";
+import { useUnsavedGuard } from "./use-unsaved-guard";
 
 const KEYS = [["crbs", "org-settings"], ["crbs", "org-public"], ["crbs", "context"], ["crbs", "grid"], ["crbs", "roles"]];
 const TIMEZONES = ["Europe/Istanbul", "Europe/London", "Europe/Berlin", "UTC", "Asia/Baku", "Asia/Dubai", "America/New_York"];
@@ -62,6 +63,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
     [v.pattern_long, v.pattern_weekday, v.pattern_time, locale, defaults],
   );
   const dirty = Object.keys(d).length > 0;
+  useUnsavedGuard(dirty, t("crbs.org.leaveUnsaved"));
   const columnsFor = v.displaytype === "day" ? (["periods", "rooms"] as const) : (["periods", "days"] as const);
   // P18-LANG: Turkish and English are offered; legacy stored codes are listed, shown English and kept until
   // the administrator changes the list (only the changed fields are sent)

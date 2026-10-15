@@ -84,7 +84,7 @@ function AgendaImpl(p: AgendaProps) {
     overscan: 12,
   });
 
-  if (!items.length) return <p className="cal-canvas h-full px-6 py-8 text-[13px] text-label-2">{p.emptyLabel}</p>;
+  if (!items.length) return <p className="cal-canvas h-full px-6 py-8 type-callout text-label-2">{p.emptyLabel}</p>;
 
   const activeDay = (() => {
     const first = v.getVirtualItems()[0]?.index ?? 0;
@@ -98,7 +98,7 @@ function AgendaImpl(p: AgendaProps) {
   return (
     <div ref={ref} className="cal-canvas relative h-full overflow-auto" role="feed" aria-label={t("calendar.agenda.label")} data-testid="agenda">
       {activeDay && !p.compact ? (
-        <div className="cal-sticky sticky top-0 z-10 flex h-10 items-center px-4 hairline-b text-[13px] font-semibold capitalize" aria-hidden>
+        <div className="cal-sticky sticky top-0 z-10 flex h-10 items-center px-4 hairline-b type-callout font-semibold capitalize" aria-hidden>
           {activeDay.date ? dayTitle(activeDay.date, locale) : ""}
         </div>
       ) : null}
@@ -108,13 +108,13 @@ function AgendaImpl(p: AgendaProps) {
           const style = { position: "absolute" as const, top: 0, left: 0, right: 0, transform: `translateY(${vi.start}px)`, height: vi.size };
           if (it.kind === "day")
             return (
-              <h3 key={it.key} style={style} className="flex items-center px-4 text-[13px] font-semibold capitalize">
+              <h3 key={it.key} style={style} className="flex items-center px-4 type-callout font-semibold capitalize">
                 {it.date ? dayTitle(it.date, locale) : ""}
               </h3>
             );
           if (it.kind === "section")
             return (
-              <p key={it.key} style={style} className="flex items-end px-4 pb-1 text-[12px] font-semibold text-label-2">
+              <p key={it.key} style={style} className="flex items-end px-4 pb-1 type-footnote font-semibold text-label-2">
                 {it.label}
               </p>
             );
@@ -137,18 +137,18 @@ function AgendaImpl(p: AgendaProps) {
                 <span aria-hidden className="h-[70%] w-[3px] shrink-0 rounded-full" style={{ background: "var(--chip-bar)" }} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="flex min-w-0 items-baseline gap-2">
-                    <span className="shrink-0 text-[13px] font-semibold">{ev.a.code ?? ev.a.label}{ev.a.sec ? ` §${ev.a.sec}` : ""}</span>
-                    <span className="truncate text-[12px] text-label-2">{ev.a.name ?? ev.a.prog ?? ""}</span>
+                    <span className="shrink-0 type-callout font-semibold">{ev.a.code ?? ev.a.label}{ev.a.sec ? ` §${ev.a.sec}` : ""}</span>
+                    <span className="truncate type-footnote text-label-2">{ev.a.name ?? ev.a.prog ?? ""}</span>
                   </span>
                   {p.compact ? (
-                    <span className="truncate text-[12px] text-label-2 tabular-nums">
+                    <span className="truncate type-footnote text-label-2 tabular-nums">
                       {room?.name ?? "—"} · {spanText(ev.sp, ev.ep)} · {ev.a.size}/{room ? (p.model.exam ? room.exam_capacity : room.capacity) : "—"}
                       {ev.conflict ? ` · ▲ ${t("calendar.state.conflict").toLocaleLowerCase(locale)}` : ""}
                     </span>
                   ) : null}
                 </span>
-                {!p.compact ? <span className="shrink-0 text-[12px] font-medium">{room?.name ?? "—"}</span> : null}
-                {!p.compact ? <span className="w-24 shrink-0 text-right text-[12px] text-label-2 tabular-nums">P{ev.sp}–P{ev.ep}</span> : null}
+                {!p.compact ? <span className="shrink-0 type-footnote font-medium">{room?.name ?? "—"}</span> : null}
+                {!p.compact ? <span className="w-24 shrink-0 text-right type-footnote text-label-2 tabular-nums">P{ev.sp}–P{ev.ep}</span> : null}
                 <span className="flex w-4 shrink-0 justify-end">{ev.conflict ? <AlertTriangle className="size-3.5 text-status-infeasible-fg" aria-label={t("calendar.state.conflict")} /> : ev.a.locked ? <Lock className="size-3.5 text-label-2" aria-label={t("calendar.state.locked")} /> : null}</span>
                 {progress !== null ? <span aria-hidden className="absolute bottom-0 left-3 h-px origin-left bg-[var(--now)]" style={{ width: "calc(100% - 24px)", transform: `scaleX(${progress})` }} /> : null}
               </button>

@@ -95,7 +95,7 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
       <div role="row" className="contents">
         {bld ? null : <span />}
         {DAYS.map((d) => (
-          <span key={d} role="columnheader" className="text-center text-[11px] font-semibold text-label-2">{dayName(d, locale, "short")}</span>
+          <span key={d} role="columnheader" className="text-center type-caption font-semibold text-label-2">{dayName(d, locale, "short")}</span>
         ))}
         {bld ? null : <span />}
       </div>
@@ -107,10 +107,10 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
         return (
           <div key={w} role="row" className={cn("contents")}>
             {bld ? null : (
-              <span role="rowheader" className={cn("flex items-center gap-1.5 pr-1 text-[12px] whitespace-nowrap", w === p.currentWeek && "font-semibold")}>
+              <span role="rowheader" className={cn("flex items-center gap-1.5 pr-1 type-footnote whitespace-nowrap", w === p.currentWeek && "font-semibold")}>
                 <span className="font-semibold">{t("calendar.nav.weekShort", { n: w })}</span>
                 <span className="text-label-2">{info?.start_date ? formatDate(info.start_date, locale) : ""}</span>
-                {kind !== "lecture" ? <span className="rounded-full bg-fill-2 px-1.5 text-[10px] text-label-2">{t(`calendar.weekType.${kind}`)}</span> : null}
+                {kind !== "lecture" ? <span className="rounded-full bg-fill-2 px-1.5 text-2xs text-label-2">{t(`calendar.weekType.${kind}`)}</span> : null}
               </span>
             )}
             {DAYS.map((d) => {
@@ -123,7 +123,7 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
                   key={d}
                   type="button"
                   role="gridcell"
-                  className={cn("cal-heat flex items-center justify-center rounded-[6px] text-[11px] font-semibold tabular-nums outline-offset-1", brushed && "outline-2 outline-(--accent)", w === p.currentWeek && !bld && "ring-1 ring-(--hairline-strong)")}
+                  className={cn("cal-heat flex items-center justify-center rounded-[6px] type-caption font-semibold tabular-nums outline-offset-1", brushed && "outline-2 outline-(--accent)", w === p.currentWeek && !bld && "ring-1 ring-(--hairline-strong)")}
                   data-step={s}
                   data-holiday={kind === "holiday" ? "true" : undefined}
                   data-week={bld ? undefined : w}
@@ -148,7 +148,7 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
             {bld ? null : (
               <span className="flex items-center gap-2 pl-2" aria-hidden>
                 <span className="h-2 w-16 origin-left rounded-full bg-[var(--seq-3)]" style={{ transform: `scaleX(${Math.min(1, mean)})` }} />
-                <span className="text-[11px] tabular-nums">{t("calendar.heat.cellShort", { p: Math.round(mean * 100) })}</span>
+                <span className="type-caption tabular-nums">{t("calendar.heat.cellShort", { p: Math.round(mean * 100) })}</span>
               </span>
             )}
           </div>
@@ -156,10 +156,10 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
       })}
       {bld ? null : (
         <div role="row" className="contents">
-          <span className="text-[11px] text-label-2">{t("calendar.heat.dayAvg")}</span>
+          <span className="type-caption text-label-2">{t("calendar.heat.dayAvg")}</span>
           {DAYS.map((d) => {
             const avg = weeks.reduce((s, w) => s + (p.heat.get(`${w}:${d}`)?.occupancy ?? 0), 0) / Math.max(1, weeks.length);
-            return <span key={d} className="text-center text-[11px] font-semibold tabular-nums">{t("calendar.heat.cellShort", { p: Math.round(avg * 100) })}</span>;
+            return <span key={d} className="text-center type-caption font-semibold tabular-nums">{t("calendar.heat.cellShort", { p: Math.round(avg * 100) })}</span>;
           })}
           <span />
         </div>
@@ -170,13 +170,13 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
   return (
     <div className="cal-canvas h-full overflow-auto px-4 py-4 sm:px-6" data-testid="term-heat">
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <p className="mr-auto text-[12px] text-label-2">{t("calendar.heat.definition")}</p>
+        <p className="mr-auto type-footnote text-label-2">{t("calendar.heat.definition")}</p>
         <MetricSwitch metric={p.metric} onMetric={p.onMetric} compareOn={p.compareOn} />
-        <label className="flex items-center gap-2 text-[12px] text-label-1"><Switch checked={split} onCheckedChange={setSplit} />{t("calendar.heat.split")}</label>
-        <label className="flex items-center gap-2 text-[12px] text-label-1"><Switch checked={asTable} onCheckedChange={setAsTable} />{t("calendar.heat.asTable")}</label>
+        <label className="flex items-center gap-2 type-footnote text-label-1"><Switch checked={split} onCheckedChange={setSplit} />{t("calendar.heat.split")}</label>
+        <label className="flex items-center gap-2 type-footnote text-label-1"><Switch checked={asTable} onCheckedChange={setAsTable} />{t("calendar.heat.asTable")}</label>
       </div>
       {asTable ? (
-        <table className="w-full max-w-4xl text-[12px] tabular-nums">
+        <table className="w-full max-w-4xl type-footnote tabular-nums">
           <caption className="sr-only">{t("calendar.lens.term")}</caption>
           <thead>
             <tr className="text-left text-label-2"><th className="py-1 pr-2 font-semibold">{t("calendar.scrubber")}</th>{DAYS.map((d) => <th key={d} className="px-2 font-semibold">{dayName(d, locale, "short")}</th>)}</tr>
@@ -198,7 +198,7 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
           {grid(null, 40, 32)}
           {buildings.map((b) => (
             <div key={b}>
-              <p className="mb-1 text-[12px] font-semibold">{t("calendar.buildingBand", { b, n: p.model.rooms.filter((r) => r.building === b).length })}</p>
+              <p className="mb-1 type-footnote font-semibold">{t("calendar.buildingBand", { b, n: p.model.rooms.filter((r) => r.building === b).length })}</p>
               {grid(b, 22, 32)}
             </div>
           ))}
@@ -206,10 +206,10 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
       ) : (
         grid(null, 40, 32)
       )}
-      <p className="mt-4 text-[11px] text-label-2">{t("calendar.heat.drill")}</p>
+      <p className="mt-4 type-caption text-label-2">{t("calendar.heat.drill")}</p>
       <HeatLegend metric={p.metric} max={max} />
       {tip ? (
-        <div role="tooltip" className="glass-thick pointer-events-none fixed z-50 max-w-[320px] -translate-x-1/2 -translate-y-full rounded-lg px-2.5 py-1.5 text-[12px] text-label-1" style={{ left: tip.x, top: tip.y - 6 }}>
+        <div role="tooltip" className="glass-thick pointer-events-none fixed z-50 max-w-[320px] -translate-x-1/2 -translate-y-full rounded-lg px-2.5 py-1.5 type-footnote text-label-1" style={{ left: tip.x, top: tip.y - 6 }}>
           {tip.text}
         </div>
       ) : null}
@@ -221,7 +221,7 @@ function HeatLegend({ metric, max }: { metric: HeatMetric; max: number }) {
   const { t } = useI18n();
   const labels = metric === "occupancy" ? ["%0", "1–25", "26–50", "51–75", "76–90", "91–100"] : ["0", ...[1, 2, 3, 4, 5].map((i) => `≤ ${Math.ceil((max * i) / 5)}`)];
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-label-2" aria-label={t("calendar.heat.legend")}>
+    <div className="mt-3 flex flex-wrap items-center gap-1.5 type-caption text-label-2" aria-label={t("calendar.heat.legend")}>
       {labels.map((l, i) => (
         <span key={l + i} className="flex items-center gap-1">
           <span className="cal-heat inline-block size-3.5 rounded-[4px] shadow-[inset_0_0_0_1px_var(--hairline)]" data-step={i} />
@@ -257,14 +257,14 @@ function MonthHeatImpl(p: HeatLensProps & { month: string; onMonth: (m: string) 
       <div role="grid" aria-label={title} className="grid min-h-0 flex-1 gap-1" style={{ gridTemplateColumns: "40px repeat(7, minmax(0, 1fr))", gridAutoRows: "minmax(88px, 1fr)" }}>
         <div role="row" className="contents">
           <span />
-          {DAYS.map((d) => <span key={d} role="columnheader" className="self-end pb-1 text-[11px] font-semibold text-label-2">{dayName(d, locale, "short")}</span>)}
+          {DAYS.map((d) => <span key={d} role="columnheader" className="self-end pb-1 type-caption font-semibold text-label-2">{dayName(d, locale, "short")}</span>)}
         </div>
         {weekRows.map((row) => {
           const wd = row.map((iso) => weekDayOf(p.model.index.weeks, iso));
           const w = wd.find((x) => x)?.week;
           return (
             <div key={row[0]} role="row" className="contents">
-              <span role="rowheader" className="pt-1 text-[11px] font-semibold text-label-2">{w ? t("calendar.nav.weekShort", { n: w }) : ""}</span>
+              <span role="rowheader" className="pt-1 type-caption font-semibold text-label-2">{w ? t("calendar.nav.weekShort", { n: w }) : ""}</span>
               {row.map((iso, i) => {
                 const pos = wd[i];
                 const inTerm = !!pos && p.model.weeks.includes(pos.week);
@@ -288,13 +288,13 @@ function MonthHeatImpl(p: HeatLensProps & { month: string; onMonth: (m: string) 
                     data-holiday={kind === "holiday" ? "true" : undefined}
                     onClick={() => pos && p.onPick(pos.week, pos.day)}
                   >
-                    <span className={cn("flex size-6 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums", today && "bg-tint text-tint-foreground")}>{Number(iso.slice(8))}</span>
+                    <span className={cn("flex size-6 items-center justify-center rounded-full type-footnote font-semibold tabular-nums", today && "bg-tint text-tint-foreground")}>{Number(iso.slice(8))}</span>
                     {inTerm ? (
                       <span className="flex w-full flex-col gap-0.5">
-                        {kind === "final" ? <span className="text-[11px]">{t("calendar.weekType.final")}</span> : null}
-                        {kind === "holiday" ? <span className="text-[11px]">{t("calendar.weekType.holiday")}</span> : null}
-                        {v?.conflicts ? <span className="text-[11px]">▲ {t("calendar.heat.conflictCount", { n: v.conflicts })}</span> : null}
-                        <span className="text-[20px] leading-6 font-semibold tabular-nums">{cellText(p.metric, raw, t)}</span>
+                        {kind === "final" ? <span className="type-caption">{t("calendar.weekType.final")}</span> : null}
+                        {kind === "holiday" ? <span className="type-caption">{t("calendar.weekType.holiday")}</span> : null}
+                        {v?.conflicts ? <span className="type-caption">▲ {t("calendar.heat.conflictCount", { n: v.conflicts })}</span> : null}
+                        <span className="type-title-2 leading-6 font-semibold tabular-nums">{cellText(p.metric, raw, t)}</span>
                       </span>
                     ) : null}
                   </button>

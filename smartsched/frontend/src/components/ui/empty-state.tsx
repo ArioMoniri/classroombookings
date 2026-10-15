@@ -170,7 +170,7 @@ function EmptyState({
         <h2 id={headingId} className={cn("text-label-1", size === "sm" ? "type-headline" : "type-title-3")}>
           {title}
         </h2>
-        {description ? <p className="text-[13px] leading-[19px] text-label-2">{description}</p> : null}
+        {description ? <p className="type-callout leading-[19px] text-label-2">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </section>

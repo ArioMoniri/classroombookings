@@ -1,17 +1,18 @@
 "use client"
 // Source: shadcn/ui tabs (style base-nova, https://ui.shadcn.com) on @base-ui/react/tabs — Licence: MIT
-// Modified: yes — Liquid Glass v2: segmented track with a morphing thumb. The thumb is a motion `layoutId`
-// element rendered inside the active tab (transform-only FLIP, springs.glassMorph, motion.md §2/§8), one
-// LayoutGroup per list so two tab lists never share a thumb. The thumb is a translucent fill without
-// backdrop-filter (no glass on glass) and pointer-events:none. API unchanged.
+// Modified: yes — the default variant is the SegmentedControl look (components/ui/segmented-control.tsx):
+// same track, same --control-h, same lit thumb. Since the design-system overhaul (2026-10-15) the thumb is
+// Base UI's Tabs.Indicator positioned by its CSS variables (--active-tab-left/-width): its resting place is
+// pure CSS, so it cannot sit outside the track (the dark "thumb 16 px above the track" bug was a layoutId
+// projection at rest). Only `transform` transitions, on --spring-glass-morph (motion pattern 2); the width
+// snaps. Reduced motion: the global rule zeroes the duration. API unchanged.
 
 import * as React from "react"
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"
-import { LayoutGroup, motion } from "motion/react"
 import { cn } from "cn"
 
-import { springs, useReduce } from "@/lib/motion"
+import { segmentedThumb, segmentedTrack } from "@/components/ui/segmented-control"
 
 const TabsVariantContext = React.createContext<"default" | "line">("default")
 
@@ -34,14 +35,14 @@ function Tabs({
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list relative isolate inline-flex w-fit items-center justify-center text-label-2 group-data-horizontal/tabs:h-8 pointer-coarse:group-data-horizontal/tabs:h-auto pointer-coarse:group-data-horizontal/tabs:min-h-11 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col",
+  "group/tabs-list relative isolate w-fit text-label-2 group-data-horizontal/tabs:h-(--control-h-md) group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col",
   {
     variants: {
       variant: {
         /* segmented: fill track, the thumb is a small piece of thick glass */
-        default: "gap-0.5 rounded-full bg-fill-2 p-[3px] shadow-[inset_0_0_0_1px_var(--hairline)]",
+        default: segmentedTrack,
         /* line: text tabs with a tint underline that glides */
-        line: "gap-4 rounded-none bg-transparent",
+        line: "inline-flex items-center gap-4 rounded-none bg-transparent",
       },
     },
     defaultVariants: {
@@ -56,55 +57,35 @@ function TabsList({
   children,
   ...props
 }: TabsPrimitive.List.Props & VariantProps<typeof tabsListVariants>) {
-  const group = React.useId()
   return (
     <TabsVariantContext.Provider value={variant ?? "default"}>
-      <LayoutGroup id={group}>
-        <TabsPrimitive.List
-          data-slot="tabs-list"
-          data-variant={variant}
-          className={cn(tabsListVariants({ variant }), className)}
-          {...props}
-        >
-          {children}
-        </TabsPrimitive.List>
-      </LayoutGroup>
+      <TabsPrimitive.List
+        data-slot="tabs-list"
+        data-variant={variant}
+        className={cn(tabsListVariants({ variant }), className)}
+        {...props}
+      >
+        {children}
+        <TabsPrimitive.Indicator
+          data-slot="tabs-indicator"
+          renderBeforeHydration
+          className={cn(
+            variant === "line"
+              ? "pointer-events-none absolute -bottom-[5px] left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) rounded-full bg-tint transition-transform duration-(--spring-glass-morph-ms) ease-(--spring-glass-morph)"
+              : cn(segmentedThumb, "left-0 w-(--active-tab-width) translate-x-(--active-tab-left)")
+          )}
+        />
+      </TabsPrimitive.List>
     </TabsVariantContext.Provider>
   )
 }
 
-function TabThumb({ variant }: { variant: "default" | "line" }) {
-  const reduce = useReduce()
-  return (
-    <motion.span
-      layoutId="tabs-thumb"
-      aria-hidden
-      data-slot="tabs-indicator"
-      transition={reduce ? { duration: 0 } : springs.glassMorph}
-      style={{ borderRadius: 999 }}
-      className={cn(
-        "pointer-events-none absolute -z-10",
-        variant === "line"
-          ? "inset-x-0 -bottom-[5px] h-0.5 bg-tint"
-          : "inset-0 bg-(--mat-thick) shadow-[inset_0_1px_0_0_var(--specular),0_0_0_1px_var(--hairline),0_1px_3px_0_rgba(0,0,0,0.1)]"
-      )}
-    />
-  )
-}
-
 function TabsTrigger({ className, children, ...props }: TabsPrimitive.Tab.Props) {
-  const variant = React.useContext(TabsVariantContext)
   return (
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
-      render={(renderProps, state) => (
-        <button {...renderProps}>
-          {state.active ? <TabThumb variant={variant} /> : null}
-          {renderProps.children}
-        </button>
-      )}
       className={cn(
-        "relative isolate inline-flex h-full flex-1 items-center pointer-coarse:min-h-11 justify-center gap-1.5 rounded-full px-3 text-[13px] font-medium whitespace-nowrap text-label-2 transition-colors duration-(--dur-fast) group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-(--focus) disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 data-active:text-label-1 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-full px-3 type-callout font-medium whitespace-nowrap text-label-2 transition-colors duration-(--dur-fast) group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-1 focus-visible:outline-(--focus) disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 data-active:text-label-1 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         "group-data-[variant=line]/tabs-list:px-0.5 group-data-[variant=line]/tabs-list:data-active:text-label-1",
         className
       )}

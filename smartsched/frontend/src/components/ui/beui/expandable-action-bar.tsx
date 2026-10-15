@@ -370,7 +370,7 @@ export function ExpandableActionBar({
                         }}
                         transition={LABEL_TRANSITION}
                         className={cn(
-                          "hidden overflow-hidden whitespace-nowrap text-[10px] text-muted-foreground sm:inline-block",
+                          "hidden overflow-hidden whitespace-nowrap text-2xs text-muted-foreground sm:inline-block",
                           classNames?.shortcut,
                         )}
                       >
@@ -381,7 +381,7 @@ export function ExpandableActionBar({
                     {item.badge ? (
                       <span
                         className={cn(
-                          "ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-none text-primary-foreground",
+                          "ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-2xs leading-none text-primary-foreground",
                           !isExpanded && "absolute right-0.5 top-0.5",
                           classNames?.badge,
                         )}

@@ -89,8 +89,8 @@ function DiffTable({ title, columns, rows, included, onIncludedChange, onApply, 
   return (
     <div data-slot="diff-table" className={cn("glass-regular w-full overflow-hidden rounded-2xl", className)}>
       <div className="flex min-h-10 items-center justify-between gap-3 px-4 hairline-b">
-        <span className="text-[13px] font-semibold text-label-1">{title}</span>
-        {!applied ? <span className="text-[11.5px] text-label-3">{copy.hint}</span> : null}
+        <span className="type-callout font-semibold text-label-1">{title}</span>
+        {!applied ? <span className="type-caption text-label-3">{copy.hint}</span> : null}
       </div>
       <table className="w-full table-fixed border-collapse text-left">
         <colgroup>
@@ -102,7 +102,7 @@ function DiffTable({ title, columns, rows, included, onIncludedChange, onApply, 
         <thead>
           <tr className="hairline-b">
             {columns.map((c) => (
-              <th key={c.key} scope="col" className="h-8 px-4 text-[12px] font-medium text-label-3">
+              <th key={c.key} scope="col" className="h-8 px-4 type-footnote font-medium text-label-3">
                 {c.label}
               </th>
             ))}
@@ -133,7 +133,7 @@ function DiffTable({ title, columns, rows, included, onIncludedChange, onApply, 
                   <td
                     key={i}
                     className={cn(
-                      "h-10 truncate px-4 text-[13px] transition-colors duration-200",
+                      "h-10 truncate px-4 type-callout transition-colors duration-200",
                       i === 0 ? "font-medium" : "text-label-2",
                       on && removed && "text-status-infeasible-fg",
                       on && removed && i === row.cells.length - 1 && "line-through decoration-[color-mix(in_oklab,var(--status-infeasible-fg)_50%,transparent)]",
@@ -168,7 +168,7 @@ function DiffTable({ title, columns, rows, included, onIncludedChange, onApply, 
       </table>
       <div className="flex min-h-12 items-center justify-between gap-3 bg-fill-3 px-4 hairline-t">
         {applied ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-status-feasible py-1 pr-2.5 pl-1 text-[12.5px] font-medium text-status-feasible-fg animate-in fade-in zoom-in-95 duration-200">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-status-feasible py-1 pr-2.5 pl-1 type-footnote font-medium text-status-feasible-fg animate-in fade-in zoom-in-95 duration-200">
             <span className="flex size-[18px] items-center justify-center rounded-full bg-status-feasible-solid text-white dark:text-[#111114]">
               <CheckIcon className="size-[11px] stroke-[3]" />
             </span>
@@ -176,7 +176,7 @@ function DiffTable({ title, columns, rows, included, onIncludedChange, onApply, 
           </span>
         ) : (
           <>
-            <span className="text-[12px] text-label-2 tabular-nums" aria-live="polite">
+            <span className="type-footnote text-label-2 tabular-nums" aria-live="polite">
               {copy.summary(removals, additions)}
             </span>
             <Button size="sm" disabled={total === 0} onClick={() => onApply?.(rows.filter((r) => r.change !== "unchanged" && isIncluded(r.key)).map((r) => r.key))}>

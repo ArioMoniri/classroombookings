@@ -1637,6 +1637,7 @@
       "bookable": "Bookable",
       "photo": "Photo",
       "photoAlt": "Photo of {name}",
+      "photoSaved": "Photo uploaded",
       "uploadPhoto": "Upload photo",
       "removePhoto": "Remove"
     },
@@ -1803,6 +1804,7 @@
       "trKey": "Key",
       "trKeyHint": "Key, e.g. bookings.title",
       "trText": "Text",
+      "leaveUnsaved": "You have unsaved settings. Leave without saving?",
       "unsaved": "Unsaved changes"
     },
     "ldap": {
@@ -2858,6 +2860,7 @@
       "active": "Active",
       "inactive": "Off",
       "everyTerm": "Every session",
+      "noneDesignated": "nobody designated yet",
       "designated": "Designated approvers",
       "namedUsers": "Named approvers",
       "kind": {

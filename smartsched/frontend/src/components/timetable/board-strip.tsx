@@ -114,11 +114,11 @@ function BoardStripImpl(p: BoardStripProps) {
               >
                 {dayW[d - 1] > 40 ? (
                   <>
-                    <span className="text-[12px] leading-4 font-semibold">{dayName(d, locale, "short")} {p.dates[d - 1]?.slice(8) ?? ""}</span>
-                    <span className="text-[11px] leading-[14px] text-label-2 tabular-nums">{t("calendar.heat.cellShort", { p: pct })}{h?.conflicts ? ` · ${t("calendar.issues.conflicts", { n: h.conflicts })}` : ""}</span>
+                    <span className="type-footnote leading-4 font-semibold">{dayName(d, locale, "short")} {p.dates[d - 1]?.slice(8) ?? ""}</span>
+                    <span className="type-caption leading-[14px] text-label-2 tabular-nums">{t("calendar.heat.cellShort", { p: pct })}{h?.conflicts ? ` · ${t("calendar.issues.conflicts", { n: h.conflicts })}` : ""}</span>
                   </>
                 ) : (
-                  <span className="text-[11px] text-label-3">{dayName(d, locale, "narrow" as "short")}</span>
+                  <span className="type-caption text-label-3">{dayName(d, locale, "narrow" as "short")}</span>
                 )}
               </button>
             );
@@ -131,8 +131,8 @@ function BoardStripImpl(p: BoardStripProps) {
           return (
             <div key={room.id} role="row" aria-rowindex={idx + 2} className="absolute left-0" style={{ top, width, height: p.rowH, boxShadow: "inset 0 -1px 0 var(--cal-line)" }}>
               <button type="button" role="rowheader" onClick={() => p.onPickRoom(room.id)} className="cal-canvas sticky left-0 z-10 flex h-full items-center justify-between gap-1 px-2 text-left hover:bg-fill-3" style={{ width: LABEL_W, boxShadow: "inset -1px 0 0 var(--cal-line-strong)" }} aria-label={t("calendar.roomAria", { room: room.name, cap: room.capacity })}>
-                <span className="truncate text-[12px] font-semibold">{room.name}</span>
-                <span className="text-[11px] text-label-3 tabular-nums">{p.model.exam ? room.exam_capacity : room.capacity}</span>
+                <span className="truncate type-footnote font-semibold">{room.name}</span>
+                <span className="type-caption text-label-3 tabular-nums">{p.model.exam ? room.exam_capacity : room.capacity}</span>
               </button>
               {(blocksByRoom.get(room.id) ?? []).map((b) => (
                 <div key={b.key} className="cal-block" style={{ left: x(b.day, b.sp), width: w(b.day, b.sp, b.ep), top: 2, height: p.rowH - 4, padding: 0 }} aria-hidden />
@@ -161,7 +161,7 @@ function BoardStripImpl(p: BoardStripProps) {
                       }
                     }}
                   >
-                    {showCode ? <span className="cal-code truncate text-[11px]">{ev.a.code ?? ev.a.label}</span> : null}
+                    {showCode ? <span className="cal-code truncate type-caption">{ev.a.code ?? ev.a.label}</span> : null}
                   </button>
                 );
               })}

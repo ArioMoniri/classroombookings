@@ -78,14 +78,14 @@ export function SubjectPicker({ model, subject, onSubject, condensed }: { model:
         <ChevronDown className="size-3 text-label-3" aria-hidden />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-1.5">
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("calendar.subject.search")} aria-label={t("calendar.subject.search")} className="mb-1 h-8 w-full rounded-lg bg-fill-2 px-2.5 text-[13px] outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" />
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("calendar.subject.search")} aria-label={t("calendar.subject.search")} className="mb-1 h-8 w-full rounded-lg bg-fill-2 px-2.5 type-callout outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" />
         <div className="max-h-80 overflow-y-auto" role="listbox" aria-label={t("calendar.subject.label")}>
           {groups.map((g) => {
             const items = filtered.filter((o) => o.group === g.key);
             if (!items.length) return null;
             return (
               <div key={g.key} role="group" aria-label={g.label || t("calendar.subject.all")}>
-                {g.label ? <p className="px-2 pt-2 pb-0.5 text-[11px] font-semibold text-label-3">{g.label}</p> : null}
+                {g.label ? <p className="px-2 pt-2 pb-0.5 type-caption font-semibold text-label-3">{g.label}</p> : null}
                 {items.map((o) => (
                   <button
                     key={`${o.group}:${o.subject?.id ?? "all"}`}
@@ -97,10 +97,10 @@ export function SubjectPicker({ model, subject, onSubject, condensed }: { model:
                       setOpen(false);
                       setQ("");
                     }}
-                    className={cn("flex w-full items-baseline justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-fill-2", o === current && "bg-tint-soft")}
+                    className={cn("flex w-full items-baseline justify-between gap-2 rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2", o === current && "bg-tint-soft")}
                   >
                     <span className="truncate font-medium">{o.label}</span>
-                    <span className="shrink-0 text-[11px] text-label-2 tabular-nums">{o.sub}</span>
+                    <span className="shrink-0 type-caption text-label-2 tabular-nums">{o.sub}</span>
                   </button>
                 ))}
               </div>
@@ -203,7 +203,7 @@ export function CapsuleToolbar(p: CapsuleToolbarProps) {
         ) : null}
         {p.canUndo ? <Button variant="ghost" size="icon-sm" aria-label={t("calendar.toast.undo")} onClick={p.onUndo}><Undo2 /></Button> : null}
         {p.canRedo ? <Button variant="ghost" size="icon-sm" aria-label={t("calendar.toast.redo")} onClick={p.onRedo}><Redo2 /></Button> : null}
-        {p.readOnly ? <span className="px-2 text-[12px] text-label-2">{t("calendar.readOnly")}</span> : null}
+        {p.readOnly ? <span className="px-2 type-footnote text-label-2">{t("calendar.readOnly")}</span> : null}
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("calendar.more")} />}><Ellipsis /></DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">

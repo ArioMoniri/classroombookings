@@ -39,7 +39,7 @@ function SpinnerRing({ active, children }: { active?: boolean; children?: React.
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--accent)" strokeWidth={stroke} strokeLinecap="round" strokeDasharray={`${c * 0.28} ${c * 0.72}`} />
         ) : null}
       </svg>
-      <span className="relative text-[10.5px] font-semibold text-label-1 tabular-nums">{children}</span>
+      <span className="relative type-caption font-semibold text-label-1 tabular-nums">{children}</span>
     </span>
   )
 }
@@ -111,13 +111,13 @@ function TaskRows({ rows, variant = "capsules", labels, className, defaultOpen =
                 }}
                 className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) disabled:cursor-default"
               >
-                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-label-1">{row.label}</span>
-                {row.meta ? <span className="text-[12.5px] text-label-2 tabular-nums">{row.meta}</span> : null}
+                <span className="min-w-0 flex-1 truncate type-callout font-medium text-label-1">{row.label}</span>
+                {row.meta ? <span className="type-footnote text-label-2 tabular-nums">{row.meta}</span> : null}
                 <span className="sr-only">
                   {row.status === "done" ? copy.completed : row.status === "failed" ? copy.failed : row.status === "running" ? copy.running : copy.pending}
                 </span>
                 {row.status === "done" ? (
-                  <span aria-hidden className="inline-flex h-[22px] items-center rounded-full bg-status-feasible px-2 text-[11.5px] font-medium text-status-feasible-fg">
+                  <span aria-hidden className="inline-flex h-[22px] items-center rounded-full bg-status-feasible px-2 type-caption font-medium text-status-feasible-fg">
                     {copy.completed}
                   </span>
                 ) : null}
@@ -129,7 +129,7 @@ function TaskRows({ rows, variant = "capsules", labels, className, defaultOpen =
                 <button
                   type="button"
                   onClick={() => onRetry?.(row.key)}
-                  className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-status-infeasible px-2 text-[11.5px] font-medium text-status-infeasible-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
+                  className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-status-infeasible px-2 type-caption font-medium text-status-infeasible-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
                 >
                   {copy.failed} · {copy.retry}
                   <RotateCwIcon aria-hidden className="size-3 stroke-[2.5]" />
@@ -148,8 +148,8 @@ function TaskRows({ rows, variant = "capsules", labels, className, defaultOpen =
                           className="flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-1 duration-200"
                           style={{ animationDelay: `${Math.min(j * 30, 90)}ms`, animationFillMode: "both" }}
                         >
-                          <span className="text-[12px] text-label-2">{d.label}</span>
-                          {d.meta ? <span className="font-mono text-[11.5px] text-label-3 tabular-nums">{d.meta}</span> : null}
+                          <span className="type-footnote text-label-2">{d.label}</span>
+                          {d.meta ? <span className="font-mono type-caption text-label-3 tabular-nums">{d.meta}</span> : null}
                         </li>
                       ))}
                     </ul>

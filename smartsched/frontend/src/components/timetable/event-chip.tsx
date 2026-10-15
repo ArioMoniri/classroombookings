@@ -83,10 +83,10 @@ function EventChipImpl(p: EventChipProps) {
     >
       <span className="flex min-w-0 items-center gap-1">
         <span className="cal-code truncate">{a.code ?? a.label.split(" §")[0]}</span>
-        {a.sec ? <span className="truncate text-[11px] opacity-80">§{a.sec}</span> : null}
+        {a.sec ? <span className="truncate type-caption opacity-80">§{a.sec}</span> : null}
         {a.evening ? <Moon className="size-3 shrink-0" aria-hidden /> : null}
         {p.exam ? <PencilLine className="size-3 shrink-0" aria-hidden /> : null}
-        {p.compareMoved ? <span aria-hidden className="shrink-0 text-[10px]">↔</span> : null}
+        {p.compareMoved ? <span aria-hidden className="shrink-0 text-2xs">↔</span> : null}
         <span className="ml-auto flex shrink-0 items-center">{glyph}</span>
       </span>
       {lines >= 2 ? <span className="cal-line2 truncate">{p.line2}</span> : null}

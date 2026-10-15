@@ -52,7 +52,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
             { value: "period", label: t("common.period") },
           ]}
         />
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-label-3">
+        <div className="flex flex-wrap items-center gap-2 type-caption text-label-3">
           {[1, 2, 3, 4, 5].map((s) => (
             <span key={s} className="inline-flex items-center gap-1"><span className="size-2.5 rounded-[3px] shadow-[inset_0_0_0_1px_var(--hairline)]" style={{ background: `var(--seq-${s})` }} aria-hidden />{[0, 25, 50, 75, 100][s - 1]}</span>
           ))}
@@ -66,7 +66,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
             <tr>
               <th scope="col" className="w-10 text-left font-medium text-label-3"></th>
               {cols.map((c) => (
-                <th key={c} scope="col" className="min-w-[18px] text-center text-[11px] font-medium text-label-3 sm:min-w-[36px]">
+                <th key={c} scope="col" className="min-w-[18px] text-center type-caption font-medium text-label-3 sm:min-w-[36px]">
                   {mode === "day" ? dayName(c, locale, "short") : c % 3 === 1 ? PERIODS[c - 1]?.start ?? "" : ""}
                 </th>
               ))}
@@ -75,7 +75,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
           <tbody>
             {(mode === "day" || realPeriod.length ? buildingRows : [{ building: t("common.all"), utilisation: data.utilisation, rooms: data.rooms_bookable }]).map((row) => (
               <tr key={row.building}>
-                <th scope="row" className="pr-2 text-left text-[13px] font-medium text-label-1">{row.building}</th>
+                <th scope="row" className="pr-2 text-left type-callout font-medium text-label-1">{row.building}</th>
                 {cols.map((c) => {
                   const v = mode === "day" ? dayValue(row.building, row.utilisation, c) : periodValue(row.building, c);
                   const { bg, fg } = seqStep(v);
@@ -87,7 +87,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
                       <Tooltip>
                         <TooltipTrigger
                           render={
-                            <Link href={href} aria-label={label} className={cn("flex h-8 items-center justify-center rounded-[6px] text-[11px] font-medium tabular-nums focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", mode === "day" ? "w-10" : "w-[18px] sm:w-6")} style={table ? undefined : { background: bg, color: fg }}>
+                            <Link href={href} aria-label={label} className={cn("flex h-8 items-center justify-center rounded-[6px] type-caption font-medium tabular-nums focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", mode === "day" ? "w-10" : "w-[18px] sm:w-6")} style={table ? undefined : { background: bg, color: fg }}>
                               {mode === "day" || table ? pct : ""}
                             </Link>
                           }

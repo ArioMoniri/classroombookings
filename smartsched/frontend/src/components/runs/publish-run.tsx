@@ -56,7 +56,7 @@ export function PublishRunButton({ run, published, exceptions = [] }: { run: Sch
   });
   if (run.is_active) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-status-feasible px-2.5 py-1 text-[12px] font-medium text-status-feasible-fg" data-testid="run-published">
+      <span className="inline-flex items-center gap-1 rounded-full bg-status-feasible px-2.5 py-1 type-footnote font-medium text-status-feasible-fg" data-testid="run-published">
         <BadgeCheck className="size-3.5" aria-hidden /> {t("runs.publish.published")}
       </span>
     );
@@ -74,7 +74,7 @@ export function PublishRunButton({ run, published, exceptions = [] }: { run: Sch
             <DialogTitle>{t("runs.publish.title", { id: run.id })}</DialogTitle>
             <DialogDescription>{weeks.length ? t("runs.publish.scopeWeeks", { weeks: weekRanges(weeks), term: run.term_code }) : t("runs.publish.scopeTerm", { term: run.term_code })}</DialogDescription>
           </DialogHeader>
-          <ul className="list-disc space-y-1 pl-5 text-[13px] text-label-1">
+          <ul className="list-disc space-y-1 pl-5 type-callout text-label-1">
             <li>{published !== null ? t("runs.publish.replaces", { id: published }) : t("runs.publish.first")}</li>
             {weeks.length ? <li>{t("runs.publish.weeksOnly")}</li> : null}
             {partial ? <li className="text-status-warning-fg">{t("runs.publish.partial", { placed: n(partial.placed), total: n(partial.total), missing: n(partial.total - partial.placed) })}</li> : null}
@@ -83,7 +83,7 @@ export function PublishRunButton({ run, published, exceptions = [] }: { run: Sch
             ))}
           </ul>
           {refusals.length ? (
-            <div role="alert" className="rounded-xl bg-status-infeasible px-3 py-2 text-[13px] text-status-infeasible-fg">
+            <div role="alert" className="rounded-xl bg-status-infeasible px-3 py-2 type-callout text-status-infeasible-fg">
               <p className="font-medium">{t("runs.publish.refused")}</p>
               <ul className="mt-1 list-disc pl-5">
                 {refusals.map((x) => <li key={x}>{x}</li>)}

@@ -758,3 +758,27 @@ Open:
 - [ ] A department-scoped role for secretaries (Q11); today planning.view sees all.
 - [ ] Link assignment-audit rows to requests in the moderation history (after P19-02).
 - F1–F4 frontend started 2026-10-15 ~21:45.
+
+### Backend agent finished (parity PASS 179 / GAP 13 / FAIL 0; full suite green on re-run; head 0024)
+Done:
+- D1 / P19-00a, D4 / P19-01, D5 / P19-02 (planning_audit), D8 / P19-03, D15, D16, D19
+- U-04, U-06, A-24, A-12, A-11, A-14
+- M-02, M-04, M-09, Q8, M-07
+- P18-LEGACY (crbs_upgrade service + endpoint + CLI)
+- mail queue (0021), Postgres concurrency tests, audit coverage test (13 studio gaps → importer), run.published webhook, admin OpenAPI, export weeks validation
+Decisions:
+- Owner: rows identical except class year are ONE section across those years (sent to the importer).
+- Owner: a FEASIBLE_PARTIAL run with hard 100 may be published after an explicit confirm that lists the unplaced classes.
+- Orchestrator (owner may override):
+  - The job queue stays DB-backed (outbox, 0021). No Redis/Celery on a single pod.
+  - A non-forced move with a hard conflict keeps 200 ok:false as a preview; only a forced move without a reason is 422.
+Open:
+- [ ] P18-DIFF (needs the pod's legacy CRBS on MySQL); MISS-1 UI row; live MySQL CI test
+- [ ] A3 notification hub, P2 conflict resolver, P8 booking policies, V2 public view, A4 KVKK retention
+- [ ] DB-backed login limiter
+- [ ] Carry forced overrides from a parent run into child re-solves
+- [ ] Studio audit events (13 gaps, importer)
+- [ ] TEST_POSTGRES_URL in the pod backend gate (devops)
+- [ ] Frontend:
+  - forced-move reason + rules list, scope_reduction confirm, partial-publish confirm, precheckFix version → design-system agent
+  - past/pending cells, duplicate_request, grouped inbox, crbs_dsn_allowed_hosts → shell agent

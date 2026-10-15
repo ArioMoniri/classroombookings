@@ -94,7 +94,7 @@ export function RunsList() {
                 <TableRow key={r.id} data-testid="run-row">
                   <TableCell className="font-medium">
                     {isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : `#${r.id}`}
-                    {r.parent_run_id ? <span className="ml-1.5 text-[12px] font-normal text-label-3">{t("glass.report.childOf", { id: r.parent_run_id })}</span> : null}
+                    {r.parent_run_id ? <span className="ml-1.5 type-footnote font-normal text-label-3">{t("glass.report.childOf", { id: r.parent_run_id })}</span> : null}
                   </TableCell>
                   <TableCell><StatusBadge variant="plain" {...runStatusBadge(r, t)} /></TableCell>
                   <TableCell>{t(r.kind === "COURSE" ? "generate.course" : "generate.exam")}</TableCell>
@@ -102,7 +102,7 @@ export function RunsList() {
                   <TableCell><ScoreRing size="sm" value={r.hard_score} partial={partialCounts(r)} label={t("glass.report.placed")} /></TableCell>
                   <TableCell className="text-right tabular-nums">{r.soft_score ?? "—"}</TableCell>
                   <TableCell className="tabular-nums">{duration(r)}</TableCell>
-                  <TableCell className="text-[12px] text-label-3">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(r.created_at))}</TableCell>
+                  <TableCell className="type-footnote text-label-3">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(r.created_at))}</TableCell>
                   <TableCell><Link href={`/runs/${r.id}`} className="font-medium text-tint-text hover:underline">{t("runs.open")}</Link></TableCell>
                 </TableRow>
               ))}

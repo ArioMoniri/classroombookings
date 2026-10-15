@@ -73,7 +73,8 @@ export function RoomsAdmin() {
     <div className="flex flex-col gap-5">
       <PageTitle title={t("crbs.admin.rooms.title")} subtitle={t("crbs.admin.rooms.lead")} />
       <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
-        <TabsList aria-label={t("crbs.admin.rooms.title")}>
+        {/* admin persona M-43: five tabs are wider than a 390 px phone; they scroll inside their own row */}
+        <TabsList aria-label={t("crbs.admin.rooms.title")} className="max-w-full overflow-x-auto">
           {rooms ? <TabsTrigger value="groups">{t("crbs.rooms.tabGroups")}</TabsTrigger> : null}
           {rooms ? <TabsTrigger value="rooms">{t("crbs.rooms.tabRooms")}</TabsTrigger> : null}
           {features ? <TabsTrigger value="features" data-testid="tab-features">{t("wave1.features.tab")}</TabsTrigger> : null}
@@ -605,7 +606,13 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
                 className="sr-only"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) photo.mutate(file, { onSuccess: (r) => setPhotoUrl(r.photo_url ? `${r.photo_url}?v=${Date.now()}` : null), onError: toastError });
+                  if (file) photo.mutate(file, {
+                    onSuccess: (r) => {
+                      setPhotoUrl(r.photo_url ? `${r.photo_url}?v=${Date.now()}` : null);
+                      toast.success(t("crbs.rooms.photoSaved")); // admin persona M-46: the upload said nothing
+                    },
+                    onError: toastError,
+                  });
                 }}
               />
             </Button>

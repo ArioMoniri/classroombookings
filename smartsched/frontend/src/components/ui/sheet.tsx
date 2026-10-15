@@ -130,7 +130,7 @@ function SheetDescription({
   return (
     <SheetPrimitive.Description
       data-slot="sheet-description"
-      className={cn("text-[13px] leading-[18px] text-label-2", className)}
+      className={cn("type-callout leading-[18px] text-label-2", className)}
       {...props}
     />
   )

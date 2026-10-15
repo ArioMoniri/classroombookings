@@ -99,7 +99,7 @@ export function StudentsCell({ row, onSave, warning }: { row: ClassRow; onSave: 
       >
         {row.enrolment !== null ? n(row.enrolment) : "—"}
       </button>
-      {warning ? <span className="text-[11px] text-status-warning-fg">{warning}</span> : null}
+      {warning ? <span className="type-caption text-status-warning-fg">{warning}</span> : null}
     </span>
   );
 }
@@ -116,7 +116,7 @@ export function ModeCell({ row, onSave }: { row: ClassRow; onSave: (patch: Meeti
           </option>
         ))}
       </NativeSelect>
-      {ROOMLESS.has(mode) ? <span className="text-[11px] text-label-2">{t("studio.classes.noRoomNeeded")}</span> : null}
+      {ROOMLESS.has(mode) ? <span className="type-caption text-label-2">{t("studio.classes.noRoomNeeded")}</span> : null}
     </span>
   );
 }
@@ -210,13 +210,13 @@ export function RoomsCell({ row, onSave }: { row: ClassRow; onSave: (patch: Meet
       }}
     >
       <AdaptiveTrigger render={<button type="button" className="flex max-w-56 flex-wrap gap-1 rounded px-1 text-left hover:bg-fill-2" aria-label={t("studio.classes.editValue", { field: t("studio.classes.col.rooms"), value: chips.join(", ") || "—" })} data-edit="rooms" />}>
-        {chips.length ? chips.slice(0, 3).map((c) => <span key={c} className="rounded border px-1 font-mono text-[11px]">{c}</span>) : <span className="text-label-2">—</span>}
-        {chips.length > 3 ? <span className="text-[11px] text-label-2">+{chips.length - 3}</span> : null}
+        {chips.length ? chips.slice(0, 3).map((c) => <span key={c} className="rounded border px-1 font-mono type-caption">{c}</span>) : <span className="text-label-2">—</span>}
+        {chips.length > 3 ? <span className="type-caption text-label-2">+{chips.length - 3}</span> : null}
       </AdaptiveTrigger>
       <AdaptiveContent title={t("studio.classes.col.rooms")} className="w-80" align="start">
         <p className="text-xs font-medium text-label-2">{t("studio.classes.col.rooms")}</p>
         <SlotEditor field={{ name: "rooms", type: "rooms", param: "requested_room_ids", required: false, ordered: true }} value={ids} onChange={(v) => setIds(Array.isArray(v) ? v.map(Number) : [])} />
-        <p className="text-[11px] text-label-2">{t("studio.classes.roomsHint", { n: row.enrolment ?? 0 })}</p>
+        <p className="type-caption text-label-2">{t("studio.classes.roomsHint", { n: row.enrolment ?? 0 })}</p>
       </AdaptiveContent>
     </AdaptivePopover>
   );

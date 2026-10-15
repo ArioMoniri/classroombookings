@@ -543,11 +543,11 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     return (
       <>
         {bands.map((band) => (
-          <div key={`${band.b}${band.start}`} className="absolute top-0 flex h-6 items-center px-2 text-[11px] font-semibold text-label-2" style={{ left: 56 + band.start * colW, width: band.count * colW, boxShadow: "inset 1px 0 0 var(--cal-line-strong)" }}>
+          <div key={`${band.b}${band.start}`} className="absolute top-0 flex h-6 items-center px-2 type-caption font-semibold text-label-2" style={{ left: 56 + band.start * colW, width: band.count * colW, boxShadow: "inset 1px 0 0 var(--cal-line-strong)" }}>
             <span className="sticky left-16 truncate">{t("calendar.buildingBand", { b: band.b, n: band.count })}</span>
           </div>
         ))}
-        <div className="absolute flex items-center gap-3 overflow-hidden px-2 text-[11px] text-label-2" style={{ top: BAND_H, left: 56, height: ALLDAY_H, right: 0 }}>
+        <div className="absolute flex items-center gap-3 overflow-hidden px-2 type-caption text-label-2" style={{ top: BAND_H, left: 56, height: ALLDAY_H, right: 0 }}>
           <span className="sticky left-14 shrink-0 font-semibold">{t("calendar.allDay")}</span>
           {[...summary.values()].slice(0, 3).map((s) => (
             <span key={`${s.label}${s.sp}`} className="truncate">
@@ -818,7 +818,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         <div className="flex flex-wrap items-end gap-x-3 gap-y-1 px-4 pt-2 pb-2">
           <h1 id="calendar-title" tabIndex={-1} className="type-title-2 capitalize outline-hidden" data-testid="calendar-title">{title}</h1>
           {vs.lens !== "month" && vs.lens !== "term" ? (
-            <p className="pb-0.5 text-[13px] text-label-2">
+            <p className="pb-0.5 type-callout text-label-2">
               {t("calendar.nav.weekTitle", { n: liveWeek, type: weekType })}
               {vs.lens === "week" && subjectTitle ? ` · ${subjectTitle}` : ""}
             </p>
@@ -829,7 +829,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
             </Button>
           ) : null}
           {compare && vs.compare ? (
-            <p className="pb-0.5 text-[12px] text-label-2" role="status">
+            <p className="pb-0.5 type-footnote text-label-2" role="status">
               {t("calendar.compare.summary", { run: vs.compare, m: n(compare.moved), a: n(compare.onlyA), r: n(compare.onlyB) })}
               <Button size="xs" variant="ghost" onClick={() => update({ compare: null })}>{t("calendar.compare.close")}</Button>
             </p>
@@ -840,20 +840,20 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
             </div>
           ) : null}
           {vs.lens === "day" ? (
-            <label className="flex items-center gap-1.5 pb-0.5 text-[12px]"><input type="checkbox" checked={filters.freeNow} onChange={(e) => setFilters((f) => ({ ...f, freeNow: e.target.checked }))} className="accent-(--accent)" />{t("calendar.freeNow")}</label>
+            <label className="flex items-center gap-1.5 pb-0.5 type-footnote"><input type="checkbox" checked={filters.freeNow} onChange={(e) => setFilters((f) => ({ ...f, freeNow: e.target.checked }))} className="accent-(--accent)" />{t("calendar.freeNow")}</label>
           ) : null}
         </div>
         {outside && model ? (
-          <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-fill-3 px-3 py-2 text-[13px]" role="status">
+          <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-fill-3 px-3 py-2 type-callout" role="status">
             {t("calendar.empty.outsideRun", { weeks: runWeeks.join(", ") })}
             <Button size="xs" variant="secondary" onClick={() => setWeek(runWeeks[0])}>{t("calendar.empty.goToRunWeek", { n: runWeeks[0] })}</Button>
           </div>
         ) : null}
         <div className="relative min-h-0 flex-1" aria-busy={stale || undefined} data-stale={stale ? "" : undefined} data-testid="calendar-canvas">
           {data.loading && !model ? (
-            <p className="flex h-full items-start gap-2 px-6 py-6 text-[13px] text-label-2" role="status"><BusyGlyph className="size-3.5 text-label-2" />{t("calendar.loading")}</p>
+            <p className="flex h-full items-start gap-2 px-6 py-6 type-callout text-label-2" role="status"><BusyGlyph className="size-3.5 text-label-2" />{t("calendar.loading")}</p>
           ) : data.error && !model ? (
-            <div className="px-6 py-6"><p className="mb-2 text-[13px]">{t("calendar.error")}</p><Button size="sm" variant="secondary" onClick={data.refetch}>{t("calendar.retry")}</Button></div>
+            <div className="px-6 py-6"><p className="mb-2 type-callout">{t("calendar.error")}</p><Button size="sm" variant="secondary" onClick={data.refetch}>{t("calendar.retry")}</Button></div>
           ) : model ? (
             <motion.div
               key={`${vs.lens}-${vs.board}`}
@@ -872,7 +872,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               <StaleVeil stale={stale} />
             </motion.div>
           ) : null}
-          {zoomBadge !== null ? <span role="status" className="glass-thick absolute top-3 right-3 z-40 rounded-full px-3 py-1 text-[12px] font-medium">{t("calendar.zoom", { n: zoomBadge })}</span> : null}
+          {zoomBadge !== null ? <span role="status" className="glass-thick absolute top-3 right-3 z-40 rounded-full px-3 py-1 type-footnote font-medium">{t("calendar.zoom", { n: zoomBadge })}</span> : null}
         </div>
         {showScrubber && model ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center">

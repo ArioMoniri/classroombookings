@@ -89,7 +89,7 @@ function PromptComposer({
             }
           }}
           style={{ maxHeight: `${maxRows * 20 + 8}px` }}
-          className="field-sizing-content min-h-5 w-full resize-none bg-transparent px-1 text-[14px] leading-5 text-label-1 outline-hidden placeholder:text-label-3 disabled:opacity-50"
+          className="field-sizing-content min-h-5 w-full resize-none bg-transparent px-1 type-body leading-5 text-label-1 outline-hidden placeholder:text-label-3 disabled:opacity-50"
         />
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">{leading}</div>

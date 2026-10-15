@@ -1,19 +1,21 @@
 // Source: shadcn/ui input (style base-nova, https://ui.shadcn.com) — Licence: MIT
-// Modified: yes — Liquid Glass v2 filled field + transitions.dev "Error state shake" hook (.t-input).
+// Modified: yes — Liquid Glass v2 filled field on --control-h + --edge-control (design-system overhaul 2026-10-15)
+// + transitions.dev "Error state shake" hook (.t-input). 16 px text on touch phones so iOS does not zoom.
 import * as React from "react"
 import { Input as InputPrimitive } from "@base-ui/react/input"
 import { cn } from "cn"
 
-import { fieldSurface } from "@/components/ui/field-styles"
+import { fieldSize, fieldSurface, type FieldSize } from "@/components/ui/field-styles"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, fieldSize: size = "md", ...props }: React.ComponentProps<"input"> & { fieldSize?: FieldSize }) {
   return (
     <InputPrimitive
       type={type}
       data-slot="input"
       className={cn(
         fieldSurface,
-        "h-8 w-full min-w-0 px-3 py-1 text-base file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-label-1 md:text-[13px]",
+        fieldSize[size],
+        "w-full min-w-0 py-1 file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-label-1 max-md:pointer-coarse:text-base",
         className
       )}
       {...props}

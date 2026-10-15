@@ -62,7 +62,7 @@ function SidebarGlassSection({
   return (
     <div role="group" aria-labelledby={title ? labelId : undefined} data-slot="sidebar-glass-section" className={cn("flex flex-col gap-px", className)} {...props}>
       {title ? (
-        <div id={labelId} className="px-2.5 pb-1 text-[11px] font-semibold tracking-[0.02em] text-label-3">
+        <div id={labelId} className="px-2.5 pb-1 type-caption font-semibold tracking-[0.02em] text-label-3">
           {title}
         </div>
       ) : null}
@@ -89,7 +89,7 @@ function SidebarGlassItem({ className, active = false, icon, count, hint, childr
     props: mergeProps<"a">(
       {
         className: cn(
-          "group/sidebar-item relative flex h-8 items-center gap-2.5 rounded-[10px] px-2.5 text-[13px] font-medium text-label-1 transition-colors duration-(--dur-fast) hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus) aria-[current=page]:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]",
+          "group/sidebar-item relative flex h-8 items-center gap-2.5 rounded-[10px] px-2.5 type-callout font-medium text-label-1 transition-colors duration-(--dur-fast) hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus) aria-[current=page]:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]",
           className
         ),
         "aria-current": active ? "page" : undefined,
@@ -105,7 +105,7 @@ function SidebarGlassItem({ className, active = false, icon, count, hint, childr
             ) : null}
             {icon ? <span className={cn("flex text-label-2", active && "text-tint-text")}>{icon}</span> : null}
             <span className="min-w-0 flex-1 truncate">{children}</span>
-            {typeof count === "number" ? <span className="text-[12px] font-normal text-label-3 tabular-nums">{count}</span> : null}
+            {typeof count === "number" ? <span className="type-footnote font-normal text-label-3 tabular-nums">{count}</span> : null}
             {hint ? <span className="hidden text-label-3 group-hover/sidebar-item:inline-flex">{hint}</span> : null}
           </>
         ),

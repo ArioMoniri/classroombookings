@@ -18,7 +18,6 @@ and licence verification are in `docs/design/v2/references.md` §4, and the syst
 
 | File(s) | Source | Licence (verified) | Install / how | Modified |
 |---|---|---|---|---|
-| `beui/tabs.tsx` | beUI `@beui/tabs`, https://beui.dev (repo github.com/starc007/ui-components) | MIT © 2026 Saurabh Chauhan, `LICENSES/beui-MIT.txt` | `npx shadcn add @beui/tabs` (registry `https://beui.dev/r/{name}.json` in `components.json`) | yes: import paths; `labelClassName` prop on TabsTrigger |
 | `beui/number-ticker.tsx` | `@beui/number-ticker` | MIT (same) | shadcn registry | import paths |
 | `beui/animated-toast-stack.tsx` | `@beui/animated-toast-stack` | MIT (same) | shadcn registry | import paths |
 | `beui/file-upload.tsx` | `@beui/file-upload` | MIT (same) | shadcn registry | import paths |
@@ -46,7 +45,8 @@ beUI tooltip/status-bar), `lottie-react@^3.1.2` (MIT, for EmptyState). `clsx`, `
 | `glass-panel.tsx` | GlassPanel (5 materials) | Apple iOS 26 materials (Mobbin A1–A15), Craft H15 |
 | `toolbar.tsx` | floating capsule Toolbar | Apple Music A1, Fey H20, Things 3 H3 |
 | `sidebar-glass.tsx` | SidebarGlass with gliding pill | macOS 26 sidebars, Linear H4, Craft |
-| `segmented-glass.tsx` | SegmentedGlass, **built on `beui/tabs` (MIT)** | Weather A15, Arcade H19, MD Vinyl F2 |
+| `segmented-control.tsx` | SegmentedControl (original; `segmented-glass.tsx` is a deprecated alias). `beui/tabs.tsx` was removed 2026-10-15 | Weather A15, Arcade H19, MD Vinyl F2, Linear view switcher |
+| `native-select.tsx`, `date-field.tsx`, `data-table/*`, `loading-value.tsx` | original work (design-system overhaul 2026-10-15) | Linear H4 / Airtable grid / Height column menu (tables), Apple date pickers |
 | `chip.tsx` | toggle/token Chip | Linear H4, Kinetics "Choice Chips" (feel only, no licence, so no code) |
 | `kbd-hint.tsx` | keycaps | Frame.io H22, Linear H5, Arcade H18 |
 | `empty-state.tsx` | EmptyState + Lottie with poster fallback | Linear H5, Superlist H23 |

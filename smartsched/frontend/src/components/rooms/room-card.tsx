@@ -48,8 +48,8 @@ export function RoomVisual({ room, variant, className }: { room: Pick<Room, "pho
   if (variant === "hero") return null;
   return (
     <span aria-hidden className={cn("flex size-14 shrink-0 flex-col items-center justify-center rounded-xl bg-fill-2 leading-none shadow-[inset_0_0_0_1px_var(--hairline)]", className)}>
-      <span className="text-[11px] font-semibold text-label-2">{room.building_code}</span>
-      <span className="mt-0.5 text-[17px] font-semibold tracking-[-0.01em] text-label-1 tabular-nums">{number}</span>
+      <span className="type-caption font-semibold text-label-2">{room.building_code}</span>
+      <span className="mt-0.5 type-title-3 font-semibold tracking-[-0.01em] text-label-1 tabular-nums">{number}</span>
     </span>
   );
 }
@@ -82,8 +82,8 @@ export function RoomCard({ room, grid, week, now, href }: { room: Room; grid: Ro
             <span className="type-headline truncate">{room.display_name}</span>
             {!room.is_bookable ? <Badge variant="secondary" tone="preoccupied">{t("roomsV2.notBookable")}</Badge> : null}
           </span>
-          <span className="truncate text-[13px] text-label-1 tabular-nums">{meta}</span>
-          <span className="truncate text-[12px] text-label-2">{[floor, ...tags].filter(Boolean).join(" · ") || " "}</span>
+          <span className="truncate type-callout text-label-1 tabular-nums">{meta}</span>
+          <span className="truncate type-footnote text-label-2">{[floor, ...tags].filter(Boolean).join(" · ") || " "}</span>
         </div>
       </div>
       <div className="flex items-end gap-3">
@@ -94,15 +94,15 @@ export function RoomCard({ room, grid, week, now, href }: { room: Room; grid: Ro
                 <span className="flex h-6 w-full items-end overflow-hidden rounded-[3px] bg-fill-3">
                   <span className="w-full rounded-[3px] bg-label-2" style={{ height: `${Math.max(s > 0 ? 8 : 0, Math.round(s * 100))}%` }} />
                 </span>
-                <span className="text-[9px] leading-none text-label-3">{dayName(TEACHING_DAYS[i], locale, "short").slice(0, 1)}</span>
+                <span className="text-2xs leading-none text-label-3">{dayName(TEACHING_DAYS[i], locale, "short").slice(0, 1)}</span>
               </span>
             ))}
           </span>
         ) : null}
         <span className="flex min-w-0 flex-1 flex-col items-end gap-0.5 text-right">
-          {pct !== null ? <span className="text-[15px] font-semibold tabular-nums">{t("roomsV2.occupancyShort", { p: pct })}</span> : null}
+          {pct !== null ? <span className="type-headline font-semibold tabular-nums">{t("roomsV2.occupancyShort", { p: pct })}</span> : null}
           {now !== undefined ? (
-            <span className={cn("max-w-full truncate text-[12px]", now ? "text-label-1" : "text-status-feasible-fg")}>{nowLine(now, t)}</span>
+            <span className={cn("max-w-full truncate type-footnote", now ? "text-label-1" : "text-status-feasible-fg")}>{nowLine(now, t)}</span>
           ) : null}
         </span>
       </div>

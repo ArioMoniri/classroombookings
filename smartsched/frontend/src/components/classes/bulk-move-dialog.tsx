@@ -49,29 +49,29 @@ export function BulkMoveDialog({ open, onOpenChange, rows, runId, onApply }: { o
           <DialogDescription>{t("calendar.move.dialogHint")}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-3">
-          <label className="flex flex-col gap-1 text-[12px] font-semibold text-label-2">
+          <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
             {t("classes.bulkMove.room")}
-            <select className="h-8 rounded-lg bg-fill-2 px-2 text-[13px] font-normal text-label-1" value={room ?? ""} onChange={(e) => { setRoom(e.target.value ? Number(e.target.value) : null); setPreview(null); }}>
+            <select className="h-8 rounded-lg bg-fill-2 px-2 type-callout font-normal text-label-1" value={room ?? ""} onChange={(e) => { setRoom(e.target.value ? Number(e.target.value) : null); setPreview(null); }}>
               <option value="">{t("classes.bulkMove.keepRoom")}</option>
               {(rooms.data ?? []).filter((r) => r.is_bookable).map((r) => <option key={r.id} value={r.id}>{r.display_name} · {r.capacity}</option>)}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[12px] font-semibold text-label-2">
+          <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
             {t("classes.bulkMove.day")}
-            <select className="h-8 rounded-lg bg-fill-2 px-2 text-[13px] font-normal text-label-1" value={day ?? ""} onChange={(e) => { setDay(e.target.value ? Number(e.target.value) : null); setPreview(null); }}>
+            <select className="h-8 rounded-lg bg-fill-2 px-2 type-callout font-normal text-label-1" value={day ?? ""} onChange={(e) => { setDay(e.target.value ? Number(e.target.value) : null); setPreview(null); }}>
               <option value="">{t("classes.bulkMove.keepDay")}</option>
               {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{dayName(d, locale)}</option>)}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[12px] font-semibold text-label-2">
+          <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
             {t("classes.bulkMove.shift")}
-            <input type="number" min={-6} max={6} value={shift} onChange={(e) => { setShift(Number(e.target.value) || 0); setPreview(null); }} className="h-8 rounded-lg bg-fill-2 px-2 text-[13px] font-normal text-label-1 tabular-nums" />
+            <input type="number" min={-6} max={6} value={shift} onChange={(e) => { setShift(Number(e.target.value) || 0); setPreview(null); }} className="h-8 rounded-lg bg-fill-2 px-2 type-callout font-normal text-label-1 tabular-nums" />
           </label>
         </div>
         {preview ? (
           <div className="flex flex-col gap-2">
-            <p className="text-[13px] font-semibold" role="status">{t("classes.bulkMove.preview", { ok: preview.ok_count, bad: preview.conflict_count })}</p>
-            <ul className="max-h-56 overflow-y-auto text-[12px]">
+            <p className="type-callout font-semibold" role="status">{t("classes.bulkMove.preview", { ok: preview.ok_count, bad: preview.conflict_count })}</p>
+            <ul className="max-h-56 overflow-y-auto type-footnote">
               {preview.items.map((it) => (
                 <li key={it.aid} className="flex gap-2 py-0.5">
                   <span className={it.ok ? "text-status-feasible-fg" : "text-status-infeasible-fg"} aria-hidden>{it.ok ? "✓" : "✕"}</span>
