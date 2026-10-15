@@ -509,6 +509,104 @@
       "ledger": "design-phase19-surfaces-2026-10-15 SCOPE: docs/design/v2/phase19-*.md (new files…",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "abf480ad4db816b36",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 15:01",
+      "left_off": "continue n deploy to pod when green"
+    },
+    {
+      "id": "0",
+      "started_at": "2026-10-15 15:04",
+      "status": "superseded",
+      "left_off": "resumed and finished as agent 6"
+    },
+    {
+      "id": "2",
+      "started_at": "2026-10-15 15:04",
+      "status": "superseded",
+      "left_off": "resumed and finished as agent 7"
+    },
+    {
+      "id": "3",
+      "started_at": "2026-10-15 15:04",
+      "status": "superseded",
+      "left_off": "resumed and finished as agent 8"
+    },
+    {
+      "id": "4",
+      "started_at": "2026-10-15 15:04",
+      "status": "superseded",
+      "left_off": "resumed and finished as agent 9"
+    },
+    {
+      "id": "26",
+      "started_at": "2026-10-15 15:04",
+      "status": "superseded",
+      "left_off": "relaunched 2026-10-15 as agent 29"
+    },
+    {
+      "id": "27",
+      "started_at": "2026-10-15 15:04",
+      "status": "superseded",
+      "left_off": "relaunched 2026-10-15 as agent 30"
+    },
+    {
+      "id": "28",
+      "started_at": "2026-10-15 15:04",
+      "status": "superseded",
+      "left_off": "relaunched 2026-10-15 as agent 31"
+    },
+    {
+      "id": "ac8204b322f49b9d5",
+      "description": "Phase 9 solver backlog + priority policy",
+      "subagent_type": "solver-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 15:05",
+      "scope": "smartsched/backend/app/solver/**, app/services/solver_bridge.py, app/services/run_params.py, app/services/planner_check.py, tools/validate_planner.py, their tests, and ticking items in docs/ROADMAP.md sections \"### Phase 9 real-data feasibility backlog\" and the solver items of \"### Review follow-ups\" / \"### Planner comparison follow-ups\". Do NOT touch app/importers/** or app/services/studio*.py (t…",
+      "goal": "(A) Close the open items of the \"Phase 9 real-data feasibility backlog\" and the solver items in the other two sections. (B) Implement the user's conflict policy (decision 2026-10-15): when not every request can be satisfied, locks first (trusted locked rows are never moved), then coordinator-set priority, then the most classes placed. It is configurable per term. Method for (A), for each unchecked…",
+      "ledger": "solver-backlog-policy-2026-10-15 SCOPE: smartsched/backend/app/solver/**, app/se…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a9e8a5103abcd620d",
+      "description": "Close Phase 3 AI backlog",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 15:05",
+      "scope": "smartsched/backend/app/ai/** and its tests (tests/test_ai*, tests/ai/**), plus ticking items in docs/ROADMAP.md section \"### Phase 3 AI layer backlog\" and the AI items of \"### Review follow-ups\". Do NOT touch app/council/** (being merged from another branch), app/solver/**, app/importers/**, app/services/studio*.py, or the frontend. GOAL: close every open item of the \"Phase 3 AI layer backlog\" and…",
+      "goal": "close every open item of the \"Phase 3 AI layer backlog\" and the AI-related items in \"Review follow-ups\" in docs/ROADMAP.md. Method, for each unchecked `- [ ]` item in those sections: 1. Verify against the code and tests whether it is already done. - If it is done, tick it `- [x]` and append ` (verified 2026-10-15: <file:line or test name>)`. - If it is open, implement it test-first: write a failin…",
+      "ledger": "ai-backlog-2026-10-15 SCOPE: smartsched/backend/app/ai/** and its tests (tests/t…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a4099861302047bdb",
+      "description": "Backend backlogs + parity leftovers",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 15:05",
+      "scope": "smartsched/backend/app/api/v1/** and app/services/** EXCEPT these files, which other agents own right now: - app/services/studio*.py, app/importers/**, app/api/v1/imports.py and tools/compare_planner.py (the importer agent) - app/solver/**, solver_bridge.py, run_params.py and planner_check.py (the solver agent) - app/ai/** (the AI agent) - app/council/** and app/api/v1/council.py (being merged) Al…",
+      "goal": "close every open backend item in those sections, and drive the CRBS parity gate's backend GAP rows to PASS. Method, for each unchecked item: 1. Verify it against the code and tests. - If it is done: tick it `- [x]` and add ` (verified 2026-10-15: <file:line/test>)`. - If it is open: implement it test-first, using the real fixtures (tests/crbs_env, the Bahar import). 2. If it needs a decision: ` (n…",
+      "ledger": "backend-backlog-2026-10-15 SCOPE: smartsched/backend/app/api/v1/** and app/servi…",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a284d15d95bf61925",
+      "description": "Devops backlog + pre-stabilisation",
+      "subagent_type": "devops-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 15:05",
+      "scope": "smartsched/deploy/** (including pod-ci/), infra/aws/** (excluding infra/aws/POD_ACTION, which the main session uses to send pod commands), scripts/record/stack.sh, scripts/parity_check.py runner glue only, and ticking items in docs/ROADMAP.md sections \"### Phase 5 deploy/devops backlog\", \"### Phase 6 integration backlog\" and \"### Test-stack follow-ups\". Do NOT touch backend app code, the frontend,…",
+      "goal": "(A) Close the open items in those three sections. (B) Make the pod CI ready for the first green deploy: - Run every pod gate script LOCALLY in Docker exactly as the pod does: smartsched/deploy/pod-ci/podci/gates.py lists prepare, validate, backend, infra, frontend, e2e-real, parity, planner, images and watchdog. Report which are red on the current HEAD and why. - Fix any red that sits in your scop…",
+      "ledger": "devops-backlog-2026-10-15 SCOPE: smartsched/deploy/** (including pod-ci/), infra…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

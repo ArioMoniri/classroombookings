@@ -394,3 +394,12 @@ Execution order (2026-10-15):
    - 3e. AI-assisted intake (pdf/docx/txt/eml/images, coordinator review)
    - Running alongside these: remaining CRBS parity GAPs, P18-LEGACY, motion-audit fixes
 4. Stabilisation: every pod gate green on one commit; then pod start + deploy + BLUF report.
+
+Backlog sweep (2026-10-15): 160 unticked items. Each owner agent verifies every item (tick with evidence if already done, otherwise implement test-first):
+- AI: "Phase 3 AI layer backlog" + AI review follow-ups
+- Solver: "Phase 9 real-data feasibility backlog" + solver review/comparison follow-ups + the per-term relaxation_policy (lock_first default)
+- Devops: "Phase 5", "Phase 6 integration", "Test-stack follow-ups" + a local run of every pod gate
+- Backend: "Backend Phase 1", "Phase 11", "No-placeholder", "Phase 17/18", "Calendar sync follow-ups" + parity GAP rows + P18-LEGACY
+- Importer (running): planner comparison follow-ups + ÇEV≡CEV folding
+- Queued for the frontend, starting once the wave-1 and studio agents release their files: "Phase 8 Generator Studio frontend backlog", "Frontend UX fixes for the Liquid Glass implementation wave", "UI polish backlog", "Calendar follow-ups", "Reservation panel (+ follow-ups)", "Shell follow-ups", the frontend review follow-ups, the motion-audit tickets and the UI parts handed over by the backend sweep.
+User decisions recovered from the agent registry: ÇEV and CEV are the same course code; webhooks off by default; start the pod and deploy when green.
