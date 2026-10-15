@@ -176,8 +176,10 @@ export const api = {
     list: (query?: Query) => request("/runs", { query, schema: RunsList }),
     get: (id: number) => request(`/runs/${id}`, { schema: RunOne }),
     create: (body: RunCreate) => request("/runs", { method: "POST", body, schema: RunCreated }),
-    /** `DELETE /runs/{id}` cancels a queued/running run. */
-    cancel: (id: number) => request(`/runs/${id}`, { method: "DELETE" }),
+    /** `POST /runs/{id}/cancel`: a QUEUED / RUNNING run becomes CANCELLED (409 when it already finished). */
+    cancel: (id: number) => request(`/runs/${id}/cancel`, { method: "POST", schema: RunOne }),
+    /** `DELETE /runs/{id}` deletes the run (and cancels it first when it still runs). */
+    remove: (id: number) => request(`/runs/${id}`, { method: "DELETE" }),
     assignments: (id: number, query?: Query) => request(`/runs/${id}/assignments`, { query, schema: AssignmentsList }),
     grid: (id: number, week?: number) => request(`/runs/${id}/grid`, { query: { week }, schema: Grid }),
     move: (runId: number, assignmentId: number, body: MoveRequest) =>

@@ -45,7 +45,7 @@ function CopyBody({ onClose, initialRunId }: { onClose: () => void; initialRunId
   const [busy, setBusy] = useState(false);
 
   const options = useMemo(() => {
-    const rs = (runs.data ?? []).filter((r) => r.status === "FEASIBLE" || r.status === "OPTIMAL" || r.status === "TIMEOUT").slice(0, 8);
+    const rs = (runs.data ?? []).filter((r) => r.status === "FEASIBLE" || r.status === "OPTIMAL" || r.status === "TIMEOUT" || r.status === "FEASIBLE_PARTIAL").slice(0, 8);
     return [
       ...rs.map((r) => ({ value: `run:${r.id}`, label: t("studio.copy.fromRun", { id: r.id, term: r.term_code, date: formatDate(r.created_at, locale) }) })),
       ...(terms.data ?? []).filter((x) => x.id !== termId).map((x) => ({ value: `term:${x.id}`, label: t("studio.copy.fromTerm", { term: x.name }) })),

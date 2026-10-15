@@ -30,6 +30,9 @@ import { IssueGroups, LocalIssueGroups } from "./issue-groups";
 import { isImportBoard, partialCounts, runStatusBadge, useDuration } from "./runs-list";
 import { ScoreRing } from "./score-ring";
 import { SoftBreakdown } from "./soft-breakdown";
+import { usePermissions } from "@/lib/permissions";
+import { CancelRunButton } from "./cancel-run";
+import { MissingWeeks } from "./missing-weeks";
 
 /** The status headline: honest for partial runs (amber "660/683 placed · no rule broken", never green 100/100). */
 function Verdict({ r, headline }: { r: ScheduleRun; headline?: string }) {
@@ -97,6 +100,7 @@ export function RunView({ id }: { id: number }) {
   const params = useSearchParams();
   const tab = params.get("tab") ?? "report";
   const run = useRun(id);
+  const canPlan = usePermissions().can("planning.edit");
   const constraints = useConstraints({ run_id: id });
   const applyFix = useApplyFix(id);
   const duration = useDuration();
@@ -176,6 +180,7 @@ export function RunView({ id }: { id: number }) {
           </Progress>
           <SolveProgress r={r} />
           <p className="mt-3 text-[12px] text-label-3">{t("glass.report.solverInfo", { s: r.params.time_limit_s })}</p>
+          {canPlan ? <CancelRunButton runId={r.id} className="mt-3" /> : null}
         </GlassPanel>
       ) : (
         <>
@@ -185,6 +190,7 @@ export function RunView({ id }: { id: number }) {
               <div className="min-w-0">
                 <Verdict r={r} headline={headline} />
                 <p className="mt-1 text-[13px] text-label-2">{partial ? t("glass.report.partialHint", { n: n(unplaced) }) : null}</p>
+                <MissingWeeks runId={r.id} stats={r.stats} />
                 <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 pt-4 hairline-t sm:grid-cols-4">
                   {[
                     { k: t("glass.report.placed"), v: placed, suffix: total ? ` / ${n(total)}` : "" },

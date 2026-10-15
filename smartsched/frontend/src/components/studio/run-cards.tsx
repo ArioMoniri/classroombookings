@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clock, Copy as CopyIcon, OctagonX, RotateCcw, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Copy as CopyIcon, OctagonX, RotateCcw, XCircle } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -14,6 +14,7 @@ import type { ScheduleRun } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { plannerText } from "@/components/runs/diagnosis-format";
 import { CopyDialog } from "./copy-dialog";
 import { useStudio, useStudioStore } from "./studio-context";
 
@@ -21,6 +22,13 @@ const ACTIVE = new Set(["QUEUED", "RUNNING"]);
 const GOOD = new Set(["FEASIBLE", "OPTIMAL", "TIMEOUT"]);
 /** runs with a stored timetable to open: a best-effort FEASIBLE_PARTIAL run is one too (not a failed run) */
 const HAS_TIMETABLE = new Set([...GOOD, "FEASIBLE_PARTIAL"]);
+
+/** good = every class placed; partial = a usable best-effort timetable (amber, never green 100/100). */
+export function runTone(status: string): "good" | "partial" | "bad" | "running" {
+  if (status === "QUEUED" || status === "RUNNING") return "running";
+  if (GOOD.has(status)) return "good";
+  return status === "FEASIBLE_PARTIAL" ? "partial" : "bad";
+}
 
 export interface RunDelta {
   soft: number | null;
@@ -61,7 +69,7 @@ function useElapsed(since: number, running: boolean): number {
 
 /** Run status → result card; the summary panel and Step 5 both show it. */
 export function RunCard({ compact }: { compact?: boolean }) {
-  const { t, n } = useI18n();
+  const { t, n, locale } = useI18n();
   const reduce = useReduce();
   const active = useStudioStore((s) => s.activeRun);
   const setActive = useStudioStore((s) => s.setActiveRun);
@@ -87,12 +95,12 @@ export function RunCard({ compact }: { compact?: boolean }) {
       animate={{ opacity: 1, y: 0 }}
       transition={springs.smooth}
       aria-labelledby="run-status-title"
-      className={cn("rounded-xl border bg-card p-4 text-sm", r && GOOD.has(r.status) && "border-status-feasible-border", r && r.status === "INFEASIBLE" && "border-status-infeasible-border")}
+      className={cn("rounded-xl border bg-card p-4 text-sm", r && runTone(r.status) === "good" && "border-status-feasible-border", r && runTone(r.status) === "partial" && "border-status-warning-border", r && r.status === "INFEASIBLE" && "border-status-infeasible-border")}
       data-testid="run-card"
       data-status={r?.status ?? "QUEUED"}
     >
       <h3 id="run-status-title" tabIndex={-1} className="flex items-center gap-2 font-semibold outline-hidden" aria-live={live}>
-        {!r || running ? <BusyGlyph className="size-4 text-tint-text" /> : GOOD.has(r.status) ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : r.status === "INFEASIBLE" ? <OctagonX className="size-4 text-status-infeasible-fg" aria-hidden /> : <XCircle className="size-4 text-status-infeasible-fg" aria-hidden />}
+        {!r || running ? <BusyGlyph className="size-4 text-tint-text" /> : GOOD.has(r.status) ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : r.status === "FEASIBLE_PARTIAL" ? <AlertTriangle className="size-4 text-status-warning-fg" aria-hidden /> : r.status === "INFEASIBLE" ? <OctagonX className="size-4 text-status-infeasible-fg" aria-hidden /> : <XCircle className="size-4 text-status-infeasible-fg" aria-hidden />}
         {t("studio.run.title", { id: active.runId })} · {r ? t(`runs.status.${r.status}`) : t("runs.status.QUEUED")}
       </h3>
 
@@ -124,10 +132,17 @@ export function RunCard({ compact }: { compact?: boolean }) {
         </div>
       ) : HAS_TIMETABLE.has(r.status) ? (
         <div className="mt-2 space-y-2">
-          <p data-testid="run-result">
-            {t("studio.run.resultLine", { soft: r.soft_score ?? "—", placed: n(num(r.stats.events) ?? 0), conflicts: n(num(r.stats.conflicts) ?? 0) })}
-            {r.hard_score === 100 ? ` · ${t("studio.run.allMust")}` : ""}
-          </p>
+          {r.status === "FEASIBLE_PARTIAL" ? (
+            // a best-effort run: the honest count, amber (UX fix "partial runs never show a green 100/100")
+            <p data-testid="run-result" className="text-status-warning-fg">
+              {t("runs.partialRing", { placed: n(num(r.stats.placed) ?? 0), total: n(num(r.stats.events_total) ?? 0) })}
+            </p>
+          ) : (
+            <p data-testid="run-result">
+              {t("studio.run.resultLine", { soft: r.soft_score ?? "—", placed: n(num(r.stats.events) ?? 0), conflicts: n(num(r.stats.conflicts) ?? 0) })}
+              {r.hard_score === 100 ? ` · ${t("studio.run.allMust")}` : ""}
+            </p>
+          )}
           {r.status === "TIMEOUT" ? <p className="text-xs text-status-warning-fg">{t("studio.run.timeout")}</p> : null}
           {prev.data ? <DeltaLine cur={r} prev={prev.data} /> : null}
           <div className={cn("flex flex-wrap gap-2", compact && "flex-col items-stretch")}>
@@ -153,7 +168,7 @@ export function RunCard({ compact }: { compact?: boolean }) {
           <p>{t("studio.run.infeasible", { n: r.diagnosis.length })}</p>
           <ul className="space-y-1 text-xs text-label-2">
             {r.diagnosis.slice(0, 3).map((d) => (
-              <li key={d.id}>· {d.message}</li>
+              <li key={d.id}>· {plannerText(d, locale)}</li>
             ))}
           </ul>
           <div className="flex flex-wrap gap-2">
