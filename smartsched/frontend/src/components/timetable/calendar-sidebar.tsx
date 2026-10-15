@@ -20,6 +20,8 @@ import { monthGrid, weekDayOf } from "./model/dates";
 import { CAPACITY_BUCKETS, EMPTY_FILTERS, activeFilterCount, type CalendarFilters, type StatusFilter } from "./model/filters";
 import type { HeatValue } from "./model/heat";
 import type { CalendarModel } from "./model/index-model";
+import { harmonised } from "./model/harmonise";
+import { runOptionLabel } from "./model/run-label";
 
 export interface CalendarSidebarProps {
   model: CalendarModel;
@@ -132,7 +134,7 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
 }
 
 export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps>(function CalendarSidebar(p, searchRef) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const f = p.filters;
   const set = (patch: Partial<CalendarFilters>) => p.onFilters({ ...f, ...patch });
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -145,16 +147,19 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
     { v: "locked", label: t("calendar.state.locked"), n: p.counts.locked },
   ];
   const capIdx = Math.max(0, CAPACITY_BUCKETS.findIndex((c) => c === f.minCap));
+  const mixedKinds = new Set(p.runs.map((r) => r.kind)).size > 1;
+  const runLabels = new Map(p.runs.map((r) => [r.id, runOptionLabel(r, t, mixedKinds)]));
   return (
     <aside aria-label={t("calendar.sidebar.label")} className={cn("glass-chrome flex min-h-0 flex-col gap-4 overflow-y-auto rounded-2xl p-3 text-label-1", p.className)} data-glass="chrome" data-testid="calendar-sidebar">
       <div className="flex flex-col gap-1.5 px-1">
         <p className="type-headline">{p.term?.name ?? ""}</p>
         <label className="flex flex-col gap-0.5 text-[11px] font-semibold text-label-3">
           {t("calendar.sidebar.run")}
-          <select className="h-8 rounded-lg bg-fill-2 px-2 text-[13px] font-medium text-label-1" value={p.runId} onChange={(e) => p.onRun(Number(e.target.value))} data-testid="run-picker">
+          {/* short option text (weeks as ranges, kind only when both kinds are listed); the full text is the tooltip */}
+          <select className="h-8 w-full min-w-0 truncate rounded-lg bg-fill-2 px-2 text-[13px] font-medium text-label-1" value={p.runId} title={runLabels.get(p.runId)?.full} onChange={(e) => p.onRun(Number(e.target.value))} data-testid="run-picker">
             {p.runs.map((r) => (
-              <option key={r.id} value={r.id}>
-                #{r.id} · {r.kind === "EXAM" ? t("classes.kind.exams") : t("classes.kind.meetings")} · {t(`runs.status.${r.status}`)}{r.horizon === "WEEK" && r.horizon_params.weeks.length ? ` · ${t("calendar.nav.weekShort", { n: r.horizon_params.weeks.join(",") })}` : ""}
+              <option key={r.id} value={r.id} title={runLabels.get(r.id)?.full}>
+                {runLabels.get(r.id)?.short}
               </option>
             ))}
           </select>
@@ -265,7 +270,7 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
           ))}
           <li className="flex items-center gap-2"><span className="cal-block" style={{ position: "relative", width: 44, height: 18 }} aria-hidden />{t("calendar.state.preoccupied")}</li>
           <li className="flex items-center gap-2"><span className="cal-chip cal-booking" style={{ position: "relative", width: 44, height: 18 }} aria-hidden />{t("calendar.state.booking")}</li>
-          <li className="flex items-center gap-2"><span className="cal-ghost" style={{ position: "relative", width: 44, height: 18 }} aria-hidden />{t("calendar.state.ghost", { run: p.compare ?? "…" })}</li>
+          <li className="flex items-center gap-2"><span className="cal-ghost" style={{ position: "relative", width: 44, height: 18 }} aria-hidden />{harmonised(t, locale, "calendar.state.ghost", { run: p.compare ?? "…" })}</li>
         </ul>
       </Section>
       {activeFilterCount(f) ? (

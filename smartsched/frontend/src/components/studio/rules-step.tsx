@@ -33,12 +33,13 @@ import { useRuleActions } from "./use-rule-actions";
 import { WriteIt } from "./write-it";
 import type { ProposedConstraint } from "@/lib/api/schemas";
 import type { TrayItem } from "./studio-store";
+import { harmonised } from "@/components/timetable/model/harmonise";
 
 type GroupBy = "status" | "topic" | "source";
 const SOURCES = ["FILE", "ADMIN", "AI", "UPLOAD"] as const;
 
 export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefill?: BuilderPrefill | null; onBuilderConsumed?: () => void }) {
-  const { t, n } = useI18n();
+  const { t, n, locale } = useI18n();
   const { rules, local, meta, sentence, precheck, store, dispatch } = useStudio();
   const settings = useSettingsPeek();
   const actions = useRuleActions();
@@ -239,7 +240,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
           <RuleGroup id="pins" label={t("studio.rules.groupPins")} count={placed.length} collapsed={collapsed.has("pins")} onToggle={() => toggleGroup("pins")}>
             <ul className="space-y-2">
               {placed.map((p) => {
-                const where = p.room_ids.length ? t("studio.pin.inRoom", { room: p.room_ids.map(sentence.roomCode).join(", ") }) : p.day ? t("studio.pin.atTime", { day: sentence.dayName(p.day), time: p.start_period ? PERIODS[p.start_period - 1]?.start ?? "" : "" }) : "";
+                const where = p.room_ids.length ? t("studio.pin.inRoom", { room: p.room_ids.map(sentence.roomCode).join(", ") }) : p.day ? harmonised(t, locale, "studio.pin.atTime", { day: sentence.dayName(p.day), time: p.start_period ? PERIODS[p.start_period - 1]?.start ?? "" : "" }) : "";
                 return (
                   <li key={p.event_id}>
                     <RuleCard
