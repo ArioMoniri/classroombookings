@@ -929,6 +929,18 @@
       "status": "finished",
       "finished_at": "2026-10-15 20:45",
       "left_off": "deploy to pod when green"
+    },
+    {
+      "id": "a80e9b54c390966a7",
+      "description": "P19 moderation backend M1–M3",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 20:49",
+      "scope": "you may create and edit: - NEW: smartsched/backend/app/services/moderation.py, app/api/v1/moderation.py, app/schemas/moderation.py, tests/test_p19_moderation*.py - app/services/solver_bridge.py and app/services/run_params.py (the solver agent has finished; you now own these two) - a one-line router registration in app/api/v1/router.py - ticking P19-M1..M3 and the related decisions in docs/ROADMAP.…",
+      "goal": "the Phase 19 moderation tab backend. Read: - docs/review/2026-10-15-phase19-engineering.md §3d and tickets M1–M3 - docs/design/v2/phase19-moderation.md and phase19-priority-policy.md - docs/testing/2026-10-15-academician-needs.md §5 (Q9: 0 published moves outside scope; Q11: visibility; Q12: department form vs wish) - docs/ROADMAP.md decisions: pin-and-rerun only (no partial publish); workers=1 fo…",
+      "ledger": "p19-moderation-backend-2026-10-15 SCOPE: you may create and edit: - NEW: smartsc…",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

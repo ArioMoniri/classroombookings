@@ -2,11 +2,11 @@
 
 The course entries of every schedule map in a commit (a weekly board read by the fast path, an ICS feed, an
 ``intake.v1`` timetable, a general-path timetable) become assignments of one run per term,
-``Baseline: imported schedule`` (``params.source = "COUNCIL_BASELINE"``, ``origin = "IMPORT"``). Each entry is
-matched to a meeting request by ``(course key, section, day, start period)``, generalising the board importer's
-link (``app/importers/weekly_grid.py``, request linking index): the course key is ASCII-folded
-(``normalize.course_key``), the section is used when the entry names one, and a request whose weeks hold the
-entry's week is preferred. The run is then the ``parent_run_id`` of a new solve, which keeps placements stable.
+``Baseline: imported schedule`` (``params.source = "COUNCIL_BASELINE"``, ``origin = "IMPORT"``). Contiguous cells of one class are one
+entry, matched to a meeting request by ``(course key, section, day, start period)``, generalising the board
+importer's link (``app/importers/weekly_grid.py``, request linking index): the course key is ASCII-folded
+(``normalize.course_key``), a request whose periods hold the entry's start matches when none starts in the same
+period, the section is used when the entry names one, and a request whose weeks hold the week is preferred. The run is then the ``parent_run_id`` of a new solve, which keeps placements stable.
 
 Weeks: the record's week (board sheet), else its date counted from the term's first Monday; entries outside
 the term's dates are clipped (counted, not written). Exam sheets are skipped (exam boards link exam requests).
@@ -79,16 +79,18 @@ async def _baseline_run(session: AsyncSession, term: Term) -> tuple[ScheduleRun,
     return run, True
 
 
-async def _request_index(
-    session: AsyncSession, term: Term
-) -> dict[tuple[str, int, int], list[tuple[int, str, set[int]]]]:
-    """(course key, day, start period) -> [(meeting request id, section label, weeks)] of the term."""
+Candidate = tuple[int, str, set[int], int, int]  # request id, section label, weeks, start, end period
+
+
+async def _request_index(session: AsyncSession, term: Term) -> dict[tuple[str, int], list[Candidate]]:
+    """(course key, day) -> the term's meeting requests on that day with their period range."""
     rows = await session.execute(
         select(
             MeetingRequest.id,
             MeetingRequest.day,
             MeetingRequest.days,
             MeetingRequest.start_period,
+            MeetingRequest.end_period,
             MeetingRequest.weeks,
             Section.label,
             Course.code,
@@ -98,23 +100,55 @@ async def _request_index(
         .where(Section.term_id == term.id, MeetingRequest.archived.is_(False))
         .order_by(MeetingRequest.id)
     )
-    index: dict[tuple[str, int, int], list[tuple[int, str, set[int]]]] = {}
-    for mid, day, days, sp, weeks, label, code in rows:
+    index: dict[tuple[str, int], list[Candidate]] = {}
+    for mid, day, days, sp, ep, weeks, label, code in rows:
         if sp is None:
             continue
         for d in [day] if day else list(days or []):
-            index.setdefault((n.course_key(code), int(d), int(sp)), []).append(
-                (mid, str(label or ""), {int(w) for w in weeks or []})
+            index.setdefault((n.course_key(code), int(d)), []).append(
+                (mid, str(label or ""), {int(w) for w in weeks or []}, int(sp), int(ep or sp))
             )
     return index
 
 
-def _pick(cands: list[tuple[int, str, set[int]]], section: str | None, week: int) -> int:
-    if section:
-        same = [c for c in cands if c[1] == section]
-        cands = same or cands
-    in_week = [c for c in cands if not c[2] or week in c[2]]
-    return (in_week or cands)[0][0]
+def _pick(cands: list[Candidate], section: str | None, week: int, sp: int, ep: int) -> tuple[int | None, str]:
+    """The request an entry stands for: the same start period (the board importer's rule), else the request
+    whose periods hold the entry's start, else one that starts inside the entry; then the named section and a
+    request whose weeks hold the week win the tie."""
+
+    def best(pool: list[Candidate]) -> int:
+        if section:
+            pool = [c for c in pool if c[1] == section] or pool
+        return ([c for c in pool if not c[2] or week in c[2]] or pool)[0][0]
+
+    for how, pool in (
+        ("start", [c for c in cands if c[3] == sp]),
+        ("inside", [c for c in cands if c[3] <= sp <= c[4]]),
+        ("overlap", [c for c in cands if sp <= c[3] <= ep]),
+    ):
+        if pool:
+            return best(pool), how
+    return None, ""
+
+
+def _spans(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Contiguous cells of one room, week and day with the same text are one class (a board writes one cell
+    per period)."""
+    rows = sorted(rows, key=lambda x: (x["room_id"], x["week"], x["day"], x["text"], x["sp"]))
+    out: list[dict[str, Any]] = []
+    for x in rows:
+        prev = out[-1] if out else None
+        if (
+            prev is not None
+            and (prev["room_id"], prev["week"], prev["day"], prev["text"])
+            == (x["room_id"], x["week"], x["day"], x["text"])
+            and x["sp"] <= prev["ep"] + 1
+        ):
+            prev["ep"] = max(prev["ep"], x["ep"])
+            prev["cells"] += 1
+            continue
+        out.append({**x, "cells": 1})
+    return out
 
 
 async def as_baseline_run(
@@ -141,7 +175,7 @@ async def as_baseline_run(
         for a in (await session.execute(select(Assignment).where(Assignment.run_id == run.id))).scalars()
         if a.source_key
     }
-    seen: set[str] = set()
+    cells: list[dict[str, Any]] = []
     for r, _src in course:
         if str(r.get("sheet_kind") or "").upper() in ("EXAM", "MAKEUP"):
             counts["exam_entries_skipped"] += 1
@@ -160,31 +194,45 @@ async def as_baseline_run(
         if not week or not day or sp is None or ep is None or room is None:
             counts["entries_unplaceable"] += 1
             continue
-        codes = [n.course_key(c) for c in r["course_codes"]]
-        key = natural_key(term.id, room.id, int(week), int(day), int(sp), codes)
+        cells.append(
+            {
+                "room_id": room.id,
+                "week": int(week),
+                "day": int(day),
+                "date": when,
+                "sp": int(sp),
+                "ep": max(int(ep), int(sp)),
+                "text": str(r.get("text") or "")[:255],
+                "codes": [n.course_key(c) for c in r["course_codes"]],
+                "section": r.get("section"),
+            }
+        )
+    seen: set[str] = set()
+    for x in _spans(cells):
+        key = natural_key(term.id, x["room_id"], x["week"], x["day"], x["sp"], x["codes"])
         if key in seen:
             counts["duplicates_in_commit"] += 1
             continue
         seen.add(key)
         mr_id = None
-        for code in codes:
-            cands = index.get((code, int(day), int(sp)))
-            if cands:
-                mr_id = _pick(cands, r.get("section"), int(week))
+        for code in x["codes"]:
+            mr_id, how = _pick(index.get((code, x["day"]), []), x["section"], x["week"], x["sp"], x["ep"])
+            if mr_id:
+                counts[f"linked_by_{how}"] += 1
                 break
         counts["linked" if mr_id else "unlinked"] += 1
         fields: dict[str, Any] = dict(
             run_id=run.id,
             meeting_request_id=mr_id,
-            week=int(week),
-            weeks=[int(week)],
-            day=int(day),
-            date=when,
-            start_period=int(sp),
-            end_period=max(int(ep), int(sp)),
-            room_ids=[room.id],
-            label=str(r.get("text") or "")[:255],
-            course_codes=codes,
+            week=x["week"],
+            weeks=[x["week"]],
+            day=x["day"],
+            date=x["date"],
+            start_period=x["sp"],
+            end_period=x["ep"],
+            room_ids=[x["room_id"]],
+            label=x["text"],
+            course_codes=x["codes"],
             tags=[],
             notes=None,
             origin="IMPORT",
