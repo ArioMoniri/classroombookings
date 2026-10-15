@@ -377,6 +377,50 @@
       "status": "stopped",
       "left_off": "stopped by weekly usage limit 2026-10-08 ~17:55 UTC",
       "finished_at": "2026-10-15 14:49"
+    },
+    {
+      "id": "a896b385c704f91d6",
+      "description": "RESUME wave 1 frontend screens",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 14:51",
+      "scope": "",
+      "goal": "build the UI for the wave-1 booking features. Their backend has landed; the contract is docs/product/wave1-api.md and the spec is docs/product/booking-enhancements.md §4.1/4.2/4.6/4.3. The list is in docs/ROADMAP.md under \"Wave 1 frontend\". 1. Room features admin: Admin → Rooms \"Features\" tab, per-room values, bulk CSV with template, the solver-tag impact confirm on 409, adopt tags. 2. Find a room…",
+      "ledger": "frontend-engineer (wave 1 frontend)",
+      "resumed": true,
+      "status": "running"
+    },
+    {
+      "id": "a62bed02424f9ce4c",
+      "description": "RESUME studio + calendar polish bugs",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 14:51",
+      "scope": "",
+      "goal": "fix the bugs the recording agent found on the real backend. 1. Studio readiness stays \"Not checked yet\" after a rule is added, although the automatic pre-check ran. This is a race with the draft version (components/studio/studio-reducer.ts ~323). 2. The Studio \"Unlock …\" fix shows as a pin. The draft stores a pin with unlock:true (backend app/services/studio.py ~555). Show it as an unlock and do n…",
+      "ledger": "frontend-engineer (studio + calendar polish bugs)",
+      "resumed": true,
+      "status": "running"
+    },
+    {
+      "id": "a5e46ad9de1e4d6ac",
+      "description": "RESUME importer + comparison follow-ups",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-15 14:51",
+      "scope": "",
+      "goal": "You are RESUMING the \"importer + comparison follow-ups\" backend workstream. The previous agent was stopped by a usage limit on 2026-10-08 at about 17:55 UTC. Its last words were: \"Smoke spec: 5/5 passed against the real backend, including the UI re-import of the planning list. Stopping the e2e backe…",
+      "ledger": "backend-engineer (importer + comparison follow-ups) Items (from docs/testing/202…",
+      "resumed": true,
+      "status": "running"
+    },
+    {
+      "id": "a16e38e453f0fbb45",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-15 14:52",
+      "left_off": "<analysis> This is a long multi-agent orchestration session building SmartSched, a university timetabling and classroom-booking system that is a superset of classroombookings (CRBS), on branch claude/gracious-cerf-w1598m. The earlier context is summarised at the top. This part covers: - Making agent memory dynamic. - Pod deployment debugging. - Many agent hand-offs. - User requests: - a decision o…"
     }
   ]
 }
