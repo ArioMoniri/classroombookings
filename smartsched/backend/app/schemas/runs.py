@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import logging
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
@@ -204,6 +205,10 @@ class ConstraintOut(ORMModel):
     source_ref: dict[str, Any] | None = None
 
 
+#: kinds ``POST /imports/...`` creates; anything else (an older or newer build's row) is listed as "other"
+IMPORT_JOB_KINDS = frozenset({"planning-list", "exam-list", "weekly-grid", "room-master", "crbs"})
+
+
 class ImportJobOut(ORMModel):
     id: int
     kind: str
@@ -214,6 +219,20 @@ class ImportJobOut(ORMModel):
     error: str | None
     created_at: dt.datetime
     finished_at: dt.datetime | None
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _known_kind(cls, v: Any) -> str:
+        """Never a 500 for the history list on a kind this build does not know (admin persona M-13)."""
+        if v in IMPORT_JOB_KINDS:
+            return str(v)
+        logging.getLogger(__name__).warning("import job with unknown kind %r listed as 'other'", v)
+        return "other"
+
+    @field_validator("summary", mode="before")
+    @classmethod
+    def _summary(cls, v: Any) -> dict[str, Any]:
+        return v if isinstance(v, dict) else {}
 
 
 class DataIssueItem(BaseModel):

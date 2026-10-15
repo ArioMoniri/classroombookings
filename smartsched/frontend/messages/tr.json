@@ -745,7 +745,7 @@
       "phaseSolving": "Dersler yerleştiriliyor · %{pct}",
       "mustBroken": "Bozulan kesin kural: {n}",
       "elapsed": "{s} sn",
-      "resultLine": "Tercihler {soft}/100 · {placed} yerleşti · {conflicts} çakışma",
+      "resultLine": "Tercihler {soft}/100 · {placed}/{total} yerleşti",
       "allMust": "Tüm kesin kurallar sağlandı",
       "timeout": "Süre sınırında durdu; bu bulunan en iyi plan.",
       "vs": "#{id} ile karşılaştırma",

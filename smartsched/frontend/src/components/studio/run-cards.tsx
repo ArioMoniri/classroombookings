@@ -15,6 +15,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { plannerText } from "@/components/runs/diagnosis-format";
+import { placedOf } from "@/components/runs/run-truth";
 import { CopyDialog } from "./copy-dialog";
 import { useStudio, useStudioStore } from "./studio-context";
 
@@ -46,7 +47,7 @@ export function compareRuns(cur: ScheduleRun, prev: ScheduleRun): RunDelta {
   return {
     soft: diff(cur.soft_score, prev.soft_score),
     hard: diff(cur.hard_score, prev.hard_score),
-    placed: diff(num(cur.stats.events), num(prev.stats.events)),
+    placed: diff(placedOf(cur.stats).placed, placedOf(prev.stats).placed),
     conflicts: diff(num(cur.stats.conflicts), num(prev.stats.conflicts)),
     unplaced: diff(num(cur.stats.unplaced), num(prev.stats.unplaced)),
   };
@@ -139,7 +140,7 @@ export function RunCard({ compact }: { compact?: boolean }) {
             </p>
           ) : (
             <p data-testid="run-result">
-              {t("studio.run.resultLine", { soft: r.soft_score ?? "—", placed: n(num(r.stats.events) ?? 0), conflicts: n(num(r.stats.conflicts) ?? 0) })}
+              {t("studio.run.resultLine", { soft: r.soft_score ?? "—", placed: n(placedOf(r.stats).placed ?? 0), total: n(placedOf(r.stats).total ?? 0) })}
               {r.hard_score === 100 ? ` · ${t("studio.run.allMust")}` : ""}
             </p>
           )}
@@ -224,7 +225,7 @@ export function CompareTable({ cur, prev }: { cur: ScheduleRun; prev: ScheduleRu
   const rows: { label: string; a: number | null; b: number | null; delta: number | null }[] = [
     { label: t("runs.hardScore"), a: prev.hard_score, b: cur.hard_score, delta: d.hard },
     { label: t("runs.softScore"), a: prev.soft_score, b: cur.soft_score, delta: d.soft },
-    { label: t("studio.run.placed"), a: num(prev.stats.events), b: num(cur.stats.events), delta: d.placed },
+    { label: t("studio.run.placed"), a: placedOf(prev.stats).placed, b: placedOf(cur.stats).placed, delta: d.placed },
     { label: t("dashboard.conflicts"), a: num(prev.stats.conflicts), b: num(cur.stats.conflicts), delta: d.conflicts },
     { label: t("runs.unplaced"), a: num(prev.stats.unplaced), b: num(cur.stats.unplaced), delta: d.unplaced },
   ];

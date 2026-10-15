@@ -13,6 +13,7 @@ from app.api.deps import DB, CurrentAccess, Planner, require_permission
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
+from app.importers.detect import WrongFileError
 from app.importers.report import ImportReport
 from app.models import ImportJob, User
 from app.schemas.runs import ImportJobOut
@@ -97,6 +98,14 @@ async def _start_job(db: DB, job: ImportJob, run: Any, *, term_code: str | None 
                     progress("importing", 10)
                     async with factory() as session:
                         report = await run(session)
+        except WrongFileError as exc:
+            _cleanup(job.id)
+            async with factory() as session:  # the "import it as ..." offer of the import screen (M-20)
+                row = await session.get(ImportJob, job.id)
+                if row is not None:
+                    row.summary = {**(row.summary or {}), "detected_kind": exc.detected, "expected_kind": exc.expected}
+                    await session.commit()
+            raise ValueError(str(exc)) from exc
         except term_lock.TermLocked as exc:
             _cleanup(job.id)
             raise ValueError(locked_409(exc).detail["message"]) from exc  # type: ignore[index]
@@ -234,6 +243,33 @@ async def import_crbs_endpoint(
     return await _start_job(db, job, lambda s: import_crbs(s, source, filename=job.filename))
 
 
+#: summary keys a viewer may read: counts and job state, no parsed rows / warnings / notes (KVKK, council D13)
+_COUNT_KEYS = frozenset(
+    {
+        "rows_total",
+        "rows_imported",
+        "rows_skipped_count",
+        "warnings_count",
+        "created",
+        "updated",
+        "progress",
+        "phase",
+        "detected_kind",
+        "expected_kind",
+    }
+)
+
+
+def _out(job: ImportJob, access: Any) -> ImportJobOut:
+    """The job as the caller may see it: parsed rows, warnings and the report's ``extra`` (instructor names,
+    notes, conflicts) need ``planning.edit`` - or ``setup.rooms`` for a room-master job; others get counts."""
+    out = ImportJobOut.model_validate(job)
+    full = "planning.edit" in access.perms or (job.kind == "room-master" and "setup.rooms" in access.perms)
+    if not full:
+        out.summary = {k: v for k, v in out.summary.items() if k in _COUNT_KEYS} | {"redacted": True}
+    return out
+
+
 @router.get("", response_model=list[ImportJobOut])
 async def list_jobs(
     db: DB,
@@ -248,11 +284,12 @@ async def list_jobs(
     q = select(ImportJob)
     if kind is not None:
         q = q.where(ImportJob.kind == kind)
-    return list((await db.execute(q.order_by(ImportJob.id.desc()).limit(max(1, min(limit, 500))))).scalars())
+    jobs = (await db.execute(q.order_by(ImportJob.id.desc()).limit(max(1, min(limit, 500))))).scalars()
+    return [_out(j, access) for j in jobs]
 
 
 @router.get("/{job_id}", response_model=ImportJobOut)
-async def get_job(job_id: int, db: DB, access: CurrentAccess) -> ImportJob:
+async def get_job(job_id: int, db: DB, access: CurrentAccess) -> ImportJobOut:
     """Planners see every job; a room administrator (``setup.rooms``) sees the room-master imports."""
     job = await db.get(ImportJob, job_id)
     viewer = "planning.view" in access.perms
@@ -262,10 +299,11 @@ async def get_job(job_id: int, db: DB, access: CurrentAccess) -> ImportJob:
         raise HTTPException(404, "import job not found")
     if job is None:
         raise HTTPException(404, "import job not found")
+    out = _out(job, access)
     st = get_queue().state(f"import:{job.id}")
     if st and job.status in {"QUEUED", "RUNNING"}:
-        job.summary = {**(job.summary or {}), "progress": st.progress, "phase": st.phase}
-    return job
+        out.summary = {**out.summary, "progress": st.progress, "phase": st.phase}
+    return out
 
 
 @router.get("/{job_id}/file")

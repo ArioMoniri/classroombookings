@@ -745,7 +745,7 @@
       "phaseSolving": "Placing classes · {pct} %",
       "mustBroken": "Must-rules broken: {n}",
       "elapsed": "{s} s",
-      "resultLine": "Preferences {soft}/100 · {placed} placed · {conflicts} conflicts",
+      "resultLine": "Preferences {soft}/100 · {placed}/{total} placed",
       "allMust": "All must-rules met",
       "timeout": "Stopped at the time limit; this is the best plan found.",
       "vs": "vs #{id}",
