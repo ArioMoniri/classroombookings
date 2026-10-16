@@ -256,6 +256,6 @@
   evidence: scripts/record
 - feature: "Mobile optimisation of every screen (390 and 768 px)"
   area: platform
-  status: in-progress
+  status: done
   phase: "owner instruction 2026-10-15"
-  note: "approval, identity and P19 screens done at 390 px; design-migration and mobile sweep running for the rest"
+  note: "390 px touch probe over 42 routes: 519 → 22 offenders; phone day views for dense grids; dialogs and sheets as bottom sheets"

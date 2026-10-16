@@ -1506,3 +1506,17 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
 - [ ] The conflict banner in the timetable header.
 - [ ] Persist the admins' "Daha sonra" on the server.
 - [ ] A legal review of the Gizlilik consequence texts.
+
+### Dense grids on phones finished (2026-10-16)
+
+- Done:
+  - /rooms/[id] has a phone day view.
+  - /admin/sessions: on phones the term calendar drops the week-number column (46 px cells), painting is by tap with a Gün/Hafta/Aralık mode, and the page scrolls under a finger.
+  - /dashboard: a ranked BarList per day or period.
+  - /admin/roles: one role at a time.
+  - /runs/[id]: the tabs scroll in their own row; this fixed an M-01 overflow.
+  - SegmentedControl fallback recovery fix.
+  - Probe over 42 routes: 323 → 22 offenders. Most of the rest belong to other agents and were already fixed in later commits.
+- [ ] On tablets the session calendar still drag-paints with `touch-none`, so the page can't scroll with a finger there.
+- [ ] Probe note for the testers: disabled buttons are counted as offenders.
+- The remaining-UIs agent is running: the schedule-map baseline, intake memory management, the intake e2e, Google/M365 push settings, and the relaxation policy last.

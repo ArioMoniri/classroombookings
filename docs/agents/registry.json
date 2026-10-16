@@ -1560,7 +1560,8 @@
       "goal": "You are the **dense grids on phones** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: dense-grids-phone-2026-10-16. ## Owner's requirement \"Make all optimised for mobile screens\", …",
       "ledger": "Dense grids: phone layouts",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 08:24"
     },
     {
       "id": "a327e88b96631ea19",
@@ -1571,6 +1572,19 @@
       "scope": "",
       "goal": "You are the **backend asks, batch 3** builder for SmartSched (FastAPI backend /home/user/classroombookings/smartsched/backend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: backend-asks-3-2026-10-16. Read docs/ROADMAP.md section \"Bookings wave-2 + KVKK UI finished\". ## I…",
       "ledger": "Backend asks batch 3 (small)",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-16 08:25"
+    },
+    {
+      "id": "acf082d1874302899",
+      "description": "Remaining UI: schedule map, intake e2e, etc.",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 08:25",
+      "scope": "",
+      "goal": "You are the **remaining feature UIs** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: remaining-ui-2026-10-16. ## Owner's requirement \"Finish all phases and features\"; no demo/test…",
+      "ledger": "Remaining UI: schedule map, intake e2e, etc.",
       "resumed": false,
       "status": "running"
     }

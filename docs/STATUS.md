@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `92c11e3` (committed 2026-10-16 08:24 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `e60fb2a` (committed 2026-10-16 08:24 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 36 · Backend only 4 · In progress 4 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 37 · Backend only 4 · In progress 3 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -103,7 +103,7 @@ Done 36 · Backend only 4 · In progress 4 · Planned 0 (from [`docs/features.ym
 | Docs that update themselves: generated blocks from the sources of truth, checked in pod CI | Done | owner request 2026-10-15 | [`sync_docs.py`](../scripts/docs/sync_docs.py) |
 | Design-system overhaul from the UI/UX review (sizing, controls, columns, de-AI changes) | Done: tokens, primitives, DataTable columns and the check:design gate; migrating the older screens is in progress | owner feedback 2026-10-15 | [`visual-quality.spec.ts`](../smartsched/frontend/e2e/visual-quality.spec.ts) |
 | README recordings and a real screenshot gallery for the current UI | In progress | 16 | [`record`](../scripts/record) |
-| Mobile optimisation of every screen (390 and 768 px) | In progress: approval, identity and P19 screens done at 390 px; design-migration and mobile sweep running for the rest | owner instruction 2026-10-15 |  |
+| Mobile optimisation of every screen (390 and 768 px) | Done: 390 px touch probe over 42 routes: 519 → 22 offenders; phone day views for dense grids; dialogs and sheets as bottom sheets | owner instruction 2026-10-15 |  |
 
 <!-- /AUTO:status -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-142 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 120 · stopped 7 · superseded 7.
+143 agents in [`docs/agents/registry.json`](agents/registry.json): running 7 · finished 122 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -155,8 +155,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
-| `Dense grids` | frontend-engineer | 2026-10-16 07:18 |
-| `Backend asks batch 3 (small)` | backend-engineer | 2026-10-16 07:41 |
+| `Remaining UI` | frontend-engineer | 2026-10-16 08:25 |
 
 <!-- /AUTO:agents -->
 
@@ -223,7 +222,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **193 ticked · 302 open** checkboxes in 72 sections (69 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **193 ticked · 304 open** checkboxes in 73 sections (70 with open items).
 
 <details><summary>Per section</summary>
 
@@ -301,6 +300,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Batch-2 endpoints UI finished (2026-10-16) | 0 | 2 |
 | Mobile polish finished (2026-10-16) | 0 | 1 |
 | Bookings wave-2 + KVKK UI finished (2026-10-16) | 1 | 4 |
+| Dense grids on phones finished (2026-10-16) | 0 | 2 |
 
 </details>
 
