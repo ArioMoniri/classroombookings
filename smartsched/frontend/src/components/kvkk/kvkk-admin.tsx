@@ -1,7 +1,8 @@
 "use client";
 /**
  * Yönetim › KVKK (A4): the request queue (`setup.users`), retention periods, the privacy notice and the data inventory
- * (`setup.settings`). Each tab is shown only to the permission the backend checks. The privacy-notice gate never opens
+ * (`setup.settings`), and what a never-given AI consent means (`kvkk.ai_personal_default`, `PUT /settings`: role
+ * ADMIN). Each tab is shown only to the permission the backend checks. The privacy-notice gate never opens
  * on this page, so an administrator can always write and publish a notice.
  */
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,6 +10,7 @@ import { PageTitle } from "@/components/admin/kit";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermissions } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
+import { AiDefaultEditor } from "./ai-default";
 import { DsrQueue } from "./dsr-queue";
 import { InventoryTable } from "./inventory-table";
 import { NoticeEditor } from "./notice-editor";
@@ -16,7 +18,8 @@ import { RetentionEditor } from "./retention-editor";
 
 export function KvkkAdmin() {
   const { t } = useI18n();
-  const { can } = usePermissions();
+  const { can, me } = usePermissions();
+  const admin = me?.role === "ADMIN";
   const router = useRouter();
   const params = useSearchParams();
   const tabs = [
@@ -24,6 +27,7 @@ export function KvkkAdmin() {
     { value: "notice", label: t("kvkk.tabs.notice"), show: can("setup.settings") },
     { value: "retention", label: t("kvkk.tabs.retention"), show: can("setup.settings") },
     { value: "inventory", label: t("kvkk.tabs.inventory"), show: can("setup.settings") },
+    { value: "ai", label: t("kvkk.tabs.ai"), show: admin },
   ].filter((x) => x.show);
   const requested = params.get("tab");
   const tab = tabs.some((x) => x.value === requested) ? requested! : (tabs[0]?.value ?? "requests");
@@ -57,6 +61,11 @@ export function KvkkAdmin() {
               <InventoryTable />
             </TabsContent>
           </>
+        ) : null}
+        {admin ? (
+          <TabsContent value="ai">
+            <AiDefaultEditor />
+          </TabsContent>
         ) : null}
       </Tabs>
     </div>

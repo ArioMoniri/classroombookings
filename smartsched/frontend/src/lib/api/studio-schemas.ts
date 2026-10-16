@@ -50,6 +50,8 @@ export const DraftParams = z
     stability: z.boolean().optional(),
     label: z.string().optional(),
     parent_run_id: z.number().nullable().optional(),
+    /** which classes give way when not everything fits; absent / null = the term setting (backend run_params) */
+    relaxation_policy: z.enum(["lock_first", "most_classes_first"]).nullable().optional().catch(null),
   })
   .catchall(z.unknown());
 export type DraftParams = z.infer<typeof DraftParams>;

@@ -5,10 +5,14 @@
  *      accepted) through the stepper Dosyalar › İnceleme › Fark › Kaydet: the three instructor merges decided, the
  *      Fark dry run with "keep" and with "take" (the request carries the choice), then the commit into 2026-BAHAR;
  *   2. the same file again: every merge decided in 1 comes back "remembered" (intake memory) with its suggestion;
- *   3. the general path forced: the unmapped column is decided, and a re-upload shows that mapping remembered;
- *   4. the weekly board (bahar_derslikler_takvimi_2026.xlsx): Fark names the baseline import run the schedule map goes
- *      to, Kaydet shows the baseline run's counts, and "Re-solve keeping this board" opens the run's dialog, where a
- *      relaxation policy is chosen and a child run of the baseline run is queued (then cancelled and removed again).
+ *   3. the general path forced: the unmapped column is decided, and a re-upload shows that mapping remembered; then
+ *      "Hatırlanan kararlar" on the onboarding page lists that file's signature, the whole signature is forgotten after
+ *      a confirm (the API no longer lists it) and the toast's Geri al brings it back;
+ *   4. the weekly board (bahar_derslikler_takvimi_2026.xlsx): Fark reads the dry run's `result.baseline_run` (the
+ *      baseline import run the schedule map goes to and its counts); the Kaydet target "Yazma" (skip) and "Başka
+ *      çalıştırma" (another run of the term) change the dry run's request and answer; Kaydet with the baseline run
+ *      shows its counts, and "Re-solve keeping this board" opens the run's dialog, where a relaxation policy is
+ *      chosen and a child run of the baseline run is queued (then cancelled and removed again).
  *
  * The AI rows path (pdf / docx / images through the model) needs an Anthropic API key and an administrator's AI
  * switch; it is skipped unless E2E_ANTHROPIC_KEY_CONFIGURED=1 says the backend has one.
@@ -79,6 +83,7 @@ test("Bahar planning list: Dosyalar › İnceleme › Fark (keep / take) › Kay
   // Fark: the same writer in a rolled-back transaction, first keeping planner corrections, then taking the file's
   const commit = await fillTerm(page);
   await expect(commit.getByTestId("onboarding-baseline-preview")).toHaveCount(0); // a planning list is no schedule map
+  await expect(commit.getByTestId("onboarding-baseline-target")).toHaveCount(0);
   let req = commitRequest(page, true);
   await commit.getByTestId("onboarding-diff-button").click();
   expect(jsonBody(await req).on_conflict).toBe("keep");
@@ -134,22 +139,83 @@ test("forced general path: a column mapping decision is remembered for the same 
   await expect(again).toBeVisible();
   await expect(again.getByTestId("review-remembered")).toContainText(/tarihli \d+ numaralı işten hatırlandı/);
   // nothing is committed here: the general path into a term the fast path filled would add duplicate requests
+
+  // Hatırlanan kararlar (onboarding, before a new upload): the file's layout signature, its rows, forget all + undo
+  type Mem = { total: number; items: { id: number; signature: string; kind: string; context: { file?: string } }[] };
+  const before = await api<Mem>(page, "/council/memory?kind=intake_mapping");
+  const row = before.items.find((i) => i.context.file === path.basename(PLANNING_LIST));
+  expect(row, "the planning list's column mapping is remembered").toBeTruthy();
+  const sig = row!.signature;
+  const n = (await api<Mem>(page, `/council/memory?signature=${sig}`)).total;
+  await page.goto("/onboarding");
+  const panel = page.getByTestId("intake-memory");
+  await expect(panel).toBeVisible();
+  await expect(panel.getByTestId("intake-memory-section-layout")).toContainText("Dosya düzenleri");
+  const group = panel.locator(`[data-testid="intake-memory-group"][data-signature="${sig}"]`);
+  await expect(group).toContainText(path.basename(PLANNING_LIST));
+  await group.getByTestId("intake-memory-group-toggle").click();
+  await expect(group.getByTestId("intake-memory-row").filter({ hasText: /\d+\. sütun/ }).first()).toBeVisible();
+  await expect(group.getByTestId("intake-memory-row")).toHaveCount(n);
+  await group.getByTestId("intake-memory-forget-group").click();
+  const confirm = page.getByTestId("intake-memory-confirm");
+  await expect(confirm).toContainText(`${n} karar unutulacak`);
+  const del = page.waitForRequest((r) => r.method() === "DELETE" && r.url().includes(`/council/memory?signature=${sig}`));
+  await confirm.getByTestId("intake-memory-confirm-button").click();
+  await del;
+  await expect(group).toHaveCount(0, { timeout: 30_000 });
+  expect((await api<Mem>(page, `/council/memory?signature=${sig}`)).total).toBe(0);
+  // the forget is a learning reset of scope intake: the toast's Geri al (administrators) restores it
+  await page.locator("[data-sonner-toast]").getByRole("button", { name: "Geri al" }).click();
+  await expect(group).toBeVisible({ timeout: 30_000 });
+  expect((await api<Mem>(page, `/council/memory?signature=${sig}`)).total).toBe(n);
 });
 
 test("weekly board: the schedule map goes to the baseline run; a re-solve keeps it with a relaxation policy", async ({ page }) => {
-  test.setTimeout(8 * 60_000);
+  test.setTimeout(14 * 60_000);
   await login(page);
   await startJob(page, BOARD);
   await expect(page.getByTestId("blocking-count")).toHaveText(/^0/);
   const commit = await fillTerm(page);
   const preview = commit.getByTestId("onboarding-baseline-preview");
   await expect(preview).toBeVisible();
-  await expect(preview).not.toHaveAttribute("data-state", "loading", { timeout: 30_000 });
-  await expect(preview).toContainText(/temel çalıştırma/);
+  await expect(preview).toHaveAttribute("data-state", "pending");
+  const target = commit.getByTestId("onboarding-baseline-target");
+  await expect(target).toHaveAttribute("data-mode", "auto");
 
+  // Fark: the dry run says which run the map goes to (the term's baseline run, existing or new) and its counts
+  let dry = commitRequest(page, true);
+  await commit.getByTestId("onboarding-diff-button").click();
+  expect(jsonBody(await dry).baseline).toEqual({ mode: "auto" });
+  await expect(preview).toHaveAttribute("data-state", /^(existing|new)$/, { timeout: LONG });
+  await expect(preview).toContainText(/temel çalıştırma/);
+  await expect(preview).toContainText("Talebe bağlı");
+
+  // Kaydet target "Yazma": the dry run writes no schedule map
+  await pickSegment(page, "Yazma", target);
+  await expect(preview).toHaveAttribute("data-state", "pending"); // a changed choice drops the old diff
+  dry = commitRequest(page, true);
+  await commit.getByTestId("onboarding-diff-button").click();
+  expect(jsonBody(await dry).baseline).toEqual({ mode: "skip" });
+  await expect(preview).toHaveAttribute("data-state", "skip", { timeout: LONG });
+  await expect(preview).toContainText(/Program haritası yazılmayacak \([\d.]+ ders girişi atlanır\)/);
+
+  // "Başka çalıştırma": another finished COURSE run of the term (the e2e full-term solve), dry run only
+  await pickSegment(page, "Başka çalıştırma", target);
+  const select = target.getByTestId("baseline-target-run");
+  await expect(select).toBeVisible({ timeout: 30_000 });
+  const other = Number(await select.inputValue());
+  expect(other).toBeGreaterThan(0);
+  dry = commitRequest(page, true);
+  await commit.getByTestId("onboarding-diff-button").click();
+  expect(jsonBody(await dry).baseline).toEqual({ mode: "run", run_id: other });
+  await expect(preview).toHaveAttribute("data-state", "target", { timeout: LONG });
+  await expect(preview).toContainText(`#${other} numaralı çalıştırmasına`);
+
+  // Kaydet with the baseline run (the default)
+  await pickSegment(page, "Temel çalıştırma", target);
   const req = commitRequest(page, false);
   await commit.getByTestId("onboarding-commit-button").click();
-  await req;
+  expect(jsonBody(await req).baseline).toEqual({ mode: "auto" });
   const result = commit.getByTestId("onboarding-baseline-result");
   await expect(result).toBeVisible({ timeout: LONG });
   await expect(result).toContainText(/Temel çalıştırma #\d+ (oluşturuldu|güncellendi)/);

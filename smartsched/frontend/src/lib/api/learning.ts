@@ -74,7 +74,7 @@ export type MemorySummary = z.infer<typeof MemorySummary>;
 export const ResetRow = z.object({
   id: z.number(),
   kind: z.enum(["RESET", "ERASURE"]).catch("RESET"),
-  scope: z.enum(["person", "term", "all"]).catch("all"),
+  scope: z.enum(["person", "term", "all", "intake"]).catch("all"),
   value: z.string().nullable(),
   reason: z.string().nullable().default(null),
   actor_id: z.number().nullable().default(null),

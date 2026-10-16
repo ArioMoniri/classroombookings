@@ -100,6 +100,10 @@ export const MyPrivacy = z.object({
   consents: z.array(Consent).default([]),
   requests: z.array(Dsr).default([]),
   due_days: z.number().default(30),
+  /** what a never-given `ai_personal` consent means here (consent gates 2026-10-16; `kvkk.ai_personal_default`) */
+  ai_personal_default: z.enum(["included", "excluded"]).catch("included").default("included"),
+  /** this person's name and e-mail are replaced by a placeholder in AI requests right now */
+  ai_excluded: z.boolean().default(false),
 });
 export type MyPrivacy = z.infer<typeof MyPrivacy>;
 
@@ -154,7 +158,20 @@ export const kvkkKeys = {
   retention: ["kvkk", "retention"] as const,
   inventory: ["kvkk", "inventory"] as const,
   notices: ["kvkk", "notices"] as const,
+  aiDefault: ["kvkk", "ai-personal-default"] as const,
 };
+
+/** `kvkk.ai_personal_default` (consent gates 2026-10-16): `included` = only an explicit withdrawal keeps a person out
+ * of AI requests; `excluded` = a consent that was never given counts as no (only a grant lets a person in). */
+export const AI_DEFAULTS = ["included", "excluded"] as const;
+export type AiDefault = (typeof AI_DEFAULTS)[number];
+export const AI_DEFAULT_KEY = "kvkk.ai_personal_default";
+
+/** The stored value from a `GET/PUT /settings` answer (`included` when missing or unreadable, as the backend reads it). */
+export function aiDefaultOf(settings: unknown): AiDefault {
+  const v = settings && typeof settings === "object" ? (settings as Record<string, unknown>)[AI_DEFAULT_KEY] : null;
+  return v === "excluded" ? "excluded" : "included";
+}
 
 export const kvkkApi = {
   me: () => request("/me/privacy", { schema: MyPrivacy, ...s }),
@@ -175,6 +192,10 @@ export const kvkkApi = {
   updateNotice: (id: number, body: NoticeIn) => request(`/admin/privacy-notices/${id}`, { method: "PUT", body, schema: Notice, ...s }),
   deleteNotice: (id: number) => request<void>(`/admin/privacy-notices/${id}`, { method: "DELETE", ...s }),
   publishNotice: (id: number) => request(`/admin/privacy-notices/${id}/publish`, { method: "POST", schema: Notice, ...s }),
+  /** `GET /settings` (role ADMIN): only the KVKK AI default is read here */
+  aiDefault: () => request<unknown>("/settings", s).then(aiDefaultOf),
+  /** `PUT /settings {extra: {"kvkk.ai_personal_default": …}}`; 422 `{code, field, message_en, message_tr, allowed}`; audited server-side */
+  saveAiDefault: (value: AiDefault) => request<unknown>("/settings", { method: "PUT", body: { extra: { [AI_DEFAULT_KEY]: value } }, ...s }).then(aiDefaultOf),
 };
 
 /** Download the export zip through the same-origin proxy; a 410 (expired) or 404 comes back as an HttpError. */
@@ -268,6 +289,22 @@ export function useDeleteNotice() {
   const done = useInvalidate(kvkkKeys.notices);
   return useMutation({ mutationFn: kvkkApi.deleteNotice, onSuccess: () => void done() });
 }
+export function useAiDefault(enabled = true) {
+  return useQuery({ queryKey: kvkkKeys.aiDefault, queryFn: kvkkApi.aiDefault, enabled, retry: false });
+}
+/** Saving changes what everyone's Gizlilik text says (`GET /me/privacy`) and the Settings screen's cache. */
+export function useSaveAiDefault() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: kvkkApi.saveAiDefault,
+    onSuccess: (value) => {
+      qc.setQueryData(kvkkKeys.aiDefault, value);
+      void qc.invalidateQueries({ queryKey: kvkkKeys.me });
+      void qc.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+}
+
 export function usePublishNotice() {
   const done = useInvalidate(kvkkKeys.notices, kvkkKeys.me);
   return useMutation({ mutationFn: kvkkApi.publishNotice, onSuccess: () => void done() });
@@ -343,6 +380,55 @@ export function erasureCounts(result: Dsr["result"]): { key: string; n: number }
     .filter((e): e is [string, number] => typeof e[1] === "number")
     .map(([key, n]) => ({ key, n }))
     .sort((a, b) => b.n - a.n || a.key.localeCompare(b.key));
+}
+
+/** One follow-up of an erasure the administrator may need to act on (`result.failures[]`, TR/EN). */
+export interface ErasureFailure {
+  provider: string;
+  code: string;
+  message_en: string;
+  message_tr: string;
+  count?: number;
+  error?: string;
+}
+/** One disconnected push calendar of an erasure (`result.calendar[]`). `revoke`: done | not_supported | failed |
+ * queued | unreadable | none. */
+export interface ErasureCalendar {
+  provider: string;
+  events: number | null;
+  events_removed: number;
+  events_failed: number | null;
+  revoke: string;
+}
+
+const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+/** `result.failures` of a completed erasure (entries without a sentence are skipped; a missing language falls back). */
+export function erasureFailures(result: Dsr["result"]): ErasureFailure[] {
+  const list = result && Array.isArray(result.failures) ? (result.failures as unknown[]) : [];
+  return list.flatMap((raw) => {
+    if (!raw || typeof raw !== "object") return [];
+    const f = raw as Record<string, unknown>;
+    const en = str(f.message_en) ?? str(f.message) ?? str(f.message_tr) ?? "";
+    const tr = str(f.message_tr) ?? en;
+    if (!en && !tr) return [];
+    const count = num(f.count);
+    const error = str(f.error);
+    return [{ provider: str(f.provider) ?? "", code: str(f.code) ?? "", message_en: en, message_tr: tr, ...(count !== null ? { count } : {}), ...(error ? { error } : {}) }];
+  });
+}
+
+/** `result.calendar` of a completed erasure: what happened to each push calendar. */
+export function erasureCalendars(result: Dsr["result"]): ErasureCalendar[] {
+  const list = result && Array.isArray(result.calendar) ? (result.calendar as unknown[]) : [];
+  return list.flatMap((raw) => {
+    if (!raw || typeof raw !== "object") return [];
+    const c = raw as Record<string, unknown>;
+    const provider = str(c.provider);
+    if (!provider) return [];
+    return [{ provider, events: num(c.events), events_removed: num(c.events_removed) ?? 0, events_failed: num(c.events_failed), revoke: str(c.revoke) ?? "none" }];
+  });
 }
 
 /** RFC 4180 CSV of the data inventory (UTF-8 BOM so Excel reads the Turkish letters). */

@@ -11,9 +11,9 @@ import { BusyButton, BusyGlyph } from "@/components/ui/busy-label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { councilApi, type CommitDryRun, type CommitIn, type CommitOut, type CouncilJob } from "@/lib/api/council";
+import { councilApi, type BaselineTarget, type CommitDryRun, type CommitIn, type CommitOut, type CouncilJob } from "@/lib/api/council";
 import { useI18n } from "@/lib/i18n/provider";
-import { BaselinePreview, BaselineResult } from "./baseline-summary";
+import { BaselinePreview, BaselineResult, BaselineTargetPicker, hasScheduleMap, targetReady } from "./baseline-summary";
 import { useOnboardingCopy } from "./copy";
 import { PlanTermFields } from "./review-panel";
 
@@ -26,6 +26,7 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
   const [term, setTerm] = useState(() => ({ code: g?.code ?? "", name: g?.name ?? "", weekCount: g?.week_count ?? 14 }));
   const [includeRules, setIncludeRules] = useState(true);
   const [onConflict, setOnConflict] = useState<"keep" | "take">("keep");
+  const [baseline, setBaseline] = useState<BaselineTarget>({ mode: "auto" });
   const [diff, setDiff] = useState<CommitDryRun | null>(null);
   const [diffBusy, setDiffBusy] = useState(false);
   const [diffError, setDiffError] = useState<string | null>(null);
@@ -35,6 +36,7 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
   const pick = (i: number) => {
     setGroup(i);
     setDiff(null);
+    if (baseline.mode === "run") setBaseline({ mode: "auto" }); // a run of another term
     const ng = groups[i];
     if (ng) setTerm({ code: ng.code, name: ng.name, weekCount: ng.week_count });
   };
@@ -43,6 +45,8 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
     term: { code: term.code.trim(), name: term.name.trim() || term.code.trim(), week_count: term.weekCount },
     include_rules: includeRules,
     on_conflict: onConflict,
+    // auto (the term's baseline run) is the backend default: sent only for a schedule map
+    ...(hasScheduleMap(job) ? { baseline } : {}),
   });
   const runDiff = async () => {
     setDiffBusy(true);
@@ -55,7 +59,7 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
       setDiffBusy(false);
     }
   };
-  const disabled = busy || blocking > 0 || !term.code.trim();
+  const disabled = busy || blocking > 0 || !term.code.trim() || !targetReady(baseline);
 
   return (
     <Card data-testid="onboarding-commit">
@@ -80,7 +84,7 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
         ) : (
           <p className="type-footnote text-label-2">{t("onboarding.noGroups")}</p>
         )}
-        <PlanTermFields value={term} onChange={(v) => { setTerm(v); setDiff(null); }} />
+        <PlanTermFields value={term} onChange={(v) => { if (v.code !== term.code && baseline.mode === "run") setBaseline({ mode: "auto" }); setTerm(v); setDiff(null); }} />
         <label className="flex items-center gap-2 text-label-1">
           <Checkbox checked={includeRules} onCheckedChange={(v) => { setIncludeRules(Boolean(v)); setDiff(null); }} />
           {t("onboarding.includeRules")}
@@ -96,9 +100,11 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
             options={[{ value: "keep", label: c.keep }, { value: "take", label: c.take }]}
           />
         </div>
+        {/* where the schedule map goes (P19-I5): the term's baseline run, another run of the term, or nowhere */}
+        {!result ? <BaselineTargetPicker job={job} termCode={term.code} value={baseline} onChange={(v) => { setBaseline(v); setDiff(null); }} /> : null}
         {blocking ? <p className="type-footnote text-status-infeasible-fg">{t("onboarding.blockingBeforeCommit", { count: blocking })}</p> : null}
-        {/* the schedule map goes to the term's one baseline run (P19-I5): say which one before saving */}
-        {!result ? <BaselinePreview job={job} termCode={term.code} /> : null}
+        {/* Fark: the dry run says which run the map goes to and what it would write */}
+        {!result ? <BaselinePreview job={job} termCode={term.code} baseline={diff?.result.baseline_run} diffDone={!!diff} /> : null}
 
         {/* ④ Fark */}
         <div className="flex flex-wrap items-center gap-2">

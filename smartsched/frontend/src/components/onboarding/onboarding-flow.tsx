@@ -12,6 +12,7 @@ import { CommitPanel } from "./commit-panel";
 import { CouncilProgress } from "./council-progress";
 import { useOnboardingCopy } from "./copy";
 import { FileDrop, type DropOptions } from "./file-drop";
+import { IntakeMemoryPanel, memoryKey } from "./intake-memory";
 import { ReviewPanel } from "./review-panel";
 import { RowsPanel, rowsKey } from "./rows-panel";
 import { councilKey, useCouncilJob } from "./use-council-job";
@@ -66,6 +67,7 @@ export function OnboardingFlow() {
         setFollow((f) => f + 1);
       }
       await qc.invalidateQueries({ queryKey: councilKey(jobId) });
+      void qc.invalidateQueries({ queryKey: memoryKey }); // the decisions are remembered for the next upload
     } finally {
       setBusy(false);
     }
@@ -118,6 +120,8 @@ export function OnboardingFlow() {
         </p>
       ) : null}
       {jobId === null ? <FileDrop busy={busy} onStart={start} /> : null}
+      {/* what earlier reviews taught the intake (resettable): inspect and forget before the next upload */}
+      {jobId === null ? <IntakeMemoryPanel compact /> : null}
       {job.data ? <CouncilProgress job={job.data} /> : null}
       {job.data?.status === "FAILED" ? <p className="type-callout text-status-infeasible-fg" role="alert">{job.data.error}</p> : null}
       {job.data && !ACTIVE_JOB.has(job.data.status) && review.data ? (

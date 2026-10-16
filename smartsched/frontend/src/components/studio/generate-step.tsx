@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import type { MessageKey } from "@/lib/i18n";
 import { useSettingsPeek } from "@/lib/api/studio-hooks";
 import { useI18n } from "@/lib/i18n/provider";
+import { PolicyPicker } from "@/components/runs/relaxation";
 import { useEstimateText } from "./check-step";
 import { RunCard, RunHistory } from "./run-cards";
 import { compactRange } from "./rule-sentence";
@@ -86,6 +87,10 @@ export function GenerateStep() {
           {human}
         </p>
         <KeepSmallToggle />
+        {/* who gives way when not every class fits: the term setting, locked rows first or the most classes first */}
+        <div className="max-w-md" data-testid="studio-relaxation">
+          <PolicyPicker id="studio-relax" value={local.params.relaxation_policy ?? "term"} onChange={(v) => dispatch({ type: "setParams", params: { relaxation_policy: v === "term" ? null : v } })} />
+        </div>
         <div className="grid max-w-md gap-1.5">
           <Label htmlFor="run-label">{t("studio.run.label")}</Label>
           <Input id="run-label" value={(local.params.label as string | undefined) ?? ""} onChange={(e) => dispatch({ type: "setParams", params: { label: e.target.value } })} placeholder={t("studio.run.labelPlaceholder")} />

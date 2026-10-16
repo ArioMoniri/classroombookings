@@ -125,19 +125,24 @@ export const ReviewOut = z.object({
 export type ReviewOut = z.infer<typeof ReviewOut>;
 
 /** `result.baseline_run` of a commit (app/council/baseline.py `as_baseline_run`): the schedule-map entries of the
- * committed files written to the term's one "Baseline: imported schedule" run; the other counters
- * (`linked_by_start`, `clipped_outside_term`, `entries_unplaceable`, `exam_entries_skipped`, ...) come along. */
+ * committed files written to the term's one "Baseline: imported schedule" run (`mode: auto`), to a run chosen at
+ * commit (`mode: run`), or not written (`mode: skip`, `skipped`); the other counters (`linked_by_start`,
+ * `clipped_outside_term`, `entries_unplaceable`, `exam_entries_skipped`, ...) come along. In a dry run `run_id` is
+ * null while the run would be new (`run_created`). */
 export const BaselineRunResult = z
   .object({
-    run_id: z.number(),
+    run_id: z.number().nullable(),
     run_created: z.boolean(),
+    mode: z.enum(["auto", "skip", "run"]).default("auto"),
+    skipped: z.boolean().default(false),
+    entries: z.number().default(0),
     created: z.number().default(0),
     updated: z.number().default(0),
     unchanged: z.number().default(0),
     linked: z.number().default(0),
     unlinked: z.number().default(0),
   })
-  .catchall(z.union([z.number(), z.boolean()]));
+  .catchall(z.union([z.number(), z.boolean(), z.string(), z.null()]));
 export type BaselineRunResult = z.infer<typeof BaselineRunResult>;
 /** `ScheduleRun.label` / `params.source` of that run */
 export const BASELINE_LABEL = "Baseline: imported schedule";
@@ -178,7 +183,10 @@ export interface CommitIn {
   dry_run?: boolean;
   /** a planner's edit vs a changed file value: keep the edit or take the file */
   on_conflict?: "keep" | "take";
+  /** where the schedule maps go: the term's baseline run (auto, default), nowhere (skip) or another COURSE run */
+  baseline?: BaselineTarget;
 }
+export type BaselineTarget = { mode: "auto" } | { mode: "skip" } | { mode: "run"; run_id: number };
 
 /** One cross-file review row (GET /council/jobs/{id}/rows, P19-A2). */
 export const CouncilRow = z
@@ -220,9 +228,63 @@ export const CommitDryRun = z
     rows: z.array(z.record(z.string(), z.unknown())).default([]),
     rows_total: z.number().default(0),
     conflicts_total: z.number().default(0),
+    /** the commit's term, files and the schedule map's baseline run, as the real commit would answer them */
+    result: z
+      .object({ term_code: z.string().nullish(), term_created: z.boolean().nullish(), baseline_run: BaselineRunResult.nullish() })
+      .passthrough()
+      .default({}),
   })
   .passthrough();
 export type CommitDryRun = z.infer<typeof CommitDryRun>;
+
+/** One remembered intake decision (GET /council/memory, app/council/memory_admin.py). */
+export const MEMORY_KINDS = ["intake_mapping", "intake_lexicon", "intake_kind", "intake_term", "intake_merge", "intake_rule"] as const;
+export const IntakeMemoryItem = z
+  .object({
+    id: z.number(),
+    signature: z.string(),
+    kind: z.string(),
+    group: z.string(),
+    attribute: z.string(),
+    value: z.string().nullable(),
+    action: z.string().nullable().optional(),
+    created_at: z.string(),
+    created_by: z.object({ id: z.number().nullable(), name: z.string().nullable() }).nullable(),
+    job_id: z.number(),
+    job_exists: z.boolean().default(true),
+    term_id: z.number().nullable(),
+    /** the row the next matching upload is offered (the latest per kind, signature and attribute) */
+    effective: z.boolean().default(true),
+    description: z.object({ tr: z.string(), en: z.string() }),
+    context: z.record(z.string(), z.unknown()).default({}),
+  })
+  .passthrough();
+export type IntakeMemoryItem = z.infer<typeof IntakeMemoryItem>;
+export const IntakeMemoryGroup = z
+  .object({
+    signature: z.string(),
+    group: z.string(),
+    kinds: z.array(z.string()),
+    jobs: z.array(z.number()),
+    count: z.number(),
+    last_at: z.string(),
+    label: z.object({ tr: z.string(), en: z.string() }),
+    ids: z.array(z.number()),
+  })
+  .passthrough();
+export type IntakeMemoryGroup = z.infer<typeof IntakeMemoryGroup>;
+export const IntakeMemoryList = z.object({
+  items: z.array(IntakeMemoryItem),
+  groups: z.array(IntakeMemoryGroup),
+  total: z.number(),
+  /** false for planning.view-only readers: no headers, merge names or rule texts */
+  content: z.boolean().default(true),
+  truncated: z.boolean().default(false),
+});
+export type IntakeMemoryList = z.infer<typeof IntakeMemoryList>;
+/** A forget is a learning reset of scope `intake`: undo with POST /learning/resets/{id}/undo for 30 days. */
+export const MemoryForgetOut = z.object({ id: z.number(), forgotten: z.number(), ids: z.array(z.number()), undo_until: z.string(), undoable: z.boolean() }).passthrough();
+export type MemoryForgetOut = z.infer<typeof MemoryForgetOut>;
 
 export const councilApi = {
   create: (files: File[], opts: { mode?: "auto" | "general"; lang?: string; yearHint?: number; ai?: boolean } = {}) => {
@@ -244,6 +306,9 @@ export const councilApi = {
   decideRows: (id: number, decisions: RowDecisionIn[], confirm = false) =>
     request(`/council/jobs/${id}/rows/decisions`, { method: "POST", body: { decisions, confirm }, schema: z.record(z.string(), z.unknown()) }),
   eventsUrl: (id: number) => `${API_PREFIX}/council/jobs/${id}/events`,
+  memory: (q: { signature?: string; kind?: string; job_id?: number } = {}) => request("/council/memory", { query: q, schema: IntakeMemoryList }),
+  forget: (id: number) => request(`/council/memory/${id}`, { method: "DELETE", schema: MemoryForgetOut }),
+  forgetSignature: (signature: string) => request("/council/memory", { method: "DELETE", query: { signature }, schema: MemoryForgetOut }),
 };
 
 export const ACTIVE_JOB = new Set<CouncilJob["status"]>(["QUEUED", "RUNNING"]);

@@ -7,6 +7,11 @@ import { focusAfter } from "./focus-after";
  * push connectors appear only when an administrator configured them (`configured: true`); there is never a
  * disabled or fake "Connect" button.
  *
+ * Consent gates (2026-10-16): with the calendar-sync sign-off on, `GET /calendar/sync` `consent` says whether the
+ * person's `calendar_sync` consent is still missing; "Create link", "Reset" and "Connect" then open the inline consent
+ * step first (`privacy/calendar-consent.tsx`) and continue once it is given. A 409 `consent_required` that arrives
+ * anyway shows the backend's sentence with a link to `grant_path` (Profil › Gizlilik).
+ *
  * The server keeps only a hash of a link's token and shows it once, when the link is made. The panel keeps
  * that token for the browser tab (sessionStorage, per user), so /bookings and /my-bookings show the same
  * links; after the tab is closed the user makes a new link (or resets them all).
@@ -21,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, type FeedTokenCreated } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import { Alert, ConfirmDialog, Loading, SelectField } from "@/components/admin/kit";
+import { CalendarConsentStep, ConsentRefusal, consentRefusal, needsCalendarConsent } from "@/components/privacy/calendar-consent";
 import { bookingErrorMessage } from "./booking-errors";
 import { googleSubscribeUrl, outlookSubscribeUrl, webcalUrl } from "./reserve-model";
 
@@ -72,7 +78,7 @@ function absolute(url: string): string {
 }
 
 export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | null; departmentId?: number | null }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const qc = useQueryClient();
   const me = useCrbsMe();
   const uid = me.data?.id;
@@ -90,7 +96,17 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
   };
   const create = useCrbsMutation(() => crbs.calendar.createToken("SmartSched"));
   const reset = useCrbsMutation(() => crbs.calendar.reset());
-  const fail = (e: unknown) => toast.error(bookingErrorMessage(crbsError(e), t));
+  const [ask, setAsk] = useState<"create" | "reset" | null>(null);
+  const [refusal, setRefusal] = useState<{ text: string; href: string } | null>(null);
+  const fail = (e: unknown) => {
+    const r = consentRefusal(e, locale);
+    if (!r) return void toast.error(bookingErrorMessage(crbsError(e), t));
+    // the consent went missing meanwhile (withdrawn in another tab, the sign-off switched on): say so where the
+    // person is, and refresh the state so the next try asks for it first
+    setRefusal(r);
+    setConfirm(false);
+    void qc.invalidateQueries({ queryKey: SYNC_KEY });
+  };
 
   const s = status.data;
   const rooms = options.data?.rooms ?? [];
@@ -100,6 +116,17 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
   const roomName = rooms.find((r) => r.id === roomPick)?.name ?? "";
   const deptName = departments.find((d) => d.id === deptPick)?.name ?? "";
   const configured = (s?.connectors ?? []).filter((c) => c.configured);
+  const needsConsent = needsCalendarConsent(s);
+  const doCreate = () => {
+    setRefusal(null);
+    create.mutate(undefined, { onSuccess: onLink, onError: fail });
+  };
+  const startCreate = () => (needsConsent ? setAsk("create") : doCreate());
+  const startReset = () => {
+    setRefusal(null);
+    if (needsConsent) setAsk("reset");
+    else setConfirm(true);
+  };
 
   return (
     <div className="flex flex-col gap-4" data-testid="calendar-sync">
@@ -149,7 +176,7 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
               {t("reserve.sync.private")} {t("reserve.sync.googleNote")}
             </p>
             <div>
-              <Button variant="ghost" onClick={() => setConfirm(true)} disabled={reset.isPending} data-testid="sync-reset">
+              <Button variant="ghost" onClick={startReset} disabled={reset.isPending || ask !== null} data-testid="sync-reset">
                 <RefreshCw aria-hidden />
                 {t("reserve.sync.reset")}
               </Button>
@@ -159,12 +186,12 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
           <div className="flex flex-col gap-2">
             <p className="type-callout text-label-2">{s.feeds.tokens.length ? t("reserve.sync.existing", { n: s.feeds.tokens.length, hints: s.feeds.tokens.map((x) => x.hint).join(", ") }) : t("reserve.sync.none")}</p>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => create.mutate(undefined, { onSuccess: onLink, onError: fail })} disabled={create.isPending} data-testid="sync-create">
+              <Button onClick={startCreate} disabled={create.isPending || ask !== null} aria-expanded={needsConsent ? ask === "create" : undefined} data-testid="sync-create">
                 <Link2 aria-hidden />
                 {t("reserve.sync.create")}
               </Button>
               {s.feeds.tokens.length ? (
-                <Button variant="ghost" onClick={() => setConfirm(true)} disabled={reset.isPending} data-testid="sync-reset">
+                <Button variant="ghost" onClick={startReset} disabled={reset.isPending || ask !== null} data-testid="sync-reset">
                   <RefreshCw aria-hidden />
                   {t("reserve.sync.reset")}
                 </Button>
@@ -173,7 +200,19 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
           </div>
         )
       ) : null}
-      {s?.enabled && configured.length ? <Connectors connectors={configured} /> : null}
+      {s?.enabled && ask ? (
+        <CalendarConsentStep
+          onGranted={() => {
+            const next = ask;
+            setAsk(null);
+            if (next === "create") doCreate();
+            else setConfirm(true);
+          }}
+          onCancel={() => setAsk(null)}
+        />
+      ) : null}
+      {refusal ? <ConsentRefusal refusal={refusal} /> : null}
+      {s?.enabled && configured.length ? <Connectors connectors={configured} needsConsent={needsConsent} /> : null}
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}
@@ -241,21 +280,29 @@ function FeedRow({ id, title, url, name, picker }: { id: string; title: string; 
   );
 }
 
-function Connectors({ connectors }: { connectors: { provider: string; label: string; connected: boolean; status?: string | null; account_email?: string | null }[] }) {
-  const { t } = useI18n();
+function Connectors({ connectors, needsConsent }: { connectors: { provider: string; label: string; connected: boolean; status?: string | null; account_email?: string | null }[]; needsConsent: boolean }) {
+  const { t, locale } = useI18n();
   const qc = useQueryClient();
   const path = usePathname();
   const [busy, setBusy] = useState<string | null>(null);
+  const [ask, setAsk] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<{ provider: string; text: string; href: string } | null>(null);
   const connect = async (provider: string) => {
     setBusy(provider);
+    setRefusal(null);
     try {
       const { authorize_url } = await crbs.calendar.connect(provider, path || "/my-bookings");
       window.location.assign(authorize_url);
     } catch (e) {
-      toast.error(t("reserve.sync.connectError", { message: bookingErrorMessage(crbsError(e), t) }));
+      const r = consentRefusal(e, locale);
+      if (r) {
+        setRefusal({ provider, ...r });
+        void qc.invalidateQueries({ queryKey: SYNC_KEY });
+      } else toast.error(t("reserve.sync.connectError", { message: bookingErrorMessage(crbsError(e), t) }));
       setBusy(null);
     }
   };
+  const startConnect = (provider: string) => (needsConsent ? setAsk(provider) : void connect(provider));
   const disconnect = async (provider: string) => {
     setBusy(provider);
     try {
@@ -273,18 +320,31 @@ function Connectors({ connectors }: { connectors: { provider: string; label: str
       {connectors.map((c) => {
         const label = c.provider === "google" ? t("reserve.sync.connectGoogle") : c.provider === "microsoft" ? t("reserve.sync.connectMicrosoft") : c.label;
         return (
-          <div key={c.provider} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-fill-2 px-3 py-2">
-            <span className="type-callout text-label-1">{c.connected ? t("reserve.sync.connected", { account: c.account_email ?? c.label }) : c.label}</span>
-            {c.connected && c.status !== "REAUTH" ? (
-              <Button variant="ghost" size="sm" onClick={() => void disconnect(c.provider)} disabled={busy === c.provider}>
-                <Unplug aria-hidden />
-                {t("reserve.sync.disconnect")}
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" onClick={() => void connect(c.provider)} disabled={busy === c.provider} data-testid={`sync-connect-${c.provider}`}>
-                {c.status === "REAUTH" ? t("reserve.sync.reconnect") : label}
-              </Button>
-            )}
+          <div key={c.provider} className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-fill-2 px-3 py-2">
+              <span className="type-callout text-label-1">{c.connected ? t("reserve.sync.connected", { account: c.account_email ?? c.label }) : c.label}</span>
+              {c.connected && c.status !== "REAUTH" ? (
+                <Button variant="ghost" size="sm" onClick={() => void disconnect(c.provider)} disabled={busy === c.provider}>
+                  <Unplug aria-hidden />
+                  {t("reserve.sync.disconnect")}
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => startConnect(c.provider)} disabled={busy === c.provider || ask === c.provider} data-testid={`sync-connect-${c.provider}`}>
+                  {c.status === "REAUTH" ? t("reserve.sync.reconnect") : label}
+                </Button>
+              )}
+            </div>
+            {ask === c.provider ? (
+              <CalendarConsentStep
+                testId={`sync-consent-${c.provider}`}
+                onGranted={() => {
+                  setAsk(null);
+                  void connect(c.provider);
+                }}
+                onCancel={() => setAsk(null)}
+              />
+            ) : null}
+            {refusal?.provider === c.provider ? <ConsentRefusal refusal={refusal} /> : null}
           </div>
         );
       })}

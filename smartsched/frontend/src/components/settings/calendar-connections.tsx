@@ -9,6 +9,9 @@
  *   to it; the provider comes back through the backend callback to `/profile?calendar=connected|error&provider=…`,
  *   which this section reads once (toast, refresh) and removes from the address bar.
  * - With calendar sync off (the organisation's KVKK switch) the section says so and offers nothing.
+ * - Consent gates (2026-10-16): while `GET /calendar/sync` `consent` is required and not granted, Connect opens the
+ *   inline calendar-sync consent step (`privacy/calendar-consent.tsx`) and connects once it is given; a 409
+ *   `consent_required` shows the backend's sentence with a link to its `grant_path`.
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck2, RefreshCw, Unplug } from "lucide-react";
@@ -21,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { CalendarConsentStep, ConsentRefusal, consentRefusal } from "@/components/privacy/calendar-consent";
 import { crbs, type SyncConnector } from "@/lib/api/crbs";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
@@ -71,19 +75,25 @@ function Connection({ c, needsConsent }: { c: SyncConnector; needsConsent: boole
   const { t, locale } = useI18n();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<"connect" | "disconnect" | "resync" | "calendar" | null>(null);
-  const [error, setError] = useState<{ text: string; consent: boolean } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<{ text: string; href: string } | null>(null);
+  const [ask, setAsk] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const name = providerName(c.provider, t, c.label);
   const base = `cc-${c.provider}`;
   const reauth = c.status === "REAUTH";
   const calendars = useQuery({ queryKey: ["crbs", "calendar-calendars", c.provider], queryFn: () => crbs.calendar.calendars(c.provider), enabled: c.connected && !reauth, retry: false, staleTime: 60_000 });
   const fail = (e: unknown) => {
-    const err = wave1Error(e);
-    setError({ text: errorText(err, locale), consent: err.code === "consent_required" });
+    const r = consentRefusal(e, locale);
+    if (!r) return setError(errorText(wave1Error(e), locale));
+    setRefusal(r);
+    // the consent went missing meanwhile: refresh, so the next Connect asks for it first
+    void qc.invalidateQueries({ queryKey: SYNC_KEY });
   };
   const run = async (what: NonNullable<typeof busy>, fn: () => Promise<unknown>) => {
     setBusy(what);
     setError(null);
+    setRefusal(null);
     try {
       await fn();
     } catch (e) {
@@ -136,14 +146,14 @@ function Connection({ c, needsConsent }: { c: SyncConnector; needsConsent: boole
                 : t("calendarPush.me.notConnected")}
           </p>
         </div>
-        {c.configured && !(needsConsent && !c.connected) ? (
+        {c.configured ? (
           c.connected && !reauth ? (
             <Button variant="ghost" size="sm" onClick={() => setConfirm(true)} disabled={busy !== null} data-testid={`calendar-disconnect-${c.provider}`}>
               <Unplug aria-hidden />
               {t("calendarPush.me.disconnect")}
             </Button>
           ) : (
-            <Button variant="outline" size="sm" onClick={() => void connect()} disabled={busy !== null} aria-busy={busy === "connect" || undefined} data-testid={`calendar-connect-${c.provider}`}>
+            <Button variant="outline" size="sm" onClick={() => (needsConsent ? setAsk(true) : void connect())} disabled={busy !== null || ask} aria-busy={busy === "connect" || undefined} data-testid={`calendar-connect-${c.provider}`}>
               <BusyLabel busy={busy === "connect"} label={t("calendarPush.me.redirecting")}>
                 {reauth ? t("calendarPush.me.reconnect") : t("calendarPush.me.connect", { provider: name })}
               </BusyLabel>
@@ -186,16 +196,22 @@ function Connection({ c, needsConsent }: { c: SyncConnector; needsConsent: boole
           </div>
         </div>
       ) : null}
+      {ask ? (
+        <CalendarConsentStep
+          testId={`calendar-consent-${c.provider}`}
+          onGranted={() => {
+            setAsk(false);
+            void connect();
+          }}
+          onCancel={() => setAsk(false)}
+        />
+      ) : null}
       {error ? (
         <p role="alert" className="type-footnote text-status-infeasible-fg">
-          {error.text}{" "}
-          {error.consent ? (
-            <Link href="/profile#privacy" className="font-medium text-tint-text underline-offset-4 hover:underline">
-              {t("calendarPush.me.consentLink")}
-            </Link>
-          ) : null}
+          {error}
         </p>
       ) : null}
+      {refusal ? <ConsentRefusal refusal={refusal} /> : null}
       <ConfirmDialog
         open={confirm}
         onOpenChange={(o) => busy === null && setConfirm(o)}
@@ -232,7 +248,7 @@ export function CalendarConnectionsSection() {
         {status.isError ? <Alert tone="error">{errorText(wave1Error(status.error), locale)}</Alert> : null}
         {s && !s.enabled ? <Alert tone="warning" testId="calendar-connections-off">{t("calendarPush.me.off")}</Alert> : null}
         {s?.enabled && needsConsent ? (
-          <Alert tone="warning" testId="calendar-connections-consent">
+          <Alert tone="info" testId="calendar-connections-consent">
             {t("calendarPush.me.needsConsent")}{" "}
             <Link href="/profile#privacy" className="font-medium text-tint-text underline-offset-4 hover:underline">
               {t("calendarPush.me.consentLink")}

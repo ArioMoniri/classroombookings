@@ -1,5 +1,5 @@
-/** Relaxation policy per run (Re-solve dialog → POST /runs params) and per term (Settings › Çözücü, PUT /settings
- * extra term.<id>.relaxation_policy), and the line the run report shows. */
+/** Relaxation policy per run (Re-solve dialog → POST /runs params) and per term (Settings › Çözücü,
+ * GET/PUT /terms/{id}/relaxation-policy), and the line the run report shows. */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -10,21 +10,29 @@ import type { ScheduleRun } from "@/lib/api/schemas";
 const nav = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: nav.push, replace: vi.fn() }), useSearchParams: () => new URLSearchParams(), usePathname: () => "/runs/4" }));
 vi.mock("@/components/shell/term-switcher", () => ({ useActiveTerm: () => ({ term: { id: 1, code: "2026-BAHAR" } }) }));
-const db = vi.hoisted(() => ({ runs: [] as unknown[], posts: [] as { path: string; method: string; body: unknown }[] }));
+const db = vi.hoisted(() => ({ runs: [] as unknown[], posts: [] as { path: string; method: string; body: unknown }[], policy: { policy: "lock_first", source: "default" } as { policy: string; source: string }, admin: true }));
+vi.mock("@/lib/permissions", () => ({ usePermissions: () => ({ loading: false, can: (p: string) => p !== "planning.admin" || db.admin }) }));
 vi.mock("@/lib/api/client", async (orig) => ({
   ...(await orig<typeof import("@/lib/api/client")>()),
   request: async (path: string, opts: { method?: string; body?: unknown; schema?: { parse: (v: unknown) => unknown } } = {}) => {
+    const policyOut = () => ({ term_id: 1, ...db.policy, default: "lock_first", options: ["lock_first", "most_classes_first"], stored_invalid: false });
     if (opts.method === "POST" || opts.method === "PUT") {
       db.posts.push({ path, method: opts.method, body: opts.body });
+      if (path === "/terms/1/relaxation-policy") {
+        const p = (opts.body as { policy: string | null }).policy;
+        db.policy = p ? { policy: p, source: "term" } : { policy: "lock_first", source: "default" };
+        return opts.schema ? opts.schema.parse(policyOut()) : policyOut();
+      }
       return path === "/runs" ? { run_id: 9, status: "QUEUED" } : {};
     }
     if (path === "/runs") return opts.schema ? opts.schema.parse(db.runs) : db.runs;
+    if (path === "/terms/1/relaxation-policy") return opts.schema ? opts.schema.parse(policyOut()) : policyOut();
     throw new Error(`unexpected ${path}`);
   },
 }));
 
 import { PolicyPicker, RunPolicyLine, policyParams, runPolicy } from "./relaxation";
-import { RelaxationTermCard, inferTermPolicy } from "./relaxation-term-card";
+import { RelaxationTermCard } from "./relaxation-term-card";
 import { ResolveRunButton, resolveBody } from "./resolve-run";
 
 const raw = (id: number, stats: Record<string, unknown>, params: Record<string, unknown> = {}) => ({
@@ -61,12 +69,6 @@ describe("policy helpers", () => {
     expect(resolveBody(r, "most_classes_first", "  Bahar W3 ")).toEqual({ term_id: 1, kind: "COURSE", horizon: "WEEK", horizon_params: { weeks: [3] }, parent_run_id: 4, params: { stability: true, relaxation_policy: "most_classes_first" }, label: "Bahar W3" });
     expect(resolveBody(asRun(raw(4, {})), "term", "")).toEqual({ term_id: 1, kind: "COURSE", horizon: "TERM", parent_run_id: 4, params: { stability: true } });
   });
-  it("infers the stored term value only from runs that read it", () => {
-    const runs = [asRun(raw(5, { relaxation_policy: { policy: "lock_first", source: "run" } })), asRun(raw(3, { relaxation_policy: { policy: "most_classes_first", source: "term" } }))];
-    expect(inferTermPolicy(runs)).toEqual({ policy: "most_classes_first", run: 3, fromDefault: false });
-    expect(inferTermPolicy([asRun(raw(2, { relaxation_policy: { policy: "lock_first", source: "default" } }))])).toEqual({ policy: "lock_first", run: 2, fromDefault: true });
-    expect(inferTermPolicy([asRun(raw(2, {}))])).toBeNull();
-  });
 });
 
 describe("PolicyPicker / RunPolicyLine", () => {
@@ -98,21 +100,31 @@ describe("ResolveRunButton", () => {
 });
 
 describe("RelaxationTermCard", () => {
-  it("preselects what the latest run read from the term setting and saves the term key", async () => {
+  beforeEach(() => {
+    db.policy = { policy: "most_classes_first", source: "term" };
+    db.admin = true;
+  });
+  it("reads the stored term value, saves a new one and clears it back to the default", async () => {
     const user = userEvent.setup();
-    db.runs = [raw(3, { relaxation_policy: { policy: "most_classes_first", source: "term" } })];
     wrap(<RelaxationTermCard />);
-    expect(await screen.findByText("The latest solve (#3) ran with this term setting.")).toBeInTheDocument();
+    expect(await screen.findByText("This term's setting: the most classes first.")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Most classes first" })).toBeChecked();
+    expect(screen.getByTestId("relax-term-save")).toBeDisabled(); // nothing changed yet
     await user.click(screen.getByRole("radio", { name: "Locked first" }));
     await user.click(screen.getByTestId("relax-term-save"));
-    await waitFor(() => expect(db.posts).toContainEqual({ path: "/settings", method: "PUT", body: { extra: { "term.1.relaxation_policy": "lock_first" } } }));
-    expect(await screen.findByTestId("relax-term-known")).toHaveTextContent("Saved in this session.");
+    await waitFor(() => expect(db.posts).toContainEqual({ path: "/terms/1/relaxation-policy", method: "PUT", body: { policy: "lock_first" } }));
+    expect(await screen.findByText("This term's setting: locked rows first.")).toBeInTheDocument();
+    await user.click(screen.getByTestId("relax-term-clear"));
+    await waitFor(() => expect(db.posts).toContainEqual({ path: "/terms/1/relaxation-policy", method: "PUT", body: { policy: null } }));
+    expect(await screen.findByTestId("relax-term-known")).toHaveAttribute("data-source", "default");
+    expect(screen.queryByTestId("relax-term-clear")).not.toBeInTheDocument();
   });
-  it("says it cannot tell when no run shows the stored value", async () => {
-    db.runs = [raw(2, {})];
-    wrap(<RelaxationTermCard />);
-    await waitFor(() => expect(screen.getByTestId("relax-term-known")).toHaveTextContent("cannot be read"));
-    expect(screen.getByTestId("relax-term-save")).toBeDisabled();
+  it("shows the default to non-administrators without a save button", async () => {
+    db.policy = { policy: "lock_first", source: "default" };
+    db.admin = false;
+    wrap(<RelaxationTermCard />, "tr");
+    expect(await screen.findByText("Bu dönem için seçim yok; varsayılan uygulanır: önce kilitli satırlar.")).toBeInTheDocument();
+    expect(screen.queryByTestId("relax-term-save")).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Önce kilitliler" })).toBeDisabled();
   });
 });

@@ -7,6 +7,11 @@
  * data requests (KVKK Art. 11): a self-service export (a zip built at download time, 7 days), and erasure,
  * rectification or information requests that the administrators answer within the legal deadline.
  *
+ * The AI consent's text follows the institution's `kvkk.ai_personal_default` and the person's own state
+ * (`GET /me/privacy` `ai_personal_default`, `ai_excluded`; consent gates 2026-10-16): it says whether their name and
+ * e-mail are kept out of AI requests right now and why (they withdrew; never given while "not granted = excluded";
+ * given; or included until withdrawn), see `aiConsentText`.
+ *
  * No notice text ships with SmartSched: until an administrator publishes one, the section says so plainly.
  */
 import { Download, FileText, ShieldCheck } from "lucide-react";
@@ -50,7 +55,7 @@ export function PrivacySection() {
         {q.data ? (
           <>
             <NoticeCard notice={q.data.notice ?? null} needsAck={q.data.needs_ack} />
-            <ConsentsCard consents={q.data.consents} />
+            <ConsentsCard consents={q.data.consents} aiDefault={q.data.ai_personal_default} aiExcluded={q.data.ai_excluded} />
             <RequestsCard requests={q.data.requests} dueDays={q.data.due_days} />
           </>
         ) : null}
@@ -114,6 +119,12 @@ const CONSEQUENCE: Record<Purpose, MessageKey> = {
   ai_personal: "privacy.consent.consequence.ai_personal",
 };
 
+/** The ai_personal row: is the person kept out of AI requests now (the server's `ai_excluded`), and why. */
+export function aiConsentText(c: Pick<Consent, "granted" | "withdrawn_at"> | undefined, aiDefault: "included" | "excluded", aiExcluded: boolean): { out: boolean; key: MessageKey } {
+  if (aiExcluded) return { out: true, key: !c?.granted && c?.withdrawn_at ? "privacy.ai.excludedWithdrawn" : aiDefault === "excluded" ? "privacy.ai.excludedDefault" : "privacy.ai.excludedWithdrawn" };
+  return { out: false, key: aiDefault === "excluded" ? "privacy.ai.includedConsent" : "privacy.ai.includedDefault" };
+}
+
 /** Withdrawals that delete something at once are confirmed first; `ai_personal` only changes what is sent from now on. */
 const CONFIRM: Partial<Record<Purpose, { title: MessageKey; body: MessageKey; confirm: MessageKey }>> = {
   sms: { title: "privacy.consent.smsTitle", body: "privacy.consent.smsBody", confirm: "privacy.consent.smsConfirm" },
@@ -121,7 +132,7 @@ const CONFIRM: Partial<Record<Purpose, { title: MessageKey; body: MessageKey; co
   calendar_sync: { title: "privacy.consent.calendarTitle", body: "privacy.consent.calendarBody", confirm: "privacy.consent.calendarConfirm" },
 };
 
-function ConsentsCard({ consents }: { consents: Consent[] }) {
+function ConsentsCard({ consents, aiDefault, aiExcluded }: { consents: Consent[]; aiDefault: "included" | "excluded"; aiExcluded: boolean }) {
   const { t, locale } = useI18n();
   const m = useConsent();
   const when = useDateTime();
@@ -151,13 +162,23 @@ function ConsentsCard({ consents }: { consents: Consent[] }) {
         {consents.map((c) => {
           const id = `consent-${c.purpose}`;
           const purpose = c.purpose as Purpose;
+          const ai = purpose === "ai_personal" ? aiConsentText(c, aiDefault, aiExcluded) : null;
           return (
             <li key={c.purpose} className="flex items-start justify-between gap-4 py-3 not-last:edge-hairline-b" data-testid={`consent-${c.purpose}`}>
               <div className="min-w-0">
                 <label htmlFor={id} className="type-callout font-medium text-label-1">
                   {locale === "tr" ? c.label_tr : c.label_en}
                 </label>
-                <p className="type-footnote text-label-2">{CONSEQUENCE[purpose] ? t(CONSEQUENCE[purpose]) : null}</p>
+                {ai ? (
+                  <>
+                    <p className={cn("mt-0.5 inline-flex rounded-full px-2 type-caption font-medium", ai.out ? "bg-status-warning text-status-warning-fg" : "bg-fill-2 text-label-2")} data-testid="consent-ai-state" data-excluded={ai.out}>
+                      {ai.out ? t("privacy.ai.stateOut") : t("privacy.ai.stateIn")}
+                    </p>
+                    <p className="type-footnote text-label-2" data-testid="consent-ai-text">{t(ai.key)}</p>
+                  </>
+                ) : (
+                  <p className="type-footnote text-label-2">{CONSEQUENCE[purpose] ? t(CONSEQUENCE[purpose]) : null}</p>
+                )}
                 <p className="type-footnote text-label-3">{c.granted ? t("privacy.consent.since", { date: when(c.granted_at) }) : c.withdrawn_at ? t("privacy.consent.withdrawnOn", { date: when(c.withdrawn_at) }) : t("privacy.consent.never")}</p>
               </div>
               <Switch id={id} checked={c.granted} disabled={m.isPending} onCheckedChange={(on) => (on ? run(c, true) : CONFIRM[purpose] ? (setConfirm(c), setOpen(true)) : run(c, false))} data-testid={`consent-switch-${c.purpose}`} />

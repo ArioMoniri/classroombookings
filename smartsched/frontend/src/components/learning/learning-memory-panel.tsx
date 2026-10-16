@@ -24,6 +24,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { tween, useReduce } from "@/lib/motion";
 import { usePermissions } from "@/lib/permissions";
 import { useActiveTerm } from "@/components/shell/term-switcher";
+import { IntakeMemoryPanel } from "@/components/onboarding/intake-memory";
 import { resetStatus } from "./learning-model";
 import { ResetDialog } from "./reset-dialog";
 
@@ -59,7 +60,17 @@ function ResetRowView({ r, terms }: { r: ResetRow; terms: Map<number, string> })
   const { t, locale } = useI18n();
   const { undo } = useMemoryActions();
   const status = resetStatus(r);
-  const subject = r.scope === "all" ? t("learning.scope.all") : r.scope === "term" ? (terms.get(Number(r.value)) ?? `#${r.value}`) : `#${r.value}`;
+  const subject =
+    r.scope === "all"
+      ? t("learning.scope.all")
+      : r.scope === "term"
+        ? (terms.get(Number(r.value)) ?? `#${r.value}`)
+        : r.scope === "intake"
+          ? // a forgotten intake decision: one row (#id) or a file signature (shown short)
+            String(r.value ?? "").startsWith("#")
+            ? t("learning.memory.intakeRow", { id: String(r.value).slice(1) })
+            : t("learning.memory.intakeSignature", { sig: String(r.value ?? "").slice(0, 8) })
+          : `#${r.value}`;
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-hairline py-2 type-footnote" data-testid="reset-row" data-status={status}>
       <span className="tabular-nums text-label-2">{new Date(r.created_at).toLocaleString(locale === "tr" ? "tr-TR" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}</span>
@@ -155,6 +166,9 @@ export function LearningMemoryPanel() {
           <Button variant="outline" onClick={() => setDialog({ scope: "all" })} data-testid="reset-all-open">{t("learning.reset.openAll")}</Button>
         </div>
       </section>
+
+      {/* the intake's remembered review decisions (column mappings, merges, rules): forget per row or signature */}
+      <IntakeMemoryPanel />
 
       <section aria-labelledby="mem-resets" className="flex flex-col gap-1">
         <h3 id="mem-resets" className="type-headline">{t("learning.memory.recent")}</h3>

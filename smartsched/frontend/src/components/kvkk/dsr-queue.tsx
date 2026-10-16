@@ -5,6 +5,9 @@
  * Filters: open (default), done, refused, all (`status=all`). Complete (with an optional note) or refuse (a written reason is required). Completing an erasure anonymises the
  * person across the system; the answer's counts are shown, with why it is "partial" (audit records are kept,
  * pseudonymised, for the legal retention). 409 `own_request | last_admin | closed | gone` is shown in the dialog.
+ * Consent gates (2026-10-16): an erasure first disconnects the person's push calendars; the result panel lists what
+ * happened to each (`result.calendar[]`: events removed / not removed, the grant's revoke state) and the follow-ups a
+ * provider left (`result.failures[]`, TR/EN with provider and code) — they never block the erasure.
  */
 import { useState } from "react";
 import { toast } from "sonner";
@@ -15,7 +18,7 @@ import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Textarea } from "@/components/ui/textarea";
-import { dueTone, erasureCounts, useDecideDsr, useDsrQueue, type Dsr, type QueueFilter } from "@/lib/api/kvkk";
+import { dueTone, erasureCalendars, erasureCounts, erasureFailures, useDecideDsr, useDsrQueue, type Dsr, type QueueFilter } from "@/lib/api/kvkk";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
@@ -110,7 +113,7 @@ export function DsrQueue() {
                 </p>
                 {r.note ? <p className="rounded-md bg-fill-3 px-2.5 py-1.5 type-callout text-label-1">{r.note}</p> : null}
                 {r.refusal_reason ? <p className="type-footnote text-label-1">{t("privacy.request.refusal", { reason: r.refusal_reason })}</p> : null}
-                {r.status === "DONE" && r.kind === "erase" && erasureCounts(r.result).length ? (
+                {r.status === "DONE" && r.kind === "erase" && (erasureCounts(r.result).length || erasureFailures(r.result).length || erasureCalendars(r.result).length) ? (
                   <Button variant="link" size="sm" className="self-start" onClick={() => setDone(r)}>
                     {t("kvkk.dsr.showResult")}
                   </Button>
@@ -161,23 +164,61 @@ export function DsrQueue() {
   );
 }
 
+const REVOKE_KEYS = new Set(["done", "not_supported", "failed", "queued", "unreadable", "none"]);
+
 function ErasureResult({ r, onClose }: { r: Dsr; onClose: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const counts = erasureCounts(r.result).filter((c) => c.n > 0);
+  const failures = erasureFailures(r.result);
+  const calendars = erasureCalendars(r.result);
+  const provider = (p: string) => (p === "google" || p === "microsoft" ? t(`calendarPush.provider.${p}`) : p);
   return (
-    <Alert tone="success" title={t("kvkk.dsr.resultTitle", { who: r.subject ?? "" })} testId="dsr-result" action={<Button size="sm" variant="ghost" onClick={onClose}>{t("common.close")}</Button>}>
-      {counts.length ? (
-        <ul className="mt-1 grid gap-x-4 gap-y-0.5 sm:grid-cols-2">
-          {counts.map((c) => (
-            <li key={c.key}>
-              <span className="font-semibold tabular-nums">{c.n}</span> {COUNT_KEYS[c.key] ? t(COUNT_KEYS[c.key]!) : <span className="font-mono">{c.key}</span>}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>{t("kvkk.dsr.nothingStored")}</p>
-      )}
-      <p className="mt-2 type-footnote" data-testid="dsr-partial">{t("kvkk.dsr.partial")}</p>
-    </Alert>
+    <div className="flex flex-col gap-2" data-testid="dsr-result-panel">
+      {failures.length ? (
+        <Alert tone="warning" title={t("kvkk.dsr.failuresTitle", { n: failures.length })} testId="dsr-failures">
+          <p>{t("kvkk.dsr.failuresLead")}</p>
+          <ul className="mt-1 flex flex-col gap-1.5">
+            {failures.map((f, i) => (
+              <li key={`${f.provider}-${f.code}-${i}`} data-testid={`dsr-failure-${f.provider}-${f.code}`}>
+                <span className="font-semibold">{provider(f.provider)}</span>
+                {": "}
+                {locale === "tr" ? f.message_tr : f.message_en}
+                {f.code ? <span className="ml-1.5 rounded bg-fill-2 px-1 font-mono type-caption">{f.code}</span> : null}
+                {f.error ? <span className="block break-words type-footnote opacity-80">{t("kvkk.dsr.providerSaid", { error: f.error })}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </Alert>
+      ) : null}
+      <Alert tone="success" title={t("kvkk.dsr.resultTitle", { who: r.subject ?? "" })} testId="dsr-result" action={<Button size="sm" variant="ghost" onClick={onClose}>{t("common.close")}</Button>}>
+        {counts.length ? (
+          <ul className="mt-1 grid gap-x-4 gap-y-0.5 sm:grid-cols-2">
+            {counts.map((c) => (
+              <li key={c.key}>
+                <span className="font-semibold tabular-nums">{c.n}</span> {COUNT_KEYS[c.key] ? t(COUNT_KEYS[c.key]!) : <span className="font-mono">{c.key}</span>}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>{t("kvkk.dsr.nothingStored")}</p>
+        )}
+        {calendars.length ? (
+          <div className="mt-2" data-testid="dsr-calendar">
+            <p className="font-semibold">{t("kvkk.dsr.calendarTitle")}</p>
+            <ul className="grid gap-0.5">
+              {calendars.map((c, i) => (
+                <li key={`${c.provider}-${i}`} data-testid={`dsr-calendar-${c.provider}`} data-revoke={c.revoke}>
+                  <span className="font-medium">{provider(c.provider)}</span>
+                  {c.events !== null ? ` · ${t("kvkk.dsr.calendarEvents", { removed: c.events_removed, events: c.events })}` : ""}
+                  {c.events_failed ? ` · ${t("kvkk.dsr.calendarFailed", { n: c.events_failed })}` : ""}
+                  {` · ${REVOKE_KEYS.has(c.revoke) ? t(`kvkk.dsr.revoke.${c.revoke as "done"}`) : c.revoke}`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        <p className="mt-2 type-footnote" data-testid="dsr-partial">{t("kvkk.dsr.partial")}</p>
+      </Alert>
+    </div>
   );
 }
