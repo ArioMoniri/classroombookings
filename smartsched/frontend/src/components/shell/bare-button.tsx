@@ -19,6 +19,8 @@ export function BareButton({ className, ...props }: BareButtonProps) {
       variant={null}
       size={null}
       shape={null}
+      // not a sized control (no --control-h): the design-system checks that read [data-slot=button] skip it
+      data-slot="bare-button"
       className={cn("inline-block shrink items-stretch justify-normal whitespace-normal active:not-aria-[haspopup]:scale-100", !WEIGHT.test(cls) && "[font-weight:inherit]", className)}
       {...props}
     />
