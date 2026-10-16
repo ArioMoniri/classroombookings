@@ -110,12 +110,18 @@ export function SegmentedControl<V extends string>({
   const labelKey = labels.join("\u0001")
   React.useLayoutEffect(() => {
     const el = trackRef.current
-    if (!el || el.offsetParent === null) return
-    // measure the max-content width once per label set (synchronous, before paint)
+    if (!el) return
+    // measure the max-content width once per label set (synchronous, before paint). The track may already be
+    // hidden by the select fallback because the first-paint estimate was wider than the container (seven short
+    // day names on a phone): show it for the measurement, or it would stay a select for good.
     const prev = el.style.width
+    const prevDisplay = el.style.display
+    el.style.display = "inline-grid"
     el.style.width = "max-content"
-    const w = Math.ceil(el.getBoundingClientRect().width)
+    // offsetParent null: the whole control is not rendered (a hidden panel); keep the estimate
+    const w = el.offsetParent === null ? 0 : Math.ceil(el.getBoundingClientRect().width)
     el.style.width = prev
+    el.style.display = prevDisplay
     if (w > 0) setNatural(w)
   }, [labelKey, size])
 

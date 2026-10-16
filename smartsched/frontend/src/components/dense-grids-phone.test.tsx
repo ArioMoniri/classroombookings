@@ -40,6 +40,7 @@ import { DatePainter } from "@/components/admin/sessions-admin";
 import { PermissionMatrix } from "@/components/admin/roles-admin";
 import { UtilisationHeatmap, rankRows } from "@/components/dashboard/utilisation-heatmap";
 import { BarList } from "@/components/ui/bar-list";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 const wrap = (ui: ReactNode, locale: "tr" | "en" = "tr") => render(<I18nProvider initialLocale={locale}>{ui}</I18nProvider>);
 
@@ -253,5 +254,24 @@ describe("/admin/roles booking permissions (phones)", () => {
     wrap(<PermissionMatrix catalogue={catalogue} value={new Set()} onToggle={() => {}} />, "en");
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.queryByTestId("perm-book-groups")).toBeNull();
+  });
+});
+
+describe("SegmentedControl measures even when the first-paint estimate folded it", () => {
+  it("shows the track for the measurement, so seven short day names come back from the select fallback", () => {
+    // jsdom has no layout: the measured track is 270 px, rendered (offsetParent set)
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return { width: this.dataset.part === "track" && this.style.display === "inline-grid" ? 270 : 0, height: 0, x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON: () => ({}) } as DOMRect;
+    });
+    const parent = vi.spyOn(HTMLElement.prototype, "offsetParent", "get").mockReturnValue(document.body);
+    const days = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+    const { container } = render(<SegmentedControl fill aria-label="Gün" options={days.map((d) => ({ value: d, label: d }))} />);
+    const wrapper = container.querySelector<HTMLElement>("[data-slot=segmented-control]")!;
+    // the estimate (6 + 7 × (24 + 3 × 7.6) = 334 px) would have folded it on a 326 px card
+    expect(wrapper.style.getPropertyValue("--seg-w")).toBe("270px");
+    // the inline display used for the measurement is gone again (the container query decides)
+    expect(container.querySelector<HTMLElement>("[data-part=track]")!.style.display).toBe("");
+    rect.mockRestore();
+    parent.mockRestore();
   });
 });
