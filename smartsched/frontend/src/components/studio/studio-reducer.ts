@@ -374,8 +374,13 @@ export interface SummaryView {
   pinned: number;
   /** classes a pre-check fix unlocked for this draft (shown as "may move", not as pinned) */
   unlocked: number;
-  rooms: number;
+  /** null while the selected term's summary loads (no zero counts while counting) */
+  rooms: number | null;
   weeks: number[];
+  /** weeks the plan spans: the term's week_count for a whole-term plan, else the chosen weeks */
+  weekCount: number;
+  /** week rows that carry dates (the chips); fewer than weekCount when a term is half-set-up */
+  datedWeeks: number;
   holidayWeeks: number[];
   must: number;
   tryTo: number;
@@ -411,8 +416,12 @@ export function deriveSummary(i: SummaryInput): SummaryView {
     classesTotal: i.classes ? i.classes.length : (i.summary?.counts.classes_total ?? 0),
     pinned: i.local.pins.filter(isPlacementPin).length,
     unlocked: i.local.pins.filter((p) => p.unlock && !isPlacementPin(p)).length,
-    rooms: i.summary?.counts.rooms ?? 0,
+    // null until the selected term's summary is in: the scope sentence shows "counting", never "0 derslikte" (R1-S-21)
+    rooms: i.summary?.counts.rooms ?? null,
     weeks,
+    // a whole-term plan spans the term's week_count even when only some week rows carry dates (Güz: 2 of 14, R1-S-22)
+    weekCount: i.local.horizon === "TERM" ? Math.max(weeks.length, i.summary?.counts.weeks ?? 0) : weeks.length,
+    datedWeeks: weeks.length,
     holidayWeeks: weeks.filter((w) => holidays.has(w)),
     must,
     tryTo,

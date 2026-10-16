@@ -56,13 +56,13 @@ from urllib.parse import urlencode
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.messages import Refusal
 from app.core.identity import clean_email
 from app.core.security import decrypt_secret, encrypt_secret, revoke_tokens, verify_password
 from app.importers.normalize import clean_text
 from app.models import Instructor, Program, Role, User
 from app.models.base import utcnow
 from app.models.sso import SsoAuthState, SsoInvite, SsoProvider, SsoRoleMapping, UserIdentity
+from app.schemas.messages import Refusal
 from app.services import audit
 from app.services import bookings_events as events
 from app.services.bookings_perms import (
@@ -99,7 +99,11 @@ SCOPES = "openid profile email"
 CONSUMER_TENANT = "9188040d-6c67-4c5b-b112-36a304b66dad"
 RESERVED_TENANTS = frozenset({"common", "organizations", "consumers"})
 #: Turkish names of the GUID fields :func:`clean_guid` reports
-GUID_TR = {"tenant id (directory id)": "Dizin (tenant) kimliği", "client_id (application id)": "Uygulama (client) kimliği", "id": "Kimlik"}
+GUID_TR = {
+    "tenant id (directory id)": "Dizin (tenant) kimliği",
+    "client_id (application id)": "Uygulama (client) kimliği",
+    "id": "Kimlik",
+}
 TICKET_TTL = timedelta(minutes=2)
 HTTP_TIMEOUT_S = 15.0
 #: clock skew tolerated on exp / nbf / iat (seconds)
@@ -277,7 +281,9 @@ def clean_domain(value: str) -> str | None:
         return None
     if not _DOMAIN_RX.match(text):
         raise Refusal(
-            "sso_domain_invalid", "Alan adı uni.edu.tr gibi bir alan adı olmalı.", "domain_hint must be a domain name like uni.edu.tr"
+            "sso_domain_invalid",
+            "Alan adı uni.edu.tr gibi bir alan adı olmalı.",
+            "domain_hint must be a domain name like uni.edu.tr",
         )
     return text
 

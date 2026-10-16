@@ -153,6 +153,13 @@ function Notices({ org, params, error, invite, base, offline }: { org: SignInPag
         {t("signin.notice.cancelled")}
       </Alert>,
     );
+  } else if (error === "not_enabled") {
+    // T-R1-09 (R1-A-29): Microsoft sign-in is off here: a state, not a failure with a support code
+    items.push(
+      <Alert key="not_enabled" tone="neutral" data-testid="signin-notice-not_enabled">
+        {t("signin.error.notEnabled")}
+      </Alert>,
+    );
   } else if (error) {
     const body = errorBody(error, t, { org: orgName, ref: params.ref, invited: params.invitedMasked, signedIn: params.signedIn });
     const action =
@@ -237,7 +244,7 @@ function Notices({ org, params, error, invite, base, offline }: { org: SignInPag
 type T = ReturnType<typeof useI18n>["t"];
 
 /** §6.3 copy. `failed` is the same text for every refusal; only `ref` differs (no enumeration). */
-export function errorBody(code: Exclude<SsoErrorCode, "cancelled">, t: T, v: { org: string | null; ref: string | null; invited: string | null; signedIn: string | null }): { title: string; text: string } {
+export function errorBody(code: Exclude<SsoErrorCode, "cancelled" | "not_enabled">, t: T, v: { org: string | null; ref: string | null; invited: string | null; signedIn: string | null }): { title: string; text: string } {
   switch (code) {
     case "tenant":
       return { title: t("signin.error.tenantTitle"), text: v.org ? t("signin.error.tenant", { org: v.org }) : t("signin.error.tenantNoOrg") };

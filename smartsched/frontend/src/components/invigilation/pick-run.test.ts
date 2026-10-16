@@ -16,3 +16,13 @@ describe("pickExamRun", () => {
     expect(pickExamRun([run(9, 1, "EXAM", "INFEASIBLE")], 1, null)).toBeUndefined();
   });
 });
+
+describe("pickExamRun with imported boards (T-R1-42)", () => {
+  // a grid import board (params.source GRID_IMPORT) carries no exam link: never the default while a solved run exists
+  const board = (id: number, term_id: number) => ({ id, term_id, kind: "EXAM", status: "FEASIBLE", is_active: false, params: { source: "GRID_IMPORT" }, label: "Grid import: final.xlsx" }) as unknown as ScheduleRun;
+  it("prefers the term's solved exam run over its newer imported board", () => {
+    expect(pickExamRun([board(9, 3), run(7, 3, "EXAM", "FEASIBLE_PARTIAL")], 3, null)?.id).toBe(7);
+    expect(pickExamRun([board(9, 3)], 3, null)?.id).toBe(9);
+    expect(pickExamRun([board(9, 3), run(7, 1, "EXAM")], 2, null)?.id).toBe(7);
+  });
+});

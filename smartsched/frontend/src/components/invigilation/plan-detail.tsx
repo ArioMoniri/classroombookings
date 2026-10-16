@@ -21,11 +21,11 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Progress, ProgressLabel } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorText, pairOf } from "@/lib/api/analytics";
-import { invigilationCsv, PLAN_ACTIVE, useActivatePlan, useDeletePlan, usePlan, type PlanDetail } from "@/lib/api/invigilation";
+import { invigilationCsv, PLAN_ACTIVE, useActivatePlan, useDeletePlan, usePlan, useRerunPlan, type PlanDetail } from "@/lib/api/invigilation";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { DiagnosisList } from "./diagnosis-list";
-import { knownPhase, planIsEmpty, planStatusKey, planTone, progressView } from "./invigilation-model";
+import { allInstructorsParams, knownPhase, planIsEmpty, planStatusKey, planTone, poolEmptyDiag, progressView } from "./invigilation-model";
 import { PeopleView } from "./people-view";
 import { PostsView } from "./posts-view";
 
@@ -107,12 +107,12 @@ export function PlanDetailView({ planId, canEdit, onOpenPlan, onRerun }: { planI
           <div className="flex flex-wrap items-center gap-2" data-testid="invig-actions">
             {canEdit ? (
               <>
-                <Button variant="outline" size="sm" onClick={onRerun} data-testid="invig-rerun">
+                <Button variant="outline" size="sm" className="max-md:h-11" onClick={onRerun} data-testid="invig-rerun">
                   <RefreshCw aria-hidden />
                   {t("invigilation.rerun")}
                 </Button>
                 {publishable ? (
-                  <Button size="sm" onClick={() => (setActionError(null), setAsk("publish"))} data-testid="invig-publish">
+                  <Button size="sm" className="max-md:h-11" onClick={() => (setActionError(null), setAsk("publish"))} data-testid="invig-publish">
                     <Upload aria-hidden />
                     {t("invigilation.publish")}
                   </Button>
@@ -121,18 +121,18 @@ export function PlanDetailView({ planId, canEdit, onOpenPlan, onRerun }: { planI
             ) : null}
             {p.status !== "FAILED" && p.status !== "ERROR" ? (
               <>
-                <Button variant="outline" size="sm" nativeButton={false} render={<a href={invigilationCsv.roster(p.id)} download />} data-testid="invig-roster-csv">
+                <Button variant="outline" size="sm" className="max-md:h-11" nativeButton={false} render={<a href={invigilationCsv.roster(p.id)} download />} data-testid="invig-roster-csv">
                   <Download aria-hidden />
                   {t("invigilation.rosterCsv")}
                 </Button>
-                <Button variant="outline" size="sm" nativeButton={false} render={<a href={invigilationCsv.load(p.id)} download />} data-testid="invig-load-csv">
+                <Button variant="outline" size="sm" className="max-md:h-11" nativeButton={false} render={<a href={invigilationCsv.load(p.id)} download />} data-testid="invig-load-csv">
                   <Download aria-hidden />
                   {t("invigilation.loadCsv")}
                 </Button>
               </>
             ) : null}
             {canEdit && !p.is_active ? (
-              <Button variant="ghost" size="sm" onClick={() => (setActionError(null), setAsk("delete"))} data-testid="invig-delete">
+              <Button variant="ghost" size="sm" className="max-md:h-11" onClick={() => (setActionError(null), setAsk("delete"))} data-testid="invig-delete">
                 <Trash2 aria-hidden />
                 {t("common.delete")}
               </Button>
@@ -145,7 +145,7 @@ export function PlanDetailView({ planId, canEdit, onOpenPlan, onRerun }: { planI
         <RunningPanel p={p} elapsed={elapsed} />
       ) : (
         <FadePanel panelKey={`done-${p.id}`} className="flex min-w-0 flex-col gap-4">
-          <Result p={p} />
+          <Result p={p} canEdit={canEdit} onOpenPlan={onOpenPlan} />
           <DiagnosisList items={p.diagnosis} onPost={(key) => go({ view: null, post: key, person: null })} postLabel={(key) => { const x = p.posts.find((y) => y.key === key); return x ? `${x.room} · ${x.date.slice(8, 10)}.${x.date.slice(5, 7)} ${x.time}` : key; }} />
           <div className="flex flex-wrap items-center gap-3">
             <SegmentedControl
@@ -160,7 +160,7 @@ export function PlanDetailView({ planId, canEdit, onOpenPlan, onRerun }: { planI
             {person ? (
               <span className="flex items-center gap-2 type-callout" data-testid="invig-person-filter">
                 {t("invigilation.personFilter", { name: p.people.find((x) => x.person_key === person)?.name ?? person })}
-                <Button size="xs" variant="ghost" onClick={() => go({ person: null })}>{t("invigilation.clearPerson")}</Button>
+                <Button size="xs" variant="ghost" className="max-md:h-11" onClick={() => go({ person: null })}>{t("invigilation.clearPerson")}</Button>
               </span>
             ) : null}
           </div>
@@ -226,11 +226,33 @@ export function RunningPanel({ p, elapsed }: { p: Pick<PlanDetail, "status" | "p
   );
 }
 
-function Result({ p }: { p: PlanDetail }) {
+function Result({ p, canEdit, onOpenPlan }: { p: PlanDetail; canEdit: boolean; onOpenPlan: (id: number) => void }) {
   const { t, n, locale } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
   const c = p.counts;
   const st = p.stats;
+  const pool = p.pool ?? null;
+  const emptyPool = poolEmptyDiag(p.diagnosis);
+  const rerun = useRerunPlan();
+  const [poolError, setPoolError] = useState<string | null>(null);
+  // the one-tap fix of an empty pool (T-R1-42): a child plan with the pool set to every instructor
+  const widen = async () => {
+    setPoolError(null);
+    try {
+      const res = await rerun.mutateAsync({ id: p.id, params: allInstructorsParams(p.params) });
+      toast.success(t("invigilation.poolAllStarted", { id: res.plan_id }));
+      onOpenPlan(res.plan_id);
+    } catch (e) {
+      setPoolError(errorText(e, lang));
+    }
+  };
+  const poolLine = pool
+    ? pool.instructor_pool === "exam_instructors"
+      ? t("invigilation.poolMatch", { people: n(pool.exam_people), matched: n(pool.matched), ambiguous: n(pool.ambiguous), unmatched: n(pool.unmatched), size: n(pool.size) })
+      : pool.instructor_pool === "all"
+        ? t("invigilation.poolAll", { size: n(pool.size) })
+        : t("invigilation.poolNone", { size: n(pool.size) })
+    : null;
   const tiles: { key: string; label: string; value: number | null | undefined; tone?: "bad" }[] = [
     { key: "posts", label: t("invigilation.count.posts"), value: c.posts },
     { key: "required", label: t("invigilation.count.required"), value: c.required },
@@ -255,7 +277,25 @@ function Result({ p }: { p: PlanDetail }) {
       ) : (c.missing ?? 0) > 0 ? (
         <Alert tone="warning">{t("invigilation.missingWarn", { n: n(c.missing ?? 0) })}</Alert>
       ) : null}
+      {emptyPool && !PLAN_ACTIVE.has(p.status) ? (
+        <Alert
+          tone="error"
+          title={t("invigilation.poolEmptyTitle")}
+          data-testid="invig-pool-empty"
+          action={
+            canEdit && pool?.instructor_pool !== "all" ? (
+              <BusyButton size="sm" busy={rerun.isPending} busyLabel={t("invigilation.form.starting")} className="max-md:h-11" onClick={() => void widen()} data-testid="invig-pool-all">
+                {t("invigilation.poolAllRerun")}
+              </BusyButton>
+            ) : undefined
+          }
+        >
+          {emptyPool.text?.[lang] || emptyPool.text?.tr}
+          {poolError ? <span className="mt-1 block text-status-infeasible-fg">{poolError}</span> : null}
+        </Alert>
+      ) : null}
       {p.headline ? <p className="type-title-3" data-testid="invig-headline">{pairOf(p.headline, lang)}</p> : null}
+      {poolLine ? <p className="type-footnote text-label-2 tnum" data-testid="invig-pool-line">{poolLine}</p> : null}
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" data-testid="invig-counts">
         {tiles.map((x) => (
           <li key={x.key} className="flex min-w-0 flex-col gap-0.5 rounded-xl bg-card p-3 edge-hairline" data-key={x.key}>

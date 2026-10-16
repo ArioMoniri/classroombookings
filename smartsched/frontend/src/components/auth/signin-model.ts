@@ -3,8 +3,11 @@
  * server page and the client components share them, and the tests pin the contract.
  */
 
-/** SSO callback codes the page renders (§6.3, §14). Anything else renders `failed` (no enumeration, §15 #16). */
-export const SSO_ERROR_CODES = ["tenant", "cancelled", "failed", "unavailable", "signup_closed", "invite_expired", "invite_invalid", "invite_mismatch"] as const;
+import { ADMIN_SECTIONS } from "@/lib/permissions";
+
+/** SSO callback codes the page renders (§6.3, §14). Anything else renders `failed` (no enumeration, §15 #16).
+ *  `not_enabled` (T-R1-35 / T-R1-09): Microsoft sign-in is switched off: a state, shown without a support code. */
+export const SSO_ERROR_CODES = ["tenant", "cancelled", "failed", "unavailable", "not_enabled", "signup_closed", "invite_expired", "invite_invalid", "invite_mismatch"] as const;
 export type SsoErrorCode = (typeof SSO_ERROR_CODES)[number];
 
 /** `/profile?error=` codes after a profile link (§14): the sign-in codes plus `already_linked`. */
@@ -110,9 +113,23 @@ export function startUrl(opts: { base?: string | null; next?: string | null; inv
   return qs ? `${base}?${qs}` : base;
 }
 
-/** Where a signed-in person lands without `next` (the login form's rule): planners the dashboard, others bookings. */
+/**
+ * Where a signed-in person lands without `next` (the login form's rule, T-R1-09 / R1-M-21): the first page their
+ * permissions let them use. Planners the dashboard; people who can book, the bookings grid; approvers who cannot
+ * book, their inbox; a user administrator (setup.users) the user list, any other setup right its own section
+ * (lib/permissions ADMIN_SECTIONS order); room.view alone the read-only grid; nobody gets a grid of locks or a
+ * 403 toast on arrival. No permission list (an old backend) keeps the dashboard.
+ */
 export function homeFor(permissions: readonly string[] | null | undefined): string {
-  return !permissions || permissions.includes("planning.view") ? "/dashboard" : "/bookings";
+  if (!permissions) return "/dashboard";
+  const has = (...p: string[]) => p.some((x) => permissions.includes(x));
+  if (has("planning.view")) return "/dashboard";
+  if (has("book_single.create", "book_recur.create")) return "/bookings";
+  if (has("approvals.decide")) return "/approvals";
+  const section = ADMIN_SECTIONS.find((s) => has(...s.permission));
+  if (section) return section.href;
+  if (has("room.view")) return "/bookings";
+  return "/profile";
 }
 
 /** The invite banner's input: valid (from `GET /auth/sso/invites/{token}`), refused (404 / 410) or unknown. */

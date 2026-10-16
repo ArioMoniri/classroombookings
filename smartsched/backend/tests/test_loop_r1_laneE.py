@@ -133,7 +133,9 @@ def _issue(body: dict) -> dict:
 
 async def test_webhook_url_guard_is_bilingual_and_has_no_pydantic_prefix(client: AsyncClient) -> None:
     admin = await login(client)
-    r = await client.post(f"{API}/webhooks", json={"url": "http://127.0.0.1:19102/hook", "events": ["*"]}, headers=admin)
+    r = await client.post(
+        f"{API}/webhooks", json={"url": "http://127.0.0.1:19102/hook", "events": ["*"]}, headers=admin
+    )
     assert r.status_code == 422, r.text
     item = _issue(r.json())
     assert not item["msg"].startswith("Value error")
@@ -146,7 +148,9 @@ async def test_webhook_url_guard_is_bilingual_and_has_no_pydantic_prefix(client:
     # an unknown event type and a bad scheme are coded too
     r = await client.post(f"{API}/webhooks", json={"url": "ftp://hooks.uni.edu.tr/x", "events": ["*"]}, headers=admin)
     assert _issue(r.json())["ctx"]["message_tr"] == "Webhook adresi https:// ya da http:// ile başlamalı."
-    r = await client.post(f"{API}/webhooks", json={"url": "https://hooks.uni.edu.tr/x", "events": ["booking.deleted"]}, headers=admin)
+    r = await client.post(
+        f"{API}/webhooks", json={"url": "https://hooks.uni.edu.tr/x", "events": ["booking.deleted"]}, headers=admin
+    )
     assert r.status_code == 422
     assert _issue(r.json())["ctx"]["message_tr"].startswith("Bilinmeyen olay türü")
 
@@ -180,7 +184,12 @@ async def test_room_photo_of_the_wrong_type_is_refused_in_turkish(client: AsyncC
 
 
 async def _import(client: AsyncClient, headers: dict[str, str], csv: str, **form: str) -> dict:
-    r = await client.post(f"{API}/users/import", files={"file": ("users.csv", csv.encode("utf-8"), "text/csv")}, data=form, headers=headers)
+    r = await client.post(
+        f"{API}/users/import",
+        files={"file": ("users.csv", csv.encode("utf-8"), "text/csv")},
+        data=form,
+        headers=headers,
+    )
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -188,7 +197,11 @@ async def _import(client: AsyncClient, headers: dict[str, str], csv: str, **form
 async def test_csv_row_errors_carry_turkish_text_in_the_actors_language(client: AsyncClient) -> None:
     admin = await login(client)
     assert (await client.put(f"{API}/auth/profile", json={"language": "tr"}, headers=admin)).status_code == 200
-    r = await client.post(f"{API}/users", json={"email": "personel.test@smartsched.local", "role": "TEACHER", "password": "Flow-2026!pw"}, headers=admin)
+    r = await client.post(
+        f"{API}/users",
+        json={"email": "personel.test@smartsched.local", "role": "TEACHER", "password": "Flow-2026!pw"},
+        headers=admin,
+    )
     assert r.status_code == 201, r.text
     res = await _import(client, admin, "pt2,P,T,personel.test@smartsched.local,Flow-2026!pw,Teacher,\n")
     row = res["results"][0]
@@ -209,7 +222,11 @@ async def test_csv_row_errors_carry_turkish_text_in_the_actors_language(client: 
 async def test_csv_header_row_names_the_columns(client: AsyncClient) -> None:
     admin = await login(client)
     assert (await client.put(f"{API}/auth/profile", json={"language": "tr"}, headers=admin)).status_code == 200
-    r = await client.post(f"{API}/users", json={"email": "personel.test@smartsched.local", "role": "TEACHER", "password": "Flow-2026!pw"}, headers=admin)
+    r = await client.post(
+        f"{API}/users",
+        json={"email": "personel.test@smartsched.local", "role": "TEACHER", "password": "Flow-2026!pw"},
+        headers=admin,
+    )
     assert r.status_code == 201
     csv = (
         "email,full_name,role,password\n"
@@ -220,24 +237,36 @@ async def test_csv_header_row_names_the_columns(client: AsyncClient) -> None:
     res = await _import(client, admin, csv)
     assert res["created"] == 1
     # the header row is not a user row; the data rows keep their file line numbers
-    assert [(x["line"], x["status"]) for x in res["results"]] == [(2, "success"), (3, "password_empty"), (4, "email_exists")]
+    assert [(x["line"], x["status"]) for x in res["results"]] == [
+        (2, "success"),
+        (3, "password_empty"),
+        (4, "email_exists"),
+    ]
     assert res["results"][0]["username"] == "ds.test"
     assert res["summary"] == {"rows": 3, "created": 1, "password_empty": 1, "email_exists": 1}
     assert res["summary_tr"] == "3 satır: 1 oluşturuldu, 1 parola yok, 1 e-posta var"
     assert res["summary_en"] == "3 rows: 1 created, 1 without password, 1 e-mail exists"
     me = (await client.get(f"{API}/users", params={"q": "ds.test"}, headers=admin)).json()
-    created = me["items"][0] if isinstance(me, dict) else me[0]
-    assert created["email"] == "ds.test@smartsched.local" and created["role"] == "TEACHER"
+    created = next(u for u in (me["items"] if isinstance(me, dict) else me) if u["email"] == "ds.test@smartsched.local")
+    assert created["role"] == "TEACHER"
     assert created.get("displayname") == "D. S." or created.get("full_name") == "D. S."
     # a Turkish header in the CRBS column order still works, and a header-less file is positional
-    res = await _import(client, admin, "kullanıcı adı,ad,soyad,e-posta,parola,rol,bölüm\nayse.yilmaz,Ayşe,Yılmaz,,parola-1234,Teacher,\n")
+    res = await _import(
+        client,
+        admin,
+        "kullanıcı adı,ad,soyad,e-posta,parola,rol,bölüm\nayse.yilmaz,Ayşe,Yılmaz,,parola-1234,Teacher,\n",
+    )
     assert [x["status"] for x in res["results"]] == ["success"]
     res = await _import(client, admin, "murat.kaya,Murat,Kaya,,parola-1234,Teacher,\n")
     assert [x["status"] for x in res["results"]] == ["success"] and res["results"][0]["line"] == 1
     # a header that names no known column is refused, in Turkish
-    r = await client.post(f"{API}/users/import", files={"file": ("users.csv", "isim;yas\nAli;3\n".encode(), "text/csv")}, data={}, headers=admin)
+    r = await client.post(
+        f"{API}/users/import", files={"file": ("users.csv", b"isim;yas\nAli;3\n", "text/csv")}, data={}, headers=admin
+    )
     assert r.status_code == 422, r.text
-    assert r.json()["detail"]["code"] == "csv_columns_unknown" and r.json()["detail"]["message_tr"].startswith("Sütunlar ")
+    assert r.json()["detail"]["code"] == "csv_columns_unknown" and r.json()["detail"]["message_tr"].startswith(
+        "Sütunlar "
+    )
 
 
 # --------------------------------------------------------------------------------------------- T-R1-34
@@ -245,13 +274,24 @@ async def test_csv_header_row_names_the_columns(client: AsyncClient) -> None:
 
 async def test_room_admin_edits_capacity_and_follows_the_group_building(client: AsyncClient) -> None:
     admin = await login(client)
-    room = (await client.post(f"{API}/rooms", json={"code": "T 101", "display_name": "Test dersliği", "capacity": 40}, headers=admin)).json()
+    room = (
+        await client.post(
+            f"{API}/rooms", json={"code": "T 101", "display_name": "Test dersliği", "capacity": 40}, headers=admin
+        )
+    ).json()
     assert room["code"] == "T101"
     g = (await client.post(f"{API}/room-admin/groups", json={"name": "A Blok"}, headers=admin)).json()
-    r = await client.put(f"{API}/room-admin/rooms/{room['id']}", json={"capacity": 42, "room_group_id": g["id"]}, headers=admin)
+    r = await client.put(
+        f"{API}/room-admin/rooms/{room['id']}", json={"capacity": 42, "room_group_id": g["id"]}, headers=admin
+    )
     assert r.status_code == 200, r.text
     out = r.json()
-    assert out["capacity"] == 42 and out["room_group"] == "A Blok" and out["building_code"] == "A" and out["code_label"] == "T 101"
+    assert (
+        out["capacity"] == 42
+        and out["room_group"] == "A Blok"
+        and out["building_code"] == "A"
+        and out["code_label"] == "T 101"
+    )
     full = (await client.get(f"{API}/rooms/{room['id']}", headers=admin)).json()
     assert full["capacity"] == 42
     r = await client.put(f"{API}/room-admin/rooms/{room['id']}", json={"capacity": -1}, headers=admin)

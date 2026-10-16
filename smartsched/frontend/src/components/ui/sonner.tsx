@@ -22,7 +22,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
-      closeButtonAriaLabel={t("common.closeToast")}
       mobileOffset={TOASTER_MOBILE_OFFSET}
       className="toaster group"
       icons={{
@@ -42,6 +41,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       toastOptions={{
         duration: 4000,
+        closeButtonAriaLabel: t("common.closeToast"),
         classNames: {
           toast:
             "cn-toast !shadow-(--shadow-3) backdrop-blur-[32px] backdrop-saturate-[1.8] !type-callout !gap-2.5 !px-4 !py-3",

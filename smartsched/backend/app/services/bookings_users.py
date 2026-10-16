@@ -18,9 +18,9 @@ from app.core.security import hash_password, revoke_tokens
 from app.importers import normalize as n
 from app.models import PasswordResetToken, Program, Role, User
 from app.models.base import utcnow
+from app.schemas.messages import Refusal, pick
 from app.services import bookings_events as events
 from app.services.bookings_notify import notify
-from app.schemas.messages import Refusal, pick
 from app.services.bookings_perms import (
     is_privileged_role,
     may_grant_role,
@@ -64,7 +64,9 @@ COLUMNS = ("username", "firstname", "lastname", "email", "password", "role", "de
 #: header words that name a column (T-R1-33: a header row is recognised by its names, in either language, in any
 #: order; a file without one keeps the CRBS positional order above)
 HEADER_ALIASES: dict[str, frozenset[str]] = {
-    "username": frozenset({"username", "user_name", "user name", "kullanıcı adı", "kullanici adi", "kullanıcı", "login"}),
+    "username": frozenset(
+        {"username", "user_name", "user name", "kullanıcı adı", "kullanici adi", "kullanıcı", "login"}
+    ),
     "firstname": frozenset({"firstname", "first_name", "first name", "ad", "adı", "isim"}),
     "lastname": frozenset({"lastname", "last_name", "last name", "surname", "soyad", "soyadı"}),
     "email": frozenset({"email", "e-mail", "mail", "e-posta", "eposta", "e posta"}),
@@ -72,9 +74,20 @@ HEADER_ALIASES: dict[str, frozenset[str]] = {
     "role": frozenset({"role", "rol"}),
     "department": frozenset({"department", "bölüm", "bolum", "birim"}),
     "force_password_reset": frozenset(
-        {"force_password_reset", "force password reset", "parola sıfırlama", "şifre sıfırlama", "ilk girişte parola"}
+        {
+            "force_password_reset",
+            "force password reset",
+            "password change",
+            "parola sıfırlama",
+            "şifre sıfırlama",
+            "parola değişikliği",
+            "şifre değişikliği",
+            "ilk girişte parola",
+        }
     ),
-    "full_name": frozenset({"full_name", "fullname", "full name", "displayname", "display_name", "name", "ad soyad", "adı soyadı"}),
+    "full_name": frozenset(
+        {"full_name", "fullname", "full name", "displayname", "display_name", "name", "ad soyad", "adı soyadı"}
+    ),
 }
 HEADER_WORDS = frozenset(w for words in HEADER_ALIASES.values() for w in words)
 
@@ -138,6 +151,10 @@ def header_columns(row: list[str]) -> dict[str, int] | None:
     found = {name: i for i, cell in enumerate(row) if (name := _header_word(cell)) is not None}
     if not found or any("@" in (c or "") for c in row):
         return None
+    # a header word this list does not know ("Parola değişikliği") keeps its CRBS position when that column is free
+    for i, cell in enumerate(row):
+        if i < len(COLUMNS) and (cell or "").strip() and i not in found.values() and COLUMNS[i] not in found:
+            found[COLUMNS[i]] = i
     if "username" not in found and "email" not in found:
         shown = ", ".join(c.strip() for c in row if c and c.strip())
         raise Refusal(

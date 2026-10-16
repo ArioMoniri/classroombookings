@@ -42,6 +42,7 @@ import {
   useUserSearch,
   type AclIn,
   type AdminRoom,
+  type AdminRoomIn,
   type CustomField,
   type RoomGroup,
 } from "@/lib/api/crbs";
@@ -52,6 +53,8 @@ import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
+import { roomTitle } from "./rooms-model";
+import { problemText } from "@/lib/api/error-text";
 import { EntityIcon, IconPicker } from "./icons";
 import { permLabel } from "./roles-admin";
 import { SortableList } from "./sortable-list";
@@ -464,8 +467,9 @@ function RoomRow({ room: r, onEdit, onDelete }: { room: AdminRoom; onEdit: () =>
       <span className="flex min-w-0 items-center gap-2">
         <EntityIcon name={r.icon} />
         <span className="min-w-0">
-          <span className="block type-headline text-label-1">
-            {r.display_name}
+          <span className="block type-headline text-label-1" data-testid={`room-title-${r.code}`}>
+            {/* T-R1-34: "T 101 · Test dersliği": the code as the backend shows it, then the room's own name */}
+            {roomTitle(r)}
             <span className="ml-2 type-footnote font-normal text-label-3">{t("crbs.grid.seats", { n: r.capacity })}</span>
           </span>
           <span className="block truncate type-footnote text-label-2">{[r.room_group ?? t("crbs.rooms.noGroup"), r.location, r.owner_name ? t("crbs.detail.owner", { name: r.owner_name }) : null].filter(Boolean).join(" · ")}</span>
@@ -505,7 +509,7 @@ function RoomSheet({ room, onClose }: { room: AdminRoom | null; onClose: () => v
 }
 
 function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { can } = usePermissions();
   const groups = useRoomGroups();
   const fields = useCustomFields();
@@ -513,6 +517,7 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
   const users = useUserSearch({ limit: 500, enabled: true, sort: "displayname" }, can("setup.users"));
   const [f, setF] = useState({
     display_name: room.display_name,
+    capacity: String(room.capacity ?? 0),
     room_group_id: room.room_group_id ? String(room.room_group_id) : "",
     owner_user_id: room.owner_user_id ? String(room.owner_user_id) : "",
     location: room.location ?? "",
@@ -524,19 +529,23 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const keys = [["crbs", "admin-rooms"], ["crbs", "room-groups"], ["crbs", "grid"], ["crbs", "context"], ["crbs", "room-fields", room.id]];
   const save = useCrbsMutation(async () => {
-    const out = await crbs.roomAdmin.updateRoom(room.id, {
+    // T-R1-34: the capacity is edited here too (PUT /room-admin/rooms/{id} takes `capacity`)
+    const body: AdminRoomIn & { capacity?: number } = {
       display_name: f.display_name.trim() || null,
+      capacity: Math.max(0, Math.round(Number(f.capacity) || 0)),
       ...(f.room_group_id ? { room_group_id: Number(f.room_group_id) } : {}),
       owner_user_id: f.owner_user_id ? Number(f.owner_user_id) : null,
       location: f.location.trim() || null,
       icon: f.icon,
       notes: f.notes.trim() || null,
       is_bookable: f.is_bookable,
-    });
+    };
+    const out = await crbs.roomAdmin.updateRoom(room.id, body);
     if (Object.keys(fieldDraft).length) await crbs.roomAdmin.putRoomFields(room.id, fieldDraft);
     return out;
   }, keys);
   const photo = useCrbsMutation((file: File) => crbs.roomAdmin.uploadPhoto(room.id, file), keys);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const dropPhoto = useCrbsMutation(() => crbs.roomAdmin.deletePhoto(room.id), keys);
   const [photoUrl, setPhotoUrl] = useState(room.photo_url);
   // CRBS Rooms::photo opens the full image (UI gap audit #25)
@@ -547,14 +556,17 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
   return (
     <>
       <SheetHeader className="px-5 pt-5">
-        <SheetTitle className="type-title-3">{room.display_name}</SheetTitle>
+        <SheetTitle className="type-title-3">{roomTitle(room)}</SheetTitle>
         <p className="type-footnote text-label-3">
-          {room.code} · {t("crbs.grid.seats", { n: room.capacity })}
+          {[room.room_group, t("crbs.grid.seats", { n: room.capacity })].filter(Boolean).join(" · ")}
         </p>
       </SheetHeader>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pb-4">
         <Field label={t("crbs.rooms.displayName")} htmlFor="rm-name">
           <Input id="rm-name" maxLength={64} value={f.display_name} onChange={(e) => set("display_name", e.target.value)} />
+        </Field>
+        <Field label={t("admingaps.rooms.capacity")} htmlFor="rm-capacity" hint={t("crbs.rooms.capacityHint")}>
+          <Input id="rm-capacity" type="number" min={0} inputMode="numeric" value={f.capacity} onChange={(e) => set("capacity", e.target.value)} data-testid="room-capacity" />
         </Field>
         <Field label={t("crbs.export.group")} htmlFor="rm-group" hint={t("crbs.rooms.groupHint")}>
           <SelectField id="rm-group" value={f.room_group_id} onChange={(e) => set("room_group_id", e.target.value)}>
@@ -611,13 +623,16 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
                 className="sr-only"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
+                  setPhotoError(null);
                   if (file) photo.mutate(file, {
                     onSuccess: (r) => {
                       setPhotoUrl(r.photo_url ? `${r.photo_url}?v=${Date.now()}` : null);
                       toast.success(t("crbs.rooms.photoSaved")); // admin persona M-46: the upload said nothing
                     },
-                    onError: toastError,
+                    // T-R1-31 (M-36): a wrong file type is refused in Turkish, next to the button
+                    onError: (e) => setPhotoError(problemText(e, locale) ?? t("crbs.rooms.photoFailed")),
                   });
+                  e.target.value = "";
                 }}
               />
             </Button>
@@ -628,6 +643,11 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
               </Button>
             ) : null}
           </div>
+          {photoError ? (
+            <p role="alert" className="type-footnote text-status-infeasible-fg" data-testid="room-photo-error">
+              {photoError}
+            </p>
+          ) : null}
         </section>
         {(fields.data ?? []).length ? (
           <section aria-label={t("crbs.rooms.tabFields")} className="flex flex-col gap-2">

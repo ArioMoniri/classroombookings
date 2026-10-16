@@ -125,6 +125,43 @@ describe("resolveWeeks", () => {
   });
 });
 
+describe("deriveSummary: a half-loaded term (round-1 R1-S-21 / R1-S-22, T-R1-47)", () => {
+  const s = hydrated();
+  const base = { local: s.local, dirty: false, server: s.server, classes: null, rules: null, precheck: null, checking: false };
+  const summary = (counts: Partial<StudioSummary["counts"]>): StudioSummary => ({
+    draft_id: 9,
+    version: 3,
+    counts: { classes_total: 0, classes_need_room: 0, classes_in: 0, classes_out: 0, classes_without_time: 0, events: 0, rooms: 0, weeks: 0, pinned: 0, rules_must: 0, rules_try: 0, builtins_off: 0, ...counts },
+    weeks: [],
+    holiday_weeks: [],
+    readiness: "unknown",
+    estimate_s: { low: 20, high: 70 },
+    sentence: { tr: "", en: "" },
+    human_summary: { tr: "", en: "" },
+    warnings: [],
+    last_good_run: null,
+    disabled_builtin_kinds: [],
+  });
+
+  it("has no room count until the selected term's summary is in (never '0 derslikte')", () => {
+    expect(deriveSummary({ ...base, summary: null, termWeeks: weeks }).rooms).toBeNull();
+    expect(deriveSummary({ ...base, summary: summary({ rooms: 58 }), termWeeks: weeks }).rooms).toBe(58);
+  });
+
+  it("a whole-term plan counts the term's weeks, not the week rows that happen to have dates (Güz: 2 dated of 14)", () => {
+    const twoDated = weeks.slice(0, 2);
+    const v = deriveSummary({ ...base, summary: summary({ weeks: 14 }), termWeeks: twoDated });
+    expect(v.weeks).toEqual([1, 2]);
+    expect(v.weekCount).toBe(14);
+    expect(v.datedWeeks).toBe(2);
+    // a one-week plan counts its own week, whatever the term has
+    const one = studioReducer(s, { type: "setScope", horizon: "WEEK", horizon_params: { weeks: [3] } });
+    expect(deriveSummary({ ...base, local: one.local, summary: summary({ weeks: 1 }), termWeeks: weeks }).weekCount).toBe(1);
+    // no summary yet: the dated rows are all we know
+    expect(deriveSummary({ ...base, summary: null, termWeeks: twoDated }).weekCount).toBe(2);
+  });
+});
+
 describe("deriveSummary (the 'What will happen' reducer)", () => {
   const summary: StudioSummary = {
     draft_id: 9,

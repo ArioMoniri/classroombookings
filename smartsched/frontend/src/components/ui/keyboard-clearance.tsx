@@ -24,7 +24,7 @@ export function KeyboardClearance() {
     if (!root) return
     let timer: number | null = null
     const reveal = (el: Element | null) => {
-      if (!isTextField(el) || !root.contains(el)) return
+      if (!isTextField(el) || !root.contains(el) || typeof el.scrollIntoView !== "function") return
       if (timer !== null) window.clearTimeout(timer)
       // one frame later than the browser's own focus scroll, and after the keyboard's first resize
       timer = window.setTimeout(() => {

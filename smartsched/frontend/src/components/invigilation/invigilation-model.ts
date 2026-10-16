@@ -4,8 +4,9 @@
  * phase and percentage; while solving, the elapsed time against the limit), the posts by date with filters, the
  * unavailability rows of a pool member and the plan's status tone.
  */
-import type { Diagnosis, PlanBrief, Post, ProgressPhase, Unavailable } from "@/lib/api/invigilation";
-import { PLAN_DEFAULTS, PROGRESS_PHASES } from "@/lib/api/invigilation";
+import type { Diagnosis, PlanBrief, PlanParams, Post, ProgressPhase, Unavailable } from "@/lib/api/invigilation";
+import { changedParams, paramsFrom, PLAN_DEFAULTS, PROGRESS_PHASES } from "@/lib/api/invigilation";
+import type { ScheduleRun } from "@/lib/api/schemas";
 
 export type Tone = "feasible" | "warning" | "infeasible" | "neutral" | "tint";
 
@@ -27,6 +28,30 @@ export function planTone(p: Pick<PlanBrief, "status" | "counts"> & { empty?: boo
   if (p.status === "RUNNING") return "tint";
   if (p.status === "OPTIMAL" || p.status === "FEASIBLE") return (p.counts.missing ?? 0) > 0 ? "warning" : "feasible";
   return "infeasible";
+}
+
+/* ------------------------------------------------------------------ pool (round-1 T-R1-42) */
+
+/** the plan found nobody to assign: the backend's `pool_empty` error with its Turkish / English reason */
+export function poolEmptyDiag(list: readonly Diagnosis[] | undefined): Diagnosis | undefined {
+  return list?.find((d) => d.code === "pool_empty" && d.severity === "error");
+}
+
+/** the one-tap fix of an empty pool: the plan's own parameters with the pool widened to every instructor */
+export function allInstructorsParams(parent: PlanParams | null | undefined): PlanParams {
+  return { ...changedParams(paramsFrom(parent)), instructor_pool: "all" };
+}
+
+/**
+ * An imported board offered as an exam run (grid import: `params.source` GRID_IMPORT, no solver stats, no prompt):
+ * its rows carry no exam link, so an invigilation plan on it has no room session to staff (R1-S-14). Shown with
+ * "sınav bağlantısı yok" and never picked by default while a solved exam run exists.
+ */
+export function isBoardRun(r: Pick<ScheduleRun, "params" | "label"> & { stats?: ScheduleRun["stats"]; prompt_text?: string | null; diagnosis?: unknown[] }): boolean {
+  const src = (r.params as { source?: unknown } | undefined)?.source;
+  if (src === "GRID_IMPORT" || src === "COUNCIL_BASELINE") return true;
+  if (typeof src === "string") return false;
+  return r.stats !== undefined && r.stats.solver === undefined && r.stats.events === undefined && !r.prompt_text && !(r.diagnosis?.length ?? 0) && /^grid import/i.test(r.label ?? "");
 }
 
 export interface DiagGroup {

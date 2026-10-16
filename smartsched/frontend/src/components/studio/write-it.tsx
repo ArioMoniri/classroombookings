@@ -14,13 +14,18 @@ import { useStudio, useStudioStore } from "./studio-context";
 import { pairLang } from "@/lib/i18n";
 import { refusedAsDecisions, splitRefused } from "./refused";
 import { BareButton } from "@/components/shell/bare-button";
+import { chipPrefill } from "./chip-prefill";
+import { useStudioData } from "./studio-data";
+import type { BuilderPrefill } from "./template-gallery";
 
 const CHIPS: MessageKey[] = ["studio.write.chip.tip", "studio.write.chip.evening", "studio.write.chip.sameRoom", "studio.write.chip.fit", "studio.write.chip.pharmacy", "studio.write.chip.nursing", "studio.write.chip.a204", "studio.write.chip.examGap"];
 
-/** (a) "Write it in your own words" (TR/EN) → POST /terms/{id}/elicit → review tray. */
-export function WriteIt({ noKey }: { noKey: boolean }) {
+/** (a) "Write it in your own words" (TR/EN) → POST /terms/{id}/elicit → review tray.
+ *  Without an AI key an example chip opens its template pre-filled instead (round-1 T-R1-46): `onOpenTemplate`. */
+export function WriteIt({ noKey, onOpenTemplate }: { noKey: boolean; onOpenTemplate?: (prefill: BuilderPrefill) => void }) {
   const { t, locale } = useI18n();
-  const { termId, store, goStep } = useStudio();
+  const { termId, store, goStep, meta, kind, sentence } = useStudio();
+  const { rooms } = useStudioData();
   const text = useStudioStore((s) => s.nlText);
   const setNlText = useStudioStore((s) => s.setNlText);
   const setText = (v: string | ((prev: string) => string)) => setNlText(typeof v === "function" ? v(store.getState().nlText) : v);
@@ -103,15 +108,20 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
         </span>
       </div>
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label={t("studio.write.suggestions")}>
-        {CHIPS.map((k) => (
-          <BareButton key={k} onClick={() => insert(t(k))} className="shrink-0 rounded-full border bg-background px-2.5 py-1 text-xs hover:bg-fill-2 pointer-coarse:min-h-11">
-            {t(k)}
-          </BareButton>
-        ))}
+        {CHIPS.map((k) => {
+          // no key: the chip opens the structured template that says the same, pre-filled from the term's data; the
+          // sentence alone would be a dead end ("Kurala çevir" needs AI; round-1 R1-S-08 / R1-M-13)
+          const prefill = keyMissing && onOpenTemplate ? chipPrefill(k, { templates: meta?.templates ?? [], programs: sentence.programs, rooms, kind }) : null;
+          return (
+            <BareButton key={k} onClick={() => (prefill ? onOpenTemplate?.(prefill) : insert(t(k)))} className="shrink-0 rounded-full border bg-background px-2.5 py-1 text-xs hover:bg-fill-2 pointer-coarse:min-h-11" data-testid="example-chip" data-opens={prefill ? "template" : "text"}>
+              {t(k)}
+            </BareButton>
+          );
+        })}
       </div>
       {keyMissing ? (
         <p role="note" className="rounded-md bg-status-warning px-2.5 py-1.5 text-xs text-status-warning-fg" data-testid="no-key">
-          {t("studio.write.noKey")}
+          {t("studio.write.noKey")} {onOpenTemplate ? t("studio.write.noKeyChips") : ""}
         </p>
       ) : null}
       {error ? (

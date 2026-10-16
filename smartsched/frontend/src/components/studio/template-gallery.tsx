@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
 import { HardnessControl } from "./hardness-control";
 import { AffectedBadge } from "./rule-card";
 import { FIELD_KEY, issueMessages } from "./rule-helpers";
-import { defaultParams, plainSentence, readField, templateIssues, tokens, writeField, type Params } from "./rule-sentence";
+import { defaultParams, plainSentence, programDisplay, readAppliesTo, readField, templateIssues, tokens, writeAppliesTo, writeField, type AppliesTo, type Params } from "./rule-sentence";
+import { relatedPrograms } from "./chip-prefill";
 import { SlotChip, SlotEditor } from "./slot-picker";
 import { useStudio } from "./studio-context";
 import { useRuleActions } from "./use-rule-actions";
@@ -29,6 +30,9 @@ const TOPIC_KEY: Record<Topic, MessageKey> = { rooms: "studio.topic.rooms", time
 export interface BuilderPrefill {
   templateId?: string;
   eventIds?: number[];
+  /** field values an example chip stands for (round-1 T-R1-46); merged over the template defaults */
+  params?: Params;
+  hardness?: "hard" | "soft";
 }
 
 /** (b) Pick a template: gallery (topic tabs + cards), then the builder (live sentence on top, fields below). */
@@ -56,7 +60,7 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
           <DialogDescription>{chosen ? t("studio.builder.help") : t("studio.gallery.help")}</DialogDescription>
         </DialogHeader>
         {chosen ? (
-          <Builder template={chosen} eventIds={prefill?.eventIds} onBack={() => setChosen(null)} onDone={onDone} />
+          <Builder template={chosen} eventIds={prefill?.eventIds} prefill={prefill?.templateId === chosen.id ? prefill : null} onBack={() => setChosen(null)} onDone={onDone} />
         ) : (
           <div className="grid gap-4 md:grid-cols-[10rem_1fr]">
             <div role="tablist" aria-orientation="vertical" aria-label={t("studio.gallery.topics")} className="flex gap-1 overflow-x-auto md:flex-col">
@@ -92,17 +96,17 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
   );
 }
 
-function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplate; eventIds?: number[]; onBack: () => void; onDone: () => void }) {
+function Builder({ template, eventIds, prefill, onBack, onDone }: { template: RuleTemplate; eventIds?: number[]; prefill?: BuilderPrefill | null; onBack: () => void; onDone: () => void }) {
   const { t, n, locale } = useI18n();
   const { sentence, meta, termId, kind, advanced } = useStudio();
   const actions = useRuleActions();
   const [params, setParams] = useState<Params>(() => {
-    const base = defaultParams(template);
+    const base = { ...defaultParams(template), ...(prefill?.params ?? {}) };
     const applies = template.fields.find((f) => f.type === "applies_to" || f.type === "courses");
     if (eventIds?.length && applies) return writeField(applies, base, applies.type === "courses" ? eventIds : { mode: "classes", event_ids: eventIds }, sentence);
     return base;
   });
-  const [hardness, setHardness] = useState<"hard" | "soft">(template.default_hardness);
+  const [hardness, setHardness] = useState<"hard" | "soft">(prefill?.hardness && template.allowed_hardness.includes(prefill.hardness) ? prefill.hardness : template.default_hardness);
   const [weight, setWeight] = useState(template.default_weight);
   const [previewed, setPreviewed] = useState<{ key: string; data: Preview | null } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -133,12 +137,21 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
     const f = template.fields.find((x) => x.name === name);
     if (f) setParams((p) => writeField(f, p, v, sentence));
   };
+  const appliesField = template.fields.find((f) => f.type === "applies_to");
+  const who: AppliesTo = appliesField ? readAppliesTo(params) : { mode: "all" };
+  const related = who.mode === "programs" ? relatedPrograms(who.programs.map((p) => programDisplay(p, sentence)), sentence.programs) : [];
+  const addProgram = (p: string) => {
+    if (who.mode !== "programs") return;
+    setParams((prev) => writeAppliesTo(prev, { ...who, programs: [...who.programs.map((x) => programDisplay(x, sentence)), p] }));
+  };
 
   const add = async () => {
     if (issues.length) return;
     setSaving(true);
     try {
-      await actions.create({ kind: template.kind, params, hardness, weight, nl_text: plainSentence(tokens(template, params, sentence)), source: "ADMIN" });
+      // `_via`: the rule came from a template, so the list says "Şablon", not "Yönetici" (round-1 R1-S-08); the
+      // backend keeps `_`-prefixed params as metadata (like `_source_ref`) and ignores them in the solver
+      await actions.create({ kind: template.kind, params: { ...params, _via: "template" }, hardness, weight, nl_text: plainSentence(tokens(template, params, sentence)), source: "ADMIN" });
       actions.undoToast(t("studio.builder.added"));
       onDone();
     } finally {
@@ -156,6 +169,25 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
         <div className="mt-2">
           <AffectedBadge affected={{ count: preview?.affected_count ?? null, loading, percent: preview?.percent ?? null, targeted: preview?.targeted }} />
           {preview && preview.targeted && preview.affected_count === 0 ? <p className="mt-1 text-xs text-status-warning-fg">{t("studio.rule.matchesNone")}</p> : null}
+          {who.mode === "programs" && who.programs.length ? (
+            // the reach line names every programme the rule reaches (round-1 R1-S-08: "lists both programmes")
+            <p className="mt-1 text-xs text-label-2" data-testid="builder-programmes">
+              {t("studio.builder.reaches", { list: who.programs.map((p) => programDisplay(p, sentence)).join(", "), year: who.year ? ` · ${sentence.words.year(who.year)}` : "" })}
+            </p>
+          ) : null}
+          {related.length ? (
+            // programmes with a similar name (the nursing master's programmes): the planner decides whether the rule reaches them too
+            <div className="mt-2 flex flex-col gap-1.5" data-testid="related-programmes">
+              <p className="text-xs text-label-2">{t("studio.builder.related", { n: related.length })}</p>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("studio.builder.relatedLabel")}>
+                {related.map((p) => (
+                  <BareButton key={p} onClick={() => addProgram(p)} className="rounded-full border bg-background px-2.5 py-1 text-xs hover:bg-fill-2 pointer-coarse:min-h-11">
+                    + {p}
+                  </BareButton>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">

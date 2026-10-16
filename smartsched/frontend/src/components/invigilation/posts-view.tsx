@@ -64,7 +64,7 @@ export function PostsView({ plan, canEdit, person, focusPost }: { plan: PlanDeta
     <section className="flex flex-col gap-3" aria-label={t("invigilation.view.posts")} data-testid="invig-posts">
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex items-end gap-1">
-          <IconButton label={t("invigilation.posts.prevDate")} variant="outline" size="sm" disabled={idx <= 0} onClick={() => setDate(dates[idx - 1]!)}>
+          <IconButton label={t("invigilation.posts.prevDate")} variant="outline" size="sm" className="max-md:size-11" disabled={idx <= 0} onClick={() => setDate(dates[idx - 1]!)}>
             <ChevronLeft aria-hidden />
           </IconButton>
           <label className="flex flex-col gap-1">
@@ -76,7 +76,7 @@ export function PostsView({ plan, canEdit, person, focusPost }: { plan: PlanDeta
               ))}
             </NativeSelect>
           </label>
-          <IconButton label={t("invigilation.posts.nextDate")} variant="outline" size="sm" disabled={idx < 0 || idx >= dates.length - 1} onClick={() => setDate(dates[idx + 1]!)}>
+          <IconButton label={t("invigilation.posts.nextDate")} variant="outline" size="sm" className="max-md:size-11" disabled={idx < 0 || idx >= dates.length - 1} onClick={() => setDate(dates[idx + 1]!)}>
             <ChevronRight aria-hidden />
           </IconButton>
         </div>
@@ -139,7 +139,7 @@ function PostCard({ p, canEdit, planId, focused, refCb, onReassign, onAdd }: { p
       data-missing={p.missing}
     >
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <Link href={`/rooms/${p.room_id}`} className="type-headline hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)">{p.room}</Link>
+        <Link href={`/rooms/${p.room_id}`} className="type-headline hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center">{p.room}</Link>
         {p.building ? <span className="type-footnote text-label-2">{t("invigilation.posts.building", { b: p.building })}</span> : null}
         <span className="ml-auto type-footnote text-label-2 tnum">{t("invigilation.posts.seated", { n: n(p.seated) })}</span>
       </div>
@@ -168,10 +168,10 @@ function PostCard({ p, canEdit, planId, focused, refCb, onReassign, onAdd }: { p
               {d.origin === "MANUAL" ? <Badge tone="locked">{t("invigilation.posts.manual")}</Badge> : null}
               {canEdit ? (
                 <>
-                  <IconButton size="xs" label={t(d.is_locked ? "invigilation.posts.unlock" : "invigilation.posts.lock", { name: d.person_name })} aria-pressed={d.is_locked} disabled={lock.isPending} onClick={() => void toggle(d)} data-testid="invig-lock">
+                  <IconButton size="xs" className="max-md:size-11" label={t(d.is_locked ? "invigilation.posts.unlock" : "invigilation.posts.lock", { name: d.person_name })} aria-pressed={d.is_locked} disabled={lock.isPending} onClick={() => void toggle(d)} data-testid="invig-lock">
                     {d.is_locked ? <LockOpen aria-hidden /> : <Lock aria-hidden />}
                   </IconButton>
-                  <IconButton size="xs" label={t("invigilation.posts.reassign", { name: d.person_name })} onClick={() => onReassign(d)} data-testid="invig-reassign">
+                  <IconButton size="xs" className="max-md:size-11" label={t("invigilation.posts.reassign", { name: d.person_name })} onClick={() => onReassign(d)} data-testid="invig-reassign">
                     <UserRoundCog aria-hidden />
                   </IconButton>
                 </>

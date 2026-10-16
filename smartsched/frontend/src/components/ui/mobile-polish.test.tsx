@@ -33,7 +33,8 @@ describe("Dialog on phones (MOBILE.md M-04)", () => {
     const popup = screen.getByTestId("dlg");
     // desktop: centred, unchanged
     expect(popup).toHaveClass("top-1/2", "left-1/2", "-translate-x-1/2", "-translate-y-1/2", "rounded-3xl", "sm:max-w-lg");
-    // phone: flush with the bottom edge, full width, top corners only, scrolls inside itself, safe-area border
+    // phone: flush with the bottom edge, full width, top corners only, safe-area border; the popup is a column
+    // whose body scrolls (T-R1-03), on the solid material
     expect(popup).toHaveClass(
       "max-sm:top-auto",
       "max-sm:bottom-0",
@@ -43,11 +44,13 @@ describe("Dialog on phones (MOBILE.md M-04)", () => {
       "max-sm:translate-x-0",
       "max-sm:translate-y-0",
       "max-sm:max-h-[calc(100dvh-3rem)]",
-      "max-sm:overflow-y-auto",
+      "max-sm:overflow-hidden",
       "max-sm:rounded-b-none",
       "max-sm:border-b-[length:env(safe-area-inset-bottom)]",
       "max-sm:border-b-transparent",
+      "max-sm:bg-(--mat-thick-solid)",
     );
+    expect(popup.querySelector("[data-slot=dialog-body]")).toHaveClass("overflow-y-auto", "min-h-0", "flex-1");
     // the caller's own height cap stays for tablets and desktops
     expect(popup).toHaveClass("max-h-[92dvh]");
   });

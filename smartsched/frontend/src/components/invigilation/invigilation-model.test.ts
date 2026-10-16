@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { Diagnosis, PlanBrief, PlanDetail } from "@/lib/api/invigilation";
 import fixture from "./__fixtures__/plan-final-pool-none.json";
 import addFx from "./__fixtures__/add-duty-final.json";
-import { bySession, diagCounts, filterPosts, fromRows, groupDiagnoses, knownPhase, newRow, parsePostKey, planTone, postDates, progressView, rowProblem, suggestionSummary, toRows } from "./invigilation-model";
+import { allInstructorsParams, bySession, diagCounts, filterPosts, fromRows, groupDiagnoses, isBoardRun, knownPhase, newRow, parsePostKey, planTone, poolEmptyDiag, postDates, progressView, rowProblem, suggestionSummary, toRows } from "./invigilation-model";
 
 const plan = fixture as unknown as PlanDetail;
 
@@ -79,5 +79,26 @@ describe("invigilation model", () => {
     expect(progressView({ status: "RUNNING", progress: undefined, params: {} }, 4)).toMatchObject({ phase: "running", pct: null, limit: 20 });
     expect(knownPhase("persisting")).toBe(true);
     expect(knownPhase("warming_up")).toBe(false);
+  });
+});
+
+describe("pool (round-1 T-R1-42)", () => {
+  it("finds the empty-pool error and widens the plan's own parameters to every instructor", () => {
+    // the fixture's pool has one staff member, so it carries no pool_empty error; the backend's error shape is tested
+    expect(poolEmptyDiag(plan.diagnosis)).toBeUndefined();
+    const empty: Diagnosis = { code: "pool_empty", severity: "error", text: { tr: "Gözetmen havuzu boş: havuz 'Eğitmen yok' seçili ve havuza kimse eklenmedi", en: "The invigilator pool is empty" }, suggestions: [{ code: "pool_all", text: { tr: "Havuzu 'Tüm eğitmenler' yapıp yeniden çalıştırın (490 eğitmen)", en: "Re-run with the pool set to 'All instructors'" } }] };
+    expect(poolEmptyDiag([...plan.diagnosis, empty])).toBe(empty);
+    expect(poolEmptyDiag([{ code: "pool_empty", severity: "info", text: { tr: "", en: "" } }])).toBeUndefined();
+    expect(poolEmptyDiag(undefined)).toBeUndefined();
+    const params = allInstructorsParams({ instructor_pool: "none", max_per_day: 2, time_limit_s: 20 });
+    expect(params).toEqual({ instructor_pool: "all", max_per_day: 2 });
+    expect(allInstructorsParams(null)).toEqual({ instructor_pool: "all" });
+  });
+
+  it("tells an imported board from a solved exam run", () => {
+    expect(isBoardRun({ params: { source: "GRID_IMPORT" }, label: "Grid import: final.xlsx" } as never)).toBe(true);
+    expect(isBoardRun({ params: { time_limit_s: 30, seed: 0, workers: 2, stability: true, weights: {} }, label: "Final", stats: { placed: 603 }, prompt_text: null, diagnosis: [] } as never)).toBe(false);
+    // an older backend without params.source: the board shape (no solver stats, no prompt, grid label)
+    expect(isBoardRun({ params: { time_limit_s: 60, seed: 0, workers: 8, stability: true, weights: {} }, label: "Grid import: guz.xlsx", stats: { progress: 100 }, prompt_text: null, diagnosis: [] } as never)).toBe(true);
   });
 });

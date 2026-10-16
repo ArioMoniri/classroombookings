@@ -10,8 +10,8 @@
  */
 import { Copy, KeyRound, Mail, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
@@ -22,7 +22,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { SlidersHorizontal } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   crbs,
@@ -72,14 +75,32 @@ export function UsersAdmin() {
   // ?role=<id> (the role editor's "all users" link), ?department=<id> and ?q= preset the filters
   const params = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   const [q, setQ] = useState(() => params.get("q") ?? "");
   const [role, setRole] = useState(() => (params.get("role") ?? "").replace(/\D/g, ""));
   const [dept, setDept] = useState(() => (params.get("department") ?? "").replace(/\D/g, ""));
-  const [enabled, setEnabled] = useState("");
+  const [enabled, setEnabled] = useState(() => (params.get("enabled") === "1" || params.get("enabled") === "0" ? params.get("enabled")! : ""));
   const [sort, setSort] = useState("username");
   const [page, setPage] = useState(0);
   const [idFilter, setIdFilter] = useState<IdentityFilter>(() => (params.get("identity") === "invited" ? "invited" : params.get("identity") === "self" ? "self" : "all"));
-  const [method, setMethod] = useState<MethodFilter>("");
+  const [method, setMethod] = useState<MethodFilter>(() => (["microsoft", "local", "ldap", "binding"].includes(params.get("method") ?? "") ? (params.get("method") as MethodFilter) : ""));
+  // T-R1-33: the filters live in the address (?role=&q=&department=&enabled=&identity=&method=), so a reload or a
+  // shared link keeps them; only the keys this screen owns are rewritten
+  useEffect(() => {
+    const next = new URLSearchParams(params.toString());
+    const own: Record<string, string> = { q, role, department: dept, enabled, identity: idFilter === "all" ? "" : idFilter, method };
+    let changed = false;
+    for (const [k, v] of Object.entries(own)) {
+      if ((next.get(k) ?? "") === v) continue;
+      changed = true;
+      if (v) next.set(k, v);
+      else next.delete(k);
+    }
+    if (changed) router.replace(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
+  }, [q, role, dept, enabled, idFilter, method, params, pathname, router]);
+  const phone = useIsPhone();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters = [role, dept, enabled, idFilter === "all" ? "" : idFilter, method].filter(Boolean).length;
   const usersAdmin = can("setup.users");
   // the identity chips and the method select filter on the server (`identity=`, `self_signup_days=7`), with
   // server paging and the server's total; only setup.users sees the identity columns, so only they filter by it
@@ -150,72 +171,171 @@ export function UsersAdmin() {
         }
       />
       {breakGlassMissing(auth, idStatus.data) ? <BreakGlassWarning onCreateLocal={() => setEditing("new")} /> : null}
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
-        <Input
-          type="search"
-          aria-label={t("crbs.users.search")}
-          placeholder={t("crbs.users.searchHint")}
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(0);
-          }}
-          data-testid="users-search"
-        />
-        <SelectField aria-label={t("crbs.users.role")} data-testid="users-role-filter" value={role} onChange={(e) => (setRole(e.target.value), setPage(0))}>
-          <option value="">{t("crbs.users.allRoles")}</option>
-          {(roles.data ?? []).map((r) => (
-            <option key={r.id} value={r.id}>
-              {roleLabel(t, r)}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField aria-label={t("crbs.users.department")} value={dept} onChange={(e) => (setDept(e.target.value), setPage(0))}>
-          <option value="">{t("crbs.users.allDepartments")}</option>
-          {(departments.data ?? []).map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField aria-label={t("crbs.users.status")} value={enabled} onChange={(e) => (setEnabled(e.target.value), setPage(0))}>
-          <option value="">{t("crbs.users.anyStatus")}</option>
-          <option value="1">{t("crbs.users.enabled")}</option>
-          <option value="0">{t("crbs.users.disabled")}</option>
-        </SelectField>
-        <SelectField aria-label={t("crbs.users.sort")} data-testid="users-sort" value={sort} onChange={(e) => setSort(e.target.value)}>
-          <option value="username">{t("crbs.users.sortUsername")}</option>
-          <option value="displayname">{t("crbs.users.sortName")}</option>
-          <option value="-lastlogin">{t("crbs.users.sortLogin")}</option>
-          <option value="role">{t("crbs.users.sortRole")}</option>
-          {/* CRBS users_index sortable columns: enabled and department too (backend sort_map; UI gap audit #22) */}
-          <option value="-enabled,username">{t("admingaps.users.sortEnabled")}</option>
-          <option value="department,username">{t("admingaps.users.sortDepartment")}</option>
-        </SelectField>
-      </div>
-      {usersAdmin && idStatus.data ? (
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("sso.users.filters")} data-testid="identity-filters">
-          <Chip className={TOUCH_CHIP} selected={idFilter === "all" && enabled !== "0"} onSelectedChange={() => (setIdFilter("all"), setMethod(""), setEnabled(""), setPage(0))}>
-            {t("sso.users.filterAll")}
-          </Chip>
-          <Chip className={TOUCH_CHIP} selected={idFilter === "invited"} onSelectedChange={(on) => (setIdFilter(on ? "invited" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-invited">
-            {t("sso.users.filterInvited", { n: counts.invited })}
-          </Chip>
-          <Chip className={TOUCH_CHIP} selected={idFilter === "self"} onSelectedChange={(on) => (setIdFilter(on ? "self" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-self">
-            {t("sso.users.filterSelf", { n: counts.selfRecent })}
-          </Chip>
-          <Chip className={TOUCH_CHIP} selected={enabled === "0"} onSelectedChange={(on) => (setEnabled(on ? "0" : ""), setPage(0))}>
-            {t("sso.users.status.disabled")}
-          </Chip>
-          <SelectField aria-label={t("sso.users.methodFilter")} className="w-auto min-w-44" value={method} onChange={(e) => (setMethod(e.target.value as MethodFilter), e.target.value && setIdFilter("all"), setPage(0))} data-testid="filter-method">
-            <option value="">{t("sso.users.methodFilter")}</option>
-            <option value="microsoft">{t("sso.users.method.microsoft")}</option>
-            <option value="local">{t("sso.users.method.local")}</option>
-            <option value="ldap">{t("sso.users.method.ldap")}</option>
-            <option value="binding">{t("sso.users.status.binding")}</option>
-          </SelectField>
+      {/* T-R1-33 (R1-M-30): on a phone the five filter controls sit in a bottom sheet behind one "Filtreler · n"
+          trigger (MOBILE.md M-04), so the first user card starts above 300 px; the search box stays on the page */}
+      {phone ? (
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <Input
+              type="search"
+              aria-label={t("crbs.users.search")}
+              placeholder={t("crbs.users.searchHint")}
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(0);
+              }}
+              data-testid="users-search"
+            />
+          </div>
+          <Button variant="outline" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" data-testid="users-filters-open">
+            <SlidersHorizontal aria-hidden />
+            {activeFilters ? t("crbs.users.filterOpenCount", { n: activeFilters }) : t("crbs.users.filterOpen")}
+          </Button>
         </div>
-      ) : null}
+      ) : (
+        <>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+            <Input
+              type="search"
+              aria-label={t("crbs.users.search")}
+              placeholder={t("crbs.users.searchHint")}
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(0);
+              }}
+              data-testid="users-search"
+            />
+            <SelectField aria-label={t("crbs.users.role")} data-testid="users-role-filter" value={role} onChange={(e) => (setRole(e.target.value), setPage(0))}>
+              <option value="">{t("crbs.users.allRoles")}</option>
+              {(roles.data ?? []).map((r) => (
+                <option key={r.id} value={r.id}>
+                  {roleLabel(t, r)}
+                </option>
+              ))}
+            </SelectField>
+            <SelectField aria-label={t("crbs.users.department")} value={dept} onChange={(e) => (setDept(e.target.value), setPage(0))}>
+              <option value="">{t("crbs.users.allDepartments")}</option>
+              {(departments.data ?? []).map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </SelectField>
+            <SelectField aria-label={t("crbs.users.status")} value={enabled} onChange={(e) => (setEnabled(e.target.value), setPage(0))}>
+              <option value="">{t("crbs.users.anyStatus")}</option>
+              <option value="1">{t("crbs.users.enabled")}</option>
+              <option value="0">{t("crbs.users.disabled")}</option>
+            </SelectField>
+            <SelectField aria-label={t("crbs.users.sort")} data-testid="users-sort" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="username">{t("crbs.users.sortUsername")}</option>
+              <option value="displayname">{t("crbs.users.sortName")}</option>
+              <option value="-lastlogin">{t("crbs.users.sortLogin")}</option>
+              <option value="role">{t("crbs.users.sortRole")}</option>
+              {/* CRBS users_index sortable columns: enabled and department too (backend sort_map; UI gap audit #22) */}
+              <option value="-enabled,username">{t("admingaps.users.sortEnabled")}</option>
+              <option value="department,username">{t("admingaps.users.sortDepartment")}</option>
+            </SelectField>
+          </div>
+          {usersAdmin && idStatus.data ? (
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("sso.users.filters")} data-testid="identity-filters">
+              <Chip className={TOUCH_CHIP} selected={idFilter === "all" && enabled !== "0"} onSelectedChange={() => (setIdFilter("all"), setMethod(""), setEnabled(""), setPage(0))}>
+                {t("sso.users.filterAll")}
+              </Chip>
+              <Chip className={TOUCH_CHIP} selected={idFilter === "invited"} onSelectedChange={(on) => (setIdFilter(on ? "invited" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-invited">
+                {t("sso.users.filterInvited", { n: counts.invited })}
+              </Chip>
+              <Chip className={TOUCH_CHIP} selected={idFilter === "self"} onSelectedChange={(on) => (setIdFilter(on ? "self" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-self">
+                {t("sso.users.filterSelf", { n: counts.selfRecent })}
+              </Chip>
+              <Chip className={TOUCH_CHIP} selected={enabled === "0"} onSelectedChange={(on) => (setEnabled(on ? "0" : ""), setPage(0))}>
+                {t("sso.users.status.disabled")}
+              </Chip>
+              <SelectField aria-label={t("sso.users.methodFilter")} className="w-auto min-w-44" value={method} onChange={(e) => (setMethod(e.target.value as MethodFilter), e.target.value && setIdFilter("all"), setPage(0))} data-testid="filter-method">
+                <option value="">{t("sso.users.methodFilter")}</option>
+                <option value="microsoft">{t("sso.users.method.microsoft")}</option>
+                <option value="local">{t("sso.users.method.local")}</option>
+                <option value="ldap">{t("sso.users.method.ldap")}</option>
+                <option value="binding">{t("sso.users.status.binding")}</option>
+              </SelectField>
+            </div>
+          ) : null}
+        </>
+      )}
+      <Sheet open={phone && filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent side="bottom" className="gap-0 data-[side=bottom]:max-h-[92dvh]" data-testid="users-filters-sheet">
+          <SheetHeader className="px-5 pt-5">
+            <SheetTitle className="type-title-3">{t("crbs.users.filtersTitle")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("crbs.admin.users.lead")}</SheetDescription>
+          </SheetHeader>
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-5 pt-4 pb-2">
+            <div className="grid gap-2">
+              <SelectField aria-label={t("crbs.users.role")} data-testid="users-role-filter" value={role} onChange={(e) => (setRole(e.target.value), setPage(0))}>
+                <option value="">{t("crbs.users.allRoles")}</option>
+                {(roles.data ?? []).map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {roleLabel(t, r)}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField aria-label={t("crbs.users.department")} value={dept} onChange={(e) => (setDept(e.target.value), setPage(0))}>
+                <option value="">{t("crbs.users.allDepartments")}</option>
+                {(departments.data ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField aria-label={t("crbs.users.status")} value={enabled} onChange={(e) => (setEnabled(e.target.value), setPage(0))}>
+                <option value="">{t("crbs.users.anyStatus")}</option>
+                <option value="1">{t("crbs.users.enabled")}</option>
+                <option value="0">{t("crbs.users.disabled")}</option>
+              </SelectField>
+              <SelectField aria-label={t("crbs.users.sort")} data-testid="users-sort" value={sort} onChange={(e) => setSort(e.target.value)}>
+                <option value="username">{t("crbs.users.sortUsername")}</option>
+                <option value="displayname">{t("crbs.users.sortName")}</option>
+                <option value="-lastlogin">{t("crbs.users.sortLogin")}</option>
+                <option value="role">{t("crbs.users.sortRole")}</option>
+                {/* CRBS users_index sortable columns: enabled and department too (backend sort_map; UI gap audit #22) */}
+                <option value="-enabled,username">{t("admingaps.users.sortEnabled")}</option>
+                <option value="department,username">{t("admingaps.users.sortDepartment")}</option>
+              </SelectField>
+            </div>
+            {usersAdmin && idStatus.data ? (
+              <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("sso.users.filters")} data-testid="identity-filters">
+                <Chip className={TOUCH_CHIP} selected={idFilter === "all" && enabled !== "0"} onSelectedChange={() => (setIdFilter("all"), setMethod(""), setEnabled(""), setPage(0))}>
+                  {t("sso.users.filterAll")}
+                </Chip>
+                <Chip className={TOUCH_CHIP} selected={idFilter === "invited"} onSelectedChange={(on) => (setIdFilter(on ? "invited" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-invited">
+                  {t("sso.users.filterInvited", { n: counts.invited })}
+                </Chip>
+                <Chip className={TOUCH_CHIP} selected={idFilter === "self"} onSelectedChange={(on) => (setIdFilter(on ? "self" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-self">
+                  {t("sso.users.filterSelf", { n: counts.selfRecent })}
+                </Chip>
+                <Chip className={TOUCH_CHIP} selected={enabled === "0"} onSelectedChange={(on) => (setEnabled(on ? "0" : ""), setPage(0))}>
+                  {t("sso.users.status.disabled")}
+                </Chip>
+                <SelectField aria-label={t("sso.users.methodFilter")} className="w-auto min-w-44" value={method} onChange={(e) => (setMethod(e.target.value as MethodFilter), e.target.value && setIdFilter("all"), setPage(0))} data-testid="filter-method">
+                  <option value="">{t("sso.users.methodFilter")}</option>
+                  <option value="microsoft">{t("sso.users.method.microsoft")}</option>
+                  <option value="local">{t("sso.users.method.local")}</option>
+                  <option value="ldap">{t("sso.users.method.ldap")}</option>
+                  <option value="binding">{t("sso.users.status.binding")}</option>
+                </SelectField>
+              </div>
+            ) : null}
+          </div>
+          <SheetFooter className="hairline-t flex-row justify-end gap-2 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <Button variant="ghost" onClick={() => (setRole(""), setDept(""), setEnabled(""), setIdFilter("all"), setMethod(""), setPage(0))}>
+              {t("wave1.audit.reset")}
+            </Button>
+            <Button onClick={() => setFiltersOpen(false)} data-testid="users-filters-apply">
+              {t("crbs.users.apply")}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
       <Card variant="glass" className="py-0">
         {users.isLoading ? (
           <Loading className="px-4" />
@@ -586,7 +706,7 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
             {t("crbs.common.cancel")}
           </Button>
           <Button type="submit" disabled={save.isPending} data-testid="user-save" aria-busy={save.isPending || undefined}>
-            <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+            <BusyLabel busy={save.isPending} label={t(user ? "busy.saving" : "busy.creating")}>
             {user ? t("crbs.common.save") : t("crbs.common.create")}</BusyLabel>
           </Button>
         </DialogFooter>
@@ -696,7 +816,28 @@ const STATUS_KEYS: Record<string, MessageKey> = {
   password_empty: "crbs.import.status.password_empty",
   invalid: "crbs.import.status.invalid",
   forbidden: "crbs.import.status.forbidden",
+  email_exists: "crbs.import.status.email_exists",
 };
+const STATUS_WORDS: Record<string, MessageKey> = {
+  success: "crbs.import.word.success",
+  username_exists: "crbs.import.word.username_exists",
+  username_empty: "crbs.import.word.username_empty",
+  password_empty: "crbs.import.word.password_empty",
+  email_exists: "crbs.import.word.email_exists",
+  invalid: "crbs.import.word.invalid",
+  forbidden: "crbs.import.word.forbidden",
+};
+
+/** "3 satır: 1 oluşturuldu, 1 parola yok, 1 e-posta var" (T-R1-33): one line of counts per status, in the UI language. */
+export function importSummaryLine(result: Pick<ImportResult, "results">, t: (key: MessageKey, vars?: Record<string, string | number>) => string): string {
+  const counts = new Map<string, number>();
+  for (const r of result.results) counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
+  const parts = Object.keys(STATUS_WORDS)
+    .filter((k) => counts.get(k))
+    .map((k) => `${counts.get(k)} ${t(STATUS_WORDS[k]!)}`);
+  for (const [k, n] of counts) if (!STATUS_WORDS[k]) parts.push(`${n} ${k}`);
+  return t("crbs.import.summaryLine", { total: result.results.length, parts: parts.join(", ") });
+}
 
 function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onOpenChange: (o: boolean) => void; canListRoles: boolean }) {
   const { t } = useI18n();
@@ -730,7 +871,7 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
         </DialogHeader>
         {!result ? (
           <div className="flex flex-col gap-3">
-            <Field label={t("crbs.import.file")} htmlFor="imp-file" hint={t("crbs.import.columns")}>
+            <Field label={t("crbs.import.file")} htmlFor="imp-file" hint={`${t("crbs.import.columns")} ${t("crbs.import.headerHint")}`}>
               <Input id="imp-file" type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             </Field>
             <p className="type-headline text-label-1">{t("crbs.import.defaults")}</p>
@@ -764,7 +905,12 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <Alert tone={result.created ? "success" : "warning"}>{t("crbs.import.summary", { created: result.created, total: result.results.length })}</Alert>
+            <Alert tone={result.created ? "success" : "warning"} testId="import-summary">
+              {t("crbs.import.summary", { created: result.created, total: result.results.length })}
+              <span className="mt-1 block type-footnote" data-testid="import-summary-line">
+                {importSummaryLine(result, t)}
+              </span>
+            </Alert>
             {result.results.some((r) => r.status === "forbidden") ? (
               <Alert tone="warning" testId="import-forbidden">
                 {t("crbs.import.forbiddenHint", { n: result.results.filter((r) => r.status === "forbidden").length })}

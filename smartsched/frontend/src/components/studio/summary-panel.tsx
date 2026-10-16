@@ -23,7 +23,7 @@ export function SummaryPanel({ className, showGenerate = true }: { className?: s
     { label: t("studio.summary.pinned"), value: n(summary.pinned), testId: "stat-pinned" },
     { label: t("studio.summary.must"), value: n(summary.must), testId: "stat-must" },
     { label: t("studio.summary.try"), value: n(summary.tryTo), testId: "stat-try" },
-    { label: t("studio.summary.weeks"), value: n(summary.weeks.length), testId: "stat-weeks" },
+    { label: t("studio.summary.weeks"), value: n(summary.weekCount), testId: "stat-weeks" },
   ];
   return (
     <aside aria-label={t("studio.summary.title")} className={cn("space-y-4", className)} data-testid="summary-panel">

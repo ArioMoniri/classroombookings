@@ -286,14 +286,15 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
         dirty: state.dirty.length > 0,
         server: state.server,
         sameContent: state.sameContent,
-        summary: summaryQ.data ?? null,
+        // a placeholder is the previous term's summary: not this term's counts (round-1 R1-S-21)
+        summary: summaryQ.isPlaceholderData ? null : (summaryQ.data ?? null),
         classes: classes.data?.items ?? null,
         rules: rules.data?.rules ?? null,
         termWeeks,
         precheck,
         checking,
       }),
-    [state.local, state.dirty.length, state.server, state.sameContent, summaryQ.data, classes.data, rules.data, termWeeks, precheck, checking],
+    [state.local, state.dirty.length, state.server, state.sameContent, summaryQ.data, summaryQ.isPlaceholderData, classes.data, rules.data, termWeeks, precheck, checking],
   );
 
   const refresh = useCallback(

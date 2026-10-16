@@ -112,12 +112,20 @@ export function writeAppliesTo(params: Params, value: AppliesTo): Params {
   return next;
 }
 
+/** The programme as the term names it: a saved rule carries the backend's canonical (lower-cased) key
+ * (`PROG:hemşirelik (ingilizce):Y1`), the list shows "Hemşirelik (İngilizce)" (round-1 R1-S-08). */
+export function programDisplay(nameOrKey: string, ctx: Pick<SentenceContext, "programs">): string {
+  const key = nameOrKey.trim().toLocaleLowerCase("tr-TR").replace(/\s+/g, " ");
+  return ctx.programs.find((p) => p.trim().toLocaleLowerCase("tr-TR").replace(/\s+/g, " ") === key) ?? nameOrKey;
+}
+
 export function appliesToDisplay(v: AppliesTo, ctx: SentenceContext): string {
   switch (v.mode) {
     case "all":
       return ctx.words.allClasses;
     case "programs": {
-      const names = v.programs.length > 2 ? `${v.programs.slice(0, 2).join(", ")} +${v.programs.length - 2}` : v.programs.join(", ");
+      const shown = v.programs.map((p) => programDisplay(p, ctx));
+      const names = shown.length > 3 ? `${shown.slice(0, 3).join(", ")} +${shown.length - 3}` : shown.join(", ");
       return v.year ? `${names} ${ctx.words.year(v.year)}` : names;
     }
     case "classes":
@@ -131,7 +139,8 @@ export function appliesToDisplay(v: AppliesTo, ctx: SentenceContext): string {
 export function othersComplement(params: Params, ctx: SentenceContext): string[] {
   const a = readAppliesTo(params);
   if (a.mode !== "programs") return [];
-  const stored = new Set(a.programs);
+  // stored keys are canonical (lower-cased) once saved: compare by key, not by display name
+  const stored = new Set(a.programs.map((p) => programDisplay(p, ctx)));
   return ctx.programs.filter((p) => !stored.has(p));
 }
 

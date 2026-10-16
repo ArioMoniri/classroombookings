@@ -51,11 +51,11 @@ export function PeopleView({ plan, canEdit, onPerson }: { plan: PlanDetail; canE
         size: canEdit ? 76 : 44,
         cell: (r) => (
           <span className="flex gap-1">
-            <IconButton size="xs" label={t("invigilation.people.showDuties", { name: r.name })} onClick={(e) => (e.stopPropagation(), onPerson(r.person_key))} data-testid="invig-person-duties">
+            <IconButton size="xs" className="max-md:size-11" label={t("invigilation.people.showDuties", { name: r.name })} onClick={(e) => (e.stopPropagation(), onPerson(r.person_key))} data-testid="invig-person-duties">
               <ListFilter aria-hidden />
             </IconButton>
             {canEdit ? (
-              <IconButton size="xs" label={t("invigilation.people.rules", { name: r.name })} onClick={(e) => (e.stopPropagation(), setRules({ personKey: r.person_key, name: r.name }))} data-testid="invig-person-rules">
+              <IconButton size="xs" className="max-md:size-11" label={t("invigilation.people.rules", { name: r.name })} onClick={(e) => (e.stopPropagation(), setRules({ personKey: r.person_key, name: r.name }))} data-testid="invig-person-rules">
                 <CalendarCog aria-hidden />
               </IconButton>
             ) : null}

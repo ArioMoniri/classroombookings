@@ -174,11 +174,11 @@ export function PlanFormDialog({ open, mode, onOpenChange, examRunId, parent, on
         </label>
         <div className="flex flex-col gap-3 rounded-xl bg-fill-3 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <Button variant="ghost" size="sm" aria-expanded={advanced} aria-controls={`${id}-adv`} onClick={() => setAdvanced((a) => !a)} data-testid="invig-advanced">
+            <Button variant="ghost" size="sm" className="max-md:h-11" aria-expanded={advanced} aria-controls={`${id}-adv`} onClick={() => setAdvanced((a) => !a)} data-testid="invig-advanced">
               <ChevronDown aria-hidden className={cn("transition-transform duration-(--dur-fast)", advanced && "rotate-180")} />
               {t("invigilation.form.advanced")}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setV(paramsFrom(null))} data-testid="invig-defaults">
+            <Button variant="ghost" size="sm" className="max-md:h-11" onClick={() => setV(paramsFrom(null))} data-testid="invig-defaults">
               <RotateCcw aria-hidden />
               {t("invigilation.form.defaults")}
             </Button>

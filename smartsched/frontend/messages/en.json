@@ -1,6 +1,6 @@
 {
   "app": { "name": "SmartSched", "tagline": "AI classroom planner", "skip": "Skip to content", "version": "v0.1" },
-  "busy": {"saving": "Saving…", "working": "Working…", "checking": "Checking…", "deleting": "Deleting…", "loading": "Loading…", "opening": "Opening…", "searching": "Searching…", "approving": "Approving…", "rejecting": "Declining…", "sending": "Sending…"},
+  "busy": {"creating": "Creating…", "saving": "Saving…", "working": "Working…", "checking": "Checking…", "deleting": "Deleting…", "loading": "Loading…", "opening": "Opening…", "searching": "Searching…", "approving": "Approving…", "rejecting": "Declining…", "sending": "Sending…"},
   "titles": {
     "bookings": "Bookings", "myBookings": "My bookings", "findRoom": "Find a room", "approvals": "Approvals",
     "profile": "Profile", "settings": "Settings", "import": "Import", "dashboard": "Dashboard", "rooms": "Rooms",
@@ -36,7 +36,7 @@
     "submit": "Sign in", "signingIn": "Signing in…", "failed": "Sign-in failed. Check your credentials."
   },
   "common": {
-    "loading": "Loading…", "error": "Something went wrong", "retry": "Retry", "save": "Save", "cancel": "Cancel",
+    "notANumber": "Enter a number.", "tooShort": "The value is too short.", "tooLong": "The value is too long.", "requiredField": "This field is required.", "invalidInput": "The value was not accepted.", "technicalDetail": "Technical detail", "loading": "Loading…", "error": "Something went wrong", "retry": "Retry", "save": "Save", "cancel": "Cancel",
     "close": "Close", "apply": "Apply", "undo": "Undo", "applied": "Applied", "search": "Search", "filter": "Filter",
     "all": "All", "none": "None", "yes": "Yes", "no": "No", "edit": "Edit", "delete": "Delete", "view": "View",
     "details": "Details", "status": "Status", "actions": "Actions", "capacity": "Capacity", "building": "Building",
@@ -464,7 +464,7 @@
       "overrideRemoved": "Change undone"
     },
     "source": {
-      "FILE": "File",
+      "TEMPLATE": "Template", "FILE": "File",
       "ADMIN": "Admin",
       "AI": "AI",
       "UPLOAD": "Upload",
@@ -542,7 +542,7 @@
       "preset": "Use a preset"
     },
     "write": {
-      "decision": "Planner decision needed: “{text}” — {reason}",
+      "noKeyChips": "The example sentences work without AI: tapping one opens the template that says the same, with its fields filled in.", "decision": "Planner decision needed: “{text}” — {reason}",
       "label": "Write it in your own words",
       "placeholder": "e.g. TIP rooms only for the Faculty of Medicine. Keep Pharmacy in C block on Mondays. No first-year Nursing classes after 17:30.",
       "analyse": "Turn into rules",
@@ -677,7 +677,7 @@
       "copiedTerm": "copied from another term (#{id})"
     },
     "slot": {
-      "appliesTo": "Applies to",
+      "programmesChosen": "{n, plural, =0 {No programme chosen} one {# programme chosen} other {# programmes chosen}}", "noProgramme": "No programme with this name", "programmes": "Programme(s)", "appliesTo": "Applies to",
       "programme": "A programme",
       "allYears": "All years",
       "whoMayUse": "Who may use them",
@@ -724,7 +724,7 @@
       "empty": "No templates in this topic."
     },
     "builder": {
-      "help": "Fill in the blanks. The sentence on top shows what the rule will say.",
+      "relatedLabel": "Programmes with a similar name", "related": "{n, plural, one {# more programme has a similar name} other {# more programmes have similar names}} (master's / doctoral, perhaps). Should the rule reach them too? Tap to add.", "reaches": "The rule reaches these programmes: {list}{year}", "help": "Fill in the blanks. The sentence on top shows what the rule will say.",
       "preview": "The rule will say",
       "required": "(required)",
       "optional": "(optional)",
@@ -1442,7 +1442,7 @@
       "markSeen": "Mark as read"
     },
     "users": {
-      "roleDisabledHint": "Roles with permissions you do not hold cannot be chosen.",
+      "apply": "Show", "filtersTitle": "User filters", "filterOpenCount": "Filters · {n}", "filterOpen": "Filters", "roleDisabledHint": "Roles with permissions you do not hold cannot be chosen.",
       "roleMissing": "{role} (missing: {list})",
       "privilegedHint": "This account's role has permissions you do not hold, so you cannot manage it.",
       "privileged": "Beyond your permissions",
@@ -1511,7 +1511,7 @@
       "resetWhere": "They enter it on the sign-in page under “Forgot your password?”."
     },
     "import": {
-      "forbiddenHint": "{n} rows asked for a role with permissions you do not hold; they were not created.",
+      "headerHint": "The first line may name the columns (email, full_name, role, password…) in any order.", "word": {"forbidden": "not allowed", "invalid": "invalid", "email_exists": "e-mail exists", "password_empty": "without password", "username_empty": "no username", "username_exists": "username exists", "success": "created"}, "summaryLine": "{total, plural, one {# row} other {# rows}}: {parts}", "forbiddenHint": "{n} rows asked for a role with permissions you do not hold; they were not created.",
       "title": "Import users from CSV",
       "lead": "One user per line; existing usernames are skipped, nothing else is changed.",
       "file": "CSV file",
@@ -1524,7 +1524,7 @@
       "line": "Line",
       "result": "Result",
       "status": {
-        "forbidden": "Not allowed",
+        "email_exists": "E-mail exists", "forbidden": "Not allowed",
         "success": "Created",
         "username_exists": "Username exists",
         "username_empty": "No username",
@@ -1533,7 +1533,7 @@
       }
     },
     "roles": {
-      "notHeld": "You do not hold this permission, so you cannot grant it.",
+      "notHeldHint": "You do not hold this permission", "notHeld": "You do not hold this permission, so you cannot grant it.",
       "readOnly": "Read-only: this role has permissions you do not hold: {list}.",
       "lead": "A role is a set of permissions plus booking limits. Users get exactly what their role and room access entries allow.",
       "new": "New role",
@@ -1624,7 +1624,7 @@
       "deleteTitle": "Delete {name}? Its dates open for bookings again."
     },
     "rooms": {
-      "tabGroups": "Groups",
+      "building": "Building", "capacityHint": "Seats in the room; planning and find-a-room use it.", "photoFailed": "The photo was not uploaded.", "tabGroups": "Groups",
       "tabRooms": "Rooms",
       "tabFields": "Custom fields",
       "tabAcl": "Access",
@@ -3041,7 +3041,7 @@
       "problem": "Problem"
     },
     "audit": {
-      "title": "Audit log",
+      "act": {"invigilation_reassign": "Invigilation duty reassigned", "invigilation_add_duty": "Invigilation duty added", "studio_rules_copy": "Rules copied", "studio_proposals_accept": "Rule proposal accepted", "studio_precheck_fix": "Pre-check fix applied", "studio_meetings_revert": "Meeting requests reverted", "studio_meetings_bulk": "Meeting requests changed in bulk", "studio_draft": "Studio draft changed", "settings_update": "Setting changed", "term_relaxation": "Term relaxation policy changed", "program_commit": "Programme draft committed", "preset_apply": "Preset applied", "constraint_waive": "Rule waived", "conflict_resolve": "Booking conflict resolved", "conflict_detect": "Booking conflicts scanned", "run_hard_score": "Run hard-rule score recomputed", "room_features": "Room features changed", "webhook_disabled": "Webhook disabled", "webhook_secret": "Webhook secret renewed", "approver_update": "Approver scope changed", "user_instructor_link": "User linked to an instructor record", "user_reset_code": "Password reset code issued", "user_invite_accepted": "Invite accepted", "user_invite_revoked": "Invite revoked", "user_invite_renewed": "Invite renewed", "user_invited": "User invited", "auth_identity_unbound": "Microsoft account unbound", "auth_identity_bound": "Microsoft account bound", "auth_self_signup": "User self-signed up with Microsoft", "auth_login_refused": "Sign-in refused", "auth_login": "User signed in", "sso_demotion_blocked": "Administrator demotion blocked", "sso_role_change": "Role changed by the Microsoft mapping", "sso_mapping_skipped": "Role mapping not applied", "sso_mapping_delete": "Role mapping deleted", "sso_mapping_create": "Role mapping added", "sso_config": "Microsoft sign-in settings changed", "calendar_sync": "Calendar sync setting changed", "public_settings": "Public schedule settings changed", "policy_exam_period": "Exam-period booking rule changed", "channel_unlink": "Notification channel unlinked", "channel_link": "Notification channel linked", "channels_target_delete": "Department notification target deleted", "channels_target": "Department notification target changed", "channels_bridge_logout": "WhatsApp bridge signed out", "channels_bridge_connect": "WhatsApp bridge connected", "channels_vapid": "Browser push keys renewed", "channels_telegram": "Telegram channel set up", "channels_signoff": "Notification channel KVKK sign-off recorded", "channels_config": "Notification channel settings changed", "ai_key": "AI API key changed", "ai_policy": "AI policy changed", "kvkk_ai_default": "AI personal-data default changed", "kvkk_retention": "Retention period changed", "kvkk_notice_delete": "Privacy notice deleted", "kvkk_notice_publish": "Privacy notice published", "kvkk_notice_update": "Privacy notice changed", "kvkk_notice_create": "Privacy notice added", "kvkk_notice_ack": "Privacy notice acknowledged", "kvkk_consent_withdraw": "Consent withdrawn", "kvkk_consent_grant": "Consent given", "kvkk_erase": "Personal data erased", "kvkk_dsr_download": "Personal-data export downloaded", "kvkk_dsr_complete": "Personal-data request completed", "kvkk_dsr_refuse": "Personal-data request refused"}, "title": "Audit log",
       "lead": "Every change, who made it and when. Booking changes can be undone.",
       "filters": "Filters",
       "entity": "Record type",
@@ -3080,9 +3080,9 @@
         "user": "User",
         "system": "System"
       },
-      "verb": {"create": "{entity} added", "update": "{entity} changed", "delete": "{entity} deleted", "cancel": "{entity} cancelled", "move": "{entity} moved", "approve": "{entity} approved", "reject": "{entity} rejected", "decide": "{entity} decided", "undo": "{entity}: change undone", "activate": "{entity} published", "withdraw": "{entity} withdrawn", "import": "{entity} imported", "policy": "{entity}: policy changed", "login": "{entity} signed in", "logout": "{entity} signed out", "lock": "{entity} locked", "unlock": "{entity} unlocked", "restore": "{entity} restored"},
+      "verb": {"secret": "{entity}: secret renewed", "disabled": "{entity} disabled", "deleted": "{entity} deleted", "commit": "{entity} committed", "resolve": "{entity}: conflict resolved", "detect": "{entity}: conflicts scanned", "step": "{entity}: approval step", "withdrawn": "{entity} withdrawn", "rejected": "{entity} rejected", "approved": "{entity} approved", "requested": "{entity} requested", "request": "{entity} requested", "expired": "{entity} expired", "expire": "{entity} expired", "features": "{entity}: features changed", "archive": "{entity} archived", "changed": "{entity} changed", "create": "{entity} added", "update": "{entity} changed", "delete": "{entity} deleted", "cancel": "{entity} cancelled", "move": "{entity} moved", "approve": "{entity} approved", "reject": "{entity} rejected", "decide": "{entity} decided", "undo": "{entity}: change undone", "activate": "{entity} published", "withdraw": "{entity} withdrawn", "import": "{entity} imported", "policy": "{entity}: policy changed", "login": "{entity} signed in", "logout": "{entity} signed out", "lock": "{entity} locked", "unlock": "{entity} unlocked", "restore": "{entity} restored"},
       "e": {
-        "booking": "Booking",
+        "invigilator_pool": "Invigilator pool", "invigilation_duty": "Invigilation duty", "invigilation_plan": "Invigilation plan", "constraint": "Rule", "preset": "Preset", "retention_policy": "Retention period", "consent": "Consent", "privacy_notice": "Privacy notice", "dsr_request": "Personal-data request", "user_channel": "User notification channel", "notify_channel": "Notification channel", "sso_role_mapping": "Role mapping", "sso_provider": "Microsoft sign-in", "webhook": "Webhook", "booking_policy": "Booking rule", "run": "Run", "instructor": "Instructor", "faculty": "Faculty", "meeting": "Meeting request", "exam": "Exam", "section": "Section", "course": "Course", "booking": "Booking",
         "program": "Programme",
         "approval_request": "Approval request",
         "approval_rule": "Approval rule",
@@ -4038,7 +4038,7 @@
     }
   },
   "invigilation": {
-    "title": "Invigilator assignment",
+    "poolNone": "Pool: only the Pool tab's people · {size} people in the pool", "poolAll": "Pool: all instructors · {size} people in the pool", "poolMatch": "Pool: {people} people on the exam list; {matched} matched an instructor record, {ambiguous} fit more than one record, {unmatched} are not on the instructor list · {size} people in the pool", "poolAllStarted": "Plan #{id} started with all instructors", "poolAllRerun": "Re-run with all instructors", "poolEmptyTitle": "The invigilator pool is empty", "boardRunBody": "The board's rows are not linked to the exam list, so there is no room session to staff. Pick an exam run that seats the exam list in rooms (Generate › Exam).", "boardRunTitle": "This run is an imported board", "noExamLinks": "no exam links", "title": "Invigilator assignment",
     "subtitle": "Staff the exam rooms: pool, rules, plan, locks and publishing.",
     "examRun": "Exam run",
     "loadingRuns": "Loading runs…",

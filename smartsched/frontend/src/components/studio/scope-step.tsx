@@ -179,13 +179,18 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
         <div className="rounded-xl bg-fill-3 p-4 edge-hairline">
           {/* one loading signal, no zero counts while counting (review 2026-10-15 §2 "Loading states") */}
           <p className="type-body text-label-1" aria-live="polite" data-testid="scope-sentence">
-            {classesLoading && !classes ? t("studio.scope.counting") : t("studio.scope.sentence", { n: summary.classesIn, rooms: summary.rooms, weeks: summary.weeks.length })}
+            {/* the selected term's summary is not in yet (a term switch): count, never "0 derslikte" (round-1 R1-S-21) */}
+            {(classesLoading && !classes) || summary.rooms === null ? t("studio.scope.counting") : t("studio.scope.sentence", { n: summary.classesIn, rooms: summary.rooms, weeks: summary.weekCount })}
           </p>
-          {classesLoading && !classes ? (
+          {(classesLoading && !classes) || summary.rooms === null ? (
             <Skeleton className="mt-1.5 h-3.5 w-2/3 rounded-sm" />
           ) : (
             <p className="mt-1 type-callout text-label-2">{t("studio.scope.line2", { out: n(summary.classesOut), pinned: n(summary.pinned), holidays })}</p>
           )}
+          {summary.rooms !== null && local.horizon === "TERM" && summary.datedWeeks < summary.weekCount ? (
+            // Güz has 14 weeks but only 2 dated week rows: say so instead of "2 hafta" (round-1 R1-S-22)
+            <p className="mt-1 type-footnote text-label-2" data-testid="scope-term-weeks">{t("studio.scope.termWeeks", { total: n(summary.weekCount), dated: n(summary.datedWeeks) })}</p>
+          ) : null}
           {summaryData?.last_good_run ? (
             <p className="mt-2 text-sm">
               <Link href={`/runs/${summaryData.last_good_run.id}`} className="text-tint-text underline-offset-2 hover:underline">

@@ -64,7 +64,7 @@ function Group({ code, severity, resolved, items, posts, defaultOpen, onPost, po
           {title}
           <span className="ml-2 type-callout font-normal tnum">{t("invigilation.diag.groupCount", { n: n(items.length), posts: n(posts) })}</span>
         </span>
-        <Button size="sm" variant="ghost" aria-expanded={open} aria-controls={panel} onClick={() => setOpen((o) => !o)} data-testid="invig-diag-toggle">
+        <Button size="sm" variant="ghost" className="max-md:h-11" aria-expanded={open} aria-controls={panel} onClick={() => setOpen((o) => !o)} data-testid="invig-diag-toggle">
           <ChevronDown aria-hidden className={cn("transition-transform duration-(--dur-fast)", open && "rotate-180")} />
           {open ? t("invigilation.diag.hide") : t("invigilation.diag.show")}
         </Button>
@@ -106,7 +106,7 @@ function Group({ code, severity, resolved, items, posts, defaultOpen, onPost, po
                 {d.post_keys?.length ? (
                   <div className="flex flex-wrap gap-1.5">
                     {d.post_keys.slice(0, 4).map((k) => (
-                      <Button key={k} size="xs" variant="outline" onClick={() => onPost(k)} data-testid="invig-diag-post">
+                      <Button key={k} size="xs" variant="outline" className="max-md:h-11" onClick={() => onPost(k)} data-testid="invig-diag-post">
                         {t("invigilation.diag.openPost", { key: postLabel?.(k) ?? k.replace(/\|/g, " · ") })}
                       </Button>
                     ))}
@@ -117,7 +117,7 @@ function Group({ code, severity, resolved, items, posts, defaultOpen, onPost, po
             ))}
           </ol>
           {items.length > shown ? (
-            <Button size="sm" variant="ghost" className="self-start" onClick={() => setShown((s) => s + STEP * 5)} data-testid="invig-diag-more">
+            <Button size="sm" variant="ghost" className="self-start max-md:h-11" onClick={() => setShown((s) => s + STEP * 5)} data-testid="invig-diag-more">
               {t("invigilation.diag.more", { n: n(items.length - shown) })}
             </Button>
           ) : null}

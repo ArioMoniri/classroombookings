@@ -9,7 +9,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { fold } from "./class-filters";
-import type { AppliesTo, Slot } from "./rule-sentence";
+import { programDisplay, type AppliesTo, type Slot } from "./rule-sentence";
 import { useStudioData } from "./studio-data";
 import { AdaptiveContent, AdaptivePopover, AdaptiveTrigger } from "./adaptive-popover";
 import { BareButton } from "@/components/shell/bare-button";
@@ -45,8 +45,10 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
   switch (field.type) {
     case "applies_to": {
       const v = (value as AppliesTo | null) ?? { mode: "all" };
-      const prog = v.mode === "programs" ? (v.programs[0] ?? "") : "";
+      // stored keys are canonical (lower-cased); tick the programme the term names (round-1 R1-S-08)
+      const chosen = v.mode === "programs" ? v.programs.map((p) => programDisplay(p, sentence)) : [];
       const year = v.mode === "programs" ? v.year : null;
+      const progList = sentence.programs.filter((p) => !qf || fold(p).includes(qf));
       return (
         <div className="grid gap-2" role="group" aria-label={t("studio.slot.appliesTo")}>
           <label className="flex items-center gap-2 text-sm">
@@ -54,19 +56,24 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
             {t("studio.rule.allClasses")}
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input type="radio" name="applies" checked={v.mode === "programs"} onChange={() => onChange({ mode: "programs", programs: [sentence.programs[0] ?? ""], year: null })} />
-            {t("studio.slot.programme")}
+            <input type="radio" name="applies" checked={v.mode === "programs"} onChange={() => onChange({ mode: "programs", programs: chosen.length ? chosen : [sentence.programs[0] ?? ""], year })} />
+            {t("studio.slot.programmes")}
           </label>
           {v.mode === "programs" ? (
-            <div className="grid grid-cols-[1fr_6rem] gap-2 pl-6">
-              <NativeSelect aria-label={t("studio.slot.programme")} value={prog} onChange={(e) => onChange({ mode: "programs", programs: [e.target.value], year })}>
-                {sentence.programs.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
+            // several programmes in one rule ("Hemşirelik" and "Hemşirelik (İngilizce)"): a searchable checklist
+            <div className="grid gap-2 pl-6" data-testid="applies-programmes">
+              <SearchBox value={q} onChange={setQ} label={t("studio.slot.programmes")} />
+              <div className="max-h-48 space-y-0.5 overflow-y-auto" role="group" aria-label={t("studio.slot.programmes")}>
+                {progList.map((p) => (
+                  <label key={p} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2">
+                    <input type="checkbox" checked={chosen.includes(p)} onChange={() => onChange({ mode: "programs", programs: toggle(chosen, p), year })} />
+                    <span className="min-w-0 flex-1 truncate">{p}</span>
+                  </label>
                 ))}
-              </NativeSelect>
-              <NativeSelect aria-label={t("studio.classes.year")} value={year ?? ""} onChange={(e) => onChange({ mode: "programs", programs: [prog], year: e.target.value ? Number(e.target.value) : null })}>
+                {progList.length === 0 ? <p className="px-1 text-xs text-label-2">{t("studio.slot.noProgramme")}</p> : null}
+              </div>
+              <p className="text-xs text-label-2" data-testid="applies-programmes-count">{t("studio.slot.programmesChosen", { n: chosen.length })}</p>
+              <NativeSelect aria-label={t("studio.classes.year")} value={year ?? ""} onChange={(e) => onChange({ mode: "programs", programs: chosen, year: e.target.value ? Number(e.target.value) : null })} data-testid="applies-year">
                 <option value="">{t("studio.slot.allYears")}</option>
                 {[1, 2, 3, 4, 5, 6].map((y) => (
                   <option key={y} value={y}>

@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useRoles } from "@/lib/api/crbs";
 import { apiProblem, identity, identityKeys, useIdentityMutation, useSsoConfig, useSsoMappings, type SsoConfig, type SsoConfigIn } from "@/lib/api/identity";
+import { problemText } from "@/lib/api/error-text";
 import { useI18n } from "@/lib/i18n/provider";
 import { roleLabel } from "@/lib/i18n/roles";
 import { usePermissions } from "@/lib/permissions";
@@ -34,7 +35,7 @@ export function SsoSettings() {
   const { t, locale } = useI18n();
   const q = useSsoConfig();
   if (q.isLoading) return <Loading />;
-  if (q.isError || !q.data) return <Alert tone="error">{apiProblem(q.error, locale).text ?? t("sso.admin.loadError")}</Alert>;
+  if (q.isError || !q.data) return <Alert tone="error">{problemText(q.error, locale) ?? apiProblem(q.error, locale).text ?? t("sso.admin.loadError")}</Alert>;
   return <SsoForm key={q.data.updated_at ?? "new"} cfg={q.data} />;
 }
 
@@ -48,7 +49,8 @@ function useSave() {
       onSuccess: () => toast.success(ok),
       onError: (e) => {
         const p = apiProblem(e, locale);
-        setError(p.code === "break_glass" ? t("sso.admin.breakGlass409") : (p.text ?? t("sso.admin.saveFailed")));
+        // T-R1-31: a validator's refusal (tenant 'common', a bad domain) reads in Turkish, without "Value error"
+        setError(p.code === "break_glass" ? t("sso.admin.breakGlass409") : (problemText(e, locale) ?? p.text ?? t("sso.admin.saveFailed")));
       },
     });
   };
@@ -254,7 +256,7 @@ function Mappings() {
               <Badge variant="secondary">{m.claim === "role" ? t("sso.admin.claimRole") : t("sso.admin.claimGroup")}</Badge>
               <span className="min-w-0 flex-1 truncate font-mono type-footnote text-label-1">{m.value}</span>
               <span className="type-callout text-label-1">→ {roleLabel(t, m.role)}</span>
-              <IconButton label={t("sso.admin.mappingDelete")} size="sm" onClick={() => del.mutate(m.id, { onError: (e) => toast.error(apiProblem(e, locale).text ?? t("sso.admin.saveFailed")) })}>
+              <IconButton label={t("sso.admin.mappingDelete")} size="sm" onClick={() => del.mutate(m.id, { onError: (e) => toast.error(problemText(e, locale) ?? apiProblem(e, locale).text ?? t("sso.admin.saveFailed")) })}>
                 <Trash2 />
               </IconButton>
             </li>
@@ -276,7 +278,7 @@ function Mappings() {
                 setValue("");
                 toast.success(t("sso.admin.saved"));
               },
-              onError: (err) => setError(apiProblem(err, locale).text ?? t("sso.admin.saveFailed")),
+              onError: (err) => setError(problemText(err, locale) ?? apiProblem(err, locale).text ?? t("sso.admin.saveFailed")),
             },
           );
         }}

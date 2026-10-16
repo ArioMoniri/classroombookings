@@ -8,6 +8,12 @@
  * Motion (§10, "Local sign-in failed"): the alert enters with opacity + y −4 → 0 on springs.snappy and the field
  * group shakes once (280 ms, the transitions.dev shake already in ui/transitions); reduced motion: no shake, no
  * travel, a 100 ms opacity — the alert text, aria-invalid and focus carry the state.
+ *
+ * T-R1-09 (R1-A-27, R1-M-28, R1-A-28): an empty submit writes a message under each empty field ("Kullanıcı adı
+ * veya e-posta gerekli", "Parola gerekli"), linked by aria-describedby and aria-invalid, and no alert; a refused
+ * login moves focus to the alert (an effect, not a frame callback); the identifier field has inputmode=email; the
+ * 429 lock belongs to the identifier it was earned for (the limit is per identifier), so typing another one
+ * re-enables "Giriş yap".
  */
 import { Eye, EyeOff } from "lucide-react";
 import { motion } from "motion/react";
@@ -26,7 +32,9 @@ import { springs, tween, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { homeFor, LAST_METHOD_COOKIE, retryMinutes } from "./signin-model";
 
-type LocalError = { kind: "credentials" } | { kind: "rate"; minutes: number; until: number } | { kind: "offline" };
+type LocalError = { kind: "credentials" } | { kind: "rate"; minutes: number; until: number; identifier: string } | { kind: "offline" };
+
+const normId = (v: string) => v.trim().toLocaleLowerCase("tr-TR");
 
 type LoginOutcome = { ok: true; user: MeFull | null; mustChangePassword: boolean } | { ok: false; status: number; retryAfter: string | null };
 
@@ -55,13 +63,15 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
   const { t, locale, setLocale } = useI18n();
   const router = useRouter();
   const reduce = useReduce();
-  const ids = { error: useId(), caps: useId() };
+  const ids = { error: useId(), caps: useId(), idRequired: useId(), pwRequired: useId() };
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [caps, setCaps] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<LocalError | null>(null);
+  // the empty fields of the last submit (cleared as soon as the field gets a value)
+  const [missing, setMissing] = useState<{ id: boolean; pw: boolean }>({ id: false, pw: false });
   const [now, setNow] = useState(() => Date.now());
   const alertRef = useRef<HTMLDivElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -73,17 +83,24 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
   }, [autoFocus]);
 
   // the 429 countdown updates once per minute, not per second (§11)
-  const rate = error?.kind === "rate" ? error : null;
+  const rateError = error?.kind === "rate" ? error : null;
   useEffect(() => {
-    if (!rate) return;
+    if (!rateError) return;
     const id = window.setInterval(() => setNow(Date.now()), 60_000);
-    const done = window.setTimeout(() => setError(null), Math.max(0, rate.until - Date.now()));
+    const done = window.setTimeout(() => setError(null), Math.max(0, rateError.until - Date.now()));
     return () => {
       window.clearInterval(id);
       window.clearTimeout(done);
     };
-  }, [rate]);
+  }, [rateError]);
+  // the lock is the identifier's, not the form's: another account can still sign in (T-R1-09)
+  const rate = rateError && rateError.identifier === normId(identifier) ? rateError : null;
   const minutesLeft = rate ? Math.max(1, Math.ceil((rate.until - now) / 60_000)) : 0;
+
+  // a refused login: the alert takes focus once it is in the tree (sign-in.md §6.1)
+  useEffect(() => {
+    if (error) alertRef.current?.focus();
+  }, [error]);
 
   const fail = (e: LocalError) => {
     setNow(Date.now());
@@ -96,8 +113,12 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (busy || rate) return;
-    if (!identifier.trim() || !password) {
-      (identifier.trim() ? passwordRef : idRef).current?.focus();
+    const emptyId = !identifier.trim();
+    const emptyPw = !password;
+    if (emptyId || emptyPw) {
+      setMissing({ id: emptyId, pw: emptyPw });
+      if (error?.kind === "credentials") setError(null);
+      (emptyId ? idRef : passwordRef).current?.focus();
       return;
     }
     setBusy(true);
@@ -108,7 +129,7 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
       if (out.status === 0 || out.status === 502 || out.status === 503 || out.status === 504) return fail({ kind: "offline" });
       if (out.status === 429) {
         const minutes = retryMinutes(out.retryAfter);
-        return fail({ kind: "rate", minutes, until: Date.now() + minutes * 60_000 });
+        return fail({ kind: "rate", minutes, until: Date.now() + minutes * 60_000, identifier: normId(identifier) });
       }
       return fail({ kind: "credentials" });
     }
@@ -120,7 +141,8 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
     }
     if (out.user) await applySessionLanguage(out.user.id, locale, setLocale);
     const name = out.user?.full_name?.split(" ")[0];
-    toast.success(name ? t("glass.auth.welcome", { name }) : t("signin.title"));
+    // ~3 s: a greeting, gone before the first screen's own toasts (T-R1-06, R1-S-33)
+    toast.success(name ? t("glass.auth.welcome", { name }) : t("signin.title"), { duration: 3000 });
     router.replace(target);
     router.refresh();
   };
@@ -131,6 +153,7 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
 
   const message = error?.kind === "credentials" ? t("signin.local.credentials") : error?.kind === "offline" ? t("signin.local.offline") : rate ? t("signin.local.rateLimited", { n: minutesLeft }) : null;
   const invalid = error?.kind === "credentials" || undefined;
+  const describedBy = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ") || undefined;
 
   return (
     <form onSubmit={onSubmit} noValidate aria-describedby={message ? ids.error : undefined} className="flex flex-col" data-testid="login-form">
@@ -163,19 +186,29 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
+            inputMode="email"
             enterKeyHint="next"
             placeholder={t("signin.local.identifierPlaceholder")}
             value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
+            onChange={(e) => {
+              setIdentifier(e.target.value);
+              if (missing.id && e.target.value.trim()) setMissing((m) => ({ ...m, id: false }));
+            }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !password) {
+              if (e.key === "Enter" && !password && identifier.trim()) {
                 e.preventDefault();
                 passwordRef.current?.focus();
               }
             }}
-            aria-invalid={invalid}
+            aria-invalid={invalid || missing.id || undefined}
+            aria-describedby={describedBy(missing.id && ids.idRequired)}
             data-testid="login-identifier"
           />
+          {missing.id ? (
+            <p id={ids.idRequired} className="type-footnote text-status-infeasible-fg" data-testid="login-identifier-required">
+              {t("signin.local.identifierRequired")}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between gap-3">
@@ -198,11 +231,14 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
               autoComplete="current-password"
               enterKeyHint="go"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (missing.pw && e.target.value) setMissing((m) => ({ ...m, pw: false }));
+              }}
               onKeyDown={onKey}
               onKeyUp={onKey}
-              aria-invalid={invalid}
-              aria-describedby={caps ? ids.caps : undefined}
+              aria-invalid={invalid || missing.pw || undefined}
+              aria-describedby={describedBy(caps && ids.caps, missing.pw && ids.pwRequired)}
               className="pr-12"
               data-testid="login-password"
             />
@@ -217,6 +253,11 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
               {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
             </IconButton>
           </div>
+          {missing.pw ? (
+            <p id={ids.pwRequired} className="type-footnote text-status-infeasible-fg" data-testid="login-password-required">
+              {t("signin.local.passwordRequired")}
+            </p>
+          ) : null}
           {caps ? (
             <p id={ids.caps} className="type-footnote text-status-warning-fg" data-testid="caps-lock">
               {t("signin.local.capsLock")}

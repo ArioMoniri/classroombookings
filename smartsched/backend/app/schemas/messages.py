@@ -15,12 +15,10 @@ and keep the technical detail in an expandable part:
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any
 
 from fastapi import HTTPException
 from pydantic_core import PydanticCustomError
-
-T = TypeVar("T")
 
 
 class Refusal(ValueError):
@@ -42,7 +40,9 @@ def coded(code: str, tr: str | None, en: str) -> PydanticCustomError:
     return PydanticCustomError(code, "{message_en}", ctx)
 
 
-def validated(fn: Callable[[Any], T], value: Any, *, code: str = "invalid", tr_by_text: dict[str, str] | None = None) -> T:
+def validated[T](
+    fn: Callable[[Any], T], value: Any, *, code: str = "invalid", tr_by_text: dict[str, str] | None = None
+) -> T:
     """Run a service cleaner inside a validator; a :class:`Refusal` keeps its code and both texts, another
     ``ValueError`` gets ``code`` and the Turkish text looked up by its English message (``tr_by_text``)."""
     try:

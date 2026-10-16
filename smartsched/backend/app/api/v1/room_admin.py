@@ -322,7 +322,11 @@ _PHOTO_TR = (
     ("unsupported image type", "image_type", "Desteklenmeyen görsel türü; jpg, png, gif ya da webp yükleyin."),
     ("not an image upload", "image_content_type", "Yüklenen dosya bir görsel değil."),
     ("the file is not a", "image_not_image", "Dosya bir jpg, png, gif ya da webp görseli değil."),
-    ("the file is a", "image_name_mismatch", "Dosyanın içeriği adındaki uzantıyla uyuşmuyor; uzantısı doğru bir görsel yükleyin."),
+    (
+        "the file is a",
+        "image_name_mismatch",
+        "Dosyanın içeriği adındaki uzantıyla uyuşmuyor; uzantısı doğru bir görsel yükleyin.",
+    ),
 )
 
 
@@ -339,7 +343,10 @@ async def upload_photo(room_id: int, db: DB, _: RoomsAdmin, file: UploadFile = F
     ext = Path(file.filename or "photo.jpg").suffix.lower() or ".jpg"
     if ext not in {".jpg", ".jpeg", ".png", ".gif"}:  # CRBS setup/rooms/Rooms: jpg|jpeg|png|gif
         raise messages.problem(
-            400, "image_type", "Desteklenmeyen görsel türü; jpg, png ya da gif yükleyin.", "unsupported image type (jpg, png, gif)"
+            400,
+            "image_type",
+            "Desteklenmeyen görsel türü; jpg, png ya da gif yükleyin.",
+            "unsupported image type (jpg, png, gif)",
         )
     data = await file.read(10 * 1024 * 1024 + 1)
     if len(data) > 10 * 1024 * 1024:

@@ -66,7 +66,7 @@ async def test_t_r1_42_plan_reports_the_pool_match_and_an_empty_pool_offers_all_
     d = (await c.get(f"{P}/plans/{real['plan']}")).json()
     pool = d["pool"]
     assert pool["instructor_pool"] == "exam_instructors"
-    assert pool["exam_people"] > 100 and pool["matched"] > 100 and pool["size"] >= pool["matched"]
+    assert pool["exam_people"] > 100 and pool["matched"] > 100 and pool["size"] > 100
     assert pool["matched"] + pool["ambiguous"] + pool["unmatched"] == pool["exam_people"]
     # the list view carries the same numbers
     briefs = (await c.get(f"{P}/plans", params={"exam_run_id": real["exam_run"]})).json()

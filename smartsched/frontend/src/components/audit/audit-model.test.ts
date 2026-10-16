@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { archivedCounts, auditQuery, canUndo, diffRows, emptyAuditFilters, undoBlockers, undoReasons, valueText } from "./audit-model";
+import { ACTION_SENTENCES, archivedCounts, auditQuery, auditSubject, auditTail, canUndo, dedupeOptions, diffRows, emptyAuditFilters, ENTITY_ALIASES, ENTITY_TYPES, undoBlockers, undoReasons, valueText } from "./audit-model";
+import { auditSentence, entityLabel } from "./audit-view";
+import { translate, type MessageKey } from "@/lib/i18n";
 
 describe("audit model", () => {
   it("uses the backend diff when there is one", () => {
@@ -53,5 +55,39 @@ describe("programme undo (undo_via program_draft)", () => {
     expect(undoBlockers(data, "tr")).toEqual(["Yayındaki planda", "Has bookings", "x"]);
     expect(undoBlockers(data, "en")).toEqual(["In the published plan", "Has bookings", "x"]);
     expect(undoBlockers({ code: "not_reversible" }, "tr")).toEqual([]);
+  });
+
+  // T-R1-32 (R1-M-18): domain sentences, no raw keys in the summary column
+  const t = (key: MessageKey, vars?: Record<string, string | number>) => translate("tr", key, vars);
+  const RAW = /\b[a-z]+[._][a-z_.]+\b/;
+  it("names the record from its snapshot", () => {
+    expect(auditSubject({ after: { id: 3, code: "TST101", display_code: "TST 101" }, before: null, entity_id: "3", entity_type: "course" })).toBe("TST 101");
+    expect(auditSubject({ after: { kind: "erase" }, before: null, entity_id: "2", entity_type: "dsr_request" })).toBe("erase");
+    expect(auditTail({ after: { full_name: "D. S." }, before: null, entity_id: "9", entity_type: "user" })).toBe("D. S. · #9");
+    expect(auditTail({ after: null, before: null, entity_id: "9", entity_type: "user" })).toBe("#9");
+    expect(auditTail({ after: { value: "***" }, before: null, entity_id: "policies.exam_period", entity_type: "setting" })).toBe("#policies.exam_period");
+  });
+  it("reads every action and entity the backend writes as a Turkish sentence", () => {
+    const actions = [...Object.keys(ACTION_SENTENCES), "dsr_request.create", "notify_channel.update", "setting.update", "program.create", "course.create", "section.create", "sso_provider.update", "webhook.create", "run.activate", "booking.move", "role.create"];
+    for (const action of actions) {
+      const entity = action.split(".")[0]!;
+      const sentence = auditSentence(action, entity, t);
+      expect(sentence, action).not.toMatch(RAW);
+      expect(sentence, action).not.toMatch(/^[a-z_]+ /);
+    }
+    for (const type of [...ENTITY_TYPES, ...Object.keys(ENTITY_ALIASES)]) expect(entityLabel(type, t), type).not.toMatch(RAW);
+    expect(auditSentence("kvkk.dsr_refuse", "dsr_request", t)).toBe("Kişisel veri talebi reddedildi");
+    expect(auditSentence("booking_policy.exam_period", "setting", t)).toBe("Sınav dönemi rezervasyon kuralı değiştirildi");
+    expect(auditSentence("program.create", "program", t)).toBe("Program eklendi");
+    expect(auditSentence("course.create", "course", t)).toBe("Ders eklendi");
+  });
+  it("deduplicates filter options by label", () => {
+    const out = dedupeOptions([
+      { value: "1", label: "A. T.", hint: "a.t" },
+      { value: "2", label: "A. T.", hint: "at2" },
+      { value: "1", label: "A. T.", hint: "a.t" },
+      { value: "3", label: "P. L.", hint: "pl" },
+    ]);
+    expect(out.map((o) => o.label)).toEqual(["A. T. (a.t)", "A. T. (at2)", "P. L."]);
   });
 });

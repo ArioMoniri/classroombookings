@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { useI18n } from "@/lib/i18n/provider";
+import { pct as pctText } from "@/lib/i18n/turkish";
 import { pick, springs, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { HardnessControl } from "./hardness-control";
@@ -220,12 +221,13 @@ export function RuleCard(p: RuleCardProps) {
 }
 
 export function AffectedBadge({ affected, onClick }: { affected?: AffectedInfo; onClick?: () => void }) {
-  const { t, n } = useI18n();
+  const { t, locale } = useI18n();
   if (!affected) return null;
   if (affected.loading && affected.count === null) return <span className="inline-block h-5 w-28 rounded-full bg-fill-2" role="status" aria-label={t("common.loading")} />;
   if (affected.count === null) return null;
   const label = t("studio.rule.appliesTo", { n: affected.count });
-  const pct = affected.percent !== null && affected.percent !== undefined ? ` (${n(affected.percent, { maximumFractionDigits: 1 })} %)` : "";
+  // "%100", never "100 %" (round-1 R1-S-23; shared helper of T-R1-38)
+  const pct = affected.percent !== null && affected.percent !== undefined ? ` (${pctText(affected.percent, { locale })})` : "";
   const cls = cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs", affected.count === 0 && affected.targeted !== false ? "border-status-warning-border bg-status-warning text-status-warning-fg" : "bg-background");
   const body = (
     <>

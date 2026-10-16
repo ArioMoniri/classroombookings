@@ -1,22 +1,26 @@
 "use client";
 
-import { BotMessageSquare, FileSpreadsheet, FileUp, Shield, UserRound, type LucideIcon } from "lucide-react";
+import { BotMessageSquare, FileSpreadsheet, FileUp, LayoutTemplate, Shield, UserRound, type LucideIcon } from "lucide-react";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
-export type SourceKind = "FILE" | "ADMIN" | "AI" | "UPLOAD" | "BUILTIN";
+/** `TEMPLATE` is display-only: the API stores such rules as ADMIN with `params._via === "template"` (T-R1-46). */
+export type SourceKind = "FILE" | "ADMIN" | "AI" | "UPLOAD" | "BUILTIN" | "TEMPLATE";
 
-const ICON: Record<SourceKind, LucideIcon> = { FILE: FileSpreadsheet, ADMIN: UserRound, AI: BotMessageSquare, UPLOAD: FileUp, BUILTIN: Shield };
+const ICON: Record<SourceKind, LucideIcon> = { FILE: FileSpreadsheet, ADMIN: UserRound, AI: BotMessageSquare, UPLOAD: FileUp, BUILTIN: Shield, TEMPLATE: LayoutTemplate };
 const KEY: Record<SourceKind, MessageKey> = {
   FILE: "studio.source.FILE",
   ADMIN: "studio.source.ADMIN",
   AI: "studio.source.AI",
   UPLOAD: "studio.source.UPLOAD",
   BUILTIN: "studio.source.BUILTIN",
+  TEMPLATE: "studio.source.TEMPLATE",
 };
 
-export function asSource(s: string | null | undefined): SourceKind {
+/** The chip to show: a rule the planner built from a template says "Şablon", not "Yönetici" (round-1 R1-S-08). */
+export function asSource(s: string | null | undefined, params?: Record<string, unknown> | null): SourceKind {
+  if (s === "ADMIN" && params?._via === "template") return "TEMPLATE";
   return s === "FILE" || s === "ADMIN" || s === "AI" || s === "UPLOAD" || s === "BUILTIN" ? s : "ADMIN";
 }
 

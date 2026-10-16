@@ -286,6 +286,17 @@ function RoleUsers({ role }: { role: Role }) {
   );
 }
 
+/** T-R1-33 (R1-M-21, F-11 S04): the reason a permission cannot be granted, as text under its label, not only in a tooltip (M-11). */
+function DisabledHint({ why }: { why: string | undefined }) {
+  const { t } = useI18n();
+  if (!why) return null;
+  return (
+    <span className="block type-caption text-label-3" data-testid="role-disabled-hint">
+      {t("crbs.roles.notHeldHint")}
+    </span>
+  );
+}
+
 export function PermissionMatrix({
   catalogue,
   value,
@@ -318,7 +329,10 @@ export function PermissionMatrix({
                   <label key={p.name} className={cn("flex items-start gap-2 type-callout text-label-1", off(p.name) && "text-label-3")} title={why(p.name) ?? p.name} data-not-held={why(p.name) ? "true" : undefined} data-permission={p.name}>
                     <Checkbox className="mt-0.5" checked={value.has(p.name)} disabled={off(p.name)} onCheckedChange={(v) => onToggle(p.name, v === true)} />
                     {/* the API key is in the tooltip, not under every label (UI/UX review §3) */}
-                    <span>{permLabel(t, p.name, p.description)}</span>
+                    <span>
+                      {permLabel(t, p.name, p.description)}
+                      <DisabledHint why={why(p.name)} />
+                    </span>
                   </label>
                 ))}
               </div>
@@ -332,7 +346,10 @@ export function PermissionMatrix({
             {book.room.map((p) => (
               <label key={p.name} className={cn("flex items-center gap-2 type-callout text-label-1", off(p.name) && "text-label-3")} title={why(p.name)}>
                 <Checkbox checked={value.has(p.name)} disabled={off(p.name)} onCheckedChange={(v) => onToggle(p.name, v === true)} />
-                {permLabel(t, p.name, p.description)}
+                <span>
+                  {permLabel(t, p.name, p.description)}
+                  <DisabledHint why={why(p.name)} />
+                </span>
               </label>
             ))}
           </div>
@@ -347,7 +364,10 @@ export function PermissionMatrix({
                   return (
                     <label key={a} className={cn("flex min-h-11 items-center gap-3 type-callout text-label-1 not-last:hairline-b", off(name) && "text-label-3")} title={why(name)} data-not-held={why(name) ? "true" : undefined} data-permission={name}>
                       <Checkbox checked={value.has(name)} disabled={off(name)} onCheckedChange={(v) => onToggle(name, v === true)} />
-                      <span>{t(`crbs.perm.action_${a}` as MessageKey)}</span>
+                      <span>
+                        {t(`crbs.perm.action_${a}` as MessageKey)}
+                        <DisabledHint why={why(name)} />
+                      </span>
                     </label>
                   );
                 })}
@@ -380,8 +400,9 @@ export function PermissionMatrix({
                     const name = `${g}.${a}`;
                     return (
                       <td key={g} className="px-3 py-1.5 text-center edge-hairline-b">
-                        <span className="inline-flex" title={why(name)}>
+                        <span className="inline-flex flex-col items-center gap-0.5" title={why(name)}>
                           <Checkbox aria-label={`${t(GROUP_KEYS[g]!)}: ${t(`crbs.perm.action_${a}` as MessageKey)}`} checked={value.has(name)} disabled={off(name)} onCheckedChange={(v) => onToggle(name, v === true)} />
+                          <DisabledHint why={why(name)} />
                         </span>
                       </td>
                     );

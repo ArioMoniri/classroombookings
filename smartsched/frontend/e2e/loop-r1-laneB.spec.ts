@@ -229,8 +229,8 @@ test("T-R1-13 + T-R1-18: a two-period request is one row; the approvals drawer n
   await expect(page.getByTestId("reject-dialog")).toBeHidden();
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
-  // and on a focused row of the list
-  const rowBtn = page.getByTestId(`approval-${reqs[0]!.id}`);
+  // and on a focused row of the list (one row per submission, keyed by whichever of its requests the inbox lists first)
+  const rowBtn = page.getByTestId(`approval-${reqs[0]!.id}`).or(page.getByTestId(`approval-${reqs[1]!.id}`));
   await rowBtn.focus();
   await page.keyboard.press("d");
   await expect(page.getByTestId("reject-dialog")).toBeVisible();

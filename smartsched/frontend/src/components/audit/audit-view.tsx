@@ -23,7 +23,7 @@ import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { ACTION_PREFIXES, ARCHIVED_KINDS, archivedCounts, auditQuery, canUndo, diffRows, emptyAuditFilters, ENTITY_TYPES, isProgramUndo, undoBlockers, undoReasons, valueText, type AuditFilterForm } from "./audit-model";
+import { ACTION_PREFIXES, ACTION_SENTENCES, ARCHIVED_KINDS, archivedCounts, auditQuery, auditSubject, auditTail, canUndo, dedupeOptions, diffRows, emptyAuditFilters, ENTITY_ALIASES, ENTITY_TYPES, isProgramUndo, undoBlockers, undoReasons, valueText, type AuditFilterForm } from "./audit-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { DateField } from "@/components/ui/date-field";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -58,9 +58,9 @@ export function AuditView() {
       <Field label={t("wave1.audit.entity")} htmlFor="au-entity">
         <SelectField id="au-entity" value={draft.entityType} onChange={(e) => set("entityType", e.target.value)} data-testid="audit-entity">
           <option value="">{t("wave1.audit.any")}</option>
-          {ENTITY_TYPES.map((x) => (
-            <option key={x} value={x}>
-              {entityLabel(x, t)}
+          {dedupeOptions(ENTITY_TYPES.map((x) => ({ value: x, label: entityLabel(x, t), hint: x }))).map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
             </option>
           ))}
         </SelectField>
@@ -80,11 +80,12 @@ export function AuditView() {
       </Field>
       <Field label={t("wave1.audit.actor")} htmlFor="au-actor">
         {users.data ? (
-          <SelectField id="au-actor" value={draft.actorId} onChange={(e) => set("actorId", e.target.value)}>
+          <SelectField id="au-actor" value={draft.actorId} onChange={(e) => set("actorId", e.target.value)} data-testid="audit-actor">
             <option value="">{t("wave1.audit.anyone")}</option>
-            {users.data.items.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.displayname || u.username || u.email}
+            {/* T-R1-32: two people with one display name are told apart by username / e-mail, and no one is listed twice */}
+            {dedupeOptions(users.data.items.map((u) => ({ value: String(u.id), label: u.displayname || u.full_name || u.username || u.email || `#${u.id}`, hint: u.username || u.email }))).map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </SelectField>
@@ -221,20 +222,51 @@ const ENTITY_KEYS: Record<string, MessageKey> = {
   translation: "wave1.audit.e.translation",
   building: "wave1.audit.e.building",
   user_constraints: "wave1.audit.e.user_constraints",
+  // T-R1-32 (R1-M-18): the KVKK, channel, policy, sign-in and wizard records
+  course: "wave1.audit.e.course",
+  section: "wave1.audit.e.section",
+  exam: "wave1.audit.e.exam",
+  meeting: "wave1.audit.e.meeting",
+  faculty: "wave1.audit.e.faculty",
+  instructor: "wave1.audit.e.instructor",
+  run: "wave1.audit.e.run",
+  booking_policy: "wave1.audit.e.booking_policy",
+  webhook: "wave1.audit.e.webhook",
+  sso_provider: "wave1.audit.e.sso_provider",
+  sso_role_mapping: "wave1.audit.e.sso_role_mapping",
+  notify_channel: "wave1.audit.e.notify_channel",
+  user_channel: "wave1.audit.e.user_channel",
+  dsr_request: "wave1.audit.e.dsr_request",
+  privacy_notice: "wave1.audit.e.privacy_notice",
+  consent: "wave1.audit.e.consent",
+  retention_policy: "wave1.audit.e.retention_policy",
+  preset: "wave1.audit.e.preset",
+  constraint: "wave1.audit.e.constraint",
+  invigilation_plan: "wave1.audit.e.invigilation_plan",
+  invigilation_duty: "wave1.audit.e.invigilation_duty",
+  invigilator_pool: "wave1.audit.e.invigilator_pool",
 };
 
-const VERBS = ["create", "update", "delete", "cancel", "move", "approve", "reject", "decide", "undo", "activate", "withdraw", "import", "policy", "login", "logout", "lock", "unlock", "restore"] as const;
+const VERBS = ["create", "update", "delete", "cancel", "move", "approve", "reject", "decide", "undo", "activate", "withdraw", "import", "policy", "login", "logout", "lock", "unlock", "restore", "archive", "features", "expire", "request", "requested", "approved", "rejected", "withdrawn", "expired", "step", "detect", "resolve", "commit", "deleted", "disabled", "secret"] as const;
 
-/** "room_feature.create" → "Derslik özelliği eklendi"; an unknown verb keeps the entity name and the raw verb. */
+/**
+ * "room_feature.create" → "Derslik özelliği eklendi", "kvkk.dsr_refuse" → "Kişisel veri talebi reddedildi" (T-R1-32).
+ * An action this screen does not know still reads as the entity's name plus a generic verb, never the raw key: the
+ * key is in the details (`audit-action-<id>`).
+ */
 export function auditSentence(action: string, entityType: string, t: ReturnType<typeof useI18n>["t"]): string {
-  const verb = action.split(".").pop() ?? action;
+  const special = ACTION_SENTENCES[action];
   const entity = entityLabel(entityType, t);
-  return (VERBS as readonly string[]).includes(verb) ? t(`wave1.audit.verb.${verb}` as MessageKey, { entity }) : `${entity} · ${action}`;
+  if (special) return t(`wave1.audit.act.${special}` as MessageKey, { entity });
+  const verb = action.split(".").pop() ?? action;
+  return t(((VERBS as readonly string[]).includes(verb) ? `wave1.audit.verb.${verb}` : "wave1.audit.verb.changed") as MessageKey, { entity });
 }
 
-function entityLabel(type: string, t: ReturnType<typeof useI18n>["t"]): string {
-  const key = ENTITY_KEYS[type];
-  return key ? t(key) : type;
+/** The record kind for people ("Derslik", "Kişisel veri talebi"); an unknown kind reads as a plain word, not a key. */
+export function entityLabel(type: string, t: ReturnType<typeof useI18n>["t"]): string {
+  const key = ENTITY_KEYS[ENTITY_ALIASES[type] ?? type];
+  if (key) return t(key);
+  return type.replace(/[._]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }
 
 function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void }) {
@@ -257,8 +289,8 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-baseline gap-x-2">
               {/* UI/UX review §3: a domain sentence ("Derslik özelliği eklendi · #2"), the raw key in the details */}
-              <span className="type-callout font-semibold text-label-1">{auditSentence(e.action, e.entity_type, t)}</span>
-              <span className="type-footnote text-label-2 tabular-nums">{e.entity_id ? `#${e.entity_id}` : ""}</span>
+              <span className="type-callout font-semibold text-label-1" data-testid={`audit-summary-${e.id}`}>{auditSentence(e.action, e.entity_type, t)}</span>
+              <span className="type-footnote text-label-2 tabular-nums">{auditTail(e)}</span>
               {e.undone ? <span className="type-caption font-medium text-label-3">{t("wave1.audit.undone")}</span> : null}
               {e.undo_of ? <span className="type-caption font-medium text-label-3">{t("wave1.audit.undoOf", { id: e.undo_of })}</span> : null}
             </span>
@@ -359,7 +391,7 @@ function UndoDialog({ event, onClose }: { event: AuditEvent | null; onClose: () 
     <ConfirmDialog
       open={!!event}
       onOpenChange={(o) => !o && onClose()}
-      title={t("wave1.audit.undoTitle", { action: event?.action ?? "" })}
+      title={t("wave1.audit.undoTitle", { action: event ? [entityLabel(event.entity_type, t), auditSubject(event) ?? (event.entity_id ? `#${event.entity_id}` : "")].filter(Boolean).join(" ") : "" })}
       description={program ? t("wave1.audit.programUndoBody") : t("wave1.audit.undoBody")}
       confirmLabel={t("wave1.audit.undo")}
       busy={busy}

@@ -27,7 +27,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { knownPhase, planStatusKey, planTone, progressView } from "./invigilation-model";
+import { isBoardRun, knownPhase, planStatusKey, planTone, progressView } from "./invigilation-model";
 import { PlanDetailView } from "./plan-detail";
 import { PlanFormDialog } from "./plan-form";
 import { PoolView } from "./pool-view";
@@ -35,13 +35,14 @@ import { PoolView } from "./pool-view";
 const STAFFABLE = new Set(["OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL"]);
 const int = (v: string | null) => (v && /^\d+$/.test(v) ? Number(v) : null);
 
-/** the default exam run: the one of the newest plan, else the active term's published (or newest) exam run */
+/** the default exam run: the one of the newest plan, else the active term's published exam run, else its newest
+ *  solved one (an imported board, whose rows carry no exam link, only when nothing else exists; T-R1-42) */
 export function pickExamRun(runs: readonly ScheduleRun[], termId: number | undefined, newestPlanRun?: number | null): ScheduleRun | undefined {
   const exams = runs.filter((r) => r.kind === "EXAM" && STAFFABLE.has(r.status));
   const planned = exams.find((r) => r.id === newestPlanRun);
   if (planned) return planned;
   const inTerm = exams.filter((r) => r.term_id === termId);
-  return inTerm.find((r) => r.is_active) ?? inTerm[0] ?? exams.find((r) => r.is_active) ?? exams[0];
+  return inTerm.find((r) => r.is_active) ?? inTerm.find((r) => !isBoardRun(r)) ?? inTerm[0] ?? exams.find((r) => r.is_active) ?? exams.find((r) => !isBoardRun(r)) ?? exams[0];
 }
 
 export function InvigilationView() {
@@ -93,7 +94,7 @@ export function InvigilationView() {
           <NativeSelect value={run?.id ?? ""} disabled={runs.isLoading || exams.length === 0} onChange={(e) => go({ run: e.target.value || null, plan: null, person: null })} data-testid="invig-run">
             {exams.length === 0 ? <option value="">{runs.isLoading ? t("invigilation.loadingRuns") : t("invigilation.noExamRuns")}</option> : null}
             {exams.map((r) => (
-              <option key={r.id} value={r.id}>{`${r.term_code ?? ""} · ${runText(r)}`}</option>
+              <option key={r.id} value={r.id}>{`${r.term_code ?? ""} · ${runText(r)}${isBoardRun(r) ? ` · ${t("invigilation.noExamLinks")}` : ""}`}</option>
             ))}
           </NativeSelect>
         </label>
@@ -109,6 +110,11 @@ export function InvigilationView() {
       </section>
 
       {runs.isError ? <Alert tone="error">{errorText(runs.error, lang)}</Alert> : null}
+      {run && tab === "plans" && isBoardRun(run) ? (
+        <Alert tone="warning" title={t("invigilation.boardRunTitle")} data-testid="invig-board-run">
+          {t("invigilation.boardRunBody")}
+        </Alert>
+      ) : null}
       {!runs.isLoading && exams.length === 0 ? (
         <div className="rounded-xl bg-fill-3 px-4 py-5" data-testid="invig-no-runs">
           <p className="type-headline">{t("invigilation.noExamRunsTitle")}</p>

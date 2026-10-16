@@ -58,7 +58,9 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
   const [groupBy, setGroupBy] = useState<GroupBy>("status");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set(["builtin", "off"]));
 
-  const galleryOpen = gallery || Boolean(builderPrefill);
+  // an example chip without an AI key opens its template pre-filled (round-1 T-R1-46)
+  const [chipPrefill, setChipPrefill] = useState<BuilderPrefill | null>(null);
+  const galleryOpen = gallery || Boolean(builderPrefill) || Boolean(chipPrefill);
   // real pins (room / day and time) vs the draft-only changes a pre-check fix made (unlock, tags, seats)
   const placed = useMemo(() => local.pins.filter(isPlacementPin), [local.pins]);
   const changed = useMemo(() => local.pins.filter((p) => Object.keys(pinOverrides(p)).length > 0), [local.pins]);
@@ -137,7 +139,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
         <h3 id="add-rule-title" className="sr-only">
           {t("studio.add.title")}
         </h3>
-        <WriteIt noKey={noKey} />
+        <WriteIt noKey={noKey} onOpenTemplate={setChipPrefill} />
         <div className="flex flex-wrap gap-2 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
           <Button variant="outline" size="sm" onClick={() => setGallery(true)} data-testid="add-template">
             <LayoutTemplate aria-hidden /> {t("studio.add.template")}
@@ -338,10 +340,13 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
 
       <TemplateGallery
         open={galleryOpen}
-        prefill={builderPrefill}
+        prefill={builderPrefill ?? chipPrefill}
         onOpenChange={(v) => {
           setGallery(v);
-          if (!v) onBuilderConsumed?.();
+          if (!v) {
+            setChipPrefill(null);
+            onBuilderConsumed?.();
+          }
         }}
       />
       <CopyDialog open={copy} onOpenChange={setCopy} />

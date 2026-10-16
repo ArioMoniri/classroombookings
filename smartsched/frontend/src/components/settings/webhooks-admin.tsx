@@ -24,6 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { ResponsiveDialog } from "@/components/approvals/responsive-dialog";
 import { afKeys, approvalFirst, useIntegrationSettings, useSaveIntegrationSettings, useWebhookDeliveries, useWebhookEventTypes, useWebhooks, type Webhook } from "@/lib/api/approval-first";
 import { errorText, wave1Error } from "@/lib/api/wave1";
+import { problemDetail, problemText } from "@/lib/api/error-text";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
@@ -269,6 +270,7 @@ function CreateWebhook({ open, onOpenChange, onCreated }: { open: boolean; onOpe
   const [events, setEvents] = useState<Set<string>>(new Set());
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const base = useId();
   const [wasOpen, setWasOpen] = useState(open);
@@ -280,6 +282,7 @@ function CreateWebhook({ open, onOpenChange, onCreated }: { open: boolean; onOpe
       setEvents(new Set());
       setDescription("");
       setError(null);
+      setErrorDetail(null);
     }
   }
   const chosen = all ? ["*"] : [...events];
@@ -292,7 +295,9 @@ function CreateWebhook({ open, onOpenChange, onCreated }: { open: boolean; onOpe
       const out = await approvalFirst.webhooks.create({ url: url.trim(), events: chosen, description: description.trim() || null, active: true });
       onCreated(out.url, out.secret);
     } catch (e) {
-      setError(errorText(wave1Error(e), locale) || t("notifications.admin.failed"));
+      // T-R1-31: the validator's Turkish sentence next to the field; the English detail stays expandable
+      setError(problemText(e, locale) || errorText(wave1Error(e), locale) || t("notifications.admin.failed"));
+      setErrorDetail(problemDetail(e, locale));
     } finally {
       setBusy(false);
     }
@@ -332,6 +337,12 @@ function CreateWebhook({ open, onOpenChange, onCreated }: { open: boolean; onOpe
             <p id={`${base}-err`} role="alert" className="type-footnote text-status-infeasible-fg" data-testid="webhook-error">
               {error}
             </p>
+          ) : null}
+          {error && errorDetail ? (
+            <details className="type-caption text-label-3">
+              <summary className="cursor-pointer pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center">{t("common.technicalDetail")}</summary>
+              <p className="font-mono break-all" data-testid="webhook-error-detail">{errorDetail}</p>
+            </details>
           ) : null}
         </div>
         <fieldset className="flex min-w-0 flex-col gap-1">

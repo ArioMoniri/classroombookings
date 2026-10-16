@@ -213,7 +213,9 @@ class RoomBookingUpdate(BaseModel):
     @classmethod
     def _capacity(cls, v: int | None) -> int | None:
         if v is not None and v < 0:
-            raise messages.coded("capacity_negative", "Kişi sayısı 0 ya da daha büyük olmalı.", "capacity must be 0 or more")
+            raise messages.coded(
+                "capacity_negative", "Kişi sayısı 0 ya da daha büyük olmalı.", "capacity must be 0 or more"
+            )
         return v
 
 

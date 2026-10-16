@@ -56,3 +56,91 @@ export function serverMessage(e: unknown, locale: string, strict = false): strin
   }
   return null;
 }
+
+/* ------------------------------------------------------------------ validation issues (round-1 R1-M-17, T-R1-31) */
+
+/** One refused field of a 422 (FastAPI `detail[]`) or a coded refusal, in the reader's language. */
+export interface ValidationIssue {
+  /** the body field (`url`, `tenant_id`), or null when the server named none */
+  field: string | null;
+  /** what the person reads: `ctx.message_tr` in Turkish, else the English sentence without pydantic's prefix */
+  text: string;
+  /** the server's English sentence and code, for an expandable "technical detail" part */
+  detail: string | null;
+  code: string | null;
+}
+
+const PYDANTIC_PREFIX = /^(?:Value error|Assertion failed|Type error),\s*/i;
+
+/** `"Value error, URL too long"` → `"URL too long"`. */
+export function stripPydanticPrefix(msg: string): string {
+  return msg.replace(PYDANTIC_PREFIX, "").trim();
+}
+
+/** pydantic's own error types (a missing field, a too-long string) in Turkish; anything else keeps the server's text. */
+const PYDANTIC_TR: Record<string, string> = {
+  missing: "Bu alan zorunlu.",
+  string_too_long: "Değer çok uzun.",
+  string_too_short: "Değer çok kısa.",
+  int_parsing: "Bir tam sayı girin.",
+  int_type: "Bir tam sayı girin.",
+  float_parsing: "Bir sayı girin.",
+  greater_than_equal: "Değer çok küçük.",
+  less_than_equal: "Değer çok büyük.",
+  too_short: "En az bir öğe seçin.",
+  too_long: "Çok fazla öğe seçildi.",
+  bool_parsing: "Evet ya da hayır bekleniyor.",
+  enum: "Listedeki seçeneklerden birini seçin.",
+  literal_error: "Listedeki seçeneklerden birini seçin.",
+  json_invalid: "Gönderilen veri okunamadı.",
+  value_error: "Girilen değer kabul edilmedi.",
+};
+
+const fieldOf = (loc: unknown): string | null => {
+  if (!Array.isArray(loc)) return null;
+  const parts = loc.filter((x) => typeof x === "string" && x !== "body" && x !== "query" && x !== "path") as string[];
+  return parts.length ? parts[parts.length - 1]! : null;
+};
+
+/** The refused fields of a 422 (empty for any other refusal). */
+export function validationIssues(e: unknown, locale: string): ValidationIssue[] {
+  if (!(e instanceof HttpError)) return [];
+  const d = rec(e.detail);
+  const list = Array.isArray(e.detail) ? e.detail : Array.isArray(d?.detail) ? d.detail : null;
+  if (!list) return [];
+  return list.flatMap((item): ValidationIssue[] => {
+    const it = rec(item);
+    if (!it) return [];
+    const ctx = rec(it.ctx);
+    const msg = typeof it.msg === "string" ? stripPydanticPrefix(it.msg) : "";
+    const type = typeof it.type === "string" ? it.type : null;
+    const code = typeof ctx?.code === "string" ? ctx.code : type;
+    const en = typeof ctx?.message_en === "string" && ctx.message_en.trim() ? ctx.message_en : msg;
+    const tr = typeof ctx?.message_tr === "string" && ctx.message_tr.trim() ? ctx.message_tr : type ? PYDANTIC_TR[type] : undefined;
+    const text = locale === "tr" ? (tr ?? en) : en || tr || "";
+    if (!text) return [];
+    return [{ field: fieldOf(it.loc), text, detail: en && en !== text ? en : null, code }];
+  });
+}
+
+/**
+ * The text a form shows for a refused request: the server's coded sentence (`serverMessage`), else the refused
+ * fields' sentences, else null. Never pydantic's `Value error,` prefix.
+ */
+export function problemText(e: unknown, locale: string): string | null {
+  const issues = validationIssues(e, locale);
+  if (issues.length) return [...new Set(issues.map((i) => i.text))].join(" · ");
+  const said = serverMessage(e, locale);
+  return said ? stripPydanticPrefix(said) : null;
+}
+
+/** The English sentences behind `problemText`, when they differ from what was shown (the "technical detail"). */
+export function problemDetail(e: unknown, locale: string): string | null {
+  const parts = validationIssues(e, locale)
+    .map((i) => i.detail)
+    .filter((x): x is string => !!x);
+  if (parts.length) return [...new Set(parts)].join(" · ");
+  const b = refusalBody(e);
+  const en = typeof b?.message_en === "string" ? b.message_en : typeof b?.message === "string" ? b.message : null;
+  return locale === "tr" && en && en !== problemText(e, locale) ? en : null;
+}

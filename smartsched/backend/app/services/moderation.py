@@ -412,13 +412,12 @@ def _board_placements(meetings: list[MeetingRequest], rows: list[Assignment]) ->
     for ck, cell_rows in cells.items():
         key, day, rids = ck
         for mr in by_course[(key, day)]:
+            lo, hi = int(mr.start_period or 0), int(mr.end_period or 0)
             weeks = set(_ints(mr.weeks))
             mine = [
                 a
                 for a in cell_rows
-                if mr.start_period <= a.start_period
-                and a.end_period <= mr.end_period
-                and (not weeks or a.week is None or int(a.week) in weeks)
+                if lo <= a.start_period and a.end_period <= hi and (not weeks or a.week is None or int(a.week) in weeks)
             ]
             if not mine:
                 continue
@@ -434,14 +433,14 @@ def _board_placements(meetings: list[MeetingRequest], rows: list[Assignment]) ->
             continue
         placed.add(mr.id)
         taken_rows.update(a.id for a in mine)
-        weeks = sorted({int(w) for a in mine for w in (_ints(a.weeks) or ([a.week] if a.week else []))})
+        merged_weeks = sorted({int(w) for a in mine for w in (_ints(a.weeks) or ([a.week] if a.week else []))})
         out.append(
             Assignment(
                 id=min(a.id for a in mine),
                 run_id=mine[0].run_id,
                 meeting_request_id=mr.id,
                 week=None,
-                weeks=weeks,
+                weeks=merged_weeks,
                 day=ck[1],
                 start_period=min(a.start_period for a in mine),
                 end_period=max(a.end_period for a in mine),

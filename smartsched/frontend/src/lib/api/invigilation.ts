@@ -130,8 +130,26 @@ export interface PlanBrief {
   /** round-1 R1-M-11: nothing to staff (0 room-sessions or 0 required duties); never "En iyi", never published */
   empty?: boolean;
   empty_reason?: Pair | null;
+  /** round-1 T-R1-42: how the pool was built (the rule, the exam list's people and how many matched an instructor) */
+  pool?: PoolMatch | null;
   /** absent on a backend older than alembic 0033 */
   progress?: PlanProgress | null;
+}
+
+/** `stats.pool` of a finished plan: the exam list's people against the Instructor rows (backend match_exam_people) */
+export interface PoolMatch {
+  instructor_pool: InstructorPool;
+  /** distinct people named on the run's exams */
+  exam_people: number;
+  /** of them, found as exactly one Instructor row */
+  matched: number;
+  /** fit more than one row (a masked list: two people with the initials "A. A.") */
+  ambiguous: number;
+  /** not on the instructor list */
+  unmatched: number;
+  instructors: number;
+  /** people in the plan's pool (instructors found + the Pool tab's rows) */
+  size: number;
 }
 
 export interface Duty {
