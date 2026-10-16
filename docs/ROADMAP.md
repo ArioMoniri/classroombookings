@@ -1059,3 +1059,35 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
   - KVKK export/delete covering the channel tables
   - a monthly send counter
 - Known residual risk: Apprise uses its own HTTP stack, so a short DNS-rebinding window remains for admin-entered Teams/Slack URLs.
+
+### Shell / admin sweep finished (2026-10-16); dedicated UI agents launched
+
+- Done:
+  - Turkish and English only: new writes refuse other codes, and a stored legacy code reads as English. The difference is recorded in CRBS_PARITY §6.13.
+  - CRBS legacy upgrade in the import wizard: dry run, then a fingerprint confirm.
+  - A room master diff and apply step.
+  - The AI policy screen.
+  - Logo and icons.
+  - The M-32 week-only Excel export.
+  - Persona minors: U-08/13/16/18/20/24 and U-01 focus rings in the sweep's folders.
+  - Admin items M-14/20/22/24/35/36/39/43/44/46/48.
+  - Motion tickets T1, T2 and part of T3.
+  - UI/UX review §3 shell items.
+  - Checks: vitest 206/206, tsc clean, and e2e 31 of 32 on a production build against the real backend.
+- [ ] admin-gaps 6: a room created from ⌘K doesn't appear in room search, probably a timing issue. Confirm on a clean database in pod CI.
+- [ ] Open design items: one bookings toolbar, a filters sheet at 390 px, the find-room layout, mobile tab-bar labels always visible. They go to the mobile builders.
+- [ ] M-21: `warnings_count` in the import job summary (backend). M-31: a term switcher. M-46: capacity edit and a building-create confirm. The multi-book dialog doesn't send `confirm_unpublished` yet. Point "Taleplerim" to `/moderation/me` once that route exists.
+- [ ] `scripts/parity_check.py`: a DIFF status for rows that carry a recorded `difference`.
+- Dedicated agents, with file-level fences:
+  - **Approval UI**:
+    - the approval-mode setting
+    - the reject dialog with a required reason code and text
+    - the requester's view of the reason
+    - the `components/notifications/preferences-panel.tsx` panel
+    - the KVKK calendar sign-off and webhooks admin screens
+    - M-34: the inbox query, with a test
+  - **Identity frontend**:
+    - the sign-in page per sign-in.md, with /login/sso and the welcome page
+    - users-admin: invites, statuses, bind and the instructor link
+    - Settings › Microsoft ile giriş and Settings › Bildirim kanalları
+    - Profile, which it owns: the Microsoft account, linked channels with a push service worker, and the mount for the preferences panel
