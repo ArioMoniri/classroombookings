@@ -194,16 +194,16 @@
   evidence: smartsched/backend/alembic/versions/0006_token_version.py
 - feature: "Microsoft Entra ID sign-in pinned to the university tenant, with invites and a break-glass local admin"
   area: identity
-  status: in-progress
+  status: done
   phase: "owner decision 2026-10-15"
-  evidence: smartsched/backend/tests/test_sso_login.py
-  note: "backend done (43 tests, fake Entra); sign-in page and admin screens being built; real-tenant test needs IT"
+  evidence: smartsched/frontend/e2e/sign-in.spec.ts
+  note: "sign-in per docs/design/v2/sign-in.md, Users invites/bind, Settings › Microsoft ile giriş; the real-tenant round trip needs IT"
 - feature: "Notification channels through Apprise (push, Telegram, WhatsApp/SMS, Teams/Slack); users only link an address"
   area: identity
-  status: in-progress
+  status: done
   phase: "owner decision 2026-10-15"
-  evidence: smartsched/backend/tests/test_channels.py
-  note: "backend done, off until an admin signs off KVKK per channel; settings and profile screens being built"
+  evidence: smartsched/frontend/e2e/channels.spec.ts
+  note: "Settings › Bildirim kanalları and Profile › Bağlı kanallar; each channel off until an admin signs off KVKK; real providers untested"
 
 - feature: "Turkish and English interface; other stored language codes are kept and shown in English"
   area: languages

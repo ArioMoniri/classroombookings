@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `c3238fd` (committed 2026-10-16 02:32 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `ea40e25` (committed 2026-10-16 02:48 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 28 · Backend only 6 · In progress 6 · Planned 3 (from [`docs/features.yml`](features.yml)).
+Done 30 · Backend only 6 · In progress 4 · Planned 3 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -83,8 +83,8 @@ Done 28 · Backend only 6 · In progress 6 · Planned 3 (from [`docs/features.ym
 |---|---|---|---|
 | No privilege escalation: nobody grants or edits a role whose permissions they do not all hold | Done | 11 | [`test_crbs_fixes_org.py`](../smartsched/backend/tests/test_crbs_fixes_org.py) |
 | Sign-out, a password change, disabling an account and a role change revoke the user's tokens on every device | Done | 18 (B-AUTH-11) | [`0006_token_version.py`](../smartsched/backend/alembic/versions/0006_token_version.py) |
-| Microsoft Entra ID sign-in pinned to the university tenant, with invites and a break-glass local admin | In progress: backend done (43 tests, fake Entra); sign-in page and admin screens being built; real-tenant test needs IT | owner decision 2026-10-15 | [`test_sso_login.py`](../smartsched/backend/tests/test_sso_login.py) |
-| Notification channels through Apprise (push, Telegram, WhatsApp/SMS, Teams/Slack); users only link an address | In progress: backend done, off until an admin signs off KVKK per channel; settings and profile screens being built | owner decision 2026-10-15 | [`test_channels.py`](../smartsched/backend/tests/test_channels.py) |
+| Microsoft Entra ID sign-in pinned to the university tenant, with invites and a break-glass local admin | Done: sign-in per docs/design/v2/sign-in.md, Users invites/bind, Settings › Microsoft ile giriş; the real-tenant round trip needs IT | owner decision 2026-10-15 | [`sign-in.spec.ts`](../smartsched/frontend/e2e/sign-in.spec.ts) |
+| Notification channels through Apprise (push, Telegram, WhatsApp/SMS, Teams/Slack); users only link an address | Done: Settings › Bildirim kanalları and Profile › Bağlı kanallar; each channel off until an admin signs off KVKK; real providers untested | owner decision 2026-10-15 | [`channels.spec.ts`](../smartsched/frontend/e2e/channels.spec.ts) |
 
 **Languages**
 
@@ -225,7 +225,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **157 ticked · 278 open** checkboxes in 57 sections (54 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **158 ticked · 282 open** checkboxes in 58 sections (55 with open items).
 
 <details><summary>Per section</summary>
 
@@ -282,12 +282,13 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Flow scripts finished (2026-10-15): gaps to close before round 1 | 4 | 8 |
 | Approval and notification follow-ups finished (2026-10-16) | 0 | 6 |
 | Microsoft Entra ID sign-in backend finished (2026-10-16) | 0 | 4 |
-| Notification channels backend finished (2026-10-16) | 0 | 4 |
+| Notification channels backend finished (2026-10-16) | 1 | 3 |
 | Shell / admin sweep finished (2026-10-16); dedicated UI agents launched | 0 | 4 |
 | Phase 19 backend gaps finished (2026-10-16); Phase 19 UI follow-up launched | 0 | 3 |
 | Design-system overhaul finished (2026-10-16) | 0 | 6 |
 | Importer and comparison follow-ups finished (2026-10-16) | 0 | 4 |
 | Phase 19 UI follow-up finished (2026-10-16) | 0 | 2 |
+| Identity frontend finished (2026-10-16) | 0 | 5 |
 
 </details>
 

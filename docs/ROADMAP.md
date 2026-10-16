@@ -1049,7 +1049,7 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
   - Keep `link_only` as the default for external messages, or send the full text with the reason?
   - Which SMS provider? Netgsm and İleti Merkezi need a small adapter, and legal must say whether İYS applies.
   - The WhatsApp verification template has to be approved by Meta.
-- [ ] Frontend: the admin channel settings, Profile › Bağlı kanallar and a push service worker. This is the channels/SSO/sign-in frontend agent's job.
+- [x] Frontend: the admin channel settings, Profile › Bağlı kanallar and a push service worker (see "Identity frontend finished" below).
 - [ ] Devops:
   - a `wa-bridge` compose service, behind a profile and off by default
   - the images gate must confirm that `http-ece` builds in python:3.12
@@ -1194,3 +1194,17 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
   - Flow scripts F-05, F-06 and F-07 updated to the shipped UI; F-07 Part A/B rewritten for server drafts (no example button: no demo data).
 - [ ] P19-T2 "Tercih ekle" for academicians: no backend endpoint (asked in the hand-off).
 - [ ] The wizard's programme undo is not reachable from `/admin/audit` until `POST /audit/{id}/undo` hands `program.create` to the drafts undo (backend item above).
+
+### Identity frontend finished (2026-10-16)
+
+- Done (proven by `smartsched/frontend/e2e/sign-in.spec.ts` 40 + 1 skipped and `e2e/channels.spec.ts` 8/8 against a real backend; vitest 85 in `components/{auth,identity,channels}` and `admin/users-admin*`):
+  - `/login` per `docs/design/v2/sign-in.md`: server-rendered doors from `GET /org/public`, the official Microsoft button, the quiet password door with its motion (reduced-motion and transparency variants), every `?error=` / `?reason=` / maintenance state, the invite banner, no sign-up control, keyboard-safe at 390 × 508.
+  - `/login/sso` ticket exchange and `/welcome` (self / invited / bound, optional channel step).
+  - Admin › Kullanıcılar: invite sheet (grantable roles only), status dot + word, method column, "Kendi kaydı" / "Davet bekliyor" filters, bind on next Microsoft sign-in with an extra confirm for privileged accounts, the break-glass warning, identities and the instructor link in the edit dialog; on phones the role reads under the name and every target is 44 px.
+  - Settings › Microsoft ile giriş (write-only secret, 422 enable guard, 409 break-glass message, role mapping editor) and Settings › Bildirim kanalları (per-channel enable, write-only sender secrets, content mode, KVKK sign-off, WhatsApp Web risk ack + QR, Teams/Slack department targets, delivery log).
+  - Profile: Microsoft account link/unlink, Bağlı kanallar (Telegram deep link + polling, SMS/WhatsApp phone + code, browser push through `public/push-sw.js` on the narrow `/push-sw/` scope, registered only on the action), and the notification preferences panel mounted.
+- [ ] Real-tenant Microsoft round trip (needs IT's values; the specs cover the start URL, the backend 302, every error page and a minted ticket).
+- [ ] `e2e/motion-audit.spec.ts`: add the sign-in door-2 audit (sign-in.md §10 hook); #29 already checks reduced motion.
+- [ ] Sign-in check #30 (visual baselines) runs only with `VISUAL_BASELINE=1` on the CI image.
+- [ ] Approval UI agent: on a 390 px phone the preferences panel repeats every unreachable channel under each event (about 6000 px of switches); collapse unreachable channels.
+- [ ] Backend ask: a server-side identity filter on `GET /users` (invited / self sign-up / method); the Users screen filters one 500-row page on the client today.
