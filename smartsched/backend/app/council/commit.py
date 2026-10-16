@@ -277,11 +277,15 @@ class Writer:
         def same(mr: MeetingRequest) -> bool:
             if mr.id in self.created:
                 return False
-            if want and sorted(set(mr.days or [])) != want:
+            mdays = sorted(set(mr.days or []))
+            if want and mdays != want:
                 return False
             if start is not None:
                 return mr.start_time == start and (bool(want) or end is None or mr.end_time == end)
-            return end is not None and mr.end_time == end
+            if end is not None:
+                return mr.end_time == end
+            # no time at all (an asynchronous / online course): the same section's untimed request
+            return mr.start_time is None and mr.end_time is None and mdays == want
 
         hits = [mr for mr in sorted(rows, key=lambda m: m.id) if same(mr)]
         for mr in hits:
