@@ -187,6 +187,14 @@ class Context:
     courses_by_key: dict[str, Course]
     load: dict[int, int]
     load_limit: int
+    #: an archived programme of the same canonical name (an undone commit): the commit reopens it (follow-up 2)
+    program_archived: Program | None = None
+    #: the draft programme's canonical name (the "department" a namesake must share to be reused, follow-up 3)
+    program_canonical: str | None = None
+    #: archived people by canonical name (an undone commit's people; the names stay unique in the table)
+    archived_by_canonical: dict[str, Instructor] = field(default_factory=dict)
+    #: instructor id -> {programme canonical name: display name} of every section they ever taught (any term)
+    units: dict[int, dict[str, str]] = field(default_factory=dict)
 
 
 def section_periods(meetings: Iterable[MeetingRequest]) -> int:
@@ -310,17 +318,45 @@ async def load_context(session: AsyncSession, term: Term, payload: Mapping[str, 
         if instructor_ids
         else {}
     )
-    by_canonical = {
-        i.canonical_name: i
-        for i in (await session.execute(select(Instructor).where(Instructor.archived.is_(False)))).scalars()
-    }
+    every = list((await session.execute(select(Instructor))).scalars())
+    by_canonical = {i.canonical_name: i for i in every if not i.archived}
+    archived_by_canonical = {i.canonical_name: i for i in every if i.archived}
     prog = _dict(payload.get("program"))
-    clash = None
+    clash = archived_prog = None
     parsed = n.canon_program(n.clean_text(prog.get("name")) or "") if n.clean_text(prog.get("name")) else None
     if parsed is not None:
-        clash = (
-            (await session.execute(select(Program).where(Program.canonical_name == parsed.canonical))).scalars().first()
+        # follow-up 2: an archived programme (its creation was undone) is no clash; the commit reopens it
+        same = list(
+            (await session.execute(select(Program).where(Program.canonical_name == parsed.canonical))).scalars()
         )
+        clash = next((p for p in same if not p.archived), None)
+        archived_prog = next((p for p in same if p.archived), None) if clash is None else None
+    # the programmes each named / chosen person taught in (follow-up 3: "clearly the same" = same name + programme)
+    typed = {
+        pp.canonical
+        for c in courses
+        for s in _list(_dict(c).get("sections"))
+        for ref in _list(_dict(s).get("instructors"))
+        if ref
+        and _int(_dict(ref).get("id")) is None
+        and (nm := n.clean_text(_dict(ref).get("name")))
+        and n.non_person_reason(nm) is None
+        and (pp := n.canon_person_name(nm)) is not None
+    }
+    candidates = set(instructor_ids) | {
+        i.id for k, i in {**archived_by_canonical, **by_canonical}.items() if k in typed
+    }
+    units: dict[int, dict[str, str]] = defaultdict(dict)
+    if candidates:
+        for iid, canon, pname in (
+            await session.execute(
+                select(SectionInstructor.instructor_id, Program.canonical_name, Program.name)
+                .join(Section, Section.id == SectionInstructor.section_id)
+                .join(Program, Program.id == Section.program_id)
+                .where(SectionInstructor.instructor_id.in_(sorted(candidates)))
+            )
+        ).all():
+            units[int(iid)][str(canon)] = str(pname)
     keys: dict[str, Course] = {}
     wanted = {n.course_key(str(_dict(c).get("code") or "")) for c in courses if n.clean_text(_dict(c).get("code"))}
     for c in (await session.execute(select(Course).order_by(Course.id))).scalars():
@@ -340,6 +376,10 @@ async def load_context(session: AsyncSession, term: Term, payload: Mapping[str, 
         courses_by_key={k: v for k, v in keys.items() if v is not None},
         load={iid: int(v["periods_per_week"]) for iid, v in loads.items()},
         load_limit=await load_limit(session),
+        program_archived=archived_prog,
+        program_canonical=parsed.canonical if parsed is not None else None,
+        archived_by_canonical=archived_by_canonical,
+        units=dict(units),
     )
 
 
@@ -473,6 +513,16 @@ def validate_payload(payload: Mapping[str, Any], ctx: Context) -> list[Issue]:
             f"Aynı adlı program var: {ctx.program_clash.name}",
             f"A programme with this name exists: {ctx.program_clash.name}",
             program_id=ctx.program_clash.id,
+        )
+    elif ctx.program_archived is not None:
+        add(
+            "program",
+            "info",
+            "program_restored",
+            "program.name",
+            f"Arşivlenmiş {ctx.program_archived.name} programı yeniden açılacak (önceki oluşturma geri alınmıştı)",
+            f"The archived programme {ctx.program_archived.name} will be reopened (its creation was undone)",
+            program_id=ctx.program_archived.id,
         )
     fid = _int(p.get("faculty_id"))
     if fid is not None and fid not in ctx.faculties:
@@ -786,6 +836,17 @@ def validate_payload(payload: Mapping[str, Any], ctx: Context) -> list[Issue]:
                             id=iid,
                         )
                         continue
+                    if ctx.instructors[iid].archived:  # chosen on purpose: the commit reopens the record
+                        chosen = ctx.instructors[iid]
+                        add(
+                            "instructors",
+                            "info",
+                            "instructor_restored",
+                            ipath,
+                            f"Arşivdeki {chosen.full_name} kaydı yeniden kullanılacak",
+                            f"The archived record of {chosen.full_name} will be reused",
+                            id=chosen.id,
+                        )
                 else:
                     nm = n.clean_text(ref.get("name"))
                     if not nm:
@@ -812,17 +873,57 @@ def validate_payload(payload: Mapping[str, Any], ctx: Context) -> list[Issue]:
                         )
                         continue
                     match = ctx.by_canonical.get(parsed.canonical)
+                    gone = ctx.archived_by_canonical.get(parsed.canonical) if match is None else None
                     if match is not None:
+                        units = ctx.units.get(match.id, {})
+                        elsewhere = sorted(v for k, v in units.items() if k != ctx.program_canonical)
                         add(
                             "instructors",
                             "info",
                             "instructor_matched",
                             ipath,
-                            f"'{nm}' → var olan {match.full_name}",
-                            f"'{nm}' → existing {match.full_name}",
+                            f"'{nm}' → var olan {match.full_name}"
+                            + (f" (ders verdiği programlar: {', '.join(elsewhere[:3])})" if elsewhere else ""),
+                            f"'{nm}' → existing {match.full_name}"
+                            + (f" (teaches in: {', '.join(elsewhere[:3])})" if elsewhere else ""),
                             id=match.id,
+                            units=elsewhere,
                         )
                         iid = match.id
+                    elif gone is not None:
+                        # follow-up 3: a namesake of an archived person (an undone commit). The same name in the
+                        # same programme is the same person: the record is reopened. Anywhere else it may be
+                        # someone else, and the name cannot be stored twice: the coordinator decides.
+                        units = ctx.units.get(gone.id, {})
+                        if ctx.program_canonical is not None and ctx.program_canonical in units:
+                            add(
+                                "instructors",
+                                "info",
+                                "instructor_restored",
+                                ipath,
+                                f"'{nm}' → arşivdeki {gone.full_name} kaydı yeniden kullanılacak",
+                                f"'{nm}' → the archived record of {gone.full_name} will be reused",
+                                id=gone.id,
+                            )
+                            iid = gone.id
+                        else:
+                            where = ", ".join(sorted(units.values())[:3])
+                            add(
+                                "instructors",
+                                "error",
+                                "instructor_archived_namesake",
+                                ipath,
+                                f"'{nm}' adıyla arşivlenmiş bir öğretim elemanı var"
+                                + (f" ({where})" if where else "")
+                                + ". Aynı kişiyse listeden bu kaydı seçin; değilse adı ayırt edici yazın.",
+                                f"An archived instructor is named '{nm}'"
+                                + (f" ({where})" if where else "")
+                                + ". If it is the same person, pick that record; otherwise write the name distinctly.",
+                                id=gone.id,
+                                name=gone.full_name,
+                                units=sorted(units.values()),
+                            )
+                            continue
                     else:
                         add(
                             "instructors",
@@ -1447,6 +1548,11 @@ class Created:
     rules: list[int] = field(default_factory=list)
     joint_links: list[dict[str, int]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    #: archived rows the commit reopened (follow-ups 2 + 3); they are also in the lists above, so an undo of this
+    #: commit archives them again
+    restored: dict[str, Any] = field(
+        default_factory=lambda: {"faculty_id": None, "program_id": None, "courses": [], "people": []}
+    )
 
     def out(self) -> dict[str, Any]:
         return {
@@ -1460,7 +1566,24 @@ class Created:
             "requests": self.meetings,
             "rules": self.rules,
             "joint_links": self.joint_links,
+            "restored": self.restored,
         }
+
+
+async def _reopen(session: AsyncSession, actor: User, obj: Any, entity: str, **changes: Any) -> int | None:
+    """Un-archive ``obj`` (an undone commit's row), apply ``changes`` and audit ``<entity>.restore``; returns the
+    audit event id."""
+    from app.services import audit as audit_svc
+
+    before = audit_svc.snapshot(obj)
+    obj.archived = False
+    for k, v in changes.items():
+        setattr(obj, k, v)
+    await session.flush()
+    ev = await publish_event(
+        session, f"{entity}.restore", entity, obj.id, before=before, after=audit_svc.snapshot(obj), actor=actor
+    )
+    return ev.id if ev is not None else None
 
 
 async def _rule(
@@ -1568,7 +1691,15 @@ async def materialise(session: AsyncSession, draft: ProgramDraft, actor: User) -
     issues = validate_payload(payload, ctx)
     errors = [i.out() for i in issues if i.level == "error"]
     if errors:
-        raise DraftError(422, {"message": "the draft has errors", "issues": errors[:50], "errors": len(errors)})
+        raise DraftError(
+            422,
+            {
+                "message": "the draft has errors",
+                "message_tr": "Taslakta düzeltilmesi gereken hatalar var",
+                "issues": errors[:50],
+                "errors": len(errors),
+            },
+        )
     made = Created()
     p = _dict(payload.get("program"))
     path = "program"
@@ -1585,25 +1716,62 @@ async def materialise(session: AsyncSession, draft: ProgramDraft, actor: User) -
             )
             if clash is not None:
                 fid = clash.id
+                if clash.archived:  # the unit of an undone commit
+                    await _reopen(session, actor, clash, "faculty")
+                    made.faculty_id = made.restored["faculty_id"] = clash.id
             else:
                 f = await ca.create_faculty(session, actor, p.get("faculty_name"))
                 fid, made.faculty_id = f.id, f.id
-        prog = await ca.create_program(
-            session,
-            actor,
-            name=p.get("name"),
-            faculty_id=fid,
-            is_evening=bool(p.get("evening")) if p.get("evening") is not None else None,
-        )
-        made.program_id = prog.id
-        made.program_audit_id = (
-            await session.execute(
-                select(AuditEvent.id)
-                .where(AuditEvent.action == "program.create", AuditEvent.entity_id == str(prog.id))
-                .order_by(AuditEvent.id.desc())
-                .limit(1)
+        if ctx.program_archived is not None:
+            # follow-up 2: the programme's creation was undone; the name is unique, so the archived row is reopened
+            prog = ctx.program_archived
+            parsed_prog = n.canon_program(n.clean_text(p.get("name")) or "")
+            assert parsed_prog is not None  # validated
+            made.program_audit_id = await _reopen(
+                session,
+                actor,
+                prog,
+                "program",
+                name=parsed_prog.name,
+                faculty_id=fid,
+                is_evening=bool(p.get("evening")) if p.get("evening") is not None else parsed_prog.is_evening,
             )
-        ).scalar_one_or_none()
+            made.program_id = made.restored["program_id"] = prog.id
+        else:
+            prog = await ca.create_program(
+                session,
+                actor,
+                name=p.get("name"),
+                faculty_id=fid,
+                is_evening=bool(p.get("evening")) if p.get("evening") is not None else None,
+            )
+            made.program_id = prog.id
+            made.program_audit_id = (
+                await session.execute(
+                    select(AuditEvent.id)
+                    .where(AuditEvent.action == "program.create", AuditEvent.entity_id == str(prog.id))
+                    .order_by(AuditEvent.id.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+
+        async def reuse_course(course: Course) -> None:
+            if course.archived:  # a course of an undone commit: reopened, and archived again by this one's undo
+                await _reopen(session, actor, course, "course")
+                if course.id not in made.courses:
+                    made.courses.append(course.id)
+                    made.restored["courses"].append(course.id)
+            elif course.id not in made.courses:
+                made.reused_courses.append(course.id)
+
+        async def reuse_person(ins: Instructor) -> None:
+            if ins.archived:
+                await _reopen(session, actor, ins, "instructor")
+                made.instructors.append(ins.id)
+                made.restored["people"].append(ins.id)
+            elif ins.id not in made.instructors:
+                made.reused_instructors.append(ins.id)
+
         people: dict[str, int] = {}
         for i, c in enumerate(_dict(x) for x in _list(payload.get("courses"))):
             path = f"courses.{c.get('key') or i}"
@@ -1612,12 +1780,12 @@ async def materialise(session: AsyncSession, draft: ProgramDraft, actor: User) -
                 course = await session.get(Course, cid)
                 if course is None:
                     raise DraftError(422, {"message": f"course {cid} not found", "path": path})
-                made.reused_courses.append(course.id)
+                await reuse_course(course)
             else:
                 code, _display, _err = _code_of(c)
                 course = ctx.courses_by_key.get(n.course_key(code or ""))
                 if course is not None:
-                    made.reused_courses.append(course.id)
+                    await reuse_course(course)
                 else:
                     data = {
                         "code": c.get("code"),
@@ -1639,14 +1807,22 @@ async def materialise(session: AsyncSession, draft: ProgramDraft, actor: User) -
                 for slot, ref in enumerate(r for r in _list(s.get("instructors")) if r):
                     ref = _dict(ref)
                     iid = _int(ref.get("id"))
-                    if iid is None:
+                    if iid is not None:
+                        chosen = ctx.instructors.get(iid)
+                        if chosen is not None and iid not in people.values():
+                            await reuse_person(chosen)
+                            people[chosen.canonical_name] = iid
+                    else:
                         parsed_p = n.canon_person_name(n.clean_text(ref.get("name")) or "")
                         assert parsed_p is not None  # validated
                         if parsed_p.canonical in people:
                             iid = people[parsed_p.canonical]
                         elif parsed_p.canonical in ctx.by_canonical:
                             iid = ctx.by_canonical[parsed_p.canonical].id
-                            made.reused_instructors.append(iid)
+                            await reuse_person(ctx.by_canonical[parsed_p.canonical])
+                        elif parsed_p.canonical in ctx.archived_by_canonical:  # validated: same programme
+                            iid = ctx.archived_by_canonical[parsed_p.canonical].id
+                            await reuse_person(ctx.archived_by_canonical[parsed_p.canonical])
                         else:
                             ins = await ca.create_instructor(
                                 session,
@@ -1725,10 +1901,30 @@ async def materialise(session: AsyncSession, draft: ProgramDraft, actor: User) -
                 )
     except ca.CatalogError as exc:
         raise DraftError(
-            exc.status if exc.status != 400 else 422, {"message": exc.message, "path": path, **exc.extra}
+            exc.status if exc.status != 400 else 422,
+            {"message": exc.message, "message_tr": catalog_tr(exc.message), "path": path, **exc.extra},
         ) from exc
     await session.flush()
     return made
+
+
+_EXISTS = re.compile(r"^(faculty|unit|programme|course|instructor) (.+) already exists$")
+_EXISTS_TR = {
+    "faculty": "Birim",
+    "unit": "Birim",
+    "programme": "Program",
+    "course": "Ders",
+    "instructor": "Öğretim elemanı",
+}
+
+
+def catalog_tr(message: str) -> str:
+    """A Turkish line for a catalogue refusal the validation did not foresee (the English one stays in
+    ``message``)."""
+    m = _EXISTS.match(message or "")
+    if m:
+        return f"{_EXISTS_TR[m.group(1)]} {m.group(2)} zaten kayıtlı; taslakta var olan kaydı seçin"
+    return f"Kayıt yazılamadı: {message}"
 
 
 async def program_precheck(draft: ProgramDraft) -> dict[str, Any]:
@@ -2159,6 +2355,78 @@ async def undo(session: AsyncSession, draft: ProgramDraft, actor: User, *, dry: 
         "program_id": _int(made.get("program_id")),
         "archived": dict(archived),
         "audit_id": ev.id if ev else None,
+    }
+
+
+# --------------------------------------------------------------------------- undo from the audit log (follow-up 4)
+
+#: the audit actions of a wizard commit's programme (``drafts.commit_audit_id``): created, or an archived programme
+#: of the same name reopened (backend follow-ups 2026-10-16 item 2)
+AUDIT_UNDO_ACTIONS = ("program.create", "program.restore")
+
+
+async def drafts_by_audit(session: AsyncSession, audit_ids: Iterable[int]) -> dict[int, ProgramDraft]:
+    """audit event id -> the committed (or undone) draft whose programme it records."""
+    ids = sorted({int(i) for i in audit_ids})
+    if not ids:
+        return {}
+    rows = (await session.execute(select(ProgramDraft).where(ProgramDraft.commit_audit_id.in_(ids)))).scalars()
+    return {int(d.commit_audit_id): d for d in rows if d.commit_audit_id is not None}
+
+
+def _audit_err(status: int, code: str, en: str, tr: str, **data: Any) -> DraftError:
+    return DraftError(status, {"code": code, "message": en, "message_tr": tr, **data})
+
+
+async def undo_from_audit(session: AsyncSession, access: Any, ev: AuditEvent) -> dict[str, Any]:
+    """``POST /audit/{id}/undo`` on a ``program.create`` / ``program.restore`` row: the drafts undo of the wizard
+    commit that wrote it (:func:`undo`: the same blockers, the 30-day window, and the drafts' permission - the
+    coordinator who created it or a planning administrator, with ``planning.edit``). A programme typed in the
+    catalogue (no wizard commit) is not reversible here. Errors carry ``code``, ``message`` and ``message_tr``."""
+    draft = (await drafts_by_audit(session, [ev.id])).get(ev.id)
+    if draft is None:
+        raise _audit_err(
+            409,
+            "not_reversible",
+            "this programme was not created by the programme wizard; archive it in the catalogue instead",
+            "Bu program, program sihirbazıyla oluşturulmadı; geri almak yerine katalogdan arşivleyin",
+        )
+    if not access.can("planning.edit"):
+        raise _audit_err(403, "forbidden", "requires permission planning.edit", "planning.edit yetkisi gerekiyor")
+    if draft.owner_id != access.user.id and not access.can("planning.admin"):
+        raise _audit_err(
+            403,
+            "forbidden",
+            "only the coordinator who created the programme or a planning administrator undoes it",
+            "Programı yalnızca oluşturan koordinatör ya da bir planlama yöneticisi geri alabilir",
+        )
+    if draft.status == "undone":
+        raise _audit_err(409, "already_undone", "this change was already undone", "bu değişiklik zaten geri alındı")
+    try:
+        out = await undo(session, draft, access.user)
+    except DraftError as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}
+        blockers = list(detail.get("blockers") or [])
+        if blockers:
+            raise _audit_err(
+                exc.status,
+                "blocked",
+                "the programme cannot be undone: "
+                + "; ".join(str(_dict(b.get("text")).get("en", "")) for b in blockers),
+                "Program geri alınamaz: " + "; ".join(str(_dict(b.get("text")).get("tr", "")) for b in blockers),
+                blockers=blockers,
+                draft_id=draft.id,
+            ) from exc
+        raise _audit_err(
+            exc.status, "not_reversible", str(detail.get("message")), "bu değişiklik geri alınamaz", draft_id=draft.id
+        ) from exc
+    return {
+        "undone": int(out["audit_id"]) if out.get("audit_id") is not None else 0,
+        "action": ev.action,
+        "booking_ids": [],
+        "draft_id": draft.id,
+        "program_id": out.get("program_id"),
+        "archived": {k: [int(x) for x in v] for k, v in (out.get("archived") or {}).items()},
     }
 
 

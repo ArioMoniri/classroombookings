@@ -46,7 +46,9 @@ async def _setup(client: AsyncClient) -> tuple[dict[str, str], int, int, dict[st
     async with get_session_factory()() as s:
         await import_room_master(s, FIXTURES / "room_master.csv")
         await s.commit()
-    r = await client.post(f"{API}/terms", json={"code": "2027-BAHAR", "name": "2027 Bahar", "week_count": 14}, headers=h)
+    r = await client.post(
+        f"{API}/terms", json={"code": "2027-BAHAR", "name": "2027 Bahar", "week_count": 14}, headers=h
+    )
     assert r.status_code == 201, r.text
     uid, planner = await make_user(client, h, "koordinator@uni.edu.tr", role="PLANNER")
     return h, r.json()["id"], uid, planner
@@ -167,9 +169,9 @@ async def test_recreate_after_undo_reopens_the_archived_programme_and_people(
         courses = list(
             (
                 await s.execute(
-                    select(Course).join(Section, Section.course_id == Course.id).where(
-                        Section.id.in_(made2["created"]["sections"])
-                    )
+                    select(Course)
+                    .join(Section, Section.course_id == Course.id)
+                    .where(Section.id.in_(made2["created"]["sections"]))
                 )
             ).scalars()
         )
@@ -201,10 +203,14 @@ async def test_archived_namesake_in_another_programme_is_a_tr_en_issue_not_a_raw
         name = person.full_name
     # another programme, one new course taught by a person written like the archived instructor (Turkish case
     # folding and a non-breaking space must not hide the match)
-    typed = name.replace(" ", "\xa0", 1).lower().replace("i", "İ", 1)
+    typed = name.replace("i", "İ").replace("ı", "I").upper().replace(" ", "\xa0", 1)  # "AHMET\xa0CAN TİMUÇİN"
     assert n.canon_person_name(typed) and n.canon_person_name(typed).canonical == person.canonical_name  # type: ignore[union-attr]
     other = {
-        "program": {"facultyName": "Fen Bilimleri Enstitüsü", "name": "Biyoteknoloji Tezli Yüksek Lisans", "prefix": "BTK"},
+        "program": {
+            "facultyName": "Fen Bilimleri Enstitüsü",
+            "name": "Biyoteknoloji Tezli Yüksek Lisans",
+            "prefix": "BTK",
+        },
         "courses": [
             {
                 "key": "c1",
