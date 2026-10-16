@@ -71,6 +71,13 @@ export function InstructorsHeat({ query: base }: { query: InstructorHeatQuery })
   if (q.isError) return <Alert tone={q.error instanceof HttpError && q.error.status === 409 ? "warning" : "error"} data-testid="ins-heat-error">{errorText(q.error, lang)}</Alert>;
   if (!data || !matrix) return <div className="flex flex-col gap-3" aria-busy="true" aria-label={t("analytics.loading")}><Skeleton className="h-20 w-full" /><Skeleton className="h-80 w-full" /></div>;
 
+  if (data.instructors_total === 0)
+    return (
+      <div className="flex flex-col gap-2 rounded-xl bg-fill-3 px-4 py-5" data-testid="ins-empty">
+        <p className="type-headline">{t("analytics.ins.emptyTitle", { run: data.run_id })}</p>
+        <p className="type-callout text-label-2">{t("analytics.ins.emptyBody")}</p>
+      </div>
+    );
   const dayItems = days.map((d) => ({ key: String(d.day), label: dayName(d.day, locale, "short"), text: pairOf(d.label, lang) }));
   const periodItems = data.periods.map((p) => ({ key: String(p.period), label: p.start, text: `${p.start}–${p.end}` }));
   const s = data.summary;

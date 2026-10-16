@@ -9,7 +9,7 @@ import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/moderation/responsive-dialog";
 import { Alert } from "@/components/ui/alert";
-import { BusyButton } from "@/components/ui/busy-label";
+import { BusyButton, BusyGlyph } from "@/components/ui/busy-label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -81,7 +81,13 @@ export function ReassignDialog({ planId, target, onClose }: { planId: number; ta
         {cand.isError ? (
           <Alert tone="error">{errorText(cand.error, lang)}</Alert>
         ) : !cand.data ? (
-          <Skeleton className="h-40 w-full" />
+          <div className="flex flex-col gap-2" role="status" aria-live="polite" data-testid="invig-cand-loading">
+            <p className="flex items-center gap-2 type-callout text-label-2">
+              <BusyGlyph className="size-4" />
+              {t("invigilation.reassign.checking")}
+            </p>
+            <Skeleton className="h-32 w-full" />
+          </div>
         ) : (
           <>
             <fieldset className="flex min-w-0 flex-col gap-1">

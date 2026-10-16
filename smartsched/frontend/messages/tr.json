@@ -3842,6 +3842,8 @@
       },
       "personTitle": "{name}: haftalık program",
       "personLead": "Haftada {periods} periyot, {gaps} boşluk, {days} gün.",
+      "emptyTitle": "#{run} çalıştırmasında eğitmene bağlı ders yok",
+      "emptyBody": "Izgara içe aktarımı gibi programlar dersleri eğitmenlere bağlamaz. Planlama listesinden çözülmüş bir çalıştırma seçin (Kaynak › Bir çalıştırma).",
       "teaches": "{where}: ders var (haftaların %{share}'inde)",
       "free": "{where}: boş"
     }
@@ -4068,6 +4070,7 @@
     "deletedToast": "Plan #{id} silindi",
     "diag": {
       "title": "Tanılar",
+      "none": "Tanı yok: her salon-oturum kurallara uygun biçimde atandı.",
       "counts": "{errors} hata, {others} uyarı",
       "groupCount": "{n} kayıt · {posts} salon-oturum",
       "show": "Ayrıntılar",
@@ -4120,6 +4123,7 @@
       "title": "{name} yerine kim?",
       "body": "{room} · {date} {time}. Yeni görev elle atanmış ve kilitli olur.",
       "search": "Kişi ara",
+      "checking": "Herkes planın kurallarına göre denetleniyor; büyük bir sınav döneminde bu bir dakika kadar sürebilir.",
       "free": "Uygun kişiler ({n})",
       "noFree": "Bu saatte uygun kimse yok.",
       "narrow": "{n} kişi daha; aramayla daraltın.",

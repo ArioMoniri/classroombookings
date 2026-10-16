@@ -3843,6 +3843,8 @@
       },
       "personTitle": "{name}: weekly timetable",
       "personLead": "{periods} periods, {gaps} idle gaps and {days} days a week.",
+      "emptyTitle": "Run #{run} has no classes linked to an instructor",
+      "emptyBody": "Boards such as a grid import do not link classes to instructors. Choose a run solved from the planning list (Source › One run).",
       "teaches": "{where}: teaching ({share}% of the weeks)",
       "free": "{where}: free"
     }
@@ -4069,6 +4071,7 @@
     "deletedToast": "Plan #{id} deleted",
     "diag": {
       "title": "Diagnoses",
+      "none": "No diagnoses: every room session is staffed within the rules.",
       "counts": "{errors} errors, {others} warnings",
       "groupCount": "{n} entries · {posts} room sessions",
       "show": "Details",
@@ -4121,6 +4124,7 @@
       "title": "Who instead of {name}?",
       "body": "{room} · {date} {time}. The new duty is manual and locked.",
       "search": "Search people",
+      "checking": "Everyone is being checked against the plan's rules; on a large exam period this can take about a minute.",
       "free": "Free people ({n})",
       "noFree": "Nobody is free at this time.",
       "narrow": "{n} more; narrow down with the search.",

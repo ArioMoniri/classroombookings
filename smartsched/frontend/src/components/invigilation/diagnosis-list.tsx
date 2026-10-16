@@ -5,7 +5,7 @@
  * and suggestions. Long groups page in steps of 10 ("Daha fazla göster"), nothing is dropped. A post named by an
  * item opens it in the duties view.
  */
-import { AlertTriangle, ChevronDown, Info, Lightbulb, XOctagon } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Info, Lightbulb, XOctagon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { Diagnosis } from "@/lib/api/invigilation";
@@ -20,7 +20,13 @@ const STEP = 10;
 export function DiagnosisList({ items, onPost, postLabel }: { items: readonly Diagnosis[]; onPost: (postKey: string) => void; postLabel?: (postKey: string) => string }) {
   const { t, n } = useI18n();
   const groups = useMemo(() => groupDiagnoses(items), [items]);
-  if (!groups.length) return null;
+  if (!groups.length)
+    return (
+      <p className="flex items-center gap-2 type-callout text-label-2" data-testid="invig-diagnosis" data-empty="true">
+        <CheckCircle2 aria-hidden className="size-4 text-status-feasible-fg" />
+        {t("invigilation.diag.none")}
+      </p>
+    );
   const errors = items.filter((d) => d.severity === "error").length;
   return (
     <section aria-labelledby="invig-diag-title" className="flex flex-col gap-2" data-testid="invig-diagnosis">
