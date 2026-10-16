@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SectionTitle, SelectField } from "@/components/admin/kit";
-import { useCrbsMutation } from "@/lib/api/crbs";
+import { useCrbsMutation, useOrgSettings } from "@/lib/api/crbs";
 import { errorText, useApprovalRules, useApprovers, wave1, wave1Error, w1Keys, type Approver, type Rule, type RuleIn, type Scope, type StepIn } from "@/lib/api/wave1";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
@@ -30,6 +30,7 @@ export function ApprovalRulesAdmin() {
   const { t, locale } = useI18n();
   const { can } = usePermissions();
   const rules = useApprovalRules();
+  const org = useOrgSettings(can("setup.settings"));
   const approvers = useApprovers(can(["setup.users", "approvals.decide", "setup.rooms_acl"]));
   const l = useScopeLookups();
   const [editing, setEditing] = useState<Rule | "new" | null>(null);
@@ -42,7 +43,7 @@ export function ApprovalRulesAdmin() {
     <div className="flex flex-col gap-6" data-testid="approval-rules">
       <PageTitle
         title={t("wave1.rules.title")}
-        subtitle={t("wave1.rules.lead")}
+        subtitle={t("wave1.rules.subtitle")}
         actions={
           <Button onClick={() => setEditing("new")} data-testid="rule-new">
             <Plus aria-hidden />
@@ -59,7 +60,8 @@ export function ApprovalRulesAdmin() {
           </Alert>
         ) : (rules.data ?? []).length === 0 ? (
           <p className="px-4 py-5 type-callout text-label-2" data-testid="rules-empty">
-            {t("wave1.rules.none")}
+            {/* T-R1-10 (R1-M-24): the empty state says what happens now, from Rezervasyon onayı */}
+            {t(org.data?.approval_mode === "all" ? "wave1.rules.noneAll" : "wave1.rules.none")}
           </p>
         ) : (
           <Table>

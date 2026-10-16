@@ -115,8 +115,21 @@ export const Effective = z.object({
   period_id: z.number().nullish(),
   violations: z.array(Violation).nullish(),
   verdict: z.enum(["book", "request", "refuse"]).nullish(),
+  /** T-R1-10: does a booking by the caller go to the approvers (approval-first `bookings.approval_mode = all`, the
+   * room's approval rule, or request-only rights), and is approval-first on for the caller in every room (`first`) */
+  approval: z
+    .object({
+      mode: z.enum(["rules", "all"]).catch("rules"),
+      first: z.boolean().default(false),
+      action: z.enum(["book", "request", "none"]).catch("none"),
+      source: z.string().nullish(),
+      message_tr: z.string().default(""),
+      message_en: z.string().default(""),
+    })
+    .nullish(),
 });
 export type Effective = z.infer<typeof Effective>;
+export type ApprovalState = NonNullable<Effective["approval"]>;
 
 export interface EffectiveQuery {
   room_id: number;
@@ -146,6 +159,22 @@ export function usePolicies(enabled = true) {
 /** "Neden?": fetched only when the popover opens (`enabled`). */
 export function useEffectivePolicies(q: EffectiveQuery | null, enabled: boolean) {
   return useQuery({ queryKey: q ? policyKeys.effective(q) : ["policies", "effective", "none"], queryFn: () => policiesApi.effective(q!), enabled: enabled && !!q, staleTime: 30_000, retry: false });
+}
+
+/**
+ * T-R1-10: is approval-first on for the caller (every booking request goes to the approvers first)? One room-level
+ * `GET /booking-policies/effective?room_id=&term_id=` answers it for the whole grid / free-slot list; the per-cell
+ * `request_only` flag and find-a-room's `action` cover rules of a single room.
+ */
+export function useApprovalFirst(roomId: number | null | undefined, termId: number | null | undefined): boolean {
+  const q = roomId ? { room_id: roomId, term_id: termId ?? null } : null;
+  const res = useQuery({ queryKey: q ? policyKeys.effective(q) : ["policies", "effective", "none"], queryFn: () => policiesApi.effective(q!), enabled: !!q && termId != null, staleTime: 60_000, retry: false });
+  return !!res.data?.approval?.first;
+}
+
+/** The verb of a bookable slot: "Talep et · Onay gerekir" when the booking goes to the approvers, else "Rezerve et". */
+export function bookVerbKey(request: boolean): "policies.verb.request" | "policies.verb.book" {
+  return request ? "policies.verb.request" : "policies.verb.book";
 }
 
 export function useSavePolicy() {

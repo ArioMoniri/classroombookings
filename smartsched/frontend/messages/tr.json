@@ -2400,7 +2400,9 @@
       "deptFirst": "Bölümünüzün kullandığı derslikler önce gelir.",
       "loading": "Boş saatler aranıyor…",
       "seats": "{n} kişilik",
-      "details": "Derslik bilgisi"
+      "details": "Derslik bilgisi",
+      "requestAt": "{room}, {date}, {time} için talep et (onay gerekir)",
+      "approvalFirst": "her talep önce onaya gider"
     },
     "dept": {
       "label": "Bölüm",
@@ -2878,7 +2880,7 @@
       "new": "Yeni kural",
       "editTitle": "Kuralı düzenle",
       "formHint": "En özel kural geçerlidir: derslik gruptan, grup derslik türünden önce gelir.",
-      "none": "Onay kuralı yok. classroombookings'teki gibi her rezervasyon hemen onaylanır.",
+      "none": "Onay kuralı yok: derslikler doğrudan rezerve edilir (Rezervasyon onayı: Yalnız kurallı derslikler).",
       "target": "Kapsam",
       "approvers": "Onaycılar",
       "conditions": "Koşullar",
@@ -2922,7 +2924,9 @@
       "noApprovers": "Henüz kimse atanmadı. Kullanıcılar'da bir yöneticiyi açıp Onayladığı derslikler'i ayarlayın.",
       "noScopes": "Derslik yok",
       "cannotDecide": "Bu hesap karar veremez (onay yetkisi yok).",
-      "editApprover": "Onayladığı derslikler: {name}"
+      "editApprover": "Onayladığı derslikler: {name}",
+      "subtitle": "Hangi dersliklerin talepleri onaya gider ve kim onaylar.",
+      "noneAll": "Onay kuralı yok; şu anda her talep önce onaya gider (Rezervasyon onayı: Her talep önce onaya)."
     },
     "scope": {
       "title": "Onayladığı derslikler",
@@ -4525,12 +4529,14 @@
       "examClosed": "Sınav dönemi: bu sınav odası sınav haftalarında kapalı.",
       "examRequest": "Sınav dönemi: bu sınav odası sınav haftalarında yalnızca talep alır.",
       "binding": "Burada sizin için geçerli kurallar",
-      "none": "Bu odada sizin için geçerli bir rezervasyon kuralı yok."
+      "none": "Bu odada sizin için geçerli bir rezervasyon kuralı yok.",
+      "noneElse": "Bunun dışında sizin için geçerli bir rezervasyon kuralı yok."
     },
     "grid": {
       "refused": "Bir rezervasyon kuralı bu saate izin vermiyor",
       "requestOnly": "Onaylayıcılara gider: {why}",
-      "requestOnlyShort": "onaylayıcılara talep olarak gider"
+      "requestOnlyShort": "onaylayıcılara talep olarak gider",
+      "approvalFirst": "Onaylayıcılara gider: Rezervasyon onayı «Her talep önce onaya» olarak açık."
     },
     "book": {
       "requestTitle": "Bu rezervasyon onaylayıcılara gider",
@@ -4539,6 +4545,10 @@
     "recurStatus": "Kural izin vermiyor",
     "find": {
       "status": "İzin yok"
+    },
+    "verb": {
+      "request": "Talep et · Onay gerekir",
+      "book": "Rezerve et"
     }
   },
   "publicSchedule": {

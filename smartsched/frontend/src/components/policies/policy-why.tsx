@@ -3,7 +3,8 @@
  * "Neden?" — why a slot is refused or turns into a request (P8). The popover asks
  * `GET /booking-policies/effective?room_id=&date=&period_id=&term_id=` only when it opens, and shows the verdict, the
  * broken rules in the reader's language, every rule that binds the reader in that room (with its summary lines) and the
- * exam-period state. Planning administrators are exempt and are told so.
+ * exam-period state. Planning administrators are exempt and are told so. Under approval-first (or a room's approval
+ * rule) the verdict is "request" and the reasons name that setting (T-R1-10), never "Rezerve edebilirsiniz".
  *
  * Motion: the design system's popover reveal (.t-panel-slide), nothing added.
  */
@@ -66,7 +67,8 @@ export function PolicyWhy({ query, violation, className, label }: { query: Effec
               </ul>
             </div>
           ) : (
-            <p className="type-footnote text-label-2">{t("policies.why.none")}</p>
+            // T-R1-10: under approval-first the slot is a request although no booking rule binds the reader
+            <p className="type-footnote text-label-2">{t(e.approval?.action === "request" ? "policies.why.noneElse" : "policies.why.none")}</p>
           )
         ) : null}
       </PopoverContent>

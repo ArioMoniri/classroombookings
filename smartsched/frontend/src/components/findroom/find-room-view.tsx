@@ -10,7 +10,7 @@
  */
 import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Loader2, PackageX, Search, ShieldAlert, SlidersHorizontal, Stamp, Users, type LucideIcon } from "lucide-react";
 import { PolicyWhy } from "@/components/policies/policy-why";
-import type { EffectiveQuery } from "@/lib/api/booking-policies";
+import { useApprovalFirst, type EffectiveQuery } from "@/lib/api/booking-policies";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -89,6 +89,8 @@ export function FindRoomView() {
   const rooms = useQuery({ queryKey: ["crbs", "booking-rooms"], queryFn: () => crbs.bookings.rooms(), retry: false, staleTime: 60_000 });
   const buildings = useMemo(() => [...new Set((rooms.data ?? []).map((r) => r.building).filter((b): b is string => !!b))].sort((a, b) => a.localeCompare(b, "tr")), [rooms.data]);
   const kinds = useMemo(() => Object.fromEntries((facets.data ?? []).map((f) => [String(f.id), f.kind])), [facets.data]);
+  // T-R1-10: approval-first on for the caller -> alternatives say "Talep et", like the results' `action: request`
+  const approvalFirst = useApprovalFirst(rooms.data?.[0]?.id, termId);
 
   const [form, setForm] = useState<FindForm | null>(null);
   const [dated, setDated] = useState(false);
@@ -452,7 +454,7 @@ export function FindRoomView() {
                   <Card variant="plain" className="gap-0 overflow-hidden py-0">
                     <ul data-testid="fr-alternatives">
                       {result.alternatives.map((a, i) => (
-                        <AlternativeRow key={`${a.kind}-${a.room_id}-${i}`} alt={a} termId={termId} opening={opening === `a${i}`} onReserve={() => {
+                        <AlternativeRow key={`${a.kind}-${a.room_id}-${i}`} alt={a} termId={termId} request={approvalFirst} opening={opening === `a${i}`} onReserve={() => {
                           const date = a.dates[0] ?? a.date ?? result.slots[0]?.date;
                           if (date) void reserve(`a${i}`, a.room_id, date, a.start_period, a.end_period);
                         }} />
@@ -680,7 +682,7 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve, why }: 
 
 const ALT_KIND: Record<string, MessageKey> = { time: "wave1.find.alt.time", day: "wave1.find.alt.day", near_miss: "wave1.find.alt.near_miss" };
 
-function AlternativeRow({ alt: a, termId, opening, onReserve }: { alt: FindAlternative; termId?: number; opening: boolean; onReserve: () => void }) {
+function AlternativeRow({ alt: a, termId, request, opening, onReserve }: { alt: FindAlternative; termId?: number; request: boolean; opening: boolean; onReserve: () => void }) {
   const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const date = a.dates[0] ?? a.date;
@@ -699,9 +701,9 @@ function AlternativeRow({ alt: a, termId, opening, onReserve }: { alt: FindAlter
         {a.period_id != null && a.kind !== "near_miss" ? <PolicyWhy query={altWhyQuery(a, termId)} label={t("wave1.find.altWhy")} /> : null}
       </div>
       {a.kind !== "near_miss" ? (
-        <Button size="sm" variant="outline" className="min-h-11 sm:min-h-0" onClick={onReserve} disabled={opening} aria-label={t("wave1.find.reserveRoom", { room: a.name })} aria-busy={opening || undefined}>
+        <Button size="sm" variant="outline" className="min-h-11 sm:min-h-0" onClick={onReserve} disabled={opening} aria-label={t(request ? "wave1.find.requestRoom" : "wave1.find.reserveRoom", { room: a.name })} aria-busy={opening || undefined} data-action={request ? "request" : "book"}>
           <BusyLabel busy={opening} label={t("busy.opening")}>
-          {t("wave1.find.reserve")}</BusyLabel>
+          {t(request ? "wave1.find.request" : "wave1.find.reserve")}</BusyLabel>
         </Button>
       ) : null}
     </li>

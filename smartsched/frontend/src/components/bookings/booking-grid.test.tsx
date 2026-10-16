@@ -49,6 +49,15 @@ function renderGrid(props: Partial<Parameters<typeof BookingGrid>[0]> = {}) {
 const cellOf = (p: number, room: number) => document.querySelector<HTMLButtonElement>(`button[data-slot-key="${D}|${p}|${room}"]`)!;
 
 describe("BookingGrid reservation affordances", () => {
+  it("T-R1-10: under approval-first a free cell says Request · needs approval, never Reserve", () => {
+    renderGrid({ approvalFirst: true });
+    const c = cellOf(1, 1);
+    expect(c.getAttribute("aria-label")).toMatch(/free, Request · needs approval/);
+    expect(c.getAttribute("aria-label")).not.toMatch(/Reserve/);
+    expect(c.textContent).toContain("Request");
+    expect(c.textContent).not.toContain("Reserve");
+  });
+
   it("free cells are blank at rest, show Reserve on hover/focus and say free in their accessible name", () => {
     renderGrid();
     const c = cellOf(1, 1);

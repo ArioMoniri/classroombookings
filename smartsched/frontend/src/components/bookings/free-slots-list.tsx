@@ -16,7 +16,7 @@ import { slotKey } from "./grid-model";
 import type { FreeRoom } from "./reserve-model";
 import { BareButton } from "@/components/shell/bare-button";
 
-export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve, onRoomInfo }: { rooms: FreeRoom[]; loading: boolean; week: boolean; fmt: DateFormatter; deptFirst: boolean; onReserve: (target: BookTarget) => void; onRoomInfo: (roomId: number, date: string) => void }) {
+export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve, onRoomInfo, approvalFirst = false }: { rooms: FreeRoom[]; loading: boolean; week: boolean; fmt: DateFormatter; deptFirst: boolean; onReserve: (target: BookTarget) => void; onRoomInfo: (roomId: number, date: string) => void; approvalFirst?: boolean }) {
   const { t } = useI18n();
   if (loading && !rooms.length) return <Loading label={t("reserve.free.loading")} />;
   const total = rooms.reduce((n, r) => n + r.count, 0);
@@ -26,6 +26,7 @@ export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve,
       <p id="free-title" className="type-callout text-label-2" aria-live="polite">
         {t("reserve.free.count", { n: total })} {t("reserve.free.rooms", { n: rooms.length })}
         {deptFirst ? ` · ${t("reserve.free.deptFirst")}` : ""}
+        {approvalFirst ? ` · ${t("reserve.free.approvalFirst")}` : ""}
       </p>
       <ul className="flex flex-col overflow-hidden rounded-xl bg-(--mat-thick-solid) edge-hairline">
         {rooms.map((r) => (
@@ -49,7 +50,7 @@ export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve,
                     {d.runs.map((run) => (
                       <div key={slotKey(run[0]!)} className="flex flex-wrap gap-1">
                         {run.map((s) => (
-                          <SlotButton key={s.period_id} slot={s} room={r} fmt={fmt} onReserve={onReserve} />
+                          <SlotButton key={s.period_id} slot={s} room={r} fmt={fmt} onReserve={onReserve} request={approvalFirst || !!s.request_only} />
                         ))}
                       </div>
                     ))}
@@ -64,14 +65,14 @@ export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve,
   );
 }
 
-function SlotButton({ slot, room, fmt, onReserve }: { slot: GridSlot; room: FreeRoom; fmt: DateFormatter; onReserve: (target: BookTarget) => void }) {
+function SlotButton({ slot, room, fmt, onReserve, request }: { slot: GridSlot; room: FreeRoom; fmt: DateFormatter; onReserve: (target: BookTarget) => void; request: boolean }) {
   const { t } = useI18n();
   const p = room.grid.periods.find((x) => x.id === slot.period_id);
   const time = p ? `${fmt.time(p.time_start)}–${fmt.time(p.time_end)}` : "";
   return (
     <BareButton
       onClick={() => onReserve({ slot, grid: room.grid })}
-      aria-label={t("reserve.free.reserveAt", { room: room.room.name, date: fmt.weekday(slot.date), time: `${p?.name ?? ""} ${time}` })}
+      aria-label={t(request ? "reserve.free.requestAt" : "reserve.free.reserveAt", { room: room.room.name, date: fmt.weekday(slot.date), time: `${p?.name ?? ""} ${time}` })}
       data-slot-key={slotKey(slot)}
       data-testid="free-slot"
       className="flex min-h-11 min-w-16 flex-col items-start justify-center rounded-md bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_7%)] px-2.5 py-1 text-left inset-ring inset-ring-[color-mix(in_oklab,var(--accent)_22%,transparent)] hover:bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_13%)]"

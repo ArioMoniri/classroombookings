@@ -817,10 +817,61 @@ async def effective(
         "policies": rules,
         "exam_period": {"mode": idx.exam["mode"], "exam_room": await idx.is_exam_room(session, term_id, room)},
     }
+    approval = await approval_state(session, access, room, term_id)
+    out["approval"] = approval
     if d is not None and period is not None:
         uid = access.user_id
         found = await violations(session, access, room, term_id, d, period, uid, index=idx)
         out["date"], out["period_id"] = d.isoformat(), period.id
         out["violations"] = [v.as_dict() for v in found]
-        out["verdict"] = "refuse" if any(v.effect == "refuse" for v in found) else ("request" if found else "book")
+        if any(v.effect == "refuse" for v in found):
+            out["verdict"] = "refuse"
+        elif found or approval["action"] == "request":
+            # T-R1-10: approval-first (``bookings.approval_mode = all``) or the room's approval rule turns the slot
+            # into a request even when no booking policy fires; the reason names that setting
+            out["verdict"] = "request"
+            if approval["action"] == "request":
+                out["violations"].append(
+                    Violation(approval["source"], "request", approval["message_tr"], approval["message_en"]).as_dict()
+                )
+        else:
+            out["verdict"] = "book"
     return out
+
+
+async def approval_state(session: AsyncSession, access: Access, room: Room, term_id: int | None) -> dict[str, Any]:
+    """Does a booking by ``access`` in ``room`` go to the approvers (``action = request``), and why (``source``):
+    ``approval_mode`` (every request is approved first, "Rezervasyon onayı: Her talep önce onaya"), ``approval_rule``
+    (the room's own approval rule) or ``approver`` (the caller may only request; the room has designated approvers).
+    ``first``: approval-first applies to the caller in every room (the grid and the free-slot list say "Talep et")."""
+    from app.services import approvals
+
+    rules = await approvals.RulesIndex.load(session)
+    action = await rules.mode_for(session, access, room, term_id)
+    rule = rules.rule_for(room, term_id)
+    first = rules.mode == approvals.MODE_ALL and not approvals.skips_approval(access)
+    if action != "request":
+        source, tr, en = None, "", ""
+    elif rule is not None:
+        source = "approval_rule"
+        tr = f"Onaylayıcılara gider: {room.display_name} için onay kuralı var; talebiniz onaylanınca rezerve edilir."
+        en = f"Goes to the approvers: {room.display_name} has an approval rule; it is booked once approved."
+    elif first:
+        source = "approval_mode"
+        tr = (
+            "Onaylayıcılara gider: Rezervasyon onayı ayarı «Her talep önce onaya» olarak açık; "
+            "talebiniz onaylanınca rezerve edilir."
+        )
+        en = "Goes to the approvers: Booking approval is set to «Every request first»; it is booked once approved."
+    else:
+        source = "approver"
+        tr = "Onaylayıcılara gider: bu odada yalnız talep oluşturabilirsiniz; onaylanınca rezerve edilir."
+        en = "Goes to the approvers: you may only request this room; it is booked once approved."
+    return {
+        "mode": rules.mode,
+        "first": first,
+        "action": action,
+        "source": source,
+        "message_tr": tr,
+        "message_en": en,
+    }

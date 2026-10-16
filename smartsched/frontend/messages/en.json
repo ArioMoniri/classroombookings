@@ -2401,7 +2401,9 @@
       "deptFirst": "Rooms your department uses come first.",
       "loading": "Looking for free periods…",
       "seats": "{n} seats",
-      "details": "Room details"
+      "details": "Room details",
+      "requestAt": "Request {room}, {date}, {time} (needs approval)",
+      "approvalFirst": "every request goes to approval first"
     },
     "dept": {
       "label": "Department",
@@ -2879,7 +2881,7 @@
       "new": "New rule",
       "editTitle": "Edit rule",
       "formHint": "The most specific rule wins: a room before its group, a group before a room type.",
-      "none": "No approval rules. Every booking is confirmed at once, as in classroombookings.",
+      "none": "No approval rules: rooms are booked directly (Booking approval: Only rooms with a rule).",
       "target": "Applies to",
       "approvers": "Approvers",
       "conditions": "Conditions",
@@ -2923,7 +2925,9 @@
       "noApprovers": "Nobody is designated yet. Open an administrator in Users and set Approves for.",
       "noScopes": "No rooms",
       "cannotDecide": "This account cannot decide (it lacks the approvals permission).",
-      "editApprover": "Approves for: {name}"
+      "editApprover": "Approves for: {name}",
+      "subtitle": "Which rooms' requests go to approval, and who approves them.",
+      "noneAll": "No approval rules; every request goes to approval first right now (Booking approval: Every request first)."
     },
     "scope": {
       "title": "Approves for",
@@ -4526,12 +4530,14 @@
       "examClosed": "Exam period: this exam room is closed in exam weeks.",
       "examRequest": "Exam period: this exam room takes requests only in exam weeks.",
       "binding": "Rules that apply to you here",
-      "none": "No booking rule applies to you in this room."
+      "none": "No booking rule applies to you in this room.",
+      "noneElse": "No other booking rule applies to you here."
     },
     "grid": {
       "refused": "A booking rule does not allow this slot",
       "requestOnly": "Goes to the approvers: {why}",
-      "requestOnlyShort": "goes to the approvers as a request"
+      "requestOnlyShort": "goes to the approvers as a request",
+      "approvalFirst": "Goes to the approvers: Booking approval is set to «Every request first»."
     },
     "book": {
       "requestTitle": "This booking goes to the approvers",
@@ -4540,6 +4546,10 @@
     "recurStatus": "Not allowed by a rule",
     "find": {
       "status": "Not allowed"
+    },
+    "verb": {
+      "request": "Request · needs approval",
+      "book": "Reserve"
     }
   },
   "publicSchedule": {

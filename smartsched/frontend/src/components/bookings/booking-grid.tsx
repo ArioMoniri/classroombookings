@@ -17,7 +17,7 @@ import type { Grid, GridSlot } from "@/lib/api/crbs";
 import { BareButton } from "@/components/shell/bare-button";
 import { cn } from "@/lib/utils";
 import { useI18n, useT } from "@/lib/i18n/provider";
-import { violationText } from "@/lib/api/booking-policies";
+import { bookVerbKey, violationText } from "@/lib/api/booking-policies";
 import type { MessageKey } from "@/lib/i18n";
 import { crosshairCss, isSelectable, layoutGrid, moveFocus, slotKey, slotText, slotTone, type AxisItem, type SlotTone } from "./grid-model";
 import { EntityIcon } from "@/components/admin/icons";
@@ -111,6 +111,8 @@ interface Props {
   onRoomInfo?: (roomId: number) => void;
   /** department view: colour every booking by its department; a chosen department mutes the others */
   department?: DepartmentLens;
+  /** T-R1-10: approval-first is on for the viewer: every free cell says "Talep et · Onay gerekir", never "Rezerve et" */
+  approvalFirst?: boolean;
 }
 
 interface Hint {
@@ -127,7 +129,7 @@ const HOLD_MS = 450;
  * Memoised (motion audit T3): opening the book sheet, the room sheet or the bell re-renders the bookings page,
  * and re-rendering 300+ cells cost the 344-653 ms frame that delayed the sheet. With stable props it skips.
  */
-export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, onSpan, crosshair, highlightBookingId, roomIcons, onRoomInfo, department = "all" }: Props) {
+export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, onSpan, crosshair, highlightBookingId, roomIcons, onRoomInfo, department = "all", approvalFirst = false }: Props) {
   const { t, locale } = useI18n();
   const layout = useMemo(() => layoutGrid(grid, columns), [grid, columns]);
   // the roving tab stop lives in a ref: moving focus swaps tabIndex on two cells instead of re-rendering the
@@ -190,12 +192,12 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
       }
       if (slot.status === "timetable") return `${t("crbs.legend.timetable")} · ${slot.label || t("reserve.cell.class")}`;
       // P8: request-only slots stay bookable; the hint says the booking goes to the approvers and why
-      if (isSelectable(slot)) return slot.request_only ? t("policies.grid.requestOnly", { why: slot.policy ? violationText(slot.policy, locale) : "" }) : null;
+      if (isSelectable(slot)) return slot.request_only ? t("policies.grid.requestOnly", { why: slot.policy ? violationText(slot.policy, locale) : "" }) : approvalFirst ? t("policies.grid.approvalFirst") : null;
       if (slot.status === "available") return t("crbs.slot.reason.permissions");
       if (slot.reason === "policy") return slot.policy ? violationText(slot.policy, locale) : t("policies.grid.refused");
       return t(reasonKey(slot.reason), { name: slot.label ?? "" });
     },
-    [t, locale],
+    [t, locale, approvalFirst],
   );
 
   const cellLabel = useCallback(
@@ -207,8 +209,10 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
       const kind = multi ? pickKind(slot) : null;
       let state: string;
       if (isSelectable(slot)) {
-        state = multi ? (selected.has(slotKey(slot)) ? t("crbs.slot.selected") : t("crbs.slot.selectable")) : inSpan ? t("reserve.cell.selectedSpan", { n: span.length }) : `${t("crbs.slot.free")}, ${t("reserve.cell.reserve")}`;
-        if (slot.request_only) state += `, ${t("policies.grid.requestOnlyShort")}`;
+        // T-R1-10: a booking that goes to the approvers (approval-first, or a policy's request-only rule) is a request
+        const request = approvalFirst || !!slot.request_only;
+        state = multi ? (selected.has(slotKey(slot)) ? t("crbs.slot.selected") : t("crbs.slot.selectable")) : inSpan ? t("reserve.cell.selectedSpan", { n: span.length }) : `${t("crbs.slot.free")}, ${t(bookVerbKey(request))}`;
+        if (request && (multi || inSpan)) state += `, ${t("policies.grid.requestOnlyShort")}`;
       } else if (slot.status === "booked") {
         const text = slotText(slot, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class"), pending: t("wave1.grid.pending") });
         const b = slot.booking;
@@ -221,7 +225,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
       } else state = explain(slot) ?? "";
       return [...parts, state].join(", ");
     },
-    [explain, fmt, header, multi, selected, span.length, t],
+    [approvalFirst, explain, fmt, header, multi, selected, span.length, t],
   );
 
   const hideHint = useCallback(() => {
@@ -383,8 +387,8 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
 
   // stable between renders, so the memoised cells do not all re-render on every pointer / focus change (U-18)
   const labels = useMemo(
-    () => ({ booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class"), pending: t("wave1.grid.pending"), free: t("reserve.cell.free"), reserve: t("reserve.cell.reserve") }),
-    [t],
+    () => ({ booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class"), pending: t("wave1.grid.pending"), free: t("reserve.cell.free"), reserve: approvalFirst ? t("wave1.find.request") : t("reserve.cell.reserve") }),
+    [t, approvalFirst],
   );
 
   if (!layout.rows.length || !layout.cols.length) return null;

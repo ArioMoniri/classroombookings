@@ -27,7 +27,7 @@ import { Alert, PageTitle, SelectField } from "@/components/admin/kit";
 import { BookSheet, type BookTarget } from "./book-sheet";
 import { ConflictBanner } from "@/components/conflicts/conflict-banner";
 import { PolicyWhy } from "@/components/policies/policy-why";
-import { violationText } from "@/lib/api/booking-policies";
+import { useApprovalFirst, violationText } from "@/lib/api/booking-policies";
 import { BookingDetailSheet } from "./booking-detail-sheet";
 import { BookingGrid, pickKind, reasonKey, TONE_CLASS, TONE_ICON } from "./booking-grid";
 import { bookingErrorMessage } from "./booking-errors";
@@ -68,6 +68,8 @@ export function BookingsView() {
   const query: GridQuery = { display, date: params.get("date") ?? undefined, term_id: num("term"), room_group_id: num("group"), room_id: num("room") };
   const grid = useBookingGrid(query, ctx.isSuccess);
   const g = grid.data;
+  // T-R1-10: approval-first on for this viewer -> every free slot says "Talep et · Onay gerekir"
+  const approvalFirst = useApprovalFirst(g?.rooms[0]?.id, g?.term.id);
   // motion audit T2: the previous grid stays while the next one loads (keepPreviousData). The date control shows
   // the requested day in the input frame, and after 120 ms the stale grid dims (opacity only, no travel)
   const pendingDate = grid.isPlaceholderData ? (query.date ?? null) : null;
@@ -563,6 +565,7 @@ export function BookingsView() {
             deptFirst={firstRooms.size > 0 && freeRooms.some((r) => firstRooms.has(r.room.id))}
             onReserve={setBook}
             onRoomInfo={(id, date) => openRoom(id, { date })}
+            approvalFirst={approvalFirst}
           />
         ) : g ? (
           <BookingGrid
@@ -578,6 +581,7 @@ export function BookingsView() {
             roomIcons={roomIcons}
             onRoomInfo={onGridRoomInfo}
             department={department}
+            approvalFirst={approvalFirst}
           />
         ) : grid.isLoading || ctx.isLoading ? (
           <Skeleton className="h-[420px] w-full rounded-xl" />
