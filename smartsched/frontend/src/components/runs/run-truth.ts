@@ -182,3 +182,25 @@ export const BROKEN_RULE_TR: Record<string, string> = {
   locked_room: "planlayıcının kilitli dersliği",
   policy_lock_dropped: "kilitli dersin yerleşmesi",
 };
+
+/* ------------------------------------------------------------------ how a run ended (round-1 R1-M-15, T-R1-48) */
+
+export type RunOutcome =
+  | { kind: "active" }
+  /** stopped by a planner before it finished: no timetable, no scores, no problem list, nothing to publish */
+  | { kind: "cancelled"; by: string | null; at: string | null }
+  /** ERROR / FAILED / INFEASIBLE: no timetable, the diagnosis explains why */
+  | { kind: "failed" }
+  | { kind: "finished" };
+
+/** The backend writes `error = "cancelled by <email>"` and `finished_at` when a run is cancelled (api/v1/runs `_cancel`). */
+export function runOutcome(r: { status: string; error?: string | null; finished_at?: string | null }): RunOutcome {
+  if (r.status === "QUEUED" || r.status === "RUNNING") return { kind: "active" };
+  if (r.status === "CANCELLED") {
+    const m = /^cancelled by (.+)$/i.exec((r.error ?? "").trim());
+    const by = m?.[1]?.trim() ?? null;
+    return { kind: "cancelled", by: by && by !== "a planner" ? by : null, at: r.finished_at ?? null };
+  }
+  if (r.status === "ERROR" || r.status === "FAILED" || r.status === "INFEASIBLE") return { kind: "failed" };
+  return { kind: "finished" };
+}

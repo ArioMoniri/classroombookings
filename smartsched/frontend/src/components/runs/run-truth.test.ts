@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { placedOf, runIssueCounts, verdictExceptions, waiverOf } from "./run-truth";
+import { placedOf, runIssueCounts, runOutcome, verdictExceptions, waiverOf } from "./run-truth";
 
 describe("one source of truth for run counts (admin persona M-06/M-07/M-08 and the Studio '716 yerleşti')", () => {
   it("placed is stats.placed; stats.events is the requested total", () => {
@@ -46,5 +46,20 @@ describe("run parsing keeps structured stats (missing_only_week, waived_rules) a
     expect(r.stats_detail?.missing_only_week).toEqual({ "1": 2 });
     expect(r.stats_detail?.waived_rules).toEqual(["capacity"]);
     expect(r.is_active).toBe(true);
+  });
+});
+
+describe("how a run ended (round-1 R1-M-15: a cancelled run must not read like a clean result)", () => {
+  it("a cancelled run names who stopped it and when; a generic cancel has no name", () => {
+    expect(runOutcome({ status: "CANCELLED", error: "cancelled by admin@smartsched.local", finished_at: "2026-10-16T10:00:00" })).toEqual({ kind: "cancelled", by: "admin@smartsched.local", at: "2026-10-16T10:00:00" });
+    expect(runOutcome({ status: "CANCELLED", error: "cancelled by a planner", finished_at: null })).toEqual({ kind: "cancelled", by: null, at: null });
+    expect(runOutcome({ status: "CANCELLED", error: null })).toEqual({ kind: "cancelled", by: null, at: null });
+  });
+  it("running, failed and finished runs", () => {
+    expect(runOutcome({ status: "RUNNING" })).toEqual({ kind: "active" });
+    expect(runOutcome({ status: "ERROR", error: "boom" })).toEqual({ kind: "failed" });
+    expect(runOutcome({ status: "INFEASIBLE" })).toEqual({ kind: "failed" });
+    expect(runOutcome({ status: "FEASIBLE_PARTIAL" })).toEqual({ kind: "finished" });
+    expect(runOutcome({ status: "TIMEOUT" })).toEqual({ kind: "finished" });
   });
 });

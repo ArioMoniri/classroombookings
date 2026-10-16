@@ -31,7 +31,7 @@ had 8 builder lanes. At `455f9703`:
 | C intake/council | T-R1-21–26 | T-R1-25 "rename one instructor" part | needs an owner decision: a stable person key (staff number column) or the merge-review flow |
 | D KVKK | T-R1-27, 28, 29 | — | ticked |
 | E i18n/admin | T-R1-30, 35, 36, 37, 38 | T-R1-31, 32, 33, 34 | + lane-A hand-on: admin schedule weekday toggles |
-| F dashboard/learning | T-R1-40, 41, 39 part 1 | T-R1-39 part 2, T-R1-42 | integrity agent has handed over `invigilation.py`, `moderation.py` |
+| F dashboard/learning | T-R1-39, 40, 41, 42 (all; F2 finished 23:40 UTC) | — | ticked |
 | G test plan/tooling | T-R1-43, 44, 45 | — | ticked |
 | H studio/runs/timetable | — | T-R1-46, 47, 48, 49, 50 | ~40 min of WIP swept into checkpoints `b53ee1b`, `5fa0ceb` (runs/publish-run.tsx, studio/generate-step.tsx, program-wizard/generate-step.tsx, services/studio.py, tr_grammar.py); + lane-A hand-ons (/classes segments, move-dialog selects, inspector "more" button) |
 | Integrity (solver-engineer) | R1-M-02..06, 10, 11, 12; R1-S-01, 02, 06, 07, 09, 17; R1-S-04 part | 2 follow-ups (pin guard by programme/text at write time; R1-S-04 root cause) | |
@@ -62,5 +62,6 @@ the locked-class self-move (recommend: keep as re-deciding the lock), T-R1-25 pe
 
 ## Progress log (newest first)
 
+- 2026-10-16 23:40 UTC — **lane F2 handed off**: T-R1-42 (invigilation pool matches masked/titled exam names; pool line, empty-pool reason + one-tap all-instructors) and T-R1-39 part 2 (board placements feed the moderation match rate, 72 % on Güz) done and verified desktop+phone; tests test_loop_r1_laneF2.py, e2e loop-r1-laneF 6/6. Tag `handoff/focused-wright-1`. Open asks routed: pct() possessive case → lane E2; keyboard-clearance scrollIntoView guard → lane A2; MOBILE.md /exams/invigilation row → orchestrator.
 - 2026-10-16 22:30 UTC — session focused-wright started; branch + start tag pushed; registry agents of the
   interrupted session marked stopped/finished with where they left off; builders being launched.

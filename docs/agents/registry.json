@@ -1883,7 +1883,8 @@
       "goal": "You are the round-1 loop builder for **lane F2 (invigilation default pool, moderation match rate)** of SmartSched. Lane name for the ledger: `loop-r1-laneF2-2026-10-16`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first and follow …",
       "ledger": "Lane F2: invigilation pool + match rate",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 23:32"
     },
     {
       "id": "ac66fcc4d0ac6890d",
@@ -1928,6 +1929,14 @@
       "status": "finished",
       "finished_at": "2026-10-16 23:28",
       "left_off": "status of the lanes"
+    },
+    {
+      "id": "a7e92f500ecfa277e",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-16 23:32",
+      "left_off": "continue building and update the handoff docs"
     }
   ]
 }
