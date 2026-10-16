@@ -363,12 +363,58 @@ async def test_startup_sweep_fails_plans_of_a_dead_process(real):
         ids = (dead.id, queued.id, live.id)
     from app.main import app
 
-    async with lifespan(app):
+    async with lifespan(app):  # exit disposes the engine: every check inside
         async with dbmod.get_session_factory()() as s:
             rows = {p.id: p for p in (await s.execute(select(InvigilationPlan))).scalars()}
+        async with dbmod.get_session_factory()() as s:
+            assert await svc.recover_interrupted_plans(s) == 0  # idempotent
     for pid in ids[:2]:
         assert rows[pid].status == "FAILED" and "interrupted" in (rows[pid].error or "")
         assert rows[pid].finished_at is not None and rows[pid].progress_phase == "failed"
     assert rows[ids[2]].status == "RUNNING"
-    async with dbmod.get_session_factory()() as s:
-        assert await svc.recover_interrupted_plans(s) == 0  # idempotent
+
+
+def test_migration_0033_adds_progress_and_heartbeat(tmp_path):
+    """``0033_invig_progress`` on ``0032_kvkk``: three nullable columns, an existing plan keeps its row (NULLs), the
+    models equal the migrated schema, and the downgrade round-trips."""
+    import sqlite3
+
+    from alembic import command
+
+    from tests.test_crbs_migration import _run
+    from tests.test_p19_learning_migration import _diff
+
+    path = tmp_path / "m.db"
+    url = f"sqlite+aiosqlite:///{path}"
+    _run(url, command.upgrade, "0032_kvkk")
+    con = sqlite3.connect(path)
+    con.execute(
+        "insert into terms (id, code, name, kind, week_count, periods_json, is_active, created_at, updated_at) "
+        "values (1, '2026-FİNAL', '2026 Final', 'FINAL', 3, '[]', 1, '2026-06-01 00:00:00', '2026-06-01 00:00:00')"
+    )
+    con.execute(
+        "insert into schedule_runs (id, term_id, kind, horizon, horizon_params, status, params, stats, diagnosis, "
+        "is_active, created_at) values (4, 1, 'EXAM', 'TERM', '{}', 'FEASIBLE', '{}', '{}', '[]', 0, "
+        "'2026-06-01 00:00:00')"
+    )
+    con.execute(
+        "insert into invigilation_plans (id, term_id, exam_run_id, status, params, stats, diagnosis, is_active, "
+        "created_at) values (1, 1, 4, 'FEASIBLE', '{}', '{}', '[]', 0, '2026-10-16 12:00:00')"
+    )
+    con.commit()
+    con.close()
+    _run(url, command.upgrade, "0033_invig_progress")
+    con = sqlite3.connect(path)
+    cols = {r[1] for r in con.execute("pragma table_info(invigilation_plans)")}
+    assert {"heartbeat_at", "progress_phase", "progress_pct"} <= cols
+    assert con.execute(
+        "select status, progress_phase, progress_pct, heartbeat_at from invigilation_plans"
+    ).fetchall() == [("FEASIBLE", None, None, None)]
+    con.close()
+    assert [d for d in _diff(path) if "invigilation_plans" in repr(d)] == []
+    _run(url, command.downgrade, "0032_kvkk")
+    con = sqlite3.connect(path)
+    cols = {r[1] for r in con.execute("pragma table_info(invigilation_plans)")}
+    assert not {"heartbeat_at", "progress_phase", "progress_pct"} & cols
+    assert con.execute("select count(*) from invigilation_plans").fetchone() == (1,)
+    con.close()

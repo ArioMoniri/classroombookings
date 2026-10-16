@@ -111,6 +111,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await seed_admin(session)
     async with get_session_factory()() as session:
         await recover_interrupted(session)  # jobs of a dead process never finish: mark them FAILED
+    async with get_session_factory()() as session:
+        from app.services.invigilation import recover_interrupted_plans
+
+        await recover_interrupted_plans(session)  # invigilation plans of a dead process, likewise
     from app.workers import integrations
 
     await integrations.on_startup()  # calendar push / webhook outbox rows left by a previous process

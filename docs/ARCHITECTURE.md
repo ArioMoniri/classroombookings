@@ -101,7 +101,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-28 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0032_kvkk`**. A new migration goes on top of it (`alembic heads` must print one line).
+29 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0033_invig_progress`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -133,6 +133,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 26 | `0030_booking_conflicts` | `0029_booking_policies` | Conflict resolver after publishing (booking enhancements wave 2, P2; docs/product/booking-enhancements.md §4.4) |
 | 27 | `0031_invigilation` | `0030_booking_conflicts` | Invigilator assignment for exam runs (docs/features.yml "invigilator assignment"; app/services/invigilation.py) |
 | 28 | `0032_kvkk` | `0031_invigilation` | KVKK compliance (booking enhancements wave 2, A4; docs/product/booking-enhancements.md §4.7) |
+| 29 | `0033_invig_progress` | `0032_kvkk` | Invigilation plan progress and liveness (backend asks batch 2; app/services/invigilation.py) |
 
 <!-- /AUTO:migrations -->
 

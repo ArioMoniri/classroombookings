@@ -852,7 +852,20 @@ def plan_brief(plan: InvigilationPlan) -> dict[str, Any]:
             "eligible_people": st.get("eligible_people"),
         },
         "headline": st.get("headline"),
+        "progress": plan_progress(plan),
     }
+
+
+def plan_progress(plan: InvigilationPlan) -> dict[str, Any]:
+    """The queue job's last reported phase and percentage, as stored on the plan (``progress_phase`` /
+    ``progress_pct``); a plan finished before alembic 0033 reads ``done`` (or ``failed``) without a number."""
+    if plan.progress_phase:
+        return {"phase": plan.progress_phase, "pct": plan.progress_pct}
+    if plan.status == "FAILED":
+        return {"phase": "failed", "pct": None}
+    if plan.status in ("QUEUED", "RUNNING"):
+        return {"phase": plan.status.lower(), "pct": None}
+    return {"phase": "done", "pct": 100}
 
 
 async def create_plan(
@@ -876,6 +889,8 @@ async def create_plan(
         stats={},
         diagnosis=[],
         created_by=actor.id,
+        progress_phase="queued",
+        progress_pct=0,
     )
     session.add(plan)
     await session.flush()
@@ -933,10 +948,17 @@ def _headline(res: inv.InvigilationResult) -> dict[str, str]:
 
 
 async def run_plan(session_factory: Any, plan_id: int, progress: Any = None) -> dict[str, Any]:
-    """Queue job: build the input from the database, solve off the event loop, store duties and diagnoses."""
-    import asyncio
+    """Queue job: build the input from the database, solve off the event loop, store duties and diagnoses.
 
-    def report(phase: str, pct: int) -> None:
+    Each phase is reported to the queue (SSE listeners) and stored on the plan (``progress_phase`` /
+    ``progress_pct``, shown as ``progress`` in the brief): ``loading`` 10 (reading the exam run, the pool, the
+    teaching), ``solving`` 30 (CP-SAT in a worker thread: the solver reports nothing until it returns, so the number
+    stays at 30 for the whole solve; ``started_at`` and ``params.time_limit_s`` bound it), ``persisting`` 90,
+    ``done`` 100."""
+
+    def report(phase: str, pct: int, plan: InvigilationPlan | None = None) -> None:
+        if plan is not None:
+            plan.progress_phase, plan.progress_pct = phase, pct
         if progress:
             progress(phase, pct)
 
@@ -945,18 +967,19 @@ async def run_plan(session_factory: Any, plan_id: int, progress: Any = None) -> 
         if plan is None:
             raise ValueError(f"plan {plan_id} not found")
         plan.status, plan.started_at = "RUNNING", _now()
+        report("loading", 10, plan)
         await session.commit()
-        report("loading", 10)
         run = await _exam_run(session, plan.exam_run_id)
         locks: list[inv.Duty] = []
         prev: list[inv.Duty] = []
         if plan.parent_plan_id:
             locks, prev = _duty_inputs(await _duties(session, plan.parent_plan_id))
         built = await build_input(session, run, plan.params or {}, locks=locks, previous=prev)
+        plan = await session.get(InvigilationPlan, plan_id)
+        if plan is not None:
+            report("solving", 30, plan)
         await session.commit()
-    report("solving", 30)
     res = await asyncio.to_thread(inv.solve_invigilation, built.inp)
-    report("persisting", 90)
     from app.services.scenario_compare import exam_label
 
     labels = {eid: exam_label(er) for eid, er in built.exams.items()}
@@ -965,6 +988,8 @@ async def run_plan(session_factory: Any, plan_id: int, progress: Any = None) -> 
         plan = await session.get(InvigilationPlan, plan_id)
         if plan is None:
             return {"status": "DELETED"}
+        report("persisting", 90, plan)
+        await session.commit()
         await session.execute(delete(InvigilationDuty).where(InvigilationDuty.plan_id == plan_id))
         for d in res.duties:
             post = posts[d.post_key]
@@ -1021,8 +1046,11 @@ async def run_plan(session_factory: Any, plan_id: int, progress: Any = None) -> 
         if res.status == "ERROR":
             plan.error = "; ".join(res.stats.get("problems") or [])[:4000]
         plan.finished_at = _now()
+        if plan.status == "FAILED":
+            plan.progress_phase = "failed"
+        else:
+            report("done", 100, plan)
         await session.commit()
-    report("done", 100)
     return {"status": res.status, "duties": len(res.duties)}
 
 
@@ -1045,6 +1073,7 @@ def enqueue_plan(plan_id: int) -> None:
             row.status = "FAILED"
             row.error = (st.error or "")[:4000]
             row.finished_at = _now()
+            row.progress_phase = "failed"
             await s.commit()
 
     get_queue().enqueue(f"invig:{plan_id}", body, on_status=on_status)
@@ -1058,22 +1087,58 @@ async def _plan(session: AsyncSession, plan_id: int) -> InvigilationPlan:
     return plan
 
 
+INTERRUPTED = "interrupted: the server restarted while the plan was queued or running; re-run it"
+
+
+def _orphaned(plan: InvigilationPlan, now: datetime, *, startup: bool) -> bool:
+    """A QUEUED / RUNNING plan nobody is working on: no live job of this process holds it, and it is not another
+    live replica's (that one beats ``heartbeat_at``; ``run_stale_after_s``). A plan of this boot without a job is
+    always an orphan; a row without any beat (made before alembic 0033) only after :data:`STALE_AFTER`."""
+    from app.core.config import get_settings
+    from app.workers.queue import BOOT_ID, get_queue
+
+    if get_queue().state(f"invig:{plan.id}") is not None:
+        return False  # a job of this process holds it
+    worker = (plan.stats or {}).get("worker") or {}
+    if not startup and worker.get("boot") == BOOT_ID:
+        return True
+    stale = timedelta(seconds=float(get_settings().run_stale_after_s))
+    if plan.heartbeat_at is not None:
+        return now - plan.heartbeat_at > stale
+    return startup or (plan.created_at is not None and now - plan.created_at > STALE_AFTER)
+
+
+def _fail_interrupted(plan: InvigilationPlan, now: datetime) -> None:
+    plan.status = "FAILED"
+    plan.error = INTERRUPTED
+    plan.finished_at = now
+    plan.progress_phase = "failed"
+
+
 async def _recover(session: AsyncSession, plan: InvigilationPlan) -> None:
     """A plan left QUEUED / RUNNING by a process that is gone (restart) is reported as FAILED, never as running."""
     if plan.status not in ("QUEUED", "RUNNING"):
         return
-    from app.workers.queue import BOOT_ID, get_queue
-
-    if get_queue().state(f"invig:{plan.id}") is not None:
-        return
-    worker = (plan.stats or {}).get("worker") or {}
-    mine = worker.get("boot") == BOOT_ID
-    old = plan.created_at is not None and _now() - plan.created_at > STALE_AFTER
-    if mine or old:
-        plan.status = "FAILED"
-        plan.error = "interrupted: the server restarted while the plan was queued or running; re-run it"
-        plan.finished_at = _now()
+    now = _now()
+    if _orphaned(plan, now, startup=False):
+        _fail_interrupted(plan, now)
         await session.commit()
+
+
+async def recover_interrupted_plans(session: AsyncSession) -> int:
+    """Startup sweep (``app.main`` lifespan, next to ``recover_interrupted``): plans left QUEUED / RUNNING by a dead
+    process become FAILED. Nothing of this boot runs yet; a plan another replica is still beating for is kept."""
+    now = _now()
+    n_failed = 0
+    q = select(InvigilationPlan).where(InvigilationPlan.status.in_(("QUEUED", "RUNNING")))
+    for plan in (await session.execute(q)).scalars():
+        if _orphaned(plan, now, startup=True):
+            _fail_interrupted(plan, now)
+            n_failed += 1
+    await session.commit()
+    if n_failed:
+        log.warning("marked %d invigilation plan(s) FAILED (interrupted by restart)", n_failed)
+    return n_failed
 
 
 async def list_plans(
@@ -1695,7 +1760,9 @@ __all__ = [
     "load_heatmap",
     "lock_duty",
     "plan_detail",
+    "plan_progress",
     "reassign_duty",
+    "recover_interrupted_plans",
     "rerun",
     "roster_csv",
     "run_plan",
