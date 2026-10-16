@@ -920,7 +920,9 @@
       "goal": "the user asked: \"include Recordly GIFs and real screenshots in the README\". Today the README embeds 5 recordings from 2026-10-08 as animated WebP + MP4 links. They show the old UI and miss most features built since. Produce up-to-date, real-backend GIF recordings plus a full set of real screenshots, and embed them.",
       "ledger": "readme-media-2026-10-15 SCOPE: scripts/record/** (journeys, lib, screens.mjs, re…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 03:18",
+      "left_off": "I've rebuilt the recording pipeline, re-recorded the README media on the redesigned UI, and rewritten the README as a short landing page. It's pushed in two commits: `1210795` (pipeline only) and `e2d54c5` (media, README, moved docs). Not published: the approval and sign-in recordings (those screens are being rebuilt), `chat-edit` (no AI key), and `import-generate` (its captions land on the wrong …"
     },
     {
       "id": "a958f1deb9d2dc610",
@@ -1383,6 +1385,18 @@
       "scope": "",
       "goal": "1. Run the full fast suite as the pod CI backend gate runs it (smartsched/deploy/pod-ci/gates/*.sh and the Makefile; it was `make test`: `-m 'not slow' --ignore=tests/solver`), with `--basetemp=$(mktemp -d -p /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad)` and `-p no:cacheprovider`. Run it in the background and write output to a file so a restart doesn'…",
       "ledger": "RESUME backend test isolation",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ae5cc5d35e4b5f213",
+      "description": "Fix intake column-limit refusal",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 03:18",
+      "scope": "",
+      "goal": "1. Reproduce with a test on the real Bahar and Güz workbooks through the intake upload/council path (the same entry point `/onboarding` uses), asserting it is accepted and reads the expected row count (compare with what the CLI importer reads). 2. Fix the root cause: measure used columns/rows (last non-empty cell, streaming/read-only mode so a bomb can't exhaust memory) and apply the cap to that; …",
+      "ledger": "Fix intake column-limit refusal",
       "resumed": false,
       "status": "running"
     }

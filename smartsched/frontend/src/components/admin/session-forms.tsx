@@ -17,6 +17,7 @@ import { crbs, crbsAdmin, crbsError, useCrbsMutation, useSchedules, useTermUsage
 import { useI18n } from "@/lib/i18n/provider";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, Field, Loading, SelectField } from "./kit";
+import { DateField } from "@/components/ui/date-field";
 
 export const SESSION_KEYS = [["crbs", "sessions"], ["crbs", "session-dates"], ["crbs", "term-schedules"], ["crbs", "context"], ["crbs", "grid"], ["crbs", "dates"], ["crbs", "holidays"], ["crbs", "term-usage"], ["crbs", "mine"], ["crbs", "dashboard"], ["terms"]];
 
@@ -91,10 +92,10 @@ function SessionForm({ session, onClose, onSaved }: { session: Session | null; o
       ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t("admingaps.sessions.start")} htmlFor="ses-start">
-          <Input id="ses-start" type="date" required value={start} onChange={(e) => (setStart(e.target.value), setOutside(null))} data-testid="session-start" />
+          <DateField id="ses-start" required value={start} onChange={(v) => (setStart(v), setOutside(null))} data-testid="session-start" />
         </Field>
         <Field label={t("admingaps.sessions.end")} htmlFor="ses-end" error={badDates ? t("admingaps.sessions.endBeforeStart") : null}>
-          <Input id="ses-end" type="date" required min={start || undefined} value={end} onChange={(e) => (setEnd(e.target.value), setOutside(null))} data-testid="session-end" />
+          <DateField id="ses-end" required min={start || undefined} value={end} onChange={(v) => (setEnd(v), setOutside(null))} data-testid="session-end" />
         </Field>
       </div>
       {!session ? (

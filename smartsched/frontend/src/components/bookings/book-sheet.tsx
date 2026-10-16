@@ -37,6 +37,7 @@ import { RecurringPreviewTable } from "./recurring-preview-table";
 import { freeRun, roomDay, toggleRange } from "./reserve-model";
 import { useIsPhone } from "./use-is-phone";
 import { cellSelector, focusAfter } from "./focus-after";
+import { DateField } from "@/components/ui/date-field";
 
 type Kind = "single" | "recurring";
 type StartMode = "date" | "session" | "custom";
@@ -344,14 +345,13 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
                   <option value="custom">{t("crbs.recur.custom")}</option>
                 </SelectField>
                 {startMode === "custom" ? (
-                  <Input
-                    type="date"
+                  <DateField
                     aria-label={t("crbs.recur.startDate")}
                     min={grid.term.start}
                     max={grid.term.end}
                     value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
+                    onChange={(v) => {
+                      setStartDate(v);
                       dispatch({ type: "reset" });
                     }}
                   />
@@ -370,14 +370,13 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
                   <option value="custom">{t("crbs.recur.custom")}</option>
                 </SelectField>
                 {endMode === "custom" ? (
-                  <Input
-                    type="date"
+                  <DateField
                     aria-label={t("crbs.recur.endDate")}
                     min={grid.term.start}
                     max={grid.term.end}
                     value={endDate}
-                    onChange={(e) => {
-                      setEndDate(e.target.value);
+                    onChange={(v) => {
+                      setEndDate(v);
                       dispatch({ type: "reset" });
                     }}
                   />

@@ -14,6 +14,7 @@ import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
+import { DateField } from "@/components/ui/date-field";
 
 /** CRBS `holiday.field.duration`: inclusive day count (`1 + diff(start, end)`). */
 export function holidayDays(h: Pick<Holiday, "date_start" | "date_end">): number {
@@ -106,10 +107,10 @@ export function HolidaysAdmin() {
             <Input id="hol-name" required maxLength={50} placeholder={t("crbs.holidays.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
           <Field label={t("crbs.holidays.start")} htmlFor="hol-start">
-            <Input id="hol-start" type="date" required min={term?.date_start ?? undefined} max={term?.date_end ?? undefined} value={start} onChange={(e) => setStart(e.target.value)} />
+            <DateField id="hol-start" required min={term?.date_start ?? undefined} max={term?.date_end ?? undefined} value={start} onChange={(v) => setStart(v)} />
           </Field>
           <Field label={t("crbs.holidays.end")} htmlFor="hol-end">
-            <Input id="hol-end" type="date" min={start || term?.date_start || undefined} max={term?.date_end ?? undefined} value={end} onChange={(e) => setEnd(e.target.value)} />
+            <DateField id="hol-end" min={start || term?.date_start || undefined} max={term?.date_end ?? undefined} value={end} onChange={(v) => setEnd(v)} />
           </Field>
           <Button type="submit" disabled={!termId || !name.trim() || !start || add.isPending}>
             <Plus aria-hidden />
@@ -162,10 +163,10 @@ function HolidayForm({ holiday, term, onClose }: { holiday: Holiday; term: Sessi
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t("crbs.holidays.start")} htmlFor="hol-edit-start">
-          <Input id="hol-edit-start" type="date" required min={term?.date_start ?? undefined} max={term?.date_end ?? undefined} value={start} onChange={(e) => setStart(e.target.value)} />
+          <DateField id="hol-edit-start" required min={term?.date_start ?? undefined} max={term?.date_end ?? undefined} value={start} onChange={(v) => setStart(v)} />
         </Field>
         <Field label={t("crbs.holidays.end")} htmlFor="hol-edit-end">
-          <Input id="hol-edit-end" type="date" min={start || term?.date_start || undefined} max={term?.date_end ?? undefined} value={end} onChange={(e) => setEnd(e.target.value)} data-testid="holiday-edit-end" />
+          <DateField id="hol-edit-end" min={start || term?.date_start || undefined} max={term?.date_end ?? undefined} value={end} onChange={(v) => setEnd(v)} data-testid="holiday-edit-end" />
         </Field>
       </div>
       <p className="type-footnote text-label-3">{t("admingaps.holidays.days", { n: holidayDays({ date_start: start, date_end: end || start }) })}</p>

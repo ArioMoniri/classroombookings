@@ -1218,6 +1218,7 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
   - Phone 390 × 844: compact stepper and step sheet, floating footer with 44 px controls, sheets for paste and changes, no sideways scroll on the wizard and moderation pages.
   - Flow scripts F-05, F-06 and F-07 updated to the shipped UI; F-07 Part A/B rewritten for server drafts (no example button: no demo data).
 - [ ] P19-T2 "Tercih ekle" for academicians: no backend endpoint (asked in the hand-off).
+- [ ] Backend: the drafts' "Aynı adlı program var" check (`program_drafts.py` context `program_clash`) also matches archived programmes, so a programme name cannot be reused after its creation was undone.
 - [ ] The wizard's programme undo is not reachable from `/admin/audit` until `POST /audit/{id}/undo` hands `program.create` to the drafts undo (backend item above).
 
 ### Identity frontend finished (2026-10-16)

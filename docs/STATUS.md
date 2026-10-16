@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `f215278` (committed 2026-10-16 03:01 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `edc8ab6` (committed 2026-10-16 03:19 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -144,11 +144,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-128 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 105 · stopped 7 · superseded 7.
+129 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 106 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
-| `readme-media-2026-10-15` | general-purpose | 2026-10-15 20:41 |
 | `Approval-first UI + notification prefs` | frontend-engineer | 2026-10-16 01:09 |
 | `Identity frontend` | frontend-engineer | 2026-10-16 01:10 |
 | `Phase 19 UI follow-up` | frontend-engineer | 2026-10-16 01:20 |
@@ -157,6 +156,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `RESUME Phase 19 UI follow-up` | frontend-engineer | 2026-10-16 02:16 |
 | `RESUME backend test isolation` | backend-engineer | 2026-10-16 02:16 |
 | `RESUME design migration + mobile` | frontend-engineer | 2026-10-16 02:16 |
+| `Fix intake column-limit refusal` | backend-engineer | 2026-10-16 03:18 |
 
 <!-- /AUTO:agents -->
 
@@ -223,7 +223,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **162 ticked · 281 open** checkboxes in 59 sections (56 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **162 ticked · 282 open** checkboxes in 59 sections (56 with open items).
 
 <details><summary>Per section</summary>
 
@@ -286,7 +286,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Phase 19 backend gaps finished (2026-10-16); Phase 19 UI follow-up launched | 0 | 3 |
 | Design-system overhaul finished (2026-10-16) | 0 | 6 |
 | Importer and comparison follow-ups finished (2026-10-16) | 0 | 4 |
-| Phase 19 UI follow-up finished (2026-10-16) | 0 | 2 |
+| Phase 19 UI follow-up finished (2026-10-16) | 0 | 3 |
 | Identity frontend finished (2026-10-16) | 0 | 7 |
 
 </details>

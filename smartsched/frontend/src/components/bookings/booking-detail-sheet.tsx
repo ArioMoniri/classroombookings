@@ -37,6 +37,7 @@ import { bookingErrorMessage } from "./booking-errors";
 import type { DateFormatter } from "./date-format";
 import { useIsPhone } from "./use-is-phone";
 import { cellSelector, focusAfter } from "./focus-after";
+import { DateField } from "@/components/ui/date-field";
 
 export function BookingDetailSheet({ bookingId, onOpenChange, fmt, onRoomInfo }: { bookingId: number | null; onOpenChange: (open: boolean) => void; fmt: DateFormatter; onRoomInfo?: (roomId: number, date: string) => void }) {
   const phone = useIsPhone();
@@ -308,7 +309,7 @@ function EditForm({ booking: b, fmt, onDone }: { booking: BookingDetail; fmt: Da
       <ScopePicker value={scope} onChange={setScope} booking={b} />
       {f.date ? (
         <Field label={t("crbs.edit.date")} htmlFor="edit-date">
-          <Input id="edit-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <DateField id="edit-date" value={date} onChange={(v) => setDate(v)} />
         </Field>
       ) : null}
       {f.period ? (

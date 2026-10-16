@@ -10,7 +10,8 @@ import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
-import { Button, IconButton } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/button";
+import { BareButton } from "./bare-button";
 import { useUiStore } from "@/stores/ui";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
 import { usePermissions } from "@/lib/api/shell-extra";
@@ -62,7 +63,8 @@ export function TabBar() {
       </>
     );
     const cls = cn(ITEM, "outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)");
-    const buttonCls = cn(cls, "h-auto gap-0.5 px-1.5 font-normal hover:bg-transparent active:not-aria-[haspopup]:scale-100");
+    // the same box as the links (BareButton: no control height), so the More label sits on the other labels' baseline
+    const buttonCls = cn(cls, "font-normal");
     const aria = extra.count ? `${label}, ${t("nav.needsReview", { count: extra.count })}` : label;
     return (
       <li key={key} className="flex min-w-0 list-none">
@@ -71,9 +73,9 @@ export function TabBar() {
             {content}
           </Link>
         ) : (
-          <Button variant="ghost" aria-label={aria} onClick={extra.onClick} className={buttonCls} data-testid={extra.testId}>
+          <BareButton aria-label={aria} onClick={extra.onClick} className={buttonCls} data-testid={extra.testId}>
             {content}
-          </Button>
+          </BareButton>
         )}
       </li>
     );
@@ -91,7 +93,7 @@ export function TabBar() {
           </ul>
         </nav>
       </LayoutGroup>
-      <IconButton label={t("nav.search")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto size-12 shrink-0 text-label-1 hover:bg-transparent [&_svg]:size-5" data-testid="open-palette-mobile">
+      <IconButton label={t("nav.search")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto size-12 shrink-0 rounded-full text-label-1 hover:bg-transparent [&_svg]:size-5" data-testid="open-palette-mobile">
         <Search aria-hidden />
       </IconButton>
     </div>

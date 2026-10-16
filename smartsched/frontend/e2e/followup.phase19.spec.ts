@@ -36,6 +36,10 @@ async function call<T>(page: Page, method: string, path: string, body?: unknown)
 }
 
 const EMPTY_TERM = "2027-BAHAR";
+/** a programme name is unique across terms, even after an undo archived it (backend ask), so names carry a run tag; the
+ * new people "T. E." / "S. K." still need a fresh database (the pre-check 409s on an archived namesake: backend ask) */
+const RUN = Date.now().toString(36).slice(-4);
+const PROGRAM_NAME = `Moleküler Biyoloji ve Genetik Tezli Yüksek Lisans (E2E ${RUN})`;
 async function emptyTerm(page: Page): Promise<Term> {
   const terms = (await call<Term[]>(page, "GET", "/terms")).body;
   const hit = terms.find((t) => t.code === EMPTY_TERM);
@@ -124,12 +128,12 @@ test("program wizard: a server draft from scratch, resume, validate, paste, coho
   await expect(page.getByTestId("error-summary")).toContainText("Program adı gerekli");
   await page.getByTestId("wizard-prefix").fill("MBG");
   await page.getByTestId("wizard-faculty").fill("Fen Bilimleri Enstitüsü");
-  await edit(page, () => page.getByTestId("wizard-program-name").fill("Moleküler Biyoloji ve Genetik Tezli Yüksek Lisans (E2E)"));
+  await edit(page, () => page.getByTestId("wizard-program-name").fill(PROGRAM_NAME));
   await expect(page.getByTestId("rail-program")).toHaveAttribute("data-status", "ok");
 
   // autosave is on the server: a reload resumes the same values on the same step
   await page.reload();
-  await expect(page.getByTestId("wizard-program-name")).toHaveValue("Moleküler Biyoloji ve Genetik Tezli Yüksek Lisans (E2E)");
+  await expect(page.getByTestId("wizard-program-name")).toHaveValue(PROGRAM_NAME);
   const draft = await call<{ payload: { program: { prefix: string } }; version: number }>(page, "GET", `/program-drafts/${draftId}`);
   expect(draft.body.payload.program.prefix).toBe("MBG");
 
@@ -220,7 +224,7 @@ test("program wizard: a server draft from scratch, resume, validate, paste, coho
 
   // Oluşturulanlar lists it; the draft page is the result screen with the undo
   await page.goto("/programs/new");
-  await expect(page.getByTestId("committed-list").getByTestId("draft-row").filter({ hasText: "(E2E)" })).toBeVisible();
+  await expect(page.getByTestId("committed-list").getByTestId("draft-row").filter({ hasText: `(E2E ${RUN})` })).toBeVisible();
   await page.goto(`/programs/new/${draftId}`);
   await page.getByTestId("undo-open").click();
   await page.getByTestId("undo-confirm").getByTestId("undo-go").click();
@@ -240,7 +244,7 @@ test("joint teaching on the real Bahar term: MBG 534 with MBG 014, the joint tot
   await expect(page).toHaveURL(/\/programs\/new\/\d+/);
   const draftId = Number(/\/programs\/new\/(\d+)/.exec(page.url())![1]);
   await page.getByTestId("wizard-faculty").fill("Fen Bilimleri Enstitüsü");
-  await edit(page, () => page.getByTestId("wizard-program-name").fill("MBG Tezsiz YL (E2E ortak ders)"));
+  await edit(page, () => page.getByTestId("wizard-program-name").fill(`MBG Tezsiz YL (E2E ortak ders ${RUN})`));
   await page.getByTestId("rail-courses").click();
   // an existing catalogue course is reused as is
   await page.getByTestId("wizard-existing-course").fill("MBG 534");

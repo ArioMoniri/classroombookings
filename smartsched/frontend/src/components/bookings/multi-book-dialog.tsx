@@ -28,6 +28,7 @@ import { Alert, Field, Loading, SelectField } from "@/components/admin/kit";
 import { bookingErrorMessage } from "./booking-errors";
 import type { DateFormatter } from "./date-format";
 import { parseSlotKey } from "./grid-model";
+import { DateField } from "@/components/ui/date-field";
 
 type Kind = "single" | "recurring";
 interface Problem {
@@ -322,14 +323,14 @@ function MultiBody({ slotKeys, termId, termEnd, fmt, onClose, onBooked }: { slot
                   <option value="session">{t("crbs.recur.startSession")}</option>
                   <option value="custom">{t("crbs.recur.custom")}</option>
                 </SelectField>
-                {start.mode === "custom" ? <Input type="date" aria-label={t("crbs.recur.startDate")} value={start.date} onChange={(e) => (setStart((c) => ({ ...c, date: e.target.value })), resetCheck())} /> : null}
+                {start.mode === "custom" ? <DateField aria-label={t("crbs.recur.startDate")} value={start.date} onChange={(v) => (setStart((c) => ({ ...c, date: v })), resetCheck())} /> : null}
               </Field>
               <Field label={t("crbs.recur.end")} htmlFor="multi-end">
                 <SelectField id="multi-end" value={end.mode} onChange={(e) => (setEnd((c) => ({ ...c, mode: e.target.value as "session" | "custom" })), resetCheck())}>
                   <option value="session">{t("crbs.recur.endSession", { date: termEnd ? fmt.short(termEnd) : "" })}</option>
                   <option value="custom">{t("crbs.recur.custom")}</option>
                 </SelectField>
-                {end.mode === "custom" ? <Input type="date" aria-label={t("crbs.recur.endDate")} value={end.date} onChange={(e) => (setEnd((c) => ({ ...c, date: e.target.value })), resetCheck())} /> : null}
+                {end.mode === "custom" ? <DateField aria-label={t("crbs.recur.endDate")} value={end.date} onChange={(v) => (setEnd((c) => ({ ...c, date: v })), resetCheck())} /> : null}
               </Field>
             </div>
           ) : null}

@@ -7,7 +7,7 @@
  * taken now, too old) in the backend's words, with the free alternatives when the slot was taken.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Download, Filter, RotateCcw, Undo2 } from "lucide-react";
+import { ChevronDown, Download, Filter, RotateCcw, SlidersHorizontal, Undo2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,9 @@ import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { ACTION_PREFIXES, auditQuery, canUndo, diffRows, emptyAuditFilters, ENTITY_TYPES, undoReasons, valueText, type AuditFilterForm } from "./audit-model";
 import { BareButton } from "@/components/shell/bare-button";
+import { DateField } from "@/components/ui/date-field";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
 
 export function AuditView() {
   const { t, locale } = useI18n();
@@ -38,6 +41,84 @@ export function AuditView() {
   const set = <K extends keyof AuditFilterForm>(k: K, v: AuditFilterForm[K]) => setDraft((p) => ({ ...p, [k]: v }));
   const exportHref = wave1.audit.exportUrl({ from: query.from, to: query.to, entity_type: query.entity_type });
   const [undoing, setUndoing] = useState<AuditEvent | null>(null);
+  const phone = useIsPhone();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // phones: the six filters live in a bottom sheet behind one "Filtreler · n" trigger (MOBILE.md M-04)
+  const filterForm = (
+    <form
+      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6"
+      aria-label={t("wave1.audit.filters")}
+      onSubmit={(e) => {
+        e.preventDefault();
+        setApplied(draft);
+        setFiltersOpen(false);
+      }}
+    >
+      <Field label={t("wave1.audit.entity")} htmlFor="au-entity">
+        <SelectField id="au-entity" value={draft.entityType} onChange={(e) => set("entityType", e.target.value)} data-testid="audit-entity">
+          <option value="">{t("wave1.audit.any")}</option>
+          {ENTITY_TYPES.map((x) => (
+            <option key={x} value={x}>
+              {entityLabel(x, t)}
+            </option>
+          ))}
+        </SelectField>
+      </Field>
+      <Field label={t("wave1.audit.entityId")} htmlFor="au-id">
+        <Input id="au-id" inputMode="numeric" value={draft.entityId} onChange={(e) => set("entityId", e.target.value)} data-testid="audit-entity-id" />
+      </Field>
+      <Field label={t("wave1.audit.action")} htmlFor="au-action">
+        <SelectField id="au-action" value={draft.action} onChange={(e) => set("action", e.target.value)} data-testid="audit-action">
+          <option value="">{t("wave1.audit.any")}</option>
+          {ACTION_PREFIXES.map((x) => (
+            <option key={x} value={x}>
+              {x}*
+            </option>
+          ))}
+        </SelectField>
+      </Field>
+      <Field label={t("wave1.audit.actor")} htmlFor="au-actor">
+        {users.data ? (
+          <SelectField id="au-actor" value={draft.actorId} onChange={(e) => set("actorId", e.target.value)}>
+            <option value="">{t("wave1.audit.anyone")}</option>
+            {users.data.items.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.displayname || u.username || u.email}
+              </option>
+            ))}
+          </SelectField>
+        ) : (
+          <Input id="au-actor" inputMode="numeric" placeholder="#" value={draft.actorId} onChange={(e) => set("actorId", e.target.value)} />
+        )}
+      </Field>
+      <Field label={t("wave1.find.from")} htmlFor="au-from">
+        <DateField id="au-from" value={draft.from} onChange={(v) => set("from", v)} />
+      </Field>
+      <Field label={t("wave1.find.to")} htmlFor="au-to">
+        <DateField id="au-to" value={draft.to} min={draft.from || undefined} onChange={(v) => set("to", v)} />
+      </Field>
+      <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-6">
+        <Button type="submit" data-testid="audit-apply">
+          <Filter aria-hidden />
+          {t("wave1.audit.apply")}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            setDraft(emptyAuditFilters);
+            setApplied(emptyAuditFilters);
+            setFiltersOpen(false);
+          }}
+        >
+          <RotateCcw aria-hidden />
+          {t("wave1.audit.reset")}
+        </Button>
+      </div>
+    </form>
+  );
+  const activeFilters = Object.values(auditQuery(applied)).length;
 
   return (
     <div className="flex flex-col gap-5" data-testid="audit">
@@ -51,65 +132,14 @@ export function AuditView() {
           </Button>
         }
       />
-      <Card className="gap-3 px-4 py-4">
-        <form
-          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6"
-          aria-label={t("wave1.audit.filters")}
-          onSubmit={(e) => {
-            e.preventDefault();
-            setApplied(draft);
-          }}
-        >
-          <Field label={t("wave1.audit.entity")} htmlFor="au-entity">
-            <SelectField id="au-entity" value={draft.entityType} onChange={(e) => set("entityType", e.target.value)} data-testid="audit-entity">
-              <option value="">{t("wave1.audit.any")}</option>
-              {ENTITY_TYPES.map((x) => (
-                <option key={x} value={x}>
-                  {entityLabel(x, t)}
-                </option>
-              ))}
-            </SelectField>
-          </Field>
-          <Field label={t("wave1.audit.entityId")} htmlFor="au-id">
-            <Input id="au-id" inputMode="numeric" value={draft.entityId} onChange={(e) => set("entityId", e.target.value)} data-testid="audit-entity-id" />
-          </Field>
-          <Field label={t("wave1.audit.action")} htmlFor="au-action">
-            <SelectField id="au-action" value={draft.action} onChange={(e) => set("action", e.target.value)} data-testid="audit-action">
-              <option value="">{t("wave1.audit.any")}</option>
-              {ACTION_PREFIXES.map((x) => (
-                <option key={x} value={x}>
-                  {x}*
-                </option>
-              ))}
-            </SelectField>
-          </Field>
-          <Field label={t("wave1.audit.actor")} htmlFor="au-actor">
-            {users.data ? (
-              <SelectField id="au-actor" value={draft.actorId} onChange={(e) => set("actorId", e.target.value)}>
-                <option value="">{t("wave1.audit.anyone")}</option>
-                {users.data.items.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.displayname || u.username || u.email}
-                  </option>
-                ))}
-              </SelectField>
-            ) : (
-              <Input id="au-actor" inputMode="numeric" placeholder="#" value={draft.actorId} onChange={(e) => set("actorId", e.target.value)} />
-            )}
-          </Field>
-          <Field label={t("wave1.find.from")} htmlFor="au-from">
-            <Input id="au-from" type="date" value={draft.from} onChange={(e) => set("from", e.target.value)} />
-          </Field>
-          <Field label={t("wave1.find.to")} htmlFor="au-to">
-            <Input id="au-to" type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => set("to", e.target.value)} />
-          </Field>
-          <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-6">
-            <Button type="submit" data-testid="audit-apply">
-              <Filter aria-hidden />
-              {t("wave1.audit.apply")}
-            </Button>
+      {phone ? (
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" data-testid="audit-filters-open">
+            <SlidersHorizontal aria-hidden />
+            {activeFilters ? t("reserve.filters.openCount", { n: activeFilters }) : t("reserve.filters.open")}
+          </Button>
+          {activeFilters ? (
             <Button
-              type="button"
               variant="ghost"
               onClick={() => {
                 setDraft(emptyAuditFilters);
@@ -119,9 +149,20 @@ export function AuditView() {
               <RotateCcw aria-hidden />
               {t("wave1.audit.reset")}
             </Button>
-          </div>
-        </form>
-      </Card>
+          ) : null}
+        </div>
+      ) : (
+        <Card className="gap-3 px-4 py-4">{filterForm}</Card>
+      )}
+      <Sheet open={phone && filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent side="bottom" className="gap-0 data-[side=bottom]:max-h-[92dvh]" data-testid="audit-filters-sheet">
+          <SheetHeader className="px-5 pt-5">
+            <SheetTitle className="type-title-3">{t("wave1.audit.filters")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("wave1.audit.lead")}</SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">{filterForm}</div>
+        </SheetContent>
+      </Sheet>
 
       <Card className="gap-0 overflow-hidden py-0">
         {log.isLoading ? (
