@@ -7,12 +7,12 @@ Data: the real Bahar 2026, Güz 2026-27 and Final 2026 workbooks plus the room m
 - #7 Bahar week 3, 688/716, hard 100 · #8 Bahar term, 683/717, hard 100, published (**B0**) · #9 Güz week 3, 524/530 · #10 Güz term, 517/530, published (**G0**) (all `stack.sh runs`, 11 min);
 - #11 Studio Bahar week 3 with the programme-wide nursing rules → ERROR · #12 Studio Bahar week 3 with the year-1 nursing rules, 688/716, hard 100, 9 s · #13 #12 + the 100-in-30 pin, 688/716 · #14 cancelled · #15 moderation re-solve of G0, published · #16 Final exam run, 603/608 in 1.3 s.
 F-08 ran on a fresh stack (`stack.sh up --fresh`, same ports and work folder, empty 2026-BAHAR). Accounts: the §4.4 seed (`personel.test`, `akademisyen.test` linked to instructor 157, `planner.test`) and `viewer.test` (VIEWER). SMTP sink on :2529 (it reached its 2-hour limit after the last mail step). No Anthropic key and AI policy off: the AI rows path is `SKIP (NEEDS-AI)`.
-Evidence root (scratch, not committed): `/tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/r1s/ev` (`shots/`, `curl/` with tokens redacted, `logs/`, `dl/` exported workbooks); the Playwright scripts are in `/tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/r1sscripts/`. Screenshots and logs that showed real names from the F-08 review were deleted (README §7); those findings quote counts only.
+Evidence root (scratch, not committed): `/tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/r1s/ev` (`shots/`, `curl/` with tokens redacted, `logs/`, `dl/` exported workbooks); the Playwright scripts are in `/tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad/r1s/scripts/`. Screenshots and logs that showed real names from the F-08 review were deleted (README §7); those findings quote counts only.
 
 ## BLUF
 
 39 findings: **3 blocker · 17 major · 14 minor · 5 suggestion**. The planning office can run most of a term on real data in Turkish: the Bahar list is accepted (1,527 requests, no double import of the list and its CSV export), the wizard builds and undoes a programme, the Studio generates week 3 in 9 s with honest numbers, PHAR 240 moves to a new room from 23 Feb with the exact week split, undo and redo, and the week exports to one Excel sheet. Three things stop the coordinator:
-1. **R1-S-01** a normal move into a TIP room is called 'uygun', drops the published run to hard 99 while the verdict says every rule holds, and the run can be re-published at 99: the hard-rule integrity claim does not hold today;
+1. **R1-S-01** a plain move into a TIP room that the server calls 'uygun' drops the published run to hard 99 while the verdict says every rule holds, and the run can be re-published at 99: the hard-rule integrity claim does not hold today;
 2. **R1-S-02** the Turkish nursing rule, entered as the template for the whole programme, crashes the pre-check (500) and the solver (ERROR run);
 3. **R1-S-03** a .docx in the intake with AI off turns into 36 blocking 'AI' rows and the review screen never appears.
 Top majors: the re-solve after one accepted wish loses 17 placed classes (R1-S-04); the 100-students-into-30-seats pin is accepted at the edit, also for a planner (R1-S-05); an ERROR run offers 'Yayınla' and the refusal reads as a stale-edit conflict (R1-S-06); the Studio card says 'hiçbir kural bozulmadı' next to 79 over-capacity classes (R1-S-07); an administrator cannot force a clash from the timetable (R1-S-09).
@@ -33,18 +33,18 @@ Top majors: the re-solve after one accepted wish loses 17 placed classes (R1-S-0
 | F-08 | R1-S-03, R1-S-10, R1-S-11, R1-S-12, R1-S-31 |
 | F-05 | R1-S-04, R1-S-25 |
 | /runs/compare scenario comparison | R1-S-13 |
-| /exams/invigilation run and publish on r | R1-S-14 |
-| Dashboard and Moderasyon on the publishe | R1-S-15 |
-| MOBILE M-02/M-05 on primary planning scr | R1-S-16 |
-| Hard-rule integrity audit through GET /r | R1-S-17 |
-| KVKK: intake review payload for a viewer | R1-S-18 |
+| /exams/invigilation run and publish on real Final data | R1-S-14 |
+| Dashboard and Moderasyon on the published imported board (Güz #3) | R1-S-15 |
+| MOBILE M-02/M-05 on primary planning screens | R1-S-16 |
+| Hard-rule integrity audit through GET /runs/<id>/assignments | R1-S-17 |
+| KVKK: intake review payload for a viewer, and intake memory | R1-S-18 |
 | F-06 | R1-S-19, R1-S-30 |
 | Turkish wording across the staff screens | R1-S-23 |
 | English words in the Turkish UI | R1-S-24 |
 | F-07 | R1-S-29 |
-| Academician 'Tercih ekle' with no class  | R1-S-32 |
+| Academician 'Tercih ekle' with no class selected | R1-S-32 |
 | Small accessibility items | R1-S-33 |
-| KVKK test tooling on the fresh-stack imp | R1-S-34 |
+| KVKK test tooling on the fresh-stack import | R1-S-34 |
 | Speed under load | R1-S-35 |
 | Planner data quality seen while planning | R1-S-36 |
 | Forced clash on the live plan | R1-S-37 |
