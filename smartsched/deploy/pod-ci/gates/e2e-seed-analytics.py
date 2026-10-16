@@ -1,11 +1,11 @@
 # ruff: noqa: RUF001, RUF002, RUF003  (the Turkish run labels the spec looks up)
-"""Seed the runs the planning-analytics specs read (e2e/analytics.spec.ts), on the e2e backend's database.
+"""Seed the runs the planning-analytics specs read (e2e/analytics.spec.ts) and publish the imported board.
 
 E2E stack only (e2e-backend-entry.sh, after the Bahar imports, the room master and the full-term solve; the Final
 board and exam list are imported by the entry script with the CLI). Mirrors tests/planning_analytics_support.py
 on the e2e database, with the labels the spec looks up:
 
-  "Bahar 3. hafta (A)"                                     Bahar week 3, solved like POST /runs, then PUBLISHED
+  "Bahar 3. hafta (A)"                                     Bahar week 3, solved like POST /runs
   "Bahar 3. hafta, en yoğun derslik çarşamba kapalı (B)"   week 3 again with A's busiest Wednesday room closed
   "Final (A)"                                              the 2026-FINAL exam run
 and the week-3 run calendar.spec.ts edits ("e2e: Bahar 3. hafta (takvim düzenlemeleri)").
@@ -99,22 +99,28 @@ async def main() -> int:
         course(bahar, "Bahar 3. hafta, en yoğun derslik çarşamba kapalı (B)"),
         {"room_id": room, "day": 3, "start": 1, "end": 18, "weeks": [3]},
     )
-    # A is the published timetable of the term (the heatmap's "Yayındaki program", the comparison's baseline)
+    # the term's imported weekly board is its published timetable (the heatmap's "Yayındaki program"), as on a real
+    # install after the grid import; not A: a week-3 run as the published plan would leave every other week empty
+    # for the specs that read the published plan (room pages, booking grid, moderation)
     async with factory() as s:
-        for r in (
-            await s.execute(
-                select(ScheduleRun).where(
-                    ScheduleRun.term_id == bahar, ScheduleRun.kind == "COURSE", ScheduleRun.is_active.is_(True)
+        runs = (
+            (
+                await s.execute(
+                    select(ScheduleRun)
+                    .where(ScheduleRun.term_id == bahar, ScheduleRun.kind == "COURSE")
+                    .order_by(ScheduleRun.id)
                 )
             )
-        ).scalars():
-            r.is_active = False
-        await s.flush()
-        row = await s.get(ScheduleRun, a_id)
-        if row is None:
-            raise SystemExit(f"run #{a_id} vanished")
-        row.is_active = True
+            .scalars()
+            .all()
+        )
+        board = next((r for r in runs if (r.params or {}).get("source") == "GRID_IMPORT"), None)
+        if board is None:
+            raise SystemExit("2026-BAHAR has no grid-import board run")
+        for r in runs:
+            r.is_active = r.id == board.id
         await s.commit()
+        print(f"e2e analytics seed: board run #{board.id} published", flush=True)
 
     # the run calendar.spec.ts moves classes in (move + undo leaves it "edited", and an edited run is re-checked
     # against the bookings on publishing): its own run, so the full-term run stays publishable for wave2.spec.ts 1
