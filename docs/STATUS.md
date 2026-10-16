@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `893c382` (committed 2026-10-16 09:27 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `f866560` (committed 2026-10-16 09:40 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
