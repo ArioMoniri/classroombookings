@@ -1599,7 +1599,8 @@
       "goal": "You are the **wave-2 UI follow-ups** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: wave2-ui-followups-2026-10-16. ## Contracts (backend batch 3 landed; see docs/ROADMAP.md \"Backe…",
       "ledger": "Wave-2 UI follow-ups",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 09:23"
     },
     {
       "id": "aa75c80843e250170",
