@@ -43,7 +43,7 @@ import {
 import { canManageAccount, isPrivilegedRole, roleGrantCheck, usePermissions } from "@/lib/permissions";
 import { useAuthProviders, useInvites, useUserIdentityStatus, type Invite, type UserIdentityStatus } from "@/lib/api/identity";
 import { BindDialog, BreakGlassWarning, IdentitiesSection, IdentityMenuItems, IdentityStatusCell, IdentityTags, InviteSheet, MethodCell, RevokeDialog } from "./users-admin-identity";
-import { breakGlassMissing, identityCounts, invitesByUser, matchesIdentity, methodView, statusView, type IdentityFilter, type MethodFilter } from "./users-admin-identity-model";
+import { breakGlassMissing, identityQuery, invitesByUser, methodView, statusView, type IdentityFilter, type MethodFilter } from "./users-admin-identity-model";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
@@ -79,11 +79,15 @@ export function UsersAdmin() {
   const [page, setPage] = useState(0);
   const [idFilter, setIdFilter] = useState<IdentityFilter>(() => (params.get("identity") === "invited" ? "invited" : params.get("identity") === "self" ? "self" : "all"));
   const [method, setMethod] = useState<MethodFilter>("");
-  // identity filters come from the status map: fetch one big page and filter + page here (backend ask: a server filter)
-  const identityFiltered = idFilter !== "all" || method !== "";
-  const query = { q: q || undefined, role_id: role ? Number(role) : undefined, department_id: dept ? Number(dept) : undefined, enabled: enabled === "" ? undefined : enabled === "1", sort, limit: identityFiltered ? 500 : PAGE, offset: identityFiltered ? 0 : page * PAGE };
-  const users = useUserSearch(query);
   const usersAdmin = can("setup.users");
+  // the identity chips and the method select filter on the server (`identity=`, `self_signup_days=7`), with
+  // server paging and the server's total; only setup.users sees the identity columns, so only they filter by it
+  const base = { q: q || undefined, role_id: role ? Number(role) : undefined, department_id: dept ? Number(dept) : undefined, enabled: enabled === "" ? undefined : enabled === "1" };
+  const query = { ...base, ...(usersAdmin ? identityQuery(idFilter, method) : {}), sort, limit: PAGE, offset: page * PAGE };
+  const users = useUserSearch(query);
+  // the chip counts: the server's totals for the same filters (limit 1)
+  const invitedCount = useUserSearch({ ...base, ...identityQuery("invited", ""), limit: 1 }, usersAdmin);
+  const selfCount = useUserSearch({ ...base, ...identityQuery("self", ""), limit: 1 }, usersAdmin);
   const providers = useAuthProviders();
   const auth = providers.data?.auth;
   const msEnabled = Boolean(auth?.microsoft.enabled);
@@ -91,7 +95,7 @@ export function UsersAdmin() {
   const invites = useInvites(usersAdmin);
   const inviteOf = invitesByUser(invites.data);
   const statusOf = (u: AdminUser): UserIdentityStatus | undefined => idStatus.data?.[String(u.id)];
-  const counts = identityCounts(idStatus.data);
+  const counts = { invited: invitedCount.data?.total ?? 0, selfRecent: selfCount.data?.total ?? 0 };
   const [inviteOpen, setInviteOpen] = useState(false);
   const [binding, setBinding] = useState<AdminUser | null>(null);
   const [revoking, setRevoking] = useState<{ invite: Invite; kind: "invite" | "bind" } | null>(null);
@@ -99,8 +103,7 @@ export function UsersAdmin() {
     const hit = id ? users.data?.items.find((x) => x.id === id) : undefined;
     return hit ? hit.displayname || hit.full_name || hit.username || hit.email || null : null;
   };
-  const filteredItems = identityFiltered ? (users.data?.items ?? []).filter((u) => matchesIdentity(statusOf(u), idFilter, method, u.auth_source)) : (users.data?.items ?? []);
-  const visible = identityFiltered ? filteredItems.slice(page * PAGE, (page + 1) * PAGE) : filteredItems;
+  const visible = users.data?.items ?? [];
   const privileged = (u: AdminUser) => u.role === "ADMIN" || isPrivilegedRole(roles.data?.find((r) => r.id === u.role_id)) || (u.approves_for?.length ?? 0) > 0;
   const roles = useRoles(can("setup.roles"));
   const departments = useDepartments();
@@ -111,7 +114,7 @@ export function UsersAdmin() {
   const toastError = useErrorToast();
   const reset = useCrbsMutation((u: AdminUser) => crbs.users.resetToken(u.id));
   const del = useCrbsMutation((u: AdminUser) => crbs.users.remove(u.id), [["crbs", "users"]]);
-  const total = identityFiltered ? filteredItems.length : (users.data?.total ?? 0);
+  const total = users.data?.total ?? 0;
   const manageable = (u: AdminUser) => canManageAccount(perms, userId, { id: u.id, role: u.role, role_permissions: roles.data?.find((r) => r.id === u.role_id)?.permissions });
   const fmt = useBookingFormat();
   const dt = (iso: string | null | undefined) => fmt.dateTime(iso) || "—";
@@ -191,19 +194,19 @@ export function UsersAdmin() {
       </div>
       {usersAdmin && idStatus.data ? (
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("sso.users.filters")} data-testid="identity-filters">
-          <Chip className={TOUCH_CHIP} selected={idFilter === "all" && enabled !== "0"} onSelectedChange={() => (setIdFilter("all"), setEnabled(""), setPage(0))}>
+          <Chip className={TOUCH_CHIP} selected={idFilter === "all" && enabled !== "0"} onSelectedChange={() => (setIdFilter("all"), setMethod(""), setEnabled(""), setPage(0))}>
             {t("sso.users.filterAll")}
           </Chip>
-          <Chip className={TOUCH_CHIP} selected={idFilter === "invited"} onSelectedChange={(on) => (setIdFilter(on ? "invited" : "all"), setPage(0))} data-testid="filter-invited">
+          <Chip className={TOUCH_CHIP} selected={idFilter === "invited"} onSelectedChange={(on) => (setIdFilter(on ? "invited" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-invited">
             {t("sso.users.filterInvited", { n: counts.invited })}
           </Chip>
-          <Chip className={TOUCH_CHIP} selected={idFilter === "self"} onSelectedChange={(on) => (setIdFilter(on ? "self" : "all"), setPage(0))} data-testid="filter-self">
+          <Chip className={TOUCH_CHIP} selected={idFilter === "self"} onSelectedChange={(on) => (setIdFilter(on ? "self" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-self">
             {t("sso.users.filterSelf", { n: counts.selfRecent })}
           </Chip>
           <Chip className={TOUCH_CHIP} selected={enabled === "0"} onSelectedChange={(on) => (setEnabled(on ? "0" : ""), setPage(0))}>
             {t("sso.users.status.disabled")}
           </Chip>
-          <SelectField aria-label={t("sso.users.methodFilter")} className="w-auto min-w-44" value={method} onChange={(e) => (setMethod(e.target.value as MethodFilter), setPage(0))} data-testid="filter-method">
+          <SelectField aria-label={t("sso.users.methodFilter")} className="w-auto min-w-44" value={method} onChange={(e) => (setMethod(e.target.value as MethodFilter), e.target.value && setIdFilter("all"), setPage(0))} data-testid="filter-method">
             <option value="">{t("sso.users.methodFilter")}</option>
             <option value="microsoft">{t("sso.users.method.microsoft")}</option>
             <option value="local">{t("sso.users.method.local")}</option>

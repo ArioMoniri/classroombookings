@@ -75,21 +75,6 @@ export function identityQuery(filter: IdentityFilter, method: MethodFilter): { i
   return {};
 }
 
-export interface IdentityCounts {
-  invited: number;
-  selfRecent: number;
-}
-
-export function identityCounts(map: Record<string, UserIdentityStatus> | undefined, now: number = Date.now()): IdentityCounts {
-  let invited = 0;
-  let selfRecent = 0;
-  for (const s of Object.values(map ?? {})) {
-    if (s.status === "invited") invited++;
-    if (selfSignupRecent(s, now)) selfRecent++;
-  }
-  return { invited, selfRecent };
-}
-
 /**
  * Break-glass warning (§13): Microsoft on, password sign-in off for everyone, and no active administrator with a
  * local password. `break_glass` per user comes from the status map.

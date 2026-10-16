@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { UserIdentityStatus } from "@/lib/api/identity";
-import { breakGlassMissing, cleanInviteEmail, identityCounts, invitesByUser, matchesIdentity, methodView, selfSignupRecent, statusView } from "./users-admin-identity-model";
+import { breakGlassMissing, cleanInviteEmail, identityQuery, invitesByUser, methodView, selfSignupRecent, statusView } from "./users-admin-identity-model";
 
 const NOW = Date.parse("2026-10-16T10:00:00Z");
 const s = (over: Partial<UserIdentityStatus> = {}): UserIdentityStatus => ({ status: "none", auth_methods: ["local"], invite: null, binding_pending: false, self_signup_at: null, break_glass: false, instructor_id: null, ...over });
@@ -34,16 +34,20 @@ describe("filters and counts", () => {
     "3": s({ status: "linked", auth_methods: ["microsoft"], self_signup_at: "2026-09-01T08:00:00Z" }),
     "4": s({ break_glass: true }),
   };
-  it("counts pending invites and self sign-ups of the last 7 days", () => {
-    expect(identityCounts(map, NOW)).toEqual({ invited: 1, selfRecent: 1 });
+  it("knows a self sign-up of the last 7 days", () => {
+    expect(selfSignupRecent(map["2"], NOW)).toBe(true);
     expect(selfSignupRecent(map["3"], NOW)).toBe(false);
   });
-  it("chip and method filters", () => {
-    expect(matchesIdentity(map["1"], "invited", "", "local", NOW)).toBe(true);
-    expect(matchesIdentity(map["2"], "invited", "", "local", NOW)).toBe(false);
-    expect(matchesIdentity(map["2"], "self", "", "local", NOW)).toBe(true);
-    expect(matchesIdentity(map["4"], "all", "microsoft", "local", NOW)).toBe(false);
-    expect(matchesIdentity(map["4"], "all", "local", "local", NOW)).toBe(true);
+  it("sends the chip or the method as the server's identity filter (one choice at a time)", () => {
+    expect(identityQuery("all", "")).toEqual({});
+    expect(identityQuery("invited", "")).toEqual({ identity: "invited" });
+    expect(identityQuery("self", "")).toEqual({ identity: "self_signup", self_signup_days: 7 });
+    expect(identityQuery("all", "microsoft")).toEqual({ identity: "sso" });
+    expect(identityQuery("all", "local")).toEqual({ identity: "local" });
+    expect(identityQuery("all", "ldap")).toEqual({ identity: "ldap" });
+    expect(identityQuery("all", "binding")).toEqual({ identity: "binding" });
+    // a chip wins over the select
+    expect(identityQuery("invited", "local")).toEqual({ identity: "invited" });
   });
 });
 
