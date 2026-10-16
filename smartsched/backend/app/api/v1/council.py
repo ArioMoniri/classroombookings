@@ -10,12 +10,17 @@ POST /council/jobs/{id}/commit      write into a term (planner group, existing t
 POST /council/jobs/{id}/rerun       run the council again on the stored files (new attempt)
 GET  /council/jobs/{id}/records     extracted records of one file (paged), with source references
 GET  /council/jobs/{id}/artifacts   audit trail: artifact metadata (kind, file, step, time, size)
+GET  /council/memory                intake memory: remembered decisions, grouped by signature (TR / EN text)
+DELETE /council/memory/{id}         forget one remembered decision (a learning reset of scope intake, undoable)
+DELETE /council/memory?signature=   forget every remembered decision of one signature
 
 Guards (app/api/deps.py, role permissions + token revocation): reading a job, its events and its review needs
 ``planning.view``; uploading, deciding, committing, re-running and reading the extracted records or artifact
 payloads (file content) needs ``planning.edit`` - the same split as ``/imports`` (its file download is
-``planning.edit`` too). Uploads follow ``app/core/safe_files.py`` (byte caps, OOXML inspection); a commit is
-one ``council.commit`` audit event (``app/services/events.py``).
+``planning.edit`` too). The intake memory list needs ``planning.view`` (headers, merge names and rule texts for
+``planning.edit`` only); forgetting needs ``planning.edit`` (the review's permission). Uploads follow
+``app/core/safe_files.py`` (byte caps, OOXML inspection); a commit is one ``council.commit`` audit event
+(``app/services/events.py``).
 """
 
 from __future__ import annotations
@@ -35,7 +40,7 @@ from app.api.v1.imports import locked_409
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
-from app.council import airows, formats, formats_mail, storage
+from app.council import airows, formats, formats_mail, memory_admin, storage
 from app.council import text as tx
 from app.council.commit import CommitError, commit
 from app.council.dryrun import dry_run
@@ -489,3 +494,51 @@ async def get_artifacts(job_id: int, db: DB, _: Planner, kind: str | None = None
         }
         for a in rows
     ]
+
+
+# --------------------------------------------------------------------------- intake memory
+
+
+def _memory_error(exc: memory_admin.IntakeMemoryError) -> HTTPException:
+    return HTTPException(exc.status, exc.detail)
+
+
+@router.get("/memory")
+async def list_memory(
+    db: DB,
+    _: Viewer,
+    access: CurrentAccess,
+    signature: str | None = None,
+    kind: str | None = None,
+    job_id: int | None = None,
+) -> dict[str, Any]:
+    """What the intake remembers (app/council/memory_admin.py): rows with a TR / EN description and the groups,
+    one per signature; ``effective`` marks the row the next matching upload is offered."""
+    try:
+        return await memory_admin.listing(
+            db, signature=signature, kind=kind, job_id=job_id, content=access.can("planning.edit")
+        )
+    except memory_admin.IntakeMemoryError as exc:
+        raise _memory_error(exc) from exc
+
+
+@router.delete("/memory/{row_id}")
+async def forget_memory_row(row_id: int, db: DB, user: Planner, reason: str | None = None) -> dict[str, Any]:
+    """Forget one remembered decision: a learning reset of scope ``intake`` (undo for 30 days, audited)."""
+    try:
+        out = await memory_admin.forget_one(db, user, row_id, reason)
+    except memory_admin.IntakeMemoryError as exc:
+        raise _memory_error(exc) from exc
+    await db.commit()
+    return out
+
+
+@router.delete("/memory")
+async def forget_memory_signature(db: DB, user: Planner, signature: str, reason: str | None = None) -> dict[str, Any]:
+    """Forget every remembered decision of one signature (one reset, one audit event)."""
+    try:
+        out = await memory_admin.forget_signature(db, user, signature, reason)
+    except memory_admin.IntakeMemoryError as exc:
+        raise _memory_error(exc) from exc
+    await db.commit()
+    return out

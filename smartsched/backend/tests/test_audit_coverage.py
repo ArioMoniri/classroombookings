@@ -129,6 +129,8 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/council/jobs/{job_id}/commit": (E, "app.council.commit"),
     "POST /api/v1/council/jobs/{job_id}/rerun": (J, "council job tables"),
     "POST /api/v1/council/jobs/{job_id}/rows/decisions": (E, "app.council.airows"),  # council.review
+    "DELETE /api/v1/council/memory/{row_id}": (E, "app.council.memory_admin"),  # council.memory.forget
+    "DELETE /api/v1/council/memory": (E, "app.council.memory_admin"),  # council.memory.forget
     # catalogue (P19-C1/C2)
     **{
         f"{m} /api/v1/{res}{suffix}": (E, "app.services.catalog_admin")
