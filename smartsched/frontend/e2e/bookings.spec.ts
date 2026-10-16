@@ -62,6 +62,8 @@ async function loginToken(identifier: string, password: string): Promise<string>
 }
 
 async function uiLogin(page: Page, identifier: string, password: string) {
+  // leave a signed-out app page first: its 401 redirect to /login?expired would abort this navigation
+  if (page.url() !== "about:blank") await page.goto("about:blank");
   await page.goto("/login");
   await page.fill("#identifier", identifier);
   await page.fill("#password", password);

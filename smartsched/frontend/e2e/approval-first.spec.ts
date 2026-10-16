@@ -93,6 +93,8 @@ async function free(date: string, n: number, skip = 0): Promise<GridSlot[]> {
 }
 /** one request by the teacher (POST /bookings → 202) */
 async function requestOne(date: string, skip = 0): Promise<Req> {
+  const check = await api<{ action: string }>("GET", `/approvals/rooms/${ctx.room.id}/check`, undefined, ctx.teacherToken);
+  expect(check.action, `the teacher's booking in ${ctx.room.name} must need approval (approval_mode "all", our admin approves every room)`).toBe("request");
   const [slot] = await free(date, 1, skip);
   const r = await call<{ id: number; status: string }>("POST", "/bookings", { room_id: ctx.room.id, date, period_id: slot!.period_id, term_id: ctx.termId, notes: "Telafi dersi" }, ctx.teacherToken);
   expect(r.status, JSON.stringify(r.body)).toBe(202);
@@ -100,6 +102,8 @@ async function requestOne(date: string, skip = 0): Promise<Req> {
 }
 /** helpers.login with a longer wait: a `next dev` server compiles the landing page on first use */
 async function login(page: Page, identifier: string, password: string): Promise<void> {
+  // leave a signed-out app page first: its 401 redirect to /login?expired would abort this navigation
+  if (page.url() !== "about:blank") await page.goto("about:blank");
   await page.goto("/login");
   await page.getByTestId("login-identifier").fill(identifier);
   await page.getByTestId("login-password").fill(password);
@@ -123,6 +127,9 @@ test.beforeAll(async () => {
   const dates = await api<{ today: string }>("GET", "/bookings/dates");
   test.skip(dates.today < "2026-02-02" || dates.today > "2026-06-28", `the backend's booking clock (${dates.today}) must be inside Bahar 2026`);
   ctx.mode = (await api<{ approval_mode?: string }>("GET", "/org/settings")).approval_mode ?? "rules";
+  // every test from 2 on needs "every request asks first": set it here so each test also passes alone (--grep);
+  // test 1 still switches it in the UI from "rules", and afterAll puts the organisation's mode back
+  await api("PUT", "/org/settings", { approval_mode: "all" });
   const integrations = await api<{ calendar_sync_enabled: boolean; webhooks_enabled: boolean }>("GET", "/calendar/admin/settings");
   ctx.calendar = integrations.calendar_sync_enabled;
   ctx.sending = integrations.webhooks_enabled;
