@@ -1506,6 +1506,18 @@
       "ledger": "Bookings wave-2 + KVKK UI",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a3ec26c84a104825f",
+      "description": "Mobile caller-layout polish",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 06:13",
+      "scope": "",
+      "goal": "You are the **mobile polish** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: mobile-polish-2026-10-16. ## Context The ui-primitives agent just finished 44 px hit areas (`ui/hit-ar…",
+      "ledger": "Mobile caller-layout polish",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

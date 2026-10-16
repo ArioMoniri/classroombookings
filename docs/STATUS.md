@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `1687164` (committed 2026-10-16 06:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `c9d9dbc` (committed 2026-10-16 06:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-137 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 115 · stopped 7 · superseded 7.
+138 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 115 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -157,6 +157,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Planning analytics + invigilation UI` | frontend-engineer | 2026-10-16 04:42 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
 | `Bookings wave-2 + KVKK UI` | frontend-engineer | 2026-10-16 06:08 |
+| `Mobile caller-layout polish` | frontend-engineer | 2026-10-16 06:13 |
 
 <!-- /AUTO:agents -->
 
