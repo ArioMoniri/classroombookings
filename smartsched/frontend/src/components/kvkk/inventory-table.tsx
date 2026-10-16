@@ -24,7 +24,7 @@ export function InventoryTable() {
   const inv = q.data;
   const kept = (c: InventoryClass) => {
     const r = c.retention;
-    if (r) return r.enabled ? (r.legal_hold ? t("kvkk.inventory.held") : t("kvkk.inventory.days", { n: r.retain_days, action: t(r.action === "anonymise" ? "kvkk.retention.anonymise" : "kvkk.retention.delete") })) : t("kvkk.inventory.retentionOff");
+    if (r) return r.enabled ? (r.legal_hold ? t("kvkk.inventory.held") : t("kvkk.inventory.days", { n: r.retain_days, action: t(r.action === "anonymise" ? "kvkk.retention.anonymise" : "kvkk.retention.delete").toLocaleLowerCase(locale) })) : t("kvkk.inventory.retentionOff");
     return c.kept ?? "–";
   };
   const download = () => {

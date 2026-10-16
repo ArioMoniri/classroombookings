@@ -363,7 +363,7 @@ function GroupCard({
           })}
         </ul>
       ) : (
-        <fieldset className="flex flex-col gap-1">
+        <fieldset className="min-w-0 flex flex-col gap-1">
           <legend className="mb-1 type-footnote font-medium text-label-2">{t("resolver.options")}</legend>
           {options.map((o, i) => {
             const Icon = OPTION_ICON[o.kind];

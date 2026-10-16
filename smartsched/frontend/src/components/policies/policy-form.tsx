@@ -131,7 +131,7 @@ export function PolicyForm({
         <p className="type-footnote text-label-3">{p.effect === "refuse" ? t("policies.effect.refuseHint") : t("policies.effect.requestHint")}</p>
       </div>
 
-      <fieldset className="flex flex-col gap-2">
+      <fieldset className="min-w-0 flex flex-col gap-2">
         <legend className="mb-1 type-footnote font-medium text-label-2">{t("policies.form.scope")}</legend>
         <SegmentedControl
           aria-label={t("policies.form.scope")}
@@ -153,7 +153,7 @@ export function PolicyForm({
         {errorFor("scope") ? <p className="type-footnote text-status-infeasible-fg" role="alert">{errorFor("scope")}</p> : null}
       </fieldset>
 
-      <fieldset className="flex flex-col gap-2">
+      <fieldset className="min-w-0 flex flex-col gap-2">
         <legend className="mb-1 type-footnote font-medium text-label-2">{t("policies.form.roles")}</legend>
         {ctx.roles ? (
           ctx.roles.length ? (
@@ -188,7 +188,7 @@ export function PolicyForm({
         </NativeSelect>
       </Field>
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="min-w-0 flex flex-col gap-3">
         <legend className="mb-1 type-headline text-label-1">{t("policies.form.limits")}</legend>
         <p className="-mt-2 type-footnote text-label-3">{t("policies.form.limitsHint")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -254,7 +254,7 @@ function QuietHours({ value, onChange, error }: { value: PolicyIn["quiet_hours"]
   const { t } = useI18n();
   const update = (i: number, patch: Partial<PolicyIn["quiet_hours"][number]>) => onChange(value.map((w, j) => (j === i ? { ...w, ...patch } : w)));
   return (
-    <fieldset className="flex flex-col gap-2" data-testid="policy-quiet">
+    <fieldset className="min-w-0 flex flex-col gap-2" data-testid="policy-quiet">
       <legend className="mb-1 type-headline text-label-1">{t("policies.quiet.title")}</legend>
       <p className="-mt-1 type-footnote text-label-3">{t("policies.quiet.lead")}</p>
       {value.length === 0 ? <p className="type-footnote text-label-2">{t("policies.quiet.none")}</p> : null}
@@ -295,7 +295,7 @@ function Blackouts({ value, onChange, error }: { value: PolicyIn["blackouts"]; o
   const { t } = useI18n();
   const update = (i: number, patch: Partial<PolicyIn["blackouts"][number]>) => onChange(value.map((b, j) => (j === i ? { ...b, ...patch } : b)));
   return (
-    <fieldset className="flex flex-col gap-2" data-testid="policy-blackouts">
+    <fieldset className="min-w-0 flex flex-col gap-2" data-testid="policy-blackouts">
       <legend className="mb-1 type-headline text-label-1">{t("policies.blackout.title")}</legend>
       <p className="-mt-1 type-footnote text-label-3">{t("policies.blackout.lead")}</p>
       {value.length === 0 ? <p className="type-footnote text-label-2">{t("policies.blackout.none")}</p> : null}
