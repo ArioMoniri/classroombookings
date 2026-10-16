@@ -1426,7 +1426,9 @@
       "goal": "You are the **bookings wave-2 backend** builder for SmartSched (FastAPI backend /home/user/classroombookings/smartsched/backend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: bookings-wave2-backend-2026-10-16. ## Owner's requirement \"All CRBS features and more\", \"finish …",
       "ledger": "Bookings P2/P8/V2/A4 backend",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 04:26",
+      "left_off": "The full fast suite is running in the background. I'll write the hand-off once it finishes."
     },
     {
       "id": "a03702ad8291c8e88",

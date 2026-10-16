@@ -1,0 +1,196 @@
+/**
+ * "Tercih ekle" as data (P19-T2; backend app/services/teacher_preferences.py): the form state of the sheet, the
+ * request body it sends, the client-side checks that mirror the server's (the server stays the final word), the
+ * summary sentence shown before sending (the same wording as the server's `_texts` + `effective`), the error
+ * codes, and the coordinator's review order (pending first, one card per submission). Pure functions, unit-tested.
+ */
+import type { Matching, PrefStatus } from "@/lib/api/moderation";
+import type { TeacherPref, WishIn, WishKind } from "@/lib/api/teacher-preferences";
+import { PERIODS_PER_DAY } from "@/lib/time";
+
+export type Lang = "tr" | "en";
+
+/* ------------------------------------------------------------------ the form */
+
+export interface WishForm {
+  kind: WishKind;
+  requestIds: number[];
+  roomIds: number[];
+  buildings: string[];
+  earliest: number | null;
+  latest: number | null;
+  days: number[];
+  note: string;
+}
+
+export const MAX_ROOMS = 5;
+export const NOTE_MAX = 500;
+export const REASON_MIN = 3;
+export const REASON_MAX = 1000;
+
+export function emptyWish(requestIds: readonly number[] = []): WishForm {
+  return { kind: "room_preference", requestIds: [...requestIds], roomIds: [], buildings: [], earliest: null, latest: null, days: [], note: "" };
+}
+
+/** the building of a room as the server reads it: the first letter of the code ("C 404" → "C") */
+export function buildingOf(code: string | null | undefined): string {
+  return (code ?? "").trim().slice(0, 1).toLocaleUpperCase("tr");
+}
+
+/** the buildings the rooms span, A → Z */
+export function buildingsOf(rooms: readonly { code: string }[]): string[] {
+  return [...new Set(rooms.map((r) => buildingOf(r.code)).filter((b) => /^[A-ZÇĞİÖŞÜ]$/.test(b)))].sort((a, b) => a.localeCompare(b, "tr"));
+}
+
+/** the selected classes whose day and time the department form fixed (a time wish cannot move them) */
+export function fixedClasses(rows: readonly Pick<Matching, "request_id" | "requested" | "label">[], ids: readonly number[]): Pick<Matching, "request_id" | "label">[] {
+  const want = new Set(ids);
+  return rows.filter((m) => want.has(m.request_id) && m.requested.start_period !== null);
+}
+
+export type FormIssue = "noClasses" | "noRoom" | "tooManyRooms" | "noBuilding" | "noWindow" | "badWindow" | "noteLong";
+
+/** what the sheet refuses before sending (the server checks the same and more) */
+export function formIssues(f: WishForm): FormIssue[] {
+  const out: FormIssue[] = [];
+  if (!f.requestIds.length) out.push("noClasses");
+  if (f.kind === "room_preference") {
+    if (!f.roomIds.length) out.push("noRoom");
+    if (f.roomIds.length > MAX_ROOMS) out.push("tooManyRooms");
+  } else if (f.kind === "building_preference") {
+    if (!f.buildings.length) out.push("noBuilding");
+  } else if (f.earliest === null && f.latest === null) {
+    out.push("noWindow");
+  } else if ((f.earliest ?? 1) > (f.latest ?? PERIODS_PER_DAY)) {
+    out.push("badWindow");
+  }
+  if (f.note.trim().length > NOTE_MAX) out.push("noteLong");
+  return out;
+}
+
+/** the request body: only the fields of the chosen kind (the server refuses `hardness` / `weight` anyway) */
+export function wishBody(f: WishForm): WishIn {
+  const body: WishIn = { kind: f.kind, request_ids: [...new Set(f.requestIds)] };
+  if (f.kind === "room_preference") body.room_ids = [...new Set(f.roomIds)];
+  else if (f.kind === "building_preference") body.buildings = [...new Set(f.buildings)];
+  else {
+    if (f.earliest !== null) body.earliest = f.earliest;
+    if (f.latest !== null) body.latest = f.latest;
+    if (f.days.length) body.days = [...new Set(f.days)].sort((a, b) => a - b);
+  }
+  const note = f.note.trim();
+  if (note) body.note = note;
+  return body;
+}
+
+/**
+ * The sentence the server will store (`teacher_preferences._texts`): "PSY 277 §1: oda tercihi C 404". Shown before
+ * sending, so the academician reads what the coordinator will read.
+ */
+export function wishSentence(f: WishForm, labels: readonly string[], roomNames: readonly string[], lang: Lang): string {
+  const what = labels.slice(0, 3).join(", ") + (labels.length > 3 ? " …" : "");
+  if (f.kind === "room_preference") {
+    const names = roomNames.join(", ");
+    return lang === "tr" ? `${what}: oda tercihi ${names}` : `${what}: room preference ${names}`;
+  }
+  if (f.kind === "building_preference") {
+    const names = f.buildings.join(", ");
+    return lang === "tr" ? `${what}: ${names} blok tercihi` : `${what}: building ${names} preferred`;
+  }
+  const span = `P${f.earliest ?? 1}–P${f.latest ?? PERIODS_PER_DAY}`;
+  return lang === "tr" ? `${what}: ders saatleri ${span} arasında` : `${what}: classes within ${span}`;
+}
+
+/* ------------------------------------------------------------------ errors */
+
+/** the server's refusal codes the sheet and the review explain in their own words (messages moderation.wish.err.*) */
+export const KNOWN_ERRORS = [
+  "not_linked",
+  "not_yours",
+  "hard",
+  "weight",
+  "kind",
+  "no_classes",
+  "not_found",
+  "too_many",
+  "several_terms",
+  "fixed_by_department",
+  "already_requested",
+  "unknown_room",
+  "no_room",
+  "too_many_rooms",
+  "room_closed",
+  "unknown_building",
+  "no_building",
+  "time",
+  "window",
+  "days",
+  "note",
+  "invalid_rule",
+  "too_many_pending",
+  "decided",
+  "reason_required",
+  "decision",
+] as const;
+export type KnownError = (typeof KNOWN_ERRORS)[number];
+export const isKnownError = (code: string): code is KnownError => (KNOWN_ERRORS as readonly string[]).includes(code);
+
+/* ------------------------------------------------------------------ the academician's list */
+
+const STATUS_ORDER: Record<PrefStatus, number> = { pending: 0, rejected: 1, accepted: 2 };
+
+/** one card per submission (a wish over classes with different department asks is stored as several rules) */
+export interface WishGroup {
+  key: string;
+  status: PrefStatus;
+  items: TeacherPref[];
+  labels: string[];
+  requestIds: number[];
+  submittedAt: string | null;
+}
+
+export function groupWishes(items: readonly TeacherPref[]): WishGroup[] {
+  const map = new Map<string, TeacherPref[]>();
+  for (const it of items) {
+    const key = it.submission ?? `#${it.id}`;
+    map.set(key, [...(map.get(key) ?? []), it]);
+  }
+  const out: WishGroup[] = [...map.entries()].map(([key, rows]) => {
+    const pending = rows.some((r) => r.status === "pending");
+    const status: PrefStatus = pending ? "pending" : rows.every((r) => r.status === "accepted") ? "accepted" : "rejected";
+    return {
+      key,
+      status,
+      items: [...rows].sort((a, b) => a.id - b.id),
+      labels: [...new Set(rows.flatMap((r) => r.labels))],
+      requestIds: [...new Set(rows.flatMap((r) => r.request_ids))],
+      submittedAt: rows.map((r) => r.submitted_at).filter((x): x is string => !!x).sort()[0] ?? null,
+    };
+  });
+  // pending first (what needs a look), then rejected (the academician wants the reason), then accepted; newest first
+  return out.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || (b.submittedAt ?? "").localeCompare(a.submittedAt ?? "") || b.items[0]!.id - a.items[0]!.id);
+}
+
+/** the coordinator's filter over the review list */
+export type ReviewFilter = "pending" | "accepted" | "rejected" | "all";
+export function filterGroups(groups: readonly WishGroup[], f: ReviewFilter, q: string): WishGroup[] {
+  const needle = q.trim().toLocaleLowerCase("tr");
+  return groups.filter((g) => {
+    if (f !== "all" && g.status !== f) return false;
+    if (!needle) return true;
+    const hay = [...g.labels, g.items[0]?.instructor?.name ?? "", g.items[0]?.text.tr ?? "", g.items[0]?.text.en ?? ""].join(" ").toLocaleLowerCase("tr");
+    return hay.includes(needle);
+  });
+}
+
+/** "bölüm odasından sonra": what the department asked first, as the rule lists it */
+export function departmentAsk(p: Pick<TeacherPref, "kind" | "department">): string[] {
+  if (p.kind === "room_preference") return p.department.rooms ?? [];
+  if (p.kind === "building_preference") return p.department.buildings ?? [];
+  return [];
+}
+
+/** the reason codes a coordinator may attach to a rejection (stored as `reason_code`, ≤ 32 chars) */
+export const REJECT_CODES = ["room_unavailable", "conflicts_department", "capacity", "planning_policy", "other"] as const;
+export type RejectCode = (typeof REJECT_CODES)[number];
+export const isRejectCode = (v: string | null | undefined): v is RejectCode => !!v && (REJECT_CODES as readonly string[]).includes(v);

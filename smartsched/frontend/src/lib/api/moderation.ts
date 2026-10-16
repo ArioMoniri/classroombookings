@@ -48,6 +48,21 @@ export const PRIORITY_SOURCES = ["request", "section", "person", "program", "def
 export const Priority = z.object({ value: z.number().default(0), source: z.enum(PRIORITY_SOURCES).catch("default") });
 export type Priority = z.infer<typeof Priority>;
 
+/** P19-T2: an academician's own wish on a class, as the read models attach it (`teacher_preferences.by_request`) */
+export const PREF_STATUSES = ["pending", "accepted", "rejected"] as const;
+export const PrefStatus = z.enum(PREF_STATUSES).catch("pending");
+export type PrefStatus = (typeof PREF_STATUSES)[number];
+export const TeacherPrefBrief = z.object({
+  id: z.number(),
+  status: PrefStatus,
+  kind: z.string().default(""),
+  text: Pair.default({ tr: "", en: "" }),
+  submitted_at: z.string().nullable().default(null),
+  reason: z.string().nullable().default(null),
+  instructor_id: z.number().nullable().default(null),
+});
+export type TeacherPrefBrief = z.infer<typeof TeacherPrefBrief>;
+
 const Flag = z.boolean().nullable();
 export const Matching = z.object({
   request_id: z.number(),
@@ -87,6 +102,7 @@ export const Matching = z.object({
   placement_status: z.string().nullable().optional(),
   issues: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
   findings: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+  teacher_preferences: z.array(TeacherPrefBrief).default([]),
 });
 export type Matching = z.infer<typeof Matching>;
 
@@ -126,6 +142,8 @@ export const PersonRow = z.object({
   unsatisfied_streak: z.number().default(0),
   badge: Pair.nullable().default(null),
   linked_user: z.boolean().default(false),
+  /** P19-T2: the person's academician wishes waiting for review this term */
+  pending_preferences: z.number().default(0),
 });
 export type PersonRow = z.infer<typeof PersonRow>;
 
@@ -332,6 +350,9 @@ export const MeOut = z.object({
   instructor: z.object({ id: z.number(), full_name: z.string(), title: z.string().nullable().default(null) }).nullable().default(null),
   visibility: z.enum(["all", "own", "none"]).catch("none"),
   can_edit: z.boolean().default(false),
+  /** P19-T2 "Tercih ekle": a linked academician may add wishes for their own classes */
+  can_add_preference: z.boolean().default(false),
+  preferences: z.object({ pending: z.number().default(0), accepted: z.number().default(0), rejected: z.number().default(0) }).default({ pending: 0, accepted: 0, rejected: 0 }),
   current_term: TermBrief.nullable().default(null),
 });
 export type MeOut = z.infer<typeof MeOut>;

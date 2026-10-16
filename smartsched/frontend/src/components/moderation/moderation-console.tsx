@@ -6,7 +6,7 @@
  * re-solve whose preview is /moderation/recreate/[runId]. A user without planning.view sees "Taleplerim"
  * (their own requests, Q11) or a plain explanation when no instructor record is linked to the account.
  */
-import { RefreshCw, Search } from "lucide-react";
+import { Plus, RefreshCw, Search } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -55,6 +55,8 @@ import { RecreateSheet } from "./recreate-sheet";
 import { ChangesLink } from "./changes-list";
 import { SuggestionList } from "@/components/learning/suggestion-list";
 import { TierLabel, VerdictBadge } from "./verdict-badge";
+import { MyWishes, WishStatusBadge } from "./my-wishes";
+import { WishSheet } from "./wish-sheet";
 
 const typing = (el: EventTarget | null) => el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || (el instanceof HTMLElement && el.isContentEditable);
 
@@ -417,9 +419,35 @@ export function MyRequests() {
   const forbidden = linked === false || (q.error instanceof HttpError && q.error.status === 403);
   const items = sortMatchings(q.data?.items ?? []);
   const own = me.data?.instructor_id ?? ownInstructorId(items);
+  // P19-T2 "Tercih ekle": from the header (any of my classes) or from a class's row (that class preselected)
+  const canWish = Boolean(me.data?.can_add_preference) && items.length > 0;
+  const [wishFor, setWishFor] = useState<number[] | null>(null);
+  const wishCell = (m: Matching) => {
+    const w = m.teacher_preferences;
+    if (!w.length) return <span className="text-label-3">—</span>;
+    const pending = w.filter((x) => x.status === "pending").length;
+    const status = pending ? "pending" : w.some((x) => x.status === "accepted") ? "accepted" : "rejected";
+    return <WishStatusBadge status={status} />;
+  };
   return (
     <div className="flex flex-col gap-3" data-testid="my-requests">
-      <PageHeader title={t("moderation.mine.title")} subtitle={[term?.code, me.data?.instructor ? [me.data.instructor.title, me.data.instructor.full_name].filter(Boolean).join(" ") : null].filter(Boolean).join(" · ")} actions={own && linked ? <Button variant="outline" render={<Link href={`/moderation/people/${own}`} />} nativeButton={false} data-testid="mine-history">{t("moderation.mine.history")}</Button> : null} />
+      <PageHeader
+        title={t("moderation.mine.title")}
+        subtitle={[term?.code, me.data?.instructor ? [me.data.instructor.title, me.data.instructor.full_name].filter(Boolean).join(" ") : null].filter(Boolean).join(" · ")}
+        actions={
+          own && linked ? (
+            <>
+              <Button variant="outline" render={<Link href={`/moderation/people/${own}`} />} nativeButton={false} data-testid="mine-history">{t("moderation.mine.history")}</Button>
+              {canWish ? (
+                <Button onClick={() => setWishFor([])} data-testid="wish-open">
+                  <Plus aria-hidden />
+                  {t("moderation.wish.add")}
+                </Button>
+              ) : null}
+            </>
+          ) : null
+        }
+      />
       {me.isLoading ? (
         <ConsoleSkeleton />
       ) : me.isError ? (
@@ -435,27 +463,40 @@ export function MyRequests() {
       ) : items.length === 0 ? (
         <EmptyState title={t("moderation.mine.emptyTitle")} description={t("moderation.mine.empty", { term: term?.code ?? "" })} />
       ) : (
-        <ModTable
-          rows={items}
-          columns={[
-            { id: "course", header: t("moderation.col.course"), width: "minmax(9rem,1fr)", cell: (m) => m.label },
-            { id: "pair", header: t("moderation.col.pair"), width: "minmax(18rem,2.4fr)", cell: (m) => `${requestedText(m, lang)} → ${m.assigned ? placeText(m.assigned, lang) : "—"}` },
-            { id: "verdict", header: t("moderation.col.verdict"), width: "11rem", cell: (m) => <VerdictBadge verdict={m.verdict} text={m.verdict_text} planner={m.source === "planner"} /> },
-            { id: "reason", header: t("moderation.col.reason"), width: "minmax(12rem,2fr)", cell: (m) => reasonText(m.reason, lang) || "—" },
-          ]}
-          getId={(m) => m.request_id}
-          caption={t("moderation.caption.mine", { n: n(items.length) })}
-          mobile={mobile}
-          card={(m) => (
-            <div className="flex flex-col gap-0.5 rounded-xl border border-hairline bg-card p-3">
-              <div className="flex items-center justify-between gap-2"><span className="type-headline">{m.label}</span><VerdictBadge verdict={m.verdict} text={m.verdict_text} /></div>
-              <span className="type-footnote text-label-2">{requestedText(m, lang)} → {m.assigned ? placeText(m.assigned, lang) : "—"}</span>
-              {m.reason ? <span className="type-footnote text-label-2">{t("moderation.inspector.reason")}: {reasonText(m.reason, lang)}</span> : null}
-            </div>
-          )}
-          testId="mine-table"
-        />
+        <>
+          {canWish ? <p className="type-footnote text-label-2">{t("moderation.wish.mine.rowHint")}</p> : null}
+          <ModTable
+            rows={items}
+            columns={[
+              { id: "course", header: t("moderation.col.course"), width: "minmax(9rem,1fr)", cell: (m) => m.label },
+              { id: "pair", header: t("moderation.col.pair"), width: "minmax(18rem,2.4fr)", cell: (m) => `${requestedText(m, lang)} → ${m.assigned ? placeText(m.assigned, lang) : "—"}` },
+              { id: "verdict", header: t("moderation.col.verdict"), width: "11rem", cell: (m) => <VerdictBadge verdict={m.verdict} text={m.verdict_text} planner={m.source === "planner"} /> },
+              { id: "reason", header: t("moderation.col.reason"), width: "minmax(12rem,2fr)", cell: (m) => reasonText(m.reason, lang) || "—" },
+              { id: "wish", header: t("moderation.col.wish"), width: "9rem", cell: wishCell },
+            ]}
+            getId={(m) => m.request_id}
+            caption={t("moderation.caption.mine", { n: n(items.length) })}
+            onOpen={canWish ? (m) => setWishFor([m.request_id]) : undefined}
+            mobile={mobile}
+            card={(m) => (
+              <div className="flex flex-col gap-0.5 rounded-xl border border-hairline bg-card p-3">
+                <div className="flex items-center justify-between gap-2"><span className="type-headline">{m.label}</span><VerdictBadge verdict={m.verdict} text={m.verdict_text} /></div>
+                <span className="type-footnote text-label-2">{requestedText(m, lang)} → {m.assigned ? placeText(m.assigned, lang) : "—"}</span>
+                {m.reason ? <span className="type-footnote text-label-2">{t("moderation.inspector.reason")}: {reasonText(m.reason, lang)}</span> : null}
+                {canWish ? (
+                  <span className="mt-1 flex min-h-11 items-center justify-between gap-2 type-footnote text-tint-text">
+                    {m.teacher_preferences.length ? wishCell(m) : <span />}
+                    <span className="inline-flex items-center gap-1 font-semibold"><Plus className="size-3.5" aria-hidden />{t("moderation.wish.add")}</span>
+                  </span>
+                ) : null}
+              </div>
+            )}
+            testId="mine-table"
+          />
+        </>
       )}
+      {linked && me.data?.can_add_preference ? <MyWishes termId={termId} /> : null}
+      {canWish ? <WishSheet open={wishFor !== null} onOpenChange={(o) => !o && setWishFor(null)} classes={items} initial={wishFor ?? []} /> : null}
     </div>
   );
 }
