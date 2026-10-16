@@ -11,7 +11,9 @@ import { I18nProvider, useI18n } from "@/lib/i18n/provider";
 const state = vi.hoisted(() => ({
   profile: { id: 7, email: "ogretmen@uni.edu.tr", username: "ogretmen", firstname: "Ayşe", lastname: "Yılmaz", displayname: null, ext: null, language: "de" as string | null, department_id: null, role: "TEACHER", role_name: "Öğretim elemanı" },
   put: vi.fn(),
+  success: vi.fn(),
 }));
+vi.mock("sonner", () => ({ toast: { success: state.success, error: vi.fn(), message: vi.fn() } }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/profile", useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/api/crbs", async (orig) => {
   const real = await orig<typeof import("@/lib/api/crbs")>();
@@ -49,6 +51,7 @@ describe("profile language: Turkish and English only", () => {
   beforeEach(() => {
     state.profile.language = "de";
     state.put.mockReset();
+    state.success.mockReset();
     state.put.mockImplementation(async (body: Record<string, unknown>) => ({ ...state.profile, ...body }));
     sessionStorage.clear();
   });
@@ -76,5 +79,22 @@ describe("profile language: Turkish and English only", () => {
     await userEvent.click(screen.getByTestId("profile-save"));
     await waitFor(() => expect(state.put).toHaveBeenCalledTimes(1));
     expect(state.put.mock.calls[0]![0]).toMatchObject({ language: "tr" });
+  });
+
+  // T-R1-37 (round-1 R1-A-30): the "saved" toast is in the language just chosen, not the previous one
+  it("says Saved after switching to English and Kaydedildi after switching back", async () => {
+    state.profile.language = "tr";
+    renderProfile();
+    await waitFor(() => expect(screen.getByTestId("locale")).toHaveTextContent("tr"));
+    await userEvent.selectOptions(screen.getByTestId("profile-language"), "en");
+    await userEvent.click(screen.getByTestId("profile-save"));
+    await waitFor(() => expect(state.success).toHaveBeenCalledTimes(1));
+    expect(state.success).toHaveBeenLastCalledWith("Saved");
+    await waitFor(() => expect(screen.getByTestId("locale")).toHaveTextContent("en"));
+    state.profile.language = "en";
+    await userEvent.selectOptions(screen.getByTestId("profile-language"), "tr");
+    await userEvent.click(screen.getByTestId("profile-save"));
+    await waitFor(() => expect(state.success).toHaveBeenCalledTimes(2));
+    expect(state.success).toHaveBeenLastCalledWith("Kaydedildi");
   });
 });

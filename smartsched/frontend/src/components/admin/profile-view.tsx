@@ -15,7 +15,7 @@ import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Input, useShake } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, useOrgPublic, useProfile, type Profile } from "@/lib/api/crbs";
-import { LOCALE_INFO, displayLocale, isLocale } from "@/lib/i18n";
+import { LOCALE_INFO, displayLocale, isLocale, translate } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, Field, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
@@ -68,7 +68,7 @@ export function ProfileView() {
 }
 
 function ProfileForm({ data }: { data: Profile }) {
-  const { t, setLocale } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const org = useOrgPublic();
   const qc = useQueryClient();
   // P18-LANG (TR + EN only): a stored legacy code (`de`, from a CRBS import) is shown as English and kept: the
@@ -95,9 +95,10 @@ function ProfileForm({ data }: { data: Profile }) {
             setError(null);
             save.mutate(undefined, {
               onSuccess: (p) => {
-                toast.success(t("crbs.common.saved"));
                 const shown = displayLocale(p.language);
                 if (shown) setLocale(shown);
+                // round-1 R1-A-30: this closure's t() is the previous language's; a changed language is saved in its own
+                toast.success(shown && shown !== locale ? translate(shown, "crbs.common.saved") : t("crbs.common.saved"));
                 void qc.invalidateQueries({ queryKey: ["me"] });
               },
               onError: (err) => setError(bookingErrorMessage(crbsError(err), t)),
