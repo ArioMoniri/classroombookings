@@ -85,7 +85,7 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
       </CardHeader>
       <CardContent className="grid max-w-3xl gap-4 type-callout">
         {groups.length ? (
-          <fieldset className="grid gap-1.5">
+          <fieldset className="grid min-w-0 gap-1.5">
             <legend className="mb-1 type-footnote font-semibold text-label-2">{t("onboarding.group")}</legend>
             {groups.map((gr, i) => (
               <label key={gr.key} className="flex items-start gap-2">
