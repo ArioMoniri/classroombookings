@@ -375,8 +375,8 @@ async def _options(
                         "dates": [d.isoformat() for d in dates],
                         "score": 0.1 * abs(shift),
                         "reason": {
-                            "tr": f"{room.display_name} {_period_text(ns, ne)} boş ({fr.shift_words(shift, 'tr')})",
-                            "en": f"{room.display_name} free {_period_text(ns, ne)} ({fr.shift_words(shift, 'en')})",
+                            "tr": f"{room.display_name} {_period_text(ns, ne)} boş ({shift:+d} ders saati)",
+                            "en": f"{room.display_name} free {_period_text(ns, ne)} ({shift:+d} period)",
                         },
                     }
                 )
