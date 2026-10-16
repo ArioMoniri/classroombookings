@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `694468d` (committed 2026-10-16 06:06 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `8a74c2c` (committed 2026-10-16 06:08 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-136 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 113 · stopped 7 · superseded 7.
+137 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 113 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -158,6 +158,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Planning analytics + invigilation UI` | frontend-engineer | 2026-10-16 04:42 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
 | `UI primitives` | frontend-engineer | 2026-10-16 05:24 |
+| `Bookings wave-2 + KVKK UI` | frontend-engineer | 2026-10-16 06:08 |
 
 <!-- /AUTO:agents -->
 
@@ -224,7 +225,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **175 ticked · 294 open** checkboxes in 64 sections (61 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **175 ticked · 296 open** checkboxes in 65 sections (62 with open items).
 
 <details><summary>Per section</summary>
 
@@ -294,6 +295,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Follow-ups UI finished (2026-10-16) | 0 | 4 |
 | Backend follow-ups finished (2026-10-16) | 2 | 5 |
 | Planning analytics backend finished (2026-10-16); analytics UI launched | 0 | 5 |
+| Bookings wave-2 backend finished (2026-10-16); wave-2 + KVKK UI launched | 0 | 2 |
 
 </details>
 

@@ -1370,3 +1370,29 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
     - flaky root causes
     - the /generate obscured add-rule buttons at 390
     - two green runs of the pod e2e gate
+
+### Bookings wave-2 backend finished (2026-10-16); wave-2 + KVKK UI launched
+
+- Done:
+  - **P8 booking policies:** notice, advance, duration, active count, buffer, quiet hours and blackouts. Each policy refuses or turns the booking into a request. Exam-period mode is off, request or closed. Migration 0029.
+  - **P2 conflict resolver after publishing:** ranked options, all-or-nothing apply, one digest per owner. Migration 0030.
+  - **V2 public read-only day view:** off by default and needs a KVKK sign-off. No names; one 404 for every refusal; rate-limited.
+  - **A4 KVKK:** retention purge with fixed minimums and legal holds. Audit triggers get two narrow, windowed exceptions. Also notices, consents, self-service export, and an erase/rectify/info queue that pseudonymises audit rows. Data inventory. Migration 0032.
+- The orchestrator regenerated the derived language files. New rule in docs/AGENTS.md: regenerate after every messages edit.
+- [ ] **Owner and KVKK officer decisions:**
+  - Retention ships disabled. Suggested periods: audit 730, notifications 180, booking anonymisation 1 095 days.
+  - Exam-period mode is off by default. On Bahar data the exam halls must be listed by an admin.
+  - `planning.admin` is exempt from policies.
+  - Public bookings show as "Rezerve".
+  - The 30-day KVKK request deadline needs legal confirmation of the Art. 13 wording.
+- [ ] Later:
+  - P8 priority order: timetable > exams > events > ad-hoc.
+  - The buffer should also consider timetable classes.
+  - A department-secretary role for orphaned conflict notices.
+  - AI pseudonymisation and the `ai.cross_border_allowed` switch (`app/ai`).
+- The wave-2 UI agent is running:
+  - the resolver
+  - the policy editor and the "Neden?" explanation
+  - the public kiosk page
+  - Profil › Gizlilik and the first-login notice sheet
+  - Admin › KVKK

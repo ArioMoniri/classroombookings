@@ -1492,6 +1492,18 @@
       "ledger": "E2E suite stabilisation",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a453fdcf140e2919c",
+      "description": "Bookings wave-2 + KVKK UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 06:08",
+      "scope": "",
+      "goal": "You are the **bookings wave-2 + KVKK UI** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: wave2-ui-2026-10-16. ## Owner's requirements \"All CRBS features and more\"; KVKK compliance…",
+      "ledger": "Bookings wave-2 + KVKK UI",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
