@@ -1610,3 +1610,20 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - `e2e/consent.spec.ts` 5/5, twice
 - Every feature row in docs/features.yml is done except the README recordings, which are refreshed on the final UI.
 - **Flow loop round 1:** three persona testers (academician, admin, planning staff) run every flow at 1440 and 390 px on their own stacks. They write `docs/testing/flows/rounds/round-1-*.md` and `.jsonl`. Next come the suggester, then loop builders, then a re-test, until there are no blocker or major findings.
+
+### Flow loop round 1: academician and admin reports in (2026-10-16)
+
+- **Academician** (`round-1-academician.md`): 0 blockers, 7 major, 27 minor, 4 suggestions, 2 trivial.
+- **Admin** (`round-1-admin.md`): 1 blocker, 11 major, 22 minor, 4 suggestions.
+- **R1-M-01 blocker fixed** by the orchestrator: a dry-run conflict apply returned 500. The cause was the `after_soft_rollback` listener's signature; there is a regression test.
+- The integrity agent is running:
+  - R1-M-03: impossible hard pins accepted
+  - R1-M-04: verdicts and counts that disagree
+  - R1-M-05: a "uygun" move broke a hard rule, and a published run sat at 99 silently
+  - R1-M-02: week-run publish has no scope-reduction confirm
+  - R1-M-06: forced move with a reason in the UI
+  - R1-M-10: "B daha iyi" on empty metrics
+  - R1-M-11: an empty invigilation plan is publishable
+  - R1-M-12: the Studio switched the week
+- [ ] **Owner decision, R1-M-07 (KVKK):** the AI personal-data default is "included unless withdrawn". The orchestrator recommends `excluded` (silence ≠ consent for cross-border transfer). It is the admin setting from the consent-gates work. Waiting for the owner.
+- The remaining round-1 findings (phone targets, approval wording, Taleplerim layout, KVKK export completeness, focus loss, mixed language and the rest) go to the suggester and loop builders once the staff report is in.

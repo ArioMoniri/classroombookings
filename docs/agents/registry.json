@@ -1679,6 +1679,18 @@
       "ledger": "Persona tester: planner/staff",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a9e72704b59cf6597",
+      "description": "Hard-rule integrity fixes (round 1)",
+      "subagent_type": "solver-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 12:19",
+      "scope": "",
+      "goal": "You are the **hard-rule integrity** builder for SmartSched (repo /home/user/classroombookings; backend smartsched/backend incl. app/solver, frontend smartsched/frontend for the minimal UI pieces named below). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: integrity-r1-2026…",
+      "ledger": "Hard-rule integrity fixes (round 1)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
