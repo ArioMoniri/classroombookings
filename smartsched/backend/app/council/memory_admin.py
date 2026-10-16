@@ -163,7 +163,12 @@ def _group_label(kind_group: str, rows: list[dict[str, Any]]) -> dict[str, str]:
         h = ctx.get("header")
         return {"tr": f"Başlık '{h}'" if h else "Başlık yazımı", "en": f"Header '{h}'" if h else "Header spelling"}
     if kind_group == "merge":
+        if ctx.get("a") and ctx.get("b"):  # file content: planners only (describe(content=True))
+            pair = f"'{ctx['a']}' = '{ctx['b']}'"
+            return {"tr": f"Birleştirme {pair}", "en": f"Merge {pair}"}
         return {"tr": "Birleştirme kararı", "en": "Merge decision"}
+    if ctx.get("file"):
+        return {"tr": f"Kural kararı · {ctx['file']}", "en": f"Rule decision · {ctx['file']}"}
     return {"tr": "Kural kararı", "en": "Rule decision"}
 
 

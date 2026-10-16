@@ -27,7 +27,8 @@ test("studio generate sends the chosen relaxation policy and the run records it"
   await expect(page.getByTestId("generate-step")).toBeVisible();
   const control = page.getByTestId("studio-relaxation");
   await expect(control).toBeVisible();
-  await expect(control.getByRole("radio", { name: "Dönem ayarı" })).toBeChecked();
+  // the draft starts on the term setting (the control is a segmented track, or its select in a narrow column)
+  await expect(control.getByTestId("studio-relax-desc")).toContainText("Dönem için seçilen kural uygulanır");
   await pickSegment(page, "Önce en çok ders", control);
   await expect(control.getByTestId("studio-relax-desc")).toContainText("Önce en çok ders yerleşir");
   await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "saved", { timeout: 15_000 });

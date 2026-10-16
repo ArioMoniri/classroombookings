@@ -127,7 +127,7 @@ export function IntakeMemoryPanel({ compact = false }: { compact?: boolean }) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-auto min-h-11 min-w-0 flex-1 justify-start gap-2 py-1.5 text-left whitespace-normal"
+                              className="h-auto min-h-11 w-full min-w-0 justify-start gap-2 py-1.5 text-left whitespace-normal sm:w-auto sm:flex-1"
                               aria-expanded={isOpen}
                               aria-controls={`mem-rows-${group.signature}`}
                               onClick={() => toggle(group.signature)}
@@ -135,14 +135,14 @@ export function IntakeMemoryPanel({ compact = false }: { compact?: boolean }) {
                             >
                               <ChevronRight className={cn("size-4 shrink-0 transition-transform duration-(--dur-fast)", isOpen && "rotate-90")} aria-hidden />
                               <span className="grid min-w-0">
-                                <span className="font-medium break-words text-label-1">{group.label[lang]}</span>
+                                <span className="font-medium [overflow-wrap:anywhere] text-label-1">{group.label[lang]}</span>
                                 <span className="type-footnote text-label-2">
                                   {t("intakeMemory.groupMeta", { n: n(group.count), date: date(group.last_at), jobs: group.jobs.map((j) => `#${j}`).join(", ") })}
                                 </span>
                               </span>
                             </Button>
                             {canForget ? (
-                              <Button variant="outline" size="sm" className="min-h-11 sm:min-h-8" onClick={() => setPending({ kind: "group", group })} data-testid="intake-memory-forget-group">
+                              <Button variant="outline" size="sm" className="ml-auto min-h-11 sm:min-h-8" onClick={() => setPending({ kind: "group", group })} data-testid="intake-memory-forget-group">
                                 <Trash2 aria-hidden />
                                 {t("intakeMemory.forgetAll")}
                               </Button>
@@ -153,7 +153,7 @@ export function IntakeMemoryPanel({ compact = false }: { compact?: boolean }) {
                               {rows.map((it) => (
                                 <li key={it.id} className="flex flex-wrap items-start gap-x-3 gap-y-1 border-b border-hairline px-3 py-2 last:border-b-0" data-testid="intake-memory-row" data-kind={it.kind}>
                                   <div className="grid min-w-0 flex-1 gap-0.5">
-                                    <span className="type-callout break-words text-label-1">{it.description[lang]}</span>
+                                    <span className="type-callout [overflow-wrap:anywhere] text-label-1">{it.description[lang]}</span>
                                     <span className="type-footnote text-label-2">
                                       {t("intakeMemory.rowMeta", {
                                         kind: (MEMORY_KINDS as readonly string[]).includes(it.kind) ? t(`intakeMemory.kind.${it.kind as (typeof MEMORY_KINDS)[number]}`) : it.kind,

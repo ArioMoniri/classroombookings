@@ -88,7 +88,7 @@ export function GenerateStep() {
         </p>
         <KeepSmallToggle />
         {/* who gives way when not every class fits: the term setting, locked rows first or the most classes first */}
-        <div className="max-w-md" data-testid="studio-relaxation">
+        <div className="max-w-xl" data-testid="studio-relaxation">
           <PolicyPicker id="studio-relax" value={local.params.relaxation_policy ?? "term"} onChange={(v) => dispatch({ type: "setParams", params: { relaxation_policy: v === "term" ? null : v } })} />
         </div>
         <div className="grid max-w-md gap-1.5">

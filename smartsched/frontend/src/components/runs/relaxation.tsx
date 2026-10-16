@@ -6,8 +6,8 @@
  * - `lock_first` (default): locked rows first, then coordinator priority, then the most classes.
  * - `most_classes_first`: the most classes first, then coordinator priority, then locked rows.
  *
- * Per run: `POST /runs {params: {relaxation_policy}}` (unset = the term's setting). Per term: the settings key
- * `term.<id>.relaxation_policy` (`PUT /settings {extra: {...}}`, administrators). A finished run records what it
+ * Per run: `POST /runs {params: {relaxation_policy}}` or studio generate (unset = the term's setting). Per term:
+ * `GET/PUT /terms/{id}/relaxation-policy` (the settings key `term.<id>.relaxation_policy`, administrators). A finished run records what it
  * used in `stats.relaxation_policy {policy, source: run | term | default | invalid_setting}`.
  */
 import { SegmentedControl } from "@/components/ui/segmented-control";

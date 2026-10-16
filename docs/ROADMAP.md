@@ -1581,3 +1581,13 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - Should serving existing feed links also check consent? Today only creating a link or connection is gated, and adding the check would stop links that already exist.
   - Which `kvkk.ai_personal_default` the institution uses.
 - [ ] Move provider cleanup after an erasure timeout to a durable job (today it is a detached task and does not survive a restart).
+
+### Batch 4 finished (2026-10-16)
+
+- Done:
+  - [x] **Intake memory API and view:** `GET /council/memory` (filters `signature`, `kind`, `job_id`) lists the remembered column mappings, header spellings, sheet kinds, terms, merge and rule decisions with a TR/EN description, who and when, the source job and `effective`, grouped by signature. `DELETE /council/memory/{id}` and `DELETE /council/memory?signature=` forget them as a learning reset of scope `intake` (audited `council.memory.forget`, undo for 30 days). Reading needs planning.view (file content for planning.edit), forgetting planning.edit. "Hatırlanan kararlar" sits on the onboarding page and in Ayarlar › Öğrenme: groups by signature, rows on demand, forget one or all with a confirm, Geri al in the toast for administrators.
+  - [x] The dry run's `result.baseline_run` (`run_id` null while the run would be new); the Fark box reads it (run and counts) instead of the runs list.
+  - [x] `GET/PUT /terms/{id}/relaxation-policy` (`{policy, source: term|default}`; PUT administrators, audited `term.relaxation_policy`, `null` clears); Ayarlar › Çözücü reads and writes it.
+  - [x] Studio generate takes `params.relaxation_policy` (validated on the draft and on generate); the Generate form has Dönem ayarı / Önce kilitliler / Önce en çok ders.
+  - [x] Commit `baseline: {mode: auto|skip|run, run_id?}`: skip writes no schedule map, run writes it into another finished COURSE run of the term (not the active one), with its own source keys; the Kaydet step has the control.
+- [ ] Owner question: may a schedule map be written into the term's active (published) run? Today that is refused (409); choose another run or the baseline run.
