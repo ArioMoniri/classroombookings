@@ -81,7 +81,7 @@ seed_via_api() {
   fi
   [[ "${REC_TEACHER:-0}" == 1 ]] || return 0
   curl -fsS -o /dev/null -X POST "$api/users" -H "Authorization: Bearer $token" -H 'content-type: application/json' \
-    -d "{\"email\":\"${REC_TEACHER_EMAIL:-ogretmen@smartsched.local}\",\"full_name\":\"Ayşe Öğretmen\",\"role\":\"TEACHER\",\"password\":\"${REC_TEACHER_PASSWORD:-Teacher-2026!}\"}" \
+    -d "{\"email\":\"${REC_TEACHER_EMAIL:-ogretmen@smartsched.local}\",\"full_name\":\"Akademik Personel\",\"role\":\"TEACHER\",\"password\":\"${REC_TEACHER_PASSWORD:-Teacher-2026!}\"}" \
     && log "teacher ${REC_TEACHER_EMAIL:-ogretmen@smartsched.local} ready" || log "teacher not created (exists, or the TEACHER role is not available yet)"
 }
 
@@ -94,8 +94,13 @@ cmd_down() {
       log "stopped $name"
     fi
   done
-  # fallback: anything still listening on our ports (e.g. a crashed previous run)
-  fuser -k -TERM "$API_PORT/tcp" "$WEB_PORT/tcp" >/dev/null 2>&1 || true
+  # Fallback for a crashed previous run that left no PID file: only on request, because other agents' or
+  # developers' servers may be listening on these ports (REC_FREE_PORTS=1 scripts/record/stack.sh down).
+  if [[ "${REC_FREE_PORTS:-0}" == 1 ]]; then
+    fuser -k -TERM "$API_PORT/tcp" "$WEB_PORT/tcp" >/dev/null 2>&1 || true
+  elif fuser "$API_PORT/tcp" "$WEB_PORT/tcp" >/dev/null 2>&1; then
+    log "port $API_PORT or $WEB_PORT is still in use by a process this script did not start; left running"
+  fi
 }
 
 cmd_status() {
