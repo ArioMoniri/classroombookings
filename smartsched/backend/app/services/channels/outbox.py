@@ -295,7 +295,9 @@ async def _send(
             return transport.SendResult(False, exc.message)
         return await transport.apprise_send(url or "", title, body, [url or ""])
     apprise_url, secrets = _apprise_url(sender, address or "", row.event, lang)
-    return await transport.apprise_send(apprise_url, title, body, secrets)
+    # the address is personal data: kept out of the stored error and the logs like the credentials
+    personal = [address or "", (address or "").lstrip("+")]
+    return await transport.apprise_send(apprise_url, title, body, [*secrets, *personal])
 
 
 def _apprise_url(sender: config.ChannelConfig, address: str, event: str, lang: str) -> tuple[str, list[str]]:

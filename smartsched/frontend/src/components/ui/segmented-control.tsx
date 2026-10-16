@@ -7,7 +7,9 @@
 // Layout: `inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; white-space: nowrap;
 // min-width: max-content; padding: 3px` — segments share one width and never wrap. Height = --control-h-*.
 // When the container is narrower than the control's natural width it falls back to a NativeSelect
-// (CSS container query on the wrapper; the threshold is the measured natural width).
+// (CSS container query on the wrapper; the threshold is the measured natural width). The wrapper is
+// `width:100%; max-width:natural` — a percentage, so grid/flex parents can shrink it (an explicit px width would
+// count as its min-content and push the track over its neighbours, as on Generate at 1440).
 //
 // Motion (motion_designer pattern 2, motion.md §3): the thumb is ONE absolutely positioned element whose
 // resting place is pure CSS (translateX(index × 100%) inside equal columns), so it can never rest outside the
@@ -141,7 +143,7 @@ export function SegmentedControl<V extends string>({
     <div
       data-slot="segmented-control"
       data-seg={name}
-      className={cn("min-w-0 max-w-full shrink", fill ? "w-full" : "w-(--seg-w)", className)}
+      className={cn("min-w-0 max-w-full shrink", fill ? "w-full" : "w-full max-w-(--seg-w)", className)}
       style={{ "--seg-w": `${natural}px`, containerType: collapse ? "inline-size" : undefined, containerName: collapse ? name : undefined } as React.CSSProperties}
     >
       <div
