@@ -8,10 +8,10 @@
  * Reserve: a free cell (or a period in the "Free slots" lens) opens the booking sheet with room, date and
  * period; drag / Shift-click selects a span. Room names open the room details with "Other available rooms".
  */
-import { CalendarSync, ChevronLeft, ChevronRight, CircleSlash, DoorOpen, Info, LayoutGrid, Layers, List, ListChecks, Printer, Search, Trash2, Wrench, X } from "lucide-react";
+import { CalendarSync, ChevronLeft, ChevronRight, CircleSlash, DoorOpen, Info, LayoutGrid, Layers, List, ListChecks, Printer, Search, SlidersHorizontal, Trash2, Wrench, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useBusyDelay } from "@/components/ui/busy-label";
@@ -40,7 +40,7 @@ import { addDays } from "./date-format";
 import { freeSlotsByRoom } from "./reserve-model";
 import { EntityIcon } from "@/components/admin/icons";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
-import { useIsPhone } from "./use-is-phone";
+import { useIsCompact, useIsPhone } from "./use-is-phone";
 
 type Display = "day" | "room";
 type Lens = "grid" | "free";
@@ -75,6 +75,8 @@ export function BookingsView() {
   const highlight = num("highlight") ?? null;
   const [roomInfo, setRoomInfo] = useState<{ id: number; context: RoomContext } | null>(null);
   const phone = useIsPhone();
+  const compact = useIsCompact();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const lens: Lens = (params.get("lens") as Lens | null) ?? (phone ? "free" : "grid");
   const scope: Scope = params.get("scope") === "week" ? "week" : "day";
   const [department, setDepartment, myDepartment] = useDepartmentLens();
@@ -205,6 +207,171 @@ export function BookingsView() {
   const columns = ctx.data?.display.columns ?? "periods";
   const fitColumns = display === "day" ? (columns === "days" ? "periods" : columns) : columns === "rooms" ? "periods" : columns;
 
+  const goToday = () => setParams({ date: dates.data?.today ?? null });
+  const datePickerProps = (gr: Grid) => ({
+    value: pendingDate ?? (display === "day" ? gr.date : (gr.dates[0]?.date ?? gr.date)),
+    onChange: (d: string) => setParams({ date: d }),
+    dates: dates.data?.dates ?? [],
+    weeks: dates.data?.weeks ?? [],
+    termStart: gr.term.start,
+    termEnd: gr.term.end,
+    today: dates.data?.today,
+    fmt,
+  });
+  // the filters the sheet changes away from the defaults (the compact trigger says "Filters · n")
+  const activeFilters = [display === "room", lens === "free" && display === "day" && scope === "week", display === "day" && groups.length > 1 && params.has("group"), params.has("term"), department !== "all"].filter(Boolean).length;
+  const resetFilters = () => {
+    setSelected(new Set());
+    setDepartment("all");
+    setParams({ display: null, scope: null, group: null, term: null, room: null, date: null });
+  };
+  const navPrev = (
+    <ToolbarButton size="icon-sm" className="shrink-0" aria-label={display === "day" ? t("crbs.toolbar.prevDay") : t("crbs.toolbar.prevWeek")} disabled={!g?.nav.prev} onClick={() => setParams({ date: g?.nav.prev })} data-testid="nav-prev">
+      <ChevronLeft />
+    </ToolbarButton>
+  );
+  const navNext = (
+    <ToolbarButton size="icon-sm" className="shrink-0" aria-label={display === "day" ? t("crbs.toolbar.nextDay") : t("crbs.toolbar.nextWeek")} disabled={!g?.nav.next} onClick={() => setParams({ date: g?.nav.next })} data-testid="nav-next">
+      <ChevronRight />
+    </ToolbarButton>
+  );
+  const printButton = (
+    <ToolbarButton size="icon-sm" aria-label={t("crbs.toolbar.print")} onClick={() => window.print()} data-testid="print">
+      <Printer />
+    </ToolbarButton>
+  );
+  const lensControl = (labelledBy?: string) => (
+    <SegmentedControl<Lens>
+      aria-label={labelledBy ? undefined : t("reserve.lens.label")}
+      aria-labelledby={labelledBy}
+      size="sm"
+      fill={!!labelledBy}
+      value={lens}
+      onValueChange={(v) => {
+        setSelected(new Set());
+        setMulti(false);
+        setParams({ lens: v });
+      }}
+      options={[
+        { value: "grid", label: t("reserve.lens.grid"), icon: <LayoutGrid aria-hidden /> },
+        { value: "free", label: t("reserve.lens.free"), icon: <List aria-hidden /> },
+      ]}
+      data-testid="lens"
+    />
+  );
+  const displayControl = () => (
+    <SegmentedControl<Display>
+      aria-label={t("crbs.toolbar.display")}
+      size="sm"
+      fill={compact}
+      value={display}
+      onValueChange={(v) => {
+        setSelected(new Set());
+        setParams({ display: v, group: null });
+      }}
+      options={[
+        { value: "day", label: t("crbs.toolbar.byDay") },
+        { value: "room", label: t("crbs.toolbar.byRoom") },
+      ]}
+    />
+  );
+  const scopeControl = () => (
+    <SegmentedControl<Scope>
+      aria-label={t("reserve.free.scope")}
+      size="sm"
+      fill={compact}
+      value={scope}
+      onValueChange={(v) => setParams({ scope: v === "day" ? null : v })}
+      options={[
+        { value: "day", label: t("reserve.free.day") },
+        { value: "week", label: t("reserve.free.week") },
+      ]}
+    />
+  );
+  const groupControl = (labelledBy?: string) => (
+    <SegmentedControl<string>
+      aria-label={labelledBy ? undefined : t("crbs.toolbar.groups")}
+      aria-labelledby={labelledBy}
+      size="sm"
+      fill={!!labelledBy}
+      value={String(g?.room_group_id ?? groups[0]?.id ?? "")}
+      onValueChange={(v) => {
+        setSelected(new Set());
+        setParams({ group: v });
+      }}
+      options={groups.map((gr) => {
+        const name = gr.id === 0 ? t("crbs.grid.ungrouped") : gr.name;
+        return { value: String(gr.id), label: gr.room_count != null ? t("reserve.toolbar.groupCount", { name, n: gr.room_count }) : name, icon: <Layers aria-hidden /> };
+      })}
+    />
+  );
+  const roomPicker = (wide = false) => (
+    <>
+      <span className="sr-only">{t("crbs.toolbar.room")}</span>
+      <SelectField value={String(g?.rooms[0]?.id ?? "")} onChange={(e) => setParams({ room: e.target.value })} aria-label={t("crbs.toolbar.room")} className={wide ? "min-w-0 flex-1" : undefined} data-testid="room-select">
+        {/* CRBS filter/room.php: rooms under their room group */}
+        {roomOptions(rooms.data ?? [], g?.rooms ?? [], t("reserve.toolbar.ungrouped")).map((grp) =>
+          grp.label === null ? (
+            grp.rooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))
+          ) : (
+            <optgroup key={grp.label} label={grp.label}>
+              {grp.rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </optgroup>
+          ),
+        )}
+      </SelectField>
+      {g?.rooms[0] ? (
+        <ToolbarButton size="icon-sm" aria-label={t("crbs.roomInfo.open", { name: g.rooms[0].name })} onClick={() => g.rooms[0] && (setFiltersOpen(false), openRoom(g.rooms[0].id, { date: g.date }))}>
+          <Info />
+        </ToolbarButton>
+      ) : null}
+    </>
+  );
+  const sessionPicker = (wide = false) => (
+    <>
+      <span className="sr-only">{t("crbs.toolbar.session")}</span>
+      <SelectField value={String(g?.term.id ?? "")} aria-label={t("crbs.toolbar.session")} onChange={(e) => setParams({ term: e.target.value, date: null })} className={wide ? "w-full" : undefined} data-testid="session-select">
+        {/* CRBS grid/Controls.php: "Current and future" and "Past" */}
+        {[
+          { label: t("reserve.toolbar.current"), items: sessions.filter((s) => s.is_current || !dates.data?.today || s.end >= dates.data.today) },
+          { label: t("reserve.toolbar.past"), items: sessions.filter((s) => !s.is_current && !!dates.data?.today && s.end < dates.data.today) },
+        ]
+          .filter((x) => x.items.length)
+          .map((x) => (
+            <optgroup key={x.label} label={x.label}>
+              {x.items.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+      </SelectField>
+    </>
+  );
+  const multiChip =
+    (caps.single || caps.recurring) && lens === "grid" ? (
+      <Chip
+        selected={multi}
+        onSelectedChange={(v) => {
+          setMulti(v);
+          if (!v) setSelected(new Set());
+        }}
+        icon={<ListChecks aria-hidden />}
+        data-testid="multi-toggle"
+      >
+        {t("crbs.toolbar.multi")}
+      </Chip>
+    ) : null;
+
   const subtitle = g ? (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
       <span>{g.term.name}</span>
@@ -253,165 +420,100 @@ export function BookingsView() {
 
       {org.data?.maintenance_mode && caps.bypassMaintenance ? <Alert tone="warning" title={t("crbs.maintenance.bypassTitle")}>{org.data.maintenance_message || t("crbs.maintenance.bypass")}</Alert> : null}
 
-      <Toolbar placement="inline" data-print-hide className="sticky top-2 z-30 h-auto w-full flex-wrap justify-start gap-2 rounded-3xl p-1.5 md:rounded-full" aria-label={t("crbs.toolbar.label")}>
-        <SegmentedControl<Lens>
-          aria-label={t("reserve.lens.label")}
-          size="sm"
-          value={lens}
-          onValueChange={(v) => {
-            setSelected(new Set());
-            setMulti(false);
-            setParams({ lens: v });
-          }}
-          options={[
-            { value: "grid", label: t("reserve.lens.grid"), icon: <LayoutGrid aria-hidden /> },
-            { value: "free", label: t("reserve.lens.free"), icon: <List aria-hidden /> },
-          ]}
-          data-testid="lens"
-        />
-        <SegmentedControl<Display>
-          aria-label={t("crbs.toolbar.display")}
-          size="sm"
-          value={display}
-          onValueChange={(v) => {
-            setSelected(new Set());
-            setParams({ display: v, group: null });
-          }}
-          options={[
-            { value: "day", label: t("crbs.toolbar.byDay") },
-            { value: "room", label: t("crbs.toolbar.byRoom") },
-          ]}
-        />
-        <div className="flex items-center gap-1">
-          <ToolbarButton size="icon-sm" aria-label={display === "day" ? t("crbs.toolbar.prevDay") : t("crbs.toolbar.prevWeek")} disabled={!g?.nav.prev} onClick={() => setParams({ date: g?.nav.prev })} data-testid="nav-prev">
-            <ChevronLeft />
-          </ToolbarButton>
+      {compact ? (
+        <Toolbar placement="inline" data-print-hide className="sticky top-2 z-30 h-auto w-full flex-nowrap gap-1 p-1" aria-label={t("crbs.toolbar.label")} data-testid="bookings-toolbar">
+          {navPrev}
           {g ? (
-            <DatePicker
-              value={pendingDate ?? (display === "day" ? g.date : (g.dates[0]?.date ?? g.date))}
-              onChange={(d) => setParams({ date: d })}
-              dates={dates.data?.dates ?? []}
-              weeks={dates.data?.weeks ?? []}
-              termStart={g.term.start}
-              termEnd={g.term.end}
-              today={dates.data?.today}
-              fmt={fmt}
-            />
+            <DatePicker {...datePickerProps(g)} compact onToday={goToday} className="flex-1" />
           ) : (
-            <Skeleton className="h-8 w-48 rounded-full" />
+            <Skeleton className="h-(--control-h-md) min-w-0 flex-1 rounded-full" />
           )}
-          <ToolbarButton size="icon-sm" aria-label={display === "day" ? t("crbs.toolbar.nextDay") : t("crbs.toolbar.nextWeek")} disabled={!g?.nav.next} onClick={() => setParams({ date: g?.nav.next })} data-testid="nav-next">
-            <ChevronRight />
+          {navNext}
+          <ToolbarButton size="md" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" className="shrink-0" data-testid="filters-open">
+            <SlidersHorizontal aria-hidden />
+            {activeFilters ? t("reserve.filters.openCount", { n: activeFilters }) : t("reserve.filters.open")}
           </ToolbarButton>
-          <ToolbarButton onClick={() => setParams({ date: dates.data?.today ?? null })}>{t("crbs.toolbar.today")}</ToolbarButton>
-        </div>
-        <ToolbarButton size="icon-sm" aria-label={t("crbs.toolbar.print")} onClick={() => window.print()} data-testid="print">
-          <Printer />
-        </ToolbarButton>
-        {display === "room" ? (
-          <label className="flex min-w-40 items-center gap-2">
-            <span className="sr-only">{t("crbs.toolbar.room")}</span>
-            <SelectField value={String(g?.rooms[0]?.id ?? "")} onChange={(e) => setParams({ room: e.target.value })} aria-label={t("crbs.toolbar.room")} data-testid="room-select">
-              {/* CRBS filter/room.php: rooms under their room group */}
-              {roomOptions(rooms.data ?? [], g?.rooms ?? [], t("reserve.toolbar.ungrouped")).map((grp) =>
-                grp.label === null ? (
-                  grp.rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))
-                ) : (
-                  <optgroup key={grp.label} label={grp.label}>
-                    {grp.rooms.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ),
-              )}
-            </SelectField>
-            {g?.rooms[0] ? (
-              <ToolbarButton size="icon-sm" aria-label={t("crbs.roomInfo.open", { name: g.rooms[0].name })} onClick={() => g.rooms[0] && openRoom(g.rooms[0].id, { date: g.date })}>
-                <Info />
-              </ToolbarButton>
-            ) : null}
-          </label>
-        ) : null}
-        {sessions.length > 1 ? (
-          <label className="flex min-w-40 items-center gap-2">
-            <span className="sr-only">{t("crbs.toolbar.session")}</span>
-            <SelectField value={String(g?.term.id ?? "")} aria-label={t("crbs.toolbar.session")} onChange={(e) => setParams({ term: e.target.value, date: null })} data-testid="session-select">
-              {/* CRBS grid/Controls.php: "Current and future" and "Past" */}
-              {[
-                { label: t("reserve.toolbar.current"), items: sessions.filter((s) => s.is_current || !dates.data?.today || s.end >= dates.data.today) },
-                { label: t("reserve.toolbar.past"), items: sessions.filter((s) => !s.is_current && !!dates.data?.today && s.end < dates.data.today) },
-              ]
-                .filter((x) => x.items.length)
-                .map((x) => (
-                  <optgroup key={x.label} label={x.label}>
-                    {x.items.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-            </SelectField>
-          </label>
-        ) : null}
-        <div className="ml-auto flex items-center gap-1">
-          {lens === "free" && display === "day" ? (
-            <SegmentedControl<Scope>
-              aria-label={t("reserve.free.scope")}
-              size="sm"
-              value={scope}
-              onValueChange={(v) => setParams({ scope: v === "day" ? null : v })}
-              options={[
-                { value: "day", label: t("reserve.free.day") },
-                { value: "week", label: t("reserve.free.week") },
-              ]}
-            />
-          ) : null}
-          <ToolbarButton onClick={() => setSyncOpen(true)} aria-label={t("reserve.sync.title")} data-testid="sync-open">
-            <CalendarSync aria-hidden />
-            <span className="hidden lg:inline">{t("reserve.sync.open")}</span>
-          </ToolbarButton>
-          {(caps.single || caps.recurring) && lens === "grid" ? (
-            <Chip
-              selected={multi}
-              onSelectedChange={(v) => {
-                setMulti(v);
-                if (!v) setSelected(new Set());
-              }}
-              icon={<ListChecks aria-hidden />}
-              data-testid="multi-toggle"
-            >
-              {t("crbs.toolbar.multi")}
-            </Chip>
-          ) : null}
-        </div>
-      </Toolbar>
+        </Toolbar>
+      ) : (
+        <Toolbar placement="inline" data-print-hide className="sticky top-2 z-30 h-auto w-full flex-wrap justify-start gap-2 rounded-3xl p-1.5 md:rounded-full" aria-label={t("crbs.toolbar.label")} data-testid="bookings-toolbar">
+          {lensControl()}
+          {displayControl()}
+          <div className="flex items-center gap-1">
+            {navPrev}
+            {g ? <DatePicker {...datePickerProps(g)} /> : <Skeleton className="h-8 w-48 rounded-full" />}
+            {navNext}
+            <ToolbarButton onClick={goToday}>{t("crbs.toolbar.today")}</ToolbarButton>
+          </div>
+          {printButton}
+          {display === "room" ? <label className="flex min-w-40 items-center gap-2">{roomPicker()}</label> : null}
+          {sessions.length > 1 ? <label className="flex min-w-40 items-center gap-2">{sessionPicker()}</label> : null}
+          <div className="ml-auto flex items-center gap-1">
+            {lens === "free" && display === "day" ? scopeControl() : null}
+            <ToolbarButton onClick={() => setSyncOpen(true)} aria-label={t("reserve.sync.title")} data-testid="sync-open">
+              <CalendarSync aria-hidden />
+              <span className="hidden lg:inline">{t("reserve.sync.open")}</span>
+            </ToolbarButton>
+            {multiChip}
+          </div>
+        </Toolbar>
+      )}
 
-      {display === "day" && groups.length > 1 ? (
+      {!compact && display === "day" && groups.length > 1 ? (
         <nav aria-label={t("crbs.toolbar.groups")} data-print-hide className="-mx-1 overflow-x-auto px-1 scrollbar-thin" data-testid="group-tabs">
-          <SegmentedControl<string>
-            aria-label={t("crbs.toolbar.groups")}
-            size="sm"
-            value={String(g?.room_group_id ?? groups[0]?.id ?? "")}
-            onValueChange={(v) => {
-              setSelected(new Set());
-              setParams({ group: v });
-            }}
-            options={groups.map((gr) => {
-              const name = gr.id === 0 ? t("crbs.grid.ungrouped") : gr.name;
-              return { value: String(gr.id), label: gr.room_count != null ? t("reserve.toolbar.groupCount", { name, n: gr.room_count }) : name, icon: <Layers aria-hidden /> };
-            })}
-          />
+          {groupControl()}
         </nav>
       ) : null}
 
-      <DepartmentBar grid={g} value={department} onChange={setDepartment} mine={myDepartment} termId={g?.term.id} onRoomInfo={(id) => openRoom(id)} />
+      <DepartmentBar grid={g} value={department} onChange={setDepartment} mine={myDepartment} termId={g?.term.id} onRoomInfo={(id) => openRoom(id)} part={compact ? "strip" : "all"} />
+
+      <Sheet open={compact && filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent side={phone ? "bottom" : "right"} className="gap-0 data-[side=bottom]:max-h-[92dvh] data-[side=right]:sm:max-w-md" data-testid="filters-sheet">
+          <SheetHeader className="px-5 pt-5">
+            <SheetTitle className="type-title-3">{t("reserve.filters.title")}</SheetTitle>
+            <SheetDescription>{t("reserve.filters.lead")}</SheetDescription>
+          </SheetHeader>
+          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 pt-4 pb-5">
+            <FilterGroup label={t("reserve.filters.view")}>
+              {(id) => (
+                <>
+                  {lensControl(id)}
+                  {displayControl()}
+                  {lens === "free" && display === "day" ? scopeControl() : null}
+                </>
+              )}
+            </FilterGroup>
+            {display === "room" ? <FilterGroup label={t("crbs.toolbar.room")}>{() => <div className="flex items-center gap-2">{roomPicker(true)}</div>}</FilterGroup> : null}
+            {display === "day" && groups.length > 1 ? <FilterGroup label={t("crbs.toolbar.groups")}>{(id) => groupControl(id)}</FilterGroup> : null}
+            {sessions.length > 1 ? <FilterGroup label={t("crbs.toolbar.session")}>{() => sessionPicker(true)}</FilterGroup> : null}
+            <DepartmentBar grid={g} value={department} onChange={setDepartment} mine={myDepartment} termId={g?.term.id} onRoomInfo={(id) => (setFiltersOpen(false), openRoom(id))} part="picker" />
+            <FilterGroup label={t("reserve.filters.more")}>
+              {() => (
+                <div className="flex flex-wrap items-center gap-2">
+                  {multiChip}
+                  <Button variant="outline" size="sm" onClick={() => (setFiltersOpen(false), setSyncOpen(true))} data-testid="sync-open">
+                    <CalendarSync aria-hidden />
+                    {t("reserve.sync.open")}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => (setFiltersOpen(false), window.setTimeout(() => window.print(), 300))} data-testid="print">
+                    <Printer aria-hidden />
+                    {t("crbs.toolbar.print")}
+                  </Button>
+                </div>
+              )}
+            </FilterGroup>
+          </div>
+          <div className="flex items-center gap-2 border-t border-hairline px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {activeFilters ? (
+              <Button variant="ghost" onClick={resetFilters} data-testid="filters-reset">
+                {t("reserve.filters.reset")}
+              </Button>
+            ) : null}
+            <Button className="ml-auto min-w-32" onClick={() => setFiltersOpen(false)} data-testid="filters-apply">
+              {t("reserve.filters.apply")}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {timetableMissing(g) ? (
         <Alert tone="warning" testId="grid-no-timetable">
@@ -544,6 +646,19 @@ export function BookingsView() {
         }}
       />
     </div>
+  );
+}
+
+/** A labelled group in the filters sheet; the render prop gets the heading id for aria-labelledby. */
+function FilterGroup({ label, children }: { label: string; children: (labelId: string) => ReactNode }) {
+  const id = useId();
+  return (
+    <section aria-labelledby={id} className="flex flex-col gap-2">
+      <h3 id={id} className="type-footnote font-medium text-label-2">
+        {label}
+      </h3>
+      {children(id)}
+    </section>
   );
 }
 

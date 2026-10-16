@@ -137,7 +137,7 @@ export function RequestTimeline({ req, fmt }: { req: ApprovalRequest; fmt: DateF
         const Icon = icon;
         return (
           <li key={i} className="relative" data-kind={e.kind}>
-            <span aria-hidden className={cn("absolute top-0.5 -left-6 flex size-[19px] items-center justify-center rounded-full bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)]", tone)}>
+            <span aria-hidden className={cn("absolute top-0.5 -left-6 flex size-[19px] items-center justify-center rounded-full bg-(--mat-thick-solid) edge-hairline", tone)}>
               <Icon className="size-3" />
             </span>
             <p className="type-callout text-label-1">{title}</p>

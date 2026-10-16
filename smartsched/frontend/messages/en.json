@@ -2524,6 +2524,16 @@
       "past": "Past",
       "groupCount": "{name} ({n})",
       "ungrouped": "Other rooms"
+    },
+    "filters": {
+      "open": "Filters",
+      "openCount": "Filters · {n}",
+      "title": "View and filters",
+      "lead": "Choose what the grid shows and how.",
+      "view": "View",
+      "more": "More actions",
+      "apply": "Show",
+      "reset": "Reset"
     }
   },
   "admingaps": {

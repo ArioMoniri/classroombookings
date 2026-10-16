@@ -89,13 +89,12 @@ function RequestRow({ req: r, fmt, initiallyOpen }: { req: ApprovalRequest; fmt:
   };
   const panel = `req-panel-${r.id}`;
   return (
-    <li ref={ref} className={cn("shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none", initiallyOpen && "bg-tint-soft/40")} data-request-id={r.id} data-status={r.status}>
-      <button
-        type="button"
+    <li ref={ref} className={cn("hairline-b last:shadow-none", initiallyOpen && "bg-tint-soft/40")} data-request-id={r.id} data-status={r.status}>
+      <Button
+        variant="ghost" shape="rect" className="h-auto w-full rounded-none whitespace-normal font-normal active:not-aria-[haspopup]:scale-100 focus-visible:-outline-offset-2 justify-start gap-3 px-4 py-3 text-left hover:bg-fill-3"
         onClick={() => startTransition(() => setExpanded((x) => !x))}
         aria-expanded={expanded}
         aria-controls={panel}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)"
         data-testid={`my-request-${r.id}`}
       >
         <span className="min-w-0 flex-1">
@@ -107,7 +106,7 @@ function RequestRow({ req: r, fmt, initiallyOpen }: { req: ApprovalRequest; fmt:
           {!expanded ? <RequestReason req={r} compact className="mt-0.5" /> : null}
         </span>
         <ChevronDown className={cn("size-4 shrink-0 text-label-3 transition-transform duration-(--dur-fast)", expanded && "rotate-180")} aria-hidden />
-      </button>
+      </Button>
       {expanded ? (
         <div id={panel} className="flex flex-col gap-3 px-4 pb-4">
           <RequestReason req={r} />

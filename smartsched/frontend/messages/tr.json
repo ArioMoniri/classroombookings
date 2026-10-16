@@ -2523,6 +2523,16 @@
       "past": "Geçmiş",
       "groupCount": "{name} ({n})",
       "ungrouped": "Diğer derslikler"
+    },
+    "filters": {
+      "open": "Filtreler",
+      "openCount": "Filtreler · {n}",
+      "title": "Görünüm ve filtreler",
+      "lead": "Çizelgede neyin, nasıl gösterileceğini seçin.",
+      "view": "Görünüm",
+      "more": "Diğer işlemler",
+      "apply": "Göster",
+      "reset": "Sıfırla"
     }
   },
   "admingaps": {

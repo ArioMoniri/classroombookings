@@ -6,16 +6,9 @@
     "components/settings/settings-view.tsx": 11
   },
   "shadow-arbitrary": {
-    "components/approvals/approvals-view.tsx": 3,
-    "components/approvals/my-requests.tsx": 1,
-    "components/approvals/request-parts.tsx": 1,
-    "components/approvals/rules-admin.tsx": 1,
     "components/settings/settings-view.tsx": 1
   },
   "raw-button": {
-    "components/approvals/approvals-view.tsx": 1,
-    "components/approvals/my-requests.tsx": 1,
-    "components/approvals/scope-picker.tsx": 1,
     "components/common/data-table.tsx": 1,
     "components/notifications/notification-bell.tsx": 1,
     "components/settings/settings-view.tsx": 2

@@ -605,7 +605,7 @@ function ConstraintsEditor({ userId }: { userId: number }) {
   const save = useCrbsMutation((body: Constraints) => crbs.users.putConstraints(userId, body), [["crbs", "constraints", userId]]);
   if (!value) return q.isLoading ? <Loading /> : null;
   return (
-    <fieldset className="flex flex-col gap-2 rounded-xl bg-fill-3 p-3 shadow-[inset_0_0_0_1px_var(--hairline)]">
+    <fieldset className="flex flex-col gap-2 rounded-xl bg-fill-3 p-3 edge-hairline">
       <legend className="sr-only">{t("crbs.users.limits")}</legend>
       <p className="type-headline text-label-1">{t("crbs.users.limits")}</p>
       <p className="type-footnote text-label-3">{t("crbs.users.limitsHint")}</p>
@@ -763,7 +763,7 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
                 {t("crbs.import.forbiddenHint", { n: result.results.filter((r) => r.status === "forbidden").length })}
               </Alert>
             ) : null}
-            <div className="max-h-[50vh] overflow-auto rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)]">
+            <div className="max-h-[50vh] overflow-auto rounded-xl bg-(--mat-thick-solid) edge-hairline">
               <Table data-testid="import-results">
                 <TableHeader>
                   <TableRow>

@@ -97,6 +97,7 @@ export function useWizard(id: number, initial: DraftOut) {
   const step = useRef<Step | null>(null);
   const stepSent = useRef<string | null>(initial.step);
   const running = useRef(false);
+  const inflight = useRef<Promise<boolean> | null>(null);
   const again = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flushRef = useRef<() => Promise<boolean>>(async () => true);
@@ -109,11 +110,16 @@ export function useWizard(id: number, initial: DraftOut) {
 
   const flush = useCallback(async (): Promise<boolean> => {
     if (readonly) return true;
-    if (running.current) {
+    if (running.current && inflight.current) {
+      // a save is on the wire: wait for it, then send whatever is still unsaved (a commit or a "Devam"
+      // right after an edit must not fail just because the debounced autosave got there first)
       again.current = true;
-      return false;
+      if (!(await inflight.current)) return false;
+      return flushRef.current();
     }
     running.current = true;
+    let done: (ok: boolean) => void = () => {};
+    inflight.current = new Promise<boolean>((r) => (done = r));
     let ok = true;
     try {
       for (let pass = 0; pass < 4; pass++) {
@@ -156,6 +162,8 @@ export function useWizard(id: number, initial: DraftOut) {
       setSave(isOffline(e) ? { kind: "offline" } : { kind: "error", message: errorText(e) });
     } finally {
       running.current = false;
+      inflight.current = null;
+      done(ok);
       if (again.current && ok) {
         if (timer.current) clearTimeout(timer.current);
         timer.current = setTimeout(() => void flushRef.current(), DEBOUNCE_MS);

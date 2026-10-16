@@ -128,11 +128,10 @@ export function ApprovalsView() {
             {entries.map(({ key, requests }) => {
               const r = requests[0]!;
               return (
-              <li key={key} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
-                <button
-                  type="button"
+              <li key={key} className="hairline-b last:shadow-none">
+                <Button
+                  variant="ghost" shape="rect" className="h-auto w-full rounded-none whitespace-normal font-normal active:not-aria-[haspopup]:scale-100 focus-visible:-outline-offset-2 flex-col items-stretch justify-start gap-1 px-4 py-3 text-left hover:bg-fill-3 sm:flex-row sm:items-center sm:gap-4"
                   onClick={() => setOpenId(r.id)}
-                  className="flex w-full flex-col gap-1 px-4 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus) sm:flex-row sm:items-center sm:gap-4"
                   data-testid={`approval-${r.id}`}
                   aria-label={t("wave1.approvals.openRequest", { room: r.room_name ?? "", name: r.requester_name ?? "" })}
                 >
@@ -158,7 +157,7 @@ export function ApprovalsView() {
                     <span className="block text-label-1">{r.requester_name}</span>
                     {r.requested_at ? <span className="block text-label-3 tabular-nums">{fmt.dateTime(r.requested_at)}</span> : null}
                   </span>
-                </button>
+                </Button>
               </li>
               );
             })}
@@ -543,7 +542,7 @@ function RoomDayStrip({ roomId, date, termId, start, end }: { roomId: number; da
               className={cn(
                 "flex min-w-16 shrink-0 flex-col rounded-lg px-2 py-1.5 type-caption",
                 s.status === "available" ? "bg-fill-3 text-label-2" : s.status === "timetable" ? "bg-status-locked text-status-locked-fg" : "bg-fill-2 text-label-1",
-                asked && "shadow-[inset_0_0_0_2px_var(--accent)]",
+                asked && "edge-tint",
               )}
               aria-current={asked ? "true" : undefined}
             >
@@ -585,7 +584,7 @@ function OtherRooms({ req, busy, onApprove, onSuggest }: { req: ApprovalRequest;
           {rooms.slice(0, 8).map((x) => {
             const alt = { room_id: x.room_id, date: first?.date, start_period: x.start_period, end_period: x.end_period };
             return (
-              <li key={x.room_id} className="flex flex-wrap items-center gap-2 px-3 py-2 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none" data-testid={`other-room-${x.code}`}>
+              <li key={x.room_id} className="flex flex-wrap items-center gap-2 px-3 py-2 hairline-b last:shadow-none" data-testid={`other-room-${x.code}`}>
                 <span className="min-w-0 flex-1">
                   <span className="block type-callout font-medium text-label-1">{x.name}</span>
                   <span className="block truncate type-footnote text-label-2">{pickLang(x.reason, locale) || (x.capacity ? t("crbs.grid.seats", { n: x.capacity }) : "")}</span>

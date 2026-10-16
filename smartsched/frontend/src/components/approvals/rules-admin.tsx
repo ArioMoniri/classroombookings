@@ -130,7 +130,7 @@ export function ApprovalRulesAdmin() {
           ) : (
             <ul data-testid="approvers-list">
               {(approvers.data ?? []).map((a) => (
-                <li key={a.user_id} className="flex items-center gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+                <li key={a.user_id} className="flex items-center gap-3 px-4 py-2.5 hairline-b last:shadow-none">
                   <Stamp className="size-4 shrink-0 text-label-3" aria-hidden />
                   <span className="min-w-0 flex-1">
                     <span className="block type-headline text-label-1">{a.name ?? a.email}</span>

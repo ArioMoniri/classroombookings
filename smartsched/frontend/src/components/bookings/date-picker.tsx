@@ -26,9 +26,14 @@ interface Props {
   termEnd: string;
   today?: string;
   fmt: DateFormatter;
+  /** the short weekday pattern on the trigger (compact toolbar, phones) */
+  compact?: boolean;
+  /** a "Today" button in the popover (compact toolbar: the toolbar has no room for it) */
+  onToday?: () => void;
+  className?: string;
 }
 
-export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, today, fmt }: Props) {
+export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, today, fmt, compact, onToday, className }: Props) {
   const { t, locale } = useI18n();
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(value.slice(0, 7));
@@ -72,9 +77,9 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
         }
       }}
     >
-      <PopoverTrigger render={<Button variant="outline" className="min-w-0 justify-start" data-testid="date-picker-trigger" />}>
+      <PopoverTrigger render={<Button variant="outline" className={cn("min-w-0 justify-start", className)} data-testid="date-picker-trigger" />}>
         <CalendarDays aria-hidden />
-        <span className="truncate">{fmt.long(value)}</span>
+        <span className="truncate">{compact ? fmt.weekday(value) : fmt.long(value)}</span>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[19.5rem] p-3">
         <div className="mb-2 flex items-center justify-between">
@@ -145,6 +150,20 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
             ))}
             {dates.some((d) => d.holiday) ? <li className="line-through">{t("crbs.picker.holidayLegend")}</li> : null}
           </ul>
+        ) : null}
+        {onToday ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 w-full"
+            onClick={() => {
+              onToday();
+              setOpen(false);
+            }}
+            data-testid="date-picker-today"
+          >
+            {t("crbs.toolbar.today")}
+          </Button>
         ) : null}
       </PopoverContent>
     </Popover>
