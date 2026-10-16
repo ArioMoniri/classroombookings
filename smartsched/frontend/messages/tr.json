@@ -2732,6 +2732,7 @@
       "noneFree": "Bu arama için boş derslik yok.",
       "alternatives": "Seçenekler",
       "alternativesLead": "Üçten az derslik boş. Bunlar yakın:",
+      "altWhy": "Kurallar",
       "alt": {
         "time": "Başka saat",
         "day": "Başka gün",
@@ -4624,16 +4625,21 @@
       "never": "Verilmedi",
       "granted": "Rıza verildi",
       "withdrawn": "Rıza geri alındı",
-      "withdrawnPhones": "Rıza geri alındı; bağlı {n} telefon numarası silindi",
       "consequence": {
         "sms": "Geri aldığınızda bağlı telefon numaralarınız (SMS ve WhatsApp) hemen silinir; bu kanallardan bildirim almazsınız.",
-        "photo": "Geri aldığınızda profil fotoğrafı kullanımına verdiğiniz rıza sona erer.",
-        "calendar_sync": "Geri aldığınızda rezervasyonlarınızın Google ya da Microsoft takviminizle eşitlenmesine verdiğiniz rıza sona erer; bağlantıyı Rezervasyonlarım altından da kaldırın.",
-        "ai_personal": "Geri aldığınızda kişisel verilerinizin yapay zekâ asistanıyla işlenmesine verdiğiniz rıza sona erer."
+        "photo": "Geri aldığınızda kayıtlı profil fotoğrafınız hemen silinir.",
+        "calendar_sync": "Geri aldığınızda takvim abonelik bağlantılarınız hemen iptal edilir ve Google ya da Microsoft takvim bağlantılarınız kaldırılır.",
+        "ai_personal": "Geri aldığınızda bundan sonra yapay zekâ asistanına giden isteklerde adınız ve e-postanız yer tutucuyla değiştirilir."
       },
       "smsTitle": "SMS / WhatsApp rızası geri alınsın mı?",
       "smsBody": "Bağlı telefon numaralarınız hemen silinir ve artık SMS ya da WhatsApp ile bildirim almazsınız. Daha sonra yeniden numara bağlayabilirsiniz.",
-      "smsConfirm": "Geri al ve numaraları sil"
+      "smsConfirm": "Geri al ve numaraları sil",
+      "photoTitle": "Fotoğraf rızası geri alınsın mı?",
+      "photoBody": "Kayıtlı profil fotoğrafınız hemen silinir. Daha sonra yeniden rıza verip fotoğraf yükleyebilirsiniz.",
+      "photoConfirm": "Geri al ve fotoğrafı sil",
+      "calendarTitle": "Takvim eşitleme rızası geri alınsın mı?",
+      "calendarBody": "Takvim abonelik bağlantılarınız hemen iptal edilir; bunları kullanan takvimler artık güncellenmez. Google ya da Microsoft takvim bağlantılarınız kaldırılır ve SmartSched'in oraya eklediği rezervasyonlar silinir.",
+      "calendarConfirm": "Geri al ve bağlantıları kaldır"
     },
     "request": {
       "title": "Veri taleplerim",
@@ -4695,12 +4701,14 @@
       "filters": {
         "open": "Açık",
         "done": "Tamamlanan",
-        "refused": "Reddedilen"
+        "refused": "Reddedilen",
+        "all": "Tümü"
       },
       "empty": {
         "open": "Açık talep yok.",
         "done": "Tamamlanan talep yok.",
-        "refused": "Reddedilen talep yok."
+        "refused": "Reddedilen talep yok.",
+        "all": "Henüz talep yok."
       },
       "overdue": "{n} gün gecikti",
       "daysLeft": "{n} gün kaldı",
@@ -4763,6 +4771,8 @@
       "holdHint": "Bu türdeki her kaydı tutar, örneğin bir uyuşmazlık ya da denetim sırasında.",
       "holdReason": "Yasal saklamanın gerekçesi",
       "holdReasonRequired": "Yasal saklama için gerekçe yazın.",
+      "range": "{floor} ile {max} gün arasında.",
+      "allowed": "Seçilebilir: {list}",
       "lastRun": "Son çalışma {date}: {counts}",
       "neverRun": "Hiç çalışmadı.",
       "saved": "Saklama kuralı kaydedildi",
@@ -4827,6 +4837,87 @@
       "retentionOff": "Saklama kuralı kapalı",
       "held": "Yasal saklama",
       "generated": "{date} tarihinde sayıldı"
+    }
+  },
+  "calendarPush": {
+    "provider": {
+      "google": "Google Takvim",
+      "microsoft": "Microsoft 365"
+    },
+    "admin": {
+      "title": "Google Takvim ve Microsoft 365 aktarımı",
+      "lead": "Kullanıcılar rezervasyonlarını kendi Google veya Microsoft 365 takvimlerine aktarabilsin diye kurumunuzun OAuth istemcisini girin. İstemci sırrı şifreli saklanır ve bir daha gösterilmez.",
+      "kvkkOn": "Takvim eşitleme açık ve KVKK onayı kayıtlı; istemci girilen sağlayıcıya kullanıcılar Profil sayfasından bağlanabilir.",
+      "kvkkOff": "Takvim eşitleme kapalı. İstemciyi şimdi girebilirsiniz, ama kullanıcılar yukarıdaki KVKK onayı verilmeden bağlanamaz.",
+      "publicUrl": "Panelin genel adresi",
+      "urlHint": "Yönlendirme adresleri bu adresten kurulur.",
+      "urlFromEnv": "Sunucu ortamından geliyor: {url}. Buraya bir adres yazarsanız o kullanılır.",
+      "urlMissing": "Genel adres yok; girilmeden istemci kullanılamaz (ör. https://rezervasyon.universite.edu.tr).",
+      "saveUrl": "Adresi kaydet",
+      "urlSaved": "Panel adresi kaydedildi",
+      "configured": "Yapılandırıldı",
+      "notConfigured": "Yapılandırılmadı",
+      "clientId": "İstemci kimliği (Client ID)",
+      "clientSecret": "İstemci sırrı (Client secret)",
+      "secretSet": "Kayıtlı ({masked}). Değiştirmek için yenisini yazın; boş bırakırsanız kayıtlı sır kalır.",
+      "secretUnset": "Henüz girilmedi.",
+      "tenant": "Kiracı (tenant)",
+      "tenantHint": "organizations (her kurum hesabı), common, bir kiracı kimliği (GUID) ya da alan adı.",
+      "redirect": "Yönlendirme adresi (Redirect URI)",
+      "redirectHint": {
+        "google": "Google Cloud Console › API'ler ve Hizmetler › Kimlik bilgileri › OAuth istemci kimliği (Web uygulaması) › Yetkilendirilmiş yönlendirme URI'leri alanına bu adresi ekleyin.",
+        "microsoft": "Microsoft Entra yönetim merkezi › Uygulama kayıtları › Kimlik doğrulama › Web › Yeniden yönlendirme URI'leri alanına bu adresi ekleyin."
+      },
+      "redirectNeedsUrl": "Yönlendirme adresi için önce panelin genel adresini girin.",
+      "copy": "Kopyala",
+      "copied": "Kopyalandı",
+      "save": "İstemciyi kaydet",
+      "nothing": "Değişiklik yok",
+      "remove": "İstemciyi kaldır",
+      "removeTitle": "{provider} istemcisi kaldırılsın mı?",
+      "removeBody": "Kimlik ve sır silinir. Bağlı kullanıcıların aktarımı istemci yeniden girilene kadar durur.",
+      "saved": "{provider} istemcisi kaydedildi",
+      "removed": "{provider} istemcisi kaldırıldı",
+      "failed": "Kaydedilemedi: {message}",
+      "needId": "İstemci kimliği gerekli.",
+      "needSecret": "İlk kayıtta istemci sırrı da gerekli."
+    },
+    "me": {
+      "title": "Takvim aktarımı",
+      "lead": "Bağladığınız takvime rezervasyonlarınız kendiliğinden yazılır, değişince güncellenir, iptal edilince silinir.",
+      "off": "Takvim eşitleme kurumunuzda kapalı.",
+      "notConfigured": "Yönetici bu sağlayıcıyı henüz kurmadı.",
+      "notConnected": "Bağlı değil",
+      "connectedAs": "{account} olarak bağlı",
+      "reauth": "Bağlantının yeniden yetkilendirilmesi gerekiyor.",
+      "connect": "{provider} bağla",
+      "reconnect": "Yeniden bağlan",
+      "redirecting": "Yönlendiriliyor…",
+      "disconnect": "Bağlantıyı kes",
+      "disconnectTitle": "{provider} bağlantısı kesilsin mi?",
+      "disconnectBody": "SmartSched'in takviminize yazdığı etkinlikler silinir ve verdiğiniz izin geri alınır.",
+      "disconnected": "{provider} bağlantısı kesildi",
+      "calendar": "Takvim",
+      "primary": "ana takvim",
+      "defaultCalendar": "Varsayılan takvim",
+      "loadingCalendars": "Takvimler yükleniyor…",
+      "calendarSaved": "Rezervasyonlar artık {name} takvimine yazılacak",
+      "lastSynced": "Son aktarım: {date}",
+      "never": "Henüz aktarım yapılmadı",
+      "pending": "{n} bekliyor",
+      "failed": "{n} başarısız",
+      "resync": "Hepsini yeniden aktar",
+      "resyncQueued": "{n, plural, =0 {Aktarılacak rezervasyon yok} other {# rezervasyon sıraya alındı}}",
+      "connectedToast": "{provider} bağlandı; rezervasyonlarınız aktarılıyor",
+      "connectError": "Bağlanılamadı: {reason}",
+      "consentLink": "Gizlilik bölümüne git",
+      "reason": {
+        "denied": "izin verilmedi",
+        "state": "oturum doğrulanamadı, yeniden deneyin",
+        "exchange": "sağlayıcı yanıtı alınamadı",
+        "disabled": "takvim eşitleme kapalı",
+        "not_configured": "yönetici bu sağlayıcıyı kurmamış"
+      }
     }
   }
 }

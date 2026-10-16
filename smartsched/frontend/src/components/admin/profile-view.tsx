@@ -23,6 +23,7 @@ import { MyChannels } from "@/components/channels/my-channels";
 import { MicrosoftAccountSection, ProfileSsoNotice } from "@/components/identity/profile-microsoft";
 import { NotificationPreferencesPanel } from "@/components/notifications/preferences-panel";
 import { PrivacySection } from "@/components/privacy/privacy-section";
+import { CalendarConnectionsSection } from "@/components/settings/calendar-connections";
 
 /** language names in themselves (Turkish, English); a legacy stored code (`de`) reads as English */
 const langLabel = (code: string | null | undefined) => {
@@ -47,6 +48,8 @@ export function ProfileView() {
           <MyChannels email={q.data?.email ?? me.data?.email ?? null} />
         </Card>
       </section>
+      {/* Google Calendar / Microsoft 365 push: connect, choose the calendar, disconnect */}
+      <CalendarConnectionsSection />
       {/* the approval UI's panel: which event reaches you on which channel */}
       <section id="notifications" className="scroll-mt-20">
         <NotificationPreferencesPanel />

@@ -117,6 +117,9 @@ export const FindRow = FindResult.extend({
   free_dates: z.number().default(0),
   open_dates: z.number().default(0),
   per_date: z.array(z.object({ date: z.string(), status: z.string(), reason: z.string().nullish() })).nullish(),
+  /** the booking periods of the slot (grid order) on the result's first free date; `period_id` = the first, null when none */
+  period_ids: z.array(z.number()).default([]),
+  period_id: z.number().nullish(),
 });
 export type FindRow = z.infer<typeof FindRow>;
 
@@ -130,6 +133,9 @@ export const FindAlternative = z.object({
   start_period: z.number(),
   end_period: z.number(),
   reason: Bilingual.nullish(),
+  /** the booking periods of the alternative's slot on `dates[0]`; `period_id` = the first, null when none */
+  period_ids: z.array(z.number()).default([]),
+  period_id: z.number().nullish(),
 });
 export type FindAlternative = z.infer<typeof FindAlternative>;
 

@@ -689,6 +689,46 @@ async def grant(session: AsyncSession, user: User, purpose: str) -> None:
     await audit.record(session, "kvkk.consent_grant", "consent", purpose, after={"user_id": user.id}, actor=user)
 
 
+#: where a person grants a consent: Profil › Gizlilik (the ``#privacy`` section of the profile page)
+GRANT_PATH = "/profile#privacy"
+
+
+async def has_consent(session: AsyncSession, user_id: int, purpose: str) -> bool:
+    """``user_id`` holds an active (granted, not withdrawn) consent for ``purpose``."""
+    q = select(Consent.id).where(
+        Consent.user_id == user_id, Consent.purpose == purpose, Consent.withdrawn_at.is_(None)
+    )
+    return (await session.execute(q.limit(1))).first() is not None
+
+
+def consent_required_error(purpose: str) -> KvkkError:
+    tr, en = PURPOSES[purpose]
+    return KvkkError(
+        409,
+        "consent_required",
+        f'This needs your consent "{en}". You can give it under Profile › Privacy.',
+        f'Bunun için "{tr}" rızanız gerekir. Rızanızı Profil › Gizlilik bölümünden verebilirsiniz.',
+        purpose=purpose,
+        label_tr=tr,
+        label_en=en,
+        grant_path=GRANT_PATH,
+        grant_api=f"POST /api/v1/me/consents/{purpose}",
+    )
+
+
+async def require_consent(session: AsyncSession, user: User, purpose: str) -> None:
+    """The consent gate (consent gates 2026-10-16): raise a 409 ``consent_required`` :class:`KvkkError` (TR/EN text
+    naming the consent and Profil › Gizlilik, ``purpose``, ``label_tr`` / ``label_en``, ``grant_path``, ``grant_api``)
+    unless ``user`` holds an active consent for ``purpose``. Called before anything that relies on explicit consent
+    as its legal basis is created: a calendar feed link or push connection (``calendar_sync``, while the institution's
+    calendar-sync sign-off is on) and any upload path that stores a person's photo (``photo``; route dependency
+    :func:`app.api.deps.consent_gate`). ``ValueError`` for an unknown purpose (a programming error, not a 4xx)."""
+    if purpose not in PURPOSES:
+        raise ValueError(f"unknown consent purpose {purpose!r}")
+    if not await has_consent(session, user.id, purpose):
+        raise consent_required_error(purpose)
+
+
 def profile_photo_dir() -> Path:
     """Where a person's profile photo lives (``<upload_dir>/users/<user_id>.<ext>`` or ``<user_id>/``). SmartSched has
     no profile-photo upload yet; anything that adds one stores the file here, gated by the ``photo`` consent, and

@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocaleToggle } from "@/components/shell/locale-toggle";
 import { AiPolicyCard } from "./ai-policy";
 import { CalendarSyncAdmin } from "./calendar-sync-admin";
+import { CalendarPushAdmin } from "./calendar-push-admin";
 import { WebhooksAdmin } from "./webhooks-admin";
 import { PoliciesAdmin } from "@/components/policies/policies-admin";
 import { PublicScheduleAdmin } from "@/components/public-schedule/public-schedule-admin";
@@ -391,6 +392,8 @@ export function SettingsView() {
           <TabsContent value="integrations">
             <div className="space-y-5">
               <CalendarSyncAdmin />
+              {/* the organisation's Google / Microsoft 365 OAuth clients (write-only secrets, redirect URIs) */}
+              <CalendarPushAdmin />
               {/* V2 public day view: off by default, switching it on records a KVKK sign-off */}
               <PublicScheduleAdmin />
               <WebhooksAdmin />

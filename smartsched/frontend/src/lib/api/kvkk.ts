@@ -6,15 +6,20 @@
  * - `GET /me/privacy`: the current notice (my language, else Turkish), `needs_ack`, my consents, my requests, `due_days`.
  * - `POST /me/privacy/ack {notice_id}`.
  * - `POST /me/consents/{purpose}` / `DELETE /me/consents/{purpose}` (`sms`, `photo`, `calendar_sync`, `ai_personal`);
- *   withdrawing `sms` deletes the linked phone numbers at once (`removed_channels`).
+ *   a withdrawal applies at once and answers the counts (`removed_channels`, `removed_photo`, `revoked_feeds`,
+ *   `disconnected_calendars`), `ai_excluded` and `effects[]` (`{code, count, message_en, message_tr}`, one sentence per
+ *   consequence: `phones_deleted | phones_none | photo_deleted | photo_none | feeds_revoked | calendars_disconnected |
+ *   calendar_none | ai_excluded`); the Gizlilik toast shows those sentences.
  * - `POST /me/data-requests {kind: export|erase|rectify|info, note?}` (409 `duplicate` with `id`); `GET /me/data-requests`;
  *   `GET /me/data-requests/{id}/download` (the export zip, built at download time, 7 days; 410 `expired`).
  * No sign-in: `GET /public/privacy-notice?lang=` (404 while nothing is published).
  *
- * Administrators: `setup.users` for the request queue (`GET /admin/dsr?status=`, `POST /admin/dsr/{id}/complete {note?}`
- * — 409 `own_request | last_admin | closed | gone` —, `POST /admin/dsr/{id}/refuse {reason}`); `setup.settings` for
- * retention (`GET /admin/retention`, `PUT /admin/retention/{data_class}` — 422 `below_floor | action |
- * legal_hold_reason` —, `POST /admin/retention/run`), the inventory (`GET /admin/kvkk/inventory`) and the notices
+ * Administrators: `setup.users` for the request queue (`GET /admin/dsr?status=open|all|OPEN|IN_PROGRESS|DONE|REFUSED`,
+ * default `open` = OPEN + IN_PROGRESS; `POST /admin/dsr/{id}/complete {note?}` — 409 `own_request | last_admin | closed |
+ * gone` —, `POST /admin/dsr/{id}/refuse {reason}`); `setup.settings` for retention (`GET /admin/retention`,
+ * `PUT /admin/retention/{data_class}` — 422 `{code, field, message_en, message_tr, errors[]}`, every error with its
+ * `field` (`retain_days | action | enabled | legal_hold | legal_hold_reason | data_class`) and `floor_days` / `max_days`
+ * / `allowed` when they apply —, `POST /admin/retention/run`), the inventory (`GET /admin/kvkk/inventory`) and the notices
  * (`GET/POST /admin/privacy-notices`, `PUT/DELETE /admin/privacy-notices/{id}` drafts only, `POST …/{id}/publish`).
  *
  * Nothing here ships a notice text or a retention period: administrators write them (the backend's retention rows are
@@ -31,6 +36,9 @@ export type Purpose = (typeof PURPOSES)[number];
 export const KINDS = ["export", "erase", "rectify", "info"] as const;
 export type DsrKind = (typeof KINDS)[number];
 export const DSR_STATUSES = ["OPEN", "IN_PROGRESS", "DONE", "REFUSED"] as const;
+/** `GET /admin/dsr?status=`: `open` (OPEN + IN_PROGRESS, the default), `all`, or one status */
+export const QUEUE_FILTERS = ["open", "all", ...DSR_STATUSES] as const;
+export type QueueFilter = (typeof QUEUE_FILTERS)[number];
 
 export const Notice = z.object({
   id: z.number(),
@@ -71,6 +79,20 @@ export const Dsr = z.object({
   subject: z.string().nullish(),
 });
 export type Dsr = z.infer<typeof Dsr>;
+
+/** One consequence of a withdrawal, in both languages (`count` is null when nothing is counted, e.g. `ai_excluded`). */
+export const ConsentEffect = z.object({ code: z.string(), count: z.number().nullish(), message_en: z.string(), message_tr: z.string() });
+export type ConsentEffect = z.infer<typeof ConsentEffect>;
+export const Withdrawal = z.object({
+  removed_channels: z.number().default(0),
+  removed_photo: z.number().default(0),
+  revoked_feeds: z.number().default(0),
+  disconnected_calendars: z.number().default(0),
+  ai_excluded: z.boolean().default(false),
+  effects: z.array(ConsentEffect).default([]),
+  consents: z.array(Consent).default([]),
+});
+export type Withdrawal = z.infer<typeof Withdrawal>;
 
 export const MyPrivacy = z.object({
   notice: Notice.nullish(),
@@ -128,7 +150,7 @@ export interface NoticeIn {
 
 export const kvkkKeys = {
   me: ["kvkk", "me"] as const,
-  queue: (status: string) => ["kvkk", "dsr", status] as const,
+  queue: (status: QueueFilter) => ["kvkk", "dsr", status] as const,
   retention: ["kvkk", "retention"] as const,
   inventory: ["kvkk", "inventory"] as const,
   notices: ["kvkk", "notices"] as const,
@@ -138,10 +160,10 @@ export const kvkkApi = {
   me: () => request("/me/privacy", { schema: MyPrivacy, ...s }),
   ack: (noticeId: number) => request<{ notice_id: number; acked_at: string }>("/me/privacy/ack", { method: "POST", body: { notice_id: noticeId }, ...s }),
   grant: (purpose: Purpose) => request(`/me/consents/${purpose}`, { method: "POST", schema: z.array(Consent), ...s }),
-  withdraw: (purpose: Purpose) => request(`/me/consents/${purpose}`, { method: "DELETE", schema: z.object({ removed_channels: z.number().default(0), consents: z.array(Consent).default([]) }), ...s }),
+  withdraw: (purpose: Purpose) => request(`/me/consents/${purpose}`, { method: "DELETE", schema: Withdrawal, ...s }),
   createRequest: (kind: DsrKind, note: string | null) => request("/me/data-requests", { method: "POST", body: { kind, note }, schema: Dsr, ...s }),
   downloadUrl: (id: number) => `${API_PREFIX}/me/data-requests/${id}/download`,
-  queue: (status: string) => request("/admin/dsr", { query: { status }, schema: z.array(Dsr), ...s }),
+  queue: (status: QueueFilter) => request("/admin/dsr", { query: { status }, schema: z.array(Dsr), ...s }),
   complete: (id: number, note: string | null) => request(`/admin/dsr/${id}/complete`, { method: "POST", body: { note }, schema: Dsr, ...s }),
   refuse: (id: number, reason: string) => request(`/admin/dsr/${id}/refuse`, { method: "POST", body: { reason }, schema: Dsr, ...s }),
   retention: () => request("/admin/retention", { schema: z.array(RetentionPolicy), ...s }),
@@ -192,16 +214,26 @@ export function useAckNotice() {
   const done = useInvalidate(kvkkKeys.me);
   return useMutation({ mutationFn: kvkkApi.ack, onSuccess: () => void done() });
 }
+/** Grant (answers no effects) or withdraw a consent. A withdrawal changed other screens at once: the linked phones
+ * (`channels`), the profile photo (`me`) and the calendar links / connections (every query key naming a calendar). */
 export function useConsent() {
-  const done = useInvalidate(kvkkKeys.me, ["channels"]);
-  return useMutation({ mutationFn: ({ purpose, grant }: { purpose: Purpose; grant: boolean }) => (grant ? kvkkApi.grant(purpose).then(() => ({ removed_channels: 0 })) : kvkkApi.withdraw(purpose)), onSuccess: () => void done() });
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ purpose, grant }: { purpose: Purpose; grant: boolean }): Promise<Withdrawal | null> => (grant ? kvkkApi.grant(purpose).then(() => null) : kvkkApi.withdraw(purpose)),
+    onSuccess: (_res, { purpose }) => {
+      void qc.invalidateQueries({ queryKey: kvkkKeys.me });
+      if (purpose === "sms") void qc.invalidateQueries({ queryKey: ["channels"] });
+      if (purpose === "photo") void qc.invalidateQueries({ queryKey: ["me"] });
+      if (purpose === "calendar_sync") void qc.invalidateQueries({ predicate: (q) => q.queryKey.some((k) => typeof k === "string" && /calendar|connector/i.test(k)) });
+    },
+  });
 }
 export function useCreateDataRequest() {
   const done = useInvalidate(kvkkKeys.me, ["kvkk", "dsr"]);
   return useMutation({ mutationFn: ({ kind, note }: { kind: DsrKind; note: string | null }) => kvkkApi.createRequest(kind, note), onSuccess: () => void done() });
 }
 
-export function useDsrQueue(status: string, enabled = true) {
+export function useDsrQueue(status: QueueFilter, enabled = true) {
   return useQuery({ queryKey: kvkkKeys.queue(status), queryFn: () => kvkkApi.queue(status), enabled, retry: false });
 }
 export function useDecideDsr() {
@@ -242,6 +274,56 @@ export function usePublishNotice() {
 }
 
 /* ------------------------------------------------------------------------------------- pure helpers */
+
+/** The sentences of a withdrawal's effects in the reader's language (Turkish for tr, English otherwise), each
+ * starting with a capital letter (Turkish-aware: "i" → "İ") and ending with a full stop. */
+export function effectSentences(effects: readonly ConsentEffect[], locale: string): string[] {
+  const tr = locale === "tr";
+  return effects
+    .map((e) => (tr ? e.message_tr : e.message_en).trim())
+    .filter(Boolean)
+    .map((m) => {
+      const s = m.charAt(0).toLocaleUpperCase(tr ? "tr-TR" : "en-GB") + m.slice(1);
+      return /[.!?]$/.test(s) ? s : `${s}.`;
+    });
+}
+
+export const RETENTION_FIELDS = ["retain_days", "action", "enabled", "legal_hold", "legal_hold_reason", "data_class"] as const;
+export type RetentionField = (typeof RETENTION_FIELDS)[number];
+/** One retention 422 entry (`detail.errors[]`, or the detail itself when an older backend sent no list). */
+export interface RetentionFieldError {
+  code: string;
+  field: RetentionField;
+  message_en: string;
+  message_tr: string;
+  floor_days?: number;
+  max_days?: number;
+  allowed?: string[];
+}
+
+/** `PUT /admin/retention/{class}` 422 detail → the errors by field (the first one per field wins); others → `{}`. */
+export function retentionErrors(detail: Record<string, unknown> | null | undefined): Partial<Record<RetentionField, RetentionFieldError>> {
+  if (!detail || typeof detail !== "object") return {};
+  const list = Array.isArray(detail.errors) ? (detail.errors as unknown[]) : typeof detail.field === "string" ? [detail] : [];
+  const out: Partial<Record<RetentionField, RetentionFieldError>> = {};
+  for (const raw of list) {
+    if (!raw || typeof raw !== "object") continue;
+    const e = raw as Record<string, unknown>;
+    const field = e.field as RetentionField;
+    if (!RETENTION_FIELDS.includes(field) || out[field]) continue;
+    const en = typeof e.message_en === "string" ? e.message_en : typeof e.message === "string" ? e.message : "";
+    out[field] = {
+      code: typeof e.code === "string" ? e.code : field,
+      field,
+      message_en: en,
+      message_tr: typeof e.message_tr === "string" ? e.message_tr : en,
+      ...(typeof e.floor_days === "number" ? { floor_days: e.floor_days } : {}),
+      ...(typeof e.max_days === "number" ? { max_days: e.max_days } : {}),
+      ...(Array.isArray(e.allowed) ? { allowed: e.allowed.map(String) } : {}),
+    };
+  }
+  return out;
+}
 
 export type DueTone = "overdue" | "soon" | "ok" | "closed";
 

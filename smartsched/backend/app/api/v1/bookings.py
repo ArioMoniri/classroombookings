@@ -727,9 +727,13 @@ async def room_feed(room_id: int, db: DB, access: ListAcc) -> Response:
 async def rotate_feed_token(db: DB, access: Acc) -> dict[str, Any]:
     """New secret for calendar subscriptions; every older link of the user stops working (= ``POST
     /calendar/feeds/reset``, docs/product/calendar-sync-api.md). Only the token's SHA-256 is stored."""
-    from app.services import calendar_feeds
+    from app.api.v1.calendar_sync import consent_refused
+    from app.services import calendar_feeds, kvkk
 
-    row, tok = await calendar_feeds.reset_tokens(db, access.user)
+    try:
+        row, tok = await calendar_feeds.reset_tokens(db, access.user)
+    except kvkk.KvkkError as exc:  # consent gates: calendar_sync consent while sync is on
+        raise consent_refused(exc) from exc
     await db.commit()
     urls = await calendar_feeds.url_templates(db, tok)
     return {

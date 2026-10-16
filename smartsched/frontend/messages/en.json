@@ -2733,6 +2733,7 @@
       "noneFree": "No room is free for this search.",
       "alternatives": "Alternatives",
       "alternativesLead": "Fewer than three rooms are free. These are close:",
+      "altWhy": "Rules",
       "alt": {
         "time": "Other time",
         "day": "Other day",
@@ -4625,16 +4626,21 @@
       "never": "Not given",
       "granted": "Consent given",
       "withdrawn": "Consent withdrawn",
-      "withdrawnPhones": "Consent withdrawn; {n, plural, one {# linked phone number was} other {# linked phone numbers were}} deleted",
       "consequence": {
         "sms": "Withdrawing deletes your linked phone numbers (SMS and WhatsApp) at once; you then get no notifications on those channels.",
-        "photo": "Withdrawing ends your consent to use a profile photo.",
-        "calendar_sync": "Withdrawing ends your consent to sync bookings with your Google or Microsoft calendar; also remove the connection under My bookings.",
-        "ai_personal": "Withdrawing ends your consent to have your personal data processed by the AI assistant."
+        "photo": "Withdrawing deletes your stored profile photo at once.",
+        "calendar_sync": "Withdrawing revokes your calendar subscription links at once and disconnects your Google or Microsoft calendars.",
+        "ai_personal": "Withdrawing replaces your name and e-mail with a placeholder in every AI assistant request from now on."
       },
       "smsTitle": "Withdraw the SMS / WhatsApp consent?",
       "smsBody": "Your linked phone numbers are deleted at once and you no longer get notifications by SMS or WhatsApp. You can link a number again later.",
-      "smsConfirm": "Withdraw and delete numbers"
+      "smsConfirm": "Withdraw and delete numbers",
+      "photoTitle": "Withdraw the photo consent?",
+      "photoBody": "Your stored profile photo is deleted at once. You can give consent again later and upload a photo.",
+      "photoConfirm": "Withdraw and delete the photo",
+      "calendarTitle": "Withdraw the calendar sync consent?",
+      "calendarBody": "Your calendar subscription links are revoked at once; calendars using them stop updating. Your Google or Microsoft calendar connections are removed and the bookings SmartSched added there are deleted.",
+      "calendarConfirm": "Withdraw and disconnect"
     },
     "request": {
       "title": "My data requests",
@@ -4696,12 +4702,14 @@
       "filters": {
         "open": "Open",
         "done": "Done",
-        "refused": "Refused"
+        "refused": "Refused",
+        "all": "All"
       },
       "empty": {
         "open": "No open requests.",
         "done": "No completed requests.",
-        "refused": "No refused requests."
+        "refused": "No refused requests.",
+        "all": "No requests yet."
       },
       "overdue": "{n, plural, one {# day} other {# days}} overdue",
       "daysLeft": "{n, plural, one {# day} other {# days}} left",
@@ -4764,6 +4772,8 @@
       "holdHint": "Keeps every record of this kind, e.g. during a dispute or an inspection.",
       "holdReason": "Reason for the legal hold",
       "holdReasonRequired": "A legal hold needs a reason.",
+      "range": "Between {floor} and {max} days.",
+      "allowed": "Allowed: {list}",
       "lastRun": "Last run {date}: {counts}",
       "neverRun": "Never run.",
       "saved": "Retention saved",
@@ -4828,6 +4838,87 @@
       "retentionOff": "Retention rule off",
       "held": "Legal hold",
       "generated": "Counted {date}"
+    }
+  },
+  "calendarPush": {
+    "provider": {
+      "google": "Google Calendar",
+      "microsoft": "Microsoft 365"
+    },
+    "admin": {
+      "title": "Google Calendar and Microsoft 365 push",
+      "lead": "Enter your organisation's OAuth client so users can push their bookings into their own Google or Microsoft 365 calendar. The client secret is stored encrypted and never shown again.",
+      "kvkkOn": "Calendar sync is on and the KVKK sign-off is recorded; users can connect a configured provider from their Profile.",
+      "kvkkOff": "Calendar sync is off. You can enter the client now, but users cannot connect until the KVKK sign-off above is given.",
+      "publicUrl": "Public address of the panel",
+      "urlHint": "The redirect URIs are built from this address.",
+      "urlFromEnv": "Taken from the server environment: {url}. An address entered here wins.",
+      "urlMissing": "No public address; a client cannot be used without one (e.g. https://booking.university.edu).",
+      "saveUrl": "Save the address",
+      "urlSaved": "Panel address saved",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret",
+      "secretSet": "Stored ({masked}). Type a new one to replace it; leave it empty to keep the stored secret.",
+      "secretUnset": "Not entered yet.",
+      "tenant": "Tenant",
+      "tenantHint": "organizations (any work account), common, a tenant ID (GUID) or a domain.",
+      "redirect": "Redirect URI",
+      "redirectHint": {
+        "google": "Add this address under Google Cloud Console › APIs & Services › Credentials › OAuth client ID (Web application) › Authorised redirect URIs.",
+        "microsoft": "Add this address under Microsoft Entra admin center › App registrations › Authentication › Web › Redirect URIs."
+      },
+      "redirectNeedsUrl": "Enter the panel's public address first; the redirect URI is built from it.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "save": "Save the client",
+      "nothing": "Nothing changed",
+      "remove": "Remove the client",
+      "removeTitle": "Remove the {provider} client?",
+      "removeBody": "The ID and the secret are deleted. Connected users stop syncing until a client is entered again.",
+      "saved": "{provider} client saved",
+      "removed": "{provider} client removed",
+      "failed": "Could not save: {message}",
+      "needId": "The client ID is required.",
+      "needSecret": "The first save needs the client secret too."
+    },
+    "me": {
+      "title": "Calendar push",
+      "lead": "Your bookings are written into the calendar you connect, updated when they change and removed when they are cancelled.",
+      "off": "Calendar sync is turned off in your organisation.",
+      "notConfigured": "Your administrator has not set this provider up yet.",
+      "notConnected": "Not connected",
+      "connectedAs": "Connected as {account}",
+      "reauth": "The connection needs to be authorised again.",
+      "connect": "Connect {provider}",
+      "reconnect": "Reconnect",
+      "redirecting": "Redirecting…",
+      "disconnect": "Disconnect",
+      "disconnectTitle": "Disconnect {provider}?",
+      "disconnectBody": "The events SmartSched wrote into your calendar are deleted and the access you granted is revoked.",
+      "disconnected": "{provider} disconnected",
+      "calendar": "Calendar",
+      "primary": "primary",
+      "defaultCalendar": "Default calendar",
+      "loadingCalendars": "Loading calendars…",
+      "calendarSaved": "Bookings will now go to {name}",
+      "lastSynced": "Last push: {date}",
+      "never": "Nothing pushed yet",
+      "pending": "{n} pending",
+      "failed": "{n} failed",
+      "resync": "Push everything again",
+      "resyncQueued": "{n, plural, =0 {No bookings to push} one {# booking queued} other {# bookings queued}}",
+      "connectedToast": "{provider} connected; your bookings are being pushed",
+      "connectError": "Could not connect: {reason}",
+      "consentLink": "Go to Privacy",
+      "reason": {
+        "denied": "access was not granted",
+        "state": "the sign-in could not be verified, try again",
+        "exchange": "the provider did not answer",
+        "disabled": "calendar sync is off",
+        "not_configured": "your administrator has not set this provider up"
+      }
     }
   }
 }

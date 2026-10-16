@@ -71,8 +71,23 @@ export const CalendarSignoff = z.object({
 });
 export type CalendarSignoff = z.infer<typeof CalendarSignoff>;
 
+/** One push provider's OAuth client as `settings_out` (app/api/v1/calendar_sync.py) answers it: the id in clear, the
+ * secret only as `{set, masked}` (write-only), `configured` = id + secret + a public panel URL. */
+export const OAuthClientOut = z
+  .object({
+    client_id: z.string().default(""),
+    client_secret: z.object({ set: z.boolean(), masked: z.string().nullish() }).passthrough().nullish(),
+    configured: z.boolean(),
+    redirect_uri: z.string(),
+    tenant: z.string().nullish(),
+  })
+  .passthrough();
+export type OAuthClientOut = z.infer<typeof OAuthClientOut>;
+
 export const IntegrationSettings = z
   .object({
+    google: OAuthClientOut.optional(),
+    microsoft: OAuthClientOut.optional(),
     calendar_sync_enabled: z.boolean(),
     calendar_sync_signoff: CalendarSignoff.nullish(),
     webhooks_enabled: z.boolean(),
@@ -87,6 +102,14 @@ export type IntegrationSettings = z.infer<typeof IntegrationSettings>;
 export interface IntegrationSettingsIn {
   calendar_sync_enabled?: boolean;
   webhooks_enabled?: boolean;
+  /** the panel's public address (the OAuth redirect URIs and the feed links are built from it); "" clears it */
+  public_url?: string | null;
+  /** "" removes the stored value; a secret is never read back */
+  google_client_id?: string;
+  google_client_secret?: string;
+  microsoft_client_id?: string;
+  microsoft_client_secret?: string;
+  microsoft_tenant?: string;
 }
 
 export const Webhook = z.object({

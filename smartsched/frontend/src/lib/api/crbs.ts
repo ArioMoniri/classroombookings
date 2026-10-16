@@ -454,8 +454,14 @@ export const SyncConnector = z.object({
   calendar_name: z.string().nullish(),
   last_synced_at: z.string().nullish(),
   last_error: z.string().nullish(),
+  calendar_id: z.string().nullish(),
+  pending_jobs: z.number().nullish(),
+  failed_jobs: z.number().nullish(),
 });
 export type SyncConnector = z.infer<typeof SyncConnector>;
+/** `GET /calendar/connectors/{provider}/calendars`: the calendars the connected account may write to */
+export const ProviderCalendar = z.object({ id: z.string(), name: z.string().nullish(), primary: z.boolean().nullish() }).passthrough();
+export type ProviderCalendar = z.infer<typeof ProviderCalendar>;
 const FeedTemplates = z.object({ mine: z.string(), room: z.string(), department: z.string(), room_group: z.string().optional() });
 export const SyncStatus = z.object({
   enabled: z.boolean(),
@@ -961,6 +967,10 @@ export const crbs = {
     reset: () => send("POST", "/calendar/feeds/reset", undefined, FeedTokenCreated),
     connect: (provider: string, returnPath: string) => send("POST", `/calendar/connectors/${provider}/connect`, { return_path: returnPath }, z.object({ authorize_url: z.string() })),
     disconnect: (provider: string) => send("DELETE", `/calendar/connectors/${provider}`),
+    calendars: (provider: string) => json(`/calendar/connectors/${provider}/calendars`, z.array(ProviderCalendar)),
+    chooseCalendar: (provider: string, calendarId: string, calendarName: string | null) =>
+      send("PUT", `/calendar/connectors/${provider}`, { calendar_id: calendarId, calendar_name: calendarName }, SyncConnector),
+    resync: (provider: string) => send("POST", `/calendar/connectors/${provider}/resync`, undefined, z.object({ queued: z.number() })),
   },
   rooms: {
     /** T1 find-a-room; 404/405 while the backend does not have it yet (callers fall back to the grid) */

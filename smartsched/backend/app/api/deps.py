@@ -97,3 +97,26 @@ def perm(*names: str) -> object:
 
 
 UsersAdmin = Annotated[User, Depends(require_permission("setup.users"))]
+
+
+def consent_gate(purpose: str) -> Callable[..., object]:
+    """Route dependency: the signed-in user must hold an active KVKK consent for ``purpose``, else 409
+    ``consent_required`` (``app.services.kvkk.require_consent``; detail with TR/EN text, ``grant_path``). Any upload
+    path that stores a person's photo depends on ``consent_gate("photo")``; there is no such route yet::
+
+        @router.post("/me/photo")
+        async def upload(user: Annotated[User, Depends(consent_gate("photo"))], ...): ...
+    """
+    from app.services import kvkk
+
+    if purpose not in kvkk.PURPOSES:
+        raise ValueError(f"unknown consent purpose {purpose!r}")
+
+    async def _gate(db: DB, user: CurrentUser) -> User:
+        try:
+            await kvkk.require_consent(db, user, purpose)
+        except kvkk.KvkkError as exc:
+            raise HTTPException(exc.status, exc.as_detail()) from exc
+        return user
+
+    return _gate

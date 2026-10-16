@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Grid } from "@/lib/api/crbs";
-import { asRequestable, buildQuery, compactWeeks, emptyForm, formFromRecent, normaliseClock, parseWeeks, reserveSpan, slotsFor } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildQuery, compactWeeks, emptyForm, formFromRecent, isoDate, normaliseClock, parseWeeks, reserveSpan, slotsFor, whyQuery } from "./find-room-model";
 
 describe("find a room form", () => {
   it("reads clock times the way planners type them", () => {
@@ -42,5 +42,24 @@ describe("reserve target", () => {
     const g = asRequestable(grid, 5, "2026-02-18", 1, 2);
     expect(reserveSpan(slotsFor(g, 5, "2026-02-18", 1, 2))?.map((s) => s.period_id)).toEqual([1, 2]);
     expect(reserveSpan(slotsFor(grid, 5, "2026-02-18", 1, 2))?.map((s) => s.period_id)).toEqual([2]);
+  });
+  it("GG.AA.YYYY dates (as the backend accepts them) become ISO; impossible dates are refused", () => {
+    expect(isoDate("18.02.2026")).toBe("2026-02-18");
+    expect(isoDate("5/3/2026")).toBe("2026-03-05");
+    expect(isoDate("2026-02-18")).toBe("2026-02-18");
+    expect(isoDate("31.02.2026")).toBeNull();
+    expect(isoDate("yarın")).toBeNull();
+    expect(emptyForm("18.02.2026").date).toBe("2026-02-18");
+    const out = buildQuery({ ...emptyForm("2026-02-18"), date: "19.02.2026" }, 3);
+    expect("query" in out && out.query.date).toBe("2026-02-19");
+    expect(formFromRecent({ date: "20.02.2026", start: "10:10", end: "12:30" }, emptyForm("2026-02-18")).date).toBe("2026-02-20");
+  });
+  it("'Neden?' asks the verdict with the result's period_id on its free date, the rules only without one", () => {
+    const slots = [{ date: "2026-02-18" }, { date: "2026-02-25" }];
+    expect(whyQuery({ room_id: 4, per_date: null, period_id: 11 }, slots, 3)).toEqual({ room_id: 4, date: "2026-02-18", period_id: 11, term_id: 3 });
+    expect(whyQuery({ room_id: 4, per_date: [{ date: "2026-02-18", status: "busy" }, { date: "2026-02-25", status: "free" }], period_id: 12 }, slots, 3).date).toBe("2026-02-25");
+    expect(whyQuery({ room_id: 4, per_date: null, period_id: null }, slots).period_id).toBeNull();
+    expect(whyQuery({ room_id: 4, per_date: null, period_id: 9 }, []).period_id).toBeNull();
+    expect(altWhyQuery({ room_id: 5, dates: ["2026-02-19"], date: null, period_id: 21 }, 3)).toEqual({ room_id: 5, date: "2026-02-19", period_id: 21, term_id: 3 });
   });
 });

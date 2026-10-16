@@ -19,6 +19,7 @@ from app.models.base import utcnow
 from app.services import audit
 from app.services import calendar_connectors as conn_svc
 from app.services import calendar_feeds as feeds
+from app.services import kvkk
 from app.services.bookings_perms import load_access
 from app.services.bookings_settings import get_group, set_group
 
@@ -41,7 +42,15 @@ async def sync_status(db: DB, access: CurrentAccess) -> dict[str, Any]:
             "url_templates": await feeds.url_templates(db),
         },
         "connectors": await conn_svc.connectors_out(db, access.user),
+        # consent gates: with sync on, links and connections need the person's calendar_sync consent
+        "consent": await feeds.consent_state(db, access.user),
     }
+
+
+def consent_refused(exc: kvkk.KvkkError) -> HTTPException:
+    """409 ``consent_required``: ``detail = {code, message, message_en, message_tr, purpose, label_tr, label_en,
+    grant_path, grant_api}`` (``app.services.kvkk.require_consent``)."""
+    return HTTPException(exc.status, exc.as_detail())
 
 
 # --------------------------------------------------------------------------------------------------
@@ -64,13 +73,18 @@ async def create_feed_token(db: DB, access: CurrentAccess, body: TokenIn | None 
         row, token = await feeds.create_token(db, access.user, body.label if body else None)
     except OverflowError as exc:
         raise HTTPException(409, str(exc)) from exc
+    except kvkk.KvkkError as exc:
+        raise consent_refused(exc) from exc
     await db.commit()
     return await _created(db, row, token)
 
 
 @router.post("/feeds/reset", status_code=201)
 async def reset_feed_tokens(db: DB, access: CurrentAccess, body: TokenIn | None = None) -> dict[str, Any]:
-    row, token = await feeds.reset_tokens(db, access.user, body.label if body else None)
+    try:
+        row, token = await feeds.reset_tokens(db, access.user, body.label if body else None)
+    except kvkk.KvkkError as exc:
+        raise consent_refused(exc) from exc
     await db.commit()
     return await _created(db, row, token)
 
@@ -201,6 +215,8 @@ async def connect(provider: str, db: DB, access: CurrentAccess, body: ConnectIn 
         url = await conn_svc.start_authorization(db, access.user, p, body.return_path if body else None)
     except conn_svc.NotConfigured as exc:
         raise HTTPException(409, f"{p.label} is not configured by the administrator") from exc
+    except kvkk.KvkkError as exc:
+        raise consent_refused(exc) from exc
     await db.commit()
     return {"authorize_url": url}
 

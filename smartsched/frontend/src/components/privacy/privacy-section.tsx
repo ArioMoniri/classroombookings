@@ -1,7 +1,9 @@
 "use client";
 /**
  * Profil › Gizlilik (A4 KVKK; `GET /me/privacy`): the institution's current privacy notice with the acknowledgement,
- * the consents with what withdrawing each one does (withdrawing SMS deletes the linked phone numbers at once), and the
+ * the consents with what withdrawing each one does (it applies at once: SMS deletes the linked phone numbers, photo the
+ * stored photo, calendar sync revokes the feed links and disconnects the calendars — each confirmed first —, AI keeps the
+ * person's data out of later AI requests; the toast shows the server's `effects[]` sentences), and the
  * data requests (KVKK Art. 11): a self-service export (a zip built at download time, 7 days), and erasure,
  * rectification or information requests that the administrators answer within the legal deadline.
  *
@@ -19,7 +21,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { downloadExport, dueTone, KINDS, useAckNotice, useConsent, useCreateDataRequest, useMyPrivacy, type Consent, type Dsr, type DsrKind, type Purpose } from "@/lib/api/kvkk";
+import { downloadExport, dueTone, effectSentences, KINDS, useAckNotice, useConsent, useCreateDataRequest, useMyPrivacy, type Consent, type Dsr, type DsrKind, type Purpose } from "@/lib/api/kvkk";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
@@ -112,18 +114,31 @@ const CONSEQUENCE: Record<Purpose, MessageKey> = {
   ai_personal: "privacy.consent.consequence.ai_personal",
 };
 
+/** Withdrawals that delete something at once are confirmed first; `ai_personal` only changes what is sent from now on. */
+const CONFIRM: Partial<Record<Purpose, { title: MessageKey; body: MessageKey; confirm: MessageKey }>> = {
+  sms: { title: "privacy.consent.smsTitle", body: "privacy.consent.smsBody", confirm: "privacy.consent.smsConfirm" },
+  photo: { title: "privacy.consent.photoTitle", body: "privacy.consent.photoBody", confirm: "privacy.consent.photoConfirm" },
+  calendar_sync: { title: "privacy.consent.calendarTitle", body: "privacy.consent.calendarBody", confirm: "privacy.consent.calendarConfirm" },
+};
+
 function ConsentsCard({ consents }: { consents: Consent[] }) {
   const { t, locale } = useI18n();
   const m = useConsent();
   const when = useDateTime();
+  // the dialog keeps its last consent while it closes, so the text does not blank out during the exit animation
   const [confirm, setConfirm] = useState<Consent | null>(null);
+  const [open, setOpen] = useState(false);
+  const ask = confirm ? CONFIRM[confirm.purpose as Purpose] : undefined;
   const run = (c: Consent, grant: boolean) =>
     m.mutate(
       { purpose: c.purpose as Purpose, grant },
       {
         onSuccess: (res) => {
-          setConfirm(null);
-          toast.success(grant ? t("privacy.consent.granted") : res.removed_channels ? t("privacy.consent.withdrawnPhones", { n: res.removed_channels }) : t("privacy.consent.withdrawn"));
+          setOpen(false);
+          if (grant || !res) return void toast.success(t("privacy.consent.granted"));
+          // the server says what the withdrawal did (phones / photo deleted, feeds revoked, AI placeholders)
+          const lines = effectSentences(res.effects, locale);
+          toast.success(t("privacy.consent.withdrawn"), lines.length ? { description: lines.join(" "), duration: 8000 } : undefined);
         },
         onError: (e) => toast.error(errorText(wave1Error(e), locale)),
       },
@@ -145,12 +160,12 @@ function ConsentsCard({ consents }: { consents: Consent[] }) {
                 <p className="type-footnote text-label-2">{CONSEQUENCE[purpose] ? t(CONSEQUENCE[purpose]) : null}</p>
                 <p className="type-footnote text-label-3">{c.granted ? t("privacy.consent.since", { date: when(c.granted_at) }) : c.withdrawn_at ? t("privacy.consent.withdrawnOn", { date: when(c.withdrawn_at) }) : t("privacy.consent.never")}</p>
               </div>
-              <Switch id={id} checked={c.granted} disabled={m.isPending} onCheckedChange={(on) => (on ? run(c, true) : purpose === "sms" ? setConfirm(c) : run(c, false))} data-testid={`consent-switch-${c.purpose}`} />
+              <Switch id={id} checked={c.granted} disabled={m.isPending} onCheckedChange={(on) => (on ? run(c, true) : CONFIRM[purpose] ? (setConfirm(c), setOpen(true)) : run(c, false))} data-testid={`consent-switch-${c.purpose}`} />
             </li>
           );
         })}
       </ul>
-      <ConfirmDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)} title={t("privacy.consent.smsTitle")} description={t("privacy.consent.smsBody")} confirmLabel={t("privacy.consent.smsConfirm")} destructive busy={m.isPending} onConfirm={() => confirm && run(confirm, false)} />
+      <ConfirmDialog open={open} onOpenChange={setOpen} title={ask ? t(ask.title) : ""} description={ask ? t(ask.body) : ""} confirmLabel={ask ? t(ask.confirm) : ""} destructive busy={m.isPending} onConfirm={() => confirm && run(confirm, false)} />
     </Card>
   );
 }

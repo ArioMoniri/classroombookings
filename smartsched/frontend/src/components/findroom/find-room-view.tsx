@@ -10,6 +10,7 @@
  */
 import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Loader2, PackageX, Search, ShieldAlert, SlidersHorizontal, Stamp, Users, type LucideIcon } from "lucide-react";
 import { PolicyWhy } from "@/components/policies/policy-why";
+import type { EffectiveQuery } from "@/lib/api/booking-policies";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,7 +32,7 @@ import { errorText, pickLang, useFacets, useRecentSearches, w1Keys, wave1, wave1
 import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { ACTIONABLE, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, recentParts, reserveSpan, slotsFor, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { ACTIONABLE, altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, recentParts, reserveSpan, slotsFor, whyQuery, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -413,7 +414,7 @@ export function FindRoomView() {
                 <Card className="gap-0 overflow-hidden py-0">
                   <ul data-testid="fr-results">
                     {free.map((r, i) => (
-                      <ResultRow key={r.room_id} row={r} rank={i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={opening === `r${r.room_id}`} why={{ date: result.slots[0]?.date ?? null, termId }} onReserve={() => {
+                      <ResultRow key={r.room_id} row={r} rank={i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={opening === `r${r.room_id}`} why={whyQuery(r, result.slots, termId)} onReserve={() => {
                         const date = firstFreeDate(r, result.slots);
                         if (date) void reserve(`r${r.room_id}`, r.room_id, date, r.start_period, r.end_period, r.action === "request");
                       }} />
@@ -448,7 +449,7 @@ export function FindRoomView() {
                   <Card variant="plain" className="gap-0 overflow-hidden py-0">
                     <ul data-testid="fr-alternatives">
                       {result.alternatives.map((a, i) => (
-                        <AlternativeRow key={`${a.kind}-${a.room_id}-${i}`} alt={a} opening={opening === `a${i}`} onReserve={() => {
+                        <AlternativeRow key={`${a.kind}-${a.room_id}-${i}`} alt={a} termId={termId} opening={opening === `a${i}`} onReserve={() => {
                           const date = a.dates[0] ?? a.date ?? result.slots[0]?.date;
                           if (date) void reserve(`a${i}`, a.room_id, date, a.start_period, a.end_period);
                         }} />
@@ -466,7 +467,7 @@ export function FindRoomView() {
                   <Card variant="plain" className="mt-2 gap-0 overflow-hidden py-0">
                     <ul>
                       {others.map((r, i) => (
-                        <ResultRow key={r.room_id} row={r} rank={free.length + i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={false} why={{ date: result.slots[0]?.date ?? null, termId }} />
+                        <ResultRow key={r.room_id} row={r} rank={free.length + i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={false} why={whyQuery(r, result.slots, termId)} />
                       ))}
                     </ul>
                   </Card>
@@ -623,7 +624,7 @@ function FitBar({ capacity, headcount }: { capacity: number; headcount: number }
   );
 }
 
-function ResultRow({ row: r, rank, multi, headcount, opening, onReserve, why }: { row: FindRow; rank: number; multi: boolean; headcount: number; opening: boolean; onReserve?: () => void; why?: { date: string | null; termId?: number } }) {
+function ResultRow({ row: r, rank, multi, headcount, opening, onReserve, why }: { row: FindRow; rank: number; multi: boolean; headcount: number; opening: boolean; onReserve?: () => void; why?: EffectiveQuery }) {
   const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const reason = pickLang(r.reason, locale);
@@ -648,8 +649,8 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve, why }: 
         {extra.length ? <p className="type-footnote text-label-3">{extra.join(" · ")}</p> : null}
         {r.busy_with ? <p className="type-footnote text-label-2">{t("wave1.find.busyWith", { what: r.busy_with })}</p> : null}
         {request ? <p className="mt-1 type-footnote text-tint-text">{t("wave1.find.needsApproval")}</p> : null}
-        {/* P8 "Neden?": the booking policies that refuse this room or turn it into a request */}
-        {why && (r.status === "policy" || r.status === "requestable") ? <PolicyWhy className="mt-1" query={{ room_id: r.room_id, date: why.date, term_id: why.termId }} violation={r.status === "policy" ? { effect: "refuse", message_tr: r.reason?.tr ?? "", message_en: r.reason?.en ?? "" } : null} /> : null}
+        {/* P8 "Neden?": the booking policies that refuse this room or turn it into a request (full verdict with the slot's period_id) */}
+        {why && (r.status === "policy" || r.status === "requestable") ? <PolicyWhy className="mt-1" query={why} violation={r.status === "policy" ? { effect: "refuse", message_tr: r.reason?.tr ?? "", message_en: r.reason?.en ?? "" } : null} /> : null}
         {multi && r.per_date?.length ? (
           <details className="mt-1">
             <summary className="cursor-pointer type-footnote text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">{t("wave1.find.perDate")}</summary>
@@ -676,7 +677,7 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve, why }: 
 
 const ALT_KIND: Record<string, MessageKey> = { time: "wave1.find.alt.time", day: "wave1.find.alt.day", near_miss: "wave1.find.alt.near_miss" };
 
-function AlternativeRow({ alt: a, opening, onReserve }: { alt: FindAlternative; opening: boolean; onReserve: () => void }) {
+function AlternativeRow({ alt: a, termId, opening, onReserve }: { alt: FindAlternative; termId?: number; opening: boolean; onReserve: () => void }) {
   const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const date = a.dates[0] ?? a.date;
@@ -691,6 +692,8 @@ function AlternativeRow({ alt: a, opening, onReserve }: { alt: FindAlternative; 
           </span>
         </p>
         <p className="type-footnote text-label-2">{pickLang(a.reason, locale)}</p>
+        {/* alternatives are found without the booking policies: the verdict for that slot before reserving */}
+        {a.period_id != null && a.kind !== "near_miss" ? <PolicyWhy query={altWhyQuery(a, termId)} label={t("wave1.find.altWhy")} /> : null}
       </div>
       {a.kind !== "near_miss" ? (
         <Button size="sm" variant="outline" className="min-h-11 sm:min-h-0" onClick={onReserve} disabled={opening} aria-label={t("wave1.find.reserveRoom", { room: a.name })} aria-busy={opening || undefined}>

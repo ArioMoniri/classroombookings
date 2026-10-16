@@ -1561,7 +1561,8 @@
       "ledger": "Dense grids: phone layouts",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-16 08:24"
+      "finished_at": "2026-10-16 08:37",
+      "left_off": "That stopped task was only a wait loop for the visual-quality e2e run, so nothing needs restarting. The run itself had already finished before it was stopped: 49 passed and 5 skipped (desktop and mobile). The report I sent you is unchanged."
     },
     {
       "id": "a327e88b96631ea19",

@@ -481,6 +481,9 @@ async def get_connection(session: AsyncSession, user_id: int, provider: str) -> 
 
 
 async def start_authorization(session: AsyncSession, user: User, provider: Provider, return_path: str | None) -> str:
+    """The provider's consent screen URL. Without the person's active ``calendar_sync`` consent (sync on) the 409
+    ``consent_required`` :class:`~app.services.kvkk.KvkkError` comes first, before any state row is written."""
+    await feeds.require_sync_consent(session, user)
     cfg = await client_config(session, provider)
     if cfg is None:
         raise NotConfigured(provider.name)

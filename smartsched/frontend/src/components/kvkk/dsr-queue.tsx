@@ -2,7 +2,7 @@
 /**
  * Yönetim › KVKK › Talepler (`setup.users`): the data-subject requests (erase, rectify, info; exports are
  * self-service) with their legal deadline — overdue in red, the last week in amber, days left on every open request.
- * Complete (with an optional note) or refuse (a written reason is required). Completing an erasure anonymises the
+ * Filters: open (default), done, refused, all (`status=all`). Complete (with an optional note) or refuse (a written reason is required). Completing an erasure anonymises the
  * person across the system; the answer's counts are shown, with why it is "partial" (audit records are kept,
  * pseudonymised, for the legal retention). 409 `own_request | last_admin | closed | gone` is shown in the dialog.
  */
@@ -15,15 +15,17 @@ import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Textarea } from "@/components/ui/textarea";
-import { dueTone, erasureCounts, useDecideDsr, useDsrQueue, type Dsr } from "@/lib/api/kvkk";
+import { dueTone, erasureCounts, useDecideDsr, useDsrQueue, type Dsr, type QueueFilter } from "@/lib/api/kvkk";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { STATUS_TONE, useDateTime } from "@/components/privacy/privacy-section";
 
-const FILTERS = ["open", "done", "refused"] as const;
+/** the queue's filters → `GET /admin/dsr?status=` (`open` = OPEN + IN_PROGRESS, `all` = every queued request) */
+const FILTERS = ["open", "done", "refused", "all"] as const;
 type Filter = (typeof FILTERS)[number];
+const STATUS_PARAM: Record<Filter, QueueFilter> = { open: "open", done: "DONE", refused: "REFUSED", all: "all" };
 
 /** erasure count keys the backend returns → words; anything else shows the table name */
 const COUNT_KEYS: Record<string, MessageKey> = {
@@ -47,7 +49,7 @@ const COUNT_KEYS: Record<string, MessageKey> = {
 export function DsrQueue() {
   const { t, locale } = useI18n();
   const [filter, setFilter] = useState<Filter>("open");
-  const q = useDsrQueue(filter);
+  const q = useDsrQueue(STATUS_PARAM[filter]);
   const decide = useDecideDsr();
   const when = useDateTime();
   const [acting, setActing] = useState<{ r: Dsr; refuse: boolean } | null>(null);

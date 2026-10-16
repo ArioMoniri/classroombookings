@@ -1,9 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { dueTone, erasureCounts, Inventory, inventoryCsv, Notice, noticeVersions } from "@/lib/api/kvkk";
+import { dueTone, effectSentences, erasureCounts, Inventory, inventoryCsv, Notice, noticeVersions, retentionErrors, Withdrawal } from "@/lib/api/kvkk";
 import { parseMarkdown } from "@/components/privacy/markdown";
 import { shouldGate } from "@/components/privacy/notice-gate";
 
 describe("KVKK helpers", () => {
+  it("withdrawal effects: the server's sentences in the reader's language, capitalised the Turkish way", () => {
+    const res = Withdrawal.parse({ removed_photo: 1, effects: [{ code: "photo_deleted", count: 1, message_en: "your profile photo was deleted", message_tr: "profil fotoğrafınız silindi" }, { code: "x", count: null, message_en: "ok.", message_tr: "işlem tamam." }] });
+    expect(res.removed_channels).toBe(0);
+    expect(res.ai_excluded).toBe(false);
+    expect(effectSentences(res.effects, "tr")).toEqual(["Profil fotoğrafınız silindi.", "İşlem tamam."]);
+    expect(effectSentences(res.effects, "en")).toEqual(["Your profile photo was deleted.", "Ok."]);
+    expect(effectSentences(res.effects, "de")).toEqual(["Your profile photo was deleted.", "Ok."]);
+    expect(Withdrawal.parse({}).effects).toEqual([]);
+  });
+
+  it("retention 422: errors[] by field (first per field), the numbers kept; non-field details → nothing", () => {
+    const by = retentionErrors({
+      code: "retain_days",
+      field: "retain_days",
+      errors: [
+        { code: "retain_days", field: "retain_days", message: "x", message_en: "x", message_tr: "y", floor_days: 365, max_days: 36500 },
+        { code: "below_floor", field: "retain_days", message_en: "second", message_tr: "ikinci" },
+        { code: "action", field: "action", message_en: "a", message_tr: "b", allowed: ["anonymise"] },
+        { code: "weird", field: "nope", message_en: "?", message_tr: "?" },
+      ],
+    });
+    expect(by.retain_days).toEqual({ code: "retain_days", field: "retain_days", message_en: "x", message_tr: "y", floor_days: 365, max_days: 36500 });
+    expect(by.action?.allowed).toEqual(["anonymise"]);
+    expect(Object.keys(by).sort()).toEqual(["action", "retain_days"]);
+    expect(retentionErrors({ code: "legal_hold", field: "legal_hold", message: "legal_hold: true or false", message_tr: "yasal saklama: evet ya da hayır" }).legal_hold?.message_en).toBe("legal_hold: true or false");
+    expect(retentionErrors({ code: "forbidden", message: "no" })).toEqual({});
+    expect(retentionErrors(null)).toEqual({});
+  });
+
   it("colours the deadline: overdue, the last week, the rest; closed requests have none", () => {
     expect(dueTone({ status: "OPEN", overdue: true, days_left: -2 })).toBe("overdue");
     expect(dueTone({ status: "OPEN", overdue: false, days_left: 5 })).toBe("soon");

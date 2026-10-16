@@ -29,7 +29,7 @@ import { useI18n } from "@/lib/i18n/provider";
 /** `calendar_sync_signoff.legal_basis` as `app/api/v1/calendar_sync.py` writes it. */
 export const CALENDAR_LEGAL_BASIS = "KVKK Art. 9 as amended by Law 7499 (cross-border transfer)";
 
-function SignoffRecord({ signoff }: { signoff: CalendarSignoff }) {
+export function SignoffRecord({ signoff }: { signoff: CalendarSignoff }) {
   const { t, locale } = useI18n();
   const basis = signoff.legal_basis === CALENDAR_LEGAL_BASIS ? t("notifications.admin.calendar.basis") : signoff.legal_basis;
   const when = new Date(signoff.at);

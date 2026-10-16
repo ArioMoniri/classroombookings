@@ -157,8 +157,34 @@ async def list_tokens(session: AsyncSession, user_id: int) -> list[CalendarFeedT
     return list((await session.execute(q)).scalars())
 
 
+async def require_sync_consent(session: AsyncSession, user: User) -> None:
+    """While calendar sync is on (the institution's KVKK sign-off, :func:`sync_enabled`), a feed link or a push
+    connection needs the person's active ``calendar_sync`` consent: raises the 409 ``consent_required``
+    :class:`app.services.kvkk.KvkkError` otherwise (consent gates 2026-10-16). With sync off nothing is shared (every
+    feed is a 404, connecting is refused), so a link can still be prepared."""
+    if not await sync_enabled(session):
+        return
+    from app.services import kvkk
+
+    await kvkk.require_consent(session, user, "calendar_sync")
+
+
+async def consent_state(session: AsyncSession, user: User) -> dict[str, Any]:
+    """``{purpose, required, granted}`` for ``GET /calendar/sync`` (the screen asks for the consent first)."""
+    from app.services import kvkk
+
+    return {
+        "purpose": "calendar_sync",
+        "required": await sync_enabled(session),
+        "granted": await kvkk.has_consent(session, user.id, "calendar_sync"),
+    }
+
+
 async def create_token(session: AsyncSession, user: User, label: str | None = None) -> tuple[CalendarFeedToken, str]:
-    """A new link (raises ``OverflowError`` above :data:`MAX_TOKENS_PER_USER`). The token is returned once."""
+    """A new link (raises ``OverflowError`` above :data:`MAX_TOKENS_PER_USER`, the ``consent_required``
+    :class:`~app.services.kvkk.KvkkError` without the ``calendar_sync`` consent while sync is on). The token is
+    returned once."""
+    await require_sync_consent(session, user)
     count = (
         await session.execute(select(func.count(CalendarFeedToken.id)).where(CalendarFeedToken.user_id == user.id))
     ).scalar_one()
@@ -172,7 +198,9 @@ async def create_token(session: AsyncSession, user: User, label: str | None = No
 
 
 async def reset_tokens(session: AsyncSession, user: User, label: str | None = None) -> tuple[CalendarFeedToken, str]:
-    """Revoke every link of ``user`` and create one new link."""
+    """Revoke every link of ``user`` and create one new link (refused before anything is revoked without the
+    consent, :func:`require_sync_consent`)."""
+    await require_sync_consent(session, user)
     await session.execute(delete(CalendarFeedToken).where(CalendarFeedToken.user_id == user.id))
     return await create_token(session, user, label)
 
