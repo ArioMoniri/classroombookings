@@ -28,8 +28,9 @@ export interface PolicyFormContext {
   rooms: { id: number; name: string }[];
   groups: { id: number; name: string }[];
   terms: { id: number; name: string }[];
-  /** role codes with a display name; null = the role list is not readable here (free text instead) */
-  roles: { code: string; name: string }[] | null;
+  /** role codes with a display name; null = the role list is not readable here (free text instead). `bindable`
+   *  false: the role holds planning.admin, which no policy binds (offered only while a policy still names it) */
+  roles: { code: string; name: string; bindable?: boolean }[] | null;
 }
 
 /** the backend's 422 `code` → the field it belongs to */
@@ -158,7 +159,7 @@ export function PolicyForm({
         {ctx.roles ? (
           ctx.roles.length ? (
             <div className="flex flex-wrap gap-2">
-              {ctx.roles.map((r) => {
+              {ctx.roles.filter((r) => r.bindable !== false || p.role_codes.includes(r.code)).map((r) => {
                 const on = p.role_codes.includes(r.code);
                 return (
                   <Chip key={r.code} selected={on} onSelectedChange={(v) => set("role_codes", v ? [...p.role_codes, r.code] : p.role_codes.filter((x) => x !== r.code))} data-testid={`policy-role-${r.code}`}>

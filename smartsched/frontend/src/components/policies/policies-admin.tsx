@@ -6,7 +6,7 @@
  */
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useId, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ConfirmDialog, Loading } from "@/components/admin/kit";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
@@ -21,10 +21,16 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Switch } from "@/components/ui/switch";
 import { emptyPolicy, policyToInput, useDeletePolicy, usePolicies, useSaveExamPeriod, useSavePolicy, type ExamMode, type Policy, type PolicyIn } from "@/lib/api/booking-policies";
 import { crbs, useBookingContext, useRoles } from "@/lib/api/crbs";
+import { api } from "@/lib/api/endpoints";
+import { qk, useTerms } from "@/lib/api/hooks";
+import type { Term, Week } from "@/lib/api/schemas";
+import { useBookingFormat } from "@/components/bookings/use-booking-format";
+import { usePermissions } from "@/lib/permissions";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { roleLabel } from "@/lib/i18n/roles";
+import { weekList } from "@/lib/i18n/turkish";
 import { PolicyForm, type PolicyFormContext } from "./policy-form";
 
 function useFormContext(): PolicyFormContext {
@@ -37,10 +43,55 @@ function useFormContext(): PolicyFormContext {
       rooms: (rooms.data ?? []).map((r) => ({ id: r.id, name: r.name || r.code })),
       groups: (ctx.data?.room_groups ?? []).map((g) => ({ id: g.id, name: g.name })),
       terms: (ctx.data?.sessions ?? []).map((s) => ({ id: s.id, name: s.name })),
-      roles: roles.isError ? null : (roles.data ?? []).map((r) => ({ code: (r.code ?? r.name).toUpperCase(), name: roleLabel(t, r) })),
+      // round-1 R1-M-33: planning administrators are never bound by a policy, so their roles are not offered
+      roles: roles.isError ? null : (roles.data ?? []).map((r) => ({ code: (r.code ?? r.name).toUpperCase(), name: roleLabel(t, r), bindable: r.code !== "ADMIN" && !r.permissions.includes(EXEMPT_PERMISSION) })),
     }),
     [rooms.data, ctx.data, roles.data, roles.isError, t],
   );
+}
+
+/** holders of this permission are not bound by booking policies (`booking_policies.exempt`) */
+export const EXEMPT_PERMISSION = "planning.admin";
+/** week kinds the exam period covers (`booking_policies.EXAM_WEEK_KINDS`) */
+const EXAM_KINDS: ReadonlySet<string> = new Set(["EXAM", "MAKEUP"]);
+
+export interface ExamRange {
+  /** term week numbers, consecutive */
+  weeks: number[];
+  /** first day (ISO) and the last day of the last week (start + 6) */
+  from: string;
+  to: string;
+}
+
+const addDays = (iso: string, n: number) => {
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+/** The term's exam and make-up weeks as consecutive date ranges (round-1 R1-M-33: the card names them). */
+export function examRanges(weeks: readonly Pick<Week, "index" | "kind" | "start_date">[]): ExamRange[] {
+  const exam = weeks.filter((w) => EXAM_KINDS.has(w.kind) && w.start_date).sort((a, b) => a.index - b.index);
+  const out: ExamRange[] = [];
+  for (const w of exam) {
+    const last = out.at(-1);
+    if (last && w.index === last.weeks.at(-1)! + 1) {
+      last.weeks.push(w.index);
+      last.to = addDays(w.start_date, 6);
+    } else out.push({ weeks: [w.index], from: w.start_date.slice(0, 10), to: addDays(w.start_date, 6) });
+  }
+  return out;
+}
+
+/** Exam ranges of every term that has exam weeks (active terms first). Needs `planning.view` (the term list). */
+function useExamTerms(): { term: Term; ranges: ExamRange[] }[] | null {
+  const { can } = usePermissions();
+  const allowed = can("planning.view");
+  const terms = useTerms({ enabled: allowed });
+  const list = useMemo(() => [...(terms.data ?? [])].sort((a, b) => Number(b.is_active) - Number(a.is_active) || b.start_date.localeCompare(a.start_date)), [terms.data]);
+  const weeks = useQueries({ queries: list.map((term) => ({ queryKey: qk.weeks(term.id), queryFn: () => api.terms.weeks(term.id), staleTime: 10 * 60_000, enabled: allowed })) });
+  if (!allowed || terms.isError) return null;
+  return list.map((term, i) => ({ term, ranges: examRanges(weeks[i]?.data ?? []) })).filter((x) => x.ranges.length);
 }
 
 function scopeText(p: Policy, ctx: PolicyFormContext, t: (k: MessageKey, v?: Record<string, string | number>) => string): string {
@@ -185,6 +236,8 @@ function ExamPeriodCard({ exam, rooms }: { exam: { mode: ExamMode; from_exam_tim
   const fail = (e: unknown) => toast.error(errorText(wave1Error(e), locale));
   const ok = () => toast.success(t("policies.exam.saved"));
   const chosen = exam.room_ids.map((id) => ({ id, name: rooms.find((r) => r.id === id)?.name ?? `#${id}` }));
+  const examTerms = useExamTerms();
+  const fmt = useBookingFormat();
   return (
     <Card data-testid="exam-period">
       <CardHeader>
@@ -198,6 +251,28 @@ function ExamPeriodCard({ exam, rooms }: { exam: { mode: ExamMode; from_exam_tim
           </span>
           <SegmentedControl aria-labelledby={`${fromId}-mode`} value={exam.mode} onValueChange={(v) => save.mutate({ mode: v as ExamMode }, { onSuccess: ok, onError: fail })} options={MODES.map((m) => ({ value: m, label: t(`policies.exam.modes.${m}` as MessageKey), testId: `exam-mode-${m}` }))} />
           <p className="type-footnote text-label-3">{t(`policies.exam.hint.${exam.mode}` as MessageKey)}</p>
+        </div>
+        {/* round-1 R1-M-33: which dates are exam weeks and how many rooms count as exam rooms */}
+        <div className="flex flex-col gap-1.5" data-testid="exam-weeks">
+          <span className="type-footnote font-medium text-label-2">{t("policies.exam.weeks")}</span>
+          {examTerms === null ? (
+            <p className="type-footnote text-label-3">{t("policies.exam.weeksHidden")}</p>
+          ) : examTerms.length === 0 ? (
+            <p className="type-footnote text-label-3">{t("policies.exam.noWeeks")}</p>
+          ) : (
+            <ul className="flex flex-col gap-1 type-callout text-label-1">
+              {examTerms.map(({ term, ranges }) => (
+                <li key={term.id}>
+                  <span className="font-medium">{term.name}</span>
+                  {": "}
+                  {ranges.map((r) => t("policies.exam.range", { weeks: weekList(r.weeks, locale), from: fmt.short(r.from), to: fmt.short(r.to) })).join("; ")}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="type-footnote text-label-2" data-testid="exam-room-count">
+            {exam.from_exam_timetable ? t("policies.exam.roomCountTimetable", { n: exam.room_ids.length }) : t("policies.exam.roomCount", { n: exam.room_ids.length })}
+          </p>
         </div>
         <div className="flex min-h-11 items-center justify-between gap-4">
           <div className="min-w-0">

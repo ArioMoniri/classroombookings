@@ -4532,7 +4532,13 @@
       "noRooms": "Ek oda yok.",
       "addRoom": "Oda ekle…",
       "removeRoom": "{name} kaldır",
-      "saved": "Sınav dönemi kaydedildi"
+      "saved": "Sınav dönemi kaydedildi",
+      "weeks": "Sınav haftaları",
+      "weeksHidden": "Dönemlerin sınav haftalarını görmek için planlama verilerini görme izni gerekir.",
+      "noWeeks": "Hiçbir dönemde sınav ya da bütünleme haftası tanımlı değil; kural şu an hiçbir tarihte uygulanmaz.",
+      "range": "{weeks} ({from} – {to})",
+      "roomCount": "{n, plural, =0 {Sınav odası seçilmedi.} other {# sınav odası}}",
+      "roomCountTimetable": "{n, plural, =0 {Sınav odaları: dönemin sınav programının odaları} other {# sınav odası ve dönemin sınav programının odaları}}"
     },
     "why": {
       "open": "Neden?",

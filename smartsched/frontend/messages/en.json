@@ -4533,7 +4533,13 @@
       "noRooms": "No extra rooms.",
       "addRoom": "Add a room…",
       "removeRoom": "Remove {name}",
-      "saved": "Exam period saved"
+      "saved": "Exam period saved",
+      "weeks": "Exam weeks",
+      "weeksHidden": "Seeing the terms' exam weeks needs the permission to view planning data.",
+      "noWeeks": "No term has exam or make-up weeks, so the rule applies on no date yet.",
+      "range": "{weeks} ({from} – {to})",
+      "roomCount": "{n, plural, =0 {No exam room chosen.} one {# exam room} other {# exam rooms}}",
+      "roomCountTimetable": "{n, plural, =0 {Exam rooms: the rooms of the term's exam timetable} one {# exam room and the rooms of the term's exam timetable} other {# exam rooms and the rooms of the term's exam timetable}}"
     },
     "why": {
       "open": "Why?",
