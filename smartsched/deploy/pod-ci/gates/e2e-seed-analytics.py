@@ -1,7 +1,7 @@
 # ruff: noqa: RUF001, RUF002, RUF003  (the Turkish run labels the spec looks up)
 """Seed the runs the planning-analytics specs read (e2e/analytics.spec.ts) and publish the imported board.
 
-E2E stack only (e2e-backend-entry.sh, after the Bahar imports, the room master and the full-term solve; the Final
+E2E stack only (e2e-backend-entry.sh, after the Bahar imports and the room master, before the full-term solve; the Final
 board and exam list are imported by the entry script with the CLI). Mirrors tests/planning_analytics_support.py
 on the e2e database, with the labels the spec looks up:
 

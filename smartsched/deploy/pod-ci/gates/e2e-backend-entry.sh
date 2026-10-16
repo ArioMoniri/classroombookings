@@ -42,12 +42,13 @@ alembic upgrade head
 # (shell-admin-sweep 2) changed the rooms under that run for every spec after it (e2e-stabilisation 2026-10-16)
 "$PY" -m app.cli import room-master tests/fixtures/room_master.csv
 "$PY" -m app.cli seed-admin
-# a solver run for the whole term (the calendar and motion specs need one besides the imported boards)
-"$PY" -m app.cli solve --term 2026-BAHAR --kind COURSE --horizon TERM --solver cpsat \
-  --time-limit "${E2E_SOLVE_TIME_LIMIT:-120}" --label "e2e: Bahar full term"
-# the planning-analytics specs (e2e/analytics.spec.ts): the 2026 Final board + exam list, and the labelled week-3
-# runs A (published) / B (A's busiest Wednesday room closed) and the Final exam run (e2e-seed-analytics.py)
+# the planning-analytics specs (e2e/analytics.spec.ts): the 2026 Final board + exam list, the labelled week-3 runs
+# A / B (A's busiest Wednesday room closed), calendar.spec's editable week-3 run and the Final exam run; the board is
+# published (e2e-seed-analytics.py). Before the full-term solve: the screens open the term's LATEST usable run.
 "$PY" -m app.cli import weekly-grid tests/fixtures/final_derslikler_takvimi_2026_v2.xlsx --term 2026-FINAL --year 2026
 "$PY" -m app.cli import exam-list tests/fixtures/final_planlama_listesi_2026_v2.xlsx --term 2026-FINAL
 "$PY" "$HERE/e2e-seed-analytics.py"
+# a solver run for the whole term (the calendar and motion specs need one besides the imported boards)
+"$PY" -m app.cli solve --term 2026-BAHAR --kind COURSE --horizon TERM --solver cpsat \
+  --time-limit "${E2E_SOLVE_TIME_LIMIT:-120}" --label "e2e: Bahar full term"
 exec "$PY" "$HERE/e2e-backend-serve.py" --host "${E2E_HOST:-0.0.0.0}" --port "${E2E_PORT:-8000}"

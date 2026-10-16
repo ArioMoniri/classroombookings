@@ -183,12 +183,13 @@ def test_entry_seeded_mode_imports_seeds_and_solves(tmp_path: Path) -> None:
     assert "alembic upgrade head" in calls and "import weekly-grid" in calls and "seed-admin" in calls
     assert "solve --term 2026-BAHAR" in calls and "e2e-backend-serve.py" in calls
     assert "ADMIN_EMAIL=admin@smartsched.local ADMIN_PASSWORD=set" in calls
-    # the room master before the full-term solve; the analytics data (Final board + exams, labelled runs) after it
+    # the room master before every solve
     order = [ln.split(" |")[0] for ln in calls.splitlines()]
     at = lambda needle: next(i for i, ln in enumerate(order) if needle in ln)  # noqa: E731
     assert at("import room-master") < at("solve --term 2026-BAHAR")
-    assert at("solve --term 2026-BAHAR") < at("import weekly-grid tests/fixtures/final_") < at("e2e-seed-analytics.py")
-    assert at("e2e-seed-analytics.py") < at("e2e-backend-serve.py")
+    # the analytics runs before the full-term run: the screens open the term's latest usable run
+    assert at("import weekly-grid tests/fixtures/final_") < at("e2e-seed-analytics.py") < at("solve --term 2026-BAHAR")
+    assert at("solve --term 2026-BAHAR") < at("e2e-backend-serve.py")
 
 
 def test_entry_empty_mode_migrates_only_and_seeds_no_admin(tmp_path: Path) -> None:
