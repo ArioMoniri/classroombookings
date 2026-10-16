@@ -74,7 +74,7 @@ describe("wish form", () => {
     const rows = [
       { request_id: 590, label: "PTL 102 §1", requested: { start_period: 4 } },
       { request_id: 801, label: "PTL 184 §1", requested: { start_period: null } },
-    ] as Parameters<typeof fixedClasses>[0];
+    ] as unknown as Parameters<typeof fixedClasses>[0];
     expect(fixedClasses(rows, [590, 801]).map((m) => m.label)).toEqual(["PTL 102 §1"]);
     expect(fixedClasses(rows, [801])).toEqual([]);
   });
