@@ -203,59 +203,89 @@ test("admin memory: reset everything with the typed word, then undo it", async (
   await expect(panel.getByTestId("reset-row").first()).toHaveAttribute("data-status", "undone");
 });
 
+/** the MBG Tezli YL courses as Excel copies them (real Bahar rows R182–R199; the wizard's old built-in example, which
+ * the server-draft wizard no longer ships: no demo data) and the joint enrolments that size the rooms */
+const MBG_TSV = [
+  "Kod\tAd\tT\tU\tL\tK\tAKTS\tSınıf",
+  "MBG 598\tSeminer\t0\t0\t0\t0\t9\t1",
+  "MBG532\tEpigenetik\t3\t0\t0\t3\t9\t1",
+  "MBG 534\tProteomiks\t3\t0\t0\t3\t9\t1",
+  "MBG 546\tGenetik ve Genomiks\t3\t0\t0\t3\t9\t1",
+  "MBG 502\tİleri Moleküler Genetik\t3\t0\t0\t3\t9\t1",
+  "MBG 541\tGen Mühendisliği ve Biyoteknoloji\t3\t0\t0\t3\t9\t1",
+  "MBG 549\tKanser İmmünolojisi\t3\t0\t0\t3\t9\t1",
+].join("\n");
+const MBG_ENROLMENT = [120, 80, 15, 15, 12, 15, 15];
+
+// The wizard keeps everything in a server draft until "Oluştur" (P19 UI follow-up 2026-10-16): this test checks the
+// draft on the server; followup.phase19.spec.ts commits one and undoes it.
 test("the program wizard creates the MBG Tezli YL program and runs the pre-check", async ({ page }) => {
   test.setTimeout(420_000);
   await login(page);
   await page.goto("/programs/new");
-  await page.getByTestId("wizard-start").click();
+  // 1 term (on the landing), then the draft opens on the program step
+  const landing = page.getByTestId("wizard-landing");
+  const termValue = await landing.getByTestId("wizard-term").locator("option", { hasText: TERM_CODE }).first().getAttribute("value");
+  await landing.getByTestId("wizard-term").selectOption(termValue!);
+  await landing.getByTestId("wizard-start").click();
+  await expect(page).toHaveURL(/\/programs\/new\/\d+\?step=program/);
   await expect(page.getByTestId("program-wizard")).toBeVisible();
-  // 1 term
-  const termValue = await page.getByTestId("wizard-term").locator("option", { hasText: TERM_CODE }).first().getAttribute("value");
-  await page.getByTestId("wizard-term").selectOption(termValue!);
-  await page.getByTestId("wizard-next").click();
+  const draftId = Number(/\/programs\/new\/(\d+)/.exec(page.url())![1]);
+  const saved = () => expect(page.getByTestId("save-status").first()).toHaveAttribute("data-state", "saved", { timeout: 60_000 });
   // 2 faculty + program
   const name = `Moleküler Biyoloji ve Genetik Tezli Yüksek Lisans e2e ${Date.now() % 100000}`;
   await page.getByTestId("wizard-faculty").fill("Fen Bilimleri Enstitüsü");
   await page.getByTestId("wizard-program-name").fill(name);
   await page.getByTestId("wizard-prefix").fill("MBG");
+  await saved();
+  await expect(page.getByTestId("rail-program")).toHaveAttribute("data-status", "ok");
   await page.getByTestId("wizard-next").click();
+  await expect(page).toHaveURL(/step=courses/);
   // 3 courses: the TSV paste preview, then insert (MBG532 → MBG 532)
   await page.getByTestId("wizard-paste").click();
-  await page.getByTestId("paste-example").click();
-  await expect(page.getByTestId("paste-dialog")).toContainText("7 satır eklenecek");
-  await page.getByTestId("paste-insert").click();
+  const paste = page.getByTestId("paste-dialog");
+  await paste.getByTestId("paste-text").fill(MBG_TSV);
+  await paste.getByTestId("paste-read").click();
+  await expect(paste.getByTestId("paste-count")).toContainText("7 satır eklenecek");
+  await paste.getByTestId("paste-insert").click();
   await expect(page.getByTestId("course-row")).toHaveCount(7);
   await expect(page.getByTestId("courses-grid")).not.toContainText("MBG532");
   // the rail shows the step summary and its status in words (never colour only)
   await expect(page.getByTestId("rail-courses")).toContainText("7 ders · 63 AKTS");
+  // 4 sections: the joint enrolments
+  await page.getByTestId("rail-sections").click();
+  const enrol = page.getByTestId("section-enrolment");
+  await expect(enrol).toHaveCount(7);
+  for (let i = 0; i < 7; i++) await enrol.nth(i).fill(String(MBG_ENROLMENT[i]));
   // 5 patterns: a start time for every course (the seminar meets one period a week)
-  await page.getByTestId("rail-patterns").click();
+  await page.getByTestId("rail-rooms").click();
   const starts = page.getByTestId("pattern-start");
   await expect(starts).toHaveCount(7);
   for (let i = 0; i < 7; i++) await starts.nth(i).selectOption("09:20");
   await expect(page.getByTestId("fit-line").first()).toContainText(/oda sığar/);
   // autosave: faculty, program, courses, sections, patterns → "Tüm değişiklikler kaydedildi"
-  await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "saved", { timeout: 180_000 });
-  await expect(page.getByTestId("save-status")).toContainText("Tüm değişiklikler kaydedildi");
-  // the server has the programme and its seven sections with their meetings
-  const programs = await call<{ items: { id: number; name: string }[] }>(page, "GET", `/programs?search=${encodeURIComponent("e2e")}`);
-  const prog = programs.body.items.find((p) => p.name === name)!;
-  expect(prog).toBeTruthy();
-  const terms = (await call<Term[]>(page, "GET", "/terms")).body;
-  const termId = terms.find((t) => t.code === TERM_CODE)!.id;
-  await expect.poll(async () => (await call<{ total: number }>(page, "GET", `/sections?term_id=${termId}&program_id=${prog.id}`)).body.total, { timeout: 60_000 }).toBe(7);
-  const meetings = await call<{ total: number }>(page, "GET", `/requests/meetings?term_id=${termId}&program_id=${prog.id}`);
-  expect(meetings.body.total).toBeGreaterThanOrEqual(7);
-  // 7 pre-check: the wizard's own checks + the Studio pre-check for this program's meetings
-  await page.getByTestId("rail-precheck").click();
-  await expect(page.getByTestId("wizard-issues").or(page.getByText("Hata ya da uyarı yok."))).toBeVisible();
+  await saved();
+  await expect(page.getByTestId("save-status").first()).toContainText("Tüm değişiklikler kaydedildi");
+  // the server draft has the programme and its seven courses with their sections and meeting patterns
+  const draft = await call<{ payload: { program: { name: string; prefix: string }; courses: { code: string; sections: { enrolment: number | null }[]; pattern: { start: string } }[] } }>(page, "GET", `/program-drafts/${draftId}`);
+  expect(draft.status).toBe(200);
+  expect(draft.body.payload.program).toMatchObject({ name, prefix: "MBG" });
+  expect(draft.body.payload.courses).toHaveLength(7);
+  expect(draft.body.payload.courses.map((c) => c.code)).toContain("MBG 532");
+  for (const c of draft.body.payload.courses) {
+    expect(c.sections.length, c.code).toBeGreaterThanOrEqual(1);
+    expect(c.pattern.start, c.code).toBe("09:20");
+  }
+  expect(draft.body.payload.courses.flatMap((c) => c.sections.map((x) => x.enrolment))).toEqual(MBG_ENROLMENT);
+  // 7 pre-check: the program-scoped Studio pre-check for this program's meetings (rolled back on the server)
+  await page.getByTestId("rail-constraints").click();
   await page.getByTestId("precheck-run").click();
   await expect(page.getByTestId("precheck-result")).toContainText(/Ön kontrol: \d+ engel, \d+ uyarı/, { timeout: 180_000 });
-  // 8 generate: no errors, so "Oluştur ve çöz" is enabled (warnings never block)
+  // 8 generate: no errors, so the create button is enabled (warnings never block)
   await page.getByTestId("rail-generate").click();
   await expect(page.getByTestId("generate-summary")).toBeVisible();
   await expect(page.getByTestId("generate-open")).toBeEnabled();
-  // resume: the draft is listed with "Kaldığınız yer"
+  // resume: the draft is listed under Taslaklarım
   await page.goto("/programs/new");
   await expect(page.getByTestId("draft-list")).toContainText(name);
 });

@@ -93,7 +93,8 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
           options={phoneCols.map((c) => ({
             value: String(c),
             label: mode === "day" ? dayName(c, locale, "short") : (PERIODS[c - 1]?.start ?? String(c)),
-            text: mode === "day" ? dayName(c, locale) : `${t("common.period")} ${c} · ${PERIODS[c - 1]?.start ?? ""}`,
+            // day names stay short (the long ones would size the control into its select fallback on a phone)
+            text: mode === "day" ? undefined : `${t("common.period")} ${c} · ${PERIODS[c - 1]?.start ?? ""}`,
           }))}
           data-testid="heat-phone-col"
         />

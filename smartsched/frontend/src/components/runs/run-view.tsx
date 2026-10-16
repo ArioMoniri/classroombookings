@@ -274,6 +274,9 @@ export function RunView({ id }: { id: number }) {
 
           <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
             <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="min-w-0">
+              {/* phones: the four tabs are wider than 390 px; they scroll in their own row (MOBILE.md M-01), padded so the
+                  triggers' touch hit areas are not clipped by the scroller (tokens.md A.9 hit areas) */}
+              <div className="max-w-full overflow-x-auto [scrollbar-width:none] pointer-coarse:-my-1.5 pointer-coarse:py-1.5" data-testid="run-tabs-scroller">
               <TabsList>
                 <TabsTrigger value="report" data-testid="tab-report">
                   {t("glass.report.problemsTab")} <span className="text-label-3 tabular-nums">{n(problems)}</span>
@@ -284,6 +287,7 @@ export function RunView({ id }: { id: number }) {
                 </TabsTrigger>
                 <TabsTrigger value="chat" className="xl:hidden">{t("runs.chat")}</TabsTrigger>
               </TabsList>
+              </div>
               <TabsContent value="report" keepMounted className="space-y-5 pt-4 data-[hidden]:hidden">
                 {problems === 0 ? (
                   <Card>

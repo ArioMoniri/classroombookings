@@ -87,5 +87,6 @@ test("real backend: login → dashboard → classes → rooms → studio run →
   await page.goto("/settings");
   await expect(page.getByTestId("settings")).toBeVisible();
   await page.getByTestId("tab-users").click();
-  await expect(page.getByText(ADMIN_EMAIL).first()).toBeVisible({ timeout: 20_000 });
+  // the users table renders the address twice (a column, and under the name on phones): the one shown
+  await expect(page.getByText(ADMIN_EMAIL).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });
 });

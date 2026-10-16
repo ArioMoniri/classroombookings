@@ -56,7 +56,7 @@ export function RoomDayView({
         aria-label={t("common.day")}
         value={String(day)}
         onValueChange={(v) => onDay(Number(v))}
-        options={days.map((d) => ({ value: String(d), label: dayName(d, locale, "short"), text: dayName(d, locale), controls: panel, testId: `room-day-${d}` }))}
+        options={days.map((d) => ({ value: String(d), label: dayName(d, locale, "short"), controls: panel, testId: `room-day-${d}` }))}
         data-testid="room-day-picker"
       />
       <ol id={panel} role="tabpanel" aria-label={dayName(day, locale)} className="flex flex-col gap-1">

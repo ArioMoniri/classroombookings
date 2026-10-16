@@ -1473,3 +1473,22 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
 - The dense-grids agent is running, with this orchestrator default: phones get a day view for the /admin/sessions and /rooms/[id] week grids, a list for the dashboard heat cells, and one role at a time for /admin/roles.
 - Sent to wave-2: the Profile preference-matrix switches and the settings password-reveal width.
 - [ ] MOBILE.md M-04 snippet: it only counts scrollers inside the dialog, so a phone Dialog that scrolls itself reads as not scrollable. Fix the snippet in the flow loop.
+
+### Bookings wave-2 + KVKK UI finished (2026-10-16)
+
+- Done:
+  - **Resolver** at `/bookings/conflicts`: ranked options, scope per series, override with a reason (admin only), and "Önerilenleri uygula" (auto, then a dry-run review, then apply).
+  - **Policies** in Ayarlar › Rezervasyon kuralları, with the exam-period card. The grid, slot sheet, book sheet, recurring preview and find-room show the policy state and a "Neden?" popover.
+  - **Public kiosk** at `/public/**`: no login, refreshes every 60 s, one 404 for every refusal, and a switch with KVKK sign-off.
+  - **Profil › Gizlilik:** notice acknowledgement, consents, and data requests with export download. A blocking first-login notice sheet.
+  - **Admin › KVKK:** the request queue, retention, notices and inventory.
+  - e2e 5/5, run three times, safe to rerun.
+- [ ] Backend asks (batch 3):
+  - Shorter or no cache on `/public/schedule*`, so switching it off takes effect at once. It is 60 s today.
+  - The booking period id in find-room results, for a full "Neden?" verdict.
+  - Localised field codes for `/admin/retention` 422s.
+  - `GET /admin/dsr?status=all`.
+  - What withdrawing the photo, calendar_sync and ai_personal consents does: return counts like `removed_channels`.
+- [ ] The conflict banner in the timetable header.
+- [ ] Persist the admins' "Daha sonra" on the server.
+- [ ] A legal review of the Gizlilik consequence texts.
