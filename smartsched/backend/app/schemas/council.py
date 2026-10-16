@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.common import ORMModel
 
@@ -121,6 +121,24 @@ class TermSpec(BaseModel):
     year: int | None = Field(default=None, ge=1990, le=2100)
 
 
+class BaselineIn(BaseModel):
+    """Where a commit writes its schedule maps' course entries (app/council/baseline.py)."""
+
+    mode: Literal["auto", "skip", "run"] = Field(
+        default="auto",
+        description="auto: the term's baseline run (created when missing); skip: not written; run: run_id",
+    )
+    run_id: int | None = Field(default=None, ge=1, description="mode=run: a COURSE run of the same term")
+
+    @model_validator(mode="after")
+    def _run_needs_id(self) -> BaselineIn:
+        if self.mode == "run" and self.run_id is None:
+            raise ValueError("baseline.mode run needs baseline.run_id")
+        if self.mode != "run" and self.run_id is not None:
+            raise ValueError("baseline.run_id is only used with baseline.mode run")
+        return self
+
+
 class CommitIn(BaseModel):
     group: int | None = Field(default=None, ge=0, description="planner term group index")
     term_id: int | None = Field(default=None, description="existing term to write into")
@@ -134,6 +152,7 @@ class CommitIn(BaseModel):
     on_conflict: Literal["keep", "take"] = Field(
         default="keep", description="a planner's studio edit vs a changed file value: keep the edit or take the file"
     )
+    baseline: BaselineIn = Field(default_factory=BaselineIn, description="the schedule maps' target run")
 
 
 class RerunIn(BaseModel):

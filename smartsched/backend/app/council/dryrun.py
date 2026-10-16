@@ -16,6 +16,10 @@ The answer has, per entity (``meeting_requests``, ``sections``, ``rooms``, ``blo
 ``rows`` holds the row diffs (``from`` -> ``to`` per field, the planner's imported value when there is a
 snapshot), capped at :data:`MAX_ROWS`; ``rows_total`` says how many there were. The real commit records the
 same counts (``result.changes``), so a dry-run and the commit that follows can be compared one to one.
+
+``result`` keeps the commit's term, files and counts, and ``baseline_run`` (app/council/baseline.py): the run the
+schedule maps would go to (``run_id``; ``null`` with ``run_created`` when a new baseline run would be made), its
+create / update / unchanged / linked counts, or ``skipped`` with ``baseline.mode = skip``.
 """
 
 from __future__ import annotations
@@ -229,8 +233,21 @@ async def dry_run(session_factory: Any, job_id: int, **kwargs: Any) -> dict[str,
             rec.detach(s)
         finally:
             await s.rollback()
-    keep = ("term_code", "term_created", "files", "fast_path", "general", "notes", "constraints_created")
-    return {"dry_run": True, **report, "result": {k: result.get(k) for k in keep}}
+    keep = (
+        "term_code",
+        "term_created",
+        "files",
+        "fast_path",
+        "general",
+        "notes",
+        "constraints_created",
+        "baseline_run",
+    )
+    out = {k: result.get(k) for k in keep}
+    base = out.get("baseline_run")
+    if isinstance(base, dict) and base.get("run_created"):
+        out["baseline_run"] = {**base, "run_id": None}  # the new run's id was rolled back with the transaction
+    return {"dry_run": True, **report, "result": out}
 
 
 __all__ = ["MAX_ROWS", "ChangeRecorder", "dry_run", "plain", "summarize"]

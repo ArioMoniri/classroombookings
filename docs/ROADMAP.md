@@ -1575,3 +1575,9 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - studio generate accepting `relaxation_policy`
   - a CommitIn baseline skip or target
 - Sent to e2e: intake.spec.ts commits board links into 2026-BAHAR; isolate it.
+- The orchestrator fixed the KVKK request notification link: `/profile/privacy` is now `/profile#privacy`.
+- The consent UI agent is running: the calendar screens' consent step and 409 link, the Admin › KVKK `ai_personal_default` control, the Gizlilik AI text, and erasure failures in the queue.
+- [ ] **Owner decisions:**
+  - Should serving existing feed links also check consent? Today only creating a link or connection is gated, and adding the check would stop links that already exist.
+  - Which `kvkk.ai_personal_default` the institution uses.
+- [ ] Move provider cleanup after an erasure timeout to a durable job (today it is a detached task and does not survive a restart).

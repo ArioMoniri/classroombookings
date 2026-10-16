@@ -38,7 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import safe_files
 from app.council import airows, critic, fastpath, formats, storage
 from app.council import text as tx
-from app.council.baseline import as_baseline_run
+from app.council.baseline import as_baseline_run, target_run
 from app.council.dryrun import ChangeRecorder, summarize
 from app.council.reconcile import rid, room_key
 from app.council.review import build_items, decisions, effective_plan
@@ -486,12 +486,22 @@ async def commit(
     actor: User | None = None,
     on_conflict: str = "keep",
     recorder: ChangeRecorder | None = None,
+    baseline: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Write the chosen files into a term (see the module notes). ``on_conflict``: ``keep`` a planner's studio
     edit when the file changed the same field (default) or ``take`` the file's value; both are reported.
-    ``recorder`` (the dry-run's) collects the row changes; otherwise the commit records its own counts."""
+    ``recorder`` (the dry-run's) collects the row changes; otherwise the commit records its own counts.
+    ``baseline``: where the schedule maps' course entries go: ``{"mode": "auto"}`` (default, the term's one
+    baseline run), ``{"mode": "skip"}`` (not written; ``baseline_run.skipped``) or ``{"mode": "run", "run_id": n}``
+    (another COURSE run of the term, :func:`app.council.baseline.target_run`)."""
     if on_conflict not in ("keep", "take"):
         raise CommitError("on_conflict must be keep or take")
+    base_mode = str((baseline or {}).get("mode") or "auto")
+    base_run_id = (baseline or {}).get("run_id")
+    if base_mode not in ("auto", "skip", "run"):
+        raise CommitError("baseline.mode must be auto, skip or run")
+    if base_mode == "run" and not isinstance(base_run_id, int):
+        raise CommitError("baseline.mode run needs baseline.run_id")
     own_recorder = recorder is None
     rec = recorder if recorder is not None else ChangeRecorder().attach(session)
     if job.status not in ("REVIEW", "READY", "COMMITTED"):
@@ -539,6 +549,12 @@ async def commit(
         ]
     elif periods:
         term.periods_json = periods
+    target = None
+    if base_mode == "run":  # checked before anything is written
+        try:
+            target = await target_run(session, term, int(base_run_id or 0))
+        except ValueError as exc:
+            raise CommitError(str(exc)) from exc
     await session.commit()
     term_code, tid = term.code, term.id
 
@@ -653,14 +669,20 @@ async def commit(
             if r["type"] == "booking" and (decided.get(airows.row_id(i, n)) or {}).get("action") != "reject"
         )
     baseline = None
-    if schedule:
+    if schedule and base_mode == "skip":
+        entries_n = sum(1 for r, _src in schedule if r.get("course_codes"))
+        if entries_n:
+            baseline = {"run_id": None, "run_created": False, "mode": "skip", "skipped": True, "entries": entries_n}
+    elif schedule:
         grid = periods or [
             {"index": k + 1, "start": p.start.strftime("%H:%M"), "end": p.end.strftime("%H:%M")}
             for k, p in enumerate(PERIODS)
         ]
         term = await session.get(Term, tid)
         assert term is not None
-        baseline = await as_baseline_run(session, term, schedule, grid)
+        if target is not None:
+            target = await session.get(type(target), target.id)  # the same row in this (possibly new) identity map
+        baseline = await as_baseline_run(session, term, schedule, grid, run=target)
         await session.commit()
 
     created_rules: list[int] = []

@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `f866560` (committed 2026-10-16 09:40 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `60705d4` (committed 2026-10-16 09:43 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-146 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 124 · stopped 7 · superseded 7.
+147 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 125 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -155,8 +155,8 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
-| `Backend consent gates` | backend-engineer | 2026-10-16 08:25 |
 | `Backend batch 4 + its UI` | general-purpose | 2026-10-16 09:29 |
+| `Consent UI follow-ups` | frontend-engineer | 2026-10-16 09:43 |
 
 <!-- /AUTO:agents -->
 
@@ -223,7 +223,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **194 ticked · 307 open** checkboxes in 75 sections (72 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **194 ticked · 309 open** checkboxes in 76 sections (73 with open items).
 
 <details><summary>Per section</summary>
 
@@ -304,6 +304,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Dense grids on phones finished (2026-10-16) | 0 | 2 |
 | Backend asks batch 3 finished (2026-10-16) | 0 | 1 |
 | Consent gates finished (2026-10-16) | 0 | 3 |
+| Remaining feature UIs finished (2026-10-16) | 0 | 2 |
 
 </details>
 

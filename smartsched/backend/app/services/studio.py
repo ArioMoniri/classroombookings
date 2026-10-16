@@ -76,15 +76,29 @@ BUILTIN_TEXT: dict[str, dict[str, str]] = {
 }
 #: a cohort / instructor key no event carries: the overlap kinds then check nothing
 NO_KEY = "__studio_disabled__"
-DRAFT_PARAM_KEYS = ("time_limit_s", "seed", "workers", "weights", "solver", "merge_joint_lectures", "parent_run_id")
+DRAFT_PARAM_KEYS = (
+    "time_limit_s",
+    "seed",
+    "workers",
+    "weights",
+    "solver",
+    "merge_joint_lectures",
+    "parent_run_id",
+    # which classes give way when not everything fits; absent = the term setting (run_params, P19-M2)
+    "relaxation_policy",
+)
 _SELECTOR_KEYS = ("event_ids", "cohort", "cohorts", "program", "programs", "match", "instructor", "instructors")
 
 
 def _check_solver(params: dict[str, Any]) -> None:
-    from app.services.run_params import SOLVERS
+    from app.services.run_params import RELAXATION_POLICIES, SOLVERS
 
     if "solver" in params and params["solver"] not in SOLVERS:
         raise StudioError(422, f"params.solver must be one of {SOLVERS}")
+    if params.get("relaxation_policy") is None:
+        params.pop("relaxation_policy", None)  # null = the term setting
+    elif params["relaxation_policy"] not in RELAXATION_POLICIES:
+        raise StudioError(422, f"params.relaxation_policy must be one of {RELAXATION_POLICIES}")
 
 
 class StudioError(Exception):

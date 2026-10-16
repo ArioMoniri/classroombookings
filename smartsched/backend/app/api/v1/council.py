@@ -374,6 +374,7 @@ async def post_commit(job_id: int, body: CommitIn, db: DB, user: Planner) -> dic
         allow_pending=body.allow_pending,
         user_id=user.id,
         on_conflict=body.on_conflict,
+        baseline=body.baseline.model_dump(),
     )
     try:
         if body.dry_run:

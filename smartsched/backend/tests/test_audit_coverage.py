@@ -283,6 +283,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/terms/{term_id}": (T, "Term"),
     "DELETE /api/v1/terms/{term_id}": (T, "Term"),
     "PUT /api/v1/terms/{term_id}/weeks": (T, "Week"),
+    "PUT /api/v1/terms/{term_id}/relaxation-policy": (E, "app.api.v1.terms"),  # term.relaxation_policy
     "POST /api/v1/terms/{term_id}/elicit": (N, "AI proposals, nothing written"),
     "POST /api/v1/terms/{term_id}/elicit/accept": (J, "ai_proposal_decisions + constraints.source_ref (AI agent)"),
     "POST /api/v1/terms/{term_id}/preferences/upload": (N, "AI proposals, nothing written"),

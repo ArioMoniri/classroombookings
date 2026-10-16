@@ -1,12 +1,9 @@
 "use client";
 /**
- * Settings › Çözücü › "Sığmayan dersler" for the active term: the term's relaxation policy, the settings key
- * `term.<id>.relaxation_policy` (`PUT /settings {extra}`; administrators, backend `app/api/v1/settings.py`).
- *
- * `GET /settings` does not list dotted keys, so the stored value cannot be read back. What the card shows instead is
- * what the term's newest run recorded (`stats.relaxation_policy`): when that run took the term setting (`source:
- * term`) or found none (`default`), the stored value at the time is known and preselected; otherwise the card says it
- * cannot tell. A value saved here is shown as saved for the rest of the session.
+ * Settings › Çözücü › "Sığmayan dersler" for the active term: the term's relaxation policy, read and written through
+ * `GET/PUT /terms/{id}/relaxation-policy` (backend `app/api/v1/terms.py`; the settings key
+ * `term.<id>.relaxation_policy`, administrators, audited). The card shows the stored value (`source: term`) or the
+ * default (`source: default`), saves a new one and can clear it back to the default.
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -15,24 +12,11 @@ import { useActiveTerm } from "@/components/shell/term-switcher";
 import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { request } from "@/lib/api/client";
-import { useRuns } from "@/lib/api/hooks";
-import type { ScheduleRun } from "@/lib/api/schemas";
+import { Skeleton } from "@/components/ui/skeleton";
+import { relaxationApi, termPolicyKey, useTermRelaxationPolicy } from "@/lib/api/relaxation";
 import { useI18n } from "@/lib/i18n/provider";
-import { PolicyPicker, runPolicy, type Policy } from "./relaxation";
-
-export const termPolicyKey = (termId: number) => `term.${termId}.relaxation_policy`;
-
-/** The newest finished run that says what the term setting was: `{policy, run}` (default = lock_first) or null. */
-export function inferTermPolicy(runs: ScheduleRun[] | undefined): { policy: Policy; run: number; fromDefault: boolean } | null {
-  for (const r of [...(runs ?? [])].sort((a, b) => b.id - a.id)) {
-    const p = runPolicy(r);
-    if (!p) continue;
-    if (p.source === "term") return { policy: p.policy, run: r.id, fromDefault: false };
-    if (p.source === "default") return { policy: "lock_first", run: r.id, fromDefault: true };
-  }
-  return null;
-}
+import { usePermissions } from "@/lib/permissions";
+import { PolicyPicker, type Policy } from "./relaxation";
 
 export function RelaxationTermCard() {
   const { term } = useActiveTerm();
@@ -42,28 +26,28 @@ export function RelaxationTermCard() {
 function TermPolicy({ termId, termCode }: { termId: number; termCode: string }) {
   const { t } = useI18n();
   const qc = useQueryClient();
-  const runs = useRuns({ term_id: termId, limit: 100 });
-  const savedKey = ["relax-term-saved", termId] as const;
-  const saved = qc.getQueryData<Policy>(savedKey);
-  const inferred = inferTermPolicy(runs.data);
+  const { can } = usePermissions();
+  const admin = can("planning.admin");
+  const stored = useTermRelaxationPolicy(termId);
   const [value, setValue] = useState<Policy | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"save" | "clear" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const shown = value ?? saved ?? inferred?.policy ?? null;
+  const current = stored.data;
+  const shown = value ?? current?.policy ?? null;
+  const dirty = value !== null && (current?.source !== "term" || value !== current.policy);
 
-  const save = async () => {
-    if (!shown) return;
-    setBusy(true);
+  const write = async (policy: Policy | null) => {
+    setBusy(policy ? "save" : "clear");
     setError(null);
     try {
-      await request("/settings", { method: "PUT", body: { extra: { [termPolicyKey(termId)]: shown } }, silent: true });
-      qc.setQueryData(savedKey, shown);
+      const out = await relaxationApi.put(termId, policy);
+      qc.setQueryData(termPolicyKey(termId), out);
       setValue(null);
-      toast.success(t("relax.term.saved", { term: termCode }));
+      toast.success(policy ? t("relax.term.saved", { term: termCode }) : t("relax.term.cleared", { term: termCode }));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
@@ -74,28 +58,40 @@ function TermPolicy({ termId, termCode }: { termId: number; termCode: string }) 
         <CardDescription>{t("relax.term.lead")}</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3">
-        <PolicyPicker id="relax-term" value={shown} onChange={(v) => v !== "term" && setValue(v)} withTerm={false} disabled={busy} />
-        <p className="type-footnote text-label-2" data-testid="relax-term-known">
-          {saved && !value
-            ? t("relax.term.savedNow")
-            : inferred
-              ? inferred.fromDefault
-                ? t("relax.term.fromDefault", { id: inferred.run })
-                : t("relax.term.fromRun", { id: inferred.run })
-              : runs.isLoading
-                ? t("busy.loading")
-                : t("relax.term.unknown")}
+        {stored.isLoading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : (
+          <PolicyPicker id="relax-term" value={shown} onChange={(v) => v !== "term" && setValue(v)} withTerm={false} disabled={!!busy || !admin} />
+        )}
+        <p className="type-footnote text-label-2" data-testid="relax-term-known" data-source={current?.source}>
+          {stored.isError
+            ? t("relax.term.unknown")
+            : !current
+              ? t("busy.loading")
+              : current.stored_invalid
+                ? t("relax.term.invalid")
+                : current.source === "term"
+                  ? t("relax.term.stored", { policy: t(`relax.short.${current.policy}`) })
+                  : t("relax.term.default", { policy: t(`relax.short.${current.policy}`) })}
         </p>
+        {!admin ? <p className="type-footnote text-label-2">{t("relax.term.adminOnly")}</p> : null}
         {error ? (
           <p role="alert" className="type-footnote text-status-infeasible-fg">
             {error}
           </p>
         ) : null}
-        <div>
-          <Button size="sm" onClick={() => void save()} disabled={!shown || busy || (!value && !!saved)} aria-busy={busy || undefined} data-testid="relax-term-save">
-            <BusyLabel busy={busy} label={t("busy.saving")}>{t("relax.term.save")}</BusyLabel>
-          </Button>
-        </div>
+        {admin ? (
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => shown && void write(shown)} disabled={!shown || !!busy || !dirty} aria-busy={busy === "save" || undefined} data-testid="relax-term-save">
+              <BusyLabel busy={busy === "save"} label={t("busy.saving")}>{t("relax.term.save")}</BusyLabel>
+            </Button>
+            {current?.source === "term" ? (
+              <Button size="sm" variant="outline" onClick={() => void write(null)} disabled={!!busy} aria-busy={busy === "clear" || undefined} data-testid="relax-term-clear">
+                <BusyLabel busy={busy === "clear"} label={t("busy.saving")}>{t("relax.term.clear")}</BusyLabel>
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
