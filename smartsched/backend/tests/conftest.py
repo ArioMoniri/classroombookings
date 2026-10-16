@@ -177,3 +177,14 @@ def pytest_collection_modifyitems(config, items):  # noqa: ARG001
     for item in items:
         if item.nodeid in SLOW_TESTS:
             item.add_marker(pytest.mark.slow)
+    # order-independence check (no pytest-randomly in the image): SMARTSCHED_TEST_ORDER=reverse runs the collected
+    # tests back to front, =shuffle:<seed> in a seeded random order; unset (CI, make test) keeps collection order
+    order = os.environ.get("SMARTSCHED_TEST_ORDER", "")
+    if order == "reverse":
+        items.reverse()
+    elif order.startswith("shuffle:"):
+        import random
+
+        random.Random(order.removeprefix("shuffle:")).shuffle(items)
+    elif order:
+        raise pytest.UsageError(f"SMARTSCHED_TEST_ORDER={order!r}: use 'reverse' or 'shuffle:<seed>'")

@@ -410,6 +410,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `b22423a` (committed 2026-10-16 03:22 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `baad947` (committed 2026-10-16 03:23 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
