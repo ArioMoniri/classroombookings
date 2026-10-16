@@ -31,10 +31,12 @@ export function classRows(data: CompareData | undefined, filter: ClassFilter, ch
     .map((r) => ({ ...r, bucket: filter }));
 }
 
-export type Verdict = "better" | "worse" | "same" | "neutral" | "na";
+export type Verdict = "better" | "worse" | "same" | "neutral" | "na" | "incomparable";
 
-/** B (the scenario) against A (the baseline): the backend's `better` read from B's side */
-export function verdict(m: Pick<Metric, "better" | "direction" | "delta">): Verdict {
+/** B (the scenario) against A (the baseline): the backend's `better` read from B's side. A metric one run has no data
+ * for (`comparable: false`, round-1 R1-M-10) is "karşılaştırılamaz", never better or worse. */
+export function verdict(m: Pick<Metric, "better" | "direction" | "delta"> & { comparable?: boolean }): Verdict {
+  if (m.comparable === false) return "incomparable";
   if (m.delta === null || m.delta === undefined) return "na";
   if (m.better === "same" || m.delta === 0) return "same";
   if (m.direction === 0 || m.better === null) return "neutral";

@@ -1811,6 +1811,10 @@ async def persist_result(
         extra = solver_code_text(d, labels)
         if extra is not None:
             d["text"] = extra
+        ids = [int(i) for i in d.get("event_ids") or [] if str(i).lstrip("-").isdigit()]
+        if ids and labels:
+            # course codes for every class a diagnosis names (round-1: unplaced lists showed "#751")
+            d["event_labels"] = [labels.get(i) or f"#{i}" for i in ids]
     policy_name = str(((run.stats or {}).get("relaxation_policy") or {}).get("policy") or "lock_first")
     summary = policy_report(diags, labels, policy_name)
     if summary is not None:
@@ -1840,6 +1844,21 @@ async def persist_result(
         sorted(Counter(str(d.get("code") or "other") for d in diags if d.get("severity") == "error").items())
     )
     run.diagnosis = await _humanize(session, diags)
+    # round-1 R1-M-04: one verdict for the card, the report and the API, from the planner-level check of the rows
+    # just stored (never a sentence the numbers contradict); a planner-level violation lowers the hard score
+    try:
+        from app.services import run_truth
+        from app.services.planner_check import check_run
+
+        await session.flush()
+        check = await check_run(session, run)
+        truth = run_truth.build(run, check, status=new_status)
+        run.stats["planner_check"] = check.summary()
+        run.stats["truth"] = truth
+        if run.hard_score is not None and truth["verdict"] != "none":
+            run.hard_score = min(int(run.hard_score), int(truth["hard_score"]))
+    except Exception:  # noqa: BLE001 - the stored result stays; the summary endpoint recomputes the truth
+        log.exception("planner-level truth for run %s failed", run.id)
     # the texts above query the DB (autoflush): re-assign so the in-place additions to stats are written
     run.stats = dict(run.stats)
     flag_modified(run, "stats")

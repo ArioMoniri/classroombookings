@@ -70,8 +70,14 @@ async def test_forced_clash_needs_a_reason_lowers_the_score_and_is_listed_when_p
     assert run["hard_score"] < 100
     (ov,) = run["stats"]["forced_overrides"]
     assert ov["reason"] == reason and "room_overlap" in ov["rules"] and a.id in ov["assignment_ids"]
-    # explained by a recorded override: publishable, and the override stays in the report
+    # explained by a recorded override: publishable only once the planner confirms the listed break (round-1
+    # R1-S-01), and the override stays in the report
     r = await env.client.post(f"/api/v1/runs/{env.run_id}/activate", headers=env.admin)
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "forced_breaks", r.text
+    assert r.json()["detail"]["breaks"][0]["reason"] == reason
+    r = await env.client.post(
+        f"/api/v1/runs/{env.run_id}/activate", json={"confirm_forced_breaks": True}, headers=env.admin
+    )
     assert r.status_code == 200, r.text
     assert r.json()["stats"]["forced_overrides"][0]["reason"] == reason
 

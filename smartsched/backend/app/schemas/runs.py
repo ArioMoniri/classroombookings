@@ -122,6 +122,10 @@ class AssignmentOut(ORMModel):
     week_set: list[int] = []
     is_conflict: bool = False
     conflict_reasons: list[str] = []
+    #: round-1 R1-S-17: a LOCKED planning-list row in its definitive rooms (the planner's lock), and the conflict
+    #: reasons that are accepted exceptions the run reports (``stats.truth``)
+    planner_lock: bool = False
+    exception_reasons: list[str] = []
 
 
 class MoveIn(BaseModel):

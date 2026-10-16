@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { HttpError } from "@/lib/api/client";
 import { askForceReason, forceRefusal } from "./force-reason";
 import { calendarApi, calKeys, patchIndex, type BulkMoveOut, type CalendarIndex, type IndexAssignment, type MoveItem, type UndoToken } from "@/lib/api/calendar";
+import { qk } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import { useUndoStore } from "./model/undo-store";
 
@@ -51,7 +52,11 @@ export function useCalendarActions(runId: number | null, opts: { isAdmin?: boole
   const refreshSoon = useCallback(() => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
     refreshTimer.current = setTimeout(() => {
-      if (runId !== null) void qc.invalidateQueries({ queryKey: calKeys.index(runId) });
+      if (runId !== null) {
+        void qc.invalidateQueries({ queryKey: calKeys.index(runId) });
+        // the run's hard score and broken-rule list (banner, report) follow every move (round-1 R1-M-05)
+        void qc.invalidateQueries({ queryKey: qk.run(runId) });
+      }
       void qc.invalidateQueries({ queryKey: ["classes"] });
       void qc.invalidateQueries({ queryKey: ["class-detail"] });
       void qc.invalidateQueries({ queryKey: ["calendar-heat"] });

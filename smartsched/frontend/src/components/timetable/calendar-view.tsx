@@ -17,6 +17,7 @@ import { ClassInspector, SelectionSummary } from "@/components/classes/class-ins
 import { useCalendarIndex } from "@/lib/api/calendar";
 import { api } from "@/lib/api/endpoints";
 import { useMe } from "@/lib/api/hooks";
+import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
 import { dayName } from "@/lib/time";
@@ -30,6 +31,7 @@ import { MonthHeat, TermHeat } from "./heat-lenses";
 import { MobileCalendar } from "./mobile-calendar";
 import { TimetableNoAccess } from "./no-access";
 import { MoveDialog, MovePopover, type PendingMove, type ScopeValue } from "./move-dialog";
+import { BrokenRulesBanner } from "@/components/runs/broken-banner";
 import { QuickCreate, type CreateRequest } from "./quick-create";
 import { ShortcutsSheet } from "./shortcuts-sheet";
 import { ForceReasonHost } from "./force-reason";
@@ -112,7 +114,9 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const reduce = useReduce();
   const router = useRouter();
   const me = useMe();
-  const isAdmin = me.data?.role === "ADMIN";
+  const perms = usePermissions();
+  // forcing a hard-rule break is the backend's `planning.admin` right (custom roles hold it too)
+  const isAdmin = me.data?.role === "ADMIN" || perms.can("planning.admin");
   const readOnly = me.data?.role === "VIEWER";
   const mobile = useMedia("(max-width: 767px)");
   const wide = useMedia("(min-width: 1600px)");
@@ -154,6 +158,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const setSidebarOpen = useCallback((v: boolean | ((o: boolean) => boolean)) => setSidebarPref((p) => (typeof v === "function" ? v(p ?? wide) : v)), [wide]);
   const [pending, setPending] = useState<PendingMove | null>(null);
   const [moveFor, setMoveFor] = useState<CalEvent | null>(null);
+  const [moveTarget, setMoveTarget] = useState<{ room: number; day: number; sp: number } | null>(null);
   const [createReq, setCreateReq] = useState<CreateRequest | null>(null);
   const [shortcuts, setShortcuts] = useState(false);
   const [ghosts, setGhosts] = useState(true);
@@ -276,13 +281,13 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
 
   // ------------------------------------------------------------------ move / resize / create flows
   const commit = useCallback(
-    async (ev: CalEvent, target: { room: number; day: number; sp: number; ep: number }, scope: ScopeValue, extra: PendingMove["extra"] = []) => {
+    async (ev: CalEvent, target: { room: number; day: number; sp: number; ep: number }, scope: ScopeValue, extra: PendingMove["extra"] = [], forceReason?: string) => {
       const roomName = model?.roomById.get(target.room)?.name ?? "";
       const items = [
         { aid: ev.a.id, day: target.day, start_period: target.sp, end_period: target.ep, room_ids: ev.a.rooms.length > 1 && target.room === ev.room ? ev.a.rooms : [target.room], scope: scope.scope, week: scope.scope === "all" ? null : scope.week },
         ...extra.map((x) => ({ aid: x.ev.a.id, day: x.target.day, start_period: x.target.sp, end_period: x.target.ep, room_ids: [x.target.room], scope: "all" as const })),
       ];
-      const res = await actions.move(items, ev.a.label, roomName);
+      const res = forceReason ? await actions.move(items, ev.a.label, roomName, true, forceReason) : await actions.move(items, ev.a.label, roomName);
       return res.applied;
     },
     [model, actions],
@@ -294,13 +299,14 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       if (!m.check.ok) {
         const reason = m.check.hard[0]?.text[lang] ?? "";
         setAnnounce(t("calendar.move.cannot", { reason }));
-        toast.error(t("calendar.move.cannot", { reason }), {
-          description: isAdmin ? undefined : t("calendar.move.forceAdmin"),
-          action: isAdmin ? { label: t("calendar.move.force"), onClick: () => void (async () => {
-            const roomName = model.roomById.get(m.target.room)?.name ?? "";
-            await actions.move([{ aid: m.ev.a.id, day: m.target.day, start_period: m.target.sp, end_period: m.target.ep, room_ids: [m.target.room], scope: "all" }], m.ev.a.label, roomName, true);
-          })() } : undefined,
-        });
+        if (isAdmin) {
+          // round-1 R1-M-06 / R1-S-09: an administrator gets the move dialog on the refused cell, with what breaks,
+          // "Yine de taşı" and a required reason (drag and keyboard drops alike)
+          setMoveTarget({ room: m.target.room, day: m.target.day, sp: m.target.sp });
+          setMoveFor(m.ev);
+          return;
+        }
+        toast.error(t("calendar.move.cannot", { reason }), { description: t("calendar.move.forceAdmin") });
         return;
       }
       const bad = m.extra.filter((x) => !checkMove(model, x.ev, { ...x.target, mask: x.ev.mask }, new Set([m.ev.a.id, ...m.extra.map((y) => y.ev.a.id)])).ok);
@@ -721,7 +727,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     );
   }
   if (mobile && !embedded && model) {
-    return <MobileCalendar model={model} week={liveWeek} day={liveDay} dates={liveDates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} lens={vs.lens} onLens={setLens} />;
+    return <MobileCalendar model={model} week={liveWeek} day={liveDay} dates={liveDates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} canForce={isAdmin} lens={vs.lens} onLens={setLens} />;
   }
 
   const showScrubber = model && vs.lens !== "month" && vs.lens !== "term";
@@ -776,6 +782,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         if (next !== condensed) setCondensed(next);
       }}>
         <div className="px-3 pt-3">
+          <BrokenRulesBanner runId={runId} />
           {model ? (
             <CapsuleToolbar
               model={model}
@@ -938,7 +945,21 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               if (p) void commit(p.ev, p.target, scope, p.extra);
             }}
           />
-          <MoveDialog model={model} ev={moveFor} week={week} open={moveFor !== null} onOpenChange={(o) => !o && setMoveFor(null)} onConfirm={(target, scope) => (moveFor ? commit(moveFor, target, scope) : Promise.resolve(false))} />
+          <MoveDialog
+            model={model}
+            ev={moveFor}
+            week={week}
+            open={moveFor !== null}
+            canForce={isAdmin}
+            initialTarget={moveTarget}
+            onOpenChange={(o) => {
+              if (!o) {
+                setMoveFor(null);
+                setMoveTarget(null);
+              }
+            }}
+            onConfirm={(target, scope, forceReason) => (moveFor ? commit(moveFor, target, scope, [], forceReason) : Promise.resolve(false))}
+          />
           <QuickCreate model={model} req={createReq} week={week} onClose={() => setCreateReq(null)} onMoveHere={async (aid, target) => {
             const ev = model.eventByAid.get(aid)?.[0];
             if (!ev) return false;

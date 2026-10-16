@@ -127,6 +127,9 @@ export interface PlanBrief {
   finished_at: string | null;
   counts: PlanCounts;
   headline: Pair | null;
+  /** round-1 R1-M-11: nothing to staff (0 room-sessions or 0 required duties); never "En iyi", never published */
+  empty?: boolean;
+  empty_reason?: Pair | null;
   /** absent on a backend older than alembic 0033 */
   progress?: PlanProgress | null;
 }

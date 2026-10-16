@@ -191,8 +191,11 @@ def test_capacity_pin_case_names_capacity_and_the_rooms_that_fit() -> None:
     assert d.params["excluded"] == {"pin": 3, "locked": 2}  # collapsed per category
     assert d.params["fitting_rooms"] == [{"room": "A204", "capacity": 156}]
     t = planner_text({"code": d.code, "event_ids": [1], "params": d.params}, TextContext(labels={1: "ING 302"}))
-    assert t["tr"].startswith("ING 302: kapasite sorunu — 137 öğrenci var, sabitlenen derslik B201 30 kişilik.")
-    assert "Sığan derslikler: A204 (156 kişilik)" in t["tr"] and "pinned to B201" in t["en"]
+    # round-1 R1-M-03: the class's own pin is named, with the one capacity sentence
+    assert t["tr"].startswith(
+        "ING 302 yerleşemedi: planlama listesi onu yalnız B201'e sabitliyor ve 137 öğrenci 30 kişilik B201'e sığmaz."
+    ), t["tr"]
+    assert "sığan derslikler: A204 (156 kişilik)" in t["tr"] and "pins it to B201 only" in t["en"]
     locked = next(x for x in res.diagnoses if x.code == "locked_ineligible")
     assert "×3" in locked.message and locked.message.count("not in the pinned room set") == 1
 
@@ -361,9 +364,13 @@ async def test_data_issues_groups_with_classes_and_xlsx(client):
     di = (await client.get(f"/api/v1/runs/{run_id}/data-issues", headers=h)).json()
     n_issues = di["totals"]["issues"]
     assert n_issues > 0 and di["totals"]["to_review"] == 0
-    assert summary["headline"]["tr"] == (
-        f"{run['placed']}/{run['events_total']} ders yerleşti · hiçbir kural bozulmadı · {n_issues} veri sorunu"
-    )
+    # round-1 R1-M-04: the headline is the run's truth (the planted input clashes are accepted exceptions, so never
+    # "hiçbir kural bozulmadı"), then the data issues
+    truth = summary["truth"]
+    assert truth["verdict"] == "exceptions" and "D2" in {x["cause"] for x in truth["exceptions"]}
+    assert summary["headline"]["tr"] == f"{truth['headline']['tr']} · {n_issues} veri sorunu"
+    assert summary["headline"]["tr"].startswith(f"{run['placed']}/{run['events_total']} ders yerleşti · ")
+    assert "hiçbir kural bozulmadı" not in summary["headline"]["tr"]
 
     rep = (await client.get(f"/api/v1/runs/{run_id}/data-issues", headers=h)).json()
     assert rep["run_id"] == run_id and rep["status"] == "FEASIBLE_PARTIAL"

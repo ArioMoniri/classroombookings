@@ -278,9 +278,24 @@ async def publish_blockers(db: AsyncSession, run: ScheduleRun) -> list[str]:
     return out
 
 
+async def forced_breaks(db: AsyncSession, run: ScheduleRun) -> list[dict[str, Any]]:
+    """The hard rules a run breaks on purpose: forced moves with a recorded reason (round-1 R1-S-01 / R1-M-05).
+    Publishing such a run needs ``confirm_forced_breaks`` after the planner has seen this list."""
+    from app.services import publish_guard
+    from app.services.planner_check import check_run
+
+    if not publish_guard.overrides(run):
+        return []
+    integ = publish_guard.integrity(await check_run(db, run), run)
+    return [b for b in publish_guard.broken_rules(integ, run) if b.get("explained")]
+
+
 class ActivateIn(BaseModel):
     #: admin persona M-04: publish a run that covers fewer weeks than the published one
     confirm_scope_reduction: bool = False
+    #: round-1 R1-S-01: publish a run whose only hard-rule breaks are forced moves with a recorded reason (409
+    #: ``forced_breaks`` lists them first)
+    confirm_forced_breaks: bool = False
     #: P19-M-09: one digest per affected academician (their changed classes) through notify_dispatch
     notify_people: bool = False
 
@@ -323,6 +338,24 @@ async def activate_run(
         reduction = await publish_guard.scope_reduction(db, run, active)
         if reduction is not None:
             raise HTTPException(409, reduction)
+    if not (body and body.confirm_forced_breaks):
+        forced = await forced_breaks(db, run)
+        if forced:
+            raise HTTPException(
+                409,
+                {
+                    "code": "forced_breaks",
+                    "message": f"run {run.id} breaks {len(forced)} hard rule(s) on purpose (forced moves with a "
+                    "reason); send confirm_forced_breaks: true to publish it anyway",
+                    "message_tr": f"#{run.id} {len(forced)} kesin kuralı gerekçeli zorunlu taşımayla bozuyor; "
+                    "yayımlamak için bunları onaylayın",
+                    "message_en": f"Run #{run.id} breaks {len(forced)} hard rule(s) through forced moves with a "
+                    "reason; confirm them to publish",
+                    "breaks": forced[:50],
+                    "hard_score": run.hard_score,
+                    "confirm_field": "confirm_forced_breaks",
+                },
+            )
     try:
         await db.execute(
             update(ScheduleRun)
@@ -695,6 +728,7 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, user: Pla
             actor=user,
             audit_id=ev.id if ev is not None else None,
             findings=verdict.findings.get(original_id, []),
+            rows=[a],
         )
     check = await _rescore(db, run)  # after the override is recorded: it counts against the hard score
     await db.commit()
@@ -767,6 +801,7 @@ async def _rescore(db: AsyncSession, run: ScheduleRun) -> Any:
     check = await check_run(db, run)
     from app.services import publish_guard
 
+    await publish_guard.refresh_overrides(db, run)  # a forced placement that was undone no longer counts
     integ = publish_guard.integrity(check, run)
     before_hard = run.hard_score
     # manual hard-rule breaks count, explained (forced with a reason) or not (persona M-02)
@@ -788,6 +823,9 @@ async def _rescore(db: AsyncSession, run: ScheduleRun) -> Any:
         },
         "manual_edits": int((run.stats or {}).get("manual_edits") or 0) + 1,
     }
+    from app.services import run_truth
+
+    run.stats = {**run.stats, "truth": run_truth.build(run, check)}
     if before_hard != run.hard_score:
         # the score change is an audited fact with its cause (published or not)
         await audit.record(
@@ -940,18 +978,19 @@ async def run_summary(run_id: int, db: DB, _: Viewer) -> dict[str, Any]:
             ).all()
         )
     placed, total, partial = placement(run)
-    if partial:
-        headline = {
-            "tr": f"{placed}/{total} ders yerleşti · hiçbir kural bozulmadı",
-            "en": f"{placed}/{total} placed · no rule broken",
-        }
-    elif run.status in ("OPTIMAL", "FEASIBLE"):
-        headline = {
-            "tr": f"Tüm dersler yerleşti ({total or len(rows)})",
-            "en": f"Everything placed ({total or len(rows)})",
-        }
-    else:
+    # round-1 R1-M-04: the verdict comes from the planner-level check of the stored rows (``run_truth``), the same
+    # object the run card and GET /runs/{id} (``stats.truth``) show
+    from app.services import run_truth
+
+    truth = await run_truth.run_truth(db, run)
+    if truth["verdict"] == "none":
         headline = {"tr": f"Durum: {run.status}", "en": f"Status: {run.status}"}
+    else:
+        headline = dict(truth["headline"])
+        stored = (run.stats or {}).get("truth")
+        if not isinstance(stored, dict) or stored.get("verdict") != truth["verdict"]:
+            run.stats = {**(run.stats or {}), "truth": truth}
+            await db.commit()
     # persona M-07: the summary counts the planner's data issues (an imported board said "Sorunlar 0" while the
     # data-issues report listed its too-small locked rooms)
     from app.services.data_issues import build_data_issues
@@ -970,6 +1009,7 @@ async def run_summary(run_id: int, db: DB, _: Viewer) -> dict[str, Any]:
             "en": f"{headline['en']} · {len(overrides)} forced move(s) with a reason",
         }
     return {
+        "truth": truth,
         "data_issues": {"issues": n_issues, "by_group": issues.get("by_group") or {}},
         "forced_overrides": overrides,
         "run_id": run.id,

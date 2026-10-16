@@ -35,7 +35,8 @@ WITH_TIMETABLE = frozenset({"OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL", "TIMEOUT"
 #: ``broken``; a fallback size for a missing enrolment is a data note, listed but not a rule exception)
 CAUSE_LABELS: dict[str, dict[str, str]] = {
     "D1": {
-        "tr": "planlayıcının kilitlediği derslik sınıfa küçük ya da özelliği eksik (planlama listesindeki seçim korundu)",
+        "tr": "planlayıcının kilitlediği derslik sınıfa küçük ya da özelliği eksik "
+        "(planlama listesindeki seçim korundu)",
         "en": "the planner's locked room is too small or lacks a feature (kept as the planning list says)",
     },
     "D2": {
@@ -51,8 +52,8 @@ CAUSE_LABELS: dict[str, dict[str, str]] = {
         "en": "overlaps in rooms outside the room pool (capacity unknown)",
     },
     "manual": {
-        "tr": "önceki çalıştırmadan taşınan elle yerleştirme (raporda listelendi)",
-        "en": "a manual placement carried over from the parent run (listed in the report)",
+        "tr": "elle taşınan ders: planlama listesindeki dersliği ya da saati planlayıcı değiştirdi",
+        "en": "moved by hand: the planner changed the room or time of the planning list",
     },
     "missing_enrolment": {
         "tr": "öğrenci sayısı verilmemiş; tahmini sayı kullanıldı",
@@ -84,8 +85,12 @@ def headline(truth: dict[str, Any]) -> dict[str, str]:
     if verdict == "broken":
         b = truth["broken_count"]
         forced = sum(1 for x in truth["broken"] if x.get("explained"))
-        tail_tr = f"{_n(b, 'tr')} kesin kural bozuk" + (f" ({_n(forced, 'tr')} gerekçeli zorunlu taşıma)" if forced else "")
-        tail_en = f"{_n(b, 'en')} hard rule(s) broken" + (f" ({_n(forced, 'en')} forced with a reason)" if forced else "")
+        tail_tr = f"{_n(b, 'tr')} kesin kural bozuk" + (
+            f" ({_n(forced, 'tr')} gerekçeli zorunlu taşıma)" if forced else ""
+        )
+        tail_en = f"{_n(b, 'en')} hard rule(s) broken" + (
+            f" ({_n(forced, 'en')} forced with a reason)" if forced else ""
+        )
         return {"tr": f"{lead['tr']} · {tail_tr}", "en": f"{lead['en']} · {tail_en}"}
     if verdict == "exceptions":
         k = truth["exceptions_total"]
@@ -148,11 +153,11 @@ def build(run: ScheduleRun, check: Any, *, status: str | None = None) -> dict[st
     by_cause: dict[str, set[int]] = {}
     findings_by_cause: dict[str, int] = {}
     for f in check.exceptions:
-        if f.cause == "D3" or (f.cause == "manual" and is_edited):
-            continue
+        if f.cause == "D3" or (f.cause == "manual" and is_edited and f.rule not in publish_guard.MANUAL_DECISIONS):
+            continue  # unplaced is its own count; a manual break of an edited run is ``broken``
         by_cause.setdefault(str(f.cause), set()).update(int(r) for r in f.request_ids)
         findings_by_cause[str(f.cause)] = findings_by_cause.get(str(f.cause), 0) + 1
-    exceptions = [
+    exceptions: list[dict[str, Any]] = [
         {
             "cause": c,
             "classes": len(by_cause[c]),
@@ -163,7 +168,7 @@ def build(run: ScheduleRun, check: Any, *, status: str | None = None) -> dict[st
         for c in (*RULE_EXCEPTIONS, "missing_enrolment")
         if c in by_cause
     ]
-    rule_exc = sum(x["classes"] for x in exceptions if x["rule"])
+    rule_exc = sum(int(x["classes"]) for x in exceptions if x["rule"])
     if placed_i is None:
         placed_i = check.requests_placed
         total_i = check.requests_total

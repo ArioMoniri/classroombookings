@@ -43,6 +43,8 @@ export interface MobileCalendarProps {
   termId: number | null;
   actions: ReturnType<typeof useCalendarActions>;
   readOnly: boolean;
+  /** may force a move despite a hard-rule break, with a reason (`planning.admin`) */
+  canForce?: boolean;
   lens: Lens;
   onLens: (l: Lens) => void;
 }
@@ -179,10 +181,13 @@ export function MobileCalendar(p: MobileCalendarProps) {
         ev={moving}
         week={p.week}
         open={moving !== null}
+        canForce={p.canForce}
         onOpenChange={(o) => !o && setMoving(null)}
-        onConfirm={async (target, scope) => {
+        onConfirm={async (target, scope, forceReason) => {
           if (!moving) return false;
-          const res = await p.actions.move([{ aid: moving.a.id, day: target.day, start_period: target.sp, end_period: target.ep, room_ids: [target.room], scope: scope.scope, week: scope.scope === "all" ? null : scope.week }], moving.a.label, p.model.roomById.get(target.room)?.name ?? "");
+          const items = [{ aid: moving.a.id, day: target.day, start_period: target.sp, end_period: target.ep, room_ids: [target.room], scope: scope.scope, week: scope.scope === "all" ? null : scope.week }];
+          const roomName = p.model.roomById.get(target.room)?.name ?? "";
+          const res = forceReason ? await p.actions.move(items, moving.a.label, roomName, true, forceReason) : await p.actions.move(items, moving.a.label, roomName);
           return res.applied;
         }}
       />

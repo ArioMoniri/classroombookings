@@ -84,15 +84,38 @@ METRIC_LABEL = {
 }
 
 
-def _metric(key: str, a: float | int | None, b: float | int | None) -> dict[str, Any]:
+def _metric(key: str, a: float | int | None, b: float | int | None, *, comparable: bool = True) -> dict[str, Any]:
+    """One metric row. ``comparable=False`` (round-1 R1-M-10): one side has no data for it (a week run against a
+    term run outside the shared weeks): the values are ``None`` and nothing is "better"."""
     direction = DIRECTION.get(key, 0)
+    if not comparable:
+        a = b = None
     delta = None if a is None or b is None else round(float(b) - float(a), 2)
     if delta is None or direction == 0 or delta == 0:
         better = "same" if delta == 0 else None
     else:
         better = "b" if delta * direction > 0 else "a"
     tr, en = METRIC_LABEL.get(key, (key, key))
-    return {"key": key, "label": _t(tr, en), "a": a, "b": b, "delta": delta, "better": better, "direction": direction}
+    return {
+        "key": key,
+        "label": _t(tr, en),
+        "a": a,
+        "b": b,
+        "delta": delta,
+        "better": better,
+        "direction": direction,
+        "comparable": comparable and a is not None and b is not None,
+    }
+
+
+def _weeks_text(weeks: list[int], lang: str) -> str:
+    ws = sorted(set(weeks))
+    if not ws:
+        return "hafta yok" if lang == "tr" else "no week"
+    span = f"{ws[0]}–{ws[-1]}" if len(ws) > 1 and ws == list(range(ws[0], ws[-1] + 1)) else ", ".join(map(str, ws))
+    if lang == "tr":
+        return f"{span}. hafta" if len(ws) == 1 else f"{span}. haftalar"
+    return f"week {span}" if len(ws) == 1 else f"weeks {span}"
 
 
 def _rule_label(name: str) -> dict[str, str]:
@@ -458,6 +481,15 @@ async def compare(session: AsyncSession, a_id: int, b_id: int, week: int | None 
     term, a, b = await _pair(session, a_id, b_id)
     rooms = await mod.all_rooms(session)
     exam = a.kind == "EXAM"
+    # round-1 R1-M-10: runs with different horizons (a week run against a term run) are compared on the weeks
+    # they share; metrics a side has no data for are "not comparable", never "B is better"
+    from app.services.publish_guard import run_weeks
+
+    weeks_a, weeks_b = await run_weeks(session, a), await run_weeks(session, b)
+    common = sorted(set(weeks_a) & set(weeks_b))
+    scope_differs = sorted(weeks_a) != sorted(weeks_b)
+    if not exam and week is None and scope_differs and common:
+        week = common[0]
     if exam:
         classes, pl_a, pl_b, total, reqs, rows_a, rows_b = await _exam_classes(session, term, a, b, rooms)
     else:
@@ -496,12 +528,15 @@ async def compare(session: AsyncSession, a_id: int, b_id: int, week: int | None 
                 "a": va,
                 "b": vb,
                 "delta": vb - va,
-                "better": "same" if va == vb else ("b" if vb < va else "a"),
+                "better": None if scope_differs else ("same" if va == vb else ("b" if vb < va else "a")),
+                "comparable": not scope_differs,
             }
         )
     waived_a = list((a.stats or {}).get("waived_rules") or [])
     waived_b = list((b.stats or {}).get("waived_rules") or [])
     errs_a, errs_b = _diag_codes(a), _diag_codes(b)
+    # the scoped weeks hold rows of both runs? (a week run has none outside its weeks)
+    both = bool(tot_a["occupied"]) == bool(tot_b["occupied"]) and (not scope_differs or bool(common))
     metrics = [
         _metric("hard_score", a.hard_score, b.hard_score),
         _metric("soft_score", a.soft_score, b.soft_score),
@@ -510,11 +545,20 @@ async def compare(session: AsyncSession, a_id: int, b_id: int, week: int | None 
         _metric("diagnoses_errors", sum(errs_a.values()), sum(errs_b.values())),
         _metric("waived_rules", len(waived_a), len(waived_b)),
         _metric("objective", sum(int(v or 0) for v in br_a.values()), sum(int(v or 0) for v in br_b.values())),
-        _metric("utilisation_pct", _pct(tot_a), _pct(tot_b)),
+        _metric("utilisation_pct", _pct(tot_a), _pct(tot_b), comparable=both),
     ]
     if not exam:
         for k in ("gaps_per_week_total", "instructors_with_gaps", "periods_per_week_max"):
-            metrics.append(_metric(k, ins_agg["a"][k], ins_agg["b"][k]))
+            metrics.append(_metric(k, ins_agg["a"][k], ins_agg["b"][k], comparable=both))
+    if scope_differs:
+        # placement counts of a week run and a term run measure different things
+        for m in metrics:
+            if m["key"] in ("placed", "unplaced", "objective", "soft_score", "diagnoses_errors"):
+                m.update(_metric(m["key"], None, None, comparable=False))
+                m["a"], m["b"] = (
+                    {"placed": placed_a, "unplaced": unplaced_a}.get(m["key"]),
+                    {"placed": placed_b, "unplaced": unplaced_b}.get(m["key"]),
+                )
     c = classes["counts"]
     soft_d = (b.soft_score or 0) - (a.soft_score or 0)
     headline = _t(
@@ -525,12 +569,38 @@ async def compare(session: AsyncSession, a_id: int, b_id: int, week: int | None 
         f"{c['only_in_b']} placed only in B, {c['only_in_a']} only in A; "
         f"hard {a.hard_score}→{b.hard_score}, soft {a.soft_score}→{b.soft_score} ({soft_d:+d})",
     )
+    scope_info = {
+        "a_weeks": weeks_a,
+        "b_weeks": weeks_b,
+        "common_weeks": common,
+        "compared_weeks": list(weeks),
+        "differs": scope_differs,
+        "note": _t(
+            f"Kapsamlar farklı (A {_weeks_text(weeks_a, 'tr')}, B {_weeks_text(weeks_b, 'tr')}); "
+            + (
+                f"yalnız ortak {_weeks_text(list(weeks), 'tr')} karşılaştırıldı, diğer değerler karşılaştırılamaz."
+                if common
+                else "ortak hafta yok: değerler karşılaştırılamaz."
+            ),
+            f"The scopes differ (A {_weeks_text(weeks_a, 'en')}, B {_weeks_text(weeks_b, 'en')}); "
+            + (
+                f"only the shared {_weeks_text(list(weeks), 'en')} are compared, other values are not comparable."
+                if common
+                else "no shared week: the values are not comparable."
+            ),
+        )
+        if scope_differs
+        else None,
+    }
+    if scope_differs:
+        headline = {k: f"{headline[k]} · {scope_info['note'][k]}" for k in ("tr", "en")}  # type: ignore[index]
     return {
         "term_id": term.id,
         "term_code": term.code,
         "kind": a.kind,
         "a": _run_brief(a),
         "b": _run_brief(b),
+        "scope": scope_info,
         "headline": headline,
         "metrics": metrics,
         "classes": classes,

@@ -207,8 +207,14 @@ export const api = {
       return { ok: true, messages };
     },
     /** `confirmScopeReduction`: resend after a 409 `scope_reduction` (the run covers fewer weeks than the published one). */
-    activate: (runId: number, opts: { confirmScopeReduction?: boolean } = {}) =>
-      request(`/runs/${runId}/activate`, { method: "POST", body: opts.confirmScopeReduction ? { confirm_scope_reduction: true } : undefined, schema: RunOne }),
+    activate: (runId: number, opts: { confirmScopeReduction?: boolean; confirmForcedBreaks?: boolean } = {}) =>
+      request(`/runs/${runId}/activate`, {
+        method: "POST",
+        body: { confirm_scope_reduction: Boolean(opts.confirmScopeReduction), confirm_forced_breaks: Boolean(opts.confirmForcedBreaks) },
+        schema: RunOne,
+        // the publish dialog explains every refusal itself (round-1 R1-M-02: no generic 409 toast)
+        silent: true,
+      }),
     /** `POST /runs/{id}/diagnoses/{idx}/apply {option_index}`; 422 = the suggestion has no structured fix. */
     applyFix: (runId: number, diagnosisIndex: number, optionIndex: number, reSolve = true) =>
       request(`/runs/${runId}/diagnoses/${diagnosisIndex}/apply`, { method: "POST", body: { option_index: optionIndex, re_solve: reSolve }, schema: DiagnosisApplyResult }),

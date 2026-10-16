@@ -9,7 +9,20 @@ import { PLAN_DEFAULTS, PROGRESS_PHASES } from "@/lib/api/invigilation";
 
 export type Tone = "feasible" | "warning" | "infeasible" | "neutral" | "tint";
 
-export function planTone(p: Pick<PlanBrief, "status" | "counts">): Tone {
+/** A finished plan with nothing to assign (round-1 R1-M-11): 0 room-sessions or 0 required duties. */
+export function planIsEmpty(p: Pick<PlanBrief, "status" | "counts"> & { empty?: boolean }): boolean {
+  if (p.empty) return true;
+  if (p.status === "QUEUED" || p.status === "RUNNING" || p.status === "FAILED" || p.status === "ERROR") return false;
+  return p.counts.posts === 0 || p.counts.required === 0;
+}
+
+/** The status word key: an empty plan is "Boş plan", never "En iyi". */
+export function planStatusKey(p: Pick<PlanBrief, "status" | "counts"> & { empty?: boolean }): string {
+  return planIsEmpty(p) ? "invigilation.status.EMPTY" : `invigilation.status.${p.status}`;
+}
+
+export function planTone(p: Pick<PlanBrief, "status" | "counts"> & { empty?: boolean }): Tone {
+  if (planIsEmpty(p)) return "warning";
   if (p.status === "QUEUED") return "neutral";
   if (p.status === "RUNNING") return "tint";
   if (p.status === "OPTIMAL" || p.status === "FEASIBLE") return (p.counts.missing ?? 0) > 0 ? "warning" : "feasible";

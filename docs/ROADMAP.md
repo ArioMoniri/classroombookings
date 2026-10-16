@@ -2057,3 +2057,10 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
     - R1-S-03: a .docx blocks intake with AI off. Goes to the suggester's intake lane.
   - R1-S-04 (minimal re-solve unplaces 17 classes) and R1-S-06 (an ERROR run shows Yayınla) also went to the integrity agent.
 - The round-1 suggester is running: it dedupes the 117 findings into lane tickets (ROADMAP "Flow loop tickets — round 1" plus `rounds/round-1-tickets.json`). Next: one builder per lane, then round-2 re-test.
+- Round-1 loop builders launched:
+  - lane C: intake, both blockers
+  - lane B: approvals and bookings
+  - lane D: KVKK export completeness
+  - lane G: test-plan drift, plus T-R1-45, which checks whether the testers' touch readings came from tooling; lane A waits for its verdict
+- Lanes A, E and F start next. Lane H waits for the integrity agent's hand-off.
+- [ ] **Owner decision R1-S-37:** should a forced edit on the live (published) plan create a draft that needs re-publishing, or stay live with a banner showing the broken rule? The orchestrator recommends a draft: published plans stay 100/100.

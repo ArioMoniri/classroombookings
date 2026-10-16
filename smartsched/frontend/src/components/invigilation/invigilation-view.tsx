@@ -27,7 +27,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { knownPhase, planTone, progressView } from "./invigilation-model";
+import { knownPhase, planStatusKey, planTone, progressView } from "./invigilation-model";
 import { PlanDetailView } from "./plan-detail";
 import { PlanFormDialog } from "./plan-form";
 import { PoolView } from "./pool-view";
@@ -172,7 +172,7 @@ function PlanItem({ p, active, href, lang }: { p: PlanBrief; active: boolean; hr
           {p.is_active ? <Badge tone="feasible">{t("invigilation.published")}</Badge> : null}
         </span>
         <span className="flex flex-wrap items-center gap-x-2 type-footnote text-label-2">
-          <StatusDot tone={planTone(p)}>{t(`invigilation.status.${p.status}` as MessageKey)}</StatusDot>
+          <StatusDot tone={planTone(p)}>{t(planStatusKey(p) as MessageKey)}</StatusDot>
           {PLAN_ACTIVE.has(p.status) ? <PhaseText p={p} /> : null}
           {c.required !== null && c.filled !== null ? <span className="tnum">{t("invigilation.filledOf", { filled: n(c.filled), required: n(c.required) })}</span> : null}
           {p.parent_plan_id ? <span>{t("invigilation.childOf", { id: p.parent_plan_id })}</span> : null}

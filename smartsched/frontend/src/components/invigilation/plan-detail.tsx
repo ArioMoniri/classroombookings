@@ -25,7 +25,7 @@ import { invigilationCsv, PLAN_ACTIVE, useActivatePlan, useDeletePlan, usePlan, 
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { DiagnosisList } from "./diagnosis-list";
-import { knownPhase, planTone, progressView } from "./invigilation-model";
+import { knownPhase, planIsEmpty, planStatusKey, planTone, progressView } from "./invigilation-model";
 import { PeopleView } from "./people-view";
 import { PostsView } from "./posts-view";
 
@@ -71,7 +71,7 @@ export function PlanDetailView({ planId, canEdit, onOpenPlan, onRerun }: { planI
   if (!p) return <div className="flex flex-col gap-3" aria-busy="true" aria-label={t("invigilation.loadingPlan")}><Skeleton className="h-12 w-2/3" /><Skeleton className="h-24 w-full" /><Skeleton className="h-96 w-full" /></div>;
 
   const finished = !running;
-  const publishable = finished && !p.is_active && ["OPTIMAL", "FEASIBLE", "INFEASIBLE"].includes(p.status);
+  const publishable = finished && !p.is_active && ["OPTIMAL", "FEASIBLE", "INFEASIBLE"].includes(p.status) && !planIsEmpty(p);
   const confirm = async () => {
     setActionError(null);
     try {
@@ -95,7 +95,7 @@ export function PlanDetailView({ planId, canEdit, onOpenPlan, onRerun }: { planI
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h2 id="invig-plan-title" className="type-title-2">{p.label?.trim() || t("invigilation.planN", { id: p.id })}</h2>
           <StatusDot tone={planTone(p)}>
-            <span data-testid="invig-plan-status">{t(`invigilation.status.${p.status}` as MessageKey)}</span>
+            <span data-testid="invig-plan-status">{t(planStatusKey(p) as MessageKey)}</span>
           </StatusDot>
           {p.is_active ? <Badge tone="feasible" data-testid="invig-published">{t("invigilation.published")}</Badge> : null}
           {p.hard_score !== null ? <span className="type-footnote text-label-2 tnum">{t("invigilation.scores", { hard: n(p.hard_score), soft: p.soft_score === null ? "—" : n(p.soft_score) })}</span> : null}
@@ -240,7 +240,11 @@ function Result({ p }: { p: PlanDetail }) {
   ];
   return (
     <section aria-label={t("invigilation.result")} className="flex flex-col gap-3">
-      {p.status === "INFEASIBLE" ? (
+      {planIsEmpty(p) ? (
+        <Alert tone="warning" title={t("invigilation.emptyTitle")} data-testid="invig-empty">
+          {p.empty_reason ? pairOf(p.empty_reason, lang) : t("invigilation.emptyBody")}
+        </Alert>
+      ) : p.status === "INFEASIBLE" ? (
         <Alert tone="error" title={t("invigilation.infeasibleTitle", { n: n(c.missing ?? 0) })} data-testid="invig-infeasible">
           {t("invigilation.infeasibleBody")}
         </Alert>

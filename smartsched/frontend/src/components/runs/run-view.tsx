@@ -37,15 +37,82 @@ import { RunPolicyLine } from "./relaxation";
 import { ResolveRunButton } from "./resolve-run";
 import { isBaselineRun } from "@/lib/api/council";
 import { PublishRunButton } from "./publish-run";
-import { runIssueCounts, summaryExtras, verdictExceptions, waiverOf, type VerdictException } from "./run-truth";
+import { BROKEN_RULE_TR, runIssueCounts, runTruth, summaryExtras, verdictExceptions, waiverOf, type RunTruth, type VerdictException } from "./run-truth";
 import { useCalendarIndex } from "@/lib/api/calendar";
 
 /** Built-in rule names as the planner says them (the solver's codes are English). */
 const RULE_TR: Record<string, string> = { capacity: "kapasite", room_tags: "derslik özelliği", tags: "derslik özelliği", pins: "sabitlenen derslik", fixed_times: "sabit saat", forbids: "yasak derslik", locks: "kilitli derslik" };
 
+/** Statuses whose stored timetable may be published (backend `PUBLISHABLE`); ERROR / FAILED / INFEASIBLE never. */
+export const PUBLISHABLE = new Set(["OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL"]);
+/** Statuses with a stored timetable (placement numbers mean something). */
+export const WITH_TIMETABLE = new Set(["OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL", "TIMEOUT"]);
+
+/** The broken hard rules, each with the forced move's reason when one explains it (round-1 R1-M-05). */
+export function BrokenRules({ truth, className }: { truth: RunTruth; className?: string }) {
+  const { locale } = useI18n();
+  const tr = locale === "tr";
+  return (
+    <ul className={className ?? "mt-1 list-disc pl-5 type-callout text-label-1"} data-testid="verdict-broken">
+      {truth.broken.slice(0, 12).map((b, i) => (
+        <li key={`${b.rule}-${i}`} data-rule={b.rule} data-explained={b.explained ? "1" : "0"}>
+          <span className="font-medium">{tr ? (BROKEN_RULE_TR[b.rule] ?? b.rule) : b.rule.replace(/_/g, " ")}</span>: {b.message}
+          {b.explained && b.reason ? (
+            <span className="text-label-2"> · {tr ? "gerekçeli zorunlu taşıma" : "forced with a reason"}: “{b.reason}”{b.by_name ? ` (${b.by_name})` : ""}</span>
+          ) : (
+            <span className="text-label-2"> · {tr ? "açıklanmamış" : "not explained"}</span>
+          )}
+        </li>
+      ))}
+      {truth.broken.length > 12 ? <li className="text-label-2">{tr ? `ve ${truth.broken.length - 12} tane daha` : `and ${truth.broken.length - 12} more`}</li> : null}
+    </ul>
+  );
+}
+
+/** The verdict from the backend's one truth (planner-level check): the same sentence as the Studio card and the API. */
+function TruthVerdict({ truth }: { truth: RunTruth }) {
+  const { n, locale } = useI18n();
+  const head = locale === "tr" ? truth.headline.tr : truth.headline.en || truth.headline.tr;
+  if (truth.verdict === "broken")
+    return (
+      <div className="flex items-start gap-2 text-status-infeasible-fg" data-testid="run-verdict" data-state="broken">
+        <XOctagon className="mt-1 size-5 shrink-0 stroke-[2]" aria-hidden />
+        <div>
+          <p className="type-title-3">{head}</p>
+          <BrokenRules truth={truth} />
+        </div>
+      </div>
+    );
+  if (truth.verdict === "exceptions")
+    return (
+      <div className="flex items-start gap-2 text-status-warning-fg" data-testid="run-verdict" data-state="exceptions">
+        <AlertTriangle className="mt-1 size-5 shrink-0 stroke-[2]" aria-hidden />
+        <div>
+          <p className="type-title-3">{head}</p>
+          <ul className="mt-1 list-disc pl-5 type-callout text-label-1" data-testid="verdict-exceptions">
+            {truth.exceptions.map((e) => (
+              <li key={e.cause} data-key={e.cause}>
+                {locale === "tr" ? e.label.tr : e.label.en} · {n(e.classes)} {locale === "tr" ? "ders" : e.classes === 1 ? "class" : "classes"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  if (truth.verdict === "clean")
+    return (
+      <p className="flex items-start gap-2 type-title-3 text-status-feasible-fg" data-testid="run-verdict" data-state="complete">
+        <CheckCircle2 className="mt-0.5 size-5 shrink-0 stroke-[2]" aria-hidden />
+        <span>{head}</span>
+      </p>
+    );
+  return null;
+}
+
 /** The status headline: honest for partial runs (amber "660/683 placed · no rule broken", never green 100/100). */
-function Verdict({ r, headline, exceptions = [] }: { r: ScheduleRun; headline?: string; exceptions?: VerdictException[] }) {
+function Verdict({ r, headline, exceptions = [], truth = null }: { r: ScheduleRun; headline?: string; exceptions?: VerdictException[]; truth?: RunTruth | null }) {
   const { t, n, locale } = useI18n();
+  if (truth && truth.verdict !== "none" && WITH_TIMETABLE.has(r.status)) return <TruthVerdict truth={truth} />;
   const partial = partialCounts(r);
   const complete = !partial && (r.status === "FEASIBLE" || r.status === "OPTIMAL");
   if ((partial || complete) && exceptions.length) {
@@ -153,9 +220,12 @@ export function RunView({ id }: { id: number }) {
   if (!r) return <Skeleton className="h-64 rounded-2xl" />;
 
   const partial = partialCounts(r);
-  const placed = partial?.placed ?? Number(r.stats.placed ?? r.stats.events ?? 0);
-  const total = partial?.total ?? Number(r.stats.events_total ?? r.stats.events ?? 0);
-  const unplaced = partial ? partial.total - partial.placed : Number(r.stats.unplaced ?? 0);
+  // round-1 R1-S-02: a run without a timetable (ERROR, FAILED, INFEASIBLE, CANCELLED) shows no placement totals
+  const hasTimetable = WITH_TIMETABLE.has(r.status) || Boolean(partial);
+  const truth = runTruth(r.stats_detail ?? r.stats, summary.data as Record<string, unknown> | undefined);
+  const placed = truth?.placed ?? partial?.placed ?? Number(r.stats.placed ?? r.stats.events ?? 0);
+  const total = truth?.total ?? partial?.total ?? Number(r.stats.events_total ?? r.stats.events ?? 0);
+  const unplaced = truth?.unplaced ?? (partial ? partial.total - partial.placed : Number(r.stats.unplaced ?? 0));
   const headline = summary.data?.headline ? (locale === "tr" ? summary.data.headline.tr : summary.data.headline.en) : undefined;
   const unplacedCards = sections.find((s) => s.section === "unplaced");
   const ruleCards = sections.find((s) => s.section === "rules");
@@ -228,13 +298,19 @@ export function RunView({ id }: { id: number }) {
           <Card className="gap-0 p-5 sm:p-6" role="region" data-testid="run-hero" aria-label={t("runs.report")}>
             <div className="grid gap-6 @container/hero xl:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
               <div className="min-w-0">
-                <Verdict r={r} headline={headline} exceptions={exceptions} />
-                {partial ? <p className="mt-1 type-callout text-label-2">{t("glass.report.partialHint", { n: n(unplaced) })}</p> : null}
+                <Verdict r={r} headline={headline} exceptions={exceptions} truth={truth} />
+                {partial ? (
+                  <p className="mt-1 type-callout text-label-2" data-testid="partial-hint">
+                    {/* "every placed class keeps every rule" only when the truth says so (round-1 R1-M-04) */}
+                    {(truth ? truth.verdict === "clean" : !exceptions.length) ? t("glass.report.partialHint", { n: n(unplaced) }) : t("glass.report.partialHintUnplaced", { n: n(unplaced) })}
+                  </p>
+                ) : null}
                 <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
                 <RunPolicyLine r={r} />
-                {canPlan && finished && r.status !== "CANCELLED" ? (
+                {canPlan && finished && PUBLISHABLE.has(r.status) ? (
+                  // round-1 R1-S-06: ERROR / FAILED / INFEASIBLE runs have nothing to publish
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <PublishRunButton run={r} published={publishedId} exceptions={exceptions} />
+                    <PublishRunButton run={r} published={publishedId} exceptions={truth ? [] : exceptions} truth={truth} />
                   </div>
                 ) : null}
                 <dl className="mt-5 grid gap-x-6 gap-y-4 pt-4 hairline-t [grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))]">
@@ -245,9 +321,15 @@ export function RunView({ id }: { id: number }) {
                   ].map((x) => (
                     <div key={x.k} className="min-w-0">
                       <dt className="type-footnote text-label-2">{x.k}</dt>
-                      <dd className="flex items-baseline type-kpi text-label-1">
-                        <KpiNumber value={x.v} format={(v) => new Intl.NumberFormat(locale).format(v)} />
-                        {x.suffix ? <span className="type-callout font-normal text-label-2">{x.suffix}</span> : null}
+                      <dd className="flex items-baseline type-kpi text-label-1" data-testid={`kpi-${x.k}`}>
+                        {hasTimetable || x.k === t("glass.report.problems") ? (
+                          <>
+                            <KpiNumber value={x.v} format={(v) => new Intl.NumberFormat(locale).format(v)} />
+                            {x.suffix ? <span className="type-callout font-normal text-label-2">{x.suffix}</span> : null}
+                          </>
+                        ) : (
+                          <span aria-label={locale === "tr" ? "çizelge yok" : "no timetable"}>—</span>
+                        )}
                       </dd>
                     </div>
                   ))}
@@ -276,7 +358,7 @@ export function RunView({ id }: { id: number }) {
                   </section>
                 ) : null}
               </div>
-              <SoftBreakdown score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} />
+              {hasTimetable ? <SoftBreakdown score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} /> : null}
             </div>
           </Card>
 

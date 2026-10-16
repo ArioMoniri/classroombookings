@@ -852,6 +852,8 @@ def plan_brief(plan: InvigilationPlan) -> dict[str, Any]:
             "eligible_people": st.get("eligible_people"),
         },
         "headline": st.get("headline"),
+        "empty": bool(st.get("empty")),
+        "empty_reason": st.get("empty_reason"),
         "progress": plan_progress(plan),
     }
 
@@ -1018,9 +1020,31 @@ async def run_plan(session_factory: Any, plan_id: int, progress: Any = None) -> 
         plan.soft_score = res.soft_score if res.status != "ERROR" else None
         if built.warnings and any(w.get("severity") == "error" for w in built.warnings) and res.status != "INFEASIBLE":
             plan.status = "INFEASIBLE" if built.inp.posts else plan.status
+        # round-1 R1-M-11: a plan with nothing to staff (0 room-sessions or 0 required duties) is an empty plan, not
+        # "En iyi · tümü atandı" with hard 100 / soft 100, and it is never published
+        empty = plan.status != "FAILED" and (not built.inp.posts or int(res.stats.get("required") or 0) == 0)
+        empty_reason: dict[str, str] | None = None
+        if empty:
+            plan.hard_score = None
+            plan.soft_score = None
+            empty_reason = (
+                _t(
+                    f"Sınav çalıştırması #{plan.exam_run_id} hiçbir sınavı bir salona yerleştirmemiş: gözetmen "
+                    "atanacak salon-oturum yok. Önce sınavları salonlara yerleştiren bir sınav çalıştırması seçin.",
+                    f"Exam run #{plan.exam_run_id} seats no exam in a room: there is no room session to staff. "
+                    "Pick an exam run that places the exams in rooms first.",
+                )
+                if not built.inp.posts
+                else _t(
+                    "Hiçbir salon-oturum gözetmen istemiyor (gerekli görev 0).",
+                    "No room session asks for an invigilator (0 duties required).",
+                )
+            )
         plan.stats = {
             **(plan.stats or {}),
             **res.stats,
+            "empty": empty,
+            "empty_reason": empty_reason,
             "objective_breakdown": res.objective_breakdown,
             "shortfall": res.shortfall,
             "loads": res.loads,
@@ -1040,7 +1064,9 @@ async def run_plan(session_factory: Any, plan_id: int, progress: Any = None) -> 
                 }
                 for p in built.inp.posts
             ],
-            "headline": _headline(res),
+            "headline": _t(f"Atanacak görev yok · {empty_reason['tr']}", f"Nothing to assign · {empty_reason['en']}")
+            if empty_reason
+            else _headline(res),
             "progress": 100,
         }
         if res.status == "ERROR":
@@ -1622,6 +1648,17 @@ async def activate(session: AsyncSession, plan_id: int, actor: User) -> dict[str
     plan = await _editable(session, plan_id)
     if plan.status not in ("OPTIMAL", "FEASIBLE", "INFEASIBLE"):
         raise PlanError(409, _t(f"Plan durumu {plan.status}; yayımlanamaz", f"plan is {plan.status}; cannot publish"))
+    st = plan.stats or {}
+    if st.get("empty") or not st.get("posts"):
+        why = st.get("empty_reason") or _t("Planda atanacak görev yok.", "The plan has nothing to assign.")
+        raise PlanError(
+            409,
+            {
+                "code": "empty_plan",
+                "tr": f"Boş plan yayımlanamaz: {why['tr']}",
+                "en": f"An empty plan cannot be published: {why['en']}",
+            },
+        )
     previous = (
         (
             await session.execute(

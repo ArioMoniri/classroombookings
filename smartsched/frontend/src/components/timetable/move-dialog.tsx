@@ -11,6 +11,7 @@ import { Check, TriangleAlert } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calendarApi, useFreeRooms, type FreeRoom, type MoveScope } from "@/lib/api/calendar";
 import { useI18n } from "@/lib/i18n/provider";
@@ -98,10 +99,15 @@ export interface MoveDialogProps {
   week: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (target: { room: number; day: number; sp: number; ep: number }, scope: ScopeValue) => Promise<boolean>;
+  /** `forceReason`: an administrator moves despite the listed hard-rule breaks, with this written reason */
+  onConfirm: (target: { room: number; day: number; sp: number; ep: number }, scope: ScopeValue, forceReason?: string) => Promise<boolean>;
+  /** may force a move that breaks a hard rule (`planning.admin`), with a written reason (round-1 R1-M-06 / R1-S-09) */
+  canForce?: boolean;
+  /** open on this target (a refused drop) instead of the class's own cell */
+  initialTarget?: { room: number; day: number; sp: number } | null;
 }
 
-export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: MoveDialogProps) {
+export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm, canForce = false, initialTarget = null }: MoveDialogProps) {
   const { t, locale } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
   const [room, setRoom] = useState<number>(ev?.room ?? 0);
@@ -110,18 +116,23 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
   const [scope, setScope] = useState<ScopeValue>({ scope: "all", week });
   const [busy, setBusy] = useState(false);
   const [server, setServer] = useState<{ ok: boolean; hard: CheckIssue[]; soft: CheckIssue[] } | null>(null);
+  const [forceReason, setForceReason] = useState("");
+  const reasonId = useId();
   const evKey = ev?.key;
+  const tKey = initialTarget ? `${initialTarget.room}:${initialTarget.day}:${initialTarget.sp}` : "";
   useEffect(() => {
     if (!ev) return;
     // reset the form whenever another class is opened
     /* eslint-disable react-hooks/set-state-in-effect */
-    setRoom(ev.room);
-    setDay(ev.day);
-    setSp(ev.sp);
+    setRoom(initialTarget?.room ?? ev.room);
+    setDay(initialTarget?.day ?? ev.day);
+    setSp(initialTarget?.sp ?? ev.sp);
+    setForceReason("");
     setScope({ scope: "all", week: weeksOfMask(ev.mask).includes(week) ? week : weeksOfMask(ev.mask)[0] ?? week });
     setServer(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [evKey, ev, week]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tKey stands for initialTarget
+  }, [evKey, ev, week, tKey]);
   const span = ev ? ev.ep - ev.sp : 0;
   const ep = Math.min(PERIODS_PER_DAY, sp + span);
   const mask = ev ? scopeMask(ev, scope) : 0;
@@ -191,7 +202,7 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
                           data-testid="free-room"
                           data-room-id={r.room_id}
                           data-status={r.status}
-                          disabled={g.key === "other"}
+                          disabled={g.key === "other" && !canForce}
                           onClick={() => setRoom(r.room_id)}
                           className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2 disabled:opacity-50", room === r.room_id && "bg-tint-soft")}
                         >
@@ -230,8 +241,35 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
           {server && server.ok ? <p className="type-footnote text-status-feasible-fg" data-testid="move-server-ok">✓ {t("calendar.move.serverOk")}</p> : null}
           {scope.scope === "from" && ok ? <p className="type-footnote text-label-2">{t("calendar.move.split", { room: fromRoom })}</p> : null}
         </div>
+        {shown && shown.hard.length && changed ? (
+          canForce ? (
+            // an administrator may move despite the listed breaks, only with a written reason (listed in the run report)
+            <div className="grid gap-1.5 rounded-xl bg-status-warning px-3 py-2" data-testid="move-force-panel">
+              <p className="type-callout font-medium text-status-warning-fg">{t("calendar.move.forceTitle")}</p>
+              <label htmlFor={reasonId} className="type-footnote font-semibold text-label-1">{t("calendar.move.forceReason")}</label>
+              <Textarea id={reasonId} rows={2} value={forceReason} onChange={(e) => setForceReason(e.target.value)} placeholder={t("calendar.move.forcePlaceholder")} data-testid="move-force-reason" />
+            </div>
+          ) : (
+            <p className="type-footnote text-label-2" data-testid="move-force-admin-only">{t("calendar.move.forceAdmin")}</p>
+          )
+        ) : null}
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>{t("calendar.insp.cancel")}</Button>
+          {canForce && shown && shown.hard.length && changed ? (
+            <Button
+              variant="destructive"
+              data-testid="move-force"
+              disabled={busy || forceReason.trim().length < 3}
+              onClick={async () => {
+                setBusy(true);
+                const done = await onConfirm({ room, day, sp, ep }, scope, forceReason.trim());
+                setBusy(false);
+                if (done) onOpenChange(false);
+              }}
+            >
+              {busy ? t("calendar.move.moving") : t("calendar.move.force")}
+            </Button>
+          ) : null}
           <Button
             data-testid="move-confirm"
             disabled={!ok || busy || !changed}

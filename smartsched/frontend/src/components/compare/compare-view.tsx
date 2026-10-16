@@ -221,7 +221,7 @@ function Metrics({ metrics }: { metrics: Metric[] }) {
                 <ArrowRight aria-hidden className="size-3.5 self-center text-label-3" />
                 <span className="type-title-3 text-label-1 tnum" aria-label={`B ${metricValue(m.key, m.b, locale)}`}>{metricValue(m.key, m.b, locale)}</span>
               </span>
-              <VerdictTag v={v} delta={m.delta} locale={locale} />
+              <VerdictTag v={v} delta={v === "incomparable" ? null : m.delta} locale={locale} />
             </li>
           );
         })}
@@ -510,10 +510,10 @@ function RulesSection({ data, week }: { data: CompareData; week: number | null }
         header: t("compare.col.verdict"),
         priority: 1,
         minSize: 130,
-        text: (r) => `${signed(r.delta, locale)} ${t("compare.verdict.better")}`,
+        text: (r) => (r.comparable === false || r.better === null ? t("compare.verdict.incomparable") : `${signed(r.delta, locale)} ${t(r.better === "same" ? "compare.verdict.same" : r.better === "b" ? "compare.verdict.better" : "compare.verdict.worse")}`),
         extra: 30,
         sortValue: (r) => r.delta,
-        cell: (r) => <VerdictTag v={r.better === "same" ? "same" : r.better === "b" ? "better" : "worse"} delta={r.delta} locale={locale} />,
+        cell: (r) => <VerdictTag v={r.comparable === false || r.better === null ? "incomparable" : r.better === "same" ? "same" : r.better === "b" ? "better" : "worse"} delta={r.comparable === false ? null : r.delta} locale={locale} />,
       },
     ],
     [t, n, locale, lang],

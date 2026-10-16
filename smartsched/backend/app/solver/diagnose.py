@@ -605,7 +605,9 @@ def _locked_conflicts(prep: Prepared) -> list[Diagnosis]:
                 )
     for e, a in locked:
         dom = prep.doms.domain(e.id)
-        if not e.needs_room:
+        if not e.needs_room or not dom.times:
+            # a hard rule removed the locked time itself (round-1 R1-S-02: "no classes after 17:30" on a class the
+            # planning list locks at 18:00): ``no_time`` above names it; there is no slot to check rooms at
             continue
         bad_rooms = [r for r in a.room_ids if r not in dom.rooms]
         if bad_rooms:

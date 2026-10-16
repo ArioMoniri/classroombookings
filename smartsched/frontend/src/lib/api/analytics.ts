@@ -49,6 +49,8 @@ export interface Metric {
   better: "a" | "b" | "same" | null;
   /** +1 higher is better, -1 lower is better, 0 neutral */
   direction: -1 | 0 | 1;
+  /** false: one run has no data for this metric (a week run against a term run): never better / worse (R1-M-10) */
+  comparable?: boolean;
 }
 
 export interface Place {
@@ -126,7 +128,9 @@ export interface RuleRow {
   a: number;
   b: number;
   delta: number;
-  better: "a" | "b" | "same";
+  /** null when the runs' scopes differ (round-1 R1-M-10) */
+  better: "a" | "b" | "same" | null;
+  comparable?: boolean;
 }
 
 export interface CompareData {

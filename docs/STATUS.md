@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `70d9ad0` (committed 2026-10-16 12:39 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `3b80fee` (committed 2026-10-16 13:08 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-152 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 130 · stopped 7 · superseded 7.
+156 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 131 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -156,7 +156,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
 | `Hard-rule integrity fixes (round 1)` | solver-engineer | 2026-10-16 12:19 |
-| `Flow loop suggester (round 1)` | general-purpose | 2026-10-16 12:38 |
+| `Lane B` | general-purpose | 2026-10-16 13:09 |
+| `Lane C` | general-purpose | 2026-10-16 13:09 |
+| `Lane D` | general-purpose | 2026-10-16 13:09 |
+| `Lane G` | general-purpose | 2026-10-16 13:09 |
 
 <!-- /AUTO:agents -->
 
@@ -223,7 +226,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **200 ticked · 361 open** checkboxes in 79 sections (76 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **200 ticked · 362 open** checkboxes in 79 sections (76 with open items).
 
 <details><summary>Per section</summary>
 
@@ -307,7 +310,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Consent gates finished (2026-10-16) | 1 | 2 |
 | Remaining feature UIs finished (2026-10-16) | 0 | 2 |
 | Batch 4 finished (2026-10-16) | 5 | 2 |
-| Flow loop round 1: academician and admin reports in (2026-10-16) | 0 | 1 |
+| Flow loop round 1: academician and admin reports in (2026-10-16) | 0 | 2 |
 
 </details>
 

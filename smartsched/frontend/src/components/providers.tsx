@@ -9,6 +9,7 @@ import { AppearanceMotionConfig } from "@/components/ui/appearance-preferences";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HttpError, onApiError } from "@/lib/api/client";
+import { isStaleConflict, serverMessage } from "@/lib/api/error-text";
 import { I18nProvider, useI18n } from "@/lib/i18n/provider";
 import type { Locale } from "@/lib/i18n";
 
@@ -23,9 +24,12 @@ function ApiErrorBridge() {
           router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
           return;
         }
+        // round-1 R1-M-02 / R1-S-06: only a stale-record 409 reads "someone else changed it"; every other refusal
+        // is shown in the server's own words (message_tr in Turkish)
+        const said = err.status > 0 && err.status < 500 ? serverMessage(err, locale, true) : null;
         const title =
-          err.status === 0 ? t("glass.errors.offline") : err.status === 403 ? t("glass.errors.forbidden") : err.status === 404 ? t("glass.errors.notFound") : err.status === 409 ? t("glass.errors.conflict") : err.status >= 500 ? t("glass.errors.server") : t("glass.errors.rejected");
-        const detail = locale === "en" && err.status > 0 && err.status < 500 ? err.message : undefined;
+          err.status === 0 ? t("glass.errors.offline") : err.status === 403 ? t("glass.errors.forbidden") : err.status === 404 ? t("glass.errors.notFound") : err.status === 409 && isStaleConflict(err) ? t("glass.errors.conflict") : err.status >= 500 ? t("glass.errors.server") : t("glass.errors.rejected");
+        const detail = said ?? (locale === "en" && err.status > 0 && err.status < 500 ? err.message : undefined);
         const id = err.errorId ? t("glass.errors.errorId", { id: err.errorId }) : undefined;
         toast.error(title, { description: [detail, id].filter(Boolean).join(" · ") || undefined, duration: err.status >= 500 ? Infinity : 8000 });
       }),

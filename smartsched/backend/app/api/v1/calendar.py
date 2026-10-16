@@ -308,6 +308,7 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
             actor=actor,
             audit_id=ev.id if ev is not None else None,
             findings=verdict.findings.get(p.base.id, []),
+            rows=[r for r in rows if r.id in {*moved, *split}],
         )
     await _rescore(db, run)
     await db.commit()

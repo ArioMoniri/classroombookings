@@ -47,8 +47,12 @@ def record_override(
     actor: User | None,
     audit_id: int | None = None,
     findings: list[dict[str, Any]] | None = None,
+    rows: list[Any] | None = None,
 ) -> dict[str, Any]:
     item = {
+        # where the forced move put the rows: the override stops counting once none of them sits there any more
+        # (the move was undone or the class moved on; round-1 R1-M-05)
+        "placements": [_placement(a) for a in rows or []],
         "assignment_ids": sorted(set(assignment_ids)),
         "request_ids": sorted({int(r) for r in request_ids if r}),
         "rules": sorted(set(rules)),
@@ -68,6 +72,56 @@ def record_override(
     return item
 
 
+def _placement(a: Any) -> dict[str, Any]:
+    return {
+        "id": int(a.id),
+        "day": int(a.day),
+        "start": int(a.start_period),
+        "end": int(a.end_period),
+        "rooms": sorted(int(r) for r in a.room_ids or []),
+        "weeks": sorted(int(w) for w in (a.weeks or ([a.week] if a.week else []))),
+    }
+
+
+def active_overrides(run: ScheduleRun) -> list[dict[str, Any]]:
+    """Recorded overrides whose forced placement still exists (see :func:`refresh_overrides`)."""
+    return [o for o in overrides(run) if not o.get("undone_at")]
+
+
+async def refresh_overrides(session: AsyncSession, run: ScheduleRun) -> int:
+    """Mark the overrides whose forced placement is gone (``undone_at``): none of their rows sits where the forced
+    move put it. Returns how many were marked. Overrides recorded before placements were kept stay active."""
+    from app.models import Assignment
+
+    ovs = overrides(run)
+    ids = {int(p["id"]) for o in ovs if not o.get("undone_at") for p in o.get("placements") or []}
+    if not ids:
+        return 0
+    rows = {
+        a.id: _placement(a)
+        for a in (
+            await session.execute(select(Assignment).where(Assignment.id.in_(ids), Assignment.archived.is_(False)))
+        ).scalars()
+    }
+    changed = 0
+    out = []
+    for o in ovs:
+        places = o.get("placements") or []
+        if places and not o.get("undone_at") and not any(rows.get(int(p["id"])) == p for p in places):
+            o = {**o, "undone_at": datetime.now(UTC).isoformat(timespec="seconds")}
+            changed += 1
+        out.append(o)
+    if changed:
+        run.stats = {**(run.stats or {}), "forced_overrides": out}
+    return changed
+
+
+#: a planner's own decision changed by a manual move (the LOCKED row's room, a fixed time): the move re-decides it,
+#: listed as a manual edit, never a broken hard rule (round-1 R1-M-05: moving a class "from week 4" stays a planner
+#: task); capacity, tags, clashes, blocks and weeks broken by a manual move still count
+MANUAL_DECISIONS = frozenset({"locked_room", "time"})
+
+
 def _score(bad: int, placed: int) -> int:
     if not bad:
         return 100
@@ -76,7 +130,7 @@ def _score(bad: int, placed: int) -> int:
 
 def integrity(check: Any, run: ScheduleRun) -> dict[str, Any]:
     """Hard score and the findings that block publishing, from a :class:`planner_check.PlannerCheck`."""
-    ovs = overrides(run)
+    ovs = active_overrides(run)
     explained_reqs = {int(r) for o in ovs for r in o.get("request_ids") or []}
     # a forced move records the planner-level findings it adds (round-1 R1-M-05): a clash it forced on purpose is
     # explained by its override, whatever the finding's cause
@@ -93,6 +147,8 @@ def integrity(check: Any, run: ScheduleRun) -> dict[str, Any]:
         manual = f.cause == "manual"
         if not (f.violation or manual):
             continue  # an accepted, reported exception (D1, D2, week_split, outside_pool ...)
+        if manual and not f.violation and f.rule in MANUAL_DECISIONS:
+            continue  # the planner re-decided its own lock / time by hand (listed as a manual edit)
         key = (f.rule, tuple(sorted(int(r) for r in f.request_ids)))
         if (manual and explained_reqs & set(f.request_ids)) or key in explained_keys:
             explained.append(f)
@@ -100,6 +156,8 @@ def integrity(check: Any, run: ScheduleRun) -> dict[str, Any]:
             blocking.append(f)
     # every recorded override is a hard rule broken on purpose, seen by the planner-level check or not (board rows
     # carry no request id there): it counts against the hard score, explained or not
+    # an override whose break was undone (the class moved back) no longer counts: only findings that exist now do
+    # (round-1 R1-M-05 / R1-S-01: the run stayed at 99 with no rule broken after the forced clash was reverted)
     bad_reqs = {r for f in [*blocking, *explained] for r in f.request_ids} | explained_reqs
     board_only = {a for o in ovs if not o.get("request_ids") for a in o.get("assignment_ids") or []}
     hard = _score(len(bad_reqs) + len(board_only), check.requests_placed or check.rows)
@@ -114,8 +172,9 @@ def integrity(check: Any, run: ScheduleRun) -> dict[str, Any]:
 def broken_rules(integ: dict[str, Any], run: ScheduleRun, limit: int = 50) -> list[dict[str, Any]]:
     """The hard rules a run breaks right now, for every surface (run card, report, banner, audit; round-1 R1-M-05):
     each blocking or explained finding with its rule, message, requests and - when a forced move explains it - that
-    override's reason, author and time. Board-only overrides (imported rows without requests) are listed too."""
-    ovs = overrides(run)
+    override's reason, author and time. Active overrides the planner-level check cannot see (imported board rows
+    without requests, a break it does not model) are listed too."""
+    ovs = active_overrides(run)
 
     def override_for(f: dict[str, Any]) -> dict[str, Any] | None:
         key = (str(f["rule"]), tuple(sorted(int(r) for r in f["request_ids"])))
@@ -126,7 +185,7 @@ def broken_rules(integ: dict[str, Any], run: ScheduleRun, limit: int = 50) -> li
                 for x in o.get("findings") or []
             }
             if key in keys or reqs & {int(r) for r in o.get("request_ids") or []}:
-                return o
+                return dict(o)
         return None
 
     out: list[dict[str, Any]] = []
@@ -144,8 +203,9 @@ def broken_rules(integ: dict[str, Any], run: ScheduleRun, limit: int = 50) -> li
                     "at": (o or {}).get("at"),
                 }
             )
+    seen = {r for b in out for r in b["request_ids"]}
     for o in ovs:
-        if not o.get("request_ids"):
+        if not o.get("request_ids") or not seen & {int(r) for r in o.get("request_ids") or []}:
             out.append(
                 {
                     "rule": ",".join(o.get("rules") or []) or "override",
@@ -201,8 +261,10 @@ def valid_reason(reason: str | None) -> bool:
 
 
 __all__ = [
+    "active_overrides",
     "broken_rules",
     "integrity",
+    "refresh_overrides",
     "overrides",
     "record_override",
     "run_weeks",

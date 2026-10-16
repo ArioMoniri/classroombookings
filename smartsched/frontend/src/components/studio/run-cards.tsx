@@ -15,7 +15,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { plannerText } from "@/components/runs/diagnosis-format";
-import { placedOf } from "@/components/runs/run-truth";
+import { BROKEN_RULE_TR, placedOf, truthOf, type RunTruth } from "@/components/runs/run-truth";
 import { CopyDialog } from "./copy-dialog";
 import { useStudio, useStudioStore } from "./studio-context";
 
@@ -66,6 +66,36 @@ function useElapsed(since: number, running: boolean): number {
     return () => window.clearInterval(id);
   }, [running]);
   return since ? Math.max(0, Math.round((now - since) / 1000)) : 0;
+}
+
+/** The run's verdict line from `stats.truth`: broken rules (red, listed), accepted exceptions (amber), clean (green). */
+function TruthLine({ truth }: { truth: RunTruth }) {
+  const { n, locale } = useI18n();
+  const tr = locale === "tr";
+  const tone = truth.verdict === "broken" ? "text-status-infeasible-fg" : truth.verdict === "exceptions" ? "text-status-warning-fg" : "text-status-feasible-fg";
+  return (
+    <div data-testid="run-result" data-verdict={truth.verdict} className={tone}>
+      <p>{tr ? truth.headline.tr : truth.headline.en || truth.headline.tr}</p>
+      {truth.verdict === "broken" ? (
+        <ul className="mt-1 list-disc pl-5 text-xs text-label-1" data-testid="run-result-broken">
+          {truth.broken.slice(0, 4).map((b, i) => (
+            <li key={`${b.rule}-${i}`}>
+              {(tr ? BROKEN_RULE_TR[b.rule] : null) ?? b.rule}: {b.message}
+              {b.explained && b.reason ? ` · “${b.reason}”` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : truth.verdict === "exceptions" ? (
+        <ul className="mt-1 list-disc pl-5 text-xs text-label-2" data-testid="run-result-exceptions">
+          {truth.exceptions.filter((e) => e.rule).slice(0, 4).map((e) => (
+            <li key={e.cause}>
+              {tr ? e.label.tr : e.label.en} · {n(e.classes)} {tr ? "ders" : "classes"}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 /** Run status → result card; the summary panel and Step 5 both show it. */
@@ -133,7 +163,10 @@ export function RunCard({ compact }: { compact?: boolean }) {
         </div>
       ) : HAS_TIMETABLE.has(r.status) ? (
         <div className="mt-2 space-y-2">
-          {r.status === "FEASIBLE_PARTIAL" ? (
+          {truthOf(r.stats.truth) && truthOf(r.stats.truth)?.verdict !== "none" ? (
+            // round-1 R1-M-04: the backend's one truth (planner-level check), the same sentence as the run report
+            <TruthLine truth={truthOf(r.stats.truth) as RunTruth} />
+          ) : r.status === "FEASIBLE_PARTIAL" ? (
             // a best-effort run: the honest count, amber (UX fix "partial runs never show a green 100/100")
             <p data-testid="run-result" className="text-status-warning-fg">
               {t("runs.partialRing", { placed: n(num(r.stats.placed) ?? 0), total: n(num(r.stats.events_total) ?? 0) })}

@@ -90,3 +90,95 @@ export function summaryExtras(summary: Record<string, unknown> | null | undefine
   });
   return { dataIssues, forcedOverrides };
 }
+
+/* ------------------------------------------------------------------ the backend's one truth (round-1 R1-M-04) */
+
+export interface TruthBroken {
+  rule: string;
+  message: string;
+  request_ids: number[];
+  explained: boolean;
+  reason: string | null;
+  by_name: string | null;
+  at: string | null;
+}
+
+export interface TruthException {
+  cause: string;
+  classes: number;
+  findings: number;
+  rule: boolean;
+  label: { tr: string; en: string };
+}
+
+/**
+ * `stats.truth` (worker / re-score) or `summary.truth`: the planner-level verdict every surface shows (the Studio
+ * card, the run report, the publish confirm, the timetable banner). `broken` = hard rules broken right now (a
+ * forced move with its reason included), `exceptions` = the accepted exceptions the run reports.
+ */
+export interface RunTruth {
+  verdict: "broken" | "exceptions" | "clean" | "none";
+  placed: number | null;
+  total: number | null;
+  unplaced: number | null;
+  hard_score: number | null;
+  broken: TruthBroken[];
+  broken_count: number;
+  exceptions: TruthException[];
+  exceptions_total: number;
+  headline: { tr: string; en: string };
+}
+
+const VERDICTS = new Set(["broken", "exceptions", "clean", "none"]);
+const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
+const text2 = (v: unknown): { tr: string; en: string } => {
+  const o = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  return { tr: str(o.tr) ?? "", en: str(o.en) ?? str(o.tr) ?? "" };
+};
+
+/** Parse a truth object defensively (unknown keys pass through the API schemas); null when absent. */
+export function truthOf(raw: unknown): RunTruth | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.verdict !== "string" || !VERDICTS.has(o.verdict)) return null;
+  const arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === "object") : []);
+  return {
+    verdict: o.verdict as RunTruth["verdict"],
+    placed: num(o.placed),
+    total: num(o.total),
+    unplaced: num(o.unplaced),
+    hard_score: num(o.hard_score),
+    broken: arr(o.broken).map((b) => ({
+      rule: str(b.rule) ?? "",
+      message: str(b.message) ?? "",
+      request_ids: Array.isArray(b.request_ids) ? b.request_ids.map(Number).filter(Number.isFinite) : [],
+      explained: b.explained === true,
+      reason: str(b.reason),
+      by_name: str(b.by_name),
+      at: str(b.at),
+    })),
+    broken_count: num(o.broken_count) ?? arr(o.broken).length,
+    exceptions: arr(o.exceptions).map((x) => ({ cause: str(x.cause) ?? "", classes: num(x.classes) ?? 0, findings: num(x.findings) ?? 0, rule: x.rule === true, label: text2(x.label) })),
+    exceptions_total: num(o.exceptions_total) ?? 0,
+    headline: text2(o.headline),
+  };
+}
+
+/** The run's truth: the summary's (fresh) wins over the stored one. */
+export function runTruth(stats: Record<string, unknown> | null | undefined, summary?: Record<string, unknown> | null): RunTruth | null {
+  return truthOf(summary?.truth) ?? truthOf(stats?.truth);
+}
+
+/** Planner names of the planner-level rules (`planner_check`). */
+export const BROKEN_RULE_TR: Record<string, string> = {
+  room_double_booking: "derslik çakışması",
+  capacity: "kapasite",
+  tags: "derslik özelliği (PC / TIP)",
+  blocked: "dolu derslik",
+  cohort: "sınıf çakışması",
+  instructor: "öğretim elemanı çakışması",
+  weeks: "dersin haftaları",
+  time: "istenen gün / saat",
+  locked_room: "planlayıcının kilitli dersliği",
+  policy_lock_dropped: "kilitli dersin yerleşmesi",
+};

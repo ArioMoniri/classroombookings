@@ -1703,6 +1703,55 @@
       "goal": "1. Deduplicate and cluster the findings across the three reports (the same root cause found by several personas = one ticket listing all finding ids). Verify each blocker/major against the code at HEAD (read the files; you may run quick API calls against your own short-lived backend on port 19106 if needed — own DB in a mktemp dir under /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da…",
       "ledger": "Flow loop suggester (round 1)",
       "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-16 13:08"
+    },
+    {
+      "id": "a827f9c09f398d4b4",
+      "description": "Lane C: intake + council fixes",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 13:09",
+      "scope": "",
+      "goal": "You are the **round-1 loop builder for lane C (intake & council)** in SmartSched. Repo /home/user/classroombookings (backend smartsched/backend, frontend smartsched/frontend), branch claude/gracious-cerf-w1598m (shared tree). Ledger id: loop-r1-laneC-2026-10-16. Read docs/testing/flows/rounds/round-…",
+      "ledger": "Lane C: intake + council fixes",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a7095126c37bcea7a",
+      "description": "Lane B: approvals/bookings fixes",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 13:09",
+      "scope": "",
+      "goal": "You are the **round-1 loop builder for lane B (approval-first wording, bookings, find-room, approvals, Taleplerim, moderation except the re-solve preview)** in SmartSched. Repo /home/user/classroombookings (backend smartsched/backend, frontend smartsched/frontend), branch claude/gracious-cerf-w1598m…",
+      "ledger": "Lane B: approvals/bookings fixes",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a9976d69cf2e81079",
+      "description": "Lane D: KVKK/privacy fixes",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 13:09",
+      "scope": "",
+      "goal": "You are the **round-1 loop builder for lane D (KVKK / privacy)** in SmartSched. Repo /home/user/classroombookings (backend smartsched/backend, frontend smartsched/frontend), branch claude/gracious-cerf-w1598m (shared tree). Ledger id: loop-r1-laneD-2026-10-16. Read docs/testing/flows/rounds/round-1-…",
+      "ledger": "Lane D: KVKK/privacy fixes",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ac9d1401a32214104",
+      "description": "Lane G: test-plan + tooling drift",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 13:09",
+      "scope": "",
+      "goal": "You are the **round-1 loop builder for lane G (test plan & tooling drift)** in SmartSched. Repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m (shared tree). Ledger id: loop-r1-laneG-2026-10-16. Read docs/testing/flows/rounds/round-1-tickets.json (lane G) and docs/ROADMAP.md \"Flow …",
+      "ledger": "Lane G: test-plan + tooling drift",
+      "resumed": false,
       "status": "running"
     }
   ]
