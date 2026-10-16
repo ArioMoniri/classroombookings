@@ -80,8 +80,10 @@ def test_upgrade_keeps_users_matches_the_models_and_round_trips(tmp_path):
     con.execute(invite, (8, "h1"))
     with pytest.raises(sqlite3.IntegrityError):
         con.execute(invite, (7, "h2"))  # one open invite per address
-    con.execute("insert into sso_providers (name, enabled, self_signup, oidc_only_non_admins, role_mapping_enabled, "
-                "allow_admin_mapping, invite_days, updated_at) values ('entra', 0, 1, 0, 0, 0, 30, '2026-10-15')")
+    con.execute(
+        "insert into sso_providers (name, enabled, self_signup, oidc_only_non_admins, role_mapping_enabled, "
+        "allow_admin_mapping, invite_days, updated_at) values ('entra', 0, 1, 0, 0, 0, 30, '2026-10-15')"
+    )
     con.commit()
     con.execute("delete from users where id = 8")  # cascades to its invite
     assert con.execute("select count(*) from sso_invites").fetchone() == (0,)

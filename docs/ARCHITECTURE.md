@@ -100,7 +100,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-21 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0025_approval_first`**. A new migration goes on top of it (`alembic heads` must print one line).
+22 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0026_sso_entra`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -125,6 +125,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 19 | `0023_learning` | `0022_kvkk_signoff_unseed` | Phase 19 learning lane (P19-L1) + catalogue batch (P19-C4) + priority columns (P19-M2) |
 | 20 | `0024_moderation_indexes` | `0023_learning` | Phase 19 moderation read models (P19-M1): indexes for a person's sections across terms and a term's sections of one… |
 | 21 | `0025_approval_first` | `0024_moderation_indexes` | Approval-first bookings (owner requirement 2026-10-15; docs/ROADMAP.md "Approval-first bookings") |
+| 22 | `0026_sso_entra` | `0025_approval_first` | Sign-in with Microsoft Entra ID (owner decisions 2026-10-15; app/services/sso.py, docs/deploy/sso-entra.md) |
 
 <!-- /AUTO:migrations -->
 
