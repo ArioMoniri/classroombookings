@@ -1587,6 +1587,30 @@
       "ledger": "Remaining UI: schedule map, intake e2e, etc.",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a861b5f5fada47c4b",
+      "description": "Wave-2 UI follow-ups",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 08:25",
+      "scope": "",
+      "goal": "You are the **wave-2 UI follow-ups** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: wave2-ui-followups-2026-10-16. ## Contracts (backend batch 3 landed; see docs/ROADMAP.md \"Backe…",
+      "ledger": "Wave-2 UI follow-ups",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "aa75c80843e250170",
+      "description": "Backend consent gates",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 08:25",
+      "scope": "",
+      "goal": "You are the **consent gates** builder for SmartSched's backend (/home/user/classroombookings/smartsched/backend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: consent-gates-2026-10-16. Read docs/ROADMAP.md \"Backend asks batch 3\" and app/services/kvkk.py, app/ai/personal.…",
+      "ledger": "Backend consent gates",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

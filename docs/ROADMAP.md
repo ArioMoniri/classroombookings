@@ -1520,3 +1520,19 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
 - [ ] On tablets the session calendar still drag-paints with `touch-none`, so the page can't scroll with a finger there.
 - [ ] Probe note for the testers: disabled buttons are counted as offenders.
 - The remaining-UIs agent is running: the schedule-map baseline, intake memory management, the intake e2e, Google/M365 push settings, and the relaxation policy last.
+
+### Backend asks batch 3 finished (2026-10-16)
+
+- Done:
+  - `/public/schedule*` uses `max-age=0, must-revalidate` with an ETag and 304. A 404 or 429 sends `no-store`, so switching the view off takes effect on the next poll.
+  - Find-room returns `period_ids`/`period_id` and accepts GG.AA.YYYY dates.
+  - Retention 422s carry a field code and TR/EN text.
+  - `GET /admin/dsr?status=all`.
+  - Consent withdrawal effects:
+    - photo files are deleted;
+    - calendar_sync revokes feeds and disconnects push connections;
+    - ai_personal redacts the person's names to `[KİŞİ_n]` in AI requests and maps them back on the server.
+- Agents launched:
+  - **Wave-2 UI follow-ups:** effect toasts, the find-room "Neden?" verdict, retention field errors and the "Tümü" filter.
+  - **Consent gates (backend):** a calendar link or connection needs an active consent, erasure revokes at the provider, and a `kvkk.ai_personal_default` setting.
+- [ ] **Owner / legal question:** should "consent not granted" exclude a person from AI requests, or only an explicit withdrawal (today's behaviour)? It becomes an admin setting.

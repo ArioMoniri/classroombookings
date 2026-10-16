@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `e60fb2a` (committed 2026-10-16 08:24 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `4775766` (committed 2026-10-16 08:25 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-143 agents in [`docs/agents/registry.json`](agents/registry.json): running 7 · finished 122 · stopped 7 · superseded 7.
+145 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 122 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -155,7 +155,9 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
+| `Backend consent gates` | backend-engineer | 2026-10-16 08:25 |
 | `Remaining UI` | frontend-engineer | 2026-10-16 08:25 |
+| `Wave-2 UI follow-ups` | frontend-engineer | 2026-10-16 08:25 |
 
 <!-- /AUTO:agents -->
 
@@ -222,7 +224,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **193 ticked · 304 open** checkboxes in 73 sections (70 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **193 ticked · 305 open** checkboxes in 74 sections (71 with open items).
 
 <details><summary>Per section</summary>
 
@@ -301,6 +303,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Mobile polish finished (2026-10-16) | 0 | 1 |
 | Bookings wave-2 + KVKK UI finished (2026-10-16) | 1 | 4 |
 | Dense grids on phones finished (2026-10-16) | 0 | 2 |
+| Backend asks batch 3 finished (2026-10-16) | 0 | 1 |
 
 </details>
 
