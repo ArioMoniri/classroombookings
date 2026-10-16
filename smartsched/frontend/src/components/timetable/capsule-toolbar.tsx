@@ -190,7 +190,7 @@ export function CapsuleToolbar(p: CapsuleToolbarProps) {
           <SegmentedControl size="sm" collapse={false} aria-label={t("calendar.lens.label")} options={LENSES.map((l) => ({ value: l, label: t(`calendar.lens.${l}`) }))} value={p.lens} onValueChange={p.onLens} />
           {p.lens === "board" ? (
             <DropdownMenu>
-              <DropdownMenuTrigger render={<IconButton size="xs" label={t("calendar.board.mode")} />}><ChevronDown aria-hidden /></DropdownMenuTrigger>
+              <DropdownMenuTrigger render={<IconButton size="sm" label={t("calendar.board.mode")} />}><ChevronDown aria-hidden /></DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuRadioGroup value={p.board} onValueChange={(v) => p.onBoard(v as BoardMode)}>
                   <DropdownMenuRadioItem value="day">{t("calendar.board.day")}</DropdownMenuRadioItem>
