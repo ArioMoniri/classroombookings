@@ -87,10 +87,10 @@
   note: "server drafts with autosave, per-step validation, pre-check, one-transaction commit and a 30-day undo"
 - feature: "Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment"
   area: planning
-  status: backend-only
+  status: done
   phase: "backlog"
-  evidence: smartsched/backend/tests/test_invigilation_api.py
-  note: "GET /analytics/compare, /analytics/heatmap/rooms and /instructors (JSON + CSV), /invigilation/* CP-SAT plans; no screen yet"
+  evidence: smartsched/frontend/e2e/analytics.spec.ts
+  note: "/runs/compare (also from the runs list), /analytics/heatmap (rooms + instructor load, live board or one run), /exams/invigilation (pool, plans, lock / reassign, re-run, publish, roster CSV); backend tests/test_invigilation_api.py"
 
 - feature: "Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff"
   area: intake

@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `c9d9dbc` (committed 2026-10-16 06:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `6d5c997` (committed 2026-10-16 06:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 34 · Backend only 6 · In progress 4 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 35 · Backend only 5 · In progress 4 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -48,7 +48,7 @@ Done 34 · Backend only 6 · In progress 4 · Planned 0 (from [`docs/features.ym
 | Academicians add their own room, building or time wishes for their classes; coordinators accept or reject them with a reason, never applied by themselves | Done: Tercih ekle sheet + Tercihlerim on /moderation/me, Tercihler › Akademisyen tercihleri, badges on Kişiler / Eşleşmeler; soft rule ranked after the department's ask | P19-T2 | [`followups-ui.spec.ts`](../smartsched/frontend/e2e/followups-ui.spec.ts) |
 | Learned suggestions from earlier terms, with a resettable memory (per person, per term or all) | Done: accept for the term or persistent (admin, confirmed), undo of any decision; never auto-applied | P19 L1-L4, F2 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander | Done: server drafts with autosave, per-step validation, pre-check, one-transaction commit and a 30-day undo | P19 C1-C4, F3 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
-| Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | Backend only: GET /analytics/compare, /analytics/heatmap/rooms and /instructors (JSON + CSV), /invigilation/* CP-SAT plans; no screen yet | backlog | [`test_invigilation_api.py`](../smartsched/backend/tests/test_invigilation_api.py) |
+| Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | Done: /runs/compare (also from the runs list), /analytics/heatmap (rooms + instructor load, live board or one run), /exams/invigilation (pool, plans, lock / reassign, re-run, publish, roster CSV); backend tests/test_invigilation_api.py | backlog | [`analytics.spec.ts`](../smartsched/frontend/e2e/analytics.spec.ts) |
 
 **Intake**
 
@@ -224,13 +224,13 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **176 ticked · 297 open** checkboxes in 66 sections (63 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **179 ticked · 299 open** checkboxes in 67 sections (64 with open items).
 
 <details><summary>Per section</summary>
 
 | Section | Ticked | Open |
 |---|---:|---:|
-| Backlog / nice-to-have (reviewers add here) | 0 | 23 |
+| Backlog / nice-to-have (reviewers add here) | 3 | 20 |
 | Backend Phase 1 backlog (backend-engineer, 2026-10-07) | 3 | 7 |
 | Phase 8 Generator Studio backlog (from docs/design/generator-studio.md, 2026-10-08) | 5 | 7 |
 | Phase 5 deploy/devops backlog (devops-engineer, 2026-10-08) | 8 | 3 |
@@ -296,6 +296,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Planning analytics backend finished (2026-10-16); analytics UI launched | 1 | 4 |
 | Bookings wave-2 backend finished (2026-10-16); wave-2 + KVKK UI launched | 0 | 2 |
 | Backend test isolation finished (2026-10-16) | 0 | 2 |
+| Planning analytics UI finished (2026-10-16) | 0 | 5 |
 
 </details>
 

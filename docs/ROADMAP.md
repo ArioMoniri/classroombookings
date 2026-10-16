@@ -52,12 +52,12 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 ## Backlog / nice-to-have (reviewers add here)
 
-- [ ] Scenario comparison (A/B runs side by side, diff view) — backend done 2026-10-16: `GET /analytics/compare?a=&b=` (scores, per-class moves, instructor load / gaps, room deltas, rule-by-rule penalties; JSON + CSV), `app/services/scenario_compare.py`, tests/test_planning_analytics.py; UI open
-- [ ] Utilisation heatmaps per building/day — backend done 2026-10-16: `GET /analytics/heatmap/rooms` (run or live board + blocks + bookings; building / room type / capacity band / room; day or date axis; JSON + CSV) and `/analytics/heatmap/instructors`, `app/services/utilisation.py`; UI open
+- [x] Scenario comparison (A/B runs side by side, diff view) — backend done 2026-10-16: `GET /analytics/compare?a=&b=` (scores, per-class moves, instructor load / gaps, room deltas, rule-by-rule penalties; JSON + CSV), `app/services/scenario_compare.py`, tests/test_planning_analytics.py; UI done 2026-10-16: `/runs/compare` (e2e/analytics.spec.ts)
+- [x] Utilisation heatmaps per building/day — backend done 2026-10-16: `GET /analytics/heatmap/rooms` (run or live board + blocks + bookings; building / room type / capacity band / room; day or date axis; JSON + CSV) and `/analytics/heatmap/instructors`, `app/services/utilisation.py`; UI done 2026-10-16: `/analytics/heatmap` (e2e/analytics.spec.ts)
 - [ ] Request inbox workflow (faculty submits → planner approves)
 - [ ] Publishing & versioning with audit trail, change notifications to instructors
 - [ ] iCal feeds per room / instructor / programme
-- [ ] Invigilator assignment for exams — backend done 2026-10-16: CP-SAT model `app/solver/invigilation.py` (one worker, deterministic), pool + plans + duties (alembic 0031), `/invigilation/*` run / view / lock / reassign / re-run / publish, per-room diagnoses; real Final run staffs all 846 room sessions; UI open
+- [x] Invigilator assignment for exams — backend done 2026-10-16: CP-SAT model `app/solver/invigilation.py` (one worker, deterministic), pool + plans + duties (alembic 0031), `/invigilation/*` run / view / lock / reassign / re-run / publish, per-room diagnoses; real Final run staffs all 846 room sessions; UI done 2026-10-16: `/exams/invigilation` (e2e/analytics.spec.ts)
 - [ ] Student-level conflict checking when enrolment lists become available
 - [ ] Mobile room display mode (door signs)
 - [ ] SSO (LDAP, like CRBS) and role-based access
@@ -1406,3 +1406,17 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - `SMARTSCHED_TEST_ORDER=reverse|shuffle:<seed>` re-runs the suite in another order.
 - [ ] The stabilisation gate must run on one fixed commit: the shared tree changes during a 30-minute suite.
 - [ ] Optional: the backend gate could use `-o tmp_path_retention_policy=failed` to save pod disk. The language-file check stays in the backend gate (`test_crbs_languages`), since the frontend gate image has no backend Python.
+
+### Planning analytics UI finished (2026-10-16)
+
+- Done:
+  - Senaryo karşılaştırma at `/runs/compare?a=&b=`, also opened from the runs list ("Karşılaştır"). It shows the backend's headline, every metric with a "B daha iyi / daha kötü / aynı" word and glyph, and class changes (moved, only in A, only in B, by change type, with search). Instructor load, room utilisation (each room links to its page) and rule penalties follow, with a CSV for each part.
+  - Doluluk ısı haritası at `/analytics/heatmap`. Rooms come from the live board or one run, grouped by building, room type, capacity band or room, for one week or the whole term. Pre-occupied cells are hatched and left out of the %. The overview drills down to period × day and then to the rooms of a group. The grids are keyboard-navigable with sticky headers inside a frame, and the scale legend works in light and dark. The instructor load tab has a sortable people table and each person's week.
+  - Gözetmen ataması at `/exams/invigilation`: the pool with an unavailability editor, a run form (defaults shown, advanced settings collapsed), polling with backoff and the diagnoses with their suggestions (INFEASIBLE is shown at the top). Duties are listed by date and room, with lock, reassign through the candidate picker (unavailable people with their reasons) and re-run keeping the locks. Load per person, publish, delete, and roster and load CSVs complete it.
+  - Evidence: `e2e/analytics.spec.ts` 5/5 on the real Bahar and Final data. vitest covers the models, the grid and the compare view.
+- [ ] Backend: `GET /invigilation/plans/{id}/candidates` takes about 58 s on the real Final plan (846 posts, 218 people). It seems to validate the whole plan once per person, and appears to block the event loop while it runs. Check only the changed post per person, or run it in a thread.
+- [ ] Backend: there is no way to add a duty to an under-staffed post by hand (reassign only swaps an existing duty). Add `POST …/duties {post_key, person_key}`.
+- [ ] Backend: a running plan reports no progress, because the queue's phase and percentage are not stored on the plan. The UI shows the elapsed time against the time limit instead.
+- [ ] Shell: breadcrumb labels for the `/analytics` and `/exams` segments (they show the raw segment). The two paths redirect to their pages.
+- [ ] Design: add the motion rows (FadePanel: section or result settles, springs.smooth, 100 ms opacity under reduced motion) to `docs/design/v2/motion.md`.
+

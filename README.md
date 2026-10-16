@@ -126,7 +126,7 @@ Recorded on the real backend with the real 2026 workbooks (instructor names redu
 
 <!-- AUTO:status only=done -->
 
-Done 34 · Backend only 6 · In progress 4 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
+Done 35 · Backend only 5 · In progress 4 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
 
 | Feature | Area | Evidence |
 |---|---|---|
@@ -142,6 +142,7 @@ Done 34 · Backend only 6 · In progress 4 · Planned 0. Done items only; the fu
 | Academicians add their own room, building or time wishes for their classes; coordinators accept or reject them with a reason, never applied by themselves | Planning | [`followups-ui.spec.ts`](smartsched/frontend/e2e/followups-ui.spec.ts) |
 | Learned suggestions from earlier terms, with a resettable memory (per person, per term or all) | Planning | [`followup.phase19.spec.ts`](smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander | Planning | [`followup.phase19.spec.ts`](smartsched/frontend/e2e/followup.phase19.spec.ts) |
+| Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | Planning | [`analytics.spec.ts`](smartsched/frontend/e2e/analytics.spec.ts) |
 | Booking grid by day or by room; single, recurring and multi bookings, limits, holidays, timetable weeks; the published timetable blocks its slots | Bookings | [`bookings.spec.ts`](smartsched/frontend/e2e/bookings.spec.ts) |
 | Reservation panel: click a free slot, drag to book several periods, reasons on cells you cannot book, a Free slots list, a department view, room details with other free rooms | Bookings | [`reserve.spec.ts`](smartsched/frontend/e2e/reserve.spec.ts) |
 | Calendar sync: private ICS feed links (my bookings, a room, a department) with Google / Outlook / Apple buttons; room feeds carry the published classes | Bookings | [`test_a14_class_feeds.py`](smartsched/backend/tests/test_a14_class_feeds.py) |
@@ -411,6 +412,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `c9d9dbc` (committed 2026-10-16 06:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `6d5c997` (committed 2026-10-16 06:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

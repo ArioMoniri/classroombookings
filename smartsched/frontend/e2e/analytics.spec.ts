@@ -218,16 +218,21 @@ test.describe("planning analytics", () => {
 
     // re-run: a child plan that keeps both locked duties
     await page.getByTestId("invig-rerun").click();
-    await expect(plan.getByTestId("invig-param-time_limit_s").or(plan.getByTestId("invig-advanced"))).toBeVisible();
+    // the re-run starts from the parent's parameters (the 3 s budget set above)
+    await expect(plan).toContainText("yeniden çalıştır");
+    if (!(await plan.getByTestId("invig-param-time_limit_s").isVisible())) await plan.getByTestId("invig-advanced").click();
+    await expect(plan.getByTestId("invig-param-time_limit_s")).toHaveValue("3");
     await plan.getByTestId("invig-form-submit").click();
     await expect(detail).toContainText("planından", { timeout: 30_000 });
     await expect(detail).toHaveAttribute("data-status", /^(OPTIMAL|FEASIBLE|INFEASIBLE)$/, { timeout: 240_000 });
+    type Detail = { parent_plan_id: number | null; posts: { assigned: { post_key: string; person_key: string; is_locked: boolean }[] }[] };
     const child = Number(new URL(page.url()).searchParams.get("plan"));
-    const kept = await api<{ parent_plan_id: number; posts: { assigned: { is_locked: boolean; origin: string }[] }[] }>(page, `/invigilation/plans/${child}`);
-    const locked = kept.posts.flatMap((p) => p.assigned).filter((d) => d.is_locked);
+    const kept = await api<Detail>(page, `/invigilation/plans/${child}`);
     expect(kept.parent_plan_id).toBeTruthy();
-    expect(locked.length).toBeGreaterThanOrEqual(2);
-    expect(locked.some((d) => d.origin === "MANUAL")).toBe(true);
+    const parent = await api<Detail>(page, `/invigilation/plans/${kept.parent_plan_id}`);
+    const locks = (d: Detail) => d.posts.flatMap((p) => p.assigned).filter((x) => x.is_locked).map((x) => `${x.post_key}>${x.person_key}`).sort();
+    expect(locks(parent)).toHaveLength(2); // the locked duty and the reassigned (manual, locked) one
+    expect(locks(kept)).toEqual(locks(parent));
 
     // publish the re-run
     await page.getByTestId("invig-publish").click();
