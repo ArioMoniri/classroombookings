@@ -119,3 +119,17 @@ async def test_a_renamed_photo_is_refused_at_upload(client):
     assert r.status_code == 400 and "içeriği bir görsel" in r.json()["detail"]
     job = await upload(client, h, ("odalar.xlsx", (EN_CSV.read_bytes())), ai="false")
     assert job["files"][0]["format"] == "csv"
+
+
+def test_the_planner_names_the_term_in_the_job_language():
+    """T-R1-23: "Bahar", not "Spring", for a Turkish job, also when the file names hold English words (the planner
+    reuses `lang` for the language of each file's season word)."""
+    from app.council import planner
+
+    files = [
+        {"index": 0, "filename": BAHAR_LIST.name, "sheets": []},
+        {"index": 1, "filename": "spring_requests.csv", "sheets": []},
+    ]
+    names = [g["name"] for g in planner.plan(files, {0: [], 1: []}, [], lang="tr")["groups"]]
+    assert names and all("Spring" not in n for n in names), names
+    assert "Spring" in planner.plan(files[1:], {1: []}, [], lang="en")["groups"][0]["name"]

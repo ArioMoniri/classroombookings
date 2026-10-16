@@ -162,6 +162,7 @@ def plan(
 ) -> dict[str, Any]:
     """``files`` = [{index, filename, sheets: [names], route}], ``records`` by file index; ``lang`` is the job's
     language (the proposed term name: "2026 Bahar" for ``tr``, "2026 Spring" otherwise)."""
+    reader_tr = lang == "tr"  # ``lang`` is reused below for the language of a file's season word
     groups: dict[tuple[Any, ...], dict[str, Any]] = {}
     unassigned: list[int] = []
     file_keys: dict[int, tuple[Any, ...] | None] = {}
@@ -294,7 +295,7 @@ def plan(
                         None,
                         [
                             str(year) if year else "",
-                            SEASON_TR.get(season or "", "Dönem") if lang == "tr" else (season or "Term").title(),
+                            SEASON_TR.get(season or "", "Dönem") if reader_tr else (season or "Term").title(),
                         ],
                     )
                 ),
