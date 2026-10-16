@@ -213,6 +213,7 @@ async def _beat(key: str) -> None:
 async def _heartbeat_loop(key: str) -> None:
     from app.core.config import get_settings
 
+    task = asyncio.current_task()
     while True:
         try:
             await _beat(key)
@@ -220,6 +221,10 @@ async def _heartbeat_loop(key: str) -> None:
             raise
         except Exception:  # noqa: BLE001 - a missed beat must never fail the job
             log.debug("heartbeat failed for %s", key, exc_info=True)
+        if task is not None and task.cancelling():
+            # the job ended (or the loop is shutting down) while the beat closed its connection, and the driver
+            # absorbed the CancelledError (SQLAlchemy aiosqlite graceful close): stop instead of beating forever
+            raise asyncio.CancelledError
         await asyncio.sleep(float(get_settings().run_heartbeat_s))
 
 
