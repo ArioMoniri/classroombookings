@@ -8,7 +8,7 @@ Owner decisions (ROADMAP Phase 19):
 - A **KVKK erasure** purges at once. The undo window does not apply to it.
 - Suggestions are pull, not push: no toasts, no bell, nothing on the dashboard.
 
-Testable on `b75047b`: yes (L1–L4 and the UI landed: `components/learning/*`, `/moderation/learning`).
+Testable on `b75047b`: yes (L1–L4 and the UI landed: `components/learning/*`, `/moderation/learning`). The P19 UI follow-up (2026-10-16) added the server-side undo of any decision (`POST /learning/suggestions/{id}/restore`, "Geri al" on the receipt and in Geçmiş) and the accept scope (this term vs persistent); `smartsched/frontend/e2e/followup.phase19.spec.ts` test 5 proves S03 (accept, Geri al, persistent), S04 (reject, Geçmiş → Geri al) on the Bahar suggestions.
 
 ## Preconditions
 
@@ -51,7 +51,9 @@ Testable on `b75047b`: yes (L1–L4 and the UI landed: `components/learning/*`, 
 - Elsewhere: Moderasyon › **"Tercihler"** lists the rule with the source chip **"Öneri"**. The staged link counts one more change.
 - Do: **"Geri al"**.
 - See: **"Kabul geri alındı: tercih kaldırıldı."** The constraint is gone. The card is back in Bekleyen.
-- Accept again (leave it accepted for the rest of the flow).
+- API: `POST /learning/suggestions/<id>/restore` → the suggestion is `open` again and its rule is off.
+- Persistent (planning.admin only): the weight menu (**"Ağırlık seç"**) also offers **"Kalıcı tercih olarak kabul et…"** (`suggestion-accept-persistent`). It asks first (`persistent-confirm`): **"Kalıcı tercih olarak kabul edilsin mi?"** with **"Hiçbir zaman kendiliğinden uygulanmaz: sonraki dönemlerde aynı öneri yalnızca işaretlenir ve bir kişinin kabulünü bekler."**, **"Yalnızca yumuşak bir tercihtir; talepler ve zorunlu kurallar her zaman önce gelir."** and **"Geçmiş'ten istediğiniz zaman geri alabilirsiniz."** → **"Kalıcı olarak kabul et"** (`persistent-go`). The receipt reads **"Kalıcı tercih olarak eklendi"**; API `state: "accepted", scope: "persistent"`. In a later term the same suggestion shows **"Başka bir dönemde kalıcı tercih olarak kabul edildi; burada da sizin kabulünüzü bekliyor."** and is still not applied. planner.test does not see the persistent option; the API refuses it with 403.
+- Undo the persistent accept, then accept again for this term (leave it accepted for the rest of the flow).
 
 **S04 · admin · reject with a reason** (L8)
 - Do: on `SR`, **"Reddet"**.
@@ -59,6 +61,7 @@ Testable on `b75047b`: yes (L1–L4 and the UI landed: `components/learning/*`, 
 - See: the receipt **"Reddedildi"** with Geri al, and the live text **"Öneri reddedildi."**
 - API: `SR` is `dismissed` with the reason. No constraint is created.
 - Dismissal sticks: `POST /learning/refresh` again → `SR` is not open again (it returns only when a new term adds evidence).
+- Undo from history: **"Geçmiş {n}"** → the `SR` row (`history-row`, `data-state="dismissed"`) → **"Geri al"** (`history-undo`) → `SR` is back under **"Bekleyen"**. Reject it again with the reason.
 
 **S05 · admin · snooze**
 - Do: on `SS`, **"Ertele"** → **"Bir sonraki çözüme kadar"** (other options "7 gün", "Gelecek döneme kadar").

@@ -2,7 +2,7 @@
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `d88a533` (committed 2026-10-16 02:21 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `c3238fd` (committed 2026-10-16 02:32 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -260,3 +260,4 @@ Generated blocks last synced on top of commit `d88a533` (committed 2026-10-16 02
 | 2026-10-16 02:20 | backend-engineer (backend-test-isolation-2026-10-16) | test isolation | RESUME after container restart (previous run left only its START line, no code changes): baseline full fast suite running in background (make test args + -p no:cacheprovider + scratch basetemp) | triage failures vs. isolated runs |
 | 2026-10-16 02:21 | frontend-engineer (design-migration-mobile-2026-10-16) | design-migration | RESUME after container restart: predecessor's checkpointed work verified (text-px/shadow-[/raw <button>/Sparkles at 0 in my files via shell/bare-button.tsx; tsc clean; vitest my areas 329/330, the 1 failure is program-wizard.tsx focus ring, not mine); allow-list ratcheted (37 raw-button entries removed) | label-4, kit Alert, glass Cards, mobile toolbar/sheet/find-room/tab-bar, 390/768 pass |
 | 2026-10-16 02:22 | frontend-engineer (approval-ui-2026-10-16) | approval-first UI | RESUME after container restart: predecessor wip (reject dialog, inbox group link + group decide, Taleplerim reason/withdraw, preferences panel, calendar-sync KVKK + webhooks admin, booking-approval mode, e2e/approval-first.spec.ts) is in origin; tsc + check:design green at f89e454. Now: verify vitest/eslint/build, run e2e on 18994/18995, ratchet approvals files, flows F-01/F-11, docs | e2e run, docs |
+| 2026-10-16 02:34 | frontend-engineer (p19-ui-followup-2026-10-16) | P19 UI follow-up | RESUME after container restart: predecessor work (wizard on /program-drafts, priorities, baseline+chain, server changes, notify_people, /moderation/me nav, suggestion restore+scope, phone) verified; fixed the wizard commit failing while an autosave was in flight (use-wizard flush awaits it); spec Yüksek=1; e2e followup.phase19 6/6 on my stack (18998/18999); F-05/F-06/F-07 + flows README updated; features.yml moderation/learned/programmes → done | final fresh-DB e2e run, gates, hand-off |

@@ -980,8 +980,9 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
 - [ ] Channel UI and API: F-01 S13. Owned by the channels backend, then the channels/SSO frontend agent.
 - [ ] Calendar-sync KVKK sign-off admin screen: M-40 (F-04, F-11). Goes to the approval/admin UI agent.
 - [x] Link a login to an instructor (F-05, major): `PUT /api/v1/auth/sso/admin/users/{id}/instructor` and `instructor_id` on invites (`instructors.user_id`, audited `user.instructor_link`).
-- [ ] Teacher nav entry to `/moderation` (F-05): goes to the shell sweep.
-- [ ] P19-T2 "Tercih ekle" and P19-T3 publish digests (F-05); the "Bu program için geçmiş veri yok" panel and the 30-day programme undo (F-07): the P19 UI follow-up agent.
+- [x] Teacher nav entry "Taleplerim" → `/moderation/me` (F-05), for accounts that can book and lack `planning.view`.
+- [x] P19-T3 publish digests ("Akademisyenlere bildir", F-05); the "Bu program için geçmiş veri yok" panel and the 30-day programme undo (F-07).
+- [ ] P19-T2 "Tercih ekle" (F-05 S03): needs a backend endpoint first (see the P19 UI follow-up hand-off).
 - [ ] Phase 19 intake UI: the stepper, the Fark step and remembered-mapping chips (F-08). Also the P19 UI follow-up agent.
 - [ ] A reason field for forced moves in the timetable UI (F-10): the P19 UI follow-up agent.
 - [x] SSO route contract: `/api/v1/auth/sso/entra/start?next=&invite=&prompt=&login_hint=`, redirects `?error=<code>[&ref]`; sign-in.md §14/§15 updated with the final codes.
@@ -1175,3 +1176,21 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
   - adopt a matching hand-made (MAN:) section on import
   - the wizard's "import as …" button
   - store `planner_check` in every run's stats
+
+### Phase 19 UI follow-up finished (2026-10-16)
+
+- Done (proven by `smartsched/frontend/e2e/followup.phase19.spec.ts`, 6/6 against the real Bahar backend):
+  - Program wizard on `/program-drafts`:
+    - field-op autosave with `base_version`, "Taslaklarım" resume on any device, the `overwritten` notice
+    - per-step server validation in TR + EN under the fields, with an error summary
+    - Excel paste preview (code fixes, skipped rows), joint teaching with the joint total, cohorts from years, live room fit
+    - pre-check (rooms fit, joint merged), commit "Yalnızca oluştur" / "Oluştur ve dönemi çöz" / "Oluştur ve mevcut plana ekle" (minimal re-solve → moderation preview)
+    - result screen with the 30-day undo and its blockers, "Oluşturulanlar", and "Bu program için geçmiş veri yok"
+    - a commit or "Devam" right after an edit now waits for the in-flight autosave instead of failing ("Taslak kaydedilemedi")
+  - Moderation: person priority on the profile, person and programme priority in the matching inspector, `priority.source` badges, the server "Yayından beri değişenler" list, the diff baseline switcher and chain, the publish toggle "Akademisyenlere bildir" with the people named and the `notified` count.
+  - Teachers: "Taleplerim" → `/moderation/me` (own requests, "Geçmişim", the unlinked explanation).
+  - Learned suggestions: "Geri al" on receipts and in Geçmiş (`restore`), persistent accept for planning.admin behind a confirm that says it is never applied by itself.
+  - Phone 390 × 844: compact stepper and step sheet, floating footer with 44 px controls, sheets for paste and changes, no sideways scroll on the wizard and moderation pages.
+  - Flow scripts F-05, F-06 and F-07 updated to the shipped UI; F-07 Part A/B rewritten for server drafts (no example button: no demo data).
+- [ ] P19-T2 "Tercih ekle" for academicians: no backend endpoint (asked in the hand-off).
+- [ ] The wizard's programme undo is not reachable from `/admin/audit` until `POST /audit/{id}/undo` hands `program.create` to the drafts undo (backend item above).

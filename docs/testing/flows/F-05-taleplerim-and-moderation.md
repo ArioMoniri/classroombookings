@@ -8,10 +8,10 @@ Owner decisions:
 - **Publish notifications.** In-app bell plus one e-mail digest per affected academician, with only their changed classes and a per-user e-mail opt-out.
 - **Q9 (orchestrator, owner may override).** Raising a priority may leave a lower-priority neighbour unplaced, and the preview lists every such loss with its reason.
 
-Testable on `b75047b`: **partly**.
-- No API or screen links a login to an instructor (no P19-T1 picker). The seed links the academician to the PSY 278 instructor directly in the throwaway database (README §4.4). Report the missing picker once, as `FAIL (major): no user↔instructor link in the product`, under S00.
-- Publish-change notices to academicians (P19-T3) are not built: S13 is `BLOCKED: P19-T3`.
-- The academician's "Tercih ekle" (P19-T2, Q12) is not built: S03 part 2 is `BLOCKED: P19-T2`.
+Testable on `b75047b` + the P19 UI follow-up (2026-10-16): **mostly**. `smartsched/frontend/e2e/followup.phase19.spec.ts` (tests 3, 4 and 6) proves S01, S02, S04, S08 (person priority), S09, S10 (baseline + chain), S12 (with "Akademisyenlere bildir") and the phone checks.
+- The login ↔ instructor link has an API (`PUT /auth/sso/admin/users/{id}/instructor`, identity work); whether Yönetim › Kullanıcılar offers a picker is the identity agent's, so S00 stays as written.
+- Publish-change notices (P19-T3) are built: the publish dialog has **"Akademisyenlere bildir"** (`notify-people`) and names who gets the digest. S13 is runnable.
+- The academician's "Tercih ekle" (P19-T2, Q12) has no backend endpoint yet: S03 part 2 stays `BLOCKED: P19-T2 (backend)`.
 
 ## Preconditions
 
@@ -32,8 +32,8 @@ Testable on `b75047b`: **partly**.
 
 **S01 · academician · open Taleplerim**
 - Do: log in as academician. Look for a navigation entry to the planning requests (sidebar, "Diğer" sheet on the phone, ⌘K "Taleplerim").
-- Expected today: there is none, because `/moderation` is listed only for `planning.view` → FAIL (minor, discoverability). Open `/moderation` directly.
-- See: the page header **"Taleplerim"** with the subtitle `2026-GUZ` and a button **"Geçmişim"**. **No** coordinator tabs (Sınıflar / Kişiler / Talepler / Tercihler / Eşleşmeler) and no "Planı yeniden oluştur". The list caption reads **"{n} talebiniz"** (`my-requests` inside `moderation-console`), with n = the oracle's count.
+- See: the entry **"Taleplerim"** (sidebar on desktop, "Diğer" sheet on the phone) links to `/moderation/me`. It is shown to accounts that can book and lack `planning.view`. Missing → FAIL (minor, discoverability); open `/moderation/me` directly.
+- See (`my-requests`): the page header **"Taleplerim"** with the subtitle `2026-GUZ` (the current term from `GET /moderation/current-term`) and a button **"Geçmişim"** (`mine-history`). **No** coordinator tabs (Sınıflar / Kişiler / Talepler / Tercihler / Eşleşmeler) and no "Planı yeniden oluştur". The list (`mine-table`) caption reads **"{n} talebiniz"**, with n = the oracle's count. API: `GET /moderation/me` → `visibility: "own"` and the linked `instructor_id`.
 - Each row: course and section (PSY 277 §1 theory / lab, PSI 213, PSY 213), what was asked (day / time / room), what was assigned, and the verdict chip with glyph + word (**"Karşılandı"**, **"Kısmen"**, **"Karşılanmadı"**, **"Yerleşmedi"** or **"Değerlendirilmedi"**), plus **"Neden"** when it was not met.
 - API, as academician:
   - `GET /terms/<guz>/moderation/matchings` → only the oracle's rows;
@@ -49,17 +49,17 @@ Testable on `b75047b`: **partly**.
 
 **S03 · academician · what they may and may not do**
 - No edit control anywhere: priority, inline edit, recreate and publish are absent (hidden, not disabled).
-- Target (P19-T2, Q12): **"Tercih ekle"** creates a lower-ranked soft preference that waits for coordinator review. `BLOCKED: P19-T2`.
+- Target (P19-T2, Q12): **"Tercih ekle"** creates a lower-ranked soft preference that waits for coordinator review. `BLOCKED: P19-T2 (backend endpoint)`.
 
 **S04 · staff (unlinked) · the unlinked state**
-- Do: log in as staff and open `/moderation`.
+- Do: log in as staff and open `/moderation/me`.
 - See: **"Hesabınız bir öğretim elemanına bağlı değil"** with **"Planlama taleplerinizi ve sonuçlarını görmek için planlama biriminden hesabınızı öğretim elemanı kaydınıza bağlamasını isteyin."** (`mine-unlinked`). No error, no 403 toast.
 
 ### Coordinator (admin)
 
 **S05 · admin · console overview**
 - Do: log in as admin. Sidebar **"Moderasyon"**. The term switcher shows 2026-GUZ.
-- See: `moderation-console` with the tabs **"Sınıflar · Kişiler · Talepler · Tercihler · Eşleşmeler"** (keys `1`–`5` switch them). The header reads **"Yayında: #G0 · taleplerin %{rate}'i karşılandı"**. The staged link (`staged-link`) reads **"Bekleyen değişiklik yok"**.
+- See: `moderation-console` with the tabs **"Sınıflar · Kişiler · Talepler · Tercihler · Eşleşmeler"** (keys `1`–`5` switch them). The header reads **"Yayında: #G0 · taleplerin %{rate}'i karşılandı"**. The staged link (`staged-link`) reads **"Bekleyen değişiklik yok"**. It comes from the server (`GET /terms/{id}/changes-since-publish`), so a second browser shows the same count.
 
 **S06 · admin · find the person**
 - Do: **"Kişiler"**. Search (`moderation-search`, `/` focuses it) for `PSY 277`. Names are masked, so search by course.
@@ -79,6 +79,7 @@ Testable on `b75047b`: **partly**.
 - Do: Yüksek, "Tüm şube", note `akreditasyon`, save (`priority-save`).
 - See: toast **"PSY 277 §1: öncelik kaydedildi. Bir sonraki çözümde etkili."** and the line **"Bir sonraki çözümde etkili olur. Yayındaki plan değişmez."** The staged link now reads **"1 değişiklik yayında değil"**. Opening it lists the change ("PSY 277 §1: öncelik Yüksek"). Focus returns to the edited row.
 - API: `PUT /moderation/sections/<id>/priority` → 200. One audit row. `G0` is still the active run, and its assignments are unchanged.
+- Person and programme priority (P19-P-04): on the profile, **"Kişi önceliği · {term}"** (`person-priority`) with Yüksek / Normal / Düşük and the note; in the matching inspector also the programme's (`program-priority`). Save → **"{label}: öncelik kaydedildi ({n} talep). Bir sonraki çözümde etkili."** API: `PUT /moderation/people/<id>/priority {term_id, priority:"high", note}` → 200; `GET /terms/<id>/moderation/priorities?subject=person` → `priority: 1`. The staged list reads **"… kişi önceliği Yüksek"**, and the person's matchings show the source badge **"· kişi"** (`priority-source`, `data-source="person"`): talep > şube > kişi > program.
 - Permissions:
   - viewer.test sees the console with **"Yalnızca görüntüleme: düzenlemek için planlama düzenleme izni gerekir."** and no priority trigger. The API PUT as viewer → 403.
   - planner.test can edit a section or request priority (planning.edit).
@@ -101,6 +102,7 @@ Testable on `b75047b`: **partly**.
 - See on `/moderation/recreate/N` (`recreate-preview`):
   - **"Önizleme hazır: {moved} taşınan, {newly} yeni yerleşen, {unplaceable} yerleşemeyen"**;
   - the line **"Yeni çözüm ← yayındaki plan #G0"** and the state **"Yayında değil"** (`preview-state`);
+  - the baseline switcher **"Karşılaştır:"** (`baseline-select`: "Varsayılan: #G0 (zinciri başlatan plan)", "#… (bir önceki önizleme)", "#… (zincirdeki adım)") and the chain **"Zincir: #N ← … ← #G0"** (`chain`); switching re-reads `GET /moderation/runs/N/diff?compare_to=<id>`;
   - the summary (`diff-summary`): **"Taşınan"** (`count-moved`), **"Değişmeyen"** (`count-unchanged`), **"Yeni yerleşen"**, **"Yerleşemeyen"** (with "{n} yeni" when it grew), **"Etkilenen kişi"**, **"Zorunlu puan"** 100 → **100**, **"Yumuşak puan"**;
   - the unchanged note **"{n} ders gününü, saatini ve odasını koruyor."** (`unchanged-note`);
   - the scope note **"Düzenlenen kapsam dışındaki {n} ders taşındı ({unexplained} tanesi nedensiz)."**, where unexplained must be **0** (Q9).
@@ -122,13 +124,13 @@ Testable on `b75047b`: **partly**.
 
 **S12 · admin · publish with confirm**
 - Do: **"Onayla ve yayınla"**.
-- See: the confirm (`publish-confirm`) **"Bu plan yayınlansın mı?"**, body **"Yeni plan herkes için yayındakinin yerini alır. Önceki plan Çözümler'de kalır ve yeniden yayınlanabilir."**, a summary of the counts and the affected people, and (because SMTP is set) the option "Etkilenen öğretim elemanlarına e-posta gönder (n)". Confirm **"Yayınla"**.
-- See: toast **"Yayınlandı: #N artık geçerli plan. Önceki plan Çözümler'de duruyor."**
+- See: the confirm (`publish-confirm`) **"Bu plan yayınlansın mı?"**, body **"Yeni plan herkes için yayındakinin yerini alır. Önceki plan Çözümler'de kalır ve yeniden yayınlanabilir."**, a summary of the counts and the affected people, and the toggle **"Akademisyenlere bildir"** (`notify-people`, on): **"Değişen dersleri olan {n} akademisyene, yalnızca kendi değişiklikleriyle bir bildirim ve e-posta özeti gider:"** followed by their names (`notify-list`), or **"Değişen dersi olan ve hesabı bağlı akademisyen yok; bildirim gitmez."**; unlinked people are only counted. Confirm **"Yayınla"**.
+- See: toast **"Yayınlandı: #N artık geçerli plan. Önceki plan Çözümler'de duruyor."** and, with the toggle on, **"{n} akademisyene bildirim gönderildi."** (`POST /runs/N/activate {notify_people: true}` → `notified`).
 - API: `GET /runs/N` → `is_active: true`; `G0` → `is_active: false` and still present; one audit row for the activation. The booking grid now follows N (pick one moved class and check its room in `/bookings`).
 - Refusal path: if N had a hard score below 100, the confirm must not offer "Yayınla" (`publish-refused`, "Sunucu yayınlamadı: …").
 - **"Vazgeç"** (`moderation.preview.discard`) on another preview keeps `G0`/N as it is. That preview stays in Çözümler as not published.
 
-**S13 · academician · told about own changes only** — `BLOCKED: P19-T3`
+**S13 · academician · told about own changes only** (P19-T3; runnable since the follow-up)
 - Target: when a moved class belongs to the academician, their bell has one notice and the sink has **one** digest e-mail listing only their changed classes (course, old → new day/time/room). An academician with no changed class gets nothing. A per-user e-mail opt-out exists (Profile › Bildirimler).
 - Check anyway: the sink and the bell after S12. Report what arrived.
 

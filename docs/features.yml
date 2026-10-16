@@ -63,22 +63,22 @@
   note: "priorities are run parameters; no screen yet"
 - feature: "Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff"
   area: planning
-  status: in-progress
+  status: done
   phase: "P19 M1-M3, F1"
-  evidence: smartsched/backend/alembic/versions/0024_moderation_indexes.py
-  note: "backend done; screen being built"
+  evidence: smartsched/frontend/e2e/followup.phase19.spec.ts
+  note: "person and programme priority, server changes list, diff baseline + chain, publish notices; academician Tercih ekle (P19-T2) waits for the backend"
 - feature: "Learned suggestions from earlier terms, with a resettable memory (per person, per term or all)"
   area: planning
-  status: in-progress
+  status: done
   phase: "P19 L1-L4, F2"
-  evidence: smartsched/backend/alembic/versions/0023_learning.py
-  note: "backend done; screen being built"
+  evidence: smartsched/frontend/e2e/followup.phase19.spec.ts
+  note: "accept for the term or persistent (admin, confirmed), undo of any decision; never auto-applied"
 - feature: "Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander"
   area: planning
-  status: in-progress
+  status: done
   phase: "P19 C1-C4, F3"
-  evidence: smartsched/backend/tests/test_p19_catalog_admin.py
-  note: "backend done; wizard being built"
+  evidence: smartsched/frontend/e2e/followup.phase19.spec.ts
+  note: "server drafts with autosave, per-step validation, pre-check, one-transaction commit and a 30-day undo"
 - feature: "Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment"
   area: planning
   status: planned
