@@ -81,6 +81,10 @@ class InvigilationPlan(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # the queue job's liveness beat and its last reported phase / percentage (alembic 0033)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    progress_phase: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    progress_pct: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     duties: Mapped[list[InvigilationDuty]] = relationship(back_populates="plan", cascade="all, delete-orphan")
 
