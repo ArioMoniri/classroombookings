@@ -131,13 +131,16 @@ def _fresh_worker_state():
       sends (tests/test_kvkk_signoff.py, then the queued e-mail of tests/test_mail_queue.py stayed ``PENDING``);
     * the integrations and channels-outbox retry timers belong to the closed loop;
     * ``app.workers.cancel`` keeps the tokens of runs whose job never released them, keyed by run id, which the
-      next test's fresh database hands out again (a cancelled token would cancel that test's run).
+      next test's fresh database hands out again (a cancelled token would cancel that test's run);
+    * the main job queue keeps ``run:<id>`` states ``QUEUED`` whose task died with the loop
+      (tests/test_run_partial_status.py), again keyed by ids the next database reuses.
 
-    Each test starts with what a fresh process has (timers cancelled, no queue, no tokens), as
+    Each test starts with what a fresh process has (timers cancelled, no queues, no tokens), as
     ``integrations.shutdown()`` leaves it in production."""
     yield
     from app.services.channels import outbox
     from app.workers import cancel, integrations
+    from app.workers import queue as qmod
 
     for mod in (integrations, outbox):
         if mod._timer is not None:
@@ -145,6 +148,7 @@ def _fresh_worker_state():
             mod._timer = None
     integrations._queue = None
     integrations._again = False
+    qmod.reset_queue()
     with cancel._lock:
         cancel._tokens.clear()
 
