@@ -81,8 +81,9 @@
   note: "server drafts with autosave, per-step validation, pre-check, one-transaction commit and a 30-day undo"
 - feature: "Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment"
   area: planning
-  status: planned
+  status: in-progress
   phase: "backlog"
+  note: "planning analytics backend builder running"
 
 - feature: "Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff"
   area: intake
@@ -180,8 +181,9 @@
   note: "runs in pod CI (parity gate)"
 - feature: "Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows"
   area: bookings
-  status: planned
+  status: in-progress
   phase: "17 (P2, P8, V2, A4)"
+  note: "bookings wave-2 backend builder running"
 
 - feature: "No privilege escalation: nobody grants or edits a role whose permissions they do not all hold"
   area: identity
@@ -246,5 +248,6 @@
   evidence: scripts/record
 - feature: "Mobile optimisation of every screen (390 and 768 px)"
   area: platform
-  status: planned
+  status: in-progress
   phase: "owner instruction 2026-10-15"
+  note: "approval, identity and P19 screens done at 390 px; design-migration and mobile sweep running for the rest"

@@ -1375,7 +1375,8 @@
       "ledger": "RESUME Phase 19 UI follow-up",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-16 03:23"
+      "finished_at": "2026-10-16 03:31",
+      "left_off": "A leftover wait loop (`byszqpx1k`) was stopped when it hit its time limit. It was only waiting on an e2e run that had already finished, so there's nothing to restart. The final run on a fresh database passed 6/6, and that result is in the hand-off I already delivered."
     },
     {
       "id": "ad88dae54f55423dc",
@@ -1410,6 +1411,30 @@
       "scope": "",
       "goal": "You are the **backend follow-ups** builder for SmartSched (FastAPI backend /home/user/classroombookings/smartsched/backend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: backend-followups-2026-10-16. ## Items (asks from the finished frontend agents; read docs/ROADMAP.md …",
       "ledger": "Backend follow-up asks batch",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "adace83e508a057e9",
+      "description": "Bookings P2/P8/V2/A4 backend",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 03:32",
+      "scope": "",
+      "goal": "You are the **bookings wave-2 backend** builder for SmartSched (FastAPI backend /home/user/classroombookings/smartsched/backend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: bookings-wave2-backend-2026-10-16. ## Owner's requirement \"All CRBS features and more\", \"finish …",
+      "ledger": "Bookings P2/P8/V2/A4 backend",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a03702ad8291c8e88",
+      "description": "Scenario compare, heatmaps, invigilators",
+      "subagent_type": "solver-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 03:32",
+      "scope": "",
+      "goal": "You are the **planning analytics** builder for SmartSched (backend /home/user/classroombookings/smartsched/backend: app/solver for the solver, app/services + app/api/v1 for APIs). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: planning-analytics-2026-10-16. ## Owner's requ…",
+      "ledger": "Scenario compare, heatmaps, invigilators",
       "resumed": false,
       "status": "running"
     }

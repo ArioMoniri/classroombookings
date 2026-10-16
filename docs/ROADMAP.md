@@ -1251,3 +1251,16 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
 - [ ] `import-generate`: its captions drift up to 8 s ahead of the screen under container load. Record it on the pod, or sync captions to UI events.
 - [ ] `onboarding` is 14.6 s; trim it to 12 s or less.
 - [ ] Product bug: `/onboarding` refuses the real Bahar and Güz planning lists ("16376 columns, limit 1024"). The intake fix agent is running.
+
+### Remaining features: builders launched (2026-10-16 03:35)
+
+- Bookings wave-2 backend: P2 conflict resolver after publishing, P8 booking policies and exam-period mode, V2 public read-only schedules, and A4 KVKK (retention purge, notices, export and delete my data, including the channel and SSO tables). The UI follows its hand-off.
+- Planning analytics backend: A/B scenario comparison, utilisation heatmaps (rooms and instructors), and a CP-SAT invigilator assignment for exam runs. The UI follows its hand-off.
+- Backend follow-ups:
+  - P19-T2 "Tercih ekle"
+  - the program_drafts archived-name and instructor clash fixes
+  - audit undo for `program.create`
+  - the Users identity filter
+  - M-21 `warnings_count`
+- [ ] Queued for after the design-migration sweep, since its studio/onboarding/settings files overlap: the relaxation-policy UI, the schedule-map UI, an intake e2e, and Google/M365 calendar push settings. The push settings need the organisation's OAuth client before a live test.
+- [ ] Flow loop (3 persona testers, then the suggester, then loop builders, then a re-test) starts once the design-migration sweep and the remaining UI builders finish.

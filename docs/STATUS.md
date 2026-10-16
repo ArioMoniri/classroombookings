@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `52c9933` (committed 2026-10-16 03:25 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `56bb9f5` (committed 2026-10-16 03:31 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 33 · Backend only 4 · In progress 3 · Planned 3 (from [`docs/features.yml`](features.yml)).
+Done 33 · Backend only 4 · In progress 6 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -47,7 +47,7 @@ Done 33 · Backend only 4 · In progress 3 · Planned 3 (from [`docs/features.ym
 | Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff | Done: person and programme priority, server changes list, diff baseline + chain, publish notices; academician Tercih ekle (P19-T2) waits for the backend | P19 M1-M3, F1 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Learned suggestions from earlier terms, with a resettable memory (per person, per term or all) | Done: accept for the term or persistent (admin, confirmed), undo of any decision; never auto-applied | P19 L1-L4, F2 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander | Done: server drafts with autosave, per-step validation, pre-check, one-transaction commit and a 30-day undo | P19 C1-C4, F3 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
-| Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | Planned | backlog |  |
+| Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | In progress: planning analytics backend builder running | backlog |  |
 
 **Intake**
 
@@ -75,7 +75,7 @@ Done 33 · Backend only 4 · In progress 3 · Planned 3 (from [`docs/features.ym
 | Signed outgoing webhooks (HMAC-SHA256) with an SSRF guard, off by default | Done: Ayarlar › Entegrasyonlar › Giden webhook'lar: delivery switch, SSRF refusal next to the URL, secret shown once | 17 | [`approval-first.spec.ts`](../smartsched/frontend/e2e/approval-first.spec.ts) |
 | CRBS legacy upgrade: import a running classroombookings database with a dry-run report | Done: import-wizard dry run + fingerprint confirm; live MySQL run on the pod open | P18-LEGACY | [`shell-admin-sweep.spec.ts`](../smartsched/frontend/e2e/shell-admin-sweep.spec.ts) |
 | CRBS superset gate: every classroombookings behaviour and screen has an acceptance test | Done: runs in pod CI (parity gate) | 18 | [`parity_check.py`](../scripts/parity_check.py) |
-| Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows | Planned | 17 (P2, P8, V2, A4) |  |
+| Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows | In progress: bookings wave-2 backend builder running | 17 (P2, P8, V2, A4) |  |
 
 **Identity and notifications**
 
@@ -102,7 +102,7 @@ Done 33 · Backend only 4 · In progress 3 · Planned 3 (from [`docs/features.ym
 | Docs that update themselves: generated blocks from the sources of truth, checked in pod CI | Done | owner request 2026-10-15 | [`sync_docs.py`](../scripts/docs/sync_docs.py) |
 | Design-system overhaul from the UI/UX review (sizing, controls, columns, de-AI changes) | Done: tokens, primitives, DataTable columns and the check:design gate; migrating the older screens is in progress | owner feedback 2026-10-15 | [`visual-quality.spec.ts`](../smartsched/frontend/e2e/visual-quality.spec.ts) |
 | README recordings and a real screenshot gallery for the current UI | In progress | 16 | [`record`](../scripts/record) |
-| Mobile optimisation of every screen (390 and 768 px) | Planned | owner instruction 2026-10-15 |  |
+| Mobile optimisation of every screen (390 and 768 px) | In progress: approval, identity and P19 screens done at 390 px; design-migration and mobile sweep running for the rest | owner instruction 2026-10-15 |  |
 
 <!-- /AUTO:status -->
 
@@ -144,7 +144,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-130 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 107 · stopped 7 · superseded 7.
+132 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 107 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -157,6 +157,8 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `RESUME design migration + mobile` | frontend-engineer | 2026-10-16 02:16 |
 | `Fix intake column-limit refusal` | backend-engineer | 2026-10-16 03:18 |
 | `Backend follow-up asks batch` | backend-engineer | 2026-10-16 03:23 |
+| `Bookings P2/P8/V2/A4 backend` | backend-engineer | 2026-10-16 03:32 |
+| `Scenario compare, heatmaps, invigilators` | solver-engineer | 2026-10-16 03:32 |
 
 <!-- /AUTO:agents -->
 
@@ -223,7 +225,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **162 ticked · 287 open** checkboxes in 60 sections (57 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **162 ticked · 289 open** checkboxes in 61 sections (58 with open items).
 
 <details><summary>Per section</summary>
 
@@ -289,6 +291,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Phase 19 UI follow-up finished (2026-10-16) | 0 | 4 |
 | Identity frontend finished (2026-10-16) | 0 | 7 |
 | README media finished (2026-10-16) | 0 | 4 |
+| Remaining features: builders launched (2026-10-16 03:35) | 0 | 2 |
 
 </details>
 

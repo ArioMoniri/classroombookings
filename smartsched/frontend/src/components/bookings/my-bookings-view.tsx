@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { useIsPhone } from "./use-is-phone";
 import {
   exportCsvUrl,
   useBookingContext,
@@ -39,6 +40,7 @@ type Tab = "upcoming" | "past" | "cancelled";
 
 export function MyBookingsView() {
   const { t } = useI18n();
+  const phone = useIsPhone();
   useProfileLanguage();
   const fmt = useBookingFormat();
   const me = useCrbsMe();
@@ -100,6 +102,8 @@ export function MyBookingsView() {
           </h2>
           <SegmentedControl<Tab>
             aria-label={t("crbs.mine.filter")}
+            fill={phone}
+            className={phone ? "w-full" : undefined}
             value={tab}
             onValueChange={(v) => {
               setTab(v);
