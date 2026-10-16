@@ -14,7 +14,9 @@ for that purpose has ``withdrawn_at``) is kept out of every request SmartSched s
 What a never-given consent means is the setting ``kvkk.ai_personal_default`` (consent gates 2026-10-16; admin, ``PUT
 /settings`` ``extra``): ``included`` (default) -- never-granted is not withdrawn, the institution's AI sign-off
 (``app/ai/policy.py``) is the basis until the person withdraws; ``excluded`` -- "not granted = excluded", every account
-without an active grant is kept out, so only people who granted ``ai_personal`` are sent by name. Images and scanned PDFs sent as binary blocks cannot be redacted (vision is off by default).
+without an active grant is kept out, so only people who granted ``ai_personal`` are sent by name.
+
+Images and scanned PDFs sent as binary blocks cannot be redacted (vision is off by default).
 Streamed text deltas show the token; the final message carries the name.
 """
 
@@ -58,43 +60,76 @@ def _pattern(variant: str) -> str | None:
     return _SEP.join("".join(_char(c) for c in w) for w in words)
 
 
+#: the letter equivalence of :func:`_char`, folded (``Ç``/``ç`` -> ``c``, ``İ``/``I``/``ı`` -> ``i`` ...)
+_FOLD = {ch: g[0].lower() if g[0] != "ı" else "i" for g in _GROUPS for ch in g}
+_SPLIT = re.compile(r"[\W_]+")
+_CACHE_SIZE = 64
+
+
+def _tokens(text: str) -> set[str]:
+    """The words of ``text`` in the folded form the patterns match (the combining dot of ``i̇`` dropped)."""
+    folded = "".join(_FOLD.get(ch) or ch.lower() for ch in text.replace("\u0307", ""))
+    return {t for t in _SPLIT.split(folded) if t}
+
+
 @dataclass
 class Redactor:
-    """``people`` = (display name, name variants) per excluded person, in a stable order (token ``[KİŞİ_<i>]``)."""
+    """``people`` = (display name, name variants) per excluded person, in a stable order (token ``[KİŞİ_<i>]``).
+
+    A text is matched only against the people whose every name word occurs in it (a word prefilter: with
+    ``kvkk.ai_personal_default = excluded`` every account without a grant is in the list, hundreds of people, and one
+    alternation over all of them is far too slow). The prefilter tokenises the text and the variants the same way
+    (folded letters, split at every non-word character), so it never drops a name the full pattern would match."""
 
     people: list[tuple[str, list[str]]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        parts: list[tuple[int, str]] = []
+        parts: list[tuple[int, str, frozenset[str]]] = []
         for i, (_, variants) in enumerate(self.people, start=1):
             for v in variants:
                 p = _pattern(v)
                 if p:
-                    parts.append((i, p))
+                    parts.append((i, p, frozenset(_tokens(n.clean_text(v) or ""))))
         parts.sort(key=lambda x: -len(x[1]))  # longest first: "Dr. Ayşe Yılmaz" before "Ayşe Yılmaz"
-        self._index = [i for i, _ in parts]
-        self._rx = (
-            re.compile("|".join(f"(?<!\\w)(?P<p{k}>{p})(?!\\w)" for k, (_, p) in enumerate(parts))) if parts else None
-        )
+        self._index = [i for i, _, _ in parts]
+        self._parts = [(p, words) for _, p, words in parts]
+        self._compiled: dict[tuple[int, ...], re.Pattern[str]] = {}
 
     def __bool__(self) -> bool:
-        return self._rx is not None
+        return bool(self._parts)
+
+    def _rx_for(self, value: str) -> re.Pattern[str] | None:
+        words = _tokens(value)
+        hit = tuple(k for k, (_, need) in enumerate(self._parts) if need <= words)
+        if not hit:
+            return None
+        rx = self._compiled.get(hit)
+        if rx is None:
+            if len(self._compiled) >= _CACHE_SIZE:
+                self._compiled.clear()
+            rx = self._compiled[hit] = re.compile(
+                "|".join(f"(?<!\\w)(?P<p{k}>{self._parts[k][0]})(?!\\w)" for k in hit)
+            )
+        return rx
 
     # ------------------------------------------------------------------ outgoing
 
     def text(self, value: str) -> str:
-        if self._rx is None or not value:
+        if not self._parts or not value:
+            return value
+        rx = self._rx_for(value)
+        if rx is None:
             return value
 
         def sub(m: re.Match[str]) -> str:
             k = int((m.lastgroup or "p0")[1:])
             return TOKEN.format(self._index[k])
 
-        return self._rx.sub(sub, value)
+        return rx.sub(sub, value)
 
     def payload(self, obj: Any, key: str | None = None) -> Any:
         """A redacted copy of ``system`` / ``messages`` (dicts and lists rebuilt; the caller's objects untouched)."""
-        if self._rx is None:
+        if not self._parts:
             return obj
         if isinstance(obj, str):
             return obj if key in _SKIP_KEYS else self.text(obj)

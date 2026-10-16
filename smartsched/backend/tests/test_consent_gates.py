@@ -451,3 +451,50 @@ async def test_a_slow_provider_finishes_in_the_background_and_the_erasure_answer
     # the background finished the job: the event is gone and the grant revoked
     assert fake.events == {} and len(fake.calls("POST", "oauth2.googleapis.com/revoke")) == 1
     assert await _rows(uid) == {"connections": 0, "links": 0, "feeds": 0}
+
+
+async def test_the_redactor_scales_to_every_bahar_instructor_and_matches_the_full_pattern(env):  # noqa: F811
+    """``excluded`` puts every account without a grant into the redactor: with all real Bahar instructors (hundreds
+    of names) a prompt is redacted at once, exactly as one alternation over every pattern would do it."""
+    import re
+    import time
+
+    from app.ai import personal
+    from app.importers import normalize as n
+    from app.models import Instructor
+
+    async with dbmod.get_session_factory()() as s:
+        names = [
+            n.clean_text(i.full_name) or ""
+            for i in (await s.execute(select(Instructor).order_by(Instructor.id))).scalars()
+            if i.full_name
+        ]
+    assert len(names) >= 300, len(names)
+    people = [
+        (name, [name, f"{name.split(' ')[0].lower()}.{name.split(' ')[-1].lower()}@uni.edu.tr"]) for name in names
+    ]
+    fold = str.maketrans("çğıöşüÇĞİÖŞÜ", "cgiosuCGIOSU")
+    picked = [names[k] for k in (0, 7, len(names) // 2, len(names) - 1) if len(names[k].split(" ")) >= 2]
+    lines = []
+    for k, name in enumerate(picked):
+        variant = (n.tr_upper(name), name.translate(fold), name.replace(" ", " "), n.tr_lower(name))[k % 4]
+        lines.append(f"{variant} hoca pazartesi 08.30'da A 101'de ders vermesin; ölçme 4,5 kredi")
+    text = "\n".join(lines * 40)
+
+    started = time.perf_counter()
+    red = personal.Redactor(people)
+    out = red.text(text)
+    elapsed = time.perf_counter() - started
+    assert elapsed < 2.0, elapsed
+
+    parts = sorted(
+        ((i, p) for i, (_, vs) in enumerate(people, start=1) for v in vs if (p := personal._pattern(v))),
+        key=lambda x: -len(x[1]),
+    )
+    full = re.compile("|".join(f"(?<!\\w)(?P<p{k}>{p})(?!\\w)" for k, (_, p) in enumerate(parts)))
+    expected = full.sub(lambda m: personal.TOKEN.format(parts[int((m.lastgroup or "p0")[1:])][0]), text)
+    assert out == expected
+    for name in picked:
+        assert n.tr_casefold(name.split(" ")[-1]) not in n.tr_casefold(out.translate(fold))
+    assert out.count("[KİŞİ_") == len(picked) * 40
+    assert red.restore_text(out).count(picked[0]) == 40
