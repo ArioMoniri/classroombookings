@@ -22,6 +22,14 @@
  * / `allowed` when they apply —, `POST /admin/retention/run`), the inventory (`GET /admin/kvkk/inventory`) and the notices
  * (`GET/POST /admin/privacy-notices`, `PUT/DELETE /admin/privacy-notices/{id}` drafts only, `POST …/{id}/publish`).
  *
+ * Consent gates (2026-10-16): `GET /me/privacy` also says what a never-given `ai_personal` consent means here
+ * (`ai_personal_default`: included | excluded) and whether this person is kept out of AI requests now (`ai_excluded`).
+ * Role ADMIN reads / sets that default through `GET /settings` / `PUT /settings {extra: {"kvkk.ai_personal_default"}}`
+ * (422 `{code, field, message_en, message_tr, allowed}`). A completed erasure's `result` carries `calendar[]` (each push
+ * calendar disconnected: events, events_removed, events_failed, revoke) and `failures[]` (`{provider, code, message_en,
+ * message_tr, count?, error?}`; codes `grant_unreadable | events_not_removed | revoke_failed | provider_timeout |
+ * disconnect_failed`).
+ *
  * Nothing here ships a notice text or a retention period: administrators write them (the backend's retention rows are
  * disabled until someone turns them on).
  */
