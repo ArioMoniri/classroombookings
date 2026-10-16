@@ -134,7 +134,8 @@ export function SignInFooter({ kvkkUrl }: { kvkkUrl?: string | null }) {
           }}
           options={langs.map((l) => ({ value: l, text: LOCALE_INFO[l].name, label: <span lang={l}>{l.toUpperCase()}</span>, testId: `locale-option-${l}` }))}
           data-testid="locale-toggle"
-          className="[&_[role=radio]]:min-w-11 [&_[role=radio]]:px-3"
+          // touch: the segments themselves are ≥ 44 px tall (track 50 = 44 + 2 × 3 px inset), sign-in.md §11 targets
+          className="pointer-coarse:[--control-h-md:50px] [&_[role=radio]]:min-w-11 [&_[role=radio]]:px-3"
         />
         <ThemeButton />
       </div>

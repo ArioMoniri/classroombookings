@@ -241,6 +241,12 @@ export function UsersAdmin() {
                       {u.username ?? <span className="md:hidden">{u.email}</span>}
                       {u.auth_source === "ldap" ? " · LDAP" : ""}
                     </span>
+                    {/* phones: the status column is hidden, so a pending / expired / disabled state shows here */}
+                    {usersAdmin && idStatus.data && statusView(statusOf(u), u.is_active).word !== "active" ? (
+                      <span className="mt-1 block sm:hidden">
+                        <IdentityStatusCell view={statusView(statusOf(u), u.is_active)} />
+                      </span>
+                    ) : null}
                   </TableCell>
                   <TableCell className="hidden text-label-2 md:table-cell">{u.email ?? "—"}</TableCell>
                   <TableCell>
