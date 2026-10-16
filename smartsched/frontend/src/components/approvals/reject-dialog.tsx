@@ -126,7 +126,7 @@ export function RejectDialog({
               <label
                 key={c}
                 htmlFor={`${base}-${c}`}
-                className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 type-callout text-label-1 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none has-checked:bg-tint-soft has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-(--focus)"
+                className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 type-callout text-label-1 hairline-b last:shadow-none has-checked:bg-tint-soft has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-(--focus)"
                 data-testid={`reject-code-${c}`}
               >
                 <input id={`${base}-${c}`} type="radio" name={`${base}-code`} value={c} checked={code === c} onChange={() => setCode(c)} className="size-4 shrink-0 accent-(--accent) outline-hidden" />
@@ -160,7 +160,7 @@ export function RejectDialog({
             aria-required="true"
             aria-invalid={textErr ? true : undefined}
             aria-describedby={`${base}-count${textErr ? ` ${base}-text-err` : ""}`}
-            className="text-base sm:text-[13px]"
+            className=""
             data-testid="reject-text"
           />
           <div className="flex items-start justify-between gap-3">

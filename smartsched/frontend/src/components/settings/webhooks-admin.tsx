@@ -202,7 +202,7 @@ function Deliveries({ id }: { id: number }) {
   return (
     <ul className="flex flex-col overflow-hidden rounded-lg bg-fill-2" data-testid={`webhook-delivery-list-${id}`}>
       {rows.map((d) => (
-        <li key={d.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 type-caption text-label-2 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+        <li key={d.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 type-caption text-label-2 hairline-b last:shadow-none">
           <span className="font-mono text-label-1">{d.event_type}</span>
           <span className={cn("font-medium", d.status === "SENT" ? "text-status-feasible-fg" : d.status === "FAILED" ? "text-status-infeasible-fg" : "text-label-2")}>{d.status}</span>
           {d.response_status ? <span className="tabular-nums">HTTP {d.response_status}</span> : null}
@@ -305,7 +305,7 @@ function CreateWebhook({ open, onOpenChange, onCreated }: { open: boolean; onOpe
       >
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`${base}-url`}>{t("notifications.admin.webhooks.url")}</Label>
-          <Input id={`${base}-url`} type="url" inputMode="url" autoComplete="off" spellCheck={false} placeholder="https://" value={url} onChange={(e) => setUrl(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? `${base}-err` : undefined} className="font-mono text-base sm:text-[13px]" data-testid="webhook-url" />
+          <Input id={`${base}-url`} type="url" inputMode="url" autoComplete="off" spellCheck={false} placeholder="https://" value={url} onChange={(e) => setUrl(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? `${base}-err` : undefined} className="font-mono" data-testid="webhook-url" />
           {error ? (
             <p id={`${base}-err`} role="alert" className="type-footnote text-status-infeasible-fg" data-testid="webhook-error">
               {error}
@@ -341,7 +341,7 @@ function CreateWebhook({ open, onOpenChange, onCreated }: { open: boolean; onOpe
         </fieldset>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`${base}-desc`}>{t("notifications.admin.webhooks.description")}</Label>
-          <Input id={`${base}-desc`} maxLength={255} value={description} onChange={(e) => setDescription(e.target.value)} className="text-base sm:text-[13px]" />
+          <Input id={`${base}-desc`} maxLength={255} value={description} onChange={(e) => setDescription(e.target.value)} className="" />
         </div>
       </form>
     </ResponsiveDialog>

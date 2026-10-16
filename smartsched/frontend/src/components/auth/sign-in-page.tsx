@@ -16,7 +16,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Alert } from "@/components/ui/alert";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import type { OrgPublicAuth } from "@/lib/api/identity";
 import { useI18n } from "@/lib/i18n/provider";
 import { ease, springs, tween, useFinePointer, useReduce } from "@/lib/motion";

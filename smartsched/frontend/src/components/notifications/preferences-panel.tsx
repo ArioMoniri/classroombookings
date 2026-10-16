@@ -92,7 +92,7 @@ export function NotificationPreferencesPanel({ className }: { className?: string
                   const reason = !c.available ? why(c) : null;
                   const id = `pref-channel-${c.name}`;
                   return (
-                    <li key={c.name} className="flex min-h-11 items-center justify-between gap-3 px-3 py-2 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none" data-available={c.available || undefined}>
+                    <li key={c.name} className="flex min-h-11 items-center justify-between gap-3 px-3 py-2 hairline-b last:shadow-none" data-available={c.available || undefined}>
                       <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer">
                         <span className="block type-callout font-medium text-label-1">{label(c)}</span>
                         {reason ? (
@@ -129,7 +129,7 @@ export function NotificationPreferencesPanel({ className }: { className?: string
                           const id = `pref-${e.event}-${c.name}`;
                           const note = cellDisabled(c) ? why(c) : null;
                           return (
-                            <li key={c.name} className="flex min-h-11 items-center justify-between gap-3 px-3 py-1.5 shadow-[inset_0_1px_0_var(--hairline)]">
+                            <li key={c.name} className="flex min-h-11 items-center justify-between gap-3 px-3 py-1.5 hairline-t">
                               <label htmlFor={id} className="min-w-0 flex-1">
                                 <span className="block type-callout text-label-1">{label(c)}</span>
                                 {note ? <span className="block type-caption text-label-3">{note}</span> : null}
@@ -146,7 +146,7 @@ export function NotificationPreferencesPanel({ className }: { className?: string
                 <div className="overflow-x-auto rounded-xl bg-fill-3">
                   <table className="w-full type-callout" data-testid="prefs-matrix">
                     <thead>
-                      <tr className="shadow-[inset_0_-1px_0_var(--hairline)]">
+                      <tr className="hairline-b">
                         <th scope="col" className="px-3 py-2 text-left type-footnote font-medium text-label-2">
                           {t("notifications.prefs.event")}
                         </th>
@@ -160,7 +160,7 @@ export function NotificationPreferencesPanel({ className }: { className?: string
                     </thead>
                     <tbody>
                       {data.events.map((e) => (
-                        <tr key={e.event} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none" data-event={e.event}>
+                        <tr key={e.event} className="hairline-b last:shadow-none" data-event={e.event}>
                           <th scope="row" className="px-3 py-2.5 text-left font-normal text-label-1">
                             {label(e)}
                           </th>
