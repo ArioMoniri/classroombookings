@@ -1364,7 +1364,9 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
     - DataTable card-mode targets
     - Button `variant="bare"`
   - **mobile polish:** done 2026-10-16 (mobile-polish; 59680ce, a307334). Phone Dialog = bottom sheet (M-04), shell scroll-padding (focus never under the bars), 44 px toggle rows, Tabs / Checkbox / command-row hit areas, /classes filter sheet on touch; 390 px probe 519 -> 323 M-02 offenders over 42 routes (bars 177 -> 2), sheets/dialogs 20 -> 1.
-    - [ ] Left: dense grids (/admin/sessions week grid 144, /rooms/1 week grid 123, /dashboard heat cells 30) need a phone layout decision; /profile pref matrix 16 and /settings password reveal (40 px) for wave-2; /analytics 2 for analytics UI; /runs/1 back link sits under the top bar at scroll 0.
+    - [x] Dense grids on phones: done 2026-10-16 (dense-grids-phone; 47edcfb, bb085af, 00c02fb + checkpoints 061f089 / 6a3a68b). < 640 px: /rooms/[id] day view (day SegmentedControl, today preselected, 44 px period rows), /admin/sessions 46 px day cells with Gün / Hafta / Aralık tap modes, dashboard heat cells as a ranked BarList per day, /admin/roles role picker + 44 px booking permission rows; /runs/[id] back link 44 px and its tabs scroll in their own row (page was 421 px wide). 390 px probe: sessions 144 -> 0, rooms/1 123 -> 1 (the disabled prev-week button), dashboard 30 -> 0, roles 4 -> 0, runs/1 1 -> 0; 42 routes 323 -> 22.
+    - [ ] Left: /profile pref matrix 16 and /settings password reveal (40 px) for wave-2 (59a8f4d claims both; re-probe); /analytics 2 for analytics UI.
+    - [ ] Testers: the touch probe counts a disabled control (pointer-events none) as a miss (/rooms/1 "Önceki hafta" in week 1).
     - [ ] Testers: the M-04 snippet counts only descendant scrollers; a popup that scrolls itself (ui/dialog on phones) reads as not scrollable.
   - **e2e stabilisation:**
     - pin the language per spec
@@ -1470,7 +1472,7 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - tokens.md §A.9 is updated.
   - Breadcrumbs for /analytics and /exams.
   - Probe at 390 px over 42 routes: M-02 offenders went from 519 to 323, and those under a bar from 177 to 2.
-- The dense-grids agent is running, with this orchestrator default: phones get a day view for the /admin/sessions and /rooms/[id] week grids, a list for the dashboard heat cells, and one role at a time for /admin/roles.
+- The dense-grids agent is done (orchestrator default): phones get a day view for the /admin/sessions and /rooms/[id] week grids, a list for the dashboard heat cells, and one role at a time for /admin/roles. The /admin/sessions "week grid" is a term calendar, so it kept 7-column months with 46 px cells and tap modes instead of a day view.
 - Sent to wave-2: the Profile preference-matrix switches and the settings password-reveal width.
 - [ ] MOBILE.md M-04 snippet: it only counts scrollers inside the dialog, so a phone Dialog that scrolls itself reads as not scrollable. Fix the snippet in the flow loop.
 
