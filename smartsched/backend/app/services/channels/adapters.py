@@ -95,7 +95,9 @@ class DepartmentChannel(nd.ChannelAdapter):
             payload=payload,
             target_id=target.id,
         )
-        return nd.Delivery(self.name, "sent", ref_id=row.id, detail="queued" if new else "already queued for the department")
+        return nd.Delivery(
+            self.name, "sent", ref_id=row.id, detail="queued" if new else "already queued for the department"
+        )
 
 
 async def _org_language(session: AsyncSession) -> str:
@@ -106,7 +108,8 @@ async def _org_language(session: AsyncSession) -> str:
 
 def _make(base: type[nd.ChannelAdapter], name: str, tr: str, en: str) -> nd.ChannelAdapter:
     cls = type(f"{name.title()}Channel", (base,), {"name": name, "label_tr": tr, "label_en": en})
-    return cls()
+    adapter: nd.ChannelAdapter = cls()
+    return adapter
 
 
 ADAPTERS: tuple[nd.ChannelAdapter, ...] = (

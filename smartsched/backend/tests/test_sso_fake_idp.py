@@ -130,8 +130,9 @@ class SsoEnv:
     admin: dict[str, str]
     fake: FakeEntra
 
-    async def start(self, return_path: str | None = "/bookings") -> dict[str, str]:
-        params = {"return_path": return_path} if return_path else {}
+    async def start(self, next_path: str | None = "/bookings", **params: str) -> dict[str, str]:
+        if next_path:
+            params["next"] = next_path
         r = await self.client.get("/api/v1/auth/sso/entra/start", params=params)
         assert r.status_code == 302, r.text
         loc = r.headers["location"]
@@ -179,8 +180,12 @@ class SsoEnv:
         return await self.client.put("/api/v1/auth/sso/admin/entra", json=values, headers=self.admin)
 
 
+def query_of(location: str) -> dict[str, str]:
+    return {k: v[0] for k, v in parse_qs(urlsplit(location).query).items()}
+
+
 def error_of(location: str) -> str | None:
-    return {k: v[0] for k, v in parse_qs(urlsplit(location).query).items()}.get("sso_error")
+    return query_of(location).get("error")
 
 
 @pytest.fixture

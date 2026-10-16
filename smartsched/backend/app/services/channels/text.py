@@ -19,8 +19,14 @@ from app.services.notify_dispatch import Notice
 TITLE = "SmartSched"
 LINK_ONLY: dict[str, tuple[str, str]] = {
     # (with a link, without one)
-    "tr": ("SmartSched'de yeni bildirim var. Ayrıntılar: {link}", "SmartSched'de yeni bildirim var. Ayrıntılar için SmartSched'i açın."),
-    "en": ("New notification in SmartSched. Details: {link}", "New notification in SmartSched. Open SmartSched for the details."),
+    "tr": (
+        "SmartSched'de yeni bildirim var. Ayrıntılar: {link}",
+        "SmartSched'de yeni bildirim var. Ayrıntılar için SmartSched'i açın.",
+    ),
+    "en": (
+        "New notification in SmartSched. Details: {link}",
+        "New notification in SmartSched. Open SmartSched for the details.",
+    ),
 }
 FULL: dict[str, dict[str, str]] = {
     "approval.requested": {"tr": "Onay bekleyen oda talebi: {what}", "en": "Room request awaiting approval: {what}"},
@@ -29,13 +35,20 @@ FULL: dict[str, dict[str, str]] = {
         "tr": "Oda talebiniz reddedildi: {what}\nGerekçe: {reason}",
         "en": "Your room request was declined: {what}\nReason: {reason}",
     },
-    "approval.withdrawn": {"tr": "Oda talebinizi geri çektiniz: {what}", "en": "You withdrew your room request: {what}"},
+    "approval.withdrawn": {
+        "tr": "Oda talebinizi geri çektiniz: {what}",
+        "en": "You withdrew your room request: {what}",
+    },
     "approval.expired": {"tr": "Oda talebinizin süresi doldu: {what}", "en": "Your room request expired: {what}"},
 }
 GENERIC = {"tr": "SmartSched bildirimi", "en": "SmartSched notification"}
 VERIFY = {
-    "tr": "SmartSched doğrulama kodunuz: {code}. Kod 10 dakika geçerlidir. Bu isteği siz yapmadıysanız mesajı yok sayın.",
-    "en": "Your SmartSched verification code: {code}. It is valid for 10 minutes. Ignore this message if you did not ask.",
+    "tr": (
+        "SmartSched doğrulama kodunuz: {code}. Kod 10 dakika geçerlidir. Bu isteği siz yapmadıysanız mesajı yok sayın."
+    ),
+    "en": (
+        "Your SmartSched verification code: {code}. It is valid for 10 minutes. Ignore this message if you did not ask."
+    ),
 }
 TEST = {
     "tr": "SmartSched test bildirimi: bu kanal çalışıyor.",
@@ -43,7 +56,9 @@ TEST = {
 }
 LINKED = {
     "tr": "Bağlandı ✓ SmartSched bildirimleri artık bu sohbete gelecek. Kaldırmak için Profil > Bildirim kanalları.",
-    "en": "Linked ✓ SmartSched notifications will arrive in this chat. Remove it under Profile > Notification channels.",
+    "en": (
+        "Linked ✓ SmartSched notifications will arrive in this chat. Remove it under Profile > Notification channels."
+    ),
 }
 INVALID_CODE = {
     "tr": "Bağlantı kodu geçersiz ya da süresi dolmuş. SmartSched Profil sayfasından yeni bir bağlantı oluşturun.",
@@ -76,7 +91,12 @@ def absolute(base: str, link: str | None) -> str | None:
 
 def notice_payload(notice: Notice, lang: str, mode: str, base: str) -> dict[str, Any]:
     """What the outbox row keeps for one notice."""
-    out: dict[str, Any] = {"event": notice.event, "lang": lang_of(lang), "mode": mode, "link": absolute(base, notice.link)}
+    out: dict[str, Any] = {
+        "event": notice.event,
+        "lang": lang_of(lang),
+        "mode": mode,
+        "link": absolute(base, notice.link),
+    }
     if mode == "link_only":
         return out
     data = dict(notice.data or {})
@@ -107,7 +127,8 @@ def _what(payload: dict[str, Any]) -> str:
     if len(periods) == 1:
         span = one(periods[0])
     elif periods and all(
-        int(b.get("start_period") or 0) == int(a.get("end_period") or 0) + 1 for a, b in zip(periods, periods[1:], strict=False)
+        int(b.get("start_period") or 0) == int(a.get("end_period") or 0) + 1
+        for a, b in zip(periods, periods[1:], strict=False)
     ):
         first, last = periods[0], periods[-1]
         span = f"{first.get('name')}-{last.get('name')} {first.get('start') or ''}-{last.get('end') or ''}".strip()

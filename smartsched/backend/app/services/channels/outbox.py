@@ -26,8 +26,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decrypt_secret
-from app.models import ChannelDelivery, ChannelDepartmentTarget, ChannelLinkCode, UserChannel
 from app.models.base import utcnow
+from app.models.channels import ChannelDelivery, ChannelDepartmentTarget, ChannelLinkCode, UserChannel
 from app.services.channels import config, text, transport
 
 log = logging.getLogger(__name__)
@@ -51,7 +51,9 @@ async def queue(
 ) -> tuple[ChannelDelivery, bool]:
     """Insert one row unless the same (occurrence, recipient, target) is queued already: (row, created)."""
     key = dedupe_key[:255]
-    existing = (await session.execute(select(ChannelDelivery).where(ChannelDelivery.dedupe_key == key))).scalar_one_or_none()
+    existing = (
+        await session.execute(select(ChannelDelivery).where(ChannelDelivery.dedupe_key == key))
+    ).scalar_one_or_none()
     if existing is not None:
         return existing, False
     row = ChannelDelivery(

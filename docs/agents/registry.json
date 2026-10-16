@@ -1236,7 +1236,8 @@
       "goal": "close the follow-ups of the approval-first backend (read its hand-off in docs/ROADMAP.md \"Approval-first bookings\" and the notify_dispatch.py docstring), plus the audit gaps. 1. The institution profile seeds `bookings.approval_mode=all` (owner: every request goes to admins first): - add a CLI `python -m app.cli set-setting <key> <value>` that writes through the same validation as PUT /org/settings…",
       "ledger": "approval-notify-followups-2026-10-15 SCOPE (the previous owners of these files h…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 00:51"
     },
     {
       "id": "aba4592248c9ed2b6",

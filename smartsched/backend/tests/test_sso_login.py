@@ -24,6 +24,7 @@ from tests.test_sso_fake_idp import (  # noqa: F401
     FakeEntra,
     error_of,
     new_key,
+    query_of,
     s256,
     sso,
 )
@@ -63,9 +64,10 @@ async def test_happy_path_provisions_teacher_with_turkish_name_and_drops_idp_tok
     )
     assert loc.startswith(f"{PANEL}/login/sso?"), loc
     query = {k: v[0] for k, v in parse_qs(urlsplit(loc).query).items()}
-    assert query["next"] == "/bookings" and len(query["ticket"]) >= 32
+    assert query["next"] == "/bookings" and query["welcome"] == "self" and len(query["ticket"]) >= 32
     r = await sso.client.post("/api/v1/auth/sso/exchange", json={"ticket": query["ticket"]})
     assert r.status_code == 200, r.text
+    assert r.json()["next"] == "/bookings" and r.json()["welcome"] == "self"
     token = r.json()["access_token"]
     me = await sso.client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me.status_code == 200, me.text
@@ -85,7 +87,7 @@ async def test_happy_path_provisions_teacher_with_turkish_name_and_drops_idp_tok
     for secret in ("fake.access", "fake-refresh-token", "eyJ", "fake-client-secret"):
         assert secret not in dump and secret not in audit
     assert await _rows(SsoAuthState) == []  # state and ticket were single use
-    assert {"auth.sso_provision", "auth.sso_login"} <= set(await _actions("auth.sso"))
+    assert {"auth.self_signup", "auth.login"} <= set(await _actions("auth."))
     # the ticket cannot be replayed
     again = await sso.client.post("/api/v1/auth/sso/exchange", json={"ticket": query["ticket"]})
     assert again.status_code == 401
@@ -107,9 +109,9 @@ async def test_wrong_tenant_issuer_is_refused(sso):  # noqa: F811
         {"iss": f"{LOGIN}/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0", "tid": "9188040d-6c67-4c5b-b112-36a304b66dad"},
     ):
         loc = await sso.callback(await sso.start(), **claims)
-        assert error_of(loc) == "invalid_token", (claims, loc)
+        assert error_of(loc) == "tenant" and "ref" not in query_of(loc), (claims, loc)
     assert [u.email for u in await _rows(User) if u.auth_source == "oidc"] == []
-    assert (await _actions("auth.sso_failed")).count("auth.sso_failed") == 4
+    assert (await _actions("auth.login_refused")).count("auth.login_refused") == 4
 
 
 async def test_wrong_audience_expired_and_bad_nonce_are_refused(sso):  # noqa: F811
@@ -122,15 +124,15 @@ async def test_wrong_audience_expired_and_bad_nonce_are_refused(sso):  # noqa: F
         {"oid": None},
     ):
         loc = await sso.callback(await sso.start(), **claims)
-        assert error_of(loc) == "invalid_token", (claims, loc)
+        assert error_of(loc) == "failed" and query_of(loc)["ref"].startswith("S-"), (claims, loc)
     assert await _rows(UserIdentity) == []
 
 
 async def test_bad_signature_and_unknown_key_are_refused(sso):  # noqa: F811
     loc = await sso.callback(await sso.start(), key=new_key("entra-test-key-1"))  # same kid, other key
-    assert error_of(loc) == "invalid_token"
+    assert error_of(loc) == "failed"
     loc = await sso.callback(await sso.start(), key=new_key("not-published"))
-    assert error_of(loc) == "invalid_token"
+    assert error_of(loc) == "failed"
     assert await _rows(UserIdentity) == []
 
 
@@ -139,17 +141,22 @@ async def test_replayed_or_unknown_state_is_refused(sso):  # noqa: F811
     first = await sso.callback(q)
     assert "ticket=" in first
     replay = await sso.callback(q)  # the same state a second time
-    assert error_of(replay) == "state"
+    assert error_of(replay) == "failed"
     forged = await sso.callback({**q, "state": "forged-state-value-forged-state-value"})
-    assert error_of(forged) == "state"
-    assert (await _actions("auth.sso_failed")).count("auth.sso_failed") == 2
+    assert error_of(forged) == "failed"
+    reasons = [e.after["reason"] for e in await _rows(AuditEvent) if e.action == "auth.login_refused"]
+    assert reasons == ["state", "state"]  # the precise reason stays in the audit log
 
 
 async def test_guest_accounts_of_the_tenant_are_refused(sso):  # noqa: F811
     loc = await sso.callback(await sso.start(), idp=f"{LOGIN}/{OTHER_TENANT}/v2.0")
-    assert error_of(loc) == "guest"
+    assert error_of(loc) == "tenant"
     loc = await sso.callback(await sso.start(), idp="live.com")
-    assert error_of(loc) == "guest"
+    assert error_of(loc) == "tenant"
+    loc = await sso.callback(await sso.start(), acct=1, oid="99999999-0000-4000-8000-000000000001")
+    assert error_of(loc) == "tenant"
+    reasons = [e.after["reason"] for e in await _rows(AuditEvent) if e.action == "auth.login_refused"]
+    assert reasons == ["guest", "guest", "guest"]
 
 
 async def test_identity_is_oid_not_email(sso):  # noqa: F811
@@ -172,17 +179,19 @@ async def test_identity_is_oid_not_email(sso):  # noqa: F811
     assert me3["id"] != me1["id"]
 
 
-async def test_provisioning_off_is_refused_with_tr_en_message_and_audit(sso):  # noqa: F811
-    r = await sso.configure(auto_provision=False)
+async def test_self_signup_off_is_refused_with_tr_en_message_and_audit(sso):  # noqa: F811
+    r = await sso.configure(self_signup=False)
     assert r.status_code == 200, r.text
     loc = await sso.callback(await sso.start(), oid="44444444-5555-4666-8777-888888888888")
-    assert error_of(loc) == "provisioning_off"
+    assert error_of(loc) == "signup_closed"
     assert await _rows(UserIdentity) == []
-    msgs = (await sso.client.get("/api/v1/auth/sso/providers")).json()["messages"]
-    assert "yönetici" in msgs["provisioning_off"]["tr"] and "administrator" in msgs["provisioning_off"]["en"]
+    body = (await sso.client.get("/api/v1/auth/sso/providers")).json()
+    msgs = body["messages"]
+    assert "yöneticiye" in msgs["signup_closed"]["tr"] and "administrator" in msgs["signup_closed"]["en"]
+    assert body["auth"]["microsoft"]["self_signup"] is False
     async with dbmod.get_session_factory()() as s:
-        ev = (await s.execute(select(AuditEvent).where(AuditEvent.action == "auth.sso_failed"))).scalars().one()
-    assert ev.after["reason"] == "provisioning_off"
+        ev = (await s.execute(select(AuditEvent).where(AuditEvent.action == "auth.login_refused"))).scalars().one()
+    assert ev.after["reason"] == "signup_closed" and ev.after["auth_method"] == "oidc"
 
 
 async def test_no_automatic_link_to_an_admin_by_email(sso):  # noqa: F811
@@ -193,11 +202,12 @@ async def test_no_automatic_link_to_an_admin_by_email(sso):  # noqa: F811
         email="admin@example.com",
         preferred_username="ADMIN@example.com",
     )
-    assert error_of(loc) == "account_exists"
+    assert error_of(loc) == "failed"  # the panel is not told that the account exists
     assert await _rows(UserIdentity) == []
     admin = next(u for u in await _rows(User) if u.email == "admin@example.com")
     assert admin.role == "ADMIN"
-    assert "auth.sso_failed" in await _actions("auth.sso")
+    reasons = [e.after["reason"] for e in await _rows(AuditEvent) if e.action == "auth.login_refused"]
+    assert reasons == ["account_exists"]
 
 
 async def test_disabled_account_is_refused(sso):  # noqa: F811
@@ -206,7 +216,7 @@ async def test_disabled_account_is_refused(sso):  # noqa: F811
     r = await sso.client.put(f"/api/v1/users/{me['id']}", json={"is_active": False}, headers=sso.admin)
     assert r.status_code == 200, r.text
     loc = await sso.callback(await sso.start(), oid="66666666-7777-4888-8999-000000000000")
-    assert error_of(loc) == "disabled"
+    assert error_of(loc) == "failed"
 
 
 async def test_jwks_is_cached_and_refreshed_on_key_rotation(sso):  # noqa: F811
@@ -228,25 +238,27 @@ async def test_denied_consent_and_bad_code_answer_panel_errors(sso):  # noqa: F8
         "/api/v1/auth/sso/entra/callback",
         params={"error": "access_denied", "error_description": "AADSTS65004: User declined", "state": q["state"]},
     )
-    assert r.status_code == 302 and error_of(r.headers["location"]) == "denied"
+    assert r.status_code == 302 and error_of(r.headers["location"]) == "cancelled"
+    assert "ref" not in query_of(r.headers["location"])
     q = await sso.start()
     r = await sso.client.get("/api/v1/auth/sso/entra/callback", params={"code": "never-issued", "state": q["state"]})
-    assert r.status_code == 302 and error_of(r.headers["location"]) == "exchange"
+    assert r.status_code == 302 and error_of(r.headers["location"]) == "failed"
 
 
 async def test_start_refuses_open_redirects_and_unconfigured_provider(sso):  # noqa: F811
     for bad in ("//evil.example/x", "https://evil.example/", "/\\evil.example"):
-        q = await sso.start(return_path=bad)
+        q = await sso.start(next_path=bad)
         loc = await sso.callback(q)
         assert "next=%2F" not in loc or "evil" not in loc
         assert "evil" not in loc
     assert (await sso.configure(enabled=False)).status_code == 200
     r = await sso.client.get("/api/v1/auth/sso/entra/start")
-    assert r.status_code == 302 and error_of(r.headers["location"]) == "not_configured"
-    providers = (await sso.client.get("/api/v1/auth/sso/providers")).json()["providers"]
-    assert providers == [
+    assert r.status_code == 302 and error_of(r.headers["location"]) == "failed"
+    body = (await sso.client.get("/api/v1/auth/sso/providers")).json()
+    assert body["providers"] == [
         {"name": "entra", "label": "Microsoft 365", "enabled": False, "start_url": "/api/v1/auth/sso/entra/start"}
     ]
+    assert body["auth"]["microsoft"]["enabled"] is False and body["auth"]["local_enabled"] is True
 
 
 async def test_existing_identity_whose_user_was_deleted_is_provisioned_again(sso):  # noqa: F811
@@ -259,10 +271,59 @@ async def test_existing_identity_whose_user_was_deleted_is_provisioned_again(sso
     assert me2["role"] == "TEACHER"  # a fresh account (SQLite may reuse the freed id)
     (ident,) = await _rows(UserIdentity)
     assert ident.user_id == me2["id"] and ident.origin == "provision"
-    assert (await _actions("auth.sso_provision")).count("auth.sso_provision") == 2
+    assert (await _actions("auth.self_signup")).count("auth.self_signup") == 2
 
 
 def test_issuer_constant_matches_the_pinned_tenant() -> None:
     assert ISSUER == f"https://login.microsoftonline.com/{TENANT}/v2.0"
     assert s256("a" * 43) != s256("b" * 43)
     assert isinstance(FakeEntra().key.kid, str)
+
+
+async def test_refusals_do_not_reveal_whether_an_account_exists(sso):  # noqa: F811
+    """A disabled account, an existing account without an invite, a deleted account's bad token and a replayed state
+    all redirect to the same ``failed`` URL; only ``ref`` differs (sign-in.md §6.3 no-enumeration rule)."""
+    h = await sso.headers(oid="aaaaaaaa-0000-4000-8000-000000000001", preferred_username="kapali@uni.edu.tr")
+    me = (await sso.client.get("/api/v1/auth/me", headers=h)).json()
+    assert (await sso.client.put(f"/api/v1/users/{me['id']}", json={"is_active": False}, headers=sso.admin)).is_success
+    disabled = await sso.callback(await sso.start(), oid="aaaaaaaa-0000-4000-8000-000000000001")
+    existing = await sso.callback(
+        await sso.start(), oid="aaaaaaaa-0000-4000-8000-000000000002", preferred_username="admin@example.com"
+    )
+    bad_token = await sso.callback(await sso.start(), nonce="forged")
+    q = await sso.start()
+    await sso.callback(q)
+    replayed = await sso.callback(q)
+    urls = [disabled, existing, bad_token, replayed]
+    stripped = {u.split("&ref=")[0] for u in urls}
+    assert stripped == {f"{PANEL}/login?error=failed"}
+    assert len({query_of(u)["ref"] for u in urls}) == 4  # each maps to its own audit row
+    msgs = (await sso.client.get("/api/v1/auth/sso/providers")).json()["messages"]
+    assert "{ref}" in msgs["failed"]["tr"] and "{ref}" in msgs["failed"]["en"]
+
+
+async def test_public_auth_block_for_the_login_page(sso):  # noqa: F811
+    r = await sso.configure(domain_hint="  @UNİ.EDU.TR\u00a0", oidc_only_non_admins=True)
+    assert r.status_code == 200, r.text
+    assert r.json()["domain_hint"] == "uni.edu.tr"
+    auth = (await sso.client.get("/api/v1/auth/sso/providers")).json()["auth"]
+    assert auth == {
+        "microsoft": {
+            "enabled": True,
+            "label": "Microsoft 365",
+            "start_url": "/api/v1/auth/sso/entra/start",
+            "domain_hint": "uni.edu.tr",
+            "self_signup": True,
+        },
+        "local_enabled": False,  # password door only through /login?method=local (break-glass)
+        "ldap_enabled": False,
+        "self_signup_role_name": "Teacher",
+    }
+    assert (await sso.configure(domain_hint="not a domain")).status_code == 422
+
+
+async def test_start_passes_prompt_and_login_hint(sso):  # noqa: F811
+    q = await sso.start(prompt="select_account", login_hint=" Ayse.Yilmaz@UNI.edu.tr ")
+    assert q["prompt"] == "select_account" and q["login_hint"] == "ayse.yilmaz@uni.edu.tr"
+    q = await sso.start(prompt="none")  # only select_account / login are passed on
+    assert q["prompt"] == "select_account" and "login_hint" not in q

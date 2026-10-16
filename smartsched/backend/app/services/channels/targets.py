@@ -23,7 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import encrypt_secret
 from app.importers import normalize as n
-from app.models import ChannelDepartmentTarget, Program, User
+from app.models import Program, User
+from app.models.channels import ChannelDepartmentTarget
 from app.services import audit
 from app.services.channels.config import ConfigError
 

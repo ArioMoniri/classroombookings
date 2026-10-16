@@ -32,8 +32,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.security import decrypt_secret, encrypt_secret
 from app.importers import normalize as n
-from app.models import ChannelDelivery, ChannelLinkCode, User, UserChannel
+from app.models import User
 from app.models.base import utcnow
+from app.models.channels import ChannelDelivery, ChannelLinkCode, UserChannel
 from app.services import audit
 from app.services.channels import config, outbox
 from app.services.channels.config import ConfigError
@@ -153,7 +154,9 @@ async def unlink(session: AsyncSession, user: User, channel_id: int) -> bool:
     kind, hint = ch.kind, ch.display_hint
     await session.delete(ch)
     await session.flush()
-    await audit.record(session, "channel.unlink", "user_channel", channel_id, before={"kind": kind, "hint": hint}, actor=user)
+    await audit.record(
+        session, "channel.unlink", "user_channel", channel_id, before={"kind": kind, "hint": hint}, actor=user
+    )
     return True
 
 
@@ -212,7 +215,9 @@ async def _store(
     session: AsyncSession, user: User, kind: str, address: str, hint: str, label: str | None = None
 ) -> UserChannel:
     h = address_hash(kind, address)
-    q = select(UserChannel).where(UserChannel.user_id == user.id, UserChannel.kind == kind, UserChannel.address_hash == h)
+    q = select(UserChannel).where(
+        UserChannel.user_id == user.id, UserChannel.kind == kind, UserChannel.address_hash == h
+    )
     ch = (await session.execute(q)).scalar_one_or_none()
     now = utcnow()
     if ch is None:
@@ -223,7 +228,9 @@ async def _store(
     if label is not None:
         ch.label = label[:64] or None
     await session.flush()
-    await audit.record(session, "channel.link", "user_channel", ch.id, after={"kind": kind, "hint": ch.display_hint}, actor=user)
+    await audit.record(
+        session, "channel.link", "user_channel", ch.id, after={"kind": kind, "hint": ch.display_hint}, actor=user
+    )
     await _switch_on(session, user.id, kind)
     return ch
 
@@ -255,7 +262,11 @@ async def check_push_endpoint(endpoint: str) -> str:
         raise _err("endpoint_refused", str(exc), "bildirim adresi reddedildi: " + str(exc)) from exc
     parts = urlsplit(url)
     host = (parts.hostname or "").lower().rstrip(".")
-    if parts.scheme != "https" or not (host in PUSH_HOSTS or host.endswith(PUSH_SUFFIXES)) or parts.port not in (None, 443):
+    if (
+        parts.scheme != "https"
+        or not (host in PUSH_HOSTS or host.endswith(PUSH_SUFFIXES))
+        or parts.port not in (None, 443)
+    ):
         raise _err(
             "endpoint_refused",
             "the subscription endpoint is not a browser push service (FCM, Mozilla, Apple, Windows)",
@@ -268,7 +279,9 @@ async def check_push_endpoint(endpoint: str) -> str:
     return url
 
 
-async def add_push_subscription(session: AsyncSession, user: User, sub: dict[str, Any], label: str | None) -> UserChannel:
+async def add_push_subscription(
+    session: AsyncSession, user: User, sub: dict[str, Any], label: str | None
+) -> UserChannel:
     endpoint = await check_push_endpoint(str(sub.get("endpoint") or ""))
     keys = sub.get("keys") or {}
     if not isinstance(keys, dict):
@@ -278,10 +291,14 @@ async def add_push_subscription(session: AsyncSession, user: User, sub: dict[str
     h = address_hash("webpush", endpoint)
     existing = [c for c in await user_channels(session, user.id, "webpush") if c.address_hash != h]
     if len(existing) >= MAX_PUSH_DEVICES:
-        raise _err("too_many_devices", f"at most {MAX_PUSH_DEVICES} browsers", f"en çok {MAX_PUSH_DEVICES} tarayıcı", 409)
+        raise _err(
+            "too_many_devices", f"at most {MAX_PUSH_DEVICES} browsers", f"en çok {MAX_PUSH_DEVICES} tarayıcı", 409
+        )
     address = json.dumps({"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth}}, sort_keys=True)
     # the address hash covers the endpoint only: the same browser subscribing again replaces its keys
-    q = select(UserChannel).where(UserChannel.user_id == user.id, UserChannel.kind == "webpush", UserChannel.address_hash == h)
+    q = select(UserChannel).where(
+        UserChannel.user_id == user.id, UserChannel.kind == "webpush", UserChannel.address_hash == h
+    )
     ch = (await session.execute(q)).scalar_one_or_none()
     host = (urlsplit(endpoint).hostname or "")[:64]
     clean_label = n.clean_text(label) if label else None
@@ -310,13 +327,17 @@ async def telegram_link(session: AsyncSession, user: User) -> dict[str, Any]:
         raise channel_off("telegram")
     await session.execute(
         delete(ChannelLinkCode).where(
-            (ChannelLinkCode.user_id == user.id) & (ChannelLinkCode.kind == "telegram") & ChannelLinkCode.used_at.is_(None)
+            (ChannelLinkCode.user_id == user.id)
+            & (ChannelLinkCode.kind == "telegram")
+            & ChannelLinkCode.used_at.is_(None)
         )
     )
     code = secrets.token_urlsafe(24)  # 32 characters of A-Z a-z 0-9 _ - (Telegram's start parameter alphabet)
     now = utcnow()
     session.add(
-        ChannelLinkCode(code_hash=_tg_hash(code), user_id=user.id, kind="telegram", created_at=now, expires_at=now + CODE_TTL)
+        ChannelLinkCode(
+            code_hash=_tg_hash(code), user_id=user.id, kind="telegram", created_at=now, expires_at=now + CODE_TTL
+        )
     )
     await session.flush()
     bot = cfg.options["bot_username"]
@@ -375,7 +396,9 @@ async def _telegram_block(session: AsyncSession, chat_id: Any) -> None:
     if not isinstance(chat_id, int):
         return
     h = address_hash("telegram", str(chat_id))
-    for ch in (await session.execute(select(UserChannel).where(UserChannel.kind == "telegram", UserChannel.address_hash == h))).scalars():
+    for ch in (
+        await session.execute(select(UserChannel).where(UserChannel.kind == "telegram", UserChannel.address_hash == h))
+    ).scalars():
         ch.status, ch.last_error = "blocked", "the user stopped the bot"
     await session.flush()
 
@@ -445,11 +468,19 @@ async def phone_link(session: AsyncSession, user: User, kind: str, phone: Any, c
             "WhatsApp için kurumu adlandıran açık onayınız gerekir (consent: true)",
         )
     now = utcnow()
-    recent_q = select(func.count()).select_from(ChannelLinkCode).where(
-        ChannelLinkCode.user_id == user.id, ChannelLinkCode.kind == kind, ChannelLinkCode.created_at > now - CODE_TTL
+    recent_q = (
+        select(func.count())
+        .select_from(ChannelLinkCode)
+        .where(
+            ChannelLinkCode.user_id == user.id,
+            ChannelLinkCode.kind == kind,
+            ChannelLinkCode.created_at > now - CODE_TTL,
+        )
     )
     if int((await session.execute(recent_q)).scalar_one()) >= MAX_CODES_PER_WINDOW:
-        raise _err("too_many_codes", "too many codes; wait 10 minutes", "çok fazla kod istendi; 10 dakika bekleyin", 429)
+        raise _err(
+            "too_many_codes", "too many codes; wait 10 minutes", "çok fazla kod istendi; 10 dakika bekleyin", 429
+        )
     await session.execute(
         delete(ChannelLinkCode).where(
             (ChannelLinkCode.user_id == user.id) & (ChannelLinkCode.kind == kind) & ChannelLinkCode.used_at.is_(None)

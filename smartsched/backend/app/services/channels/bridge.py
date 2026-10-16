@@ -42,7 +42,8 @@ async def _remember(session: AsyncSession, cfg: config.ChannelConfig, logged_in:
 
 
 def _flag(data: dict[str, Any], *names: str) -> bool:
-    inner = data.get("data") if isinstance(data.get("data"), dict) else {}
+    raw = data.get("data")
+    inner: dict[str, Any] = raw if isinstance(raw, dict) else {}
     return any(inner.get(n) is True for n in names)
 
 
@@ -76,12 +77,19 @@ async def connect(session: AsyncSession, admin: User) -> dict[str, Any]:
         qr = None
         if not logged_in:
             data = await transport.bridge_api("GET", "/session/qr", token)
-            inner = data.get("data") if isinstance(data.get("data"), dict) else {}
-            qr = inner.get("QRCode") or None
+            raw = data.get("data")
+            qr = (raw.get("QRCode") if isinstance(raw, dict) else None) or None
     except transport.ProviderCallError as exc:
         raise ConfigError("bridge_unreachable", str(exc), "WhatsApp köprüsüne ulaşılamadı", 502) from exc
     await _remember(session, cfg, logged_in)
-    await audit.record(session, "channels.bridge_connect", "notify_channel", "whatsapp_web", after={"logged_in": logged_in}, actor=admin)
+    await audit.record(
+        session,
+        "channels.bridge_connect",
+        "notify_channel",
+        "whatsapp_web",
+        after={"logged_in": logged_in},
+        actor=admin,
+    )
     return {"qr": qr, "logged_in": logged_in}
 
 
@@ -92,5 +100,7 @@ async def logout(session: AsyncSession, admin: User) -> dict[str, Any]:
     except transport.ProviderCallError as exc:
         raise ConfigError("bridge_unreachable", str(exc), "WhatsApp köprüsüne ulaşılamadı", 502) from exc
     await _remember(session, cfg, False)
-    await audit.record(session, "channels.bridge_logout", "notify_channel", "whatsapp_web", after={"logged_in": False}, actor=admin)
+    await audit.record(
+        session, "channels.bridge_logout", "notify_channel", "whatsapp_web", after={"logged_in": False}, actor=admin
+    )
     return {"reachable": True, "connected": False, "logged_in": False}

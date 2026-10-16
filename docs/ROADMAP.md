@@ -959,3 +959,20 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
 - [ ] SSO route contract: the backend's `/auth/sso/entra/start?return_path=` and `?sso_error=` are canonical. The SSO builder updates sign-in.md §15 to match.
 - [ ] MOBILE M-06: add `viewportFit: "cover"` to the Next viewport export (shell sweep).
 - [ ] A full Entra round trip (F-12 S18) needs tenant credentials from university IT. The owner enters them in admin settings or SSM, never in chat.
+
+### Approval and notification follow-ups finished (2026-10-16)
+
+- Done:
+  - `app.cli set-setting`: validated through `PUT /org/settings`. The institution seed sets `bookings.approval_mode=all` once; the empty profile keeps `rules`.
+  - One approver message per submission (`group_id`), plus one message to the next step's approvers when a request moves on.
+  - Withdrawing a request notifies its approvers.
+  - Booking created, cancelled and room-owner e-mails now go through `notify_dispatch`. Users also get the same text in the app, and they can switch it off.
+  - Audit rows for `learning.refresh` and `learning.purge_run`.
+- Open, routed to the owners:
+  - [ ] audit DECISIONS for `/auth/sso/*` (SSO), `/channels/*` and `/me/channels/*` (channels), and the moderation priority routes (P19)
+  - [ ] a migration for `priority_overrides` (P19)
+  - [ ] `make lint` and `make type` in those files
+- For the approval UI agent:
+  - [ ] a TR/EN label for `bookings.skip_approval`
+  - [ ] read `group=` from approver links and `data.request_ids`, so one click opens the whole submission
+- [ ] Optional: add `app/cli.py` to the `make type` path list.

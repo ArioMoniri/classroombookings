@@ -18,7 +18,15 @@ from app.services.channels import outbox
 from sqlalchemy import select
 
 from tests.crbs_env import env  # noqa: F401
-from tests.test_channels_support import BOT_TOKEN, TEAMS_URL, drain, enable, enable_telegram, link_telegram, net  # noqa: F401
+from tests.test_channels_support import (  # noqa: F401
+    BOT_TOKEN,
+    TEAMS_URL,
+    drain,
+    enable,
+    enable_telegram,
+    link_telegram,
+    net,
+)
 
 THU = date(2026, 2, 19)
 APPR = "/api/v1/approvals"
@@ -30,9 +38,15 @@ async def _setup(env, net, mode: str = "link_only"):  # type: ignore[no-untyped-
     c = env.client
     r = await c.put("/api/v1/org/settings", json={"approval_mode": "all"}, headers=env.admin)
     assert r.status_code == 200, r.text
-    await c.put("/api/v1/calendar/admin/settings", json={"public_url": "https://smartsched.uni.edu.tr"}, headers=env.admin)
+    await c.put(
+        "/api/v1/calendar/admin/settings", json={"public_url": "https://smartsched.uni.edu.tr"}, headers=env.admin
+    )
     gid, gozde = await env.user(
-        "gozde.ayrancigil@uni.edu.tr", role="ADMIN", firstname="Gözde", lastname="Ayrancıgil", approves_for=[{"type": "all"}]
+        "gozde.ayrancigil@uni.edu.tr",
+        role="ADMIN",
+        firstname="Gözde",
+        lastname="Ayrancıgil",
+        approves_for=[{"type": "all"}],
     )
     aid, ayse = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
     await enable_telegram(c, env.admin, content_mode=mode)
@@ -68,7 +82,7 @@ async def _outbox_rows(user_id: int) -> list[ChannelDelivery]:
         return list((await s.execute(q)).scalars())
 
 
-async def test_the_adapters_are_registered_with_notify_dispatch(env):  # noqa: F811
+async def test_the_adapters_are_registered_with_notify_dispatch(env, net):  # noqa: F811
     names = [a.name for a in nd.channels()]
     assert names[:2] == ["in_app", "email"]
     assert {"webpush", "telegram", "whatsapp", "sms", "teams", "slack"} <= set(names)
@@ -81,8 +95,8 @@ async def test_link_only_rejection_reaches_telegram_without_names_rooms_dates_or
     gid, gozde, aid, ayse = await _setup(env, net, "link_only")
     rid = await _reject(env, gozde, ayse)
     assert ("approval.rejected", "sent") in await _ledger(aid, "telegram")
-    # the approver had nothing linked: skipped, never failed
-    assert ("approval.requested", "skipped") in await _ledger(gid, "telegram")
+    # the approver linked nothing: the channel is off for her (linking is the opt-in), so nothing is written
+    assert await _ledger(gid, "telegram") == []
     assert await drain() == 1
     ((url, _title, body),) = [s for s in net.sent if "5550001" in s[0]]
     assert url.startswith("tgram://") and BOT_TOKEN.split(":")[1] in url
@@ -117,7 +131,7 @@ async def test_full_mode_carries_room_dates_periods_and_reason_but_no_person_nam
     async with dbmod.get_session_factory()() as s:
         u = await s.get(User, aid)
         assert u is not None
-        u.language = "english"
+        u.language = "en"
         await s.commit()
     r = await env.book(ayse, "A102", date(2026, 2, 26), "P1")
     (req,) = [x for x in (await env.client.get(f"{APPR}/mine", headers=ayse)).json() if x["status"] == "PENDING"]
@@ -160,7 +174,11 @@ async def test_no_channel_sends_without_configuration_and_sign_off(env, net):  #
     assert await _outbox_rows(aid) == [] and await drain() == 0
     assert [s for s in net.sent if "5550001" in s[0]] == []
     # a row queued while the channel was on is skipped at send time once the sign-off is gone
-    await env.client.put("/api/v1/channels/admin/telegram", json={"kvkk_signoff": {"signed": True, "legal_basis": "KVKK m. 9", "officer": "Elif Şahin"}}, headers=env.admin)
+    await env.client.put(
+        "/api/v1/channels/admin/telegram",
+        json={"kvkk_signoff": {"signed": True, "legal_basis": "KVKK m. 9", "officer": "Elif Şahin"}},
+        headers=env.admin,
+    )
     (linked,) = (await env.client.get("/api/v1/me/channels", headers=ayse)).json()["linked"]
     await env.client.post(f"/api/v1/me/channels/{linked['id']}/test", headers=ayse)
     await env.client.put("/api/v1/channels/admin/telegram", json={"enabled": False}, headers=env.admin)
@@ -173,16 +191,35 @@ async def test_no_channel_sends_without_configuration_and_sign_off(env, net):  #
 async def test_department_channel_gets_one_link_only_post_per_new_request_for_its_approvers(env, net):  # noqa: F811
     c = env.client
     r = await c.put("/api/v1/org/settings", json={"approval_mode": "all"}, headers=env.admin)
-    await c.put("/api/v1/calendar/admin/settings", json={"public_url": "https://smartsched.uni.edu.tr"}, headers=env.admin)
+    await c.put(
+        "/api/v1/calendar/admin/settings", json={"public_url": "https://smartsched.uni.edu.tr"}, headers=env.admin
+    )
     async with dbmod.get_session_factory()() as s:
         dept = (await s.execute(select(Program).order_by(Program.id).limit(1))).scalar_one()
         dept_id, dept_name = dept.id, dept.name
+    approvers = []
     for email, first in (("gozde.ayrancigil@uni.edu.tr", "Gözde"), ("ilker.ozturk@uni.edu.tr", "İlker")):
-        await env.user(email, role="ADMIN", firstname=first, lastname="Onaycı", approves_for=[{"type": "all"}], department_id=dept_id)
+        _, h = await env.user(
+            email,
+            role="ADMIN",
+            firstname=first,
+            lastname="Onaycı",
+            approves_for=[{"type": "all"}],
+            department_id=dept_id,
+        )
+        approvers.append(h)
     _, ayse = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
     await enable(c, env.admin, "teams")
     url = TEAMS_URL
-    assert (await c.put(f"/api/v1/channels/admin/teams/departments/{dept_id}", json={"url": url}, headers=env.admin)).status_code == 200
+    assert (
+        await c.put(f"/api/v1/channels/admin/teams/departments/{dept_id}", json={"url": url}, headers=env.admin)
+    ).status_code == 200
+    # department posts are opt-in per approver (preferences), like every external channel
+    for h in approvers:
+        p = await c.put(
+            "/api/v1/me/notification-preferences", json={"events": {"approval.requested": {"teams": True}}}, headers=h
+        )
+        assert p.status_code == 200, p.text
     r = await env.book(ayse, "A102", THU, "P1")
     assert r.status_code == 202, r.text
     await drain()

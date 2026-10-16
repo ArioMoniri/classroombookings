@@ -23,6 +23,7 @@ from tests.test_sso_fake_idp import (  # noqa: F401
     PANEL,
     TENANT,
     error_of,
+    query_of,
     sso,
 )
 
@@ -62,7 +63,8 @@ async def test_config_pins_tenant_and_never_returns_the_secret(sso):  # noqa: F8
     assert cfg["client_secret_set"] is True and FAKE_SECRET not in r.text and "client_secret" not in cfg
     assert cfg["redirect_uri"] == f"{PANEL}/api/v1/auth/sso/entra/callback"
     assert cfg["authority"] == f"https://login.microsoftonline.com/{TENANT}/v2.0"
-    assert cfg["configured"] is True and cfg["auto_provision"] is True and cfg["oidc_only_non_admins"] is False
+    assert cfg["configured"] is True and cfg["self_signup"] is True and cfg["oidc_only_non_admins"] is False
+    assert cfg["domain_hint"] is None
     assert cfg["role_mapping_enabled"] is False and cfg["allow_admin_mapping"] is False
     assert cfg["invite_days"] == 30 and cfg["default_role"]["code"] == "TEACHER"
     assert cfg["break_glass_admins"] == 1
@@ -147,10 +149,18 @@ async def test_oidc_only_keeps_password_login_for_admins_only(sso):  # noqa: F81
 
 
 async def test_mapping_never_demotes_the_last_break_glass_admin(sso):  # noqa: F811
-    # the administrator binds the seeded admin account to their Entra account, then mapping is switched on
+    # the administrator links their own account (Profile, password re-entered), then mapping is switched on
     admin_id = (await _one(User, User.email == "admin@example.com")).id
     r = await sso.client.post(f"/api/v1/auth/sso/admin/users/{admin_id}/bind", json={}, headers=sso.admin)
-    assert r.status_code == 201, r.text
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "self"  # never one's own account
+    r = await sso.client.post(
+        "/api/v1/auth/sso/entra/link", json={"password": "admin1234", "confirm": True}, headers=sso.admin
+    )
+    assert r.status_code == 200, r.text
+    q = query_of(r.json()["authorize_url"])
+    assert q["prompt"] == "select_account"
+    loc = await sso.callback(q, oid="20000000-0000-4000-8000-000000000002", preferred_username="admin@example.com")
+    assert loc.endswith("/profile?sso=linked"), loc
     assert (await sso.configure(role_mapping_enabled=True)).status_code == 200
     r = await sso.client.post(
         f"{ADMIN_URL}/mappings",
@@ -277,21 +287,28 @@ async def test_invite_binds_on_first_login_by_verified_upn_with_turkish_folding(
     inv = r.json()
     assert inv["email"] == "sehriban.serbest@uni.edu.tr" and inv["status"] == "invited" and inv["kind"] == "invite"
     status = (await sso.client.get("/api/v1/auth/sso/admin/user-status", headers=sso.admin)).json()
-    assert status[str(inv["user_id"])] == "invited"
+    assert status[str(inv["user_id"])]["status"] == "invited"
+    assert status[str(inv["user_id"])]["auth_methods"] == []  # no password, no identity yet
+    assert inv["link"].startswith(f"{PANEL}/login?invite=")
     oid = "60000000-0000-4000-8000-000000000006"
     me = await _me(sso, await sso.headers(oid=oid, preferred_username="Sehriban.Serbest@uni.edu.tr", email=None))
     assert me["id"] == inv["user_id"] and me["role"] == "PLANNER"  # the admin's role, not the default
     assert await _all(SsoInvite) == []  # one time
     status = (await sso.client.get("/api/v1/auth/sso/admin/user-status", headers=sso.admin)).json()
-    assert status[str(inv["user_id"])] == "linked"
+    assert status[str(inv["user_id"])]["status"] == "linked"
+    assert status[str(inv["user_id"])]["auth_methods"] == ["microsoft"]
+    admin_id = str((await _one(User, User.email == "admin@example.com")).id)
+    assert status[admin_id]["break_glass"] is True and status[admin_id]["auth_methods"] == ["local"]
     # after binding, identity is by oid only: a new UPN still finds the user, the old UPN on another oid does not
     me2 = await _me(sso, await sso.headers(oid=oid, preferred_username="s.serbest@uni.edu.tr"))
     assert me2["id"] == inv["user_id"]
     loc = await sso.callback(
         await sso.start(), oid="60000000-0000-4000-8000-000000000007", preferred_username="sehriban.serbest@uni.edu.tr"
     )
-    assert error_of(loc) == "account_exists"
-    assert [e.after["kind"] for e in await _all(AuditEvent, AuditEvent.action == "auth.sso_bind")] == ["invite"]
+    assert error_of(loc) == "failed"
+    assert [e.after["kind"] for e in await _all(AuditEvent, AuditEvent.action == "auth.identity_bound")] == ["invite"]
+    assert len(await _all(AuditEvent, AuditEvent.action == "user.invite_accepted")) == 1
+    assert len(await _all(AuditEvent, AuditEvent.action == "user.invited")) == 1
 
 
 async def test_invite_is_not_bound_by_an_unverified_email_claim(sso):  # noqa: F811
@@ -329,7 +346,7 @@ async def test_expired_invite_is_refused(sso):  # noqa: F811
         await s.execute(update(SsoInvite).values(expires_at=utcnow() - timedelta(minutes=1)))
         await s.commit()
     status = (await sso.client.get("/api/v1/auth/sso/admin/user-status", headers=sso.admin)).json()
-    assert status[str(r.json()["user_id"])] == "invite_expired"
+    assert status[str(r.json()["user_id"])]["status"] == "invite_expired"
     loc = await sso.callback(
         await sso.start(), oid="80000000-0000-4000-8000-000000000008", preferred_username="e.demir@uni.edu.tr"
     )
@@ -364,6 +381,8 @@ async def test_admin_marks_existing_admin_account_bind_on_next_login(sso):  # no
     uid, _ = await make_user(sso.client, sso.admin, "ikinci.admin@uni.edu.tr", role="ADMIN")
     r = await sso.client.post(f"/api/v1/auth/sso/admin/users/{uid}/bind", json={"days": 7}, headers=sso.admin)
     assert r.status_code == 201 and r.json()["kind"] == "bind", r.text
+    status = (await sso.client.get("/api/v1/auth/sso/admin/user-status", headers=sso.admin)).json()
+    assert status[str(uid)]["status"] == "binding" and status[str(uid)]["binding_pending"] is True
     me = await _me(
         sso, await sso.headers(oid="90000000-0000-4000-8000-000000000009", preferred_username="IKINCI.ADMIN@UNI.EDU.TR")
     )
@@ -372,8 +391,9 @@ async def test_admin_marks_existing_admin_account_bind_on_next_login(sso):  # no
     assert r.status_code == 409  # already linked
     r = await sso.client.delete(f"/api/v1/auth/sso/admin/users/{uid}/identity", headers=sso.admin)
     assert r.status_code == 204
-    assert [e.after["kind"] for e in await _all(AuditEvent, AuditEvent.action == "auth.sso_bind")] == ["bind"]
-    assert await _all(AuditEvent, AuditEvent.action == "sso.unlink")
+    assert [e.after["kind"] for e in await _all(AuditEvent, AuditEvent.action == "auth.identity_bound")] == ["bind"]
+    assert await _all(AuditEvent, AuditEvent.action == "auth.binding_scheduled")
+    assert await _all(AuditEvent, AuditEvent.action == "auth.identity_unbound")
 
 
 async def test_linking_a_local_account_needs_the_password_and_confirmation(sso):  # noqa: F811
@@ -394,7 +414,7 @@ async def test_linking_a_local_account_needs_the_password_and_confirmation(sso):
     assert status["linked"] is True and status["email_at_login"] == "farkli@uni.edu.tr"
     me = await _me(sso, await sso.headers(oid="a0000000-0000-4000-8000-00000000000a"))
     assert me["id"] == uid
-    assert await _all(AuditEvent, AuditEvent.action == "auth.sso_link")
+    assert [e.after["kind"] for e in await _all(AuditEvent, AuditEvent.action == "auth.identity_bound")] == ["link"]
     # the same Entra account cannot be linked to a second SmartSched account
     _, h2 = await make_user(sso.client, sso.admin, "baska.hoca@uni.edu.tr")
     r = await sso.client.post(url, json={"password": "parola-1234", "confirm": True}, headers=h2)
@@ -404,3 +424,99 @@ async def test_linking_a_local_account_needs_the_password_and_confirmation(sso):
     # unlinking the own identity: allowed while a password remains
     assert (await sso.client.delete(url, headers=h)).status_code == 204
     assert (await sso.client.get("/api/v1/auth/sso/me", headers=h)).json()["linked"] is False
+
+
+async def test_invite_link_flow_mismatch_invalid_renew_and_banner(sso):  # noqa: F811
+    r = await sso.client.post(
+        "/api/v1/auth/sso/admin/invites",
+        json={"email": "ayse.yilmaz@uni.edu.tr", "full_name": "Ayşe Yılmaz", "role": "VIEWER"},
+        headers=sso.admin,
+    )
+    assert r.status_code == 201, r.text
+    inv = r.json()
+    token = query_of(inv["link"])["invite"]
+    banner = await sso.client.get(f"/api/v1/auth/sso/invites/{token}")
+    assert banner.status_code == 200, banner.text
+    b = banner.json()
+    assert b["invited_masked"] == "ay•••@uni.edu.tr" and b["role_name"] == "Viewer" and b["days_left"] == 30
+    assert b["inviter_name"] == "Administrator" and b["kind"] == "invite"
+    # started from the link: Microsoft gets the invited address as login_hint
+    q = await sso.start(invite=token)
+    assert q["login_hint"] == "ayse.yilmaz@uni.edu.tr"
+    # the person signs in to Microsoft with another account: mismatch, with what the banner needs
+    loc = await sso.callback(q, oid="b0000000-0000-4000-8000-00000000000b", preferred_username="baska@uni.edu.tr")
+    got = query_of(loc)
+    assert got["error"] == "invite_mismatch" and got["invite"] == token
+    assert got["invited_masked"] == "ay•••@uni.edu.tr" and got["signed_in"] == "ba•••@uni.edu.tr"
+    assert await _all(UserIdentity) == []
+    # the matching account binds and lands on the welcome page
+    q = await sso.start(invite=token)
+    loc = await sso.callback(q, oid="b0000000-0000-4000-8000-00000000000c", preferred_username="ayse.yilmaz@uni.edu.tr")
+    assert query_of(loc)["welcome"] == "invited", loc
+    ex = await sso.client.post("/api/v1/auth/sso/exchange", json={"ticket": query_of(loc)["ticket"]})
+    assert ex.json()["welcome"] == "invited" and ex.json()["inviter_name"] == "Administrator"
+    # a used link is no longer valid, at the banner and at the start
+    assert (await sso.client.get(f"/api/v1/auth/sso/invites/{token}")).status_code == 404
+    r = await sso.client.get("/api/v1/auth/sso/entra/start", params={"invite": token})
+    assert r.status_code == 302 and error_of(r.headers["location"]) == "invite_invalid"
+
+
+async def test_renew_gives_a_new_link_and_expired_banner_answers_410(sso):  # noqa: F811
+    r = await sso.client.post(
+        "/api/v1/auth/sso/admin/invites", json={"email": "f.arslan@uni.edu.tr"}, headers=sso.admin
+    )
+    inv = r.json()
+    old = query_of(inv["link"])["invite"]
+    async with dbmod.get_session_factory()() as s:
+        await s.execute(update(SsoInvite).values(expires_at=utcnow() - timedelta(days=1)))
+        await s.commit()
+    assert (await sso.client.get(f"/api/v1/auth/sso/invites/{old}")).status_code == 410
+    r = await sso.client.get("/api/v1/auth/sso/entra/start", params={"invite": old})
+    assert error_of(r.headers["location"]) == "invite_expired"
+    again = await sso.client.post(
+        "/api/v1/auth/sso/admin/invites", json={"email": "f.arslan@uni.edu.tr"}, headers=sso.admin
+    )
+    assert again.status_code == 409 and again.json()["detail"]["code"] == "invite_pending"
+    r = await sso.client.post(f"/api/v1/auth/sso/admin/invites/{inv['id']}/renew", headers=sso.admin)
+    assert r.status_code == 200, r.text
+    new = query_of(r.json()["link"])["invite"]
+    assert new != old and r.json()["status"] == "invited"
+    assert (await sso.client.get(f"/api/v1/auth/sso/invites/{old}")).status_code == 404
+    assert (await sso.client.get(f"/api/v1/auth/sso/invites/{new}")).json()["days_left"] == 30
+    assert (
+        await sso.client.delete(f"/api/v1/auth/sso/admin/invites/{inv['id']}", headers=sso.admin)
+    ).status_code == 204
+    actions = [e.action for e in await _all(AuditEvent, AuditEvent.action.like("user.invite%"))]
+    assert actions == ["user.invited", "user.invite_renewed", "user.invite_revoked"]
+
+
+async def test_instructor_link_on_invite_and_by_admin(sso):  # noqa: F811
+    from app.models import Instructor
+
+    async with dbmod.get_session_factory()() as s:
+        a = Instructor(full_name="DR. ÖĞR. ÜYESİ ŞEHRİBAN SERBEST", canonical_name="sehriban serbest")
+        b = Instructor(full_name="Prof. Dr. Mustafa AKTEKİN", canonical_name="mustafa aktekin")
+        s.add_all([a, b])
+        await s.commit()
+        ia, ib = a.id, b.id
+    r = await sso.client.post(
+        "/api/v1/auth/sso/admin/invites", json={"email": "s.serbest@uni.edu.tr", "instructor_id": ia}, headers=sso.admin
+    )
+    assert r.status_code == 201, r.text
+    uid = r.json()["user_id"]
+    assert (await _one(Instructor, Instructor.id == ia)).user_id == uid
+    status = (await sso.client.get("/api/v1/auth/sso/admin/user-status", headers=sso.admin)).json()
+    assert status[str(uid)]["instructor_id"] == ia
+    url = f"/api/v1/auth/sso/admin/users/{uid}/instructor"
+    r = await sso.client.put(url, json={"instructor_id": ib}, headers=sso.admin)
+    assert r.status_code == 200 and r.json() == {"user_id": uid, "instructor_id": ib}
+    assert (await _one(Instructor, Instructor.id == ia)).user_id is None
+    other, _ = await make_user(sso.client, sso.admin, "m.aktekin@uni.edu.tr")
+    r = await sso.client.put(
+        f"/api/v1/auth/sso/admin/users/{other}/instructor", json={"instructor_id": ib}, headers=sso.admin
+    )
+    assert r.status_code == 409  # one login per instructor record
+    assert (await sso.client.put(url, json={"instructor_id": None}, headers=sso.admin)).json()["instructor_id"] is None
+    assert (await sso.client.put(url, json={"instructor_id": 999999}, headers=sso.admin)).status_code == 422
+    links = await _all(AuditEvent, AuditEvent.action == "user.instructor_link")
+    assert [e.after["instructor_ids"] for e in links] == [[ia], [ib], []]

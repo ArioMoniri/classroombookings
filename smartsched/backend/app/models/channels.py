@@ -1,4 +1,6 @@
-"""Notification channels ("Bildirim kanalları"; owner decision 2026-10-15, docs/product/2026-10-15-integrations-options.md).
+"""Notification channels ("Bildirim kanalları"; owner decision 2026-10-15).
+
+Design: docs/product/2026-10-15-integrations-options.md.
 
 The institution owns one sender per service (a Telegram bot, a WhatsApp Business number, an SMS account, VAPID keys,
 department webhooks in Teams / Slack); a user links only an **address**. SmartSched never holds a user's OAuth token

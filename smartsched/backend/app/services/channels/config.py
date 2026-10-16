@@ -27,8 +27,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decrypt_secret, encrypt_secret
 from app.importers import normalize as n
-from app.models import NotifyChannelConfig, User
+from app.models import User
 from app.models.base import utcnow
+from app.models.channels import NotifyChannelConfig
 from app.services import audit
 from app.services.bookings_settings import kvkk_signed
 
@@ -117,7 +118,10 @@ SENDERS: dict[str, tuple[str, ...]] = {
     "whatsapp": ("whatsapp", "whatsapp_web"),  # the official Cloud API first; the bridge only if it is the one on
     "sms": ("sms",),
 }
-SMS_PROVIDERS: dict[str, tuple[str, str]] = {"twilio": ("account_sid", "auth_token"), "vonage": ("api_key", "api_secret")}
+SMS_PROVIDERS: dict[str, tuple[str, str]] = {
+    "twilio": ("account_sid", "auth_token"),
+    "vonage": ("api_key", "api_secret"),
+}
 
 RISK_TR = (
     "WhatsApp Web köprüsü resmi olmayan WhatsApp Web (çoklu cihaz) protokolünü kullanır. Bu, WhatsApp kullanım "
@@ -231,7 +235,7 @@ async def _row(session: AsyncSession, kind: str) -> NotifyChannelConfig | None:
 async def _target_count(session: AsyncSession, kind: str) -> int:
     from sqlalchemy import func, select
 
-    from app.models import ChannelDepartmentTarget
+    from app.models.channels import ChannelDepartmentTarget
 
     q = select(func.count()).select_from(ChannelDepartmentTarget).where(ChannelDepartmentTarget.kind == kind)
     return int((await session.execute(q)).scalar_one())
@@ -361,7 +365,9 @@ def clean_option(kind: str, name: str, value: Any) -> Any:
         if c.lower().startswith("https://"):
             return c
         if not _EMAIL_RX.match(c):
-            raise _bad(name, "an e-mail address or https URL of the operator", "işletmecinin e-posta ya da https adresi")
+            raise _bad(
+                name, "an e-mail address or https URL of the operator", "işletmecinin e-posta ya da https adresi"
+            )
         return f"mailto:{c}"
     if name == "ttl_s":
         try:
@@ -444,7 +450,9 @@ async def update(session: AsyncSession, kind: str, body: dict[str, Any], admin: 
     for name, value in secrets_in.items():
         if name not in spec.secrets:
             raise ConfigError(
-                "invalid_secret", f"{name}: not a credential of {kind}", f"{name}: {kind} kanalının kimlik bilgisi değil"
+                "invalid_secret",
+                f"{name}: not a credential of {kind}",
+                f"{name}: {kind} kanalının kimlik bilgisi değil",
             )
         cleaned_secret = clean_secret(name, value)
         if cleaned_secret is None:
@@ -504,7 +512,9 @@ async def update(session: AsyncSession, kind: str, body: dict[str, Any], admin: 
         )
     if body.get("risk_ack") is not None:
         if kind != "whatsapp_web":
-            raise ConfigError("risk_ack", "only the WhatsApp Web bridge needs a risk acknowledgement", "yalnızca WhatsApp Web köprüsü")
+            raise ConfigError(
+                "risk_ack", "only the WhatsApp Web bridge needs a risk acknowledgement", "yalnızca WhatsApp Web köprüsü"
+            )
         cfg.risk_ack = (
             {"acknowledged": True, "by": audit.user_label(admin), "by_user_id": admin.id, "at": now, "text_en": RISK_EN}
             if body["risk_ack"] is True
@@ -552,7 +562,7 @@ async def ensure_vapid(session: AsyncSession, admin: User, rotate: bool = False)
     if rotate:
         from sqlalchemy import delete
 
-        from app.models import UserChannel
+        from app.models.channels import UserChannel
 
         await session.execute(delete(UserChannel).where(UserChannel.kind == "webpush"))
     await save(session, cfg, admin)

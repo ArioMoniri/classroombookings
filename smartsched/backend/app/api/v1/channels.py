@@ -38,7 +38,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, R
 from sqlalchemy import select
 
 from app.api.deps import DB, CurrentUser, require_permission
-from app.models import ChannelDelivery, User, UserChannel
+from app.models import User
+from app.models.channels import ChannelDelivery, UserChannel
 from app.schemas.channels import ChannelConfigIn, CodeIn, DepartmentTargetIn, PhoneLinkIn, VapidIn, WebPushLinkIn
 from app.services import audit
 from app.services.channels import bridge, config, links, outbox, targets, transport
@@ -101,7 +102,12 @@ async def admin_telegram_setup(db: DB, admin: SettingsAdmin) -> dict[str, Any]:
     try:
         me = await transport.telegram_api(token, "getMe")
         if not me.get("ok"):
-            raise ConfigError("telegram_refused", f"Telegram refused the token: {me.get('description') or me.get('http_status')}", "Telegram jetonu reddetti", 502)
+            raise ConfigError(
+                "telegram_refused",
+                f"Telegram refused the token: {me.get('description') or me.get('http_status')}",
+                "Telegram jetonu reddetti",
+                502,
+            )
         username = str((me.get("result") or {}).get("username") or "")
         if username:
             cfg.options["bot_username"] = username
@@ -125,22 +131,40 @@ async def admin_telegram_setup(db: DB, admin: SettingsAdmin) -> dict[str, Any]:
         elif mode == "poll":
             await transport.telegram_api(token, "deleteWebhook", {"drop_pending_updates": False})
     except transport.ProviderCallError as exc:
-        raise HTTPException(502, {"code": "telegram_unreachable", "message": str(exc), "message_tr": "Telegram'a ulaşılamadı"}) from None
+        raise HTTPException(
+            502, {"code": "telegram_unreachable", "message": str(exc), "message_tr": "Telegram'a ulaşılamadı"}
+        ) from None
     except ConfigError as exc:
         raise _http(exc) from None
     await config.save(db, cfg, admin)
-    await audit.record(db, "channels.telegram_setup", "notify_channel", "telegram", after={"mode": mode, "webhook_set": webhook_set, "bot": username}, actor=admin)
+    await audit.record(
+        db,
+        "channels.telegram_setup",
+        "notify_channel",
+        "telegram",
+        after={"mode": mode, "webhook_set": webhook_set, "bot": username},
+        actor=admin,
+    )
     await db.commit()
-    return {"bot_username": cfg.options.get("bot_username"), "mode": mode, "webhook_set": webhook_set, "webhook_url": webhook_url}
+    return {
+        "bot_username": cfg.options.get("bot_username"),
+        "mode": mode,
+        "webhook_set": webhook_set,
+        "webhook_url": webhook_url,
+    }
 
 
 @router.get("/channels/admin/departments")
-async def admin_departments(db: DB, _: SettingsAdmin, kind: str | None = Query(default=None, pattern="^(teams|slack)$")) -> list[dict[str, Any]]:
+async def admin_departments(
+    db: DB, _: SettingsAdmin, kind: str | None = Query(default=None, pattern="^(teams|slack)$")
+) -> list[dict[str, Any]]:
     return await targets.listing(db, kind)
 
 
 @router.put("/channels/admin/{kind}/departments/{department_id}")
-async def admin_put_department(kind: str, department_id: int, body: DepartmentTargetIn, db: DB, admin: SettingsAdmin) -> dict[str, Any]:
+async def admin_put_department(
+    kind: str, department_id: int, body: DepartmentTargetIn, db: DB, admin: SettingsAdmin
+) -> dict[str, Any]:
     try:
         out = await targets.put(db, kind, department_id, body.url, admin)
     except ConfigError as exc:

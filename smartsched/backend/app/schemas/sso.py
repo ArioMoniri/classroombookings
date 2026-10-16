@@ -8,6 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.auth import TokenOut
 from app.services import sso as svc
 
 
@@ -24,7 +25,10 @@ class SsoConfigIn(BaseModel):
     tenant_id: str | None = Field(default=None, max_length=80)
     client_id: str | None = Field(default=None, max_length=80)
     client_secret: str | None = Field(default=None, max_length=512)
-    auto_provision: bool | None = None
+    #: the ``sso_self_signup`` setting (default on): off = invite-only
+    self_signup: bool | None = None
+    #: login page hint (``uni.edu.tr``); "" clears
+    domain_hint: str | None = Field(default=None, max_length=255)
     default_role_id: int | None = None
     oidc_only_non_admins: bool | None = None
     role_mapping_enabled: bool | None = None
@@ -35,6 +39,11 @@ class SsoConfigIn(BaseModel):
     @classmethod
     def _tenant(cls, v: str | None) -> str | None:
         return svc.clean_tenant(v) if v is not None else None
+
+    @field_validator("domain_hint")
+    @classmethod
+    def _domain(cls, v: str | None) -> str | None:
+        return svc.clean_domain(v) if v is not None else None
 
     @field_validator("client_id")
     @classmethod
@@ -68,7 +77,8 @@ class SsoConfigOut(BaseModel):
     authority: str | None
     redirect_uri: str | None
     public_url_source: str | None
-    auto_provision: bool
+    self_signup: bool
+    domain_hint: str | None
     default_role: RoleRef | None
     oidc_only_non_admins: bool
     role_mapping_enabled: bool
@@ -99,6 +109,8 @@ class InviteIn(BaseModel):
     role: str | None = Field(default=None, max_length=16)
     role_id: int | None = None
     department_id: int | None = None
+    #: optional link to an instructor record (flow F-05; ``instructors.user_id``)
+    instructor_id: int | None = None
     days: int | None = Field(default=None, ge=1, le=365)
 
 
@@ -117,6 +129,28 @@ class InviteOut(BaseModel):
     created_at: datetime
     expires_at: datetime
     created_by: int | None
+    #: ``/login?invite=<token>`` to copy or e-mail (setup.users only)
+    link: str | None
+
+
+class PublicInviteOut(BaseModel):
+    kind: str
+    inviter_name: str | None
+    role_name: str | None
+    invited_masked: str | None
+    #: the invited UPN, passed to the start URL as ``login_hint``
+    login_hint: str
+    days_left: int
+    expires_at: datetime
+
+
+class InstructorIn(BaseModel):
+    instructor_id: int | None
+
+
+class InstructorOut(BaseModel):
+    user_id: int
+    instructor_id: int | None
 
 
 class LinkIn(BaseModel):
@@ -139,6 +173,15 @@ class ExchangeIn(BaseModel):
     ticket: str = Field(min_length=16, max_length=128)
 
 
+class SsoTokenOut(TokenOut):
+    """``TokenOut`` plus where to go: ``welcome`` is ``self`` / ``invited`` / ``bound`` on the sign-in that created
+    or bound the account (the panel shows ``/welcome``), else ``None``."""
+
+    next: str | None = None
+    welcome: str | None = None
+    inviter_name: str | None = None
+
+
 class SsoMeOut(BaseModel):
     provider: str = svc.PROVIDER
     linked: bool
@@ -158,7 +201,25 @@ class ProviderOut(BaseModel):
     start_url: str
 
 
+class MicrosoftAuthOut(BaseModel):
+    enabled: bool
+    label: str
+    start_url: str
+    domain_hint: str | None
+    self_signup: bool
+
+
+class PublicAuthOut(BaseModel):
+    """The ``auth`` block of the login page (sign-in.md §14)."""
+
+    microsoft: MicrosoftAuthOut
+    local_enabled: bool
+    ldap_enabled: bool
+    self_signup_role_name: str | None
+
+
 class ProvidersOut(BaseModel):
+    auth: PublicAuthOut
     providers: list[ProviderOut]
-    #: ``sso_error`` code of a redirect -> {"tr": ..., "en": ...}
+    #: ``error`` code of a redirect -> {"tr": ..., "en": ...}
     messages: dict[str, dict[str, str]]

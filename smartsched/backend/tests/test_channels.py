@@ -21,9 +21,9 @@ from tests.test_channels_support import (
     BOT_TOKEN,
     LEGAL,
     OFFICER,
-    TWILIO_SID,
     SLACK_URL,
     TEAMS_URL,
+    TWILIO_SID,
     TWILIO_TOKEN,
     WA_TOKEN,
     drain,
@@ -167,7 +167,9 @@ async def test_telegram_deep_link_nonce_links_the_chat_once_and_expires(client, 
 
     # Telegram's secret header is required
     assert (await client.post(hook, json=upd(f"/start {code}"))).status_code == 401
-    r = await client.post(hook, json=upd(f"/start {code}"), headers={"X-Telegram-Bot-Api-Secret-Token": "yanlis-gizli-anahtar"})
+    r = await client.post(
+        hook, json=upd(f"/start {code}"), headers={"X-Telegram-Bot-Api-Secret-Token": "yanlis-gizli-anahtar"}
+    )
     assert r.status_code == 401
     ok = {"X-Telegram-Bot-Api-Secret-Token": secret}
     # a group chat cannot be linked as a person's address
@@ -188,7 +190,9 @@ async def test_telegram_deep_link_nonce_links_the_chat_once_and_expires(client, 
     r = await client.post(f"{ME}/telegram/link", headers=burak)
     code2 = r.json()["deep_link"].split("start=")[1]
     async with dbmod.get_session_factory()() as s:
-        await s.execute(update(ChannelLinkCode).where(ChannelLinkCode.user_id == bid).values(expires_at=datetime(2020, 1, 1)))
+        await s.execute(
+            update(ChannelLinkCode).where(ChannelLinkCode.user_id == bid).values(expires_at=datetime(2020, 1, 1))
+        )
         await s.commit()
     await client.post(hook, json=upd(f"/start {code2}", chat=5550003), headers=ok)
     assert await _rows(UserChannel, user_id=bid) == []
@@ -210,7 +214,10 @@ async def test_telegram_long_poll_mode_completes_the_link_without_an_inbound_web
     code = (await client.post(f"{ME}/telegram/link", headers=ayse)).json()["deep_link"].split("start=")[1]
     assert (await client.post(f"{ME}/telegram/check", headers=ayse)).json()["linked"] is False
     net.telegram_updates = [
-        {"update_id": 41, "message": {"message_id": 1, "chat": {"id": 5550009, "type": "private"}, "text": f"/start {code}"}}
+        {
+            "update_id": 41,
+            "message": {"message_id": 1, "chat": {"id": 5550009, "type": "private"}, "text": f"/start {code}"},
+        }
     ]
     r = await client.post(f"{ME}/telegram/check", headers=ayse)
     assert r.status_code == 200 and r.json()["linked"] is True, r.text
@@ -219,7 +226,9 @@ async def test_telegram_long_poll_mode_completes_the_link_without_an_inbound_web
     assert net.telegram_calls("getUpdates")[-1]["offset"] == 42  # confirmed updates are not fetched again
     # webhook mode: setup registers the webhook with Telegram's secret header
     await client.put(f"{ADMIN}/telegram", json={"options": {"update_mode": "webhook"}}, headers=admin)
-    await client.put("/api/v1/calendar/admin/settings", json={"public_url": "https://smartsched.uni.edu.tr"}, headers=admin)
+    await client.put(
+        "/api/v1/calendar/admin/settings", json={"public_url": "https://smartsched.uni.edu.tr"}, headers=admin
+    )
     setup = await client.post(f"{ADMIN}/telegram/setup", headers=admin)
     assert setup.json()["webhook_set"] is True, setup.text
     (call,) = net.telegram_calls("setWebhook")
@@ -301,7 +310,11 @@ async def test_whatsapp_link_needs_the_opt_in_and_sends_the_code_with_the_approv
         admin,
         "whatsapp",
         secrets={"access_token": WA_TOKEN},
-        options={"phone_number_id": "123456789012345", "template_notice": "smartsched_notice", "template_code": "smartsched_code"},
+        options={
+            "phone_number_id": "123456789012345",
+            "template_notice": "smartsched_notice",
+            "template_code": "smartsched_code",
+        },
     )
     avail = (await client.get(ME, headers=ayse)).json()["available"]
     wa = next(a for a in avail if a["kind"] == "whatsapp")
@@ -336,9 +349,7 @@ async def test_webpush_vapid_is_generated_once_and_push_goes_encrypted_to_an_all
     out = await enable(client, admin, "webpush", options={"contact": "bilgi-islem@uni.edu.tr"})
     assert out["enabled"] is True and out["options"]["contact"] == "mailto:bilgi-islem@uni.edu.tr"
     avail = (await client.get(ME, headers=ayse)).json()["available"]
-    assert avail == [
-        {**avail[0], "kind": "webpush", "link": "webpush", "vapid_public_key": public}
-    ]
+    assert avail == [{**avail[0], "kind": "webpush", "link": "webpush", "vapid_public_key": public}]
     sub = {"endpoint": FCM, "keys": {"p256dh": P256DH, "auth": AUTH}}
     # forged endpoints: not a push service, a private address, plain http, metadata
     for endpoint in (
@@ -357,7 +368,9 @@ async def test_webpush_vapid_is_generated_once_and_push_goes_encrypted_to_an_all
         headers=ayse,
     )
     assert r.status_code == 422, r.text
-    r = await client.post(ME + "/webpush", json={"subscription": {**sub, "keys": {"p256dh": "kısa", "auth": AUTH}}}, headers=ayse)
+    r = await client.post(
+        ME + "/webpush", json={"subscription": {**sub, "keys": {"p256dh": "kısa", "auth": AUTH}}}, headers=ayse
+    )
     assert r.status_code == 422
     r = await client.post(ME + "/webpush", json={"subscription": sub, "label": "Telefonum"}, headers=ayse)
     assert r.status_code == 201 and r.json()["display_hint"] == "fcm.googleapis.com", r.text
@@ -410,7 +423,6 @@ async def test_unlink_deletes_the_address_and_what_was_waiting_for_it(client, ne
 # --------------------------------------------------------------------------------------------------
 
 
-
 async def test_department_webhooks_refuse_urls_outside_the_vendor_allowlist_and_private_addresses(client, net):  # noqa: F811
     admin = await login(client)
     async with dbmod.get_session_factory()() as s:
@@ -450,7 +462,9 @@ async def test_department_webhooks_refuse_urls_outside_the_vendor_allowlist_and_
     listing = await client.get(f"{ADMIN}/departments", headers=admin)
     assert {(t["kind"], t["department"]) for t in listing.json()} == {("teams", "Psikoloji"), ("slack", "Psikoloji")}
     assert "fakeSlackHookPart" not in listing.text and "fakeSignature" not in listing.text
-    (row,) = [t for t in await _rows(__import__("app.models", fromlist=["x"]).ChannelDepartmentTarget) if t.kind == "slack"]
+    (row,) = [
+        t for t in await _rows(__import__("app.models", fromlist=["x"]).ChannelDepartmentTarget) if t.kind == "slack"
+    ]
     assert "fakeSlackHookPart" not in row.url_enc
     assert (await client.delete(f"{ADMIN}/slack/departments/{dept_id}", headers=admin)).status_code == 204
 

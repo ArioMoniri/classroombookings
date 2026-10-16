@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `fd4ff39` (committed 2026-10-16 00:42 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `f5ac640` (committed 2026-10-16 00:51 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -144,7 +144,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-118 agents in [`docs/agents/registry.json`](agents/registry.json): running 7 · finished 97 · stopped 7 · superseded 7.
+118 agents in [`docs/agents/registry.json`](agents/registry.json): running 6 · finished 98 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -153,7 +153,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `design-system-overhaul-2026-10-15` | frontend-engineer | 2026-10-15 21:48 |
 | `notify-channels-apprise-2026-10-15` | backend-engineer | 2026-10-15 22:43 |
 | `sso-entra-2026-10-15` | backend-engineer | 2026-10-15 22:43 |
-| `approval-notify-followups-2026-10-15` | backend-engineer | 2026-10-15 22:51 |
 | `p19-backend-gaps-2026-10-15` | backend-engineer | 2026-10-15 22:58 |
 
 <!-- /AUTO:agents -->
@@ -221,7 +220,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **142 ticked · 245 open** checkboxes in 49 sections (46 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **142 ticked · 251 open** checkboxes in 50 sections (47 with open items).
 
 <details><summary>Per section</summary>
 
@@ -276,6 +275,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Approval-first backend finished (0025_approval_first) | 1 | 1 |
 | Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend) | 0 | 3 |
 | Flow scripts finished (2026-10-15): gaps to close before round 1 | 0 | 11 |
+| Approval and notification follow-ups finished (2026-10-16) | 0 | 6 |
 
 </details>
 

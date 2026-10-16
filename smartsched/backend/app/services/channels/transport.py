@@ -120,7 +120,7 @@ async def apprise_send(url: str, title: str, body: str, secrets: Iterable[str]) 
             ap = apprise.Apprise()
             if not ap.add(url):
                 return SendResult(False, "the sender URL is not valid for Apprise (check the channel settings)")
-            with apprise.LogCapture(level=logging.INFO) as captured:
+            with apprise.LogCapture(level=logging.INFO) as captured:  # type: ignore[no-untyped-call]
                 ok = bool(ap.notify(body=body, title=title))
                 text = captured.getvalue() if hasattr(captured, "getvalue") else ""
             if ok:

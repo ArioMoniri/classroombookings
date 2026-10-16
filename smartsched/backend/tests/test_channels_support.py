@@ -27,7 +27,9 @@ TWILIO_SID = "AC" + "0123456789abcdef" * 2  # built at runtime: a literal trips 
 TWILIO_TOKEN = "f00dfeed" * 4
 WA_TOKEN = "EAAG" + "fakeWhatsAppCloudToken" + "0123456789"
 OFFICER = "KVKK irtibat kişisi Elif Şahin"
-SLACK_URL = "https://hooks.slack.com/services/" + "/".join(("T" + "0123ABCD", "B" + "0456EFGH", "fakeSlackHookPart" + "0123"))
+SLACK_URL = "https://hooks.slack.com/services/" + "/".join(
+    ("T" + "0123ABCD", "B" + "0456EFGH", "fakeSlackHookPart" + "0123")
+)
 TEAMS_URL = (
     "https://prod-12.westeurope.logic.azure.com:443/workflows/4f1c2b9a7d6e/triggers/manual/paths/invoke"
     + "?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig="
@@ -66,7 +68,9 @@ class FakeNet:
         if host == "api.telegram.org":
             method = request.url.path.rsplit("/", 1)[-1]
             if method == "getMe":
-                return httpx.Response(200, json={"ok": True, "result": {"id": 7712345678, "username": "SmartSchedUniBot"}})
+                return httpx.Response(
+                    200, json={"ok": True, "result": {"id": 7712345678, "username": "SmartSchedUniBot"}}
+                )
             if method == "setWebhook":
                 return httpx.Response(200, json={"ok": True, "result": True})
             if method == "getUpdates":
