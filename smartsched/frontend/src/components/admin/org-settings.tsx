@@ -94,7 +94,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
               <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="sr-only" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0], { onSuccess: (r) => setLogo(r.logo_url ? `${r.logo_url}?v=${Date.now()}` : null), onError: toastError })} />
             </Button>
             {logo ? (
-              <Button variant="ghost" size="icon-sm" aria-label={t("crbs.org.removeLogo")} onClick={() => dropLogo.mutate(undefined, { onSuccess: () => setLogo(null), onError: toastError })}>
+              <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.org.removeLogo")} onClick={() => dropLogo.mutate(undefined, { onSuccess: () => setLogo(null), onError: toastError })}>
                 <Trash2 />
               </Button>
             ) : null}
@@ -314,7 +314,7 @@ function TranslationsEditor({ languages }: { languages: readonly Locale[] }) {
                 {tr.set}.{tr.key}
               </span>
               <Input aria-label={`${tr.set}.${tr.key}`} defaultValue={tr.text} onBlur={(e) => e.target.value !== tr.text && upsert.mutate([{ language: tr.language, set: tr.set, key: tr.key, text: e.target.value }], { onSuccess: () => toast.success(t("crbs.common.saved")), onError: toastError })} />
-              <Button variant="ghost" size="icon-sm" aria-label={t("crbs.common.delete")} onClick={() => remove.mutate(tr.id, { onError: toastError })}>
+              <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.common.delete")} onClick={() => remove.mutate(tr.id, { onError: toastError })}>
                 <Trash2 />
               </Button>
             </li>

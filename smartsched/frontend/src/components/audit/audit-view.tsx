@@ -251,7 +251,7 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
           onClick={() => setOpen((x) => !x)}
           aria-expanded={open}
           aria-controls={panel}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left"
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg text-left pointer-fine:min-h-0"
         >
           <ChevronDown className={cn("size-4 shrink-0 text-label-3 transition-transform duration-(--dur-fast)", open && "rotate-180")} aria-hidden />
           <span className="min-w-0 flex-1">

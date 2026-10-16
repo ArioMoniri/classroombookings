@@ -44,10 +44,10 @@ export function WeeksAdmin() {
                     {w.name}
                   </span>
                   <span className="flex-1 font-mono type-footnote text-label-3">{w.bgcol}</span>
-                  <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.editNamed", { name: w.name })} onClick={() => setEditing(w)}>
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.editNamed", { name: w.name })} onClick={() => setEditing(w)}>
                     <Pencil />
                   </Button>
-                  <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.deleteNamed", { name: w.name })} onClick={() => setDeleting(w)}>
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.deleteNamed", { name: w.name })} onClick={() => setDeleting(w)}>
                     <Trash2 />
                   </Button>
                 </li>

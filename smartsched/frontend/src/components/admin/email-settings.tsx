@@ -137,7 +137,7 @@ function OutboxList() {
                 {m.status === "SENT" ? t("crbs.email.sent") : m.status === "FAILED" ? t("crbs.email.failed") : t("crbs.email.unsent")}
               </Badge>
               {m.status !== "SENT" && m.kind !== "password_reset" && m.to_email ? (
-                <Button variant="ghost" size="icon-sm" aria-label={t("crbs.email.retry")} disabled={retry.isPending} onClick={() => retry.mutate(m.id, { onError: toastError })}>
+                <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.email.retry")} disabled={retry.isPending} onClick={() => retry.mutate(m.id, { onError: toastError })}>
                   <RotateCw />
                 </Button>
               ) : null}

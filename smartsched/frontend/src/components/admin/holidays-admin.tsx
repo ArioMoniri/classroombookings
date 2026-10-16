@@ -73,10 +73,10 @@ export function HolidaysAdmin() {
                   {t("admingaps.holidays.days", { n: holidayDays(h) })}
                 </span>
                 <span className="flex shrink-0">
-                  <Button variant="ghost" size="icon-sm" aria-label={t("admingaps.holidays.editNamed", { name: h.name })} onClick={() => setEditing(h)} data-testid="holiday-edit">
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("admingaps.holidays.editNamed", { name: h.name })} onClick={() => setEditing(h)} data-testid="holiday-edit">
                     <Pencil />
                   </Button>
-                  <Button variant="ghost" size="icon-sm" aria-label={t("crbs.holidays.deleteNamed", { name: h.name })} onClick={() => setDeleting(h)}>
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.holidays.deleteNamed", { name: h.name })} onClick={() => setDeleting(h)}>
                     <Trash2 />
                   </Button>
                 </span>

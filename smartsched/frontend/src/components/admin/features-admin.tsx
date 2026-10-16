@@ -141,10 +141,10 @@ export function FeaturesTab() {
                     {[f.filterable ? t("wave1.features.filterable") : null, f.public ? t("wave1.features.public") : t("wave1.features.private"), f.category && CATEGORY_KEY[f.category] ? t(CATEGORY_KEY[f.category]!) : null].filter(Boolean).join(" · ")}
                   </TableCell>
                   <TableCell className="pr-4 text-right whitespace-nowrap">
-                    <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.editNamed", { name: f.name })} onClick={() => setEditing(f)}>
+                    <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.editNamed", { name: f.name })} onClick={() => setEditing(f)}>
                       <Pencil />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.deleteNamed", { name: f.name })} onClick={() => setDeleting(f)}>
+                    <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.deleteNamed", { name: f.name })} onClick={() => setDeleting(f)}>
                       <Trash2 />
                     </Button>
                   </TableCell>

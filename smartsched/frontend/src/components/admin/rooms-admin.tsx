@@ -169,10 +169,10 @@ function GroupsTab() {
                   <span className="block truncate type-footnote text-label-2">{[t("crbs.rooms.roomCount", { n: g.room_count }), g.description].filter(Boolean).join(" · ")}</span>
                 </span>
                 <span className="flex shrink-0">
-                  <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.editNamed", { name: g.name })} onClick={() => setEditing(g)}>
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.editNamed", { name: g.name })} onClick={() => setEditing(g)}>
                     <Pencil />
                   </Button>
-                  <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.deleteNamed", { name: g.name })} onClick={() => setDeleting(g)}>
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.deleteNamed", { name: g.name })} onClick={() => setDeleting(g)}>
                     <Trash2 />
                   </Button>
                 </span>
@@ -477,14 +477,14 @@ function RoomRow({ room: r, onEdit, onDelete }: { room: AdminRoom; onEdit: () =>
           </Badge>
         ) : null}
         {can(["setup.rooms_acl", "setup.users"]) ? (
-          <Button variant="ghost" size="icon-sm" render={<Link href={`/admin/access?room=${r.id}`} />} nativeButton={false} aria-label={t("admingaps.access.checkRoom", { name: r.display_name })} data-testid={`room-check-access-${r.code}`}>
+          <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" render={<Link href={`/admin/access?room=${r.id}`} />} nativeButton={false} aria-label={t("admingaps.access.checkRoom", { name: r.display_name })} data-testid={`room-check-access-${r.code}`}>
             <ShieldQuestion />
           </Button>
         ) : null}
-        <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.editNamed", { name: r.display_name })} onClick={onEdit} data-testid={`room-edit-${r.code}`}>
+        <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.editNamed", { name: r.display_name })} onClick={onEdit} data-testid={`room-edit-${r.code}`}>
           <Pencil />
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.deleteNamed", { name: r.display_name })} onClick={onDelete} data-testid={`room-delete-${r.code}`}>
+        <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.deleteNamed", { name: r.display_name })} onClick={onDelete} data-testid={`room-delete-${r.code}`}>
           <Trash2 />
         </Button>
       </span>
@@ -766,10 +766,10 @@ function FieldsTab() {
                   <TableCell className="text-label-2">{typeLabel[f.type]}</TableCell>
                   <TableCell className="hidden text-label-2 sm:table-cell">{f.options.map((o) => o.value).join(", ")}</TableCell>
                   <TableCell className="pr-4 text-right whitespace-nowrap">
-                    <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.editNamed", { name: f.name })} onClick={() => setEditing(f)}>
+                    <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.editNamed", { name: f.name })} onClick={() => setEditing(f)}>
                       <Pencil />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.deleteNamed", { name: f.name })} onClick={() => setDeleting(f)}>
+                    <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.deleteNamed", { name: f.name })} onClick={() => setDeleting(f)}>
                       <Trash2 />
                     </Button>
                   </TableCell>
@@ -901,7 +901,7 @@ function AclTab() {
                   <p className="type-headline text-label-1">
                     {a.entity_label} <span className="font-normal text-label-3">←</span> {t(`crbs.acl.ctx.${a.context_type}`)}: {a.context_label}
                   </p>
-                  <Button variant="ghost" size="icon-sm" aria-label={t("crbs.acl.remove")} onClick={() => remove.mutate(a.id, { onError: toastError })}>
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.acl.remove")} onClick={() => remove.mutate(a.id, { onError: toastError })}>
                     <Trash2 />
                   </Button>
                 </div>

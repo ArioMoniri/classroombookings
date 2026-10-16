@@ -198,7 +198,7 @@ function PeriodRow({ period: p, fmtDays }: { period: Period; fmtDays: (d: number
         <Switch size="sm" checked={p.bookable} aria-label={t("crbs.schedules.bookableNamed", { name: p.name })} onCheckedChange={(v) => update.mutate({ bookable: v }, { onError: toastError })} />
       </TableCell>
       <TableCell className="pr-3">
-        <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.deleteNamed", { name: p.name })} onClick={() => remove.mutate(undefined, { onError: toastError })}>
+        <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.deleteNamed", { name: p.name })} onClick={() => remove.mutate(undefined, { onError: toastError })}>
           <Trash2 />
         </Button>
       </TableCell>
