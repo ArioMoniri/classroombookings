@@ -308,6 +308,15 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/webhooks/{webhook_id}/secret": (E, "app.api.v1.webhooks"),
     "POST /api/v1/webhooks/{webhook_id}/test": (N, "ping (webhook_deliveries is the record)"),
     "POST /api/v1/webhooks/deliveries/{delivery_id}/redeliver": (E, "app.api.v1.webhooks"),
+    # booking enhancements wave 2: P8 booking policies + exam-period mode (booking_policy.* audit actions)
+    "POST /api/v1/booking-policies": (E, "app.api.v1.booking_policies"),
+    "PUT /api/v1/booking-policies/{policy_id}": (E, "app.api.v1.booking_policies"),
+    "DELETE /api/v1/booking-policies/{policy_id}": (E, "app.api.v1.booking_policies"),
+    "PUT /api/v1/booking-policies/exam-period": (E, "app.api.v1.booking_policies"),
+    # P2 conflict resolver after publishing (booking.move / booking.cancel / approval.reject + booking_conflict.*)
+    "POST /api/v1/bookings/conflicts/{run_id}/apply": (E, "app.services.booking_conflicts"),
+    "POST /api/v1/bookings/conflicts/{run_id}/auto": (N, "a dry-run suggestion; nothing changes"),
+    "POST /api/v1/bookings/conflicts/{run_id}/detect": (E, "app.services.booking_conflicts"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)

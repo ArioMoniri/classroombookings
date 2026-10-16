@@ -100,7 +100,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-25 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0029_booking_policies`**. A new migration goes on top of it (`alembic heads` must print one line).
+26 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0030_booking_conflicts`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -129,6 +129,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 23 | `0027_notify_channels` | `0026_sso_entra` | Notification channels ("Bildirim kanalları"; owner decision 2026-10-15, docs/product/2026-10-15-integrations-options.md) |
 | 24 | `0028_p19_gaps` | `0027_notify_channels` | Phase 19 backend gaps: program wizard drafts (P19-W-01) and person / programme priority (P19-P-04) |
 | 25 | `0029_booking_policies` | `0028_p19_gaps` | Booking policies and exam-period mode (booking enhancements wave 2, P8; docs/product/booking-enhancements.md §P8) |
+| 26 | `0030_booking_conflicts` | `0029_booking_policies` | Conflict resolver after publishing (booking enhancements wave 2, P2; docs/product/booking-enhancements.md §4.4) |
 
 <!-- /AUTO:migrations -->
 

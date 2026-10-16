@@ -139,3 +139,8 @@ api_router.include_router(analytics.router)
 from app.api.v1 import booking_policies as booking_policies_api  # noqa: E402
 
 api_router.include_router(booking_policies_api.router)
+
+# booking enhancements wave 2: P2 conflict resolver after publishing (/bookings/conflicts/{run_id}/...)
+from app.api.v1 import booking_conflicts as booking_conflicts_api  # noqa: E402
+
+api_router.include_router(booking_conflicts_api.router)
