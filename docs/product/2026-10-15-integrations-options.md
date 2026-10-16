@@ -432,3 +432,43 @@ Sources (beyond the repository files linked inline):
 - Web Push: https://www.rfc-editor.org/rfc/rfc8291 · https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/
 - KVKK Art. 9 after Law 7499: https://koksal.av.tr/en/knowledge-centre/how-to-compliantly-transfer-data-abroad-from-turkiye/ · https://erdem-erdem.av.tr/en/insights/public-announcement-on-key-considerations-for-standard-contracts-to-be-used-in-the-cross-border-transfer-of-personal-data · https://www.mondaq.com/cross-border-transfer-of-personal-data-and-key-considerations/1836354
 - Repository: `infra/aws/smartsched_aws.py`, `docs/deploy/AWS.md`, `smartsched/deploy/docker-compose.yml`, `smartsched/backend/app/services/{events,webhooks,approvals,bookings_notify,bookings_ldap,calendar_connectors}.py`, `smartsched/backend/app/models/system.py`, `docs/ROADMAP.md`, `docs/product/booking-enhancements.md`
+
+## 10. Addendum (2026-10-16): open-source WhatsApp Web tools
+
+The owner asked whether open-source WhatsApp CLI tools could replace the Business Cloud API. All of them speak the
+**unofficial WhatsApp Web multi-device protocol**: that breaks WhatsApp's terms of service (no unofficial or automated
+clients), and the number can be banned without warning. Protocol changes on WhatsApp's side also break them until the
+library is updated. The **WhatsApp Business Cloud API through Apprise stays the recommended path**.
+
+Licences were read from each repository's LICENSE file on its default branch on 2026-10-15
+(`raw.githubusercontent.com`; the GitHub REST API was not reachable from this session). Releases come from npm, PyPI,
+the Go module proxy and Docker Hub.
+
+| Tool | Licence (LICENSE file) | What it is | Latest release | Fit for SmartSched |
+|---|---|---|---|---|
+| [Baileys](https://github.com/WhiskeySockets/Baileys) | `MIT` ("MIT License, Copyright (c) 2025 Rajeh Taher/WhiskeySockets") | TypeScript library, WebSocket, no browser | npm `baileys` 7.0.0-rc14 (2026-07-29) | Licence fine, but it needs a Node service of our own around it (no Python binding); more code to own than wuzapi |
+| [whatsmeow](https://github.com/tulir/whatsmeow) | `MPL-2.0` ("Mozilla Public License Version 2.0") | Go library, WebSocket, no browser | Go proxy `v0.0.0-20261015105041-df33a485cc46` (2026-10-15; no tagged releases) | The engine under wuzapi and neonize. Used unmodified as a library, MPL-2.0 adds no duty to SmartSched |
+| [wuzapi](https://github.com/asternic/wuzapi) | `MIT` ("MIT License, Copyright (c) 2025 Nicolas Gudiño and contributors") | Go REST server on whatsmeow: sessions, QR, send text; SQLite or Postgres | Docker `asternic/wuzapi:1.0` (2026-09-17) | **Chosen for the optional adapter.** One small container. **Measured on 2026-10-15: 7.8 MiB idle and 11.8 MiB with one configured session** (`docker stats`; the sandbox could not reach WhatsApp, so a logged-in session is unmeasured, est. 30 to 60 MB) |
+| [neonize](https://github.com/krypton-byte/neonize) | `Apache-2.0` | Python binding over a whatsmeow shared library | PyPI 0.5.2 | Would run inside the backend, but then a long-lived WhatsApp session lives in every uvicorn worker (one session per number, so workers collide), and a crash of the native library takes the API down. Rejected |
+| [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js) | `Apache-2.0` | Node library that drives WhatsApp Web in headless Chromium (Puppeteer) | npm 1.34.7 (2026-04-24) | A Chromium per session (est. 300 MB or more) does not fit the pod. Rejected |
+| [WAHA](https://github.com/devlikeapro/waha) | Core `Apache-2.0`; "WAHA Plus" is a paid image | REST server with WEBJS / NOWEB / GOWS engines | — | Several sessions and other features are in the paid Plus image. Not needed beyond wuzapi |
+| [Evolution API](https://github.com/EvolutionAPI/evolution-api) | "Apache License 2.0, with the following additional conditions": logo / copyright kept in its frontend, a visible "Evolution API is used" notice, otherwise a commercial licence | REST server (Baileys) | — | Not plain Apache-2.0 (extra conditions). Rejected |
+| [mautrix-whatsapp](https://github.com/mautrix/whatsapp) | `AGPL-3.0` | Matrix bridge | — | Needs a Matrix homeserver; AGPL. Rejected |
+| [whatsapp-mcp](https://github.com/lharries/whatsapp-mcp) | `MIT` | An MCP server for LLM agents (whatsmeow bridge + Python) | — | Built for reading and answering chats from an AI client, not for sending notices. Not a fit |
+| `whatsapp-cli` projects, `go-whatsapp-web-multidevice` | LICENSE not found at the default path | CLIs / REST servers on whatsmeow | — | Licence not verified, so not considered |
+
+**What was built** (ledger `notify-channels-apprise-2026-10-15`). There is an optional sender, "WhatsApp (Web köprüsü,
+resmi değil)" (`whatsapp_web`), that talks to a wuzapi container at the operator-set `WHATSAPP_BRIDGE_URL`.
+- It is **off by default**. It sends only when all of these hold: an administrator switched it on, the bridge user
+  token is entered, the KVKK officer signed it off, an administrator gave the **explicit ToS / ban-risk
+  acknowledgement** (who and when, recorded), and the bridge session is logged in.
+- The administrator links a **dedicated institution number** once, by scanning the QR code shown in Settings
+  (`POST /api/v1/channels/admin/whatsapp_web/connect`).
+- The whatsmeow session files live in the bridge's `/app/dbdata` volume. On the AWS pod that volume is on the
+  encrypted gp3 EBS volume, so the files are encrypted at rest. wuzapi's own `WUZAPI_GLOBAL_ENCRYPTION_KEY` covers
+  what wuzapi encrypts; its README does not say that the device keys are part of it.
+- Users link "WhatsApp" once. If both senders are on, the Cloud API is used; the bridge serves only when it is the one
+  that is on.
+- Message ids sent to the bridge are deterministic per delivery, so a retry reuses the same id.
+
+What to request and how to run the container: [docs/deploy/notification-channels.md](../deploy/notification-channels.md) §3b.

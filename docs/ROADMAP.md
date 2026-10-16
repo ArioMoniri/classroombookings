@@ -883,6 +883,21 @@ Before the first `up pod=universal`: re-apply the OIDC bootstrap once with infra
   - SSM → `SSO_ENTRA_*` env wiring (devops).
   - Short session TTL for OIDC users until SCIM.
 - Calendar sync keeps its encrypted per-user OAuth tokens (the one exception, because it writes into the user's own calendar). Orchestrator default; owner may override.
+- [x] Channels backend (ledger notify-channels-apprise-2026-10-15):
+  - every channel is off until configured and signed off (KVKK); link-only mode is the default
+  - senders: Web Push (VAPID generated on the server), Telegram (one-time deep link, webhook or long poll), WhatsApp Cloud API, SMS (Twilio / Vonage), Teams / Slack department webhooks (vendor allowlist + M-41), optional WhatsApp Web bridge (wuzapi, explicit risk acknowledgement)
+  - phone numbers verified by a code sent through the channel; outbox `channel_deliveries` with retries; alembic 0027_notify_channels
+  - API in app/api/v1/channels.py; what to request: docs/deploy/notification-channels.md
+- [ ] Channels hooks, owned by other agents:
+  - start-up registration `channels.register()` into notify_dispatch; the approval-first tests that assert exactly `["in_app", "email"]` need updating
+  - `channels.outbox.drain_due` / `next_due` in app/workers/integrations.py `_drainers` / `_next_due_fns`
+  - the wa-bridge compose service (profile `whatsapp-bridge`)
+- [ ] Channels backlog:
+  - a Turkish SMS provider adapter (Netgsm / İleti Merkezi are not in Apprise); İYS question for legal
+  - personal Teams DMs (a Teams bot app) and Slack DMs (Sign in with Slack + bot token)
+  - department posts keyed by the room's department, not the approver's
+  - KVKK export / delete (A4) must include user_channels, channel_link_codes and channel_deliveries
+  - a monthly send counter per channel on the admin page (WhatsApp / SMS cost)
 - [ ] Frontend for channels (Profile › Bildirim kanalları, admin channel config + sign-off) and SSO (login button, admin config, role mapping): a dedicated agent, after the shell sweep releases profile/settings/auth.
 
 ### Owner decisions 2026-10-15 ~22:50: identity and sign-up
@@ -981,7 +996,7 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
   - Booking created, cancelled and room-owner e-mails now go through `notify_dispatch`. Users also get the same text in the app, and they can switch it off.
   - Audit rows for `learning.refresh` and `learning.purge_run`.
 - Open, routed to the owners:
-  - [ ] audit DECISIONS for `/auth/sso/*` (SSO: done 2026-10-16), `/channels/*` and `/me/channels/*` (channels), and the moderation priority routes (P19)
+  - [ ] audit DECISIONS for `/auth/sso/*` (SSO: done 2026-10-16), `/channels/*` and `/me/channels/*` (channels: done 2026-10-16), and the moderation priority routes (P19)
   - [ ] a migration for `priority_overrides` (P19)
   - [ ] `make lint` and `make type` in those files
 - For the approval UI agent:
