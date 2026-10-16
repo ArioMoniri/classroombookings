@@ -327,7 +327,7 @@ test("moderation: person priority with its source badge, server changes list, re
   await form.getByTestId("person-priority-save").click();
   await expect(page.getByText(/öncelik kaydedildi \(\d+ talep\)/).first()).toBeVisible();
   const ov = await call<{ items: { subject_id: number; priority: number; note: string }[] }>(page, "GET", `/terms/${term.id}/moderation/priorities?subject=person`);
-  expect(ov.body.items.find((o) => o.subject_id === person!.id)).toMatchObject({ priority: 10, note: "akreditasyon" });
+  expect(ov.body.items.find((o) => o.subject_id === person!.id)).toMatchObject({ priority: 1, note: "akreditasyon" }); // Yüksek = 1 (backend moderation.PRIORITY_TIERS)
 
   // the server-side staged list: every browser sees it
   await page.goto("/moderation?tab=matchings");
