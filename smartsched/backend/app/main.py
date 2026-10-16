@@ -114,6 +114,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.workers import integrations
 
     await integrations.on_startup()  # calendar push / webhook outbox rows left by a previous process
+    from app.services import channels
+
+    channels.register()  # notification channels (push, Telegram, WhatsApp, SMS, Teams/Slack) into notify_dispatch
     from app.services import learning
     from app.workers import approvals_sweeper
 
