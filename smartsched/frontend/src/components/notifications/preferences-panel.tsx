@@ -133,7 +133,7 @@ export function NotificationPreferencesPanel({ className }: { className?: string
                     const id = `pref-channel-${c.name}`;
                     return (
                       <li key={c.name} className="flex min-h-11 items-center justify-between gap-3 px-3 py-2 hairline-b last:shadow-none">
-                        <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer type-callout font-medium text-label-1">
+                        <label htmlFor={id} className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center type-callout font-medium text-label-1">
                           {label(c)}
                         </label>
                         <Switch id={id} checked={channelOn(c)} onCheckedChange={(on) => put([chanKey(c.name)], on, { channels: { [c.name]: on } })} data-testid={id} />
@@ -164,7 +164,7 @@ export function NotificationPreferencesPanel({ className }: { className?: string
                         <span className="type-footnote text-label-3">{t("notifications.prefs.groupCount", { n: events.length })}</span>
                       </summary>
                       <div className="flex min-h-11 items-center justify-between gap-3 px-3 py-1.5 hairline-t">
-                        <label htmlFor={allId} className="min-w-0 flex-1 cursor-pointer type-footnote font-medium text-label-2">
+                        <label htmlFor={allId} className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center type-footnote font-medium text-label-2">
                           {t("notifications.prefs.groupAll")}
                         </label>
                         <Switch id={allId} aria-label={t("notifications.prefs.groupAllLabel", { group: name })} checked={allOn} disabled={live.length === 0} onCheckedChange={(on) => toggleGroup(events, on)} data-testid={allId} />
@@ -180,7 +180,7 @@ export function NotificationPreferencesPanel({ className }: { className?: string
                                   const off = !channelOn(c);
                                   return (
                                     <li key={c.name} className="flex min-h-11 items-center justify-between gap-3 px-3 py-1.5">
-                                      <label htmlFor={id} className="min-w-0 flex-1 type-callout text-label-1">
+                                      <label htmlFor={id} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center type-callout text-label-1">
                                         {label(c)}
                                         {off ? <span className="block type-caption text-label-3">{t("notifications.prefs.channelOff")}</span> : null}
                                       </label>
@@ -217,14 +217,18 @@ export function NotificationPreferencesPanel({ className }: { className?: string
                                   {reachable.map((c) => {
                                     const off = !channelOn(c);
                                     return (
-                                      <td key={c.name} className={cn("px-2 py-2 text-center", off && "opacity-70")}>
-                                        <Switch
-                                          aria-label={t("notifications.prefs.toggle", { event: label(e), channel: label(c) })}
-                                          checked={!off && cellOn(e, c)}
-                                          disabled={off}
-                                          onCheckedChange={(on) => toggleCell(e, c, on)}
-                                          data-testid={`pref-${e.event}-${c.name}`}
-                                        />
+                                      <td key={c.name} className={cn("px-1 py-0 text-center", off && "opacity-70")}>
+                                        {/* MOBILE.md M-02: the 44 × 44 target is the label itself, so the matrix's scroller
+                                            cannot clip it (the switch's own ::after was cut at the table's edges) */}
+                                        <label className="relative inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center align-middle">
+                                          <Switch
+                                            aria-label={t("notifications.prefs.toggle", { event: label(e), channel: label(c) })}
+                                            checked={!off && cellOn(e, c)}
+                                            disabled={off}
+                                            onCheckedChange={(on) => toggleCell(e, c, on)}
+                                            data-testid={`pref-${e.event}-${c.name}`}
+                                          />
+                                        </label>
                                       </td>
                                     );
                                   })}

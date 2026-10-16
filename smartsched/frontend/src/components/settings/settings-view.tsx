@@ -16,6 +16,7 @@ import { HttpError } from "@/lib/api/client";
 import { aiFailureKind, testAiKey, useMeFull, usePermissions } from "@/lib/api/shell-extra";
 import { useHydrated } from "@/lib/use-hydrated";
 import { Input } from "@/components/ui/input";
+import { coarseHitArea } from "@/components/ui/hit-area";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,6 +34,7 @@ import type { Settings } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS } from "@/lib/time";
 import { useUiStore } from "@/stores/ui";
+import { cn } from "@/lib/utils";
 
 const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
 
@@ -125,8 +127,8 @@ function AiCard() {
               <div className="grid w-full flex-1 basis-full gap-1 sm:max-w-md sm:basis-auto">
                 <Label htmlFor="api-key">{t("settings.apiKey")}</Label>
                 <div className="relative">
-                  <Input id="api-key" ref={keyRef} type={show ? "text" : "password"} placeholder="sk-ant-…" autoComplete="off" spellCheck={false} className="pr-10 font-mono" onChange={() => test.state !== "untested" && setTest({ state: "untested" })} />
-                  <button type="button" aria-pressed={show} aria-label={show ? t("glass.auth.hidePassword") : t("glass.auth.showPassword")} onClick={() => setShow((v) => !v)} className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-label-3 hover:text-label-1">{show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
+                  <Input id="api-key" ref={keyRef} type={show ? "text" : "password"} placeholder="sk-ant-…" autoComplete="off" spellCheck={false} className="pr-11 font-mono" onChange={() => test.state !== "untested" && setTest({ state: "untested" })} />
+                  <button type="button" aria-pressed={show} aria-label={show ? t("glass.auth.hidePassword") : t("glass.auth.showPassword")} onClick={() => setShow((v) => !v)} className={cn("absolute inset-y-0 right-0 flex w-11 items-center justify-center text-label-3 hover:text-label-1", coarseHitArea)}>{show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
                 </div>
               </div>
               <Button size="sm" variant="outline" onClick={() => void runTest("typed")} disabled={test.state === "testing"} data-testid="test-key-typed">{t("glass.settings.testFirst")}</Button>
