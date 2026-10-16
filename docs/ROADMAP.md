@@ -1186,14 +1186,16 @@ Owns: `docs/testing/flows/** (except rounds/)`, `scripts/record/**`.
       check: On a stack.sh build, phone context: getComputedStyle(documentElement).getPropertyValue('--control-h-md') === '44px', and [data-testid=notification-bell] measures 44x44.
       files: scripts/record/stack.sh:168-185
       dedup: new
-- [ ] T-R1-44 · minor · lane G · R1-S-34 · The KVKK masking script leaves surname fragments on the first pass
+- [x] T-R1-44 · minor · lane G · R1-S-34 · The KVKK masking script leaves surname fragments on the first pass
+      done (lane G, f38a3db): the 7 rows were not surname fragments. The README §7 one-liner counted two shapes of kvkk_mask's own output as names: the title fragment the workbooks carry in the name (`Üye.` from "Dr. Öğr. Üye.") and hyphenated initials (`A.-B.`); reproduced on a full-data stack.sh stack (9 rows, all initials). `kvkk_mask.py --verify` is now the §7 check (instructors + users, title tokens and initials only, prints `left N` with shapes, exits 1); `stack.sh up` and `stack.sh mask` run it and stop on a leftover. Check: `stack.sh mask` → `left 0` on the first pass.
       verified: reported counts; not re-run (42142fe)
       cause: kvkk_mask.py misses title and name variants that appear after an F-08 commit (three shapes: a title initial or an initial followed by a surname fragment). Seven rows needed the README §4.4 block.
       fix: Handle title prefixes and multi-part surnames. Add a self-check that runs the README §7 query and fails on a non-zero count.
       check: Fresh stack, commit the Bahar list (F-08), `stack.sh mask` → the README §7 check returns 0 on the first pass.
       files: scripts/record/kvkk_mask.py
       dedup: new
-- [ ] T-R1-43 · trivial · lane G · R1-A-39, R1-S-39 · The flow files and the stack setup disagree with the product in six places
+- [x] T-R1-43 · trivial · lane G · R1-A-39, R1-S-39 · The flow files and the stack setup disagree with the product in six places
+      done (lane G): (1) F-01 S04: a second tap opens the detail sheet (`booking-pending`, "Talebi Rezervasyonlarım'da görün"); `book-duplicate-link` only on the 409 path (stale grid), now written that way. (2) F-03 oracle `{"field":…}` (`FeatureFilter`). (3) F-12: `entra/start?next=`, errors `/login?error=<code>&ref=`, no `return_path` / `sso_error`. (4) `REC_CAL_SIGNOFF=0` (setup_api.py, stack.sh; default 1 keeps the recordings' sign-off); README §4.2 exports it for testers; checked: fresh stack → `calendar_sync_enabled: false`, `signoff: null`. (5) README §4.4 links the academician with `PUT /auth/sso/admin/users/<id>/instructor`; F-05 S00 tests the built picker (`user-instructor`). (6) F-08 S09 masking moved after S11 (`stack.sh mask` + check). MOBILE.md M-02 skips the 1×1 sr-only skip link unless focused (checked on /bookings: no 'İçeriğe atla'); M-04 counts the dialog itself as a scroller (checked: the phone 'Yerel hesap oluştur' dialog, old false → new true). (7) F-06 (from lane F's T-R1-40): the academician's A-block habit is learned but hidden (`state=all` → `hidden`, `hidden_reason: room_already_set`); the accept/reject steps use a person with an open building card (instructor 98 or 125 on a stack.sh stack); checked on this lane's stack.
       verified: confirmed (42142fe)
       cause: (1) F-01 S04 names a book-duplicate-link testid that does not exist (behaviour present). (2) The F-03 oracle posts features [{"id":1}], but the API needs [{"field":1}] (422). (3) F-12 says return_path, but the backend uses `next`. (4) F-04 precondition 3 cannot hold: scripts/record/setup_api.py:92 signs off calendar sync during `up`. (5) The seed links the instructor with SQL; PUT /auth/sso/admin/users/<id>/instructor exists. (6) F-08 masks names (S09) before the re-upload steps S10/S11, which changes their result. Also: MOBILE.md M-02 counts the sr-only skip link (1x1); exclude it unless it is focused. And the open ROADMAP item 'MOBILE.md M-04 snippet' (dialogs that scroll themselves).
       fix: Fix the flow texts. Make the calendar sign-off in setup_api.py opt-in (REC_CAL_SIGNOFF=1), or add an F-04 precondition step that switches it off. Move F-08 S09 after S11, or mask a copy of the database for screenshots. Update the MOBILE.md M-02/M-04 snippets.
@@ -1796,7 +1798,7 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
     - [x] Dense grids on phones: done 2026-10-16 (dense-grids-phone; 47edcfb, bb085af, 00c02fb + checkpoints 061f089 / 6a3a68b). < 640 px: /rooms/[id] day view (day SegmentedControl, today preselected, 44 px period rows), /admin/sessions 46 px day cells with Gün / Hafta / Aralık tap modes, dashboard heat cells as a ranked BarList per day, /admin/roles role picker + 44 px booking permission rows; /runs/[id] back link 44 px and its tabs scroll in their own row (page was 421 px wide). 390 px probe: sessions 144 -> 0, rooms/1 123 -> 1 (the disabled prev-week button), dashboard 30 -> 0, roles 4 -> 0, runs/1 1 -> 0; 42 routes 323 -> 22.
     - [ ] Left: /profile pref matrix 16 and /settings password reveal (40 px) for wave-2 (59a8f4d claims both; re-probe); /analytics 2 for analytics UI.
     - [ ] Testers: the touch probe counts a disabled control (pointer-events none) as a miss (/rooms/1 "Önceki hafta" in week 1).
-    - [ ] Testers: the M-04 snippet counts only descendant scrollers; a popup that scrolls itself (ui/dialog on phones) reads as not scrollable.
+    - [x] Testers: the M-04 snippet counts only descendant scrollers; a popup that scrolls itself (ui/dialog on phones) reads as not scrollable. Done in T-R1-43 (lane G): the snippet includes the dialog itself.
   - **e2e stabilisation:**
     - pin the language per spec
     - selectors for the intended UI changes
@@ -1914,7 +1916,7 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - Probe at 390 px over 42 routes: M-02 offenders went from 519 to 323, and those under a bar from 177 to 2.
 - The dense-grids agent is done (orchestrator default): phones get a day view for the /admin/sessions and /rooms/[id] week grids, a list for the dashboard heat cells, and one role at a time for /admin/roles. The /admin/sessions "week grid" is a term calendar, so it kept 7-column months with 46 px cells and tap modes instead of a day view.
 - Sent to wave-2: the Profile preference-matrix switches and the settings password-reveal width.
-- [ ] MOBILE.md M-04 snippet: it only counts scrollers inside the dialog, so a phone Dialog that scrolls itself reads as not scrollable. Fix the snippet in the flow loop.
+- [x] MOBILE.md M-04 snippet: it only counts scrollers inside the dialog, so a phone Dialog that scrolls itself reads as not scrollable. Fix the snippet in the flow loop. Done in T-R1-43 (lane G): the snippet includes the dialog itself.
 
 ### Bookings wave-2 + KVKK UI finished (2026-10-16)
 
@@ -2069,6 +2071,7 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - lane D: KVKK export completeness
   - lane G: test-plan drift, plus T-R1-45, which checks whether the testers' touch readings came from tooling; lane A waits for its verdict
   - lane G hand-off, T-R1-45 done: the round-1 touch readings were a test-tool artefact (full-page screenshots switch Playwright's touch emulation off), not the stack.sh build. Lane A can start on the real list only (T-R1-01 verdict line). Testers use `scripts/record/lib/touch.mjs` from round 2.
+  - lane G hand-off, T-R1-44 and T-R1-43 done: masking check unified (`kvkk_mask.py --verify`), `REC_CAL_SIGNOFF=0` for flow stacks, F-01/F-03/F-04/F-05/F-08/F-12 and MOBILE M-02/M-04 match the code. Lane C can reproduce R1-S-12 with F-08's new order (S10/S11 before masking).
 - Lanes A, E and F start next. Lane H waits for the integrity agent's hand-off.
 - [ ] **Owner decision R1-S-37:** should a forced edit on the live (published) plan create a draft that needs re-publishing, or stay live with a banner showing the broken rule? The orchestrator recommends a draft: published plans stay 100/100.
 

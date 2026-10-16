@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `f38a3db` (committed 2026-10-16 13:58 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `0d34007` (committed 2026-10-16 13:59 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -227,7 +227,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **213 ticked · 361 open** checkboxes in 80 sections (77 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **217 ticked · 357 open** checkboxes in 80 sections (76 with open items).
 
 <details><summary>Per section</summary>
 
@@ -275,7 +275,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Intake agent finished (I1–I5, council gaps, intake memory, commit lock, A2–A4; head… | 0 | 4 |
 | Approval-first bookings + user channels + credential-free login (owner request… | 10 | 3 |
 | Standing flow loop: test → suggest → build → re-test (owner request 2026-10-15 22:20) | 0 | 2 |
-| Flow loop tickets — round 1 (suggester, 2026-10-16) | 3 | 47 |
+| Flow loop tickets — round 1 (suggester, 2026-10-16) | 5 | 45 |
 | Devops agent finished: first full gate table (5d0e6c2) + seed profiles + per-branch pods | 0 | 1 |
 | Owner decisions 2026-10-15 ~22:45: channels + login (from… | 2 | 4 |
 | Owner decisions 2026-10-15 ~22:50: identity and sign-up | 0 | 1 |
@@ -298,13 +298,13 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Follow-ups UI finished (2026-10-16) | 2 | 2 |
 | Backend follow-ups finished (2026-10-16) | 2 | 5 |
 | Planning analytics backend finished (2026-10-16); analytics UI launched | 3 | 2 |
-| Design migration and phone sweep finished (2026-10-16) | 1 | 3 |
+| Design migration and phone sweep finished (2026-10-16) | 2 | 2 |
 | Bookings wave-2 backend finished (2026-10-16); wave-2 + KVKK UI launched | 0 | 2 |
 | Backend test isolation finished (2026-10-16) | 0 | 2 |
 | Planning analytics UI finished (2026-10-16) | 4 | 1 |
 | Backend asks batch 2 finished (2026-10-16) | 4 | 1 |
 | Batch-2 endpoints UI finished (2026-10-16) | 0 | 2 |
-| Mobile polish finished (2026-10-16) | 0 | 1 |
+| Mobile polish finished (2026-10-16) | 1 | 0 |
 | Bookings wave-2 + KVKK UI finished (2026-10-16) | 2 | 3 |
 | Dense grids on phones finished (2026-10-16) | 0 | 2 |
 | Backend asks batch 3 finished (2026-10-16) | 0 | 1 |

@@ -20,9 +20,10 @@ Testable on `b75047b`: yes (L1–L4 and the UI landed: `components/learning/*`, 
    curl -fsS "$API/learning/memory/summary?term_id=$GUZ_ID" -H "Authorization: Bearer $A" > "$EV/curl/F06-summary-before.json"
    ```
 3. Pick the test subjects from the suggestions file:
-   - `P1` = the academician's instructor (`ACADEMICIAN_INSTRUCTOR_ID`). The expected suggestion is a **building preference "A Blok"** with evidence across 2 terms (needs scenario L1: 8/8 roomed classes in A block), and **no specific room**.
+   - `PA` = the academician's instructor (`ACADEMICIAN_INSTRUCTOR_ID`, 157 on a stack.sh stack). L1 is learned but **not offered**: `GET /learning/suggestions?term_id=$GUZ_ID&person_id=$PA&state=all` → a **building preference "A Blok"** with support 8/8 over **2 terms**, `state: "hidden"`, `hidden_reason: "room_already_set"`, no specific room. All four of their Güz classes already hold a definitive A room from the planning list, so there is no class left to target (a class that has its room is never targeted; lane F, T-R1-40). The default `state=open` list has no card for `PA`: that is correct, not a finding.
+   - `P1` = a person with an **open** building suggestion with 2-term evidence (on a stack.sh stack: instructor 98 or 125, building A / D). S01 and S03 use `P1`.
    - `SA`, `SR`, `SS` = three open suggestions of other people (accept, reject, snooze), preferably of different kinds. Note their ids, people and claims.
-   - If `P1` has no suggestion, record that as a finding against L1 (major) and use any person with ≥ 2 suggestions as `P1`.
+   - If no person has an open building suggestion with 2-term evidence, record that as a finding against L1 (major) and use any person with ≥ 2 open suggestions as `P1`.
 4. Constraint baseline: `GET /constraints?term_id=$GUZ_ID` → save it. Count the rows with `source = LEARNED` (expected 0).
 5. Expectations from L5/L6, checked in S09: no suggestion proposes A 204 for HEM 236 or MAT 112 §1 (a planner's locked double booking), and none proposes B 407 for MBG 034 (80 students locked in 30 seats).
 
@@ -38,7 +39,8 @@ Testable on `b75047b`: yes (L1–L4 and the UI landed: `components/learning/*`, 
   - an impact line **"Bu dönem {n} talebi etkiler"**, or **"{n} talep zaten başka bir şey istiyor; talep her zaman öğrenilmiş alışkanlıktan önce gelir"**;
   - the cross-season marker **"farklı dönem verisi içerir"** when Bahar evidence feeds a Güz suggestion (L2: then no room or slot suggestion, at most a building one);
   - actions **"Kabul et · {weight}"** (`suggestion-accept`, with a weight menu "Ağırlık seç": Düşük / Normal), **"Reddet"** (`suggestion-reject`), **"Ertele"** (`suggestion-snooze`).
-- For P1 (L1): the claim is an A-block building preference, with evidence "8/8"-like counts over **2 terms**. No card names a single room.
+- For P1 (L1): the claim is a building preference, with evidence counts over **2 terms**. No card names a single room, and no card that carries "farklı dönem verisi içerir" is a room preference (cross-season evidence gives a building at most; lane F fixed the room-feature case in T-R1-40).
+- For PA: `/moderation/people/<PA>` › Öneriler shows no open card; the API's hidden item says why (`room_already_set`).
 
 **S02 · admin · nothing is applied before a decision** (L3)
 - Do: start a Güz week-3 run through the Studio (or `POST /runs` as in `setup_api.py runs`) **without** accepting anything.
