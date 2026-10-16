@@ -90,10 +90,6 @@ def _ints(values: Iterable[Any] | None) -> list[int]:
     return out
 
 
-def _ratio(n: int, d: int) -> float:
-    return round(n / d, 4) if d > 0 else 0.0
-
-
 def building_of(room: Room) -> str:
     return room.building.code if room.building is not None else (room.code[:1] or "?")
 
@@ -442,15 +438,18 @@ def _col_weeks(col: Mapping[str, Any]) -> list[int]:
     return [int(col["week"])] if "week" in col else [int(w) for w in col["weeks"]]
 
 
+def _pct(n: int, d: int) -> float:
+    return round(100 * n / d, 1) if d > 0 else 0.0
+
+
 def _cell(occupied: int, held: int, blocked: int, capacity: int) -> dict[str, Any]:
-    free_cap = capacity - blocked
     return {
         "occupied": occupied,
         "held": held,
         "blocked": blocked,
         "capacity": capacity,
-        "pct": round(100 * _ratio(occupied, free_cap), 1),
-        "pct_with_blocks": round(100 * _ratio(occupied + blocked, capacity), 1),
+        "pct": _pct(occupied, capacity - blocked),
+        "pct_with_blocks": _pct(occupied + blocked, capacity),
     }
 
 
@@ -821,7 +820,7 @@ async def instructor_heatmap(
             "day": d,
             "period": p,
             "instructors": len(teaching.get((d, p), set())),
-            "pct": round(100 * _ratio(len(teaching.get((d, p), set())), total_people), 1),
+            "pct": _pct(len(teaching.get((d, p), set())), total_people),
         }
         for d in days
         for p in range(1, PERIODS_PER_DAY + 1)
