@@ -259,6 +259,16 @@ async def test_tercih_ekle_is_soft_targeted_lower_ranked_and_reviewed(real: dict
     res2 = solve(replace(base_inp, events=(replace(free, preferred_room_ids=()),), constraints=(only_wish,)))
     assert res2.assignments[0].room_ids == (c301,), res2
 
+    # --- the wish was reviewed for this term: copying the term's rules to another term leaves it out
+    r = await c.post(
+        f"{API}/studio/constraints/copy",
+        json={"to_term_id": real["guz_id"], "from_term_id": tid, "dry_run": True},
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+    copied = {it["source_id"] for bucket in ("will_match", "needs_review", "cannot_match") for it in r.json()[bucket]}
+    assert cid not in copied
+
     # --- a second wish is rejected with a reason: the academician is told why (in-app + e-mail outbox)
     r = await c.post(
         f"{API}/moderation/me/preferences",

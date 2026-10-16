@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `1447f29` (committed 2026-10-16 04:05 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `83bd6bd` (committed 2026-10-16 04:06 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -44,7 +44,7 @@ Done 33 · Backend only 4 · In progress 6 · Planned 0 (from [`docs/features.ym
 | Publish button with a scope confirmation; the publish guard refuses failed runs and keeps one active run per term | Done | P19-01, M-03 | [`studio-calendar-sweep.spec.ts`](../smartsched/frontend/e2e/studio-calendar-sweep.spec.ts) |
 | Exports to Excel, CSV and iCal | Done | 1 | [`services`](../smartsched/backend/app/services) |
 | Relaxation policy when not every class fits: lock_first (default) or most_classes_first, per run or per term | Backend only: priorities are run parameters; no screen yet | 19 | [`solver`](../smartsched/backend/app/solver) |
-| Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff | Done: person and programme priority, server changes list, diff baseline + chain, publish notices; academician Tercih ekle (P19-T2) waits for the backend | P19 M1-M3, F1 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
+| Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff | Done: person and programme priority, server changes list, diff baseline + chain, publish notices; academician Tercih ekle (P19-T2): backend done, UI sheet open | P19 M1-M3, F1 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Learned suggestions from earlier terms, with a resettable memory (per person, per term or all) | Done: accept for the term or persistent (admin, confirmed), undo of any decision; never auto-applied | P19 L1-L4, F2 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander | Done: server drafts with autosave, per-step validation, pre-check, one-transaction commit and a 30-day undo | P19 C1-C4, F3 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | In progress: planning analytics backend builder running | backlog |  |
@@ -224,7 +224,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **163 ticked · 289 open** checkboxes in 61 sections (58 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **170 ticked · 288 open** checkboxes in 62 sections (59 with open items).
 
 <details><summary>Per section</summary>
 
@@ -283,14 +283,15 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Approval-first UI finished (2026-10-16) | 0 | 1 |
 | Microsoft Entra ID sign-in backend finished (2026-10-16) | 0 | 4 |
 | Notification channels backend finished (2026-10-16) | 1 | 3 |
-| Shell / admin sweep finished (2026-10-16); dedicated UI agents launched | 0 | 4 |
-| Phase 19 backend gaps finished (2026-10-16); Phase 19 UI follow-up launched | 0 | 3 |
+| Shell / admin sweep finished (2026-10-16); dedicated UI agents launched | 1 | 4 |
+| Phase 19 backend gaps finished (2026-10-16); Phase 19 UI follow-up launched | 1 | 2 |
 | Design-system overhaul finished (2026-10-16) | 0 | 6 |
 | Importer and comparison follow-ups finished (2026-10-16) | 0 | 4 |
-| Phase 19 UI follow-up finished (2026-10-16) | 0 | 4 |
-| Identity frontend finished (2026-10-16) | 0 | 7 |
+| Phase 19 UI follow-up finished (2026-10-16) | 3 | 1 |
+| Identity frontend finished (2026-10-16) | 2 | 5 |
 | README media finished (2026-10-16) | 1 | 4 |
 | Remaining features: builders launched (2026-10-16 03:35) | 0 | 2 |
+| Backend follow-ups finished (2026-10-16) | 0 | 5 |
 
 </details>
 

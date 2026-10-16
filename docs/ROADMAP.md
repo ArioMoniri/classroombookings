@@ -562,7 +562,7 @@ Docs-refresh hand-off (2026-10-15):
 - [ ] The 15 minors: see the report §3 (wave-1 / shell-bookings sweep).
 New Phase 19 tickets proposed by the persona (report §5):
 - [ ] P19-T1 "Derslerim / where is my class this week": the academician's own timetable (needs P19-L1 user↔instructor).
-- [ ] P19-T2 the academician's own planning requests, with outcomes and coordinator reasons, plus adding a preference (builds on M1/M2; Q12).
+- [ ] P19-T2 the academician's own planning requests, with outcomes and coordinator reasons, plus adding a preference (builds on M1/M2; Q12). Backend done 2026-10-16 ("Backend follow-ups finished"); the "Tercih ekle" sheet and the coordinator's review UI are open.
 - [ ] P19-T3 per-academician notices after publish (owner decision: in-app + e-mail digest).
 - [ ] P19-T4 classes in personal calendar feeds (after L1).
 - [ ] P19-T5 equipment/software/step-free attributes for rooms and requests (JASP/JAMOVI, projector, armrest chairs, ground-floor entrance), as typed features.
@@ -982,7 +982,7 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
 - [x] Link a login to an instructor (F-05, major): `PUT /api/v1/auth/sso/admin/users/{id}/instructor` and `instructor_id` on invites (`instructors.user_id`, audited `user.instructor_link`).
 - [x] Teacher nav entry "Taleplerim" → `/moderation/me` (F-05), for accounts that can book and lack `planning.view`.
 - [x] P19-T3 publish digests ("Akademisyenlere bildir", F-05); the "Bu program için geçmiş veri yok" panel and the 30-day programme undo (F-07).
-- [ ] P19-T2 "Tercih ekle" (F-05 S03): needs a backend endpoint first (see the P19 UI follow-up hand-off).
+- [ ] P19-T2 "Tercih ekle" (F-05 S03): the backend endpoint landed 2026-10-16 (`POST /moderation/me/preferences`, see "Backend follow-ups finished"); the UI sheet is open.
 - [ ] Phase 19 intake UI: the stepper, the Fark step and remembered-mapping chips (F-08). Also the P19 UI follow-up agent.
 - [ ] A reason field for forced moves in the timetable UI (F-10): the P19 UI follow-up agent.
 - [x] SSO route contract: `/api/v1/auth/sso/entra/start?next=&invite=&prompt=&login_hint=`, redirects `?error=<code>[&ref]`; sign-in.md §14/§15 updated with the final codes.
@@ -1102,7 +1102,8 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
   - Checks: vitest 206/206, tsc clean, and e2e 31 of 32 on a production build against the real backend.
 - [ ] admin-gaps 6: a room created from ⌘K doesn't appear in room search, probably a timing issue. Confirm on a clean database in pod CI.
 - [ ] Open design items: one bookings toolbar, a filters sheet at 390 px, the find-room layout, mobile tab-bar labels always visible. They go to the mobile builders.
-- [ ] M-21: `warnings_count` in the import job summary (backend). M-31: a term switcher. M-46: capacity edit and a building-create confirm. The multi-book dialog doesn't send `confirm_unpublished` yet. Point "Taleplerim" to `/moderation/me` once that route exists.
+- [x] M-21 backend: the job summary has `warnings_count`, `warnings_shown` and `warnings_truncated`, viewers included (9adc7b2). The "first 500 of N" note is UI.
+- [ ] M-31: a term switcher. M-46: capacity edit and a building-create confirm. The multi-book dialog doesn't send `confirm_unpublished` yet. Point "Taleplerim" to `/moderation/me` once that route exists.
 - [ ] `scripts/parity_check.py`: a DIFF status for rows that carry a recorded `difference`.
 - Dedicated agents, with file-level fences:
   - **Approval UI**:
@@ -1134,7 +1135,7 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
   - Wizard reads: instructor load, section search, rooms fit.
   - Migration `0028_p19_gaps`.
   - Real check: the MBG Tezli YL draft solved OPTIMAL with hard 100.
-- [ ] `POST /audit/{id}/undo` should hand `program.create` to the drafts undo.
+- [x] `POST /audit/{id}/undo` hands `program.create` (and `program.restore`) to the drafts undo (07d17da).
 - [ ] `POST /priorities/bulk`, a priorities summary, the P19-P-02/03/06 policy endpoints, and copying an existing programme into a draft.
 - [ ] Owner question: person and programme priorities are per term. Should they carry over to later terms?
 - The Phase 19 UI follow-up agent is running: the wizard on `/program-drafts`, the priority selects, the diff baseline, server-side staged changes, the publish "Akademisyenlere bildir" toggle, `/moderation/me` for teachers, suggestion undo and scope, and phone layouts.
@@ -1217,10 +1218,10 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
   - Learned suggestions: "Geri al" on receipts and in Geçmiş (`restore`; the card is reopened in the cache first, so it never drops out of Bekleyen), persistent accept for planning.admin behind a confirm that says it is never applied by itself.
   - Phone 390 × 844: compact stepper and step sheet, floating footer with 44 px controls, sheets for paste and changes, no sideways scroll on the wizard and moderation pages.
   - Flow scripts F-05, F-06 and F-07 updated to the shipped UI; F-07 Part A/B rewritten for server drafts (no example button: no demo data).
-- [ ] P19-T2 "Tercih ekle" for academicians: no backend endpoint (asked in the hand-off).
-- [ ] Backend: the drafts' "Aynı adlı program var" check (`program_drafts.py` context `program_clash`) also matches archived programmes, so a programme name cannot be reused after its creation was undone.
-- [ ] Backend: a new person in a draft whose name matches an archived instructor (e.g. after an undo) passes validation, then `POST /program-drafts/{id}/precheck` answers 409 "instructor T. E. already exists" in English only. Validation should see it (reuse or a TR/EN issue).
-- [ ] The wizard's programme undo is not reachable from `/admin/audit` until `POST /audit/{id}/undo` hands `program.create` to the drafts undo (backend item above).
+- [x] P19-T2 "Tercih ekle" for academicians: backend endpoint landed (663b7cc + 1447f29); the UI sheet is open.
+- [x] (07d17da) Backend: the drafts' "Aynı adlı program var" check (`program_drafts.py` context `program_clash`) also matches archived programmes, so a programme name cannot be reused after its creation was undone.
+- [x] (07d17da) Backend: a new person in a draft whose name matches an archived instructor (e.g. after an undo) passes validation, then `POST /program-drafts/{id}/precheck` answers 409 "instructor T. E. already exists" in English only. Validation should see it (reuse or a TR/EN issue).
+- [ ] UI only now (backend 07d17da: `undo_via: "program_draft"`): the wizard's programme undo is not reachable from `/admin/audit` until `POST /audit/{id}/undo` hands `program.create` to the drafts undo (backend item above).
 
 ### Identity frontend finished (2026-10-16)
 
@@ -1234,8 +1235,8 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
 - [ ] `e2e/motion-audit.spec.ts`: add the sign-in door-2 audit (sign-in.md §10 hook); #29 already checks reduced motion.
 - [ ] Sign-in check #30 (visual baselines) runs only with `VISUAL_BASELINE=1` on the CI image.
 - [ ] Approval UI agent: on a 390 px phone the preferences panel repeats every unreachable channel under each event (about 6000 px of switches); collapse unreachable channels.
-- [ ] Backend ask: a server-side identity filter on `GET /users` (invited / self sign-up / method); the Users screen filters one 500-row page on the client today.
-- [ ] Backend ask from the identity frontend: a server-side identity filter on `GET /users` (invited / self sign-up / sign-in method), so the Users screen pages on the server instead of filtering one 500-row page in the browser.
+- [x] Backend ask: a server-side identity filter on `GET /users` (invited / self sign-up / method) (937792f); the Users screen still has to send it.
+- [x] (937792f) Backend ask from the identity frontend: a server-side identity filter on `GET /users` (invited / self sign-up / sign-in method), so the Users screen pages on the server instead of filtering one 500-row page in the browser.
 - [ ] The sign-in door-2 motion check in the shared `e2e/motion-audit.spec.ts` (sign-in.md §10). Reduced motion is already covered by check #29.
 
 ### README media finished (2026-10-16)
@@ -1265,3 +1266,18 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
   - M-21 `warnings_count`
 - [ ] Queued for after the design-migration sweep, since its studio/onboarding/settings files overlap: the relaxation-policy UI, the schedule-map UI, an intake e2e, and Google/M365 calendar push settings. The push settings need the organisation's OAuth client before a live test.
 - [ ] Flow loop (3 persona testers, then the suggester, then loop builders, then a re-test) starts once the design-migration sweep and the remaining UI builders finish.
+
+### Backend follow-ups finished (2026-10-16)
+
+- Done (tests on the real fixtures: `tests/test_p19_t2_teacher_preferences.py` on Bahar R601 PTL 102 §1, `tests/test_followups_program_drafts.py` on the MBG Tezli YL rows, `tests/test_followups_users_identity.py`, `tests/test_followups_import_warnings_count.py` on the Bahar list):
+  - P19-T2 "Tercih ekle" (`app/services/teacher_preferences.py`). An academician linked to an instructor record adds a room, building or time-window wish for their own classes. It is stored as a `TEACHER` constraint row: soft, targeted, weight 1, and off until a coordinator accepts it. The rule lists the department's own room or building first, so the department's ask always ranks higher; a solver test proves it. Coordinators accept or reject; a rejection needs a reason and reaches the academician through notify_dispatch (`preference.rejected`; acceptance sends `preference.accepted`). Every step is audited (`preference.submit/accept/reject/withdraw`); acceptance is in changes-since-publish. Read models: Tercihler (`/constraints`, source `TEACHER`), `GET /terms/{id}/moderation/teacher-preferences`, `pending_preferences` on Kişiler rows, `teacher_preferences` on matchings and history items, and `can_add_preference` / `preferences` counts on `/moderation/me`.
+  - Programme drafts: an archived programme no longer counts as a name clash; the commit reopens the archived row (`program.restore`) with its unit, courses and people, and an undo archives them again. A new person named like an archived instructor is reused when they taught the same programme (`instructor_restored`); anywhere else the draft gets the TR/EN error `instructor_archived_namesake`. The pre-check answers 422 with TR/EN issues, never the English 409.
+  - `POST /audit/{id}/undo` on a wizard programme runs the drafts undo: same blockers, 30-day window, owner or planning.admin. Errors are `{code, message, message_tr}`. Audit events carry `undo_via` (`bookings` | `program_draft`).
+  - `GET /users` and `GET /users/search` take `identity=invited|self_signup|sso|binding|local|ldap` (comma = OR) and `self_signup_days`. Paging and `total` stay on the server.
+  - M-21: `warnings_count`, `warnings_shown` and `warnings_truncated` in the import job summary.
+- [ ] Frontend: the "Tercih ekle" sheet on `/moderation/me`, and its status and reason list. Coordinators need accept/reject in Tercihler and a pending badge on Kişiler.
+- [ ] Frontend: the `/admin/audit` "Geri al" for `undo_via: program_draft`, showing the blockers from `detail.blockers`.
+- [ ] Frontend: the Users chips should send `identity` and `self_signup_days=7` to `/users/search` instead of filtering on the client.
+- [ ] Frontend: the import report's "{count} uyarı, ilk {shown} gösteriliyor" note.
+- [ ] Owner question: a time wish is refused when the department form fixes the class's day and time, which is nearly every Bahar row. Should such a wish be stored anyway as a note for the coordinator?
+

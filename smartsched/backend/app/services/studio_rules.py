@@ -566,8 +566,9 @@ async def copy_rules(session: AsyncSession, body: Any, user: User) -> dict[str, 
         wanted = set(body.constraint_ids)
         rows = [r for r in rows if r.id in wanted]
     else:
-        # wishes read from the source term's lists (FILE) belong to its rows; the target's own imports make its own
-        rows = [r for r in rows if r.enabled and r.source != "FILE"]
+        # wishes read from the source term's lists (FILE) belong to its rows; the target's own imports make its own.
+        # An academician's own wishes (TEACHER, P19-T2) were reviewed for that term: they add them again.
+        rows = [r for r in rows if r.enabled and r.source not in ("FILE", "TEACHER")]
     rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
     existing = {
         (r.kind, _norm(r.params), r.hardness) for r in await st.term_rules(session, target.id, enabled_only=False)
@@ -648,6 +649,17 @@ async def copy_rules(session: AsyncSession, body: Any, user: User) -> dict[str, 
                         "constraint_id": r.id,
                     },
                     **({"original": _source_ref(r)} if _source_ref(r) else {}),
+                    # a coordinator copied an academician's wish on purpose: it is a reviewed (accepted) rule there
+                    **(
+                        {
+                            "review": "accepted",
+                            "instructor_id": (_source_ref(r) or {}).get("instructor_id"),
+                            "user_id": (_source_ref(r) or {}).get("user_id"),
+                            "request_ids": params.get("event_ids") or [],
+                        }
+                        if r.source == "TEACHER"
+                        else {}
+                    ),
                 },
                 nl_text=r.nl_text,
                 enabled=True,

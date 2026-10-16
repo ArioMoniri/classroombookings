@@ -66,7 +66,7 @@
   status: done
   phase: "P19 M1-M3, F1"
   evidence: smartsched/frontend/e2e/followup.phase19.spec.ts
-  note: "person and programme priority, server changes list, diff baseline + chain, publish notices; academician Tercih ekle (P19-T2) waits for the backend"
+  note: "person and programme priority, server changes list, diff baseline + chain, publish notices; academician Tercih ekle (P19-T2): backend done, UI sheet open"
 - feature: "Learned suggestions from earlier terms, with a resettable memory (per person, per term or all)"
   area: planning
   status: done
