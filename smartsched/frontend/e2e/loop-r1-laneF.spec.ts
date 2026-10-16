@@ -112,6 +112,9 @@ test.describe("phone 390", () => {
     await tappable(page, '[data-testid="dashboard-plan"] a');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
+    // the learning pass the testers ran (POST /learning/refresh), then a person with an open card
+    const refreshed = await page.evaluate(async (id) => (await fetch("/api/v1/learning/refresh", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ term_id: id }) })).status, term.id);
+    expect([200, 202]).toContain(refreshed);
     const open = (await api<Sugg[]>(page, `/learning/suggestions?term_id=${term.id}&limit=200`)).find((s) => s.subject.type === "instructor" && s.state === "open");
     test.skip(!open, "no open instructor suggestion in this term");
     await page.goto(`/moderation/people/${open!.subject.id}`);
