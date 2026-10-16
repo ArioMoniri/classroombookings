@@ -120,7 +120,7 @@ function ChannelCard({ c, webhookUrl, open, onToggle }: { c: ChannelConfig; webh
               <FieldRow label={t("channels.admin.contentMode")} hint={t("channels.admin.contentModeHint")}>
                 <SegmentedControl
                   semantics="radiogroup"
-                  size="sm"
+                  size="md"
                   aria-label={t("channels.admin.contentMode")}
                   value={c.content_mode}
                   onValueChange={(v) => v !== c.content_mode && save({ content_mode: v })}

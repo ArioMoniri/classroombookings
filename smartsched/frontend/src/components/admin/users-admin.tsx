@@ -62,6 +62,9 @@ const SEEDED = [
   { code: "TEACHER", key: "crbs.users.roleTeacher" },
 ] as const;
 
+/** filter chips: 36 px on touch plus a 4 px hit extension above and below, so the target is 44 px */
+const TOUCH_CHIP = "pointer-coarse:h-9 relative after:absolute after:inset-x-0 after:-inset-y-1";
+
 export function UsersAdmin() {
   const { t } = useI18n();
   const { can, perms, userId } = usePermissions();
@@ -188,16 +191,16 @@ export function UsersAdmin() {
       </div>
       {usersAdmin && idStatus.data ? (
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("sso.users.filters")} data-testid="identity-filters">
-          <Chip selected={idFilter === "all" && enabled !== "0"} onSelectedChange={() => (setIdFilter("all"), setEnabled(""), setPage(0))}>
+          <Chip className={TOUCH_CHIP} selected={idFilter === "all" && enabled !== "0"} onSelectedChange={() => (setIdFilter("all"), setEnabled(""), setPage(0))}>
             {t("sso.users.filterAll")}
           </Chip>
-          <Chip selected={idFilter === "invited"} onSelectedChange={(on) => (setIdFilter(on ? "invited" : "all"), setPage(0))} data-testid="filter-invited">
+          <Chip className={TOUCH_CHIP} selected={idFilter === "invited"} onSelectedChange={(on) => (setIdFilter(on ? "invited" : "all"), setPage(0))} data-testid="filter-invited">
             {t("sso.users.filterInvited", { n: counts.invited })}
           </Chip>
-          <Chip selected={idFilter === "self"} onSelectedChange={(on) => (setIdFilter(on ? "self" : "all"), setPage(0))} data-testid="filter-self">
+          <Chip className={TOUCH_CHIP} selected={idFilter === "self"} onSelectedChange={(on) => (setIdFilter(on ? "self" : "all"), setPage(0))} data-testid="filter-self">
             {t("sso.users.filterSelf", { n: counts.selfRecent })}
           </Chip>
-          <Chip selected={enabled === "0"} onSelectedChange={(on) => (setEnabled(on ? "0" : ""), setPage(0))}>
+          <Chip className={TOUCH_CHIP} selected={enabled === "0"} onSelectedChange={(on) => (setEnabled(on ? "0" : ""), setPage(0))}>
             {t("sso.users.status.disabled")}
           </Chip>
           <SelectField aria-label={t("sso.users.methodFilter")} className="w-auto min-w-44" value={method} onChange={(e) => (setMethod(e.target.value as MethodFilter), setPage(0))} data-testid="filter-method">
@@ -218,7 +221,7 @@ export function UsersAdmin() {
               <TableRow>
                 <TableHead className="pl-4">{t("crbs.users.name")}</TableHead>
                 <TableHead className="hidden md:table-cell">{t("crbs.users.email")}</TableHead>
-                <TableHead>{t("crbs.users.role")}</TableHead>
+                <TableHead className="hidden sm:table-cell">{t("crbs.users.role")}</TableHead>
                 {usersAdmin && idStatus.data ? <TableHead className="hidden lg:table-cell">{t("sso.users.methodColumn")}</TableHead> : null}
                 {usersAdmin && idStatus.data ? <TableHead className="hidden sm:table-cell">{t("sso.users.statusColumn")}</TableHead> : null}
                 <TableHead className="hidden xl:table-cell">{t("crbs.users.department")}</TableHead>
@@ -231,7 +234,7 @@ export function UsersAdmin() {
             <TableBody>
               {visible.map((u) => (
                 <TableRow key={u.id} data-username={u.username ?? u.email ?? ""}>
-                  <TableCell className="pl-4">
+                  <TableCell className="pl-4 whitespace-normal [overflow-wrap:anywhere]">
                     <span className="block font-medium text-label-1">
                       {u.displayname || u.full_name || u.username || u.email}
                       <IdentityTags s={statusOf(u)} />
@@ -241,6 +244,11 @@ export function UsersAdmin() {
                       {u.username ?? <span className="md:hidden">{u.email}</span>}
                       {u.auth_source === "ldap" ? " · LDAP" : ""}
                     </span>
+                    {/* phones: the role column is hidden, so the role (and the privileged mark) reads under the name */}
+                    <span className="block type-footnote text-label-2 sm:hidden" data-testid="user-role-inline">
+                      {u.role_name ?? t("crbs.users.noRole")}
+                      {!manageable(u) ? ` · ${t("crbs.users.privileged")}` : ""}
+                    </span>
                     {/* phones: the status column is hidden, so a pending / expired / disabled state shows here */}
                     {usersAdmin && idStatus.data && statusView(statusOf(u), u.is_active).word !== "active" ? (
                       <span className="mt-1 block sm:hidden">
@@ -249,7 +257,7 @@ export function UsersAdmin() {
                     ) : null}
                   </TableCell>
                   <TableCell className="hidden text-label-2 md:table-cell">{u.email ?? "—"}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <span className="text-label-1">{u.role_name ?? t("crbs.users.noRole")}</span>
                     {!u.is_active ? (
                       <Badge tone="preoccupied" variant="secondary" className="ml-2">
@@ -280,7 +288,7 @@ export function UsersAdmin() {
                   <TableCell className="hidden text-label-2 tabular-nums lg:table-cell">{dt(u.last_login_at)}</TableCell>
                   <TableCell className="pr-4 text-right">
                     <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("crbs.users.actionsFor", { name: u.username ?? u.email ?? "" })} />}>
+                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="pointer-coarse:size-(--control-h-md)" aria-label={t("crbs.users.actionsFor", { name: u.username ?? u.email ?? "" })} />}>
                         <MoreHorizontal />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
