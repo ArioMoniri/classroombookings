@@ -20,12 +20,11 @@
  *   baseline  toHaveScreenshot (maxDiffPixelRatio 0.01, [data-dynamic] masked) when VISUAL_BASELINE=1
  */
 import { createHash } from "node:crypto";
-import { createRequire } from "node:module";
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { REAL, SKIP_REASON, login } from "./helpers";
 
-const require = createRequire(import.meta.url);
-const AXE = require.resolve("axe-core/axe.min.js");
+const AXE = path.resolve(process.cwd(), "node_modules/axe-core/axe.min.js");
 
 test.skip(!REAL, SKIP_REASON);
 test.describe.configure({ mode: "serial" });

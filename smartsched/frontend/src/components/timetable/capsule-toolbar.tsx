@@ -202,16 +202,24 @@ export function CapsuleToolbar(p: CapsuleToolbarProps) {
         </div>
         {sep}
         <div className="flex min-w-0 flex-1 items-center gap-0.5">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 overflow-hidden">
             <SubjectPicker model={p.model} subject={p.subject} onSubject={p.onSubject} condensed={condensed} />
           </div>
           <IconButton size="sm" label={t("calendar.sidebar.search")} onClick={p.onSearch} className="hidden @min-[80rem]/tb:inline-flex"><Search aria-hidden /></IconButton>
           {p.conflicts > 0 || p.warnings > 0 ? (
             <Button variant="ghost" size="sm" onClick={p.onIssues} data-testid="issues-capsule" className="shrink-0 text-status-infeasible-fg">
               <AlertTriangle aria-hidden />
-              {p.conflicts > 0 ? t("calendar.issues.conflictsWeek", { n: p.conflicts }) : null}
-              {p.conflicts > 0 && p.warnings > 0 ? <span aria-hidden className="text-label-2">·</span> : null}
-              {p.warnings > 0 ? <span className="text-status-warning-fg">{t("calendar.issues.warningsWeek", { n: p.warnings })}</span> : null}
+              {/* full sentence from 72rem of toolbar width; below it the two counts only (the label keeps the words) */}
+              <span className="hidden @min-[72rem]/tb:inline">
+                {p.conflicts > 0 ? t("calendar.issues.conflictsWeek", { n: p.conflicts }) : null}
+                {p.conflicts > 0 && p.warnings > 0 ? <span aria-hidden className="text-label-2"> · </span> : null}
+                {p.warnings > 0 ? <span className="text-status-warning-fg">{t("calendar.issues.warningsWeek", { n: p.warnings })}</span> : null}
+              </span>
+              <span className="tnum @min-[72rem]/tb:hidden" aria-label={[p.conflicts > 0 ? t("calendar.issues.conflictsWeek", { n: p.conflicts }) : "", p.warnings > 0 ? t("calendar.issues.warningsWeek", { n: p.warnings }) : ""].filter(Boolean).join(", ")}>
+                {p.conflicts > 0 ? p.conflicts : null}
+                {p.conflicts > 0 && p.warnings > 0 ? <span aria-hidden className="text-label-2"> · </span> : null}
+                {p.warnings > 0 ? <span className="text-status-warning-fg">{p.warnings}</span> : null}
+              </span>
             </Button>
           ) : null}
           {p.canUndo ? <IconButton size="sm" label={t("calendar.toast.undo")} onClick={p.onUndo}><Undo2 aria-hidden /></IconButton> : null}

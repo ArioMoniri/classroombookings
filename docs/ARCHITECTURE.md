@@ -100,7 +100,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-24 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0028_notify_channels`**. A new migration goes on top of it (`alembic heads` must print one line).
+24 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0028_p19_gaps`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -126,8 +126,8 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 20 | `0024_moderation_indexes` | `0023_learning` | Phase 19 moderation read models (P19-M1): indexes for a person's sections across terms and a term's sections of one… |
 | 21 | `0025_approval_first` | `0024_moderation_indexes` | Approval-first bookings (owner requirement 2026-10-15; docs/ROADMAP.md "Approval-first bookings") |
 | 22 | `0026_sso_entra` | `0025_approval_first` | Sign-in with Microsoft Entra ID (owner decisions 2026-10-15; app/services/sso.py, docs/deploy/sso-entra.md) |
-| 23 | `0027_p19_gaps` | `0026_sso_entra` | Phase 19 backend gaps: program wizard drafts (P19-W-01) and person / programme priority (P19-P-04) |
-| 24 | `0028_notify_channels` | `0027_p19_gaps` | Notification channels ("Bildirim kanalları"; owner decision 2026-10-15, docs/product/2026-10-15-integrations-options.md) |
+| 23 | `0027_notify_channels` | `0026_sso_entra` | Notification channels ("Bildirim kanalları"; owner decision 2026-10-15, docs/product/2026-10-15-integrations-options.md) |
+| 24 | `0028_p19_gaps` | `0027_notify_channels` | Phase 19 backend gaps: program wizard drafts (P19-W-01) and person / programme priority (P19-P-04) |
 
 <!-- /AUTO:migrations -->
 
