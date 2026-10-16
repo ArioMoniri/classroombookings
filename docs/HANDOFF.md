@@ -49,7 +49,18 @@ the locked-class self-move (recommend: keep as re-deciding the lock), T-R1-25 pe
 4. Round 2 re-test (three persona testers → suggester → builders) until no blocker/major.
 5. Stabilisation, universal sync, deploy via `infra/aws/POD_ACTION`, README media, BLUF.
 
+## Environment notes for the resuming session
+
+- The AWS keys injected into the focused-wright container were temporary and expired at 22:48 UTC on
+  2026-10-16 (`AWS_CREDENTIAL_EXPIRATION`); `infra/aws/smartsched_aws.py status` refuses to run after that.
+  Pod control therefore stays on the documented path: push `infra/aws/POD_ACTION` on the deploy branch
+  (OIDC role). A scratch venv with boto3 for the helper is under the session scratchpad only.
+- Dev toolchain was bootstrapped with `scripts/dev.sh` (backend `.venv`, frontend `node_modules`); the
+  seeded dev admin lives only in the local SQLite file and is not used by any stack.
+- Builder stacks use ports 19210/19211 (A2), 19220/19221 (B2), 19230/19231 (E2), 19240/19241 (F2),
+  19250/19251 (H); SMTP sinks 2541–2543. Round-2 testers take the re-test rows of README §4.2 (+100).
+
 ## Progress log (newest first)
 
-- 2026-10-16 15:50 UTC — session focused-wright started; branch + start tag pushed; registry agents of the
+- 2026-10-16 22:30 UTC — session focused-wright started; branch + start tag pushed; registry agents of the
   interrupted session marked stopped/finished with where they left off; builders being launched.

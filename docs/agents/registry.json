@@ -1836,6 +1836,66 @@
       "status": "stopped",
       "left_off": "Weekly limit ~40 min after start. No ticket commits; WIP swept into checkpoints b53ee1b/5fa0ceb (runs/publish-run.tsx, studio/generate-step.tsx, program-wizard/generate-step.tsx, services/studio.py, tr_grammar.py). T-R1-46..50 open. Resumed as lane H by session focused-wright (docs/HANDOFF.md).",
       "finished_at": "2026-10-16 22:47"
+    },
+    {
+      "id": "a3a97357ff3823f24",
+      "description": "Lane E2: i18n/admin tickets",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 22:59",
+      "scope": "",
+      "goal": "You are the round-1 loop builder for **lane E2 (Turkish/English consistency and admin screens)** of SmartSched. Lane name for the ledger: `loop-r1-laneE2-2026-10-16`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first and follow eve…",
+      "ledger": "Lane E2: i18n/admin tickets",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a0944d84abe67585b",
+      "description": "Lane H: studio/runs/timetable polish",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 22:59",
+      "scope": "",
+      "goal": "You are the round-1 loop builder for **lane H (Studio, runs, timetable, comparison and program-wizard polish)** of SmartSched. Lane name for the ledger: `loop-r1-laneH-2026-10-16`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first …",
+      "ledger": "Lane H: studio/runs/timetable polish",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ababe80c7393987ba",
+      "description": "Lane B2: bookings/approvals tickets",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 22:59",
+      "scope": "",
+      "goal": "You are the round-1 loop builder for **lane B2 (approval-first wording, bookings, find-room, approvals, Taleplerim, moderation console)** of SmartSched. Lane name for the ledger: `loop-r1-laneB2-2026-10-16`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratch…",
+      "ledger": "Lane B2: bookings/approvals tickets",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a09850d116a8d7677",
+      "description": "Lane F2: invigilation pool + match rate",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 22:59",
+      "scope": "",
+      "goal": "You are the round-1 loop builder for **lane F2 (invigilation default pool, moderation match rate)** of SmartSched. Lane name for the ledger: `loop-r1-laneF2-2026-10-16`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first and follow …",
+      "ledger": "Lane F2: invigilation pool + match rate",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ac66fcc4d0ac6890d",
+      "description": "Lane A2: touch/keyboard/shell tickets",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 22:59",
+      "scope": "",
+      "goal": "You are the round-1 loop builder for **lane A2 (mobile keyboard, phone sheets, shell primitives, login)** of SmartSched. Lane name for the ledger: `loop-r1-laneA2-2026-10-16`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first and f…",
+      "ledger": "Lane A2: touch/keyboard/shell tickets",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
