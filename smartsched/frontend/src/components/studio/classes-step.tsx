@@ -473,7 +473,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
               const r = shown[v.index];
               const out = rowState.excluded.has(r.id);
               return (
-                <li key={r.id} data-index={v.index} ref={virt.measureElement} style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${v.start}px)` }} className={cn("border-b p-3", out && "opacity-60")} data-testid="class-row" data-class-id={r.id}>
+                <li key={r.id} data-index={v.index} ref={virt.measureElement} style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${v.start}px)` }} className={cn("border-b p-3", out && "bg-fill-3 text-label-3 [&_*]:text-label-3")} data-testid="class-row" data-class-id={r.id}>
                   <div className="flex items-start gap-3">
                     <Checkbox checked={selected.has(r.id)} onClick={(e) => { e.preventDefault(); toggleSelect(r.id, false); }} aria-label={t("studio.classes.selectRow", { name: `${r.course_code} §${r.section_label ?? ""}` })} className="mt-1" />
                     <div className="min-w-0 flex-1 text-sm">
@@ -535,7 +535,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                     aria-rowindex={v.index + 1}
                     aria-selected={selected.has(r.id)}
                     onKeyDown={(e) => onRowKey(e, r, v.index)}
-                    className={cn("group/row outline-hidden focus-visible:bg-tint-soft", out && "opacity-60", selected.has(r.id) && "bg-tint-soft/60")}
+                    className={cn("group/row outline-hidden focus-visible:bg-tint-soft", out && "bg-fill-3 text-label-3 [&_*]:text-label-3", selected.has(r.id) && "bg-tint-soft/60")}
                     data-testid="class-row"
                     data-class-id={r.id}
                     data-included={!out}
