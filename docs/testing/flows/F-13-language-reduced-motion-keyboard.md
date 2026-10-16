@@ -13,7 +13,7 @@ Testable: yes. F-01's former UI gaps (the reject dialog and the reason display) 
 
 ## Preconditions
 
-1. Restore the snapshot. Prepare the F-01..F-04 preconditions (approval_mode=all, KVKK calendar sign-off on, features catalogue, the staff bookings of F-04 precondition 2). This flow replays parts of them.
+1. Restore the snapshot. Prepare the F-01..F-04 preconditions (approval_mode=all, KVKK calendar sign-off on: the README §4.2 stack leaves it off (`REC_CAL_SIGNOFF=0`), so as admin `PUT /calendar/admin/settings {"calendar_sync_enabled":true}`; features catalogue, the staff bookings of F-04 precondition 2). This flow replays parts of them.
 2. Shared helpers for Part C (put them in your script):
    ```js
    // the focused element draws a visible ring: a solid outline ≥ 2 px, or a ≥ 2 px box-shadow ring
