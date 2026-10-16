@@ -5,18 +5,28 @@
  * shows the one "not found" page when the view is off, the code is unknown or the date is outside the window.
  */
 import Link from "next/link";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Loading } from "@/components/admin/kit";
 import { Card } from "@/components/ui/card";
-import { currentItem, isNotFound, nextItem, usePublicBuilding, usePublicIndex, usePublicRoom, type PublicItem } from "@/lib/api/public-schedule";
+import { currentItem, isNotFound, nextItem, publicApi, publicKeys, usePublicBuilding, usePublicIndex, usePublicRoom, type PublicItem } from "@/lib/api/public-schedule";
 import { useI18n } from "@/lib/i18n/provider";
 import { ItemList, KioskFrame, PublicError, PublicNotFound, useClock, useKioskDate } from "./kiosk";
 
-/** The backend's today, learnt from the first answer for the default date (the booking clock, not the browser's). */
-function useBackendToday(date: string | null, answered: string | undefined): string | null {
-  const [today, setToday] = useState<string | null>(null);
-  if (!date && answered && answered !== today) setToday(answered);
-  return today ?? (date ? null : (answered ?? null));
+/**
+ * The backend's today (the booking clock, not the browser's): the answer for the default date carries it. With a
+ * `?date=` in the URL that answer is fetched once more (shared cache, refreshed every 10 min) so the date switcher
+ * always knows its window.
+ */
+function useBackendToday(kind: "room" | "building", code: string, date: string | null, answered: string | undefined): string | null {
+  const q = useQuery<{ date: string }>({
+    queryKey: kind === "room" ? publicKeys.room(code, null) : publicKeys.building(code, null),
+    queryFn: (): Promise<{ date: string }> => (kind === "room" ? publicApi.room(code, null) : publicApi.building(code, null)),
+    enabled: !!date,
+    staleTime: 10 * 60_000,
+    refetchInterval: 10 * 60_000,
+    retry: false,
+  });
+  return date ? (q.data?.date ?? null) : (answered ?? null);
 }
 
 export function PublicIndexView() {
@@ -55,7 +65,7 @@ export function PublicRoomView({ code }: { code: string }) {
   const label = (it: PublicItem) => (locale === "tr" ? it.label.tr : it.label.en);
   const [date, setDate] = useKioskDate();
   const q = usePublicRoom(code, date);
-  const today = useBackendToday(date, q.data?.date);
+  const today = useBackendToday("room", code, date, q.data?.date);
   const clock = useClock();
   if (q.isError && isNotFound(q.error)) return <PublicNotFound />;
   const d = q.data;
@@ -98,7 +108,7 @@ export function PublicBuildingView({ code }: { code: string }) {
   const { t, locale } = useI18n();
   const [date, setDate] = useKioskDate();
   const q = usePublicBuilding(code, date);
-  const today = useBackendToday(date, q.data?.date);
+  const today = useBackendToday("building", code, date, q.data?.date);
   const clock = useClock();
   if (q.isError && isNotFound(q.error)) return <PublicNotFound />;
   const d = q.data;
