@@ -1204,7 +1204,7 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
 
 ### Phase 19 UI follow-up finished (2026-10-16)
 
-- Done (proven by `smartsched/frontend/e2e/followup.phase19.spec.ts`, 6/6 against the real Bahar backend):
+- Done (proven by `smartsched/frontend/e2e/followup.phase19.spec.ts`, 6/6 on a fresh real Bahar backend; the spec needs a fresh database, see the two backend items below):
   - Program wizard on `/program-drafts`:
     - field-op autosave with `base_version`, "Taslaklarım" resume on any device, the `overwritten` notice
     - per-step server validation in TR + EN under the fields, with an error summary
@@ -1214,11 +1214,12 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
     - a commit or "Devam" right after an edit now waits for the in-flight autosave instead of failing ("Taslak kaydedilemedi")
   - Moderation: person priority on the profile, person and programme priority in the matching inspector, `priority.source` badges, the server "Yayından beri değişenler" list, the diff baseline switcher and chain, the publish toggle "Akademisyenlere bildir" with the people named and the `notified` count.
   - Teachers: "Taleplerim" → `/moderation/me` (own requests, "Geçmişim", the unlinked explanation).
-  - Learned suggestions: "Geri al" on receipts and in Geçmiş (`restore`), persistent accept for planning.admin behind a confirm that says it is never applied by itself.
+  - Learned suggestions: "Geri al" on receipts and in Geçmiş (`restore`; the card is reopened in the cache first, so it never drops out of Bekleyen), persistent accept for planning.admin behind a confirm that says it is never applied by itself.
   - Phone 390 × 844: compact stepper and step sheet, floating footer with 44 px controls, sheets for paste and changes, no sideways scroll on the wizard and moderation pages.
   - Flow scripts F-05, F-06 and F-07 updated to the shipped UI; F-07 Part A/B rewritten for server drafts (no example button: no demo data).
 - [ ] P19-T2 "Tercih ekle" for academicians: no backend endpoint (asked in the hand-off).
 - [ ] Backend: the drafts' "Aynı adlı program var" check (`program_drafts.py` context `program_clash`) also matches archived programmes, so a programme name cannot be reused after its creation was undone.
+- [ ] Backend: a new person in a draft whose name matches an archived instructor (e.g. after an undo) passes validation, then `POST /program-drafts/{id}/precheck` answers 409 "instructor T. E. already exists" in English only. Validation should see it (reuse or a TR/EN issue).
 - [ ] The wizard's programme undo is not reachable from `/admin/audit` until `POST /audit/{id}/undo` hands `program.create` to the drafts undo (backend item above).
 
 ### Identity frontend finished (2026-10-16)
