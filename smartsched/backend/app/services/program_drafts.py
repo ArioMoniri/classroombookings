@@ -1604,6 +1604,11 @@ async def _rule(
     )
     if issues:
         raise DraftError(422, {"message": "invalid rule", "issues": issues[:10]})
+    from app.services import pin_guard
+
+    short = await pin_guard.shortfalls(session, kind, params, hardness, term_id=term_id)
+    if short:  # round-1 R1-M-03
+        raise DraftError(422, pin_guard.refusal(short, overridable=False))
     row = ConstraintRow(
         term_id=term_id,
         run_id=None,

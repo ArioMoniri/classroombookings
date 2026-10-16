@@ -46,6 +46,10 @@ TITLES: dict[str, dict[str, str]] = {
     "capacity": {"tr": "Yeterince büyük derslik yok", "en": "No room is big enough"},
     "room_tags": {"tr": "Gerekli özellikte derslik yok", "en": "No room has what this class needs"},
     "room_pin": {"tr": "Sabitlendiği derslik yok", "en": "Pinned to a room that does not exist"},
+    "pin_capacity": {
+        "tr": "Kesin sabitleme dersi sığmayan bir dersliğe koyuyor",
+        "en": "A Must pin puts a class in a room that cannot seat it",
+    },
     "no_room": {"tr": "Kullanılabilecek derslik kalmadı", "en": "No room can be used"},
     "blocked": {"tr": "Uygun derslikler o saatte dolu", "en": "Every suitable room is blocked at that time"},
     "no_time": {"tr": "Kurallara uyan bir saat yok", "en": "No time fits the rules"},
@@ -304,6 +308,39 @@ def _from_diagnosis(ctx: _Ctx, d: sm.Diagnosis) -> dict[str, Any]:
         elif reason == "pin":
             group = "room_pin"
             message = _t(f"{lab} olmayan bir dersliğe sabitlenmiş.", f"{lab} is pinned to a room that does not exist.")
+        elif reason == "capacity" and prm.get("pinned_rooms") and int(prm.get("pinned_seats") or 0) < e.size:
+            # round-1 R1-M-03: name the pin, the rooms and the numbers ("100 öğrenci 30 kişilik B 201'e sığmaz")
+            from app.services.tr_grammar import dative
+
+            group = "pin_capacity"
+            seats = int(prm.get("pinned_seats") or 0)
+            names = " + ".join(
+                ctx.names.get(int(x.get("id") or 0)) or ctx.show(str(x.get("room")))
+                for x in prm.get("pinned_rooms") or []
+                if isinstance(x, dict)
+            )
+            rules = [int(i) for i in prm.get("pin_constraint_ids") or []]
+            ref_tr = f"Kesin kural {', '.join(f'#{i}' for i in rules)}" if rules else "Planlama listesi"
+            ref_en = f"Must rule {', '.join(f'#{i}' for i in rules)}" if rules else "The planning list"
+            message = _t(
+                f"{ref_tr} {lab} dersini {dative(names)} sabitliyor: {e.size} öğrenci {seats} kişilik "
+                f"{dative(names)} sığmaz.",
+                f"{ref_en} pins {lab} to {names}: {e.size} students do not fit {names} ({seats} seats).",
+            )
+            for cid in rules:
+                fixes.append(
+                    _fix(
+                        f"rule_off:{cid}",
+                        f"Kural #{cid} bu planda kapansın",
+                        f"Turn rule #{cid} off in this plan",
+                        "rule_off",
+                        {"constraint_id": cid},
+                    )
+                )
+            fixes += _rule_relax_fixes(ctx, e, ["room_pin"])
+            rf = _rooms_fix(ctx, e, unlock=False)
+            if rf and not rules:
+                fixes.append(rf)
         elif reason == "capacity" and prm.get("largest_room"):
             group = "capacity"
             cap, best = int(prm["largest_capacity"]), ctx.show(str(prm["largest_room"]))

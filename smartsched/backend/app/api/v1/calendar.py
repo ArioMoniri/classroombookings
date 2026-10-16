@@ -38,7 +38,7 @@ from app.schemas.calendar import (
     SavedViewUpdate,
 )
 from app.services import calendar_views as cv
-from app.services import publish_guard
+from app.services import move_guard, publish_guard
 from app.services.bookings_perms import load_access
 from app.services.events import Item
 from app.services.planning_audit import assignment_snapshot, record_assignments, snapshot_from_undo
@@ -228,6 +228,26 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
         plans = cv.plan_moves(ctx, body.moves)
     except cv.CalendarError as exc:
         raise _http(exc) from exc
+    # round-1 R1-M-05: the same hard-rule evaluation as the run's score (planner level) - a move that breaks a hard
+    # rule there (e.g. a LOCKED class leaving its definitive room) is never "uygun"
+    verdict = await move_guard.planner_issues(
+        db,
+        run,
+        [
+            move_guard.TrialMove(
+                p.base.id,
+                tuple((m.id, tuple(ws)) for m, ws in p.parts),
+                p.target_day,
+                p.target_sp,
+                p.target_ep,
+                tuple(p.target_rooms),
+            )
+            for p in plans
+        ],
+        covered={p.base.id: {i.code for i in p.hard} for p in plans},
+    )
+    for p in plans:
+        p.hard = [*p.hard, *verdict.for_base(p.base.id)]
     bad = [p for p in plans if p.hard]
     if body.force and bad and not body.dry_run and not publish_guard.valid_reason(body.reason):
         rules = sorted({i.code for p in bad for i in p.hard})
@@ -282,11 +302,12 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
             request_ids=[
                 r for r in (p.base.meeting_request_id or (meeting.id if meeting else None), p.base.exam_request_id) if r
             ],
-            rules=[i.code for i in p.hard],
+            rules=[i.code for i in p.hard] or [str(f["rule"]) for f in verdict.findings.get(p.base.id, [])],
             conflicts=[i.text.tr for i in p.hard],
             reason=body.reason or "",
             actor=actor,
             audit_id=ev.id if ev is not None else None,
+            findings=verdict.findings.get(p.base.id, []),
         )
     await _rescore(db, run)
     await db.commit()

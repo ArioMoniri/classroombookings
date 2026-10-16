@@ -41,6 +41,7 @@ from app.models import (
     SectionInstructor,
 )
 from app.services.calendar import period_times
+from app.services.tr_grammar import dative
 
 DAY_TR = {1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi", 7: "Pazar"}
 DAY_EN = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
@@ -368,6 +369,7 @@ class TextContext:
     stats: dict[str, Any] = field(default_factory=dict)  # run stats (placed / events_total ...)
     exam: bool = False
     rooms: dict[int, str] = field(default_factory=dict)  # room id -> code (params with ids only)
+    room_names: dict[int, str] = field(default_factory=dict)  # room id -> display name ("B 201")
 
 
 _ID_RX = re.compile(r" ?\(#-?\d+\)")
@@ -582,7 +584,35 @@ def planner_text(d: dict[str, Any], ctx: TextContext | None = None) -> dict[str,
     elif code == "no_room":
         reason = p.get("reason")
         fit_tr, fit_en = _rooms_list(p.get("fitting_rooms"), "tr"), _rooms_list(p.get("fitting_rooms"), "en")
-        if reason == "capacity":
+        pin_seats = p.get("pinned_seats")
+        if reason == "capacity" and p.get("pinned_rooms") and isinstance(pin_seats, int) and size and pin_seats < size:
+            # round-1 R1-M-03: the class's own hard pin cannot seat it - say exactly that, never "rooms are busy"
+            names = " + ".join(
+                ctx.room_names.get(int(x.get("id") or 0)) or str(x.get("room"))
+                for x in _as_list(p.get("pinned_rooms"))
+                if isinstance(x, dict)
+            )
+            rules = [int(i) for i in _as_list(p.get("pin_constraint_ids")) if str(i).isdigit()]
+            who_tr = (
+                f"kesin kural {', '.join(f'#{i}' for i in rules)} onu yalnız {dative(names)} sabitliyor"
+                if rules
+                else f"planlama listesi onu yalnız {dative(names)} sabitliyor"
+            )
+            who_en = (
+                f"rule {', '.join(f'#{i}' for i in rules)} pins it to {names} only"
+                if rules
+                else f"the planning list pins it to {names} only"
+            )
+            out = {
+                "tr": f"{first} yerleşemedi: {who_tr} ve {size} öğrenci {pin_seats} kişilik {dative(names)} sığmaz. "
+                + ("Kuralı kaldırın veya daha büyük bir derslik seçin" if rules else "Daha büyük bir derslik seçin")
+                + (f" (sığan derslikler: {fit_tr})." if fit_tr else "; grubu bölün."),
+                "en": f"{first} could not be placed: {who_en}, and {size} students do not fit {names} "
+                f"({pin_seats} seats). "
+                + ("Drop the rule or pick a bigger room" if rules else "Pick a bigger room")
+                + (f" (rooms that fit: {fit_en})." if fit_en else "; split the group."),
+            }
+        elif reason == "capacity":
             best, cap = p.get("largest_room"), p.get("largest_capacity")
             pinned = bool(p.get("pinned_rooms"))
             out = {
@@ -984,7 +1014,9 @@ async def text_context(
     mem = members if members is not None else await _members(session, run, ids)
     rows = await _class_rows(session, run, {r for e in ids for r in mem.get(e, [e])})
     ctx = TextContext(stats=dict(run.stats or {}), exam=run.kind == "EXAM")
-    ctx.rooms = {int(i): str(c) for i, c in (await session.execute(select(Room.id, Room.code))).all()}
+    room_rows = (await session.execute(select(Room.id, Room.code, Room.display_name))).all()
+    ctx.rooms = {int(i): str(c) for i, c, _n in room_rows}
+    ctx.room_names = {int(i): str(n or c) for i, c, n in room_rows}
     for e in ids:
         reqs = [rows[r] for r in mem.get(e, [e]) if r in rows]
         if not reqs:

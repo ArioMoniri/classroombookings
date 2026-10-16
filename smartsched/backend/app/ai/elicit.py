@@ -287,6 +287,14 @@ async def accept_proposals(
         issues = check_proposal(p, effective)
         if not issues:
             issues = await verify_ids(session, term_id, p.params)
+        if not issues:
+            # round-1 R1-M-03: an approved AI / upload / import pin never seats a class in a room that cannot hold it
+            # (no override on this path: an administrator writes such a pin by hand, with a reason)
+            from app.services import pin_guard
+
+            short = await pin_guard.shortfalls(session, p.kind, p.params, p.hardness, term_id=term_id)
+            if short:
+                issues = [pin_guard.refusal(short, overridable=False)["message_tr"]]
         if issues:
             rejected.append({"index": i, "kind": p.kind, "issues": issues})
             decide(p, "rejected", issues, effective)

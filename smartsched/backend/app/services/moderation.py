@@ -2471,12 +2471,17 @@ async def matching_action(
             size = int(mr.section.enrolment or 0)
             seats = sum(int(rooms[r].capacity or 0) for r in rids)
             if size and seats < size and not (may_override and len((reason or "").strip()) >= 3):
+                from app.services.pin_guard import capacity_message
+
                 names = " + ".join(rooms[r].display_name for r in rids)
+                msg = capacity_message(size, seats, names)
                 raise ModerationError(
                     422,
                     {
-                        "message": f"{size} öğrenci {seats} kişilik {names}'e sığmaz / {size} students do not fit "
-                        f"{names} ({seats} seats)",
+                        "code": "capacity",
+                        "message": f"{msg['tr']} / {msg['en']}",
+                        "message_tr": msg["tr"],
+                        "message_en": msg["en"],
                         "issues": ["capacity"],
                         "override": "planning.admin with a reason",
                     },

@@ -50,7 +50,7 @@ from app.models import (
     StudioPreset,
     User,
 )
-from app.services import solver_bridge
+from app.services import pin_guard, solver_bridge
 from app.services import studio as st
 from app.services.constraint_guard import guard_rule
 from app.solver import model as sm
@@ -620,6 +620,12 @@ async def copy_rules(session: AsyncSession, body: Any, user: User) -> dict[str, 
         if guard:
             reasons.extend(guard)
             fatal = True
+        # round-1 R1-M-03: a copied pin that cannot seat its class in the target term is not created
+        if r.enabled:
+            short = await pin_guard.shortfalls(session, r.kind, params, r.hardness, term_id=target.id)
+            if short:
+                reasons.append(pin_guard.refusal(short, overridable=False)["message_tr"])
+                fatal = True
         item = {
             "source_id": r.id,
             "kind": r.kind,
@@ -1215,6 +1221,14 @@ async def apply_preset(
         guard = guard_rule(rule["kind"], params, rule["hardness"], source="ADMIN", may_waive=False, reason=None)
         if guard and rule.get("enabled", True):
             unresolved.append({"index": i, "kind": rule["kind"], "problems": guard, "nl_text": rule.get("nl_text")})
+            continue
+        # round-1 R1-M-03: a preset never pins a class into rooms that cannot seat it (no override through a preset)
+        short = await pin_guard.shortfalls(session, rule["kind"], params, rule["hardness"], term_id=term.id)
+        if short and rule.get("enabled", True):
+            refused = pin_guard.refusal(short, overridable=False)
+            unresolved.append(
+                {"index": i, "kind": rule["kind"], "problems": [refused["message_tr"]], "nl_text": rule.get("nl_text")}
+            )
             continue
         match = by_key.get((rule["kind"], _norm(params)))
         entry = {

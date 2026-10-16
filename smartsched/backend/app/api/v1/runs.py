@@ -618,6 +618,21 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, user: Pla
     else:
         conflicts += await _capacity_conflict(db, run, a, room_ids)
     conflicts = await _conflict_messages(db, conflicts)
+    # round-1 R1-M-05: the run's own hard-rule evaluation (planner level) on the moved row, e.g. a LOCKED class
+    # leaving its definitive room; a check that passes here keeps the hard score
+    from app.services import move_guard
+
+    covered = {"room_overlap" if c.get("kind") == "assignment" else str(c.get("kind") or "") for c in conflicts}
+    verdict = await move_guard.planner_issues(
+        db,
+        run,
+        [move_guard.TrialMove(a.id, ((a.id, tuple(weeks)),), day, sp, ep, tuple(room_ids))],
+        covered={a.id: covered},
+    )
+    conflicts += [
+        {"kind": i.code, "message": i.text.tr, "message_tr": i.text.tr, "message_en": i.text.en}
+        for i in verdict.for_base(a.id)
+    ]
     if conflicts and not body.force:
         return MoveOut(ok=False, assignment=(await _assignment_out(db, run, [a]))[0], conflicts=conflicts)
     if conflicts:  # forcing a hard-rule break: administrators only, with a written reason (persona M-02 / M-09)
@@ -679,6 +694,7 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, user: Pla
             reason=body.reason or "",
             actor=user,
             audit_id=ev.id if ev is not None else None,
+            findings=verdict.findings.get(original_id, []),
         )
     check = await _rescore(db, run)  # after the override is recorded: it counts against the hard score
     await db.commit()
@@ -752,6 +768,7 @@ async def _rescore(db: AsyncSession, run: ScheduleRun) -> Any:
     from app.services import publish_guard
 
     integ = publish_guard.integrity(check, run)
+    before_hard = run.hard_score
     # manual hard-rule breaks count, explained (forced with a reason) or not (persona M-02)
     run.hard_score = integ["hard_score"]
     if run.status == "OPTIMAL":
@@ -763,9 +780,29 @@ async def _rescore(db: AsyncSession, run: ScheduleRun) -> Any:
         **(run.stats or {}),
         "planner_check": check.summary(),
         "integrity": {k: integ[k] for k in ("hard_score", "overrides")}
-        | {"blocking": len(integ["blocking"]), "explained": len(integ["explained"])},
+        | {
+            "blocking": len(integ["blocking"]),
+            "explained": len(integ["explained"]),
+            # round-1 R1-M-05: the broken hard rules themselves, never only a lower number
+            "broken": publish_guard.broken_rules(integ, run),
+        },
         "manual_edits": int((run.stats or {}).get("manual_edits") or 0) + 1,
     }
+    if before_hard != run.hard_score:
+        # the score change is an audited fact with its cause (published or not)
+        await audit.record(
+            db,
+            "run.hard_score",
+            "schedule_run",
+            run.id,
+            before={"hard_score": before_hard},
+            after={
+                "hard_score": run.hard_score,
+                "is_active": bool(run.is_active),
+                "broken": run.stats["integrity"]["broken"][:20],
+            },
+            term_id=run.term_id,
+        )
     return check
 
 

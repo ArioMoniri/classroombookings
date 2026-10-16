@@ -46,12 +46,18 @@ def record_override(
     reason: str,
     actor: User | None,
     audit_id: int | None = None,
+    findings: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     item = {
         "assignment_ids": sorted(set(assignment_ids)),
         "request_ids": sorted({int(r) for r in request_ids if r}),
         "rules": sorted(set(rules)),
         "conflicts": conflicts[:20],
+        # the planner-level hard findings this forced move adds (``move_guard``): explained by this override
+        "findings": [
+            {"rule": str(f["rule"]), "request_ids": sorted(int(r) for r in f["request_ids"])}
+            for f in (findings or [])[:50]
+        ],
         "reason": reason.strip(),
         "by": actor.id if actor is not None else None,
         "by_name": (actor.full_name or actor.username or actor.email) if actor is not None else None,
@@ -72,6 +78,13 @@ def integrity(check: Any, run: ScheduleRun) -> dict[str, Any]:
     """Hard score and the findings that block publishing, from a :class:`planner_check.PlannerCheck`."""
     ovs = overrides(run)
     explained_reqs = {int(r) for o in ovs for r in o.get("request_ids") or []}
+    # a forced move records the planner-level findings it adds (round-1 R1-M-05): a clash it forced on purpose is
+    # explained by its override, whatever the finding's cause
+    explained_keys = {
+        (str(x.get("rule")), tuple(sorted(int(r) for r in x.get("request_ids") or [])))
+        for o in ovs
+        for x in o.get("findings") or []
+    }
     blocking: list[Any] = []
     explained: list[Any] = []
     for f in check.findings:
@@ -80,7 +93,8 @@ def integrity(check: Any, run: ScheduleRun) -> dict[str, Any]:
         manual = f.cause == "manual"
         if not (f.violation or manual):
             continue  # an accepted, reported exception (D1, D2, week_split, outside_pool ...)
-        if manual and explained_reqs & set(f.request_ids):
+        key = (f.rule, tuple(sorted(int(r) for r in f.request_ids)))
+        if (manual and explained_reqs & set(f.request_ids)) or key in explained_keys:
             explained.append(f)
         else:
             blocking.append(f)
@@ -95,6 +109,56 @@ def integrity(check: Any, run: ScheduleRun) -> dict[str, Any]:
         "explained": [f.as_dict() for f in explained],
         "overrides": len(ovs),
     }
+
+
+def broken_rules(integ: dict[str, Any], run: ScheduleRun, limit: int = 50) -> list[dict[str, Any]]:
+    """The hard rules a run breaks right now, for every surface (run card, report, banner, audit; round-1 R1-M-05):
+    each blocking or explained finding with its rule, message, requests and - when a forced move explains it - that
+    override's reason, author and time. Board-only overrides (imported rows without requests) are listed too."""
+    ovs = overrides(run)
+
+    def override_for(f: dict[str, Any]) -> dict[str, Any] | None:
+        key = (str(f["rule"]), tuple(sorted(int(r) for r in f["request_ids"])))
+        reqs = {int(r) for r in f["request_ids"]}
+        for o in reversed(ovs):
+            keys = {
+                (str(x.get("rule")), tuple(sorted(int(r) for r in x.get("request_ids") or [])))
+                for x in o.get("findings") or []
+            }
+            if key in keys or reqs & {int(r) for r in o.get("request_ids") or []}:
+                return o
+        return None
+
+    out: list[dict[str, Any]] = []
+    for explained, items in ((False, integ.get("blocking") or []), (True, integ.get("explained") or [])):
+        for f in items:
+            o = override_for(f) if explained else None
+            out.append(
+                {
+                    "rule": f["rule"],
+                    "message": f["message"],
+                    "request_ids": list(f["request_ids"]),
+                    "explained": explained,
+                    "reason": (o or {}).get("reason"),
+                    "by_name": (o or {}).get("by_name"),
+                    "at": (o or {}).get("at"),
+                }
+            )
+    for o in ovs:
+        if not o.get("request_ids"):
+            out.append(
+                {
+                    "rule": ",".join(o.get("rules") or []) or "override",
+                    "message": "; ".join(o.get("conflicts") or [])[:500],
+                    "request_ids": [],
+                    "assignment_ids": list(o.get("assignment_ids") or []),
+                    "explained": True,
+                    "reason": o.get("reason"),
+                    "by_name": o.get("by_name"),
+                    "at": o.get("at"),
+                }
+            )
+    return out[:limit]
 
 
 async def run_weeks(session: AsyncSession, run: ScheduleRun) -> list[int]:
@@ -137,6 +201,7 @@ def valid_reason(reason: str | None) -> bool:
 
 
 __all__ = [
+    "broken_rules",
     "integrity",
     "overrides",
     "record_override",
