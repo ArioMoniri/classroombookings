@@ -1,4 +1,8 @@
 "use client";
+// Dashboard utilisation heatmap (building × day / period). Phones (< 640 px; dense grids on phones 2026-10-16): the
+// 40 × 32 px cells become ONE column at a time — a SegmentedControl picks the day (today preselected) or the period
+// (the current one) and the buildings are a ranked BarList with the value printed, each row a 44 px link to the same
+// timetable view as its cell (MOBILE.md M-02). From 640 px up the heatmap (and its table toggle) is unchanged.
 
 import Link from "next/link";
 import { useState } from "react";
@@ -9,6 +13,15 @@ import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { BarList } from "@/components/ui/bar-list";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
+import { minutesNow } from "@/components/timetable/model/dates";
+import { periodAtMinute } from "@/components/timetable/model/geometry";
+
+/** Buildings ranked by value (highest first; ties by name), the order of the phone list. */
+export function rankRows<T extends { building: string }>(rows: readonly T[], value: (row: T) => number): { row: T; value: number }[] {
+  return rows.map((row) => ({ row, value: value(row) })).sort((a, b) => b.value - a.value || a.row.building.localeCompare(b.row.building, "tr"));
+}
 
 /** Sequential 5-step scale from tokens §2.5; text colour flips at step 4. 0 % / no data is NOT step 1: it is
  *  drawn as `--fill-3` with a dot pattern and a label-3 numeral, so empty days stop weighing like data
@@ -22,6 +35,8 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
   const { t, locale } = useI18n();
   const [mode, setMode] = useState<"day" | "period">("day");
   const [table, setTable] = useState(false);
+  const phone = useIsPhone();
+  const [pickedCol, setPickedCol] = useState<number | null>(null);
   const days = [1, 2, 3, 4, 5, 6, 7];
   const buildingRows = data.utilisation_by_building;
   // Real matrices from `GET /dashboard` (occupied room-periods / available, per building); the composed
@@ -42,6 +57,60 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
   };
   const cols = mode === "day" ? days : Array.from({ length: 18 }, (_, i) => i + 1);
   const caption = `${t("dashboard.utilisation")}, ${t("common.week")} ${week}`;
+  const rows = mode === "day" || realPeriod.length ? buildingRows : [{ building: t("common.all"), utilisation: data.utilisation, rooms: data.rooms_bookable }];
+  const valueAt = (row: { building: string; utilisation: number }, c: number) => (mode === "day" ? dayValue(row.building, row.utilisation, c) : periodValue(row.building, c));
+  const labelAt = (building: string, c: number, pct: number) => (mode === "day" ? `${building} · ${dayName(c, locale)} · ${pct}%` : `${building} · ${PERIODS[c - 1]?.start ?? c} · ${pct}%`);
+  const hrefAt = (building: string, c: number) => (mode === "day" ? `/timetable?day=${c}&building=${building}` : `/timetable?period=${c}`);
+
+  if (phone) {
+    // Sunday only when some building is used on it; today / the current period preselected
+    const phoneDays = days.filter((d) => d < 7 || buildingRows.some((r) => dayValue(r.building, r.utilisation, d) > 0));
+    const phoneCols = mode === "day" ? phoneDays : cols;
+    const fallback = mode === "day" ? ((new Date().getDay() + 6) % 7) + 1 : (periodAtMinute(minutesNow()) ?? 1);
+    const col = pickedCol !== null && phoneCols.includes(pickedCol) ? pickedCol : phoneCols.includes(fallback) ? fallback : (phoneCols[0] ?? 1);
+    const ranked = rankRows(rows, (row) => valueAt(row, col));
+    const colName = mode === "day" ? dayName(col, locale) : `${t("common.period")} ${col} · ${PERIODS[col - 1]?.start ?? ""}`;
+    return (
+      <div className="flex flex-col gap-3" data-testid="heat-phone">
+        <SegmentedControl
+          fill
+          aria-label={t("dashboard.heatmap")}
+          value={mode}
+          onValueChange={(v) => {
+            setMode(v);
+            setPickedCol(null);
+          }}
+          options={[
+            { value: "day", label: t("common.day") },
+            { value: "period", label: t("common.period") },
+          ]}
+        />
+        <SegmentedControl
+          fill
+          aria-label={mode === "day" ? t("common.day") : t("common.period")}
+          value={String(col)}
+          onValueChange={(v) => setPickedCol(Number(v))}
+          options={phoneCols.map((c) => ({
+            value: String(c),
+            label: mode === "day" ? dayName(c, locale, "short") : (PERIODS[c - 1]?.start ?? String(c)),
+            text: mode === "day" ? dayName(c, locale) : `${t("common.period")} ${c} · ${PERIODS[c - 1]?.start ?? ""}`,
+          }))}
+          data-testid="heat-phone-col"
+        />
+        <BarList
+          aria-label={`${caption} · ${colName}`}
+          tone="var(--seq-4)"
+          max={100}
+          linkAs={Link}
+          items={ranked.map(({ row, value }) => {
+            const pct = Math.round(value * 100);
+            return { key: row.building, label: row.building, value: pct, display: `${pct}%`, href: hrefAt(row.building, col), linkLabel: labelAt(row.building, col, pct) };
+          })}
+        />
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -76,16 +145,16 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
             </tr>
           </thead>
           <tbody>
-            {(mode === "day" || realPeriod.length ? buildingRows : [{ building: t("common.all"), utilisation: data.utilisation, rooms: data.rooms_bookable }]).map((row) => (
+            {rows.map((row) => (
               <tr key={row.building}>
                 <th scope="row" className="pr-2 text-left type-callout font-medium text-label-1">{row.building}</th>
                 {cols.map((c) => {
-                  const v = mode === "day" ? dayValue(row.building, row.utilisation, c) : periodValue(row.building, c);
+                  const v = valueAt(row, c);
                   const { bg, fg } = seqStep(v);
                   const pct = Math.round(v * 100);
                   const empty = pct === 0;
-                  const label = mode === "day" ? `${row.building} · ${dayName(c, locale)} · ${pct}%` : `${row.building} · ${PERIODS[c - 1]?.start ?? c} · ${pct}%`;
-                  const href = mode === "day" ? `/timetable?day=${c}&building=${row.building}` : `/timetable?period=${c}`;
+                  const label = labelAt(row.building, c, pct);
+                  const href = hrefAt(row.building, c);
                   return (
                     <td key={c} className="p-0">
                       <Tooltip>

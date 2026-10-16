@@ -3,9 +3,12 @@
  * /admin/sessions (CRBS `Sessions`, `Room_schedules`, `Dates_model`): which terms are selectable for
  * booking, the default schedule and the schedule per room group, and the calendar that assigns a
  * timetable week to each date (paint with a week, or apply one week to the whole term).
+ * Phones (< 640 px; dense grids on phones 2026-10-16): the month calendars drop the week-number column so each day
+ * is a >= 44 px cell (MOBILE.md M-02), painting is by tap (the page still scrolls under a finger: no touch-none,
+ * no drag strokes) and a "Gün / Hafta / Aralık" mode replaces the week-number button and Shift+click.
  */
 import { Brush, Eraser, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useReducer, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useReducer, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
@@ -31,6 +34,11 @@ import { useErrorToast } from "./admin-gate";
 import { changeCount, changes, initialPainter, monthsBetween, painterReducer, type Brush as BrushValue } from "./date-painter";
 import { DeleteSessionDialog, SessionDialog } from "./session-forms";
 import { BareButton } from "@/components/shell/bare-button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
+
+/** Phone tap modes: one date, its Monday–Sunday week, or the dates between two taps (Shift+click on desktop). */
+export type TapMode = "day" | "week" | "range";
 
 const KEYS = [["crbs", "sessions"], ["crbs", "session-dates"], ["crbs", "term-schedules"], ["crbs", "context"], ["crbs", "grid"], ["crbs", "dates"]];
 
@@ -163,8 +171,9 @@ function SessionDetail({ session, onEdit, onDelete }: { session: Session; onEdit
   );
 }
 
-function DatePainter({ session }: { session: Session }) {
+export function DatePainter({ session }: { session: Session }) {
   const { t, locale } = useI18n();
+  const fmt = useBookingFormat();
   const dates = useSessionDates(session.term_id);
   const weeks = useTimetableWeeks();
   const [state, dispatch] = useReducer(painterReducer, initialPainter(null));
@@ -190,6 +199,22 @@ function DatePainter({ session }: { session: Session }) {
   const applyAll = useCrbsMutation((id: number | null) => crbs.bookingAdmin.applyWeek(session.term_id, id), KEYS);
   const pending = changeCount(state);
   const weekdays = useMemo(() => Array.from({ length: 7 }, (_, i) => formatPattern(addDays("2026-02-16", i), "EEE", locale)), [locale]);
+  const phone = useIsPhone();
+  const [mode, setMode] = useState<TapMode>("day");
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const tap = (date: string, monday: string) => {
+    if (mode === "week") return dispatch({ type: "week", monday });
+    if (mode === "range" && anchor) {
+      // the reducer's Shift+click: from the last painted date (the anchor) to this one
+      dispatch({ type: "down", date, shift: true });
+      dispatch({ type: "up" });
+      return setAnchor(null);
+    }
+    dispatch({ type: "down", date });
+    dispatch({ type: "up" });
+    if (mode === "range") setAnchor(date);
+  };
+  const cols = phone ? "grid-cols-7" : "grid-cols-[28px_repeat(7,1fr)]";
 
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!state.stroke) return;
@@ -246,14 +271,34 @@ function DatePainter({ session }: { session: Session }) {
           </Button>
         </div>
       )}
-      <p className="type-footnote text-label-3">{t("crbs.painter.howto")}</p>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" onPointerMove={onMove} data-testid="painter">
+      {phone && (weeks.data ?? []).length ? (
+        <SegmentedControl
+          fill
+          semantics="radiogroup"
+          aria-label={t("crbs.painter.mode")}
+          value={mode}
+          onValueChange={(v) => {
+            setMode(v);
+            setAnchor(null);
+          }}
+          options={[
+            { value: "day", label: t("common.day"), testId: "painter-mode-day" },
+            { value: "week", label: t("common.week"), testId: "painter-mode-week" },
+            { value: "range", label: t("crbs.painter.modeRange"), testId: "painter-mode-range" },
+          ]}
+          data-testid="painter-mode"
+        />
+      ) : null}
+      <p className="type-footnote text-label-3" aria-live="polite" data-testid="painter-howto">
+        {phone ? (anchor ? t("crbs.painter.rangeHint", { date: fmt.short(anchor) }) : t("crbs.painter.howtoPhone")) : t("crbs.painter.howto")}
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" onPointerMove={phone ? undefined : onMove} data-testid="painter">
         {months.map((m) => (
-          <Card key={m.key} variant="plain" className="gap-1 px-3 py-3">
+          <Card key={m.key} variant="plain" className="gap-1 px-3 py-3 max-sm:px-2">
             <p className="type-headline text-label-1">{formatPattern(`${m.key}-01`, "MMMM yyyy", locale)}</p>
             <div role="grid" aria-label={formatPattern(`${m.key}-01`, "MMMM yyyy", locale)}>
-              <div role="row" className="grid grid-cols-[28px_repeat(7,1fr)] gap-0.5">
-                <span role="columnheader" className="type-caption text-label-3" />
+              <div role="row" className={cn("grid gap-0.5", cols)}>
+                {phone ? null : <span role="columnheader" className="type-caption text-label-3" />}
                 {weekdays.map((w) => (
                   <span key={w} role="columnheader" className="text-center type-caption text-label-3">
                     {w}
@@ -261,14 +306,14 @@ function DatePainter({ session }: { session: Session }) {
                 ))}
               </div>
               {m.weeks.map((wk) => (
-                <div key={wk.monday} role="row" className="grid grid-cols-[28px_repeat(7,1fr)] gap-0.5">
-                  <span role="rowheader">
+                <div key={wk.monday} role="row" className={cn("grid gap-0.5", cols)}>
+                  {phone ? null : <span role="rowheader">
                     {wk.days.some((d) => d && d in state.pending) ? (
                       <BareButton aria-label={t("crbs.painter.paintWeek", { date: wk.monday })} onClick={() => dispatch({ type: "week", monday: wk.monday })} className="h-(--control-h-md) w-full rounded-md type-caption text-label-3 hover:bg-fill-2">
                         {info.get(wk.days.find((d) => d && info.get(d)) ?? "")?.term_week ?? ""}
                       </BareButton>
                     ) : null}
-                  </span>
+                  </span>}
                   {wk.days.map((d, i) => {
                     if (!d || !(d in state.pending)) return <span key={i} role="gridcell" className="h-(--control-h-md)" />;
                     const w = state.pending[d] != null ? weekById.get(state.pending[d] as number) : undefined;
@@ -278,19 +323,24 @@ function DatePainter({ session }: { session: Session }) {
                       <span key={d} role="gridcell">
                         <BareButton
                           data-paint-day={d}
+                          data-anchor={anchor === d ? "true" : undefined}
                           aria-label={[d, w ? w.name : t("crbs.painter.noWeek"), di?.holiday ? t("crbs.picker.holiday", { name: di.holiday }) : null, changed ? t("crbs.painter.changed") : null].filter(Boolean).join(", ")}
-                          onPointerDown={(e) => {
-                            e.preventDefault();
-                            dispatch({ type: "down", date: d, shift: e.shiftKey });
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              dispatch({ type: "down", date: d, shift: e.shiftKey });
-                              dispatch({ type: "up" });
-                            }
-                          }}
-                          className={cn("relative flex h-(--control-h-md) w-full touch-none items-center justify-center rounded-md type-caption tabular-nums select-none", !w && "bg-fill-3 text-label-2", changed && "inset-ring-[1.5px] inset-ring-(--label-1)", di?.holiday && "line-through")}
+                          {...(phone
+                            ? { onClick: () => tap(d, wk.monday) }
+                            : {
+                                onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
+                                  e.preventDefault();
+                                  dispatch({ type: "down", date: d, shift: e.shiftKey });
+                                },
+                                onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    dispatch({ type: "down", date: d, shift: e.shiftKey });
+                                    dispatch({ type: "up" });
+                                  }
+                                },
+                              })}
+                          className={cn("relative flex h-(--control-h-md) w-full items-center justify-center rounded-md type-caption tabular-nums select-none", !phone && "touch-none", !w && "bg-fill-3 text-label-2", changed && "inset-ring-[1.5px] inset-ring-(--label-1)", anchor === d && "outline-2 outline-offset-1 outline-(--accent)", di?.holiday && "line-through")}
                           style={w ? { background: w.bgcol, color: w.fgcol } : undefined}
                         >
                           {Number(d.slice(8))}

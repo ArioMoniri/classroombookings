@@ -3,6 +3,9 @@
  * /admin/roles (CRBS `Roles`): the role list with member counts, and an editor with the four booking
  * limits and the permission matrix grouped like CRBS (`Permissions_model::get_scoped`): system and setup
  * permissions as lists, booking permissions as a table with single and recurring side by side.
+ * Phones (< 640 px; dense grids on phones 2026-10-16): one role at a time (a role picker instead of the list) and
+ * the booking permissions as two groups (single / recurring, the CRBS groups) of 44 px labelled checkbox rows
+ * instead of the 3-column table (MOBILE.md M-02).
  */
 import { ChevronRight, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
@@ -22,6 +25,8 @@ import { roleEditCheck, usePermissions } from "@/lib/permissions";
 import { Alert, ConfirmDialog, Field, LimitInput, Loading, PageTitle } from "./kit";
 import { useErrorToast } from "./admin-gate";
 import { BareButton } from "@/components/shell/bare-button";
+import { NativeSelect } from "@/components/ui/native-select";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
 
 const GROUP_KEYS: Record<string, MessageKey> = {
   system: "crbs.perm.group.system",
@@ -56,6 +61,7 @@ export function RolesAdmin() {
   const [selectedId, setSelectedId] = useState<number | "new" | null>(null);
   const current = selectedId === "new" ? null : (roles.data?.find((r) => r.id === selectedId) ?? roles.data?.[0] ?? null);
   const editing = selectedId === "new" ? "new" : current;
+  const phone = useIsPhone();
   return (
     <div className="flex flex-col gap-5">
       <PageTitle
@@ -72,6 +78,21 @@ export function RolesAdmin() {
         <Loading />
       ) : (
         <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
+          {phone ? (
+            <NativeSelect
+              aria-label={t("crbs.admin.roles.title")}
+              data-testid="roles-picker"
+              value={editing === "new" ? "new" : editing ? String(editing.id) : ""}
+              onChange={(e) => setSelectedId(e.target.value === "new" ? "new" : Number(e.target.value))}
+            >
+              {editing === "new" ? <option value="new">{t("crbs.roles.new")}</option> : null}
+              {(roles.data ?? []).map((r) => (
+                <option key={r.id} value={r.id}>
+                  {`${r.name} · ${t("crbs.roles.summary", { users: r.user_count, perms: r.permissions.length })}`}
+                </option>
+              ))}
+            </NativeSelect>
+          ) : (
           <nav aria-label={t("crbs.admin.roles.title")}>
             <Card className="py-1">
               <ul>
@@ -96,6 +117,7 @@ export function RolesAdmin() {
               </ul>
             </Card>
           </nav>
+          )}
           {editing ? <RoleEditor key={editing === "new" ? "new" : editing.id} role={editing === "new" ? null : editing} onSaved={(r) => setSelectedId(r.id)} onDeleted={() => setSelectedId(null)} /> : null}
         </div>
       )}
@@ -279,6 +301,7 @@ export function PermissionMatrix({
   held?: ReadonlySet<string>;
 }) {
   const { t } = useI18n();
+  const phone = useIsPhone();
   const off = (name: string) => !!disabled || (!!held && !held.has(name));
   const why = (name: string) => (!disabled && held && !held.has(name) ? t("crbs.roles.notHeld") : undefined);
   const book = catalogue.bookings;
@@ -317,6 +340,24 @@ export function PermissionMatrix({
             ))}
           </div>
         ) : null}
+        {phone ? (
+          <div className="flex flex-col gap-4" data-testid="perm-book-groups">
+            {(["book_single", "book_recur"] as const).map((g) => (
+              <fieldset key={g} className="rounded-xl bg-(--mat-thick-solid) px-3 py-1 edge-hairline">
+                <legend className="px-1 type-callout font-semibold text-label-1">{t(GROUP_KEYS[g]!)}</legend>
+                {BOOK_ACTIONS.map((a) => {
+                  const name = `${g}.${a}`;
+                  return (
+                    <label key={a} className={cn("flex min-h-11 items-center gap-3 type-callout text-label-1 not-last:hairline-b", off(name) && "text-label-3")} title={why(name)} data-not-held={why(name) ? "true" : undefined} data-permission={name}>
+                      <Checkbox checked={value.has(name)} disabled={off(name)} onCheckedChange={(v) => onToggle(name, v === true)} />
+                      <span>{t(`crbs.perm.action_${a}` as MessageKey)}</span>
+                    </label>
+                  );
+                })}
+              </fieldset>
+            ))}
+          </div>
+        ) : (
         <div className="overflow-x-auto rounded-xl bg-(--mat-thick-solid) edge-hairline">
           <table className="w-full border-separate border-spacing-0 type-callout">
             <thead>
@@ -353,6 +394,7 @@ export function PermissionMatrix({
             </tbody>
           </table>
         </div>
+        )}
       </fieldset>
     </div>
   );

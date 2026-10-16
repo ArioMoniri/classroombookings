@@ -182,7 +182,7 @@ export function RunView({ id }: { id: number }) {
 
   return (
     <div data-testid="run-view">
-      <Link href="/runs" className="mb-2 inline-flex items-center gap-1 type-callout text-label-2 hover:text-label-1">
+      <Link href="/runs" className="mb-2 inline-flex min-h-11 items-center gap-1 type-callout text-label-2 hover:text-label-1 pointer-fine:min-h-0">
         <ArrowLeft className="size-4" aria-hidden /> {t("runs.title")}
       </Link>
       <PageHeader

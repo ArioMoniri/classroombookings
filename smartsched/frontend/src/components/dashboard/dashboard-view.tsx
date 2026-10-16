@@ -14,6 +14,8 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { coarseHitArea } from "@/components/ui/hit-area";
+import { cn } from "@/lib/utils";
 import { useMeetings, useRuns, useWeeks } from "@/lib/api/hooks";
 import type { DashboardSummary, ScheduleRun } from "@/lib/api/schemas";
 import { useDashboardWeek } from "@/lib/api/shell-extra";
@@ -204,7 +206,7 @@ export function DashboardView() {
           <CardHeader>
             <CardTitle>{t("dashboard.lastRuns")}</CardTitle>
             <CardAction>
-              <Link href="/runs" className="type-callout font-medium text-tint-text hover:underline">
+              <Link href="/runs" className={cn("relative type-callout font-medium text-tint-text hover:underline", coarseHitArea)}>
                 {t("dashboard.viewAll")}
               </Link>
             </CardAction>
@@ -234,7 +236,7 @@ export function DashboardView() {
               {t("glass.dashboard.toReview")} <span className="font-normal text-label-3 tabular-nums">{pending.data ? n(pending.data.total) : ""}</span>
             </CardTitle>
             <CardAction>
-              <Link href="/requests?status=NEEDS_REVIEW" className="type-callout font-medium text-tint-text hover:underline">
+              <Link href="/requests?status=NEEDS_REVIEW" className={cn("relative type-callout font-medium text-tint-text hover:underline", coarseHitArea)}>
                 {t("dashboard.viewAll")}
               </Link>
             </CardAction>
