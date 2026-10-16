@@ -5,14 +5,14 @@ quality), or automatically with the pipeline in `scripts/record/`, which drives 
 Playwright and adds Recordly-style polish. The pipeline can also hand its result to Recordly, either
 to render on Linux or to fine-tune in the Recordly editor.
 
-> **Status (2026-10-15, snapshot `52f96d4`).** The pipeline was rebuilt for short, sharp README GIFs: a lossless Chrome
-> screencast instead of Playwright's VP8 video, a 20 fps lossless master, one GIF clip per action (6-12 s, ≥ 1000 px,
-> 20 fps, two-pass palette with `sierra2_4a`, under 9 MB), a camera that only moves when the action would leave the view,
-> KVKK masking of instructor names, new journeys (`reserve-panel`, `find-room`, `approval-flow`, `audit-undo`,
-> `onboarding-intake`) and `refresh.sh`, which rebuilds every README medium in one command. All journeys were recorded
-> and checked on `52f96d4` (2026-10-15/16); the UI was redesigned right after, so the README media are being recorded
-> again on the redesigned UI with `refresh.sh` and land in a separate commit. Until then the README shows the
-> 2026-10-08 recordings.
+> **Status (2026-10-16, snapshot `1210795`, the redesigned UI).** The README shows 7 GIF clips and 9 full takes (MP4), all
+> recorded on the real backend with the **screencast → ffmpeg** route (§2 b′; the two upload journeys use Playwright's
+> video, see Known limitations), light theme, English captions, plus Turkish takes of `reserve-panel`:
+> `reserve-slot` 8.08 MB (10.2 s, 1040 px), `reserve-drag` 1.93 MB (8.7 s), `find-room` 0.95 MB (7.8 s), `audit-undo`
+> 2.86 MB (9.9 s), `calendar-move` 8.33 MB (7.2 s), `precheck-fix` 2.46 MB (11.3 s), `onboarding` 5.97 MB (14.6 s);
+> all at 20 fps (every frame delay a multiple of 5/100 s), 1120 px unless noted. Not recorded this time: `approval-flow`
+> and `login-dashboard` (the sign-in page and the approval screens are being rebuilt), `chat-edit` (needs an AI key),
+> and `import-generate` (see Known limitations). Every take still writes a `.recordly` project for hand editing on a Mac.
 >
 > **KVKK.** The real workbooks name every instructor. Before any take, `scripts/record/kvkk_mask.py` rewrites each
 > instructor's name in the throwaway recording database (never in product data or code) to title + initials
@@ -102,17 +102,17 @@ form one short clip (6-12 s, one action). To record one by hand with Recordly, f
 
 | Journey (`--journey`) | DB | What it shows | README GIF clip(s) | Full take |
 |---|---|---|---|---|
-| `reserve-panel` | seeded | A free period says Free and offers Reserve; one more click books it; a drag across three periods; room details with other free rooms | `reserve-slot`, `reserve-drag` | `reserve-panel.mp4`, `reserve-panel-tr.mp4` |
-| `find-room` | seeded | Head count and the computer-lab feature (adopted from the room master's PC tag); ranked results with reasons; reserve from the list | `find-room` | `find-room.mp4` |
-| `approval-flow` | seeded | The academic staff account asks for a room with an approval rule (set up through the API); the request is held as pending; the administrator approves it in `/approvals`; the requester sees it confirmed | `approval-request`, `approval-approve` | `approval-flow.mp4`, `approval-flow-tr.mp4` |
-| `audit-undo` | seeded | A booking move in the audit log with its before/after values; Undo after a confirm | `audit-undo` | `audit-undo.mp4` |
-| `calendar-move` | seeded | The inspector; Move offers only rooms that are free and fit; the server's check; confirm; undo | `calendar-move` (the move) | `calendar-move.mp4` |
-| `studio-rule-fix` | seeded | A rule from a template; the pre-check against the data; one of its fixes applied | `precheck-fix` | `studio-rule-fix.mp4` |
-| `import-generate` | fresh | The Bahar 2026 weekly grid and planning list imported (reports), week 3 generated anyway after the pre-check warning, the run report and the first unplaced class | | `import-generate.mp4` |
-| `onboarding-intake` | fresh | The Final 2026 exam planning list dropped on `/onboarding` with AI off; classified; the review; commit into 2026-FINAL | | `onboarding-intake.mp4` |
+| `reserve-panel` | seeded | A free period offers Reserve on hover; one more click books it; a drag across three periods; room details with other free rooms | `reserve-slot` (8.08 MB), `reserve-drag` (1.93 MB) | `reserve-panel.mp4`, `reserve-panel-tr.mp4` |
+| `find-room` | seeded | Head count and the computer-lab feature (adopted from the room master's PC tag); ranked results with reasons; reserve from the list | `find-room` (0.95 MB) | `find-room.mp4` |
+| `approval-flow` (not recorded on `1210795`: approval screens being rebuilt) | seeded | The academic staff account asks for a room with an approval rule (set up through the API); the request is held as pending; the administrator approves it in `/approvals`; the requester sees it confirmed | `approval-request`, `approval-approve` (8.1 / 8.7 MB on `52f96d4`) | — |
+| `audit-undo` | seeded | A booking move in the audit log with its before/after values; Undo after a confirm | `audit-undo` (2.86 MB) | `audit-undo.mp4` |
+| `calendar-move` | seeded | The inspector; Move offers only rooms that are free and fit; the server's check; confirm; undo | `calendar-move` (8.33 MB, the move) | `calendar-move.mp4` |
+| `studio-rule-fix` | seeded | A rule from a template; the pre-check against the data; one of its fixes applied | `precheck-fix` (2.46 MB) | `studio-rule-fix.mp4` |
+| `import-generate` (not published on `1210795`, see Known limitations) | fresh | `generate-report` (not published) | — |
+| `onboarding-intake` | fresh | The Final 2026 exam planning list dropped on `/onboarding` with AI off; classified; the review (instructor names held until masked); commit into 2026-FINAL | `onboarding` (5.97 MB) | `onboarding-intake.mp4` |
 | `room-booking` | seeded | A free period booked with a note; My bookings | — | `room-booking.mp4` |
 | `admin-user` | seeded | Setup → Users: an account for the planning office ("Planlama Ofisi") with the Planner role | — | `admin-user.mp4` |
-| `login-dashboard` | seeded | Sign in; the dashboard | — | `login-dashboard.mp4` |
+| `login-dashboard` (not recorded on `1210795`: sign-in page being rebuilt) | seeded | Sign in; the dashboard | — | — |
 | `run-report-fix` | seeded | The run report of Güz week 3 and one suggested fix applied | — | `run-report-fix.mp4` |
 
 `chat-edit` (edit the timetable by chat) is not recorded: it needs an Anthropic key in the backend, and the recording
@@ -232,6 +232,12 @@ connection. `scripts/record/check_readme.py` checks that every referenced file e
 - Size: a GIF pays for every camera move with whole new frames (about 2.5 MB per second of zoom or pan at 1040 px),
   while still stretches cost almost nothing. Keep clips to one action, few targets per clip, and let the MP4 carry
   the rest.
+- `import-generate` and `onboarding-intake` upload workbooks during the take. Chrome's screencast stalls while a large
+  file is uploaded and imported (no frames for half a minute, then a burst), so these two use Playwright's video
+  (`capture: "video"` in the journey). Under the load of this container (load average 15-30 on 4 cores) the video of
+  `import-generate` still drifts by up to 8 s against the recorder clock during its three long waits, so its captions
+  land on the wrong screens; it was recorded but not published on `1210795`. A take on a quieter machine, or a cut
+  mapping anchored on frame timestamps instead of marker flashes, should fix it.
 - `onboarding-intake` drops the Final 2026 exam planning list: on this build onboarding refuses the Bahar and Güz
   planning lists ("16376 columns, limit 1024", their sheets declare a full-width range).
 - With `stack.sh`, the backend schema comes from `create_all` (the CLI), not from Alembic, so a

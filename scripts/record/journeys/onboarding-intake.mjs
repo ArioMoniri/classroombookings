@@ -32,7 +32,8 @@ export default {
       await page.getByTestId("onboarding-input").setInputFiles(`${FIXTURES}/${FILE}`);
       await rec.wait(500);
       const ai = drop.locator('input[type="checkbox"]').first();
-      if (await ai.isChecked()) await rec.click(ai, { after: 300 });
+      // a styled checkbox: the label takes the click
+      if (await ai.isChecked()) await rec.click(drop.getByText(/Use the AI model|yapay zek/i).first(), { after: 300 });
       await rec.frame(drop, { dwell: 700 });
     }, { zoom: false });
     await rec.step(tr(ctx, "It is read and classified, and a term is proposed (waiting skipped)", "Okunur, sınıflanır ve bir dönem önerilir (bekleme atlandı)"), async () => {

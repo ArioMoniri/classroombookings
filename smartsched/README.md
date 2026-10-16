@@ -358,7 +358,7 @@ On 2026-10-15:
 
 - Planning: Generator Studio, the solver with partial runs and per-class explanations, the calendar and
   the run report are built. The real-data figures (planner-level hard 100 and 0 violations on four
-  instances, 2026-10-08) are in the [root README](../README.md#measured-on-the-real-data) and
+  instances, 2026-10-08) are in [docs/RESULTS.md](../docs/RESULTS.md) and
   [docs/testing/2026-10-08-real-data-feasibility.md](../docs/testing/2026-10-08-real-data-feasibility.md).
 - Bookings: CRBS parity, the reservation panel and calendar feeds are built with screens. Room
   features, find-a-room, approvals, the audit log with undo and in-app notifications are built in the
@@ -370,7 +370,7 @@ On 2026-10-15:
   `relaxation_policy` = `lock_first` (default) or `most_classes_first`, or the setting
   `term.<id>.relaxation_policy`; priorities through `params.priorities`), the AI intake and vision
   switches (`GET/PUT /ai/policy`, off by default) and the weekly-pattern expander (`services/patterns.py`);
-  see the [root README](../README.md#roadmap) and [docs/ROADMAP.md](../docs/ROADMAP.md).
+  see [docs/ROADMAP.md](../docs/ROADMAP.md).
 
 Live status per agent is in [docs/AGENT_STATE.md](../docs/AGENT_STATE.md) and the ledger
 [docs/PROGRESS.md](../docs/PROGRESS.md). Screenshots and recordings for the root README are made from a

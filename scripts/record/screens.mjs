@@ -248,7 +248,8 @@ const SHOTS = {
       await visible(page, "onboarding-drop");
       await page.getByTestId("onboarding-input").setInputFiles(`${FIXTURES}/final_planlama_listesi_2026_v2.xlsx`);
       const ai = page.getByTestId("onboarding-drop").locator('input[type="checkbox"]').first();
-      if (await ai.isChecked()) await ai.click();
+      // a styled checkbox: the label takes the click
+      if (await ai.isChecked()) await page.getByTestId("onboarding-drop").getByText(/Use the AI model|yapay zek/i).first().click();
       await page.getByTestId("onboarding-start").click();
       await visible(page, "onboarding-review", 300_000);
       await scrollTo(page, page.getByTestId("onboarding-review"), 120);
@@ -277,7 +278,7 @@ const SHOTS = {
       await settle(page, 1500);
     },
   },
-  rooms: { go: async (page) => { await page.goto("/rooms"); await visible(page, "room-card"); await settle(page, 2000); } },
+  rooms: { go: async (page) => { await page.goto("/rooms"); await page.getByTestId("rooms-table").or(page.getByTestId("room-card")).first().waitFor({ timeout: 30_000 }); await settle(page, 2000); } },
   // phone
   "mobile-bookings": { viewport: PHONE, go: async (page, c) => { await page.goto(`/bookings?date=${c.nextDay}&group=${c.groupA}`); await visible(page, "free-slots"); await settle(page, 2500); } },
   "mobile-timetable": { viewport: PHONE, go: async (page, c) => { await page.goto(`/timetable?run=${c.termRun}&week=${WEEK}&lens=day&subject=room:${c.busiest}`); await visible(page, "calendar"); await settle(page, 2500); } },

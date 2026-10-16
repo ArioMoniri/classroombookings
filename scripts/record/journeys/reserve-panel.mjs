@@ -1,4 +1,4 @@
-// The reservation panel on the booking grid: a free period says Free and offers Reserve; one click opens the
+// The reservation panel on the booking grid: a free period offers Reserve on hover; one click opens the
 // sheet; a drag across periods reserves a span; the room details sheet shows the room, its day and the other
 // rooms free at that time. Booked as the seeded administrator on the next teaching day of Güz 2026-27, in the
 // A building group. Same selectors as smartsched/frontend/e2e/reserve.spec.ts.
@@ -31,9 +31,9 @@ export default {
     const { page } = rec;
     const cell = (s) => page.locator(`button[data-slot-key="${slotKey(s)}"]`).first();
     const sheet = page.getByTestId("book-sheet");
-    await rec.step(tr(ctx, "A free period says Free and offers Reserve", "Boş saat Boş yazar ve Rezerve et sunar"), async () => {
+    await rec.step(tr(ctx, "Point at a free period: it offers Reserve", "Boş bir saatin üzerine gelin: Rezerve et sunar"), async () => {
       await rec.moveOnto(cell(this.one));
-      await rec.wait(900); // the hover turns Free into Reserve
+      await rec.wait(900); // the hover shows Reserve
       await rec.click(cell(this.one));
       await sheet.waitFor();
     }, { clip: "reserve-slot" });
