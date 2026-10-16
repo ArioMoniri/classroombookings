@@ -16,6 +16,8 @@ export interface WishForm {
   kind: WishKind;
   requestIds: number[];
   roomIds: number[];
+  /** rooms typed as the lists write them ("C 404"), for a user who cannot list the rooms; the server reads them */
+  roomCodes: string[];
   buildings: string[];
   earliest: number | null;
   latest: number | null;
@@ -29,12 +31,25 @@ export const REASON_MIN = 3;
 export const REASON_MAX = 1000;
 
 export function emptyWish(requestIds: readonly number[] = []): WishForm {
-  return { kind: "room_preference", requestIds: [...requestIds], roomIds: [], buildings: [], earliest: null, latest: null, days: [], note: "" };
+  return { kind: "room_preference", requestIds: [...requestIds], roomIds: [], roomCodes: [], buildings: [], earliest: null, latest: null, days: [], note: "" };
 }
 
 /** the building of a room as the server reads it: the first letter of the code ("C 404" → "C") */
 export function buildingOf(code: string | null | undefined): string {
   return (code ?? "").trim().slice(0, 1).toLocaleUpperCase("tr");
+}
+
+/** "c404", "C-404", "c\u00a0404" → "C 404"; null when it does not look like a room code (the server is the judge) */
+export function roomCode(raw: string): string | null {
+  const v = raw.normalize("NFKC").replace(/[\s\u00a0-]+/g, " ").trim().toLocaleUpperCase("tr");
+  const m = /^([A-ZÇĞİÖŞÜ]{1,4}) ?(\d{1,4}[A-Z]?)$/.exec(v);
+  return m ? `${m[1]} ${m[2]}` : null;
+}
+
+/** a building letter as typed ("c", "C Blok") → "C"; null otherwise */
+export function buildingCode(raw: string): string | null {
+  const v = raw.normalize("NFKC").trim().toLocaleUpperCase("tr").replace(/\s*-?\s*(BLOK|BLOĞU|BLOKU)$/, "");
+  return /^[A-ZÇĞİÖŞÜ]$/.test(v) ? v : null;
 }
 
 /** the buildings the rooms span, A → Z */
@@ -55,8 +70,9 @@ export function formIssues(f: WishForm): FormIssue[] {
   const out: FormIssue[] = [];
   if (!f.requestIds.length) out.push("noClasses");
   if (f.kind === "room_preference") {
-    if (!f.roomIds.length) out.push("noRoom");
-    if (f.roomIds.length > MAX_ROOMS) out.push("tooManyRooms");
+    const rooms = f.roomIds.length + f.roomCodes.length;
+    if (!rooms) out.push("noRoom");
+    if (rooms > MAX_ROOMS) out.push("tooManyRooms");
   } else if (f.kind === "building_preference") {
     if (!f.buildings.length) out.push("noBuilding");
   } else if (f.earliest === null && f.latest === null) {
@@ -71,7 +87,10 @@ export function formIssues(f: WishForm): FormIssue[] {
 /** the request body: only the fields of the chosen kind (the server refuses `hardness` / `weight` anyway) */
 export function wishBody(f: WishForm): WishIn {
   const body: WishIn = { kind: f.kind, request_ids: [...new Set(f.requestIds)] };
-  if (f.kind === "room_preference") body.room_ids = [...new Set(f.roomIds)];
+  if (f.kind === "room_preference") {
+    if (f.roomIds.length) body.room_ids = [...new Set(f.roomIds)];
+    if (f.roomCodes.length) body.rooms = [...new Set(f.roomCodes)];
+  }
   else if (f.kind === "building_preference") body.buildings = [...new Set(f.buildings)];
   else {
     if (f.earliest !== null) body.earliest = f.earliest;

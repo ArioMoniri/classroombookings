@@ -7,7 +7,8 @@
  * (`program_drafts.apply_op`), so an edit made while a save is in flight is rebased onto the server's answer.
  * Pure functions, no React, no fetching: unit-tested.
  */
-import { DRAFT_STEPS, type DraftIssue, type DraftOp, type DraftStep, type PasteRow, type StepState, type Validation } from "@/lib/api/program-drafts";
+import { HttpError } from "@/lib/api/client";
+import { DRAFT_STEPS, DraftIssue as DraftIssueZ, type CreatedIds, type DraftIssue, type DraftOp, type DraftStep, type PasteRow, type StepState, type Validation } from "@/lib/api/program-drafts";
 
 /* ------------------------------------------------------------------ steps */
 
@@ -485,4 +486,40 @@ export function commitCounts(p: Payload) {
 /** issue text in the UI language (the server sends TR + EN) */
 export function issueText(i: Pick<DraftIssue, "text">, lang: "tr" | "en"): string {
   return i.text[lang] || i.text.tr || i.text.en;
+}
+
+/**
+ * The validation issues of a refused pre-check or commit: the server answers 422
+ * `{message, message_tr, issues: [DraftIssue], errors: n}` when the draft still has errors (never the English 409).
+ */
+export function refusedIssues(e: unknown): { issues: DraftIssue[]; errors: number } | null {
+  if (!(e instanceof HttpError) || e.status !== 422) return null;
+  const raw = e.detail as unknown;
+  const body = raw && typeof raw === "object" && "detail" in (raw as Record<string, unknown>) ? (raw as Record<string, unknown>).detail : raw;
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const list = (body as Record<string, unknown>).issues;
+  if (!Array.isArray(list)) return null;
+  const issues = list.map((x) => DraftIssueZ.safeParse(x)).filter((r) => r.success).map((r) => r.data);
+  const n = (body as Record<string, unknown>).errors;
+  return { issues, errors: typeof n === "number" ? n : issues.filter((i) => i.level === "error").length };
+}
+
+/**
+ * "Bu kişiyi kullan": an `instructor_archived_namesake` error names the archived record (`vars.id`, `vars.name`);
+ * using it sets the slot to `{id}` (the commit reopens the record). Null for any other issue.
+ */
+export function namesakeRecord(i: Pick<DraftIssue, "code" | "vars">): { id: number; name: string; units: string[] } | null {
+  if (i.code !== "instructor_archived_namesake") return null;
+  const id = typeof i.vars.id === "number" ? i.vars.id : Number.NaN;
+  if (!Number.isFinite(id)) return null;
+  const units = Array.isArray(i.vars.units) ? i.vars.units.filter((u): u is string => typeof u === "string") : [];
+  return { id, name: typeof i.vars.name === "string" ? i.vars.name : `#${id}`, units };
+}
+
+/** what a commit reopened from the archive (`created.restored`), or null when nothing was */
+export function restoredSummary(c: Pick<CreatedIds, "restored"> | null | undefined): { program: boolean; courses: number; people: number } | null {
+  const r = c?.restored;
+  if (!r) return null;
+  const out = { program: r.program_id !== null, courses: r.courses.length, people: r.people.length };
+  return out.program || out.courses || out.people ? out : null;
 }

@@ -7,7 +7,8 @@
  * apply. Data entry has no motion (motion.md §3.11); on phones the grids are cards and every control is 44 px.
  */
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardPaste, Link2, Minus, Plus, Trash2, UserPlus, Users, X } from "lucide-react";
+import { ClipboardPaste, History, Link2, Minus, Plus, Trash2, UserPlus, Users, X } from "lucide-react";
+import { toast } from "sonner";
 import { useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -55,6 +56,8 @@ import {
   type Payload,
   type SectionP,
   type Step,
+  namesakeRecord,
+  refusedIssues,
 } from "./wizard-model";
 
 type Update = (fn: (p: Payload) => Payload) => void;
@@ -569,6 +572,23 @@ export function InstructorsStep({ p, update, v, termId }: StepProps) {
                         <InstructorPicker termId={termId} value={ref} label={label} testId={slot === 0 ? "section-instructor" : "section-instructor-2"} onChange={(r) => setSlot(c, s, slot, r)} />
                         {load ? <span className={cn("type-caption", load.over_limit ? "text-status-warning-fg" : "text-label-2")} data-testid="instructor-load">{load.over_limit ? "⚠ " : ""}{t("programWizard.instructors.load", { n: load.periods_per_week })}</span> : null}
                         <IssueLines issues={issuesAt(v, `${sp}.instructors.${slot}`)} />
+                        {issuesAt(v, `${sp}.instructors.${slot}`).map(namesakeRecord).filter((r) => r !== null).slice(0, 1).map((r) => (
+                          <Button
+                            key={r.id}
+                            size="sm"
+                            variant="outline"
+                            className={cn("self-start", TOUCH)}
+                            aria-label={t("programWizard.v.useThisLabel", { name: r.name })}
+                            onClick={() => {
+                              setSlot(c, s, slot, { id: r.id, name: r.name });
+                              toast.success(t("programWizard.v.usedThis", { name: r.name }));
+                            }}
+                            data-testid="use-archived-person"
+                          >
+                            <History aria-hidden />
+                            {t("programWizard.v.useThis")}
+                          </Button>
+                        ))}
                       </div>
                     );
                   })}
@@ -767,6 +787,21 @@ export function RoomsStep({ p, update, v, termId, rooms }: StepProps & { rooms: 
 
 /* ------------------------------------------------------------------ 7 constraints + pre-check */
 
+/** the draft errors of a refused pre-check / commit (422), each with "Düzelt" to its step */
+export function RefusedIssues({ issues, onFix }: { issues: readonly DraftIssue[]; onFix: (s: Step) => void }) {
+  const { t } = useI18n();
+  return (
+    <ul className="flex flex-col gap-1" data-testid="refused-issues">
+      {issues.map((i, k) => (
+        <li key={`${i.code}-${i.path}-${k}`} className="flex flex-wrap items-start gap-x-2">
+          <IssueLines issues={[i]} className="min-w-0 flex-1" />
+          <Button variant="link" size="xs" className="max-md:h-11" onClick={() => onFix(i.step)}>{t("programWizard.precheck.goFix")}</Button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** where "Düzelt" sends a pre-check item: capacity and tags are room needs, clashes are people, the rest patterns */
 export function stepOfPrecheck(group: string): Step {
   if (group === "instructor_clash") return "instructors";
@@ -779,14 +814,19 @@ export function PrecheckPanel({ draftId, result, onResult, onFix, disabled }: { 
   const lang = locale === "tr" ? "tr" : "en";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refused, setRefused] = useState<{ issues: DraftIssue[]; errors: number } | null>(null);
   const rooms = useRooms();
   const roomName = (id: number, code: string) => rooms.data?.find((r) => r.id === id)?.display_name ?? code;
   const run = async () => {
     setBusy(true);
     setError(null);
+    setRefused(null);
     try {
       onResult(await draftsApi.precheck(draftId));
     } catch (e) {
+      // 422 {message, message_tr, issues, errors}: the draft's own errors, listed with a "Düzelt" each
+      const r = refusedIssues(e);
+      if (r) setRefused(r);
       setError(errorText(e, lang));
     } finally {
       setBusy(false);
@@ -801,7 +841,8 @@ export function PrecheckPanel({ draftId, result, onResult, onFix, disabled }: { 
         </Button>
       </div>
       {disabled ? <p className="type-footnote text-label-2">{t("programWizard.precheck.fixFirst")}</p> : null}
-      {error ? <p role="alert" className="type-footnote text-status-infeasible-fg">{error}</p> : null}
+      {error ? <p role="alert" className="type-footnote text-status-infeasible-fg">{refused ? t("programWizard.precheck.draftErrors", { n: n(refused.errors) }) : error}</p> : null}
+      {refused?.issues.length ? <RefusedIssues issues={refused.issues} onFix={onFix} /> : null}
       {result ? (
         <div role="status" aria-live="polite" className="flex flex-col gap-2" data-testid="precheck-result" data-readiness={result.readiness}>
           <p className="type-callout font-semibold">{t("programWizard.precheck.result", { errors: n(result.counts.errors), warnings: n(result.counts.warnings) })} · {t(`programWizard.precheck.readiness.${result.readiness}`)}</p>

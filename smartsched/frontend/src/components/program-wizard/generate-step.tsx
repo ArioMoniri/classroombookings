@@ -24,7 +24,9 @@ import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { errorText } from "./use-wizard";
-import { commitCounts, issueText, type Payload, type Step } from "./wizard-model";
+import { commitCounts, issueText, refusedIssues, restoredSummary, type Payload, type Step } from "./wizard-model";
+import { RefusedIssues } from "./steps";
+import type { DraftIssue } from "@/lib/api/program-drafts";
 
 export function StepGlyph({ status }: { status: StepState["status"] | undefined }) {
   if (status === "error") return <XOctagon className="size-4 shrink-0 text-status-infeasible-fg" aria-hidden />;
@@ -88,12 +90,14 @@ export function GenerateStep({ draftId, termId, termCode, p, v, flush, onFix, on
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refused, setRefused] = useState<DraftIssue[]>([]);
   const cancel = useRef<HTMLButtonElement>(null);
   const counts = commitCounts(p);
   const ok = v.can_commit;
   const go = async () => {
     setBusy(true);
     setError(null);
+    setRefused([]);
     try {
       if (!(await flush())) throw new Error(t("programWizard.generate.saveFirst"));
       const out = await draftsApi.commit(draftId, mode === "solve" && published ? "minimal" : "none");
@@ -112,6 +116,7 @@ export function GenerateStep({ draftId, termId, termCode, p, v, flush, onFix, on
       onCommitted(out);
     } catch (e) {
       setError(errorText(e, lang));
+      setRefused(refusedIssues(e)?.issues ?? []);
     } finally {
       setBusy(false);
     }
@@ -169,6 +174,7 @@ export function GenerateStep({ draftId, termId, termCode, p, v, flush, onFix, on
       >
         <p className="type-footnote text-label-2">{t("programWizard.generate.undoNote")}</p>
         {error ? <p role="alert" className="type-footnote text-status-infeasible-fg" data-testid="generate-error">{error}</p> : null}
+        {refused.length ? <RefusedIssues issues={refused} onFix={(s) => (setConfirm(false), onFix(s))} /> : null}
       </ResponsiveDialog>
     </div>
   );
@@ -192,6 +198,7 @@ export function CommittedView({ draftId, termId, termCode, title, status, create
   const isUndone = status === "undone" || undone !== null;
   const check = useUndoCheck(isUndone ? null : draftId);
   const made = result?.created ?? created;
+  const restored = restoredSummary(made);
   const counts = made ? { courses: made.courses.length + made.reused_courses.length, sections: made.sections.length, requests: made.requests.length, people: made.people.length, rules: made.rules.length } : null;
   const undo = async () => {
     setBusy(true);
@@ -229,6 +236,11 @@ export function CommittedView({ draftId, termId, termCode, title, status, create
         {counts ? <p className="type-callout tabular-nums">{t("programWizard.done.counts", { courses: n(counts.courses), sections: n(counts.sections), requests: n(counts.requests), people: n(counts.people), rules: n(counts.rules) })}</p> : null}
         {(result?.warnings ?? made?.warnings ?? []).length ? (
           <ul className="type-footnote text-label-2">{(result?.warnings ?? made?.warnings ?? []).map((w) => <li key={w}>ⓘ {w}</li>)}</ul>
+        ) : null}
+        {restored && !isUndone ? (
+          <p className="type-footnote text-label-2" data-testid="done-restored">
+            {t("programWizard.done.restored", { what: [restored.program ? t("programWizard.done.restoredProgram") : null, restored.courses ? t("programWizard.done.restoredCourses", { n: n(restored.courses) }) : null, restored.people ? t("programWizard.done.restoredPeople", { n: n(restored.people) }) : null].filter(Boolean).join(", ") })}
+          </p>
         ) : null}
         {undone ? <p className="type-footnote text-label-2" data-testid="undo-result">{t("programWizard.done.archived", { sections: n(undone.archived.sections?.length ?? 0), courses: n(undone.archived.courses?.length ?? 0), people: n(undone.archived.people?.length ?? 0) })}</p> : null}
       </div>

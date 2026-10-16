@@ -168,7 +168,7 @@ export function filterPeople(items: readonly PersonRow[], chip: PeopleChip, q: s
 
 /* ------------------------------------------------------------------ preferences (Tercihler) */
 
-export type PrefSource = "file" | "admin" | "ai" | "learned" | "other";
+export type PrefSource = "file" | "admin" | "ai" | "learned" | "teacher" | "other";
 export function prefSource(p: Preference): PrefSource {
   switch (p.source) {
     case "UPLOAD":
@@ -180,6 +180,8 @@ export function prefSource(p: Preference): PrefSource {
       return "ai";
     case "LEARNED":
       return "learned";
+    case "TEACHER":
+      return "teacher";
     default:
       return "other";
   }

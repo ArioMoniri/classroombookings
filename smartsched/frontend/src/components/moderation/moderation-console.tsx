@@ -56,6 +56,13 @@ import { ChangesLink } from "./changes-list";
 import { SuggestionList } from "@/components/learning/suggestion-list";
 import { TierLabel, VerdictBadge } from "./verdict-badge";
 import { MyWishes, WishStatusBadge } from "./my-wishes";
+import { TeacherWishesReview, softRuleKey } from "./teacher-wishes-review";
+import { groupWishes } from "./wish-model";
+import { Badge } from "@/components/ui/badge";
+import { useTermTeacherPreferences } from "@/lib/api/teacher-preferences";
+
+type PrefView = "rules" | "suggestions" | "teacher";
+const parsePrefView = (v: string | null): PrefView => (v === "suggestions" || v === "teacher" ? v : "rules");
 import { WishSheet } from "./wish-sheet";
 
 const typing = (el: EventTarget | null) => el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || (el instanceof HTMLElement && el.isContentEditable);
@@ -94,7 +101,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   const [query, setQuery] = useState("");
   const [chip, setChip] = useState<MatchChip>("unsatisfied");
   const [peopleChip, setPeopleChip] = useState<PeopleChip>("all");
-  const [prefView, setPrefView] = useState<"rules" | "suggestions">("rules");
+  const [prefView, setPrefView] = useState<PrefView>(() => parsePrefView(params.get("view")));
   const [inspect, setInspect] = useState<number | null>(null);
   const [recreate, setRecreate] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -135,6 +142,17 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   const counts = matchings.data?.counts ?? {};
   const runId = matchings.data?.run_id ?? null;
   const prefRows = useMemo(() => termPreferences(prefs.data ?? []), [prefs.data]);
+  // P19-T2: academician wishes waiting for review (the header link and the Tercihler view)
+  const wishes = useTermTeacherPreferences(termId);
+  const pendingWishes = wishes.data ? groupWishes(wishes.data.items).filter((g) => g.status === "pending").length : 0;
+  const openWishes = () => {
+    setPrefView("teacher");
+    const sp = new URLSearchParams(params.toString());
+    sp.set("tab", "preferences");
+    sp.set("view", "teacher");
+    setDir(TABS.indexOf("preferences") >= TABS.indexOf(tab) ? 1 : -1);
+    router.replace(`/moderation?${sp.toString()}`, { scroll: false });
+  };
 
   const tabCount = (k: ModerationTab): string => {
     const v = k === "people" ? people.data?.total : k === "preferences" ? (prefs.data ? prefRows.length : undefined) : k === "matchings" ? (matchings.data ? chipCount(counts, "all") : undefined) : matchings.data?.total;
@@ -162,6 +180,11 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
       }
       actions={
         <>
+          {pendingWishes ? (
+            <Button variant="ghost" onClick={openWishes} data-testid="wishes-pending-link">
+              {t("moderation.review.pendingLink", { count: pendingWishes })}
+            </Button>
+          ) : null}
           <ChangesLink termId={termId} canEdit={canEdit} />
           {canEdit && runId ? (
             <Button variant={staged.length ? "default" : "outline"} onClick={() => setRecreate(true)} aria-keyshortcuts="Shift+R" data-testid="recreate-open">
@@ -194,11 +217,23 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   const open = (m: Matching) => setInspect(m.request_id);
 
   // ------------------------------------------------------------------ columns
+  /** the course, plus the academician wishes on it (P19-T2): "Tercih: Bekliyor" while one waits for review */
+  const courseCell = (m: Matching) => {
+    const w = m.teacher_preferences;
+    const pending = w.filter((x) => x.status === "pending").length;
+    return (
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="truncate">{m.label}</span>
+        {w.length ? <WishStatusBadge status={pending ? "pending" : w.some((x) => x.status === "accepted") ? "accepted" : "rejected"} /> : null}
+      </span>
+    );
+  };
   const personCols: ModColumn<PersonRow>[] = [
     { id: "name", header: t("moderation.col.person"), width: "minmax(14rem,2fr)", cell: (p) => (
       <span className="flex min-w-0 items-center gap-2">
         <span className="truncate">{[p.title, p.name].filter(Boolean).join(" ")}</span>
         {p.badge ? <span className="shrink-0 rounded-full bg-status-warning px-2 type-caption text-status-warning-fg" data-testid="streak-badge">{pairText(p.badge, lang)}</span> : null}
+        {p.pending_preferences ? <Badge tone="tint" data-testid="wish-pending-badge">{t("moderation.review.pendingBadge", { n: n(p.pending_preferences) })}</Badge> : null}
       </span>
     ) },
     { id: "unit", header: t("moderation.col.unit"), width: "minmax(10rem,1.4fr)", cell: (p) => p.unit ?? "—" },
@@ -213,7 +248,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   ];
   const requestCols: ModColumn<Matching>[] = [
     { id: "status", header: t("moderation.col.reqStatus"), width: "9rem", cell: (m) => t(`moderation.reqStatus.${m.requested.status ?? "NEW"}` as MessageKey) },
-    { id: "course", header: t("moderation.col.course"), width: "minmax(9rem,1fr)", cell: (m) => m.label },
+    { id: "course", header: t("moderation.col.course"), width: "minmax(9rem,1fr)", cell: courseCell },
     { id: "who", header: t("moderation.col.who"), width: "minmax(10rem,1.3fr)", cell: (m) => m.instructors.map((i) => i.name).join(", ") || "—" },
     { id: "asked", header: t("moderation.col.asked"), width: "minmax(14rem,2fr)", cell: (m) => <span title={requestedText(m, lang)}>{requestedText(m, lang)}</span> },
     { id: "students", header: t("moderation.col.students"), width: "5rem", align: "end", cell: (m) => (m.enrolment === null ? "—" : n(m.enrolment)) },
@@ -221,7 +256,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
     { id: "source", header: t("moderation.col.source"), width: "7rem", cell: (m) => (m.provenance.row ? `R${m.provenance.row}` : t("moderation.manual")) },
   ];
   const matchCols: ModColumn<Matching>[] = [
-    { id: "course", header: t("moderation.col.course"), width: "minmax(9rem,1fr)", cell: (m) => m.label },
+    { id: "course", header: t("moderation.col.course"), width: "minmax(11rem,1.2fr)", cell: courseCell },
     { id: "pair", header: t("moderation.col.pair"), width: "minmax(18rem,2.4fr)", cell: (m) => (
       <span aria-label={matchingSentence(m, lang)} title={matchingSentence(m, lang)}>
         {requestedText(m, lang)} → {m.assigned ? placeText(m.assigned, lang) : "—"}
@@ -236,7 +271,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
     { id: "text", header: t("moderation.col.pref"), width: "minmax(18rem,3fr)", cell: (p) => p.nl_text ?? p.kind },
     { id: "kind", header: t("moderation.col.kind"), width: "10rem", cell: (p) => p.kind },
     { id: "weight", header: t("moderation.col.weight"), width: "5.5rem", align: "end", cell: (p) => n(p.weight) },
-    { id: "source", header: t("moderation.col.source"), width: "7rem", cell: (p) => t(`moderation.prefSource.${prefSource(p)}`) },
+    { id: "source", header: t("moderation.col.source"), width: "minmax(9rem,1.2fr)", cell: (p) => <span title={prefSource(p) === "teacher" ? t(softRuleKey(p.kind)) : undefined}>{t(`moderation.prefSource.${prefSource(p)}`)}{prefSource(p) === "teacher" ? ` · ${t(softRuleKey(p.kind))}` : ""}</span> },
     { id: "enabled", header: t("moderation.col.active"), width: "7rem", cell: (p) => (p.enabled ? `✓ ${t("common.yes")}` : `✕ ${t("common.no")}`) },
   ];
 
@@ -246,6 +281,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
         <span className="type-headline">{m.label}</span>
         <VerdictBadge verdict={m.verdict} text={m.verdict_text} planner={m.source === "planner"} />
       </div>
+      {m.teacher_preferences.length ? <span className="flex">{courseCell(m)}</span> : null}
       <span className="type-footnote text-label-2">{requestedText(m, lang)} → {m.assigned ? placeText(m.assigned, lang) : "—"}</span>
       {m.reason ? <span className="type-footnote text-label-2">{reasonText(m.reason, lang)}</span> : null}
     </div>
@@ -287,6 +323,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
               <span className="type-headline">{[p.title, p.name].filter(Boolean).join(" ")}</span>
               <span className="type-footnote text-label-2">{p.unit ?? "—"} · {t("moderation.peopleCard", { met: n(p.counts.satisfied ?? 0), unmet: n(unmetOf(p)) })}</span>
               {p.badge ? <span className="type-footnote text-status-warning-fg">{pairText(p.badge, lang)}</span> : null}
+              {p.pending_preferences ? <Badge tone="tint" data-testid="wish-pending-badge">{t("moderation.review.pendingBadge", { n: n(p.pending_preferences) })}</Badge> : null}
             </div>
           )}
           testId="people-table"
@@ -297,17 +334,25 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   } else if (tab === "preferences") {
     body = (
       <>
-        <SegmentedControl<"rules" | "suggestions">
+        <SegmentedControl<PrefView>
           aria-label={t("moderation.tabs.preferences")}
           value={prefView}
-          onValueChange={setPrefView}
+          onValueChange={(v) => {
+            setPrefView(v);
+            const sp = new URLSearchParams(params.toString());
+            sp.set("view", v);
+            router.replace(`/moderation?${sp.toString()}`, { scroll: false });
+          }}
           size="sm"
           options={[
             { value: "rules", label: t("moderation.prefView.rules") },
             { value: "suggestions", label: t("moderation.prefView.suggestions") },
+            { value: "teacher", label: <span className="whitespace-nowrap">{t("moderation.prefView.teacher")}{pendingWishes ? <span className="tabular-nums text-label-3"> {n(pendingWishes)}</span> : null}</span>, text: t("moderation.prefView.teacher"), testId: "prefview-teacher" },
           ]}
         />
-        {prefView === "suggestions" ? (
+        {prefView === "teacher" ? (
+          <TeacherWishesReview termId={termId} canEdit={canEdit} />
+        ) : prefView === "suggestions" ? (
           <SuggestionList termId={termId} canAct={canEdit} surface="moderation" />
         ) : prefs.isError ? (
           errorBanner(prefs.error, () => void prefs.refetch())

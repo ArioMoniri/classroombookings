@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { isUnsatisfied, pairText, placeText, reasonText, requestedText } from "./moderation-model";
 import { PriorityPopover } from "./priority-editor";
 import { VerdictBadge } from "./verdict-badge";
+import { WishStatusBadge } from "./my-wishes";
 
 const LAYOUT_MAX = 40;
 
@@ -68,6 +69,16 @@ export function TimelineRow({ it, termId, canEdit }: { it: HistoryItem; termId: 
           {it.reason.policy_step ? ` (${pairText(it.reason.policy_step.text, lang)})` : ""}
           {it.reason.culprits.length ? ` · ${it.reason.culprits.map((c) => c.label).join(", ")}` : ""}
         </p>
+      ) : null}
+      {it.teacher_preferences.length ? (
+        <ul className="flex flex-col gap-0.5" aria-label={t("moderation.inspector.wishes")} data-testid="timeline-wishes">
+          {it.teacher_preferences.map((w) => (
+            <li key={w.id} className="flex flex-wrap items-center gap-1.5 type-footnote text-label-2">
+              <WishStatusBadge status={w.status} />
+              <span className="min-w-0">{pairText(w.text, lang)}{w.status === "rejected" && w.reason ? ` · ${t("moderation.review.decidedReason", { reason: w.reason })}` : ""}</span>
+            </li>
+          ))}
+        </ul>
       ) : null}
       <p className="type-caption text-label-3">
         {it.raw.row ? t("moderation.provenance", { row: it.raw.row }) : t("moderation.manual")}

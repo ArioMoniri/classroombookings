@@ -29,7 +29,7 @@ import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { pairText, requestedText } from "./moderation-model";
 import { usePhone } from "./use-media";
-import { MAX_ROOMS, NOTE_MAX, buildingOf, buildingsOf, emptyWish, fixedClasses, formIssues, isKnownError, wishBody, wishSentence, type FormIssue, type WishForm } from "./wish-model";
+import { MAX_ROOMS, NOTE_MAX, buildingCode, buildingOf, buildingsOf, roomCode, emptyWish, fixedClasses, formIssues, isKnownError, wishBody, wishSentence, type FormIssue, type WishForm } from "./wish-model";
 
 /** 44 px rows and controls on touch (MOBILE.md M-02) */
 const ROW = "flex min-h-11 items-start gap-3 rounded-md px-2 py-2 md:min-h-9 md:py-1.5 hover:bg-fill-3";
@@ -61,20 +61,31 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
   const rooms = useQuery({ queryKey: ["crbs", "booking-rooms"], queryFn: () => crbs.bookings.rooms(), retry: false, staleTime: 60_000 });
   const roomList = useMemo(() => [...(rooms.data ?? [])].sort((a, b) => a.code.localeCompare(b.code, "tr", { numeric: true })), [rooms.data]);
   const byId = useMemo(() => new Map(roomList.map((r) => [r.id, r])), [roomList]);
-  const buildings = useMemo(() => buildingsOf(roomList), [roomList]);
+  // the buildings of the visible rooms plus those of the classes' own rooms (asked, definitive, assigned)
+  const buildings = useMemo(() => {
+    const own = classes.flatMap((m) => [...m.requested.rooms, ...m.definitive.rooms, ...(m.assigned?.rooms ?? [])]).map((code) => ({ code }));
+    return buildingsOf([...roomList, ...own]);
+  }, [roomList, classes]);
+  const [buildingQ, setBuildingQ] = useState("");
 
   const set = (patch: Partial<WishForm>) => {
     setServerError(null);
     setForm((f) => ({ ...f, ...patch }));
   };
   const selected = classes.filter((m) => form.requestIds.includes(m.request_id));
-  const labels = selected.map((m) => m.label);
+  const labels = [...selected].sort((a, b) => a.request_id - b.request_id).map((m) => m.label);
   const fixed = fixedClasses(classes, form.requestIds);
   const allFixed = selected.length > 0 && fixed.length === selected.length;
   const issues = formIssues(form);
-  const roomNames = form.roomIds.map((id) => byId.get(id)?.name || byId.get(id)?.code || `#${id}`);
+  const roomNames = [...form.roomIds.map((id) => byId.get(id)?.name || byId.get(id)?.code || `#${id}`), ...form.roomCodes];
+  const roomCount = form.roomIds.length + form.roomCodes.length;
   const needle = roomQ.trim().toLocaleLowerCase("tr").replace(/\s+/g, "");
   const roomHits = roomList.filter((r) => !needle || `${r.code}${r.name}`.toLocaleLowerCase("tr").replace(/\s+/g, "").includes(needle)).slice(0, 40);
+  // a code typed as the lists write it, for rooms this account cannot list (the server checks it: unknown_room)
+  const typed = roomCode(roomQ);
+  const typedListed = typed ? roomList.find((r) => r.code.toLocaleUpperCase("tr").replace(/\s+/g, " ") === typed) : undefined;
+  const canAddTyped = !!typed && !typedListed && !form.roomCodes.includes(typed) && roomCount < MAX_ROOMS;
+  const typedBuilding = buildingCode(buildingQ);
 
   const issueText = (i: FormIssue) => t(`moderation.wish.issue.${i}` as MessageKey, { n: i === "tooManyRooms" ? MAX_ROOMS : NOTE_MAX });
 
@@ -191,21 +202,41 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
       {form.kind === "room_preference" ? (
         <div className="flex flex-col gap-1.5" data-testid="wish-rooms">
           <label htmlFor={`${ids}-room-q`} className="type-headline">{t("moderation.wish.rooms", { n: MAX_ROOMS })}</label>
-          {form.roomIds.length ? (
-            <div className="flex flex-wrap gap-1.5" aria-label={t("moderation.wish.roomsPicked", { n: n(form.roomIds.length) })}>
+          {roomCount ? (
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("moderation.wish.roomsPicked", { n: n(roomCount) })} data-testid="wish-rooms-picked">
               {form.roomIds.map((id, i) => (
                 <Chip key={id} size="sm" className="pointer-coarse:h-9" removeLabel={t("moderation.wish.removeRoom", { room: roomNames[i] ?? "" })} onRemove={() => set({ roomIds: form.roomIds.filter((x) => x !== id) })}>
                   {roomNames[i]}
+                </Chip>
+              ))}
+              {form.roomCodes.map((code) => (
+                <Chip key={code} size="sm" className="pointer-coarse:h-9" removeLabel={t("moderation.wish.removeRoom", { room: code })} onRemove={() => set({ roomCodes: form.roomCodes.filter((x) => x !== code) })}>
+                  {code}
                 </Chip>
               ))}
             </div>
           ) : null}
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-label-3" aria-hidden />
-            <Input id={`${ids}-room-q`} type="search" value={roomQ} onChange={(e) => setRoomQ(e.target.value)} placeholder={t("moderation.wish.roomsPh")} className="pl-8" data-testid="wish-room-search" />
+            <Input id={`${ids}-room-q`} type="search" value={roomQ} onChange={(e) => setRoomQ(e.target.value)} onKeyDown={(e) => {
+              // Enter adds a typed code; it never sends the form from the search box
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              if (canAddTyped) {
+                set({ roomCodes: [...form.roomCodes, typed!] });
+                setRoomQ("");
+              }
+            }} placeholder={t("moderation.wish.roomsPh")} className="pl-8" data-testid="wish-room-search" />
           </div>
+          {canAddTyped ? (
+            <Button type="button" size="sm" variant="secondary" className="self-start max-md:h-11" onClick={() => (set({ roomCodes: [...form.roomCodes, typed!] }), setRoomQ(""))} data-testid="wish-room-add-code">
+              {t("moderation.wish.addCode", { code: typed! })}
+            </Button>
+          ) : null}
           {rooms.isLoading ? (
             <p className="type-footnote text-label-2">{t("moderation.wish.roomsLoading")}</p>
+          ) : roomList.length === 0 ? (
+            <p className="type-footnote text-label-2" data-testid="wish-rooms-typed-hint">{t("moderation.wish.typeCodeHint")}</p>
           ) : roomHits.length === 0 ? (
             <p className="type-footnote text-label-2">{t("moderation.wish.roomsNone")}</p>
           ) : (
@@ -213,7 +244,7 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
               {roomHits.map((r) => {
                 const id = `${ids}-r${r.id}`;
                 const on = form.roomIds.includes(r.id);
-                const full = !on && form.roomIds.length >= MAX_ROOMS;
+                const full = !on && roomCount >= MAX_ROOMS;
                 return (
                   <li key={r.id}>
                     <label htmlFor={id} className={cn(ROW, "items-center", full && "opacity-60")} data-testid="wish-room">
@@ -237,7 +268,36 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
                 <span className="sr-only"> ({n(roomList.filter((r) => buildingOf(r.code) === b).length)})</span>
               </Chip>
             ))}
+            {form.buildings.filter((b) => !buildings.includes(b)).map((b) => (
+              <Chip key={b} className="pointer-coarse:h-11 pointer-coarse:px-4" selected onSelectedChange={() => set({ buildings: form.buildings.filter((x) => x !== b) })}>
+                {t("moderation.wish.building", { b })}
+              </Chip>
+            ))}
           </div>
+          <div className="flex items-end gap-2 pt-1">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <label htmlFor={`${ids}-bq`} className="type-footnote text-label-2">{t("moderation.wish.otherBuilding")}</label>
+              <Input
+                id={`${ids}-bq`}
+                value={buildingQ}
+                onChange={(e) => setBuildingQ(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (typedBuilding && !form.buildings.includes(typedBuilding)) set({ buildings: [...form.buildings, typedBuilding] });
+                    setBuildingQ("");
+                  }
+                }}
+                placeholder={t("moderation.wish.otherBuildingPh")}
+                className="max-w-40"
+                data-testid="wish-building-input"
+              />
+            </div>
+            <Button type="button" variant="secondary" className="max-md:h-11" disabled={!typedBuilding || form.buildings.includes(typedBuilding)} onClick={() => (typedBuilding && set({ buildings: [...form.buildings, typedBuilding] }), setBuildingQ(""))} data-testid="wish-building-add">
+              {t("moderation.wish.addBuilding")}
+            </Button>
+          </div>
+          {buildingQ.trim() && !typedBuilding ? <p className="type-footnote text-status-warning-fg">{t("moderation.wish.badBuilding")}</p> : null}
         </fieldset>
       ) : (
         <div className="flex flex-col gap-3" data-testid="wish-window">

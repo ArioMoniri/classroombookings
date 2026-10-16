@@ -88,6 +88,7 @@ export interface WishIn {
   kind: WishKind;
   request_ids: number[];
   room_ids?: number[];
+  rooms?: string[];
   buildings?: string[];
   earliest?: number;
   latest?: number;

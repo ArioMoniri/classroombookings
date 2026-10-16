@@ -118,6 +118,11 @@ export const CreatedIds = z
     rules: z.array(z.number()).default([]),
     joint_links: z.array(z.record(z.string(), z.number())).default([]),
     warnings: z.array(z.string()).default([]),
+    /** archived rows the commit reopened (an earlier creation was undone): `program.restore`, `instructor_restored` */
+    restored: z
+      .object({ faculty_id: z.number().nullable().default(null), program_id: z.number().nullable().default(null), courses: z.array(z.number()).default([]), people: z.array(z.number()).default([]) })
+      .nullable()
+      .default(null),
   })
   .passthrough();
 export type CreatedIds = z.infer<typeof CreatedIds>;

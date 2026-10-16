@@ -17,6 +17,10 @@ import type { MessageKey } from "@/lib/i18n";
 import { pairText, placeText, reasonText, requestedText } from "./moderation-model";
 import { PriorityForm, SubjectPriorityForm } from "./priority-editor";
 import { TierLabel, VerdictBadge } from "./verdict-badge";
+import { WishStatusBadge } from "./my-wishes";
+import { DecideControls, softRuleKey } from "./teacher-wishes-review";
+import { groupWishes } from "./wish-model";
+import { useTermTeacherPreferences } from "@/lib/api/teacher-preferences";
 
 const FLAGS = ["room", "building", "tags", "day", "period"] as const;
 
@@ -79,6 +83,36 @@ function SubjectPriorities({ termId, m }: { termId: number; m: Matching }) {
   );
 }
 
+/** P19-T2: the academicians' own wishes on this class, with Kabul et / Reddet for a pending one */
+function InspectorWishes({ termId, m, canEdit }: { termId: number; m: Matching; canEdit: boolean }) {
+  const { t, locale } = useI18n();
+  const lang = locale === "tr" ? "tr" : "en";
+  const full = useTermTeacherPreferences(canEdit ? termId : null);
+  const groups = groupWishes((full.data?.items ?? []).filter((i) => i.request_ids.includes(m.request_id)));
+  // one Kabul et / Reddet per submission, on its first rule
+  const firstOf = new Set(groups.map((g) => m.teacher_preferences.find((w) => g.items.some((i) => i.id === w.id))?.id));
+  return (
+    <Section title={t("moderation.inspector.wishes")}>
+      <ul className="flex flex-col gap-2" data-testid="inspector-wishes">
+        {m.teacher_preferences.map((w) => {
+          const group = groups.find((g) => g.items.some((i) => i.id === w.id));
+          return (
+            <li key={w.id} className="flex flex-col gap-1">
+              <span className="flex flex-wrap items-center gap-2">
+                <WishStatusBadge status={w.status} />
+                <span className="min-w-0 flex-1 type-callout">{pairText(w.text, lang)}</span>
+              </span>
+              {w.status === "accepted" ? <span className="type-footnote text-status-feasible-fg">{t(softRuleKey(w.kind))}</span> : null}
+              {w.status === "rejected" && w.reason ? <span className="type-footnote text-label-2">{t("moderation.review.decidedReason", { reason: w.reason })}</span> : null}
+              {canEdit && w.status === "pending" && group && firstOf.has(w.id) ? <DecideControls group={group} compact /> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
+  );
+}
+
 export function MatchingInspector({ termId, requestId, runId, canEdit, onClose, side = "right" }: { termId: number; requestId: number | null; runId?: number | null; canEdit: boolean; onClose: () => void; side?: "right" | "bottom" }) {
   const { t, locale } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
@@ -125,6 +159,7 @@ export function MatchingInspector({ termId, requestId, runId, canEdit, onClose, 
                 ) : null}
               </Section>
             ) : null}
+            {m.teacher_preferences.length ? <InspectorWishes termId={termId} m={m} canEdit={canEdit} /> : null}
             <Section title={t("moderation.priority.label")}>
               {canEdit ? (
                 <PriorityForm key={m.request_id} target={{ termId, requestId: m.request_id, sectionId: m.section_id, label: m.label, priority: m.priority }} />
