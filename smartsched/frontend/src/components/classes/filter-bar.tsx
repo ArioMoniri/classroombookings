@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { fold } from "@/components/timetable/model/filters";
 import { FILTER_FIELDS, activeFields, clearField, facetCounts, type ClassFilters, type FilterField } from "./classes-model";
 import { BareButton } from "@/components/shell/bare-button";
+import { Input } from "@/components/ui/input";
 
 const FIELD_KEY: Record<FilterField, MessageKey> = {
   faculty: "classes.f.faculty", program: "classes.f.program", year: "classes.f.year", instructor: "classes.f.instructor", building: "classes.f.building", room: "classes.f.room", day: "classes.f.day", time: "classes.f.time", mode: "classes.f.mode", status: "classes.f.status", issue: "classes.f.issue", changed: "classes.f.changed", locked: "classes.f.locked",
@@ -174,7 +175,7 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
       <PopoverContent align="start" className="w-80 p-1.5">
         <div className="flex items-center gap-1">
           {field ? <Button variant="ghost" size="icon-xs" aria-label={t("calendar.nav.prev")} onClick={() => { setField(null); setQ(""); }}><ChevronLeft /></Button> : null}
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={field ? t("classes.f.searchValues") : t("classes.filter")} aria-label={field ? t("classes.f.searchValues") : t("classes.filter")} className="h-8 flex-1 rounded-lg bg-fill-2 px-2.5 type-callout outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" />
+          <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={field ? t("classes.f.searchValues") : t("classes.filter")} aria-label={field ? t("classes.f.searchValues") : t("classes.filter")} className="flex-1" />
         </div>
         {field ? (
           <div className="mt-1 flex flex-col gap-1">

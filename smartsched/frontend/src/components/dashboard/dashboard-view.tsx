@@ -154,10 +154,10 @@ export function DashboardView() {
                 {weekDates ? <span className="text-label-3"> · {t("glass.dashboard.weekFrom", { date: weekDates })}</span> : null}
               </p>
               <div className="ml-auto flex items-center gap-0.5 sm:ml-0" role="group" aria-label={t("glass.dashboard.weekPicker")}>
-                <IconButton size="sm" label={t("glass.dashboard.prevWeek")} disabled={week <= 1} onClick={() => rememberWeek(week - 1)}>
+                <IconButton size="sm" className="pointer-coarse:size-11" label={t("glass.dashboard.prevWeek")} disabled={week <= 1} onClick={() => rememberWeek(week - 1)}>
                   <ChevronLeft aria-hidden />
                 </IconButton>
-                <IconButton size="sm" label={t("glass.dashboard.nextWeek")} disabled={week >= lastWeek} onClick={() => rememberWeek(week + 1)}>
+                <IconButton size="sm" className="pointer-coarse:size-11" label={t("glass.dashboard.nextWeek")} disabled={week >= lastWeek} onClick={() => rememberWeek(week + 1)}>
                   <ChevronRight aria-hidden />
                 </IconButton>
               </div>

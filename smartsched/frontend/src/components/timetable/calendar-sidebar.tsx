@@ -23,6 +23,7 @@ import type { CalendarModel } from "./model/index-model";
 import { harmonised } from "./model/harmonise";
 import { runOptionLabel } from "./model/run-label";
 import { BareButton } from "@/components/shell/bare-button";
+import { Input } from "@/components/ui/input";
 
 export interface CalendarSidebarProps {
   model: CalendarModel;
@@ -166,13 +167,12 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
         </label>
       </div>
       <MiniMonth model={p.model} week={p.week} day={p.day} heat={p.heat} todayIso={p.todayIso} onPick={p.onPickDate} />
-      <input
+      <Input
         ref={searchRef}
         value={f.query}
         onChange={(e) => set({ query: e.target.value })}
         placeholder={t("calendar.sidebar.search")}
         aria-label={t("calendar.sidebar.search")}
-        className="h-8 rounded-lg bg-fill-2 px-2.5 type-callout outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
         data-testid="calendar-search"
       />
       <Section title={t("calendar.sidebar.buildings")} onReset={f.buildings.length ? () => set({ buildings: [] }) : undefined}>

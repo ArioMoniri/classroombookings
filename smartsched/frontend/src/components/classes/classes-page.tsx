@@ -488,7 +488,7 @@ export function ClassesPage() {
           <h1 className="type-large-title">{t("classes.title")}</h1>
           <span className="type-callout text-label-2 tabular-nums">{term?.name}{runId ? ` · Run #${runId}` : ""}</span>
           {runs.length > 1 ? (
-            <NativeSelect size="sm" className="w-auto min-w-40" aria-label={t("calendar.sidebar.run")} value={runId ?? ""} onChange={(e) => setParam({ run: e.target.value })}>
+            <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-40" aria-label={t("calendar.sidebar.run")} value={runId ?? ""} onChange={(e) => setParam({ run: e.target.value })}>
               {runs.map((r) => <option key={r.id} value={r.id}>Run #{r.id} · {t(`runs.status.${r.status}`)}</option>)}
             </NativeSelect>
           ) : null}
@@ -538,7 +538,7 @@ export function ClassesPage() {
                   setSearch("");
                   setView({ filters: { ...view.filters, text: "" } });
                 } else if (e.key === "Enter") onSearch(`${search} `);
-              }} placeholder={t("classes.search")} aria-label={t("classes.searchLabel")} title={t("classes.tokens.hint")} className="h-8 min-w-0 flex-1 bg-transparent px-1 type-callout outline-hidden placeholder:text-label-3" data-testid="classes-search" />
+              }} placeholder={t("classes.search")} aria-label={t("classes.searchLabel")} title={t("classes.tokens.hint")} className="h-8 min-w-0 flex-1 bg-transparent px-1 type-callout outline-hidden placeholder:text-label-3 pointer-coarse:h-11 max-md:pointer-coarse:text-base" data-testid="classes-search" />
               <FilterMenu rows={systemRows} filters={view.filters} onChange={(f) => setView({ filters: f })} shownCount={rows.length} triggerRef={filterRef} />
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button variant="ghost" size="sm" data-testid="display-menu" />}><SlidersHorizontal aria-hidden />{!mobile ? t("classes.display") : null}</DropdownMenuTrigger>

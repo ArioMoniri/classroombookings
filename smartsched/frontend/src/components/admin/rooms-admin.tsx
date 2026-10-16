@@ -74,14 +74,17 @@ export function RoomsAdmin() {
     <div className="flex flex-col gap-5">
       <PageTitle title={t("crbs.admin.rooms.title")} subtitle={t("crbs.admin.rooms.lead")} />
       <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
-        {/* admin persona M-43: five tabs are wider than a 390 px phone; they scroll inside their own row */}
-        <TabsList aria-label={t("crbs.admin.rooms.title")} className="max-w-full overflow-x-auto">
+        {/* admin persona M-43: five tabs are wider than a 390 px phone; they scroll inside their own row (the track keeps
+            its natural width: a min-width:max-content track inside a scroller, not a shrunk one) */}
+        <div className="-mx-4 overflow-x-auto px-4 py-0.5 scrollbar-thin sm:mx-0 sm:px-0" data-testid="rooms-tabs-scroller">
+        <TabsList aria-label={t("crbs.admin.rooms.title")}>
           {rooms ? <TabsTrigger value="groups">{t("crbs.rooms.tabGroups")}</TabsTrigger> : null}
           {rooms ? <TabsTrigger value="rooms">{t("crbs.rooms.tabRooms")}</TabsTrigger> : null}
           {features ? <TabsTrigger value="features" data-testid="tab-features">{t("wave1.features.tab")}</TabsTrigger> : null}
           {rooms ? <TabsTrigger value="fields">{t("crbs.rooms.tabFields")}</TabsTrigger> : null}
           {acl ? <TabsTrigger value="acl">{t("crbs.rooms.tabAcl")}</TabsTrigger> : null}
         </TabsList>
+        </div>
         {rooms ? (
           <TabsContent value="groups">
             <GroupsTab />

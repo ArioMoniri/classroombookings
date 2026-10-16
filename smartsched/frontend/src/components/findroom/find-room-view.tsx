@@ -717,7 +717,7 @@ function RecentSearches({ items, onPick }: { items: Record<string, unknown>[]; o
       <ul className="flex flex-col gap-1" data-testid="fr-recent">
         {items.slice(0, 6).map((body, i) => (
           <li key={i}>
-            <BareButton onClick={() => onPick(body)} className="w-full truncate rounded-lg px-2 py-1.5 text-left type-callout text-label-1 hover:bg-fill-2">
+            <BareButton onClick={() => onPick(body)} className="min-h-11 w-full truncate rounded-lg px-2 py-1.5 text-left type-callout text-label-1 hover:bg-fill-2 pointer-fine:min-h-0">
               {label(body)}
             </BareButton>
           </li>

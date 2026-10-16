@@ -11,6 +11,7 @@ import type { ClassRow } from "@/lib/api/classes";
 import { useRooms } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS_PER_DAY, dayName } from "@/lib/time";
+import { Input } from "@/components/ui/input";
 
 export function BulkMoveDialog({ open, onOpenChange, rows, runId, onApply }: { open: boolean; onOpenChange: (o: boolean) => void; rows: ClassRow[]; runId: number | null; onApply: (items: MoveItem[]) => Promise<boolean> }) {
   const { t, locale } = useI18n();
@@ -65,7 +66,7 @@ export function BulkMoveDialog({ open, onOpenChange, rows, runId, onApply }: { o
           </label>
           <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
             {t("classes.bulkMove.shift")}
-            <input type="number" min={-6} max={6} value={shift} onChange={(e) => { setShift(Number(e.target.value) || 0); setPreview(null); }} className="h-8 rounded-lg bg-fill-2 px-2 type-callout font-normal text-label-1 tabular-nums" />
+            <Input type="number" min={-6} max={6} value={shift} onChange={(e) => { setShift(Number(e.target.value) || 0); setPreview(null); }} className="w-24 font-normal tabular-nums" />
           </label>
         </div>
         {preview ? (

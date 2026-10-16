@@ -187,7 +187,7 @@ export function RoomsView() {
           </InputGroupAddon>
         ) : null}
       </InputGroup>
-      <NativeSelect size="sm" className="w-auto min-w-32" aria-label={t("common.building")} value={building} onChange={(e) => set({ building: e.target.value || null })} data-testid="rooms-building">
+      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-32" aria-label={t("common.building")} value={building} onChange={(e) => set({ building: e.target.value || null })} data-testid="rooms-building">
         <option value="">{`${t("common.building")}: ${t("roomsV2.allBuildings")}`}</option>
         {buildingCodes.map((b) => <option key={b} value={b}>{t("roomsV2.building", { b })}</option>)}
       </NativeSelect>
@@ -198,11 +198,11 @@ export function RoomsView() {
           </Chip>
         ))}
       </span>
-      <NativeSelect size="sm" className="w-auto min-w-32" aria-label={t("roomsV2.minCapacity")} value={String(minSeats)} onChange={(e) => set({ seats: e.target.value === "0" ? null : e.target.value })} data-testid="rooms-seats">
+      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-32" aria-label={t("roomsV2.minCapacity")} value={String(minSeats)} onChange={(e) => set({ seats: e.target.value === "0" ? null : e.target.value })} data-testid="rooms-seats">
         {SEAT_STEPS.map((s) => <option key={s} value={s}>{s === 0 ? `${t("roomsV2.minCapacity")}: ${t("roomsV2.any")}` : `${t("roomsV2.minCapacity")} ≥ ${s}`}</option>)}
       </NativeSelect>
       {layout === "cards" ? (
-        <NativeSelect size="sm" className="w-auto min-w-36" aria-label={t("roomsV2.sort")} value={sort} onChange={(e) => set({ sort: e.target.value === "code" ? null : e.target.value })}>
+        <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-36" aria-label={t("roomsV2.sort")} value={sort} onChange={(e) => set({ sort: e.target.value === "code" ? null : e.target.value })}>
           <option value="code">{t("roomsV2.sortCode")}</option>
           <option value="capacity">{t("roomsV2.sortCapacity")}</option>
           <option value="busy" disabled={!cal.model}>{t("roomsV2.sortBusy")}</option>
@@ -237,9 +237,9 @@ export function RoomsView() {
         actions={
           week !== null && weekList.length ? (
             <div className="flex items-center gap-1" role="group" aria-label={t("roomsV2.week")}>
-              <IconButton label={t("roomsV2.prevWeek")} size="sm" disabled={weekIdx <= 0} onClick={() => set({ week: String(weekList[weekIdx - 1]) })}><ChevronLeft aria-hidden /></IconButton>
+              <IconButton label={t("roomsV2.prevWeek")} size="sm" className="pointer-coarse:size-11" disabled={weekIdx <= 0} onClick={() => set({ week: String(weekList[weekIdx - 1]) })}><ChevronLeft aria-hidden /></IconButton>
               <span className="min-w-20 text-center type-callout font-semibold tnum" aria-live="polite" data-testid="rooms-week">{t("roomsV2.weekLabel", { w: week })}</span>
-              <IconButton label={t("roomsV2.nextWeek")} size="sm" disabled={weekIdx < 0 || weekIdx >= weekList.length - 1} onClick={() => set({ week: String(weekList[weekIdx + 1]) })}><ChevronRight aria-hidden /></IconButton>
+              <IconButton label={t("roomsV2.nextWeek")} size="sm" className="pointer-coarse:size-11" disabled={weekIdx < 0 || weekIdx >= weekList.length - 1} onClick={() => set({ week: String(weekList[weekIdx + 1]) })}><ChevronRight aria-hidden /></IconButton>
             </div>
           ) : null
         }

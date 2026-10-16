@@ -109,7 +109,7 @@ export function ModeCell({ row, onSave }: { row: ClassRow; onSave: (patch: Meeti
   const mode = (ClassModeEnum.options as readonly string[]).includes(row.mode ?? "") ? (row.mode as ClassMode) : "OTHER";
   return (
     <span className="inline-flex flex-col">
-      <NativeSelect className="h-7 w-36 text-xs" value={mode} aria-label={t("studio.classes.edit", { field: t("studio.classes.col.mode") })} onChange={(e) => onSave({ mode: e.target.value as ClassMode })}>
+      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" className="h-7 w-36 text-xs" value={mode} aria-label={t("studio.classes.edit", { field: t("studio.classes.col.mode") })} onChange={(e) => onSave({ mode: e.target.value as ClassMode })}>
         {ClassModeEnum.options.map((m) => (
           <option key={m} value={m}>
             {t(MODE_KEY[m])}
@@ -149,7 +149,7 @@ export function DayTimeCell({ row, onSave }: { row: ClassRow; onSave: (patch: Me
         <div className="grid gap-2 text-sm">
           <label className="grid gap-1">
             <span className="text-xs font-medium">{t("common.day")}</span>
-            <NativeSelect value={day ?? ""} onChange={(e) => setDay(e.target.value ? Number(e.target.value) : null)} disabled={flex}>
+            <NativeSelect selectClassName="max-md:pointer-coarse:text-base" value={day ?? ""} onChange={(e) => setDay(e.target.value ? Number(e.target.value) : null)} disabled={flex}>
               <option value="">—</option>
               {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                 <option key={d} value={d}>
@@ -161,7 +161,7 @@ export function DayTimeCell({ row, onSave }: { row: ClassRow; onSave: (patch: Me
           <div className="grid grid-cols-2 gap-2">
             <label className="grid gap-1">
               <span className="text-xs font-medium">{t("studio.slot.from")}</span>
-              <NativeSelect value={start ?? ""} onChange={(e) => setStart(e.target.value ? Number(e.target.value) : null)}>
+              <NativeSelect selectClassName="max-md:pointer-coarse:text-base" value={start ?? ""} onChange={(e) => setStart(e.target.value ? Number(e.target.value) : null)}>
                 <option value="">—</option>
                 {PERIODS.map((p) => (
                   <option key={p.index} value={p.index}>{`P${p.index} ${p.start}`}</option>
@@ -170,7 +170,7 @@ export function DayTimeCell({ row, onSave }: { row: ClassRow; onSave: (patch: Me
             </label>
             <label className="grid gap-1">
               <span className="text-xs font-medium">{t("studio.slot.to")}</span>
-              <NativeSelect value={end ?? ""} onChange={(e) => setEnd(e.target.value ? Number(e.target.value) : null)}>
+              <NativeSelect selectClassName="max-md:pointer-coarse:text-base" value={end ?? ""} onChange={(e) => setEnd(e.target.value ? Number(e.target.value) : null)}>
                 <option value="">—</option>
                 {PERIODS.map((p) => (
                   <option key={p.index} value={p.index}>{`P${p.index} ${p.end}`}</option>
@@ -239,7 +239,7 @@ export function PinCell({ row, pin, unlocked, roomCode, rooms, onPin, onUnpin, o
           <p className="text-xs font-medium text-label-2">{t("studio.pin.title")}</p>
           <label className="grid gap-1">
             <span>{t("studio.pin.room")}</span>
-            <NativeSelect value={room ?? ""} onChange={(e) => setRoom(e.target.value ? Number(e.target.value) : null)}>
+            <NativeSelect selectClassName="max-md:pointer-coarse:text-base" value={room ?? ""} onChange={(e) => setRoom(e.target.value ? Number(e.target.value) : null)}>
               <option value="">{t("studio.pin.pickRoom")}</option>
               {fit.map((r) => (
                 <option key={r.id} value={r.id}>

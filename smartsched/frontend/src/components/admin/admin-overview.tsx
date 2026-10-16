@@ -55,7 +55,7 @@ export function AdminOverview() {
             <ul>
               {checks.map((x) => (
                 <li key={x.key} className="not-last:edge-hairline-b">
-                  <Link href={x.href} className="flex items-center gap-3 px-4 py-2.5 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
+                  <Link href={x.href} className="flex min-h-11 items-center gap-3 px-4 py-2.5 outline-hidden pointer-fine:min-h-0 hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
                     {x.done ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : <Circle className="size-4 text-label-3" aria-hidden />}
                     <span className="flex-1 type-callout text-label-1">
                       {t(x.key)}

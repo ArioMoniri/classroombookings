@@ -66,10 +66,10 @@ export function DepartmentsAdmin() {
                   <TableCell className="hidden text-label-2 md:table-cell">{d.description ?? ""}</TableCell>
                   <TableCell className="text-right tabular-nums text-label-2">{d.user_count}</TableCell>
                   <TableCell className="pr-4 text-right whitespace-nowrap">
-                    <Button variant="ghost" size="icon-sm" aria-label={t("crbs.departments.editNamed", { name: d.name })} onClick={() => setEditing(d)}>
+                    <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.departments.editNamed", { name: d.name })} onClick={() => setEditing(d)}>
                       <Pencil />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" aria-label={t("crbs.departments.deleteNamed", { name: d.name })} onClick={() => setDeleting(d)}>
+                    <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.departments.deleteNamed", { name: d.name })} onClick={() => setDeleting(d)}>
                       <Trash2 />
                     </Button>
                   </TableCell>
