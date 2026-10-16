@@ -289,7 +289,13 @@ async def update_policy(session: AsyncSession, actor: User, data_class: str, dat
     p.updated_by, p.updated_at = actor.id, utcnow()
     await session.flush()
     await audit.record(
-        session, "kvkk.retention_policy", "retention_policy", data_class, before=before, after=policy_out(p), actor=actor
+        session,
+        "kvkk.retention_policy",
+        "retention_policy",
+        data_class,
+        before=before,
+        after=policy_out(p),
+        actor=actor,
     )
     return p
 
@@ -506,9 +512,7 @@ async def ack(session: AsyncSession, user: User, notice_id: int) -> NoticeAck:
 
 async def consents_of(session: AsyncSession, user_id: int) -> list[dict[str, Any]]:
     rows = list(
-        (
-            await session.execute(select(Consent).where(Consent.user_id == user_id).order_by(Consent.id))
-        ).scalars()
+        (await session.execute(select(Consent).where(Consent.user_id == user_id).order_by(Consent.id))).scalars()
     )
     out = []
     for code, (tr, en) in PURPOSES.items():
@@ -531,7 +535,9 @@ async def grant(session: AsyncSession, user: User, purpose: str) -> None:
         raise KvkkError(404, "purpose", "unknown consent purpose", "bilinmeyen rıza amacı")
     active = (
         await session.execute(
-            select(Consent).where(Consent.user_id == user.id, Consent.purpose == purpose, Consent.withdrawn_at.is_(None))
+            select(Consent).where(
+                Consent.user_id == user.id, Consent.purpose == purpose, Consent.withdrawn_at.is_(None)
+            )
         )
     ).scalar_one_or_none()
     if active is not None:
@@ -548,7 +554,9 @@ async def withdraw(session: AsyncSession, user: User, purpose: str) -> dict[str,
     now = utcnow()
     rows = (
         await session.execute(
-            select(Consent).where(Consent.user_id == user.id, Consent.purpose == purpose, Consent.withdrawn_at.is_(None))
+            select(Consent).where(
+                Consent.user_id == user.id, Consent.purpose == purpose, Consent.withdrawn_at.is_(None)
+            )
         )
     ).scalars()
     for r in rows:
@@ -630,8 +638,9 @@ async def create_request(session: AsyncSession, user: User, kind: str, note: str
         r.download_expires_at = now + timedelta(days=DOWNLOAD_DAYS)
     session.add(r)
     await session.flush()
-    await audit.record(session, f"kvkk.dsr_{kind}", "dsr_request", r.id, after={"kind": kind, "status": r.status},
-                       actor=user)
+    await audit.record(
+        session, f"kvkk.dsr_{kind}", "dsr_request", r.id, after={"kind": kind, "status": r.status}, actor=user
+    )
     return r
 
 
@@ -648,7 +657,9 @@ def _csv(rows: list[dict[str, Any]]) -> str:
     w = csv.DictWriter(buf, fieldnames=keys)
     w.writeheader()
     for r in rows:
-        w.writerow({k: json.dumps(v, ensure_ascii=False) if isinstance(v, dict | list) else _iso(v) for k, v in r.items()})
+        w.writerow(
+            {k: json.dumps(v, ensure_ascii=False) if isinstance(v, dict | list) else _iso(v) for k, v in r.items()}
+        )
     return buf.getvalue()
 
 
@@ -675,7 +686,9 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, list[dict[
             "last_login_at": user.last_login_at,
         }
     ]
-    bookings = list((await session.execute(select(Booking).where(Booking.user_id == uid).order_by(Booking.date))).scalars())
+    bookings = list(
+        (await session.execute(select(Booking).where(Booking.user_id == uid).order_by(Booking.date))).scalars()
+    )
     data["bookings"] = [
         {
             "id": b.id,
@@ -704,7 +717,9 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, list[dict[
             "status": r.status,
             "requested_at": r.requested_at,
             "decided_at": r.decided_at,
-            "decided_by": ("Onaycı / approver" if r.decided_by not in (None, uid) else ("kendim" if r.decided_by else None)),
+            "decided_by": (
+                "Onaycı / approver" if r.decided_by not in (None, uid) else ("kendim" if r.decided_by else None)
+            ),
             "note": r.note,
             "reason_code": r.reason_code,
         }
@@ -730,8 +745,14 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, list[dict[
     ]
     ids = (await session.execute(select(UserIdentity).where(UserIdentity.user_id == uid))).scalars()
     data["sso_identities"] = [
-        {"provider": i.provider, "email_at_login": i.email_at_login, "display_name": i.display_name,
-         "origin": i.origin, "created_at": i.created_at, "last_login_at": i.last_login_at}
+        {
+            "provider": i.provider,
+            "email_at_login": i.email_at_login,
+            "display_name": i.display_name,
+            "origin": i.origin,
+            "created_at": i.created_at,
+            "last_login_at": i.last_login_at,
+        }
         for i in ids
     ]
     data["consents"] = await consents_of(session, uid)
@@ -751,7 +772,12 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, list[dict[
     obs = (
         await session.execute(
             select(LearnedObservation).where(
-                or_(*((LearnedObservation.subject_type == st) & (LearnedObservation.subject_key == sk) for st, sk in keys))
+                or_(
+                    *(
+                        (LearnedObservation.subject_type == st) & (LearnedObservation.subject_key == sk)
+                        for st, sk in keys
+                    )
+                )
             )
         )
     ).scalars()
@@ -810,8 +836,9 @@ async def refuse(session: AsyncSession, admin: User, request_id: int, reason: st
     r.status, r.refusal_reason = "REFUSED", reason.strip()
     r.handled_by, r.handled_at = admin.id, utcnow()
     await session.flush()
-    await audit.record(session, "kvkk.dsr_refuse", "dsr_request", r.id, after={"kind": r.kind}, reason=r.refusal_reason,
-                       actor=admin)
+    await audit.record(
+        session, "kvkk.dsr_refuse", "dsr_request", r.id, after={"kind": r.kind}, reason=r.refusal_reason, actor=admin
+    )
     await _tell(session, r, refused=True)
     return r
 
@@ -825,8 +852,10 @@ async def complete(session: AsyncSession, admin: User, request_id: int, note: st
             raise KvkkError(409, "gone", "the account is gone already", "hesap zaten yok")
         if r.user_id == admin.id:
             raise KvkkError(
-                409, "own_request", "another administrator completes your own erasure", "kendi silme talebinizi başka "
-                "bir yönetici tamamlar"
+                409,
+                "own_request",
+                "another administrator completes your own erasure",
+                "kendi silme talebinizi başka bir yönetici tamamlar",
             )
         subject = await session.get(User, r.user_id)
         if subject is None:
@@ -838,8 +867,9 @@ async def complete(session: AsyncSession, admin: User, request_id: int, note: st
                 )
             ).scalar_one()
             if not others:
-                raise KvkkError(409, "last_admin", "the last active administrator cannot be erased",
-                                "son etkin yönetici silinemez")
+                raise KvkkError(
+                    409, "last_admin", "the last active administrator cannot be erased", "son etkin yönetici silinemez"
+                )
         await _tell(session, r, refused=False)  # before the account loses its address
         result.update(await erase_user(session, admin, subject))
         r.subject_label = pseudonym(subject.id)
@@ -848,8 +878,14 @@ async def complete(session: AsyncSession, admin: User, request_id: int, note: st
         await _tell(session, r, refused=False)
     r.status, r.handled_by, r.handled_at, r.result = "DONE", admin.id, now, result
     await session.flush()
-    await audit.record(session, f"kvkk.dsr_complete", "dsr_request", r.id,
-                       after={"kind": r.kind, "counts": result.get("counts")}, actor=admin)
+    await audit.record(
+        session,
+        "kvkk.dsr_complete",
+        "dsr_request",
+        r.id,
+        after={"kind": r.kind, "counts": result.get("counts")},
+        actor=admin,
+    )
     return r
 
 
@@ -869,18 +905,31 @@ async def _tell(session: AsyncSession, r: DsrRequest, *, refused: bool) -> None:
         body = r.refusal_reason or ""
     else:
         title = f"Kişisel veri ({kind_tr}) talebiniz tamamlandı" if tr else f"Your data request ({r.kind}) is done"
-        body = "Hesabınız ve kişisel verileriniz silindi; denetim kayıtları anonim olarak saklanır." if (
-            tr and r.kind == "erase"
-        ) else ("Your account and personal data were erased; audit records are kept anonymised." if r.kind == "erase"
-                else "")
-    session.add(InAppNotification(user_id=user.id, kind="kvkk.request", title=title[:255], body=body,
-                                  link="/profile/privacy", data={"request_id": r.id, "status": "REFUSED" if refused
-                                                                 else "DONE"}))
+        body = (
+            "Hesabınız ve kişisel verileriniz silindi; denetim kayıtları anonim olarak saklanır."
+            if (tr and r.kind == "erase")
+            else (
+                "Your account and personal data were erased; audit records are kept anonymised."
+                if r.kind == "erase"
+                else ""
+            )
+        )
+    session.add(
+        InAppNotification(
+            user_id=user.id,
+            kind="kvkk.request",
+            title=title[:255],
+            body=body,
+            link="/profile/privacy",
+            data={"request_id": r.id, "status": "REFUSED" if refused else "DONE"},
+        )
+    )
     if user.email:
         from app.services import bookings_notify as mail
 
-        await mail.notify(session, kind="kvkk_request", to_email=user.email, subject=title[:255], body=body,
-                          user_id=user.id)
+        await mail.notify(
+            session, kind="kvkk_request", to_email=user.email, subject=title[:255], body=body, user_id=user.id
+        )
     await session.flush()
 
 
@@ -920,8 +969,16 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
         ).scalars():
             req.status, req.decided_at, req.decided_by, req.note = "WITHDRAWN", now, admin.id, reason
         await session.flush()
-        await publish_event(session, "booking.cancel", "booking", future[0].id, items=items, actor=admin,
-                            reason=reason, payload={"booking_ids": [b.id for b in future], "actor_id": admin.id})
+        await publish_event(
+            session,
+            "booking.cancel",
+            "booking",
+            future[0].id,
+            items=items,
+            actor=admin,
+            reason=reason,
+            payload={"booking_ids": [b.id for b in future], "actor_id": admin.id},
+        )
     counts["bookings_cancelled"] = len(future)
     # 2. past bookings and series: no link to the person, no notes
     counts["bookings_anonymised"] = await _count_delete(
@@ -980,9 +1037,7 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
             LearnedObservation.subject_type == "user", LearnedObservation.subject_key == str(uid)
         ),
     )
-    await session.execute(
-        update(LearnedObservation).where(LearnedObservation.actor_id == uid).values(actor_id=None)
-    )
+    await session.execute(update(LearnedObservation).where(LearnedObservation.actor_id == uid).values(actor_id=None))
     # 5. audit rows: kept (legal retention) but pseudonymised, through the trigger's anonymise window
     await session.flush()
     window = AuditPurgeWindow(kind="anonymise", subject_actor_id=uid, created_at=now)
@@ -1002,7 +1057,9 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
     )
     await session.delete(window)
     await session.flush()
-    # 6. the account itself: no name, no address, cannot sign in
+    # 6. the account itself: no name, no address, cannot sign in. The flush hook of the administration tables is
+    #    paused for this one flush: its "user.update" row would copy the old name and e-mail back into the log
+    ctx = session.info.pop(audit.CTX_KEY, None)
     subject.email = None
     subject.username = f"silinmis-{label.rsplit('#', 1)[-1]}"
     subject.full_name = subject.firstname = subject.lastname = subject.ext = None
@@ -1013,6 +1070,14 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
     subject.last_login_at = None
     subject.legacy_crbs_user_id = None
     revoke_tokens(subject)
-    await session.flush()
-    return {"counts": counts, "partial": True,
-            "partial_reason": "denetim kayıtları anonim olarak saklanır (yasal saklama) / audit records kept anonymised"}
+    try:
+        await session.flush()
+    finally:
+        if ctx is not None:
+            session.info[audit.CTX_KEY] = ctx
+    await audit.record(session, "kvkk.erase", "user", uid, after={"subject": label, "counts": counts}, actor=admin)
+    return {
+        "counts": counts,
+        "partial": True,
+        "partial_reason": "denetim kayıtları anonim olarak saklanır (yasal saklama) / audit records kept anonymised",
+    }

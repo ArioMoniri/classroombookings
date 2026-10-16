@@ -73,9 +73,7 @@ class Consent(Base):
     purpose: Mapped[str] = mapped_column(String(32))  # sms | photo | calendar_sync | ai_personal
     granted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    notice_id: Mapped[int | None] = mapped_column(
-        ForeignKey("privacy_notices.id", ondelete="SET NULL"), nullable=True
-    )
+    notice_id: Mapped[int | None] = mapped_column(ForeignKey("privacy_notices.id", ondelete="SET NULL"), nullable=True)
 
 
 class DsrRequest(Base):
