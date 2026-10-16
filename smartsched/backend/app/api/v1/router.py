@@ -155,3 +155,10 @@ api_router.include_router(public_schedule_api.admin_router)
 from app.api.v1 import invigilation as invigilation_api  # noqa: E402
 
 api_router.include_router(invigilation_api.router)
+
+# booking enhancements wave 2: A4 KVKK (retention + daily purge, notices, consents, export / erase requests)
+from app.api.v1 import kvkk as kvkk_api  # noqa: E402
+
+api_router.include_router(kvkk_api.me_router)
+api_router.include_router(kvkk_api.public_router)
+api_router.include_router(kvkk_api.admin_router)

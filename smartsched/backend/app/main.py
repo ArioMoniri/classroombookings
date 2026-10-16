@@ -123,10 +123,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.environment != "test":  # tests call the sweep directly; no timers inside the test loop
         approvals_sweeper.start()
         learning.start_purge_job()  # P19-L4: daily purge of memory resets past their 30-day undo window
+        from app.services import kvkk
+
+        kvkk.start_purge_job()  # A4: daily KVKK retention (enabled policies only; every policy ships disabled)
     log.info("SmartSched backend ready (%s, %s)", settings.environment, settings.database_url.split("@")[-1])
     yield
     await approvals_sweeper.stop()
     await learning.stop_purge_job()
+    from app.services import kvkk as kvkk_jobs
+
+    await kvkk_jobs.stop_purge_job()
     await integrations.shutdown()
     await get_queue().shutdown()
     await dispose_engine()

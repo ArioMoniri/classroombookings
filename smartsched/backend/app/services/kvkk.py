@@ -51,8 +51,6 @@ from app.models import (
     BookingSlot,
     CalendarConnection,
     CalendarFeedToken,
-    ChannelDelivery,
-    ChannelLinkCode,
     InAppNotification,
     Instructor,
     MultiBooking,
@@ -62,17 +60,15 @@ from app.models import (
     PasswordResetToken,
     RoomAcl,
     Setting,
-    SsoAuthState,
-    SsoInvite,
     User,
-    UserChannel,
     UserConstraint,
-    UserIdentity,
 )
 from app.models.base import utcnow
 from app.models.booking import BOOKED, CANCELLED, PENDING
 from app.models.catalog import Room
+from app.models.channels import ChannelDelivery, ChannelLinkCode, UserChannel
 from app.models.kvkk import AuditPurgeWindow, Consent, DsrRequest, NoticeAck, PrivacyNotice, RetentionPolicy
+from app.models.sso import SsoAuthState, SsoInvite, UserIdentity
 from app.services import audit
 from app.services.events import publish_event
 
@@ -847,6 +843,7 @@ async def complete(session: AsyncSession, admin: User, request_id: int, note: st
     r = await _load_open(session, request_id)
     now = utcnow()
     result: dict[str, Any] = {"note": (note or "").strip() or None}
+    was: User | None = None
     if r.kind == "erase":
         if r.user_id is None:
             raise KvkkError(409, "gone", "the account is gone already", "hesap zaten yok")
@@ -870,13 +867,12 @@ async def complete(session: AsyncSession, admin: User, request_id: int, note: st
                 raise KvkkError(
                     409, "last_admin", "the last active administrator cannot be erased", "son etkin yönetici silinemez"
                 )
-        await _tell(session, r, refused=False)  # before the account loses its address
+        was = User(id=subject.id, email=subject.email, language=subject.language)
         result.update(await erase_user(session, admin, subject))
         r.subject_label = pseudonym(subject.id)
         r.user_id = None
-    else:
-        await _tell(session, r, refused=False)
     r.status, r.handled_by, r.handled_at, r.result = "DONE", admin.id, now, result
+    await _tell(session, r, refused=False, erased=was)
     await session.flush()
     await audit.record(
         session,
@@ -889,13 +885,14 @@ async def complete(session: AsyncSession, admin: User, request_id: int, note: st
     return r
 
 
-async def _tell(session: AsyncSession, r: DsrRequest, *, refused: bool) -> None:
-    """The requester's in-app note (and e-mail through the outbox) of the decision."""
+async def _tell(session: AsyncSession, r: DsrRequest, *, refused: bool, erased: User | None = None) -> None:
+    """The requester's in-app note and e-mail (outbox) of the decision. After an erasure (``erased``: the account as it
+    was, read before) only the e-mail to the former address is queued; that outbox row is the last copy of the
+    address and goes with the notification retention."""
+    from app.services import bookings_notify as mail
     from app.services.bookings_notify import _language
 
-    if r.user_id is None:
-        return
-    user = await session.get(User, r.user_id)
+    user = erased or (await session.get(User, r.user_id) if r.user_id is not None else None)
     if user is None:
         return
     tr = (await _language(session, user)) == "tr"
@@ -903,32 +900,35 @@ async def _tell(session: AsyncSession, r: DsrRequest, *, refused: bool) -> None:
     if refused:
         title = f"Kişisel veri ({kind_tr}) talebiniz reddedildi" if tr else f"Your data request ({r.kind}) was refused"
         body = r.refusal_reason or ""
+    elif r.kind == "erase":
+        title = "Hesabınız ve kişisel verileriniz silindi" if tr else "Your account and personal data were erased"
+        body = (
+            "Denetim kayıtları yasal saklama süresince anonim olarak tutulur."
+            if tr
+            else "Audit records are kept anonymised for the legal retention period."
+        )
     else:
         title = f"Kişisel veri ({kind_tr}) talebiniz tamamlandı" if tr else f"Your data request ({r.kind}) is done"
-        body = (
-            "Hesabınız ve kişisel verileriniz silindi; denetim kayıtları anonim olarak saklanır."
-            if (tr and r.kind == "erase")
-            else (
-                "Your account and personal data were erased; audit records are kept anonymised."
-                if r.kind == "erase"
-                else ""
+        body = (r.result or {}).get("note") or ""
+    if erased is None:
+        session.add(
+            InAppNotification(
+                user_id=user.id,
+                kind="kvkk.request",
+                title=title[:255],
+                body=body,
+                link="/profile/privacy",
+                data={"request_id": r.id, "status": "REFUSED" if refused else "DONE"},
             )
         )
-    session.add(
-        InAppNotification(
-            user_id=user.id,
-            kind="kvkk.request",
-            title=title[:255],
-            body=body,
-            link="/profile/privacy",
-            data={"request_id": r.id, "status": "REFUSED" if refused else "DONE"},
-        )
-    )
     if user.email:
-        from app.services import bookings_notify as mail
-
         await mail.notify(
-            session, kind="kvkk_request", to_email=user.email, subject=title[:255], body=body, user_id=user.id
+            session,
+            kind="kvkk_request",
+            to_email=user.email,
+            subject=title[:255],
+            body=body,
+            user_id=None if erased is not None else user.id,
         )
     await session.flush()
 
@@ -954,7 +954,7 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
             )
         ).scalars()
     )
-    items = []
+    items: list[tuple[Any, dict[str, Any] | None, dict[str, Any] | None]] = []
     for b in future:
         before = bsvc.snap(b)
         b.status, b.cancelled_at, b.cancelled_by, b.cancel_reason = CANCELLED, now, admin.id, reason

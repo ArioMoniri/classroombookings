@@ -102,7 +102,6 @@ async def test_final_plan_staffs_every_exam_room_without_breaking_a_rule(real):
     teach = defaultdict(list)
     for sp in spans:
         teach[sp.instructor_id].append(sp)
-    checked = 0
     for x in duties:
         if not x["instructor_id"]:
             continue
@@ -111,15 +110,27 @@ async def test_final_plan_staffs_every_exam_room_without_breaking_a_rule(real):
             continue
         for sp in teach.get(x["instructor_id"], []):
             if sp.day == day.isoweekday():
-                checked += 1
                 assert not (sp.start <= x["end_period"] and x["start_period"] <= sp.end), (x, sp)
-    assert checked > 0  # the rule had something to do on the real data
-    # the published week 13 covers 11-15 May only: the May exams of weeks 14-15 are named as unchecked, June is not
-    warn = next(w for w in d["diagnosis"] if w["code"] == "teaching_unchecked")
-    assert warn["severity"] == "warning" and warn["text"]["tr"]
-    assert all(x < "2026-06-01" for x in warn["dates"]) and all(
-        week_index_for_date(bahar, dt.date.fromisoformat(x)) in (14, 15) for x in warn["dates"]
+    # the rule had something to do on the real data: teaching took people out of some posts
+    async with dbmod.get_session_factory()() as s:
+        exam_run = await s.get(ScheduleRun, real["exam_run"])
+        assert exam_run is not None
+        built = await svc.build_input(s, exam_run, d["params"])
+    el = inv.eligibility(built.inp)
+    assert sum(c["teaching"] for c in el.excluded.values()) > 0
+    assert built.teaching_runs == [real["teach_run"]]
+    # the published week 13 covers 11-15 May only: an exam date in Bahar weeks 1-12 or 14-15 is named as unchecked,
+    # one after the term (June) is not (no classes then)
+    dates = {p["date"] for p in d["posts"]}
+    expected = sorted(
+        x for x in dates if week_index_for_date(bahar, dt.date.fromisoformat(x)) in set(range(1, 16)) - {13}
     )
+    warn = [w for w in d["diagnosis"] if w["code"] == "teaching_unchecked"]
+    if expected:
+        assert warn and warn[0]["dates"] == expected and warn[0]["text"]["tr"]
+    else:
+        assert warn == []
+    assert any(week_index_for_date(bahar, dt.date.fromisoformat(x)) == 13 for x in dates)
 
 
 async def test_final_plan_respects_own_exams_under_prefer(real):
@@ -350,7 +361,7 @@ async def test_pool_crud_is_audited(real):
     )
     assert r.status_code == 201, r.text
     m = r.json()
-    assert m["full_name"] == "Selin Tan" and m["unavailable"][0] == {"day": 5}
+    assert m["full_name"] == "Öğr. Gör. Selin Tan" and m["unavailable"][0] == {"day": 5}
     r = await c.put(f"{P}/pool/{m['id']}", json={"active": False})
     assert r.status_code == 200 and r.json()["active"] is False and r.json()["load_factor"] == 150
     assert any(x["id"] == m["id"] for x in (await c.get(f"{P}/pool")).json())

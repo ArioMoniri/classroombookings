@@ -1375,8 +1375,8 @@
       "ledger": "RESUME Phase 19 UI follow-up",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-16 03:47",
-      "left_off": "Another leftover wait loop (`b23746scd`) was stopped when it hit its time limit. It was watching a log file from an earlier rerun, which I deleted along with the scratch directory, so it could never finish. Nothing depends on it and there's nothing to restart; the hand-off I already delivered stands."
+      "finished_at": "2026-10-16 04:18",
+      "left_off": "The last leftover wait loop (`bng5bmjqv`) was stopped when it hit its time limit. Its log file was deleted with the scratch directory, so it could never see a result. I had already read the outcome straight from the run's own task output: 6/6 passed on a fresh database. No more background tasks of mine are running, and the hand-off I delivered stands."
     },
     {
       "id": "ad88dae54f55423dc",

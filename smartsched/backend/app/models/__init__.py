@@ -59,6 +59,14 @@ from app.models.integrations import (
     WebhookEndpoint,
 )
 from app.models.invigilation import InvigilationDuty, InvigilationPlan, InvigilatorPoolMember
+from app.models.kvkk import (  # noqa: F401
+    AuditPurgeWindow,
+    Consent,
+    DsrRequest,
+    NoticeAck,
+    PrivacyNotice,
+    RetentionPolicy,
+)
 from app.models.learning import LearnedObservation, LearnedPrior, LearningReset, SuggestionFeedback
 from app.models.locks import TermLock
 from app.models.planning_drafts import PriorityOverride, ProgramDraft
