@@ -15,7 +15,7 @@ vi.mock("@/lib/api/client", async (orig) => ({
   },
 }));
 
-import { NotificationPreferencesPanel } from "./preferences-panel";
+import { NotificationPreferencesPanel, eventGroup } from "./preferences-panel";
 
 const base = (): NotificationPrefs => ({
   channels: [
@@ -106,5 +106,16 @@ describe("NotificationPreferencesPanel", () => {
     await userEvent.click(await screen.findByTestId("pref-channel-email"));
     await waitFor(() => expect(state.put).toHaveBeenCalledWith({ channels: { email: false } }));
     await waitFor(() => expect(screen.getByTestId("pref-approval.rejected-email")).toHaveAttribute("data-disabled"));
+  });
+});
+
+describe("eventGroup", () => {
+  it("files an academician's wish decisions under Program, with the published timetable", () => {
+    expect(eventGroup("preference.accepted")).toBe("timetable");
+    expect(eventGroup("preference.rejected")).toBe("timetable");
+    expect(eventGroup("timetable.published")).toBe("timetable");
+    expect(eventGroup("approval.requested")).toBe("approvals");
+    expect(eventGroup("booking.cancelled")).toBe("bookings");
+    expect(eventGroup("something.else")).toBe("other");
   });
 });

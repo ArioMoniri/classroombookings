@@ -42,11 +42,12 @@ const GROUP_KEY: Record<EventGroup, MessageKey> = {
   other: "notifications.prefs.groups.other",
 };
 
-/** The section an event belongs to, from its backend name (`approval.*`, `booking.*`, `room_owner.*`, `timetable.*`). */
+/** The section an event belongs to, from its backend name (`approval.*`, `booking.*`, `room_owner.*`,
+ *  `timetable.*`, and `preference.*`: an academician's timetable wish accepted or rejected). */
 export function eventGroup(event: string): EventGroup {
   if (event.startsWith("approval.")) return "approvals";
   if (event.startsWith("booking.") || event.startsWith("room_owner.")) return "bookings";
-  if (event.startsWith("timetable.")) return "timetable";
+  if (event.startsWith("timetable.") || event.startsWith("preference.")) return "timetable";
   return "other";
 }
 
