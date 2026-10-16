@@ -1626,7 +1626,8 @@
       "goal": "You are the **batch 4 (backend + UI)** builder for SmartSched (repo /home/user/classroombookings: FastAPI backend in smartsched/backend, Next.js frontend in smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree with other agents). Ledger id: batch4-2026-10-16. Read docs/…",
       "ledger": "Backend batch 4 + its UI",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 10:11"
     },
     {
       "id": "affd69758b7381d7d",

@@ -13,6 +13,7 @@
  * - `consentRefusal(err, locale)` + `<ConsentRefusal>`: the backend's own sentence with a link to `grant_path`, for a
  *   409 that arrives anyway (another tab withdrew it, the sign-off was switched on meanwhile).
  */
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { CalendarCheck2 } from "lucide-react";
 import Link from "next/link";
@@ -23,10 +24,13 @@ import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { SPRING_PRESS, useMotionSafe } from "@/components/ui/motion-presets";
 import type { SyncStatus } from "@/lib/api/crbs";
-import { useConsent } from "@/lib/api/kvkk";
+import { kvkkKeys, useConsent } from "@/lib/api/kvkk";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+
+/** `GET /calendar/sync` in the TanStack cache (bookings/calendar-sync.tsx, settings/calendar-connections.tsx) */
+const SYNC_STATUS_KEY = ["crbs", "calendar-sync"] as const;
 
 /** where a person gives a consent when the backend names no other place */
 export const GRANT_PATH = "/profile#privacy";
@@ -47,8 +51,15 @@ export function consentRefusal(err: unknown, locale: string): { text: string; hr
   return { text, href: path, purpose: typeof d.purpose === "string" ? d.purpose : null };
 }
 
+/** The refusal with its link. Showing it refreshes the consent state the screens hold (calendar sync status and
+ * Profil › Gizlilik), so the link opens a Gizlilik that shows the consent as not given. */
 export function ConsentRefusal({ refusal, className, testId = "calendar-consent-refused" }: { refusal: { text: string; href: string }; className?: string; testId?: string }) {
   const { t } = useI18n();
+  const qc = useQueryClient();
+  useEffect(() => {
+    void qc.invalidateQueries({ queryKey: kvkkKeys.me });
+    void qc.invalidateQueries({ queryKey: SYNC_STATUS_KEY });
+  }, [qc, refusal]);
   return (
     <Alert tone="error" className={className} data-testid={testId}>
       {refusal.text}{" "}

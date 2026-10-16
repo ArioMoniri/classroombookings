@@ -1591,3 +1591,4 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - [x] Studio generate takes `params.relaxation_policy` (validated on the draft and on generate); the Generate form has Dönem ayarı / Önce kilitliler / Önce en çok ders.
   - [x] Commit `baseline: {mode: auto|skip|run, run_id?}`: skip writes no schedule map, run writes it into another finished COURSE run of the term (not the active one), with its own source keys; the Kaydet step has the control.
 - [ ] Owner question: may a schedule map be written into the term's active (published) run? Today that is refused (409); choose another run or the baseline run.
+- [ ] **Owner question (batch 4):** writing a schedule map into the term's active, published run is refused (409) today. Keep that, or allow it with an explicit confirmation?

@@ -7,7 +7,7 @@
  *    gives the consent and makes the link. The consent is then withdrawn through the API while the page is open
  *    (another tab), so the stale screen sends a reset and the backend's real 409 `consent_required` is shown with its
  *    TR sentence and a link to `grant_path`, which opens Profil › Gizlilik.
- * 2. Profil › Takvim aktarımı: Google is configured with a dummy client (restored afterwards); "Bağlan" asks for the
+ * 2. Profil › Takvim aktarımı: Google is configured with a dummy client and the panel's public URL (both restored); "Bağlan" asks for the
  *    consent first, then the browser goes to the backend's Google authorize URL (the provider page itself is stubbed:
  *    no real Google round trip).
  * 3. Admin › KVKK › Yapay zekâ: `kvkk.ai_personal_default` is switched to `excluded` in the two-option control; a teacher
@@ -38,7 +38,7 @@ const GOOGLE_CLIENT = `e2e-consent-${STAMP}.apps.googleusercontent.com`;
 test.describe.configure({ mode: "serial", timeout: 180_000 });
 test.skip(!REAL, SKIP_REASON);
 
-const ctx = {} as { api: APIRequestContext; token: string; teacherToken: string; teacherId: number; restore: { sync?: boolean; google?: boolean; aiDefault?: string } };
+const ctx = {} as { api: APIRequestContext; token: string; teacherToken: string; teacherId: number; restore: { sync?: boolean; google?: boolean; publicUrl?: boolean; aiDefault?: string } };
 
 async function call<T = unknown>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, token = ctx.token): Promise<{ status: number; body: T }> {
   const res = await ctx.api.fetch(`${API}${path}`, { method, data: body, headers: { Authorization: `Bearer ${token}` } });
@@ -80,12 +80,17 @@ async function signInAs(page: Page, id: string, password: string): Promise<void>
   await login(page, id, password);
 }
 
-test.beforeAll(async () => {
+test.beforeAll(async ({}, testInfo) => {
   ctx.api = await pwRequest.newContext();
   ctx.token = await loginToken(ADMIN_EMAIL, ADMIN_PASSWORD);
   ctx.restore = {};
   // the calendar-sync KVKK sign-off (the gate only applies while it is on) and a configured Google client
-  const integrations = await api<{ calendar_sync_enabled: boolean; google: { configured: boolean } }>("GET", "/calendar/admin/settings");
+  const integrations = await api<{ calendar_sync_enabled: boolean; public_url: string | null; google: { configured: boolean } }>("GET", "/calendar/admin/settings");
+  // a push provider is configured only with a public URL (its redirect URI is built from it)
+  if (!integrations.public_url) {
+    ctx.restore.publicUrl = false;
+    await api("PUT", "/calendar/admin/settings", { public_url: new URL(String(testInfo.project.use.baseURL)).origin });
+  }
   if (!integrations.calendar_sync_enabled) {
     ctx.restore.sync = false;
     await api("PUT", "/calendar/admin/settings", { calendar_sync_enabled: true });
@@ -101,12 +106,13 @@ test.beforeAll(async () => {
   ctx.teacherId = teacher.id;
   ctx.teacherToken = await loginToken(TEACHER.username, TEACHER.password);
   for (const token of [ctx.token, ctx.teacherToken]) await ackNotice(token);
-  expect(await syncConsent()).toEqual({ required: true, granted: false });
+  expect(await syncConsent()).toMatchObject({ required: true, granted: false });
 });
 
 test.afterAll(async () => {
   if (ctx.restore?.aiDefault) await call("PUT", "/settings", { extra: { "kvkk.ai_personal_default": ctx.restore.aiDefault } });
   if (ctx.restore?.google === false) await call("PUT", "/calendar/admin/settings", { google_client_id: "", google_client_secret: "" });
+  if (ctx.restore?.publicUrl === false) await call("PUT", "/calendar/admin/settings", { public_url: "" });
   if (ctx.restore?.sync === false) await call("PUT", "/calendar/admin/settings", { calendar_sync_enabled: false });
   await ctx.api?.dispose();
 });
