@@ -26,7 +26,7 @@
  *     npx playwright test e2e/approval-first.spec.ts
  */
 import { expect, request as pwRequest, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, pickSegment } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, ackPrivacyNotice, pickSegment } from "./helpers";
 import { pinLanguage } from "./language";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
@@ -109,6 +109,7 @@ async function login(page: Page, identifier: string, password: string): Promise<
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 120_000 });
+  await ackPrivacyNotice(page); // a notice published by wave2.spec.ts would cover the app
 }
 const noSidewaysScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 async function phonePage(browser: Browser, who: { id: string; password: string }): Promise<Page> {

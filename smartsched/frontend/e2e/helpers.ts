@@ -18,9 +18,29 @@ export const solverRun = () => Number(process.env.E2E_SOLVER_RUN ?? process.env.
 export const FIXTURES = process.env.E2E_FIXTURES_DIR ?? path.resolve(process.cwd(), "../backend/tests/fixtures");
 export const PLANNING_LIST = path.join(FIXTURES, "bahar_derslik_planlama_listesi_v5.xlsx");
 
+/**
+ * A published privacy notice (A4 KVKK, wave2.spec.ts 4) can never be retired, and until a user reads it a blocking
+ * sheet covers the app on their first page. Specs that are not about the notice acknowledge it for their test users
+ * through the API (`POST /me/privacy/ack`), the same request the sheet's "Okudum" sends, and reload so the shell
+ * reads the acknowledgement. Returns whether there was one to acknowledge.
+ */
+export async function ackPrivacyNotice(page: Page): Promise<boolean> {
+  const acked = await page.evaluate(async () => {
+    const r = await fetch("/api/v1/me/privacy", { headers: { Accept: "application/json" } });
+    if (!r.ok) return false;
+    const me = (await r.json()) as { needs_ack?: boolean; notice?: { id: number } | null };
+    if (!me.needs_ack || !me.notice) return false;
+    const a = await fetch("/api/v1/me/privacy/ack", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ notice_id: me.notice.id }) });
+    return a.ok;
+  });
+  if (acked) await page.reload();
+  return acked;
+}
+
 /** Sign in through the form; resolves once the app left /login. `?method=local` opens the password door when
- *  Microsoft sign-in is on (sign-in.md §4.2) and is harmless when it is off. */
-export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADMIN_PASSWORD): Promise<void> {
+ *  Microsoft sign-in is on (sign-in.md §4.2) and is harmless when it is off. A privacy notice an earlier spec
+ *  published is acknowledged unless `ackNotice: false` (the notice gate's own test). */
+export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADMIN_PASSWORD, { ackNotice = true }: { ackNotice?: boolean } = {}): Promise<void> {
   // A page still showing the app after its cookies were cleared answers its next poll with 401 and redirects
   // itself to /login?expired, which aborts our own navigation (net::ERR_ABORTED). Leave the app first.
   if (page.url() !== "about:blank") await page.goto("about:blank");
@@ -29,6 +49,7 @@ export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADM
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
+  if (ackNotice) await ackPrivacyNotice(page);
 }
 
 /** Same-origin GET through the Next proxy (the httpOnly cookie carries the JWT). */

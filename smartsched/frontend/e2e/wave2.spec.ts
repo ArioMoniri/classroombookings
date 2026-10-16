@@ -103,12 +103,13 @@ async function noSideScroll(page: Page): Promise<void> {
 async function signInAs(page: Page, id: string = ADMIN_EMAIL, password: string = ADMIN_PASSWORD): Promise<void> {
   await page.goto("about:blank");
   await page.context().clearCookies();
-  await login(page, id, password);
+  // this spec handles its own notice (test 4 is the gate's test): no automatic acknowledgement
+  await login(page, id, password, { ackNotice: false });
 }
 async function phone(browser: Browser, as?: { id: string; password: string }): Promise<Page> {
   const c = await browser.newContext(PHONE);
   const p = await c.newPage();
-  if (as) await login(p, as.id, as.password);
+  if (as) await login(p, as.id, as.password, { ackNotice: false });
   return p;
 }
 

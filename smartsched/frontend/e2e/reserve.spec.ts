@@ -277,6 +277,9 @@ test("7. calendar sync: private links for me, a room and a department, copy, Goo
     syncBefore ??= false;
     await api("PUT", "/calendar/admin/settings", { calendar_sync_enabled: true });
   }
+  // with the sign-off on, a person's feed links need their own calendar_sync consent (consent gates 2026-10-16;
+  // Profil › Gizlilik gives it): the teacher gives it through the same API
+  await api("POST", "/me/consents/calendar_sync", undefined, ctx.teacherToken);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await login(page, TEACHER.username, TEACHER.password);
   await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}`);

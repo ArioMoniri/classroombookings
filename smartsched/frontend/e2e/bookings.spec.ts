@@ -16,7 +16,7 @@
  */
 import { expect, request as pwRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import fs from "node:fs";
-import { pickSegment } from "./helpers";
+import { ackPrivacyNotice, pickSegment } from "./helpers";
 import { pinLanguage } from "./language";
 
 const REAL = process.env.E2E_REAL === "1";
@@ -69,6 +69,7 @@ async function uiLogin(page: Page, identifier: string, password: string) {
   await page.fill("#password", password);
   await page.click('[data-testid="login-submit"]');
   await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await ackPrivacyNotice(page); // a notice published by wave2.spec.ts would cover the app
 }
 
 test.beforeAll(async () => {

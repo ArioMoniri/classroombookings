@@ -32,9 +32,14 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "chromium", testIgnore: /intake\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
     // design-system gate on a phone: 390 × 844, touch (pointer: coarse), visual-quality.spec.ts only
     { name: "mobile", testMatch: /visual-quality\.spec\.ts/, use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } },
+    // intake commits the real workbooks into 2026-BAHAR (board assignments linked to ~8 500 requests, list rows
+    // taken from the file) and cannot put that back: listed last, so with one worker it runs after every other spec
+    // and no spec reads its leftovers (e2e-stabilisation 2026-10-16). Not a `dependencies` edge: that would skip
+    // intake whenever any earlier spec failed.
+    { name: "intake", testMatch: /intake\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
     command: `npx next build && npx next start -p ${PORT}`,
