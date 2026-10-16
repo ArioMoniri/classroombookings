@@ -144,10 +144,10 @@
   evidence: smartsched/frontend/e2e/wave1.spec.ts
 - feature: "Approval-first bookings: every request can go to an admin first; a rejection needs a reason; per-user notification preferences"
   area: bookings
-  status: backend-only
+  status: in-progress
   phase: "owner request 2026-10-15"
-  evidence: smartsched/backend/alembic/versions/0025_approval_first.py
-  note: "frontend waits for the shell sweep"
+  evidence: smartsched/backend/tests/test_approval_first_followups.py
+  note: "backend done (one message per submission, withdraw notices); approval UI builder running"
 - feature: "Organisation switch for calendar sync with a dated KVKK sign-off; off turns every feed link into a 404"
   area: bookings
   status: backend-only
@@ -167,10 +167,10 @@
   evidence: smartsched/backend/tests/test_webhooks.py
 - feature: "CRBS legacy upgrade: import a running classroombookings database with a dry-run report"
   area: bookings
-  status: backend-only
+  status: done
   phase: "P18-LEGACY"
-  evidence: smartsched/backend/tests/test_p18_legacy_upgrade.py
-  note: "import-wizard flow open; live MySQL run on the pod open"
+  evidence: smartsched/frontend/e2e/shell-admin-sweep.spec.ts
+  note: "import-wizard dry run + fingerprint confirm; live MySQL run on the pod open"
 - feature: "CRBS superset gate: every classroombookings behaviour and screen has an acceptance test"
   area: bookings
   status: done
@@ -196,21 +196,21 @@
   area: identity
   status: in-progress
   phase: "owner decision 2026-10-15"
-  evidence: docs/ROADMAP.md
-  note: "backend builder running"
+  evidence: smartsched/backend/tests/test_sso_login.py
+  note: "backend done (43 tests, fake Entra); sign-in page and admin screens being built; real-tenant test needs IT"
 - feature: "Notification channels through Apprise (push, Telegram, WhatsApp/SMS, Teams/Slack); users only link an address"
   area: identity
   status: in-progress
   phase: "owner decision 2026-10-15"
-  evidence: docs/ROADMAP.md
-  note: "backend builder running"
+  evidence: smartsched/backend/tests/test_channels.py
+  note: "backend done, off until an admin signs off KVKK per channel; settings and profile screens being built"
 
 - feature: "Turkish and English interface; other stored language codes are kept and shown in English"
   area: languages
-  status: in-progress
+  status: done
   phase: "P18-LANG (owner decision 2026-10-15)"
-  evidence: smartsched/frontend/src/lib/i18n/index.ts
-  note: "picker reduced to TR + EN; shell sweep running"
+  evidence: smartsched/frontend/e2e/languages.spec.ts
+  note: "new writes accept only tr/en; deliberate difference recorded in CRBS_PARITY §6.13"
 
 - feature: "One-command Docker deploy (PostgreSQL, FastAPI, Next.js, nginx; optional TLS edge and legacy CRBS)"
   area: platform

@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `044b181` (committed 2026-10-16 01:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `98df826` (committed 2026-10-16 01:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 22 · Backend only 8 · In progress 10 · Planned 3 (from [`docs/features.yml`](features.yml)).
+Done 24 · Backend only 6 · In progress 10 · Planned 3 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -69,11 +69,11 @@ Done 22 · Backend only 8 · In progress 10 · Planned 3 (from [`docs/features.y
 | Approvals by designated approvers: rules per room, room group or room type, PENDING requests, an inbox, a sweeper | Done | 17 (P1) | [`wave1.spec.ts`](../smartsched/frontend/e2e/wave1.spec.ts) |
 | Append-only audit log with a viewer, CSV export and undo of booking create, series create, move and cancel | Done | 17 (P7) | [`wave1.spec.ts`](../smartsched/frontend/e2e/wave1.spec.ts) |
 | In-app notifications (bell) next to the e-mail outbox | Done | 17 | [`wave1.spec.ts`](../smartsched/frontend/e2e/wave1.spec.ts) |
-| Approval-first bookings: every request can go to an admin first; a rejection needs a reason; per-user notification preferences | Backend only: frontend waits for the shell sweep | owner request 2026-10-15 | [`0025_approval_first.py`](../smartsched/backend/alembic/versions/0025_approval_first.py) |
+| Approval-first bookings: every request can go to an admin first; a rejection needs a reason; per-user notification preferences | In progress: backend done (one message per submission, withdraw notices); approval UI builder running | owner request 2026-10-15 | [`test_approval_first_followups.py`](../smartsched/backend/tests/test_approval_first_followups.py) |
 | Organisation switch for calendar sync with a dated KVKK sign-off; off turns every feed link into a 404 | Backend only: no KVKK settings screen yet | M-18 | [`0022_kvkk_signoff_unseed.py`](../smartsched/backend/alembic/versions/0022_kvkk_signoff_unseed.py) |
 | Google Calendar and Microsoft 365 push, once an administrator enters the organisation's OAuth client | Backend only: tested against mocked APIs, not yet a live tenant | 17 | [`test_calendar_connectors.py`](../smartsched/backend/tests/test_calendar_connectors.py) |
 | Signed outgoing webhooks (HMAC-SHA256) with an SSRF guard, off by default | Backend only | 17 | [`test_webhooks.py`](../smartsched/backend/tests/test_webhooks.py) |
-| CRBS legacy upgrade: import a running classroombookings database with a dry-run report | Backend only: import-wizard flow open; live MySQL run on the pod open | P18-LEGACY | [`test_p18_legacy_upgrade.py`](../smartsched/backend/tests/test_p18_legacy_upgrade.py) |
+| CRBS legacy upgrade: import a running classroombookings database with a dry-run report | Done: import-wizard dry run + fingerprint confirm; live MySQL run on the pod open | P18-LEGACY | [`shell-admin-sweep.spec.ts`](../smartsched/frontend/e2e/shell-admin-sweep.spec.ts) |
 | CRBS superset gate: every classroombookings behaviour and screen has an acceptance test | Done: runs in pod CI (parity gate) | 18 | [`parity_check.py`](../scripts/parity_check.py) |
 | Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows | Planned | 17 (P2, P8, V2, A4) |  |
 
@@ -83,14 +83,14 @@ Done 22 · Backend only 8 · In progress 10 · Planned 3 (from [`docs/features.y
 |---|---|---|---|
 | No privilege escalation: nobody grants or edits a role whose permissions they do not all hold | Done | 11 | [`test_crbs_fixes_org.py`](../smartsched/backend/tests/test_crbs_fixes_org.py) |
 | Sign-out, a password change, disabling an account and a role change revoke the user's tokens on every device | Done | 18 (B-AUTH-11) | [`0006_token_version.py`](../smartsched/backend/alembic/versions/0006_token_version.py) |
-| Microsoft Entra ID sign-in pinned to the university tenant, with invites and a break-glass local admin | In progress: backend builder running | owner decision 2026-10-15 | [`ROADMAP.md`](ROADMAP.md) |
-| Notification channels through Apprise (push, Telegram, WhatsApp/SMS, Teams/Slack); users only link an address | In progress: backend builder running | owner decision 2026-10-15 | [`ROADMAP.md`](ROADMAP.md) |
+| Microsoft Entra ID sign-in pinned to the university tenant, with invites and a break-glass local admin | In progress: backend done (43 tests, fake Entra); sign-in page and admin screens being built; real-tenant test needs IT | owner decision 2026-10-15 | [`test_sso_login.py`](../smartsched/backend/tests/test_sso_login.py) |
+| Notification channels through Apprise (push, Telegram, WhatsApp/SMS, Teams/Slack); users only link an address | In progress: backend done, off until an admin signs off KVKK per channel; settings and profile screens being built | owner decision 2026-10-15 | [`test_channels.py`](../smartsched/backend/tests/test_channels.py) |
 
 **Languages**
 
 | Feature | Status | Phase | Evidence |
 |---|---|---|---|
-| Turkish and English interface; other stored language codes are kept and shown in English | In progress: picker reduced to TR + EN; shell sweep running | P18-LANG (owner decision 2026-10-15) | [`index.ts`](../smartsched/frontend/src/lib/i18n/index.ts) |
+| Turkish and English interface; other stored language codes are kept and shown in English | Done: new writes accept only tr/en; deliberate difference recorded in CRBS_PARITY §6.13 | P18-LANG (owner decision 2026-10-15) | [`languages.spec.ts`](../smartsched/frontend/e2e/languages.spec.ts) |
 
 **Platform, CI and docs**
 

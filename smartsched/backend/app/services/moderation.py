@@ -2198,7 +2198,7 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun, compare_to: in
         "base_run_id": parent.id,
         "compare_to_run_id": base.id,
         "compared_to": basis,
-        "chain": [r.id for r in between] + [base.id],
+        "chain": [r.id for r in between[1:]] + [base.id],  # ancestors up to the baseline (not the run itself)
         "status": status,
         "mode": mod.get("mode"),
         "changed_request_ids": _ints(mod.get("changed_request_ids")),

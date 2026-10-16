@@ -1064,6 +1064,12 @@ async def inbox(session: AsyncSession, access: Access, status: str = "open") -> 
         if req.status == PENDING:
             if access.user not in await step_approvers(session, room, req.rule_snapshot or {}, req.step):
                 continue
+        elif req.status in (WITHDRAWN, EXPIRED) and access.user in await step_approvers(
+            session, room, req.rule_snapshot or {}, req.step
+        ):
+            # M-34: closed without a decision (withdrawn by the requester, or expired) -- the approvers who were
+            # asked at that step still see what became of it, under "decided"
+            pass
         else:
             decided = (
                 await session.execute(

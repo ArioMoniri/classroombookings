@@ -349,6 +349,19 @@ slot are rejected when one is approved. Every transition is audited and notified
 Expiry and hold release run lazily on every approvals call and in `workers/approvals_sweeper.py` every
 60 s (not started when `ENVIRONMENT=test`). With no rule, booking behaves as in CRBS.
 
+### Approval-first mode and notification delivery
+
+`bookings.approval_mode` is `rules` (the CRBS behaviour above) or `all`. With `all`, every request for an empty slot goes to an admin first; the institution seed sets it once. A rejection needs a `reason_code` and a written reason, which the requester sees. `services/notify_dispatch.py` sends every notice (approval requested, decided or withdrawn; booking created or cancelled; room owner) to each recipient's enabled channels. Each recipient sets these at `/me/notification-preferences`. Duplicates are stopped by idempotency keys in `notification_deliveries`. An approver gets one message per submission (`group_id`), queued until the transaction commits.
+
+The channels are in-app, e-mail and `services/channels/**`:
+- browser push (pywebpush, VAPID)
+- Telegram
+- WhatsApp Cloud API, or an optional wuzapi bridge
+- SMS
+- Teams/Slack department posts, through Apprise
+
+`channels.register()` adds them at start-up. Their outbox drains in `workers/integrations.py`, retrying from 1 min to 6 h. Every channel stays off until an admin enters the institution's sender and records a KVKK sign-off; the sign-off is checked again at send time. Users only link their own address, and linking is their opt-in. Messages are link-only by default. Secrets and addresses are encrypted. Push endpoints and webhook hosts are allowlisted and DNS-checked. Setup: `docs/deploy/notification-channels.md`.
+
 ## Sessions and token revocation
 
 A JWT carries `uid`, the role code and `tv` = `users.token_version` (`core/security.py`). A request whose

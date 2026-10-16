@@ -2,7 +2,7 @@
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `044b181` (committed 2026-10-16 01:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `98df826` (committed 2026-10-16 01:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -249,3 +249,4 @@ Generated blocks last synced on top of commit `044b181` (committed 2026-10-16 01
 | 2026-10-16 01:03 | backend-engineer (notify-channels-apprise-2026-10-15) | channels | fix: concurrent renumbering with P19, resolved in the merge: P19 had already moved its migration to 0028_p19_gaps on 0027_notify_channels, so the channels migration stays 0027_notify_channels on 0026_sso_entra (my 0028 rename reverted); single head 0028_p19_gaps | hand-off |
 | 2026-10-16 01:07 | backend-engineer (p19-backend-gaps-2026-10-15) | P19 gaps | milestone: migration order frozen per coordinator: 0028_p19_gaps on 0027_notify_channels (single head); tests/test_p19_gaps_migration.py aligned, migration tests 5 passed | full p19 suite, hand-off |
 | 2026-10-16 00:30 | frontend-engineer (frontend-sweep-shell-admin-2026-10-15) | sweep | stop: done - languages TR+EN, AI policy, CRBS upgrade + room master, persona minors, motion T1/T2/T3(partial), logo, M-32, contract (confirm_unpublished, duplicate_request, past, grouped inbox, DSN allowlist), UI/UX §3 (shell, audit, users, roles, settings, profile, 404, bookings cells, SegmentedControl/DateField), learning mount, Taleplerim nav, viewport-fit; vitest 206/206, prod e2e 31 passed + admin-gaps 13/13 rerun, admin-gaps 6 flaky (room search) | open: bookings one-Toolbar + filters sheet, find-room layout, tab-bar labels, M-21/31/34/40, T3 frame re-measure, T6 (intake), /moderation/me href when it lands |
+| 2026-10-16 01:13 | frontend-engineer (identity-frontend-2026-10-16) | identity | started: sign-in per docs/design/v2/sign-in.md (+ /login/sso, /welcome), users-admin invites/status/bind/instructor, Settings › Microsoft ile giriş + Bildirim kanalları, Profile (Microsoft account, linked channels + push SW, preferences mount); scope components/auth/**, app/login/**, app/welcome, components/admin/{users-admin*,profile-view,login-extras}, components/identity/**, components/channels/**, lib/api/{identity,channels}.ts, public/push-sw.js, messages auth/signin/sso/channels/profile; ports 18986/18987 | read spec + backend sso/channels |

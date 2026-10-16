@@ -202,7 +202,7 @@ export function CapsuleToolbar(p: CapsuleToolbarProps) {
         </div>
         {sep}
         <div className="flex min-w-0 flex-1 items-center gap-0.5">
-          <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="flex min-w-24 flex-1 overflow-hidden p-0.5">
             <SubjectPicker model={p.model} subject={p.subject} onSubject={p.onSubject} condensed={condensed} />
           </div>
           <IconButton size="sm" label={t("calendar.sidebar.search")} onClick={p.onSearch} className="hidden @min-[80rem]/tb:inline-flex"><Search aria-hidden /></IconButton>

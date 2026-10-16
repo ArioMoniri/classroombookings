@@ -42,13 +42,13 @@ async def test_resolve_from_a_draft_child_diffs_against_the_published_run(real: 
     loser, phy = real["loser"], real["phy102"]
     assert (await c.put(f"{API}/moderation/requests/{loser}/priority", json={"priority": "high"}, headers=h)).is_success
     d1 = await _resolve(c, h, tid, {"base_run_id": base, "changed_request_ids": [loser], "mode": "repair"})
-    assert d1["compare_to_run_id"] == base and d1["compared_to"] == "published" and d1["chain"] == [d1["run_id"], base]
+    assert d1["compare_to_run_id"] == base and d1["compared_to"] == "published" and d1["chain"] == [base]
     assert loser in {x["request_id"] for x in d1["newly_placed"]}
     # a second step from the DRAFT child: still compared with the published run, both steps' edits in scope
     d2 = await _resolve(c, h, tid, {"base_run_id": d1["run_id"], "changed_request_ids": [phy], "mode": "repair"})
     assert d2["base_run_id"] == d1["run_id"]
     assert d2["compare_to_run_id"] == base and d2["compared_to"] == "published"
-    assert d2["chain"] == [d2["run_id"], d1["run_id"], base]
+    assert d2["chain"] == [d1["run_id"], base]
     assert {loser, phy} <= set(d2["changed_request_ids"])
     newly = {x["request_id"]: x for x in d2["newly_placed"]}
     assert loser in newly and newly[loser]["in_scope"]  # placed by step 1, still "new" against the published plan
