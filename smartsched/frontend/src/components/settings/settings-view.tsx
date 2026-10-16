@@ -23,6 +23,8 @@ import { LocaleToggle } from "@/components/shell/locale-toggle";
 import { AiPolicyCard } from "./ai-policy";
 import { CalendarSyncAdmin } from "./calendar-sync-admin";
 import { WebhooksAdmin } from "./webhooks-admin";
+import { PoliciesAdmin } from "@/components/policies/policies-admin";
+import { PublicScheduleAdmin } from "@/components/public-schedule/public-schedule-admin";
 import { LearningMemoryPanel } from "@/components/learning/learning-memory-panel";
 import { SsoSettings } from "@/components/identity/sso-settings";
 import { ChannelsAdmin } from "@/components/channels/channels-admin";
@@ -349,6 +351,8 @@ export function SettingsView() {
     { value: "import", label: t("settings.importHosts.tab"), show: admin },
     // calendar sync (KVKK sign-off, M-40) and outgoing webhooks: setup.settings, as the backend requires
     { value: "integrations", label: t("notifications.admin.tab"), show: can("setup.settings") },
+    // P8 booking policies + exam-period mode (wave-2 UI; GET/PUT /booking-policies needs setup.settings)
+    { value: "booking-rules", label: t("policies.tab"), show: can("setup.settings") },
     // identity frontend: Microsoft sign-in (planning.admin, as GET/PUT /auth/sso/admin/entra) and the
     // notification channels (setup.settings, as /channels/admin)
     { value: "sso", label: t("sso.admin.tab"), show: can("planning.admin") },
@@ -385,10 +389,13 @@ export function SettingsView() {
           <TabsContent value="integrations">
             <div className="space-y-5">
               <CalendarSyncAdmin />
+              {/* V2 public day view: off by default, switching it on records a KVKK sign-off */}
+              <PublicScheduleAdmin />
               <WebhooksAdmin />
             </div>
           </TabsContent>
         ) : null}
+        {can("setup.settings") ? <TabsContent value="booking-rules"><PoliciesAdmin /></TabsContent> : null}
         {can("planning.admin") ? <TabsContent value="learning"><LearningMemoryPanel /></TabsContent> : null}
         {can("planning.admin") ? <TabsContent value="sso"><SsoSettings /></TabsContent> : null}
         {can("setup.settings") ? <TabsContent value="channels"><ChannelsAdmin /></TabsContent> : null}

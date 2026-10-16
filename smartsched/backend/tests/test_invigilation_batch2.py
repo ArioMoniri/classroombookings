@@ -22,7 +22,7 @@ from typing import Any
 import pytest
 from app.core import db as dbmod
 from app.core.config import get_settings
-from app.models import AuditEvent, InvigilationDuty, ScheduleRun
+from app.models import AuditEvent, InvigilationDuty, InvigilationPlan, ScheduleRun
 from app.services import invigilation as svc
 from app.services.seed import seed_admin
 from app.solver import invigilation as inv
@@ -290,3 +290,85 @@ async def test_reassign_rescores_the_plan(real):
     assert new_load["duties"] == was["duties"] + 1 and new_load["days"] >= max(1, was["days"])
     old = {x["person_key"]: x for x in after["people"]}.get(duty["person_key"])
     assert (old["duties"] if old else 0) == loads[duty["person_key"]]["duties"] - 1
+
+
+# ------------------------------------------------------------------------------------------- 3. progress
+
+
+async def test_a_running_plan_stores_the_queue_phase_and_percentage(real):
+    c = real["client"]
+    r = await c.post(f"{P}/plans", json={"exam_run_id": real["exam_run"], "params": {"time_limit_s": 3}})
+    assert r.status_code == 202, r.text
+    plan_id = r.json()["plan_id"]
+    brief = (await c.get(f"{P}/plans")).json()
+    assert next(p for p in brief if p["id"] == plan_id)["progress"]["phase"] in ("queued", "loading", "solving")
+    seen: list[tuple[str, int]] = []
+    for _ in range(2000):
+        b = next(
+            p
+            for p in (await c.get(f"{P}/plans", params={"exam_run_id": real["exam_run"]})).json()
+            if p["id"] == plan_id
+        )
+        pr = b["progress"]
+        if not seen or seen[-1] != (pr["phase"], pr["pct"]):
+            seen.append((pr["phase"], pr["pct"]))
+        if b["status"] not in ("QUEUED", "RUNNING"):
+            break
+        await asyncio.sleep(0.02)
+    await qmod.get_queue().wait_idle(600)
+    d = await _detail(c, plan_id)
+    assert d["status"] in ("OPTIMAL", "FEASIBLE") and d["progress"] == {"phase": "done", "pct": 100}
+    # the phases the job reported, in order, from the database (not the in-memory queue): the solve is seen running
+    phases = [ph for ph, _ in seen]
+    assert "solving" in phases, seen
+    assert [x for x in phases if x in ("queued", "loading", "solving", "persisting", "done")] == phases, seen
+    pcts = [pct for _, pct in seen]
+    assert pcts == sorted(pcts), seen
+    async with dbmod.get_session_factory()() as s:
+        row = await s.get(InvigilationPlan, plan_id)
+        assert row is not None and row.heartbeat_at is not None  # the queue beat for the plan while it ran
+
+
+# ------------------------------------------------------------------------------------------- 4. startup sweep
+
+
+async def test_startup_sweep_fails_plans_of_a_dead_process(real):
+    import datetime as dt
+
+    from app.main import lifespan
+
+    now = dt.datetime.now(dt.UTC).replace(tzinfo=None)
+    async with dbmod.get_session_factory()() as s:
+        dead = InvigilationPlan(
+            term_id=real["final_id"],
+            exam_run_id=real["exam_run"],
+            status="RUNNING",
+            stats={"worker": {"host": "old", "pid": 1, "boot": "a-dead-boot"}},
+            progress_phase="solving",
+            progress_pct=30,
+            heartbeat_at=now - dt.timedelta(minutes=5),
+        )
+        queued = InvigilationPlan(
+            term_id=real["final_id"], exam_run_id=real["exam_run"], status="QUEUED", stats={"worker": {"boot": "x"}}
+        )
+        live = InvigilationPlan(  # another replica, still beating: left alone
+            term_id=real["final_id"],
+            exam_run_id=real["exam_run"],
+            status="RUNNING",
+            stats={"worker": {"host": "node-2", "pid": 7, "boot": "another-live-boot"}},
+            heartbeat_at=now,
+        )
+        s.add_all([dead, queued, live])
+        await s.commit()
+        ids = (dead.id, queued.id, live.id)
+    from app.main import app
+
+    async with lifespan(app):
+        async with dbmod.get_session_factory()() as s:
+            rows = {p.id: p for p in (await s.execute(select(InvigilationPlan))).scalars()}
+    for pid in ids[:2]:
+        assert rows[pid].status == "FAILED" and "interrupted" in (rows[pid].error or "")
+        assert rows[pid].finished_at is not None and rows[pid].progress_phase == "failed"
+    assert rows[ids[2]].status == "RUNNING"
+    async with dbmod.get_session_factory()() as s:
+        assert await svc.recover_interrupted_plans(s) == 0  # idempotent

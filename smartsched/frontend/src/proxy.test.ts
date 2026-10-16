@@ -46,7 +46,13 @@ describe("route guard (src/proxy.ts)", () => {
     expect(target("/timetable", "jwt")).toBeNull();
   });
 
+  it.each(["/public", "/public/rooms/A101?date=2026-02-18", "/public/buildings/A"])("lets anyone open the public day view %s", (path) => {
+    expect(target(path)).toBeNull();
+    expect(target(path, "jwt")).toBeNull();
+  });
+
   it("does not treat look-alike paths as public", () => {
+    expect(target("/publicity")).toBe(`/login?next=${encodeURIComponent("/publicity")}`);
     expect(target("/setup-admin")).toBe(`/login?next=${encodeURIComponent("/setup-admin")}`);
     expect(target("/reset-password/extra")).toBe(`/login?next=${encodeURIComponent("/reset-password/extra")}`);
   });

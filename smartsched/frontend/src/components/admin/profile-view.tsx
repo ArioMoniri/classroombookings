@@ -22,6 +22,7 @@ import { Alert, Field, Loading, PageTitle, SectionTitle, SelectField } from "./k
 import { MyChannels } from "@/components/channels/my-channels";
 import { MicrosoftAccountSection, ProfileSsoNotice } from "@/components/identity/profile-microsoft";
 import { NotificationPreferencesPanel } from "@/components/notifications/preferences-panel";
+import { PrivacySection } from "@/components/privacy/privacy-section";
 
 /** language names in themselves (Turkish, English); a legacy stored code (`de`) reads as English */
 const langLabel = (code: string | null | undefined) => {
@@ -51,6 +52,8 @@ export function ProfileView() {
         <NotificationPreferencesPanel />
       </section>
       <PasswordForm forced={!!me.data?.force_password_reset} />
+      {/* A4 KVKK: the privacy notice, consents and data requests (wave-2 UI) */}
+      <PrivacySection />
       <p className="type-callout text-label-2">
         {t("crbs.profile.calendar")}{" "}
         <Link href="/my-bookings" className="font-medium text-tint-text underline-offset-4 hover:underline">

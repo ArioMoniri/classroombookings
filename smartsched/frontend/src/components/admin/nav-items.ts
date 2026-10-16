@@ -15,6 +15,7 @@ import {
   DoorOpen,
   History,
   KeyRound,
+  Lock,
   Mail,
   Settings2,
   ShieldCheck,
@@ -77,6 +78,7 @@ export const SECTION_ICONS: Record<string, LucideIcon> = {
   "/admin/email": Mail,
   "/admin/approval-rules": Stamp,
   "/admin/audit": History,
+  "/admin/kvkk": Lock,
 };
 
 /** Secondary destinations: the profile (user menu) and every setup screen (⌘K, or a collapsible "Setup" group). */

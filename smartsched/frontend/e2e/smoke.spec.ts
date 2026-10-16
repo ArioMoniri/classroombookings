@@ -9,9 +9,9 @@ import { pinLanguage } from "./language";
  * smartsched/deploy/pod-ci/gates/e2e-backend-entry.sh (see playwright.config.ts).
  */
 test.skip(!REAL, SKIP_REASON);
-pinLanguage("tr");
 
 test.describe("SmartSched smoke (real backend)", () => {
+  pinLanguage("tr");
   test("signed out: app routes go to /login; /reset-password and /setup stay public", async ({ page }) => {
     await page.context().clearCookies();
     await page.goto("/rooms");
@@ -243,6 +243,8 @@ async function openStudio(page: import("@playwright/test").Page, step: string): 
 }
 
 test.describe("studio + calendar polish (real backend)", () => {
+  // English first (the tests switch the cookie per step after sign-in; the profile language applies once per session)
+  pinLanguage("en");
   // sign-in.md §6.1: the placeholder is an example ("ad.soyad"), never the label and never a person-like address
   test("login: the identifier hint is neutral in English and Turkish", async ({ page, baseURL }) => {
     await page.context().clearCookies();

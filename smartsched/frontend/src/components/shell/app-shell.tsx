@@ -22,6 +22,7 @@ import { planningRequirement } from "./nav-config";
 import { useGlobalShortcuts } from "./use-global-shortcuts";
 import { useWorkspaceStore, useWorkspaceUser } from "./workspace";
 import { useProfileLanguage } from "@/components/bookings/use-booking-format";
+import { PrivacyNoticeGate } from "@/components/privacy/notice-gate";
 
 function OfflineBanner() {
   const { t } = useI18n();
@@ -181,6 +182,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <ShortcutsSheet />
       <Shortcuts />
       <UserSync />
+      {/* A4 KVKK: the current privacy notice until acknowledged (never over /admin/kvkk; admins may postpone) */}
+      <PrivacyNoticeGate />
     </div>
   );
 }
