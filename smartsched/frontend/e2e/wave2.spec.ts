@@ -120,7 +120,10 @@ test.beforeAll(async () => {
   ctx.termId = terms.find((x) => x.code === "2026-BAHAR")!.id;
   const runs = await api<{ id: number; kind: string; term_id: number; label: string; is_active: boolean; horizon?: string; status: string }[]>("GET", "/runs");
   const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && r.label.startsWith("Grid import"))!;
-  const solver = [...runs].reverse().find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && !r.label.startsWith("Grid import") && ["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL"].includes(r.status))!;
+  // the full-term solver run e2e/global-setup.ts resolved (the backend also holds week-3 runs for other specs)
+  const solver =
+    runs.find((r) => r.id === Number(process.env.E2E_SOLVER_RUN)) ??
+    [...runs].reverse().find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && r.horizon === "TERM" && !r.label.startsWith("Grid import") && ["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL"].includes(r.status))!;
   ctx.boardRun = board.id;
   ctx.solverRun = solver.id;
   // the bookable session, 18 periods and room groups (as bookings.spec.ts)
