@@ -51,7 +51,9 @@ async function ensurePublished(page: Page): Promise<{ term: Term; run: Run }> {
 test("moderation: people → profile → raise a priority → re-solve preview diff → publish per the guard", async ({ page }) => {
   test.setTimeout(420_000);
   await login(page);
-  await ensurePublished(page);
+  const { term } = await ensurePublished(page);
+  // edits since publishing that earlier specs left (accepted wishes, priorities): this test adds exactly one
+  const staged0 = (await call<{ total: number }>(page, "GET", `/terms/${term.id}/changes-since-publish`)).body.total;
   await page.goto("/moderation?tab=people");
   const console_ = page.getByTestId("moderation-console");
   await expect(console_).toBeVisible();
@@ -85,7 +87,7 @@ test("moderation: people → profile → raise a priority → re-solve preview d
 
   // back in the console: 1 staged change, then "Planı yeniden oluştur" (minimal change)
   await page.goto("/moderation?tab=matchings");
-  await expect(page.getByTestId("staged-link")).toContainText(/1 değişiklik yayında değil/);
+  await expect(page.getByTestId("staged-link")).toContainText(new RegExp(`(^|\\D)${staged0 + 1} değişiklik yayında değil`));
   await expect(page.getByTestId("matchings-table")).toBeVisible({ timeout: 60_000 });
   await page.getByTestId("recreate-open").click();
   const sheet = page.getByTestId("recreate-sheet");
