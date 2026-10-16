@@ -323,6 +323,16 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/bookings/conflicts/{run_id}/detect": (E, "app.services.booking_conflicts"),
     # V2 public day view: the switch records the KVKK sign-off (public_schedule.settings)
     "PUT /api/v1/public-schedule/admin/settings": (E, "app.services.public_schedule"),
+    # invigilator assignment (invigilator.* / invigilation.* audit actions; app/services/invigilation.py)
+    "POST /api/v1/invigilation/pool": (E, "app.services.invigilation"),
+    "PUT /api/v1/invigilation/pool/{member_id}": (E, "app.services.invigilation"),
+    "DELETE /api/v1/invigilation/pool/{member_id}": (E, "app.services.invigilation"),
+    "POST /api/v1/invigilation/plans": (E, "app.services.invigilation"),
+    "POST /api/v1/invigilation/plans/{plan_id}/rerun": (E, "app.services.invigilation"),
+    "POST /api/v1/invigilation/plans/{plan_id}/activate": (E, "app.services.invigilation"),
+    "DELETE /api/v1/invigilation/plans/{plan_id}": (E, "app.services.invigilation"),
+    "POST /api/v1/invigilation/plans/{plan_id}/duties/{duty_id}/lock": (E, "app.services.invigilation"),
+    "PUT /api/v1/invigilation/plans/{plan_id}/duties/{duty_id}": (E, "app.services.invigilation"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)
