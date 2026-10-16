@@ -363,11 +363,14 @@ export function SettingsView() {
     <div className="max-w-[960px]" data-testid="settings">
       <PageHeader title={t("settings.title")} subtitle={admin ? t("settings.subtitle") : t("glass.settings.subtitleUser")} />
       <Tabs value={tab} onValueChange={(v) => router.replace(`/settings?tab=${String(v)}`)}>
-        <TabsList className="mb-5 max-w-full overflow-x-auto">
-          {tabs.map((x) => (
-            <TabsTrigger key={x.value} value={x.value} data-testid={`tab-${x.value}`}>{x.label}</TabsTrigger>
-          ))}
-        </TabsList>
+        {/* the track is min-width:max-content, so the scroller is a wrapper (10 tabs no longer fit at 1440) */}
+        <div className="mb-5 max-w-full overflow-x-auto">
+          <TabsList>
+            {tabs.map((x) => (
+              <TabsTrigger key={x.value} value={x.value} data-testid={`tab-${x.value}`}>{x.label}</TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
         <TabsContent value="general"><GeneralCard /></TabsContent>
         <TabsContent value="appearance"><AppearanceCard /></TabsContent>
         {admin ? <TabsContent value="ai"><AiCard /></TabsContent> : null}

@@ -5,14 +5,13 @@
  * caches nothing and has no fetch handler. It only turns a push into a notification and opens its link.
  * Payload (backend app/services/channels, RFC 8291 encrypted): { title, body, url, tag }.
  */
-/* eslint-disable no-restricted-globals */
 "use strict";
 
 function sameOriginUrl(value) {
   try {
     const url = new URL(typeof value === "string" && value ? value : "/", self.location.origin);
     return url.origin === self.location.origin ? url.href : new URL("/", self.location.origin).href;
-  } catch (_e) {
+  } catch {
     return new URL("/", self.location.origin).href;
   }
 }
@@ -30,7 +29,7 @@ self.addEventListener("push", (event) => {
   if (event.data) {
     try {
       data = event.data.json();
-    } catch (_e) {
+    } catch {
       data = { body: event.data.text() };
     }
   }

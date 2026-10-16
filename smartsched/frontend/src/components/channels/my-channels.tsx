@@ -9,7 +9,8 @@
  * Linking is always the person's own opt-in; unlinking deletes the address.
  */
 import { BellRing, Check, Mail, MessageCircle, Phone, Send, Trash2, Users } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useEffectEvent, useId, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/admin/kit";
 import { Alert } from "@/components/ui/alert";
@@ -221,39 +222,35 @@ function PushLinker({ channel, onDone }: { channel: AvailableChannel; onDone: ()
 
 function TelegramLinker({ onDone }: { onDone: () => void }) {
   const { t, locale } = useI18n();
+  const qc = useQueryClient();
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const started = useRef<number>(0);
   const make = useChannelMutation(() => channels.telegramLink());
-  const check = useChannelMutation(() => channels.telegramCheck(), [channelKeys.mine]);
-  const checkRef = useRef(check.mutateAsync);
-  checkRef.current = check.mutateAsync;
-  const doneRef = useRef(onDone);
-  doneRef.current = onDone;
-  const tRef = useRef(t);
-  tRef.current = t;
+  // effect events: the poll loop always sees the latest callbacks without restarting
+  const linked = useEffectEvent(() => {
+    void qc.invalidateQueries({ queryKey: channelKeys.mine });
+    toast.success(t("channels.me.telegram.done"));
+    onDone();
+  });
 
-  // poll while the deep link is shown (webhook mode answers from the DB; poll mode asks Telegram)
+  // poll while the deep link is shown (webhook mode answers from the DB; poll mode asks Telegram), at most 10 min
   useEffect(() => {
     if (!link) return;
-    started.current = Date.now();
+    const started = Date.now();
     let stop = false;
+    let timer = 0;
     const tick = async () => {
       if (stop) return;
-      if (Date.now() - started.current > POLL_MAX_MS) return setLink(null);
+      if (Date.now() - started > POLL_MAX_MS) return setLink(null);
       try {
-        const out = await checkRef.current(undefined);
-        if (out.linked && !stop) {
-          toast.success(tRef.current("channels.me.telegram.done"));
-          doneRef.current();
-          return;
-        }
+        const out = await channels.telegramCheck();
+        if (out.linked && !stop) return linked();
       } catch {
         /* keep polling: a transient error is not the person's problem */
       }
       if (!stop) timer = window.setTimeout(() => void tick(), POLL_MS);
     };
-    let timer = window.setTimeout(() => void tick(), POLL_MS);
+    timer = window.setTimeout(() => void tick(), POLL_MS);
     return () => {
       stop = true;
       window.clearTimeout(timer);
