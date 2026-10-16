@@ -85,6 +85,8 @@ export const ResetRow = z.object({
   undone_at: z.string().nullable().default(null),
   purged_at: z.string().nullable().default(null),
   counts: z.record(z.string(), z.number()).default({}),
+  /** a person reset / erasure: the person as title + initials (never the bare id; round-1 T-R1-41) */
+  subject_label: z.string().nullable().default(null),
 });
 export type ResetRow = z.infer<typeof ResetRow>;
 

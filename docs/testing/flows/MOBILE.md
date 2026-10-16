@@ -3,12 +3,12 @@
 Owner decision (ROADMAP "Standing flow loop"): mobile is part of the definition of done for **every screen**. A screen passes when it meets M-01 … M-14 at **390×844** (phone, portrait) and **768×1024** (tablet, portrait), plus M-13 in landscape (844×390). The builders work against this file, and the testers check it.
 
 How to run:
-- Contexts as in README §3: `isMobile: true`, `hasTouch: true`, `locale: "tr-TR"`, `timezoneId: "Europe/Istanbul"`, plus the CDP media emulation `hover: none`, `pointer: coarse`.
+- Contexts as in README §3: `isMobile: true`, `hasTouch: true`, `locale: "tr-TR"`, `timezoneId: "Europe/Istanbul"`, built with `scripts/record/lib/touch.mjs` (`newFlowPage`). Call `assertTouch(page)` before every M-02, M-03 and M-05 run, and take full-page screenshots only with its `shot()`: a plain `page.screenshot({ fullPage: true })` switches touch emulation off for the rest of the page, so every later measurement reads the mouse sizes (32 px controls, 13–14 px inputs). That is what round 1 measured (T-R1-45).
 - Run every criterion on every route of the matrix (§3) that the flow reaches. Also run it with the screen's main **sheet or dialog open**, and with the **filters open** where a screen has filters.
 - Report one row per criterion × route × viewport (`step` = `M-02@/find-room`). Attach the JSON the assertion returns.
 - The snippets below run in `page.evaluate` (Playwright library). `expect` is any assertion of your choice: the test runner's `expect` or `node:assert`.
 - **Zoom pre-check, first on every route.** With `isMobile: true`, Chromium zooms the page out when content is wider than the screen. `innerWidth` and `innerHeight` then grow (a 600 px element at 390 gave `innerHeight` 1316 in the dry run of these snippets), and every later measurement is skewed. Check `await page.evaluate(() => [innerWidth, document.documentElement.clientWidth])`. If the two differ, M-01 has already failed: report it and take the other numbers with care. The snippets use `document.documentElement.clientWidth / clientHeight` (the layout viewport) for this reason.
-- The snippets were dry-run on Chromium 141 (`chromium-1194`) against a synthetic page on 2026-10-15. `Emulation.setSafeAreaInsetsOverride` is supported there. `isMobile + hasTouch` already makes `(hover: none)` match; the CDP media emulation of README §3 makes it explicit.
+- The snippets were dry-run on Chromium 141 (`chromium-1194`) against a synthetic page on 2026-10-15. `Emulation.setSafeAreaInsetsOverride` is supported there. `hasTouch` is what makes `(pointer: coarse)` and `(hover: none)` match. `Emulation.setEmulatedMedia` with `pointer` / `hover` features has no effect in this build (re-measured on 2026-10-16), so it is not a fallback.
 
 Sources: the UI/UX visual review (§2 control heights, §3 per-screen, §5 acceptance checks), persona reports U-16, A-27, M-43, the phase19 specs (§6 mobile layouts) and the motion audit (§1 probe).
 

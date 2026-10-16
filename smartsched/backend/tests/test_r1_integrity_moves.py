@@ -202,3 +202,45 @@ async def test_publishing_a_run_with_a_forced_break_needs_the_confirm(bahar):
         headers=planner,
     )
     assert r.status_code == 200, r.text
+
+
+async def test_assignment_flags_match_the_planner_level_check(bahar):
+    """R1-S-17 / R1-M-04: the assignments API says which rows are the planner's own locks, never calls two requests
+    of one joint lecture a room clash, never calls a room without a known capacity "over capacity", and marks the
+    conflict reasons that are accepted exceptions (so the grid and the verdict count the same things)."""
+    from app.models import MeetingRequest
+
+    c, planner = bahar.client, bahar.planner
+    run = await _week3_run(bahar)
+    rid = run["id"]
+    rows = (await c.get(f"/api/v1/runs/{rid}/assignments", headers=planner)).json()
+    assert rows
+    head_of = {int(m): int(h) for h, ms in (run["stats"].get("event_members") or {}).items() for m in ms}
+    by_id = {a["id"]: a for a in rows}
+    async with dbmod.get_session_factory()() as s:
+        mrs = {
+            m.id: m
+            for m in (
+                await s.execute(
+                    select(MeetingRequest).where(MeetingRequest.id.in_([a["meeting_request_id"] for a in rows]))
+                )
+            ).scalars()
+        }
+    locked_rows = 0
+    for a in rows:
+        mr = mrs.get(a["meeting_request_id"])
+        own = bool(mr and mr.status == "LOCKED" and mr.definitive_room_ids) and sorted(a["room_ids"]) == sorted(
+            mr.definitive_room_ids or []
+        )
+        assert a["planner_lock"] == own, (a["display_label"], a["room_codes"])
+        locked_rows += own
+        assert not any(r.endswith("> 0") for r in a["conflict_reasons"]), a["conflict_reasons"]
+        assert set(a["exception_reasons"]) <= set(a["conflict_reasons"])
+        for r in a["conflict_reasons"]:
+            if r.startswith("room overlap") and "#" in r:
+                other = by_id.get(int(r.rsplit("#", 1)[1]))
+                if other is not None:
+                    ha = head_of.get(a["meeting_request_id"], a["meeting_request_id"])
+                    hb = head_of.get(other["meeting_request_id"], other["meeting_request_id"])
+                    assert ha != hb, ("one joint lecture flagged as a clash", a["display_label"])
+    assert locked_rows > 100  # the Bahar list locks most of its rows to their definitive rooms

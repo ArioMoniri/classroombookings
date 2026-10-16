@@ -753,7 +753,13 @@ async def commit(
         "by": user_id,
     }
     # the same per-entity counts a dry-run reports (app/council/dryrun.py), so both can be compared
-    result["changes"] = summarize(rec, result, on_conflict)["counts"]
+    changes: dict[str, dict[str, int]] = summarize(rec, result, on_conflict)["counts"]
+    result["changes"] = changes
+    # every constraint the commit wrote: the importers' preference rules and the accepted rule proposals
+    # (``constraints_created`` lists the proposals' ids only; T-R1-24)
+    result["constraints_total"] = int((changes.get("constraints") or {}).get("create", 0))
+    # a commit has no undo: the confirm says so, and the audit event records it (T-R1-24)
+    result["reversible"] = False
     if own_recorder:
         rec.detach(session)
     fresh = await session.get(CouncilJob, job.id)
@@ -770,7 +776,10 @@ async def commit(
         "council.commit",
         "council_job",
         job.id,
-        after={k: result[k] for k in ("term_code", "term_created", "files", "general", "constraints_created")},
+        after={
+            k: result[k]
+            for k in ("term_code", "term_created", "files", "general", "constraints_created", "constraints_total")
+        },
         actor=actor,
         term_id=tid,
     )

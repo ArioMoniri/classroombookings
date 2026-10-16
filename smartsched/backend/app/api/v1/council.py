@@ -40,7 +40,7 @@ from app.api.v1.imports import locked_409
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
-from app.council import airows, formats, formats_mail, memory_admin, storage
+from app.council import airows, formats, formats_mail, i18n, memory_admin, storage
 from app.council import text as tx
 from app.council.commit import CommitError, commit
 from app.council.dryrun import dry_run
@@ -74,12 +74,20 @@ async def _job(db: DB, job_id: int) -> CouncilJob:
     return job
 
 
-async def job_out(db: DB, job: CouncilJob) -> CouncilJobOut:
+def _lang(job: CouncilJob, lang: str | None) -> str:
+    """The reader's language: ``?lang=`` or the language the job was started in (T-R1-23)."""
+    return (lang or job.lang or "en")[:8]
+
+
+async def job_out(db: DB, job: CouncilJob, lang: str | None = None) -> CouncilJobOut:
+    """The job for a reader of ``lang`` (default: the job's): the council's messages in Turkish for ``tr``."""
+    lg = _lang(job, lang)
     steps = await storage.steps(db, job.id)
     by_file: dict[int, list[CouncilStepOut]] = {}
     cross: list[CouncilStepOut] = []
     for s in steps:
         out = CouncilStepOut.model_validate(s)
+        out.message = i18n.localize(out.message, lg)
         if s.file_index is None:
             cross.append(out)
         else:
@@ -88,10 +96,15 @@ async def job_out(db: DB, job: CouncilJob) -> CouncilJobOut:
     progress = 100 if job.status in TERMINAL else (st.progress if st else 0)
     files = [
         CouncilFileOut(
-            **{k: v for k, v in f.items() if k in CouncilFileOut.model_fields}, steps=by_file.get(f["index"], [])
+            **{k: v for k, v in f.items() if k in CouncilFileOut.model_fields and k != "message"},
+            message=i18n.localize(f.get("message"), lg),
+            steps=by_file.get(f["index"], []),
         )
         for f in job.files
     ]
+    summary = dict(job.summary or {})
+    if isinstance(summary.get("ai"), str):
+        summary["ai"] = i18n.localize(summary["ai"], lg)
     return CouncilJobOut(
         id=job.id,
         status=job.status,
@@ -100,11 +113,11 @@ async def job_out(db: DB, job: CouncilJob) -> CouncilJobOut:
         lang=job.lang,
         year_hint=job.year_hint,
         progress=progress,
-        phase=st.phase if st and job.status not in TERMINAL else None,
+        phase=i18n.localize(st.phase, lg) if st and job.status not in TERMINAL else None,
         files=files,
         cross_steps=cross,
         plan=job.plan,
-        summary=job.summary or {},
+        summary=summary,
         usage=job.usage or {},
         commits=job.commits or [],
         error=job.error,
@@ -235,12 +248,12 @@ async def list_jobs(db: DB, _: Viewer, limit: int = 30) -> list[CouncilJobBrief]
 
 
 @router.get("/jobs/{job_id}", response_model=CouncilJobOut)
-async def get_job(job_id: int, db: DB, _: Viewer) -> CouncilJobOut:
-    return await job_out(db, await _job(db, job_id))
+async def get_job(job_id: int, db: DB, _: Viewer, lang: str | None = None) -> CouncilJobOut:
+    return await job_out(db, await _job(db, job_id), lang)
 
 
 @router.get("/jobs/{job_id}/events")
-async def job_events(job_id: int, db: DB, _: Viewer) -> StreamingResponse:
+async def job_events(job_id: int, db: DB, _: Viewer, lang: str | None = None) -> StreamingResponse:
     """SSE: ``event: snapshot`` with the full job (as ``GET /council/jobs/{id}``) whenever a step or file
     changes, ``: keep-alive`` comments in between, and ``event: done`` when the job stops running."""
     await _job(db, job_id)
@@ -254,7 +267,7 @@ async def job_events(job_id: int, db: DB, _: Viewer) -> StreamingResponse:
                 job = await s.get(CouncilJob, job_id)
                 if job is None:
                     break
-                out = (await job_out(s, job)).model_dump(mode="json")
+                out = (await job_out(s, job, lang)).model_dump(mode="json")
             body = json.dumps(out, ensure_ascii=False)
             digest = hashlib.sha1(body.encode()).hexdigest()
             if digest != last:
@@ -294,7 +307,9 @@ def _redact(item: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-async def _review_out(db: DB, job: CouncilJob, *, content: bool = True, **extra: Any) -> ReviewOut:
+async def _review_out(
+    db: DB, job: CouncilJob, *, content: bool = True, lang: str | None = None, **extra: Any
+) -> ReviewOut:
     items = await build_items(db, job)
     plan = effective_plan(job.plan or {}, await decisions(db, job.id)) if job.plan else None
     blocking = sum(1 for it in items if it["blocking"] and it["decision"] is None)
@@ -302,6 +317,8 @@ async def _review_out(db: DB, job: CouncilJob, *, content: bool = True, **extra:
         items = [_redact(it) for it in items]
         if plan:
             plan = {**plan, "groups": [{**g, "evidence": []} for g in plan.get("groups", [])]}
+    lg = _lang(job, lang)
+    items = [i18n.localize_item(it, lg) for it in items]
     return ReviewOut(
         job_id=job.id,
         status=job.status,
@@ -315,15 +332,17 @@ async def _review_out(db: DB, job: CouncilJob, *, content: bool = True, **extra:
 
 
 @router.get("/jobs/{job_id}/review", response_model=ReviewOut)
-async def get_review(job_id: int, db: DB, _: Viewer, access: CurrentAccess) -> ReviewOut:
+async def get_review(
+    job_id: int, db: DB, _: Viewer, access: CurrentAccess, lang: str | None = None
+) -> ReviewOut:
     """Review items. Sample cell values, rule texts, sources and the names of merge pairs are file content
     (names, notes): they are returned to planning.edit only, like ``/records``; viewers see the items' kinds,
     confidences and decisions."""
-    return await _review_out(db, await _job(db, job_id), content=access.can("planning.edit"))
+    return await _review_out(db, await _job(db, job_id), content=access.can("planning.edit"), lang=lang)
 
 
 @router.post("/jobs/{job_id}/review", response_model=ReviewOut)
-async def post_review(job_id: int, body: ReviewIn, db: DB, user: Planner) -> ReviewOut:
+async def post_review(job_id: int, body: ReviewIn, db: DB, user: Planner, lang: str | None = None) -> ReviewOut:
     """Decide items (one ``council.review`` audit event). A mapping or classification change queues the
     deterministic re-read of its files (``rerun_queued``); the job is ``RUNNING`` until it has finished (watch
     ``GET /council/jobs/{id}/events``)."""
@@ -335,6 +354,7 @@ async def post_review(job_id: int, body: ReviewIn, db: DB, user: Planner) -> Rev
     return await _review_out(
         db,
         job,
+        lang=lang,
         saved=res["saved"],
         errors=res["errors"],
         rerun_files=res["rerun_files"],

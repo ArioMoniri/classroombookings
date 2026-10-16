@@ -53,6 +53,14 @@ describe("SuggestionCard", () => {
     expect(screen.getByText(/planlama düzenleme izni gerekir/)).toBeInTheDocument();
   });
 
+  it("phone: Kabul et is a full-width 44 px row, Reddet and Ertele 44 px (T-R1-41, MOBILE M-02)", () => {
+    card();
+    expect(screen.getByTestId("suggestion-accept").className).toMatch(/max-md:h-11/);
+    expect(screen.getByTestId("suggestion-accept").parentElement?.className).toMatch(/max-md:w-full/);
+    expect(screen.getByTestId("suggestion-reject").className).toMatch(/max-md:h-11/);
+    expect(screen.getByTestId("suggestion-snooze").className).toMatch(/max-md:h-11/);
+  });
+
   it("collapses to a receipt with Geri al after an accept", () => {
     const onUndo = vi.fn();
     card({ receipt: { kind: "accepted", constraintId: 42, scope: "term" }, onUndo });
@@ -72,15 +80,25 @@ describe("ResetDialog", () => {
       </QueryClientProvider>,
     );
 
-  it("'Tümü' needs a reason and the typed word SIFIRLA before it resets", () => {
+  it("'Tümü' needs a reason and exactly the typed word SIFIRLA before it resets (T-R1-41)", () => {
     renderDialog("all");
     const go = screen.getByTestId("reset-confirm");
+    const word = screen.getByTestId("reset-word");
     expect(go).toBeDisabled();
     fireEvent.change(screen.getByTestId("reset-reason"), { target: { value: "yeniden yapılanma" } });
-    expect(go).not.toBeDisabled();
-    fireEvent.change(screen.getByTestId("reset-word"), { target: { value: "SIFIR" } });
-    fireEvent.click(go);
+    expect(go).toBeDisabled(); // the word is still missing
+    expect(word).toHaveAttribute("autocapitalize", "off");
+    // "sifirla" (dotted i) is not the word: Sıfırla stays disabled and the field says so before any submit
+    fireEvent.change(word, { target: { value: "sifirla" } });
+    expect(go).toBeDisabled();
+    expect(screen.getByTestId("reset-word-mismatch")).toHaveTextContent("Yazılan kelime eşleşmiyor.");
+    expect(word).toHaveAttribute("aria-invalid", "true");
+    // Enter on a wrong word shakes and says it as an alert
+    fireEvent.keyDown(word, { key: "Enter" });
     expect(screen.getByRole("alert")).toHaveTextContent("Yazılan kelime eşleşmiyor");
+    fireEvent.change(word, { target: { value: "sıfırla" } });
+    expect(screen.queryByTestId("reset-word-mismatch")).toBeNull();
+    expect(go).not.toBeDisabled();
   });
 
   it("a person reset quotes the subject and the 30-day undo; no typed word", () => {

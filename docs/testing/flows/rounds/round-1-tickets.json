@@ -312,7 +312,8 @@
           "dedup": "regression of U-16 ([x], persona-user), not reproduced at HEAD; see also the ROADMAP note 'Sent to wave-2: the Profile preference-matrix switches'",
           "depends_on": [
             "T-R1-45"
-          ]
+          ],
+          "t_r1_45": "Answered by lane G (see T-R1-45 resolution): the 32 px / under-16 px readings were a test-tool artefact (full-page screenshots switched touch emulation off), not the build. Real offenders on lane A's screens: Profil › Bildirimler switches 38x22, user-menu rows 216x28, the bookings filter-sheet room-group select 350x36, kiosk-back 40x16, kiosk locale buttons 36x30, the bell badge 10 px (T-R1-04). heatmap source tabs pass M-02 (44 px hit area). globals.css:356-362 stays read-only."
         },
         {
           "id": "T-R1-02",
@@ -485,7 +486,10 @@
           "depends_on": []
         }
       ],
-      "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"
+      "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)",
+      "notes": [
+        "T-R1-45 verdict (lane G, 2026-10-16): the round-1 touch sizes of 32 px controls and 13-14 px inputs were measured with touch emulation switched off by full-page screenshots (Playwright 1.56.1 + chromium-1194), not on a broken build. Fix only the real list in T-R1-01 / T-R1-04 (T-R1-45 resolution.real); everything in resolution.artefacts already passes on touch. Measure with scripts/record/lib/touch.mjs."
+      ]
     },
     {
       "lane": "B",
@@ -1472,7 +1476,30 @@
             "scripts/record/stack.sh:168-185"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": {
+            "by": "loop-r1-laneG-2026-10-16",
+            "cause": "Tooling, not the build. stack.sh builds apply the touch tokens (e77bb92 rebuilt with stack.sh up: --control-h-md 44px, bell 44x44, profile inputs 44 px / 16 px with the testers' own lib.mjs). The testers' scripts took page.screenshot({fullPage:true}) after most steps; in Playwright 1.56.1 + chromium-1194 that switches touch emulation off for the rest of the page (pointer: coarse and hover: none stop matching, navigator.maxTouchPoints 0, across goto and reload), so every later M-02/M-03 reading was the mouse size at 390 px. Their /login readings (taken before any full-page shot) were touch sizes. The CDP setEmulatedMedia pointer/hover snippet of README section 3 has no effect in this Chromium. Re-measured on a full-data stack.sh stack in a real touch context (scripts/record/lib/touch.mjs), 31 routes and overlays.",
+            "artefacts": [
+              "every top-bar whats-new / notification-bell / user-menu 32x32 (all findings)",
+              "R1-A-02: /bookings nav-prev, nav-next, date-picker-trigger, filters-open 32, Boş derslik bul 28; /my-bookings Yaklaşan/Geçmiş/İptal edilen tabs 26, sync-create 32 (Talebi geri çek 326x32 is the same Button md: by rule); /moderation/me Geçmişim, Tercih ekle 32 and the wish-sheet segments 26 / room search 32 / Kapat 28 (not re-measured: the same primitives, by rule); /find-room Tarih/Gün/Aralık and Saat/Ders saati/Süre segments 22, fields 32, Ara 32; /profile inputs 32 and the consent switches (they sit in 44 px label rows in touch)",
+              "R1-A-04: all inputs under 16 px (/find-room fr-date, fr-p1, fr-p2, fr-head; /profile pf-*, pw-*; the wish-sheet room search by rule)",
+              "R1-M-08: Kurulum sub-navigation pills 28; heat-tab-rooms 91x26 (touch 91x38 with a 44 px hit area), heat-source-live/run 131x22 (touch box 131x30 with a 44 px ::after hit area: passes M-02); runs-compare 112x32; '#8' run links 18x20; kiosk-prev / kiosk-next 32x32, kiosk-date 32; the per-route offender counts (/admin/users 37, /admin/rooms 40, /admin/weeks 45, /admin/departments 49 -> 0, 1, 0, 0 in touch)",
+              "R1-M-29: every input listed (org-*, ldap-*, smtp-*, hol-*, sess-sched, sch-name, ac-q, ac-user, sso-*, cp-*, api-key, role-name, role-desc, users-role-filter, heat-group, invig-run): 16 px in touch",
+              "R1-S-33: /runs/compare pickers 334x20 (no offender on /runs/compare in touch)"
+            ],
+            "real": [
+              "R1-A-02: Profil › Bildirimler matrix switches 38x22 (pref-<event>-<channel>, preferences-panel.tsx; the channel and approvals header switches pass); user menu rows 216x28 (user-menu.tsx); the bookings filter sheet room-group select 350x36",
+              "R1-A-04 / R1-M-29: the bell badge text 10 px (notification-bell.tsx:115 text-[10px], independent of the pointer; T-R1-04)",
+              "R1-M-08: the timetable inspector 'Taşı…' 36 px (a coarse reading: Button sm = 36 in touch); kiosk-back 40x16; locale-option-tr/en 36x30 in touch (30 px, not 22); the move-sheet free-room rows 342x30 (not re-measured: 30 is not a mouse token, so a touch reading)",
+              "R1-S-16: all items (36 px and 30 px are touch readings; the staff measured before full-page shots): inspector Taşı… 83x36, scope radios 350x22, free-room rows 342x30, publish checkbox 16x16, Studio row checkboxes 16x16, 'Gün ve saat düzenle' 142x16, pin 22x44, Yayınla position (M-05); /classes chips Dersler/Sınavlar 70x30 and Değişenler/Akşam (İÖ)/Odasız/İnceleme bekleyen 32 tall (measured in touch; Tümü/Yerleşmeyenler/Sorunlular pass)",
+              "R1-S-33: dashboard 'Çizelge oluştur' link 100x20; /onboarding file input 186x17 and one text input under 16 px (measured in touch)",
+              "not in the reports, seen in touch: /profile 'Gizlilik bölümüne git' link 125x16; /analytics/heatmap heat-csv 103x36; /admin/rooms 'Erişim' 97x38; Kurum ayarları: an input 81x36, a switch 38x22, org-language radios 16x16; /admin/schedules period checkboxes 28x16 and weekday toggles 36x36; /admin/roles a checkbox 16x16; /admin/authentication a switch 38x22; Ayarlar tabs: accent swatches 28x28, switches 38x22 (sso-self-signup, sso-oidc-only, channel-enable-whatsapp), save buttons 36 tall (save-solver, relax-term-save, save-crbs-hosts, policy-new), six select triggers under 16 px"
+            ],
+            "probe_drift": "the skip link 'İçeriğe atla' 1x1 on every app route (T-R1-43 M-02 snippet fix)",
+            "for_lane_A": "Keep T-R1-01 to the real list: preferences-panel switches, user-menu rows, the filter-sheet select (36), kiosk-back and the kiosk locale buttons (30), plus the bell badge in T-R1-04. Do not resize the top bar, Input, SegmentedControl, Tabs or the admin sub-navigation: they already measure 44 px / 16 px on touch. heatmap-view source tabs pass M-02 through their 44 px hit area (box 131x30); change them only for looks. Re-measure with scripts/record/lib/touch.mjs (assertTouch before each probe)."
+          }
         },
         {
           "id": "T-R1-44",

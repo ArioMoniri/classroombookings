@@ -276,7 +276,7 @@ async def rerun_deterministic(session: AsyncSession, job: CouncilJob, file_index
             axes.extend(ax.get("slots", []) for ax in a.get("axes", []))
         if art.payload.get("shape") == "weekly-grid":
             axes.append([[p["start"], p["end"]] for p in planner.DEFAULT_GRID])
-    new_plan = planner.plan(meta, records_all, axes)
+    new_plan = planner.plan(meta, records_all, axes, lang=job.lang)
     if old_plan is not None:  # sheet names are not re-read here; keep the earlier week lists per group code
         old = {g["code"]: g for g in old_plan.payload.get("groups", [])}
         for g in new_plan["groups"]:

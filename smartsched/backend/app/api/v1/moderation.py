@@ -275,6 +275,61 @@ async def moderation_me(db: DB, user: CurrentUser) -> dict[str, Any]:
     return await mod.me(db, await load_access(db, user))
 
 
+@router.get("/moderation/me/matchings")
+async def my_matchings(db: DB, user: CurrentUser, term_id: int | None = None) -> dict[str, Any]:
+    """Taleplerim (T-R1-11): only the caller's own requests (the instructor records linked to the account, also
+    for a coordinator who teaches), in ``term_id`` or the current term, with their wishes. No class issues and no
+    planner check (the term-wide views behind them are what made the page wait); 403 ``not_linked`` without a
+    link."""
+    from sqlalchemy import select
+
+    from app.models import Instructor
+
+    ids = frozenset(
+        (await db.execute(select(Instructor.id).where(Instructor.user_id == user.id))).scalars().all()
+    )
+    if not ids:
+        raise HTTPException(
+            403,
+            {
+                "code": "not_linked",
+                "message": "your account is not linked to an instructor record",
+                "message_en": "your account is not linked to an instructor record",
+                "message_tr": "Hesabınız bir öğretim elemanı kaydına bağlı değil.",
+            },
+        )
+    if term_id is None:
+        brief = await mod.current_term_brief(db)
+        if brief is None:
+            raise HTTPException(404, "no terms yet")
+        term_id = int(brief["id"])
+    term = await _term(db, term_id)
+    try:
+        run = await mod.run_for(db, term, None)
+    except mod.ModerationError as exc:
+        raise _raise(exc) from exc
+    _td, items = await mod.term_matchings(db, term, run, mod.Scope(all=False, instructor_ids=ids, basis="own"))
+    wishes = await tp.by_request(db, term.id)
+    for it in items:
+        it["placement_status"] = None
+        it["issues"] = []
+        it["findings"] = None
+        it["teacher_preferences"] = wishes.get(int(it["request_id"]), [])
+    counts = mod.counts_of(items)
+    return {
+        "term_id": term.id,
+        "run_id": run.id if run else None,
+        "source": "run" if run else "planner",
+        "visibility": "own",
+        "counts": counts,
+        "match_rate": mod.match_rate(counts),
+        "planner_check": None,
+        "total": len(items),
+        "offset": 0,
+        "items": items,
+    }
+
+
 @router.get("/moderation/current-term")
 async def moderation_current_term(db: DB, _user: CurrentUser) -> dict[str, Any]:
     """The current term for any signed-in user (``GET /terms/current`` needs ``planning.view``): id, code,

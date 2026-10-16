@@ -316,7 +316,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       }
       setPending({ ev: m.ev, target: m.target, extra: m.extra, anchor: m.anchor, soft: m.check.soft });
     },
-    [model, lang, t, isAdmin, actions, commit, week],
+    [model, lang, t, isAdmin, commit, week],
   );
 
   const onResize = useCallback(

@@ -52,3 +52,29 @@ describe("SuggestionList Geri al", () => {
     refetch.resolve([{ ...dismissed, state: "open", decided_at: null }]);
   });
 });
+
+describe("SuggestionList undo toast (T-R1-41)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("confirms an undone accept with a toast, not only for screen readers", async () => {
+    const sonner = await import("sonner");
+    const success = vi.spyOn(sonner.toast, "success");
+    const accepted = suggestion({ id: 42, state: "accepted", decided_at: "2026-10-16T02:00:00Z", constraint_id: 9 });
+    vi.spyOn(learningApi, "suggestions").mockResolvedValue([accepted]);
+    vi.spyOn(learningApi, "restore").mockResolvedValue({ id: 42, state: "open", undone: "accepted", disabled_constraint_id: 9 });
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <I18nProvider initialLocale="tr">
+          <SuggestionList termId={2} canAct surface="moderation" />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    await screen.findAllByText(/Geçmiş 1/);
+    fireEvent.click(view(/Geçmiş 1/));
+    await screen.findByTestId("history-row");
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("history-undo"));
+    });
+    await waitFor(() => expect(success).toHaveBeenCalledWith("Kabul geri alındı: tercih kaldırıldı."));
+  });
+});

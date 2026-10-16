@@ -57,6 +57,8 @@ CODE_WORDS = {
     ("FINAL", "tr"): "FINAL",
     ("BUT", "tr"): "BUT",
 }
+#: the term name's season word for a Turkish reader (T-R1-23: the plan named the Bahar term "Spring")
+SEASON_TR = {"SPRING": "Bahar", "FALL": "Güz", "SUMMER": "Yaz", "FINAL": "Final", "BUT": "Bütünleme"}
 KIND_OF = {"SPRING": "REGULAR", "FALL": "REGULAR", "SUMMER": "SUMMER", "FINAL": "FINAL", "BUT": "BUT"}
 _WORD = re.compile(r"[a-z]+")
 
@@ -153,9 +155,13 @@ def period_grid(axis_slots: list[list[list[str]]], meetings: list[Record]) -> di
 
 
 def plan(
-    files: list[dict[str, Any]], records: dict[int, list[Record]], axis_slots: list[list[list[str]]]
+    files: list[dict[str, Any]],
+    records: dict[int, list[Record]],
+    axis_slots: list[list[list[str]]],
+    lang: str = "en",
 ) -> dict[str, Any]:
-    """``files`` = [{index, filename, sheets: [names], route}], ``records`` by file index."""
+    """``files`` = [{index, filename, sheets: [names], route}], ``records`` by file index; ``lang`` is the job's
+    language (the proposed term name: "2026 Bahar" for ``tr``, "2026 Spring" otherwise)."""
     groups: dict[tuple[Any, ...], dict[str, Any]] = {}
     unassigned: list[int] = []
     file_keys: dict[int, tuple[Any, ...] | None] = {}
@@ -283,7 +289,17 @@ def plan(
             {
                 "key": f"{season or 'UNKNOWN'}:{'-'.join(map(str, years)) or '?'}",
                 "code": code,
-                "name": " ".join(filter(None, [str(year) if year else "", (season or "Term").title()])),
+                "name": " ".join(
+                    filter(
+                        None,
+                        [
+                            str(year) if year else "",
+                            SEASON_TR.get(season or "", "Dönem")
+                            if lang == "tr"
+                            else (season or "Term").title(),
+                        ],
+                    )
+                ),
                 "kind": kind,
                 "year": year,
                 "files": sorted(g["files"]),

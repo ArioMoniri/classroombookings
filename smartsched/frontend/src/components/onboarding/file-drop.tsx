@@ -5,6 +5,11 @@
  * around it, a nested-interactive), then a files table (Ad · Tür · Boyut · Yol · ✕) with the predicted
  * Doğrudan / YZ route. The start action appears only once there are files, and says "YZ ile oku ve başlat"
  * when a file will take the AI route. References: AWS upload status (R7), Attio import (R1).
+ *
+ * T-R1-23: the AI switch follows the administrator's AI policy (GET /ai/policy `intake_enabled`). When it is off,
+ * the switch is unticked and disabled ("Yönetici kapattı"), PDF / DOCX / TXT rows read "YZ kapalı" (only their
+ * tables are read on the server) and the button says "Başlat · N dosya". A policy that cannot be read leaves the
+ * switch as it was: the server applies the policy either way.
  */
 import { FolderInput, X } from "lucide-react";
 import { useId, useRef, useState } from "react";
@@ -12,6 +17,7 @@ import { Button, IconButton } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAiPolicy } from "@/lib/api/ai-policy";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { predictedRoute, useOnboardingCopy } from "./copy";
@@ -33,9 +39,13 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const [forceGeneral, setForceGeneral] = useState(false);
-  const [useAi, setUseAi] = useState(true);
+  const [wantAi, setUseAi] = useState(true);
+  const policy = useAiPolicy();
+  const aiOff = policy.data?.intake_enabled === false;
+  const useAi = wantAi && !aiOff;
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
+  const aiNoteId = useId();
 
   const add = (list: FileList | null) => {
     if (!list) return;
@@ -94,7 +104,7 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
                     <td className="max-w-0 truncate px-4 py-1.5 text-label-1">{f.name}</td>
                     <td className="px-2 py-1.5 text-label-2">{ext(f.name)}</td>
                     <td className="px-2 py-1.5 text-right text-label-2">{n(Math.max(1, Math.ceil(f.size / 1024)))} KB</td>
-                    <td className="px-2 py-1.5"><MethodBadge method={useAi ? predictedRoute(f.name) : "direct"} /></td>
+                    <td className="px-2 py-1.5"><MethodBadge method={predictedRoute(f.name) === "ai" ? (useAi ? "ai" : "off") : "direct"} /></td>
                     <td className="px-2 py-1">
                       <IconButton size="sm" label={c.remove(f.name)} onClick={() => setFiles((prev) => prev.filter((p) => p !== f))}>
                         <X aria-hidden />
@@ -107,9 +117,14 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
             <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-2 type-callout text-label-1">
-                <Checkbox checked={useAi} onCheckedChange={(v) => setUseAi(Boolean(v))} />
+              <label className={cn("flex items-center gap-2 type-callout", aiOff ? "text-label-2" : "text-label-1")}>
+                <Checkbox checked={useAi} disabled={aiOff} aria-describedby={aiOff ? aiNoteId : undefined} onCheckedChange={(v) => setUseAi(Boolean(v))} />
                 {t("onboarding.useAi")}
+                {aiOff ? (
+                  <span id={aiNoteId} className="type-footnote text-label-2" data-testid="onboarding-ai-off" title={c.aiOffHint}>
+                    · {c.aiOffByAdmin}
+                  </span>
+                ) : null}
               </label>
               <label className="flex items-center gap-2 type-callout text-label-1">
                 <Checkbox checked={forceGeneral} onCheckedChange={(v) => setForceGeneral(Boolean(v))} />

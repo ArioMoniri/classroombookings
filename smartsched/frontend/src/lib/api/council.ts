@@ -300,16 +300,18 @@ export const councilApi = {
     if (opts.ai === false) fd.append("ai", "false");
     return request("/council/jobs", { method: "POST", formData: fd, schema: CouncilJob });
   },
-  get: (id: number) => request(`/council/jobs/${id}`, { schema: CouncilJob, silent: true }),
-  review: (id: number) => request(`/council/jobs/${id}/review`, { schema: ReviewOut }),
-  decide: (id: number, decisions: DecisionIn[]) => request(`/council/jobs/${id}/review`, { method: "POST", body: { decisions }, schema: ReviewOut }),
+  /** `lang`: the reader's language; the council's messages come back in Turkish for "tr" (T-R1-23) */
+  get: (id: number, lang?: string) => request(`/council/jobs/${id}`, { query: lang ? { lang } : undefined, schema: CouncilJob, silent: true }),
+  review: (id: number, lang?: string) => request(`/council/jobs/${id}/review`, { query: lang ? { lang } : undefined, schema: ReviewOut }),
+  decide: (id: number, decisions: DecisionIn[], lang?: string) =>
+    request(`/council/jobs/${id}/review`, { method: "POST", query: lang ? { lang } : undefined, body: { decisions }, schema: ReviewOut }),
   commit: (id: number, body: CommitIn) => request(`/council/jobs/${id}/commit`, { method: "POST", body: { ...body, dry_run: false }, schema: CommitOut }),
   dryRun: (id: number, body: CommitIn) => request(`/council/jobs/${id}/commit`, { method: "POST", body: { ...body, dry_run: true }, schema: CommitDryRun }),
   rows: (id: number, q: { state?: string; method?: "direct" | "ai"; file?: number; q?: string; offset?: number; limit?: number } = {}) =>
     request(`/council/jobs/${id}/rows`, { query: q, schema: CouncilRows }),
   decideRows: (id: number, decisions: RowDecisionIn[], confirm = false) =>
     request(`/council/jobs/${id}/rows/decisions`, { method: "POST", body: { decisions, confirm }, schema: z.record(z.string(), z.unknown()) }),
-  eventsUrl: (id: number) => `${API_PREFIX}/council/jobs/${id}/events`,
+  eventsUrl: (id: number, lang?: string) => `${API_PREFIX}/council/jobs/${id}/events${lang ? `?lang=${encodeURIComponent(lang)}` : ""}`,
   memory: (q: { signature?: string; kind?: string; job_id?: number } = {}) => request("/council/memory", { query: q, schema: IntakeMemoryList }),
   forget: (id: number) => request(`/council/memory/${id}`, { method: "DELETE", schema: MemoryForgetOut }),
   forgetSignature: (signature: string) => request("/council/memory", { method: "DELETE", query: { signature }, schema: MemoryForgetOut }),

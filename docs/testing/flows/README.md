@@ -75,11 +75,21 @@ Every account is fictional, uses `@smartsched.local`, and carries initials only 
   | `tablet` | `{ viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "tr-TR", timezoneId: "Europe/Istanbul" }` | `tap` only |
   | `phone` | `{ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: "tr-TR", timezoneId: "Europe/Istanbul" }` | `tap` only |
 
-  For `tablet` and `phone`, also emulate a coarse pointer without hover right after `newPage()`, so `@media (hover: none)` and `(pointer: coarse)` rules apply whatever the Chromium build infers:
+  **Touch contexts: use `scripts/record/lib/touch.mjs`** (it holds the three context option sets above). `hasTouch: true` is what makes `(pointer: coarse)` and `(hover: none)` match, and with them the touch sizes (`--control-h-md` 44 px instead of 32, inputs at 16 px). Two traps in Playwright 1.56.1 + `chromium-1194`, both measured on 2026-10-16 (T-R1-45):
+  - A **`page.screenshot({ fullPage: true })`** of a page taller than the viewport **switches touch emulation off** for the rest of that page's life, across `goto` and `reload`: `(pointer: coarse)` stops matching, `navigator.maxTouchPoints` drops to 0, and every later M-02/M-03 reading is a desktop size at phone width. Round 1's "32 px" top bar, 26 px segments and 13–14 px inputs were measured this way. `setViewportSize()` does not undo it; `Emulation.setTouchEmulationEnabled` does. The helper's `shot()` re-arms it after a full-page screenshot.
+  - The CDP media emulation this section used to recommend (`Emulation.setEmulatedMedia` with `pointer: coarse`, `hover: none`) has **no effect** on those two features in this Chromium build. It neither helps nor protects; drop it.
   ```js
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "hover", value: "none" }, { name: "pointer", value: "coarse" }, { name: "any-hover", value: "none" }] });
+  import { createRequire } from "node:module";
+  const require = createRequire(import.meta.url);
+  const { chromium } = require("/home/user/classroombookings/smartsched/frontend/node_modules/playwright");
+  const T = await import("/home/user/classroombookings/scripts/record/lib/touch.mjs");   // the snapshot's copy works too: "$SNAP/scripts/record/lib/touch.mjs"
+  const browser = await chromium.launch();
+  const { page } = await T.newFlowPage(browser, "phone");      // T.VIEWPORTS.phone, plus extra options as a 3rd argument
+  // … log in, go to the screen …
+  await T.assertTouch(page);                                   // before EVERY M-02 / M-03 / M-05 measurement: throws if touch is off
+  await T.shot(page, `${EV}/shots/F01-S03-staff-phone.png`);   // full page, then touch is switched back on
   ```
+  If you write your own screenshot helper, call `T.rearmTouch(page)` after every `fullPage: true` screenshot on a touch page, and log `await T.touchState(page)` (`{coarse, hoverNone, maxTouchPoints, controlHmd}`) with every mobile measurement so a reviewer can see it was taken in touch mode (`controlHmd` must read `44px`).
   On touch viewports, never call `hover()` and never use `click()` on an element only reachable after a hover: a step that needs a hover there FAILs (MOBILE.md M-11).
 - **Timezone is mandatory.** The backend uses Europe/Istanbul. A UTC browser hides or shows the wrong past periods (U-04).
 - **Language.** `locale: "tr-TR"`. The UI follows the **profile** language (`PUT /auth/profile {"language":"tr"}`, set by the seed), not the browser. F-13 switches it.
@@ -289,7 +299,7 @@ EV="$SCR/flow-ev/<YYYY-MM-DD>/<F-xx>/<persona>"
 
 - Evidence stays in the scratch folder. **Never commit screenshots.** The report cites paths.
 - Redact secrets in every saved text: `Authorization: Bearer <redacted>`, ICS feed tokens `…/feeds/<redacted>/mine.ics`, reset codes, webhook secrets.
-- One full-page screenshot per step per viewport is enough. Add a crop when the finding is small.
+- One full-page screenshot per step per viewport is enough. Add a crop when the finding is small. On `tablet` and `phone`, take it with `shot()` from `scripts/record/lib/touch.mjs` (§3), and after the measurements of that step, never before them: a plain `fullPage: true` screenshot turns the touch sizes off for every later step.
 
 ---
 

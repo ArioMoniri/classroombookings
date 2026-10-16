@@ -10,7 +10,7 @@ export default function LearningPage() {
   return (
     <Suspense fallback={null}>
       <HydrationGate>
-        <LearningMemoryPanel />
+        <LearningMemoryPanel heading="h1" />
       </HydrationGate>
     </Suspense>
   );

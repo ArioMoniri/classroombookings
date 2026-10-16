@@ -40,9 +40,9 @@ function useKindLabel(): (kind: string) => string {
   return (kind) => (kind === "ai_rows" ? c.rowsTitle : isReviewKind(kind) && kind in KIND_LABEL ? t(KIND_LABEL[kind as keyof typeof KIND_LABEL]) : c.kindOther);
 }
 
-function decisionLabel(item: ReviewItem): string | null {
+function decisionLabel(item: ReviewItem, c: ReturnType<typeof useOnboardingCopy>): string | null {
   if (!item.decision) return null;
-  return item.decision.action;
+  return c.decision[item.decision.action] ?? item.decision.action;
 }
 
 function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: DecisionIn) => void; busy: boolean }) {
@@ -53,8 +53,8 @@ function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: Dec
   const rejectable = item.kind !== "plan";
   // rows read by the AI model are decided row by row in the rows panel, never as one item (POST /rows/decisions)
   const perRow = item.kind === "ai_rows";
-  const done = decisionLabel(item);
   const c = useOnboardingCopy();
+  const done = decisionLabel(item, c);
   const memory = memoryOf(item);
   return (
     <li className="space-y-1 py-2" data-testid={`review-${item.id}`}>
@@ -62,8 +62,8 @@ function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: Dec
         <div className="min-w-0 text-sm">
           <p className="type-callout font-medium text-label-1">{item.title}</p>
           <p className="type-footnote text-label-2">
-            {item.confidence != null ? `${t("onboarding.confidence")} ${Math.round(item.confidence * 100)} %` : null}
-            {item.severity ? ` · ${item.severity}` : null}
+            {item.confidence != null ? `${t("onboarding.confidence")} ${c.pct(Math.round(item.confidence * 100))}` : null}
+            {item.severity ? ` · ${c.severity[item.severity] ?? item.severity}` : null}
             {item.blocking ? ` · ${t("onboarding.blockingItem")}` : null}
           </p>
           {item.samples?.length ? <p className="truncate type-footnote text-label-2">{t("onboarding.samples")}: {item.samples.join(" · ")}</p> : null}

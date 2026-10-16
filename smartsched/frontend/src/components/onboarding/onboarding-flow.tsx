@@ -34,8 +34,8 @@ export function OnboardingFlow() {
   const status = job.data?.status;
   const reviewable = status === "REVIEW" || status === "READY" || status === "COMMITTED";
   const review = useQuery({
-    queryKey: ["council-review", jobId ?? 0, status],
-    queryFn: () => councilApi.review(jobId ?? 0),
+    queryKey: ["council-review", jobId ?? 0, status, locale],
+    queryFn: () => councilApi.review(jobId ?? 0, locale),
     enabled: jobId !== null && reviewable,
     placeholderData: (prev) => prev,
   });
@@ -59,8 +59,8 @@ export function OnboardingFlow() {
     if (jobId === null) return;
     setBusy(true);
     try {
-      const out = await councilApi.decide(jobId, decisions);
-      qc.setQueryData(["council-review", jobId, status], out);
+      const out = await councilApi.decide(jobId, decisions, locale);
+      qc.setQueryData(["council-review", jobId, status, locale], out);
       if (out.rerun_queued) {
         // the job is RUNNING again until the re-read finished: show progress, hide commit, follow /events
         qc.setQueryData(councilKey(jobId), (old: typeof job.data) => (old ? { ...old, status: "RUNNING" as const } : old));

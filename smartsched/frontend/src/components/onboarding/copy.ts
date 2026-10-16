@@ -5,6 +5,8 @@
  */
 import { useI18n } from "@/lib/i18n/provider";
 
+const SHAPE_TR: Record<string, string> = { "planning-list": "planlama listesi", "weekly-grid": "haftalık program", "room-master": "derslik listesi", "exam-list": "sınav listesi", "crbs-legacy": "eski dışa aktarım" };
+
 const tr = {
   steps: ["Dosyalar", "İnceleme", "Fark", "Kaydet"],
   stepsLabel: "Aşamalar",
@@ -55,6 +57,20 @@ const tr = {
   take: "Dosyadakini al",
   conflictRows: (n: number) => `${n} çakışan satır`,
   pendingCommit: "Bekleyen YZ satırları var; kaydetmeden önce karar verin.",
+  // T-R1-23: AI policy, statuses, agents, routes and record names in Turkish
+  aiOffByAdmin: "Yönetici kapattı",
+  aiOffHint: "Yapay zekâ kapalı: yalnız sunucunun okuyabildiği tablolar okunur, dosya içeriği dışarı gönderilmez.",
+  aiOff: "YZ kapalı",
+  aiOffUnread: "YZ kapalı, okunmadı",
+  pct: (v: number) => `%${v}`,
+  status: { QUEUED: "Sırada", RUNNING: "Okunuyor", REVIEW: "İncelemede", READY: "Hazır", COMMITTED: "Yazıldı", FAILED: "Başarısız", DONE: "Bitti", SKIPPED: "Atlandı", PENDING: "Bekliyor" } as Record<string, string>,
+  agent: { intake: "alım", structure: "yapı", extract: "çıkarma", rules: "kurallar", reconcile: "eşleştirme", planner: "dönem planı", critic: "denetim" } as Record<string, string>,
+  record: { meeting: "ders", exam: "sınav", room: "derslik", booking: "rezervasyon", staff: "personel", calendar: "takvim", holiday: "tatil", course: "ders", instructor: "öğretim elemanı", rule: "kural" } as Record<string, string>,
+  route: (r: string) => (r === "general" ? "genel yol" : r === "ai-off" ? "YZ kapalı" : r === "vision" ? "görsel" : r === "error" ? "okunamadı" : r.startsWith("fast:") ? `hızlı yol · ${SHAPE_TR[r.slice(5)] ?? r.slice(5)}` : r),
+  decision: { accept: "onaylandı", reject: "reddedildi", edit: "düzeltildi" } as Record<string, string>,
+  severity: { error: "hata", warning: "uyarı", info: "bilgi" } as Record<string, string>,
+  termKind: { REGULAR: "normal dönem", SUMMER: "yaz okulu", FINAL: "final", BUT: "bütünleme" } as Record<string, string>,
+  baselineIntoNew: (term: string) => `Bu dosyalardaki program haritası ${term} dönemi için açılacak yeni temel çalıştırmaya (içe aktarılan program) yazılacak.`,
 }
 type Copy = { [K in keyof typeof tr]: (typeof tr)[K] extends (...a: infer A) => string ? (...a: A) => string : (typeof tr)[K] }
 
@@ -108,6 +124,19 @@ const en: Copy = {
   take: "Take the file's value",
   conflictRows: (n: number) => `${n} conflicting rows`,
   pendingCommit: "AI rows are still pending; decide them before saving.",
+  aiOffByAdmin: "Turned off by an administrator",
+  aiOffHint: "AI is off: only the tables the server can read are read; no file content leaves the server.",
+  aiOff: "AI off",
+  aiOffUnread: "AI off, not read",
+  pct: (v: number) => `${v}%`,
+  status: { QUEUED: "Queued", RUNNING: "Reading", REVIEW: "In review", READY: "Ready", COMMITTED: "Written", FAILED: "Failed", DONE: "Done", SKIPPED: "Skipped", PENDING: "Pending" },
+  agent: { intake: "intake", structure: "structure", extract: "extract", rules: "rules", reconcile: "reconcile", planner: "term plan", critic: "checks" },
+  record: { meeting: "meetings", exam: "exams", room: "rooms", booking: "bookings", staff: "staff", calendar: "calendar", holiday: "holidays", course: "courses", instructor: "instructors", rule: "rules" },
+  route: (r: string) => (r === "general" ? "general path" : r === "ai-off" ? "AI off" : r.startsWith("fast:") ? `fast path · ${r.slice(5)}` : r),
+  decision: { accept: "accepted", reject: "rejected", edit: "edited" },
+  severity: { error: "error", warning: "warning", info: "info" },
+  termKind: { REGULAR: "regular term", SUMMER: "summer school", FINAL: "finals", BUT: "resits" },
+  baselineIntoNew: (term: string) => `The schedule map of these files goes to a new baseline run (the imported schedule) for term ${term}.`,
 }
 
 export function useOnboardingCopy(): Copy {

@@ -58,11 +58,16 @@ describe("learning model", () => {
     expect(history.map((s) => s.id)).toEqual([2, 4]);
   });
 
-  it("accepts SIFIRLA or RESET, Turkish-aware, in either locale", () => {
+  it("accepts exactly SIFIRLA or RESET (case aside, Turkish casing), in either locale", () => {
     expect(typedConfirmOk("SIFIRLA")).toBe(true);
     expect(typedConfirmOk("sıfırla")).toBe(true);
-    expect(typedConfirmOk(" sifirla ")).toBe(true);
+    expect(typedConfirmOk(" Sıfırla ")).toBe(true);
     expect(typedConfirmOk("reset")).toBe(true);
+    expect(typedConfirmOk("RESET")).toBe(true);
+    // T-R1-41: the dotted i is a different letter; "sifirla" / "SİFİRLA" are not the word
+    expect(typedConfirmOk("sifirla")).toBe(false);
+    expect(typedConfirmOk(" sifirla ")).toBe(false);
+    expect(typedConfirmOk("SİFİRLA")).toBe(false);
     expect(typedConfirmOk("SIFIRLAMA")).toBe(false);
     expect(typedConfirmOk("")).toBe(false);
     expect(reasonOk("ab")).toBe(false);
@@ -70,7 +75,7 @@ describe("learning model", () => {
   });
 
   it("names the state of a reset row (30-day undo, purge, KVKK erasure)", () => {
-    const r = (over: Partial<ResetRow>): ResetRow => ({ id: 1, kind: "RESET", scope: "person", value: "3", reason: "x", actor_id: 1, created_at: "2026-10-15T15:02:00", undo_until: "2026-11-14T15:02:00", days_left: 27, undoable: true, undone_at: null, purged_at: null, counts: {}, ...over });
+    const r = (over: Partial<ResetRow>): ResetRow => ({ id: 1, kind: "RESET", scope: "person", value: "3", reason: "x", actor_id: 1, created_at: "2026-10-15T15:02:00", undo_until: "2026-11-14T15:02:00", days_left: 27, undoable: true, undone_at: null, purged_at: null, counts: {}, subject_label: null, ...over });
     expect(resetStatus(r({}))).toBe("undoable");
     expect(resetStatus(r({ undoable: false, undone_at: "2026-10-16" }))).toBe("undone");
     expect(resetStatus(r({ undoable: false, purged_at: "2026-11-14" }))).toBe("purged");

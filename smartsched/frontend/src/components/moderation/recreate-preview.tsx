@@ -301,6 +301,9 @@ export function PublishDialog({ open, onOpenChange, diff, termId, onPublished }:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; issues: string[]; scopeReduction: boolean } | null>(null);
   const [confirmScope, setConfirmScope] = useState(false);
+  // round-1 R1-S-04: classes that lose their room with this plan are listed and need an explicit tick
+  const losses = diff.unplaceable.filter((u) => u.was_placed);
+  const [lossesOk, setLossesOk] = useState(false);
   // "Akademisyenlere bildir" (P19-M-09 / T3): one digest per affected academician with a linked account
   const [notify, setNotify] = useState(true);
   const people = usePeople(open ? termId : null);
@@ -333,7 +336,7 @@ export function PublishDialog({ open, onOpenChange, diff, termId, onPublished }:
       footer={
         <>
           <Button ref={cancel} variant="ghost" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-          <Button onClick={() => void publish()} disabled={busy || (error?.scopeReduction === true && !confirmScope)} data-testid="publish-confirm" aria-busy={busy || undefined}>
+          <Button onClick={() => void publish()} disabled={busy || (error?.scopeReduction === true && !confirmScope) || (losses.length > 0 && !lossesOk)} data-testid="publish-confirm" aria-busy={busy || undefined}>
             {busy ? t("busy.working") : t("moderation.publish.go")}
           </Button>
         </>
@@ -349,6 +352,27 @@ export function PublishDialog({ open, onOpenChange, diff, termId, onPublished }:
           ))}
         </tbody>
       </table>
+      {losses.length ? (
+        <section className="flex flex-col gap-1.5 rounded-xl border border-status-warning-border bg-status-warning p-3" data-testid="publish-losses">
+          <p className="type-callout font-semibold text-status-warning-fg">
+            {lang === "tr" ? `${n(losses.length)} ders dersliğini kaybediyor:` : `${n(losses.length)} classes lose their room:`}
+          </p>
+          <ul className="max-h-40 list-disc overflow-y-auto pl-5 type-footnote text-label-1">
+            {losses.slice(0, 20).map((u) => (
+              <li key={u.request_id}>
+                <span className="font-medium">{u.label}</span>
+                {u.from?.when ? <span className="text-label-2"> · {lang === "tr" ? u.from.when.tr : u.from.when.en} {u.from.rooms.join(" + ")}</span> : null}
+                <span className="text-label-2"> · {lang === "tr" ? u.reason.text.tr : u.reason.text.en}</span>
+              </li>
+            ))}
+            {losses.length > 20 ? <li className="text-label-2">{t("moderation.changes.more", { n: n(losses.length - 20) })}</li> : null}
+          </ul>
+          <label className="flex min-h-11 items-center gap-2 type-callout text-label-1">
+            <input type="checkbox" checked={lossesOk} onChange={(e) => setLossesOk(e.target.checked)} className="accent-(--accent)" data-testid="publish-losses-ack" />
+            {lang === "tr" ? "Bu derslerin dersliksiz kalmasını onaylıyorum" : "I confirm these classes lose their room"}
+          </label>
+        </section>
+      ) : null}
       <section className="flex flex-col gap-1.5 rounded-xl border border-hairline p-3" data-testid="notify-people">
         <label className="flex min-h-11 items-center gap-2 type-callout font-semibold">
           <Switch checked={notify && targets.linked.length > 0} disabled={!targets.linked.length} onCheckedChange={setNotify} data-testid="notify-toggle" />

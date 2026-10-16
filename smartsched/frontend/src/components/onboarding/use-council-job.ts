@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ACTIVE_JOB, CouncilJob, councilApi } from "@/lib/api/council";
+import { useI18n } from "@/lib/i18n/provider";
 
 export const councilKey = (id: number) => ["council", id] as const;
 
@@ -13,11 +14,12 @@ export const councilKey = (id: number) => ["council", id] as const;
 /** `follow`: bump it to subscribe again after the job went back to RUNNING (a review change queued a re-read). */
 export function useCouncilJob(id: number | null, follow = 0) {
   const qc = useQueryClient();
+  const { locale } = useI18n();
   const [streaming, setStreaming] = useState(false);
 
   const query = useQuery({
     queryKey: councilKey(id ?? 0),
-    queryFn: () => councilApi.get(id ?? 0),
+    queryFn: () => councilApi.get(id ?? 0, locale),
     enabled: id !== null,
     refetchInterval: (q) => {
       const data = q.state.data;
@@ -28,7 +30,7 @@ export function useCouncilJob(id: number | null, follow = 0) {
 
   useEffect(() => {
     if (id === null || typeof EventSource === "undefined") return;
-    const es = new EventSource(councilApi.eventsUrl(id));
+    const es = new EventSource(councilApi.eventsUrl(id, locale));
     es.onopen = () => setStreaming(true);
     es.addEventListener("snapshot", (e) => {
       try {
@@ -51,7 +53,7 @@ export function useCouncilJob(id: number | null, follow = 0) {
       es.close();
       setStreaming(false);
     };
-  }, [id, qc, follow]);
+  }, [id, qc, follow, locale]);
 
   return query;
 }

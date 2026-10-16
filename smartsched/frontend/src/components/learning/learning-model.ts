@@ -55,12 +55,12 @@ export const ACCEPT_WEIGHTS = { low: 2, normal: 5 } as const;
 
 /* ------------------------------------------------------------------ memory reset */
 
-const fold = (s: string) => s.trim().replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase("tr-TR").replace(/ı/g, "i");
-
-/** "Tümü" needs the typed word: SIFIRLA (tr) or RESET (en), either in either locale, Turkish-aware casefold */
+/** "Tümü" needs the typed word: SIFIRLA (tr) or RESET (en), either in either locale. Exact letters: only the case
+ *  may differ, with Turkish casing (ı ↔ I, i ↔ İ), so "sıfırla" passes and "sifirla" does not (T-R1-41: a word
+ *  that is "close enough" is no deliberate confirmation). */
 export function typedConfirmOk(input: string): boolean {
-  const v = fold(input);
-  return v === fold("SIFIRLA") || v === fold("RESET");
+  const v = input.trim().toLocaleUpperCase("tr-TR");
+  return v === "SIFIRLA" || v === "RESET";
 }
 
 export function reasonOk(reason: string): boolean {

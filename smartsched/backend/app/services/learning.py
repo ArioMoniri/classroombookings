@@ -8,18 +8,21 @@ Model (review 2026-10-15 §3b, decisions in docs/ROADMAP.md Phase 19):
   decided minimum evidence (2 rows over 2 terms, 3 repeats in one term) could never reach 0.6 (6/6 rows would be
   needed), so the one-sigma bound is used: 2/2 -> 0.67, 3/3 -> 0.75, 8/8 -> 0.89, 1/2 -> 0.21.
 * **suggested** only when score > 0, support >= 2 over >= 2 terms or >= 3 in one term, confidence >= 0.6 and the
-  attribute has a soft rule to propose. Room and time evidence counts only from terms of T's season (a Güz room
-  says nothing about Bahar, academician needs §3.2); building and feature evidence is kept across seasons and
-  labelled "farklı dönem verisi".
+  attribute has a soft rule to propose. Room, room-feature (its proposal names the tagged rooms) and time
+  evidence counts only from terms of T's season (a Güz room says nothing about Bahar, academician needs §3.2);
+  building evidence is kept across seasons and labelled "farklı dönem verisi" (L2: a building at most).
 * **suggest only**: nothing here is applied without a person. Accepting creates one soft, targeted
   ``ConstraintRow(source="LEARNED")`` of the allowlist {room_preference, building_preference,
   same_room_across_weeks, day_window}, weight 5 by default (Q7: learned 5 < explicit 10), checked by
   :mod:`app.services.constraint_guard` and the per-source policy of ``app.ai.catalog``.
 * explicit requests always win: classes of T that already request or hold rooms / a building (or a fixed time, for
-  a time band) are not targeted; a suggestion with no class left is hidden. A room below the classes' current
+  a time band) are not targeted; a suggestion with no class left is hidden (``room_already_set`` when every class
+  already holds its definitive room, else ``explicit_request_wins``). A term whose classes are all roomed (Güz
+  2026 as imported) therefore shows its people's building habits as hidden priors, not open cards: they become
+  cards for the classes of a term that still need a room. A room below the classes' current
   enrolment or no longer bookable is never suggested.
 * stored text names no person (KVKK): ``{subject}`` is filled when read, from the FK. The accepted rule's
-  ``source_ref.explanation`` uses ``öğretim elemanı #<id>``.
+  ``source_ref.explanation`` uses the person's title + initials (:func:`masked_person`), never a bare id.
 
 Memory reset (planning.admin, audited): person / term / all stamps ``reset_id`` on the matching observations and
 dismissals and leaves a watermark so they are not learned again; undo within 30 days restores them; a daily purge
@@ -79,7 +82,10 @@ MIN_TERMS, MIN_TERM_SUPPORT, MIN_ONE_TERM = 2, 2, 3
 WILSON_Z = 1.0
 UNDO_DAYS = 30
 SNOOZE_MODES = ("next_solve", "P7D", "next_term")
-SAME_SEASON_ATTRS = frozenset({"room", "day", "period", "day_period"})
+#: evidence that counts only from terms of the target term's season (L2: other-season data gives a building at most).
+#: ``tag`` is here because its proposal names the tagged rooms (room_preference with room_ids): a Bahar PC-lab
+#: habit must not become a Güz room suggestion (round-1 T-R1-40 b)
+SAME_SEASON_ATTRS = frozenset({"room", "tag", "day", "period", "day_period"})
 LEVELS = ((0.8, "high", "Yüksek"), (0.6, "medium", "Orta"), (0.5, "low", "Düşük"))
 _DAYS_TR = {1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi", 7: "Pazar"}
 _DAYS_EN = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
@@ -113,6 +119,17 @@ def locative(text: str) -> str:
     front = bool(vowels) and vowels[-1] in _FRONT
     hard = bool(word) and word[-1] in _HARD
     return f"{text.rstrip()}'{'t' if hard else 'd'}{'e' if front else 'a'}"
+
+
+def masked_person(title: str | None, full_name: str | None) -> str:
+    """A person as title + initials (``Öğr. Gör. A. Y. Y.``): what the stored rule text and the reset rows show
+    (KVKK: no full name is stored with learned data; round-1 T-R1-41 replaced the bare ``#98``)."""
+    letters = []
+    for w in (full_name or "").split():
+        head = w.lstrip("(\"'")[:1]
+        if head:
+            letters.append(f"{head.replace('i', 'İ').replace('ı', 'I').upper()}.")
+    return " ".join(x for x in ((title or "").strip(), " ".join(letters)) if x)
 
 
 def wilson_lower(pos: int, total: int, z: float = WILSON_Z) -> float:
@@ -644,10 +661,13 @@ async def _subject_labels(
     if wanted.get("instructor"):
         for i in (await session.execute(select(Instructor).where(Instructor.id.in_(wanted["instructor"])))).scalars():
             name = " ".join(x for x in (i.title, i.full_name) if x)
-            out[("instructor", str(i.id))] = {"label": name, "safe": f"öğretim elemanı #{i.id}"}
+            out[("instructor", str(i.id))] = {"label": name, "safe": masked_person(i.title, i.full_name) or "?"}
     if wanted.get("user"):
         for u in (await session.execute(select(User).where(User.id.in_(wanted["user"])))).scalars():
-            out[("user", str(u.id))] = {"label": u.full_name or f"#{u.id}", "safe": f"kullanıcı #{u.id}"}
+            out[("user", str(u.id))] = {
+                "label": u.full_name or u.email,
+                "safe": masked_person(None, u.full_name) or "?",
+            }
     return out
 
 
@@ -790,7 +810,8 @@ def _render(
     if not reqs:
         state, why = "hidden", "no_classes_this_term"
     elif not free:
-        state, why = "hidden", "explicit_request_wins"
+        roomed = p.attribute in ("room", "building", "tag") and all(mr.definitive_room_ids for mr in reqs)
+        state, why = "hidden", "room_already_set" if roomed else "explicit_request_wins"
     elif p.attribute == "room" and p.value.isdigit():
         room = rooms.get(int(p.value))
         need = max((targets.enrolment.get(mr.id, 0) for mr in free), default=0)
@@ -1220,7 +1241,7 @@ async def reset(session: AsyncSession, actor: User, *, scope: str, value: Any, r
         reason=rs.reason,
         term_id=int(scope_value) if scope == "term" and scope_value else None,
     )
-    return reset_out(rs)
+    return await reset_view(session, rs)
 
 
 async def _open_count(session: AsyncSession, scope: str, scope_value: str | None) -> int:
@@ -1232,7 +1253,7 @@ async def _open_count(session: AsyncSession, scope: str, scope_value: str | None
     return int((await session.execute(q)).scalar_one())
 
 
-def reset_out(rs: LearningReset, now: datetime | None = None) -> dict[str, Any]:
+def reset_out(rs: LearningReset, now: datetime | None = None, subject_label: str | None = None) -> dict[str, Any]:
     now = now or utcnow()
     undoable = rs.kind == "RESET" and rs.undone_at is None and rs.purged_at is None and rs.expires_at > now
     return {
@@ -1250,13 +1271,29 @@ def reset_out(rs: LearningReset, now: datetime | None = None) -> dict[str, Any]:
         "undone_at": rs.undone_at,
         "purged_at": rs.purged_at,
         "counts": rs.counts or {},
+        "subject_label": subject_label,
     }
 
 
+async def _person_labels(session: AsyncSession, resets: Iterable[LearningReset]) -> dict[str, str]:
+    """Masked labels (title + initials) of the people that person resets / erasures name, by scope value."""
+    ids = {int(v) for r in resets if r.scope_type == "person" and (v := r.scope_value or "").isdigit()}
+    if not ids:
+        return {}
+    rows = (await session.execute(select(Instructor).where(Instructor.id.in_(ids)))).scalars()
+    return {str(i.id): masked_person(i.title, i.full_name) for i in rows}
+
+
+async def reset_view(session: AsyncSession, rs: LearningReset, now: datetime | None = None) -> dict[str, Any]:
+    labels = await _person_labels(session, [rs])
+    return reset_out(rs, now, labels.get(rs.scope_value or ""))
+
+
 async def list_resets(session: AsyncSession, limit: int = 100) -> list[dict[str, Any]]:
-    rows = (await session.execute(select(LearningReset).order_by(LearningReset.id.desc()).limit(limit))).scalars()
+    rows = list((await session.execute(select(LearningReset).order_by(LearningReset.id.desc()).limit(limit))).scalars())
     now = utcnow()
-    return [reset_out(r, now) for r in rows]
+    labels = await _person_labels(session, rows)
+    return [reset_out(r, now, labels.get(r.scope_value or "")) for r in rows]
 
 
 async def undo_reset(
@@ -1300,7 +1337,7 @@ async def undo_reset(
         },
         actor=actor,
     )
-    return reset_out(rs, now)
+    return await reset_view(session, rs, now)
 
 
 async def purge_expired(session: AsyncSession, *, now: datetime | None = None) -> dict[str, int]:
@@ -1374,7 +1411,7 @@ async def erase_person(session: AsyncSession, actor: User, *, instructor_id: int
         actor=actor,
         reason=rs.reason,
     )
-    return reset_out(rs, now)
+    return await reset_view(session, rs, now)
 
 
 async def memory_summary(session: AsyncSession, term_id: int | None = None) -> dict[str, Any]:

@@ -614,18 +614,22 @@ def notice_out(n: PrivacyNotice) -> dict[str, Any]:
 
 
 async def current_notice(session: AsyncSession, language: str | None) -> PrivacyNotice | None:
-    """The latest published notice in ``language``, else in Turkish, else any."""
-    q = select(PrivacyNotice).where(PrivacyNotice.published_at.is_not(None)).order_by(PrivacyNotice.version.desc())
+    """The latest published notice in the reader's ``language``; only when that language has no published notice at
+    all, the latest Turkish one, else the latest in any language. A newer version written in another language
+    never replaces the reader's own (round-1 R1-A-26: a Turkish reader was shown an English-only v2)."""
+    q = (
+        select(PrivacyNotice)
+        .where(PrivacyNotice.published_at.is_not(None))
+        .order_by(PrivacyNotice.version.desc(), PrivacyNotice.published_at.desc(), PrivacyNotice.id.desc())
+    )
     rows = list((await session.execute(q)).scalars())
     if not rows:
         return None
-    top = rows[0].version
-    latest = [r for r in rows if r.version == top]
     for lang in (language, "tr"):
-        hit = next((r for r in latest if r.language == lang), None)
+        hit = next((r for r in rows if lang and r.language == lang), None)
         if hit is not None:
             return hit
-    return latest[0]
+    return rows[0]
 
 
 async def needs_ack(session: AsyncSession, user: User) -> bool:
@@ -1115,38 +1119,686 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, Any]:
         {"kind": o.kind, "attribute": o.attribute, "value": o.value, "weight": o.weight, "ts": o.ts} for o in obs
     ]
     data["data_requests"] = [dsr_out(r) for r in await mine(session, user)]
+    data.update(await _person_records(session, user, rooms))
     return await _scrub_others(session, user, data)
+
+
+ROLE_EN = {"ADMIN": "administrator", "PLANNER": "planner", "TEACHER": "instructor", "VIEWER": "viewer"}
+#: audit ``before`` / ``after`` keys that never leave the server, not even to their own person
+_SECRET_KEY = re.compile(r"password|token|secret|_enc$|_hash$|^hash$|totp|otp_", re.IGNORECASE)
+
+
+def _no_secrets(v: Any) -> Any:
+    if isinstance(v, dict):
+        return {k: _no_secrets(x) for k, x in v.items() if not _SECRET_KEY.search(str(k))}
+    if isinstance(v, list):
+        return [_no_secrets(x) for x in v]
+    return v
+
+
+def _tr_text(v: Any) -> Any:
+    """``{tr, en}`` texts of the read models as one "tr / en" string (the CSV stays one column)."""
+    if isinstance(v, dict) and set(v) == {"tr", "en"}:
+        return v["tr"] if v["tr"] == v["en"] else f"{v['tr']} / {v['en']}"
+    return v
+
+
+async def _person_records(session: AsyncSession, user: User, rooms: dict[int, str]) -> dict[str, list[dict[str, Any]]]:
+    """KVKK m.11 beyond the account (round-1 T-R1-27, R1-A-25): the linked instructor record(s) and what the
+    planning side keeps about that person: the sections they teach, the planning requests as Taleplerim shows them
+    (``moderation.history``: the same rows, verdicts and accessibility rule), the exam requests of their sections,
+    their wishes with the coordinator's decision, the coordinators' priority notes about them, approval decisions
+    received and made, approver scopes, learned priors and dismissals, invigilation, calendar links, booking limits
+    and the audit rows whose subject they are. Other people appear by their role (:func:`_who`); names left in free
+    text are replaced by :func:`_scrub_others`."""
+    from sqlalchemy.orm import selectinload
+
+    from app.models import (
+        ApprovalDecision,
+        ConstraintRow,
+        ExamRequest,
+        InvigilationDuty,
+        InvigilatorPoolMember,
+        LearnedPrior,
+        PriorityOverride,
+        Section,
+        SectionInstructor,
+        SuggestionFeedback,
+        Term,
+    )
+    from app.services import moderation as mod
+    from app.services import teacher_preferences as tp
+
+    uid = user.id
+    roles = {int(i): r for i, r in (await session.execute(select(User.id, User.role))).all()}
+
+    def who(other: int | None, *, system: bool = False) -> str | None:
+        if other is None:
+            return "sistem / system" if system else None
+        if other == uid:
+            return "kendim / myself"
+        role = roles.get(other)
+        if role is None:
+            return "silinmiş kullanıcı / deleted user"
+        return f"{ROLE_TR.get(role, 'Kullanıcı')} / {ROLE_EN.get(role, 'user')}"
+
+    terms = {t.id: t.code for t in (await session.execute(select(Term))).scalars()}
+    linked = list(
+        (await session.execute(select(Instructor).where(Instructor.user_id == uid).order_by(Instructor.id))).scalars()
+    )
+    iids = [i.id for i in linked]
+    out: dict[str, list[dict[str, Any]]] = {}
+    out["instructor"] = [
+        {
+            "id": i.id,
+            "full_name": i.full_name,
+            "title": i.title,
+            "email": i.email,
+            "canonical_name": i.canonical_name,
+            "archived": i.archived,
+            "source": i.source_key,
+        }
+        for i in linked
+    ]
+
+    # the sections they teach (co-instructors by their role only)
+    links = (
+        list(
+            (
+                await session.execute(
+                    select(SectionInstructor)
+                    .where(SectionInstructor.instructor_id.in_(iids))
+                    .options(
+                        selectinload(SectionInstructor.section).selectinload(Section.course),
+                        selectinload(SectionInstructor.section).selectinload(Section.program),
+                        selectinload(SectionInstructor.section).selectinload(Section.instructors),
+                    )
+                )
+            ).scalars()
+        )
+        if iids
+        else []
+    )
+    section_ids = sorted({si.section_id for si in links})
+    out["instructor_sections"] = [
+        {
+            "section_id": si.section_id,
+            "term_code": terms.get(si.section.term_id),
+            "course_code": si.section.course.display_code if si.section.course else None,
+            "course_name": si.section.course.name if si.section.course else None,
+            "section": si.section.label,
+            "program": si.section.program.name if si.section.program else None,
+            "class_year": si.section.class_year,
+            "enrolment": si.section.enrolment,
+            "mode": si.section.mode,
+            "role": si.role,
+            "priority": si.section.priority,
+            "notes": None if mod.mentions_accessibility(si.section.notes) else si.section.notes,
+            "other_instructors": [
+                f"[{ROLE_TR['TEACHER']}] ({o.role})" for o in si.section.instructors if o.instructor_id not in iids
+            ],
+            "archived": si.section.archived,
+        }
+        for si in sorted(links, key=lambda x: (terms.get(x.section.term_id) or "", x.section_id))
+    ]
+
+    # the planning requests: Taleplerim's rows (every term), each with what was asked, what was given and why
+    planning: list[dict[str, Any]] = []
+    scope = mod.Scope(False, frozenset(iids), "own")
+    for ins in linked:
+        try:
+            hist = await mod.history(session, ins.id, scope)
+        except mod.ModerationError:
+            continue
+        for g in hist["terms"]:
+            for it in g["items"]:
+                reason = it.get("reason") or None
+                planning.append(
+                    {
+                        "term_code": g["term_code"],
+                        "term_name": g["term_name"],
+                        "request_id": it["request_id"],
+                        "section_id": it["section_id"],
+                        "course_code": it["course_code"],
+                        "course_name": it["course_name"],
+                        "section": it["section"],
+                        "label": it["label"],
+                        "program": it["program"],
+                        "role": it.get("role"),
+                        "instructors": [
+                            {"role": i["role"], "self": i["id"] in iids, "name": None} for i in it["instructors"]
+                        ],
+                        "request_text": it["raw"]["room_text"],
+                        "notes": it["raw"]["notes"],
+                        "requested": it["requested"],
+                        "definitive": it["definitive"],
+                        "assigned": it["assigned"],
+                        "verdict": it["verdict"],
+                        "verdict_text": _tr_text(it["verdict_text"]),
+                        "reason": (
+                            {
+                                "code": reason.get("code"),
+                                "text": _tr_text(reason.get("text")),
+                                "policy_step": reason.get("policy_step"),
+                            }
+                            if reason
+                            else None
+                        ),
+                        "priority": it.get("priority"),
+                        "source": it.get("source"),
+                        "run": g["run"]["label"] if g.get("run") else None,
+                        "source_row": it["raw"]["row"],
+                        "planning_list_cells": it["raw"]["source_row"],
+                        "planner_edits": [
+                            {k: v for k, v in e.items() if k not in ("id", "actor")} for e in it["planner_edits"]
+                        ],
+                    }
+                )
+    out["planning_requests"] = planning
+
+    exams = (
+        list(
+            (
+                await session.execute(
+                    select(ExamRequest).where(ExamRequest.section_id.in_(section_ids)).order_by(ExamRequest.id)
+                )
+            ).scalars()
+        )
+        if section_ids
+        else []
+    )
+    out["exam_requests"] = [
+        {
+            "id": e.id,
+            "term_code": terms.get(e.term_id),
+            "course_code": e.course_code,
+            "course_name": e.course_name,
+            "date": e.date,
+            "date_end": e.date_end,
+            "start_time": e.start_time.isoformat() if e.start_time else None,
+            "end_time": e.end_time.isoformat() if e.end_time else None,
+            "start_period": e.start_period,
+            "end_period": e.end_period,
+            "requested_venue_text": e.requested_venue_text,
+            "definitive_room_text": e.definitive_room_text,
+            "invigilators_requested": e.invigilators_requested,
+            "no_exam": e.no_exam,
+            "instructor_text": e.instructor_text,
+            "notes": None if mod.mentions_accessibility(e.notes) else e.notes,
+            "status": e.status,
+        }
+        for e in exams
+    ]
+
+    # the wishes ("Tercih ekle") with the coordinator's decision and reason; the coordinator by role
+    wish_rows = [
+        r
+        for r in (
+            await session.execute(
+                select(ConstraintRow).where(ConstraintRow.source == tp.SOURCE).order_by(ConstraintRow.id)
+            )
+        ).scalars()
+        if r.created_by == uid
+        or (isinstance(r.source_ref, dict) and int(r.source_ref.get("instructor_id") or 0) in iids)
+    ]
+    out["teacher_preferences"] = [
+        {
+            "id": w["id"],
+            "term_code": terms.get(w["term_id"] or 0),
+            "kind": w["kind"],
+            "kind_label": _tr_text(w["kind_label"]),
+            "classes": w["labels"],
+            "text": _tr_text(w["text"]),
+            "wish": w["wish"],
+            "department_asked": w["department"],
+            "note": w["note"],
+            "status": w["status"],
+            "in_effect": w["enabled"],
+            "submitted_at": w["submitted_at"],
+            "decided_at": w["decided_at"],
+            "decided_by": who(w["decided_by"]),
+            "reason": w["reason"],
+            "reason_code": w["reason_code"],
+        }
+        for w in await tp.items_out(session, wish_rows)
+    ]
+
+    pos = (
+        list(
+            (
+                await session.execute(
+                    select(PriorityOverride).where(
+                        PriorityOverride.subject_type == "person", PriorityOverride.subject_id.in_(iids)
+                    )
+                )
+            ).scalars()
+        )
+        if iids
+        else []
+    )
+    out["priority_notes"] = [
+        {
+            "term_code": terms.get(p.term_id),
+            "priority": p.priority,
+            "note": p.note,
+            "updated_by": who(p.updated_by),
+            "updated_at": p.updated_at,
+        }
+        for p in pos
+    ]
+
+    # approval decisions on the person's requests (received) and the ones they made as an approver
+    received = (
+        await session.execute(
+            select(ApprovalDecision, ApprovalRequest)
+            .join(ApprovalRequest, ApprovalRequest.id == ApprovalDecision.request_id)
+            .where(or_(ApprovalRequest.requested_by == uid, ApprovalDecision.approver_user_id == uid))
+            .order_by(ApprovalDecision.id)
+        )
+    ).all()
+    out["approval_decisions"] = [
+        {
+            "direction": "received / alınan" if req.requested_by == uid else "made / verilen",
+            "request_id": req.id,
+            "room": rooms.get(req.room_id),
+            "step": d.step,
+            "decision": d.decision,
+            "approver": who(d.approver_user_id),
+            "requester": who(req.requested_by),
+            "note": d.note,
+            "reason_code": d.reason_code,
+            "alternative": d.alternative,
+            "decided_at": d.decided_at,
+        }
+        for d, req in received
+    ]
+    scopes = (await session.execute(select(ApproverScope).where(ApproverScope.user_id == uid))).scalars()
+    out["approver_scopes"] = [
+        {
+            "scope_type": a.scope_type,
+            "scope_id": a.scope_id,
+            "room": rooms.get(a.scope_id or 0) if a.scope_type == "room" else None,
+            "tag": a.tag,
+            "created_at": a.created_at,
+            "created_by": who(a.created_by),
+        }
+        for a in scopes
+    ]
+
+    keys = [("user", str(uid))] + [("instructor", str(i)) for i in iids]
+
+    def subject(model: Any) -> Any:
+        return or_(*((model.subject_type == st) & (model.subject_key == sk) for st, sk in keys))
+
+    out["learned_priors"] = [
+        {
+            "term_code": terms.get(p.term_id),
+            "attribute": p.attribute,
+            "value": p.value,
+            "score": p.score,
+            "support": p.support,
+            "total": p.total,
+            "terms_count": p.terms_count,
+            "confidence": p.confidence,
+            "suggestible": p.suggestible,
+            "active": p.active,
+            "explanation": _tr_text({k: v for k, v in (p.explanation or {}).items() if k in ("tr", "en")} or None),
+            "computed_at": p.computed_at,
+        }
+        for p in (await session.execute(select(LearnedPrior).where(subject(LearnedPrior)))).scalars()
+    ]
+    out["suggestion_feedback"] = [
+        {
+            "term_code": terms.get(f.term_id),
+            "attribute": f.attribute,
+            "value": f.value,
+            "action": f.action,
+            "scope": f.scope,
+            "reason": f.reason,
+            "snoozed_until": f.snoozed_until,
+            "by": who(f.actor_id),
+            "created_at": f.created_at,
+        }
+        for f in (await session.execute(select(SuggestionFeedback).where(subject(SuggestionFeedback)))).scalars()
+    ]
+
+    invig: list[dict[str, Any]] = []
+    if iids:
+        for m in (
+            await session.execute(select(InvigilatorPoolMember).where(InvigilatorPoolMember.instructor_id.in_(iids)))
+        ).scalars():
+            invig.append(
+                {
+                    "record": "pool / gözetmen havuzu",
+                    "term_code": terms.get(m.term_id or 0),
+                    "pool_kind": m.kind,
+                    "max_duties": m.max_duties,
+                    "max_per_day": m.max_per_day,
+                    "load_factor": m.load_factor,
+                    "unavailable": m.unavailable,
+                    "active": m.active,
+                    "notes": m.notes,
+                }
+            )
+        for d in (
+            await session.execute(
+                select(InvigilationDuty)
+                .where(InvigilationDuty.instructor_id.in_(iids))
+                .order_by(InvigilationDuty.date, InvigilationDuty.start_period)
+            )
+        ).scalars():
+            invig.append(
+                {
+                    "record": "duty / gözetmenlik",
+                    "plan_id": d.plan_id,
+                    "date": d.date,
+                    "start_period": d.start_period,
+                    "end_period": d.end_period,
+                    "room": rooms.get(d.room_id or 0),
+                    "origin": d.origin,
+                    "locked": d.is_locked,
+                }
+            )
+    out["invigilation"] = invig
+
+    cal: list[dict[str, Any]] = [
+        {
+            "record": "push calendar / takvim bağlantısı",
+            "provider": c.provider,
+            "account_email": c.account_email,
+            "calendar_name": c.calendar_name,
+            "scopes": c.scopes,
+            "status": c.status,
+            "last_synced_at": c.last_synced_at,
+            "created_at": c.created_at,
+        }
+        for c in (await session.execute(select(CalendarConnection).where(CalendarConnection.user_id == uid))).scalars()
+    ]
+    cal += [
+        {
+            "record": "feed link / takvim bağlantı adresi",
+            "hint": f"…{t.hint}" if t.hint else None,
+            "label": t.label,
+            "created_at": t.created_at,
+            "last_used_at": t.last_used_at,
+        }
+        for t in (await session.execute(select(CalendarFeedToken).where(CalendarFeedToken.user_id == uid))).scalars()
+    ]
+    out["calendar_links"] = cal
+    lim = await session.get(UserConstraint, uid)
+    out["booking_limits"] = (
+        [
+            {
+                "max_active_bookings": f"{lim.max_active_bookings_type}:{lim.max_active_bookings_value}",
+                "range_min": f"{lim.range_min_type}:{lim.range_min_value}",
+                "range_max": f"{lim.range_max_type}:{lim.range_max_value}",
+                "recur_max_instances": f"{lim.recur_max_instances_type}:{lim.recur_max_instances_value}",
+            }
+        ]
+        if lim is not None
+        else []
+    )
+
+    # the audit rows about the person (their account, their instructor record, their wishes, their requests)
+    ents = [
+        ("user", [str(uid)]),
+        ("instructor", [str(i) for i in iids]),
+        ("constraint", [str(r.id) for r in wish_rows]),
+    ]
+    ents.append(("dsr_request", [str(r.id) for r in await mine(session, user)]))
+    conds = [(AuditEvent.entity_type == et) & AuditEvent.entity_id.in_(ids) for et, ids in ents if ids]
+    evs = (await session.execute(select(AuditEvent).where(or_(*conds)).order_by(AuditEvent.id))).scalars()
+    out["audit_as_subject"] = [
+        {
+            "ts": e.ts,
+            "action": e.action,
+            "entity_type": e.entity_type,
+            "entity_id": e.entity_id,
+            "actor": who(e.actor_id, system=e.actor_type != "user"),
+            "reason": e.reason,
+            "before": _no_secrets(e.before),
+            "after": _no_secrets(e.after),
+        }
+        for e in evs
+    ]
+    return out
 
 
 ROLE_TR = {"ADMIN": "Yönetici", "PLANNER": "Planlamacı", "TEACHER": "Öğretim elemanı", "VIEWER": "Görüntüleyici"}
 
 
+_I_VARIANTS = "iIİı"
+
+
+def _fold_key(v: str) -> str:
+    """Turkish-tolerant match key: dotted / dotless i alike, any case, runs of spaces as one."""
+    for ch in _I_VARIANTS:
+        v = v.replace(ch, "i")
+    return re.sub(r"\s+", " ", v.lower()).strip()
+
+
+def _needle_rx(v: str) -> str:
+    parts: list[str] = []
+    for ch in re.sub(r"\s+", " ", v.strip()):
+        parts.append(f"[{_I_VARIANTS}]" if ch in _I_VARIANTS else r"\s+" if ch == " " else re.escape(ch))
+    return "".join(parts)
+
+
+_WORD = re.compile(r"\w+")
+#: a first name with a Turkish form of address ("Fatih Bey", "Ayşe Hanım", "Ali Hoca"), e.g. in a planning-list
+#: column header ("... Derslik Planlama Birimi-Fatih Bey tarafından doldurulmalıdır")
+_HONORIFIC = re.compile(r"(?<!\w)([A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,})\s+(?:Bey|Hanım|Hanim|Hoca|Hocam)(?!\w)")
+_HONORIFIC_HINT = re.compile(r"(?:Bey|Hanım|Hanim|Hoca|Hocam)(?!\w)")
+#: the export's own role labels: never treated as someone's name
+_ROLE_WORDS = frozenset(
+    _fold_key(w)
+    for w in (
+        *ROLE_TR.values(),
+        *ROLE_EN.values(),
+        "kendim",
+        "myself",
+        "sistem",
+        "system",
+        "Kullanıcı",
+        "user",
+        "Onaycı",
+        "approver",
+        "admin",
+    )
+)
+
+
 async def _scrub_others(session: AsyncSession, user: User, data: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
     """Other people named in the person's own records (a notification "Fatih Bey booked for you", an approver's
-    note) appear by their role, never by name, username or e-mail (spec §4.7)."""
-    marks: list[tuple[str, str]] = []
+    note, a coordinator's reason, a co-instructor in a planning-list row) appear by their role, never by name,
+    username or e-mail (spec §4.7; round-1 T-R1-27 added the instructor records). Whole words only, Turkish
+    dotted / dotless i and case alike, one pass per text (a replacement is never matched again)."""
+    marks: dict[str, tuple[str, str]] = {}  # match key -> (pattern, replacement)
+
+    def mark(v: str | None, repl: str) -> None:
+        # a role word is no one's name ("Administrator", the seeded admin's name, is also the export's role label)
+        if v and len(v.strip()) >= 3 and _WORD.search(v) and _fold_key(v) not in _ROLE_WORDS:
+            marks.setdefault(_fold_key(v), (_needle_rx(v), repl))
+
+    linked = list((await session.execute(select(Instructor).where(Instructor.user_id == user.id))).scalars())
+    own = {_fold_key(v) for v in (user.email, user.full_name, user.username) if v}
+    named_self = " ".join(x for x in (user.firstname, user.lastname) if x)
+    if named_self:
+        own.add(_fold_key(named_self))
+    own |= {_fold_key(v) for i in linked for v in (i.full_name, i.email, i.canonical_name) if v}
     for u in (await session.execute(select(User).where(User.id != user.id))).scalars():
         role = f"[{ROLE_TR.get(u.role, 'Kullanıcı')}]"
         named = " ".join(x for x in (u.firstname, u.lastname) if x)
         for v in (u.email, u.full_name, named, u.username):
-            if v and len(v.strip()) >= 3:
-                marks.append((v.strip(), role))
-    own = {v for v in (user.email, user.full_name, user.username) if v}
-    marks = sorted({m for m in marks if m[0] not in own}, key=lambda m: -len(m[0]))
+            mark(v, role)
+    teacher = f"[{ROLE_TR['TEACHER']}]"
+    linked_ids = {i.id for i in linked}
+    for i in (await session.execute(select(Instructor))).scalars():
+        if i.id not in linked_ids:
+            for v in (i.full_name, i.email):
+                mark(v, teacher)
+    for k in own:
+        marks.pop(k, None)
+    by_word: dict[str, list[str]] = {}
+    for k in marks:
+        first = _WORD.search(k)
+        if first:
+            by_word.setdefault(first.group(0), []).append(k)
+    compiled: dict[frozenset[str], tuple[re.Pattern[str], list[str]]] = {}
+
+    own_words = {w for k in own for w in _WORD.findall(k)}
+
+    def by_title(m: re.Match[str]) -> str:
+        return m.group(0) if _fold_key(m.group(1)) in own_words else "[Kişi]"
+
+    def clean_text(v: str) -> str:
+        if _HONORIFIC_HINT.search(v):  # "Fatih Bey", "Ayşe Hanım": a person named in a header or a note
+            v = _HONORIFIC.sub(by_title, v)
+        words = {_fold_key(w) for w in _WORD.findall(v)}
+        cands = frozenset(k for w in words for k in by_word.get(w, ()))
+        if not cands:
+            return v
+        hit = compiled.get(cands)
+        if hit is None:
+            alts = sorted(cands, key=len, reverse=True)  # the longest name first ("Ali Can Öz" before "Ali Can")
+            rx = re.compile(r"(?<!\w)(?:" + "|".join(f"({marks[k][0]})" for k in alts) + r")(?!\w)", re.IGNORECASE)
+            hit = compiled[cands] = (rx, alts)
+        rx, alts = hit
+        return rx.sub(lambda m: marks[alts[(m.lastindex or 1) - 1]][1], v)
 
     def clean(v: Any) -> Any:
         if isinstance(v, str):
-            for needle, repl in marks:
-                if needle.lower() in v.lower():
-                    v = re.sub(re.escape(needle), repl, v, flags=re.IGNORECASE)
-            return v
-        if isinstance(v, dict):
-            return {k: clean(x) for k, x in v.items()}
+            return clean_text(v)
+        if isinstance(v, dict):  # keys too: a planning-list column header may name a person
+            return {clean_text(k) if isinstance(k, str) else k: clean(x) for k, x in v.items()}
         if isinstance(v, list):
             return [clean(x) for x in v]
         return v
 
     return {k: clean(rows) for k, rows in data.items()}
+
+
+#: every file of the export zip, explained in the README (Turkish, English); a section missing here is listed with
+#: its name only (``tests/test_loop_r1_lane_d.py`` asks for an explanation of every file)
+EXPORT_FILES: dict[str, tuple[str, str]] = {
+    "profile": (
+        "Hesap bilgileriniz (ad, e-posta, rol, dil, giriş zamanları).",
+        "Your account (name, e-mail, role, language, sign-in times).",
+    ),
+    "bookings": (
+        "Sizin adınıza yapılmış rezervasyonlar, notları ve iptal nedenleri.",
+        "Bookings in your name, with their notes and cancellation reasons.",
+    ),
+    "series": ("Yinelenen rezervasyonlarınız.", "Your recurring bookings."),
+    "approvals": (
+        "Onaya gönderdiğiniz rezervasyon talepleri ve sonuçları.",
+        "Booking requests you sent for approval and their outcome.",
+    ),
+    "approval_decisions": (
+        "Taleplerinize verilen kararlar (alınan) ve onaycı olarak verdikleriniz (verilen); karşı taraf rolüyle.",
+        "Decisions on your requests (received) and the ones you made as an approver (made); others by role.",
+    ),
+    "approver_scopes": (
+        "Onaycı olduğunuz salon / grup / etiket kapsamları.",
+        "The rooms, groups or tags you approve for.",
+    ),
+    "notifications": ("Uygulama içi bildirimleriniz.", "Your in-app notifications."),
+    "deliveries": ("E-posta ve uygulama içi bildirim gönderim kayıtları.", "E-mail and in-app delivery records."),
+    "channel_deliveries": (
+        "SMS / Telegram gibi kanallara gönderim kayıtları.",
+        "Deliveries to channels such as SMS or Telegram.",
+    ),
+    "channels": (
+        "Bağladığınız bildirim kanalları (adresler maskeli).",
+        "The notification channels you linked (addresses masked).",
+    ),
+    "sso_identities": ("Kurumsal oturum açma (SSO) kimlikleriniz.", "Your single sign-on (SSO) identities."),
+    "consents": (
+        "Açık rızalarınız: verildiği ve geri alındığı zamanlar.",
+        "Your explicit consents: when given and withdrawn.",
+    ),
+    "notice_acks": (
+        "Okuduğunuzu onayladığınız aydınlatma metni sürümleri.",
+        "The privacy notice versions you acknowledged.",
+    ),
+    "audit_as_actor": ("Sizin yaptığınız işlemlerin denetim kayıtları.", "Audit records of the actions you took."),
+    "audit_as_subject": (
+        "Konusu siz olan denetim kayıtları (hesap, öğretim elemanı kaydı, tercihler, başvurular); yapan rolüyle.",
+        "Audit records about you (account, instructor record, wishes, requests); who did it by role.",
+    ),
+    "learning_observations": (
+        "Öğrenme modülünün sizinle ilgili gözlemleri.",
+        "What the learning module observed about you.",
+    ),
+    "learned_priors": (
+        "Bu gözlemlerden çıkarılan eğilimler (ör. sık istenen salon) ve güven düzeyleri.",
+        "Tendencies learned from those observations (e.g. a room often asked for) with their confidence.",
+    ),
+    "suggestion_feedback": (
+        "Bu eğilimlerden doğan önerilere verilen kararlar (kabul, ret, erteleme).",
+        "Decisions on the suggestions made from those tendencies (accept, reject, snooze).",
+    ),
+    "data_requests": (
+        "KVKK başvurularınız (indirme, silme, düzeltme, bilgi) ve sonuçları.",
+        "Your KVKK requests (export, erase, rectify, info) and their outcome.",
+    ),
+    "instructor": (
+        "Hesabınıza bağlı öğretim elemanı kaydı (ad, unvan, e-posta).",
+        "The instructor record linked to your account (name, title, e-mail).",
+    ),
+    "instructor_sections": (
+        "Verdiğiniz dersler ve şubeler; diğer öğretim elemanları yalnızca rolleriyle.",
+        "The courses and sections you teach; other instructors by role only.",
+    ),
+    "planning_requests": (
+        "Taleplerim: derslerinizin talepleri (talep metni, istenen → atanan, sonuç, nedeni, planlamacı düzenlemesi).",
+        "My requests: your classes' requests (request text, requested -> assigned, verdict, reason, planner edits).",
+    ),
+    "exam_requests": ("Derslerinizin sınav talepleri.", "The exam requests of your classes."),
+    "teacher_preferences": (
+        "Tercihleriniz (Tercih ekle): durum, koordinatörün kararı ve gerekçesi; koordinatör rolüyle.",
+        "Your wishes (Add a preference): status, the coordinator's decision and reason; the coordinator by role.",
+    ),
+    "priority_notes": (
+        "Koordinatörlerin sizin için belirlediği öncelik ve notu.",
+        "The priority and note coordinators set for you.",
+    ),
+    "invigilation": (
+        "Gözetmen havuzu kaydınız ve gözetmenlik görevleriniz.",
+        "Your invigilator pool record and invigilation duties.",
+    ),
+    "calendar_links": (
+        "Takvim aktarımı bağlantılarınız (Google / Microsoft) ve takvim adresleriniz (anahtarlar hariç).",
+        "Your calendar sync connections (Google / Microsoft) and feed links (without the keys).",
+    ),
+    "booking_limits": (
+        "Size özel rezervasyon sınırları (R: rolün değeri, U: size özel, X: sınırsız).",
+        "Booking limits set for you (R: the role's value, U: your own, X: unlimited).",
+    ),
+}
+
+
+def export_readme(data: dict[str, Any], now: datetime) -> str:
+    lines = [
+        "SmartSched kişisel veri dökümü / personal data export (KVKK m.11)",
+        f"Oluşturma / generated: {now.isoformat(timespec='seconds')}Z",
+        "",
+        "Başka kişiler yalnızca rolleriyle gösterilir ([Planlamacı], [Öğretim elemanı] ...).",
+        "Other people appear only by their role ([Planlamacı] = planner, [Öğretim elemanı] = instructor ...).",
+        "Erişilebilirlik ihtiyacı yazan notlar Taleplerim'deki gibi gösterilmez (öğrencilerin sağlık verisi).",
+        "Notes that describe an accessibility need are left out, as in My requests (students' health data).",
+        "",
+        "data.json: bütün bölümler tek dosyada / every section in one file.",
+        "Her bölüm ayrıca bir CSV dosyasıdır / every section is also a CSV file:",
+        "",
+    ]
+    for name in data:
+        tr, en = EXPORT_FILES.get(name, ("", ""))
+        rows = len(data[name]) if isinstance(data[name], list) else 0
+        lines.append(f"{name}.csv ({rows} satır / rows)")
+        if tr:
+            lines += [f"  {tr}", f"  {en}"]
+    return "\n".join(lines) + "\n"
 
 
 async def export_zip(session: AsyncSession, user: User, request_id: int) -> bytes:
@@ -1162,12 +1814,7 @@ async def export_zip(session: AsyncSession, user: User, request_id: int) -> byte
         z.writestr("data.json", json.dumps(data, ensure_ascii=False, indent=2, default=_iso))
         for name, rows in data.items():
             z.writestr(f"{name}.csv", _csv(rows))
-        z.writestr(
-            "README.txt",
-            "SmartSched kişisel veri dökümü / personal data export (KVKK m.11)\n"
-            f"Oluşturma / generated: {now.isoformat(timespec='seconds')}Z\n"
-            "Başka kişiler yalnızca rolleriyle gösterilir / other people appear only by their role.\n",
-        )
+        z.writestr("README.txt", export_readme(data, now))
     await audit.record(session, "kvkk.dsr_download", "dsr_request", r.id, after={"sections": len(data)}, actor=user)
     return buf.getvalue()
 

@@ -401,7 +401,9 @@ async def test_accept_creates_one_soft_targeted_learned_rule(env: Env):
         assert row is not None and ins is not None
         assert ins.full_name in people[0]["claim"]["tr"]
         stored = f"{row.nl_text} {row.source_ref}"
-        assert ins.full_name not in stored and f"öğretim elemanı #{ins.id}" in stored
+        # KVKK: the stored text names the person by title + initials, never the full name nor a bare id (T-R1-41)
+        assert ins.full_name not in stored and learning.masked_person(ins.title, ins.full_name) in stored
+        assert f"#{ins.id}" not in stored
 
 
 async def _viewer(env: Env) -> dict[str, str]:

@@ -70,7 +70,8 @@ function ResetRowView({ r, terms }: { r: ResetRow; terms: Map<number, string> })
             String(r.value ?? "").startsWith("#")
             ? t("learning.memory.intakeRow", { id: String(r.value).slice(1) })
             : t("learning.memory.intakeSignature", { sig: String(r.value ?? "").slice(0, 8) })
-          : `#${r.value}`;
+          : // a person: title + initials from the server (T-R1-41), never the bare instructor id
+            (r.subject_label ?? t("learning.memory.removedPerson"));
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-hairline py-2 type-footnote" data-testid="reset-row" data-status={status}>
       <span className="tabular-nums text-label-2">{new Date(r.created_at).toLocaleString(locale === "tr" ? "tr-TR" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}</span>
@@ -98,7 +99,8 @@ function ResetRowView({ r, terms }: { r: ResetRow; terms: Map<number, string> })
   );
 }
 
-export function LearningMemoryPanel() {
+/** ``heading="h1"`` where the panel is the page (/moderation/learning has one h1); Settings mounts it under its own h1 */
+export function LearningMemoryPanel({ heading = "h2" }: { heading?: "h1" | "h2" }) {
   const { t, n } = useI18n();
   const reduce = useReduce();
   const { can, loading } = usePermissions();
@@ -121,7 +123,7 @@ export function LearningMemoryPanel() {
   return (
     <div className="flex max-w-3xl flex-col gap-6" data-testid="learning-memory">
       <header className="flex flex-col gap-1">
-        <h2 className="type-title-2">{t("learning.memory.title")}</h2>
+        {heading === "h1" ? <h1 className="type-title-2">{t("learning.memory.title")}</h1> : <h2 className="type-title-2">{t("learning.memory.title")}</h2>}
         <p className="type-callout text-label-2">{t("learning.memory.intro")}</p>
       </header>
 

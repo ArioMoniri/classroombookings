@@ -129,7 +129,10 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
         return next;
       });
       await qc.invalidateQueries({ queryKey: lk.suggestions(termId, personId ?? null) });
-      setAnnounce(t("learning.live.undone"));
+      // an undo is a change of the person's own decision: confirm it where they look (T-R1-41), not only to AT
+      const said = t(out.undone === "accepted" ? "learning.live.undone" : "learning.live.restored");
+      setAnnounce(said);
+      toast.success(said);
     } catch (e) {
       toast.error(e instanceof HttpError ? e.message : String(e));
     }

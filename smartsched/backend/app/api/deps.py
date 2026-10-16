@@ -70,12 +70,75 @@ async def get_access(user: CurrentUser, db: DB) -> Access:
 CurrentAccess = Annotated[Access, Depends(get_access)]
 
 
+#: the Turkish name of every permission, as the Roller ve izinler screen shows it (``messages/tr.json`` ``crbs.perm``;
+#: ``tests/test_loop_r1_lane_d.py`` keeps the two in step): a refusal names the permission in the reader's words
+PERMISSION_TR: dict[str, str] = {
+    "system.bypass_maintenance_mode": "Bakım modunda rezervasyon kullanma",
+    "system.export_bookings": "Rezervasyonları dışa aktarma (CSV)",
+    "system.view_all_sessions": "Geçmiş ve gelecek dönemleri görme",
+    "setup.authentication": "Oturum açma ayarları (LDAP)",
+    "setup.departments": "Bölümler",
+    "setup.roles": "Roller ve izinler",
+    "setup.rooms": "Salonlar, gruplar ve özel alanlar",
+    "setup.rooms_acl": "Salon erişimi",
+    "setup.schedules": "Ders saatleri",
+    "setup.sessions": "Dönemler, tatiller ve hafta tarihleri",
+    "setup.settings": "Kurum ayarları",
+    "setup.timetable_weeks": "Ders haftaları",
+    "setup.users": "Kullanıcılar",
+    "room.view": "Salonları ve rezervasyonlarını görme",
+    "book_single.create": "Tek seferlik: oluşturma",
+    "book_single.edit_other_booking": "Tek seferlik: başkasınınkini düzenleme",
+    "book_single.cancel_other_booking": "Tek seferlik: başkasınınkini iptal",
+    "book_single.set_user": "Tek seferlik: başkası adına",
+    "book_single.set_department": "Tek seferlik: bölüm seçme",
+    "book_single.view_other_notes": "Tek seferlik: başkalarının notları",
+    "book_single.view_other_users": "Tek seferlik: rezerve edeni görme",
+    "book_recur.create": "Tekrarlayan: oluşturma",
+    "book_recur.edit_other_booking": "Tekrarlayan: başkasınınkini düzenleme",
+    "book_recur.cancel_other_booking": "Tekrarlayan: başkasınınkini iptal",
+    "book_recur.set_user": "Tekrarlayan: başkası adına",
+    "book_recur.set_department": "Tekrarlayan: bölüm seçme",
+    "book_recur.view_other_notes": "Tekrarlayan: başkalarının notları",
+    "book_recur.view_other_users": "Tekrarlayan: rezerve edeni görme",
+    "planning.view": "Planlama verilerini görme",
+    "planning.edit": "İçe aktarma, düzenleme ve ders programı yayımlama",
+    "planning.admin": "Planlama yönetimi",
+    "rooms.features": "Derslik özelliklerini ve değerlerini yönet",
+    "audit.view": "Her değişikliğin denetim kaydını gör",
+    "approvals.decide": "Rezervasyon taleplerini onayla ya da reddet (atanmış onaycılar)",
+    "book_single.request": "Bir onaycının onaylayacağı tek seferlik rezervasyon iste",
+    "book_recur.request": "Bir onaycının onaylayacağı yinelenen rezervasyon iste",
+    "bookings.skip_approval": "Onaysız doğrudan rezervasyon",
+}
+
+
+def forbidden(*names: str) -> HTTPException:
+    """403 for a missing permission (round-1 T-R1-29): ``{code: forbidden, permission, permissions, message,
+    message_en, message_tr}``; ``message`` / ``message_en`` keep the historic English text
+    (``requires permission planning.view``), ``message_tr`` names the permission as the roles screen does
+    (``Bu işlem için "Planlama verilerini görme" izni gerekiyor``)."""
+    en = f"requires permission {' or '.join(names)}"
+    labels = " ya da ".join(f'"{PERMISSION_TR.get(n, n)}"' for n in names)
+    return HTTPException(
+        status.HTTP_403_FORBIDDEN,
+        {
+            "code": "forbidden",
+            "permission": names[0] if names else None,
+            "permissions": list(names),
+            "message": en,
+            "message_en": en,
+            "message_tr": f"Bu işlem için {labels} izni gerekiyor",
+        },
+    )
+
+
 def require_permission(*names: str) -> Callable[..., object]:
     """Guard: the user's role must hold at least one of ``names`` (role-level, no room ACL)."""
 
     async def _guard(access: CurrentAccess) -> User:
         if not any(n in access.perms for n in names):
-            raise HTTPException(status.HTTP_403_FORBIDDEN, f"requires permission {' or '.join(names)}")
+            raise forbidden(*names)
         return access.user
 
     return _guard

@@ -234,7 +234,7 @@ export const DiffMoved = DiffBase.extend({ from: Place, to: Place, causes: z.arr
 export type DiffMoved = z.infer<typeof DiffMoved>;
 export const DiffNew = DiffBase.extend({ to: Place });
 export type DiffNew = z.infer<typeof DiffNew>;
-export const DiffUnplaceable = DiffBase.extend({ was_placed: z.boolean().default(false), from: Place.nullable().optional(), reason: Reason });
+export const DiffUnplaceable = DiffBase.extend({ was_placed: z.boolean().default(false), from: Place.nullable().optional(), reason: Reason, base_conflict: z.boolean().optional() });
 export type DiffUnplaceable = z.infer<typeof DiffUnplaceable>;
 
 const Score = z.object({ before: z.number().nullable().optional(), after: z.number().nullable().optional() });

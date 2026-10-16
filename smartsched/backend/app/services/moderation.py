@@ -1980,9 +1980,9 @@ def _minimal_change(
     inp: sm.SolverInput, current: list[sm.Assignment], result: sm.SolverResult, scope: set[int]
 ) -> list[int]:
     """Academician needs Q9: a published class outside the changed requests keeps its cell unless moving it was
-    needed. Every moved event outside ``scope`` whose old cell is still free (reverting it keeps every hard rule)
-    is put back; deterministic (sorted order, repeated until nothing changes). Returns the reverted event ids and
-    rewrites ``result`` in place (assignments, scores, ``stats.repair.moved``)."""
+    needed. Every moved or dropped event outside ``scope`` whose old cell is still free (reverting it keeps every
+    hard rule) is put back; deterministic (sorted order, repeated until nothing changes). Returns the reverted event
+    ids and rewrites ``result`` in place (assignments, scores, ``stats.repair.moved``)."""
     from app.solver.repair import moved_diff
 
     before = {a.event_id: a for a in current}
@@ -1994,7 +1994,9 @@ def _minimal_change(
         changed = False
         for m in moved_diff(list(before.values()), list(after.values())):
             eid = int(m["event_id"])
-            if eid in scope or m["from"] is None or m["to"] is None or eid in reverted:
+            # a class the repair dropped (``to`` None) is put back too when its old cell still keeps every hard rule:
+            # a minimal re-solve never unplaces a placed class for a soft wish (round-1 R1-S-04)
+            if eid in scope or m["from"] is None or eid in reverted or eid not in before:
                 continue
             trial = dict(after)
             trial[eid] = before[eid]
@@ -2005,6 +2007,21 @@ def _minimal_change(
     if reverted:
         final = [after[k] for k in sorted(after)]
         hard, soft, breakdown, _v = _rescore(inp, final)
+        restored = {eid for eid in reverted if eid not in {a.event_id for a in result.assignments}}
+        if restored:
+            # classes put back in their published cell are placed again: their "cannot be placed" lines go
+            result.diagnoses = [
+                d
+                for d in result.diagnoses
+                if not (len(d.event_ids) == 1 and d.event_ids[0] in restored and d.severity == "error")
+            ]
+            for d in result.diagnoses:
+                if d.code == "unplaced_summary":
+                    d.event_ids = [i for i in d.event_ids if i not in restored]
+            total = int(result.stats.get("events_total") or len(inp.events))
+            result.stats["placed"] = len(final)
+            result.stats["unplaced"] = max(0, total - len(final))
+            result.stats["restored_to_published"] = sorted(restored)
         result.assignments = final
         result.hard_score, result.soft_score = hard, soft
         result.objective_breakdown = breakdown
@@ -2228,6 +2245,14 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun, compare_to: in
     newly: list[dict[str, Any]] = []
     unplaceable: list[dict[str, Any]] = []
     unchanged = 0
+    # requests whose published cell already broke a hard rule of the child (``run_resolve`` frees them)
+    cst = child.stats or {}
+    members_of = {int(k): [int(x) for x in v] for k, v in (cst.get("event_members") or {}).items()}
+    base_conflict = {
+        int(m)
+        for e in ((cst.get("moderation") or {}).get("base_violations") or [])
+        for m in members_of.get(int(e), [int(e)])
+    }
     old_place: dict[int, Place | None] = {}
     new_place: dict[int, Place | None] = {}
     for mr in in_scope:
@@ -2251,12 +2276,27 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun, compare_to: in
             continue
         if np_ is None:
             d = after.diag_by_request.get(mr.id)
+            reason = _diag_reason(after, mr, d)
+            if mr.id in base_conflict:
+                # round-1 R1-S-04: the loss is a hard conflict of the published cell itself (a booking or a block
+                # added since, a rule written on the draft), never a price paid for a soft wish
+                reason = {
+                    **reason,
+                    "code": "base_conflict",
+                    "text": _t(
+                        "Yayımdaki hücresi artık kesin bir kuralı bozuyor (sonradan eklenen rezervasyon / blok ya da "
+                        "taslak kuralı); orada kalamaz. " + str((reason.get("text") or {}).get("tr") or ""),
+                        "Its published cell now breaks a hard rule (a booking or block added since, or a draft rule); "
+                        "it cannot stay there. " + str((reason.get("text") or {}).get("en") or ""),
+                    ),
+                }
             unplaceable.append(
                 {
                     **base_item,
                     "was_placed": True,
                     "from": _place_out(op, rooms),
-                    "reason": _diag_reason(after, mr, d),
+                    "reason": reason,
+                    "base_conflict": mr.id in base_conflict,
                 }
             )
             continue
@@ -2328,6 +2368,7 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun, compare_to: in
             "newly_placed": len(newly),
             "unplaceable": len(unplaceable),
             "newly_unplaced": sum(1 for u in unplaceable if u["was_placed"]),
+            "newly_unplaced_base_conflict": sum(1 for u in unplaceable if u.get("base_conflict")),
             "affected_people": len(affected),
         },
         "moved": moved,

@@ -151,7 +151,7 @@ export function SuggestionCard({
           {t("learning.card.evidence")} · {evidence}
           {s.cross_season ? ` · ${t("learning.card.crossSeason")}` : ""}
         </span>
-        <Button size="xs" variant="ghost" aria-expanded={open} aria-controls={`${id}-list`} onClick={() => setOpen((o) => !o)} data-testid="suggestion-evidence-toggle">
+        <Button size="xs" variant="ghost" className="max-md:h-11" aria-expanded={open} aria-controls={`${id}-list`} onClick={() => setOpen((o) => !o)} data-testid="suggestion-evidence-toggle">
           {t(open ? "learning.card.hideEvidence" : "learning.card.showEvidence")}
           <ChevronDown className={cn("transition-transform duration-(--dur-fast)", open && "rotate-180")} aria-hidden />
         </Button>
@@ -195,13 +195,14 @@ export function SuggestionCard({
           </form>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex">
-            <Button size="sm" className="rounded-r-none" onClick={() => onAccept(ACCEPT_WEIGHTS.normal)} disabled={busy} data-testid="suggestion-accept" aria-keyshortcuts="a">
+        // phone: a full-width 44 px "Kabul et" row, then Reddet / Ertele side by side at 44 px (MOBILE M-02, T-R1-41)
+        <div className="flex flex-wrap items-center gap-2" data-testid="suggestion-actions">
+          <span className="inline-flex max-md:w-full">
+            <Button size="sm" className="rounded-r-none max-md:h-11 max-md:flex-1" onClick={() => onAccept(ACCEPT_WEIGHTS.normal)} disabled={busy} data-testid="suggestion-accept" aria-keyshortcuts="a">
               {busy ? t("busy.saving") : t("learning.card.accept", { weight: t("learning.weight.normal") })}
             </Button>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button size="sm" className="rounded-l-none border-l border-white/25 px-2" aria-label={t("learning.card.weightMenu")} disabled={busy} />}>
+              <DropdownMenuTrigger render={<Button size="sm" className="rounded-l-none border-l border-white/25 px-2 max-md:h-11 max-md:w-11" aria-label={t("learning.card.weightMenu")} disabled={busy} />}>
                 <ChevronDown aria-hidden />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
@@ -218,11 +219,11 @@ export function SuggestionCard({
               </DropdownMenuContent>
             </DropdownMenu>
           </span>
-          <Button size="sm" variant="ghost" onClick={() => setDismissing(true)} disabled={busy} data-testid="suggestion-reject" aria-keyshortcuts="d">
+          <Button size="sm" variant="ghost" className="max-md:h-11 max-md:flex-1" onClick={() => setDismissing(true)} disabled={busy} data-testid="suggestion-reject" aria-keyshortcuts="d">
             {t("learning.card.reject")}
           </Button>
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button size="sm" variant="ghost" disabled={busy} data-testid="suggestion-snooze" />}>
+            <DropdownMenuTrigger render={<Button size="sm" variant="ghost" className="max-md:h-11 max-md:flex-1" disabled={busy} data-testid="suggestion-snooze" />}>
               <Clock aria-hidden />
               {t("learning.card.snooze")}
             </DropdownMenuTrigger>

@@ -446,7 +446,7 @@ async def cross_steps(ctx: Ctx) -> None:
             meta.append(
                 {"index": f["index"], "filename": f["filename"], "sheets": [g.name for g in rend.grids] if rend else []}
             )
-        plan_out = planner.plan(meta, records, _axis_slots(structures, records))
+        plan_out = planner.plan(meta, records, _axis_slots(structures, records), lang=ctx.lang)
         st.say(f"{len(plan_out['groups'])} term group(s); period grid: {plan_out['period_grid']['source']}")
         await _artifact(ctx, "plan", plan_out, step_id=st.step_id)
         async with factory() as s:

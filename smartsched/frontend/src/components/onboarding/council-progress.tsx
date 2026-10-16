@@ -12,15 +12,30 @@ import { CROSS_AGENTS, FILE_AGENTS, type CouncilFile, type CouncilJob, type Coun
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { useOnboardingCopy } from "./copy";
-import { MethodBadge } from "./method-badge";
+import { MethodBadge, type ReadMethod } from "./method-badge";
+
+/** How the file was read (T-R1-23): with the AI off nothing is labelled AI; a file nothing could be read from says so. */
+function readMethod(job: CouncilJob, f: CouncilFile): ReadMethod | null {
+  if (!f.route_kind) return null;
+  if (f.route === "vision" || f.route === "ai-off") return job.ai_mode === "llm" ? "ai" : "unread";
+  if (f.route_kind !== "ai" || job.ai_mode !== "llm") return "direct";
+  return "ai";
+}
+
+/** The intake step's read notes (encoding and delimiter of a CSV, hidden sheets, no text layer) for the file row. */
+function readNotes(f: CouncilFile): string[] {
+  const intake = [...f.steps].reverse().find((s) => s.agent === "intake");
+  return (intake?.message ?? "").split("\n").filter((l) => l && l !== f.message);
+}
 
 const ICON = { DONE: CheckCircle2, SKIPPED: MinusCircle, FAILED: XCircle } as const;
 
 function StepChip({ agent, step }: { agent: string; step: CouncilStep | undefined }) {
   const { t, n } = useI18n();
+  const c = useOnboardingCopy();
   const status = step?.status ?? "PENDING";
   const Icon = step && step.status !== "RUNNING" ? ICON[step.status] : null;
-  const detail = [step ? step.status : t("onboarding.pending"), step?.duration_ms != null ? `${n(step.duration_ms)} ms` : null, step && step.input_tokens + step.output_tokens > 0 ? t("onboarding.tokens", { count: step.input_tokens + step.output_tokens }) : null, step?.message ?? null]
+  const detail = [step ? (c.status[step.status] ?? step.status) : t("onboarding.pending"), step?.duration_ms != null ? `${n(step.duration_ms)} ms` : null, step && step.input_tokens + step.output_tokens > 0 ? t("onboarding.tokens", { count: step.input_tokens + step.output_tokens }) : null, step?.message ?? null]
     .filter(Boolean)
     .join(" · ");
   return (
@@ -31,7 +46,7 @@ function StepChip({ agent, step }: { agent: string; step: CouncilStep | undefine
       title={detail}
     >
       {status === "RUNNING" ? <BusyGlyph className="size-3.5" /> : Icon ? <Icon aria-hidden className="size-3.5 stroke-[1.75]" /> : <CircleDashed aria-hidden className="size-3.5 stroke-[1.75]" />}
-      <span>{agent}</span>
+      <span>{c.agent[agent] ?? agent}</span>
       <span className="sr-only">: {detail}</span>
     </li>
   );
@@ -62,7 +77,7 @@ export function CouncilProgress({ job }: { job: CouncilJob }) {
   return (
     <Card className="gap-3 p-4" data-testid="onboarding-progress">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 type-callout">
-        <span className="font-semibold text-label-1">{job.status}</span>
+        <span className="font-semibold text-label-1" data-status={job.status}>{c.status[job.status] ?? job.status}</span>
         <span className="text-label-2">{job.ai_mode === "llm" ? t("onboarding.aiLlm") : t("onboarding.aiHeuristic")}</span>
         {job.phase ? <span className="text-label-2">· {job.phase}</span> : null}
         <span className="ml-auto text-label-2 tnum">{c.summary(done, failed)}</span>
@@ -94,20 +109,23 @@ export function CouncilProgress({ job }: { job: CouncilJob }) {
                   {Object.keys(f.counts).length ? (
                     <span className="block truncate type-footnote text-label-2 tnum">
                       {Object.entries(f.counts)
-                        .map(([k, v]) => `${n(v)} ${k}`)
+                        .map(([k, v]) => `${n(v)} ${c.record[k] ?? k}`)
                         .join(" · ")}
                     </span>
                   ) : null}
                   {f.message ? <span className="block type-footnote text-label-2">{f.message}</span> : null}
+                  {readNotes(f).map((line) => (
+                    <span key={line} className="block type-footnote text-label-2" data-testid="file-read-note">{line}</span>
+                  ))}
                 </td>
                 <td className="px-2 py-2">
                   <span className="flex flex-wrap items-center gap-1.5">
-                    {f.route_kind ? <MethodBadge method={f.route_kind === "ai" ? "ai" : "direct"} /> : null}
-                    {f.route ? <span className="type-footnote text-label-2">{f.route}</span> : null}
+                    {readMethod(job, f) ? <MethodBadge method={readMethod(job, f) ?? "direct"} /> : null}
+                    {f.route && f.route !== "ai-off" ? <span className="type-footnote text-label-2" data-route={f.route}>{c.route(f.route)}</span> : null}
                     {f.language && f.language !== "und" ? <span className="type-footnote text-label-2">· {f.language}</span> : null}
                   </span>
                 </td>
-                <td className={cn("px-2 py-2 type-footnote", f.status === "FAILED" ? "text-status-infeasible-fg" : "text-label-1")}>{f.status}</td>
+                <td className={cn("px-2 py-2 type-footnote", f.status === "FAILED" ? "text-status-infeasible-fg" : "text-label-1")} data-status={f.status}>{c.status[f.status] ?? f.status}</td>
                 <td className="px-2 py-2">
                   <ul className="flex flex-wrap gap-x-3 gap-y-1" aria-label={c.colPhase}>
                     {FILE_AGENTS.map((a) => (a === "rules" && !f.rule_texts && !latest(f.steps, a) ? null : <StepChip key={a} agent={a} step={latest(f.steps, a)} />))}

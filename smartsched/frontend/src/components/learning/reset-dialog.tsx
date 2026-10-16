@@ -2,7 +2,8 @@
 /**
  * The memory reset confirm (phase19-suggestions.md §6, motion.md §3.10 memory.reset-confirm): an alertdialog that
  * quotes the subject and states what is deleted and what is kept, a required reason, and for "Tümü" the typed
- * word SIFIRLA (or RESET; Turkish-aware casefold). A wrong word on Enter shakes the field once. A reset can be
+ * word SIFIRLA (or RESET; exact letters, Turkish casing). Sıfırla stays disabled until the word matches, and a
+ * typed word that does not match says so under the field before any submit; Enter on it shakes the field once. A reset can be
  * undone for 30 days; the KVKK erasure variant deletes immediately and cannot be undone. planning.admin only.
  */
 import { useRef, useState } from "react";
@@ -25,7 +26,10 @@ export function ResetDialog({ open, onOpenChange, scope, subject, onDone }: { op
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   const { ref: wordRef, shake } = useShake<HTMLInputElement>();
   const needsWord = scope === "all" || scope === "erase";
-  const ready = reasonOk(reason) && (!needsWord || typedConfirmOk(word)) && (scope === "all" || subject !== undefined);
+  const wordOk = !needsWord || typedConfirmOk(word);
+  const ready = reasonOk(reason) && wordOk && (scope === "all" || subject !== undefined);
+  // said while typing, not only after a submit (T-R1-41): a non-empty word that is not the word
+  const mismatch = needsWord && word.trim().length > 0 && !wordOk;
   const busy = reset.isPending || erase.isPending;
   const label = subject?.label ?? "";
 
@@ -63,7 +67,7 @@ export function ResetDialog({ open, onOpenChange, scope, subject, onDone }: { op
       footer={
         <>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-          <Button type="button" variant="destructive" onClick={() => void submit()} disabled={busy || !reasonOk(reason)} data-testid="reset-confirm" aria-busy={busy || undefined}>
+          <Button type="button" variant="destructive" onClick={() => void submit()} disabled={busy || !ready} data-testid="reset-confirm" aria-busy={busy || undefined}>
             {busy ? t("busy.working") : scope === "erase" ? t("learning.erase.go") : t("learning.reset.go")}
           </Button>
         </>
@@ -78,8 +82,13 @@ export function ResetDialog({ open, onOpenChange, scope, subject, onDone }: { op
       {needsWord ? (
         <label className="flex flex-col gap-1">
           <span className="type-footnote font-semibold">{t("learning.reset.typeWord")}</span>
-          <Input ref={wordRef} className="t-input" value={word} onChange={(e) => setWord(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submit(); } }} autoComplete="off" aria-invalid={word.length > 0 && !typedConfirmOk(word) ? true : undefined} data-testid="reset-word" />
+          <Input ref={wordRef} className="t-input" value={word} onChange={(e) => { setWord(e.target.value); setError(null); }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submit(); } }} autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-invalid={mismatch || undefined} aria-describedby={mismatch ? "reset-word-hint" : undefined} data-testid="reset-word" />
         </label>
+      ) : null}
+      {mismatch && !error ? (
+        <p id="reset-word-hint" className="type-footnote text-status-infeasible-fg" data-testid="reset-word-mismatch">
+          {t("learning.reset.wrongWord")}
+        </p>
       ) : null}
       {error ? <p role="alert" className="type-footnote text-status-infeasible-fg">{error}</p> : null}
     </ResponsiveDialog>
