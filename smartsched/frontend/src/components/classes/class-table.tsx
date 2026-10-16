@@ -482,7 +482,7 @@ function ClassTableImpl(p: ClassTableProps) {
       case "faculty":
         return <span className="flex min-w-0 items-center gap-1.5 truncate type-footnote"><span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--fac-${r.faculty_slot}-bar)` }} />{r.faculty_name ?? t("classes.group.noFaculty")}</span>;
       case "program":
-        return <span className="flex min-w-0 items-center gap-1 truncate type-footnote">{r.program_name ?? dash}{r.is_evening ? <span className="shrink-0 rounded-full bg-fill-2 px-1.5 text-2xs font-semibold text-label-2"><Moon className="inline size-2.5" aria-hidden /> {t("classes.evening")}</span> : null}</span>;
+        return <span className="flex min-w-0 items-center gap-1 truncate type-footnote">{r.program_name ?? dash}{r.is_evening ? <span className="shrink-0 rounded-full bg-fill-2 px-1.5 text-2xs pointer-coarse:type-caption font-semibold text-label-2"><Moon className="inline size-2.5" aria-hidden /> {t("classes.evening")}</span> : null}</span>;
       case "year":
         return <span className="type-footnote tabular-nums">{r.class_years.length ? (r.class_years.length > 1 ? `${Math.min(...r.class_years)}–${Math.max(...r.class_years)}` : r.class_years[0]) : dash}</span>;
       case "instructor":

@@ -144,16 +144,16 @@
   evidence: smartsched/frontend/e2e/wave1.spec.ts
 - feature: "Approval-first bookings: every request can go to an admin first; a rejection needs a reason; per-user notification preferences"
   area: bookings
-  status: in-progress
+  status: done
   phase: "owner request 2026-10-15"
-  evidence: smartsched/backend/tests/test_approval_first_followups.py
-  note: "backend done (one message per submission, withdraw notices); approval UI builder running"
+  evidence: smartsched/frontend/e2e/approval-first.spec.ts
+  note: "UI 2026-10-16: approval mode, reject dialog (code + text), group decide, Taleplerim reasons + withdraw, Profile › Bildirimler; e2e 8/8 on a real backend incl. phone 390"
 - feature: "Organisation switch for calendar sync with a dated KVKK sign-off; off turns every feed link into a 404"
   area: bookings
-  status: backend-only
+  status: done
   phase: "M-18"
-  evidence: smartsched/backend/alembic/versions/0022_kvkk_signoff_unseed.py
-  note: "no KVKK settings screen yet"
+  evidence: smartsched/frontend/e2e/approval-first.spec.ts
+  note: "Ayarlar › Entegrasyonlar: acknowledgement first, the sign-off record (who, when, legal basis) stays visible (M-40)"
 - feature: "Google Calendar and Microsoft 365 push, once an administrator enters the organisation's OAuth client"
   area: bookings
   status: backend-only
@@ -162,9 +162,10 @@
   note: "tested against mocked APIs, not yet a live tenant"
 - feature: "Signed outgoing webhooks (HMAC-SHA256) with an SSRF guard, off by default"
   area: bookings
-  status: backend-only
+  status: done
   phase: "17"
-  evidence: smartsched/backend/tests/test_webhooks.py
+  evidence: smartsched/frontend/e2e/approval-first.spec.ts
+  note: "Ayarlar › Entegrasyonlar › Giden webhook'lar: delivery switch, SSRF refusal next to the URL, secret shown once"
 - feature: "CRBS legacy upgrade: import a running classroombookings database with a dry-run report"
   area: bookings
   status: done

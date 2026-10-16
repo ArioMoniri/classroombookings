@@ -8,7 +8,7 @@ Owner rules:
 - **Webhooks** are off by default.
 - **Languages.** TR + EN only (owner decision; F-13 checks the picker).
 
-Testable on `b75047b`: **partly**. No UI yet for the approval mode (S07) or the calendar-sync KVKK sign-off (S08, M-40). Both run their API checks.
+Testable: **fully** since the approval-first UI (2026-10-16): the approval mode (S07) is in Yönetim › Ayarlar, the calendar-sync KVKK sign-off (S09, M-40) and the webhooks in Ayarlar › Entegrasyonlar (`/settings?tab=integrations`). Both still run their API checks.
 
 ## Preconditions
 
@@ -71,8 +71,8 @@ Testable on `b75047b`: **partly**. No UI yet for the approval mode (S07) or the 
 
 ### Approval rules and mode
 
-**S07 · admin · approval mode** [UI pending]
-- UI target: in Yönetim › Ayarlar, a control for "only rooms with an approval rule" vs "every request is approved first", with one sentence on who books directly. Saving is audited.
+**S07 · admin · approval mode**
+- Do: Yönetim › Ayarlar (`/admin/settings`), block **"Rezervasyon onayı"** (`approval-mode`): **"Yalnız kurallı derslikler"** vs **"Her talep önce onaya"**, each with a one-line explanation, and one sentence on who books directly (approvers, planning administrators, roles with **"Onaysız doğrudan rezervasyon"** = `bookings.skip_approval`). Save (`org-save`); saving is audited.
 - API check:
   - `PUT /org/settings {"approval_mode":"all"}` → `GET /org/settings` shows it;
   - `{"approval_mode":"sometimes"}` → **422**;
@@ -96,8 +96,11 @@ Testable on `b75047b`: **partly**. No UI yet for the approval mode (S07) or the 
 
 ### KVKK sign-offs
 
-**S09 · admin · calendar sync** [UI pending, M-40]
-- UI target: an admin screen showing **off** and the empty sign-off. Turning it on asks for the acknowledgement and records **who, when, the legal basis** ("KVKK Art. 9 as amended by Law 7499 (cross-border transfer)") and the features. The record stays visible (E-8).
+**S09 · admin · calendar sync** (M-40)
+- Do: **Ayarlar › Entegrasyonlar** (`/settings?tab=integrations`), card **"Takvim eşitleme (KVKK)"** (`calendar-sync-admin`). See **"Kapalı"** and **"Onay kaydı yok: takvim eşitleme hiç açılmadı."** (`calendar-no-signoff`) on a fresh install.
+- Do: turn on `calendar-sync-switch`. The notice (`calendar-notice`) says what is transferred and where; **"Aç ve onayı kaydet"** (`calendar-confirm`) stays disabled until the acknowledgement (`calendar-ack`) is ticked. Confirm.
+- See: the record (`calendar-signoff`) **"<name>, <date> tarihinde açtı ve KVKK onayını verdi."** and **"Hukuki dayanak: KVKK md. 9 (7499 sayılı Kanun ile değişik; yurt dışına aktarım)"** (the API stores the English constant "KVKK Art. 9 as amended by Law 7499 (cross-border transfer)"). Turning it off needs no acknowledgement and shows **"… tarihinde kapattı."** The record stays visible (E-8).
+- Webhooks: the card **"Giden webhook'lar"** (`webhooks-admin`) is headed by **"Webhook gönderimi"** (`webhooks-switch`, off by default). A loopback or private URL is refused next to the field (M-41); a new webhook shows its `whsec_…` secret once; delete asks first.
 - API check:
   - `GET /calendar/admin/settings` → `calendar_sync_enabled: false`, `calendar_sync_signoff: null` on a fresh install (never pre-seeded);
   - `PUT {"calendar_sync_enabled":true}` → the sign-off record carries `by`, `by_user_id`, `at`, `legal_basis`; one audit row `integrations.calendar_sync`;
@@ -138,7 +141,7 @@ Testable on `b75047b`: **partly**. No UI yet for the approval mode (S07) or the 
 1. Users can be created, imported, edited and disabled. A disabled login is indistinguishable from a wrong password.
 2. Nobody can grant what they lack, in the UI (disabled with a reason) and in the API (403), including `bookings.skip_approval`.
 3. Rooms, capacities and typed features can be managed and show up in Find a room.
-4. Approval rules work on rooms, groups and types. A rule nobody can approve is flagged and still never orphans a request. The approval mode can be set (UI pending) and validated.
+4. Approval rules work on rooms, groups and types. A rule nobody can approve is flagged and still never orphans a request. The approval mode can be set in the UI and validated.
 5. Calendar sync and AI intake are off until an admin records a dated sign-off. Every change is audited and visible.
 6. MOBILE.md passes on `/admin/users`, `/admin/roles`, `/admin/rooms` (+ features tab), `/admin/approval-rules` and `/settings` at 390 and 768.
 

@@ -270,7 +270,7 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
           {PERIODS.map((p) => (
             <span key={p.index} role="columnheader" className="pb-0.5 text-center leading-tight text-label-2 tabular-nums" title={`${p.start}–${p.end}`} style={{ gridRow: 1, gridColumn: p.index + 1 }}>
               P{p.index}
-              <span className="block text-2xs text-label-3">{p.start}</span>
+              <span className="block text-2xs pointer-coarse:type-caption text-label-3">{p.start}</span>
             </span>
           ))}
         </div>
@@ -350,7 +350,7 @@ function TermStrip({ cells, week, onWeek }: { cells: { week: number | null; day:
   const at = new Map(cells.map((c) => [`${c.week}:${c.day}`, c]));
   return (
     <div className="flex flex-col gap-[3px]" data-testid="room-term-heat">
-      <div className="grid grid-cols-[32px_repeat(7,1fr)] gap-[3px] text-center text-2xs text-label-3" aria-hidden>
+      <div className="grid grid-cols-[32px_repeat(7,1fr)] gap-[3px] text-center text-2xs pointer-coarse:type-caption text-label-3" aria-hidden>
         <span />
         {[1, 2, 3, 4, 5, 6, 7].map((d) => <span key={d}>{dayName(d, locale, "short").slice(0, 2)}</span>)}
       </div>

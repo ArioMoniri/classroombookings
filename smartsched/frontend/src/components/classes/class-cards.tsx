@@ -1,6 +1,6 @@
 "use client";
 /**
- * Phone list (all-classes.md §13): opaque inset-grouped cells (12 px radius), sticky glass group headers,
+ * Phone list (all-classes.md §13): opaque inset-grouped cells (12 px radius), sticky full-width hairline group rows (review §3),
  * swipe right → Kilitle, swipe left → Açıkla · Takvimde (motion `drag="x"`, snaps with springs.snappy);
  * every swipe action is also in the card's ⋯ menu (keyboard and screen readers).
  */
@@ -77,7 +77,7 @@ const Card = memo(function Card({ r, runId, selected, selectMode, onOpen, onTogg
           {p?.locked || r.changed.length ? <span className="type-footnote text-label-2">{[p?.locked ? t("calendar.state.locked") : null, r.changed.length ? t("classes.col.changed") : null].filter(Boolean).join(" · ")}</span> : null}
         </BareButton>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("classes.mobile.actions", { code: r.course_code })} />}><Ellipsis /></DropdownMenuTrigger>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("classes.mobile.actions", { code: r.course_code })} />}><Ellipsis /></DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {!readOnly && p ? <DropdownMenuItem onClick={onLock}>{p.locked ? t("calendar.insp.unlock") : t("classes.mobile.lock")}</DropdownMenuItem> : null}
             <DropdownMenuItem onClick={onExplain}>{t("calendar.insp.explain")}</DropdownMenuItem>
@@ -133,9 +133,9 @@ export function ClassCards({ rows, group, runId, selection, selectMode, onToggle
           const it = items[vi.index];
           const sticky = it.type === "h" && vi.index === activeHead;
           return (
-            <div key={vi.key} ref={v.measureElement} data-index={vi.index} className={cn("inset-x-0", sticky ? "sticky top-0 z-10" : "absolute")} style={sticky ? { height: vi.size } : { transform: `translateY(${vi.start}px)` }}>
+            <div key={vi.key} ref={v.measureElement} data-index={vi.index} className={cn("inset-x-0", sticky ? "sticky top-0 z-10" : "absolute top-0")} style={sticky ? { height: vi.size } : { transform: `translateY(${vi.start}px)` }}>
               {it.type === "h" ? (
-                <p className="glass-thick rounded-lg px-3 py-2 type-callout font-semibold">{it.label === "—" ? t(group === "faculty" ? "classes.group.noFaculty" : "classes.group.none") : it.label} · {it.n.toLocaleString(locale)}</p>
+                <p className="-mx-3 bg-(--mat-regular-solid) px-4 py-2 type-callout font-semibold text-label-1 edge-hairline-b">{it.label === "—" ? t(group === "faculty" ? "classes.group.noFaculty" : "classes.group.none") : it.label} · {it.n.toLocaleString(locale)}</p>
               ) : (
                 <div className="py-1">
                   <Card r={it.r} runId={runId} selected={selection.has(it.r.id)} selectMode={selectMode} onOpen={() => onOpen(it.r)} onToggle={() => onToggle(it.r.id)} onLock={() => onLock(it.r)} onExplain={() => onExplain(it.r)} readOnly={readOnly} />

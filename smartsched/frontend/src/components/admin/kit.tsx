@@ -48,7 +48,8 @@ export function FieldRow({ label, hint, htmlFor, children, className }: { label:
         </label>
         {hint ? <p className="type-footnote text-label-3">{hint}</p> : null}
       </div>
-      <div className="flex min-w-0 shrink-0 items-center gap-2 sm:justify-end">{children}</div>
+      {/* phones: the row's fields take the full width (no fixed w-56 / w-72 boxes floating short of the edge) */}
+      <div className="flex min-w-0 shrink-0 items-center gap-2 max-sm:w-full max-sm:flex-wrap max-sm:*:data-[slot=date-field]:w-full max-sm:*:data-[slot=input]:w-full max-sm:*:data-[slot=native-select]:w-full sm:justify-end">{children}</div>
     </div>
   );
 }

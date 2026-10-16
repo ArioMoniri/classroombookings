@@ -5,7 +5,7 @@ Owner decision (ROADMAP "Approval-first bookings + user channels + credential-fr
 
 State on `b75047b`:
 - Backend done: `bookings.approval_mode`, `bookings.skip_approval`, reason codes, `notify_dispatch` (in-app + e-mail), `/me/notification-preferences`.
-- UI not built yet (frontend builder waits for the shell sweep): the approval-mode setting, the reject dialog with a required reason, the reason shown to the requester, and Profile › Bildirimler. Those steps carry **[UI pending]**. Run them anyway and report `FAIL` when the old UI is still there, or `BLOCKED: <what is missing>` when the step cannot be reached at all. Always also run the **API check** in the same step: it tells the builder whether the backend side holds.
+- UI built (approval-first UI, 2026-10-16; `e2e/approval-first.spec.ts` runs S01, S07–S11 against a real backend): the approval-mode setting (Yönetim › Ayarlar › Rezervasyon onayı), the reject dialog with a required reason code + text, the reason shown to the requester (Taleplerim card, timeline), withdraw with a confirmation, withdrawn requests under "Karara bağlanan" (M-34), and Profile › Bildirimler. The former **[UI pending]** steps are runnable; always also run the **API check** in the same step.
 - External channels: the owner chose built-in Apprise + pywebpush (ROADMAP 22:45; push, Telegram, WhatsApp/SMS, Teams/Slack, each with a KVKK sign-off and a link-only mode). The backend builder is running and no channel API or UI exists on `d2ed4a8`: S13 is `BLOCKED: channels not built`.
 
 ## Preconditions
@@ -34,9 +34,9 @@ Each step lists what to do, what the UI must show (Turkish strings quoted exactl
 
 ### Part A · approval_mode = all
 
-**S01 · admin · set the approval mode in the UI** [UI pending]
-- Do: Yönetim › Ayarlar (`/admin/settings`). Find the booking-approval control (target: a choice between "only rooms with an approval rule" and "every request is approved first"). Choose the second one and save.
-- See: a save toast in Turkish. A one-line explanation that approvers, planning administrators and holders of `bookings.skip_approval` book directly.
+**S01 · admin · set the approval mode in the UI**
+- Do: Yönetim › Ayarlar (`/admin/settings`), block **"Rezervasyon onayı"** (`approval-mode`). The segmented control offers **"Yalnız kurallı derslikler"** (`approval-mode-rules`) and **"Her talep önce onaya"** (`approval-mode-all`), each with its one-line explanation below. Choose **"Her talep önce onaya"** and save (`org-save`).
+- See: the toast **"Kaydedildi"**. The line `approval-mode-direct`: **"Onaycılar, planlama yöneticileri ve “Onaysız doğrudan rezervasyon” yetkisi olan roller her iki durumda da doğrudan rezerve eder."** with links to Roller and Onay kuralları. In `/admin/roles` the permission `bookings.skip_approval` reads **"Onaysız doğrudan rezervasyon"**.
 - API: `GET /org/settings` → `"approval_mode":"all"`. One audit row for the change (`/admin/audit`, newest first).
 - If the control does not exist: `BLOCKED: approval-mode setting not built`, and apply precondition 2 with curl.
 
@@ -73,21 +73,20 @@ Each step lists what to do, what the UI must show (Turkish strings quoted exactl
 - API: the request is `APPROVED`; `GET /bookings/<id>` for both periods → `status: BOOKED`, owner staff. One audit row per decision.
 - Notify: staff bell +1, title **"Oda talebiniz onaylandı: …"**. Sink: one mail to personel.test@…, subject "Oda talebiniz onaylandı: …", body "Administrator talebinizi onayladı: …" plus the note.
 
-**S08 · admin · reject the academician request with a required reason** [UI pending for the dialog]
-- Do: open the academician's R2 request. Press **"Reddet"** (`approval-reject`).
-- See (target): a dialog, or a bottom sheet on phone, with a **required reason code** (radio group or select) offering exactly **"Oda uygun değil"**, **"Kapasite yetersiz"**, **"Rezervasyon kurallarına uygun değil"**, **"Diğer"**, plus a text field "Gerekçe". The confirm button stays disabled until a code is chosen. With "Diğer" it also needs non-blank text (spaces and NBSP count as blank).
-- Do (negative first): confirm with nothing chosen. Then choose "Diğer" with an empty text. Both must be refused in the UI, with a Turkish message next to the field (not only a red outline).
+**S08 · admin · reject the academician request with a required reason**
+- Do: open the academician's R2 request. Press **"Reddet"** (`approval-reject`, key D).
+- See: the dialog `reject-dialog` (a bottom sheet on phone) titled **"R2 talebini reddet"**, with a **required reason code** (radio rows `reject-code-<code>`, ≥ 44 px) offering exactly **"Oda uygun değil"**, **"Kapasite yetersiz"**, **"Rezervasyon kurallarına uygun değil"**, **"Diğer"**, and a required text **"Gerekçe"** (`reject-text`) with a counter **"0 / 1000"** (`reject-count`). Both are required for every code (stricter than the API, which takes a code alone except "other"). The confirm **"Reddet ve bildir"** (`reject-confirm`) stays `aria-disabled` until both are there; spaces and NBSP count as blank. A whole submission has **"2 saatin hepsini reddet"** (`approval-group-reject`) in the group bar, with the same dialog.
+- Do (negative first): confirm with nothing chosen. Then choose "Diğer" with an empty text. Both must be refused in the UI, with a Turkish message next to the field (`reject-code-error` **"Bir gerekçe türü seçin."**, `reject-text-error` **"Gerekçeyi yazın; yalnız boşluk sayılmaz."**), not only a red outline.
 - Do: choose **"Oda uygun değil"**, text `Bu saatte bölüm sınavı var.`, confirm.
 - See: toast **"Reddedildi. Talep edene bildirildi."** Focus as in S07.
 - API check (run it whatever the UI shows; use a second academician request for the negatives so the real one stays open):
   - `POST /approvals/<id>/decide {"decision":"reject"}` → **422** `reason_required`, message in TR and EN.
   - `{"decision":"reject","reason_code":"other"}` → **422**. `{"decision":"reject","reason_code":"bogus"}` → **422**.
   - `{"decision":"reject","reason_code":"room_unavailable","reason":"Bu saatte bölüm sınavı var."}` → **200**. `GET /approvals/<id>` → `reason_code: room_unavailable`, the text stored, `decided_by` = admin.
-- Today's UI only has "Talep edene not" with an optional note: report `FAIL` (major) with the ticket hint "reject dialog with required reason code + text".
 
 **S09 · academician · sees the decision and the reason everywhere**
 - Bell: +1, title **"Oda talebiniz reddedildi: …"**. Selecting it opens `/my-bookings?request=<id>` with that request expanded.
-- My bookings: the R2 row reads **"Reddedildi"** (icon + word). The timeline shows **"Administrator reddetti"** and the reason **"Oda uygun değil: Bu saatte bölüm sınavı var."** [UI pending: today the reason may be missing → FAIL]. If the admin suggested another room: **"Bunun yerine önerilen"** with **"Boş derslik bul"**.
+- My bookings: the R2 row reads **"Reddedildi"** (icon + word). The card itself shows **"Gerekçe: Oda uygun değil: Bu saatte bölüm sınavı var."** (`request-reason-line`); expanded, the reason block (`request-reason`) adds **"Karar veren: Administrator"** and the timeline shows **"Administrator reddetti"** with the same reason. If the admin suggested another room: **"Bunun yerine önerilen"** with **"Boş derslik bul"**.
 - E-mail: one new mail to akademisyen.test@…, subject **"Oda talebiniz reddedildi: …"**, body contains **"Gerekçe: Oda uygun değil: Bu saatte bölüm sınavı var."**. Save it to `mail/`.
 - The staff member sees nothing of this decision (Q11): `GET /approvals/mine` as staff does not list R2.
 
@@ -97,8 +96,8 @@ Each step lists what to do, what the UI must show (Turkish strings quoted exactl
 - API: `POST /approvals/<id>/withdraw` → 200. A second withdraw → **409**. Staff tries the same id → **403** `not_requester`. The cell R3·P5 on D3 is free again in the grid.
 - Admin: the request is no longer in **"Açık"**. It shows as "Geri çekildi" under **"Karara bağlanan"** or in the history (M-34). The bell does not offer a stale "decide" link.
 
-**S11 · staff · notification preferences** [UI pending: Profile › Bildirimler]
-- Do (target UI): `/profile` → Bildirimler. A matrix of events × channels. The events read: "Onayımı bekleyen yeni oda talepleri", "Talebim onaylandı", "Talebim reddedildi (gerekçesiyle)", "Talebimi geri çektim", "Talebimin süresi doldu"; the channels read "Uygulama içi" and "E-posta" (exact labels as built). Switch off e-mail for "Talebim onaylandı" and save.
+**S11 · staff · notification preferences**
+- Do: `/profile#notifications` → **"Bildirimler"** (`notification-prefs`). First the channels with their master switches (`pref-channel-<name>`); a channel that cannot reach the user is disabled with the reason as text (no e-mail address on the account; an external channel not linked or not switched on by the institution). Then a matrix of events × channels (`prefs-matrix`; on a phone one card per event, `prefs-cards`, rows ≥ 44 px). The events read: "Onayımı bekleyen yeni oda talepleri", "Talebim onaylandı", "Talebim reddedildi (gerekçesiyle)", "Bir talep geri çekildi (benim ya da onayımı bekleyen)", "Talebimin süresi doldu"; the channels read "Uygulama içi" and "E-posta" (plus any external channel the institution enabled). Switch off e-mail for "Talebim onaylandı" (`pref-approval.approved-email`); each switch saves at once with the toast **"Bildirim tercihi kaydedildi."**
 - API check: `PUT /me/notification-preferences {"events":{"approval.approved":{"email":false}}}` as staff → 200, and `GET` returns it.
 - Then: staff requests one more free slot (`R1 · D3 · P7`), admin approves it. The staff bell gets the in-app notice. **No** new mail to personel.test@… arrives within 90 s.
 

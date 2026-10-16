@@ -9,7 +9,7 @@ Owner decisions:
 - **Language source.** The UI follows the **profile** language from the first paint, with no TR/EN flip between routes.
 - **Mobile.** Part of the definition of done for every screen.
 
-Testable on `b75047b`: yes. It inherits F-01's UI gaps (the reject dialog and the reason display); report those steps BLOCKED as in F-01.
+Testable: yes. F-01's former UI gaps (the reject dialog and the reason display) are built since 2026-10-16.
 
 ## Preconditions
 
@@ -97,7 +97,7 @@ No mouse, no `click()`, no `tap()`: only `page.keyboard`. After **every** Tab or
 - `/bookings?date=$D1`. Tab into the grid (one stop). Arrow keys to R1·P7. **Shift+→** extends the span to P8, and the live region announces "2 ders saati seçildi, …" (U-24). Enter opens the sheet, and focus lands inside it. Tab to the note, type, Tab to **"2 ders saati için talep et"**, Enter. Focus is not `BODY`.
 - Esc from the textarea, a button and the select closes the sheet in **one** press, and focus returns to the cell (U-08).
 - Admin: `/approvals`. Arrow keys or `j`/`k` through the list. The legend keys **A** (approve), **D** (reject), **R** (another room) act on the open request (persona-admin: "approvals A/D/R ✓"). After a decision, focus moves to the next request title (M-33).
-- Reject dialog [UI pending]: the reason radios are reachable with arrows, Tab reaches the text, and Enter on a disabled confirm does nothing.
+- Reject dialog (`reject-dialog`): the reason radios are reachable with arrows, Tab reaches the text, and Enter on the `aria-disabled` confirm sends nothing: the message appears next to each missing field and focus goes to the first one.
 - Staff: Taleplerim → Tab to **"Talebi geri çek"** → Enter → the confirm traps focus (A-20). Enter confirms. Focus returns to the row.
 
 **C03 · F-02 by keyboard (admin)**

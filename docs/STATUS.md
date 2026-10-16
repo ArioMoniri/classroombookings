@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `ea40e25` (committed 2026-10-16 02:48 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `6dccf2f` (committed 2026-10-16 02:51 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 30 · Backend only 6 · In progress 4 · Planned 3 (from [`docs/features.yml`](features.yml)).
+Done 33 · Backend only 4 · In progress 3 · Planned 3 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -69,10 +69,10 @@ Done 30 · Backend only 6 · In progress 4 · Planned 3 (from [`docs/features.ym
 | Approvals by designated approvers: rules per room, room group or room type, PENDING requests, an inbox, a sweeper | Done | 17 (P1) | [`wave1.spec.ts`](../smartsched/frontend/e2e/wave1.spec.ts) |
 | Append-only audit log with a viewer, CSV export and undo of booking create, series create, move and cancel | Done | 17 (P7) | [`wave1.spec.ts`](../smartsched/frontend/e2e/wave1.spec.ts) |
 | In-app notifications (bell) next to the e-mail outbox | Done | 17 | [`wave1.spec.ts`](../smartsched/frontend/e2e/wave1.spec.ts) |
-| Approval-first bookings: every request can go to an admin first; a rejection needs a reason; per-user notification preferences | In progress: backend done (one message per submission, withdraw notices); approval UI builder running | owner request 2026-10-15 | [`test_approval_first_followups.py`](../smartsched/backend/tests/test_approval_first_followups.py) |
-| Organisation switch for calendar sync with a dated KVKK sign-off; off turns every feed link into a 404 | Backend only: no KVKK settings screen yet | M-18 | [`0022_kvkk_signoff_unseed.py`](../smartsched/backend/alembic/versions/0022_kvkk_signoff_unseed.py) |
+| Approval-first bookings: every request can go to an admin first; a rejection needs a reason; per-user notification preferences | Done: UI 2026-10-16: approval mode, reject dialog (code + text), group decide, Taleplerim reasons + withdraw, Profile › Bildirimler; e2e 8/8 on a real backend incl. phone 390 | owner request 2026-10-15 | [`approval-first.spec.ts`](../smartsched/frontend/e2e/approval-first.spec.ts) |
+| Organisation switch for calendar sync with a dated KVKK sign-off; off turns every feed link into a 404 | Done: Ayarlar › Entegrasyonlar: acknowledgement first, the sign-off record (who, when, legal basis) stays visible (M-40) | M-18 | [`approval-first.spec.ts`](../smartsched/frontend/e2e/approval-first.spec.ts) |
 | Google Calendar and Microsoft 365 push, once an administrator enters the organisation's OAuth client | Backend only: tested against mocked APIs, not yet a live tenant | 17 | [`test_calendar_connectors.py`](../smartsched/backend/tests/test_calendar_connectors.py) |
-| Signed outgoing webhooks (HMAC-SHA256) with an SSRF guard, off by default | Backend only | 17 | [`test_webhooks.py`](../smartsched/backend/tests/test_webhooks.py) |
+| Signed outgoing webhooks (HMAC-SHA256) with an SSRF guard, off by default | Done: Ayarlar › Entegrasyonlar › Giden webhook'lar: delivery switch, SSRF refusal next to the URL, secret shown once | 17 | [`approval-first.spec.ts`](../smartsched/frontend/e2e/approval-first.spec.ts) |
 | CRBS legacy upgrade: import a running classroombookings database with a dry-run report | Done: import-wizard dry run + fingerprint confirm; live MySQL run on the pod open | P18-LEGACY | [`shell-admin-sweep.spec.ts`](../smartsched/frontend/e2e/shell-admin-sweep.spec.ts) |
 | CRBS superset gate: every classroombookings behaviour and screen has an acceptance test | Done: runs in pod CI (parity gate) | 18 | [`parity_check.py`](../scripts/parity_check.py) |
 | Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows | Planned | 17 (P2, P8, V2, A4) |  |
@@ -144,7 +144,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-128 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 103 · stopped 7 · superseded 7.
+128 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 104 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -158,7 +158,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `RESUME approval-first UI` | frontend-engineer | 2026-10-16 02:16 |
 | `RESUME backend test isolation` | backend-engineer | 2026-10-16 02:16 |
 | `RESUME design migration + mobile` | frontend-engineer | 2026-10-16 02:16 |
-| `RESUME identity frontend` | frontend-engineer | 2026-10-16 02:16 |
 
 <!-- /AUTO:agents -->
 
@@ -225,7 +224,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **158 ticked · 282 open** checkboxes in 58 sections (55 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **162 ticked · 281 open** checkboxes in 59 sections (56 with open items).
 
 <details><summary>Per section</summary>
 
@@ -279,8 +278,9 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Docs update automatically (owner request 2026-10-15 ~22:55) | 1 | 1 |
 | Approval-first backend finished (0025_approval_first) | 1 | 1 |
 | Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend) | 9 | 3 |
-| Flow scripts finished (2026-10-15): gaps to close before round 1 | 4 | 8 |
-| Approval and notification follow-ups finished (2026-10-16) | 0 | 6 |
+| Flow scripts finished (2026-10-15): gaps to close before round 1 | 6 | 6 |
+| Approval and notification follow-ups finished (2026-10-16) | 2 | 4 |
+| Approval-first UI finished (2026-10-16) | 0 | 1 |
 | Microsoft Entra ID sign-in backend finished (2026-10-16) | 0 | 4 |
 | Notification channels backend finished (2026-10-16) | 1 | 3 |
 | Shell / admin sweep finished (2026-10-16); dedicated UI agents launched | 0 | 4 |
@@ -288,7 +288,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Design-system overhaul finished (2026-10-16) | 0 | 6 |
 | Importer and comparison follow-ups finished (2026-10-16) | 0 | 4 |
 | Phase 19 UI follow-up finished (2026-10-16) | 0 | 2 |
-| Identity frontend finished (2026-10-16) | 0 | 5 |
+| Identity frontend finished (2026-10-16) | 0 | 7 |
 
 </details>
 

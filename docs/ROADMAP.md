@@ -976,9 +976,9 @@ Orchestrator decisions (owner may override):
 ### Flow scripts finished (2026-10-15): gaps to close before round 1
 
 The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and SUGGESTER.md. Each step names its locator, the Turkish UI text and an API check. Steps that can't run yet are marked BLOCKED or "[UI pending]". These gaps are routed or queued:
-- [ ] The approval-first UI: an approval-mode setting, a reject dialog that requires a reason code and text, the reason shown to the requester, and Profile › Bildirimler (F-01, F-11, F-13). This is the dedicated approval UI agent's job.
+- [x] The approval-first UI: an approval-mode setting, a reject dialog that requires a reason code and text, the reason shown to the requester, and Profile › Bildirimler (F-01, F-11, F-13). Done 2026-10-16 (see "Approval-first UI finished").
 - [ ] Channel UI and API: F-01 S13. Owned by the channels backend, then the channels/SSO frontend agent.
-- [ ] Calendar-sync KVKK sign-off admin screen: M-40 (F-04, F-11). Goes to the approval/admin UI agent.
+- [x] Calendar-sync KVKK sign-off admin screen: M-40 (F-04, F-11). Ayarlar › Entegrasyonlar, 2026-10-16.
 - [x] Link a login to an instructor (F-05, major): `PUT /api/v1/auth/sso/admin/users/{id}/instructor` and `instructor_id` on invites (`instructors.user_id`, audited `user.instructor_link`).
 - [x] Teacher nav entry "Taleplerim" → `/moderation/me` (F-05), for accounts that can book and lack `planning.view`.
 - [x] P19-T3 publish digests ("Akademisyenlere bildir", F-05); the "Bu program için geçmiş veri yok" panel and the 30-day programme undo (F-07).
@@ -1002,9 +1002,32 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
   - [ ] a migration for `priority_overrides` (P19)
   - [ ] `make lint` and `make type` in those files
 - For the approval UI agent:
-  - [ ] a TR/EN label for `bookings.skip_approval`
-  - [ ] read `group=` from approver links and `data.request_ids`, so one click opens the whole submission
+  - [x] a TR/EN label for `bookings.skip_approval` ("Onaysız doğrudan rezervasyon" / "Book directly without approval")
+  - [x] read `group=` from approver links and `data.request_ids`, so one click opens the whole submission
 - [ ] Optional: add `app/cli.py` to the `make type` path list.
+
+### Approval-first UI finished (2026-10-16)
+
+Owner requirement: a request for an empty slot goes to an admin first, who approves or rejects with a reason, and the
+requester is told on the channels they chose. Mobile first (390 px), TR + EN, no demo data.
+- Done:
+  - Yönetim › Ayarlar › **Rezervasyon onayı**: `approval_mode` rules / all as a SegmentedControl with a one-line
+    explanation each and who books directly (`bookings.skip_approval` = "Onaysız doğrudan rezervasyon").
+  - Approvals inbox: the reject dialog (bottom sheet on phones) requires a reason code (backend codes, TR/EN) and a
+    written reason with a counter, no blank submit; approve / reject a whole submission at once; approver links
+    `?request=&group=` open the submission; withdrawn and expired requests under "Karara bağlanan" (M-34, backend
+    inbox query + `tests/test_approval_inbox_withdrawn.py`).
+  - Taleplerim (My bookings): Bekliyor / Onaylandı / Reddedildi / Geri çekildi with the reason (code label + text) on
+    the card and in the timeline; withdraw asks first.
+  - Profile › Bildirimler: `NotificationPreferencesPanel` (`components/notifications/preferences-panel.tsx`), event ×
+    channel switches, unavailable channels disabled with the reason; mounted by the identity agent.
+  - Ayarlar › Entegrasyonlar: calendar-sync KVKK sign-off (M-40, legal basis shown in Turkish) and the outgoing
+    webhooks (delivery switch, M-41 refusal next to the URL, secret shown once, test / pause / rotate / deliveries).
+  - Approvals files are off the design ratchet (no raw `<button>`, no `shadow-[`).
+  - Tests: vitest (reject dialog, Taleplerim, preferences, booking approval, calendar sync, webhooks);
+    `e2e/approval-first.spec.ts` 8/8 against a real backend, desktop and phone 390.
+- Open:
+  - [ ] F-01 S13 (a linked external channel) stays with the channels agents.
 
 ### Microsoft Entra ID sign-in backend finished (2026-10-16)
 
@@ -1208,3 +1231,5 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
 - [ ] Sign-in check #30 (visual baselines) runs only with `VISUAL_BASELINE=1` on the CI image.
 - [ ] Approval UI agent: on a 390 px phone the preferences panel repeats every unreachable channel under each event (about 6000 px of switches); collapse unreachable channels.
 - [ ] Backend ask: a server-side identity filter on `GET /users` (invited / self sign-up / method); the Users screen filters one 500-row page on the client today.
+- [ ] Backend ask from the identity frontend: a server-side identity filter on `GET /users` (invited / self sign-up / sign-in method), so the Users screen pages on the server instead of filtering one 500-row page in the browser.
+- [ ] The sign-in door-2 motion check in the shared `e2e/motion-audit.spec.ts` (sign-in.md §10). Reduced motion is already covered by check #29.

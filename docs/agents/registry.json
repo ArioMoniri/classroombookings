@@ -1346,7 +1346,8 @@
       "goal": "RESUME after a container restart. A previous agent with your ledger id worked on this from 01:13 to ~02:10 UTC and was killed; its work was checkpointed into origin. Its 02:00 ledger line in docs/PROGRESS.md says: sign-in per sign-in.md done (/login server-rendered doors, Microsoft button, door 2 + …",
       "ledger": "RESUME identity frontend",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 02:52"
     },
     {
       "id": "a5a0854ee67355b95",

@@ -111,7 +111,7 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
               <span role="rowheader" className={cn("flex items-center gap-1.5 pr-1 type-footnote whitespace-nowrap", w === p.currentWeek && "font-semibold")}>
                 <span className="font-semibold">{t("calendar.nav.weekShort", { n: w })}</span>
                 <span className="text-label-2">{info?.start_date ? formatDate(info.start_date, locale) : ""}</span>
-                {kind !== "lecture" ? <span className="rounded-full bg-fill-2 px-1.5 text-2xs text-label-2">{t(`calendar.weekType.${kind}`)}</span> : null}
+                {kind !== "lecture" ? <span className="rounded-full bg-fill-2 px-1.5 text-2xs pointer-coarse:type-caption text-label-2">{t(`calendar.weekType.${kind}`)}</span> : null}
               </span>
             )}
             {DAYS.map((d) => {

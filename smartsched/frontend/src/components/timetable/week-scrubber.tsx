@@ -116,7 +116,7 @@ export function WeekScrubber({ weeks, week, occupancy, onWeek, onToday, todayWee
                 >
                   {!holiday ? <span className="absolute inset-x-0 bottom-0 h-full origin-bottom bg-[var(--seq-3)]" style={{ transform: `scaleY(${Math.max(0.06, Math.min(1, occ))})`, opacity: exam ? 0.5 : 0.85 }} /> : null}
                 </span>
-                {active ? <span className="absolute -top-4 text-2xs leading-3 font-semibold text-label-1 tabular-nums">{t("calendar.nav.weekShort", { n: w.index })}</span> : null}
+                {active ? <span className="absolute -top-4 text-2xs pointer-coarse:type-caption leading-3 font-semibold text-label-1 tabular-nums">{t("calendar.nav.weekShort", { n: w.index })}</span> : null}
                 {todayWeek === w.index && !active ? <span aria-hidden className="absolute -bottom-1 size-1 rounded-full bg-[var(--now)]" /> : null}
               </div>
             );

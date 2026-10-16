@@ -6,7 +6,7 @@ Rules:
 - regenerating the link invalidates the old one;
 - the organisation's KVKK switch `integrations.calendar_sync_enabled` stays off until an administrator records a dated sign-off. While it is off, every token feed answers 404 (alembic 0022, CHANGELOG 0.4.1, M-18).
 
-Testable on `b75047b`: yes. The sign-off has no admin screen yet (M-40), so S02 uses the API and reports the UI part as `BLOCKED`. Two-way Google / Microsoft sync needs OAuth client credentials, which the stack does not have: S12 is `SKIP (no OAuth client)`.
+Testable: yes. The sign-off screen (M-40) is in Ayarlar › Entegrasyonlar since 2026-10-16; S02 runs it in the UI and checks the API. Two-way Google / Microsoft sync needs OAuth client credentials, which the stack does not have: S12 is `SKIP (no OAuth client)`.
 
 ## Preconditions
 
@@ -26,9 +26,10 @@ Testable on `b75047b`: yes. The sign-off has no admin screen yet (M-40), so S02 
 - See: the sheet (`sync-sheet`) titled **"Takvime eşitle"** says **"Takvim eşitleme yönetici tarafından kapatıldı."** There is no "Özel bağlantılarımı oluştur" button (or it is disabled with that reason).
 - API: `POST /calendar/feeds/tokens` as staff → refused (403/409 with a Turkish message), or a token whose feed answers **404**. Save the exchange.
 
-**S02 · admin · KVKK sign-off for calendar sync** [UI pending, M-40]
-- Target UI: an admin screen shows the switch as off, with the sentence of what is shared (booking times, rooms, notes) and with whom (anyone holding the link; Google/Microsoft for two-way sync). Turning it on records the admin's name, the date and the legal basis.
-- If the screen is missing: `BLOCKED: KVKK sign-off screen not built (M-40)`. Then:
+**S02 · admin · KVKK sign-off for calendar sync** (M-40)
+- Do: `/settings?tab=integrations`, card **"Takvim eşitleme (KVKK)"** (`calendar-sync-admin`): the switch (`calendar-sync-switch`) is off. Turn it on: the notice (`calendar-notice-text`) says what is shared (booking date, time, room, notes) and with whom (the calendars users connect, Google / Microsoft 365, servers abroad, and the subscription feeds). Tick the acknowledgement (`calendar-ack`) and confirm (`calendar-confirm`).
+- See: the record (`calendar-signoff`) with the admin's name, the date and **"Hukuki dayanak: KVKK md. 9 (7499 sayılı Kanun ile değişik; yurt dışına aktarım)"**.
+- API equivalent (only when the UI step fails):
   ```bash
   curl -fsS -X PUT "$API/calendar/admin/settings" "${H[@]}" -d '{"calendar_sync_enabled":true}' | jq '{calendar_sync_enabled, calendar_sync_signoff}'
   ```

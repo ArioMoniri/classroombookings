@@ -99,7 +99,7 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
             const exam = model.index.weeks.find((w) => w.index === wk)?.kind === "EXAM";
             return (
               <tr key={r[0]} className={cn(selected && "bg-tint-soft")}>
-                <td className="text-2xs text-label-3">{wk ?? ""}{exam ? <span className="block text-2xs leading-none">S</span> : null}</td>
+                <td className="text-2xs pointer-coarse:type-caption text-label-3">{wk ?? ""}{exam ? <span className="block text-2xs pointer-coarse:type-caption leading-none">S</span> : null}</td>
                 {r.map((iso) => {
                   const pos = weekDayOf(model.index.weeks, iso);
                   const inTerm = !!pos && model.weeks.includes(pos.week);

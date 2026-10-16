@@ -97,7 +97,7 @@ export function RoomCard({ room, grid, week, now, href }: { room: Room; grid: Ro
                 <span className="flex h-6 w-full items-end overflow-hidden rounded-[3px] bg-fill-3">
                   <span className="w-full rounded-[3px] bg-label-2" style={{ height: `${Math.max(s > 0 ? 8 : 0, Math.round(s * 100))}%` }} />
                 </span>
-                <span className="text-2xs leading-none text-label-3">{dayName(TEACHING_DAYS[i], locale, "short")}</span>
+                <span className="text-2xs pointer-coarse:type-caption leading-none text-label-3">{dayName(TEACHING_DAYS[i], locale, "short")}</span>
               </span>
             ))}
           </span>
