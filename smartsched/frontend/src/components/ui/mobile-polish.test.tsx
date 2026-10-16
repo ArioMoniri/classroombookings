@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FilterMenu } from "@/components/classes/filter-bar";
 import { EMPTY as EMPTY_FILTERS } from "@/components/classes/classes-model";
-import { Command, CommandDialog, CommandInput, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Command, CommandDialog, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { coarseHitArea } from "@/components/ui/hit-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -80,6 +81,28 @@ describe("Tabs triggers on touch (M-02)", () => {
       expect(coarseHitArea.split(" ").every((c) => tab.classList.contains(c))).toBe(true);
       expect(tab).toHaveClass("relative");
     }
+  });
+});
+
+describe("Checkbox and command rows on touch (M-02)", () => {
+  it("Checkbox grows its ::after 14 px on every side on coarse pointers (16 → 44) and keeps the desktop extension", () => {
+    render(<Checkbox aria-label="Türkçe" />);
+    const box = screen.getByRole("checkbox", { name: "Türkçe" });
+    expect(box).toHaveClass("relative", "after:-inset-x-3", "after:-inset-y-2", "pointer-coarse:after:-inset-3.5");
+  });
+
+  it("command items are at least 44 px tall and the input fills its 44 px row on touch", () => {
+    Element.prototype.scrollIntoView ??= () => undefined; // cmdk scrolls the selected item; jsdom has no layout
+    render(
+      <Command>
+        <CommandInput placeholder="Ara" />
+        <CommandList>
+          <CommandItem>Derslikler</CommandItem>
+        </CommandList>
+      </Command>,
+    );
+    expect(document.querySelector("[data-slot=command-item]")).toHaveClass("h-9", "pointer-coarse:min-h-11");
+    expect(screen.getByPlaceholderText("Ara")).toHaveClass("pointer-coarse:h-11");
   });
 });
 

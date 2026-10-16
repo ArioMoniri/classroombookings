@@ -559,7 +559,7 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
         </label>
         {canDesignate ? (
           <details className="group rounded-xl bg-fill-3 px-3 py-2" open={approves.length > 0 || undefined} data-testid="user-approves-for">
-            <summary className="cursor-pointer list-none type-callout font-medium text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+            <summary className="cursor-pointer list-none type-callout font-medium text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:flex-col pointer-coarse:justify-center">
               {t("wave1.scope.title")}
               <span className="block type-footnote font-normal text-label-3">{approves.length ? approves.map((x) => scopeLabel(x, lookups, t)).join(", ") : t("wave1.scope.hint")}</span>
             </summary>

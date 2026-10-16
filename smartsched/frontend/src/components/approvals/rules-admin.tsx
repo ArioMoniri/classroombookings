@@ -235,7 +235,8 @@ function RuleForm({ rule, approvers, lookups: l, onClose }: { rule: Rule | null;
         <DialogTitle>{rule ? t("wave1.rules.editTitle") : t("wave1.rules.new")}</DialogTitle>
         <DialogDescription>{t("wave1.rules.formHint")}</DialogDescription>
       </DialogHeader>
-      <div className="flex max-h-[min(70dvh,640px)] flex-col gap-3 overflow-y-auto pr-1">
+      {/* phones: the dialog is a bottom sheet that scrolls itself, so no nested scroller clipping the switches' hit areas */}
+      <div className="flex max-h-[min(70dvh,640px)] flex-col gap-3 overflow-y-auto pr-1 max-sm:max-h-none max-sm:overflow-visible">
         <Field label={t("wave1.rules.name")} htmlFor="rule-name" hint={t("wave1.rules.nameHint")}>
           <Input id="rule-name" maxLength={100} value={f.name} onChange={(e) => set("name", e.target.value)} />
         </Field>

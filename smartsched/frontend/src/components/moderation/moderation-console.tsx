@@ -303,7 +303,8 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
     const rows = filterPeople(people.data?.items ?? [], peopleChip, query);
     body = people.isError ? errorBanner(people.error, () => void people.refetch()) : !people.data ? loadingRows : (
       <>
-        <div className="flex flex-wrap items-center gap-2">
+        {/* touch: wrapped chip rows 44 px apart so their hit areas do not overlap (M-02) */}
+        <div className="flex flex-wrap items-center gap-2 pointer-coarse:gap-y-4">
           {(["all", "unmet", "streak"] as const).map((c) => (
             <Chip key={c} selected={peopleChip === c} onSelectedChange={() => setPeopleChip(c)}>
               {t(`moderation.peopleChip.${c}`)}
@@ -373,7 +374,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
     const rows = isMatch ? sortMatchings(filterMatchings(items, chip, query)) : sortRequests(filterMatchings(items, "all", query));
     body = matchings.isError ? errorBanner(matchings.error, () => void matchings.refetch()) : !matchings.data ? loadingRows : (
       <>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 pointer-coarse:gap-y-4">
           {isMatch
             ? MATCH_CHIPS.map((c) => (
                 <Chip key={c} selected={chip === c} onSelectedChange={() => setChip(c)} data-testid={`chip-${c}`}>

@@ -629,6 +629,12 @@
   @media (width >= 64rem) {
     :root { --shell-top-h: 3.25rem; --shell-bottom-h: 0px; }
   }
+  /* Touch: a <label> row that wraps a Switch or a Checkbox is the tap target (the whole row toggles) and at least
+     44 px tall, so stacked toggles never sit closer than their 44 px hit areas (MOBILE.md M-02: the later
+     neighbour won the tap). Inline labels ignore min-height; utilities still override. */
+  @media (pointer: coarse) {
+    label:has(> [data-slot="switch"], > [data-slot="checkbox"]) { min-height: 2.75rem; }
+  }
   html:has([data-app-shell]) {
     scroll-padding-top: calc(var(--shell-top-h) + 1.5rem);
     scroll-padding-bottom: calc(var(--shell-bottom-h) + 1.5rem);
