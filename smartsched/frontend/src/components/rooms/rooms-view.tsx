@@ -8,11 +8,11 @@
  * avatar circle. One toolbar row: field-styled search, building / seats / sort selects, tag chips and the
  * layout switch, all on --control-h-sm.
  */
-import { ChevronLeft, ChevronRight, LayoutGrid, Search, TableProperties, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutGrid, Search, SlidersHorizontal, TableProperties, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button, IconButton } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -21,6 +21,8 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { NativeSelect } from "@/components/ui/native-select";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { useCalendarData } from "@/components/timetable/use-calendar-data";
 import { fold } from "@/components/timetable/model/filters";
 import { useBuildings, useMe, useRooms } from "@/lib/api/hooks";
@@ -38,6 +40,8 @@ type Sort = "code" | "capacity" | "busy" | "free";
 export function RoomsView() {
   const { t } = useI18n();
   const router = useRouter();
+  const phone = useIsPhone();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const me = useMe();
   const params = useSearchParams();
   const layout = params.get("layout") === "cards" ? "cards" : "table";
@@ -176,55 +180,105 @@ export function RoomsView() {
     },
   ];
 
-  const toolbar = (
-    <div role="toolbar" aria-label={t("roomsV2.title")} className="flex w-full flex-wrap items-center gap-2 pointer-fine:[--control-h-md:var(--control-h-sm)] pointer-coarse:[--control-h-sm:var(--control-h-md)]">
-      <InputGroup className="w-auto min-w-48 flex-1 basis-56">
-        <InputGroupAddon><Search aria-hidden /></InputGroupAddon>
-        <InputGroupInput value={q} onChange={(e) => set({ q: e.target.value })} placeholder={t("roomsV2.search")} aria-label={t("roomsV2.search")} data-testid="rooms-search" />
-        {q ? (
-          <InputGroupAddon align="inline-end">
-            <IconButton label={t("roomsV2.clearFilters")} size="xs" onClick={() => set({ q: null })}><X aria-hidden /></IconButton>
-          </InputGroupAddon>
-        ) : null}
-      </InputGroup>
-      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-32" aria-label={t("common.building")} value={building} onChange={(e) => set({ building: e.target.value || null })} data-testid="rooms-building">
-        <option value="">{`${t("common.building")}: ${t("roomsV2.allBuildings")}`}</option>
-        {buildingCodes.map((b) => <option key={b} value={b}>{t("roomsV2.building", { b })}</option>)}
-      </NativeSelect>
-      <span className="flex flex-wrap items-center gap-1" role="group" aria-label={t("roomsV2.tags")}>
-        {TAGS.map((tg) => (
-          <Chip key={tg} size="sm" selected={tags.includes(tg)} onSelectedChange={(on) => set({ tags: (on ? [...tags, tg] : tags.filter((x) => x !== tg)).join(",") || null })}>
-            {tagWords({ tags: [tg] }, t)[0]}
-          </Chip>
-        ))}
-      </span>
-      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-32" aria-label={t("roomsV2.minCapacity")} value={String(minSeats)} onChange={(e) => set({ seats: e.target.value === "0" ? null : e.target.value })} data-testid="rooms-seats">
-        {SEAT_STEPS.map((s) => <option key={s} value={s}>{s === 0 ? `${t("roomsV2.minCapacity")}: ${t("roomsV2.any")}` : `${t("roomsV2.minCapacity")} ≥ ${s}`}</option>)}
-      </NativeSelect>
-      {layout === "cards" ? (
-        <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-36" aria-label={t("roomsV2.sort")} value={sort} onChange={(e) => set({ sort: e.target.value === "code" ? null : e.target.value })}>
-          <option value="code">{t("roomsV2.sortCode")}</option>
-          <option value="capacity">{t("roomsV2.sortCapacity")}</option>
-          <option value="busy" disabled={!cal.model}>{t("roomsV2.sortBusy")}</option>
-          <option value="free" disabled={!cal.model}>{t("roomsV2.sortFree")}</option>
-        </NativeSelect>
+  // phones: search + one "Filtreler · n" trigger; the building, tags, seats, sort and view sit in a bottom sheet (M-04)
+  const searchField = (
+    <>
+    <InputGroup className="w-auto min-w-48 flex-1 basis-56">
+      <InputGroupAddon><Search aria-hidden /></InputGroupAddon>
+      <InputGroupInput value={q} onChange={(e) => set({ q: e.target.value })} placeholder={t("roomsV2.search")} aria-label={t("roomsV2.search")} data-testid="rooms-search" />
+      {q ? (
+        <InputGroupAddon align="inline-end">
+          <IconButton label={t("roomsV2.clearFilters")} size="xs" onClick={() => set({ q: null })}><X aria-hidden /></IconButton>
+        </InputGroupAddon>
       ) : null}
-      <SegmentedControl
-        size="sm"
-        className="ml-auto"
-        aria-label={t("roomsV2.viewMode")}
-        value={layout}
-        onValueChange={(v) => set({ layout: v === "cards" ? "cards" : null })}
-        options={[
-          { value: "table", text: t("roomsV2.table"), label: <><TableProperties aria-hidden />{t("roomsV2.table")}</> },
-          { value: "cards", text: t("roomsV2.cards"), label: <><LayoutGrid aria-hidden />{t("roomsV2.cards")}</> },
-        ]}
-      />
+    </InputGroup>
+    </>
+  );
+  const filterFields = (
+    <>
+    <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-32" aria-label={t("common.building")} value={building} onChange={(e) => set({ building: e.target.value || null })} data-testid="rooms-building">
+      <option value="">{`${t("common.building")}: ${t("roomsV2.allBuildings")}`}</option>
+      {buildingCodes.map((b) => <option key={b} value={b}>{t("roomsV2.building", { b })}</option>)}
+    </NativeSelect>
+    <span className="flex flex-wrap items-center gap-1" role="group" aria-label={t("roomsV2.tags")}>
+      {TAGS.map((tg) => (
+        <Chip key={tg} size="sm" selected={tags.includes(tg)} onSelectedChange={(on) => set({ tags: (on ? [...tags, tg] : tags.filter((x) => x !== tg)).join(",") || null })}>
+          {tagWords({ tags: [tg] }, t)[0]}
+        </Chip>
+      ))}
+    </span>
+    <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-32" aria-label={t("roomsV2.minCapacity")} value={String(minSeats)} onChange={(e) => set({ seats: e.target.value === "0" ? null : e.target.value })} data-testid="rooms-seats">
+      {SEAT_STEPS.map((s) => <option key={s} value={s}>{s === 0 ? `${t("roomsV2.minCapacity")}: ${t("roomsV2.any")}` : `${t("roomsV2.minCapacity")} ≥ ${s}`}</option>)}
+    </NativeSelect>
+    {layout === "cards" ? (
+      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-36" aria-label={t("roomsV2.sort")} value={sort} onChange={(e) => set({ sort: e.target.value === "code" ? null : e.target.value })}>
+        <option value="code">{t("roomsV2.sortCode")}</option>
+        <option value="capacity">{t("roomsV2.sortCapacity")}</option>
+        <option value="busy" disabled={!cal.model}>{t("roomsV2.sortBusy")}</option>
+        <option value="free" disabled={!cal.model}>{t("roomsV2.sortFree")}</option>
+      </NativeSelect>
+    ) : null}
+    </>
+  );
+  const viewToggle = (
+    <>
+    <SegmentedControl
+      size="sm"
+      className="ml-auto"
+      aria-label={t("roomsV2.viewMode")}
+      value={layout}
+      onValueChange={(v) => set({ layout: v === "cards" ? "cards" : null })}
+      options={[
+        { value: "table", text: t("roomsV2.table"), label: <><TableProperties aria-hidden />{t("roomsV2.table")}</> },
+        { value: "cards", text: t("roomsV2.cards"), label: <><LayoutGrid aria-hidden />{t("roomsV2.cards")}</> },
+      ]}
+    />
+    </>
+  );
+  const filterCount = (building ? 1 : 0) + tags.length + (minSeats ? 1 : 0);
+  const toolbar = phone ? (
+    <div role="toolbar" aria-label={t("roomsV2.title")} className="flex w-full items-center gap-2 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
+      {searchField}
+      <Button variant="outline" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" className="shrink-0" data-testid="rooms-filters-open">
+        <SlidersHorizontal aria-hidden />
+        {filterCount ? t("reserve.filters.openCount", { n: filterCount }) : t("reserve.filters.open")}
+      </Button>
     </div>
+  ) : (
+    <div role="toolbar" aria-label={t("roomsV2.title")} className="flex w-full flex-wrap items-center gap-2 pointer-fine:[--control-h-md:var(--control-h-sm)] pointer-coarse:[--control-h-sm:var(--control-h-md)]">
+      {searchField}
+      {filterFields}
+      {viewToggle}
+    </div>
+  );
+  const filtersSheet = (
+    <Sheet open={phone && filtersOpen} onOpenChange={setFiltersOpen}>
+      <SheetContent side="bottom" className="gap-0 data-[side=bottom]:max-h-[92dvh]" data-testid="rooms-filters-sheet">
+        <SheetHeader className="px-5 pt-5">
+          <SheetTitle className="type-title-3">{t("reserve.filters.open")}</SheetTitle>
+          <SheetDescription className="sr-only">{t("roomsV2.title")}</SheetDescription>
+        </SheetHeader>
+        <div className="flex min-h-0 flex-1 flex-col items-stretch gap-4 overflow-y-auto overscroll-contain px-5 pt-4 pb-5 pointer-coarse:[--control-h-sm:var(--control-h-md)] *:data-[slot=native-select]:w-full">
+          {filterFields}
+          {viewToggle}
+        </div>
+        <div className="flex items-center gap-2 border-t border-hairline px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {filterCount ? (
+            <Button variant="ghost" onClick={() => set({ building: null, tags: null, seats: null })} data-testid="rooms-filters-reset">
+              {t("reserve.filters.reset")}
+            </Button>
+          ) : null}
+          <Button className="ml-auto min-w-32" onClick={() => setFiltersOpen(false)} data-testid="rooms-filters-apply">
+            {t("reserve.filters.apply")}
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 
   return (
     <div className="flex flex-col gap-4" data-testid="rooms">
+      {filtersSheet}
       <PageHeader
         className="mb-0 lg:mb-0"
         title={t("roomsV2.title")}

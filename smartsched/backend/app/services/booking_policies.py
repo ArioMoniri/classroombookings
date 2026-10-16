@@ -103,6 +103,7 @@ class Violation:
 # Input normalisation (Turkish times: "12.40", NBSP, "08:30")
 # --------------------------------------------------------------------------------------------------
 
+
 def parse_clock(value: Any) -> time:
     """``08:30``, ``12.40``, ``9.00`` (NBSP tolerated) -> a time; 422 otherwise."""
     t = n.parse_time(n.clean_text(str(value)) if value is not None else None)
@@ -155,7 +156,9 @@ async def validate(session: AsyncSession, data: dict[str, Any]) -> dict[str, Any
     elif scope == "tag":
         tag = n.tr_upper(n.clean_text(data.get("tag")) or "") if data.get("tag") else ""
         if not tag:
-            raise PolicyError("tag", "a room-type rule needs a tag (e.g. TIP, PC)", "oda türü kuralı için etiket gerekli")
+            raise PolicyError(
+                "tag", "a room-type rule needs a tag (e.g. TIP, PC)", "oda türü kuralı için etiket gerekli"
+            )
         out["tag"] = tag[:32]
     if data.get("term_id") is not None:
         from app.models import Term
@@ -493,8 +496,7 @@ class PolicyIndex:
                             p.effect,
                             f"En fazla {p.max_advance_days} gün sonrası için rezervasyon yapılabilir (en geç "
                             f"{latest:%d.%m.%Y})",
-                            f"Bookings can be made at most {p.max_advance_days} day(s) ahead (until "
-                            f"{latest:%d.%m.%Y})",
+                            f"Bookings can be made at most {p.max_advance_days} day(s) ahead (until {latest:%d.%m.%Y})",
                             p.id,
                             p.name,
                             {"latest": latest.isoformat(), "days": p.max_advance_days},
@@ -571,7 +573,9 @@ async def _active_count(session: AsyncSession, user_id: int, today: date, exclud
     return int(singles or 0) + int(series or 0)
 
 
-async def _day_bookings(session: AsyncSession, room_id: int, d: date, exclude: set[int]) -> list[tuple[Booking, BookingPeriod]]:
+async def _day_bookings(
+    session: AsyncSession, room_id: int, d: date, exclude: set[int]
+) -> list[tuple[Booking, BookingPeriod]]:
     q = (
         select(Booking, BookingPeriod)
         .join(BookingPeriod, BookingPeriod.id == Booking.period_id)
@@ -687,7 +691,7 @@ def _gap(a: time, b: time) -> int:
 # --------------------------------------------------------------------------------------------------
 
 
-def _refusal(v: Violation) -> Exception:
+def refusal(v: Violation) -> Exception:
     from app.services.bookings import BookingError
 
     return BookingError(
@@ -786,11 +790,11 @@ async def enforce(
     )
     refuse = [v for v in found if v.effect == "refuse"]
     if refuse:
-        raise _refusal(refuse[0])
+        raise refusal(refuse[0])
     request = [v for v in found if v.effect == "request"]
     if request and need is None:
         if not (access.can("book_single.create", room) or access.can("book_single.request", room)):
-            raise _refusal(request[0])
+            raise refusal(request[0])
         return request_need(request[0])
     return need
 
@@ -814,10 +818,5 @@ async def effective(
         found = await violations(session, access, room, term_id, d, period, uid, index=idx)
         out["date"], out["period_id"] = d.isoformat(), period.id
         out["violations"] = [v.as_dict() for v in found]
-        out["verdict"] = (
-            "refuse"
-            if any(v.effect == "refuse" for v in found)
-            else ("request" if found else "book")
-        )
+        out["verdict"] = "refuse" if any(v.effect == "refuse" for v in found) else ("request" if found else "book")
     return out
-

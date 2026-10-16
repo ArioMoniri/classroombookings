@@ -1077,8 +1077,12 @@ async def create_recurring(
             continue
         if item.get("policy") and action == "do_not_book" and (body.instances or {}).get(d) is None:
             skipped.append(
-                {"date": item["date"], "reason": f"policy_{item['policy']['rule']}", "status": "policy",
-                 "policy": item["policy"]}
+                {
+                    "date": item["date"],
+                    "reason": f"policy_{item['policy']['rule']}",
+                    "status": "policy",
+                    "policy": item["policy"],
+                }
             )
             continue
         if action == "do_not_book":
@@ -1638,7 +1642,7 @@ async def create_from_selection(
             refused = [
                 v
                 for v in await booking_policies.violations(
-                    session, access, room, mb.term_id, s.date, period, access.user_id, pending_new=len(problems) * 0
+                    session, access, room, mb.term_id, s.date, period, access.user_id
                 )
                 if v.effect == "refuse"
             ]
