@@ -1371,6 +1371,166 @@ async def list_overrides(session: AsyncSession, term_id: int, subject_type: str 
     return [{**_override_out(r), "name": names.get((r.subject_type, r.subject_id))} for r in rows]
 
 
+# ------------------------------------------------------------------------------------------- staged changes (P19-M-07)
+
+#: audit actions that change what the next solve sees, by kind (moderation spec §5.1 "N değişiklik yayında değil")
+SOLVING_ACTIONS: dict[str, str] = {
+    "meeting_request.priority": "priority",
+    "section.priority": "priority",
+    "person.priority": "priority",
+    "program.priority": "priority",
+    "moderation.pin": "pin",
+    "moderation.prefer": "prefer",
+    "moderation.unlock": "unlock",
+    "meeting_request.update": "request",
+    "meeting.create": "request",
+    "meeting.archive": "request",
+    "meeting.delete": "request",
+    "section.create": "request",
+    "section.update": "request",
+    "section.archive": "request",
+    "section.delete": "request",
+    "section.pattern": "request",
+    "constraint.create": "preference",
+    "constraint.update": "preference",
+    "constraint.delete": "preference",
+    "constraint.waive": "preference",
+}
+CHANGE_KINDS = ("priority", "pin", "prefer", "unlock", "request", "preference")
+
+
+async def published_since(session: AsyncSession, run: ScheduleRun | None) -> datetime | None:
+    """When ``run`` became the published timetable: its latest ``run.activate`` audit event, else its finish."""
+    if run is None:
+        return None
+    ts = (
+        await session.execute(
+            select(AuditEvent.ts)
+            .where(AuditEvent.action == "run.activate", AuditEvent.entity_id == str(run.id))
+            .order_by(AuditEvent.id.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return ts or run.finished_at or run.created_at
+
+
+def _int_or_none(v: Any) -> int | None:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+async def changes_since_publish(
+    session: AsyncSession, term: Term, *, kinds: Iterable[str] | None = None, limit: int = 500
+) -> dict[str, Any]:
+    """Draft edits not yet in the published plan (P19-M-07), from the audit log: priority changes (request,
+    section, person, programme), pins / prefers / unlocks on draft child runs, request edits (meetings, sections,
+    patterns) and rule changes of the term, recorded after the published run was activated. Every item names
+    the requests it touches, and ``changed_request_ids`` seeds the next re-solve, so the staged-changes popover
+    and the recreate sheet no longer keep them per browser. Without a published run everything since the term's
+    first edit is listed (``since`` null)."""
+    run = await published_run(session, term.id)
+    since = await published_since(session, run)
+    wanted = {k for k in (kinds or CHANGE_KINDS) if k in CHANGE_KINDS}
+    actions = [a for a, k in SOLVING_ACTIONS.items() if k in wanted]
+    q = select(AuditEvent).where(
+        AuditEvent.term_id == term.id, AuditEvent.action.in_(actions), AuditEvent.parent_id.is_(None)
+    )
+    if since is not None:
+        q = q.where(AuditEvent.ts >= since)
+    if run is not None:  # the activation itself is the cut: anything audited before its row is published
+        act_id = (
+            await session.execute(
+                select(AuditEvent.id)
+                .where(AuditEvent.action == "run.activate", AuditEvent.entity_id == str(run.id))
+                .order_by(AuditEvent.id.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if act_id is not None:
+            q = q.where(AuditEvent.id > act_id)
+    rows = list((await session.execute(q.order_by(AuditEvent.id))).scalars())
+    pattern_ids = [r.id for r in rows if r.action == "section.pattern"]
+    children: dict[int, list[int]] = defaultdict(list)
+    if pattern_ids:
+        for pid, eid in (
+            await session.execute(
+                select(AuditEvent.parent_id, AuditEvent.entity_id).where(AuditEvent.parent_id.in_(pattern_ids))
+            )
+        ).all():
+            if (v := _int_or_none(eid)) is not None:
+                children[int(pid)].append(v)
+    section_ids = {v for r in rows if r.entity_type == "section" and (v := _int_or_none(r.entity_id)) is not None}
+    by_section: dict[int, list[int]] = defaultdict(list)
+    if section_ids:
+        for mid, sid in (
+            await session.execute(
+                select(MeetingRequest.id, MeetingRequest.section_id).where(
+                    MeetingRequest.section_id.in_(sorted(section_ids))
+                )
+            )
+        ).all():
+            by_section[int(sid)].append(int(mid))
+    subject_cache: dict[tuple[str, int], list[int]] = {}
+    items: list[dict[str, Any]] = []
+    for r in rows:
+        kind = SOLVING_ACTIONS[r.action]
+        eid = _int_or_none(r.entity_id)
+        after = r.after if isinstance(r.after, dict) else {}
+        before = r.before if isinstance(r.before, dict) else {}
+        rids: list[int] = []
+        if r.entity_type in ("meeting_request", "meeting") and eid is not None:
+            rids = [eid]
+        elif r.entity_type == "section" and eid is not None:
+            rids = sorted(
+                {*by_section.get(eid, []), *children.get(r.id, []), *_ints(after.get("archived_meeting_ids"))}
+            )
+        elif r.action in ("person.priority", "program.priority") and eid is not None:
+            key = ("person" if r.action == "person.priority" else "program", eid)
+            if key not in subject_cache:
+                subject_cache[key] = await subject_request_ids(session, key[0], eid, term.id)
+            rids = subject_cache[key]
+        elif r.entity_type == "constraint":
+            params = (after.get("params") or before.get("params") or {}) if isinstance(after, dict) else {}
+            rids = _ints(params.get("event_ids")) if isinstance(params, dict) else []
+        items.append(
+            {
+                "audit_id": r.id,
+                "ts": r.ts.isoformat() if r.ts else None,
+                "action": r.action,
+                "kind": kind,
+                "entity_type": r.entity_type,
+                "entity_id": eid if eid is not None else r.entity_id,
+                "run_id": _int_or_none(after.get("run_id")),
+                "request_ids": rids,
+                "actor_id": r.actor_id,
+                "actor": r.actor_label,
+                "reason": r.reason,
+                "before": before or None,
+                "after": after or None,
+            }
+        )
+    every = sorted({i for it in items for i in it["request_ids"]})
+    labels: dict[int, str] = {}
+    if every:
+        for mr in (await session.execute(_meeting_query().where(MeetingRequest.id.in_(every[:5000])))).scalars():
+            labels[mr.id] = label_of(mr)
+    for it in items:
+        it["labels"] = [labels[i] for i in it["request_ids"][:20] if i in labels]
+    counts = {k: sum(1 for it in items if it["kind"] == k) for k in CHANGE_KINDS}
+    total = len(items)
+    return {
+        "term_id": term.id,
+        "published_run_id": run.id if run else None,
+        "since": since.isoformat() if since else None,
+        "total": total,
+        "counts": counts,
+        "changed_request_ids": [i for i in every if i in labels],
+        "items": items[-limit:][::-1],  # newest first
+    }
+
+
 # ------------------------------------------------------------------------------------------- re-solve (M3)
 
 

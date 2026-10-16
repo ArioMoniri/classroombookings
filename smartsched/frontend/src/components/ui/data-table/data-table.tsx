@@ -118,7 +118,7 @@ export function DataTable<Row>({
     return cn(
       "flex min-w-0 items-center px-(--cell-px)",
       c.align === "end" && "justify-end text-right tnum",
-      c.pin === "left" && "sticky z-[2] bg-(--row-bg)",
+      c.pin === "left" && "sticky z-[2] bg-inherit",
       layout.lastPinned === id && "[[data-scrolled=true]_&]:shadow-[inset_-1px_0_0_0_var(--hairline)]",
     )
   }
@@ -174,7 +174,7 @@ export function DataTable<Row>({
         {...extra}
         style={{ ...style, ...(extra.style ?? {}) }}
         className={cn(
-          "group/row grid h-(--row-h) w-max min-w-full grid-cols-(--cols) edge-hairline-b type-callout text-label-1 [--row-bg:var(--mat-regular-solid)] hover:[--row-bg:color-mix(in_srgb,var(--mat-regular-solid),var(--label-1)_4%)] hover:bg-(--row-bg)",
+          "group/row grid h-(--row-h) w-max min-w-full grid-cols-(--cols) edge-hairline-b type-callout text-label-1 bg-(--mat-regular-solid) hover:bg-[color-mix(in_srgb,var(--mat-regular-solid),var(--label-1)_4%)]",
           onRowActivate && "cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
           extra.className,
         )}

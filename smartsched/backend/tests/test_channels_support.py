@@ -121,6 +121,9 @@ def net(monkeypatch) -> Iterator[FakeNet]:  # type: ignore[no-untyped-def]
     monkeypatch.setattr(transport, "http_client", client)
     monkeypatch.setattr(transport, "bridge_client", client)
     monkeypatch.setenv("WHATSAPP_BRIDGE_URL", "http://wa-bridge:8080")
+    from app.services.channels import outbox
+
+    monkeypatch.setattr(outbox, "_schedule", lambda delay=0.0: None)  # tests drain explicitly (no background race)
     from app.services import channels
 
     channels.register()  # the start-up hook (explicit; nothing registers on import)

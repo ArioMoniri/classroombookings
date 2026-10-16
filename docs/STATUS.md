@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `e3335e0` (committed 2026-10-15 23:08 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `adfba69` (committed 2026-10-15 23:11 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -221,7 +221,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **137 ticked · 247 open** checkboxes in 49 sections (46 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **142 ticked · 245 open** checkboxes in 49 sections (46 with open items).
 
 <details><summary>Per section</summary>
 
@@ -267,13 +267,13 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Moderation backend finished (M1–M3, 0024_moderation_indexes; ledger 00eebaf) | 0 | 5 |
 | Backend agent finished (parity PASS 179 / GAP 13 / FAIL 0; full suite green on re-run… | 0 | 7 |
 | Intake agent finished (I1–I5, council gaps, intake memory, commit lock, A2–A4; head… | 0 | 4 |
-| Approval-first bookings + user channels + credential-free login (owner request… | 6 | 4 |
+| Approval-first bookings + user channels + credential-free login (owner request… | 10 | 3 |
 | Standing flow loop: test → suggest → build → re-test (owner request 2026-10-15 22:20) | 0 | 2 |
 | Devops agent finished: first full gate table (5d0e6c2) + seed profiles + per-branch pods | 0 | 1 |
 | Owner decisions 2026-10-15 ~22:45: channels + login (from… | 0 | 1 |
 | Owner decisions 2026-10-15 ~22:50: identity and sign-up | 0 | 1 |
 | Docs update automatically (owner request 2026-10-15 ~22:55) | 1 | 1 |
-| Approval-first backend finished (0025_approval_first) | 0 | 2 |
+| Approval-first backend finished (0025_approval_first) | 1 | 1 |
 | Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend) | 0 | 3 |
 | Flow scripts finished (2026-10-15): gaps to close before round 1 | 0 | 11 |
 

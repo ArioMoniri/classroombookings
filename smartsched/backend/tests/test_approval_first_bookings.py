@@ -381,6 +381,10 @@ def test_channel_registry_is_the_extension_point():
         "approval.rejected",
         "approval.withdrawn",
         "approval.expired",
+        # the CRBS booking e-mails, through the dispatcher since the follow-ups (tests/test_approval_first_followups.py)
+        "booking.created",
+        "booking.cancelled",
+        "room_owner.booking",
     }
 
     class Probe(nd.ChannelAdapter):

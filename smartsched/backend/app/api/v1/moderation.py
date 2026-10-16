@@ -226,6 +226,23 @@ async def list_subject_priorities(
     return {"term_id": term_id, "items": await mod.list_overrides(db, term_id, subject)}
 
 
+@router.get("/terms/{term_id}/changes-since-publish")
+async def changes_since_publish(
+    term_id: int,
+    db: DB,
+    _: Viewer,
+    kinds: str | None = Query(
+        default=None, description="comma separated: priority,pin,prefer,unlock,request,preference"
+    ),
+    limit: int = Query(default=500, ge=1, le=5000),
+) -> dict[str, Any]:
+    """P19-M-07: edits since the published run was activated that change the next solve, newest first, with the
+    requests each touches and ``changed_request_ids`` for ``POST /terms/{id}/moderation/resolve``."""
+    term = await _term(db, term_id)
+    wanted = [k.strip() for k in kinds.split(",") if k.strip()] if kinds else None
+    return await mod.changes_since_publish(db, term, kinds=wanted, limit=limit)
+
+
 @router.get("/moderation/me")
 async def moderation_me(db: DB, user: CurrentUser) -> dict[str, Any]:
     """Who the caller is for moderation (any signed-in user): the instructor record linked to the account

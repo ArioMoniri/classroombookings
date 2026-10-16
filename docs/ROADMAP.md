@@ -812,8 +812,11 @@ Request: every request for an empty slot goes to an admin first; the admin appro
   - [x] reject requires a reason (codes room_unavailable / capacity / policy / other + text; "other" needs the text; 422 TR/EN; per period in group decisions); requests show `reason`, `reason_code`, `decided_by`
   - [x] `services/notify_dispatch.py`: in_app + e-mail channels, per-user preferences (`GET/PUT /me/notification-preferences`), ledger `notification_deliveries` (once per occurrence, recipient, channel), `inapp_notifications.data` payload; withdrawn now notified too
   - [x] the adapter interface for the external provider (`ChannelAdapter` + `register_channel`, documented in the module; no adapter ships)
-  - [ ] institution profile = all: deploy/seed sets no org settings today; devops: a seed step (or the owner once) runs `PUT /api/v1/org/settings {"approval_mode": "all"}` (SQL: `insert into settings (key, value, is_secret) values ('bookings.approval_mode', 'all', false)`)
-  - [ ] follow-ups: one approver notification per multi-period submission (today one per period, the requester already gets one per group decision); the legacy booking_created / booking_cancelled e-mails through the dispatcher; TR/EN label of `bookings.skip_approval` in the roles screen (frontend)
+  - [x] institution profile = all (2026-10-15 follow-ups): `python -m app.cli set-setting <key> <value>` writes through the `PUT /org/settings` body model and handler (whitelisted keys, refused values exit 2, values never echoed on refusal); deploy/seed step `approval-mode` (`set-setting bookings.approval_mode all`, institution profile only, first step, recorded in the marker so an admin's later change is not overridden); the empty profile keeps `rules` (pod-ci tests/test_seed_profile.py)
+  - [x] one approver notification per submission: approver notices are queued and sent at commit, one per approver, `group_id` (multi-booking) and step, listing every period (`data.request_ids`); a group decision that advances the periods to the next step sends one message to the next step's approvers too
+  - [x] withdraw notifies the approvers (`approval.withdrawn`, their own preferences; approver text "… onayınızı bekleyen talebini geri çekti")
+  - [x] the legacy booking_created / booking_cancelled / room_owner_booking e-mails go through notify_dispatch (events `booking.created`, `booking.cancelled`, `room_owner.booking` in the preferences; same templates and outbox kinds; an in-app copy; ledger keys)
+  - [ ] TR/EN label of `bookings.skip_approval` in the roles screen (frontend)
 - [ ] Research (running): an open-source self-hosted Pipedream / Pipedream Connect equivalent for (A) per-user notification channels without SmartSched holding tokens, and (B) SSO login (Google Workspace / Microsoft 365 / IdP) without SmartSched holding passwords. Licence, RAM footprint on the pod, recommendation → docs/product/2026-10-15-integrations-options.md, then an owner decision.
 - [ ] Frontend after the backend lands (shell agent):
   - the approval-mode setting
@@ -906,7 +909,7 @@ API delivered:
 Orchestrator decisions (owner may override):
 - A room's own approval rule (e.g. TIP) still applies to admins unless the rule allows self-approval; admins skip only the "all" mode.
 - The planner role is not exempt in "all" mode. Admins can grant bookings.skip_approval to the planner role in Roles if the planning office should book directly.
-- [ ] Follow-ups (dedicated agent running): seed approval_mode=all for the institution profile (CLI set-setting + seed step), one approver message per submission, withdraw notifies approvers, old booking e-mails via the dispatcher, audit gaps in learning/moderation/council.
+- [x] Follow-ups (2026-10-15, tests/test_approval_first_followups.py): seed approval_mode=all for the institution profile (CLI set-setting + seed step), one approver message per submission, withdraw notifies approvers, old booking e-mails via the dispatcher, audit decisions for the 13 learning/moderation/council write routes (new rows: `learning.refresh`, `learning.purge_run`; the others were already audited in their services).
 - [ ] Approval UI: a dedicated frontend agent after the shell sweep (setting, reject dialog with reason codes, reasons for the requester, Profile › Bildirimler, TR/EN labels for the new permission).
 
 ### Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend)

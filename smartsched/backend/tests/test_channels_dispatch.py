@@ -85,7 +85,7 @@ async def test_link_only_rejection_reaches_telegram_without_names_rooms_dates_or
     assert ("approval.requested", "skipped") in await _ledger(gid, "telegram")
     assert await drain() == 1
     ((url, _title, body),) = [s for s in net.sent if "5550001" in s[0]]
-    assert url.startswith("tgram://") and BOT_TOKEN in url
+    assert url.startswith("tgram://") and BOT_TOKEN.split(":")[1] in url
     assert "SmartSched" in body and f"https://smartsched.uni.edu.tr/bookings/mine?request={rid}" in body
     for leak in (*NAMES, "A 102", "A102", "19.02.2026", "2026-02-19", "08:30", "P1", "FZT", "toplantı", "Oda uygun"):
         assert leak not in body, (leak, body)

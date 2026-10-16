@@ -2,7 +2,7 @@
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `e3335e0` (committed 2026-10-15 23:08 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `adfba69` (committed 2026-10-15 23:11 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -239,3 +239,4 @@ Generated blocks last synced on top of commit `e3335e0` (committed 2026-10-15 23
 | 2026-10-15 22:59 | backend-engineer (p19-backend-gaps-2026-10-15) | P19 gaps | START: re-solve diff baseline (published root, compare_to), person priority (request > section > person > program) + bridge, changes-since-publish, suggestions restore/accept scope, teacher current term + /moderation/me, program drafts (table, validate, transactional commit, 30-day undo), wizard reads (instructor load, section search), activate notify_people digest; scope services/{moderation,catalog_admin,patterns,learning,program_drafts}.py, api/v1/{moderation,catalog_admin,runs,learning,program_drafts}.py, schemas, tests/test_p19_*, one migration | read specs + moderation/catalog_admin code |
 | 2026-10-15 23:05 | general-purpose (docs-autosync-2026-10-15) | docs | DONE: scripts/docs/sync_docs.py rewrites only `<!-- AUTO:<name> -->` blocks (status, roadmap, decisions, parity, migrations, gates, agents, languages, formats, last-updated) from docs/features.yml, ROADMAP, the parity report, Alembic, podci/gates.py + docs/testing/gate-results.json, the registry, i18n and the council registry; --check / --list / --diff / --record-podci; 24 tests; pod CI validate gate runs --check + tests; blocks in STATUS (new), ARCHITECTURE, CRBS_PARITY, PROGRESS | README agent inserts its markers; every agent runs the sync before committing a source change |
 | 2026-10-15 23:04 | backend-engineer (sso-entra-2026-10-15) | sso | milestone: models/sso.py (sso_providers, user_identities, sso_invites, sso_role_mappings, sso_auth_states), services/sso.py (Authlib PKCE+state+nonce, joserfc id_token via cached JWKS, oid+tid identity, invites/bind by verified UPN, optional mapping, break-glass), api/v1/sso.py, schemas/sso.py; fake Entra in tests; tests/test_sso_{fake_idp,login,admin}.py 33 passed; ruff + mypy clean on my files | deps pin, migration 0026, docs/deploy/sso-entra.md, commit |
+| 2026-10-15 23:10 | backend-engineer (approval-notify-followups-2026-10-15) | approvals | milestone: set-setting CLI + seed step approval-mode (pod-ci 26 passed), approver notices queued to commit (one per group_id/step), approval.withdrawn to approvers, booking.created/cancelled/room_owner.booking via notify_dispatch, learning.refresh/purge_run audit + 13 DECISIONS; tests/test_approval_first_followups.py green | full check suite, sync_docs, commit |

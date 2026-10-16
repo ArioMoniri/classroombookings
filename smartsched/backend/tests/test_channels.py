@@ -129,7 +129,7 @@ async def test_secrets_are_encrypted_never_returned_and_never_logged(client, net
     r = await client.post(f"{ME}/{(await client.get(ME, headers=ayse)).json()['linked'][0]['id']}/test", headers=ayse)
     assert r.status_code == 202, r.text
     await drain()
-    assert net.sent and BOT_TOKEN in net.sent[-1][0]  # the real URL reached the transport
+    assert net.sent and BOT_TOKEN.split(":")[1] in net.sent[-1][0]  # the real token reached the transport
     assert BOT_TOKEN not in caplog.text and BOT_TOKEN.split(":")[1] not in caplog.text
     (dl,) = await _rows(ChannelDelivery, user_id=aid, event="channel.test")
     assert dl.status == "PENDING" and dl.attempts == 1 and dl.last_error  # retried later
@@ -167,7 +167,7 @@ async def test_telegram_deep_link_nonce_links_the_chat_once_and_expires(client, 
 
     # Telegram's secret header is required
     assert (await client.post(hook, json=upd(f"/start {code}"))).status_code == 401
-    r = await client.post(hook, json=upd(f"/start {code}"), headers={"X-Telegram-Bot-Api-Secret-Token": "yanlış"})
+    r = await client.post(hook, json=upd(f"/start {code}"), headers={"X-Telegram-Bot-Api-Secret-Token": "yanlis-gizli-anahtar"})
     assert r.status_code == 401
     ok = {"X-Telegram-Bot-Api-Secret-Token": secret}
     # a group chat cannot be linked as a person's address

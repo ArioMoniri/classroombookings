@@ -943,7 +943,8 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
           // "+3 çakışma": says what the stack is (the bare red "+3" box meant nothing, review §3 Timetable)
           const label = locale === "tr" ? `+${st.aids.length} çakışma` : `+${st.aids.length} ${st.aids.length === 1 ? "conflict" : "conflicts"}`;
           const style = st.corner
-            ? { left: full.left + full.width - Math.min(full.width - 8, 88) - 2, top: full.top + 2, width: Math.min(full.width - 8, 88), height: 20, zIndex: 4 }
+            ? // bottom-right corner: the top line holds the course code, which must stay readable
+              { left: full.left + full.width - Math.min(full.width - 8, 88) - 2, top: full.top + Math.max(2, full.height - 22), width: Math.min(full.width - 8, 88), height: 20, zIndex: 4 }
             : { left: lane.left, top: lane.top, width: lane.width, height: lane.height, zIndex: 2 };
           return (
             <Popover key={st.key}>
