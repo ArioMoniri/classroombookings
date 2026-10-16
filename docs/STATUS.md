@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `04bd8be` (committed 2026-10-16 04:34 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `2403517` (committed 2026-10-16 04:41 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -144,7 +144,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-133 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 110 · stopped 7 · superseded 7.
+134 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 111 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -155,8 +155,8 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `RESUME backend test isolation` | backend-engineer | 2026-10-16 02:16 |
 | `RESUME design migration + mobile` | frontend-engineer | 2026-10-16 02:16 |
-| `Scenario compare, heatmaps, invigilators` | solver-engineer | 2026-10-16 03:32 |
 | `Follow-ups UI` | frontend-engineer | 2026-10-16 04:14 |
+| `Planning analytics + invigilation UI` | frontend-engineer | 2026-10-16 04:42 |
 
 <!-- /AUTO:agents -->
 
@@ -223,7 +223,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **170 ticked · 290 open** checkboxes in 62 sections (59 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **170 ticked · 293 open** checkboxes in 63 sections (60 with open items).
 
 <details><summary>Per section</summary>
 
@@ -291,6 +291,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | README media finished (2026-10-16) | 1 | 4 |
 | Remaining features: builders launched (2026-10-16 03:35) | 0 | 2 |
 | Backend follow-ups finished (2026-10-16) | 0 | 7 |
+| Planning analytics backend finished (2026-10-16); analytics UI launched | 0 | 3 |
 
 </details>
 

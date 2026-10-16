@@ -1284,3 +1284,20 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
 - [ ] **Owner question (P19-T2):** a time wish is refused (`fixed_by_department`) when the department form fixes the day and time, which is nearly every Bahar row. Should such a wish be stored anyway as a non-acting note for the coordinator?
 - [ ] P19-T2: show a capacity hint for the joint size when a wish is submitted. Carrying accepted wishes into later terms is optional and waits for the owner.
 - The follow-ups UI agent is running: Tercih ekle, coordinator review, the program-wizard issue codes and the Users server-side filter. The audit-undo UI and the import warnings note went to the design-migration sweep.
+
+### Planning analytics backend finished (2026-10-16); analytics UI launched
+
+- Done:
+  - `GET /analytics/compare`: A/B runs compared on metrics, class moves, instructor load, room utilisation and rules, with CSV export.
+  - Room and instructor heatmaps, for a run or the live board.
+  - CP-SAT invigilator assignment (`app/solver/invigilation.py`, migration `0031_invigilation`). It covers the pool, plans, locks, reassign, re-run, publish, the roster CSV and diagnoses that name every missing invigilator.
+  - The real Final run: 846 sessions and 1 091 duties, hard 100.
+  - The planner comparison has not regressed: hard 100, c=0.
+- [ ] **Owner decisions to confirm:**
+  - A post is one room plus an overlapping time span.
+  - Defaults: 40 students per invigilator, at least 1 per room, at most 3 duties a day, and `own_exam=prefer`.
+  - The pool is the exam instructors plus the staff pool.
+  - With `prefer`, the own-exam bonus outweighs fairness on the Final: the busiest person gets 21 periods against a fair share of 10.3. Lower `weights.own_exam`?
+- [ ] 63 of the 314 named exam instructors don't match an Instructor row. Add them to the pool, or link them through the importer.
+- [ ] A plan interrupted by a restart reads as FAILED; add a startup sweep.
+- The analytics UI agent is running: the compare page, the heatmaps and the Gözetmen ataması screens.
