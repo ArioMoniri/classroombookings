@@ -165,7 +165,7 @@ def kick_after_commit(session: AsyncSession) -> None:
         s.info.pop(KEY, None)
         schedule_drain()
 
-    def _after_rollback(s: Any) -> None:
+    def _after_rollback(s: Any, _previous_transaction: Any = None) -> None:  # after_soft_rollback passes both
         s.info.pop(KEY, None)
 
     event.listen(sync, "after_commit", _after_commit, once=True)
