@@ -13,12 +13,12 @@
  * approval shows the rule ("Talep et" + who approves, lead time) and the submit button sends a request. The
  * backend answers 202 with `status: PENDING`; the toast says it went to the approvers.
  */
-import { CalendarCheck, DoorOpen, Loader2, Repeat, Stamp } from "lucide-react";
+import { CalendarCheck, DoorOpen, Repeat, Stamp } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useReducer, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { BusyLabel } from "@/components/ui/busy-label";
+import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Chip } from "@/components/ui/chip";
 import { useShake } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -448,8 +448,9 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
         <Button variant="ghost" onClick={onDone}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button className="pointer-coarse:h-11" onClick={submit} disabled={busy || !kinds.length || (kind === "recurring" && !isSpan && (!preview.plan || summary.willCreate === 0))} data-testid="book-submit">
-          {busy ? <Loader2 className="animate-spin" aria-hidden /> : asks ? <Stamp aria-hidden /> : null}
+        {/* T-R1-12 (R1-A-16): aria-busy at once, "Gönderiliyor…" / "Kaydediliyor…" while waiting, focus kept */}
+        <Button className="pointer-coarse:h-11" onClick={submit} {...busyProps(busy, !kinds.length || (kind === "recurring" && !isSpan && (!preview.plan || summary.willCreate === 0)))} data-testid="book-submit">
+          <BusyLabel busy={busy} label={t(asks ? "busy.sending" : "busy.saving")} icon={asks ? <Stamp aria-hidden /> : null}>
           {noTimetable && ackTimetable
             ? t("wave1.grid.bookAnyway")
             : asks
@@ -463,6 +464,7 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
               : kind === "single"
                 ? t("crbs.book.submit")
                 : t("crbs.recur.submit", { n: summary.willCreate })}
+          </BusyLabel>
         </Button>
       </SheetFooter>
     </>

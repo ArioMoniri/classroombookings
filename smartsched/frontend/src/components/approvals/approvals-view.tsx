@@ -34,6 +34,7 @@ import { useBookingFormat, useProfileLanguage } from "@/components/bookings/use-
 import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { roomDay } from "@/components/bookings/reserve-model";
 import { reasonKey } from "@/components/bookings/booking-grid";
+import { focusAfter } from "@/components/bookings/focus-after";
 import { crbs, crbsKeys, type GridQuery } from "@/lib/api/crbs";
 import { APPROVAL_KEYS, errorText, pickLang, useApprovalInbox, useApprovalRequest, wave1, wave1Error, type ApprovalRequest, type DecideIn } from "@/lib/api/wave1";
 import { usePermissions } from "@/lib/permissions";
@@ -171,11 +172,14 @@ export function ApprovalsView() {
         group={groupOf(openId)}
         onDone={(id) => {
           const next = box === "open" ? nextOpen(id) : null;
-          if (next) setOpenId(next);
-          else {
+          if (next) {
+            setOpenId(next);
+            // T-R1-12 (R1-M-22): the drawer now shows the next request; its title takes the focus (never the bell)
+            focusAfter(["[data-approval-title]"], 0);
+          } else {
             close();
-            // the decided row leaves the open list: keep focus in the list, not on <body> (motion audit T4)
-            focusAfterClose(nextRowSelector(rows, id));
+            // the decided row leaves the open list: keep focus in the list, not on <body> or the bell (motion audit T4)
+            focusAfter([nextRowSelector(entries, id), "[data-approvals-heading]"]);
           }
         }}
       />
@@ -183,15 +187,11 @@ export function ApprovalsView() {
   );
 }
 
-/** After the drawer's exit, focus the next row (or the first, or the page heading). */
-function nextRowSelector(rows: ApprovalRequest[], id: number): string {
-  const i = rows.findIndex((r) => r.id === id);
-  const next = rows[i + 1] ?? rows[i - 1];
-  return next ? `[data-testid="approval-${next.id}"]` : "[data-approvals-heading]";
-}
-
-function focusAfterClose(selector: string) {
-  window.setTimeout(() => document.querySelector<HTMLElement>(selector)?.focus(), 320);
+/** After the drawer's exit, focus the next submission's row (rows are one per submission, A-12), else the heading. */
+function nextRowSelector(entries: { requests: ApprovalRequest[] }[], id: number): string {
+  const i = entries.findIndex((e) => e.requests.some((r) => r.id === id));
+  const next = entries[i + 1] ?? entries[i - 1];
+  return next ? `[data-testid="approval-${next.requests[0]!.id}"]` : "[data-approvals-heading]";
 }
 
 /* --------------------------------------------------------------------------------------- drawer */
@@ -319,7 +319,7 @@ function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; o
     <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onKey}>
       <SheetHeader className="px-5 pt-5 pb-3">
         <div className="flex items-center gap-2">
-          <SheetTitle className="type-title-3">{r.room_name}</SheetTitle>
+          <SheetTitle className="type-title-3 outline-hidden" tabIndex={-1} data-approval-title>{r.room_name}</SheetTitle>
           <StatusPill status={r.status} />
         </div>
         <SheetDescription className="type-callout text-label-2">

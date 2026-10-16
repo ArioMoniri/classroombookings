@@ -16,7 +16,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { BusyLabel } from "@/components/ui/busy-label";
+import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { DateField } from "@/components/ui/date-field";
@@ -26,6 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, Field, Loading, PageTitle, SelectField } from "@/components/admin/kit";
 import { useHydrated } from "@/lib/use-hydrated";
 import { BookSheet, type BookTarget } from "@/components/bookings/book-sheet";
+import { focusAfter } from "@/components/bookings/focus-after";
 import { useBookingFormat, useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { crbs, crbsKeys, useBookingContext, useBookingDates, type GridQuery } from "@/lib/api/crbs";
 import { errorText, pickLang, useFacets, useRecentSearches, w1Keys, wave1, wave1Error, type Feature, type FindAlternative, type FindResponse, type FindRow } from "@/lib/api/wave1";
@@ -113,7 +114,7 @@ export function FindRoomView() {
   const lastQuery = useRef<ReturnType<typeof buildQuery> | null>(null);
   const resultsRef = useRef<HTMLElement>(null);
 
-  const run = async (next: FindForm = f, scroll = true) => {
+  const run = async (next: FindForm = f, scroll = true, focus = scroll) => {
     const built = buildQuery(next, termId, kinds);
     if ("error" in built) {
       setFormError(built.error);
@@ -128,6 +129,9 @@ export function FindRoomView() {
       setResult(res);
       void qc.invalidateQueries({ queryKey: w1Keys.recent });
       if (scroll && window.matchMedia("(max-width: 1023px)").matches) resultsRef.current?.scrollIntoView({ block: "start" });
+      // T-R1-12 (R1-A-15): the result summary takes the focus (its role=status announces the count); a quiet
+      // refresh after closing the sheet leaves the focus where the sheet put it
+      if (focus) focusAfter(['[data-testid="fr-summary"]'], 0);
     } catch (e) {
       const err = wave1Error(e);
       if (err.status === 429) setSearchError(t("wave1.find.rateLimited"));
@@ -363,7 +367,7 @@ export function FindRoomView() {
 
               {/* phones / tablets: the search stays in thumb reach above the tab bar while the form scrolls (M-05) */}
               <div className="max-lg:sticky max-lg:bottom-[calc(5rem+env(safe-area-inset-bottom))] max-lg:z-10">
-                <Button type="submit" disabled={busy || !dated} aria-busy={busy || undefined} className="w-full max-lg:shadow-elev-2" data-testid="fr-search">
+                <Button type="submit" {...busyProps(busy, !dated)} className="w-full max-lg:shadow-elev-2" data-testid="fr-search">
                   <BusyLabel busy={busy} label={t("busy.searching")} icon={<Search aria-hidden />}>
                   {busy ? t("wave1.find.searching") : t("wave1.find.search")}</BusyLabel>
                 </Button>
@@ -436,7 +440,7 @@ export function FindRoomView() {
                       onClick={() => {
                         const next = { ...f, text: "" };
                         setForm(next);
-                        void run(next, false);
+                        void run(next, false, true);
                       }}
                       data-testid="fr-clear-text"
                     >

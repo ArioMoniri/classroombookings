@@ -14,7 +14,7 @@ import { CheckCircle2, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Alert } from "@/components/ui/alert";
-import { BusyGlyph } from "@/components/ui/busy-label";
+import { BusyGlyph, busyProps } from "@/components/ui/busy-label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Chip } from "@/components/ui/chip";
@@ -47,6 +47,9 @@ function useDebounced<T>(value: T, ms: number): T {
   }, [value, ms]);
   return v;
 }
+
+/** focus a node the moment it mounts (a callback ref: no effect, no timer) */
+const focusOnMount = (el: HTMLElement | null) => el?.focus({ preventScroll: false });
 
 /** a refusal as the sheet reads it: our own sentence for a known code, plus the server's when it says more */
 function useRefusalText() {
@@ -153,7 +156,8 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
           <SheetTitle>{t("moderation.wish.sentTitle")}</SheetTitle>
           <SheetDescription>{pairText(sent.effective, lang)}</SheetDescription>
         </SheetHeader>
-        <div className="flex flex-col gap-2" role="status" data-testid="wish-sent">
+        {/* T-R1-12 (R1-A-15): the receipt takes the focus once shown (the pressed button is gone) */}
+        <div ref={focusOnMount} tabIndex={-1} className="flex flex-col gap-2 rounded-lg outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus)" role="status" data-testid="wish-sent">
           {sent.items.map((it) => (
             <p key={it.id} className="flex items-start gap-2 rounded-lg bg-fill-3 px-3 py-2 type-callout">
               <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-status-feasible-fg" aria-hidden />
@@ -446,7 +450,7 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
       {/* the actions stay in reach while the form scrolls: a fade into the sheet's material, edge to edge */}
       <SheetFooter className="sticky -bottom-5 -mx-5 -mb-5 flex-col-reverse gap-2 bg-linear-to-t from-(--mat-thick-solid) from-70% to-transparent px-5 pt-6 pb-5 sm:flex-row sm:justify-end md:-bottom-6 md:-mx-6 md:-mb-6 md:px-6 md:pb-6 max-md:[&_button]:h-11 max-md:[&_button]:w-full">
         <Button type="button" variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-        <Button type="submit" disabled={submit.isPending} aria-busy={submit.isPending || undefined} data-testid="wish-submit">
+        <Button type="submit" {...busyProps(submit.isPending)} data-testid="wish-submit">
           {submit.isPending ? t("busy.sending") : t("moderation.wish.submit")}
         </Button>
       </SheetFooter>

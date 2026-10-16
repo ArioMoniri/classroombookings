@@ -23,7 +23,8 @@ export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve,
   if (!rooms.length) return <EmptyState title={week ? t("reserve.free.emptyWeek") : t("reserve.free.empty")} size="sm" />;
   return (
     <section aria-labelledby="free-title" className="flex flex-col gap-3" data-testid="free-slots">
-      <p id="free-title" className="type-callout text-label-2" aria-live="polite">
+      {/* T-R1-12: where focus returns after a booking from this list when the slot left it */}
+      <p id="free-title" className="type-callout text-label-2 outline-hidden" aria-live="polite" tabIndex={-1} data-focus-fallback>
         {t("reserve.free.count", { n: total })} {t("reserve.free.rooms", { n: rooms.length })}
         {deptFirst ? ` · ${t("reserve.free.deptFirst")}` : ""}
         {approvalFirst ? ` · ${t("reserve.free.approvalFirst")}` : ""}
