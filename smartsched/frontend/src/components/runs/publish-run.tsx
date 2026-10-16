@@ -21,12 +21,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BusyButton } from "@/components/ui/busy-label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { weekRanges } from "@/components/timetable/model/run-label";
 import { HttpError } from "@/lib/api/client";
 import { api } from "@/lib/api/endpoints";
 import { qk } from "@/lib/api/hooks";
 import type { ScheduleRun } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
+import { weekList } from "@/lib/i18n/turkish";
 import { partialCounts } from "./runs-list";
 import { sectionOf } from "./diagnosis-format";
 import { isStaleConflict, refusalBody, serverMessage } from "@/lib/api/error-text";
@@ -146,7 +146,7 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t("runs.publish.title", { id: run.id })}</DialogTitle>
-            <DialogDescription>{weeks.length ? t("runs.publish.scopeWeeks", { weeks: weekRanges(weeks), term: run.term_code }) : t("runs.publish.scopeTerm", { term: run.term_code })}</DialogDescription>
+            <DialogDescription>{weeks.length ? t("runs.publish.scopeWeeks", { weeks: weekList(weeks, tr ? "tr" : "en"), term: run.term_code }) : t("runs.publish.scopeTerm", { term: run.term_code })}</DialogDescription>
           </DialogHeader>
           <ul className="list-disc space-y-1 pl-5 type-callout text-label-1">
             <li>{published !== null ? t("runs.publish.replaces", { id: published }) : t("runs.publish.first")}</li>
@@ -184,16 +184,16 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
               <p className="font-medium">
                 {reduction
                   ? tr
-                    ? `Bu çalıştırma daha az hafta kapsıyor: ${weekRanges(reduction.weeksLost)}. haftalar${reduction.activeId ? ` (#${reduction.activeId})` : ""} yayından kalkacak.`
-                    : `This run covers fewer weeks: weeks ${weekRanges(reduction.weeksLost)}${reduction.activeId ? ` of #${reduction.activeId}` : ""} will leave the published timetable.`
+                    ? `Bu çalıştırma daha az hafta kapsıyor: ${weekList(reduction.weeksLost, "tr")}${reduction.activeId ? ` (#${reduction.activeId})` : ""} yayından kalkacak.`
+                    : `This run covers fewer weeks: ${weekList(reduction.weeksLost, "en")}${reduction.activeId ? ` of #${reduction.activeId}` : ""} will leave the published timetable.`
                   : t("runs.publish.weeksOnly")}
               </p>
               {reduction?.message ? <p className="type-footnote text-label-1">{reduction.message}</p> : null}
               <label className="flex min-h-11 items-center gap-2 text-label-1 pointer-fine:min-h-0">
                 <Checkbox checked={scopeOk} onCheckedChange={(v) => setScopeOk(Boolean(v))} data-testid="publish-scope-ack" />
                 {tr
-                  ? `Evet, ${weeks.length ? weekRanges(weeks) + ". haftalar dışındaki haftalar" : "bu haftalar"}${published !== null ? ` #${published} programından` : ""} yayından kalksın`
-                  : `Yes, remove the ${weeks.length ? `weeks outside ${weekRanges(weeks)}` : "other weeks"}${published !== null ? ` of #${published}` : ""} from the published timetable`}
+                  ? `Evet, ${weeks.length ? weekList(weeks, "tr") + " dışındaki haftalar" : "bu haftalar"}${published !== null ? ` #${published} programından` : ""} yayından kalksın`
+                  : `Yes, remove the ${weeks.length ? `weeks outside ${weekList(weeks, "en")}` : "other weeks"}${published !== null ? ` of #${published}` : ""} from the published timetable`}
               </label>
             </div>
           ) : null}

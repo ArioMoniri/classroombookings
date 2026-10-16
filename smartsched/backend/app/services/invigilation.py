@@ -1088,14 +1088,27 @@ async def _duties(session: AsyncSession, plan_id: int) -> list[InvigilationDuty]
     )
 
 
+def num_text(value: Any) -> dict[str, str]:
+    """A count or a share as Turkish / English write it: ``12`` (never ``12.0``), ``12,5`` / ``12.5`` (T-R1-42)."""
+    try:
+        x = float(value)
+    except (TypeError, ValueError):
+        return _t(str(value), str(value))
+    if x.is_integer():
+        return _t(str(int(x)), str(int(x)))
+    en = f"{x:.1f}"
+    return _t(en.replace(".", ","), en)
+
+
 def _headline(res: inv.InvigilationResult) -> dict[str, str]:
     st = res.stats
     if res.status in ("OPTIMAL", "FEASIBLE"):
+        busiest, fair = num_text(st["max_periods"]), num_text(st["fair_share_periods"])
         return _t(
-            f"{st['posts']} salon-oturum, {st['required']} görev: tümü atandı · en yoğun kişi {st['max_periods']} "
-            f"periyot (adil pay {st['fair_share_periods']})",
-            f"{st['posts']} room sessions, {st['required']} duties: all assigned · busiest person {st['max_periods']} "
-            f"periods (fair share {st['fair_share_periods']})",
+            f"{st['posts']} salon-oturum, {st['required']} görev: tümü atandı · en yoğun kişi {busiest['tr']} "
+            f"periyot (adil pay {fair['tr']})",
+            f"{st['posts']} room sessions, {st['required']} duties: all assigned · busiest person {busiest['en']} "
+            f"periods (fair share {fair['en']})",
         )
     if res.status == "INFEASIBLE":
         errs = sum(1 for d in res.diagnoses if d.severity == "error")
