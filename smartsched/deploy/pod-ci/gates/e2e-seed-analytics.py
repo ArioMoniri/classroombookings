@@ -117,8 +117,10 @@ async def main() -> int:
         board = next((r for r in runs if (r.params or {}).get("source") == "GRID_IMPORT"), None)
         if board is None:
             raise SystemExit("2026-BAHAR has no grid-import board run")
-        for r in runs:
-            r.is_active = r.id == board.id
+        for r in runs:  # off first: one active run per (term, kind) is a unique index
+            r.is_active = False
+        await s.flush()
+        board.is_active = True
         await s.commit()
         print(f"e2e analytics seed: board run #{board.id} published", flush=True)
 
