@@ -20,6 +20,8 @@ const PATH_LABELS: ReadonlyMap<string, MessageKey> = new Map(
 const PARENT_LABELS: ReadonlyMap<string, MessageKey> = new Map([
   ["/analytics", "nav.analytics"],
   ["/exams", "nav.exams"],
+  // wave 2 (P2): the resolver lives under the bookings, without its own navigation entry
+  ["/bookings/conflicts", "resolver.title"],
 ]);
 
 /** Segments that are pages without their own navigation entry. */

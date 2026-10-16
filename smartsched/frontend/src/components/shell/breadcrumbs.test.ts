@@ -15,7 +15,11 @@ describe("breadcrumbs", () => {
     expect(labels("/admin/weeks", tr)).toEqual(["Kurulum", "Ders haftaları"]);
   });
 
-  it("tells /rooms (planning) from /admin/rooms (room setup) by the full path", () => {
+  it("names the wave-2 conflict resolver under the bookings", () => {
+    expect(labels("/bookings/conflicts/3", tr)).toEqual(["Rezervasyonlar", "Rezervasyon çakışmalarını çöz", "#3"]);
+  });
+
+    it("tells /rooms (planning) from /admin/rooms (room setup) by the full path", () => {
     expect(labels("/rooms", en)).toEqual([translate("en", "nav.rooms")]);
     expect(labels("/admin/rooms", en)).toEqual(["Setup", translate("en", "crbs.admin.rooms.title")]);
   });
