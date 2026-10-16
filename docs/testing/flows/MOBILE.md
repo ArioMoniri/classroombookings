@@ -351,6 +351,7 @@ const m14 = await page.evaluate(probeStop);
 | `/admin/audit` | admin | row "Geri al" | events → cards | F-02, F-11 |
 | `/admin/settings`, `/admin/email`, `/admin/authentication` | admin | `org-save` / the form's save | – | F-01, F-11, F-12 |
 | `/admin/holidays`, `/admin/sessions`, `/admin/weeks`, `/admin/schedules`, `/admin/departments`, `/admin/access`, `/admin/conflicts` | admin | the screen's "Yeni …" / save | lists → cards | sanity pass once per round |
+| `/exams/invigilation` | planner, admin | `getByTestId("invig-new")` ("Yeni plan"); empty plan: `invig-pool-all` ("Tüm eğitmenlerle yeniden çalıştır") | posts → cards | R1-S-14 (T-R1-42) |
 | `/setup` (fresh stack) | first admin | `setup-requirements-next` / the step's submit | – | F-12 (installer copy) |
 | 404 (`/yok-boyle-sayfa`) | all | `not-found-home` | – | F-13 |
 

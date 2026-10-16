@@ -3,6 +3,7 @@
 import { AlertTriangle, ArrowLeft, CheckCircle2, Download, XOctagon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChatPanel } from "@/components/chat/chat-panel";
@@ -19,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { optionIndex } from "@/lib/api/adapters";
 import { api } from "@/lib/api/endpoints";
-import { useApplyFix, useConstraints, useRun, useRuns } from "@/lib/api/hooks";
+import { qk, useApplyFix, useRun, useRuns } from "@/lib/api/hooks";
 import type { ScheduleRun } from "@/lib/api/schemas";
 import { useRunDataIssues, useRunSummary } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
@@ -216,7 +217,7 @@ export function RunView({ id }: { id: number }) {
   // a cancelled run has no timetable, scores or problems: the report fetches nothing heavy for it (R1-M-15 / R1-S-28)
   const reportable = finished && outcome.kind !== "cancelled";
   // the rules tab lists the run's constraints only once it is opened (lazy, R1-S-28)
-  const constraints = useConstraints(tab === "constraints" && reportable ? { run_id: id } : undefined);
+  const constraints = useQuery({ queryKey: qk.constraints({ run_id: id }), queryFn: () => api.constraints.list({ run_id: id }), enabled: tab === "constraints" && reportable });
   // every finished run: an imported board has no solver diagnoses but the data checks still find issues (M-08)
   const issues = useRunDataIssues(id, reportable);
   // the term's published run of this kind (the one a publish replaces)
