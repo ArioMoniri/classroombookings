@@ -27,6 +27,7 @@ import functools
 import io
 import logging
 import math
+import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -123,6 +124,101 @@ def _person_keys(text: str | None) -> tuple[tuple[str, str], ...]:
         if p is not None and p.canonical and p.canonical not in {k for k, _ in out}:
             out.append((p.canonical, p.full_name))
     return tuple(out)
+
+
+# ------------------------------------------------------------------------------------------- exam people -> instructors
+
+_TITLE_KEYS = frozenset(n.fold(k) for k in n._TITLE_TOKENS)
+
+
+def name_tokens(text: str | None) -> tuple[str, ...]:
+    """The comparable words of a person's name: folded (Turkish i, no diacritics), leading titles dropped (also
+    abbreviations the importer does not know, "Öğ. Üy."), punctuation and number tokens ("#157") dropped; an
+    initial stays one letter ("A. C. K." -> ``("a", "c", "k")``)."""
+    raw = n.fold(text or "").split()
+    # a leading title: a known title word, or an abbreviation of 2-5 letters written with a dot ("og.", "uy.")
+    skip = 0
+    while skip < len(raw) - 1:
+        w = raw[skip]
+        bare = w.rstrip(".")
+        if bare in _TITLE_KEYS or (w.endswith(".") and 2 <= len(bare) <= 5 and bare.isalpha()):
+            skip += 1
+            continue
+        break
+    words = [t for w in raw[skip:] for t in re.split(r"[.\-’']+", w) if t]
+    return tuple(t for t in (re.sub(r"[^a-z]", "", w) for w in words) if t)
+
+
+@dataclass
+class PeopleMatch:
+    """How the exam list's people were found among the instructors (round-1 T-R1-42)."""
+
+    #: instructor id -> the exam key it answers to (``ExamSlot.owner_keys``: the own-exam rule reads it)
+    key_of: dict[int, str]
+    exam_people: int
+    matched: int
+    by: dict[str, int]
+    unmatched: list[str]
+    ambiguous: list[str]
+
+
+def match_exam_people(owners: Mapping[str, str], instructors: Iterable[Instructor]) -> PeopleMatch:
+    """Exam-list people -> Instructor rows: the exact canonical name first (what the importer does), then the same
+    words after folding (diacritics, dotless i, a title or a stray "#id" mask suffix), then the same initials
+    ("A. C. K." for a list written in initials), then first + last name with a middle name left out. A tier only
+    counts when exactly one instructor answers; two candidates are reported as ambiguous, never guessed."""
+    ins = list(instructors)
+    exact: dict[str, list[int]] = defaultdict(list)
+    words: dict[tuple[str, ...], set[int]] = defaultdict(set)
+    initials: dict[tuple[str, ...], set[int]] = defaultdict(set)
+    toks: dict[int, tuple[str, ...]] = {}
+    for i in ins:
+        exact[i.canonical_name].append(i.id)
+        for text in (i.canonical_name, i.full_name):
+            t = name_tokens(text)
+            if not t:
+                continue
+            words[t].add(i.id)
+            initials[tuple(w[0] for w in t)].add(i.id)
+            toks.setdefault(i.id, t)
+    key_of: dict[int, str] = {}
+    by: dict[str, int] = defaultdict(int)
+    unmatched: list[str] = []
+    ambiguous: list[str] = []
+    for key, shown in sorted(owners.items()):
+        t = name_tokens(key) or name_tokens(shown)
+        tiers: list[tuple[str, set[int]]] = [("exact", set(exact.get(key, [])))]
+        if t:
+            tiers.append(("folded", words.get(t, set())))
+            if all(len(w) == 1 for w in t):
+                tiers.append(("initials", initials.get(t, set())))
+            if len(t) >= 2:
+                tiers.append(
+                    (
+                        "middle_name",
+                        {
+                            iid
+                            for iid, it in toks.items()
+                            if len(it) > len(t) and it[0] == t[0] and it[-1] == t[-1] and set(t) <= set(it)
+                        },
+                    )
+                )
+        hit: int | None = None
+        clash = False
+        for tier, ids in tiers:
+            if len(ids) == 1:
+                hit = next(iter(ids))
+                by[tier] += 1
+                break
+            if len(ids) > 1:
+                clash = True
+                break
+        if hit is None:
+            (ambiguous if clash else unmatched).append(shown)
+            continue
+        key_of.setdefault(hit, key)
+    matched = len(owners) - len(unmatched) - len(ambiguous)
+    return PeopleMatch(key_of, len(owners), matched, dict(by), unmatched, ambiguous)
 
 
 # ------------------------------------------------------------------------------------------- params
@@ -575,15 +671,49 @@ async def build_input(
     rule_rows: dict[str, InvigilatorPoolMember] = {}
     for r in sorted(pool_rows, key=lambda r: (r.term_id is not None, r.id)):
         rule_rows[f"INS:{r.instructor_id}" if r.instructor_id else f"NAME:{r.canonical_name}"] = r
-    owners = {k for s in slots for k in s.owner_keys}
+    # the people of the exams this run seats (canonical names, as ExamSlot.owner_keys carries them)
+    owners = {k: k for sl in slots for k in sl.owner_keys}
     ins_q = select(Instructor).where(Instructor.archived.is_(False)).order_by(Instructor.id)
     all_ins = list((await session.execute(ins_q)).scalars())
+    # the exam list names people as written ("Öğ. Üy. ...", initials, a middle name left out): find them among the
+    # instructors with the tiers of match_exam_people, not by the exact canonical name only (T-R1-42)
+    found = match_exam_people(owners, all_ins)
     if p["instructor_pool"] == "all":
         chosen = list(all_ins)
     elif p["instructor_pool"] == "exam_instructors":
-        chosen = [i for i in all_ins if i.canonical_name in owners]
+        chosen = [i for i in all_ins if i.id in found.key_of]
     else:
         chosen = []
+    if p["instructor_pool"] == "exam_instructors" and found.exam_people and found.matched < found.exam_people:
+        missed = found.exam_people - found.matched
+        warnings.append(
+            {
+                "code": "pool_match",
+                "severity": "info",
+                "matched": found.matched,
+                "exam_people": found.exam_people,
+                "ambiguous": len(found.ambiguous),
+                "text": _t(
+                    f"Sınav listesindeki {found.exam_people} kişiden {found.matched}'i eğitmen kaydıyla eşleşti; "
+                    f"{missed} kişi eğitmen listesinde yok"
+                    + (f" ({len(found.ambiguous)} kişi birden çok kayda uyuyor)" if found.ambiguous else "")
+                    + ": bunlar gözetmen havuzuna girmedi",
+                    f"{found.matched} of the {found.exam_people} people on the exam list matched an instructor; "
+                    f"{missed} are not on the instructor list"
+                    + (f" ({len(found.ambiguous)} fit more than one record)" if found.ambiguous else "")
+                    + " and are not in the invigilator pool",
+                ),
+                "suggestions": [
+                    {
+                        "code": "pool_add",
+                        "text": _t(
+                            "Eksik kişileri Havuz sekmesinden ekleyin ya da havuzu 'Tüm eğitmenler' yapın",
+                            "Add the missing people on the Pool tab, or set the pool to 'All instructors'",
+                        ),
+                    }
+                ],
+            }
+        )
     linked = {r.instructor_id for r in rule_rows.values() if r.instructor_id and r.active}
     chosen_ids = {i.id for i in chosen} | linked
     by_id = {i.id: i for i in all_ins}
@@ -602,7 +732,7 @@ async def build_input(
             inv.Person(
                 pid,
                 name,
-                i.canonical_name,
+                found.key_of.get(i.id, i.canonical_name),
                 "instructor",
                 tuple(sorted(busy, key=lambda b: (b.date, b.start, b.reason))),
                 rr.max_duties if rr else None,
@@ -629,14 +759,43 @@ async def build_input(
         )
         meta[pid] = {"name": r.full_name, "instructor_id": None, "staff_id": r.id, "kind": r.kind}
     if not people:
+        if p["instructor_pool"] == "none":
+            why = _t(
+                "havuz 'Eğitmen yok' seçili ve havuza kimse eklenmedi", "the pool is set to 'none' and nobody was added"
+            )
+        elif p["instructor_pool"] == "all":
+            why = _t("eğitmen kaydı yok ve havuza kimse eklenmedi", "there are no instructors and nobody was added")
+        elif not found.exam_people:
+            why = _t(
+                "sınav listesinde öğretim elemanı adı yok ve havuza kimse eklenmedi",
+                "the exam list names no instructor and nobody was added to the pool",
+            )
+        else:
+            why = _t(
+                f"sınav listesindeki {found.exam_people} kişiden hiçbiri eğitmen kaydıyla eşleşmedi ve havuza kimse "
+                "eklenmedi",
+                f"none of the {found.exam_people} people on the exam list matched an instructor and nobody was added "
+                "to the pool",
+            )
         warnings.append(
             {
                 "code": "pool_empty",
                 "severity": "error",
-                "text": _t(
-                    "Gözetmen havuzu boş: sınav hocaları eşleşmedi ve havuza kimse eklenmedi",
-                    "The invigilator pool is empty: no exam instructor matched and nobody was added to the pool",
-                ),
+                "instructor_pool": p["instructor_pool"],
+                "exam_people": found.exam_people,
+                "instructors": len(all_ins),
+                "text": _t(f"Gözetmen havuzu boş: {why['tr']}", f"The invigilator pool is empty: {why['en']}"),
+                "suggestions": [
+                    {
+                        "code": "pool_all",
+                        "text": _t(
+                            f"Havuzu 'Tüm eğitmenler' yapıp yeniden çalıştırın ({len(all_ins)} eğitmen)",
+                            f"Re-run with the pool set to 'All instructors' ({len(all_ins)} instructors)",
+                        ),
+                    }
+                ]
+                if p["instructor_pool"] != "all" and all_ins
+                else [],
             }
         )
     built = inv.InvigilationInput(

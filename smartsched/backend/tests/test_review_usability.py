@@ -183,7 +183,7 @@ async def test_u5_u6_final_term_scope_and_codes(client):
     assert d["scope"]["weeks"] == [1, 2, 3]  # was 1..14
     sm = (await client.get(f"{url}/summary", params={"kind": "EXAM"}, headers=h)).json()
     assert sm["weeks"] == [1, 2, 3] and sm["counts"]["weeks"] == 3  # was [-2, 1, ..., 14]
-    assert "-2" not in sm["human_summary"]["tr"] and "1-3. sınav haftalarında" in sm["human_summary"]["tr"]
+    assert "-2" not in sm["human_summary"]["tr"] and "1.–3. sınav haftalarında" in sm["human_summary"]["tr"]
     events, requests = sm["counts"]["events"], sm["counts"]["classes_in"]
     assert f"{events:,}".replace(",", ".") + " sınavı" in sm["human_summary"]["tr"] and events < requests
     assert any(w["code"] == "exams_outside_term" for w in sm["warnings"])  # the 13 May exams are reported

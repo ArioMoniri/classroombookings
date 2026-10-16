@@ -112,7 +112,7 @@ describe("moderation model", () => {
   });
 
   it("filters people by unmet requests and the streak badge", () => {
-    const p = (id: number, counts: Record<string, number>, badge = false): PersonRow => ({ id, name: `P${id}`, title: null, unit: null, roles: [], sections: 1, requests: 1, counts, match_rate: null, active_preferences: 0, learned_priors: null, priority_max: 0, accessibility: "no", unsatisfied_streak: badge ? 2 : 0, badge: badge ? { tr: "2 dönemdir karşılanmadı", en: "not satisfied for 2 terms" } : null, linked_user: false, pending_preferences: 0 });
+    const p = (id: number, counts: Record<string, number>, badge = false): PersonRow => ({ id, name: `P${id}`, title: null, unit: null, roles: [], sections: 1, requests: 1, counts, match_rate: null, active_preferences: 0, learned_priors: null, priority_max: 0, accessibility: "no", unsatisfied_streak: badge ? 2 : 0, badge: badge ? { tr: "2 dönemdir karşılanmadı", en: "not satisfied for 2 terms" } : null, linked_user: false, pending_preferences: 0, courses: [] });
     const rows = [p(1, { satisfied: 2 }), p(2, { unplaced: 1 }), p(3, { partial: 1 }, true)];
     expect(filterPeople(rows, "unmet", "").map((r) => r.id)).toEqual([2, 3]);
     expect(filterPeople(rows, "streak", "").map((r) => r.id)).toEqual([3]);

@@ -31,8 +31,9 @@ function useWeekdays() {
 
 function DaysPicker({ value, onChange, label }: { value: number[]; onChange: (v: number[]) => void; label: string }) {
   const days = useWeekdays();
+  // MOBILE M-02: 44 px toggles with 8 px between them on touch (36 px in 2 px gaps overlapped), wrapping on a phone
   return (
-    <div role="group" aria-label={label} className="flex gap-0.5">
+    <div role="group" aria-label={label} className="flex flex-wrap gap-0.5 pointer-coarse:gap-2">
       {days.map((d) => {
         const on = value.includes(d.day);
         return (
@@ -40,7 +41,7 @@ function DaysPicker({ value, onChange, label }: { value: number[]; onChange: (v:
             key={d.day}
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((x) => x !== d.day) : [...value, d.day].sort())}
-            className={cn("h-(--control-h-sm) min-w-9 rounded-md px-1.5 type-caption", on ? "bg-tint-soft font-semibold text-tint-text" : "bg-fill-2 text-label-3")}
+            className={cn("h-(--control-h-sm) min-w-9 rounded-md px-1.5 type-caption pointer-coarse:h-11 pointer-coarse:min-w-11", on ? "bg-tint-soft font-semibold text-tint-text" : "bg-fill-2 text-label-3")}
           >
             {d.label}
           </BareButton>

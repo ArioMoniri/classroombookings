@@ -48,6 +48,7 @@ from app.models import (
 )
 from app.services import settings_service as ss
 from app.services import solver_bridge
+from app.services.tr_grammar import week_list
 from app.solver import model as sm
 from app.workers.queue import JobState, get_queue, worker_id
 
@@ -752,6 +753,16 @@ def _en(n: int, one: str, many: str) -> str:
     return f"{_n(n, 'en')} {one if n == 1 else many}"
 
 
+def _exam_weeks_tr(weeks: list[int]) -> str:
+    """``3. sınav haftasında`` / ``1.–2. sınav haftalarında`` (round-1 R1-S-23: one week is singular)."""
+    phrase = week_list(weeks, "tr")
+    if not phrase:
+        return "sınav haftalarında"
+    if phrase.endswith(" haftalar"):
+        return f"{phrase.removesuffix(' haftalar')} sınav haftalarında"
+    return f"{phrase.removesuffix(' hafta')} sınav haftasında"
+
+
 def week_span(weeks: list[int]) -> str:
     if not weeks:
         return "-"
@@ -948,8 +959,8 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
                 "code": "holidays",
                 "count": len(hol),
                 "message": {
-                    "tr": f"{len(hol)} hafta tatil: {week_span(hol)}.",
-                    "en": f"{len(hol)} of the weeks are holidays: {week_span(hol)}.",
+                    "tr": f"{len(hol)} hafta tatil: {week_list(hol, 'tr')}.",
+                    "en": f"{len(hol)} of the weeks are holidays: {week_list(hol, 'en')}.",
                 },
             }
         )
@@ -997,14 +1008,14 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
         }
     human = {
         "tr": (
-            f"SmartSched {week_span(weeks)}. haftalar için {_n(ne, 'tr')} dersi {_n(nr, 'tr')} dersliğe "
+            f"SmartSched {week_list(weeks, 'tr') or '-'} için {_n(ne, 'tr')} dersi {_n(nr, 'tr')} dersliğe "
             f"yerleştirecek. {must} kesin kurala uyacak, {try_} tercihi mümkün olduğunca gözetecek. "
             f"{pinned_n} ders sabitlendi. {_n(out_n, 'tr')} ders plan dışında. "
             f"Tahmini süre: {est['words']['tr']}."
         ),
         "en": (
             f"SmartSched will place {_en(ne, 'class', 'classes')} into {_en(nr, 'room', 'rooms')} for "
-            f"{'week' if len(weeks) == 1 else 'weeks'} {week_span(weeks)}. It must follow {_en(must, 'rule', 'rules')} "
+            f"{week_list(weeks, 'en') or 'no weeks'}. It must follow {_en(must, 'rule', 'rules')} "
             f"and will try to follow {_en(try_, 'preference', 'preferences')}. "
             f"{_en(pinned_n, 'class is', 'classes are')} pinned. "
             f"{_n(out_n, 'en')} {'is' if out_n == 1 else 'are'} left out. "
@@ -1015,7 +1026,7 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
         nx = len(din.inp.events)
         human = {
             "tr": (
-                f"SmartSched {week_span(weeks)}. sınav haftalarında {_n(nx, 'tr')} sınavı ({_n(ne, 'tr')} talep) "
+                f"SmartSched {_exam_weeks_tr(weeks)} {_n(nx, 'tr')} sınavı ({_n(ne, 'tr')} talep) "
                 f"{_n(nr, 'tr')} salona yerleştirecek. {must} kesin kurala uyacak, {try_} tercihi mümkün olduğunca "
                 f"gözetecek. {_n(out_n, 'tr')} talep plan dışında. Tahmini süre: {est['words']['tr']}."
             ),

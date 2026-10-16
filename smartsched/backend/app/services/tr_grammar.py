@@ -67,4 +67,43 @@ def dative(text: str) -> str:
     return f"{text.rstrip()}'{suffix}"
 
 
-__all__ = ["dative"]
+def _runs(weeks: list[int]) -> list[tuple[int, int]]:
+    out: list[list[int]] = []
+    for w in sorted(set(weeks)):
+        if out and w == out[-1][1] + 1:
+            out[-1][1] = w
+        else:
+            out.append([w, w])
+    return [(a, b) for a, b in out]
+
+
+def week_list(weeks: list[int], lang: str = "tr") -> str:
+    """Weeks in one phrase, singular for one week (round-1 R1-S-23 / R1-M-14; mirrors the frontend's
+    ``lib/i18n/turkish.ts`` ``weekList``): ``3. hafta``, ``3. ve 5. haftalar``, ``1.–4. haftalar``,
+    ``1.–4. ve 6. haftalar``; English ``week 3``, ``weeks 3 and 5``, ``weeks 1–4``. Empty -> ``""``."""
+    parts = _runs(list(weeks))
+    if not parts:
+        return ""
+    tr = lang == "tr"
+    if sum(b - a + 1 for a, b in parts) == 1:
+        return f"{parts[0][0]}. hafta" if tr else f"week {parts[0][0]}"
+    flat: list[str] = []
+    for a, b in parts:
+        if a == b:
+            flat.append(f"{a}." if tr else str(a))
+        elif b == a + 1:
+            flat += [f"{a}.", f"{b}."] if tr else [str(a), str(b)]
+        else:
+            flat.append(f"{a}.–{b}." if tr else f"{a}–{b}")
+    joined = flat[0] if len(flat) == 1 else f"{', '.join(flat[:-1])} {'ve' if tr else 'and'} {flat[-1]}"
+    return f"{joined} haftalar" if tr else f"weeks {joined}"
+
+
+def pct(value: float, lang: str = "tr", digits: int | None = None) -> str:
+    """A percentage of 0..100: Turkish ``%95`` / ``%0,6``, English ``95%`` / ``0.6%``; never ``100 %``."""
+    d = digits if digits is not None else (0 if float(value).is_integer() else 1)
+    num = f"{value:.{d}f}"
+    return f"%{num.replace('.', ',')}" if lang == "tr" else f"{num}%"
+
+
+__all__ = ["dative", "pct", "week_list"]

@@ -94,6 +94,8 @@ export function GenerateStep({ draftId, termId, termCode, p, v, flush, onFix, on
   const cancel = useRef<HTMLButtonElement>(null);
   const counts = commitCounts(p);
   const ok = v.can_commit;
+  // round-1 R1-S-29: the button says what it will do ("Yalnızca oluştur" → "Oluştur", never "Oluştur ve çöz")
+  const goLabel = mode === "only" ? t("programWizard.generate.goOnly") : published ? t("programWizard.generate.goAdd") : t("programWizard.generate.go");
   const go = async () => {
     setBusy(true);
     setError(null);
@@ -155,7 +157,7 @@ export function GenerateStep({ draftId, termId, termCode, p, v, flush, onFix, on
       </fieldset>
       {!ok ? <p role="alert" className="type-footnote text-status-infeasible-fg">{t("programWizard.generate.blocked")}</p> : null}
       <div className="flex justify-end">
-        <Button className="max-md:w-full" disabled={!ok || busy} onClick={() => setConfirm(true)} data-testid="generate-open">{mode === "solve" ? t("programWizard.generate.go") : t("programWizard.generate.only")}</Button>
+        <Button className="max-md:w-full" disabled={!ok || busy} onClick={() => setConfirm(true)} data-testid="generate-open">{goLabel}</Button>
       </div>
       <ResponsiveDialog
         open={confirm}
@@ -168,7 +170,7 @@ export function GenerateStep({ draftId, termId, termCode, p, v, flush, onFix, on
         footer={
           <>
             <Button ref={cancel} variant="ghost" onClick={() => setConfirm(false)}>{t("common.cancel")}</Button>
-            <Button onClick={() => void go()} disabled={busy} aria-busy={busy || undefined} data-testid="generate-go">{busy ? t("programWizard.generate.creating") : mode === "solve" ? t("programWizard.generate.go") : t("programWizard.generate.only")}</Button>
+            <Button onClick={() => void go()} disabled={busy} aria-busy={busy || undefined} data-testid="generate-go">{busy ? t("programWizard.generate.creating") : goLabel}</Button>
           </>
         }
       >
@@ -199,7 +201,8 @@ export function CommittedView({ draftId, termId, termCode, title, status, create
   const check = useUndoCheck(isUndone ? null : draftId);
   const made = result?.created ?? created;
   const restored = restoredSummary(made);
-  const counts = made ? { courses: made.courses.length + made.reused_courses.length, sections: made.sections.length, requests: made.requests.length, people: made.people.length, rules: made.rules.length } : null;
+  // round-1 R1-S-29: courses the commit created (archived by an undo) and catalogue courses it only used (they stay)
+  const counts = made ? { courses: made.courses.length, reused: made.reused_courses.length, sections: made.sections.length, requests: made.requests.length, people: made.people.length, rules: made.rules.length } : null;
   const undo = async () => {
     setBusy(true);
     setError(null);
@@ -207,8 +210,9 @@ export function CommittedView({ draftId, termId, termCode, title, status, create
       const out = await draftsApi.undo(draftId);
       setUndone(out);
       setConfirm(false);
-      void qc.invalidateQueries({ queryKey: ["program-drafts"] });
-      void qc.invalidateQueries({ queryKey: dk.draft(draftId) });
+      // the undo check of this draft would answer 409 "already undone" now: drop it instead of refetching it
+      qc.removeQueries({ queryKey: dk.undo(draftId) });
+      void qc.invalidateQueries({ queryKey: ["program-drafts"], predicate: (q) => q.queryKey[1] !== "undo" });
       toast.success(t("programWizard.done.undoneToast", { name: title }));
     } catch (e) {
       setError(errorText(e, lang));
@@ -233,7 +237,8 @@ export function CommittedView({ draftId, termId, termCode, title, status, create
           {isUndone ? <RotateCcw className="size-5" aria-hidden /> : <CheckCircle2 className="size-5 text-status-feasible-fg" aria-hidden />}
           {isUndone ? t("programWizard.done.undoneTitle", { term: termCode }) : t("programWizard.done.title", { term: termCode })}
         </p>
-        {counts ? <p className="type-callout tabular-nums">{t("programWizard.done.counts", { courses: n(counts.courses), sections: n(counts.sections), requests: n(counts.requests), people: n(counts.people), rules: n(counts.rules) })}</p> : null}
+        {counts ? <p className="type-callout tabular-nums" data-testid="done-counts">{t("programWizard.done.counts", { courses: n(counts.courses), sections: n(counts.sections), requests: n(counts.requests), people: n(counts.people), rules: n(counts.rules) })}</p> : null}
+        {counts?.reused && !undone ? <p className="type-footnote text-label-2" data-testid="done-reused">{t("programWizard.done.countsReused", { n: n(counts.reused) })}</p> : null}
         {(result?.warnings ?? made?.warnings ?? []).length ? (
           <ul className="type-footnote text-label-2">{(result?.warnings ?? made?.warnings ?? []).map((w) => <li key={w}>ⓘ {w}</li>)}</ul>
         ) : null}
@@ -242,7 +247,12 @@ export function CommittedView({ draftId, termId, termCode, title, status, create
             {t("programWizard.done.restored", { what: [restored.program ? t("programWizard.done.restoredProgram") : null, restored.courses ? t("programWizard.done.restoredCourses", { n: n(restored.courses) }) : null, restored.people ? t("programWizard.done.restoredPeople", { n: n(restored.people) }) : null].filter(Boolean).join(", ") })}
           </p>
         ) : null}
-        {undone ? <p className="type-footnote text-label-2" data-testid="undo-result">{t("programWizard.done.archived", { sections: n(undone.archived.sections?.length ?? 0), courses: n(undone.archived.courses?.length ?? 0), people: n(undone.archived.people?.length ?? 0) })}</p> : null}
+        {undone ? (
+          <p className="type-footnote text-label-2" data-testid="undo-result">
+            {t("programWizard.done.archived", { sections: n(undone.archived.sections?.length ?? 0), courses: n(undone.archived.courses?.length ?? 0), people: n(undone.archived.people?.length ?? 0) })}
+            {counts?.reused ? ` ${t("programWizard.done.archivedKept", { n: n(counts.reused) })}` : ""}
+          </p>
+        ) : null}
       </div>
       {!isUndone ? (
         <>

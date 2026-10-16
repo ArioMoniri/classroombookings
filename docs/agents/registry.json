@@ -1800,7 +1800,8 @@
       "goal": "You are the lane A builder for flow-loop round 1 of SmartSched (repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m). Lane name: loop-r1-laneA-2026-10-16. Ports for any stack you start: 19124 (api) / 19125 (web). Read first: docs/AGENTS.md (commit rules: run `python3 -I scripts/doc…",
       "ledger": "Lane A: phone touch fixes",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 14:46"
     },
     {
       "id": "a885c5ea5091d8894",

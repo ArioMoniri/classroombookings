@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `58e1735` (committed 2026-10-16 14:43 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `95b76b8` (committed 2026-10-16 14:46 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-161 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 135 · stopped 7 · superseded 7.
+161 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 136 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -159,7 +159,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Lane C` | general-purpose | 2026-10-16 13:09 |
 | `Lane D` | general-purpose | 2026-10-16 13:09 |
 | `Lane E` | general-purpose | 2026-10-16 14:00 |
-| `Lane A` | general-purpose | 2026-10-16 14:05 |
 | `Lane H` | general-purpose | 2026-10-16 14:39 |
 
 <!-- /AUTO:agents -->
@@ -227,7 +226,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **218 ticked · 358 open** checkboxes in 80 sections (76 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **221 ticked · 355 open** checkboxes in 80 sections (76 with open items).
 
 <details><summary>Per section</summary>
 
@@ -275,7 +274,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Intake agent finished (I1–I5, council gaps, intake memory, commit lock, A2–A4; head… | 0 | 4 |
 | Approval-first bookings + user channels + credential-free login (owner request… | 10 | 3 |
 | Standing flow loop: test → suggest → build → re-test (owner request 2026-10-15 22:20) | 0 | 2 |
-| Flow loop tickets — round 1 (suggester, 2026-10-16) | 6 | 44 |
+| Flow loop tickets — round 1 (suggester, 2026-10-16) | 9 | 41 |
 | Devops agent finished: first full gate table (5d0e6c2) + seed profiles + per-branch pods | 0 | 1 |
 | Owner decisions 2026-10-15 ~22:45: channels + login (from… | 2 | 4 |
 | Owner decisions 2026-10-15 ~22:50: identity and sign-up | 0 | 1 |
