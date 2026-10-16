@@ -115,6 +115,9 @@ class FindResult(BaseModel):
     free_dates: int
     open_dates: int
     per_date: list[PerDate] | None = None
+    #: booking periods of the slot (grid order) in the room's schedule; ``period_id`` = the first, for "Neden?"
+    period_ids: list[int] = []
+    period_id: int | None = None
 
 
 class Alternative(BaseModel):
@@ -126,6 +129,8 @@ class Alternative(BaseModel):
     start_period: int
     end_period: int
     reason: Reason
+    period_ids: list[int] = []
+    period_id: int | None = None
 
 
 class FindOut(BaseModel):

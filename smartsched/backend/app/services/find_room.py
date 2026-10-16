@@ -14,7 +14,11 @@ text, it answers every room the caller may view with a status and the reasons, f
   did not ask for (do not give the PC lab to a lecture) - 0.2 when the room is in the preferred building (given,
   or the building of most of the caller's bookings in the last 90 days); ties: room order, Turkish name;
 * fewer than 3 free rooms: alternatives (same rooms ±1/±2 periods, other weekdays of that week, near misses
-  with ≤ 10 % fewer seats or one feature missing), each with a reason.
+  with ≤ 10 % fewer seats or one feature missing), each with a reason;
+* every result and alternative names the booking periods of its slot (``period_ids`` in grid order, ``period_id``
+  = the first, ``[]`` / ``None`` when the room's schedule has no bookable period inside the slot that weekday), from
+  the room's applied schedule on its first free date, so "Neden?" can ask ``GET /booking-policies/effective`` with
+  ``period_id`` for the full verdict (backend asks batch 3 item 2).
 
 Text matching is Turkish-aware (``tr_casefold``: İ/ı, NBSP); times accept dots (``10.10``)."""
 
@@ -31,12 +35,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.importers import normalize as n
-from app.models import Booking, Building, Program, User
+from app.models import Booking, BookingPeriod, Building, Program, User
 from app.models.booking import BOOKED
 from app.models.catalog import Room
 from app.services import bookings as bsvc
 from app.services import rooms_features as feat
-from app.services.bookings_calendar import CalendarError, TermInfo, date_infos, resolve_term
+from app.services.bookings_calendar import CalendarError, TermInfo, applied_schedule, date_infos, resolve_term
 from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import Access
 from app.services.calendar import date_for
@@ -296,6 +300,36 @@ async def _busy_label(session: AsyncSession, access: Access, held: bsvc.Held, ro
     return " · ".join(p for p in parts if p)
 
 
+class _SlotPeriods:
+    """Booking period ids of a slot in a room: the room's applied schedule (per room group, cached), its bookable
+    periods offered that weekday that lie inside ``start..end`` on the 18-period grid."""
+
+    def __init__(self, session: AsyncSession, info: TermInfo) -> None:
+        self.session, self.info = session, info
+        self._schedule: dict[int | None, int | None] = {}
+        self._periods: dict[int, list[BookingPeriod]] = {}
+
+    async def ids(self, room: Room, d: date, start: int, end: int) -> list[int]:
+        group = room.room_group_id
+        if group not in self._schedule:
+            sch = await applied_schedule(self.session, self.info, room)
+            self._schedule[group] = sch.id if sch is not None else None
+        sid = self._schedule[group]
+        if sid is None:
+            return []
+        if sid not in self._periods:
+            q = select(BookingPeriod).where(BookingPeriod.schedule_id == sid)
+            self._periods[sid] = sorted(
+                (await self.session.execute(q)).scalars(), key=lambda p: (p.start_period, p.end_period, p.id)
+            )
+        wd = d.isoweekday()
+        return [
+            p.id
+            for p in self._periods[sid]
+            if p.bookable and wd in (p.days or []) and start <= p.start_period and p.end_period <= end
+        ]
+
+
 async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dict[str, Any]:
     from app.services import approvals
 
@@ -541,6 +575,21 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
         alternatives = await _alternatives(session, access, q, cands, open_dates, s0, s1, dur, holders, rules, info)
     for x in results:
         x.pop("pos", None)
+    results = results[: max(1, q.limit)]
+    slot_periods = _SlotPeriods(session, info)
+    by_id = {c.room.id: c.room for c in cands}
+    for x in results:
+        free_on = [d for d in open_dates if not x.get("per_date")] or [
+            date.fromisoformat(p["date"]) for p in x["per_date"] if p["status"] == "free"
+        ]
+        d_ = (free_on or open_dates or dates)[0]
+        x["period_ids"] = await slot_periods.ids(by_id[x["room_id"]], d_, x["start_period"], x["end_period"])
+        x["period_id"] = x["period_ids"][0] if x["period_ids"] else None
+    for a in alternatives:
+        a["period_ids"] = await slot_periods.ids(
+            by_id[a["room_id"]], date.fromisoformat(a["dates"][0]), a["start_period"], a["end_period"]
+        )
+        a["period_id"] = a["period_ids"][0] if a["period_ids"] else None
     return {
         "query_echo": _echo(q),
         "term_id": info.term.id,
@@ -557,7 +606,7 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
             "text_tr": f"{free_count} boş oda · {len(open_dates)}/{len(dates)} tarih açık",
             "text_en": f"{free_count} free rooms · {len(open_dates)}/{len(dates)} dates open",
         },
-        "results": results[: max(1, q.limit)],
+        "results": results,
         "alternatives": alternatives,
         "timing_ms": round((_time.perf_counter() - t0) * 1000, 1),
     }
