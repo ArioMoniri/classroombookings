@@ -1363,6 +1363,9 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
     - 16 px input text built into NativeSelect and DateField
     - DataTable card-mode targets
     - Button `variant="bare"`
+  - **mobile polish:** done 2026-10-16 (mobile-polish; 59680ce, a307334). Phone Dialog = bottom sheet (M-04), shell scroll-padding (focus never under the bars), 44 px toggle rows, Tabs / Checkbox / command-row hit areas, /classes filter sheet on touch; 390 px probe 519 -> 323 M-02 offenders over 42 routes (bars 177 -> 2), sheets/dialogs 20 -> 1.
+    - [ ] Left: dense grids (/admin/sessions week grid 144, /rooms/1 week grid 123, /dashboard heat cells 30) need a phone layout decision; /profile pref matrix 16 and /settings password reveal (40 px) for wave-2; /analytics 2 for analytics UI; /runs/1 back link sits under the top bar at scroll 0.
+    - [ ] Testers: the M-04 snippet counts only descendant scrollers; a popup that scrolls itself (ui/dialog on phones) reads as not scrollable.
   - **e2e stabilisation:**
     - pin the language per spec
     - selectors for the intended UI changes
@@ -1417,7 +1420,7 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
 - [x] (80780f2: 0.27 s, loop stall ≤ 45 ms) Backend: `GET /invigilation/plans/{id}/candidates` takes about 58 s on the real Final plan (846 posts, 218 people). It seems to validate the whole plan once per person, and appears to block the event loop while it runs. Check only the changed post per person, or run it in a thread.
 - [x] (1fd206e) Backend: there is no way to add a duty to an under-staffed post by hand (reassign only swaps an existing duty). Add `POST …/duties {post_key, person_key}`.
 - [x] (4e13234: `progress {phase, pct}` in the brief) Backend: a running plan reports no progress, because the queue's phase and percentage are not stored on the plan. The UI shows the elapsed time against the time limit instead.
-- [ ] Shell: breadcrumb labels for the `/analytics` and `/exams` segments (they show the raw segment). The two paths redirect to their pages.
+- [x] (mobile polish, e8f1add + 59680ce: `nav.analytics` Analiz/Analytics, `nav.exams` Sınavlar/Exams; leaves from the nav) Shell: breadcrumb labels for the `/analytics` and `/exams` segments (they show the raw segment). The two paths redirect to their pages.
 - [ ] Design: add the motion rows (FadePanel: section or result settles, springs.smooth, 100 ms opacity under reduced motion) to `docs/design/v2/motion.md`.
 
 
