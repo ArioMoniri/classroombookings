@@ -886,7 +886,7 @@ Before the first `up pod=universal`: re-apply the OIDC bootstrap once with infra
 - [x] Channels backend (ledger notify-channels-apprise-2026-10-15):
   - every channel is off until configured and signed off (KVKK); link-only mode is the default
   - senders: Web Push (VAPID generated on the server), Telegram (one-time deep link, webhook or long poll), WhatsApp Cloud API, SMS (Twilio / Vonage), Teams / Slack department webhooks (vendor allowlist + M-41), optional WhatsApp Web bridge (wuzapi, explicit risk acknowledgement)
-  - phone numbers verified by a code sent through the channel; outbox `channel_deliveries` with retries; alembic 0027_notify_channels
+  - phone numbers verified by a code sent through the channel; outbox `channel_deliveries` with retries; alembic 0028_notify_channels (on 0027_p19_gaps)
   - API in app/api/v1/channels.py; what to request: docs/deploy/notification-channels.md
 - [ ] Channels hooks, owned by other agents:
   - start-up registration `channels.register()` into notify_dispatch; the approval-first tests that assert exactly `["in_app", "email"]` need updating

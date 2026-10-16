@@ -9,8 +9,8 @@
 
 No row is written: every channel stays off until an administrator configures it and the KVKK officer signs it off.
 
-Revision ID: 0027_notify_channels
-Revises: 0026_sso_entra
+Revision ID: 0028_notify_channels
+Revises: 0027_p19_gaps
 Create Date: 2026-10-16 00:30:00
 
 """
@@ -21,8 +21,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0027_notify_channels"
-down_revision = "0026_sso_entra"
+revision = "0028_notify_channels"
+down_revision = "0027_p19_gaps"
 branch_labels = None
 depends_on = None
 
