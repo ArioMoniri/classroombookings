@@ -83,7 +83,8 @@ export function NoticeEditor() {
     <div className="flex flex-col gap-4" data-testid="notice-editor">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="max-w-2xl type-callout text-label-2">{t("kvkk.notice.lead")}</p>
-        <Button size="sm" onClick={() => setEditing({ id: null, body: { language: "tr", title: "", body_md: "", version: next } })} data-testid="notice-new">
+        {/* the next version number needs the list: until it loads the button waits (it said "1" and the save got a 409) */}
+        <Button size="sm" className="pointer-coarse:min-h-11" disabled={!q.isSuccess} onClick={() => setEditing({ id: null, body: { language: "tr", title: "", body_md: "", version: next } })} data-testid="notice-new">
           <Plus aria-hidden />
           {t("kvkk.notice.newVersion", { v: next })}
         </Button>

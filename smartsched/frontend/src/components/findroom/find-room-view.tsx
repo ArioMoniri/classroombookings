@@ -91,12 +91,15 @@ export function FindRoomView() {
   const kinds = useMemo(() => Object.fromEntries((facets.data ?? []).map((f) => [String(f.id), f.kind])), [facets.data]);
 
   const [form, setForm] = useState<FindForm | null>(null);
-  // the form starts on the booking clock's "today" (the backend's, so the e2e clock and the term agree)
-  if (form === null && today) {
+  const [dated, setDated] = useState(false);
+  // the form starts on the booking clock's "today" (the backend's, so the e2e clock and the term agree) or the link's
+  // ?date= (ISO or GG.AA.YYYY); a switch flipped before the clock answered keeps its value but gets the real date
+  if (!dated && today) {
+    setDated(true);
     const init = emptyForm(params.get("date") ?? today);
     const text = params.get("text");
     const head = params.get("headcount");
-    setForm({ ...init, text: text ?? "", headcount: head ?? "" });
+    setForm((p) => (p ? { ...p, date: init.date, weekday: init.weekday, dateFrom: init.dateFrom, dateTo: init.dateTo } : { ...init, text: text ?? "", headcount: head ?? "" }));
   }
   const f = form ?? emptyForm(today || "2026-01-01");
   const set = <K extends keyof FindForm>(k: K, v: FindForm[K]) => setForm((p) => ({ ...(p ?? f), [k]: v }));
@@ -358,7 +361,7 @@ export function FindRoomView() {
 
               {/* phones / tablets: the search stays in thumb reach above the tab bar while the form scrolls (M-05) */}
               <div className="max-lg:sticky max-lg:bottom-[calc(5rem+env(safe-area-inset-bottom))] max-lg:z-10">
-                <Button type="submit" disabled={busy || !form} aria-busy={busy || undefined} className="w-full max-lg:shadow-elev-2" data-testid="fr-search">
+                <Button type="submit" disabled={busy || !dated} aria-busy={busy || undefined} className="w-full max-lg:shadow-elev-2" data-testid="fr-search">
                   <BusyLabel busy={busy} label={t("busy.searching")} icon={<Search aria-hidden />}>
                   {busy ? t("wave1.find.searching") : t("wave1.find.search")}</BusyLabel>
                 </Button>
@@ -492,7 +495,7 @@ export function FindRoomView() {
             ) : null}
             <Button
               className="ml-auto min-w-32"
-              disabled={busy || !form}
+              disabled={busy || !dated}
               onClick={() => {
                 setMoreOpen(false);
                 void run();
