@@ -150,8 +150,3 @@ from app.api.v1 import public_schedule as public_schedule_api  # noqa: E402
 
 api_router.include_router(public_schedule_api.router)
 api_router.include_router(public_schedule_api.admin_router)
-
-# invigilator assignment for exam runs (pool, plans, duties; app/services/invigilation.py, app/solver/invigilation.py)
-from app.api.v1 import invigilation as invigilation_api  # noqa: E402
-
-api_router.include_router(invigilation_api.router)
