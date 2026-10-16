@@ -313,7 +313,35 @@
           "depends_on": [
             "T-R1-45"
           ],
-          "t_r1_45": "Answered by lane G (see T-R1-45 resolution): the 32 px / under-16 px readings were a test-tool artefact (full-page screenshots switched touch emulation off), not the build. Real offenders on lane A's screens: Profil › Bildirimler switches 38x22, user-menu rows 216x28, the bookings filter-sheet room-group select 350x36, kiosk-back 40x16, kiosk locale buttons 36x30, the bell badge 10 px (T-R1-04). heatmap source tabs pass M-02 (44 px hit area). globals.css:356-362 stays read-only."
+          "t_r1_45": "Answered by lane G (see T-R1-45 resolution): the 32 px / under-16 px readings were a test-tool artefact (full-page screenshots switched touch emulation off), not the build. Real offenders on lane A's screens: Profil › Bildirimler switches 38x22, user-menu rows 216x28, the bookings filter-sheet room-group select 350x36, kiosk-back 40x16, kiosk locale buttons 36x30, the bell badge 10 px (T-R1-04). heatmap source tabs pass M-02 (44 px hit area). globals.css:356-362 stays read-only.",
+          "status": "done",
+          "resolution": {
+            "by": "loop-r1-laneA-2026-10-16",
+            "summary": "Fixed in the primitives (fine-pointer sizes unchanged; every change is a pointer-coarse variant). Measured on a full-data stack.sh stack (ports 19124/19125), phone 390x844 touch via scripts/record/lib/touch.mjs (assertTouch before each probe), MOBILE M-02 with each candidate scrolled to the viewport centre and re-tested, plus M-03.",
+            "fixed": [
+              "user-menu rows (ui/dropdown-menu.tsx items, sub-triggers, checkbox/radio items: pointer-coarse:min-h-11; ui/select.tsx options too): 216x28 -> 216x44",
+              "bookings filter-sheet room-group select (SegmentedControl's NativeSelect fallback, size sm): 350x36 -> 350x44 at 16 px (ui/field-styles.ts fieldSize.sm and the Select trigger sm are the md height on coarse pointers: a native field cannot carry a ::after hit area)",
+              "kiosk locale buttons (shell/locale-toggle.tsx pointer-coarse:min-w-11): 36x30 with the right hit point on the neighbour -> 44x30, both hit areas whole (M-02 pass)",
+              "kiosk-back (public-schedule/kiosk.tsx, relative + coarseHitArea): 40x16, no hit area -> box 40x18 with a 44x44 hit area (M-02 pass)",
+              "bell badge (notifications/notification-bell.tsx): text-[10px] -> text-[11px] (not measured live: the stack had no unread notification; class contract)",
+              "native checkboxes and radios everywhere (app/globals.css @layer base, pointer: coarse): the coarseHitArea ::after on input[type=checkbox|radio], and a <label> that wraps one is 44 px tall; covers the move-sheet scope radios, Studio filter / flexible checkboxes and every admin/settings table checkbox (move sheet: M-02 0 offenders)",
+              "/analytics/heatmap grid cells (analytics/heat-grid.tsx): 40x32 / 44x38 -> 44x44 on coarse pointers (the grid scrolls in its frame)",
+              "/public/buildings/<code> room-card title links (public-schedule/public-views.tsx, coarseHitArea): 44-52 x 23 with the bottom points on the card -> M-02 pass"
+            ],
+            "after": "0 M-02 offenders on /profile (all groups open), /bookings (+ filter sheet, + user menu open), /my-bookings, /find-room, /moderation/me, /admin/users, /admin/rooms, /admin/settings, /admin/roles, /admin/authentication, /settings, /dashboard, /analytics/heatmap, /public/rooms/A101, /public/buildings/A, /timetable move sheet; M-03 inputsUnder16 [] on all of them except the items below",
+            "already_passing": [
+              "Profil › Bildirimler switches 38x22: pass M-02 when visible. The 38x22 readings are switches inside the closed <details> groups (phone opens only 'Onaylar'); they have a box but are not rendered (checkVisibility() false), so the MOBILE M-02 snippet counts them. Probe drift for lane G, no product change",
+              "inspector 'Taşı…' (Button sm, 36 tall on touch): passes M-02 through the Button's 44 px hit area",
+              "dashboard 'Çizelge oluştur', /admin/settings switch and org-language radios, /admin/roles checkbox, /admin/authentication switch, /my-bookings checkbox: pass when scrolled clear of the sticky top bar / tab bar (the round-1 failures were occlusion at the scroll step)"
+            ],
+            "left_for_other_lanes": [
+              "lane H, classes/classes-page (or the /classes toolbar): 'Dersler' / 'Sınavlar' SegmentedControl sm segments 70x30, the bottom hit point lands on the button row below; give that row >= 8 px gap or use size md",
+              "lane H, timetable/move-dialog.tsx:61,224,230: raw <select> at 13 px (type-footnote / type-callout): use ui NativeSelect (16 px on phones)",
+              "lane H, the timetable inspector: 'inspector-more' 36x36 overlaps its neighbour's hit area; instructor / class links 32x18 and 165x18 have no hit area (add coarseHitArea + relative)",
+              "lane E, admin/schedules weekday toggles 36x36 in `flex gap-0.5`: the right hit point lands on the next day; use gap-2 on coarse pointers or min-w-11",
+              "lane G, MOBILE M-02/M-03 snippets: skip elements with checkVisibility() === false (closed <details>), and skip sr-only inputs (width <= 1) in inputsUnder16 (/onboarding _r_1f_ and /admin/settings logo file input are sr-only, 14 / 12 px, never focused for typing)"
+            ]
+          }
         },
         {
           "id": "T-R1-02",
@@ -373,7 +401,13 @@
             "smartsched/frontend/src/components/notifications/notification-bell.tsx:103"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "partly",
+          "progress": {
+            "by": "loop-r1-laneA-2026-10-16",
+            "done": "badge text 10 -> 11 px (notification-bell.tsx)",
+            "open": "below md, the list as a full-width bottom Sheet with 44 px rows (not in this run's scope)"
+          }
         },
         {
           "id": "T-R1-05",
