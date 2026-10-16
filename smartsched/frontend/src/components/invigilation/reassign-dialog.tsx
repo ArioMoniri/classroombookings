@@ -142,10 +142,13 @@ export function ReassignDialog({ planId, target, onClose }: { planId: number; ta
                     const why = pairOf(p.reason_text, lang) || p.reason;
                     const rid = `${id}-u-${p.person_key}`;
                     return (
-                      <li key={p.person_key} className="flex min-h-9 items-center gap-2 type-callout text-label-2" data-testid="invig-cand-off" data-reason={p.reason}>
+                      <li key={p.person_key} className="flex min-h-10 items-center gap-2 py-1 type-callout text-label-2" data-testid="invig-cand-off" data-reason={p.reason}>
                         <input type="radio" disabled aria-describedby={`${rid}-why`} aria-label={p.name} className="size-4 shrink-0 opacity-50" />
-                        <span className="min-w-0 truncate">{p.name}</span>
-                        <span id={`${rid}-why`} className="ml-auto shrink-0 type-footnote">{why}</span>
+                        {/* the name keeps its width: the reason wraps below it on a phone, beside it when there is room */}
+                        <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-baseline sm:gap-2">
+                          <span className="min-w-0 truncate">{p.name}</span>
+                          <span id={`${rid}-why`} className="type-footnote sm:ml-auto sm:text-right">{why}</span>
+                        </span>
                       </li>
                     );
                   })}

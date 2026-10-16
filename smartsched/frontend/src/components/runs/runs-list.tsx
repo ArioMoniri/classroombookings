@@ -89,13 +89,15 @@ export function RunsList() {
         minSize: 72,
         grow: 1,
         maxSize: 320,
-        text: (r) => (isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : `#${r.id}`) + (r.parent_run_id ? `  ${t("glass.report.childOf", { id: r.parent_run_id })}` : ""),
+        text: (r) => (isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : [`#${r.id}`, r.label?.trim()].filter(Boolean).join(" · ")) + (r.parent_run_id ? `  ${t("glass.report.childOf", { id: r.parent_run_id })}` : ""),
         sortValue: (r) => r.id,
         cell: (r) => (
           <span className="flex min-w-0 items-baseline gap-1.5">
             <Link href={`/runs/${r.id}`} className="truncate font-medium text-label-1 hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={(e) => e.stopPropagation()}>
               {isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : `#${r.id}`}
             </Link>
+            {/* the planner's own name for the run (ScheduleRun.label); an import board already names its file */}
+            {!isImportBoard(r) && r.label?.trim() ? <span className="truncate type-callout text-label-2" data-testid="run-label">{r.label.trim()}</span> : null}
             {r.parent_run_id ? <span className="truncate type-footnote text-label-3">{t("glass.report.childOf", { id: r.parent_run_id })}</span> : null}
           </span>
         ),
