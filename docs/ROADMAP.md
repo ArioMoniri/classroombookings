@@ -1019,8 +1019,10 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
     inbox query + `tests/test_approval_inbox_withdrawn.py`).
   - Taleplerim (My bookings): Bekliyor / Onaylandı / Reddedildi / Geri çekildi with the reason (code label + text) on
     the card and in the timeline; withdraw asks first.
-  - Profile › Bildirimler: `NotificationPreferencesPanel` (`components/notifications/preferences-panel.tsx`), event ×
-    channel switches, unavailable channels disabled with the reason; mounted by the identity agent.
+  - Profile › Bildirimler: `NotificationPreferencesPanel` (`components/notifications/preferences-panel.tsx`), events
+    grouped (Onaylar / Rezervasyonlar / Program, collapsible, "all on / off" per group) × reachable channels only;
+    unreachable ones in one line linking to Profil › Bağlı kanallar (~900 px tall at 390 instead of ~6,000);
+    mounted by the identity agent. Settings tabs are 44 px on touch and a deep-linked tab scrolls into view.
   - Ayarlar › Entegrasyonlar: calendar-sync KVKK sign-off (M-40, legal basis shown in Turkish) and the outgoing
     webhooks (delivery switch, M-41 refusal next to the URL, secret shown once, test / pause / rotate / deliveries).
   - Approvals files are off the design ratchet (no raw `<button>`, no `shadow-[`).
