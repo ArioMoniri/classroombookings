@@ -78,22 +78,35 @@ def _col(n: int) -> str:
 
 def _styled_to_xfd(rows: int = 40, data_cols: int = 30) -> bytes:
     """Data in ``data_cols`` columns; every row also carries styled empty cells out to XFD (as Excel writes a
-    sheet whose whole rows were formatted), and the dimension declares A1:XFD<rows>."""
-    out = [f'<dimension ref="A1:XFD{rows}"/><sheetData>']
+    sheet whose whole rows were formatted), so the declared dimension is A1:XFD<rows>."""
+    import openpyxl
+    from openpyxl.styles import PatternFill
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Sayfa1"
+    fill = PatternFill("solid", fgColor="FFFF00")
     for r in range(1, rows + 1):
-        cells = [f'<c r="{_col(c)}{r}" t="inlineStr"><is><t>Ders {r}.{c}</t></is></c>' for c in range(1, data_cols + 1)]
-        cells += [f'<c r="{_col(c)}{r}" s="1"/>' for c in (data_cols + 1, 1000, 5000, 16_384)]
-        out.append(f'<row r="{r}" spans="1:16384">{"".join(cells)}</row>')
-    out.append("</sheetData>")
-    return _xlsx("".join(out))
+        for c in range(1, data_cols + 1):
+            ws.cell(r, c, f"Ders {r}.{c}")
+        for c in (data_cols + 1, 1000, 5000, 16_384):
+            ws.cell(r, c).fill = fill
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
-def _wide_data(cols: int = 1100, rows: int = 3) -> bytes:
-    """More than 1024 columns that really hold values."""
+def _wide_data(cols: int = 1100, rows: int = 3, refs: bool = True) -> bytes:
+    """More than 1024 columns that really hold values (``refs=False``: cells without ``r``, positions implicit)."""
+
+    def cell(c: int, r: int) -> str:
+        ref = f' r="{_col(c)}{r}"' if refs else ""
+        return f"<c{ref}><v>{c}</v></c>"
+
     out = ["<sheetData>"]
     for r in range(1, rows + 1):
-        cells = "".join(f'<c r="{_col(c)}{r}"><v>{c}</v></c>' for c in range(1, cols + 1))
-        out.append(f'<row r="{r}">{cells}</row>')
+        cells = "".join(cell(c, r) for c in range(1, cols + 1))
+        out.append(f'<row r="{r}">{cells}</row>' if refs else f"<row>{cells}</row>")
     out.append("</sheetData>")
     return _xlsx("".join(out))
 
@@ -129,12 +142,14 @@ async def test_styles_out_to_xfd_with_30_data_columns_are_accepted(client):
     data = _styled_to_xfd()
     rep = safe_files.inspect_zip(data)
     ext = rep.sheets["xl/worksheets/sheet1.xml"]
-    assert (ext.cols, ext.rows) == (30, 40)
+    assert (ext.cols, ext.rows, ext.styled_cols) == (30, 40, 16_384)
     safe_files.check_full_load(rep, safe_files.Limits.from_settings())  # strict 1024-column cap
     wb = safe_files.open_workbook(data, read_only=True)
     assert wb.worksheets[0].max_column == 30
     wb = safe_files.open_workbook(data, read_only=False)  # the board importer's full load
-    assert wb.worksheets[0].cell(1, 30).value == "Ders 1.30"
+    ws = wb.worksheets[0]
+    assert (ws.max_row, ws.max_column) == (40, 30)  # the style-only cells out to XFD were dropped
+    assert ws.cell(1, 30).value == "Ders 1.30" and ws.cell(40, 1).value == "Ders 40.1"
     h = await login(client)
     job = await upload(client, h, ("styled_xfd.xlsx", data))
     f = job["files"][0]
@@ -143,10 +158,41 @@ async def test_styles_out_to_xfd_with_30_data_columns_are_accepted(client):
 
 async def test_more_than_1024_real_data_columns_are_still_refused(client):
     data = _wide_data()
-    with pytest.raises(safe_files.UnsafeFileError) as exc:
-        safe_files.check_full_load(safe_files.inspect_zip(data), safe_files.Limits.from_settings())
-    assert exc.value.status == 413 and "1100 columns" in exc.value.message
+    for body in (data, _wide_data(refs=False)):  # implicit positions (no r attribute) are measured too
+        with pytest.raises(safe_files.UnsafeFileError) as exc:
+            safe_files.check_full_load(safe_files.inspect_zip(body), safe_files.Limits.from_settings())
+        assert exc.value.status == 413 and "1100 columns" in exc.value.message
     h = await login(client)
     status, text = await refused(client, h, "wide.xlsx", data)
     assert status == 413, text
     assert "1100 columns" in text and "limit 1024" in text
+
+
+def test_xls_styled_blank_rows_past_the_row_cap_are_accepted(tmp_path):
+    """.xls: xlrd's nrows with formatting_info counts styled BLANK cells; 40 data rows formatted down to row
+    30 000 are read as 40 rows, not refused as "30000 rows (limit 20000)"."""
+    import openpyxl
+    from openpyxl.styles import PatternFill
+
+    from tests.council import exports
+
+    if exports.soffice() is None:
+        pytest.skip("LibreOffice (soffice) is not installed: no writer for .xls on this machine")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Sayfa1"
+    fills = [PatternFill("solid", fgColor=c) for c in ("FFFF00", "00B0F0")]  # alternating: LO keeps every row
+    for r in range(1, 41):
+        for c in range(1, 31):
+            ws.cell(r, c, f"Ders {r}.{c}")
+    for r in range(41, 30_001):
+        ws.cell(r, 1).fill = fills[r % 2]
+    src = tmp_path / "styled_rows.xlsx"
+    wb.save(src)
+    xls = exports.convert(src, "xls", tmp_path)
+    data = xls.read_bytes()
+    assert formats.precheck(xls.name, data) == "xls"
+    rendered = formats.render(data, xls.name)
+    grid = rendered.grids[0]
+    assert (len(grid.cells), len(grid.cells[0])) == (40, 30)
+    assert grid.cells[39][0] == "Ders 40.1"
