@@ -1,0 +1,224 @@
+{
+ "_source": "real answers of the batch-2 backend on the 2026 Bahar data (R601 PTL 102 §1, request 590; asked C 601, Tue P4 fixed by the department form), 2026-10-16; instructor name masked (KVKK)",
+ "rooms": {
+  "items": [
+   {
+    "id": 3,
+    "code": "A103",
+    "name": "A 103",
+    "capacity": 47,
+    "building": "A",
+    "building_name": "A Blok",
+    "tags": [
+     "PC"
+    ],
+    "bookable": true
+   },
+   {
+    "id": 18,
+    "code": "A306",
+    "name": "A 306",
+    "capacity": 38,
+    "building": "A",
+    "building_name": "A Blok",
+    "tags": [],
+    "bookable": true
+   },
+   {
+    "id": 32,
+    "code": "C301",
+    "name": "C 301",
+    "capacity": 72,
+    "building": "C",
+    "building_name": "C Blok",
+    "tags": [],
+    "bookable": true
+   },
+   {
+    "id": 33,
+    "code": "C302",
+    "name": "C 302",
+    "capacity": 72,
+    "building": "C",
+    "building_name": "C Blok",
+    "tags": [],
+    "bookable": true
+   },
+   {
+    "id": 50,
+    "code": "C601",
+    "name": "C 601",
+    "capacity": 72,
+    "building": "C",
+    "building_name": "C Blok",
+    "tags": [],
+    "bookable": true
+   }
+  ],
+  "count": 5
+ },
+ "preview_room": {
+  "dry_run": true,
+  "submission": null,
+  "status": "preview",
+  "items": [
+   {
+    "id": null,
+    "constraint_id": null,
+    "term_id": 1,
+    "status": "pending",
+    "enabled": false,
+    "kind": "room_preference",
+    "kind_label": {
+     "tr": "Oda tercihi",
+     "en": "Room preference"
+    },
+    "submission": "22c0ae4e7605",
+    "request_ids": [
+     590
+    ],
+    "labels": [
+     "PTL 102 §1"
+    ],
+    "instructor": {
+     "id": 266,
+     "name": "Öğretim üyesi (maskeli)"
+    },
+    "user_id": 2,
+    "wish": {
+     "room_ids": [
+      32
+     ],
+     "rooms": [
+      "C 301"
+     ]
+    },
+    "department": {
+     "room_ids": [
+      50
+     ],
+     "rooms": [
+      "C 601"
+     ]
+    },
+    "rank": "below_department",
+    "text": {
+     "tr": "PTL 102 §1: oda tercihi C 301",
+     "en": "PTL 102 §1: room preference C 301"
+    },
+    "note": "Deney düzeneği C blokta",
+    "hardness": "soft",
+    "weight": 1,
+    "params": {
+     "event_ids": [
+      590
+     ],
+     "room_ids": [
+      50,
+      32
+     ]
+    },
+    "submitted_at": "2026-10-16T07:35:37+00:00",
+    "decided_at": null,
+    "decided_by": null,
+    "reason": null,
+    "reason_code": null
+   }
+  ],
+  "effective": {
+   "tr": "Koordinatör onaylarsa bir sonraki çözümde bölüm talebinden sonra gelen bir tercih olarak uygulanır",
+   "en": "If the coordinator accepts it, it applies at the next solve, ranked below the department's request"
+  }
+ },
+ "preview_building": {
+  "dry_run": true,
+  "submission": null,
+  "status": "preview",
+  "items": [
+   {
+    "id": null,
+    "constraint_id": null,
+    "term_id": 1,
+    "status": "pending",
+    "enabled": false,
+    "kind": "building_preference",
+    "kind_label": {
+     "tr": "Bina tercihi",
+     "en": "Building preference"
+    },
+    "submission": "631b966c687d",
+    "request_ids": [
+     590
+    ],
+    "labels": [
+     "PTL 102 §1"
+    ],
+    "instructor": {
+     "id": 266,
+     "name": "Öğretim üyesi (maskeli)"
+    },
+    "user_id": 2,
+    "wish": {
+     "buildings": [
+      "A"
+     ]
+    },
+    "department": {
+     "buildings": [
+      "C"
+     ]
+    },
+    "rank": "below_department",
+    "text": {
+     "tr": "PTL 102 §1: A blok tercihi",
+     "en": "PTL 102 §1: building A preferred"
+    },
+    "note": null,
+    "hardness": "soft",
+    "weight": 1,
+    "params": {
+     "event_ids": [
+      590
+     ],
+     "buildings": [
+      "C",
+      "A"
+     ]
+    },
+    "submitted_at": "2026-10-16T07:35:37+00:00",
+    "decided_at": null,
+    "decided_by": null,
+    "reason": null,
+    "reason_code": null
+   }
+  ],
+  "effective": {
+   "tr": "Koordinatör onaylarsa bir sonraki çözümde bölüm talebinden sonra gelen bir tercih olarak uygulanır",
+   "en": "If the coordinator accepts it, it applies at the next solve, ranked below the department's request"
+  }
+ },
+ "refused_already_requested": {
+  "detail": {
+   "code": "already_requested",
+   "message": "the department form already asks for this for these classes",
+   "message_tr": "Bölüm formu bu dersler için bunu zaten istiyor"
+  }
+ },
+ "refused_fixed": {
+  "detail": {
+   "code": "fixed_by_department",
+   "message": "the department form fixes the day and time of PTL 102 §1; a time preference cannot change it (ask the coordinator)",
+   "message_tr": "Bölüm formu PTL 102 §1 için gün ve saati sabitliyor; saat tercihi bunu değiştiremez (koordinatöre danışın)",
+   "request_ids": [
+    590
+   ]
+  }
+ },
+ "refused_unknown_room": {
+  "detail": {
+   "code": "unknown_room",
+   "message": "unknown room Z 999",
+   "message_tr": "Bilinmeyen oda: Z 999"
+  }
+ }
+}

@@ -1,7 +1,8 @@
 /** P19-T2 "Tercih ekle" model, on the real Bahar rows the backend test uses (R601 PTL 102 §1, asked C 601). */
 import { describe, expect, it } from "vitest";
-import type { TeacherPref } from "@/lib/api/teacher-preferences";
-import { buildingCode, buildingsOf, departmentAsk, emptyWish, filterGroups, fixedClasses, formIssues, groupWishes, isKnownError, roomCode, wishBody, wishSentence } from "./wish-model";
+import type { TeacherPref, WishRoom } from "@/lib/api/teacher-preferences";
+import roomsFx from "./__fixtures__/wish-preview-bahar.json";
+import { buildingCode, buildingsOf, departmentAsk, emptyWish, filterGroups, fixedClasses, formIssues, groupRooms, groupWishes, isKnownError, listedRoom, previewBody, roomCode, roomKey, wishBody, wishSentence } from "./wish-model";
 
 const pref = (over: Partial<TeacherPref> = {}): TeacherPref => ({
   id: 40,
@@ -116,5 +117,30 @@ describe("wish lists", () => {
     expect(departmentAsk(pref())).toEqual(["C 601"]);
     expect(departmentAsk(pref({ kind: "building_preference", department: { buildings: ["C"] } }))).toEqual(["C"]);
     expect(departmentAsk(pref({ kind: "day_window", department: {} }))).toEqual([]);
+  });
+});
+
+describe("room picker and preview body (GET /moderation/me/rooms, ?dry_run=1)", () => {
+  const rooms = roomsFx.rooms.items as WishRoom[];
+  it("matches a typed code to the listed room however it is written", () => {
+    expect(roomKey("C 301")).toBe("C301");
+    expect(roomKey("c-301")).toBe("C301");
+    expect(listedRoom(rooms, roomCode("c301"))?.id).toBe(32);
+    expect(listedRoom(rooms, roomCode("Z 999"))).toBeUndefined();
+    expect(listedRoom(rooms, null)).toBeUndefined();
+  });
+  it("groups by building A → Z, rooms in code order, and searches code, name, block and tags", () => {
+    const all = groupRooms(rooms, "");
+    expect(all.groups.map((g) => [g.building, g.name, g.rooms.map((r) => r.code)])).toEqual([["A", "A Blok", ["A103", "A306"]], ["C", "C Blok", ["C301", "C302", "C601"]]]);
+    expect(all).toMatchObject({ total: 5, hidden: 0 });
+    expect(groupRooms(rooms, "c 30").groups.flatMap((g) => g.rooms.map((r) => r.code))).toEqual(["C301", "C302"]);
+    expect(groupRooms(rooms, "pc").groups.flatMap((g) => g.rooms.map((r) => r.id))).toEqual([3]);
+    expect(groupRooms(rooms, "a blok").total).toBe(2);
+    expect(groupRooms(rooms, "", 3)).toMatchObject({ total: 5, hidden: 2 });
+  });
+  it("previews only a body the sheet would send", () => {
+    expect(previewBody(emptyWish([590]))).toBeNull();
+    expect(previewBody({ ...emptyWish([590]), roomIds: [32] })).toEqual({ kind: "room_preference", request_ids: [590], room_ids: [32] });
+    expect(previewBody({ ...emptyWish([]), roomIds: [32] })).toBeNull();
   });
 });

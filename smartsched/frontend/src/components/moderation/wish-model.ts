@@ -1,11 +1,12 @@
 /**
  * "Tercih ekle" as data (P19-T2; backend app/services/teacher_preferences.py): the form state of the sheet, the
- * request body it sends, the client-side checks that mirror the server's (the server stays the final word), the
- * summary sentence shown before sending (the same wording as the server's `_texts` + `effective`), the error
- * codes, and the coordinator's review order (pending first, one card per submission). Pure functions, unit-tested.
+ * request body it sends (also the body of the server's `?dry_run=1` preview), the client-side checks that mirror
+ * the server's (the server stays the final word), the room picker's search and building groups, the fallback
+ * sentence shown only while the server's preview loads, the error codes, and the coordinator's review order
+ * (pending first, one card per submission). Pure functions, unit-tested.
  */
 import type { Matching, PrefStatus } from "@/lib/api/moderation";
-import type { TeacherPref, WishIn, WishKind } from "@/lib/api/teacher-preferences";
+import type { TeacherPref, WishIn, WishKind, WishRoom } from "@/lib/api/teacher-preferences";
 import { PERIODS_PER_DAY } from "@/lib/time";
 
 export type Lang = "tr" | "en";
@@ -50,6 +51,46 @@ export function roomCode(raw: string): string | null {
 export function buildingCode(raw: string): string | null {
   const v = raw.normalize("NFKC").trim().toLocaleUpperCase("tr").replace(/\s*-?\s*(BLOK|BLOĞU|BLOKU)$/, "");
   return /^[A-ZÇĞİÖŞÜ]$/.test(v) ? v : null;
+}
+
+/* ------------------------------------------------------------------ the room picker */
+
+/** a room code for matching: "C 301", "c301", "C-301" → "C301" (the room list writes "C301", people write "C 301") */
+export const roomKey = (code: string): string => code.normalize("NFKC").replace(/[\s\u00a0-]+/g, "").toLocaleUpperCase("tr");
+
+/** the listed room a typed code names, if any */
+export function listedRoom<R extends Pick<WishRoom, "code">>(rooms: readonly R[], typed: string | null): R | undefined {
+  if (!typed) return undefined;
+  const k = roomKey(typed);
+  return rooms.find((r) => roomKey(r.code) === k);
+}
+
+const fold = (s: string) => s.toLocaleLowerCase("tr").normalize("NFD").replace(/\p{M}/gu, "").replace(/ı/g, "i").replace(/[\s\u00a0-]+/g, "");
+
+export interface RoomGroup<R> {
+  building: string;
+  name: string;
+  rooms: R[];
+}
+
+/**
+ * The picker's rooms matching the search (code, name, block name or a tag; spaces and accents ignored), grouped
+ * by building A → Z, rooms in code order; at most `limit` rooms (the rest are counted).
+ */
+export function groupRooms<R extends WishRoom>(rooms: readonly R[], query: string, limit = 80): { groups: RoomGroup<R>[]; total: number; hidden: number } {
+  const q = fold(query.trim());
+  const hits = rooms
+    .filter((r) => !q || fold([r.code, r.name ?? "", r.building_name ?? "", ...r.tags].join(" ")).includes(q))
+    .sort((a, b) => (a.building ?? buildingOf(a.code)).localeCompare(b.building ?? buildingOf(b.code), "tr") || a.code.localeCompare(b.code, "tr", { numeric: true }));
+  const shown = hits.slice(0, limit);
+  const m = new Map<string, RoomGroup<R>>();
+  for (const r of shown) {
+    const b = r.building || buildingOf(r.code) || "?";
+    const g = m.get(b) ?? { building: b, name: r.building_name || "", rooms: [] };
+    g.rooms.push(r);
+    m.set(b, g);
+  }
+  return { groups: [...m.values()], total: hits.length, hidden: hits.length - shown.length };
 }
 
 /** the buildings the rooms span, A → Z */
@@ -102,9 +143,14 @@ export function wishBody(f: WishForm): WishIn {
   return body;
 }
 
+/** the body the server previews (`?dry_run=1`): only a form the sheet would send, with at least one class */
+export function previewBody(f: WishForm): WishIn | null {
+  return formIssues(f).length ? null : wishBody(f);
+}
+
 /**
- * The sentence the server will store (`teacher_preferences._texts`): "PSY 277 §1: oda tercihi C 404". Shown before
- * sending, so the academician reads what the coordinator will read.
+ * The fallback of the server's sentence (`teacher_preferences._texts`): "PSY 277 §1: oda tercihi C 404", shown only
+ * while the `?dry_run=1` preview is on its way; the preview's `items[].text` replaces it.
  */
 export function wishSentence(f: WishForm, labels: readonly string[], roomNames: readonly string[], lang: Lang): string {
   const what = labels.slice(0, 3).join(", ") + (labels.length > 3 ? " …" : "");

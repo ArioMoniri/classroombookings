@@ -2,16 +2,19 @@
 /**
  * "Tercih ekle" (P19-T2, F-05 S03; owner: academicians add their own wishes, coordinators moderate them, nothing
  * is ever applied by itself): a side sheet on desktop and a bottom sheet on phones. Pick the classes you teach,
- * the kind (oda / bina / zaman aralığı) and its fields, an optional note; the summary the coordinator will read
- * is shown before sending, every server refusal reads as TR/EN text, and `fixed_by_department` explains that the
- * department form fixes the time. `POST /moderation/me/preferences` stores it switched off until a coordinator
- * accepts it (ranked below the department's request).
+ * the kind (oda / bina / zaman aralığı) and its fields, an optional note. Rooms come from a searchable picker
+ * grouped by building with the capacity (`GET /moderation/me/rooms`); a typed code is still accepted. Before
+ * sending, the server previews the wish (`?dry_run=1`, debounced, same body): the summary shows its own
+ * `items[].text` and `effective` (a local sentence only while it loads) and a refusal reads like the real one.
+ * Every server refusal reads as TR/EN text, and `fixed_by_department` explains that the department form fixes the
+ * time. `POST /moderation/me/preferences` stores it switched off until a coordinator accepts it (ranked below the
+ * department's request).
  */
-import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Search } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Alert } from "@/components/ui/alert";
+import { BusyGlyph } from "@/components/ui/busy-label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Chip } from "@/components/ui/chip";
@@ -20,20 +23,43 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { crbs } from "@/lib/api/crbs";
 import type { Matching } from "@/lib/api/moderation";
-import { useSubmitWish, wishError, WISH_KINDS, type SubmitOut, type WishKind } from "@/lib/api/teacher-preferences";
+import { useSubmitWish, useWishPreview, useWishRooms, wishError, WISH_KINDS, type SubmitOut, type WishIn, type WishKind } from "@/lib/api/teacher-preferences";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { pairText, requestedText } from "./moderation-model";
 import { usePhone } from "./use-media";
-import { MAX_ROOMS, NOTE_MAX, buildingCode, buildingOf, buildingsOf, roomCode, emptyWish, fixedClasses, formIssues, isKnownError, wishBody, wishSentence, type FormIssue, type WishForm } from "./wish-model";
+import { MAX_ROOMS, NOTE_MAX, buildingCode, buildingOf, buildingsOf, emptyWish, fixedClasses, formIssues, groupRooms, isKnownError, listedRoom, previewBody, roomCode, wishBody, wishSentence, type FormIssue, type WishForm } from "./wish-model";
 
 /** 44 px rows and controls on touch (MOBILE.md M-02) */
 const ROW = "flex min-h-11 items-start gap-3 rounded-md px-2 py-2 md:min-h-9 md:py-1.5 hover:bg-fill-3";
 const WEEKDAYS = [1, 2, 3, 4, 5, 6] as const;
+/** the preview asks the server once the form has been still for this long */
+const PREVIEW_MS = 400;
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const id = window.setTimeout(() => setV(value), ms);
+    return () => window.clearTimeout(id);
+  }, [value, ms]);
+  return v;
+}
+
+/** a refusal as the sheet reads it: our own sentence for a known code, plus the server's when it says more */
+function useRefusalText() {
+  const { t, locale } = useI18n();
+  const lang = locale === "tr" ? "tr" : "en";
+  return (e: unknown): { code: string; text: string; detail: string | null } => {
+    const err = wishError(e);
+    if (!err) return { code: "generic", text: t("moderation.wish.err.generic"), detail: e instanceof Error ? e.message : null };
+    const own = isKnownError(err.code) ? t(`moderation.wish.err.${err.code}` as MessageKey) : t("moderation.wish.err.generic");
+    const server = (lang === "tr" ? err.message_tr : err.message) || null;
+    return { code: err.code, text: own, detail: server && server !== own ? server : null };
+  };
+}
 
 export function WishSheet({ open, onOpenChange, classes, initial }: { open: boolean; onOpenChange: (v: boolean) => void; classes: readonly Matching[]; initial: readonly number[] }) {
   const phone = usePhone();
@@ -56,15 +82,17 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
   const [serverError, setServerError] = useState<{ code: string; text: string; detail: string | null } | null>(null);
   const [sent, setSent] = useState<SubmitOut | null>(null);
   const submit = useSubmitWish();
+  const refusal = useRefusalText();
   const ids = useId();
-  // the rooms this user may see (bookings visibility; the planning room list needs planning.view)
-  const rooms = useQuery({ queryKey: ["crbs", "booking-rooms"], queryFn: () => crbs.bookings.rooms(), retry: false, staleTime: 60_000 });
-  const roomList = useMemo(() => [...(rooms.data ?? [])].sort((a, b) => a.code.localeCompare(b.code, "tr", { numeric: true })), [rooms.data]);
+  // the bookable rooms a wish may name (403 not_linked or any error: the typed-code path stays)
+  const rooms = useWishRooms();
+  const roomList = useMemo(() => rooms.data?.items ?? [], [rooms.data]);
   const byId = useMemo(() => new Map(roomList.map((r) => [r.id, r])), [roomList]);
-  // the buildings of the visible rooms plus those of the classes' own rooms (asked, definitive, assigned)
+  // the buildings of the listed rooms plus those of the classes' own rooms (asked, definitive, assigned)
   const buildings = useMemo(() => {
     const own = classes.flatMap((m) => [...m.requested.rooms, ...m.definitive.rooms, ...(m.assigned?.rooms ?? [])]).map((code) => ({ code }));
-    return buildingsOf([...roomList, ...own]);
+    const listed = [...new Set(roomList.map((r) => r.building).filter((b): b is string => !!b && /^[A-ZÇĞİÖŞÜ]$/.test(b)))];
+    return [...new Set([...listed, ...buildingsOf(own)])].sort((a, b) => a.localeCompare(b, "tr"));
   }, [roomList, classes]);
   const [buildingQ, setBuildingQ] = useState("");
 
@@ -79,13 +107,29 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
   const issues = formIssues(form);
   const roomNames = [...form.roomIds.map((id) => byId.get(id)?.name || byId.get(id)?.code || `#${id}`), ...form.roomCodes];
   const roomCount = form.roomIds.length + form.roomCodes.length;
-  const needle = roomQ.trim().toLocaleLowerCase("tr").replace(/\s+/g, "");
-  const roomHits = roomList.filter((r) => !needle || `${r.code}${r.name}`.toLocaleLowerCase("tr").replace(/\s+/g, "").includes(needle)).slice(0, 40);
-  // a code typed as the lists write it, for rooms this account cannot list (the server checks it: unknown_room)
+  const picker = useMemo(() => groupRooms(roomList, roomQ), [roomList, roomQ]);
+  // a code typed as the lists write it ("c301" → C 301): a listed room is picked by its id; any other code is sent
+  // as typed (the server checks it: unknown_room)
   const typed = roomCode(roomQ);
-  const typedListed = typed ? roomList.find((r) => r.code.toLocaleUpperCase("tr").replace(/\s+/g, " ") === typed) : undefined;
+  const typedListed = listedRoom(roomList, typed);
+  const canPickTyped = !!typedListed && !form.roomIds.includes(typedListed.id) && roomCount < MAX_ROOMS;
   const canAddTyped = !!typed && !typedListed && !form.roomCodes.includes(typed) && roomCount < MAX_ROOMS;
+  const takeTyped = () => {
+    if (canPickTyped) set({ roomIds: [...form.roomIds, typedListed!.id] });
+    else if (canAddTyped) set({ roomCodes: [...form.roomCodes, typed!] });
+    else return;
+    setRoomQ("");
+  };
   const typedBuilding = buildingCode(buildingQ);
+
+  // the server's preview of exactly this body, once the form has been still for a moment
+  const body = selected.length ? previewBody(form) : null;
+  const bodyKey = body ? JSON.stringify(body) : null;
+  const askedKey = useDebounced(bodyKey, PREVIEW_MS);
+  const preview = useWishPreview(askedKey ? (JSON.parse(askedKey) as WishIn) : null);
+  const current = askedKey !== null && askedKey === bodyKey;
+  const server = current && preview.data ? preview.data : null;
+  const previewRefusal = current && preview.isError ? refusal(preview.error) : null;
 
   const issueText = (i: FormIssue) => t(`moderation.wish.issue.${i}` as MessageKey, { n: i === "tooManyRooms" ? MAX_ROOMS : NOTE_MAX });
 
@@ -98,14 +142,7 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
       setSent(out);
       toast.success(t("moderation.wish.sentToast"));
     } catch (e) {
-      const err = wishError(e);
-      if (err) {
-        const own = isKnownError(err.code) ? t(`moderation.wish.err.${err.code}` as MessageKey) : t("moderation.wish.err.generic");
-        const server = (lang === "tr" ? err.message_tr : err.message) || null;
-        setServerError({ code: err.code, text: own, detail: server && server !== own ? server : null });
-      } else {
-        setServerError({ code: "generic", text: t("moderation.wish.err.generic"), detail: e instanceof Error ? e.message : null });
-      }
+      setServerError(refusal(e));
     }
   };
 
@@ -221,43 +258,56 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-label-3" aria-hidden />
             <Input id={`${ids}-room-q`} type="search" value={roomQ} onChange={(e) => setRoomQ(e.target.value)} onKeyDown={(e) => {
-              // Enter adds a typed code; it never sends the form from the search box
+              // Enter takes a typed code (a listed room by its id); it never sends the form from the search box
               if (e.key !== "Enter") return;
               e.preventDefault();
-              if (canAddTyped) {
-                set({ roomCodes: [...form.roomCodes, typed!] });
-                setRoomQ("");
-              }
-            }} placeholder={t("moderation.wish.roomsPh")} className="pl-8" data-testid="wish-room-search" />
+              takeTyped();
+            }} placeholder={t("moderation.wish.roomsPh")} className="pl-8" aria-controls={`${ids}-room-list`} data-testid="wish-room-search" />
           </div>
           {canAddTyped ? (
-            <Button type="button" size="sm" variant="secondary" className="self-start max-md:h-11" onClick={() => (set({ roomCodes: [...form.roomCodes, typed!] }), setRoomQ(""))} data-testid="wish-room-add-code">
+            <Button type="button" size="sm" variant="secondary" className="self-start max-md:h-11" onClick={takeTyped} data-testid="wish-room-add-code">
               {t("moderation.wish.addCode", { code: typed! })}
             </Button>
           ) : null}
           {rooms.isLoading ? (
-            <p className="type-footnote text-label-2">{t("moderation.wish.roomsLoading")}</p>
+            <p className="type-footnote text-label-2" role="status">{t("moderation.wish.roomsLoading")}</p>
           ) : roomList.length === 0 ? (
             <p className="type-footnote text-label-2" data-testid="wish-rooms-typed-hint">{t("moderation.wish.typeCodeHint")}</p>
-          ) : roomHits.length === 0 ? (
-            <p className="type-footnote text-label-2">{t("moderation.wish.roomsNone")}</p>
+          ) : picker.total === 0 ? (
+            <p className="type-footnote text-label-2" data-testid="wish-rooms-none">{t("moderation.wish.roomsNone")}</p>
           ) : (
-            <ul className="flex max-h-56 flex-col overflow-y-auto rounded-lg bg-fill-3 p-1" aria-label={t("moderation.wish.rooms", { n: MAX_ROOMS })}>
-              {roomHits.map((r) => {
-                const id = `${ids}-r${r.id}`;
-                const on = form.roomIds.includes(r.id);
-                const full = !on && roomCount >= MAX_ROOMS;
+            <div id={`${ids}-room-list`} className="flex max-h-72 flex-col gap-1 overflow-y-auto rounded-lg bg-fill-3 p-1" role="group" aria-label={t("moderation.wish.rooms", { n: MAX_ROOMS })} data-testid="wish-room-list">
+              {picker.groups.map((g) => {
+                const head = `${ids}-b${g.building}`;
                 return (
-                  <li key={r.id}>
-                    <label htmlFor={id} className={cn(ROW, "items-center", full && "opacity-60")} data-testid="wish-room">
-                      <Checkbox id={id} checked={on} disabled={full} onCheckedChange={(v) => set({ roomIds: v === true ? [...form.roomIds, r.id] : form.roomIds.filter((x) => x !== r.id) })} />
-                      <span className="min-w-0 flex-1 type-callout">{r.name || r.code}</span>
-                      {r.capacity ? <span className="shrink-0 type-footnote text-label-2">{t("moderation.wish.seats", { n: n(r.capacity) })}</span> : null}
-                    </label>
-                  </li>
+                  <section key={g.building} aria-labelledby={head} data-testid="wish-room-group" data-building={g.building}>
+                    <h4 id={head} className="px-2 pt-1.5 pb-0.5 type-footnote font-semibold text-label-2">
+                      {t("moderation.wish.roomGroup", { name: g.name || t("moderation.wish.building", { b: g.building }), n: n(g.rooms.length) })}
+                    </h4>
+                    <ul className="flex flex-col">
+                      {g.rooms.map((r) => {
+                        const id = `${ids}-r${r.id}`;
+                        const on = form.roomIds.includes(r.id);
+                        const full = !on && roomCount >= MAX_ROOMS;
+                        return (
+                          <li key={r.id}>
+                            <label htmlFor={id} className={cn(ROW, "items-center", full && "opacity-60")} data-testid="wish-room" data-code={r.code}>
+                              <Checkbox id={id} checked={on} disabled={full} onCheckedChange={(v) => set({ roomIds: v === true ? [...form.roomIds, r.id] : form.roomIds.filter((x) => x !== r.id) })} />
+                              <span className="min-w-0 flex-1 type-callout">
+                                {r.name || r.code}
+                                {r.tags.length ? <span className="ml-1.5 type-caption text-label-3">{r.tags.join(" · ")}</span> : null}
+                              </span>
+                              {r.capacity ? <span className="shrink-0 type-footnote text-label-2 tnum">{t("moderation.wish.seats", { n: n(r.capacity) })}</span> : null}
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
                 );
               })}
-            </ul>
+              {picker.hidden > 0 ? <p className="px-2 py-1.5 type-footnote text-label-2">{t("moderation.wish.roomsMore", { n: n(picker.hidden) })}</p> : null}
+            </div>
           )}
         </div>
       ) : form.kind === "building_preference" ? (
@@ -267,7 +317,7 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
             {buildings.map((b) => (
               <Chip key={b} className="pointer-coarse:h-11 pointer-coarse:px-4" selected={form.buildings.includes(b)} onSelectedChange={(on) => set({ buildings: on ? [...form.buildings, b] : form.buildings.filter((x) => x !== b) })} data-testid={`wish-building-${b}`}>
                 {t("moderation.wish.building", { b })}
-                <span className="sr-only"> ({n(roomList.filter((r) => buildingOf(r.code) === b).length)})</span>
+                <span className="sr-only"> ({n(roomList.filter((r) => (r.building || buildingOf(r.code)) === b).length)})</span>
               </Chip>
             ))}
             {form.buildings.filter((b) => !buildings.includes(b)).map((b) => (
@@ -342,12 +392,41 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
         <span id={`${ids}-note-count`} className={cn("self-end type-caption", form.note.trim().length > NOTE_MAX ? "text-status-infeasible-fg" : "text-label-3")}>{t("moderation.wish.noteCount", { n: n(form.note.trim().length), max: n(NOTE_MAX) })}</span>
       </div>
 
-      {/* 5 · what the coordinator will read, before sending */}
-      <section className="flex flex-col gap-1 rounded-lg bg-tint-soft px-3 py-2" aria-labelledby={`${ids}-sum`} data-testid="wish-summary">
+      {/* 5 · what the coordinator will read, before sending: the server's own preview (`?dry_run=1`) */}
+      <section
+        className="flex flex-col gap-1 rounded-lg bg-tint-soft px-3 py-2"
+        aria-labelledby={`${ids}-sum`}
+        aria-busy={(body !== null && !server && !previewRefusal) || undefined}
+        data-testid="wish-summary"
+        data-source={server ? "server" : body ? "local" : "none"}
+      >
         <h3 id={`${ids}-sum`} className="type-footnote font-semibold text-label-2">{t("moderation.wish.summary")}</h3>
-        <p className="type-callout">{labels.length ? wishSentence(form, labels, roomNames, lang) : "—"}</p>
-        <p className="type-footnote text-label-2">{t("moderation.wish.rank")}</p>
-        <p className="type-footnote text-label-2">{t("moderation.wish.effective")}</p>
+        {!body ? (
+          <p className="type-callout text-label-2">{labels.length ? t("moderation.wish.summaryPending") : "—"}</p>
+        ) : previewRefusal ? (
+          <div className="flex flex-col gap-0.5" role="alert" data-testid="wish-preview-error">
+            <p className="type-footnote font-semibold text-status-warning-fg">{t("moderation.wish.previewRefused")}</p>
+            <p className="type-callout" data-code={previewRefusal.code}>{previewRefusal.text}</p>
+            {previewRefusal.detail ? <p className="type-footnote text-label-2">{previewRefusal.detail}</p> : null}
+          </div>
+        ) : server ? (
+          <>
+            {server.items.map((it, i) => (
+              <p key={i} className="type-callout" data-testid="wish-summary-item">{pairText(it.text, lang)}</p>
+            ))}
+            <p className="type-footnote text-label-2">{t("moderation.wish.rank")}</p>
+            <p className="type-footnote text-label-2" data-testid="wish-effective">{pairText(server.effective, lang)}</p>
+          </>
+        ) : (
+          <>
+            {/* a fallback only while the server's preview is on its way */}
+            <p className="type-callout">{wishSentence(form, labels, roomNames, lang)}</p>
+            <p className="flex items-center gap-1.5 type-footnote text-label-2" role="status">
+              <BusyGlyph className="size-3.5" />
+              {t("moderation.wish.previewChecking")}
+            </p>
+          </>
+        )}
       </section>
 
       {tried && issues.length ? (
