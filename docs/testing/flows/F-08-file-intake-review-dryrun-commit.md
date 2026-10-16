@@ -37,7 +37,7 @@ Testable on `b75047b`: **partly**.
    - Job A = `bahar_derslik_planlama_listesi_v5.xlsx` + `bahar_requests_en.csv` (the CSV export: English headers, another column order, the general path) + `taranmis_sinav_programi.pdf`.
    - Job B = `bahar_requests_en.csv` again (memory).
    - Job C = `bahar_listesi_noktali_virgul.csv` (cp1254 export).
-4. **KVKK (README §7):** the review tables show real instructor names until the masking step S09. Every screenshot before S09 passes `mask: [page.locator("table tbody, [role=grid] [role=row]:not(:first-child), [data-testid=review-row], [data-testid=upload-row]")]`, and also masks the source preview pane. Report counts, never cell values.
+4. **KVKK (README §7):** the review tables show real instructor names until the masking step S09, which runs **after S11** (S10/S11 compare re-uploads against the committed names). Every screenshot before S09 passes `mask: [page.locator("table tbody, [role=grid] [role=row]:not(:first-child), [data-testid=review-row], [data-testid=upload-row]")]`, and also masks the source preview pane. Report counts, never cell values.
 
 ## Steps
 
@@ -95,9 +95,6 @@ Testable on `b75047b`: **partly**.
 - HEAD today: "Döneme yaz" → "Dönem grubu", term code / name / weeks, "Onaylanan kural önerilerini kısıt olarak yaz", "Yaz" → **"2026-BAHAR dönemine yazıldı"**.
 - API: `POST /council/jobs/JA/commit {"term_id": TERM_ID}` (what the UI sends) → 200. The counts equal the dry-run's (I4: "counts == the real commit's"). The 2 rejected rows were not written. There is one `council.commit` audit event. While the commit holds the term write lock, a parallel `POST /imports/planning-list` for the same term → **409** with a Turkish message (P19-03).
 
-**S09 · admin · mask names now** (KVKK)
-- Run the masking block of README §4.4 against this stack's `rec.db`. From here on, screenshots need no masks.
-
 **S10 · admin · re-upload: remembered mappings (Job B)**
 - Do: a new job with `bahar_requests_en.csv` only.
 - API: `GET /council/jobs/JB/review` → the CSV's mapping items carry `remembered` (value, job, date, the label "remembered from <date> / job JA") and a `suggestion` equal to S05's decisions, including "Requested Room" → not used. The job is still **review-gated**: nothing was decided automatically, and commit without decisions answers 409.
@@ -109,6 +106,11 @@ Testable on `b75047b`: **partly**.
 - Do: a new job with `bahar_listesi_noktali_virgul.csv`.
 - API: the file entry reports encoding **cp1254** (Windows-1254) and delimiter **`;`**. Course and programme names keep Turkish letters (ş, ğ, İ, ı): spot-check 5 rows against the xlsx import. The dry-run against 2026-BAHAR is ≥ 99 % "unchanged" for meeting requests.
 - UI target: the Biçim column reads "CSV · Windows-1254 · ;".
+
+**S09 · admin · mask names now** (KVKK; runs **after S11**)
+- Why here: S10 and S11 compare re-uploads of the same names against Job A's committed rows. Masking first rewrites those names to initials, so every re-upload then plans 400+ new instructors and 1,300+ request changes: a test artefact, not the product's answer (round 1, R1-S-39). Until this step, keep the precondition-4 masks on every screenshot.
+- Do: `bash "$SNAP/scripts/record/stack.sh" mask` (with this stack's env). It masks with `kvkk_mask.py`, then runs the README §7 check and prints **`left 0`**. If it stops with names left, run the README §4.4 masking block and report the count and shapes it printed (T-R1-44).
+- From here on, screenshots need no masks.
 
 **S12 · viewer · read-only job**
 - Do: log in as viewer.test (VIEWER: `planning.view` only). Open Job A.

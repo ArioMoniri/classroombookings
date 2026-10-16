@@ -31,6 +31,8 @@
 #      the journeys book as the seeded administrator so no invented person appears in the media),
 #      REC_LANG (en|tr: the admin's profile language, which the booking pages follow),
 #      REC_SKIP_BUILD=1 (reuse the previous frontend build), REC_DATA (all|bahar), REC_RUNS (see runs).
+#      REC_CAL_SIGNOFF=0 (leave calendar sync off with no KVKK sign-off record; default 1 signs it off for the
+#      recordings; the flow tests use 0, docs/testing/flows/README.md §4.2).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -77,7 +79,7 @@ seed_via_api() {
   fi
   if [[ "$1" == 0 && "${REC_DATA:-all}" == all ]]; then
     "$PYTHON" "$ROOT/scripts/record/setup_api.py" "$api" "$EMAIL" "$PASSWORD" bookings --language "${REC_LANG:-en}" \
-      >>"$WORK/import.log" 2>&1 && log "booking setup done (Güz 2026-27 open, admin language ${REC_LANG:-en})" \
+      >>"$WORK/import.log" 2>&1 && log "booking setup done (Güz 2026-27 open, admin language ${REC_LANG:-en}, calendar sync $([[ "${REC_CAL_SIGNOFF:-1}" == 0 ]] && echo off || echo 'signed off'))" \
       || die "booking setup failed, see $WORK/import.log"
   fi
   [[ "${REC_TEACHER:-0}" == 1 ]] || return 0

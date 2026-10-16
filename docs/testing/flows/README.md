@@ -136,7 +136,7 @@ Port plan (pick your row; never reuse another tester's ports):
 
 ```bash
 export REC_WORKDIR="$SCR/flow-stack-<persona>" REC_API_PORT=191x0 REC_WEB_PORT=191x1
-export REC_TEACHER=1 REC_LANG=tr
+export REC_TEACHER=1 REC_LANG=tr REC_CAL_SIGNOFF=0   # calendar sync stays off with no sign-off record (F-04 S01/S02, F-11 S09 sign it off themselves)
 bash "$SNAP/scripts/record/stack.sh" up          # ≈ 2–4 min: all three terms + room master, prod build
 REC_RUNS="2026-BAHAR:WEEK:3:120 2026-BAHAR:TERM:-:240 2026-GUZ:WEEK:3:120 2026-GUZ:TERM:-:240" \
   bash "$SNAP/scripts/record/stack.sh" runs      # ≈ 15 min: real solver runs; full-term runs are published
@@ -205,16 +205,22 @@ curl -fsS -o /dev/null -X PUT "$API/org/smtp" "${H[@]}" \
   -d "{\"host\":\"127.0.0.1\",\"port\":$SMTP_PORT,\"security\":\"none\",\"from_address\":\"noreply@smartsched.local\",\"from_name\":\"SmartSched\"}"
 curl -fsS -X POST "$API/org/smtp/test" "${H[@]}" -d '{"to":"admin@smartsched.local"}' | jq -c .   # expect "status":"SENT"
 
-# 4. test fixture (NOT a product feature; no API exists, see F-05): link the academician to the PSY 278 instructor,
-#    and mask every person name to initials (KVKK, §7). Runs on the throwaway SQLite file only.
-python3 -I - "$DB" <<'PY'
-import re, sqlite3, sys
+# 4. link the academician to the PSY 278 instructor through the API (PUT /auth/sso/admin/users/{id}/instructor,
+#    setup.users, audited; the two ids are read from the throwaway SQLite file), then mask every person name to
+#    initials (KVKK, §7) on that file only.
+read -r ACAD_UID ACAD_IID < <(python3 -I - "$DB" <<'PY'
+import sqlite3, sys
 db = sqlite3.connect(sys.argv[1])
 uid = db.execute("select id from users where email='akademisyen.test@smartsched.local'").fetchone()[0]
 iid = db.execute("""select si.instructor_id from section_instructors si join sections s on s.id=si.section_id
   join courses c on c.id=s.course_id where c.code in ('PSY278','PSY 278') order by si.instructor_id limit 1""").fetchone()[0]
-db.execute("update instructors set user_id=null where user_id=?", (uid,))
-db.execute("update instructors set user_id=? where id=?", (uid, iid))
+print(uid, iid)
+PY
+)
+curl -fsS -X PUT "$API/auth/sso/admin/users/$ACAD_UID/instructor" "${H[@]}" -d "{\"instructor_id\":$ACAD_IID}" | jq -c .   # 200
+python3 -I - "$DB" <<'PY'
+import re, sqlite3, sys
+db = sqlite3.connect(sys.argv[1])
 TITLES = {"prof.", "doç.", "dr.", "öğr.", "üyesi", "gör.", "arş.", "uzm.", "okt.", "prof", "doç", "dr", "öğr", "gör", "arş"}
 def initials(name):
     if not name: return name
@@ -227,9 +233,9 @@ for table, col in (("instructors", "full_name"), ("users", "full_name")):
         if v and v not in ("Administrator", "Yönetici") and initials(v) != v:
             db.execute(f"update {table} set {col}=? where id=?", (initials(v), rid))
 db.commit()
-print("linked user", uid, "-> instructor", iid)
 PY
-echo "ACADEMICIAN_INSTRUCTOR_ID=$(python3 -I -c "import sqlite3,sys;print(sqlite3.connect(sys.argv[1]).execute(\"select id from instructors where user_id=(select id from users where email='akademisyen.test@smartsched.local')\").fetchone()[0])" "$DB")"
+python3 -I "$SNAP/scripts/record/kvkk_mask.py" "$DB" --verify    # §7: expect "left 0"
+echo "ACADEMICIAN_INSTRUCTOR_ID=$ACAD_IID"
 ```
 
 - If the schema has moved (a column renamed), fix the fixture SQL in your scratch copy and note it in the report. It is not a product defect.

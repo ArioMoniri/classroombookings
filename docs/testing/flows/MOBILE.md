@@ -52,6 +52,7 @@ const m02 = await page.evaluate(() => {
   for (const el of document.querySelectorAll(SEL)) {
     const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
     if (!r.width || !r.height || cs.visibility === "hidden" || el.closest('[aria-hidden="true"],[inert]')) continue;
+    if (r.width <= 1 && r.height <= 1 && el !== document.activeElement) continue;   // sr-only until focused: the "İçeriğe atla" skip link (1×1)
     if (el.tagName === "A" && cs.display === "inline" && /^(P|LI|TD|SPAN|DD)$/.test(el.parentElement?.tagName ?? "")) continue; // links inside running text
     let w = r.width, h = r.height;
     const lab = el.labels?.[0]; if (lab) { const l = lab.getBoundingClientRect(); w = Math.max(w, l.width); h = Math.max(h, l.height); }
@@ -67,6 +68,8 @@ const m02 = await page.evaluate(() => {
 // PASS: m02.length === 0
 ```
 - The hit-area probe only works for elements in the viewport. Scroll each screen in steps of `0.8 × clientHeight` and repeat.
+- The skip link "İçeriğe atla" is `sr-only` (1 × 1 px) until it gets focus, so the snippet skips 1 × 1 elements that are not focused (round 1 listed it on every route, R1-A-02). It is a keyboard control, not a touch target: check it once by keyboard instead (F-13), where the first Tab from the top of the page focuses it and it becomes visible.
+- Run `assertTouch(page)` (README §3, `scripts/record/lib/touch.mjs`) before the snippet. A reading taken with touch emulation off shows the mouse sizes (32 px controls), not what a phone gets.
 - Seen before: U-16 (28 px toolbar), UI review §2 "85–97 % of admin controls under 44 px at 390".
 
 ### M-03 · Text ≥ 11 px (inputs ≥ 16 px on phone)
@@ -99,7 +102,8 @@ On phone, every dialog, sheet, popover form and filter panel opens anchored to t
 const vp = page.viewportSize();
 const sheet = page.locator('[role="dialog"]:visible, [role="alertdialog"]:visible').last();
 const b = await sheet.boundingBox();
-const inner = await sheet.evaluate((el) => ({ scrollable: el.scrollHeight <= el.clientHeight || [...el.querySelectorAll("*")].some((c) => /(auto|scroll)/.test(getComputedStyle(c).overflowY) && c.scrollHeight > c.clientHeight) }));
+// the content fits, or the sheet itself or an element inside it scrolls (a phone Dialog scrolls itself: overflow-y on the popup)
+const inner = await sheet.evaluate((el) => ({ scrollable: el.scrollHeight <= el.clientHeight + 1 || [el, ...el.querySelectorAll("*")].some((c) => /(auto|scroll)/.test(getComputedStyle(c).overflowY) && c.scrollHeight > c.clientHeight + 1) }));
 // PASS on phone: Math.abs(b.y + b.height - vp.height) <= 2 && b.width >= vp.width - 2 && b.height <= vp.height && inner.scrollable
 // PASS on tablet: as phone, OR a centred dialog/side sheet with width between 360 and 640 and height <= vp.height
 await page.keyboard.press("Escape");  // closes it; focus returns to the trigger (README §4.7)

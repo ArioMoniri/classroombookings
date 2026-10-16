@@ -1517,7 +1517,9 @@
             "scripts/record/kvkk_mask.py"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "f38a3db: the 7 rows were kvkk_mask output the README §7 one-liner misread (title fragment 'Üye.', hyphenated initials 'A.-B.'), no surname survived. kvkk_mask.py --verify is the §7 check; stack.sh up/mask run it and fail on a leftover."
         },
         {
           "id": "T-R1-43",
@@ -1543,7 +1545,9 @@
             "scripts/record/setup_api.py:92"
           ],
           "dedup": "see also ROADMAP 'MOBILE.md M-04 snippet' (open)",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "F-01 S04 (detail sheet on a second tap; book-duplicate-link only on the stale-grid 409), F-03 {field}, F-12 next / ?error=, REC_CAL_SIGNOFF=0 (setup_api.py + stack.sh, default unchanged; README §4.2 sets it), README §4.4 links via PUT /auth/sso/admin/users/<id>/instructor and F-05 S00 tests the built picker, F-08 S09 after S11, MOBILE M-02 skip link and M-04 dialog self-scroll."
         }
       ],
       "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"

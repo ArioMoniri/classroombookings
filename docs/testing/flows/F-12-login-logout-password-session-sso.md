@@ -11,10 +11,7 @@ State on `d2ed4a8` (HEAD while this file was revised):
 - Backend `app/api/v1/sso.py` + `app/services/sso.py` exist: providers, start, callback, exchange, admin config, invites, bind, mappings.
 - The sign-in page of the spec is **not built** (dedicated SSO/channels frontend agent, after the shell sweep).
 - No test stack has a tenant. So S11–S17 test everything **up to the redirect to Microsoft**, plus the guards, the invites and the break-glass rules. S18, a full round trip, is `BLOCKED: no tenant credentials (owner gets them from IT)`.
-- **Spec vs backend mismatch, to resolve before the frontend lands:**
-  - sign-in.md §15.1 expects the button to point at `/api/v1/auth/oidc/microsoft/start?next=…` and errors as `?error=<code>`;
-  - the backend serves `/api/v1/auth/sso/entra/start?return_path=…` and redirects errors to `/login?sso_error=<code>`.
-  - Testers check whatever the built page uses, end to end. A dead link is a FAIL. The suggester files the mismatch once (owner area `integrations` → the SSO/channels frontend agent).
+- **Start URL and parameters (checked against the code on 2026-10-16, round-1 drift R1-A-39):** the Microsoft link is `/api/v1/auth/sso/entra/start?next=<path>` (`components/auth/signin-model.ts` `START_PATH`/`startUrl`; backend `app/api/v1/sso.py` `start(next, invite, prompt, login_hint)`). There is no `return_path`. Refusals and callback errors redirect to `/login?error=<code>[&ref=…]` (`app/services/sso.py` `error_url`; `/profile?error=…` for a link), never `sso_error`. The sign-in page reads `?error=` (`signin-model.ts`). sign-in.md §15.1's `/auth/oidc/microsoft/start` path is the older name: test the built page, end to end. A dead link is a FAIL.
 
 Local login (S01–S10) is testable now.
 
@@ -125,13 +122,13 @@ Preconditions for S11–S18:
 - With SSO disabled (`enabled:false`): no Microsoft link, and the local form is open.
 
 **S13 · anyone · the start redirect is a correct, pinned OIDC request**
-- `curl -sS -o /dev/null -D - "$API/auth/sso/entra/start?return_path=/bookings"` (and the URL the UI link uses, if different).
+- `curl -sS -o /dev/null -D - "$API/auth/sso/entra/start?next=/bookings"` (the same URL the "Microsoft ile giriş yap" link uses: compare its `href`).
 - Expect: **302** to `https://login.microsoftonline.com/11111111-2222-3333-4444-555555555555/oauth2/v2.0/authorize?…` with `response_type=code`, the `client_id`, a `redirect_uri` under the stack's public URL ending in `/auth/sso/entra/callback`, a `scope` containing `openid`, `code_challenge_method=S256`, a `code_challenge`, a `state` and a `nonce`. The tenant is the configured one, never `common`.
-- With SSO disabled: 302 to `/login?sso_error=not_configured`, and the page shows a Turkish message, not a blank page.
-- `return_path=//evil.example` or `https://evil.example` → dropped (the user lands on the role home after sign-in).
+- With SSO disabled: 302 to `/login?error=failed&ref=…` (at 3598c8c `not_configured` is shown as the public code `failed`; lane E's T-R1-35 gives it its own code, e.g. `not_enabled`: expect that code once T-R1-35 is ticked), and the page shows a Turkish message, not a blank page.
+- `next=//evil.example` or `next=https://evil.example` → dropped (only a same-origin path is kept; the user lands on the role home after sign-in).
 
 **S14 · anyone · the callback refuses what it must**
-- `GET /auth/sso/entra/callback?state=forged&code=x` → 302 to `/login?sso_error=failed…` with a reference. The page shows **"Giriş yapılamadı."** with the reference code and focuses the alert.
+- `GET /auth/sso/entra/callback?state=forged&code=x` → 302 to `/login?error=failed&ref=…`. The page shows **"Giriş yapılamadı."** with the reference code and focuses the alert.
 - `?error=access_denied&state=<a real state from S13>` → the **cancelled** status ("Microsoft girişi tamamlanmadı. Hazır olduğunuzda tekrar deneyin.", `role="status"`, focus not stolen).
 - Re-using a state after it was consumed or expired (10 min) → failed.
 - `failed` with an unknown code and `failed` with a nonsense code render **byte-identical** text, the reference aside (no enumeration, §15.16).

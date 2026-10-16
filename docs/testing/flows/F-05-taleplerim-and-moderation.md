@@ -9,7 +9,7 @@ Owner decisions:
 - **Q9 (orchestrator, owner may override).** Raising a priority may leave a lower-priority neighbour unplaced, and the preview lists every such loss with its reason.
 
 Testable on `b75047b` + the P19 UI follow-up (2026-10-16): **mostly**. `smartsched/frontend/e2e/followup.phase19.spec.ts` (tests 3, 4 and 6) proves S01, S02, S04, S08 (person priority), S09, S10 (baseline + chain), S12 (with "Akademisyenlere bildir") and the phone checks.
-- The login ↔ instructor link has an API (`PUT /auth/sso/admin/users/{id}/instructor`, identity work); whether Yönetim › Kullanıcılar offers a picker is the identity agent's, so S00 stays as written.
+- The login ↔ instructor link has an API (`PUT /auth/sso/admin/users/{id}/instructor`, audited `user.instructor_link`) and a picker in Yönetim › Kullanıcılar (the user's edit sheet, section "Öğretim elemanı kaydı", `user-instructor`; `components/admin/users-admin-identity.tsx` `InstructorLink`). The README §4.4 seed links the academician through that API.
 - Publish-change notices (P19-T3) are built: the publish dialog has **"Akademisyenlere bildir"** (`notify-people`) and names who gets the digest. S13 is runnable.
 - The academician's "Tercih ekle" (P19-T2, Q12) is built (backend + UI, 2026-10-16): S03 part 2 is runnable; `e2e/followups-ui.spec.ts` proves it.
 
@@ -24,9 +24,10 @@ Testable on `b75047b` + the P19 UI follow-up (2026-10-16): **mostly**. `smartsch
 
 ## Steps
 
-**S00 · admin · how the link is made** [product gap]
-- Look for a way to link a user to an instructor: Yönetim › Kullanıcılar (the user form), the moderation person profile ("Hesap"), the instructor admin. Target (P19-T1): a picker "Öğretim elemanı kaydı" on the user form, with a search, audited.
-- Expected today: none exists → FAIL (major), one ticket.
+**S00 · admin · how the link is made**
+- Do: Yönetim › Kullanıcılar, open `akademisyen.test`. In **"Öğretim elemanı kaydı"** (`user-instructor`) the seeded link shows the instructor ("Öğretim elemanı #<id>" or the masked name). Press **"Değiştir"** (`instructor-edit`), search (`instructor-search`), pick the same instructor again (`instructor-pick-<id>`).
+- See: the toast **"Öğretim elemanı bağlandı"**; the moderation person profile ("Hesap") reads "bir kullanıcıya bağlı". An instructor linked to another account is refused with **"Bu öğretim elemanı başka bir hesaba bağlı"** (409 `instructor_linked`).
+- API: `GET /audit` has one `user.instructor_link` row per real change (none when the same instructor is picked again).
 
 ### Academician
 

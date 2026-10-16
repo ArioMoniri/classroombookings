@@ -7,8 +7,9 @@
 bookings  the one-time CRBS setup that bookings.spec.ts also makes (18-period schedule from the grid, the
           current term open for bookings, one room group per building, the term's published board, a public
           holiday), term names from the workbooks, the room master's solver tags adopted as typed room features
-          (Setup -> Rooms -> Features, "Adopt tags"), calendar sync switched on with the administrator's KVKK sign-off,
-          and the admin's profile language (the booking pages
+          (Setup -> Rooms -> Features, "Adopt tags"), calendar sync switched on with the administrator's KVKK sign-off
+          (REC_CAL_SIGNOFF=0 leaves it off with no sign-off record, the shipped default that the flow tests F-04 / F-11
+          start from), and the admin's profile language (the booking pages
           follow the profile language, not the browser).
           The current term is Güz 2026-27: its weekly grid holds only two calendar weeks, so the term's end
           date is derived from its imported week count (14 weeks from 21 Sep 2026).
@@ -20,6 +21,7 @@ runs      real solver runs through POST /runs (what the Generate button sends), 
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -88,8 +90,11 @@ def bookings(api: Api, language: str) -> None:
         made = api.call("POST", "/room-admin/features/adopt-tags")
         print(f"room features adopted from the room master's tags: {', '.join(f['name'] for f in made)}")
     # calendar sync ships switched off (KVKK): the administrator signs it off once, as an institution would; the
-    # server records who did it and when, and audits it
-    if not api.call("GET", "/calendar/admin/settings").get("calendar_sync_enabled"):
+    # server records who did it and when, and audits it. The recordings want it on (default); the flow tests set
+    # REC_CAL_SIGNOFF=0 to keep the shipped state (off, no sign-off record) that F-04 S01/S02 and F-11 S09 test.
+    if os.environ.get("REC_CAL_SIGNOFF", "1") == "0":
+        print("calendar sync left off, no sign-off record (REC_CAL_SIGNOFF=0)")
+    elif not api.call("GET", "/calendar/admin/settings").get("calendar_sync_enabled"):
         api.call("PUT", "/calendar/admin/settings", {"calendar_sync_enabled": True})
         print("calendar sync switched on (administrator's sign-off)")
     api.call("PUT", "/auth/profile", {"language": language})

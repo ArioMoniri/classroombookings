@@ -53,7 +53,8 @@ Each step lists what to do, what the UI must show (Turkish strings quoted exactl
 
 **S04 · staff · a duplicate request is refused**
 - Do: click R1·P7 again.
-- See: the sheet opens the existing request: **"Bu talep zaten var ve onay bekliyor."** with **"Talebi aç"** (`book-duplicate-link`). There is no second "Talep et".
+- See: the cell is the staff member's pending request, so the **detail** sheet opens (`booking-sheet`), not the book sheet: the alert `booking-pending` **"Onay bekliyor"** with the link **"Talebi Rezervasyonlarım'da görün"** (→ `/my-bookings`). There is no second "Talep et".
+- Stale grid: a second tab opened on `/bookings` before S03 still shows R1·P7 free. There, open its book sheet and press "Talep et": the sheet says **"Bu talep zaten var ve onay bekliyor."** with **"Talebi aç"** (`book-duplicate-link`, → `/my-bookings?request=<id>`), no toast of success. `book-duplicate-link` exists only on this 409 path (`bookings/book-sheet.tsx`).
 - API: repeat the S03 POST with curl → **409** `duplicate_request`. Save to `curl/F01-S04-duplicate.txt`.
 
 **S05 · staff · the request in My bookings**

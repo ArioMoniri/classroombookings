@@ -16,7 +16,7 @@ Testable: yes. The sign-off screen (M-40) is in Ayarlar › Entegrasyonlar since
    - `B2`: D3, P7 **and** P8 in one request (a two-period span), note `Telafi dersi`;
    - `B3`: D3, P10, then cancelled with the reason `Oda bakımda` (`POST /bookings/<id>/cancel`);
    - `R1`: as staff, request D1 · P9 in any room → 202, left **pending**.
-3. Calendar sync is **off** (the fresh default): `GET /calendar/admin/settings` → `calendar_sync_enabled: false`, `calendar_sync_signoff: null`.
+3. Calendar sync is **off** (the fresh default): `GET /calendar/admin/settings` → `calendar_sync_enabled: false`, `calendar_sync_signoff: null`. This holds only on a stack built with `REC_CAL_SIGNOFF=0` (README §4.2): without it, `stack.sh up` signs calendar sync off for the recordings (`scripts/record/setup_api.py`). A `PUT {"calendar_sync_enabled":false}` does not bring back `signoff: null` (it records a new, disabled sign-off), so on such a stack S01 runs with a disabled record: note it in the report.
 4. Clipboard: create the browser context with `permissions: ["clipboard-read", "clipboard-write"]` (desktop only; on touch viewports read the URL from the field instead).
 
 ## Steps

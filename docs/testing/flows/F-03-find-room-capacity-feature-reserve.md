@@ -19,9 +19,9 @@ Testable on `b75047b`: yes. A-11 (no feature facets, "PC" text contradicted by "
 4. Expected rooms, from `room_master.csv`: **A 105** (60 seats, PC) fits. Rooms with ≥ 42 seats and no PC tag do not. Rooms with PC but < 42 seats are "Küçük". The published Güz board may already hold A 105 at that time. Then the expected top result is the next free PC room ≥ 42 seats; record what the API returns in precondition 5.
 5. Oracle: run the same search through the API before the UI:
    ```bash
-   curl -fsS -X POST "$API/rooms/find" "${H[@]}" -d "{\"date\":\"$D1\",\"start\":7,\"end\":8,\"headcount\":42,\"features\":[{\"id\":$PC_FEATURE_ID}]}" > "$EV/curl/F03-oracle.json"
+   curl -fsS -X POST "$API/rooms/find" "${H[@]}" -d "{\"date\":\"$D1\",\"start\":7,\"end\":8,\"headcount\":42,\"features\":[{\"field\":$PC_FEATURE_ID}]}" > "$EV/curl/F03-oracle.json"
    ```
-   Every room in the "fits" part has capacity ≥ 42 and the PC feature. Save the ordered codes. The UI must show the same set in the same order.
+   A feature filter is `{"field": <feature id or name>, "op"?, "value"?}` (`app/schemas/find_room.py` `FeatureFilter`); `{"id": …}` is a 422. Every room in the "fits" part has capacity ≥ 42 and the PC feature. Save the ordered codes. The UI must show the same set in the same order.
 
 ## Steps
 
