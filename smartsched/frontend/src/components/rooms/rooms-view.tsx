@@ -196,7 +196,7 @@ export function RoomsView() {
   );
   const filterFields = (
     <>
-    <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-32" aria-label={t("common.building")} value={building} onChange={(e) => set({ building: e.target.value || null })} data-testid="rooms-building">
+    <NativeSelect size="sm" className="w-auto min-w-32" aria-label={t("common.building")} value={building} onChange={(e) => set({ building: e.target.value || null })} data-testid="rooms-building">
       <option value="">{`${t("common.building")}: ${t("roomsV2.allBuildings")}`}</option>
       {buildingCodes.map((b) => <option key={b} value={b}>{t("roomsV2.building", { b })}</option>)}
     </NativeSelect>
@@ -207,11 +207,11 @@ export function RoomsView() {
         </Chip>
       ))}
     </span>
-    <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-32" aria-label={t("roomsV2.minCapacity")} value={String(minSeats)} onChange={(e) => set({ seats: e.target.value === "0" ? null : e.target.value })} data-testid="rooms-seats">
+    <NativeSelect size="sm" className="w-auto min-w-32" aria-label={t("roomsV2.minCapacity")} value={String(minSeats)} onChange={(e) => set({ seats: e.target.value === "0" ? null : e.target.value })} data-testid="rooms-seats">
       {SEAT_STEPS.map((s) => <option key={s} value={s}>{s === 0 ? `${t("roomsV2.minCapacity")}: ${t("roomsV2.any")}` : `${t("roomsV2.minCapacity")} ≥ ${s}`}</option>)}
     </NativeSelect>
     {layout === "cards" ? (
-      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-36" aria-label={t("roomsV2.sort")} value={sort} onChange={(e) => set({ sort: e.target.value === "code" ? null : e.target.value })}>
+      <NativeSelect size="sm" className="w-auto min-w-36" aria-label={t("roomsV2.sort")} value={sort} onChange={(e) => set({ sort: e.target.value === "code" ? null : e.target.value })}>
         <option value="code">{t("roomsV2.sortCode")}</option>
         <option value="capacity">{t("roomsV2.sortCapacity")}</option>
         <option value="busy" disabled={!cal.model}>{t("roomsV2.sortBusy")}</option>

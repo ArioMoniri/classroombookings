@@ -136,7 +136,7 @@ export function MappingStep({
                       </span>
                     </td>
                     <td className="py-1.5">
-                      <NativeSelect selectClassName="max-md:pointer-coarse:text-base"
+                      <NativeSelect
                         aria-label={t("studio.mapping.meansFor", { col: c.header || `#${c.index + 1}` })}
                         value={byColumn[c.index] ?? ""}
                         onChange={(e) => {

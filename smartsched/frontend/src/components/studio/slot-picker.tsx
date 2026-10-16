@@ -59,14 +59,14 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
           </label>
           {v.mode === "programs" ? (
             <div className="grid grid-cols-[1fr_6rem] gap-2 pl-6">
-              <NativeSelect selectClassName="max-md:pointer-coarse:text-base" aria-label={t("studio.slot.programme")} value={prog} onChange={(e) => onChange({ mode: "programs", programs: [e.target.value], year })}>
+              <NativeSelect aria-label={t("studio.slot.programme")} value={prog} onChange={(e) => onChange({ mode: "programs", programs: [e.target.value], year })}>
                 {sentence.programs.map((p) => (
                   <option key={p} value={p}>
                     {p}
                   </option>
                 ))}
               </NativeSelect>
-              <NativeSelect selectClassName="max-md:pointer-coarse:text-base" aria-label={t("studio.classes.year")} value={year ?? ""} onChange={(e) => onChange({ mode: "programs", programs: [prog], year: e.target.value ? Number(e.target.value) : null })}>
+              <NativeSelect aria-label={t("studio.classes.year")} value={year ?? ""} onChange={(e) => onChange({ mode: "programs", programs: [prog], year: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">{t("studio.slot.allYears")}</option>
                 {[1, 2, 3, 4, 5, 6].map((y) => (
                   <option key={y} value={y}>
@@ -144,7 +144,7 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
       );
     case "period":
       return (
-        <NativeSelect selectClassName="max-md:pointer-coarse:text-base" aria-label={field.name} value={value === null || value === undefined ? "" : String(value)} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
+        <NativeSelect aria-label={field.name} value={value === null || value === undefined ? "" : String(value)} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
           <option value="">{t("studio.rule.choose")}</option>
           {PERIODS.map((p) => (
             <option key={p.index} value={p.index}>
@@ -159,13 +159,13 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
       const set = (a: number | null, b: number | null) => (a && b && b >= a ? onChange(Array.from({ length: b - a + 1 }, (_, i) => a + i)) : onChange(a ? [a] : []));
       return (
         <div className="grid grid-cols-2 gap-2">
-          <NativeSelect selectClassName="max-md:pointer-coarse:text-base" aria-label={t("studio.slot.from")} value={s ?? ""} onChange={(ev) => set(ev.target.value ? Number(ev.target.value) : null, e)}>
+          <NativeSelect aria-label={t("studio.slot.from")} value={s ?? ""} onChange={(ev) => set(ev.target.value ? Number(ev.target.value) : null, e)}>
             <option value="">{t("studio.slot.from")}</option>
             {PERIODS.map((p) => (
               <option key={p.index} value={p.index}>{`P${p.index} ${p.start}`}</option>
             ))}
           </NativeSelect>
-          <NativeSelect selectClassName="max-md:pointer-coarse:text-base" aria-label={t("studio.slot.to")} value={e ?? ""} onChange={(ev) => set(s, ev.target.value ? Number(ev.target.value) : null)}>
+          <NativeSelect aria-label={t("studio.slot.to")} value={e ?? ""} onChange={(ev) => set(s, ev.target.value ? Number(ev.target.value) : null)}>
             <option value="">{t("studio.slot.to")}</option>
             {PERIODS.map((p) => (
               <option key={p.index} value={p.index}>{`P${p.index} ${p.end}`}</option>

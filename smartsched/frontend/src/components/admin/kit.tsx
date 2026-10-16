@@ -78,7 +78,7 @@ export function SelectField({ className, children, ...props }: SelectHTMLAttribu
   const { size: _size, ...rest } = props;
   void _size;
   return (
-    <NativeSelect {...rest} className={className} selectClassName="max-md:pointer-coarse:text-base">
+    <NativeSelect {...rest} className={className}>
       {children}
     </NativeSelect>
   );

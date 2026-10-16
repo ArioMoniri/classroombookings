@@ -135,7 +135,7 @@ export function DecideControls({ group, onDecided, compact = false }: { group: W
           <p className="rounded-lg bg-fill-3 px-3 py-2 type-callout">{pairText(head.text, lang)}</p>
           <div className="flex flex-col gap-1">
             <label htmlFor={`${ids}-code`} className="type-footnote font-semibold text-label-2">{t("moderation.review.codeLabel")}</label>
-            <NativeSelect id={`${ids}-code`} value={code} onChange={(e) => setCode(e.target.value)} selectClassName="max-md:pointer-coarse:text-base" data-testid="wish-reject-code">
+            <NativeSelect id={`${ids}-code`} value={code} onChange={(e) => setCode(e.target.value)} data-testid="wish-reject-code">
               <option value="">{t("moderation.review.codeNone")}</option>
               {REJECT_CODES.map((c) => (
                 <option key={c} value={c}>{t(`moderation.review.codes.${c}`)}</option>

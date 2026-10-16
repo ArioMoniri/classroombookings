@@ -21,6 +21,9 @@ export const PLANNING_LIST = path.join(FIXTURES, "bahar_derslik_planlama_listesi
 /** Sign in through the form; resolves once the app left /login. `?method=local` opens the password door when
  *  Microsoft sign-in is on (sign-in.md §4.2) and is harmless when it is off. */
 export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADMIN_PASSWORD): Promise<void> {
+  // A page still showing the app after its cookies were cleared answers its next poll with 401 and redirects
+  // itself to /login?expired, which aborts our own navigation (net::ERR_ABORTED). Leave the app first.
+  if (page.url() !== "about:blank") await page.goto("about:blank");
   await page.goto("/login?method=local");
   await page.getByTestId("login-identifier").fill(identifier);
   await page.getByTestId("login-password").fill(password);

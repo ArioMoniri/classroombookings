@@ -328,7 +328,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
 
   const filterControls = (
     <>
-        <NativeSelect selectClassName="max-md:pointer-coarse:text-base" className="w-40" aria-label={t("studio.classes.faculty")} value={filters.faculty ?? ""} onChange={(e) => set({ faculty: e.target.value ? Number(e.target.value) : null, program: null })} data-testid="filter-faculty">
+        <NativeSelect className="w-40" aria-label={t("studio.classes.faculty")} value={filters.faculty ?? ""} onChange={(e) => set({ faculty: e.target.value ? Number(e.target.value) : null, program: null })} data-testid="filter-faculty">
         <option value="">{t("studio.classes.faculty")}</option>
         {opts.faculties.map((f) => (
           <option key={f.id} value={f.id}>
@@ -336,7 +336,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           </option>
         ))}
       </NativeSelect>
-      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" className="w-44" aria-label={t("studio.classes.program")} value={filters.program ?? ""} onChange={(e) => set({ program: e.target.value ? Number(e.target.value) : null })} data-testid="filter-program">
+      <NativeSelect className="w-44" aria-label={t("studio.classes.program")} value={filters.program ?? ""} onChange={(e) => set({ program: e.target.value ? Number(e.target.value) : null })} data-testid="filter-program">
         <option value="">{t("studio.classes.program")}</option>
         {opts.programs.filter((p) => filters.faculty === null || p.faculty === filters.faculty).map((p) => (
           <option key={p.id} value={p.id}>
@@ -344,7 +344,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           </option>
         ))}
       </NativeSelect>
-      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" className="w-28" aria-label={t("studio.classes.year")} value={filters.year ?? ""} onChange={(e) => set({ year: e.target.value ? Number(e.target.value) : null })}>
+      <NativeSelect className="w-28" aria-label={t("studio.classes.year")} value={filters.year ?? ""} onChange={(e) => set({ year: e.target.value ? Number(e.target.value) : null })}>
         <option value="">{t("studio.classes.year")}</option>
         {opts.years.map((y) => (
           <option key={y} value={y}>
@@ -352,7 +352,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           </option>
         ))}
       </NativeSelect>
-      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" className="w-32" aria-label={t("common.day")} value={filters.day ?? ""} onChange={(e) => set({ day: e.target.value ? Number(e.target.value) : null })} data-testid="filter-day">
+      <NativeSelect className="w-32" aria-label={t("common.day")} value={filters.day ?? ""} onChange={(e) => set({ day: e.target.value ? Number(e.target.value) : null })} data-testid="filter-day">
         <option value="">{t("common.day")}</option>
         {[1, 2, 3, 4, 5, 6, 7].map((d) => (
           <option key={d} value={d}>
@@ -360,7 +360,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           </option>
         ))}
       </NativeSelect>
-      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" className="w-28" aria-label={t("common.building")} value={filters.building ?? ""} onChange={(e) => set({ building: e.target.value || null })}>
+      <NativeSelect className="w-28" aria-label={t("common.building")} value={filters.building ?? ""} onChange={(e) => set({ building: e.target.value || null })}>
         <option value="">{t("common.building")}</option>
         {opts.buildings.map((b) => (
           <option key={b} value={b}>
@@ -368,7 +368,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           </option>
         ))}
       </NativeSelect>
-      <NativeSelect selectClassName="max-md:pointer-coarse:text-base" className="w-36" aria-label={t("studio.classes.col.mode")} value={filters.mode ?? ""} onChange={(e) => set({ mode: e.target.value || null })}>
+      <NativeSelect className="w-36" aria-label={t("studio.classes.col.mode")} value={filters.mode ?? ""} onChange={(e) => set({ mode: e.target.value || null })}>
         <option value="">{t("studio.classes.col.mode")}</option>
         {opts.modes.map((m) => (
           <option key={m} value={m}>

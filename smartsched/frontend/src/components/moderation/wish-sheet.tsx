@@ -312,7 +312,7 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
             {(["earliest", "latest"] as const).map((k) => (
               <div key={k} className="flex flex-col gap-1">
                 <label htmlFor={`${ids}-${k}`} className="type-footnote font-semibold text-label-2">{t(`moderation.wish.${k}`)}</label>
-                <NativeSelect id={`${ids}-${k}`} value={form[k] === null ? "" : String(form[k])} onChange={(e) => set({ [k]: e.target.value ? Number(e.target.value) : null })} selectClassName="max-md:pointer-coarse:text-base" data-testid={`wish-${k}`}>
+                <NativeSelect id={`${ids}-${k}`} value={form[k] === null ? "" : String(form[k])} onChange={(e) => set({ [k]: e.target.value ? Number(e.target.value) : null })} data-testid={`wish-${k}`}>
                   <option value="">{t("moderation.wish.any")}</option>
                   {PERIODS.map((p) => (
                     <option key={p.index} value={p.index}>{`P${p.index} · ${k === "earliest" ? p.start : p.end}`}</option>

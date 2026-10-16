@@ -77,7 +77,7 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
       <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
         <div className="grid min-w-48 gap-1.5">
           <Label htmlFor="scope-term">{t("studio.scope.term")}</Label>
-          <NativeSelect selectClassName="max-md:pointer-coarse:text-base"
+          <NativeSelect
             id="scope-term"
             value={String(termId)}
             onChange={(e) => {

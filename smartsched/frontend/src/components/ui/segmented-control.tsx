@@ -17,10 +17,13 @@
 // transitions `transform` only, on the --spring-glass-morph linear() curve (CSS mirror of springs.glassMorph,
 // ≤ 300 ms); a new target mid-flight re-targets from the current position (interruptible). Reduced motion:
 // the global rule zeroes the duration (the thumb jumps; the label weight/colour change carries the state).
+// Touch: segments are 30 / 38 px tall on coarse pointers (track − 6 px); each gets a 44 × 44 hit area through ::after
+// (ui/hit-area.ts, MOBILE.md M-02). The select fallback is a NativeSelect, so it has 16 px text on phones.
 // Purpose sentence: "When the user picks a segment, the thumb travels to it so they see which view is now on."
 import * as React from "react"
 import { cn } from "cn"
 
+import { coarseHitArea } from "@/components/ui/hit-area"
 import { NativeSelect } from "@/components/ui/native-select"
 
 export type SegmentedOption<V extends string = string> = {
@@ -70,7 +73,7 @@ export const segmentedTrack =
 export const segmentedThumb =
   "pointer-events-none absolute inset-y-[3px] left-[3px] -z-10 rounded-full bg-(--mat-thick-solid) shadow-[inset_0_1px_0_0_var(--specular),0_0_0_1px_var(--hairline),0_1px_3px_0_rgba(0,0,0,0.12)] transition-transform duration-(--spring-glass-morph-ms) ease-(--spring-glass-morph)"
 export const segmentedItem =
-  "relative inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full px-3 text-label-2 transition-colors duration-(--dur-fast) hover:text-label-1 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-(--focus) disabled:pointer-events-none disabled:opacity-45 aria-checked:text-label-1 aria-selected:text-label-1 [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]"
+  "relative inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full px-3 text-label-2 transition-colors duration-(--dur-fast) hover:text-label-1 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-(--focus) disabled:pointer-events-none disabled:opacity-45 aria-checked:text-label-1 aria-selected:text-label-1 [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:stroke-[1.75] " + coarseHitArea
 
 function textOf(node: React.ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node)

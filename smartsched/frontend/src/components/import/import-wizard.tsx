@@ -191,7 +191,7 @@ export function ImportWizard() {
           <CardContent className="space-y-4">
             <div className="grid gap-1.5 sm:max-w-xs">
               <Label htmlFor="term">{t("import.term")}</Label>
-              <NativeSelect selectClassName="max-md:pointer-coarse:text-base" id="term" value={String(effectiveTerm)} onChange={(e) => setTermId(Number(e.target.value))}>
+              <NativeSelect id="term" value={String(effectiveTerm)} onChange={(e) => setTermId(Number(e.target.value))}>
                 {terms.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
               </NativeSelect>
             </div>

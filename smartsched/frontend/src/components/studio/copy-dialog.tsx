@@ -107,7 +107,7 @@ function CopyBody({ onClose, initialRunId }: { onClose: () => void; initialRunId
         </DialogHeader>
         <label className="grid gap-1 text-sm">
           <span className="font-medium">{t("studio.copy.source")}</span>
-          <NativeSelect selectClassName="max-md:pointer-coarse:text-base" value={effective} onChange={(e) => setSource(e.target.value)} data-testid="copy-source">
+          <NativeSelect value={effective} onChange={(e) => setSource(e.target.value)} data-testid="copy-source">
             {options.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}

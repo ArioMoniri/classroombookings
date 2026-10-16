@@ -6,11 +6,15 @@
 // Keyboard (APG date picker dialog): Alt+↓ or the calendar button opens; in the grid ← → ↑ ↓ move by day/week,
 // PageUp/PageDown by month, Home/End to the week edges, Enter/Space picks, Escape closes and returns focus.
 // Original work; references: Apple Calendar / Linear date popovers (compact month grid, today ring).
+// Touch (2026-10-16): 16 px input text on phones (no iOS zoom), a 44 × 44 hit area on the calendar trigger
+// (ui/hit-area.ts), month arrows / Today / Clear on the ui Button, and 44 px day cells in a wider grid on coarse pointers.
 import * as React from "react"
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "cn"
 
+import { Button, IconButton } from "@/components/ui/button"
 import { fieldSize, fieldSurface, type FieldSize } from "@/components/ui/field-styles"
+import { coarsePhoneText, coarseHitArea } from "@/components/ui/hit-area"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useI18n } from "@/lib/i18n/provider"
 import { intlLocale } from "@/lib/i18n"
@@ -219,7 +223,7 @@ export function DateField({
             openPicker(true)
           }
         }}
-        className={cn(fieldSurface, fieldSize[size], "w-full min-w-0 pr-9 tnum")}
+        className={cn(fieldSurface, fieldSize[size], "w-full min-w-0 pr-9 tnum", coarsePhoneText)}
       />
       {invalid ? <span className="sr-only" role="status">{copy.invalid}</span> : null}
       <Popover open={open} onOpenChange={openPicker}>
@@ -227,21 +231,21 @@ export function DateField({
           disabled={disabled}
           aria-label={copy.open}
           title={copy.open}
-          className="absolute inset-y-0 right-1 my-auto inline-flex size-(--control-h-xs) items-center justify-center rounded-md text-label-2 hover:bg-fill-2 hover:text-label-1 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-(--focus)"
+          className={cn("absolute inset-y-0 right-1 my-auto inline-flex size-(--control-h-xs) items-center justify-center rounded-md text-label-2 hover:bg-fill-2 hover:text-label-1 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-(--focus)", coarseHitArea)}
         >
           <CalendarDays aria-hidden className="size-4 stroke-[1.75]" />
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-[17.5rem] gap-2 p-2.5">
+        <PopoverContent align="end" className="w-[17.5rem] gap-2 p-2.5 pointer-coarse:w-[min(21rem,calc(100vw-1.5rem))]">
           <div className="flex items-center justify-between">
-            <button type="button" aria-label={copy.prev} onClick={() => setCursor(addMonths(cursor, -1))} className="inline-flex size-(--control-h-sm) items-center justify-center rounded-md text-label-2 hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)">
+            <IconButton label={copy.prev} size="sm" shape="rect" onClick={() => setCursor(addMonths(cursor, -1))} className="rounded-md text-label-2">
               <ChevronLeft aria-hidden className="size-4 stroke-[1.75]" />
-            </button>
+            </IconButton>
             <p aria-live="polite" className="type-headline capitalize text-label-1">{monthLabel}</p>
-            <button type="button" aria-label={copy.next} onClick={() => setCursor(addMonths(cursor, 1))} className="inline-flex size-(--control-h-sm) items-center justify-center rounded-md text-label-2 hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)">
+            <IconButton label={copy.next} size="sm" shape="rect" onClick={() => setCursor(addMonths(cursor, 1))} className="rounded-md text-label-2">
               <ChevronRight aria-hidden className="size-4 stroke-[1.75]" />
-            </button>
+            </IconButton>
           </div>
-          <div ref={gridRef} role="grid" aria-label={monthLabel} onKeyDown={onGridKey} className="grid grid-cols-7 gap-0.5">
+          <div ref={gridRef} role="grid" aria-label={monthLabel} onKeyDown={onGridKey} className="grid grid-cols-7 gap-0.5 pointer-coarse:gap-0">
             {weekdays.map((w) => (
               <span key={w} role="columnheader" aria-label={w} className="py-1 text-center type-caption text-label-3">{w}</span>
             ))}
@@ -265,7 +269,7 @@ export function DateField({
                     setOpen(false)
                   }}
                   className={cn(
-                    "relative inline-flex h-8 items-center justify-center rounded-md type-callout tnum hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
+                    "relative inline-flex h-(--control-h-md) items-center justify-center rounded-md type-callout tnum hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
                     other ? "text-label-3" : "text-label-1",
                     !ok && "cursor-not-allowed line-through opacity-50",
                     isToday && !picked && "font-semibold text-tint-text",
@@ -278,9 +282,9 @@ export function DateField({
             })}
           </div>
           <div className="flex justify-between pt-1">
-            <button type="button" onClick={() => { if (inRange(today)) { onChange(today); setOpen(false) } }} className="rounded-md px-2 py-1 type-footnote font-medium text-tint-text hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)">{copy.today}</button>
+            <Button variant="ghost" size="xs" shape="rect" onClick={() => { if (inRange(today)) { onChange(today); setOpen(false) } }} className="rounded-md px-2 text-tint-text">{copy.today}</Button>
             {!required && value ? (
-              <button type="button" onClick={() => { onChange(""); setOpen(false) }} className="rounded-md px-2 py-1 type-footnote text-label-2 hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)">{copy.clear}</button>
+              <Button variant="ghost" size="xs" shape="rect" onClick={() => { onChange(""); setOpen(false) }} className="rounded-md px-2 font-normal text-label-2">{copy.clear}</Button>
             ) : null}
           </div>
         </PopoverContent>

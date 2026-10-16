@@ -1,6 +1,8 @@
 "use client"
 // Source: shadcn/ui switch (style base-nova, https://ui.shadcn.com) — Licence: MIT
 // Modified: yes — Liquid Glass v2: iOS-proportioned capsule, white lit thumb on springs.snappy (CSS mirror), tint when on. API unchanged.
+// Hit area: ::after 12 px wider and 8 px taller on each side; on coarse pointers at least 44 px tall (38 × 22 → 62 × 44,
+// sm 28 × 16 → 52 × 44; MOBILE.md M-02). `%` in inset-block is the switch's own height.
 
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch"
 import { cn } from "cn"
@@ -17,7 +19,7 @@ function Switch({
       data-slot="switch"
       data-size={size}
       className={cn(
-        "peer group/switch relative inline-flex shrink-0 items-center rounded-full p-[2px] transition-colors duration-(--dur-base) after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) aria-invalid:outline-2 aria-invalid:outline-(--status-infeasible-border) data-[size=default]:h-[22px] data-[size=default]:w-[38px] data-[size=sm]:h-[16px] data-[size=sm]:w-[28px] data-checked:bg-tint data-unchecked:bg-fill-1 data-disabled:cursor-not-allowed data-disabled:opacity-45",
+        "peer group/switch relative inline-flex shrink-0 items-center rounded-full p-[2px] transition-colors duration-(--dur-base) after:absolute after:-inset-x-3 after:-inset-y-2 pointer-coarse:after:inset-y-[min(-8px,calc(50%-22px))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) aria-invalid:outline-2 aria-invalid:outline-(--status-infeasible-border) data-[size=default]:h-[22px] data-[size=default]:w-[38px] data-[size=sm]:h-[16px] data-[size=sm]:w-[28px] data-checked:bg-tint data-unchecked:bg-fill-1 data-disabled:cursor-not-allowed data-disabled:opacity-45",
         className
       )}
       {...props}

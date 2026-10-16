@@ -4,6 +4,8 @@
 // `grid-template-columns: var(--cols)` so they can never drift apart (review §2 "Table column system").
 // Rows: --row-h (32 / 44 / 56 by density); numbers right-aligned with tabular numerals; status columns use
 // a dot + word (Vercel H6). No row motion: sorting and filtering are frequent actions (motion skill §2.1).
+// Card mode (narrow containers): the header stays for screen readers only, with no sort buttons or resize handles
+// (nothing hidden is focusable); each card has ONE target that covers it (see DataCard).
 import * as React from "react"
 import { getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from "@tanstack/react-table"
 import { useVirtualizer } from "@tanstack/react-virtual"
@@ -125,34 +127,8 @@ export function DataTable<Row>({
   const pinStyle = (id: string): React.CSSProperties | undefined => (byId.get(id)?.pin === "left" ? { left: layout.pinLeft[id] } : undefined)
 
   const renderCard = (r: (typeof model)[number]) => {
-    const extra = rowProps?.(r.original) ?? {}
     const [first, ...rest] = columns.filter((c) => !api.hidden.has(c.id) && (c.pin === "left" || (c.priority ?? 3) <= 2))
-    return (
-      <div
-        key={r.id}
-        role="row"
-        aria-rowindex={r.index + 2}
-        tabIndex={onRowActivate ? 0 : undefined}
-        onClick={onRowActivate ? () => onRowActivate(r.original) : undefined}
-        onKeyDown={onRowActivate ? (e) => { if (e.key === "Enter" && e.target === e.currentTarget) onRowActivate(r.original) } : undefined}
-        {...extra}
-        className={cn(
-          "flex min-h-11 flex-col gap-1 px-(--cell-px) py-2.5 edge-hairline-b type-callout text-label-1",
-          onRowActivate && "cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
-          extra.className,
-        )}
-      >
-        {first ? <div role="cell" className="flex min-w-0 items-center type-headline">{first.cell(r.original)}</div> : null}
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-          {rest.map((c) => (
-            <div key={c.id} role="cell" className="contents">
-              <dt className="type-footnote text-label-2">{c.header}</dt>
-              <dd className={cn("flex min-w-0 items-center type-footnote", c.align === "end" && "tnum")}>{c.cell(r.original)}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-    )
+    return <DataCard key={r.id} row={r.original} rowIndex={r.index} first={first} rest={rest} extra={rowProps?.(r.original) ?? {}} onActivate={onRowActivate} />
   }
 
   const renderRow = (r: (typeof model)[number], style?: React.CSSProperties) => {
@@ -226,7 +202,7 @@ export function DataTable<Row>({
                   style={pinStyle(id)}
                   data-column={id}
                 >
-                  {c.sortValue ? (
+                  {c.sortValue && !asCards ? (
                     <button
                       type="button"
                       onClick={col?.getToggleSortingHandler()}
@@ -238,7 +214,7 @@ export function DataTable<Row>({
                   ) : (
                     <span className="truncate">{c.headerNode ?? c.header}</span>
                   )}
-                  <ColumnResizeHandle
+                  {asCards ? null : <ColumnResizeHandle
                     id={id}
                     label={c.header}
                     width={layout.widths[id]}
@@ -246,7 +222,7 @@ export function DataTable<Row>({
                     max={c.maxSize}
                     onResize={(px) => api.setWidth(id, px)}
                     onAutoFit={() => api.autoFit(id)}
-                  />
+                  />}
                 </div>
               )
             })}
@@ -280,6 +256,88 @@ export function DataTable<Row>({
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+/** nested actions inside a card's cells sit above the card's stretched target and keep their own clicks */
+const CARD_NESTED =
+  "[&_dd_:is(a[href],button,input,select,textarea,label,summary,[role=button],[role=checkbox],[role=switch],[role=combobox])]:relative [&_dd_:is(a[href],button,input,select,textarea,label,summary,[role=button],[role=checkbox],[role=switch],[role=combobox])]:z-[1] [&_[data-card-title]_:is(button:not([data-card-activate]),input,select,textarea,label,summary,[role=button],[role=checkbox],[role=switch],[role=combobox])]:relative [&_[data-card-title]_:is(button:not([data-card-activate]),input,select,textarea,label,summary,[role=button],[role=checkbox],[role=switch],[role=combobox])]:z-[1]"
+/** the title's link becomes the whole card's target: its ::after covers the card (a "stretched link") */
+const CARD_LINK = "[&_[data-card-title]_a[href]]:after:absolute [&_[data-card-title]_a[href]]:after:inset-0 [&_[data-card-title]_a[href]]:after:content-['']"
+const INTERACTIVE = "a[href],button,input,select,textarea,summary,[role=button],[role=checkbox],[role=switch],[tabindex]"
+
+type TitleKind = "link" | "interactive" | "text"
+
+/**
+ * One row as a card (narrow containers). The whole card is ONE target (MOBILE.md M-02, WAI "one interactive element
+ * per card"): when the title cell has a link, that link is stretched over the card (real link semantics: open in a
+ * new tab, the link's own focus ring); otherwise, with `onActivate`, a button covers the card, named by the title
+ * (the visible title text is then hidden from assistive tech so it is not read twice). Other actions in the cells
+ * are lifted above the target, so they are excluded from the card's click area. No `tabIndex` on the row itself.
+ */
+function DataCard<Row>({
+  row,
+  rowIndex,
+  first,
+  rest,
+  extra,
+  onActivate,
+}: {
+  row: Row
+  rowIndex: number
+  first: DataColumn<Row> | undefined
+  rest: DataColumn<Row>[]
+  extra: React.HTMLAttributes<HTMLDivElement>
+  onActivate?: (row: Row) => void
+}) {
+  const titleId = React.useId()
+  // what the caller's title cell renders, read from the DOM after commit (unknown on the server / first paint)
+  const [kind, setKind] = React.useState<TitleKind | null>(null)
+  const measure = (el: HTMLSpanElement | null) => {
+    if (!el) return
+    const next: TitleKind = el.querySelector("a[href]") ? "link" : el.querySelector(INTERACTIVE) ? "interactive" : "text"
+    if (next !== kind) setKind(next)
+  }
+  const button = Boolean(onActivate && first) && kind !== "link"
+  return (
+    <div
+      role="row"
+      aria-rowindex={rowIndex + 2}
+      data-card-target={kind === "link" ? "link" : button ? "button" : undefined}
+      {...extra}
+      className={cn(
+        "relative flex min-h-11 flex-col gap-1 px-(--cell-px) py-2.5 edge-hairline-b type-callout text-label-1",
+        (button || kind === "link") && "cursor-pointer",
+        CARD_LINK,
+        CARD_NESTED,
+        extra.className,
+      )}
+    >
+      {first ? (
+        <div role="cell" data-card-title="" className="flex min-w-0 items-center type-headline">
+          <span ref={measure} id={titleId} aria-hidden={button && kind === "text" ? true : undefined} className="contents">
+            {first.cell(row)}
+          </span>
+          {button ? (
+            <button
+              type="button"
+              data-card-activate=""
+              aria-labelledby={titleId}
+              onClick={() => onActivate?.(row)}
+              className="absolute inset-0 cursor-pointer rounded-[inherit] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)"
+            />
+          ) : null}
+        </div>
+      ) : null}
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+        {rest.map((c) => (
+          <div key={c.id} role="cell" className="contents">
+            <dt className="type-footnote text-label-2">{c.header}</dt>
+            <dd className={cn("flex min-w-0 items-center type-footnote", c.align === "end" && "tnum")}>{c.cell(row)}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   )
 }
