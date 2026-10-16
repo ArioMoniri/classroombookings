@@ -176,6 +176,8 @@ async def me(session: AsyncSession, access: Access) -> dict[str, Any]:
         ).scalars()
     )
     sees_all = "planning.view" in access.perms
+    from app.services import teacher_preferences as tp
+
     return {
         "user_id": access.user.id,
         "instructor_id": linked[0].id if linked else None,
@@ -185,6 +187,9 @@ async def me(session: AsyncSession, access: Access) -> dict[str, Any]:
         ),
         "visibility": "all" if sees_all else ("own" if linked else "none"),
         "can_edit": "planning.edit" in access.perms,
+        # P19-T2 "Tercih ekle": a linked academician may add wishes for their own classes
+        "can_add_preference": bool(linked),
+        "preferences": await tp.counts_for_user(session, access.user),
         "current_term": await current_term_brief(session),
     }
 
@@ -1395,6 +1400,8 @@ SOLVING_ACTIONS: dict[str, str] = {
     "constraint.update": "preference",
     "constraint.delete": "preference",
     "constraint.waive": "preference",
+    # P19-T2: an academician's wish acts once a coordinator accepts it
+    "preference.accept": "preference",
 }
 CHANGE_KINDS = ("priority", "pin", "prefer", "unlock", "request", "preference")
 

@@ -36,7 +36,7 @@ from app.solver.model import Constraint
 #: the solver's structural kinds (capacity, room_tags, fixed_time, room_pin, room_forbid)
 STRUCTURAL_KINDS: frozenset[str] = frozenset(STRUCTURAL)
 #: rule sources that may never carry a waiver, whoever accepts them
-UNWAIVABLE_SOURCES: frozenset[str] = frozenset({"AI", "UPLOAD", "LEARNED"})
+UNWAIVABLE_SOURCES: frozenset[str] = frozenset({"AI", "UPLOAD", "LEARNED", "TEACHER"})
 REASON_MIN = 3
 #: the selector keys of ``app.solver.constraints._common.is_targeted`` / ``select_events``
 SELECTOR_KEYS: tuple[str, ...] = (

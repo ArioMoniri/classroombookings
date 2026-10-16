@@ -177,6 +177,10 @@ DECISIONS: dict[str, tuple[str, str]] = {
     # P19 backend gaps: person / programme priority (person.priority, program.priority with the term)
     "PUT /api/v1/moderation/people/{instructor_id}/priority": (E, "app.services.moderation"),
     "PUT /api/v1/moderation/programs/{program_id}/priority": (E, "app.services.moderation"),
+    # P19-T2 "Tercih ekle": an academician's own wish, the coordinator's decision (preference.* audit actions)
+    "POST /api/v1/moderation/me/preferences": (E, "app.services.teacher_preferences"),
+    "DELETE /api/v1/moderation/me/preferences/{constraint_id}": (E, "app.services.teacher_preferences"),
+    "POST /api/v1/moderation/preferences/{constraint_id}/decide": (E, "app.services.teacher_preferences"),
     # program wizard drafts (P19-W): the draft is wizard state, nothing live changes until the commit
     "POST /api/v1/program-drafts": (N, "a wizard draft; nothing in the term changes until commit"),
     "PATCH /api/v1/program-drafts/{draft_id}": (N, "autosave of a wizard draft (versioned on the draft row)"),

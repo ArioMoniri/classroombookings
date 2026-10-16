@@ -1,4 +1,4 @@
-"""P19-T2 "Tercih ekle": an academician's own preference for their classes (academician needs Q11 / Q12; flows F-05 S03).
+"""P19-T2 "Tercih ekle": an academician's own preference for their classes (academician needs Q11 / Q12; F-05 S03).
 
 Q12: the department form is the official request; the academician's own wish is a **lower-ranked soft preference**
 that waits for coordinator review. Concretely:
@@ -128,7 +128,9 @@ def _building_of(room: Room) -> str:
 
 async def linked_instructors(session: AsyncSession, user: User) -> list[Instructor]:
     return list(
-        (await session.execute(select(Instructor).where(Instructor.user_id == user.id).order_by(Instructor.id))).scalars()
+        (
+            await session.execute(select(Instructor).where(Instructor.user_id == user.id).order_by(Instructor.id))
+        ).scalars()
     )
 
 
@@ -260,9 +262,7 @@ async def _wished_rooms(session: AsyncSession, body: Mapping[str, Any]) -> list[
     if not out:
         raise PreferenceError(422, "no_room", "name the room you prefer", "Tercih ettiğiniz odayı seçin")
     if len(out) > MAX_ROOMS:
-        raise PreferenceError(
-            422, "too_many_rooms", f"name at most {MAX_ROOMS} rooms", f"En çok {MAX_ROOMS} oda seçin"
-        )
+        raise PreferenceError(422, "too_many_rooms", f"name at most {MAX_ROOMS} rooms", f"En çok {MAX_ROOMS} oda seçin")
     closed = [r.display_name for r in out if not r.is_bookable]
     if closed:
         raise PreferenceError(
@@ -535,7 +535,10 @@ async def items_out(session: AsyncSession, rows: list[ConstraintRow]) -> list[di
             labels[mr.id] = _label(mr)
     iids = sorted({int(_ref(r).get("instructor_id") or 0) for r in rows} - {0})
     names = (
-        {i.id: i.full_name for i in (await session.execute(select(Instructor).where(Instructor.id.in_(iids)))).scalars()}
+        {
+            i.id: i.full_name
+            for i in (await session.execute(select(Instructor).where(Instructor.id.in_(iids)))).scalars()
+        }
         if iids
         else {}
     )
@@ -681,7 +684,7 @@ async def decide(
             "decided",
             f"the preference was already {status_of(row)}",
             "Bu tercih için zaten karar verildi",
-            status=status_of(row),
+            current=status_of(row),
         )
     why = n.clean_text(reason)
     if decision == "reject" and len(why or "") < REASON_MIN:
@@ -764,9 +767,7 @@ async def _notify(
     code = term.code if term else ""
     if status == "rejected":
         title = f"{what}: tercihiniz kabul edilmedi" if lang == "tr" else f"{what}: your preference was not accepted"
-        body = (
-            f"{text.get('tr', '')}\nGerekçe: {reason}" if lang == "tr" else f"{text.get('en', '')}\nReason: {reason}"
-        )
+        body = f"{text.get('tr', '')}\nGerekçe: {reason}" if lang == "tr" else f"{text.get('en', '')}\nReason: {reason}"
     else:
         title = f"{what}: tercihiniz kabul edildi" if lang == "tr" else f"{what}: your preference was accepted"
         body = (

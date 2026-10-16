@@ -74,6 +74,16 @@ async def update_constraint(cid: int, body: ConstraintUpdate, db: DB, user: Plan
     hardness = data.get("hardness") or row.hardness
     _validate(row.kind, params, hardness)
     enabled = data["enabled"] if data.get("enabled") is not None else row.enabled
+    if row.source == "TEACHER" and enabled and not row.enabled and (row.source_ref or {}).get("review") != "accepted":
+        # P19-T2: an academician's wish is switched on by its review decision (the academician is told), not here
+        raise HTTPException(
+            409,
+            {
+                "code": "review_first",
+                "message": "accept the academician's preference first (POST /moderation/preferences/{id}/decide)",
+                "message_tr": "Önce akademisyenin tercihini onaylayın (Tercihler › Kabul et)",
+            },
+        )
     was_waiver = bool(row.enabled) and is_waiver(row.kind, row.params, row.hardness)
     becomes_waiver = bool(enabled) and is_waiver(row.kind, params, hardness)
     # a waiver is (re)decided whenever the rule's reach changes: params, hardness or switching it back on

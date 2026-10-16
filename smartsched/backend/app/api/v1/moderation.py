@@ -7,6 +7,9 @@ Permissions:
   and gets 403 when no record is linked;
 * priorities, re-solves and draft edits: ``planning.edit``; a pin over the rooms' capacity also needs
   ``planning.admin`` and a reason (Q8). Publishing stays ``POST /runs/{id}/activate`` with its guard.
+* P19-T2 "Tercih ekle" (``app/services/teacher_preferences.py``): an academician linked to an instructor record adds
+  a soft, targeted, lower-ranked wish for their own classes (``/moderation/me/preferences``); a coordinator
+  (``planning.edit``) accepts or rejects it with a reason (``/moderation/preferences/{id}/decide``).
 """
 
 from __future__ import annotations
@@ -19,8 +22,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import DB, CurrentAccess, CurrentUser, Planner, Viewer
 from app.core.db import get_session_factory
 from app.models import ScheduleRun, Term
-from app.schemas.moderation import MatchingActionIn, PriorityIn, ResolveIn, SubjectPriorityIn
+from app.schemas.moderation import (
+    MatchingActionIn,
+    PreferenceDecisionIn,
+    PriorityIn,
+    ResolveIn,
+    SubjectPriorityIn,
+    TeacherPreferenceIn,
+)
 from app.services import moderation as mod
+from app.services import teacher_preferences as tp
 from app.services.bookings_perms import load_access
 
 router = APIRouter(tags=["moderation"])
@@ -50,7 +61,11 @@ async def moderation_people(term_id: int, db: DB, access: CurrentAccess, q: str 
     "N dönemdir karşılanmadı" badge; accessibility as yes / no only."""
     term = await _term(db, term_id)
     scope = await _scope(db, access)
-    return await mod.people(db, term, scope, q)
+    out = await mod.people(db, term, scope, q)
+    pending = await tp.pending_by_instructor(db, term.id)
+    for row in out["items"]:
+        row["pending_preferences"] = pending.get(int(row["id"]), 0)
+    return out
 
 
 @router.get("/moderation/people/{instructor_id}/history")
@@ -60,9 +75,14 @@ async def moderation_history(
     """The person's requests across terms (``terms``: codes or ids, comma separated; default every term)."""
     scope = await _scope(db, access)
     try:
-        return await mod.history(db, instructor_id, scope, terms)
+        out = await mod.history(db, instructor_id, scope, terms)
     except mod.ModerationError as exc:
         raise _raise(exc) from exc
+    for group in out.get("terms") or []:
+        wishes = await tp.by_request(db, int(group["term_id"])) if group.get("term_id") else {}
+        for it in group.get("items") or []:
+            it["teacher_preferences"] = wishes.get(int(it["request_id"]), [])
+    return out
 
 
 async def _issues(db: AsyncSession, term: Term, run: ScheduleRun | None) -> dict[int, dict[str, Any]]:
@@ -134,11 +154,13 @@ async def moderation_matchings(
     summary = None
     if check and run is not None:
         findings, summary = await _findings(db, run)
+    wishes = await tp.by_request(db, term.id)
     for it in page:
         extra = issues.get(int(it["request_id"])) or {}
         it["placement_status"] = extra.get("placement_status")
         it["issues"] = extra.get("issues", [])
         it["findings"] = findings.get(int(it["request_id"]), []) if check and run is not None else None
+        it["teacher_preferences"] = wishes.get(int(it["request_id"]), [])
     return {
         "term_id": term.id,
         "run_id": run.id if run else None,
@@ -177,7 +199,8 @@ async def moderation_matching_detail(
         detail = await class_detail(db, term, request_id, kind="meetings", run=run)
     except CalendarError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
-    return {**item, "detail": detail.model_dump(mode="json")}
+    wishes = (await tp.by_request(db, term.id)).get(request_id, [])
+    return {**item, "teacher_preferences": wishes, "detail": detail.model_dump(mode="json")}
 
 
 @router.put("/moderation/sections/{section_id}/priority")
@@ -334,3 +357,76 @@ async def put_matching(request_id: int, body: MatchingActionIn, db: DB, user: Pl
         )
     except mod.ModerationError as exc:
         raise _raise(exc) from exc
+
+
+# ------------------------------------------------------------------------------------------- P19-T2 Tercih ekle
+
+
+def _tp_raise(exc: tp.PreferenceError) -> HTTPException:
+    return HTTPException(exc.status, exc.detail)
+
+
+@router.get("/moderation/me/preferences")
+async def my_preferences(db: DB, user: CurrentUser, term_id: int | None = None) -> dict[str, Any]:
+    """The caller's own "Tercih ekle" wishes (any signed-in user; ``linked`` false when no instructor record is
+    linked): status ``pending`` / ``accepted`` / ``rejected``, the coordinator's ``reason`` and the classes."""
+    return await tp.mine(db, user, term_id)
+
+
+@router.post("/moderation/me/preferences", status_code=201)
+async def add_my_preference(body: TeacherPreferenceIn, db: DB, user: CurrentUser) -> dict[str, Any]:
+    """P19-T2 "Tercih ekle": a soft, targeted wish for the caller's own classes, ranked below the department's
+    request (Q12) and switched off until a coordinator accepts it. 403 without an instructor link or for someone
+    else's class; 422 (TR/EN) for a hard / untargeted / structural wish or a time wish on a fixed class."""
+    try:
+        return await tp.submit(db, user, body.model_dump())
+    except tp.PreferenceError as exc:
+        await db.rollback()
+        raise _tp_raise(exc) from exc
+
+
+@router.delete("/moderation/me/preferences/{constraint_id}", status_code=204)
+async def withdraw_my_preference(constraint_id: int, db: DB, user: CurrentUser) -> Response:
+    """Take back a wish that is still waiting for review (its whole submission)."""
+    try:
+        await tp.withdraw(db, user, constraint_id)
+    except tp.PreferenceError as exc:
+        await db.rollback()
+        raise _tp_raise(exc) from exc
+    return Response(status_code=204)
+
+
+@router.get("/terms/{term_id}/moderation/teacher-preferences")
+async def term_teacher_preferences(
+    term_id: int,
+    db: DB,
+    access: CurrentAccess,
+    status: str | None = Query(default=None, description="comma separated: pending,accepted,rejected (or all)"),
+) -> dict[str, Any]:
+    """The academicians' wishes of the term for the coordinator's review (Tercihler / Talepler): ``counts`` per
+    status and the items with the classes, the person, the wish, the department's ask and the decision. Without
+    ``planning.view`` only the caller's own (Q11)."""
+    term = await _term(db, term_id)
+    scope = await _scope(db, access)
+    return await tp.term_list(db, term, None if scope.all else scope.instructor_ids, status)
+
+
+@router.post("/moderation/preferences/{constraint_id}/decide")
+async def decide_teacher_preference(
+    constraint_id: int, body: PreferenceDecisionIn, db: DB, user: Planner
+) -> dict[str, Any]:
+    """Accept (the rule acts from the next solve / re-solve) or reject (a written reason is required; the academician
+    is notified with it). Audited ``preference.accept`` / ``preference.reject``."""
+    try:
+        return await tp.decide(
+            db,
+            user,
+            constraint_id,
+            body.decision,
+            reason=body.reason,
+            reason_code=body.reason_code,
+            with_submission=body.with_submission,
+        )
+    except tp.PreferenceError as exc:
+        await db.rollback()
+        raise _tp_raise(exc) from exc
