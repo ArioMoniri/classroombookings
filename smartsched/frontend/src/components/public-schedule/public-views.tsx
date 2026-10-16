@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Loading } from "@/components/admin/kit";
 import { Card } from "@/components/ui/card";
+import { coarseHitArea } from "@/components/ui/hit-area";
 import { currentItem, isNotFound, nextItem, publicApi, publicKeys, usePublicBuilding, usePublicIndex, usePublicRoom, type PublicItem } from "@/lib/api/public-schedule";
 import { useI18n } from "@/lib/i18n/provider";
 import { ItemList, KioskFrame, PublicError, PublicNotFound, useClock, useKioskDate } from "./kiosk";
@@ -127,7 +128,7 @@ export function PublicBuildingView({ code }: { code: string }) {
             <li key={r.code}>
               <Card className="h-full gap-3 px-4 py-4" data-testid={`public-room-${r.code}`}>
                 <div className="flex items-baseline justify-between gap-2">
-                  <Link href={`/public/rooms/${encodeURIComponent(r.code)}${date ? `?date=${date}` : ""}`} className="type-title-2 text-label-1 underline-offset-4 hover:underline">
+                  <Link href={`/public/rooms/${encodeURIComponent(r.code)}${date ? `?date=${date}` : ""}`} className={`relative type-title-2 text-label-1 underline-offset-4 hover:underline ${coarseHitArea}`}>
                     {r.name}
                   </Link>
                   {r.capacity ? <span className="type-footnote text-label-3">{t("publicSchedule.seats", { n: r.capacity })}</span> : null}

@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `997122b` (committed 2026-10-16 14:37 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `675e583` (committed 2026-10-16 14:39 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-160 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 134 · stopped 7 · superseded 7.
+161 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 135 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -155,12 +155,12 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
-| `Hard-rule integrity fixes (round 1)` | solver-engineer | 2026-10-16 12:19 |
 | `Lane B` | general-purpose | 2026-10-16 13:09 |
 | `Lane C` | general-purpose | 2026-10-16 13:09 |
 | `Lane D` | general-purpose | 2026-10-16 13:09 |
 | `Lane E` | general-purpose | 2026-10-16 14:00 |
 | `Lane A` | general-purpose | 2026-10-16 14:05 |
+| `Lane H` | general-purpose | 2026-10-16 14:39 |
 
 <!-- /AUTO:agents -->
 
@@ -227,7 +227,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **217 ticked · 357 open** checkboxes in 80 sections (76 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **217 ticked · 359 open** checkboxes in 80 sections (76 with open items).
 
 <details><summary>Per section</summary>
 
@@ -311,7 +311,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Consent gates finished (2026-10-16) | 1 | 2 |
 | Remaining feature UIs finished (2026-10-16) | 0 | 2 |
 | Batch 4 finished (2026-10-16) | 5 | 2 |
-| Flow loop round 1: academician and admin reports in (2026-10-16) | 0 | 2 |
+| Flow loop round 1: academician and admin reports in (2026-10-16) | 0 | 4 |
 | Round 1 integrity fixes (2026-10-16) | 10 | 2 |
 
 </details>

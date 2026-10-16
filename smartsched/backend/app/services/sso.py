@@ -123,7 +123,8 @@ _DOMAIN_RX = re.compile(r"^(?=.{3,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)
 #: ``failed`` on purpose: the panel must not learn whether an account exists or is disabled.
 PUBLIC_CODES: dict[str, str] = {
     "state": "failed",
-    "not_configured": "failed",
+    # round-1 R1-A-29 (T-R1-35): sign-in with Microsoft switched off is a state, not a failure with a support code
+    "not_configured": "not_enabled",
     "exchange": "failed",
     "invalid_token": "failed",
     "account_exists": "failed",
@@ -145,6 +146,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "failed": {
         "tr": "Giriş yapılamadı. Tekrar deneyin. Sorun sürerse bu kodu yöneticinize iletin: {ref}",
         "en": "We couldn't sign you in. Try again. If it keeps happening, give this code to your administrator: {ref}",
+    },
+    "not_enabled": {
+        "tr": "Microsoft ile giriş bu kurumda henüz açık değil.",
+        "en": "Sign-in with Microsoft isn't turned on at this institution yet.",
     },
     "cancelled": {
         "tr": "Microsoft girişi tamamlanmadı. Hazır olduğunuzda tekrar deneyin.",
@@ -1348,12 +1353,16 @@ async def unlink_own(db: AsyncSession, user: User) -> None:
 # --------------------------------------------------------------------------------------------------
 
 
-async def _invite_out(db: AsyncSession, inv: SsoInvite) -> dict[str, Any]:
+async def _invite_out(db: AsyncSession, inv: SsoInvite, *, with_link: bool = True) -> dict[str, Any]:
+    """An invite for the admin screens. The link (the token) is shown once: in the answer that created or renewed it
+    (round-1 R1-M-25, T-R1-35); the list never repeats it (``with_link=False``)."""
     base, _ = await public_base(db)
-    try:
-        token = decrypt_secret(inv.token_enc)
-    except ValueError:
-        token = ""
+    token = ""
+    if with_link:
+        try:
+            token = decrypt_secret(inv.token_enc)
+        except ValueError:
+            token = ""
     return {
         "id": inv.id,
         "user_id": inv.user_id,
@@ -1437,6 +1446,11 @@ async def create_invite(db: AsyncSession, actor: User, body: dict[str, Any]) -> 
     assert prov is not None
     email = _clean_invite_email(body.get("email"))
     holder = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    reuse: User | None = None
+    if holder is not None and not holder.is_active and await unused_placeholder(db, holder):
+        pending = (await db.execute(select(SsoInvite.id).where(SsoInvite.user_id == holder.id))).scalar_one_or_none()
+        if pending is None:
+            reuse, holder = holder, None  # the account a revoked invite disabled (T-R1-35)
     if holder is not None:
         if await _identity_of(db, holder.id) is not None:
             raise SsoAdminError(
@@ -1470,17 +1484,23 @@ async def create_invite(db: AsyncSession, actor: User, body: dict[str, Any]) -> 
     dept = body.get("department_id")
     if dept is not None and await db.get(Program, dept) is None:
         raise SsoAdminError(422, "unknown_department", f"unknown department {dept}", "bilinmeyen bölüm")
-    user = User(
-        email=email,
-        full_name=clean_display_name(body.get("full_name")),
-        is_active=True,
-        auth_source="oidc",
-        password_hash=None,
-        force_password_reset=False,
-        department_id=dept,
-    )
+    if reuse is not None:
+        user = reuse
+        user.is_active = True
+        user.full_name = clean_display_name(body.get("full_name")) or user.full_name
+        user.department_id = dept
+    else:
+        user = User(
+            email=email,
+            full_name=clean_display_name(body.get("full_name")),
+            is_active=True,
+            auth_source="oidc",
+            password_hash=None,
+            force_password_reset=False,
+            department_id=dept,
+        )
+        db.add(user)
     set_user_role(user, role)
-    db.add(user)
     await db.flush()
     inv = await _place_invite(db, actor, user, email, "invite", body.get("days"), prov)
     if body.get("instructor_id") is not None:
@@ -1538,11 +1558,25 @@ async def mark_bind(db: AsyncSession, actor: User, user_id: int, email: str | No
 
 async def list_invites(db: AsyncSession) -> list[dict[str, Any]]:
     rows = (await db.execute(select(SsoInvite).where(SsoInvite.provider == PROVIDER).order_by(SsoInvite.id))).scalars()
-    return [await _invite_out(db, i) for i in rows]
+    return [await _invite_out(db, i, with_link=False) for i in rows]
+
+
+async def unused_placeholder(db: AsyncSession, user: User) -> bool:
+    """The account an invite created and nobody ever used: Microsoft-only, no password, never signed in, no linked
+    identity."""
+    return (
+        user.auth_source == "oidc"
+        and not user.password_hash
+        and user.last_login_at is None
+        and await _identity_of(db, user.id) is None
+    )
 
 
 async def delete_invite(db: AsyncSession, actor: User, invite_id: int) -> None:
-    """Revoke an invite or cancel a scheduled binding. The invited account itself stays (delete it in Users)."""
+    """Revoke an invite or cancel a scheduled binding. Revoking an invite also disables the account it created when
+    nobody has used it (round-1 R1-M-25, T-R1-35: it was left 'Aktif' with no way to sign in); a bound or used account,
+    and the account of a cancelled binding, stay as they are (delete them in Users). A new invite to the same address
+    re-enables the placeholder."""
     inv = await db.get(SsoInvite, invite_id)
     if inv is None:
         raise SsoAdminError(404, "not_found", "invite not found", "Davet bulunamadı")
@@ -1551,8 +1585,21 @@ async def delete_invite(db: AsyncSession, actor: User, invite_id: int) -> None:
         raise _no_escalation()
     before = {"kind": inv.kind, "email": inv.email}
     await db.delete(inv)
+    disabled = False
+    if inv.kind == "invite" and target is not None and target.is_active and await unused_placeholder(db, target):
+        target.is_active = False
+        revoke_tokens(target)
+        disabled = True
     await db.flush()
-    await audit.record(db, "user.invite_revoked", "user", inv.user_id, before=before, actor=actor)
+    await audit.record(
+        db,
+        "user.invite_revoked",
+        "user",
+        inv.user_id,
+        before=before,
+        after={"account_disabled": True} if disabled else None,
+        actor=actor,
+    )
 
 
 async def public_invite(db: AsyncSession, token: str) -> dict[str, Any] | None:

@@ -2074,6 +2074,8 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - lane G hand-off, T-R1-44 and T-R1-43 done: masking check unified (`kvkk_mask.py --verify`), `REC_CAL_SIGNOFF=0` for flow stacks, F-01/F-03/F-04/F-05/F-08/F-12 and MOBILE M-02/M-04 match the code. Lane C can reproduce R1-S-12 with F-08's new order (S10/S11 before masking).
 - Lanes A, E and F start next. Lane H waits for the integrity agent's hand-off.
 - [ ] **Owner decision R1-S-37:** should a forced edit on the live (published) plan create a draft that needs re-publishing, or stay live with a banner showing the broken rule? The orchestrator recommends a draft: published plans stay 100/100.
+- [ ] **Owner decision (integrity hand-off 2026-10-16):** when a planner moves their own LOCKED class to a free room that fits, it is currently treated as re-deciding the lock (a listed manual edit, hard stays 100). The alternative is to count it as a hard break, which makes that move admin-only. The orchestrator recommends keeping the current behaviour: the room fits and every hard rule still holds.
+- [ ] Integrity follow-ups: pins written by programme or text match are caught at pre-check/run time, not refused at write time; root cause of the R1-S-04 17 lost classes not reproduced on fixtures.
 
 ### Round 1 integrity fixes (2026-10-16)
 

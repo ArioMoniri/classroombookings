@@ -118,8 +118,9 @@ export function HeatGrid({
           aria-colcount={nc + 1}
           aria-describedby={`${id}-readout`}
           onKeyDown={onKey}
-          className="grid w-max min-w-full gap-px p-px"
-          style={{ gridTemplateColumns: `${rowHeadWidth} repeat(${nc}, minmax(${cellWidth}px, 1fr))` }}
+          // touch (T-R1-01, MOBILE.md M-02): every cell is at least 44 × 44 on coarse pointers; the grid scrolls inside its frame
+          className="grid w-max min-w-full gap-px p-px [--heat-cell-min:0px] pointer-coarse:[--heat-cell-min:44px]"
+          style={{ gridTemplateColumns: `${rowHeadWidth} repeat(${nc}, minmax(max(${cellWidth}px, var(--heat-cell-min)), 1fr))` }}
         >
           <div role="row" aria-rowindex={1} className="contents">
             <div role="columnheader" aria-colindex={1} className="sticky top-0 left-0 z-[3] flex items-end bg-card px-2 py-1.5 type-caption text-label-2">
@@ -167,7 +168,7 @@ export function HeatGrid({
                       onActivate?.(ri, ci);
                     }}
                     className={cn(
-                      "an-heat flex min-h-8 items-center justify-center rounded-xs px-0.5 type-caption tnum select-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
+                      "an-heat flex min-h-8 pointer-coarse:min-h-11 items-center justify-center rounded-xs px-0.5 type-caption tnum select-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
                       onActivate && "cursor-pointer",
                     )}
                   >

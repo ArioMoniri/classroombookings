@@ -198,6 +198,14 @@ function EnvBadge() {
   );
 }
 
+/** permissions the server refuses on the self sign-up role (`sso._too_privileged_for_default`, 422 default_role_privileged) */
+const NOT_FOR_NEW_ACCOUNTS: ReadonlySet<string> = new Set(["planning.admin", "planning.edit", "setup.users", "setup.roles"]);
+
+/** Whether a role may be the role of every new self-signed-up account (round-1 R1-M-25, T-R1-35). */
+export function defaultRoleEligible(role: { code?: string | null; permissions: readonly string[] }): boolean {
+  return role.code !== "ADMIN" && !role.permissions.some((p) => NOT_FOR_NEW_ACCOUNTS.has(p));
+}
+
 function DefaultRole({ cfg, onSave }: { cfg: SsoConfig; onSave: (id: number) => void }) {
   const { t } = useI18n();
   const { can } = usePermissions();
@@ -213,11 +221,14 @@ function DefaultRole({ cfg, onSave }: { cfg: SsoConfig; onSave: (id: number) => 
     <FieldRow label={t("sso.admin.defaultRole")} hint={t("sso.admin.defaultRoleHint")} htmlFor="sso-default-role">
       <SelectField id="sso-default-role" className="w-56" value={String(cfg.default_role?.id ?? "")} onChange={(e) => e.target.value && onSave(Number(e.target.value))} data-testid="sso-default-role">
         {!cfg.default_role ? <option value="">—</option> : null}
-        {roles.data.map((r) => (
-          <option key={r.id} value={r.id}>
-            {roleLabel(t, r)}
-          </option>
-        ))}
+        {/* only roles the server accepts for new accounts (the current one stays visible if an older setup chose it) */}
+        {roles.data
+          .filter((r) => defaultRoleEligible(r) || r.id === cfg.default_role?.id)
+          .map((r) => (
+            <option key={r.id} value={r.id}>
+              {roleLabel(t, r)}
+            </option>
+          ))}
       </SelectField>
     </FieldRow>
   );

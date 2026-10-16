@@ -253,7 +253,9 @@ async def test_start_refuses_open_redirects_and_unconfigured_provider(sso):  # n
         assert "evil" not in loc
     assert (await sso.configure(enabled=False)).status_code == 200
     r = await sso.client.get("/api/v1/auth/sso/entra/start")
-    assert r.status_code == 302 and error_of(r.headers["location"]) == "failed"
+    # round-1 R1-A-29 (T-R1-35): switched off is its own state, with no support code
+    assert r.status_code == 302 and error_of(r.headers["location"]) == "not_enabled"
+    assert "ref" not in query_of(r.headers["location"])
     body = (await sso.client.get("/api/v1/auth/sso/providers")).json()
     assert body["providers"] == [
         {"name": "entra", "label": "Microsoft 365", "enabled": False, "start_url": "/api/v1/auth/sso/entra/start"}

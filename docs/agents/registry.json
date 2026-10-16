@@ -1691,7 +1691,8 @@
       "goal": "You are the **hard-rule integrity** builder for SmartSched (repo /home/user/classroombookings; backend smartsched/backend incl. app/solver, frontend smartsched/frontend for the minimal UI pieces named below). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: integrity-r1-2026…",
       "ledger": "Hard-rule integrity fixes (round 1)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 14:38"
     },
     {
       "id": "a94fb58ac60187039",
@@ -1798,6 +1799,18 @@
       "scope": "",
       "goal": "You are the lane A builder for flow-loop round 1 of SmartSched (repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m). Lane name: loop-r1-laneA-2026-10-16. Ports for any stack you start: 19124 (api) / 19125 (web). Read first: docs/AGENTS.md (commit rules: run `python3 -I scripts/doc…",
       "ledger": "Lane A: phone touch fixes",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a885c5ea5091d8894",
+      "description": "Lane H: studio/runs/timetable polish",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 14:39",
+      "scope": "",
+      "goal": "You are the lane H builder for flow-loop round 1 of SmartSched (repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m). Lane name: loop-r1-laneH-2026-10-16. Ports for any stack you start: 19128 (api) / 19129 (web). Read first: docs/AGENTS.md (commit rules: run `python3 -I scripts/doc…",
+      "ledger": "Lane H: studio/runs/timetable polish",
       "resumed": false,
       "status": "running"
     }

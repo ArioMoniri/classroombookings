@@ -79,4 +79,7 @@ describe("globals.css", () => {
     expect(base).toContain('input:is([type="checkbox"], [type="radio"])::after');
     expect(base).toContain("inset: min(0px, calc(50% - 22px));");
   });
+  it("a label row that wraps a native checkbox or radio is 44 px tall on touch (stacked move-scope radios)", () => {
+    expect(css).toContain('label:has(> [data-slot="switch"], > [data-slot="checkbox"], > input[type="checkbox"], > input[type="radio"]) { min-height: 2.75rem; }');
+  });
 });

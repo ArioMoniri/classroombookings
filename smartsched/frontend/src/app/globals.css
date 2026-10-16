@@ -633,7 +633,7 @@
      44 px tall, so stacked toggles never sit closer than their 44 px hit areas (MOBILE.md M-02: the later
      neighbour won the tap). Inline labels ignore min-height; utilities still override. */
   @media (pointer: coarse) {
-    label:has(> [data-slot="switch"], > [data-slot="checkbox"]) { min-height: 2.75rem; }
+    label:has(> [data-slot="switch"], > [data-slot="checkbox"], > input[type="checkbox"], > input[type="radio"]) { min-height: 2.75rem; }
     /* Native checkboxes and radios (tables, sheets and forms that do not use ui/checkbox): the same invisible
        44 × 44 ::after as ui/hit-area.ts coarseHitArea (Chromium and WebKit draw and hit-test pseudo-elements on
        these inputs). Base layer, so `sr-only` / `absolute` utilities still win over `position: relative`. T-R1-01. */
