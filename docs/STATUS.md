@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `5ee678c` (committed 2026-10-16 09:24 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `893c382` (committed 2026-10-16 09:27 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-145 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 123 · stopped 7 · superseded 7.
+146 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 124 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -156,7 +156,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
 | `Backend consent gates` | backend-engineer | 2026-10-16 08:25 |
-| `Remaining UI` | frontend-engineer | 2026-10-16 08:25 |
+| `Backend batch 4 + its UI` | general-purpose | 2026-10-16 09:29 |
 
 <!-- /AUTO:agents -->
 

@@ -1556,3 +1556,22 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - The KVKK queue shows `result.failures` of a completed erasure.
 - [ ] Links made while calendar sync was off are not gated when sync is switched on. Owner decision needed: should serving a feed also check the owner's consent (feeds without a consent would then stop updating)?
 - [ ] Microsoft 365 has no grant-revocation endpoint (`revoke: not_supported`). Deleting the tokens is all SmartSched can do; the person or the tenant admin removes the app access.
+
+### Remaining feature UIs finished (2026-10-16)
+
+- Done:
+  - **Schedule map:** the Fark box names the baseline run, the Kaydet step shows the baseline run counts, and the runs list and run report label the baseline.
+  - **Re-solve dialog:** `parent_run_id` with stability and the relaxation policy.
+  - **Relaxation policy:** set per run, and per term in Ayarlar › Çözücü.
+  - **Google/M365 push:**
+    - an admin card (secret write-only, redirect URI, KVKK state)
+    - Profil › Takvim aktarımı
+    - the 409 `consent_required` link to Gizlilik
+  - `e2e/intake.spec.ts` on the real Bahar workbooks: 4 passed and 1 skipped (the AI path needs a key).
+- The batch 4 agent is running:
+  - the intake memory API and its management view
+  - `baseline_run` in the dry run
+  - `GET/PUT /terms/{id}/relaxation-policy`
+  - studio generate accepting `relaxation_policy`
+  - a CommitIn baseline skip or target
+- Sent to e2e: intake.spec.ts commits board links into 2026-BAHAR; isolate it.

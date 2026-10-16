@@ -1587,7 +1587,8 @@
       "goal": "You are the **remaining feature UIs** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: remaining-ui-2026-10-16. ## Owner's requirement \"Finish all phases and features\"; no demo/test…",
       "ledger": "Remaining UI: schedule map, intake e2e, etc.",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 09:28"
     },
     {
       "id": "a861b5f5fada47c4b",
@@ -1611,6 +1612,18 @@
       "scope": "",
       "goal": "You are the **consent gates** builder for SmartSched's backend (/home/user/classroombookings/smartsched/backend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: consent-gates-2026-10-16. Read docs/ROADMAP.md \"Backend asks batch 3\" and app/services/kvkk.py, app/ai/personal.…",
       "ledger": "Backend consent gates",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "aa15cdc87bf353326",
+      "description": "Backend batch 4 + its UI",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 09:29",
+      "scope": "",
+      "goal": "You are the **batch 4 (backend + UI)** builder for SmartSched (repo /home/user/classroombookings: FastAPI backend in smartsched/backend, Next.js frontend in smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree with other agents). Ledger id: batch4-2026-10-16. Read docs/…",
+      "ledger": "Backend batch 4 + its UI",
       "resumed": false,
       "status": "running"
     }
