@@ -191,6 +191,8 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
           semantics="radiogroup"
           fill
           collapse={false}
+          // 44 px segments on touch (MOBILE.md M-02): the track grows instead of insetting the segments
+          className="pointer-coarse:[&_[role=radiogroup]]:h-auto pointer-coarse:[&_[role=radio]]:min-h-12"
           value={form.kind}
           onValueChange={(k) => set({ kind: k })}
           options={WISH_KINDS.map((k) => ({ value: k, label: t(`moderation.wish.kinds.${k}`), testId: `wish-kind-${k}` }))}
