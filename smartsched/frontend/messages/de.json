@@ -113,5 +113,19 @@
     "patterns": {
       "weeks": "Wochen"
     }
+  },
+  "analytics": {
+    "week": "Woche"
+  },
+  "compare": {
+    "week": "Woche"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Tage"
+    },
+    "pool": {
+      "hours": "Stunden"
+    }
   }
 }

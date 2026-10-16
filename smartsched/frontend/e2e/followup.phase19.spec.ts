@@ -16,6 +16,7 @@
  *   E2E_REAL=1 E2E_API_URL=http://127.0.0.1:18998 NEXT_PUBLIC_API_URL=http://127.0.0.1:18998 PW_PORT=18999 \
  *     npx playwright test e2e/followup.phase19.spec.ts
  */
+import { randomInt } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { REAL, SKIP_REASON, TERM_CODE, login } from "./helpers";
 
@@ -36,10 +37,16 @@ async function call<T>(page: Page, method: string, path: string, body?: unknown)
 }
 
 const EMPTY_TERM = "2027-BAHAR";
-/** a programme name is unique across terms, even after an undo archived it (backend ask), so names carry a run tag; the
- * new people "T. E." / "S. K." still need a fresh database (the pre-check 409s on an archived namesake: backend ask) */
+/** a programme name is unique across terms, even after an undo archived it (backend ask), so names carry a run tag */
 const RUN = Date.now().toString(36).slice(-4);
 const PROGRAM_NAME = `Moleküler Biyoloji ve Genetik Tezli Yüksek Lisans (E2E ${RUN})`;
+/** The two new people, initials only (KVKK), fresh per run: the undo at the end archives them, and an archived
+ * namesake is a different wizard path ("Bu kişiyi kullan", followups-ui step 7). Three initials (a name word is
+ * letters only; four or more initials ending in a dot read as a note). */
+const initials = () => Array.from({ length: 3 }, () => `${String.fromCharCode(65 + randomInt(26))}.`).join(" ");
+const PERSON_1 = initials();
+let PERSON_2 = initials();
+while (PERSON_2 === PERSON_1) PERSON_2 = initials();
 async function emptyTerm(page: Page): Promise<Term> {
   const terms = (await call<Term[]>(page, "GET", "/terms")).body;
   const hit = terms.find((t) => t.code === EMPTY_TERM);
@@ -163,14 +170,14 @@ test("program wizard: a server draft from scratch, resume, validate, paste, coho
   // step 4: instructors: two new people (initials only) and one left unassigned (a warning)
   await page.getByTestId("rail-instructors").click();
   const pick = page.getByTestId("section-instructor");
-  await pick.first().fill("T. E.");
+  await pick.first().fill(PERSON_1);
   await page.getByTestId("wizard-new-person").click();
-  await expect(page.getByTestId("picked-instructor").first()).toContainText("T. E.");
+  await expect(page.getByTestId("picked-instructor").first()).toContainText(PERSON_1);
   await edit(page, async () => {
-    await pick.first().fill("S. K.");
+    await pick.first().fill(PERSON_2);
     await page.getByTestId("wizard-new-person").click();
   });
-  await expect(wizard(page).getByText("Yeni kişi: T. E.")).toBeVisible();
+  await expect(wizard(page).getByText(`Yeni kişi: ${PERSON_1}`)).toBeVisible();
   await expect(wizard(page).getByText(/öğretim elemanı atanmadı/)).toHaveCount(1);
   await expect(page.getByTestId("rail-instructors")).toHaveAttribute("data-status", "warning");
 
@@ -406,6 +413,10 @@ test("learned suggestions: accept → Geri al restores; dismiss → Geçmiş →
   test.setTimeout(180_000);
   await login(page);
   const { term } = await ensurePublished(page);
+  // suggestions are priors over the extracted evidence: run the extraction for the term first (idempotent; the same
+  // as `python -m app.cli learning-refresh`, which the gate's backend does not run)
+  const refreshed = await call<{ priors?: unknown }>(page, "POST", "/learning/refresh", { term_id: term.id });
+  expect(refreshed.status, JSON.stringify(refreshed.body)).toBe(200);
   await page.goto("/moderation?tab=preferences");
   await page.getByRole("radio", { name: "Öneriler" }).or(page.getByRole("tab", { name: "Öneriler" })).first().click();
   const list = page.getByTestId("suggestions-moderation");

@@ -113,5 +113,19 @@
     "patterns": {
       "weeks": "Uger"
     }
+  },
+  "analytics": {
+    "week": "Uge"
+  },
+  "compare": {
+    "week": "Uge"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Dage"
+    },
+    "pool": {
+      "hours": "Timer"
+    }
   }
 }

@@ -113,5 +113,19 @@
     "patterns": {
       "weeks": "Veckor"
     }
+  },
+  "analytics": {
+    "week": "Vecka"
+  },
+  "compare": {
+    "week": "Vecka"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Dagar"
+    },
+    "pool": {
+      "hours": "Timmar"
+    }
   }
 }

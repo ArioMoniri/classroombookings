@@ -113,5 +113,19 @@
     "patterns": {
       "weeks": "Settimane"
     }
+  },
+  "analytics": {
+    "week": "Settimana"
+  },
+  "compare": {
+    "week": "Settimana"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Giorni"
+    },
+    "pool": {
+      "hours": "Ore"
+    }
   }
 }

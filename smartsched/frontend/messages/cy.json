@@ -113,5 +113,19 @@
     "patterns": {
       "weeks": "Wythnosau"
     }
+  },
+  "analytics": {
+    "week": "Wythnos"
+  },
+  "compare": {
+    "week": "Wythnos"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Dyddiau"
+    },
+    "pool": {
+      "hours": "Oriau"
+    }
   }
 }

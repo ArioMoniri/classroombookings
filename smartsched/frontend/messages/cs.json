@@ -113,5 +113,19 @@
     "patterns": {
       "weeks": "Týdny"
     }
+  },
+  "analytics": {
+    "week": "Týden"
+  },
+  "compare": {
+    "week": "Týden"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Dny"
+    },
+    "pool": {
+      "hours": "Hodiny"
+    }
   }
 }

@@ -113,5 +113,19 @@
     "patterns": {
       "weeks": "viikot"
     }
+  },
+  "analytics": {
+    "week": "viikko"
+  },
+  "compare": {
+    "week": "viikko"
+  },
+  "invigilation": {
+    "people": {
+      "days": "päivät"
+    },
+    "pool": {
+      "hours": "tunnit"
+    }
   }
 }
