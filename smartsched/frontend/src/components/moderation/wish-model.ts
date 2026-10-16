@@ -109,11 +109,11 @@ export function wishBody(f: WishForm): WishIn {
 export function wishSentence(f: WishForm, labels: readonly string[], roomNames: readonly string[], lang: Lang): string {
   const what = labels.slice(0, 3).join(", ") + (labels.length > 3 ? " …" : "");
   if (f.kind === "room_preference") {
-    const names = roomNames.join(", ");
+    const names = roomNames.join(", ") || "…";
     return lang === "tr" ? `${what}: oda tercihi ${names}` : `${what}: room preference ${names}`;
   }
   if (f.kind === "building_preference") {
-    const names = f.buildings.join(", ");
+    const names = f.buildings.join(", ") || "…";
     return lang === "tr" ? `${what}: ${names} blok tercihi` : `${what}: building ${names} preferred`;
   }
   const span = `P${f.earliest ?? 1}–P${f.latest ?? PERIODS_PER_DAY}`;

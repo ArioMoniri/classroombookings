@@ -15,7 +15,6 @@ import type { PrefStatus } from "@/lib/api/moderation";
 import { useMyPreferences, useWithdrawWish, wishError } from "@/lib/api/teacher-preferences";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
-import { formatDate } from "@/lib/time";
 import { pairText } from "./moderation-model";
 import { ResponsiveDialog } from "./responsive-dialog";
 import { groupWishes, isKnownError, isRejectCode, type WishGroup } from "./wish-model";
@@ -33,7 +32,11 @@ export function WishStatusBadge({ status }: { status: PrefStatus }) {
 
 export function useDateText() {
   const { locale } = useI18n();
-  return (iso: string | null | undefined) => (iso ? formatDate(iso, locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
+  // timestamps ("2026-10-16T04:31:58+00:00"), shown in the browser's time zone: "16 Eki 07:31"
+  return (iso: string | null | undefined) => {
+    const d = iso ? new Date(iso) : null;
+    return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(d) : "";
+  };
 }
 
 export function MyWishes({ termId }: { termId: number | null }) {

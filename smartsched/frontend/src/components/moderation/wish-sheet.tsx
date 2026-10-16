@@ -364,7 +364,8 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
         </Alert>
       ) : null}
 
-      <SheetFooter className="sticky bottom-0 flex-col-reverse gap-2 bg-(--mat-thick-solid) p-0 py-2 sm:flex-row sm:justify-end max-md:[&_button]:h-11 max-md:[&_button]:w-full">
+      {/* the actions stay in reach while the form scrolls: a fade into the sheet's material, edge to edge */}
+      <SheetFooter className="sticky -bottom-5 -mx-5 -mb-5 flex-col-reverse gap-2 bg-linear-to-t from-(--mat-thick-solid) from-70% to-transparent px-5 pt-6 pb-5 sm:flex-row sm:justify-end md:-bottom-6 md:-mx-6 md:-mb-6 md:px-6 md:pb-6 max-md:[&_button]:h-11 max-md:[&_button]:w-full">
         <Button type="button" variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
         <Button type="submit" disabled={submit.isPending} aria-busy={submit.isPending || undefined} data-testid="wish-submit">
           {submit.isPending ? t("busy.sending") : t("moderation.wish.submit")}
