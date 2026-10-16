@@ -387,6 +387,8 @@ def test_channel_registry_is_the_extension_point():
         "room_owner.booking",
         # the Phase 19 publish digest (app.services.moderation.publish_digest)
         "timetable.published",
+        # P2 conflict resolver: one digest per owner (app.services.booking_conflicts)
+        "booking.conflict_resolved",
         # P19-T2 "Tercih ekle" decisions (app.services.teacher_preferences.decide)
         "preference.accepted",
         "preference.rejected",

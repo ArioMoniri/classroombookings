@@ -181,8 +181,21 @@ POLICY_SPECS: dict[str, Spec] = {
         Spec("exam_period_rooms", "json", None),
     )
 }
+# V2 public read-only day view (docs/product/booking-enhancements.md §V2; app/services/public_schedule.py). Off by
+# default; it counts as on only with a KVKK sign-off recorded when an administrator switches it on
+# (PUT /public-schedule/admin/settings), like calendar sync. The pages never show personal data.
+PUBLIC_SPECS: dict[str, Spec] = {
+    s.key: s
+    for s in (
+        Spec("schedule_enabled", "bool", False),
+        Spec("schedule_signoff", "json", None),
+        # bookings appear as "Rezerve / Reserved" blocks ("busy") or not at all ("hidden"); never with a name or note
+        Spec("show_bookings", default="busy"),
+    )
+}
 GROUPS = {
     "policies": POLICY_SPECS,
+    "public": PUBLIC_SPECS,
     "org": ORG_SPECS,
     "ldap": LDAP_SPECS,
     "smtp": SMTP_SPECS,

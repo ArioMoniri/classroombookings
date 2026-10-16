@@ -321,6 +321,8 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/bookings/conflicts/{run_id}/apply": (E, "app.services.booking_conflicts"),
     "POST /api/v1/bookings/conflicts/{run_id}/auto": (N, "a dry-run suggestion; nothing changes"),
     "POST /api/v1/bookings/conflicts/{run_id}/detect": (E, "app.services.booking_conflicts"),
+    # V2 public day view: the switch records the KVKK sign-off (public_schedule.settings)
+    "PUT /api/v1/public-schedule/admin/settings": (E, "app.services.public_schedule"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)

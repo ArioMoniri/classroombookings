@@ -50,12 +50,6 @@ from app.services.events import DomainEvent, publish_event, subscribe
 log = logging.getLogger(__name__)
 
 EVENT = "booking.conflict_resolved"
-# registered next to the built-in events (the preferences screen lists it; users may switch channels per event)
-nd.EVENTS.setdefault(
-    EVENT,
-    ("Rezervasyonum yayınlanan programa göre değişti", "My booking changed to fit a published timetable"),
-)
-
 ACTIONS = ("move_room", "move_period", "move_day", "cancel", "override")
 SCOPES = ("one", "future", "all")
 #: auto-pick threshold: a room option whose finder score (wasted-seat share + unrequested-tag penalty - building

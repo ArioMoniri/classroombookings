@@ -144,3 +144,14 @@ api_router.include_router(booking_policies_api.router)
 from app.api.v1 import booking_conflicts as booking_conflicts_api  # noqa: E402
 
 api_router.include_router(booking_conflicts_api.router)
+
+# booking enhancements wave 2: V2 public read-only day view (no sign-in; off until an admin signs off KVKK)
+from app.api.v1 import public_schedule as public_schedule_api  # noqa: E402
+
+api_router.include_router(public_schedule_api.router)
+api_router.include_router(public_schedule_api.admin_router)
+
+# invigilator assignment for exam runs (pool, plans, duties; app/services/invigilation.py, app/solver/invigilation.py)
+from app.api.v1 import invigilation as invigilation_api  # noqa: E402
+
+api_router.include_router(invigilation_api.router)

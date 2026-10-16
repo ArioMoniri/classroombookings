@@ -91,6 +91,11 @@ EVENTS: dict[str, tuple[str, str]] = {
     # Phase 19 publish digest (owner decision: in-app + one e-mail digest per affected academician;
     # app.services.moderation.publish_digest, POST /runs/{id}/activate {"notify_people": true})
     "timetable.published": ("Yayınlanan planda derslerim değişti", "My classes changed in a published timetable"),
+    # P2 conflict resolver (app.services.booking_conflicts.apply): one digest per owner of the changed bookings
+    "booking.conflict_resolved": (
+        "Rezervasyonum yayınlanan programa göre değişti",
+        "My booking changed to fit a published timetable",
+    ),
     # P19-T2 "Tercih ekle": the coordinator's decision on an academician's own preference
     # (app.services.teacher_preferences.decide; a rejection carries the coordinator's reason)
     "preference.accepted": ("Ders tercihim kabul edildi", "My class preference was accepted"),
