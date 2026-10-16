@@ -374,14 +374,32 @@ async def my_preferences(db: DB, user: CurrentUser, term_id: int | None = None) 
 
 
 @router.post("/moderation/me/preferences", status_code=201)
-async def add_my_preference(body: TeacherPreferenceIn, db: DB, user: CurrentUser) -> dict[str, Any]:
+async def add_my_preference(
+    body: TeacherPreferenceIn, db: DB, user: CurrentUser, response: Response, dry_run: bool = False
+) -> dict[str, Any]:
     """P19-T2 "Tercih ekle": a soft, targeted wish for the caller's own classes, ranked below the department's
     request (Q12) and switched off until a coordinator accepts it. 403 without an instructor link or for someone
-    else's class; 422 (TR/EN) for a hard / untargeted / structural wish or a time wish on a fixed class."""
+    else's class; 422 (TR/EN) for a hard / untargeted / structural wish or a time wish on a fixed class.
+    ``?dry_run=1``: the same checks and answer (``effective``, ``items[].text``) with 200, nothing stored."""
     try:
-        return await tp.submit(db, user, body.model_dump())
+        out = await tp.submit(db, user, body.model_dump(), dry_run=dry_run)
     except tp.PreferenceError as exc:
         await db.rollback()
+        raise _tp_raise(exc) from exc
+    if dry_run:
+        await db.rollback()
+        response.status_code = 200
+    return out
+
+
+@router.get("/moderation/me/rooms")
+async def my_wishable_rooms(db: DB, user: CurrentUser) -> dict[str, Any]:
+    """The bookable rooms for the "Tercih ekle" room picker (code, name, capacity, building, tags; no notes): for an
+    account linked to an instructor, or anyone with ``planning.view``; 403 ``not_linked`` (TR/EN) otherwise."""
+    access = await load_access(db, user)
+    try:
+        return await tp.wishable_rooms(db, user, may_view_all="planning.view" in access.perms)
+    except tp.PreferenceError as exc:
         raise _tp_raise(exc) from exc
 
 

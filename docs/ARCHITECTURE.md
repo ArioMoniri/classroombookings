@@ -234,7 +234,7 @@ Constraint kinds (v1): `capacity`, `no_room_overlap`, `no_cohort_overlap`, `no_i
 | `GET /runs/{id}/grid?week=` | room × period matrix for the UI |
 | `GET /analytics/compare?a=&b=[&format=csv&part=]` | scenario comparison of two runs of one term and kind: scores, per-class moves, instructor load / gaps, room deltas, rule-by-rule soft penalties (`services/scenario_compare.py`) |
 | `GET /analytics/heatmap/rooms`, `GET /analytics/heatmap/instructors` | utilisation heatmaps of a run or the live board (published runs + blocks + bookings) by building / room type / capacity band / room; instructor load (`services/utilisation.py`); JSON or CSV |
-| `/invigilation/pool*`, `/invigilation/plans*` | invigilator assignment for exam runs: staff pool, CP-SAT plans (run, view, lock, reassign, re-run, publish), candidates, roster / load CSV (`services/invigilation.py`, `solver/invigilation.py`) |
+| `/invigilation/pool*`, `/invigilation/plans*` | invigilator assignment for exam runs: staff pool, CP-SAT plans (run, view, lock, reassign, fill a short post by hand `POST …/duties`, re-run, publish), candidates (target post only, `check_post`, off the event loop), plan `progress {phase, pct}` stored by the queue job, startup sweep of plans of a dead process, roster / load CSV (`services/invigilation.py`, `solver/invigilation.py`) |
 | `GET /health`, `GET /metrics` | ops |
 | `POST /auth/logout` | revokes every token of the user (token version) |
 | `/bookings/*`, `/booking-admin/*`, `/room-admin/*`, `/org/*`, `/roles`, `/departments`, `/holidays` | CRBS parity (docs/CRBS_PARITY.md §4) |

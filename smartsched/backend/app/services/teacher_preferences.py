@@ -395,8 +395,20 @@ def _texts(kind: str, labels: list[str], wish: Mapping[str, Any], rooms: Mapping
 # --------------------------------------------------------------------------------------------- submit / list / withdraw
 
 
-async def submit(session: AsyncSession, user: User, body: Mapping[str, Any]) -> dict[str, Any]:
-    """``POST /moderation/me/preferences``: store the wish as switched-off soft rules waiting for review."""
+EFFECTIVE = _t(
+    "Koordinatör onaylarsa bir sonraki çözümde bölüm talebinden sonra gelen bir tercih olarak uygulanır",
+    "If the coordinator accepts it, it applies at the next solve, ranked below the department's request",
+)
+
+
+async def submit(
+    session: AsyncSession, user: User, body: Mapping[str, Any], *, dry_run: bool = False
+) -> dict[str, Any]:
+    """``POST /moderation/me/preferences``: store the wish as switched-off soft rules waiting for review.
+
+    ``dry_run``: every check of a real submit (link, own classes, kind, rooms / buildings, fixed times, the
+    department's ask, the pending cap, the rule guard) and the same ``items`` / ``effective`` answer, but nothing is
+    stored or audited (``dry_run: true``, ``status: "preview"``, ``submission`` and item ids null)."""
     linked = await _require_link(session, user)
     _soft_only(body)
     kind = _kind(body.get("kind"))
@@ -493,8 +505,16 @@ async def submit(session: AsyncSession, user: User, body: Mapping[str, Any]) -> 
                 "submitted_at": _now(),
             },
         )
-        session.add(row)
         created.append(row)
+    if dry_run:
+        return {
+            "dry_run": True,
+            "submission": None,
+            "status": "preview",
+            "items": await items_out(session, created),
+            "effective": EFFECTIVE,
+        }
+    session.add_all(created)
     await session.flush()
     await publish_event(
         session,
@@ -514,14 +534,37 @@ async def submit(session: AsyncSession, user: User, body: Mapping[str, Any]) -> 
     )
     await session.commit()
     return {
+        "dry_run": False,
         "submission": submission,
         "status": "pending",
         "items": await items_out(session, created),
-        "effective": _t(
-            "Koordinatör onaylarsa bir sonraki çözümde bölüm talebinden sonra gelen bir tercih olarak uygulanır",
-            "If the coordinator accepts it, it applies at the next solve, ranked below the department's request",
-        ),
+        "effective": EFFECTIVE,
     }
+
+
+async def wishable_rooms(session: AsyncSession, user: User, *, may_view_all: bool = False) -> dict[str, Any]:
+    """``GET /moderation/me/rooms``: the rooms the "Tercih ekle" room picker offers - every bookable room (the ones
+    :func:`_wished_rooms` accepts), with what a picker shows (code, name, capacity, building, tags). Never notes,
+    owners, photos or custom fields. For an account linked to an instructor (403 ``not_linked`` otherwise) or a
+    user with ``planning.view``."""
+    if not may_view_all:
+        await _require_link(session, user)
+    q = select(Room).options(selectinload(Room.building)).where(Room.is_bookable.is_(True))
+    items = [
+        {
+            "id": r.id,
+            "code": r.code,
+            "name": r.display_name,
+            "capacity": int(r.capacity or 0),
+            "building": _building_of(r),
+            "building_name": r.building.name if r.building else None,
+            "tags": [str(t) for t in (r.tags or [])],
+            "bookable": True,
+        }
+        for r in (await session.execute(q)).scalars()
+    ]
+    items.sort(key=lambda x: (x["building"], x["code"]))
+    return {"items": items, "count": len(items)}
 
 
 async def items_out(session: AsyncSession, rows: list[ConstraintRow]) -> list[dict[str, Any]]:
