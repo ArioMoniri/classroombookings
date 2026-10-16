@@ -256,6 +256,11 @@ export function usePlans(examRunId: number | null) {
   });
 }
 
+/** every plan (newest first), to open the exam run someone last planned */
+export function useAllPlans() {
+  return useQuery({ queryKey: ["invigilation", "plans", "all"] as const, queryFn: () => invigilationApi.plans({}), retry: noRetry, staleTime: 30_000 });
+}
+
 export function usePlan(id: number | null, person: string | null = null) {
   return useQuery({
     queryKey: ik.plan(id ?? 0, person),

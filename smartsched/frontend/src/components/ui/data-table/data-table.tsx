@@ -307,7 +307,8 @@ function DataCard<Row>({
       data-card-target={kind === "link" ? "link" : button ? "button" : undefined}
       {...extra}
       className={cn(
-        "relative flex min-h-11 flex-col gap-1 px-(--cell-px) py-2.5 edge-hairline-b type-callout text-label-1",
+        // touch: the title's centre sits ≥ 22 px inside the card, so a 44 px target around it never reaches the card above
+        "relative flex min-h-11 flex-col gap-1 px-(--cell-px) py-2.5 edge-hairline-b type-callout text-label-1 pointer-coarse:min-h-12 pointer-coarse:px-[max(var(--cell-px),1rem)] pointer-coarse:pt-3.5",
         (button || kind === "link") && "cursor-pointer",
         CARD_LINK,
         CARD_NESTED,

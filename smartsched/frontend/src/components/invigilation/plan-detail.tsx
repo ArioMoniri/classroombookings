@@ -22,7 +22,6 @@ import { errorText, pairOf } from "@/lib/api/analytics";
 import { invigilationCsv, PLAN_ACTIVE, useActivatePlan, useDeletePlan, usePlan, type PlanDetail } from "@/lib/api/invigilation";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
-import { formatDate } from "@/lib/time";
 import { DiagnosisList } from "./diagnosis-list";
 import { planTone } from "./invigilation-model";
 import { PeopleView } from "./people-view";
@@ -154,7 +153,7 @@ export function PlanDetailView({ planId, canEdit, onOpenPlan, onRerun }: { planI
       ) : (
         <FadePanel panelKey={`done-${p.id}`} className="flex min-w-0 flex-col gap-4">
           <Result p={p} />
-          <DiagnosisList items={p.diagnosis} onPost={(key) => go({ view: null, post: key, person: null })} postLabel={(key) => { const x = p.posts.find((y) => y.key === key); return x ? `${x.room} · ${formatDate(x.date, locale, { day: "2-digit", month: "2-digit" })} ${x.time}` : key; }} />
+          <DiagnosisList items={p.diagnosis} onPost={(key) => go({ view: null, post: key, person: null })} postLabel={(key) => { const x = p.posts.find((y) => y.key === key); return x ? `${x.room} · ${x.date.slice(8, 10)}.${x.date.slice(5, 7)} ${x.time}` : key; }} />
           <div className="flex flex-wrap items-center gap-3">
             <SegmentedControl
               aria-label={t("invigilation.views")}

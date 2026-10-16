@@ -8,7 +8,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { STEP_BOUNDS } from "./heat-scale";
 import "./heat.css";
 
-export function HeatLegend({ showBlocked = true, unit = "%" }: { showBlocked?: boolean; unit?: string }) {
+export function HeatLegend({ showBlocked = true, showEmpty = true, unit = "%" }: { showBlocked?: boolean; showEmpty?: boolean; unit?: string }) {
   const { t } = useI18n();
   return (
     <div role="group" aria-label={t("analytics.legend.title")} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 type-caption text-label-2" data-testid="heat-legend">
@@ -33,10 +33,12 @@ export function HeatLegend({ showBlocked = true, unit = "%" }: { showBlocked?: b
           </span>
         </>
       ) : null}
-      <span className="flex items-center gap-1">
-        <span aria-hidden className="an-heat inline-block h-3.5 w-6 rounded-xs edge-hairline" data-state="empty" />
-        {t("analytics.legend.empty")}
-      </span>
+      {showEmpty ? (
+        <span className="flex items-center gap-1">
+          <span aria-hidden className="an-heat inline-block h-3.5 w-6 rounded-xs edge-hairline" data-state="empty" />
+          {t("analytics.legend.empty")}
+        </span>
+      ) : null}
     </div>
   );
 }

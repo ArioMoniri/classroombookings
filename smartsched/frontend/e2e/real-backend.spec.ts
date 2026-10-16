@@ -38,7 +38,7 @@ test("real backend: login → dashboard → classes → rooms → studio run →
   await expect(rows.first()).toContainText(/[A-ZÇĞİÖŞÜ]{2,5}\s?\d{3}/);
 
   // ---- rooms: the room master from the weekly grid
-  await page.goto("/rooms");
+  await page.goto("/rooms?layout=cards"); // the table is the default layout; the cards show the seats as a fact
   await expect(page.getByTestId("rooms")).toBeVisible();
   const a204 = page.getByTestId("room-card").filter({ hasText: "A 204" }).first();
   await expect(a204).toBeVisible({ timeout: 30_000 });

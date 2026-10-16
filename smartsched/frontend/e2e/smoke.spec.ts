@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { FINISHED, PLANNING_LIST, REAL, SKIP_REASON, api, boardRun, login, solverRun, type Run } from "./helpers";
+import { FINISHED, PLANNING_LIST, REAL, SKIP_REASON, api, boardRun, login, pickSegmentById, solverRun, type Run } from "./helpers";
+import { pinLanguage } from "./language";
 
 /**
  * Smoke flows on the REAL backend with the Bahar 2026 fixtures (E2E_REAL=1; no mock API, no AI key):
@@ -8,6 +9,7 @@ import { FINISHED, PLANNING_LIST, REAL, SKIP_REASON, api, boardRun, login, solve
  * smartsched/deploy/pod-ci/gates/e2e-backend-entry.sh (see playwright.config.ts).
  */
 test.skip(!REAL, SKIP_REASON);
+pinLanguage("tr");
 
 test.describe("SmartSched smoke (real backend)", () => {
   test("signed out: app routes go to /login; /reset-password and /setup stay public", async ({ page }) => {
@@ -148,8 +150,8 @@ test.describe("SmartSched smoke (real backend)", () => {
     // 5. Pre-check: a one-click fix on a hard-impossible class changes the draft (one more class left out)
     await page.getByTestId("rail-step-check").click();
     await expect(page.getByTestId("check-step")).toBeVisible();
-    await expect(page.getByTestId("check-tab-impossible")).toBeVisible({ timeout: 60_000 });
-    await page.getByTestId("check-tab-impossible").click();
+    // the category control is a segmented track, or its select when the column is narrower than the track
+    await pickSegmentById(page, "check-tab-impossible", "impossible", 60_000);
     const groups = page.getByTestId("issue-group").locator("> button[aria-expanded='false']");
     for (let i = await groups.count(); i > 0; i--) await groups.first().click(); // open every impossible group
     // the backend's one-click fix that leaves the class out of this plan ("… bu planın dışında kalsın")

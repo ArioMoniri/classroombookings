@@ -10,7 +10,7 @@
  * back in `finally`, so the spec can run repeatedly next to bookings.spec.ts on the same database.
  */
 import { expect, test, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, login } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, fillDate, login } from "./helpers";
 
 const STAMP = Date.now().toString(36);
 /** this spec's own administrator (English profile language), created through the real API by the seeded admin */
@@ -145,8 +145,8 @@ test("admin gaps 3. a session is created and edited in Admin → Sessions (#3)",
   const dialog = page.getByTestId("session-dialog");
   await dialog.getByTestId("session-name").fill(SESSION.name);
   await dialog.getByTestId("session-code").fill(SESSION.code);
-  await dialog.getByTestId("session-start").fill(SESSION.start);
-  await dialog.getByTestId("session-end").fill(SESSION.end);
+  await fillDate(dialog.getByTestId("session-start"), SESSION.start);
+  await fillDate(dialog.getByTestId("session-end"), SESSION.end);
   await shot(page, "03-session-create");
   await dialog.getByTestId("session-save").click();
   await expect(dialog).toBeHidden();
@@ -154,7 +154,7 @@ test("admin gaps 3. a session is created and edited in Admin → Sessions (#3)",
 
   await page.getByTestId("session-edit").click();
   await dialog.getByTestId("session-name").fill(`${SESSION.name} (düzenlendi)`);
-  await dialog.getByTestId("session-end").fill("2026-08-21");
+  await fillDate(dialog.getByTestId("session-end"), "2026-08-21");
   await dialog.getByTestId("session-save").click();
   await expect(dialog).toBeHidden();
   await expect(page.locator("#sess-settings")).toHaveText(`${SESSION.name} (düzenlendi)`);
@@ -168,14 +168,14 @@ test("admin gaps 4. a holiday is edited and shows its duration (#6, #23)", async
   await page.goto("/admin/holidays");
   await page.locator("#hol-term").selectOption({ label: `${SESSION.name} (düzenlendi)` });
   await page.locator("#hol-name").fill(`E2E Tatil ${STAMP}`);
-  await page.locator("#hol-start").fill("2026-07-15");
-  await page.locator("#hol-end").fill("2026-07-15");
+  await fillDate(page.locator("#hol-start"), "2026-07-15");
+  await fillDate(page.locator("#hol-end"), "2026-07-15");
   await page.getByRole("button", { name: "Add", exact: true }).click();
   const row = page.getByTestId("holiday-list").locator("li", { hasText: `E2E Tatil ${STAMP}` });
   await expect(row.getByTestId("holiday-duration")).toHaveText("1 day");
   await row.getByTestId("holiday-edit").click();
   const dialog = page.getByTestId("holiday-dialog");
-  await dialog.getByTestId("holiday-edit-end").fill("2026-07-17");
+  await fillDate(dialog.getByTestId("holiday-edit-end"), "2026-07-17");
   await expect(dialog.getByText("3 days")).toBeVisible();
   await dialog.getByTestId("holiday-save").click();
   await expect(dialog).toBeHidden();

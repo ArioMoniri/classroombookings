@@ -61,3 +61,25 @@ export async function pickSegment(page: Page, name: string, scope: Page | Locato
   const select = scope.locator("select").filter({ has: page.locator("option", { hasText: name }) }).first();
   await select.selectOption({ label: name });
 }
+
+/**
+ * The same, by the segment's test id and value: the SegmentedControl keeps its track (with the per-segment test
+ * ids) in the DOM when it collapses into a select, so the select is found next to that segment.
+ */
+export async function pickSegmentById(scope: Page | Locator, testId: string, value: string, timeout = 10_000): Promise<void> {
+  const seg = scope.getByTestId(testId);
+  const select = scope.locator("[data-slot=segmented-control]").filter({ has: seg }).locator("select");
+  await expect(seg.or(select).filter({ visible: true }).first()).toBeVisible({ timeout });
+  if (await seg.isVisible()) await seg.click();
+  else await select.selectOption(value);
+}
+
+/**
+ * Type a date into the design system's DateField (a localised text field, 2026-10-16) and leave the field: it
+ * commits the typed text on blur or Enter, as a person tabbing on to the next field does. ISO input
+ * (YYYY-MM-DD) parses in every locale.
+ */
+export async function fillDate(field: Locator, iso: string): Promise<void> {
+  await field.fill(iso);
+  await field.press("Tab");
+}

@@ -1428,8 +1428,8 @@
       "ledger": "Bookings P2/P8/V2/A4 backend",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-16 04:43",
-      "left_off": "Both items are fixed in commit 64c9b63 (pushed). On HEAD, `make lint`, `make type` and test_audit_coverage (3/3) all pass. The full fast suite is still running in the background, and I'll hand off when it finishes."
+      "finished_at": "2026-10-16 05:59",
+      "left_off": "The remaining part of the suite is running in the background. I'll hand off when it finishes."
     },
     {
       "id": "a03702ad8291c8e88",

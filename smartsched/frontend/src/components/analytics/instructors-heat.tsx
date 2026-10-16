@@ -15,6 +15,7 @@ import { csvHref, errorText, pairOf, useInstructorHeatmap, type InstructorHeatQu
 import { HttpError } from "@/lib/api/client";
 import { useMe } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
+import { dayName } from "@/lib/time";
 import { CsvButton } from "./csv-button";
 import { HeatGrid } from "./heat-grid";
 import { HeatLegend } from "./heat-legend";
@@ -53,7 +54,7 @@ export function InstructorsHeat({ query: base }: { query: InstructorHeatQuery })
         id: "byDay",
         header: t("analytics.ins.col.byDay"),
         priority: 5,
-        minSize: 150,
+        size: 172,
         text: () => "00 00 00 00 00",
         cell: (r) => (
           <span className="flex gap-1 tnum type-footnote" aria-label={[1, 2, 3, 4, 5].map((d) => `${days.find((x) => x.day === d) ? pairOf(days.find((x) => x.day === d)!.label, lang) : d}: ${n(r.by_day[String(d)] ?? 0)}`).join(", ")}>
@@ -70,7 +71,7 @@ export function InstructorsHeat({ query: base }: { query: InstructorHeatQuery })
   if (q.isError) return <Alert tone={q.error instanceof HttpError && q.error.status === 409 ? "warning" : "error"} data-testid="ins-heat-error">{errorText(q.error, lang)}</Alert>;
   if (!data || !matrix) return <div className="flex flex-col gap-3" aria-busy="true" aria-label={t("analytics.loading")}><Skeleton className="h-20 w-full" /><Skeleton className="h-80 w-full" /></div>;
 
-  const dayItems = days.map((d) => ({ key: String(d.day), label: pairOf(d.label, lang).slice(0, 3), text: pairOf(d.label, lang) }));
+  const dayItems = days.map((d) => ({ key: String(d.day), label: dayName(d.day, locale, "short"), text: pairOf(d.label, lang) }));
   const periodItems = data.periods.map((p) => ({ key: String(p.period), label: p.start, text: `${p.start}–${p.end}` }));
   const s = data.summary;
   const tiles: [string, string][] = [
@@ -101,7 +102,7 @@ export function InstructorsHeat({ query: base }: { query: InstructorHeatQuery })
       <section aria-labelledby="ins-matrix-title" className="flex min-w-0 flex-col gap-2">
         <h2 id="ins-matrix-title" className="type-title-3">{t("analytics.ins.matrixTitle")}</h2>
         <p className="type-footnote text-label-2">{t("analytics.ins.matrixLead", { max: n(matrix.max) })}</p>
-        <HeatLegend showBlocked={false} unit={t("analytics.ins.unit")} />
+        <HeatLegend showBlocked={false} showEmpty={false} />
         <HeatGrid
           data-testid="ins-matrix"
           label={t("analytics.ins.matrixTitle")}

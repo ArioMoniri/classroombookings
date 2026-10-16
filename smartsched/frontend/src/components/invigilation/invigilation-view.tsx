@@ -21,7 +21,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorText, pairOf, useRunOptions, type RunLite } from "@/lib/api/analytics";
-import { usePlans, type PlanBrief } from "@/lib/api/invigilation";
+import { useAllPlans, usePlans, type PlanBrief } from "@/lib/api/invigilation";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
@@ -34,8 +34,11 @@ import { PoolView } from "./pool-view";
 const STAFFABLE = new Set(["OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL"]);
 const int = (v: string | null) => (v && /^\d+$/.test(v) ? Number(v) : null);
 
-export function pickExamRun(runs: readonly RunLite[], termId: number | undefined): RunLite | undefined {
+/** the default exam run: the one of the newest plan, else the active term's published (or newest) exam run */
+export function pickExamRun(runs: readonly RunLite[], termId: number | undefined, newestPlanRun?: number | null): RunLite | undefined {
   const exams = runs.filter((r) => r.kind === "EXAM" && STAFFABLE.has(r.status));
+  const planned = exams.find((r) => r.id === newestPlanRun);
+  if (planned) return planned;
   const inTerm = exams.filter((r) => r.term_id === termId);
   return inTerm.find((r) => r.is_active) ?? inTerm[0] ?? exams.find((r) => r.is_active) ?? exams[0];
 }
@@ -52,8 +55,9 @@ export function InvigilationView() {
   const runs = useRunOptions();
   const runText = useRunText();
   const exams = useMemo(() => (runs.data ?? []).filter((r) => r.kind === "EXAM" && STAFFABLE.has(r.status)), [runs.data]);
+  const allPlans = useAllPlans();
   const urlRun = int(params.get("run"));
-  const run = exams.find((r) => r.id === urlRun) ?? pickExamRun(runs.data ?? [], term?.id);
+  const run = exams.find((r) => r.id === urlRun) ?? pickExamRun(runs.data ?? [], term?.id, allPlans.data?.[0]?.exam_run_id);
   const tab = params.get("tab") === "pool" ? "pool" : "plans";
   const plans = usePlans(run?.id ?? null);
   const urlPlan = int(params.get("plan"));
@@ -83,7 +87,7 @@ export function InvigilationView() {
         ) : undefined}
       />
       <section aria-label={t("invigilation.examRun")} className="flex flex-wrap items-end gap-3 rounded-xl bg-card p-3 edge-hairline">
-        <label className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-xl">
+        <label className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:max-w-xl sm:flex-1">
           <span className="type-footnote font-medium text-label-2">{t("invigilation.examRun")}</span>
           <NativeSelect value={run?.id ?? ""} disabled={runs.isLoading || exams.length === 0} onChange={(e) => go({ run: e.target.value || null, plan: null, person: null })} data-testid="invig-run">
             {exams.length === 0 ? <option value="">{runs.isLoading ? t("invigilation.loadingRuns") : t("invigilation.noExamRuns")}</option> : null}

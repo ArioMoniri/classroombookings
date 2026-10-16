@@ -13,7 +13,7 @@
  *     npx playwright test e2e/wave1.spec.ts
  */
 import { expect, request as pwRequest, test, type APIRequestContext, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, login } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, fillDate, login } from "./helpers";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 const STAMP = Date.now().toString(36);
@@ -218,7 +218,7 @@ test("wave1 2. find a room: ⌘K, Wednesday 10:10–12:30 for 90 ranked like the
   await page.waitForURL(/\/find-room/);
 
   const view = page.getByTestId("find-room");
-  await view.getByTestId("fr-date").fill(WEDNESDAY);
+  await fillDate(view.getByTestId("fr-date"), WEDNESDAY);
   await view.getByTestId("fr-start").fill("10.10");
   await view.getByTestId("fr-end").fill("12:30");
   await view.getByTestId("fr-headcount").fill("90");

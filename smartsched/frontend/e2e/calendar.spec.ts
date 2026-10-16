@@ -2,6 +2,7 @@ import { inflateRawSync } from "node:zlib";
 import { readFileSync } from "node:fs";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { REAL, SKIP_REASON, login as signIn } from "./helpers";
+import { pinLanguage } from "./language";
 
 /**
  * Calendar, all classes and rooms against the REAL backend (no mock): FastAPI with the Bahar workbooks
@@ -21,6 +22,8 @@ import { REAL, SKIP_REASON, login as signIn } from "./helpers";
  */
 // E2E_REAL=1 says the backend is up (playwright.config.ts); in real mode nothing here is skipped
 test.skip(!REAL, SKIP_REASON);
+// the assertions read English (labels, explain text): the organisation default is Turkish
+pinLanguage("en");
 
 const EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@smartsched.local";
 const PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "Admin-2026!";
@@ -36,8 +39,6 @@ type Index = {
 test.use({ locale: "en-GB", timezoneId: "Europe/Istanbul", viewport: { width: 1440, height: 900 } });
 
 async function login(page: Page) {
-  const base = test.info().project.use.baseURL ?? "http://127.0.0.1:3100";
-  await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: base }]);
   await signIn(page, EMAIL, PASSWORD);
 }
 
@@ -279,7 +280,8 @@ test.describe("calendar on the real backend", () => {
     const rooms = await api<{ id: number; display_name: string }[]>(page, "/rooms");
     const room = rooms.find((r) => r.display_name === ROOM_CODE) ?? rooms[0];
 
-    await page.goto("/rooms");
+    // the table is the default layout (design system 2026-10-16); the cards are one switch away
+    await page.goto("/rooms?layout=cards");
     await expect(page.getByTestId("rooms")).toBeVisible();
     await expect(page.getByTestId("room-card")).toHaveCount(rooms.length, { timeout: 30_000 });
     await expect(page.getByTestId("rooms-week")).toBeVisible({ timeout: 30_000 });

@@ -132,7 +132,11 @@ test.beforeAll(async () => {
   ctx.teacherToken = await loginToken(TEACHER.username, TEACHER.password);
 });
 
+/** calendar sync as it was before step 7 switched it on (null = untouched) */
+let syncBefore: boolean | null = null;
+
 test.afterAll(async () => {
+  if (syncBefore === false) await api("PUT", "/calendar/admin/settings", { calendar_sync_enabled: false }).catch(() => undefined);
   await ctx.api?.dispose();
 });
 
@@ -263,6 +267,13 @@ test("6. department view: the user's department by default, colour legend, muted
 });
 
 test("7. calendar sync: private links for me, a room and a department, copy, Google / Outlook, reset", async ({ page, context }) => {
+  // calendar sync ships off until an administrator gives the KVKK sign-off (M-40; approval-first 4 covers the
+  // screen): this spec's administrator signs off through the API and afterAll puts the setting back
+  const sync = await api<{ calendar_sync_enabled: boolean }>("GET", "/calendar/admin/settings");
+  if (!sync.calendar_sync_enabled) {
+    syncBefore ??= false;
+    await api("PUT", "/calendar/admin/settings", { calendar_sync_enabled: true });
+  }
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await login(page, TEACHER.username, TEACHER.password);
   await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}`);

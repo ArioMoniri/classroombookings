@@ -3824,7 +3824,6 @@
       "withGaps": "Instructors with gaps",
       "matrixTitle": "Instructors teaching: time × day",
       "matrixLead": "The number is how many instructors teach then; the colour is relative to the busiest slot ({max}).",
-      "unit": "% of busiest",
       "cell": "{where}: {n} of {total} instructors teaching",
       "people": "Instructors",
       "search": "Search instructors",

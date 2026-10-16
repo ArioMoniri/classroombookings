@@ -131,12 +131,13 @@ function ChannelCard({ c, webhookUrl, open, onToggle }: { c: ChannelConfig; webh
                 />
               </FieldRow>
             )}
-            <CredentialsForm key={c.updated_at ?? "new"} c={c} onSave={save} pending={put.isPending} />
+            {/* sibling keys must differ: a shared key made React keep a stale copy of the form after a save (duplicate ids) */}
+            <CredentialsForm key={`credentials-${c.updated_at ?? "new"}`} c={c} onSave={save} pending={put.isPending} />
             {c.kind === "webpush" ? <VapidPanel c={c} /> : null}
             {c.kind === "telegram" ? <TelegramPanel c={c} webhookUrl={webhookUrl} /> : null}
             {c.kind === "whatsapp_web" ? <BridgePanel c={c} onAck={(v) => save({ risk_ack: v })} /> : null}
             {c.kind === "teams" || c.kind === "slack" ? <DepartmentTargets kind={c.kind} /> : null}
-            <SignoffPanel key={c.updated_at ?? "new"} c={c} onSave={save} pending={put.isPending} />
+            <SignoffPanel key={`signoff-${c.updated_at ?? "new"}`} c={c} onSave={save} pending={put.isPending} />
           </div>
         ) : null}
       </CardContent>
