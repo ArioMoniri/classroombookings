@@ -29,6 +29,8 @@ import { bookingCapabilities } from "@/lib/permissions";
 import { useRoomApprovalCheck } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { Alert, Field, SelectField } from "@/components/admin/kit";
+import { PolicyWhy } from "@/components/policies/policy-why";
+import { violationText } from "@/lib/api/booking-policies";
 import { bookingErrorMessage } from "./booking-errors";
 import type { DateFormatter } from "./date-format";
 import { isSelectable, slotKey, timetableMissing } from "./grid-model";
@@ -102,6 +104,7 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
   const users = useBookingUsers(canUser);
   const [error, setError] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<number | null>(null);
+  const [policyRefused, setPolicyRefused] = useState(false);
   const { ref: shakeRef, shake } = useShake<HTMLDivElement>();
 
   const [startMode, setStartMode] = useState<StartMode>("date");
@@ -124,6 +127,8 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
     const err = crbsError(e);
     // U-06: an identical open request exists; link to it instead of a second one
     setDuplicate(err.code === "duplicate_request" ? (Number(err.data.request_id) || null) : null);
+    // P8: 409 policy_<rule> carries message_tr / message_en (bookingErrorMessage shows it); "Neden?" next to it
+    setPolicyRefused(!!err.code?.startsWith("policy_"));
     setError(err.code === "duplicate_request" ? t("reserve.book.duplicate") : bookingErrorMessage(err, t, { roomName, formatDate: fmt.short, locale }));
     shake();
   };
@@ -406,9 +411,22 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
             {ruleSummary}
           </Alert>
         ) : null}
+        {/* P8: a booking policy turns this slot into a request; "Neden?" lists the rules */}
+        {!asks && first.request_only ? (
+          <Alert tone="info" title={t("policies.book.requestTitle")} testId="book-policy-request">
+            {first.policy ? violationText(first.policy, locale) : t("policies.book.request")}{" "}
+            <PolicyWhy query={{ room_id: first.room_id, date: first.date, period_id: first.period_id, term_id: grid.term.id }} violation={first.policy} />
+          </Alert>
+        ) : null}
         {error ? (
           <Alert tone="error" testId="book-error">
             {error}
+            {policyRefused ? (
+              <>
+                {" "}
+                <PolicyWhy query={{ room_id: first.room_id, date: first.date, period_id: first.period_id, term_id: grid.term.id }} />
+              </>
+            ) : null}
             {duplicate ? (
               <>
                 {" "}

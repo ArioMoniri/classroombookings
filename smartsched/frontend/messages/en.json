@@ -17,7 +17,7 @@
     "plan": "Plan", "results": "Results", "master": "Master data", "admin": "Admin",
     "dashboard": "Dashboard", "import": "Import", "onboarding": "Set up from files", "requests": "Requests", "generate": "Generate",
     "timetable": "Timetable", "runs": "Runs", "rooms": "Rooms", "buildings": "Buildings",
-    "programs": "Programs", "instructors": "Instructors", "settings": "Settings", "users": "Users",
+    "programs": "Programs", "instructors": "Instructors", "settings": "Settings", "users": "Users", "analytics": "Analytics", "exams": "Exams",
     "collapse": "Collapse sidebar", "expand": "Expand sidebar", "menu": "Open menu",
     "search": "Search…", "searchHint": "⌘K", "notifications": "Notifications", "account": "Account",
     "logout": "Log out", "theme": "Theme", "language": "Language", "needsReview": "{count} need review",

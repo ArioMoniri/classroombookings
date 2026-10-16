@@ -12,6 +12,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryKey 
 import { z } from "zod";
 import { HttpError, request, type Query } from "./client";
 import { changePassword as changePasswordKeepSession } from "./shell-extra";
+import { Violation } from "./booking-policies";
 
 /* ------------------------------------------------------------------------------------------ errors */
 
@@ -206,6 +207,10 @@ export const GridSlot = z.object({
   past: z.boolean().optional(),
   /** U-06: the viewer's own pending request */
   pending: z.boolean().optional(),
+  /** P8: a booking policy turns this free slot into a request (`policy` says which rule) */
+  request_only: z.boolean().optional(),
+  /** P8: the broken rule — `reason: "policy"` (refused) or `request_only` */
+  policy: Violation.nullish(),
 });
 export type GridSlot = z.infer<typeof GridSlot>;
 
@@ -273,6 +278,8 @@ export const RecurInstance = z.object({
   held: Held.optional(),
   booking: BookingOut.optional(),
   actions: z.array(z.enum(["book", "do_not_book", "replace"])),
+  /** P8: `status: "policy"` — the rule that refuses this date */
+  policy: Violation.nullish(),
 });
 export type RecurInstance = z.infer<typeof RecurInstance>;
 

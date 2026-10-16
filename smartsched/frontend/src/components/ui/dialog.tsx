@@ -1,6 +1,11 @@
 "use client"
 // Source: shadcn/ui dialog (style base-nova, https://ui.shadcn.com) — Licence: MIT
 // Modified: yes — Liquid Glass v2 thick material + transitions.dev "Modal open / close" (.t-modal), plain scrim overlay (no backdrop blur). API unchanged.
+// Phones (< 640 px, 2026-10-16 mobile polish): the popup is a bottom sheet like ui/sheet (MOBILE.md M-04): full
+// width, flush with the bottom edge, top corners only, at most the screen minus 3 rem tall and scrolling inside
+// itself, a transparent bottom border of env(safe-area-inset-bottom) so the content clears the home indicator
+// while the material runs under it (a border, not padding: callers' p-* classes and the footer's -mb-5 keep
+// working). It slides up on the sheet spring (transitions-dev.css, phone mapping). ≥ 640 px: unchanged, centred.
 
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
@@ -62,6 +67,8 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           "t-modal glass-thick fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-3xl p-5 text-sm text-label-1 outline-hidden sm:max-w-sm",
+          // phone bottom sheet (see the header): these max-sm: variants sort after callers' unprefixed classes
+          "max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-h-[calc(100dvh-3rem)] max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-b-[length:env(safe-area-inset-bottom)] max-sm:border-b-transparent",
           className
         )}
         {...props}

@@ -497,9 +497,10 @@ export function ClassesPage() {
           </div>
         </div>
 
-        {/* saved views as tabs */}
+        {/* saved views as tabs; the scroller clips on both axes, so on touch it pads 6 px above and below (the
+            32 px tabs' 44 px hit area, ui/hit-area.ts) and gives the room back with a negative margin */}
         <LayoutGroup id="classes-views">
-          <div role="tablist" aria-label={t("classes.view.tabs")} className="flex gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]" data-testid="view-tabs">
+          <div role="tablist" aria-label={t("classes.view.tabs")} className="flex gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none] pointer-coarse:-my-1.5 pointer-coarse:py-1.5" data-testid="view-tabs">
             {tabs.map((tab) => {
               const on = tab.id === viewParam;
               return (

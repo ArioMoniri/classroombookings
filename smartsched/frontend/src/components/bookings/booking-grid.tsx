@@ -11,12 +11,13 @@
  * hint never animates (frequent action, motion.md §2) and is aria-hidden: the same text is in the
  * cell's accessible name.
  */
-import { Ban, CalendarClock, CalendarOff, CalendarX, Check, GraduationCap, History, Hourglass, Lock, OctagonX, Plus, Repeat, User } from "lucide-react";
+import { Ban, CalendarClock, CalendarOff, CalendarX, Check, GraduationCap, History, Hourglass, Lock, OctagonX, Plus, Repeat, ShieldAlert, Stamp, User } from "lucide-react";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import type { Grid, GridSlot } from "@/lib/api/crbs";
 import { BareButton } from "@/components/shell/bare-button";
 import { cn } from "@/lib/utils";
-import { useT } from "@/lib/i18n/provider";
+import { useI18n, useT } from "@/lib/i18n/provider";
+import { violationText } from "@/lib/api/booking-policies";
 import type { MessageKey } from "@/lib/i18n";
 import { crosshairCss, isSelectable, layoutGrid, moveFocus, slotKey, slotText, slotTone, type AxisItem, type SlotTone } from "./grid-model";
 import { EntityIcon } from "@/components/admin/icons";
@@ -54,6 +55,8 @@ const REASON_ICON: Record<string, typeof User> = {
   range_max: CalendarClock,
   date_range: CalendarX,
   past: History,
+  // P8: a booking policy refuses the slot
+  policy: ShieldAlert,
 };
 
 /** The cell glyph: a check when selected, else per tone, and per reason for unavailable cells. */
@@ -125,7 +128,7 @@ const HOLD_MS = 450;
  * and re-rendering 300+ cells cost the 344-653 ms frame that delayed the sheet. With stable props it skips.
  */
 export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, onSpan, crosshair, highlightBookingId, roomIcons, onRoomInfo, department = "all" }: Props) {
-  const t = useT();
+  const { t, locale } = useI18n();
   const layout = useMemo(() => layoutGrid(grid, columns), [grid, columns]);
   // the roving tab stop lives in a ref: moving focus swaps tabIndex on two cells instead of re-rendering the
   // whole grid (persona U-18: every pointerdown ran a 39-120 ms focus handler)
@@ -186,11 +189,13 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
         return [text.primary, b.status === "PENDING" ? text.secondary : null, b.notes, b.department_name && b.department_name !== text.secondary ? b.department_name : null].filter(Boolean).join(" · ") || null;
       }
       if (slot.status === "timetable") return `${t("crbs.legend.timetable")} · ${slot.label || t("reserve.cell.class")}`;
-      if (isSelectable(slot)) return null;
+      // P8: request-only slots stay bookable; the hint says the booking goes to the approvers and why
+      if (isSelectable(slot)) return slot.request_only ? t("policies.grid.requestOnly", { why: slot.policy ? violationText(slot.policy, locale) : "" }) : null;
       if (slot.status === "available") return t("crbs.slot.reason.permissions");
+      if (slot.reason === "policy") return slot.policy ? violationText(slot.policy, locale) : t("policies.grid.refused");
       return t(reasonKey(slot.reason), { name: slot.label ?? "" });
     },
-    [t],
+    [t, locale],
   );
 
   const cellLabel = useCallback(
@@ -203,6 +208,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
       let state: string;
       if (isSelectable(slot)) {
         state = multi ? (selected.has(slotKey(slot)) ? t("crbs.slot.selected") : t("crbs.slot.selectable")) : inSpan ? t("reserve.cell.selectedSpan", { n: span.length }) : `${t("crbs.slot.free")}, ${t("reserve.cell.reserve")}`;
+        if (slot.request_only) state += `, ${t("policies.grid.requestOnlyShort")}`;
       } else if (slot.status === "booked") {
         const text = slotText(slot, { booked: t("crbs.slot.booked"), mine: t("crbs.slot.mine"), class: t("reserve.cell.class"), pending: t("wave1.grid.pending") });
         const b = slot.booking;
@@ -608,6 +614,8 @@ const Cell = memo(function Cell({
         <SlotGlyph slot={slot} selected={isSelected} className={cn("size-3.5 stroke-[1.75]", tone === "unavailable" && "opacity-60")} />
       )}
       {text.secondary ? <span className="w-full truncate text-label-2">{text.secondary}</span> : null}
+      {/* P8: a policy turns a booking here into a request (the accessible name says so) */}
+      {free && slot?.request_only ? <Stamp className="absolute top-1 right-1 size-3 text-tint-text" aria-hidden data-request-only="true" /> : null}
     </BareButton>
   );
 });

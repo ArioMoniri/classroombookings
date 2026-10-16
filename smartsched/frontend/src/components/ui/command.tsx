@@ -1,6 +1,7 @@
 "use client"
 // Source: shadcn/ui command (style base-nova, https://ui.shadcn.com) on cmdk (MIT) — Licence: MIT
 // Modified: yes — Liquid Glass v2 Spotlight/Raycast-style palette: large borderless search, fill selection. API unchanged.
+// Phones (2026-10-16): CommandDialog is a full-height bottom sheet (ui/dialog phone layout, MOBILE.md M-04).
 
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
@@ -58,6 +59,9 @@ function CommandDialog({
       <DialogContent
         className={cn(
           "top-[16%] translate-y-0 overflow-hidden rounded-3xl! p-0 sm:max-w-xl",
+          // phones: the dialog's bottom sheet at its full height (the input stays at the top, above the
+          // keyboard, and the sheet does not jump while results filter); the list takes the rest
+          "max-sm:h-[calc(100dvh-3rem)] max-sm:overflow-hidden max-sm:rounded-b-none! max-sm:**:data-[slot=command-list]:max-h-none max-sm:**:data-[slot=command-list]:min-h-0 max-sm:**:data-[slot=command-list]:flex-1",
           className
         )}
         showCloseButton={showCloseButton}

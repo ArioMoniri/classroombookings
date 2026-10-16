@@ -13,6 +13,15 @@ const PATH_LABELS: ReadonlyMap<string, MessageKey> = new Map(
     .map((item) => [item.href, item.labelKey] as const),
 );
 
+/**
+ * Parent paths without their own navigation entry: `/analytics` and `/exams` only redirect to their one page
+ * (the heatmap, the invigilator assignment), so their crumb names the area, not the raw segment.
+ */
+const PARENT_LABELS: ReadonlyMap<string, MessageKey> = new Map([
+  ["/analytics", "nav.analytics"],
+  ["/exams", "nav.exams"],
+]);
+
 /** Segments that are pages without their own navigation entry. */
 const SEGMENT_LABELS: Readonly<Record<string, MessageKey>> = {
   classes: "glass.shell.classes",
@@ -24,7 +33,7 @@ export function breadcrumbs(pathname: string, t: (key: MessageKey) => string): C
   const parts = pathname.split("/").filter(Boolean);
   return parts.map((seg, i) => {
     const href = `/${parts.slice(0, i + 1).join("/")}`;
-    const key = PATH_LABELS.get(href) ?? SEGMENT_LABELS[seg];
+    const key = PATH_LABELS.get(href) ?? PARENT_LABELS.get(href) ?? SEGMENT_LABELS[seg];
     const label = key ? t(key) : /^\d+$/.test(seg) ? `#${seg}` : decodeSegment(seg);
     return { href, label, current: i === parts.length - 1 };
   });

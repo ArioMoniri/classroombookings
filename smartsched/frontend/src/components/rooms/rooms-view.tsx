@@ -262,7 +262,7 @@ export function RoomsView() {
           {filterFields}
           {viewToggle}
         </div>
-        <div className="flex items-center gap-2 border-t border-hairline px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="flex items-center gap-2 border-t border-hairline px-5 pt-3 pb-4">
           {filterCount ? (
             <Button variant="ghost" onClick={() => set({ building: null, tags: null, seats: null })} data-testid="rooms-filters-reset">
               {t("reserve.filters.reset")}

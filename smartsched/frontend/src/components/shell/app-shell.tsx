@@ -152,7 +152,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     document.documentElement.dataset.density = density;
   }, [density]);
   return (
-    <div className="flex min-h-dvh">
+    // data-app-shell: html takes scroll-padding for the sticky top bar and the tab bar (globals.css)
+    <div className="flex min-h-dvh" data-app-shell="">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-tint focus:px-3 focus:py-1.5 focus:text-tint-foreground">
         {t("app.skip")}
       </a>

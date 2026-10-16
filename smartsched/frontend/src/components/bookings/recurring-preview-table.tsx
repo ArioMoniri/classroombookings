@@ -4,11 +4,12 @@
  * backend allows (book / do not book / replace). Holidays are listed as skipped so nobody wonders where
  * 23 Nisan went. Rows beyond `recur_max_instances` are marked "over the limit".
  */
-import { CalendarOff, Check, GraduationCap, Repeat, User } from "lucide-react";
+import { CalendarOff, Check, GraduationCap, Repeat, ShieldAlert, User } from "lucide-react";
 import type { Dispatch } from "react";
 import type { InstanceAction } from "@/lib/api/crbs";
 import { cn } from "@/lib/utils";
-import { useT } from "@/lib/i18n/provider";
+import { useI18n } from "@/lib/i18n/provider";
+import { violationText } from "@/lib/api/booking-policies";
 import type { MessageKey } from "@/lib/i18n";
 import { Alert } from "@/components/admin/kit";
 import { Button } from "@/components/ui/button";
@@ -28,10 +29,12 @@ const STATUS: Record<string, { key: MessageKey; icon: typeof Check }> = {
   timetable: { key: "crbs.recur.status.timetable", icon: GraduationCap },
   block: { key: "crbs.recur.status.block", icon: GraduationCap },
   holiday: { key: "crbs.recur.status.holiday", icon: CalendarOff },
+  // P8: a booking policy refuses this date (the rule's own words follow)
+  policy: { key: "policies.recurStatus", icon: ShieldAlert },
 };
 
 export function RecurringPreviewTable({ summary, dispatch, fmt }: { summary: PreviewSummary; dispatch: Dispatch<PreviewAction>; fmt: DateFormatter }) {
-  const t = useT();
+  const { t, locale } = useI18n();
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -65,6 +68,7 @@ export function RecurringPreviewTable({ summary, dispatch, fmt }: { summary: Pre
                   <Icon className="size-3 shrink-0" aria-hidden />
                   <span>{t(st.key)}</span>
                   {row.heldLabel ? <span className="truncate">· {row.heldLabel}</span> : null}
+                  {row.instance?.policy ? <span className="min-w-0">· {violationText(row.instance.policy, locale)}</span> : null}
                   {row.cut ? <span className="font-medium text-status-warning-fg">· {t("crbs.recur.cut")}</span> : null}
                 </p>
               </div>

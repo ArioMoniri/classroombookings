@@ -26,6 +26,8 @@ import { useI18n } from "@/lib/i18n/provider";
 import { Alert, PageTitle, SelectField } from "@/components/admin/kit";
 import { BookSheet, type BookTarget } from "./book-sheet";
 import { ConflictBanner } from "@/components/conflicts/conflict-banner";
+import { PolicyWhy } from "@/components/policies/policy-why";
+import { violationText } from "@/lib/api/booking-policies";
 import { BookingDetailSheet } from "./booking-detail-sheet";
 import { BookingGrid, pickKind, reasonKey, TONE_CLASS, TONE_ICON } from "./booking-grid";
 import { bookingErrorMessage } from "./booking-errors";
@@ -505,7 +507,7 @@ export function BookingsView() {
               )}
             </FilterGroup>
           </div>
-          <div className="flex items-center gap-2 border-t border-hairline px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-center gap-2 border-t border-hairline px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] max-sm:pb-4">
             {activeFilters ? (
               <Button variant="ghost" onClick={resetFilters} data-testid="filters-reset">
                 {t("reserve.filters.reset")}
@@ -672,7 +674,7 @@ function FilterGroup({ label, children }: { label: string; children: (labelId: s
 }
 
 function SlotInfoSheet({ info, onOpenChange, onAlternatives }: { info: { slot: GridSlot; grid: Grid } | null; onOpenChange: (o: boolean) => void; onAlternatives: (slot: GridSlot, grid: Grid) => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const phone = useIsPhone();
   const room = info?.grid.rooms.find((r) => r.id === info.slot.room_id);
@@ -682,7 +684,9 @@ function SlotInfoSheet({ info, onOpenChange, onAlternatives }: { info: { slot: G
     ? ""
     : s.status === "timetable"
       ? t("crbs.slot.timetableInfo", { label: s.label || t("reserve.cell.class"), room: room?.name ?? "", period: period?.name ?? "" })
-      : t(reasonKey(s.reason), { name: s.label ?? "" });
+      : s.reason === "policy" && s.policy
+        ? violationText(s.policy, locale)
+        : t(reasonKey(s.reason), { name: s.label ?? "" });
   return (
     <Sheet open={!!info} onOpenChange={onOpenChange}>
       <SheetContent side={phone ? "bottom" : "right"} className="sm:max-w-md" data-testid="slot-info">
@@ -704,6 +708,8 @@ function SlotInfoSheet({ info, onOpenChange, onAlternatives }: { info: { slot: G
                   {message}
                 </span>
               </Alert>
+              {/* P8 "Neden?": the rules behind a policy refusal, from GET /booking-policies/effective */}
+              {s.reason === "policy" ? <PolicyWhy className="mt-2" query={{ room_id: s.room_id, date: s.date, period_id: s.period_id, term_id: info.grid.term.id }} violation={s.policy} /> : null}
               <Button variant="outline" className="mt-3 min-h-11 sm:min-h-0" onClick={() => onAlternatives(s, info.grid)} data-testid="slot-info-alternatives">
                 <DoorOpen aria-hidden />
                 {t("reserve.slotInfo.alternatives")}

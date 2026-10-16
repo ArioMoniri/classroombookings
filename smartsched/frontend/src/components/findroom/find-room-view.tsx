@@ -8,7 +8,8 @@
  *
  * Motion: none on search results (a frequent action; motion_designer §2.1). The booking sheet brings its own.
  */
-import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Loader2, PackageX, Search, SlidersHorizontal, Stamp, Users, type LucideIcon } from "lucide-react";
+import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Loader2, PackageX, Search, ShieldAlert, SlidersHorizontal, Stamp, Users, type LucideIcon } from "lucide-react";
+import { PolicyWhy } from "@/components/policies/policy-why";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +39,8 @@ import { useIsCompact, useIsPhone } from "@/components/bookings/use-is-phone";
 
 const STATUS: Record<string, { icon: LucideIcon; cls: string; key: MessageKey }> = {
   free: { icon: CheckCircle2, cls: "bg-status-feasible text-status-feasible-fg", key: "wave1.find.status.free" },
+  // P8: a booking policy refuses this room for the search (the rule's words are the row's reason)
+  policy: { icon: ShieldAlert, cls: "bg-status-infeasible text-status-infeasible-fg", key: "policies.find.status" },
   requestable: { icon: Stamp, cls: "bg-tint-soft text-tint-text", key: "wave1.find.status.requestable" },
   partial: { icon: CircleDashed, cls: "bg-status-warning text-status-warning-fg", key: "wave1.find.status.partial" },
   busy: { icon: Ban, cls: "bg-status-preoccupied text-status-preoccupied-fg", key: "wave1.find.status.busy" },
@@ -185,13 +188,14 @@ export function FindRoomView() {
         <Input id="fr-text" type="search" value={f.text} placeholder={t("wave1.find.textPlaceholder")} onChange={(e) => set("text", e.target.value)} data-testid="fr-text" />
       </Field>
 
-      <div className="flex flex-col gap-2">
-        <label className="flex items-center justify-between gap-3 type-callout text-label-1">
+      {/* touch: each row is a 44 px label (the whole row toggles), so the switches' hit areas never overlap (M-02) */}
+      <div className="flex flex-col gap-2 pointer-coarse:gap-0">
+        <label className="flex items-center justify-between gap-3 type-callout text-label-1 pointer-coarse:min-h-11">
           {t("wave1.find.showBusy")}
           <Switch checked={f.showBusy} onCheckedChange={(v) => set("showBusy", v)} aria-label={t("wave1.find.showBusy")} />
         </label>
         {f.when === "date" ? (
-          <label className="flex items-center justify-between gap-3 type-callout text-label-1">
+          <label className="flex items-center justify-between gap-3 type-callout text-label-1 pointer-coarse:min-h-11">
             {t("wave1.find.otherDays")}
             <Switch checked={f.otherDays} onCheckedChange={(v) => set("otherDays", v)} aria-label={t("wave1.find.otherDays")} />
           </label>
@@ -409,7 +413,7 @@ export function FindRoomView() {
                 <Card className="gap-0 overflow-hidden py-0">
                   <ul data-testid="fr-results">
                     {free.map((r, i) => (
-                      <ResultRow key={r.room_id} row={r} rank={i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={opening === `r${r.room_id}`} onReserve={() => {
+                      <ResultRow key={r.room_id} row={r} rank={i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={opening === `r${r.room_id}`} why={{ date: result.slots[0]?.date ?? null, termId }} onReserve={() => {
                         const date = firstFreeDate(r, result.slots);
                         if (date) void reserve(`r${r.room_id}`, r.room_id, date, r.start_period, r.end_period, r.action === "request");
                       }} />
@@ -462,7 +466,7 @@ export function FindRoomView() {
                   <Card variant="plain" className="mt-2 gap-0 overflow-hidden py-0">
                     <ul>
                       {others.map((r, i) => (
-                        <ResultRow key={r.room_id} row={r} rank={free.length + i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={false} />
+                        <ResultRow key={r.room_id} row={r} rank={free.length + i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={false} why={{ date: result.slots[0]?.date ?? null, termId }} />
                       ))}
                     </ul>
                   </Card>
@@ -478,8 +482,8 @@ export function FindRoomView() {
             <SheetTitle className="type-title-3">{t("reserve.filters.open")}</SheetTitle>
             <SheetDescription className="sr-only">{t("wave1.find.lead")}</SheetDescription>
           </SheetHeader>
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 pt-4 pb-5">{advanced}</div>
-          <div className="flex items-center gap-2 border-t border-hairline px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="flex min-h-0 flex-1 scroll-py-4 flex-col gap-4 overflow-y-auto overscroll-contain px-5 pt-4 pb-5">{advanced}</div>
+          <div className="flex items-center gap-2 border-t border-hairline px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] max-sm:pb-4">
             {moreCount ? (
               <Button variant="ghost" onClick={() => setForm((p) => ({ ...(p ?? f), features: {}, buildings: [], text: "", showBusy: false, otherDays: false }))} data-testid="fr-filters-reset">
                 {t("reserve.filters.reset")}
@@ -619,7 +623,7 @@ function FitBar({ capacity, headcount }: { capacity: number; headcount: number }
   );
 }
 
-function ResultRow({ row: r, rank, multi, headcount, opening, onReserve }: { row: FindRow; rank: number; multi: boolean; headcount: number; opening: boolean; onReserve?: () => void }) {
+function ResultRow({ row: r, rank, multi, headcount, opening, onReserve, why }: { row: FindRow; rank: number; multi: boolean; headcount: number; opening: boolean; onReserve?: () => void; why?: { date: string | null; termId?: number } }) {
   const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const reason = pickLang(r.reason, locale);
@@ -644,6 +648,8 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve }: { row
         {extra.length ? <p className="type-footnote text-label-3">{extra.join(" · ")}</p> : null}
         {r.busy_with ? <p className="type-footnote text-label-2">{t("wave1.find.busyWith", { what: r.busy_with })}</p> : null}
         {request ? <p className="mt-1 type-footnote text-tint-text">{t("wave1.find.needsApproval")}</p> : null}
+        {/* P8 "Neden?": the booking policies that refuse this room or turn it into a request */}
+        {why && (r.status === "policy" || r.status === "requestable") ? <PolicyWhy className="mt-1" query={{ room_id: r.room_id, date: why.date, term_id: why.termId }} violation={r.status === "policy" ? { effect: "refuse", message_tr: r.reason?.tr ?? "", message_en: r.reason?.en ?? "" } : null} /> : null}
         {multi && r.per_date?.length ? (
           <details className="mt-1">
             <summary className="cursor-pointer type-footnote text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">{t("wave1.find.perDate")}</summary>

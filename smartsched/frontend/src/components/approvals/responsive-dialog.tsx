@@ -46,7 +46,8 @@ export function ResponsiveDialog({
           side="bottom"
           role={role}
           initialFocus={initialFocus}
-          // full width and flush with the bottom edge (M-04); the footer pads for the home indicator (M-06)
+          // full width and flush with the bottom edge (M-04); the Sheet's safe-area border keeps the footer above
+          // the home indicator (M-06), so the footer itself pads 16 px only
           className={cn("inset-x-0! bottom-0! max-h-[calc(100dvh-1rem)]! gap-0 rounded-b-none!", className)}
           data-testid={testId}
         >
@@ -55,7 +56,7 @@ export function ResponsiveDialog({
             {description ? <SheetDescription>{description}</SheetDescription> : null}
           </SheetHeader>
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 pb-4">{children}</div>
-          {footer ? <SheetFooter className="flex-col-reverse gap-2 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] [&>button]:w-full">{footer}</SheetFooter> : null}
+          {footer ? <SheetFooter className="flex-col-reverse gap-2 px-5 pt-3 pb-4 [&>button]:w-full">{footer}</SheetFooter> : null}
         </SheetContent>
       </Sheet>
     );

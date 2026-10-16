@@ -16,7 +16,7 @@
     "plan": "Planlama", "results": "Sonuçlar", "master": "Ana veriler", "admin": "Yönetim",
     "dashboard": "Özet", "import": "İçe aktar", "onboarding": "Dosyalardan kur", "requests": "Talepler", "generate": "Oluştur",
     "timetable": "Çizelge", "runs": "Çalıştırmalar", "rooms": "Derslikler", "buildings": "Binalar",
-    "programs": "Programlar", "instructors": "Öğretim elemanları", "settings": "Ayarlar", "users": "Kullanıcılar",
+    "programs": "Programlar", "instructors": "Öğretim elemanları", "settings": "Ayarlar", "users": "Kullanıcılar", "analytics": "Analiz", "exams": "Sınavlar",
     "collapse": "Kenar çubuğunu daralt", "expand": "Kenar çubuğunu genişlet", "menu": "Menüyü aç",
     "search": "Ara…", "searchHint": "⌘K", "notifications": "Bildirimler", "account": "Hesap",
     "logout": "Çıkış yap", "theme": "Tema", "language": "Dil", "needsReview": "{count} inceleme bekliyor",

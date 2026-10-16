@@ -27,6 +27,17 @@ describe("breadcrumbs", () => {
     expect(labels("/classes", tr)).toEqual([translate("tr", "glass.shell.classes")]);
   });
 
+  it("names the analytics, exams and comparison pages and their parents in both languages", () => {
+    expect(labels("/analytics/heatmap", tr)).toEqual(["Analiz", "Doluluk ısı haritası"]);
+    expect(labels("/analytics/heatmap", en)).toEqual(["Analytics", "Utilisation heatmap"]);
+    expect(labels("/analytics", en)).toEqual(["Analytics"]);
+    expect(labels("/exams/invigilation", tr)).toEqual(["Sınavlar", "Gözetmen ataması"]);
+    expect(labels("/exams/invigilation", en)).toEqual(["Exams", "Invigilator assignment"]);
+    expect(labels("/exams", tr)).toEqual(["Sınavlar"]);
+    expect(labels("/runs/compare", tr)).toEqual([translate("tr", "nav.runs"), "Senaryo karşılaştırma"]);
+    expect(labels("/runs/compare", en)).toEqual([translate("en", "nav.runs"), "Scenario comparison"]);
+  });
+
   it("marks only the last crumb current and links every level", () => {
     const crumbs = breadcrumbs("/admin/users", en);
     expect(crumbs.map((c) => [c.href, c.current])).toEqual([
