@@ -103,4 +103,7 @@ class AuditPurgeWindow(Base):
     kind: Mapped[str] = mapped_column(String(10))  # retention | anonymise
     cutoff: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     subject_actor_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: anonymise one entity's rows too (the person's bookings: other people's events about them hold their notes)
+    entity_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    entity_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

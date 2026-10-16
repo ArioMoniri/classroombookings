@@ -62,7 +62,8 @@ APPEND_ONLY_SQLITE = (
     + " AND ".join(f"NEW.{c} IS OLD.{c}" for c in _IMMUTABLE)
     + " AND NEW.actor_type IS OLD.actor_type AND (NEW.actor_id IS NULL OR NEW.actor_id IS OLD.actor_id)"
     " AND EXISTS (SELECT 1 FROM audit_purge_windows w WHERE w.kind = 'anonymise' AND (w.subject_actor_id = OLD.actor_id"
-    " OR (OLD.entity_type = 'user' AND OLD.entity_id = CAST(w.subject_actor_id AS TEXT)))))"
+    " OR (OLD.entity_type = 'user' AND OLD.entity_id = CAST(w.subject_actor_id AS TEXT))"
+    " OR (w.entity_type = OLD.entity_type AND w.entity_id = OLD.entity_id))))"
     " BEGIN SELECT RAISE(ABORT, 'audit_events is append-only'); END",
     "CREATE TRIGGER audit_events_no_delete BEFORE DELETE ON audit_events WHEN NOT ("
     "COALESCE(OLD.ts, '9999') < datetime('now', '-365 days')"
@@ -81,7 +82,8 @@ APPEND_ONLY_POSTGRES = (
     + " AND NEW.actor_type IS NOT DISTINCT FROM OLD.actor_type"
     " AND (NEW.actor_id IS NULL OR NEW.actor_id IS NOT DISTINCT FROM OLD.actor_id)"
     " AND EXISTS (SELECT 1 FROM audit_purge_windows w WHERE w.kind = 'anonymise' AND (w.subject_actor_id = OLD.actor_id"
-    " OR (OLD.entity_type = 'user' AND OLD.entity_id = w.subject_actor_id::text))) THEN RETURN NEW; END IF; "
+    " OR (OLD.entity_type = 'user' AND OLD.entity_id = w.subject_actor_id::text)"
+    " OR (w.entity_type = OLD.entity_type AND w.entity_id = OLD.entity_id))) THEN RETURN NEW; END IF; "
     "END IF; RAISE EXCEPTION 'audit_events is append-only'; END $$",
     "DROP TRIGGER IF EXISTS audit_events_append_only ON audit_events",
     "CREATE TRIGGER audit_events_append_only BEFORE UPDATE OR DELETE ON audit_events "

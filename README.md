@@ -126,7 +126,7 @@ Recorded on the real backend with the real 2026 workbooks (instructor names redu
 
 <!-- AUTO:status only=done -->
 
-Done 33 · Backend only 5 · In progress 5 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
+Done 33 · Backend only 6 · In progress 4 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
 
 | Feature | Area | Evidence |
 |---|---|---|
@@ -410,6 +410,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `a196388` (committed 2026-10-16 04:21 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `22d1e49` (committed 2026-10-16 04:23 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

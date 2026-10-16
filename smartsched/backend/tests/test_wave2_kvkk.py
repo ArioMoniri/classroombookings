@@ -49,7 +49,8 @@ async def test_notices_acknowledgement_and_consents(env):  # noqa: F811
     assert r.json()["notice"] is None and r.json()["needs_ack"] is False
     v1 = await _notice(env, "tr", "Aydınlatma Metni", "Kişisel verileriniz 6698 sayılı KVKK kapsamında işlenir.")
     r = await env.client.post(
-        NOT, json={"language": "en", "title": "Privacy notice", "body_md": "Processed under KVKK.", "version": 1},
+        NOT,
+        json={"language": "en", "title": "Privacy notice", "body_md": "Processed under KVKK.", "version": 1},
         headers=env.admin,
     )
     assert r.status_code == 201
@@ -133,25 +134,60 @@ async def test_erasure_goes_through_the_admin_queue(env):  # noqa: F811
     # personal settings, notifications, channel link + delivery, SSO identity, a learned observation, a past booking
     async with dbmod.get_session_factory()() as s:
         fb = await s.get(Booking, future_id)
-        s.add(Booking(term_id=fb.term_id, period_id=fb.period_id, room_id=fb.room_id, user_id=uid, created_by=uid,
-                      date=date(2026, 2, 3), start_period=13, end_period=13, notes="geçmiş", status="BOOKED"))
+        s.add(
+            Booking(
+                term_id=fb.term_id,
+                period_id=fb.period_id,
+                room_id=fb.room_id,
+                user_id=uid,
+                created_by=uid,
+                date=date(2026, 2, 3),
+                start_period=13,
+                end_period=13,
+                notes="geçmiş",
+                status="BOOKED",
+            )
+        )
         s.add(Setting(key=f"user.{uid}.notification_prefs", value="{}", is_secret=False))
         s.add(InAppNotification(user_id=uid, kind="booking.created", title="t", body="b"))
-        s.add(NotificationDelivery(event="booking.created", event_key="k1", user_id=uid, channel="in_app",
-                                   status="sent"))
+        s.add(
+            NotificationDelivery(event="booking.created", event_key="k1", user_id=uid, channel="in_app", status="sent")
+        )
         ch = UserChannel(user_id=uid, kind="telegram", address_enc="enc", address_hash="h" * 16, display_hint="•")
         s.add(ch)
         await s.flush()
-        s.add(ChannelDelivery(kind="telegram", event="booking.created", dedupe_key="d1", user_id=uid,
-                              user_channel_id=ch.id))
-        s.add(UserIdentity(user_id=uid, provider="entra", issuer="https://login.microsoftonline.com/x/v2.0",
-                           tenant_id="t" * 36, subject="oid-1", email_at_login="mehmet.oz@uni.edu.tr",
-                           display_name="Mehmet Öz"))
-        s.add(LearnedObservation(ts=utcnow(), kind="room", subject_type="user", subject_key=str(uid),
-                                 attribute="room", value="A101", source_table="bookings", source_id=future_id))
+        s.add(
+            ChannelDelivery(
+                kind="telegram", event="booking.created", dedupe_key="d1", user_id=uid, user_channel_id=ch.id
+            )
+        )
+        s.add(
+            UserIdentity(
+                user_id=uid,
+                provider="entra",
+                issuer="https://login.microsoftonline.com/x/v2.0",
+                tenant_id="t" * 36,
+                subject="oid-1",
+                email_at_login="mehmet.oz@uni.edu.tr",
+                display_name="Mehmet Öz",
+            )
+        )
+        s.add(
+            LearnedObservation(
+                ts=utcnow(),
+                kind="room",
+                subject_type="user",
+                subject_key=str(uid),
+                attribute="room",
+                value="A101",
+                source_table="bookings",
+                source_id=future_id,
+            )
+        )
         await s.commit()
-    r = await env.client.post("/api/v1/me/data-requests", json={"kind": "erase", "note": "Kurumdan ayrıldım"},
-                              headers=mehmet)
+    r = await env.client.post(
+        "/api/v1/me/data-requests", json={"kind": "erase", "note": "Kurumdan ayrıldım"}, headers=mehmet
+    )
     assert r.status_code == 201 and r.json()["status"] == "OPEN" and r.json()["days_left"] == 30
     rid = r.json()["id"]
     dup = await env.client.post("/api/v1/me/data-requests", json={"kind": "erase"}, headers=mehmet)
@@ -160,13 +196,14 @@ async def test_erasure_goes_through_the_admin_queue(env):  # noqa: F811
     q = (await env.client.get("/api/v1/admin/dsr", headers=env.admin)).json()
     assert [x["id"] for x in q] == [rid] and q[0]["overdue"] is False and q[0]["subject"] == "Mehmet Öz"
 
-    r = await env.client.post(f"/api/v1/admin/dsr/{rid}/complete", json={"note": "KVKK birimi onayı"},
-                              headers=env.admin)
+    r = await env.client.post(
+        f"/api/v1/admin/dsr/{rid}/complete", json={"note": "KVKK birimi onayı"}, headers=env.admin
+    )
     assert r.status_code == 200, r.text
     out = r.json()
     assert out["status"] == "DONE" and out["result"]["partial"] is True
     c = out["result"]["counts"]
-    assert c["bookings_cancelled"] == 1 and c["bookings_anonymised"] == 1 and c["user_identities"] == 1
+    assert c["bookings_cancelled"] == 1 and c["bookings_anonymised"] == 2 and c["user_identities"] == 1
     assert c["user_channels"] == 1 and c["inapp_notifications"] >= 1 and c["learning_user"] == 1
     assert out["subject"].startswith("Silinmiş kullanıcı #")
     async with dbmod.get_session_factory()() as s:
@@ -200,13 +237,15 @@ async def test_erasure_goes_through_the_admin_queue(env):  # noqa: F811
 
 async def test_refusal_needs_a_reason_and_admins_do_not_erase_themselves(env):  # noqa: F811
     _, ayse = await env.user("ayse.yilmaz@uni.edu.tr")
-    r = await env.client.post("/api/v1/me/data-requests", json={"kind": "rectify", "note": "Soyadım yanlış"},
-                              headers=ayse)
+    r = await env.client.post(
+        "/api/v1/me/data-requests", json={"kind": "rectify", "note": "Soyadım yanlış"}, headers=ayse
+    )
     rid = r.json()["id"]
     r = await env.client.post(f"/api/v1/admin/dsr/{rid}/refuse", json={}, headers=env.admin)
     assert r.status_code == 422 and r.json()["detail"]["code"] == "reason"
-    r = await env.client.post(f"/api/v1/admin/dsr/{rid}/refuse", json={"reason": "Nüfus kaydıyla uyumlu"},
-                              headers=env.admin)
+    r = await env.client.post(
+        f"/api/v1/admin/dsr/{rid}/refuse", json={"reason": "Nüfus kaydıyla uyumlu"}, headers=env.admin
+    )
     assert r.status_code == 200 and r.json()["status"] == "REFUSED"
     mine = (await env.client.get("/api/v1/me/data-requests", headers=ayse)).json()
     assert mine[0]["refusal_reason"] == "Nüfus kaydıyla uyumlu"
@@ -220,7 +259,11 @@ async def test_audit_retention_floor_window_and_legal_hold(env):  # noqa: F811
     pol = {p["data_class"]: p for p in r.json()}
     assert set(pol) == {"booking", "audit", "notification"} and not any(p["enabled"] for p in pol.values())
     r = await env.client.put("/api/v1/admin/retention/audit", json={"retain_days": 100}, headers=env.admin)
-    assert r.status_code == 422 and r.json()["detail"]["code"] == "below_floor" and "365" in r.json()["detail"]["message_tr"]
+    assert (
+        r.status_code == 422
+        and r.json()["detail"]["code"] == "below_floor"
+        and "365" in r.json()["detail"]["message_tr"]
+    )
     old, recent = datetime(2024, 3, 1, 9, 0), utcnow() - timedelta(days=30)
     async with dbmod.get_session_factory()() as s:
         for ts in (old, old, recent):
@@ -234,8 +277,9 @@ async def test_audit_retention_floor_window_and_legal_hold(env):  # noqa: F811
             await s.execute(text("delete from audit_events where action = 'test.event'"))
         await s.rollback()
     for cls, days in (("audit", 365), ("notification", 30)):
-        r = await env.client.put(f"/api/v1/admin/retention/{cls}", json={"retain_days": days, "enabled": True},
-                                 headers=env.admin)
+        r = await env.client.put(
+            f"/api/v1/admin/retention/{cls}", json={"retain_days": days, "enabled": True}, headers=env.admin
+        )
         assert r.status_code == 200 and r.json()["enabled"] is True
     r = await env.client.post("/api/v1/admin/retention/run", headers=env.admin)
     assert r.status_code == 200, r.text

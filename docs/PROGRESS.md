@@ -2,7 +2,7 @@
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `a196388` (committed 2026-10-16 04:21 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `22d1e49` (committed 2026-10-16 04:23 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -278,3 +278,4 @@ Generated blocks last synced on top of commit `a196388` (committed 2026-10-16 04
 | 2026-10-16 02:40 | or-engineer (planning-analytics-2026-10-16) | backlog: planning analytics | START: scenario comparison (two runs side by side, reusing the moderation read helpers), utilisation heatmaps (room x day x period, live board + bookings, instructor load; JSON + CSV), invigilator assignment (CP-SAT, pool + plans + duties migration, run / view / lock / re-run) on the real Bahar and Final fixtures |
 | 2026-10-16 03:40 | or-engineer (planning-analytics-2026-10-16) | backlog: planning analytics | milestone: e33eb9e GET /analytics/compare + /analytics/heatmap/rooms + /instructors (services/scenario_compare.py, services/utilisation.py; tests/test_planning_analytics.py 18 on real Bahar wk3 A vs B = busiest room closed Wed: 10 moved, 14 only in A, hard 100/100, and Final exam A vs B) |
 | 2026-10-16 04:20 | or-engineer (planning-analytics-2026-10-16) | backlog: planning analytics | milestone: 227a7b5 app/solver/invigilation.py (posts, eligibility, two-phase CP-SAT workers=1, greedy fallback, Hall-witness diagnoses; tests/solver/test_invigilation.py 15 + slow scale) + alembic 0031_invigilation (single head) ; a196388 services/invigilation.py + /invigilation/* API (pool, plans, lock, reassign, re-run, publish, candidates, roster/load CSV), audit decisions; real Final: 846 room sessions / 1091 duties all staffed, hard 100 (tests/test_invigilation_api.py 10) |
+| 2026-10-16 04:26 | backend-engineer (bookings-wave2-backend-2026-10-16) | phase 17 | milestone: A4 KVKK (alembic 0032_kvkk on 0031_invigilation: retention_policies, privacy_notices, notice_acks, consents, dsr_requests, audit_purge_windows; audit_events triggers recreated with retention + anonymise windows, SQLite and PostgreSQL); daily kvkk retention job (policies ship disabled, floors audit 365 / booking 365 / notification 30, legal hold); notices + ack, consents (SMS withdrawal deletes phones), export zip (built at download, 7 days, others by role), erase/rectify/info admin queue with 30-day due, erasure across bookings/notifications/deliveries/channels/SSO/calendar/settings/learning + audit pseudonymisation; tests/test_wave2_kvkk.py 5 + migrations 3 + Postgres trigger 1 passed; features.yml row backend-only | full fast suite, hand-off |

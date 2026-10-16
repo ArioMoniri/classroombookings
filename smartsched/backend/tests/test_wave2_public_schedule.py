@@ -47,7 +47,11 @@ async def test_off_by_default_then_signed_off_and_minimal(env):  # noqa: F811
     r = await c.put(ADMIN, json={"enabled": True}, headers=env.admin)
     assert r.status_code == 200 and r.json()["enabled"] is True, r.text
     sign = r.json()["signoff"]
-    assert isinstance(sign["by_user_id"], int) and sign["features"] == ["public_schedule"] and "KVKK" in sign["legal_basis"]
+    assert (
+        isinstance(sign["by_user_id"], int)
+        and sign["features"] == ["public_schedule"]
+        and "KVKK" in sign["legal_basis"]
+    )
 
     # a teacher's booking with a personal note in a free room on the same day
     _, ayse = await env.user("ayse.yilmaz@uni.edu.tr", full_name="Ayşe Yılmaz")
@@ -68,8 +72,14 @@ async def test_off_by_default_then_signed_off_and_minimal(env):  # noqa: F811
     r = await c.get(f"{PUB}/rooms/{room}", params={"date": "2026-02-18"})
     booked = [x for x in r.json()["items"] if x["kind"] == "booked"]
     assert booked == [
-        {"kind": "booked", "start_period": 13, "end_period": 13, "start": "18:00", "end": "18:40",
-         "label": {"tr": "Rezerve", "en": "Booked"}}
+        {
+            "kind": "booked",
+            "start_period": 13,
+            "end_period": 13,
+            "start": "18:00",
+            "end": "18:40",
+            "label": {"tr": "Rezerve", "en": "Booked"},
+        }
     ]
 
     # whole buildings: no personal names, notes, e-mails or ids anywhere (scanned against every known person)

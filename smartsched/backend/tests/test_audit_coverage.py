@@ -323,6 +323,19 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/bookings/conflicts/{run_id}/detect": (E, "app.services.booking_conflicts"),
     # V2 public day view: the switch records the KVKK sign-off (public_schedule.settings)
     "PUT /api/v1/public-schedule/admin/settings": (E, "app.services.public_schedule"),
+    # A4 KVKK: notices, consents, data-subject requests, retention (kvkk.* audit actions)
+    "POST /api/v1/me/privacy/ack": (E, "app.services.kvkk"),
+    "POST /api/v1/me/consents/{purpose}": (E, "app.services.kvkk"),
+    "DELETE /api/v1/me/consents/{purpose}": (E, "app.services.kvkk"),
+    "POST /api/v1/me/data-requests": (E, "app.services.kvkk"),
+    "POST /api/v1/admin/dsr/{request_id}/complete": (E, "app.services.kvkk"),
+    "POST /api/v1/admin/dsr/{request_id}/refuse": (E, "app.services.kvkk"),
+    "PUT /api/v1/admin/retention/{data_class}": (E, "app.services.kvkk"),
+    "POST /api/v1/admin/retention/run": (E, "app.services.kvkk"),
+    "POST /api/v1/admin/privacy-notices": (E, "app.api.v1.kvkk"),
+    "PUT /api/v1/admin/privacy-notices/{notice_id}": (E, "app.api.v1.kvkk"),
+    "POST /api/v1/admin/privacy-notices/{notice_id}/publish": (E, "app.api.v1.kvkk"),
+    "DELETE /api/v1/admin/privacy-notices/{notice_id}": (E, "app.api.v1.kvkk"),
     # invigilator assignment (invigilator.* / invigilation.* audit actions; app/services/invigilation.py)
     "POST /api/v1/invigilation/pool": (E, "app.services.invigilation"),
     "PUT /api/v1/invigilation/pool/{member_id}": (E, "app.services.invigilation"),

@@ -31,6 +31,7 @@ import hmac
 import io
 import json
 import logging
+import re
 import secrets
 import zipfile
 from datetime import date, datetime, timedelta
@@ -659,7 +660,7 @@ def _csv(rows: list[dict[str, Any]]) -> str:
     return buf.getvalue()
 
 
-async def export_data(session: AsyncSession, user: User) -> dict[str, list[dict[str, Any]]]:
+async def export_data(session: AsyncSession, user: User) -> dict[str, Any]:
     """The person's own records. Other people on shared items (approvers, the one who booked for them) appear as
     their role ("Onaycı", "Yönetici"), never by name or e-mail."""
     uid = user.id
@@ -781,7 +782,38 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, list[dict[
         {"kind": o.kind, "attribute": o.attribute, "value": o.value, "weight": o.weight, "ts": o.ts} for o in obs
     ]
     data["data_requests"] = [dsr_out(r) for r in await mine(session, user)]
-    return data
+    return await _scrub_others(session, user, data)
+
+
+ROLE_TR = {"ADMIN": "Yönetici", "PLANNER": "Planlamacı", "TEACHER": "Öğretim elemanı", "VIEWER": "Görüntüleyici"}
+
+
+async def _scrub_others(session: AsyncSession, user: User, data: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    """Other people named in the person's own records (a notification "Fatih Bey booked for you", an approver's
+    note) appear by their role, never by name, username or e-mail (spec §4.7)."""
+    marks: list[tuple[str, str]] = []
+    for u in (await session.execute(select(User).where(User.id != user.id))).scalars():
+        role = f"[{ROLE_TR.get(u.role, 'Kullanıcı')}]"
+        named = " ".join(x for x in (u.firstname, u.lastname) if x)
+        for v in (u.email, u.full_name, named, u.username):
+            if v and len(v.strip()) >= 3:
+                marks.append((v.strip(), role))
+    own = {v for v in (user.email, user.full_name, user.username) if v}
+    marks = sorted({m for m in marks if m[0] not in own}, key=lambda m: -len(m[0]))
+
+    def clean(v: Any) -> Any:
+        if isinstance(v, str):
+            for needle, repl in marks:
+                if needle.lower() in v.lower():
+                    v = re.sub(re.escape(needle), repl, v, flags=re.IGNORECASE)
+            return v
+        if isinstance(v, dict):
+            return {k: clean(x) for k, x in v.items()}
+        if isinstance(v, list):
+            return [clean(x) for x in v]
+        return v
+
+    return {k: clean(rows) for k, rows in data.items()}
 
 
 async def export_zip(session: AsyncSession, user: User, request_id: int) -> bytes:
@@ -933,6 +965,15 @@ async def _tell(session: AsyncSession, r: DsrRequest, *, refused: bool, erased: 
     await session.flush()
 
 
+_PERSONAL_KEYS = ("notes", "user_id", "created_by", "updated_by", "cancelled_by")
+
+
+def _scrub_snapshot(v: Any) -> Any:
+    if not isinstance(v, dict):
+        return v
+    return {k: (None if k in _PERSONAL_KEYS else val) for k, val in v.items()}
+
+
 async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[str, Any]:
     """Erase / anonymise everything of ``subject`` (see the module docstring). Returns counts per table."""
     from app.services import bookings as bsvc
@@ -944,6 +985,10 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
     today = await bsvc.today(session)
     now = utcnow()
     reason = "KVKK silme talebi / erasure request"
+    own_bookings = [str(i) for i in (await session.execute(select(Booking.id).where(Booking.user_id == uid))).scalars()]
+    own_series = [
+        str(i) for i in (await session.execute(select(BookingSeries.id).where(BookingSeries.user_id == uid))).scalars()
+    ]
     # 1. future bookings and open requests are cancelled with a reason (the room is free again)
     future = list(
         (
@@ -1055,7 +1100,33 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
         .where(AuditEvent.entity_type == "user", AuditEvent.entity_id == str(uid))
         .values(before=None, after={"anonymised": True}, diff=None),
     )
+    # other people's events about the person's bookings keep the booking but lose its notes and owner
+    entity_windows = [
+        AuditPurgeWindow(kind="anonymise", entity_type=et, entity_id=eid, created_at=now)
+        for et, ids in (("booking", own_bookings), ("booking_series", own_series))
+        for eid in ids
+    ]
+    session.add_all(entity_windows)
+    await session.flush()
+    scrubbed = 0
+    if own_bookings or own_series:
+        q = select(AuditEvent).where(
+            or_(
+                (AuditEvent.entity_type == "booking") & AuditEvent.entity_id.in_(own_bookings or ["-"]),
+                (AuditEvent.entity_type == "booking_series") & AuditEvent.entity_id.in_(own_series or ["-"]),
+            )
+        )
+        for ev in list((await session.execute(q)).scalars()):
+            new_b, new_a, new_d = _scrub_snapshot(ev.before), _scrub_snapshot(ev.after), _scrub_snapshot(ev.diff)
+            if (new_b, new_a, new_d) != (ev.before, ev.after, ev.diff):
+                await session.execute(
+                    update(AuditEvent).where(AuditEvent.id == ev.id).values(before=new_b, after=new_a, diff=new_d)
+                )
+                scrubbed += 1
+    counts["audit_booking_rows"] = scrubbed
     await session.delete(window)
+    for w in entity_windows:
+        await session.delete(w)
     await session.flush()
     # 6. the account itself: no name, no address, cannot sign in. The flush hook of the administration tables is
     #    paused for this one flush: its "user.update" row would copy the old name and e-mail back into the log
