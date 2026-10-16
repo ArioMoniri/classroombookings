@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `c981885` (committed 2026-10-16 08:51 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `70a446b` (committed 2026-10-16 09:17 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -224,7 +224,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **193 ticked · 305 open** checkboxes in 74 sections (71 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **194 ticked · 304 open** checkboxes in 74 sections (71 with open items).
 
 <details><summary>Per section</summary>
 
@@ -301,7 +301,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Backend asks batch 2 finished (2026-10-16) | 4 | 1 |
 | Batch-2 endpoints UI finished (2026-10-16) | 0 | 2 |
 | Mobile polish finished (2026-10-16) | 0 | 1 |
-| Bookings wave-2 + KVKK UI finished (2026-10-16) | 1 | 4 |
+| Bookings wave-2 + KVKK UI finished (2026-10-16) | 2 | 3 |
 | Dense grids on phones finished (2026-10-16) | 0 | 2 |
 | Backend asks batch 3 finished (2026-10-16) | 0 | 1 |
 

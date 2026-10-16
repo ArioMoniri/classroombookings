@@ -1502,7 +1502,12 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - `/admin/retention` 422s carry `{code, field, message_en, message_tr, errors[]}`.
   - `GET /admin/dsr?status=all`; an unknown status is a 422 with `allowed`.
   - Withdrawing a consent applies at once and answers `removed_channels`, `removed_photo`, `revoked_feeds`, `disconnected_calendars`, `ai_excluded` and `effects[]`. `photo` deletes the stored file. `calendar_sync` revokes the feeds and disconnects the push calendars. `ai_personal` keeps the person out of AI prompts (`app/ai/personal.py`).
-- [ ] UI follow-ups (batch 3): read `effects[]` in the Gizlilik toast and dialogs, pass `period_id` to "Neden?" in find-room, show the retention `field` errors inline, add an "Tümü" filter (`status=all`) to the KVKK queue.
+- [x] UI follow-ups (batch 3), done 2026-10-16 (wave2-ui-followups-2026-10-16):
+  - Gizlilik: the withdrawal toast shows the server's `effects[]` sentences. Photo and calendar sync ask first, like SMS. The photo, calendar sync and AI texts say what happens at once.
+  - Find-room "Neden?" sends the result's or alternative's `period_id` for the full verdict. Alternatives get a "Kurallar" link. `?date=` accepts GG.AA.YYYY.
+  - Retention: each 422 `errors[]` entry is shown under its field and stays until that field is edited.
+  - The KVKK queue has a "Tümü" filter (`status=all`).
+  - e2e `wave2.spec.ts` test 6 covers all four, phone included; the spec passes 6/6, three runs in a row.
 - [ ] The conflict banner in the timetable header.
 - [ ] Persist the admins' "Daha sonra" on the server.
 - [ ] A legal review of the Gizlilik consequence texts.
