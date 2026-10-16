@@ -810,6 +810,8 @@ export const OrgSettings = z.object({
   /** CRBS hides rooms without a room group from the grid; true shows them in an ungrouped tab */
   show_ungrouped_rooms: z.boolean().default(false),
   grid_highlight: z.boolean().optional(),
+  /** approval-first bookings: "rules" (only rooms with an approval rule) or "all" (every request is approved first) */
+  approval_mode: z.enum(["rules", "all"]).catch("rules").optional(),
 });
 export type OrgSettings = z.infer<typeof OrgSettings>;
 export type OrgSettingsIn = Partial<Omit<OrgSettings, "logo_url">> & { max_active_bookings_unlimited?: boolean };

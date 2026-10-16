@@ -1252,7 +1252,8 @@
       "goal": "close the backend gaps the Phase 19 UI agent found (frontend code in smartsched/frontend/src/components/{moderation,learning,program-wizard} and lib/api/{moderation,learning,catalog-admin}.ts shows the intended usage; specs in docs/design/v2/phase19-*.md): 1. Re-solve diff baseline: a re-solve from a draft child must diff against the PUBLISHED run that started the chain by default, with an optiona…",
       "ledger": "p19-backend-gaps-2026-10-15 SCOPE: - smartsched/backend/app/services/{moderation…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 01:20"
     },
     {
       "id": "af337c015de6e0f9b",
@@ -1283,6 +1284,18 @@
       "scope": "",
       "goal": "You are the dedicated **Identity frontend** builder for SmartSched (Next.js frontend in /home/user/classroombookings/smartsched/frontend, FastAPI backend in smartsched/backend). Branch: claude/gracious-cerf-w1598m (already checked out; shared tree with other agents). Ledger id: identity-frontend-202…",
       "ledger": "Identity frontend: sign-in, SSO, channels",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ac460118dd0bed241",
+      "description": "Phase 19 UI follow-up",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 01:20",
+      "scope": "",
+      "goal": "You are the dedicated **Phase 19 UI follow-up** builder for SmartSched (Next.js frontend in /home/user/classroombookings/smartsched/frontend; FastAPI backend in smartsched/backend). Branch claude/gracious-cerf-w1598m (checked out; shared tree with other agents). Ledger id: p19-ui-followup-2026-10-16…",
+      "ledger": "Phase 19 UI follow-up",
       "resumed": false,
       "status": "running"
     }

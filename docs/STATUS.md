@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `0dbc7bb` (committed 2026-10-16 01:18 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `54c9e8b` (committed 2026-10-16 01:19 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -144,15 +144,15 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-120 agents in [`docs/agents/registry.json`](agents/registry.json): running 5 · finished 101 · stopped 7 · superseded 7.
+121 agents in [`docs/agents/registry.json`](agents/registry.json): running 5 · finished 102 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
 | `readme-media-2026-10-15` | general-purpose | 2026-10-15 20:41 |
 | `design-system-overhaul-2026-10-15` | frontend-engineer | 2026-10-15 21:48 |
-| `p19-backend-gaps-2026-10-15` | backend-engineer | 2026-10-15 22:58 |
 | `Approval-first UI + notification prefs` | frontend-engineer | 2026-10-16 01:09 |
 | `Identity frontend` | frontend-engineer | 2026-10-16 01:10 |
+| `Phase 19 UI follow-up` | frontend-engineer | 2026-10-16 01:20 |
 
 <!-- /AUTO:agents -->
 
@@ -219,7 +219,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **155 ticked · 264 open** checkboxes in 53 sections (50 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **155 ticked · 267 open** checkboxes in 54 sections (51 with open items).
 
 <details><summary>Per section</summary>
 
@@ -278,6 +278,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Microsoft Entra ID sign-in backend finished (2026-10-16) | 0 | 4 |
 | Notification channels backend finished (2026-10-16) | 0 | 4 |
 | Shell / admin sweep finished (2026-10-16); dedicated UI agents launched | 0 | 4 |
+| Phase 19 backend gaps finished (2026-10-16); Phase 19 UI follow-up launched | 0 | 3 |
 
 </details>
 

@@ -1091,3 +1091,25 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
     - users-admin: invites, statuses, bind and the instructor link
     - Settings › Microsoft ile giriş and Settings › Bildirim kanalları
     - Profile, which it owns: the Microsoft account, linked channels with a push service worker, and the mount for the preferences panel
+
+### Phase 19 backend gaps finished (2026-10-16); Phase 19 UI follow-up launched
+
+- Done:
+  - Moderation diff against the published baseline (`compare_to`, `chain`).
+  - Person and programme priority (request › section › person › programme), set per term.
+  - Server-side changes since publish.
+  - `/moderation/me` and `/moderation/current-term`.
+  - A publish digest to academicians (`notify_people`).
+  - Suggestion restore, and accept scope term or persistent.
+  - Programme drafts:
+    - autosave ops, validate and pre-check, paste preview
+    - a transactional commit with an optional minimal re-solve
+    - 30-day undo with blockers
+  - Wizard reads: instructor load, section search, rooms fit.
+  - Migration `0028_p19_gaps`.
+  - Real check: the MBG Tezli YL draft solved OPTIMAL with hard 100.
+- [ ] `POST /audit/{id}/undo` should hand `program.create` to the drafts undo.
+- [ ] `POST /priorities/bulk`, a priorities summary, the P19-P-02/03/06 policy endpoints, and copying an existing programme into a draft.
+- [ ] Owner question: person and programme priorities are per term. Should they carry over to later terms?
+- The Phase 19 UI follow-up agent is running: the wizard on `/program-drafts`, the priority selects, the diff baseline, server-side staged changes, the publish "Akademisyenlere bildir" toggle, `/moderation/me` for teachers, suggestion undo and scope, and phone layouts.
+- Waiting for the design-system agent to finish, because these files are fenced: the intake UI (stepper, Fark step, remembered-mapping chips; F-08) in components/onboarding, and the reason field for forced moves (F-10) in timetable.

@@ -32,7 +32,7 @@ export function openDates(r: Pick<ApprovalRequest, "bookings">): string[] {
 
 export type TimelineEntry =
   | { kind: "requested"; at: string | null; by: string | null }
-  | { kind: "decision"; at: string | null; by: string | null; decision: "approve" | "reject"; note: string | null; step: number; alternative: Record<string, unknown> | null }
+  | { kind: "decision"; at: string | null; by: string | null; decision: "approve" | "reject"; note: string | null; reasonCode: string | null; step: number; alternative: Record<string, unknown> | null }
   | { kind: "waiting"; step: number; steps: number; approvers: string[]; expires: string | null }
   | { kind: "final"; at: string | null; status: Exclude<RequestStatus, "PENDING"> };
 
@@ -50,6 +50,7 @@ export function timeline(r: ApprovalRequest): TimelineEntry[] {
       by: d.approver_name ?? null,
       decision: d.decision === "APPROVED" || d.decision === "approve" ? "approve" : "reject",
       note: d.note ?? null,
+      reasonCode: d.reason_code ?? null,
       step: d.step,
       alternative: (d.alternative as Record<string, unknown> | null | undefined) ?? null,
     });
@@ -177,4 +178,54 @@ export function groupInbox(rows: readonly ApprovalRequest[]): InboxEntry[] {
   }
   for (const e of out) e.requests.sort((a, b) => (a.bookings[0]?.start_period ?? 0) - (b.bookings[0]?.start_period ?? 0) || a.id - b.id);
   return out;
+}
+
+/* ----------------------------------------------------------------------------- rejection reasons */
+
+/** Blank as the backend reads it: spaces, NBSP and the zero-width characters a paste brings along. */
+export function isBlank(text: string | null | undefined): boolean {
+  return !text || text.replace(/[\s\u00a0\u200b\u200c\u200d\u2060\ufeff]+/g, "") === "";
+}
+
+export interface RejectDraft {
+  code: string | null;
+  text: string;
+}
+export interface RejectProblems {
+  code?: "required";
+  text?: "required" | "tooLong";
+}
+
+/**
+ * Approval-first (owner requirement): a rejection carries a reason code AND a written reason, so the requester
+ * always reads why. Stricter than the backend (which takes a code alone, except "other").
+ */
+export function rejectProblems(d: RejectDraft, max = 1000): RejectProblems {
+  const out: RejectProblems = {};
+  if (!d.code) out.code = "required";
+  if (isBlank(d.text)) out.text = "required";
+  else if (d.text.trim().length > max) out.text = "tooLong";
+  return out;
+}
+
+/**
+ * What the requester reads after "Gerekçe:": the code's label and the free text (mirrors the backend's
+ * `reason_text`): "Oda uygun değil: Bu saatte bölüm sınavı var." — "other" and a missing label give the text
+ * alone, a system reason (slot_taken) or a missing text the label alone.
+ */
+export function reasonLine(code: string | null | undefined, text: string | null | undefined, label: (code: string) => string | null): string | null {
+  const l = code ? label(code) : null;
+  const note = isBlank(text) ? null : text!.trim();
+  if (code === "slot_taken" || !note) return l ?? note;
+  return l && code !== "other" ? `${l}: ${note}` : note;
+}
+
+/** The request's own reason: the stored text and code, else the rejecting decision's (per period in a group). */
+export function requestReason(r: Pick<ApprovalRequest, "status" | "note" | "reason" | "reason_code" | "decisions">): { code: string | null; text: string | null } | null {
+  if (r.status !== "REJECTED") return null;
+  const d = [...(r.decisions as Decision[])].reverse().find((x) => x.decision === "REJECTED" || x.decision === "reject");
+  const code = r.reason_code ?? d?.reason_code ?? null;
+  // `reason` falls back to the code in both languages when there is no text: prefer the plain note
+  const text = r.note ?? d?.note ?? (code ? null : (r.reason ?? null));
+  return code || text ? { code, text } : null;
 }
