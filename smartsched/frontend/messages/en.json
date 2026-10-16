@@ -1145,7 +1145,8 @@
       "confirm": "Cancel booking",
       "reason": "Reason",
       "reasonHint": "Kept with the booking and shown to whoever booked it.",
-      "done": "{n} booking(s) cancelled"
+      "done": "{n} booking(s) cancelled",
+      "reasonHintOwn": "Kept with the cancelled booking and shown on its card."
     },
     "status": {
       "booked": "Booked",
@@ -1183,7 +1184,9 @@
       "ownedEmpty": "No upcoming bookings by others.",
       "cancelManyTitle": "Cancel {n} bookings?",
       "cancelManyBody": "Bookings you may no longer cancel (already started) are left as they are.",
-      "cancelManyDone": "{n} cancelled, {skipped} left as they were"
+      "cancelManyDone": "{n} cancelled, {skipped} left as they were",
+      "cancelReason": "Reason: {reason}",
+      "approverNote": "Approver's note: {note}"
     },
     "feed": {
       "title": "Calendar subscription",
@@ -2507,7 +2510,11 @@
       "pickRoom": "Room to subscribe to",
       "pickDepartment": "Department to subscribe to",
       "reconnect": "Reconnect",
-      "connectedToast": "Calendar connected"
+      "connectedToast": "Calendar connected",
+      "choose": "Choose a room",
+      "chooseDepartment": "Choose a department",
+      "existingDated": "{n, plural, one {You have # private link} other {You have # private links}}: {dates}. A link is shown only on the device that made it; reset it to see it here (the old link stops working).",
+      "madeOn": "made on {date}"
     },
     "multi": {
       "include": "Include {slot}",

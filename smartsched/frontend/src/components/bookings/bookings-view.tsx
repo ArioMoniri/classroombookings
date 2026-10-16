@@ -637,7 +637,7 @@ export function BookingsView() {
             <SheetDescription className="sr-only">{t("reserve.sync.lead")}</SheetDescription>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
-            {syncOpen ? <CalendarSyncPanel roomId={display === "room" ? (g?.rooms[0]?.id ?? null) : null} departmentId={department === "all" ? null : department} /> : null}
+            {syncOpen ? <CalendarSyncPanel roomId={g?.rooms[0]?.id ?? null} departmentId={department === "all" ? null : department} /> : null}
           </div>
         </SheetContent>
       </Sheet>

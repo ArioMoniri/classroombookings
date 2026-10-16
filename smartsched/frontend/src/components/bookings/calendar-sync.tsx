@@ -28,6 +28,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { Alert, ConfirmDialog, Loading, SelectField } from "@/components/admin/kit";
 import { CalendarConsentStep, ConsentRefusal, consentRefusal, needsCalendarConsent } from "@/components/privacy/calendar-consent";
 import { bookingErrorMessage } from "./booking-errors";
+import { useBookingFormat } from "./use-booking-format";
 import { googleSubscribeUrl, outlookSubscribeUrl, webcalUrl } from "./reserve-model";
 
 const SYNC_KEY = ["crbs", "calendar-sync"] as const;
@@ -79,6 +80,7 @@ function absolute(url: string): string {
 
 export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | null; departmentId?: number | null }) {
   const { t, locale } = useI18n();
+  const fmt = useBookingFormat();
   const qc = useQueryClient();
   const me = useCrbsMe();
   const uid = me.data?.id;
@@ -111,8 +113,10 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
   const s = status.data;
   const rooms = options.data?.rooms ?? [];
   const departments = options.data?.departments ?? [];
-  const roomPick = room ?? roomId ?? rooms[0]?.id ?? null;
-  const deptPick = dept ?? departmentId ?? me.data?.department_id ?? departments[0]?.id ?? null;
+  // T-R1-17 (R1-A-20, U-23): no invented default (the alphabetically first department, the first room): the caller's
+  // own department when the account has one, else "Bölüm seçin" / "Oda seçin" and no link until one is picked
+  const roomPick = room ?? roomId ?? null;
+  const deptPick = dept ?? departmentId ?? me.data?.department_id ?? null;
   const roomName = rooms.find((r) => r.id === roomPick)?.name ?? "";
   const deptName = departments.find((d) => d.id === deptPick)?.name ?? "";
   const configured = (s?.connectors ?? []).filter((c) => c.configured);
@@ -145,7 +149,8 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
                 url={roomPick ? absolute(link.urls.room.replace("{id}", String(roomPick))) : ""}
                 name={roomName}
                 picker={
-                  <SelectField aria-label={t("reserve.sync.pickRoom")} value={String(roomPick ?? "")} onChange={(e) => setRoom(Number(e.target.value))} data-testid="sync-room-select">
+                  <SelectField aria-label={t("reserve.sync.pickRoom")} value={String(roomPick ?? "")} onChange={(e) => setRoom(e.target.value ? Number(e.target.value) : null)} data-testid="sync-room-select">
+                    {roomPick === null ? <option value="">{t("reserve.sync.choose")}</option> : null}
                     {rooms.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
@@ -162,7 +167,8 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
                 url={deptPick ? absolute(link.urls.department.replace("{id}", String(deptPick))) : ""}
                 name={deptName}
                 picker={
-                  <SelectField aria-label={t("reserve.sync.pickDepartment")} value={String(deptPick ?? "")} onChange={(e) => setDept(Number(e.target.value))} data-testid="sync-dept-select">
+                  <SelectField aria-label={t("reserve.sync.pickDepartment")} value={String(deptPick ?? "")} onChange={(e) => setDept(e.target.value ? Number(e.target.value) : null)} data-testid="sync-dept-select">
+                    {deptPick === null ? <option value="">{t("reserve.sync.chooseDepartment")}</option> : null}
                     {departments.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name}
@@ -184,18 +190,28 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
           </>
         ) : (
           <div className="flex flex-col gap-2">
-            <p className="type-callout text-label-2">{s.feeds.tokens.length ? t("reserve.sync.existing", { n: s.feeds.tokens.length, hints: s.feeds.tokens.map((x) => x.hint).join(", ") }) : t("reserve.sync.none")}</p>
+            {/* T-R1-17 (R1-A-21): with a link in place (made on another device) the only action is a reset, which
+                revokes the old link; a second set is never added. Each link is described by its dates, not "154Y". */}
+            <p className="type-callout text-label-2" data-testid="sync-existing">
+              {s.feeds.tokens.length
+                ? t("reserve.sync.existingDated", {
+                    n: s.feeds.tokens.length,
+                    dates: s.feeds.tokens.map((x) => (x.created_at ? t("reserve.sync.madeOn", { date: fmt.short(x.created_at.slice(0, 10)) }) : x.hint)).join(", "),
+                  })
+                : t("reserve.sync.none")}
+            </p>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={startCreate} disabled={create.isPending || ask !== null} aria-expanded={needsConsent ? ask === "create" : undefined} data-testid="sync-create">
-                <Link2 aria-hidden />
-                {t("reserve.sync.create")}
-              </Button>
               {s.feeds.tokens.length ? (
-                <Button variant="ghost" onClick={startReset} disabled={reset.isPending || ask !== null} data-testid="sync-reset">
+                <Button onClick={startReset} disabled={reset.isPending || ask !== null} aria-expanded={needsConsent ? ask === "reset" : undefined} data-testid="sync-reset">
                   <RefreshCw aria-hidden />
                   {t("reserve.sync.reset")}
                 </Button>
-              ) : null}
+              ) : (
+                <Button onClick={startCreate} disabled={create.isPending || ask !== null} aria-expanded={needsConsent ? ask === "create" : undefined} data-testid="sync-create">
+                  <Link2 aria-hidden />
+                  {t("reserve.sync.create")}
+                </Button>
+              )}
             </div>
           </div>
         )

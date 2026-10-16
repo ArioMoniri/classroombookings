@@ -7,7 +7,7 @@
  */
 import { CalendarSync, Download, Repeat, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,6 +27,7 @@ import { bookingCapabilities } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { Field, Loading, PageTitle, SectionTitle, SelectField } from "@/components/admin/kit";
 import { MyRequests } from "@/components/approvals/my-requests";
+import { useMyRequests } from "@/lib/api/wave1";
 import { StatusPill } from "@/components/approvals/request-parts";
 import { addDays } from "./date-format";
 import { BookingDetailSheet } from "./booking-detail-sheet";
@@ -56,6 +57,12 @@ export function MyBookingsView() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [cancelOpen, setCancelOpen] = useState(false);
 
+  // T-R1-17 (R1-A-22): an approved request's note ("Onaylandı, iyi dersler.") on the booking it made
+  const requests = useMyRequests();
+  const approverNote = useCallback(
+    (bookingId: number) => requests.data?.find((r) => r.status === "APPROVED" && r.note && r.bookings.some((x) => x.id === bookingId))?.note ?? null,
+    [requests.data],
+  );
   const rows = useMemo(() => {
     const items = [...(list.data ?? [])];
     if (tab === "past") items.reverse();
@@ -128,7 +135,7 @@ export function MyBookingsView() {
           ) : rows.length === 0 ? (
             <p className="px-4 py-6 type-callout text-label-2">{tab === "upcoming" ? t("crbs.mine.emptyUpcoming") : t("crbs.mine.empty")}</p>
           ) : (
-            <BookingList rows={rows} fmt={fmt} selectable={tab === "upcoming"} selected={selected} onToggle={toggle} onOpen={setDetail} onRoom={(id, date) => setRoomInfo({ id, date })} />
+            <BookingList rows={rows} fmt={fmt} selectable={tab === "upcoming"} selected={selected} onToggle={toggle} onOpen={setDetail} onRoom={(id, date) => setRoomInfo({ id, date })} approverNote={approverNote} />
           )}
         </Card>
       </section>
@@ -175,6 +182,7 @@ export function MyBookingsView() {
           setSelected(new Set());
           setCancelOpen(false);
         }}
+        ownOnly
       />
     </div>
   );
@@ -189,6 +197,7 @@ function BookingList({
   onOpen,
   onRoom,
   showUser,
+  approverNote,
 }: {
   rows: BookingOut[];
   fmt: ReturnType<typeof useBookingFormat>;
@@ -198,6 +207,7 @@ function BookingList({
   onOpen: (id: number) => void;
   onRoom?: (roomId: number, date: string) => void;
   showUser?: boolean;
+  approverNote?: (bookingId: number) => string | null;
 }) {
   const { t } = useI18n();
   return (
@@ -221,6 +231,17 @@ function BookingList({
                 {showUser && b.user_name ? ` · ${b.user_name}` : ""}
                 {b.notes ? ` · ${b.notes}` : ""}
               </BareButton>
+              {/* T-R1-17 (R1-A-22): why it was cancelled, and what the approver wrote */}
+              {b.status === "CANCELLED" && b.cancel_reason ? (
+                <span className="block type-footnote text-label-2" data-testid={`mine-cancel-reason-${b.id}`}>
+                  {t("crbs.mine.cancelReason", { reason: b.cancel_reason })}
+                </span>
+              ) : null}
+              {b.status !== "CANCELLED" && approverNote?.(b.id) ? (
+                <span className="block type-footnote text-label-2" data-testid={`mine-approver-note-${b.id}`}>
+                  {t("crbs.mine.approverNote", { note: approverNote(b.id)! })}
+                </span>
+              ) : null}
             </span>
             {b.status === "CANCELLED" ? <span className="shrink-0 type-footnote font-medium text-label-3">{t("crbs.status.cancelled")}</span> : b.status !== "BOOKED" ? <StatusPill status={b.status} /> : null}
           </div>

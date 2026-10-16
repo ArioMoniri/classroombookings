@@ -1144,7 +1144,8 @@
       "confirm": "İptal et",
       "reason": "Gerekçe",
       "reasonHint": "Rezervasyonla birlikte saklanır ve rezervasyon sahibine gösterilir.",
-      "done": "{n} rezervasyon iptal edildi"
+      "done": "{n} rezervasyon iptal edildi",
+      "reasonHintOwn": "Gerekçe iptal edilen rezervasyonla birlikte saklanır ve kartında görünür."
     },
     "status": {
       "booked": "Rezerve",
@@ -1182,7 +1183,9 @@
       "ownedEmpty": "Başkalarının yaklaşan rezervasyonu yok.",
       "cancelManyTitle": "{n} rezervasyon iptal edilsin mi?",
       "cancelManyBody": "Artık iptal edilemeyenler (başlamış olanlar) olduğu gibi bırakılır.",
-      "cancelManyDone": "{n} iptal edildi, {skipped} olduğu gibi kaldı"
+      "cancelManyDone": "{n} iptal edildi, {skipped} olduğu gibi kaldı",
+      "cancelReason": "Gerekçe: {reason}",
+      "approverNote": "Onaylayanın notu: {note}"
     },
     "feed": {
       "title": "Takvim aboneliği",
@@ -2506,7 +2509,11 @@
       "pickRoom": "Abone olunacak derslik",
       "pickDepartment": "Abone olunacak bölüm",
       "reconnect": "Bağlantıyı yenileyin",
-      "connectedToast": "Takvim bağlandı"
+      "connectedToast": "Takvim bağlandı",
+      "choose": "Oda seçin",
+      "chooseDepartment": "Bölüm seçin",
+      "existingDated": "{n, plural, other {# özel bağlantınız var}}: {dates}. Bağlantı yalnızca oluşturulduğu cihazda gösterilir; burada görmek için sıfırlayın (eski bağlantı çalışmaz olur).",
+      "madeOn": "{date} tarihinde oluşturuldu"
     },
     "multi": {
       "include": "{slot} dahil",
