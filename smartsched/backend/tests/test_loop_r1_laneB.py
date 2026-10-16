@@ -164,3 +164,37 @@ async def test_t_r1_13_a_two_period_submission_is_one_conflict_with_options_that
     spans = sorted((b.start_period, b.end_period) for b in rows)
     assert spans[0][0] == o["start_period"] and spans[-1][1] == o["end_period"] and len(spans) == 2
 
+
+# --------------------------------------------------------------------------------------------------
+# T-R1-14: find-room marks the caller's own open request; alternatives say the shift in words
+# --------------------------------------------------------------------------------------------------
+
+
+async def test_t_r1_14_own_pending_request_reads_talebiniz_bekliyor_and_shifts_are_words(env):  # noqa: F811
+    c = env.client
+    _, _, _, ayse = await _people(env)
+    await _mode(env, "all")
+    r = await env.book(ayse, "A102", THU, "P1", notes="FZT 132 telafi")
+    assert r.status_code == 202, r.text
+    body = {"date": THU.isoformat(), "start": 1, "end": 1, "text": "A 102"}
+    res = (await c.post("/api/v1/rooms/find", json=body, headers=ayse)).json()
+    (row,) = [x for x in res["results"] if x["code"] == "A102"]
+    assert row["status"] == "mine_pending" and row["action"] == "none"
+    assert row["reason"]["tr"].startswith("Talebiniz bekliyor")
+    # her own request is not offered back to her as a free alternative at the same time
+    assert not any(a["room_id"] == env.rooms["A102"] and a["start_period"] == 1 for a in res["alternatives"])
+    # somebody else sees the slot as held (the request holds it only for its requester and the approvers)
+    _, mehmet = await env.user("mehmet.oz@uni.edu.tr")
+    other = (await c.post("/api/v1/rooms/find", json=body, headers=mehmet)).json()
+    assert all(x["status"] != "mine_pending" for x in other["results"])
+    # a time alternative says how it differs, in words
+    time_alts = [a for a in res["alternatives"] if a["kind"] == "time"]
+    assert time_alts, res["alternatives"]
+    assert all(
+        ("ders saati geç başlar" in a["reason"]["tr"] or "ders saati erken başlar" in a["reason"]["tr"])
+        for a in time_alts
+    )
+    assert all(
+        "period" in a["reason"]["en"] and ("later" in a["reason"]["en"] or "earlier" in a["reason"]["en"])
+        for a in time_alts
+    )
