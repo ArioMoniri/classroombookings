@@ -51,8 +51,11 @@ export function RoomDayView({
   const row = grid[day - 1] ?? [];
   return (
     <div className="flex flex-col gap-3" data-testid="room-day-view">
+      {/* tight segments (6 px side padding): six or seven day names stay a segmented control down to a 360 px phone
+          instead of folding into the select fallback; every segment stays >= 44 px wide */}
       <SegmentedControl
         fill
+        className="[&_[role=tab]]:px-1.5"
         aria-label={t("common.day")}
         value={String(day)}
         onValueChange={(v) => onDay(Number(v))}

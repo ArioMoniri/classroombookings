@@ -265,3 +265,43 @@ async def test_policy_validation_and_crud(env):  # noqa: F811
             for e in (await s.execute(select(AuditEvent).where(AuditEvent.entity_type == "booking_policy"))).scalars()
         ]
         assert acts == ["booking_policy.create", "booking_policy.update", "booking_policy.delete"]
+
+
+async def test_finder_results_carry_booking_period_ids_for_the_full_verdict(env):  # noqa: F811
+    """Backend asks batch 3 item 2: every finder result (and alternative) names the booking periods of its slot, so
+    "Neden?" can ask ``/booking-policies/effective`` with ``period_id`` and get the full verdict."""
+    _, ayse = await env.user("ayse.yilmaz@uni.edu.tr")
+    await _policy(env, name="Cuma öğle", quiet_hours=[{"weekdays": [5], "start": "12.40", "end": "13:30"}])
+    # Friday 20 Feb 2026, P6 written the Turkish way: dotted start, a trailing NBSP on the end time
+    r = await env.client.post(
+        "/api/v1/rooms/find",
+        json={"date": "2026-02-20", "start": "12.40", "end": "13:20\u00a0", "headcount": 20, "include_busy": True},
+        headers=ayse,
+    )
+    assert r.status_code == 200, r.text
+    rows = r.json()["results"]
+    refused = [x for x in rows if x["status"] == "policy"]
+    assert refused, {x["status"] for x in rows}
+    p6 = env.periods["P6"]
+    assert all(x["period_ids"] == [p6] and x["period_id"] == p6 for x in rows if x["status"] != "closed")
+    x = refused[0]
+    w = await env.client.get(
+        f"{POL}/effective",
+        params={"room_id": x["room_id"], "date": "2026-02-20", "period_id": x["period_id"]},
+        headers=ayse,
+    )
+    assert w.status_code == 200, w.text
+    assert w.json()["verdict"] == "refuse" and w.json()["period_id"] == p6
+    assert [v["code"] for v in w.json()["violations"]] == ["policy_quiet_hours"]
+    # two periods (P3-P4 on Wednesday): both ids, in grid order
+    r = await env.client.post(
+        "/api/v1/rooms/find",
+        json={"date": "2026-02-18", "start": "10.10", "end": "11:40", "headcount": 20, "include_busy": True},
+        headers=ayse,
+    )
+    assert r.status_code == 200, r.text
+    two = [env.periods["P3"], env.periods["P4"]]
+    rows = r.json()["results"]
+    assert rows and all(x["period_ids"] == two and x["period_id"] == two[0] for x in rows)
+    for a in r.json()["alternatives"]:
+        assert a["period_ids"] and a["period_id"] == a["period_ids"][0]

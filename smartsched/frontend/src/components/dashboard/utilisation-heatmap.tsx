@@ -87,6 +87,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
         />
         <SegmentedControl
           fill
+          className="[&_[role=tab]]:px-1.5"
           aria-label={mode === "day" ? t("common.day") : t("common.period")}
           value={String(col)}
           onValueChange={(v) => setPickedCol(Number(v))}

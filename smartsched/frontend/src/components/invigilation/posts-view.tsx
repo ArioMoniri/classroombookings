@@ -48,7 +48,10 @@ export function PostsView({ plan, canEdit, person, focusPost }: { plan: PlanDeta
     const base = person ? plan.posts.filter((p) => p.assigned.some((d) => d.person_key === person)) : plan.posts;
     return filterPosts(base, { date, query, onlyMissing });
   }, [plan.posts, person, date, query, onlyMissing]);
-  const sessions = useMemo(() => bySession(shown.slice(0, limit)), [shown, limit]);
+  // a focused post (diagnosis link, ?post=) is always rendered, even past the first page of its date
+  const focusIdx = focusPost ? shown.findIndex((p) => p.key === focusPost) : -1;
+  const visible = Math.max(limit, focusIdx + 1);
+  const sessions = useMemo(() => bySession(shown.slice(0, visible)), [shown, visible]);
   const focusRef = useRef<HTMLLIElement | null>(null);
   useEffect(() => {
     focusRef.current?.scrollIntoView({ block: "center" });
@@ -101,9 +104,9 @@ export function PostsView({ plan, canEdit, person, focusPost }: { plan: PlanDeta
               </ul>
             </section>
           ))}
-          {shown.length > limit ? (
-            <Button variant="outline" className="self-center" onClick={() => setLimit((l) => l + PAGE * 2)} data-testid="invig-posts-more">
-              {t("invigilation.posts.more", { n: n(shown.length - limit) })}
+          {shown.length > visible ? (
+            <Button variant="outline" className="self-center" onClick={() => setLimit(visible + PAGE * 2)} data-testid="invig-posts-more">
+              {t("invigilation.posts.more", { n: n(shown.length - visible) })}
             </Button>
           ) : null}
         </div>

@@ -204,8 +204,8 @@ test.describe("planning analytics", () => {
     await expect(page.getByTestId("invig-duty").first()).toHaveAttribute("data-locked", "true");
     await page.getByTestId("invig-duty").nth(1).getByTestId("invig-reassign").click();
     const dlg = page.getByTestId("invig-reassign-dialog");
-    // every person is checked against every hard rule of the plan (about a minute on the real Final, backend ask)
-    await expect(dlg.getByTestId("invig-cand").first()).toBeVisible({ timeout: 150_000 });
+    // every person is checked against every hard rule of the post (about 0.3 s on the real Final since 80780f2)
+    await expect(dlg.getByTestId("invig-cand").first()).toBeVisible({ timeout: 30_000 });
     await dlg.getByTestId("invig-cand").first().check();
     await dlg.getByTestId("invig-reassign-reason").fill("e2e: elle değişiklik");
     await dlg.getByTestId("invig-reassign-ok").click();
@@ -245,4 +245,118 @@ test.describe("planning analytics", () => {
     await page.getByTestId("pool-delete-ok").click();
     await expect(page.getByTestId("pool-row").filter({ hasText: name })).toHaveCount(0);
   });
+
+  /**
+   * batch-2 UI (self-contained: its own pool members and plans, all removed at the end). The real progress of a
+   * default-rule plan (phase + the backend's percentage; while solving, the time against the limit), then a plan
+   * with the instructor pool off and one staff member leaves posts short; a second member added afterwards is free
+   * for them, and "Gözetmen ekle" fills one by hand: MANUAL, locked, the brief re-scored and the post's shortage
+   * shown as resolved. On a phone the picker is a bottom sheet and nothing scrolls sideways.
+   */
+  test("invigilation: real progress, then Gözetmen ekle fills a short post by hand (resolved), phone 390 px", async ({ page, browser }) => {
+    test.setTimeout(600_000);
+    await login(page);
+    const exam = await runByLabel(page, "Final (A)");
+    const term = await useTerm(page, "2026-FINAL");
+    const stamp = Date.now() % 100000;
+    const made = { pool: [] as number[], plans: [] as number[] };
+    type Brief = { id: number; status: string; counts: { filled: number | null; missing: number | null }; progress?: { phase: string; pct: number | null } };
+    type Detail = Brief & { posts: { key: string; missing: number; required: number; assigned: { person_key: string; origin: string; is_locked: boolean }[] }[]; diagnosis: { code: string; post_keys?: string[]; resolved?: boolean }[] };
+    try {
+      // 1 · progress: a default-rule plan (about 9 s on the Final) opened while it runs
+      const run = await send<{ plan_id: number }>(page, "POST", "/invigilation/plans", { exam_run_id: exam.id, label: `e2e batch2 ilerleme ${stamp}`, params: { time_limit_s: 3 } });
+      made.plans.push(run.plan_id);
+      await page.goto(`/exams/invigilation?run=${exam.id}&plan=${run.plan_id}`);
+      const detail = page.getByTestId("invig-plan");
+      const running = page.getByTestId("invig-running");
+      if (await running.isVisible().catch(() => false)) {
+        await expect(running).toHaveAttribute("data-phase", /^(queued|loading|solving|persisting|running)$/);
+        const phase = await running.getAttribute("data-phase");
+        if (phase !== "running") await expect(page.getByTestId("invig-progress")).toHaveAttribute("aria-valuenow", /^(0|10|30|90)$/);
+        if (phase === "solving") {
+          // the percentage stays at 30 while CP-SAT runs; the time against the limit is what moves
+          await expect(page.getByTestId("invig-progress")).toHaveAttribute("aria-valuenow", "30");
+          await expect(page.getByTestId("invig-solve-time")).toHaveAttribute("aria-valuemax", "3");
+        }
+      }
+      await expect(detail).toHaveAttribute("data-status", /^(OPTIMAL|FEASIBLE|INFEASIBLE)$/, { timeout: 240_000 });
+      const done = await api<Brief[]>(page, `/invigilation/plans?exam_run_id=${exam.id}`);
+      expect(done.find((p) => p.id === run.plan_id)?.progress).toEqual({ phase: "done", pct: 100 });
+
+      // 2 · a short plan: instructors off, one staff member in the pool
+      const first = await send<{ id: number }>(page, "POST", "/invigilation/pool", { full_name: `Arş. Gör. e2e Bir ${stamp}`, kind: "ASSISTANT", term_id: term.id });
+      made.pool.push(first.id);
+      const shortRun = await send<{ plan_id: number }>(page, "POST", "/invigilation/plans", { exam_run_id: exam.id, label: `e2e batch2 eksik ${stamp}`, params: { time_limit_s: 3, instructor_pool: "none" } });
+      made.plans.push(shortRun.plan_id);
+      await expect.poll(async () => (await api<Brief[]>(page, `/invigilation/plans?exam_run_id=${exam.id}`)).find((p) => p.id === shortRun.plan_id)?.status, { timeout: 240_000 }).toMatch(/^(INFEASIBLE|FEASIBLE|OPTIMAL)$/);
+      // a second member joins after the solve: free for the short posts
+      const name = `Arş. Gör. e2e İki ${stamp}`;
+      const second = await send<{ id: number; person_key: string }>(page, "POST", "/invigilation/pool", { full_name: name, kind: "ASSISTANT", term_id: term.id });
+      made.pool.push(second.id);
+      const before = await api<Detail>(page, `/invigilation/plans/${shortRun.plan_id}`);
+      // a post one invigilator short whose shortage diagnoses name only it: filling it resolves them
+      const target = before.posts.find((p) => {
+        if (p.missing !== 1) return false;
+        const ds = before.diagnosis.filter((d) => d.post_keys?.includes(p.key));
+        return ds.length > 0 && ds.every((d) => d.post_keys!.length === 1);
+      });
+      expect(target, "a post one invigilator short on the real Final").toBeTruthy();
+
+      await page.goto(`/exams/invigilation?run=${exam.id}&plan=${shortRun.plan_id}&post=${encodeURIComponent(target!.key)}`);
+      const card = page.locator(`[data-testid="invig-post"][data-post="${target!.key}"]`);
+      await expect(card).toHaveAttribute("data-missing", "1");
+      await card.getByTestId("invig-add").click();
+      const dlg = page.getByTestId("invig-reassign-dialog");
+      await expect(dlg).toContainText("salonuna gözetmen ekle");
+      await expect(dlg).not.toContainText("dakika");
+      await dlg.getByTestId("invig-cand-search").fill(`e2e İki ${stamp}`);
+      await dlg.getByRole("radio", { name }).check({ timeout: 30_000 });
+      await dlg.getByTestId("invig-reassign-reason").fill("e2e: eksik salon elle dolduruldu");
+      await dlg.getByTestId("invig-reassign-ok").click();
+      await expect(dlg).toBeHidden({ timeout: 30_000 });
+      await expect(card).toHaveAttribute("data-missing", "0");
+      await expect(card.getByTestId("invig-duty").filter({ hasText: name })).toContainText("elle");
+      await expect(card.getByTestId("invig-add")).toHaveCount(0);
+      // the diagnoses come back with the shortage resolved, in a group of their own
+      await expect(page.locator('[data-testid="invig-diag-group"][data-resolved="true"]').first()).toContainText("giderildi");
+
+      const after = await api<Detail>(page, `/invigilation/plans/${shortRun.plan_id}`);
+      expect(after.counts.filled).toBe((before.counts.filled ?? 0) + 1);
+      const duty = after.posts.find((p) => p.key === target!.key)!.assigned.find((d) => d.person_key === second.person_key);
+      expect(duty).toMatchObject({ origin: "MANUAL", is_locked: true });
+      expect(after.diagnosis.filter((d) => d.post_keys?.includes(target!.key)).every((d) => d.resolved === true)).toBe(true);
+
+      // 3 · phone 390 px: the picker is a bottom sheet; nothing scrolls sideways
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+      const phone = await ctx.newPage();
+      await login(phone);
+      await useTerm(phone, "2026-FINAL");
+      const other = after.posts.find((p) => p.missing > 0)!;
+      await phone.goto(`/exams/invigilation?run=${exam.id}&plan=${shortRun.plan_id}&post=${encodeURIComponent(other.key)}`);
+      const pcard = phone.locator(`[data-testid="invig-post"][data-post="${other.key}"]`);
+      await pcard.getByTestId("invig-add").click();
+      const sheet = phone.getByTestId("invig-reassign-dialog");
+      await expect(sheet).toHaveAttribute("data-variant", "sheet");
+      await expect(sheet.getByTestId("invig-cand").or(sheet.getByTestId("invig-cand-none")).first()).toBeVisible({ timeout: 30_000 });
+      const [sw, iw] = await phone.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+      expect(sw).toBeLessThanOrEqual(iw);
+      await ctx.close();
+    } finally {
+      for (const id of made.plans) await send(page, "DELETE", `/invigilation/plans/${id}`).catch(() => undefined);
+      for (const id of made.pool) await send(page, "DELETE", `/invigilation/pool/${id}`).catch(() => undefined);
+    }
+  });
 });
+
+/** a write through the same-origin proxy with the session cookie (what the UI does) */
+async function send<T = unknown>(page: Page, method: "POST" | "DELETE", path: string, body?: unknown): Promise<T> {
+  const res = await page.evaluate(
+    async ([m, url, b]) => {
+      const r = await fetch(url as string, { method: m as string, headers: { Accept: "application/json", "Content-Type": "application/json" }, body: b === undefined ? undefined : JSON.stringify(b) });
+      return { status: r.status, body: (await r.json().catch(() => null)) as unknown };
+    },
+    [method, `/api/v1${path}`, body] as const,
+  );
+  if (res.status >= 400) throw new Error(`${method} ${path} → ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body as T;
+}

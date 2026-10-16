@@ -6,9 +6,12 @@
  *
  * 1. An academician linked to the instructor of R601 PTL 102 §1 (`PUT /auth/sso/admin/users/{id}/instructor`)
  *    opens Taleplerim, taps the class row: the sheet preselects it. A time window is refused with the
- *    "bölüm formu sabitliyor" explanation (fixed_by_department); a room wish (C 301, typed: this account cannot
- *    list rooms) shows its summary before sending and the server's `effective` after. A building wish equal to the
- *    department's own block is refused (already_requested); block A is sent. Tercihlerim lists both as Bekliyor.
+ *    "bölüm formu sabitliyor" explanation (fixed_by_department), already in the server's preview (`?dry_run=1`)
+ *    before sending. The room picker (`GET /moderation/me/rooms`) lists the bookable rooms by building with their
+ *    capacity; "c301" typed + Enter picks the listed C 301; the summary is the server's preview text and
+ *    `effective` (nothing stored by a preview), then the sent wish. A building wish equal to the department's own
+ *    block is refused in the preview and on sending (already_requested); block A is sent. Tercihlerim lists both
+ *    as Bekliyor.
  * 2. A pending wish (sent through the API) is withdrawn from Tercihlerim after a confirmation.
  * 3. The coordinator sees "N tercih bekliyor" on the person (Kişiler), the header link opens Tercihler ›
  *    Akademisyen tercihleri, accepts the room wish (soft rule "bölüm odasından sonra", also in the rules table)
@@ -151,17 +154,38 @@ test("1 · academician: Tercih ekle from the class row, time refused as fixed by
   await sheet.getByTestId("wish-kind-day_window").click();
   await expect(sheet.getByTestId("wish-fixed")).toContainText("bölüm formu sabitliyor");
   await sheet.getByTestId("wish-latest").selectOption("6");
+  // the server's preview already refuses it, in the words a submit would use
+  const pre = sheet.getByTestId("wish-preview-error");
+  await expect(pre.locator("[data-code]")).toHaveAttribute("data-code", "fixed_by_department");
   await sheet.getByTestId("wish-submit").click();
   const err = sheet.getByTestId("wish-error");
   await expect(err).toContainText("Bölüm formu bu dersin gün ve saatini sabitliyor");
   await expect(err.locator("[data-code]")).toHaveAttribute("data-code", "fixed_by_department");
 
-  // a room wish: typed (this account cannot list the rooms), the summary before sending, `effective` after
+  // a room wish from the picker: the bookable rooms by building, with the capacity
   await sheet.getByTestId("wish-kind-room_preference").click();
+  const list = sheet.getByTestId("wish-room-list");
+  const rooms = await call<{ items: { id: number; code: string; building: string; capacity: number }[]; count: number }>("GET", "/moderation/me/rooms", undefined, ctx.teacherToken);
+  expect(rooms.status).toBe(200);
+  const buildings = [...new Set(rooms.body.items.map((r) => r.building))].sort((a, b) => a.localeCompare(b, "tr"));
+  await expect(list.getByTestId("wish-room-group")).toHaveCount(buildings.length);
+  expect(await list.getByTestId("wish-room-group").evaluateAll((els) => els.map((e) => e.getAttribute("data-building")))).toEqual(buildings);
+  await expect(list.getByTestId("wish-room")).toHaveCount(Math.min(80, rooms.body.count));
+  const c301 = rooms.body.items.find((r) => r.code.replace(/\s+/g, "") === "C301")!;
+  await expect(list.locator('[data-testid="wish-room"][data-code="C301"]')).toContainText(`${c301.capacity} kişilik`);
+  // a code typed as people write it picks the listed room
   await sheet.getByTestId("wish-room-search").fill("c301");
+  await expect(list.getByTestId("wish-room")).toHaveCount(1);
   await sheet.getByTestId("wish-room-search").press("Enter");
   await expect(sheet.getByTestId("wish-rooms-picked")).toContainText("C 301");
-  await expect(sheet.getByTestId("wish-summary")).toContainText("PTL 102 §1: oda tercihi C 301");
+  await expect(sheet.getByRole("checkbox", { name: /C 301/ })).toBeChecked();
+  // the summary is the server's own preview (`?dry_run=1`), which stores nothing
+  const summary = sheet.getByTestId("wish-summary");
+  await expect(summary).toHaveAttribute("data-source", "server");
+  await expect(summary.getByTestId("wish-summary-item")).toHaveText("PTL 102 §1: oda tercihi C 301");
+  await expect(summary.getByTestId("wish-effective")).toContainText("Koordinatör onaylarsa");
+  const stored = await api<{ counts: { pending: number } }>("GET", `/moderation/me/preferences?term_id=${ctx.termId}`, undefined, ctx.teacherToken);
+  expect(stored.counts.pending, "a preview stores nothing").toBe(0);
   await sheet.getByTestId("wish-note").fill("Deney düzeneği C blokta");
   await sheet.getByTestId("wish-submit").click();
   await expect(sheet.getByTestId("wish-sent")).toContainText("PTL 102 §1: oda tercihi C 301");
@@ -171,12 +195,13 @@ test("1 · academician: Tercih ekle from the class row, time refused as fixed by
   await sheet.getByTestId("wish-another").click();
   await sheet.getByTestId("wish-kind-building_preference").click();
   await sheet.getByTestId("wish-building-C").click();
+  await expect(sheet.getByTestId("wish-preview-error")).toContainText("Bölüm formu bu dersler için bunu zaten istiyor");
   await sheet.getByTestId("wish-submit").click();
   await expect(sheet.getByTestId("wish-error")).toContainText("Bölüm formu bu dersler için bunu zaten istiyor");
   await sheet.getByTestId("wish-building-C").click();
   await sheet.getByTestId("wish-building-input").fill("a");
   await sheet.getByTestId("wish-building-add").click();
-  await expect(sheet.getByTestId("wish-summary")).toContainText("PTL 102 §1: A blok tercihi");
+  await expect(sheet.getByTestId("wish-summary-item")).toHaveText("PTL 102 §1: A blok tercihi");
   await sheet.getByTestId("wish-submit").click();
   await expect(sheet.getByTestId("wish-sent")).toContainText("A blok tercihi");
   await sheet.getByTestId("wish-done").click();
@@ -284,6 +309,8 @@ test("5 · phone 390: the sheet is a bottom sheet with 44 px targets, the reject
   await p.getByTestId("mine-table").getByTestId("mod-row").first().click();
   const sheet = p.getByTestId("wish-sheet");
   await expect(sheet).toHaveAttribute("data-variant", "sheet");
+  // the room picker is part of what is measured (44 px rows, grouped by building)
+  await expect(sheet.getByTestId("wish-room-list")).toBeVisible();
   await p.waitForTimeout(400); // the sheet's enter spring (270 ms) settles before measuring
   const box = (await sheet.boundingBox())!;
   expect(box.width).toBeGreaterThanOrEqual(370);
