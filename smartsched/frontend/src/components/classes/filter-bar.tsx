@@ -8,7 +8,7 @@ import { ChevronLeft, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AdaptiveContent, AdaptivePopover, AdaptiveTrigger } from "@/components/studio/adaptive-popover";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Slider } from "@/components/ui/slider";
 import type { ClassRow } from "@/lib/api/classes";
@@ -167,12 +167,13 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
   const fields = FILTER_FIELDS.filter((x) => !q || field || fold(t(FIELD_KEY[x])).includes(fold(q)));
   const whereField = field === "building" || field === "room" || field === "day" || field === "time";
 
+  // a popover on a fine pointer, a bottom sheet with 44 px rows on touch (MOBILE.md M-02 / M-04)
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setField(null); setQ(""); } }}>
-      <PopoverTrigger ref={triggerRef} render={<Button variant="ghost" size="sm" data-testid="filter-menu" />}>
+    <AdaptivePopover open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setField(null); setQ(""); } }}>
+      <AdaptiveTrigger render={<Button ref={triggerRef} variant="ghost" size="sm" data-testid="filter-menu" />}>
         {t("classes.filter")} <Plus aria-hidden />
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-1.5">
+      </AdaptiveTrigger>
+      <AdaptiveContent title={field ? t(FIELD_KEY[field]) : t("classes.filter")} align="start" className="w-80 p-1.5">
         <div className="flex items-center gap-1">
           {field ? <Button variant="ghost" size="icon-xs" aria-label={t("calendar.nav.prev")} onClick={() => { setField(null); setQ(""); }}><ChevronLeft /></Button> : null}
           <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={field ? t("classes.f.searchValues") : t("classes.filter")} aria-label={field ? t("classes.f.searchValues") : t("classes.filter")} className="flex-1" />
@@ -221,8 +222,8 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
             ))}
           </ul>
         )}
-      </PopoverContent>
-    </Popover>
+      </AdaptiveContent>
+    </AdaptivePopover>
   );
 }
 

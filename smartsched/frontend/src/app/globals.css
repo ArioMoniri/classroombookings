@@ -620,7 +620,8 @@
   /* App shell bars (components/shell/top-bar.tsx, tab-bar.tsx): the document scrolls under a sticky top bar and
      a floating tab bar, so scroll-padding keeps keyboard focus, scrollIntoView and #anchors clear of both
      (MOBILE.md M-02 occlusion). Below lg: top bar 48 px + the top inset; tab bar a 56 px capsule floating
-     max(12 px, bottom inset) above the edge. lg and up: the 52 px top bar, no tab bar. Plus 8 px of air. */
+     max(12 px, bottom inset) above the edge. lg and up: the 52 px top bar, no tab bar. Plus 24 px of air: a
+     small control's touch hit area reaches up to 22 px past its box (ui/hit-area.ts), and that must clear too. */
   :root {
     --shell-top-h: calc(3rem + env(safe-area-inset-top));
     --shell-bottom-h: calc(3.5rem + max(0.75rem, env(safe-area-inset-bottom)));
@@ -629,8 +630,8 @@
     :root { --shell-top-h: 3.25rem; --shell-bottom-h: 0px; }
   }
   html:has([data-app-shell]) {
-    scroll-padding-top: calc(var(--shell-top-h) + 0.5rem);
-    scroll-padding-bottom: calc(var(--shell-bottom-h) + 0.5rem);
+    scroll-padding-top: calc(var(--shell-top-h) + 1.5rem);
+    scroll-padding-bottom: calc(var(--shell-bottom-h) + 1.5rem);
   }
   body {
     @apply text-foreground;

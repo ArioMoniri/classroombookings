@@ -68,7 +68,7 @@ function DialogContent({
         className={cn(
           "t-modal glass-thick fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-3xl p-5 text-sm text-label-1 outline-hidden sm:max-w-sm",
           // phone bottom sheet (see the header): these max-sm: variants sort after callers' unprefixed classes
-          "max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-h-[calc(100dvh-3rem)] max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-b-[length:env(safe-area-inset-bottom)] max-sm:border-b-transparent",
+          "max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-h-[calc(100dvh-3rem)] max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:scroll-py-6 max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-b-[length:env(safe-area-inset-bottom)] max-sm:border-b-transparent",
           className
         )}
         {...props}
