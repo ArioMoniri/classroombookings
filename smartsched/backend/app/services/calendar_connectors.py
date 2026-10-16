@@ -11,13 +11,16 @@ product, and an unconfigured provider reports ``configured: false``.
   row per affected connection; the integrations worker reconciles the external calendar with the booking's
   current state (create / update / delete) and stores the external event id in ``calendar_event_links``. Jobs are
   idempotent (state-based, not replayed), deduplicated while pending, retried with backoff.
-* Disconnect deletes the stored tokens at once (T6 acceptance) and revokes the Google grant in the background.
+* Disconnect deletes the stored tokens at once (T6 acceptance), removes the pushed events and revokes the Google grant
+  in the background (or awaited, for a KVKK erasure, which records the provider's answer; :func:`disconnect`).
 """
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
+import logging
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -47,6 +50,8 @@ from app.services import calendar_feeds as feeds
 from app.services import settings_service
 from app.services.bookings_settings import get_group
 from app.workers import integrations as worker
+
+log = logging.getLogger(__name__)
 
 STATE_TTL = timedelta(minutes=10)
 #: bookings pushed by a full sync: from this many days ago onwards
@@ -131,6 +136,8 @@ class Provider:
     default_calendar: str | None = None
     #: sent with every API call of this provider
     api_headers: dict[str, str] = {}
+    #: the provider has an endpoint that revokes the user's grant (:meth:`revoke`)
+    can_revoke = False
 
     def authorize_endpoint(self, cfg: ClientConfig) -> str:
         raise NotImplementedError
@@ -288,8 +295,19 @@ class GoogleProvider(Provider):
         url = f"{self._events(calendar_id)}/{quote(external_id, safe='')}"
         await api.call("DELETE", url, ok=(200, 204, 404, 410))
 
+    can_revoke = True
+
     async def revoke(self, client: httpx.AsyncClient, token: str) -> None:
-        await client.post("https://oauth2.googleapis.com/revoke", data={"token": token})
+        """Revoke the grant; a token Google no longer knows (``invalid_token``: revoked or expired) is revoked."""
+        try:
+            resp = await client.post("https://oauth2.googleapis.com/revoke", data={"token": token})
+        except httpx.HTTPError as exc:
+            raise ProviderError(f"revoke: {type(exc).__name__}", retryable=True) from exc
+        if resp.status_code == 200:
+            return
+        if resp.status_code == 400 and "invalid_token" in resp.text:
+            return
+        raise _classify(resp, "revoke")
 
 
 class MicrosoftProvider(Provider):
@@ -598,25 +616,46 @@ async def choose_calendar(session: AsyncSession, conn: CalendarConnection, calen
         conn.calendar_name = name
 
 
-async def disconnect(session: AsyncSession, conn: CalendarConnection, *, remove_events: bool = True) -> None:
-    """Delete the stored tokens, links and jobs now; in the background, delete the events SmartSched pushed into the
-    user's calendar (``remove_events``; ROADMAP calendar-sync follow-up) and then revoke the grant at the provider."""
+#: how long a waiting disconnect (KVKK erasure) talks to the provider before the rest goes to the background
+WAIT_CLEANUP_S = 20.0
+
+
+async def disconnect(
+    session: AsyncSession,
+    conn: CalendarConnection,
+    *,
+    remove_events: bool = True,
+    wait: bool = False,
+    timeout: float | None = None,
+) -> dict[str, Any]:
+    """Delete the stored tokens, links and jobs now; delete the events SmartSched pushed into the user's calendar
+    (``remove_events``; ROADMAP calendar-sync follow-up) and then revoke the grant at the provider -- in the
+    background, or awaited first with ``wait=True`` (the KVKK erasure records what the provider answered; after
+    ``timeout`` seconds, default :data:`WAIT_CLEANUP_S`, the rest is finished in the background).
+
+    The outcome: ``{provider, events, events_removed, events_failed, revoke, errors}``; ``revoke`` is ``queued``
+    (background), ``done``, ``failed``, ``not_supported`` (Microsoft has no grant revocation endpoint: deleting the
+    tokens is what SmartSched can do), ``unreadable`` (the stored grant cannot be decrypted, e.g. a rotated
+    ``APP_SECRET``: nothing can be revoked or removed) or ``none`` (no grant was stored)."""
     provider = PROVIDERS[conn.provider]
+    timeout = WAIT_CLEANUP_S if timeout is None else timeout
     plain: dict[str, str] = {}
+    unreadable = False
     for name, enc in (("refresh", conn.refresh_token_enc), ("access", conn.access_token_enc)):
         if not enc:
             continue
         try:
             plain[name] = decrypt_secret(enc)
         except ValueError:
-            continue
+            unreadable = True
     links = [
         (link.calendar_id, link.external_id)
         for link in (
             await session.execute(select(CalendarEventLink).where(CalendarEventLink.connection_id == conn.id))
         ).scalars()
     ]
-    cfg = await client_config(session, provider) if (remove_events and links) else None
+    targets = links if remove_events else []
+    cfg = await client_config(session, provider) if targets else None
     # a detached copy of the credentials: the row itself is deleted below
     ghost = CalendarConnection(
         provider=conn.provider,
@@ -625,28 +664,74 @@ async def disconnect(session: AsyncSession, conn: CalendarConnection, *, remove_
         refresh_token_enc=conn.refresh_token_enc,
         token_expires_at=conn.token_expires_at,
     )
+    key = f"integrations:revoke:{conn.provider}:{conn.user_id}"
+    out: dict[str, Any] = {
+        "provider": conn.provider,
+        "events": len(targets),
+        "events_removed": 0,
+        "events_failed": 0,
+        "revoke": "none",
+        "errors": [],
+    }
+    token = plain.get("refresh") or plain.get("access")
+
+    async def cleanup(res: dict[str, Any], items: list[tuple[str, str]]) -> None:
+        """Remove ``items`` from the external calendar, then revoke the grant; ``res`` is updated as it goes (a
+        timed-out wait keeps the counts so far)."""
+        async with http_client() as client:
+            if items and cfg is None:
+                res["events_failed"] += len(items)
+                res["errors"].append(f"{provider.label} is not configured any more: the pushed events stay")
+            elif items and cfg is not None:
+                api = Api(ghost, provider, cfg, client)
+                for calendar_id, external_id in items:
+                    try:
+                        await provider.delete(api, calendar_id, external_id)
+                        res["events_removed"] += 1
+                    except (ProviderError, httpx.HTTPError) as exc:
+                        res["events_failed"] += 1  # the grant no longer works, or the provider is down
+                        if len(res["errors"]) < 5:
+                            res["errors"].append(str(exc)[:200] or type(exc).__name__)
+            if not provider.can_revoke:
+                res["revoke"] = "not_supported"
+                return
+            try:
+                await provider.revoke(client, token or "")
+                res["revoke"] = "done"
+            except (ProviderError, httpx.HTTPError) as exc:
+                res["revoke"] = "failed"
+                res["errors"].append(str(exc)[:200] or type(exc).__name__)
+
+    def in_background(items: list[tuple[str, str]]) -> None:
+        async def job() -> None:
+            res: dict[str, Any] = {**out, "events": len(items), "events_removed": 0, "events_failed": 0, "errors": []}
+            await cleanup(res, items)
+            if res["events_failed"] or res["revoke"] == "failed":
+                log.warning("calendar disconnect %s: %s", key, res)
+
+        worker.run_detached(job, key)
+
+    if wait and token:
+        # before the rows go: no write is pending in this transaction while the provider answers
+        try:
+            await asyncio.wait_for(cleanup(out, targets), timeout)
+        except TimeoutError:
+            out["errors"].append(f"the provider did not finish within {timeout:g} s: finishing in the background")
+            out["revoke"] = "queued"
+            in_background(targets[out["events_removed"] + out["events_failed"] :])
     await session.execute(delete(CalendarSyncJob).where(CalendarSyncJob.connection_id == conn.id))
     await session.execute(delete(CalendarEventLink).where(CalendarEventLink.connection_id == conn.id))
     await session.delete(conn)
     await session.flush()
-    if not plain:
-        return
-
-    async def cleanup() -> None:
-        async with http_client() as client:
-            if cfg is not None and links:
-                api = Api(ghost, provider, cfg, client)
-                for calendar_id, external_id in links:
-                    try:
-                        await provider.delete(api, calendar_id, external_id)
-                    except (ProviderError, httpx.HTTPError):
-                        continue  # already gone, or the grant no longer works: nothing more to do
-            try:
-                await provider.revoke(client, plain.get("refresh") or plain["access"])
-            except (httpx.HTTPError, KeyError):
-                pass
-
-    worker.run_detached(cleanup, f"integrations:revoke:{conn.provider}:{conn.user_id}")
+    if not token:
+        out["revoke"] = "unreadable" if unreadable else "none"
+        if targets:
+            out["events_failed"] = len(targets)
+            out["errors"].append("the stored grant cannot be read: the pushed events stay")
+    elif not wait:
+        out["revoke"] = "queued"
+        in_background(targets)
+    return out
 
 
 # --------------------------------------------------------------------------------------------------

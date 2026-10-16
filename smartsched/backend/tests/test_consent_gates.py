@@ -425,3 +425,29 @@ async def test_excluded_default_keeps_a_never_granted_instructor_out_of_the_prom
     assert n.tr_casefold(words[-1]) not in sent and n.tr_casefold("[KİŞİ_") in sent
     assert (await env.client.post("/api/v1/me/consents/ai_personal", headers=teacher)).status_code == 200
     assert n.tr_casefold(words[-1]) in await elicit(bare)
+
+
+async def test_a_slow_provider_finishes_in_the_background_and_the_erasure_answers(env, monkeypatch):  # noqa: F811
+    import asyncio
+
+    from app.services import calendar_connectors
+
+    fake, uid, who = await _google_connected(env, monkeypatch, "ismail.isik@uni.edu.tr", "İsmail Işık")
+    slow = {"n": 0}
+    answer = fake.__call__
+
+    async def slow_delete(req: httpx.Request) -> httpx.Response:
+        if req.method == "DELETE" and slow["n"] == 0:
+            slow["n"] += 1
+            await asyncio.sleep(1.0)
+        return await answer(req)
+
+    monkeypatch.setattr(calendar_connectors, "WAIT_CLEANUP_S", 0.2)
+    monkeypatch.setattr(calendar_connectors, "http_client", client_factory(slow_delete))
+    result = await _erase(env, who)  # waits for the background worker too
+    assert [(f["provider"], f["code"]) for f in result["failures"]] == [("google", "provider_timeout")]
+    assert result["calendar"][0]["revoke"] == "queued"
+    assert "Google Calendar zamanında yanıt vermedi" in result["failures"][0]["message_tr"]
+    # the background finished the job: the event is gone and the grant revoked
+    assert fake.events == {} and len(fake.calls("POST", "oauth2.googleapis.com/revoke")) == 1
+    assert await _rows(uid) == {"connections": 0, "links": 0, "feeds": 0}

@@ -18,9 +18,11 @@
 * **Data-subject requests** (``dsr_requests``): ``export`` is self-service (a zip of JSON + CSV built at download
   time, never stored, for 7 days); ``erase``, ``rectify`` and ``info`` go to the administrators' queue with the
   30-day deadline (Art. 13). Completing an erasure cancels the person's future bookings with a reason, anonymises
-  the past ones, deletes their notifications, delivery ledgers, channel links, SSO identities, calendar links and
-  tokens, personal settings, consents and learned observations (``learning.erase_person``), pseudonymises their audit
-  rows (actor ``Silinmiş kullanıcı #h``; the rows are kept: legal retention) and anonymises the account itself.
+  the past ones, disconnects their push calendars first (``calendar_connectors.disconnect``: the pushed events are
+  removed and the grant revoked at the provider; a provider failure is listed in the result's ``failures``, TR/EN, and
+  never blocks the erasure), deletes their notifications, delivery ledgers, channel links, SSO identities, calendar
+  links and tokens, personal settings, consents and learned observations (``learning.erase_person``), pseudonymises
+  their audit rows (actor ``Silinmiş kullanıcı #h``; the rows are kept: legal retention) and anonymises the account.
 """
 
 from __future__ import annotations
@@ -1307,14 +1309,129 @@ def _scrub_snapshot(v: Any) -> Any:
     return {k: (None if k in _PERSONAL_KEYS else val) for k, val in v.items()}
 
 
+def _calendar_failure(provider: str, code: str, en: str, tr: str, **data: Any) -> dict[str, Any]:
+    return {"provider": provider, "code": code, "message_en": en, "message_tr": tr, **data}
+
+
+def _calendar_failures(res: dict[str, Any], label: str) -> list[dict[str, Any]]:
+    """The follow-ups an administrator may need after one push calendar was disconnected (TR/EN)."""
+    p, out = res["provider"], []
+    detail = "; ".join(res.get("errors") or [])[:400] or None
+    if res["revoke"] == "unreadable":
+        out.append(
+            _calendar_failure(
+                p,
+                "grant_unreadable",
+                f"the stored {label} grant could not be read (the encryption key changed): it was deleted but not "
+                "revoked at the provider; remove SmartSched's access in the provider's admin console",
+                f"saklanan {label} yetkisi okunamadı (şifreleme anahtarı değişmiş): silindi ama sağlayıcıda iptal "
+                "edilemedi; SmartSched erişimini sağlayıcının yönetim konsolundan kaldırın",
+                error=detail,
+            )
+        )
+    if res["events_failed"]:
+        k = res["events_failed"]
+        out.append(
+            _calendar_failure(
+                p,
+                "events_not_removed",
+                f"{k} event(s) SmartSched had added to the person's {label} could not be removed",
+                f"kişinin {label} takvimine SmartSched'in eklediği {k} etkinlik silinemedi",
+                count=k,
+                error=detail,
+            )
+        )
+    if res["revoke"] == "failed":
+        out.append(
+            _calendar_failure(
+                p,
+                "revoke_failed",
+                f"the {label} grant could not be revoked at the provider; the stored tokens are deleted, remove "
+                "SmartSched's access in the provider's admin console",
+                f"{label} yetkisi sağlayıcıda iptal edilemedi; saklanan anahtarlar silindi, SmartSched erişimini "
+                "sağlayıcının yönetim konsolundan kaldırın",
+                error=detail,
+            )
+        )
+    if res["revoke"] == "queued":
+        out.append(
+            _calendar_failure(
+                p,
+                "provider_timeout",
+                f"{label} did not answer in time; removing the events and revoking the grant continue in the "
+                "background",
+                f"{label} zamanında yanıt vermedi; etkinliklerin silinmesi ve yetkinin iptali arka planda sürüyor",
+                error=detail,
+            )
+        )
+    return out
+
+
+async def _erase_calendars(session: AsyncSession, uid: int) -> tuple[int, list[dict[str, Any]], list[dict[str, Any]]]:
+    """Disconnect every push calendar of ``uid`` through ``calendar_connectors.disconnect`` (the events SmartSched
+    pushed are removed and the grant revoked at the provider, awaited so the answer is recorded) before anything else
+    of the erasure is written. A failure never blocks the erasure: it is listed (TR/EN) and the rows go anyway.
+    Returns (connections, per-connection outcomes, failures)."""
+    from app.services import calendar_connectors as conn_svc
+
+    conns = list(
+        (
+            await session.execute(
+                select(CalendarConnection).where(CalendarConnection.user_id == uid).order_by(CalendarConnection.id)
+            )
+        ).scalars()
+    )
+    outcomes: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+    for conn in conns:
+        provider = conn.provider
+        p = conn_svc.PROVIDERS.get(provider)
+        label = p.label if p is not None else provider
+        try:
+            async with session.begin_nested():
+                res = await conn_svc.disconnect(session, conn, wait=True)
+        except Exception as exc:  # any failure is recorded; the rows are deleted with the rest below
+            error = f"{type(exc).__name__}: {exc}"[:300]
+            log.warning("kvkk erasure: disconnecting %s of user %s failed: %s", provider, uid, error)
+            outcomes.append(
+                {
+                    "provider": provider,
+                    "events": None,
+                    "events_removed": 0,
+                    "events_failed": None,
+                    "revoke": "failed",
+                    "errors": [error],
+                }
+            )
+            failures.append(
+                _calendar_failure(
+                    provider,
+                    "disconnect_failed",
+                    f"disconnecting {label} failed; the connection was deleted without removing the events or "
+                    "revoking the grant at the provider",
+                    f"{label} bağlantısı kesilemedi; bağlantı silindi ama etkinlikler kaldırılamadı ve yetki "
+                    "sağlayıcıda iptal edilemedi",
+                    error=error,
+                )
+            )
+            continue
+        outcomes.append(res)
+        failures += _calendar_failures(res, label)
+    return len(conns), outcomes, failures
+
+
 async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[str, Any]:
-    """Erase / anonymise everything of ``subject`` (see the module docstring). Returns counts per table."""
+    """Erase / anonymise everything of ``subject`` (see the module docstring). Returns counts per table, the
+    disconnected push calendars (``calendar``: provider, events, events_removed, events_failed, revoke, errors) and
+    ``failures`` (TR/EN follow-ups for the administrator; they never block the erasure)."""
     from app.services import bookings as bsvc
     from app.services import learning
 
     uid = subject.id
     label = pseudonym(uid)
     counts: dict[str, int] = {}
+    # 0. push calendars first, while nothing is written yet: pushed events removed, grants revoked at the provider
+    n_conns, calendar_out, failures = await _erase_calendars(session, uid)
     today = await bsvc.today(session)
     now = utcnow()
     reason = "KVKK silme talebi / erasure request"
@@ -1400,6 +1517,7 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
         ("room_acl", delete(RoomAcl).where(RoomAcl.context_type == "user", RoomAcl.context_id == uid)),
     ):
         counts[name] = await _count_delete(session, stmt)
+    counts["calendar_connections"] += n_conns  # disconnected in step 0 (the delete above catches any left)
     counts["profile_photo"] = delete_profile_photo(uid)
     await session.execute(update(Room).where(Room.owner_user_id == uid).values(owner_user_id=None))
     # 4. learned observations of the person (and of their instructor record), then the link
@@ -1480,9 +1598,18 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
     finally:
         if ctx is not None:
             session.info[audit.CTX_KEY] = ctx
-    await audit.record(session, "kvkk.erase", "user", uid, after={"subject": label, "counts": counts}, actor=admin)
+    await audit.record(
+        session,
+        "kvkk.erase",
+        "user",
+        uid,
+        after={"subject": label, "counts": counts, "calendar": calendar_out, "failures": failures},
+        actor=admin,
+    )
     return {
         "counts": counts,
+        "calendar": calendar_out,
+        "failures": failures,
         "partial": True,
         "partial_reason": "denetim kayıtları anonim olarak saklanır (yasal saklama) / audit records kept anonymised",
     }
