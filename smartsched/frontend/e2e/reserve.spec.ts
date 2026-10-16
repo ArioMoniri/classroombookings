@@ -269,8 +269,8 @@ test("6. department view: the user's department by default, colour legend, muted
 test("7. calendar sync: private links for me, a room and a department, copy, Google / Outlook, reset", async ({ page, context }) => {
   // calendar sync ships off until an administrator gives the KVKK sign-off (M-40; approval-first 4 covers the
   // screen): this spec's administrator signs off through the API and afterAll puts the setting back
-  const sync = await api<{ calendar_sync_enabled: boolean }>("GET", "/calendar/admin/settings");
-  if (!sync.calendar_sync_enabled) {
+  const integrations = await api<{ calendar_sync_enabled: boolean }>("GET", "/calendar/admin/settings");
+  if (!integrations.calendar_sync_enabled) {
     syncBefore ??= false;
     await api("PUT", "/calendar/admin/settings", { calendar_sync_enabled: true });
   }
