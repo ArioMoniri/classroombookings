@@ -1236,3 +1236,17 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
 - [ ] Backend ask: a server-side identity filter on `GET /users` (invited / self sign-up / method); the Users screen filters one 500-row page on the client today.
 - [ ] Backend ask from the identity frontend: a server-side identity filter on `GET /users` (invited / self sign-up / sign-in method), so the Users screen pages on the server instead of filtering one 500-row page in the browser.
 - [ ] The sign-in door-2 motion check in the shared `e2e/motion-audit.spec.ts` (sign-in.md §10). Reduced motion is already covered by check #29.
+
+### README media finished (2026-10-16)
+
+- Done:
+  - The README is a short landing page: brand header, badges checked against the code, Lottie, Quick start with both seed profiles, a gallery by role, and the AUTO status/parity/last-updated blocks. The long sections moved to `docs/HOW_IT_WORKS.md`, `docs/RESULTS.md`, `docs/CLASSROOMBOOKINGS.md` and `docs/DEVELOPMENT.md`.
+  - 7 GIF journeys at 20 fps, two-pass palette, under 9 MB, each linking to its full MP4.
+  - 62 WebP screenshots in light and dark, at 1440 and 390 px.
+  - KVKK masking: names show as initials in the throwaway recording database.
+  - One-command refresh: `scripts/record/refresh.sh`.
+- The orchestrator made `stack.sh down` kill only its own PIDs; freeing ports by force now needs `REC_FREE_PORTS=1`.
+- [ ] At stabilisation, re-run `scripts/record/refresh.sh` on the final UI, including `approval-flow` and `login-dashboard` now that those screens have landed, and the login, approvals, my-requests and notification screenshots. Add README entries for them.
+- [ ] `import-generate`: its captions drift up to 8 s ahead of the screen under container load. Record it on the pod, or sync captions to UI events.
+- [ ] `onboarding` is 14.6 s; trim it to 12 s or less.
+- [ ] Product bug: `/onboarding` refuses the real Bahar and Güz planning lists ("16376 columns, limit 1024"). The intake fix agent is running.
