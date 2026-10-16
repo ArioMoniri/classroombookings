@@ -1,3 +1,4 @@
+# ruff: noqa: RUF001, RUF002, RUF003  (the Turkish run labels the spec looks up)
 """Seed the runs the planning-analytics specs read (e2e/analytics.spec.ts), on the e2e backend's database.
 
 E2E stack only (e2e-backend-entry.sh, after the Bahar imports, the room master and the full-term solve; the Final
@@ -27,12 +28,11 @@ USABLE = ("OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL")
 
 async def main() -> int:
     sys.path.insert(0, os.getcwd())  # app/ lives in the backend directory
-    from sqlalchemy import select
-
     from app.core.config import get_settings
     from app.core.db import configure_engine, create_all, get_session_factory
     from app.models import Assignment, ConstraintRow, ScheduleRun, Term
     from app.services.solver_bridge import run_schedule
+    from sqlalchemy import select
 
     configure_engine(get_settings().database_url)
     await create_all()
@@ -50,8 +50,18 @@ async def main() -> int:
             s.add(run)
             await s.flush()
             if closure is not None:
-                s.add(ConstraintRow(term_id=None, run_id=run.id, kind="room_closed", params=closure, hardness="hard",
-                                    weight=1, source="ADMIN", nl_text="En yoğun derslik çarşamba kapalı"))
+                s.add(
+                    ConstraintRow(
+                        term_id=None,
+                        run_id=run.id,
+                        kind="room_closed",
+                        params=closure,
+                        hardness="hard",
+                        weight=1,
+                        source="ADMIN",
+                        nl_text="En yoğun derslik çarşamba kapalı",
+                    )
+                )
             await s.commit()
             rid = int(run.id)
         await run_schedule(factory, rid)
@@ -64,9 +74,14 @@ async def main() -> int:
         return rid
 
     def course(tid: int, label: str) -> ScheduleRun:
-        return ScheduleRun(term_id=tid, kind="COURSE", horizon="WEEK", horizon_params={"week": 3, "weeks": [3]},
-                           params={"time_limit_s": TIME_LIMIT, "solver": "cpsat", "publish_candidate": True},
-                           label=label)
+        return ScheduleRun(
+            term_id=tid,
+            kind="COURSE",
+            horizon="WEEK",
+            horizon_params={"week": 3, "weeks": [3]},
+            params={"time_limit_s": TIME_LIMIT, "solver": "cpsat", "publish_candidate": True},
+            label=label,
+        )
 
     bahar = await term_id("2026-BAHAR")
     a_id = await solve(course(bahar, "Bahar 3. hafta (A)"))
@@ -79,23 +94,38 @@ async def main() -> int:
             for r in a.room_ids or []:
                 use[int(r)] += a.end_period - a.start_period + 1
     room = min(use, key=lambda r: (-use[r], r))
-    await solve(course(bahar, "Bahar 3. hafta, en yoğun derslik çarşamba kapalı (B)"),
-                {"room_id": room, "day": 3, "start": 1, "end": 18, "weeks": [3]})
+    await solve(
+        course(bahar, "Bahar 3. hafta, en yoğun derslik çarşamba kapalı (B)"),
+        {"room_id": room, "day": 3, "start": 1, "end": 18, "weeks": [3]},
+    )
     # A is the published timetable of the term (the heatmap's "Yayındaki program", the comparison's baseline)
     async with factory() as s:
-        for r in (await s.execute(select(ScheduleRun).where(ScheduleRun.term_id == bahar, ScheduleRun.kind == "COURSE",
-                                                            ScheduleRun.is_active.is_(True)))).scalars():
+        for r in (
+            await s.execute(
+                select(ScheduleRun).where(
+                    ScheduleRun.term_id == bahar, ScheduleRun.kind == "COURSE", ScheduleRun.is_active.is_(True)
+                )
+            )
+        ).scalars():
             r.is_active = False
         await s.flush()
         row = await s.get(ScheduleRun, a_id)
-        assert row is not None
+        if row is None:
+            raise SystemExit(f"run #{a_id} vanished")
         row.is_active = True
         await s.commit()
 
     final = await term_id("2026-FINAL")
-    await solve(ScheduleRun(term_id=final, kind="EXAM", horizon="TERM", horizon_params={},
-                            params={"time_limit_s": TIME_LIMIT, "solver": "cpsat"}, label="Final (A)"),
-                )
+    await solve(
+        ScheduleRun(
+            term_id=final,
+            kind="EXAM",
+            horizon="TERM",
+            horizon_params={},
+            params={"time_limit_s": TIME_LIMIT, "solver": "cpsat"},
+            label="Final (A)",
+        ),
+    )
     return 0
 
 

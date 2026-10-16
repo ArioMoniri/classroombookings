@@ -10,18 +10,20 @@
 #   smtp           SMTP sink (smtp-sink.py): SMTP 1025, JSON API 8025; nothing is delivered (S-23, X-02)
 #   backend-empty  second backend on an EMPTY database (no users): the first-run installer (B-SETUP-02);
 #                  started once `backend` is healthy because it reuses its venv (/w/venv)
-# Playwright gets E2E_SMTP_HOST/E2E_SMTP_PORT/E2E_SMTP_API and E2E_EMPTY_API_URL for the specs that use them.
+# Playwright gets E2E_SMTP_HOST/E2E_SMTP_PORT/E2E_SMTP_API and E2E_EMPTY_API_URL for the specs that use them, and
+# E2E_DB (the seeded backend's SQLite file on the shared /w mount: consent.spec.ts 4 seeds an unreadable grant there
+# with python3 -I + sqlite3).
 # Before the specs, contract-record.py records the contract-test payloads from the seeded backend and reports
 # their schema drift against src/lib/api/__fixtures__/real (/w/contract/contract-drift.json; never fails).
 # The booking clock is checked before any spec runs: a clock outside Bahar 2026 fails the gate (the booking
 # specs would otherwise skip and the gate would look green).
-#   E2E_HEALTH_TRIES / E2E_HEALTH_SLEEP   backend health wait (default 300 x 2 s)
+#   E2E_HEALTH_TRIES / E2E_HEALTH_SLEEP   backend health wait (default 450 x 2 s: imports, full-term solve, analytics seed)
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 net="podci-${RUN_TAG}"
 backend="podci-${RUN_TAG}-backend"
 smtp="podci-${RUN_TAG}-smtp"
 empty="podci-${RUN_TAG}-backend-empty"
-tries="${E2E_HEALTH_TRIES:-300}"
+tries="${E2E_HEALTH_TRIES:-450}"
 pause="${E2E_HEALTH_SLEEP:-2}"
 clock="2026-02-16T08:00"
 cleanup() {
@@ -67,6 +69,7 @@ section "playwright (E2E_REAL=1, all specs)"
 in_playwright --network "$net" -e E2E_REAL=1 -e NEXT_PUBLIC_API_URL=http://backend:8000 \
   -e E2E_SMTP_HOST=smtp -e E2E_SMTP_PORT=1025 -e E2E_SMTP_API=http://smtp:8025 \
   -e E2E_EMPTY_API_URL=http://backend-empty:8000 \
+  -e E2E_DB=/w/e2e.db \
   -e PLAYWRIGHT_JSON_OUTPUT_NAME=/w/playwright-report.json -- '
 up() { node -e "fetch(process.argv[1]).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" "$1"; }
 for url in http://backend:8000/api/v1/health http://backend-empty:8000/api/v1/health http://smtp:8025/health; do
