@@ -177,8 +177,8 @@ async def create_job(
             # magic-byte detection + the format's caps (zip bombs, ODS repeat bombs, XML entities, JSON
             # depth, ICS expansion, image pixels) in the rlimit child, before a job exists (app/council/formats.py)
             fmt = await safe_files.run_isolated(formats.precheck, name, data)
-        except RenderError as exc:
-            raise HTTPException(400, f"{name}: {exc}") from exc
+        except RenderError as exc:  # in the uploader's language (T-R1-26: a renamed photo is refused by name)
+            raise HTTPException(400, f"{name}: {i18n.localize(str(exc), lang)}") from exc
         except safe_files.UnsafeFileError as exc:
             raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
         entries.append(

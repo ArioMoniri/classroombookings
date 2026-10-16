@@ -31,7 +31,7 @@ import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { pairText, requestedText } from "./moderation-model";
 import { usePhone } from "./use-media";
-import { MAX_ROOMS, NOTE_MAX, buildingCode, buildingOf, buildingsOf, emptyWish, fixedClasses, formIssues, groupRooms, isKnownError, listedRoom, previewBody, roomCode, wishBody, wishSentence, type FormIssue, type WishForm } from "./wish-model";
+import { MAX_ROOMS, NOTE_MAX, buildingCode, classLabel, classOrder, buildingOf, buildingsOf, emptyWish, fixedClasses, formIssues, groupRooms, isKnownError, listedRoom, previewBody, roomCode, wishBody, wishSentence, type FormIssue, type WishForm } from "./wish-model";
 
 /** 44 px rows and controls on touch (MOBILE.md M-02) */
 const ROW = "flex min-h-11 items-start gap-3 rounded-md px-2 py-2 md:min-h-9 md:py-1.5 hover:bg-fill-3";
@@ -104,7 +104,7 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
     setForm((f) => ({ ...f, ...patch }));
   };
   const selected = classes.filter((m) => form.requestIds.includes(m.request_id));
-  const labels = [...selected].sort((a, b) => a.request_id - b.request_id).map((m) => m.label);
+  const labels = classOrder(selected.map((m) => classLabel(m.label)));
   const fixed = fixedClasses(classes, form.requestIds);
   const allFixed = selected.length > 0 && fixed.length === selected.length;
   const issues = formIssues(form);
@@ -125,21 +125,26 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
   };
   const typedBuilding = buildingCode(buildingQ);
 
+  // T-R1-16 (R1-A-14, R1-S-32): a send that cannot succeed is not offered: no class ticked, or a time wish on
+  // classes whose time the department fixed (the server would answer 422; it is not even asked)
+  const localBlock: string | null = !selected.length ? t("moderation.wish.issue.noClasses") : form.kind === "day_window" && allFixed ? t("moderation.wish.fixedAll") : null;
   // the server's preview of exactly this body, once the form has been still for a moment
-  const body = selected.length ? previewBody(form) : null;
+  const body = selected.length && !localBlock ? previewBody(form) : null;
   const bodyKey = body ? JSON.stringify(body) : null;
   const askedKey = useDebounced(bodyKey, PREVIEW_MS);
   const preview = useWishPreview(askedKey ? (JSON.parse(askedKey) as WishIn) : null);
   const current = askedKey !== null && askedKey === bodyKey;
   const server = current && preview.data ? preview.data : null;
   const previewRefusal = current && preview.isError ? refusal(preview.error) : null;
+  // the send waits for a preview that would refuse it (the preview's own words say why, above)
+  const blocked = localBlock ?? (previewRefusal ? t("moderation.wish.blockedPreview") : null);
 
   const issueText = (i: FormIssue) => t(`moderation.wish.issue.${i}` as MessageKey, { n: i === "tooManyRooms" ? MAX_ROOMS : NOTE_MAX });
 
   const send = async () => {
     setTried(true);
     setServerError(null);
-    if (issues.length) return;
+    if (issues.length || blocked) return;
     try {
       const out = await submit.mutateAsync(wishBody(form));
       setSent(out);
@@ -211,7 +216,7 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
                 <label htmlFor={id} className={ROW} data-testid="wish-class">
                   <Checkbox id={id} className="mt-0.5" checked={on} onCheckedChange={(v) => set({ requestIds: v === true ? [...form.requestIds, m.request_id] : form.requestIds.filter((x) => x !== m.request_id) })} />
                   <span className="min-w-0 flex-1 type-callout">
-                    <span className="font-semibold">{m.label}</span>
+                    <span className="font-semibold">{classLabel(m.label)}</span>
                     <span className="block type-footnote text-label-2">
                       {requestedText(m, lang)}
                       {m.requested.start_period !== null ? ` · ${t("moderation.wish.fixedTag")}` : ""}
@@ -450,9 +455,14 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
       {/* the actions stay in reach while the form scrolls: a fade into the sheet's material, edge to edge */}
       <SheetFooter className="sticky -bottom-5 -mx-5 -mb-5 flex-col-reverse gap-2 bg-linear-to-t from-(--mat-thick-solid) from-70% to-transparent px-5 pt-6 pb-5 sm:flex-row sm:justify-end md:-bottom-6 md:-mx-6 md:-mb-6 md:px-6 md:pb-6 max-md:[&_button]:h-11 max-md:[&_button]:w-full">
         <Button type="button" variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-        <Button type="submit" {...busyProps(submit.isPending)} data-testid="wish-submit">
+        <Button type="submit" {...busyProps(submit.isPending, !!blocked)} aria-describedby={blocked ? `${ids}-blocked` : undefined} data-testid="wish-submit">
           {submit.isPending ? t("busy.sending") : t("moderation.wish.submit")}
         </Button>
+        {blocked ? (
+          <p id={`${ids}-blocked`} className="type-footnote text-label-2 sm:order-first sm:mr-auto sm:self-center" data-testid="wish-blocked">
+            {blocked}
+          </p>
+        ) : null}
       </SheetFooter>
     </form>
   );

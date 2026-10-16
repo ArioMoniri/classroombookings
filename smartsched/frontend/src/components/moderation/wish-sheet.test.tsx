@@ -118,18 +118,20 @@ describe("Tercih ekle sheet", () => {
     expect(screen.getByText(/Koordinatör onaylarsa bir sonraki çözümde/)).toBeInTheDocument();
   });
 
-  it("refuses an empty wish without calling the server", async () => {
+  it("refuses an empty wish without calling the server: the send is disabled with the reason (T-R1-16)", async () => {
     const user = userEvent.setup();
     renderSheet("en", []);
-    await user.click(await screen.findByTestId("wish-submit"));
-    expect(screen.getByTestId("wish-issues")).toHaveTextContent("Select at least one class.");
-    expect(screen.getByTestId("wish-issues")).toHaveTextContent("Select at least one room.");
+    const send = await screen.findByTestId("wish-submit");
+    expect(send).toBeDisabled();
+    expect(screen.getByTestId("wish-blocked")).toHaveTextContent("Select at least one class.");
+    expect(send).toHaveAttribute("aria-describedby", screen.getByTestId("wish-blocked").id);
+    await user.click(send);
     expect(state.posted).toHaveLength(0);
     expect(state.previewed).toHaveLength(0);
     expect(screen.getByTestId("wish-summary")).toHaveAttribute("data-source", "none");
   });
 
-  it("explains that the department form fixes the time (fixed_by_department), before and after sending", async () => {
+  it("a time wish on classes the department fixed cannot be sent: disabled with the reason, nothing asked (T-R1-16)", async () => {
     const user = userEvent.setup();
     state.reply = real(fx.refused_fixed);
     state.preview = real(fx.refused_fixed);
@@ -137,16 +139,27 @@ describe("Tercih ekle sheet", () => {
     await user.click(await screen.findByTestId("wish-kind-day_window"));
     expect(screen.getByTestId("wish-fixed")).toHaveTextContent("gün ve saatini bölüm formu sabitliyor");
     await user.selectOptions(screen.getByTestId("wish-latest"), "6");
-    // the server's preview already says no, in the same words a submit would
-    const pre = await screen.findByTestId("wish-preview-error");
-    expect(pre).toHaveTextContent("Bu haliyle gönderilemez:");
-    expect(pre.querySelector("[data-code]")).toHaveAttribute("data-code", "fixed_by_department");
-    expect(pre).toHaveTextContent("Bölüm formu PTL 102 §1 için gün ve saati sabitliyor");
-    await user.click(screen.getByTestId("wish-submit"));
-    const err = await screen.findByTestId("wish-error");
-    expect(state.posted[0]).toEqual({ kind: "day_window", request_ids: [590], latest: 6 });
-    expect(err).toHaveTextContent("Bölüm formu bu dersin gün ve saatini sabitliyor; saat tercihi bunu değiştiremez.");
-    expect(err).toHaveTextContent("PTL 102 §1 için gün ve saati sabitliyor");
+    const send = screen.getByTestId("wish-submit");
+    expect(send).toBeDisabled();
+    expect(screen.getByTestId("wish-blocked")).toHaveTextContent("gün ve saatini bölüm formu sabitliyor");
+    await user.click(send);
+    // no 422 round trip (the console stays clean): neither a preview nor a send
+    await new Promise((r) => setTimeout(r, 500));
+    expect(state.previewed).toHaveLength(0);
+    expect(state.posted).toHaveLength(0);
+  });
+
+  it("a preview refusal disables the send until the wish changes (T-R1-16)", async () => {
+    const user = userEvent.setup();
+    state.preview = () => {
+      throw new HttpError(409, "dup", { detail: { code: "duplicate_pending", message: "dup", message_tr: "Bu tercih zaten gönderildi ve koordinatörün kararını bekliyor." } });
+    };
+    renderSheet();
+    const list = await screen.findByTestId("wish-room-list");
+    await user.click(within(list).getAllByRole("checkbox")[0]!);
+    expect(await screen.findByTestId("wish-preview-error")).toHaveTextContent("Bu tercih zaten gönderildi");
+    expect(screen.getByTestId("wish-submit")).toBeDisabled();
+    expect(screen.getByTestId("wish-blocked")).toHaveTextContent("Önizleme bu tercihi geri çeviriyor");
   });
 
   it.each([
@@ -197,10 +210,15 @@ describe("Tercih ekle sheet", () => {
     const pre = await screen.findByTestId("wish-preview-error");
     expect(pre.querySelector("[data-code]")).toHaveAttribute("data-code", "unknown_room");
     expect(pre).toHaveTextContent("Bilinmeyen oda: Z 999");
+    // T-R1-16: the send waits while the preview refuses; dropping the unknown code lets it through
+    expect(screen.getByTestId("wish-submit")).toBeDisabled();
+    state.preview = previewOf;
+    await user.click(screen.getByRole("button", { name: "Z 999 odasını çıkar" }));
+    await waitFor(() => expect(screen.getByTestId("wish-submit")).toBeEnabled());
     state.reply = (b) => created(b as { request_ids: number[] });
     await user.click(screen.getByTestId("wish-submit"));
     await waitFor(() => expect(state.posted).toHaveLength(1));
-    expect(state.posted[0]).toEqual({ kind: "room_preference", request_ids: [590, 801], room_ids: [33], rooms: ["Z 999"] });
+    expect(state.posted[0]).toEqual({ kind: "room_preference", request_ids: [590, 801], room_ids: [33] });
   });
 
   it("an account without the room list (403 not_linked) still types codes", async () => {

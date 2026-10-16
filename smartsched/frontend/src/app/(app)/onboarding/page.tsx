@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
+import { localizedTitle } from "@/lib/i18n/server";
 import { Suspense } from "react";
 import { HydrationGate } from "@/components/common/hydration-gate";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 
-export const metadata: Metadata = { title: "Onboarding" };
+export const generateMetadata = localizedTitle("titles.onboarding");
 
 export default function OnboardingPage() {
   return (

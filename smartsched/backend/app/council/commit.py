@@ -138,6 +138,7 @@ class Writer:
         self.person_alias: dict[str, str] = {}
         #: the term's committed meeting requests matched by content in this commit (T-R1-25: one row each)
         self.claimed: set[int] = set()
+        self.created: set[int] = set()
 
     def key(self, fi: int, i: int) -> str:
         """The key rows had before natural keys (job / file sha + record index): looked up to re-key them."""
@@ -251,10 +252,15 @@ class Writer:
     def periods_of(self, start: str | None, end: str | None) -> tuple[int | None, int | None]:
         return critic.period_index(self.periods, start, "start"), critic.period_index(self.periods, end, "end")
 
-    async def same_meeting(self, section_id: int, days: list[int], start: time | None) -> MeetingRequest | None:
-        """The term's committed request of the same section, days and start, written under another key (the
-        planning-list importer's, another file's): the in-job duplicate rule run against the committed rows, so
-        a re-uploaded export of the same list matches what is there (T-R1-25). Each row is matched once."""
+    async def same_meeting(
+        self, section_id: int, days: list[int], start: time | None, end: time | None
+    ) -> tuple[MeetingRequest | None, bool]:
+        """The term's committed request of the same section and time, written under another key (the planning-list
+        importer's, another file's): the in-job duplicate rule run against the committed rows, so a re-uploaded
+        export of the same list matches what is there (T-R1-25). ``(row, repeated)``: each committed row is matched
+        once; a second identical record of the file matches a row already matched (``repeated``: not written
+        twice, as the importer merges identical rows). A record without a start matches by its end, one without
+        days by its times."""
         rows = (
             (
                 await self.s.execute(
@@ -267,12 +273,22 @@ class Writer:
             .all()
         )
         want = sorted(set(days))
-        for mr in sorted(rows, key=lambda m: m.id):
-            if mr.id in self.claimed or sorted(set(mr.days or [])) != want or mr.start_time != start:
-                continue
-            self.claimed.add(mr.id)
-            return mr
-        return None
+
+        def same(mr: MeetingRequest) -> bool:
+            if mr.id in self.created:
+                return False
+            if want and sorted(set(mr.days or [])) != want:
+                return False
+            if start is not None:
+                return mr.start_time == start and (bool(want) or end is None or mr.end_time == end)
+            return end is not None and mr.end_time == end
+
+        hits = [mr for mr in sorted(rows, key=lambda m: m.id) if same(mr)]
+        for mr in hits:
+            if mr.id not in self.claimed:
+                self.claimed.add(mr.id)
+                return mr, False
+        return (hits[0], True) if hits else (None, False)
 
     async def meeting(self, fi: int, i: int, r: dict[str, Any]) -> None:
         faculty = await self.cat.faculty(r.get("faculty"))
@@ -358,7 +374,10 @@ class Writer:
         )
         mr = await self.find(MeetingRequest, fields["source_key"], self.key(fi, i))
         if mr is None:
-            mr = await self.same_meeting(section.id, days, fields["start_time"])
+            mr, repeated = await self.same_meeting(section.id, days, fields["start_time"], fields["end_time"])
+            if repeated:
+                self.counts["duplicates_skipped"] += 1
+                return
             if mr is not None:
                 # the row another reader committed (the planning-list importer, another file's format): the same
                 # request read differently (weeks, flags, notes); it keeps its key and its values, and the file only
@@ -374,7 +393,7 @@ class Writer:
             new = MeetingRequest(**fields)
             self.s.add(new)
             await self.s.flush()
-            self.claimed.add(new.id)  # a row this commit wrote is never the "committed" match of another record
+            self.created.add(new.id)  # a row this commit wrote is never the "committed" match of another record
             self.counts["meeting_requests"] += 1
         else:
             self.claimed.add(mr.id)

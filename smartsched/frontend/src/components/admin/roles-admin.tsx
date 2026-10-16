@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { crbs, crbsError, usePermissionCatalogue, useCrbsMutation, useRoles, useUserSearch, type PermissionCatalogue, type Role, type RoleIn } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
+import { permissionLabel, permissionList, roleDescription, roleLabel } from "@/lib/i18n/roles";
 import { cn } from "@/lib/utils";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { roleEditCheck, usePermissions } from "@/lib/permissions";
@@ -44,16 +45,8 @@ const GROUP_KEYS: Record<string, MessageKey> = {
 };
 const BOOK_ACTIONS = ["create", "edit_other_booking", "cancel_other_booking", "set_user", "set_department", "view_other_notes", "view_other_users"] as const;
 
-/** Translated label for a permission name; falls back to the backend description. */
-export function permLabel(t: (k: MessageKey) => string, name: string, description?: string | null): string {
-  const key = `crbs.perm.${name.replace(".", "_")}` as MessageKey;
-  const out = t(key);
-  if (out !== key) return out;
-  // approval-first permissions are labelled in the approvals namespace
-  const alt = `approvals.perm.${name.replace(".", "_")}` as MessageKey;
-  const second = t(alt);
-  return second === alt ? (description ?? name) : second;
-}
+/** Translated label for a permission name; falls back to the backend description (lib/i18n/roles). */
+export const permLabel = permissionLabel;
 
 export function RolesAdmin() {
   const { t } = useI18n();
@@ -88,7 +81,7 @@ export function RolesAdmin() {
               {editing === "new" ? <option value="new">{t("crbs.roles.new")}</option> : null}
               {(roles.data ?? []).map((r) => (
                 <option key={r.id} value={r.id}>
-                  {`${r.name} · ${t("crbs.roles.summary", { users: r.user_count, perms: r.permissions.length })}`}
+                  {`${roleLabel(t, r)} · ${t("crbs.roles.summary", { users: r.user_count, perms: r.permissions.length })}`}
                 </option>
               ))}
             </NativeSelect>
@@ -106,7 +99,7 @@ export function RolesAdmin() {
                         className={cn("flex w-full items-center justify-between gap-2 px-4 py-2 text-left focus-visible:-outline-offset-2", active ? "bg-tint-soft" : "hover:bg-fill-3")}
                       >
                         <span className="min-w-0">
-                          <span className="block truncate type-headline text-label-1">{r.name}</span>
+                          <span className="block truncate type-headline text-label-1">{roleLabel(t, r)}</span>
                           <span className="block type-footnote text-label-3">{t("crbs.roles.summary", { users: r.user_count, perms: r.permissions.length })}</span>
                         </span>
                         {r.code === "ADMIN" ? <ShieldCheck className="size-4 shrink-0 text-label-2" aria-label={t("crbs.roles.locked")} /> : null}
@@ -134,8 +127,12 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
   // no escalation (backend rule): a role with permissions the editor does not hold is read-only, not deletable
   const editCheck = roleEditCheck(mine, role);
   const readOnly = locked || !editCheck.allowed;
-  const [name, setName] = useState(role?.name ?? "");
-  const [description, setDescription] = useState(role?.description ?? "");
+  // a built-in role still named as shipped ("Teacher") is edited under its display name ("Öğretim elemanı"); the
+  // stored name is sent back unless the administrator renames it
+  const shownName = role ? roleLabel(t, role) : "";
+  const shownDescription = role ? roleDescription(t, role) : "";
+  const [name, setName] = useState(shownName);
+  const [description, setDescription] = useState(shownDescription);
   const [limits, setLimits] = useState({
     max_active_bookings: role?.max_active_bookings ?? null,
     range_min: role?.range_min ?? null,
@@ -146,7 +143,12 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const toastError = useErrorToast();
-  const body = (): RoleIn => ({ name: name.trim(), description: description.trim() || null, ...limits, permissions: [...perms].sort() });
+  const body = (): RoleIn => ({
+    name: role && name.trim() === shownName ? role.name : name.trim(),
+    description: role && description.trim() === shownDescription ? role.description : description.trim() || null,
+    ...limits,
+    permissions: [...perms].sort(),
+  });
   const save = useCrbsMutation(() => (role ? crbs.roles.update(role.id, body()) : crbs.roles.create(body())), [["crbs", "roles"]]);
   const del = useCrbsMutation(() => crbs.roles.remove(role?.id ?? 0), [["crbs", "roles"]]);
   const toggle = (p: string, on: boolean) =>
@@ -161,7 +163,7 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
     <Card className="gap-5 px-5" data-testid="role-editor" data-readonly={readOnly ? "true" : undefined}>
       {!locked && !editCheck.allowed ? (
         <Alert tone="warning" testId="role-readonly">
-          {t("crbs.roles.readOnly", { list: editCheck.missing.join(", ") })}
+          {t("crbs.roles.readOnly", { list: permissionList(t, editCheck.missing, 6) })}
         </Alert>
       ) : null}
       <fieldset disabled={readOnly && !locked ? true : undefined} className="contents">
@@ -222,7 +224,7 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title={t("crbs.roles.deleteTitle", { name: role?.name ?? "" })}
+        title={t("crbs.roles.deleteTitle", { name: role ? roleLabel(t, role) : "" })}
         description={t("crbs.roles.deleteBody", { n: role?.user_count ?? 0 })}
         confirmLabel={t("crbs.common.delete")}
         destructive
@@ -305,11 +307,6 @@ export function PermissionMatrix({
   const off = (name: string) => !!disabled || (!!held && !held.has(name));
   const why = (name: string) => (!disabled && held && !held.has(name) ? t("crbs.roles.notHeld") : undefined);
   const book = catalogue.bookings;
-  const desc = useMemo(() => {
-    const m = new Map<string, string | null | undefined>();
-    for (const scope of [catalogue.system, catalogue.bookings]) for (const items of Object.values(scope)) for (const p of items) m.set(p.name, p.description);
-    return m;
-  }, [catalogue]);
   return (
     <div className="flex flex-col gap-5">
       {only !== "bookings"
@@ -384,7 +381,7 @@ export function PermissionMatrix({
                     return (
                       <td key={g} className="px-3 py-1.5 text-center edge-hairline-b">
                         <span className="inline-flex" title={why(name)}>
-                          <Checkbox aria-label={`${t(GROUP_KEYS[g]!)}: ${desc.get(name) ?? name}`} checked={value.has(name)} disabled={off(name)} onCheckedChange={(v) => onToggle(name, v === true)} />
+                          <Checkbox aria-label={`${t(GROUP_KEYS[g]!)}: ${t(`crbs.perm.action_${a}` as MessageKey)}`} checked={value.has(name)} disabled={off(name)} onCheckedChange={(v) => onToggle(name, v === true)} />
                         </span>
                       </td>
                     );

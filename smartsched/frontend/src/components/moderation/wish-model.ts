@@ -166,6 +166,18 @@ export function wishSentence(f: WishForm, labels: readonly string[], roomNames: 
   return lang === "tr" ? `${what}: ders saatleri ${span} arasında` : `${what}: classes within ${span}`;
 }
 
+/* ------------------------------------------------------------------ class labels */
+
+/** "FZT 3002 §" (a section without a label) → "FZT 3002" (T-R1-16, R1-S-32) */
+export function classLabel(label: string): string {
+  return label.replace(/\s*§\s*$/, "");
+}
+
+/** one order for every list of a wish's classes, each once, Turkish collation (the server's sentences agree) */
+export function classOrder(labels: Iterable<string>): string[] {
+  return [...new Set(labels)].sort((a, b) => a.localeCompare(b, "tr"));
+}
+
 /* ------------------------------------------------------------------ errors */
 
 /** the server's refusal codes the sheet and the review explain in their own words (messages moderation.wish.err.*) */
@@ -193,6 +205,7 @@ export const KNOWN_ERRORS = [
   "note",
   "invalid_rule",
   "too_many_pending",
+  "duplicate_pending",
   "decided",
   "reason_required",
   "decision",
@@ -227,7 +240,7 @@ export function groupWishes(items: readonly TeacherPref[]): WishGroup[] {
       key,
       status,
       items: [...rows].sort((a, b) => a.id - b.id),
-      labels: [...new Set(rows.flatMap((r) => r.labels))],
+      labels: classOrder(rows.flatMap((r) => r.labels.map(classLabel))),
       requestIds: [...new Set(rows.flatMap((r) => r.request_ids))],
       submittedAt: rows.map((r) => r.submitted_at).filter((x): x is string => !!x).sort()[0] ?? null,
     };

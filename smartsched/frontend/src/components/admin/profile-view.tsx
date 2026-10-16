@@ -17,6 +17,7 @@ import { Input, useShake } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, useOrgPublic, useProfile, type Profile } from "@/lib/api/crbs";
 import { LOCALE_INFO, displayLocale, isLocale, translate } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { roleLabel } from "@/lib/i18n/roles";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, Field, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
 import { MyChannels } from "@/components/channels/my-channels";
@@ -37,7 +38,7 @@ export function ProfileView() {
   const me = useCrbsMe();
   return (
     <div className="flex max-w-2xl flex-col gap-8">
-      <PageTitle title={t("crbs.profile.title")} subtitle={q.data ? [q.data.username ?? q.data.email, q.data.role_name].filter(Boolean).join(" · ") : undefined} />
+      <PageTitle title={t("crbs.profile.title")} subtitle={q.data ? [q.data.username ?? q.data.email, q.data.role_name ? roleLabel(t, { code: q.data.role, name: q.data.role_name }) : null].filter(Boolean).join(" · ") : undefined} />
       <ProfileSsoNotice />
       {q.isLoading ? <Loading /> : q.data ? <ProfileForm key={q.data.id} data={q.data} /> : <Alert tone="error">{bookingErrorMessage(crbsError(q.error), t)}</Alert>}
       <MicrosoftAccountSection />

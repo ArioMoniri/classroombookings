@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { crbs, crbsError, useUserSearch } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
+import { roleLabel } from "@/lib/i18n/roles";
 import type { MessageKey } from "@/lib/i18n";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { usePermissions } from "@/lib/permissions";
@@ -65,7 +66,7 @@ export function AccessChecker() {
               <option value="">{t("crbs.acl.pick")}</option>
               {userOptions.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {(u.displayname || u.username || u.email) + (u.role_name ? ` · ${u.role_name}` : "")}
+                  {(u.displayname || u.username || u.email) + (u.role_name ? ` · ${roleLabel(t, { code: u.role, name: u.role_name })}` : "")}
                 </option>
               ))}
             </SelectField>

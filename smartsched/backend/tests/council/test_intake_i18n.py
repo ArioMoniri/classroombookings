@@ -100,3 +100,22 @@ def test_importer_notes_and_run_labels_have_a_turkish_pair():
     assert tr("Grid import: bahar.xlsx") == "Tablo aktarımı: bahar.xlsx"
     assert tr("Baseline: imported schedule") == "Temel: içe aktarılan program"
     assert tr("read as cp1254, semicolon-separated (sniffer)") == "CSV · Windows-1254 · ;"
+
+
+async def test_a_renamed_photo_is_refused_at_upload(client):
+    """T-R1-26: the real exam scan (PNG) saved as sahte.xlsx is refused by name, in the uploader's language; a CSV
+    saved as .xlsx is still read as the CSV it is."""
+    from tests.council.test_formats_api import refused
+
+    h = await login(client)
+    status, text = await refused(client, h, "sahte.xlsx", SCAN_PNG.read_bytes())
+    assert status == 400 and "sahte.xlsx: the name ends in .xlsx (Excel workbook) but the content is an image" in text
+    r = await client.post(
+        "/api/v1/council/jobs",
+        headers=h,
+        files=[("files", ("sahte.xlsx", SCAN_PNG.read_bytes(), "application/octet-stream"))],
+        data={"lang": "tr"},
+    )
+    assert r.status_code == 400 and "içeriği bir görsel" in r.json()["detail"]
+    job = await upload(client, h, ("odalar.xlsx", (EN_CSV.read_bytes())), ai="false")
+    assert job["files"][0]["format"] == "csv"

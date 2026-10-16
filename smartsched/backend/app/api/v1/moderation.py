@@ -37,7 +37,24 @@ from app.services.bookings_perms import load_access
 router = APIRouter(tags=["moderation"])
 
 
+#: T-R1-20 (R1-A-10): the refusals an academician can meet, with a code and a Turkish text (the service raises them
+#: as English strings); the rest keep the service's own detail
+_KNOWN_REFUSALS: dict[str, tuple[str, str]] = {
+    "you can see only your own requests": ("not_yours", "Yalnız kendi taleplerinizi görebilirsiniz."),
+    "requires permission planning.view, or an instructor record linked to your account (own requests)": (
+        "not_linked",
+        "Bu liste için planlama görüntüleme izni ya da hesabınıza bağlı bir öğretim elemanı kaydı gerekir.",
+    ),
+    "instructor not found": ("instructor_not_found", "Öğretim elemanı bulunamadı."),
+}
+
+
 def _raise(exc: mod.ModerationError) -> HTTPException:
+    if isinstance(exc.detail, str) and exc.detail in _KNOWN_REFUSALS:
+        code, tr = _KNOWN_REFUSALS[exc.detail]
+        return HTTPException(
+            exc.status, {"code": code, "message": exc.detail, "message_en": exc.detail, "message_tr": tr}
+        )
     return HTTPException(exc.status, exc.detail)
 
 

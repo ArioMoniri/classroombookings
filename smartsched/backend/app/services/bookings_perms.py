@@ -7,6 +7,7 @@ entries of that room and its room group whose context is the user, the user's ro
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
@@ -75,6 +76,60 @@ ALL_PERMISSIONS: tuple[tuple[str, str], ...] = (
 )
 PERMISSION_NAMES: frozenset[str] = frozenset(n for n, _ in ALL_PERMISSIONS)
 
+#: Turkish descriptions (T-R1-30; the frontend's ``crbs.perm.*`` labels); ``GET /permissions`` returns both
+PERMISSION_TR: dict[str, str] = {
+    "system.bypass_maintenance_mode": "Bakım modunda rezervasyon kullanma",
+    "system.export_bookings": "Rezervasyonları dışa aktarma (CSV)",
+    "system.view_all_sessions": "Geçmiş ve gelecek dönemleri görme",
+    "setup.authentication": "Oturum açma ayarları (LDAP)",
+    "setup.departments": "Bölümler",
+    "setup.roles": "Roller ve izinler",
+    "setup.rooms": "Salonlar, gruplar ve özel alanlar",
+    "setup.rooms_acl": "Salon erişimi",
+    "setup.schedules": "Ders saatleri",
+    "setup.sessions": "Dönemler, tatiller ve hafta tarihleri",
+    "setup.settings": "Kurum ayarları",
+    "setup.timetable_weeks": "Ders haftaları",
+    "setup.users": "Kullanıcılar",
+    "room.view": "Salonları ve rezervasyonlarını görme",
+    "book_single.create": "Tek seferlik: oluşturma",
+    "book_single.edit_other_booking": "Tek seferlik: başkasınınkini düzenleme",
+    "book_single.cancel_other_booking": "Tek seferlik: başkasınınkini iptal",
+    "book_single.set_user": "Tek seferlik: başkası adına",
+    "book_single.set_department": "Tek seferlik: bölüm seçme",
+    "book_single.view_other_notes": "Tek seferlik: başkalarının notları",
+    "book_single.view_other_users": "Tek seferlik: rezerve edeni görme",
+    "book_recur.create": "Tekrarlayan: oluşturma",
+    "book_recur.edit_other_booking": "Tekrarlayan: başkasınınkini düzenleme",
+    "book_recur.cancel_other_booking": "Tekrarlayan: başkasınınkini iptal",
+    "book_recur.set_user": "Tekrarlayan: başkası adına",
+    "book_recur.set_department": "Tekrarlayan: bölüm seçme",
+    "book_recur.view_other_notes": "Tekrarlayan: başkalarının notları",
+    "book_recur.view_other_users": "Tekrarlayan: rezerve edeni görme",
+    "planning.view": "Planlama verilerini görme",
+    "planning.edit": "İçe aktarma, düzenleme ve ders programı yayımlama",
+    "planning.admin": "Planlama yönetimi",
+    "rooms.features": "Derslik özelliklerini ve değerlerini yönetme",
+    "audit.view": "Her değişikliğin denetim kaydını görme",
+    "approvals.decide": "Rezervasyon taleplerini onaylama ya da reddetme",
+    "book_single.request": "Tek seferlik rezervasyon talep etme",
+    "book_recur.request": "Yinelenen rezervasyon talep etme",
+    SKIP_APPROVAL: "Onaysız doğrudan rezervasyon",
+}
+PERMISSION_EN: dict[str, str] = dict(ALL_PERMISSIONS)
+
+
+def permission_text(name: str) -> dict[str, str]:
+    """``{"tr", "en"}`` of a permission (the name itself for an unknown one)."""
+    return {"tr": PERMISSION_TR.get(name, name), "en": PERMISSION_EN.get(name, name)}
+
+
+def permission_list(names: Iterable[str]) -> dict[str, str]:
+    """Several permissions as one ``{"tr", "en"}`` text (refusals that name what is missing)."""
+    items = [permission_text(n) for n in sorted(names)]
+    return {"tr": ", ".join(i["tr"] for i in items), "en": ", ".join(i["en"] for i in items)}
+
+
 GROUP_ORDER = (
     "system",
     "setup",
@@ -142,6 +197,34 @@ ROLE_DEFAULTS: dict[str, dict[str, Any]] = {
     },
 }
 ROLE_CODES = tuple(ROLE_DEFAULTS)
+
+#: display names of the built-in roles (round-1 R1-M-16 / R1-A-10, T-R1-30). The stored ``code`` and the seeded
+#: English ``name`` stay as they are (CRBS parity, imports); what a person reads is localised like the frontend's
+#: ``glass.role.*`` keys. An administrator's own name for a built-in role is kept (:func:`role_label`).
+ROLE_LABELS: dict[str, dict[str, str]] = {
+    "ADMIN": {"tr": "Yönetici", "en": "Administrator"},
+    "PLANNER": {"tr": "Planlamacı", "en": "Planner"},
+    "TEACHER": {"tr": "Öğretim elemanı", "en": "Teacher"},
+    "VIEWER": {"tr": "İzleyici", "en": "Viewer"},
+}
+
+
+def _fold(text: str) -> str:
+    """Case- and dot-insensitive (``İzleyici`` = ``izleyici``, ``ADMIN`` = ``admin``)."""
+    return unicodedata.normalize("NFKD", text.strip().casefold()).replace("\u0307", "").replace("ı", "i")
+
+
+def role_label(role: Role | None) -> dict[str, str] | None:
+    """``{"tr", "en"}`` of a role for people: a built-in role still carrying a shipped name (either language)
+    reads in the reader's language; a renamed built-in role and every custom role keep their own name."""
+    if role is None:
+        return None
+    labels = ROLE_LABELS.get(role.code or "")
+    name = (role.name or "").strip()
+    if labels is not None and (not name or _fold(name) in {_fold(v) for v in (*labels.values(), "admin")}):
+        return dict(labels)
+    return {"tr": name, "en": name}
+
 
 #: legacy guards (``app.api.deps``) -> permission
 LEGACY_GUARDS = {"VIEWER": "planning.view", "PLANNER": "planning.edit", "ADMIN": "planning.admin"}
@@ -339,5 +422,8 @@ def grouped_permissions(perms: list[Permission]) -> dict[str, dict[str, list[dic
         if not items:
             continue
         scope = "bookings" if g in BOOKING_SCOPE_GROUPS else "system"
-        out[scope][g] = [{"id": p.id, "name": p.name, "description": p.description} for p in items]
+        out[scope][g] = [
+            {"id": p.id, "name": p.name, "description": p.description, "description_tr": PERMISSION_TR.get(p.name)}
+            for p in items
+        ]
     return out

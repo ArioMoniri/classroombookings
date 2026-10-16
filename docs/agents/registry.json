@@ -1766,8 +1766,8 @@
       "ledger": "Lane F: dashboard/learning fixes",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-16 14:13",
-      "left_off": "That notice is a leftover timeout. It came from a monitor that was watching the backend test suites in my worktree. Those suites had already finished before it expired: 46 passed. My report has gone to the orchestrator, so there's nothing more to do on this run."
+      "finished_at": "2026-10-16 14:24",
+      "left_off": "The system stopped one of my background commands when it hit its time limit. It was only a wait loop for the frontend test run. The test run had already finished, and I'd read its results (851 of 854 passing) and included them in the report. The loop probably never exited because it was also seeing other agents' test runs. Nothing needs restarting, and the report stands."
     },
     {
       "id": "a3ce73c6e642d0732",

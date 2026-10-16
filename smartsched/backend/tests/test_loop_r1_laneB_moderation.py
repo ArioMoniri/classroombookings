@@ -34,3 +34,41 @@ async def test_t_r1_11_taleplerim_reads_only_the_own_rows_from_its_own_endpoint(
     r = await c.get(f"{API}/moderation/me/matchings", params={"term_id": tid}, headers=planner)
     assert r.status_code == 403 and r.json()["detail"]["code"] == "not_linked"
     assert "öğretim elemanı" in r.json()["detail"]["message_tr"]
+
+
+async def test_t_r1_16_the_same_wish_twice_is_refused_while_the_first_waits(real: dict[str, Any]) -> None:  # noqa: F811
+    c, h, tid = real["client"], real["admin"], real["term_id"]
+    rid, iid, _ = await _row(tid, ROW)
+    _uid, teacher = await _teacher(c, h, iid, "ptl.ikitercih@uni.edu.tr")
+    body = {"kind": "room", "request_ids": [rid], "rooms": ["C 301"]}
+    first = await c.post(f"{API}/moderation/me/preferences", json=body, headers=teacher)
+    assert first.status_code == 201, first.text
+    # the preview already says so (the sheet disables "Onaya gönder"), and the real send is refused in Turkish
+    preview = await c.post(f"{API}/moderation/me/preferences", params={"dry_run": 1}, json=body, headers=teacher)
+    assert preview.status_code == 409 and preview.json()["detail"]["code"] == "duplicate_pending"
+    again = await c.post(f"{API}/moderation/me/preferences", json=body, headers=teacher)
+    assert again.status_code == 409, again.text
+    d = again.json()["detail"]
+    assert (
+        d["code"] == "duplicate_pending"
+        and d["message_tr"] == "Bu tercih zaten gönderildi ve koordinatörün kararını bekliyor."
+    )
+    mine = (await c.get(f"{API}/moderation/me/preferences", headers=teacher)).json()
+    assert sum(1 for it in mine["items"] if it["status"] == "pending") == 1
+    # the sentence lists each class once
+    assert all(it["text"]["tr"].count("PTL 102") <= 1 for it in mine["items"])
+
+
+async def test_t_r1_20_an_academician_reads_the_moderation_refusals_in_turkish(real: dict[str, Any]) -> None:  # noqa: F811
+    c, h, tid = real["client"], real["admin"], real["term_id"]
+    _rid, iid, _ = await _row(tid, ROW)
+    _uid, teacher = await _teacher(c, h, iid, "ptl.ret@uni.edu.tr")
+    other = iid + 1
+    r = await c.get(f"{API}/moderation/people/{other}/history", headers=teacher)
+    assert r.status_code == 403
+    d = r.json()["detail"]
+    assert d["code"] == "not_yours" and d["message_tr"] == "Yalnız kendi taleplerinizi görebilirsiniz."
+    assert d["message_en"] == "you can see only your own requests"
+    _sid, stranger = await make_user(c, h, "baglantisiz@uni.edu.tr", role="TEACHER")
+    r = await c.get(f"{API}/terms/{tid}/moderation/people", headers=stranger)
+    assert r.status_code == 403 and r.json()["detail"]["code"] == "not_linked" and r.json()["detail"]["message_tr"]

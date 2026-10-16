@@ -25,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { useRoles } from "@/lib/api/crbs";
 import { apiProblem, identity, identityKeys, useIdentityMutation, useSsoConfig, useSsoMappings, type SsoConfig, type SsoConfigIn } from "@/lib/api/identity";
 import { useI18n } from "@/lib/i18n/provider";
+import { roleLabel } from "@/lib/i18n/roles";
 import { usePermissions } from "@/lib/permissions";
 
 const KEYS = [identityKeys.config, identityKeys.providers, identityKeys.mappings];
@@ -158,7 +159,7 @@ function SsoForm({ cfg }: { cfg: SsoConfig }) {
           <CardDescription>{t("sso.admin.accountsLead")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col">
-          <FieldRow label={t("sso.admin.selfSignup")} hint={t("sso.admin.selfSignupHint", { role: cfg.default_role?.name ?? "—" })} htmlFor="sso-self" className="hairline-b">
+          <FieldRow label={t("sso.admin.selfSignup")} hint={t("sso.admin.selfSignupHint", { role: cfg.default_role ? roleLabel(t, cfg.default_role) : "—" })} htmlFor="sso-self" className="hairline-b">
             <Switch id="sso-self" checked={cfg.self_signup} disabled={pending} onCheckedChange={(v) => save({ self_signup: v })} data-testid="sso-self-signup" />
           </FieldRow>
           <DefaultRole cfg={cfg} onSave={(id) => save({ default_role_id: id })} />
@@ -204,7 +205,7 @@ function DefaultRole({ cfg, onSave }: { cfg: SsoConfig; onSave: (id: number) => 
   if (!roles.data) {
     return (
       <FieldRow label={t("sso.admin.defaultRole")} hint={t("sso.admin.defaultRoleHint")}>
-        <span className="type-callout text-label-1">{cfg.default_role?.name ?? "—"}</span>
+        <span className="type-callout text-label-1">{cfg.default_role ? roleLabel(t, cfg.default_role) : "—"}</span>
       </FieldRow>
     );
   }
@@ -214,7 +215,7 @@ function DefaultRole({ cfg, onSave }: { cfg: SsoConfig; onSave: (id: number) => 
         {!cfg.default_role ? <option value="">—</option> : null}
         {roles.data.map((r) => (
           <option key={r.id} value={r.id}>
-            {r.name}
+            {roleLabel(t, r)}
           </option>
         ))}
       </SelectField>
@@ -241,7 +242,7 @@ function Mappings() {
             <li key={m.id} className="flex flex-wrap items-center gap-3 py-2 hairline-b">
               <Badge variant="secondary">{m.claim === "role" ? t("sso.admin.claimRole") : t("sso.admin.claimGroup")}</Badge>
               <span className="min-w-0 flex-1 truncate font-mono type-footnote text-label-1">{m.value}</span>
-              <span className="type-callout text-label-1">→ {m.role.name}</span>
+              <span className="type-callout text-label-1">→ {roleLabel(t, m.role)}</span>
               <IconButton label={t("sso.admin.mappingDelete")} size="sm" onClick={() => del.mutate(m.id, { onError: (e) => toast.error(apiProblem(e, locale).text ?? t("sso.admin.saveFailed")) })}>
                 <Trash2 />
               </IconButton>
@@ -283,7 +284,7 @@ function Mappings() {
             <option value="">—</option>
             {(roles.data ?? []).map((r) => (
               <option key={r.id} value={r.id}>
-                {r.name}
+                {roleLabel(t, r)}
               </option>
             ))}
           </SelectField>

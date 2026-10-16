@@ -24,9 +24,11 @@ import { crbs, useBookingContext, useRoles } from "@/lib/api/crbs";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
+import { roleLabel } from "@/lib/i18n/roles";
 import { PolicyForm, type PolicyFormContext } from "./policy-form";
 
 function useFormContext(): PolicyFormContext {
+  const { t } = useI18n();
   const ctx = useBookingContext();
   const rooms = useQuery({ queryKey: ["crbs", "booking-rooms"], queryFn: () => crbs.bookings.rooms(), retry: false, staleTime: 60_000 });
   const roles = useRoles();
@@ -35,9 +37,9 @@ function useFormContext(): PolicyFormContext {
       rooms: (rooms.data ?? []).map((r) => ({ id: r.id, name: r.name || r.code })),
       groups: (ctx.data?.room_groups ?? []).map((g) => ({ id: g.id, name: g.name })),
       terms: (ctx.data?.sessions ?? []).map((s) => ({ id: s.id, name: s.name })),
-      roles: roles.isError ? null : (roles.data ?? []).map((r) => ({ code: (r.code ?? r.name).toUpperCase(), name: r.name })),
+      roles: roles.isError ? null : (roles.data ?? []).map((r) => ({ code: (r.code ?? r.name).toUpperCase(), name: roleLabel(t, r) })),
     }),
-    [rooms.data, ctx.data, roles.data, roles.isError],
+    [rooms.data, ctx.data, roles.data, roles.isError, t],
   );
 }
 

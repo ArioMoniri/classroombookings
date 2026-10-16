@@ -16,6 +16,21 @@ import re
 from collections.abc import Callable
 from typing import Any
 
+#: the registry's format labels (app/council/formats_*.py) for a Turkish reader
+LABEL_TR: dict[str, str] = {
+    "Excel workbook": "Excel çalışma kitabı",
+    "Word document": "Word belgesi",
+    "PDF": "PDF",
+    "image": "bir görsel",
+    "CSV / TSV": "CSV / TSV",
+    "OpenDocument spreadsheet": "OpenDocument tablosu",
+    "Excel 97-2003 workbook": "Excel 97-2003 çalışma kitabı",
+    "iCalendar": "iCalendar takvimi",
+    "e-mail": "bir e-posta",
+    "XML": "XML",
+    "JSON": "JSON",
+    "plain text": "düz metin",
+}
 #: the record types and entity names in counts and messages
 ENTITY_TR = {
     "meeting": "ders",
@@ -187,6 +202,17 @@ _r(
     r"token budget exhausted \((?P<a>\d+) >= (?P<b>\d+)\); heuristic result kept",
     "token bütçesi doldu ({a} ≥ {b}); kural tabanlı sonuç kaldı",
 )
+# --- upload refusals (app/council/formats.py precheck) ------------------------------------------------------
+_r(
+    r"the name ends in (?P<ext>\.\w+) \((?P<named>[^)]+)\) but the content is an? (?P<real>.+); rename it to its real "
+    r"type or upload the .+ itself",
+    lambda m: (
+        f"Dosyanın adı {m['ext']} ile bitiyor ({LABEL_TR.get(m['named'], m['named'])}), ama içeriği "
+        f"{LABEL_TR.get(m['real'], m['real'])}; adını gerçek türüne göre düzeltin ya da asıl tabloyu yükleyin"
+    ),
+)
+_r(r"the file is empty", "dosya boş")
+_r(r"unsupported file type '(?P<e>[^']*)' \((?P<f>\w+)\)", "desteklenmeyen dosya türü '{e}' ({f})")
 # --- cross-file steps --------------------------------------------------------------------------------------
 _r(
     r"(?P<r>\d+) rooms, (?P<c>\d+) courses, (?P<d>\d+) duplicate records, (?P<m>\d+) merge suggestions",

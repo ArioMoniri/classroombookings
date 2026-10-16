@@ -70,6 +70,7 @@ from app.services.bookings_perms import (
     load_access,
     may_grant_role,
     may_manage_user,
+    role_label,
     set_user_role,
     user_role,
 )
@@ -488,6 +489,9 @@ async def public_auth(db: AsyncSession) -> dict[str, Any]:
         "local_enabled": not (enabled and row is not None and row.oidc_only_non_admins),
         "ldap_enabled": bool((await get_group(db, "ldap"))["enabled"]),
         "self_signup_role_name": role.name if role is not None else None,
+        # T-R1-30: the hint "Your account opens as <role>" reads in the reader's language (built-in names localised)
+        "self_signup_role_code": role.code if role is not None else None,
+        "self_signup_role_label": role_label(role),
     }
 
 

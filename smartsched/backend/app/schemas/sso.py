@@ -216,6 +216,9 @@ class PublicAuthOut(BaseModel):
     local_enabled: bool
     ldap_enabled: bool
     self_signup_role_name: str | None
+    #: the role's code (``TEACHER``) and its display name in both languages (built-in names localised, T-R1-30)
+    self_signup_role_code: str | None = None
+    self_signup_role_label: dict[str, str] | None = None
 
 
 class ProvidersOut(BaseModel):

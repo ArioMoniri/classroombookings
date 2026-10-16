@@ -237,6 +237,10 @@ def detect(filename: str, data: bytes) -> Detection:
     return Detection(chosen, top, p, ranked)
 
 
+def _a(label: str) -> str:
+    return ("an " if label[:1].lower() in "aeiou" else "a ") + label
+
+
 def detect_format(filename: str, data: bytes) -> str:
     return detect(filename, data).spec.name
 
@@ -246,6 +250,15 @@ def precheck(filename: str, data: bytes) -> str:
     format name. Run it off the event loop (``safe_files.run_isolated``)."""
     det = detect(filename, data)
     spec = det.spec
+    # a name that promises a table (.xlsx, .csv, .ods, ...) on bytes that hold none (a photo, a PDF, a Word file) is
+    # refused with what the bytes are: the content still decides between table formats (a CSV saved as .xlsx is
+    # read as a CSV), but a renamed photo is a mistake to fix, not a scan for the AI model (T-R1-26)
+    named = next((s for s in REGISTRY.values() if det.probe.ext and det.probe.ext in s.extensions), None)
+    if named is not None and named.tabular and not spec.tabular:
+        raise RenderError(
+            f"the name ends in {det.probe.ext} ({named.label}) but the content is {_a(spec.label)}; "
+            f"rename it to its real type or upload the {named.label} itself"
+        )
     if len(data) > spec.limits.max_bytes:
         raise safe_files.UnsafeFileError(
             413, f"{spec.label} files may be at most {spec.limits.max_bytes // MiB} MiB (this one is larger)"

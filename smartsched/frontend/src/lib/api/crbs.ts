@@ -1259,6 +1259,10 @@ export function useCrbsMutation<TVars, TOut>(fn: (vars: TVars) => Promise<TOut>,
   return useMutation({
     mutationFn: fn,
     onSuccess: async () => {
+      // cancel first: a list still on its FIRST load (no data yet) would otherwise absorb the invalidation into that
+      // in-flight fetch, which began before this write and answers without it (a room created from ⌘K
+      // ?new=1 was missing from Admin › Rooms; e2e-stabilisation 2026-10-16)
+      await Promise.all(invalidate.map((key) => qc.cancelQueries({ queryKey: key })));
       await Promise.all(invalidate.map((key) => qc.invalidateQueries({ queryKey: key })));
     },
   });

@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { TeacherPref, WishRoom } from "@/lib/api/teacher-preferences";
 import roomsFx from "./__fixtures__/wish-preview-bahar.json";
-import { buildingCode, buildingsOf, departmentAsk, emptyWish, filterGroups, fixedClasses, formIssues, groupRooms, groupWishes, isKnownError, listedRoom, previewBody, roomCode, roomKey, wishBody, wishSentence } from "./wish-model";
+import { buildingCode, buildingsOf, classLabel, classOrder, departmentAsk, emptyWish, filterGroups, fixedClasses, formIssues, groupRooms, groupWishes, isKnownError, listedRoom, previewBody, roomCode, roomKey, wishBody, wishSentence } from "./wish-model";
 
 const pref = (over: Partial<TeacherPref> = {}): TeacherPref => ({
   id: 40,
@@ -29,6 +29,14 @@ const pref = (over: Partial<TeacherPref> = {}): TeacherPref => ({
   reason: null,
   reason_code: null,
   ...over,
+});
+
+describe("T-R1-16 class labels", () => {
+  it("drops an empty section mark and lists each class once in Turkish order", () => {
+    expect(classLabel("FZT 3002 §")).toBe("FZT 3002");
+    expect(classLabel("PSY 277 §1")).toBe("PSY 277 §1");
+    expect(classOrder(["PSY 277", "PSY 277", "PSI 213", "ÇEV 101", "CEV 102"])).toEqual(["CEV 102", "ÇEV 101", "PSI 213", "PSY 277"]);
+  });
 });
 
 describe("wish form", () => {
@@ -101,7 +109,8 @@ describe("wish lists", () => {
       ["c", "rejected", 1],
       ["a", "accepted", 1],
     ]);
-    expect(groups[0]!.labels).toEqual(["PTL 152 §1", "PTL 102 §1", "PTL 184 §1"]);
+    // T-R1-16: one class order everywhere (each once, Turkish collation), the server's sentences agree
+    expect(groups[0]!.labels).toEqual(["PTL 102 §1", "PTL 152 §1", "PTL 184 §1"]);
     expect(groups[0]!.requestIds.sort()).toEqual([574, 590, 801]);
   });
 

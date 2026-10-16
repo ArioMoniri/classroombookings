@@ -29,6 +29,7 @@ import { Switch } from "@/components/ui/switch";
 import { useDepartments, useRoles, type AdminUser } from "@/lib/api/crbs";
 import { apiProblem, identity, identityKeys, useIdentityMutation, useInstructorSearch, type Invite, type InviteIn, type PublicAuth, type UserIdentityStatus } from "@/lib/api/identity";
 import { useI18n } from "@/lib/i18n/provider";
+import { roleDescription, roleLabel } from "@/lib/i18n/roles";
 import { useFinePointer } from "@/lib/motion";
 import { isPrivilegedRole, roleGrantCheck, usePermissions } from "@/lib/permissions";
 import { useBookingFormat } from "@/components/bookings/use-booking-format";
@@ -309,7 +310,11 @@ function InviteForm({ onDone, domainHint, canListRoles }: { onDone: () => void; 
   const options = roles.data
     ? roles.data
         .filter((r) => roleGrantCheck(perms, r).allowed)
-        .map((r) => ({ value: `id:${r.id}`, label: r.name, summary: r.description && r.description.trim() !== r.name.trim() ? r.description : null, privileged: isPrivilegedRole(r) }))
+        .map((r) => {
+          const label = roleLabel(t, r);
+          const summary = roleDescription(t, r);
+          return { value: `id:${r.id}`, label, summary: summary && summary !== label ? summary : null, privileged: isPrivilegedRole(r) };
+        })
     : SEEDED.filter((r) => roleGrantCheck(perms, { code: r.code }).allowed).map((r) => ({ value: `code:${r.code}`, label: t(r.key), summary: null, privileged: r.code === "ADMIN" }));
   const groupName = useId();
   const submit = () => {

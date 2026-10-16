@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { crbs, crbsError, useCrbsMutation, useDepartments, useLdapSettings, useRoles, type LdapSettings, type LdapTestOut } from "@/lib/api/crbs";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
+import { roleLabel } from "@/lib/i18n/roles";
 import type { MessageKey } from "@/lib/i18n";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, Field, FieldRow, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
@@ -81,7 +82,7 @@ function LdapForm({ data }: { data: LdapSettings }) {
             <option value="">{t("crbs.users.noRole")}</option>
             {(roles.data ?? []).map((r) => (
               <option key={r.id} value={r.id}>
-                {r.name}
+                {roleLabel(t, r)}
               </option>
             ))}
           </SelectField>

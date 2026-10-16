@@ -47,6 +47,7 @@ import {
 } from "@/lib/api/crbs";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
+import { roleLabel } from "@/lib/i18n/roles";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField } from "./kit";
@@ -864,6 +865,12 @@ function AclTab() {
   const remove = useCrbsMutation((id: number) => crbs.roomAdmin.deleteAcl(id), keys);
   const bookingPerms = useMemo(() => Object.values(catalogue.data?.bookings ?? {}).flat(), [catalogue.data]);
   const roomOptions = rooms.data?.map((r) => ({ id: r.id, name: r.display_name })) ?? roomsLite.data?.map((r) => ({ id: r.id, name: r.name })) ?? [];
+  // a role context reads by its display name ("Öğretim elemanı", not the stored "Teacher")
+  const aclRoles = useRoles(can("setup.roles"));
+  const contextLabel = (a: { context_type: string; context_id: number; context_label?: string | null }) => {
+    const role = a.context_type === "role" ? aclRoles.data?.find((r) => r.id === a.context_id) : undefined;
+    return role ? roleLabel(t, role) : a.context_label;
+  };
   return (
     <div className="flex flex-col gap-4">
       <p className="type-callout text-label-2">{t("crbs.acl.lead")}</p>
@@ -899,7 +906,7 @@ function AclTab() {
               <li key={a.id} className="flex flex-col gap-2 px-4 py-3 not-last:edge-hairline-b">
                 <div className="flex items-start justify-between gap-2">
                   <p className="type-headline text-label-1">
-                    {a.entity_label} <span className="font-normal text-label-3">←</span> {t(`crbs.acl.ctx.${a.context_type}`)}: {a.context_label}
+                    {a.entity_label} <span className="font-normal text-label-3">←</span> {t(`crbs.acl.ctx.${a.context_type}`)}: {contextLabel(a)}
                   </p>
                   <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.acl.remove")} onClick={() => remove.mutate(a.id, { onError: toastError })}>
                     <Trash2 />
@@ -938,7 +945,7 @@ function AclAdd({ entityType, entityId }: { entityType: "room" | "room_group"; e
   const catalogue = usePermissionCatalogue();
   const toastError = useErrorToast();
   const add = useCrbsMutation(() => crbs.roomAdmin.createAcl({ entity_type: entityType, entity_id: entityId, context_type: ctx, context_id: Number(ctxId), permissions: perms }), [["crbs", "acl"], ["crbs", "grid"]]);
-  const options = ctx === "role" ? (roles.data ?? []).map((r) => ({ id: r.id, name: r.name })) : ctx === "department" ? (departments.data ?? []).map((d) => ({ id: d.id, name: d.name })) : (users.data?.items ?? []).map((u) => ({ id: u.id, name: u.displayname || u.username || u.email || String(u.id) }));
+  const options = ctx === "role" ? (roles.data ?? []).map((r) => ({ id: r.id, name: roleLabel(t, r) })) : ctx === "department" ? (departments.data ?? []).map((d) => ({ id: d.id, name: d.name })) : (users.data?.items ?? []).map((u) => ({ id: u.id, name: u.displayname || u.username || u.email || String(u.id) }));
   return (
     <section aria-labelledby="acl-add" className="flex flex-col gap-3">
       <h3 id="acl-add" className="type-title-3 text-label-1">

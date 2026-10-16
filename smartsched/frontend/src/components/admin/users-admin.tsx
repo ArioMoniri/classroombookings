@@ -46,6 +46,7 @@ import { BindDialog, BreakGlassWarning, IdentitiesSection, IdentityMenuItems, Id
 import { breakGlassMissing, identityQuery, invitesByUser, methodView, statusView, type IdentityFilter, type MethodFilter } from "./users-admin-identity-model";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
+import { permissionList, roleLabel } from "@/lib/i18n/roles";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField } from "./kit";
@@ -165,7 +166,7 @@ export function UsersAdmin() {
           <option value="">{t("crbs.users.allRoles")}</option>
           {(roles.data ?? []).map((r) => (
             <option key={r.id} value={r.id}>
-              {r.name}
+              {roleLabel(t, r)}
             </option>
           ))}
         </SelectField>
@@ -249,7 +250,7 @@ export function UsersAdmin() {
                     </span>
                     {/* phones: the role column is hidden, so the role (and the privileged mark) reads under the name */}
                     <span className="block type-footnote text-label-2 sm:hidden" data-testid="user-role-inline">
-                      {u.role_name ?? t("crbs.users.noRole")}
+                      {u.role_name ? roleLabel(t, { code: u.role, name: u.role_name }) : t("crbs.users.noRole")}
                       {!manageable(u) ? ` · ${t("crbs.users.privileged")}` : ""}
                     </span>
                     {/* phones: the status column is hidden, so a pending / expired / disabled state shows here */}
@@ -261,7 +262,7 @@ export function UsersAdmin() {
                   </TableCell>
                   <TableCell className="hidden text-label-2 md:table-cell">{u.email ?? "—"}</TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    <span className="text-label-1">{u.role_name ?? t("crbs.users.noRole")}</span>
+                    <span className="text-label-1">{u.role_name ? roleLabel(t, { code: u.role, name: u.role_name }) : t("crbs.users.noRole")}</span>
                     {!u.is_active ? (
                       <Badge tone="preoccupied" variant="secondary" className="ml-2">
                         {t("crbs.users.disabled")}
@@ -387,11 +388,6 @@ export function UsersAdmin() {
   );
 }
 
-/** "a, b, c +2": the missing permissions, short enough for an <option>. */
-function shortList(names: readonly string[], max = 3): string {
-  return names.length > max ? `${names.slice(0, max).join(", ")} +${names.length - max}` : names.join(", ");
-}
-
 /**
  * Role picker for user create/edit and the CSV default role. No escalation (backend rule): a role whose
  * permissions are not all held by the current user is disabled, with what is missing. Without setup.roles
@@ -403,7 +399,7 @@ function RoleSelect({ value, onChange, canListRoles, id }: { value: string; onCh
   const { perms } = usePermissions();
   const roles = useRoles(canListRoles);
   const options = roles.data
-    ? roles.data.map((r) => ({ value: `id:${r.id}`, label: r.name, check: roleGrantCheck(perms, r) }))
+    ? roles.data.map((r) => ({ value: `id:${r.id}`, label: roleLabel(t, r), check: roleGrantCheck(perms, r) }))
     : SEEDED.map((r) => ({ value: `code:${r.code}`, label: t(r.key as MessageKey), check: roleGrantCheck(perms, { code: r.code }) }));
   const anyDisabled = options.some((o) => !o.check.allowed);
   return (
@@ -412,7 +408,7 @@ function RoleSelect({ value, onChange, canListRoles, id }: { value: string; onCh
         <option value="">{t("crbs.users.pickRole")}</option>
         {options.map((o) => (
           <option key={o.value} value={o.value} disabled={!o.check.allowed && o.value !== value}>
-            {o.check.allowed ? o.label : t("crbs.users.roleMissing", { role: o.label, list: shortList(o.check.missing) })}
+            {o.check.allowed ? o.label : t("crbs.users.roleMissing", { role: o.label, list: permissionList(t, o.check.missing) })}
           </option>
         ))}
       </SelectField>
