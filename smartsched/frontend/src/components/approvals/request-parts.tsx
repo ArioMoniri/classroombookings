@@ -12,7 +12,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { DateFormatter } from "@/components/bookings/date-format";
-import { reasonLine, requestReason, requestSlots, statusTone, timeline, type Tone } from "./approvals-model";
+import { groupSpan, reasonLine, requestReason, requestSlots, statusTone, timeline, type Tone } from "./approvals-model";
 
 const REASON_KEY: Record<string, MessageKey> = {
   room_unavailable: "approvals.reasons.room_unavailable",
@@ -94,6 +94,20 @@ export function SlotLine({ req, fmt, className }: { req: ApprovalRequest; fmt: D
       {fmt.weekday(first.date)} · {periods}
       {time}
       {dates.length > 1 ? ` · ${t("wave1.approvals.moreDates", { n: dates.length - 1 })}` : ""}
+    </span>
+  );
+}
+
+/** T-R1-13: the slot line of a whole submission ("Per 22 Eki · P7–P8 (13:30–15:00)"); one request → SlotLine. */
+export function GroupSlotLine({ reqs, fmt, className }: { reqs: readonly ApprovalRequest[]; fmt: DateFormatter; className?: string }) {
+  if (reqs.length < 2) return reqs[0] ? <SlotLine req={reqs[0]} fmt={fmt} className={className} /> : null;
+  const span = groupSpan(reqs);
+  if (!span) return null;
+  const time = span.timeStart && span.timeEnd ? ` (${fmt.time(span.timeStart)}–${fmt.time(span.timeEnd)})` : "";
+  return (
+    <span className={cn("tabular-nums", className)} data-testid="group-slot-line">
+      {fmt.weekday(span.date)} · {span.periods}
+      {time}
     </span>
   );
 }

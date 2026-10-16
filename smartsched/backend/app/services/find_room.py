@@ -278,6 +278,34 @@ class _Cand:
     short_pct: float = 0.0
 
 
+async def _own_pending(
+    session: AsyncSession, access: Access, room_ids: set[int], d0: date, d1: date, bocc: Any
+) -> set[int]:
+    """T-R1-14: the caller's own PENDING requests in these rooms and dates hold their slots for the caller too (a
+    request without a live hold is not in ``booking_occupancy``): they are added to ``bocc``; returns their ids."""
+    if access.user_id is None or not room_ids:
+        return set()
+    from app.models.booking import PENDING
+
+    q = select(Booking).where(
+        Booking.status == PENDING,
+        Booking.user_id == access.user_id,
+        Booking.room_id.in_(room_ids),
+        Booking.date.between(d0, d1),
+    )
+    out: set[int] = set()
+    for b in (await session.execute(q)).scalars():
+        out.add(b.id)
+        held = bocc.setdefault((b.room_id, b.date), [])
+        if all(h.ref_id != b.id for h in held):
+            held.append(
+                bsvc.Held(
+                    "booking", b.room_id, b.date, b.start_period, b.end_period, b.notes or "", b.id, pending=True
+                )
+            )
+    return out
+
+
 def _free_on(occ: list[bsvc.Held], s: int, e: int) -> bsvc.Held | None:
     return next((h for h in occ if h.overlaps(s, e)), None)
 
@@ -418,8 +446,13 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
             d0, d1 = d0 - timedelta(days=d0.isoweekday() - 1), d1 + timedelta(days=7 - d1.isoweekday())
         bocc = await bsvc.booking_occupancy(session, ids, d0, d1)
         tocc = await bsvc.timetable_occupancy(session, ids, d0, d1)
+        own_ids = await _own_pending(session, access, ids, d0, d1, bocc)
     else:
         bocc, tocc = {}, {}
+        own_ids = set()
+
+    def own_hold(h: bsvc.Held | None) -> bool:
+        return h is not None and h.kind == "booking" and h.ref_id in own_ids
 
     def holders(rid: int, d: date) -> list[bsvc.Held]:
         return [*bocc.get((rid, d), []), *tocc.get((rid, d), [])]
@@ -463,8 +496,12 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
                 mode = "request"
         busy_n = sum(1 for h in per.values() if h is not None)
         free_n = len(per) - busy_n
+        mine_n = sum(1 for h in per.values() if own_hold(h))
         if c.static:
             status = c.static
+        elif mine_n and mine_n == busy_n:
+            # T-R1-14 (R1-A-06): the caller's own open request holds the slot: "Talebiniz bekliyor", not "just taken"
+            status = "mine_pending"
         elif policy_hit is not None and policy_hit.effect == "refuse":
             status = "policy"
         elif not open_dates:
@@ -517,6 +554,14 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
             reasons.insert(0, _reason("Onay gerekli: talep oluşturulur", "Needs approval: a request is created"))
         elif status == "partial":
             reasons.insert(0, _reason(f"{free_n}/{len(per)} tarih boş", f"free on {free_n} of {len(per)} dates"))
+        elif status == "mine_pending":
+            reasons.insert(
+                0,
+                _reason(
+                    "Talebiniz bekliyor: onaylayıcılar karar verene kadar bu saat sizin talebinizde",
+                    "Your request is waiting: the slot is yours until the approvers decide",
+                ),
+            )
         busy_with = None
         if status in ("busy", "partial"):
             first_held = next(h for h in per.values() if h is not None)
@@ -558,6 +603,7 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
     rank = {
         "free": 0,
         "requestable": 0,
+        "mine_pending": 1,
         "partial": 1,
         "busy": 2,
         "too_small": 3,
@@ -568,7 +614,7 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
     }
     results.sort(key=lambda x: (rank[x["status"]], x["fit"]["score"], x["pos"], tr_sort_key(x["name"]), x["room_id"]))
     if not q.include_busy:
-        results = [x for x in results if x["status"] in ("free", "requestable", "partial")]
+        results = [x for x in results if x["status"] in ("free", "requestable", "partial", "mine_pending")]
 
     alternatives: list[dict[str, Any]] = []
     if free_count < 3 and open_dates:

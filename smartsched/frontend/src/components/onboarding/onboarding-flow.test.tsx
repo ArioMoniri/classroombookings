@@ -11,6 +11,24 @@ import { OnboardingFlow } from "./onboarding-flow";
 /** A real file from the backend fixtures (the Bahar list exported as an English CSV). */
 const CSV = path.resolve(import.meta.dirname, "../../../../backend/tests/fixtures/universal/bahar_requests_en.csv");
 
+/** The recorded backend plus the routes this screen added since: the AI policy and the commit dry run. */
+function withDryRun(backend: ReturnType<typeof councilBackend>, policy: { intake_enabled: boolean }) {
+  const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+  const dry = { on_conflict: "keep", counts: { meeting_requests: { create: 1348, update: 0, unchanged: 0, conflict: 0 }, sections: { create: 1150, update: 0, unchanged: 0, conflict: 0 }, constraints: { create: 39, update: 0, unchanged: 0, conflict: 0 } }, rows: [], rows_total: 0, conflicts_total: 0, result: { term_code: "2026-BAHAR-EN" } };
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input instanceof Request ? input.url : input), "http://localhost");
+    if (url.pathname === "/api/v1/ai/policy") {
+      backend.calls.push(`GET ${url.pathname}`);
+      return json({ ...policy, vision_enabled: false, signoff: null, notice: { tr: "", en: "" }, notice_version: "1", legal_basis: "" });
+    }
+    if (init?.method === "POST" && /\/commit$/.test(url.pathname) && JSON.parse(String(init.body ?? "{}")).dry_run) {
+      backend.calls.push(`DRY ${url.pathname}`);
+      return json(dry);
+    }
+    return backend.fetch(input, init);
+  };
+}
+
 function renderFlow() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -27,7 +45,7 @@ describe("OnboardingFlow", () => {
   beforeEach(() => {
     const backend = councilBackend();
     calls = backend.calls;
-    vi.stubGlobal("fetch", backend.fetch);
+    vi.stubGlobal("fetch", withDryRun(backend, { intake_enabled: true }));
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -44,7 +62,7 @@ describe("OnboardingFlow", () => {
     // the queued job is replaced by the finished snapshot (polling: jsdom has no EventSource)
     await waitFor(() => expect(within(screen.getByTestId("file-1")).getByTestId("step-structure")).toHaveAttribute("data-status", "DONE"), { timeout: 5000 });
     const progress = screen.getByTestId("onboarding-progress");
-    expect(within(screen.getByTestId("file-1")).getByText("general")).toBeInTheDocument();
+    expect(within(screen.getByTestId("file-1")).getByText("general path")).toBeInTheDocument();
     expect(within(progress).getByText("Deterministic (no AI)")).toBeInTheDocument();
 
     const reviewCard = await screen.findByTestId("onboarding-review", {}, { timeout: 5000 });
@@ -59,8 +77,49 @@ describe("OnboardingFlow", () => {
     await user.clear(screen.getByTestId("term-code"));
     await user.type(screen.getByTestId("term-code"), "2026-BAHAR-EN");
     await waitFor(() => expect(screen.getByTestId("onboarding-commit-button")).toBeEnabled());
+    // Yaz never writes on the first press (T-R1-24): the dry run's counts in a confirm that says there is no undo
     await user.click(screen.getByTestId("onboarding-commit-button"));
-    expect(await screen.findByTestId("onboarding-result")).toHaveTextContent("Written into 2026-BAHAR-EN");
-    expect(screen.getByTestId("onboarding-result")).toHaveTextContent("meeting_requests: 1348");
+    const confirm = await screen.findByTestId("onboarding-commit-confirm");
+    expect(calls).toContain("DRY /api/v1/council/jobs/1/commit");
+    expect(calls.filter((c) => c === "POST /api/v1/council/jobs/1/commit")).toHaveLength(0);
+    expect(confirm).toHaveTextContent("1,348 new requests will be written into 2026-BAHAR-EN");
+    expect(within(confirm).getByTestId("onboarding-commit-confirm-counts")).toHaveTextContent("Rules");
+    expect(within(confirm).getByTestId("onboarding-commit-irreversible")).toHaveTextContent("cannot be undone");
+    await user.click(within(confirm).getByTestId("onboarding-commit-confirm-button"));
+    const result = await screen.findByTestId("onboarding-result");
+    expect(result).toHaveTextContent("Written into 2026-BAHAR-EN");
+    expect(result).toHaveTextContent("Requests: 1,348");
+    expect(result.textContent).not.toMatch(/[a-z]+_[a-z]+/); // no raw keys
   }, 30_000); // the whole flow (upload, polling, review, commit): the 5 s default is too tight on a loaded runner
+});
+
+describe("OnboardingFlow with the AI policy off (T-R1-23)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("unticks and disables the AI switch, labels no file AI and starts without the AI wording", async () => {
+    const backend = councilBackend();
+    vi.stubGlobal("fetch", withDryRun(backend, { intake_enabled: false }));
+    const user = userEvent.setup();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <I18nProvider initialLocale="tr">
+          <OnboardingFlow />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    await user.upload(screen.getByTestId("onboarding-input"), [
+      new File([readFileSync(CSV)], "bahar_requests_en.csv", { type: "text/csv" }),
+      new File(["x"], "rules_memo.docx"),
+      new File(["x"], "taranmis_sinav_programi.pdf"),
+    ]);
+    const drop = screen.getByTestId("onboarding-drop");
+    await waitFor(() => expect(within(drop).getByTestId("onboarding-ai-off")).toHaveTextContent("Yönetici kapattı"));
+    const ai = within(drop).getByRole("checkbox", { name: /yapay zekâ modelini kullan/ });
+    expect(ai).toHaveAttribute("aria-disabled", "true");
+    expect(ai).not.toBeChecked();
+    expect(drop.querySelectorAll('[data-method="ai"]')).toHaveLength(0);
+    expect(drop.querySelectorAll('[data-method="off"]')).toHaveLength(2);
+    expect(screen.getByTestId("onboarding-start")).toHaveTextContent("Başlat · 3 dosya");
+  });
 });

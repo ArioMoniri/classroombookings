@@ -1764,6 +1764,19 @@
       "goal": "You are the **round-1 loop builder for lane F (dashboard, learning; invigilation items wait)** in SmartSched. Repo /home/user/classroombookings (backend smartsched/backend, frontend smartsched/frontend), branch claude/gracious-cerf-w1598m (shared tree). Ledger id: loop-r1-laneF-2026-10-16. Read docs…",
       "ledger": "Lane F: dashboard/learning fixes",
       "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-16 14:00"
+    },
+    {
+      "id": "a3ce73c6e642d0732",
+      "description": "Lane E: TR/EN consistency + admin",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 14:00",
+      "scope": "",
+      "goal": "You are the **round-1 loop builder for lane E (Turkish/English consistency and admin screens)** in SmartSched. Repo /home/user/classroombookings (backend smartsched/backend, frontend smartsched/frontend), branch claude/gracious-cerf-w1598m (shared tree). Ledger id: loop-r1-laneE-2026-10-16. Read doc…",
+      "ledger": "Lane E: TR/EN consistency + admin",
+      "resumed": false,
       "status": "running"
     }
   ]

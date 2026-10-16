@@ -218,8 +218,29 @@ async def active_run(session: AsyncSession, run_id: int) -> ScheduleRun:
     return run
 
 
-def _group_key(c: BookingConflict) -> str:
-    return f"series:{c.series_id}" if c.series_id else f"booking:{c.booking_id}"
+def _group_key(c: BookingConflict, b: Booking | None = None) -> str:
+    """A series is one row; so is a submission of several periods (T-R1-13, A-12: one multi-booking, one date, one
+    room), so its options keep the periods together; anything else is one row per booking."""
+    if c.series_id:
+        return f"series:{c.series_id}"
+    if b is not None and b.multi_booking_id:
+        return f"multi:{b.multi_booking_id}:{b.date.isoformat()}:{b.room_id}"
+    return f"booking:{c.booking_id}"
+
+
+async def _submission(session: AsyncSession, b: Booking) -> list[Booking]:
+    """The periods booked or requested together with ``b`` (same multi-booking, date and room), in period order;
+    ``[b]`` for a series instance or a lone booking."""
+    if b.series_id or not b.multi_booking_id:
+        return [b]
+    q = select(Booking).where(
+        Booking.multi_booking_id == b.multi_booking_id,
+        Booking.date == b.date,
+        Booking.room_id == b.room_id,
+        Booking.status.in_((BOOKED, PENDING)),
+    )
+    rows = list((await session.execute(q.order_by(Booking.start_period, Booking.id))).scalars())
+    return rows or [b]
 
 
 def _period_text(s: int, e: int) -> str:
@@ -262,13 +283,20 @@ async def _options(
     first: Booking,
     clash: list[BookingConflict],
     exclude: set[int],
+    parts: list[tuple[int, int]] | None = None,
 ) -> tuple[list[dict[str, Any]], str | None]:
+    """``parts``: the (start, end) periods of a submission booked together (T-R1-13); every option moves all of them,
+    so the span is their whole range and a period move shifts each part."""
     from app.services import find_room as fr
 
     term = await session.get(Term, run.term_id)
     info = await term_info(session, term) if term else None
     dates = sorted({c.date for c in clash})
-    s, e = first.start_period, first.end_period
+    parts = parts or [(first.start_period, first.end_period)]
+    s, e = min(p[0] for p in parts), max(p[1] for p in parts)
+    # T-R1-13 (R1-M-26): with no headcount on the booking the room's seats only rank the rooms; no sentence claims a
+    # headcount nobody gave ("Kapasite 45: 45 kişi için %0 boş koltuk")
+    known_headcount = bool(first.headcount)
     headcount = first.headcount or room.capacity or 0
     opts: list[dict[str, Any]] = []
     reason_detail: str | None = None
@@ -310,6 +338,11 @@ async def _options(
                     "reason": {
                         "tr": f"{x['name']} aynı saatte boş ({x['reason']['tr']})",
                         "en": f"{x['name']} is free at the same time ({x['reason']['en']})",
+                    }
+                    if known_headcount
+                    else {
+                        "tr": f"{x['name']} aynı saatte boş ({x['capacity']} kişilik)",
+                        "en": f"{x['name']} is free at the same time ({x['capacity']} seats)",
                     },
                 }
             )
@@ -322,7 +355,8 @@ async def _options(
                 continue
             ok = True
             for d in dates:
-                if await _span_period(session, info, room, d, ns, ne) is None:
+                # every part of the submission needs its own period after the shift
+                if any([await _span_period(session, info, room, d, ps + shift, pe + shift) is None for ps, pe in parts]):
                     ok = False
                     break
                 if await bsvc.find_conflict(session, room.id, d, ns, ne, exclude=exclude) is not None:
@@ -354,7 +388,9 @@ async def _options(
             others = [d for d in others if d >= today]
             infos = await date_infos(session, info, others) if others else {}
             for d in others:
-                if not infos[d].open or await _span_period(session, info, room, d, s, e) is None:
+                if not infos[d].open or any(
+                    [await _span_period(session, info, room, d, ps, pe) is None for ps, pe in parts]
+                ):
                     continue
                 if await bsvc.find_conflict(session, room.id, d, s, e, exclude=exclude) is None:
                     opts.append(
@@ -434,20 +470,21 @@ async def plan(session: AsyncSession, access: Access, run_id: int) -> dict[str, 
             )
         ).scalars()
     )
-    groups: dict[str, list[BookingConflict]] = defaultdict(list)
+    groups: dict[str, list[tuple[BookingConflict, Booking | None]]] = defaultdict(list)
     for c in rows:
-        groups[_group_key(c)].append(c)
+        b = await session.get(Booking, c.booking_id)
+        groups[_group_key(c, b)].append((c, b))
     out_groups: list[dict[str, Any]] = []
-    for key, items in groups.items():
-        bookings = [await session.get(Booking, c.booking_id) for c in items]
-        live = [(c, b) for c, b in zip(items, bookings, strict=True) if b is not None]
+    for key, pairs in groups.items():
+        live = [(c, b) for c, b in pairs if b is not None]
         if not live:
             continue
         first = live[0][1]
         room = await session.get(Room, first.room_id)
         if room is None:
             continue
-        ids = {b.id for _, b in live}
+        together = await _submission(session, first)
+        ids = {b.id for _, b in live} | {b.id for b in together}
         if first.series_id:
             ids |= set(
                 (
@@ -456,12 +493,13 @@ async def plan(session: AsyncSession, access: Access, run_id: int) -> dict[str, 
                     )
                 ).scalars()
             )
-        options, no_room = await _options(session, access, run, room, first, [c for c, _ in live], ids)
+        parts = [(b.start_period, b.end_period) for b in together]
+        options, no_room = await _options(session, access, run, room, first, [c for c, _ in live], ids, parts)
         out_groups.append(
             {
                 "key": key,
                 "series_id": first.series_id,
-                "kind": "series" if first.series_id else "booking",
+                "kind": "series" if first.series_id else ("submission" if len(together) > 1 else "booking"),
                 "requested": first.status == PENDING,
                 "room_id": room.id,
                 "room": room.display_name,
@@ -570,7 +608,9 @@ def _problem(conflict_id: int | None, code: str, tr: str, en: str) -> dict[str, 
 
 
 async def _targets(session: AsyncSession, c: BookingConflict, b: Booking, scope: str) -> list[Booking]:
-    if scope == "one" or not b.series_id:
+    if not b.series_id:
+        return await _submission(session, b)  # a submission's periods move (or are cancelled) together
+    if scope == "one":
         return [b]
     today = await bsvc.today(session)
     q = select(Booking).where(
@@ -660,8 +700,11 @@ async def apply(
                     if kind == "room":
                         new_room_id = int(val)
                     elif kind == "period":
+                        # the option names the new span of the whole submission: each part shifts by the same amount
                         a_, _, z_ = val.partition("-")
-                        s, e = int(a_), int(z_)
+                        new_start, _new_end = int(a_), int(z_)
+                        shift = new_start - min(x.start_period for x in targets)
+                        s, e = t.start_period + shift, t.end_period + shift
                     else:
                         new_date = date.fromisoformat(val)
                 except ValueError:

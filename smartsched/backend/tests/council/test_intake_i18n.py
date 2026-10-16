@@ -90,3 +90,13 @@ def test_catalogue_examples():
     )
     assert tr("unknown line stays") == "unknown line stays"
     assert i18n.localize("1 request(s) end before they start", "en") == "1 request(s) end before they start"
+
+
+def test_importer_notes_and_run_labels_have_a_turkish_pair():
+    """The importer's stored notes and the run labels stay English (keys); their readers get the TR pair."""
+    tr = lambda s: i18n.localize(s, "tr")  # noqa: E731
+    note = "time 19:00-21:20 snapped to P14-P16 (18:50-21:10): periods covered for at least half their length"
+    assert tr(note).startswith("19:00-21:20 saati P14-P16 ders saatlerine (18:50-21:10) yuvarlandı")
+    assert tr("Grid import: bahar.xlsx") == "Tablo aktarımı: bahar.xlsx"
+    assert tr("Baseline: imported schedule") == "Temel: içe aktarılan program"
+    assert tr("read as cp1254, semicolon-separated (sniffer)") == "CSV · Windows-1254 · ;"

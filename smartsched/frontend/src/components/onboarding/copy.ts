@@ -71,6 +71,20 @@ const tr = {
   severity: { error: "hata", warning: "uyarı", info: "bilgi" } as Record<string, string>,
   termKind: { REGULAR: "normal dönem", SUMMER: "yaz okulu", FINAL: "final", BUT: "bütünleme" } as Record<string, string>,
   baselineIntoNew: (term: string) => `Bu dosyalardaki program haritası ${term} dönemi için açılacak yeni temel çalıştırmaya (içe aktarılan program) yazılacak.`,
+  // T-R1-24: commit confirm and its Turkish summary
+  entity: { meeting_requests: "Talepler", exam_requests: "Sınav talepleri", sections: "Şubeler", courses: "Dersler", instructors: "Öğretim elemanları", section_instructors: "Şube–öğretim elemanı bağları", rooms: "Derslikler", buildings: "Binalar", constraints: "Kurallar", terms: "Dönemler", programs: "Programlar", timetable_weeks: "Haftalar", term_dates: "Dönem tarihleri", holidays: "Tatiller", schedule_runs: "Çalıştırmalar", assignments: "Program girişleri", blocks: "Kapalı saatler", room_groups: "Derslik grupları", room_tags: "Derslik etiketleri", term_schedules: "Ders saati çizelgeleri" } as Record<string, string>,
+  entityOther: "Diğer kayıtlar",
+  commitConfirmTitle: (term: string) => `${term} dönemine yazılsın mı?`,
+  commitConfirmLead: (term: string, requests: string) => `${term} dönemine ${requests} yeni talep yazılacak.`,
+  commitConfirmCounts: (created: string, updated: string) => `${created} yeni · ${updated} değişecek`,
+  commitIrreversible: "Geri alınamaz: yazılan kayıtlar bu işten geri alınmaz. Düzeltmeyi dönemin kendi ekranlarında yaparsınız.",
+  commitPreparing: "Fark hazırlanıyor…",
+  commitWrite: "Yaz",
+  merges: (v: string) => `${v} birleştirme uygulandı`,
+  duplicatesSkipped: (v: string) => `${v} yinelenen satır bir kez yazıldı`,
+  rowsRejected: (v: string) => `${v} satır reddedildi, yazılmadı`,
+  rowsEdited: (v: string) => `${v} satır düzeltilerek yazıldı`,
+  resultLine: (label: string, created: string, updated: string) => `${label}: ${created} yeni · ${updated} değişti`,
 }
 type Copy = { [K in keyof typeof tr]: (typeof tr)[K] extends (...a: infer A) => string ? (...a: A) => string : (typeof tr)[K] }
 
@@ -137,6 +151,19 @@ const en: Copy = {
   severity: { error: "error", warning: "warning", info: "info" },
   termKind: { REGULAR: "regular term", SUMMER: "summer school", FINAL: "finals", BUT: "resits" },
   baselineIntoNew: (term: string) => `The schedule map of these files goes to a new baseline run (the imported schedule) for term ${term}.`,
+  entity: { meeting_requests: "Requests", exam_requests: "Exam requests", sections: "Sections", courses: "Courses", instructors: "Instructors", section_instructors: "Section–instructor links", rooms: "Rooms", buildings: "Buildings", constraints: "Rules", terms: "Terms", programs: "Programmes", timetable_weeks: "Weeks", term_dates: "Term dates", holidays: "Holidays", schedule_runs: "Runs", assignments: "Timetable entries", blocks: "Blocked times", room_groups: "Room groups", room_tags: "Room tags", term_schedules: "Period grids" },
+  entityOther: "Other records",
+  commitConfirmTitle: (term: string) => `Write into ${term}?`,
+  commitConfirmLead: (term: string, requests: string) => `${requests} new requests will be written into ${term}.`,
+  commitConfirmCounts: (created: string, updated: string) => `${created} new · ${updated} changed`,
+  commitIrreversible: "This cannot be undone: the records written are not taken back from this job. Corrections are made on the term's own screens.",
+  commitPreparing: "Preparing the diff…",
+  commitWrite: "Write",
+  merges: (v: string) => `${v} merges applied`,
+  duplicatesSkipped: (v: string) => `${v} duplicate rows written once`,
+  rowsRejected: (v: string) => `${v} rows rejected, not written`,
+  rowsEdited: (v: string) => `${v} rows written as edited`,
+  resultLine: (label: string, created: string, updated: string) => `${label}: ${created} new · ${updated} changed`,
 }
 
 export function useOnboardingCopy(): Copy {

@@ -2874,7 +2874,9 @@
       "withdraw": "Withdraw request",
       "withdrawTitle": "Withdraw the request for {room}?",
       "withdrawBody": "The approvers are told and the slot is released.",
-      "withdrawn": "Request withdrawn."
+      "withdrawn": "Request withdrawn.",
+      "withdrawOne": "Withdraw {period} only",
+      "withdrawAll": "Withdraw all {n} periods"
     },
     "rules": {
       "title": "Approval rules",
@@ -4684,7 +4686,7 @@
         "info": "Information about my data"
       },
       "hint": {
-        "export": "A zip file (JSON and CSV) of your account, bookings, requests and other records; other people appear only by their role. Downloadable for 7 days.",
+        "export": "A zip file (JSON and CSV, each file explained in the README) of your account, bookings, instructor record and classes, the class requests in My requests, your preferences with the coordinators' decisions, and your other records; other people appear only by their role. Downloadable for 7 days.",
         "erase": "Your future bookings are cancelled, past ones anonymised and your account anonymised. Audit records are kept anonymised for the legal retention.",
         "rectify": "Write what is wrong and what it should be.",
         "info": "Ask what is kept about you, why and for how long."

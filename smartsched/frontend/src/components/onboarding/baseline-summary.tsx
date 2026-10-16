@@ -24,6 +24,7 @@ import { useRuns, useTerms } from "@/lib/api/hooks";
 import type { ScheduleRun } from "@/lib/api/schemas";
 import { isBaselineRun, type BaselineRunResult, type BaselineTarget, type CouncilJob } from "@/lib/api/council";
 import { useI18n } from "@/lib/i18n/provider";
+import { useOnboardingCopy } from "./copy";
 
 export { isBaselineRun };
 
@@ -139,6 +140,7 @@ function Counts({ baseline }: { baseline: BaselineRunResult }) {
 /** Fark: where the schedule map goes and what it would write, from the dry run's `result.baseline_run`. */
 export function BaselinePreview({ job, termCode, baseline, diffDone }: { job: CouncilJob; termCode: string; baseline: BaselineRunResult | null | undefined; diffDone: boolean }) {
   const { t, n } = useI18n();
+  const c = useOnboardingCopy();
   if (!hasScheduleMap(job)) return null;
   const term = termCode.trim();
   const state = !diffDone ? "pending" : !baseline ? "none" : baseline.skipped ? "skip" : baseline.mode === "run" ? "target" : baseline.run_created ? "new" : "existing";
@@ -152,7 +154,7 @@ export function BaselinePreview({ job, termCode, baseline, diffDone }: { job: Co
           : state === "target"
             ? t("baseline.intoRun", { id: baseline?.run_id ?? 0, term })
             : state === "new"
-              ? t("baseline.intoNew", { term })
+              ? c.baselineIntoNew(term) // the run's stored label is English; not quoted in Turkish text (T-R1-23)
               : t("baseline.intoExisting", { id: baseline?.run_id ?? 0, term });
   return (
     <section aria-labelledby={`baseline-${job.id}`} className="grid gap-1.5 rounded-lg bg-fill-3 p-3 edge-hairline" data-testid="onboarding-baseline-preview" data-state={state}>

@@ -332,9 +332,7 @@ async def _review_out(
 
 
 @router.get("/jobs/{job_id}/review", response_model=ReviewOut)
-async def get_review(
-    job_id: int, db: DB, _: Viewer, access: CurrentAccess, lang: str | None = None
-) -> ReviewOut:
+async def get_review(job_id: int, db: DB, _: Viewer, access: CurrentAccess, lang: str | None = None) -> ReviewOut:
     """Review items. Sample cell values, rule texts, sources and the names of merge pairs are file content
     (names, notes): they are returned to planning.edit only, like ``/records``; viewers see the items' kinds,
     confidences and decisions."""

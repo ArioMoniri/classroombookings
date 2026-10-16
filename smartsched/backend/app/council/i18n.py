@@ -55,6 +55,42 @@ SHAPE_TR = {
 }
 SEVERITY_TR = {"error": "hata", "warning": "uyarı", "info": "bilgi"}
 
+#: how the encodings and delimiters of a delimited text file are named on the file row (T-R1-26)
+ENCODING_NAME: dict[str, str] = {
+    "cp1254": "Windows-1254",
+    "utf-8": "UTF-8",
+    "utf-8-sig": "UTF-8 (BOM)",
+    "utf-16": "UTF-16",
+    "latin-1": "ISO-8859-1",
+    "text": "metin",
+}
+DELIMITER_CHAR: dict[str, str] = {"semicolon": ";", "comma": ",", "tab": "sekme", "pipe": "|"}
+GRID_TR: dict[str, str] = {
+    "timetable-grid": "program tablosundan",
+    "timetable-grid (= default 18-period grid)": "program tablosundan (varsayılan 18 ders saati)",
+    "default-18": "varsayılan 18 ders saati",
+    "inferred": "derslerin saatlerinden çıkarıldı",
+}
+PRECHECK_TR: dict[str, str] = {
+    "fixed_conflict": "sabit dersler çakışıyor",
+    "trusted_lock_capacity": "kilitli dersin dersliği küçük",
+    "locked_overlap": "kilitli dersler çakışıyor",
+    "pigeonhole": "yeterli derslik ya da saat yok",
+    "no_room": "uygun derslik yok",
+}
+TERM_KIND_TR: dict[str, str] = {"REGULAR": "normal dönem", "SUMMER": "yaz okulu", "FINAL": "final", "BUT": "bütünleme"}
+#: app/council/structure.py KIND_LABELS in Turkish
+KIND_LABEL_TR: dict[str, str] = {
+    "room list": "derslik listesi",
+    "course / request list": "ders / talep listesi",
+    "exam list": "sınav listesi",
+    "existing timetable grid": "mevcut program tablosu",
+    "calendar / holidays": "takvim / tatiller",
+    "staff list": "personel listesi",
+    "preferences / rules": "tercih / kural listesi",
+    "other": "başka bir tablo",
+}
+
 
 def _ent(word: str) -> str:
     return ENTITY_TR.get(word.strip().lower(), word)
@@ -106,7 +142,8 @@ _r(
 _r(r"could not be read", "okunamadı")
 _r(
     r"this file has no machine-readable text \(image or scan\); reading it needs the AI model \((?P<why_m>.*)\)",
-    "Bu dosyada okunabilir metin yok (görsel ya da taranmış belge olabilir); okumak için yapay zekâ modeli gerekir ({why_m})",
+    "Bu dosyada okunabilir metin yok (görsel ya da taranmış belge olabilir); okumak için yapay zekâ modeli "
+    "gerekir ({why_m})",
 )
 _r(r"AI vision is off \(Settings > AI\)", "görsel okuma kapalı (Ayarlar › Yapay zekâ)")
 _r(
@@ -114,8 +151,8 @@ _r(
     "Bu iş için yapay zekâ kapalı; yalnız kural tabanlı okuma",
 )
 _r(
-    r"AI is off for the council \(an administrator has not allowed sending file content to Claude under Settings > AI\);"
-    r" deterministic path only",
+    r"AI is off for the council \(an administrator has not allowed sending file content to Claude under "
+    r"Settings > AI\); deterministic path only",
     "Yapay zekâ kapalı (yönetici, dosya içeriğinin gönderilmesine Ayarlar › Yapay zekâ altında izin vermedi); yalnız "
     "kural tabanlı okuma",
 )
@@ -130,7 +167,8 @@ _r(
 _r(
     r"known shape '(?P<shape>[\w-]+)': the existing importer reads this file \(deterministic fast path\)",
     lambda m: (
-        f"Bilinen biçim ({SHAPE_TR.get(m['shape'], m['shape'])}): dosyayı mevcut aktarıcı okur (kural tabanlı hızlı yol)"
+        f"Bilinen biçim ({SHAPE_TR.get(m['shape'], m['shape'])}): dosyayı mevcut aktarıcı okur "
+        "(kural tabanlı hızlı yol)"
     ),
 )
 _r(
@@ -192,9 +230,47 @@ _r(
     lambda m: f"Çözücü ön denetimi ({PRECHECK_TR.get(m['code'], m['code'])}): {m['n']} bulgu",
 )
 _r(r"solver static check could not run \((?P<e>\w+)\)", "çözücü ön denetimi çalışamadı ({e})")
+# --- importer notes (stored on the request rows; app/importers/normalize.py) --------------------------------
+_r(
+    r"time (?P<a>\d\d:\d\d)-(?P<b>\d\d:\d\d) snapped to P(?P<p>\d+)-P(?P<q>\d+) \((?P<c>\d\d:\d\d)-(?P<d>\d\d:\d\d)\): "
+    r"periods covered for at least half their length",
+    "{a}-{b} saati P{p}-P{q} ders saatlerine ({c}-{d}) yuvarlandı: en az yarısı dolu ders saatleri",
+)
+_r(
+    r"time (?P<a>\d\d:\d\d)-(?P<b>\d\d:\d\d) snapped to P(?P<p>\d+)-P(?P<q>\d+) \((?P<c>\d\d:\d\d)-(?P<d>\d\d:\d\d)\): "
+    r"no period is covered for half its length; the one it covers most",
+    "{a}-{b} saati P{p}-P{q} ders saatlerine ({c}-{d}) yuvarlandı: hiçbir ders saati yarısına kadar dolmuyor; en çok "
+    "dolan alındı",
+)
+_r(
+    r"time (?P<a>\d\d:\d\d)-(?P<b>\d\d:\d\d) is outside the period grid",
+    "{a}-{b} saati ders saati çizelgesinin dışında",
+)
+_r(r"time range outside grid", "saat aralığı ders saati çizelgesinin dışında")
+_r(r"end time (?P<t>\d\d:\d\d) is before the first period", "bitiş saati {t} ilk ders saatinden önce")
+_r(
+    r"end time (?P<t>\d\d:\d\d) snapped to P(?P<p>\d+) \((?P<e>\d\d:\d\d)\)",
+    "bitiş saati {t}, P{p} ders saatine ({e}) yuvarlandı",
+)
+_r(
+    r"start time (?P<t>\d\d:\d\d) is before the grid; snapped to P1",
+    "başlangıç saati {t} çizelgeden önce; P1'e yuvarlandı",
+)
+_r(
+    r"start time (?P<t>\d\d:\d\d) not on the grid; snapped to P(?P<p>\d+) \((?P<s>\d\d:\d\d)\)",
+    "başlangıç saati {t} çizelgede yok; P{p} ders saatine ({s}) yuvarlandı",
+)
+_r(
+    r"start time (?P<t>\d\d:\d\d) falls in a break; snapped to P(?P<p>\d+)",
+    "başlangıç saati {t} teneffüse denk geliyor; P{p} ders saatine yuvarlandı",
+)
+# --- run labels the intake and the board importer write (the stored label stays English: it is a key) -------
+_r(r"Grid import: (?P<f>.+)", "Tablo aktarımı: {f}")
+_r(r"Baseline: imported schedule", "Temel: içe aktarılan program")
 # --- review titles -----------------------------------------------------------------------------------------
 _r(
-    r"(?P<f>.+?): (?P<p>\d+) of (?P<t>\d+) rows read by the AI model wait for a person \(accept, edit or reject each row\)",
+    r"(?P<f>.+?): (?P<p>\d+) of (?P<t>\d+) rows read by the AI model wait for a person "
+    r"\(accept, edit or reject each row\)",
     "{f}: yapay zekânın okuduğu {t} satırdan {p} tanesi bir kişinin kararını bekliyor (her satırı onaylayın, "
     "düzeltin ya da reddedin)",
 )
@@ -223,42 +299,6 @@ _r(r"Rule proposal", "Kural önerisi")
 _r(r"Rule-like texts", "Kural benzeri metinler")
 _r(r"File", "Dosya")
 _r(r"(?P<f>.+?): (?P<msg_m>.+)", "{f}: {msg_m}")  # "<file>: <message>" (file items): only when the message is known
-
-#: how the encodings and delimiters of a delimited text file are named on the file row (T-R1-26)
-ENCODING_NAME = {
-    "cp1254": "Windows-1254",
-    "utf-8": "UTF-8",
-    "utf-8-sig": "UTF-8 (BOM)",
-    "utf-16": "UTF-16",
-    "latin-1": "ISO-8859-1",
-    "text": "metin",
-}
-DELIMITER_CHAR = {"semicolon": ";", "comma": ",", "tab": "sekme", "pipe": "|"}
-GRID_TR = {
-    "timetable-grid": "program tablosundan",
-    "timetable-grid (= default 18-period grid)": "program tablosundan (varsayılan 18 ders saati)",
-    "default-18": "varsayılan 18 ders saati",
-    "inferred": "derslerin saatlerinden çıkarıldı",
-}
-PRECHECK_TR = {
-    "fixed_conflict": "sabit dersler çakışıyor",
-    "trusted_lock_capacity": "kilitli dersin dersliği küçük",
-    "locked_overlap": "kilitli dersler çakışıyor",
-    "pigeonhole": "yeterli derslik ya da saat yok",
-    "no_room": "uygun derslik yok",
-}
-TERM_KIND_TR = {"REGULAR": "normal dönem", "SUMMER": "yaz okulu", "FINAL": "final", "BUT": "bütünleme"}
-#: app/council/structure.py KIND_LABELS in Turkish
-KIND_LABEL_TR = {
-    "room list": "derslik listesi",
-    "course / request list": "ders / talep listesi",
-    "exam list": "sınav listesi",
-    "existing timetable grid": "mevcut program tablosu",
-    "calendar / holidays": "takvim / tatiller",
-    "staff list": "personel listesi",
-    "preferences / rules": "tercih / kural listesi",
-    "other": "başka bir tablo",
-}
 
 
 def _field(f: str) -> str:

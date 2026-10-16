@@ -96,6 +96,24 @@ describe("MyRequests (Taleplerim)", () => {
     await waitFor(() => expect(state.withdraw).toHaveBeenCalledWith(1));
   });
 
+  it("T-R1-13: a two-period submission is one row with one status and the whole span; withdraw takes both", async () => {
+    const two = (id: number, p: number, status = "PENDING") => req(id, status, { group_id: 9, bookings: [{ ...booking("2026-10-22", p), id, time_start: p === 6 ? "12:40" : "13:30", time_end: p === 6 ? "13:20" : "14:10" }] });
+    state.rows = [two(5, 6), two(6, 7)];
+    state.withdraw.mockImplementation(async (id: number) => req(id, "WITHDRAWN"));
+    renderMine();
+    const list = await screen.findByTestId("my-requests");
+    expect(list.querySelectorAll("ul > li")).toHaveLength(1);
+    expect(list).toHaveTextContent("1 bekliyor");
+    const row = within(list).getByTestId("my-request-group");
+    expect(row.getAttribute("data-status")).toBe("PENDING");
+    expect(within(row).getByTestId("group-slot-line")).toHaveTextContent("P6–P7 (12:40–14:10)");
+    await userEvent.click(screen.getByTestId("my-request-5"));
+    await userEvent.click(screen.getByTestId("withdraw-group-9"));
+    await userEvent.click(await screen.findByTestId("withdraw-confirm-button"));
+    await waitFor(() => expect(state.withdraw).toHaveBeenCalledTimes(2));
+    expect(state.withdraw.mock.calls.map((c) => c[0])).toEqual([5, 6]);
+  });
+
   it("reads in English", async () => {
     renderMine("en");
     const list = await screen.findByTestId("my-requests");

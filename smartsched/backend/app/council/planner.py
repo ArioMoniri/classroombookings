@@ -294,9 +294,7 @@ def plan(
                         None,
                         [
                             str(year) if year else "",
-                            SEASON_TR.get(season or "", "Dönem")
-                            if lang == "tr"
-                            else (season or "Term").title(),
+                            SEASON_TR.get(season or "", "Dönem") if lang == "tr" else (season or "Term").title(),
                         ],
                     )
                 ),

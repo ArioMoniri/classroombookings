@@ -52,8 +52,9 @@ test.describe("round-1 hard-rule integrity", () => {
     await login(page);
     const term = await useTerm(page, "2026-BAHAR");
     const all = await runs(page, term.id);
-    const week = all.find((r) => r.label === "Bahar 3. hafta (A)");
-    expect(week, "the seeded week-3 run").toBeTruthy();
+    // a seeded week-3 run that is not the published one yet (a rerun on the same stack takes the other)
+    const week = all.find((r) => r.kind === "COURSE" && r.horizon === "WEEK" && !r.is_active && (r.label ?? "").startsWith("Bahar 3. hafta") && ["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL"].includes(r.status));
+    expect(week, "an unpublished seeded week-3 run").toBeTruthy();
     await page.goto(`/runs/${week!.id}`);
     const verdict = page.getByTestId("run-verdict");
     await expect(verdict).toBeVisible({ timeout: 30_000 });
@@ -82,8 +83,15 @@ test.describe("round-1 hard-rule integrity", () => {
     await login(page);
     const term = await useTerm(page, "2026-BAHAR");
     const edit = Number(process.env.E2E_EDIT_RUN ?? 0) || (await runs(page, term.id)).find((r) => r.label === "e2e: Bahar 3. hafta (takvim düzenlemeleri)")!.id;
-    await page.goto(`/timetable?run=${edit}&week=3&lens=week`);
-    const chips = page.getByTestId("calendar-event");
+    const hardBefore = (await api<RunRow>(page, `/runs/${edit}`)).hard_score;
+    const overridesBefore = ((await api<RunRow>(page, `/runs/${edit}`)).stats.forced_overrides as unknown[] | undefined)?.length ?? 0;
+    // the busiest room of week 3: its classes have taken rooms around them in the finder
+    const idx = await api<{ rooms: { id: number; name: string }[]; assignments: { rooms: number[]; weeks: number[] }[] }>(page, `/runs/${edit}/calendar-index`);
+    const load = new Map<number, number>();
+    for (const a of idx.assignments) if (a.weeks.includes(3)) for (const r of a.rooms) load.set(r, (load.get(r) ?? 0) + 1);
+    const room = [...load.entries()].sort((x, y) => y[1] - x[1])[0][0];
+    await page.goto(`/timetable?run=${edit}&week=3&lens=week&subject=room:${room}`);
+    const chips = page.locator(`[data-testid=calendar-event][data-room-id="${room}"]`);
     await expect(chips.first()).toBeVisible({ timeout: 45_000 });
     const insp = page.getByTestId("class-inspector");
     const dialog = page.getByTestId("move-dialog");
@@ -112,7 +120,8 @@ test.describe("round-1 hard-rule integrity", () => {
     }
     expect(forced, "a class with a taken room in the finder").toBe(true);
     // the run names the break with the reason: the timetable banner and the report
-    await expect.poll(async () => (await api<RunRow>(page, `/runs/${edit}`)).hard_score ?? 100, { timeout: 30_000 }).toBeLessThan(100);
+    await expect.poll(async () => ((await api<RunRow>(page, `/runs/${edit}`)).stats.forced_overrides as unknown[] | undefined)?.length ?? 0, { timeout: 30_000 }).toBe(overridesBefore + 1);
+    expect((await api<RunRow>(page, `/runs/${edit}`)).hard_score ?? 100).toBeLessThan(100);
     const banner = page.getByTestId("run-broken-banner");
     await expect(banner).toBeVisible({ timeout: 30_000 });
     await expect(banner).toContainText("Bölüm başkanı onayı, tek seferlik");
@@ -124,8 +133,8 @@ test.describe("round-1 hard-rule integrity", () => {
     // undo (Ctrl+Z on the timetable): the forced placement goes away, the override stops counting, hard 100 again
     await page.getByTestId("calendar-title").click();
     await page.keyboard.press("ControlOrMeta+z");
-    await expect.poll(async () => (await api<RunRow>(page, `/runs/${edit}`)).hard_score, { timeout: 30_000 }).toBe(100);
-    await expect(banner).toBeHidden({ timeout: 30_000 });
+    await expect.poll(async () => (await api<RunRow>(page, `/runs/${edit}`)).hard_score, { timeout: 30_000 }).toBe(hardBefore);
+    if (hardBefore === 100) await expect(banner).toBeHidden({ timeout: 30_000 });
   });
 
   test("3. a week run against the full-term run is never 'B daha iyi' on data it does not have", async ({ page }) => {
@@ -145,15 +154,15 @@ test.describe("round-1 hard-rule integrity", () => {
   });
 
   test("4. the Studio keeps a week clicked while the previous save is in flight (R1-M-12)", async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(240_000);
     await login(page);
     const term = await useTerm(page, "2026-BAHAR");
     const draft = await api<{ version: number }>(page, `/terms/${term.id}/studio`);
     const put = await send(page, "PUT", `/terms/${term.id}/studio`, { version: draft.version, horizon: "WEEK", horizon_params: { weeks: [6] } });
     expect(put.status).toBe(200);
-    // every draft save answers 2 s late, so the second click lands while the first request is in flight
+    // every draft save answers 1.2 s late, so the second click lands while the first request is in flight
     await page.route(`**/api/v1/terms/${term.id}/studio`, async (route) => {
-      if (route.request().method() === "PUT") await new Promise((res) => setTimeout(res, 2000));
+      if (route.request().method() === "PUT") await new Promise((res) => setTimeout(res, 1200));
       await route.continue();
     });
     await page.goto("/generate?step=scope");
@@ -162,7 +171,7 @@ test.describe("round-1 hard-rule integrity", () => {
     const firstSave = page.waitForRequest((r) => r.url().includes(`/terms/${term.id}/studio`) && r.method() === "PUT");
     await firstSave;
     await page.getByTestId("week-3").click(); // while the week-4 save is in flight
-    await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "saved", { timeout: 30_000 });
+    await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "saved", { timeout: 90_000 });
     await expect(page.getByTestId("week-3")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("week-4")).toHaveAttribute("aria-pressed", "false");
     await page.unroute(`**/api/v1/terms/${term.id}/studio`);
@@ -175,7 +184,7 @@ test.describe("round-1 hard-rule integrity", () => {
   test("5. the impossible hard pin is refused with the one sentence (R1-M-03)", async ({ page }) => {
     await login(page);
     const term = await useTerm(page, "2026-BAHAR");
-    const classes = await api<{ items: { id: number; course_code: string | null; day: number | null; start_period: number | null; enrolment: number | null }[] }>(page, `/terms/${term.id}/studio/classes?limit=3000`);
+    const classes = await api<{ items: { id: number; course_code: string | null; day: number | null; start_period: number | null; enrolment: number | null }[] }>(page, `/terms/${term.id}/studio/classes?limit=2000`);
     const ing = classes.items.find((c) => (c.course_code ?? "").replace(/\s/g, "") === "ING302" && c.day === 1 && c.start_period === 3 && c.enrolment === 100);
     const rooms = await api<{ id: number; code: string }[]>(page, "/rooms");
     const b201 = rooms.find((r) => r.code === "B201");

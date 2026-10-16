@@ -25,6 +25,27 @@ export function requestSlots(r: Pick<ApprovalRequest, "bookings">): { dates: str
   return { dates, first, periods };
 }
 
+/**
+ * T-R1-13 (A-12): one line for a submission of several adjacent periods ("P7–P8", 13:30–15:00) instead of its first
+ * period: the lowest start and the highest end over every request of the group, on the first date.
+ */
+export function groupSpan(reqs: readonly Pick<ApprovalRequest, "bookings">[]): { date: string; start: number; end: number; timeStart: string | null; timeEnd: string | null; periods: string } | null {
+  const all = reqs.flatMap((r) => r.bookings);
+  if (!all.length) return null;
+  const date = [...all.map((b) => b.date)].sort()[0]!;
+  const day = all.filter((b) => b.date === date).sort((a, b) => a.start_period - b.start_period);
+  const lo = day[0]!;
+  const hi = day.reduce((m, b) => (b.end_period > m.end_period ? b : m), lo);
+  const periods = lo.start_period === hi.end_period ? `P${lo.start_period}` : `P${lo.start_period}–P${hi.end_period}`;
+  return { date, start: lo.start_period, end: hi.end_period, timeStart: lo.time_start ?? null, timeEnd: hi.time_end ?? null, periods };
+}
+
+/** The status of a submission: the one status every period shares, else `null` (mixed: shown per period). */
+export function groupStatus(reqs: readonly Pick<ApprovalRequest, "status">[]): ApprovalRequest["status"] | null {
+  const set = new Set(reqs.map((r) => r.status));
+  return set.size === 1 ? reqs[0]!.status : null;
+}
+
 /** Bookings of the request that are still open (a series may have dates the approver can pick). */
 export function openDates(r: Pick<ApprovalRequest, "bookings">): string[] {
   return [...new Set(r.bookings.filter((b) => b.status === "PENDING").map((b) => b.date))].sort();

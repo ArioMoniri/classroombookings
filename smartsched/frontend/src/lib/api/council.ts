@@ -167,6 +167,12 @@ export const CommitOut = z
     general: z.record(z.string(), z.number()),
     constraints_created: z.array(z.number()),
     constraints_rejected: z.array(z.unknown()),
+    /** every constraint the commit wrote (importer preference rules + accepted proposals; T-R1-24) */
+    constraints_total: z.number().nullish(),
+    /** a commit has no undo (T-R1-24) */
+    reversible: z.boolean().nullish(),
+    /** per entity, the same counts as the dry run */
+    changes: z.record(z.string(), z.object({ create: z.number().default(0), update: z.number().default(0), unchanged: z.number().default(0), conflict: z.number().default(0) }).passthrough()).nullish(),
   })
   .passthrough();
 export type CommitOut = z.infer<typeof CommitOut>;

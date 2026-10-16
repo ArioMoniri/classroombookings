@@ -2873,7 +2873,9 @@
       "withdraw": "Talebi geri çek",
       "withdrawTitle": "{room} talebi geri çekilsin mi?",
       "withdrawBody": "Onaycılara bildirilir ve saat serbest kalır.",
-      "withdrawn": "Talep geri çekildi."
+      "withdrawn": "Talep geri çekildi.",
+      "withdrawOne": "Yalnız {period} saatini geri çek",
+      "withdrawAll": "{n} saatin hepsini geri çek"
     },
     "rules": {
       "title": "Onay kuralları",
@@ -4683,7 +4685,7 @@
         "info": "Verilerim hakkında bilgi"
       },
       "hint": {
-        "export": "Hesabınız, rezervasyonlarınız, talepleriniz ve diğer kayıtlarınızın zip dosyası (JSON ve CSV); başka kişiler yalnızca rolleriyle görünür. 7 gün indirilebilir.",
+        "export": "Hesabınız, rezervasyonlarınız, öğretim elemanı kaydınız ve dersleriniz, Taleplerim'deki ders talepleri, tercihleriniz ve koordinatör kararları ile diğer kayıtlarınızın zip dosyası (JSON ve CSV, her dosya README'de açıklanır); başka kişiler yalnızca rolleriyle görünür. 7 gün indirilebilir.",
         "erase": "İleri tarihli rezervasyonlarınız iptal edilir, geçmiştekiler anonimleştirilir ve hesabınız anonimleştirilir. Denetim kayıtları yasal saklama süresince anonim olarak tutulur.",
         "rectify": "Neyin yanlış olduğunu ve doğrusunun ne olması gerektiğini yazın.",
         "info": "Hakkınızda ne tutulduğunu, neden ve ne kadar süre tutulduğunu sorun."

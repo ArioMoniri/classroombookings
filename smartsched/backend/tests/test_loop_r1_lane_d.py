@@ -173,7 +173,8 @@ async def test_export_holds_every_record_about_the_person_and_no_one_else(real: 
     readme = z.read("README.txt").decode("utf-8")
     for sec in OLD_SECTIONS + NEW_SECTIONS:
         assert sec in data, sec
-        assert f"{sec}.csv" in names, sec
+        assert f"{sec}.csv" in names and f"{sec}.json" in names, sec
+        assert json.loads(z.read(f"{sec}.json")) == data[sec], sec
         assert f"{sec}.csv" in readme, f"README does not explain {sec}.csv"
 
     # the instructor record and the sections they teach
@@ -224,8 +225,8 @@ async def test_export_holds_every_record_about_the_person_and_no_one_else(real: 
             if v and len(v) >= 3 and fold(v) not in ("administrator", "admin"):
                 assert not _whole_words(whole, v), v
     assert not _whole_words(whole, co_name) and not _whole_words(whole, "eş.hoca@uni.edu.tr")
-    # the Bahar list's column header names the planning office's person ("...Birimi-Fatih Bey tarafından...")
-    assert not _whole_words(whole, "Fatih Bey") and "[kisi] tarafindan" in whole
+    # the Bahar list's column header names the planning office's person ("...Birimi-<ad> Bey tarafından...")
+    assert not re.search(r"\w+ bey tarafindan", whole) and "[kisi] tarafindan" in whole
     leaks = [t.full_name for t in teachers if t.full_name and len(t.full_name) > 5 and _whole_words(whole, t.full_name)]
     assert leaks == [], leaks[:10]
 

@@ -1585,8 +1585,8 @@ def _needle_rx(v: str) -> str:
 
 
 _WORD = re.compile(r"\w+")
-#: a first name with a Turkish form of address ("Fatih Bey", "Ayşe Hanım", "Ali Hoca"), e.g. in a planning-list
-#: column header ("... Derslik Planlama Birimi-Fatih Bey tarafından doldurulmalıdır")
+#: a first name with a Turkish form of address ("Ahmet Bey", "Elif Hanım", "Ali Hoca"), e.g. in a planning-list
+#: column header ("... Derslik Planlama Birimi-<ad> Bey tarafından doldurulmalıdır")
 _HONORIFIC = re.compile(r"(?<!\w)([A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,})\s+(?:Bey|Hanım|Hanim|Hoca|Hocam)(?!\w)")
 _HONORIFIC_HINT = re.compile(r"(?:Bey|Hanım|Hanim|Hoca|Hocam)(?!\w)")
 #: the export's own role labels: never treated as someone's name
@@ -1609,7 +1609,7 @@ _ROLE_WORDS = frozenset(
 
 
 async def _scrub_others(session: AsyncSession, user: User, data: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
-    """Other people named in the person's own records (a notification "Fatih Bey booked for you", an approver's
+    """Other people named in the person's own records (a notification "Ahmet Bey booked for you", an approver's
     note, a coordinator's reason, a co-instructor in a planning-list row) appear by their role, never by name,
     username or e-mail (spec §4.7; round-1 T-R1-27 added the instructor records). Whole words only, Turkish
     dotted / dotless i and case alike, one pass per text (a replacement is never matched again)."""
@@ -1652,7 +1652,7 @@ async def _scrub_others(session: AsyncSession, user: User, data: dict[str, list[
         return m.group(0) if _fold_key(m.group(1)) in own_words else "[Kişi]"
 
     def clean_text(v: str) -> str:
-        if _HONORIFIC_HINT.search(v):  # "Fatih Bey", "Ayşe Hanım": a person named in a header or a note
+        if _HONORIFIC_HINT.search(v):  # "Ahmet Bey", "Elif Hanım": a person named in a header or a note
             v = _HONORIFIC.sub(by_title, v)
         words = {_fold_key(w) for w in _WORD.findall(v)}
         cands = frozenset(k for w in words for k in by_word.get(w, ()))
@@ -1789,13 +1789,13 @@ def export_readme(data: dict[str, Any], now: datetime) -> str:
         "Notes that describe an accessibility need are left out, as in My requests (students' health data).",
         "",
         "data.json: bütün bölümler tek dosyada / every section in one file.",
-        "Her bölüm ayrıca bir CSV dosyasıdır / every section is also a CSV file:",
+        "Her bölüm ayrıca bir JSON ve bir CSV dosyasıdır / every section is also a JSON and a CSV file:",
         "",
     ]
     for name in data:
         tr, en = EXPORT_FILES.get(name, ("", ""))
         rows = len(data[name]) if isinstance(data[name], list) else 0
-        lines.append(f"{name}.csv ({rows} satır / rows)")
+        lines.append(f"{name}.json, {name}.csv ({rows} satır / rows)")
         if tr:
             lines += [f"  {tr}", f"  {en}"]
     return "\n".join(lines) + "\n"
@@ -1814,6 +1814,7 @@ async def export_zip(session: AsyncSession, user: User, request_id: int) -> byte
         z.writestr("data.json", json.dumps(data, ensure_ascii=False, indent=2, default=_iso))
         for name, rows in data.items():
             z.writestr(f"{name}.csv", _csv(rows))
+            z.writestr(f"{name}.json", json.dumps(rows, ensure_ascii=False, indent=2, default=_iso))
         z.writestr("README.txt", export_readme(data, now))
     await audit.record(session, "kvkk.dsr_download", "dsr_request", r.id, after={"sections": len(data)}, actor=user)
     return buf.getvalue()

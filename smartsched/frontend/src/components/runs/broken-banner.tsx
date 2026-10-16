@@ -13,7 +13,8 @@ import { BROKEN_RULE_TR, truthOf } from "./run-truth";
 export function BrokenRulesBanner({ runId, className }: { runId: number | null; className?: string }) {
   const { n, locale } = useI18n();
   const run = useRun(runId);
-  const truth = truthOf(run.data?.stats?.truth);
+  // `stats_detail`: the run adapter keeps only the flat numbers in `stats`
+  const truth = truthOf((run.data?.stats_detail ?? run.data?.stats)?.truth);
   if (!run.data || !truth || truth.verdict !== "broken") return null;
   const tr = locale === "tr";
   const published = run.data.is_active;

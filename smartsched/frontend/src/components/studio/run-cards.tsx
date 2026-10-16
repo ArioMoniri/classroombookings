@@ -163,9 +163,10 @@ export function RunCard({ compact }: { compact?: boolean }) {
         </div>
       ) : HAS_TIMETABLE.has(r.status) ? (
         <div className="mt-2 space-y-2">
-          {truthOf(r.stats.truth) && truthOf(r.stats.truth)?.verdict !== "none" ? (
+          {truthOf((r.stats_detail ?? r.stats).truth) && truthOf((r.stats_detail ?? r.stats).truth)?.verdict !== "none" ? (
             // round-1 R1-M-04: the backend's one truth (planner-level check), the same sentence as the run report
-            <TruthLine truth={truthOf(r.stats.truth) as RunTruth} />
+            // (`stats_detail`: the adapter keeps only the flat numbers in `stats`)
+            <TruthLine truth={truthOf((r.stats_detail ?? r.stats).truth) as RunTruth} />
           ) : r.status === "FEASIBLE_PARTIAL" ? (
             // a best-effort run: the honest count, amber (UX fix "partial runs never show a green 100/100")
             <p data-testid="run-result" className="text-status-warning-fg">

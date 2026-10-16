@@ -44,7 +44,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { conflictAlternatives, groupInbox, isOpen, openDates, pickAsked, requestSlots, type DecideAlternative } from "./approvals-model";
 import { RejectDialog, type RejectReason } from "./reject-dialog";
-import { RequestReason, RequestTimeline, SlotLine, StatusPill } from "./request-parts";
+import { GroupSlotLine, RequestReason, RequestTimeline, SlotLine, StatusPill } from "./request-parts";
 
 type Box = "open" | "decided";
 
@@ -152,7 +152,7 @@ export function ApprovalsView() {
                         </span>
                       ) : null}
                     </span>
-                    <SlotLine req={r} fmt={fmt} className="block type-footnote text-label-2" />
+                    <GroupSlotLine reqs={requests} fmt={fmt} className="block type-footnote text-label-2" />
                   </span>
                   <span className="shrink-0 type-footnote text-label-2 sm:text-right">
                     <span className="block text-label-1">{r.requester_name}</span>
@@ -209,13 +209,13 @@ function RequestDrawer({ id, onClose, onSwitch, onDone, group }: { id: number | 
         data-testid="approval-drawer"
         data-reduced-motion={reduce || undefined}
       >
-        {id !== null ? <RequestDetail key={id} id={id} onClose={onClose} onSwitch={onSwitch} onDone={onDone} group={group} /> : null}
+        {id !== null ? <RequestDetail key={id} id={id} onSwitch={onSwitch} onDone={onDone} group={group} /> : null}
       </SheetContent>
     </Sheet>
   );
 }
 
-function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; onClose: () => void; onSwitch: (id: number) => void; onDone: (id: number) => void; group: ApprovalRequest[] }) {
+function RequestDetail({ id, onSwitch, onDone, group }: { id: number; onSwitch: (id: number) => void; onDone: (id: number) => void; group: ApprovalRequest[] }) {
   const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const qc = useQueryClient();
@@ -322,8 +322,9 @@ function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; o
           <SheetTitle className="type-title-3 outline-hidden" tabIndex={-1} data-approval-title>{r.room_name}</SheetTitle>
           <StatusPill status={r.status} />
         </div>
+        {/* T-R1-13 (R1-M-34): a submission's heading names its whole span ("P7–P8 (13:30–15:00)") */}
         <SheetDescription className="type-callout text-label-2">
-          <SlotLine req={r} fmt={fmt} />
+          {siblings.length ? <GroupSlotLine reqs={siblings} fmt={fmt} /> : <SlotLine req={r} fmt={fmt} />}
         </SheetDescription>
       </SheetHeader>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pb-4">
@@ -490,13 +491,7 @@ function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; o
             {pending.length > 1 && chosen.size < pending.length ? t("wave1.approvals.approveN", { n: chosen.size }) : t("wave1.approvals.approve")}</BusyLabel>
           </Button>
         </SheetFooter>
-      ) : (
-        <SheetFooter className="hairline-t flex-row justify-end px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <Button variant="ghost" onClick={onClose}>
-            {t("crbs.common.close")}
-          </Button>
-        </SheetFooter>
-      )}
+      ) : null /* a decided request: the sheet's own close button is the one close control ("Kapat Kapat", R1-M-34) */}
       <RejectDialog
         open={rejecting !== null}
         onOpenChange={(o) => !o && setRejecting(null)}

@@ -6,11 +6,16 @@
  * `setup.settings` may postpone it ("Daha sonra", for this browser tab and this notice version), and it never opens on
  * /admin/kvkk.
  *
+ * Focus (round-1 T-R1-28, R1-A-15): the gate unmounts when it closes ("Okudum" or "Daha sonra"), which would drop focus
+ * to <body>; it then focuses the page (`[data-focus-fallback]`, else `#main`, `focusAfter`). "Okudum" closes the gate at
+ * once on success instead of waiting for `/me/privacy` to be fetched again.
+ *
  * Motion: the design system's sheet / dialog transitions (springs.sheet, reduced-motion zeroed globally).
  */
 import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { focusAfter } from "@/components/bookings/focus-after";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
@@ -55,12 +60,30 @@ export function PrivacyNoticeGate() {
   const phone = useIsPhone();
   const admin = can("setup.settings");
   const [laterId, setLaterId] = useState<number | null>(readLater);
+  const [ackedId, setAckedId] = useState<number | null>(null);
   const okRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
   const notice = q.data?.notice ?? null;
-  const open = shouldGate({ needsAck: !!q.data?.needs_ack, hasNotice: !!notice, pathname, admin, postponed: !!notice && laterId === notice.id });
+  const open =
+    shouldGate({ needsAck: !!q.data?.needs_ack, hasNotice: !!notice, pathname, admin, postponed: !!notice && laterId === notice.id }) && !(notice && ackedId === notice.id);
+  // closed after it was shown: hand focus to the page, never to <body>
+  useEffect(() => {
+    if (open) wasOpen.current = true;
+    else if (wasOpen.current) {
+      wasOpen.current = false;
+      focusAfter([], 60);
+    }
+  }, [open]);
   if (!open || !notice) return null;
 
-  const confirm = () => ack.mutate(notice.id, { onSuccess: () => toast.success(t("privacy.notice.acked")), onError: (e) => toast.error(errorText(wave1Error(e), locale)) });
+  const confirm = () =>
+    ack.mutate(notice.id, {
+      onSuccess: () => {
+        setAckedId(notice.id);
+        toast.success(t("privacy.notice.acked"));
+      },
+      onError: (e) => toast.error(errorText(wave1Error(e), locale)),
+    });
   const actions = (
     <>
       {admin ? (

@@ -40,6 +40,8 @@ describe("ReviewPanel kinds", () => {
     const row = screen.getByTestId("review-rows:0");
     expect(within(row).queryByRole("button", { name: "Onayla" })).toBeNull();
     expect(row).toHaveTextContent("satırların kararı aşağıdaki listede");
+    // Turkish percent (T-R1-23): "güven %62", never "62 %"
+    expect(screen.getByTestId("review-map:0:0:2")).toHaveTextContent("güven %62");
   });
 
   it("accept-all leaves the ai_rows item to the rows panel", async () => {
