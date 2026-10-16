@@ -1664,7 +1664,8 @@
       "goal": "You are the **academician persona tester** (round 1 of the flow loop) for SmartSched. Repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m (shared tree; you only write reports). Ledger id: flow-r1-academician-2026-10-16. ## Persona A Turkish university academician (öğretim üyesi) wh…",
       "ledger": "Persona tester: academician",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 11:45"
     },
     {
       "id": "a305971451e927fc6",

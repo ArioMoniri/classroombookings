@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `a0d3cb7` (committed 2026-10-16 11:22 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `dafa245` (committed 2026-10-16 11:44 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-150 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 127 · stopped 7 · superseded 7.
+150 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 128 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -155,7 +155,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
-| `Persona tester` | user-tester | 2026-10-16 10:21 |
 | `Persona tester` | user-tester | 2026-10-16 10:21 |
 | `Persona tester` | user-tester | 2026-10-16 10:21 |
 
