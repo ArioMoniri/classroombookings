@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `088740b` (committed 2026-10-16 07:59 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `58a31df` (committed 2026-10-16 08:14 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -224,7 +224,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **187 ticked · 303 open** checkboxes in 71 sections (68 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **193 ticked · 302 open** checkboxes in 72 sections (69 with open items).
 
 <details><summary>Per section</summary>
 
@@ -294,13 +294,14 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Follow-ups UI finished (2026-10-16) | 2 | 2 |
 | Backend follow-ups finished (2026-10-16) | 2 | 5 |
 | Planning analytics backend finished (2026-10-16); analytics UI launched | 3 | 2 |
-| Design migration and phone sweep finished (2026-10-16) | 0 | 2 |
+| Design migration and phone sweep finished (2026-10-16) | 1 | 3 |
 | Bookings wave-2 backend finished (2026-10-16); wave-2 + KVKK UI launched | 0 | 2 |
 | Backend test isolation finished (2026-10-16) | 0 | 2 |
 | Planning analytics UI finished (2026-10-16) | 4 | 1 |
-| Backend asks batch 2 finished (2026-10-16) | 0 | 5 |
+| Backend asks batch 2 finished (2026-10-16) | 4 | 1 |
+| Batch-2 endpoints UI finished (2026-10-16) | 0 | 2 |
 | Mobile polish finished (2026-10-16) | 0 | 1 |
-| Bookings wave-2 + KVKK UI finished (2026-10-16) | 0 | 4 |
+| Bookings wave-2 + KVKK UI finished (2026-10-16) | 1 | 4 |
 
 </details>
 

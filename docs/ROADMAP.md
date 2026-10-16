@@ -1453,11 +1453,22 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - **`?dry_run=1` on `POST /moderation/me/preferences`:** returns 200 with the same checks, `items[].text` and `effective`, and stores and audits nothing.
   - **`GET /moderation/me/rooms`:** the bookable rooms, without notes.
   - **approval-first 202/201:** not a backend regression. P8 only refuses a booking or adds a request. The spec's flow answers 202 on the backend with policies on. It answers 201 only under `approval_mode=rules`, which is what happens when spec test 1 (the UI switch to `all`) has not run first, for example with `--grep` on test 3 or 5.
-- [ ] Frontend (invigilation): a "Gözetmen ekle" button on a post with `missing > 0`. It calls `POST /invigilation/plans/{id}/duties`, with the picker fed by `GET …/candidates?post_key=` (`free`). On 409, show `detail.tr` / `detail.reason_text.tr` and `problems`. On 201 the response is the duty plus `plan` (the new brief).
-- [ ] Frontend (invigilation): a progress bar from `progress {phase, pct}` in `GET /invigilation/plans` and `GET /invigilation/plans/{id}`. `pct` stays at 30 during `solving`, so keep the elapsed time against `params.time_limit_s` for that phase. Show the `resolved: true` shortage diagnoses as resolved.
-- [ ] Frontend (runs): add `label: z.string().nullable().optional()` to `ScheduleRun` in `src/lib/api/schemas.ts`, then drop `RunLite` (analytics.ts) and its raw `GET /runs` call.
-- [ ] Frontend (Tercih ekle): preview with `POST /moderation/me/preferences?dry_run=1` (same body; 200 `{dry_run: true, status: "preview", submission: null, items[{id: null, text{tr,en}, wish, department, …}], effective{tr,en}}`; refusals as the real submit). The room picker uses `GET /moderation/me/rooms` (`{items[{id, code, name, capacity, building, building_name, tags, bookable}], count}`; 403 `not_linked`).
+- [x] (709938c, e2e 2240fba) Frontend (invigilation): a "Gözetmen ekle" button on a post with `missing > 0`. It calls `POST /invigilation/plans/{id}/duties`, with the picker fed by `GET …/candidates?post_key=` (`free`). On 409, show `detail.tr` / `detail.reason_text.tr` and `problems`. On 201 the response is the duty plus `plan` (the new brief).
+- [x] (709938c; seen while solving in e2e/analytics.spec.ts) Frontend (invigilation): a progress bar from `progress {phase, pct}` in `GET /invigilation/plans` and `GET /invigilation/plans/{id}`. `pct` stays at 30 during `solving`, so keep the elapsed time against `params.time_limit_s` for that phase. Show the `resolved: true` shortage diagnoses as resolved.
+- [x] (3ae169f, ecd7812) Frontend (runs): add `label: z.string().nullable().optional()` to `ScheduleRun` in `src/lib/api/schemas.ts`, then drop `RunLite` (analytics.ts) and its raw `GET /runs` call.
+- [x] (87a38f9, e2e 2240fba) Frontend (Tercih ekle): preview with `POST /moderation/me/preferences?dry_run=1` (same body; 200 `{dry_run: true, status: "preview", submission: null, items[{id: null, text{tr,en}, wish, department, …}], effective{tr,en}}`; refusals as the real submit). The room picker uses `GET /moderation/me/rooms` (`{items[{id, code, name, capacity, building, building_name, tags, bookable}], count}`; 403 `not_linked`).
 - [ ] e2e owner (`e2e/approval-first.spec.ts`): make tests 2, 3, 5 and 6 independent of test 1. Set `approval_mode: "all"` through the API in `beforeAll`, after reading `ctx.mode`; test 1 already resets to `rules` first and `afterAll` restores. Alternatively, assert `/approvals/rooms/{id}/check` → `request` in `requestOne` with a clear message.
+
+### Batch-2 endpoints UI finished (2026-10-16)
+
+- Done:
+  - **Gözetmen ekle:** a short post (`missing > 0`) has the button. The picker lists the free people from `GET …/candidates` and everyone else as disabled rows with the server's reason. On 201 the response's brief replaces the cached one (lists and the open detail, with the duty on its post), then the detail is re-read. A 409 shows `detail.tr`/`en`, "Neden: {reason_text}" and the problems. Resolved shortages get their own group at the end ("…: giderildi"). The "about a minute" wording is gone. A focused post (`?post=`) now renders even past the first 60 posts of its date.
+  - **Progress:** phase label plus a determinate bar from `progress.pct`. While `solving` (pct 30) a second meter shows the elapsed time against `params.time_limit_s`. No number is shown when the job has not reported one. The plan list says "Çözülüyor · %30".
+  - **Runs label:** `ScheduleRun.label` is in zod. `RunLite` and the raw `GET /runs` are gone: `useRunOptions` reads the shared `qk.runs` + `api.runs.list` cache. Labels show in the compare and heatmap pickers, the invigilation exam-run select, the /timetable run picker (short label "#4 · Bahar 3. hafta (A)"), the studio copy picker and the runs list.
+  - **Tercih ekle:** a debounced (400 ms) `?dry_run=1` preview of the same body. The summary is the server's `items[].text` and `effective`. The local sentence shows only while the preview loads. A preview refusal reads like a submit refusal ("Bu haliyle gönderilemez: …"). The room picker reads `GET /moderation/me/rooms`, grouped by building with capacity and tags, and searches code, name, block and tag. A typed "c301" + Enter picks the listed C 301 by id; unlisted codes are still sent as typed. On a 403 `not_linked` only the typed-code path is left.
+  - Evidence: `e2e/analytics.spec.ts` 6/6 and `e2e/followups-ui.spec.ts` 7/7 on an own stack (real Bahar + Final, CLI solves). vitest uses real backend answers in `components/invigilation/__fixtures__/add-duty-final.json` and `components/moderation/__fixtures__/wish-preview-bahar.json` (instructor name masked).
+- [ ] Mobile polish (fenced `components/classes`): the /classes run picker still reads `Run #{id} · {status}` (`classes-page.tsx` ~l. 492). Use `runOptionLabel` from `components/timetable/model/run-label.ts` so the label shows.
+- [ ] e2e owner: `followups-ui.spec.ts` now makes `TERM_CODE` the active term in `beforeAll` when `/terms/current` is another term, and restores it in `afterAll`. Taleplerim reads the server's current term, so a stack that also holds the Final opened on the Final.
 
 
 ### Mobile polish finished (2026-10-16)
@@ -1485,12 +1496,13 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - **Profil › Gizlilik:** notice acknowledgement, consents, and data requests with export download. A blocking first-login notice sheet.
   - **Admin › KVKK:** the request queue, retention, notices and inventory.
   - e2e 5/5, run three times, safe to rerun.
-- [ ] Backend asks (batch 3):
-  - Shorter or no cache on `/public/schedule*`, so switching it off takes effect at once. It is 60 s today.
-  - The booking period id in find-room results, for a full "Neden?" verdict.
-  - Localised field codes for `/admin/retention` 422s.
-  - `GET /admin/dsr?status=all`.
-  - What withdrawing the photo, calendar_sync and ai_personal consents does: return counts like `removed_channels`.
+- [x] Backend asks (batch 3), backend done 2026-10-16 (backend-asks-3-2026-10-16):
+  - `/public/schedule*` revalidate on every poll (`max-age=0, must-revalidate`, ETag, 304); a refusal is `no-store`, so switching the view off takes effect on the next poll.
+  - Find-room results and alternatives carry `period_ids` / `period_id` for a full "Neden?" verdict.
+  - `/admin/retention` 422s carry `{code, field, message_en, message_tr, errors[]}`.
+  - `GET /admin/dsr?status=all`; an unknown status is a 422 with `allowed`.
+  - Withdrawing a consent applies at once and answers `removed_channels`, `removed_photo`, `revoked_feeds`, `disconnected_calendars`, `ai_excluded` and `effects[]`. `photo` deletes the stored file. `calendar_sync` revokes the feeds and disconnects the push calendars. `ai_personal` keeps the person out of AI prompts (`app/ai/personal.py`).
+- [ ] UI follow-ups (batch 3): read `effects[]` in the Gizlilik toast and dialogs, pass `period_id` to "Neden?" in find-room, show the retention `field` errors inline, add an "Tümü" filter (`status=all`) to the KVKK queue.
 - [ ] The conflict banner in the timetable header.
 - [ ] Persist the admins' "Daha sonra" on the server.
 - [ ] A legal review of the Gizlilik consequence texts.
