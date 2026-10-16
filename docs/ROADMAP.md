@@ -1297,9 +1297,9 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - Tests: vitest (wish model, sheet, Tercihlerim, review, wizard codes, users identity query);
     `e2e/followups-ui.spec.ts` 7/7 against a real backend + frontend (desktop and phone 390).
 - Open:
-  - [ ] Backend ask: a dry-run of `POST /moderation/me/preferences` (`?dry_run=1`) so the sheet can show the
+  - [x] (513b9aa, backend asks 2) Backend ask: a dry-run of `POST /moderation/me/preferences` (`?dry_run=1`) so the sheet can show the
     server's own `effective` and texts before sending (today the sheet mirrors `_texts` / `effective`).
-  - [ ] Backend ask: a room list a linked academician may read (code, name, capacity, bookable); `/bookings/rooms`
+  - [x] (513b9aa: `GET /moderation/me/rooms`) Backend ask: a room list a linked academician may read (code, name, capacity, bookable); `/bookings/rooms`
     hides ungrouped rooms, so on a fresh install the sheet falls back to typed codes.
   - [ ] Notifications owner: put `preference.*` in the "Program" group of the preferences panel (`eventGroup`).
   - [ ] ui owner: the Sheet close button is 36 px on touch (M-02).
@@ -1336,9 +1336,9 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - The pool is the exam instructors plus the staff pool.
   - With `prefer`, the own-exam bonus outweighs fairness on the Final: the busiest person gets 21 periods against a fair share of 10.3. Lower `weights.own_exam`?
 - [ ] 63 of the 314 named exam instructors don't match an Instructor row. Add them to the pool, or link them through the importer.
-- [ ] A plan interrupted by a restart reads as FAILED; add a startup sweep.
+- [x] A plan interrupted by a restart reads as FAILED; add a startup sweep. (4e13234: `recover_interrupted_plans` in the lifespan, heartbeat-aware)
 - The analytics UI agent is running: the compare page, the heatmaps and the Gözetmen ataması screens.
-- [ ] Backend asks from the follow-ups UI:
+- [x] Backend asks from the follow-ups UI (513b9aa):
   - `POST /moderation/me/preferences?dry_run=1` returning `effective` and `items[].text` without storing anything.
   - A room list a linked academician can read (code, name, capacity, bookable). `/bookings/rooms` hides ungrouped rooms, so the room picker falls back to typed codes.
 - [x] The flow loop (M-02) should check the Sheet close button. It is 36 px, and the Button primitive's coarse-pointer `::after` should extend its hit area to 44 × 44. (ui-primitives-touch 2026-10-16: verified at 390 on touch, all four probe points hit the close button.)
@@ -1414,9 +1414,9 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - Doluluk ısı haritası at `/analytics/heatmap`. Rooms come from the live board or one run, grouped by building, room type, capacity band or room, for one week or the whole term. Pre-occupied cells are hatched and left out of the %. The overview drills down to period × day and then to the rooms of a group. The grids are keyboard-navigable with sticky headers inside a frame, and the scale legend works in light and dark. The instructor load tab has a sortable people table and each person's week.
   - Gözetmen ataması at `/exams/invigilation`: the pool with an unavailability editor, a run form (defaults shown, advanced settings collapsed), polling with backoff and the diagnoses with their suggestions (INFEASIBLE is shown at the top). Duties are listed by date and room, with lock, reassign through the candidate picker (unavailable people with their reasons) and re-run keeping the locks. Load per person, publish, delete, and roster and load CSVs complete it.
   - Evidence: `e2e/analytics.spec.ts` 5/5 on the real Bahar and Final data. vitest covers the models, the grid and the compare view.
-- [ ] Backend: `GET /invigilation/plans/{id}/candidates` takes about 58 s on the real Final plan (846 posts, 218 people). It seems to validate the whole plan once per person, and appears to block the event loop while it runs. Check only the changed post per person, or run it in a thread.
-- [ ] Backend: there is no way to add a duty to an under-staffed post by hand (reassign only swaps an existing duty). Add `POST …/duties {post_key, person_key}`.
-- [ ] Backend: a running plan reports no progress, because the queue's phase and percentage are not stored on the plan. The UI shows the elapsed time against the time limit instead.
+- [x] (80780f2: 0.27 s, loop stall ≤ 45 ms) Backend: `GET /invigilation/plans/{id}/candidates` takes about 58 s on the real Final plan (846 posts, 218 people). It seems to validate the whole plan once per person, and appears to block the event loop while it runs. Check only the changed post per person, or run it in a thread.
+- [x] (1fd206e) Backend: there is no way to add a duty to an under-staffed post by hand (reassign only swaps an existing duty). Add `POST …/duties {post_key, person_key}`.
+- [x] (4e13234: `progress {phase, pct}` in the brief) Backend: a running plan reports no progress, because the queue's phase and percentage are not stored on the plan. The UI shows the elapsed time against the time limit instead.
 - [ ] Shell: breadcrumb labels for the `/analytics` and `/exams` segments (they show the raw segment). The two paths redirect to their pages.
 - [ ] Design: add the motion rows (FadePanel: section or result settles, springs.smooth, 100 ms opacity under reduced motion) to `docs/design/v2/motion.md`.
 
@@ -1436,3 +1436,21 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
     - the possible approval-first 202/201 regression
   - Breadcrumb labels went to the mobile polish agent.
   - Masking instructor names in the analytics test fixtures went back to the analytics agent (KVKK).
+
+### Backend asks batch 2 finished (2026-10-16)
+
+- Done (tests on the real Final plan `tests/test_invigilation_batch2.py` (846 posts, 218 people) and on real Bahar R601 PTL 102 §1 `tests/test_backend_asks_2.py`):
+  - **Candidates:** about 58 s (68 s under the profiler) is now 0.27 s on the Final. The old code ran one whole-plan `validate` per person, each re-running the full 846 × 218 `eligibility`. `check_post` uses the solver's own `eligibility` on that date's posts, plus per-person duty indexes (clash, rest, daily and total caps). An oracle test compares it with `inv.validate`. The checks run in a worker thread; the worst event-loop stall is 45 ms, and a test proves a cheap request is answered while candidates runs. New reason codes: `on_duty`, `rest`, `day_cap`, `total_cap`, plus `clash_post_key`.
+  - **`POST /invigilation/plans/{id}/duties {post_key, person_key, reason?}`:** fills an under-staffed post by hand. Every hard rule of the post is checked, and so is the required count (`post_full`). A refusal is a 409 `{tr, en, reason, reason_text, clash_post_key, problems}`. The new duty is MANUAL and locked and audited as `invigilation.add_duty` (DECISIONS entry added). The plan is re-scored the way a solve counts it: shortfall, hard and soft scores, loads with days, objective breakdown and headline. Shortage diagnoses get `resolved`, and an INFEASIBLE plan becomes FEASIBLE once every seat is staffed. Reassign re-scores the same way, in a thread.
+  - **Progress:** alembic `0033_invig_progress` adds `heartbeat_at`, `progress_phase` and `progress_pct` to invigilation plans. The job stores each phase it reports (queued 0, loading 10, solving 30, persisting 90, done 100, failed), and the brief shows `progress {phase, pct}`. The solver reports nothing while it runs, so the value stays at solving 30 for the whole solve (no invented numbers).
+  - **Startup sweep:** `recover_interrupted_plans` runs in the lifespan. The queue now beats `invig:` jobs, so a plan another replica is still solving is left alone.
+  - **`label` on `GET /runs`:** the backend already sent it (`RunOut.label`); a test now pins it. The gap is the frontend zod `ScheduleRun`.
+  - **`?dry_run=1` on `POST /moderation/me/preferences`:** returns 200 with the same checks, `items[].text` and `effective`, and stores and audits nothing.
+  - **`GET /moderation/me/rooms`:** the bookable rooms, without notes.
+  - **approval-first 202/201:** not a backend regression. P8 only refuses a booking or adds a request. The spec's flow answers 202 on the backend with policies on. It answers 201 only under `approval_mode=rules`, which is what happens when spec test 1 (the UI switch to `all`) has not run first, for example with `--grep` on test 3 or 5.
+- [ ] Frontend (invigilation): a "Gözetmen ekle" button on a post with `missing > 0`. It calls `POST /invigilation/plans/{id}/duties`, with the picker fed by `GET …/candidates?post_key=` (`free`). On 409, show `detail.tr` / `detail.reason_text.tr` and `problems`. On 201 the response is the duty plus `plan` (the new brief).
+- [ ] Frontend (invigilation): a progress bar from `progress {phase, pct}` in `GET /invigilation/plans` and `GET /invigilation/plans/{id}`. `pct` stays at 30 during `solving`, so keep the elapsed time against `params.time_limit_s` for that phase. Show the `resolved: true` shortage diagnoses as resolved.
+- [ ] Frontend (runs): add `label: z.string().nullable().optional()` to `ScheduleRun` in `src/lib/api/schemas.ts`, then drop `RunLite` (analytics.ts) and its raw `GET /runs` call.
+- [ ] Frontend (Tercih ekle): preview with `POST /moderation/me/preferences?dry_run=1` (same body; 200 `{dry_run: true, status: "preview", submission: null, items[{id: null, text{tr,en}, wish, department, …}], effective{tr,en}}`; refusals as the real submit). The room picker uses `GET /moderation/me/rooms` (`{items[{id, code, name, capacity, building, building_name, tags, bookable}], count}`; 403 `not_linked`).
+- [ ] e2e owner (`e2e/approval-first.spec.ts`): make tests 2, 3, 5 and 6 independent of test 1. Set `approval_mode: "all"` through the API in `beforeAll`, after reading `ctx.mode`; test 1 already resets to `rules` first and `afterAll` restores. Alternatively, assert `/approvals/rooms/{id}/check` → `request` in `requestOne` with a clear message.
+
