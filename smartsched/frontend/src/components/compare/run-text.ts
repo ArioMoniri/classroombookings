@@ -8,7 +8,7 @@ const KNOWN = new Set(["QUEUED", "RUNNING", "FEASIBLE", "OPTIMAL", "FEASIBLE_PAR
 /** "#6 · Bahar 3. hafta (B) · Sınav · Kısmi" — the run's own label, never an invented name */
 export function useRunText() {
   const { t } = useI18n();
-  return (r: Pick<ScheduleRun, "id" | "label" | "status" | "kind" | "is_active">) =>
+  return (r: Pick<ScheduleRun, "id" | "label" | "kind" | "is_active"> & { status: string }) =>
     [
       `#${r.id}`,
       r.label?.trim() || null,
