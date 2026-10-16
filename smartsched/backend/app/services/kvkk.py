@@ -1313,7 +1313,7 @@ async def _tell(session: AsyncSession, r: DsrRequest, *, refused: bool, erased: 
                 kind="kvkk.request",
                 title=title[:255],
                 body=body,
-                link="/profile/privacy",
+                link="/profile#privacy",
                 data={"request_id": r.id, "status": "REFUSED" if refused else "DONE"},
             )
         )
