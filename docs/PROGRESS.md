@@ -2,7 +2,7 @@
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `79bb1cb` (committed 2026-10-16 01:06 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `04e8dd1` (committed 2026-10-16 01:07 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -248,3 +248,4 @@ Generated blocks last synced on top of commit `79bb1cb` (committed 2026-10-16 01
 | 2026-10-16 01:02 | backend-engineer (p19-backend-gaps-2026-10-15) | P19 gaps | milestone: (4) suggestion restore + accept scope, (6) program drafts (table, autosave merge, validate/precheck/paste, transactional commit, 30-day undo; MBG Tezli YL real check hard 100 + undo), (7) instructor load / section search / rooms fit, (8) activate notify_people digest; alembic 0027_p19_gaps on 0026_sso_entra (renumbered to 0028 on 0027_notify_channels); make lint + make type green | commit, full p19 suite |
 | 2026-10-16 01:03 | backend-engineer (notify-channels-apprise-2026-10-15) | channels | fix: concurrent renumbering with P19, resolved in the merge: P19 had already moved its migration to 0028_p19_gaps on 0027_notify_channels, so the channels migration stays 0027_notify_channels on 0026_sso_entra (my 0028 rename reverted); single head 0028_p19_gaps | hand-off |
 | 2026-10-16 01:07 | backend-engineer (p19-backend-gaps-2026-10-15) | P19 gaps | milestone: migration order frozen per coordinator: 0028_p19_gaps on 0027_notify_channels (single head); tests/test_p19_gaps_migration.py aligned, migration tests 5 passed | full p19 suite, hand-off |
+| 2026-10-16 00:30 | frontend-engineer (frontend-sweep-shell-admin-2026-10-15) | sweep | stop: done - languages TR+EN, AI policy, CRBS upgrade + room master, persona minors, motion T1/T2/T3(partial), logo, M-32, contract (confirm_unpublished, duplicate_request, past, grouped inbox, DSN allowlist), UI/UX §3 (shell, audit, users, roles, settings, profile, 404, bookings cells, SegmentedControl/DateField), learning mount, Taleplerim nav, viewport-fit; vitest 206/206, prod e2e 31 passed + admin-gaps 13/13 rerun, admin-gaps 6 flaky (room search) | open: bookings one-Toolbar + filters sheet, find-room layout, tab-bar labels, M-21/31/34/40, T3 frame re-measure, T6 (intake), /moderation/me href when it lands |
