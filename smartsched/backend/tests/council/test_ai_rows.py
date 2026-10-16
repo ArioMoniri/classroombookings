@@ -39,6 +39,7 @@ def model_read(monkeypatch):
 
     monkeypatch.setattr(orchestrator, "extract", as_llm)
 
+
 TERM = {"code": "2026-MEMO", "week_count": 14}
 
 
@@ -84,6 +85,27 @@ async def test_docx_table_with_ai_off_is_read_directly(client):
         f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={"files": [0], "term": TERM, "dry_run": True}
     )
     assert r.status_code == 200, r.text
+
+
+async def test_docx_without_a_table_with_ai_off_is_a_file_warning(client):
+    """T-R1-21: the memo's prose without its table, AI off: no rows, a non-blocking file item, no AI rows."""
+    import io
+
+    from docx import Document
+
+    doc = Document(io.BytesIO(MEMO_DOCX.read_bytes()))
+    for t in list(doc.tables):
+        t._element.getparent().remove(t._element)
+    buf = io.BytesIO()
+    doc.save(buf)
+    h = await login(client)
+    job = await upload(client, h, ("notlar.docx", buf.getvalue()), ai="false")
+    f = job["files"][0]
+    assert f["status"] == "DONE" and f["route"] == "ai-off" and f["counts"] == {}
+    review_out = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
+    files = [it for it in review_out["items"] if it["kind"] == "file"]
+    assert len(files) == 1 and not files[0]["blocking"]
+    assert not [it for it in review_out["items"] if it["kind"] == "ai_rows"] and review_out["blocking"] == 0
 
 
 def test_review_kinds_contract_with_the_frontend():

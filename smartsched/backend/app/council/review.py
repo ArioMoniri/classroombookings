@@ -37,6 +37,8 @@ from app.models.base import utcnow
 from app.services.events import publish_event
 
 BLOCKING = {"classification", "mapping", "merge"}
+#: every item kind :func:`build_items` emits (the frontend's REVIEW_KINDS must list each: a contract test)
+ITEM_KINDS = ("classification", "mapping", "merge", "issue", "rule", "rule_text", "plan", "file", "ai_rows")
 ACTIONS = {"accept", "reject", "edit"}
 
 
@@ -72,7 +74,7 @@ async def build_items(session: AsyncSession, job: CouncilJob) -> list[dict[str, 
 
     names = {f["index"]: f["filename"] for f in job.files}
     for f in job.files:
-        if f.get("status") == "FAILED" or f.get("route") in ("error", "vision"):
+        if f.get("status") == "FAILED" or f.get("route") in ("error", "vision", "ai-off"):
             add(
                 f"file:{f['index']}",
                 "file",
@@ -429,6 +431,7 @@ def enqueue_rerun(job_id: int, files: list[int]) -> None:
 
 __all__ = [
     "BLOCKING",
+    "ITEM_KINDS",
     "apply_decisions",
     "build_items",
     "decisions",

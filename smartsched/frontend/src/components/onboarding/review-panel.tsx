@@ -8,7 +8,7 @@ import { BusyGlyph } from "@/components/ui/busy-label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { REVIEW_KINDS, type DecisionIn, type ReviewItem, type ReviewOut } from "@/lib/api/council";
+import { isReviewKind, REVIEW_KINDS, type DecisionIn, type ReviewItem, type ReviewKind, type ReviewOut } from "@/lib/api/council";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useOnboardingCopy } from "./copy";
@@ -22,7 +22,7 @@ function memoryOf(item: ReviewItem): { at: string; job: string | number; suggest
   return { at: String(r.at ?? "").slice(0, 10), job: (r.job as string | number) ?? "?", suggestion: action ? { id: item.id, action, value: sug?.value ?? null } : null };
 }
 
-const KIND_LABEL: Record<(typeof REVIEW_KINDS)[number], MessageKey> = {
+const KIND_LABEL: Record<Exclude<ReviewKind, "ai_rows">, MessageKey> = {
   classification: "onboarding.kinds.classification",
   mapping: "onboarding.kinds.mapping",
   merge: "onboarding.kinds.merge",
@@ -32,6 +32,13 @@ const KIND_LABEL: Record<(typeof REVIEW_KINDS)[number], MessageKey> = {
   plan: "onboarding.kinds.plan",
   file: "onboarding.kinds.file",
 };
+
+/** The section label of a kind: ai_rows and kinds this screen does not know yet have labels of their own (T-R1-21). */
+function useKindLabel(): (kind: string) => string {
+  const { t } = useI18n();
+  const c = useOnboardingCopy();
+  return (kind) => (kind === "ai_rows" ? c.rowsTitle : isReviewKind(kind) && kind in KIND_LABEL ? t(KIND_LABEL[kind as keyof typeof KIND_LABEL]) : c.kindOther);
+}
 
 function decisionLabel(item: ReviewItem): string | null {
   if (!item.decision) return null;
@@ -44,6 +51,8 @@ function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: Dec
   const [kind, setKind] = useState<string>(String((item.current?.kind as string | undefined) ?? ""));
   const editable = item.kind === "mapping" || item.kind === "classification";
   const rejectable = item.kind !== "plan";
+  // rows read by the AI model are decided row by row in the rows panel, never as one item (POST /rows/decisions)
+  const perRow = item.kind === "ai_rows";
   const done = decisionLabel(item);
   const c = useOnboardingCopy();
   const memory = memoryOf(item);
@@ -71,6 +80,9 @@ function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: Dec
             </p>
           ) : null}
         </div>
+        {perRow ? (
+          <p className="type-footnote text-label-2">{c.rowsBelow}</p>
+        ) : (
         <div className="flex flex-wrap items-center gap-2">
           {done ? <Badge variant="secondary">{done}</Badge> : null}
           {item.kind === "mapping" ? (
@@ -111,6 +123,7 @@ function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: Dec
             </Button>
           ) : null}
         </div>
+        )}
       </div>
     </li>
   );
@@ -118,12 +131,17 @@ function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: Dec
 
 export function ReviewPanel({ review, busy, onDecide }: { review: ReviewOut; busy: boolean; onDecide: (decisions: DecisionIn[]) => void }) {
   const { t } = useI18n();
+  const kindLabel = useKindLabel();
   const groups = useMemo(() => {
-    const out = new Map<ReviewItem["kind"], ReviewItem[]>();
+    const out = new Map<string, ReviewItem[]>();
     for (const it of review.items) out.set(it.kind, [...(out.get(it.kind) ?? []), it]);
-    return REVIEW_KINDS.filter((k) => out.has(k)).map((k) => [k, out.get(k) ?? []] as const);
+    // known kinds in pipeline order, then any kind the screen does not know yet (under "Diğer")
+    const order = [...REVIEW_KINDS.filter((k) => out.has(k)), ...[...out.keys()].filter((k) => !isReviewKind(k))];
+    return order.map((k) => [k, out.get(k) ?? []] as const);
   }, [review.items]);
   const open = review.items.filter((it) => it.blocking && !it.decision);
+  // "accept all blocking" covers the items decided here; AI rows are decided in the rows panel
+  const acceptable = open.filter((it) => it.kind !== "ai_rows");
   const c = useOnboardingCopy();
 
   return (
@@ -136,8 +154,8 @@ export function ReviewPanel({ review, busy, onDecide }: { review: ReviewOut; bus
             <Badge variant={open.length ? "destructive" : "secondary"} data-testid="blocking-count">
               {t("onboarding.blocking", { count: open.length })}
             </Badge>
-            {open.length ? (
-              <Button size="sm" disabled={busy} onClick={() => onDecide(open.map((it) => ({ id: it.id, action: "accept" })))}>
+            {acceptable.length ? (
+              <Button size="sm" disabled={busy} onClick={() => onDecide(acceptable.map((it) => ({ id: it.id, action: "accept" })))}>
                 {t("onboarding.acceptAll")}
               </Button>
             ) : null}
@@ -155,7 +173,7 @@ export function ReviewPanel({ review, busy, onDecide }: { review: ReviewOut; bus
             <dl className="grid gap-x-6 gap-y-2 [grid-template-columns:repeat(auto-fit,minmax(9rem,1fr))]">
               {groups.map(([kind, items]) => (
                 <div key={kind}>
-                  <dt className="type-footnote text-label-2">{t(KIND_LABEL[kind])}</dt>
+                  <dt className="type-footnote text-label-2">{kindLabel(kind)}</dt>
                   <dd className="type-headline tnum">{items.length}</dd>
                 </div>
               ))}
@@ -163,9 +181,9 @@ export function ReviewPanel({ review, busy, onDecide }: { review: ReviewOut; bus
           </div>
         ) : null}
         {review.content && groups.map(([kind, items]) => (
-          <section key={kind} aria-label={t(KIND_LABEL[kind])}>
+          <section key={kind} aria-label={kindLabel(kind)}>
             <h3 className="type-callout font-semibold">
-              {t(KIND_LABEL[kind])} <span className="font-normal text-label-2">({items.length})</span>
+              {kindLabel(kind)} <span className="font-normal text-label-2">({items.length})</span>
             </h3>
             <ul className="divide-y">
               {items.slice(0, 100).map((it) => (

@@ -44,6 +44,8 @@ from app.workers.queue import public_error
 
 log = logging.getLogger(__name__)
 T = TypeVar("T")
+#: file message for an AI-route file without a readable table while the model is off (T-R1-21)
+AI_OFF_UNREAD = "AI is off: this file was not read (no table the server can read)"
 
 
 @dataclass
@@ -362,8 +364,13 @@ async def process_file(ctx: Ctx, entry: dict[str, Any]) -> None:
     )
     await _artifact(ctx, "rule_texts", {"texts": texts}, file_index=i)
     kinds = sorted({a.kind for a in analyses}) if analyses else ([shape] if shape else [])
+    message = None
+    if not records and entry.get("route_kind") == "ai" and not ctx.llm_ok()[0]:
+        # an AI-route file (PDF / DOCX / TXT / EML) with no table the server can read, and no model to read the
+        # prose: a file-level warning in review, never AI rows (T-R1-21)
+        route, message = "ai-off", AI_OFF_UNREAD
     await _update_file(
-        ctx.job_id, i, status="DONE", route=route, counts=counts, kinds=kinds, rule_texts=len(texts), message=None
+        ctx.job_id, i, status="DONE", route=route, counts=counts, kinds=kinds, rule_texts=len(texts), message=message
     )
 
 

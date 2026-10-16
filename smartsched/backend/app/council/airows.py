@@ -1,8 +1,9 @@
 """Row review for AI-read records (Phase 19 P19-A2, owner decisions of 2026-10-15).
 
-A record is an **AI row** when its file took the AI route of the format registry (PDF, DOCX, TXT/MD, EML,
-images: :func:`app.council.formats.route_of`) or the model produced it (``source.vision``, ``source.via ==
-"llm"``). AI rows start ``pending``; only a person makes them ``accepted``, ``edited`` or ``rejected``
+A record is an **AI row** when the model produced it: a vision transcription (``source.vision``) or a record the
+model extracted (``source.via == "llm"``). A table the server read itself is a **direct** row whatever the file's
+format route (T-R1-21: the deterministic DOCX / PDF table rows read with AI off are direct, not AI). AI rows start
+``pending``; only a person makes them ``accepted``, ``edited`` or ``rejected``
 (``POST /council/jobs/{id}/rows/decisions``). Direct rows are ``ready`` and may be rejected or edited too.
 
 * Commit refuses (409) while an AI row of the chosen files is pending; ``allow_pending`` does not apply to them.
@@ -43,13 +44,9 @@ def row_id(fi: int, k: int) -> str:
 
 
 def is_ai(entry: dict[str, Any], rec: dict[str, Any]) -> bool:
-    from app.council import formats
-
+    """True only for a record the model produced (``entry`` is kept for the callers' signature)."""
     src = rec.get("source") or {}
-    if src.get("vision") or src.get("via") == "llm":
-        return True
-    kind = entry.get("route_kind") or (formats.route_of(entry["format"]) if entry.get("format") else "structured")
-    return kind == "ai"
+    return bool(src.get("vision") or src.get("via") == "llm")
 
 
 def _threshold(job: CouncilJob) -> float:
