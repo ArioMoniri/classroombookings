@@ -162,7 +162,7 @@ function WishFormBody({ classes, initial, onClose }: { classes: readonly Matchin
           <SheetDescription>{pairText(sent.effective, lang)}</SheetDescription>
         </SheetHeader>
         {/* T-R1-12 (R1-A-15): the receipt takes the focus once shown (the pressed button is gone) */}
-        <div ref={focusOnMount} tabIndex={-1} className="flex flex-col gap-2 rounded-lg outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus)" role="status" data-testid="wish-sent">
+        <div ref={focusOnMount} tabIndex={-1} className="flex flex-col gap-2 rounded-lg outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" role="status" data-testid="wish-sent">
           {sent.items.map((it) => (
             <p key={it.id} className="flex items-start gap-2 rounded-lg bg-fill-3 px-3 py-2 type-callout">
               <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-status-feasible-fg" aria-hidden />

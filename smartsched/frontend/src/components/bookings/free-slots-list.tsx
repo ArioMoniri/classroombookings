@@ -100,7 +100,7 @@ function PendingChip({ slot, room, fmt, requestId }: { slot: GridSlot; room: Fre
       aria-label={t("reserve.free.pendingAt", { room: room.room.name, date: fmt.weekday(slot.date), time: `${p?.name ?? ""} ${time}` })}
       data-slot-key={slotKey(slot)}
       data-testid="free-slot-pending"
-      className="flex min-h-11 min-w-16 flex-col items-start justify-center rounded-md bg-fill-3 px-2.5 py-1 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus)"
+      className="flex min-h-11 min-w-16 flex-col items-start justify-center rounded-md bg-fill-3 px-2.5 py-1 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
     >
       <span className="flex items-center gap-1 type-caption font-semibold text-label-1">
         <Hourglass className="size-3" aria-hidden />
