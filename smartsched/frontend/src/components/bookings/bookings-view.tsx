@@ -29,6 +29,7 @@ import { ConflictBanner } from "@/components/conflicts/conflict-banner";
 import { PolicyWhy } from "@/components/policies/policy-why";
 import { useApprovalFirst, violationText } from "@/lib/api/booking-policies";
 import { useMyRequests } from "@/lib/api/wave1";
+import { useHydrated } from "@/lib/use-hydrated";
 import { BookingDetailSheet } from "./booking-detail-sheet";
 import { BookingGrid, pickKind, reasonKey, TONE_CLASS, TONE_ICON } from "./booking-grid";
 import { bookingErrorMessage } from "./booking-errors";
@@ -92,6 +93,7 @@ export function BookingsView() {
   const [syncOpen, setSyncOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const now = useNow();
+  const hydrated = useHydrated();
 
   const [multi, setMulti] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -187,6 +189,11 @@ export function BookingsView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [scope, g, weekKey, now, firstRooms],
   );
+
+  // T-R1-19 (R1-A-32): the page hydrates after the shell, whose queries (me, the booking context) may already have
+  // filled the shared cache: the first client render would then differ from the server's (React #418). The
+  // cache-fed markup starts after hydration; until then both render the same skeleton.
+  if (!hydrated) return <Skeleton className="h-[420px] w-full rounded-xl" data-testid="bookings-hydrating" />;
 
   if (ctx.isError) {
     const err = crbsError(ctx.error);
