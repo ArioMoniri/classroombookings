@@ -1266,7 +1266,7 @@
         "organisation": "Kurum"
       },
       "noAccessTitle": "Bu sayfaya erişiminiz yok",
-      "noAccessBody": "Rolünüz bu kurulum ekranının gerektirdiği izni içermiyor. Gerekli olduğunu düşünüyorsanız bir yöneticiye başvurun.",
+      "noAccessBody": "Bu sayfa için izniniz yok: rolünüz bu sayfanın gerektirdiği izni içermiyor. Gerekli olduğunu düşünüyorsanız bir yöneticiye başvurun.",
       "users": {
         "title": "Kullanıcılar",
         "lead": "Hesaplar, roller, bölümler, sınırlar ve CSV ile içe aktarma"

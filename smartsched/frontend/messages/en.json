@@ -1267,7 +1267,7 @@
         "organisation": "Organisation"
       },
       "noAccessTitle": "You do not have access to this page",
-      "noAccessBody": "Your role does not include the permission this setup screen needs. Ask an administrator if you think it should.",
+      "noAccessBody": "You do not have permission for this page: your role does not include the permission it needs. Ask an administrator if you think it should.",
       "users": {
         "title": "Users",
         "lead": "Accounts, roles, departments, limits and CSV import"
