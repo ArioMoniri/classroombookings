@@ -343,8 +343,13 @@ async def import_planning_list(
         prog = await cat.program(r.program, await cat.faculty(r.faculty))
         sk = f"{r.course_code}|{prog.canonical_name if prog else ''}|{r.label or ''}"
         keyed.append((sk, tuple(r.day.days), time_sort_key(r.start_time, r.row)))
-    occ = occurrences(keyed)
     merged_into, merged_units = _class_year_merges(parsed.rows, keyed)
+    # occurrence numbers count the rows that become meetings (a row merged into another class year's row is
+    # none), so a meeting's key is its index among the section's meetings - as the legacy re-key derives it
+    kept = [i for i in range(len(keyed)) if i not in merged_into]
+    occ: list[int] = [0] * len(keyed)
+    for i, o in zip(kept, occurrences([keyed[i] for i in kept]), strict=True):
+        occ[i] = o
     merged_items: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
     unchanged = Counter[str]()
