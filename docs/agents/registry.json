@@ -1453,7 +1453,8 @@
       "goal": "You are the **follow-ups UI** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: followups-ui-2026-10-16. ## Owner's requirements Academicians can add their own requests/preferences, …",
       "ledger": "Follow-ups UI: Tercih ekle, review, filters",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 05:06"
     },
     {
       "id": "a309d52cc665156af",

@@ -1338,3 +1338,8 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
 - [ ] 63 of the 314 named exam instructors don't match an Instructor row. Add them to the pool, or link them through the importer.
 - [ ] A plan interrupted by a restart reads as FAILED; add a startup sweep.
 - The analytics UI agent is running: the compare page, the heatmaps and the Gözetmen ataması screens.
+- [ ] Backend asks from the follow-ups UI:
+  - `POST /moderation/me/preferences?dry_run=1` returning `effective` and `items[].text` without storing anything.
+  - A room list a linked academician can read (code, name, capacity, bookable). `/bookings/rooms` hides ungrouped rooms, so the room picker falls back to typed codes.
+- [ ] The flow loop (M-02) should check the Sheet close button. It is 36 px, and the Button primitive's coarse-pointer `::after` should extend its hit area to 44 × 44.
+- The orchestrator mapped `preference.*` events to the Program group in Profil › Bildirimler.
