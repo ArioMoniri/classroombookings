@@ -125,14 +125,15 @@ test("1. the administrator creates a teacher in Setup → Users", async ({ page 
   await dialog.locator("#u-email").fill(TEACHER.email);
   await dialog.locator("#u-first").fill(TEACHER.first);
   await dialog.locator("#u-last").fill(TEACHER.last);
-  await dialog.locator("#u-role").selectOption({ label: "Teacher" });
+  // built-in roles read in the interface language (T-R1-30): "Öğretim elemanı" in Turkish
+  await dialog.locator("#u-role").selectOption({ label: "Öğretim elemanı" });
   await dialog.locator("#u-password").fill(TEACHER.password);
   // the admin screens added a password confirmation (CRBS gap audit #22)
   if (await dialog.locator("#u-password2").count()) await dialog.locator("#u-password2").fill(TEACHER.password);
   await dialog.getByTestId("user-save").click();
   await expect(dialog).toBeHidden();
   await page.getByTestId("users-search").fill(TEACHER.username);
-  await expect(page.locator(`[data-username="${TEACHER.username}"]`)).toContainText("Teacher");
+  await expect(page.locator(`[data-username="${TEACHER.username}"]`)).toContainText("Öğretim elemanı");
   const found = await api<{ items: { id: number; username: string; role: string; permissions?: string[] }[] }>("GET", `/users/search?q=${TEACHER.username}`);
   ctx.teacherId = found.items[0]!.id;
   expect(found.items[0]).toMatchObject({ username: TEACHER.username, role: "TEACHER" });

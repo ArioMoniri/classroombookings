@@ -244,10 +244,14 @@ test("approval-first 2. a two-period submission opens from the approver link and
   const teacher = await (await browser.newContext({ locale: "tr-TR" })).newPage();
   await login(teacher, TEACHER.username, TEACHER.password);
   await teacher.goto(`/my-bookings?request=${ids[0]}`);
-  const row = teacher.locator(`[data-request-id="${ids[0]}"]`);
+  // Taleplerim shows a submission as one card (T-R1-13): its reason once on the card, a timeline per request inside
+  const row = teacher
+    .locator(`[data-testid="my-request-group"][data-request-id="${ids[0]}"]`)
+    .or(teacher.getByTestId("my-request-group").filter({ has: teacher.locator(`[data-request-id="${ids[0]}"]`) }))
+    .first();
   await expect(row).toContainText("Reddedildi");
-  await expect(row.getByTestId("request-reason")).toContainText("Gerekçe: Oda uygun değil: Bu saatte bölüm sınavı var.");
-  await expect(row.getByTestId("request-timeline")).toContainText("Oda uygun değil: Bu saatte bölüm sınavı var.");
+  await expect(row.getByTestId("request-reason").first()).toContainText("Gerekçe: Oda uygun değil: Bu saatte bölüm sınavı var.");
+  for (const id of ids) await expect(row.locator(`[data-request-id="${id}"]`).getByTestId("request-timeline")).toContainText("Oda uygun değil: Bu saatte bölüm sınavı var.");
   await teacher.context().close();
 });
 
