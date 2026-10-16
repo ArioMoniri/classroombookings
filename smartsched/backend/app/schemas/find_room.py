@@ -3,11 +3,28 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.importers import normalize as n
+
+_TR_DATE = re.compile(r"^(\d{1,2})[./](\d{1,2})[./](\d{4})$")
+
+
+def _tr_date(v: Any) -> Any:
+    """``18.02.2026`` / ``18/02/2026`` (NBSP tolerated) -> date; anything else is left to pydantic (ISO)."""
+    if isinstance(v, str):
+        text = n.clean_text(v) or ""
+        m = _TR_DATE.match(text)
+        if m:
+            try:
+                return dt.date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+            except ValueError:
+                return v
+        return text or None
+    return v
 
 
 class FeatureFilter(BaseModel):
@@ -68,6 +85,16 @@ class FindIn(BaseModel):
         if isinstance(v, str):
             return n.clean_text(v) or None
         return v
+
+    @field_validator("date", "date_from", "date_to", mode="before")
+    @classmethod
+    def _date(cls, v: Any) -> Any:
+        return _tr_date(v)
+
+    @field_validator("dates", mode="before")
+    @classmethod
+    def _dates(cls, v: Any) -> Any:
+        return [_tr_date(x) for x in v] if isinstance(v, list) else v
 
     @field_validator("weekdays")
     @classmethod

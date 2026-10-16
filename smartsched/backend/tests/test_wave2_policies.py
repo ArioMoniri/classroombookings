@@ -292,7 +292,7 @@ async def test_finder_results_carry_booking_period_ids_for_the_full_verdict(env)
     )
     assert w.status_code == 200, w.text
     assert w.json()["verdict"] == "refuse" and w.json()["period_id"] == p6
-    assert [v["code"] for v in w.json()["violations"]] == ["policy_quiet_hours"]
+    assert [v["rule"] for v in w.json()["violations"]] == ["quiet_hours"]
     # two periods (P3-P4 on Wednesday): both ids, in grid order
     r = await env.client.post(
         "/api/v1/rooms/find",
@@ -303,5 +303,20 @@ async def test_finder_results_carry_booking_period_ids_for_the_full_verdict(env)
     two = [env.periods["P3"], env.periods["P4"]]
     rows = r.json()["results"]
     assert rows and all(x["period_ids"] == two and x["period_id"] == two[0] for x in rows)
-    for a in r.json()["alternatives"]:
-        assert a["period_ids"] and a["period_id"] == a["period_ids"][0]
+    # alternatives too: a room free on Wednesday evening, booked at P13, offers P12 / P14 / ... and other days
+    wed = date(2026, 2, 18)
+    room = (await free_rooms(wed, 11, 15))[0]
+    assert (await env.book(ayse, room, wed, "P13")).status_code == 201
+    r = await env.client.post(
+        "/api/v1/rooms/find",
+        json={"date": "18.02.2026", "start": "18.00", "end": "18:40", "text": room, "flex": {"other_days": True}},
+        headers=ayse,
+    )
+    assert r.status_code == 200, r.text
+    alts = r.json()["alternatives"]
+    assert alts and {a["kind"] for a in alts} >= {"time", "day"}, [
+        (x["status"], x["reason"]) for x in r.json()["results"]
+    ]
+    for a in alts:
+        want = [env.periods[f"P{p}"] for p in range(a["start_period"], a["end_period"] + 1)]
+        assert a["period_ids"] == want and a["period_id"] == want[0], a
