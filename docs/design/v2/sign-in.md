@@ -167,12 +167,12 @@ strings. Keep the owner's wording.
 |---|---|---|
 | `next` | same-origin path (starts with `/`, not `//`) | Passed to the Microsoft start URL and to the local submit; used after success |
 | `reason` | `expired`, `signed_out`, `password` | Neutral status notice (§6.2) |
-| `error` | `tenant`, `cancelled`, `failed`, `unavailable`, `invite_expired`, `invite_invalid`, `invite_mismatch` | SSO error notice (§6.3). **Unknown codes render `failed`** |
+| `error` | `tenant`, `cancelled`, `failed`, `unavailable`, `signup_closed`, `invite_expired`, `invite_invalid`, `invite_mismatch` | SSO error notice (§6.3). **Unknown codes render `failed`** |
 | `ref` | short support code, e.g. `7F3A-21C` | Shown only inside the `failed` message; maps to the audit row |
 | `invite` | opaque token | Invite banner, Microsoft-only page (§12) |
 | `method` | `local` | Opens door 2 on load; the only way to reach the password form when `auth.local_enabled = false` (break-glass) |
 
-Microsoft start link: `GET /api/v1/auth/oidc/microsoft/start?next=…[&invite=…][&prompt=select_account][&login_hint=…]`.
+Microsoft start link: `GET /api/v1/auth/sso/entra/start?next=…[&invite=…][&prompt=select_account][&login_hint=…]` (§14).
 It is a real navigation (`<a href>`), not `fetch`.
 
 ### 4.3 Server-rendered options (no layout shift, no flash)
@@ -355,6 +355,7 @@ The domain in hint 1 is omitted when `domain_hint` is empty. If `logo_url` and `
 | `tenant` (personal account, other tenant, guest) | **Bu hesapla giriş yapılamıyor.** {org} iş veya okul hesabınızla giriş yapın. Kişisel Microsoft hesapları ve başka kurumların hesapları kabul edilmez. | **This account can't be used here.** Sign in with your {org} work or school account. Personal Microsoft accounts and accounts from other organisations aren't accepted. | Başka bir hesapla dene / Try another account (`prompt=select_account`) |
 | `failed` (account disabled in SmartSched, state or nonce mismatch, token invalid, any unknown code) | **Giriş yapılamadı.** Tekrar deneyin. Sorun sürerse bu kodu yöneticinize iletin: {ref} | **We couldn't sign you in.** Try again. If it keeps happening, give this code to your administrator: {ref} | none (the Microsoft button below is the retry) |
 | `unavailable` (Microsoft or the network is down) | **Microsoft'a şu anda ulaşılamıyor.** Birkaç dakika sonra tekrar deneyin. | **Microsoft can't be reached right now.** Try again in a few minutes. | none |
+| `signup_closed` (self sign-up off, no invite) | **Hesabınız yok.** Kendiliğinden hesap açma kapalı; bir yöneticiye başvurun. | **No account yet.** Self sign-up is turned off; ask an administrator. | none |
 | `invite_expired` | **Davetin süresi doldu.** Davet 30 gün içinde kullanılmadı. Yöneticinizden yeni bir davet isteyin. | **This invitation has expired.** It wasn't used within 30 days. Ask your administrator for a new one. | none |
 | `invite_invalid` (revoked, already used, unknown token) | **Bu davet artık geçerli değil.** Yöneticinizden yeni bir davet isteyin. | **This invitation is no longer valid.** Ask your administrator for a new one. | none |
 | `invite_mismatch` | **Davet başka bir adres için.** Davet {invited_masked} adresine gönderildi; Microsoft'ta {signed_in} olarak giriş yaptınız. | **The invitation is for another address.** It was sent to {invited_masked}; you signed in to Microsoft as {signed_in}. | Hesap değiştir / Switch account (`prompt=select_account&login_hint={invited}`) |
@@ -656,22 +657,84 @@ explains that the person cannot sign in with Microsoft until an admin schedules 
 
 ---
 
-## 14. What the frontend needs from the backend (proposal for the SSO backend builder)
+## 14. Backend contract (confirmed by the SSO backend builder, 2026-10-16)
 
-The frontend agent should confirm these names with the backend builder; the UI works with any equivalent shape.
+These are the routes the backend serves; they are canonical (`smartsched/backend/app/api/v1/sso.py`,
+`app/services/sso.py`). Every path below is under `/api/v1/auth/sso`.
 
-- `GET /org/public` adds: `auth: { microsoft: { enabled, domain_hint? }, local_enabled, ldap_enabled,
-  self_signup_role_name }`, `privacy_url`, and optionally `calendar: { term_label, week_number, today }` for the
-  calendar line. Existing: `name`, `logo_url`, `maintenance_mode`, `maintenance_message`, `login_message`,
-  `setup_required`.
-- `GET /api/v1/auth/oidc/microsoft/start?next&invite&prompt&login_hint` → 302 to Microsoft.
-- Callback redirects only to `/login?error=<code>[&ref][&invite]`, `/welcome[?invited=1|bound=1]` or `next`.
-- `GET /api/v1/invites/{token}/public` → `{ inviter_name, role_name, invited_masked, days_left }` or 404/410.
-- Users API: `POST /users/invites`, `POST /users/invites/{id}/resend|renew|revoke`, `GET /users?status=invited|
-  binding|self_signup_recent`, `POST /users/{id}/schedule-binding`, `DELETE /users/{id}/identities/{identity_id}`;
-  user rows gain `auth_methods[]`, `invite { expires_at, invited_by }`, `binding_pending`, `self_signup_at`,
-  `break_glass`.
-- `GET /welcome` data: `GET /auth/me` plus `first_login: bool` (one-time flag cleared by `POST /auth/me/welcome-seen`).
+**Public (no token)**
+
+- `GET /providers` → `{ auth, providers, messages }`. `auth` is the login page block:
+  `{ microsoft: { enabled, label, start_url, domain_hint, self_signup }, local_enabled, ldap_enabled,
+  self_signup_role_name }`. `local_enabled = false` means the password form is reachable only through
+  `/login?method=local` (break-glass). `self_signup` is the owner's `sso_self_signup` setting (default on); when it is
+  off, drop hint 2 and show "Hesabınız yoksa bir yöneticiye başvurun". `messages` maps each error code to `{tr, en}`
+  (the frontend may keep its own copy). Merging `auth` into `GET /org/public` needs a one-line change in `org.py`
+  (owner of `org.py`); until then read it from this route. No term or week before sign-in (owner, §16.3).
+- `GET /entra/start?next=&invite=&prompt=&login_hint=` → 302 to Microsoft. A real navigation (`<a href>`).
+  - `next` is kept only if it is a same-origin path.
+  - `prompt` accepts `select_account` (the default) or `login`.
+  - `invite` checks the token first. An unknown, used or revoked token redirects to `/login?error=invite_invalid`;
+    an expired one to `/login?error=invite_expired`. A valid invite also sets `login_hint` to the invited address.
+  - Microsoft not configured or switched off redirects to `/login?error=failed&ref=…`.
+- `GET /entra/callback` (the registered redirect URI) → 302 to exactly one of:
+  - `/login/sso?ticket=<one-time>[&next=<path>][&welcome=self|invited|bound]`: success. The panel's `/login/sso`
+    page posts the ticket (below), stores the token, then goes to `/welcome?invited=1` / `/welcome?bound=1` /
+    `/welcome` when `welcome` is set, else to `next` or the role's home.
+  - `/login?error=<code>[&ref=S-<n>]`, for these codes:
+    - `failed`: always with `ref`, which is the audit row id.
+    - `cancelled`, `unavailable`, `tenant`, `signup_closed`, `invite_expired`, `invite_invalid`.
+    - `invite_mismatch`, with `&invite=<token>&invited_masked=ay•••@uni.edu.tr&signed_in=ba•••@uni.edu.tr`.
+  - `/profile?sso=linked` after a profile link, or `/profile?error=<code>`: `already_linked`, `failed`,
+    `cancelled`, `tenant`, `unavailable`.
+- `POST /exchange {ticket}` → `{ access_token, token_type, expires_in, password_change_required, next, welcome,
+  inviter_name }`. The ticket is single use and lasts 2 minutes; a reuse returns 401. `welcome` is the one-time
+  "first login" flag: it is set only on the sign-in that created or bound the account, so no `welcome-seen` call is
+  needed.
+- `GET /invites/{token}` → `{ kind, inviter_name, role_name, invited_masked, login_hint, days_left, expires_at }`, or
+  404 (unknown, used or revoked) / 410 (expired). This feeds the banner of `/login?invite=<token>`.
+
+**No enumeration.** A disabled account, an existing account without an invite, a bad or forged token and a replayed
+state all redirect to the same `/login?error=failed&ref=…` URL; only `ref` differs (backend test
+`test_refusals_do_not_reveal_whether_an_account_exists`). The precise reason is in the audit log
+(`auth.login_refused`). A password sign-in refused by "Microsoft only for non-admins" should get the generic local
+401 (a one-line change in `auth.py`, owned by the auth module).
+
+**Signed in.** `GET /me` → `{ linked, email_at_login, display_name, linked_at, last_login_at, pending_bind,
+has_password }`. `POST /entra/link {password, confirm: true}` → `{ authorize_url }` (Profil › "Microsoft hesabını
+bağla"; the panel navigates there). `DELETE /entra/link` unlinks the own identity; it returns 409 when no password
+would remain.
+
+**Administration**
+
+- `planning.admin`:
+  - `GET/PUT /admin/entra`: tenant, client id, `client_secret_set` (the secret is write-only), `redirect_uri`,
+    `self_signup`, `domain_hint`, `default_role`, `oidc_only_non_admins`, `role_mapping_enabled`,
+    `allow_admin_mapping`, `invite_days`, `break_glass_admins`.
+  - `GET/POST /admin/entra/mappings`, `DELETE /admin/entra/mappings/{id}`.
+- `setup.users`, under the no-escalation rules. These map to the §13 actions:
+  - `POST /admin/invites {email, full_name?, role|role_id, department_id?, instructor_id?, days?}` (invite sheet). It
+    returns the row with `link` for "Bağlantıyı kopyala". 409 codes:
+    - `invite_pending`: offer "Daveti yenile".
+    - `account_bound`: "Bu adres zaten … hesabına bağlı".
+    - `account_exists`: offer "Sonraki Microsoft girişinde bağla".
+  - `GET /admin/invites`.
+  - `POST /admin/invites/{id}/renew`: a new link and 30 days again; the old link stops working.
+  - `DELETE /admin/invites/{id}`: revoke an invite, or cancel a scheduled binding.
+  - Resending the invite e-mail is not built yet; "Bağlantıyı kopyala" works.
+  - `POST /admin/users/{id}/bind {email?, days?}` (schedule binding). Returns 422 `self` for your own account (point
+    the admin to the Profile route) and 403 for an account they may not manage.
+  - `DELETE /admin/users/{id}/identity`: remove the Microsoft link. It also ends that user's sessions.
+  - `PUT /admin/users/{id}/instructor {instructor_id|null}`: link the login to an instructor record (flow F-05).
+  - `GET /admin/user-status` → `{ "<user_id>": { status, auth_methods[], invite { id, kind, expires_at, invited_by },
+    binding_pending, self_signup_at, break_glass, instructor_id } }` for every user. The `status` values are
+    `linked`, `invited`, `invite_expired`, `binding` and `none`. Join it to `GET /users` client-side.
+
+**Audit actions** (§13 list): `user.invited`, `user.invite_renewed`, `user.invite_revoked`, `user.invite_accepted`,
+`auth.self_signup`, `auth.identity_bound` (`kind` = invite | bind | link), `auth.identity_unbound`,
+`auth.binding_scheduled`, `auth.login` (`auth_method: oidc`), `auth.login_refused` (reason in details),
+`user.instructor_link`, `sso.config_update`, `sso.mapping_create`, `sso.mapping_delete`, `sso.role_change`,
+`sso.demotion_blocked`.
 
 ---
 
@@ -682,7 +745,7 @@ Mock `GET /org/public` and the callback redirects with `page.route`; run at 1440
 
 **Doors and branding**
 1. Microsoft enabled: `getByRole("link", { name: "Microsoft ile giriş yap" })` is visible; `href` starts with
-   `/api/v1/auth/oidc/microsoft/start` and carries `next` from the page URL. EN: name "Sign in with Microsoft".
+   `/api/v1/auth/sso/entra/start` and carries `next` from the page URL. EN: name "Sign in with Microsoft".
 2. The button's SVG has four `rect`s with fills `#f25022 #7fba00 #00a4ef #ffb900`, rendered 21 × 21 px.
 3. Light computed style: background `rgb(255,255,255)`, color `rgb(94,94,94)`, font-weight 600, font-size 15px, an
    inset 1 px `rgb(140,140,140)` edge; dark: background `rgb(47,47,47)`, color `rgb(255,255,255)`.
@@ -706,7 +769,9 @@ Mock `GET /org/public` and the callback redirects with `page.route`; run at 1440
 14. 429 shows the minutes and disables submit; offline (route abort) shows the offline string.
 
 **SSO states**
-15. Each `?error=` code renders its string from §6.3 (TR and EN), `role="alert"`, focused on load.
+15. Each `?error=` code renders its string from §6.3 (TR and EN), `role="alert"`, focused on load. The final codes
+    (§14): `failed`, `cancelled`, `unavailable`, `tenant`, `signup_closed`, `invite_expired`, `invite_invalid`,
+    `invite_mismatch`; on `/profile` also `already_linked`.
 16. `?error=failed&ref=7F3A-21C` and `?error=nonsense&ref=7F3A-21C` render identical text.
 17. `tenant` and `invite_mismatch` actions link to the start URL with `prompt=select_account` (mismatch also with
     `login_hint`).
@@ -719,7 +784,8 @@ Mock `GET /org/public` and the callback redirects with `page.route`; run at 1440
 21. `/login?invite=t` shows the banner (inviter, role, masked address, days), no disclosure, and the start link carries
     `invite=t` and `login_hint`.
 22. `/welcome` (first login) shows "Hesabınız oluşturuldu", the role, the admin note and "Devam et" → role home; a
-    reload after `welcome-seen` redirects away. `/welcome?invited=1` names the inviter.
+    reload without the `welcome` flag from `POST /api/v1/auth/sso/exchange` redirects away. `/welcome?invited=1` names
+    the inviter (`inviter_name`).
 
 **Layout, keyboard, a11y**
 23. No horizontal overflow at 390 and 768; every interactive element ≥ 44 × 44 at 390 and 768 (`hasTouch`).

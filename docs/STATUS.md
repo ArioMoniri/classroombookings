@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `3d69b08` (committed 2026-10-16 00:52 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `2496a3d` (committed 2026-10-16 00:52 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -220,7 +220,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **142 ticked · 251 open** checkboxes in 50 sections (47 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **145 ticked · 250 open** checkboxes in 50 sections (47 with open items).
 
 <details><summary>Per section</summary>
 
@@ -269,12 +269,12 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Approval-first bookings + user channels + credential-free login (owner request… | 10 | 3 |
 | Standing flow loop: test → suggest → build → re-test (owner request 2026-10-15 22:20) | 0 | 2 |
 | Devops agent finished: first full gate table (5d0e6c2) + seed profiles + per-branch pods | 0 | 1 |
-| Owner decisions 2026-10-15 ~22:45: channels + login (from… | 0 | 1 |
+| Owner decisions 2026-10-15 ~22:45: channels + login (from… | 1 | 2 |
 | Owner decisions 2026-10-15 ~22:50: identity and sign-up | 0 | 1 |
 | Docs update automatically (owner request 2026-10-15 ~22:55) | 1 | 1 |
 | Approval-first backend finished (0025_approval_first) | 1 | 1 |
 | Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend) | 0 | 3 |
-| Flow scripts finished (2026-10-15): gaps to close before round 1 | 0 | 11 |
+| Flow scripts finished (2026-10-15): gaps to close before round 1 | 2 | 9 |
 | Approval and notification follow-ups finished (2026-10-16) | 0 | 6 |
 
 </details>

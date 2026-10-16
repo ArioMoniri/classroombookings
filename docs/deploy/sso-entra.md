@@ -194,19 +194,25 @@ built from it, and SmartSched refuses to enable sign-in without it.
 2. Open the login page in a private window › **Microsoft 365 ile giriş yap**. Sign in with a staff test account.
    The new account appears in Users with the role **Teacher**.
 3. Try a student account, or any account not assigned in A6. Microsoft should stop it (AADSTS50105).
-4. The audit log shows `auth.sso_provision`, `auth.sso_login` and, for refusals, `auth.sso_failed` with the reason.
+4. The audit log shows `auth.self_signup`, `auth.login` (method `oidc`) and, for refusals, `auth.login_refused`
+   with the reason. The panel itself only shows a generic code plus a `ref` (the audit row id), so it never reveals
+   whether an account exists.
 
 ### B4. Rules SmartSched applies (owner decisions 2026-10-15)
 
 - **Two ways to get an account.**
   - (a) The person signs in with Entra, from the pinned tenant only. The account is created with the lowest role
-    (`auto_provision`, on by default; `default_role_id`, Teacher, can never be an administrative role).
+    (`self_signup`, the `sso_self_signup` setting, on by default; `default_role_id`, Teacher, can never be an
+    administrative role). With `self_signup` off, sign-in is invite-only.
   - (b) An administrator creates it:
     - `POST /api/v1/auth/sso/admin/invites {"email": "<UPN>", "role": "PLANNER"}` creates the account as
       **invited**.
     - The first Microsoft sign-in whose verified UPN equals the invite binds the Microsoft account. This happens
-      once and is audited as `auth.sso_bind`.
-    - Invites expire after `invite_days` (30).
+      once and is audited as `auth.identity_bound` and `user.invite_accepted`.
+    - Invites expire after `invite_days` (30). An expired invite blocks sign-in for that address until an
+      administrator renews it (`POST /api/v1/auth/sso/admin/invites/{id}/renew`) or deletes it.
+    - The invite has a link, `/login?invite=<token>`, to copy or e-mail. Binding also works from the plain login
+      page.
 
   There is no self-registration with a local password.
 - **Existing accounts.**

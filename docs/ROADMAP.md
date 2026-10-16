@@ -869,7 +869,19 @@ Before the first `up pod=universal`: re-apply the OIDC bootstrap once with infra
 
 ### Owner decisions 2026-10-15 ~22:45: channels + login (from docs/product/2026-10-15-integrations-options.md)
 - Notifications: built in via Apprise (BSD-2) + pywebpush (MPL-2.0). No new containers. The institution owns one sender per service; users only link an address, so SmartSched never holds user tokens or passwords. First channels: phone/browser push, Telegram, WhatsApp/SMS, Teams/Slack (department channels first). Each foreign channel needs a KVKK sign-off and has a link-only mode. Dedicated backend builder running.
-- Login: direct Microsoft 365 / Entra ID sign-in (Authlib, BSD-3), pinned to the university tenant. Users are identified by oid/tid, never by e-mail. Roles come only from an admin mapping; a local break-glass admin is kept; no automatic linking to admins. Dedicated backend builder running; the IT registration checklist goes to docs/deploy/sso-entra.md.
+- Login: direct Microsoft 365 / Entra ID sign-in (Authlib, BSD-3), pinned to the university tenant. Users are identified by oid/tid, never by e-mail. Roles come only from an admin mapping; a local break-glass admin is kept; no automatic linking to admins. The IT registration checklist is docs/deploy/sso-entra.md.
+- [x] SSO backend (2026-10-16, sso-entra-2026-10-15). Shipped: `app/services/sso.py`, `api/v1/sso.py`, alembic `0026_sso_entra`, and the contract in docs/design/v2/sign-in.md §14.
+  - The flow is PKCE + state + nonce; the id_token is checked against cached JWKS (joserfc).
+  - Identity is oid+tid. Self sign-up (`self_signup`) gives Teacher.
+  - Invites carry link tokens and expire; "bind on next login" matches by verified UPN.
+  - Optional app-role/group mapping, with demotion revoking sessions. Break-glass, no-enumeration codes, audit.
+  - Tests: `tests/test_sso_*.py` against a local fake Entra.
+- [ ] SSO follow-ups:
+  - `auth.py` and `org.py` one-liners: enforce `oidc_only_non_admins` on the password route; `auth` block in `GET /org/public`.
+  - Invite e-mail (resend).
+  - Certificate (`private_key_jwt`) client credentials.
+  - SSM → `SSO_ENTRA_*` env wiring (devops).
+  - Short session TTL for OIDC users until SCIM.
 - Calendar sync keeps its encrypted per-user OAuth tokens (the one exception, because it writes into the user's own calendar). Orchestrator default; owner may override.
 - [ ] Frontend for channels (Profile › Bildirim kanalları, admin channel config + sign-off) and SSO (login button, admin config, role mapping): a dedicated agent, after the shell sweep releases profile/settings/auth.
 
@@ -951,12 +963,12 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
 - [ ] The approval-first UI: an approval-mode setting, a reject dialog that requires a reason code and text, the reason shown to the requester, and Profile › Bildirimler (F-01, F-11, F-13). This is the dedicated approval UI agent's job.
 - [ ] Channel UI and API: F-01 S13. Owned by the channels backend, then the channels/SSO frontend agent.
 - [ ] Calendar-sync KVKK sign-off admin screen: M-40 (F-04, F-11). Goes to the approval/admin UI agent.
-- [ ] Link a login to an instructor (F-05, major): asked of the SSO builder (an optional admin-set `instructor_id`).
+- [x] Link a login to an instructor (F-05, major): `PUT /api/v1/auth/sso/admin/users/{id}/instructor` and `instructor_id` on invites (`instructors.user_id`, audited `user.instructor_link`).
 - [ ] Teacher nav entry to `/moderation` (F-05): goes to the shell sweep.
 - [ ] P19-T2 "Tercih ekle" and P19-T3 publish digests (F-05); the "Bu program için geçmiş veri yok" panel and the 30-day programme undo (F-07): the P19 UI follow-up agent.
 - [ ] Phase 19 intake UI: the stepper, the Fark step and remembered-mapping chips (F-08). Also the P19 UI follow-up agent.
 - [ ] A reason field for forced moves in the timetable UI (F-10): the P19 UI follow-up agent.
-- [ ] SSO route contract: the backend's `/auth/sso/entra/start?return_path=` and `?sso_error=` are canonical. The SSO builder updates sign-in.md §15 to match.
+- [x] SSO route contract: `/api/v1/auth/sso/entra/start?next=&invite=&prompt=&login_hint=`, redirects `?error=<code>[&ref]`; sign-in.md §14/§15 updated with the final codes.
 - [ ] MOBILE M-06: add `viewportFit: "cover"` to the Next viewport export (shell sweep).
 - [ ] A full Entra round trip (F-12 S18) needs tenant credentials from university IT. The owner enters them in admin settings or SSM, never in chat.
 
@@ -969,7 +981,7 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
   - Booking created, cancelled and room-owner e-mails now go through `notify_dispatch`. Users also get the same text in the app, and they can switch it off.
   - Audit rows for `learning.refresh` and `learning.purge_run`.
 - Open, routed to the owners:
-  - [ ] audit DECISIONS for `/auth/sso/*` (SSO), `/channels/*` and `/me/channels/*` (channels), and the moderation priority routes (P19)
+  - [ ] audit DECISIONS for `/auth/sso/*` (SSO: done 2026-10-16), `/channels/*` and `/me/channels/*` (channels), and the moderation priority routes (P19)
   - [ ] a migration for `priority_overrides` (P19)
   - [ ] `make lint` and `make type` in those files
 - For the approval UI agent:
