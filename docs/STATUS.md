@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `faf0694` (committed 2026-10-16 03:21 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `b22423a` (committed 2026-10-16 03:22 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -144,7 +144,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-129 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 106 · stopped 7 · superseded 7.
+130 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 107 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -153,10 +153,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Phase 19 UI follow-up` | frontend-engineer | 2026-10-16 01:20 |
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
-| `RESUME Phase 19 UI follow-up` | frontend-engineer | 2026-10-16 02:16 |
 | `RESUME backend test isolation` | backend-engineer | 2026-10-16 02:16 |
 | `RESUME design migration + mobile` | frontend-engineer | 2026-10-16 02:16 |
 | `Fix intake column-limit refusal` | backend-engineer | 2026-10-16 03:18 |
+| `Backend follow-up asks batch` | backend-engineer | 2026-10-16 03:23 |
 
 <!-- /AUTO:agents -->
 

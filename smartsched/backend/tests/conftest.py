@@ -120,6 +120,35 @@ def _fresh_channel_registry():
     nd._CHANNELS[:] = before
 
 
+@pytest.fixture(autouse=True)
+def _fresh_worker_state():
+    """The in-process workers keep module-level state that, in production, lives as long as the one event loop of
+    the process. Every test runs on its own loop (pytest-asyncio), and the API fixtures never run
+    ``app.main.lifespan``'s shutdown, so after a test:
+
+    * a drain of ``app.workers.integrations`` that was still running when the test's loop closed stays ``RUNNING``
+      in the module queue: the next test's ``schedule_drain`` sees "already running", only sets ``_again`` and never
+      sends (tests/test_kvkk_signoff.py, then the queued e-mail of tests/test_mail_queue.py stayed ``PENDING``);
+    * the integrations and channels-outbox retry timers belong to the closed loop;
+    * ``app.workers.cancel`` keeps the tokens of runs whose job never released them, keyed by run id, which the
+      next test's fresh database hands out again (a cancelled token would cancel that test's run).
+
+    Each test starts with what a fresh process has (timers cancelled, no queue, no tokens), as
+    ``integrations.shutdown()`` leaves it in production."""
+    yield
+    from app.services.channels import outbox
+    from app.workers import cancel, integrations
+
+    for mod in (integrations, outbox):
+        if mod._timer is not None:
+            mod._timer.cancel()
+            mod._timer = None
+    integrations._queue = None
+    integrations._again = False
+    with cancel._lock:
+        cancel._tokens.clear()
+
+
 #: the heaviest tests (each >~15 s on the real workbooks, ~4.5 min together). ``make check`` runs
 #: ``-m "not slow"``; ``make test-slow`` (a separate CI step) runs exactly these, so CI keeps full coverage.
 SLOW_TESTS = frozenset(

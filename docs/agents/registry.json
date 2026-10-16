@@ -1374,7 +1374,8 @@
       "goal": "RESUME after a container restart. A previous agent with your ledger id started at 01:24 UTC and was killed at ~02:10; its work was checkpointed into origin. Read `grep p19-ui-followup-2026-10-16 docs/PROGRESS.md` and `git log --since=2026-10-16T01:20 --stat --format='%h %s' -- smartsched/frontend/sr…",
       "ledger": "RESUME Phase 19 UI follow-up",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 03:23"
     },
     {
       "id": "ad88dae54f55423dc",
@@ -1397,6 +1398,18 @@
       "scope": "",
       "goal": "1. Reproduce with a test on the real Bahar and Güz workbooks through the intake upload/council path (the same entry point `/onboarding` uses), asserting it is accepted and reads the expected row count (compare with what the CLI importer reads). 2. Fix the root cause: measure used columns/rows (last non-empty cell, streaming/read-only mode so a bomb can't exhaust memory) and apply the cap to that; …",
       "ledger": "Fix intake column-limit refusal",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a574bed3e475d8876",
+      "description": "Backend follow-up asks batch",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 03:23",
+      "scope": "",
+      "goal": "You are the **backend follow-ups** builder for SmartSched (FastAPI backend /home/user/classroombookings/smartsched/backend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: backend-followups-2026-10-16. ## Items (asks from the finished frontend agents; read docs/ROADMAP.md …",
+      "ledger": "Backend follow-up asks batch",
       "resumed": false,
       "status": "running"
     }
