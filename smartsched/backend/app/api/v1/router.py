@@ -134,3 +134,8 @@ api_router.include_router(notify_channels.router)
 from app.api.v1 import analytics  # noqa: E402
 
 api_router.include_router(analytics.router)
+
+# booking enhancements wave 2 (ROADMAP Phase 17): P8 booking policies + exam-period mode
+from app.api.v1 import booking_policies as booking_policies_api  # noqa: E402
+
+api_router.include_router(booking_policies_api.router)

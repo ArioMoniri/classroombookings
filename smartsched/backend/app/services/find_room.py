@@ -391,6 +391,10 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
         return [*bocc.get((rid, d), []), *tocc.get((rid, d), [])]
 
     rules = await approvals.RulesIndex.load(session)
+    from app.services.booking_policies import PolicyIndex
+
+    policies = await PolicyIndex.load(session)
+    today_ = await bsvc.today(session)
 
     def scan(c: _Cand, ds: list[date], first_s: int, last_s: int) -> tuple[int | None, dict[date, bsvc.Held | None]]:
         """Earliest start in [first_s, last_s] free on the most dates (all, ideally)."""
@@ -412,10 +416,23 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
         mode = await rules.mode_for(session, access, r, info.term.id)
         start, per = scan(c, open_dates, s0, s1) if open_dates else (s0, {})
         start = start or s0
+        # P8 booking policies + exam-period mode on the free dates: refused ("policy") or request-only
+        policy_hit = None
+        if not c.static and mode in ("book", "request"):
+            t0_, t1_ = n.PERIODS[start - 1].start, n.PERIODS[start + dur - 2].end
+            for d_ in [d_ for d_, h_ in per.items() if h_ is None]:
+                found = await policies.static_violations(session, access, r, info.term.id, d_, t0_, t1_, today_)
+                if found:
+                    policy_hit = next((v for v in found if v.effect == "refuse"), found[0])
+                    break
+            if policy_hit is not None and policy_hit.effect == "request":
+                mode = "request"
         busy_n = sum(1 for h in per.values() if h is not None)
         free_n = len(per) - busy_n
         if c.static:
             status = c.static
+        elif policy_hit is not None and policy_hit.effect == "refuse":
+            status = "policy"
         elif not open_dates:
             status = "closed"
         elif busy_n == 0:
@@ -458,6 +475,10 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
             reasons.insert(0, _reason("Kapasite bilinmiyor", "Capacity unknown"))
         elif status == "feature_missing":
             reasons.insert(0, _reason("Eksik: " + ", ".join(c.missing), "Missing: " + ", ".join(c.missing)))
+        elif status == "policy" and policy_hit is not None:
+            reasons.insert(0, _reason(policy_hit.message_tr, policy_hit.message_en))
+        elif status == "requestable" and policy_hit is not None:
+            reasons.insert(0, _reason(policy_hit.message_tr, policy_hit.message_en))
         elif status == "requestable":
             reasons.insert(0, _reason("Onay gerekli: talep oluşturulur", "Needs approval: a request is created"))
         elif status == "partial":
@@ -507,6 +528,7 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
         "busy": 2,
         "too_small": 3,
         "feature_missing": 4,
+        "policy": 4,
         "capacity_unknown": 5,
         "closed": 6,
     }

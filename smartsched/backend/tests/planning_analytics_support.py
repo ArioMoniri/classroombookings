@@ -8,7 +8,8 @@ Two SQLite files are built once per test session and copied per test:
 * ``final``: the Bahar list (the instructors and their teaching), the room master, the Final board and the Final
   exam list; the Bahar term gets its real calendar (16 Feb 2026, 15 weeks, so the May exam dates fall in weeks
   13-15 of teaching), Bahar week 13 is solved and published (the teaching the invigilators have during the
-  exams), and the Final exam run is solved like ``POST /runs``.
+  exams), the Final exam run is solved like ``POST /runs`` (A) and again with A's busiest exam room closed on
+  its busiest date (B).
 """
 
 from __future__ import annotations
@@ -174,10 +175,62 @@ async def build_final(workdir: Path) -> tuple[Path, dict[str, Any]]:
             term_id=final_id, kind="EXAM", horizon="TERM", horizon_params={}, params=dict(EXAM_PARAMS), label="Final"
         ),
     )
+    # scenario B of the exams: the busiest exam room of run A closed on its busiest exam date
+    async with factory() as s:
+        rows = (await s.execute(select(Assignment).where(Assignment.run_id == exam_id))).scalars().all()
+    use: Counter[tuple[int, dt.date]] = Counter()
+    for a in rows:
+        for r in a.room_ids or []:
+            if a.date is not None:
+                use[(int(r), a.date)] += 1
+    (room, day), _n = min(use.items(), key=lambda kv: (-kv[1], kv[0][0], kv[0][1]))
+    async with factory() as s:
+        final = await s.get(Term, final_id)
+        assert final is not None
+        from app.services.calendar import week_index_for_date
+
+        week = week_index_for_date(final, day)
+        b = ScheduleRun(
+            term_id=final_id,
+            kind="EXAM",
+            horizon="TERM",
+            horizon_params={},
+            params=dict(EXAM_PARAMS),
+            label="Final, en yoğun sınav salonu bir gün kapalı",
+        )
+        s.add(b)
+        await s.flush()
+        s.add(
+            ConstraintRow(
+                term_id=None,
+                run_id=b.id,
+                kind="room_closed",
+                params={"room_id": room, "day": day.isoweekday(), "start": 1, "end": 18, "weeks": [week]},
+                hardness="hard",
+                weight=1,
+                source="ADMIN",
+                nl_text="En yoğun sınav salonu bir gün kapalı",
+            )
+        )
+        await s.commit()
+        exam_b = b.id
+    from app.services.solver_bridge import run_schedule
+
+    await run_schedule(factory, exam_b)
+    async with factory() as s:
+        row = await s.get(ScheduleRun, exam_b)
+        assert row is not None and row.status in ("OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL", "INFEASIBLE"), row
     await dbmod.dispose_engine()
     _CACHE["final"] = (
         path,
-        {"bahar_id": bahar_id, "final_id": final_id, "teach_run": teach_id, "exam_run": exam_id},
+        {
+            "bahar_id": bahar_id,
+            "final_id": final_id,
+            "teach_run": teach_id,
+            "exam_run": exam_id,
+            "exam_run_b": exam_b,
+            "exam_closed": {"room_id": room, "date": day.isoformat()},
+        },
     )
     return _CACHE["final"]
 

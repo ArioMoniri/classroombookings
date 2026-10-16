@@ -171,7 +171,7 @@ async def validate(session: AsyncSession, data: dict[str, Any]) -> dict[str, Any
     roles = data.get("role_codes") or []
     if not isinstance(roles, list):
         raise PolicyError("role_codes", "role_codes must be a list", "roller bir liste olmalı")
-    out["role_codes"] = sorted({n.tr_upper(n.clean_text(str(r)) or "") for r in roles if str(r).strip()})
+    out["role_codes"] = sorted({(n.clean_text(str(r)) or "").upper() for r in roles if str(r).strip()})
     effect = str(data.get("effect") or "refuse")
     if effect not in EFFECTS:
         raise PolicyError("effect", "effect: refuse or request", "etki: refuse (reddet) ya da request (talep)")
@@ -397,6 +397,7 @@ class PolicyIndex:
     exam: dict[str, Any]
     _exam_rooms: dict[int, set[int]] = field(default_factory=dict)
     _exam_weeks: dict[int, list[tuple[date, date, str]]] = field(default_factory=dict)
+    _earliest: dict[tuple[int, date, int], date] = field(default_factory=dict)
 
     @classmethod
     async def load(cls, session: AsyncSession) -> PolicyIndex:
@@ -471,7 +472,10 @@ class PolicyIndex:
         out: list[Violation] = []
         for p in self.for_access(access, room, term_id):
             if p.min_notice_workdays:
-                earliest = await add_workdays(session, term_id, today, p.min_notice_workdays)
+                key = (term_id, today, p.min_notice_workdays)
+                if key not in self._earliest:
+                    self._earliest[key] = await add_workdays(session, term_id, today, p.min_notice_workdays)
+                earliest = self._earliest[key]
                 if d < earliest:
                     out.append(
                         Violation(

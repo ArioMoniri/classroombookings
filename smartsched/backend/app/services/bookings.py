@@ -1908,6 +1908,7 @@ async def grid(
     max_date = t + timedelta(days=hi) if hi is not None else info.end
     now = await now_local(session)
     may_book_past = access.can(PAST_BOOKING_PERM)
+    policies = await booking_policies.PolicyIndex.load(session)
     booking_cache: dict[int, Booking] = {}
     slots = []
     for day in dates:
@@ -1951,6 +1952,18 @@ async def grid(
                         status, reason = "unavailable", "range_max"
                     elif past and not may_book_past:
                         status, reason = "unavailable", "past"  # U-04: the period already started
+                    else:
+                        # P8: a policy refuses the slot ("unavailable", reason "policy") or makes it request-only
+                        found = await policies.static_violations(
+                            session, access, r, info.term.id, day, p.time_start, p.time_end, t
+                        )
+                        refused = next((v for v in found if v.effect == "refuse"), None)
+                        if refused is not None:
+                            status, reason = "unavailable", "policy"
+                            slot["policy"] = refused.as_dict()
+                        elif found:
+                            slot["request_only"] = True
+                            slot["policy"] = found[0].as_dict()
                 slot.update(status=status, reason=reason, label=label)
                 slots.append(slot)
     prev_d, next_d = await _prev_next(session, info, target, display, period_days)
