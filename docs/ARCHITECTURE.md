@@ -362,6 +362,27 @@ The channels are in-app, e-mail and `services/channels/**`:
 
 `channels.register()` adds them at start-up. Their outbox drains in `workers/integrations.py`, retrying from 1 min to 6 h. Every channel stays off until an admin enters the institution's sender and records a KVKK sign-off; the sign-off is checked again at send time. Users only link their own address, and linking is their opt-in. Messages are link-only by default. Secrets and addresses are encrypted. Push endpoints and webhook hosts are allowlisted and DNS-checked. Setup: `docs/deploy/notification-channels.md`.
 
+## Sign-in with Microsoft Entra ID
+
+`services/sso.py` and `api/v1/sso.py` (`/api/v1/auth/sso/*`) implement direct OIDC against the institution's single tenant, using Authlib and joserfc. The flow uses PKCE, state and nonce, and the `id_token` is verified against the tenant's JWKS. Multi-tenant, consumer and guest accounts are refused.
+
+**Identity and accounts**
+- Identity is the Entra `oid`+`tid`, never the e-mail, and nothing is linked automatically by e-mail.
+- The callback redirects with a one-time 2-minute ticket, which `POST /exchange` swaps for the normal SmartSched JWT. The IdP tokens are dropped.
+- **Sign-up:** a first sign-in creates a Teacher account (the `sso_self_signup` setting, on by default). An admin invite binds on the first sign-in by the verified UPN, and invites expire after 30 days.
+- **Linking an existing account:** "bind on next login" does it, and admins can link a login to an instructor.
+- **Roles:** administrative roles are granted only by an admin, under the no-escalation rule. Optional role and group mapping can demote, which revokes sessions; it never demotes the last break-glass admin.
+- **Password sign-in:** "Microsoft only for non-admins" refuses password sign-in for everyone else with the same generic 401 as a bad password. Switching it on needs an active local break-glass admin.
+
+**Errors and audit**
+- Errors are codes on `/login?error=` that never reveal whether an account exists. `failed` carries an audit reference.
+- Every step is audited.
+
+**Configuration**
+- Admins enter the configuration in Settings › Microsoft ile giriş; the secret is write-only. It can also come from the `SSO_ENTRA_*` env variables (SSM).
+- The IT checklist is `docs/deploy/sso-entra.md`.
+- The sign-in UI follows `docs/design/v2/sign-in.md`.
+
 ## Sessions and token revocation
 
 A JWT carries `uid`, the role code and `tv` = `users.token_version` (`core/security.py`). A request whose
