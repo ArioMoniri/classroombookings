@@ -138,7 +138,7 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
           {t("studio.add.title")}
         </h3>
         <WriteIt noKey={noKey} />
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
           <Button variant="outline" size="sm" onClick={() => setGallery(true)} data-testid="add-template">
             <LayoutTemplate aria-hidden /> {t("studio.add.template")}
           </Button>

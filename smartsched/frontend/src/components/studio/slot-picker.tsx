@@ -278,7 +278,7 @@ export function SlotChip({ slot, onChange, readOnly, uncertain }: { slot: Slot; 
   const { t } = useI18n();
   const [draft, setDraft] = useState<unknown>(slot.value);
   const cls = cn(
-    "mx-0.5 inline-flex max-w-full items-center rounded-[var(--radius-xs)] border px-1.5 py-0.5 align-baseline text-[0.95em] font-medium leading-snug",
+    "mx-0.5 inline-flex max-w-full items-center rounded-[var(--radius-xs)] border px-1.5 py-0.5 align-baseline font-medium leading-snug",
     slot.empty ? "border-dashed border-status-warning-border text-status-warning-fg" : "border-border-strong/60 bg-fill-2/60 text-foreground",
     uncertain && "underline decoration-dotted underline-offset-4",
   );

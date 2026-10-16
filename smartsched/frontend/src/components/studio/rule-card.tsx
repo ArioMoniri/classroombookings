@@ -104,7 +104,7 @@ export function RuleCard(p: RuleCardProps) {
         <span id={sentenceId} className="sr-only">
           {p.tokens ? plainSentence(p.tokens) : p.fallback}
         </span>
-        <p className="min-w-0 flex-1 text-[0.95rem] leading-relaxed">
+        <p className="min-w-0 flex-1 type-body leading-relaxed">
           {p.tokens
             ? p.tokens.map((tok, i) =>
                 tok.kind === "text" ? (
