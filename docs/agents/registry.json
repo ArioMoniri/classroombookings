@@ -1336,7 +1336,8 @@
       "goal": "RESUME after a container restart. A previous agent with your ledger id started at 01:50 UTC and was killed at ~02:10; its work was checkpointed into origin. Read `grep design-migration-mobile-2026-10-16 docs/PROGRESS.md`, `git log --since=2026-10-16T01:45 --stat --format='%h %s' -- smartsched/fronte…",
       "ledger": "RESUME design migration + mobile",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 05:23"
     },
     {
       "id": "a9f1b949cb76c7c78",
@@ -1465,6 +1466,30 @@
       "scope": "",
       "goal": "You are the **planning analytics UI** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: analytics-ui-2026-10-16. ## Owner's requirements \"All features and more\", an AI scheduler with…",
       "ledger": "Planning analytics + invigilation UI",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a9ef265e79e00ac92",
+      "description": "UI primitives: touch targets",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 05:24",
+      "scope": "",
+      "goal": "You are the **ui primitives touch/mobile** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: ui-primitives-touch-2026-10-16. You own components/ui/** for this task (the design-system…",
+      "ledger": "UI primitives: touch targets",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "aa299638bbd03b5e8",
+      "description": "E2E suite stabilisation",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 05:24",
+      "scope": "",
+      "goal": "1. Reproduce the full e2e gate exactly as pod CI runs it against your own real backend + frontend (ports 19008/19009, fresh DB in a mktemp dir under /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad, Bahar/Güz/Final data per the gate). Write results to a file (container restarts happen). 2. Make specs deterministic and correct against the intended product: …",
+      "ledger": "E2E suite stabilisation",
       "resumed": false,
       "status": "running"
     }

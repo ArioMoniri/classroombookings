@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `46f34a2` (committed 2026-10-16 05:22 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `ed623e6` (committed 2026-10-16 05:23 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-134 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 112 · stopped 7 · superseded 7.
+136 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 113 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -155,8 +155,9 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `RESUME backend test isolation` | backend-engineer | 2026-10-16 02:16 |
-| `RESUME design migration + mobile` | frontend-engineer | 2026-10-16 02:16 |
 | `Planning analytics + invigilation UI` | frontend-engineer | 2026-10-16 04:42 |
+| `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
+| `UI primitives` | frontend-engineer | 2026-10-16 05:24 |
 
 <!-- /AUTO:agents -->
 

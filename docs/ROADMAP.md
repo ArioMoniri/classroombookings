@@ -1343,3 +1343,30 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - A room list a linked academician can read (code, name, capacity, bookable). `/bookings/rooms` hides ungrouped rooms, so the room picker falls back to typed codes.
 - [ ] The flow loop (M-02) should check the Sheet close button. It is 36 px, and the Button primitive's coarse-pointer `::after` should extend its hit area to 44 × 44.
 - The orchestrator mapped `preference.*` events to the Program group in Profil › Bildirimler.
+
+### Design migration and phone sweep finished (2026-10-16)
+
+- Done:
+  - check:design passes. The swept files have no allow-list entries left, and verify-contrast passes 160 pairs.
+  - Bookings: a one-row compact toolbar with a "Filtreler" sheet below 1024 px.
+  - Find-room, rooms and audit filters move into sheets on phones.
+  - DateField replaces native date inputs everywhere.
+  - No route scrolls sideways at 390 or 768.
+  - Tab-bar labels always show.
+  - 44 px touch targets in the swept screens.
+  - Audit undo of wizard programmes.
+  - The import report's truncated-warnings line.
+- Agents launched:
+  - **ui primitives touch:**
+    - the Sheet full-width bottom sheet on phones (M-04)
+    - 44 px hit areas for Switch, Chip, SegmentedControl and the DateField trigger
+    - 16 px input text built into NativeSelect and DateField
+    - DataTable card-mode targets
+    - Button `variant="bare"`
+  - **e2e stabilisation:**
+    - pin the language per spec
+    - selectors for the intended UI changes
+    - API preconditions
+    - flaky root causes
+    - the /generate obscured add-rule buttons at 390
+    - two green runs of the pod e2e gate
