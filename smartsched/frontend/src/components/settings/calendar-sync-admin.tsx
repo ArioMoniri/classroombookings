@@ -9,7 +9,8 @@
  * - The backend writes the sign-off record on every change (who, when, the legal basis, the features) and an
  *   `integrations.calendar_sync` audit row; the record stays visible (E-8). Turning it off needs no
  *   acknowledgement and writes a new record (`enabled: false`); token feeds answer 404 from then on.
- * - Webhooks: the outgoing webhooks switch (off by default) sits next to it; the endpoints are below.
+ * - The legal basis the backend stores (an English constant) reads in the user's language.
+ * The outgoing webhooks switch lives in WebhooksAdmin, with the endpoints it governs.
  */
 import { CalendarSync, ShieldCheck } from "lucide-react";
 import { useId, useRef, useState } from "react";
@@ -25,8 +26,12 @@ import { useIntegrationSettings, useSaveIntegrationSettings, type CalendarSignof
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 
+/** `calendar_sync_signoff.legal_basis` as `app/api/v1/calendar_sync.py` writes it. */
+export const CALENDAR_LEGAL_BASIS = "KVKK Art. 9 as amended by Law 7499 (cross-border transfer)";
+
 function SignoffRecord({ signoff }: { signoff: CalendarSignoff }) {
   const { t, locale } = useI18n();
+  const basis = signoff.legal_basis === CALENDAR_LEGAL_BASIS ? t("notifications.admin.calendar.basis") : signoff.legal_basis;
   const when = new Date(signoff.at);
   const date = Number.isNaN(when.getTime()) ? signoff.at : when.toLocaleString(locale === "tr" ? "tr-TR" : "en-GB", { dateStyle: "long", timeStyle: "short" });
   const who = signoff.by || t("notifications.admin.calendar.someone");
@@ -35,7 +40,7 @@ function SignoffRecord({ signoff }: { signoff: CalendarSignoff }) {
       <ShieldCheck className="mt-0.5 size-4 shrink-0 text-label-3" aria-hidden />
       <div className="min-w-0">
         <p className="text-label-1">{signoff.enabled ? t("notifications.admin.calendar.signedOn", { who, date }) : t("notifications.admin.calendar.signedOff", { who, date })}</p>
-        {signoff.legal_basis ? <p>{t("notifications.admin.calendar.legal", { basis: signoff.legal_basis })}</p> : null}
+        {basis ? <p>{t("notifications.admin.calendar.legal", { basis })}</p> : null}
       </div>
     </div>
   );
@@ -73,8 +78,6 @@ export function CalendarSyncAdmin() {
       },
     );
   };
-  const setWebhooks = (on: boolean) =>
-    save.mutate({ webhooks_enabled: on }, { onSuccess: () => toast.success(t(on ? "notifications.admin.webhooks.savedOn" : "notifications.admin.webhooks.savedOff")), onError: fail });
 
   return (
     <Card data-testid="calendar-sync-admin">
@@ -98,7 +101,7 @@ export function CalendarSyncAdmin() {
             {errorText(wave1Error(q.error), locale)}
           </p>
         ) : null}
-        <div className="flex min-h-11 items-center justify-between gap-4 py-2.5 hairline-b">
+        <div className="flex min-h-11 items-center justify-between gap-4 py-2.5">
           <div className="min-w-0">
             <Label htmlFor="calendar-sync-switch" className="type-callout font-medium text-label-1">
               {t("notifications.admin.calendar.switch")}
@@ -106,15 +109,6 @@ export function CalendarSyncAdmin() {
             <p className="type-footnote text-label-2">{t("notifications.admin.calendar.switchHint")}</p>
           </div>
           <Switch id="calendar-sync-switch" checked={!!s?.calendar_sync_enabled} disabled={!s || save.isPending} onCheckedChange={setCalendar} data-testid="calendar-sync-switch" />
-        </div>
-        <div className="flex min-h-11 items-center justify-between gap-4 py-2.5">
-          <div className="min-w-0">
-            <Label htmlFor="webhooks-switch" className="type-callout font-medium text-label-1">
-              {t("notifications.admin.webhooks.switch")}
-            </Label>
-            <p className="type-footnote text-label-2">{t("notifications.admin.webhooks.switchHint")}</p>
-          </div>
-          <Switch id="webhooks-switch" checked={!!s?.webhooks_enabled} disabled={!s || save.isPending} onCheckedChange={setWebhooks} data-testid="webhooks-switch" />
         </div>
         {s ? s.calendar_sync_signoff ? <SignoffRecord signoff={s.calendar_sync_signoff} /> : <p className="pt-1 type-footnote text-label-3" data-testid="calendar-no-signoff">{t("notifications.admin.calendar.noSignoff")}</p> : null}
       </CardContent>

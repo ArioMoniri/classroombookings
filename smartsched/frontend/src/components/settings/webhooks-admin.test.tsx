@@ -6,13 +6,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { HttpError } from "@/lib/api/client";
 
-const state = vi.hoisted(() => ({ list: [] as unknown[], create: vi.fn() }));
+const state = vi.hoisted(() => ({ list: [] as unknown[], create: vi.fn(), settings: { calendar_sync_enabled: false, calendar_sync_signoff: null, webhooks_enabled: false } as Record<string, unknown>, put: vi.fn() }));
 vi.mock("@/lib/api/client", async (orig) => ({
   ...(await orig<typeof import("@/lib/api/client")>()),
   request: async (path: string, opts: { method?: string; body?: unknown } = {}) => {
     if (path === "/webhooks" && opts.method === "POST") return state.create(opts.body);
     if (path === "/webhooks") return state.list;
     if (path === "/webhooks/event-types") return ["booking.created", "approval.rejected", "ping"];
+    if (path === "/calendar/admin/settings") return opts.method === "PUT" ? state.put(opts.body) : state.settings;
     throw new Error(`unexpected ${path}`);
   },
 }));
@@ -34,6 +35,20 @@ describe("WebhooksAdmin", () => {
   beforeEach(() => {
     state.list = [];
     state.create.mockReset();
+    state.settings = { calendar_sync_enabled: false, calendar_sync_signoff: null, webhooks_enabled: false };
+    state.put.mockReset();
+    state.put.mockImplementation(async (b: Record<string, unknown>) => (state.settings = { ...state.settings, ...b }));
+  });
+
+  it("heads the card with the delivery switch, off by default; turning it on saves webhooks_enabled", async () => {
+    renderCard();
+    const sw = await screen.findByTestId("webhooks-switch");
+    await waitFor(() => expect(sw).not.toHaveAttribute("data-disabled"));
+    expect(sw).not.toHaveAttribute("data-checked");
+    expect(screen.getByText("Webhook gönderimi")).toBeInTheDocument();
+    await userEvent.click(sw);
+    await waitFor(() => expect(state.put).toHaveBeenCalledWith({ webhooks_enabled: true }));
+    await waitFor(() => expect(screen.getByTestId("webhooks-switch")).toHaveAttribute("data-checked"));
   });
 
   it("starts empty; a new webhook shows its secret once", async () => {

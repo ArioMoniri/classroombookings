@@ -9,17 +9,18 @@
  *    reject dialog refuses an empty reason, then rejects both periods with a code and a text; the teacher reads
  *    "Reddedildi" and "Gerekçe: Oda uygun değil: …" in Taleplerim.
  * 3. Withdraw with a confirmation; the approver finds it under "Karara bağlanan" as "Geri çekildi" (M-34).
- * 4. Settings › Entegrasyonlar: calendar sync needs the KVKK acknowledgement and shows the sign-off (M-40).
+ * 4. Settings › Entegrasyonlar: calendar sync needs the KVKK acknowledgement and shows the sign-off, its legal
+ *    basis in Turkish (M-40).
  * 5. Phone 390 × 844 (touch): the reject dialog is a full-width bottom sheet, reason rows ≥ 44 px, no sideways
  *    scroll; Taleplerim's withdraw button ≥ 44 px.
  * 6. A two-period submission approved at once ("2 saatin hepsini onayla"); the teacher reads "Onaylandı" (F-01 S07).
  * 7. Profile › Bildirimler: switching off e-mail for "Talebim onaylandı" is saved (F-01 S11); on a phone the
  *    matrix is one card per event with ≥ 44 px rows and no sideways scroll.
- * 8. Settings › Entegrasyonlar › Giden webhook'lar: a loopback URL is refused next to the field (M-41); a new
- *    webhook shows its secret once, then is deleted after a confirmation.
+ * 8. Settings › Entegrasyonlar › Giden webhook'lar: the delivery switch heads the card; a loopback URL is refused
+ *    next to the field (M-41); a new webhook shows its secret once, then is deleted after a confirmation.
  *
- * Everything this spec changes is its own (users, a room in the A group); afterAll restores the approval mode,
- * calendar sync, and removes the approver designation.
+ * Everything this spec changes is its own (users, a room in the A group, a webhook); afterAll restores the approval
+ * mode, calendar sync and webhook delivery, removes the approver designation and deletes the webhooks it made.
  *
  *   E2E_REAL=1 E2E_API_URL=http://127.0.0.1:18994 NEXT_PUBLIC_API_URL=http://127.0.0.1:18994 PW_PORT=18995 \
  *     npx playwright test e2e/approval-first.spec.ts
@@ -58,7 +59,7 @@ interface Req {
   note: string | null;
   bookings: { id: number; date: string; period_id: number }[];
 }
-const ctx = { webhooks: [] as number[] } as { api: APIRequestContext; token: string; teacherToken: string; termId: number; groupA: number; room: { id: number; name: string }; adminId: number; mode: string; calendar: boolean; webhooks: number[] };
+const ctx = { webhooks: [] as number[] } as { api: APIRequestContext; token: string; teacherToken: string; termId: number; groupA: number; room: { id: number; name: string }; adminId: number; mode: string; calendar: boolean; sending: boolean; webhooks: number[] };
 
 async function call<T = unknown>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, token = ctx.token): Promise<{ status: number; body: T }> {
   const res = await ctx.api.fetch(`${API}${path}`, { method, data: body, headers: { Authorization: `Bearer ${token}` } });
@@ -119,7 +120,9 @@ test.beforeAll(async () => {
   const dates = await api<{ today: string }>("GET", "/bookings/dates");
   test.skip(dates.today < "2026-02-02" || dates.today > "2026-06-28", `the backend's booking clock (${dates.today}) must be inside Bahar 2026`);
   ctx.mode = (await api<{ approval_mode?: string }>("GET", "/org/settings")).approval_mode ?? "rules";
-  ctx.calendar = (await api<{ calendar_sync_enabled: boolean }>("GET", "/calendar/admin/settings")).calendar_sync_enabled;
+  const integrations = await api<{ calendar_sync_enabled: boolean; webhooks_enabled: boolean }>("GET", "/calendar/admin/settings");
+  ctx.calendar = integrations.calendar_sync_enabled;
+  ctx.sending = integrations.webhooks_enabled;
 
   // the booking setup CRBS's installer would make (same as e2e/wave1.spec.ts, idempotent)
   const terms = await api<{ id: number; code: string }[]>("GET", "/terms");
@@ -156,7 +159,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   if (!ctx.api) return;
   await call("PUT", "/org/settings", { approval_mode: ctx.mode });
-  if (ctx.calendar !== undefined) await call("PUT", "/calendar/admin/settings", { calendar_sync_enabled: ctx.calendar });
+  if (ctx.calendar !== undefined) await call("PUT", "/calendar/admin/settings", { calendar_sync_enabled: ctx.calendar, webhooks_enabled: ctx.sending });
   if (ctx.adminId) await call("PUT", `/approvals/approvers/${ctx.adminId}`, { scopes: [] });
   for (const id of ctx.webhooks) await call("DELETE", `/webhooks/${id}`);
   await ctx.api.dispose();
@@ -266,7 +269,6 @@ test("approval-first 4. calendar sync needs the KVKK acknowledgement and shows t
   await login(page, ADMIN.username, ADMIN.password);
   await page.goto("/settings?tab=integrations");
   const card = page.getByTestId("calendar-sync-admin");
-  await expect(card.getByTestId("webhooks-switch")).toBeVisible();
   await card.getByTestId("calendar-sync-switch").click();
   const notice = page.getByTestId("calendar-notice");
   await expect(notice.getByTestId("calendar-notice-text")).toContainText("yurt dışına aktarım");
@@ -274,7 +276,7 @@ test("approval-first 4. calendar sync needs the KVKK acknowledgement and shows t
   await notice.getByTestId("calendar-ack").check();
   await notice.getByTestId("calendar-confirm").click();
   await expect(card.getByTestId("calendar-signoff")).toContainText("KVKK onayını verdi");
-  await expect(card.getByTestId("calendar-signoff")).toContainText("KVKK Art. 9");
+  await expect(card.getByTestId("calendar-signoff")).toContainText("Hukuki dayanak: KVKK md. 9 (7499 sayılı Kanun ile değişik; yurt dışına aktarım)");
   const s = await api<{ calendar_sync_enabled: boolean; calendar_sync_signoff: { by_user_id: number; legal_basis: string } }>("GET", "/calendar/admin/settings");
   expect(s.calendar_sync_enabled).toBe(true);
   expect(s.calendar_sync_signoff.by_user_id).toBe(ctx.adminId);
@@ -383,6 +385,13 @@ test("approval-first 8. webhooks: a loopback URL is refused next to the field; t
   await login(page, ADMIN.username, ADMIN.password);
   await page.goto("/settings?tab=integrations");
   const card = page.getByTestId("webhooks-admin");
+  // the delivery switch heads the card (off by default)
+  await call("PUT", "/calendar/admin/settings", { webhooks_enabled: false });
+  await page.reload();
+  await expect(card.getByTestId("webhooks-switch")).not.toHaveAttribute("data-checked");
+  await card.getByTestId("webhooks-switch").click();
+  await expect(card.getByTestId("webhooks-switch")).toHaveAttribute("data-checked");
+  await expect.poll(async () => (await api<{ webhooks_enabled: boolean }>("GET", "/calendar/admin/settings")).webhooks_enabled).toBe(true);
   await card.getByTestId("webhook-new").click();
   const dialog = page.getByTestId("webhook-dialog");
   await expect(dialog.getByTestId("webhook-save")).toBeDisabled();

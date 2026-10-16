@@ -43,12 +43,11 @@ describe("CalendarSyncAdmin", () => {
     });
   });
 
-  it("is off with no sign-off on a fresh install; webhooks off too", async () => {
+  it("is off with no sign-off on a fresh install", async () => {
     renderCard();
     expect(await screen.findByTestId("calendar-no-signoff")).toHaveTextContent("No sign-off recorded");
     expect(screen.getByTestId("calendar-status-pill")).toHaveTextContent("Off");
     expect(screen.getByTestId("calendar-sync-switch")).not.toHaveAttribute("data-checked");
-    expect(screen.getByTestId("webhooks-switch")).not.toHaveAttribute("data-checked");
   });
 
   it("shows the notice first, needs the acknowledgement, then shows who, when and the legal basis", async () => {
@@ -64,6 +63,21 @@ describe("CalendarSyncAdmin", () => {
     expect(await screen.findByTestId("calendar-signoff")).toHaveTextContent(/Turned on by Fatih Bey on .*2026/);
     expect(screen.getByTestId("calendar-signoff")).toHaveTextContent(BASIS);
     expect(screen.getByTestId("calendar-status-pill")).toHaveTextContent("On");
+  });
+
+  it("reads the stored legal basis in Turkish", async () => {
+    state.settings = { ...off, calendar_sync_enabled: true, calendar_sync_signoff: { enabled: true, by: "Fatih Bey", at: "2026-10-15T09:00:00Z", features: ["calendar_sync"], legal_basis: BASIS } };
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <I18nProvider initialLocale="tr">
+          <CalendarSyncAdmin />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    const record = await screen.findByTestId("calendar-signoff");
+    expect(record).toHaveTextContent("Hukuki dayanak: KVKK md. 9 (7499 sayılı Kanun ile değişik; yurt dışına aktarım)");
+    expect(record).not.toHaveTextContent("as amended");
   });
 
   it("turns off without the acknowledgement and keeps a record", async () => {

@@ -3278,6 +3278,7 @@
         "signedOn": "Turned on by {who} on {date}, with the KVKK sign-off.",
         "signedOff": "Turned off by {who} on {date}.",
         "legal": "Legal basis: {basis}",
+        "basis": "KVKK Art. 9 as amended by Law 7499 (cross-border transfer)",
         "noSignoff": "No sign-off recorded: calendar sync has never been on.",
         "someone": "An administrator"
       },
@@ -3628,7 +3629,7 @@
       "saveFailed": "The change was not saved.",
       "breakGlass409": "Keep at least one active administrator with a local password (break-glass) before allowing Microsoft only for everyone else.",
       "app": "App registration",
-      "appLead": "Values from the university IT department (docs/deploy/sso-entra.md). Never send the secret by e-mail or chat.",
+      "appLead": "Values from the university IT department. Never send the secret by e-mail or chat.",
       "tenant": "Directory (tenant) ID",
       "client": "Application (client) ID",
       "guidHint": "A GUID from the app registration's Overview page.",

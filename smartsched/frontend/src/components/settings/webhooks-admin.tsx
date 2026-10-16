@@ -8,7 +8,8 @@
  * - New: URL (https; private and loopback addresses are refused by the backend, M-41: its sentence is shown next
  *   to the field), events (or every event), a description. The secret is shown once, with Copy.
  * - Recent deliveries per webhook (status, HTTP code, error) open on demand.
- * Nothing is sent while the "Webhook gönderimi" switch (CalendarSyncAdmin) is off.
+ * - The "Webhook gönderimi" master switch (`webhooks_enabled` of `/calendar/admin/settings`, off by default) heads
+ *   the card: nothing is sent while it is off, whatever the endpoints say.
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { Copy, Plus, RotateCcw, Send, Trash2, Webhook as WebhookIcon } from "lucide-react";
@@ -19,8 +20,9 @@ import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ResponsiveDialog } from "@/components/approvals/responsive-dialog";
-import { afKeys, approvalFirst, useWebhookDeliveries, useWebhookEventTypes, useWebhooks, type Webhook } from "@/lib/api/approval-first";
+import { afKeys, approvalFirst, useIntegrationSettings, useSaveIntegrationSettings, useWebhookDeliveries, useWebhookEventTypes, useWebhooks, type Webhook } from "@/lib/api/approval-first";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -47,6 +49,17 @@ export function WebhooksAdmin() {
     }
   };
   const rows = list.data ?? [];
+  const settings = useIntegrationSettings();
+  const saveSettings = useSaveIntegrationSettings();
+  const sending = !!settings.data?.webhooks_enabled;
+  const setSending = (on: boolean) =>
+    saveSettings.mutate(
+      { webhooks_enabled: on },
+      {
+        onSuccess: () => toast.success(t(on ? "notifications.admin.webhooks.savedOn" : "notifications.admin.webhooks.savedOff")),
+        onError: (e) => toast.error(errorText(wave1Error(e), locale) || t("notifications.admin.failed")),
+      },
+    );
   return (
     <Card data-testid="webhooks-admin">
       <CardHeader>
@@ -63,6 +76,15 @@ export function WebhooksAdmin() {
         <CardDescription>{t("notifications.admin.webhooks.lead")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        <div className="flex min-h-11 items-center justify-between gap-4 pb-2.5 hairline-b">
+          <div className="min-w-0">
+            <Label htmlFor="webhooks-switch" className="type-callout font-medium text-label-1">
+              {t("notifications.admin.webhooks.switch")}
+            </Label>
+            <p className="type-footnote text-label-2">{t("notifications.admin.webhooks.switchHint")}</p>
+          </div>
+          <Switch id="webhooks-switch" checked={sending} disabled={!settings.data || saveSettings.isPending} onCheckedChange={setSending} data-testid="webhooks-switch" />
+        </div>
         {list.isError ? (
           <p role="alert" className="type-footnote text-status-infeasible-fg">
             {errorText(wave1Error(list.error), locale)}

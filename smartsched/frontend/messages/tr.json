@@ -3277,6 +3277,7 @@
         "signedOn": "{who}, {date} tarihinde açtı ve KVKK onayını verdi.",
         "signedOff": "{who}, {date} tarihinde kapattı.",
         "legal": "Hukuki dayanak: {basis}",
+        "basis": "KVKK md. 9 (7499 sayılı Kanun ile değişik; yurt dışına aktarım)",
         "noSignoff": "Onay kaydı yok: takvim eşitleme hiç açılmadı.",
         "someone": "Bir yönetici"
       },
@@ -3627,7 +3628,7 @@
       "saveFailed": "Değişiklik kaydedilmedi.",
       "breakGlass409": "Diğer herkes için yalnızca Microsoft'a geçmeden önce yerel parolası olan en az bir etkin yönetici (acil durum hesabı) bırakın.",
       "app": "Uygulama kaydı",
-      "appLead": "Üniversite Bilgi İşlem'den gelen değerler (docs/deploy/sso-entra.md). Gizli anahtarı e-postayla veya sohbetle göndermeyin.",
+      "appLead": "Üniversite Bilgi İşlem'den gelen değerler. Gizli anahtarı e-postayla veya sohbetle göndermeyin.",
       "tenant": "Dizin (kiracı) kimliği",
       "client": "Uygulama (istemci) kimliği",
       "guidHint": "Uygulama kaydının Genel bakış sayfasındaki GUID.",
