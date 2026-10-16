@@ -23,9 +23,9 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
         </div>
       </div>
       <h1 className="type-title-1 text-label-1">{title}</h1>
-      {subtitle ? <p className="mt-1 text-[13px] text-label-2">{subtitle}</p> : null}
+      {subtitle ? <p className="mt-1 type-callout text-label-2">{subtitle}</p> : null}
       <div className="mt-6">{children}</div>
-      <div className="mt-8 flex items-center justify-between pt-4 text-[12px] text-label-3 hairline-t">
+      <div className="mt-8 flex items-center justify-between pt-4 type-footnote text-label-3 hairline-t">
         <span className="tabular-nums" data-testid="app-version">{version.data ? t("admingaps.shell.version", { version: version.data }) : t("app.name")}</span>
         <div className="flex items-center gap-1">
           <LocaleToggle />
