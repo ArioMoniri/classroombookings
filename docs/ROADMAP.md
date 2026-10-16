@@ -1549,7 +1549,14 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - `kvkk.require_consent(session, user, purpose)` and the route dependency `app.api.deps.consent_gate("photo")` are the gate for any future upload that stores a person's photo (no such feature yet).
   - A KVKK erasure disconnects every push calendar through `calendar_connectors.disconnect` first: the pushed events are removed and the Google grant revoked, awaited for up to 20 s (the rest in the background). `result.calendar` and `result.failures` (TR/EN; `grant_unreadable`, `events_not_removed`, `revoke_failed`, `provider_timeout`, `disconnect_failed`) record what happened; a failure never blocks the erasure.
   - `kvkk.ai_personal_default` = `included` (default, today's behaviour) | `excluded` ("not granted = excluded"), set through `PUT /settings` `extra` (TR words accepted, 422 with `allowed` otherwise, audited as a tracked setting). `GET /me/privacy` returns `ai_personal_default` and `ai_excluded`. The `[KİŞİ_n]` redactor got a word prefilter, so hundreds of excluded people cost milliseconds.
-- [ ] UI follow-ups (consent gates):
+- [x] UI follow-ups (consent gates). Done (consent-ui-2026-10-16):
+  - My bookings, the bookings sync sheet and Profil › Takvim aktarımı read `consent` from `GET /calendar/sync`. While it is required and not given, "create link", "reset" and "connect" open an inline consent step (what is shared, the legal basis, how to withdraw). Its button calls `POST /me/consents/calendar_sync`, refreshes the calendar queries and continues the action. A 409 `consent_required` shows `message_tr`/`message_en` with a link to `grant_path`.
+  - Admin › KVKK › Yapay zekâ ve kişisel veri (role ADMIN): a two-option control for `kvkk.ai_personal_default` with an explanation of each, a 422 next to the field.
+  - Gizlilik: the AI consent row says whether the person is kept out of AI requests now and why.
+  - The KVKK queue's erasure result lists `result.failures[]` (provider, code, TR/EN, provider answer) and `result.calendar[]` (events removed / not removed, revoke state).
+  - `e2e/consent.spec.ts` (5 tests, real backend). The erasure test seeds an unreadable grant through `E2E_DB` and is skipped without it.
+  - There is no separate class-feed screen: room, department and personal feeds are made in the same sync panel.
+- Original list:
   - In the calendar screens (bookings sync sheet, My bookings, profile calendar connections), read `consent` from `GET /calendar/sync`. Ask for the consent before "create link" or "connect", and show the 409 `consent_required` `message_tr`/`message_en` with a link to `grant_path`.
   - e2e `reserve.spec.ts` 7 must grant `calendar_sync` for TEACHER first (`POST /me/consents/calendar_sync`), or it gets a 409.
   - Admin › KVKK: a control for `kvkk.ai_personal_default`; the Gizlilik text for the active meaning (`ai_personal_default`, `ai_excluded`).

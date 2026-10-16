@@ -171,7 +171,7 @@ function ConsentsCard({ consents, aiDefault, aiExcluded }: { consents: Consent[]
                 </label>
                 {ai ? (
                   <>
-                    <p className={cn("mt-0.5 inline-flex rounded-full px-2 type-caption font-medium", ai.out ? "bg-status-warning text-status-warning-fg" : "bg-fill-2 text-label-2")} data-testid="consent-ai-state" data-excluded={ai.out}>
+                    <p className={cn("mt-1 flex w-fit rounded-md px-2 py-0.5 type-caption font-medium", ai.out ? "bg-status-warning text-status-warning-fg" : "bg-fill-2 text-label-2")} data-testid="consent-ai-state" data-excluded={ai.out}>
                       {ai.out ? t("privacy.ai.stateOut") : t("privacy.ai.stateIn")}
                     </p>
                     <p className="type-footnote text-label-2" data-testid="consent-ai-text">{t(ai.key)}</p>
