@@ -11,7 +11,7 @@ from app.core.security import hash_password, password_needs_rehash, revoke_token
 from app.models import User
 from app.models.base import utcnow
 from app.schemas.auth import LoginIn, TokenOut, UserOut
-from app.services import audit, bookings_ldap
+from app.services import audit, bookings_ldap, sso
 from app.services import bookings_events as events
 from app.services.bookings_settings import get_value
 from app.services.bookings_users import find_login_user
@@ -108,6 +108,10 @@ async def _login(body: LoginIn, db: DB) -> TokenOut:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, INVALID)
     if not user.is_active:
         raise await _refuse_disabled(db, user, method)
+    if not await sso.password_login_allowed(db, user):  # "Microsoft only for non-admins": same 401 as a bad password
+        await sso.record_password_refusal(db, user, method)
+        await db.commit()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, INVALID)
     user.last_login_at = utcnow()
     await events.emit(db, "user.logged_in", {"user_id": user.id, "auth_method": method})
     await db.commit()

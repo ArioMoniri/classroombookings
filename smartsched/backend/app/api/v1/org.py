@@ -43,7 +43,7 @@ from app.schemas.crbs import (
     TranslationOut,
 )
 from app.services import bookings_events as events
-from app.services import bookings_i18n, bookings_ldap, bookings_setup, settings_service
+from app.services import bookings_i18n, bookings_ldap, bookings_setup, settings_service, sso
 from app.services.bookings_notify import notify
 from app.services.bookings_perms import (
     ensure_permissions_and_roles,
@@ -90,6 +90,7 @@ async def public_info(db: DB) -> dict[str, Any]:
         # as shown (P18-LANG): Turkish / English; a stored legacy code reads as English
         "default_language": bookings_i18n.display_language(org["default_language"]),
         "languages": bookings_i18n.effective_languages(org["languages"]),
+        "auth": await sso.public_auth(db),  # sign-in methods for the login page (sign-in.md §14)
     }
 
 
