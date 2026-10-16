@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `e6d3aed` (committed 2026-10-16 02:09 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `f89e454` (committed 2026-10-16 02:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -144,7 +144,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-123 agents in [`docs/agents/registry.json`](agents/registry.json): running 6 · finished 103 · stopped 7 · superseded 7.
+128 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 103 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -154,6 +154,11 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Phase 19 UI follow-up` | frontend-engineer | 2026-10-16 01:20 |
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
+| `RESUME Phase 19 UI follow-up` | frontend-engineer | 2026-10-16 02:16 |
+| `RESUME approval-first UI` | frontend-engineer | 2026-10-16 02:16 |
+| `RESUME backend test isolation` | backend-engineer | 2026-10-16 02:16 |
+| `RESUME design migration + mobile` | frontend-engineer | 2026-10-16 02:16 |
+| `RESUME identity frontend` | frontend-engineer | 2026-10-16 02:16 |
 
 <!-- /AUTO:agents -->
 
