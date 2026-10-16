@@ -120,12 +120,13 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
     const s = store.getState().studio;
     if (!s.server || s.dirty.length === 0 || s.status === "conflict" || (round > 0 && s.status !== "idle")) return;
     const sent = [...s.dirty];
+    const sentEdits = { ...s.edits };
     const { dispatch } = store.getState();
     dispatch({ type: "saving" });
     const run = (async () => {
       try {
         const d = await api.studio.saveDraft(termId, kind, s.server?.version ?? 0, patchFor(s.local, sent));
-        dispatch({ type: "saved", draft: d, sent });
+        dispatch({ type: "saved", draft: d, sent, sentEdits });
         qc.setQueryData(sk.draft(termId, kind), d);
       } catch (e) {
         if (e instanceof DraftConflictError) dispatch({ type: "conflict", current: e.current });

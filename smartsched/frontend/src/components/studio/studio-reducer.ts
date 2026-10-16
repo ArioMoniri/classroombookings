@@ -40,6 +40,12 @@ export interface StudioState {
    * version to the one it was saved on top of, so a pre-check of that older version stays current.
    */
   sameContent: Readonly<Record<number, number>>;
+  /**
+   * Per field, how many local edits it has had (round-1 R1-M-12). A save answers for the edits it carried
+   * (`saved.sentEdits`); a field edited again while that request was in flight stays dirty and keeps its newer
+   * local value instead of being overwritten by the server's older copy (H3 became H6).
+   */
+  edits: Readonly<Partial<Record<DraftField, number>>>;
 }
 
 export type StudioAction =
@@ -59,7 +65,7 @@ export type StudioAction =
   | { type: "setParams"; params: Partial<DraftParams> }
   | { type: "setStep"; step: StudioStep }
   | { type: "saving" }
-  | { type: "saved"; draft: Draft; sent: DraftField[] }
+  | { type: "saved"; draft: Draft; sent: DraftField[]; /** `state.edits` when the request was sent */ sentEdits?: Partial<Record<DraftField, number>> }
   | { type: "saveFailed"; error: string }
   | { type: "conflict"; current: Draft }
   | { type: "keepMine"; current: Draft };
@@ -77,7 +83,7 @@ export const EMPTY_LOCAL: DraftLocal = {
   preset_id: null,
 };
 
-export const initialStudioState: StudioState = { server: null, local: EMPTY_LOCAL, dirty: [], status: "idle", error: null, conflict: null, sameContent: {} };
+export const initialStudioState: StudioState = { server: null, local: EMPTY_LOCAL, dirty: [], status: "idle", error: null, conflict: null, sameContent: {}, edits: {} };
 
 /* -------------------------------------------------------------------------- pins */
 
@@ -130,14 +136,16 @@ const uniq = (xs: number[]) => [...new Set(xs)];
 const mark = (dirty: DraftField[], ...fields: DraftField[]): DraftField[] => [...new Set([...dirty, ...fields])];
 
 function edit(state: StudioState, local: DraftLocal, ...fields: DraftField[]): StudioState {
-  return { ...state, local, dirty: mark(state.dirty, ...fields), status: state.status === "conflict" ? "conflict" : state.status };
+  const edits = { ...state.edits };
+  for (const f of fields) edits[f] = (edits[f] ?? 0) + 1;
+  return { ...state, local, dirty: mark(state.dirty, ...fields), status: state.status === "conflict" ? "conflict" : state.status, edits };
 }
 
 export function studioReducer(state: StudioState, action: StudioAction): StudioState {
   const l = state.local;
   switch (action.type) {
     case "hydrate":
-      return { server: action.draft, local: localFromDraft(action.draft), dirty: [], status: "idle", error: null, conflict: null, sameContent: {} };
+      return { server: action.draft, local: localFromDraft(action.draft), dirty: [], status: "idle", error: null, conflict: null, sameContent: {}, edits: {} };
     case "setScope":
       return edit(
         state,
@@ -197,8 +205,11 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
     case "saving":
       return { ...state, status: "saving", error: null };
     case "saved": {
-      // fields edited while the request was in flight stay dirty (and keep their local value)
-      const stillDirty = state.dirty.filter((f) => !action.sent.includes(f));
+      // fields edited while the request was in flight stay dirty (and keep their local value) - also a field the
+      // request carried but that was edited again after it left (its edit count moved on; round-1 R1-M-12)
+      const sentEdits = action.sentEdits;
+      const editedSince = (f: DraftField) => sentEdits !== undefined && (state.edits[f] ?? 0) > (sentEdits[f] ?? 0);
+      const stillDirty = state.dirty.filter((f) => !action.sent.includes(f) || editedSince(f));
       const fromServer = localFromDraft(action.draft);
       const local = { ...fromServer };
       for (const f of stillDirty) assignField(local, l, f);

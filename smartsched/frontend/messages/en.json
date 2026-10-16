@@ -210,7 +210,7 @@
     "partial": "Partial · {placed}/{total} placed",
     "cancelRun": "Cancel run", "cancelling": "Cancelling…", "cancelled": "Run cancelled", "cancelFailed": "Couldn't cancel the run", 
     "publish": {"button": "Publish", "published": "Published", "title": "Publish run #{id}?", "scopeWeeks": "{term}, weeks {weeks}", "scopeTerm": "{term}, the whole term", "replaces": "It replaces run #{id} as the published timetable: the booking grid and the calendar feeds follow it.", "first": "It becomes this term's first published timetable: the booking grid and the calendar feeds follow it.", "weeksOnly": "This run covers only these weeks, but once published it is the term's timetable for every week.", "partial": "{missing} classes have no room in this run ({placed}/{total} placed).", "refused": "The server did not publish it:", "publishing": "Publishing…", "confirm": "Publish", "done": "Run #{id} is now the published timetable"},
-    "partialRing": "{placed}/{total} placed · no rule broken",
+    "partialRing": "{placed}/{total} classes placed",
     "status": { "QUEUED": "Queued", "RUNNING": "Running", "FEASIBLE": "Feasible", "OPTIMAL": "Optimal", "FEASIBLE_PARTIAL": "Partial", "INFEASIBLE": "Infeasible", "TIMEOUT": "Timed out", "ERROR": "Solver error", "FAILED": "Failed", "CANCELLED": "Cancelled" },
     "report": "Report", "grid": "Timetable", "chat": "Chat", "hardScore": "Hard constraints", "softScore": "Soft preferences",
     "objective": "Objective breakdown", "diagnosis": "Diagnosis", "suggestions": "Suggested fixes", "applyFix": "Apply",
@@ -2057,7 +2057,8 @@
       "taskPending": "Waiting",
       "gridHint": "See this run on the calendar, starting at week {week}.",
       "openGrid": "Open in the timetable",
-      "ruleCol": "Preference"
+      "ruleCol": "Preference",
+      "partialHintUnplaced": "The {n} classes without a room are listed first below."
     },
     "settings": {
       "keyOkModel": "Key works · {model}",
@@ -2183,7 +2184,7 @@
     "state": {"placed": "Placed", "conflict": "Conflict", "warning": "Warning", "locked": "Locked", "partial": "Partial", "unplaced": "Unplaced", "preoccupied": "Pre-occupied", "booking": "Booking", "selected": "selected", "ghost": "In run #{run}", "onlyHere": "only in this run", "evening": "Evening", "saving": "saving"},
     "issues": {"conflictsWeek": "{n} conflicts this week", "warningsWeek": "{n} warnings this week", "conflicts": "{n} conflicts", "warnings": "{n} warnings", "unplaced": "{n} unplaced"},
     "drag": {"ok": "{room} · {when} · {cap} seats", "free": "Free: {range}", "multi": "{n} classes · {ok} fit · {bad} clash", "pickedUp": "{label} picked up. Arrow keys move it, Space drops, Escape cancels.", "over": "{label} over {room}, {when}: {state}.", "fits": "fits", "cancelled": "Move cancelled.", "resize": "{range} · {delta} periods"},
-    "move": {"title": "Move {label}", "room": "Room", "day": "Day", "start": "Start", "end": "End", "scope": "Which weeks", "scopeAll": "All weeks ({weeks})", "scopeWeek": "Week {n} only ({date})", "scopeFrom": "From {date} on (week {n})", "fromWeek": "Starting week", "finder": "Free rooms for this slot", "groupFree": "Free and fits", "groupSmall": "Too small", "groupBusy": "Taken", "groupOther": "Not usable", "confirm": "Move", "moving": "Moving…", "checking": "Checking…", "cannot": "Couldn't move: {reason}", "force": "Move anyway", "forceAdmin": "Only an admin can move despite a conflict", "seats": "{n} seats", "examSeats": "{n} exam seats", "serverOk": "Server check: fits", "split": "Earlier weeks stay in {room}", "nothing": "Nothing changes", "useRoom": "Use {room}", "current": "Current room", "fit": "{p}% full", "dialogHint": "Reasons come from the same checks as dragging."},
+    "move": {"title": "Move {label}", "room": "Room", "day": "Day", "start": "Start", "end": "End", "scope": "Which weeks", "scopeAll": "All weeks ({weeks})", "scopeWeek": "Week {n} only ({date})", "scopeFrom": "From {date} on (week {n})", "fromWeek": "Starting week", "finder": "Free rooms for this slot", "groupFree": "Free and fits", "groupSmall": "Too small", "groupBusy": "Taken", "groupOther": "Not usable", "confirm": "Move", "moving": "Moving…", "checking": "Checking…", "cannot": "Couldn't move: {reason}", "force": "Move anyway", "forceAdmin": "Only an admin can move despite a conflict", "seats": "{n} seats", "examSeats": "{n} exam seats", "serverOk": "Server check: fits", "split": "Earlier weeks stay in {room}", "nothing": "Nothing changes", "useRoom": "Use {room}", "current": "Current room", "fit": "{p}% full", "dialogHint": "Reasons come from the same checks as dragging.", "forceTitle": "This move breaks a hard rule. As an administrator you may move it anyway; the reason is listed in the run report and the audit log.", "forceReason": "Reason (required)", "forcePlaceholder": "e.g. approved by the head of department, one time only"},
     "toast": {"moved": "{code} → {room} moved", "movedMany": "{n} classes moved", "undo": "Undo", "redo": "Redo", "undone": "Undone: {label}", "redone": "Redone: {label}", "undoFailed": "Couldn't undo: {reason}", "locked": "{code} locked", "unlocked": "{code} unlocked", "lockedMany": "{n} locked", "lockFailed": "Couldn't change the lock: {reason}", "skipped": "{a} moved, {b} skipped ({reason})"},
     "insp": {"label": "Class inspector", "whenWhere": "When & where", "who": "Who", "why": "Why here", "source": "Source", "history": "History", "explain": "Explain placement", "explaining": "Looking at this placement…", "explainError": "Couldn't get an explanation", "regenerate": "Regenerate", "cancel": "Cancel", "copy": "Copy", "copied": "Copied", "sourceModel": "Source: model", "sourceTemplate": "Source: template", "openClasses": "Show in all classes", "openCalendar": "Open in calendar", "lock": "Lock", "unlock": "Unlock", "move": "Move…", "close": "Close", "students": "{size} / {cap}", "studentsLine": "{size} students · {cap} seats ({fit}%)", "weeks": "Weeks {weeks}", "sourceLine": "{file} · {sheet} · row {row}", "planningList": "Planning list", "examList": "Exam list", "board": "Published board (weekly grid)", "download": "Download file", "showRow": "Show row", "hideRow": "Hide row", "requested": "Requested", "definitive": "Definitive room", "placement": "Placement", "noHistory": "No other runs place this class", "instructors": "Instructors", "selection": "{n} classes selected · {students} students · {buildings} buildings", "clearSelection": "Clear selection", "origin": {"SOLVER": "Solver", "MANUAL": "By hand", "IMPORT": "Import", "AI_EDIT": "Chat"}, "booking": "Booking", "blockLabel": "Pre-occupied: {label}", "matchedBoard": "Matched to the request by course code and time", "more": "More actions", "copyLink": "Copy link", "linkCopied": "Link copied", "openChat": "Open in chat", "saving": "Saving…", "saved": "Saved", "saveFailed": "Not saved", "originLine": "Placed by: {origin}"},
     "create": {"booking": "Booking", "request": "Class request", "title": "Title", "repeat": "Repeat", "thisWeek": "This week only", "wholeTerm": "Every week of the term", "note": "Note", "book": "Book", "place": "Place", "later": "Place in the next run", "search": "Search classes…", "unplacedFirst": "Unplaced ({n})", "allClasses": "All classes", "noPeriods": "No booking periods are set for this room. An admin sets them under Settings › Bookings.", "free": "{cap} seats · free", "busy": "Part of this range is taken", "booked": "{room} booked {when}", "bookFailed": "Couldn't book: {reason}", "pinRoom": "Pin to this room", "pinTime": "Pin to this time", "pinned": "{code} will be placed in {room} {when} in the next run", "placed": "{code} placed in {room} {when}", "slot": "{room} · {when} ({n} periods)", "label": "New on {room}", "moveHere": "Move the unplaced class here", "noMatch": "No class matches"},
@@ -3898,7 +3899,8 @@
       "worse": "B is worse",
       "same": "same",
       "neutral": "no direction",
-      "na": "no value"
+      "na": "no value",
+      "incomparable": "not comparable"
     },
     "sections": "Sections",
     "tab": {
@@ -4034,7 +4036,8 @@
       "FEASIBLE": "Feasible",
       "INFEASIBLE": "Under-staffed",
       "FAILED": "Failed",
-      "ERROR": "Error"
+      "ERROR": "Error",
+      "EMPTY": "Empty plan"
     },
     "scores": "hard {hard} · soft {soft}",
     "loadingPlan": "Loading the plan",
@@ -4302,7 +4305,9 @@
       "deleteBody": "Their rules are deleted. Duties in existing plans stay; new plans leave them out.",
       "deleted": "{name} removed from the pool",
       "empty": "The pool is empty. The exam instructors still take part in every plan."
-    }
+    },
+    "emptyTitle": "Nothing to assign",
+    "emptyBody": "This plan has no room session to staff; it cannot be published."
   },
   "resolver": {
     "title": "Resolve booking conflicts",
