@@ -57,13 +57,13 @@ export function MicrosoftSignIn({ href, label, busyLabel, describedBy, onNavigat
         aria-describedby={describedBy}
         data-testid="login-sso-microsoft"
         data-busy={busy || undefined}
-        style={{ fontFamily: MS_FONT }}
+        style={{ fontFamily: MS_FONT, fontSize: 15, boxShadow: "inset 0 0 0 1px var(--ms-btn-edge)" }}
         className={cn(
           // Microsoft's colours, never the accent; light first, dark via the .dark class (next-themes)
           "[--ms-btn-bg:#ffffff] [--ms-btn-fg:#5e5e5e] [--ms-btn-edge:#8c8c8c] dark:[--ms-btn-bg:#2f2f2f] dark:[--ms-btn-fg:#ffffff]",
           "relative isolate flex h-(--signin-control-h,44px) w-full items-center justify-center gap-3 overflow-hidden rounded-lg px-3",
-          "bg-(--ms-btn-bg) text-(--ms-btn-fg) shadow-[inset_0_0_0_1px_var(--ms-btn-edge)]",
-          "text-[15px] leading-5 font-semibold tracking-normal no-underline",
+          "bg-(--ms-btn-bg) text-(--ms-btn-fg)",
+          "leading-5 font-semibold tracking-normal no-underline",
           // hover / pressed veil (light: black 4 %, dark: white 7 %) and press scale on the snappy spring
           "after:pointer-events-none after:absolute after:inset-0 after:-z-0 after:rounded-[inherit] after:bg-black/[0.04] after:opacity-0 after:transition-opacity after:duration-(--dur-fast) hover:after:opacity-100 dark:after:bg-white/[0.07]",
           "transition-transform duration-(--dur-fast) ease-(--spring-snappy) active:scale-[0.97] aria-disabled:cursor-progress",

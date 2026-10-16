@@ -82,23 +82,21 @@ export function SignInPage({ org, params, invite, lastMethodLocal }: SignInPageP
       ) : null}
 
       {doors.disclosure ? (
-        <div className="mt-6 pt-2 shadow-[inset_0_1px_0_var(--hairline)]">
-          <button
-            type="button"
-            aria-expanded={open}
+        <div className="mt-6 pt-2 hairline-t">
+          <Button type="button" variant="ghost" shape="rect" size="lg" aria-expanded={open}
             aria-controls="signin-door2"
             onClick={() => {
               setUserOpened(!open);
               setOpen((o) => !o);
             }}
-            className={cn(buttonVariants({ variant: "ghost", shape: "rect", size: "lg" }), "-mx-2 w-[calc(100%+16px)] justify-between px-2 text-left type-callout font-semibold whitespace-normal active:scale-100")}
+            className={cn("-mx-2 w-[calc(100%+16px)] justify-between px-2 text-left type-callout font-semibold whitespace-normal active:scale-100")}
             data-testid="login-disclosure"
           >
             <span>{t("signin.local.disclosure")}</span>
             <motion.span aria-hidden className="flex" animate={{ rotate: open ? 180 : 0 }} transition={reduce ? { duration: 0 } : springs.snappy}>
               <ChevronDown className="size-4 stroke-[1.75]" />
             </motion.span>
-          </button>
+          </Button>
           <AnimatePresence initial={false}>
             {open ? (
               <motion.div

@@ -26,7 +26,7 @@ import { springs, useReduce } from "@/lib/motion";
 
 /** Page-local tokens (§9). Control height 44 fine / 48 coarse also drives the fields (--control-h-lg). */
 const SHEET_TOKENS =
-  "[--signin-control-h:44px] pointer-coarse:[--signin-control-h:48px] [--control-h-lg:var(--signin-control-h)] [--control-h-md:var(--signin-control-h)] [--signin-top:28px] min-[600px]:[--signin-top:clamp(24px,8vh,96px)]";
+  "[--signin-control-h:44px] pointer-coarse:[--signin-control-h:48px] [--control-h-lg:var(--signin-control-h)] [--signin-top:28px] min-[600px]:[--signin-top:clamp(24px,8vh,96px)]";
 
 /**
  * `<b>…</b>` and `{var}` in a message → React nodes (the variables are inserted as text after splitting, so an

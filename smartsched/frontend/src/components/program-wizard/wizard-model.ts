@@ -1,149 +1,333 @@
 /**
- * The program-from-scratch wizard as data (docs/design/v2/phase19-program-wizard.md, ROADMAP P19-F4): the draft,
- * the eight steps, TSV paste, course-code normalisation, weekly patterns from T/U/L, three levels of validation
- * (field · step · pre-check; only errors block), the live room fit, and the sync plan that autosaves the draft
- * through the catalog_admin endpoints. Pure functions, no React, no fetching: unit-tested.
+ * The program-from-scratch wizard as data (docs/design/v2/phase19-program-wizard.md; backend
+ * app/services/program_drafts.py): the draft payload exactly as the server stores it (snake_case, list items
+ * addressed by their `key`), the eight server steps, course-code normalisation, weekly patterns from T/U/L,
+ * cohorts from Sınıf, and the autosave plan: `diffOps` turns two payloads into the smallest field ops for
+ * `PATCH /program-drafts/{id} {ops, base_version}` and `applyOps` replays ops the same way the server does
+ * (`program_drafts.apply_op`), so an edit made while a save is in flight is rebased onto the server's answer.
+ * Pure functions, no React, no fetching: unit-tested.
  */
-import type { Room } from "@/lib/api/schemas";
+import { DRAFT_STEPS, type DraftIssue, type DraftOp, type DraftStep, type PasteRow, type StepState, type Validation } from "@/lib/api/program-drafts";
 
 /* ------------------------------------------------------------------ steps */
 
-export const STEPS = ["term", "program", "courses", "sections", "patterns", "constraints", "precheck", "generate"] as const;
-export type Step = (typeof STEPS)[number];
+export const STEPS = DRAFT_STEPS;
+export type Step = DraftStep;
+/** the old wizard's step names in saved links (`?step=term`), the same aliases the backend takes */
+const ALIASES: Record<string, Step> = { term: "program", patterns: "rooms", precheck: "constraints" };
 export function parseStep(v: string | null | undefined): Step {
-  return (STEPS as readonly string[]).includes(v ?? "") ? (v as Step) : "term";
+  const s = ALIASES[v ?? ""] ?? v ?? "";
+  return (STEPS as readonly string[]).includes(s) ? (s as Step) : "program";
 }
 
 export const LEVELS = ["associate", "bachelor", "masterThesis", "masterNonThesis", "phd"] as const;
 export type Level = (typeof LEVELS)[number];
-export const MODES = ["F2F", "ONLINE", "HYBRID"] as const;
+export const MODES = ["F2F", "ONLINE", "HYBRID", "UZEM"] as const;
 export type Mode = (typeof MODES)[number];
-export const TAGS = ["LAB", "PC", "AMPHI"] as const;
 
-/* ------------------------------------------------------------------ draft */
+/* ------------------------------------------------------------------ payload */
 
+/** an existing person (`{id}`) or a new one created at the commit (`{name}`); names are display only for ids */
 export interface InstructorRef {
-  /** null = a new person, created at the next save */
-  id: number | null;
-  name: string;
+  id?: number | null;
+  name?: string;
   title?: string | null;
 }
 
-export interface SectionDraft {
+export interface SectionP {
   key: string;
-  id: number | null;
   label: string;
   enrolment: number | null;
-  instructors: [InstructorRef | null, InstructorRef | null];
-  meetingIds: number[];
+  /** first and second instructor, no holes (the server indexes the non-empty refs) */
+  instructors: InstructorRef[];
+  /** sections of the term taught together (joint teaching: one meeting, the bridge merges them) */
+  joint_section_ids: number[];
+  /** display cache of the linked sections ("MBG 014 §1 · Proteomiks · 75") keyed `id<section id>` (never digits
+   * only: the server would read a digit segment as a list index), ignored by the server */
+  joint_labels?: Record<string, { label: string; enrolment: number | null; periods: number | null }>;
 }
 
-export interface PatternDraft {
-  /** theory split into consecutive blocks, e.g. [3] or [2, 1] */
-  theoryBlocks: number[];
-  /** weekly hours for a 0+0+0 course (seminars are often entered as 0 0 0; MBG 598, Bahar R182) */
-  weeklyHours: number | null;
+export interface PatternP {
+  theory_blocks: number[];
+  weekly_hours: number | null;
   days: number[];
-  /** "HH:MM" of a period start */
   start: string;
   weeks: string;
 }
 
-export interface RoomNeed {
+export interface RoomP {
   capacity: number | null;
   tags: string[];
   building: string;
   preferred: string;
 }
 
-export interface CourseDraft {
+export interface CourseP {
   key: string;
-  id: number | null;
-  /** we created the catalogue row (only then the wizard may update it); false = an existing course reused */
-  own: boolean;
+  /** an existing catalogue course reused as is (Var olan dersi ekle) */
+  course_id: number | null;
   code: string;
   name: string;
   t: number | null;
   u: number | null;
   l: number | null;
+  credits: number | null;
   ects: number | null;
   year: number;
   mode: Mode;
-  sections: SectionDraft[];
-  pattern: PatternDraft;
-  room: RoomNeed;
+  compulsory: boolean;
+  sections: SectionP[];
+  pattern: PatternP;
+  room: RoomP;
 }
 
-export interface RulesDraft {
-  window: { enabled: boolean; earliest: number; latest: number; hard: boolean };
-  sameRoom: boolean;
-  ruleIds: number[];
-}
-
-export interface Draft {
+export interface CohortP {
   key: string;
-  version: 1;
-  termId: number | null;
-  termCode: string | null;
-  step: Step;
-  program: {
-    id: number | null;
-    facultyId: number | null;
-    facultyName: string;
-    name: string;
-    level: Level;
-    evening: boolean;
-    language: "tr" | "en" | "mixed";
-    prefix: string;
-    years: number;
-  };
-  courses: CourseDraft[];
-  rules: RulesDraft;
-  /** server-relevant hash per entity key at its last successful save */
-  synced: Record<string, string>;
-  savedAt: string | null;
-  createdAt: string;
+  label: string;
+  year: number;
+  /** course keys that must not overlap */
+  compulsory: string[];
+  /** groups of course keys that may overlap within a group */
+  elective_groups: string[][];
+}
+
+export interface ProgramP {
+  faculty_id: number | null;
+  faculty_name: string;
+  name: string;
+  level: Level;
+  evening: boolean;
+  language: "tr" | "en" | "mixed";
+  prefix: string;
+  years: number;
+}
+
+export interface Payload {
+  program: ProgramP;
+  courses: CourseP[];
+  cohorts: CohortP[];
+  rules: { window: { enabled: boolean; earliest: number; latest: number; hard: boolean }; same_room: boolean };
 }
 
 let seq = 0;
+/** a stable list key: letters first and never all digits (the server reads a digit-only path segment as an index) */
 export function newKey(prefix: string): string {
   seq += 1;
-  return `${prefix}-${Date.now().toString(36)}-${seq}`;
+  return `${prefix}${Date.now().toString(36)}${seq.toString(36)}`;
 }
 
-export function emptyPattern(): PatternDraft {
-  return { theoryBlocks: [], weeklyHours: null, days: [1, 2, 3, 4, 5], start: "", weeks: "1-14" };
+export function emptyPattern(): PatternP {
+  return { theory_blocks: [], weekly_hours: null, days: [1, 2, 3, 4, 5], start: "", weeks: "1-14" };
 }
 
-export function newSection(label = "1", enrolment: number | null = null): SectionDraft {
-  return { key: newKey("s"), id: null, label, enrolment, instructors: [null, null], meetingIds: [] };
+export function newSection(label = "1", enrolment: number | null = null): SectionP {
+  return { key: newKey("s"), label, enrolment, instructors: [], joint_section_ids: [] };
 }
 
-export function newCourse(over: Partial<CourseDraft> = {}): CourseDraft {
-  return { key: newKey("c"), id: null, own: false, code: "", name: "", t: 0, u: 0, l: 0, ects: null, year: 1, mode: "F2F", sections: [newSection()], pattern: emptyPattern(), room: { capacity: null, tags: [], building: "", preferred: "" }, ...over };
+export function newCourse(over: Partial<CourseP> = {}): CourseP {
+  return { key: newKey("c"), course_id: null, code: "", name: "", t: 0, u: 0, l: 0, credits: null, ects: null, year: 1, mode: "F2F", compulsory: true, sections: [newSection()], pattern: emptyPattern(), room: { capacity: null, tags: [], building: "", preferred: "" }, ...over };
 }
 
-export function newDraft(now = new Date().toISOString()): Draft {
+export function newPayload(): Payload {
   return {
-    key: newKey("d"),
-    version: 1,
-    termId: null,
-    termCode: null,
-    step: "term",
-    program: { id: null, facultyId: null, facultyName: "", name: "", level: "masterThesis", evening: false, language: "tr", prefix: "", years: 2 },
+    program: { faculty_id: null, faculty_name: "", name: "", level: "masterThesis", evening: false, language: "tr", prefix: "", years: 2 },
     courses: [],
-    rules: { window: { enabled: true, earliest: 1, latest: 11, hard: false }, sameRoom: true, ruleIds: [] },
-    synced: {},
-    savedAt: null,
-    createdAt: now,
+    cohorts: [],
+    rules: { window: { enabled: true, earliest: 1, latest: 11, hard: false }, same_room: true },
   };
 }
 
-/* ------------------------------------------------------------------ course codes */
+const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+const numOrNull = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() && Number.isFinite(Number(v.replace(",", "."))) ? Number(v.replace(",", ".")) : null);
+const str = (v: unknown, d = ""): string => (typeof v === "string" ? v : typeof v === "number" ? String(v) : d);
+const pick = (o: Record<string, unknown>, snake: string, camel: string): unknown => (snake in o ? o[snake] : o[camel]);
+
+/**
+ * The stored payload with every default filled in. Drafts written by an older client or by hand may use the
+ * wizard's camelCase keys (the backend accepts both); the wizard always writes snake_case back.
+ */
+export function readPayload(raw: unknown): Payload {
+  const base = newPayload();
+  const r = obj(raw);
+  const p = obj(r.program);
+  const level = str(p.level, base.program.level);
+  const program: ProgramP = {
+    faculty_id: numOrNull(pick(p, "faculty_id", "facultyId")),
+    faculty_name: str(pick(p, "faculty_name", "facultyName")),
+    name: str(p.name),
+    level: (LEVELS as readonly string[]).includes(level) ? (level as Level) : base.program.level,
+    evening: Boolean(p.evening),
+    language: (["tr", "en", "mixed"] as const).find((x) => x === p.language) ?? "tr",
+    prefix: str(p.prefix),
+    years: numOrNull(p.years) ?? base.program.years,
+  };
+  const courses: CourseP[] = arr(r.courses).map((c0, i) => {
+    const c = obj(c0);
+    const pat = obj(c.pattern);
+    const room = obj(c.room);
+    const mode = str(c.mode, "F2F");
+    return {
+      key: str(c.key) || `c${i}x`,
+      course_id: numOrNull(pick(c, "course_id", "courseId")),
+      code: str(c.code),
+      name: str(c.name),
+      t: numOrNull(c.t),
+      u: numOrNull(c.u),
+      l: numOrNull(c.l),
+      credits: numOrNull(c.credits),
+      ects: numOrNull(c.ects),
+      year: numOrNull(c.year) ?? 1,
+      mode: (MODES as readonly string[]).includes(mode) ? (mode as Mode) : "F2F",
+      compulsory: c.compulsory === undefined ? true : Boolean(c.compulsory),
+      sections: arr(c.sections).map((s0, j) => {
+        const s = obj(s0);
+        const labels = obj(pick(s, "joint_labels", "jointLabels"));
+        return {
+          key: str(s.key) || `s${i}x${j}`,
+          label: str(s.label, String(j + 1)),
+          enrolment: numOrNull(s.enrolment),
+          instructors: arr(s.instructors).filter(Boolean).map((x) => {
+            const o = obj(x);
+            return { id: numOrNull(o.id), name: str(o.name) || undefined, title: typeof o.title === "string" ? o.title : null };
+          }),
+          joint_section_ids: arr(pick(s, "joint_section_ids", "jointSectionIds")).map(numOrNull).filter((x): x is number => x !== null),
+          ...(Object.keys(labels).length ? { joint_labels: labels as SectionP["joint_labels"] } : {}),
+        };
+      }),
+      pattern: {
+        theory_blocks: arr(pick(pat, "theory_blocks", "theoryBlocks")).map(numOrNull).filter((x): x is number => x !== null && x > 0),
+        weekly_hours: numOrNull(pick(pat, "weekly_hours", "weeklyHours")),
+        days: arr(pat.days).map(numOrNull).filter((x): x is number => x !== null),
+        start: str(pat.start),
+        weeks: str(pat.weeks, "1-14"),
+      },
+      room: { capacity: numOrNull(room.capacity), tags: arr(room.tags).map((x) => str(x)).filter(Boolean), building: str(room.building), preferred: str(room.preferred) },
+    };
+  });
+  const cohorts: CohortP[] = arr(r.cohorts).map((x0, i) => {
+    const x = obj(x0);
+    return {
+      key: str(x.key) || `y${i}x`,
+      label: str(x.label),
+      year: numOrNull(x.year) ?? 1,
+      compulsory: arr(x.compulsory).map((k) => str(k)).filter(Boolean),
+      elective_groups: arr(pick(x, "elective_groups", "electiveGroups")).map((g) => arr(g).map((k) => str(k)).filter(Boolean)),
+    };
+  });
+  const rules = obj(r.rules);
+  const w = obj(rules.window);
+  return {
+    program,
+    courses,
+    cohorts,
+    rules: {
+      window: { enabled: w.enabled === undefined ? true : Boolean(w.enabled), earliest: numOrNull(w.earliest) ?? 1, latest: numOrNull(w.latest) ?? 11, hard: Boolean(w.hard) },
+      same_room: pick(rules, "same_room", "sameRoom") === undefined ? true : Boolean(pick(rules, "same_room", "sameRoom")),
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ autosave ops */
+
+type Json = unknown;
+const isObj = (v: Json): v is Record<string, Json> => !!v && typeof v === "object" && !Array.isArray(v);
+const keyed = (v: Json): v is { key: string }[] => Array.isArray(v) && v.length > 0 && v.every((x) => isObj(x) && typeof x.key === "string" && x.key !== "" && !/^\d+$/.test(x.key) && !x.key.includes("."));
+const sameKeys = (a: { key: string }[], b: { key: string }[]) => a.length === b.length && a.every((x, i) => x.key === b[i]!.key);
+
+export function deepEqual(a: Json, b: Json): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((x, i) => deepEqual(x, b[i]));
+  if (isObj(a) && isObj(b)) {
+    const ka = Object.keys(a).filter((k) => a[k] !== undefined);
+    const kb = Object.keys(b).filter((k) => b[k] !== undefined);
+    return ka.length === kb.length && ka.every((k) => deepEqual(a[k], b[k]));
+  }
+  return false;
+}
+
+/**
+ * The smallest field ops from `base` to `next`: objects key by key, keyed lists (courses, sections, cohorts)
+ * item by item while the keys and their order are the same, anything else (a reordered or resized list, a
+ * scalar, `days`, `instructors`) as one `set` of the whole value. A field set by someone else later keeps
+ * theirs unless we touch it too (the server merges per path, last write wins).
+ */
+export function diffOps(base: Json, next: Json, path = ""): DraftOp[] {
+  if (deepEqual(base, next)) return [];
+  const at = (k: string) => (path ? `${path}.${k}` : k);
+  if (isObj(base) && isObj(next)) {
+    const out: DraftOp[] = [];
+    for (const k of Object.keys(next)) {
+      if (next[k] === undefined) continue;
+      if (!(k in base) || base[k] === undefined) out.push({ path: at(k), value: next[k], op: "set" });
+      else out.push(...diffOps(base[k], next[k], at(k)));
+    }
+    for (const k of Object.keys(base)) if (base[k] !== undefined && (!(k in next) || next[k] === undefined)) out.push({ path: at(k), op: "remove" });
+    return out;
+  }
+  if (path && keyed(base) && keyed(next) && sameKeys(base, next)) {
+    return next.flatMap((item, i) => diffOps(base[i], item, at(item.key)));
+  }
+  return path ? [{ path, value: next, op: "set" }] : [];
+}
+
+function stepInto(node: Json, seg: string): { cont: Record<string, Json> | Json[]; key: string | number } {
+  if (Array.isArray(node)) {
+    if (seg === "-") return { cont: node, key: node.length };
+    if (/^\d+$/.test(seg)) return { cont: node, key: Number(seg) };
+    const i = node.findIndex((x) => isObj(x) && String(x.key) === seg);
+    if (i < 0) throw new Error(`no list item with key ${seg}`);
+    return { cont: node, key: i };
+  }
+  if (isObj(node)) return { cont: node, key: seg };
+  throw new Error(`cannot descend at ${seg}`);
+}
+
+/** `program_drafts.apply_op` in TypeScript: set / remove one dot path in place (list items by index, key or `-`) */
+export function applyOp(payload: Record<string, Json>, op: DraftOp): void {
+  const segs = op.path.split(/[./]/).filter(Boolean);
+  if (!segs.length) throw new Error("empty path");
+  let node: Json = payload;
+  segs.slice(0, -1).forEach((seg, i) => {
+    const { cont, key } = stepInto(node, seg);
+    if (Array.isArray(cont)) {
+      node = cont[key as number];
+    } else {
+      const k = key as string;
+      if (cont[k] === undefined || cont[k] === null) cont[k] = /^\d+$/.test(segs[i + 1]!) || segs[i + 1] === "-" ? [] : {};
+      node = cont[k];
+    }
+  });
+  const { cont, key } = stepInto(node, segs[segs.length - 1]!);
+  if (Array.isArray(cont)) {
+    const i = key as number;
+    if (op.op === "remove") cont.splice(i, 1);
+    else if (i >= cont.length) cont.push(op.value);
+    else cont[i] = op.value;
+  } else if (op.op === "remove") {
+    delete cont[key as string];
+  } else {
+    cont[key as string] = op.value;
+  }
+}
+
+export function applyOps<T>(payload: T, ops: readonly DraftOp[]): T {
+  const copy = structuredClone(payload) as Record<string, Json>;
+  for (const op of ops) {
+    try {
+      applyOp(copy, op);
+    } catch {
+      // the item was removed by someone else: our edit of it has nothing left to land on
+    }
+  }
+  return copy as T;
+}
+
+/* ------------------------------------------------------------------ course codes and numbers */
 
 const TR_LETTERS = /[ÇĞİÖŞÜçğıöşü]/;
 
-/** "mbg532" → "MBG 532" (info), "MBĞ 532" → error, "" → error. The backend's code-check is the final word. */
+/** "mbg532" → "MBG 532" (info), "MBĞ 532" → error, "" → error. The backend's validation is the final word. */
 export function normalizeCode(raw: string): { code: string; info: boolean; error: "empty" | "turkish" | "shape" | null } {
   const v = raw.trim().replace(/\s+/g, " ");
   if (!v) return { code: "", info: false, error: "empty" };
@@ -154,65 +338,45 @@ export function normalizeCode(raw: string): { code: string; info: boolean; error
   return { code, info: code !== v, error: null };
 }
 
-/** "4,5" → 4.5; "" / "-" → null; "abc" → NaN (a field error) */
+/** "4,5" → 4.5; "" / "-" → null; "abc" → NaN (the server reports the field) */
 export function parseNumber(raw: string | number | null | undefined): number | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === "number") return raw;
-  const v = raw.trim().replace(/ /g, "");
+  const v = raw.trim().replace(/ /g, "");
   if (!v || v === "-" || v === "—") return null;
   const n = Number(v.replace(",", "."));
   return Number.isFinite(n) ? n : Number.NaN;
 }
 
-/* ------------------------------------------------------------------ TSV paste */
-
-const HEADER_WORDS: Record<string, string> = { kod: "code", code: "code", ders: "code", "ders kodu": "code", ad: "name", "ders adı": "name", name: "name", adı: "name", t: "t", u: "u", l: "l", k: "credits", kredi: "credits", akts: "ects", ects: "ects", sınıf: "year", sinif: "year", year: "year" };
-const DEFAULT_ORDER = ["code", "name", "t", "u", "l", "credits", "ects", "year"] as const;
-
-export interface PastedRow {
-  code: string;
-  name: string;
-  t: number | null;
-  u: number | null;
-  l: number | null;
-  ects: number | null;
-  year: number | null;
-  line: number;
+/** pasted rows (`POST /program-drafts/{id}/paste` preview) → course rows; codes are kept as the server fixed them */
+export function coursesFromPaste(rows: readonly PasteRow[]): CourseP[] {
+  return rows.map((r) => {
+    const hours = (r.t ?? 0) + (r.u ?? 0) + (r.l ?? 0);
+    return newCourse({
+      code: r.code,
+      name: r.name,
+      t: r.t ?? 0,
+      u: r.u ?? 0,
+      l: r.l ?? 0,
+      credits: r.credits,
+      ects: r.ects,
+      year: r.year && r.year > 0 ? Math.round(r.year) : 1,
+      sections: [newSection("1", r.enrolment ?? null)],
+      pattern: { ...emptyPattern(), theory_blocks: r.t ? [r.t] : [], weekly_hours: hours ? null : 1 },
+    });
+  });
 }
 
-/** Excel copies rows as TSV: detect a header row (Kod / Ad / T / U / L / K / AKTS / Sınıf), skip empty lines */
-export function parseTsv(text: string): { columns: string[]; rows: PastedRow[]; ignored: number[] } {
-  const lines = text.replace(/\r\n?/g, "\n").split("\n");
-  const ignored: number[] = [];
-  let columns: string[] = [...DEFAULT_ORDER];
-  const rows: PastedRow[] = [];
-  lines.forEach((line, i) => {
-    if (!line.trim()) {
-      if (i < lines.length - 1) ignored.push(i + 1);
-      return;
-    }
-    const cells = line.split("\t").map((c) => c.trim());
-    const asHeader = cells.map((c) => HEADER_WORDS[c.toLocaleLowerCase("tr-TR")]);
-    if (rows.length === 0 && asHeader.filter(Boolean).length >= 2) {
-      columns = asHeader.map((h, j) => h ?? `skip${j}`);
-      ignored.push(i + 1);
-      return;
-    }
-    const get = (k: string) => {
-      const j = columns.indexOf(k);
-      return j >= 0 ? (cells[j] ?? "") : "";
-    };
-    if (!get("code")) {
-      ignored.push(i + 1);
-      return;
-    }
-    const num = (k: string) => {
-      const v = parseNumber(get(k));
-      return v === null || Number.isNaN(v) ? null : v;
-    };
-    rows.push({ code: get("code"), name: get("name"), t: num("t"), u: num("u"), l: num("l"), ects: num("ects"), year: num("year"), line: i + 1 });
-  });
-  return { columns, rows, ignored };
+/** the codes of `rows` that the draft (or an earlier pasted row) already has: "MBG 951 iki kez listelenmiş" */
+export function pasteDuplicates(existing: readonly CourseP[], rows: readonly PasteRow[]): Set<number> {
+  const seen = new Set(existing.map((c) => normalizeCode(c.code).code).filter(Boolean));
+  const dup = new Set<number>();
+  for (const r of rows) {
+    const code = normalizeCode(r.code).code || r.code;
+    if (seen.has(code)) dup.add(r.line);
+    seen.add(code);
+  }
+  return dup;
 }
 
 /* ------------------------------------------------------------------ weekly patterns */
@@ -228,268 +392,92 @@ export function patternOptions(hours: number): number[][] {
   return out.filter((o, i) => out.findIndex((x) => x.join("+") === o.join("+")) === i);
 }
 
-export function courseHours(c: Pick<CourseDraft, "t" | "u" | "l">): number {
-  return (c.t ?? 0) + (c.u ?? 0) + (c.l ?? 0);
+export function courseHours(c: Pick<CourseP, "t" | "u" | "l">): number {
+  const v = (x: number | null) => (x === null || Number.isNaN(x) || x < 0 ? 0 : x);
+  return v(c.t) + v(c.u) + v(c.l);
 }
 
 /** the pattern's weekly periods: the theory split + one block each for U and L, or the seminar's weekly hours */
-export function patternHours(c: Pick<CourseDraft, "t" | "u" | "l" | "pattern">): number {
-  if (!courseHours(c)) return c.pattern.weeklyHours ?? 0;
-  const theory = c.pattern.theoryBlocks.length ? c.pattern.theoryBlocks.reduce((a, b) => a + b, 0) : (c.t ?? 0);
+export function patternHours(c: Pick<CourseP, "t" | "u" | "l" | "pattern">): number {
+  if (!courseHours(c)) return c.pattern.weekly_hours ?? 0;
+  const theory = c.pattern.theory_blocks.length ? c.pattern.theory_blocks.reduce((a, b) => a + b, 0) : (c.t ?? 0);
   return theory + (c.u ?? 0) + (c.l ?? 0);
 }
 
-/** the body of `POST /sections/{id}/pattern` (app/services/patterns.py) */
-export function patternBody(c: CourseDraft, enrolment: number | null) {
-  const zero = !courseHours(c);
-  const theory = zero ? (c.pattern.weeklyHours ?? 0) : (c.t ?? 0);
-  const room: Record<string, unknown> = {};
-  if (c.room.tags.length) room.tags = c.room.tags;
-  if (c.room.building) room.building = c.room.building;
-  if (c.room.preferred) room.preferred_room = c.room.preferred;
-  const cap = c.room.capacity ?? enrolment;
-  if (cap) room.capacity = cap;
-  return {
-    theory,
-    practice: zero ? 0 : (c.u ?? 0),
-    lab: zero ? 0 : (c.l ?? 0),
-    ...(c.pattern.theoryBlocks.length && !zero ? { block_size: c.pattern.theoryBlocks } : {}),
-    days: c.pattern.days,
-    start: c.pattern.start,
-    weeks: c.pattern.weeks || "1-14",
-    ...(Object.keys(room).length ? { room_needs: room } : {}),
-    replace: true,
-  };
+export const jointKey = (id: number) => `id${id}`;
+
+/** "Ortak toplam": this section's students plus every linked section's (drives the room size) */
+export function jointTotal(s: SectionP): number {
+  const own = s.enrolment ?? 0;
+  return own + s.joint_section_ids.reduce((n, id) => n + (s.joint_labels?.[jointKey(id)]?.enrolment ?? 0), 0);
 }
 
-/* ------------------------------------------------------------------ rooms */
-
-export function neededCapacity(c: CourseDraft): number {
-  return c.room.capacity ?? Math.max(0, ...c.sections.map((s) => s.enrolment ?? 0));
+/** the seats a course needs: the override, else the biggest section's joint total */
+export function neededCapacity(c: CourseP): number {
+  return c.room.capacity ?? Math.max(0, ...c.sections.map(jointTotal));
 }
 
-/** bookable rooms that seat `capacity` and carry every tag, smallest first (the live "Sığan odalar" line) */
-export function fittingRooms(rooms: readonly Room[], capacity: number, tags: readonly string[], building = ""): Room[] {
-  return rooms
-    .filter((r) => r.is_bookable && r.capacity >= capacity && tags.every((t) => (r.tags as string[]).includes(t)) && (!building || r.building_code === building))
-    .sort((a, b) => a.capacity - b.capacity || a.display_name.localeCompare(b.display_name, "tr", { numeric: true }));
-}
+/* ------------------------------------------------------------------ cohorts */
 
-/* ------------------------------------------------------------------ validation */
-
-export type Level3 = "error" | "warning" | "info";
-export interface Issue {
-  step: Step;
-  level: Level3;
-  /** message key under programWizard.v.* */
-  code: string;
-  vars?: Record<string, string | number>;
-  /** the field it belongs to (`courses.<key>.code`), for the error summary links */
-  path?: string;
-}
-
-const fmtRooms = (rs: readonly Room[]) => rs.slice(0, 4).map((r) => `${r.display_name} (${r.capacity})`).join(", ");
-
-export function validate(d: Draft, rooms: readonly Room[] | null = null): Issue[] {
-  const out: Issue[] = [];
-  const add = (step: Step, level: Level3, code: string, vars?: Issue["vars"], path?: string) => out.push({ step, level, code, vars, path });
-  if (!d.termId) add("term", "error", "noTerm", undefined, "termId");
-  const p = d.program;
-  if (!p.name.trim()) add("program", "error", "noName", undefined, "program.name");
-  if (!p.facultyId && !p.facultyName.trim()) add("program", "error", "noFaculty", undefined, "program.faculty");
-  if (p.prefix && !/^[A-Z]{2,4}$/.test(p.prefix)) add("program", "error", TR_LETTERS.test(p.prefix) ? "prefixTurkish" : "prefixShape", { prefix: p.prefix }, "program.prefix");
-  if (!d.courses.length) add("courses", "error", "noCourses", undefined, "courses");
-  const seen = new Map<string, string>();
-  const ectsByYear = new Map<number, number>();
-  for (const c of d.courses) {
-    const code = normalizeCode(c.code);
-    const path = `courses.${c.key}`;
-    if (code.error) add("courses", "error", `code_${code.error}`, { code: c.code || "—" }, `${path}.code`);
-    else if (seen.has(code.code)) add("courses", "error", "duplicate", { code: code.code }, `${path}.code`);
-    else seen.set(code.code, c.key);
-    if (!c.name.trim()) add("courses", "warning", "noCourseName", { code: code.code || "—" }, `${path}.name`);
-    if ([c.t, c.u, c.l, c.ects].some((v) => v !== null && (Number.isNaN(v) || v < 0))) add("courses", "error", "badNumber", { code: code.code }, `${path}.t`);
-    if (!courseHours(c)) add("courses", "warning", "zeroHours", { code: code.code }, `${path}.t`);
-    ectsByYear.set(c.year, (ectsByYear.get(c.year) ?? 0) + (c.ects && !Number.isNaN(c.ects) ? c.ects : 0));
-
-    // sections + instructors
-    if (!c.sections.length) add("sections", "error", "noSections", { code: code.code }, `${path}.sections`);
-    for (const s of c.sections) {
-      if ((s.enrolment ?? 0) <= 0 && c.mode !== "ONLINE") add("sections", "error", "noStudents", { code: code.code, section: s.label }, `${path}.${s.key}.enrolment`);
-      if (!s.instructors[0] && c.mode === "F2F") add("sections", "warning", "noInstructor", { code: code.code, section: s.label }, `${path}.${s.key}.instructor`);
-    }
-
-    // patterns + rooms
-    const hours = courseHours(c);
-    if (!hours && !c.pattern.weeklyHours) add("patterns", "error", "needWeeklyHours", { code: code.code }, `${path}.weekly`);
-    if (hours && c.pattern.theoryBlocks.length && patternHours(c) !== hours) add("patterns", "error", "patternTotal", { code: code.code, hours, placed: patternHours(c) }, `${path}.pattern`);
-    if (!c.pattern.start) add("patterns", "error", "noStart", { code: code.code }, `${path}.start`);
-    if (!c.pattern.days.length) add("patterns", "error", "noDays", { code: code.code }, `${path}.days`);
-    if (rooms && c.mode !== "ONLINE") {
-      const cap = neededCapacity(c);
-      const tags = c.room.tags;
-      const fit = fittingRooms(rooms, cap, tags, c.room.building);
-      if (!fit.length) add("patterns", "error", tags.includes("LAB") ? "noLabRoom" : "noRoom", { code: code.code, n: cap }, `${path}.room`);
-      else {
-        add("patterns", "info", "fits", { code: code.code, n: cap, rooms: fmtRooms(fit), count: fit.length });
-        if (fit[0]!.capacity === cap && fit.length <= 4) add("patterns", "warning", "exactFit", { code: code.code, room: fit[0]!.display_name, n: cap }, `${path}.room`);
-      }
-      if (c.room.preferred) {
-        const pr = rooms.find((r) => r.display_name.replace(/\s+/g, "").toUpperCase() === c.room.preferred.replace(/\s+/g, "").toUpperCase());
-        if (!pr || !pr.is_bookable) add("patterns", "warning", "preferredUnknown", { code: code.code, room: c.room.preferred }, `${path}.preferred`);
-        else if (pr.capacity < cap) add("patterns", "warning", "preferredSmall", { code: code.code, room: pr.display_name, seats: pr.capacity, n: cap }, `${path}.preferred`);
-      }
-    }
-  }
-  for (const [year, ects] of ectsByYear) if (ects > 30) add("courses", "warning", "ectsHigh", { year, ects });
-  if (d.rules.window.enabled && d.rules.window.earliest > d.rules.window.latest) add("constraints", "error", "windowOrder");
-  return out;
-}
-
-export interface StepStatus {
-  step: Step;
-  errors: number;
-  warnings: number;
-  /** – = nothing entered yet */
-  empty: boolean;
-}
-
-export function stepStatus(d: Draft, issues: readonly Issue[]): StepStatus[] {
-  const empty: Record<Step, boolean> = {
-    term: !d.termId,
-    program: !d.program.name.trim(),
-    courses: d.courses.length === 0,
-    sections: d.courses.length === 0,
-    patterns: d.courses.every((c) => !c.pattern.start),
-    constraints: false,
-    precheck: false,
-    generate: false,
-  };
-  return STEPS.map((step) => ({
-    step,
-    errors: issues.filter((i) => i.step === step && i.level === "error").length,
-    warnings: issues.filter((i) => i.step === step && i.level === "warning").length,
-    empty: empty[step],
-  }));
-}
-
-/** only errors block the final write; warnings never do */
-export function canGenerate(issues: readonly Issue[]): boolean {
-  return !issues.some((i) => i.level === "error");
-}
-
-export function summary(d: Draft) {
-  const sections = d.courses.reduce((n, c) => n + c.sections.length, 0);
-  const people = new Set(d.courses.flatMap((c) => c.sections.flatMap((s) => s.instructors.filter(Boolean).map((i) => (i!.id ? `#${i!.id}` : i!.name)))));
-  const fresh = new Set(d.courses.flatMap((c) => c.sections.flatMap((s) => s.instructors.filter((i) => i && !i.id).map((i) => i!.name))));
-  return {
-    courses: d.courses.length,
-    ects: d.courses.reduce((n, c) => n + (c.ects && !Number.isNaN(c.ects) ? c.ects : 0), 0),
-    sections,
-    people: people.size,
-    newPeople: fresh.size,
-    weeklyHours: d.courses.reduce((n, c) => n + patternHours(c), 0),
-    meetings: d.courses.reduce((n, c) => n + c.sections.reduce((k, s) => k + s.meetingIds.length, 0), 0),
-  };
-}
-
-export function meetingIds(d: Draft): number[] {
-  return d.courses.flatMap((c) => c.sections.flatMap((s) => s.meetingIds));
-}
-
-/* ------------------------------------------------------------------ autosave plan */
-
-export type SyncOp =
-  | { kind: "faculty" }
-  | { kind: "program" }
-  | { kind: "course"; course: string }
-  | { kind: "instructor"; course: string; section: string; slot: 0 | 1 }
-  | { kind: "section"; course: string; section: string }
-  | { kind: "pattern"; course: string; section: string }
-  | { kind: "rules" };
-
-const h = (v: unknown) => JSON.stringify(v);
-export const hashes = {
-  program: (d: Draft) => h([d.program.name.trim(), d.program.facultyId, d.program.evening, d.program.level, d.program.language]),
-  course: (c: CourseDraft) => h([normalizeCode(c.code).code, c.name.trim(), c.t, c.u, c.l, c.ects]),
-  section: (d: Draft, c: CourseDraft, s: SectionDraft) => h([d.termId, d.program.id, c.id, s.label, c.year, s.enrolment, c.mode, s.instructors.map((i) => (i ? (i.id ?? `new:${i.name}`) : null))]),
-  pattern: (c: CourseDraft, s: SectionDraft) => h([c.t, c.u, c.l, c.pattern, c.room, s.enrolment, s.id]),
-  rules: (d: Draft) => h([d.rules.window, d.rules.sameRoom, meetingIds(d)]),
-};
-
-/**
- * What the next save writes, in dependency order: the faculty, the programme, the courses (field-valid only),
- * new instructors, the sections, the weekly patterns (which create the meeting requests), then the rules
- * targeted at those meetings. An entity is written when its hash differs from its last save.
- */
-export function planSync(d: Draft): SyncOp[] {
-  const ops: SyncOp[] = [];
-  if (!d.termId) return ops;
-  const p = d.program;
-  if (!p.facultyId && p.facultyName.trim()) ops.push({ kind: "faculty" });
-  if (p.name.trim() && (p.facultyId || p.facultyName.trim()) && (!p.id || d.synced.program !== hashes.program(d))) ops.push({ kind: "program" });
-  const codes = new Map<string, number>();
-  for (const c of d.courses) {
-    const nc = normalizeCode(c.code);
-    if (nc.error) continue;
-    codes.set(nc.code, (codes.get(nc.code) ?? 0) + 1);
-  }
-  for (const c of d.courses) {
-    const nc = normalizeCode(c.code);
-    const valid = !nc.error && codes.get(nc.code) === 1 && ![c.t, c.u, c.l, c.ects].some((v) => v !== null && Number.isNaN(v));
-    if (!valid) continue;
-    if (!c.id || (c.own && d.synced[c.key] !== hashes.course(c))) ops.push({ kind: "course", course: c.key });
-    for (const s of c.sections) {
-      s.instructors.forEach((i, slot) => {
-        if (i && i.id === null && i.name.trim().length >= 2) ops.push({ kind: "instructor", course: c.key, section: s.key, slot: slot as 0 | 1 });
-      });
-      if ((s.enrolment ?? 0) > 0 || c.mode === "ONLINE") {
-        if (!s.id || d.synced[s.key] !== hashes.section(d, c, s)) ops.push({ kind: "section", course: c.key, section: s.key });
-        const hours = courseHours(c);
-        const patternOk = c.pattern.start && c.pattern.days.length && (hours ? !c.pattern.theoryBlocks.length || patternHours(c) === hours : (c.pattern.weeklyHours ?? 0) > 0);
-        if (patternOk && d.synced[`${s.key}:pattern`] !== hashes.pattern(c, s)) ops.push({ kind: "pattern", course: c.key, section: s.key });
-      }
-    }
-  }
-  if (meetingIds(d).length && d.synced.rules !== hashes.rules(d)) ops.push({ kind: "rules" });
-  return ops;
-}
-
-/* ------------------------------------------------------------------ the worked example */
-
-/**
- * Moleküler Biyoloji ve Genetik Tezli Yüksek Lisans (Fen Bilimleri Enstitüsü), 2026-GÜZ, rebuilt by hand (spec §4;
- * real Bahar rows 182–199). The joint totals that drive the room size are the Bahar ones where known
- * (MBG 598 + MBG 408 / 416 / 698 = 120; MBG 532 + MBG 012 = 80); the others are this YL program alone.
- */
-export const MBG_TSV = [
-  "Kod\tAd\tT\tU\tL\tK\tAKTS\tSınıf",
-  "MBG 598\tSeminer\t0\t0\t0\t0\t9\t1",
-  "MBG532\tEpigenetik\t3\t0\t0\t3\t9\t1",
-  "MBG 534\tProteomiks\t3\t0\t0\t3\t9\t1",
-  "MBG 546\tGenetik ve Genomiks\t3\t0\t0\t3\t9\t1",
-  "MBG 502\tİleri Moleküler Genetik\t3\t0\t0\t3\t9\t1",
-  "MBG 541\tGen Mühendisliği ve Biyoteknoloji\t3\t0\t0\t3\t9\t1",
-  "MBG 549\tKanser İmmünolojisi\t3\t0\t0\t3\t9\t1",
-].join("\n");
-
-export const MBG_ENROLMENT: Record<string, number> = { "MBG 598": 120, "MBG 532": 80, "MBG 534": 15, "MBG 546": 15, "MBG 502": 12, "MBG 541": 15, "MBG 549": 15 };
-
-export function coursesFromPaste(rows: readonly PastedRow[], enrolment: Record<string, number> = {}): CourseDraft[] {
-  return rows.map((r) => {
-    const nc = normalizeCode(r.code);
-    const code = nc.error ? r.code : nc.code;
-    const hours = (r.t ?? 0) + (r.u ?? 0) + (r.l ?? 0);
-    return newCourse({
-      code,
-      name: r.name,
-      t: r.t ?? 0,
-      u: r.u ?? 0,
-      l: r.l ?? 0,
-      ects: r.ects,
-      year: r.year && r.year > 0 ? r.year : 1,
-      sections: [newSection("1", enrolment[code] ?? null)],
-      pattern: { ...emptyPattern(), theoryBlocks: r.t ? [r.t] : [], weeklyHours: hours ? null : 1 },
-    });
+/** cohorts pre-built from Sınıf (spec §4.5): "<prefix> 1. sınıf" with the compulsory courses of that year */
+export function cohortsFromYears(p: Payload, label: (year: number) => string): CohortP[] {
+  const years = [...new Set(p.courses.map((c) => c.year))].sort((a, b) => a - b);
+  return years.map((year) => {
+    const of = p.courses.filter((c) => c.year === year);
+    const electives = of.filter((c) => !c.compulsory).map((c) => c.key);
+    const prev = p.cohorts.find((x) => x.year === year);
+    return {
+      key: prev?.key ?? newKey("y"),
+      label: prev?.label || label(year),
+      year,
+      compulsory: of.filter((c) => c.compulsory).map((c) => c.key),
+      elective_groups: electives.length ? [electives] : [],
+    };
   });
+}
+
+/** "MBG 1. sınıf" / "MBG year 1" */
+export function newCohortLabel(prefix: string, year: number, lang: "tr" | "en"): string {
+  const head = prefix.trim();
+  return lang === "tr" ? `${head ? `${head} ` : ""}${year}. sınıf` : `${head ? `${head} ` : ""}year ${year}`;
+}
+
+/** compulsory courses in no cohort (the server warns `not_in_cohort` once cohorts exist) */
+export function uncohorted(p: Payload): CourseP[] {
+  if (!p.cohorts.length) return [];
+  const inAny = new Set(p.cohorts.flatMap((c) => [...c.compulsory, ...c.elective_groups.flat()]));
+  return p.courses.filter((c) => c.compulsory && !inAny.has(c.key));
+}
+
+/* ------------------------------------------------------------------ validation (server issues) */
+
+export function issuesAt(v: Validation | null | undefined, path: string): DraftIssue[] {
+  return (v?.issues ?? []).filter((i) => i.path === path);
+}
+/** the issues of a field and of everything below it (`courses.c1` → its sections, pattern, room) */
+export function issuesUnder(v: Validation | null | undefined, path: string): DraftIssue[] {
+  return (v?.issues ?? []).filter((i) => i.path === path || i.path.startsWith(`${path}.`));
+}
+export function hasError(v: Validation | null | undefined, path: string): boolean {
+  return issuesAt(v, path).some((i) => i.level === "error");
+}
+export function stepState(v: Validation | null | undefined, step: Step): StepState | undefined {
+  return v?.steps.find((s) => s.step === step);
+}
+/** the first error of a step that names a field (Devam with errors focuses it) */
+export function firstErrorPath(v: Validation | null | undefined, step: Step): string | null {
+  return (v?.issues ?? []).find((i) => i.step === step && i.level === "error" && i.path)?.path ?? null;
+}
+
+/** the commit summary (spec §4.8 confirm): what the commit writes */
+export function commitCounts(p: Payload) {
+  const sections = p.courses.reduce((n, c) => n + c.sections.length, 0);
+  const meetings = p.courses.reduce((n, c) => n + c.sections.length * Math.max(1, c.pattern.theory_blocks.length + ((c.u ?? 0) > 0 ? 1 : 0) + ((c.l ?? 0) > 0 ? 1 : 0)), 0);
+  const rules = (p.rules.window.enabled ? 1 : 0) + (p.rules.same_room ? 1 : 0);
+  return { courses: p.courses.length, sections, cohorts: p.cohorts.length, meetings, rules };
+}
+
+/** issue text in the UI language (the server sends TR + EN) */
+export function issueText(i: Pick<DraftIssue, "text">, lang: "tr" | "en"): string {
+  return i.text[lang] || i.text.tr || i.text.en;
 }

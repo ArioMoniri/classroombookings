@@ -229,3 +229,15 @@ export function requestReason(r: Pick<ApprovalRequest, "status" | "note" | "reas
   const text = r.note ?? d?.note ?? (code ? null : (r.reason ?? null));
   return code || text ? { code, text } : null;
 }
+
+/**
+ * The request a deep link opens: `?group=` → the submission's first open period (else its first period, else the
+ * link's own request); `?request=` alone → that request.
+ */
+export function pickAsked(entries: readonly InboxEntry[], request: number | null, group: number | null): number | null {
+  if (group !== null) {
+    const entry = entries.find((e) => e.groupId === group) ?? entries.find((e) => request !== null && e.requests.some((r) => r.id === request));
+    if (entry) return (entry.requests.find(isOpen) ?? entry.requests[0])?.id ?? request;
+  }
+  return request;
+}

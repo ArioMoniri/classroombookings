@@ -104,7 +104,7 @@ function WelcomeBody({ flag, home }: { flag: WelcomeFlag; home: string }) {
       </h1>
       <p className="mt-1.5 type-callout text-label-2">{subtitle}</p>
 
-      <div className="mt-6 rounded-xl bg-(--mat-thick-solid) p-4 shadow-[inset_0_0_0_1px_var(--hairline)]" data-testid="welcome-identity">
+      <div className="mt-6 rounded-xl bg-(--mat-thick-solid) p-4 edge-hairline" data-testid="welcome-identity">
         <div className="flex items-start gap-3">
           <MicrosoftLogo size={16} className="mt-1" />
           <div className="min-w-0">
@@ -160,13 +160,13 @@ function WelcomeChannels() {
   const [open, setOpen] = useState(false);
   if (!q.data?.available.some((a) => a.link !== "department")) return null;
   return (
-    <div className="mt-6 pt-2 shadow-[inset_0_1px_0_var(--hairline)]" data-testid="welcome-channels">
-      <button type="button" aria-expanded={open} aria-controls="welcome-channels-body" onClick={() => setOpen((o) => !o)} className={cn(buttonVariants({ variant: "ghost", shape: "rect", size: "lg" }), "-mx-2 w-[calc(100%+16px)] justify-between px-2 text-left type-callout font-semibold whitespace-normal active:scale-100")}>
+    <div className="mt-6 pt-2 hairline-t" data-testid="welcome-channels">
+      <Button type="button" variant="ghost" shape="rect" size="lg" aria-expanded={open} aria-controls="welcome-channels-body" onClick={() => setOpen((o) => !o)} className={cn("-mx-2 w-[calc(100%+16px)] justify-between px-2 text-left type-callout font-semibold whitespace-normal active:scale-100")}>
         <span>{t("signin.welcome.channelsTitle")}</span>
         <motion.span aria-hidden className="flex" animate={{ rotate: open ? 180 : 0 }} transition={reduce ? { duration: 0 } : springs.snappy}>
           <ChevronDown className="size-4" />
         </motion.span>
-      </button>
+      </Button>
       <AnimatePresence initial={false}>
         {open ? (
           <motion.div id="welcome-channels-body" key="body" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: reduce ? tween.reduced : tween.fadeIn }} exit={{ opacity: 0, transition: reduce ? tween.reduced : tween.exit }} className="pt-2">

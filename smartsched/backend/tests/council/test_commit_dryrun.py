@@ -93,21 +93,23 @@ async def test_dry_run_changes_nothing_and_counts_what_the_commit_then_writes(cl
     dry = await commit(client, h, job["id"], dry_run=True)
     assert dry["dry_run"] is True and dry["result"]["term_created"] is True
     c = dry["counts"]
-    assert c["meeting_requests"] == {"create": 1524, "update": 0, "unchanged": 0, "conflict": 0}
+    # 1 524 rows, 13 of them taught once with another class year (owner decision 2026-10-15, planning_list
+    # ._class_year_merges; tests/test_class_year_merge.py): 1 511 meeting requests
+    assert c["meeting_requests"] == {"create": 1511, "update": 0, "unchanged": 0, "conflict": 0}
     assert c["terms"]["create"] == 1 and c["sections"]["create"] > 1000 and c["rooms"]["create"] > 50
-    assert dry["rows_total"] >= 1524 + c["sections"]["create"] and len(dry["rows"]) == 500
+    assert dry["rows_total"] >= 1511 + c["sections"]["create"] and len(dry["rows"]) == 500
     assert await db_state() == before  # no term, room, request, audit event; the job is still READY/REVIEW
 
     real = await commit(client, h, job["id"])
     assert real["changes"] == c  # the same writer, the same counts
     after = await db_state()
-    assert after["meeting_requests"] == 1524 and after["terms"] == 1
+    assert after["meeting_requests"] == 1511 and after["terms"] == 1
     assert after["sections"] == c["sections"]["create"] and after["rooms"] == c["rooms"]["create"]
 
     # the same file uploaded again in a new job: everything is unchanged
     job2 = await upload(client, h, ("bahar_v5 (1).csv", bahar_csv()))
     again = await commit(client, h, job2["id"], dry_run=True)
-    assert again["counts"]["meeting_requests"] == {"create": 0, "update": 0, "unchanged": 1524, "conflict": 0}
+    assert again["counts"]["meeting_requests"] == {"create": 0, "update": 0, "unchanged": 1511, "conflict": 0}
     assert again["result"]["term_created"] is False
 
 
@@ -172,7 +174,7 @@ async def test_a_real_commit_holds_the_terms_write_lock(client):
             headers=h,
             json={"term": TERM, "allow_pending": True, "dry_run": True},
         )
-        assert r.status_code == 200 and r.json()["counts"]["meeting_requests"]["create"] == 1524
+        assert r.status_code == 200 and r.json()["counts"]["meeting_requests"]["create"] == 1511
     finally:
         await term_lock.release(handle)
     assert (await db_state())["meeting_requests"] == 0

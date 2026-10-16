@@ -86,6 +86,7 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
   const minutesLeft = rate ? Math.max(1, Math.ceil((rate.until - now) / 60_000)) : 0;
 
   const fail = (e: LocalError) => {
+    setNow(Date.now());
     setError(e);
     setPassword("");
     if (!reduce) shake();

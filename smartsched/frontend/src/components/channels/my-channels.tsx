@@ -56,7 +56,7 @@ export function MyChannels({ email, compact = false }: { email?: string | null; 
     <div className="flex flex-col gap-4" data-testid="my-channels">
       <ul className="flex flex-col">
         {!compact ? (
-          <li className="flex min-h-12 items-center gap-3 py-2 shadow-[inset_0_-1px_0_var(--hairline)]">
+          <li className="flex min-h-12 items-center gap-3 py-2 hairline-b">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fill-2 text-label-2 [&_svg]:size-4">
               <Mail aria-hidden />
             </span>
@@ -68,7 +68,7 @@ export function MyChannels({ email, compact = false }: { email?: string | null; 
           </li>
         ) : null}
         {data.linked.map((c) => (
-          <li key={c.id} className="flex flex-wrap items-center gap-3 py-2 shadow-[inset_0_-1px_0_var(--hairline)]" data-testid={`linked-${c.kind}`}>
+          <li key={c.id} className="flex flex-wrap items-center gap-3 py-2 hairline-b" data-testid={`linked-${c.kind}`}>
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fill-2 text-label-2 [&_svg]:size-4">{ICON[c.kind] ?? <BellRing aria-hidden />}</span>
             <span className="min-w-0 flex-1">
               <span className="block type-callout font-medium text-label-1">{labelOf(c.kind)}</span>
@@ -140,7 +140,7 @@ export function MyChannels({ email, compact = false }: { email?: string | null; 
 function LinkerFrame({ channel, open, onOpen, children, done }: { channel: AvailableChannel; open: boolean; onOpen: () => void; children: ReactNode; done?: boolean }) {
   const { t, locale } = useI18n();
   return (
-    <div className={cn("rounded-xl bg-fill-3 px-3 py-2.5 shadow-[inset_0_0_0_1px_var(--hairline)]")} data-testid={`linker-${channel.kind}`}>
+    <div className={cn("rounded-xl bg-fill-3 px-3 py-2.5 edge-hairline")} data-testid={`linker-${channel.kind}`}>
       <div className="flex flex-wrap items-center gap-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fill-2 text-label-2 [&_svg]:size-4">{ICON[channel.kind] ?? <BellRing aria-hidden />}</span>
         <span className="min-w-0 flex-1 type-callout font-medium text-label-1">{channelLabel(channel, locale)}</span>

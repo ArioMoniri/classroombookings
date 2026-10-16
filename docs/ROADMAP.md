@@ -1113,3 +1113,45 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
 - [ ] Owner question: person and programme priorities are per term. Should they carry over to later terms?
 - The Phase 19 UI follow-up agent is running: the wizard on `/program-drafts`, the priority selects, the diff baseline, server-side staged changes, the publish "Akademisyenlere bildir" toggle, `/moderation/me` for teachers, suggestion undo and scope, and phone layouts.
 - Waiting for the design-system agent to finish, because these files are fenced: the intake UI (stepper, Fark step, remembered-mapping chips; F-08) in components/onboarding, and the reason field for forced moves (F-10) in timetable.
+
+### Design-system overhaul finished (2026-10-16)
+
+- Focus (P0):
+  - focus rings everywhere through the unlayered `:focus-visible` rule
+  - `outline-none` removed from every primitive
+  - the focus-ring scan covers all components
+- Tokens (docs/design/tokens.md §A is authoritative):
+  - control border at 3:1 or better
+  - edge tokens and a radius scale
+  - fluid titles and fixed data sizes
+  - control heights per pointer type and row height per density
+  - faculty inks at 5:1 or better
+  - contrast gate: 160 pairs pass
+- Primitives:
+  - Button size/shape, IconButton, NativeSelect
+  - SegmentedControl, with a select fallback that never wraps
+  - DateField, Card defaulting to plain, Skeleton/LoadingValue
+  - BarList, Alert (neutral tone and action slot), StatusDot (pending)
+- DataTable:
+  - measured widths and keyboard resize
+  - priority hiding and the "Görünüm › Sütunlar" popover
+  - per-user persistence and card mode below 600 px
+- Screens:
+  - dashboard, run report and runs (the `scope_reduction` confirm and the partial-publish confirm)
+  - timetable: one toolbar, chips of 72 px or more, a conflict popover and the **written reason for forced moves (F-10)**
+  - generate: the mapping-step contract fix
+  - rooms and classes
+  - **onboarding / intake: the stepper Dosyalar › İnceleme › Fark › Kaydet, the Fark dry run with keep/take, and remembered decisions (F-08)**
+- Sign-in spec asks:
+  - "Parola" instead of "Şifre"
+  - motion.md §3.12 and §3.13
+  - pointers in settings-and-auth.md
+- Gates:
+  - `npm run check:design` is in `npm run check`, as a per-file ratchet
+  - `e2e/visual-quality.spec.ts` covers desktop plus a mobile project; mobile 23/23
+- [ ] Re-run desktop visual-quality after the /timetable target-size fix (7681177).
+- [ ] check:design fails on new files from the approval UI and identity agents. Both have been told to fix them.
+- [ ] The design-migration and phone sweep agent is running. It covers `text-[Npx]`, `shadow-[` and raw `<button>` in the unfenced screens, plus the open phone items: the bookings toolbar, a filters sheet, find-room and tab-bar labels.
+- [ ] The full smoke studio flow needs the Bahar e2e backend: it hard-codes week 3.
+- [ ] The backend still has one "Şifre" string in `app/`.
+- [ ] Generate visual baselines on the pod CI runner.

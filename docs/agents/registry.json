@@ -1064,7 +1064,8 @@
       "goal": "the owner says many parts of the UI look AI-generated; dynamic sizing (elements, button sizes and shapes, column widths) is missing; there are many UI and outline issues; the skills and Mobbin were not used. Implement docs/review/2026-10-15-uiux-visual-review.md: - read it fully: §2 design system, §3 per-screen issues in your screens, §4 top 15, §5 acceptance checks - evidence screenshots: /tmp/cl…",
       "ledger": "design-system-overhaul-2026-10-15 SCOPE (you own): - smartsched/frontend/src/com…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 01:35"
     },
     {
       "id": "ae9f33a6c20b207e1",
@@ -1296,6 +1297,18 @@
       "scope": "",
       "goal": "You are the dedicated **Phase 19 UI follow-up** builder for SmartSched (Next.js frontend in /home/user/classroombookings/smartsched/frontend; FastAPI backend in smartsched/backend). Branch claude/gracious-cerf-w1598m (checked out; shared tree with other agents). Ledger id: p19-ui-followup-2026-10-16…",
       "ledger": "Phase 19 UI follow-up",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "acdf065f6393f6b41",
+      "description": "Design migration + mobile sweep",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 01:35",
+      "scope": "",
+      "goal": "You are the dedicated **design-migration + mobile sweep** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: design-migration-mobile-2026-10-16. ## Owner's requirements (from the user…",
+      "ledger": "Design migration + mobile sweep",
       "resumed": false,
       "status": "running"
     }

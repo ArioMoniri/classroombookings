@@ -41,7 +41,7 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { useReduce } from "@/lib/motion";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { conflictAlternatives, groupInbox, isOpen, openDates, requestSlots, type DecideAlternative, type InboxEntry } from "./approvals-model";
+import { conflictAlternatives, groupInbox, isOpen, openDates, pickAsked, requestSlots, type DecideAlternative } from "./approvals-model";
 import { RejectDialog, type RejectReason } from "./reject-dialog";
 import { RequestReason, RequestTimeline, SlotLine, StatusPill } from "./request-parts";
 
@@ -182,18 +182,6 @@ export function ApprovalsView() {
       />
     </div>
   );
-}
-
-/**
- * The request a deep link opens: `?group=` → the submission's first open period (else its first period, else the
- * link's own request); `?request=` alone → that request.
- */
-export function pickAsked(entries: readonly InboxEntry[], request: number | null, group: number | null): number | null {
-  if (group !== null) {
-    const entry = entries.find((e) => e.groupId === group) ?? entries.find((e) => request !== null && e.requests.some((r) => r.id === request));
-    if (entry) return (entry.requests.find(isOpen) ?? entry.requests[0])?.id ?? request;
-  }
-  return request;
 }
 
 /** After the drawer's exit, focus the next row (or the first, or the page heading). */
