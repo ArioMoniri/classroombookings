@@ -52,6 +52,7 @@ const m02 = await page.evaluate(() => {
   for (const el of document.querySelectorAll(SEL)) {
     const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
     if (!r.width || !r.height || cs.visibility === "hidden" || el.closest('[aria-hidden="true"],[inert]')) continue;
+    if (el.checkVisibility && !el.checkVisibility()) continue;                 // inside a closed <details> or display:none ancestor: not drawn (lane A, round 1)
     if (r.width <= 1 && r.height <= 1 && el !== document.activeElement) continue;   // sr-only until focused: the "İçeriğe atla" skip link (1×1)
     if (el.tagName === "A" && cs.display === "inline" && /^(P|LI|TD|SPAN|DD)$/.test(el.parentElement?.tagName ?? "")) continue; // links inside running text
     let w = r.width, h = r.height;
@@ -86,7 +87,7 @@ const m03 = await page.evaluate(() => {
     const px = parseFloat(cs.fontSize); if (px < 11) small.set(el, px);
   }
   const inputs = [...document.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=hidden]),select,textarea')]
-    .filter((i) => i.getBoundingClientRect().width && parseFloat(getComputedStyle(i).fontSize) < 16)
+    .filter((i) => i.getBoundingClientRect().width > 1 && !i.closest(".sr-only") && (!i.checkVisibility || i.checkVisibility()) && parseFloat(getComputedStyle(i).fontSize) < 16) // a visually hidden file input behind a styled button is not typed into
     .map((i) => i.name || i.id || i.dataset.testid);
   return { small: [...small].slice(0, 20).map(([el, px]) => ({ text: el.textContent.trim().slice(0, 30), px })), inputsUnder16: inputs };
 });
