@@ -1,0 +1,1689 @@
+{
+  "round": 1,
+  "ledger": "flow-r1-suggester-2026-10-16",
+  "date": "2026-10-16",
+  "snapshot": "e77bb92",
+  "checked_at": "42142fe",
+  "reports": [
+    "docs/testing/flows/rounds/round-1-academician.md",
+    "docs/testing/flows/rounds/round-1-admin.md",
+    "docs/testing/flows/rounds/round-1-staff.md"
+  ],
+  "summary": {
+    "findings": 117,
+    "missing": [],
+    "unknown": [],
+    "tickets": 50,
+    "severity": {
+      "major": 15,
+      "minor": 32,
+      "blocker": 2,
+      "trivial": 1
+    },
+    "per_lane": {
+      "A": {
+        "tickets": 9,
+        "major": 3,
+        "minor": 6
+      },
+      "B": {
+        "tickets": 11,
+        "major": 3,
+        "minor": 8
+      },
+      "C": {
+        "tickets": 6,
+        "blocker": 2,
+        "major": 3,
+        "minor": 1
+      },
+      "D": {
+        "tickets": 3,
+        "major": 1,
+        "minor": 2
+      },
+      "E": {
+        "tickets": 9,
+        "minor": 9
+      },
+      "F": {
+        "tickets": 4,
+        "major": 3,
+        "minor": 1
+      },
+      "G": {
+        "tickets": 3,
+        "trivial": 1,
+        "minor": 1,
+        "major": 1
+      },
+      "H": {
+        "tickets": 5,
+        "major": 1,
+        "minor": 4
+      }
+    },
+    "findings_ticketed": 88,
+    "excluded_integrity": 18,
+    "partly_integrity": 2,
+    "fixed": 1,
+    "decisions": 3,
+    "enhancement_only": [
+      "R1-A-35",
+      "R1-A-36",
+      "R1-M-35",
+      "R1-M-36",
+      "R1-S-35",
+      "R1-S-36",
+      "R1-S-38"
+    ]
+  },
+  "rules": [
+    "One builder per lane. A lane edits only the paths in its `owns` list (tickets may name a path read-only).",
+    "smartsched/frontend/messages/{tr,en}.json are shared: add or change only keys of your own screens' namespaces; pull --no-rebase before every commit; never reorder or reformat the files.",
+    "Never touch `integrity_reserved` paths until the integrity agent (ledger integrity-r1) finishes and lists its files; lanes F and H have tickets that wait for that hand-over (depends_on).",
+    "Test first (vitest / pytest), then the ticket's check; report the commit per ticket so the round-2 testers re-verify."
+  ],
+  "integrity_reserved": [
+    "smartsched/backend/app/services/publish_guard.py",
+    "smartsched/backend/app/services/pin_guard.py",
+    "smartsched/backend/app/services/move_guard.py",
+    "smartsched/backend/app/services/run_truth.py",
+    "smartsched/backend/app/services/precheck.py",
+    "smartsched/backend/app/services/studio_rules.py",
+    "smartsched/backend/app/services/data_issues.py",
+    "smartsched/backend/app/services/program_drafts.py",
+    "smartsched/backend/app/services/moderation.py",
+    "smartsched/backend/app/services/calendar_views.py",
+    "smartsched/backend/app/services/invigilation.py",
+    "smartsched/backend/app/services/scenario_compare.py",
+    "smartsched/backend/app/api/v1/constraints.py",
+    "smartsched/backend/app/api/v1/runs.py",
+    "smartsched/backend/app/api/v1/calendar.py",
+    "smartsched/backend/app/api/v1/analytics.py",
+    "smartsched/backend/app/api/v1/invigilation.py",
+    "smartsched/backend/app/solver/**",
+    "smartsched/backend/app/ai/elicit.py",
+    "smartsched/backend/app/services/grid.py",
+    "smartsched/backend/app/services/solver_bridge.py",
+    "smartsched/backend/app/services/diagnosis_fixes.py",
+    "smartsched/backend/app/schemas/runs.py",
+    "smartsched/frontend/src/components/providers.tsx",
+    "smartsched/frontend/src/lib/api/error-text.ts (new, integrity WIP)",
+    "smartsched/frontend/src/components/runs/**",
+    "smartsched/frontend/src/components/studio/**",
+    "smartsched/frontend/src/components/timetable/**",
+    "smartsched/frontend/src/components/compare/**",
+    "smartsched/frontend/src/components/invigilation/**",
+    "smartsched/frontend/src/components/moderation/recreate-preview.tsx",
+    "smartsched/frontend/src/components/moderation/recreate-sheet.tsx",
+    "smartsched/frontend/src/lib/api/client.ts (the 409 -> toast mapping)"
+  ],
+  "excluded_integrity": [
+    "R1-M-02",
+    "R1-M-03",
+    "R1-M-04",
+    "R1-M-05",
+    "R1-M-06",
+    "R1-M-10",
+    "R1-M-11",
+    "R1-M-12",
+    "R1-S-01",
+    "R1-S-02",
+    "R1-S-04",
+    "R1-S-05",
+    "R1-S-06",
+    "R1-S-07",
+    "R1-S-09",
+    "R1-S-13",
+    "R1-S-17",
+    "R1-S-20"
+  ],
+  "partly_integrity": {
+    "R1-M-14": "the unplaced list (integrity); week wording → T-R1-48",
+    "R1-S-14": "the empty plan publishable as 'tümü atandı' = R1-M-11 (integrity); default pool → T-R1-42"
+  },
+  "already_fixed": {
+    "R1-M-01": "72ddb3f fix(integrations): after_soft_rollback listener takes (session, previous_transaction); regression test tests/test_integrations_kick_rollback.py"
+  },
+  "blocked_by_decisions": {
+    "R1-M-07": "KVKK: the AI personal-data default is 'included unless withdrawn'. The orchestrator recommends 'excluded'. Blocks the Admin › KVKK AI default and the Gizlilik AI row wording.",
+    "R1-A-24": "The wording of the Gizlilik AI row ('Verilmedi' next to 'adınız … girebilir') follows the R1-M-07 decision: either a consent that excludes by default, or a plainly labelled objection to an institutional default.",
+    "R1-S-37": "Should a forced edit on the published plan create a draft copy, or show a banner on the live plan ('Yayındaki planda 1 zorunlu kural bozuk (gerekçe: …)')? Relates to R1-M-05/R1-M-06 (integrity)."
+  },
+  "enhancements": [
+    {
+      "id": "FLE-001",
+      "score": 6,
+      "personas": "academician",
+      "text": "A teacher can ask for a weekly make-up series (it becomes a request with per-date approval), or the sheet says why only single dates are possible",
+      "maps_to": "persona-user Enh. #2 family; new",
+      "flows": "F-02, F-01 S06",
+      "findings": [
+        "R1-A-35"
+      ]
+    },
+    {
+      "id": "FLE-002",
+      "score": 4,
+      "personas": "planning staff",
+      "text": "A 'Veri temizliği' list in the data-issues report: similar programme names, odd course codes, exam dates outside the term",
+      "maps_to": "new",
+      "flows": "F-09 S03, F-05 S10",
+      "findings": [
+        "R1-S-36"
+      ]
+    },
+    {
+      "id": "FLE-003",
+      "score": 3,
+      "personas": "admin",
+      "text": "The CRBS upgrade dry run lists every permission it adds to or removes from existing roles before 'Yükseltmeyi uygula'",
+      "maps_to": "new (security-adjacent: an upgrade must not silently widen a role)",
+      "flows": "F-11 CRBS",
+      "findings": [
+        "R1-M-36"
+      ]
+    },
+    {
+      "id": "FLE-004",
+      "score": 3,
+      "personas": "planning staff",
+      "text": "The relaxation policy card gets a term picker (or sits on the run report), and its hint names the real button",
+      "maps_to": "new",
+      "flows": "F-09 S10",
+      "findings": [
+        "R1-S-38"
+      ]
+    },
+    {
+      "id": "FLE-005",
+      "score": 2,
+      "personas": "admin",
+      "text": "Microsoft 365 calendar push defaults to the SSO tenant and says that other tenants receive booking data",
+      "maps_to": "owner decision 'Entra ID' (fit 1.5)",
+      "flows": "F-04 S02",
+      "findings": [
+        "R1-M-35"
+      ]
+    },
+    {
+      "id": "FLE-006",
+      "score": 2,
+      "personas": "all",
+      "text": "A balanced sign-in page at 1440 (institution name, logo, a help line) with both fields styled alike",
+      "maps_to": "sign-in.md",
+      "flows": "F-12 S01",
+      "findings": [
+        "R1-A-36",
+        "R1-M-37"
+      ]
+    },
+    {
+      "id": "FLE-007",
+      "score": 1,
+      "personas": "planning staff",
+      "text": "Re-measure first loads on an idle host; show a skeleton instead of a blank page on the first Studio load",
+      "maps_to": "new (INCONCLUSIVE timing)",
+      "flows": "README §8",
+      "findings": [
+        "R1-S-35"
+      ]
+    },
+    {
+      "id": "FLE-008",
+      "score": 1,
+      "personas": "admin",
+      "text": "Small polish: week export file name, user filters in the URL, pin-template names 'A 101 · 58 koltuk', gerund busy labels (parts are in T-R1-33/T-R1-49)",
+      "maps_to": "motion T1",
+      "flows": "F-10 S09, F-11",
+      "findings": [
+        "R1-M-38"
+      ]
+    }
+  ],
+  "lanes": [
+    {
+      "lane": "A",
+      "name": "Mobile touch, keyboard and shell primitives",
+      "starts": "now",
+      "owns": [
+        "smartsched/frontend/src/app/layout.tsx",
+        "smartsched/frontend/src/app/globals.css",
+        "smartsched/frontend/src/app/login/**",
+        "smartsched/frontend/src/components/ui/**",
+        "smartsched/frontend/src/components/shell/**",
+        "smartsched/frontend/src/components/auth/**",
+        "smartsched/frontend/src/components/notifications/**",
+        "smartsched/frontend/src/components/public-schedule/kiosk.tsx",
+        "smartsched/frontend/src/components/public-schedule/public-views.tsx",
+        "smartsched/frontend/src/components/analytics/**"
+      ],
+      "phone_routes": "/bookings /my-bookings /find-room /profile /moderation/me /admin/users /analytics/heatmap /public /login",
+      "ticket_files": [
+        "smartsched/frontend/src/components/notifications/preferences-panel.tsx",
+        "smartsched/frontend/src/components/analytics/heatmap-view.tsx",
+        "smartsched/frontend/src/components/public-schedule/kiosk.tsx",
+        "smartsched/frontend/src/app/globals.css:356-362 (read only, unless T-R1-45 says otherwise)",
+        "smartsched/frontend/src/app/layout.tsx:27",
+        "smartsched/frontend/src/app/login/page.tsx:11",
+        "smartsched/frontend/src/components/ui/sheet.tsx",
+        "smartsched/frontend/src/components/ui/dialog.tsx:71",
+        "smartsched/frontend/src/components/ui/dialog.tsx:108",
+        "smartsched/frontend/src/components/notifications/notification-bell.tsx:103",
+        "smartsched/frontend/src/components/shell/tab-bar.tsx",
+        "smartsched/frontend/src/components/shell/nav-config.ts",
+        "smartsched/frontend/src/components/shell/user-menu.tsx",
+        "smartsched/frontend/src/components/shell/shortcuts-sheet.tsx",
+        "smartsched/frontend/src/components/shell/use-global-shortcuts.ts",
+        "smartsched/frontend/src/components/ui/sonner.tsx",
+        "smartsched/frontend/src/components/ui/dialog.tsx:90",
+        "smartsched/frontend/src/components/ui/kbd-hint.tsx:17",
+        "smartsched/frontend/src/components/shell/top-bar.tsx",
+        "smartsched/frontend/src/components/shell/breadcrumbs.ts:39",
+        "smartsched/frontend/src/components/auth/local-sign-in.tsx",
+        "smartsched/frontend/src/components/auth/signin-model.ts",
+        "smartsched/frontend/src/app/login/page.tsx"
+      ],
+      "tickets": [
+        {
+          "id": "T-R1-01",
+          "lane": "A",
+          "severity": "major",
+          "title": "On a phone, many controls look smaller than 44 px and some inputs are under 16 px",
+          "findings": [
+            "R1-A-02",
+            "R1-A-04",
+            "R1-M-08",
+            "R1-M-29",
+            "R1-S-16",
+            "R1-S-33"
+          ],
+          "verified": "partly NOT reproduced at HEAD: the suggester built HEAD's frontend, logged in as admin at 390x844 with touch and hover:none, and ran the M-02/M-03 snippets. Bell and whats-new were 44x44 and the profile inputs 44 px at 16 px. /bookings, /find-room, /my-bookings, /admin/users, /runs and /moderation/me were clean. Reproduced: the Profil › Bildirimler switches (38x22), heat-source-run (131x30) and the kiosk locale buttons (30 px)",
+          "root_cause": "The 32 px readings match the fine-pointer tokens (globals.css:248-252), as if the `@media (pointer: coarse)` block (globals.css:356-362) never applied in the testers' stack.sh builds. That needs T-R1-45 first. The real offenders are own-size controls: preferences-panel.tsx switches, analytics/heatmap-view.tsx source tabs, public-schedule/kiosk.tsx locale buttons. The skip link (1x1) is probe drift (T-R1-43).",
+          "fix": "After T-R1-45: if the build path is at fault, the fix is in lane G and this ticket keeps only the real offenders. Give those a hit area: coarseHitArea from ui/hit-area.ts, or the 44 px label rows the switch rows already use elsewhere. Do not re-size primitives that already pass.",
+          "check": "Run MOBILE.md M-02 and M-03 at 390 touch on /bookings, /my-bookings, /find-room, /profile, /moderation/me, /admin/users, /analytics/heatmap and /public, on a stack.sh build. Pass: m02.length === 0 (skip link excluded) and inputsUnder16 = [].",
+          "files": [
+            "smartsched/frontend/src/components/notifications/preferences-panel.tsx",
+            "smartsched/frontend/src/components/analytics/heatmap-view.tsx",
+            "smartsched/frontend/src/components/public-schedule/kiosk.tsx",
+            "smartsched/frontend/src/app/globals.css:356-362 (read only, unless T-R1-45 says otherwise)"
+          ],
+          "dedup": "regression of U-16 ([x], persona-user), not reproduced at HEAD; see also the ROADMAP note 'Sent to wave-2: the Profile preference-matrix switches'",
+          "depends_on": [
+            "T-R1-45"
+          ]
+        },
+        {
+          "id": "T-R1-02",
+          "lane": "A",
+          "severity": "major",
+          "title": "On a phone, the keyboard covers the focused note field in the book sheet and the room search in the wish sheet",
+          "findings": [
+            "R1-A-03"
+          ],
+          "verified": "confirmed in code: the app pages' viewport has no interactive-widget, while /login has it",
+          "root_cause": "app/layout.tsx:27-37 (the root viewport) has no `interactiveWidget: \"resizes-content\"`. login/page.tsx:11 overrides it for /login only. Without it, Chromium on Android keeps the layout viewport when the keyboard opens. The sticky sheet footer then covers the field (ui/sheet.tsx footer, book-sheet note at 461–525 px under a 508 px viewport).",
+          "fix": "Add interactiveWidget: 'resizes-content' to the root viewport and drop the duplicate in login/page.tsx. In the Sheet body, set scroll-padding-bottom to the footer height so a focused field scrolls clear of the sticky footer.",
+          "check": "F-01 S06 and F-05 S03 on a phone, with the viewport resized to 390x508 after the focus. The note field and the wish-sheet room search fit completely between the sheet header and the footer, and 'Talep et' / 'Onaya gönder' stay visible. `document.querySelector('meta[name=viewport]').content` on /bookings contains interactive-widget=resizes-content.",
+          "files": [
+            "smartsched/frontend/src/app/layout.tsx:27",
+            "smartsched/frontend/src/app/login/page.tsx:11",
+            "smartsched/frontend/src/components/ui/sheet.tsx"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-03",
+          "lane": "A",
+          "severity": "major",
+          "title": "A phone dialog's save button scrolls off screen, and the sheet is see-through",
+          "findings": [
+            "R1-M-09",
+            "R1-M-37"
+          ],
+          "verified": "confirmed in code",
+          "root_cause": "ui/dialog.tsx:71: on max-sm the whole DialogContent scrolls (overflow-y-auto), so DialogFooter (:108-120) sits at the end of the scroll ('Oluştur' at y 1171 of 844). The surface is translucent, so the tab bar shows through.",
+          "fix": "On max-sm, lay DialogContent out as a column: a header, a scrolling body, then a footer that stays at the bottom (sticky bottom-0 inside the sheet, with the safe-area padding). Use an opaque surface for phone sheets.",
+          "check": "F-11 S01 on a phone: /admin/users › Yerel hesap oluştur. Before any scroll, [data-testid=user-save] has top ≥ 0.6 × clientHeight and bottom ≤ clientHeight (MOBILE M-05), the title and the close button stay visible, and the tab bar does not show through.",
+          "files": [
+            "smartsched/frontend/src/components/ui/dialog.tsx:71",
+            "smartsched/frontend/src/components/ui/dialog.tsx:108"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-04",
+          "lane": "A",
+          "severity": "minor",
+          "title": "On a phone, the bell opens a small popover with a 10 px badge",
+          "findings": [
+            "R1-A-19",
+            "R1-A-04",
+            "R1-M-29"
+          ],
+          "verified": "code read",
+          "root_cause": "notification-bell.tsx:103 renders the same anchored popover at every width. The badge text is 10 px.",
+          "fix": "Below md, open the list as a full-width bottom Sheet with rows of at least 44 px. The badge text is at least 11 px.",
+          "check": "Tap the bell on a phone: the sheet is 390 px wide, every item is at least 44 px tall, and the badge font-size is at least 11 px.",
+          "files": [
+            "smartsched/frontend/src/components/notifications/notification-bell.tsx:103"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-05",
+          "lane": "A",
+          "severity": "minor",
+          "title": "On a phone, Profil › Bildirimler is three scrolling tables, and a teacher sees approver-only events",
+          "findings": [
+            "R1-A-23"
+          ],
+          "verified": "reproduced: the switches are 38x22",
+          "root_cause": "preferences-panel.tsx renders the approvals, bookings and timetable matrices as tables at every width. The rows are not filtered by role.",
+          "fix": "Below md, show one card per event with the channel switches in 44 px label rows. Hide the approver and room-owner events from roles that cannot receive them (approvals.decide, room ownership).",
+          "check": "Open /profile#notifications on a phone as a TEACHER. No horizontal scroller, M-02 clean, and no 'Onayımı bekleyen yeni oda talepleri' or 'Sorumlu olduğum odaya…' rows.",
+          "files": [
+            "smartsched/frontend/src/components/notifications/preferences-panel.tsx"
+          ],
+          "dedup": "re-seen: ROADMAP 'Sent to wave-2: the Profile preference-matrix switches' (still open)",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-06",
+          "lane": "A",
+          "severity": "minor",
+          "title": "Tab bar, user menu, shortcuts sheet and welcome toast details",
+          "findings": [
+            "R1-A-31",
+            "R1-A-37",
+            "R1-A-40",
+            "R1-S-33"
+          ],
+          "verified": "code read",
+          "root_cause": "tab-bar.tsx: on routes under 'Diğer', no tab gets aria-current. The badge renders before the label ('99+\\nTalepler'). user-menu.tsx offers 'Klavye kısayolları' on touch. shortcuts-sheet.tsx always prints ⌘ while kbd-hint.tsx detects the platform. The welcome toast (ui/sonner.tsx defaults) stays across navigations and covers the tab bar.",
+          "fix": "Mark 'Diğer' current for its routes. For a linked academician, add Taleplerim as a tab. Put the badge after the label. Hide the keyboard item on pointer:coarse. Use kbd-hint's platform keys in the shortcuts sheet and add `g t` → Taleplerim. Keep the welcome toast at about 3 s and position the toaster above --shell-bottom-h.",
+          "check": "On a phone, open /moderation/me as the linked academician: exactly one tab has aria-current, and Taleplerim is a tab. The tab bar's innerText starts with its label. On Linux, Shift+? shows 'Ctrl K'. Ten seconds after login, the welcome toast is gone and no toast overlaps nav[aria-label=Sekmeler].",
+          "files": [
+            "smartsched/frontend/src/components/shell/tab-bar.tsx",
+            "smartsched/frontend/src/components/shell/nav-config.ts",
+            "smartsched/frontend/src/components/shell/user-menu.tsx",
+            "smartsched/frontend/src/components/shell/shortcuts-sheet.tsx",
+            "smartsched/frontend/src/components/shell/use-global-shortcuts.ts",
+            "smartsched/frontend/src/components/ui/sonner.tsx"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-07",
+          "lane": "A",
+          "severity": "minor",
+          "title": "Shared dialogs, toasts and the search trigger have English accessible names in Turkish mode",
+          "findings": [
+            "R1-A-10",
+            "R1-M-16",
+            "R1-S-24"
+          ],
+          "verified": "confirmed in code",
+          "root_cause": "ui/dialog.tsx:90 hard-codes `<span className=\"sr-only\">Close</span>`; ui/sheet.tsx:48-51 already uses common.close. The Sonner close button keeps its default 'Close toast'. ui/kbd-hint.tsx:17 labels the modifier 'Command or Control', which becomes the search trigger's name.",
+          "fix": "Use t('common.close') in Dialog. Pass a localised close-button aria-label to the Toaster ('Bildirimi kapat'). kbd-hint gets i18n labels ('Komut paleti (Ctrl+K)').",
+          "check": "F-13 A01 in TR: open the cancel dialog on /my-bookings, the wish withdraw on /moderation/me and a toast. The EN_WORDS scan returns no Close or Command hits.",
+          "files": [
+            "smartsched/frontend/src/components/ui/dialog.tsx:90",
+            "smartsched/frontend/src/components/ui/sonner.tsx",
+            "smartsched/frontend/src/components/ui/kbd-hint.tsx:17",
+            "smartsched/frontend/src/components/shell/top-bar.tsx"
+          ],
+          "dedup": "re-seen: persona-user U-08 minors 'TR leftovers: Close' (still open)",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-08",
+          "lane": "A",
+          "severity": "minor",
+          "title": "Breadcrumbs show raw route words and ids ('Moderasyon / people / #157', 'recreate / #15')",
+          "findings": [
+            "R1-A-11",
+            "R1-S-24"
+          ],
+          "verified": "confirmed in code",
+          "root_cause": "breadcrumbs.ts:39 falls back to `#<id>` for numbers and to the decoded segment for unknown words. There are no labels for moderation/people/[id] or moderation/recreate/[id]. The crumb links have no focus-visible ring.",
+          "fix": "Give these routes labels: the user's own id → 'Taleplerim / Geçmişim', another person → 'Kişi', recreate → 'Yeniden çözüm önizlemesi'. Never print a raw slug or an internal id. Add the focus ring to crumb links.",
+          "check": "As the academician, the crumb on /moderation/people/157 contains no 'people' and no '#'. As staff, /moderation/recreate/<id> contains no 'recreate'. Tab onto a crumb link shows a visible outline. Update breadcrumbs.test.ts.",
+          "files": [
+            "smartsched/frontend/src/components/shell/breadcrumbs.ts:39"
+          ],
+          "dedup": "see also U-01 (focus ring, open)",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-09",
+          "lane": "A",
+          "severity": "minor",
+          "title": "The login form gives no field messages, does not focus the error, and stays locked for other accounts",
+          "findings": [
+            "R1-A-27",
+            "R1-M-28",
+            "R1-A-28",
+            "R1-A-29",
+            "R1-M-21"
+          ],
+          "verified": "code read",
+          "root_cause": "local-sign-in.tsx: an empty submit shows an empty role=alert with no per-field text. After a wrong password, focus goes to 'Giriş yap'. The identifier has no inputmode=email and there is no Caps Lock hint. The 429 countdown disables the whole form, although the limit is per identifier. For R1-A-29, the text the login page shows for the code that T-R1-35 sends when Microsoft sign-in is off. For R1-M-21, signin-model.ts:115 homeFor() sends every role without planning.view to /bookings, so a user-admin (setup.users, setup.roles, room.view) lands on a grid of locks.",
+          "fix": "Add 'Kullanıcı adı veya e-posta gerekli' and 'Parola gerekli' linked by aria-describedby. Focus the alert after a refused login. Add inputmode=email and a Caps Lock hint. Key the countdown to the identifier. Text for SSO-off: 'Microsoft ile giriş bu kurumda henüz açık değil.' Land each user on the first page their permissions allow.",
+          "check": "F-12 S02 desktop+phone: an empty Enter → two field messages, aria-invalid on both, and no empty alert. A wrong password → document.activeElement is the alert. 11 failures for identifier X, then typing identifier Y → 'Giriş yap' is enabled. With SSO off, /login?error=<T-R1-35 code> shows the not-enabled sentence with no support code. limited.admin (F-11 S04) lands on /admin/users.",
+          "files": [
+            "smartsched/frontend/src/components/auth/local-sign-in.tsx",
+            "smartsched/frontend/src/components/auth/signin-model.ts",
+            "smartsched/frontend/src/app/login/page.tsx"
+          ],
+          "dedup": "re-seen: U-20 (persona-user); linked: T-R1-35",
+          "depends_on": []
+        }
+      ],
+      "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"
+    },
+    {
+      "lane": "B",
+      "name": "Approval-first wording, bookings, find-room, approvals and Taleplerim",
+      "starts": "now",
+      "owns": [
+        "smartsched/frontend/src/components/bookings/**",
+        "smartsched/frontend/src/components/findroom/**",
+        "smartsched/frontend/src/components/approvals/**",
+        "smartsched/frontend/src/components/conflicts/**",
+        "smartsched/frontend/src/components/policies/policy-why.tsx",
+        "smartsched/frontend/src/components/settings/booking-approval.tsx",
+        "smartsched/frontend/src/components/moderation/** (except recreate-preview.tsx, recreate-sheet.tsx)",
+        "smartsched/frontend/src/lib/api/moderation.ts",
+        "smartsched/frontend/src/lib/api/teacher-preferences.ts",
+        "smartsched/frontend/src/lib/api/booking-policies.ts",
+        "smartsched/frontend/src/lib/api/booking-conflicts.ts",
+        "smartsched/backend/app/services/booking_policies.py",
+        "smartsched/backend/app/services/find_room.py",
+        "smartsched/backend/app/services/approvals.py",
+        "smartsched/backend/app/services/notify_dispatch.py",
+        "smartsched/backend/app/services/teacher_preferences.py",
+        "smartsched/backend/app/services/booking_conflicts.py",
+        "smartsched/backend/app/api/v1/booking_conflicts.py",
+        "smartsched/backend/app/services/calendar_feeds.py",
+        "smartsched/backend/app/api/v1/moderation.py"
+      ],
+      "phone_routes": "/bookings /my-bookings /find-room /approvals /moderation/me /moderation/people/<own id> /bookings/conflicts/<run>",
+      "ticket_files": [
+        "smartsched/backend/app/services/booking_policies.py:825",
+        "smartsched/frontend/src/components/policies/policy-why.tsx:24",
+        "smartsched/frontend/src/components/bookings/booking-grid.tsx:201",
+        "smartsched/frontend/src/components/bookings/free-slots-list.tsx",
+        "smartsched/frontend/src/components/findroom/find-room-view.tsx:699",
+        "smartsched/frontend/src/components/approvals/rules-admin.tsx",
+        "smartsched/frontend/src/components/moderation/moderation-console.tsx:518",
+        "smartsched/frontend/src/components/moderation/mod-table.tsx",
+        "smartsched/frontend/src/components/moderation/person-profile.tsx",
+        "smartsched/frontend/src/lib/api/moderation.ts",
+        "smartsched/backend/app/api/v1/moderation.py",
+        "smartsched/frontend/src/components/findroom/find-room-view.tsx:398",
+        "smartsched/frontend/src/components/moderation/wish-sheet.tsx:156",
+        "smartsched/frontend/src/components/bookings/book-sheet.tsx:61",
+        "smartsched/frontend/src/components/bookings/focus-after.ts:7",
+        "smartsched/frontend/src/components/settings/booking-approval.tsx",
+        "smartsched/frontend/src/components/approvals/approvals-view.tsx",
+        "smartsched/frontend/src/components/bookings/my-bookings-view.tsx",
+        "smartsched/backend/app/services/booking_conflicts.py",
+        "smartsched/frontend/src/components/conflicts/**",
+        "smartsched/backend/app/services/find_room.py:276",
+        "smartsched/frontend/src/components/findroom/find-room-view.tsx",
+        "smartsched/backend/app/services/approvals.py:1396",
+        "smartsched/backend/app/services/approvals.py:1267",
+        "smartsched/backend/app/services/notify_dispatch.py:82",
+        "smartsched/backend/app/services/teacher_preferences.py",
+        "smartsched/backend/app/services/teacher_preferences.py:404",
+        "smartsched/frontend/src/components/moderation/wish-sheet.tsx",
+        "smartsched/frontend/src/components/moderation/my-wishes.tsx",
+        "smartsched/frontend/src/components/bookings/calendar-sync.tsx:115",
+        "smartsched/backend/app/services/calendar_feeds.py",
+        "smartsched/frontend/src/components/bookings/cancel-many-dialog.tsx",
+        "smartsched/frontend/src/components/bookings/bookings-view.tsx",
+        "smartsched/frontend/src/components/bookings/date-format.ts",
+        "smartsched/frontend/src/components/moderation/moderation-console.tsx",
+        "smartsched/frontend/src/components/moderation/classes-tab.tsx",
+        "smartsched/frontend/src/components/moderation/priority-editor.tsx",
+        "smartsched/frontend/src/components/moderation/teacher-wishes-review.tsx"
+      ],
+      "tickets": [
+        {
+          "id": "T-R1-10",
+          "lane": "B",
+          "severity": "major",
+          "title": "With approval-first on, find-room, the grid and the rules popover still promise a direct booking",
+          "findings": [
+            "R1-A-05",
+            "R1-M-24"
+          ],
+          "verified": "confirmed in code at HEAD",
+          "root_cause": "booking_policies.py:825 effective() returns verdict 'book' whenever no policy fires. It never reads org approval_mode=all or the approval rules. policy-why.tsx:24-34 then shows 'Rezerve edebilirsiniz' with policies.why.none. The grid cell labels (booking-grid.tsx:187-220), the phone slots (free-slots-list.tsx, wave1 'reserveAt') and the find-room alternative action (find-room-view.tsx near :699) use the 'Rezerve et' keys whatever the mode. approvals/rules-admin.tsx's empty state says 'classroombookings'teki gibi her rezervasyon hemen onaylanır'.",
+          "fix": "Backend: effective() returns verdict 'request' with a reason 'approval_mode' (TR and EN) when approval_mode=all and the caller lacks bookings.skip_approval, or when an approval rule matches. Frontend: one helper decides 'Talep et · Onay gerekir' versus 'Rezerve et' from that verdict and the mode. Use it in grid cells, phone slots, find-room results and alternatives, and the policy popover. rules-admin's empty state reads the mode.",
+          "check": "F-03 S11 and F-01 S02, desktop+phone, approval_mode=all, as the academician. No 'Rezerve et' or 'rezerve et' in result and alternative buttons, grid cell aria-labels or phone slot names. The 'Kurallar' popover says 'Onaylayıcılara gider' and names the approval-first setting. As a TEACHER, curl GET /booking-policies/effective?room_id=&date=&period_id=&term_id= → verdict 'request'. As admin, /admin/approval-rules (empty) says every request goes to approval first.",
+          "files": [
+            "smartsched/backend/app/services/booking_policies.py:825",
+            "smartsched/frontend/src/components/policies/policy-why.tsx:24",
+            "smartsched/frontend/src/components/bookings/booking-grid.tsx:201",
+            "smartsched/frontend/src/components/bookings/free-slots-list.tsx",
+            "smartsched/frontend/src/components/findroom/find-room-view.tsx:699",
+            "smartsched/frontend/src/components/approvals/rules-admin.tsx"
+          ],
+          "dedup": "see also ROADMAP 'Approval-first UI finished' (closed); new gap",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-11",
+          "lane": "B",
+          "severity": "major",
+          "title": "Taleplerim cuts off the assigned room at 1440 px, loads slowly, and only the first row is reachable by Tab",
+          "findings": [
+            "R1-A-01",
+            "R1-A-12",
+            "R1-A-33",
+            "R1-A-38"
+          ],
+          "verified": "confirmed in code",
+          "root_cause": "moderation-console.tsx:518: the 'pair' column (minmax(18rem,2.4fr)) shares the row with a reason column (minmax(12rem,2fr)) and a wish column (9rem) that are mostly '—'. ModTable truncates cells. MyRequests (:455-470) calls useMatchings(termId), which fetches the whole term (limit=5000) to show 4 rows. The subtitle uses term.code (:482). The row hint says 'dokunun' on desktop. The theory and lab rows carry no session label. person-profile shows 'Erişilebilirlik: Hayır'. mod-table.tsx makes only the first row a tab stop, with no hint.",
+          "fix": "Let the pair cell wrap, or give it the free width. Shrink empty columns first. Load the own rows from a filtered query: the instructor id is known from /moderation/me, and api/v1/moderation.py is in this lane. Show the term name ('Güz 2026-27') and a session label per row. Use 'tıklayın ya da dokunun', 'Erişilebilirlik ihtiyacı: yok'. Make each row a tab stop, or show the arrow-key hint.",
+          "check": "F-05 S01 at 1440 as the linked academician. Every [data-testid=mine-table] pair cell has scrollWidth ≤ clientWidth and contains the assigned room. The subtitle has no '2026-GUZ'. No request to /moderation/matchings?limit=5000, and the rows render within 1 s of networkidle. Tab ×6 reaches every row, and focus is never on BODY.",
+          "files": [
+            "smartsched/frontend/src/components/moderation/moderation-console.tsx:518",
+            "smartsched/frontend/src/components/moderation/mod-table.tsx",
+            "smartsched/frontend/src/components/moderation/person-profile.tsx",
+            "smartsched/frontend/src/lib/api/moderation.ts",
+            "smartsched/backend/app/api/v1/moderation.py"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-12",
+          "lane": "B",
+          "severity": "major",
+          "title": "After booking, sending a wish, searching or saving, focus falls to the page body",
+          "findings": [
+            "R1-A-15",
+            "R1-A-16",
+            "R1-M-22"
+          ],
+          "verified": "confirmed in code",
+          "root_cause": "find-room-view.tsx never moves focus to [data-testid=fr-summary] (:398, tabIndex -1) after 'Ara' disables itself. wish-sheet.tsx:156 shows the receipt (role=status) without focusing it. book-sheet.tsx:61 onBooked → focusAfter(cellSelector) runs at 320 ms (focus-after.ts:7). On the first request this races the sheet's own focus return while the grid re-keys the cell. settings/booking-approval.tsx leaves focus on BODY after Kaydet. approvals-view.tsx moves focus to the bell after a rejection, not to the next request. 'Talep et' has no busy label or aria-busy (book-sheet.tsx).",
+          "fix": "After each completed action, focus a stable target: the result summary, the receipt, the booked cell (once the grid has re-rendered: wait for the element, not a fixed delay) or the next request's title. BusyLabel 'Gönderiliyor…' plus aria-busy on 'Talep et'.",
+          "check": "README §4.7 focus check on desktop+phone: document.activeElement !== BODY after the first grid request, a wish sent, /find-room Ara, Ayarlar › Rezervasyon onayı › Kaydet, and Reddet on /approvals (focus is on the next request). A MutationObserver on 'Talep et' sees 'Gönderiliyor…' and aria-busy=true.",
+          "files": [
+            "smartsched/frontend/src/components/findroom/find-room-view.tsx:398",
+            "smartsched/frontend/src/components/moderation/wish-sheet.tsx:156",
+            "smartsched/frontend/src/components/bookings/book-sheet.tsx:61",
+            "smartsched/frontend/src/components/bookings/focus-after.ts:7",
+            "smartsched/frontend/src/components/settings/booking-approval.tsx",
+            "smartsched/frontend/src/components/approvals/approvals-view.tsx"
+          ],
+          "dedup": "re-seen: U-07 / A-21 (open; the wave-1 agent has finished, so this lane takes it over). The notice-gate focus is in T-R1-28",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-13",
+          "lane": "B",
+          "severity": "minor",
+          "title": "A two-period request shows as two rows, two conflicts and a one-period heading",
+          "findings": [
+            "R1-A-17",
+            "R1-M-26",
+            "R1-M-34"
+          ],
+          "verified": "code read",
+          "root_cause": "my-bookings-view.tsx lists one row per approval, not per group_id. booking_conflicts.py builds one conflict row per booking and offers options that split the group. It also prints an invented headcount ('Kapasite 45: 45 kişi için %0 boş koltuk'). approvals-view.tsx's drawer heading uses the first period, and the drawer ends 'Kapat Kapat'.",
+          "fix": "Group by submission (group_id) in My bookings: one row 'A 103 · P6–P7' with one status, and per-period actions inside. One conflict row per request group, with options that keep the periods together. No headcount line when the headcount is unknown. The drawer heading shows the range, with one close control.",
+          "check": "Request two adjacent periods as the academician: /my-bookings shows 1 row. /approvals?request=<id>&group=<g> shows 'P7–P8 (13:30–15:00)', and the drawer innerText contains 'Kapat' once. /bookings/conflicts/<run> shows 1 row for the group, and no option moves a single period.",
+          "files": [
+            "smartsched/frontend/src/components/bookings/my-bookings-view.tsx",
+            "smartsched/backend/app/services/booking_conflicts.py",
+            "smartsched/frontend/src/components/conflicts/**",
+            "smartsched/frontend/src/components/approvals/approvals-view.tsx"
+          ],
+          "dedup": "re-seen: A-12 (open)",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-14",
+          "lane": "B",
+          "severity": "minor",
+          "title": "Find-room shows your own pending request as a room someone just took, plus 20 'near fits' without the feature",
+          "findings": [
+            "R1-A-06",
+            "R1-A-07",
+            "R1-A-08"
+          ],
+          "verified": "code read",
+          "root_cause": "find_room.py alternatives ignore the caller's own PENDING requests, so tapping one gives 'Bu derslik az önce doldu'. The phone free-slot list drops the slot silently. near_miss rows lacking the one requested feature are listed (static 'feature_missing', :276) with '(-1 ders saati)'. find-room-view.tsx prints timing_ms ('152 ms').",
+          "fix": "Mark the caller's own pending requests ('Talebiniz bekliyor', with a link) in results, alternatives and the phone slot list. Collapse feature-missing rows behind 'Özelliği eksik odalar (20)'. Say the difference in words ('1 ders saati erken başlar'). Drop the timing from the UI.",
+          "check": "As the academician, request A 103 P6–P7 and repeat the search from 'Son aramalar'. A 103 reads 'Talebiniz bekliyor' and tapping it opens the request. With 42 people, PC, P7–P8, at most 5 visible near fits and no 'ms' in the header.",
+          "files": [
+            "smartsched/backend/app/services/find_room.py:276",
+            "smartsched/frontend/src/components/findroom/find-room-view.tsx",
+            "smartsched/frontend/src/components/bookings/free-slots-list.tsx"
+          ],
+          "dedup": "re-seen: U-06 (own pending missing from the grid, open)",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-15",
+          "lane": "B",
+          "severity": "minor",
+          "title": "Requester notices mix languages, print raw states, and notify the person about their own withdrawal",
+          "findings": [
+            "R1-A-09",
+            "R1-A-18",
+            "R1-A-12"
+          ],
+          "verified": "confirmed in code",
+          "root_cause": "approvals.py:1396 appends ' Öneri / suggestions: …' to both language versions. The rooms are automatic suggestions, but nothing says so. approvals.py:1267 message_tr 'talep {req.status} durumunda' prints the enum (WITHDRAWN). notify_dispatch.py:82 approval.withdrawn is sent to the requester too. The preference.accepted mail uses the term code ('2026-GUZ için').",
+          "fix": "One language per recipient: 'Önerilen derslikler (otomatik): B 207' / 'Suggested rooms (automatic): A 105'. Turkish status words ('geri çekilmiş'). Skip the actor for approval.withdrawn, or store it as read. Use the term name in teacher-preference mails.",
+          "check": "F-01 S09 TR and EN: the bell and mail/*.eml contain no 'Öneri / suggestions'. A second POST /approvals/<id>/withdraw → 409 whose message_tr has no uppercase enum. A withdrawal leaves the requester's unread count unchanged. The wish-accepted mail contains 'Güz 2026-27'.",
+          "files": [
+            "smartsched/backend/app/services/approvals.py:1396",
+            "smartsched/backend/app/services/approvals.py:1267",
+            "smartsched/backend/app/services/notify_dispatch.py:82",
+            "smartsched/backend/app/services/teacher_preferences.py"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-16",
+          "lane": "B",
+          "severity": "minor",
+          "title": "The wish sheet sends duplicates, and allows sends that cannot succeed",
+          "findings": [
+            "R1-A-13",
+            "R1-A-14",
+            "R1-S-32"
+          ],
+          "verified": "code read",
+          "root_cause": "teacher_preferences.py submit() (:404-461) checks the pending cap but not an identical pending wish. wish-sheet.tsx keeps 'Onaya gönder' enabled while the preview says 'Bu haliyle gönderilemez' (all classes fixed: 422) and with '0 ders seçildi' (a silent no-op). The card title and body list the classes in different orders, and empty sections render as 'FZT 3002 §'.",
+          "fix": "Answer 409 'Bu tercih zaten gönderildi ve bekliyor' for an identical pending wish. Disable the send, with the reason, while the preview refuses or no class is ticked. One class order. Print no section mark when the section is empty.",
+          "check": "POST /moderation/me/preferences twice with the same building wish → the second answers 409 with a Turkish message. Zaman aralığı on fixed classes → the button is disabled with the reason, and there are no console errors. 0 classes → disabled or 'En az bir ders seçin'.",
+          "files": [
+            "smartsched/backend/app/services/teacher_preferences.py:404",
+            "smartsched/frontend/src/components/moderation/wish-sheet.tsx",
+            "smartsched/frontend/src/components/moderation/my-wishes.tsx"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-17",
+          "lane": "B",
+          "severity": "minor",
+          "title": "My bookings: feed defaults, duplicate private links, and missing cancel or approval notes",
+          "findings": [
+            "R1-A-20",
+            "R1-A-21",
+            "R1-A-22"
+          ],
+          "verified": "confirmed in code (A-20)",
+          "root_cause": "calendar-sync.tsx:115 picks me.data?.department_id ?? departments[0]. A linked instructor's department is never used, so the default is the alphabetically first department. Pressing 'Özel bağlantılarımı oluştur' again adds a second token set (calendar_feeds.py), and the first still answers 200. The hint codes (154Y) mean nothing to users. Cancelled cards drop the reason. The dialog hint says the reason is 'shown to the owner' when the owner cancels. The approver's note is not shown on the booking.",
+          "fix": "Default to the linked instructor's department (or 'Bölüm seçin'). With a link in place, offer 'Bağlantıyı sıfırla', which revokes the old token. Describe each link (created date, scope). Show the cancel reason and the approver's note on cards. Word the hint by who cancels.",
+          "check": "F-04 S08/S09: the department select is the instructor's department or empty. After a reset, curl on the old feed URL → 404 and the new one → 200, with '1 özel bağlantınız var'. The cancelled card shows 'Gerekçe: Ders iptal oldu', and the approved card shows the approver's note.",
+          "files": [
+            "smartsched/frontend/src/components/bookings/calendar-sync.tsx:115",
+            "smartsched/backend/app/services/calendar_feeds.py",
+            "smartsched/frontend/src/components/bookings/my-bookings-view.tsx",
+            "smartsched/frontend/src/components/bookings/cancel-many-dialog.tsx"
+          ],
+          "dedup": "see also persona U-23 (feed defaults)",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-18",
+          "lane": "B",
+          "severity": "minor",
+          "title": "The approvals keyboard legend 'D Reddet' does nothing",
+          "findings": [
+            "R1-M-23"
+          ],
+          "verified": "code read",
+          "root_cause": "In approvals-view.tsx the A/D/R handler is bound to the row only. Enter moves focus to the drawer's 'Kapat', where the keys do nothing.",
+          "fix": "Handle A/D/R for the open request wherever focus is outside a text field (list and drawer).",
+          "check": "F-13 C02, keyboard only, on /approvals: focus a row and press d → the reject dialog (reject-codes) opens. Open the drawer and press d → the same.",
+          "files": [
+            "smartsched/frontend/src/components/approvals/approvals-view.tsx"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-19",
+          "lane": "B",
+          "severity": "minor",
+          "title": "Opening /bookings on a phone logs a React hydration error (#418)",
+          "findings": [
+            "R1-A-32"
+          ],
+          "verified": "not re-run",
+          "root_cause": "Date or time text in bookings-view.tsx or free-slots-list.tsx renders differently on the server and the client (time zone or locale formatting at SSR).",
+          "fix": "Format dates with an explicit Europe/Istanbul time zone and locale on both sides, or render that text only on the client.",
+          "check": "Phone context, log in, open /bookings?date=2026-10-22: pageerror count 0, run twice.",
+          "files": [
+            "smartsched/frontend/src/components/bookings/bookings-view.tsx",
+            "smartsched/frontend/src/components/bookings/free-slots-list.tsx",
+            "smartsched/frontend/src/components/bookings/date-format.ts"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-20",
+          "lane": "B",
+          "severity": "minor",
+          "title": "Moderation console: a course code finds nobody, 'p' does nothing, rule kinds and API refusals are raw or English",
+          "findings": [
+            "R1-S-25",
+            "R1-S-24",
+            "R1-S-23",
+            "R1-A-10"
+          ],
+          "verified": "code read",
+          "root_cause": "The Kişiler filter in moderation-console.tsx (usePeople) matches names only. There is no priority trigger for the `p` key in classes-tab.tsx / priority-editor.tsx. The Tercihler 'Tür' column prints building_preference / room_tags. The header's '%0'i' is moderation.publishedRun. api/v1/moderation.py answers 403 'you can see only your own requests' in English.",
+          "fix": "Match course codes to their teachers in Kişiler. `p` on a class row opens 'PSY 277 §1 önceliği'. Show Turkish kind labels. Use the Turkish percent-suffix helper (lane E, T-R1-38). Give the 403 a code with message_tr and message_en.",
+          "check": "F-05 S06/S08 as staff: Kişiler 'PSY 277' → at least 1 person, and `p` on PSY 277 opens the priority editor. No snake_case kind on the Tercihler tab. GET /moderation/people/<other>/history as the academician → 403 with message_tr.",
+          "files": [
+            "smartsched/frontend/src/components/moderation/moderation-console.tsx",
+            "smartsched/frontend/src/components/moderation/classes-tab.tsx",
+            "smartsched/frontend/src/components/moderation/priority-editor.tsx",
+            "smartsched/frontend/src/components/moderation/teacher-wishes-review.tsx",
+            "smartsched/backend/app/api/v1/moderation.py"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        }
+      ],
+      "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"
+    },
+    {
+      "lane": "C",
+      "name": "Intake UI and council",
+      "starts": "now",
+      "owns": [
+        "smartsched/frontend/src/components/onboarding/**",
+        "smartsched/frontend/src/lib/api/council.ts",
+        "smartsched/backend/app/council/**",
+        "smartsched/backend/app/api/v1/council.py",
+        "smartsched/backend/app/importers/**"
+      ],
+      "phone_routes": "/onboarding",
+      "ticket_files": [
+        "smartsched/backend/app/council/airows.py:45",
+        "smartsched/backend/app/council/formats_builtin.py:163",
+        "smartsched/frontend/src/lib/api/council.ts:90",
+        "smartsched/frontend/src/components/onboarding/review-panel.tsx:25",
+        "smartsched/frontend/src/components/onboarding/use-council-job.ts",
+        "smartsched/backend/app/council/review.py:125",
+        "smartsched/backend/app/council/memory.py:158",
+        "smartsched/backend/app/council/memory_admin.py:126",
+        "smartsched/frontend/src/components/onboarding/intake-memory.tsx",
+        "smartsched/frontend/src/components/onboarding/file-drop.tsx:36",
+        "smartsched/frontend/src/components/onboarding/council-progress.tsx",
+        "smartsched/frontend/src/components/onboarding/review-panel.tsx",
+        "smartsched/backend/app/council/orchestrator.py",
+        "smartsched/backend/app/council/rules.py",
+        "smartsched/backend/app/council/reconcile.py",
+        "smartsched/backend/app/importers/**",
+        "smartsched/frontend/src/components/onboarding/commit-panel.tsx:116",
+        "smartsched/backend/app/council/commit.py:745",
+        "smartsched/backend/app/council/commit.py:760",
+        "smartsched/backend/app/council/commit.py:245",
+        "smartsched/backend/app/council/commit.py:307",
+        "smartsched/frontend/src/components/onboarding/onboarding-flow.tsx",
+        "smartsched/frontend/src/components/onboarding/file-drop.tsx",
+        "smartsched/backend/app/council/formats.py"
+      ],
+      "tickets": [
+        {
+          "id": "T-R1-21",
+          "lane": "C",
+          "severity": "blocker",
+          "title": "With AI off, a Word file blocks the intake: 36 rows wait for 'AI' review and the review screen never appears",
+          "findings": [
+            "R1-S-03"
+          ],
+          "verified": "confirmed in code (two causes)",
+          "root_cause": "(1) airows.py:45-52 is_ai() marks a record as AI-read when its file's format route is 'ai'. docx is registered with route 'ai' (formats_builtin.py:163-170), so the deterministic table rows read with AI disabled become pending 'ai' rows and a blocking ai_rows item. (2) lib/api/council.ts:90-95 REVIEW_KINDS has no 'ai_rows', so z.enum rejects the review payload. The review query fails, the generic 'Sunucuda bir sorun oluştu' toast fires with no failed request, and ReviewPanel never renders. Its KIND_LABEL (review-panel.tsx:25-34) also lacks ai_rows.",
+          "fix": "is_ai() is true only for records the model produced (source.via == 'llm' or source.vision). Deterministic docx table rows are 'direct'. A docx with no readable table and AI off becomes a file-level warning 'YZ kapalı, okunmadı'. Add ai_rows to REVIEW_KINDS and KIND_LABEL. Unknown kinds fall back to a generic label instead of failing the schema. Add a contract test: every kind review.py emits parses in council.ts.",
+          "check": "Fresh stack, AI policy off. Upload tests/fixtures/universal/rules_memo.docx alone in /onboarding: the İnceleme panel renders, and GET /council/jobs/<id>/rows counts method {direct: 36} with no 'ai'. No generic error toast. Then the full F-08 job (xlsx + csv + pdf + docx) reaches the commit panel. A vitest test: ReviewPanel renders a payload containing kind 'ai_rows'.",
+          "files": [
+            "smartsched/backend/app/council/airows.py:45",
+            "smartsched/backend/app/council/formats_builtin.py:163",
+            "smartsched/frontend/src/lib/api/council.ts:90",
+            "smartsched/frontend/src/components/onboarding/review-panel.tsx:25",
+            "smartsched/frontend/src/components/onboarding/use-council-job.ts"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-22",
+          "lane": "C",
+          "severity": "blocker",
+          "title": "KVKK: instructor names travel to viewers in review item ids, and the intake memory keeps them after masking",
+          "findings": [
+            "R1-S-18"
+          ],
+          "verified": "confirmed in code",
+          "root_cause": "review.py:125 builds merge item ids as f\"merge:{kind}:{a}|{b}\" from the two person names. A VIEWER's review payload (content=false) still carries them. memory.py:158 stores \"item\": item_id in the remembered row, although the module promises 'never cell content or names' (memory.py:6). memory_admin.py:126-136 parses the names back out for 'Hatırlanan kararlar'. The memory row is not covered by masking or erasure.",
+          "fix": "Make item ids opaque: a hash of the folded pair, like memory._merge_key (memory.py:69). The pair appears only inside `current`, and only when content=true. Memory stores only the hash key, with no item id. memory_admin resolves names only for planners, from the live job's dataset. Otherwise it shows 'Birleştirme (öğretim elemanı)'. Rows are name-free by construction, so no KVKK erasure change is needed (kvkk.py belongs to lane D).",
+          "check": "As VIEWER, GET /council/jobs/<id>/review: no id, title or field contains any instructor display_name. Grep the response against the names of the Instructor table: 0 hits. After masking (README §4.4), /onboarding › Hatırlanan kararlar shows no full name. DB: no intake-memory row JSON contains an instructor display_name.",
+          "files": [
+            "smartsched/backend/app/council/review.py:125",
+            "smartsched/backend/app/council/memory.py:158",
+            "smartsched/backend/app/council/memory_admin.py:126",
+            "smartsched/frontend/src/components/onboarding/intake-memory.tsx"
+          ],
+          "dedup": "new; severity raised to blocker (SUGGESTER §3: a KVKK leak is a blocker)",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-23",
+          "lane": "C",
+          "severity": "major",
+          "title": "With AI switched off, the intake still promises AI, and progress and review are largely in English",
+          "findings": [
+            "R1-S-10",
+            "R1-S-24"
+          ],
+          "verified": "confirmed in code",
+          "root_cause": "file-drop.tsx:36 starts useAi=true and never reads GET /ai/policy (intake_enabled false). The method badge (:97) shows 'YZ', and the start button reads 'YZ ile oku ve başlat'. Progress and review texts come in English from the council (orchestrator.py, rules.py, reconcile.py): 'sheet … is hidden', 'Same instructor? …', '1 request(s) end before they start', 'room A702 is assigned 10 time(s) …'. Confidence is printed as '96 %', and the plan names the term 'Spring'. Board-import run labels ('Grid import: …', 'Baseline: imported schedule') and the importer note 'time 19:00-21:20 snapped to …' are English too.",
+          "fix": "Read the AI policy. When it is off, the switch is disabled and unticked with 'Yönetici kapattı', PDF/DOCX rows say 'YZ kapalı, okunmadı', and the button reads 'Başlat · N dosya'. Council and importer messages get TR/EN pairs, and the UI shows the TR one. Percent as '%96'. Turkish term names.",
+          "check": "Fresh stack with AI off, F-08 S02–S06: the checkbox is disabled, no 'YZ' badge, and the button reads 'Başlat · 4 dosya'. The EN_WORDS scan plus a [a-z]+\\(s\\) regex over the progress and review panels → 0 hits. The /runs label of the board import is Turkish.",
+          "files": [
+            "smartsched/frontend/src/components/onboarding/file-drop.tsx:36",
+            "smartsched/frontend/src/components/onboarding/council-progress.tsx",
+            "smartsched/frontend/src/components/onboarding/review-panel.tsx",
+            "smartsched/backend/app/council/orchestrator.py",
+            "smartsched/backend/app/council/rules.py",
+            "smartsched/backend/app/council/reconcile.py",
+            "smartsched/backend/app/importers/**"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-24",
+          "lane": "C",
+          "severity": "major",
+          "title": "'Yaz' writes 1,527 requests with no confirm and no undo, and the result shows raw keys",
+          "findings": [
+            "R1-S-11"
+          ],
+          "verified": "confirmed in code",
+          "root_cause": "commit-panel.tsx:116 commits on the first press. commit.py:760-776 publishes one council.commit event with no undo record. The result shows raw keys (merges_applied, duplicates_skipped). constraints_created (:745) reports 0 while 39 constraints are created. The Fark table names entities raw (meeting_requests, section_instructors).",
+          "fix": "Show a confirm with the counts ('2026-BAHAR dönemine 1.527 yeni talep … yazılacak'), either with a 30-day undo (archive what the job id created, like the wizard's undo) or with 'Geri alınamaz' stated. Show a Turkish result summary and Turkish entity names. Fix the constraints count.",
+          "check": "F-08 S08/S14: 'Yaz' opens a confirm with the counts. After the commit the summary has no snake_case, and 'kısıt' equals GET /constraints?term_id= count delta. If an undo exists: undo → meeting_requests count back to the pre-commit value, and audit reversible=1.",
+          "files": [
+            "smartsched/frontend/src/components/onboarding/commit-panel.tsx:116",
+            "smartsched/backend/app/council/commit.py:745",
+            "smartsched/backend/app/council/commit.py:760"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-25",
+          "lane": "C",
+          "severity": "major",
+          "title": "Uploading the CSV export of an already committed list again plans 1,332 new requests and 418 new people",
+          "findings": [
+            "R1-S-12"
+          ],
+          "verified": "hypothesis from code; verify first",
+          "root_cause": "The meeting natural key commit.py:307 is course|program|section (:245) + days + start. The CSV export (English programme names, empty section) likely yields other keys than the xlsx. The in-job reconcile matched the two (duplicates_skipped 1,332), but nothing matches against the term's committed rows in a later job. Instructors are matched by display name, so the masking step (R1-S-39) turns every person into a 'create'.",
+          "fix": "First reproduce WITHOUT masking: run F-08 S10/S11 before S09 (T-R1-43). Then run the in-job duplicate matcher against the term's committed rows too, and key instructors on a stable person key (e-mail or staff number, else the first committed source key), not the display name.",
+          "check": "On a stack that has not been masked: commit the Bahar xlsx, then dry-run bahar_requests_en.csv as a new job → meeting_requests create 0, instructors create 0. Rename one instructor in the file → 1 update, 0 creates.",
+          "files": [
+            "smartsched/backend/app/council/commit.py:245",
+            "smartsched/backend/app/council/commit.py:307",
+            "smartsched/backend/app/council/reconcile.py"
+          ],
+          "dedup": "see also R1-S-39 (test order, T-R1-43)",
+          "depends_on": [
+            "T-R1-43"
+          ]
+        },
+        {
+          "id": "T-R1-26",
+          "lane": "C",
+          "severity": "minor",
+          "title": "Intake file details: encoding and delimiter not shown, a renamed PNG accepted, and the job lost on reload",
+          "findings": [
+            "R1-S-31",
+            "R1-S-33"
+          ],
+          "verified": "code read",
+          "root_cause": "The file entry keeps encoding and delimiter null for the cp1254 ';' CSV. Format detection trusts the .xlsx extension for a PNG. onboarding-flow.tsx keeps jobId in component state only, so a reload starts empty. The /onboarding file input is visible at 186x17, and one text input is under 16 px on a phone.",
+          "fix": "Report 'CSV · Windows-1254 · ;'. Refuse a file whose content does not match its extension, with a specific message. Put the job id in the URL (?job=) and list the recent jobs. Hide the native file input behind the drop zone.",
+          "check": "F-08 S11/S13: the job C file row shows the encoding and the delimiter. sahte.xlsx (PNG) → refused at upload. Reload during a job → the same job reopens. M-02/M-03 on /onboarding at 390 are clean.",
+          "files": [
+            "smartsched/frontend/src/components/onboarding/onboarding-flow.tsx",
+            "smartsched/frontend/src/components/onboarding/file-drop.tsx",
+            "smartsched/backend/app/council/formats.py"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        }
+      ],
+      "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"
+    },
+    {
+      "lane": "D",
+      "name": "KVKK / privacy completeness",
+      "starts": "now",
+      "owns": [
+        "smartsched/backend/app/services/kvkk.py",
+        "smartsched/backend/app/api/v1/kvkk.py",
+        "smartsched/backend/app/api/deps.py",
+        "smartsched/frontend/src/components/privacy/**",
+        "smartsched/frontend/src/lib/api/kvkk.ts"
+      ],
+      "phone_routes": "/profile#privacy (Gizlilik)",
+      "ticket_files": [
+        "smartsched/backend/app/services/kvkk.py:996",
+        "smartsched/backend/app/services/kvkk.py:1100",
+        "smartsched/backend/app/api/v1/kvkk.py",
+        "smartsched/frontend/src/components/privacy/notice-gate.tsx",
+        "smartsched/backend/app/api/deps.py"
+      ],
+      "tickets": [
+        {
+          "id": "T-R1-27",
+          "lane": "D",
+          "severity": "major",
+          "title": "KVKK m.11: the 'Verilerimi indir' export leaves out the instructor record, the planning requests and the wishes",
+          "findings": [
+            "R1-A-25"
+          ],
+          "verified": "confirmed in code",
+          "root_cause": "kvkk.py:996-1118 export_data writes profile, bookings, series, approvals, notifications, deliveries, channels, sso_identities, consents, notice_acks, audit_as_actor, learning_observations and data_requests. The linked Instructor is looked up (:1100) only to key the learning observations. No section holds the instructor record, the meeting requests of the person's sections (the Taleplerim rows, request text, verdict) or the teacher preferences with their decisions.",
+          "fix": "Add instructor, planning_requests (course code, requested → assigned, verdict, request text, term) and teacher_preferences (kind, status, the coordinator's reason with the coordinator shown by role) sections, passed through _scrub_others. Update the zip README.",
+          "check": "As the academician linked to instructor 157: Profil › Gizlilik › Verilerimi indir. The zip has instructor.json, planning_requests.json (row count = /moderation/me rows for the term) and teacher_preferences.json (every wish with status and reason). A grep of other users' e-mails or full names returns 0.",
+          "files": [
+            "smartsched/backend/app/services/kvkk.py:996",
+            "smartsched/backend/app/services/kvkk.py:1100"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-28",
+          "lane": "D",
+          "severity": "minor",
+          "title": "The first-login notice can come in the wrong language, and focus is lost after 'Okudum'",
+          "findings": [
+            "R1-A-26",
+            "R1-A-15"
+          ],
+          "verified": "code read",
+          "root_cause": "The notice selection in api/v1/kvkk.py (/me/privacy) takes the latest published version whatever its language. A TR user got the EN v2. notice-gate.tsx closes without moving focus.",
+          "fix": "Pick the latest version in the reader's language, and fall back only when that version has no translation (or have the admin API refuse versions in mismatched languages). After 'Okudum', focus #main.",
+          "check": "POST and publish a TR notice, then an EN notice. GET /me/privacy as a TR user → the TR notice. After 'Okudum', document.activeElement is #main or the page h1.",
+          "files": [
+            "smartsched/backend/app/api/v1/kvkk.py",
+            "smartsched/frontend/src/components/privacy/notice-gate.tsx"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-29",
+          "lane": "D",
+          "severity": "minor",
+          "title": "Permission refusals reach Turkish users in English only",
+          "findings": [
+            "R1-A-10",
+            "R1-S-24"
+          ],
+          "verified": "code read",
+          "root_cause": "The permission dependency in api/deps.py raises detail 'requires permission <key>' with no Turkish text. The UI shows it verbatim.",
+          "fix": "Raise {code: 'forbidden', permission, message_tr: 'Bu işlem için \"<izin adı>\" izni gerekiyor', message_en}. Lane E's T-R1-31 makes the client prefer message_tr.",
+          "check": "GET /learning/suggestions as a TEACHER → 403 with message_tr. The UI shows the Turkish sentence (after T-R1-31).",
+          "files": [
+            "smartsched/backend/app/api/deps.py"
+          ],
+          "dedup": "linked: T-R1-31 (client), T-R1-20 (the moderation history 403)",
+          "depends_on": []
+        }
+      ],
+      "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"
+    },
+    {
+      "lane": "E",
+      "name": "i18n consistency and admin screens",
+      "starts": "now",
+      "owns": [
+        "smartsched/frontend/src/components/admin/** (except whats-new.tsx)",
+        "smartsched/frontend/src/components/audit/**",
+        "smartsched/frontend/src/components/identity/**",
+        "smartsched/frontend/src/components/policies/policies-admin.tsx",
+        "smartsched/frontend/src/components/policies/policy-form.tsx",
+        "smartsched/frontend/src/components/settings/** (except booking-approval.tsx)",
+        "smartsched/frontend/src/components/import/crbs-upgrade.tsx",
+        "smartsched/frontend/src/app/(app)/**/page.tsx metadata (titles)",
+        "smartsched/frontend/src/lib/i18n/**",
+        "smartsched/frontend/src/lib/api/client.ts (error text only, after the integrity agent hands it over)",
+        "smartsched/backend/app/services/bookings_users.py",
+        "smartsched/backend/app/services/bookings_perms.py",
+        "smartsched/backend/app/services/rooms_features.py",
+        "smartsched/backend/app/api/v1/room_admin.py",
+        "smartsched/backend/app/api/v1/users.py",
+        "smartsched/backend/app/api/v1/roles.py",
+        "smartsched/backend/app/services/sso.py",
+        "smartsched/backend/app/api/v1/sso.py",
+        "smartsched/backend/app/api/v1/webhooks.py",
+        "smartsched/backend/app/schemas/** (validator messages; except schemas/runs.py)"
+      ],
+      "phone_routes": "/admin/users /admin/roles /admin/rooms /admin/audit /settings (all tabs but Rezervasyon onayı) /profile (header, language)",
+      "ticket_files": [
+        "smartsched/frontend/src/components/admin/users-admin.tsx",
+        "smartsched/frontend/src/components/admin/roles-admin.tsx",
+        "smartsched/frontend/src/components/admin/profile-view.tsx",
+        "smartsched/frontend/src/components/identity/sso-settings.tsx",
+        "smartsched/frontend/src/components/policies/policies-admin.tsx",
+        "smartsched/backend/app/services/bookings_perms.py:71",
+        "smartsched/backend/app/api/v1/sso.py",
+        "smartsched/backend/app/schemas/**",
+        "smartsched/backend/app/api/v1/webhooks.py",
+        "smartsched/backend/app/api/v1/room_admin.py",
+        "smartsched/backend/app/services/bookings_users.py",
+        "smartsched/frontend/src/lib/api/client.ts:72",
+        "smartsched/frontend/src/lib/api/error-text.ts (after integrity)",
+        "smartsched/frontend/src/components/audit/audit-model.ts",
+        "smartsched/frontend/src/components/audit/audit-view.tsx",
+        "smartsched/backend/app/services/bookings_users.py:99",
+        "smartsched/frontend/src/components/admin/rooms-admin.tsx:358",
+        "smartsched/backend/app/services/rooms_features.py:788",
+        "smartsched/backend/app/services/sso.py:124",
+        "smartsched/frontend/src/components/policies/policy-form.tsx",
+        "smartsched/frontend/src/lib/i18n/**",
+        "smartsched/frontend/src/components/admin/admin-gate.tsx"
+      ],
+      "tickets": [
+        {
+          "id": "T-R1-30",
+          "lane": "E",
+          "severity": "minor",
+          "title": "Built-in role names and permission texts are English in Turkish mode",
+          "findings": [
+            "R1-M-16",
+            "R1-A-10"
+          ],
+          "verified": "code read",
+          "root_cause": "Built-in roles keep English names ('Administrator', 'Planner', 'Teacher', 'Viewer'), and these screens render them raw: users-admin.tsx, roles-admin.tsx, profile-view.tsx header, sso-settings.tsx default role, policies-admin.tsx 'Kimler için', and the SSO login hint from /auth/sso/providers. The sidebar footer already maps them (glass.role.*). The permission descriptions come from bookings_perms.py in English ('Edit other users' single bookings'). The /runs title is 'Runs · SmartSched'.",
+          "fix": "One roleLabel() helper (built-in code → i18n key, custom roles keep their names), used everywhere. Permission label keys (TR/EN). /auth/sso/providers returns the role code. Translate the page metadata.",
+          "check": "In TR, crawl /admin/users, /admin/roles, /profile, /login (SSO on) and /settings?tab=booking-rules: no 'Administrator|Planner|Teacher|Viewer|Edit other users'. The /runs document.title is 'Çalıştırmalar · SmartSched'.",
+          "files": [
+            "smartsched/frontend/src/components/admin/users-admin.tsx",
+            "smartsched/frontend/src/components/admin/roles-admin.tsx",
+            "smartsched/frontend/src/components/admin/profile-view.tsx",
+            "smartsched/frontend/src/components/identity/sso-settings.tsx",
+            "smartsched/frontend/src/components/policies/policies-admin.tsx",
+            "smartsched/backend/app/services/bookings_perms.py:71",
+            "smartsched/backend/app/api/v1/sso.py"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-31",
+          "lane": "E",
+          "severity": "minor",
+          "title": "Server validation errors reach the Turkish UI in English, some prefixed 'Value error,'",
+          "findings": [
+            "R1-M-17"
+          ],
+          "verified": "confirmed in code (client)",
+          "root_cause": "Pydantic validators (webhook URL guard, SSO tenant, room photo type, users import row, CRBS warnings, AI policy) raise English ValueErrors. lib/api/client.ts:72-88 joins detail[].msg verbatim, including pydantic's 'Value error,' prefix.",
+          "fix": "Validators raise a coded error with message_tr and message_en. The client prefers message_tr, strips the pydantic prefix, and puts the technical detail in an expandable part. Do not touch the 409 → toast mapping: the integrity agent owns it. Its new lib/api/error-text.ts is the place to extend once it hands over.",
+          "check": "The webhook URL http://127.0.0.1:19102/hook, the SSO tenant 'common', a .txt renamed .png as a room photo and a CSV with an existing e-mail: each shows a Turkish message next to the field, with no 'Value error' and no English sentence.",
+          "files": [
+            "smartsched/backend/app/schemas/**",
+            "smartsched/backend/app/api/v1/webhooks.py",
+            "smartsched/backend/app/api/v1/room_admin.py",
+            "smartsched/backend/app/services/bookings_users.py",
+            "smartsched/frontend/src/lib/api/client.ts:72",
+            "smartsched/frontend/src/lib/api/error-text.ts (after integrity)"
+          ],
+          "dedup": "re-seen: persona-admin M-36 / M-41 messages",
+          "depends_on": [
+            "integrity agent hand-over of lib/api/client.ts"
+          ]
+        },
+        {
+          "id": "T-R1-32",
+          "lane": "E",
+          "severity": "minor",
+          "title": "Audit rows and the undo dialog show raw keys, the filters repeat names, and on a phone the filters push the list down",
+          "findings": [
+            "R1-M-18",
+            "R1-M-30"
+          ],
+          "verified": "code read",
+          "root_cause": "audit-model.ts has no labels for dsr_request, notify_channel, setting booking_policy.exam_period, sso.config_update and the wizard entities, so rows print 'dsr_request · kvkk.dsr_refuse' and '<entity> eklendi'. The undo dialog title uses the action key ('program.create geri alınsın mı?'). The actor and type filters are not deduplicated. audit-view.tsx shows five filter controls above the list on a phone.",
+          "fix": "Domain sentences per action ('Kişisel veri talebi reddedildi · #2', 'Ders eklendi · TST 101'), with the key only in the details. Deduplicate the filters. On a phone, one 'Filtreler · n' trigger opens a bottom sheet.",
+          "check": "F-11 S11: /admin/audit after the KVKK, channel, policy and wizard steps shows no row matching /\\b[a-z]+[._][a-z_.]+\\b/ in the summary column. The undo dialog title is Turkish. At 390, the first event starts above 200 px.",
+          "files": [
+            "smartsched/frontend/src/components/audit/audit-model.ts",
+            "smartsched/frontend/src/components/audit/audit-view.tsx"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-33",
+          "lane": "E",
+          "severity": "minor",
+          "title": "Users and roles admin: a CSV with a header row is misread, the limited admin lands on a locked grid, and disabled permissions give no reason",
+          "findings": [
+            "R1-M-19",
+            "R1-M-21",
+            "R1-M-30",
+            "R1-M-38"
+          ],
+          "verified": "confirmed in code (CSV)",
+          "root_cause": "bookings_users.py:99-115 reads CSV columns by position (CRBS order) and only skips a header whose first cell matches. 'email,full_name,role,password' becomes a user row, and every row says 'Parola yok'. (The landing on /bookings is lane A's T-R1-09.) roles-admin.tsx renders 64 disabled checkboxes with no role-disabled-hint text. users-admin.tsx role options print raw permission keys ('eksik: approvals.decide …'). On a phone the users filters take about 550 px. The filters are not in the URL. 'Oluştur' keeps its label while busy.",
+          "fix": "Detect a header row by its column names (email, full_name/displayname, role, password), or refuse with a Turkish message, and add a total line. Show the reason for every disabled permission as text. Name missing permissions with Turkish labels. Move the phone filters into a sheet. Keep the filters in the query string. BusyLabel 'Oluşturuluyor…'.",
+          "check": "F-11 S02: the precondition CSV gives '2 oluşturuldu …' with no header row and a summary line. F-11 S04: /admin/roles › Kullanıcı yöneticisi has a hint per disabled checkbox. At 390, the first user card starts above 300 px. A reload keeps ?role=&q=.",
+          "files": [
+            "smartsched/backend/app/services/bookings_users.py:99",
+            "smartsched/frontend/src/components/admin/users-admin.tsx",
+            "smartsched/frontend/src/components/admin/roles-admin.tsx"
+          ],
+          "dedup": "re-seen: persona-admin M-38 (still open)",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-34",
+          "lane": "E",
+          "severity": "minor",
+          "title": "Room admin: new codes lose their space, capacity is not editable, and the room appears under three names",
+          "findings": [
+            "R1-M-20"
+          ],
+          "verified": "code read",
+          "root_cause": "rooms-admin.tsx:358 creates 'T 101' as 'T101'. The backend lookups strip spaces (rooms_features.py:788 replace(' ', '')) while imported rooms keep 'A 101'. The edit sheet has no capacity field. Pickers show the display name without the code. The public view derives the building from the code ('T Blok') and the timetable from something else ('TEST Blok').",
+          "fix": "Store codes as typed (or normalise every path the same way). Make the capacity editable, or link to where it is edited. Show 'code · name' in the pickers. Derive the building from the room's group everywhere.",
+          "check": "F-11 S05: create 'T 101' in A Blok → the list shows 'T 101'. The capacity can be edited. The move dialog, the exam room picker and /public all show 'T 101' under A Blok.",
+          "files": [
+            "smartsched/frontend/src/components/admin/rooms-admin.tsx:358",
+            "smartsched/backend/app/services/rooms_features.py:788",
+            "smartsched/backend/app/api/v1/room_admin.py"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-35",
+          "lane": "E",
+          "severity": "minor",
+          "title": "Microsoft sign-in admin: refused roles are offered, a revoked invite leaves an active account, and SSO-off reads as a failure",
+          "findings": [
+            "R1-M-25",
+            "R1-A-29"
+          ],
+          "verified": "reproduced (A-29: SSO off → 302 /login?error=failed&ref=S-1)",
+          "root_cause": "sso-settings.tsx 'Yeni hesapların rolü' lists privileged roles that the server refuses (422 default_role_privileged). DELETE /auth/sso/admin/invites/<id> leaves the placeholder user 'Aktif'. GET /auth/sso/admin/invites returns the invite token on every call. sso.py:124 maps not_configured → the public code 'failed', so /login shows a support code.",
+          "fix": "Offer only eligible roles. Revoking an invite disables or removes the unused placeholder account. Show the invite link once. Map not_configured to its own public code (for example 'not_enabled'); lane A's T-R1-09 adds its text.",
+          "check": "F-12 S11/S16: the role picker has no Administrator, Planner or Kullanıcı yöneticisi. After DELETE invite, the user is disabled or gone. The second GET of the invites carries no token. With SSO off, curl /api/v1/auth/sso/entra/start → Location /login?error=not_enabled with no ref.",
+          "files": [
+            "smartsched/frontend/src/components/identity/sso-settings.tsx",
+            "smartsched/backend/app/services/sso.py:124",
+            "smartsched/backend/app/api/v1/sso.py"
+          ],
+          "dedup": "linked: T-R1-09",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-36",
+          "lane": "E",
+          "severity": "minor",
+          "title": "Booking-rules admin: the exam-period card does not show the exam weeks, and Administrator is offered as a target",
+          "findings": [
+            "R1-M-33"
+          ],
+          "verified": "code read",
+          "root_cause": "policies-admin.tsx's exam-period card shows the mode but not the exam weeks' dates or the exam-room count. 'Kimler için' lists Administrator although 'Planlama yöneticileri bu kurallara hiçbir zaman bağlı değildir'.",
+          "fix": "List the exam weeks (dates) and the number of exam rooms. Offer only roles a policy can bind.",
+          "check": "/settings?tab=booking-rules: the exam card shows the date ranges and 'n sınav odası'. The role picker has no Administrator.",
+          "files": [
+            "smartsched/frontend/src/components/policies/policies-admin.tsx",
+            "smartsched/frontend/src/components/policies/policy-form.tsx"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-37",
+          "lane": "E",
+          "severity": "minor",
+          "title": "After a language change, the 'saved' toast comes in the previous language",
+          "findings": [
+            "R1-A-30"
+          ],
+          "verified": "code read",
+          "root_cause": "profile-view.tsx raises the toast with the t() of the render that started the save, before the locale switch reaches the provider.",
+          "fix": "Raise the toast after the locale switch (in the new locale's render), or pick the string from the newly chosen locale explicitly.",
+          "check": "F-13 A02, both viewports: TR → EN and save → 'Saved'. EN → TR and save → 'Kaydedildi'.",
+          "files": [
+            "smartsched/frontend/src/components/admin/profile-view.tsx"
+          ],
+          "dedup": "re-seen: persona-user U-09 language follow-ups",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-38",
+          "lane": "E",
+          "severity": "minor",
+          "title": "Turkish grammar on shared sentences: the percent suffix, ordinals and the 'no access' page",
+          "findings": [
+            "R1-S-23"
+          ],
+          "verified": "code read",
+          "root_cause": "There is no shared helper for Turkish percent suffixes ('%0'ı', '%95'i'), '%100' (not '100 %') or decimal commas. The shared no-access page (admin/admin-gate.tsx) calls every screen a 'kurulum ekranı' (seen on /timetable as a teacher).",
+          "fix": "Add the helpers in lib/i18n (pct(), ordinalWeek()) for the other lanes to use (B: T-R1-20, F: T-R1-42, H: T-R1-47/48). Make the admin-gate text generic ('Bu sayfa için izniniz yok').",
+          "check": "vitest for pct(0) = \"%0'ı\", pct(95) = \"%95'i\" and pct(100) = '%100'. As the academician, /timetable reads 'Bu sayfa…' with no 'kurulum'.",
+          "files": [
+            "smartsched/frontend/src/lib/i18n/**",
+            "smartsched/frontend/src/components/admin/admin-gate.tsx"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        }
+      ],
+      "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"
+    },
+    {
+      "lane": "F",
+      "name": "Dashboard, learning and invigilation display",
+      "starts": "now (T-R1-42 and part 2 of T-R1-39 after the integrity agent hands over)",
+      "owns": [
+        "smartsched/frontend/src/components/dashboard/**",
+        "smartsched/frontend/src/components/learning/**",
+        "smartsched/frontend/src/app/(app)/moderation/learning/**",
+        "smartsched/backend/app/services/learning.py",
+        "smartsched/backend/app/services/learning_extract.py",
+        "smartsched/backend/app/services/dashboard.py",
+        "smartsched/backend/app/api/v1/learning.py",
+        "smartsched/backend/app/api/v1/dashboard.py",
+        "after integrity: smartsched/frontend/src/components/invigilation/**, smartsched/backend/app/services/invigilation.py, smartsched/backend/app/services/moderation.py (match rate only)"
+      ],
+      "phone_routes": "/dashboard /moderation (header) /moderation/learning /exams/invigilation",
+      "ticket_files": [
+        "smartsched/frontend/src/components/dashboard/dashboard-view.tsx:38",
+        "smartsched/backend/app/services/dashboard.py",
+        "smartsched/backend/app/services/moderation.py (part 2, after integrity)",
+        "smartsched/backend/app/services/learning.py:612",
+        "smartsched/backend/app/services/learning.py:207",
+        "smartsched/backend/app/services/learning.py:482",
+        "smartsched/backend/app/services/invigilation.py:583",
+        "smartsched/frontend/src/components/invigilation/**",
+        "smartsched/frontend/src/components/learning/reset-dialog.tsx",
+        "smartsched/frontend/src/components/learning/learning-memory-panel.tsx",
+        "smartsched/frontend/src/components/learning/suggestion-card.tsx",
+        "smartsched/frontend/src/app/(app)/moderation/learning/page.tsx",
+        "smartsched/backend/app/services/learning.py"
+      ],
+      "tickets": [
+        {
+          "id": "T-R1-39",
+          "lane": "F",
+          "severity": "major",
+          "title": "With an imported board published, the dashboard and the moderation header say nothing is planned (0 %)",
+          "findings": [
+            "R1-S-15",
+            "R1-S-33"
+          ],
+          "verified": "confirmed in code (dashboard)",
+          "root_cause": "dashboard-view.tsx:38-42 latestPlan() skips import boards (isImportBoard) even when the board is the term's published run. The heatmap reads the published run ('Genel doluluk %24,1 · #3'). The moderation match rate is 0 % because the board's assignments carry no meeting_request link (services/moderation.py, reserved by the integrity agent, so that is part 2). The dashboard link 'Çizelge oluştur' is 100x20.",
+          "fix": "Part 1 (now): the dashboard uses the published (is_active) run first, whatever its origin, then the newest finished solver run. Part 2 (after integrity): match board assignments to requests (course, section, slot) for the moderation rate, or say 'Panodan içe aktarılan program: eşleştirme yok'.",
+          "check": "Full stack before `stack.sh runs`: /dashboard 'Derslik doluluğu' = /analytics/heatmap 'Genel doluluk' (±0.5 points), with no 'henüz çizelge oluşturulmadı'. Part 2: the /moderation header rate > 0 % or the explicit board sentence. M-02 on /dashboard is clean.",
+          "files": [
+            "smartsched/frontend/src/components/dashboard/dashboard-view.tsx:38",
+            "smartsched/backend/app/services/dashboard.py",
+            "smartsched/backend/app/services/moderation.py (part 2, after integrity)"
+          ],
+          "dedup": "new",
+          "depends_on": [
+            "integrity agent hand-over (part 2 only)"
+          ]
+        },
+        {
+          "id": "T-R1-40",
+          "lane": "F",
+          "severity": "major",
+          "title": "No learned building suggestion for the linked academician, and a cross-season suggestion names rooms",
+          "findings": [
+            "R1-A-34",
+            "R1-S-19"
+          ],
+          "verified": "hypothesis from code; verify first",
+          "root_cause": "learning.py:612-616 _explicit() treats any class that requests or holds a room (or a building) as explicit, and an explicit request always wins. Instructor 157's Güz classes all request rooms (Taleplerim shows 'Derslik', 'Bilgisayar Laboratuvarı (JASP)'), so their A-block habit can never become a suggestion. If so, the F-06 precondition is wrong rather than the product. Separately, a suggestion with cross_season=true is a room_preference with room_ids ('PC özellikli derslik'). L2 says cross-season evidence gives a building at most (learning.py:207-222 proposal by attribute).",
+          "fix": "Confirm with GET /learning/suggestions?include_hidden=… for subject instructor 157. If _explicit() is the cause and the rule stands, F-06 picks a person without explicit room requests (lane G, T-R1-43) and part (a) closes as plan drift. If not, only suppress building evidence for classes that request a building. Always: cross-season evidence yields building or feature suggestions only.",
+          "check": "POST /learning/refresh {term_id: Güz}, then GET /learning/suggestions?term_id=2&limit=1000. (a) a building suggestion with 2-term evidence for the F-06 person (instructor 157, or the person the updated F-06 names). (b) no item with cross_season=true and kind room_preference. L5/L6 still hold.",
+          "files": [
+            "smartsched/backend/app/services/learning.py:612",
+            "smartsched/backend/app/services/learning.py:207",
+            "smartsched/backend/app/services/learning.py:482"
+          ],
+          "dedup": "see also P19 L1/L2 acceptance",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-42",
+          "lane": "F",
+          "severity": "major",
+          "title": "Invigilation: on real Final data the default pool finds nobody",
+          "findings": [
+            "R1-S-14",
+            "R1-S-23"
+          ],
+          "verified": "code pointer; not re-run (needs the Final data)",
+          "root_cause": "services/invigilation.py:583, the 'exam_instructors' pool (the default, :73), matches the instructors named on the run's exams and finds 0 people on the real Final list, so 1,091 duties stay unassigned. 'Tüm eğitmenler' assigns all of them. Imported boards with no exam_request links are offered as exam runs. The headline prints '12.0' with a decimal point. (The 'empty plan is publishable' part is R1-M-11: integrity agent.)",
+          "fix": "Match the exam list's instructor names to Instructor rows the way the importer does (title-stripped, folded, initials-aware), and report how many matched. When the pool is empty, say why and offer 'Tüm eğitmenler'. Mark or hide boards without exam links. Use a decimal comma.",
+          "check": "Real Final data, an exam solver run, defaults: pool size > 0 (≥ distinct exam instructors that exist as Instructor rows), and n/1091 duties assigned. Or a Turkish reason plus a one-tap 'Tüm eğitmenler'. The imported board is labelled 'sınav bağlantısı yok'.",
+          "files": [
+            "smartsched/backend/app/services/invigilation.py:583",
+            "smartsched/frontend/src/components/invigilation/**"
+          ],
+          "dedup": "see also R1-M-11 (integrity)",
+          "depends_on": [
+            "integrity agent hand-over"
+          ]
+        },
+        {
+          "id": "T-R1-41",
+          "lane": "F",
+          "severity": "minor",
+          "title": "Learning memory: people show as '#98', the typed reset accepts 'sifirla', and the phone buttons are 36 px",
+          "findings": [
+            "R1-S-30",
+            "R1-S-33"
+          ],
+          "verified": "code read",
+          "root_cause": "The 'Son sıfırlamalar' rows and the stored explanation ('öğretim elemanı #98 …') print the subject id. The 'Tümünü sıfırla' typed confirm compares the text case- and diacritic-folded and enables Sıfırla on 'sifirla'. reset-word has no autocapitalize=off. Undoing an accept shows no toast. The suggestion-card buttons are 36 px on a phone. /moderation/learning has no h1.",
+          "fix": "Show the person's masked label (initials). Require the exact word, with 'Yazılan kelime eşleşmiyor.' before submit. autocapitalize=off. Add an undo toast. Full-width 44 px 'Kabul et' on the phone. Add an h1.",
+          "check": "F-06 S08–S12 desktop+phone: no '#<digits>' in the reset rows or explanations. 'sifirla' keeps Sıfırla disabled, with the message. Phone M-02 on the profile suggestions is clean. /moderation/learning has exactly one h1.",
+          "files": [
+            "smartsched/frontend/src/components/learning/reset-dialog.tsx",
+            "smartsched/frontend/src/components/learning/learning-memory-panel.tsx",
+            "smartsched/frontend/src/components/learning/suggestion-card.tsx",
+            "smartsched/frontend/src/app/(app)/moderation/learning/page.tsx",
+            "smartsched/backend/app/services/learning.py"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        }
+      ],
+      "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"
+    },
+    {
+      "lane": "G",
+      "name": "Test plan, docs and stack tooling drift",
+      "starts": "now (T-R1-45 first: it decides how much of T-R1-01 is real)",
+      "owns": [
+        "docs/testing/flows/** (except rounds/)",
+        "scripts/record/**"
+      ],
+      "phone_routes": "(no product screens)",
+      "ticket_files": [
+        "scripts/record/stack.sh:168-185",
+        "scripts/record/kvkk_mask.py",
+        "docs/testing/flows/F-01*.md",
+        "docs/testing/flows/F-03*.md",
+        "docs/testing/flows/F-04*.md",
+        "docs/testing/flows/F-08-file-intake-review-dryrun-commit.md",
+        "docs/testing/flows/F-12*.md",
+        "docs/testing/flows/MOBILE.md",
+        "docs/testing/flows/README.md",
+        "scripts/record/setup_api.py:92"
+      ],
+      "tickets": [
+        {
+          "id": "T-R1-45",
+          "lane": "G",
+          "severity": "major",
+          "title": "Check whether stack.sh builds apply the touch-size tokens (they decide how many of round 1's phone findings are real)",
+          "findings": [
+            "R1-A-02",
+            "R1-M-08",
+            "R1-A-04",
+            "R1-M-29"
+          ],
+          "verified": "discrepancy measured by the suggester",
+          "root_cause": "On a HEAD-equivalent production build (next start, turbopack root '/', the same CSS chunk: the coarse block comes after the base tokens), the bell measures 44x44 and the profile inputs 44 px at 16 px under the testers' exact context (isMobile, hasTouch, CDP pointer:coarse). The testers' stack.sh builds measured 32x32 and inputs under 16 px on the same source. The cause is unknown: build path, CSS chunk order, or the probe context.",
+          "fix": "Run `stack.sh up --fresh` and the academician's scripts/lib.mjs open('phone') probe on /bookings and /profile, and compare with a plain `next build`. If stack.sh is at fault (for example the sed patch of next.config or a stale .next with REC_SKIP_BUILD), fix scripts/record/stack.sh. If not, write the cause into T-R1-01 so lane A fixes the right thing.",
+          "check": "On a stack.sh build, phone context: getComputedStyle(documentElement).getPropertyValue('--control-h-md') === '44px', and [data-testid=notification-bell] measures 44x44.",
+          "files": [
+            "scripts/record/stack.sh:168-185"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-44",
+          "lane": "G",
+          "severity": "minor",
+          "title": "The KVKK masking script leaves surname fragments on the first pass",
+          "findings": [
+            "R1-S-34"
+          ],
+          "verified": "reported counts; not re-run",
+          "root_cause": "kvkk_mask.py misses title and name variants that appear after an F-08 commit (three shapes: a title initial or an initial followed by a surname fragment). Seven rows needed the README §4.4 block.",
+          "fix": "Handle title prefixes and multi-part surnames. Add a self-check that runs the README §7 query and fails on a non-zero count.",
+          "check": "Fresh stack, commit the Bahar list (F-08), `stack.sh mask` → the README §7 check returns 0 on the first pass.",
+          "files": [
+            "scripts/record/kvkk_mask.py"
+          ],
+          "dedup": "new",
+          "depends_on": []
+        },
+        {
+          "id": "T-R1-43",
+          "lane": "G",
+          "severity": "trivial",
+          "title": "The flow files and the stack setup disagree with the product in six places",
+          "findings": [
+            "R1-A-39",
+            "R1-S-39"
+          ],
+          "verified": "confirmed",
+          "root_cause": "(1) F-01 S04 names a book-duplicate-link testid that does not exist (behaviour present). (2) The F-03 oracle posts features [{\"id\":1}], but the API needs [{\"field\":1}] (422). (3) F-12 says return_path, but the backend uses `next`. (4) F-04 precondition 3 cannot hold: scripts/record/setup_api.py:92 signs off calendar sync during `up`. (5) The seed links the instructor with SQL; PUT /auth/sso/admin/users/<id>/instructor exists. (6) F-08 masks names (S09) before the re-upload steps S10/S11, which changes their result. Also: MOBILE.md M-02 counts the sr-only skip link (1x1); exclude it unless it is focused. And the open ROADMAP item 'MOBILE.md M-04 snippet' (dialogs that scroll themselves).",
+          "fix": "Fix the flow texts. Make the calendar sign-off in setup_api.py opt-in (REC_CAL_SIGNOFF=1), or add an F-04 precondition step that switches it off. Move F-08 S09 after S11, or mask a copy of the database for screenshots. Update the MOBILE.md M-02/M-04 snippets.",
+          "check": "A re-tester following F-01, F-03, F-04, F-08 and F-12 literally hits no drift note. On a fresh stack.sh stack, GET calendar-sync settings → not signed off. The M-02 snippet on /login no longer lists 'İçeriğe atla'.",
+          "files": [
+            "docs/testing/flows/F-01*.md",
+            "docs/testing/flows/F-03*.md",
+            "docs/testing/flows/F-04*.md",
+            "docs/testing/flows/F-08-file-intake-review-dryrun-commit.md",
+            "docs/testing/flows/F-12*.md",
+            "docs/testing/flows/MOBILE.md",
+            "docs/testing/flows/README.md",
+            "scripts/record/setup_api.py:92"
+          ],
+          "dedup": "see also ROADMAP 'MOBILE.md M-04 snippet' (open)",
+          "depends_on": []
+        }
+      ],
+      "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"
+    },
+    {
+      "lane": "H",
+      "name": "Studio, runs, timetable and wizard polish",
+      "starts": "after the integrity agent finishes and lists the files it touched",
+      "owns": [
+        "smartsched/frontend/src/components/studio/**",
+        "smartsched/frontend/src/components/runs/**",
+        "smartsched/frontend/src/components/timetable/**",
+        "smartsched/frontend/src/components/compare/**",
+        "smartsched/frontend/src/components/program-wizard/**",
+        "smartsched/frontend/src/components/classes/**",
+        "smartsched/backend/app/services/studio.py",
+        "smartsched/backend/app/services/tr_grammar.py",
+        "after integrity: smartsched/backend/app/services/studio_rules.py, smartsched/backend/app/services/program_drafts.py, smartsched/backend/app/services/calendar_views.py (texts only)"
+      ],
+      "phone_routes": "/generate /runs/<id> /timetable /classes /runs/compare /programs/new",
+      "ticket_files": [
+        "smartsched/frontend/src/components/studio/write-it.tsx",
+        "smartsched/frontend/src/components/studio/rules-step.tsx",
+        "smartsched/frontend/src/components/studio/template-gallery.tsx",
+        "smartsched/frontend/src/components/studio/rule-sentence.ts",
+        "smartsched/backend/app/services/studio_rules.py (no_classes_after: after integrity)",
+        "smartsched/frontend/src/components/studio/studio-reducer.ts:403",
+        "smartsched/frontend/src/components/studio/scope-step.tsx",
+        "smartsched/backend/app/services/studio.py",
+        "smartsched/frontend/src/components/runs/**",
+        "smartsched/frontend/src/components/compare/**",
+        "smartsched/frontend/src/components/timetable/**",
+        "smartsched/frontend/src/components/classes/**",
+        "smartsched/backend/app/services/tr_grammar.py",
+        "smartsched/backend/app/services/calendar_views.py (texts only, after integrity)",
+        "smartsched/frontend/src/components/program-wizard/**",
+        "smartsched/backend/app/services/program_drafts.py (after integrity)"
+      ],
+      "tickets": [
+        {
+          "id": "T-R1-46",
+          "lane": "H",
+          "severity": "major",
+          "title": "With no AI key, the Turkish example chip is a dead end, and the after-hours template takes one programme at a time",
+          "findings": [
+            "R1-S-08",
+            "R1-M-13"
+          ],
+          "verified": "code read; integrity is editing studio_rules.py",
+          "root_cause": "The example chips in write-it.tsx / rules-step.tsx only copy the sentence into the composer, and 'Kurala çevir' needs AI. template-gallery.tsx 'Belirli saatten sonra ders olmasın' takes one programme from a plain 146-entry select, so both nursing programmes need two rules. The rule source shows 'Yönetici', not 'şablon'. The list lower-cases names (rule-sentence.ts).",
+          "fix": "Without a key, a chip opens its matching template pre-filled (programmes, class year 1, 17:30). The programme field is a searchable multi-select. The reach line lists every programme and asks about master's year-1 classes. Keep the names' case.",
+          "check": "F-09 S03 with no Anthropic key: the chip opens the template with both 'Hemşirelik' programmes and '1. sınıf' ticked. One rule reaches 25 classes. The list shows 'Hemşirelik (İngilizce)' with its capital letters.",
+          "files": [
+            "smartsched/frontend/src/components/studio/write-it.tsx",
+            "smartsched/frontend/src/components/studio/rules-step.tsx",
+            "smartsched/frontend/src/components/studio/template-gallery.tsx",
+            "smartsched/frontend/src/components/studio/rule-sentence.ts",
+            "smartsched/backend/app/services/studio_rules.py (no_classes_after: after integrity)"
+          ],
+          "dedup": "re-seen: persona-admin M-29 (still open)",
+          "depends_on": [
+            "integrity agent hand-over"
+          ]
+        },
+        {
+          "id": "T-R1-47",
+          "lane": "H",
+          "severity": "minor",
+          "title": "Studio scope: a half-loaded term shows 0 rooms, Güz shows '2 hafta', and the week wording is ungrammatical",
+          "findings": [
+            "R1-S-21",
+            "R1-S-22",
+            "R1-S-23"
+          ],
+          "verified": "code read",
+          "root_cause": "studio-reducer.ts:403 uses `rooms ?? 0` while the summary loads, so '0 derslikte' appears with 'no successful run'. scope-step.tsx counts week rows (Güz has 2 dated weeks) instead of the term's week_count (14, which /studio/summary returns). The backend sentence in services/studio.py says '3. haftalar için', and percentages print '(100 %)'.",
+          "fix": "Show a skeleton until the summary for the selected term is in. Use the term's week count, or explain that only n weeks have dates. Use the lane E helpers (T-R1-38) for '3. hafta' and '%100'.",
+          "check": "F-09 S01: switch the term and click H3 within 0.5 s → never '0 derslikte'. Güz → '14 hafta'. No 'haftalar için' for a single week. Re-check together with R1-M-12 (integrity).",
+          "files": [
+            "smartsched/frontend/src/components/studio/studio-reducer.ts:403",
+            "smartsched/frontend/src/components/studio/scope-step.tsx",
+            "smartsched/backend/app/services/studio.py"
+          ],
+          "dedup": "see also R1-M-12 (integrity)",
+          "depends_on": [
+            "integrity agent hand-over",
+            "T-R1-38"
+          ]
+        },
+        {
+          "id": "T-R1-48",
+          "lane": "H",
+          "severity": "minor",
+          "title": "Run report: a cancelled run reads like a clean result, the counts change with the viewport, and the report takes 10 s",
+          "findings": [
+            "R1-M-15",
+            "R1-S-27",
+            "R1-S-28",
+            "R1-M-27",
+            "R1-M-14",
+            "R1-S-16",
+            "R1-S-33"
+          ],
+          "verified": "code read",
+          "root_cause": "The run hero and verdict in components/runs/* do not branch on CANCELLED/ERROR ('Bütün tercihler karşılandı', 'İhlal yok'). The 'Sorun' KPI and the exception list are computed from what is rendered (611 at 1440, 398 at 390). Seven groups are titled 'Diğer notlar'. The KPI odometers expose every digit to assistive tech. The report makes heavy fetches (10 s at load 6). The publish confirm says '6. haftalar'. On a phone the partial-publish checkbox is 16x16 and 'Yayınla' sits outside the bottom 40 %. The /runs/compare pickers are 334x20 on a phone.",
+          "fix": "Cancelled: 'İptal edildi', by whom and when, with no claims. One server-side count per run. Distinct group titles. aria-hidden on the rolling digits. Lazy-load the heavy sections. Fix the week wording. Use a 44 px label row for the checkbox and a sticky 'Yayınla'.",
+          "check": "F-09 S10: cancel a run → the report contains 'İptal edildi' and none of 'karşılandı|İhlal yok'. /runs/<id> 'Sorun' is equal at 1440 and 390. main.innerText has no '0 1 2 3 4 5 6 7 8 9' sequence. Usable within 3 s at load < 4. MOBILE M-02/M-05 on /runs/<id> and the publish sheet.",
+          "files": [
+            "smartsched/frontend/src/components/runs/**",
+            "smartsched/frontend/src/components/compare/**"
+          ],
+          "dedup": "see also R1-M-04 / R1-M-14 / R1-S-20 (integrity)",
+          "depends_on": [
+            "integrity agent hand-over"
+          ]
+        },
+        {
+          "id": "T-R1-49",
+          "lane": "H",
+          "severity": "minor",
+          "title": "Timetable details: no start-week choice, 40 Tab stops before the grid, focus and count issues, and small phone targets",
+          "findings": [
+            "R1-M-31",
+            "R1-M-32",
+            "R1-S-26",
+            "R1-S-16",
+            "R1-S-24",
+            "R1-M-38"
+          ],
+          "verified": "code read",
+          "root_cause": "move-dialog.tsx offers 'from <this week>' only, so 'from 23 Feb' needs week 4 on screen first. After 'Taşı', focus goes to the inspector, not the chip. The dative is wrong for names ('Test dersliği'ye'). The toolbar puts 40 Tab stops before the grid. Enter in the search keeps focus in the field. The overlay sidebar covers its own toggle and ignores Esc. 'Yerleşmeyenler (118)' versus 34 from the API. The sidebar shows the wrong term label. A soft split is shown in red as 'Çakışma'. Inspector history rows say 'Run #7'. On a phone: inspector 'Taşı…' 36 px, scope radios 22 px, free-room rows 30 px, and /classes chips 30 px. The week export file is named like the term file.",
+          "fix": "A 'Başlangıç haftası' select in the move dialog. Focus the moved chip. Use tr_grammar dative for names. Add a skip link 'Izgaraya geç' (or `g t`). Enter focuses the first match. Esc and the toggle close the sidebar. One unplaced count from the API. Soft issues are not red. 'Çalıştırma #7'. 44 px rows and radios on touch. Name the file 'smartsched-run7-hafta4.xlsx'.",
+          "check": "F-10 S01/S02 desktop+phone: from week 3, pick 'from week 4' and move → weeks 1–3 and 4–14 split. Focus is on the chip. From the top, ≤ 5 Tabs to the grid with the skip link. The sidebar count equals the API's unplaced count. M-02 on the move sheet and the inspector is clean.",
+          "files": [
+            "smartsched/frontend/src/components/timetable/**",
+            "smartsched/frontend/src/components/classes/**",
+            "smartsched/backend/app/services/tr_grammar.py",
+            "smartsched/backend/app/services/calendar_views.py (texts only, after integrity)"
+          ],
+          "dedup": "see also R1-M-06 / R1-S-09 (integrity: forced move)",
+          "depends_on": [
+            "integrity agent hand-over"
+          ]
+        },
+        {
+          "id": "T-R1-50",
+          "lane": "H",
+          "severity": "minor",
+          "title": "Undoing a wizard programme leaves its new courses, and the open button ignores the chosen mode",
+          "findings": [
+            "R1-S-29"
+          ],
+          "verified": "code read; integrity touched program_drafts.py",
+          "root_cause": "The program draft undo in services/program_drafts.py archives the sections and people but not the courses it created ('Arşivlendi: 3 şube, 0 ders, 2 kişi'). GET /program-drafts/<id>/undo answers 409 on the generate step (a console error). With 'Yalnızca oluştur' chosen, the button still reads 'Oluştur ve çöz'.",
+          "fix": "Track the courses the commit created and archive them on undo. Do not call undo before a commit. The button label follows the mode.",
+          "check": "F-07 S08/S09: undo → 'Arşivlendi: 3 şube, 3 ders, 2 kişi', and GET /courses?code=… shows them archived. No 409 in the console. The 'Yalnızca oluştur' button reads 'Oluştur'.",
+          "files": [
+            "smartsched/frontend/src/components/program-wizard/**",
+            "smartsched/backend/app/services/program_drafts.py (after integrity)"
+          ],
+          "dedup": "new",
+          "depends_on": [
+            "integrity agent hand-over"
+          ]
+        }
+      ],
+      "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"
+    }
+  ]
+}
