@@ -2,7 +2,7 @@
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `3233b23` (committed 2026-10-16 01:05 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `79bb1cb` (committed 2026-10-16 01:06 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -247,3 +247,4 @@ Generated blocks last synced on top of commit `3233b23` (committed 2026-10-16 01
 | 2026-10-16 01:02 | backend-engineer (notify-channels-apprise-2026-10-15) | channels | DONE: channels backend (app/services/channels/**, api/v1/channels.py, schemas, models, alembic 0027_notify_channels on 0026_sso_entra, single head), apprise==2.0.1 + pywebpush==2.5.0 pinned (+21.5 MB RSS in the app process), optional WhatsApp Web bridge (wuzapi, 7.8-11.8 MiB measured), docs/deploy/notification-channels.md, integrations addendum §10; tests/test_channels*.py 17 passed, approval-first + mail queue green, audit coverage green for /channels/* (red only on P19's uncommitted program-drafts decisions); make lint green, make type clean in my files (11 errors in moderation.py + sso.py, not mine) | hooks: channels.register() at start-up + worker drainers (diffs in hand-off); P19 renumbers 0027_p19_gaps onto 0027_notify_channels |
 | 2026-10-16 01:02 | backend-engineer (p19-backend-gaps-2026-10-15) | P19 gaps | milestone: (4) suggestion restore + accept scope, (6) program drafts (table, autosave merge, validate/precheck/paste, transactional commit, 30-day undo; MBG Tezli YL real check hard 100 + undo), (7) instructor load / section search / rooms fit, (8) activate notify_people digest; alembic 0027_p19_gaps on 0026_sso_entra (renumbered to 0028 on 0027_notify_channels); make lint + make type green | commit, full p19 suite |
 | 2026-10-16 01:03 | backend-engineer (notify-channels-apprise-2026-10-15) | channels | fix: concurrent renumbering with P19, resolved in the merge: P19 had already moved its migration to 0028_p19_gaps on 0027_notify_channels, so the channels migration stays 0027_notify_channels on 0026_sso_entra (my 0028 rename reverted); single head 0028_p19_gaps | hand-off |
+| 2026-10-16 01:07 | backend-engineer (p19-backend-gaps-2026-10-15) | P19 gaps | milestone: migration order frozen per coordinator: 0028_p19_gaps on 0027_notify_channels (single head); tests/test_p19_gaps_migration.py aligned, migration tests 5 passed | full p19 suite, hand-off |
