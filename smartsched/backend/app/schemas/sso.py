@@ -8,6 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas import messages
 from app.schemas.auth import TokenOut
 from app.services import sso as svc
 
@@ -38,19 +39,19 @@ class SsoConfigIn(BaseModel):
     @field_validator("tenant_id")
     @classmethod
     def _tenant(cls, v: str | None) -> str | None:
-        return svc.clean_tenant(v) if v is not None else None
+        return messages.validated(svc.clean_tenant, v) if v is not None else None
 
     @field_validator("domain_hint")
     @classmethod
     def _domain(cls, v: str | None) -> str | None:
-        return svc.clean_domain(v) if v is not None else None
+        return messages.validated(svc.clean_domain, v) if v is not None else None
 
     @field_validator("client_id")
     @classmethod
     def _client(cls, v: str | None) -> str | None:
         if v is None:
             return None
-        return svc.clean_guid(v, "client_id (application id)")
+        return messages.validated(lambda x: svc.clean_guid(x, "client_id (application id)"), v)
 
     @field_validator("client_secret")
     @classmethod
@@ -59,7 +60,11 @@ class SsoConfigIn(BaseModel):
             return None
         text = v.strip()
         if any(ord(ch) < 32 or ord(ch) == 127 for ch in text):
-            raise ValueError("the client secret contains control characters; paste it again")
+            raise messages.coded(
+                "sso_secret_control_chars",
+                "Gizli anahtar denetim karakterleri içeriyor; yeniden yapıştırın.",
+                "the client secret contains control characters; paste it again",
+            )
         return text
 
 
@@ -161,7 +166,11 @@ class LinkIn(BaseModel):
     @classmethod
     def _confirmed(cls, v: bool) -> bool:
         if v is not True:
-            raise ValueError("confirm must be true: the Microsoft account will sign in to this SmartSched account")
+            raise messages.coded(
+                "sso_link_unconfirmed",
+                "Bağlamayı onaylamanız gerekir: Microsoft hesabı bu SmartSched hesabına giriş yapacak.",
+                "confirm must be true: the Microsoft account will sign in to this SmartSched account",
+            )
         return v
 
 

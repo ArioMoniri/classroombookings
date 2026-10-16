@@ -5,6 +5,7 @@ location, icon, notes, photo, custom fields and the room access-control list."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -27,6 +28,7 @@ from app.models import (
     User,
 )
 from app.models.catalog import Room
+from app.schemas import messages
 from app.schemas.crbs import (
     AclIn,
     AclOut,
@@ -177,6 +179,7 @@ async def _field_values(db: DB, room_id: int) -> dict[str, Any]:
 async def _room_out(db: DB, r: Room) -> RoomAdminOut:
     g = await db.get(RoomGroup, r.room_group_id) if r.room_group_id else None
     o = await db.get(User, r.owner_user_id) if r.owner_user_id else None
+    b = await db.get(Building, r.building_id) if r.building_id else None
     return RoomAdminOut(
         id=r.id,
         code=r.code,
@@ -193,6 +196,10 @@ async def _room_out(db: DB, r: Room) -> RoomAdminOut:
         photo_url=r.photo_url,
         pos=r.pos or 0,
         fields=await _field_values(db, r.id),
+        code_label=n.display_room_code(r.code),
+        building_id=r.building_id,
+        building_code=b.code if b else None,
+        building_name=b.name if b else None,
     )
 
 
@@ -201,6 +208,29 @@ async def _room(db: DB, room_id: int) -> Room:
     if r is None:
         raise HTTPException(404, "room not found")
     return r
+
+
+_BLOCK_RX = re.compile(r"^\s*([A-Za-z])\s*(?:blok|block|bina)?\s*$", re.I)
+
+
+async def _building_of_group(db: DB, name: str) -> Building | None:
+    """The building a room group stands for: its name is a building's name, or a block letter ("A Blok")."""
+    rows = list((await db.execute(select(Building))).scalars())
+    fold = n.tr_casefold(name).strip()
+    for b in rows:
+        if n.tr_casefold(b.name).strip() == fold:
+            return b
+    m = _BLOCK_RX.match(name)
+    if m:
+        letter = m.group(1).upper()
+        for b in rows:
+            if b.code.upper() == letter:
+                return b
+        b = Building(code=letter, name=name.strip())  # like POST /rooms does for a new block letter
+        db.add(b)
+        await db.flush()
+        return b
+    return None
 
 
 @router.get("/rooms", response_model=list[RoomAdminOut])
@@ -263,6 +293,10 @@ async def update_room(room_id: int, body: RoomBookingUpdate, db: DB, _: RoomsAdm
     if data.get("room_group_id") is not None:
         g = await _group(db, data["room_group_id"])
         r.room_group = g.name
+        # T-R1-34: the building follows the group ("A Blok" -> building A), so every view names one block
+        building = await _building_of_group(db, g.name)
+        if building is not None:
+            r.building_id = building.id
     elif "room_group_id" in data:  # audit B14: clearing the group clears the legacy free-text label too
         r.room_group = None
     if "owner_user_id" in data:
@@ -283,24 +317,42 @@ async def update_room(room_id: int, body: RoomBookingUpdate, db: DB, _: RoomsAdm
     return await _room_out(db, r)
 
 
+#: Turkish text of ``app.core.images.check_image``'s sentences (T-R1-31, admin persona M-36)
+_PHOTO_TR = (
+    ("unsupported image type", "image_type", "Desteklenmeyen görsel türü; jpg, png, gif ya da webp yükleyin."),
+    ("not an image upload", "image_content_type", "Yüklenen dosya bir görsel değil."),
+    ("the file is not a", "image_not_image", "Dosya bir jpg, png, gif ya da webp görseli değil."),
+    ("the file is a", "image_name_mismatch", "Dosyanın içeriği adındaki uzantıyla uyuşmuyor; uzantısı doğru bir görsel yükleyin."),
+)
+
+
+def _photo_problem(problem: str) -> HTTPException:
+    for prefix, code, tr in _PHOTO_TR:
+        if problem.startswith(prefix):
+            return messages.problem(400, code, tr, problem)
+    return messages.problem(400, "image_invalid", "Görsel kabul edilmedi.", problem)
+
+
 @router.post("/rooms/{room_id}/photo", response_model=RoomAdminOut)
 async def upload_photo(room_id: int, db: DB, _: RoomsAdmin, file: UploadFile = File(...)) -> RoomAdminOut:
     r = await _room(db, room_id)
     ext = Path(file.filename or "photo.jpg").suffix.lower() or ".jpg"
     if ext not in {".jpg", ".jpeg", ".png", ".gif"}:  # CRBS setup/rooms/Rooms: jpg|jpeg|png|gif
-        raise HTTPException(400, "unsupported image type (jpg, png, gif)")
+        raise messages.problem(
+            400, "image_type", "Desteklenmeyen görsel türü; jpg, png ya da gif yükleyin.", "unsupported image type (jpg, png, gif)"
+        )
     data = await file.read(10 * 1024 * 1024 + 1)
     if len(data) > 10 * 1024 * 1024:
-        raise HTTPException(413, "image larger than 10 MB")
+        raise messages.problem(413, "image_too_large", "Görsel 10 MB'tan büyük.", "image larger than 10 MB")
     from app.core.images import ImageError, check_image, sanitize_image
 
     problem = check_image(data, ext, file.content_type)  # review MINOR 14: the bytes must be that image
     if problem:
-        raise HTTPException(400, problem)
+        raise _photo_problem(problem)
     try:  # audit B2: decoded and re-encoded (≤ 1600 px), so only real pixels are ever served
         data, ext = sanitize_image(data)
     except ImageError as exc:
-        raise HTTPException(exc.status, exc.message) from exc
+        raise messages.problem(exc.status, "image_invalid", f"Görsel işlenemedi: {exc.message}", exc.message) from exc
     target = Path(get_settings().upload_dir) / "rooms"
     target.mkdir(parents=True, exist_ok=True)
     for old in target.glob(f"{r.id}.*"):

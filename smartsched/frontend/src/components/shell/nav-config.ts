@@ -68,7 +68,9 @@ const BOOKING_PREFIXES = ["/bookings", "/my-bookings", "/find-room", "/approvals
 
 /** The planning groups plus the CRBS-parity entries: bookings first, admin/setup/profile under "Admin". */
 export function allNavGroups(): NavGroup[] {
-  const extra = ADMIN_NAV_ITEMS.map((i): NavItem & { bookings?: boolean } => ({ href: i.href, labelKey: i.labelKey, icon: i.icon, permission: i.permission, badge: i.badge, key: i.key, hideWith: i.hideWith, bookings: i.bookings }));
+  // T-R1-06: "g t" opens Taleplerim for an academician (the timetable's "g t" is a planner's; hideWith keeps the
+  // two apart, so only one of them is ever listed for a user)
+  const extra = ADMIN_NAV_ITEMS.map((i): NavItem & { bookings?: boolean } => ({ href: i.href, labelKey: i.labelKey, icon: i.icon, permission: i.permission, badge: i.badge, key: i.key ?? (i.href === "/moderation/me" ? "t" : undefined), hideWith: i.hideWith, bookings: i.bookings }));
   const bookings = extra.filter((i) => i.bookings || BOOKING_PREFIXES.some((p) => i.href.startsWith(p)));
   const admin = extra.filter((i) => !bookings.includes(i));
   const groups = NAV_GROUPS.map((g) => (g.labelKey === "nav.admin" ? { ...g, items: [...g.items, ...admin.filter((a) => !g.items.some((x) => x.href === a.href))] } : g));

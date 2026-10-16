@@ -56,6 +56,7 @@ from urllib.parse import urlencode
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas.messages import Refusal
 from app.core.identity import clean_email
 from app.core.security import decrypt_secret, encrypt_secret, revoke_tokens, verify_password
 from app.importers.normalize import clean_text
@@ -97,6 +98,8 @@ SCOPES = "openid profile email"
 #: the Microsoft consumer (personal accounts) tenant; never a valid pin
 CONSUMER_TENANT = "9188040d-6c67-4c5b-b112-36a304b66dad"
 RESERVED_TENANTS = frozenset({"common", "organizations", "consumers"})
+#: Turkish names of the GUID fields :func:`clean_guid` reports
+GUID_TR = {"tenant id (directory id)": "Dizin (tenant) kimliği", "client_id (application id)": "Uygulama (client) kimliği", "id": "Kimlik"}
 TICKET_TTL = timedelta(minutes=2)
 HTTP_TIMEOUT_S = 15.0
 #: clock skew tolerated on exp / nbf / iat (seconds)
@@ -237,7 +240,11 @@ def _plain(value: str) -> str:
 def clean_guid(value: str, what: str = "id") -> str:
     text = _plain(value).lower().strip("{}")
     if not _GUID_RX.match(text):
-        raise ValueError(f"{what} must be a GUID like 3f2a8c1e-5b7d-4e9a-a6c4-2d8e1f0b9c7a")
+        raise Refusal(
+            "sso_guid_invalid",
+            f"{GUID_TR.get(what, what)} 3f2a8c1e-5b7d-4e9a-a6c4-2d8e1f0b9c7a biçiminde bir GUID olmalı.",
+            f"{what} must be a GUID like 3f2a8c1e-5b7d-4e9a-a6c4-2d8e1f0b9c7a",
+        )
     return text
 
 
@@ -246,10 +253,18 @@ def clean_tenant(value: str) -> str:
     can be compared exactly (Microsoft: tenant-specific authority for single-tenant apps)."""
     text = _plain(value).lower()
     if text in RESERVED_TENANTS:
-        raise ValueError(f"tenant id {text!r} is not allowed: pin the university's own directory (tenant) id")
+        raise Refusal(
+            "sso_tenant_reserved",
+            f"“{text}” kullanılamaz: üniversitenin kendi dizin (tenant) kimliğini girin.",
+            f"tenant id {text!r} is not allowed: pin the university's own directory (tenant) id",
+        )
     guid = clean_guid(text, "tenant id (directory id)")
     if guid == CONSUMER_TENANT:
-        raise ValueError("the Microsoft consumer tenant is not allowed: pin the university's directory (tenant) id")
+        raise Refusal(
+            "sso_tenant_consumer",
+            "Microsoft'un bireysel hesap dizini kullanılamaz: üniversitenin dizin (tenant) kimliğini girin.",
+            "the Microsoft consumer tenant is not allowed: pin the university's directory (tenant) id",
+        )
     return guid
 
 
@@ -261,7 +276,9 @@ def clean_domain(value: str) -> str | None:
     if not text:
         return None
     if not _DOMAIN_RX.match(text):
-        raise ValueError("domain_hint must be a domain name like uni.edu.tr")
+        raise Refusal(
+            "sso_domain_invalid", "Alan adı uni.edu.tr gibi bir alan adı olmalı.", "domain_hint must be a domain name like uni.edu.tr"
+        )
     return text
 
 

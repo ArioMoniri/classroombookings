@@ -8,10 +8,11 @@ import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { WhatsNewIndicator } from "@/components/admin/whats-new";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Button } from "@/components/ui/button";
-import { KbdHint } from "@/components/ui/kbd-hint";
+import { KbdHint, modKeyLabel, usePlatformMod } from "@/components/ui/kbd-hint";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress, ProgressIndicator, ProgressTrack } from "@/components/ui/progress";
 import { useRuns } from "@/lib/api/hooks";
+import { useModerationMe } from "@/lib/api/moderation";
 import { usePermissions } from "@/lib/api/shell-extra";
 import type { ScheduleRun } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
@@ -26,7 +27,11 @@ import { UserMenu } from "./user-menu";
 export function useBreadcrumbs(): Crumb[] {
   const pathname = usePathname();
   const { t } = useI18n();
-  return useMemo(() => breadcrumbs(pathname, t), [pathname, t]);
+  // T-R1-08: /moderation/people/<own instructor> is the academician's "Geçmişim" (the planners' console is not theirs)
+  const { can } = usePermissions();
+  const mine = useModerationMe(!can("planning.view") && pathname.startsWith("/moderation/people/"));
+  const own = mine.data?.instructor_id ?? null;
+  return useMemo(() => breadcrumbs(pathname, t, { ownPersonId: own }), [pathname, t, own]);
 }
 
 /**
@@ -125,6 +130,9 @@ export function TopBar() {
   const hydrated = useHydrated();
   const running = hydrated && planner ? runs.data?.find(isActive) : undefined;
   const tintOnly = useTintOnlyChrome();
+  // T-R1-07 (R1-A-10): the search trigger's name is "Komut paleti (Ctrl+K)" in the user's language, the keycaps decorative
+  const apple = usePlatformMod();
+  const searchName = `${t("shortcuts.palette")} (${modKeyLabel(apple)}+K)`;
   return (
     <header className="pointer-events-none sticky top-0 z-30 hidden items-center gap-3 px-4 pt-2 pb-1 sm:px-6 lg:flex lg:px-8">
       <ThickeningCapsule className="pointer-events-auto min-w-0 px-3" tintOnly={tintOnly}>
@@ -143,7 +151,8 @@ export function TopBar() {
                       {c.label}
                     </span>
                   ) : (
-                    <Link href={c.href} className="text-label-2 outline-hidden hover:text-label-1 focus-visible:underline">
+                    // T-R1-08: a visible focus ring on every crumb link (it only underlined)
+                    <Link href={c.href} className="rounded-sm text-label-2 outline-hidden hover:text-label-1 focus-visible:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus)">
                       {c.label}
                     </Link>
                   )}
@@ -156,10 +165,10 @@ export function TopBar() {
       <div className="flex-1" />
       <ThickeningCapsule className="pointer-events-auto" label={t("glass.shell.toolbar")} tintOnly={tintOnly}>
         {running ? <RunIsland run={running} /> : null}
-        <Button variant="ghost" onClick={() => setPaletteOpen(true)} data-testid="open-palette" className="gap-2 font-normal text-label-2 hover:text-label-1">
+        <Button variant="ghost" onClick={() => setPaletteOpen(true)} data-testid="open-palette" aria-label={searchName} className="gap-2 font-normal text-label-2 hover:text-label-1">
           <Search aria-hidden />
-          <span className="pr-6">{t("glass.shell.searchShort")}</span>
-          <KbdHint keys={["mod", "K"]} />
+          <span className="pr-6" aria-hidden>{t("glass.shell.searchShort")}</span>
+          <KbdHint keys={["mod", "K"]} aria-hidden />
         </Button>
         <WhatsNewIndicator />
         <NotificationBell />

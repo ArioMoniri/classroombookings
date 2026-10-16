@@ -44,7 +44,8 @@
     "copy": "Kopyala", "copied": "Kopyalandı", "open": "Aç", "back": "Geri", "next": "İleri", "previous": "Önceki",
     "download": "İndir", "upload": "Yükle", "lock": "Kilitle", "unlock": "Kilidi aç", "locked": "Kilitli",
     "today": "Bugün", "offline": "Bağlantı yok · yeniden deneniyor…", "forbidden": "Bu sayfa için PLANLAYICI rolü gerekir.",
-    "errorId": "Hata kimliği"
+    "errorId": "Hata kimliği",
+    "closeToast": "Bildirimi kapat"
   },
   "dashboard": {
     "title": "Özet", "subtitle": "{term} · {weeks} haftanın {week}. haftası",
@@ -1899,7 +1900,13 @@
       "searchShort": "Ara",
       "tabs": "Sekmeler",
       "more": "Diğer",
-      "bookings": "Rezervasyonlar"
+      "bookings": "Rezervasyonlar",
+      "crumbPeople": "Kişiler",
+      "crumbPerson": "Kişi",
+      "crumbMyHistory": "Geçmişim",
+      "crumbRecreate": "Yeniden çözüm önizlemesi",
+      "crumbConflict": "Çakışma",
+      "crumbDetail": "Ayrıntı"
     },
     "term": {
       "kind": {
@@ -3154,7 +3161,9 @@
       "noAccount": "Hesabınız yoksa bir yöneticiye başvurun.",
       "credentials": "Kullanıcı adı, e-posta veya parola yanlış.",
       "rateLimited": "Çok fazla deneme. {n} dakika sonra tekrar deneyin.",
-      "offline": "Sunucuya ulaşılamıyor. Bağlantıyı kontrol edip tekrar deneyin."
+      "offline": "Sunucuya ulaşılamıyor. Bağlantıyı kontrol edip tekrar deneyin.",
+      "identifierRequired": "Kullanıcı adı veya e-posta gerekli",
+      "passwordRequired": "Parola gerekli"
     },
     "notice": {
       "expired": "Oturumunuzun süresi doldu. Yeniden giriş yaptığınızda kaldığınız sayfaya dönersiniz.",
@@ -3186,7 +3195,8 @@
       "inviteMismatch": "Davet {invited} adresine gönderildi; Microsoft'ta {signedIn} olarak giriş yaptınız.",
       "inviteMismatchPlain": "Microsoft'ta davetin gönderildiği adresle giriş yapın.",
       "tryAnother": "Başka bir hesapla dene",
-      "switchAccount": "Hesap değiştir"
+      "switchAccount": "Hesap değiştir",
+      "notEnabled": "Microsoft ile giriş bu kurumda henüz açık değil."
     },
     "invite": {
       "banner": "{inviter} sizi SmartSched'e davet etti.",

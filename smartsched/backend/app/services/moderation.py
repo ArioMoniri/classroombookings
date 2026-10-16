@@ -382,6 +382,81 @@ def _meeting_query() -> Any:
     )
 
 
+def _board_placements(meetings: list[MeetingRequest], rows: list[Assignment]) -> list[Assignment]:
+    """Round-1 T-R1-39 part 2: an imported board's rows carry no request link (``meeting_request_id`` is None; the
+    grid importer writes one row per period cell with the cell's course codes). For the match rate they are read
+    against the term's requests the way the importer links them: the same course code (``normalize.course_key``),
+    day and period (the row's period inside the request's range, its week among the request's weeks). Parallel
+    sections of one course at one time take the room the planner wrote for them; the rest take the board's rooms
+    in list order. Returns one transient row per request and room set (its period range and weeks merged; never
+    added to the session), so :func:`place_of` reads it like a solver row."""
+    by_course: dict[tuple[str, int], list[MeetingRequest]] = defaultdict(list)
+    for mr in meetings:
+        if mr.day is None or mr.start_period is None or mr.end_period is None or mr.section.course is None:
+            continue
+        by_course[(n.course_key(mr.section.course.code), mr.day)].append(mr)
+    for ms in by_course.values():
+        ms.sort(key=lambda m: (m.source_row_index if m.source_row_index is not None else 1 << 30, m.id))
+    # (course key, day, rooms) -> the board's one-period rows of that course in that room on that day
+    cells: dict[tuple[str, int, tuple[int, ...]], list[Assignment]] = defaultdict(list)
+    for a in rows:
+        rids = tuple(sorted(set(_ints(a.room_ids))))
+        if a.meeting_request_id is not None or a.day is None or not rids:
+            continue
+        for code in a.course_codes or []:
+            key = n.course_key(str(code))
+            if (key, a.day) in by_course:
+                cells[(key, a.day, rids)].append(a)
+    # claims: (request, cell) with the rows inside the request's period range and weeks
+    claims: list[tuple[int, int, MeetingRequest, tuple[str, int, tuple[int, ...]], list[Assignment]]] = []
+    for ck, cell_rows in cells.items():
+        key, day, rids = ck
+        for mr in by_course[(key, day)]:
+            weeks = set(_ints(mr.weeks))
+            mine = [
+                a
+                for a in cell_rows
+                if mr.start_period <= a.start_period
+                and a.end_period <= mr.end_period
+                and (not weeks or a.week is None or int(a.week) in weeks)
+            ]
+            if not mine:
+                continue
+            own_rooms = set(_ints(mr.definitive_room_ids)) | set(_ints(mr.requested_room_ids))
+            # the planner's own room first, then the list order of the requests, then the room
+            claims.append((0 if own_rooms & set(rids) else 1, mr.source_row_index or 0, mr, ck, mine))
+    claims.sort(key=lambda c: (c[0], c[1], c[2].id, c[3][2]))
+    taken_rows: set[int] = set()
+    placed: set[int] = set()
+    out: list[Assignment] = []
+    for _rank, _row, mr, ck, mine in claims:
+        if mr.id in placed or any(a.id in taken_rows for a in mine):
+            continue
+        placed.add(mr.id)
+        taken_rows.update(a.id for a in mine)
+        weeks = sorted({int(w) for a in mine for w in (_ints(a.weeks) or ([a.week] if a.week else []))})
+        out.append(
+            Assignment(
+                id=min(a.id for a in mine),
+                run_id=mine[0].run_id,
+                meeting_request_id=mr.id,
+                week=None,
+                weeks=weeks,
+                day=ck[1],
+                start_period=min(a.start_period for a in mine),
+                end_period=max(a.end_period for a in mine),
+                room_ids=list(ck[2]),
+                label=mine[0].label,
+                course_codes=list(mine[0].course_codes or []),
+                tags=[],
+                is_locked=False,
+                origin="IMPORT",
+                archived=False,
+            )
+        )
+    return out
+
+
 async def load_term(
     session: AsyncSession,
     term: Term,
@@ -413,6 +488,9 @@ async def load_term(
                 )
             ).scalars()
         )
+        if rows and all(a.meeting_request_id is None for a in rows):
+            # an imported board (T-R1-39 part 2): its cells are read against the requests by course, day and period
+            rows = _board_placements(meetings, rows)
         for a in rows:
             if a.meeting_request_id is None:
                 continue

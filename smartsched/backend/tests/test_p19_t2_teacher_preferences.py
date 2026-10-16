@@ -30,6 +30,7 @@ from app.models import (
     ScheduleRun,
     Section,
     SectionInstructor,
+    Term,
 )
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -233,6 +234,10 @@ async def test_tercih_ekle_is_soft_targeted_lower_ranked_and_reviewed(real: dict
         assert any(it["action"] == "preference.accept" and it["request_ids"] == [rid] for it in ch["items"])
         bell = list((await s.execute(select(InAppNotification).where(InAppNotification.user_id == uid))).scalars())
         assert [b.kind for b in bell] == ["preference.accepted"]
+        # T-R1-15 (R1-A-12): the notice names the term ("Bahar 2026"), never its code ("2026-BAHAR")
+        term_row = await s.get(Term, tid)
+        assert term_row is not None and "Bahar 2026 için" in bell[0].body, bell[0].body
+        assert term_row.code not in bell[0].body
 
     # --- lower rank, proved with the solver on the class's own event and the two real rooms (unlocked, so the
     # solver may choose): the department's C 601 wins over the wished C 301; with no department ask the wish wins

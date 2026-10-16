@@ -45,7 +45,8 @@
     "copy": "Copy", "copied": "Copied", "open": "Open", "back": "Back", "next": "Next", "previous": "Previous",
     "download": "Download", "upload": "Upload", "lock": "Lock", "unlock": "Unlock", "locked": "Locked",
     "today": "Today", "offline": "No connection · retrying…", "forbidden": "You need the PLANNER role to view this page.",
-    "errorId": "Error id"
+    "errorId": "Error id",
+    "closeToast": "Dismiss notification"
   },
   "dashboard": {
     "title": "Dashboard", "subtitle": "{term} · week {week} of {weeks}",
@@ -1900,7 +1901,13 @@
       "searchShort": "Search",
       "tabs": "Tabs",
       "more": "More",
-      "bookings": "Bookings"
+      "bookings": "Bookings",
+      "crumbPeople": "People",
+      "crumbPerson": "Person",
+      "crumbMyHistory": "My history",
+      "crumbRecreate": "Re-solve preview",
+      "crumbConflict": "Conflict",
+      "crumbDetail": "Detail"
     },
     "term": {
       "kind": {
@@ -3155,7 +3162,9 @@
       "noAccount": "No account yet? Ask an administrator.",
       "credentials": "The username, e-mail or password is wrong.",
       "rateLimited": "Too many attempts. Try again in {n, plural, one {# minute} other {# minutes}}.",
-      "offline": "The server cannot be reached. Check the connection and try again."
+      "offline": "The server cannot be reached. Check the connection and try again.",
+      "identifierRequired": "Username or e-mail is required",
+      "passwordRequired": "Password is required"
     },
     "notice": {
       "expired": "Your session expired. Sign in again to return to the page you were on.",
@@ -3187,7 +3196,8 @@
       "inviteMismatch": "It was sent to {invited}; you signed in to Microsoft as {signedIn}.",
       "inviteMismatchPlain": "Sign in to Microsoft with the address the invitation was sent to.",
       "tryAnother": "Try another account",
-      "switchAccount": "Switch account"
+      "switchAccount": "Switch account",
+      "notEnabled": "Sign-in with Microsoft is not switched on for this institution yet."
     },
     "invite": {
       "banner": "{inviter} invited you to SmartSched.",

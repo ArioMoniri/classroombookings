@@ -43,23 +43,34 @@ export function TabBar() {
   const hydrated = useHydrated();
   const morph = reduce ? { duration: 0 } : springs.glassMorph;
   const { can } = usePermissions();
-  // a teacher has no planning tabs: the bookings entries (admin/nav-items) take their place
+  // a teacher has no planning tabs: the bookings entries (admin/nav-items) take their place; a linked academician
+  // (Taleplerim, /moderation/me: hidden from planners) gets it as a tab too (T-R1-06, R1-A-31)
   const planning = TABS.filter((tab) => can(tab.permission));
-  const bookings: Tab[] = ADMIN_NAV_ITEMS.filter((i) => i.href.startsWith("/bookings") || i.href.startsWith("/my-bookings")).filter((i) => can(i.permission)).map((i) => ({ href: i.href, labelKey: i.labelKey, icon: i.icon }));
+  const bookings: Tab[] = ADMIN_NAV_ITEMS.filter((i) => i.href.startsWith("/bookings") || i.href.startsWith("/my-bookings") || i.bookings)
+    .filter((i) => can(i.permission) && !(i.hideWith && can(i.hideWith)))
+    .map((i) => ({ href: i.href, labelKey: i.labelKey, icon: i.icon }));
   const tabs = (planning.length >= 3 ? planning : [...bookings, ...planning]).slice(0, 4);
   const activeHref = tabs.find((tab) => isActive(pathname, search, tab.href))?.href;
+  // on a page that is not a tab (Profil, Boş derslik bul, Kurulum…) "Diğer" is the current item (MOBILE.md M-09)
+  const moreActive = !activeHref;
 
   const item = (key: string, label: string, icon: ReactNode, active: boolean, extra: { href?: string; onClick?: () => void; count?: number; testId?: string }) => {
+    // the badge comes after the label in the DOM (MOBILE.md M-09: innerText starts with the label, T-R1-06);
+    // it is drawn next to the icon with absolute positioning against the item
     const content = (
       <>
         {active ? <motion.span layoutId="tab-pill" aria-hidden className={PILL} style={{ borderRadius: 999 }} transition={morph} /> : null}
         <span aria-hidden className={cn("relative flex [&_svg]:size-5 [&_svg]:stroke-[1.75]", active ? "text-tint-text" : "text-label-2")}>
           {icon}
-          {extra.count ? <span className="absolute -top-1.5 left-[calc(100%-0.5rem)] h-4 min-w-5 rounded-full bg-status-warning px-1 text-center type-caption leading-4 font-semibold text-status-warning-fg tnum">{extra.count > 99 ? "99+" : extra.count}</span> : null}
         </span>
         <span aria-hidden className={cn(LABEL, active ? "font-semibold text-tint-text" : "text-label-2")}>
           {label}
         </span>
+        {extra.count ? (
+          <span aria-hidden className="absolute top-1 left-[calc(50%+0.25rem)] h-4 min-w-5 rounded-full bg-status-warning px-1 text-center type-caption leading-4 font-semibold text-status-warning-fg tnum" data-testid="tab-badge">
+            {extra.count > 99 ? "99+" : extra.count}
+          </span>
+        ) : null}
       </>
     );
     const cls = cn(ITEM, "outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)");
@@ -73,7 +84,7 @@ export function TabBar() {
             {content}
           </Link>
         ) : (
-          <BareButton aria-label={aria} onClick={extra.onClick} className={buttonCls} data-testid={extra.testId}>
+          <BareButton aria-label={aria} aria-current={active ? "page" : undefined} onClick={extra.onClick} className={buttonCls} data-testid={extra.testId}>
             {content}
           </BareButton>
         )}
@@ -89,7 +100,7 @@ export function TabBar() {
         <nav aria-label={t("glass.shell.tabs")} data-glass="chrome" className="glass-chrome pointer-events-auto min-w-0 flex-1 rounded-full p-1 sm:max-w-md sm:flex-none">
           <ul className="grid grid-flow-col auto-cols-fr items-center gap-0.5">
             {tabs.map((tab) => item(tab.href, t(tab.labelKey), <tab.icon />, tab.href === activeHref, { href: tab.href, count: tab.badge ? badges[tab.badge] : undefined, testId: `tab-${navTestId(tab.href)}` }))}
-            {item("more", t("glass.shell.more"), <MoreHorizontal />, false, { onClick: () => setDrawerOpen(true), testId: "open-drawer" })}
+            {item("more", t("glass.shell.more"), <MoreHorizontal />, moreActive, { onClick: () => setDrawerOpen(true), testId: "open-drawer" })}
           </ul>
         </nav>
       </LayoutGroup>

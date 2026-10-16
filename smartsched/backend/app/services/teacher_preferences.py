@@ -114,6 +114,27 @@ def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+_SEASON_TR = {"BAHAR": "Bahar", "GUZ": "Güz", "YAZ": "Yaz", "FINAL": "Final", "BUT": "Bütünleme"}
+
+
+def _term_label(term: Term) -> str:
+    """The term as people say it ("Güz 2026-27", "Bahar 2026"), never the code ("2026-GUZ"): the imported name
+    when it is one, else a Turkish name built from the code's season and year (T-R1-15, R1-A-12)."""
+    name = (term.name or "").strip()
+    code = (term.code or "").strip()
+    if name and n.fold(name).upper() != n.fold(code).upper():
+        return name
+    from app.services.learning import season_of
+
+    season = season_of(term)
+    m = re.search(r"(19|20)\d{2}", code)
+    year = m.group(0) if m else ""
+    word = _SEASON_TR.get(season)
+    if not word or not year:
+        return name or code
+    return f"{word} {year}-{str(int(year) + 1)[-2:]}" if season == "GUZ" else f"{word} {year}"
+
+
 def _label(mr: MeetingRequest) -> str:
     sec = mr.section
     code = sec.course.display_code if sec.course else f"#{sec.course_id}"
@@ -837,7 +858,7 @@ async def _notify(
     text = dict(ref.get("text") or {})
     term = await session.get(Term, row.term_id) if row.term_id else None
     # T-R1-15 (R1-A-12): the term's name ("Güz 2026-27"), not its code ("2026-GUZ")
-    code = (term.name or term.code) if term else ""
+    code = _term_label(term) if term else ""
     if status == "rejected":
         title = f"{what}: tercihiniz kabul edilmedi" if lang == "tr" else f"{what}: your preference was not accepted"
         body = f"{text.get('tr', '')}\nGerekçe: {reason}" if lang == "tr" else f"{text.get('en', '')}\nReason: {reason}"

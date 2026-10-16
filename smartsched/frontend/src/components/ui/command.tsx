@@ -62,7 +62,8 @@ function CommandDialog({
           "top-[16%] translate-y-0 overflow-hidden rounded-3xl! p-0 sm:max-w-xl",
           // phones: the dialog's bottom sheet at its full height (the input stays at the top, above the
           // keyboard, and the sheet does not jump while results filter); the list takes the rest
-          "max-sm:h-[calc(100dvh-3rem)] max-sm:overflow-hidden max-sm:rounded-b-none! max-sm:**:data-[slot=command-list]:max-h-none max-sm:**:data-[slot=command-list]:min-h-0 max-sm:**:data-[slot=command-list]:flex-1",
+          // the dialog body is a column (T-R1-03): the Command fills it and the list takes the rest
+          "max-sm:h-[calc(100dvh-3rem)] max-sm:overflow-hidden max-sm:rounded-b-none! max-sm:**:data-[slot=command]:min-h-0 max-sm:**:data-[slot=command]:flex-1 max-sm:**:data-[slot=command-list]:max-h-none max-sm:**:data-[slot=command-list]:min-h-0 max-sm:**:data-[slot=command-list]:flex-1",
           className
         )}
         showCloseButton={showCloseButton}

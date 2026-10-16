@@ -11,6 +11,7 @@ import { api } from "@/lib/api/endpoints";
 import { useMeFull } from "@/lib/api/shell-extra";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { COARSE_POINTER, useMediaQuery } from "@/components/ui/use-media-query";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
@@ -33,6 +34,8 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
   const hydrated = useHydrated();
   const user = hydrated ? me.data : undefined;
+  // T-R1-06 (R1-A-37): no keyboard-shortcut entry on a touch screen (the menu opens on the client only)
+  const touch = useMediaQuery(COARSE_POINTER);
   // CRBS layout footer: the running version (backend GET /health), so a bug report can name it
   const version = useAppVersion();
   const logout = async () => {
@@ -78,9 +81,11 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
           <DropdownMenuItem onClick={() => router.push("/settings")}>
             <Settings /> {t("nav.settings")}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
-            <Keyboard /> {t("shortcuts.title")}
-          </DropdownMenuItem>
+          {touch ? null : (
+            <DropdownMenuItem onClick={() => setShortcutsOpen(true)} data-testid="user-menu-shortcuts">
+              <Keyboard /> {t("shortcuts.title")}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={() => void logout()} data-testid="logout">

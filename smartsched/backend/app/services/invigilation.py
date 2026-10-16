@@ -423,6 +423,8 @@ class Built:
     people: dict[str, dict[str, Any]]  # person id -> {name, instructor_id, staff_id, kind}
     warnings: list[dict[str, Any]] = field(default_factory=list)
     teaching_runs: list[int] = field(default_factory=list)
+    #: how the pool was built (T-R1-42): the pool rule, the exam list's people and how many matched an instructor
+    pool: dict[str, Any] = field(default_factory=dict)
 
 
 async def _exam_run(session: AsyncSession, run_id: int) -> ScheduleRun:
@@ -798,6 +800,16 @@ async def build_input(
                 else [],
             }
         )
+    pool_info = {
+        "instructor_pool": p["instructor_pool"],
+        "exam_people": found.exam_people,
+        "matched": found.matched,
+        "ambiguous": len(found.ambiguous),
+        "unmatched": len(found.unmatched),
+        "by": dict(found.by),
+        "instructors": len(all_ins),
+        "size": len(people),
+    }
     built = inv.InvigilationInput(
         posts=tuple(posts),
         people=tuple(people),
@@ -811,7 +823,7 @@ async def build_input(
         seed=int(p["seed"]),
         workers=1,  # deterministic, like publish and re-solve
     )
-    return Built(built, exams, rooms, meta, warnings, teaching_runs)
+    return Built(built, exams, rooms, meta, warnings, teaching_runs, pool_info)
 
 
 # ------------------------------------------------------------------------------------------- texts
@@ -1013,6 +1025,7 @@ def plan_brief(plan: InvigilationPlan) -> dict[str, Any]:
         "headline": st.get("headline"),
         "empty": bool(st.get("empty")),
         "empty_reason": st.get("empty_reason"),
+        "pool": st.get("pool"),
         "progress": plan_progress(plan),
     }
 
@@ -1217,6 +1230,7 @@ async def run_plan(session_factory: Any, plan_id: int, progress: Any = None) -> 
             **res.stats,
             "empty": empty,
             "empty_reason": empty_reason,
+            "pool": built.pool,
             "objective_breakdown": res.objective_breakdown,
             "shortfall": res.shortfall,
             "loads": res.loads,

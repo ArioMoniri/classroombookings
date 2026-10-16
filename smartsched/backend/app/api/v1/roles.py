@@ -13,7 +13,9 @@ from app.api.deps import DB, UsersAdmin, require_permission
 from app.api.v1.users import guard_privileged
 from app.core.security import revoke_tokens
 from app.models import Permission, Program, Role, RoomAcl, User, UserConstraint
+from app.schemas import messages
 from app.schemas.crbs import ConstraintsIO, ConstraintValue, RoleIn, RoleOut, RoleUpdate
+from app.schemas.messages import Refusal
 from app.services.bookings_perms import (
     LIMIT_KEYS,
     PERMISSION_NAMES,
@@ -209,20 +211,30 @@ async def import_users(
     await guard_privileged(db, me, default_role)
     if department_id is not None and await db.get(Program, department_id) is None:
         raise HTTPException(422, f"unknown department {department_id}")
-    res = await import_users_csv(
-        db,
-        data,
-        ImportDefaults(
-            password=password or None,
-            role_id=role_id,
-            department_id=department_id,
-            enabled=enabled,
-            force_password_reset=force_password_reset,
-        ),
-        actor=me,
-    )
+    try:
+        res = await import_users_csv(
+            db,
+            data,
+            ImportDefaults(
+                password=password or None,
+                role_id=role_id,
+                department_id=department_id,
+                enabled=enabled,
+                force_password_reset=force_password_reset,
+            ),
+            actor=me,
+        )
+    except Refusal as exc:  # T-R1-33: a header row that names no usable column
+        raise messages.problem(422, exc.code, exc.tr, exc.en) from exc
     await db.commit()
-    return {"created": res.created, "results": res.results}
+    return {
+        "created": res.created,
+        "results": res.results,
+        "summary": res.summary,
+        "summary_tr": res.summary_tr,
+        "summary_en": res.summary_en,
+        "summary_text": messages.pick(me.language, res.summary_tr, res.summary_en),
+    }
 
 
 @router.post("/users/{user_id}/reset-token")

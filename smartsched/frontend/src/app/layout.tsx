@@ -29,6 +29,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   // MOBILE.md M-06: without cover the env(safe-area-inset-*) paddings are 0 on iOS (notch, home indicator)
   viewportFit: "cover",
+  // T-R1-02 (R1-A-03): Chromium Android keeps the layout viewport when the keyboard opens unless told to resize
+  // it; with it, 100dvh shrinks with the keyboard, so a bottom sheet's sticky footer stays above the keys and a
+  // focused field scrolls clear of it (sign-in.md §5.4 asked for it on /login only; every app sheet needs it)
+  interactiveWidget: "resizes-content",
   themeColor: [
     /* --scene (liquid-glass.md §3, §16.6): the browser chrome continues the scene behind the glass */
     { media: "(prefers-color-scheme: light)", color: "#eef0f4" },

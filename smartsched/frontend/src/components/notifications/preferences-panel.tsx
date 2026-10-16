@@ -8,9 +8,13 @@
  *   linked-channels section; e-mail without an address on the account says so), never repeated per event
  *   (identity agent's 390 px pass: the old matrix was ~6,000 px tall on a phone).
  * - Events are grouped (Onaylar, Rezervasyonlar, Program) in collapsible sections, each with an "all on / off"
- *   switch for the group. Inside a group: a matrix of events × reachable channels (rows ≥ 44 px); on a phone with
- *   more than three reachable channels, one card per event instead (MOBILE.md M-02 / M-07). A channel the user
- *   switched off stays as a column, disabled, with "Kanal kapalı".
+ *   switch for the group. Inside a group: a matrix of events × reachable channels (rows ≥ 44 px); below md
+ *   (T-R1-05, R1-A-23) one card per event instead, the channel switches in 44 px label rows, so a phone never
+ *   scrolls a table sideways (MOBILE.md M-02 / M-07). A channel the user switched off stays as a column,
+ *   disabled, with "Kanal kapalı".
+ * - Events only an approver receives (`approval.requested`, approvals.decide) or only a room's designated owner
+ *   receives (`room_owner.*`) are hidden from accounts that cannot receive them (T-R1-05): a teacher's panel has
+ *   no "Onayımı bekleyen yeni oda talepleri" row.
  * - Each switch saves at once (a partial PUT) and confirms with a toast; a failure puts the switch back and says so.
  *
  * Exported for the profile screen (the identity frontend mounts it): `<NotificationPreferencesPanel />`.
@@ -23,6 +27,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
+import { BELOW_MD, useMediaQuery } from "@/components/ui/use-media-query";
+import { usePermissions } from "@/lib/api/shell-extra";
 import { useNotificationPrefs, useSaveNotificationPrefs, type ChannelPref, type EventPref, type NotificationPrefsIn } from "@/lib/api/approval-first";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { pairLang, type MessageKey } from "@/lib/i18n";
@@ -51,6 +57,21 @@ export function eventGroup(event: string): EventGroup {
   return "other";
 }
 
+/** Who can receive an event: approvers (`approval.requested`) and designated room owners (`room_owner.*`) only
+ *  see theirs; every other event reaches any account. */
+export function eventAudience(event: string): "approver" | "room_owner" | "everyone" {
+  if (event === "approval.requested") return "approver";
+  if (event.startsWith("room_owner.")) return "room_owner";
+  return "everyone";
+}
+
+/** The events `me` can receive: approver-only rows need approvals.decide; room-owner rows need rooms they look after
+ *  (approvals.decide too: CRBS designates owners among approvers). */
+export function receivableEvents<T extends { event: string }>(events: readonly T[], can: (perm: string) => boolean): T[] {
+  const approver = can("approvals.decide");
+  return events.filter((e) => eventAudience(e.event) === "everyone" || approver);
+}
+
 /** Events per section, in the backend's order inside a section; empty sections are left out. */
 export function groupEvents<T extends { event: string }>(events: readonly T[]): { group: EventGroup; events: T[] }[] {
   return GROUP_ORDER.map((group) => ({ group, events: events.filter((e) => eventGroup(e.event) === group) })).filter((g) => g.events.length > 0);
@@ -61,6 +82,8 @@ export function NotificationPreferencesPanel({ className }: { className?: string
   const q = useNotificationPrefs();
   const save = useSaveNotificationPrefs();
   const phone = useIsPhone();
+  const compact = useMediaQuery(BELOW_MD);
+  const { can } = usePermissions();
   // the switch shows the new value while the PUT runs; the answer (or the old value on failure) replaces it
   const [pending, setPending] = useState<Pending>({});
   const lang = pairLang(locale);
@@ -96,7 +119,9 @@ export function NotificationPreferencesPanel({ className }: { className?: string
     }
     put(keys, on, { events: body });
   };
-  const cards = phone && reachable.length > 3;
+  // below md: one card per event (no sideways table, T-R1-05); wider: the matrix
+  const cards = compact || (phone && reachable.length > 3);
+  const events = data ? receivableEvents(data.events, can) : [];
 
   return (
     <Card className={className} data-testid="notification-prefs">
@@ -152,7 +177,7 @@ export function NotificationPreferencesPanel({ className }: { className?: string
                 <h3 id="prefs-events" className="type-headline text-label-1">
                   {t("notifications.prefs.events")}
                 </h3>
-                {groupEvents(data.events).map(({ group, events }) => {
+                {groupEvents(events).map(({ group, events }) => {
                   const name = t(GROUP_KEY[group]);
                   const allOn = live.length > 0 && events.every((e) => live.every((c) => cellOn(e, c)));
                   const allId = `pref-group-${group}`;

@@ -9,6 +9,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.importers import normalize as n
+from app.schemas import messages
 from app.schemas.common import ORMModel
 
 LimitInt = int | None
@@ -199,12 +200,21 @@ class OrderIn(BaseModel):
 
 class RoomBookingUpdate(BaseModel):
     room_group_id: int | None = None
+    #: T-R1-34: the capacity is edited where the room is edited (room master data otherwise stays on /rooms)
+    capacity: int | None = None
     owner_user_id: int | None = None
     location: str | None = Field(default=None, max_length=64)
     icon: str | None = Field(default=None, max_length=255)
     notes: str | None = Field(default=None, max_length=255)
     is_bookable: bool | None = None
     display_name: str | None = Field(default=None, max_length=64)
+
+    @field_validator("capacity")
+    @classmethod
+    def _capacity(cls, v: int | None) -> int | None:
+        if v is not None and v < 0:
+            raise messages.coded("capacity_negative", "Kişi sayısı 0 ya da daha büyük olmalı.", "capacity must be 0 or more")
+        return v
 
 
 class RoomAdminOut(BaseModel):
@@ -223,6 +233,11 @@ class RoomAdminOut(BaseModel):
     photo_url: str | None
     pos: int
     fields: dict[str, Any] = Field(default_factory=dict)
+    #: "T 101" for the stored "T101" (T-R1-34: the list, the pickers and the public view read one spelling)
+    code_label: str | None = None
+    building_id: int | None = None
+    building_code: str | None = None
+    building_name: str | None = None
 
 
 class CustomFieldIn(BaseModel):
