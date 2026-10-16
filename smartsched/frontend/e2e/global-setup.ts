@@ -6,6 +6,7 @@
  *   E2E_BOARD_RUN   the imported weekly board of the term (a FEASIBLE COURSE run made by the grid import)
  *   E2E_SOLVER_RUN  the newest finished full-term COURSE run the solver produced (e2e-backend-entry.sh makes one)
  *   AUDIT_RUN       the run report the motion audit measures (defaults to E2E_SOLVER_RUN)
+ *   E2E_EDIT_RUN    the run calendar.spec.ts edits (the seeded "e2e: Bahar 3. hafta (takvim düzenlemeleri)")
  * Values set here are inherited by the test workers.
  */
 import { request } from "@playwright/test";
@@ -50,8 +51,14 @@ export default async function globalSetup(): Promise<void> {
       const solver = [...runs].reverse().find((r) => r.kind === "COURSE" && r.horizon === "TERM" && USABLE.has(r.status) && String(r.id) !== process.env.E2E_BOARD_RUN);
       if (solver) process.env.E2E_SOLVER_RUN = String(solver.id);
     }
+    if (!process.env.E2E_EDIT_RUN) {
+      // the run calendar.spec.ts moves classes in, seeded by e2e-seed-analytics.py (not the full-term run: a move
+      // + undo leaves a run "edited", and edited runs are re-checked against the bookings when published)
+      const edit = runs.find((r) => r.label === "e2e: Bahar 3. hafta (takvim düzenlemeleri)" && USABLE.has(r.status));
+      if (edit) process.env.E2E_EDIT_RUN = String(edit.id);
+    }
     process.env.AUDIT_RUN ??= process.env.E2E_SOLVER_RUN ?? process.env.E2E_BOARD_RUN;
-    console.log(`e2e: backend ${API}, term ${TERM} #${term.id}, board run #${process.env.E2E_BOARD_RUN ?? "?"}, solver run #${process.env.E2E_SOLVER_RUN ?? "?"}, audit run #${process.env.AUDIT_RUN ?? "?"}`);
+    console.log(`e2e: backend ${API}, term ${TERM} #${term.id}, board run #${process.env.E2E_BOARD_RUN ?? "?"}, solver run #${process.env.E2E_SOLVER_RUN ?? "?"}, edit run #${process.env.E2E_EDIT_RUN ?? "?"}, audit run #${process.env.AUDIT_RUN ?? "?"}`);
   } finally {
     await ctx.dispose();
   }

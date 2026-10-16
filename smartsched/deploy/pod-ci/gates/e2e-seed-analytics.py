@@ -8,6 +8,7 @@ on the e2e database, with the labels the spec looks up:
   "Bahar 3. hafta (A)"                                     Bahar week 3, solved like POST /runs, then PUBLISHED
   "Bahar 3. hafta, en yoğun derslik çarşamba kapalı (B)"   week 3 again with A's busiest Wednesday room closed
   "Final (A)"                                              the 2026-FINAL exam run
+and the week-3 run calendar.spec.ts edits ("e2e: Bahar 3. hafta (takvim düzenlemeleri)").
 
     python e2e-seed-analytics.py            (cwd: smartsched/backend; DATABASE_URL as for the CLI)
 
@@ -114,6 +115,11 @@ async def main() -> int:
             raise SystemExit(f"run #{a_id} vanished")
         row.is_active = True
         await s.commit()
+
+    # the run calendar.spec.ts moves classes in (move + undo leaves it "edited", and an edited run is re-checked
+    # against the bookings on publishing): its own run, so the full-term run stays publishable for wave2.spec.ts 1
+    # and reserve.spec.ts 14 whatever ran before them (e2e/global-setup.ts sets E2E_EDIT_RUN from this label)
+    await solve(course(bahar, "e2e: Bahar 3. hafta (takvim düzenlemeleri)"))
 
     final = await term_id("2026-FINAL")
     await solve(
