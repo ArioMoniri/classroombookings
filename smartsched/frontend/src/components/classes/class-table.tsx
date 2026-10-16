@@ -24,6 +24,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { dayName, formatDate, periodRangeLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { aggregate, groupKey, type Density } from "./classes-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 export const ROW_H: Record<Density, number> = { compact: 32, standard: 44, comfortable: 56 };
 const HEADER_H = 36;
@@ -408,10 +409,10 @@ function ClassTableImpl(p: ClassTableProps) {
             {c === "select" ? (
               <Checkbox aria-label={t("classes.col.select")} checked={allSel} onCheckedChange={(v2) => p.onSelection(v2 ? new Set(p.rows.map((r) => r.id)) : new Set())} />
             ) : col?.getCanSort() ? (
-              <button type="button" className="flex items-center gap-1 truncate hover:text-label-1" onClick={(e) => col.toggleSorting(undefined, e.shiftKey)}>
+              <BareButton className="flex items-center gap-1 truncate hover:text-label-1" onClick={(e) => col.toggleSorting(undefined, e.shiftKey)}>
                 {t(HEAD_KEY[c])}
                 {sorted === "asc" ? <ArrowUp className="size-3" aria-hidden /> : sorted === "desc" ? <ArrowDown className="size-3" aria-hidden /> : null}
-              </button>
+              </BareButton>
             ) : (
               <span className="truncate">{t(HEAD_KEY[c])}</span>
             )}
@@ -536,9 +537,9 @@ function ClassTableImpl(p: ClassTableProps) {
       }
       case "lock":
         return r.placement ? (
-          <button type="button" className="rounded-md p-1 text-label-2 hover:bg-fill-2 hover:text-label-1 disabled:opacity-40" aria-label={r.placement.locked ? t("calendar.insp.unlock") : t("calendar.insp.lock")} aria-pressed={r.placement.locked} disabled={p.readOnly} onClick={(e) => { e.stopPropagation(); p.onToggleLock(r); }}>
+          <BareButton className="rounded-md p-1 text-label-2 hover:bg-fill-2 hover:text-label-1 disabled:opacity-40" aria-label={r.placement.locked ? t("calendar.insp.unlock") : t("calendar.insp.lock")} aria-pressed={r.placement.locked} disabled={p.readOnly} onClick={(e) => { e.stopPropagation(); p.onToggleLock(r); }}>
             {r.placement.locked ? <Lock className="size-3.5" /> : <LockOpen className="size-3.5 opacity-40" />}
-          </button>
+          </BareButton>
         ) : null;
       case "changed":
         return r.changed.length ? <span className="flex items-center gap-1" title={r.changed.map((c2) => `${c2.field}: ${String(c2.from)} → ${String(c2.to)}`).join("\n")}><span aria-hidden className="size-1.5 rounded-full bg-[var(--status-warning-solid)]" /><span className="sr-only">{t("classes.col.changed")}</span><span className="truncate type-caption text-label-2">{r.changed.map((c2) => c2.field).join(", ")}</span></span> : null;
@@ -591,8 +592,7 @@ function ClassTableImpl(p: ClassTableProps) {
                 style={{ ...style, width: totalW, paddingLeft: 8 + f.depth * 16 }}
                 data-testid="classes-group"
               >
-                <button
-                  type="button"
+                <BareButton
                   aria-label={open ? t("classes.group.collapse", { name: typeof f.label === "string" ? f.label : f.field }) : t("classes.group.expand", { name: typeof f.label === "string" ? f.label : f.field })}
                   onClick={(e) => {
                     const next = new Set(p.collapsed);
@@ -607,12 +607,12 @@ function ClassTableImpl(p: ClassTableProps) {
                   className="rounded p-0.5 text-label-2 hover:text-label-1"
                 >
                   <ChevronRight className={cn("size-3.5 transition-transform duration-(--dur-fast)", open && "rotate-90")} />
-                </button>
+                </BareButton>
                 <span className={cn("sticky left-10 flex min-w-0 items-center gap-2 truncate", f.depth === 0 ? "type-callout font-semibold" : "type-footnote font-semibold text-label-1")}>{f.label}</span>
                 <span className="sticky right-3 ml-auto shrink-0 type-footnote text-label-2 tabular-nums">
                   {t("classes.group.aggregate", { n: agg.n, s: agg.students.toLocaleString(locale), p: agg.placedPct, i: agg.issues })}
                 </span>
-                <button type="button" className="sr-only focus:not-sr-only focus:type-footnote" onClick={() => p.onSelection(new Set([...p.selection, ...f.leaves.map((x) => x.id)]))}>{t("classes.group.select")}</button>
+                <BareButton className="sr-only focus:not-sr-only focus:type-footnote" onClick={() => p.onSelection(new Set([...p.selection, ...f.leaves.map((x) => x.id)]))}>{t("classes.group.select")}</BareButton>
               </div>
             );
           }

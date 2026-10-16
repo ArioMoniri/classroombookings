@@ -189,7 +189,12 @@ export function readPayload(raw: unknown): Payload {
           enrolment: numOrNull(s.enrolment),
           instructors: arr(s.instructors).filter(Boolean).map((x) => {
             const o = obj(x);
-            return { id: numOrNull(o.id), name: str(o.name) || undefined, title: typeof o.title === "string" ? o.title : null };
+            const ref: InstructorRef = {};
+            const iid = numOrNull(o.id);
+            if (iid !== null) ref.id = iid;
+            if (str(o.name)) ref.name = str(o.name);
+            if (typeof o.title === "string") ref.title = o.title;
+            return ref;
           }),
           joint_section_ids: arr(pick(s, "joint_section_ids", "jointSectionIds")).map(numOrNull).filter((x): x is number => x !== null),
           ...(Object.keys(labels).length ? { joint_labels: labels as SectionP["joint_labels"] } : {}),

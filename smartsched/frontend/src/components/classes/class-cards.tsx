@@ -17,6 +17,7 @@ import { springs, useReduce } from "@/lib/motion";
 import { dayName, periodRangeLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { groupKey } from "./classes-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 const REVEAL = 120;
 
@@ -38,12 +39,12 @@ const Card = memo(function Card({ r, runId, selected, selectMode, onOpen, onTogg
   return (
     <div className="relative overflow-hidden rounded-xl" data-testid="classes-row" data-class-id={r.id}>
       <motion.div aria-hidden style={{ opacity: underlay }} className="absolute inset-0 flex items-stretch justify-between">
-        <button type="button" tabIndex={-1} onClick={() => { onLock(); snap(0); }} className="flex w-[120px] items-center justify-center gap-1.5 bg-[var(--status-locked-solid,#5856d6)] type-callout font-semibold text-white">
+        <BareButton tabIndex={-1} onClick={() => { onLock(); snap(0); }} className="flex w-[120px] items-center justify-center gap-1.5 bg-[var(--status-locked-solid,#5856d6)] type-callout font-semibold text-white">
           {p?.locked ? <LockOpen className="size-4" /> : <Lock className="size-4" />}
           {p?.locked ? t("calendar.insp.unlock") : t("classes.mobile.lock")}
-        </button>
+        </BareButton>
         <span className="flex">
-          <button type="button" tabIndex={-1} onClick={() => { onExplain(); snap(0); }} className="flex w-[60px] flex-col items-center justify-center gap-0.5 bg-fill-1 type-caption font-semibold"><MessageSquareText className="size-4" />{t("classes.mobile.explain")}</button>
+          <BareButton tabIndex={-1} onClick={() => { onExplain(); snap(0); }} className="flex w-[60px] flex-col items-center justify-center gap-0.5 bg-fill-1 type-caption font-semibold"><MessageSquareText className="size-4" />{t("classes.mobile.explain")}</BareButton>
           <Link tabIndex={-1} href={calendarHref(r, runId)} className="flex w-[60px] flex-col items-center justify-center gap-0.5 bg-tint type-caption font-semibold text-tint-foreground"><CalendarDays className="size-4" />{t("classes.mobile.calendar")}</Link>
         </span>
       </motion.div>
@@ -60,7 +61,7 @@ const Card = memo(function Card({ r, runId, selected, selectMode, onOpen, onTogg
           <motion.input initial={reduce ? false : { x: -24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={springs.smooth} type="checkbox" checked={selected} onChange={onToggle} aria-label={`${r.course_code} ${t("classes.col.select")}`} className="mt-1 size-5 accent-(--accent)" />
         ) : null}
         <span aria-hidden className="w-[3px] shrink-0 rounded-full" style={{ background: `var(--fac-${r.faculty_slot}-bar)` }} />
-        <button type="button" onClick={selectMode ? onToggle : onOpen} className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+        <BareButton onClick={selectMode ? onToggle : onOpen} className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
           <span className="flex items-center justify-between gap-2">
             <span className="type-headline font-semibold">{r.course_code}{r.section ? ` §${r.section}` : ""}</span>
             {r.issues.length ? <span className={cn("type-footnote font-medium tabular-nums", hard ? "text-status-infeasible-fg" : "text-status-warning-fg")}>{hard ? "▲" : "•"} {r.issues.length}</span> : null}
@@ -74,7 +75,7 @@ const Card = memo(function Card({ r, runId, selected, selectMode, onOpen, onTogg
             <span className="type-callout text-label-2">{t(`classes.status.${r.placement_status}`)}</span>
           )}
           {p?.locked || r.changed.length ? <span className="type-footnote text-label-2">{[p?.locked ? t("calendar.state.locked") : null, r.changed.length ? t("classes.col.changed") : null].filter(Boolean).join(" · ")}</span> : null}
-        </button>
+        </BareButton>
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("classes.mobile.actions", { code: r.course_code })} />}><Ellipsis /></DropdownMenuTrigger>
           <DropdownMenuContent align="end">

@@ -451,13 +451,15 @@ test("admin gaps 15. the login page shows the organisation's logo, name and logi
 
     await openUserMenu(page);
     await page.getByTestId("logout").click();
-    await page.waitForURL("**/login");
-    await expect(page.getByTestId("login-brand")).toContainText(name);
+    // sign-in.md §6.2: signing out lands on /login?reason=signed_out ("Çıkış yaptınız.")
+    await page.waitForURL(/\/login(\?|$)/);
+    // §4.1: the university's logo leads the brand row; its name moves into the subtitle
+    await expect(page.getByTestId("signin-subtitle")).toContainText(name);
     // the e2e stack has no nginx in front, so /uploads/rooms/* (backend StaticFiles in production) is not served here
-    await expect(page.getByTestId("login-brand").locator("img")).toHaveAttribute("src", /\/uploads\/rooms\/org-logo\./);
+    await expect(page.getByTestId("signin-org-logo")).toHaveAttribute("src", /\/uploads\/rooms\/org-logo\./);
     await expect(page.getByTestId("login-message")).toContainText(`Personel hesabınızla girin (${STAMP}).`);
     await expect(page.getByTestId("forgot-password")).toHaveAttribute("href", "/reset-password");
-    await expect(page.getByTestId("app-version")).toHaveText(/^(Version|Sürüm) \d/);
+    await expect(page.getByTestId("app-version")).toHaveText(/^v\d/);
     await shot(page, "15-login-brand");
   } finally {
     await signIn(page);

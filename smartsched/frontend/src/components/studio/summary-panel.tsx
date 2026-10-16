@@ -8,6 +8,7 @@ import { GenerateButton, KeepSmallToggle, useHumanSummary } from "./generate-ste
 import { RunCard } from "./run-cards";
 import { useStudio, useStudioStore } from "./studio-context";
 import { pairLang } from "@/lib/i18n";
+import { BareButton } from "@/components/shell/bare-button";
 
 /** "What will happen": sentence summary, six mini stats, readiness + top issues, estimate, Generate. */
 export function SummaryPanel({ className, showGenerate = true }: { className?: string; showGenerate?: boolean }) {
@@ -54,10 +55,10 @@ export function SummaryPanel({ className, showGenerate = true }: { className?: s
               const names = i.classes.map((c) => (typeof c.label === "string" ? c.label : null)).filter((x): x is string => !!x);
               return (
                 <li key={i.id}>
-                  <button type="button" className="inline-flex min-h-6 w-full items-baseline gap-1 rounded-sm text-left text-label-2 hover:text-label-1 hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={() => goStep("check")}>
+                  <BareButton className="inline-flex min-h-6 w-full items-baseline gap-1 rounded-sm text-left text-label-2 hover:text-label-1 hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={() => goStep("check")}>
                     <span className="shrink-0">{i.title[pairLang(locale)] || i.title.en}</span>
                     {names.length ? <span className="min-w-0 truncate font-medium text-label-1">· {names.slice(0, 2).join(", ")}{names.length > 2 ? ` +${names.length - 2}` : ""}</span> : null}
-                  </button>
+                  </BareButton>
                 </li>
               );
             })}

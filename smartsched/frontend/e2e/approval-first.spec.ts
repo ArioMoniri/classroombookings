@@ -20,7 +20,7 @@
  *     npx playwright test e2e/approval-first.spec.ts
  */
 import { expect, request as pwRequest, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, login, pickSegment } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, pickSegment } from "./helpers";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 const STAMP = Date.now().toString(36);
@@ -30,7 +30,7 @@ const THURSDAY = "2026-02-19";
 const FRIDAY = "2026-02-20";
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, locale: "tr-TR", timezoneId: "Europe/Istanbul" };
 
-test.describe.configure({ mode: "serial", timeout: 120_000 });
+test.describe.configure({ mode: "serial", timeout: 300_000 });
 test.skip(!REAL, SKIP_REASON);
 
 interface GridSlot {
@@ -88,6 +88,14 @@ async function requestOne(date: string, skip = 0): Promise<Req> {
   const r = await call<{ id: number; status: string }>("POST", "/bookings", { room_id: ctx.room.id, date, period_id: slot!.period_id, term_id: ctx.termId, notes: "Telafi dersi" }, ctx.teacherToken);
   expect(r.status, JSON.stringify(r.body)).toBe(202);
   return (await api<Req[]>("GET", "/approvals/mine", undefined, ctx.teacherToken)).find((x) => x.booking_id === r.body.id)!;
+}
+/** helpers.login with a longer wait: a `next dev` server compiles the landing page on first use */
+async function login(page: Page, identifier: string, password: string): Promise<void> {
+  await page.goto("/login");
+  await page.getByTestId("login-identifier").fill(identifier);
+  await page.getByTestId("login-password").fill(password);
+  await page.getByTestId("login-submit").click();
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 120_000 });
 }
 const noSidewaysScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 async function phonePage(browser: Browser, who: { id: string; password: string }): Promise<Page> {
@@ -184,7 +192,7 @@ test("approval-first 2. a two-period submission opens from the approver link and
   await login(page, ADMIN.username, ADMIN.password);
   await page.goto(notice.link!);
   const drawer = page.getByTestId("approval-drawer");
-  await expect(drawer.getByTestId("approval-group-bar")).toBeVisible();
+  await expect(drawer.getByTestId("approval-group-bar")).toBeVisible({ timeout: 30_000 });
   await drawer.getByTestId("approval-group-reject").click();
   const dialog = page.getByTestId("reject-dialog");
   await expect(dialog).toBeVisible();
@@ -240,6 +248,7 @@ test("approval-first 3. withdraw asks first; the approver sees it under Karara b
   const approver = await (await browser.newContext({ locale: "tr-TR" })).newPage();
   await login(approver, ADMIN.username, ADMIN.password);
   await approver.goto("/approvals");
+  await expect(approver.getByTestId("approvals-list").or(approver.getByTestId("approvals-empty"))).toBeVisible({ timeout: 120_000 });
   await expect(approver.getByTestId(`approval-${req.id}`)).toHaveCount(0);
   await pickSegment(approver, "Karara bağlanan");
   await expect(approver.getByTestId(`approval-${req.id}`)).toContainText("Geri çekildi");

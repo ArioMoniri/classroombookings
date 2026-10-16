@@ -31,6 +31,7 @@ import { StudioProvider, useStudio, useStudioStore } from "./studio-context";
 import { SummaryPanel } from "./summary-panel";
 import type { BuilderPrefill } from "./template-gallery";
 import { GenerateProvider, useGenerate } from "./use-generate";
+import { BareButton } from "@/components/shell/bare-button";
 
 const STEP_KEY: Record<StudioStep, MessageKey> = { scope: "studio.step.scope", classes: "studio.step.classes", rules: "studio.step.rules", check: "studio.step.check", run: "studio.step.run" };
 
@@ -90,9 +91,9 @@ function SaveStatus() {
     return (
       <span className="inline-flex items-center gap-1 text-xs text-status-infeasible-fg" role="status" data-testid="save-status" data-state="error">
         <CloudOff className="size-3" aria-hidden /> {t("studio.save.error")}
-        <button type="button" className="underline" onClick={() => void flush()}>
+        <BareButton className="underline" onClick={() => void flush()}>
           {t("common.retry")}
-        </button>
+        </BareButton>
       </span>
     );
   if (s === "saved")
@@ -309,12 +310,12 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
         <ol className="flex gap-1">
           {STUDIO_STEPS.map((s, i) => (
             <li key={s} className="shrink-0">
-              <button type="button" onClick={() => goStep(s)} aria-current={s === step ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex flex-col rounded-xl bg-fill-3 edge-hairline px-3 py-1.5 text-left text-sm", s === step ? "bg-tint-soft text-tint-text" : "hover:bg-fill-2")} data-testid={`tab-step-${s}`}>
+              <BareButton onClick={() => goStep(s)} aria-current={s === step ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex flex-col rounded-xl bg-fill-3 edge-hairline px-3 py-1.5 text-left text-sm", s === step ? "bg-tint-soft text-tint-text" : "hover:bg-fill-2")} data-testid={`tab-step-${s}`}>
                 <span className="font-medium">
                   {i + 1} {t(STEP_KEY[s])}
                 </span>
                 <span className="max-w-48 truncate type-caption text-label-2">{status[s]}</span>
-              </button>
+              </BareButton>
             </li>
           ))}
         </ol>
@@ -336,7 +337,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
                   const current = s === step;
                   return (
                     <li key={s}>
-                      <button type="button" onClick={() => goStep(s)} aria-current={current ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex min-h-14 w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", current ? "bg-fill-1 text-label-1" : "hover:bg-fill-3")} data-testid={`rail-step-${s}`}>
+                      <BareButton onClick={() => goStep(s)} aria-current={current ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex min-h-14 w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left", current ? "bg-fill-1 text-label-1" : "hover:bg-fill-3")} data-testid={`rail-step-${s}`}>
                         <span className={cn("mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full type-caption font-semibold tabular-nums", current ? "bg-tint text-tint-foreground" : "bg-fill-2 text-label-2")}>{i + 1}</span>
                         <span className="min-w-0">
                           <span className="block text-sm font-medium">{t(STEP_KEY[s])}</span>
@@ -344,7 +345,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
                             {status[s]}
                           </span>
                         </span>
-                      </button>
+                      </BareButton>
                     </li>
                   );
                 })}
@@ -389,10 +390,10 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
 
         <div className="hidden xl:block">
           {collapse ? (
-            <button type="button" onClick={() => setSummaryOpen(true)} className="sticky top-4 flex w-full flex-col items-center gap-2 rounded-lg border py-3 text-xs hover:bg-fill-2 min-[1800px]:hidden" aria-label={t("studio.summary.title")} data-testid="summary-collapsed">
+            <BareButton onClick={() => setSummaryOpen(true)} className="sticky top-4 flex w-full flex-col items-center gap-2 rounded-lg border py-3 text-xs hover:bg-fill-2 min-[1800px]:hidden" aria-label={t("studio.summary.title")} data-testid="summary-collapsed">
               <ChevronLeft className="size-4" aria-hidden />
               <span className="[writing-mode:vertical-rl]">{t("studio.summary.title")}</span>
-            </button>
+            </BareButton>
           ) : null}
           <div className={cn("sticky top-4", collapse && "hidden min-[1800px]:block")}>
             <SummaryPanel />
@@ -407,9 +408,9 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
           <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => goStep(STUDIO_STEPS[index - 1])}>
             <ChevronLeft aria-hidden /> {t("common.back")}
           </Button>
-          <button type="button" onClick={() => setSummaryOpen(true)} className="min-h-(--control-h-sm) min-w-0 flex-1 truncate rounded-full bg-fill-3 px-3 text-left type-footnote focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="summary-pill">
+          <BareButton onClick={() => setSummaryOpen(true)} className="min-h-(--control-h-sm) min-w-0 flex-1 truncate rounded-full bg-fill-3 px-3 text-left type-footnote focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="summary-pill">
             <SummaryPill />
-          </button>
+          </BareButton>
           {step === "run" ? (
             <GenerateButton size="sm" testId="bar-generate" />
           ) : (

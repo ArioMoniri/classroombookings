@@ -63,6 +63,8 @@ const KEYS = [channelKeys.admin, channelKeys.mine];
 export function ChannelsAdmin() {
   const { t, locale } = useI18n();
   const q = useChannelsAdmin();
+  // open cards survive the refetch after a save (the cards are keyed by kind, their forms by updated_at)
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   if (q.isLoading) return <Loading />;
   if (q.isError || !q.data) return <Alert tone="error">{apiProblem(q.error, locale).text ?? t("channels.admin.loadError")}</Alert>;
   return (
@@ -70,7 +72,7 @@ export function ChannelsAdmin() {
       <p className="type-callout text-label-2">{t("channels.admin.lead")}</p>
       {!q.data.public_url ? <Alert tone="warning" title={t("channels.admin.noPublicUrlTitle")}>{t("channels.admin.noPublicUrl")}</Alert> : null}
       {q.data.channels.map((c) => (
-        <ChannelCard key={`${c.kind}-${c.updated_at ?? ""}`} c={c} webhookUrl={q.data.telegram_webhook_url ?? null} />
+        <ChannelCard key={c.kind} c={c} webhookUrl={q.data.telegram_webhook_url ?? null} open={!!open[c.kind]} onToggle={() => setOpen((p) => ({ ...p, [c.kind]: !p[c.kind] }))} />
       ))}
       <DeliveriesLog kinds={q.data.channels.map((c) => c.kind)} />
     </div>
@@ -83,9 +85,8 @@ function missingLabel(name: string, t: ReturnType<typeof useI18n>["t"]): string 
   return t(`channels.admin.field.${name}` as "channels.admin.field.bot_token");
 }
 
-function ChannelCard({ c, webhookUrl }: { c: ChannelConfig; webhookUrl: string | null }) {
+function ChannelCard({ c, webhookUrl, open, onToggle }: { c: ChannelConfig; webhookUrl: string | null; open: boolean; onToggle: () => void }) {
   const { t, locale } = useI18n();
-  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const put = useChannelMutation((body: ChannelConfigIn) => channels.put(c.kind, body), KEYS);
   const save = (body: ChannelConfigIn, ok = t("channels.admin.saved")) => {
@@ -109,13 +110,13 @@ function ChannelCard({ c, webhookUrl }: { c: ChannelConfig; webhookUrl: string |
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {error ? <Alert tone="error">{error}</Alert> : null}
-        <Button type="button" variant="ghost" shape="rect" className="-mx-2 justify-between px-2" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen((o) => !o)} data-testid={`channel-toggle-${c.kind}`}>
+        <Button type="button" variant="ghost" shape="rect" className="-mx-2 justify-between px-2" aria-expanded={open} aria-controls={bodyId} onClick={onToggle} data-testid={`channel-toggle-${c.kind}`}>
           <span>{t("channels.admin.settings")}</span>
           <ChevronDown className={open ? "rotate-180" : undefined} aria-hidden />
         </Button>
         {open ? (
           <div id={bodyId} className="flex flex-col gap-4">
-            {c.link !== "department" || c.kind === "teams" || c.kind === "slack" ? (
+            {(
               <FieldRow label={t("channels.admin.contentMode")} hint={t("channels.admin.contentModeHint")}>
                 <SegmentedControl
                   semantics="radiogroup"
@@ -129,13 +130,13 @@ function ChannelCard({ c, webhookUrl }: { c: ChannelConfig; webhookUrl: string |
                   ]}
                 />
               </FieldRow>
-            ) : null}
-            <CredentialsForm c={c} onSave={save} pending={put.isPending} />
+            )}
+            <CredentialsForm key={c.updated_at ?? "new"} c={c} onSave={save} pending={put.isPending} />
             {c.kind === "webpush" ? <VapidPanel c={c} /> : null}
             {c.kind === "telegram" ? <TelegramPanel c={c} webhookUrl={webhookUrl} /> : null}
             {c.kind === "whatsapp_web" ? <BridgePanel c={c} onAck={(v) => save({ risk_ack: v })} /> : null}
             {c.kind === "teams" || c.kind === "slack" ? <DepartmentTargets kind={c.kind} /> : null}
-            <SignoffPanel c={c} onSave={save} pending={put.isPending} />
+            <SignoffPanel key={c.updated_at ?? "new"} c={c} onSave={save} pending={put.isPending} />
           </div>
         ) : null}
       </CardContent>

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { dateOf, monthGrid, parseIso, weekDayOf, weekTypeKey } from "./model/dates";
 import { countStep, heatStep, weeklyMean, type HeatMetric, type HeatValue } from "./model/heat";
 import type { CalendarModel } from "./model/index-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7];
 
@@ -119,9 +120,8 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
               const metric = bld ? "occupancy" : p.metric;
               const s = metric === "occupancy" ? heatStep(raw) : step(raw);
               return (
-                <button
+                <BareButton
                   key={d}
-                  type="button"
                   role="gridcell"
                   className={cn("cal-heat flex items-center justify-center rounded-[6px] type-caption font-semibold tabular-nums outline-offset-1", brushed && "outline-2 outline-(--accent)", w === p.currentWeek && !bld && "ring-1 ring-(--hairline-strong)")}
                   data-step={s}
@@ -142,7 +142,7 @@ function TermHeatImpl(p: HeatLensProps & { onBrush: (weeks: [number, number] | n
                   }}
                 >
                   {cellW >= 36 ? cellText(metric, raw, t) : null}
-                </button>
+                </BareButton>
               );
             })}
             {bld ? null : (
@@ -275,9 +275,8 @@ function MonthHeatImpl(p: HeatLensProps & { month: string; onMonth: (m: string) 
                 const today = iso === p.todayIso;
                 const kind = pos ? weekTypeKey(p.model.index.weeks.find((x) => x.index === pos.week)?.kind ?? "LECTURE") : "lecture";
                 return (
-                  <button
+                  <BareButton
                     key={iso}
-                    type="button"
                     role="gridcell"
                     aria-current={today ? "date" : undefined}
                     aria-label={inTerm && pos ? `${formatDate(iso, locale, { day: "numeric", month: "long" })}, ${t("calendar.heat.cell", { w: pos.week, date: "", p: Math.round((v?.occupancy ?? 0) * 100), occ: (v?.occupied ?? 0) + (v?.blocked ?? 0), cap: v?.capacity ?? 0, c: v?.conflicts ?? 0 })}` : `${formatDate(iso, locale, { day: "numeric", month: "long" })}, ${t("calendar.heat.outOfTerm")}`}
@@ -297,7 +296,7 @@ function MonthHeatImpl(p: HeatLensProps & { month: string; onMonth: (m: string) 
                         <span className="type-title-2 leading-6 font-semibold tabular-nums">{cellText(p.metric, raw, t)}</span>
                       </span>
                     ) : null}
-                  </button>
+                  </BareButton>
                 );
               })}
             </div>

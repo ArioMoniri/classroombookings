@@ -18,6 +18,7 @@ import { SlotChip, SlotEditor } from "./slot-picker";
 import { useStudio } from "./studio-context";
 import { useRuleActions } from "./use-rule-actions";
 import { pairLang } from "@/lib/i18n";
+import { BareButton } from "@/components/shell/bare-button";
 
 const TOPICS = ["rooms", "times", "buildings", "programmes", "exams"] as const;
 type Topic = (typeof TOPICS)[number];
@@ -62,9 +63,9 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
               {TOPICS.filter((x) => kind === "EXAM" || x !== "exams").map((x) => {
                 const Icon = TOPIC_ICON[x];
                 return (
-                  <button key={x} type="button" role="tab" aria-selected={topic === x} onClick={() => setTopic(x)} className={cn("flex shrink-0 items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm pointer-coarse:min-h-11", topic === x ? "bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")}>
+                  <BareButton key={x} role="tab" aria-selected={topic === x} onClick={() => setTopic(x)} className={cn("flex shrink-0 items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm pointer-coarse:min-h-11", topic === x ? "bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")}>
                     <Icon className="size-4" aria-hidden /> {t(TOPIC_KEY[x])}
-                  </button>
+                  </BareButton>
                 );
               })}
             </div>
@@ -73,13 +74,13 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
                 const Icon = TOPIC_ICON[(tpl.topic as Topic) ?? "rooms"] ?? DoorOpen;
                 return (
                   <li key={tpl.id}>
-                    <button type="button" onClick={() => setChosen(tpl)} className="flex h-full w-full flex-col items-start gap-1.5 rounded-lg border bg-card p-3 text-left hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50" data-testid={`template-${tpl.id}`}>
+                    <BareButton onClick={() => setChosen(tpl)} className="flex h-full w-full flex-col items-start gap-1.5 rounded-lg border bg-card p-3 text-left hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50" data-testid={`template-${tpl.id}`}>
                       <span className="flex items-center gap-2 font-medium">
                         <Icon className="size-4 text-tint-text" aria-hidden /> {tpl.title[pairLang(locale)]}
                       </span>
                       <span className="text-xs text-label-2">{tpl.sentence[pairLang(locale)].replace(/[[\]]/g, "").replace(/\{(\w+)\}/g, "…")}</span>
                       <span className="type-caption text-label-2">{tpl.default_hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
-                    </button>
+                    </BareButton>
                   </li>
                 );
               })}

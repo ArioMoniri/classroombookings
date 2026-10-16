@@ -18,9 +18,10 @@ export const solverRun = () => Number(process.env.E2E_SOLVER_RUN ?? process.env.
 export const FIXTURES = process.env.E2E_FIXTURES_DIR ?? path.resolve(process.cwd(), "../backend/tests/fixtures");
 export const PLANNING_LIST = path.join(FIXTURES, "bahar_derslik_planlama_listesi_v5.xlsx");
 
-/** Sign in through the form; resolves once the app left /login. */
+/** Sign in through the form; resolves once the app left /login. `?method=local` opens the password door when
+ *  Microsoft sign-in is on (sign-in.md §4.2) and is harmless when it is off. */
 export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADMIN_PASSWORD): Promise<void> {
-  await page.goto("/login");
+  await page.goto("/login?method=local");
   await page.getByTestId("login-identifier").fill(identifier);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();

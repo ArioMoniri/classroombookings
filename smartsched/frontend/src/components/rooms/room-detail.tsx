@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { RoomVisual, floorText, nowLine, tagWords } from "./room-card";
 import { freeRuns, heldAt, roomWeek, rowSegments, weekClasses, weekShare, type FreeRun, type RoomCell } from "./room-occupancy";
 import { defaultWeek, useRunNow } from "./use-room-week";
+import { BareButton } from "@/components/shell/bare-button";
 
 
 export function RoomDetail({ id }: { id: number }) {
@@ -196,8 +197,7 @@ export function RoomDetail({ id }: { id: number }) {
                     const on = picked?.day === f.day && picked.sp === f.sp;
                     return (
                       <li key={`${f.day}:${f.sp}`}>
-                        <button
-                          type="button"
+                        <BareButton
                           aria-pressed={on}
                           disabled={!bookingsOn}
                           onClick={() => setPicked(on ? null : f)}
@@ -205,7 +205,7 @@ export function RoomDetail({ id }: { id: number }) {
                         >
                           <span>{dayName(f.day, locale, "short")} {spanText(f.sp, f.ep)}</span>
                           <span className="type-footnote text-label-2">P{f.sp}–P{f.ep}</span>
-                        </button>
+                        </BareButton>
                       </li>
                     );
                   })}
@@ -286,9 +286,8 @@ function WeekGrid({ grid, days, picked, onPick, now }: { grid: RoomCell[][]; day
               const isNow = !!now && now.day === day && now.period === p;
               const label = t("roomsV2.cellFree", { day: dayName(day, locale), p });
               return onPick ? (
-                <button
+                <BareButton
                   key={p}
-                  type="button"
                   role="gridcell"
                   aria-label={label}
                   aria-selected={isPicked}
@@ -359,9 +358,8 @@ function TermStrip({ cells, week, onWeek }: { cells: { week: number | null; day:
         const row = [1, 2, 3, 4, 5, 6, 7].map((d) => at.get(`${w}:${d}`));
         const mean = row.slice(0, 5).reduce((s, c) => s + (c?.occupancy ?? 0), 0) / 5;
         return (
-          <button
+          <BareButton
             key={w}
-            type="button"
             onClick={() => onWeek(w)}
             aria-label={`${t("roomsV2.heatWeek", { w })} · ${t("roomsV2.occupancyShort", { p: Math.round(mean * 100) })}`}
             aria-current={w === week ? "true" : undefined}
@@ -371,7 +369,7 @@ function TermStrip({ cells, week, onWeek }: { cells: { week: number | null; day:
             {row.map((c, i) => (
               <span key={i} title={c ? t("roomsV2.heatCell", { w, day: dayName(i + 1, locale), p: Math.round(c.occupancy * 100) }) : undefined} className="cal-heat h-3.5 rounded-[3px]" data-step={c ? heatStep(c.occupancy) : 0} data-out={c && !c.in_term ? "true" : undefined} />
             ))}
-          </button>
+          </BareButton>
         );
       })}
     </div>

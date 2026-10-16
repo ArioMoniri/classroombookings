@@ -241,11 +241,12 @@ async function openStudio(page: import("@playwright/test").Page, step: string): 
 }
 
 test.describe("studio + calendar polish (real backend)", () => {
+  // sign-in.md §6.1: the placeholder is an example ("ad.soyad"), never the label and never a person-like address
   test("login: the identifier hint is neutral in English and Turkish", async ({ page, baseURL }) => {
     await page.context().clearCookies();
-    for (const [lang, hint] of [["en", "E-mail or username"], ["tr", "E-posta veya kullanıcı adı"]] as const) {
+    for (const [lang, hint] of [["en", "name.surname"], ["tr", "ad.soyad"]] as const) {
       await setLang(page, baseURL, lang);
-      await page.goto("/login");
+      await page.goto("/login?method=local");
       const field = page.getByTestId("login-identifier");
       await expect(field).toHaveAttribute("placeholder", hint);
       expect(await field.getAttribute("placeholder")).not.toMatch(/@/);

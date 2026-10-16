@@ -41,6 +41,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import type { CalBlock, CalBooking, CalEvent, CalendarModel, WeekMask } from "./model/index-model";
 import { roomCap } from "./model/index-model";
 import { nearestValidStart, snapGhost } from "./model/magnet";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface GridColumn {
   key: string;
@@ -950,8 +951,7 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
             <Popover key={st.key}>
               <PopoverTrigger
                 render={
-                  <button
-                    type="button"
+                  <BareButton
                     className={cn("cal-chip items-center justify-center", st.corner && "!flex-row !p-0 !px-1.5 shadow-elev-1")}
                     data-conflict="true"
                     data-testid="conflict-stack"
@@ -968,15 +968,15 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
                 <ul className="grid">
                   {st.items.map((it) => (
                     <li key={it.aid}>
-                      <button type="button" className="flex h-8 w-full items-center rounded-md px-1.5 text-left type-callout hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)" onClick={() => props.onSelectMany([it.aid], false)}>
+                      <BareButton className="flex h-8 w-full items-center rounded-md px-1.5 text-left type-callout hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)" onClick={() => props.onSelectMany([it.aid], false)}>
                         {it.code}
-                      </button>
+                      </BareButton>
                     </li>
                   ))}
                   <li>
-                    <button type="button" className="flex h-8 w-full items-center rounded-md px-1.5 text-left type-footnote font-medium text-tint-text hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)" onClick={() => props.onSelectMany(st.aids, false)}>
+                    <BareButton className="flex h-8 w-full items-center rounded-md px-1.5 text-left type-footnote font-medium text-tint-text hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)" onClick={() => props.onSelectMany(st.aids, false)}>
                       {locale === "tr" ? "Hepsini seç" : "Select all"}
-                    </button>
+                    </BareButton>
                   </li>
                 </ul>
               </PopoverContent>

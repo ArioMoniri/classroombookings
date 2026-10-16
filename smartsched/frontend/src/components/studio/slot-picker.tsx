@@ -12,20 +12,21 @@ import { fold } from "./class-filters";
 import type { AppliesTo, Slot } from "./rule-sentence";
 import { useStudioData } from "./studio-data";
 import { AdaptiveContent, AdaptivePopover, AdaptiveTrigger } from "./adaptive-popover";
+import { BareButton } from "@/components/shell/bare-button";
+import { IconButton } from "@/components/ui/button";
 
 const TAGS = ["TIP", "PC", "LAB", "AMPHI"] as const;
 
 function ToggleChip({ on, onClick, children, label }: { on: boolean; onClick: () => void; children: React.ReactNode; label?: string }) {
   return (
-    <button
-      type="button"
+    <BareButton
       aria-pressed={on}
       aria-label={label}
       onClick={onClick}
       className={cn("min-h-8 rounded-xl bg-fill-3 edge-hairline px-2 text-xs pointer-coarse:min-h-11", on ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")}
     >
       {children}
-    </button>
+    </BareButton>
   );
 }
 
@@ -247,13 +248,13 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
       const set = (x: number) => onChange(Math.max(min, Math.min(max, x)));
       return (
         <div className="flex items-center gap-1">
-          <button type="button" className="inline-flex size-8 items-center justify-center rounded-md border hover:bg-fill-2 pointer-coarse:size-11" aria-label={t("studio.slot.less")} onClick={() => set(n - 1)}>
+          <IconButton variant="outline" shape="rect" label={t("studio.slot.less")} onClick={() => set(n - 1)}>
             <Minus className="size-3.5" aria-hidden />
-          </button>
+          </IconButton>
           <Input type="number" className="w-16 text-center" min={min} max={max} value={n} aria-label={field.name} onChange={(e) => set(Number(e.target.value))} />
-          <button type="button" className="inline-flex size-8 items-center justify-center rounded-md border hover:bg-fill-2 pointer-coarse:size-11" aria-label={t("studio.slot.more")} onClick={() => set(n + 1)}>
+          <IconButton variant="outline" shape="rect" label={t("studio.slot.more")} onClick={() => set(n + 1)}>
             <Plus className="size-3.5" aria-hidden />
-          </button>
+          </IconButton>
         </div>
       );
     }
@@ -305,7 +306,7 @@ export function SlotChip({ slot, onChange, readOnly, uncertain }: { slot: Slot; 
         if (open) setDraft(slot.value);
       }}
     >
-      <AdaptiveTrigger render={<button type="button" className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11")} aria-label={label} data-testid={`slot-${slot.name}`} />}>
+      <AdaptiveTrigger render={<BareButton className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11")} aria-label={label} data-testid={`slot-${slot.name}`} />}>
         <span className="truncate">{slot.display}</span>
       </AdaptiveTrigger>
       <AdaptiveContent className="w-80" title={t(slotNameKey(slot.field.type))}>

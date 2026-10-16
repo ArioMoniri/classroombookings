@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `f4f53da` (committed 2026-10-16 02:00 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `7e0b568` (committed 2026-10-16 02:03 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -219,7 +219,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **155 ticked · 273 open** checkboxes in 55 sections (52 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **155 ticked · 277 open** checkboxes in 56 sections (53 with open items).
 
 <details><summary>Per section</summary>
 
@@ -280,6 +280,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Shell / admin sweep finished (2026-10-16); dedicated UI agents launched | 0 | 4 |
 | Phase 19 backend gaps finished (2026-10-16); Phase 19 UI follow-up launched | 0 | 3 |
 | Design-system overhaul finished (2026-10-16) | 0 | 6 |
+| Importer and comparison follow-ups finished (2026-10-16) | 0 | 4 |
 
 </details>
 

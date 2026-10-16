@@ -14,6 +14,7 @@ import type { HeatValue } from "./model/heat";
 import type { CalBlock, CalEvent, CalendarModel } from "./model/index-model";
 import { visibleRange } from "./model/geometry";
 import type { IndexRoom } from "@/lib/api/calendar";
+import { BareButton } from "@/components/shell/bare-button";
 
 const LABEL_W = 96;
 const HEAD_H = 44;
@@ -103,9 +104,8 @@ function BoardStripImpl(p: BoardStripProps) {
             const h = p.heat.get(`${p.week}:${d}`);
             const pct = Math.round((h?.occupancy ?? 0) * 100);
             return (
-              <button
+              <BareButton
                 key={d}
-                type="button"
                 role="columnheader"
                 onClick={() => p.onPickDay(d)}
                 className={cn("absolute top-0 flex h-full flex-col items-start justify-center overflow-hidden px-2 text-left hover:bg-fill-3", p.todayDay === d && "text-tint-text")}
@@ -120,7 +120,7 @@ function BoardStripImpl(p: BoardStripProps) {
                 ) : (
                   <span className="type-caption text-label-3">{dayName(d, locale, "narrow" as "short")}</span>
                 )}
-              </button>
+              </BareButton>
             );
           })}
         </div>
@@ -130,10 +130,10 @@ function BoardStripImpl(p: BoardStripProps) {
           const evs = byRoom.get(room.id) ?? [];
           return (
             <div key={room.id} role="row" aria-rowindex={idx + 2} className="absolute left-0" style={{ top, width, height: p.rowH, boxShadow: "inset 0 -1px 0 var(--cal-line)" }}>
-              <button type="button" role="rowheader" onClick={() => p.onPickRoom(room.id)} className="cal-canvas sticky left-0 z-10 flex h-full items-center justify-between gap-1 px-2 text-left hover:bg-fill-3" style={{ width: LABEL_W, boxShadow: "inset -1px 0 0 var(--cal-line-strong)" }} aria-label={t("calendar.roomAria", { room: room.name, cap: room.capacity })}>
+              <BareButton role="rowheader" onClick={() => p.onPickRoom(room.id)} className="cal-canvas sticky left-0 z-10 flex h-full items-center justify-between gap-1 px-2 text-left hover:bg-fill-3" style={{ width: LABEL_W, boxShadow: "inset -1px 0 0 var(--cal-line-strong)" }} aria-label={t("calendar.roomAria", { room: room.name, cap: room.capacity })}>
                 <span className="truncate type-footnote font-semibold">{room.name}</span>
                 <span className="type-caption text-label-3 tabular-nums">{p.model.exam ? room.exam_capacity : room.capacity}</span>
-              </button>
+              </BareButton>
               {(blocksByRoom.get(room.id) ?? []).map((b) => (
                 <div key={b.key} className="cal-block" style={{ left: x(b.day, b.sp), width: w(b.day, b.sp, b.ep), top: 2, height: p.rowH - 4, padding: 0 }} aria-hidden />
               ))}
@@ -141,9 +141,8 @@ function BoardStripImpl(p: BoardStripProps) {
                 const bw = w(ev.day, ev.sp, ev.ep);
                 const showCode = p.slotW >= 14 && bw > 30;
                 return (
-                  <button
+                  <BareButton
                     key={ev.key}
-                    type="button"
                     className="cal-chip"
                     data-testid="calendar-event"
                     data-assignment-id={ev.a.id}
@@ -162,7 +161,7 @@ function BoardStripImpl(p: BoardStripProps) {
                     }}
                   >
                     {showCode ? <span className="cal-code truncate type-caption">{ev.a.code ?? ev.a.label}</span> : null}
-                  </button>
+                  </BareButton>
                 );
               })}
             </div>

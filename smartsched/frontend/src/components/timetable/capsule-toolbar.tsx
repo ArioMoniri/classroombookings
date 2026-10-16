@@ -22,6 +22,7 @@ import { fold } from "./model/filters";
 import type { Density } from "./model/geometry";
 import type { CalendarModel } from "./model/index-model";
 import { LENSES, type BoardMode, type Lens, type Subject } from "./model/view-state";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface SubjectOption {
   subject: Subject | null;
@@ -88,9 +89,8 @@ export function SubjectPicker({ model, subject, onSubject, condensed }: { model:
               <div key={g.key} role="group" aria-label={g.label || t("calendar.subject.all")}>
                 {g.label ? <p className="px-2 pt-2 pb-0.5 type-caption font-semibold text-label-3">{g.label}</p> : null}
                 {items.map((o) => (
-                  <button
+                  <BareButton
                     key={`${o.group}:${o.subject?.id ?? "all"}`}
-                    type="button"
                     role="option"
                     aria-selected={o === current}
                     onClick={() => {
@@ -102,7 +102,7 @@ export function SubjectPicker({ model, subject, onSubject, condensed }: { model:
                   >
                     <span className="truncate font-medium">{o.label}</span>
                     <span className="shrink-0 type-caption text-label-2 tabular-nums">{o.sub}</span>
-                  </button>
+                  </BareButton>
                 ))}
               </div>
             );

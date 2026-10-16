@@ -31,6 +31,7 @@ import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { ACTIONABLE, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, recentParts, reserveSpan, slotsFor, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 const STATUS: Record<string, { icon: LucideIcon; cls: string; key: MessageKey }> = {
   free: { icon: CheckCircle2, cls: "bg-status-feasible text-status-feasible-fg", key: "wave1.find.status.free" },
@@ -659,9 +660,9 @@ function RecentSearches({ items, onPick }: { items: Record<string, unknown>[]; o
       <ul className="flex flex-col gap-1" data-testid="fr-recent">
         {items.slice(0, 6).map((body, i) => (
           <li key={i}>
-            <button type="button" onClick={() => onPick(body)} className="w-full truncate rounded-lg px-2 py-1.5 text-left type-callout text-label-1 outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+            <BareButton onClick={() => onPick(body)} className="w-full truncate rounded-lg px-2 py-1.5 text-left type-callout text-label-1 hover:bg-fill-2">
               {label(body)}
-            </button>
+            </BareButton>
           </li>
         ))}
       </ul>

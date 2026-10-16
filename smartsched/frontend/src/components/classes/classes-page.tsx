@@ -41,6 +41,7 @@ import { COLUMN_LABEL, ClassTable, type EditCommit } from "./class-table";
 import { ALL_COLUMNS, SYSTEM_VIEWS, applyFilters, defaultView, normalizeView, parsePastedColumn, parseTokens, sameView, systemPredicate, type SystemView, type ViewState } from "./classes-model";
 import { FilterChips, FilterMenu } from "./filter-bar";
 import { dayName, periodRangeLabel } from "@/lib/time";
+import { BareButton } from "@/components/shell/bare-button";
 
 const LOCAL_VIEWS = "smartsched.classes.views";
 const GROUPS = ["faculty", "program", "day", "room", "building", "instructor", "status", "year"] as const;
@@ -502,12 +503,12 @@ export function ClassesPage() {
             {tabs.map((tab) => {
               const on = tab.id === viewParam;
               return (
-                <button key={tab.id} type="button" role="tab" aria-selected={on} onClick={() => setParam({ view: tab.id === "all" ? null : tab.id, id: null })} className={cn("relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 type-callout font-medium", on ? "text-label-1" : "text-label-2 hover:text-label-1")}>
+                <BareButton key={tab.id} role="tab" aria-selected={on} onClick={() => setParam({ view: tab.id === "all" ? null : tab.id, id: null })} className={cn("relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 type-callout font-medium", on ? "text-label-1" : "text-label-2 hover:text-label-1")}>
                   {on ? <motion.span layoutId="view-pill" transition={reduce ? { duration: 0 } : springs.glassMorph} aria-hidden className="absolute inset-0 -z-10 rounded-full bg-fill-2 edge-hairline" style={{ borderRadius: 999 }} /> : null}
                   {tab.label}
                   {/* no "Tümü 0" while the classes load: a glyph-sized skeleton (review §3 Classes loading) */}
                   {tab.count !== undefined ? <LoadingValue className="type-footnote text-label-2" value={classes.isLoading ? undefined : tab.count} format={(v) => n(v)} chars={3} /> : null}
-                </button>
+                </BareButton>
               );
             })}
           </div>

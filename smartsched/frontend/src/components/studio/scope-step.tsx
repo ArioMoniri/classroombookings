@@ -14,6 +14,7 @@ import { useUiStore } from "@/stores/ui";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useStudio } from "./studio-context";
 import type { Horizon } from "./studio-reducer";
+import { BareButton } from "@/components/shell/bare-button";
 
 function relDays(iso: string | null | undefined, locale: string): string {
   if (!iso) return "";
@@ -141,16 +142,15 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
                   const holiday = w.kind === "HOLIDAY";
                   const on = summary.weeks.includes(w.index);
                   return (
-                    <button
+                    <BareButton
                       key={w.id}
-                      type="button"
                       aria-pressed={on}
                       disabled={holiday}
                       title={holiday ? t("studio.scope.holiday", { label: w.label }) : w.label}
                       aria-label={`${t("glass.studio.weekN", { n: w.index })} ${formatDate(w.start_date, locale)}${holiday ? `, ${t("studio.scope.holiday", { label: w.label })}` : ""}`}
                       onClick={(e) => pickWeek(w.index, e.metaKey || e.ctrlKey || e.shiftKey)}
                       className={cn(
-                        "flex min-w-14 flex-col items-center rounded-xl px-2.5 py-1.5 type-footnote outline-hidden transition-[background-color,color,transform] duration-(--dur-fast) ease-(--spring-snappy) active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus) pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
+                        "flex min-w-14 flex-col items-center rounded-xl px-2.5 py-1.5 type-footnote transition-[background-color,color,transform] duration-(--dur-fast) ease-(--spring-snappy) active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus) pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
                         on ? "bg-tint-soft text-tint-text edge-tint" : "bg-fill-3 text-label-1 edge-hairline hover:bg-fill-2",
                         holiday && "hatch-preoccupied",
                       )}
@@ -158,7 +158,7 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
                     >
                       <span className="font-semibold tabular-nums">{t("glass.studio.weekShort", { n: w.index })}</span>
                       <span className={cn("type-caption", on ? "text-tint-text" : "text-label-3")}>{formatDate(w.start_date, locale, { day: "numeric", month: "short" })}</span>
-                    </button>
+                    </BareButton>
                   );
                 })}
             </div>

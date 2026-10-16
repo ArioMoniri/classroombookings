@@ -35,6 +35,7 @@ import { WriteIt } from "./write-it";
 import type { ProposedConstraint } from "@/lib/api/schemas";
 import type { TrayItem } from "./studio-store";
 import { harmonised } from "@/components/timetable/model/harmonise";
+import { BareButton } from "@/components/shell/bare-button";
 
 type GroupBy = "status" | "topic" | "source";
 const SOURCES = ["FILE", "ADMIN", "AI", "UPLOAD"] as const;
@@ -352,10 +353,10 @@ function RuleGroup({ id, label, count, collapsed, onToggle, children }: { id: st
   return (
     <section aria-labelledby={`grp-${id}`} className="space-y-2" data-testid={`rule-group-${id}`}>
       <h4 id={`grp-${id}`}>
-        <button type="button" onClick={onToggle} aria-expanded={!collapsed} className="flex w-full items-center gap-2 rounded-md py-1 text-sm font-semibold hover:text-primary pointer-coarse:min-h-11">
+        <BareButton onClick={onToggle} aria-expanded={!collapsed} className="flex w-full items-center gap-2 rounded-md py-1 text-sm font-semibold hover:text-primary pointer-coarse:min-h-11">
           <ChevronDown className={cn("size-4 transition-transform duration-[var(--dur-fast)]", collapsed && "-rotate-90")} aria-hidden />
           {label} <span className="font-normal text-label-2">({count})</span>
-        </button>
+        </BareButton>
       </h4>
       {collapsed ? null : children}
     </section>

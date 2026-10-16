@@ -25,6 +25,7 @@ import { dateOf } from "./model/dates";
 import { fold } from "./model/filters";
 import { roomCap, type CalendarModel } from "./model/index-model";
 import type { GridColumn } from "./time-grid";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface CreateRequest {
   column: GridColumn;
@@ -211,10 +212,10 @@ export function QuickCreate({ model, req, week, onClose, onMoveHere }: { model: 
               {candidates.length === 0 ? <li className="px-2 py-1.5 type-footnote text-label-2">{t("calendar.create.noMatch")}</li> : null}
               {candidates.map((c) => (
                 <li key={c.key}>
-                  <button type="button" role="option" aria-selected={picked?.key === c.key} onClick={() => setPicked(c)} className={cn("flex w-full flex-col rounded-lg px-2 py-1 text-left hover:bg-fill-2", picked?.key === c.key && "bg-tint-soft", c.aid === null && "cal-unplaced my-0.5 border-[var(--label-3)]")}>
+                  <BareButton role="option" aria-selected={picked?.key === c.key} onClick={() => setPicked(c)} className={cn("flex w-full flex-col rounded-lg px-2 py-1 text-left hover:bg-fill-2", picked?.key === c.key && "bg-tint-soft", c.aid === null && "cal-unplaced my-0.5 border-[var(--label-3)]")}>
                     <span className="type-callout font-semibold">{c.label}</span>
                     <span className="truncate type-caption text-label-2">{c.sub}</span>
-                  </button>
+                  </BareButton>
                 </li>
               ))}
             </ul>

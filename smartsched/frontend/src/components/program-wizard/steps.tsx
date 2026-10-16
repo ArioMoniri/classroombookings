@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ResponsiveDialog } from "@/components/moderation/responsive-dialog";
 import { usePhone } from "@/components/moderation/use-media";
 import { catalogApi } from "@/lib/api/catalog-admin";
+import { useRooms } from "@/lib/api/hooks";
 import { draftsApi, useInstructorLoads, useInstructorSearch, useRoomsFit, useSectionSearch, type DraftIssue, type DraftPrecheck, type PasteOut, type Validation } from "@/lib/api/program-drafts";
 import type { Room } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
@@ -778,6 +779,8 @@ export function PrecheckPanel({ draftId, result, onResult, onFix, disabled }: { 
   const lang = locale === "tr" ? "tr" : "en";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const rooms = useRooms();
+  const roomName = (id: number, code: string) => rooms.data?.find((r) => r.id === id)?.display_name ?? code;
   const run = async () => {
     setBusy(true);
     setError(null);
@@ -819,7 +822,7 @@ export function PrecheckPanel({ draftId, result, onResult, onFix, disabled }: { 
               <ul className="flex flex-col gap-0.5 type-footnote">
                 {result.rooms_fit.map((f) => (
                   <li key={f.event_id} className={cn(!f.rooms.length && "text-status-infeasible-fg")}>
-                    <span className="font-semibold">{f.label}</span>{f.size !== null ? ` · ${t("programWizard.sections.students", { n: n(f.size) })}` : ""}: {f.rooms.length ? f.rooms.slice(0, 5).map((r) => `${r.code} (${r.capacity ?? "?"})`).join(", ") : t("programWizard.precheck.noRoom")}
+                    <span className="font-semibold">{f.label}</span>{f.size !== null ? ` · ${t("programWizard.sections.students", { n: n(f.size) })}` : ""}: {f.rooms.length ? f.rooms.slice(0, 5).map((r) => `${roomName(r.id, r.code)} (${r.capacity ?? "?"})`).join(", ") : t("programWizard.precheck.noRoom")}
                   </li>
                 ))}
               </ul>

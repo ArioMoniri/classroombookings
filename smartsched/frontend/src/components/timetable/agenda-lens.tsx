@@ -15,6 +15,7 @@ import { spanText } from "./model/check";
 import { dayTitle } from "./model/dates";
 import { periodEndMin, periodStartMin } from "./model/geometry";
 import type { CalEvent, CalendarModel } from "./model/index-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 type Item =
   | { kind: "day"; key: string; day: number; date: string | null }
@@ -123,8 +124,7 @@ function AgendaImpl(p: AgendaProps) {
           const progress = it.now ? Math.min(1, Math.max(0, (p.nowMin - periodStartMin(ev.sp)) / Math.max(1, periodEndMin(ev.ep) - periodStartMin(ev.sp)))) : null;
           return (
             <article key={it.key} style={style} aria-label={`${ev.a.label}, ${room?.name ?? ""}, ${spanText(ev.sp, ev.ep)}`} className="px-3 py-0.5">
-              <button
-                type="button"
+              <BareButton
                 data-testid="calendar-event"
                 data-assignment-id={ev.a.id}
                 onClick={() => {
@@ -151,7 +151,7 @@ function AgendaImpl(p: AgendaProps) {
                 {!p.compact ? <span className="w-24 shrink-0 text-right type-footnote text-label-2 tabular-nums">P{ev.sp}–P{ev.ep}</span> : null}
                 <span className="flex w-4 shrink-0 justify-end">{ev.conflict ? <AlertTriangle className="size-3.5 text-status-infeasible-fg" aria-label={t("calendar.state.conflict")} /> : ev.a.locked ? <Lock className="size-3.5 text-label-2" aria-label={t("calendar.state.locked")} /> : null}</span>
                 {progress !== null ? <span aria-hidden className="absolute bottom-0 left-3 h-px origin-left bg-[var(--now)]" style={{ width: "calc(100% - 24px)", transform: `scaleX(${progress})` }} /> : null}
-              </button>
+              </BareButton>
             </article>
           );
         })}

@@ -1155,3 +1155,23 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
 - [ ] The full smoke studio flow needs the Bahar e2e backend: it hard-codes week 3.
 - [ ] The backend still has one "Şifre" string in `app/`.
 - [ ] Generate visual baselines on the pod CI runner.
+
+### Importer and comparison follow-ups finished (2026-10-16)
+
+- Done:
+  - Exams are never moved. They occupy every period their written time overlaps (`normalize.exam_periods`), and partial cover is reported as info.
+  - Half-period snapping for hand-made meetings (`patterns.start_snap`), with a warning that keeps the written time.
+  - The class-year merge: rows that are identical except for the year become one section. On Bahar, meetings go from 1 524 to 1 511, and one hidden cohort clash becomes visible (MBG 023 vs MBG 408).
+  - The D1 guard in studio copy and presets.
+  - Studio and preset audit; the gap ceiling is 0.
+  - The `normalize.py:450` lint.
+  - Comparison, all four instances: 0 regressions, hard 100. `planner_check` finds 0 violations on runs 7–10. Details in docs/testing/2026-10-08-schedule-vs-planner.md §11.2–§11.3.
+- The orchestrator updated the parity permission count to 37: `bookings.skip_approval` from approval-first is intended.
+- [ ] **Owner decision:** 166 exams start exactly at a period end or in a break, mostly at 10:00. Today the gap minutes claim no period, which avoids false clashes with exams ending at 10:00. Should they claim the previous period instead? That is a small change in `exam_periods`.
+- [ ] The first re-import into a database made before the merge archives the merged-away meetings. It may also re-number a few later same-day meetings.
+- [ ] The full fast suite: 16 failures pass when run alone, so test isolation or ordering leaks. Fix before the stabilisation gate.
+- [ ] Still open from before:
+  - wire the term lock into council commits
+  - adopt a matching hand-made (MAN:) section on import
+  - the wizard's "import as …" button
+  - store `planner_check` in every run's stats

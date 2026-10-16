@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { ParseWarning } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { BareButton } from "@/components/shell/bare-button";
 
 type Severity = ParseWarning["severity"];
 const ORDER: Record<Severity, number> = { error: 0, warning: 1, info: 2 };
@@ -56,10 +57,10 @@ export function ParseWarningsTable({ warnings }: { warnings: readonly ParseWarni
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <div role="group" aria-label={t("import.filterSeverity")} className="flex gap-1">
           {(["all", "error", "warning", "info"] as const).map((s) => (
-            <button key={s} type="button" aria-pressed={severity === s} onClick={() => setSeverity(s)} className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs", severity === s ? "bg-primary text-primary-foreground" : "hover:bg-accent")}>
+            <BareButton key={s} aria-pressed={severity === s} onClick={() => setSeverity(s)} className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs", severity === s ? "bg-primary text-primary-foreground" : "hover:bg-accent")}>
               {s !== "all" ? <SeverityIcon severity={s} className={severity === s ? "text-primary-foreground" : undefined} /> : null}
               {s === "all" ? t("common.all") : t(`import.${s}`)} <span className="tabular-nums opacity-80">{s === "all" ? warnings.length : counts[s]}</span>
-            </button>
+            </BareButton>
           ))}
         </div>
         <Input aria-label={t("common.search")} placeholder={t("common.search")} value={query} onChange={(e) => setQuery(e.target.value)} className="ml-auto w-full sm:w-56" />
@@ -72,10 +73,10 @@ export function ParseWarningsTable({ warnings }: { warnings: readonly ParseWarni
               <TableRow key={hg.id}>
                 {hg.headers.map((h) => (
                   <TableHead key={h.id} aria-sort={h.column.getIsSorted() === "asc" ? "ascending" : h.column.getIsSorted() === "desc" ? "descending" : "none"}>
-                    <button type="button" className="inline-flex items-center gap-1 font-medium" onClick={h.column.getToggleSortingHandler()}>
+                    <BareButton className="inline-flex items-center gap-1 font-medium" onClick={h.column.getToggleSortingHandler()}>
                       {flexRender(h.column.columnDef.header, h.getContext())}
                       <span aria-hidden className="text-muted-foreground">{{ asc: "↑", desc: "↓" }[h.column.getIsSorted() as string] ?? ""}</span>
-                    </button>
+                    </BareButton>
                   </TableHead>
                 ))}
               </TableRow>

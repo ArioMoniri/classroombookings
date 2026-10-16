@@ -100,7 +100,7 @@ describe("program wizard model", () => {
     const p = readPayload({ program: { name: "X", facultyName: "Fen" }, courses: [{ key: "c1", code: "MBG 532", pattern: { theoryBlocks: [3] }, sections: [{ key: "s1", instructors: [null, { id: 4 }] }] }] });
     expect(p.program.faculty_name).toBe("Fen");
     expect(p.courses[0]!.pattern.theory_blocks).toEqual([3]);
-    expect(p.courses[0]!.sections[0]!.instructors).toEqual([{ id: 4, name: undefined, title: null }]);
+    expect(p.courses[0]!.sections[0]!.instructors).toEqual([{ id: 4 }]);
     expect(p.rules.window.enabled).toBe(true);
     expect(readPayload({}).cohorts).toEqual([]);
   });

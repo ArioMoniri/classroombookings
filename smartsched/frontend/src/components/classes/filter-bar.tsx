@@ -18,6 +18,7 @@ import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { fold } from "@/components/timetable/model/filters";
 import { FILTER_FIELDS, activeFields, clearField, facetCounts, type ClassFilters, type FilterField } from "./classes-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 const FIELD_KEY: Record<FilterField, MessageKey> = {
   faculty: "classes.f.faculty", program: "classes.f.program", year: "classes.f.year", instructor: "classes.f.instructor", building: "classes.f.building", room: "classes.f.room", day: "classes.f.day", time: "classes.f.time", mode: "classes.f.mode", status: "classes.f.status", issue: "classes.f.issue", changed: "classes.f.changed", locked: "classes.f.locked",
@@ -191,12 +192,12 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
                   const on = isOn(filters, field, v.k);
                   return (
                     <li key={v.k}>
-                      <button type="button" role="option" aria-selected={on} onClick={() => onChange(toggleValue(filters, field, v.k))} className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2", on && "bg-tint-soft")}>
+                      <BareButton role="option" aria-selected={on} onClick={() => onChange(toggleValue(filters, field, v.k))} className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2", on && "bg-tint-soft")}>
                         <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-[5px] text-2xs", on ? "bg-tint text-tint-foreground" : "edge-hairline-strong")} aria-hidden>{on ? "✓" : ""}</span>
                         {field === "faculty" ? <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--fac-${rows.find((r) => String(r.faculty_id) === v.k)?.faculty_slot ?? 8}-bar)` }} /> : null}
                         <span className="min-w-0 flex-1 truncate">{v.l}</span>
                         <span className="type-caption text-label-3 tabular-nums">{n(v.c)}</span>
-                      </button>
+                      </BareButton>
                     </li>
                   );
                 })}
@@ -211,10 +212,10 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
           <ul className="mt-1" role="menu">
             {fields.map((x) => (
               <li key={x}>
-                <button type="button" role="menuitem" onClick={() => { setField(x); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2">
+                <BareButton role="menuitem" onClick={() => { setField(x); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2">
                   {t(FIELD_KEY[x])}
                   {activeFields(filters).includes(x) ? <span aria-hidden className="size-1.5 rounded-full bg-tint" /> : null}
-                </button>
+                </BareButton>
               </li>
             ))}
           </ul>

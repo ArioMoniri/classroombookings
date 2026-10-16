@@ -8,6 +8,7 @@ import type { DashboardSummary } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 /** Sequential 5-step scale from tokens §2.5; text colour flips at step 4. 0 % / no data is NOT step 1: it is
  *  drawn as `--fill-3` with a dot pattern and a label-3 numeral, so empty days stop weighing like data
@@ -58,7 +59,7 @@ export function UtilisationHeatmap({ data, week }: { data: DashboardSummary; wee
           {[1, 2, 3, 4, 5].map((s) => (
             <span key={s} className="inline-flex items-center gap-1"><span className="size-2.5 rounded-[3px] edge-hairline" style={s === 1 ? undefined : { background: `var(--seq-${s})` }} aria-hidden data-empty={s === 1 || undefined} />{[0, 25, 50, 75, 100][s - 1]}</span>
           ))}
-          <button type="button" aria-pressed={table} className="rounded-full px-2 py-0.5 font-medium text-tint-text hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={() => setTable((v) => !v)}>{table ? t("glass.dashboard.asHeatmap") : t("glass.dashboard.asTable")}</button>
+          <Button variant="ghost" size="xs" aria-pressed={table} className="text-tint-text" onClick={() => setTable((v) => !v)}>{table ? t("glass.dashboard.asHeatmap") : t("glass.dashboard.asTable")}</Button>
         </div>
       </div>
       <div className="overflow-x-auto">

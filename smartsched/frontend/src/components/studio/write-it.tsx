@@ -13,6 +13,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { useStudio, useStudioStore } from "./studio-context";
 import { pairLang } from "@/lib/i18n";
 import { refusedAsDecisions, splitRefused } from "./refused";
+import { BareButton } from "@/components/shell/bare-button";
 
 const CHIPS: MessageKey[] = ["studio.write.chip.tip", "studio.write.chip.evening", "studio.write.chip.sameRoom", "studio.write.chip.fit", "studio.write.chip.pharmacy", "studio.write.chip.nursing", "studio.write.chip.a204", "studio.write.chip.examGap"];
 
@@ -103,9 +104,9 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
       </div>
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label={t("studio.write.suggestions")}>
         {CHIPS.map((k) => (
-          <button key={k} type="button" onClick={() => insert(t(k))} className="shrink-0 rounded-full border bg-background px-2.5 py-1 text-xs hover:bg-fill-2 pointer-coarse:min-h-11">
+          <BareButton key={k} onClick={() => insert(t(k))} className="shrink-0 rounded-full border bg-background px-2.5 py-1 text-xs hover:bg-fill-2 pointer-coarse:min-h-11">
             {t(k)}
-          </button>
+          </BareButton>
         ))}
       </div>
       {keyMissing ? (
@@ -125,15 +126,14 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
               {u.decision ? t("studio.write.decision", { text: u.text, reason: u.reason }) : t("studio.write.unparsed", { text: u.text, reason: u.reason })}{" "}
               <span className="inline-flex flex-wrap gap-2">
                 {/hafta|week/i.test(`${u.text} ${u.reason}`) ? (
-                  <button type="button" className="font-medium underline underline-offset-2" onClick={() => goStep("classes")}>
+                  <BareButton className="font-medium underline underline-offset-2" onClick={() => goStep("classes")}>
                     {t("studio.write.editWeeks")}
-                  </button>
+                  </BareButton>
                 ) : null}
-                <button type="button" className="font-medium underline underline-offset-2" onClick={() => setUnparsed((l) => l.filter((_, j) => j !== i))}>
+                <BareButton className="font-medium underline underline-offset-2" onClick={() => setUnparsed((l) => l.filter((_, j) => j !== i))}>
                   {t("studio.write.keepNote")}
-                </button>
-                <button
-                  type="button"
+                </BareButton>
+                <BareButton
                   className="font-medium underline underline-offset-2"
                   onClick={() => {
                     setText(u.text);
@@ -142,7 +142,7 @@ export function WriteIt({ noKey }: { noKey: boolean }) {
                   }}
                 >
                   {t("studio.write.rephrase")}
-                </button>
+                </BareButton>
               </span>
             </li>
           ))}

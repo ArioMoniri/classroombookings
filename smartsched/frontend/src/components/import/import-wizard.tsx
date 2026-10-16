@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { ParseWarningsTable, countBySeverity } from "./parse-warnings-table";
 import { CrbsUpgrade } from "./crbs-upgrade";
 import { RoomMasterImport, type FlowStep } from "./room-master-import";
+import { BareButton } from "@/components/shell/bare-button";
 
 const KINDS: { kind: ImportKind; icon: LucideIcon; label: MessageKey; desc: MessageKey }[] = [
   { kind: "planning-list", icon: FileSpreadsheet, label: "import.planning", desc: "import.planningDesc" },
@@ -161,14 +162,14 @@ export function ImportWizard() {
             <ul>
               {KINDS.map((k) => (
                 <li key={k.kind} className="[&:not(:last-child)]:hairline-b">
-                  <button type="button" onClick={() => chooseKind(k.kind)} data-testid={`import-kind-${k.kind}`} className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+                  <BareButton onClick={() => chooseKind(k.kind)} data-testid={`import-kind-${k.kind}`} className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left hover:bg-fill-3">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-fill-2 text-label-1"><k.icon className="size-[18px] stroke-[1.75]" aria-hidden /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block type-body font-medium text-label-1">{t(k.label)}</span>
                       <span className="block type-callout text-label-2">{t(k.desc)}</span>
                     </span>
                     <ChevronRight className="size-4 text-label-3" aria-hidden />
-                  </button>
+                  </BareButton>
                 </li>
               ))}
             </ul>

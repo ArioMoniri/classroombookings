@@ -47,9 +47,9 @@ export function DiagnosisCard({ d, section, count = 1, onApply, applying, onChat
                 ))}
               </div>
               {options.length > visible.length ? (
-                <button type="button" onClick={() => setMore(true)} className="mt-1 px-2.5 type-footnote font-medium text-tint-text hover:underline">
+                <Button variant="link" size="sm" onClick={() => setMore(true)} className="mt-1 ml-2.5">
                   {t("glass.report.moreFixes", { n: options.length - visible.length })}
-                </button>
+                </Button>
               ) : null}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {/* secondary: many cards share the region, so none of them is the page's single tint action (A6) */}
@@ -60,10 +60,10 @@ export function DiagnosisCard({ d, section, count = 1, onApply, applying, onChat
               </div>
             </fieldset>
           ) : onChat && section === "unplaced" ? (
-            <button type="button" onClick={onChat} className="mt-1.5 inline-flex items-center gap-1 type-footnote font-medium text-tint-text hover:underline">
+            <Button variant="link" size="sm" onClick={onChat} className="mt-1.5 gap-1">
               <MessageSquare className="size-3.5" aria-hidden /> {t("glass.report.askChat")}
               <ChevronRight className="size-3.5" aria-hidden />
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>

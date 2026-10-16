@@ -12,6 +12,7 @@ import { HardnessControl } from "./hardness-control";
 import { plainSentence, type Token, type WeightScale } from "./rule-sentence";
 import { SlotChip } from "./slot-picker";
 import { SourceChip, type SourceKind } from "./source-chip";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface AffectedInfo {
   count: number | null;
@@ -234,10 +235,10 @@ export function AffectedBadge({ affected, onClick }: { affected?: AffectedInfo; 
     </>
   );
   return onClick ? (
-    <button type="button" onClick={onClick} className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11")}>
+    <BareButton onClick={onClick} className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11")}>
       {body}
       <ChevronRight className="size-3" aria-hidden />
-    </button>
+    </BareButton>
   ) : (
     <span className={cls}>
       {body}

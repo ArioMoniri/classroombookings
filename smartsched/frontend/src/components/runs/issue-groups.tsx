@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { CollapsedDiagnosis } from "./diagnosis-format";
 import { plannerText } from "./diagnosis-format";
+import { BareButton } from "@/components/shell/bare-button";
 
 /** Rule clashes come before data problems; the unplaced group is rendered as fix cards above. */
 const RULE_GROUPS = ["locked_room_overlap", "locked_room_blocked", "shared_room_overflow"];
@@ -31,13 +32,13 @@ function Disclosure({ title, count, hint, children, defaultOpen = false, testId 
   const { n } = useI18n();
   return (
     <section className="[&:not(:last-child)]:hairline-b" data-testid={testId}>
-      <button type="button" aria-expanded={open} aria-controls={`${id}-body`} onClick={() => setOpen((v) => !v)} className="flex w-full items-start gap-2 py-3 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+      <BareButton aria-expanded={open} aria-controls={`${id}-body`} onClick={() => setOpen((v) => !v)} className="flex w-full items-start gap-2 py-3 text-left">
         <ChevronRight className={cn("mt-0.5 size-4 shrink-0 text-label-3 transition-transform duration-(--dur-fast)", open && "rotate-90")} aria-hidden />
         <span className="min-w-0 flex-1">
           <span className="type-callout font-semibold text-label-1">{title}</span> <span className="type-callout text-label-3 tabular-nums">{n(count)}</span>
           {hint ? <span className="mt-0.5 block type-footnote text-label-2">{hint}</span> : null}
         </span>
-      </button>
+      </BareButton>
       {open ? (
         <div id={`${id}-body`} className="pb-3 pl-6">
           {children}

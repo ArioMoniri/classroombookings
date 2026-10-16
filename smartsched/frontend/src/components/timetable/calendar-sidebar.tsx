@@ -22,6 +22,7 @@ import type { HeatValue } from "./model/heat";
 import type { CalendarModel } from "./model/index-model";
 import { harmonised } from "./model/harmonise";
 import { runOptionLabel } from "./model/run-label";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface CalendarSidebarProps {
   model: CalendarModel;
@@ -51,9 +52,9 @@ function Section({ title, onReset, children, count }: { title: string; onReset?:
       <div className="flex items-center justify-between px-1">
         <h3 className="type-caption font-semibold text-label-3">{title}{count ? ` · ${count}` : ""}</h3>
         {onReset ? (
-          <button type="button" onClick={onReset} className="flex items-center gap-1 rounded-full px-1.5 type-caption text-label-2 hover:text-label-1" aria-label={`${t("calendar.sidebar.reset")} ${title}`}>
+          <BareButton onClick={onReset} className="flex items-center gap-1 rounded-full px-1.5 type-caption text-label-2 hover:text-label-1" aria-label={`${t("calendar.sidebar.reset")} ${title}`}>
             <RotateCcw className="size-3" aria-hidden />
-          </button>
+          </BareButton>
         ) : null}
       </div>
       {children}
@@ -108,8 +109,7 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
                   const isSel = pos && pos.week === week && pos.day === day;
                   return (
                     <td key={iso} className="p-0">
-                      <button
-                        type="button"
+                      <BareButton
                         disabled={!inTerm}
                         onClick={() => pos && onPick(pos.week, pos.day)}
                         aria-current={isToday ? "date" : undefined}
@@ -120,7 +120,7 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
                       >
                         {Number(iso.slice(8))}
                         {dot ? <span aria-hidden className={cn("absolute bottom-0.5 rounded-full", isToday ? "bg-tint-foreground" : "bg-label-3")} style={{ width: dot + 1, height: dot + 1 }} /> : null}
-                      </button>
+                      </BareButton>
                     </td>
                   );
                 })}
@@ -191,8 +191,7 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
             const on = f.slots.length === 0 || f.slots.includes(slot);
             return (
               <li key={slot}>
-                <button
-                  type="button"
+                <BareButton
                   aria-pressed={f.slots.includes(slot)}
                   onClick={(e) => set({ slots: e.altKey ? (f.slots.length === 1 && f.slots[0] === slot ? [] : [slot]) : toggle(f.slots, slot) })}
                   className={cn("flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left type-footnote hover:bg-fill-2", !on && "opacity-50")}
@@ -200,7 +199,7 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
                   <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: `var(--fac-${slot}-bar)` }} />
                   <span className="min-w-0 flex-1 truncate" title={names.join(", ")}>{names[0]}{names.length > 1 ? ` +${names.length - 1}` : ""}</span>
                   <span className="type-caption text-label-3 tabular-nums">{p.counts.slots.get(slot) ?? 0}</span>
-                </button>
+                </BareButton>
               </li>
             );
           })}

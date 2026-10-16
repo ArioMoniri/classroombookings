@@ -5,6 +5,7 @@ import { KpiNumber } from "@/components/dashboard/kpi-number";
 import { BarList } from "@/components/ui/bar-list";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const KNOWN = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
 type Known = (typeof KNOWN)[number];
@@ -55,9 +56,9 @@ export function SoftBreakdown({ score, breakdown, weights, className }: { score:
         <BarList className="mt-3" aria-label={t("glass.report.points")} items={rows.map((r) => ({ key: r.kind, label: r.label, value: r.points, display: n(r.points) }))} />
       )}
       {rows.length ? (
-        <button type="button" aria-pressed={table} className="mt-1 inline-flex min-h-6 items-center rounded-full px-2 type-footnote font-medium text-tint-text hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={() => setTable((v) => !v)}>
+        <Button variant="ghost" size="xs" aria-pressed={table} className="mt-1 text-tint-text" onClick={() => setTable((v) => !v)}>
           {table ? t("glass.report.asChart") : t("glass.dashboard.asTable")}
-        </button>
+        </Button>
       ) : null}
     </div>
   );

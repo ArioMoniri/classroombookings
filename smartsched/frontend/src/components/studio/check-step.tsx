@@ -15,6 +15,7 @@ import { estimateWords } from "./studio-reducer";
 import { useStudio } from "./studio-context";
 import { useApplyFix } from "./use-fixes";
 import { pairLang } from "@/lib/i18n";
+import { BareButton } from "@/components/shell/bare-button";
 
 const READY_KEY: Record<Readiness | "unknown" | "checking", MessageKey> = {
   ready: "studio.check.ready",
@@ -190,10 +191,10 @@ export function CheckStep() {
                 return (
                   <section key={g.group} aria-label={g.group} className="space-y-2" data-testid="issue-group">
                     {many || g.items.length > 3 ? (
-                      <button type="button" aria-expanded={shown > 0} onClick={() => setOpen((o) => ({ ...o, [g.group]: shown > 0 ? 0 : Math.min(PAGE, g.items.length) }))} className="flex w-full items-center gap-2 rounded-md border bg-fill-3 px-3 py-2 text-left text-sm hover:bg-fill-2 pointer-coarse:min-h-11">
+                      <BareButton aria-expanded={shown > 0} onClick={() => setOpen((o) => ({ ...o, [g.group]: shown > 0 ? 0 : Math.min(PAGE, g.items.length) }))} className="flex w-full items-center gap-2 rounded-md border bg-fill-3 px-3 py-2 text-left text-sm hover:bg-fill-2 pointer-coarse:min-h-11">
                         <ChevronDown className={cn("size-4 transition-transform", shown === 0 && "-rotate-90")} aria-hidden />
                         <span className="flex-1">{t("studio.check.group", { n: n(g.items.length), cause: groupLabel(g.group, t, head) })}</span>
-                      </button>
+                      </BareButton>
                     ) : null}
                     <ul className="space-y-2">
                       {/* fixed issues leave with a fade (transform / opacity only, siblings reflow by FLIP); > 40 shown: no motion */}

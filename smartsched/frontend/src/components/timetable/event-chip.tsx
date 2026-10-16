@@ -10,6 +10,7 @@ import { memo, type CSSProperties, type KeyboardEvent, type PointerEvent } from 
 import { cn } from "@/lib/utils";
 import { spanText } from "./model/check";
 import type { CalEvent } from "./model/index-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface ChipRect {
   left: number;
@@ -58,8 +59,7 @@ function EventChipImpl(p: EventChipProps) {
     <Circle className="size-2 shrink-0 fill-[var(--status-warning-solid)] stroke-none" aria-hidden />
   ) : null;
   return (
-    <button
-      type="button"
+    <BareButton
       className="cal-chip"
       data-testid="calendar-event"
       data-assignment-id={a.id}
@@ -99,7 +99,7 @@ function EventChipImpl(p: EventChipProps) {
           <span aria-hidden className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize" onPointerDown={(e) => p.onResizeStart?.(e, ev, "end")} />
         </>
       ) : null}
-    </button>
+    </BareButton>
   );
 }
 

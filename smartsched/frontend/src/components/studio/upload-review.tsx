@@ -16,6 +16,7 @@ import { confidenceLevel, provenanceText, ruleTokens } from "./rule-helpers";
 import { plainSentence } from "./rule-sentence";
 import { useStudioData } from "./studio-data";
 import type { TrayItem } from "./studio-store";
+import { BareButton } from "@/components/shell/bare-button";
 
 export type ReviewTab = "all" | "ready" | "look" | "unread";
 
@@ -160,9 +161,9 @@ export function UploadReview({
                       <span className="inline-flex items-center gap-1.5">
                         <Check className="size-3.5" aria-hidden /> {t("studio.review.added")} · {provenanceText(ref, t) ?? it.file}
                         {onUndo ? (
-                          <button type="button" className="ml-2 inline-flex items-center gap-1 underline" onClick={onUndo}>
+                          <BareButton className="ml-2 inline-flex items-center gap-1 underline" onClick={onUndo}>
                             <Undo2 className="size-3" aria-hidden /> {t("common.undo")}
-                          </button>
+                          </BareButton>
                         ) : null}
                       </span>
                     </td>
@@ -180,9 +181,9 @@ export function UploadReview({
                     })} aria-label={t("studio.review.selectRow", { row: String(ref?.row ?? ref?.line ?? ref?.page ?? "") })} />
                   </td>
                   <td className="max-w-40 py-2 pr-2">
-                    <button type="button" className="text-left text-xs break-words text-tint-text underline-offset-2 hover:underline" onClick={() => setSource(it)} data-testid="review-from">
+                    <BareButton className="text-left text-xs break-words text-tint-text underline-offset-2 hover:underline" onClick={() => setSource(it)} data-testid="review-from">
                       {provenanceText(ref, t) ?? it.file}
-                    </button>
+                    </BareButton>
                     <q lang="tr" className="mt-1 line-clamp-2 text-xs break-words text-label-2 2xl:hidden">
                       {quoteOf(it)}
                     </q>

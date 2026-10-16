@@ -24,6 +24,7 @@ import type { HeatMetric, HeatValue } from "./model/heat";
 import { rowHeightFor } from "./model/geometry";
 import type { Lens, Subject } from "./model/view-state";
 import type { useCalendarActions } from "./use-calendar-actions";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface MobileCalendarProps {
   model: CalendarModel;
@@ -117,11 +118,11 @@ export function MobileCalendar(p: MobileCalendarProps) {
               const selected = d === p.day;
               const today = iso === p.now.iso;
               return (
-                <button key={d} type="button" role="tab" aria-selected={selected} onClick={() => p.onDay(d)} className="flex min-h-11 flex-col items-center gap-0.5 py-1" aria-label={`${dayName(d, locale)} ${iso ?? ""}`}>
+                <BareButton key={d} role="tab" aria-selected={selected} onClick={() => p.onDay(d)} className="flex min-h-11 flex-col items-center gap-0.5 py-1" aria-label={`${dayName(d, locale)} ${iso ?? ""}`}>
                   <span className="type-caption font-semibold text-label-3">{dayName(d, locale, "short").slice(0, 1)}</span>
                   <span className={cn("flex size-9 items-center justify-center rounded-full type-headline tabular-nums", selected && "bg-label-1 font-semibold text-(--cal-canvas)", !selected && today && "font-semibold text-[var(--now-strong)]")}>{iso ? Number(iso.slice(8)) : ""}</span>
                   <span aria-hidden className={cn("size-1 rounded-full", occ > 0.75 ? "bg-label-1" : occ > 0.4 ? "bg-label-2" : occ > 0 ? "bg-label-4" : "bg-transparent")} />
-                </button>
+                </BareButton>
               );
             })}
           </div>

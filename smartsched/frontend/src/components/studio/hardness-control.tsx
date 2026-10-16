@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useI18n } from "@/lib/i18n/provider";
 import { DEFAULT_SCALE, importanceOf, type WeightScale } from "./rule-sentence";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { IconButton } from "@/components/ui/button";
 
 const SEEN_KEY = "smartsched.studio.mustHelpSeen";
 
@@ -77,7 +78,7 @@ export function HardnessControl({
         />
         <Popover>
           <PopoverTrigger
-            render={<button type="button" className="inline-flex size-7 items-center justify-center rounded-md text-label-2 hover:bg-fill-2 hover:text-foreground pointer-coarse:size-11" aria-label={t("studio.rule.whatsThis")} />}
+            render={<IconButton size="sm" shape="rect" label={t("studio.rule.whatsThis")} title="" className="text-label-2 hover:text-label-1" />}
           >
             <HelpCircle className="size-3.5" aria-hidden />
           </PopoverTrigger>

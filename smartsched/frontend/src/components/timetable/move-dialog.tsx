@@ -20,6 +20,7 @@ import { FloatingPanel } from "./floating-panel";
 import { checkMove, whenText, type CheckIssue } from "./model/check";
 import { dateOf } from "./model/dates";
 import { maskOf, roomCap, weeksOfMask, type CalEvent, type CalendarModel } from "./model/index-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface ScopeValue {
   scope: MoveScope;
@@ -183,9 +184,8 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
                     <div key={g.key} role="group" aria-label={g.label}>
                       <p className="px-2 pt-2 pb-1 type-caption font-semibold text-label-2">{g.label} · {g.rooms.length}</p>
                       {g.rooms.slice(0, g.key === "free" ? 40 : 12).map((r) => (
-                        <button
+                        <BareButton
                           key={r.room_id}
-                          type="button"
                           role="option"
                           aria-selected={room === r.room_id}
                           data-testid="free-room"
@@ -199,7 +199,7 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
                           <span className="w-16 shrink-0 type-footnote text-label-2 tabular-nums">{t(model.exam ? "calendar.move.examSeats" : "calendar.move.seats", { n: r.capacity })}</span>
                           <span className="min-w-0 flex-1 truncate type-footnote text-label-2">{r.room_id === ev.room ? t("calendar.move.current") : r.status === "free" && r.fit ? t("calendar.move.fit", { p: Math.round(r.fit * 100) }) : (r.reason?.[lang] ?? "")}</span>
                           {room === r.room_id ? <Check className="size-3.5 shrink-0 text-tint-text" aria-hidden /> : null}
-                        </button>
+                        </BareButton>
                       ))}
                     </div>
                   ) : null,

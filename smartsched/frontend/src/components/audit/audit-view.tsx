@@ -24,6 +24,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { ACTION_PREFIXES, auditQuery, canUndo, diffRows, emptyAuditFilters, ENTITY_TYPES, undoReasons, valueText, type AuditFilterForm } from "./audit-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 export function AuditView() {
   const { t, locale } = useI18n();
@@ -204,12 +205,11 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
   return (
     <li className="not-last:edge-hairline-b" data-testid={`audit-event-${e.id}`} data-action={e.action}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
-        <button
-          type="button"
+        <BareButton
           onClick={() => setOpen((x) => !x)}
           aria-expanded={open}
           aria-controls={panel}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left"
         >
           <ChevronDown className={cn("size-4 shrink-0 text-label-3 transition-transform duration-(--dur-fast)", open && "rotate-180")} aria-hidden />
           <span className="min-w-0 flex-1">
@@ -225,7 +225,7 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
               {e.reason ? ` · ${e.reason}` : ""}
             </span>
           </span>
-        </button>
+        </BareButton>
         {canUndo(e) ? (
           <Button size="sm" variant="outline" onClick={onUndo} data-testid={`audit-undo-${e.id}`}>
             <Undo2 aria-hidden />

@@ -29,6 +29,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { plainRuleText } from "./rule-helpers";
 import { useStudio } from "./studio-context";
 import { useClassEdit } from "./use-class-edit";
+import { BareButton } from "@/components/shell/bare-button";
 
 const QUICK_KEY: Record<QuickFilter, MessageKey> = {
   needsRoom: "studio.classes.quick.needsRoom",
@@ -417,9 +418,9 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
 
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label={t("studio.classes.quickTitle")}>
         {QUICK_FILTERS.map((q) => (
-          <button key={q} type="button" aria-pressed={filters.quick === q} onClick={() => set({ quick: filters.quick === q ? null : q })} className={cn("shrink-0 rounded-full border px-2.5 py-1 text-xs pointer-coarse:min-h-11", filters.quick === q ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")} data-testid={`quick-${q}`}>
+          <BareButton key={q} aria-pressed={filters.quick === q} onClick={() => set({ quick: filters.quick === q ? null : q })} className={cn("shrink-0 rounded-full border px-2.5 py-1 text-xs pointer-coarse:min-h-11", filters.quick === q ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")} data-testid={`quick-${q}`}>
             {t(QUICK_KEY[q])} <span className="tabular-nums text-label-2">{n(counts[q])}</span>
-          </button>
+          </BareButton>
         ))}
       </div>
 
@@ -461,9 +462,9 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
       ) : shown.length === 0 ? (
         <div className="rounded-2xl bg-fill-3 edge-hairline p-6 text-center text-sm text-label-2" data-testid="classes-empty">
           {t("studio.classes.empty")}{" "}
-          <button type="button" className="font-medium text-tint-text underline" onClick={() => setFilters(EMPTY_FILTERS)}>
+          <BareButton className="font-medium text-tint-text underline" onClick={() => setFilters(EMPTY_FILTERS)}>
             {t("studio.classes.clear")}
-          </button>
+          </BareButton>
         </div>
       ) : narrow ? (
         <div ref={scroller} className="relative h-[60dvh] overflow-y-auto overscroll-contain rounded-lg border" data-testid="class-cards">

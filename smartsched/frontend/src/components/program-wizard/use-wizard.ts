@@ -99,6 +99,7 @@ export function useWizard(id: number, initial: DraftOut) {
   const running = useRef(false);
   const again = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushRef = useRef<() => Promise<boolean>>(async () => true);
   const readonly = initial.status !== "draft";
 
   const remember = useCallback(() => {
@@ -157,11 +158,14 @@ export function useWizard(id: number, initial: DraftOut) {
       running.current = false;
       if (again.current && ok) {
         if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => void flush(), DEBOUNCE_MS);
+        timer.current = setTimeout(() => void flushRef.current(), DEBOUNCE_MS);
       }
     }
     return ok;
   }, [id, qc, readonly, remember]);
+  useEffect(() => {
+    flushRef.current = flush;
+  }, [flush]);
 
   // resume: unsaved edits of this browser are replayed onto the server's version (rebased when it moved on)
   const resumed = useRef(false);
