@@ -7,7 +7,6 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { PageHeader } from "@/components/common/page-header";
-import { KpiNumber } from "@/components/dashboard/kpi-number";
 import { useRememberRunOnView } from "@/components/shell/workspace";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
@@ -37,7 +36,7 @@ import { RunPolicyLine } from "./relaxation";
 import { ResolveRunButton } from "./resolve-run";
 import { isBaselineRun } from "@/lib/api/council";
 import { PublishRunButton } from "./publish-run";
-import { BROKEN_RULE_TR, runIssueCounts, runTruth, summaryExtras, verdictExceptions, waiverOf, type RunTruth, type VerdictException } from "./run-truth";
+import { BROKEN_RULE_TR, runIssueCounts, runOutcome, runTruth, summaryExtras, verdictExceptions, waiverOf, type RunOutcome, type RunTruth, type VerdictException } from "./run-truth";
 import { useCalendarIndex } from "@/lib/api/calendar";
 
 /** Built-in rule names as the planner says them (the solver's codes are English). */
@@ -110,8 +109,22 @@ function TruthVerdict({ truth }: { truth: RunTruth }) {
 }
 
 /** The status headline: honest for partial runs (amber "660/683 placed · no rule broken", never green 100/100). */
-function Verdict({ r, headline, exceptions = [], truth = null }: { r: ScheduleRun; headline?: string; exceptions?: VerdictException[]; truth?: RunTruth | null }) {
+function Verdict({ r, headline, exceptions = [], truth = null, outcome }: { r: ScheduleRun; headline?: string; exceptions?: VerdictException[]; truth?: RunTruth | null; outcome: RunOutcome }) {
   const { t, n, locale } = useI18n();
+  if (outcome.kind === "cancelled") {
+    // round-1 R1-M-15: a cancelled run is "İptal edildi", by whom and when; it claims nothing about rules or preferences
+    const when = outcome.at ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(outcome.at)) : "";
+    return (
+      <div className="flex items-start gap-2 text-label-1" data-testid="run-verdict" data-state="cancelled">
+        <XOctagon className="mt-1 size-5 shrink-0 stroke-[2] text-label-2" aria-hidden />
+        <div>
+          <p className="type-title-3">{t("glass.report.cancelled")}</p>
+          {outcome.by || when ? <p className="type-callout text-label-2" data-testid="run-cancelled-by">{outcome.by ? t("glass.report.cancelledBy", { who: outcome.by, when }) : t("glass.report.cancelledAt", { when })}</p> : null}
+          <p className="mt-1 type-footnote text-label-2">{t("glass.report.cancelledHint")}</p>
+        </div>
+      </div>
+    );
+  }
   if (truth && truth.verdict !== "none" && WITH_TIMETABLE.has(r.status)) return <TruthVerdict truth={truth} />;
   const partial = partialCounts(r);
   const complete = !partial && (r.status === "FEASIBLE" || r.status === "OPTIMAL");
@@ -194,20 +207,26 @@ export function RunView({ id }: { id: number }) {
   const tab = params.get("tab") ?? "report";
   const run = useRun(id);
   const canPlan = usePermissions().can("planning.edit");
-  const constraints = useConstraints({ run_id: id });
   const applyFix = useApplyFix(id);
   const duration = useDuration();
   const r = run.data;
-  const active = r ? r.status === "QUEUED" || r.status === "RUNNING" : false;
+  const outcome: RunOutcome = r ? runOutcome(r) : { kind: "active" };
+  const active = outcome.kind === "active";
   const finished = Boolean(r) && !active;
+  // a cancelled run has no timetable, scores or problems: the report fetches nothing heavy for it (R1-M-15 / R1-S-28)
+  const reportable = finished && outcome.kind !== "cancelled";
+  // the rules tab lists the run's constraints only once it is opened (lazy, R1-S-28)
+  const constraints = useConstraints(tab === "constraints" && reportable ? { run_id: id } : undefined);
   // every finished run: an imported board has no solver diagnoses but the data checks still find issues (M-08)
-  const issues = useRunDataIssues(id, finished);
-  // the grid's own conflict / capacity flags, so the report and the grid header count the same things (M-07)
-  const index = useCalendarIndex(finished ? id : null);
+  const issues = useRunDataIssues(id, reportable);
   // the term's published run of this kind (the one a publish replaces)
-  const termRuns = useRuns(r ? { term_id: r.term_id } : undefined, { enabled: Boolean(r) && finished });
+  const termRuns = useRuns(r ? { term_id: r.term_id } : undefined, { enabled: Boolean(r) && reportable });
   const publishedId = termRuns.data?.find((x) => x.is_active && x.kind === r?.kind && x.id !== r?.id)?.id ?? null;
-  const summary = useRunSummary(id, finished);
+  const summary = useRunSummary(id, reportable);
+  const truth = r ? runTruth(r.stats_detail ?? r.stats, summary.data as Record<string, unknown> | undefined) : null;
+  // the grid's own conflict / capacity flags (M-07) are only needed when the backend has no truth for this run:
+  // the index is the heaviest fetch of the page (1–3 MB), and the counts it gave changed with the viewport (R1-S-27)
+  const index = useCalendarIndex(reportable && summary.isFetched && !truth ? id : null);
   useRememberRunOnView(r?.term_id, r?.id);
   const [allUnplaced, setAllUnplaced] = useState(false);
   const sections = useMemo(() => (r ? groupDiagnoses(r.diagnosis, locale) : []), [r, locale]);
@@ -222,7 +241,6 @@ export function RunView({ id }: { id: number }) {
   const partial = partialCounts(r);
   // round-1 R1-S-02: a run without a timetable (ERROR, FAILED, INFEASIBLE, CANCELLED) shows no placement totals
   const hasTimetable = WITH_TIMETABLE.has(r.status) || Boolean(partial);
-  const truth = runTruth(r.stats_detail ?? r.stats, summary.data as Record<string, unknown> | undefined);
   const placed = truth?.placed ?? partial?.placed ?? Number(r.stats.placed ?? r.stats.events ?? 0);
   const total = truth?.total ?? partial?.total ?? Number(r.stats.events_total ?? r.stats.events ?? 0);
   const unplaced = truth?.unplaced ?? (partial ? partial.total - partial.placed : Number(r.stats.unplaced ?? 0));
@@ -233,8 +251,9 @@ export function RunView({ id }: { id: number }) {
   const solverProblems = r.diagnosis.filter((d) => d.code !== "partial" && d.code !== "unplaced_summary").length;
   const dataProblems = issues.data ? issues.data.groups.reduce((a, g) => a + g.items.filter((i) => i.severity !== "info").length, 0) : 0;
   const extras = summaryExtras(summary.data as Record<string, unknown> | undefined);
-  // the summary's data-issue count (2026-10-15) is the same definition the headline uses
-  const problems = Math.max(solverProblems, dataProblems, extras.dataIssues ?? 0);
+  // one server-side count per run (R1-S-27): the summary's data-issue count (the headline's definition), else the
+  // data-issues route's own count, else the solver's diagnoses; never what happens to be rendered
+  const problems = extras.dataIssues ?? (issues.data ? dataProblems : solverProblems);
   const exceptions = verdictExceptions({
     waiver: waiverOf(r.stats_detail ?? r.stats, r.diagnosis),
     counts: index.data ? runIssueCounts(index.data.assignments) : { conflicts: 0, overCapacity: 0 },
@@ -298,7 +317,7 @@ export function RunView({ id }: { id: number }) {
           <Card className="gap-0 p-5 sm:p-6" role="region" data-testid="run-hero" aria-label={t("runs.report")}>
             <div className="grid gap-6 @container/hero xl:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
               <div className="min-w-0">
-                <Verdict r={r} headline={headline} exceptions={exceptions} truth={truth} />
+                <Verdict r={r} headline={headline} exceptions={exceptions} truth={truth} outcome={outcome} />
                 {partial ? (
                   <p className="mt-1 type-callout text-label-2" data-testid="partial-hint">
                     {/* "every placed class keeps every rule" only when the truth says so (round-1 R1-M-04) */}
@@ -322,9 +341,10 @@ export function RunView({ id }: { id: number }) {
                     <div key={x.k} className="min-w-0">
                       <dt className="type-footnote text-label-2">{x.k}</dt>
                       <dd className="flex items-baseline type-kpi text-label-1" data-testid={`kpi-${x.k}`}>
-                        {hasTimetable || x.k === t("glass.report.problems") ? (
+                        {/* a static report: plain numbers (the rolling digits exposed "0 1 2 … 9" to assistive tech, R1-M-27) */}
+                        {hasTimetable || (x.k === t("glass.report.problems") && outcome.kind !== "cancelled") ? (
                           <>
-                            <KpiNumber value={x.v} format={(v) => new Intl.NumberFormat(locale).format(v)} />
+                            <span className="tabular-nums">{n(x.v)}</span>
                             {x.suffix ? <span className="type-callout font-normal text-label-2">{x.suffix}</span> : null}
                           </>
                         ) : (
@@ -373,13 +393,18 @@ export function RunView({ id }: { id: number }) {
                 </TabsTrigger>
                 <TabsTrigger value="grid" data-testid="tab-grid">{t("runs.grid")}</TabsTrigger>
                 <TabsTrigger value="constraints">
-                  {t("glass.report.rulesTab")} <span className="text-label-3 tabular-nums">{constraints.data?.length ?? 0}</span>
+                  {t("glass.report.rulesTab")} {constraints.data ? <span className="text-label-3 tabular-nums">{constraints.data.length}</span> : null}
                 </TabsTrigger>
                 <TabsTrigger value="chat" className="xl:hidden">{t("runs.chat")}</TabsTrigger>
               </TabsList>
               </div>
               <TabsContent value="report" keepMounted className="space-y-5 pt-4 data-[hidden]:hidden">
-                {problems === 0 ? (
+                {problems === 0 && !reportable ? (
+                  // a cancelled run: no "İhlal yok" (there is nothing to have violations), just why the list is empty
+                  <Card>
+                    <CardContent className="type-callout text-label-2" data-testid="no-problems-no-timetable">{t("glass.report.noProblemsNoTimetable")}</CardContent>
+                  </Card>
+                ) : problems === 0 && (hasTimetable || isImportBoard(r)) ? (
                   <Card>
                     <CardContent className="flex items-center gap-2 type-callout text-status-feasible-fg">
                       <CheckCircle2 className="size-4" aria-hidden /> {t("runs.noDiagnosis")}
@@ -441,7 +466,7 @@ export function RunView({ id }: { id: number }) {
               <TabsContent value="constraints" className="pt-4">
                 <Card>
                   <CardContent>
-                    {(constraints.data ?? []).length === 0 ? <p className="type-callout text-label-2">{t("glass.report.noRules")}</p> : null}
+                    {constraints.isPending ? <Skeleton className="h-16" /> : (constraints.data ?? []).length === 0 ? <p className="type-callout text-label-2">{t("glass.report.noRules")}</p> : null}
                     <ul>
                       {(constraints.data ?? []).map((c) => (
                         <li key={c.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 py-2 type-callout [&:not(:last-child)]:hairline-b">

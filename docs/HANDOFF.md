@@ -10,8 +10,8 @@ that session's back.
 | What | Value |
 |---|---|
 | Continuation branch | `claude/focused-wright-ktt0ss` (starts as a fast-forward of `gracious-cerf` tip `455f9703`) |
-| Start tag | `handoff/focused-wright-start` (= `455f9703`, the last gracious-cerf commit) |
-| Checkpoint tags | `handoff/focused-wright-<n>` after each lane hand-off, newest = latest safe point |
+| Start point | `455f9703` (the last gracious-cerf commit). Local tag `handoff/focused-wright-start`; the cloud git proxy refuses pushes to `refs/tags/*`, so the tags exist only in that container and **this table is the authoritative list of checkpoints** |
+| Checkpoints (safe points) | 1 = `ced0e02b` lane F2 hand-off (T-R1-42, T-R1-39). Later rows are appended to the progress log below with their SHA |
 | Pod CI / deploy | still polls `claude/gracious-cerf-w1598m` + `claude/smartsched-universal` (`deploy/pod-ci/podci/config.py`); the continuation branch is **not** built by the pod until it is merged back |
 
 **To resume on gracious-cerf when its session is back:** `git fetch origin && git merge --ff-only
