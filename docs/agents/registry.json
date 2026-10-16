@@ -1311,6 +1311,18 @@
       "ledger": "Design migration + mobile sweep",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a0b6ba38de2d3aafa",
+      "description": "Backend test isolation fix",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 02:09",
+      "scope": "",
+      "goal": "1. Run the full fast suite the way the pod CI backend gate runs it (read smartsched/deploy/pod-ci/gates/*.sh and the Makefile to find the exact command and markers; use `--basetemp=$(mktemp -d -p /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad)` and `-p no:cacheprovider`). Record every failure/error. 2. For each one that passes alone, find the leaking sha…",
+      "ledger": "Backend test isolation fix",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

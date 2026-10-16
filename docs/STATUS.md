@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `7e0b568` (committed 2026-10-16 02:03 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `f754a26` (committed 2026-10-16 02:09 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -144,7 +144,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-122 agents in [`docs/agents/registry.json`](agents/registry.json): running 5 · finished 103 · stopped 7 · superseded 7.
+123 agents in [`docs/agents/registry.json`](agents/registry.json): running 6 · finished 103 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -153,6 +153,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Identity frontend` | frontend-engineer | 2026-10-16 01:10 |
 | `Phase 19 UI follow-up` | frontend-engineer | 2026-10-16 01:20 |
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
+| `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 
 <!-- /AUTO:agents -->
 
