@@ -127,5 +127,19 @@
     "pool": {
       "hours": "uren"
     }
+  },
+  "policies": {
+    "day": {
+      "1": "maa",
+      "2": "din",
+      "3": "woe",
+      "4": "don",
+      "5": "vri",
+      "6": "zat",
+      "7": "zon"
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "dag"
   }
 }

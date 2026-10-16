@@ -127,5 +127,19 @@
     "pool": {
       "hours": "Timmar"
     }
+  },
+  "policies": {
+    "day": {
+      "1": "mån",
+      "2": "tis",
+      "3": "ons",
+      "4": "tor",
+      "5": "fre",
+      "6": "lör",
+      "7": "sön"
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "Dag"
   }
 }

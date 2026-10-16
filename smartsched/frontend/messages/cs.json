@@ -127,5 +127,19 @@
     "pool": {
       "hours": "Hodiny"
     }
+  },
+  "policies": {
+    "day": {
+      "1": "Po",
+      "2": "Út",
+      "3": "St",
+      "4": "Čt",
+      "5": "Pá",
+      "6": "So",
+      "7": "Ne"
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "Den"
   }
 }

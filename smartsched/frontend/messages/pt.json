@@ -127,5 +127,19 @@
     "pool": {
       "hours": "Horas"
     }
+  },
+  "policies": {
+    "day": {
+      "1": "Seg",
+      "2": "Ter",
+      "3": "Qua",
+      "4": "Qui",
+      "5": "Sex",
+      "6": "Sáb",
+      "7": "Dom"
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "Dia"
   }
 }

@@ -127,5 +127,19 @@
     "pool": {
       "hours": "tunnit"
     }
+  },
+  "policies": {
+    "day": {
+      "1": "maan.",
+      "2": "tiist.",
+      "3": "desk.",
+      "4": "torst.",
+      "5": "perj.",
+      "6": "lauan.",
+      "7": "sunn."
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "päivää"
   }
 }

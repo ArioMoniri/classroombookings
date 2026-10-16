@@ -127,5 +127,19 @@
     "pool": {
       "hours": "Oriau"
     }
+  },
+  "policies": {
+    "day": {
+      "1": "Llun",
+      "2": "Maw",
+      "3": "Mer",
+      "4": "Iau",
+      "5": "Gwen",
+      "6": "Sad",
+      "7": "Haul"
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "Dydd"
   }
 }

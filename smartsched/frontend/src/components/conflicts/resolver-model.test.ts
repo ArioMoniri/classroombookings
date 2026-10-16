@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ConflictPlan, AutoPlan, type Problem } from "@/lib/api/booking-conflicts";
 import { applyAuto, buildItems, choosableOptions, initialState, problemsByGroup, progress, rowIssue, scopesFor, summarise } from "./resolver-model";
 import { bannerText } from "./conflict-banner";
+import { eventGroup } from "@/components/notifications/preferences-panel";
 
 /** The shape of a real plan on Bahar 2026 (series A 104 Wednesdays P2 against BME 408-1, single D 106 against ING 302-1). */
 const plan = ConflictPlan.parse({
@@ -137,5 +138,9 @@ describe("resolver model", () => {
   it("the banner text drops the backend's trailing call to action", () => {
     expect(bannerText("Yayınlanan programla çakışan 12 rezervasyon (2 seri) · Çöz")).toBe("Yayınlanan programla çakışan 12 rezervasyon (2 seri)");
     expect(bannerText("12 booking(s) clash with the published timetable (2 series)")).toBe("12 booking(s) clash with the published timetable (2 series)");
+  });
+
+  it("the owners' digest event sits under Bookings in the notification preferences", () => {
+    expect(eventGroup("booking.conflict_resolved")).toBe("bookings");
   });
 });
