@@ -261,6 +261,9 @@ The full route list is in smartsched/README.md ("API overview") and the live Ope
   KVKK acknowledgement (`app/ai/policy.py`; both off by default, every change audited). Otherwise the file
   is read on the server and its units are left for a person. Text the planner types is not governed by
   these switches.
+- **Per-person exclusion**: a person who withdrew the `ai_personal` consent is kept out of every later model
+  request (`app/ai/personal.py`, applied in `AIClient` for every prompt builder): their names and e-mail leave as
+  `[KİŞİ_n]` and the server maps the token back in the answer, so a rule about them still resolves.
 - Always load the `claude-api` skill before editing `app/ai/*`.
 
 ## Intake formats (Ingestion Council)

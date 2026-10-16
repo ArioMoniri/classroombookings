@@ -12,7 +12,9 @@
 * **Privacy notices** (aydınlatma metni): versioned per language, published once and never edited; a user who has
   not acknowledged the current version sees it first (``GET /me/privacy`` ``needs_ack``).
 * **Consents**: explicit consent only where it is the legal basis (``sms``, ``photo``, ``calendar_sync``,
-  ``ai_personal``); withdrawing ``sms`` deletes the linked phone numbers at once.
+  ``ai_personal``); a withdrawal takes effect at once (:func:`withdraw`): ``sms`` deletes the linked phone numbers,
+  ``photo`` the stored profile photo, ``calendar_sync`` revokes the feed links and disconnects the push calendars,
+  ``ai_personal`` keeps the person out of every later AI request (``app/ai/personal.py``).
 * **Data-subject requests** (``dsr_requests``): ``export`` is self-service (a zip of JSON + CSV built at download
   time, never stored, for 7 days); ``erase``, ``rectify`` and ``info`` go to the administrators' queue with the
   30-day deadline (Art. 13). Completing an erasure cancels the person's future bookings with a reason, anonymises
@@ -33,8 +35,10 @@ import json
 import logging
 import re
 import secrets
+import shutil
 import zipfile
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import delete, func, or_, select, update
@@ -685,7 +689,65 @@ async def grant(session: AsyncSession, user: User, purpose: str) -> None:
     await audit.record(session, "kvkk.consent_grant", "consent", purpose, after={"user_id": user.id}, actor=user)
 
 
-async def withdraw(session: AsyncSession, user: User, purpose: str) -> dict[str, int]:
+def profile_photo_dir() -> Path:
+    """Where a person's profile photo lives (``<upload_dir>/users/<user_id>.<ext>`` or ``<user_id>/``). SmartSched has
+    no profile-photo upload yet; anything that adds one stores the file here, gated by the ``photo`` consent, and
+    serves it only through an authenticated route (the public ``/uploads`` mount serves room photos only)."""
+    return Path(get_settings().upload_dir) / "users"
+
+
+def delete_profile_photo(user_id: int) -> int:
+    """Delete every stored profile-photo file of ``user_id``; the number of files removed."""
+    base = profile_photo_dir()
+    if not base.is_dir():
+        return 0
+    removed = 0
+    for path in [*base.glob(f"{int(user_id)}.*"), base / str(int(user_id))]:
+        if path.is_file():
+            path.unlink(missing_ok=True)
+            removed += 1
+        elif path.is_dir():
+            files = [f for f in path.rglob("*") if f.is_file()]
+            removed += len(files)
+            shutil.rmtree(path, ignore_errors=True)
+    return removed
+
+
+def _effect(code: str, count: int | None, en: str, tr: str) -> dict[str, Any]:
+    return {"code": code, "count": count, "message_en": en, "message_tr": tr}
+
+
+async def _withdraw_calendar_sync(session: AsyncSession, user: User) -> tuple[int, int]:
+    """Revoke every calendar feed link of ``user`` and disconnect every Google / Microsoft push connection (the
+    events SmartSched put into that calendar are removed and the grant is revoked at the provider, in the
+    background; ``calendar_connectors.disconnect``). Pending OAuth starts are dropped too."""
+    from app.services import calendar_connectors as conn_svc
+
+    feeds = await _count_delete(session, delete(CalendarFeedToken).where(CalendarFeedToken.user_id == user.id))
+    conns = list(
+        (
+            await session.execute(
+                select(CalendarConnection).where(CalendarConnection.user_id == user.id).order_by(CalendarConnection.id)
+            )
+        ).scalars()
+    )
+    for conn in conns:
+        await conn_svc.disconnect(session, conn)
+    await _count_delete(session, delete(OAuthState).where(OAuthState.user_id == user.id))
+    return feeds, len(conns)
+
+
+async def withdraw(session: AsyncSession, user: User, purpose: str) -> dict[str, Any]:
+    """Withdraw a consent and apply what it means at once (backend asks batch 3 item 5):
+
+    * ``sms`` -- the linked phone numbers (SMS / WhatsApp) and pending link codes are deleted;
+    * ``photo`` -- the stored profile photo files are deleted (:func:`delete_profile_photo`);
+    * ``calendar_sync`` -- every calendar feed link is revoked and every push connection disconnected;
+    * ``ai_personal`` -- the person is kept out of every later AI request (``app/ai/personal.py``).
+
+    Answers the counts (``removed_channels``, ``removed_photo``, ``revoked_feeds``, ``disconnected_calendars``, all
+    present, 0 when not concerned), ``ai_excluded`` and ``effects`` (one TR/EN sentence per consequence); one
+    ``kvkk.consent_withdraw`` audit event carries the same counts. Withdrawing twice is harmless."""
     if purpose not in PURPOSES:
         raise KvkkError(404, "purpose", "unknown consent purpose", "bilinmeyen rıza amacı")
     now = utcnow()
@@ -696,22 +758,84 @@ async def withdraw(session: AsyncSession, user: User, purpose: str) -> dict[str,
             )
         )
     ).scalars()
+    was_granted = False
     for r in rows:
-        r.withdrawn_at = now
-    removed = 0
+        r.withdrawn_at, was_granted = now, True
+    if not was_granted and purpose == "ai_personal":
+        # the per-person switch is the latest consent row: record the withdrawal even without an earlier grant
+        session.add(Consent(user_id=user.id, purpose=purpose, granted_at=now, withdrawn_at=now))
+    counts = {"removed_channels": 0, "removed_photo": 0, "revoked_feeds": 0, "disconnected_calendars": 0}
+    effects: list[dict[str, Any]] = []
     if purpose == "sms":  # the phone number goes at once (spec §4.7 edge case)
-        removed = await _count_delete(
+        counts["removed_channels"] = await _count_delete(
             session, delete(UserChannel).where(UserChannel.user_id == user.id, UserChannel.kind.in_(PHONE_CHANNELS))
         )
         await _count_delete(
             session,
             delete(ChannelLinkCode).where(ChannelLinkCode.user_id == user.id, ChannelLinkCode.kind.in_(PHONE_CHANNELS)),
         )
+        k = counts["removed_channels"]
+        effects.append(
+            _effect("phones_deleted", k, f"{k} linked phone number(s) deleted", f"bağlı {k} telefon numarası silindi")
+            if k
+            else _effect("phones_none", 0, "no phone number was linked", "bağlı telefon numarası yoktu")
+        )
+    elif purpose == "photo":
+        k = counts["removed_photo"] = delete_profile_photo(user.id)
+        effects.append(
+            _effect("photo_deleted", k, "your profile photo was deleted", "profil fotoğrafınız silindi")
+            if k
+            else _effect("photo_none", 0, "no profile photo was stored", "kayıtlı profil fotoğrafı yoktu")
+        )
+    elif purpose == "calendar_sync":
+        feeds, conns = await _withdraw_calendar_sync(session, user)
+        counts["revoked_feeds"], counts["disconnected_calendars"] = feeds, conns
+        if feeds:
+            effects.append(
+                _effect(
+                    "feeds_revoked",
+                    feeds,
+                    f"{feeds} calendar subscription link(s) revoked; calendars using them stop updating",
+                    f"{feeds} takvim abonelik bağlantısı iptal edildi; bunları kullanan takvimler artık güncellenmez",
+                )
+            )
+        if conns:
+            effects.append(
+                _effect(
+                    "calendars_disconnected",
+                    conns,
+                    f"{conns} Google / Microsoft calendar connection(s) removed; the bookings SmartSched added there "
+                    "are being deleted",
+                    f"{conns} Google / Microsoft takvim bağlantısı kaldırıldı; SmartSched'in oraya eklediği "
+                    "rezervasyonlar siliniyor",
+                )
+            )
+        if not effects:
+            effects.append(
+                _effect("calendar_none", 0, "no calendar link or connection existed", "takvim bağlantısı yoktu")
+            )
+    elif purpose == "ai_personal":
+        effects.append(
+            _effect(
+                "ai_excluded",
+                None,
+                "from now on your name and e-mail are replaced by a placeholder before anything is sent to the AI "
+                "assistant",
+                "bundan sonra yapay zekâ asistanına gönderilen her şeyde adınız ve e-postanız yer tutucuyla "
+                "değiştirilir",
+            )
+        )
+    ai_excluded = purpose == "ai_personal"
     await session.flush()
     await audit.record(
-        session, "kvkk.consent_withdraw", "consent", purpose, after={"user_id": user.id, "removed": removed}, actor=user
+        session,
+        "kvkk.consent_withdraw",
+        "consent",
+        purpose,
+        after={"user_id": user.id, "removed": counts["removed_channels"], **counts, "ai_excluded": ai_excluded},
+        actor=user,
     )
-    return {"removed_channels": removed}
+    return {**counts, "ai_excluded": ai_excluded, "effects": effects}
 
 
 # --------------------------------------------------------------------------------------------------
@@ -1238,6 +1362,7 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
         ("room_acl", delete(RoomAcl).where(RoomAcl.context_type == "user", RoomAcl.context_id == uid)),
     ):
         counts[name] = await _count_delete(session, stmt)
+    counts["profile_photo"] = delete_profile_photo(uid)
     await session.execute(update(Room).where(Room.owner_user_id == uid).values(owner_user_id=None))
     # 4. learned observations of the person (and of their instructor record), then the link
     ins = (await session.execute(select(Instructor).where(Instructor.user_id == uid))).scalars().first()

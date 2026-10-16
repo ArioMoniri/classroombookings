@@ -21,6 +21,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.personal import Redactor, load_redactor
 from app.core.security import redact_keys
 from app.services import settings_service as ss
 
@@ -196,6 +197,9 @@ class AIClient:
         self.use_fallbacks = use_fallbacks and self.model in FALLBACK_MODELS
         self.usage = UsageTracker(self.model)
         self._key_fingerprint = f"...{api_key[-4:]}" if len(api_key) >= 8 else "***"
+        #: people who withdrew the ``ai_personal`` consent (``app/ai/personal.py``; set by :func:`get_client`):
+        #: their names leave as ``[KİŞİ_n]`` and come back as names in the answer
+        self.redactor: Redactor | None = None
         if raw is not None:
             self._raw = raw
         else:
@@ -289,6 +293,8 @@ class AIClient:
         model: str | None,
         eager: bool = False,
     ) -> dict[str, Any]:
+        if self.redactor:
+            system, messages = self.redactor.payload(system), self.redactor.payload(messages)
         kwargs: dict[str, Any] = {
             "model": model or self.model,
             "max_tokens": max_tokens,
@@ -343,6 +349,8 @@ class AIClient:
         if getattr(message, "stop_reason", None) == "refusal":
             details = getattr(message, "stop_details", None)
             raise AIRefusal(getattr(details, "category", None), getattr(details, "explanation", None))
+        if self.redactor:
+            self.redactor.restore_message(message)
         log.debug("ai response stop=%s blocks=%d", getattr(message, "stop_reason", None), len(message.content))
         return message
 
@@ -424,7 +432,9 @@ async def get_client(
     key, chosen, _ = await resolve_key_and_model(session, api_key=api_key, model=model)
     if not key:
         raise AIConfigError("no Anthropic API key configured; set it under Settings > AI")
-    return AIClient(key, chosen, **kwargs)
+    client = AIClient(key, chosen, **kwargs)
+    client.redactor = await load_redactor(session)  # KVKK ai_personal withdrawals (app/ai/personal.py)
+    return client
 
 
 async def test_connection(api_key: str, model: str | None = None) -> tuple[bool, str]:
