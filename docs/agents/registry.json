@@ -1359,7 +1359,8 @@
       "goal": "RESUME after a container restart. A previous agent with your ledger id started this task at about 00:55 UTC and was killed at ~02:10 UTC; its uncommitted work was checkpointed into origin (wip commits). First: `git log --since=2026-10-16T00:50 --stat --format='%h %s' -- smartsched/frontend/src/compo…",
       "ledger": "RESUME approval-first UI",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 03:01"
     },
     {
       "id": "a2879b3c0ac28e54e",
