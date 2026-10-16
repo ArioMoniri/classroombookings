@@ -21,12 +21,14 @@ audited (``invigilation.*`` / ``invigilator.*`` actions).
 
 from __future__ import annotations
 
+import asyncio
 import csv
+import functools
 import io
 import logging
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
@@ -105,6 +107,13 @@ def _ints(values: Iterable[Any] | None) -> list[int]:
 
 def person_keys(text: str | None) -> list[tuple[str, str]]:
     """(canonical name, display name) of every person in an exam list's instructor cell (non-person text skipped)."""
+    return list(_person_keys(text))
+
+
+@functools.lru_cache(maxsize=8192)
+def _person_keys(text: str | None) -> tuple[tuple[str, str], ...]:
+    # pure function of the cell text; the Turkish name normalisation is the costly part of building a plan's input
+    # (~0.6 s for the Final's 926 exam rows), and every candidates / reassign call rebuilds that input
     out: list[tuple[str, str]] = []
     for raw in n.split_person_names(text):
         if n.non_person_reason(raw) is not None:
@@ -112,7 +121,7 @@ def person_keys(text: str | None) -> list[tuple[str, str]]:
         p = n.canon_person_name(raw)
         if p is not None and p.canonical and p.canonical not in {k for k, _ in out}:
             out.append((p.canonical, p.full_name))
-    return out
+    return tuple(out)
 
 
 # ------------------------------------------------------------------------------------------- params
@@ -508,8 +517,6 @@ async def build_input(
             await session.execute(select(Assignment).where(Assignment.run_id == run.id, Assignment.archived.is_(False)))
         ).scalars()
     )
-    labels = {eid: exam_label(er) for eid, er in exams.items()}
-    slots, undated = _slots(rows, exams, labels)
     rooms = {r.id: r for r in (await session.execute(select(Room).options(selectinload(Room.building)))).scalars()}
     exam_rooms = {
         rid: inv.ExamRoom(
@@ -518,7 +525,15 @@ async def build_input(
         for rid, r in rooms.items()
     }
     rule = inv.StaffingRule(int(p["students_per_invigilator"]), int(p["min_per_room"]), p["max_per_room"])
-    posts, no_room = inv.build_posts(slots, exam_rooms, rule)
+
+    def slots_and_posts() -> tuple[list[inv.ExamSlot], list[int], list[inv.Post], list[int]]:
+        # CPU only (name normalisation, seat splits) on rows already loaded: off the event loop
+        labels = {eid: exam_label(er) for eid, er in exams.items()}
+        slots, undated = _slots(rows, exams, labels)
+        posts, no_room = inv.build_posts(slots, exam_rooms, rule)
+        return slots, undated, posts, no_room
+
+    slots, undated, posts, no_room = await asyncio.to_thread(slots_and_posts)
     warnings: list[dict[str, Any]] = []
     if no_room:
         warnings.append(
@@ -648,6 +663,11 @@ REASON_TEXT = {
     "own_exam": ("kendi dersinin sınavı", "own course's exam"),
     "own_exam_elsewhere": ("kendi sınavında", "at their own exam"),
     "no_capacity": ("görev almıyor", "takes no duties"),
+    "on_duty": ("aynı saatte başka bir salonda görevli", "on duty in another room at that time"),
+    "rest": ("iki görev arasındaki dinlenme süresi yetmiyor", "too little rest between two duties"),
+    "day_cap": ("o gün görev sınırına ulaştı", "has reached the daily duty limit"),
+    "total_cap": ("toplam görev sınırına ulaştı", "has reached the total duty limit"),
+    "on_post": ("bu görevde zaten var", "already on this duty"),
 }
 
 
@@ -1191,37 +1211,105 @@ def _plan_map(built: Built, duties: Iterable[tuple[str, str]]) -> dict[int, list
     return out
 
 
-async def candidates(session: AsyncSession, plan_id: int, post_key: str) -> dict[str, Any]:
-    """Who could take a post of this plan now: eligible and free (not on duty elsewhere at that time, under the
-    caps), and everyone else with the reason."""
-    plan = await _editable(session, plan_id)
-    built = await _rebuild(session, plan)
+@dataclass(frozen=True)
+class PostCheck:
+    """One person against one post: ``reason`` None = may take it; else the rule (a :data:`REASON_TEXT` key) and a
+    line in the solver's ``validate`` wording for a 409, plus the duty it clashes with."""
+
+    reason: str | None = None
+    problem: str | None = None
+    clash_post_key: str | None = None
+
+
+def check_post(
+    inp: inv.InvigilationInput,
+    k: int,
+    current: Mapping[int, Sequence[int]],
+    people: Iterable[int] | None = None,
+) -> dict[int, PostCheck]:
+    """The hard rules of post ``k`` for each person, given the plan's other duties (``current``: post index ->
+    person indexes; the people on ``k`` itself are not counted against anyone).
+
+    Only what adding this one duty can break is checked, with per-person indexes instead of one whole-plan
+    validation per person (``GET …/candidates`` took ~58 s on the Final that way):
+
+    * eligibility for the post - teaching, unavailability, own bookings, ``no_capacity``, own exam (``forbid``) and
+      one's own exam elsewhere at the time (``prefer``) - by the solver's own :func:`inv.eligibility` on that date's
+      posts only (every rule of a post looks at its date alone, so the answer is the same as on the whole plan);
+    * a duty of the person at an overlapping time (``on_duty``) or within ``min_rest`` periods (``rest``);
+    * the daily cap (the person's, else the plan's) and the total cap.
+
+    A break the person's other duties already have (a lock made before an unavailability was declared) is not this
+    post's concern: it is reported by the plan, not by every candidate list."""
+    posts = inp.posts
+    p = posts[k]
+    same_day = [q for q, x in enumerate(posts) if x.date == p.date]
+    el = inv.eligibility(replace(inp, posts=tuple(posts[q] for q in same_day), locks=(), previous=()))
+    kk = same_day.index(k)
+    taken: dict[int, list[int]] = defaultdict(list)
+    for q, ps in current.items():
+        if q == k:
+            continue
+        for i in ps:
+            taken[i].append(q)
+    out: dict[int, PostCheck] = {}
+    for i in range(len(inp.people)) if people is None else people:
+        person = inp.people[i]
+        why = el.why.get((kk, i))
+        if why is not None:
+            out[i] = PostCheck(why, f"{person.id} at {p.key}: {why}")
+            continue
+        mine = sorted(taken.get(i, ()), key=lambda q: (posts[q].date, posts[q].start, posts[q].key))
+        day = [q for q in mine if posts[q].date == p.date]
+        clash = next((q for q in day if posts[q].start <= p.end and p.start <= posts[q].end), None)
+        rest = inp.min_rest
+        near = next(
+            (q for q in day if rest and posts[q].start <= p.end + rest and p.start <= posts[q].end + rest), None
+        )
+        day_cap = person.max_per_day if person.max_per_day is not None else inp.max_per_day
+        if clash is not None or near is not None:
+            other = posts[clash if clash is not None else near]
+            out[i] = PostCheck(
+                "on_duty" if clash is not None else "rest", f"{person.id}: {other.key} and {p.key} at once", other.key
+            )
+        elif day_cap is not None and len(day) + 1 > day_cap:
+            out[i] = PostCheck("day_cap", f"{person.id}: more than {day_cap} duties a day")
+        elif person.max_duties is not None and len(mine) + 1 > person.max_duties:
+            out[i] = PostCheck("total_cap", f"{person.id}: more than {person.max_duties} duties")
+        else:
+            out[i] = PostCheck()
+    return out
+
+
+def _candidates(built: Built, plan_id: int, post_key: str, pairs: Sequence[tuple[str, str]]) -> dict[str, Any]:
     kidx = {p.key: k for k, p in enumerate(built.inp.posts)}
     if post_key not in kidx:
-        raise PlanError(404, f"post {post_key} is not in plan {plan.id}")
+        raise PlanError(404, f"post {post_key} is not in plan {plan_id}")
     k = kidx[post_key]
-    el = inv.eligibility(built.inp)
-    duties = await _duties(session, plan.id)
-    current = _plan_map(built, ((d.post_key, d.person_key) for d in duties))
+    current = _plan_map(built, pairs)
     on_post = set(current.get(k, []))
+    checks = check_post(built.inp, k, current, [i for i in range(len(built.inp.people)) if i not in on_post])
     free, busy = [], []
     for i, person in enumerate(built.inp.people):
         if i in on_post:
             continue
-        reason = el.why.get((k, i))
-        if reason is None:
-            trial = {q: list(v) for q, v in current.items()}
-            trial[k] = [*trial.get(k, []), i]
-            problems = [x for x in inv.validate(built.inp, trial) if person.id in x]
-            if problems:
-                reason = "on_duty_or_capped"
+        c = checks[i]
         row = {"person_key": person.id, "name": person.name, "kind": person.kind}
-        if reason is None:
+        if c.reason is None:
             free.append(row)
-        else:
-            tr, en = REASON_TEXT.get(reason, ("başka görevde ya da sınırda", "on another duty or at a limit"))
-            busy.append({**row, "reason": reason, "reason_text": _t(tr, en)})
+            continue
+        tr, en = REASON_TEXT.get(c.reason, ("başka görevde ya da sınırda", "on another duty or at a limit"))
+        busy.append({**row, "reason": c.reason, "reason_text": _t(tr, en), "clash_post_key": c.clash_post_key})
     return {"post_key": post_key, "free": free, "unavailable": busy[:500]}
+
+
+async def candidates(session: AsyncSession, plan_id: int, post_key: str) -> dict[str, Any]:
+    """Who could take a post of this plan now: eligible and free (not on duty elsewhere at that time, under the
+    caps), and everyone else with the reason. The rule checks run in a worker thread (:func:`check_post`)."""
+    plan = await _editable(session, plan_id)
+    built = await _rebuild(session, plan)
+    pairs = [(d.post_key, d.person_key) for d in await _duties(session, plan.id)]
+    return await asyncio.to_thread(_candidates, built, plan.id, post_key, pairs)
 
 
 async def reassign_duty(

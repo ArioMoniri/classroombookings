@@ -22,7 +22,7 @@ from typing import Any
 import pytest
 from app.core import db as dbmod
 from app.core.config import get_settings
-from app.models import AuditEvent, InvigilationDuty, InvigilationPlan, ScheduleRun
+from app.models import InvigilationDuty, ScheduleRun
 from app.services import invigilation as svc
 from app.services.seed import seed_admin
 from app.solver import invigilation as inv
@@ -84,9 +84,7 @@ async def test_candidates_on_the_real_final_plan_is_fast_and_matches_full_valida
         return sum(
             1
             for q in posts
-            if q["date"] == p["date"]
-            and q["start_period"] <= p["end_period"]
-            and p["start_period"] <= q["end_period"]
+            if q["date"] == p["date"] and q["start_period"] <= p["end_period"] and p["start_period"] <= q["end_period"]
         )
 
     post = max((p for p in posts if p["assigned"]), key=lambda p: (crowd(p), p["key"]))
