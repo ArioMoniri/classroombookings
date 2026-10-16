@@ -562,7 +562,7 @@ Docs-refresh hand-off (2026-10-15):
 - [ ] The 15 minors: see the report §3 (wave-1 / shell-bookings sweep).
 New Phase 19 tickets proposed by the persona (report §5):
 - [ ] P19-T1 "Derslerim / where is my class this week": the academician's own timetable (needs P19-L1 user↔instructor).
-- [ ] P19-T2 the academician's own planning requests, with outcomes and coordinator reasons, plus adding a preference (builds on M1/M2; Q12). Backend done 2026-10-16 ("Backend follow-ups finished"); the "Tercih ekle" sheet and the coordinator's review UI are open.
+- [x] P19-T2 the academician's own planning requests, with outcomes and coordinator reasons, plus adding a preference (builds on M1/M2; Q12). Backend done 2026-10-16 ("Backend follow-ups finished"); UI done 2026-10-16 ("Follow-ups UI finished").
 - [ ] P19-T3 per-academician notices after publish (owner decision: in-app + e-mail digest).
 - [ ] P19-T4 classes in personal calendar feeds (after L1).
 - [ ] P19-T5 equipment/software/step-free attributes for rooms and requests (JASP/JAMOVI, projector, armrest chairs, ground-floor entrance), as typed features.
@@ -982,7 +982,7 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
 - [x] Link a login to an instructor (F-05, major): `PUT /api/v1/auth/sso/admin/users/{id}/instructor` and `instructor_id` on invites (`instructors.user_id`, audited `user.instructor_link`).
 - [x] Teacher nav entry "Taleplerim" → `/moderation/me` (F-05), for accounts that can book and lack `planning.view`.
 - [x] P19-T3 publish digests ("Akademisyenlere bildir", F-05); the "Bu program için geçmiş veri yok" panel and the 30-day programme undo (F-07).
-- [ ] P19-T2 "Tercih ekle" (F-05 S03): the backend endpoint landed 2026-10-16 (`POST /moderation/me/preferences`, see "Backend follow-ups finished"); the UI sheet is open.
+- [x] P19-T2 "Tercih ekle" (F-05 S03): backend 2026-10-16 (`POST /moderation/me/preferences`), UI sheet and review 2026-10-16 ("Follow-ups UI finished").
 - [ ] Phase 19 intake UI: the stepper, the Fark step and remembered-mapping chips (F-08). Also the P19 UI follow-up agent.
 - [ ] A reason field for forced moves in the timetable UI (F-10): the P19 UI follow-up agent.
 - [x] SSO route contract: `/api/v1/auth/sso/entra/start?next=&invite=&prompt=&login_hint=`, redirects `?error=<code>[&ref]`; sign-in.md §14/§15 updated with the final codes.
@@ -1267,6 +1267,43 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
 - [ ] Queued for after the design-migration sweep, since its studio/onboarding/settings files overlap: the relaxation-policy UI, the schedule-map UI, an intake e2e, and Google/M365 calendar push settings. The push settings need the organisation's OAuth client before a live test.
 - [ ] Flow loop (3 persona testers, then the suggester, then loop builders, then a re-test) starts once the design-migration sweep and the remaining UI builders finish.
 
+### Follow-ups UI finished (2026-10-16)
+
+Owner requirement: academicians add their own requests and preferences, admins moderate each class, person and
+request from the admin panel; wishes are never applied by themselves; 390 px; TR + EN; no demo data.
+- Done:
+  - Taleplerim (`/moderation/me`): "Tercih ekle" from the header or a class's row (that class preselected); a side
+    sheet on desktop, a bottom sheet on phones. Classes the academician teaches, kind Oda / Bina / Zaman aralığı,
+    the fields per kind (rooms from the bookings list or typed as "C 404" when the account cannot list rooms;
+    building letters; earliest / latest period and days), note ≤ 500, the summary the coordinator will read before
+    sending and the server's `effective` after. Every refusal code has a TR/EN text; a class whose time the
+    department form fixed is flagged before sending and `fixed_by_department` explains it after.
+  - "Tercihlerim": one card per submission, Bekliyor / Kabul edildi / Kabul edilmedi, the coordinator's reason
+    (code label + text), withdraw while pending (409 once decided is explained); a "Tercihim" column on the rows.
+  - Coordinator: Moderasyon › Tercihler › **Akademisyen tercihleri** (`?tab=preferences&view=teacher`, header link
+    "N akademisyen tercihi bekliyor"): pending first with counts per status, search, the department's ask that
+    ranks first, the note; Kabul et / Reddet (reason ≥ 3 characters required, optional code), `with_submission`
+    with a "Yalnızca bu kural" choice for submissions stored as several rules. Badges on Kişiler
+    (`pending_preferences`), Talepler / Eşleşmeler course cells, the matching inspector (with decide controls) and
+    the person timeline; accepted wishes read "Yumuşak kural · bölüm odasından sonra"; TEACHER rows in the rules
+    table read "Akademisyen".
+  - Program wizard: `instructor_archived_namesake` → "Bu kişiyi kullan" sets the slot to `{id}`; `program_restored`
+    / `instructor_restored` show as info lines; a 422 pre-check or commit lists its issues with "Düzelt"; the done
+    view names the reopened records (`created.restored`).
+  - Users: the chips and the method select send `identity=` (invited | self_signup + `self_signup_days=7` | sso |
+    local | ldap | binding) with server paging; chip counts are the server's totals.
+  - Notifications: `preference.accepted` / `.rejected` appear in Profil › Bildirimler from the API (verified e2e);
+    they land in the "Diğer" group.
+  - Tests: vitest (wish model, sheet, Tercihlerim, review, wizard codes, users identity query);
+    `e2e/followups-ui.spec.ts` 7/7 against a real backend + frontend (desktop and phone 390).
+- Open:
+  - [ ] Backend ask: a dry-run of `POST /moderation/me/preferences` (`?dry_run=1`) so the sheet can show the
+    server's own `effective` and texts before sending (today the sheet mirrors `_texts` / `effective`).
+  - [ ] Backend ask: a room list a linked academician may read (code, name, capacity, bookable); `/bookings/rooms`
+    hides ungrouped rooms, so on a fresh install the sheet falls back to typed codes.
+  - [ ] Notifications owner: put `preference.*` in the "Program" group of the preferences panel (`eventGroup`).
+  - [ ] ui owner: the Sheet close button is 36 px on touch (M-02).
+
 ### Backend follow-ups finished (2026-10-16)
 
 - Done (tests on the real fixtures: `tests/test_p19_t2_teacher_preferences.py` on Bahar R601 PTL 102 §1, `tests/test_followups_program_drafts.py` on the MBG Tezli YL rows, `tests/test_followups_users_identity.py`, `tests/test_followups_import_warnings_count.py` on the Bahar list):
@@ -1275,9 +1312,9 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
   - `POST /audit/{id}/undo` on a wizard programme runs the drafts undo: same blockers, 30-day window, owner or planning.admin. Errors are `{code, message, message_tr}`. Audit events carry `undo_via` (`bookings` | `program_draft`).
   - `GET /users` and `GET /users/search` take `identity=invited|self_signup|sso|binding|local|ldap` (comma = OR) and `self_signup_days`. Paging and `total` stay on the server.
   - M-21: `warnings_count`, `warnings_shown` and `warnings_truncated` in the import job summary.
-- [ ] Frontend: the "Tercih ekle" sheet on `/moderation/me`, and its status and reason list. Coordinators need accept/reject in Tercihler and a pending badge on Kişiler.
+- [x] Frontend: the "Tercih ekle" sheet on `/moderation/me`, and its status and reason list. Coordinators need accept/reject in Tercihler and a pending badge on Kişiler. (followups-ui 2026-10-16)
 - [ ] Frontend: the `/admin/audit` "Geri al" for `undo_via: program_draft`, showing the blockers from `detail.blockers`.
-- [ ] Frontend: the Users chips should send `identity` and `self_signup_days=7` to `/users/search` instead of filtering on the client.
+- [x] Frontend: the Users chips should send `identity` and `self_signup_days=7` to `/users/search` instead of filtering on the client. (followups-ui 2026-10-16)
 - [ ] Frontend: the import report's "{count} uyarı, ilk {shown} gösteriliyor" note.
 - [ ] Owner question: a time wish is refused when the department form fixes the class's day and time, which is nearly every Bahar row. Should such a wish be stored anyway as a note for the coordinator?
 

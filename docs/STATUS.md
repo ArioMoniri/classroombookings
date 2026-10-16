@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `90a5c69` (committed 2026-10-16 05:00 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `97dc0e9` (committed 2026-10-16 05:03 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 33 · Backend only 6 · In progress 4 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 34 · Backend only 6 · In progress 4 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -44,7 +44,8 @@ Done 33 · Backend only 6 · In progress 4 · Planned 0 (from [`docs/features.ym
 | Publish button with a scope confirmation; the publish guard refuses failed runs and keeps one active run per term | Done | P19-01, M-03 | [`studio-calendar-sweep.spec.ts`](../smartsched/frontend/e2e/studio-calendar-sweep.spec.ts) |
 | Exports to Excel, CSV and iCal | Done | 1 | [`services`](../smartsched/backend/app/services) |
 | Relaxation policy when not every class fits: lock_first (default) or most_classes_first, per run or per term | Backend only: priorities are run parameters; no screen yet | 19 | [`solver`](../smartsched/backend/app/solver) |
-| Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff | Done: person and programme priority, server changes list, diff baseline + chain, publish notices; academician Tercih ekle (P19-T2): backend done, UI sheet open | P19 M1-M3, F1 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
+| Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff | Done: person and programme priority, server changes list, diff baseline + chain, publish notices | P19 M1-M3, F1 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
+| Academicians add their own room, building or time wishes for their classes; coordinators accept or reject them with a reason, never applied by themselves | Done: Tercih ekle sheet + Tercihlerim on /moderation/me, Tercihler › Akademisyen tercihleri, badges on Kişiler / Eşleşmeler; soft rule ranked after the department's ask | P19-T2 | [`followups-ui.spec.ts`](../smartsched/frontend/e2e/followups-ui.spec.ts) |
 | Learned suggestions from earlier terms, with a resettable memory (per person, per term or all) | Done: accept for the term or persistent (admin, confirmed), undo of any decision; never auto-applied | P19 L1-L4, F2 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander | Done: server drafts with autosave, per-step validation, pre-check, one-transaction commit and a 30-day undo | P19 C1-C4, F3 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | Backend only: GET /analytics/compare, /analytics/heatmap/rooms and /instructors (JSON + CSV), /invigilation/* CP-SAT plans; no screen yet | backlog | [`test_invigilation_api.py`](../smartsched/backend/tests/test_invigilation_api.py) |
@@ -223,7 +224,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **170 ticked · 293 open** checkboxes in 63 sections (60 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **174 ticked · 293 open** checkboxes in 64 sections (61 with open items).
 
 <details><summary>Per section</summary>
 
@@ -257,7 +258,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Motion audit tickets (docs/review/2026-10-15-motion-audit.md; 35 findings, 0 blocker /… | 0 | 9 |
 | Persona test loop (user request 2026-10-15: "user, academician and admin subagents test… | 2 | 6 |
 | Persona test: staff user (docs/testing/2026-10-15-persona-user.md: 0 blocker / 7 major /… | 0 | 9 |
-| Persona test: academician (docs/testing/2026-10-15-persona-academician.md: 0 blocker /… | 0 | 15 |
+| Persona test: academician (docs/testing/2026-10-15-persona-academician.md: 0 blocker /… | 1 | 14 |
 | Universal SmartSched / Ingestion Council backlog (claude/smartsched-universal… | 0 | 9 |
 | Universal merge landed (2026-10-15, d714c5b; both branches at 102eda5) | 2 | 0 |
 | Persona test: admin/coordinator (docs/testing/2026-10-15-persona-admin.md on snapshot… | 9 | 16 |
@@ -277,7 +278,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Docs update automatically (owner request 2026-10-15 ~22:55) | 1 | 1 |
 | Approval-first backend finished (0025_approval_first) | 1 | 1 |
 | Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend) | 9 | 3 |
-| Flow scripts finished (2026-10-15): gaps to close before round 1 | 6 | 6 |
+| Flow scripts finished (2026-10-15): gaps to close before round 1 | 7 | 5 |
 | Approval and notification follow-ups finished (2026-10-16) | 2 | 4 |
 | Approval-first UI finished (2026-10-16) | 0 | 1 |
 | Microsoft Entra ID sign-in backend finished (2026-10-16) | 0 | 4 |
@@ -290,7 +291,8 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Identity frontend finished (2026-10-16) | 2 | 5 |
 | README media finished (2026-10-16) | 1 | 4 |
 | Remaining features: builders launched (2026-10-16 03:35) | 0 | 2 |
-| Backend follow-ups finished (2026-10-16) | 0 | 7 |
+| Follow-ups UI finished (2026-10-16) | 0 | 4 |
+| Backend follow-ups finished (2026-10-16) | 2 | 5 |
 | Planning analytics backend finished (2026-10-16); analytics UI launched | 0 | 3 |
 
 </details>

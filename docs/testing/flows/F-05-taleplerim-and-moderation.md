@@ -11,7 +11,7 @@ Owner decisions:
 Testable on `b75047b` + the P19 UI follow-up (2026-10-16): **mostly**. `smartsched/frontend/e2e/followup.phase19.spec.ts` (tests 3, 4 and 6) proves S01, S02, S04, S08 (person priority), S09, S10 (baseline + chain), S12 (with "Akademisyenlere bildir") and the phone checks.
 - The login ↔ instructor link has an API (`PUT /auth/sso/admin/users/{id}/instructor`, identity work); whether Yönetim › Kullanıcılar offers a picker is the identity agent's, so S00 stays as written.
 - Publish-change notices (P19-T3) are built: the publish dialog has **"Akademisyenlere bildir"** (`notify-people`) and names who gets the digest. S13 is runnable.
-- The academician's "Tercih ekle" (P19-T2, Q12) has no backend endpoint yet: S03 part 2 stays `BLOCKED: P19-T2 (backend)`.
+- The academician's "Tercih ekle" (P19-T2, Q12) is built (backend + UI, 2026-10-16): S03 part 2 is runnable; `e2e/followups-ui.spec.ts` proves it.
 
 ## Preconditions
 
@@ -49,7 +49,13 @@ Testable on `b75047b` + the P19 UI follow-up (2026-10-16): **mostly**. `smartsch
 
 **S03 · academician · what they may and may not do**
 - No edit control anywhere: priority, inline edit, recreate and publish are absent (hidden, not disabled).
-- Target (P19-T2, Q12): **"Tercih ekle"** creates a lower-ranked soft preference that waits for coordinator review. `BLOCKED: P19-T2 (backend endpoint)`.
+- Part 2 (P19-T2, Q12): **"Tercih ekle"** creates a lower-ranked soft preference that waits for coordinator review.
+  - Do: on `/moderation/me` press **"Tercih ekle"** (`wish-open`) or tap the PSY 277 §1 row. See the sheet (`wish-sheet`; a bottom sheet on the phone) with that class ticked, **"Tercih türü"**: Oda / Bina / Zaman aralığı.
+  - Do: **Zaman aralığı**, "En geç bitiş" P6, **"Onaya gönder"**. A class whose day and time the department form fixed shows **"… gün ve saatini bölüm formu sabitliyor …"** before sending, and after it the error **"Bölüm formu bu dersin gün ve saatini sabitliyor; saat tercihi bunu değiştiremez."** (`wish-error`, code `fixed_by_department`).
+  - Do: **Oda**, pick or type a room the department did not ask for (e.g. `C 301`, Enter). See **"Koordinatörün göreceği özet"**: "PSY 277 §1: oda tercihi C 301", "Yumuşak tercih · bölüm talebinden sonra gelir". Send. See **"Tercihiniz koordinatöre gönderildi"** with the server's text "Koordinatör onaylarsa bir sonraki çözümde bölüm talebinden sonra gelen bir tercih olarak uygulanır".
+  - Do: **Bina** with the department's own block. See **"Bölüm formu bu dersler için bunu zaten istiyor"** (`already_requested`).
+  - See: **"Tercihlerim"** (`my-wishes`) lists the wish as **"Bekliyor"**, with **"Geri çek"** (asks first). API: `GET /moderation/me/preferences` → `pending`, `enabled: false`, `hardness: soft`, `weight: 1`.
+  - Coordinator (S05+): Moderasyon header **"1 akademisyen tercihi bekliyor"** → Tercihler › **Akademisyen tercihleri**; Kişiler shows **"1 tercih bekliyor"**. **"Reddet"** refuses an empty reason (**"Gerekçe en az 3 karakter olmalı."**); **"Kabul et"** turns it into "Yumuşak kural · bölüm odasından sonra". The academician then reads **"Kabul edildi"** or **"Kabul edilmedi"** with **"Gerekçe: …"**, and gets the in-app notice (`preference.accepted` / `.rejected`).
 
 **S04 · staff (unlinked) · the unlinked state**
 - Do: log in as staff and open `/moderation/me`.
