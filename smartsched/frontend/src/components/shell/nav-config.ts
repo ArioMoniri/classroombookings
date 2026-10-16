@@ -1,5 +1,6 @@
 import { CalendarDays, FileUp, FolderInput, Inbox, LayoutDashboard, ListChecks, type LucideIcon, PlayCircle, Settings, Users, Warehouse } from "lucide-react";
 import { ClipboardCheck, FolderPlus } from "lucide-react";
+import { GitCompareArrows, Grid3x3, UserCheck } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
 import type { MessageKey } from "@/lib/i18n";
 
@@ -43,6 +44,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // the timetable reads GET /terms and /runs (planning.view): room.view alone answers 403 there (wave1 crawler)
       { href: "/timetable", labelKey: "nav.timetable", icon: CalendarDays, key: "t", permission: "planning.view" },
       { href: "/runs", labelKey: "nav.runs", icon: ListChecks, badge: "running", permission: "planning.view" },
+      // planning analytics UI (analytics-ui-2026-10-16): scenario comparison, utilisation heatmaps, invigilators
+      { href: "/runs/compare", labelKey: "compare.title", icon: GitCompareArrows, permission: "planning.view" },
+      { href: "/analytics/heatmap", labelKey: "analytics.title", icon: Grid3x3, permission: "planning.view" },
+      { href: "/exams/invigilation", labelKey: "invigilation.title", icon: UserCheck, permission: "planning.view" },
     ],
   },
   {
@@ -93,6 +98,8 @@ export const PLANNING_ROUTES: readonly { prefix: string; permission: string | st
   { prefix: "/generate", permission: "planning.edit" },
   { prefix: "/timetable", permission: "planning.view" },
   { prefix: "/runs", permission: "planning.view" },
+  { prefix: "/analytics", permission: "planning.view" },
+  { prefix: "/exams", permission: "planning.view" },
   { prefix: "/rooms", permission: ["planning.view", "setup.rooms"] },
   { prefix: "/classes", permission: "planning.view" },
 ];

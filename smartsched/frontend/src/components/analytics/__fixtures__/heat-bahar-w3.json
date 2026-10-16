@@ -1,0 +1,1591 @@
+{
+ "term_id": 1,
+ "term_code": "2026-BAHAR",
+ "source": "board",
+ "runs": [
+  {
+   "run_id": 5,
+   "kind": "COURSE",
+   "status": "FEASIBLE_PARTIAL",
+   "label": "Bahar 3. hafta (A)",
+   "is_active": true
+  }
+ ],
+ "kind": "COURSE",
+ "group_by": "building",
+ "axis": "day",
+ "scope": "week",
+ "weeks": [
+  3
+ ],
+ "periods": [
+  {
+   "period": 1,
+   "start": "08:30",
+   "end": "09:10"
+  },
+  {
+   "period": 2,
+   "start": "09:20",
+   "end": "10:00"
+  },
+  {
+   "period": 3,
+   "start": "10:10",
+   "end": "10:50"
+  },
+  {
+   "period": 4,
+   "start": "11:00",
+   "end": "11:40"
+  }
+ ],
+ "columns": [
+  {
+   "key": "d1",
+   "day": 1,
+   "weeks": [
+    3
+   ],
+   "label": {
+    "tr": "Pazartesi",
+    "en": "Monday"
+   }
+  },
+  {
+   "key": "d2",
+   "day": 2,
+   "weeks": [
+    3
+   ],
+   "label": {
+    "tr": "Salı",
+    "en": "Tuesday"
+   }
+  },
+  {
+   "key": "d3",
+   "day": 3,
+   "weeks": [
+    3
+   ],
+   "label": {
+    "tr": "Çarşamba",
+    "en": "Wednesday"
+   }
+  }
+ ],
+ "rows": [
+  {
+   "key": "A",
+   "label": {
+    "tr": "A blok",
+    "en": "Building A"
+   },
+   "rooms": 31,
+   "room_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    74,
+    17,
+    18,
+    19,
+    20,
+    79,
+    72,
+    64,
+    71,
+    70,
+    75,
+    67,
+    76,
+    78,
+    66
+   ],
+   "cells": [
+    {
+     "col": "d1",
+     "period": 1,
+     "occupied": 4,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 12.9,
+     "pct_with_blocks": 12.9
+    },
+    {
+     "col": "d1",
+     "period": 2,
+     "occupied": 13,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 41.9,
+     "pct_with_blocks": 41.9
+    },
+    {
+     "col": "d1",
+     "period": 3,
+     "occupied": 16,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 51.6,
+     "pct_with_blocks": 51.6
+    },
+    {
+     "col": "d1",
+     "period": 4,
+     "occupied": 18,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 58.1,
+     "pct_with_blocks": 58.1
+    },
+    {
+     "col": "d2",
+     "period": 1,
+     "occupied": 9,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 29.0,
+     "pct_with_blocks": 29.0
+    },
+    {
+     "col": "d2",
+     "period": 2,
+     "occupied": 15,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 48.4,
+     "pct_with_blocks": 48.4
+    },
+    {
+     "col": "d2",
+     "period": 3,
+     "occupied": 18,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 58.1,
+     "pct_with_blocks": 58.1
+    },
+    {
+     "col": "d2",
+     "period": 4,
+     "occupied": 16,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 51.6,
+     "pct_with_blocks": 51.6
+    },
+    {
+     "col": "d3",
+     "period": 1,
+     "occupied": 6,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 19.4,
+     "pct_with_blocks": 19.4
+    },
+    {
+     "col": "d3",
+     "period": 2,
+     "occupied": 16,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 51.6,
+     "pct_with_blocks": 51.6
+    },
+    {
+     "col": "d3",
+     "period": 3,
+     "occupied": 25,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 80.6,
+     "pct_with_blocks": 80.6
+    },
+    {
+     "col": "d3",
+     "period": 4,
+     "occupied": 24,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 31,
+     "pct": 77.4,
+     "pct_with_blocks": 77.4
+    }
+   ],
+   "by_col": [
+    {
+     "col": "d1",
+     "occupied": 151,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 558,
+     "pct": 27.1,
+     "pct_with_blocks": 27.1
+    },
+    {
+     "col": "d2",
+     "occupied": 176,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 558,
+     "pct": 31.5,
+     "pct_with_blocks": 31.5
+    },
+    {
+     "col": "d3",
+     "occupied": 206,
+     "held": 0,
+     "blocked": 3,
+     "capacity": 558,
+     "pct": 37.1,
+     "pct_with_blocks": 37.5
+    }
+   ],
+   "by_period": [
+    {
+     "period": 1,
+     "occupied": 25,
+     "held": 0,
+     "blocked": 2,
+     "capacity": 217,
+     "pct": 11.6,
+     "pct_with_blocks": 12.4
+    },
+    {
+     "period": 2,
+     "occupied": 64,
+     "held": 0,
+     "blocked": 2,
+     "capacity": 217,
+     "pct": 29.8,
+     "pct_with_blocks": 30.4
+    },
+    {
+     "period": 3,
+     "occupied": 99,
+     "held": 0,
+     "blocked": 2,
+     "capacity": 217,
+     "pct": 46.0,
+     "pct_with_blocks": 46.5
+    },
+    {
+     "period": 4,
+     "occupied": 102,
+     "held": 0,
+     "blocked": 2,
+     "capacity": 217,
+     "pct": 47.4,
+     "pct_with_blocks": 47.9
+    }
+   ],
+   "total": {
+    "occupied": 840,
+    "held": 0,
+    "blocked": 28,
+    "capacity": 3906,
+    "pct": 21.7,
+    "pct_with_blocks": 22.2
+   },
+   "room_rows": [
+    {
+     "room_id": 1,
+     "code": "A101",
+     "label": {
+      "tr": "A 101",
+      "en": "A 101"
+     },
+     "capacity": 58,
+     "exam_capacity": 30,
+     "cells": [
+      {
+       "col": "d1",
+       "period": 1,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "col": "d1",
+       "period": 2,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d1",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d1",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 1,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "col": "d2",
+       "period": 2,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 1,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 2,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      }
+     ],
+     "by_col": [
+      {
+       "col": "d1",
+       "occupied": 9,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 50.0,
+       "pct_with_blocks": 50.0
+      },
+      {
+       "col": "d2",
+       "occupied": 8,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 44.4,
+       "pct_with_blocks": 44.4
+      },
+      {
+       "col": "d3",
+       "occupied": 12,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 66.7,
+       "pct_with_blocks": 66.7
+      }
+     ],
+     "by_period": [
+      {
+       "period": 1,
+       "occupied": 2,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 28.6,
+       "pct_with_blocks": 28.6
+      },
+      {
+       "period": 2,
+       "occupied": 5,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 71.4,
+       "pct_with_blocks": 71.4
+      },
+      {
+       "period": 3,
+       "occupied": 6,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 85.7,
+       "pct_with_blocks": 85.7
+      },
+      {
+       "period": 4,
+       "occupied": 6,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 85.7,
+       "pct_with_blocks": 85.7
+      }
+     ],
+     "total": {
+      "occupied": 57,
+      "held": 0,
+      "blocked": 1,
+      "capacity": 126,
+      "pct": 45.6,
+      "pct_with_blocks": 46.0
+     }
+    },
+    {
+     "room_id": 2,
+     "code": "A102",
+     "label": {
+      "tr": "A 102",
+      "en": "A 102"
+     },
+     "capacity": 96,
+     "exam_capacity": 48,
+     "cells": [
+      {
+       "col": "d1",
+       "period": 1,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d1",
+       "period": 2,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d1",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d1",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 1,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "col": "d2",
+       "period": 2,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 1,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 2,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      }
+     ],
+     "by_col": [
+      {
+       "col": "d1",
+       "occupied": 10,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 55.6,
+       "pct_with_blocks": 55.6
+      },
+      {
+       "col": "d2",
+       "occupied": 9,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 50.0,
+       "pct_with_blocks": 50.0
+      },
+      {
+       "col": "d3",
+       "occupied": 11,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 61.1,
+       "pct_with_blocks": 61.1
+      }
+     ],
+     "by_period": [
+      {
+       "period": 1,
+       "occupied": 2,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 28.6,
+       "pct_with_blocks": 28.6
+      },
+      {
+       "period": 2,
+       "occupied": 3,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 42.9,
+       "pct_with_blocks": 42.9
+      },
+      {
+       "period": 3,
+       "occupied": 5,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 71.4,
+       "pct_with_blocks": 71.4
+      },
+      {
+       "period": 4,
+       "occupied": 5,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 71.4,
+       "pct_with_blocks": 71.4
+      }
+     ],
+     "total": {
+      "occupied": 42,
+      "held": 0,
+      "blocked": 0,
+      "capacity": 126,
+      "pct": 33.3,
+      "pct_with_blocks": 33.3
+     }
+    }
+   ]
+  },
+  {
+   "key": "B",
+   "label": {
+    "tr": "B blok",
+    "en": "Building B"
+   },
+   "rooms": 12,
+   "room_ids": [
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    65,
+    28,
+    29,
+    63,
+    77
+   ],
+   "cells": [
+    {
+     "col": "d1",
+     "period": 1,
+     "occupied": 0,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 0.0,
+     "pct_with_blocks": 0.0
+    },
+    {
+     "col": "d1",
+     "period": 2,
+     "occupied": 4,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 33.3,
+     "pct_with_blocks": 33.3
+    },
+    {
+     "col": "d1",
+     "period": 3,
+     "occupied": 10,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 83.3,
+     "pct_with_blocks": 83.3
+    },
+    {
+     "col": "d1",
+     "period": 4,
+     "occupied": 9,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 75.0,
+     "pct_with_blocks": 75.0
+    },
+    {
+     "col": "d2",
+     "period": 1,
+     "occupied": 2,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 16.7,
+     "pct_with_blocks": 16.7
+    },
+    {
+     "col": "d2",
+     "period": 2,
+     "occupied": 5,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 41.7,
+     "pct_with_blocks": 41.7
+    },
+    {
+     "col": "d2",
+     "period": 3,
+     "occupied": 10,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 83.3,
+     "pct_with_blocks": 83.3
+    },
+    {
+     "col": "d2",
+     "period": 4,
+     "occupied": 9,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 75.0,
+     "pct_with_blocks": 75.0
+    },
+    {
+     "col": "d3",
+     "period": 1,
+     "occupied": 3,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 25.0,
+     "pct_with_blocks": 25.0
+    },
+    {
+     "col": "d3",
+     "period": 2,
+     "occupied": 8,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 66.7,
+     "pct_with_blocks": 66.7
+    },
+    {
+     "col": "d3",
+     "period": 3,
+     "occupied": 10,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 83.3,
+     "pct_with_blocks": 83.3
+    },
+    {
+     "col": "d3",
+     "period": 4,
+     "occupied": 10,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 12,
+     "pct": 83.3,
+     "pct_with_blocks": 83.3
+    }
+   ],
+   "by_col": [
+    {
+     "col": "d1",
+     "occupied": 61,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 216,
+     "pct": 28.2,
+     "pct_with_blocks": 28.2
+    },
+    {
+     "col": "d2",
+     "occupied": 72,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 216,
+     "pct": 33.3,
+     "pct_with_blocks": 33.3
+    },
+    {
+     "col": "d3",
+     "occupied": 77,
+     "held": 0,
+     "blocked": 1,
+     "capacity": 216,
+     "pct": 35.8,
+     "pct_with_blocks": 36.1
+    }
+   ],
+   "by_period": [
+    {
+     "period": 1,
+     "occupied": 6,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 84,
+     "pct": 7.1,
+     "pct_with_blocks": 7.1
+    },
+    {
+     "period": 2,
+     "occupied": 26,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 84,
+     "pct": 31.0,
+     "pct_with_blocks": 31.0
+    },
+    {
+     "period": 3,
+     "occupied": 46,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 84,
+     "pct": 54.8,
+     "pct_with_blocks": 54.8
+    },
+    {
+     "period": 4,
+     "occupied": 44,
+     "held": 0,
+     "blocked": 0,
+     "capacity": 84,
+     "pct": 52.4,
+     "pct_with_blocks": 52.4
+    }
+   ],
+   "total": {
+    "occupied": 328,
+    "held": 0,
+    "blocked": 1,
+    "capacity": 1512,
+    "pct": 21.7,
+    "pct_with_blocks": 21.8
+   },
+   "room_rows": [
+    {
+     "room_id": 21,
+     "code": "B201",
+     "label": {
+      "tr": "B 201",
+      "en": "B 201"
+     },
+     "capacity": 30,
+     "exam_capacity": 14,
+     "cells": [
+      {
+       "col": "d1",
+       "period": 1,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "col": "d1",
+       "period": 2,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "col": "d1",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d1",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 1,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 2,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 1,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "col": "d3",
+       "period": 2,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "col": "d3",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      }
+     ],
+     "by_col": [
+      {
+       "col": "d1",
+       "occupied": 7,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 38.9,
+       "pct_with_blocks": 38.9
+      },
+      {
+       "col": "d2",
+       "occupied": 11,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 61.1,
+       "pct_with_blocks": 61.1
+      },
+      {
+       "col": "d3",
+       "occupied": 8,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 44.4,
+       "pct_with_blocks": 44.4
+      }
+     ],
+     "by_period": [
+      {
+       "period": 1,
+       "occupied": 2,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 28.6,
+       "pct_with_blocks": 28.6
+      },
+      {
+       "period": 2,
+       "occupied": 3,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 42.9,
+       "pct_with_blocks": 42.9
+      },
+      {
+       "period": 3,
+       "occupied": 4,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 57.1,
+       "pct_with_blocks": 57.1
+      },
+      {
+       "period": 4,
+       "occupied": 4,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 57.1,
+       "pct_with_blocks": 57.1
+      }
+     ],
+     "total": {
+      "occupied": 36,
+      "held": 0,
+      "blocked": 0,
+      "capacity": 126,
+      "pct": 28.6,
+      "pct_with_blocks": 28.6
+     }
+    },
+    {
+     "room_id": 22,
+     "code": "B202",
+     "label": {
+      "tr": "B 202",
+      "en": "B 202"
+     },
+     "capacity": 64,
+     "exam_capacity": 32,
+     "cells": [
+      {
+       "col": "d1",
+       "period": 1,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "col": "d1",
+       "period": 2,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d1",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d1",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 1,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "col": "d2",
+       "period": 2,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "col": "d2",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d2",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 1,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "col": "d3",
+       "period": 2,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 3,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      },
+      {
+       "col": "d3",
+       "period": 4,
+       "occupied": 1,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 1,
+       "pct": 100.0,
+       "pct_with_blocks": 100.0
+      }
+     ],
+     "by_col": [
+      {
+       "col": "d1",
+       "occupied": 9,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 50.0,
+       "pct_with_blocks": 50.0
+      },
+      {
+       "col": "d2",
+       "occupied": 6,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 33.3,
+       "pct_with_blocks": 33.3
+      },
+      {
+       "col": "d3",
+       "occupied": 6,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 18,
+       "pct": 33.3,
+       "pct_with_blocks": 33.3
+      }
+     ],
+     "by_period": [
+      {
+       "period": 1,
+       "occupied": 0,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 0.0,
+       "pct_with_blocks": 0.0
+      },
+      {
+       "period": 2,
+       "occupied": 2,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 28.6,
+       "pct_with_blocks": 28.6
+      },
+      {
+       "period": 3,
+       "occupied": 5,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 71.4,
+       "pct_with_blocks": 71.4
+      },
+      {
+       "period": 4,
+       "occupied": 5,
+       "held": 0,
+       "blocked": 0,
+       "capacity": 7,
+       "pct": 71.4,
+       "pct_with_blocks": 71.4
+      }
+     ],
+     "total": {
+      "occupied": 37,
+      "held": 0,
+      "blocked": 0,
+      "capacity": 126,
+      "pct": 29.4,
+      "pct_with_blocks": 29.4
+     }
+    }
+   ]
+  }
+ ],
+ "overall": {
+  "rooms": 79,
+  "cells": [
+   {
+    "col": "d1",
+    "period": 1,
+    "occupied": 10,
+    "held": 0,
+    "blocked": 6,
+    "capacity": 79,
+    "pct": 13.7,
+    "pct_with_blocks": 20.3
+   },
+   {
+    "col": "d1",
+    "period": 2,
+    "occupied": 32,
+    "held": 0,
+    "blocked": 6,
+    "capacity": 79,
+    "pct": 43.8,
+    "pct_with_blocks": 48.1
+   },
+   {
+    "col": "d1",
+    "period": 3,
+    "occupied": 41,
+    "held": 0,
+    "blocked": 7,
+    "capacity": 79,
+    "pct": 56.9,
+    "pct_with_blocks": 60.8
+   },
+   {
+    "col": "d1",
+    "period": 4,
+    "occupied": 45,
+    "held": 0,
+    "blocked": 7,
+    "capacity": 79,
+    "pct": 62.5,
+    "pct_with_blocks": 65.8
+   },
+   {
+    "col": "d2",
+    "period": 1,
+    "occupied": 23,
+    "held": 0,
+    "blocked": 9,
+    "capacity": 79,
+    "pct": 32.9,
+    "pct_with_blocks": 40.5
+   },
+   {
+    "col": "d2",
+    "period": 2,
+    "occupied": 40,
+    "held": 0,
+    "blocked": 9,
+    "capacity": 79,
+    "pct": 57.1,
+    "pct_with_blocks": 62.0
+   },
+   {
+    "col": "d2",
+    "period": 3,
+    "occupied": 49,
+    "held": 0,
+    "blocked": 9,
+    "capacity": 79,
+    "pct": 70.0,
+    "pct_with_blocks": 73.4
+   },
+   {
+    "col": "d2",
+    "period": 4,
+    "occupied": 48,
+    "held": 0,
+    "blocked": 9,
+    "capacity": 79,
+    "pct": 68.6,
+    "pct_with_blocks": 72.2
+   },
+   {
+    "col": "d3",
+    "period": 1,
+    "occupied": 14,
+    "held": 0,
+    "blocked": 15,
+    "capacity": 79,
+    "pct": 21.9,
+    "pct_with_blocks": 36.7
+   },
+   {
+    "col": "d3",
+    "period": 2,
+    "occupied": 40,
+    "held": 0,
+    "blocked": 15,
+    "capacity": 79,
+    "pct": 62.5,
+    "pct_with_blocks": 69.6
+   },
+   {
+    "col": "d3",
+    "period": 3,
+    "occupied": 52,
+    "held": 0,
+    "blocked": 15,
+    "capacity": 79,
+    "pct": 81.2,
+    "pct_with_blocks": 84.8
+   },
+   {
+    "col": "d3",
+    "period": 4,
+    "occupied": 50,
+    "held": 0,
+    "blocked": 15,
+    "capacity": 79,
+    "pct": 78.1,
+    "pct_with_blocks": 82.3
+   }
+  ],
+  "by_col": [
+   {
+    "col": "d1",
+    "occupied": 391,
+    "held": 0,
+    "blocked": 72,
+    "capacity": 1422,
+    "pct": 29.0,
+    "pct_with_blocks": 32.6
+   },
+   {
+    "col": "d2",
+    "occupied": 463,
+    "held": 0,
+    "blocked": 101,
+    "capacity": 1422,
+    "pct": 35.0,
+    "pct_with_blocks": 39.7
+   },
+   {
+    "col": "d3",
+    "occupied": 445,
+    "held": 0,
+    "blocked": 172,
+    "capacity": 1422,
+    "pct": 35.6,
+    "pct_with_blocks": 43.4
+   }
+  ],
+  "by_period": [
+   {
+    "period": 1,
+    "occupied": 60,
+    "held": 0,
+    "blocked": 62,
+    "capacity": 553,
+    "pct": 12.2,
+    "pct_with_blocks": 22.1
+   },
+   {
+    "period": 2,
+    "occupied": 162,
+    "held": 0,
+    "blocked": 62,
+    "capacity": 553,
+    "pct": 33.0,
+    "pct_with_blocks": 40.5
+   },
+   {
+    "period": 3,
+    "occupied": 231,
+    "held": 0,
+    "blocked": 63,
+    "capacity": 553,
+    "pct": 47.1,
+    "pct_with_blocks": 53.2
+   },
+   {
+    "period": 4,
+    "occupied": 232,
+    "held": 0,
+    "blocked": 63,
+    "capacity": 553,
+    "pct": 47.3,
+    "pct_with_blocks": 53.3
+   }
+  ],
+  "total": {
+   "occupied": 1985,
+   "held": 0,
+   "blocked": 710,
+   "capacity": 9954,
+   "pct": 21.5,
+   "pct_with_blocks": 27.1
+  }
+ },
+ "counted": {
+  "assignments": 836,
+  "blocks": 72,
+  "bookings": 0
+ },
+ "notes": [],
+ "definitions": {
+  "room_period": {
+   "tr": "Bir oda-periyot: bir odanın bir haftadaki (sınavda bir tarihteki) bir günün bir periyodu",
+   "en": "A room-period is one room in one period of one day of one week (one date for exams)"
+  },
+  "pct": {
+   "tr": "Doluluk % = dolu / (kapasite − önceden dolu); taralı (önceden dolu) hücreler yüzdeye girmez",
+   "en": "Utilisation % = occupied / (capacity − blocked); hatched (pre-occupied) cells are left out"
+  },
+  "held": {
+   "tr": "Bekleyen rezervasyon talebi slotu tutuyorsa ayrıca sayılır (dolu sayılmaz)",
+   "en": "A pending booking request that still holds its slot is counted separately (not as occupied)"
+  }
+ },
+ "empty": false,
+ "empty_text": null
+}

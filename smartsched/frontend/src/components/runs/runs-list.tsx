@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { PageHeader } from "@/components/common/page-header";
+import { CompareEntry } from "@/components/compare/compare-entry";
 import type { StatusKind } from "@/components/common/status-badge";
 import { useActiveTerm } from "@/components/shell/term-switcher";
 import { Button } from "@/components/ui/button";
@@ -147,7 +148,7 @@ export function RunsList() {
   );
   return (
     <div data-testid="runs">
-      <PageHeader title={t("runs.title")} subtitle={term ? `${term.name} · ${t("runs.subtitle")}` : t("runs.subtitle")} actions={<Button nativeButton={false} render={<Link href="/generate" />}>{t("nav.generate")}</Button>} />
+      <PageHeader title={t("runs.title")} subtitle={term ? `${term.name} · ${t("runs.subtitle")}` : t("runs.subtitle")} actions={<><CompareEntry /><Button nativeButton={false} render={<Link href="/generate" />}>{t("nav.generate")}</Button></>} />
       <DataTable
         tableId="runs"
         userId={me.data?.id}
