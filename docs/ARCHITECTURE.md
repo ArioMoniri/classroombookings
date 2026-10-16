@@ -100,7 +100,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-26 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0030_booking_conflicts`**. A new migration goes on top of it (`alembic heads` must print one line).
+27 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0031_invigilation`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -130,6 +130,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 24 | `0028_p19_gaps` | `0027_notify_channels` | Phase 19 backend gaps: program wizard drafts (P19-W-01) and person / programme priority (P19-P-04) |
 | 25 | `0029_booking_policies` | `0028_p19_gaps` | Booking policies and exam-period mode (booking enhancements wave 2, P8; docs/product/booking-enhancements.md §P8) |
 | 26 | `0030_booking_conflicts` | `0029_booking_policies` | Conflict resolver after publishing (booking enhancements wave 2, P2; docs/product/booking-enhancements.md §4.4) |
+| 27 | `0031_invigilation` | `0030_booking_conflicts` | Invigilator assignment for exam runs (docs/features.yml "invigilator assignment"; app/services/invigilation.py) |
 
 <!-- /AUTO:migrations -->
 

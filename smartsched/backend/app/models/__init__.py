@@ -58,6 +58,7 @@ from app.models.integrations import (
     WebhookDelivery,
     WebhookEndpoint,
 )
+from app.models.invigilation import InvigilationDuty, InvigilationPlan, InvigilatorPoolMember
 from app.models.learning import LearnedObservation, LearnedPrior, LearningReset, SuggestionFeedback
 from app.models.locks import TermLock
 from app.models.planning_drafts import PriorityOverride, ProgramDraft
@@ -123,6 +124,9 @@ __all__ = [
     "NotificationOutbox",
     "PasswordResetToken",
     "Permission",
+    "InvigilationDuty",
+    "InvigilationPlan",
+    "InvigilatorPoolMember",
     "Program",
     "ProgramDraft",
     "PriorityOverride",

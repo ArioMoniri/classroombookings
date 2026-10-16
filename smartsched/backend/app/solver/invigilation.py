@@ -56,6 +56,8 @@ DEFAULT_WEIGHTS: dict[str, int] = {
 }
 #: deterministic-time share of the shortfall phase
 PHASE1_SHARE = 0.4
+#: above this many Booleans the LP relaxation is switched off (it used the whole budget on the Final)
+LARGE_MODEL = 20000
 
 
 # ------------------------------------------------------------------------------------------- input
@@ -452,7 +454,7 @@ def _cp_solve(
         for key, v in x.items():
             m.add_hint(v, values[key])
         m.minimize(total_short)
-        solver = _solver(inp, det * PHASE1_SHARE)
+        solver = _solver(inp, det * PHASE1_SHARE, len(x))
         st = solver.solve(m)
         spent += float(solver.deterministic_time)
         stats["phase1"] = solver.status_name(st)
@@ -510,7 +512,7 @@ def _cp_solve(
         - w["own_exam"] * sum(own_terms)
         + w["stability"] * sum(stab_terms)
     )
-    s2 = _solver(inp, det * (1 - PHASE1_SHARE) if hint_short else det)
+    s2 = _solver(inp, det * (1 - PHASE1_SHARE) if hint_short else det, len(x))
     st2 = s2.solve(m)
     spent += float(s2.deterministic_time)
     stats["phase2"] = s2.status_name(st2)
@@ -561,7 +563,7 @@ def breakdown_of(inp: InvigilationInput, el: Eligibility, plan: Mapping[int, Seq
     }
 
 
-def _solver(inp: InvigilationInput, det_s: float) -> Any:
+def _solver(inp: InvigilationInput, det_s: float, n_vars: int = 0) -> Any:
     """One CP-SAT solver: the input's workers and seed, a deterministic budget (the wall clock is a safety net).
     No LP relaxation and a light presolve: on the Final-sized model (150k Booleans) the LP and probing used the whole
     budget before the search started, and the hinted plan has to survive presolve."""
@@ -572,7 +574,8 @@ def _solver(inp: InvigilationInput, det_s: float) -> Any:
     solver.parameters.random_seed = int(inp.seed)
     solver.parameters.max_deterministic_time = max(0.5, det_s)
     solver.parameters.max_time_in_seconds = max(30.0, det_s * 8)
-    solver.parameters.linearization_level = 0
+    if n_vars > LARGE_MODEL:
+        solver.parameters.linearization_level = 0
     solver.parameters.cp_model_probing_level = 0
     solver.parameters.symmetry_level = 0
     solver.parameters.keep_all_feasible_solutions_in_presolve = True
@@ -919,8 +922,8 @@ def solve_invigilation(inp: InvigilationInput) -> InvigilationResult:
             "missing": required - filled,
             "locks": len(inp.locks),
             "lock_conflicts": lock_conflicts,
-            "max_periods": round(max(scaled) / 100 * 100) / 100 if scaled else 0,
-            "fair_share_periods": round(lb / 100, 2),
+            "max_periods": round(max(scaled), 2) if scaled else 0,
+            "fair_share_periods": round(lb, 2),
             "wall_s": round(time.perf_counter() - t0, 3),
             "workers": inp.workers,
             "seed": inp.seed,
