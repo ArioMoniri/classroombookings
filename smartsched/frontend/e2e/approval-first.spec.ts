@@ -12,6 +12,11 @@
  * 4. Settings › Entegrasyonlar: calendar sync needs the KVKK acknowledgement and shows the sign-off (M-40).
  * 5. Phone 390 × 844 (touch): the reject dialog is a full-width bottom sheet, reason rows ≥ 44 px, no sideways
  *    scroll; Taleplerim's withdraw button ≥ 44 px.
+ * 6. A two-period submission approved at once ("2 saatin hepsini onayla"); the teacher reads "Onaylandı" (F-01 S07).
+ * 7. Profile › Bildirimler: switching off e-mail for "Talebim onaylandı" is saved (F-01 S11); on a phone the
+ *    matrix is one card per event with ≥ 44 px rows and no sideways scroll.
+ * 8. Settings › Entegrasyonlar › Giden webhook'lar: a loopback URL is refused next to the field (M-41); a new
+ *    webhook shows its secret once, then is deleted after a confirmation.
  *
  * Everything this spec changes is its own (users, a room in the A group); afterAll restores the approval mode,
  * calendar sync, and removes the approver designation.
@@ -53,7 +58,7 @@ interface Req {
   note: string | null;
   bookings: { id: number; date: string; period_id: number }[];
 }
-const ctx = {} as { api: APIRequestContext; token: string; teacherToken: string; termId: number; groupA: number; room: { id: number; name: string }; adminId: number; mode: string; calendar: boolean };
+const ctx = { webhooks: [] as number[] } as { api: APIRequestContext; token: string; teacherToken: string; termId: number; groupA: number; room: { id: number; name: string }; adminId: number; mode: string; calendar: boolean; webhooks: number[] };
 
 async function call<T = unknown>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, token = ctx.token): Promise<{ status: number; body: T }> {
   const res = await ctx.api.fetch(`${API}${path}`, { method, data: body, headers: { Authorization: `Bearer ${token}` } });
@@ -153,6 +158,7 @@ test.afterAll(async () => {
   await call("PUT", "/org/settings", { approval_mode: ctx.mode });
   if (ctx.calendar !== undefined) await call("PUT", "/calendar/admin/settings", { calendar_sync_enabled: ctx.calendar });
   if (ctx.adminId) await call("PUT", `/approvals/approvers/${ctx.adminId}`, { scopes: [] });
+  for (const id of ctx.webhooks) await call("DELETE", `/webhooks/${id}`);
   await ctx.api.dispose();
 });
 
@@ -315,4 +321,86 @@ test("approval-first 5. phone 390: the reject dialog is a bottom sheet with 44 p
   await confirmSheet.getByTestId("withdraw-confirm-button").tap();
   await expect(tp.locator(`[data-request-id="${another.id}"]`)).toContainText("Geri çekildi");
   await tp.context().close();
+});
+
+/** the teacher's two-period submission on a date (POST /bookings/multi → create), its request ids */
+async function submitTwo(date: string, skip = 0): Promise<{ group: number; ids: number[] }> {
+  const slots = await free(date, 2, skip);
+  const sel = await api<{ id: number; slots: { mbs_id: number }[] }>("POST", "/bookings/multi", { slots: slots.map((s) => ({ date: s.date, period_id: s.period_id, room_id: s.room_id })), term_id: ctx.termId }, ctx.teacherToken);
+  await api("POST", `/bookings/multi/${sel.id}/create`, { type: "single", slots: sel.slots.map((s) => ({ mbs_id: s.mbs_id, notes: "Seminer" })), dry_run: false }, ctx.teacherToken);
+  const mine = (await api<Req[]>("GET", "/approvals/mine", undefined, ctx.teacherToken)).filter((r) => r.status === "PENDING" && r.group_id && r.bookings[0]?.date === date);
+  const group = Math.max(...mine.map((r) => r.group_id!));
+  return { group, ids: mine.filter((r) => r.group_id === group).map((r) => r.id) };
+}
+
+test("approval-first 6. a whole submission is approved at once; the teacher reads Onaylandı", async ({ page, browser }) => {
+  const { group, ids } = await submitTwo("2026-02-23");
+  expect(ids).toHaveLength(2);
+  await login(page, ADMIN.username, ADMIN.password);
+  await page.goto(`/approvals?request=${ids[1]}&group=${group}`);
+  const drawer = page.getByTestId("approval-drawer");
+  await expect(drawer.getByTestId("approval-group-bar")).toContainText("Tek talep: 2 ders saati.", { timeout: 30_000 });
+  await drawer.getByTestId("approval-note").fill("Onaylandı, iyi dersler.");
+  await drawer.getByTestId("approval-group-approve").click();
+  await expect(page.getByText(`2 ders saati onaylandı: ${ctx.room.name}.`)).toBeVisible();
+  for (const id of ids) await expect.poll(async () => (await api<Req>("GET", `/approvals/${id}`)).status).toBe("APPROVED");
+
+  const teacher = await (await browser.newContext({ locale: "tr-TR" })).newPage();
+  await login(teacher, TEACHER.username, TEACHER.password);
+  await teacher.goto(`/my-bookings?request=${ids[0]}`);
+  await expect(teacher.locator(`[data-request-id="${ids[0]}"]`)).toContainText("Onaylandı");
+  await expect(teacher.locator(`[data-request-id="${ids[0]}"]`).getByTestId("request-timeline")).toContainText("Onay Yöneticisi onayladı");
+  await teacher.context().close();
+});
+
+test("approval-first 7. Profile › Bildirimler saves an event × channel switch; phone 390 shows cards with 44 px rows", async ({ page, browser }) => {
+  await api("PUT", "/me/notification-preferences", { events: { "approval.approved": { email: true } } }, ctx.teacherToken);
+  await login(page, TEACHER.username, TEACHER.password);
+  await page.goto("/profile#notifications");
+  const panel = page.getByTestId("notification-prefs");
+  await expect(panel.getByTestId("prefs-matrix")).toBeVisible({ timeout: 30_000 });
+  for (const label of ["Onayımı bekleyen yeni oda talepleri", "Talebim onaylandı", "Talebim reddedildi (gerekçesiyle)", "Talebimin süresi doldu", "Uygulama içi", "E-posta"]) await expect(panel).toContainText(label);
+  const cell = panel.getByTestId("pref-approval.approved-email");
+  await expect(cell).toHaveAttribute("aria-checked", "true");
+  await cell.click();
+  await expect(page.getByText("Bildirim tercihi kaydedildi.").first()).toBeVisible();
+  await expect.poll(async () => {
+    const prefs = await api<{ events: { event: string; channels: Record<string, boolean> }[] }>("GET", "/me/notification-preferences", undefined, ctx.teacherToken);
+    return prefs.events.find((e) => e.event === "approval.approved")?.channels.email;
+  }).toBe(false);
+
+  const p = await phonePage(browser, { id: TEACHER.username, password: TEACHER.password });
+  await p.goto("/profile#notifications");
+  const cards = p.getByTestId("notification-prefs").getByTestId("prefs-cards");
+  await expect(cards).toBeVisible({ timeout: 30_000 });
+  await expect(cards.getByTestId("pref-approval.approved-email")).toHaveAttribute("aria-checked", "false");
+  for (const row of await cards.locator("li li").all()) expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect(await noSidewaysScroll(p)).toBe(true);
+  await p.context().close();
+});
+
+test("approval-first 8. webhooks: a loopback URL is refused next to the field; the secret shows once; delete asks first", async ({ page }) => {
+  await login(page, ADMIN.username, ADMIN.password);
+  await page.goto("/settings?tab=integrations");
+  const card = page.getByTestId("webhooks-admin");
+  await card.getByTestId("webhook-new").click();
+  const dialog = page.getByTestId("webhook-dialog");
+  await expect(dialog.getByTestId("webhook-save")).toBeDisabled();
+  await dialog.getByTestId("webhook-url").fill("https://127.0.0.1/hook");
+  await dialog.getByTestId("webhook-save").click();
+  await expect(dialog.getByTestId("webhook-error")).toBeVisible();
+  const url = `https://hooks-${STAMP}.e2e.invalid/smartsched`;
+  await dialog.getByTestId("webhook-url").fill(url);
+  await dialog.getByTestId("webhook-save").click();
+  const secret = card.getByTestId("webhook-secret");
+  await expect(secret).toContainText(url);
+  await expect(secret.locator("code")).toHaveText(/^whsec_/);
+  const made = (await api<{ id: number; url: string }[]>("GET", "/webhooks")).find((w) => w.url === url)!;
+  ctx.webhooks.push(made.id);
+  const row = card.getByTestId(`webhook-${made.id}`);
+  await expect(row).toContainText("Tüm olaylar");
+  await row.getByTestId(`webhook-delete-${made.id}`).click();
+  await page.getByTestId("webhook-delete-confirm").getByTestId("webhook-delete-confirm-button").click();
+  await expect(row).toHaveCount(0);
+  expect((await api<{ id: number }[]>("GET", "/webhooks")).some((w) => w.id === made.id)).toBe(false);
 });
