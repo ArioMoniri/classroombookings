@@ -57,10 +57,10 @@
   evidence: smartsched/backend/app/services
 - feature: "Relaxation policy when not every class fits: lock_first (default) or most_classes_first, per run or per term"
   area: planning
-  status: backend-only
+  status: done
   phase: "19"
-  evidence: smartsched/backend/app/solver
-  note: "priorities are run parameters; no screen yet"
+  evidence: smartsched/frontend/src/components/runs/relaxation.test.tsx
+  note: "per run in the run report's Re-solve dialog, per term in Ayarlar › Çözücü (write-only key); the studio Generate form waits for the backend (studio generate drops params.relaxation_policy)"
 - feature: "Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff"
   area: planning
   status: done
@@ -94,10 +94,10 @@
 
 - feature: "Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff"
   area: intake
-  status: in-progress
+  status: done
   phase: "P19 I1-I5"
-  evidence: smartsched/backend/app/council/formats.py
-  note: "readers, limits, dry-run API and the onboarding stepper with the Fark step done; an e2e for the intake screen is open"
+  evidence: smartsched/frontend/e2e/intake.spec.ts
+  note: "readers, limits, dry-run API, the onboarding stepper with Fark keep / take; e2e on the real Bahar planning list and board"
 - feature: "AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default"
   area: intake
   status: in-progress
@@ -106,14 +106,16 @@
   note: "council side done; review screen open"
 - feature: "Schedule map to a baseline import run, so a re-solve keeps the published board"
   area: intake
-  status: backend-only
+  status: done
   phase: "P19 I5"
-  evidence: smartsched/backend/app/council/baseline.py
+  evidence: smartsched/frontend/e2e/intake.spec.ts
+  note: "Fark names the term's baseline run, Kaydet shows its counts, the run report lists its source files and re-solves keeping it"
 - feature: "Intake memory: confirmed column mappings and lexicon additions remembered per file signature"
   area: intake
   status: backend-only
   phase: "P19"
   evidence: smartsched/backend/app/council/memory.py
+  note: "remembered decisions show in İnceleme (e2e/intake.spec.ts); a list / forget-per-signature view needs a backend API"
 
 - feature: "Booking grid by day or by room; single, recurring and multi bookings, limits, holidays, timetable weeks; the published timetable blocks its slots"
   area: bookings
@@ -164,10 +166,10 @@
   note: "Ayarlar › Entegrasyonlar: acknowledgement first, the sign-off record (who, when, legal basis) stays visible (M-40)"
 - feature: "Google Calendar and Microsoft 365 push, once an administrator enters the organisation's OAuth client"
   area: bookings
-  status: backend-only
+  status: done
   phase: "17"
-  evidence: smartsched/backend/tests/test_calendar_connectors.py
-  note: "tested against mocked APIs, not yet a live tenant"
+  evidence: smartsched/frontend/src/components/settings/calendar-push-admin.test.tsx
+  note: "Ayarlar › Entegrasyonlar OAuth client card (write-only secret, redirect URI) + Profil › Takvim aktarımı; mocked provider APIs, no live tenant yet"
 - feature: "Signed outgoing webhooks (HMAC-SHA256) with an SSRF guard, off by default"
   area: bookings
   status: done

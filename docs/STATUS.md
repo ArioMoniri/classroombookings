@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `70a446b` (committed 2026-10-16 09:17 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `fc2085e` (committed 2026-10-16 09:23 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 37 · Backend only 4 · In progress 3 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 41 · Backend only 1 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -43,7 +43,7 @@ Done 37 · Backend only 4 · In progress 3 · Planned 0 (from [`docs/features.ym
 | Calendar with six views and an inspector; move with a server check, then undo | Done | 4, 10 | [`calendar.spec.ts`](../smartsched/frontend/e2e/calendar.spec.ts) |
 | Publish button with a scope confirmation; the publish guard refuses failed runs and keeps one active run per term | Done | P19-01, M-03 | [`studio-calendar-sweep.spec.ts`](../smartsched/frontend/e2e/studio-calendar-sweep.spec.ts) |
 | Exports to Excel, CSV and iCal | Done | 1 | [`services`](../smartsched/backend/app/services) |
-| Relaxation policy when not every class fits: lock_first (default) or most_classes_first, per run or per term | Backend only: priorities are run parameters; no screen yet | 19 | [`solver`](../smartsched/backend/app/solver) |
+| Relaxation policy when not every class fits: lock_first (default) or most_classes_first, per run or per term | Done: per run in the run report's Re-solve dialog, per term in Ayarlar › Çözücü (write-only key); the studio Generate form waits for the backend (studio generate drops params.relaxation_policy) | 19 | [`relaxation.test.tsx`](../smartsched/frontend/src/components/runs/relaxation.test.tsx) |
 | Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff | Done: person and programme priority, server changes list, diff baseline + chain, publish notices | P19 M1-M3, F1 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Academicians add their own room, building or time wishes for their classes; coordinators accept or reject them with a reason, never applied by themselves | Done: Tercih ekle sheet + Tercihlerim on /moderation/me, Tercihler › Akademisyen tercihleri, badges on Kişiler / Eşleşmeler; soft rule ranked after the department's ask | P19-T2 | [`followups-ui.spec.ts`](../smartsched/frontend/e2e/followups-ui.spec.ts) |
 | Learned suggestions from earlier terms, with a resettable memory (per person, per term or all) | Done: accept for the term or persistent (admin, confirmed), undo of any decision; never auto-applied | P19 L1-L4, F2 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
@@ -54,10 +54,10 @@ Done 37 · Backend only 4 · In progress 3 · Planned 0 (from [`docs/features.ym
 
 | Feature | Status | Phase | Evidence |
 |---|---|---|---|
-| Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff | In progress: readers, limits, dry-run API and the onboarding stepper with the Fark step done; an e2e for the intake screen is open | P19 I1-I5 | [`formats.py`](../smartsched/backend/app/council/formats.py) |
+| Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff | Done: readers, limits, dry-run API, the onboarding stepper with Fark keep / take; e2e on the real Bahar planning list and board | P19 I1-I5 | [`intake.spec.ts`](../smartsched/frontend/e2e/intake.spec.ts) |
 | AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default | In progress: council side done; review screen open | P19 A1-A4 | [`airows.py`](../smartsched/backend/app/council/airows.py) |
-| Schedule map to a baseline import run, so a re-solve keeps the published board | Backend only | P19 I5 | [`baseline.py`](../smartsched/backend/app/council/baseline.py) |
-| Intake memory: confirmed column mappings and lexicon additions remembered per file signature | Backend only | P19 | [`memory.py`](../smartsched/backend/app/council/memory.py) |
+| Schedule map to a baseline import run, so a re-solve keeps the published board | Done: Fark names the term's baseline run, Kaydet shows its counts, the run report lists its source files and re-solves keeping it | P19 I5 | [`intake.spec.ts`](../smartsched/frontend/e2e/intake.spec.ts) |
+| Intake memory: confirmed column mappings and lexicon additions remembered per file signature | Backend only: remembered decisions show in İnceleme (e2e/intake.spec.ts); a list / forget-per-signature view needs a backend API | P19 | [`memory.py`](../smartsched/backend/app/council/memory.py) |
 
 **Bookings (the classroombookings side)**
 
@@ -72,7 +72,7 @@ Done 37 · Backend only 4 · In progress 3 · Planned 0 (from [`docs/features.ym
 | In-app notifications (bell) next to the e-mail outbox | Done | 17 | [`wave1.spec.ts`](../smartsched/frontend/e2e/wave1.spec.ts) |
 | Approval-first bookings: every request can go to an admin first; a rejection needs a reason; per-user notification preferences | Done: UI 2026-10-16: approval mode, reject dialog (code + text), group decide, Taleplerim reasons + withdraw, Profile › Bildirimler; e2e 8/8 on a real backend incl. phone 390 | owner request 2026-10-15 | [`approval-first.spec.ts`](../smartsched/frontend/e2e/approval-first.spec.ts) |
 | Organisation switch for calendar sync with a dated KVKK sign-off; off turns every feed link into a 404 | Done: Ayarlar › Entegrasyonlar: acknowledgement first, the sign-off record (who, when, legal basis) stays visible (M-40) | M-18 | [`approval-first.spec.ts`](../smartsched/frontend/e2e/approval-first.spec.ts) |
-| Google Calendar and Microsoft 365 push, once an administrator enters the organisation's OAuth client | Backend only: tested against mocked APIs, not yet a live tenant | 17 | [`test_calendar_connectors.py`](../smartsched/backend/tests/test_calendar_connectors.py) |
+| Google Calendar and Microsoft 365 push, once an administrator enters the organisation's OAuth client | Done: Ayarlar › Entegrasyonlar OAuth client card (write-only secret, redirect URI) + Profil › Takvim aktarımı; mocked provider APIs, no live tenant yet | 17 | [`calendar-push-admin.test.tsx`](../smartsched/frontend/src/components/settings/calendar-push-admin.test.tsx) |
 | Signed outgoing webhooks (HMAC-SHA256) with an SSRF guard, off by default | Done: Ayarlar › Entegrasyonlar › Giden webhook'lar: delivery switch, SSRF refusal next to the URL, secret shown once | 17 | [`approval-first.spec.ts`](../smartsched/frontend/e2e/approval-first.spec.ts) |
 | CRBS legacy upgrade: import a running classroombookings database with a dry-run report | Done: import-wizard dry run + fingerprint confirm; live MySQL run on the pod open | P18-LEGACY | [`shell-admin-sweep.spec.ts`](../smartsched/frontend/e2e/shell-admin-sweep.spec.ts) |
 | CRBS superset gate: every classroombookings behaviour and screen has an acceptance test | Done: runs in pod CI (parity gate) | 18 | [`parity_check.py`](../scripts/parity_check.py) |
@@ -224,7 +224,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **194 ticked · 304 open** checkboxes in 74 sections (71 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **194 ticked · 307 open** checkboxes in 75 sections (72 with open items).
 
 <details><summary>Per section</summary>
 
@@ -304,6 +304,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Bookings wave-2 + KVKK UI finished (2026-10-16) | 2 | 3 |
 | Dense grids on phones finished (2026-10-16) | 0 | 2 |
 | Backend asks batch 3 finished (2026-10-16) | 0 | 1 |
+| Consent gates finished (2026-10-16) | 0 | 3 |
 
 </details>
 

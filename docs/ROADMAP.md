@@ -1540,4 +1540,19 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
 - Agents launched:
   - **Wave-2 UI follow-ups:** effect toasts, the find-room "Neden?" verdict, retention field errors and the "Tümü" filter.
   - **Consent gates (backend):** a calendar link or connection needs an active consent, erasure revokes at the provider, and a `kvkk.ai_personal_default` setting.
-- [ ] **Owner / legal question:** should "consent not granted" exclude a person from AI requests, or only an explicit withdrawal (today's behaviour)? It becomes an admin setting.
+- [ ] **Owner / legal question:** should "consent not granted" exclude a person from AI requests, or only an explicit withdrawal (today's behaviour)? The admin setting `kvkk.ai_personal_default` now exists (default `included`); the question is which value the institution uses.
+
+### Consent gates finished (2026-10-16)
+
+- Done:
+  - With the calendar-sync KVKK sign-off on, a calendar feed link (`POST /calendar/feeds/tokens`, `/calendar/feeds/reset`, `/bookings/feed/token`) or a push connection (`POST /calendar/connectors/{provider}/connect`) needs the person's active `calendar_sync` consent. Without it: 409 `consent_required` with TR/EN text naming the consent and Profil › Gizlilik, `grant_path` `/profile#privacy` and `grant_api`. `GET /calendar/sync` carries `consent {purpose, required, granted}`.
+  - `kvkk.require_consent(session, user, purpose)` and the route dependency `app.api.deps.consent_gate("photo")` are the gate for any future upload that stores a person's photo (no such feature yet).
+  - A KVKK erasure disconnects every push calendar through `calendar_connectors.disconnect` first: the pushed events are removed and the Google grant revoked, awaited for up to 20 s (the rest in the background). `result.calendar` and `result.failures` (TR/EN; `grant_unreadable`, `events_not_removed`, `revoke_failed`, `provider_timeout`, `disconnect_failed`) record what happened; a failure never blocks the erasure.
+  - `kvkk.ai_personal_default` = `included` (default, today's behaviour) | `excluded` ("not granted = excluded"), set through `PUT /settings` `extra` (TR words accepted, 422 with `allowed` otherwise, audited as a tracked setting). `GET /me/privacy` returns `ai_personal_default` and `ai_excluded`. The `[KİŞİ_n]` redactor got a word prefilter, so hundreds of excluded people cost milliseconds.
+- [ ] UI follow-ups (consent gates):
+  - In the calendar screens (bookings sync sheet, My bookings, profile calendar connections), read `consent` from `GET /calendar/sync`. Ask for the consent before "create link" or "connect", and show the 409 `consent_required` `message_tr`/`message_en` with a link to `grant_path`.
+  - e2e `reserve.spec.ts` 7 must grant `calendar_sync` for TEACHER first (`POST /me/consents/calendar_sync`), or it gets a 409.
+  - Admin › KVKK: a control for `kvkk.ai_personal_default`; the Gizlilik text for the active meaning (`ai_personal_default`, `ai_excluded`).
+  - The KVKK queue shows `result.failures` of a completed erasure.
+- [ ] Links made while calendar sync was off are not gated when sync is switched on. Owner decision needed: should serving a feed also check the owner's consent (feeds without a consent would then stop updating)?
+- [ ] Microsoft 365 has no grant-revocation endpoint (`revoke: not_supported`). Deleting the tokens is all SmartSched can do; the person or the tenant admin removes the app access.
