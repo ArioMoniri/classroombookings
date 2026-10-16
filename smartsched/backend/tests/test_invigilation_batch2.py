@@ -22,7 +22,7 @@ from typing import Any
 import pytest
 from app.core import db as dbmod
 from app.core.config import get_settings
-from app.models import InvigilationDuty, ScheduleRun
+from app.models import AuditEvent, InvigilationDuty, ScheduleRun
 from app.services import invigilation as svc
 from app.services.seed import seed_admin
 from app.solver import invigilation as inv
@@ -162,3 +162,131 @@ async def test_candidates_does_not_block_the_event_loop(real):
     await tick
     assert t_cheap < t_heavy, "the cheap request waited for candidates"
     assert gaps and max(gaps) < 0.5, f"the event loop stalled for {max(gaps):.2f} s"
+
+
+# ------------------------------------------------------------------------------------------- 2. fill a post by hand
+
+
+async def _understaffed(c: AsyncClient, real: dict[str, Any]) -> dict[str, Any]:
+    """The real Final staffed by two research assistants at one invigilator per 10 students: INFEASIBLE, most rooms
+    short (the duties that fit are made, nothing relaxed)."""
+    for name in ("Arş. Gör. Deniz Ak", "Arş. Gör. Elif Kara"):
+        r = await c.post(f"{P}/pool", json={"full_name": name, "kind": "ASSISTANT", "term_id": real["final_id"]})
+        assert r.status_code == 201, r.text
+    r = await c.post(
+        f"{P}/plans",
+        json={
+            "exam_run_id": real["exam_run"],
+            "params": {"instructor_pool": "none", "students_per_invigilator": 10, "time_limit_s": 3},
+        },
+    )
+    assert r.status_code == 202, r.text
+    await qmod.get_queue().wait_idle(600)
+    d = await _detail(c, r.json()["plan_id"])
+    assert d["status"] == "INFEASIBLE" and d["counts"]["missing"] > 0
+    return d
+
+
+async def test_fill_an_understaffed_post_by_hand(real):
+    c = real["client"]
+    d = await _understaffed(c, real)
+    plan_id = d["id"]
+    # a third assistant joins after the run (İ/ı in the name: canonical keys must hold)
+    r = await c.post(
+        f"{P}/pool", json={"full_name": "Arş. Gör. İpek Işık", "kind": "ASSISTANT", "term_id": real["final_id"]}
+    )
+    assert r.status_code == 201, r.text
+    new = r.json()["person_key"]
+    short = sorted((p for p in d["posts"] if p["missing"]), key=lambda p: (p["date"], p["start_period"], p["key"]))
+
+    def overlaps(a: dict[str, Any], b: dict[str, Any]) -> bool:
+        return (
+            a["key"] != b["key"]
+            and a["date"] == b["date"]
+            and a["start_period"] <= b["end_period"]
+            and b["start_period"] <= a["end_period"]
+        )
+
+    # the first short post with another short post at the same time (a clash for the same person)
+    post, clash = next((a, b) for a in short for b in short if overlaps(a, b))
+    before_hard = d["hard_score"]
+    r = await c.post(
+        f"{P}/plans/{plan_id}/duties",
+        json={"post_key": post["key"], "person_key": new, "reason": "elle tamamlandı"},
+    )
+    assert r.status_code == 201, r.text
+    out = r.json()
+    assert out["person_key"] == new and out["origin"] == "MANUAL" and out["is_locked"] is True
+    assert out["post_key"] == post["key"] and out["date"] == post["date"] and out["room_id"] == post["room_id"]
+    assert out["person_name"] == "Arş. Gör. İpek Işık"
+    # re-scored: one more seat filled, the post one fewer missing, the load counts the new person
+    after = await _detail(c, plan_id)
+    assert after["counts"]["filled"] == d["counts"]["filled"] + 1
+    assert after["counts"]["missing"] == d["counts"]["missing"] - 1
+    assert after["hard_score"] >= before_hard and after["status"] == "INFEASIBLE"
+    p2 = next(p for p in after["posts"] if p["key"] == post["key"])
+    assert p2["missing"] == post["missing"] - 1 and new in {x["person_key"] for x in p2["assigned"]}
+    load = next(x for x in after["people"] if x["person_key"] == new)
+    assert load["duties"] == 1 and load["periods"] == post["end_period"] - post["start_period"] + 1
+    assert load["days"] == 1
+    # the same person at an overlapping post: 409 with the problem, nothing stored
+    r = await c.post(f"{P}/plans/{plan_id}/duties", json={"post_key": clash["key"], "person_key": new})
+    assert r.status_code == 409, r.text
+    det = r.json()["detail"]
+    assert det["reason"] == "on_duty" and det["problems"] and "at once" in det["problems"][0]
+    assert det["tr"] and det["en"] and det["reason_text"]["tr"]
+    # twice on one post, an unknown person, an unknown post
+    r = await c.post(f"{P}/plans/{plan_id}/duties", json={"post_key": post["key"], "person_key": new})
+    assert r.status_code == 409 and r.json()["detail"]["reason"] == "on_post"
+    r = await c.post(f"{P}/plans/{plan_id}/duties", json={"post_key": post["key"], "person_key": "STAFF:999999"})
+    assert r.status_code == 422
+    r = await c.post(f"{P}/plans/{plan_id}/duties", json={"post_key": "2026-01-01|1|1-2", "person_key": new})
+    assert r.status_code == 404
+    # declared unavailability holds too
+    other = next(p for p in short if p["date"] != post["date"])
+    pool = {m["person_key"]: m for m in (await c.get(f"{P}/pool")).json()}
+    r = await c.put(
+        f"{P}/pool/{pool[new]['id']}", json={"unavailable": [{"date": other["date"], "note": "bölüm kurulu"}]}
+    )
+    assert r.status_code == 200, r.text
+    r = await c.post(f"{P}/plans/{plan_id}/duties", json={"post_key": other["key"], "person_key": new})
+    assert r.status_code == 409 and r.json()["detail"]["reason"] == "unavailable"
+    async with dbmod.get_session_factory()() as s:
+        ev = (await s.execute(select(AuditEvent).where(AuditEvent.action == "invigilation.add_duty"))).scalar_one()
+        n_duties = len(
+            (await s.execute(select(InvigilationDuty).where(InvigilationDuty.plan_id == plan_id))).scalars().all()
+        )
+    assert ev.reason == "elle tamamlandı" and ev.after["person_key"] == new and ev.before is None
+    assert n_duties == after["counts"]["filled"]
+
+
+async def test_a_full_post_takes_no_extra_invigilator(real):
+    c = real["client"]
+    d = await _detail(c, real["plan"])
+    post = next(p for p in d["posts"] if p["assigned"] and not p["missing"])
+    cand = (await c.get(f"{P}/plans/{real['plan']}/candidates", params={"post_key": post["key"]})).json()
+    r = await c.post(
+        f"{P}/plans/{real['plan']}/duties", json={"post_key": post["key"], "person_key": cand["free"][0]["person_key"]}
+    )
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["reason"] == "post_full" and r.json()["detail"]["problems"]
+
+
+async def test_reassign_rescores_the_plan(real):
+    """A swap keeps the counts and moves the load (days included) from the old to the new person."""
+    c = real["client"]
+    d = await _detail(c, real["plan"])
+    post = next(p for p in d["posts"] if p["assigned"])
+    duty = post["assigned"][0]
+    cand = (await c.get(f"{P}/plans/{real['plan']}/candidates", params={"post_key": post["key"]})).json()
+    loads = {x["person_key"]: x for x in d["people"]}
+    good = min(cand["free"], key=lambda x: (x["person_key"] in loads, x["person_key"]))  # nobody's load, if any
+    was = loads.get(good["person_key"], {"duties": 0, "days": 0})
+    r = await c.put(f"{P}/plans/{real['plan']}/duties/{duty['id']}", json={"person_key": good["person_key"]})
+    assert r.status_code == 200, r.text
+    after = await _detail(c, real["plan"])
+    assert after["counts"] == d["counts"] and after["hard_score"] == 100
+    new_load = {x["person_key"]: x for x in after["people"]}[good["person_key"]]
+    assert new_load["duties"] == was["duties"] + 1 and new_load["days"] >= max(1, was["days"])
+    old = {x["person_key"]: x for x in after["people"]}.get(duty["person_key"])
+    assert (old["duties"] if old else 0) == loads[duty["person_key"]]["duties"] - 1

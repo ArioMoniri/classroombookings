@@ -76,6 +76,12 @@ class ReassignIn(BaseModel):
     reason: str | None = Field(None, max_length=500)
 
 
+class AddDutyIn(BaseModel):
+    post_key: str = Field(..., max_length=64)
+    person_key: str = Field(..., max_length=32)
+    reason: str | None = Field(None, max_length=500)
+
+
 def _params(p: PlanParams) -> dict[str, Any]:
     return p.model_dump(exclude_none=True)
 
@@ -170,6 +176,15 @@ async def delete_plan(plan_id: int, db: DB, user: Planner) -> None:
 async def lock_duty(plan_id: int, duty_id: int, db: DB, user: Planner, locked: bool = True) -> dict[str, Any]:
     try:
         return await svc.lock_duty(db, plan_id, duty_id, locked, user)
+    except svc.PlanError as exc:
+        raise _err(exc) from exc
+
+
+@router.post("/plans/{plan_id}/duties", status_code=201)
+async def add_duty(plan_id: int, body: AddDutyIn, db: DB, user: Planner) -> dict[str, Any]:
+    """Fill an under-staffed post by hand (one more invigilator; MANUAL + locked; 409 ``problems`` like reassign)."""
+    try:
+        return await svc.add_duty(db, plan_id, body.post_key, body.person_key, user, body.reason)
     except svc.PlanError as exc:
         raise _err(exc) from exc
 

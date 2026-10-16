@@ -26,6 +26,7 @@ import csv
 import functools
 import io
 import logging
+import math
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -1312,31 +1313,117 @@ async def candidates(session: AsyncSession, plan_id: int, post_key: str) -> dict
     return await asyncio.to_thread(_candidates, built, plan.id, post_key, pairs)
 
 
-async def reassign_duty(
-    session: AsyncSession, plan_id: int, duty_id: int, person_key: str, actor: User, reason: str | None = None
-) -> dict[str, Any]:
-    """A planner swaps the person of one duty: checked against every hard rule (409 with the problems otherwise);
-    the new duty is MANUAL and locked, so a re-run keeps it."""
-    plan = await _editable(session, plan_id)
-    d = await session.get(InvigilationDuty, duty_id)
-    if d is None or d.plan_id != plan.id:
-        raise PlanError(404, f"duty {duty_id} not found in plan {plan.id}")
-    built = await _rebuild(session, plan)
-    if person_key not in {p.id for p in built.inp.people}:
-        raise PlanError(422, f"{person_key} is not in this plan's pool")
-    duties = await _duties(session, plan.id)
-    pairs = [(x.post_key, person_key if x.id == d.id else x.person_key) for x in duties]
-    problems = [p for p in inv.validate(built.inp, _plan_map(built, pairs)) if person_key in p]
-    if problems:
-        raise PlanError(
-            409,
-            {
-                "tr": "Bu kişi bu göreve atanamaz: bir sert kural bozulur",
-                "en": "This person cannot take the duty: a hard rule would break",
-                "problems": problems[:10],
-            },
-        )
-    before = duty_out(d)
+#: diagnoses about seats that are missing (a manual fill can resolve them)
+SHORTAGE_CODES = frozenset({"no_candidates", "slot_shortage", "cap_shortage", "overlap_shortage"})
+
+
+def _score(built: Built, rows: Sequence[tuple[str, str, bool]], previous: Sequence[inv.Duty]) -> dict[str, Any]:
+    """The plan's scores after a manual edit, counted like ``inv.solve_invigilation`` counts a solved plan: the
+    shortfall per post, the hard score (every required seat and every locked duty that holds), the soft score
+    (busiest scaled load against the fair share), the loads (duties, periods, own exams, days) and the objective
+    breakdown (``inv.breakdown_of``). ``rows``: (post key, person key, locked) of every stored duty. CPU only."""
+    inp = replace(built.inp, previous=tuple(previous))
+    posts, people = inp.posts, inp.people
+    plan = _plan_map(built, [(a, b) for a, b, _ in rows])
+    el = inv.eligibility(inp)
+    short = {k: posts[k].required - len(plan.get(k, [])) for k in range(len(posts))}
+    shortfall = {posts[k].key: v for k, v in sorted(short.items()) if v > 0}
+    required = sum(x.required for x in posts)
+    filled = required - sum(shortfall.values())
+    locks = sum(1 for *_, locked in rows if locked)
+    hard = 100 if not shortfall else min(99, math.floor(100 * (filled + locks) / (required + locks)))
+    loads: dict[str, dict[str, int]] = {}
+    days: dict[str, set[date]] = defaultdict(set)
+    for k, ps in plan.items():
+        for i in ps:
+            e = loads.setdefault(people[i].id, {"duties": 0, "periods": 0, "own_exam": 0, "days": 0})
+            e["duties"] += 1
+            e["periods"] += posts[k].duration
+            e["own_exam"] += 1 if (k, i) in el.own else 0
+            days[people[i].id].add(posts[k].date)
+    for pid, ds in days.items():
+        loads[pid]["days"] = len(ds)
+    eligible = {i for ks in el.cands.values() for i in ks}
+    scaled = [
+        loads[people[i].id]["periods"] * 100 / max(1, people[i].load_factor) for i in eligible if people[i].id in loads
+    ]
+    total = sum(posts[k].duration * len(ps) for k, ps in plan.items())
+    longest = max((posts[k].duration for k, ps in plan.items() if ps), default=0)
+    fsum = sum(max(1, people[i].load_factor) for i in eligible) or 1
+    lb = max(total * 100 / fsum, float(longest) * 100 / max((people[i].load_factor for i in eligible), default=100))
+    soft = 100 if not scaled else max(0, min(100, round(100 * lb / max(scaled))))
+    return {
+        "hard_score": hard,
+        "soft_score": soft,
+        "shortfall": shortfall,
+        "loads": dict(sorted(loads.items())),
+        "objective_breakdown": inv.breakdown_of(inp, el, plan),
+        "required": required,
+        "filled": filled,
+        "missing": required - filled,
+        "max_periods": round(max(scaled), 2) if scaled else 0,
+        "fair_share_periods": round(lb, 2),
+    }
+
+
+async def _rescore(session: AsyncSession, plan: InvigilationPlan, built: Built) -> None:
+    """Re-score the plan from its stored duties (after a manual fill or swap; the session holds the edit)."""
+    await session.flush()
+    rows = [(d.post_key, d.person_key, bool(d.is_locked)) for d in await _duties(session, plan.id)]
+    previous: list[inv.Duty] = []
+    if plan.parent_plan_id:
+        previous = _duty_inputs(await _duties(session, plan.parent_plan_id))[1]
+    sc = await asyncio.to_thread(_score, built, rows, previous)
+    shortfall = sc["shortfall"]
+    diags = []
+    for x in plan.diagnosis or []:
+        if x.get("code") in SHORTAGE_CODES and x.get("post_keys"):
+            x = {**x, "resolved": all(not shortfall.get(k) for k in x["post_keys"])}
+        diags.append(x)
+    plan.diagnosis = diags
+    blocking = [
+        x
+        for x in diags
+        if x.get("severity") == "error" and not x.get("resolved") and x.get("code") not in SHORTAGE_CODES
+    ]
+    if plan.status == "INFEASIBLE" and not shortfall and not blocking:
+        plan.status = "FEASIBLE"  # every seat staffed by hand, no broken lock left
+    plan.hard_score, plan.soft_score = sc["hard_score"], sc["soft_score"]
+    st = {**(plan.stats or {}), **{k: v for k, v in sc.items() if k not in ("hard_score", "soft_score")}}
+    st["manual_edits"] = int(st.get("manual_edits") or 0) + 1
+    errs = [x for x in diags if x.get("severity") == "error" and not x.get("resolved")]
+    res = inv.InvigilationResult(
+        plan.status,
+        [],
+        sc["hard_score"],
+        sc["soft_score"],
+        sc["objective_breakdown"],
+        [inv.InvigDiagnosis(str(x.get("code")), "error", "") for x in errs],
+        shortfall,
+        sc["loads"],
+        st,
+    )
+    st["headline"] = _headline(res)
+    plan.stats = st
+
+
+def _refuse(check: PostCheck) -> PlanError:
+    assert check.reason is not None
+    tr, en = REASON_TEXT.get(check.reason, ("başka görevde ya da sınırda", "on another duty or at a limit"))
+    return PlanError(
+        409,
+        {
+            "tr": "Bu kişi bu göreve atanamaz: bir sert kural bozulur",
+            "en": "This person cannot take the duty: a hard rule would break",
+            "reason": check.reason,
+            "reason_text": _t(tr, en),
+            "clash_post_key": check.clash_post_key,
+            "problems": [check.problem] if check.problem else [],
+        },
+    )
+
+
+def _set_person(d: InvigilationDuty, built: Built, person_key: str) -> None:
     m = built.people.get(person_key, {})
     d.person_key = person_key
     d.person_name = str(m.get("name") or person_key)[:255]
@@ -1344,6 +1431,41 @@ async def reassign_duty(
     d.staff_id = m.get("staff_id")
     d.is_locked = True
     d.origin = "MANUAL"
+
+
+async def reassign_duty(
+    session: AsyncSession, plan_id: int, duty_id: int, person_key: str, actor: User, reason: str | None = None
+) -> dict[str, Any]:
+    """A planner swaps the person of one duty: checked against every hard rule of that post (409 with the problems
+    otherwise); the new duty is MANUAL and locked, so a re-run keeps it; the plan is re-scored."""
+    plan = await _editable(session, plan_id)
+    d = await session.get(InvigilationDuty, duty_id)
+    if d is None or d.plan_id != plan.id:
+        raise PlanError(404, f"duty {duty_id} not found in plan {plan.id}")
+    built = await _rebuild(session, plan)
+    pidx = {p.id: i for i, p in enumerate(built.inp.people)}
+    if person_key not in pidx:
+        raise PlanError(422, f"{person_key} is not in this plan's pool")
+    kidx = {p.key: k for k, p in enumerate(built.inp.posts)}
+    if d.post_key not in kidx:
+        raise PlanError(
+            409,
+            _t(
+                "Bu görev artık sınav programıyla eşleşmiyor (sınav taşınmış olabilir); planı yeniden çalıştırın",
+                "This duty no longer matches the exam timetable (the exam may have moved); re-run the plan",
+            ),
+        )
+    duties = await _duties(session, plan.id)
+    if person_key != d.person_key:
+        if any(x.post_key == d.post_key and x.person_key == person_key for x in duties):
+            raise _refuse(PostCheck("on_post", f"post {d.post_key}: a person listed twice"))
+        pairs = [(x.post_key, x.person_key) for x in duties if x.id != d.id]
+        k, i = kidx[d.post_key], pidx[person_key]
+        check = (await asyncio.to_thread(check_post, built.inp, k, _plan_map(built, pairs), [i]))[i]
+        if check.reason is not None:
+            raise _refuse(check)
+    before = duty_out(d)
+    _set_person(d, built, person_key)
     await audit.record(
         session,
         "invigilation.reassign",
@@ -1355,21 +1477,73 @@ async def reassign_duty(
         reason=reason,
         term_id=plan.term_id,
     )
-    # the stored per-person loads follow the edit
-    loads = dict((plan.stats or {}).get("loads") or {})
-    dur = d.end_period - d.start_period + 1
-    for key, sign in ((before["person_key"], -1), (person_key, 1)):
-        e = dict(loads.get(key) or {"duties": 0, "periods": 0, "own_exam": 0, "days": 0})
-        e["duties"] = max(0, int(e["duties"]) + sign)
-        e["periods"] = max(0, int(e["periods"]) + sign * dur)
-        loads[key] = e
-    plan.stats = {
-        **(plan.stats or {}),
-        "loads": loads,
-        "manual_edits": int((plan.stats or {}).get("manual_edits") or 0) + 1,
-    }
+    await _rescore(session, plan, built)
     await session.commit()
     return duty_out(d)
+
+
+async def add_duty(
+    session: AsyncSession, plan_id: int, post_key: str, person_key: str, actor: User, reason: str | None = None
+) -> dict[str, Any]:
+    """A planner fills an under-staffed post by hand: one more invigilator on ``post_key``. Checked against every
+    hard rule of the post (eligibility, overlapping duties, rest, daily and total caps; 409 with ``problems`` like
+    reassign) and against the post's required count; the duty is MANUAL and locked (a re-run keeps it), audited
+    (``invigilation.add_duty``) and the plan is re-scored."""
+    plan = await _editable(session, plan_id)
+    built = await _rebuild(session, plan)
+    kidx = {p.key: k for k, p in enumerate(built.inp.posts)}
+    if post_key not in kidx:
+        raise PlanError(404, f"post {post_key} is not in plan {plan.id}")
+    pidx = {p.id: i for i, p in enumerate(built.inp.people)}
+    if person_key not in pidx:
+        raise PlanError(422, f"{person_key} is not in this plan's pool")
+    k, i = kidx[post_key], pidx[person_key]
+    post = built.inp.posts[k]
+    duties = await _duties(session, plan.id)
+    on = [x for x in duties if x.post_key == post_key]
+    if any(x.person_key == person_key for x in on):
+        raise _refuse(PostCheck("on_post", f"post {post_key}: a person listed twice"))
+    if len(on) >= post.required:
+        raise PlanError(
+            409,
+            {
+                "tr": f"Bu salon-oturum için gereken {post.required} gözetmen zaten atanmış",
+                "en": f"This room session already has the {post.required} invigilator(s) it needs",
+                "reason": "post_full",
+                "reason_text": _t("gözetmen sayısı dolu", "fully staffed"),
+                "clash_post_key": None,
+                "problems": [f"post {post_key}: {len(on) + 1} > {post.required} invigilators"],
+            },
+        )
+    pairs = [(x.post_key, x.person_key) for x in duties]
+    check = (await asyncio.to_thread(check_post, built.inp, k, _plan_map(built, pairs), [i]))[i]
+    if check.reason is not None:
+        raise _refuse(check)
+    d = InvigilationDuty(
+        plan_id=plan.id,
+        post_key=post.key,
+        date=post.date,
+        start_period=post.start,
+        end_period=post.end,
+        room_id=post.room_id,
+        exam_request_ids=list(post.exam_ids),
+    )
+    _set_person(d, built, person_key)
+    session.add(d)
+    await session.flush()
+    await audit.record(
+        session,
+        "invigilation.add_duty",
+        "invigilation_duty",
+        d.id,
+        after=duty_out(d),
+        actor=actor,
+        reason=reason,
+        term_id=plan.term_id,
+    )
+    await _rescore(session, plan, built)
+    await session.commit()
+    return {**duty_out(d), "plan": plan_brief(plan)}
 
 
 async def rerun(
@@ -1507,6 +1681,8 @@ def load_heatmap_csv(data: Mapping[str, Any]) -> str:
 __all__ = [
     "PlanError",
     "activate",
+    "add_duty",
+    "check_post",
     "build_input",
     "candidates",
     "clean_params",

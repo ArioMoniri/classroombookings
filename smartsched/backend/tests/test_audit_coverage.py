@@ -346,6 +346,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "DELETE /api/v1/invigilation/plans/{plan_id}": (E, "app.services.invigilation"),
     "POST /api/v1/invigilation/plans/{plan_id}/duties/{duty_id}/lock": (E, "app.services.invigilation"),
     "PUT /api/v1/invigilation/plans/{plan_id}/duties/{duty_id}": (E, "app.services.invigilation"),
+    "POST /api/v1/invigilation/plans/{plan_id}/duties": (E, "app.services.invigilation"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)
