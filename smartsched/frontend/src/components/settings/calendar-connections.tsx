@@ -190,7 +190,7 @@ function Connection({ c, needsConsent }: { c: SyncConnector; needsConsent: boole
         <p role="alert" className="type-footnote text-status-infeasible-fg">
           {error.text}{" "}
           {error.consent ? (
-            <Link href="#privacy" className="font-medium text-tint-text underline-offset-4 hover:underline">
+            <Link href="/profile#privacy" className="font-medium text-tint-text underline-offset-4 hover:underline">
               {t("calendarPush.me.consentLink")}
             </Link>
           ) : null}
@@ -234,7 +234,7 @@ export function CalendarConnectionsSection() {
         {s?.enabled && needsConsent ? (
           <Alert tone="warning" testId="calendar-connections-consent">
             {t("calendarPush.me.needsConsent")}{" "}
-            <Link href="#privacy" className="font-medium text-tint-text underline-offset-4 hover:underline">
+            <Link href="/profile#privacy" className="font-medium text-tint-text underline-offset-4 hover:underline">
               {t("calendarPush.me.consentLink")}
             </Link>
           </Alert>

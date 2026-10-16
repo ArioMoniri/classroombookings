@@ -16,6 +16,7 @@ vi.mock("@/lib/api/client", async (orig) => ({
 }));
 
 import { CalendarPushAdmin, clientBody, redirectUsable } from "./calendar-push-admin";
+import { afKeys } from "@/lib/api/approval-first";
 
 const PANEL = "https://rezervasyon.uni.edu.tr";
 const unset = { client_id: "", client_secret: { set: false, masked: "" }, configured: false };
@@ -52,6 +53,9 @@ describe("clientBody / redirectUsable", () => {
     expect(clientBody("google", { id: "new-id", secret: "" }, stored)).toEqual({ google_client_id: "new-id" });
     expect(clientBody("google", { id: "abc.apps.googleusercontent.com", secret: " s3cret " }, stored)).toEqual({ google_client_secret: "s3cret" });
     expect(clientBody("microsoft", { id: "m", secret: "x", tenant: "" }, { ...stored, client_id: "m", tenant: "contoso.edu.tr" })).toEqual({ microsoft_client_secret: "x", microsoft_tenant: "organizations" });
+  });
+  it("has a query key the calendar_sync consent withdrawal refreshes (Gizlilik's /calendar|connector/ predicate)", () => {
+    expect(afKeys.integrations.some((k) => /calendar|connector/i.test(k))).toBe(true);
   });
   it("treats a redirect URI without a panel address as unusable", () => {
     expect(redirectUsable("/api/v1/calendar/connectors/google/callback")).toBe(false);

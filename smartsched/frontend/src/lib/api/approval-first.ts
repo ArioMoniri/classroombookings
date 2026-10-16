@@ -172,7 +172,8 @@ export const approvalFirst = {
 
 export const afKeys = {
   prefs: ["af", "notification-prefs"] as const,
-  integrations: ["af", "integrations"] as const,
+  // "calendar" in the key: a calendar_sync consent withdrawal (Gizlilik) refreshes it (lib/api/kvkk.ts)
+  integrations: ["af", "integrations", "calendar-connectors"] as const,
   webhooks: ["af", "webhooks"] as const,
   webhookEvents: ["af", "webhook-events"] as const,
   deliveries: (id: number) => ["af", "webhooks", "deliveries", id] as const,

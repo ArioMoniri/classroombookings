@@ -100,7 +100,7 @@ describe("CalendarConnectionsSection", () => {
     await user.click(await screen.findByTestId("calendar-connect-google"));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Önce takvim eşitleme iznini verin");
-    expect(within(alert).getByRole("link", { name: "Gizlilik bölümüne git" })).toHaveAttribute("href", "#privacy");
+    expect(within(alert).getByRole("link", { name: "Gizlilik bölümüne git" })).toHaveAttribute("href", "/profile#privacy");
     expect(assign).not.toHaveBeenCalled();
   });
 
@@ -126,7 +126,7 @@ describe("CalendarConnectionsSection", () => {
     renderSection();
     const notice = await screen.findByTestId("calendar-connections-consent");
     expect(notice).toHaveTextContent("first give your calendar sync consent");
-    expect(within(notice).getByRole("link", { name: "Go to Privacy" })).toHaveAttribute("href", "#privacy");
+    expect(within(notice).getByRole("link", { name: "Go to Privacy" })).toHaveAttribute("href", "/profile#privacy");
     expect(screen.queryByTestId("calendar-connect-google")).toBeNull();
   });
 
