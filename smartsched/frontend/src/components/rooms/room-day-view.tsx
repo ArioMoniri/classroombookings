@@ -75,7 +75,7 @@ export function RoomDayView({
                 <span className="type-footnote text-label-2">{t("roomsV2.legendFree")}</span>
               </>
             );
-            const look = cn("flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left", isPicked ? "bg-tint-soft text-tint-text edge-tint" : "bg-fill-3", isNow && "shadow-[inset_3px_0_0_var(--now)]");
+            const look = cn("flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left", isPicked ? "bg-tint-soft text-tint-text edge-tint" : "bg-fill-3", isNow && "border-l-3 border-l-(--now)");
             return (
               <li key={p} data-period={p}>
                 {onPick ? (
