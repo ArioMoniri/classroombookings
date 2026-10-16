@@ -197,7 +197,7 @@ export function PlanDetailView({ planId, canEdit, onOpenPlan, onRerun }: { planI
 }
 
 /** phase + the backend's percentage; while solving (pct stays at 30) the elapsed time against the limit moves */
-function RunningPanel({ p, elapsed }: { p: PlanDetail; elapsed: number | null }) {
+export function RunningPanel({ p, elapsed }: { p: Pick<PlanDetail, "status" | "progress" | "params">; elapsed: number | null }) {
   const { t, n } = useI18n();
   const v = progressView(p, elapsed);
   const phase = knownPhase(v.phase) ? t(`invigilation.phase.${v.phase}`) : v.phase;

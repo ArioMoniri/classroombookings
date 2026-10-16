@@ -3,9 +3,10 @@
  * staff member (193 no_candidates + 607 slot_shortage errors, 1 teaching_unchecked warning; trimmed to 3 per code).
  */
 import { describe, expect, it } from "vitest";
-import type { PlanDetail } from "@/lib/api/invigilation";
+import type { Diagnosis, PlanBrief, PlanDetail } from "@/lib/api/invigilation";
 import fixture from "./__fixtures__/plan-final-pool-none.json";
-import { bySession, filterPosts, fromRows, groupDiagnoses, newRow, parsePostKey, planTone, postDates, rowProblem, suggestionSummary, toRows } from "./invigilation-model";
+import addFx from "./__fixtures__/add-duty-final.json";
+import { bySession, diagCounts, filterPosts, fromRows, groupDiagnoses, knownPhase, newRow, parsePostKey, planTone, postDates, progressView, rowProblem, suggestionSummary, toRows } from "./invigilation-model";
 
 const plan = fixture as unknown as PlanDetail;
 
@@ -55,5 +56,28 @@ describe("invigilation model", () => {
   it("reads a post key", () => {
     expect(parsePostKey("2026-05-13|30|6-8")).toEqual({ date: "2026-05-13", roomId: 30, start: 6, end: 8 });
     expect(parsePostKey("x")).toBeNull();
+  });
+
+  it("groups a shortage staffed by hand afterwards (resolved) on its own, after the open ones", () => {
+    const resolved = { ...(addFx.diagnosis_resolved as unknown as Diagnosis) };
+    const list = [resolved, ...plan.diagnosis];
+    const g = groupDiagnoses(list);
+    expect(g.at(-1)).toMatchObject({ code: "no_candidates", resolved: true, posts: 1 });
+    expect(g.filter((x) => !x.resolved).map((x) => x.code)).toEqual(groupDiagnoses(plan.diagnosis).map((x) => x.code));
+    expect(g.reduce((s, x) => s + x.items.length, 0)).toBe(list.length);
+    const errors = plan.diagnosis.filter((d) => d.severity === "error").length;
+    expect(diagCounts(list)).toEqual({ errors, others: plan.diagnosis.length - errors, resolved: 1 });
+  });
+
+  it("shows the backend's own progress: phases and percentages as reported, the time meter only while solving", () => {
+    const seen = addFx.progress_seen.map((x) => progressView({ status: x.status as PlanBrief["status"], progress: x.progress, params: { time_limit_s: 3 } }, 5));
+    expect(seen.map((v) => [v.phase, v.pct, v.solving])).toEqual([["queued", 0, false], ["loading", 10, false], ["solving", 30, true], ["persisting", 90, false], ["done", 100, false]]);
+    // elapsed beyond the limit fills the meter, never past it
+    expect(seen[2]).toMatchObject({ limit: 3, elapsed: 5, meter: 3 });
+    expect(seen[1]!.meter).toBeNull();
+    // a backend without progress (or a job that has not reported yet): no number made up
+    expect(progressView({ status: "RUNNING", progress: undefined, params: {} }, 4)).toMatchObject({ phase: "running", pct: null, limit: 20 });
+    expect(knownPhase("persisting")).toBe(true);
+    expect(knownPhase("warming_up")).toBe(false);
   });
 });

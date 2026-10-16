@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { errorProblems, errorText } from "./analytics";
 import { HttpError } from "./client";
-import { changedParams, instructorIdOf, paramsFrom, PLAN_DEFAULTS, pollDelay } from "./invigilation";
+import addFx from "@/components/invigilation/__fixtures__/add-duty-final.json";
+import { changedParams, dutyRefusal, instructorIdOf, paramsFrom, PLAN_DEFAULTS, pollDelay, withAddedDuty, withBrief, type AddDutyOut, type PlanBrief, type PlanDetail, type Post } from "./invigilation";
 
 describe("invigilation client", () => {
   it("polls a running plan with a growing interval and stops once it has finished", () => {
@@ -40,5 +41,31 @@ describe("invigilation client", () => {
     expect(errorText(e, "en")).toMatch(/cannot take/);
     expect(errorProblems(e)).toEqual(["INS:5 on two duties at 2026-06-01 P1"]);
     expect(errorText(new HttpError(404, "404", "plan 9 not found"), "tr")).toBe("plan 9 not found");
+  });
+
+  it("places a hand-filled duty on its post and takes the re-scored brief (real POST …/duties answer)", () => {
+    const out = addFx.added as unknown as AddDutyOut;
+    const before = { ...(addFx.brief_before as unknown as PlanBrief), posts: [addFx.post as unknown as Post], people: [], diagnosis: [], objective_breakdown: {}, stats: {} } as PlanDetail;
+    const after = withAddedDuty(before, out);
+    expect(after.counts.filled).toBe(37);
+    expect(after.counts.missing).toBe(1054);
+    expect(after.headline?.tr).toMatch(/^37\/1091 görev atandı/);
+    const p = after.posts[0]!;
+    expect(p.missing).toBe(1);
+    expect(p.assigned.map((d) => d.person_key)).toEqual(["STAFF:1", "STAFF:2"]);
+    expect(p.assigned[1]).toMatchObject({ id: 1128, origin: "MANUAL", is_locked: true, person_name: "Arş. Gör. Fixture İki" });
+    expect(p.assigned.at(-1)).not.toHaveProperty("plan");
+    // applying the same answer twice (cache + refetch race) keeps one duty
+    expect(withAddedDuty(after, out).posts[0]!.assigned).toHaveLength(2);
+    // another plan's detail is left alone
+    expect(withAddedDuty({ ...before, id: 99 }, out)).toEqual({ ...before, id: 99 });
+    expect(withBrief([before, { ...before, id: 1 }], out.plan).map((x) => x.counts.filled)).toEqual([37, 36]);
+  });
+
+  it("reads a duty refusal: the sentence, the reason code, the server's reason text and the problems", () => {
+    const e = new HttpError(409, "409 Conflict", addFx.refused_on_post);
+    expect(dutyRefusal(e, "tr")).toEqual({ text: "Bu kişi bu göreve atanamaz: bir sert kural bozulur", reason: "on_post", reasonText: "bu görevde zaten var", problems: ["post 2026-05-13|30|6-8: a person listed twice"] });
+    expect(dutyRefusal(new HttpError(409, "409", addFx.refused_post_full), "en")).toMatchObject({ reason: "post_full", reasonText: "fully staffed" });
+    expect(dutyRefusal(new Error("offline"), "tr")).toEqual({ text: "offline", reason: null, reasonText: null, problems: [] });
   });
 });

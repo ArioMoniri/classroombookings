@@ -159,8 +159,8 @@ export function ReassignDialog({ planId, target, onClose }: { planId: number; ta
           <Textarea id={`${id}-reason`} maxLength={500} rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("invigilation.reassign.reasonHint")} data-testid="invig-reassign-reason" />
         </label>
         {err ? (
-          <Alert tone="error" live="assertive" data-testid="invig-reassign-error" data-reason={err.reason ?? undefined}>
-            {err.text}
+          <Alert tone="error" live="assertive" data-testid="invig-reassign-error">
+            <span className="block" data-testid="invig-refusal" data-reason={err.reason ?? undefined}>{err.text}</span>
             {err.reasonText ? <span className="block type-footnote" data-testid="invig-refusal-reason">{t("invigilation.reassign.why", { reason: err.reasonText })}</span> : null}
             {err.problems.length ? (
               <ul className="mt-1 list-disc pl-5 type-footnote">
