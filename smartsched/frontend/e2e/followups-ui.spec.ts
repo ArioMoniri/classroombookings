@@ -52,7 +52,7 @@ interface Row {
   instructors: { id: number; name: string; role: string | null }[];
   requested: { start_period: number | null; rooms: string[] };
 }
-const ctx = {} as { api: APIRequestContext; token: string; teacherToken: string; termId: number; userId: number; instructorId: number; instructorName: string; rows: Row[]; ptl102: Row };
+const ctx = {} as { api: APIRequestContext; token: string; teacherToken: string; termId: number; activeBefore: { id: number; code: string; is_active: boolean }[] | null; userId: number; instructorId: number; instructorName: string; rows: Row[]; ptl102: Row };
 
 async function call<T = unknown>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, token = ctx.token): Promise<{ status: number; body: T }> {
   const res = await ctx.api.fetch(`${API}${path}`, { method, data: body, headers: { Authorization: `Bearer ${token}` } });
@@ -104,8 +104,16 @@ async function smallTargets(page: Page, testId: string): Promise<{ el: string; w
 test.beforeAll(async () => {
   ctx.api = await pwRequest.newContext();
   ctx.token = await loginToken(ADMIN_EMAIL, ADMIN_PASSWORD);
-  const terms = await api<{ id: number; code: string }[]>("GET", "/terms");
+  const terms = await api<{ id: number; code: string; is_active: boolean }[]>("GET", "/terms");
   ctx.termId = terms.find((t) => t.code === TERM_CODE)!.id;
+  // Taleplerim reads the server's current term (no switcher for academicians): on a stack that also holds a newer
+  // term (the Final next to Bahar) make TERM_CODE the active one for this spec; afterAll puts the flags back
+  const current = await call<{ id: number }>("GET", "/terms/current");
+  ctx.activeBefore = null;
+  if (current.status !== 200 || current.body.id !== ctx.termId) {
+    ctx.activeBefore = terms.map((t) => ({ id: t.id, code: t.code, is_active: t.is_active }));
+    await api("PUT", `/terms/${ctx.termId}`, { is_active: true });
+  }
   // the real row the backend test uses: R601 PTL 102 §1 (asked C 601, Tuesday P4 fixed by the department form)
   const found = await api<{ items: Row[] }>("GET", `/terms/${ctx.termId}/moderation/matchings?q=${encodeURIComponent("PTL 102")}&limit=50`);
   const ptl = found.items.find((m) => m.label === "PTL 102 §1")!;
@@ -130,6 +138,10 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   if (!ctx.api) return;
+  if (ctx.activeBefore) {
+    await call("PUT", `/terms/${ctx.termId}`, { is_active: false });
+    for (const t of ctx.activeBefore.filter((x) => x.is_active)) await call("PUT", `/terms/${t.id}`, { is_active: true });
+  }
   if (ctx.userId) {
     await call("PUT", `/auth/sso/admin/users/${ctx.userId}/instructor`, { instructor_id: null });
     await call("DELETE", `/users/${ctx.userId}`);

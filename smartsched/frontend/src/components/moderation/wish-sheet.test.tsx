@@ -16,6 +16,9 @@ import { Matching } from "@/lib/api/moderation";
 import { I18nProvider } from "@/lib/i18n/provider";
 import fx from "./__fixtures__/wish-preview-bahar.json";
 
+// every test waits for the debounced server preview (400 ms) besides typing: more than vitest's 5 s on a loaded runner
+vi.setConfig({ testTimeout: 20_000 });
+
 const state = vi.hoisted(() => ({
   posted: [] as unknown[],
   previewed: [] as unknown[],

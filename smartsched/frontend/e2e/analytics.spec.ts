@@ -263,22 +263,21 @@ test.describe("planning analytics", () => {
     type Brief = { id: number; status: string; counts: { filled: number | null; missing: number | null }; progress?: { phase: string; pct: number | null } };
     type Detail = Brief & { posts: { key: string; missing: number; required: number; assigned: { person_key: string; origin: string; is_locked: boolean }[] }[]; diagnosis: { code: string; post_keys?: string[]; resolved?: boolean }[] };
     try {
-      // 1 · progress: a default-rule plan (about 9 s on the Final) opened while it runs
-      const run = await send<{ plan_id: number }>(page, "POST", "/invigilation/plans", { exam_run_id: exam.id, label: `e2e batch2 ilerleme ${stamp}`, params: { time_limit_s: 3 } });
+      // 1 · progress: a default-rule plan with a 15 s budget, opened while it runs
+      const run = await send<{ plan_id: number }>(page, "POST", "/invigilation/plans", { exam_run_id: exam.id, label: `e2e batch2 ilerleme ${stamp}`, params: { time_limit_s: 15 } });
       made.plans.push(run.plan_id);
       await page.goto(`/exams/invigilation?run=${exam.id}&plan=${run.plan_id}`);
       const detail = page.getByTestId("invig-plan");
       const running = page.getByTestId("invig-running");
-      if (await running.isVisible().catch(() => false)) {
-        await expect(running).toHaveAttribute("data-phase", /^(queued|loading|solving|persisting|running)$/);
-        const phase = await running.getAttribute("data-phase");
-        if (phase !== "running") await expect(page.getByTestId("invig-progress")).toHaveAttribute("aria-valuenow", /^(0|10|30|90)$/);
-        if (phase === "solving") {
-          // the percentage stays at 30 while CP-SAT runs; the time against the limit is what moves
-          await expect(page.getByTestId("invig-progress")).toHaveAttribute("aria-valuenow", "30");
-          await expect(page.getByTestId("invig-solve-time")).toHaveAttribute("aria-valuemax", "3");
-        }
-      }
+      // the backend's own phase and percentage; while CP-SAT runs the percentage stays at 30 and the time moves
+      await expect(running).toHaveAttribute("data-phase", "solving", { timeout: 30_000 });
+      await expect(page.getByTestId("invig-phase")).toHaveText("Çözülüyor");
+      await expect(page.getByTestId("invig-progress")).toHaveAttribute("aria-valuenow", "30");
+      const meter = page.getByTestId("invig-solve-time");
+      await expect(meter).toHaveAttribute("aria-valuemax", "15");
+      const t0 = Number(await meter.getAttribute("aria-valuenow"));
+      await expect.poll(async () => Number(await meter.getAttribute("aria-valuenow")), { timeout: 10_000 }).toBeGreaterThan(t0);
+      await expect(page.getByTestId("invig-plan-item").filter({ hasText: `e2e batch2 ilerleme ${stamp}` })).toContainText("Çözülüyor · %30");
       await expect(detail).toHaveAttribute("data-status", /^(OPTIMAL|FEASIBLE|INFEASIBLE)$/, { timeout: 240_000 });
       const done = await api<Brief[]>(page, `/invigilation/plans?exam_run_id=${exam.id}`);
       expect(done.find((p) => p.id === run.plan_id)?.progress).toEqual({ phase: "done", pct: 100 });
