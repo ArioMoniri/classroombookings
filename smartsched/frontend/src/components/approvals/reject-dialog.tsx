@@ -160,7 +160,6 @@ export function RejectDialog({
             aria-required="true"
             aria-invalid={textErr ? true : undefined}
             aria-describedby={`${base}-count${textErr ? ` ${base}-text-err` : ""}`}
-            className=""
             data-testid="reject-text"
           />
           <div className="flex items-start justify-between gap-3">

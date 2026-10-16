@@ -341,7 +341,7 @@ function CreateWebhook({ open, onOpenChange, onCreated }: { open: boolean; onOpe
         </fieldset>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`${base}-desc`}>{t("notifications.admin.webhooks.description")}</Label>
-          <Input id={`${base}-desc`} maxLength={255} value={description} onChange={(e) => setDescription(e.target.value)} className="" />
+          <Input id={`${base}-desc`} maxLength={255} value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
       </form>
     </ResponsiveDialog>
