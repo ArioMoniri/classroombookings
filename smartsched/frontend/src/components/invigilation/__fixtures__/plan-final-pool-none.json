@@ -58,27 +58,27 @@
     {
      "id": 1,
      "label": "BME419 · Biyomedikal Mühendisliği (İngilizce) · 4. sınıf",
-     "instructor_text": "Prof. Dr. ATA AKIN"
+     "instructor_text": "Prof. Dr. A. A."
     },
     {
      "id": 2,
      "label": "BME419 · Bilgisayar Mühendisliği (İngilizce) · 2. sınıf",
-     "instructor_text": "Prof. Dr. ATA AKIN"
+     "instructor_text": "Prof. Dr. A. A."
     },
     {
      "id": 3,
      "label": "BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 4. sınıf",
-     "instructor_text": "Prof. Dr. ATA AKIN"
+     "instructor_text": "Prof. Dr. A. A."
     },
     {
      "id": 4,
      "label": "BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 2. sınıf",
-     "instructor_text": "Prof. Dr. ATA AKIN"
+     "instructor_text": "Prof. Dr. A. A."
     },
     {
      "id": 5,
      "label": "BME419 · Biyomedikal Mühendisliği (İngilizce) · 3. sınıf",
-     "instructor_text": "Prof. Dr. ATA AKIN"
+     "instructor_text": "Prof. Dr. A. A."
     }
    ],
    "assigned": [
@@ -125,7 +125,7 @@
     {
      "id": 12,
      "label": "FZT306 · Fizyoterapi ve Rehabilitasyon · 3. sınıf",
-     "instructor_text": "Doç. Dr. Nuray ALACA Doç. Dr. Özlem FEYZİOĞLU"
+     "instructor_text": "Doç. Dr. N. A. Doç. Dr. Ö. F."
     }
    ],
    "assigned": [],
@@ -149,7 +149,7 @@
     {
      "id": 12,
      "label": "FZT306 · Fizyoterapi ve Rehabilitasyon · 3. sınıf",
-     "instructor_text": "Doç. Dr. Nuray ALACA Doç. Dr. Özlem FEYZİOĞLU"
+     "instructor_text": "Doç. Dr. N. A. Doç. Dr. Ö. F."
     }
    ],
    "assigned": [],
@@ -173,7 +173,7 @@
     {
      "id": 14,
      "label": "FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf",
-     "instructor_text": "Öğr. Gör. Sergen ÖZTÜRK Öğr. Gör. Dilek ÇAĞRI ARSLAN"
+     "instructor_text": "Öğr. Gör. S. Ö. Öğr. Gör. D. Ç. A."
     }
    ],
    "assigned": [],
@@ -197,7 +197,7 @@
     {
      "id": 13,
      "label": "NUT368 · Beslenme ve Diyetetik (İngilizce) · 3. sınıf",
-     "instructor_text": "Dr. Öğr. Üyesi Cansu Gençalp"
+     "instructor_text": "Dr. Öğr. Üyesi C. G."
     }
    ],
    "assigned": [],
@@ -221,7 +221,7 @@
     {
      "id": 14,
      "label": "FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf",
-     "instructor_text": "Öğr. Gör. Sergen ÖZTÜRK Öğr. Gör. Dilek ÇAĞRI ARSLAN"
+     "instructor_text": "Öğr. Gör. S. Ö. Öğr. Gör. D. Ç. A."
     }
    ],
    "assigned": [],

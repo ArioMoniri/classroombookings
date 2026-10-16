@@ -704,7 +704,7 @@
   "rows": [
    {
     "instructor_id": 173,
-    "name": "Canan Acar",
+    "name": "C. A.",
     "a": {
      "periods_per_week": 6.0,
      "gaps_per_week": 10.0,
@@ -733,7 +733,7 @@
    },
    {
     "instructor_id": 85,
-    "name": "Tuba Usseli",
+    "name": "T. U.",
     "a": {
      "periods_per_week": 20.0,
      "gaps_per_week": 9.0,
@@ -764,7 +764,7 @@
    },
    {
     "instructor_id": 65,
-    "name": "Eğit. Yaren Kavraz Güney",
+    "name": "Eğit. Y. K. G.",
     "a": {
      "periods_per_week": 14.0,
      "gaps_per_week": 7.0,
