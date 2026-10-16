@@ -1457,3 +1457,19 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
 - [ ] Frontend (Tercih ekle): preview with `POST /moderation/me/preferences?dry_run=1` (same body; 200 `{dry_run: true, status: "preview", submission: null, items[{id: null, text{tr,en}, wish, department, …}], effective{tr,en}}`; refusals as the real submit). The room picker uses `GET /moderation/me/rooms` (`{items[{id, code, name, capacity, building, building_name, tags, bookable}], count}`; 403 `not_linked`).
 - [ ] e2e owner (`e2e/approval-first.spec.ts`): make tests 2, 3, 5 and 6 independent of test 1. Set `approval_mode: "all"` through the API in `beforeAll`, after reading `ctx.mode`; test 1 already resets to `rules` first and `afterAll` restores. Alternatively, assert `/approvals/rooms/{id}/check` → `request` in `requestOne` with a clear message.
 
+
+### Mobile polish finished (2026-10-16)
+
+- Done:
+  - ui/dialog is a bottom sheet on phones, and the command palette is full height.
+  - Tabs and Checkbox get coarse hit areas.
+  - The /classes scroller no longer clips hit areas.
+  - Find-room Switch rows are 44 px labels.
+  - The doubled safe-area padding is removed.
+  - Shell scroll-padding on `html` keeps focused controls clear of the sticky bars.
+  - tokens.md §A.9 is updated.
+  - Breadcrumbs for /analytics and /exams.
+  - Probe at 390 px over 42 routes: M-02 offenders went from 519 to 323, and those under a bar from 177 to 2.
+- The dense-grids agent is running, with this orchestrator default: phones get a day view for the /admin/sessions and /rooms/[id] week grids, a list for the dashboard heat cells, and one role at a time for /admin/roles.
+- Sent to wave-2: the Profile preference-matrix switches and the settings password-reveal width.
+- [ ] MOBILE.md M-04 snippet: it only counts scrollers inside the dialog, so a phone Dialog that scrolls itself reads as not scrollable. Fix the snippet in the flow loop.

@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `4a3a322` (committed 2026-10-16 07:15 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `3ae169f` (committed 2026-10-16 07:17 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-140 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 117 · stopped 7 · superseded 7.
+141 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 118 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -156,8 +156,8 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
 | `Bookings wave-2 + KVKK UI` | frontend-engineer | 2026-10-16 06:08 |
-| `Mobile caller-layout polish` | frontend-engineer | 2026-10-16 06:13 |
 | `UI for batch-2 endpoints` | frontend-engineer | 2026-10-16 07:10 |
+| `Dense grids` | frontend-engineer | 2026-10-16 07:18 |
 
 <!-- /AUTO:agents -->
 
@@ -224,7 +224,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **186 ticked · 297 open** checkboxes in 68 sections (65 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **187 ticked · 299 open** checkboxes in 70 sections (67 with open items).
 
 <details><summary>Per section</summary>
 
@@ -294,10 +294,12 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Follow-ups UI finished (2026-10-16) | 2 | 2 |
 | Backend follow-ups finished (2026-10-16) | 2 | 5 |
 | Planning analytics backend finished (2026-10-16); analytics UI launched | 3 | 2 |
+| Design migration and phone sweep finished (2026-10-16) | 0 | 2 |
 | Bookings wave-2 backend finished (2026-10-16); wave-2 + KVKK UI launched | 0 | 2 |
 | Backend test isolation finished (2026-10-16) | 0 | 2 |
-| Planning analytics UI finished (2026-10-16) | 3 | 2 |
+| Planning analytics UI finished (2026-10-16) | 4 | 1 |
 | Backend asks batch 2 finished (2026-10-16) | 0 | 5 |
+| Mobile polish finished (2026-10-16) | 0 | 1 |
 
 </details>
 

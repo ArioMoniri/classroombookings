@@ -1519,7 +1519,8 @@
       "goal": "You are the **mobile polish** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: mobile-polish-2026-10-16. ## Context The ui-primitives agent just finished 44 px hit areas (`ui/hit-ar…",
       "ledger": "Mobile caller-layout polish",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 07:18"
     },
     {
       "id": "ad6887c66aeb9746b",
@@ -1543,6 +1544,18 @@
       "scope": "",
       "goal": "You are the **batch-2 endpoints UI** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: batch2-ui-2026-10-16. ## Contracts (backend landed; read docs/ROADMAP.md \"Backend asks batch 2 …",
       "ledger": "UI for batch-2 endpoints",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ac365dafc3f79477d",
+      "description": "Dense grids: phone layouts",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 07:18",
+      "scope": "",
+      "goal": "You are the **dense grids on phones** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: dense-grids-phone-2026-10-16. ## Owner's requirement \"Make all optimised for mobile screens\", …",
+      "ledger": "Dense grids: phone layouts",
       "resumed": false,
       "status": "running"
     }
