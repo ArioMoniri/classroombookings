@@ -11,23 +11,32 @@ No sign-in:
 Each answers 404 ``not found`` when the view is off, the room / building is unknown or the date is outside the window
 (the same body), and 429 with ``Retry-After`` above the per-address limit.
 
+Caching (backend asks batch 3, item 1): a 200 carries ``Cache-Control: public, max-age=0, must-revalidate`` and an
+``ETag`` over the settings version (sign-off + ``show_bookings``) and the response data, so a kiosk revalidates on
+every poll and gets an empty 304 when nothing changed (``If-None-Match``, weak tags accepted). Every 404 and 429 is
+``Cache-Control: no-store``: switching the view off takes effect on the next poll, whatever a kiosk or proxy holds.
+
 Administration (``setup.settings``): ``GET/PUT /public-schedule/admin/settings`` ``{enabled, show_bookings}``; switching
 it on records the KVKK sign-off (audited ``public_schedule.settings``).
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from datetime import date
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.api.deps import DB, require_permission
 from app.core import throttle
 from app.models import User
 from app.services import bookings as bsvc
+from app.services import calendar_feeds as feeds
 from app.services import public_schedule as svc
 
 router = APIRouter(prefix="/public/schedule", tags=["public"])
@@ -40,8 +49,13 @@ class PublicSettingsIn(BaseModel):
     show_bookings: str | None = None
 
 
+#: a 200 is revalidated on every poll (ETag / 304); refusals are never stored
+CACHE_OK = "public, max-age=0, must-revalidate"
+NO_STORE = {"Cache-Control": "no-store"}
+
+
 def _not_found() -> HTTPException:
-    return HTTPException(404, "not found")
+    return HTTPException(404, "not found", headers=NO_STORE)
 
 
 def _limit(request: Request) -> None:
@@ -49,7 +63,9 @@ def _limit(request: Request) -> None:
     key = f"ip:{address}"
     if throttle.PUBLIC_PER_ADDRESS.hit(key):
         raise HTTPException(
-            429, "too many requests", headers={"Retry-After": str(throttle.PUBLIC_PER_ADDRESS.retry_after(key) or 1)}
+            429,
+            "too many requests",
+            headers={"Retry-After": str(throttle.PUBLIC_PER_ADDRESS.retry_after(key) or 1), **NO_STORE},
         )
 
 
@@ -66,47 +82,51 @@ async def _day(db: DB, value: str | None) -> date:
         raise _not_found() from exc
 
 
-def _cache(response: Response) -> None:
-    response.headers["Cache-Control"] = "public, max-age=60"
+async def _cached(request: Request, db: DB, out: dict[str, Any]) -> Response:
+    """200 with an ETag over the settings version and the data, or an empty 304 when the kiosk already has it."""
+    version = await svc.settings_version(db)
+    body = json.dumps(out, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    etag = '"' + hashlib.sha256(f"{version}\n{body}".encode()).hexdigest()[:32] + '"'
+    headers = {"ETag": etag, "Cache-Control": CACHE_OK}
+    if feeds.etag_matches(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers=headers)
+    return JSONResponse(out, headers=headers)
 
 
 @router.get("")
-async def public_index(request: Request, response: Response, db: DB) -> dict[str, Any]:
+async def public_index(request: Request, db: DB) -> Response:
     _limit(request)
     try:
         out = await svc.index(db)
     except svc.NotFound as exc:
         raise _not_found() from exc
-    _cache(response)
-    return out
+    return await _cached(request, db, out)
 
 
 @router.get("/rooms/{code}")
 async def public_room(
-    code: str, request: Request, response: Response, db: DB, day: Annotated[str | None, Query(alias="date")] = None
-) -> dict[str, Any]:
+    code: str, request: Request, db: DB, day: Annotated[str | None, Query(alias="date")] = None
+) -> Response:
     _limit(request)
     d = await _day(db, day)
     try:
         out = await svc.room_day(db, code, d)
     except svc.NotFound as exc:
         raise _not_found() from exc
-    _cache(response)
-    return out
+    return await _cached(request, db, out)
 
 
 @router.get("/buildings/{code}")
 async def public_building(
-    code: str, request: Request, response: Response, db: DB, day: Annotated[str | None, Query(alias="date")] = None
-) -> dict[str, Any]:
+    code: str, request: Request, db: DB, day: Annotated[str | None, Query(alias="date")] = None
+) -> Response:
     _limit(request)
     d = await _day(db, day)
     try:
         out = await svc.building_day(db, code, d)
     except svc.NotFound as exc:
         raise _not_found() from exc
-    _cache(response)
-    return out
+    return await _cached(request, db, out)
 
 
 @admin_router.get("/settings")

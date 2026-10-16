@@ -68,7 +68,7 @@ async def test_off_by_default_then_signed_off_and_minimal(env):  # noqa: F811
     phy = [x for x in day["items"] if x["label"]["tr"] == "PHY 102"]
     assert phy and phy[0]["start_period"] == 3 and phy[0]["end_period"] == 5 and phy[0]["start"] == "10:10"
     assert all(set(x) == ITEM_KEYS for x in day["items"])
-    assert r.headers["cache-control"] == "public, max-age=60"
+    assert r.headers["cache-control"] == "public, max-age=0, must-revalidate"
     r = await c.get(f"{PUB}/rooms/{room}", params={"date": "2026-02-18"})
     booked = [x for x in r.json()["items"] if x["kind"] == "booked"]
     assert booked == [
@@ -152,3 +152,58 @@ def test_labels_keep_course_codes_only():
     assert public_schedule._class_label("NAFİYE HOCA") == {"tr": "Ders", "en": "Class"}
     assert public_schedule._block_label("hazırlık") == {"tr": "Hazırlık", "en": "Preparatory school"}
     assert public_schedule._block_label("Adli Tıp Staj") == {"tr": "Ayrılmış", "en": "Reserved"}
+
+
+async def test_revalidating_cache_and_switch_off_at_once(env):  # noqa: F811
+    """Backend asks batch 3 item 1: kiosks revalidate every poll (ETag over the settings version + the day's data,
+    304 when unchanged); switching the view off answers 404 ``no-store`` at once, even to a kiosk holding an ETag."""
+    throttle.PUBLIC_PER_ADDRESS.reset()
+    c = env.client
+    off = await c.get(f"{PUB}/rooms/A204", params={"date": "2026-02-18"})
+    assert off.status_code == 404 and off.headers["cache-control"] == "no-store" and "etag" not in off.headers
+    assert (await c.put(ADMIN, json={"enabled": True}, headers=env.admin)).status_code == 200
+
+    wed = date(2026, 2, 18)
+    room = (await free_rooms(wed, 13, 13))[0]
+    for path, params in (
+        (f"/rooms/{room}", {"date": "18.02.2026"}),
+        ("/buildings/a", {"date": "2026-02-18"}),
+        ("", {}),
+    ):
+        r = await c.get(PUB + path, params=params)
+        assert r.status_code == 200, (path, r.text)
+        assert r.headers["cache-control"] == "public, max-age=0, must-revalidate", path
+        tag = r.headers["etag"]
+        assert tag.startswith('"') and tag.endswith('"')
+        again = await c.get(PUB + path, params=params, headers={"If-None-Match": tag})
+        assert again.status_code == 304 and again.content == b"" and again.headers["etag"] == tag, path
+        assert again.headers["cache-control"] == "public, max-age=0, must-revalidate"
+        # a weak copy of the same tag (some proxies weaken it) also matches
+        assert (await c.get(PUB + path, params=params, headers={"If-None-Match": "W/" + tag})).status_code == 304
+
+    # the data version: a new booking in that room changes the room's and the building's ETag
+    r = await c.get(f"{PUB}/rooms/{room}", params={"date": "2026-02-18"})
+    before = r.headers["etag"]
+    _, ayse = await env.user("ayse.yilmaz@uni.edu.tr", full_name="Ayşe Yılmaz")
+    assert (await env.book(ayse, room, wed, "P13")).status_code == 201
+    r = await c.get(f"{PUB}/rooms/{room}", params={"date": "2026-02-18"}, headers={"If-None-Match": before})
+    assert r.status_code == 200 and r.headers["etag"] != before
+    assert [x for x in r.json()["items"] if x["kind"] == "booked"]
+
+    # the settings version: hiding bookings changes it even where the day had none
+    idx = await c.get(PUB)
+    assert (await c.put(ADMIN, json={"show_bookings": "hidden"}, headers=env.admin)).status_code == 200
+    r = await c.get(PUB, headers={"If-None-Match": idx.headers["etag"]})
+    assert r.status_code == 200 and r.headers["etag"] != idx.headers["etag"]
+
+    # off: at once, whatever the kiosk holds
+    tag = r.headers["etag"]
+    assert (await c.put(ADMIN, json={"enabled": False}, headers=env.admin)).status_code == 200
+    for path in ("", f"/rooms/{room}", "/buildings/a"):
+        r = await c.get(PUB + path, params={"date": "2026-02-18"}, headers={"If-None-Match": tag})
+        assert r.status_code == 404 and r.headers["cache-control"] == "no-store" and r.json() == off.json(), path
+    # unknown rooms answer exactly like "off" (same body, same headers: nothing to enumerate)
+    assert (await c.put(ADMIN, json={"enabled": True}, headers=env.admin)).status_code == 200
+    r = await c.get(f"{PUB}/rooms/Z999", params={"date": "2026-02-18"})
+    assert r.status_code == 404 and r.headers["cache-control"] == "no-store" and r.json() == off.json()
+    throttle.PUBLIC_PER_ADDRESS.reset()

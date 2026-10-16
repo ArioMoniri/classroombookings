@@ -56,6 +56,14 @@ async def settings(session: AsyncSession) -> dict[str, Any]:
     return {"enabled": on, "signoff": g["schedule_signoff"], "show_bookings": show}
 
 
+async def settings_version(session: AsyncSession) -> str:
+    """What a public answer depends on besides its data: the sign-off (every switch stamps a new one) and
+    ``show_bookings``; part of the pages' ETag (:mod:`app.api.v1.public_schedule`)."""
+    cfg = await settings(session)
+    sign = cfg["signoff"] if isinstance(cfg["signoff"], dict) else {}
+    return f"{cfg['enabled']}|{sign.get('at', '')}|{sign.get('by_user_id', '')}|{cfg['show_bookings']}"
+
+
 async def update_settings(session: AsyncSession, admin: User, data: dict[str, Any]) -> dict[str, Any]:
     before = await settings(session)
     values: dict[str, Any] = {}
