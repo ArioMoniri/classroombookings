@@ -117,7 +117,12 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
   /** Geri al on a receipt or in Geçmiş: the decision is undone server-side (restore) and the card is open again */
   const undo = async (s: Suggestion) => {
     try {
-      await actions.restore.mutateAsync(s.id);
+      const out = await actions.restore.mutateAsync(s.id);
+      // the card is open again in the cache BEFORE its receipt goes: otherwise it leaves the list for a moment
+      // (stale data still says accepted / dismissed) and its exit animation swallows the re-entry
+      qc.setQueryData<Suggestion[]>(lk.suggestions(termId, personId ?? null), (old) =>
+        old?.map((x) => (x.id === s.id ? { ...x, state: out.state, scope: null, decided_at: null, snoozed_until: null, snooze_mode: null, constraint_id: null } : x)),
+      );
       setReceipts((m) => {
         const next = new Map(m);
         next.delete(s.id);
