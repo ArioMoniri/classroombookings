@@ -47,7 +47,7 @@ export function RequirementsList({ query, highlight = [], compact }: { query: Re
                 key={r.key}
                 data-requirement={r.key}
                 data-status={r.status}
-                className={cn("flex items-start gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none", highlight.includes(r.key) && "bg-status-infeasible")}
+                className={cn("flex items-start gap-3 px-4 py-2.5 not-last:edge-hairline-b", highlight.includes(r.key) && "bg-status-infeasible")}
               >
                 <Icon className={cn("mt-0.5 size-4 shrink-0", cls)} aria-hidden />
                 <span className="min-w-0 flex-1">

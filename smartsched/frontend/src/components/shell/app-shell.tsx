@@ -39,7 +39,7 @@ function OfflineBanner() {
   );
   if (!offline) return null;
   return (
-    <div role="status" className="mx-4 mt-2 rounded-full bg-status-warning px-4 py-1.5 text-center text-[13px] text-status-warning-fg sm:mx-6 lg:mx-8">
+    <div role="status" className="mx-4 mt-2 rounded-full bg-status-warning px-4 py-1.5 text-center type-callout text-status-warning-fg sm:mx-6 lg:mx-8">
       {t("common.offline")}
     </div>
   );

@@ -21,6 +21,7 @@ import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { roleEditCheck, usePermissions } from "@/lib/permissions";
 import { Alert, ConfirmDialog, Field, LimitInput, Loading, PageTitle } from "./kit";
 import { useErrorToast } from "./admin-gate";
+import { BareButton } from "@/components/shell/bare-button";
 
 const GROUP_KEYS: Record<string, MessageKey> = {
   system: "crbs.perm.group.system",
@@ -72,24 +73,23 @@ export function RolesAdmin() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
           <nav aria-label={t("crbs.admin.roles.title")}>
-            <Card variant="glass" className="py-1">
+            <Card className="py-1">
               <ul>
                 {(roles.data ?? []).map((r) => {
                   const active = editing !== "new" && editing?.id === r.id;
                   return (
                     <li key={r.id}>
-                      <button
-                        type="button"
+                      <BareButton
                         aria-current={active ? "true" : undefined}
                         onClick={() => setSelectedId(r.id)}
-                        className={cn("flex w-full items-center justify-between gap-2 px-4 py-2 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", active ? "bg-tint-soft" : "hover:bg-fill-3")}
+                        className={cn("flex w-full items-center justify-between gap-2 px-4 py-2 text-left focus-visible:-outline-offset-2", active ? "bg-tint-soft" : "hover:bg-fill-3")}
                       >
                         <span className="min-w-0">
                           <span className="block truncate type-headline text-label-1">{r.name}</span>
                           <span className="block type-footnote text-label-3">{t("crbs.roles.summary", { users: r.user_count, perms: r.permissions.length })}</span>
                         </span>
                         {r.code === "ADMIN" ? <ShieldCheck className="size-4 shrink-0 text-label-2" aria-label={t("crbs.roles.locked")} /> : null}
-                      </button>
+                      </BareButton>
                     </li>
                   );
                 })}
@@ -136,7 +136,7 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
     });
 
   return (
-    <Card variant="glass" className="gap-5 px-5" data-testid="role-editor" data-readonly={readOnly ? "true" : undefined}>
+    <Card className="gap-5 px-5" data-testid="role-editor" data-readonly={readOnly ? "true" : undefined}>
       {!locked && !editCheck.allowed ? (
         <Alert tone="warning" testId="role-readonly">
           {t("crbs.roles.readOnly", { list: editCheck.missing.join(", ") })}
@@ -317,17 +317,17 @@ export function PermissionMatrix({
             ))}
           </div>
         ) : null}
-        <div className="overflow-x-auto rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)]">
+        <div className="overflow-x-auto rounded-xl bg-(--mat-thick-solid) edge-hairline">
           <table className="w-full border-separate border-spacing-0 type-callout">
             <thead>
               <tr>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-label-3 shadow-[inset_0_-1px_0_var(--hairline)]">
+                <th scope="col" className="px-3 py-2 text-left font-medium text-label-3 edge-hairline-b">
                   {t("crbs.perm.action")}
                 </th>
-                <th scope="col" className="w-28 px-3 py-2 text-center font-medium text-label-1 shadow-[inset_0_-1px_0_var(--hairline)]">
+                <th scope="col" className="w-28 px-3 py-2 text-center font-medium text-label-1 edge-hairline-b">
                   {t("crbs.perm.group.book_single")}
                 </th>
-                <th scope="col" className="w-28 px-3 py-2 text-center font-medium text-label-1 shadow-[inset_0_-1px_0_var(--hairline)]">
+                <th scope="col" className="w-28 px-3 py-2 text-center font-medium text-label-1 edge-hairline-b">
                   {t("crbs.perm.group.book_recur")}
                 </th>
               </tr>
@@ -335,13 +335,13 @@ export function PermissionMatrix({
             <tbody>
               {BOOK_ACTIONS.map((a) => (
                 <tr key={a}>
-                  <th scope="row" className="px-3 py-1.5 text-left font-normal text-label-1 shadow-[inset_0_-1px_0_var(--hairline)]">
+                  <th scope="row" className="px-3 py-1.5 text-left font-normal text-label-1 edge-hairline-b">
                     {t(`crbs.perm.action_${a}` as MessageKey)}
                   </th>
                   {(["book_single", "book_recur"] as const).map((g) => {
                     const name = `${g}.${a}`;
                     return (
-                      <td key={g} className="px-3 py-1.5 text-center shadow-[inset_0_-1px_0_var(--hairline)]">
+                      <td key={g} className="px-3 py-1.5 text-center edge-hairline-b">
                         <span className="inline-flex" title={why(name)}>
                           <Checkbox aria-label={`${t(GROUP_KEYS[g]!)}: ${desc.get(name) ?? name}`} checked={value.has(name)} disabled={off(name)} onCheckedChange={(v) => onToggle(name, v === true)} />
                         </span>

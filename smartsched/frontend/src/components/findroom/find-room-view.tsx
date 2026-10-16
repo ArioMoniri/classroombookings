@@ -162,7 +162,7 @@ export function FindRoomView() {
       <PageTitle title={t("wave1.find.title")} subtitle={t("wave1.find.lead")} />
       <div className="grid gap-5 lg:grid-cols-[minmax(320px,400px)_1fr] lg:items-start">
         <div className="flex flex-col gap-4 lg:sticky lg:top-16">
-          <Card variant="glass" className="gap-0 px-4 py-4">
+          <Card className="gap-0 px-4 py-4">
             <form
               className="flex flex-col gap-4"
               aria-label={t("wave1.find.title")}
@@ -376,7 +376,7 @@ export function FindRoomView() {
                 </Alert>
               ) : null}
               {free.length ? (
-                <Card variant="glass" className="gap-0 overflow-hidden py-0">
+                <Card className="gap-0 overflow-hidden py-0">
                   <ul data-testid="fr-results">
                     {free.map((r, i) => (
                       <ResultRow key={r.room_id} row={r} rank={i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={opening === `r${r.room_id}`} onReserve={() => {
@@ -568,7 +568,7 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve }: { row
   const extra = r.reasons.map((x) => pickLang(x, locale)).filter((x) => x && x !== reason);
   const request = r.action === "request";
   return (
-    <li className="flex flex-col gap-2 px-4 py-3 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none sm:flex-row sm:items-start sm:gap-4" data-testid={`fr-room-${r.code}`} data-status={r.status} data-action={r.action}>
+    <li className="flex flex-col gap-2 px-4 py-3 not-last:edge-hairline-b sm:flex-row sm:items-start sm:gap-4" data-testid={`fr-room-${r.code}`} data-status={r.status} data-action={r.action}>
       <span className="hidden w-5 pt-0.5 text-right type-footnote text-label-3 tabular-nums sm:block" aria-hidden>
         {rank}
       </span>
@@ -617,7 +617,7 @@ function AlternativeRow({ alt: a, opening, onReserve }: { alt: FindAlternative; 
   const fmt = useBookingFormat();
   const date = a.dates[0] ?? a.date;
   return (
-    <li className="flex items-center gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none" data-testid={`fr-alt-${a.code}`}>
+    <li className="flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b" data-testid={`fr-alt-${a.code}`}>
       <div className="min-w-0 flex-1">
         <p className="type-callout font-medium text-label-1">
           {a.name}

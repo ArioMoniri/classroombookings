@@ -2,7 +2,9 @@
 /**
  * Learned suggestions and resettable memory (backend app/api/v1/learning.py + app/services/learning.py; spec
  * docs/design/v2/phase19-suggestions.md). Nothing here applies a suggestion by itself: accepting one writes a
- * single SOFT targeted LEARNED rule (weight ≤ 5). Reset person / term / all and the KVKK erasure are
+ * single SOFT targeted LEARNED rule (weight ≤ 5), for this term or (planning.admin) remembered as the person's
+ * preference so the same suggestion in a later term is marked, never applied by itself. Every decision can be
+ * undone (`restore`). Reset person / term / all and the KVKK erasure are
  * planning.admin only; a reset can be undone for 30 days, an erasure is immediate.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,10 +50,17 @@ export const Suggestion = z.object({
   constraint_id: z.number().nullable().default(null),
   decided_at: z.string().nullable().default(null),
   decided_by: z.number().nullable().default(null),
+  /** how an accept was scoped: this term, or remembered as the person's preference (planning.admin) */
+  scope: z.enum(["term", "persistent"]).nullable().catch(null).default(null),
+  /** accepted as persistent in another term: listed first, still waits for a person to accept it here */
+  persistent_accept: z.object({ term_id: z.number(), accepted_at: z.string().nullable().optional(), by: z.number().nullable().optional() }).nullable().catch(null).default(null),
 });
 export type Suggestion = z.infer<typeof Suggestion>;
 
-export const AcceptOut = z.object({ constraint_id: z.number(), kind: z.string(), weight: z.number(), hardness: z.literal("soft") }).passthrough();
+export const AcceptOut = z.object({ constraint_id: z.number(), kind: z.string(), weight: z.number(), hardness: z.literal("soft"), scope: z.enum(["term", "persistent"]).catch("term").optional() }).passthrough();
+export const RestoreOut = z.object({ id: z.number(), state: z.literal("open").catch("open"), undone: z.enum(["accepted", "dismissed", "snoozed"]).catch("dismissed"), disabled_constraint_id: z.number().nullable().default(null) });
+export type RestoreOut = z.infer<typeof RestoreOut>;
+export type AcceptScope = "term" | "persistent";
 
 export const MemorySummary = z.object({
   terms: z.array(z.object({ term_id: z.number().nullable(), code: z.string().nullable(), observations: z.number() })).default([]),
@@ -85,11 +94,11 @@ export type ResetScope = "person" | "term" | "all";
 export const learningApi = {
   suggestions: (q: { term_id: number; person_id?: number; course_id?: number; state?: "open" | "accepted" | "dismissed" | "snoozed" | "hidden" | "all"; limit?: number }) =>
     request(`/learning/suggestions`, { query: { ...q }, schema: z.array(Suggestion), silent: true }),
-  accept: (id: number, weight?: number) => request(`/learning/suggestions/${id}/accept`, { method: "POST", body: { weight: weight ?? null }, schema: AcceptOut, silent: true }),
+  accept: (id: number, weight?: number, scope: AcceptScope = "term") => request(`/learning/suggestions/${id}/accept`, { method: "POST", body: { weight: weight ?? null, scope }, schema: AcceptOut, silent: true }),
+  /** undo of a dismiss, snooze or accept (P19-S-03): back to open, the decision's evidence taken back, an accepted rule switched off */
+  restore: (id: number) => request(`/learning/suggestions/${id}/restore`, { method: "POST", schema: RestoreOut, silent: true }),
   reject: (id: number, reason?: string) => request(`/learning/suggestions/${id}/reject`, { method: "POST", body: { reason: reason || null }, silent: true }),
   snooze: (id: number, until: SnoozeUntil) => request(`/learning/suggestions/${id}/snooze`, { method: "POST", body: { until }, silent: true }),
-  /** undo of an accept: the accepted LEARNED rule is an ordinary constraint row (DELETE /constraints/{id}) */
-  undoAccept: (constraintId: number) => request(`/constraints/${constraintId}`, { method: "DELETE", silent: true }),
   summary: (termId?: number | null) => request(`/learning/memory/summary`, { query: { term_id: termId ?? undefined }, schema: MemorySummary, silent: true }),
   reset: (scope: ResetScope, value: number | null, reason: string) => request(`/learning/reset`, { method: "POST", body: { scope, value, reason }, schema: ResetRow, silent: true }),
   resets: () => request(`/learning/resets`, { schema: z.array(ResetRow), silent: true }),
@@ -126,10 +135,10 @@ export function useSuggestionActions() {
   const qc = useQueryClient();
   const done = () => qc.invalidateQueries({ queryKey: ["learning"] });
   return {
-    accept: useMutation({ mutationFn: (v: { id: number; weight?: number }) => learningApi.accept(v.id, v.weight), onSuccess: () => { void done(); void qc.invalidateQueries({ queryKey: ["moderation"] }); } }),
+    accept: useMutation({ mutationFn: (v: { id: number; weight?: number; scope?: AcceptScope }) => learningApi.accept(v.id, v.weight, v.scope), onSuccess: () => { void done(); void qc.invalidateQueries({ queryKey: ["moderation"] }); } }),
     reject: useMutation({ mutationFn: (v: { id: number; reason?: string }) => learningApi.reject(v.id, v.reason), onSuccess: done }),
     snooze: useMutation({ mutationFn: (v: { id: number; until: SnoozeUntil }) => learningApi.snooze(v.id, v.until), onSuccess: done }),
-    undoAccept: useMutation({ mutationFn: (constraintId: number) => learningApi.undoAccept(constraintId), onSuccess: () => { void done(); void qc.invalidateQueries({ queryKey: ["moderation"] }); } }),
+    restore: useMutation({ mutationFn: (id: number) => learningApi.restore(id), onSuccess: () => { void done(); void qc.invalidateQueries({ queryKey: ["moderation"] }); } }),
   };
 }
 

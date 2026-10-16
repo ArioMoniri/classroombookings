@@ -190,9 +190,9 @@ function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatt
               series.isLoading ? (
                 <Loading />
               ) : (
-                <ol className="mt-2 flex flex-col rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)]">
+                <ol className="mt-2 flex flex-col rounded-xl bg-(--mat-thick-solid) edge-hairline">
                   {(series.data ?? []).map((x) => (
-                    <li key={x.id} className="flex items-center justify-between px-3 py-1.5 type-callout shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+                    <li key={x.id} className="flex items-center justify-between px-3 py-1.5 type-callout not-last:edge-hairline-b">
                       <span className={x.status !== "BOOKED" ? "text-label-3 line-through" : x.id === b.id ? "font-semibold text-label-1" : "text-label-1"}>{fmt.weekday(x.date)}</span>
                       <span className="type-footnote text-label-3">{x.status === "BOOKED" ? t("crbs.status.booked") : t("crbs.status.cancelled")}</span>
                     </li>

@@ -9,12 +9,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMatching, type Matching } from "@/lib/api/moderation";
+import { useQuery } from "@tanstack/react-query";
+import { catalogApi } from "@/lib/api/catalog-admin";
+import { useMatching, usePriorities, type Matching } from "@/lib/api/moderation";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { pairText, placeText, reasonText, requestedText } from "./moderation-model";
-import { PriorityForm } from "./priority-editor";
-import { VerdictBadge } from "./verdict-badge";
+import { PriorityForm, SubjectPriorityForm } from "./priority-editor";
+import { TierLabel, VerdictBadge } from "./verdict-badge";
 
 const FLAGS = ["room", "building", "tags", "day", "period"] as const;
 
@@ -47,7 +49,37 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function MatchingInspector({ termId, requestId, runId, canEdit, siblings, onClose, side = "right" }: { termId: number; requestId: number | null; runId?: number | null; canEdit: boolean; siblings?: (sectionId: number) => number[]; onClose: () => void; side?: "right" | "bottom" }) {
+/**
+ * The person and programme defaults behind this class (request > section > person > programme): one
+ * Yüksek / Normal / Düşük select with a note per instructor and for the programme, for the working term.
+ */
+function SubjectPriorities({ termId, m }: { termId: number; m: Matching }) {
+  const { t } = useI18n();
+  const overrides = usePriorities(termId);
+  const programs = useQuery({ queryKey: ["moderation", "program-ids"], queryFn: () => catalogApi.programs({}), staleTime: 10 * 60_000, enabled: !!m.program });
+  const programId = programs.data?.items.find((p) => p.name === m.program)?.id ?? null;
+  const of = (subject: "person" | "program", id: number) => overrides.data?.items.find((o) => o.subject_type === subject && o.subject_id === id);
+  if (!overrides.data) return null;
+  return (
+    <>
+      {m.instructors.map((i) => {
+        const o = of("person", i.id);
+        return (
+          <Section key={`p${i.id}`} title={t("moderation.subjectPriority.personTitle", { label: i.name })}>
+            <SubjectPriorityForm key={`${i.id}-${o?.priority ?? 0}`} subject="person" id={i.id} termId={termId} label={i.name} current={o?.priority ?? null} note={o?.note} compact />
+          </Section>
+        );
+      })}
+      {programId !== null && m.program ? (
+        <Section title={t("moderation.subjectPriority.programTitle", { label: m.program })}>
+          <SubjectPriorityForm key={`prog-${programId}-${of("program", programId)?.priority ?? 0}`} subject="program" id={programId} termId={termId} label={m.program} current={of("program", programId)?.priority ?? null} note={of("program", programId)?.note} compact />
+        </Section>
+      ) : null}
+    </>
+  );
+}
+
+export function MatchingInspector({ termId, requestId, runId, canEdit, onClose, side = "right" }: { termId: number; requestId: number | null; runId?: number | null; canEdit: boolean; onClose: () => void; side?: "right" | "bottom" }) {
   const { t, locale } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
   const q = useMatching(termId, requestId, runId);
@@ -95,11 +127,12 @@ export function MatchingInspector({ termId, requestId, runId, canEdit, siblings,
             ) : null}
             <Section title={t("moderation.priority.label")}>
               {canEdit ? (
-                <PriorityForm key={m.request_id} target={{ termId, requestId: m.request_id, sectionId: m.section_id, label: m.label, priority: m.priority, sectionRequestIds: siblings?.(m.section_id) }} />
+                <PriorityForm key={m.request_id} target={{ termId, requestId: m.request_id, sectionId: m.section_id, label: m.label, priority: m.priority }} />
               ) : (
-                <p className="type-callout">{t(`moderation.tier.${m.priority.value > 0 ? "high" : m.priority.value < 0 ? "low" : "normal"}`)}</p>
+                <p className="type-callout"><TierLabel value={m.priority.value} source={m.priority.source} /></p>
               )}
             </Section>
+            {canEdit ? <SubjectPriorities termId={termId} m={m} /> : null}
             {m.instructors.length ? (
               <Section title={t("moderation.inspector.people")}>
                 <div className="flex flex-wrap gap-2">

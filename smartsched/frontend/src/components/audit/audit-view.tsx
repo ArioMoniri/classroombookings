@@ -50,7 +50,7 @@ export function AuditView() {
           </Button>
         }
       />
-      <Card variant="glass" className="gap-3 px-4 py-4">
+      <Card className="gap-3 px-4 py-4">
         <form
           className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6"
           aria-label={t("wave1.audit.filters")}
@@ -122,7 +122,7 @@ export function AuditView() {
         </form>
       </Card>
 
-      <Card variant="glass" className="gap-0 overflow-hidden py-0">
+      <Card className="gap-0 overflow-hidden py-0">
         {log.isLoading ? (
           <Loading className="px-4" />
         ) : log.isError ? (
@@ -202,7 +202,7 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
   const words = { yes: t("wave1.audit.yes"), no: t("wave1.audit.no") };
   const panel = `audit-${e.id}`;
   return (
-    <li className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none" data-testid={`audit-event-${e.id}`} data-action={e.action}>
+    <li className="not-last:edge-hairline-b" data-testid={`audit-event-${e.id}`} data-action={e.action}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
         <button
           type="button"
@@ -253,11 +253,11 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
                 <TableBody>
                   {rows.map((r) => (
                     <TableRow key={r.field} data-changed={r.changed || undefined}>
-                      <TableCell className="pl-3 font-mono text-[12px] text-label-2">{r.field}</TableCell>
-                      <TableCell className={cn("max-w-64 truncate text-[12px]", r.changed ? "text-status-infeasible-fg line-through decoration-1" : "text-label-2")} title={valueText(r.before, words)}>
+                      <TableCell className="pl-3 font-mono type-footnote text-label-2">{r.field}</TableCell>
+                      <TableCell className={cn("max-w-64 truncate type-footnote", r.changed ? "text-status-infeasible-fg line-through decoration-1" : "text-label-2")} title={valueText(r.before, words)}>
                         {valueText(r.before, words)}
                       </TableCell>
-                      <TableCell className={cn("max-w-64 truncate pr-3 text-[12px]", r.changed ? "font-medium text-status-feasible-fg" : "text-label-2")} title={valueText(r.after, words)}>
+                      <TableCell className={cn("max-w-64 truncate pr-3 type-footnote", r.changed ? "font-medium text-status-feasible-fg" : "text-label-2")} title={valueText(r.after, words)}>
                         {valueText(r.after, words)}
                       </TableCell>
                     </TableRow>

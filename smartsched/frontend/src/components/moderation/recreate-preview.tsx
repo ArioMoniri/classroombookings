@@ -19,7 +19,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Progress } from "@/components/ui/progress";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useRun } from "@/lib/api/hooks";
-import { moderationApi, refusal, useDiff, useRunRules, type DiffOut } from "@/lib/api/moderation";
+import { moderationApi, refusal, useDiff, usePeople, useRunRules, type DiffOut } from "@/lib/api/moderation";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
 import { usePermissions } from "@/lib/permissions";
@@ -27,7 +29,7 @@ import { CompareCalendar } from "./compare-calendar";
 import { ResponsiveDialog } from "./responsive-dialog";
 import { usePhone } from "./use-media";
 import { ModTable, type ModColumn } from "./mod-table";
-import { DIFF_GROUPS, canPublish, diffCount, diffRows, isDraftChild, pairText, type DiffGroup, type DiffRow } from "./moderation-model";
+import { DIFF_GROUPS, baselineOptions, canPublish, chainText, diffCount, diffRows, isDraftChild, notifyTargets, pairText, type DiffGroup, type DiffRow } from "./moderation-model";
 
 type Action = "pin" | "prefer" | "unlock";
 
@@ -39,9 +41,13 @@ export function RecreatePreview({ runId }: { runId: number }) {
   const reduce = useReduce();
   const { can } = usePermissions();
   const canEdit = can("planning.edit");
-  const diffQ = useDiff(runId);
+  // the baseline (compare_to): the server's fixed one (the published run that started the chain) unless picked
+  const [compareTo, setCompareTo] = useState<number | null>(null);
+  const defaultQ = useDiff(runId);
+  const pickedQ = useDiff(compareTo !== null && defaultQ.data?.ready ? runId : null, compareTo);
+  const diffQ = compareTo !== null && pickedQ.data ? pickedQ : defaultQ;
+  const fixed = { current: defaultQ.data?.compare_to_run_id ?? null };
   const runQ = useRun(runId);
-  const baseQ = useRun(diffQ.data?.base_run_id ?? null);
   const rules = useRunRules(diffQ.data?.ready ? runId : null);
   const d = diffQ.data;
   const [group, setGroup] = useState<DiffGroup>("moved");
@@ -58,7 +64,6 @@ export function RecreatePreview({ runId }: { runId: number }) {
   const rows = useMemo(() => (d?.ready ? diffRows(d, lang) : null), [d, lang]);
   const ownEdits = useMemo(() => (rules.data ?? []).filter((r) => r.source_ref && typeof r.source_ref === "object" && "moderation" in r.source_ref), [rules.data]);
   const editedIds = useMemo(() => [...new Set([...edited, ...ownEdits.map((r) => Number((r.source_ref as { moderation?: { request_id?: number } }).moderation?.request_id)).filter(Number.isFinite)])], [edited, ownEdits]);
-  const baseIsPublished = baseQ.data?.is_active ?? false;
 
   // preview ready → announce the counts once (live region, motion.md §3.9 recreate-ready)
   const said = useRef(false);
@@ -102,7 +107,7 @@ export function RecreatePreview({ runId }: { runId: number }) {
     if (!d) return;
     setRerunning(true);
     try {
-      const out = await moderationApi.resolve(runQ.data?.term_id ?? 0, { base_run_id: runId, changed_request_ids: editedIds, mode: editedIds.length ? "repair" : "full" });
+      const out = await moderationApi.resolve(runQ.data?.term_id ?? 0, { base_run_id: runId, changed_request_ids: editedIds, mode: editedIds.length ? "repair" : "full", ...(compareTo !== null ? { compare_to: compareTo } : {}) });
       router.push(`/moderation/recreate/${out.run_id}`);
     } catch (e) {
       toast.error(refusal(e, lang).message);
@@ -174,7 +179,7 @@ export function RecreatePreview({ runId }: { runId: number }) {
         <div className="min-w-0">
           <h1 className="type-large-title">{t("moderation.preview.title")}</h1>
           <p className="type-callout text-label-2">
-            {baseIsPublished ? t("moderation.preview.against", { base: d.base_run_id }) : t("moderation.preview.againstPreview", { base: d.base_run_id })}
+            {t("moderation.preview.compared", { basis: t(`moderation.preview.basis.${d.compared_to}`), id: d.compare_to_run_id ?? d.base_run_id })}
             {" · "}
             <span data-testid="preview-state">{d.is_active ? `✓ ${t("moderation.preview.published")}` : t("moderation.preview.notPublished")}</span>
           </p>
@@ -189,6 +194,19 @@ export function RecreatePreview({ runId }: { runId: number }) {
             { value: "calendar", label: t("moderation.preview.calendar"), icon: <CalendarRange aria-hidden /> },
           ]}
         /> : null}
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-testid="baseline">
+        <label className="flex flex-col gap-1 type-footnote text-label-2 sm:flex-row sm:items-center sm:gap-2">
+          {t("moderation.preview.compareTo")}
+          <NativeSelect className="sm:w-72" value={String(compareTo ?? "")} onChange={(e) => setCompareTo(e.target.value ? Number(e.target.value) : null)} data-testid="baseline-select">
+            <option value="">{t("moderation.preview.baselineDefault", { id: fixed.current ?? d.compare_to_run_id ?? d.base_run_id })}</option>
+            {baselineOptions(d, fixed.current).filter((id) => id !== fixed.current).map((id) => (
+              <option key={id} value={id}>{id === d.base_run_id ? t("moderation.preview.baselineParent", { id }) : t("moderation.preview.baselineStep", { id })}</option>
+            ))}
+          </NativeSelect>
+        </label>
+        <p className="type-caption text-label-3" data-testid="chain">{t("moderation.preview.chain", { chain: chainText(d) })}</p>
+        {pickedQ.isFetching ? <span className="type-caption text-label-3">{t("busy.loading")}</span> : null}
       </div>
       {failed ? <p role="alert" className="type-callout text-status-infeasible-fg">{t("moderation.preview.failed", { status: d.status })}</p> : null}
       {/* summary: static on arrival, no count-up (motion.md §3.9) */}
@@ -260,7 +278,7 @@ export function RecreatePreview({ runId }: { runId: number }) {
         {d.is_active ? <span className="inline-flex items-center gap-1 type-callout text-status-feasible-fg"><CheckCircle2 className="size-4" aria-hidden />{t("moderation.preview.published")}</span> : null}
       </div>
       {!canEdit ? <p className="type-footnote text-label-3">{t("moderation.publishNeedsEdit")}</p> : null}
-      <PublishDialog open={confirm} onOpenChange={setConfirm} diff={d} onPublished={() => void qc.invalidateQueries()} />
+      <PublishDialog open={confirm} onOpenChange={setConfirm} diff={d} termId={runQ.data?.term_id ?? null} onPublished={() => void qc.invalidateQueries()} />
     </div>
   );
 }
@@ -276,20 +294,25 @@ function BackLink() {
 }
 
 /** "Onayla ve yayınla": an alertdialog with the counts; "Vazgeç" has the default focus (spec §11) */
-export function PublishDialog({ open, onOpenChange, diff, onPublished }: { open: boolean; onOpenChange: (v: boolean) => void; diff: DiffOut; onPublished: () => void }) {
+export function PublishDialog({ open, onOpenChange, diff, termId, onPublished }: { open: boolean; onOpenChange: (v: boolean) => void; diff: DiffOut; termId: number | null; onPublished: () => void }) {
   const { t, locale, n } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
   const cancel = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; issues: string[]; scopeReduction: boolean } | null>(null);
   const [confirmScope, setConfirmScope] = useState(false);
+  // "Akademisyenlere bildir" (P19-M-09 / T3): one digest per affected academician with a linked account
+  const [notify, setNotify] = useState(true);
+  const people = usePeople(open ? termId : null);
+  const targets = notifyTargets(diff.affected_instructor_ids, people.data?.items ?? []);
   const c = diff.counts!;
   const publish = async () => {
     setBusy(true);
     setError(null);
     try {
-      await moderationApi.activate(diff.run_id, confirmScope);
+      const out = await moderationApi.activate(diff.run_id, confirmScope, notify && targets.linked.length > 0);
       toast.success(t("moderation.preview.publishedToast", { id: diff.run_id }));
+      if (typeof out.notified === "number") toast.success(t("moderation.publish.notified", { n: n(out.notified) }));
       onOpenChange(false);
       onPublished();
     } catch (e) {
@@ -326,6 +349,27 @@ export function PublishDialog({ open, onOpenChange, diff, onPublished }: { open:
           ))}
         </tbody>
       </table>
+      <section className="flex flex-col gap-1.5 rounded-xl border border-hairline p-3" data-testid="notify-people">
+        <label className="flex min-h-11 items-center gap-2 type-callout font-semibold">
+          <Switch checked={notify && targets.linked.length > 0} disabled={!targets.linked.length} onCheckedChange={setNotify} data-testid="notify-toggle" />
+          {t("moderation.publish.notify")}
+        </label>
+        {people.isLoading ? (
+          <p className="type-footnote text-label-3">{t("busy.loading")}</p>
+        ) : targets.linked.length ? (
+          <>
+            <p className="type-footnote text-label-2">{t("moderation.publish.notifyWho", { n: n(targets.linked.length) })}</p>
+            <ul className="flex flex-wrap gap-x-2 gap-y-0.5 type-footnote" data-testid="notify-list">
+              {targets.linked.slice(0, 12).map((p) => <li key={p.id}>{p.label}</li>)}
+              {targets.linked.length > 12 ? <li className="text-label-2">{t("moderation.changes.more", { n: n(targets.linked.length - 12) })}</li> : null}
+            </ul>
+          </>
+        ) : (
+          <p className="type-footnote text-label-2">{t("moderation.publish.notifyNone")}</p>
+        )}
+        {targets.unlinked > 0 ? <p className="type-caption text-label-3">{t("moderation.publish.notifyUnlinked", { n: n(targets.unlinked) })}</p> : null}
+        <p className="type-caption text-label-3">{t("moderation.publish.notifyHint")}</p>
+      </section>
       {error ? (
         <div role="alert" className="flex flex-col gap-1 rounded-xl border border-status-infeasible-border bg-status-infeasible p-3 type-footnote text-status-infeasible-fg" data-testid="publish-refused">
           <p className="font-semibold">{error.message}</p>

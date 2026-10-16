@@ -120,8 +120,8 @@ export function CrbsUpgrade({ onStep, onBack }: { onStep: (s: FlowStep) => void;
         <CardContent className="flex items-start gap-3 py-5">
           <ShieldAlert className="mt-0.5 size-5 shrink-0 text-label-3" aria-hidden />
           <div className="space-y-2">
-            <p className="text-[14px] font-medium text-label-1">{t("importFlows.crbs.adminOnly")}</p>
-            <p className="text-[13px] text-label-2">{t("importFlows.crbs.adminOnlyHint")}</p>
+            <p className="type-body font-medium text-label-1">{t("importFlows.crbs.adminOnly")}</p>
+            <p className="type-callout text-label-2">{t("importFlows.crbs.adminOnlyHint")}</p>
             <Button variant="ghost" onClick={onBack}>{t("common.back")}</Button>
           </div>
         </CardContent>
@@ -130,12 +130,12 @@ export function CrbsUpgrade({ onStep, onBack }: { onStep: (s: FlowStep) => void;
   }
 
   const ErrorLine = error ? (
-    <div role="alert" className="flex items-start gap-2 rounded-xl bg-status-infeasible/40 p-3 text-[13px] text-label-1" data-testid="crbs-upgrade-error">
+    <div role="alert" className="flex items-start gap-2 rounded-xl bg-status-infeasible/40 p-3 type-callout text-label-1" data-testid="crbs-upgrade-error">
       <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-infeasible-fg" aria-hidden />
       <div>
         <p>{t(`importFlows.crbs.error.${error.key}`)}</p>
         {error.issues?.length ? (
-          <ul className="mt-1 list-disc pl-4 text-[12.5px] text-label-2">
+          <ul className="mt-1 list-disc pl-4 type-callout text-label-2">
             {error.issues.map((i) => (
               <li key={i}>{i}</li>
             ))}
@@ -155,7 +155,7 @@ export function CrbsUpgrade({ onStep, onBack }: { onStep: (s: FlowStep) => void;
               {t("importFlows.crbs.done")}
             </h2>
           </CardTitle>
-          <p role="status" className="text-[13px] text-label-2">
+          <p role="status" className="type-callout text-label-2">
             {t("importFlows.crbs.doneSummary", { rows: n(result.rows_new), tables: n(tables.length) })}
           </p>
         </CardHeader>
@@ -180,20 +180,20 @@ export function CrbsUpgrade({ onStep, onBack }: { onStep: (s: FlowStep) => void;
               {t("importFlows.crbs.diffTitle")}
             </h2>
           </CardTitle>
-          <p role="status" className="text-[13px] text-label-2" data-testid="crbs-upgrade-summary">
+          <p role="status" className="type-callout text-label-2" data-testid="crbs-upgrade-summary">
             {tables.length ? t("importFlows.crbs.diffSummary", { rows: n(rep.rows_new), tables: n(tables.length) }) : t("importFlows.crbs.nothing")}
           </p>
         </CardHeader>
         <CardContent className="space-y-5">
-          <p className="text-[12.5px] text-label-3">{t("importFlows.crbs.dryNote")}</p>
+          <p className="type-callout text-label-3">{t("importFlows.crbs.dryNote")}</p>
           <DiffTable report={rep} />
           {entities.length ? (
             <section aria-labelledby="crbs-entities">
-              <h3 id="crbs-entities" className="mb-2 text-[13px] font-semibold text-label-1">{t("importFlows.crbs.importer")}</h3>
-              <ul className="grid gap-x-6 gap-y-1 text-[13px] sm:grid-cols-2">
+              <h3 id="crbs-entities" className="mb-2 type-callout font-semibold text-label-1">{t("importFlows.crbs.importer")}</h3>
+              <ul className="grid gap-x-6 gap-y-1 type-callout sm:grid-cols-2">
                 {entities.map((e) => (
                   <li key={e.entity} className="flex justify-between gap-3">
-                    <span className="font-mono text-[12.5px] text-label-2">{e.entity}</span>
+                    <span className="font-mono type-callout text-label-2">{e.entity}</span>
                     <span className="tabular-nums text-label-1">{t("importFlows.crbs.createdUpdated", { c: n(e.created), u: n(e.updated) })}</span>
                   </li>
                 ))}
@@ -201,25 +201,25 @@ export function CrbsUpgrade({ onStep, onBack }: { onStep: (s: FlowStep) => void;
             </section>
           ) : null}
           {skipped.length ? (
-            <p className="text-[13px] text-label-2">
+            <p className="type-callout text-label-2">
               {t("importFlows.crbs.skipped", { n: n(rep.importer.rows_skipped_count ?? 0) })} {skipped.map(([reason, c]) => `${reason} (${n(c)})`).join(", ")}
             </p>
           ) : null}
-          <details className="rounded-xl bg-fill-3 p-3 text-[13px]">
+          <details className="rounded-xl bg-fill-3 p-3 type-callout">
             <summary className="cursor-pointer font-medium text-label-1">{t("importFlows.crbs.sourceCounts", { n: n(Object.values(rep.source).reduce((a, b) => a + b, 0)) })}</summary>
             <ul className="mt-2 grid gap-x-6 gap-y-0.5 sm:grid-cols-3">
               {Object.entries(rep.source).map(([k, v]) => (
                 <li key={k} className="flex justify-between gap-2">
-                  <span className="font-mono text-[12px] text-label-2">{k}</span>
+                  <span className="font-mono type-footnote text-label-2">{k}</span>
                   <span className="tabular-nums">{n(v)}</span>
                 </li>
               ))}
             </ul>
           </details>
           {rep.warnings.length ? (
-            <details className="rounded-xl bg-status-warning/30 p-3 text-[13px]" data-testid="crbs-upgrade-warnings">
+            <details className="rounded-xl bg-status-warning/30 p-3 type-callout" data-testid="crbs-upgrade-warnings">
               <summary className="cursor-pointer font-medium text-label-1">{t("importFlows.crbs.warnings", { n: n(rep.warnings.length) })}</summary>
-              <ul className="mt-2 max-h-64 space-y-0.5 overflow-y-auto text-[12.5px] text-label-2">
+              <ul className="mt-2 max-h-64 space-y-0.5 overflow-y-auto type-callout text-label-2">
                 {rep.warnings.map((w, i) => (
                   <li key={i}>{w}</li>
                 ))}
@@ -256,7 +256,7 @@ export function CrbsUpgrade({ onStep, onBack }: { onStep: (s: FlowStep) => void;
     <Card className="max-w-3xl" data-testid="crbs-upgrade">
       <CardHeader>
         <CardTitle>{t("importFlows.crbs.title")}</CardTitle>
-        <p className="text-[13px] text-label-2">{t("importFlows.crbs.lead")}</p>
+        <p className="type-callout text-label-2">{t("importFlows.crbs.lead")}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <SegmentedControl
@@ -294,7 +294,7 @@ export function CrbsUpgrade({ onStep, onBack }: { onStep: (s: FlowStep) => void;
               {t("import.dsn")}
             </Label>
             <Input id="crbs-dsn" placeholder="mysql://user:pass@host:3306/crbs" value={dsn} onChange={(e) => setDsn(e.target.value)} autoComplete="off" spellCheck={false} className="font-mono" data-testid="crbs-upgrade-dsn" />
-            <p className="text-[12px] text-label-3">
+            <p className="type-footnote text-label-3">
               {t("importFlows.crbs.dsnHint")}{" "}
               <Link href="/settings?tab=import" className="font-medium text-tint-text underline-offset-4 hover:underline">
                 {t("importFlows.crbs.dsnSettings")}
@@ -321,10 +321,10 @@ function DiffTable({ report }: { report: UpgradeReport }) {
   const rows = changedTables(report);
   if (!rows.length) return null;
   return (
-    <div className="overflow-x-auto rounded-xl shadow-[inset_0_0_0_1px_var(--hairline)]">
-      <table className="w-full min-w-[420px] text-left text-[13px]" data-testid="crbs-upgrade-tables">
+    <div className="overflow-x-auto rounded-xl edge-hairline">
+      <table className="w-full min-w-[420px] text-left type-callout" data-testid="crbs-upgrade-tables">
         <caption className="sr-only">{t("importFlows.crbs.tablesCaption")}</caption>
-        <thead className="text-[12px] text-label-3">
+        <thead className="type-footnote text-label-3">
           <tr className="hairline-b">
             <th scope="col" className="px-3 py-2 font-medium">{t("importFlows.crbs.colTable")}</th>
             <th scope="col" className="px-3 py-2 text-right font-medium">{t("importFlows.crbs.colBefore")}</th>
@@ -335,7 +335,7 @@ function DiffTable({ report }: { report: UpgradeReport }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.table} className="[&:not(:last-child)]:hairline-b" data-testid={`crbs-table-${r.table}`}>
-              <th scope="row" className="px-3 py-1.5 font-mono text-[12.5px] font-normal text-label-1">{r.table}</th>
+              <th scope="row" className="px-3 py-1.5 font-mono type-callout font-normal text-label-1">{r.table}</th>
               <td className="px-3 py-1.5 text-right tabular-nums text-label-2">{n(r.before)}</td>
               <td className="px-3 py-1.5 text-right tabular-nums text-label-1">{n(r.after)}</td>
               <td className="px-3 py-1.5 text-right font-medium tabular-nums text-tint-text">{r.delta > 0 ? `+${n(r.delta)}` : n(r.delta)}</td>

@@ -43,7 +43,9 @@ export const Reason = z.object({
 });
 export type Reason = z.infer<typeof Reason>;
 
-export const Priority = z.object({ value: z.number().default(0), source: z.enum(["request", "section", "default"]).catch("default") });
+/** where the effective priority comes from, most specific first: request > section > person > programme > default */
+export const PRIORITY_SOURCES = ["request", "section", "person", "program", "default"] as const;
+export const Priority = z.object({ value: z.number().default(0), source: z.enum(PRIORITY_SOURCES).catch("default") });
 export type Priority = z.infer<typeof Priority>;
 
 const Flag = z.boolean().nullable();
@@ -218,9 +220,16 @@ export const DiffUnplaceable = DiffBase.extend({ was_placed: z.boolean().default
 export type DiffUnplaceable = z.infer<typeof DiffUnplaceable>;
 
 const Score = z.object({ before: z.number().nullable().optional(), after: z.number().nullable().optional() });
+/** what the preview is compared with: the published run that started the chain, a run that was published, the chain root, or a run picked by hand */
+export const ComparedTo = z.enum(["published", "was_published", "root", "explicit", "base"]).catch("base");
+export type ComparedTo = z.infer<typeof ComparedTo>;
 export const DiffOut = z.object({
   run_id: z.number(),
   base_run_id: z.number(),
+  compare_to_run_id: z.number().nullable().default(null),
+  compared_to: ComparedTo.default("base"),
+  /** the ancestors from the run's parent up to the baseline (not the run itself) */
+  chain: z.array(z.number()).default([]),
   status: z.string(),
   mode: z.string().nullable().optional(),
   changed_request_ids: z.array(z.number()).default([]),
@@ -249,6 +258,86 @@ export const DiffOut = z.object({
 export type DiffOut = z.infer<typeof DiffOut>;
 
 export const PriorityOut = z.object({ priority: z.number().nullable(), previous: z.number().nullable() }).passthrough();
+
+export type Subject = "person" | "program";
+export const SubjectPriorityOut = z.object({
+  subject_type: z.enum(["person", "program"]),
+  subject_id: z.number(),
+  term_id: z.number(),
+  priority: z.number().nullable(),
+  previous: z.number().nullable(),
+  source: z.string().nullable().default(null),
+  request_ids: z.array(z.number()).default([]),
+});
+export type SubjectPriorityOut = z.infer<typeof SubjectPriorityOut>;
+export const Override = z.object({
+  subject_type: z.enum(["person", "program"]),
+  subject_id: z.number(),
+  term_id: z.number(),
+  priority: z.number(),
+  note: z.string().nullable().default(null),
+  updated_by: z.number().nullable().default(null),
+  updated_at: z.string().nullable().default(null),
+  name: z.string().nullable().default(null),
+});
+export type Override = z.infer<typeof Override>;
+
+/** P19-M-07: edits since the published run was activated that change the next solve (server-side, every browser) */
+export const CHANGE_KINDS = ["priority", "pin", "prefer", "unlock", "request", "preference"] as const;
+export type ChangeKind = (typeof CHANGE_KINDS)[number];
+export const Change = z.object({
+  audit_id: z.number(),
+  ts: z.string().nullable().default(null),
+  action: z.string(),
+  kind: z.enum(CHANGE_KINDS).catch("request"),
+  entity_type: z.string().nullable().default(null),
+  entity_id: z.union([z.number(), z.string()]).nullable().default(null),
+  run_id: z.number().nullable().default(null),
+  request_ids: z.array(z.number()).default([]),
+  labels: z.array(z.string()).default([]),
+  actor_id: z.number().nullable().default(null),
+  actor: z.string().nullable().default(null),
+  reason: z.string().nullable().default(null),
+  before: z.record(z.string(), z.unknown()).nullable().default(null),
+  after: z.record(z.string(), z.unknown()).nullable().default(null),
+});
+export type Change = z.infer<typeof Change>;
+export const ChangesOut = z.object({
+  term_id: z.number(),
+  published_run_id: z.number().nullable().default(null),
+  since: z.string().nullable().default(null),
+  total: z.number().default(0),
+  counts: z.record(z.string(), z.number()).default({}),
+  changed_request_ids: z.array(z.number()).default([]),
+  items: z.array(Change).default([]),
+});
+export type ChangesOut = z.infer<typeof ChangesOut>;
+
+export const TermBrief = z.object({
+  id: z.number(),
+  code: z.string(),
+  name: z.string().nullable().default(null),
+  kind: z.string().nullable().default(null),
+  start_date: z.string().nullable().default(null),
+  end_date: z.string().nullable().default(null),
+  week_count: z.number().nullable().default(null),
+  published_run_id: z.number().nullable().default(null),
+});
+export type TermBrief = z.infer<typeof TermBrief>;
+/** GET /moderation/me: who the caller is for moderation (replaces the old 403 probe) */
+export const MeOut = z.object({
+  user_id: z.number(),
+  instructor_id: z.number().nullable().default(null),
+  instructor_ids: z.array(z.number()).default([]),
+  instructor: z.object({ id: z.number(), full_name: z.string(), title: z.string().nullable().default(null) }).nullable().default(null),
+  visibility: z.enum(["all", "own", "none"]).catch("none"),
+  can_edit: z.boolean().default(false),
+  current_term: TermBrief.nullable().default(null),
+});
+export type MeOut = z.infer<typeof MeOut>;
+
+export const ActivateOut = ScheduleRun.and(z.object({ notified: z.number().nullable().optional(), notify: z.record(z.string(), z.unknown()).nullable().optional() }));
+export type ActivateOut = z.infer<typeof ActivateOut>;
 export const ResolveQueued = z.object({ run_id: z.number(), status: z.string(), base_run_id: z.number() });
 export const MatchingActionOut = z.object({
   request_id: z.number(),
@@ -288,14 +377,20 @@ export const moderationApi = {
   matching: (termId: number, requestId: number, runId?: number | null) => request(`/terms/${termId}/moderation/matchings/${requestId}`, { query: { run_id: runId ?? undefined }, schema: MatchingDetail, silent: true }),
   setSectionPriority: (sectionId: number, priority: TierCode | null, note?: string) => request(`/moderation/sections/${sectionId}/priority`, { method: "PUT", body: { priority, note: note || null }, schema: PriorityOut }),
   setRequestPriority: (requestId: number, priority: TierCode | null, note?: string) => request(`/moderation/requests/${requestId}/priority`, { method: "PUT", body: { priority, note: note || null }, schema: PriorityOut }),
-  resolve: (termId: number, body: { base_run_id: number; changed_request_ids: number[]; mode: "repair" | "full"; time_limit_s?: number }) =>
+  setSubjectPriority: (subject: Subject, id: number, termId: number, priority: TierCode | null, note?: string) =>
+    request(`/moderation/${subject === "person" ? "people" : "programs"}/${id}/priority`, { method: "PUT", body: { term_id: termId, priority, note: note || null }, schema: SubjectPriorityOut, silent: true }),
+  priorities: (termId: number, subject?: Subject) => request(`/terms/${termId}/moderation/priorities`, { query: { subject }, schema: z.object({ term_id: z.number(), items: z.array(Override) }), silent: true }),
+  changes: (termId: number, kinds?: readonly ChangeKind[]) => request(`/terms/${termId}/changes-since-publish`, { query: { kinds: kinds?.length ? kinds.join(",") : undefined }, schema: ChangesOut, silent: true }),
+  me: () => request(`/moderation/me`, { schema: MeOut, silent: true }),
+  currentTerm: () => request(`/moderation/current-term`, { schema: TermBrief, silent: true }),
+  resolve: (termId: number, body: { base_run_id: number; changed_request_ids: number[]; mode: "repair" | "full"; time_limit_s?: number; compare_to?: number }) =>
     request(`/terms/${termId}/moderation/resolve`, { method: "POST", body, schema: ResolveQueued, silent: true }),
-  diff: (runId: number) => request(`/moderation/runs/${runId}/diff`, { schema: DiffOut, silent: true }),
+  diff: (runId: number, compareTo?: number | null) => request(`/moderation/runs/${runId}/diff`, { query: { compare_to: compareTo ?? undefined }, schema: DiffOut, silent: true }),
   matchingAction: (requestId: number, body: { run_id: number; action: "pin" | "prefer" | "unlock"; room_ids?: number[]; day?: number; start_period?: number; reason?: string }) =>
     request(`/moderation/matchings/${requestId}`, { method: "PUT", body, schema: MatchingActionOut, silent: true }),
   /** the publish guard (P19-01 / M-02 / M-04): 409 `{message, issues[]}` or a `scope_reduction` 409 */
-  activate: (runId: number, confirmScopeReduction = false) =>
-    request(`/runs/${runId}/activate`, { method: "POST", body: { confirm_scope_reduction: confirmScopeReduction }, schema: ScheduleRun, silent: true }),
+  activate: (runId: number, confirmScopeReduction = false, notifyPeople = false) =>
+    request(`/runs/${runId}/activate`, { method: "POST", body: { confirm_scope_reduction: confirmScopeReduction, notify_people: notifyPeople }, schema: ActivateOut, silent: true }),
   preferences: (termId: number) => request(`/constraints`, { query: { term_id: termId }, schema: z.array(Preference), silent: true }),
   runRules: (runId: number) => request(`/constraints`, { query: { run_id: runId, enabled: true }, schema: z.array(Preference), silent: true }),
 };
@@ -307,7 +402,10 @@ export const mk = {
   history: (id: number) => ["moderation", "history", id] as const,
   matchings: (termId: number | null, runId: number | null | undefined) => ["moderation", "matchings", termId, runId ?? null] as const,
   matching: (termId: number, requestId: number, runId?: number | null) => ["moderation", "matching", termId, requestId, runId ?? null] as const,
-  diff: (runId: number) => ["moderation", "diff", runId] as const,
+  diff: (runId: number, compareTo?: number | null) => ["moderation", "diff", runId, compareTo ?? null] as const,
+  priorities: (termId: number | null, subject?: Subject) => ["moderation", "priorities", termId, subject ?? "all"] as const,
+  changes: (termId: number | null) => ["moderation", "changes", termId] as const,
+  me: ["moderation", "me"] as const,
   preferences: (termId: number | null) => ["moderation", "preferences", termId] as const,
   runRules: (runId: number) => ["moderation", "run-rules", runId] as const,
 };
@@ -335,13 +433,33 @@ export function useRunRules(runId: number | null) {
 }
 
 /** the preview polls until the child run finished (`ready`), then stops */
-export function useDiff(runId: number | null) {
+export function useDiff(runId: number | null, compareTo?: number | null) {
   return useQuery({
-    queryKey: mk.diff(runId ?? 0),
-    queryFn: () => moderationApi.diff(runId ?? 0),
+    queryKey: mk.diff(runId ?? 0, compareTo),
+    queryFn: () => moderationApi.diff(runId ?? 0, compareTo),
+    placeholderData: keepPreviousData,
     enabled: runId !== null,
     retry: noRetry,
     refetchInterval: (q) => (q.state.data && !q.state.data.ready ? 1500 : false),
+  });
+}
+
+export function usePriorities(termId: number | null, subject?: Subject, enabled = true) {
+  return useQuery({ queryKey: mk.priorities(termId, subject), queryFn: () => moderationApi.priorities(termId ?? 0, subject), enabled: enabled && termId !== null, retry: noRetry, staleTime: 30_000 });
+}
+/** "N değişiklik yayında değil": the server's list, the same in every browser (replaces the per-browser store) */
+export function useChanges(termId: number | null, enabled = true) {
+  return useQuery({ queryKey: mk.changes(termId), queryFn: () => moderationApi.changes(termId ?? 0), enabled: enabled && termId !== null, retry: noRetry, staleTime: 10_000 });
+}
+export function useModerationMe(enabled = true) {
+  return useQuery({ queryKey: mk.me, queryFn: moderationApi.me, enabled, retry: noRetry, staleTime: 5 * 60_000 });
+}
+
+export function useSetSubjectPriority() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { subject: Subject; id: number; termId: number; tier: TierCode | null; note?: string }) => moderationApi.setSubjectPriority(v.subject, v.id, v.termId, v.tier, v.note),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["moderation"] }),
   });
 }
 

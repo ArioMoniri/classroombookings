@@ -5,6 +5,7 @@ import { useSyncExternalStore } from "react";
 import { Logo } from "@/components/brand";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { IconButton } from "@/components/ui/button";
 import { KbdHint } from "@/components/ui/kbd-hint";
 import { SidebarGlass, SidebarGlassContent, SidebarGlassFooter, SidebarGlassHeader, SidebarGlassItem, SidebarGlassSection } from "@/components/ui/sidebar-glass";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -132,9 +133,9 @@ export function Sidebar() {
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <button type="button" onClick={toggle} aria-label={toggleLabel} aria-expanded={!collapsed} className="inline-flex size-7 items-center justify-center rounded-full text-label-2 outline-hidden hover:bg-fill-2 hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="sidebar-toggle">
-                    {collapsed ? <PanelLeftOpen className="size-4 stroke-[1.75]" /> : <PanelLeftClose className="size-4 stroke-[1.75]" />}
-                  </button>
+                  <IconButton size="sm" label={toggleLabel} title="" onClick={toggle} aria-expanded={!collapsed} className="text-label-2 hover:text-label-1" data-testid="sidebar-toggle">
+                    {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+                  </IconButton>
                 }
               />
               <TooltipContent side="right">

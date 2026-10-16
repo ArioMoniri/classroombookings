@@ -17,12 +17,27 @@ import { ResetDialog } from "@/components/learning/reset-dialog";
 import { SuggestionList } from "@/components/learning/suggestion-list";
 import { useActiveTerm } from "@/components/shell/term-switcher";
 import { HttpError } from "@/lib/api/client";
-import { useHistory } from "@/lib/api/moderation";
+import { useHistory, usePriorities } from "@/lib/api/moderation";
 import { useSuggestions } from "@/lib/api/learning";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
-import { pairText } from "./moderation-model";
+import { pairText, tierOf } from "./moderation-model";
+import { SubjectPriorityForm } from "./priority-editor";
 import { RequestTimeline, unsatisfiedStreak } from "./request-timeline";
+
+/** "Kişi önceliği" for the profile's term: inherited by the person's requests without a more specific value */
+function PersonPriority({ termId, termCode, instructorId, label }: { termId: number; termCode: string; instructorId: number; label: string }) {
+  const { t } = useI18n();
+  const q = usePriorities(termId, "person");
+  const o = q.data?.items.find((x) => x.subject_id === instructorId);
+  return (
+    <section aria-labelledby="person-priority-title" className="flex flex-col gap-1 border-t border-hairline pt-3">
+      <h2 id="person-priority-title" className="type-headline">{t("moderation.subjectPriority.profileTitle", { term: termCode })}</h2>
+      {o?.updated_at ? <p className="type-caption text-label-3">{t("moderation.subjectPriority.current", { tier: t(`moderation.tier.${tierOf(o.priority)}`) })}</p> : null}
+      {q.data ? <SubjectPriorityForm key={`${o?.priority ?? 0}`} subject="person" id={instructorId} termId={termId} label={label} current={o?.priority ?? null} note={o?.note} /> : null}
+    </section>
+  );
+}
 
 export function PersonProfile({ instructorId }: { instructorId: number }) {
   const { t, locale, n } = useI18n();
@@ -153,6 +168,7 @@ export function PersonProfile({ instructorId }: { instructorId: number }) {
           <dt className="text-label-2">{t("moderation.profile.account")}</dt>
           <dd>{ins.linked_user ? t("moderation.profile.linked") : t("moderation.profile.unlinked")}</dd>
         </dl>
+        {canEdit && current ? <PersonPriority termId={current.term_id} termCode={current.term_code} instructorId={ins.id} label={[ins.title, ins.name].filter(Boolean).join(" ")} /> : null}
       </aside>
       {reset ? <ResetDialog open onOpenChange={(o) => !o && setReset(null)} scope={reset === "erase" ? "erase" : "person"} subject={{ id: ins.id, label: [ins.title, ins.name].filter(Boolean).join(" ") }} /> : null}
     </div>

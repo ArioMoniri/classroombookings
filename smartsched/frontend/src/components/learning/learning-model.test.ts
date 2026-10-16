@@ -4,6 +4,8 @@ import { evidenceText, levelCode, meterSteps, reasonOk, resetStatus, splitSugges
 
 export const suggestion = (over: Partial<Suggestion> = {}): Suggestion => ({
   id: 1,
+  scope: null,
+  persistent_accept: null,
   term_id: 2,
   subject: { type: "instructor", id: 3, label: "Dr. Öğr. Üyesi E. Y." },
   attribute: "room",

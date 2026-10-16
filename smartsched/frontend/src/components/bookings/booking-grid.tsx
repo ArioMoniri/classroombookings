@@ -14,6 +14,7 @@
 import { Ban, CalendarClock, CalendarOff, CalendarX, Check, GraduationCap, History, Hourglass, Lock, OctagonX, Plus, Repeat, User } from "lucide-react";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import type { Grid, GridSlot } from "@/lib/api/crbs";
+import { BareButton } from "@/components/shell/bare-button";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
@@ -31,7 +32,7 @@ export const TONE_CLASS: Record<SlotTone, string> = {
   "booked-pending": "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_8%)] text-label-1 outline-1 -outline-offset-2 outline-dashed outline-(--accent)",
   timetable: "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--status-locked-solid)_12%)] text-label-1",
   holiday: "hatch-preoccupied text-label-2",
-  unavailable: "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--label-1)_3%)] text-label-4",
+  unavailable: "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--label-1)_3%)] text-label-3",
 };
 
 export const TONE_ICON: Record<SlotTone, typeof User> = {
@@ -397,7 +398,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
   return (
     <div ref={wrapRef} className="relative">
       <div
-        className="booking-grid-scroll max-h-[calc(100dvh-15rem)] overflow-auto overscroll-x-contain rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)] scrollbar-thin print:max-h-none print:overflow-visible print:shadow-none"
+        className="booking-grid-scroll max-h-[calc(100dvh-15rem)] overflow-auto overscroll-x-contain rounded-xl bg-(--mat-thick-solid) edge-hairline scrollbar-thin print:max-h-none print:overflow-visible print:shadow-none"
         data-testid="booking-grid"
         data-grid-scope={scope}
         onScroll={hint ? hideHint : undefined}
@@ -426,7 +427,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
           </colgroup>
           <thead>
             <tr>
-              <th scope="col" className="sticky top-0 left-0 z-30 bg-(--mat-thick-solid) px-2 py-2 text-left font-medium text-label-3 shadow-[inset_-1px_-1px_0_var(--hairline)]">
+              <th scope="col" className="sticky top-0 left-0 z-30 bg-(--mat-thick-solid) px-2 py-2 text-left font-medium text-label-3 border-r border-b border-hairline">
                 {corner}
               </th>
               {layout.cols.map((col) => {
@@ -436,7 +437,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
                   <th
                     key={col.key}
                     scope="col"
-                    className={cn("sticky top-0 z-20 bg-(--mat-thick-solid) px-1.5 py-1.5 text-left align-bottom font-semibold text-label-1 shadow-[inset_0_-1px_0_var(--hairline)]", closed && "text-label-3")}
+                    className={cn("sticky top-0 z-20 bg-(--mat-thick-solid) px-1.5 py-1.5 text-left align-bottom font-semibold text-label-1 edge-hairline-b", closed && "text-label-3")}
                   >
                     <HeaderLabel item={col} title={h.title} sub={h.sub} icon={col.room ? roomIcons?.get(col.room.id) : undefined} onRoomInfo={onRoomInfo} />
                   </th>
@@ -449,7 +450,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
               const h = header(row);
               return (
                 <tr key={row.key} data-r={r}>
-                  <th scope="row" className="sticky left-0 z-10 bg-(--mat-thick-solid) px-2 py-1 text-left align-middle font-semibold whitespace-nowrap text-label-1 shadow-[inset_-1px_0_0_var(--hairline),inset_0_-1px_0_var(--hairline)]">
+                  <th scope="row" className="sticky left-0 z-10 bg-(--mat-thick-solid) px-2 py-1 text-left align-middle font-semibold whitespace-nowrap text-label-1 border-r border-b border-hairline">
                     <HeaderLabel item={row} title={h.title} sub={h.sub} icon={row.room ? roomIcons?.get(row.room.id) : undefined} onRoomInfo={onRoomInfo} />
                   </th>
                   {layout.cols.map((col, c) => {
@@ -459,7 +460,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
                     const dept = slot?.status === "booked" ? (slot.booking?.department_id ?? null) : null;
                     const muted = department !== "all" && slot?.status === "booked" && dept !== department;
                     return (
-                      <td key={col.key} data-c={c} className="p-0 shadow-[inset_-1px_-1px_0_var(--hairline)]">
+                      <td key={col.key} data-c={c} className="p-0 border-r border-b border-hairline">
                         <Cell
                           slot={slot}
                           index={`${r}-${c}`}
@@ -494,7 +495,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
         <div
           aria-hidden
           data-testid="slot-hint"
-          className="pointer-events-none absolute z-40 max-w-64 -translate-x-1/2 -translate-y-full rounded-lg bg-(--mat-thick-solid) px-2.5 py-1.5 type-footnote text-label-1 shadow-[0_0_0_1px_var(--hairline),var(--ambient-3)] print:hidden"
+          className="pointer-events-none absolute z-40 max-w-64 -translate-x-1/2 -translate-y-full rounded-lg bg-(--mat-thick-solid) px-2.5 py-1.5 type-footnote text-label-1 shadow-elev-3 print:hidden"
           style={{ left: hint.left, top: hint.top - 6 }}
         >
           {hint.text}
@@ -518,9 +519,9 @@ function HeaderLabel({ item, title, sub, icon, onRoomInfo }: { item: AxisItem; t
   if (item.kind === "room" && item.room && onRoomInfo) {
     const id = item.room.id;
     return (
-      <button type="button" onClick={() => onRoomInfo(id)} aria-label={t("crbs.roomInfo.open", { name: title })} title={sub ?? undefined} className="block w-full rounded-sm text-left outline-hidden hover:text-tint-text focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid={`room-info-${item.room.code}`}>
+      <BareButton onClick={() => onRoomInfo(id)} aria-label={t("crbs.roomInfo.open", { name: title })} title={sub ?? undefined} className="block w-full rounded-sm text-left hover:text-tint-text" data-testid={`room-info-${item.room.code}`}>
         {inner}
-      </button>
+      </BareButton>
     );
   }
   return inner;
@@ -559,8 +560,7 @@ const Cell = memo(function Cell({
   const free = tone === "available";
   const style: CSSProperties | undefined = deptColor && !isSelected && !highlighted ? { boxShadow: `inset 3px 0 0 ${deptColor}` } : undefined;
   return (
-    <button
-      type="button"
+    <BareButton
       data-cell={index}
       data-status={slot?.status ?? "none"}
       data-tone={tone}
@@ -576,15 +576,17 @@ const Cell = memo(function Cell({
       onClick={(e) => slot && onClick(slot, e)}
       style={style}
       className={cn(
-        "group/cell relative flex h-11 w-full touch-manipulation flex-col items-start justify-center gap-0.5 overflow-hidden px-1.5 py-1 text-left outline-hidden focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
+        "group/cell relative flex h-11 w-full touch-manipulation flex-col items-start justify-center gap-0.5 overflow-hidden rounded-none px-1.5 py-1 text-left font-normal focus-visible:z-10 focus-visible:-outline-offset-2 disabled:opacity-100",
         TONE_CLASS[tone],
         free && "cursor-pointer",
-        free && slot?.past && "text-label-4 opacity-60", // started: still bookable for administrators, but dim
+        free && slot?.past && "text-label-3 opacity-60", // started: still bookable for administrators, but dim
         muted && "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--label-1)_4%)] text-label-3",
-        isSelected && "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_18%)] text-label-1 shadow-[inset_0_0_0_2px_var(--accent)]",
-        isSelected && slot?.status === "booked" && "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--status-infeasible-solid)_14%)] shadow-[inset_0_0_0_2px_var(--status-infeasible-solid)]",
+        isSelected && slot?.status !== "booked" && "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_18%)] text-label-1",
+        isSelected && slot?.status === "booked" && "bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--status-infeasible-solid)_14%)] text-label-1",
+        isSelected && !highlighted && "inset-ring-2",
+        isSelected && !highlighted && (slot?.status === "booked" ? "inset-ring-(--status-infeasible-solid)" : "inset-ring-(--accent)"),
         multi && !kind && "cursor-not-allowed",
-        highlighted && "z-10 shadow-[inset_0_0_0_2px_var(--status-warning-solid)]",
+        highlighted && "z-10 inset-ring-2 inset-ring-(--status-warning-solid)",
       )}
       data-highlight={highlighted ? "true" : undefined}
     >
@@ -606,6 +608,6 @@ const Cell = memo(function Cell({
         <SlotGlyph slot={slot} selected={isSelected} className={cn("size-3.5 stroke-[1.75]", tone === "unavailable" && "opacity-60")} />
       )}
       {text.secondary ? <span className="w-full truncate text-label-2">{text.secondary}</span> : null}
-    </button>
+    </BareButton>
   );
 });

@@ -5,7 +5,7 @@
  */
 import { ChevronDown, ChevronsUp, Circle, Minus } from "lucide-react";
 import { StatusBadge } from "@/components/common/status-badge";
-import type { Pair, TierCode, Verdict } from "@/lib/api/moderation";
+import type { Pair, Priority, TierCode, Verdict } from "@/lib/api/moderation";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -35,15 +35,15 @@ export function TierGlyph({ tier, className }: { tier: TierCode; className?: str
   return <Icon className={cn("size-3.5 shrink-0", TIER_TONE[tier], className)} aria-hidden />;
 }
 
-/** "⌃ Yüksek · talep": glyph + word + where it came from (request › section › default) */
-export function TierLabel({ value, source, className }: { value: number; source?: "request" | "section" | "default"; className?: string }) {
+/** "⌃ Yüksek · kişi": glyph + word + where it came from (request › section › person › programme › default) */
+export function TierLabel({ value, source, className }: { value: number; source?: Priority["source"]; className?: string }) {
   const { t } = useI18n();
   const tier = tierOf(value);
   return (
     <span data-tier={tier} className={cn("inline-flex items-center gap-1 whitespace-nowrap type-footnote text-label-1", className)}>
       <TierGlyph tier={tier} />
       {t(`moderation.tier.${tier}`)}
-      {source && source !== "default" ? <span className="text-label-3">· {t(`moderation.tierSource.${source}`)}</span> : null}
+      {source && source !== "default" ? <span className="text-label-3" data-testid="priority-source" data-source={source}>· {t(`moderation.tierSource.${source}`)}</span> : null}
     </span>
   );
 }

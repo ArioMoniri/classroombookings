@@ -213,7 +213,7 @@ function FeedRow({ id, title, url, name, picker }: { id: string; title: string; 
         {picker ? <div className="min-w-40">{picker}</div> : null}
       </div>
       <div className="flex gap-2">
-        <Input readOnly value={url} aria-label={`${title}: ${t("reserve.sync.https")}`} onFocus={(e) => e.currentTarget.select()} className="min-w-0 flex-1 font-mono text-[12px]" data-testid={`sync-url-${id}`} />
+        <Input readOnly value={url} aria-label={`${title}: ${t("reserve.sync.https")}`} onFocus={(e) => e.currentTarget.select()} className="min-w-0 flex-1 font-mono type-footnote" data-testid={`sync-url-${id}`} />
         <Button variant="outline" size="icon" aria-label={t("reserve.sync.copy", { what: t("reserve.sync.https") })} onClick={() => copy(url)} disabled={!url} data-testid={`sync-copy-${id}`}>
           <Copy />
         </Button>

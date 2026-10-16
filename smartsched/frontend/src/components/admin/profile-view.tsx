@@ -2,6 +2,9 @@
 /**
  * /profile (CRBS `Profile`): own e-mail, names, display name, extension and language (per user, as in
  * CRBS), and the password change (current password required unless an administrator forced a change).
+ * Identity frontend (2026-10-16): "Microsoft hesabı" (link / unlink, sign-in.md §13–§14), "Bağlı kanallar"
+ * (Telegram, SMS / WhatsApp, browser push; docs/deploy/notification-channels.md) and the notification
+ * preferences panel of the approval UI (components/notifications/preferences-panel.tsx).
  */
 import Link from "next/link";
 import { useState } from "react";
@@ -16,6 +19,9 @@ import { LOCALE_INFO, displayLocale, isLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, Field, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
+import { MyChannels } from "@/components/channels/my-channels";
+import { MicrosoftAccountSection, ProfileSsoNotice } from "@/components/identity/profile-microsoft";
+import { NotificationPreferencesPanel } from "@/components/notifications/preferences-panel";
 
 /** language names in themselves (Turkish, English); a legacy stored code (`de`) reads as English */
 const langLabel = (code: string | null | undefined) => {
@@ -30,7 +36,20 @@ export function ProfileView() {
   return (
     <div className="flex max-w-2xl flex-col gap-8">
       <PageTitle title={t("crbs.profile.title")} subtitle={q.data ? [q.data.username ?? q.data.email, q.data.role_name].filter(Boolean).join(" · ") : undefined} />
+      <ProfileSsoNotice />
       {q.isLoading ? <Loading /> : q.data ? <ProfileForm key={q.data.id} data={q.data} /> : <Alert tone="error">{bookingErrorMessage(crbsError(q.error), t)}</Alert>}
+      <MicrosoftAccountSection />
+      <section aria-labelledby="pf-channels" id="channels" className="scroll-mt-20">
+        <SectionTitle id="pf-channels">{t("channels.me.title")}</SectionTitle>
+        <Card variant="glass" className="gap-3 px-4">
+          <p className="type-callout text-label-2">{t("channels.me.lead")}</p>
+          <MyChannels email={q.data?.email ?? me.data?.email ?? null} />
+        </Card>
+      </section>
+      {/* the approval UI's panel: which event reaches you on which channel */}
+      <section id="notifications" className="scroll-mt-20">
+        <NotificationPreferencesPanel />
+      </section>
       <PasswordForm forced={!!me.data?.force_password_reset} />
       <p className="type-callout text-label-2">
         {t("crbs.profile.calendar")}{" "}

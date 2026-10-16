@@ -41,7 +41,7 @@ const STEPS: MessageKey[] = ["import.stepKind", "import.stepUpload", "import.ste
 function Stepper({ step }: { step: number }) {
   const { t } = useI18n();
   return (
-    <ol className="mb-6 flex items-center gap-2 text-[12px]" aria-label={t("glass.import.steps")}>
+    <ol className="mb-6 flex items-center gap-2 type-footnote" aria-label={t("glass.import.steps")}>
       {STEPS.map((key, i) => (
         <li key={key} aria-current={i === step ? "step" : undefined} className="flex items-center gap-2">
           <span className={cn("flex size-6 items-center justify-center rounded-full font-semibold tabular-nums", i < step ? "bg-tint text-tint-foreground" : i === step ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-3")}>
@@ -164,8 +164,8 @@ export function ImportWizard() {
                   <button type="button" onClick={() => chooseKind(k.kind)} data-testid={`import-kind-${k.kind}`} className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-fill-2 text-label-1"><k.icon className="size-[18px] stroke-[1.75]" aria-hidden /></span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[14px] font-medium text-label-1">{t(k.label)}</span>
-                      <span className="block text-[12.5px] text-label-2">{t(k.desc)}</span>
+                      <span className="block type-body font-medium text-label-1">{t(k.label)}</span>
+                      <span className="block type-callout text-label-2">{t(k.desc)}</span>
                     </span>
                     <ChevronRight className="size-4 text-label-3" aria-hidden />
                   </button>
@@ -215,7 +215,7 @@ export function ImportWizard() {
           <Card>
             <CardHeader>
               <CardTitle>{job.filename}</CardTitle>
-              <p className="text-[13px] text-label-2" aria-live="polite">
+              <p className="type-callout text-label-2" aria-live="polite">
                 {t("glass.import.summary", { rows: n(job.summary.rows), created: n(job.summary.created), skipped: n(job.summary.skipped) })}
               </p>
             </CardHeader>
@@ -228,12 +228,12 @@ export function ImportWizard() {
                   [t("import.warnings"), job.summary.warnings.length],
                 ].map(([k, v]) => (
                   <div key={String(k)}>
-                    <dt className="text-[12px] text-label-3">{k}</dt>
-                    <dd className="text-[22px] leading-7 font-semibold tracking-[-0.017em] text-label-1 tabular-nums">{n(Number(v))}</dd>
+                    <dt className="type-footnote text-label-3">{k}</dt>
+                    <dd className="type-title-2 leading-7 font-semibold tracking-[-0.017em] text-label-1 tabular-nums">{n(Number(v))}</dd>
                   </div>
                 ))}
               </dl>
-              <p className="mt-3 text-[12.5px] text-label-2">{t("glass.import.bySeverity", { e: n(counts.error), w: n(counts.warning), i: n(counts.info) })}</p>
+              <p className="mt-3 type-callout text-label-2">{t("glass.import.bySeverity", { e: n(counts.error), w: n(counts.warning), i: n(counts.info) })}</p>
             </CardContent>
           </Card>
           <Card>
@@ -251,11 +251,11 @@ export function ImportWizard() {
         <Card className="mt-6 max-w-3xl">
           <CardHeader><CardTitle>{t("import.recent")}</CardTitle></CardHeader>
           <CardContent>
-            <ul className="text-[13px]">
+            <ul className="type-callout">
               {imports.data.slice(0, 6).map((j) => (
                 <li key={j.id} className="flex items-center justify-between gap-3 py-2 [&:not(:last-child)]:hairline-b">
                   <span className="min-w-0 truncate text-label-1">{j.filename}</span>
-                  <span className="shrink-0 text-[12px] text-label-3">{t(KINDS.find((k) => k.kind === j.kind)?.label ?? "import.title")} · {n(j.summary.rows)} · {formatDate(j.created_at.slice(0, 10), locale)}</span>
+                  <span className="shrink-0 type-footnote text-label-3">{t(KINDS.find((k) => k.kind === j.kind)?.label ?? "import.title")} · {n(j.summary.rows)} · {formatDate(j.created_at.slice(0, 10), locale)}</span>
                 </li>
               ))}
             </ul>

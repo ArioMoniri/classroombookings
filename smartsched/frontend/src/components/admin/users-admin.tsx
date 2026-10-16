@@ -3,13 +3,18 @@
  * /admin/users (CRBS `Users`): search and filters, add/edit with role, department, names and the
  * force-password-change flag, per-user booking limits (R = role value, U = own value, X = unlimited),
  * one-time reset codes (shown once), delete, and the CSV import with a per-row result table.
+ *
+ * Microsoft sign-in (docs/design/v2/sign-in.md §13; parts in ./users-admin-identity): invite sheet, status
+ * "dot + word" and sign-in method columns, "Kendi kaydı" filter, "Sonraki Microsoft girişinde bağla", the
+ * break-glass warning, the edit dialog's identities section and the instructor link.
  */
-import { Copy, KeyRound, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
+import { Copy, KeyRound, Mail, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Chip } from "@/components/ui/chip";
 import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
@@ -35,7 +40,10 @@ import {
   type ResetToken,
   type UserIn,
 } from "@/lib/api/crbs";
-import { canManageAccount, roleGrantCheck, usePermissions } from "@/lib/permissions";
+import { canManageAccount, isPrivilegedRole, roleGrantCheck, usePermissions } from "@/lib/permissions";
+import { useAuthProviders, useInvites, useUserIdentityStatus, type Invite, type UserIdentityStatus } from "@/lib/api/identity";
+import { BindDialog, BreakGlassWarning, IdentitiesSection, IdentityMenuItems, IdentityStatusCell, IdentityTags, InviteSheet, MethodCell, RevokeDialog } from "./users-admin-identity";
+import { breakGlassMissing, identityCounts, invitesByUser, matchesIdentity, methodView, statusView, type IdentityFilter, type MethodFilter } from "./users-admin-identity-model";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
@@ -66,8 +74,31 @@ export function UsersAdmin() {
   const [enabled, setEnabled] = useState("");
   const [sort, setSort] = useState("username");
   const [page, setPage] = useState(0);
-  const query = { q: q || undefined, role_id: role ? Number(role) : undefined, department_id: dept ? Number(dept) : undefined, enabled: enabled === "" ? undefined : enabled === "1", sort, limit: PAGE, offset: page * PAGE };
+  const [idFilter, setIdFilter] = useState<IdentityFilter>(() => (params.get("identity") === "invited" ? "invited" : params.get("identity") === "self" ? "self" : "all"));
+  const [method, setMethod] = useState<MethodFilter>("");
+  // identity filters come from the status map: fetch one big page and filter + page here (backend ask: a server filter)
+  const identityFiltered = idFilter !== "all" || method !== "";
+  const query = { q: q || undefined, role_id: role ? Number(role) : undefined, department_id: dept ? Number(dept) : undefined, enabled: enabled === "" ? undefined : enabled === "1", sort, limit: identityFiltered ? 500 : PAGE, offset: identityFiltered ? 0 : page * PAGE };
   const users = useUserSearch(query);
+  const usersAdmin = can("setup.users");
+  const providers = useAuthProviders();
+  const auth = providers.data?.auth;
+  const msEnabled = Boolean(auth?.microsoft.enabled);
+  const idStatus = useUserIdentityStatus(usersAdmin);
+  const invites = useInvites(usersAdmin);
+  const inviteOf = invitesByUser(invites.data);
+  const statusOf = (u: AdminUser): UserIdentityStatus | undefined => idStatus.data?.[String(u.id)];
+  const counts = identityCounts(idStatus.data);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [binding, setBinding] = useState<AdminUser | null>(null);
+  const [revoking, setRevoking] = useState<{ invite: Invite; kind: "invite" | "bind" } | null>(null);
+  const nameOf = (id: number | null | undefined) => {
+    const hit = id ? users.data?.items.find((x) => x.id === id) : undefined;
+    return hit ? hit.displayname || hit.full_name || hit.username || hit.email || null : null;
+  };
+  const filteredItems = identityFiltered ? (users.data?.items ?? []).filter((u) => matchesIdentity(statusOf(u), idFilter, method, u.auth_source)) : (users.data?.items ?? []);
+  const visible = identityFiltered ? filteredItems.slice(page * PAGE, (page + 1) * PAGE) : filteredItems;
+  const privileged = (u: AdminUser) => u.role === "ADMIN" || isPrivilegedRole(roles.data?.find((r) => r.id === u.role_id)) || (u.approves_for?.length ?? 0) > 0;
   const roles = useRoles(can("setup.roles"));
   const departments = useDepartments();
   const [editing, setEditing] = useState<AdminUser | "new" | null>(null);
@@ -77,7 +108,7 @@ export function UsersAdmin() {
   const toastError = useErrorToast();
   const reset = useCrbsMutation((u: AdminUser) => crbs.users.resetToken(u.id));
   const del = useCrbsMutation((u: AdminUser) => crbs.users.remove(u.id), [["crbs", "users"]]);
-  const total = users.data?.total ?? 0;
+  const total = identityFiltered ? filteredItems.length : (users.data?.total ?? 0);
   const manageable = (u: AdminUser) => canManageAccount(perms, userId, { id: u.id, role: u.role, role_permissions: roles.data?.find((r) => r.id === u.role_id)?.permissions });
   const fmt = useBookingFormat();
   const dt = (iso: string | null | undefined) => fmt.dateTime(iso) || "—";
@@ -86,20 +117,32 @@ export function UsersAdmin() {
     <div className="flex flex-col gap-5">
       <PageTitle
         title={t("crbs.admin.users.title")}
-        subtitle={users.data ? t("crbs.users.count", { n: total }) : t("crbs.admin.users.lead")}
+        subtitle={
+          users.data
+            ? [t("crbs.users.count", { n: users.data.total }), idStatus.data && counts.invited ? t("sso.users.countInvited", { n: counts.invited }) : null, idStatus.data && counts.selfRecent ? t("sso.users.countSelf", { n: counts.selfRecent }) : null].filter(Boolean).join(" · ")
+            : t("crbs.admin.users.lead")
+        }
         actions={
           <>
             <Button variant="outline" onClick={() => setImportOpen(true)} data-testid="users-import">
               <Upload aria-hidden />
               {t("crbs.users.import")}
             </Button>
-            <Button onClick={() => setEditing("new")} data-testid="users-new">
+            {/* local accounts are the exception once Microsoft is on (break-glass, service accounts) */}
+            <Button variant={msEnabled && usersAdmin ? "outline" : "default"} onClick={() => setEditing("new")} data-testid="users-new">
               <UserPlus aria-hidden />
-              {t("crbs.users.new")}
+              {msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")}
             </Button>
+            {msEnabled && usersAdmin ? (
+              <Button onClick={() => setInviteOpen(true)} data-testid="users-invite">
+                <Mail aria-hidden />
+                {t("sso.users.inviteAction")}
+              </Button>
+            ) : null}
           </>
         }
       />
+      {breakGlassMissing(auth, idStatus.data) ? <BreakGlassWarning onCreateLocal={() => setEditing("new")} /> : null}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
         <Input
           type="search"
@@ -143,6 +186,29 @@ export function UsersAdmin() {
           <option value="department,username">{t("admingaps.users.sortDepartment")}</option>
         </SelectField>
       </div>
+      {usersAdmin && idStatus.data ? (
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("sso.users.filters")} data-testid="identity-filters">
+          <Chip selected={idFilter === "all" && enabled !== "0"} onSelectedChange={() => (setIdFilter("all"), setEnabled(""), setPage(0))}>
+            {t("sso.users.filterAll")}
+          </Chip>
+          <Chip selected={idFilter === "invited"} onSelectedChange={(on) => (setIdFilter(on ? "invited" : "all"), setPage(0))} data-testid="filter-invited">
+            {t("sso.users.filterInvited", { n: counts.invited })}
+          </Chip>
+          <Chip selected={idFilter === "self"} onSelectedChange={(on) => (setIdFilter(on ? "self" : "all"), setPage(0))} data-testid="filter-self">
+            {t("sso.users.filterSelf", { n: counts.selfRecent })}
+          </Chip>
+          <Chip selected={enabled === "0"} onSelectedChange={(on) => (setEnabled(on ? "0" : ""), setPage(0))}>
+            {t("sso.users.status.disabled")}
+          </Chip>
+          <SelectField aria-label={t("sso.users.methodFilter")} className="w-auto min-w-44" value={method} onChange={(e) => (setMethod(e.target.value as MethodFilter), setPage(0))} data-testid="filter-method">
+            <option value="">{t("sso.users.methodFilter")}</option>
+            <option value="microsoft">{t("sso.users.method.microsoft")}</option>
+            <option value="local">{t("sso.users.method.local")}</option>
+            <option value="ldap">{t("sso.users.method.ldap")}</option>
+            <option value="binding">{t("sso.users.status.binding")}</option>
+          </SelectField>
+        </div>
+      ) : null}
       <Card variant="glass" className="py-0">
         {users.isLoading ? (
           <Loading className="px-4" />
@@ -153,7 +219,9 @@ export function UsersAdmin() {
                 <TableHead className="pl-4">{t("crbs.users.name")}</TableHead>
                 <TableHead className="hidden md:table-cell">{t("crbs.users.email")}</TableHead>
                 <TableHead>{t("crbs.users.role")}</TableHead>
-                <TableHead className="hidden lg:table-cell">{t("crbs.users.department")}</TableHead>
+                {usersAdmin && idStatus.data ? <TableHead className="hidden lg:table-cell">{t("sso.users.methodColumn")}</TableHead> : null}
+                {usersAdmin && idStatus.data ? <TableHead className="hidden sm:table-cell">{t("sso.users.statusColumn")}</TableHead> : null}
+                <TableHead className="hidden xl:table-cell">{t("crbs.users.department")}</TableHead>
                 <TableHead className="hidden lg:table-cell">{t("crbs.users.lastLogin")}</TableHead>
                 <TableHead className="w-10 pr-4">
                   <span className="sr-only">{t("crbs.common.actions")}</span>
@@ -161,10 +229,13 @@ export function UsersAdmin() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(users.data?.items ?? []).map((u) => (
+              {visible.map((u) => (
                 <TableRow key={u.id} data-username={u.username ?? u.email ?? ""}>
                   <TableCell className="pl-4">
-                    <span className="block font-medium text-label-1">{u.displayname || u.full_name || u.username || u.email}</span>
+                    <span className="block font-medium text-label-1">
+                      {u.displayname || u.full_name || u.username || u.email}
+                      <IdentityTags s={statusOf(u)} />
+                    </span>
                     <span className="block type-footnote text-label-3">
                       {/* the e-mail has its own column from md up: show it here only on phones (UI/UX review: e-mail twice) */}
                       {u.username ?? <span className="md:hidden">{u.email}</span>}
@@ -189,7 +260,17 @@ export function UsersAdmin() {
                       </Badge>
                     ) : null}
                   </TableCell>
-                  <TableCell className="hidden text-label-2 lg:table-cell">{u.department_name ?? "—"}</TableCell>
+                  {usersAdmin && idStatus.data ? (
+                    <TableCell className="hidden lg:table-cell">
+                      <MethodCell m={methodView(statusOf(u), u.auth_source)} />
+                    </TableCell>
+                  ) : null}
+                  {usersAdmin && idStatus.data ? (
+                    <TableCell className="hidden sm:table-cell">
+                      <IdentityStatusCell view={statusView(statusOf(u), u.is_active)} inviterName={nameOf(statusOf(u)?.invite?.invited_by)} />
+                    </TableCell>
+                  ) : null}
+                  <TableCell className="hidden text-label-2 xl:table-cell">{u.department_name ?? "—"}</TableCell>
                   <TableCell className="hidden text-label-2 tabular-nums lg:table-cell">{dt(u.last_login_at)}</TableCell>
                   <TableCell className="pr-4 text-right">
                     <DropdownMenu>
@@ -219,6 +300,7 @@ export function UsersAdmin() {
                           <ShieldQuestion aria-hidden />
                           {t("admingaps.access.check")}
                         </DropdownMenuItem>
+                        {usersAdmin ? <IdentityMenuItems user={u} s={statusOf(u)} invite={inviteOf.get(u.id)} canManage={manageable(u)} msEnabled={msEnabled} onBind={setBinding} onRevoke={(invite, kind) => setRevoking({ invite, kind })} /> : null}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" disabled={!manageable(u)} onClick={() => setDeleting(u)}>
                           <Trash2 aria-hidden />
@@ -229,9 +311,9 @@ export function UsersAdmin() {
                   </TableCell>
                 </TableRow>
               ))}
-              {users.data && users.data.items.length === 0 ? (
+              {users.data && visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="px-4 py-6 text-label-2">
+                  <TableCell colSpan={8} className="px-4 py-6 text-label-2">
                     {t("crbs.users.none")}
                   </TableCell>
                 </TableRow>
@@ -254,7 +336,15 @@ export function UsersAdmin() {
         </div>
       ) : null}
 
-      <UserDialog user={editing} onClose={() => setEditing(null)} canListRoles={can("setup.roles")} />
+      <UserDialog
+        user={editing}
+        onClose={() => setEditing(null)}
+        canListRoles={can("setup.roles")}
+        identityFor={(u) => (usersAdmin ? { s: statusOf(u), invite: inviteOf.get(u.id), msEnabled, onBind: () => (setEditing(null), setBinding(u)) } : null)}
+      />
+      <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} auth={auth} canListRoles={can("setup.roles")} />
+      <BindDialog key={binding?.id ?? "none"} user={binding} privileged={!!binding && privileged(binding)} onClose={() => setBinding(null)} />
+      <RevokeDialog value={revoking} onClose={() => setRevoking(null)} />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} canListRoles={can("setup.roles")} />
       <TokenDialog value={token} onClose={() => setToken(null)} />
       <ConfirmDialog
@@ -324,17 +414,19 @@ function roleBody(v: string): Pick<UserIn, "role_id"> & { role?: string } {
   return {};
 }
 
-function UserDialog({ user, onClose, canListRoles }: { user: AdminUser | "new" | null; onClose: () => void; canListRoles: boolean }) {
+type IdentityProps = { s: UserIdentityStatus | undefined; invite: Invite | undefined; msEnabled: boolean; onBind: () => void } | null;
+
+function UserDialog({ user, onClose, canListRoles, identityFor }: { user: AdminUser | "new" | null; onClose: () => void; canListRoles: boolean; identityFor: (u: AdminUser) => IdentityProps }) {
   return (
     <Dialog open={user !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl" data-testid="user-dialog">
-        {user !== null ? <UserForm key={user === "new" ? "new" : user.id} user={user === "new" ? null : user} onClose={onClose} canListRoles={canListRoles} /> : null}
+        {user !== null ? <UserForm key={user === "new" ? "new" : user.id} user={user === "new" ? null : user} onClose={onClose} canListRoles={canListRoles} identity={user === "new" ? null : identityFor(user)} /> : null}
       </DialogContent>
     </Dialog>
   );
 }
 
-function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onClose: () => void; canListRoles: boolean }) {
+function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser | null; onClose: () => void; canListRoles: boolean; identity: IdentityProps }) {
   const { t } = useI18n();
   const departments = useDepartments();
   // P1 "approves for" (wave 1): only an approver who may manage users designates others
@@ -467,6 +559,7 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
             </div>
           </details>
         ) : null}
+        {user && identity ? <IdentitiesSection user={user} s={identity.s} invite={identity.invite} msEnabled={identity.msEnabled} onBind={identity.onBind} /> : null}
         {user ? <ConstraintsEditor userId={user.id} /> : null}
         {user ? (
           <Link href={`/admin/access?user=${user.id}`} className="inline-flex items-center gap-1.5 self-start type-callout text-tint-text outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="user-form-check-access">

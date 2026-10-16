@@ -56,7 +56,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/approvals", labelKey: "wave1.nav.approvals", icon: Stamp, permission: "approvals.decide", badge: "approvals" },
   // Phase 19: an academician (can book, no planning.view) sees their own planning requests on /moderation;
   // planners keep the "Moderasyon" entry of the planning group
-  { href: "/moderation", labelKey: "crbs.nav.myRequests", icon: ClipboardList, permission: ["book_single.create", "book_recur.create"], hideWith: "planning.view", bookings: true },
+  { href: "/moderation/me", labelKey: "crbs.nav.myRequests", icon: ClipboardList, permission: ["book_single.create", "book_recur.create"], hideWith: "planning.view", bookings: true },
   { href: "/admin", labelKey: "crbs.nav.admin", icon: Settings2, permission: [...SETUP_PERMISSIONS] },
 ];
 

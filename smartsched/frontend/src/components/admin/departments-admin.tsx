@@ -39,7 +39,7 @@ export function DepartmentsAdmin() {
         }
       />
       <Input type="search" className="max-w-sm" aria-label={t("crbs.common.search")} placeholder={t("crbs.departments.search")} value={q} onChange={(e) => setQ(e.target.value)} />
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {list.isLoading ? (
           <Loading className="px-4" />
         ) : (

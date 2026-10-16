@@ -78,7 +78,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
 
       <section aria-labelledby="org-org">
         <SectionTitle id="org-org">{t("crbs.org.organisation")}</SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.org.name")} htmlFor="org-name">
             <Input id="org-name" className="w-72" maxLength={255} value={v.name ?? ""} onChange={(e) => set("name", e.target.value)} data-testid="org-name" />
           </FieldRow>
@@ -113,7 +113,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
 
       <section aria-labelledby="org-grid">
         <SectionTitle id="org-grid">{t("crbs.org.bookings")}</SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.org.displaytype")} hint={t("crbs.org.displaytypeHint")} htmlFor="org-dt">
             <SelectField id="org-dt" className="w-56" value={v.displaytype} onChange={(e) => setD((p) => ({ ...p, displaytype: e.target.value as "day" | "room", d_columns: "periods" }))}>
               <option value="day">{t("crbs.toolbar.byDay")}</option>
@@ -161,7 +161,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
 
       <section aria-labelledby="org-dates">
         <SectionTitle id="org-dates">{t("crbs.org.dates")}</SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           {(["pattern_long", "pattern_weekday", "pattern_time"] as const).map((k, i) => (
             <FieldRow key={k} label={t(`crbs.org.${k}`)} hint={t("crbs.org.patternPreview", { value: k === "pattern_time" ? preview.time("08:30") : k === "pattern_long" ? preview.long("2026-04-23") : preview.weekday("2026-04-23") })} htmlFor={`org-${k}`} className={i ? "hairline-t" : undefined}>
               <SelectField id={`org-${k}`} className="w-72" value={v[k] ?? ""} onChange={(e) => set(k, e.target.value)} disabled={!options.data} data-testid={`org-${k}`}>
@@ -185,7 +185,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
 
       <section aria-labelledby="org-login">
         <SectionTitle id="org-login">{t("crbs.org.loginAndMaintenance")}</SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.org.loginMessage")} hint={t("crbs.org.loginMessageHint")} htmlFor="org-lm">
             <Switch id="org-lm" checked={v.login_message_enabled} onCheckedChange={(x) => set("login_message_enabled", x)} />
           </FieldRow>
@@ -199,7 +199,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
 
       <section aria-labelledby="org-lang">
         <SectionTitle id="org-lang">{t("crbs.org.languages")}</SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.org.enabledLanguages")} hint={t("crbs.org.enabledLanguagesHint")}>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5" data-testid="org-languages">
               {LANGS.map((l) => (
@@ -259,7 +259,12 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
             data-testid="org-save"
             onClick={() => {
               setError(null);
-              save.mutate(undefined, { onSuccess: () => toast.success(t("crbs.common.saved")), onError: (e) => setError(bookingErrorMessage(crbsError(e), t)) });
+              // mutateAsync, not mutate's callbacks: the refetch after the save re-keys this form, and a remounted
+              // observer drops per-call callbacks (the save toast never showed; F-01 S01)
+              save.mutateAsync(undefined).then(
+                () => toast.success(t("crbs.common.saved")),
+                (e: unknown) => setError(bookingErrorMessage(crbsError(e), t)),
+              );
             }}
            aria-busy={save.isPending || undefined}>
             <BusyLabel busy={save.isPending} label={t("busy.saving")}>
@@ -300,11 +305,11 @@ function TranslationsEditor({ languages }: { languages: readonly Locale[] }) {
         {t("crbs.org.translations")}
       </SectionTitle>
       <p className="type-callout text-label-2">{t("crbs.org.translationsHint")}</p>
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {(list.data ?? []).length === 0 ? <p className="px-4 py-4 type-callout text-label-2">{t("crbs.org.noTranslations")}</p> : null}
         <ul>
           {(list.data ?? []).map((tr) => (
-            <li key={tr.id} className="flex flex-col gap-1 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none sm:flex-row sm:items-center sm:gap-3">
+            <li key={tr.id} className="flex flex-col gap-1 px-4 py-2.5 not-last:edge-hairline-b sm:flex-row sm:items-center sm:gap-3">
               <span className="w-56 shrink-0 truncate font-mono type-footnote text-label-2">
                 {tr.set}.{tr.key}
               </span>

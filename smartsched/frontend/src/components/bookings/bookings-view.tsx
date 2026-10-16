@@ -614,7 +614,7 @@ function Legend() {
         const Icon = TONE_ICON[tone];
         return (
           <li key={tone} className="flex items-center gap-1.5">
-            <span aria-hidden className={`flex size-5 items-center justify-center rounded-[5px] shadow-[0_0_0_1px_var(--hairline)] ${TONE_CLASS[tone]}`}>
+            <span aria-hidden className={`flex size-5 items-center justify-center rounded-[5px] edge-hairline ${TONE_CLASS[tone]}`}>
               <Icon className="size-3" />
             </span>
             {t(key)}

@@ -371,6 +371,11 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
   const others = drawer.getByTestId("approval-other-rooms");
   await expect(others.locator("li").first()).toBeVisible({ timeout: 20_000 });
   await others.locator("li").first().getByRole("button", { name: /Reddet, öner|Reject, suggest/ }).click();
+  // approval-first: a rejection needs a reason code and a written reason (the drawer's note is carried over)
+  const reject = approver.getByTestId("reject-dialog");
+  await expect(reject.getByTestId("reject-text")).toHaveValue("Bu saatte bakım var");
+  await reject.getByTestId("reject-code-room_unavailable").click();
+  await reject.getByTestId("reject-confirm").click();
   await expect.poll(async () => (await api<{ status: string }>("GET", `/approvals/${req2.id}`, undefined, ctx.approverToken)).status).toBe("REJECTED");
 
   // part of a series: a weekly request (the administrator: teachers have no recurring right in CRBS) for four Fridays, approve three

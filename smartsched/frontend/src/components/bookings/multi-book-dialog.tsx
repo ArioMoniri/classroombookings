@@ -234,14 +234,14 @@ function MultiBody({ slotKeys, termId, termEnd, fmt, onClose, onBooked }: { slot
             <Checkbox checked={perRow} onCheckedChange={(v) => setPerRow(v === true)} data-testid="multi-per-row" />
             {t("reserve.multi.perRow")}
           </label>
-          <ul className="flex flex-col rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)]" data-testid="multi-rows">
+          <ul className="flex flex-col rounded-xl bg-(--mat-thick-solid) edge-hairline" data-testid="multi-rows">
             {slots.map((s, i) => {
               const r = row(s.mbs_id);
               const problem = problems?.find((p) => p.mbs_id === s.mbs_id);
               const label = slotLabel(s.mbs_id);
               const prev = previews.find((p) => p.mbs_id === s.mbs_id);
               return (
-                <li key={s.mbs_id} className="flex flex-col gap-2 px-3 py-2 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none" data-mbs-id={s.mbs_id}>
+                <li key={s.mbs_id} className="flex flex-col gap-2 px-3 py-2 not-last:edge-hairline-b" data-mbs-id={s.mbs_id}>
                   <div className="flex items-center justify-between gap-2 type-callout">
                     <label className="flex min-h-11 items-center gap-2 text-label-1 sm:min-h-0">
                       <Checkbox checked={r.include} onCheckedChange={(v) => patch(s.mbs_id, { include: v === true })} aria-label={t("reserve.multi.include", { slot: label })} data-testid={`multi-include-${s.mbs_id}`} />

@@ -13,7 +13,9 @@ import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HttpError } from "@/lib/api/client";
-import { lk, useSuggestionActions, useSuggestions, type SnoozeUntil, type Suggestion } from "@/lib/api/learning";
+import { lk, useSuggestionActions, useSuggestions, type AcceptScope, type SnoozeUntil, type Suggestion } from "@/lib/api/learning";
+import { ResponsiveDialog } from "@/components/moderation/responsive-dialog";
+import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, staggerDelay, tween, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -34,6 +36,9 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
   const [receipts, setReceipts] = useState<Map<number, Receipt>>(new Map());
   const [busy, setBusy] = useState<number | null>(null);
   const [announce, setAnnounce] = useState("");
+  const { can } = usePermissions();
+  const canPersist = canAct && can("planning.admin");
+  const [persist, setPersist] = useState<{ s: Suggestion; weight: number } | null>(null);
   const held = useRef(new Set<number>());
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   // the stagger is for the first reveal only, never for later inserts (motion.md §3.10)
@@ -97,10 +102,10 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
     }
   };
 
-  const accept = (s: Suggestion, weight: number) => void run(s, async () => {
-    const out = await actions.accept.mutateAsync({ id: s.id, weight });
-    return { kind: "accepted", constraintId: out.constraint_id };
-  }, t("learning.live.accepted"));
+  const accept = (s: Suggestion, weight: number, scope: AcceptScope = "term") => void run(s, async () => {
+    const out = await actions.accept.mutateAsync({ id: s.id, weight, scope });
+    return { kind: "accepted", constraintId: out.constraint_id, scope };
+  }, t(scope === "persistent" ? "learning.live.acceptedPersistent" : "learning.live.accepted"));
   const reject = (s: Suggestion, reason?: string) => void run(s, async () => {
     await actions.reject.mutateAsync({ id: s.id, reason });
     return { kind: "dismissed" };
@@ -109,9 +114,10 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
     await actions.snooze.mutateAsync({ id: s.id, until });
     return { kind: "snoozed", until };
   }, t("learning.live.snoozed"));
-  const undo = async (s: Suggestion, constraintId: number) => {
+  /** Geri al on a receipt or in Geçmiş: the decision is undone server-side (restore) and the card is open again */
+  const undo = async (s: Suggestion) => {
     try {
-      await actions.undoAccept.mutateAsync(constraintId);
+      await actions.restore.mutateAsync(s.id);
       setReceipts((m) => {
         const next = new Map(m);
         next.delete(s.id);
@@ -173,10 +179,14 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
         history.length ? (
           <ul className="flex flex-col gap-1" data-testid="suggestion-history">
             {history.map((s) => (
-              <li key={s.id} className="flex flex-wrap gap-2 border-b border-hairline py-1.5 type-footnote">
+              <li key={s.id} className="flex flex-wrap items-center gap-2 border-b border-hairline py-1.5 type-footnote" data-testid="history-row" data-state={s.state}>
                 <span className="font-semibold">{t(`learning.state.${s.state}`)}</span>
                 <span className="min-w-0 flex-1">{s.claim[lang] || s.claim.tr}</span>
+                {s.state === "accepted" && s.scope === "persistent" ? <span className="text-label-2">{t("learning.state.persistent")}</span> : null}
                 {s.decided_at ? <span className="text-label-3">{new Date(s.decided_at).toLocaleDateString(lang === "tr" ? "tr-TR" : "en-GB")}</span> : null}
+                {canAct && (s.state === "accepted" || s.state === "dismissed" || s.state === "snoozed") ? (
+                  <Button size="xs" variant="ghost" className="max-md:h-11" onClick={() => void undo(s)} data-testid="history-undo">{t("common.undo")}</Button>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -209,10 +219,8 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
                   onAccept={(w) => accept(s, w)}
                   onReject={(r) => reject(s, r)}
                   onSnooze={(u) => snooze(s, u)}
-                  onUndo={() => {
-                    const r = receipts.get(s.id);
-                    if (r?.kind === "accepted" && r.constraintId !== null) void undo(s, r.constraintId);
-                  }}
+                  onUndo={() => void undo(s)}
+                  onAcceptPersistent={canPersist ? (w) => setPersist({ s, weight: w }) : undefined}
                   onHold={(h) => (h ? held.current.add(s.id) : held.current.delete(s.id))}
                 />
               </motion.li>
@@ -220,6 +228,26 @@ export function SuggestionList({ termId, personId, canAct, surface, max, compact
           </AnimatePresence>
         </ul>
       )}
+      <ResponsiveDialog
+        open={persist !== null}
+        onOpenChange={(o) => !o && setPersist(null)}
+        alert
+        title={t("learning.persistent.title")}
+        description={persist ? t("learning.persistent.body", { subject: persist.s.subject.label }) : undefined}
+        testId="persistent-confirm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPersist(null)}>{t("common.cancel")}</Button>
+            <Button onClick={() => { if (persist) accept(persist.s, persist.weight, "persistent"); setPersist(null); }} data-testid="persistent-go">{t("learning.persistent.go")}</Button>
+          </>
+        }
+      >
+        <ul className="flex list-disc flex-col gap-1 pl-5 type-footnote text-label-2">
+          <li>{t("learning.persistent.point1")}</li>
+          <li>{t("learning.persistent.point2")}</li>
+          <li>{t("learning.persistent.point3")}</li>
+        </ul>
+      </ResponsiveDialog>
     </section>
   );
 }

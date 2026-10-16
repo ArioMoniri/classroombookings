@@ -89,7 +89,7 @@
   status: in-progress
   phase: "P19 I1-I5"
   evidence: smartsched/backend/app/council/formats.py
-  note: "readers, limits and dry-run API done; onboarding screen updates open"
+  note: "readers, limits, dry-run API and the onboarding stepper with the Fark step done; an e2e for the intake screen is open"
 - feature: "AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default"
   area: intake
   status: in-progress
@@ -234,9 +234,10 @@
   evidence: scripts/docs/sync_docs.py
 - feature: "Design-system overhaul from the UI/UX review (sizing, controls, columns, de-AI changes)"
   area: platform
-  status: in-progress
+  status: done
   phase: "owner feedback 2026-10-15"
-  evidence: docs/review/2026-10-15-uiux-visual-review.md
+  evidence: smartsched/frontend/e2e/visual-quality.spec.ts
+  note: "tokens, primitives, DataTable columns and the check:design gate; migrating the older screens is in progress"
 - feature: "README recordings and a real screenshot gallery for the current UI"
   area: platform
   status: in-progress

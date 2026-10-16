@@ -186,8 +186,8 @@ export const identity = {
   setInstructor: (userId: number, instructorId: number | null) =>
     request(`/auth/sso/admin/users/${userId}/instructor`, { method: "PUT", body: { instructor_id: instructorId }, schema: z.object({ user_id: z.number(), instructor_id: z.number().nullish() }), silent: true }),
   userStatus: () => request("/auth/sso/admin/user-status", { schema: UserStatusMap, silent: true }),
-  instructors: (search: string) =>
-    request("/instructors", { query: { search: search || undefined, limit: 20 }, schema: z.object({ items: z.array(z.object({ id: z.number(), full_name: z.string(), title: z.string().nullish() })).default([]) }), silent: true }),
+  instructors: (search: string, limit = 20) =>
+    request("/instructors", { query: { search: search || undefined, limit }, schema: z.object({ items: z.array(z.object({ id: z.number(), full_name: z.string(), title: z.string().nullish() })).default([]) }), silent: true }),
 };
 
 export const identityKeys = {
@@ -197,7 +197,7 @@ export const identityKeys = {
   mappings: ["identity", "mappings"] as const,
   invites: ["identity", "invites"] as const,
   userStatus: ["identity", "user-status"] as const,
-  instructors: (q: string) => ["identity", "instructors", q] as const,
+  instructors: (q: string, limit: number) => ["identity", "instructors", q, limit] as const,
 };
 
 export const useSsoMe = (enabled = true) => useQuery({ queryKey: identityKeys.me, queryFn: identity.me, enabled, retry: false, staleTime: 30_000 });
@@ -206,8 +206,8 @@ export const useSsoMappings = (enabled = true) => useQuery({ queryKey: identityK
 export const useInvites = (enabled = true) => useQuery({ queryKey: identityKeys.invites, queryFn: identity.invites, enabled, retry: false });
 export const useUserIdentityStatus = (enabled = true) => useQuery({ queryKey: identityKeys.userStatus, queryFn: identity.userStatus, enabled, retry: false, staleTime: 15_000 });
 export const useAuthProviders = (enabled = true) => useQuery({ queryKey: identityKeys.providers, queryFn: identity.providers, enabled, retry: false, staleTime: 60_000 });
-export const useInstructorSearch = (q: string, enabled = true) =>
-  useQuery({ queryKey: identityKeys.instructors(q), queryFn: () => identity.instructors(q), enabled, retry: false, placeholderData: keepPreviousData, staleTime: 60_000 });
+export const useInstructorSearch = (q: string, enabled = true, limit = 20) =>
+  useQuery({ queryKey: identityKeys.instructors(q, limit), queryFn: () => identity.instructors(q, limit), enabled, retry: false, placeholderData: keepPreviousData, staleTime: 60_000 });
 
 /** A mutation that refreshes the given identity / user queries on success. */
 export function useIdentityMutation<TVars, TOut>(fn: (vars: TVars) => Promise<TOut>, invalidate: QueryKey[] = []) {

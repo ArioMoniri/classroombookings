@@ -4,12 +4,14 @@
  * scene, settings rows (label + hint left, control right; references.md H21), filled native selects,
  * status alerts (glyph + word, G4) and a confirm dialog. Built on the Liquid Glass primitives only.
  */
-import { AlertTriangle, CheckCircle2, ChevronDown, Info, Loader2, XOctagon } from "lucide-react";
-import { useId, type ReactNode, type SelectHTMLAttributes } from "react";
+import { Loader2 } from "lucide-react";
+import { useId, type ComponentProps, type ReactNode, type SelectHTMLAttributes } from "react";
+import { Alert as UiAlert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { fieldSurface } from "@/components/ui/field-styles";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 
@@ -70,37 +72,20 @@ export function Field({ label, hint, error, children, htmlFor, className }: { la
   );
 }
 
+/** The design-system NativeSelect (field surface, --control-h, centred chevron); 16 px text on touch phones. */
 export function SelectField({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  const { size: _size, ...rest } = props;
+  void _size;
   return (
-    <span className={cn("relative inline-flex w-full", className)}>
-      <select {...props} className={cn(fieldSurface, "h-8 w-full min-w-0 appearance-none pr-8 pl-3 text-[13px]")}>
-        {children}
-      </select>
-      <ChevronDown className="pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2 text-label-3" aria-hidden />
-    </span>
+    <NativeSelect {...rest} className={className} selectClassName="max-md:pointer-coarse:text-base">
+      {children}
+    </NativeSelect>
   );
 }
 
-type Tone = "info" | "warning" | "error" | "success";
-const TONE: Record<Tone, { icon: typeof Info; cls: string }> = {
-  info: { icon: Info, cls: "bg-tint-soft text-label-1" },
-  warning: { icon: AlertTriangle, cls: "bg-status-warning text-status-warning-fg" },
-  error: { icon: XOctagon, cls: "bg-status-infeasible text-status-infeasible-fg" },
-  success: { icon: CheckCircle2, cls: "bg-status-feasible text-status-feasible-fg" },
-};
-
-/** Status message: glyph + text on a translucent tint (never colour alone). */
-export function Alert({ tone = "info", title, children, className, live = tone === "error" ? "assertive" : "polite", testId }: { tone?: Tone; title?: ReactNode; children?: ReactNode; className?: string; live?: "polite" | "assertive" | "off"; testId?: string }) {
-  const { icon: Icon, cls } = TONE[tone];
-  return (
-    <div role={tone === "error" ? "alert" : "status"} aria-live={live} data-testid={testId} className={cn("flex items-start gap-2.5 rounded-xl px-3 py-2.5 type-callout", cls, className)}>
-      <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
-      <div className="min-w-0">
-        {title ? <p className="font-semibold">{title}</p> : null}
-        {children ? <div>{children}</div> : null}
-      </div>
-    </div>
-  );
+/** Status message (glyph + word, G4): the ui Alert, promoted from this file; `testId` kept for the CRBS callers. */
+export function Alert({ testId, ...props }: ComponentProps<typeof UiAlert> & { testId?: string }) {
+  return <UiAlert data-testid={testId} {...props} />;
 }
 
 export function Loading({ label, className }: { label?: string; className?: string }) {
@@ -161,7 +146,7 @@ export function ConfirmDialog({
 export function LimitInput({ value, onChange, label, id, placeholder }: { value: number | null | undefined; onChange: (v: number | null) => void; label: string; id?: string; placeholder?: string }) {
   const auto = useId();
   return (
-    <input
+    <Input
       id={id ?? auto}
       aria-label={label}
       type="number"
@@ -171,7 +156,7 @@ export function LimitInput({ value, onChange, label, id, placeholder }: { value:
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value === "" ? null : Math.max(0, Number(e.target.value)))}
       // 13ch: "Unlimited" / "Sınırsız" placeholders fit (UI/UX review: "Unlimitec")
-      className={cn(fieldSurface, "h-8 w-[13ch] px-3 text-[13px] tabular-nums")}
+      className="w-[13ch] tnum"
     />
   );
 }

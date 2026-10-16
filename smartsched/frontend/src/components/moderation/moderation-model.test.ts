@@ -4,7 +4,10 @@ import { refusal } from "@/lib/api/moderation";
 import { HttpError } from "@/lib/api/client";
 import {
   MAX_ANIMATED_MOVES,
-  addStaged,
+  baselineOptions,
+  chainText,
+  changeLevel,
+  changeSummary,
   animatedMoves,
   canPublish,
   chipCount,
@@ -19,7 +22,7 @@ import {
   priorityDistribution,
   requestedText,
   sortMatchings,
-  stagedRequestIds,
+  notifyTargets,
   termPreferences,
   tierForKey,
   tierOf,
@@ -125,6 +128,9 @@ describe("moderation model", () => {
   const diff = (over: Partial<DiffOut> = {}): DiffOut => ({
     run_id: 21,
     base_run_id: 20,
+    compare_to_run_id: 20,
+    compared_to: "published",
+    chain: [20],
     status: "OPTIMAL",
     mode: "repair",
     changed_request_ids: [1156],
@@ -176,11 +182,25 @@ describe("moderation model", () => {
     expect(gridSpan(chips)).toEqual({ days: [1, 2, 3, 4, 5], first: 4, last: 5 });
   });
 
-  it("keeps staged changes newest first and de-duplicates their request ids", () => {
-    let list = addStaged([], { requestIds: [3, 1], label: "a", at: "1" });
-    list = addStaged(list, { requestIds: [1, 2], label: "b", at: "2" });
-    expect(list.map((c) => c.label)).toEqual(["b", "a"]);
-    expect(stagedRequestIds(list)).toEqual([1, 2, 3]);
+  it("summarises a server-side change: kind, new tier, the first labels and the rest", () => {
+    const c = { audit_id: 9, ts: null, action: "section.priority", kind: "priority" as const, entity_type: "section", entity_id: 4, run_id: null, request_ids: [1, 2, 3, 4], labels: ["PSY 277 §1", "PSY 277 §1 lab", "PSY 277 §1 b", "x"], actor_id: 1, actor: "Admin", reason: "akreditasyon", before: { priority: 0 }, after: { priority: 10 } };
+    expect(changeSummary(c)).toEqual({ kind: "priority", tier: "high", cleared: false, subjects: "PSY 277 §1, PSY 277 §1 lab, PSY 277 §1 b", more: 1 });
+    expect(changeLevel(c)).toBe("section");
+    expect(changeLevel({ ...c, action: "person.priority" })).toBe("person");
+    expect(changeSummary({ ...c, after: { priority: null } }).cleared).toBe(true);
+    expect(changeLevel({ ...c, kind: "pin", action: "moderation.pin" })).toBeNull();
+  });
+
+  it("offers the fixed baseline first, then the chain, never the run itself", () => {
+    const d = { run_id: 44, base_run_id: 43, compare_to_run_id: 40, chain: [43, 41, 40] };
+    expect(baselineOptions(d, 40)).toEqual([40, 43, 41]);
+    expect(baselineOptions({ ...d, compare_to_run_id: 43 }, null)).toEqual([43, 41, 40]);
+    expect(chainText(d)).toBe("#44 ← #43 ← #41 ← #40");
+  });
+
+  it("names the academicians the publish digest reaches (linked accounts only)", () => {
+    const people = [{ id: 1, name: "S. K.", title: "Dr.", linked_user: true }, { id: 2, name: "T. E.", title: null, linked_user: false }, { id: 3, name: "Z", title: null, linked_user: true }];
+    expect(notifyTargets([1, 2], people)).toEqual({ linked: [{ id: 1, label: "Dr. S. K." }], unlinked: 1 });
   });
 
   it("finds the own instructor of a teacher's requests (Q11 scope)", () => {

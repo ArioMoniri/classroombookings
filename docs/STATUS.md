@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `d3d3c17` (committed 2026-10-16 01:36 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `880432f` (committed 2026-10-16 01:37 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 24 · Backend only 6 · In progress 10 · Planned 3 (from [`docs/features.yml`](features.yml)).
+Done 25 · Backend only 6 · In progress 9 · Planned 3 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -53,7 +53,7 @@ Done 24 · Backend only 6 · In progress 10 · Planned 3 (from [`docs/features.y
 
 | Feature | Status | Phase | Evidence |
 |---|---|---|---|
-| Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff | In progress: readers, limits and dry-run API done; onboarding screen updates open | P19 I1-I5 | [`formats.py`](../smartsched/backend/app/council/formats.py) |
+| Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff | In progress: readers, limits, dry-run API and the onboarding stepper with the Fark step done; an e2e for the intake screen is open | P19 I1-I5 | [`formats.py`](../smartsched/backend/app/council/formats.py) |
 | AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default | In progress: council side done; review screen open | P19 A1-A4 | [`airows.py`](../smartsched/backend/app/council/airows.py) |
 | Schedule map to a baseline import run, so a re-solve keeps the published board | Backend only | P19 I5 | [`baseline.py`](../smartsched/backend/app/council/baseline.py) |
 | Intake memory: confirmed column mappings and lexicon additions remembered per file signature | Backend only | P19 | [`memory.py`](../smartsched/backend/app/council/memory.py) |
@@ -100,7 +100,7 @@ Done 24 · Backend only 6 · In progress 10 · Planned 3 (from [`docs/features.y
 | Pod CI on a single AWS node: every gate in Docker for each new commit, then deploy; idle auto-stop and a budget cap | Done | 13 | [`gates.py`](../smartsched/deploy/pod-ci/podci/gates.py) |
 | Seed profiles (institution or empty) and per-branch AWS pods | Done | 13 | [`seed`](../smartsched/deploy/seed) |
 | Docs that update themselves: generated blocks from the sources of truth, checked in pod CI | Done | owner request 2026-10-15 | [`sync_docs.py`](../scripts/docs/sync_docs.py) |
-| Design-system overhaul from the UI/UX review (sizing, controls, columns, de-AI changes) | In progress | owner feedback 2026-10-15 | [`2026-10-15-uiux-visual-review.md`](review/2026-10-15-uiux-visual-review.md) |
+| Design-system overhaul from the UI/UX review (sizing, controls, columns, de-AI changes) | Done: tokens, primitives, DataTable columns and the check:design gate; migrating the older screens is in progress | owner feedback 2026-10-15 | [`visual-quality.spec.ts`](../smartsched/frontend/e2e/visual-quality.spec.ts) |
 | README recordings and a real screenshot gallery for the current UI | In progress | 16 | [`record`](../scripts/record) |
 | Mobile optimisation of every screen (390 and 768 px) | Planned | owner instruction 2026-10-15 |  |
 

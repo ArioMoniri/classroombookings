@@ -541,7 +541,7 @@ export function InstructorsStep({ p, update, v, termId }: StepProps) {
   if (!p.courses.length) return <p className="type-callout text-label-2">{t("programWizard.sections.noCourses")}</p>;
   const setSlot = (c: CourseP, s: SectionP, slot: 0 | 1, ref: InstructorRef | null) =>
     patchSection(update, c.key, s.key, (x) => {
-      const next = [x.instructors[0] ?? null, x.instructors[1] ?? null];
+      const next: (InstructorRef | null)[] = [x.instructors[0] ?? null, x.instructors[1] ?? null];
       next[slot] = ref;
       return { ...x, instructors: next.filter((r): r is InstructorRef => r !== null) };
     });

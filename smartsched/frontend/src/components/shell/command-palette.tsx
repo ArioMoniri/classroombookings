@@ -146,7 +146,7 @@ export function CommandPalette() {
     <CommandDialog open={open} onOpenChange={setOpen} title={t("palette.title")} description={t("glass.palette.placeholder")} className="top-2 max-w-[calc(100vw-1rem)] sm:top-[14%] sm:max-w-[640px]">
       <LayoutGroup id="palette">
         <Command shouldFilter={false} loop value={selected} onValueChange={setSelected} label={t("palette.title")}>
-          <CommandInput placeholder={t("glass.palette.placeholder")} value={query} onValueChange={setQuery} className="text-base sm:text-[16px]" />
+          <CommandInput placeholder={t("glass.palette.placeholder")} value={query} onValueChange={setQuery} className="text-base" />
           <CommandList className="max-h-[min(60vh,520px)]">
             {listReady ? (
               <>
@@ -162,7 +162,7 @@ export function CommandPalette() {
                       <span className="font-medium">{c.code}</span>
                       <span className="min-w-0 truncate text-label-2">{c.name}</span>
                     </>,
-                    c.count ? <span className="text-[12px] text-label-3 tabular-nums">{t("glass.palette.sections", { n: c.count })}</span> : undefined,
+                    c.count ? <span className="type-footnote text-label-3 tabular-nums">{t("glass.palette.sections", { n: c.count })}</span> : undefined,
                   ),
                 )}
               </CommandGroup>
@@ -190,7 +190,7 @@ export function CommandPalette() {
                     <>
                       <GraduationCap aria-hidden />
                       <span className="truncate">{p.name}</span>
-                      {p.is_evening ? <span className="text-[12px] text-label-3">· {t("glass.palette.evening")}</span> : null}
+                      {p.is_evening ? <span className="type-footnote text-label-3">· {t("glass.palette.evening")}</span> : null}
                     </>,
                   ),
                 )}
@@ -288,7 +288,7 @@ export function CommandPalette() {
               </>
             ) : null}
           </CommandList>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pt-2 pb-1 text-[11px] text-label-3 hairline-t">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pt-2 pb-1 type-caption text-label-3 hairline-t">
             <span className="inline-flex items-center gap-1"><KbdHint keys={["↑"]} /><KbdHint keys={["↓"]} /> {t("palette.navigate")}</span>
             <span className="inline-flex items-center gap-1"><KbdHint keys={["enter"]} /> {t("palette.select")}</span>
             <span className="inline-flex items-center gap-1"><KbdHint keys={["esc"]} /> {t("palette.close")}</span>

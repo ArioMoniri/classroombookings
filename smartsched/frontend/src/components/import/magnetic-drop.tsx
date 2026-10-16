@@ -150,11 +150,11 @@ export function MagneticDrop({
         />
       </motion.div>
       {upload.phase === "processing" ? (
-        <p role="status" className="mt-2 text-[12.5px] text-label-2">
+        <p role="status" className="mt-2 type-callout text-label-2">
           {t("glass.import.reading")}
         </p>
       ) : upload.phase === "error" ? (
-        <p role="alert" className="mt-2 text-[12.5px] text-status-infeasible-fg">
+        <p role="alert" className="mt-2 type-callout text-status-infeasible-fg">
           {upload.message}
         </p>
       ) : null}

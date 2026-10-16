@@ -55,7 +55,7 @@ describe("SuggestionCard", () => {
 
   it("collapses to a receipt with Geri al after an accept", () => {
     const onUndo = vi.fn();
-    card({ receipt: { kind: "accepted", constraintId: 42 }, onUndo });
+    card({ receipt: { kind: "accepted", constraintId: 42, scope: "term" }, onUndo });
     expect(screen.getByTestId("suggestion-receipt")).toHaveTextContent("Yumuşak tercih eklendi");
     fireEvent.click(screen.getByTestId("suggestion-undo"));
     expect(onUndo).toHaveBeenCalled();

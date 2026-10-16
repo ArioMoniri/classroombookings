@@ -44,7 +44,7 @@ function SmtpForm({ data }: { data: SmtpSettings }) {
   const pwSet = typeof masked === "object" && masked ? masked.set : !!masked;
   return (
     <>
-      <Card variant="glass" className="gap-0 px-4 py-1">
+      <Card className="gap-0 px-4 py-1">
         <p className="py-2 type-callout text-label-2">{data.configured ? t("crbs.email.configured") : t("crbs.email.notConfigured")}</p>
         <FieldRow label={t("crbs.email.host")} htmlFor="smtp-host" className="hairline-t">
           <Input id="smtp-host" className="w-64" value={v.host ?? ""} onChange={(e) => set("host", e.target.value)} placeholder="smtp.uni.edu.tr" />
@@ -119,12 +119,12 @@ function OutboxList() {
       >
         {t("crbs.email.outbox")}
       </SectionTitle>
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {q.isLoading ? <Loading className="px-4" /> : null}
         {q.data && q.data.length === 0 ? <p className="px-4 py-4 type-callout text-label-2">{t("crbs.email.empty")}</p> : null}
         <ul>
           {(q.data ?? []).map((m) => (
-            <li key={m.id} className="flex items-start gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+            <li key={m.id} className="flex items-start gap-3 px-4 py-2.5 not-last:edge-hairline-b">
               <span className="min-w-0 flex-1">
                 <span className="block truncate type-headline text-label-1">{m.subject}</span>
                 <span className="block truncate type-footnote text-label-2">

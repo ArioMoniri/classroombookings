@@ -27,6 +27,7 @@ import type { DateFormatter } from "./date-format";
 import { slotText } from "./grid-model";
 import { alternativesFromGrids, nextFreeSlot, roomDay, type Alternative, type Now } from "./reserve-model";
 import { useIsPhone } from "./use-is-phone";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface RoomContext {
   /** the date the user is looking at (default: the booking clock's today) */
@@ -106,10 +107,10 @@ function RoomBody({ r, context, fmt, onReserve }: { r: RoomInfo; context?: RoomC
       </SheetHeader>
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-5">
         {r.photo_url ? (
-          <button type="button" onClick={() => setPhoto(true)} aria-label={t("reserve.room.photoOpen")} className="block overflow-hidden rounded-xl outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+          <BareButton onClick={() => setPhoto(true)} aria-label={t("reserve.room.photoOpen")} className="block overflow-hidden rounded-xl">
             {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
             <img src={r.photo_url} alt={t("crbs.rooms.photoAlt", { name: r.name })} className="max-h-60 w-full object-cover" />
-          </button>
+          </BareButton>
         ) : null}
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 type-callout" data-testid="room-facts">
           {facts
@@ -199,7 +200,7 @@ function RoomDay({ room, date, termId, fmt, onReserve }: { room: RoomInfo; date:
               const b = periods.get(run[run.length - 1]!.period_id);
               const Icon = s.status === "timetable" ? GraduationCap : s.reason === "recurring" ? Repeat : User;
               return (
-                <li key={s.period_id} className="flex items-center gap-3 px-3 py-2 type-callout shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+                <li key={s.period_id} className="flex items-center gap-3 px-3 py-2 type-callout not-last:edge-hairline-b">
                   <span className="w-28 shrink-0 text-label-3 tabular-nums">
                     {run.length > 1 ? `${a?.name}–${b?.name}` : a?.name} · {a ? fmt.time(a.time_start) : ""}
                   </span>
@@ -348,7 +349,7 @@ function AltRow({ a, time, onReserve }: { a: Alternative; time: string; onReserv
   const seats = a.room.capacity ?? a.info?.capacity;
   const fit = a.spare === null ? t("reserve.alt.unknownSize") : a.spare === 0 ? t("reserve.alt.exact") : t("reserve.alt.spare", { n: a.spare });
   return (
-    <li className="flex items-center gap-3 px-3 py-2 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none" data-testid={`alt-room-${a.room.code}`}>
+    <li className="flex items-center gap-3 px-3 py-2 not-last:edge-hairline-b" data-testid={`alt-room-${a.room.code}`}>
       <div className="min-w-0 flex-1">
         <p className="type-callout font-medium text-label-1">{a.room.name}</p>
         <p className="truncate type-footnote text-label-2">{[seats ? t("crbs.grid.seats", { n: seats }) : null, a.info?.building ?? a.info?.group, ...(a.info?.tags ?? []), fit].filter(Boolean).join(" · ")}</p>

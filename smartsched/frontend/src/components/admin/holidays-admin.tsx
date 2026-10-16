@@ -55,7 +55,7 @@ export function HolidaysAdmin() {
           </SelectField>
         </Field>
       </div>
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {list.isLoading ? (
           <Loading className="px-4" />
         ) : (list.data ?? []).length === 0 ? (
@@ -63,7 +63,7 @@ export function HolidaysAdmin() {
         ) : (
           <ul data-testid="holiday-list">
             {(list.data ?? []).map((h) => (
-              <li key={h.id} className="flex items-center gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+              <li key={h.id} className="flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b">
                 <span className="min-w-0 flex-1">
                   <span className="block type-headline text-label-1">{h.name}</span>
                   <span className="block type-footnote text-label-2">{h.date_start === h.date_end ? fmt.long(h.date_start) : `${fmt.long(h.date_start)} – ${fmt.long(h.date_end)}`}</span>

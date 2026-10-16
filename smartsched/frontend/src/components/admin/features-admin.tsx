@@ -10,7 +10,7 @@
  * 409 `solver_tag_impact`; the admin sees "removes PC from 5 rooms; 37 requests need PC" and confirms.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { FileDown, FileUp, Pencil, Plus, Sparkles, Tags, Trash2 } from "lucide-react";
+import { FileDown, FileUp, ListPlus, Pencil, Plus, Tags, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -86,7 +86,7 @@ export function FeaturesTab() {
             {t("wave1.features.adopt")}</BusyLabel>
           </Button>
           <Button variant="outline" onClick={() => void starter("template")} disabled={!!busy} data-testid="features-starter" aria-busy={busy === "template" || undefined}>
-            <BusyLabel busy={busy === "template"} label={t("busy.working")} icon={<Sparkles aria-hidden />}>
+            <BusyLabel busy={busy === "template"} label={t("busy.working")} icon={<ListPlus aria-hidden />}>
             {t("wave1.features.starter")}</BusyLabel>
           </Button>
           <Button variant="outline" onClick={() => setBulk(true)} data-testid="features-bulk">
@@ -100,7 +100,7 @@ export function FeaturesTab() {
         </div>
       </div>
 
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {features.isLoading ? (
           <Loading className="px-4" />
         ) : features.isError ? (
@@ -136,7 +136,7 @@ export function FeaturesTab() {
                     {t(KIND_KEY[f.kind])}
                     {f.unit ? ` (${f.unit})` : ""}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">{f.solver_tag ? <Badge tone="locked">{f.solver_tag}</Badge> : <span className="text-label-4">—</span>}</TableCell>
+                  <TableCell className="hidden md:table-cell">{f.solver_tag ? <Badge tone="locked">{f.solver_tag}</Badge> : <span className="text-label-3">—</span>}</TableCell>
                   <TableCell className="hidden type-footnote text-label-2 lg:table-cell">
                     {[f.filterable ? t("wave1.features.filterable") : null, f.public ? t("wave1.features.public") : t("wave1.features.private"), f.category && CATEGORY_KEY[f.category] ? t(CATEGORY_KEY[f.category]!) : null].filter(Boolean).join(" · ")}
                   </TableCell>
@@ -446,14 +446,14 @@ function ValuesGrid({ features, rooms }: { features: Feature[]; rooms: AdminRoom
       </div>
       <Card variant="plain" className="overflow-hidden py-0">
         <div className="max-h-[min(70dvh,720px)] overflow-auto">
-          <table className="w-max min-w-full border-separate border-spacing-0 text-[13px]">
+          <table className="w-max min-w-full border-separate border-spacing-0 type-callout">
             <thead className="sticky top-0 z-10 bg-(--mat-thick-solid)">
               <tr>
-                <th scope="col" className="sticky left-0 z-20 bg-(--mat-thick-solid) px-3 py-2 text-left font-semibold text-label-2 shadow-[inset_0_-1px_0_var(--hairline),inset_-1px_0_0_var(--hairline)]">
+                <th scope="col" className="sticky left-0 z-20 bg-(--mat-thick-solid) px-3 py-2 text-left font-semibold text-label-2 border-r border-b border-hairline">
                   {t("wave1.features.room")}
                 </th>
                 {features.map((f) => (
-                  <th key={f.id} scope="col" className="max-w-40 px-3 py-2 text-left font-semibold whitespace-nowrap text-label-2 shadow-[inset_0_-1px_0_var(--hairline)]">
+                  <th key={f.id} scope="col" className="max-w-40 px-3 py-2 text-left font-semibold whitespace-nowrap text-label-2 edge-hairline-b">
                     {f.name}
                     {f.unit ? <span className="ml-1 font-normal text-label-3">({f.unit})</span> : null}
                   </th>
@@ -465,13 +465,13 @@ function ValuesGrid({ features, rooms }: { features: Feature[]; rooms: AdminRoom
                 const dirty = changed.some((c) => c.room.id === r.id);
                 return (
                   <tr key={r.id} data-testid={`values-row-${r.code}`} data-dirty={dirty || undefined} className={cn(dirty && "bg-tint-soft/50")}>
-                    <th scope="row" className="sticky left-0 bg-(--mat-thick-solid) px-3 py-1.5 text-left font-medium whitespace-nowrap text-label-1 shadow-[inset_0_-1px_0_var(--hairline),inset_-1px_0_0_var(--hairline)]">
+                    <th scope="row" className="sticky left-0 bg-(--mat-thick-solid) px-3 py-1.5 text-left font-medium whitespace-nowrap text-label-1 border-r border-b border-hairline">
                       {r.display_name}
                       <span className="ml-1.5 font-normal text-label-3">{r.code}</span>
                       {errors[r.id] ? <span className="block max-w-56 truncate type-caption text-status-infeasible-fg" title={errors[r.id]}>{errors[r.id]}</span> : null}
                     </th>
                     {features.map((f) => (
-                      <td key={f.id} className="px-2 py-1 shadow-[inset_0_-1px_0_var(--hairline)]">
+                      <td key={f.id} className="px-2 py-1 edge-hairline-b">
                         <CellInput feature={f} value={value(r, f)} onChange={(v) => setCell(r, f, v)} label={`${r.display_name}, ${f.name}`} />
                       </td>
                     ))}

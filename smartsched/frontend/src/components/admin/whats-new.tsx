@@ -6,7 +6,7 @@
  */
 import { Megaphone } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { crbs, useChangelog, useCrbsMutation, type Changelog } from "@/lib/api/crbs";
@@ -48,7 +48,7 @@ export function WhatsNewPanel() {
   const q = useChangelog();
   const seen = useCrbsMutation(() => crbs.org.changelogSeen(), [["crbs", "changelog"]]);
   return (
-    <Card variant="glass" className="gap-3 px-4">
+    <Card className="gap-3 px-4">
       {q.isLoading ? <Loading /> : q.data ? <Entries data={q.data} /> : null}
       {q.data?.unread ? (
         <div>
@@ -73,11 +73,9 @@ export function WhatsNewIndicator({ className }: { className?: string }) {
   const unread = hydrated && !!q.data?.unread;
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
+      <IconButton
         className={className}
-        aria-label={unread ? t("crbs.news.unread") : t("crbs.news.title")}
+        label={unread ? t("crbs.news.unread") : t("crbs.news.title")}
         onClick={() => {
           setOpen(true);
           if (unread) seen.mutate(undefined);
@@ -86,9 +84,9 @@ export function WhatsNewIndicator({ className }: { className?: string }) {
       >
         <span className="relative">
           <Megaphone aria-hidden />
-          {unread ? <span aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-tint shadow-[0_0_0_2px_var(--mat-chrome-solid,white)]" /> : null}
+          {unread ? <span aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-tint ring-2 ring-(--mat-chrome-solid)" /> : null}
         </span>
-      </Button>
+      </IconButton>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right" className="gap-0 data-[side=right]:sm:max-w-md">
           <SheetHeader className="px-5 pt-5">

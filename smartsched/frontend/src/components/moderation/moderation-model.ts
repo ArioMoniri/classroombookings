@@ -1,9 +1,9 @@
 /**
  * Pure view logic of the moderation tab (docs/design/v2/phase19-moderation.md, phase19-priority-policy.md):
  * verdict → glyph + word, priority tiers, requested → assigned sentences, quick filters, the re-solve diff
- * groups and the "staged changes" list kept until the next re-solve. No React, no fetching: unit-tested.
+ * groups, the server's "changes since publish" lines, the diff baselines and the publish digest targets. No React, no fetching: unit-tested.
  */
-import type { DiffOut, Matching, PersonRow, Place, Preference, Reason, TierCode, Verdict } from "@/lib/api/moderation";
+import type { Change, DiffOut, Matching, PersonRow, Place, Preference, Reason, TierCode, Verdict } from "@/lib/api/moderation";
 import type { StatusKind } from "@/components/common/status-badge";
 import { fold } from "@/components/timetable/model/filters";
 import { dayName, periodRangeLabel } from "@/lib/time";
@@ -241,20 +241,54 @@ export function isDraftChild(d: DiffOut | undefined): boolean {
   return !!d && d.ready && !d.is_active;
 }
 
-/* ------------------------------------------------------------------ staged changes (until the next re-solve) */
+/* ------------------------------------------------------------------ changes since publish (server-side, P19-M-07) */
 
 /**
- * The requests edited since the last re-solve (priority edits here; the backend has no
- * `changes-since-publish` read yet, P19-M-07). Kept per term in localStorage, newest first, de-duplicated.
+ * One line of "Yayından beri değişenler" (`GET /terms/{id}/changes-since-publish`): what changed (the kind and,
+ * for priorities, the new tier), on which classes (the first labels, "+N"), by whom and when. The list is the
+ * server's, so every browser and every coordinator sees the same staged edits.
  */
-export interface StagedChange {
-  requestIds: number[];
-  label: string;
-  at: string;
+export function changeSummary(c: Change): { kind: Change["kind"]; tier: TierCode | null; cleared: boolean; subjects: string; more: number } {
+  const after = (c.after ?? {}) as Record<string, unknown>;
+  const raw = after.priority;
+  const value = typeof raw === "number" ? raw : null;
+  const shown = c.labels.slice(0, 3);
+  return {
+    kind: c.kind,
+    tier: c.kind === "priority" && value !== null ? tierOf(value) : null,
+    cleared: c.kind === "priority" && (raw === null || raw === undefined),
+    subjects: shown.join(", "),
+    more: Math.max(0, c.request_ids.length - shown.length),
+  };
 }
-export function addStaged(list: readonly StagedChange[], change: StagedChange): StagedChange[] {
-  return [change, ...list].slice(0, 200);
+
+/** the subject of a priority audit row: request / section / person / programme */
+export function changeLevel(c: Change): "request" | "section" | "person" | "program" | null {
+  if (c.kind !== "priority") return null;
+  if (c.action.startsWith("person.")) return "person";
+  if (c.action.startsWith("program.")) return "program";
+  if (c.action.startsWith("section.")) return "section";
+  return "request";
 }
-export function stagedRequestIds(list: readonly StagedChange[]): number[] {
-  return [...new Set(list.flatMap((c) => c.requestIds))].sort((a, b) => a - b);
+
+/**
+ * The baselines a preview can be compared with (`compare_to`): the one the server fixed at the re-solve (the
+ * published run that started the chain) first, then every earlier step of the chain, nearest first.
+ */
+export function baselineOptions(d: Pick<DiffOut, "run_id" | "base_run_id" | "compare_to_run_id" | "chain">, fixed: number | null): number[] {
+  const ids = [fixed ?? d.compare_to_run_id, d.base_run_id, ...d.chain].filter((x): x is number => typeof x === "number" && x !== d.run_id);
+  return [...new Set(ids)];
+}
+
+/** "#41 ← #40 ← #38": the run, its draft steps and the baseline */
+export function chainText(d: Pick<DiffOut, "run_id" | "chain">): string {
+  return [d.run_id, ...d.chain].map((id) => `#${id}`).join(" ← ");
+}
+
+/** who the publish digest reaches: affected academicians with a linked account (the others are only counted) */
+export function notifyTargets(affected: readonly number[], people: readonly { id: number; name: string; title: string | null; linked_user: boolean }[]): { linked: { id: number; label: string }[]; unlinked: number } {
+  const want = new Set(affected);
+  const rows = people.filter((p) => want.has(p.id));
+  const linked = rows.filter((p) => p.linked_user).map((p) => ({ id: p.id, label: [p.title, p.name].filter(Boolean).join(" ") }));
+  return { linked, unlinked: affected.length - linked.length };
 }

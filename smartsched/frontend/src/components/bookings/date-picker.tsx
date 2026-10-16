@@ -15,6 +15,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { monthsBetween } from "@/components/admin/date-painter";
 import { EntityIcon } from "@/components/admin/icons";
 import { addDays, formatPattern, type DateFormatter } from "./date-format";
+import { BareButton } from "@/components/shell/bare-button";
 
 interface Props {
   value: string;
@@ -108,8 +109,7 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
                   .join(", ");
                 return (
                   <span role="gridcell" key={day} aria-selected={selected}>
-                    <button
-                      type="button"
+                    <BareButton
                       data-day={day}
                       tabIndex={day === cursor ? 0 : -1}
                       disabled={!inTerm}
@@ -118,16 +118,16 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
                       onClick={() => pick(day)}
                       onFocus={() => setCursor(day)}
                       className={cn(
-                        "relative flex h-9 w-full flex-col items-center justify-center rounded-md type-callout tabular-nums outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) disabled:opacity-30",
+                        "relative flex h-9 w-full flex-col items-center justify-center rounded-md type-callout tabular-nums disabled:opacity-30",
                         selected ? "bg-tint text-tint-foreground" : "text-label-1 hover:bg-fill-2",
                         !selected && d && !d.open && "text-label-3",
                         d?.holiday && "line-through decoration-1",
-                        day === today && !selected && "shadow-[inset_0_0_0_1.5px_var(--accent)]",
+                        day === today && !selected && "edge-tint",
                       )}
                     >
                       {Number(day.slice(8))}
                       {week ? <span aria-hidden className="absolute inset-x-2 bottom-1 h-[3px] rounded-full" style={{ background: week.bgcol }} /> : null}
-                    </button>
+                    </BareButton>
                   </span>
                 );
               })}

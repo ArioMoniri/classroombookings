@@ -1,9 +1,10 @@
 "use client";
 /**
  * The priority editor (priority-policy spec §5.3): three tiers as glyph + word in a segmented control, where the
- * current value came from (talep / şube / varsayılan), an optional note, and the level it is written to: the
- * request (an override) or the whole section. Every save is audited server-side and staged for the next
- * re-solve. "Kaynağa dön" clears a request override.
+ * current value came from (talep / şube / kişi / program / varsayılan), an optional note, and the level it is
+ * written to: the request (an override) or the whole section. A person's or a programme's default for the term
+ * is the `SubjectPriorityForm` (`PUT /moderation/people|programs/{id}/priority`). Every save is audited and
+ * appears in the server's "Yayından beri değişenler" list for the next re-solve. "Kaynağa dön" clears an override.
  */
 import { useState } from "react";
 import { toast } from "sonner";
@@ -11,10 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { refusal, useSetPriority, type Priority, type TierCode } from "@/lib/api/moderation";
+import { refusal, useSetPriority, useSetSubjectPriority, type Priority, type Subject, type TierCode } from "@/lib/api/moderation";
 import { useI18n } from "@/lib/i18n/provider";
 import { TIERS, tierOf } from "./moderation-model";
-import { useStagedStore } from "./staged-store";
+import { ResponsiveDialog } from "./responsive-dialog";
+import { usePhone } from "./use-media";
 import { TierGlyph, TierLabel } from "./verdict-badge";
 
 export interface PriorityTarget {
@@ -23,8 +25,6 @@ export interface PriorityTarget {
   sectionId: number;
   label: string;
   priority: Priority;
-  /** every request of the section (a section-level change stages them all) */
-  sectionRequestIds?: number[];
 }
 
 export function PriorityForm({ target, onDone, autoFocus = false }: { target: PriorityTarget; onDone?: () => void; autoFocus?: boolean }) {
@@ -35,17 +35,11 @@ export function PriorityForm({ target, onDone, autoFocus = false }: { target: Pr
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const save = useSetPriority();
-  const stage = useStagedStore((s) => s.add);
 
   const submit = async (clear = false) => {
     setError(null);
     try {
       await save.mutateAsync({ kind: level, id: level === "request" ? target.requestId : target.sectionId, tier: clear ? null : tier, note });
-      stage(target.termId, {
-        requestIds: level === "section" ? (target.sectionRequestIds?.length ? target.sectionRequestIds : [target.requestId]) : [target.requestId],
-        label: t("moderation.staged.priority", { label: target.label, tier: t(`moderation.tier.${clear ? "normal" : tier}`) }),
-        at: new Date().toISOString(),
-      });
       toast.success(t("moderation.priority.saved", { label: target.label }));
       onDone?.();
     } catch (e) {
@@ -114,13 +108,26 @@ export function PriorityForm({ target, onDone, autoFocus = false }: { target: Pr
   );
 }
 
-/** the Öncelik cell / `p` key: a popover with the form */
+/** the Öncelik cell / `p` key: a popover with the form; a bottom sheet on phones (M-04) */
 export function PriorityPopover({ target, disabled = false, open, onOpenChange }: { target: PriorityTarget; disabled?: boolean; open?: boolean; onOpenChange?: (v: boolean) => void }) {
   const { t } = useI18n();
+  const phone = usePhone();
   const [own, setOwn] = useState(false);
   const isOpen = open ?? own;
   const setOpen = onOpenChange ?? setOwn;
   if (disabled) return <TierLabel value={target.priority.value} source={target.priority.source} />;
+  if (phone) {
+    return (
+      <>
+        <Button variant="ghost" onClick={() => setOpen(true)} aria-label={t("moderation.priority.edit", { label: target.label })} data-testid="priority-trigger">
+          <TierLabel value={target.priority.value} source={target.priority.source} />
+        </Button>
+        <ResponsiveDialog open={isOpen} onOpenChange={setOpen} title={t("moderation.priority.title", { label: target.label })} footer={null} testId="priority-sheet">
+          <PriorityForm target={target} onDone={() => setOpen(false)} />
+        </ResponsiveDialog>
+      </>
+    );
+  }
   return (
     <Popover open={isOpen} onOpenChange={setOpen}>
       <PopoverTrigger render={<Button variant="ghost" size="sm" aria-label={t("moderation.priority.edit", { label: target.label })} data-testid="priority-trigger" />}>
@@ -130,5 +137,60 @@ export function PriorityPopover({ target, disabled = false, open, onOpenChange }
         <PriorityForm target={target} onDone={() => setOpen(false)} autoFocus />
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * A person's or a programme's default priority for one term (P19-P-04): Yüksek / Normal / Düşük + a note. Every
+ * request of the subject without a more specific value inherits it (request > section > person > programme);
+ * Normal clears it. Coordinators and administrators only (`planning.edit`).
+ */
+export function SubjectPriorityForm({ subject, id, termId, label, current, note: initialNote, onDone, compact = false }: { subject: Subject; id: number; termId: number; label: string; current: number | null; note?: string | null; onDone?: () => void; compact?: boolean }) {
+  const { t, locale, n } = useI18n();
+  const lang = locale === "tr" ? "tr" : "en";
+  const [tier, setTier] = useState<TierCode>(tierOf(current ?? 0));
+  const [note, setNote] = useState(initialNote ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const save = useSetSubjectPriority();
+  const submit = async () => {
+    setError(null);
+    try {
+      const out = await save.mutateAsync({ subject, id, termId, tier: tier === "normal" ? null : tier, note });
+      toast.success(t("moderation.subjectPriority.saved", { label, n: n(out.request_ids.length) }));
+      onDone?.();
+    } catch (e) {
+      setError(refusal(e, lang).message);
+    }
+  };
+  return (
+    <form
+      className="flex flex-col gap-2"
+      aria-label={t(subject === "person" ? "moderation.subjectPriority.personTitle" : "moderation.subjectPriority.programTitle", { label })}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+      data-testid={`${subject}-priority`}
+    >
+      {!compact ? <p className="type-footnote text-label-2">{t(subject === "person" ? "moderation.subjectPriority.personHint" : "moderation.subjectPriority.programHint")}</p> : null}
+      <SegmentedControl<TierCode>
+        aria-label={t(subject === "person" ? "moderation.subjectPriority.personTitle" : "moderation.subjectPriority.programTitle", { label })}
+        value={tier}
+        onValueChange={setTier}
+        size="sm"
+        fill
+        options={TIERS.map((v) => ({ value: v, label: t(`moderation.tier.${v}`), icon: <TierGlyph tier={v} /> }))}
+      />
+      <label className="flex flex-col gap-1">
+        <span className="type-footnote font-semibold text-label-2">{t("moderation.priority.note")}</span>
+        <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder={t("moderation.priority.notePh")} />
+      </label>
+      {error ? <p role="alert" className="type-footnote text-status-infeasible-fg">{error}</p> : null}
+      <div className="flex justify-end">
+        <Button type="submit" size="sm" className="max-md:h-11" disabled={save.isPending} data-testid={`${subject}-priority-save`}>
+          {save.isPending ? t("busy.saving") : t("common.save")}
+        </Button>
+      </div>
+    </form>
   );
 }

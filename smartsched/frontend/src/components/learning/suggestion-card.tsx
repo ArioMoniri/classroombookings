@@ -4,7 +4,9 @@
  * evidence, never applied by itself. Dashed = not applied yet. Header kind + confidence word and 3-step meter,
  * the claim, what accepting adds (the backend's own sentence), the evidence (collapsed, "Kanıtı göster"), and
  * three actions: Kabul et (soft only, weight Düşük / Normal), Reddet (with an optional reason), Ertele.
- * After an action the card collapses to a one-line receipt (with Geri al for an accept); the list removes it
+ * Kabul et is for this term; a planning administrator may also accept it as persistent (remembered as the
+ * person's preference, still never applied in a later term without a person accepting it there).
+ * After an action the card collapses to a one-line receipt with Geri al (restore); the list removes it
  * after 8 s unless it has focus or hover. Keys on the card: a accept · d dismiss · s snooze · Enter evidence.
  */
 import { CheckCircle2, ChevronDown, Clock, Repeat2, X } from "lucide-react";
@@ -21,7 +23,7 @@ import { springs, tween, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { ACCEPT_WEIGHTS, evidenceText, levelCode, meterSteps } from "./learning-model";
 
-export type Receipt = { kind: "accepted"; constraintId: number | null } | { kind: "dismissed" } | { kind: "snoozed"; until: SnoozeUntil };
+export type Receipt = { kind: "accepted"; constraintId: number | null; scope: "term" | "persistent" } | { kind: "dismissed" } | { kind: "snoozed"; until: SnoozeUntil };
 
 const DISMISS_REASONS = ["stale", "wrongPerson", "differentTerm"] as const;
 const SNOOZE: readonly SnoozeUntil[] = ["next_solve", "P7D", "next_term"];
@@ -48,6 +50,7 @@ export function SuggestionCard({
   onSnooze,
   onUndo,
   onHold,
+  onAcceptPersistent,
   compact = false,
 }: {
   s: Suggestion;
@@ -58,6 +61,8 @@ export function SuggestionCard({
   onReject: (reason?: string) => void;
   onSnooze: (until: SnoozeUntil) => void;
   onUndo?: () => void;
+  /** planning.admin only: accept as a persistent preference (the list confirms first) */
+  onAcceptPersistent?: (weight: number) => void;
   /** the receipt is focused / hovered: the list must not remove it yet */
   onHold?: (held: boolean) => void;
   compact?: boolean;
@@ -92,7 +97,7 @@ export function SuggestionCard({
   };
 
   if (receipt) {
-    const text = receipt.kind === "accepted" ? t("learning.receipt.accepted") : receipt.kind === "dismissed" ? t("learning.receipt.dismissed") : t("learning.receipt.snoozed", { until: t(`learning.snooze.${receipt.until}`) });
+    const text = receipt.kind === "accepted" ? (receipt.scope === "persistent" ? t("learning.receipt.acceptedPersistent") : t("learning.receipt.accepted")) : receipt.kind === "dismissed" ? t("learning.receipt.dismissed") : t("learning.receipt.snoozed", { until: t(`learning.snooze.${receipt.until}`) });
     return (
       <motion.div
         layout={!reduce}
@@ -110,8 +115,8 @@ export function SuggestionCard({
         <span className="min-w-0 flex-1">
           {text} · {s.subject.label}
         </span>
-        {receipt.kind === "accepted" && receipt.constraintId !== null && onUndo ? (
-          <Button size="xs" variant="ghost" onClick={onUndo} data-testid="suggestion-undo">{t("common.undo")}</Button>
+        {onUndo ? (
+          <Button size="xs" variant="ghost" className="max-md:h-11" onClick={onUndo} data-testid="suggestion-undo">{t("common.undo")}</Button>
         ) : null}
       </motion.div>
     );
@@ -139,6 +144,7 @@ export function SuggestionCard({
         </span>
       </header>
       <h3 id={`${id}-claim`} className="type-headline">{s.claim[lang] || s.claim.tr}</h3>
+      {s.persistent_accept ? <p className="type-footnote text-label-2" data-testid="suggestion-persistent">{t("learning.card.persistentEarlier")}</p> : null}
       {!compact ? <p className="type-footnote text-label-2">{s.if_accepted[lang] || s.if_accepted.tr}</p> : null}
       <div className="flex flex-wrap items-center gap-2 type-footnote">
         <span id={`${id}-evidence`}>
@@ -204,6 +210,11 @@ export function SuggestionCard({
                     {t("learning.card.acceptWeight", { weight: t(`learning.weight.${w}`), n: ACCEPT_WEIGHTS[w] })}
                   </DropdownMenuItem>
                 ))}
+                {onAcceptPersistent ? (
+                  <DropdownMenuItem onClick={() => onAcceptPersistent(ACCEPT_WEIGHTS.normal)} data-testid="suggestion-accept-persistent">
+                    {t("learning.card.acceptPersistent")}
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </span>

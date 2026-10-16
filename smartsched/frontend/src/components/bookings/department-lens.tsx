@@ -16,6 +16,7 @@ import { crbs, useCrbsMe, useDepartments, type Grid } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import { SelectField } from "@/components/admin/kit";
 import { departmentColor, departmentTally, deptStorageKey, parseDepartmentLens, type DepartmentLens } from "./reserve-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 const listeners = new Set<() => void>();
 
@@ -108,23 +109,22 @@ export function DepartmentBar({ grid, value, onChange, mine, termId, onRoomInfo 
       </div>
       {chosen !== null ? (
         // one fixed-height strip (scrolls sideways): the top rooms arrive after the grid and must not push it down
-        <div className="-mx-1 flex h-12 items-center gap-2 overflow-x-auto px-1 type-footnote whitespace-nowrap text-label-2 scrollbar-thin sm:h-7" aria-live="polite">
+        <div className="-mx-1 flex h-12 items-center gap-2 overflow-x-auto px-1 type-footnote whitespace-nowrap text-label-2 scrollbar-thin pointer-fine:h-7" aria-live="polite">
           <span data-testid="department-filtering">{t("reserve.dept.filtering", { name: nameOf(chosen) })}</span>
           {top.data ? (
             top.data.rooms.length ? (
               <span className="flex items-center gap-1.5" data-testid="department-top-rooms">
                 <span className="text-label-3">{t("reserve.dept.topRooms", { name: nameOf(chosen) })}:</span>
                 {top.data.rooms.map((r) => (
-                  <button
+                  <BareButton
                     key={r.room_id}
-                    type="button"
                     onClick={() => onRoomInfo(r.room_id)}
                     title={t("reserve.dept.roomUse", { bookings: r.bookings, classes: r.classes })}
                     aria-label={`${t("crbs.roomInfo.open", { name: r.name })} · ${t("reserve.dept.roomUse", { bookings: r.bookings, classes: r.classes })}`}
-                    className="h-11 shrink-0 rounded-full bg-fill-2 px-2.5 font-medium text-label-1 outline-hidden hover:bg-fill-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) sm:h-6"
+                    className="h-(--control-h-xs) shrink-0 rounded-full bg-fill-2 px-2.5 font-medium text-label-1 hover:bg-fill-1"
                   >
                     {r.name}
-                  </button>
+                  </BareButton>
                 ))}
               </span>
             ) : (

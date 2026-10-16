@@ -33,6 +33,7 @@ import { CalendarSyncPanel } from "./calendar-sync";
 import { CancelManyDialog } from "./cancel-many-dialog";
 import { RoomInfoSheet } from "./room-info-sheet";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
+import { BareButton } from "@/components/shell/bare-button";
 
 type Tab = "upcoming" | "past" | "cancelled";
 
@@ -117,7 +118,7 @@ export function MyBookingsView() {
             </Button>
           ) : null}
         </div>
-        <Card variant="glass" className="py-0">
+        <Card className="py-0">
           {list.isLoading ? (
             <Loading className="px-4" />
           ) : rows.length === 0 ? (
@@ -133,7 +134,7 @@ export function MyBookingsView() {
           <SectionTitle id="owned">{t("crbs.mine.ownedRooms")}</SectionTitle>
           <div className="flex flex-col gap-3">
             {owned.data.map((room) => (
-              <Card key={room.id} variant="glass" className="py-0">
+              <Card key={room.id} className="py-0">
                 <div className="flex items-baseline justify-between px-4 pt-3">
                   <h3 className="type-headline text-label-1">{room.name}</h3>
                   <span className="type-footnote text-label-3">{t("crbs.mine.upcomingCount", { n: room.upcoming.length })}</span>
@@ -153,7 +154,7 @@ export function MyBookingsView() {
               {t("reserve.sync.title")}
             </span>
           </SectionTitle>
-          <Card variant="glass" className="gap-3 px-4">
+          <Card className="gap-3 px-4">
             <CalendarSyncPanel departmentId={me.data?.department_id ?? null} />
           </Card>
         </section>
@@ -198,24 +199,24 @@ function BookingList({
   return (
     <ul className="flex flex-col" data-testid="booking-list">
       {rows.map((b) => (
-        <li key={b.id} className="flex items-center gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none" data-booking-id={b.id}>
+        <li key={b.id} className="flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b" data-booking-id={b.id}>
           {selectable ? <Checkbox checked={selected?.has(b.id) ?? false} onCheckedChange={(v) => onToggle?.(b.id, v === true)} aria-label={t("crbs.mine.select", { room: b.room_name, date: fmt.short(b.date) })} /> : null}
           <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
             <span className="min-w-0">
               <span className="block type-headline text-label-1">
                 {/* CRBS user_bookings.php: the room name opens the room-info drawer */}
-                <button type="button" onClick={() => onRoom?.(b.room_id, b.date)} disabled={!onRoom} className="rounded-sm outline-hidden hover:text-tint-text focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) disabled:hover:text-label-1" aria-label={t("crbs.roomInfo.open", { name: b.room_name })} data-testid={`mine-room-${b.id}`}>
+                <BareButton onClick={() => onRoom?.(b.room_id, b.date)} disabled={!onRoom} className="rounded-sm hover:text-tint-text disabled:hover:text-label-1" aria-label={t("crbs.roomInfo.open", { name: b.room_name })} data-testid={`mine-room-${b.id}`}>
                   {b.room_name}
-                </button>
+                </BareButton>
                 <span> · {b.period_name}</span>
                 {b.time_start ? <span className="ml-1.5 font-normal text-label-3 tabular-nums">{fmt.time(b.time_start)}</span> : null}
               </span>
-              <button type="button" onClick={() => onOpen(b.id)} className="flex w-full items-center gap-1 truncate rounded-sm text-left type-footnote text-label-2 outline-hidden hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+              <BareButton onClick={() => onOpen(b.id)} className="flex w-full items-center gap-1 truncate rounded-sm text-left type-footnote text-label-2 hover:text-label-1">
                 {b.type === "recurring" ? <Repeat className="size-3 shrink-0" aria-label={t("crbs.legend.recurring")} /> : null}
                 {fmt.long(b.date)}
                 {showUser && b.user_name ? ` · ${b.user_name}` : ""}
                 {b.notes ? ` · ${b.notes}` : ""}
-              </button>
+              </BareButton>
             </span>
             {b.status === "CANCELLED" ? <span className="shrink-0 type-footnote font-medium text-label-3">{t("crbs.status.cancelled")}</span> : b.status !== "BOOKED" ? <StatusPill status={b.status} /> : null}
           </div>
@@ -236,7 +237,7 @@ function ExportCard() {
   return (
     <section aria-labelledby="export-title">
       <SectionTitle id="export-title">{t("crbs.export.title")}</SectionTitle>
-      <Card variant="glass" className="gap-3 px-4">
+      <Card className="gap-3 px-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={t("crbs.export.session")} htmlFor="export-term">
             <SelectField id="export-term" value={term || String(termId ?? "")} onChange={(e) => setTerm(e.target.value)}>

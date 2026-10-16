@@ -6,8 +6,7 @@
  * re-solve whose preview is /moderation/recreate/[runId]. A user without planning.view sees "Taleplerim"
  * (their own requests, Q11) or a plain explanation when no instructor record is linked to the account.
  */
-import { useQuery } from "@tanstack/react-query";
-import { CircleDashed, RefreshCw, Search, Trash2 } from "lucide-react";
+import { RefreshCw, Search } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -18,13 +17,11 @@ import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTermContext } from "@/components/timetable/use-calendar-data";
 import { HttpError } from "@/lib/api/client";
-import { useBookingContext } from "@/lib/api/crbs";
-import { moderationApi, useMatchings, usePeople, usePreferences, type Matching, type PersonRow, type Preference } from "@/lib/api/moderation";
+import { useChanges, useMatchings, useModerationMe, usePeople, usePreferences, type Matching, type PersonRow, type Preference } from "@/lib/api/moderation";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { springs, tween, useReduce } from "@/lib/motion";
@@ -48,7 +45,6 @@ import {
   requestedText,
   sortMatchings,
   sortRequests,
-  stagedRequestIds,
   termPreferences,
   unmetOf,
   type MatchChip,
@@ -56,7 +52,7 @@ import {
   type PeopleChip,
 } from "./moderation-model";
 import { RecreateSheet } from "./recreate-sheet";
-import { useStaged, useStagedStore } from "./staged-store";
+import { ChangesLink } from "./changes-list";
 import { SuggestionList } from "@/components/learning/suggestion-list";
 import { TierLabel, VerdictBadge } from "./verdict-badge";
 
@@ -79,42 +75,6 @@ function ConsoleSkeleton() {
   );
 }
 
-function StagedPopover({ termId, canEdit }: { termId: number; canEdit: boolean }) {
-  const { t } = useI18n();
-  const staged = useStaged(termId);
-  const remove = useStagedStore((s) => s.remove);
-  const reduce = useReduce();
-  return (
-    <Popover>
-      <PopoverTrigger render={<Button variant="ghost" size="sm" data-testid="staged-link" />}>
-        <CircleDashed aria-hidden />
-        {/* the bump is the user's own edit only (motion.md §3.9 staged-count-bump); keyed on the count */}
-        <motion.span key={staged.length} className="tabular-nums" initial={reduce ? false : { scale: 1.08 }} animate={{ scale: 1 }} transition={springs.bouncySubtle}>
-          {t("moderation.staged.link", { count: staged.length })}
-        </motion.span>
-      </PopoverTrigger>
-      <PopoverContent className="w-96" align="start">
-        <p className="type-headline">{t("moderation.staged.title")}</p>
-        {staged.length === 0 ? (
-          <p className="type-footnote text-label-2">{t("moderation.staged.none")}</p>
-        ) : (
-          <ul className="flex max-h-72 flex-col gap-1 overflow-auto">
-            {staged.map((c) => (
-              <li key={c.at} className="flex items-center gap-2 type-footnote">
-                <span className="min-w-0 flex-1">{c.label}</span>
-                <Button variant="ghost" size="icon-xs" aria-label={t("moderation.staged.remove", { label: c.label })} onClick={() => remove(termId, c.at)}>
-                  <Trash2 aria-hidden />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {!canEdit ? <p className="type-caption text-label-3">{t("moderation.publishNeedsEdit")}</p> : null}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   const { t, locale, n } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
@@ -127,7 +87,8 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   const matchings = useMatchings(termId);
   const people = usePeople(termId);
   const prefs = usePreferences(termId);
-  const staged = useStaged(termId);
+  const changes = useChanges(termId);
+  const staged = changes.data?.changed_request_ids ?? [];
   const [query, setQuery] = useState("");
   const [chip, setChip] = useState<MatchChip>("unsatisfied");
   const [peopleChip, setPeopleChip] = useState<PeopleChip>("all");
@@ -169,11 +130,6 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   }, [setTab, canEdit]);
 
   const items = useMemo(() => matchings.data?.items ?? [], [matchings.data]);
-  const bySection = useMemo(() => {
-    const m = new Map<number, number[]>();
-    for (const it of items) m.set(it.section_id, [...(m.get(it.section_id) ?? []), it.request_id]);
-    return m;
-  }, [items]);
   const counts = matchings.data?.counts ?? {};
   const runId = matchings.data?.run_id ?? null;
   const prefRows = useMemo(() => termPreferences(prefs.data ?? []), [prefs.data]);
@@ -204,7 +160,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
       }
       actions={
         <>
-          <StagedPopover termId={termId} canEdit={canEdit} />
+          <ChangesLink termId={termId} canEdit={canEdit} />
           {canEdit && runId ? (
             <Button variant={staged.length ? "default" : "outline"} onClick={() => setRecreate(true)} aria-keyshortcuts="Shift+R" data-testid="recreate-open">
               <RefreshCw aria-hidden />
@@ -432,8 +388,8 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
       >
         {body}
       </motion.div>
-      <MatchingInspector termId={termId} requestId={inspect} canEdit={canEdit} siblings={(s) => bySection.get(s) ?? []} onClose={() => setInspect(null)} side={mobile ? "bottom" : "right"} />
-      {canEdit && runId ? <RecreateSheet open={recreate} onOpenChange={setRecreate} termId={termId} baseRunId={runId} staged={stagedRequestIds(staged)} side={mobile ? "bottom" : "right"} /> : null}
+      <MatchingInspector termId={termId} requestId={inspect} canEdit={canEdit} onClose={() => setInspect(null)} side={mobile ? "bottom" : "right"} />
+      {canEdit && runId ? <RecreateSheet open={recreate} onOpenChange={setRecreate} termId={termId} baseRunId={runId} staged={staged} side={mobile ? "bottom" : "right"} /> : null}
     </div>
   );
 }
@@ -448,31 +404,31 @@ export function ownInstructorId(items: readonly Matching[]): number | null {
   return ids.size ? [...ids][0]! : null;
 }
 
-function MyRequests() {
+export function MyRequests() {
   const { t, locale, n } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
-  // GET /terms is planning data: an academician's term comes from the booking context (current session)
-  const ctx = useBookingContext();
-  const session = ctx.data ? (ctx.data.sessions.find((s) => s.id === ctx.data?.current_term_id) ?? ctx.data.sessions.find((s) => s.is_current) ?? ctx.data.sessions[0]) : undefined;
-  // the session list hides unselectable terms from a teacher; the current term id still names the term
-  const termId = ctx.data?.current_term_id ?? session?.id ?? null;
-  const term = session ?? (termId !== null ? { code: "" } : undefined);
+  // GET /moderation/me: the linked instructor, the visibility and the current term (no 403 probe, no planning reads)
+  const me = useModerationMe();
+  const term = me.data?.current_term ?? null;
+  const linked = me.data ? me.data.instructor_id !== null : null;
+  const termId = linked ? (term?.id ?? null) : null;
   const q = useMatchings(termId);
   const mobile = usePhone();
-  // no term visible to this account (unselectable sessions): ask the scope check alone. The history read checks
-  // the instructor link before the id, so id 0 answers 403 (not linked) or 404 (linked)
-  const probe = useQuery({ queryKey: ["moderation", "link-probe"], queryFn: () => moderationApi.history(0), enabled: ctx.isFetched && termId === null, retry: false });
-  const forbidden = (q.error instanceof HttpError && q.error.status === 403) || (probe.error instanceof HttpError && probe.error.status === 403);
+  const forbidden = linked === false || (q.error instanceof HttpError && q.error.status === 403);
   const items = sortMatchings(q.data?.items ?? []);
-  const me = ownInstructorId(items);
+  const own = me.data?.instructor_id ?? ownInstructorId(items);
   return (
     <div className="flex flex-col gap-3" data-testid="my-requests">
-      <PageHeader title={t("moderation.mine.title")} subtitle={term?.code} actions={me ? <Button variant="outline" render={<Link href={`/moderation/people/${me}`} />} nativeButton={false}>{t("moderation.mine.history")}</Button> : null} />
-      {forbidden ? (
+      <PageHeader title={t("moderation.mine.title")} subtitle={[term?.code, me.data?.instructor ? [me.data.instructor.title, me.data.instructor.full_name].filter(Boolean).join(" ") : null].filter(Boolean).join(" · ")} actions={own && linked ? <Button variant="outline" render={<Link href={`/moderation/people/${own}`} />} nativeButton={false} data-testid="mine-history">{t("moderation.mine.history")}</Button> : null} />
+      {me.isLoading ? (
+        <ConsoleSkeleton />
+      ) : me.isError ? (
+        <p role="alert" className="type-callout text-label-2">{t("moderation.loadError")}</p>
+      ) : forbidden ? (
         <EmptyState data-testid="mine-unlinked" title={t("moderation.mine.unlinkedTitle")} description={t("moderation.mine.unlinked")} />
       ) : q.isError ? (
         <p role="alert" className="type-callout text-label-2">{t("moderation.loadError")}</p>
-      ) : ctx.data && termId === null && probe.isFetched ? (
+      ) : termId === null ? (
         <EmptyState title={t("moderation.mine.emptyTitle")} description={t("moderation.mine.noTerm")} />
       ) : !q.data ? (
         <ConsoleSkeleton />
@@ -494,6 +450,7 @@ function MyRequests() {
             <div className="flex flex-col gap-0.5 rounded-xl border border-hairline bg-card p-3">
               <div className="flex items-center justify-between gap-2"><span className="type-headline">{m.label}</span><VerdictBadge verdict={m.verdict} text={m.verdict_text} /></div>
               <span className="type-footnote text-label-2">{requestedText(m, lang)} → {m.assigned ? placeText(m.assigned, lang) : "—"}</span>
+              {m.reason ? <span className="type-footnote text-label-2">{t("moderation.inspector.reason")}: {reasonText(m.reason, lang)}</span> : null}
             </div>
           )}
           testId="mine-table"

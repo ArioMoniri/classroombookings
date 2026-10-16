@@ -55,6 +55,7 @@ import { EntityIcon, IconPicker } from "./icons";
 import { permLabel } from "./roles-admin";
 import { SortableList } from "./sortable-list";
 import { FeaturesTab } from "./features-admin";
+import { BareButton } from "@/components/shell/bare-button";
 
 const fold = (s: string) => s.toLocaleLowerCase("tr-TR");
 
@@ -142,7 +143,7 @@ function GroupsTab() {
           </Button>
         </div>
       </div>
-      <Card variant="glass" className="overflow-hidden py-0">
+      <Card className="overflow-hidden py-0">
         {groups.isLoading ? (
           <Loading className="px-4" />
         ) : list.length === 0 ? (
@@ -304,7 +305,7 @@ function RoomsTab() {
           {t("admingaps.rooms.new")}
         </Button>
       </div>
-      <Card variant="glass" className="overflow-hidden py-0">
+      <Card className="overflow-hidden py-0">
         {rooms.isLoading ? (
           <Loading className="px-4" />
         ) : sortable ? (
@@ -323,7 +324,7 @@ function RoomsTab() {
         ) : (
           <ul>
             {filtered.map((r) => (
-              <li key={r.id} className="px-4 py-2 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+              <li key={r.id} className="px-4 py-2 not-last:edge-hairline-b">
                 <RoomRow room={r} onEdit={() => setEditing(r)} onDelete={() => setDeleting(r)} />
               </li>
             ))}
@@ -588,13 +589,13 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
         <section aria-label={t("crbs.rooms.photo")} className="flex flex-col gap-2">
           <p className="type-headline text-label-1">{t("crbs.rooms.photo")}</p>
           {photoUrl ? (
-            <button type="button" onClick={() => setZoom(true)} aria-label={t("admingaps.rooms.enlargePhoto", { name: room.display_name })} className="group relative block overflow-hidden rounded-xl outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="room-photo-enlarge">
+            <BareButton onClick={() => setZoom(true)} aria-label={t("admingaps.rooms.enlargePhoto", { name: room.display_name })} className="group relative block overflow-hidden rounded-xl" data-testid="room-photo-enlarge">
               {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
               <img src={photoUrl} alt={t("crbs.rooms.photoAlt", { name: room.display_name })} className="max-h-48 w-full object-cover" />
-              <span className="absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-(--mat-thick-solid) text-label-1 shadow-[0_0_0_1px_var(--hairline)]" aria-hidden>
+              <span className="absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-(--mat-thick-solid) text-label-1 edge-hairline" aria-hidden>
                 <Maximize2 className="size-3.5" />
               </span>
-            </button>
+            </BareButton>
           ) : null}
           <div className="flex gap-2">
             <Button variant="outline" size="sm" render={<label />} nativeButton={false}>
@@ -738,7 +739,7 @@ function FieldsTab() {
           {t("crbs.fields.new")}
         </Button>
       </div>
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {fields.isLoading ? (
           <Loading className="px-4" />
         ) : (fields.data ?? []).length === 0 ? (
@@ -884,7 +885,7 @@ function AclTab() {
           </SelectField>
         </Field>
       </div>
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {acl.isLoading ? (
           <Loading className="px-4" />
         ) : (acl.data ?? []).length === 0 ? (
@@ -892,7 +893,7 @@ function AclTab() {
         ) : (
           <ul data-testid="acl-list">
             {(acl.data ?? []).map((a) => (
-              <li key={a.id} className="flex flex-col gap-2 px-4 py-3 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+              <li key={a.id} className="flex flex-col gap-2 px-4 py-3 not-last:edge-hairline-b">
                 <div className="flex items-start justify-between gap-2">
                   <p className="type-headline text-label-1">
                     {a.entity_label} <span className="font-normal text-label-3">←</span> {t(`crbs.acl.ctx.${a.context_type}`)}: {a.context_label}

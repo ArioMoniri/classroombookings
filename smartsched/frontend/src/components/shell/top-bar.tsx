@@ -56,7 +56,7 @@ export function ThickeningCapsule({ children, className, label, tintOnly = false
   const { reduce, solid, tint, scrolled } = useThickening();
   return (
     <div role={label ? "toolbar" : undefined} aria-label={label} data-scrolled={scrolled} data-chrome={tintOnly ? "tint" : "glass"} className={cn("relative isolate flex items-center gap-0.5 rounded-full p-1", className)}>
-      <span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-20 rounded-[inherit] shadow-[var(--glass-edge),var(--ambient-1)]", !tintOnly && BACKDROP)} />
+      <span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-20 rounded-[inherit] shadow-elev-1", !tintOnly && BACKDROP)} />
       <motion.span
         aria-hidden
         className={cn("pointer-events-none absolute inset-0 -z-10 rounded-[inherit]", tintOnly ? "bg-(--mat-chrome-solid)" : "bg-(--mat-chrome)")}
@@ -84,7 +84,7 @@ function RunIsland({ run }: { run: ScheduleRun }) {
     <Popover>
       <PopoverTrigger
         render={
-          <button type="button" className="flex h-8 items-center gap-2 rounded-full bg-tint-soft px-3 text-[12.5px] font-medium text-tint-text outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="run-island">
+          <Button variant="ghost" className="gap-2 bg-tint-soft text-tint-text hover:bg-tint-soft aria-expanded:bg-tint-soft" data-testid="run-island">
             <span className="relative flex size-2" aria-hidden>
               <span className="absolute inset-0 rounded-full bg-(--accent) opacity-60 motion-safe:animate-ping" />
               <span className="relative size-2 rounded-full bg-(--accent)" />
@@ -92,13 +92,13 @@ function RunIsland({ run }: { run: ScheduleRun }) {
             <span className="tabular-nums">
               {t("glass.shell.runShort", { id: run.id })} · {run.status === "QUEUED" ? t("glass.shell.queuedShort") : `${run.progress}%`}
             </span>
-          </button>
+          </Button>
         }
       />
       <PopoverContent align="end" className="w-80 p-4">
         <div role="status" aria-live="polite" className="space-y-3">
           <p className="type-headline text-label-1">{t("glass.shell.runTitle", { id: run.id, term: run.term_code })}</p>
-          <p className="text-[13px] text-label-2">{label}</p>
+          <p className="type-callout text-label-2">{label}</p>
           <Progress value={run.progress} aria-label={label}>
             <ProgressTrack>
               <ProgressIndicator />
@@ -129,7 +129,7 @@ export function TopBar() {
     <header className="pointer-events-none sticky top-0 z-30 hidden items-center gap-3 px-4 pt-2 pb-1 sm:px-6 lg:flex lg:px-8">
       <ThickeningCapsule className="pointer-events-auto min-w-0 px-3" tintOnly={tintOnly}>
         <nav aria-label={t("glass.shell.breadcrumb")} className="min-w-0">
-          <ol className="flex h-8 items-center gap-1 text-[13px]">
+          <ol className="flex h-8 items-center gap-1 type-callout">
             {crumbs.map((c, i) => (
               <Fragment key={c.href}>
                 {i > 0 ? (
@@ -156,16 +156,11 @@ export function TopBar() {
       <div className="flex-1" />
       <ThickeningCapsule className="pointer-events-auto" label={t("glass.shell.toolbar")} tintOnly={tintOnly}>
         {running ? <RunIsland run={running} /> : null}
-        <button
-          type="button"
-          onClick={() => setPaletteOpen(true)}
-          data-testid="open-palette"
-          className="flex h-8 items-center gap-2 rounded-full px-3 text-[13px] text-label-2 outline-hidden transition-colors duration-(--dur-fast) hover:bg-fill-2 hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
-        >
-          <Search className="size-4 stroke-[1.75]" aria-hidden />
+        <Button variant="ghost" onClick={() => setPaletteOpen(true)} data-testid="open-palette" className="gap-2 font-normal text-label-2 hover:text-label-1">
+          <Search aria-hidden />
           <span className="pr-6">{t("glass.shell.searchShort")}</span>
           <KbdHint keys={["mod", "K"]} />
-        </button>
+        </Button>
         <WhatsNewIndicator />
         <NotificationBell />
       </ThickeningCapsule>
@@ -180,9 +175,9 @@ export function MobileTopBar() {
   const title = crumbs.at(-1)?.label ?? "";
   const tintOnly = useTintOnlyChrome();
   return (
-    <header className="sticky top-0 z-30 flex h-12 items-center gap-2 px-4 pt-[env(safe-area-inset-top)] lg:hidden" data-scrolled={scrolled} data-chrome={tintOnly ? "tint" : "glass"}>
+    <header className="sticky top-0 z-30 box-content flex h-12 items-center gap-2 pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] lg:hidden" data-scrolled={scrolled} data-chrome={tintOnly ? "tint" : "glass"}>
       <span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-20", !tintOnly && BACKDROP)} />
-      <motion.span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-10 shadow-[inset_0_-1px_0_0_var(--hairline)]", tintOnly ? "bg-(--mat-chrome-solid)" : "bg-(--mat-chrome)")} style={{ opacity: solid ? 1 : reduce ? undefined : tint }} animate={reduce && !solid ? { opacity: scrolled ? 1 : 0.35 } : undefined} transition={tween.fadeIn} />
+      <motion.span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-10 edge-hairline-b", tintOnly ? "bg-(--mat-chrome-solid)" : "bg-(--mat-chrome)")} style={{ opacity: solid ? 1 : reduce ? undefined : tint }} animate={reduce && !solid ? { opacity: scrolled ? 1 : 0.35 } : undefined} transition={tween.fadeIn} />
       <motion.p className="type-headline min-w-0 flex-1 truncate text-label-1" style={{ opacity: reduce ? (scrolled ? 1 : 0) : titleOpacity }} aria-hidden>
         {title}
       </motion.p>

@@ -87,7 +87,7 @@ export function AccessChecker() {
       {check.isLoading && userId && roomId ? <Loading /> : null}
       {check.isError ? <Alert tone="error">{bookingErrorMessage(crbsError(check.error), t)}</Alert> : null}
       {check.data ? (
-        <Card variant="glass" className="gap-3 px-4" data-testid="access-result">
+        <Card className="gap-3 px-4" data-testid="access-result">
           <p className="type-callout text-label-2">
             {t("crbs.access.role", { role: check.data.role ?? t("crbs.users.noRole") })}
             {!check.data.room_bookable ? ` · ${t("crbs.rooms.notBookable")}` : ""}
@@ -99,7 +99,7 @@ export function AccessChecker() {
                 {Object.entries(perms).map(([name, on]) => {
                   const src = check.data.from_role.includes(name) ? "role" : check.data.from_acl.includes(name) ? "acl" : null;
                   return (
-                    <li key={name} className="flex items-center gap-2 py-1 type-callout shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+                    <li key={name} className="flex items-center gap-2 py-1 type-callout not-last:edge-hairline-b">
                       {on ? <Check className="size-4 text-status-feasible-fg" aria-hidden /> : <Minus className="size-4 text-label-3" aria-hidden />}
                       <span className={on ? "flex-1 text-label-1" : "flex-1 text-label-3"}>{permLabel(t, name)}</span>
                       <span className="type-footnote text-label-2">{on ? (src === "role" ? t("crbs.access.fromRole") : t("crbs.access.fromAcl")) : t("crbs.access.no")}</span>
