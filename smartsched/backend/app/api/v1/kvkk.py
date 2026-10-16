@@ -11,16 +11,23 @@ Signed-in user:
 
 No sign-in: ``GET /public/privacy-notice?lang=`` (the notice the login page links to).
 
-Administrators: ``setup.users`` for the request queue (``GET /admin/dsr``, ``POST /admin/dsr/{id}/complete``,
+Administrators: ``setup.users`` for the request queue (``GET /admin/dsr?status=open|all|OPEN|IN_PROGRESS|DONE|REFUSED``,
+default ``open`` = OPEN + IN_PROGRESS, ``all`` = every queued request; ``POST /admin/dsr/{id}/complete``,
 ``POST /admin/dsr/{id}/refuse``); ``setup.settings`` for ``GET/PUT /admin/retention``, ``POST /admin/retention/run``,
 ``/admin/privacy-notices`` (drafts, publish) and ``GET /admin/kvkk/inventory``.
+
+``PUT /admin/retention/{data_class}`` 422s (backend asks batch 3): ``detail = {code, field, message, message_en,
+message_tr, errors: [...], ...}``, every error in ``errors`` with the same keys, the first on top. Codes:
+``unknown_class`` (field ``data_class``; ``allowed`` = the classes with a policy), ``retain_days`` (not a whole
+number of days or over 36 500; ``floor_days``, ``max_days``), ``below_floor`` (field ``retain_days``;
+``floor_days``), ``action`` (``allowed``), ``enabled``, ``legal_hold``, ``legal_hold_reason``.
 """
 
 from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
@@ -58,11 +65,16 @@ class DecisionIn(BaseModel):
 
 
 class RetentionIn(BaseModel):
-    retain_days: int | None = None
-    action: str | None = None
-    enabled: bool | None = None
-    legal_hold: bool | None = None
-    legal_hold_reason: str | None = None
+    """Read by :func:`app.services.kvkk.update_policy` (not by pydantic), so a wrong value answers 422 with a stable
+    ``code`` + ``field`` and TR/EN messages instead of a validation list: ``retain_days`` (365, "1.095", "365 gün"),
+    ``action`` (delete / anonymise, "SİL", "Anonimleştir"), ``enabled`` / ``legal_hold`` (true / false, "evet" /
+    "hayır"), ``legal_hold_reason`` (text)."""
+
+    retain_days: Any = None
+    action: Any = None
+    enabled: Any = None
+    legal_hold: Any = None
+    legal_hold_reason: Any = None
 
 
 class NoticeIn(BaseModel):
@@ -165,9 +177,24 @@ async def public_notice(db: DB, lang: str = "tr") -> dict[str, Any]:
 
 
 @admin_router.get("/dsr")
-async def dsr_queue(db: DB, _: UsersAdmin, status: str | None = "open") -> list[dict[str, Any]]:
+async def dsr_queue(
+    db: DB,
+    _: UsersAdmin,
+    status: Annotated[
+        str | None,
+        Query(
+            description="open (default: OPEN + IN_PROGRESS) | all | OPEN | IN_PROGRESS | DONE | REFUSED "
+            "(statuses in any case); anything else answers 422 code=status with `allowed`"
+        ),
+    ] = "open",
+) -> list[dict[str, Any]]:
+    """The erase / rectify / info queue by due date (exports are self-service and never queued)."""
     now = utcnow()
-    return [svc.dsr_out(r, now, admin=True) for r in await svc.queue(db, status)]
+    try:
+        rows = await svc.queue(db, status)
+    except svc.KvkkError as exc:
+        raise _err(exc) from exc
+    return [svc.dsr_out(r, now, admin=True) for r in rows]
 
 
 @admin_router.post("/dsr/{request_id}/complete")

@@ -42,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.security import hash_password, revoke_tokens
+from app.importers import normalize as tr_norm
 from app.models import (
     ApprovalRequest,
     ApproverScope,
@@ -247,42 +248,181 @@ def policy_out(p: RetentionPolicy) -> dict[str, Any]:
     }
 
 
+#: the most a retention period may be (100 years): anything above is a typing mistake
+MAX_RETAIN_DAYS = 36_500
+_ACTION_WORDS = {
+    "delete": "delete",
+    "sil": "delete",
+    "silme": "delete",
+    "anonymise": "anonymise",
+    "anonymize": "anonymise",
+    "anonimleştir": "anonymise",
+    "anonimlestir": "anonymise",
+    "anonimleştirme": "anonymise",
+}
+_YES = {"true", "1", "evet", "e", "açık", "acik", "on", "yes"}
+_NO = {"false", "0", "hayır", "hayir", "h", "kapalı", "kapali", "off", "no"}
+_DAYS_RX = re.compile(r"^(\d{1,3}(?:[. ]\d{3})+|\d+)(?:\s*(?:gün|gun|days?))?$")
+
+
+def _field_error(code: str, field: str, message: str, message_tr: str, **data: Any) -> dict[str, Any]:
+    return {"code": code, "field": field, "message": message, "message_en": message, "message_tr": message_tr, **data}
+
+
+def _days(value: Any) -> int | None:
+    """``365``, ``"365"``, ``"1.095"`` (Turkish thousands dot), ``"365 gün"``, NBSP -> days; else None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else None
+    if isinstance(value, str):
+        m = _DAYS_RX.match(tr_norm.tr_casefold(tr_norm.clean_text(value) or ""))
+        if m:
+            return int(re.sub(r"[. ]", "", m.group(1)))
+    return None
+
+
+def _switch(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        word = tr_norm.tr_casefold(tr_norm.clean_text(value) or "")
+        if word in _YES:
+            return True
+        if word in _NO:
+            return False
+    return None
+
+
+def _check_policy_input(data_class: str, data: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Read ``PUT /admin/retention/{data_class}`` (Turkish forms too) -> (clean values, field errors in field order).
+    Every error has a stable ``code`` and the input ``field`` (backend asks batch 3 item 3)."""
+    errors: list[dict[str, Any]] = []
+    clean: dict[str, Any] = {}
+    if data.get("retain_days") is not None:
+        days = _days(data["retain_days"])
+        floor = FLOORS[data_class]
+        if days is None or days > MAX_RETAIN_DAYS:
+            errors.append(
+                _field_error(
+                    "retain_days",
+                    "retain_days",
+                    f"retain_days: a whole number of days between {floor} and {MAX_RETAIN_DAYS}",
+                    f"saklama süresi: {floor} ile {MAX_RETAIN_DAYS} arasında tam gün sayısı",
+                    floor_days=floor,
+                    max_days=MAX_RETAIN_DAYS,
+                )
+            )
+        elif days < floor:
+            errors.append(
+                _field_error(
+                    "below_floor",
+                    "retain_days",
+                    f"{data_class} must be kept at least {floor} days",
+                    f"{data_class} verisi en az {floor} gün saklanmalı",
+                    floor_days=floor,
+                )
+            )
+        else:
+            clean["retain_days"] = days
+    if data.get("action") is not None:
+        raw = data["action"]
+        action = _ACTION_WORDS.get(tr_norm.tr_casefold(tr_norm.clean_text(raw) or "")) if isinstance(raw, str) else None
+        allowed = ["anonymise"] if data_class == "booking" else list(ACTIONS)
+        if action is None:
+            errors.append(
+                _field_error(
+                    "action",
+                    "action",
+                    "action: delete or anonymise",
+                    "işlem: delete (sil) ya da anonymise (anonimleştir)",
+                    allowed=allowed,
+                )
+            )
+        elif action not in allowed:
+            errors.append(
+                _field_error(
+                    "action",
+                    "action",
+                    "bookings are anonymised, not deleted (room usage statistics stay)",
+                    "rezervasyonlar silinmez, anonimleştirilir (kullanım istatistikleri korunur)",
+                    allowed=allowed,
+                )
+            )
+        else:
+            clean["action"] = action
+    labels = {"enabled": ("enabled", "açık / kapalı"), "legal_hold": ("legal_hold", "yasal saklama")}
+    for key, (en, tr) in labels.items():
+        if data.get(key) is not None:
+            on = _switch(data[key])
+            if on is None:
+                errors.append(_field_error(key, key, f"{en}: true or false", f"{tr}: evet ya da hayır"))
+            else:
+                clean[key] = on
+    if "legal_hold_reason" in data:
+        reason = data.get("legal_hold_reason")
+        if reason is not None and not isinstance(reason, str):
+            errors.append(
+                _field_error(
+                    "legal_hold_reason",
+                    "legal_hold_reason",
+                    "legal_hold_reason: the reason as text",
+                    "yasal saklama gerekçesi metin olmalı",
+                )
+            )
+        else:
+            clean["legal_hold_reason"] = tr_norm.clean_text(reason) if reason else None
+    return clean, errors
+
+
+def _raise_field_errors(errors: list[dict[str, Any]]) -> None:
+    if errors:
+        first = errors[0]
+        raise KvkkError(
+            422,
+            first["code"],
+            first["message"],
+            first["message_tr"],
+            **{k: v for k, v in first.items() if k not in ("code", "message", "message_en", "message_tr")},
+            errors=errors,
+        )
+
+
 async def update_policy(session: AsyncSession, actor: User, data_class: str, data: dict[str, Any]) -> RetentionPolicy:
     rows = {p.data_class: p for p in await ensure_policies(session)}
     p = rows.get(data_class)
     if p is None:
-        raise KvkkError(404, "data_class", f"no retention policy for {data_class!r}", "bu veri sınıfı için kural yok")
+        allowed = [c for c in DATA_CLASSES if c in FLOORS]
+        _raise_field_errors(
+            [
+                _field_error(
+                    "unknown_class",
+                    "data_class",
+                    f"{data_class!r} has no retention policy; one of {', '.join(allowed)}",
+                    f"{data_class!r} için saklama kuralı yok; şunlardan biri: {', '.join(allowed)}",
+                    allowed=allowed,
+                )
+            ]
+        )
+    assert p is not None
+    clean, errors = _check_policy_input(data_class, data)
+    hold = clean.get("legal_hold", p.legal_hold)
+    reason = clean["legal_hold_reason"] if "legal_hold_reason" in clean else p.legal_hold_reason
+    if hold and not reason and not any(e["field"] in ("legal_hold", "legal_hold_reason") for e in errors):
+        errors.append(
+            _field_error(
+                "legal_hold_reason",
+                "legal_hold_reason",
+                "a legal hold needs a reason",
+                "yasal saklama için gerekçe yazın",
+            )
+        )
+    _raise_field_errors(errors)
     before = policy_out(p)
-    if data.get("retain_days") is not None:
-        days = int(data["retain_days"])
-        floor = FLOORS[data_class]
-        if days < floor:
-            raise KvkkError(
-                422,
-                "below_floor",
-                f"{data_class} must be kept at least {floor} days",
-                f"{data_class} verisi en az {floor} gün saklanmalı",
-                floor_days=floor,
-            )
-        p.retain_days = days
-    if data.get("action") is not None:
-        if data["action"] not in ACTIONS:
-            raise KvkkError(422, "action", "action: delete or anonymise", "işlem: delete (sil) ya da anonymise")
-        if data_class == "booking" and data["action"] == "delete":
-            raise KvkkError(
-                422,
-                "action",
-                "bookings are anonymised, not deleted (room usage statistics stay)",
-                "rezervasyonlar silinmez, anonimleştirilir (kullanım istatistikleri korunur)",
-            )
-        p.action = data["action"]
-    for key in ("enabled", "legal_hold"):
-        if data.get(key) is not None:
-            setattr(p, key, bool(data[key]))
-    if "legal_hold_reason" in data:
-        p.legal_hold_reason = (data.get("legal_hold_reason") or "").strip() or None
-    if p.legal_hold and not p.legal_hold_reason:
-        raise KvkkError(422, "legal_hold_reason", "a legal hold needs a reason", "yasal saklama için gerekçe yazın")
+    for key, value in clean.items():
+        setattr(p, key, value)
     p.updated_by, p.updated_at = actor.id, utcnow()
     await session.flush()
     await audit.record(
@@ -839,12 +979,43 @@ async def export_zip(session: AsyncSession, user: User, request_id: int) -> byte
     return buf.getvalue()
 
 
+#: ``GET /admin/dsr?status=``: ``open`` (default: OPEN + IN_PROGRESS), ``all`` (every queued request), or one status
+DSR_STATUSES = ("OPEN", "IN_PROGRESS", "DONE", "REFUSED")
+QUEUE_FILTERS = ("open", "all", *DSR_STATUSES)
+
+
+def queue_filter(status: str | None) -> str:
+    """``open`` (exactly, the default: OPEN + IN_PROGRESS), ``all`` (any case; an empty value too, as before) or one
+    status in any case (``done``, ``İn_progress`` typed with a Turkish dotted İ, NBSP tolerated; ``OPEN`` = OPEN
+    only). Anything else is a 422 with the allowed values."""
+    if status is None:
+        return "open"
+    text = tr_norm.clean_text(status) or ""
+    if text == "open":
+        return "open"
+    key = text.replace("İ", "I").replace("ı", "i").upper()
+    if key in ("", "ALL"):
+        return "all"
+    if key in DSR_STATUSES:
+        return key
+    raise KvkkError(
+        422,
+        "status",
+        f"status: one of {', '.join(QUEUE_FILTERS)}",
+        f"durum şunlardan biri olmalı: {', '.join(QUEUE_FILTERS)}",
+        field="status",
+        allowed=list(QUEUE_FILTERS),
+    )
+
+
 async def queue(session: AsyncSession, status: str | None) -> list[DsrRequest]:
+    """The administrators' queue (exports are self-service and never queued), by due date."""
+    which = queue_filter(status)
     q = select(DsrRequest).where(DsrRequest.kind != "export")
-    if status == "open":
+    if which == "open":
         q = q.where(DsrRequest.status.in_(OPEN_STATES))
-    elif status:
-        q = q.where(DsrRequest.status == status.upper())
+    elif which != "all":
+        q = q.where(DsrRequest.status == which)
     return list((await session.execute(q.order_by(DsrRequest.due_at, DsrRequest.id))).scalars())
 
 
