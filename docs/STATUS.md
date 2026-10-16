@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `c9fb273` (committed 2026-10-16 10:07 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `e140bc5` (committed 2026-10-16 10:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 42 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 43 · Backend only 0 · In progress 1 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -55,7 +55,7 @@ Done 42 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.ym
 | Feature | Status | Phase | Evidence |
 |---|---|---|---|
 | Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff | Done: readers, limits, dry-run API, the onboarding stepper with Fark keep / take; e2e on the real Bahar planning list and board | P19 I1-I5 | [`intake.spec.ts`](../smartsched/frontend/e2e/intake.spec.ts) |
-| AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default | In progress: council side done; review screen open | P19 A1-A4 | [`airows.py`](../smartsched/backend/app/council/airows.py) |
+| AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default | Done: review screen: bulk accept at most 50 with confirm, low-confidence rows one at a time; needs an AI key (off by default), so the e2e AI path is skipped without one | P19 A1-A4 | [`rows-panel.tsx`](../smartsched/frontend/src/components/onboarding/rows-panel.tsx) |
 | Schedule map to a baseline import run, so a re-solve keeps the published board | Done: Fark reads the dry run's baseline_run (run and counts), Kaydet can skip the map or write it into another run, the run report lists its source files and re-solves keeping it | P19 I5 | [`intake.spec.ts`](../smartsched/frontend/e2e/intake.spec.ts) |
 | Intake memory: confirmed column mappings and lexicon additions remembered per file signature | Done: remembered decisions show in İnceleme; Hatırlanan kararlar (onboarding, Ayarlar › Öğrenme) lists them by signature (GET /council/memory) and forgets one or a signature as an undoable reset (tests/council/test_intake_memory_api.py) | P19 | [`intake.spec.ts`](../smartsched/frontend/e2e/intake.spec.ts) |
 

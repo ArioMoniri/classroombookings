@@ -100,10 +100,10 @@
   note: "readers, limits, dry-run API, the onboarding stepper with Fark keep / take; e2e on the real Bahar planning list and board"
 - feature: "AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default"
   area: intake
-  status: in-progress
+  status: done
   phase: "P19 A1-A4"
-  evidence: smartsched/backend/app/council/airows.py
-  note: "council side done; review screen open"
+  evidence: smartsched/frontend/src/components/onboarding/rows-panel.tsx
+  note: "review screen: bulk accept at most 50 with confirm, low-confidence rows one at a time; needs an AI key (off by default), so the e2e AI path is skipped without one"
 - feature: "Schedule map to a baseline import run, so a re-solve keeps the published board"
   area: intake
   status: done

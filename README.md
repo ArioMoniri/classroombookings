@@ -126,7 +126,7 @@ Recorded on the real backend with the real 2026 workbooks (instructor names redu
 
 <!-- AUTO:status only=done -->
 
-Done 42 · Backend only 0 · In progress 2 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
+Done 43 · Backend only 0 · In progress 1 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
 
 | Feature | Area | Evidence |
 |---|---|---|
@@ -145,6 +145,7 @@ Done 42 · Backend only 0 · In progress 2 · Planned 0. Done items only; the fu
 | Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander | Planning | [`followup.phase19.spec.ts`](smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | Planning | [`analytics.spec.ts`](smartsched/frontend/e2e/analytics.spec.ts) |
 | Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff | Intake | [`intake.spec.ts`](smartsched/frontend/e2e/intake.spec.ts) |
+| AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default | Intake | [`rows-panel.tsx`](smartsched/frontend/src/components/onboarding/rows-panel.tsx) |
 | Schedule map to a baseline import run, so a re-solve keeps the published board | Intake | [`intake.spec.ts`](smartsched/frontend/e2e/intake.spec.ts) |
 | Intake memory: confirmed column mappings and lexicon additions remembered per file signature | Intake | [`intake.spec.ts`](smartsched/frontend/e2e/intake.spec.ts) |
 | Booking grid by day or by room; single, recurring and multi bookings, limits, holidays, timetable weeks; the published timetable blocks its slots | Bookings | [`bookings.spec.ts`](smartsched/frontend/e2e/bookings.spec.ts) |
@@ -419,6 +420,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `c9fb273` (committed 2026-10-16 10:07 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `e140bc5` (committed 2026-10-16 10:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
