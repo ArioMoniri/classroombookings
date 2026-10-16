@@ -160,11 +160,12 @@ export function PersonProfile({ instructorId }: { instructorId: number }) {
         <h2 className="type-headline">{t("moderation.profile.facts")}</h2>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 type-footnote">
           <dt className="text-label-2">{t("moderation.profile.thisTerm")}</dt>
-          <dd>{current ? `${current.term_code} · ${t("moderation.profile.rows", { n: n(current.items.length) })}` : "—"}</dd>
+          <dd>{current ? `${current.term_name || current.term_code} · ${t("moderation.profile.rows", { n: n(current.items.length) })}` : "—"}</dd>
           <dt className="text-label-2">{t("moderation.col.met")}</dt>
           <dd className="tabular-nums">{current ? `${n(current.counts.satisfied ?? 0)} / ${n(judged)}` : "—"}</dd>
-          <dt className="text-label-2">{t("moderation.col.access")}</dt>
-          <dd>{t(q.data.accessibility === "yes" ? "common.yes" : "common.no")}</dd>
+          {/* R1-A-12: "Erişilebilirlik ihtiyacı: yok", not a bare "Erişilebilirlik: Hayır" */}
+          <dt className="text-label-2">{t("moderation.profile.accessNeed")}</dt>
+          <dd>{t(q.data.accessibility === "yes" ? "moderation.profile.accessYes" : "moderation.profile.accessNo")}</dd>
           <dt className="text-label-2">{t("moderation.profile.account")}</dt>
           <dd>{ins.linked_user ? t("moderation.profile.linked") : t("moderation.profile.unlinked")}</dd>
         </dl>

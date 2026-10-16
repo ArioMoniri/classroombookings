@@ -285,9 +285,7 @@ async def my_matchings(db: DB, user: CurrentUser, term_id: int | None = None) ->
 
     from app.models import Instructor
 
-    ids = frozenset(
-        (await db.execute(select(Instructor.id).where(Instructor.user_id == user.id))).scalars().all()
-    )
+    ids = frozenset((await db.execute(select(Instructor.id).where(Instructor.user_id == user.id))).scalars().all())
     if not ids:
         raise HTTPException(
             403,

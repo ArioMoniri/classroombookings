@@ -21,7 +21,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTermContext } from "@/components/timetable/use-calendar-data";
 import { HttpError } from "@/lib/api/client";
-import { useChanges, useMatchings, useModerationMe, usePeople, usePreferences, type Matching, type PersonRow, type Preference } from "@/lib/api/moderation";
+import { useChanges, useMatchings, useModerationMe, useMyMatchings, usePeople, usePreferences, type Matching, type PersonRow, type Preference } from "@/lib/api/moderation";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { springs, tween, useReduce } from "@/lib/motion";
@@ -43,6 +43,7 @@ import {
   prefSource,
   reasonText,
   requestedText,
+  sessionTags,
   sortMatchings,
   sortRequests,
   termPreferences,
@@ -460,10 +461,27 @@ export function MyRequests() {
   const term = me.data?.current_term ?? null;
   const linked = me.data ? me.data.instructor_id !== null : null;
   const termId = linked ? (term?.id ?? null) : null;
-  const q = useMatchings(termId);
+  // T-R1-11 (R1-A-38): only the own rows, from their own endpoint (the term-wide list took 1.3 s for 4 rows)
+  const q = useMyMatchings(termId);
   const mobile = usePhone();
   const forbidden = linked === false || (q.error instanceof HttpError && q.error.status === 403);
   const items = sortMatchings(q.data?.items ?? []);
+  const sessions = sessionTags(items);
+  const sessionText = (m: Matching) => {
+    const s = sessions.get(m.request_id);
+    return s ? [t(s.kind === "lab" ? "moderation.mine.session.lab" : "moderation.mine.session.theory"), s.n ? t("moderation.mine.session.n", { n: n(s.n) }) : null].filter(Boolean).join(" · ") : null;
+  };
+  const courseCell = (m: Matching) => {
+    const s = sessionText(m);
+    return (
+      <span className="flex flex-col">
+        <span>{m.label}</span>
+        {s ? <span className="type-caption text-label-2" data-testid="mine-session">{s}</span> : null}
+      </span>
+    );
+  };
+  // the term's name ("Güz 2026-27"), never its code ("2026-GUZ"), R1-A-12
+  const termName = term?.name || term?.code || "";
   const own = me.data?.instructor_id ?? ownInstructorId(items);
   // P19-T2 "Tercih ekle": from the header (any of my classes) or from a class's row (that class preselected)
   const canWish = Boolean(me.data?.can_add_preference) && items.length > 0;
@@ -479,7 +497,7 @@ export function MyRequests() {
     <div className="flex flex-col gap-3" data-testid="my-requests">
       <PageHeader
         title={t("moderation.mine.title")}
-        subtitle={[term?.code, me.data?.instructor ? [me.data.instructor.title, me.data.instructor.full_name].filter(Boolean).join(" ") : null].filter(Boolean).join(" · ")}
+        subtitle={[termName, me.data?.instructor ? [me.data.instructor.title, me.data.instructor.full_name].filter(Boolean).join(" ") : null].filter(Boolean).join(" · ")}
         actions={
           own && linked ? (
             <>
@@ -507,18 +525,22 @@ export function MyRequests() {
       ) : !q.data ? (
         <ConsoleSkeleton />
       ) : items.length === 0 ? (
-        <EmptyState title={t("moderation.mine.emptyTitle")} description={t("moderation.mine.empty", { term: term?.code ?? "" })} />
+        <EmptyState title={t("moderation.mine.emptyTitle")} description={t("moderation.mine.empty", { term: termName })} />
       ) : (
         <>
           {canWish ? <p className="type-footnote text-label-2">{t("moderation.wish.mine.rowHint")}</p> : null}
+          {/* T-R1-11 (R1-A-01): the asked → assigned pair is the answer of this page: it takes the free width and wraps;
+              the mostly empty reason and wish columns shrink first. Short table: rows grow, every row is a Tab stop. */}
           <ModTable
             rows={items}
+            autoRows
+            tabRows
             columns={[
-              { id: "course", header: t("moderation.col.course"), width: "minmax(9rem,1fr)", cell: (m) => m.label },
-              { id: "pair", header: t("moderation.col.pair"), width: "minmax(18rem,2.4fr)", cell: (m) => `${requestedText(m, lang)} → ${m.assigned ? placeText(m.assigned, lang) : "—"}` },
-              { id: "verdict", header: t("moderation.col.verdict"), width: "11rem", cell: (m) => <VerdictBadge verdict={m.verdict} text={m.verdict_text} planner={m.source === "planner"} /> },
-              { id: "reason", header: t("moderation.col.reason"), width: "minmax(12rem,2fr)", cell: (m) => reasonText(m.reason, lang) || "—" },
-              { id: "wish", header: t("moderation.col.wish"), width: "9rem", cell: wishCell },
+              { id: "course", header: t("moderation.col.course"), width: "minmax(7rem,0.8fr)", cell: courseCell, wrap: true },
+              { id: "pair", header: t("moderation.col.pair"), width: "minmax(16rem,3fr)", cell: (m) => <span data-testid="mine-pair">{`${requestedText(m, lang)} → ${m.assigned ? placeText(m.assigned, lang) : "—"}`}</span>, wrap: true },
+              { id: "verdict", header: t("moderation.col.verdict"), width: "10rem", cell: (m) => <VerdictBadge verdict={m.verdict} text={m.verdict_text} planner={m.source === "planner"} /> },
+              { id: "reason", header: t("moderation.col.reason"), width: "minmax(6rem,1.2fr)", cell: (m) => reasonText(m.reason, lang) || "—", wrap: true },
+              { id: "wish", header: t("moderation.col.wish"), width: "6.5rem", cell: wishCell },
             ]}
             getId={(m) => m.request_id}
             caption={t("moderation.caption.mine", { n: n(items.length) })}
@@ -526,7 +548,7 @@ export function MyRequests() {
             mobile={mobile}
             card={(m) => (
               <div className="flex flex-col gap-0.5 rounded-xl border border-hairline bg-card p-3">
-                <div className="flex items-center justify-between gap-2"><span className="type-headline">{m.label}</span><VerdictBadge verdict={m.verdict} text={m.verdict_text} /></div>
+                <div className="flex items-center justify-between gap-2"><span className="type-headline">{m.label}{sessionText(m) ? <span className="ml-1.5 type-caption font-normal text-label-2">{sessionText(m)}</span> : null}</span><VerdictBadge verdict={m.verdict} text={m.verdict_text} /></div>
                 <span className="type-footnote text-label-2">{requestedText(m, lang)} → {m.assigned ? placeText(m.assigned, lang) : "—"}</span>
                 {m.reason ? <span className="type-footnote text-label-2">{t("moderation.inspector.reason")}: {reasonText(m.reason, lang)}</span> : null}
                 {canWish ? (

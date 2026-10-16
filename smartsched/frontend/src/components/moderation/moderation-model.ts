@@ -91,6 +91,27 @@ export function matchingSentence(m: Matching, locale: Lang): string {
   return `Requested ${asked}; ${m.assigned ? `assigned ${placeText(m.assigned, locale)}` : "nothing assigned"}`;
 }
 
+/**
+ * Taleplerim (T-R1-11, R1-A-12): a session label for rows that share a class label (the theory and the lab of
+ * PSY 277 differed only by time): `lab` when the request asks for a laboratory (a lab room text or a PC / LAB
+ * tag), `theory` otherwise; two sessions of the same kind are numbered (`n`). Rows with a unique label get none.
+ */
+export type SessionTag = { kind: "lab" | "theory"; n: number | null };
+export function sessionTags(rows: readonly Pick<Matching, "request_id" | "label" | "requested">[]): Map<number, SessionTag> {
+  const isLab = (m: Pick<Matching, "requested">) => /lab/i.test(m.requested.room_text ?? "") || m.requested.tags.some((t) => /^(PC|LAB)/i.test(t));
+  const groups = new Map<string, Pick<Matching, "request_id" | "label" | "requested">[]>();
+  for (const m of rows) groups.set(m.label, [...(groups.get(m.label) ?? []), m]);
+  const out = new Map<number, SessionTag>();
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    for (const kind of ["theory", "lab"] as const) {
+      const same = list.filter((m) => (isLab(m) ? "lab" : "theory") === kind);
+      same.forEach((m, i) => out.set(m.request_id, { kind, n: same.length > 1 ? i + 1 : null }));
+    }
+  }
+  return out;
+}
+
 export function pairText(p: { tr: string; en: string } | null | undefined, lang: Lang): string {
   if (!p) return "";
   return (lang === "tr" ? p.tr : p.en) || p.tr || p.en;

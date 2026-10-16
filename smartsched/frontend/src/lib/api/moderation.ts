@@ -393,6 +393,8 @@ export type TierCode = "high" | "normal" | "low";
 export const moderationApi = {
   people: (termId: number, q?: string) => request(`/terms/${termId}/moderation/people`, { query: { q }, schema: PeopleOut, silent: true }),
   history: (instructorId: number, terms?: string) => request(`/moderation/people/${instructorId}/history`, { query: { terms }, schema: HistoryOut, silent: true }),
+  /** Taleplerim (T-R1-11): only the caller's own requests, without the term-wide class issues and planner check */
+  myMatchings: (termId: number) => request("/moderation/me/matchings", { query: { term_id: termId }, schema: MatchingsOut, silent: true }),
   matchings: (termId: number, q: { run_id?: number | null; verdict?: string; q?: string; check?: boolean; limit?: number } = {}) =>
     request(`/terms/${termId}/moderation/matchings`, { query: { run_id: q.run_id ?? undefined, verdict: q.verdict, q: q.q, check: q.check ?? false, limit: q.limit ?? 5000 }, schema: MatchingsOut, silent: true }),
   matching: (termId: number, requestId: number, runId?: number | null) => request(`/terms/${termId}/moderation/matchings/${requestId}`, { query: { run_id: runId ?? undefined }, schema: MatchingDetail, silent: true }),
@@ -422,6 +424,7 @@ export const mk = {
   people: (termId: number | null, q?: string) => ["moderation", "people", termId, q ?? ""] as const,
   history: (id: number) => ["moderation", "history", id] as const,
   matchings: (termId: number | null, runId: number | null | undefined) => ["moderation", "matchings", termId, runId ?? null] as const,
+  myMatchings: (termId: number | null) => ["moderation", "matchings", "me", termId] as const,
   matching: (termId: number, requestId: number, runId?: number | null) => ["moderation", "matching", termId, requestId, runId ?? null] as const,
   diff: (runId: number, compareTo?: number | null) => ["moderation", "diff", runId, compareTo ?? null] as const,
   priorities: (termId: number | null, subject?: Subject) => ["moderation", "priorities", termId, subject ?? "all"] as const,
@@ -442,6 +445,10 @@ export function useHistory(instructorId: number | null) {
 }
 export function useMatchings(termId: number | null, runId?: number | null, enabled = true) {
   return useQuery({ queryKey: mk.matchings(termId, runId), queryFn: () => moderationApi.matchings(termId ?? 0, { run_id: runId }), enabled: enabled && termId !== null, retry: noRetry, staleTime: 30_000 });
+}
+/** Taleplerim: the caller's own requests in the term (`GET /moderation/me/matchings`, a few rows, fast) */
+export function useMyMatchings(termId: number | null) {
+  return useQuery({ queryKey: mk.myMatchings(termId), queryFn: () => moderationApi.myMatchings(termId ?? 0), enabled: termId !== null, retry: noRetry, staleTime: 30_000 });
 }
 export function useMatching(termId: number | null, requestId: number | null, runId?: number | null) {
   return useQuery({ queryKey: mk.matching(termId ?? 0, requestId ?? 0, runId), queryFn: () => moderationApi.matching(termId ?? 0, requestId ?? 0, runId), enabled: termId !== null && requestId !== null, retry: noRetry });
