@@ -343,12 +343,13 @@ Then one table, one row per step × viewport (and per MOBILE.md criterion on tou
 
 ## 7. KVKK rules for testers
 
-- **Initials only in screenshots.** The seed (§4.4) rewrites every instructor and user name in the throwaway database to title + initials ("Dr. Öğr. Üyesi A. Y."). Check before the first screenshot that no word of two or more letters survives outside the titles (expect `0`):
+- **Initials only in screenshots.** The seed (§4.4) rewrites every instructor and user name in the throwaway database to title + initials ("Dr. Öğr. Üyesi A. Y."). Check before the first screenshot that every name holds only title tokens and initials (expect `left 0`; it exits 1 and prints the shapes, never the names, otherwise):
   ```bash
-  python3 -I -c "import re,sqlite3,sys;T={'prof.','doç.','dr.','öğr.','üyesi','gör.','arş.','uzm.','okt.'};db=sqlite3.connect(sys.argv[1]);print(sum(1 for (v,) in db.execute('select full_name from instructors union all select full_name from users') if v and v not in ('Administrator','Yönetici') and any(len(w)>2 and w.lower() not in T for w in re.split(r'\\s+',v))))" "$REC_WORKDIR/rec.db"
+  python3 -I "$SNAP/scripts/record/kvkk_mask.py" "$REC_WORKDIR/rec.db" --verify
   ```
+  `stack.sh up` and `stack.sh mask` run the same check and stop when it fails. It accepts the title fragments the workbooks carry in the name (`Üye.` from "Dr. Öğr. Üye.") and hyphenated initials (`Y.-K.`); round 1's one-liner counted those as names (R1-S-34: the 7 rows it found were initials, not surname fragments, T-R1-44).
   Then open the class inspector of PSY 278 and confirm it shows initials.
-- F-08 imports the real workbooks into a **fresh** stack, so names arrive unmasked during review. Every screenshot of a row table there passes `mask: [page.locator("table tbody, [role=grid] [role=row]:not(:first-child), [data-testid=review-row]")]`, and the report quotes counts, never cell values. Run the masking block of §4.4 right after the commit step, before any other screenshot.
+- F-08 imports the real workbooks into a **fresh** stack, so names arrive unmasked during review, and stay unmasked until F-08 S09, after the re-upload steps S10/S11 (masking earlier changes their result). Every screenshot of a row table there passes `mask: [page.locator("table tbody, [role=grid] [role=row]:not(:first-child), [data-testid=review-row]")]`, and the report quotes counts, never cell values. F-08 S09 then masks the database (`stack.sh mask`, which ends with the check above).
 - Type only neutral text in notes and titles: "Telafi dersi", "Bölüm toplantısı", "Ders tekrarı". Never a real name.
 - E-mails go to the local sink only. Never configure a real SMTP server, and never put a real address in a test account.
 - Do not paste feed tokens, JWTs, reset codes or real names into reports or tickets.

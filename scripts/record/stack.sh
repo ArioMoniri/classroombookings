@@ -13,7 +13,8 @@
 #   scripts/record/stack.sh snapshot       save the database + uploads; `REC_SNAPSHOT=1 stack.sh up` restores them
 #   scripts/record/stack.sh mask           KVKK: instructor names -> title + initials in the running stack's
 #                                           database (kvkk_mask.py; `up` already does it after its imports and keeps
-#                                           the name list in $REC_WORKDIR for the fresh-database journeys)
+#                                           the name list in $REC_WORKDIR for the fresh-database journeys), then the
+#                                           README §7 check (kvkk_mask.py --verify): fails when a name is left
 #   scripts/record/stack.sh runs           real solver runs through POST /runs on the running stack
 #                                           (REC_RUNS, default "2026-GUZ:WEEK:3:120 2026-GUZ:TERM:-:240"
 #                                           = term:horizon:week:time-limit), waits until they finish
@@ -152,6 +153,9 @@ cmd_up() {
     "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --save-names "$WORK/kvkk-names.json" >"$WORK/kvkk.log" 2>&1 \
       || die "kvkk mask failed, see $WORK/kvkk.log"
     log "instructor names masked to initials ($(grep -m1 '^masked' "$WORK/kvkk.log"))"
+    # the KVKK check of docs/testing/flows/README.md §7 (title tokens and initials only), fail loudly
+    "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --verify >>"$WORK/kvkk.log" 2>&1 \
+      || die "names left after masking: $(grep -m1 '^left' "$WORK/kvkk.log"), see $WORK/kvkk.log"
   fi
 
   # ---- backend ----------------------------------------------------------------------------------
@@ -212,6 +216,9 @@ cmd_snapshot() {
 cmd_mask() {
   "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --names "$WORK/kvkk-names.json" | tee -a "$WORK/kvkk.log" | grep -m1 '^masked' \
     || die "kvkk mask failed"
+  # README §7 check on the result: prints "left 0", or the shapes of the names left and fails
+  "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --verify | tee -a "$WORK/kvkk.log" \
+    || die "names left after masking (README §7): run the README §4.4 masking block and report the count"
 }
 
 case "${1:-}" in
@@ -221,5 +228,5 @@ case "${1:-}" in
   runs) cmd_runs ;;
   down) cmd_down ;;
   status) cmd_status ;;
-  *) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

@@ -3,6 +3,7 @@
 recording or screenshot.
 
     python3 scripts/record/kvkk_mask.py DB [--check] [--save-names FILE] [--names FILE]
+    python3 scripts/record/kvkk_mask.py DB --verify
 
 DB is the throwaway SQLite database of the recording stack ($REC_WORKDIR/rec.db, see stack.sh). Never point it
 at product data. Every instructor keeps its row, its id and its title; only the name changes:
@@ -21,6 +22,12 @@ e-mail addresses and phone numbers are cleared.
 fresh-database journeys (import-generate, onboarding-intake) import the workbooks during the take, so their
 instructors are masked with the names saved by the seeded stack (stack.sh keeps FILE in $REC_WORKDIR, next to the
 throwaway database, never in the repository).
+
+--verify changes nothing: it is the KVKK check of docs/testing/flows/README.md §7. Every person name
+(instructors.full_name and users.full_name, except the placeholder accounts) must consist of title tokens and
+initials only ("Dr. Öğr. Üyesi A. C. K.", "Üye. E. N. K." where the workbook wrote "Dr. Öğr. Üye.", the hyphenated
+"A. Y.-K."). It prints `left N` with the shapes of the rows that fail (first letter + "*", never the name) and exits
+1 when N > 0. stack.sh runs it after every masking pass.
 
 --check changes nothing and only reports. The last lines count the cells that still hold a whole word equal to
 an original surname: these are ordinary words that happen to be surnames ("Bulut", "Bellek" in course names);
@@ -49,6 +56,10 @@ NOT_A_NAME = re.compile(
 HOCA = re.compile(r"(?<!\w)[^\W\d_]{2,}(?=\s+hoca(?:sı|nın|ya|yla)?(?!\w))")
 TEXT_TYPES = ("CHAR", "TEXT", "JSON", "CLOB")
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+# an initial as initials() writes it: "K.", or one per part of a hyphenated name: "Y.-K."
+INITIAL = re.compile(r"[^\W\d_]\.(?:-[^\W\d_]\.)*")
+# accounts that stack.sh / the backend create with a role word, not a person's name
+PLACEHOLDER_NAMES = {"Administrator", "Yönetici", "Akademik Personel"}
 
 
 def upper_tr(s: str) -> str:
@@ -207,10 +218,29 @@ def text_columns(con: sqlite3.Connection) -> list[tuple[str, str]]:
     return out
 
 
+def is_masked(name: str) -> bool:
+    """True when every token is a title token or an initial (README §7)."""
+    return all(is_title(w) or INITIAL.fullmatch(w) for w in name.split())
+
+
+def verify(db: str) -> int:
+    con = sqlite3.connect(db, timeout=60)
+    left: list[str] = []
+    for table in ("instructors", "users"):
+        for (val,) in con.execute(f'select full_name from "{table}" where full_name is not null'):
+            if val.strip() and val not in PLACEHOLDER_NAMES and not is_masked(val):
+                left.append(table + ": " + " ".join(w if is_title(w) or INITIAL.fullmatch(w) else w[:1] + "*" for w in val.split()))
+    con.close()
+    print(f"left {len(left)}" + (f" ({'; '.join(left[:10])})" if left else ""))
+    return 1 if left else 0
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         print(__doc__)
         return 1
+    if "--verify" in argv:
+        return verify(argv[0])
     db, check = argv[0], "--check" in argv
 
     def opt(flag: str) -> str | None:
