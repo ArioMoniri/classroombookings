@@ -1,17 +1,43 @@
-"""Row review for AI-route files (P19-A2): every row of a PDF / DOCX / TXT / EML / image starts pending, commit
-refuses (409) until each is decided whatever ``allow_pending`` says, bulk decisions are capped and confirmed, and
-low-confidence rows are decided one at a time. The real rules memo (DOCX, 36 room rows) is read without a model."""
+"""Row review for AI-read rows (P19-A2, T-R1-21): every row the model produced (``source.via == "llm"`` or a vision
+transcription) starts pending, commit refuses (409) until each is decided whatever ``allow_pending`` says, bulk
+decisions are capped and confirmed, and low-confidence rows are decided one at a time.
+
+A table the server reads itself is a direct row whatever the file format: the real rules memo (DOCX, 36 room rows)
+read with AI off gives 36 ``direct`` rows and no ``ai_rows`` item (T-R1-21). The bulk-rule tests below mark the same
+36 rows as model-read (``model_read``), as the AI intake would."""
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
+import pytest
 from app.core.db import get_session_factory
-from app.council import airows
+from app.council import airows, review
 from app.models import AuditEvent, Room
 from sqlalchemy import select
 
 from tests.api_fixtures import login
 from tests.council.conftest import MEMO_DOCX
 from tests.council.test_formats_api import upload
+
+COUNCIL_TS = Path(__file__).resolve().parents[3] / "frontend" / "src" / "lib" / "api" / "council.ts"
+
+
+@pytest.fixture
+def model_read(monkeypatch):
+    """The memo's rows as the AI intake would hand them over: the same records, ``source.via = "llm"``."""
+    from app.council import orchestrator
+
+    real = orchestrator.extract
+
+    def as_llm(*a, **kw):
+        recs = real(*a, **kw)
+        for r in recs:
+            r["source"] = {**(r.get("source") or {}), "via": "llm"}
+        return recs
+
+    monkeypatch.setattr(orchestrator, "extract", as_llm)
 
 TERM = {"code": "2026-MEMO", "week_count": 14}
 
@@ -43,11 +69,37 @@ async def _decide(client, h, job_id: int, decisions: list[dict], confirm: bool =
     )
 
 
-async def test_ai_route_rows_need_a_person_before_commit(client, monkeypatch):
+async def test_docx_table_with_ai_off_is_read_directly(client):
+    """T-R1-21: AI off, a Word table is read on the server: 36 direct rows, no blocking AI item, commit works."""
     h = await login(client)
     job = await upload(client, h, (MEMO_DOCX.name, MEMO_DOCX.read_bytes()), ai="false")
     f = job["files"][0]
-    assert f["format"] == "docx" and f["route_kind"] == "ai" and f["counts"] == {"room": 36}
+    assert f["format"] == "docx" and f["counts"] == {"room": 36}
+    review_out = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
+    assert not [it for it in review_out["items"] if it["kind"] == "ai_rows"]
+    assert job["status"] in ("READY", "REVIEW") and review_out["blocking"] == 0
+    counts = (await _rows(client, h, job["id"]))["counts"]
+    assert counts["method"] == {"direct": 36} and counts["state"] == {"ready": 36}
+    r = await client.post(
+        f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={"files": [0], "term": TERM, "dry_run": True}
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_review_kinds_contract_with_the_frontend():
+    """Every kind review.py emits parses in lib/api/council.ts (T-R1-21: a missing 'ai_rows' broke the screen)."""
+    if not COUNCIL_TS.exists():
+        pytest.skip("frontend tree not present")
+    m = re.search(r"REVIEW_KINDS = \[([^\]]*)\]", COUNCIL_TS.read_text(encoding="utf-8"))
+    assert m, "REVIEW_KINDS not found in council.ts"
+    assert set(re.findall(r'"([a-z_]+)"', m.group(1))) == set(review.ITEM_KINDS)
+
+
+async def test_ai_route_rows_need_a_person_before_commit(client, monkeypatch, model_read):
+    h = await login(client)
+    job = await upload(client, h, (MEMO_DOCX.name, MEMO_DOCX.read_bytes()), ai="false")
+    f = job["files"][0]
+    assert f["format"] == "docx" and f["counts"] == {"room": 36}
     assert job["status"] == "REVIEW"
     review = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
     item = next(it for it in review["items"] if it["kind"] == "ai_rows")
@@ -63,7 +115,7 @@ async def test_ai_route_rows_need_a_person_before_commit(client, monkeypatch):
 
     rows = (await _rows(client, h, job["id"], method="ai"))["items"]
     assert len(rows) == 36 and {r["state"] for r in rows} == {"pending"}
-    assert rows[0]["provenance"] == {"file": MEMO_DOCX.name, "table": 1, "row": 2, "col": 1}
+    assert rows[0]["provenance"] == {"file": MEMO_DOCX.name, "table": 1, "row": 2, "col": 1, "via": "llm"}
     ids = [r["id"] for r in rows]
 
     # bulk rules: a cap, one confirmation, and never a low-confidence row in a batch
@@ -105,7 +157,7 @@ async def test_ai_route_rows_need_a_person_before_commit(client, monkeypatch):
     assert any((e.after or {}).get("confirmed_bulk") for e in events)
 
 
-async def test_low_confidence_ai_rows_are_decided_one_by_one(client):
+async def test_low_confidence_ai_rows_are_decided_one_by_one(client, model_read):
     h = await login(client)
     job = await upload(client, h, (MEMO_DOCX.name, MEMO_DOCX.read_bytes()), ai="false", review_threshold=0.95)
     rows = (await _rows(client, h, job["id"], method="ai"))["items"]

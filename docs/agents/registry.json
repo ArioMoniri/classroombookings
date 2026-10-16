@@ -1753,6 +1753,18 @@
       "ledger": "Lane G: test-plan + tooling drift",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "ad7310ab4a06b9fc9",
+      "description": "Lane F: dashboard/learning fixes",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 13:13",
+      "scope": "",
+      "goal": "You are the **round-1 loop builder for lane F (dashboard, learning; invigilation items wait)** in SmartSched. Repo /home/user/classroombookings (backend smartsched/backend, frontend smartsched/frontend), branch claude/gracious-cerf-w1598m (shared tree). Ledger id: loop-r1-laneF-2026-10-16. Read docs…",
+      "ledger": "Lane F: dashboard/learning fixes",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

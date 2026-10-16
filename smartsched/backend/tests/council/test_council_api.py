@@ -63,7 +63,7 @@ async def test_heuristic_job_reviews_and_commits_general_files(client):
     assert {"rule_text", "plan"} <= kinds
     plan_item = next(it for it in review["items"] if it["kind"] == "plan")
     assert plan_item["current"]["code"] == "BAHAR" and plan_item["files"] == [1]
-    assert await accept_ai_rows(client, h, job["id"]) == 36  # the memo (DOCX) is an AI-route file (P19-A2)
+    assert await accept_ai_rows(client, h, job["id"]) == 0  # the memo (DOCX) table is read directly (T-R1-21)
     review = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
     pending = [it for it in review["items"] if it["blocking"] and it["decision"] is None]
     if pending:
