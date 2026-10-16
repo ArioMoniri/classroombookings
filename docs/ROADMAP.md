@@ -886,7 +886,7 @@ Before the first `up pod=universal`: re-apply the OIDC bootstrap once with infra
 - [x] Channels backend (ledger notify-channels-apprise-2026-10-15):
   - every channel is off until configured and signed off (KVKK); link-only mode is the default
   - senders: Web Push (VAPID generated on the server), Telegram (one-time deep link, webhook or long poll), WhatsApp Cloud API, SMS (Twilio / Vonage), Teams / Slack department webhooks (vendor allowlist + M-41), optional WhatsApp Web bridge (wuzapi, explicit risk acknowledgement)
-  - phone numbers verified by a code sent through the channel; outbox `channel_deliveries` with retries; alembic 0027_notify_channels
+  - phone numbers verified by a code sent through the channel; outbox `channel_deliveries` with retries; alembic 0028_notify_channels (on 0027_p19_gaps)
   - API in app/api/v1/channels.py; what to request: docs/deploy/notification-channels.md
 - [ ] Channels hooks, owned by other agents:
   - start-up registration `channels.register()` into notify_dispatch; the approval-first tests that assert exactly `["in_app", "email"]` need updating
@@ -941,7 +941,7 @@ Orchestrator decisions (owner may override):
 
 ### Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend)
 - Moderation tab (5 tabs, inspector, priority editor, person profile timeline, re-solve preview + diff + calendar compare, pin/prefer/unlock on drafts, publish through the guard); suggestions (cards, accept soft only, reject with reason, snooze, receipts); memory panel at /moderation/learning; program wizard at /programs/new.
-- [x] Backend gaps (p19-backend-gaps 2026-10-16; alembic 0028_p19_gaps on 0027_notify_channels; tests/test_p19_gaps_{moderation,drafts,learning,migration}.py on the real Bahar/Güz lists):
+- [x] Backend gaps (p19-backend-gaps 2026-10-16; alembic 0027_p19_gaps on 0026_sso_entra, 0028_notify_channels on top; tests/test_p19_gaps_{moderation,drafts,learning,migration}.py on the real Bahar/Güz lists):
   - [x] re-solve diff vs the published run: a re-solve of a draft child diffs against the published run that started the chain (`compared_to` published / was_published / root), every draft step's edits in scope; `compare_to=<run_id>` on `POST /terms/{id}/moderation/resolve` and `GET /moderation/runs/{id}/diff`
   - [x] person-level priority: `PUT /moderation/people/{instructor_id}/priority` + `PUT /moderation/programs/{program_id}/priority` {term_id, priority, note} (table `priority_overrides`, per term), `GET /terms/{id}/moderation/priorities`; request > section (0 = inherit) > person (highest of the section's people) > programme > 0 in `solver_bridge.resolve_priority` (bridge + matchings `priority.source`); audited `person.priority` / `program.priority`
   - [x] changes-since-publish: `GET /terms/{id}/changes-since-publish?kinds=` (priorities, pins/prefers/unlocks on draft children, request and rule edits after the activation; `changed_request_ids` seeds the re-solve)

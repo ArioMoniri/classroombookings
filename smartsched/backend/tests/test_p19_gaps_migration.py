@@ -1,4 +1,4 @@
-"""Alembic ``0028_p19_gaps``: ``program_drafts`` and ``priority_overrides`` appear, the schema equals the ORM models
+"""Alembic ``0027_p19_gaps``: ``program_drafts`` and ``priority_overrides`` appear, the schema equals the ORM models
 (autogenerate diff empty), existing rows are kept and the downgrade round-trips."""
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from alembic import command
 from tests.test_crbs_migration import _run
 from tests.test_p19_learning_migration import _diff
 
-REVISION = "0028_p19_gaps"
-PREVIOUS = "0027_notify_channels"
+REVISION = "0027_p19_gaps"
+PREVIOUS = "0026_sso_entra"
 
 
 def _tables(path) -> set[str]:  # type: ignore[no-untyped-def]
