@@ -320,6 +320,9 @@ async def test_public_auth_block_for_the_login_page(sso):  # noqa: F811
         "local_enabled": False,  # password door only through /login?method=local (break-glass)
         "ldap_enabled": False,
         "self_signup_role_name": "Teacher",
+        # T-R1-30: the hint names the role in the reader's language
+        "self_signup_role_code": "TEACHER",
+        "self_signup_role_label": {"tr": "Öğretim elemanı", "en": "Teacher"},
     }
     assert (await sso.configure(domain_hint="not a domain")).status_code == 422
 
