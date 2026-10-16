@@ -383,7 +383,7 @@ function WizardBody({ initial }: { initial: DraftOut }) {
             </Alert>
           ) : null}
           {errs.length ? (
-            <div ref={summaryRef} tabIndex={-1} role="alert" className="flex flex-col gap-1 rounded-xl border border-status-infeasible-border bg-status-infeasible p-3 outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="error-summary">
+            <div ref={summaryRef} tabIndex={-1} role="alert" className="flex flex-col gap-1 rounded-xl border border-status-infeasible-border bg-status-infeasible p-3 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="error-summary">
               <p className="type-callout font-semibold text-status-infeasible-fg">{t("programWizard.errorSummary", { n: n(errs.length) })}</p>
               <ul className="flex flex-col gap-0.5">
                 {errs.map((i, k) => (
