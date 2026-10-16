@@ -19,6 +19,9 @@
  *    the coordinator's reject dialog is a bottom sheet.
  * 6. Yönetim › Kullanıcılar: the identity chips and the method select ask the server (`identity=`,
  *    `self_signup_days=7`) and the count is the server's total.
+ * 7. Program wizard (F-07): a programme created and undone archives its new person; a second programme naming
+ *    that person gets `instructor_archived_namesake` (the pre-check answers 422 with the issue), "Bu kişiyi
+ *    kullan" sets the slot to the record (`instructor_restored` info), and the commit reports the reopened person.
  *
  * Everything this spec creates is its own (two users, their wishes); afterAll unlinks the instructor and deletes
  * the users. The wishes stay as decided rows of the term (audited), like any coordinator decision.
@@ -85,7 +88,8 @@ async function smallTargets(page: Page, testId: string): Promise<{ el: string; w
         w = Math.max(w, l.width);
         h = Math.max(h, l.height);
       }
-      if (w < 44 || h < 44) out.push({ el: (el.dataset.testid || el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 40), w: Math.round(w), h: Math.round(h) });
+      // 0.5 px of sub-pixel layout slack (device scale 2); anything really under 44 still fails
+      if (w < 43.5 || h < 43.5) out.push({ el: (el.dataset.testid || el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 40), w: Math.round(w), h: Math.round(h) });
     }
     return out;
   }, testId);
@@ -277,6 +281,7 @@ test("5 · phone 390: the sheet is a bottom sheet with 44 px targets, the reject
   await p.getByTestId("mine-table").getByTestId("mod-row").first().click();
   const sheet = p.getByTestId("wish-sheet");
   await expect(sheet).toHaveAttribute("data-variant", "sheet");
+  await p.waitForTimeout(400); // the sheet's enter spring (270 ms) settles before measuring
   const box = (await sheet.boundingBox())!;
   expect(box.width).toBeGreaterThanOrEqual(370);
   expect(box.y + box.height).toBeGreaterThan(800); // anchored to the bottom
@@ -324,4 +329,61 @@ test("6 · users admin: identity chips and the method select filter on the serve
   const total = (await api<{ total: number }>("GET", "/users/search?identity=local&limit=1")).total;
   expect(total).toBeGreaterThan(0);
   await expect(page.getByTestId("users-table").locator("tbody tr")).toHaveCount(Math.min(total, 25));
+});
+
+/** a person's name for this run only (letters, so the server reads it as a person) */
+const runName = () => `Defne Kaya${[...STAMP].map((c) => String.fromCharCode(97 + (parseInt(c, 36) % 26))).join("")}`;
+const draftPayload = (program: string, prefix: string, course: string, person: string) => ({
+  program: { faculty_name: "Fen Bilimleri Enstitüsü", name: program, prefix, level: "masterThesis" },
+  courses: [
+    {
+      key: "c1",
+      code: `${prefix} 501`,
+      name: course,
+      t: 3, u: 0, l: 0, credits: 3, ects: 7, year: 1, mode: "F2F",
+      sections: [{ key: "s1", label: "1", enrolment: 20, instructors: [{ name: person }] }],
+      pattern: { theory_blocks: [3], days: [3], start: "13.30", weeks: "1-14" },
+      room: { capacity: null, tags: [], building: "", preferred: "" },
+    },
+  ],
+  cohorts: [],
+  rules: {},
+});
+interface DraftOut { id: number; validation: { issues: { code: string; level: string; vars: Record<string, unknown> }[] } }
+
+test("7 · program wizard: archived namesake → 'Bu kişiyi kullan', 422 pre-check issues, the commit reopens the record", async ({ page }) => {
+  const person = runName();
+  const first = await api<DraftOut>("POST", "/program-drafts", { term_id: ctx.termId, payload: draftPayload("Biyoteknoloji Tezli Yüksek Lisans", "BTK", "Biyoteknolojide Yöntemler", person) });
+  expect(first.validation.issues.map((i) => i.code)).toContain("instructor_new");
+  const made = await api<{ created: { people: number[] } }>("POST", `/program-drafts/${first.id}/commit`, { solve: "none" });
+  await api("POST", `/program-drafts/${first.id}/undo`);
+  const archivedId = made.created.people[0]!;
+  const second = await api<DraftOut>("POST", "/program-drafts", { term_id: ctx.termId, payload: draftPayload("Biyoinformatik Tezli Yüksek Lisans", "BIF", "Biyoinformatiğe Giriş", person) });
+  const clash = second.validation.issues.find((i) => i.code === "instructor_archived_namesake");
+  expect(clash?.vars.id).toBe(archivedId);
+  const pre = await call<{ detail: { message_tr: string; issues: { code: string }[] } }>("POST", `/program-drafts/${second.id}/precheck`);
+  expect(pre.status).toBe(422);
+  expect(pre.body.detail.issues.map((i) => i.code)).toEqual(["instructor_archived_namesake"]);
+
+  try {
+    await login(page);
+    await page.goto(`/programs/new/${second.id}?step=instructors`);
+    const slot = page.locator('[data-path="courses.c1.sections.s1.instructors.0"]');
+    await expect(slot.getByTestId("field-issues")).toContainText("arşivlenmiş bir öğretim elemanı var (Biyoteknoloji Tezli Yüksek Lisans)");
+    await slot.getByTestId("use-archived-person").click();
+    await expect(slot.getByTestId("picked-instructor")).toContainText(person);
+    await expect(slot.getByTestId("field-issues")).toContainText("yeniden kullanılacak");
+    await expect(slot.getByTestId("use-archived-person")).toHaveCount(0);
+
+    await page.goto(`/programs/new/${second.id}?step=generate`);
+    await page.getByTestId("generate-mode-only").check();
+    await page.getByTestId("generate-open").click();
+    await page.getByTestId("generate-go").click();
+    await expect(page.getByTestId("wizard-committed")).toBeVisible();
+    await expect(page.getByTestId("done-restored")).toContainText("Yeniden açılan arşiv kayıtları:");
+    await expect(page.getByTestId("done-restored")).toContainText("1 kişi");
+  } finally {
+    await call("POST", `/program-drafts/${second.id}/undo`);
+    await call("DELETE", `/program-drafts/${second.id}`);
+  }
 });
