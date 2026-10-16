@@ -2,7 +2,7 @@
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `98df826` (committed 2026-10-16 01:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `0dbc7bb` (committed 2026-10-16 01:18 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -250,3 +250,4 @@ Generated blocks last synced on top of commit `98df826` (committed 2026-10-16 01
 | 2026-10-16 01:07 | backend-engineer (p19-backend-gaps-2026-10-15) | P19 gaps | milestone: migration order frozen per coordinator: 0028_p19_gaps on 0027_notify_channels (single head); tests/test_p19_gaps_migration.py aligned, migration tests 5 passed | full p19 suite, hand-off |
 | 2026-10-16 00:30 | frontend-engineer (frontend-sweep-shell-admin-2026-10-15) | sweep | stop: done - languages TR+EN, AI policy, CRBS upgrade + room master, persona minors, motion T1/T2/T3(partial), logo, M-32, contract (confirm_unpublished, duplicate_request, past, grouped inbox, DSN allowlist), UI/UX §3 (shell, audit, users, roles, settings, profile, 404, bookings cells, SegmentedControl/DateField), learning mount, Taleplerim nav, viewport-fit; vitest 206/206, prod e2e 31 passed + admin-gaps 13/13 rerun, admin-gaps 6 flaky (room search) | open: bookings one-Toolbar + filters sheet, find-room layout, tab-bar labels, M-21/31/34/40, T3 frame re-measure, T6 (intake), /moderation/me href when it lands |
 | 2026-10-16 01:13 | frontend-engineer (identity-frontend-2026-10-16) | identity | started: sign-in per docs/design/v2/sign-in.md (+ /login/sso, /welcome), users-admin invites/status/bind/instructor, Settings › Microsoft ile giriş + Bildirim kanalları, Profile (Microsoft account, linked channels + push SW, preferences mount); scope components/auth/**, app/login/**, app/welcome, components/admin/{users-admin*,profile-view,login-extras}, components/identity/**, components/channels/**, lib/api/{identity,channels}.ts, public/push-sw.js, messages auth/signin/sso/channels/profile; ports 18986/18987 | read spec + backend sso/channels |
+| 2026-10-16 01:19 | backend-engineer (p19-backend-gaps-2026-10-15) | P19 gaps | DONE: items 1-8 (see ROADMAP 'Backend gaps'); make lint + make type green; tests/test_p19_*.py 172 passed + 1 regression fixed (diff 'chain' no longer names the run itself; moderation suites 15 passed); MBG Tezli YL draft -> commit -> run OPTIMAL hard 100 7/7 planner_check 0 -> undo archived; alembic single head 0028_p19_gaps on 0027_notify_channels | UI follow-up: wizard -> /program-drafts, person priority, server staged changes, suggestion undo, digest toggle; /audit/{id}/undo delegation |
