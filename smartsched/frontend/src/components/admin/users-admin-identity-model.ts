@@ -59,17 +59,20 @@ export function selfSignupRecent(s: UserIdentityStatus | undefined, now: number 
 export type IdentityFilter = "all" | "invited" | "self";
 export type MethodFilter = "" | "microsoft" | "local" | "ldap" | "binding";
 
-export function matchesIdentity(s: UserIdentityStatus | undefined, filter: IdentityFilter, method: MethodFilter, authSource: string | null | undefined, now: number = Date.now()): boolean {
-  if (filter === "invited" && !(s?.status === "invited" || s?.status === "invite_expired")) return false;
-  if (filter === "self" && !selfSignupRecent(s, now)) return false;
-  if (method) {
-    const m = methodView(s, authSource);
-    if (method === "microsoft" && !(m === "microsoft" || m === "microsoftInvite")) return false;
-    if (method === "binding" && m !== "binding") return false;
-    if (method === "local" && m !== "local") return false;
-    if (method === "ldap" && m !== "ldap") return false;
-  }
-  return true;
+/** the backend's `identity=` values (`GET /users/search`, app/api/v1/users.py IDENTITY_FILTERS) */
+const METHOD_PARAM: Record<Exclude<MethodFilter, "">, string> = { microsoft: "sso", local: "local", ldap: "ldap", binding: "binding" };
+
+/**
+ * The server-side identity filter of the Users list (backend follow-ups 2026-10-16): "Davet bekliyor" →
+ * `identity=invited`, "Kendi kaydı" → `identity=self_signup&self_signup_days=7`, the method select →
+ * `sso | local | ldap | binding`. The chips and the select are one filter (the server ORs comma values, the screen
+ * shows one choice at a time), so a chip wins over the select when both are set.
+ */
+export function identityQuery(filter: IdentityFilter, method: MethodFilter): { identity?: string; self_signup_days?: number } {
+  if (filter === "invited") return { identity: "invited" };
+  if (filter === "self") return { identity: "self_signup", self_signup_days: SELF_SIGNUP_WINDOW_DAYS };
+  if (method) return { identity: METHOD_PARAM[method] };
+  return {};
 }
 
 export interface IdentityCounts {

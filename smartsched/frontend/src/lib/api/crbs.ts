@@ -968,7 +968,8 @@ export const crbs = {
     remove: (id: number) => send("DELETE", `/roles/${id}`),
   },
   users: {
-    search: (q: { q?: string; role_id?: number; department_id?: number; enabled?: boolean; sort?: string; limit?: number; offset?: number }) =>
+    /** `identity` (comma = OR: invited | self_signup | sso | binding | local | ldap) and `self_signup_days` filter on the server */
+    search: (q: { q?: string; role_id?: number; department_id?: number; enabled?: boolean; sort?: string; limit?: number; offset?: number; identity?: string; self_signup_days?: number }) =>
       json("/users/search", UserPage, { ...q }),
     list: () => json("/users", z.array(AdminUser)),
     get: (id: number) => json(`/users/${id}`, AdminUser),
