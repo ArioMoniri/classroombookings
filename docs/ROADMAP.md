@@ -1250,7 +1250,8 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
 - [ ] At stabilisation, re-run `scripts/record/refresh.sh` on the final UI, including `approval-flow` and `login-dashboard` now that those screens have landed, and the login, approvals, my-requests and notification screenshots. Add README entries for them.
 - [ ] `import-generate`: its captions drift up to 8 s ahead of the screen under container load. Record it on the pod, or sync captions to UI events.
 - [ ] `onboarding` is 14.6 s; trim it to 12 s or less.
-- [ ] Product bug: `/onboarding` refuses the real Bahar and Güz planning lists ("16376 columns, limit 1024"). The intake fix agent is running.
+- [x] Product bug: `/onboarding` refused the real Bahar and Güz planning lists ("16376 columns, limit 1024"). Fixed in fa49c06: the sheet caps count the last cell that holds a value, not style-only cells out to XFD. The same fix applies to `.xls`. Bahar reads 1 524 rows and Güz 1 036, matching the CLI. More than 1 024 real data columns is still refused with 413.
+- [ ] Intake detail: show "declares N formatted columns, M used" (`styled_cols` vs `cols`). Use the measured used width in the `.xls`/`.xlsx` render instead of the first-80-rows rule.
 
 ### Remaining features: builders launched (2026-10-16 03:35)
 

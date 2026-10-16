@@ -168,7 +168,21 @@ INTEGRATIONS_SPECS: dict[str, Spec] = {
         Spec("microsoft_tenant", default="organizations"),
     )
 }
+# P8 exam-period mode (docs/product/booking-enhancements.md §P8; app/services/booking_policies.py). Off by default:
+# an administrator switches it on for the institution (PUT /booking-policies/exam-period).
+#   exam_period_mode: "off" | "request" (bookings of exam rooms in exam weeks become approval requests) |
+#                     "closed" (refused)
+#   exam_period_rooms: {"from_exam_timetable": true, "room_ids": [...]}: the rooms the term's exam timetable uses
+#                      and / or a list chosen by the administrator
+POLICY_SPECS: dict[str, Spec] = {
+    s.key: s
+    for s in (
+        Spec("exam_period_mode", default="off"),
+        Spec("exam_period_rooms", "json", None),
+    )
+}
 GROUPS = {
+    "policies": POLICY_SPECS,
     "org": ORG_SPECS,
     "ldap": LDAP_SPECS,
     "smtp": SMTP_SPECS,

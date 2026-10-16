@@ -1400,7 +1400,8 @@
       "goal": "1. Reproduce with a test on the real Bahar and Güz workbooks through the intake upload/council path (the same entry point `/onboarding` uses), asserting it is accepted and reads the expected row count (compare with what the CLI importer reads). 2. Fix the root cause: measure used columns/rows (last non-empty cell, streaming/read-only mode so a bomb can't exhaust memory) and apply the cap to that; …",
       "ledger": "Fix intake column-limit refusal",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 03:43"
     },
     {
       "id": "a574bed3e475d8876",

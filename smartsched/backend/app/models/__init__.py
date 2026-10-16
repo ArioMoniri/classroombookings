@@ -60,6 +60,7 @@ from app.models.integrations import (
 from app.models.learning import LearnedObservation, LearnedPrior, LearningReset, SuggestionFeedback
 from app.models.locks import TermLock
 from app.models.planning_drafts import PriorityOverride, ProgramDraft
+from app.models.policies import BookingPolicy  # noqa: F401
 from app.models.runs import Assignment, ChatApplyClaim, ChatMessage, ScheduleRun
 from app.models.scheduling import (
     Block,

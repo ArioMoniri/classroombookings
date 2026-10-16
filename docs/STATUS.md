@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `1e04993` (committed 2026-10-16 03:32 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `fa49c06` (committed 2026-10-16 03:42 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -144,7 +144,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-132 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 107 · stopped 7 · superseded 7.
+132 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 108 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -155,7 +155,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `RESUME backend test isolation` | backend-engineer | 2026-10-16 02:16 |
 | `RESUME design migration + mobile` | frontend-engineer | 2026-10-16 02:16 |
-| `Fix intake column-limit refusal` | backend-engineer | 2026-10-16 03:18 |
 | `Backend follow-up asks batch` | backend-engineer | 2026-10-16 03:23 |
 | `Bookings P2/P8/V2/A4 backend` | backend-engineer | 2026-10-16 03:32 |
 | `Scenario compare, heatmaps, invigilators` | solver-engineer | 2026-10-16 03:32 |
@@ -225,7 +224,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **162 ticked · 289 open** checkboxes in 61 sections (58 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **163 ticked · 289 open** checkboxes in 61 sections (58 with open items).
 
 <details><summary>Per section</summary>
 
@@ -290,7 +289,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Importer and comparison follow-ups finished (2026-10-16) | 0 | 4 |
 | Phase 19 UI follow-up finished (2026-10-16) | 0 | 4 |
 | Identity frontend finished (2026-10-16) | 0 | 7 |
-| README media finished (2026-10-16) | 0 | 4 |
+| README media finished (2026-10-16) | 1 | 4 |
 | Remaining features: builders launched (2026-10-16 03:35) | 0 | 2 |
 
 </details>

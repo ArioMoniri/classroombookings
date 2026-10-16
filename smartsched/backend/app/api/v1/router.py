@@ -128,3 +128,9 @@ api_router.include_router(sso.router)
 from app.api.v1 import channels as notify_channels  # noqa: E402
 
 api_router.include_router(notify_channels.router)
+
+# planning analytics: scenario comparison and utilisation heatmaps (read-only; app/services/scenario_compare.py,
+# app/services/utilisation.py)
+from app.api.v1 import analytics  # noqa: E402
+
+api_router.include_router(analytics.router)

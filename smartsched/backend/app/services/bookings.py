@@ -40,7 +40,7 @@ from app.models import (
 from app.models.base import utcnow
 from app.models.booking import BOOKED, CANCELLED, PENDING
 from app.models.catalog import Room
-from app.services import audit, settings_service
+from app.services import audit, booking_policies, settings_service
 from app.services.bookings_calendar import (
     CalendarError,
     DateInfo,
@@ -806,6 +806,8 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
     if need is not None:
         await approvals.check_lead_time(session, need, info.term.id, body.date)
     user_id, dep_id = await _who_and_department(session, access, room, "book_single", body)
+    # P8 booking policies + exam-period mode: refuse with a reason, or turn the booking into a request
+    need = await booking_policies.enforce(session, access, room, info.term.id, body.date, period, user_id, need)
     await check_window(session, access, info, body.date, room)
     await check_not_started(session, access, body.date, period)
     # CRBS checks the limit in the grid (Slot) and in multi-booking, not in SingleAgent (deliberate
@@ -953,6 +955,8 @@ async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -
         tocc = await timetable_occupancy(session, {room.id}, d0, d1)
     else:
         bocc, tocc = {}, {}
+    policies = await booking_policies.PolicyIndex.load(session)
+    counted = False
     for di in chosen:
         holders = [
             h
@@ -961,7 +965,31 @@ async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -
         ]
         held = holders[0] if holders else None
         item: dict[str, Any] = {"date": di.date.isoformat(), "term_week": di.term_week, "status": "free"}
-        if held is None:
+        found = (
+            await booking_policies.violations(
+                session,
+                access,
+                room,
+                info.term.id,
+                di.date,
+                period,
+                body.user_id if body.user_given else access.user_id,
+                index=policies,
+                count_active=not counted,
+            )
+            if held is None
+            else []
+        )
+        refused = [v for v in found if v.effect == "refuse"]
+        if held is None and refused:
+            # P8: an instance a policy refuses is offered as "do not book", with the reason
+            item["status"] = "policy"
+            item["policy"] = refused[0].as_dict()
+            item["actions"] = ["do_not_book"]
+        elif held is None:
+            counted = True
+            if found and plan.need is None:
+                plan.need = booking_policies.request_need(found[0])
             item["actions"] = ["book", "do_not_book"]
             plan.bookable += 1
         else:
@@ -1044,7 +1072,14 @@ async def create_recurring(
         default = "book" if item["status"] == "free" else "do_not_book"
         action = wanted.get("action", default)
         if action not in item["actions"]:
-            skipped.append({"date": item["date"], "reason": f"action {action!r} not allowed", "status": item["status"]})
+            reason = f"policy_{item['policy']['rule']}" if item.get("policy") else f"action {action!r} not allowed"
+            skipped.append({"date": item["date"], "reason": reason, "status": item["status"]})
+            continue
+        if item.get("policy") and action == "do_not_book" and (body.instances or {}).get(d) is None:
+            skipped.append(
+                {"date": item["date"], "reason": f"policy_{item['policy']['rule']}", "status": "policy",
+                 "policy": item["policy"]}
+            )
             continue
         if action == "do_not_book":
             skipped.append({"date": item["date"], "reason": "not selected", "status": item["status"]})
@@ -1389,6 +1424,12 @@ async def update(
             await check_window(session, access, info, new_date, new_room)
         if "date" in data or "period_id" in data:
             await check_not_started(session, access, new_date, period)
+        # P8: a move must keep every policy; a move cannot become a request, so "request" rules refuse it here
+        moved = await booking_policies.violations(
+            session, access, new_room, b.term_id, new_date, period, b.user_id, exclude={b.id}
+        )
+        if moved:
+            raise booking_policies.refusal(moved[0])
         held = await find_conflict(
             session, new_room.id, new_date, period.start_period, period.end_period, exclude={b.id}
         )
@@ -1592,6 +1633,24 @@ async def create_from_selection(
             if held is not None:
                 problems.append(
                     {"mbs_id": s.id, "code": "conflict", "message": "slot is taken", "conflict": held.as_dict()}
+                )
+                continue
+            refused = [
+                v
+                for v in await booking_policies.violations(
+                    session, access, room, mb.term_id, s.date, period, access.user_id, pending_new=len(problems) * 0
+                )
+                if v.effect == "refuse"
+            ]
+            if refused:
+                problems.append(
+                    {
+                        "mbs_id": s.id,
+                        "code": f"policy_{refused[0].rule}",
+                        "message": refused[0].message_en,
+                        "message_tr": refused[0].message_tr,
+                        "policy": refused[0].as_dict(),
+                    }
                 )
         if problems or dry_run:
             if problems and not dry_run:
