@@ -27,7 +27,6 @@ import { REAL, SKIP_REASON, login } from "./helpers";
 const AXE = path.resolve(process.cwd(), "node_modules/axe-core/axe.min.js");
 
 test.skip(!REAL, SKIP_REASON);
-test.describe.configure({ mode: "serial" });
 
 /** Screens the design-system overhaul owns: every check applies. */
 const OWN = ["/dashboard", "/timetable", "/classes", "/runs", "/generate", "/rooms", "/onboarding"];
@@ -146,7 +145,14 @@ test.describe("visual quality (design system)", () => {
               if (t.top < tr.top - 1 || t.bottom > tr.bottom + 1 || t.left < tr.left - 1 || t.right > tr.right + 1) bad.push(`segmented thumb outside its track by ${Math.round(Math.max(tr.top - t.top, t.bottom - tr.bottom))}px`);
             }
           }
-          // type scale (leaf text only)
+          // type scale (leaf text only); the fluid titles resolve to their clamp() value at this viewport
+          const probe = document.createElement("span");
+          document.body.appendChild(probe);
+          for (const v of ["--text-large-title", "--text-title-1", "--text-title-2", "--text-title-3"]) {
+            probe.style.fontSize = `var(${v})`;
+            fonts.push(parseFloat(getComputedStyle(probe).fontSize));
+          }
+          probe.remove();
           const k = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--corner-k")) || 1;
           const seen = new Set<string>();
           for (const el of document.querySelectorAll("main *")) {

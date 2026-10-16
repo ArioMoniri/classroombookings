@@ -1030,3 +1030,32 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
   - SCIM deprovisioning
   - a Google Workspace preset on the same service
 - [ ] A round trip against the real tenant (F-12 S18) once IT has provided the values.
+
+### Notification channels backend finished (2026-10-16)
+
+- Done:
+  - Channel kinds: `webpush`, `telegram`, `whatsapp` (Cloud API), the optional `whatsapp_web` (wuzapi bridge), `sms`, and `teams`/`slack` department posts. Apprise 2.0.1 and pywebpush 2.5.0 are imported lazily.
+  - Every channel is off until an admin enters the institution's sender and records a KVKK sign-off. The sign-off is checked again at send time.
+  - Link-only content is the default.
+  - Users link only their own addresses, and linking is their opt-in.
+  - SSRF allowlists for push endpoints and for Teams/Slack webhooks.
+  - Secrets are encrypted and redacted.
+  - Migration `0027_notify_channels`.
+  - Setup checklist: `docs/deploy/notification-channels.md`.
+  - Tests: 17.
+- The orchestrator wired `channels.register()` into the lifespan and the channels outbox into the integrations worker's drainers.
+- [ ] Owner / KVKK officer decisions:
+  - Keep `link_only` as the default for external messages, or send the full text with the reason?
+  - Which SMS provider? Netgsm and İleti Merkezi need a small adapter, and legal must say whether İYS applies.
+  - The WhatsApp verification template has to be approved by Meta.
+- [ ] Frontend: the admin channel settings, Profile › Bağlı kanallar and a push service worker. This is the channels/SSO/sign-in frontend agent's job.
+- [ ] Devops:
+  - a `wa-bridge` compose service, behind a profile and off by default
+  - the images gate must confirm that `http-ece` builds in python:3.12
+- [ ] Later:
+  - a Turkish SMS adapter
+  - Teams and Slack DMs
+  - department posts keyed by the room's department
+  - KVKK export/delete covering the channel tables
+  - a monthly send counter
+- Known residual risk: Apprise uses its own HTTP stack, so a short DNS-rebinding window remains for admin-entered Teams/Slack URLs.

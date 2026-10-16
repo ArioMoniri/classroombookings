@@ -870,7 +870,8 @@
       "goal": "1. Product-owner decision: reduce the interface languages to Turkish and English. - The language picker, profile and org settings offer only tr and en. - Users or orgs whose stored language is another code are shown English and keep their stored value, so nothing is lost on a CRBS import. - A CRBS legacy import maps unknown languages to en. - Backend validation accepts only tr|en for new writes; i…",
       "ledger": "frontend-sweep-shell-admin-2026-10-15 SCOPE: - smartsched/frontend/src/component…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 01:08"
     },
     {
       "id": "a045e721a16117a55",
@@ -1183,7 +1184,8 @@
       "goal": "owner decision (2026-10-15): users get notifications (approval decisions with reasons, etc.) on the channels they linked, beyond e-mail + in-app, WITHOUT SmartSched ever holding the users' OAuth tokens or passwords. Approach: Apprise (BSD-2-Clause) + pywebpush (MPL-2.0) inside the backend; the institution owns one sender per service; users only link an address. The full design is in docs/product/2…",
       "ledger": "notify-channels-apprise-2026-10-15 SCOPE: NEW backend files only: - app/services…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 01:07"
     },
     {
       "id": "a9bbad118c0e01874",
