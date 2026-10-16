@@ -52,6 +52,7 @@ import { useCalendarActions } from "./use-calendar-actions";
 import { useCalendarData } from "./use-calendar-data";
 import { StaleVeil, useDeferredView } from "./stale-veil";
 import { WeekScrubber } from "./week-scrubber";
+import { BareButton } from "@/components/shell/bare-button";
 
 const ALLDAY_H = 22;
 
@@ -288,6 +289,17 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         ...extra.map((x) => ({ aid: x.ev.a.id, day: x.target.day, start_period: x.target.sp, end_period: x.target.ep, room_ids: [x.target.room], scope: "all" as const })),
       ];
       const res = forceReason ? await actions.move(items, ev.a.label, roomName, true, forceReason) : await actions.move(items, ev.a.label, roomName);
+      if (res.applied) {
+        // focus stays on the moved class, not on the inspector (round-1 R1-M-31): a date-scoped move splits the row,
+        // so the new row ids from the server come first, the old id second, the label last
+        const ids = [...(res.result?.assignments ?? []).map((a) => a.id), ev.a.id];
+        const label = ev.a.label;
+        window.setTimeout(() => {
+          const chips = [...document.querySelectorAll<HTMLElement>('[data-testid="calendar-event"]')];
+          const chip = ids.map((id) => chips.find((c) => Number(c.dataset.assignmentId) === id)).find(Boolean) ?? chips.find((c) => (c.textContent ?? "").includes(label));
+          if (chip && !document.querySelector('[role="dialog"]')) chip.focus();
+        }, 80);
+      }
       return res.applied;
     },
     [model, actions],
@@ -429,7 +441,9 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       }
       if (meta || e.altKey) return;
       if (e.key === "Escape") {
-        if (selection.size) setSelection(new Set());
+        // the overlay sidebar (narrow windows) closes first: it covers its own toggle (round-1 R1-S-26)
+        if (sidebarOpen && !wide && !embedded) setSidebarOpen(false);
+        else if (selection.size) setSelection(new Set());
         else setInspectorOpen(false);
         return;
       }
@@ -489,7 +503,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [embedded, setSidebarOpen, actions, vs.lens, vs.board, weekEvents, day, roomSet, selection.size, t, setWeek, liveWeek, step, update, setLens, goToday, zoomBy, selectedEvents, readOnly]);
+  }, [embedded, setSidebarOpen, sidebarOpen, wide, actions, vs.lens, vs.board, weekEvents, day, roomSet, selection.size, t, setWeek, liveWeek, step, update, setLens, goToday, zoomBy, selectedEvents, readOnly]);
 
   // ------------------------------------------------------------------ lens content
   const chipLine2 = useCallback(
@@ -749,12 +763,34 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
 
   return (
     <div ref={rootRef} className={cn("relative flex min-h-0 gap-2", className)} style={{ height: embedded ? undefined : fill }} data-testid="calendar">
+      {!embedded && model ? (
+        // keyboard: the sidebar and the toolbar put ~40 Tab stops before the grid; one Tab from the top reaches this
+        // link, Enter lands on the grid (round-1 R1-M-32)
+        <BareButton
+          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-tint focus:px-3 focus:py-2 focus:type-callout focus:font-medium focus:text-tint-foreground focus:shadow-elev-3"
+          data-testid="skip-to-grid"
+          onClick={() => {
+            const target = document.querySelector<HTMLElement>('[data-testid="time-grid"],[data-testid="day-timeline"],[data-testid="calendar-mobile"],[data-testid="agenda"]') ?? document.querySelector<HTMLElement>('[data-testid="calendar-event"]') ?? document.getElementById("calendar-title");
+            target?.focus();
+          }}
+        >
+          {t("calendar.skipToGrid")}
+        </BareButton>
+      ) : null}
       {sidebarOpen && model && runId !== null && !embedded ? (
         <CalendarSidebar
           ref={searchRef}
           className={cn("w-[272px] shrink-0", !wide && "absolute inset-y-0 left-0 z-40 shadow-elev-3")}
           model={model}
           term={data.term}
+          run={data.run}
+          onClose={!wide ? () => setSidebarOpen(false) : undefined}
+          onSearchEnter={() => {
+            // Enter in the search focuses the first match on the board (round-1 R1-S-26)
+            const chip = document.querySelector<HTMLElement>('[data-testid="calendar-event"]');
+            if (chip) chip.focus();
+            else setAnnounce(t("calendar.empty.filtered"));
+          }}
           runs={data.runs}
           runId={runId}
           onRun={(id) => {

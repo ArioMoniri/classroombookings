@@ -222,7 +222,8 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
               </ul>
             </div>
           ) : null}
-          <DialogFooter>
+          {/* phones: "Yayınla" stays in reach while the sheet scrolls (MOBILE.md M-05, round-1 R1-S-16) */}
+          <DialogFooter className="max-sm:sticky max-sm:bottom-0 max-sm:z-10">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={publish.isPending}>{t("common.cancel")}</Button>
             <BusyButton
               busy={publish.isPending}

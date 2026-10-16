@@ -10,6 +10,14 @@ describe("Turkish grammar helpers (T-R1-38)", () => {
     expect(pct(0.6)).toBe("%0,6");
     expect(pct(0.6, { suffix: "acc" })).toBe("%0,6'yı");
     expect(pct(96, { suffix: "dat" })).toBe("%96'ya");
+    // 3rd-person possessive (lane F ask, T-R1-38): "taleplerin %72'si", "%95'i", "%0'ı", "%100'ü", "%0,6'sı"
+    expect(pct(72, { suffix: "poss" })).toBe("%72'si");
+    expect(pct(95, { suffix: "poss" })).toBe("%95'i");
+    expect(pct(0, { suffix: "poss" })).toBe("%0'ı");
+    expect(pct(100, { suffix: "poss" })).toBe("%100'ü");
+    expect(pct(0.6, { suffix: "poss" })).toBe("%0,6'sı");
+    expect(withSuffix("B 201", "poss")).toBe("B 201'i");
+    expect(withSuffix("Psikoloji", "poss")).toBe("Psikoloji'si");
     expect(pct(12.34, { digits: 1 })).toBe("%12,3");
     expect(pct(Number.NaN)).toBe("%0");
   });

@@ -101,6 +101,21 @@ describe("local sign-in form (T-R1-09)", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("3 dakika sonra");
   });
 
+  it("says 'Caps Lock açık' from the modifier state or from an upper-case letter typed without Shift", () => {
+    view();
+    const pw = screen.getByTestId("login-password");
+    fireEvent.keyDown(pw, { key: "A", shiftKey: false });
+    expect(screen.getByTestId("caps-lock")).toHaveTextContent("Caps Lock açık");
+    expect(pw.getAttribute("aria-describedby")).toBe(screen.getByTestId("caps-lock").id);
+    fireEvent.keyDown(pw, { key: "a", shiftKey: false });
+    expect(screen.queryByTestId("caps-lock")).toBeNull();
+    // the browser's own report (jsdom's event init cannot carry it: set on the native event)
+    const ev = new KeyboardEvent("keydown", { key: "1", bubbles: true });
+    Object.defineProperty(ev, "getModifierState", { value: () => true });
+    fireEvent(pw, ev);
+    expect(screen.getByTestId("caps-lock")).toBeInTheDocument();
+  });
+
   it("lands on the first page the permissions allow", () => {
     expect(homeFor(["planning.view", "book_single.create"])).toBe("/dashboard");
     expect(homeFor(["book_single.create", "room.view"])).toBe("/bookings");

@@ -19,6 +19,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { coarseHitArea } from "@/components/ui/hit-area";
 import { NativeSelect } from "@/components/ui/native-select";
 import { LoadingValue } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -493,7 +494,8 @@ export function ClassesPage() {
               {runs.map((r) => { const l = runOptionLabel(r, t, new Set(runs.map((x) => x.kind)).size > 1); return <option key={r.id} value={r.id} title={l.full}>{l.short}</option>; })}
             </NativeSelect>
           ) : null}
-          <div className="ml-auto">
+          {/* touch: the segments take the 44 px height themselves, so their hit areas no longer overlap the tab row below (lane A hand-on) */}
+          <div className="ml-auto pointer-coarse:[--control-h-sm:var(--control-h-md)]" data-testid="classes-kind">
             <SegmentedControl size="sm" aria-label={t("classes.kind.label")} options={[{ value: "meetings", label: t("classes.kind.meetings") }, { value: "exams", label: t("classes.kind.exams") }]} value={kind} onValueChange={(k) => setParam({ kind: k === "exams" ? "exams" : null, run: null, id: null })} />
           </div>
         </div>
@@ -505,7 +507,7 @@ export function ClassesPage() {
             {tabs.map((tab) => {
               const on = tab.id === viewParam;
               return (
-                <BareButton key={tab.id} role="tab" aria-selected={on} onClick={() => setParam({ view: tab.id === "all" ? null : tab.id, id: null })} className={cn("relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 type-callout font-medium", on ? "text-label-1" : "text-label-2 hover:text-label-1")}>
+                <BareButton key={tab.id} role="tab" aria-selected={on} onClick={() => setParam({ view: tab.id === "all" ? null : tab.id, id: null })} className={cn("relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 type-callout font-medium", coarseHitArea, on ? "text-label-1" : "text-label-2 hover:text-label-1")}>
                   {on ? <motion.span layoutId="view-pill" transition={reduce ? { duration: 0 } : springs.glassMorph} aria-hidden className="absolute inset-0 -z-10 rounded-full bg-fill-2 edge-hairline" style={{ borderRadius: 999 }} /> : null}
                   {tab.label}
                   {/* no "Tümü 0" while the classes load: a glyph-sized skeleton (review §3 Classes loading) */}

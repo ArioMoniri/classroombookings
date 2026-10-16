@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Download, XOctagon } from "luci
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChatPanel } from "@/components/chat/chat-panel";
@@ -19,6 +20,7 @@ import { Progress, ProgressIndicator, ProgressTrack } from "@/components/ui/prog
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { optionIndex } from "@/lib/api/adapters";
+import { request } from "@/lib/api/client";
 import { api } from "@/lib/api/endpoints";
 import { qk, useApplyFix, useRun, useRuns } from "@/lib/api/hooks";
 import type { ScheduleRun } from "@/lib/api/schemas";
@@ -211,7 +213,15 @@ export function RunView({ id }: { id: number }) {
   const applyFix = useApplyFix(id);
   const duration = useDuration();
   const r = run.data;
-  const outcome: RunOutcome = r ? runOutcome(r) : { kind: "active" };
+  // the run schema the app shares has no `error` field; a cancelled run's "cancelled by <who>" lives there, so the
+  // report reads it once, for cancelled runs only (R1-M-15: by whom and when)
+  const cancelInfo = useQuery({
+    queryKey: ["run-cancel-info", id],
+    queryFn: () => request(`/runs/${id}`, { schema: z.object({ error: z.string().nullable().optional(), finished_at: z.string().nullable().optional() }), silent: true }),
+    enabled: r?.status === "CANCELLED",
+    staleTime: Infinity,
+  });
+  const outcome: RunOutcome = r ? runOutcome({ status: r.status, error: cancelInfo.data?.error ?? null, finished_at: r.finished_at ?? cancelInfo.data?.finished_at ?? null }) : { kind: "active" };
   const active = outcome.kind === "active";
   const finished = Boolean(r) && !active;
   // a cancelled run has no timetable, scores or problems: the report fetches nothing heavy for it (R1-M-15 / R1-S-28)

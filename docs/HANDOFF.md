@@ -26,7 +26,7 @@ had 8 builder lanes. At `455f9703`:
 
 | Lane | Done (code landed) | Open | Notes |
 |---|---|---|---|
-| A touch/keyboard/shell | T-R1-01, T-R1-04 (partly) | T-R1-02, 03, 05, 06, 07, 08, 09 | the lane-A agent only covered the touch tickets; hand-ons to H/E listed under T-R1-01 |
+| A touch/keyboard/shell | T-R1-01…09 (all; A2 finished 00:00 UTC) | — | ticked |
 | B approvals/bookings | T-R1-10, 11, 12, 13, 14, 17, 18, 19, 20 | T-R1-15, T-R1-16 | landed tickets not yet re-checked nor ticked in ROADMAP |
 | C intake/council | T-R1-21–26 | T-R1-25 "rename one instructor" part | needs an owner decision: a stable person key (staff number column) or the merge-review flow |
 | D KVKK | T-R1-27, 28, 29 | — | ticked |
@@ -62,6 +62,7 @@ the locked-class self-move (recommend: keep as re-deciding the lock), T-R1-25 pe
 
 ## Progress log (newest first)
 
+- 2026-10-17 00:00 UTC — **lane A2 handed off** 8/8: T-R1-02…09 done and verified at 1440 + 390 touch (keyboard clearance, phone dialog layout, bell sheet, notification cards by role, tab bar/shortcuts/toasts, Turkish accessible names, breadcrumbs, login field messages + permission-based landing). vitest 167, e2e loop-r1-laneA 8/8. Ask routed to lane B2: /my-bookings row M-02 (checkbox hit area cut by chip/date button). Checkpoint 2 = the commit carrying this line.
 - 2026-10-16 23:40 UTC — **lane F2 handed off**: T-R1-42 (invigilation pool matches masked/titled exam names; pool line, empty-pool reason + one-tap all-instructors) and T-R1-39 part 2 (board placements feed the moderation match rate, 72 % on Güz) done and verified desktop+phone; tests test_loop_r1_laneF2.py, e2e loop-r1-laneF 6/6. Tag `handoff/focused-wright-1`. Open asks routed: pct() possessive case → lane E2; keyboard-clearance scrollIntoView guard → lane A2; MOBILE.md /exams/invigilation row → orchestrator.
 - 2026-10-16 22:30 UTC — session focused-wright started; branch + start tag pushed; registry agents of the
   interrupted session marked stopped/finished with where they left off; builders being launched.

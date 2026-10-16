@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `63043cb` (committed 2026-10-16 23:31 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `ffd7c2d` (committed 2026-10-16 23:35 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,11 +145,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-171 agents in [`docs/agents/registry.json`](agents/registry.json): running 4 · finished 149 · stopped 11 · superseded 7.
+173 agents in [`docs/agents/registry.json`](agents/registry.json): running 3 · finished 152 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
-| `Lane A2` | general-purpose | 2026-10-16 22:59 |
 | `Lane B2` | general-purpose | 2026-10-16 22:59 |
 | `Lane E2` | general-purpose | 2026-10-16 22:59 |
 | `Lane H` | general-purpose | 2026-10-16 22:59 |
@@ -219,7 +218,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **229 ticked · 349 open** checkboxes in 80 sections (76 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **237 ticked · 341 open** checkboxes in 80 sections (76 with open items).
 
 <details><summary>Per section</summary>
 
@@ -267,7 +266,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Intake agent finished (I1–I5, council gaps, intake memory, commit lock, A2–A4; head… | 0 | 4 |
 | Approval-first bookings + user channels + credential-free login (owner request… | 10 | 3 |
 | Standing flow loop: test → suggest → build → re-test (owner request 2026-10-15 22:20) | 0 | 2 |
-| Flow loop tickets — round 1 (suggester, 2026-10-16) | 17 | 35 |
+| Flow loop tickets — round 1 (suggester, 2026-10-16) | 25 | 27 |
 | Devops agent finished: first full gate table (5d0e6c2) + seed profiles + per-branch pods | 0 | 1 |
 | Owner decisions 2026-10-15 ~22:45: channels + login (from… | 2 | 4 |
 | Owner decisions 2026-10-15 ~22:50: identity and sign-up | 0 | 1 |

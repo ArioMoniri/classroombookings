@@ -283,3 +283,38 @@ async def test_audit_undo_of_a_catalogue_programme_is_refused_in_both_languages(
     assert r.status_code == 409
     d = r.json()["detail"]
     assert d["code"] == "not_reversible" and d["message_tr"]
+
+
+async def test_undo_archives_the_courses_the_commit_created_and_keeps_catalogue_courses(
+    client: AsyncClient, parsed_bahar_list: Any
+) -> None:
+    """Round-1 R1-S-29 (T-R1-50): "Arşivlendi: 3 şube, 0 ders, 2 kişi" after a commit that typed 3 courses. The 0 was
+    right for the tester's rows (MBG 598 / 532 / 534 exist in the Bahar catalogue, so the commit reused them) and
+    wrong-looking next to the "3 ders" the done view counted. The API separates the two: ``created.courses`` are the
+    rows the commit wrote (archived by the undo), ``created.reused_courses`` the catalogue rows it only used (kept)."""
+    h, tid, _uid, planner = await _setup(client)
+    payload = mbg_payload(parsed_bahar_list)
+    typed = [str(c["code"]) for c in payload["courses"]]
+    assert len(typed) >= 3
+    # one of the typed codes already exists in the catalogue (typed any way: the key is canonical)
+    existing = typed[0]
+    r = await client.post(f"{API}/courses", json={"code": existing, "name": "Katalogdaki ders"}, headers=h)
+    assert r.status_code == 201, r.text
+    catalogue_id = int(r.json()["id"])
+
+    did = await _draft(client, planner, tid, payload)
+    r = await client.post(f"{API}/program-drafts/{did}/commit", json={}, headers=planner)
+    assert r.status_code == 201, r.text
+    made = r.json()["created"]
+    assert made["reused_courses"] == [catalogue_id]
+    assert catalogue_id not in made["courses"] and len(made["courses"]) == len(typed) - 1
+
+    r = await client.post(f"{API}/program-drafts/{did}/undo", headers=planner)
+    assert r.status_code == 200, r.text
+    arch = r.json()["archived"]
+    assert sorted(arch["courses"]) == sorted(made["courses"]) and catalogue_id not in arch["courses"]
+    async with get_session_factory()() as s:
+        kept = await s.get(Course, catalogue_id)
+        assert kept is not None and kept.archived is False
+        gone = [await s.get(Course, cid) for cid in made["courses"]]
+        assert gone and all(c is not None and c.archived for c in gone)

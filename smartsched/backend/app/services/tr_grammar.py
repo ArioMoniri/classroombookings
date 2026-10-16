@@ -56,12 +56,20 @@ def _spoken_tail(text: str) -> str:
     return _TENS.get(n[-2], "on") if len(n) >= 2 else _UNITS.get(n, "bir")
 
 
+_POSSESSIVE_NOUNS = ("dersliği", "salonu", "laboratuvarı", "amfisi", "odası", "sınıfı", "binası", "bloğu", "katı")
+
+
 def dative(text: str) -> str:
-    """``text`` + the dative suffix with an apostrophe (proper names, codes): -'a / -'e / -'ya / -'ye."""
+    """``text`` + the dative suffix: with an apostrophe for proper names and codes (``B 201'e``, ``LAB'a``), and
+    without one for a room named by a common noun with a possessive (``Test dersliği`` -> ``Test dersliğine``, never
+    ``Test dersliği'ye``; round-1 R1-S-24 / T-R1-49): the possessive takes the buffer ``n``."""
     word = _spoken_tail(text)
     vowels = [c for c in word if c in _BACK or c in _FRONT]
     front = bool(vowels) and vowels[-1] in _FRONT
     suffix = "e" if front else "a"
+    lowered = word.lower()
+    if word and word[0].islower() and any(lowered.endswith(n) for n in _POSSESSIVE_NOUNS):
+        return f"{text.rstrip()}n{suffix}"
     if word and (word[-1] in _BACK or word[-1] in _FRONT):
         suffix = "y" + suffix
     return f"{text.rstrip()}'{suffix}"

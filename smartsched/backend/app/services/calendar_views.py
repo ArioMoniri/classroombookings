@@ -2209,7 +2209,7 @@ async def export_planning_list(session: AsyncSession, term: Term, data: ClassesO
     ws.freeze_panes = "A2"
     legend = wb.create_sheet("SmartSched")
     legend.append(["Sütun", "Açıklama"])
-    legend.append([SMARTSCHED_COLUMN, f"Run #{data.run_id} yerleşimi; '{KESINLESEN}' sütununa dokunulmadı."])
+    legend.append([SMARTSCHED_COLUMN, f"Çalıştırma #{data.run_id} yerleşimi; '{KESINLESEN}' sütununa dokunulmadı."])
     legend.append(["Yerleşmedi", "Bu çalıştırmada derslik bulunamadı."])
     legend.append(["Oda gerekmez", "Online / uzaktan ders."])
     buf = io.BytesIO()

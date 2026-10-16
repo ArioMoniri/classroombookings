@@ -123,25 +123,33 @@ export function AuditView() {
 
   return (
     <div className="flex flex-col gap-5" data-testid="audit">
+      {/* phones (T-R1-32, R1-M-30): the filter trigger ("Filtreler · n") and the export sit beside the title, the lead
+          is left out, so the first event starts above 200 px */}
       <PageTitle
+        className={phone ? "max-sm:mb-1 max-sm:flex-row max-sm:items-center max-sm:justify-between" : undefined}
         title={t("wave1.audit.title")}
-        subtitle={t("wave1.audit.lead")}
+        subtitle={phone ? undefined : t("wave1.audit.lead")}
         actions={
-          <Button variant="outline" render={<a href={exportHref} download data-testid="audit-export" />} nativeButton={false}>
-            <Download aria-hidden />
-            {t("wave1.audit.export")}
-          </Button>
+          <>
+            {phone ? (
+              <Button variant="outline" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" aria-label={activeFilters ? t("reserve.filters.openCount", { n: activeFilters }) : t("reserve.filters.open")} data-testid="audit-filters-open">
+                <SlidersHorizontal aria-hidden />
+                {activeFilters ? String(activeFilters) : null}
+              </Button>
+            ) : null}
+            <Button variant="outline" size={phone ? "icon" : "default"} render={<a href={exportHref} download data-testid="audit-export" aria-label={phone ? t("wave1.audit.export") : undefined} title={phone ? t("wave1.audit.export") : undefined} />} nativeButton={false}>
+              <Download aria-hidden />
+              {phone ? null : t("wave1.audit.export")}
+            </Button>
+          </>
         }
       />
       {phone ? (
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" data-testid="audit-filters-open">
-            <SlidersHorizontal aria-hidden />
-            {activeFilters ? t("reserve.filters.openCount", { n: activeFilters }) : t("reserve.filters.open")}
-          </Button>
-          {activeFilters ? (
+        activeFilters ? (
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() => {
                 setDraft(emptyAuditFilters);
                 setApplied(emptyAuditFilters);
@@ -150,8 +158,8 @@ export function AuditView() {
               <RotateCcw aria-hidden />
               {t("wave1.audit.reset")}
             </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null
       ) : (
         <Card className="gap-3 px-4 py-4">{filterForm}</Card>
       )}

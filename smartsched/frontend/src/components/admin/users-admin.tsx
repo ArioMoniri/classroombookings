@@ -143,7 +143,10 @@ export function UsersAdmin() {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* phones (T-R1-33, R1-M-30): the three actions sit as icon buttons beside the title, so the first user card
+          starts above 300 px; their names are the accessible labels */}
       <PageTitle
+        className={phone ? "max-sm:mb-2 max-sm:flex-row max-sm:items-start max-sm:justify-between" : undefined}
         title={t("crbs.admin.users.title")}
         subtitle={
           users.data
@@ -152,19 +155,19 @@ export function UsersAdmin() {
         }
         actions={
           <>
-            <Button variant="outline" onClick={() => setImportOpen(true)} data-testid="users-import">
+            <Button variant="outline" size={phone ? "icon" : "default"} onClick={() => setImportOpen(true)} data-testid="users-import" aria-label={phone ? t("crbs.users.import") : undefined} title={phone ? t("crbs.users.import") : undefined}>
               <Upload aria-hidden />
-              {t("crbs.users.import")}
+              {phone ? null : t("crbs.users.import")}
             </Button>
             {/* local accounts are the exception once Microsoft is on (break-glass, service accounts) */}
-            <Button variant={msEnabled && usersAdmin ? "outline" : "default"} onClick={() => setEditing("new")} data-testid="users-new">
+            <Button variant={msEnabled && usersAdmin ? "outline" : "default"} size={phone ? "icon" : "default"} onClick={() => setEditing("new")} data-testid="users-new" aria-label={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined} title={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined}>
               <UserPlus aria-hidden />
-              {msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")}
+              {phone ? null : msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")}
             </Button>
             {msEnabled && usersAdmin ? (
-              <Button onClick={() => setInviteOpen(true)} data-testid="users-invite">
+              <Button size={phone ? "icon" : "default"} onClick={() => setInviteOpen(true)} data-testid="users-invite" aria-label={phone ? t("sso.users.inviteAction") : undefined} title={phone ? t("sso.users.inviteAction") : undefined}>
                 <Mail aria-hidden />
-                {t("sso.users.inviteAction")}
+                {phone ? null : t("sso.users.inviteAction")}
               </Button>
             ) : null}
           </>
@@ -341,7 +344,7 @@ export function UsersAdmin() {
           <Loading className="px-4" />
         ) : (
           <Table data-testid="users-table">
-            <TableHeader>
+            <TableHeader className={phone ? "sr-only" : undefined}>
               <TableRow>
                 <TableHead className="pl-4">{t("crbs.users.name")}</TableHead>
                 <TableHead className="hidden md:table-cell">{t("crbs.users.email")}</TableHead>

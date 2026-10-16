@@ -202,7 +202,7 @@ function AppearanceCard() {
           <SettingsRow label={t("glass.settings.accent")} hint={t("glass.settings.accentHint")}>
             <div role="radiogroup" aria-label={t("glass.settings.accent")} className="flex items-center gap-2">
               {ACCENTS.map((a) => (
-                <button key={a} type="button" role="radio" aria-checked={accent === a} aria-label={t(`glass.settings.accents.${a}`)} title={t(`glass.settings.accents.${a}`)} onClick={() => set(a)} data-testid={`accent-${a}`} className="relative flex size-7 items-center justify-center rounded-full outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus)" style={{ background: ACCENT_SWATCH[a] }}>
+                <button key={a} type="button" role="radio" aria-checked={accent === a} aria-label={t(`glass.settings.accents.${a}`)} title={t(`glass.settings.accents.${a}`)} onClick={() => set(a)} data-testid={`accent-${a}`} className="relative flex size-7 items-center justify-center rounded-full outline-hidden after:absolute after:-inset-2 after:rounded-full focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus)" style={{ background: ACCENT_SWATCH[a] }}>
                   {accent === a ? <Check className="size-4 text-white" aria-hidden /> : null}
                 </button>
               ))}
@@ -303,7 +303,7 @@ function ImportForm({ initial }: { initial: string }) {
           <p id="crbs-hosts-hint" className="text-[12px] text-label-3">{hosts.trim() ? t("settings.importHosts.hint") : t("settings.importHosts.empty")}</p>
         </div>
         {error ? <p role="alert" className="text-[12.5px] text-status-infeasible-fg">{error}</p> : null}
-        <Button size="sm" onClick={() => void save()} disabled={update.isPending || hosts.trim() === initial.trim()} data-testid="save-crbs-hosts">{t("common.save")}</Button>
+        <Button size="sm" className="pointer-coarse:h-11" onClick={() => void save()} disabled={update.isPending || hosts.trim() === initial.trim()} data-testid="save-crbs-hosts">{t("common.save")}</Button>
       </CardContent>
     </Card>
   );

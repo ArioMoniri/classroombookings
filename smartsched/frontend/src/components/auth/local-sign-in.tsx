@@ -147,8 +147,13 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
     router.refresh();
   };
 
+  // Caps Lock: the modifier state where the browser reports it, else the letter's case against Shift (a typed
+  // upper-case letter without Shift, or a lower-case one with it, means the lock is on)
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (typeof e.getModifierState === "function") setCaps(e.getModifierState("CapsLock"));
+    const state = typeof e.getModifierState === "function" ? e.getModifierState("CapsLock") : false;
+    const letter = e.key.length === 1 && e.key.toLocaleLowerCase("tr-TR") !== e.key.toLocaleUpperCase("tr-TR");
+    const byCase = letter && (e.key === e.key.toLocaleUpperCase("tr-TR")) !== e.shiftKey;
+    setCaps(state || (letter ? byCase : false));
   };
 
   const message = error?.kind === "credentials" ? t("signin.local.credentials") : error?.kind === "offline" ? t("signin.local.offline") : rate ? t("signin.local.rateLimited", { n: minutesLeft }) : null;

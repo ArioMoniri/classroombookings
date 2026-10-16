@@ -4,10 +4,10 @@
  * selected week row, one heat dot per day), filters as quiet sections with counts and reset (Wix #25),
  * the unplaced tray, compare, and a legend drawn with real chips. Chrome material (rule G1).
  */
-import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, X } from "lucide-react";
 import Link from "next/link";
 import { forwardRef, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -44,6 +44,12 @@ export interface CalendarSidebarProps {
   ghosts: boolean;
   onGhosts: (v: boolean) => void;
   className?: string;
+  /** the run shown: its API count of unplaced classes is the one the sidebar titles with (round-1 R1-S-16) */
+  run?: ScheduleRun;
+  /** Enter in the search: focus the first matching chip (round-1 R1-S-26) */
+  onSearchEnter?: () => void;
+  /** set when the sidebar floats over the board (narrow windows): a close button, and Esc closes it */
+  onClose?: () => void;
 }
 
 function Section({ title, onReset, children, count }: { title: string; onReset?: () => void; children: React.ReactNode; count?: number }) {
@@ -134,6 +140,21 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
   );
 }
 
+/** The run's own unplaced count: the backend's truth first, then `stats.unplaced`, then total − placed. */
+export function unplacedCount(run: ScheduleRun | undefined): number | null {
+  if (!run) return null;
+  const stats = (run.stats_detail ?? run.stats) as Record<string, unknown>;
+  const truth = stats.truth && typeof stats.truth === "object" ? (stats.truth as Record<string, unknown>) : null;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const fromTruth = num(truth?.unplaced);
+  if (fromTruth !== null) return fromTruth;
+  const direct = num(run.stats.unplaced);
+  if (direct !== null) return direct;
+  const placed = num(run.stats.placed);
+  const total = num(run.stats.events_total);
+  return placed !== null && total !== null ? Math.max(0, total - placed) : null;
+}
+
 export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps>(function CalendarSidebar(p, searchRef) {
   const { t, locale } = useI18n();
   const f = p.filters;
@@ -149,15 +170,24 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
   ];
   const capIdx = Math.max(0, CAPACITY_BUCKETS.findIndex((c) => c === f.minCap));
   const mixedKinds = new Set(p.runs.map((r) => r.kind)).size > 1;
+  // one unplaced count, the API's (`stats.unplaced`, the run report's number); the list may hold more rows (R1-S-16)
+  const apiUnplaced = unplacedCount(p.run);
   const runLabels = new Map(p.runs.map((r) => [r.id, runOptionLabel(r, t, mixedKinds)]));
   return (
     <aside aria-label={t("calendar.sidebar.label")} className={cn("glass-chrome flex min-h-0 flex-col gap-4 overflow-y-auto rounded-2xl p-3 text-label-1", p.className)} data-glass="chrome" data-testid="calendar-sidebar">
       <div className="flex flex-col gap-1.5 px-1">
-        <p className="type-headline">{p.term?.name ?? ""}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="type-headline" data-testid="sidebar-term">{p.term?.name ?? ""}</p>
+          {p.onClose ? (
+            <IconButton size="sm" variant="ghost" label={t("calendar.sidebar.close")} onClick={p.onClose} data-testid="sidebar-close">
+              <X aria-hidden />
+            </IconButton>
+          ) : null}
+        </div>
         <label className="flex flex-col gap-0.5 type-caption font-semibold text-label-3">
           {t("calendar.sidebar.run")}
           {/* short option text (weeks as ranges, kind only when both kinds are listed); the full text is the tooltip */}
-          <select className="h-8 w-full min-w-0 truncate rounded-lg bg-fill-2 px-2 type-callout font-medium text-label-1" value={p.runId} title={runLabels.get(p.runId)?.full} onChange={(e) => p.onRun(Number(e.target.value))} data-testid="run-picker">
+          <select className="h-8 w-full min-w-0 truncate rounded-lg bg-fill-2 px-2 type-callout font-medium text-label-1 pointer-coarse:h-11 max-md:pointer-coarse:text-base" value={p.runId} title={runLabels.get(p.runId)?.full} onChange={(e) => p.onRun(Number(e.target.value))} data-testid="run-picker">
             {p.runs.map((r) => (
               <option key={r.id} value={r.id} title={runLabels.get(r.id)?.full}>
                 {runLabels.get(r.id)?.short}
@@ -173,6 +203,12 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
         onChange={(e) => set({ query: e.target.value })}
         placeholder={t("calendar.sidebar.search")}
         aria-label={t("calendar.sidebar.search")}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && f.query.trim()) {
+            e.preventDefault();
+            p.onSearchEnter?.();
+          }
+        }}
         data-testid="calendar-search"
       />
       <Section title={t("calendar.sidebar.buildings")} onReset={f.buildings.length ? () => set({ buildings: [] }) : undefined}>
@@ -229,8 +265,12 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
           }} aria-label={t("calendar.sidebar.capacity")} />
         </div>
       </Section>
-      {p.model.unplaced.length ? (
-        <Section title={t("calendar.sidebar.unplaced", { n: p.model.unplaced.length })}>
+      {p.model.unplaced.length || apiUnplaced ? (
+        <Section title={t("calendar.sidebar.unplaced", { n: apiUnplaced ?? p.model.unplaced.length })}>
+          {apiUnplaced !== null && p.model.unplaced.length > apiUnplaced ? (
+            // the index also lists requests the solver never saw (left out, no time): say so instead of a second count
+            <p className="px-1 type-caption text-label-3" data-testid="unplaced-extra">{t("calendar.sidebar.unplacedExtra", { n: p.model.unplaced.length - apiUnplaced })}</p>
+          ) : null}
           <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto px-1">
             {p.model.unplaced.slice(0, 60).map((u) => (
               <li key={u.mr}>
@@ -245,9 +285,9 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
       ) : null}
       <Section title={t("calendar.sidebar.compare")}>
         <div className="flex flex-col gap-2 px-1">
-          <select className="h-8 rounded-lg bg-fill-2 px-2 type-callout" value={p.compare ?? ""} onChange={(e) => p.onCompare(e.target.value ? Number(e.target.value) : null)} aria-label={t("calendar.compare.pick")}>
+          <select className="h-8 rounded-lg bg-fill-2 px-2 type-callout pointer-coarse:h-11 max-md:pointer-coarse:text-base" value={p.compare ?? ""} onChange={(e) => p.onCompare(e.target.value ? Number(e.target.value) : null)} aria-label={t("calendar.compare.pick")}>
             <option value="">{t("calendar.sidebar.compareNone")}</option>
-            {p.runs.filter((r) => r.id !== p.runId && r.kind === p.model.index.run.kind).map((r) => <option key={r.id} value={r.id}>Run #{r.id}</option>)}
+            {p.runs.filter((r) => r.id !== p.runId && r.kind === p.model.index.run.kind).map((r) => <option key={r.id} value={r.id}>{t("glass.shell.runShort", { id: r.id })}</option>)}
           </select>
           {p.compare !== null ? (
             <label className="flex items-center gap-2 type-footnote"><Switch checked={p.ghosts} onCheckedChange={p.onGhosts} />{t("calendar.sidebar.ghosts")}</label>

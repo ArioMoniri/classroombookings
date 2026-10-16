@@ -152,7 +152,7 @@ function ScheduleEditor({ schedule, onDeleted }: { schedule: Schedule; onDeleted
                 <TableHead className="pl-3">{t("crbs.common.name")}</TableHead>
                 <TableHead>{t("crbs.schedules.time")}</TableHead>
                 <TableHead className="hidden sm:table-cell">{t("crbs.schedules.grid")}</TableHead>
-                <TableHead>{t("crbs.schedules.days")}</TableHead>
+                <TableHead className="hidden sm:table-cell">{t("crbs.schedules.days")}</TableHead>
                 <TableHead>{t("crbs.schedules.bookable")}</TableHead>
                 <TableHead className="w-10 pr-3">
                   <span className="sr-only">{t("crbs.common.actions")}</span>
@@ -194,7 +194,8 @@ function PeriodRow({ period: p, fmtDays }: { period: Period; fmtDays: (d: number
         {p.time_start}–{p.time_end}
       </TableCell>
       <TableCell className="hidden text-label-2 sm:table-cell">{p.start_period === p.end_period ? `P${p.start_period}` : `P${p.start_period}–P${p.end_period}`}</TableCell>
-      <TableCell className="text-label-2">{fmtDays(p.days)}</TableCell>
+      {/* phones: the days column is left out so the row fits and the bookable switch's 44 px hit area is not clipped (M-02) */}
+      <TableCell className="hidden text-label-2 sm:table-cell">{fmtDays(p.days)}</TableCell>
       <TableCell>
         <Switch size="sm" checked={p.bookable} aria-label={t("crbs.schedules.bookableNamed", { name: p.name })} onCheckedChange={(v) => update.mutate({ bookable: v }, { onError: toastError })} />
       </TableCell>

@@ -88,7 +88,7 @@ function ProfileForm({ data }: { data: Profile }) {
   return (
     <section aria-labelledby="pf-details">
       <SectionTitle id="pf-details">{t("crbs.profile.details")}</SectionTitle>
-      <Card variant="glass" className="gap-3 px-4">
+      <Card variant="glass" className="gap-3 px-4 max-sm:overflow-visible">
         <form
           className="flex flex-col gap-3"
           onSubmit={(e) => {
@@ -135,7 +135,8 @@ function ProfileForm({ data }: { data: Profile }) {
             </Field>
           </div>
           {error ? <Alert tone="error">{error}</Alert> : null}
-          <div>
+          {/* MOBILE M-05: on a phone the save button stays in reach above the tab bar while the form scrolls */}
+          <div className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 flex px-4 py-2 glass-chrome sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none">
             <Button type="submit" disabled={save.isPending} data-testid="profile-save" aria-busy={save.isPending || undefined}>
               <BusyLabel busy={save.isPending} label={t("busy.saving")}>
               {t("crbs.common.save")}</BusyLabel>

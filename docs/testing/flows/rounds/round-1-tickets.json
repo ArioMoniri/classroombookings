@@ -361,7 +361,13 @@
             "smartsched/frontend/src/components/ui/sheet.tsx"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": {
+            "by": "loop-r1-laneA2-2026-10-16",
+            "summary": "root viewport interactive-widget=resizes-content; Sheet/Dialog scroll-padding 6 rem + ui/keyboard-clearance scrolls the focused field past a sticky footer; stack 390×508: note and wish room search clear the footer, submit visible",
+            "tests": "vitest ui/phone-sheets-r1, shell/shell-r1, auth/sign-in-r1, notifications/notifications-r1, breadcrumbs.test (updated); e2e/loop-r1-laneA.spec.ts"
+          }
         },
         {
           "id": "T-R1-03",
@@ -381,7 +387,13 @@
             "smartsched/frontend/src/components/ui/dialog.tsx:108"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": {
+            "by": "loop-r1-laneA2-2026-10-16",
+            "summary": "Dialog = column with a scrolling body, sticky header/footer on phones, opaque solid surface, close button on the popup; stack: user-save 712–756/844 before and after scrolling, bg rgb() no backdrop",
+            "tests": "vitest ui/phone-sheets-r1, shell/shell-r1, auth/sign-in-r1, notifications/notifications-r1, breadcrumbs.test (updated); e2e/loop-r1-laneA.spec.ts"
+          }
         },
         {
           "id": "T-R1-04",
@@ -402,11 +414,16 @@
           ],
           "dedup": "new",
           "depends_on": [],
-          "status": "partly",
+          "status": "done",
           "progress": {
             "by": "loop-r1-laneA-2026-10-16",
             "done": "badge text 10 -> 11 px (notification-bell.tsx)",
             "open": "below md, the list as a full-width bottom Sheet with 44 px rows (not in this run's scope)"
+          },
+          "resolution": {
+            "by": "loop-r1-laneA2-2026-10-16",
+            "summary": "below md the bell opens a full-width bottom Sheet with min-h-11 rows (focus back to the bell); badge 11 px; stack 390: panel 390 px flush bottom, M-02 clean",
+            "tests": "vitest ui/phone-sheets-r1, shell/shell-r1, auth/sign-in-r1, notifications/notifications-r1, breadcrumbs.test (updated); e2e/loop-r1-laneA.spec.ts"
           }
         },
         {
@@ -425,7 +442,13 @@
             "smartsched/frontend/src/components/notifications/preferences-panel.tsx"
           ],
           "dedup": "re-seen: ROADMAP 'Sent to wave-2: the Profile preference-matrix switches' (still open)",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": {
+            "by": "loop-r1-laneA2-2026-10-16",
+            "summary": "cards per event below md with 44 px label rows; approver-only and room_owner events hidden without approvals.decide; stack TEACHER: 0 scrollers, 0 tables, no approver rows, M-02 clean",
+            "tests": "vitest ui/phone-sheets-r1, shell/shell-r1, auth/sign-in-r1, notifications/notifications-r1, breadcrumbs.test (updated); e2e/loop-r1-laneA.spec.ts"
+          }
         },
         {
           "id": "T-R1-06",
@@ -451,7 +474,13 @@
             "smartsched/frontend/src/components/ui/sonner.tsx"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": {
+            "by": "loop-r1-laneA2-2026-10-16",
+            "summary": "Diğer aria-current on non-tab routes, Taleplerim tab for the academician, badge after the label, no keyboard item on touch, platform keycaps + g t, toaster above --shell-bottom-h, welcome toast 3 s; all verified on the stack",
+            "tests": "vitest ui/phone-sheets-r1, shell/shell-r1, auth/sign-in-r1, notifications/notifications-r1, breadcrumbs.test (updated); e2e/loop-r1-laneA.spec.ts"
+          }
         },
         {
           "id": "T-R1-07",
@@ -474,7 +503,13 @@
             "smartsched/frontend/src/components/shell/top-bar.tsx"
           ],
           "dedup": "re-seen: persona-user U-08 minors 'TR leftovers: Close' (still open)",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": {
+            "by": "loop-r1-laneA2-2026-10-16",
+            "summary": "Dialog close = Kapat, toast close = Bildirimi kapat, KbdHint key words, search trigger 'Komut paleti (Ctrl+K)'; EN_WORDS 0 hits on the five scans at 1440 + 390",
+            "tests": "vitest ui/phone-sheets-r1, shell/shell-r1, auth/sign-in-r1, notifications/notifications-r1, breadcrumbs.test (updated); e2e/loop-r1-laneA.spec.ts"
+          }
         },
         {
           "id": "T-R1-08",
@@ -493,7 +528,13 @@
             "smartsched/frontend/src/components/shell/breadcrumbs.ts:39"
           ],
           "dedup": "see also U-01 (focus ring, open)",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": {
+            "by": "loop-r1-laneA2-2026-10-16",
+            "summary": "crumb labels for people/learning/recreate, own id → Taleplerim / Geçmişim, other ids fold into the parent ('Çalıştırma #n' kept as the page title), focus ring on crumb links; verified on the stack",
+            "tests": "vitest ui/phone-sheets-r1, shell/shell-r1, auth/sign-in-r1, notifications/notifications-r1, breadcrumbs.test (updated); e2e/loop-r1-laneA.spec.ts"
+          }
         },
         {
           "id": "T-R1-09",
@@ -517,7 +558,13 @@
             "smartsched/frontend/src/app/login/page.tsx"
           ],
           "dedup": "re-seen: U-20 (persona-user); linked: T-R1-35",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": {
+            "by": "loop-r1-laneA2-2026-10-16",
+            "summary": "field messages + aria-describedby, alert focus via effect, inputmode=email, Caps Lock heuristic, per-identifier 429 lock, not_enabled notice, homeFor by permissions (limited.admin → /admin/users with 0×403); verified at 1440 + 390",
+            "tests": "vitest ui/phone-sheets-r1, shell/shell-r1, auth/sign-in-r1, notifications/notifications-r1, breadcrumbs.test (updated); e2e/loop-r1-laneA.spec.ts"
+          }
         }
       ],
       "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)",

@@ -37,7 +37,8 @@ export function spokenTail(text: string): string {
   return words.at(-1) ?? t;
 }
 
-export type TrCase = "acc" | "dat" | "loc" | "abl" | "gen";
+/** `poss`: the 3rd-person possessive ("%72'si", "%95'i", "B 201'i"), the subject of "...'si planlandı" sentences (lane F, T-R1-38). */
+export type TrCase = "acc" | "dat" | "loc" | "abl" | "gen" | "poss";
 
 /** The bare suffix (no apostrophe) of `text` in the case: `suffix("95", "acc") === "i"`, `suffix("0", "acc") === "ı"`. */
 export function suffix(text: string, kase: TrCase): string {
@@ -57,6 +58,8 @@ export function suffix(text: string, kase: TrCase): string {
       return (endsVowel ? "y" : "") + two;
     case "gen":
       return (endsVowel ? "n" : "") + four + "n";
+    case "poss":
+      return (endsVowel ? "s" : "") + four;
     case "loc":
       return (voiceless ? "t" : "d") + two;
     case "abl":

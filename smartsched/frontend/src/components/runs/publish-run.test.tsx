@@ -33,7 +33,7 @@ describe("Publish a run (admin persona M-03)", () => {
     renderButton();
     await userEvent.click(screen.getByRole("button", { name: "Publish" }));
     const dialog = await screen.findByRole("dialog");
-    expect(dialog).toHaveTextContent("weeks 3–4");
+    expect(dialog).toHaveTextContent("weeks 3 and 4"); // weekList (T-R1-38 helper): two weeks are named, not "3–4"
     expect(dialog).toHaveTextContent("#7");
     expect(dialog).toHaveTextContent("660/683");
     expect(dialog).toHaveTextContent("123");
@@ -79,7 +79,7 @@ describe("Publish a run (admin persona M-03)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Publish" }));
     await userEvent.click(await screen.findByTestId("publish-confirm"));
     const box = await screen.findByTestId("publish-scope-reduction");
-    expect(box).toHaveTextContent("weeks 1–2, 5");
+    expect(box).toHaveTextContent("weeks 1, 2 and 5");
     expect(screen.getByTestId("publish-confirm-reduction")).toBeDisabled();
     await userEvent.click(screen.getByTestId("publish-scope-ack"));
     await userEvent.click(screen.getByTestId("publish-confirm-reduction"));

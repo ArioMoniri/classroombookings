@@ -255,7 +255,7 @@ test("T-R1-06 tabs, user menu, shortcuts and the welcome toast", async ({ browse
   // ten seconds after login, no toast is left
   await page.waitForTimeout(Math.max(0, 10_000 - 6_000));
   await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 12_000 });
-  await page.getByTestId("user-menu").click();
+  await page.locator("[data-testid=user-menu]:visible").click();
   const items = page.locator("[role=menuitem]");
   await expect(items.first()).toBeVisible();
   expect(await items.evaluateAll((els) => els.map((e) => (e as HTMLElement).innerText))).not.toContainEqual(expect.stringMatching(/Klavye/));
@@ -269,6 +269,8 @@ test("T-R1-06 tabs, user menu, shortcuts and the welcome toast", async ({ browse
   await d.keyboard.press("Shift+?");
   const sheet = d.getByTestId("shortcuts-sheet");
   await expect(sheet).toBeVisible();
+  // the g-rows wait for the permission list (GET /auth/me)
+  await expect(sheet).toContainText("Taleplerim sayfasına git");
   const text = (await sheet.innerText()).replace(/\s+/g, " ");
   expect(text).toMatch(/Ctrl K/);
   expect(text).not.toContain("⌘");
@@ -284,9 +286,12 @@ test("T-R1-07 Turkish accessible names in the shared dialogs and toasts (F-13 A0
     const toastClose = page.locator("[data-sonner-toast] button[aria-label]").first();
     if (await toastClose.count()) expect(await toastClose.getAttribute("aria-label")).toBe("Bildirimi kapat");
     expect((await names(page)).filter((n) => EN_WORDS.test(n))).toEqual([]);
-    await openBookSheet(page);
-    await expect(page.getByTestId("book-sheet").locator("[data-slot=sheet-close]")).toHaveAccessibleName("Kapat");
-    expect((await names(page)).filter((n) => EN_WORDS.test(n))).toEqual([]);
+    if (mobile) {
+      // the free-slot list exists on the phone only; the desktop grid is covered by bookings.spec.ts
+      await openBookSheet(page);
+      await expect(page.getByTestId("book-sheet").locator("[data-slot=sheet-close]")).toHaveAccessibleName("Kapat");
+      expect((await names(page)).filter((n) => EN_WORDS.test(n))).toEqual([]);
+    }
     await page.context().close();
   }
   const adm = await phonePage(browser, ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -313,7 +318,7 @@ test("T-R1-08 breadcrumbs name the pages, never a route word or an id; crumb lin
   await d.goto(`/moderation/people/${ctx.instructorId}`);
   const crumbs = d.locator("nav[aria-label=Konum] li");
   await expect(crumbs.last()).toHaveText("Geçmişim");
-  const texts = await crumbs.evaluateAll((els) => els.map((e) => (e as HTMLElement).innerText.trim()).filter(Boolean));
+  const texts = await crumbs.evaluateAll((els) => els.map((e) => (e as HTMLElement).innerText.trim()).filter((t) => t && t !== "/"));
   expect(texts.join(" / ")).toBe("Taleplerim / Geçmişim");
   const link = d.locator("nav[aria-label=Konum] a").first();
   await link.focus();
@@ -326,7 +331,7 @@ test("T-R1-08 breadcrumbs name the pages, never a route word or an id; crumb lin
   await adm.goto("/moderation/recreate/1");
   await expect(adm.locator("nav[aria-label=Konum] li").last()).toHaveText("Yeniden çözüm önizlemesi");
   await adm.goto(`/moderation/people/${ctx.instructorId}`);
-  const planner = await adm.locator("nav[aria-label=Konum] li").evaluateAll((els) => els.map((e) => (e as HTMLElement).innerText.trim()).filter(Boolean));
+  const planner = await adm.locator("nav[aria-label=Konum] li").evaluateAll((els) => els.map((e) => (e as HTMLElement).innerText.trim()).filter((t) => t && t !== "/"));
   expect(planner).toEqual(["Moderasyon", "Kişiler", "Kişi"]);
   await adm.context().close();
 });
@@ -343,7 +348,7 @@ test("T-R1-09 login: field messages, focus on the alert, a per-identifier lock, 
     await expect(page.getByTestId("login-password")).toHaveAttribute("aria-invalid", "true");
     await expect(page.getByTestId("login-identifier")).toHaveAttribute("aria-describedby", /./);
     await expect(page.getByTestId("login-identifier")).toHaveAttribute("inputmode", "email");
-    expect(await page.locator("[role=alert]").count()).toBe(0);
+    expect(await page.getByRole("main").getByRole("alert").count()).toBe(0);
     await page.getByTestId("login-identifier").fill(STAFF.username);
     await page.getByTestId("login-password").fill("wrong-password");
     await page.getByTestId("login-submit").click();

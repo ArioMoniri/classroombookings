@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { KpiNumber } from "@/components/dashboard/kpi-number";
 import { BarList } from "@/components/ui/bar-list";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -27,7 +26,8 @@ export function SoftBreakdown({ score, breakdown, weights, className }: { score:
     <div className={cn("min-w-0", className)}>
       <p className="type-callout text-label-2">{t("runs.softScore")}</p>
       <p className="flex items-baseline type-kpi text-label-1">
-        {score === null ? "—" : <KpiNumber value={score} />}
+        {/* a static report: a plain number (the rolling digits exposed "0 1 2 … 9" to assistive tech, round-1 R1-M-27) */}
+        {score === null ? "—" : <span className="tabular-nums" data-testid="soft-score">{n(score)}</span>}
         <span className="ml-1 type-callout font-normal text-label-2">/ 100</span>
       </p>
       <p className="type-footnote text-label-2">{t("glass.report.softHint")}</p>

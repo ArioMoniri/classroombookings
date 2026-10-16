@@ -2196,7 +2196,7 @@
     "nav": {"today": "Bugün", "prev": "Önceki", "next": "Sonraki", "weekTitle": "Hafta {n} · {type}", "weekShort": "H{n}", "pickWeek": "Haftaya git", "toggleSidebar": "Kenar çubuğunu göster/gizle"},
     "weekType": {"lecture": "Ders", "final": "Final", "makeup": "Bütünleme", "holiday": "Tatil"},
     "subject": {"placeholder": "Bir oda, hoca veya program seçin", "all": "Tümü", "search": "Oda, hoca veya program…", "room": "Oda", "instructor": "Öğretim elemanı", "cohort": "Program ve sınıf", "section": "Şube", "cohortLabel": "{program} · {year}. sınıf", "roomHeader": "{room} · {cap} koltuk", "instructorHeader": "{name} · {n} ders", "cohortHeader": "{name} · {n} ders", "label": "Konu"},
-    "sidebar": {"label": "Takvim filtreleri", "run": "Çalıştırma", "active": "Aktif", "buildings": "Binalar", "faculties": "Fakülteler", "tags": "Etiketler", "status": "Durum", "capacity": "Kapasite ≥", "unplaced": "Yerleşmeyenler ({n})", "compare": "Karşılaştır", "compareNone": "Karşılaştırma yok", "ghosts": "Hayalet katmanı göster", "legend": "Lejant", "reset": "Sıfırla", "search": "Ders, hoca veya oda ara…", "rooms": "{n} oda", "isolateHint": "⌥-tık: yalnızca bu fakülte", "unplacedHint": "Yerleştirmek için panoya sürükleyin", "miniMonth": "Ay", "heatDot": "%{p} dolu · {c} çakışma"},
+    "skipToGrid": "Izgaraya geç", "sidebar": {"label": "Takvim filtreleri", "close": "Filtreleri kapat", "unplacedExtra": "+{n} talep çözücüye hiç girmedi (plan dışı ya da saati yok)", "run": "Çalıştırma", "active": "Aktif", "buildings": "Binalar", "faculties": "Fakülteler", "tags": "Etiketler", "status": "Durum", "capacity": "Kapasite ≥", "unplaced": "Yerleşmeyenler ({n})", "compare": "Karşılaştır", "compareNone": "Karşılaştırma yok", "ghosts": "Hayalet katmanı göster", "legend": "Lejant", "reset": "Sıfırla", "search": "Ders, hoca veya oda ara…", "rooms": "{n} oda", "isolateHint": "⌥-tık: yalnızca bu fakülte", "unplacedHint": "Yerleştirmek için panoya sürükleyin", "miniMonth": "Ay", "heatDot": "%{p} dolu · {c} çakışma"},
     "state": {"placed": "Yerleşti", "conflict": "Çakışma", "warning": "Uyarı", "locked": "Kilitli", "partial": "Kısmi", "unplaced": "Yerleşmedi", "preoccupied": "Önceden dolu", "booking": "Rezervasyon", "selected": "seçili", "ghost": "Run #{run}'de", "onlyHere": "yalnız bu çalıştırmada", "evening": "Akşam", "saving": "kaydediliyor"},
     "issues": {"conflictsWeek": "Bu hafta {n} çakışma", "warningsWeek": "Bu hafta {n} uyarı", "conflicts": "{n} çakışma", "warnings": "{n} uyarı", "unplaced": "{n} yerleşmedi"},
     "drag": {"ok": "{room} · {when} · {cap} koltuk", "free": "Boş: {range}", "multi": "{n} ders · {ok} uygun · {bad} çakışma", "pickedUp": "{label} alındı. Ok tuşları taşır, Boşluk bırakır, Esc iptal eder.", "over": "{label} {room}, {when} üzerinde: {state}.", "fits": "uygun", "cancelled": "Taşıma iptal edildi.", "resize": "{range} · {delta} ders saati"},
@@ -4553,7 +4553,7 @@
       "noWeeks": "Hiçbir dönemde sınav ya da bütünleme haftası tanımlı değil; kural şu an hiçbir tarihte uygulanmaz.",
       "range": "{weeks} ({from} – {to})",
       "roomCount": "{n, plural, =0 {Sınav odası seçilmedi.} other {# sınav odası}}",
-      "roomCountTimetable": "{n, plural, =0 {Sınav odaları: dönemin sınav programının odaları} other {# sınav odası ve dönemin sınav programının odaları}}"
+      "roomCountTimetable": "{n, plural, =0 {0 sınav odası seçili; dönemin sınav programının odaları kullanılır} other {# sınav odası ve dönemin sınav programının odaları}}"
     },
     "why": {
       "open": "Neden?",

@@ -205,7 +205,8 @@ export function ClassInspector(p: InspectorProps) {
             <span className="min-w-0">{statusLine.text}</span>
           </p>
         </div>
-        <div className="flex shrink-0 items-center">
+        {/* phones: the header's icon buttons sit 44 px apart (lane A hand-on: the "more" button and its neighbours were crowded) */}
+        <div className="flex shrink-0 items-center pointer-coarse:gap-1 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
           {save !== "idle" ? (
             <span role="status" className={cn("mr-1 type-caption font-medium", save === "error" ? "text-status-infeasible-fg" : "text-label-2")} data-testid="inspector-save">
               {save === "saving" ? t("calendar.insp.saving") : save === "saved" ? t("calendar.insp.saved") : t("calendar.insp.saveFailed")}
@@ -274,10 +275,10 @@ export function ClassInspector(p: InspectorProps) {
         <SectionBlock title={t("calendar.insp.who")}>
           <p className="type-callout tabular-nums">{size || "—"} {lang === "tr" ? "öğrenci" : "students"}{cap ? ` · ${cap} ${lang === "tr" ? "koltuk" : "seats"}` : ""}</p>
           {(row?.instructors.length ? row.instructors.map((i) => ({ id: i.id ?? null, name: i.name })) : (a?.instr ?? []).map((n, i) => ({ id: a?.instr_ids[i] ?? null, name: n }))).map((i) => (
-            i.id ? <Link key={`${i.id}-${i.name}`} href={`/timetable?lens=week&subject=instructor:${i.id}${p.runId ? `&run=${p.runId}` : ""}`} className="w-fit type-callout text-tint-text hover:underline">{i.name}</Link> : <span key={i.name} className="type-callout">{i.name}</span>
+            i.id ? <Link key={`${i.id}-${i.name}`} href={`/timetable?lens=week&subject=instructor:${i.id}${p.runId ? `&run=${p.runId}` : ""}`} className="inline-flex w-fit items-center type-callout text-tint-text hover:underline pointer-coarse:min-h-11">{i.name}</Link> : <span key={i.name} className="type-callout">{i.name}</span>
           ))}
           {prog && (row?.program_id ?? a?.prog_id) && years[0] ? (
-            <Link href={`/timetable?lens=week&subject=cohort:${row?.program_id ?? a?.prog_id}:${years[0]}${p.runId ? `&run=${p.runId}` : ""}`} className="w-fit type-callout text-tint-text hover:underline">{t("calendar.subject.cohortLabel", { program: prog, year: years[0] })}</Link>
+            <Link href={`/timetable?lens=week&subject=cohort:${row?.program_id ?? a?.prog_id}:${years[0]}${p.runId ? `&run=${p.runId}` : ""}`} className="inline-flex w-fit items-center type-callout text-tint-text hover:underline pointer-coarse:min-h-11">{t("calendar.subject.cohortLabel", { program: prog, year: years[0] })}</Link>
           ) : null}
         </SectionBlock>
 
@@ -387,7 +388,7 @@ export function ClassInspector(p: InspectorProps) {
             <ul className="flex flex-col gap-1 type-footnote tabular-nums">
               {detail.data.history.map((h) => (
                 <li key={h.run_id} className={cn("flex items-baseline gap-2", h.run_id === p.runId && "font-semibold")}>
-                  <span className="w-14 shrink-0">Run #{h.run_id}</span>
+                  <span className="w-24 shrink-0">{t("glass.shell.runShort", { id: h.run_id })}</span>
                   <span className="min-w-0 flex-1 truncate">{h.room_codes.join(" + ") || "—"}{h.day && h.start_period ? ` · ${dayName(h.day, locale, "short")} ${PERIODS[h.start_period - 1]?.start ?? ""}` : ""}</span>
                   {h.locked ? <Lock className="size-3 shrink-0 text-label-3" aria-label={t("calendar.state.locked")} /> : null}
                 </li>

@@ -117,13 +117,15 @@ const CODE_TITLES: Record<string, MessageKey> = {
 /** Fallback when the backend has no data-issues route: client groups by code (same order and collapsing). */
 export function LocalIssueGroups({ sections }: { sections: { section: string; codes: Map<string, CollapsedDiagnosis[]> }[] }) {
   const { t, locale } = useI18n();
+  // a code without a planner title keeps its name next to "Other notes": seven groups all called "Diğer notlar" told
+  // the planner nothing (round-1 R1-S-28)
   const blocks = sections.filter((s) => s.section !== "unplaced").flatMap((s) => [...s.codes.entries()]);
   if (!blocks.length) return null;
   return (
     <div>
       <h3 className="type-headline pb-1 text-label-1">{t("glass.report.dataTitle")}</h3>
       {blocks.map(([code, rows]) => (
-        <Disclosure key={code} title={t(CODE_TITLES[code] ?? "glass.report.code.other")} count={rows.reduce((s, r) => s + r.count, 0)}>
+        <Disclosure key={code} title={CODE_TITLES[code] ? t(CODE_TITLES[code]) : `${t("glass.report.code.other")} · ${code.replace(/_/g, " ")}`} count={rows.reduce((s, r) => s + r.count, 0)} testId={`local-group-${code}`}>
           <ul>
             {rows.map((r) => (
               <li key={r.d.id} className="py-1.5 type-callout text-label-1 [&:not(:last-child)]:hairline-b" data-testid="diagnosis-card" data-code={r.d.code ?? ""}>

@@ -12,6 +12,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { Textarea } from "@/components/ui/textarea";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calendarApi, useFreeRooms, type FreeRoom, type MoveScope } from "@/lib/api/calendar";
 import { useI18n } from "@/lib/i18n/provider";
@@ -39,7 +40,8 @@ export function ScopeRadio({ model, ev, value, onChange, day }: { model: Calenda
   if (weeks.length <= 1) return null;
   const range = weeks.length > 1 ? `${weeks[0]}–${weeks[weeks.length - 1]}` : String(weeks[0]);
   const opt = (scope: MoveScope, text: string, extra?: React.ReactNode) => (
-    <label className="flex items-center gap-2 py-0.5">
+    // 44 px rows on touch (MOBILE.md M-02; round-1 R1-S-16: 22 px radios)
+    <label className="flex items-center gap-2 py-0.5 pointer-coarse:min-h-11" data-testid={`move-scope-${scope}`}>
       <input type="radio" name={name} checked={value.scope === scope} onChange={() => onChange({ ...value, scope })} className="accent-(--accent)" />
       <span className="flex-1">{text}</span>
       {extra}
@@ -56,15 +58,17 @@ export function ScopeRadio({ model, ev, value, onChange, day }: { model: Calenda
         null,
       )}
       {value.scope !== "all" ? (
-        <label className="mt-1 flex items-center gap-2 type-footnote text-label-2">
+        // "Başlangıç haftası": the week the "only" / "from" scope starts at, whatever week is on screen (round-1 R1-M-31);
+        // a design-system select: 16 px text and 44 px on phones (MOBILE.md M-02 / M-03)
+        <label className="mt-1 flex flex-col gap-1 type-footnote text-label-2">
           {t("calendar.move.fromWeek")}
-          <select className="h-7 rounded-lg bg-fill-2 px-2 type-footnote text-label-1" value={value.week} onChange={(e) => onChange({ ...value, week: Number(e.target.value) })}>
+          <NativeSelect size="sm" className="pointer-coarse:[--control-h-sm:var(--control-h-md)]" selectClassName="type-footnote text-label-1" value={value.week} onChange={(e) => onChange({ ...value, week: Number(e.target.value) })} data-testid="move-from-week">
             {weeks.map((w) => (
               <option key={w} value={w}>
                 {t("calendar.nav.weekShort", { n: w })} · {label(w)}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
       ) : null}
     </fieldset>
@@ -204,7 +208,7 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm, can
                           data-status={r.status}
                           disabled={g.key === "other" && !canForce}
                           onClick={() => setRoom(r.room_id)}
-                          className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2 disabled:opacity-50", room === r.room_id && "bg-tint-soft")}
+                          className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2 disabled:opacity-50 pointer-coarse:min-h-11", room === r.room_id && "bg-tint-soft")}
                         >
                           <span className="w-14 shrink-0 font-semibold">{r.code}</span>
                           <span className="w-16 shrink-0 type-footnote text-label-2 tabular-nums">{t(model.exam ? "calendar.move.examSeats" : "calendar.move.seats", { n: r.capacity })}</span>
@@ -219,19 +223,20 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm, can
             </div>
           </div>
           <div className="flex flex-col gap-3">
+            {/* design-system selects: 16 px text and 44 px on phones (lane A hand-on: the raw selects read 13 px) */}
             <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
               {t("calendar.move.day")}
-              <select className="h-8 rounded-lg bg-fill-2 px-2 type-callout font-normal text-label-1" value={day} onChange={(e) => setDay(Number(e.target.value))}>
+              <NativeSelect size="sm" className="pointer-coarse:[--control-h-sm:var(--control-h-md)]" selectClassName="type-callout font-normal text-label-1" value={day} onChange={(e) => setDay(Number(e.target.value))} data-testid="move-day">
                 {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{dayName(d, locale)}</option>)}
-              </select>
+              </NativeSelect>
             </label>
             <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
               {t("calendar.move.start")}
-              <select className="h-8 rounded-lg bg-fill-2 px-2 type-callout font-normal text-label-1" value={sp} onChange={(e) => setSp(Number(e.target.value))}>
+              <NativeSelect size="sm" className="pointer-coarse:[--control-h-sm:var(--control-h-md)]" selectClassName="type-callout font-normal text-label-1" value={sp} onChange={(e) => setSp(Number(e.target.value))} data-testid="move-start">
                 {PERIODS.filter((p) => p.index + span <= PERIODS_PER_DAY).map((p) => (
                   <option key={p.index} value={p.index}>P{p.index} · {p.start}–{PERIODS[p.index + span - 1].end}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <ScopeRadio model={model} ev={ev} value={scope} onChange={setScope} day={day} />
           </div>
@@ -253,7 +258,8 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm, can
             <p className="type-footnote text-label-2" data-testid="move-force-admin-only">{t("calendar.move.forceAdmin")}</p>
           )
         ) : null}
-        <DialogFooter>
+        {/* phones: "Taşı" stays in reach while the sheet scrolls (MOBILE.md M-05) */}
+        <DialogFooter className="max-sm:sticky max-sm:bottom-0 max-sm:z-10">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>{t("calendar.insp.cancel")}</Button>
           {canForce && shown && shown.hard.length && changed ? (
             <Button
