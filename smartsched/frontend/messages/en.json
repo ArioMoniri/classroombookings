@@ -3254,7 +3254,20 @@
       "channelOff": "Channel off",
       "unavailableEmail": "Your account has no e-mail address.",
       "unavailableInApp": "In-app notifications are not available right now.",
-      "unavailableOther": "Cannot reach you yet: your institution must switch the channel on and you must link an address."
+      "unavailableOther": "Cannot reach you yet: your institution must switch the channel on and you must link an address.",
+      "groups": {
+        "approvals": "Approvals",
+        "bookings": "Bookings",
+        "timetable": "Timetable",
+        "other": "Other"
+      },
+      "groupCount": "{n, plural, one {# event} other {# events}}",
+      "groupAll": "Everything in this group",
+      "groupAllLabel": "{group}: all",
+      "notLinked": "{names}: not linked",
+      "linkChannels": "Profile › Linked channels",
+      "noEmail": "E-mail: your account has no e-mail address.",
+      "noneReachable": "No channel can reach you right now."
     },
     "admin": {
       "tab": "Integrations",

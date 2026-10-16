@@ -68,14 +68,37 @@ describe("NotificationPreferencesPanel", () => {
     expect(screen.getByTestId("pref-approval.rejected-email")).toHaveAttribute("data-checked");
   });
 
-  it("shows a channel that cannot reach the user disabled, with the reason as text", async () => {
+  it("sums up the channels that cannot reach the user in one line, never one switch per event", async () => {
     state.prefs = { ...base(), channels: base().channels.map((c) => (c.name === "email" ? { ...c, available: false } : c)) };
     renderPanel();
-    expect((await screen.findAllByText("Hesabınızda e-posta adresi yok.")).length).toBeGreaterThan(0);
-    expect(screen.getByTestId("pref-channel-email")).toHaveAttribute("data-disabled");
-    expect(screen.getByTestId("pref-approval.approved-email")).toHaveAttribute("data-disabled");
-    expect(screen.getAllByText(/kurum kanalı açmalı/).length).toBeGreaterThan(0);
-    expect(screen.getByTestId("pref-channel-telegram")).toHaveAttribute("data-disabled");
+    const line = await screen.findByTestId("prefs-unreachable");
+    expect(line).toHaveTextContent("E-posta: hesabınızda e-posta adresi yok.");
+    expect(line).toHaveTextContent("Telegram: bağlı değil — Profil › Bağlı kanallar");
+    expect(screen.getByTestId("prefs-link-channels")).toHaveAttribute("href", "/profile#channels");
+    expect(screen.queryByTestId("pref-channel-email")).toBeNull();
+    expect(screen.queryByTestId("pref-channel-telegram")).toBeNull();
+    expect(screen.queryByTestId("pref-approval.approved-email")).toBeNull();
+    expect(screen.queryByTestId("pref-approval.approved-telegram")).toBeNull();
+    expect(screen.getByTestId("pref-approval.approved-in_app")).toBeInTheDocument();
+  });
+
+  it("groups events in sections with an all on / off switch per group", async () => {
+    state.prefs = {
+      ...base(),
+      events: [...base().events, { event: "booking.cancelled", label_tr: "Rezervasyonum iptal edildi", label_en: "My booking was cancelled", channels: { in_app: true, email: true, telegram: false } }],
+    };
+    renderPanel();
+    const approvals = await screen.findByTestId("prefs-group-approvals");
+    expect(approvals).toHaveTextContent("Onaylar");
+    expect(approvals).toHaveTextContent("2 olay");
+    expect(screen.getByTestId("prefs-group-bookings")).toHaveTextContent("Rezervasyonlar");
+    expect(screen.getByTestId("pref-group-approvals")).toHaveAttribute("data-checked");
+    await userEvent.click(screen.getByTestId("pref-group-approvals"));
+    await waitFor(() =>
+      expect(state.put).toHaveBeenCalledWith({ events: { "approval.approved": { in_app: false, email: false }, "approval.rejected": { in_app: false, email: false } } }),
+    );
+    await waitFor(() => expect(screen.getByTestId("pref-approval.rejected-email")).not.toHaveAttribute("data-checked"));
+    expect(screen.getByTestId("pref-booking.cancelled-email")).toHaveAttribute("data-checked");
   });
 
   it("a channel's master switch turns it off for every event", async () => {

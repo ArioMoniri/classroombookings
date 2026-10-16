@@ -488,7 +488,7 @@ export function ClassesPage() {
           <h1 className="type-large-title">{t("classes.title")}</h1>
           <span className="type-callout text-label-2 tabular-nums">{term?.name}{runId ? ` · Run #${runId}` : ""}</span>
           {runs.length > 1 ? (
-            <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-40" aria-label={t("calendar.sidebar.run")} value={runId ?? ""} onChange={(e) => setParam({ run: e.target.value })}>
+            <NativeSelect selectClassName="max-md:pointer-coarse:text-base" size="sm" className="w-auto min-w-40 pointer-coarse:[--control-h-sm:var(--control-h-md)]" aria-label={t("calendar.sidebar.run")} value={runId ?? ""} onChange={(e) => setParam({ run: e.target.value })}>
               {runs.map((r) => <option key={r.id} value={r.id}>Run #{r.id} · {t(`runs.status.${r.status}`)}</option>)}
             </NativeSelect>
           ) : null}

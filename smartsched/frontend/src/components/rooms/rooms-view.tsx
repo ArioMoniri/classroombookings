@@ -177,7 +177,7 @@ export function RoomsView() {
   ];
 
   const toolbar = (
-    <div role="toolbar" aria-label={t("roomsV2.title")} className="flex w-full flex-wrap items-center gap-2 [--control-h-md:var(--control-h-sm)]">
+    <div role="toolbar" aria-label={t("roomsV2.title")} className="flex w-full flex-wrap items-center gap-2 pointer-fine:[--control-h-md:var(--control-h-sm)] pointer-coarse:[--control-h-sm:var(--control-h-md)]">
       <InputGroup className="w-auto min-w-48 flex-1 basis-56">
         <InputGroupAddon><Search aria-hidden /></InputGroupAddon>
         <InputGroupInput value={q} onChange={(e) => set({ q: e.target.value })} placeholder={t("roomsV2.search")} aria-label={t("roomsV2.search")} data-testid="rooms-search" />

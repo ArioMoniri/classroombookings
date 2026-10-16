@@ -82,7 +82,7 @@ export function TabBar() {
   // tabs depend on permissions and counts from queries: render after hydration only (no #418 mismatch)
   if (!hydrated) return null;
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-end justify-center gap-2 px-[max(0.75rem,env(safe-area-inset-left))] lg:hidden">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-end justify-center gap-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] lg:hidden">
       <LayoutGroup id="tab-bar">
         <nav aria-label={t("glass.shell.tabs")} data-glass="chrome" className="glass-chrome pointer-events-auto min-w-0 flex-1 rounded-full p-1 sm:max-w-md sm:flex-none">
           <ul className="grid grid-flow-col auto-cols-fr items-center gap-0.5">

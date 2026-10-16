@@ -522,22 +522,28 @@ export function BookingsView() {
       ) : null}
       {g?.problems.includes("no_schedule") ? (
         <Alert tone="warning" title={t("crbs.problems.noScheduleTitle")}>
-          {t("crbs.problems.noSchedule")}{" "}
-          {hasPermission(me.data?.permissions, "setup.sessions") ? (
-            <Link className="font-medium underline" href="/admin/sessions">
-              {t("crbs.problems.fix")}
-            </Link>
-          ) : null}
+          {/* one run of text: the link reads (and is hit-tested, M-02) as part of the sentence */}
+          <span>
+            {t("crbs.problems.noSchedule")}{" "}
+            {hasPermission(me.data?.permissions, "setup.sessions") ? (
+              <Link className="font-medium underline" href="/admin/sessions">
+                {t("crbs.problems.fix")}
+              </Link>
+            ) : null}
+          </span>
         </Alert>
       ) : null}
       {g?.problems.includes("no_rooms") ? (
         <Alert tone="info" title={t("crbs.problems.noRoomsTitle")}>
-          {t("crbs.problems.noRooms")}{" "}
-          {hasPermission(me.data?.permissions, "setup.rooms") ? (
-            <Link className="font-medium underline" href="/admin/rooms">
-              {t("crbs.problems.fix")}
-            </Link>
-          ) : null}
+          {/* one run of text: the link reads (and is hit-tested, M-02) as part of the sentence */}
+          <span>
+            {t("crbs.problems.noRooms")}{" "}
+            {hasPermission(me.data?.permissions, "setup.rooms") ? (
+              <Link className="font-medium underline" href="/admin/rooms">
+                {t("crbs.problems.fix")}
+              </Link>
+            ) : null}
+          </span>
         </Alert>
       ) : null}
       {grid.isError ? <Alert tone="error">{bookingErrorMessage(crbsError(grid.error), t, { formatDate: fmt.short })}</Alert> : null}

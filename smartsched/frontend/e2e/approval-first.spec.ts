@@ -14,8 +14,8 @@
  * 5. Phone 390 × 844 (touch): the reject dialog is a full-width bottom sheet, reason rows ≥ 44 px, no sideways
  *    scroll; Taleplerim's withdraw button ≥ 44 px.
  * 6. A two-period submission approved at once ("2 saatin hepsini onayla"); the teacher reads "Onaylandı" (F-01 S07).
- * 7. Profile › Bildirimler: switching off e-mail for "Talebim onaylandı" is saved (F-01 S11); on a phone the
- *    matrix is one card per event with ≥ 44 px rows and no sideways scroll.
+ * 7. Profile › Bildirimler: switching off e-mail for "Talebim onaylandı" is saved (F-01 S11); on a phone the events
+ *    are grouped (only Onaylar open), rows ≥ 44 px, the panel stays short and nothing scrolls sideways.
  * 8. Settings › Entegrasyonlar › Giden webhook'lar: the delivery switch heads the card; a loopback URL is refused
  *    next to the field (M-41); a new webhook shows its secret once, then is deleted after a confirmation.
  *
@@ -360,8 +360,8 @@ test("approval-first 7. Profile › Bildirimler saves an event × channel switch
   await login(page, TEACHER.username, TEACHER.password);
   await page.goto("/profile#notifications");
   const panel = page.getByTestId("notification-prefs");
-  await expect(panel.getByTestId("prefs-matrix")).toBeVisible({ timeout: 30_000 });
-  for (const label of ["Onayımı bekleyen yeni oda talepleri", "Talebim onaylandı", "Talebim reddedildi (gerekçesiyle)", "Talebimin süresi doldu", "Uygulama içi", "E-posta"]) await expect(panel).toContainText(label);
+  await expect(panel.getByTestId("prefs-matrix-approvals")).toBeVisible({ timeout: 30_000 });
+  for (const label of ["Onaylar", "Rezervasyonlar", "Onayımı bekleyen yeni oda talepleri", "Talebim onaylandı", "Talebim reddedildi (gerekçesiyle)", "Talebimin süresi doldu", "Uygulama içi", "E-posta"]) await expect(panel).toContainText(label);
   const cell = panel.getByTestId("pref-approval.approved-email");
   await expect(cell).toHaveAttribute("aria-checked", "true");
   await cell.click();
@@ -373,11 +373,19 @@ test("approval-first 7. Profile › Bildirimler saves an event × channel switch
 
   const p = await phonePage(browser, { id: TEACHER.username, password: TEACHER.password });
   await p.goto("/profile#notifications");
-  const cards = p.getByTestId("notification-prefs").getByTestId("prefs-cards");
-  await expect(cards).toBeVisible({ timeout: 30_000 });
-  await expect(cards.getByTestId("pref-approval.approved-email")).toHaveAttribute("aria-checked", "false");
-  for (const row of await cards.locator("li li").all()) expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // in-app + e-mail fit a matrix on a phone: the approvals group is open, the others are collapsed
+  const prefs = p.getByTestId("notification-prefs");
+  const matrix = prefs.getByTestId("prefs-matrix-approvals");
+  await expect(matrix).toBeVisible({ timeout: 30_000 });
+  await expect(matrix.getByTestId("pref-approval.approved-email")).toHaveAttribute("aria-checked", "false");
+  for (const row of await matrix.locator("tbody tr").all()) expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expect(prefs.getByTestId("prefs-matrix-bookings")).toBeHidden();
+  expect((await prefs.boundingBox())!.height).toBeLessThan(1600);
   expect(await noSidewaysScroll(p)).toBe(true);
+  // the settings tabs are 44 px on touch
+  await p.goto("/settings");
+  await expect(p.getByTestId("tab-appearance")).toBeVisible({ timeout: 30_000 });
+  expect((await p.getByTestId("tab-appearance").boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await p.context().close();
 });
 

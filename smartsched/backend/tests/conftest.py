@@ -107,6 +107,19 @@ def _fresh_login_limiter():
     ratelimit.reset()
 
 
+@pytest.fixture(autouse=True)
+def _fresh_channel_registry():
+    """``app.services.notify_dispatch`` keeps its channels in a process-wide list. ``app.main.lifespan`` (the start-up
+    hook, run by tests/test_api_ops_fixes.py) registers the Apprise/web-push adapters there for the life of the
+    process, so every later test would dispatch to eight channels instead of the two built-ins. Each test gets the
+    registry it started with back."""
+    from app.services import notify_dispatch as nd
+
+    before = list(nd._CHANNELS)
+    yield
+    nd._CHANNELS[:] = before
+
+
 #: the heaviest tests (each >~15 s on the real workbooks, ~4.5 min together). ``make check`` runs
 #: ``-m "not slow"``; ``make test-slow`` (a separate CI step) runs exactly these, so CI keeps full coverage.
 SLOW_TESTS = frozenset(

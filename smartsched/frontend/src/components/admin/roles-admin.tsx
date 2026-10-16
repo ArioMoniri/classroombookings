@@ -235,7 +235,7 @@ function RoleUsers({ role }: { role: Role }) {
           {t("admingaps.roles.users", { n: total })}
         </h3>
         {allowed && total > 0 ? (
-          <Link href={`/admin/users?role=${role.id}`} className="inline-flex items-center gap-1 type-callout text-tint-text outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="role-users-all">
+          <Link href={`/admin/users?role=${role.id}`} className="inline-flex min-h-11 items-center gap-1 type-callout text-tint-text outline-hidden hover:underline pointer-fine:min-h-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="role-users-all">
             {t("admingaps.roles.openInUsers")}
             <ChevronRight className="size-4" aria-hidden />
           </Link>

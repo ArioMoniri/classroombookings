@@ -3,7 +3,7 @@
 import { Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -359,15 +359,20 @@ export function SettingsView() {
   ].filter((x) => x.show);
   const requested = params.get("tab") ?? (admin ? "ai" : "appearance");
   const tab = tabs.some((x) => x.value === requested) ? requested : "appearance";
+  // a deep link (/settings?tab=integrations) on a phone: bring the chosen tab into the scroller's view
+  useEffect(() => {
+    document.querySelector(`[data-testid="tab-${tab}"]`)?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [tab]);
   return (
     <div className="max-w-[960px]" data-testid="settings">
       <PageHeader title={t("settings.title")} subtitle={admin ? t("settings.subtitle") : t("glass.settings.subtitleUser")} />
       <Tabs value={tab} onValueChange={(v) => router.replace(`/settings?tab=${String(v)}`)}>
         {/* the track is min-width:max-content, so the scroller is a wrapper (10 tabs no longer fit at 1440) */}
         <div className="mb-5 max-w-full overflow-x-auto">
-          <TabsList>
+          {/* touch: 44 px tabs (the track grows by its 3 px padding), not the 38 px a 44 px track leaves */}
+          <TabsList className="pointer-coarse:h-auto">
             {tabs.map((x) => (
-              <TabsTrigger key={x.value} value={x.value} data-testid={`tab-${x.value}`}>{x.label}</TabsTrigger>
+              <TabsTrigger key={x.value} value={x.value} className="pointer-coarse:min-h-11" data-testid={`tab-${x.value}`}>{x.label}</TabsTrigger>
             ))}
           </TabsList>
         </div>

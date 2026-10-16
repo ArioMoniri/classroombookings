@@ -146,7 +146,7 @@ function UndoRedo({ className }: { className?: string }) {
     if (label) toast(t(key, { label }));
   };
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("flex items-center gap-1 pointer-coarse:[--control-h-sm:var(--control-h-md)]", className)}>
       <Button size="sm" variant="ghost" onClick={() => void run(undo, "studio.undone")} disabled={!canUndo} aria-keyshortcuts="Meta+Z Control+Z" data-testid="studio-undo">
         <Undo2 aria-hidden /> {t("common.undo")}
       </Button>
@@ -404,7 +404,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
       {/* < xl: bottom bar — Back · summary pill · Next / Generate. Sticky INSIDE main, not fixed to the viewport:
           the fixed bar covered the sidebar footer at 1024 (review 2026-10-15 §3 Generate 1024). */}
       <div className="pointer-events-none sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 mt-4 lg:bottom-3 xl:hidden" data-testid="studio-bottom-bar">
-        <div data-glass="chrome" className="glass-chrome pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-full p-1.5">
+        <div data-glass="chrome" className="glass-chrome pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-full p-1.5 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
           <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => goStep(STUDIO_STEPS[index - 1])}>
             <ChevronLeft aria-hidden /> {t("common.back")}
           </Button>

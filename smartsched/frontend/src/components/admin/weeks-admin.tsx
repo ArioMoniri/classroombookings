@@ -101,7 +101,7 @@ function WeekForm({ week, onDone }: { week: TimetableWeek | null; onDone: () => 
         <Input id={`wk-name-${week?.id ?? "new"}`} required maxLength={20} placeholder={t("crbs.weeks.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
       </Field>
       <Field label={t("crbs.weeks.colour")} htmlFor={`wk-col-${week?.id ?? "new"}`}>
-        <input id={`wk-col-${week?.id ?? "new"}`} type="color" value={col} onChange={(e) => setCol(e.target.value.toUpperCase())} className="h-8 w-16 cursor-pointer rounded-lg bg-fill-2 p-1 edge-hairline" />
+        <input id={`wk-col-${week?.id ?? "new"}`} type="color" value={col} onChange={(e) => setCol(e.target.value.toUpperCase())} className="h-8 w-16 cursor-pointer rounded-lg bg-fill-2 p-1 edge-hairline pointer-coarse:h-11 max-md:pointer-coarse:text-base" />
       </Field>
       <div className="flex gap-2">
         {week ? (

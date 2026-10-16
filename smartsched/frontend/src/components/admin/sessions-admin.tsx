@@ -214,7 +214,7 @@ function DatePainter({ session }: { session: Session }) {
                 {t("crbs.painter.revert")}
               </Button>
             ) : null}
-            <Button size="sm" disabled={!pending || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => toast.success(t("crbs.painter.saved", { n: pending })), onError: toastError })} data-testid="painter-save" aria-busy={save.isPending || undefined}>
+            <Button size="sm" className="pointer-coarse:h-11" disabled={!pending || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => toast.success(t("crbs.painter.saved", { n: pending })), onError: toastError })} data-testid="painter-save" aria-busy={save.isPending || undefined}>
               <BusyLabel busy={save.isPending} label={t("busy.saving")}>
               {t("crbs.painter.save", { n: pending })}</BusyLabel>
             </Button>

@@ -166,7 +166,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Suspense>
         <OfflineBanner />
         <MaintenanceBanner />
-        <main id="main" tabIndex={-1} className="flex-1 outline-hidden px-4 pt-3 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-4 lg:pb-8">
+        <main id="main" tabIndex={-1} className="flex-1 outline-hidden pt-3 pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(6rem+env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:px-8 lg:pt-4 lg:pb-8">
           <div className="mx-auto w-full max-w-[1600px]">
             <RouteGuard>{children}</RouteGuard>
           </div>

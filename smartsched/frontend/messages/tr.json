@@ -3253,7 +3253,20 @@
       "channelOff": "Kanal kapalı",
       "unavailableEmail": "Hesabınızda e-posta adresi yok.",
       "unavailableInApp": "Uygulama içi bildirimler şu an kullanılamıyor.",
-      "unavailableOther": "Henüz size ulaşamıyor: kurum kanalı açmalı ve siz bir adres bağlamalısınız."
+      "unavailableOther": "Henüz size ulaşamıyor: kurum kanalı açmalı ve siz bir adres bağlamalısınız.",
+      "groups": {
+        "approvals": "Onaylar",
+        "bookings": "Rezervasyonlar",
+        "timetable": "Program",
+        "other": "Diğer"
+      },
+      "groupCount": "{n, plural, other {# olay}}",
+      "groupAll": "Bu gruptaki hepsi",
+      "groupAllLabel": "{group}: hepsi",
+      "notLinked": "{names}: bağlı değil",
+      "linkChannels": "Profil › Bağlı kanallar",
+      "noEmail": "E-posta: hesabınızda e-posta adresi yok.",
+      "noneReachable": "Şu an hiçbir kanal size ulaşamıyor."
     },
     "admin": {
       "tab": "Entegrasyonlar",
