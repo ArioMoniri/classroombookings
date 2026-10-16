@@ -18,7 +18,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: /(analytics|real-backend|bookings|calendar|languages|motion-audit|smoke|admin-gaps|reserve|wave1|studio-calendar-sweep|shell-admin-sweep|phase19|visual-quality|approval-first|sign-in|channels|followups-ui|wave2|intake|studio-relaxation|consent|integrity-r1|loop-r1-laneD|loop-r1-laneF)\.spec\.ts/,
+  testMatch: /(analytics|real-backend|bookings|calendar|languages|motion-audit|smoke|admin-gaps|reserve|wave1|studio-calendar-sweep|shell-admin-sweep|phase19|visual-quality|approval-first|sign-in|channels|followups-ui|wave2|intake|studio-relaxation|consent|integrity-r1|loop-r1-laneD|loop-r1-laneF|loop-r1-laneB)\.spec\.ts/,
   globalSetup: REAL ? "./e2e/global-setup.ts" : undefined,
   timeout: 60_000,
   expect: { timeout: 10_000 },
@@ -32,13 +32,15 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    { name: "chromium", testIgnore: /intake\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
+    { name: "chromium", testIgnore: /(intake|integrity-r1)\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
     // design-system gate on a phone: 390 × 844, touch (pointer: coarse), visual-quality.spec.ts only
     { name: "mobile", testMatch: /visual-quality\.spec\.ts/, use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } },
     // intake commits the real workbooks into 2026-BAHAR (board assignments linked to ~8 500 requests, list rows
     // taken from the file) and cannot put that back: listed last, so with one worker it runs after every other spec
     // and no spec reads its leftovers (e2e-stabilisation 2026-10-16). Not a `dependencies` edge: that would skip
     // intake whenever any earlier spec failed.
+    // integrity-r1 publishes a week run as the term's timetable: after every other spec too, before intake
+    { name: "integrity", testMatch: /integrity-r1\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
     { name: "intake", testMatch: /intake\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
