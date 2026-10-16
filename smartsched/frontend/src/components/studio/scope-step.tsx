@@ -71,8 +71,10 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
 
   return (
     <div className="space-y-5" data-testid="scope-step">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="grid gap-1.5">
+      {/* fields at their natural widths that wrap as whole fields: three equal columns squeezed the horizon control
+          into its select fallback at 1440 (each control keeps one row and one height, review §3 Generate) */}
+      <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
+        <div className="grid min-w-48 gap-1.5">
           <Label htmlFor="scope-term">{t("studio.scope.term")}</Label>
           <NativeSelect
             id="scope-term"
