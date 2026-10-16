@@ -4041,6 +4041,20 @@
     "running": "Solving",
     "elapsed": "{s} s elapsed · time limit {limit} s (loading and saving not included)",
     "runningHint": "You can leave this page; the plan shows here when it is done.",
+    "phase": {
+      "queued": "Waiting in the queue",
+      "loading": "Loading the exams and the pool",
+      "solving": "Solving",
+      "persisting": "Saving the duties",
+      "done": "Done",
+      "failed": "Failed",
+      "running": "Running"
+    },
+    "progressLabel": "Progress",
+    "pct": "{n}%",
+    "solveTime": "Solver time",
+    "solveTimeValue": "{s} / {limit} s",
+    "solvingNote": "The solver reports no percentage while it runs; the time against its limit moves instead.",
     "result": "Result",
     "infeasibleTitle": "The plan is incomplete: {n} invigilators missing",
     "infeasibleBody": "No rule was relaxed. Every missing duty is explained below with a suggestion; add people to the pool or change the rules and re-run.",
@@ -4073,6 +4087,10 @@
       "title": "Diagnoses",
       "none": "No diagnoses: every room session is staffed within the rules.",
       "counts": "{errors} errors, {others} warnings",
+      "resolvedCount": "{n} resolved",
+      "resolved": "Resolved",
+      "resolvedGroup": "{title}: resolved",
+      "resolvedHint": "Staffed by hand after the solve.",
       "groupCount": "{n} entries · {posts} room sessions",
       "show": "Details",
       "hide": "Hide",
@@ -4118,13 +4136,15 @@
       "unlock": "Unlock {name}'s duty",
       "lockedToast": "{name}'s duty is locked; a re-run keeps it",
       "unlocked": "{name}'s duty is unlocked",
-      "reassign": "Assign someone else instead of {name}"
+      "reassign": "Assign someone else instead of {name}",
+      "add": "Add invigilator",
+      "addLabel": "Add invigilator: {room}, {time}"
     },
     "reassign": {
       "title": "Who instead of {name}?",
       "body": "{room} · {date} {time}. The new duty is manual and locked.",
       "search": "Search people",
-      "checking": "Everyone is being checked against the plan's rules; on a large exam period this can take about a minute.",
+      "checking": "Checking everyone against the plan's rules…",
       "free": "Free people ({n})",
       "noFree": "Nobody is free at this time.",
       "narrow": "{n} more; narrow down with the search.",
@@ -4132,7 +4152,14 @@
       "reason": "Reason (optional)",
       "reasonHint": "For example: on leave that day",
       "confirm": "Assign",
-      "done": "{name} assigned"
+      "done": "{name} assigned",
+      "why": "Reason: {reason}"
+    },
+    "add": {
+      "title": "Add an invigilator to {room}",
+      "body": "{date} {time} · {assigned}/{required} invigilators. The new duty is manual and locked, so a re-run keeps it.",
+      "confirm": "Add",
+      "done": "{name} added to {room}"
     },
     "people": {
       "fair": "Fair share {fair} periods per person.",

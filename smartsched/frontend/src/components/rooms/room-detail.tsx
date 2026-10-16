@@ -5,6 +5,8 @@
  * with "Book this room" through /api/v1/bookings when the room has booking periods, the term occupancy
  * heat (server aggregate for this room) whose rows pick the week, and a link to the same week in the
  * calendar. Data: the calendar index of the term's working run (shared with /timetable).
+ * Phones (< 640 px): one day at a time instead of the week grid, and the week's classes as a list
+ * (room-day-view.tsx; MOBILE.md M-01 / M-02).
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
@@ -36,6 +38,8 @@ import { RoomVisual, floorText, nowLine, tagWords } from "./room-card";
 import { freeRuns, heldAt, roomWeek, rowSegments, weekClasses, weekShare, type FreeRun, type RoomCell } from "./room-occupancy";
 import { defaultWeek, useRunNow } from "./use-room-week";
 import { BareButton } from "@/components/shell/bare-button";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
+import { RoomClassesList, RoomDayView, initialDay } from "./room-day-view";
 
 
 export function RoomDetail({ id }: { id: number }) {
@@ -53,6 +57,8 @@ export function RoomDetail({ id }: { id: number }) {
   const [minLen, setMinLen] = useState(2);
   const [evening, setEvening] = useState(false);
   const [picked, setPicked] = useState<FreeRun | null>(null);
+  const phone = useIsPhone();
+  const [pickedDay, setPickedDay] = useState<number | null>(null);
 
   const setWeek = (w: number) => {
     const next = new URLSearchParams(params.toString());
@@ -66,6 +72,8 @@ export function RoomDetail({ id }: { id: number }) {
   const runs = useMemo(() => (grid ? freeRuns(grid, minLen, [1, 2, 3, 4, 5, 6], evening ? PERIODS_PER_DAY : LAST_DAYTIME_PERIOD) : []), [grid, minLen, evening]);
   const showSunday = !!grid && grid[6].some((c) => c.kind !== "free");
   const days = showSunday ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5, 6];
+  // phones: today's weekday first (the run's clock, else the device's), then whatever the user picks
+  const day = pickedDay !== null && days.includes(pickedDay) ? pickedDay : initialDay(days, now?.day ?? (((new Date().getDay() + 6) % 7) + 1));
 
   const r = room.data;
   if (room.isError) {
@@ -87,7 +95,7 @@ export function RoomDetail({ id }: { id: number }) {
 
   return (
     <div className="flex flex-col gap-4" data-testid="room-detail">
-      <Link href="/rooms" className="inline-flex w-fit items-center gap-1 type-callout text-label-2 hover:text-label-1">
+      <Link href="/rooms" className="inline-flex min-h-11 w-fit items-center gap-1 type-callout text-label-2 hover:text-label-1 pointer-fine:min-h-0">
         <ArrowLeft className="size-4" aria-hidden /> {t("roomsV2.back")}
       </Link>
 
@@ -131,7 +139,13 @@ export function RoomDetail({ id }: { id: number }) {
                 </span>
               ) : null}
             </div>
-            {grid ? <WeekGrid grid={grid} days={days} picked={picked} onPick={bookingsOn ? setPicked : undefined} now={now && now.week === week ? now : null} /> : cal.loading ? <Skeleton className="h-48 rounded-xl" /> : null}
+            {grid ? (
+              phone ? (
+                <RoomDayView grid={grid} days={days} day={day} onDay={setPickedDay} picked={picked} onPick={bookingsOn ? setPicked : undefined} now={now && now.week === week ? now : null} />
+              ) : (
+                <WeekGrid grid={grid} days={days} picked={picked} onPick={bookingsOn ? setPicked : undefined} now={now && now.week === week ? now : null} />
+              )
+            ) : cal.loading ? <Skeleton className="h-48 rounded-xl" /> : null}
             <Legend />
           </Card>
 
@@ -139,6 +153,8 @@ export function RoomDetail({ id }: { id: number }) {
             <h2 className="type-headline px-4 pt-3 pb-2">{week !== null ? t("roomsV2.classesThisWeek", { w: week }) : t("roomsV2.weekly")}</h2>
             {classes.length === 0 ? (
               <p className="px-4 pb-4 type-callout text-label-2">{week !== null ? t("roomsV2.noClasses", { w: week }) : "—"}</p>
+            ) : phone ? (
+              <RoomClassesList classes={classes} capacity={r.capacity} hrefOf={(e) => `/timetable?lens=week&subject=room:${id}&week=${week}&day=${e.day}&sel=${e.a.id}${cal.runId ? `&run=${cal.runId}` : ""}`} />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[560px] type-callout" data-testid="room-classes">
@@ -178,6 +194,7 @@ export function RoomDetail({ id }: { id: number }) {
             <h2 id="free-finder" tabIndex={-1} className="type-headline outline-hidden">{t("roomsV2.freeFinder")}</h2>
             <SegmentedControl
               size="sm"
+              fill={phone}
               aria-label={t("roomsV2.minLen", { n: minLen })}
               value={String(minLen)}
               onValueChange={(v) => {
@@ -186,7 +203,7 @@ export function RoomDetail({ id }: { id: number }) {
               }}
               options={[1, 2, 3, 4, 6].map((n) => ({ value: String(n), label: `≥ ${n}` }))}
             />
-            <label className="flex items-center justify-between gap-2 type-callout">
+            <label className="flex items-center justify-between gap-2 type-callout pointer-coarse:min-h-11">
               {t("roomsV2.includeEvening")}
               <Switch checked={evening} onCheckedChange={(v) => setEvening(!!v)} />
             </label>
@@ -201,7 +218,7 @@ export function RoomDetail({ id }: { id: number }) {
                           aria-pressed={on}
                           disabled={!bookingsOn}
                           onClick={() => setPicked(on ? null : f)}
-                          className={cn("flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left type-callout tabular-nums transition-colors duration-(--dur-fast) disabled:cursor-default", on ? "bg-tint-soft text-tint-text" : "bg-fill-3 hover:bg-fill-2")}
+                          className={cn("flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left type-callout tabular-nums pointer-coarse:min-h-11 transition-colors duration-(--dur-fast) disabled:cursor-default", on ? "bg-tint-soft text-tint-text" : "bg-fill-3 hover:bg-fill-2")}
                         >
                           <span>{dayName(f.day, locale, "short")} {spanText(f.sp, f.ep)}</span>
                           <span className="type-footnote text-label-2">P{f.sp}–P{f.ep}</span>
@@ -363,7 +380,7 @@ function TermStrip({ cells, week, onWeek }: { cells: { week: number | null; day:
             onClick={() => onWeek(w)}
             aria-label={`${t("roomsV2.heatWeek", { w })} · ${t("roomsV2.occupancyShort", { p: Math.round(mean * 100) })}`}
             aria-current={w === week ? "true" : undefined}
-            className={cn("grid grid-cols-[32px_repeat(7,1fr)] items-center gap-[3px] rounded-md p-0.5 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", w === week ? "bg-tint-soft" : "hover:bg-fill-3")}
+            className={cn("grid grid-cols-[32px_repeat(7,1fr)] items-center gap-[3px] rounded-md p-0.5 text-left pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", w === week ? "bg-tint-soft" : "hover:bg-fill-3")}
           >
             <span className="type-caption font-semibold text-label-2 tabular-nums">H{w}</span>
             {row.map((c, i) => (

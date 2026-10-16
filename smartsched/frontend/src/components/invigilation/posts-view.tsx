@@ -2,10 +2,11 @@
 /**
  * Duties by date and room: one date at a time (previous / next, or every date), grouped by session time; each post
  * shows the room (link to its page), the exams, the seated students, required vs assigned and who is on duty. A
- * planner can lock a duty (a re-run keeps it) or reassign it to a free candidate (people who cannot take it are
- * listed with the reason). A post a diagnosis points to opens on its date and is highlighted.
+ * planner can lock a duty (a re-run keeps it), reassign it to a free candidate (people who cannot take it are
+ * listed with the reason) or, on an under-staffed post, add one more invigilator by hand ("Gözetmen ekle"). A post
+ * a diagnosis points to opens on its date and is highlighted.
  */
-import { ChevronLeft, ChevronRight, Lock, LockOpen, UserRoundCog } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, LockOpen, UserRoundCog, UserRoundPlus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
@@ -21,7 +22,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { bySession, filterPosts, postDates } from "./invigilation-model";
-import { ReassignDialog } from "./reassign-dialog";
+import { ReassignDialog, type PickTarget } from "./reassign-dialog";
 
 const PAGE = 60;
 
@@ -34,7 +35,7 @@ export function PostsView({ plan, canEdit, person, focusPost }: { plan: PlanDeta
   const [query, setQuery] = useState("");
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [limit, setLimit] = useState(PAGE);
-  const [editing, setEditing] = useState<{ post: Post; duty: Duty } | null>(null);
+  const [editing, setEditing] = useState<PickTarget | null>(null);
   // a diagnosis link or a person filter re-targets the date (state adjusted during render, no effect)
   const [seen, setSeen] = useState(`${focusPost}|${person}`);
   if (seen !== `${focusPost}|${person}`) {
@@ -95,7 +96,7 @@ export function PostsView({ plan, canEdit, person, focusPost }: { plan: PlanDeta
               </h4>
               <ul className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
                 {s.posts.map((p) => (
-                  <PostCard key={p.key} p={p} canEdit={canEdit} planId={plan.id} focused={p.key === focusPost} refCb={p.key === focusPost ? focusRef : undefined} onReassign={(duty) => setEditing({ post: p, duty })} />
+                  <PostCard key={p.key} p={p} canEdit={canEdit} planId={plan.id} focused={p.key === focusPost} refCb={p.key === focusPost ? focusRef : undefined} onReassign={(duty) => setEditing({ post: p, duty })} onAdd={() => setEditing({ post: p, duty: null })} />
                 ))}
               </ul>
             </section>
@@ -112,7 +113,7 @@ export function PostsView({ plan, canEdit, person, focusPost }: { plan: PlanDeta
   );
 }
 
-function PostCard({ p, canEdit, planId, focused, refCb, onReassign }: { p: Post; canEdit: boolean; planId: number; focused: boolean; refCb?: RefObject<HTMLLIElement | null>; onReassign: (d: Duty) => void }) {
+function PostCard({ p, canEdit, planId, focused, refCb, onReassign, onAdd }: { p: Post; canEdit: boolean; planId: number; focused: boolean; refCb?: RefObject<HTMLLIElement | null>; onReassign: (d: Duty) => void; onAdd: () => void }) {
   const { t, n, locale } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
   const lock = useLockDuty();
@@ -148,6 +149,12 @@ function PostCard({ p, canEdit, planId, focused, refCb, onReassign }: { p: Post;
       <div className="flex flex-wrap items-center gap-2 type-footnote">
         <span className="tnum">{t("invigilation.posts.staffed", { assigned: n(p.assigned.length), required: n(p.required) })}</span>
         {p.missing > 0 ? <Badge tone="warning" data-testid="invig-post-missing">{t("invigilation.posts.missing", { n: n(p.missing) })}</Badge> : null}
+        {canEdit && p.missing > 0 ? (
+          <Button size="sm" variant="outline" className="ml-auto max-md:h-11" aria-label={t("invigilation.posts.addLabel", { room: p.room, time: p.time })} onClick={onAdd} data-testid="invig-add">
+            <UserRoundPlus aria-hidden />
+            {t("invigilation.posts.add")}
+          </Button>
+        ) : null}
       </div>
       {p.assigned.length ? (
         <ul className="flex flex-col gap-1" aria-label={t("invigilation.posts.onDuty")}>

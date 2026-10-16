@@ -1,8 +1,11 @@
 /**
- * Pure helpers of the Gözetmen ataması screens: grouping the diagnoses (errors first, INFEASIBLE never hidden),
- * the posts by date with filters, the unavailability rows of a pool member and the plan's status tone.
+ * Pure helpers of the Gözetmen ataması screens: grouping the diagnoses (errors first, INFEASIBLE never hidden,
+ * shortages staffed by hand afterwards last and marked resolved), the progress of a running plan (the backend's own
+ * phase and percentage; while solving, the elapsed time against the limit), the posts by date with filters, the
+ * unavailability rows of a pool member and the plan's status tone.
  */
-import type { Diagnosis, PlanBrief, Post, Unavailable } from "@/lib/api/invigilation";
+import type { Diagnosis, PlanBrief, Post, ProgressPhase, Unavailable } from "@/lib/api/invigilation";
+import { PLAN_DEFAULTS, PROGRESS_PHASES } from "@/lib/api/invigilation";
 
 export type Tone = "feasible" | "warning" | "infeasible" | "neutral" | "tint";
 
@@ -16,6 +19,8 @@ export function planTone(p: Pick<PlanBrief, "status" | "counts">): Tone {
 export interface DiagGroup {
   code: string;
   severity: Diagnosis["severity"];
+  /** every item of the group is `resolved` (its posts were staffed by hand after the solve) */
+  resolved: boolean;
   items: Diagnosis[];
   /** posts named by the group's items, de-duplicated */
   posts: number;
@@ -23,17 +28,62 @@ export interface DiagGroup {
 
 const SEV = { error: 0, warning: 1, info: 2 } as const;
 
-/** one group per code; errors first, then by size; every item kept (the list pages them, it never drops one) */
+/**
+ * One group per code (open items) plus one per code of the resolved items; open errors first, then by size,
+ * resolved groups last. Every item is kept (the list pages them, it never drops one).
+ */
 export function groupDiagnoses(list: readonly Diagnosis[]): DiagGroup[] {
   const m = new Map<string, DiagGroup>();
   for (const d of list) {
-    const key = `${d.severity}:${d.code}`;
-    const g = m.get(key) ?? { code: d.code, severity: d.severity, items: [], posts: 0 };
+    const resolved = d.resolved === true;
+    const key = `${resolved ? "resolved" : "open"}:${d.severity}:${d.code}`;
+    const g = m.get(key) ?? { code: d.code, severity: d.severity, resolved, items: [], posts: 0 };
     g.items.push(d);
     m.set(key, g);
   }
   for (const g of m.values()) g.posts = new Set(g.items.flatMap((d) => d.post_keys ?? [])).size;
-  return [...m.values()].sort((a, b) => SEV[a.severity] - SEV[b.severity] || b.items.length - a.items.length || a.code.localeCompare(b.code));
+  return [...m.values()].sort((a, b) => Number(a.resolved) - Number(b.resolved) || SEV[a.severity] - SEV[b.severity] || b.items.length - a.items.length || a.code.localeCompare(b.code));
+}
+
+/** the header counts: open errors, open warnings / info, resolved */
+export function diagCounts(list: readonly Diagnosis[]): { errors: number; others: number; resolved: number } {
+  let errors = 0;
+  let others = 0;
+  let resolved = 0;
+  for (const d of list) {
+    if (d.resolved === true) resolved += 1;
+    else if (d.severity === "error") errors += 1;
+    else others += 1;
+  }
+  return { errors, others, resolved };
+}
+
+/* ------------------------------------------------------------------ progress */
+
+/** a phase the messages name (`invigilation.phase.*`); anything else is shown as sent */
+export const knownPhase = (p: string): p is ProgressPhase => (PROGRESS_PHASES as readonly string[]).includes(p);
+
+export interface ProgressView {
+  /** the backend's phase (`queued` / `running` when the job has not reported yet) */
+  phase: string;
+  /** the backend's percentage, 0-100; null when it sent none (never made up) */
+  pct: number | null;
+  /** CP-SAT runs: the percentage stays at 30, the elapsed time against the limit is what moves */
+  solving: boolean;
+  limit: number;
+  /** seconds since the plan was created, clamped to the limit for the meter; null without a start time */
+  elapsed: number | null;
+  meter: number | null;
+}
+
+export function progressView(p: Pick<PlanBrief, "status" | "progress" | "params">, elapsed: number | null): ProgressView {
+  const phase = p.progress?.phase || (p.status === "QUEUED" ? "queued" : p.status === "RUNNING" ? "running" : "done");
+  const raw = p.progress?.pct;
+  const pct = typeof raw === "number" && Number.isFinite(raw) ? Math.min(100, Math.max(0, Math.round(raw))) : null;
+  const limitRaw = Number(p.params?.time_limit_s ?? PLAN_DEFAULTS.time_limit_s);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : PLAN_DEFAULTS.time_limit_s;
+  const solving = phase === "solving";
+  return { phase, pct, solving, limit, elapsed, meter: solving && elapsed !== null ? Math.min(limit, Math.max(0, elapsed)) : null };
 }
 
 /** suggestion texts across a group, counted (e.g. "Add 2 people free at that time" × 312) */

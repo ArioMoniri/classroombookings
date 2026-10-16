@@ -21,13 +21,13 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorText, pairOf, useRunOptions } from "@/lib/api/analytics";
-import { useAllPlans, usePlans, type PlanBrief } from "@/lib/api/invigilation";
+import { PLAN_ACTIVE, useAllPlans, usePlans, type PlanBrief } from "@/lib/api/invigilation";
 import type { ScheduleRun } from "@/lib/api/schemas";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { planTone } from "./invigilation-model";
+import { knownPhase, planTone, progressView } from "./invigilation-model";
 import { PlanDetailView } from "./plan-detail";
 import { PlanFormDialog } from "./plan-form";
 import { PoolView } from "./pool-view";
@@ -173,11 +173,24 @@ function PlanItem({ p, active, href, lang }: { p: PlanBrief; active: boolean; hr
         </span>
         <span className="flex flex-wrap items-center gap-x-2 type-footnote text-label-2">
           <StatusDot tone={planTone(p)}>{t(`invigilation.status.${p.status}` as MessageKey)}</StatusDot>
+          {PLAN_ACTIVE.has(p.status) ? <PhaseText p={p} /> : null}
           {c.required !== null && c.filled !== null ? <span className="tnum">{t("invigilation.filledOf", { filled: n(c.filled), required: n(c.required) })}</span> : null}
           {p.parent_plan_id ? <span>{t("invigilation.childOf", { id: p.parent_plan_id })}</span> : null}
         </span>
         {p.headline ? <span className="line-clamp-2 type-caption text-label-3">{pairOf(p.headline, lang)}</span> : null}
       </Link>
     </li>
+  );
+}
+
+/** a running plan's phase and percentage in the list ("Çözülüyor · %30"), as the backend reports them */
+function PhaseText({ p }: { p: PlanBrief }) {
+  const { t, n } = useI18n();
+  const v = progressView(p, null);
+  return (
+    <span className="tnum" data-testid="invig-plan-phase">
+      {knownPhase(v.phase) ? t(`invigilation.phase.${v.phase}`) : v.phase}
+      {v.pct !== null ? ` · ${t("invigilation.pct", { n: n(v.pct) })}` : ""}
+    </span>
   );
 }

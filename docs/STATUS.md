@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `8c8e512` (committed 2026-10-16 07:23 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `59a8f4d` (committed 2026-10-16 07:25 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-141 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 118 · stopped 7 · superseded 7.
+141 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 119 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -155,7 +155,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
-| `Bookings wave-2 + KVKK UI` | frontend-engineer | 2026-10-16 06:08 |
 | `UI for batch-2 endpoints` | frontend-engineer | 2026-10-16 07:10 |
 | `Dense grids` | frontend-engineer | 2026-10-16 07:18 |
 

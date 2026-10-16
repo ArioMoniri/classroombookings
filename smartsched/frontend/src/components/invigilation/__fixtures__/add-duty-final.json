@@ -1,0 +1,347 @@
+{
+ "_source": "real 2026 Final exam run 'Final (A)' on the e2e backend (batch2-ui, 2026-10-16): invigilation plan #2 instructor_pool=none, two pool members added; staff names are the test's own",
+ "progress_seen": [
+  {
+   "status": "QUEUED",
+   "progress": {
+    "phase": "queued",
+    "pct": 0
+   }
+  },
+  {
+   "status": "RUNNING",
+   "progress": {
+    "phase": "loading",
+    "pct": 10
+   }
+  },
+  {
+   "status": "RUNNING",
+   "progress": {
+    "phase": "solving",
+    "pct": 30
+   }
+  },
+  {
+   "status": "RUNNING",
+   "progress": {
+    "phase": "persisting",
+    "pct": 90
+   }
+  },
+  {
+   "status": "FEASIBLE",
+   "progress": {
+    "phase": "done",
+    "pct": 100
+   }
+  }
+ ],
+ "brief_before": {
+  "id": 2,
+  "term_id": 2,
+  "exam_run_id": 7,
+  "parent_plan_id": null,
+  "status": "INFEASIBLE",
+  "label": "fixture",
+  "hard_score": 3,
+  "soft_score": 100,
+  "is_active": false,
+  "params": {
+   "students_per_invigilator": 40,
+   "min_per_room": 1,
+   "max_per_room": null,
+   "own_exam": "prefer",
+   "instructor_pool": "none",
+   "max_per_day": 3,
+   "min_rest": 0,
+   "time_limit_s": 3.0,
+   "seed": 0,
+   "weights": {}
+  },
+  "error": null,
+  "created_at": "2026-10-16T07:25:21.291919",
+  "finished_at": "2026-10-16T07:25:21.745477",
+  "counts": {
+   "posts": 846,
+   "required": 1091,
+   "filled": 36,
+   "missing": 1055,
+   "people": 1,
+   "eligible_people": 1
+  },
+  "headline": {
+   "tr": "36/1091 görev atandı · 1055 gözetmen eksik, 798 neden açıklandı; hiçbir kural esnetilmedi",
+   "en": "36/1091 duties assigned · 1055 invigilator(s) missing, 798 cause(s) explained; no rule relaxed"
+  },
+  "progress": {
+   "phase": "done",
+   "pct": 100
+  }
+ },
+ "post": {
+  "key": "2026-05-13|30|6-8",
+  "date": "2026-05-13",
+  "start_period": 6,
+  "end_period": 8,
+  "room_id": 30,
+  "room": "C 201",
+  "building": "C",
+  "exam_ids": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "seated": 93,
+  "required": 3,
+  "time": "12:40–15:00",
+  "exams": [
+   {
+    "id": 1,
+    "label": "BME419 · Biyomedikal Mühendisliği (İngilizce) · 4. sınıf",
+    "instructor_text": "Prof. Dr. ATA AKIN"
+   },
+   {
+    "id": 2,
+    "label": "BME419 · Bilgisayar Mühendisliği (İngilizce) · 2. sınıf",
+    "instructor_text": "Prof. Dr. ATA AKIN"
+   },
+   {
+    "id": 3,
+    "label": "BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 4. sınıf",
+    "instructor_text": "Prof. Dr. ATA AKIN"
+   },
+   {
+    "id": 4,
+    "label": "BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 2. sınıf",
+    "instructor_text": "Prof. Dr. ATA AKIN"
+   },
+   {
+    "id": 5,
+    "label": "BME419 · Biyomedikal Mühendisliği (İngilizce) · 3. sınıf",
+    "instructor_text": "Prof. Dr. ATA AKIN"
+   }
+  ],
+  "assigned": [
+   {
+    "id": 1092,
+    "post_key": "2026-05-13|30|6-8",
+    "date": "2026-05-13",
+    "start_period": 6,
+    "end_period": 8,
+    "time": "12:40–15:00",
+    "room_id": 30,
+    "exam_request_ids": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "person_key": "STAFF:1",
+    "person_name": "Arş. Gör. Fixture Bir",
+    "instructor_id": null,
+    "staff_id": 1,
+    "is_locked": false,
+    "origin": "SOLVER"
+   }
+  ],
+  "missing": 2
+ },
+ "candidates": {
+  "post_key": "2026-05-13|30|6-8",
+  "free": [
+   {
+    "person_key": "STAFF:2",
+    "name": "Arş. Gör. Fixture İki",
+    "kind": "staff"
+   }
+  ],
+  "unavailable": []
+ },
+ "added": {
+  "id": 1128,
+  "post_key": "2026-05-13|30|6-8",
+  "date": "2026-05-13",
+  "start_period": 6,
+  "end_period": 8,
+  "time": "12:40–15:00",
+  "room_id": 30,
+  "exam_request_ids": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "person_key": "STAFF:2",
+  "person_name": "Arş. Gör. Fixture İki",
+  "instructor_id": null,
+  "staff_id": 2,
+  "is_locked": true,
+  "origin": "MANUAL",
+  "plan": {
+   "id": 2,
+   "term_id": 2,
+   "exam_run_id": 7,
+   "parent_plan_id": null,
+   "status": "INFEASIBLE",
+   "label": "fixture",
+   "hard_score": 3,
+   "soft_score": 54,
+   "is_active": false,
+   "params": {
+    "students_per_invigilator": 40,
+    "min_per_room": 1,
+    "max_per_room": null,
+    "own_exam": "prefer",
+    "instructor_pool": "none",
+    "max_per_day": 3,
+    "min_rest": 0,
+    "time_limit_s": 3.0,
+    "seed": 0,
+    "weights": {}
+   },
+   "error": null,
+   "created_at": "2026-10-16T07:25:21.291919",
+   "finished_at": "2026-10-16T07:25:21.745477",
+   "counts": {
+    "posts": 846,
+    "required": 1091,
+    "filled": 37,
+    "missing": 1054,
+    "people": 1,
+    "eligible_people": 1
+   },
+   "headline": {
+    "tr": "37/1091 görev atandı · 1054 gözetmen eksik, 798 neden açıklandı; hiçbir kural esnetilmedi",
+    "en": "37/1091 duties assigned · 1054 invigilator(s) missing, 798 cause(s) explained; no rule relaxed"
+   },
+   "progress": {
+    "phase": "done",
+    "pct": 100
+   }
+  }
+ },
+ "refused_on_post": {
+  "detail": {
+   "tr": "Bu kişi bu göreve atanamaz: bir sert kural bozulur",
+   "en": "This person cannot take the duty: a hard rule would break",
+   "reason": "on_post",
+   "reason_text": {
+    "tr": "bu görevde zaten var",
+    "en": "already on this duty"
+   },
+   "clash_post_key": null,
+   "problems": [
+    "post 2026-05-13|30|6-8: a person listed twice"
+   ]
+  }
+ },
+ "refused_post_full": {
+  "detail": {
+   "tr": "Bu salon-oturum için gereken 1 gözetmen zaten atanmış",
+   "en": "This room session already has the 1 invigilator(s) it needs",
+   "reason": "post_full",
+   "reason_text": {
+    "tr": "gözetmen sayısı dolu",
+    "en": "fully staffed"
+   },
+   "clash_post_key": null,
+   "problems": [
+    "post 2026-06-01|19|2-2: 2 > 1 invigilators"
+   ]
+  }
+ },
+ "refused_on_duty": {
+  "detail": {
+   "tr": "Bu kişi bu göreve atanamaz: bir sert kural bozulur",
+   "en": "This person cannot take the duty: a hard rule would break",
+   "reason": "on_duty",
+   "reason_text": {
+    "tr": "aynı saatte başka bir salonda görevli",
+    "en": "on duty in another room at that time"
+   },
+   "clash_post_key": "2026-06-01|10|9-9",
+   "problems": [
+    "STAFF:2: 2026-06-01|10|9-9 and 2026-06-01|11|9-9 at once"
+   ]
+  }
+ },
+ "candidates_busy": {
+  "post_key": "2026-06-01|11|9-9",
+  "free": [],
+  "unavailable": [
+   {
+    "person_key": "STAFF:1",
+    "name": "Arş. Gör. Fixture Bir",
+    "kind": "staff",
+    "reason": "on_duty",
+    "reason_text": {
+     "tr": "aynı saatte başka bir salonda görevli",
+     "en": "on duty in another room at that time"
+    },
+    "clash_post_key": "2026-06-01|10|9-9"
+   },
+   {
+    "person_key": "STAFF:2",
+    "name": "Arş. Gör. Fixture İki",
+    "kind": "staff",
+    "reason": "on_duty",
+    "reason_text": {
+     "tr": "aynı saatte başka bir salonda görevli",
+     "en": "on duty in another room at that time"
+    },
+    "clash_post_key": "2026-06-01|10|9-9"
+   }
+  ]
+ },
+ "diagnosis_resolved": {
+  "code": "no_candidates",
+  "severity": "error",
+  "message": "A 201 2026-06-01 P9-P9 (SYS018 · Fizyoterapi · 2. sınıf, SYS018 · SHMYO Servis) needs 2 invigilator(s) but only 1 of 1 people may invigilate it (nobody in the pool)",
+  "text": {
+   "tr": "A 201 01.06.2026 15:10–15:50 (SYS018 · Fizyoterapi · 2. sınıf, SYS018 · SHMYO Servis): 2 gözetmen gerekiyor, yalnızca 1 kişi uygun (havuzda kimse yok)",
+   "en": "A 201 01.06.2026 15:10–15:50 (SYS018 · Fizyoterapi · 2. sınıf, SYS018 · SHMYO Servis) needs 2 invigilator(s); only 1 may take it (nobody in the pool)"
+  },
+  "post_keys": [
+   "2026-06-01|10|9-9"
+  ],
+  "exam_ids": [
+   6,
+   7
+  ],
+  "exams": [
+   "SYS018 · Fizyoterapi · 2. sınıf",
+   "SYS018 · SHMYO Servis"
+  ],
+  "person_keys": [],
+  "params": {
+   "date": "2026-06-01",
+   "start": 9,
+   "end": 9,
+   "room_id": 10,
+   "room_code": "A 201",
+   "required": 2,
+   "assigned": 1,
+   "missing": 1,
+   "seated": 58,
+   "excluded": {},
+   "candidates": 1,
+   "add_people": 1
+  },
+  "suggestions": [
+   {
+    "code": "add_staff",
+    "count": 1,
+    "text": {
+     "tr": "Bu saatte boş 1 kişiyi havuza ekleyin",
+     "en": "Add 1 person(s) free at that time to the pool"
+    }
+   }
+  ],
+  "resolved": true
+ }
+}

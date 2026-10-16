@@ -1,7 +1,8 @@
 "use client";
 /**
  * One invigilation plan: status and actions, the progress while it is QUEUED / RUNNING (polled with backoff; the
- * elapsed time against the time budget, never a made-up percentage), then the headline, the counts, the
+ * backend's own phase and percentage as a determinate bar, and while it solves, when the percentage stays at 30,
+ * the elapsed time against the time limit as the moving part; never a made-up percentage), then the headline, the counts, the
  * diagnoses with their suggestions (an INFEASIBLE plan says so at the top, with every missing invigilator
  * explained below) and the duties by date and room, or the load per person.
  */
@@ -17,13 +18,14 @@ import { BusyButton, BusyGlyph } from "@/components/ui/busy-label";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/data-table";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Progress, ProgressLabel } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorText, pairOf } from "@/lib/api/analytics";
 import { invigilationCsv, PLAN_ACTIVE, useActivatePlan, useDeletePlan, usePlan, type PlanDetail } from "@/lib/api/invigilation";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { DiagnosisList } from "./diagnosis-list";
-import { planTone } from "./invigilation-model";
+import { knownPhase, planTone, progressView } from "./invigilation-model";
 import { PeopleView } from "./people-view";
 import { PostsView } from "./posts-view";
 
@@ -140,16 +142,7 @@ export function PlanDetailView({ planId, canEdit, onOpenPlan, onRerun }: { planI
       </header>
 
       {running ? (
-        <div className="flex flex-col gap-1 rounded-xl bg-tint-soft px-4 py-3" role="status" aria-live="polite" data-testid="invig-running">
-          <p className="flex items-center gap-2 type-headline">
-            <BusyGlyph className="size-4" />
-            {t(p.status === "QUEUED" ? "invigilation.queued" : "invigilation.running")}
-          </p>
-          <p className="type-callout text-label-2 tnum">
-            {t("invigilation.elapsed", { s: n(elapsed ?? 0), limit: n(Number(p.params.time_limit_s ?? 20)) })}
-          </p>
-          <p className="type-footnote text-label-2">{t("invigilation.runningHint")}</p>
-        </div>
+        <RunningPanel p={p} elapsed={elapsed} />
       ) : (
         <FadePanel panelKey={`done-${p.id}`} className="flex min-w-0 flex-col gap-4">
           <Result p={p} />
@@ -200,6 +193,36 @@ export function PlanDetailView({ planId, canEdit, onOpenPlan, onRerun }: { planI
         {actionError ? <Alert tone="error">{actionError}</Alert> : null}
       </ResponsiveDialog>
     </article>
+  );
+}
+
+/** phase + the backend's percentage; while solving (pct stays at 30) the elapsed time against the limit moves */
+function RunningPanel({ p, elapsed }: { p: PlanDetail; elapsed: number | null }) {
+  const { t, n } = useI18n();
+  const v = progressView(p, elapsed);
+  const phase = knownPhase(v.phase) ? t(`invigilation.phase.${v.phase}`) : v.phase;
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-tint-soft px-4 py-3" data-testid="invig-running" data-phase={v.phase} data-pct={v.pct ?? undefined}>
+      <p className="flex items-center gap-2 type-headline" role="status" aria-live="polite" data-testid="invig-phase">
+        <BusyGlyph className="size-4" />
+        {phase}
+      </p>
+      {v.pct !== null ? (
+        <Progress value={v.pct} aria-label={t("invigilation.progressLabel")} getAriaValueText={() => `${phase} · ${t("invigilation.pct", { n: n(v.pct ?? 0) })}`} className="gap-1.5" data-testid="invig-progress">
+          <ProgressLabel className="type-footnote font-medium text-label-2">{t("invigilation.progressLabel")}</ProgressLabel>
+          <span className="ml-auto type-footnote text-label-2 tnum" aria-hidden>{t("invigilation.pct", { n: n(v.pct) })}</span>
+        </Progress>
+      ) : null}
+      {v.solving && v.meter !== null ? (
+        <Progress value={v.meter} max={v.limit} aria-label={t("invigilation.solveTime")} getAriaValueText={() => t("invigilation.solveTimeValue", { s: n(elapsed ?? 0), limit: n(v.limit) })} className="gap-1.5" data-testid="invig-solve-time">
+          <ProgressLabel className="type-footnote font-medium text-label-2">{t("invigilation.solveTime")}</ProgressLabel>
+          <span className="ml-auto type-footnote text-label-2 tnum" aria-hidden>{t("invigilation.solveTimeValue", { s: n(elapsed ?? 0), limit: n(v.limit) })}</span>
+        </Progress>
+      ) : null}
+      <p className="type-callout text-label-2 tnum">{t("invigilation.elapsed", { s: n(elapsed ?? 0), limit: n(v.limit) })}</p>
+      {v.solving ? <p className="type-footnote text-label-2">{t("invigilation.solvingNote")}</p> : null}
+      <p className="type-footnote text-label-2">{t("invigilation.runningHint")}</p>
+    </div>
   );
 }
 

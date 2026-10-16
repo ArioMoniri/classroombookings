@@ -7,12 +7,14 @@
  * - plans: one CP-SAT solve of an exam run (202 + poll; QUEUED → RUNNING → OPTIMAL / FEASIBLE / INFEASIBLE / FAILED),
  *   re-run as a child plan that keeps the locked duties, publish (one per exam run), delete (409 when published);
  * - duties: lock / unlock, reassign to a candidate (409 `detail.problems` when a hard rule would break; the new duty
- *   is MANUAL and locked), candidates of a post (free, and everyone else with the reason);
+ *   is MANUAL and locked), add one to an under-staffed post (`POST …/duties`, 201 duty + the re-scored plan brief;
+ *   409 `{tr, en, reason, reason_text, problems}`), candidates of a post (free, and everyone else with the reason);
+ * - progress: every brief carries the queue job's last phase and percentage (`progress {phase, pct}`);
  * - exports: roster CSV, load JSON / CSV.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { buildUrl, request } from "./client";
-import { noRetry, type Pair } from "./analytics";
+import { errorProblems, errorText, noRetry, pairOf, type Pair } from "./analytics";
+import { buildUrl, HttpError, request } from "./client";
 
 export const POOL_KINDS = ["STAFF", "ASSISTANT", "INSTRUCTOR", "OTHER"] as const;
 export type PoolKind = (typeof POOL_KINDS)[number];
@@ -97,6 +99,18 @@ export interface PlanCounts {
   eligible_people: number | null;
 }
 
+/**
+ * The queue job's last reported phase (backend plan_progress): queued 0, loading 10, solving 30 (for the whole solve:
+ * CP-SAT reports nothing while it runs), persisting 90, done 100, failed. A plan that has not reported yet reads
+ * `queued` / `running` without a number.
+ */
+export const PROGRESS_PHASES = ["queued", "loading", "solving", "persisting", "done", "failed", "running"] as const;
+export type ProgressPhase = (typeof PROGRESS_PHASES)[number];
+export interface PlanProgress {
+  phase: ProgressPhase | (string & {});
+  pct: number | null;
+}
+
 export interface PlanBrief {
   id: number;
   term_id: number;
@@ -113,6 +127,8 @@ export interface PlanBrief {
   finished_at: string | null;
   counts: PlanCounts;
   headline: Pair | null;
+  /** absent on a backend older than alembic 0033 */
+  progress?: PlanProgress | null;
 }
 
 export interface Duty {
@@ -177,6 +193,8 @@ export interface Diagnosis {
   dates?: string[];
   params?: Record<string, unknown>;
   suggestions?: Suggestion[];
+  /** a shortage whose posts are all staffed now (filled by hand after the solve) */
+  resolved?: boolean;
 }
 
 export interface PlanDetail extends PlanBrief {
@@ -192,6 +210,12 @@ export interface Candidates {
   free: { person_key: string; name: string; kind: string }[];
   unavailable: { person_key: string; name: string; kind: string; reason: string; reason_text: Pair }[];
 }
+
+/** the refusal reasons of `POST …/duties` and reassign (backend REASON_TEXT, `post_full`); `reason_text` is the server's */
+export const DUTY_REASONS = ["on_post", "post_full", "on_duty", "rest", "day_cap", "total_cap", "teaching", "unavailable", "booking", "own_exam", "own_exam_elsewhere", "no_capacity"] as const;
+
+/** `POST …/duties` 201: the new duty (MANUAL, locked) plus the re-scored plan brief */
+export type AddDutyOut = Duty & { plan: PlanBrief };
 
 export interface PlanLoad {
   plan_id: number;
@@ -215,6 +239,7 @@ export const invigilationApi = {
   remove: (id: number) => request<void>(`${P}/plans/${id}`, { method: "DELETE", silent: true }),
   lock: (id: number, dutyId: number, locked: boolean) => request<Duty>(`${P}/plans/${id}/duties/${dutyId}/lock`, { method: "POST", query: { locked }, silent: true }),
   reassign: (id: number, dutyId: number, body: { person_key: string; reason?: string }) => request<Duty>(`${P}/plans/${id}/duties/${dutyId}`, { method: "PUT", body, silent: true }),
+  addDuty: (id: number, body: { post_key: string; person_key: string; reason?: string }) => request<AddDutyOut>(`${P}/plans/${id}/duties`, { method: "POST", body, silent: true }),
   candidates: (id: number, postKey: string) => request<Candidates>(`${P}/plans/${id}/candidates`, { query: { post_key: postKey }, silent: true }),
   load: (id: number) => request<PlanLoad>(`${P}/plans/${id}/load`, { silent: true }),
 };
@@ -321,6 +346,53 @@ export function useLockDuty() {
 export function useReassignDuty() {
   const inv = useInvalidate();
   return useMutation({ mutationFn: (v: { id: number; dutyId: number; personKey: string; reason?: string }) => invigilationApi.reassign(v.id, v.dutyId, { person_key: v.personKey, reason: v.reason }), onSuccess: inv });
+}
+
+/**
+ * Fill an under-staffed post by hand. The response's brief replaces the cached one at once (lists and the open
+ * detail, with the duty placed on its post), then the detail is re-read for the diagnoses (`resolved`) and the
+ * candidates of every post (one person fewer is free at that time).
+ */
+export function useAddDuty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: number; postKey: string; personKey: string; reason?: string }) => invigilationApi.addDuty(v.id, { post_key: v.postKey, person_key: v.personKey, reason: v.reason }),
+    onSuccess: (out, v) => {
+      qc.setQueriesData<PlanDetail>({ queryKey: ["invigilation", "plan", v.id] }, (d) => (d ? withAddedDuty(d, out) : d));
+      qc.setQueriesData<PlanBrief[]>({ queryKey: ["invigilation", "plans"] }, (list) => (Array.isArray(list) ? withBrief(list, out.plan) : list));
+      return qc.invalidateQueries({ queryKey: ik.all });
+    },
+    // a refusal may mean the plan changed under us (post_full: someone filled it): re-read it
+    onError: (_e, v) => qc.invalidateQueries({ queryKey: ["invigilation", "plan", v.id] }),
+  });
+}
+
+/** a plan list with one brief replaced (same id); other plans untouched */
+export function withBrief<T extends PlanBrief>(list: readonly T[], brief: PlanBrief): T[] {
+  return list.map((p) => (p.id === brief.id ? { ...p, ...brief } : p));
+}
+
+/** the detail after `POST …/duties`: the new brief's fields, and the duty on its post (missing one fewer) */
+export function withAddedDuty(d: PlanDetail, out: AddDutyOut): PlanDetail {
+  if (d.id !== out.plan.id) return d;
+  const { plan, ...duty } = out;
+  const posts = d.posts.map((p) =>
+    p.key === duty.post_key && !p.assigned.some((x) => x.id === duty.id) ? { ...p, assigned: [...p.assigned, duty], missing: Math.max(0, p.missing - 1) } : p,
+  );
+  return { ...d, ...plan, posts };
+}
+
+/** a refusal of `POST …/duties` / reassign: the sentence, the reason code and the server's reason text, the problems */
+export function dutyRefusal(e: unknown, lang: "tr" | "en"): { text: string; reason: string | null; reasonText: string | null; problems: string[] } {
+  const body = e instanceof HttpError ? detailOf(e.detail) : null;
+  const rt = body?.reason_text;
+  const reasonText = rt && typeof rt === "object" ? pairOf(rt as Pair, lang) || null : typeof rt === "string" ? rt : null;
+  return { text: errorText(e, lang), reason: typeof body?.reason === "string" ? body.reason : null, reasonText, problems: errorProblems(e) };
+}
+
+function detailOf(raw: unknown): Record<string, unknown> | null {
+  const body = raw && typeof raw === "object" && !Array.isArray(raw) && "detail" in (raw as Record<string, unknown>) ? (raw as Record<string, unknown>).detail : raw;
+  return body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : null;
 }
 
 /** `INS:174` → 174 (a pool row linked to that instructor carries their rules); staff keys → null */

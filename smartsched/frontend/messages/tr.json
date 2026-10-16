@@ -4040,6 +4040,20 @@
     "running": "Çözülüyor",
     "elapsed": "{s} sn geçti · süre sınırı {limit} sn (veri yükleme ve kayıt hariç)",
     "runningHint": "Sayfadan ayrılabilirsiniz; plan bitince burada görünür.",
+    "phase": {
+      "queued": "Sırada bekliyor",
+      "loading": "Sınavlar ve havuz yükleniyor",
+      "solving": "Çözülüyor",
+      "persisting": "Görevler kaydediliyor",
+      "done": "Bitti",
+      "failed": "Başarısız",
+      "running": "Çalışıyor"
+    },
+    "progressLabel": "İlerleme",
+    "pct": "%{n}",
+    "solveTime": "Çözüm süresi",
+    "solveTimeValue": "{s} / {limit} sn",
+    "solvingNote": "Çözücü çalışırken yüzde bildirmez; bunun yerine süre sınırına göre geçen süre ilerler.",
     "result": "Sonuç",
     "infeasibleTitle": "Plan tam değil: {n} gözetmen eksik",
     "infeasibleBody": "Hiçbir kural esnetilmedi. Eksik her görevin nedeni ve önerisi aşağıda; havuza kişi ekleyip ya da kuralları değiştirip yeniden çalıştırın.",
@@ -4072,6 +4086,10 @@
       "title": "Tanılar",
       "none": "Tanı yok: her salon-oturum kurallara uygun biçimde atandı.",
       "counts": "{errors} hata, {others} uyarı",
+      "resolvedCount": "{n} giderildi",
+      "resolved": "Giderildi",
+      "resolvedGroup": "{title}: giderildi",
+      "resolvedHint": "Çözümden sonra elle dolduruldu.",
       "groupCount": "{n} kayıt · {posts} salon-oturum",
       "show": "Ayrıntılar",
       "hide": "Gizle",
@@ -4117,13 +4135,15 @@
       "unlock": "{name} görevinin kilidini aç",
       "lockedToast": "{name} görevi kilitlendi; yeniden çalıştırmada korunur",
       "unlocked": "{name} görevinin kilidi açıldı",
-      "reassign": "{name} yerine başkasını ata"
+      "reassign": "{name} yerine başkasını ata",
+      "add": "Gözetmen ekle",
+      "addLabel": "Gözetmen ekle: {room}, {time}"
     },
     "reassign": {
       "title": "{name} yerine kim?",
       "body": "{room} · {date} {time}. Yeni görev elle atanmış ve kilitli olur.",
       "search": "Kişi ara",
-      "checking": "Herkes planın kurallarına göre denetleniyor; büyük bir sınav döneminde bu bir dakika kadar sürebilir.",
+      "checking": "Herkes planın kurallarına göre denetleniyor…",
       "free": "Uygun kişiler ({n})",
       "noFree": "Bu saatte uygun kimse yok.",
       "narrow": "{n} kişi daha; aramayla daraltın.",
@@ -4131,7 +4151,14 @@
       "reason": "Neden (isteğe bağlı)",
       "reasonHint": "Örneğin: kişi bu tarihte izinli",
       "confirm": "Ata",
-      "done": "{name} atandı"
+      "done": "{name} atandı",
+      "why": "Neden: {reason}"
+    },
+    "add": {
+      "title": "{room} salonuna gözetmen ekle",
+      "body": "{date} {time} · {assigned}/{required} gözetmen. Yeni görev elle atanmış ve kilitli olur; yeniden çalıştırmada korunur.",
+      "confirm": "Ekle",
+      "done": "{name}, {room} salonuna eklendi"
     },
     "people": {
       "fair": "Adil pay kişi başı {fair} periyot.",
