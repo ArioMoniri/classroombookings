@@ -127,6 +127,24 @@ describe("Sheet keyboard clearance (T-R1-02)", () => {
   });
 });
 
+describe("KeyboardClearance under jsdom (lane F2's ask: no uncaught TypeError when scrollIntoView is missing)", () => {
+  it("focusing a field whose element has no scrollIntoView is a no-op", () => {
+    vi.useFakeTimers();
+    render(
+      <div>
+        <input aria-label="Ad" />
+        <KeyboardClearance />
+      </div>,
+    );
+    const field = screen.getByRole("textbox", { name: "Ad" });
+    Object.defineProperty(field, "scrollIntoView", { value: undefined, configurable: true });
+    expect(typeof (field as { scrollIntoView?: unknown }).scrollIntoView).toBe("undefined");
+    act(() => field.focus());
+    expect(() => act(() => void vi.advanceTimersByTime(200))).not.toThrow();
+    vi.useRealTimers();
+  });
+});
+
 describe("overlapWith: the scroll that clears a sticky footer or header (the wish sheet's two-button footer is 164 px)", () => {
   const box = (top: number, bottom: number) => ({ top, bottom });
   it("a field under the footer scrolls down by the overlap plus the gap; under the header, up; clear, not at all", () => {

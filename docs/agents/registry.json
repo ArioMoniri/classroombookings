@@ -1896,7 +1896,9 @@
       "goal": "You are the round-1 loop builder for **lane A2 (mobile keyboard, phone sheets, shell primitives, login)** of SmartSched. Lane name for the ledger: `loop-r1-laneA2-2026-10-16`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first and f…",
       "ledger": "Lane A2: touch/keyboard/shell tickets",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 23:35",
+      "left_off": "Waiting for the rebuild; the remaining checks (02, 06–09, mobile) run against it next."
     },
     {
       "id": "a0f6cded4e0c2ed98",
@@ -1937,6 +1939,14 @@
       "status": "finished",
       "finished_at": "2026-10-16 23:32",
       "left_off": "continue building and update the handoff docs"
+    },
+    {
+      "id": "ab46b895f163d3e36",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-16 23:34",
+      "left_off": "keep going until all lanes finish and update handoff"
     }
   ]
 }
