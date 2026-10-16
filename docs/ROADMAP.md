@@ -1178,7 +1178,7 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
   - `e2e/visual-quality.spec.ts` covers desktop plus a mobile project; mobile 23/23
 - [ ] Re-run desktop visual-quality after the /timetable target-size fix (7681177).
 - [ ] check:design fails on new files from the approval UI and identity agents. Both have been told to fix them.
-- [ ] The design-migration and phone sweep agent is running. It covers `text-[Npx]`, `shadow-[` and raw `<button>` in the unfenced screens, plus the open phone items: the bookings toolbar, a filters sheet, find-room and tab-bar labels.
+- [x] Design migration and phone sweep (design-migration-mobile-2026-10-16): `text-[Npx]`, `shadow-[`, raw `<button>` and Sparkles are at 0 in its screens (check-design allow-list entries removed); bookings has one compact toolbar with a Filtreler sheet below 1024 px; find-room, rooms and the audit log put their filters in a sheet on phones; find-room keeps Ara sticky above the tab bar; tab-bar labels always show; native date inputs are the localised DateField; no horizontal scroll on any planning/setup route at 390 or 768; 44 px touch targets in the setup lists. Open asks for components/ui are in its hand-off (sheet edge-to-edge on phones, Switch/Chip/Segmented/DateField touch sizes, NativeSelect 16 px on phones, DataTable card-mode targets).
 - [ ] The full smoke studio flow needs the Bahar e2e backend: it hard-codes week 3.
 - [ ] The backend still has one "Şifre" string in `app/`.
 - [ ] Generate visual baselines on the pod CI runner.
