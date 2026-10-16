@@ -48,16 +48,41 @@ class AuditEvent(Base):
     parent_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
 
-#: DB-level append-only guard; the same statements run in alembic 0009_audit_events
+#: DB-level append-only guard (alembic 0014_audit_events, replaced by 0031_kvkk). UPDATE and DELETE are refused, with
+#: the two KVKK exceptions of A4 (app/services/kvkk.py), each needing a row in ``audit_purge_windows`` that the
+#: service writes and deletes in the same transaction:
+#: * DELETE of a row older than 365 days (the floor) and older than an open ``retention`` window's cutoff;
+#: * UPDATE of a person's rows during an ``anonymise`` window for them: only actor id (to NULL), actor label, network
+#:   hash, request id and the snapshots may change, every other column stays as it was.
+_IMMUTABLE = ("id", "ts", "action", "entity_type", "entity_id", "term_id", "reversible", "undo_of", "parent_id")
 APPEND_ONLY_SQLITE = (
-    "CREATE TRIGGER IF NOT EXISTS audit_events_no_update BEFORE UPDATE ON audit_events "
-    "BEGIN SELECT RAISE(ABORT, 'audit_events is append-only'); END",
-    "CREATE TRIGGER IF NOT EXISTS audit_events_no_delete BEFORE DELETE ON audit_events "
-    "BEGIN SELECT RAISE(ABORT, 'audit_events is append-only'); END",
+    "DROP TRIGGER IF EXISTS audit_events_no_update",
+    "DROP TRIGGER IF EXISTS audit_events_no_delete",
+    "CREATE TRIGGER audit_events_no_update BEFORE UPDATE ON audit_events WHEN NOT ("
+    + " AND ".join(f"NEW.{c} IS OLD.{c}" for c in _IMMUTABLE)
+    + " AND NEW.actor_type IS OLD.actor_type AND (NEW.actor_id IS NULL OR NEW.actor_id IS OLD.actor_id)"
+    " AND EXISTS (SELECT 1 FROM audit_purge_windows w WHERE w.kind = 'anonymise' AND (w.subject_actor_id = OLD.actor_id"
+    " OR (OLD.entity_type = 'user' AND OLD.entity_id = CAST(w.subject_actor_id AS TEXT)))))"
+    " BEGIN SELECT RAISE(ABORT, 'audit_events is append-only'); END",
+    "CREATE TRIGGER audit_events_no_delete BEFORE DELETE ON audit_events WHEN NOT ("
+    "COALESCE(OLD.ts, '9999') < datetime('now', '-365 days')"
+    " AND COALESCE(OLD.ts, '9999') < COALESCE((SELECT max(cutoff) FROM audit_purge_windows WHERE kind = 'retention'),"
+    " '0000'))"
+    " BEGIN SELECT RAISE(ABORT, 'audit_events is append-only'); END",
 )
 APPEND_ONLY_POSTGRES = (
-    "CREATE OR REPLACE FUNCTION audit_events_append_only() RETURNS trigger LANGUAGE plpgsql AS "
-    "$$ BEGIN RAISE EXCEPTION 'audit_events is append-only'; END $$",
+    "CREATE OR REPLACE FUNCTION audit_events_append_only() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
+    "IF TG_OP = 'DELETE' THEN "
+    "IF OLD.ts < (now() AT TIME ZONE 'UTC') - interval '365 days' AND OLD.ts < COALESCE((SELECT max(cutoff) FROM "
+    "audit_purge_windows WHERE kind = 'retention'), '-infinity'::timestamp) THEN RETURN OLD; END IF; "
+    "ELSIF TG_OP = 'UPDATE' THEN "
+    "IF "
+    + " AND ".join(f"NEW.{c} IS NOT DISTINCT FROM OLD.{c}" for c in _IMMUTABLE)
+    + " AND NEW.actor_type IS NOT DISTINCT FROM OLD.actor_type"
+    " AND (NEW.actor_id IS NULL OR NEW.actor_id IS NOT DISTINCT FROM OLD.actor_id)"
+    " AND EXISTS (SELECT 1 FROM audit_purge_windows w WHERE w.kind = 'anonymise' AND (w.subject_actor_id = OLD.actor_id"
+    " OR (OLD.entity_type = 'user' AND OLD.entity_id = w.subject_actor_id::text))) THEN RETURN NEW; END IF; "
+    "END IF; RAISE EXCEPTION 'audit_events is append-only'; END $$",
     "DROP TRIGGER IF EXISTS audit_events_append_only ON audit_events",
     "CREATE TRIGGER audit_events_append_only BEFORE UPDATE OR DELETE ON audit_events "
     "FOR EACH ROW EXECUTE FUNCTION audit_events_append_only()",

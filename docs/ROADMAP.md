@@ -1281,3 +1281,6 @@ requester is told on the channels they chose. Mobile first (390 px), TR + EN, no
 - [ ] Frontend: the import report's "{count} uyarı, ilk {shown} gösteriliyor" note.
 - [ ] Owner question: a time wish is refused when the department form fixes the class's day and time, which is nearly every Bahar row. Should such a wish be stored anyway as a note for the coordinator?
 
+- [ ] **Owner question (P19-T2):** a time wish is refused (`fixed_by_department`) when the department form fixes the day and time, which is nearly every Bahar row. Should such a wish be stored anyway as a non-acting note for the coordinator?
+- [ ] P19-T2: show a capacity hint for the joint size when a wish is submitted. Carrying accepted wishes into later terms is optional and waits for the owner.
+- The follow-ups UI agent is running: Tercih ekle, coordinator review, the program-wizard issue codes and the Users server-side filter. The audit-undo UI and the import warnings note went to the design-migration sweep.

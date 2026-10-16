@@ -239,3 +239,32 @@ def copy_db(base: Path, tmp_path: Path) -> Path:
     dst = tmp_path / "api.db"
     shutil.copyfile(base, dst)
     return dst
+
+
+#: a short deterministic budget for the test plans (the production default is 20 s)
+PLAN_PARAMS = {"time_limit_s": 4.0}
+
+
+async def build_final_plan(workdir: Path) -> tuple[Path, dict[str, Any]]:
+    """``final`` plus one invigilation plan of the Final exam run (default rules, solved like the queue job)."""
+    if "final_plan" in _CACHE:
+        return _CACHE["final_plan"]
+    from app.models import User
+    from app.services import invigilation as svc
+    from app.services.seed import seed_admin
+
+    base, ids = await build_final(workdir)
+    path = workdir / "final_plan.db"
+    shutil.copyfile(base, path)
+    dbmod.configure_engine(f"sqlite+aiosqlite:///{path}")
+    factory = dbmod.get_session_factory()
+    async with factory() as s:
+        await seed_admin(s)
+        admin = (await s.execute(select(User).order_by(User.id))).scalars().first()
+        assert admin is not None
+        plan = await svc.create_plan(s, ids["exam_run"], dict(PLAN_PARAMS), admin, label="Final gözetmenleri")
+        plan_id = plan.id
+    await svc.run_plan(factory, plan_id)
+    await dbmod.dispose_engine()
+    _CACHE["final_plan"] = (path, {**ids, "plan": plan_id})
+    return _CACHE["final_plan"]

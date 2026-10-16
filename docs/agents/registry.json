@@ -1413,7 +1413,8 @@
       "goal": "You are the **backend follow-ups** builder for SmartSched (FastAPI backend /home/user/classroombookings/smartsched/backend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: backend-followups-2026-10-16. ## Items (asks from the finished frontend agents; read docs/ROADMAP.md …",
       "ledger": "Backend follow-up asks batch",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 04:13"
     },
     {
       "id": "adace83e508a057e9",
@@ -1436,6 +1437,18 @@
       "scope": "",
       "goal": "You are the **planning analytics** builder for SmartSched (backend /home/user/classroombookings/smartsched/backend: app/solver for the solver, app/services + app/api/v1 for APIs). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: planning-analytics-2026-10-16. ## Owner's requ…",
       "ledger": "Scenario compare, heatmaps, invigilators",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "af53668c30cd523cb",
+      "description": "Follow-ups UI: Tercih ekle, review, filters",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-16 04:14",
+      "scope": "",
+      "goal": "You are the **follow-ups UI** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: followups-ui-2026-10-16. ## Owner's requirements Academicians can add their own requests/preferences, …",
+      "ledger": "Follow-ups UI: Tercih ekle, review, filters",
       "resumed": false,
       "status": "running"
     }
