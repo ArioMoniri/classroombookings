@@ -364,6 +364,8 @@ export const AuditEvent = z.object({
   diff: z.record(z.string(), z.unknown()).nullish(),
   reason: z.string().nullish(),
   reversible: z.boolean().default(false),
+  /** which undo `POST /audit/{id}/undo` runs: the bookings undo, or the drafts undo of a wizard programme */
+  undo_via: z.string().nullish(),
   undo_of: z.number().nullish(),
   parent_id: z.number().nullish(),
   undone: z.boolean().default(false),
@@ -374,7 +376,15 @@ export const AuditEvent = z.object({
 export type AuditEvent = z.infer<typeof AuditEvent>;
 export const AuditPage = z.object({ items: z.array(AuditEvent), next_cursor: z.number().nullish() });
 export type AuditPage = z.infer<typeof AuditPage>;
-export const UndoOut = z.object({ undone: z.number(), action: z.string(), booking_ids: z.array(z.number()).default([]) });
+export const UndoOut = z.object({
+  undone: z.number(),
+  action: z.string(),
+  booking_ids: z.array(z.number()).default([]),
+  /** a wizard programme (undo_via "program_draft"): the draft, the programme and the ids archived per kind */
+  draft_id: z.number().nullish(),
+  program_id: z.number().nullish(),
+  archived: z.record(z.string(), z.array(z.number())).nullish(),
+});
 export type UndoOut = z.infer<typeof UndoOut>;
 
 export interface AuditFilters {

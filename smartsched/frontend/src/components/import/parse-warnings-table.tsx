@@ -19,6 +19,18 @@ export function countBySeverity(warnings: readonly ParseWarning[]): Record<Sever
   return out;
 }
 
+/** The import listed only the first warnings (M-21): "{count} uyarı, ilk {shown} gösteriliyor". Nothing otherwise. */
+export function TruncatedWarnings({ summary }: { summary: { warnings_count?: number; warnings_shown?: number; warnings_truncated?: boolean } }) {
+  const { t, n } = useI18n();
+  if (!summary.warnings_truncated || summary.warnings_count == null || summary.warnings_shown == null) return null;
+  return (
+    <p className="flex items-center gap-1.5 type-footnote text-label-2" role="note" data-testid="warnings-truncated">
+      <Info className="size-4 shrink-0 text-label-3" aria-hidden />
+      {t("import.warningsTruncated", { count: n(summary.warnings_count), shown: n(summary.warnings_shown) })}
+    </p>
+  );
+}
+
 export function SeverityIcon({ severity, className }: { severity: Severity; className?: string }) {
   const Icon = severity === "error" ? XOctagon : severity === "warning" ? AlertTriangle : Info;
   const colour = severity === "error" ? "text-status-infeasible-fg" : severity === "warning" ? "text-status-warning-fg" : "text-muted-foreground";

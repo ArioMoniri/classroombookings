@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auditQuery, canUndo, diffRows, emptyAuditFilters, undoReasons, valueText } from "./audit-model";
+import { archivedCounts, auditQuery, canUndo, diffRows, emptyAuditFilters, undoBlockers, undoReasons, valueText } from "./audit-model";
 
 describe("audit model", () => {
   it("uses the backend diff when there is one", () => {
@@ -28,5 +28,30 @@ describe("audit model", () => {
   it("reads the undo refusal", () => {
     expect(undoReasons({ code: "changed_since", later: [7, 8] })).toEqual({ later: 2, alternatives: [] });
     expect(undoReasons({ code: "conflict", alternatives: [{ name: "A 102" }, { code: "B201" }] }).alternatives).toEqual(["A 102", "B201"]);
+  });
+});
+
+describe("programme undo (undo_via program_draft)", () => {
+  const base = { reversible: true, undone: false, undo_of: null };
+  it("offers Undo for a wizard programme, not for a catalogue programme", () => {
+    expect(canUndo({ ...base, action: "program.create", undo_via: "program_draft" })).toBe(true);
+    expect(canUndo({ ...base, action: "program.create", undo_via: null })).toBe(false);
+    expect(canUndo({ ...base, action: "booking.create", undo_via: "bookings" })).toBe(true);
+    expect(canUndo({ ...base, undone: true, action: "program.restore", undo_via: "program_draft" })).toBe(false);
+  });
+  it("counts what was archived, programme first, empty kinds dropped", () => {
+    expect(archivedCounts({ sections: [1, 2, 3], requests: [4], people: [], program: [9], extra_kind: [1, 2] })).toEqual([
+      ["program", 1],
+      ["sections", 3],
+      ["requests", 1],
+      ["extra_kind", 2],
+    ]);
+    expect(archivedCounts(null)).toEqual([]);
+  });
+  it("reads the 409 blockers in the UI language, falling back to the other language, then the code", () => {
+    const data = { code: "blocked", blockers: [{ code: "published", text: { tr: "Yayındaki planda", en: "In the published plan" } }, { code: "bookings", text: { tr: "", en: "Has bookings" } }, { code: "x" }] };
+    expect(undoBlockers(data, "tr")).toEqual(["Yayındaki planda", "Has bookings", "x"]);
+    expect(undoBlockers(data, "en")).toEqual(["In the published plan", "Has bookings", "x"]);
+    expect(undoBlockers({ code: "not_reversible" }, "tr")).toEqual([]);
   });
 });

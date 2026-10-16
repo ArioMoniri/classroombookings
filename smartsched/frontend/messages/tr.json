@@ -63,7 +63,7 @@
     "dropzone": ".xlsx dosyasını buraya bırakın veya seçmek için tıklayın", "dropzoneHint": "En fazla 25 MB · .xlsx · Türkçe başlıklar otomatik algılanır",
     "dsn": "Bağlantı dizesi (DSN)", "term": "Hedef dönem", "start": "İçe aktarmayı başlat", "importing": "Aktarılıyor…",
     "report": "Ayrıştırma raporu", "rows": "Satır", "created": "Oluşturulan", "updated": "Güncellenen", "skipped": "Atlanan",
-    "warnings": "Uyarılar", "warningsTable": "Dikkat gerektiren satırlar", "row": "Satır", "field": "Alan",
+    "warnings": "Uyarılar", "warningsTruncated": "{count} uyarı, ilk {shown} gösteriliyor", "warningsTable": "Dikkat gerektiren satırlar", "row": "Satır", "field": "Alan",
     "value": "Değer", "message": "Mesaj", "severity": "Önem", "noWarnings": "Uyarı yok — tüm satırlar sorunsuz ayrıştırıldı.",
     "goRequests": "Talepleri incele", "again": "Başka dosya aktar", "recent": "Son aktarımlar",
     "filterSeverity": "Öneme göre filtrele", "error": "Hata", "warning": "Uyarı", "info": "Bilgi"
@@ -3028,6 +3028,11 @@
       "undoTitle": "{action} geri alınsın mı?",
       "undoBody": "Rezervasyon eski haline getirilir. Çakışmalar yeniden denetlenir.",
       "undoneN": "{n, plural, other {# rezervasyon geri getirildi}}",
+      "programUndoBody": "Bu oluşturmanın yazdığı her şey (şubeler ve talepleri, yeni dersler, yeni kişiler, program, birim) arşivlenir ve kuralları kapatılır. Çözümler ve yayındaki plan değişmez.",
+      "programUndone": "Program geri alındı",
+      "archivedLine": "Arşivlendi: {parts}",
+      "archived": {"sections": "{n, plural, other {# şube}}", "requests": "{n, plural, other {# talep}}", "courses": "{n, plural, other {# ders}}", "people": "{n, plural, other {# kişi}}", "rules": "{n, plural, other {# kural}}", "program": "{n, plural, other {# program}}", "faculty": "{n, plural, other {# birim}}"},
+      "blockersTitle": "Geri almayı engelleyenler",
       "freeNow": "Şu an boş: {rooms}",
       "noDiff": "Bu değişiklik için alan ayrıntısı yok.",
       "field": "Alan",
@@ -3041,9 +3046,10 @@
         "user": "Kullanıcı",
         "system": "Sistem"
       },
-      "verb": {"create": "{entity} eklendi", "update": "{entity} değiştirildi", "delete": "{entity} silindi", "cancel": "{entity} iptal edildi", "move": "{entity} taşındı", "approve": "{entity} onaylandı", "reject": "{entity} reddedildi", "decide": "{entity} karara bağlandı", "undo": "{entity}: değişiklik geri alındı", "activate": "{entity} yayımlandı", "withdraw": "{entity} geri çekildi", "import": "{entity} içe aktarıldı", "policy": "{entity}: politika değişti", "login": "{entity} giriş yaptı", "logout": "{entity} çıkış yaptı", "lock": "{entity} kilitlendi", "unlock": "{entity} kilidi açıldı"},
+      "verb": {"create": "{entity} eklendi", "update": "{entity} değiştirildi", "delete": "{entity} silindi", "cancel": "{entity} iptal edildi", "move": "{entity} taşındı", "approve": "{entity} onaylandı", "reject": "{entity} reddedildi", "decide": "{entity} karara bağlandı", "undo": "{entity}: değişiklik geri alındı", "activate": "{entity} yayımlandı", "withdraw": "{entity} geri çekildi", "import": "{entity} içe aktarıldı", "policy": "{entity}: politika değişti", "login": "{entity} giriş yaptı", "logout": "{entity} çıkış yaptı", "lock": "{entity} kilitlendi", "unlock": "{entity} kilidi açıldı", "restore": "{entity} geri yüklendi"},
       "e": {
         "booking": "Rezervasyon",
+        "program": "Program",
         "approval_request": "Onay talebi",
         "approval_rule": "Onay kuralı",
         "approver": "Onaycı",

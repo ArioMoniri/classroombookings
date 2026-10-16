@@ -35,7 +35,40 @@ export const ACTION_PREFIXES = ["booking.", "series.", "approval.", "approval_ru
 /** Actions the backend can undo (`POST /audit/{id}/undo`). */
 export const UNDOABLE = new Set(["booking.create", "series.create", "booking.move", "booking.cancel"]);
 
-export const canUndo = (e: Pick<AuditEvent, "reversible" | "undone" | "action" | "undo_of">) => e.reversible && !e.undone && !e.undo_of && UNDOABLE.has(e.action);
+/** A wizard programme (`program.create` / `program.restore`, `undo_via: "program_draft"`) is undone by the drafts undo. */
+export const isProgramUndo = (e: Pick<AuditEvent, "undo_via">) => e.undo_via === "program_draft";
+
+export const canUndo = (e: Pick<AuditEvent, "reversible" | "undone" | "action" | "undo_of" | "undo_via">) =>
+  e.reversible && !e.undone && !e.undo_of && (UNDOABLE.has(e.action) || isProgramUndo(e));
+
+/** Archived kinds in the order the success message lists them. */
+export const ARCHIVED_KINDS = ["program", "faculty", "courses", "sections", "requests", "people", "rules"] as const;
+
+/** `{sections: [ids], …}` → [["sections", 3], …] for the kinds with something archived, in ARCHIVED_KINDS order. */
+export function archivedCounts(archived: Record<string, readonly number[]> | null | undefined): [string, number][] {
+  if (!archived) return [];
+  const known = ARCHIVED_KINDS.filter((k) => (archived[k]?.length ?? 0) > 0).map((k) => [k, archived[k]!.length] as [string, number]);
+  const other = Object.entries(archived).filter(([k, v]) => !(ARCHIVED_KINDS as readonly string[]).includes(k) && v.length > 0).map(([k, v]) => [k, v.length] as [string, number]);
+  return [...known, ...other];
+}
+
+/** 409 `blocked` on a programme undo: the blockers in the UI language. */
+export function undoBlockers(data: Record<string, unknown>, locale: string): string[] {
+  if (!Array.isArray(data.blockers)) return [];
+  return data.blockers
+    .map((b) => {
+      if (!b || typeof b !== "object") return null;
+      const text = (b as Record<string, unknown>).text;
+      if (text && typeof text === "object") {
+        const tx = text as Record<string, unknown>;
+        const v = (locale === "tr" ? [tx.tr, tx.en] : [tx.en, tx.tr]).find((x): x is string => typeof x === "string" && !!x.trim());
+        if (v) return v;
+      }
+      const code = (b as Record<string, unknown>).code;
+      return typeof code === "string" ? code : null;
+    })
+    .filter((x): x is string => !!x);
+}
 
 export interface DiffRow {
   field: string;

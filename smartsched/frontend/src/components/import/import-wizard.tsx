@@ -21,7 +21,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { ParseWarningsTable, countBySeverity } from "./parse-warnings-table";
+import { ParseWarningsTable, TruncatedWarnings, countBySeverity } from "./parse-warnings-table";
 import { CrbsUpgrade } from "./crbs-upgrade";
 import { RoomMasterImport, type FlowStep } from "./room-master-import";
 import { BareButton } from "@/components/shell/bare-button";
@@ -226,7 +226,7 @@ export function ImportWizard() {
                   [t("import.rows"), job.summary.rows],
                   [t("import.created"), job.summary.created],
                   [t("import.skipped"), job.summary.skipped],
-                  [t("import.warnings"), job.summary.warnings.length],
+                  [t("import.warnings"), job.summary.warnings_count ?? job.summary.warnings.length],
                 ].map(([k, v]) => (
                   <div key={String(k)}>
                     <dt className="type-footnote text-label-3">{k}</dt>
@@ -239,7 +239,7 @@ export function ImportWizard() {
           </Card>
           <Card>
             <CardHeader><CardTitle>{t("import.warningsTable")}</CardTitle></CardHeader>
-            <CardContent><ParseWarningsTable warnings={job.summary.warnings} /></CardContent>
+            <CardContent className="space-y-3"><TruncatedWarnings summary={job.summary} /><ParseWarningsTable warnings={job.summary.warnings} /></CardContent>
           </Card>
           <div className="flex flex-wrap items-center gap-2">
             <Button nativeButton={false} render={<Link href="/requests?status=NEEDS_REVIEW" />} onClick={() => setDone(true)}>{t("import.goRequests")}</Button>

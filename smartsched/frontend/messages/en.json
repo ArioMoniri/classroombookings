@@ -64,7 +64,7 @@
     "dropzone": "Drop the .xlsx here or click to browse", "dropzoneHint": "Up to 25 MB · .xlsx · Turkish headers detected automatically",
     "dsn": "Connection string (DSN)", "term": "Target term", "start": "Start import", "importing": "Importing…",
     "report": "Parse report", "rows": "Rows", "created": "Created", "updated": "Updated", "skipped": "Skipped",
-    "warnings": "Warnings", "warningsTable": "Rows that need attention", "row": "Row", "field": "Field",
+    "warnings": "Warnings", "warningsTruncated": "{count} warnings, showing the first {shown}", "warningsTable": "Rows that need attention", "row": "Row", "field": "Field",
     "value": "Value", "message": "Message", "severity": "Severity", "noWarnings": "No warnings — every row parsed cleanly.",
     "goRequests": "Review requests", "again": "Import another file", "recent": "Recent imports",
     "filterSeverity": "Filter by severity", "error": "Error", "warning": "Warning", "info": "Info"
@@ -3029,6 +3029,11 @@
       "undoTitle": "Undo {action}?",
       "undoBody": "The booking is put back as it was. Conflicts are checked again.",
       "undoneN": "{n, plural, one {# booking restored} other {# bookings restored}}",
+      "programUndoBody": "Everything this creation wrote (sections and their requests, new courses, new people, the programme, the faculty) is archived and its rules are turned off. Runs and the published plan do not change.",
+      "programUndone": "Programme undone",
+      "archivedLine": "Archived: {parts}",
+      "archived": {"sections": "{n, plural, one {# section} other {# sections}}", "requests": "{n, plural, one {# request} other {# requests}}", "courses": "{n, plural, one {# course} other {# courses}}", "people": "{n, plural, one {# person} other {# people}}", "rules": "{n, plural, one {# rule} other {# rules}}", "program": "{n, plural, one {# programme} other {# programmes}}", "faculty": "{n, plural, one {# faculty} other {# faculties}}"},
+      "blockersTitle": "What blocks the undo",
       "freeNow": "Free now: {rooms}",
       "noDiff": "No field details for this change.",
       "field": "Field",
@@ -3042,9 +3047,10 @@
         "user": "User",
         "system": "System"
       },
-      "verb": {"create": "{entity} added", "update": "{entity} changed", "delete": "{entity} deleted", "cancel": "{entity} cancelled", "move": "{entity} moved", "approve": "{entity} approved", "reject": "{entity} rejected", "decide": "{entity} decided", "undo": "{entity}: change undone", "activate": "{entity} published", "withdraw": "{entity} withdrawn", "import": "{entity} imported", "policy": "{entity}: policy changed", "login": "{entity} signed in", "logout": "{entity} signed out", "lock": "{entity} locked", "unlock": "{entity} unlocked"},
+      "verb": {"create": "{entity} added", "update": "{entity} changed", "delete": "{entity} deleted", "cancel": "{entity} cancelled", "move": "{entity} moved", "approve": "{entity} approved", "reject": "{entity} rejected", "decide": "{entity} decided", "undo": "{entity}: change undone", "activate": "{entity} published", "withdraw": "{entity} withdrawn", "import": "{entity} imported", "policy": "{entity}: policy changed", "login": "{entity} signed in", "logout": "{entity} signed out", "lock": "{entity} locked", "unlock": "{entity} unlocked", "restore": "{entity} restored"},
       "e": {
         "booking": "Booking",
+        "program": "Programme",
         "approval_request": "Approval request",
         "approval_rule": "Approval rule",
         "approver": "Approver",

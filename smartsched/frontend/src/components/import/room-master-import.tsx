@@ -21,7 +21,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { MagneticDrop, type UploadState } from "./magnetic-drop";
-import { ParseWarningsTable } from "./parse-warnings-table";
+import { ParseWarningsTable, TruncatedWarnings } from "./parse-warnings-table";
 import { diffCounts, diffRoomMaster, parseRoomMaster, type DiffRow, type DiffStatus, type MasterParse } from "./room-master-model";
 
 const FIELD: Record<string, MessageKey> = {
@@ -125,6 +125,7 @@ export function RoomMasterImport({ term, onStep, onBack }: { term: Pick<Term, "i
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
+          <TruncatedWarnings summary={job.summary} />
           {job.summary.warnings.length ? <ParseWarningsTable warnings={job.summary.warnings} /> : <p className="type-callout text-label-2">{t("import.noWarnings")}</p>}
           <Button variant="outline" onClick={onBack}>{t("import.again")}</Button>
         </CardContent>

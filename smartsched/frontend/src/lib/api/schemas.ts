@@ -215,6 +215,10 @@ export const ImportJob = z.object({
     updated: z.number(),
     skipped: z.number(),
     warnings: z.array(ParseWarning),
+    /** M-21: all warnings of the import; `warnings` lists the first `warnings_shown` (also sent to viewers) */
+    warnings_count: z.number().optional(),
+    warnings_shown: z.number().optional(),
+    warnings_truncated: z.boolean().optional(),
     /** the kind the file looks like when it is not the chosen one (backend WrongFileError, admin persona M-20) */
     detected_kind: z.string().nullable().optional(),
   }),

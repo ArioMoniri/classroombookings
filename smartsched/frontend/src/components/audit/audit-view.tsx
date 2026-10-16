@@ -23,7 +23,7 @@ import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { ACTION_PREFIXES, auditQuery, canUndo, diffRows, emptyAuditFilters, ENTITY_TYPES, undoReasons, valueText, type AuditFilterForm } from "./audit-model";
+import { ACTION_PREFIXES, ARCHIVED_KINDS, archivedCounts, auditQuery, canUndo, diffRows, emptyAuditFilters, ENTITY_TYPES, isProgramUndo, undoBlockers, undoReasons, valueText, type AuditFilterForm } from "./audit-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { DateField } from "@/components/ui/date-field";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -212,6 +212,7 @@ const ENTITY_KEYS: Record<string, MessageKey> = {
   session: "wave1.audit.e.session",
   term: "wave1.audit.e.term",
   department: "wave1.audit.e.department",
+  program: "wave1.audit.e.program",
   // admin persona M-36: these showed their raw API names in the Turkish filter
   room_field: "wave1.audit.e.room_field",
   schedule: "wave1.audit.e.schedule",
@@ -222,7 +223,7 @@ const ENTITY_KEYS: Record<string, MessageKey> = {
   user_constraints: "wave1.audit.e.user_constraints",
 };
 
-const VERBS = ["create", "update", "delete", "cancel", "move", "approve", "reject", "decide", "undo", "activate", "withdraw", "import", "policy", "login", "logout", "lock", "unlock"] as const;
+const VERBS = ["create", "update", "delete", "cancel", "move", "approve", "reject", "decide", "undo", "activate", "withdraw", "import", "policy", "login", "logout", "lock", "unlock", "restore"] as const;
 
 /** "room_feature.create" → "Derslik özelliği eklendi"; an unknown verb keeps the entity name and the raw verb. */
 export function auditSentence(action: string, entityType: string, t: ReturnType<typeof useI18n>["t"]): string {
@@ -324,7 +325,8 @@ function UndoDialog({ event, onClose }: { event: AuditEvent | null; onClose: () 
   const { t, locale } = useI18n();
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const [refusal, setRefusal] = useState<{ text: string; later: number | null; alternatives: string[] } | null>(null);
+  const [refusal, setRefusal] = useState<{ text: string; later: number | null; alternatives: string[]; blockers: string[] } | null>(null);
+  const program = !!event && isProgramUndo(event);
   const [last, setLast] = useState<number | null>(null);
   if ((event?.id ?? null) !== last) {
     setLast(event?.id ?? null);
@@ -336,12 +338,19 @@ function UndoDialog({ event, onClose }: { event: AuditEvent | null; onClose: () 
     setRefusal(null);
     try {
       const out = await wave1.audit.undo(event.id);
-      await Promise.all([...BOOKING_KEYS, ["w1", "audit"]].map((k) => qc.invalidateQueries({ queryKey: k })));
-      toast.success(t("wave1.audit.undoneN", { n: out.booking_ids.length || out.undone }));
+      if (program) {
+        // a programme touches sections, requests, people and rules across screens: refresh everything cached
+        await qc.invalidateQueries();
+        const parts = archivedCounts(out.archived).map(([k, n]) => ((ARCHIVED_KINDS as readonly string[]).includes(k) ? t(`wave1.audit.archived.${k}` as MessageKey, { n }) : `${k}: ${n}`));
+        toast.success(t("wave1.audit.programUndone"), parts.length ? { description: t("wave1.audit.archivedLine", { parts: parts.join(", ") }) } : undefined);
+      } else {
+        await Promise.all([...BOOKING_KEYS, ["w1", "audit"]].map((k) => qc.invalidateQueries({ queryKey: k })));
+        toast.success(t("wave1.audit.undoneN", { n: out.booking_ids.length || out.undone }));
+      }
       onClose();
     } catch (e) {
       const err = wave1Error(e);
-      setRefusal({ text: errorText(err, locale), ...undoReasons(err.data) });
+      setRefusal({ text: errorText(err, locale), ...undoReasons(err.data), blockers: undoBlockers(err.data, locale) });
     } finally {
       setBusy(false);
     }
@@ -351,7 +360,7 @@ function UndoDialog({ event, onClose }: { event: AuditEvent | null; onClose: () 
       open={!!event}
       onOpenChange={(o) => !o && onClose()}
       title={t("wave1.audit.undoTitle", { action: event?.action ?? "" })}
-      description={t("wave1.audit.undoBody")}
+      description={program ? t("wave1.audit.programUndoBody") : t("wave1.audit.undoBody")}
       confirmLabel={t("wave1.audit.undo")}
       busy={busy}
       onConfirm={() => void run()}
@@ -360,6 +369,16 @@ function UndoDialog({ event, onClose }: { event: AuditEvent | null; onClose: () 
         <Alert tone="error" testId="audit-undo-error">
           <span className="block">{refusal.text}</span>
           {refusal.alternatives.length ? <span className="mt-1 block type-footnote">{t("wave1.audit.freeNow", { rooms: refusal.alternatives.slice(0, 5).join(", ") })}</span> : null}
+          {refusal.blockers.length ? (
+            <span className="mt-2 block" data-testid="audit-undo-blockers">
+              <span className="block type-footnote font-semibold">{t("wave1.audit.blockersTitle")}</span>
+              <ul className="mt-1 list-disc ps-5 type-footnote">
+                {refusal.blockers.map((b, i) => (
+                  <li key={i}>{b}</li>
+                ))}
+              </ul>
+            </span>
+          ) : null}
         </Alert>
       ) : null}
     </ConfirmDialog>
