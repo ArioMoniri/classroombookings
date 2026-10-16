@@ -1975,6 +1975,7 @@
       "buildings": "Binalar",
       "buildingsHint": "Bu hafta bina bazında doluluk",
       "importedBoard": "İçe aktarılan pano #{id}",
+      "publishedBoard": "Yayında: içe aktarılan pano #{id}.",
       "kindCourse": "Dersler",
       "kindExam": "Sınavlar",
       "weeksN": "{list}. hafta",

@@ -22,6 +22,7 @@ import { useDashboardWeek } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
 import { dayName, formatDate, periodRangeLabel } from "@/lib/time";
 import { BuildingBars, PeriodArea } from "./dashboard-charts";
+import { latestPlan, shownWeek } from "./dashboard-model";
 import { KpiNumber } from "./kpi-number";
 import { UtilisationHeatmap } from "./utilisation-heatmap";
 
@@ -35,22 +36,28 @@ function relative(iso: string, locale: string): string {
   return rtf.format(-Math.round(hours / 24), "day");
 }
 
-const DONE = new Set<ScheduleRun["status"]>(["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL", "INFEASIBLE", "TIMEOUT"]);
-
-/** The plan the planner works on: the newest finished solver run of the term (imports are boards, not plans). */
-function latestPlan(runs: ScheduleRun[] | undefined): ScheduleRun | undefined {
-  return runs?.find((r) => DONE.has(r.status) && !isImportBoard(r) && r.kind === "COURSE") ?? runs?.find((r) => DONE.has(r.status) && !isImportBoard(r));
-}
-
 function HeroStatus({ plan }: { plan: ScheduleRun | undefined }) {
   const { t, n } = useI18n();
   if (!plan) {
     return (
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 type-title-3 text-label-2">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 type-title-3 text-label-2" data-testid="dashboard-plan">
         {t("glass.dashboard.noPlan")}
-        <Link href="/generate" className="type-body font-medium text-tint-text hover:underline">
+        <Link href="/generate" className={cn("relative type-body font-medium text-tint-text hover:underline", coarseHitArea)}>
           {t("glass.dashboard.makePlan")}
         </Link>
+      </p>
+    );
+  }
+  if (isImportBoard(plan)) {
+    return (
+      <p className="flex items-start gap-2 type-title-3" data-testid="dashboard-plan">
+        <CheckCircle2 className="mt-0.5 size-5 shrink-0 stroke-[2] text-status-feasible-fg" aria-hidden />
+        <span className="min-w-0 text-label-1">
+          {t("glass.dashboard.publishedBoard", { id: plan.id })}{" "}
+          <Link href={`/runs/${plan.id}`} className={cn("relative type-body font-medium whitespace-nowrap text-tint-text hover:underline", coarseHitArea)}>
+            {t("glass.dashboard.openRun")}
+          </Link>
+        </span>
       </p>
     );
   }
@@ -61,11 +68,11 @@ function HeroStatus({ plan }: { plan: ScheduleRun | undefined }) {
   const tone = complete ? "text-status-feasible-fg" : partial ? "text-status-warning-fg" : "text-status-infeasible-fg";
   const text = complete ? t("glass.dashboard.allPlaced", { id: plan.id }) : partial ? t("glass.dashboard.needRoom", { n: n(unplaced), id: plan.id }) : t("glass.dashboard.noTimetable", { id: plan.id });
   return (
-    <p className="flex items-start gap-2 type-title-3">
+    <p className="flex items-start gap-2 type-title-3" data-testid="dashboard-plan">
       <Icon className={`mt-0.5 size-5 shrink-0 stroke-[2] ${tone}`} aria-hidden />
       <span className="min-w-0 text-label-1">
         {text}{" "}
-        <Link href={`/runs/${plan.id}`} className="type-body font-medium whitespace-nowrap text-tint-text hover:underline">
+        <Link href={`/runs/${plan.id}`} className={cn("relative type-body font-medium whitespace-nowrap text-tint-text hover:underline", coarseHitArea)}>
           {partial || !complete ? t("glass.dashboard.openReport") : t("glass.dashboard.openRun")}
         </Link>
       </span>
@@ -107,8 +114,10 @@ export function DashboardView() {
   const weeks = useWeeks(term?.id);
   const [remembered, rememberWeek] = useRememberedTermWeek(term?.id);
   const lastWeek = term?.week_count ?? 1;
-  const week = Math.min(lastWeek, Math.max(1, remembered ?? (term ? (weekOfTerm(term) ?? 1) : 1)));
-  const dash = useDashboardWeek(term?.id, term ? week : undefined);
+  // a week the person picked is asked for as is; otherwise the server measures today's week, or the closest week
+  // the published plan covers (an imported board of two sheets covers weeks 1-2: T-R1-39)
+  const dash = useDashboardWeek(term?.id, term && remembered !== undefined ? remembered : undefined);
+  const week = shownWeek(remembered, dash.data?.utilisation_week, term ? (weekOfTerm(term) ?? 1) : 1, lastWeek);
   const runs = useRuns(term ? { term_id: term.id } : undefined);
   const pending = useMeetings(term ? { status: "NEEDS_REVIEW", term_id: term.id, page_size: 6 } : { status: "NEEDS_REVIEW", page_size: 6 });
   const d = dash.data;

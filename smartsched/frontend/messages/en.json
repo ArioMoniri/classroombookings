@@ -1976,6 +1976,7 @@
       "buildings": "Buildings",
       "buildingsHint": "Room use this week, per building",
       "importedBoard": "Imported board #{id}",
+      "publishedBoard": "Published: the imported board #{id}.",
       "kindCourse": "Classes",
       "kindExam": "Exams",
       "weeksN": "week {list}",

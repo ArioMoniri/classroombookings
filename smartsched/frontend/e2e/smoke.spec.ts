@@ -84,7 +84,8 @@ test.describe("SmartSched smoke (real backend)", () => {
     await expect(page.getByTestId("run-verdict")).toBeVisible({ timeout: 30_000 });
     if (run.status !== "FEASIBLE" && run.status !== "OPTIMAL") {
       await expect(page.getByTestId("diagnosis-card").first()).toBeVisible({ timeout: 30_000 });
-      await expect(page.locator("[data-testid^=issue-group-]").first()).toBeVisible();
+      // the server-grouped data issues are a request of their own (GET /runs/{id}/data-issues, 5-6 s on a loaded pod)
+      await expect(page.locator("[data-testid^=issue-group-]").first()).toBeVisible({ timeout: 30_000 });
     }
     await expect(page.getByTestId("chat-panel")).toBeVisible();
 
