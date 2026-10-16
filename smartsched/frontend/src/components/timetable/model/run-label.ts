@@ -1,5 +1,5 @@
-/** The /timetable run picker's option text: short enough for the sidebar (ROADMAP UI polish), full in `title`. */
-type RunLike = { id: number; kind: string; status: string; horizon: string; horizon_params: { weeks: readonly number[] } };
+/** The /timetable run picker's option text: short enough for the sidebar (ROADMAP UI polish), full in `title`; a run's own label leads. */
+type RunLike = { id: number; kind: string; status: string; horizon: string; horizon_params: { weeks: readonly number[] }; label?: string | null };
 type T = (key: string, vars?: Record<string, string | number>) => string;
 
 /** [1,2,3,5,7,8] → "1–3, 5, 7–8" */
@@ -21,5 +21,8 @@ export function runOptionLabel<K extends string>(r: RunLike, t: (key: K, vars?: 
   const status = tt(`runs.status.${r.status}`);
   const weeks = r.horizon === "WEEK" && r.horizon_params.weeks.length ? tt("calendar.nav.weekShort", { n: weekRanges(r.horizon_params.weeks) }) : "";
   const parts = (withKind: boolean) => [`#${r.id}`, withKind ? kind : "", status, weeks].filter(Boolean).join(" · ");
+  // a named run reads by its name in the narrow sidebar ("#4 · Bahar 3. hafta (A)"); the tooltip keeps everything
+  const label = r.label?.trim();
+  if (label) return { short: [`#${r.id}`, label, mixedKinds ? kind : ""].filter(Boolean).join(" · "), full: [`#${r.id}`, label, kind, status, weeks].filter(Boolean).join(" · ") };
   return { short: parts(mixedKinds), full: parts(true) };
 }

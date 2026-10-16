@@ -188,10 +188,10 @@
   note: "runs in pod CI (parity gate)"
 - feature: "Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows"
   area: bookings
-  status: backend-only
+  status: done
   phase: "17 (P2, P8, V2, A4)"
-  evidence: smartsched/backend/tests/test_wave2_kvkk.py
-  note: "/bookings/conflicts/*, /booking-policies/*, /public/schedule/*, /me/privacy + /me/data-requests + /admin/{dsr,retention,privacy-notices,kvkk/inventory}; tests/test_wave2_*.py on real Bahar; no screens yet"
+  evidence: smartsched/frontend/e2e/wave2.spec.ts
+  note: "UI 2026-10-16: /bookings/conflicts/[run] resolver (banner, ranked options, scope, auto -> dry-run review -> apply, 409 problems in their row); Ayarlar › Rezervasyon kuralları + exam period, 'Neden?' in grid / book sheet / find-room; /public kiosk (rooms, buildings, 60 s refresh) with the KVKK sign-off card; Profil › Gizlilik + first-login notice sheet; Yönetim › KVKK (requests, notice, retention, inventory CSV); e2e 5/5 on a real backend incl. phone 390; backend tests/test_wave2_*.py"
 
 - feature: "No privilege escalation: nobody grants or edits a role whose permissions they do not all hold"
   area: identity

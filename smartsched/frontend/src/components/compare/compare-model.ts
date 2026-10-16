@@ -3,7 +3,8 @@
  * filter shows, the verdict of a metric (better / worse / same / neutral, always as words + a glyph, never colour
  * alone) and the number formats.
  */
-import type { ChangeKind, ClassItem, CompareData, Metric, RunLite } from "@/lib/api/analytics";
+import type { ChangeKind, ClassItem, CompareData, Metric } from "@/lib/api/analytics";
+import type { ScheduleRun } from "@/lib/api/schemas";
 
 export type ClassFilter = "moved" | "only_in_a" | "only_in_b";
 export const CLASS_FILTERS: readonly ClassFilter[] = ["moved", "only_in_a", "only_in_b"];
@@ -48,14 +49,14 @@ export function metricValue(key: string, v: number | null, locale: string): stri
 }
 
 /** runs that can be compared with `a`: same term and kind, not itself */
-export function comparableWith(runs: readonly RunLite[], a: RunLite | undefined): RunLite[] {
+export function comparableWith(runs: readonly ScheduleRun[], a: ScheduleRun | undefined): ScheduleRun[] {
   if (!a) return [...runs];
   return runs.filter((r) => r.id !== a.id && r.term_id === a.term_id && r.kind === a.kind);
 }
 
 /** a sensible default pair: the published run of the kind as A (baseline) and the newest other run as B */
-export function defaultPair(runs: readonly RunLite[]): { a: number; b: number } | null {
-  const byKey = new Map<string, RunLite[]>();
+export function defaultPair(runs: readonly ScheduleRun[]): { a: number; b: number } | null {
+  const byKey = new Map<string, ScheduleRun[]>();
   for (const r of runs) {
     const k = `${r.term_id}:${r.kind}`;
     byKey.set(k, [...(byKey.get(k) ?? []), r]);

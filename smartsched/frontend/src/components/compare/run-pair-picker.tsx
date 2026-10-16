@@ -8,7 +8,7 @@ import { ArrowLeftRight } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { Button, IconButton } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
-import type { RunLite } from "@/lib/api/analytics";
+import type { ScheduleRun } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { comparableWith } from "./compare-model";
@@ -23,7 +23,7 @@ export function RunPairPicker({
   compact = false,
   className,
 }: {
-  runs: readonly RunLite[] | undefined;
+  runs: readonly ScheduleRun[] | undefined;
   a: number | null;
   b: number | null;
   onApply: (a: number, b: number) => void;
@@ -48,7 +48,7 @@ export function RunPairPicker({
   const runA = list.find((r) => r.id === a);
   const okForB = useMemo(() => new Set(comparableWith(list, runA).map((r) => r.id)), [list, runA]);
   const terms = useMemo(() => {
-    const m = new Map<string, RunLite[]>();
+    const m = new Map<string, ScheduleRun[]>();
     for (const r of list) m.set(r.term_code ?? `#${r.term_id}`, [...(m.get(r.term_code ?? `#${r.term_id}`) ?? []), r]);
     return [...m.entries()];
   }, [list]);

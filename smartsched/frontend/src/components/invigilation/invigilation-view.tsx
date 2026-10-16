@@ -20,8 +20,9 @@ import { StatusDot } from "@/components/ui/data-table";
 import { NativeSelect } from "@/components/ui/native-select";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
-import { errorText, pairOf, useRunOptions, type RunLite } from "@/lib/api/analytics";
+import { errorText, pairOf, useRunOptions } from "@/lib/api/analytics";
 import { useAllPlans, usePlans, type PlanBrief } from "@/lib/api/invigilation";
+import type { ScheduleRun } from "@/lib/api/schemas";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
@@ -35,7 +36,7 @@ const STAFFABLE = new Set(["OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL"]);
 const int = (v: string | null) => (v && /^\d+$/.test(v) ? Number(v) : null);
 
 /** the default exam run: the one of the newest plan, else the active term's published (or newest) exam run */
-export function pickExamRun(runs: readonly RunLite[], termId: number | undefined, newestPlanRun?: number | null): RunLite | undefined {
+export function pickExamRun(runs: readonly ScheduleRun[], termId: number | undefined, newestPlanRun?: number | null): ScheduleRun | undefined {
   const exams = runs.filter((r) => r.kind === "EXAM" && STAFFABLE.has(r.status));
   const planned = exams.find((r) => r.id === newestPlanRun);
   if (planned) return planned;

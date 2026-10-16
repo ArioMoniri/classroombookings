@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `683c87a` (committed 2026-10-16 07:10 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `4a3a322` (committed 2026-10-16 07:15 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 35 · Backend only 5 · In progress 4 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 36 · Backend only 4 · In progress 4 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -76,7 +76,7 @@ Done 35 · Backend only 5 · In progress 4 · Planned 0 (from [`docs/features.ym
 | Signed outgoing webhooks (HMAC-SHA256) with an SSRF guard, off by default | Done: Ayarlar › Entegrasyonlar › Giden webhook'lar: delivery switch, SSRF refusal next to the URL, secret shown once | 17 | [`approval-first.spec.ts`](../smartsched/frontend/e2e/approval-first.spec.ts) |
 | CRBS legacy upgrade: import a running classroombookings database with a dry-run report | Done: import-wizard dry run + fingerprint confirm; live MySQL run on the pod open | P18-LEGACY | [`shell-admin-sweep.spec.ts`](../smartsched/frontend/e2e/shell-admin-sweep.spec.ts) |
 | CRBS superset gate: every classroombookings behaviour and screen has an acceptance test | Done: runs in pod CI (parity gate) | 18 | [`parity_check.py`](../scripts/parity_check.py) |
-| Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows | Backend only: /bookings/conflicts/*, /booking-policies/*, /public/schedule/*, /me/privacy + /me/data-requests + /admin/{dsr,retention,privacy-notices,kvkk/inventory}; tests/test_wave2_*.py on real Bahar; no screens yet | 17 (P2, P8, V2, A4) | [`test_wave2_kvkk.py`](../smartsched/backend/tests/test_wave2_kvkk.py) |
+| Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows | Done: UI 2026-10-16: /bookings/conflicts/[run] resolver (banner, ranked options, scope, auto -> dry-run review -> apply, 409 problems in their row); Ayarlar › Rezervasyon kuralları + exam period, 'Neden?' in grid / book sheet / find-room; /public kiosk (rooms, buildings, 60 s refresh) with the KVKK sign-off card; Profil › Gizlilik + first-login notice sheet; Yönetim › KVKK (requests, notice, retention, inventory CSV); e2e 5/5 on a real backend incl. phone 390; backend tests/test_wave2_*.py | 17 (P2, P8, V2, A4) | [`wave2.spec.ts`](../smartsched/frontend/e2e/wave2.spec.ts) |
 
 **Identity and notifications**
 

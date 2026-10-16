@@ -13,6 +13,9 @@
  */
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { buildUrl, HttpError, request, type Query } from "./client";
+import { api } from "./endpoints";
+import { qk } from "./hooks";
+import type { ScheduleRun } from "./schemas";
 
 export interface Pair {
   tr: string;
@@ -292,33 +295,21 @@ export interface InstructorHeatQuery {
 
 /* ------------------------------------------------------------------ run options */
 
-/** `GET /runs` as sent (the shared ScheduleRun schema drops `label`, which the pickers need) */
-export interface RunLite {
-  id: number;
-  term_id: number;
-  term_code: string | null;
-  kind: "COURSE" | "EXAM";
-  horizon: string;
-  horizon_params: { weeks?: number[] };
-  status: string;
-  label: string | null;
-  is_active?: boolean;
-  hard_score: number | null;
-  soft_score: number | null;
-  created_at: string;
-  parent_run_id: number | null;
-}
-
 /** runs with a timetable to analyse (a best-effort partial one and an INFEASIBLE run's placements included) */
 export const ANALYSABLE: ReadonlySet<string> = new Set(["OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL", "INFEASIBLE"]);
 
+/**
+ * The analysable runs of a term (or of every term), newest first: the shared runs query (`qk.runs` + the zod
+ * `ScheduleRun`, label included), so a picker here and the runs list read one cache entry.
+ */
 export function useRunOptions(termId?: number | null) {
+  const q = termId !== null && termId !== undefined ? { term_id: termId } : undefined;
   return useQuery({
-    queryKey: ["analytics", "runs", termId ?? null] as const,
-    queryFn: () => request<RunLite[]>("/runs", { query: { term_id: termId ?? undefined }, silent: true }),
+    queryKey: qk.runs(q),
+    queryFn: () => api.runs.list(q),
     retry: noRetry,
     staleTime: 15_000,
-    select: (rows) => [...rows].filter((r) => ANALYSABLE.has(r.status)).sort((x, y) => y.id - x.id),
+    select: (rows: ScheduleRun[]) => [...rows].filter((r) => ANALYSABLE.has(r.status)).sort((x, y) => y.id - x.id),
   });
 }
 

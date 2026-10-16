@@ -1,6 +1,7 @@
 /** Scenario comparison helpers on the real Bahar 2026 week 3 pair: #5 (A) vs #6 (B, A's busiest room A 204 closed on Wednesday). */
 import { describe, expect, it } from "vitest";
-import type { CompareData, RunLite } from "@/lib/api/analytics";
+import type { CompareData } from "@/lib/api/analytics";
+import type { ScheduleRun } from "@/lib/api/schemas";
 import fixture from "./__fixtures__/compare-bahar-w3.json";
 import { classRows, comparableWith, defaultPair, metricValue, verdict } from "./compare-model";
 
@@ -37,7 +38,7 @@ describe("compare model", () => {
   });
 
   it("offers as B only runs of A's term and kind, and picks the published run as the default baseline", () => {
-    const run = (id: number, term_id: number, kind: "COURSE" | "EXAM", is_active = false) => ({ id, term_id, kind, is_active, status: "FEASIBLE" }) as RunLite;
+    const run = (id: number, term_id: number, kind: "COURSE" | "EXAM", is_active = false) => ({ id, term_id, kind, is_active, status: "FEASIBLE" }) as ScheduleRun;
     const runs = [run(7, 2, "EXAM"), run(6, 1, "COURSE"), run(5, 1, "COURSE", true), run(2, 1, "EXAM")];
     expect(comparableWith(runs, runs[2]).map((r) => r.id)).toEqual([6]);
     expect(defaultPair(runs)).toEqual({ a: 5, b: 6 });

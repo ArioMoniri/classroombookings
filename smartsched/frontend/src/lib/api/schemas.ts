@@ -297,6 +297,8 @@ export const ScheduleRun = z.object({
   horizon: Horizon,
   horizon_params: z.object({ weeks: z.array(z.number()).default([]), dates: z.array(z.string()).default([]) }),
   status: RunStatus,
+  /** the planner's own name for the run ("Bahar 3. hafta (A)"); the pickers show it next to the id */
+  label: z.string().nullable().optional(),
   progress: z.number().min(0).max(100).default(0),
   params: RunParams,
   objective_value: z.number().nullable(),
