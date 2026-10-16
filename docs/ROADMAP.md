@@ -52,12 +52,12 @@ Turkish or English, and publishes it — deployable with one command and scalabl
 
 ## Backlog / nice-to-have (reviewers add here)
 
-- [ ] Scenario comparison (A/B runs side by side, diff view)
-- [ ] Utilisation heatmaps per building/day
+- [ ] Scenario comparison (A/B runs side by side, diff view) — backend done 2026-10-16: `GET /analytics/compare?a=&b=` (scores, per-class moves, instructor load / gaps, room deltas, rule-by-rule penalties; JSON + CSV), `app/services/scenario_compare.py`, tests/test_planning_analytics.py; UI open
+- [ ] Utilisation heatmaps per building/day — backend done 2026-10-16: `GET /analytics/heatmap/rooms` (run or live board + blocks + bookings; building / room type / capacity band / room; day or date axis; JSON + CSV) and `/analytics/heatmap/instructors`, `app/services/utilisation.py`; UI open
 - [ ] Request inbox workflow (faculty submits → planner approves)
 - [ ] Publishing & versioning with audit trail, change notifications to instructors
 - [ ] iCal feeds per room / instructor / programme
-- [ ] Invigilator assignment for exams
+- [ ] Invigilator assignment for exams — backend done 2026-10-16: CP-SAT model `app/solver/invigilation.py` (one worker, deterministic), pool + plans + duties (alembic 0031), `/invigilation/*` run / view / lock / reassign / re-run / publish, per-room diagnoses; real Final run staffs all 846 room sessions; UI open
 - [ ] Student-level conflict checking when enrolment lists become available
 - [ ] Mobile room display mode (door signs)
 - [ ] SSO (LDAP, like CRBS) and role-based access

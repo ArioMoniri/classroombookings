@@ -19,6 +19,8 @@ seats.py          seat budgets of shared rooms (split exams): targets, allocatio
 options.py        structured suggestion options (Diagnosis.params["options"])
 weeksplit.py      week segments for term runs (blocked weeks move only those weeks), residual split, merge back
 policy.py         relaxation policy: who loses when not every request fits (lock_first / most_classes_first)
+invigilation.py   invigilator assignment for a placed exam timetable (own dataclasses; posts, eligibility, two-phase
+                  CP-SAT: shortfall then fairness, greedy fallback, Hall-witness diagnoses)
 ```
 
 Not shipped in the image (audit m10): `tests/solver/generators.py` (synthetic + Bahar-like instance
@@ -477,3 +479,31 @@ and the planted assignments double as `previous` for stability/repair tests. `fr
 uses the real room master (60 rooms, TIP rooms for medicine, PC labs, evening programmes after P13 in
 B/C). `tests/solver/data/tiny.json` is a hand-written five-event instance used by the tests and as
 an example of the JSON format (`serialization.py`).
+
+## Invigilator assignment (`invigilation.py`)
+
+`solve_invigilation(InvigilationInput) -> InvigilationResult`, pure, its own frozen dataclasses (it does not touch
+the timetabling contract in `model.py`). Input comes from `services/invigilation.build_input` (the exam run's
+placements, the pool, teaching, bookings, unavailability).
+
+* **Posts**: `build_posts` groups the placed exams that share a room at overlapping times into one post (one team
+  watches the room). `required = max(min_per_room, ceil(seated / students_per_invigilator), Σ ceil(requested /
+  rooms of the exam))`; `max_per_room` caps the ratio part only. A split exam's students are spread over its rooms
+  by exam seats (largest remainder).
+* **Eligibility** (pruned with a reason per pair): busy (`teaching`, `unavailable`, `booking`), own exam (`forbid`:
+  never one's own course's exam; `prefer`: busy elsewhere while it runs, bonus for taking it), `no_capacity`.
+* **Hard**: `Σ x + short = required` per post; `AddAtMostOne` over every maximal clique of conflicting posts per
+  person (interval sweep; `min_rest` extends the ends); daily and total caps; locks fixed. A lock that breaks a rule is
+  `locked_conflict` (not applied, plan INFEASIBLE).
+* **Two phases**: (1) minimise the shortfall, skipped when the greedy plan already staffs every post; (2) shortfall
+  fixed, minimise `max_load·10 + spread·2 + same_day·3 − own_exam·5 + stability·4` (weights overridable). One
+  worker, fixed seed, deterministic budget; above 20 000 Booleans no LP and a light presolve (the Final model has
+  ≈ 170 000; with the LP CP-SAT returned UNKNOWN on its complete hint). The plan is validated before it is returned;
+  if CP-SAT finds nothing the validated greedy plan is used (`stats.engine`).
+* **Diagnosis** per under-staffed post: `no_candidates` (fewer eligible than required, with the reasons),
+  `slot_shortage` (a set of posts at one period whose candidate union is smaller than their demand — Hall's
+  condition — shrunk by deletion to a minimal set), `cap_shortage`, `overlap_shortage`.
+* **Scores**: hard = share of required seats + locks that hold (100 only when everything holds); soft = 100 ×
+  fair-share lower bound / busiest (factor-scaled) load.
+* Tests: `tests/solver/test_invigilation.py` (every rule feasible / infeasible / weight, determinism, a
+  Final-sized synthetic instance behind `-m slow`); the real Final in `tests/test_invigilation_api.py`.

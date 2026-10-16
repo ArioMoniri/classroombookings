@@ -92,6 +92,7 @@ repo root
 | `import_jobs` | id, kind, filename, status, summary (JSON: rows, created, updated, warnings), created_at |
 | Booking enhancements wave 1 | `room_custom_fields` typed (BOOLEAN/NUMBER/SELECT/MULTISELECT/TEXT, filterable, solver_tag; alembic 0012), `audit_events` (append-only, triggers; 0014), `approver_scopes`, `approval_rules`, `approval_requests`, `approval_decisions`, `inapp_notifications` (0015) — docs/product/wave1-api.md |
 | Calendar sync (alembic 0011) | `calendar_feed_tokens` (SHA-256 of the token only), `calendar_connections` (Fernet-encrypted OAuth tokens), `calendar_event_links`, `calendar_event_revisions`, `calendar_sync_jobs` (outbox), `oauth_states`, `webhook_endpoints`, `webhook_deliveries` — docs/product/calendar-sync-api.md |
+| Invigilation (alembic 0031) | `invigilator_pool` (staff / assistants and per-person rules: unavailability, duty limits, load factor; `term_id` null = every term), `invigilation_plans` (one solve of an exam run; parent plan for a re-run; one published plan per exam run), `invigilation_duties` (person × post = room, date, periods; `is_locked`) |
 | `users.token_version` (alembic 0006) | raised to revoke every token of the user (see "Sessions and token revocation") |
 
 ### Migrations (Alembic chain)
@@ -230,6 +231,9 @@ Constraint kinds (v1): `capacity`, `no_room_overlap`, `no_cohort_overlap`, `no_i
 | `POST /runs/{id}/assignments/{aid}/move`, `/lock` | manual drag-drop edits with conflict check |
 | `GET /runs/{id}/export?format=xlsx|ics|csv|crbs` | exports (xlsx reproduces the weekly grid layout) |
 | `GET /runs/{id}/grid?week=` | room × period matrix for the UI |
+| `GET /analytics/compare?a=&b=[&format=csv&part=]` | scenario comparison of two runs of one term and kind: scores, per-class moves, instructor load / gaps, room deltas, rule-by-rule soft penalties (`services/scenario_compare.py`) |
+| `GET /analytics/heatmap/rooms`, `GET /analytics/heatmap/instructors` | utilisation heatmaps of a run or the live board (published runs + blocks + bookings) by building / room type / capacity band / room; instructor load (`services/utilisation.py`); JSON or CSV |
+| `/invigilation/pool*`, `/invigilation/plans*` | invigilator assignment for exam runs: staff pool, CP-SAT plans (run, view, lock, reassign, re-run, publish), candidates, roster / load CSV (`services/invigilation.py`, `solver/invigilation.py`) |
 | `GET /health`, `GET /metrics` | ops |
 | `POST /auth/logout` | revokes every token of the user (token version) |
 | `/bookings/*`, `/booking-admin/*`, `/room-admin/*`, `/org/*`, `/roles`, `/departments`, `/holidays` | CRBS parity (docs/CRBS_PARITY.md §4) |

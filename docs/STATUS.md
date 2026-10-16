@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `87d1e06` (committed 2026-10-16 04:14 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `a196388` (committed 2026-10-16 04:21 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 33 · Backend only 4 · In progress 6 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 33 · Backend only 5 · In progress 5 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -47,7 +47,7 @@ Done 33 · Backend only 4 · In progress 6 · Planned 0 (from [`docs/features.ym
 | Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff | Done: person and programme priority, server changes list, diff baseline + chain, publish notices; academician Tercih ekle (P19-T2): backend done, UI sheet open | P19 M1-M3, F1 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Learned suggestions from earlier terms, with a resettable memory (per person, per term or all) | Done: accept for the term or persistent (admin, confirmed), undo of any decision; never auto-applied | P19 L1-L4, F2 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander | Done: server drafts with autosave, per-step validation, pre-check, one-transaction commit and a 30-day undo | P19 C1-C4, F3 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
-| Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | In progress: planning analytics backend builder running | backlog |  |
+| Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | Backend only: GET /analytics/compare, /analytics/heatmap/rooms and /instructors (JSON + CSV), /invigilation/* CP-SAT plans; no screen yet | backlog | [`test_invigilation_api.py`](../smartsched/backend/tests/test_invigilation_api.py) |
 
 **Intake**
 
