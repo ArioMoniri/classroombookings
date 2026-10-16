@@ -68,3 +68,14 @@ describe("Taleplerim", () => {
     expect(table.innerHTML).not.toContain("min-w-max");
   });
 });
+
+describe("T-R1-20 Kişiler", () => {
+  it("finds a person by a course they teach (with or without the space)", async () => {
+    const { filterPeople } = await import("./moderation-model");
+    const { PersonRow } = await import("@/lib/api/moderation");
+    const rows = [PersonRow.parse({ id: 1, name: "S. E.", courses: ["PSY 277", "PSI 213"] }), PersonRow.parse({ id: 2, name: "A. T.", courses: ["FZT 132"] })];
+    expect(filterPeople(rows, "all", "PSY 277").map((p) => p.id)).toEqual([1]);
+    expect(filterPeople(rows, "all", "psy277").map((p) => p.id)).toEqual([1]);
+    expect(filterPeople(rows, "all", "A. T.").map((p) => p.id)).toEqual([2]);
+  });
+});

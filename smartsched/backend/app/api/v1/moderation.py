@@ -79,10 +79,64 @@ async def moderation_people(term_id: int, db: DB, access: CurrentAccess, q: str 
     term = await _term(db, term_id)
     scope = await _scope(db, access)
     out = await mod.people(db, term, scope, q)
+    if q and q.strip():
+        # T-R1-20 (R1-S-25): a course code finds the people who teach it ("PSY 277"), not only a name
+        teach = await _teachers_of(db, term.id, q)
+        have = {int(r["id"]) for r in out["items"]}
+        if teach - have:
+            everyone = await mod.people(db, term, scope, None)
+            out["items"] = [*out["items"], *(r for r in everyone["items"] if int(r["id"]) in teach - have)]
+            if "total" in out:
+                out["total"] = len(out["items"])
     pending = await tp.pending_by_instructor(db, term.id)
+    courses = await _courses_by_instructor(db, term.id)
     for row in out["items"]:
         row["pending_preferences"] = pending.get(int(row["id"]), 0)
+        # T-R1-20: the course codes the person teaches this term, so Kişiler finds "PSY 277"
+        row["courses"] = courses.get(int(row["id"]), [])
     return out
+
+
+async def _courses_by_instructor(db: AsyncSession, term_id: int) -> dict[int, list[str]]:
+    """Instructor id -> the display codes of the courses they teach in the term (sorted, each once)."""
+    from sqlalchemy import select
+
+    from app.models import Course, Section, SectionInstructor
+
+    rows = await db.execute(
+        select(SectionInstructor.instructor_id, Course.display_code)
+        .join(Section, Section.id == SectionInstructor.section_id)
+        .join(Course, Course.id == Section.course_id)
+        .where(Section.term_id == term_id)
+    )
+    out: dict[int, set[str]] = {}
+    for iid, code in rows.all():
+        if iid is not None and code:
+            out.setdefault(int(iid), set()).add(str(code))
+    return {k: sorted(v) for k, v in out.items()}
+
+
+async def _teachers_of(db: AsyncSession, term_id: int, q: str) -> set[int]:
+    """Instructors of the term's sections whose course code holds ``q`` (spaces and Turkish case ignored)."""
+    from sqlalchemy import select
+
+    from app.models import Course, Section, SectionInstructor
+    from app.services.calendar_views import tr_fold
+
+    needle = tr_fold(q).replace(" ", "")
+    if len(needle) < 2:
+        return set()
+    rows = await db.execute(
+        select(SectionInstructor.instructor_id, Course.code, Course.display_code)
+        .join(Section, Section.id == SectionInstructor.section_id)
+        .join(Course, Course.id == Section.course_id)
+        .where(Section.term_id == term_id)
+    )
+    return {
+        int(iid)
+        for iid, code, shown in rows.all()
+        if needle in tr_fold(code).replace(" ", "") or needle in tr_fold(shown).replace(" ", "")
+    }
 
 
 @router.get("/moderation/people/{instructor_id}/history")

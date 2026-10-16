@@ -24,6 +24,7 @@ import { HttpError } from "@/lib/api/client";
 import { useChanges, useMatchings, useModerationMe, useMyMatchings, usePeople, usePreferences, type Matching, type PersonRow, type Preference } from "@/lib/api/moderation";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
+import { pct } from "@/lib/i18n/turkish";
 import { springs, tween, useReduce } from "@/lib/motion";
 import { usePermissions } from "@/lib/permissions";
 import { useHydrated } from "@/lib/use-hydrated";
@@ -44,6 +45,7 @@ import {
   reasonText,
   requestedText,
   sessionTags,
+  isRuleKind,
   sortMatchings,
   sortRequests,
   termPreferences,
@@ -104,6 +106,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   const [peopleChip, setPeopleChip] = useState<PeopleChip>("all");
   const [prefView, setPrefView] = useState<PrefView>(() => parsePrefView(params.get("view")));
   const [inspect, setInspect] = useState<number | null>(null);
+  const [inspectPriority, setInspectPriority] = useState(false);
   const [recreate, setRecreate] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   /** the travel direction of the tab switch: content enters from the side of the new tab */
@@ -176,7 +179,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
         <>
           {term?.code ?? ""}
           {" · "}
-          {matchings.data ? (runId ? t("moderation.publishedRun", { id: runId, rate: matchings.data.match_rate !== null ? Math.round(matchings.data.match_rate * 100) : "—" }) : t("moderation.noPublished")) : <Skeleton className="inline-block h-3 w-40 align-middle" />}
+          {matchings.data ? (runId ? t("moderation.publishedRun", { id: runId, rate: matchings.data.match_rate !== null ? pct(Math.round(matchings.data.match_rate * 100), { locale, suffix: "acc" }) : "—" }) : t("moderation.noPublished")) : <Skeleton className="inline-block h-3 w-40 align-middle" />}
         </>
       }
       actions={
@@ -268,9 +271,11 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
     { id: "step", header: t("moderation.col.step"), width: "9rem", cell: (m) => (m.reason?.policy_step ? pairText(m.reason.policy_step.text, lang) : "—") },
     { id: "who", header: t("moderation.col.who"), width: "minmax(9rem,1fr)", cell: (m) => m.instructors.map((i) => i.name).join(", ") || "—" },
   ];
+  const kindLabel = (k: string) => (isRuleKind(k) ? t(`moderation.kind.${k}`) : t("moderation.kind.other"));
   const prefCols: ModColumn<Preference>[] = [
     { id: "text", header: t("moderation.col.pref"), width: "minmax(18rem,3fr)", cell: (p) => p.nl_text ?? p.kind },
-    { id: "kind", header: t("moderation.col.kind"), width: "10rem", cell: (p) => p.kind },
+    // T-R1-20 (R1-S-24): the rule kind in words, never "building_preference"
+    { id: "kind", header: t("moderation.col.kind"), width: "10rem", cell: (p) => kindLabel(p.kind) },
     { id: "weight", header: t("moderation.col.weight"), width: "5.5rem", align: "end", cell: (p) => n(p.weight) },
     { id: "source", header: t("moderation.col.source"), width: "minmax(9rem,1.2fr)", cell: (p) => <span title={prefSource(p) === "teacher" ? t(softRuleKey(p.kind)) : undefined}>{t(`moderation.prefSource.${prefSource(p)}`)}{prefSource(p) === "teacher" ? ` · ${t(softRuleKey(p.kind))}` : ""}</span> },
     { id: "enabled", header: t("moderation.col.active"), width: "7rem", cell: (p) => (p.enabled ? `✓ ${t("common.yes")}` : `✕ ${t("common.no")}`) },
@@ -299,7 +304,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
 
   let body: React.ReactNode;
   if (tab === "classes") {
-    body = <ClassesTab termId={termId} runId={runId} onOpen={setInspect} />;
+    body = <ClassesTab termId={termId} runId={runId} onOpen={(id) => (setInspectPriority(false), setInspect(id))} onPriority={(id) => (setInspectPriority(true), setInspect(id))} />;
   } else if (tab === "people") {
     const rows = filterPeople(people.data?.items ?? [], peopleChip, query);
     body = people.isError ? errorBanner(people.error, () => void people.refetch()) : !people.data ? loadingRows : (
@@ -437,7 +442,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
       >
         {body}
       </motion.div>
-      <MatchingInspector termId={termId} requestId={inspect} canEdit={canEdit} onClose={() => setInspect(null)} side={mobile ? "bottom" : "right"} />
+      <MatchingInspector termId={termId} requestId={inspect} canEdit={canEdit} onClose={() => setInspect(null)} side={mobile ? "bottom" : "right"} focusPriority={inspectPriority} />
       {canEdit && runId ? <RecreateSheet open={recreate} onOpenChange={setRecreate} termId={termId} baseRunId={runId} staged={staged} side={mobile ? "bottom" : "right"} /> : null}
     </div>
   );

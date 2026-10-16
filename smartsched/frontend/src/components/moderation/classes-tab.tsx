@@ -22,7 +22,7 @@ const COLUMNS = ["status", "course", "program", "instructor", "students", "reqTi
 const NONE = new Set<number>();
 const NO_IDS = new Set<string>();
 
-export function ClassesTab({ termId, runId, onOpen }: { termId: number; runId: number | null; onOpen: (requestId: number) => void }) {
+export function ClassesTab({ termId, runId, onOpen, onPriority }: { termId: number; runId: number | null; onOpen: (requestId: number) => void; onPriority?: (requestId: number) => void }) {
   const { t, n } = useI18n();
   const classes = useClasses(termId, "meetings", runId);
   const [filters, setFilters] = useState<ClassFilters>(EMPTY);
@@ -99,7 +99,13 @@ export function ClassesTab({ termId, runId, onOpen }: { termId: number; runId: n
           onCommit={async () => false}
           onToggleLock={() => undefined}
           onQuickFilter={() => undefined}
-          onKeyAction={() => false}
+          // T-R1-20 (R1-S-25): `p` on a class opens its priority ("PSY 277 §1 önceliği") in the inspector
+          onKeyAction={(key, row) => {
+            if (key !== "p" || !row || !onPriority) return false;
+            setActive(row.id);
+            onPriority(row.id);
+            return true;
+          }}
           readOnly
           savingIds={NO_IDS}
           label={t("moderation.caption.classes", { shown: n(rows.length), total: n(all.length) })}

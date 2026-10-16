@@ -112,6 +112,11 @@ export function sessionTags(rows: readonly Pick<Matching, "request_id" | "label"
   return out;
 }
 
+/** T-R1-20: the solver rule kinds the Tercihler tab names in words (messages `moderation.kind.*`, app/ai/catalog.py) */
+export const RULE_KINDS = ["capacity", "no_room_overlap", "no_cohort_overlap", "no_instructor_overlap", "fixed_time", "room_tags", "room_pin", "room_forbid", "building_preference", "room_preference", "same_room_across_weeks", "same_room_group", "min_capacity_waste", "exam_gap", "max_exams_per_day", "stability", "room_closed", "day_window", "evening_programs_in_buildings"] as const;
+export type RuleKind = (typeof RULE_KINDS)[number];
+export const isRuleKind = (k: string): k is RuleKind => (RULE_KINDS as readonly string[]).includes(k);
+
 export function pairText(p: { tr: string; en: string } | null | undefined, lang: Lang): string {
   if (!p) return "";
   return (lang === "tr" ? p.tr : p.en) || p.tr || p.en;
@@ -184,7 +189,10 @@ export function unmetOf(p: PersonRow): number {
 }
 export function filterPeople(items: readonly PersonRow[], chip: PeopleChip, q: string): PersonRow[] {
   const needle = fold(q.trim());
-  return items.filter((p) => (chip === "unmet" ? unmetOf(p) > 0 : chip === "streak" ? p.badge !== null : true) && (!needle || fold(`${p.title ?? ""} ${p.name} ${p.unit ?? ""}`).includes(needle)));
+  // T-R1-20 (R1-S-25): a course code ("PSY 277", "psy277") finds the people who teach it, not only a name
+  const bare = needle.replace(/\s+/g, "");
+  const teaches = (p: PersonRow) => bare.length >= 2 && (p.courses ?? []).some((c) => fold(c).replace(/\s+/g, "").includes(bare));
+  return items.filter((p) => (chip === "unmet" ? unmetOf(p) > 0 : chip === "streak" ? p.badge !== null : true) && (!needle || fold(`${p.title ?? ""} ${p.name} ${p.unit ?? ""}`).includes(needle) || teaches(p)));
 }
 
 /* ------------------------------------------------------------------ preferences (Tercihler) */

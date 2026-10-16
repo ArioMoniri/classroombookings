@@ -144,6 +144,8 @@ export const PersonRow = z.object({
   linked_user: z.boolean().default(false),
   /** P19-T2: the person's academician wishes waiting for review this term */
   pending_preferences: z.number().default(0),
+  /** T-R1-20: the course codes the person teaches this term ("PSY 277"), so Kişiler finds a person by course */
+  courses: z.array(z.string()).default([]),
 });
 export type PersonRow = z.infer<typeof PersonRow>;
 

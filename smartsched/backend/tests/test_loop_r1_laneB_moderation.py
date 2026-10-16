@@ -72,3 +72,15 @@ async def test_t_r1_20_an_academician_reads_the_moderation_refusals_in_turkish(r
     _sid, stranger = await make_user(c, h, "baglantisiz@uni.edu.tr", role="TEACHER")
     r = await c.get(f"{API}/terms/{tid}/moderation/people", headers=stranger)
     assert r.status_code == 403 and r.json()["detail"]["code"] == "not_linked" and r.json()["detail"]["message_tr"]
+
+
+async def test_t_r1_20_kisiler_finds_the_teachers_of_a_course_code(real: dict[str, Any]) -> None:  # noqa: F811
+    c, h, tid = real["client"], real["admin"], real["term_id"]
+    _rid, iid, _ = await _row(tid, ROW)  # PTL 102 §1
+    for q in ("PTL 102", "ptl102"):
+        r = await c.get(f"{API}/terms/{tid}/moderation/people", params={"q": q}, headers=h)
+        assert r.status_code == 200, r.text
+        assert iid in {int(p["id"]) for p in r.json()["items"]}, q
+    # the rows carry the course codes (the console filters Kişiler on the client)
+    every = (await c.get(f"{API}/terms/{tid}/moderation/people", headers=h)).json()["items"]
+    assert "PTL 102" in next(p for p in every if int(p["id"]) == iid)["courses"]

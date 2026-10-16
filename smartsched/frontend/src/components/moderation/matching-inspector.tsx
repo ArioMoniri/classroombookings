@@ -113,7 +113,7 @@ function InspectorWishes({ termId, m, canEdit }: { termId: number; m: Matching; 
   );
 }
 
-export function MatchingInspector({ termId, requestId, runId, canEdit, onClose, side = "right" }: { termId: number; requestId: number | null; runId?: number | null; canEdit: boolean; onClose: () => void; side?: "right" | "bottom" }) {
+export function MatchingInspector({ termId, requestId, runId, canEdit, onClose, side = "right", focusPriority = false }: { termId: number; requestId: number | null; runId?: number | null; canEdit: boolean; onClose: () => void; side?: "right" | "bottom"; focusPriority?: boolean }) {
   const { t, locale } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
   const q = useMatching(termId, requestId, runId);
@@ -162,7 +162,7 @@ export function MatchingInspector({ termId, requestId, runId, canEdit, onClose, 
             {m.teacher_preferences.length ? <InspectorWishes termId={termId} m={m} canEdit={canEdit} /> : null}
             <Section title={t("moderation.priority.label")}>
               {canEdit ? (
-                <PriorityForm key={m.request_id} target={{ termId, requestId: m.request_id, sectionId: m.section_id, label: m.label, priority: m.priority }} />
+                <PriorityForm key={m.request_id} target={{ termId, requestId: m.request_id, sectionId: m.section_id, label: m.label, priority: m.priority }} autoFocus={focusPriority} />
               ) : (
                 <p className="type-callout"><TierLabel value={m.priority.value} source={m.priority.source} /></p>
               )}
