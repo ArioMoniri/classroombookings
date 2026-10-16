@@ -2,7 +2,7 @@
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `07c9b7f` (committed 2026-10-16 04:42 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `90a5c69` (committed 2026-10-16 05:00 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -282,3 +282,4 @@ Generated blocks last synced on top of commit `07c9b7f` (committed 2026-10-16 04
 | 2026-10-16 04:45 | frontend-engineer (followups-ui-2026-10-16) | P19-T2 UI + follow-ups | milestone: 2596059 + checkpoints 04bd8be/e938a94: Tercih ekle sheet (components/moderation/wish-sheet.tsx, wish-model.ts), Tercihlerim (my-wishes.tsx), coordinator Akademisyen tercihleri (teacher-wishes-review.tsx; Tercihler › view=teacher, header link, badges on Kişiler / Eşleşmeler / timeline / inspector), lib/api/teacher-preferences.ts; wizard archived-namesake action + 422 issues + restored; Users identity= server filter; tsc, eslint, check:design, next build green; vitest 38 on the models |
 | 2026-10-16 05:10 | or-engineer (planning-analytics-2026-10-16) | backlog: planning analytics | DONE: scenario comparison + utilisation heatmaps + invigilator assignment, backend-only (features.yml row, evidence tests/test_invigilation_api.py; 8e7dcde docs). Gates: make type green, solver gate 148 passed, my suites 45 passed; tools/compare_planner.py re-run: lock runs unchanged vs the 2026-10-08 doc (bahar-w3 688/716, guz-w3 524/530, final 603/608, c=0), hard 100 in all 7 runs. make lint red only on tests/test_wave2_migrations.py I001 (not mine). UI contracts in the hand-off |
 | 2026-10-16 04:43 | frontend-engineer (analytics-ui-2026-10-16) | planning analytics UI | START: /runs/compare (scenario comparison), /analytics/heatmap (rooms + instructors), /exams/invigilation (pool, plans, result, lock/reassign, publish); lib/api/analytics.ts + invigilation.ts; e2e/analytics.spec.ts on own stack 19004/19005 | read contracts, build api client |
+| 2026-10-16 05:15 | backend-engineer (backend-test-isolation-2026-10-16) | test isolation | milestone: forward + reversed runs after the conftest fixes had only foreign WIP failures (models/migrations/events changed mid-run by other agents; pass alone at HEAD) + test_crbs_languages; a shuffled run hung 30+ min in loop shutdown: job heartbeat kept beating after its cancel was absorbed by aiosqlite's graceful close (cancelling()==2) -> fixed in app/workers/queue.py with a regression test (90a5c69); main job queue reset added to conftest; basetemps now -o tmp_path_retention_policy=failed (scratch < 200 MB) | frozen-worktree full runs reversed + shuffled + forward, make lint/type |
