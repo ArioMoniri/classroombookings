@@ -10,11 +10,14 @@
  */
 import { expect, request as pwRequest, test, type APIRequestContext } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, login } from "./helpers";
+import { pinLanguage } from "./language";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 
 test.describe.configure({ mode: "serial" });
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 let api: APIRequestContext;
 let token = "";

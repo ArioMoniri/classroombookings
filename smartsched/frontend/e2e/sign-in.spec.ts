@@ -10,6 +10,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { REAL, SKIP_REASON } from "./helpers";
 import { adminApi, contrast, disableMicrosoft, enableMicrosoft, configureMicrosoft, ensurePublicUrl, mintTicket, MINT_SKIP, over, parseColor, type Admin } from "./identity";
 import path from "node:path";
+import { pinLanguage } from "./language";
 
 const AXE = path.resolve(process.cwd(), "node_modules/axe-core/axe.min.js");
 const SIGNUP = /kaydol|kayıt ol|sign ?up|register|hesap oluştur|create account/i;
@@ -18,6 +19,8 @@ const START = "/api/v1/auth/sso/entra/start";
 // alerts are read inside <main>: Next adds its own role="alert" route announcer to every page
 test.describe.configure({ mode: "serial" });
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 let admin: Admin;
 let restorePublicUrl: string | null = null;

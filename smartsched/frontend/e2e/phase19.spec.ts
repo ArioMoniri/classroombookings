@@ -15,8 +15,11 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { REAL, SKIP_REASON, TERM_CODE, login } from "./helpers";
+import { pinLanguage } from "./language";
 
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 test.describe.configure({ mode: "serial" });
 
 type Term = { id: number; code: string };

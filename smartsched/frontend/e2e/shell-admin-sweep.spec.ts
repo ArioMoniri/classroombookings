@@ -17,6 +17,7 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { FIXTURES, REAL, SKIP_REASON, login } from "./helpers";
+import { pinLanguage } from "./language";
 
 const CRBS_SQL = process.env.E2E_CRBS_SQL_DIR ?? path.resolve(process.cwd(), "../../crbs-core/application/modules/install/resources");
 const ROOM_MASTER = path.join(FIXTURES, "room_master.csv");
@@ -24,6 +25,8 @@ const WEDNESDAY = "2026-02-18";
 
 test.describe.configure({ mode: "serial" });
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 test("sweep 1. CRBS legacy upgrade: install SQL dump → dry-run diff → confirm → result", async ({ page }) => {
   test.setTimeout(240_000);

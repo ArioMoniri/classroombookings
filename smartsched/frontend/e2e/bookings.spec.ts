@@ -17,6 +17,7 @@
 import { expect, request as pwRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import fs from "node:fs";
 import { pickSegment } from "./helpers";
+import { pinLanguage } from "./language";
 
 const REAL = process.env.E2E_REAL === "1";
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
@@ -31,6 +32,8 @@ const HOLIDAY = "2026-04-23";
 
 test.describe.configure({ mode: "serial" });
 test.skip(!REAL, "real-backend booking flow: set E2E_REAL=1 (see the header)");
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 interface Ctx {
   api: APIRequestContext;

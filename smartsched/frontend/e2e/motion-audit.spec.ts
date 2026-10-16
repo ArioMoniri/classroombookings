@@ -12,8 +12,11 @@
  */
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { login as signIn } from "./helpers";
+import { pinLanguage } from "./language";
 
 test.skip(process.env.E2E_REAL !== "1", "motion audit runs against the real backend: set E2E_REAL=1 (see playwright.config.ts)");
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 const EMAIL = process.env.AUDIT_EMAIL ?? "admin@smartsched.local";
 const PASSWORD = process.env.AUDIT_PASSWORD ?? "Admin-2026!";

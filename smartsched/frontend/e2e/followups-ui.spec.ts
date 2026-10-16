@@ -31,6 +31,7 @@
  */
 import { expect, request as pwRequest, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, login } from "./helpers";
+import { pinLanguage } from "./language";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 const STAMP = Date.now().toString(36);
@@ -39,6 +40,8 @@ const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch:
 
 test.describe.configure({ mode: "serial", timeout: 240_000 });
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 interface Row {
   request_id: number;

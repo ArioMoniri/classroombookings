@@ -77,7 +77,8 @@ export function IssueCard({ item, onFixed }: { item: PrecheckItem; onFixed?: () 
       </h4>
       <p className="mt-1 pl-5.5 text-label-2">{item.message[pairLang(locale)] || item.message.en}</p>
       {item.fixes.length ? (
-        <div className="mt-2 flex flex-wrap gap-1.5 pl-5.5">
+        <div className="mt-2 flex flex-wrap gap-1.5 pl-5.5 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
+          {/* max-w-full: a long fix label wraps inside the card (it widened the page to 502 px at 390); 44 px on touch */}
           {item.fixes.map((f) => {
             const blocked = f.admin_only && !isAdmin;
             const running = busy === `${item.id}:${f.option}`;
@@ -92,7 +93,7 @@ export function IssueCard({ item, onFixed }: { item: PrecheckItem; onFixed?: () 
                 onClick={async () => {
                   if (await apply(item, f)) onFixed?.();
                 }}
-                className="h-auto min-h-7 py-1 text-left whitespace-normal sm:max-w-80"
+                className="h-auto min-h-(--control-h-sm) max-w-full py-1 text-left whitespace-normal sm:max-w-80"
                 data-testid="fix-button"
               >
                 <BusyLabel busy={running} label={t("studio.check.applying")}>

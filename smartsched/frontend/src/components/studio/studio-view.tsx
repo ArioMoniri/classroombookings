@@ -209,6 +209,28 @@ function ConflictBanner() {
   return null;
 }
 
+/**
+ * < lg the step bar and the tab bar float over the page (fixed): while the studio is open the document's
+ * scroll-padding keeps a focused or scrolled-to control above them (WCAG 2.4.11 focus not obscured). The bottom
+ * inset is the step bar's offset (5.25rem) + its height (3.5rem) + a 0.5rem gap.
+ */
+function useBarScrollPadding() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const mq = window.matchMedia("(max-width: 1023.98px)");
+    const before = root.style.scrollPaddingBottom;
+    const apply = () => {
+      root.style.scrollPaddingBottom = mq.matches ? "calc(9.25rem + env(safe-area-inset-bottom))" : before;
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => {
+      mq.removeEventListener("change", apply);
+      root.style.scrollPaddingBottom = before;
+    };
+  }, []);
+}
+
 function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
   const { t } = useI18n();
   const reduce = useReduce();
@@ -227,6 +249,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
   }
   // the class table needs the width: the summary collapses to a 48 px rail below 1800 px
   const collapse = step === "classes";
+  useBarScrollPadding();
 
   // keyboard: Alt+1…5, [ / ], ⌘↵ generate, ⌘Z / ⌘⇧Z, ⌘⇧A advanced
   useEffect(() => {
@@ -401,9 +424,15 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
         </div>
       </div>
 
-      {/* < xl: bottom bar — Back · summary pill · Next / Generate. Sticky INSIDE main, not fixed to the viewport:
-          the fixed bar covered the sidebar footer at 1024 (review 2026-10-15 §3 Generate 1024). */}
-      <div className="pointer-events-none sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 mt-4 lg:bottom-3 xl:hidden" data-testid="studio-bottom-bar">
+      {/* < xl: bottom bar — Back · summary pill · Next / Generate.
+          < lg (no sidebar; the tab bar is shown): FIXED just above the tab bar, in the same layer, so it floats over
+          the content like the tab bar does instead of sitting in the flow: a sticky bar is page content, and whatever
+          step the draft was left on, the target that happened to rest under it was covered (axe target-size
+          "partially obscured" on /generate at 390, e2e-stabilisation 2026-10-16). The root's pb-24 and main's bottom
+          padding let the last row scroll above both bars; scroll-padding (below) keeps keyboard focus above them.
+          lg–xl: sticky INSIDE main, not fixed to the viewport: the fixed bar covered the sidebar footer at 1024
+          (review 2026-10-15 §3 Generate 1024). */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:sticky lg:inset-x-auto lg:bottom-3 lg:mt-4 lg:px-0 xl:hidden" data-testid="studio-bottom-bar">
         <div data-glass="chrome" className="glass-chrome pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-full p-1.5 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
           <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => goStep(STUDIO_STEPS[index - 1])}>
             <ChevronLeft aria-hidden /> {t("common.back")}

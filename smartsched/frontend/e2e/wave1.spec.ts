@@ -14,6 +14,7 @@
  */
 import { expect, request as pwRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, fillDate, login } from "./helpers";
+import { pinLanguage } from "./language";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 const STAMP = Date.now().toString(36);
@@ -28,6 +29,8 @@ const FRIDAY = "2026-02-20";
 
 test.describe.configure({ mode: "serial" });
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 interface GridSlot {
   date: string;
@@ -274,7 +277,9 @@ test("wave1 3. audit log: filter a booking, the before/after diff, Undo, a refus
   await view.getByTestId("audit-apply").click();
   const event = view.locator('[data-action="booking.create"]').first();
   await expect(event).toBeVisible();
-  await event.getByRole("button", { name: /booking\.create/ }).click();
+  // the row reads as a domain sentence (UI/UX review §3); the raw action key moved into the opened details
+  await event.locator("button[aria-expanded]").first().click();
+  await expect(event.locator('[data-testid^="audit-action-"]')).toHaveText("booking.create");
   await expect(event.getByTestId("audit-diff")).toContainText("Denetim e2e");
   await event.getByRole("button", { name: /Geri al|Undo/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: /Geri al|Undo/ }).click();

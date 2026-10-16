@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ADMIN_EMAIL, FINISHED, REAL, SKIP_REASON, TERM_CODE, api, boardRun, login, numberText, type Run, type Term } from "./helpers";
+import { pinLanguage } from "./language";
 
 /**
  * Real-backend data truth (E2E_REAL=1): FastAPI on SQLite with the real Bahar 2026 workbooks imported through
@@ -11,6 +12,8 @@ import { ADMIN_EMAIL, FINISHED, REAL, SKIP_REASON, TERM_CODE, api, boardRun, log
  * → run report → the imported board's week has classes on the calendar → settings: users list has the admin.
  */
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 test("real backend: login → dashboard → classes → rooms → studio run → report → calendar → settings", async ({ page }) => {
   test.setTimeout(300_000);

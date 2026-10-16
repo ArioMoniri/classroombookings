@@ -3,7 +3,8 @@
  * The first-sign-in privacy notice (A4 KVKK, Art. 10 aydınlatma): when `GET /me/privacy` says `needs_ack` (a notice is
  * published and this user has not acknowledged its version), a sheet with the notice and "Okudum" opens over the app
  * and stays until acknowledged. It never locks administrators out of the screens that publish a notice: holders of
- * `setup.settings` may postpone it ("Daha sonra", for this browser tab), and it never opens on /admin/kvkk.
+ * `setup.settings` may postpone it ("Daha sonra", for this browser tab and this notice version), and it never opens on
+ * /admin/kvkk.
  *
  * Motion: the design system's sheet / dialog transitions (springs.sheet, reduced-motion zeroed globally).
  */
@@ -32,6 +33,18 @@ export function shouldGate(opts: { needsAck: boolean; hasNotice: boolean; pathna
   return true;
 }
 
+/** "Daha sonra" lasts for this browser tab (sessionStorage), per notice: a new version asks again. */
+const LATER_KEY = "smartsched.notice-later";
+function readLater(): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = Number(window.sessionStorage.getItem(LATER_KEY));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 export function PrivacyNoticeGate() {
   const { t, locale } = useI18n();
   const hydrated = useHydrated();
@@ -41,17 +54,28 @@ export function PrivacyNoticeGate() {
   const ack = useAckNotice();
   const phone = useIsPhone();
   const admin = can("setup.settings");
-  const [postponed, setPostponed] = useState(false);
+  const [laterId, setLaterId] = useState<number | null>(readLater);
   const okRef = useRef<HTMLButtonElement>(null);
   const notice = q.data?.notice ?? null;
-  const open = shouldGate({ needsAck: !!q.data?.needs_ack, hasNotice: !!notice, pathname, admin, postponed });
+  const open = shouldGate({ needsAck: !!q.data?.needs_ack, hasNotice: !!notice, pathname, admin, postponed: !!notice && laterId === notice.id });
   if (!open || !notice) return null;
 
   const confirm = () => ack.mutate(notice.id, { onSuccess: () => toast.success(t("privacy.notice.acked")), onError: (e) => toast.error(errorText(wave1Error(e), locale)) });
   const actions = (
     <>
       {admin ? (
-        <Button variant="ghost" onClick={() => setPostponed(true)} data-testid="notice-gate-later">
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setLaterId(notice.id);
+            try {
+              window.sessionStorage.setItem(LATER_KEY, String(notice.id));
+            } catch {
+              /* private mode: this page view only */
+            }
+          }}
+          data-testid="notice-gate-later"
+        >
           {t("privacy.gate.later")}
         </Button>
       ) : null}

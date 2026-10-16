@@ -145,7 +145,7 @@ export function ResolverView({ runId }: { runId: number }) {
     <div className="flex max-w-4xl flex-col gap-5" data-testid="resolver">
       <PageTitle
         title={t("resolver.title")}
-        subtitle={data ? t("resolver.subtitle", { n: data.open, series: data.groups.filter((g) => g.kind === "series").length }) : undefined}
+        subtitle={data?.open ? t("resolver.subtitle", { n: data.open, series: data.groups.filter((g) => g.kind === "series").length }) : undefined}
         actions={
           data && data.groups.length ? (
             <>

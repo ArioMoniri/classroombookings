@@ -9,9 +9,12 @@ import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { login, REAL, SKIP_REASON } from "./helpers";
 import { adminApi, type Admin } from "./identity";
+import { pinLanguage } from "./language";
 
 test.describe.configure({ mode: "serial" });
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 let admin: Admin;
 const KINDS = ["webpush", "telegram", "whatsapp_web", "sms", "teams"] as const;

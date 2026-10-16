@@ -11,6 +11,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, fillDate, login } from "./helpers";
+import { pinLanguage } from "./language";
 
 const STAMP = Date.now().toString(36);
 /** this spec's own administrator (English profile language), created through the real API by the seeded admin */
@@ -26,6 +27,8 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 
 test.describe.configure({ mode: "serial" });
 test.skip(!REAL, SKIP_REASON);
+// the assertions read English (this spec's own administrator has the English profile language): pin it
+pinLanguage("en");
 
 /** Same-origin call through the Next proxy (the httpOnly cookie carries the JWT). */
 async function call<T = unknown>(page: Page, method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {

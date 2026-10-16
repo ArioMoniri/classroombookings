@@ -23,10 +23,13 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { REAL, SKIP_REASON, login } from "./helpers";
+import { pinLanguage } from "./language";
 
 const AXE = path.resolve(process.cwd(), "node_modules/axe-core/axe.min.js");
 
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 /** Screens the design-system overhaul owns: every check applies. */
 const OWN = ["/dashboard", "/timetable", "/classes", "/runs", "/generate", "/rooms", "/onboarding"];
@@ -73,7 +76,9 @@ test.describe("visual quality (design system)", () => {
     test(`focus ring on every tab stop and no horizontal overflow: ${path}`, async ({ page }) => {
       await settle(page, path);
       if (isMobile() || page.viewportSize()!.width <= 400) {
-        const overflow = await page.evaluate(() => document.scrollingElement!.scrollWidth - window.innerWidth);
+        // against the device width, not innerWidth: on a touch phone a too-wide element widens the layout
+        // viewport itself (innerWidth 502 on a 390 screen), so scrollWidth − innerWidth stayed 0
+        const overflow = await page.evaluate((w) => document.scrollingElement!.scrollWidth - w, page.viewportSize()!.width);
         expect(overflow, "horizontal page overflow").toBeLessThanOrEqual(1);
       }
       if (isMobile()) return; // focus rings are a keyboard check
