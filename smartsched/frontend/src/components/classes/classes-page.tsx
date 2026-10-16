@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { useCalendarActions } from "@/components/timetable/use-calendar-actions";
 import { useUndoStore } from "@/components/timetable/model/undo-store";
 import { defaultRun, usableRuns, useTermContext } from "@/components/timetable/use-calendar-data";
+import { runOptionLabel } from "@/components/timetable/model/run-label";
 import { BulkMoveDialog } from "./bulk-move-dialog";
 import { ClassCards } from "./class-cards";
 import { COLUMN_LABEL, ClassTable, type EditCommit } from "./class-table";
@@ -486,10 +487,10 @@ export function ClassesPage() {
             its controls (Classes / Exams) clear of it (400 px panel + 12 px inset) */}
         <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-2", active && !mobile && !wide && "pr-[412px]")} data-inspector-overlay={active && !mobile && !wide ? "" : undefined}>
           <h1 className="type-large-title">{t("classes.title")}</h1>
-          <span className="type-callout text-label-2 tabular-nums">{term?.name}{runId ? ` · Run #${runId}` : ""}</span>
+          <span className="type-callout text-label-2 tabular-nums">{term?.name}{runId ? ` · #${runId}` : ""}</span>
           {runs.length > 1 ? (
             <NativeSelect size="sm" className="w-auto min-w-40 pointer-coarse:[--control-h-sm:var(--control-h-md)]" aria-label={t("calendar.sidebar.run")} value={runId ?? ""} onChange={(e) => setParam({ run: e.target.value })}>
-              {runs.map((r) => <option key={r.id} value={r.id}>Run #{r.id} · {t(`runs.status.${r.status}`)}</option>)}
+              {runs.map((r) => { const l = runOptionLabel(r, t, new Set(runs.map((x) => x.kind)).size > 1); return <option key={r.id} value={r.id} title={l.full}>{l.short}</option>; })}
             </NativeSelect>
           ) : null}
           <div className="ml-auto">
