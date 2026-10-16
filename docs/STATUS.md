@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `29b7d9a` (committed 2026-10-16 14:59 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `455f970` (committed 2026-10-16 15:01 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,21 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-161 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 136 · stopped 7 · superseded 7.
-
-| Running ledger | Agent type | Started (UTC) |
-|---|---|---|
-| `Approval-first UI + notification prefs` | frontend-engineer | 2026-10-16 01:09 |
-| `Identity frontend` | frontend-engineer | 2026-10-16 01:10 |
-| `Phase 19 UI follow-up` | frontend-engineer | 2026-10-16 01:20 |
-| `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
-| `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
-| `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
-| `Lane B` | general-purpose | 2026-10-16 13:09 |
-| `Lane C` | general-purpose | 2026-10-16 13:09 |
-| `Lane D` | general-purpose | 2026-10-16 13:09 |
-| `Lane E` | general-purpose | 2026-10-16 14:00 |
-| `Lane H` | general-purpose | 2026-10-16 14:39 |
+161 agents in [`docs/agents/registry.json`](agents/registry.json): finished 143 · stopped 11 · superseded 7.
 
 <!-- /AUTO:agents -->
 

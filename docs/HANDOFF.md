@@ -1,0 +1,55 @@
+# Cross-session hand-off (gracious-cerf ⇄ focused-wright)
+
+This file is written for the orchestrator session that ran `claude/gracious-cerf-w1598m` and hit the
+weekly usage limit on **2026-10-16 ~15:20 UTC**, and for whoever resumes after that. A second session
+(`focused-wright`) picked the work up on its own branch so nothing is pushed to `gracious-cerf` behind
+that session's back.
+
+## Where the work is
+
+| What | Value |
+|---|---|
+| Continuation branch | `claude/focused-wright-ktt0ss` (starts as a fast-forward of `gracious-cerf` tip `455f9703`) |
+| Start tag | `handoff/focused-wright-start` (= `455f9703`, the last gracious-cerf commit) |
+| Checkpoint tags | `handoff/focused-wright-<n>` after each lane hand-off, newest = latest safe point |
+| Pod CI / deploy | still polls `claude/gracious-cerf-w1598m` + `claude/smartsched-universal` (`deploy/pod-ci/podci/config.py`); the continuation branch is **not** built by the pod until it is merged back |
+
+**To resume on gracious-cerf when its session is back:** `git fetch origin && git merge --ff-only
+origin/claude/focused-wright-ktt0ss` on `claude/gracious-cerf-w1598m` (it is a strict descendant; no
+merge commit needed), then push. If gracious-cerf moved in the meantime, use a normal merge and keep
+`alembic heads` at one. Then read the "Open work" table below and `docs/AGENT_STATE.md`.
+
+## State at the hand-off (what the limit interrupted)
+
+Round 1 of the flow loop (ROADMAP "Flow loop tickets — round 1", `docs/testing/flows/rounds/round-1-tickets.json`)
+had 8 builder lanes. At `455f9703`:
+
+| Lane | Done (code landed) | Open | Notes |
+|---|---|---|---|
+| A touch/keyboard/shell | T-R1-01, T-R1-04 (partly) | T-R1-02, 03, 05, 06, 07, 08, 09 | the lane-A agent only covered the touch tickets; hand-ons to H/E listed under T-R1-01 |
+| B approvals/bookings | T-R1-10, 11, 12, 13, 14, 17, 18, 19, 20 | T-R1-15, T-R1-16 | landed tickets not yet re-checked nor ticked in ROADMAP |
+| C intake/council | T-R1-21–26 | T-R1-25 "rename one instructor" part | needs an owner decision: a stable person key (staff number column) or the merge-review flow |
+| D KVKK | T-R1-27, 28, 29 | — | ticked |
+| E i18n/admin | T-R1-30, 35, 36, 37, 38 | T-R1-31, 32, 33, 34 | + lane-A hand-on: admin schedule weekday toggles |
+| F dashboard/learning | T-R1-40, 41, 39 part 1 | T-R1-39 part 2, T-R1-42 | integrity agent has handed over `invigilation.py`, `moderation.py` |
+| G test plan/tooling | T-R1-43, 44, 45 | — | ticked |
+| H studio/runs/timetable | — | T-R1-46, 47, 48, 49, 50 | ~40 min of WIP swept into checkpoints `b53ee1b`, `5fa0ceb` (runs/publish-run.tsx, studio/generate-step.tsx, program-wizard/generate-step.tsx, services/studio.py, tr_grammar.py); + lane-A hand-ons (/classes segments, move-dialog selects, inspector "more" button) |
+| Integrity (solver-engineer) | R1-M-02..06, 10, 11, 12; R1-S-01, 02, 06, 07, 09, 17; R1-S-04 part | 2 follow-ups (pin guard by programme/text at write time; R1-S-04 root cause) | |
+| E2E stabilisation | fixes landed | "two green full gate runs + mobile" not confirmed | last milestone 07:25: 154 passed / 18 failed / 3 flaky |
+
+Owner decisions still open (ROADMAP): R1-M-07 (KVKK AI default), R1-S-37 (forced edit on the live plan),
+the locked-class self-move (recommend: keep as re-deciding the lock), T-R1-25 person key.
+
+## What focused-wright does, in order
+
+1. Scaffolding (this file, registry reset, start tag). Status: done.
+2. Round-1 builders for the open lanes: A2, B2, E2, F2, H, in parallel, same scope fences as
+   `round-1-tickets.json` `owns`. Agents never commit; the orchestrator checkpoints and pushes.
+3. Gates on HEAD (backend `make check`, frontend `npm run check`, e2e gate per `deploy/pod-ci/gates`).
+4. Round 2 re-test (three persona testers → suggester → builders) until no blocker/major.
+5. Stabilisation, universal sync, deploy via `infra/aws/POD_ACTION`, README media, BLUF.
+
+## Progress log (newest first)
+
+- 2026-10-16 15:50 UTC — session focused-wright started; branch + start tag pushed; registry agents of the
+  interrupted session marked stopped/finished with where they left off; builders being launched.

@@ -1276,7 +1276,9 @@
       "goal": "You are the dedicated **Approval-first UI** builder for SmartSched (Next.js frontend in /home/user/classroombookings/smartsched/frontend, FastAPI backend in smartsched/backend). Branch: claude/gracious-cerf-w1598m (already checked out; shared tree with other agents). Ledger id: approval-ui-2026-10-1…",
       "ledger": "Approval-first UI + notification prefs",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "left_off": "Finished per ROADMAP 'Approval-first UI finished' (hook-stop missed)",
+      "finished_at": "2026-10-16 22:46"
     },
     {
       "id": "adcfeb86921e839af",
@@ -1288,7 +1290,9 @@
       "goal": "You are the dedicated **Identity frontend** builder for SmartSched (Next.js frontend in /home/user/classroombookings/smartsched/frontend, FastAPI backend in smartsched/backend). Branch: claude/gracious-cerf-w1598m (already checked out; shared tree with other agents). Ledger id: identity-frontend-202…",
       "ledger": "Identity frontend: sign-in, SSO, channels",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "left_off": "Finished per ROADMAP 'Identity frontend finished' (hook-stop missed)",
+      "finished_at": "2026-10-16 22:46"
     },
     {
       "id": "ac460118dd0bed241",
@@ -1300,7 +1304,9 @@
       "goal": "You are the dedicated **Phase 19 UI follow-up** builder for SmartSched (Next.js frontend in /home/user/classroombookings/smartsched/frontend; FastAPI backend in smartsched/backend). Branch claude/gracious-cerf-w1598m (checked out; shared tree with other agents). Ledger id: p19-ui-followup-2026-10-16…",
       "ledger": "Phase 19 UI follow-up",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "left_off": "Finished per ROADMAP 'Phase 19 UI follow-up finished' (hook-stop missed)",
+      "finished_at": "2026-10-16 22:46"
     },
     {
       "id": "acdf065f6393f6b41",
@@ -1312,7 +1318,9 @@
       "goal": "You are the dedicated **design-migration + mobile sweep** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: design-migration-mobile-2026-10-16. ## Owner's requirements (from the user…",
       "ledger": "Design migration + mobile sweep",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "left_off": "Finished per ledger DONE 05:22 design-migration (hook-stop missed)",
+      "finished_at": "2026-10-16 22:46"
     },
     {
       "id": "a0b6ba38de2d3aafa",
@@ -1324,7 +1332,9 @@
       "goal": "1. Run the full fast suite the way the pod CI backend gate runs it (read smartsched/deploy/pod-ci/gates/*.sh and the Makefile to find the exact command and markers; use `--basetemp=$(mktemp -d -p /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad)` and `-p no:cacheprovider`). Record every failure/error. 2. For each one that passes alone, find the leaking sha…",
       "ledger": "Backend test isolation fix",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "left_off": "Finished per ledger END 06:45 test isolation (hook-stop missed)",
+      "finished_at": "2026-10-16 22:46"
     },
     {
       "id": "a08b5df621df0ebd9",
@@ -1495,7 +1505,9 @@
       "goal": "1. Reproduce the full e2e gate exactly as pod CI runs it against your own real backend + frontend (ports 19008/19009, fresh DB in a mktemp dir under /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad, Bahar/Güz/Final data per the gate). Write results to a file (container restarts happen). 2. Make specs deterministic and correct against the intended product: …",
       "ledger": "E2E suite stabilisation",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "Weekly limit 2026-10-16 ~15:20. Last milestone 07:25: gate 154 passed/18 failed/3 flaky on own stack; fixes landed in checkpoints. Goal 'two green full gate runs + mobile' not confirmed. Resumed by session focused-wright as the e2e gate task (docs/HANDOFF.md).",
+      "finished_at": "2026-10-16 22:46"
     },
     {
       "id": "a453fdcf140e2919c",
@@ -1717,7 +1729,9 @@
       "goal": "You are the **round-1 loop builder for lane C (intake & council)** in SmartSched. Repo /home/user/classroombookings (backend smartsched/backend, frontend smartsched/frontend), branch claude/gracious-cerf-w1598m (shared tree). Ledger id: loop-r1-laneC-2026-10-16. Read docs/testing/flows/rounds/round-…",
       "ledger": "Lane C: intake + council fixes",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "left_off": "DONE 6/6 at 15:20 (ledger); T-R1-25 'rename one instructor' part needs an owner decision (person key).",
+      "finished_at": "2026-10-16 22:47"
     },
     {
       "id": "a7095126c37bcea7a",
@@ -1729,7 +1743,9 @@
       "goal": "You are the **round-1 loop builder for lane B (approval-first wording, bookings, find-room, approvals, Taleplerim, moderation except the re-solve preview)** in SmartSched. Repo /home/user/classroombookings (backend smartsched/backend, frontend smartsched/frontend), branch claude/gracious-cerf-w1598m…",
       "ledger": "Lane B: approvals/bookings fixes",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "Weekly limit. Landed: T-R1-10,11,12,13,14,17,18,19,20 (commits d47486d..a99acf1). Open: T-R1-15, T-R1-16; checks of the landed tickets not re-run; ROADMAP ticks pending. Resumed as lane B2 by session focused-wright (docs/HANDOFF.md).",
+      "finished_at": "2026-10-16 22:47"
     },
     {
       "id": "a9976d69cf2e81079",
@@ -1741,7 +1757,9 @@
       "goal": "You are the **round-1 loop builder for lane D (KVKK / privacy)** in SmartSched. Repo /home/user/classroombookings (backend smartsched/backend, frontend smartsched/frontend), branch claude/gracious-cerf-w1598m (shared tree). Ledger id: loop-r1-laneD-2026-10-16. Read docs/testing/flows/rounds/round-1-…",
       "ledger": "Lane D: KVKK/privacy fixes",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "left_off": "T-R1-27/28/29 done (ROADMAP ticked; code in checkpoints 1331e4e, 5739b41, 2de0608).",
+      "finished_at": "2026-10-16 22:47"
     },
     {
       "id": "ac9d1401a32214104",
@@ -1780,7 +1798,9 @@
       "goal": "You are the **round-1 loop builder for lane E (Turkish/English consistency and admin screens)** in SmartSched. Repo /home/user/classroombookings (backend smartsched/backend, frontend smartsched/frontend), branch claude/gracious-cerf-w1598m (shared tree). Ledger id: loop-r1-laneE-2026-10-16. Read doc…",
       "ledger": "Lane E: TR/EN consistency + admin",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "Weekly limit. Landed: T-R1-30,35,36,37,38 (ee61f92, 140a758, 6a2decd, f56e762, 76980a4). Open: T-R1-31,32,33,34 (+ lane A hand-on: admin schedule weekday toggles). Resumed as lane E2 by session focused-wright (docs/HANDOFF.md).",
+      "finished_at": "2026-10-16 22:47"
     },
     {
       "id": "a77f2955dcaec067a",
@@ -1813,7 +1833,9 @@
       "goal": "You are the lane H builder for flow-loop round 1 of SmartSched (repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m). Lane name: loop-r1-laneH-2026-10-16. Ports for any stack you start: 19128 (api) / 19129 (web). Read first: docs/AGENTS.md (commit rules: run `python3 -I scripts/doc…",
       "ledger": "Lane H: studio/runs/timetable polish",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "Weekly limit ~40 min after start. No ticket commits; WIP swept into checkpoints b53ee1b/5fa0ceb (runs/publish-run.tsx, studio/generate-step.tsx, program-wizard/generate-step.tsx, services/studio.py, tr_grammar.py). T-R1-46..50 open. Resumed as lane H by session focused-wright (docs/HANDOFF.md).",
+      "finished_at": "2026-10-16 22:47"
     }
   ]
 }
