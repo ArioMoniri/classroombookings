@@ -72,8 +72,11 @@ test("moderation: people → profile → raise a priority → re-solve preview d
   await expect(row).toBeVisible();
   // raise the priority: glyph + word in the tier picker, saved and staged for the re-solve
   await row.getByTestId("priority-trigger").click();
-  await page.getByRole("tab", { name: /Yüksek/ }).or(page.getByRole("radio", { name: /Yüksek/ })).first().click();
-  await page.getByTestId("priority-save").click();
+  // the request's own form (popover); the profile's side panel has a second tier picker, the person's priority
+  const form = page.locator("form").filter({ has: page.getByTestId("priority-save") });
+  await expect(form).toBeVisible();
+  await form.getByRole("tab", { name: /Yüksek/ }).or(form.getByRole("radio", { name: /Yüksek/ })).first().click();
+  await form.getByTestId("priority-save").click();
   await expect(page.getByText(/öncelik kaydedildi/).first()).toBeVisible();
   await expect(row.getByTestId("priority-trigger")).toContainText("Yüksek");
 
