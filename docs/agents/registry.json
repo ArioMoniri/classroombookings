@@ -1480,7 +1480,8 @@
       "goal": "You are the **ui primitives touch/mobile** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: ui-primitives-touch-2026-10-16. You own components/ui/** for this task (the design-system…",
       "ledger": "UI primitives: touch targets",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 06:12"
     },
     {
       "id": "aa299638bbd03b5e8",
