@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `4ccd0e7` (committed 2026-10-16 00:59 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `c0c4101` (committed 2026-10-16 01:03 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -219,7 +219,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **146 ticked · 256 open** checkboxes in 51 sections (48 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **155 ticked · 256 open** checkboxes in 51 sections (48 with open items).
 
 <details><summary>Per section</summary>
 
@@ -272,7 +272,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Owner decisions 2026-10-15 ~22:50: identity and sign-up | 0 | 1 |
 | Docs update automatically (owner request 2026-10-15 ~22:55) | 1 | 1 |
 | Approval-first backend finished (0025_approval_first) | 1 | 1 |
-| Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend) | 0 | 3 |
+| Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend) | 9 | 3 |
 | Flow scripts finished (2026-10-15): gaps to close before round 1 | 2 | 9 |
 | Approval and notification follow-ups finished (2026-10-16) | 0 | 6 |
 | Microsoft Entra ID sign-in backend finished (2026-10-16) | 0 | 4 |

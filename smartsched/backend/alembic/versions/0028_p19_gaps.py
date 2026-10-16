@@ -8,8 +8,8 @@
 
 No existing row changes.
 
-Revision ID: 0027_p19_gaps
-Revises: 0026_sso_entra
+Revision ID: 0028_p19_gaps
+Revises: 0027_notify_channels
 Create Date: 2026-10-16 09:00:00
 
 """
@@ -20,8 +20,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0027_p19_gaps"
-down_revision = "0026_sso_entra"
+revision = "0028_p19_gaps"
+down_revision = "0027_notify_channels"
 branch_labels = None
 depends_on = None
 

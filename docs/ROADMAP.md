@@ -941,15 +941,16 @@ Orchestrator decisions (owner may override):
 
 ### Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend)
 - Moderation tab (5 tabs, inspector, priority editor, person profile timeline, re-solve preview + diff + calendar compare, pin/prefer/unlock on drafts, publish through the guard); suggestions (cards, accept soft only, reject with reason, snooze, receipts); memory panel at /moderation/learning; program wizard at /programs/new.
-- [ ] Backend gaps (dedicated agent running):
-  - re-solve diff vs the published run
-  - person-level priority
-  - changes-since-publish
-  - suggestion restore/undo + accept scope
-  - teacher current term + /moderation/me
-  - PROGRAM DRAFTS (the wizard must stop writing live rows as you type), with a program-scoped pre-check, rooms-fit, a transactional commit and 30-day undo
-  - instructor load + section search (joint teaching, cohorts)
-  - activate notify_people (digest)
+- [x] Backend gaps (p19-backend-gaps 2026-10-16; alembic 0028_p19_gaps on 0027_notify_channels; tests/test_p19_gaps_{moderation,drafts,learning,migration}.py on the real Bahar/Güz lists):
+  - [x] re-solve diff vs the published run: a re-solve of a draft child diffs against the published run that started the chain (`compared_to` published / was_published / root), every draft step's edits in scope; `compare_to=<run_id>` on `POST /terms/{id}/moderation/resolve` and `GET /moderation/runs/{id}/diff`
+  - [x] person-level priority: `PUT /moderation/people/{instructor_id}/priority` + `PUT /moderation/programs/{program_id}/priority` {term_id, priority, note} (table `priority_overrides`, per term), `GET /terms/{id}/moderation/priorities`; request > section (0 = inherit) > person (highest of the section's people) > programme > 0 in `solver_bridge.resolve_priority` (bridge + matchings `priority.source`); audited `person.priority` / `program.priority`
+  - [x] changes-since-publish: `GET /terms/{id}/changes-since-publish?kinds=` (priorities, pins/prefers/unlocks on draft children, request and rule edits after the activation; `changed_request_ids` seeds the re-solve)
+  - [x] suggestion restore/undo + accept scope: `POST /learning/suggestions/{id}/restore` (undoes dismiss / snooze / accept: decision evidence taken back, the LEARNED rule switched off); accept `{scope: term|persistent}` (persistent = planning.admin; marks the same suggestion in other terms `persistent_accept`, never applied by itself)
+  - [x] teacher current term + `GET /moderation/me` (`instructor_id` or null, visibility, current term) and `GET /moderation/current-term` (any signed-in user)
+  - [x] PROGRAM DRAFTS: `/program-drafts` CRUD + PATCH autosave (path ops, last write wins per field with `overwritten`, whole payload 409 on a stale version), `validate?step=&precheck=` (field / step / pre-check issues TR+EN), `precheck` (program-scoped Studio static check in a rolled-back session + rooms fit), `paste` (TSV preview), `commit {solve: none|minimal}` (one transaction under the term lock, catalog_admin services, `program_draft.commit` + `program.create`; minimal = moderation repair re-solve), `GET/POST .../undo` (30 days, archives what it created, refuses with the reasons). Real check: MBG Tezli YL (Bahar R182–R198) on an empty term with room_master.csv -> validate (A 207 exact fit, C 504 too small, B 501 not plannable, MBG532 -> MBG 532) -> commit -> run OPTIMAL hard 100, 7/7, planner_check 0 -> undo archives it. The catalog_admin per-row endpoints stay; the wizard switches to drafts (UI follow-up)
+  - [x] instructor load + section search: `GET /terms/{id}/instructors/load?ids=&q=` (periods/week, a joint lecture counted once, limit setting `planning.instructor_load_limit` = 20), `GET /terms/{id}/sections/search?q=&course_code=&program_id=` (published placement), `GET /terms/{id}/rooms/fit`; joint links copy the linked section's meetings so the bridge merges them (real MBG 534 + MBG 014)
+  - [x] activate notify_people (digest): `POST /runs/{id}/activate {notify_people: true}` -> `notified`; one `timetable.published` notice per linked academician (their changed classes only) through notify_dispatch (in-app + e-mail, per-user opt-out, once per run)
+  - [ ] `POST /audit/{id}/undo` does not delegate `program.create` to the drafts undo yet (use `POST /program-drafts/{id}/undo`); `POST /priorities/bulk`, `/terms/{id}/priorities/summary` and the P19-P-02/03/06 policy endpoints are still open
 - [ ] After the gaps land, a dedicated UI follow-up:
   - switch the wizard to drafts; joint-teaching + cohorts steps
   - person priority; server-side staged changes
