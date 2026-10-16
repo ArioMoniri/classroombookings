@@ -353,8 +353,11 @@ test.describe("studio + calendar polish (real backend)", () => {
       // a builder rule stores its English sentence; a planning-file note is the planner's original text
       const built = await create({ source: "ADMIN", nl_text: `Keep ${cls.course_code} in building A` });
       const own = await create({ source: "FILE", nl_text: `Please keep ${cls.course_code} classes in building A` });
+      // the term may hold many rules by now (the list virtualises long groups): find ours like a planner would
+      const findOurs = () => page.getByRole("textbox", { name: /^(Kurallarda ara|Search rules)$/ }).fill(cls.course_code);
       await setLang(page, baseURL, "tr");
       await page.goto("/generate?step=rules");
+      await findOurs();
       const builtCard = page.locator(`#rule-${built}`);
       await expect(builtCard).toBeVisible({ timeout: 30_000 });
       await expect(builtCard).toContainText(/A blokta tut/);
@@ -367,6 +370,7 @@ test.describe("studio + calendar polish (real backend)", () => {
       // back in English the free-text rule needs no tag
       await setLang(page, baseURL, "en");
       await page.goto("/generate?step=rules");
+      await findOurs();
       await expect(page.locator(`#rule-${own}`)).toContainText(/Keep .* in building A/);
       await expect(page.locator(`#rule-${own}`).getByTestId("written-in")).toHaveCount(0);
     } finally {

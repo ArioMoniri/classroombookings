@@ -263,20 +263,23 @@ test("the program wizard creates the MBG Tezli YL program and runs the pre-check
   await expect(starts).toHaveCount(7);
   for (let i = 0; i < 7; i++) await starts.nth(i).selectOption("09:20");
   await expect(page.getByTestId("fit-line").first()).toContainText(/oda sığar/);
-  // autosave: faculty, program, courses, sections, patterns → "Tüm değişiklikler kaydedildi"
+  // autosave (800 ms debounce): faculty, program, courses, sections, patterns reach the server draft, then
+  // "Tüm değişiklikler kaydedildi"
+  type Draft = { payload: { program: { name: string; prefix: string }; courses: { code: string; sections: { enrolment: number | null }[]; pattern: { start: string } }[] } };
+  const read = async () => (await call<Draft>(page, "GET", `/program-drafts/${draftId}`)).body;
+  await expect.poll(async () => (await read()).payload.courses.map((c) => c.pattern.start), { timeout: 60_000 }).toEqual(Array(7).fill("09:20"));
   await saved();
   await expect(page.getByTestId("save-status").first()).toContainText("Tüm değişiklikler kaydedildi");
   // the server draft has the programme and its seven courses with their sections and meeting patterns
-  const draft = await call<{ payload: { program: { name: string; prefix: string }; courses: { code: string; sections: { enrolment: number | null }[]; pattern: { start: string } }[] } }>(page, "GET", `/program-drafts/${draftId}`);
-  expect(draft.status).toBe(200);
-  expect(draft.body.payload.program).toMatchObject({ name, prefix: "MBG" });
-  expect(draft.body.payload.courses).toHaveLength(7);
-  expect(draft.body.payload.courses.map((c) => c.code)).toContain("MBG 532");
-  for (const c of draft.body.payload.courses) {
+  const draft = await read();
+  expect(draft.payload.program).toMatchObject({ name, prefix: "MBG" });
+  expect(draft.payload.courses).toHaveLength(7);
+  expect(draft.payload.courses.map((c) => c.code)).toContain("MBG 532");
+  for (const c of draft.payload.courses) {
     expect(c.sections.length, c.code).toBeGreaterThanOrEqual(1);
     expect(c.pattern.start, c.code).toBe("09:20");
   }
-  expect(draft.body.payload.courses.flatMap((c) => c.sections.map((x) => x.enrolment))).toEqual(MBG_ENROLMENT);
+  expect(draft.payload.courses.flatMap((c) => c.sections.map((x) => x.enrolment))).toEqual(MBG_ENROLMENT);
   // 7 pre-check: the program-scoped Studio pre-check for this program's meetings (rolled back on the server)
   await page.getByTestId("rail-constraints").click();
   await page.getByTestId("precheck-run").click();
