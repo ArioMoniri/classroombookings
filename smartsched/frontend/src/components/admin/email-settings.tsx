@@ -71,7 +71,7 @@ function SmtpForm({ data }: { data: SmtpSettings }) {
       {error ? <Alert tone="error">{error}</Alert> : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <form
-          className="flex items-end gap-2"
+          className="flex min-w-0 flex-wrap items-end gap-2 max-sm:w-full"
           onSubmit={(e) => {
             e.preventDefault();
             test.mutate(undefined, {
@@ -80,8 +80,8 @@ function SmtpForm({ data }: { data: SmtpSettings }) {
             });
           }}
         >
-          <Field label={t("crbs.email.testTo")} htmlFor="smtp-to">
-            <Input id="smtp-to" type="email" className="w-64" value={to} onChange={(e) => setTo(e.target.value)} />
+          <Field label={t("crbs.email.testTo")} htmlFor="smtp-to" className="min-w-0 max-sm:w-full">
+            <Input id="smtp-to" type="email" className="w-full sm:w-64" value={to} onChange={(e) => setTo(e.target.value)} />
           </Field>
           <Button type="submit" variant="outline" disabled={!to || test.isPending} aria-busy={test.isPending || undefined}>
             <BusyLabel busy={test.isPending} label={t("busy.checking")} icon={<Send aria-hidden />}>

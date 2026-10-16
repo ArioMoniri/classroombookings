@@ -8,7 +8,7 @@
  *
  * Motion: none on search results (a frequent action; motion_designer §2.1). The booking sheet brings its own.
  */
-import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Loader2, PackageX, Search, Stamp, Users, type LucideIcon } from "lucide-react";
+import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Loader2, PackageX, Search, SlidersHorizontal, Stamp, Users, type LucideIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,6 +32,9 @@ import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { ACTIONABLE, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, recentParts, reserveSpan, slotsFor, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
 import { BareButton } from "@/components/shell/bare-button";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useIsCompact, useIsPhone } from "@/components/bookings/use-is-phone";
 
 const STATUS: Record<string, { icon: LucideIcon; cls: string; key: MessageKey }> = {
   free: { icon: CheckCircle2, cls: "bg-status-feasible text-status-feasible-fg", key: "wave1.find.status.free" },
@@ -150,6 +153,9 @@ export function FindRoomView() {
   };
 
   const days = useWeekdayNames();
+  const compact = useIsCompact();
+  const phone = useIsPhone();
+  const [moreOpen, setMoreOpen] = useState(false);
   const results = result?.results ?? [];
   const free = results.filter((r) => ACTIONABLE.has(r.status));
   const others = results.filter((r) => !ACTIONABLE.has(r.status));
@@ -158,12 +164,49 @@ export function FindRoomView() {
   const hydrated = useHydrated();
   if (!hydrated) return <Loading />;
 
+  // features, buildings, free text and the two switches: inline on desktop, a "Filters" sheet below 1024 px
+  const advanced = (
+    <>
+      {facets.data?.length ? <FeaturePicker facets={facets.data} value={f.features} onChange={(v) => set("features", v)} /> : null}
+
+      {buildings.length ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="type-footnote font-medium text-label-2">{t("wave1.find.buildings")}</span>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("wave1.find.buildings")}>
+            {buildings.map((b) => (
+              <Chip key={b} size="sm" icon={<Building2 aria-hidden />} selected={f.buildings.includes(b)} onSelectedChange={(on) => set("buildings", on ? [...f.buildings, b] : f.buildings.filter((x) => x !== b))}>
+                {buildingLabel(b, t)}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <Field label={t("wave1.find.text")} htmlFor="fr-text" hint={t("wave1.find.textHint")}>
+        <Input id="fr-text" type="search" value={f.text} placeholder={t("wave1.find.textPlaceholder")} onChange={(e) => set("text", e.target.value)} data-testid="fr-text" />
+      </Field>
+
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center justify-between gap-3 type-callout text-label-1">
+          {t("wave1.find.showBusy")}
+          <Switch checked={f.showBusy} onCheckedChange={(v) => set("showBusy", v)} aria-label={t("wave1.find.showBusy")} />
+        </label>
+        {f.when === "date" ? (
+          <label className="flex items-center justify-between gap-3 type-callout text-label-1">
+            {t("wave1.find.otherDays")}
+            <Switch checked={f.otherDays} onCheckedChange={(v) => set("otherDays", v)} aria-label={t("wave1.find.otherDays")} />
+          </label>
+        ) : null}
+      </div>
+    </>
+  );
+  const moreCount = Object.keys(f.features).length + f.buildings.length + (f.text.trim() ? 1 : 0) + (f.showBusy ? 1 : 0) + (f.when === "date" && f.otherDays ? 1 : 0);
+
   return (
     <div className="flex flex-col gap-5" data-testid="find-room">
       <PageTitle title={t("wave1.find.title")} subtitle={t("wave1.find.lead")} />
-      <div className="grid gap-5 lg:grid-cols-[minmax(320px,400px)_1fr] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[minmax(20rem,22.5rem)_minmax(0,1fr)] lg:items-start">
         <div className="flex flex-col gap-4 lg:sticky lg:top-16">
-          <Card className="gap-0 px-4 py-4">
+          <Card className="gap-0 overflow-visible px-4 py-4">
             <form
               className="flex flex-col gap-4"
               aria-label={t("wave1.find.title")}
@@ -291,52 +334,30 @@ export function FindRoomView() {
                 )}
               </fieldset>
 
-              <div className="grid grid-cols-[1fr_auto] items-end gap-2">
-                <Field label={t("wave1.find.headcount")} htmlFor="fr-head" hint={t("wave1.find.headcountHint")}>
-                  <Input id="fr-head" type="number" min={0} max={5000} inputMode="numeric" placeholder="0" value={f.headcount} onChange={(e) => set("headcount", e.target.value)} data-testid="fr-headcount" />
-                </Field>
-                <label className="flex h-8 items-center gap-2 type-footnote text-label-2">
-                  <Switch checked={f.purpose === "exam"} onCheckedChange={(v) => set("purpose", v ? "exam" : "teaching")} aria-label={t("wave1.find.exam")} />
-                  {t("wave1.find.exam")}
-                </label>
-              </div>
-
-              {facets.data?.length ? <FeaturePicker facets={facets.data} value={f.features} onChange={(v) => set("features", v)} /> : null}
-
-              {buildings.length ? (
-                <div className="flex flex-col gap-1.5">
-                  <span className="type-footnote font-medium text-label-2">{t("wave1.find.buildings")}</span>
-                  <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("wave1.find.buildings")}>
-                    {buildings.map((b) => (
-                      <Chip key={b} size="sm" icon={<Building2 aria-hidden />} selected={f.buildings.includes(b)} onSelectedChange={(on) => set("buildings", on ? [...f.buildings, b] : f.buildings.filter((x) => x !== b))}>
-                        {buildingLabel(b, t)}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              <Field label={t("wave1.find.text")} htmlFor="fr-text" hint={t("wave1.find.textHint")}>
-                <Input id="fr-text" type="search" value={f.text} placeholder={t("wave1.find.textPlaceholder")} onChange={(e) => set("text", e.target.value)} data-testid="fr-text" />
+              <Field label={t("wave1.find.headcount")} htmlFor="fr-head" hint={t("wave1.find.headcountHint")}>
+                <Input id="fr-head" type="number" min={0} max={5000} inputMode="numeric" placeholder="0" value={f.headcount} onChange={(e) => set("headcount", e.target.value)} data-testid="fr-headcount" />
               </Field>
+              <label className="-mt-1 flex min-h-11 items-center justify-between gap-3 type-callout text-label-1 pointer-fine:min-h-8">
+                {t("wave1.find.exam")}
+                <Switch checked={f.purpose === "exam"} onCheckedChange={(v) => set("purpose", v ? "exam" : "teaching")} aria-label={t("wave1.find.exam")} />
+              </label>
 
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center justify-between gap-3 type-callout text-label-1">
-                  {t("wave1.find.showBusy")}
-                  <Switch checked={f.showBusy} onCheckedChange={(v) => set("showBusy", v)} aria-label={t("wave1.find.showBusy")} />
-                </label>
-                {f.when === "date" ? (
-                  <label className="flex items-center justify-between gap-3 type-callout text-label-1">
-                    {t("wave1.find.otherDays")}
-                    <Switch checked={f.otherDays} onCheckedChange={(v) => set("otherDays", v)} aria-label={t("wave1.find.otherDays")} />
-                  </label>
-                ) : null}
+              {compact ? (
+                <Button variant="outline" onClick={() => setMoreOpen(true)} aria-haspopup="dialog" className="self-start" data-testid="fr-filters-open">
+                  <SlidersHorizontal aria-hidden />
+                  {moreCount ? t("reserve.filters.openCount", { n: moreCount }) : t("reserve.filters.open")}
+                </Button>
+              ) : (
+                advanced
+              )}
+
+              {/* phones / tablets: the search stays in thumb reach above the tab bar while the form scrolls (M-05) */}
+              <div className="max-lg:sticky max-lg:bottom-[calc(5rem+env(safe-area-inset-bottom))] max-lg:z-10">
+                <Button type="submit" disabled={busy || !form} aria-busy={busy || undefined} className="w-full max-lg:shadow-elev-2" data-testid="fr-search">
+                  <BusyLabel busy={busy} label={t("busy.searching")} icon={<Search aria-hidden />}>
+                  {busy ? t("wave1.find.searching") : t("wave1.find.search")}</BusyLabel>
+                </Button>
               </div>
-
-              <Button type="submit" disabled={busy || !form} aria-busy={busy || undefined} data-testid="fr-search">
-                <BusyLabel busy={busy} label={t("busy.searching")} icon={<Search aria-hidden />}>
-                {busy ? t("wave1.find.searching") : t("wave1.find.search")}</BusyLabel>
-              </Button>
             </form>
           </Card>
           <RecentSearches
@@ -354,7 +375,15 @@ export function FindRoomView() {
             {t("wave1.find.results")}
           </h2>
           {searchError ? <Alert tone="error">{searchError}</Alert> : null}
-          {!result && !searchError ? <p className="py-6 type-callout text-label-2">{t("wave1.find.empty")}</p> : null}
+          {!result && !searchError && !busy ? <p className="py-6 type-callout text-label-2">{t("wave1.find.empty")}</p> : null}
+          {!result && busy ? (
+            <div className="flex flex-col gap-2" aria-hidden data-testid="fr-results-loading">
+              <Skeleton className="h-7 w-2/3 rounded-md" />
+              {Array.from({ length: 4 }, (_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : null}
           {result ? (
             <>
               <div className="flex flex-wrap items-baseline justify-between gap-2" role="status" aria-live="polite">
@@ -443,6 +472,34 @@ export function FindRoomView() {
           ) : null}
         </section>
       </div>
+      <Sheet open={compact && moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side={phone ? "bottom" : "right"} className="gap-0 data-[side=bottom]:max-h-[92dvh] data-[side=right]:sm:max-w-md" data-testid="fr-filters-sheet">
+          <SheetHeader className="px-5 pt-5">
+            <SheetTitle className="type-title-3">{t("reserve.filters.open")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("wave1.find.lead")}</SheetDescription>
+          </SheetHeader>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 pt-4 pb-5">{advanced}</div>
+          <div className="flex items-center gap-2 border-t border-hairline px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {moreCount ? (
+              <Button variant="ghost" onClick={() => setForm((p) => ({ ...(p ?? f), features: {}, buildings: [], text: "", showBusy: false, otherDays: false }))} data-testid="fr-filters-reset">
+                {t("reserve.filters.reset")}
+              </Button>
+            ) : null}
+            <Button
+              className="ml-auto min-w-32"
+              disabled={busy || !form}
+              onClick={() => {
+                setMoreOpen(false);
+                void run();
+              }}
+              data-testid="fr-filters-search"
+            >
+              <Search aria-hidden />
+              {t("wave1.find.search")}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
       <BookSheet
         target={target}
         fmt={fmt}

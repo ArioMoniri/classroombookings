@@ -223,7 +223,7 @@ export function BookingsView() {
   const resetFilters = () => {
     setSelected(new Set());
     setDepartment("all");
-    setParams({ display: null, scope: null, group: null, term: null, room: null, date: null });
+    setParams({ display: null, scope: null, group: null, term: null, room: null });
   };
   const navPrev = (
     <ToolbarButton size="icon-sm" className="shrink-0" aria-label={display === "day" ? t("crbs.toolbar.prevDay") : t("crbs.toolbar.prevWeek")} disabled={!g?.nav.prev} onClick={() => setParams({ date: g?.nav.prev })} data-testid="nav-prev">
