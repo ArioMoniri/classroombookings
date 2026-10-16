@@ -123,4 +123,27 @@ cd smartsched/backend && E2E_WORKDIR=/tmp/e2e E2E_VENV=none E2E_HOST=127.0.0.1 \
 cd smartsched/frontend && E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test
 ```
 
-The pod CI gate `e2e-real` does the same in Docker (see `docs/testing/2026-10-08-real-backend-e2e.md`).
+The pod CI gate `e2e-real` does the same in Docker (see `docs/testing/2026-10-08-real-backend-e2e.md`), plus an
+SMTP sink and a second, empty backend for the installer specs, with `CI=1` (one retry, both projects: `chromium`
+and `mobile`). Without Docker, the whole gate (e2e-stabilisation 2026-10-16):
+
+```bash
+W=$(mktemp -d)                                                  # fresh databases every run
+cd smartsched/backend
+E2E_WORKDIR=$W/be E2E_VENV=none E2E_HOST=127.0.0.1 E2E_PORT=8000 bash ../deploy/pod-ci/gates/e2e-backend-entry.sh &
+python3 ../deploy/pod-ci/gates/smtp-sink.py --host 127.0.0.1 --smtp-port 1025 --api-port 8025 &
+# once :8000 is healthy (it reuses nothing, so start it after the import + solve):
+E2E_EMPTY=1 E2E_WORKDIR=$W/be-empty E2E_VENV=none E2E_HOST=127.0.0.1 E2E_PORT=8001 bash ../deploy/pod-ci/gates/e2e-backend-entry.sh &
+cd ../frontend && CI=1 E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 E2E_EMPTY_API_URL=http://127.0.0.1:8001 \
+  E2E_SMTP_HOST=127.0.0.1 E2E_SMTP_PORT=1025 E2E_SMTP_API=http://127.0.0.1:8025 npx playwright test
+```
+
+Rules for specs (so any spec runs alone, in any order, and again on the same database):
+- pin the interface language at the top of the file with `pinLanguage("tr" | "en")` from `e2e/language.ts` (the
+  organisation default is Turkish and the signed-in user's profile language wins over the NEXT_LOCALE cookie);
+- set preconditions through the API in the spec (KVKK sign-offs such as calendar sync, `approval_mode`,
+  `POST /learning/refresh`) and put them back in `afterAll`; give created people, rooms and names a per-run stamp;
+- wait on real conditions (a response, the server's state through `expect.poll`), not on time;
+- design-system controls: `pickSegment` / `pickSegmentById` (a SegmentedControl becomes a select when it does
+  not fit), `fillDate` (a DateField commits on blur or Enter), `/rooms?layout=cards` for the room cards (the
+  table is the default layout).
