@@ -6,7 +6,9 @@
 
 bookings  the one-time CRBS setup that bookings.spec.ts also makes (18-period schedule from the grid, the
           current term open for bookings, one room group per building, the term's published board, a public
-          holiday), term names from the workbooks, and the admin's profile language (the booking pages
+          holiday), term names from the workbooks, the room master's solver tags adopted as typed room features
+          (Setup -> Rooms -> Features, "Adopt tags"), calendar sync switched on with the administrator's KVKK sign-off,
+          and the admin's profile language (the booking pages
           follow the profile language, not the browser).
           The current term is Güz 2026-27: its weekly grid holds only two calendar weeks, so the term's end
           date is derived from its imported week count (14 weeks from 21 Sep 2026).
@@ -82,6 +84,14 @@ def bookings(api: Api, language: str) -> None:
     if not any(h["date_start"] == HOLIDAY["date"] for h in hols):
         api.call("POST", "/holidays", {"term_id": guz["id"], "name": HOLIDAY["name"],
                                        "date_start": HOLIDAY["date"], "date_end": HOLIDAY["date"]})
+    if not api.call("GET", "/room-admin/features"):
+        made = api.call("POST", "/room-admin/features/adopt-tags")
+        print(f"room features adopted from the room master's tags: {', '.join(f['name'] for f in made)}")
+    # calendar sync ships switched off (KVKK): the administrator signs it off once, as an institution would; the
+    # server records who did it and when, and audits it
+    if not api.call("GET", "/calendar/admin/settings").get("calendar_sync_enabled"):
+        api.call("PUT", "/calendar/admin/settings", {"calendar_sync_enabled": True})
+        print("calendar sync switched on (administrator's sign-off)")
     api.call("PUT", "/auth/profile", {"language": language})
     print(f"bookings ready: schedule #{schedule['id']}, session {guz['code']} open, admin language {language}")
 

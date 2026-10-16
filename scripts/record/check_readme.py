@@ -4,8 +4,9 @@
     python3 scripts/record/check_readme.py [README.md smartsched/README.md ...]
 
 Checks Markdown links/images, HTML src/srcset/href attributes and in-page anchors (#heading). External
-URLs are listed, not fetched. Also lists files in docs/images/screens and docs/images/recordings that no
-README references, and the total size of the referenced media. Exit code 1 when something is missing.
+URLs are listed, not fetched. Also lists files in docs/images/screens, docs/images/recordings and docs/media that no
+README references (orphans), the total size of the referenced media, and README GIFs over 9 MB. Exit code 1 when
+something is missing, a medium is orphaned or a GIF is over budget.
 """
 
 from __future__ import annotations
@@ -18,8 +19,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 MD_LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 HTML_ATTR = re.compile(r"\b(?:src|srcset|href)=\"([^\"]+)\"")
-HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$", re.M)
-MEDIA_DIRS = ["docs/images/screens", "docs/images/recordings"]
+HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$", re.MULTILINE)
+MEDIA_DIRS = ["docs/images/screens", "docs/images/recordings", "docs/media"]
+GIF_MAX = 9_000_000
 
 
 def anchor(text: str) -> str:
@@ -37,7 +39,7 @@ def anchor(text: str) -> str:
 def check(readme: Path) -> tuple[list[str], set[Path], list[str]]:
     text = readme.read_text(encoding="utf-8")
     # skip fenced code blocks
-    body = re.sub(r"```.*?```", "", text, flags=re.S)
+    body = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
     anchors = {anchor(m.group(2)) for m in HEADING.finditer(body)}
     targets = [m.group(1) for m in MD_LINK.finditer(body)] + [m.group(1) for m in HTML_ATTR.finditer(body)]
     missing, used, external = [], set(), []
@@ -86,9 +88,13 @@ def main(argv: list[str]) -> int:
             if p.is_file() and p not in used and p.name != "MANIFEST.md":
                 unused.append(str(p.relative_to(ROOT)))
     if unused:
-        print("not referenced by any README:\n  " + "\n  ".join(unused))
-    if missing:
-        print("MISSING:\n  " + "\n  ".join(missing))
+        print("not referenced by any README (orphans):\n  " + "\n  ".join(unused))
+    big = [f"{p.relative_to(ROOT)} {p.stat().st_size / 1e6:.2f} MB" for p in media if p.suffix == ".gif" and "lottie" not in str(p) and p.stat().st_size > GIF_MAX]
+    if big:
+        print("GIFs over 9 MB:\n  " + "\n  ".join(big))
+    if missing or unused or big:
+        if missing:
+            print("MISSING:\n  " + "\n  ".join(missing))
         return 1
     print("every link and image exists")
     return 0

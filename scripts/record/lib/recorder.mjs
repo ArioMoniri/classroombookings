@@ -72,8 +72,9 @@ export class Recorder {
    * A captioned step. `focus` (optional) is a locator whose box the camera frames for the whole step;
    * actions inside the step (click/type/drag) add their own targets, which win while they happen.
    */
-  async step(caption, fn, { focus = null, zoom = true, hold = 900, poster = false } = {}) {
-    const step = { caption, startMs: this.now(), endMs: 0, targets: [], zoom, poster };
+  async step(caption, fn, { focus = null, zoom = true, hold = 900, poster = false, clip = null } = {}) {
+    // clip: id of the README GIF this step belongs to (consecutive steps with the same id form one clip)
+    const step = { caption, startMs: this.now(), endMs: 0, targets: [], zoom, poster, clip };
     this.steps.push(step);
     this.current = step;
     this.log(`step: ${caption}`);
@@ -91,8 +92,14 @@ export class Recorder {
     const loc = typeof target === "string" ? this.page.locator(target) : target;
     await loc.first().waitFor({ state: "visible", timeout: 30_000 });
     await loc.first().scrollIntoViewIfNeeded().catch(() => undefined);
-    const b = await loc.first().boundingBox();
+    let b = await loc.first().boundingBox();
     if (!b) throw new Error(`no bounding box for ${target}`);
+    // under the translucent top bar or at the bottom edge: bring it to the middle (a click there would hit the bar)
+    if (b.y < 72 || b.y + b.height > this.viewport.height - 16) {
+      await loc.first().evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" })).catch(() => undefined);
+      await sleep(250);
+      b = (await loc.first().boundingBox()) ?? b;
+    }
     return b;
   }
 
@@ -109,12 +116,14 @@ export class Recorder {
    */
   async cut(fn, { keepMs = 500 } = {}) {
     await this.wait(keepMs);
-    const a = await this.flash(300);
+    // long enough to be in at least one frame when the capture rate drops under load (screencast: frames on paint)
+    const markMs = process.env.REC_CAPTURE === "screencast" ? 1000 : 300;
+    const a = await this.flash(markMs);
     try {
       return await fn(this);
     } finally {
       await this.wait(150);
-      const b = await this.flash(300);
+      const b = await this.flash(markMs);
       this.cuts.push({ start: a.start, end: b.end, flashA: a, flashB: b });
     }
   }

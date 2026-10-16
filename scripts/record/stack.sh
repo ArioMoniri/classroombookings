@@ -11,6 +11,9 @@
 #           master, like docs/testing/2026-10-08-real-data-feasibility.md "Setup" (REC_DATA=bahar: Bahar only).
 #
 #   scripts/record/stack.sh snapshot       save the database + uploads; `REC_SNAPSHOT=1 stack.sh up` restores them
+#   scripts/record/stack.sh mask           KVKK: instructor names -> title + initials in the running stack's
+#                                           database (kvkk_mask.py; `up` already does it after its imports and keeps
+#                                           the name list in $REC_WORKDIR for the fresh-database journeys)
 #   scripts/record/stack.sh runs           real solver runs through POST /runs on the running stack
 #                                           (REC_RUNS, default "2026-GUZ:WEEK:3:120 2026-GUZ:TERM:-:240"
 #                                           = term:horizon:week:time-limit), waits until they finish
@@ -114,7 +117,8 @@ cmd_up() {
   # The CLI builds the schema with create_all from the current models, so a recording never waits
   # for a migration that an in-flight backend change has not written yet (uvicorn then starts in
   # its "legacy create_all database" mode and only logs drift).
-  rm -f "$WORK/rec.db"
+  # the WAL and shared-memory files belong to the old database: a restored snapshot must not inherit them
+  rm -f "$WORK/rec.db" "$WORK/rec.db-wal" "$WORK/rec.db-shm"
   local restored=0
   if [[ $fresh -eq 0 && "${REC_SNAPSHOT:-0}" == 1 && -f "$WORK/rec.snapshot.db" ]]; then
     cp "$WORK/rec.snapshot.db" "$WORK/rec.db" && restored=1 && log "restored the snapshot (imports, booking setup, solver runs)"
@@ -138,6 +142,12 @@ cmd_up() {
     fi
   fi
   [[ $restored -eq 1 ]] || { (cd "$BACKEND" && "$PYTHON" -m app.cli seed-admin >>"$WORK/import.log" 2>&1) || die "seed-admin failed"; }
+  # KVKK: the workbooks name every instructor; the recordings show title + initials only (kvkk_mask.py)
+  if [[ $fresh -eq 0 && $restored -eq 0 && "${REC_KVKK_MASK:-1}" == 1 ]]; then
+    "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --save-names "$WORK/kvkk-names.json" >"$WORK/kvkk.log" 2>&1 \
+      || die "kvkk mask failed, see $WORK/kvkk.log"
+    log "instructor names masked to initials ($(grep -m1 '^masked' "$WORK/kvkk.log"))"
+  fi
 
   # ---- backend ----------------------------------------------------------------------------------
   # exec + setsid: the PID file names the server itself (a session leader, so `down` can stop its
@@ -185,14 +195,23 @@ cmd_runs() {
 # Snapshot of the running stack's database (SQLite online backup) and uploads; `up` with REC_SNAPSHOT=1
 # restores it instead of importing again, so every take starts from the same data in seconds.
 cmd_snapshot() {
-  "$PYTHON" -c 'import sqlite3,sys; s=sqlite3.connect(sys.argv[1]); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.close()' \
+  # a single-file copy (journal_mode=delete): `up` restores it with cp, which would miss a WAL file
+  rm -f "$WORK/rec.snapshot.db" "$WORK/rec.snapshot.db-wal" "$WORK/rec.snapshot.db-shm"
+  "$PYTHON" -c 'import sqlite3,sys; s=sqlite3.connect(sys.argv[1]); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.execute("pragma journal_mode=delete"); d.close()' \
     "$WORK/rec.db" "$WORK/rec.snapshot.db" || die "snapshot failed"
   rm -rf "$WORK/uploads.snapshot" && cp -r "$WORK/uploads" "$WORK/uploads.snapshot"
   log "snapshot saved: $WORK/rec.snapshot.db"
 }
 
+# KVKK mask on the running stack's database (after the fresh-database journeys imported their workbooks)
+cmd_mask() {
+  "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --names "$WORK/kvkk-names.json" | tee -a "$WORK/kvkk.log" | grep -m1 '^masked' \
+    || die "kvkk mask failed"
+}
+
 case "${1:-}" in
   snapshot) cmd_snapshot ;;
+  mask) cmd_mask ;;
   up) shift; cmd_up "$@" ;;
   runs) cmd_runs ;;
   down) cmd_down ;;

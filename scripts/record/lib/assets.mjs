@@ -3,6 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { FPS } from "./fps.mjs";
 
 export const THEMES = {
   light: {
@@ -37,7 +38,7 @@ function font() {
 }
 
 /** layout: {CW, CH, VW, VH, pad, radius} */
-export function layoutFor(viewport, { pad = 80, radius = 16 } = {}) {
+export function layoutFor(viewport, { pad = Number(process.env.REC_PAD ?? 80), radius = 16 } = {}) {
   const VW = viewport.width;
   const VH = viewport.height;
   const even = (n) => Math.round(n / 2) * 2;
@@ -88,12 +89,13 @@ export function buildAssets(dir, layout, themeName, captions) {
   ]);
   out.cursorHotspot = { x: off, y: off };
 
-  // click ripple: 18 frames (600 ms @ 30 fps)
+  // click ripple: 600 ms at the pipeline's frame rate
   const R = 64;
+  const NR = Math.round(0.6 * FPS);
   out.rippleDir = join(dir, "ripple");
   mkdirSync(out.rippleDir, { recursive: true });
-  for (let i = 0; i < 18; i++) {
-    const u = i / 17;
+  for (let i = 0; i < NR; i++) {
+    const u = i / (NR - 1);
     const e = 1 - Math.pow(1 - u, 3);
     const r = (8 + 46 * e) * 2;
     const a = (0.9 * (1 - u)).toFixed(3);
@@ -103,7 +105,9 @@ export function buildAssets(dir, layout, themeName, captions) {
       "-size", `${R * 4}x${R * 4}`, "xc:none",
       "-fill", hexA(th.ripple, fillA), "-stroke", hexA(th.ripple, a), "-strokewidth", String(Math.max(2, 7 * (1 - u)) * 2),
       "-draw", `circle ${c},${c} ${c + r},${c}`, "-resize", "50%",
-      join(out.rippleDir, `r_${String(i).padStart(2, "0")}.png`),
+      // PNG32: the last, fully transparent frame would otherwise be written as 1-bit grey, and ffmpeg reads the
+      // whole sequence as RGBA from the first frame, so it would show as a black square after every click
+      `PNG32:${join(out.rippleDir, `r_${String(i).padStart(2, "0")}.png`)}`,
     ]);
   }
   out.rippleSize = R * 2;

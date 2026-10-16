@@ -10,7 +10,7 @@ export default {
   title: "Create a user and pick a role",
   db: "seeded",
   role: "admin",
-  verified: "2026-10-08 against the Liquid Glass v2 UI and the real backend",
+  verified: "2026-10-15 on the real backend (snapshot 52f96d4)",
   async setup({ page }) {
     // idempotent: remove the account from an earlier take
     const found = await api(page, `/users/search?q=${ACCOUNT.username}`);
@@ -31,7 +31,7 @@ export default {
       await rec.type(dialog.locator("#u-email"), ACCOUNT.email, { delay: 30 });
       await rec.type(dialog.locator("#u-first"), ACCOUNT.first, { delay: 50 });
       await rec.type(dialog.locator("#u-last"), ACCOUNT.last, { delay: 50 });
-    });
+    }, { clip: "admin-user" });
     await rec.step(tr(ctx, "Pick the role; roles with rights you lack are greyed out", "Rolü seçin; sizde olmayan yetkileri içeren roller pasiftir"), async () => {
       const role = dialog.locator("#u-role");
       await rec.moveOnto(role);
@@ -39,14 +39,15 @@ export default {
       const value = await role.evaluate((el) => [...el.options].find((o) => /planner|planlamac/i.test(o.textContent ?? ""))?.value ?? "");
       await role.selectOption(value || { index: 2 });
       await rec.wait(900);
-      await rec.type(dialog.locator("#u-password"), ACCOUNT.password, { delay: 35 });
-    });
+      await rec.type(dialog.locator("#u-password"), ACCOUNT.password, { delay: 30 });
+      await rec.type(dialog.locator("#u-password2"), ACCOUNT.password, { delay: 30 });
+    }, { clip: "admin-user" });
     await rec.step(tr(ctx, "Save: the account can sign in straight away", "Kaydedin: hesap hemen giriş yapabilir"), async () => {
       await rec.click(dialog.getByTestId("user-save"));
       await dialog.waitFor({ state: "hidden", timeout: 20_000 });
       await rec.type(page.getByTestId("users-search"), ACCOUNT.username, { delay: 70 });
       await page.locator(`[data-username="${ACCOUNT.username}"]`).first().waitFor({ timeout: 20_000 });
       await rec.frame(page.locator(`[data-username="${ACCOUNT.username}"]`).first(), { dwell: 1400 });
-    }, { hold: 1400, poster: true });
+    }, { clip: "admin-user", hold: 1400, poster: true });
   },
 };

@@ -2,7 +2,7 @@
 // then the planning list), generate one week in the Generator Studio, and open the run report.
 // Needs `scripts/record/stack.sh up --fresh` (admin + an empty 2026-BAHAR term). Waits for the import jobs
 // and the solver are cut from the video (Recorder.cut); the captions say so.
-import { FIXTURES, tr } from "./_shared.mjs";
+import { FIXTURES, maskBeforeShowing, tr } from "./_shared.mjs";
 
 const WEEK = 3;
 const files = [
@@ -14,9 +14,14 @@ export default {
   id: "import-generate",
   title: "Import the planning files, generate a week, read the report",
   db: "fresh",
+  // Playwright's own video: Chrome's screencast stalls while a large workbook is uploaded and imported (no frames for
+  // half a minute, then a burst), which breaks the clock mapping of the cuts
+  capture: "video",
   role: "admin",
   verified: "2026-10-08 against the Liquid Glass v2 UI and the real backend",
   async setup({ page }) {
+    // KVKK: a finished import's answer reaches the page only after the database is masked (stack.sh mask)
+    await maskBeforeShowing(page, "**/api/v1/imports/*", (j) => ["DONE", "FAILED"].includes(j?.status ?? j?.job?.status));
     await page.goto("/import");
     await page.getByTestId("import").waitFor({ timeout: 30_000 });
   },
@@ -34,11 +39,11 @@ export default {
         await page.getByTestId("file-input").setInputFiles(`${FIXTURES}/${f.file}`);
         await rec.frame(drop, { dwell: 900 });
         await rec.click(page.getByTestId("import-start"));
-        await rec.cut(() => page.getByTestId("import-report").waitFor({ timeout: 180_000 }));
-      });
+        await rec.cut(() => page.getByTestId("import-report").waitFor({ timeout: 300_000 }));
+      }, { clip: i === 0 ? "import-workbook" : null });
       await rec.step(tr(ctx, "The import report: rows read, rows skipped and why", "İçe aktarma raporu: okunan, atlanan satırlar ve nedenleri"), async () => {
         await rec.frame(page.getByTestId("import-report"), { dwell: 1800 });
-      }, { zoom: false, hold: 600 });
+      }, { zoom: false, hold: 600, clip: i === 0 ? "import-workbook" : null });
     }
     await rec.step(tr(ctx, "Generator Studio: plan week 3 of the term", "Oluşturma Stüdyosu: dönemin 3. haftasını planlayın"), async () => {
       await rec.click(page.getByTestId("nav-generate"));
@@ -59,16 +64,16 @@ export default {
     await rec.step(tr(ctx, "Generate anyway to get the full diagnosis (solving time skipped)", "Yine de oluşturun, tam tanı için (çözüm süresi atlandı)"), async () => {
       await rec.cut(() => page.getByTestId("run-open-report").first().waitFor({ timeout: 300_000 }));
       await rec.frame(page.getByTestId("run-result").first(), { dwell: 1500 });
-    });
+    }, { clip: "generate-report" });
     await rec.step(tr(ctx, "The run report: every placed class keeps every hard rule", "Çalıştırma raporu: yerleşen her ders tüm zorunlu kurallara uyar"), async () => {
       await rec.click(page.getByTestId("run-open-report").first());
       await page.getByTestId("run-hero").waitFor({ timeout: 30_000 });
       await rec.frame(page.getByTestId("run-hero"), { dwell: 2000 });
-    }, { hold: 600, poster: true });
+    }, { clip: "generate-report", hold: 600, poster: true });
     await rec.step(tr(ctx, "What could not be placed is listed with the reason and fixes", "Yerleşemeyenler nedeni ve düzeltmeleriyle listelenir"), async () => {
       const card = page.getByTestId("diagnosis-card").first();
       await card.scrollIntoViewIfNeeded();
       await rec.frame(card, { dwell: 2200 });
-    }, { hold: 1200 });
+    }, { hold: 1200, clip: "generate-report" });
   },
 };
