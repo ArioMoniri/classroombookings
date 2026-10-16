@@ -7,7 +7,13 @@
  * room, or reject and suggest it. A series can be approved for some dates only (the others are declined).
  * Approving re-checks the slot on the backend: a 409 shows the reason and the free alternatives to approve in.
  *
- * Deep link: `?request=<id>` (the in-app notification). Motion: the drawer's own; none on the list.
+ * Deep link: `?request=<id>` (the in-app notification); approver links for a multi-period submission also carry
+ * `&group=<id>` (`data.group_id`, `data.request_ids`): the drawer opens the submission's first open period with
+ * the whole submission in the group bar, so one click decides all of it. Rejecting always asks for a reason code
+ * and a written reason (RejectDialog; owner requirement 2026-10-15). Withdrawn and expired requests the approver
+ * was asked to decide are listed under "Karara bağlanan" (M-34).
+ *
+ * Motion: the drawer's own; none on the list.
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, DoorOpen, Inbox, Users, XCircle } from "lucide-react";
@@ -35,8 +41,9 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { useReduce } from "@/lib/motion";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { conflictAlternatives, groupInbox, isOpen, openDates, requestSlots, type DecideAlternative } from "./approvals-model";
-import { RequestTimeline, SlotLine, StatusPill } from "./request-parts";
+import { conflictAlternatives, groupInbox, isOpen, openDates, requestSlots, type DecideAlternative, type InboxEntry } from "./approvals-model";
+import { RejectDialog, type RejectReason } from "./reject-dialog";
+import { RequestReason, RequestTimeline, SlotLine, StatusPill } from "./request-parts";
 
 type Box = "open" | "decided";
 
@@ -52,17 +59,21 @@ export function ApprovalsView() {
   const decider = can("approvals.decide");
   const [box, setBox] = useState<Box>("open");
   const list = useApprovalInbox(box, decider);
-  const asked = Number(params.get("request")) || null;
-  const [openId, setOpenId] = useState<number | null>(asked);
-  // a later notification click on the same page changes ?request=
-  const [seen, setSeen] = useState(asked);
-  if (asked !== seen) {
-    setSeen(asked);
-    setOpenId(asked);
-  }
+  const askedRequest = Number(params.get("request")) || null;
+  const askedGroup = Number(params.get("group")) || null;
   const rows = list.data ?? [];
   // A-12: one row per submission; the drawer still decides each period, or the whole submission at once
   const entries = groupInbox(rows);
+  const asked = askedRequest;
+  const [openId, setOpenId] = useState<number | null>(askedRequest);
+  // a later notification click on the same page changes ?request= / ?group=. A group link is resolved once the
+  // inbox answered: the submission's first open period (the link's own request may be decided already).
+  const linkKey = askedRequest !== null || askedGroup !== null ? `${askedRequest ?? ""}|${askedGroup ?? ""}` : null;
+  const [seenLink, setSeenLink] = useState<string | null>(askedGroup === null ? linkKey : null);
+  if (linkKey !== seenLink && (askedGroup === null || list.isFetched || !decider)) {
+    setSeenLink(linkKey);
+    if (linkKey !== null) setOpenId(pickAsked(entries, askedRequest, askedGroup));
+  }
   const groupOf = (id: number | null) => (id === null ? [] : (entries.find((e) => e.requests.some((r) => r.id === id))?.requests ?? []));
 
   // permission-dependent markup only after hydration (the user can arrive mid-hydration: React #418)
@@ -80,7 +91,7 @@ export function ApprovalsView() {
 
   const close = () => {
     setOpenId(null);
-    if (params.get("request")) router.replace(pathname);
+    if (params.get("request") || params.get("group")) router.replace(pathname);
   };
   const nextOpen = (id: number) => rows.find((r) => r.id !== id && isOpen(r))?.id ?? null;
 
@@ -100,7 +111,7 @@ export function ApprovalsView() {
             { value: "decided", label: t("wave1.approvals.boxDecided") },
           ]}
         />
-        <p className="hidden items-center gap-2 type-footnote text-label-3 md:flex">
+        <p className="hidden items-center gap-2 type-footnote text-label-3 md:flex pointer-coarse:hidden">
           <KbdHint keys={["A"]} /> {t("wave1.approvals.approve")} <KbdHint keys={["D"]} /> {t("wave1.approvals.reject")} <KbdHint keys={["R"]} /> {t("wave1.approvals.otherRoom")}
         </p>
       </div>
@@ -173,6 +184,18 @@ export function ApprovalsView() {
   );
 }
 
+/**
+ * The request a deep link opens: `?group=` → the submission's first open period (else its first period, else the
+ * link's own request); `?request=` alone → that request.
+ */
+export function pickAsked(entries: readonly InboxEntry[], request: number | null, group: number | null): number | null {
+  if (group !== null) {
+    const entry = entries.find((e) => e.groupId === group) ?? entries.find((e) => request !== null && e.requests.some((r) => r.id === request));
+    if (entry) return (entry.requests.find(isOpen) ?? entry.requests[0])?.id ?? request;
+  }
+  return request;
+}
+
 /** After the drawer's exit, focus the next row (or the first, or the page heading). */
 function nextRowSelector(rows: ApprovalRequest[], id: number): string {
   const i = rows.findIndex((r) => r.id === id);
@@ -194,7 +217,8 @@ function RequestDrawer({ id, onClose, onSwitch, onDone, group }: { id: number | 
     <Sheet open={id !== null} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side={phone ? "bottom" : "right"}
-        className={cn("gap-0 data-[side=right]:sm:max-w-lg", reduce && "transition-none! data-starting-style:translate-x-0! data-starting-style:translate-y-0! data-ending-style:translate-x-0! data-ending-style:translate-y-0!")}
+        // phone: a 92 % bottom sheet, full width and flush with the bottom (F-01 mobile, MOBILE.md M-04)
+        className={cn("gap-0 data-[side=right]:sm:max-w-lg", phone && "inset-x-0! bottom-0! h-[92dvh] max-h-[92dvh]! rounded-b-none!", reduce && "transition-none! data-starting-style:translate-x-0! data-starting-style:translate-y-0! data-ending-style:translate-x-0! data-ending-style:translate-y-0!")}
         data-testid="approval-drawer"
         data-reduced-motion={reduce || undefined}
       >
@@ -221,24 +245,34 @@ function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; o
   const siblings = group.length > 1 ? group : [];
   const openSiblings = siblings.filter(isOpen);
   const [groupBusy, setGroupBusy] = useState<"approve" | "reject" | null>(null);
-  const decideAll = async (decision: "approve" | "reject") => {
+  // the reject dialog: this period, the whole submission, or "reject and suggest" another room
+  const [rejecting, setRejecting] = useState<{ scope: "one" | "group"; alternative?: NonNullable<DecideIn["alternative"]>; suggestion?: string } | null>(null);
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const askReject = (scope: "one" | "group", alternative?: NonNullable<DecideIn["alternative"]>, suggestion?: string) => {
+    setRejectError(null);
+    setRejecting({ scope, alternative, suggestion });
+  };
+  const decideAll = async (decision: "approve" | "reject", reason?: RejectReason) => {
     const gid = r?.group_id;
     if (!gid || groupBusy) return;
     setGroupBusy(decision);
     setError(null);
     try {
-      await wave1.approvals.decideGroup(gid, { decision, note: note.trim() || null });
+      const body = decision === "reject" ? { decision, reason: reason?.reason ?? null, reason_code: reason?.reason_code ?? null } : { decision, note: note.trim() || null };
+      await wave1.approvals.decideGroup(gid, body);
       await Promise.all(APPROVAL_KEYS.map((k) => qc.invalidateQueries({ queryKey: k })));
       toast.success(t(decision === "approve" ? "wave1.approvals.groupApproved" : "wave1.approvals.groupRejected", { n: openSiblings.length, room: r?.room_name ?? "" }));
+      setRejecting(null);
       onDone(r!.id);
     } catch (e) {
-      setError({ text: errorText(wave1Error(e), locale), alternatives: [] });
+      if (decision === "reject") setRejectError(errorText(wave1Error(e), locale));
+      else setError({ text: errorText(wave1Error(e), locale), alternatives: [] });
     } finally {
       setGroupBusy(null);
     }
   };
 
-  const decide = async (decision: "approve" | "reject", alternative?: DecideIn["alternative"]) => {
+  const decide = async (decision: "approve" | "reject", alternative?: DecideIn["alternative"], reason?: RejectReason) => {
     if (!r || busy) return;
     if (decision === "approve" && pending.length > 1 && chosen.size === 0) {
       setError({ text: t("wave1.approvals.pickDates"), alternatives: [] });
@@ -247,15 +281,22 @@ function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; o
     setBusy(decision);
     setError(null);
     try {
-      const body: DecideIn = { decision, note: note.trim() || null, alternative: alternative ?? null };
+      const body: DecideIn = decision === "reject" ? { decision, reason: reason?.reason ?? null, reason_code: reason?.reason_code ?? null, alternative: alternative ?? null } : { decision, note: note.trim() || null, alternative: alternative ?? null };
       if (decision === "approve" && pending.length > 1 && chosen.size < pending.length) body.instances = [...chosen].sort();
       const out = await wave1.approvals.decide(r.id, body);
       await Promise.all(APPROVAL_KEYS.map((k) => qc.invalidateQueries({ queryKey: k })));
       if (out.status === "PENDING") toast.success(t("wave1.approvals.stepDone", { n: out.step, of: out.steps }));
       else toast.success(t(decision === "approve" ? "wave1.approvals.approved" : "wave1.approvals.rejected", { room: alternative?.room_id ? (out.bookings[0]?.room_name ?? r.room_name ?? "") : (r.room_name ?? "") }));
+      setRejecting(null);
       onDone(r.id);
     } catch (e) {
       const err = wave1Error(e);
+      if (decision === "reject" && rejecting && !(err.status === 409 && err.code === "not_pending")) {
+        // the reason stays in the dialog; the backend's sentence is shown there
+        setRejectError(errorText(err, locale));
+        return;
+      }
+      setRejecting(null);
       if (err.status === 409 && err.code === "not_pending") {
         toast.message(errorText(err, locale));
         await Promise.all(APPROVAL_KEYS.map((k) => qc.invalidateQueries({ queryKey: k })));
@@ -276,7 +317,7 @@ function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; o
       void decide("approve");
     } else if (k === "d") {
       e.preventDefault();
-      void decide("reject");
+      askReject("one");
     } else if (k === "r") {
       e.preventDefault();
       setPicking((p) => !p);
@@ -316,7 +357,7 @@ function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; o
             </div>
             {openSiblings.length > 1 ? (
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" className="text-status-infeasible-fg" onClick={() => void decideAll("reject")} {...busyProps(groupBusy === "reject", groupBusy !== null || busy !== null)} data-testid="approval-group-reject">
+                <Button size="sm" variant="outline" className="text-status-infeasible-fg" onClick={() => askReject("group")} {...busyProps(groupBusy === "reject", groupBusy !== null || busy !== null)} data-testid="approval-group-reject">
                   <BusyLabel busy={groupBusy === "reject"} label={t("busy.rejecting")}>{t("wave1.approvals.rejectAll", { n: openSiblings.length })}</BusyLabel>
                 </Button>
                 <Button size="sm" onClick={() => void decideAll("approve")} {...busyProps(groupBusy === "approve", groupBusy !== null || busy !== null)} data-testid="approval-group-approve">
@@ -407,6 +448,8 @@ function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; o
           <p className="type-footnote text-label-2">{dates.map((d) => fmt.short(d)).join(", ")}</p>
         ) : null}
 
+        <RequestReason req={r} />
+
         <section aria-labelledby="req-tl" className="flex flex-col gap-2">
           <h3 id="req-tl" className="type-headline text-label-1">
             {t("wave1.approvals.timeline")}
@@ -414,7 +457,7 @@ function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; o
           <RequestTimeline req={r} fmt={fmt} />
         </section>
 
-        {open && picking && first ? <OtherRooms req={r} busy={busy} onApprove={(alt) => void decide("approve", alt)} onSuggest={(alt) => void decide("reject", alt)} /> : null}
+        {open && picking && first ? <OtherRooms req={r} busy={busy} onApprove={(alt) => void decide("approve", alt)} onSuggest={(alt, name) => askReject("one", alt, name)} /> : null}
 
         {open ? (
           <label className="flex flex-col gap-1.5 type-footnote font-medium text-label-2">
@@ -446,12 +489,12 @@ function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; o
         ) : null}
       </div>
       {open ? (
-        <SheetFooter className="hairline-t flex-row flex-wrap items-center justify-end gap-2 px-5 py-3">
+        <SheetFooter className="hairline-t flex-row flex-wrap items-center justify-end gap-2 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <Button variant="ghost" className="mr-auto" onClick={() => setPicking((p) => !p)} aria-pressed={picking} aria-keyshortcuts="R" data-testid="approval-other-room">
             <DoorOpen aria-hidden />
             {t("wave1.approvals.otherRoom")}
           </Button>
-          <Button variant="outline" className="text-status-infeasible-fg" disabled={!!busy} onClick={() => void decide("reject")} aria-keyshortcuts="D" data-testid="approval-reject" aria-busy={busy === "reject" || undefined}>
+          <Button variant="outline" className="text-status-infeasible-fg" disabled={!!busy} onClick={() => askReject("one")} aria-keyshortcuts="D" data-testid="approval-reject" aria-busy={busy === "reject" || undefined}>
             <BusyLabel busy={busy === "reject"} label={t("busy.rejecting")} icon={<XCircle aria-hidden />}>
             {t("wave1.approvals.reject")}</BusyLabel>
           </Button>
@@ -461,12 +504,27 @@ function RequestDetail({ id, onClose, onSwitch, onDone, group }: { id: number; o
           </Button>
         </SheetFooter>
       ) : (
-        <SheetFooter className="hairline-t flex-row justify-end px-5 py-3">
+        <SheetFooter className="hairline-t flex-row justify-end px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <Button variant="ghost" onClick={onClose}>
             {t("crbs.common.close")}
           </Button>
         </SheetFooter>
       )}
+      <RejectDialog
+        open={rejecting !== null}
+        onOpenChange={(o) => !o && setRejecting(null)}
+        room={r.room_name ?? ""}
+        count={rejecting?.scope === "group" ? openSiblings.length : 1}
+        suggestion={rejecting?.suggestion ?? null}
+        initialText={note}
+        busy={rejecting?.scope === "group" ? groupBusy === "reject" : busy === "reject"}
+        error={rejectError}
+        onConfirm={(reason) => {
+          setRejectError(null);
+          if (rejecting?.scope === "group") void decideAll("reject", reason);
+          else void decide("reject", rejecting?.alternative, reason);
+        }}
+      />
     </div>
   );
 }
@@ -512,7 +570,7 @@ function RoomDayStrip({ roomId, date, termId, start, end }: { roomId: number; da
 }
 
 /** Free rooms for the same date and periods (T1, the reservation panel's finder call). */
-function OtherRooms({ req, busy, onApprove, onSuggest }: { req: ApprovalRequest; busy: string | null; onApprove: (alt: NonNullable<DecideIn["alternative"]>) => void; onSuggest: (alt: NonNullable<DecideIn["alternative"]>) => void }) {
+function OtherRooms({ req, busy, onApprove, onSuggest }: { req: ApprovalRequest; busy: string | null; onApprove: (alt: NonNullable<DecideIn["alternative"]>) => void; onSuggest: (alt: NonNullable<DecideIn["alternative"]>, name: string) => void }) {
   const { t, locale } = useI18n();
   const { first } = requestSlots(req);
   const find = useQuery({
@@ -544,7 +602,7 @@ function OtherRooms({ req, busy, onApprove, onSuggest }: { req: ApprovalRequest;
                   <span className="block type-callout font-medium text-label-1">{x.name}</span>
                   <span className="block truncate type-footnote text-label-2">{pickLang(x.reason, locale) || (x.capacity ? t("crbs.grid.seats", { n: x.capacity }) : "")}</span>
                 </span>
-                <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => onSuggest(alt)} data-testid={`suggest-${x.code}`}>
+                <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => onSuggest(alt, x.name)} data-testid={`suggest-${x.code}`}>
                   {t("wave1.approvals.rejectSuggest")}
                 </Button>
                 <Button size="sm" variant="outline" disabled={!!busy} onClick={() => onApprove(alt)} data-testid={`approve-in-${x.code}`}>

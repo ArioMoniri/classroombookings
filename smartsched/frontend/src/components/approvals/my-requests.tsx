@@ -4,6 +4,8 @@
  * timeline, a Withdraw button while it is open and, when it was rejected, the rooms the approver (or the
  * service) suggested, each opening Find a room prefilled. `?request=<id>` (the in-app notification) opens
  * and scrolls to that request. Without any request the section is not shown (CRBS default: no approvals).
+ * A rejected request shows its reason (code label + text) and who decided, on the card itself and in the
+ * expanded timeline (owner requirement 2026-10-15). Withdraw asks first (a bottom sheet on phones, M-04).
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Search, Undo2 } from "lucide-react";
@@ -13,14 +15,16 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ConfirmDialog, SectionTitle } from "@/components/admin/kit";
+import { BusyLabel } from "@/components/ui/busy-label";
+import { SectionTitle } from "@/components/admin/kit";
 import type { DateFormatter } from "@/components/bookings/date-format";
 import { APPROVAL_KEYS, errorText, pickLang, suggestionsOf, useMyRequests, wave1, wave1Error, type ApprovalRequest } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { isOpen, requestSlots, suggestionRooms } from "./approvals-model";
-import { RequestTimeline, SlotLine, StatusPill } from "./request-parts";
+import { RequestReason, RequestTimeline, SlotLine, StatusPill } from "./request-parts";
+import { ResponsiveDialog } from "./responsive-dialog";
 
 export function MyRequests({ fmt }: { fmt: DateFormatter }) {
   const { t } = useI18n();
@@ -100,11 +104,13 @@ function RequestRow({ req: r, fmt, initiallyOpen }: { req: ApprovalRequest; fmt:
             <StatusPill status={r.status} />
           </span>
           <SlotLine req={r} fmt={fmt} className="block type-footnote text-label-2" />
+          {!expanded ? <RequestReason req={r} compact className="mt-0.5" /> : null}
         </span>
         <ChevronDown className={cn("size-4 shrink-0 text-label-3 transition-transform duration-(--dur-fast)", expanded && "rotate-180")} aria-hidden />
       </button>
       {expanded ? (
         <div id={panel} className="flex flex-col gap-3 px-4 pb-4">
+          <RequestReason req={r} />
           <RequestTimeline req={r} fmt={fmt} />
           {suggestions.length ? (
             <div className="flex flex-col gap-1.5" data-testid="request-suggestions">
@@ -129,22 +135,32 @@ function RequestRow({ req: r, fmt, initiallyOpen }: { req: ApprovalRequest; fmt:
             </div>
           ) : null}
           {isOpen(r) ? (
-            <Button variant="outline" className="self-start" onClick={() => setConfirm(true)} data-testid={`withdraw-${r.id}`}>
+            <Button variant="outline" className="self-start max-sm:w-full" onClick={() => setConfirm(true)} data-testid={`withdraw-${r.id}`}>
               <Undo2 aria-hidden />
               {t("wave1.mine.withdraw")}
             </Button>
           ) : null}
         </div>
       ) : null}
-      <ConfirmDialog
+      <ResponsiveDialog
         open={confirm}
-        onOpenChange={setConfirm}
+        onOpenChange={(o) => !busy && setConfirm(o)}
+        role="alertdialog"
         title={t("wave1.mine.withdrawTitle", { room: r.room_name ?? "" })}
         description={t("wave1.mine.withdrawBody")}
-        confirmLabel={busy ? t("crbs.common.loading") : t("wave1.mine.withdraw")}
-        destructive
-        busy={busy}
-        onConfirm={() => void withdraw()}
+        testId="withdraw-confirm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirm(false)} disabled={busy}>
+              {t("crbs.common.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={() => void withdraw()} disabled={busy} aria-busy={busy || undefined} data-testid="withdraw-confirm-button">
+              <BusyLabel busy={busy} label={t("approvals.mine.withdrawing")}>
+                {t("wave1.mine.withdraw")}
+              </BusyLabel>
+            </Button>
+          </>
+        }
       />
     </li>
   );

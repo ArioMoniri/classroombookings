@@ -21,6 +21,8 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocaleToggle } from "@/components/shell/locale-toggle";
 import { AiPolicyCard } from "./ai-policy";
+import { CalendarSyncAdmin } from "./calendar-sync-admin";
+import { WebhooksAdmin } from "./webhooks-admin";
 import { LearningMemoryPanel } from "@/components/learning/learning-memory-panel";
 import { useSettings, useUpdateSettings } from "@/lib/api/hooks";
 import type { Settings } from "@/lib/api/schemas";
@@ -343,6 +345,8 @@ export function SettingsView() {
     { value: "ai", label: t("settings.ai"), show: admin },
     { value: "solver", label: t("settings.solver"), show: admin },
     { value: "import", label: t("settings.importHosts.tab"), show: admin },
+    // calendar sync (KVKK sign-off, M-40) and outgoing webhooks: setup.settings, as the backend requires
+    { value: "integrations", label: t("notifications.admin.tab"), show: can("setup.settings") },
     // Phase 19: the learned priors and suggestions (Öğrenme belleği), planning administrators only
     { value: "learning", label: t("settings.learningTab"), show: can("planning.admin") },
     { value: "users", label: t("settings.users"), show: can("setup.users") },
@@ -363,6 +367,14 @@ export function SettingsView() {
         {admin ? <TabsContent value="ai"><AiCard /></TabsContent> : null}
         {admin ? <TabsContent value="solver"><SolverCard /></TabsContent> : null}
         {admin ? <TabsContent value="import"><ImportCard /></TabsContent> : null}
+        {can("setup.settings") ? (
+          <TabsContent value="integrations">
+            <div className="space-y-5">
+              <CalendarSyncAdmin />
+              <WebhooksAdmin />
+            </div>
+          </TabsContent>
+        ) : null}
         {can("planning.admin") ? <TabsContent value="learning"><LearningMemoryPanel /></TabsContent> : null}
       </Tabs>
     </div>

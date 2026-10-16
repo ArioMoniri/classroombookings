@@ -37,7 +37,7 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
   const logout = async () => {
     await api.auth.logout();
     qc.clear();
-    router.push("/login");
+    router.push("/login?reason=signed_out"); // "Çıkış yaptınız." (sign-in.md §6.2)
     router.refresh();
   };
   return (

@@ -40,6 +40,8 @@ export const OrgPublicAuth = z.object({
   default_language: z.string().nullish(),
   languages: z.array(z.string()).nullish(),
   auth: PublicAuth.nullish(),
+  /** the institution's KVKK notice (footer link); rendered only when the backend provides it */
+  kvkk_notice_url: z.string().nullish(),
 });
 export type OrgPublicAuth = z.infer<typeof OrgPublicAuth>;
 

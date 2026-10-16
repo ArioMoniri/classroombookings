@@ -3138,7 +3138,7 @@
       "signupClosedTitle": "No account yet.",
       "signupClosed": "Self sign-up is turned off; ask an administrator.",
       "inviteExpiredTitle": "This invitation has expired.",
-      "inviteExpired": "It wasn't used within {days} days. Ask your administrator for a new one.",
+      "inviteExpired": "It wasn't used before it expired. Ask your administrator for a new one.",
       "inviteInvalidTitle": "This invitation is no longer valid.",
       "inviteInvalid": "Ask your administrator for a new one.",
       "inviteMismatchTitle": "The invitation is for another address.",

@@ -18,11 +18,11 @@ function target(path: string, token?: string): string | null {
 }
 
 describe("route guard (src/proxy.ts)", () => {
-  it.each(["/reset-password", "/setup"])("lets a signed-out visitor open %s", (path) => {
+  it.each(["/reset-password", "/setup", "/login/sso?ticket=abc"])("lets a signed-out visitor open %s", (path) => {
     expect(target(path)).toBeNull();
   });
 
-  it.each(["/reset-password", "/setup"])("lets a signed-in visitor open %s too", (path) => {
+  it.each(["/reset-password", "/setup", "/login/sso?ticket=abc"])("lets a signed-in visitor open %s too", (path) => {
     expect(target(path, "jwt")).toBeNull();
   });
 
@@ -34,6 +34,11 @@ describe("route guard (src/proxy.ts)", () => {
   it("keeps /login/change-password behind the session (it calls an authenticated endpoint)", () => {
     expect(target("/login/change-password?next=%2Ftimetable")).toBe(`/login?next=${encodeURIComponent("/login/change-password?next=%2Ftimetable")}`);
     expect(target("/login/change-password", "jwt")).toBeNull();
+  });
+
+  it("keeps the first-login welcome page behind the session", () => {
+    expect(target("/welcome")).toBe(`/login?next=${encodeURIComponent("/welcome")}`);
+    expect(target("/welcome?invited=1", "jwt")).toBeNull();
   });
 
   it("sends a signed-out visit to an app page to /login with the return path", () => {

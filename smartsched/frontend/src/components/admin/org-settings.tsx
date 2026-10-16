@@ -23,6 +23,7 @@ import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, FieldRow, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
 import { WhatsNewPanel } from "./whats-new";
+import { BookingApprovalFields } from "@/components/settings/booking-approval";
 import { useUnsavedGuard } from "./use-unsaved-guard";
 
 const KEYS = [["crbs", "org-settings"], ["crbs", "org-public"], ["crbs", "context"], ["crbs", "grid"], ["crbs", "roles"]];
@@ -153,6 +154,8 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
               onChange={(e) => setD((p) => (e.target.value === "" ? { ...p, max_active_bookings: null, max_active_bookings_unlimited: true } : { ...p, max_active_bookings: Number(e.target.value), max_active_bookings_unlimited: false }))}
             />
           </FieldRow>
+          {/* approval-first bookings (owner requirement 2026-10-15; F-01 S01, F-11 S07) */}
+          <BookingApprovalFields className="hairline-t" value={v.approval_mode ?? "rules"} onChange={(m) => set("approval_mode", m)} />
         </Card>
       </section>
 

@@ -2,15 +2,58 @@
 /**
  * Shared pieces of an approval request (P1): the status pill (glyph + word, never colour alone), the slot
  * line ("A 202 · Çar 18.02.2026 · 3.–5. ders") and the timeline (requested → decisions → waiting / final)
- * that both the approver inbox and the requester's My bookings show.
+ * that both the approver inbox and the requester's My bookings show. A rejection shows its reason (code label and
+ * the written text, "Oda uygun değil: Bu saatte bölüm sınavı var.") and who decided, on the timeline and in the
+ * reason block (RequestReason).
  */
-import { Ban, CheckCircle2, CircleDot, Clock3, Hourglass, Send, Undo2, XCircle, type LucideIcon } from "lucide-react";
+import { Ban, CheckCircle2, CircleDot, Clock3, Hourglass, MessageSquareWarning, Send, Undo2, XCircle, type LucideIcon } from "lucide-react";
 import type { ApprovalRequest } from "@/lib/api/wave1";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { DateFormatter } from "@/components/bookings/date-format";
-import { requestSlots, statusTone, timeline, type Tone } from "./approvals-model";
+import { reasonLine, requestReason, requestSlots, statusTone, timeline, type Tone } from "./approvals-model";
+
+const REASON_KEY: Record<string, MessageKey> = {
+  room_unavailable: "approvals.reasons.room_unavailable",
+  capacity: "approvals.reasons.capacity",
+  policy: "approvals.reasons.policy",
+  other: "approvals.reasons.other",
+  slot_taken: "approvals.reasons.slot_taken",
+};
+
+/** The label of a reason code in the user's language; null for an unknown code. */
+export function useReasonLabel(): (code: string) => string | null {
+  const { t } = useI18n();
+  return (code) => (REASON_KEY[code] ? t(REASON_KEY[code]!) : null);
+}
+
+/** "Gerekçe: Oda uygun değil: Bu saatte bölüm sınavı var." and who decided, for a rejected request. */
+export function RequestReason({ req, compact = false, className }: { req: ApprovalRequest; compact?: boolean; className?: string }) {
+  const { t } = useI18n();
+  const label = useReasonLabel();
+  const reason = requestReason(req);
+  if (!reason) return null;
+  const line = reasonLine(reason.code, reason.text, label);
+  if (!line) return null;
+  if (compact) {
+    return (
+      <span className={cn("line-clamp-2 type-footnote text-status-infeasible-fg", className)} data-testid="request-reason-line">
+        {t("approvals.reasonLine", { reason: line })}
+      </span>
+    );
+  }
+  const who = req.decided_by?.name;
+  return (
+    <div className={cn("flex items-start gap-2 rounded-xl bg-status-infeasible px-3 py-2.5", className)} data-testid="request-reason">
+      <MessageSquareWarning className="mt-0.5 size-4 shrink-0 text-status-infeasible-fg" aria-hidden />
+      <div className="min-w-0">
+        <p className="type-callout text-label-1">{t("approvals.reasonLine", { reason: line })}</p>
+        {who ? <p className="type-footnote text-label-2">{t("approvals.decidedBy", { name: who })}</p> : null}
+      </div>
+    </div>
+  );
+}
 
 const TONE_CLASS: Record<Tone, string> = {
   pending: "bg-tint-soft text-tint-text",
@@ -57,6 +100,7 @@ export function SlotLine({ req, fmt, className }: { req: ApprovalRequest; fmt: D
 
 export function RequestTimeline({ req, fmt }: { req: ApprovalRequest; fmt: DateFormatter }) {
   const { t } = useI18n();
+  const label = useReasonLabel();
   const items = timeline(req);
   return (
     <ol className="relative flex flex-col gap-3 pl-6" aria-label={t("wave1.approvals.timeline")} data-testid="request-timeline">
@@ -77,7 +121,9 @@ export function RequestTimeline({ req, fmt }: { req: ApprovalRequest; fmt: DateF
           if (req.steps > 1) title += ` · ${t("wave1.approvals.stepN", { n: e.step, of: req.steps })}`;
           const alt = e.alternative;
           const altText = alt && typeof alt.room_name === "string" ? t("wave1.approvals.tl.alternative", { room: alt.room_name, date: typeof alt.date === "string" ? fmt.short(alt.date) : "", periods: `P${String(alt.start_period ?? "")}–P${String(alt.end_period ?? "")}` }) : null;
-          body = [e.note, altText].filter(Boolean).join(" · ") || null;
+          // a rejection reads with its reason ("Oda uygun değil: …"); an approval with the approver's note
+          const said = e.decision === "reject" ? (e.reasonCode || e.note ? reasonLine(e.reasonCode, e.note, label) : null) : e.note;
+          body = [said, altText].filter(Boolean).join(" · ") || null;
         } else if (e.kind === "waiting") {
           icon = Hourglass;
           tone = "text-tint-text";

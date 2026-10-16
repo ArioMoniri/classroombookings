@@ -10,6 +10,7 @@
  * directly under the password, never pinned.
  */
 import { Monitor, Moon, Sun } from "lucide-react";
+import { motion } from "motion/react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
@@ -21,6 +22,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useAppVersion } from "@/lib/api/crbs";
 import { LOCALE_INFO, type Locale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { springs, useReduce } from "@/lib/motion";
 
 /** Page-local tokens (§9). Control height 44 fine / 48 coarse also drives the fields (--control-h-lg). */
 const SHEET_TOKENS =
@@ -103,9 +105,11 @@ export function SignInFooter({ kvkkUrl }: { kvkkUrl?: string | null }) {
   const { t, locale, setLocale, languages } = useI18n();
   const router = useRouter();
   const version = useAppVersion();
+  const reduce = useReduce();
   const langs: readonly Locale[] = languages.length ? languages : ["tr", "en"];
   return (
-    <footer className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-6" aria-label={t("signin.footer.region")}>
+    // door 2 opening pushes the footer: it moves on transform only (layout="position", §10 "the column makes room")
+    <motion.footer layout={reduce ? false : "position"} transition={springs.smooth} className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-6" aria-label={t("signin.footer.region")}>
       <div className="flex min-h-11 items-center gap-4 type-footnote">
         {kvkkUrl ? (
           <a href={kvkkUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center px-1.5 text-tint-text underline-offset-4 outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="signin-kvkk">
@@ -134,7 +138,7 @@ export function SignInFooter({ kvkkUrl }: { kvkkUrl?: string | null }) {
         />
         <ThemeButton />
       </div>
-    </footer>
+    </motion.footer>
   );
 }
 

@@ -4,7 +4,8 @@
  *
  * - SIGNED_OUT_ONLY: the sign-in page (a signed-in visit goes to /dashboard)
  * - PUBLIC: pages that must work without a session, signed in or not: the password reset
- *   (`/reset-password`, a forgotten password) and the first-run wizard (`/setup`, before any user exists)
+ *   (`/reset-password`, a forgotten password), the first-run wizard (`/setup`, before any user exists) and the
+ *   Microsoft sign-in landing page (`/login/sso?ticket=…`, it creates the session)
  * - everything else, including `/login/change-password` (it calls the authenticated
  *   `POST /auth/change-password`), needs the cookie and otherwise redirects to /login?next=…
  */
@@ -12,7 +13,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const AUTH_COOKIE = "smartsched_token";
 const SIGNED_OUT_ONLY = new Set(["/login"]);
-const PUBLIC = new Set(["/reset-password", "/setup"]);
+const PUBLIC = new Set(["/reset-password", "/setup", "/login/sso"]);
 
 export function proxy(request: NextRequest): NextResponse {
   const { pathname, search } = request.nextUrl;

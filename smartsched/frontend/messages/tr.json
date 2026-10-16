@@ -3137,7 +3137,7 @@
       "signupClosedTitle": "Hesabınız yok.",
       "signupClosed": "Kendiliğinden hesap açma kapalı; bir yöneticiye başvurun.",
       "inviteExpiredTitle": "Davetin süresi doldu.",
-      "inviteExpired": "Davet {days} gün içinde kullanılmadı. Yöneticinizden yeni bir davet isteyin.",
+      "inviteExpired": "Davet, geçerlilik süresi içinde kullanılmadı. Yöneticinizden yeni bir davet isteyin.",
       "inviteInvalidTitle": "Bu davet artık geçerli değil.",
       "inviteInvalid": "Yöneticinizden yeni bir davet isteyin.",
       "inviteMismatchTitle": "Davet başka bir adres için.",

@@ -33,6 +33,8 @@ const GROUP_KEYS: Record<string, MessageKey> = {
   rooms: "crbs.perm.group.rooms",
   audit: "crbs.perm.group.audit",
   approvals: "crbs.perm.group.approvals",
+  // approval-first bookings (bookings.skip_approval)
+  bookings: "approvals.perm.group_bookings",
 };
 const BOOK_ACTIONS = ["create", "edit_other_booking", "cancel_other_booking", "set_user", "set_department", "view_other_notes", "view_other_users"] as const;
 
@@ -40,7 +42,11 @@ const BOOK_ACTIONS = ["create", "edit_other_booking", "cancel_other_booking", "s
 export function permLabel(t: (k: MessageKey) => string, name: string, description?: string | null): string {
   const key = `crbs.perm.${name.replace(".", "_")}` as MessageKey;
   const out = t(key);
-  return out === key ? (description ?? name) : out;
+  if (out !== key) return out;
+  // approval-first permissions are labelled in the approvals namespace
+  const alt = `approvals.perm.${name.replace(".", "_")}` as MessageKey;
+  const second = t(alt);
+  return second === alt ? (description ?? name) : second;
 }
 
 export function RolesAdmin() {
