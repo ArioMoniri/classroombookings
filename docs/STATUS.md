@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `6d5c997` (committed 2026-10-16 06:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `c0f9556` (committed 2026-10-16 06:20 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-138 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 115 · stopped 7 · superseded 7.
+139 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 116 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -154,10 +154,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Phase 19 UI follow-up` | frontend-engineer | 2026-10-16 01:20 |
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
-| `Planning analytics + invigilation UI` | frontend-engineer | 2026-10-16 04:42 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
 | `Bookings wave-2 + KVKK UI` | frontend-engineer | 2026-10-16 06:08 |
 | `Mobile caller-layout polish` | frontend-engineer | 2026-10-16 06:13 |
+| `Backend asks batch 2 (perf + gaps)` | backend-engineer | 2026-10-16 06:22 |
 
 <!-- /AUTO:agents -->
 

@@ -1420,3 +1420,19 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
 - [ ] Shell: breadcrumb labels for the `/analytics` and `/exams` segments (they show the raw segment). The two paths redirect to their pages.
 - [ ] Design: add the motion rows (FadePanel: section or result settles, springs.smooth, 100 ms opacity under reduced motion) to `docs/design/v2/motion.md`.
 
+
+### Planning analytics UI finished (2026-10-16)
+
+- Done:
+  - `/runs/compare` (scenario comparison).
+  - `/analytics/heatmap` (rooms and instructors): validated colour scale, hatching, keyboard grid, phone frame.
+  - `/exams/invigilation`: pool, run, progress polling, diagnoses, lock and reassign, re-run, publish and CSVs.
+  - e2e 5/5 on real Bahar and Final data.
+- Routed:
+  - The backend asks batch 2 agent:
+    - the invigilation candidates performance (about 58 s, possibly blocking the event loop)
+    - filling a post by hand, real progress, and a startup sweep
+    - the ScheduleRun label, the wish dry-run and the academician room list
+    - the possible approval-first 202/201 regression
+  - Breadcrumb labels went to the mobile polish agent.
+  - Masking instructor names in the analytics test fixtures went back to the analytics agent (KVKK).
