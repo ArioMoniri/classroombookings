@@ -20,6 +20,7 @@ import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { groupConflicts, periodSpan, summariseConflicts, type ConflictHolder } from "./conflicts-model";
 import { Alert, Field, Loading, PageTitle, SelectField } from "./kit";
 import { BareButton } from "@/components/shell/bare-button";
+import { ConflictBanner } from "@/components/conflicts/conflict-banner";
 
 const KIND: Record<ConflictHolder["kind"], { key: MessageKey; tone: "locked" | "warning" | "tint" }> = {
   timetable: { key: "crbs.conflicts.kind.timetable", tone: "locked" },
@@ -57,6 +58,8 @@ export function ConflictsAdmin() {
           </Button>
         }
       />
+      {/* P2: the resolver of each published run with open clashes (planning.edit) */}
+      <ConflictBanner />
       <div className="max-w-xs">
         <Field label={t("crbs.export.session")} htmlFor="conflicts-term">
           <SelectField id="conflicts-term" value={pick} onChange={(e) => setPick(e.target.value)}>

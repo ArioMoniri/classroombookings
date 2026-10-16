@@ -25,6 +25,7 @@ import { bookingCapabilities, hasPermission } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { Alert, PageTitle, SelectField } from "@/components/admin/kit";
 import { BookSheet, type BookTarget } from "./book-sheet";
+import { ConflictBanner } from "@/components/conflicts/conflict-banner";
 import { BookingDetailSheet } from "./booking-detail-sheet";
 import { BookingGrid, pickKind, reasonKey, TONE_CLASS, TONE_ICON } from "./booking-grid";
 import { bookingErrorMessage } from "./booking-errors";
@@ -419,6 +420,8 @@ export function BookingsView() {
       />
 
       {org.data?.maintenance_mode && caps.bypassMaintenance ? <Alert tone="warning" title={t("crbs.maintenance.bypassTitle")}>{org.data.maintenance_message || t("crbs.maintenance.bypass")}</Alert> : null}
+      {/* P2: planners see the open clashes of a newly published timetable, with a link to the resolver */}
+      <ConflictBanner />
 
       {compact ? (
         <Toolbar placement="inline" data-print-hide className="sticky top-2 z-30 h-auto w-full flex-nowrap gap-1 p-1" aria-label={t("crbs.toolbar.label")} data-testid="bookings-toolbar">
