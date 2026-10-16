@@ -11,7 +11,6 @@
  */
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { Logo } from "@/components/brand";
@@ -67,13 +66,14 @@ export function useKeyboardSafeFocus(root: React.RefObject<HTMLElement | null>) 
   }, [root]);
 }
 
-export function SignInBrand({ logoUrl, orgName }: { logoUrl?: string | null; orgName?: string | null }) {
+/** University logo (`alt=""`: its name is in the subtitle) · hairline · the SmartSched mark + live text (§4.1). */
+export function SignInBrand({ logoUrl }: { logoUrl?: string | null }) {
   return (
     <div className="flex h-11 items-center gap-3" data-testid="signin-brand">
       {logoUrl ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
-          <img src={logoUrl} alt={orgName ? "" : ""} className="h-8 max-w-40 object-contain min-[600px]:h-10" data-testid="signin-org-logo" />
+          <img src={logoUrl} alt="" className="h-8 max-w-40 object-contain min-[600px]:h-10" data-testid="signin-org-logo" />
           <span aria-hidden className="h-7 w-px bg-(--hairline-strong)" />
         </>
       ) : null}
@@ -141,7 +141,7 @@ export function SignInFooter({ kvkkUrl }: { kvkkUrl?: string | null }) {
 /**
  * Sheet + scene. `children` is the column content between the brand row and the footer.
  */
-export function SignInShell({ children, logoUrl, orgName, kvkkUrl, labelledBy = "signin-title", testId }: { children: ReactNode; logoUrl?: string | null; orgName?: string | null; kvkkUrl?: string | null; labelledBy?: string; testId?: string }) {
+export function SignInShell({ children, logoUrl, kvkkUrl, labelledBy = "signin-title", testId }: { children: ReactNode; logoUrl?: string | null; kvkkUrl?: string | null; labelledBy?: string; testId?: string }) {
   const sheet = useRef<HTMLElement>(null);
   useKeyboardSafeFocus(sheet);
   return (
@@ -155,7 +155,7 @@ export function SignInShell({ children, logoUrl, orgName, kvkkUrl, labelledBy = 
           data-testid="signin-sheet"
         >
           <div className="flex w-full max-w-[400px] flex-1 flex-col">
-            <SignInBrand logoUrl={logoUrl} orgName={orgName} />
+            <SignInBrand logoUrl={logoUrl} />
             <div className="flex flex-1 flex-col pt-(--signin-top)">{children}</div>
             <SignInFooter kvkkUrl={kvkkUrl} />
           </div>
@@ -165,4 +165,3 @@ export function SignInShell({ children, logoUrl, orgName, kvkkUrl, labelledBy = 
   );
 }
 
-export { Link };
