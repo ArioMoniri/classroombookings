@@ -24,6 +24,8 @@ import { pinLanguage } from "./language";
 test.skip(!REAL, SKIP_REASON);
 // the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
 pinLanguage("tr");
+/** a moderation re-solve: the 120 s solver limit plus model build and the diff; 376 s measured on a loaded 4-core pod */
+const RESOLVE_WAIT = 540_000;
 test.describe.configure({ mode: "serial" });
 
 type Term = { id: number; code: string };
@@ -245,7 +247,7 @@ test("program wizard: a server draft from scratch, resume, validate, paste, coho
 });
 
 test("joint teaching on the real Bahar term: MBG 534 with MBG 014, the joint total sizes the room, commit minimal → moderation preview", async ({ page }) => {
-  test.setTimeout(420_000);
+  test.setTimeout(420_000 + RESOLVE_WAIT);
   await login(page);
   const { term } = await ensurePublished(page);
   await page.goto("/programs/new");
@@ -287,7 +289,7 @@ test("joint teaching on the real Bahar term: MBG 534 with MBG 014, the joint tot
   await page.getByTestId("generate-open").click();
   await page.getByTestId("generate-confirm").getByTestId("generate-go").click();
   await expect(page).toHaveURL(/\/moderation\/recreate\/\d+/, { timeout: 60_000 });
-  await expect(page.getByTestId("recreate-preview")).toBeVisible({ timeout: 240_000 });
+  await expect(page.getByTestId("recreate-preview")).toBeVisible({ timeout: RESOLVE_WAIT });
   await expect(page.getByTestId("chain")).toContainText("#");
   // back on the draft: the result screen with the undo and the server's blockers (if any), never a dead button
   await page.goto(`/programs/new/${draftId}`);
@@ -319,7 +321,7 @@ async function ensureUser(page: Page, u: { email: string; password: string }, fu
 let person: { id: number; name: string; label: string } | null = null;
 
 test("moderation: person priority with its source badge, server changes list, re-solve preview with baseline + chain, publish with Akademisyenlere bildir", async ({ page }) => {
-  test.setTimeout(480_000);
+  test.setTimeout(480_000 + RESOLVE_WAIT);
   await login(page);
   const { term } = await ensurePublished(page);
   // the academician of the flow: the first person in the published plan with a default-priority request
@@ -366,7 +368,7 @@ test("moderation: person priority with its source badge, server changes list, re
   await sheet.getByTestId("recreate-start").click();
   await expect(page).toHaveURL(/\/moderation\/recreate\/\d+/);
   const preview = page.getByTestId("recreate-preview");
-  await expect(preview).toBeVisible({ timeout: 300_000 });
+  await expect(preview).toBeVisible({ timeout: RESOLVE_WAIT });
   await expect(preview).toContainText(/Yeni çözüm ← yayındaki plan #\d+/);
   await expect(page.getByTestId("baseline-select")).toBeVisible();
   await expect(page.getByTestId("chain")).toContainText(/Zincir: #\d+ ← #\d+/);

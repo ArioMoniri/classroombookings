@@ -20,6 +20,8 @@ import { pinLanguage } from "./language";
 test.skip(!REAL, SKIP_REASON);
 // the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
 pinLanguage("tr");
+/** a moderation re-solve: the 120 s solver limit plus model build and the diff; 376 s measured on a loaded 4-core pod */
+const RESOLVE_WAIT = 540_000;
 test.describe.configure({ mode: "serial" });
 
 type Term = { id: number; code: string };
@@ -49,7 +51,7 @@ async function ensurePublished(page: Page): Promise<{ term: Term; run: Run }> {
 }
 
 test("moderation: people → profile → raise a priority → re-solve preview diff → publish per the guard", async ({ page }) => {
-  test.setTimeout(420_000);
+  test.setTimeout(420_000 + RESOLVE_WAIT);
   await login(page);
   const { term } = await ensurePublished(page);
   // edits since publishing that earlier specs left (accepted wishes, priorities): this test adds exactly one
@@ -97,7 +99,7 @@ test("moderation: people → profile → raise a priority → re-solve preview d
 
   // the preview: the diff table is the primary view, counts are static text
   const preview = page.getByTestId("recreate-preview");
-  await expect(preview).toBeVisible({ timeout: 300_000 });
+  await expect(preview).toBeVisible({ timeout: RESOLVE_WAIT });
   await expect(preview.getByTestId("diff-summary")).toContainText("Değişmeyen");
   const unchanged = Number((await preview.getByTestId("count-unchanged").textContent())?.replace(/\D/g, ""));
   expect(unchanged).toBeGreaterThan(100);
