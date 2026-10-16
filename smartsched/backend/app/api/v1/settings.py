@@ -12,6 +12,7 @@ from app.core.security import redact_keys, validate_api_key
 from app.schemas.settings import SettingsUpdate, TestAiIn, TestAiOut
 from app.services import settings_service as ss
 from app.services.crbs_dsn import format_allowlist, parse_allowlist
+from app.services.kvkk import AI_PERSONAL_DEFAULT_KEY, AI_PERSONAL_DEFAULTS, parse_ai_personal_default
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 log = logging.getLogger(__name__)
@@ -59,6 +60,25 @@ async def update_settings(body: SettingsUpdate, db: DB, user: Admin) -> dict[str
             data["crbs_dsn_allowed_hosts"] = format_allowlist(parse_allowlist(str(data["crbs_dsn_allowed_hosts"])))
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
+    if AI_PERSONAL_DEFAULT_KEY in extra:  # KVKK: what a never-given ai_personal consent means (consent gates)
+        raw = extra[AI_PERSONAL_DEFAULT_KEY]
+        value = parse_ai_personal_default(raw)
+        if value is None:
+            raise HTTPException(
+                422,
+                {
+                    "code": "ai_personal_default",
+                    "field": AI_PERSONAL_DEFAULT_KEY,
+                    "message": "kvkk.ai_personal_default is included (only a withdrawal excludes a person from AI "
+                    "requests) or excluded (not granted = excluded)",
+                    "message_en": "kvkk.ai_personal_default is included (only a withdrawal excludes a person from AI "
+                    "requests) or excluded (not granted = excluded)",
+                    "message_tr": "kvkk.ai_personal_default değeri included (yalnızca rızasını geri alan kişi yapay "
+                    "zekâ isteklerinin dışında kalır) ya da excluded (rıza vermeyen herkes dışarıda kalır) olabilir",
+                    "allowed": list(AI_PERSONAL_DEFAULTS),
+                },
+            )
+        extra[AI_PERSONAL_DEFAULT_KEY] = value
     for key, value in {**data, **extra}.items():
         if key == "solver_weights" and isinstance(value, dict):
             import json

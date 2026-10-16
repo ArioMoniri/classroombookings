@@ -31,6 +31,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
+from app.ai.personal import excluded_user_ids
 from app.api.deps import DB, CurrentUser, require_permission
 from app.importers import normalize as n
 from app.models import User
@@ -96,6 +97,9 @@ async def my_privacy(db: DB, user: CurrentUser) -> dict[str, Any]:
         "consents": await svc.consents_of(db, user.id),
         "requests": [svc.dsr_out(r) for r in await svc.mine(db, user)],
         "due_days": svc.DUE_DAYS,
+        # what a never-given ai_personal consent means here, and whether this person is kept out of AI requests
+        "ai_personal_default": await svc.ai_personal_default(db),
+        "ai_excluded": user.id in await excluded_user_ids(db),
     }
 
 

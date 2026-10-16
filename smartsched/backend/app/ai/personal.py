@@ -11,8 +11,10 @@ for that purpose has ``withdrawn_at``) is kept out of every request SmartSched s
   NBSP / dots / underscores between the words -- becomes ``[KİŞİ_n]``; after the answer, a token in the model's text
   or tool input is mapped back to the person's name on the server, so a rule about that person still resolves.
 
-Never-granted is not withdrawn: until a person withdraws, the institution's AI sign-off (``app/ai/policy.py``) is the
-basis, as before. Images and scanned PDFs sent as binary blocks cannot be redacted (vision is off by default).
+What a never-given consent means is the setting ``kvkk.ai_personal_default`` (consent gates 2026-10-16; admin, ``PUT
+/settings`` ``extra``): ``included`` (default) -- never-granted is not withdrawn, the institution's AI sign-off
+(``app/ai/policy.py``) is the basis until the person withdraws; ``excluded`` -- "not granted = excluded", every account
+without an active grant is kept out, so only people who granted ``ai_personal`` are sent by name. Images and scanned PDFs sent as binary blocks cannot be redacted (vision is off by default).
 Streamed text deltas show the token; the final message carries the name.
 """
 
@@ -142,14 +144,20 @@ class Redactor:
 
 
 async def excluded_user_ids(session: AsyncSession) -> list[int]:
-    """Accounts whose latest ``ai_personal`` consent row is withdrawn (the per-person switch)."""
+    """Accounts kept out of AI requests: those whose latest ``ai_personal`` consent row is withdrawn (the per-person
+    switch) and, with ``kvkk.ai_personal_default = excluded``, every account without an active grant."""
+    from app.models import User
     from app.models.kvkk import Consent
+    from app.services.kvkk import ai_personal_default
 
     q = select(Consent.user_id, Consent.withdrawn_at).where(Consent.purpose == "ai_personal").order_by(Consent.id)
     latest: dict[int, bool] = {}
     for uid, withdrawn in (await session.execute(q)).all():
         if uid is not None:
             latest[int(uid)] = withdrawn is not None
+    if await ai_personal_default(session) == "excluded":
+        everyone = (await session.execute(select(User.id))).scalars()
+        return sorted(int(uid) for uid in everyone if latest.get(int(uid), True))
     return sorted(uid for uid, out in latest.items() if out)
 
 
