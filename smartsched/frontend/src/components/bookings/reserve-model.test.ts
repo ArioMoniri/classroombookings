@@ -7,6 +7,7 @@ import {
   departmentTally,
   freeRun,
   freeSlotsByRoom,
+  isOwnPending,
   googleSubscribeUrl,
   nextFreeSlot,
   outlookSubscribeUrl,
@@ -98,6 +99,17 @@ describe("free slots lens", () => {
     const later = freeSlotsByRoom([g], { now: { date: D, time: "10:00" } });
     expect(later[0]!.days[0]!.runs.map((r) => r.map((s) => s.period_id))).toEqual([[12], [14]]);
     expect(freeSlotsByRoom([g], { firstRooms: new Set([2]) })[0]!.room.name).toBe("A 102");
+  });
+
+  it("T-R1-14: keeps the viewer's own pending request in the list (not counted as free), never someone else's", () => {
+    const mine = { date: D, period_id: 12, room_id: 3, status: "booked", reason: "pending", booking: { id: 77, is_owner: true } } as unknown as GridSlot;
+    const theirs = { date: D, period_id: 13, room_id: 3, status: "booked", reason: "pending", booking: { id: 78, is_owner: false } } as unknown as GridSlot;
+    const g3 = grid([{ id: 3, name: "A 103", capacity: 40 }], [free(3, 11), mine, theirs]);
+    const [room] = freeSlotsByRoom([g3]);
+    expect(room!.count).toBe(1);
+    expect(room!.days[0]!.runs.map((r) => r.map((s) => s.period_id))).toEqual([[11, 12]]);
+    expect(isOwnPending(mine)).toBe(true);
+    expect(isOwnPending(theirs)).toBe(false);
   });
 
   it("drops rooms with nothing to book and slots the user may not book", () => {

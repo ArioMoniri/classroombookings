@@ -28,6 +28,7 @@ import { BookSheet, type BookTarget } from "./book-sheet";
 import { ConflictBanner } from "@/components/conflicts/conflict-banner";
 import { PolicyWhy } from "@/components/policies/policy-why";
 import { useApprovalFirst, violationText } from "@/lib/api/booking-policies";
+import { useMyRequests } from "@/lib/api/wave1";
 import { BookingDetailSheet } from "./booking-detail-sheet";
 import { BookingGrid, pickKind, reasonKey, TONE_CLASS, TONE_ICON } from "./booking-grid";
 import { bookingErrorMessage } from "./booking-errors";
@@ -70,6 +71,9 @@ export function BookingsView() {
   const g = grid.data;
   // T-R1-10: approval-first on for this viewer -> every free slot says "Talep et · Onay gerekir"
   const approvalFirst = useApprovalFirst(g?.rooms[0]?.id, g?.term.id);
+  // T-R1-14: the own open requests of the free-slot list link to the request (booking id -> request id)
+  const myRequests = useMyRequests(!!g && g.slots.some((s) => s.reason === "pending" && s.booking?.is_owner));
+  const requestFor = useCallback((bookingId: number) => myRequests.data?.find((r) => r.bookings.some((b) => b.id === bookingId))?.id ?? null, [myRequests.data]);
   // motion audit T2: the previous grid stays while the next one loads (keepPreviousData). The date control shows
   // the requested day in the input frame, and after 120 ms the stale grid dims (opacity only, no travel)
   const pendingDate = grid.isPlaceholderData ? (query.date ?? null) : null;
@@ -566,6 +570,7 @@ export function BookingsView() {
             onReserve={setBook}
             onRoomInfo={(id, date) => openRoom(id, { date })}
             approvalFirst={approvalFirst}
+            requestFor={requestFor}
           />
         ) : g ? (
           <BookingGrid

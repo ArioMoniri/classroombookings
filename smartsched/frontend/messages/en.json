@@ -2404,7 +2404,9 @@
       "seats": "{n} seats",
       "details": "Room details",
       "requestAt": "Request {room}, {date}, {time} (needs approval)",
-      "approvalFirst": "every request goes to approval first"
+      "approvalFirst": "every request goes to approval first",
+      "pendingAt": "{room}, {date}, {time}: your request is waiting, open it",
+      "pendingTag": "Your request"
     },
     "dept": {
       "label": "Department",
@@ -2753,7 +2755,8 @@
         "too_small": "Too small",
         "feature_missing": "Missing a feature",
         "capacity_unknown": "Capacity unknown",
-        "closed": "Closed"
+        "closed": "Closed",
+        "mine_pending": "Your request is waiting"
       },
       "freeDates": "{free}/{open} dates free",
       "fitAria": "{used} people in {cap} seats",
@@ -2776,7 +2779,9 @@
         "end": "Write the end as 12:30.",
         "order": "The end must be after the start.",
         "window": "The window must end after it starts."
-      }
+      },
+      "openRequest": "Open the request",
+      "featureMissingN": "Rooms missing the feature ({n})"
     },
     "grid": {
       "pending": "Request pending",

@@ -2403,7 +2403,9 @@
       "seats": "{n} kişilik",
       "details": "Derslik bilgisi",
       "requestAt": "{room}, {date}, {time} için talep et (onay gerekir)",
-      "approvalFirst": "her talep önce onaya gider"
+      "approvalFirst": "her talep önce onaya gider",
+      "pendingAt": "{room}, {date}, {time}: talebiniz bekliyor, talebi aç",
+      "pendingTag": "Talebiniz bekliyor"
     },
     "dept": {
       "label": "Bölüm",
@@ -2752,7 +2754,8 @@
         "too_small": "Küçük",
         "feature_missing": "Özellik eksik",
         "capacity_unknown": "Kapasite bilinmiyor",
-        "closed": "Kapalı"
+        "closed": "Kapalı",
+        "mine_pending": "Talebiniz bekliyor"
       },
       "freeDates": "{free}/{open} tarih boş",
       "fitAria": "{cap} koltukta {used} kişi",
@@ -2775,7 +2778,9 @@
         "end": "Bitişi 12:30 gibi yazın.",
         "order": "Bitiş başlangıçtan sonra olmalı.",
         "window": "Aralığın sonu başından sonra olmalı."
-      }
+      },
+      "openRequest": "Talebi aç",
+      "featureMissingN": "Özelliği eksik odalar ({n})"
     },
     "grid": {
       "pending": "Talep bekliyor",

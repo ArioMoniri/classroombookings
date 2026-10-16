@@ -1752,7 +1752,8 @@
       "goal": "You are the **round-1 loop builder for lane G (test plan & tooling drift)** in SmartSched. Repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m (shared tree). Ledger id: loop-r1-laneG-2026-10-16. Read docs/testing/flows/rounds/round-1-tickets.json (lane G) and docs/ROADMAP.md \"Flow …",
       "ledger": "Lane G: test-plan + tooling drift",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 14:02"
     },
     {
       "id": "ad7310ab4a06b9fc9",
@@ -1776,6 +1777,26 @@
       "scope": "",
       "goal": "You are the **round-1 loop builder for lane E (Turkish/English consistency and admin screens)** in SmartSched. Repo /home/user/classroombookings (backend smartsched/backend, frontend smartsched/frontend), branch claude/gracious-cerf-w1598m (shared tree). Ledger id: loop-r1-laneE-2026-10-16. Read doc…",
       "ledger": "Lane E: TR/EN consistency + admin",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a77f2955dcaec067a",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-16 14:02",
+      "left_off": "<analysis> This segment continued the orchestrator role for SmartSched (FastAPI + Next.js + CP-SAT), routing many subagent hand-offs, committing WIP checkpoints, running a 30-min watchdog, and driving toward: all features done → flow loop (persona testers → suggester → lane builders → re-test) → stabilisation → universal sync → pod deploy → BLUF. Chronology highlights: - Push blocked by GitHub pus…"
+    },
+    {
+      "id": "a8767219ae0c1392c",
+      "description": "Lane A: phone touch fixes",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-16 14:05",
+      "scope": "",
+      "goal": "You are the lane A builder for flow-loop round 1 of SmartSched (repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m). Lane name: loop-r1-laneA-2026-10-16. Ports for any stack you start: 19124 (api) / 19125 (web). Read first: docs/AGENTS.md (commit rules: run `python3 -I scripts/doc…",
+      "ledger": "Lane A: phone touch fixes",
       "resumed": false,
       "status": "running"
     }

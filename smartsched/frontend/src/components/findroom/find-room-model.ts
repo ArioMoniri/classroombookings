@@ -4,7 +4,7 @@
  */
 import type { Grid, GridSlot } from "@/lib/api/crbs";
 import type { EffectiveQuery } from "@/lib/api/booking-policies";
-import type { FeatureFilter, FindAlternative, FindQuery, FindRow } from "@/lib/api/wave1";
+import type { ApprovalRequest, FeatureFilter, FindAlternative, FindQuery, FindRow } from "@/lib/api/wave1";
 import { isSelectable } from "@/components/bookings/grid-model";
 
 export type WhenMode = "date" | "weekday" | "range";
@@ -303,3 +303,23 @@ export function altWhyQuery(alt: Pick<FindAlternative, "room_id" | "dates" | "da
 
 /** Statuses a person can act on (book directly or send a request). */
 export const ACTIONABLE = new Set(["free", "requestable", "partial"]);
+/** shown with the free rooms although not bookable: the caller's own open request (T-R1-14, "Talebiniz bekliyor") */
+export const SHOWN = new Set([...ACTIONABLE, "mine_pending"]);
+
+/**
+ * T-R1-14: the caller's own request behind a `mine_pending` row (or a grid slot): the request whose booking is in
+ * that room on one of the dates and overlaps the periods. `null` while /approvals/mine has not answered.
+ */
+export function ownRequestFor(room: number, dates: readonly string[], start: number, end: number, requests: readonly Pick<ApprovalRequest, "id" | "status" | "bookings">[]): number | null {
+  const want = new Set(dates);
+  const hit = requests.find((r) => r.status === "PENDING" && r.bookings.some((b) => b.room_id === room && want.has(b.date) && b.start_period <= end && start <= b.end_period));
+  return hit?.id ?? null;
+}
+
+/**
+ * T-R1-14 (R1-A-07): a near miss that lacks the one feature asked for (its English reason says "missing: …",
+ * find_room.py `_alternatives`); the page folds those away instead of listing twenty "nearly fits".
+ */
+export function isFeatureMiss(a: Pick<FindAlternative, "kind" | "reason">): boolean {
+  return a.kind === "near_miss" && /;\s*missing:/.test(a.reason?.en ?? "");
+}

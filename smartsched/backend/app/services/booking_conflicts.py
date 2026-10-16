@@ -356,7 +356,8 @@ async def _options(
             ok = True
             for d in dates:
                 # every part of the submission needs its own period after the shift
-                if any([await _span_period(session, info, room, d, ps + shift, pe + shift) is None for ps, pe in parts]):
+                shifted = [await _span_period(session, info, room, d, ps + shift, pe + shift) for ps, pe in parts]
+                if any(pid is None for pid in shifted):
                     ok = False
                     break
                 if await bsvc.find_conflict(session, room.id, d, ns, ne, exclude=exclude) is not None:
@@ -374,8 +375,8 @@ async def _options(
                         "dates": [d.isoformat() for d in dates],
                         "score": 0.1 * abs(shift),
                         "reason": {
-                            "tr": f"{room.display_name} {_period_text(ns, ne)} boş ({shift:+d} ders saati)",
-                            "en": f"{room.display_name} free {_period_text(ns, ne)} ({shift:+d} period)",
+                            "tr": f"{room.display_name} {_period_text(ns, ne)} boş ({fr.shift_words(shift, 'tr')})",
+                            "en": f"{room.display_name} free {_period_text(ns, ne)} ({fr.shift_words(shift, 'en')})",
                         },
                     }
                 )
@@ -388,9 +389,10 @@ async def _options(
             others = [d for d in others if d >= today]
             infos = await date_infos(session, info, others) if others else {}
             for d in others:
-                if not infos[d].open or any(
-                    [await _span_period(session, info, room, d, ps, pe) is None for ps, pe in parts]
-                ):
+                if not infos[d].open:
+                    continue
+                same = [await _span_period(session, info, room, d, ps, pe) for ps, pe in parts]
+                if any(pid is None for pid in same):
                     continue
                 if await bsvc.find_conflict(session, room.id, d, s, e, exclude=exclude) is None:
                     opts.append(

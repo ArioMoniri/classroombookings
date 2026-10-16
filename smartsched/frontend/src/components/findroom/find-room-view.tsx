@@ -8,7 +8,8 @@
  *
  * Motion: none on search results (a frequent action; motion_designer §2.1). The booking sheet brings its own.
  */
-import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Loader2, PackageX, Search, ShieldAlert, SlidersHorizontal, Stamp, Users, type LucideIcon } from "lucide-react";
+import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Hourglass, Loader2, PackageX, Search, ShieldAlert, SlidersHorizontal, Stamp, Users, type LucideIcon } from "lucide-react";
+import Link from "next/link";
 import { PolicyWhy } from "@/components/policies/policy-why";
 import { useApprovalFirst, type EffectiveQuery } from "@/lib/api/booking-policies";
 import { useSearchParams } from "next/navigation";
@@ -29,11 +30,11 @@ import { BookSheet, type BookTarget } from "@/components/bookings/book-sheet";
 import { focusAfter } from "@/components/bookings/focus-after";
 import { useBookingFormat, useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { crbs, crbsKeys, useBookingContext, useBookingDates, type GridQuery } from "@/lib/api/crbs";
-import { errorText, pickLang, useFacets, useRecentSearches, w1Keys, wave1, wave1Error, type Feature, type FindAlternative, type FindResponse, type FindRow } from "@/lib/api/wave1";
+import { errorText, pickLang, useFacets, useMyRequests, useRecentSearches, w1Keys, wave1, wave1Error, type Feature, type FindAlternative, type FindResponse, type FindRow } from "@/lib/api/wave1";
 import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { ACTIONABLE, altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, recentParts, reserveSpan, slotsFor, whyQuery, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, recentParts, reserveSpan, SHOWN, slotsFor, whyQuery, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,6 +45,8 @@ const STATUS: Record<string, { icon: LucideIcon; cls: string; key: MessageKey }>
   // P8: a booking policy refuses this room for the search (the rule's words are the row's reason)
   policy: { icon: ShieldAlert, cls: "bg-status-infeasible text-status-infeasible-fg", key: "policies.find.status" },
   requestable: { icon: Stamp, cls: "bg-tint-soft text-tint-text", key: "wave1.find.status.requestable" },
+  // T-R1-14: the caller's own open request holds the slot
+  mine_pending: { icon: Hourglass, cls: "bg-tint-soft text-tint-text", key: "wave1.find.status.mine_pending" },
   partial: { icon: CircleDashed, cls: "bg-status-warning text-status-warning-fg", key: "wave1.find.status.partial" },
   busy: { icon: Ban, cls: "bg-status-preoccupied text-status-preoccupied-fg", key: "wave1.find.status.busy" },
   too_small: { icon: Users, cls: "bg-status-warning text-status-warning-fg", key: "wave1.find.status.too_small" },
@@ -76,7 +79,7 @@ function useWeekdayNames(): { long: string[]; short: string[] } {
 }
 
 export function FindRoomView() {
-  const { t, locale, n } = useI18n();
+  const { t, locale } = useI18n();
   useProfileLanguage();
   const fmt = useBookingFormat();
   const qc = useQueryClient();
@@ -170,8 +173,14 @@ export function FindRoomView() {
   const phone = useIsPhone();
   const [moreOpen, setMoreOpen] = useState(false);
   const results = result?.results ?? [];
-  const free = results.filter((r) => ACTIONABLE.has(r.status));
-  const others = results.filter((r) => !ACTIONABLE.has(r.status));
+  const free = results.filter((r) => SHOWN.has(r.status));
+  const others = results.filter((r) => !SHOWN.has(r.status));
+  // T-R1-14: the own open requests behind "Talebiniz bekliyor" rows (a link to the request)
+  const mine = useMyRequests(results.some((r) => r.status === "mine_pending"));
+  const ownRequest = (r: FindRow) => ownRequestFor(r.room_id, result?.slots.map((x) => x.date) ?? [], r.start_period, r.end_period, mine.data ?? []);
+  const alts = result?.alternatives ?? [];
+  const nearAlts = alts.filter((a) => !isFeatureMiss(a));
+  const featureMiss = alts.filter(isFeatureMiss);
   const multi = (result?.slots.length ?? 0) > 1;
   // the form starts from the backend's booking clock and the user's facets: client-only (no #418 mismatch)
   const hydrated = useHydrated();
@@ -404,10 +413,10 @@ export function FindRoomView() {
                 <p className="type-title-3 text-label-1 outline-hidden" data-testid="fr-summary" tabIndex={-1} data-focus-fallback>
                   {result.summary ? (locale === "tr" ? result.summary.text_tr : result.summary.text_en) : t("wave1.find.count", { n: results.length })}
                 </p>
+                {/* the search window only: the server timing is no end-user fact (R1-A-08) */}
                 {result.time ? (
                   <p className="type-footnote text-label-3 tabular-nums">
                     {fmt.time(result.time.start)}–{fmt.time(result.time.end)}
-                    {result.timing_ms != null ? ` · ${t("wave1.find.ms", { ms: n(Math.round(result.timing_ms)) })}` : null}
                   </p>
                 ) : null}
               </div>
@@ -423,7 +432,7 @@ export function FindRoomView() {
                 <Card className="gap-0 overflow-hidden py-0">
                   <ul data-testid="fr-results">
                     {free.map((r, i) => (
-                      <ResultRow key={r.room_id} row={r} rank={i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={opening === `r${r.room_id}`} why={whyQuery(r, result.slots, termId)} onReserve={() => {
+                      <ResultRow key={r.room_id} row={r} rank={i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={opening === `r${r.room_id}`} why={whyQuery(r, result.slots, termId)} ownRequest={r.status === "mine_pending" ? ownRequest(r) : null} onReserve={() => {
                         const date = firstFreeDate(r, result.slots);
                         if (date) void reserve(`r${r.room_id}`, r.room_id, date, r.start_period, r.end_period, r.action === "request");
                       }} />
@@ -449,7 +458,7 @@ export function FindRoomView() {
                   ) : null}
                 </div>
               )}
-              {result.alternatives.length ? (
+              {alts.length ? (
                 <section aria-labelledby="fr-alts" className="flex flex-col gap-2">
                   <h3 id="fr-alts" className="type-headline text-label-1">
                     {t("wave1.find.alternatives")}
@@ -457,7 +466,7 @@ export function FindRoomView() {
                   <p className="type-footnote text-label-2">{t("wave1.find.alternativesLead")}</p>
                   <Card variant="plain" className="gap-0 overflow-hidden py-0">
                     <ul data-testid="fr-alternatives">
-                      {result.alternatives.map((a, i) => (
+                      {nearAlts.map((a, i) => (
                         <AlternativeRow key={`${a.kind}-${a.room_id}-${i}`} alt={a} termId={termId} request={approvalFirst} opening={opening === `a${i}`} onReserve={() => {
                           const date = a.dates[0] ?? a.date ?? result.slots[0]?.date;
                           if (date) void reserve(`a${i}`, a.room_id, date, a.start_period, a.end_period);
@@ -465,6 +474,22 @@ export function FindRoomView() {
                       ))}
                     </ul>
                   </Card>
+                  {/* T-R1-14 (R1-A-07): rooms lacking the one asked feature are not near fits: folded away */}
+                  {featureMiss.length ? (
+                    <details className="group rounded-xl" data-testid="fr-feature-missing">
+                      <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg py-1 type-callout text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:min-h-11">
+                        <ChevronDown className="size-4 transition-transform duration-(--dur-fast) group-open:rotate-180" aria-hidden />
+                        {t("wave1.find.featureMissingN", { n: featureMiss.length })}
+                      </summary>
+                      <Card variant="plain" className="mt-2 gap-0 overflow-hidden py-0">
+                        <ul>
+                          {featureMiss.map((a, i) => (
+                            <AlternativeRow key={`fm-${a.room_id}-${i}`} alt={a} termId={termId} request={approvalFirst} opening={false} onReserve={() => undefined} />
+                          ))}
+                        </ul>
+                      </Card>
+                    </details>
+                  ) : null}
                 </section>
               ) : null}
               {others.length ? (
@@ -633,7 +658,7 @@ function FitBar({ capacity, headcount }: { capacity: number; headcount: number }
   );
 }
 
-function ResultRow({ row: r, rank, multi, headcount, opening, onReserve, why }: { row: FindRow; rank: number; multi: boolean; headcount: number; opening: boolean; onReserve?: () => void; why?: EffectiveQuery }) {
+function ResultRow({ row: r, rank, multi, headcount, opening, onReserve, why, ownRequest = null }: { row: FindRow; rank: number; multi: boolean; headcount: number; opening: boolean; onReserve?: () => void; why?: EffectiveQuery; ownRequest?: number | null }) {
   const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const reason = pickLang(r.reason, locale);
@@ -674,7 +699,12 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve, why }: 
           </details>
         ) : null}
       </div>
-      {onReserve && r.action !== "none" ? (
+      {r.status === "mine_pending" ? (
+        <Button size="sm" variant="outline" className="min-h-11 self-start sm:min-h-0" render={<Link href={ownRequest ? `/my-bookings?request=${ownRequest}` : "/my-bookings"} />} nativeButton={false} data-testid={`fr-mine-${r.code}`}>
+          <Hourglass aria-hidden />
+          {t("wave1.find.openRequest")}
+        </Button>
+      ) : onReserve && r.action !== "none" ? (
         <Button size="sm" variant="outline" className="min-h-11 self-start sm:min-h-0" onClick={onReserve} disabled={opening} aria-label={t(request ? "wave1.find.requestRoom" : "wave1.find.reserveRoom", { room: r.name })} data-testid={`fr-reserve-${r.code}`}>
           {opening ? <Loader2 className="animate-spin" aria-hidden /> : request ? <Stamp aria-hidden /> : <CalendarClock aria-hidden />}
           {t(request ? "wave1.find.request" : "wave1.find.reserve")}

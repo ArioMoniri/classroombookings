@@ -5,7 +5,7 @@
  * target that opens the booking sheet; a room name opens the room details. The default lens on phones.
  * Data list, so no glass (A8): opaque rows on the thick material colour.
  */
-import { Info } from "lucide-react";
+import { Hourglass, Info } from "lucide-react";
 import type { GridSlot } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import { Loading } from "@/components/admin/kit";
@@ -13,10 +13,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import type { BookTarget } from "./book-sheet";
 import type { DateFormatter } from "./date-format";
 import { slotKey } from "./grid-model";
-import type { FreeRoom } from "./reserve-model";
+import { isOwnPending, type FreeRoom } from "./reserve-model";
+import Link from "next/link";
 import { BareButton } from "@/components/shell/bare-button";
 
-export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve, onRoomInfo, approvalFirst = false }: { rooms: FreeRoom[]; loading: boolean; week: boolean; fmt: DateFormatter; deptFirst: boolean; onReserve: (target: BookTarget) => void; onRoomInfo: (roomId: number, date: string) => void; approvalFirst?: boolean }) {
+export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve, onRoomInfo, approvalFirst = false, requestFor }: { rooms: FreeRoom[]; loading: boolean; week: boolean; fmt: DateFormatter; deptFirst: boolean; onReserve: (target: BookTarget) => void; onRoomInfo: (roomId: number, date: string) => void; approvalFirst?: boolean; requestFor?: (bookingId: number) => number | null }) {
   const { t } = useI18n();
   if (loading && !rooms.length) return <Loading label={t("reserve.free.loading")} />;
   const total = rooms.reduce((n, r) => n + r.count, 0);
@@ -51,7 +52,11 @@ export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve,
                     {d.runs.map((run) => (
                       <div key={slotKey(run[0]!)} className="flex flex-wrap gap-1">
                         {run.map((s) => (
-                          <SlotButton key={s.period_id} slot={s} room={r} fmt={fmt} onReserve={onReserve} request={approvalFirst || !!s.request_only} />
+                          isOwnPending(s) ? (
+                            <PendingChip key={s.period_id} slot={s} room={r} fmt={fmt} requestId={s.booking ? (requestFor?.(s.booking.id) ?? null) : null} />
+                          ) : (
+                            <SlotButton key={s.period_id} slot={s} room={r} fmt={fmt} onReserve={onReserve} request={approvalFirst || !!s.request_only} />
+                          )
                         ))}
                       </div>
                     ))}
@@ -81,5 +86,27 @@ function SlotButton({ slot, room, fmt, onReserve, request }: { slot: GridSlot; r
       <span className="type-caption font-semibold text-tint-text">{p?.name}</span>
       <span className="type-caption text-label-2 tabular-nums">{p ? fmt.time(p.time_start) : ""}</span>
     </BareButton>
+  );
+}
+
+/** T-R1-14 (R1-A-06): the viewer's own request in this slot, waiting for the approvers: a link to it, not a free slot */
+function PendingChip({ slot, room, fmt, requestId }: { slot: GridSlot; room: FreeRoom; fmt: DateFormatter; requestId: number | null }) {
+  const { t } = useI18n();
+  const p = room.grid.periods.find((x) => x.id === slot.period_id);
+  const time = p ? `${fmt.time(p.time_start)}–${fmt.time(p.time_end)}` : "";
+  return (
+    <Link
+      href={requestId ? `/my-bookings?request=${requestId}` : "/my-bookings"}
+      aria-label={t("reserve.free.pendingAt", { room: room.room.name, date: fmt.weekday(slot.date), time: `${p?.name ?? ""} ${time}` })}
+      data-slot-key={slotKey(slot)}
+      data-testid="free-slot-pending"
+      className="flex min-h-11 min-w-16 flex-col items-start justify-center rounded-md bg-fill-3 px-2.5 py-1 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus)"
+    >
+      <span className="flex items-center gap-1 type-caption font-semibold text-label-1">
+        <Hourglass className="size-3" aria-hidden />
+        {p?.name}
+      </span>
+      <span className="type-caption text-label-2">{t("reserve.free.pendingTag")}</span>
+    </Link>
   );
 }

@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest";
 import type { Grid } from "@/lib/api/crbs";
-import { altWhyQuery, asRequestable, buildQuery, compactWeeks, emptyForm, formFromRecent, isoDate, normaliseClock, parseWeeks, reserveSpan, slotsFor, whyQuery } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildQuery, compactWeeks, emptyForm, formFromRecent, isFeatureMiss, isoDate, normaliseClock, ownRequestFor, parseWeeks, reserveSpan, slotsFor, whyQuery } from "./find-room-model";
+
+describe("T-R1-14 find-room results", () => {
+  it("folds the near misses that lack the asked feature (find_room.py's 'free; missing:' reason)", () => {
+    const near = (en: string) => ({ kind: "near_miss", reason: { tr: "", en } });
+    expect(isFeatureMiss(near("A 101 free; missing: Bilgisayar laboratuvarı"))).toBe(true);
+    expect(isFeatureMiss(near("B 207 free; 40 seats (5% short)"))).toBe(false);
+    expect(isFeatureMiss({ kind: "time", reason: { tr: "", en: "free; missing: x" } })).toBe(false);
+  });
+  it("finds the own open request behind a 'Talebiniz bekliyor' row", () => {
+    const reqs = [
+      { id: 5, status: "PENDING", bookings: [{ room_id: 3, date: "2026-11-05", start_period: 6, end_period: 6 }] },
+      { id: 6, status: "WITHDRAWN", bookings: [{ room_id: 3, date: "2026-11-05", start_period: 7, end_period: 7 }] },
+    ] as never[];
+    expect(ownRequestFor(3, ["2026-11-05"], 7, 8, reqs)).toBeNull();
+    expect(ownRequestFor(3, ["2026-11-05"], 6, 7, reqs)).toBe(5);
+    expect(ownRequestFor(4, ["2026-11-05"], 6, 7, reqs)).toBeNull();
+  });
+});
 
 describe("find a room form", () => {
   it("reads clock times the way planners type them", () => {

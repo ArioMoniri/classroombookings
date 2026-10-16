@@ -45,7 +45,7 @@ from app.council.reconcile import rid, room_key
 from app.council.review import build_items, decisions, effective_plan
 from app.importers.catalog import Catalog
 from app.importers.identity import plain
-from app.importers.normalize import PERIODS
+from app.importers.normalize import PERIODS, non_person_reason
 from app.importers.planning_list import _META, _merge
 from app.importers.report import ImportReport
 from app.models import (
@@ -126,6 +126,8 @@ class Writer:
         #: accepted reconciler merges: the second spelling is written as the first
         self.room_alias: dict[str, str] = {}
         self.person_alias: dict[str, str] = {}
+        #: the term's committed meeting requests matched by content in this commit (T-R1-25: one row each)
+        self.claimed: set[int] = set()
 
     def key(self, fi: int, i: int) -> str:
         """The key rows had before natural keys (job / file sha + record index): looked up to re-key them."""
@@ -239,6 +241,29 @@ class Writer:
     def periods_of(self, start: str | None, end: str | None) -> tuple[int | None, int | None]:
         return critic.period_index(self.periods, start, "start"), critic.period_index(self.periods, end, "end")
 
+    async def same_meeting(self, section_id: int, days: list[int], start: time | None) -> MeetingRequest | None:
+        """The term's committed request of the same section, days and start, written under another key (the
+        planning-list importer's, another file's): the in-job duplicate rule run against the committed rows, so
+        a re-uploaded export of the same list matches what is there (T-R1-25). Each row is matched once."""
+        rows = (
+            (
+                await self.s.execute(
+                    select(MeetingRequest).where(
+                        MeetingRequest.section_id == section_id, MeetingRequest.archived.is_(False)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        want = sorted(set(days))
+        for mr in sorted(rows, key=lambda m: m.id):
+            if mr.id in self.claimed or sorted(set(mr.days or [])) != want or mr.start_time != start:
+                continue
+            self.claimed.add(mr.id)
+            return mr
+        return None
+
     async def meeting(self, fi: int, i: int, r: dict[str, Any]) -> None:
         faculty = await self.cat.faculty(r.get("faculty"))
         program = await self.cat.program(r.get("program"), faculty)
@@ -268,6 +293,12 @@ class Writer:
             self.counts["sections"] += 1
         for idx, raw_name in enumerate(r.get("instructors") or []):
             name = self.person_alias.get(tx.person_key(raw_name), raw_name)
+            # a cell that names no person ("Yüz yüze", "UZEM", a pasted note) is never an instructor: the same
+            # rule as the planning-list importer (T-R1-25: a re-uploaded export created 20 such "people")
+            why = non_person_reason(name)
+            if why is not None:
+                self.counts["instructor_values_not_people"] += 1
+                continue
             ins = await self.cat.instructor(name)
             if ins is not None and await self.s.get(SectionInstructor, (section.id, ins.id)) is None:
                 self.s.add(
@@ -311,9 +342,17 @@ class Writer:
         )
         mr = await self.find(MeetingRequest, fields["source_key"], self.key(fi, i))
         if mr is None:
-            self.s.add(MeetingRequest(**fields))
+            mr = await self.same_meeting(section.id, days, fields["start_time"])
+            if mr is not None:  # the row another file or importer committed: it keeps its own key
+                fields.pop("source_key")
+        if mr is None:
+            new = MeetingRequest(**fields)
+            self.s.add(new)
+            await self.s.flush()
+            self.claimed.add(new.id)  # a row this commit wrote is never the "committed" match of another record
             self.counts["meeting_requests"] += 1
         else:
+            self.claimed.add(mr.id)
             if mr.status == "LOCKED" and fields["status"] != "LOCKED":
                 fields.pop("status")  # never downgrade a planner lock
             snap = await self.snapshot("meeting", mr.id)

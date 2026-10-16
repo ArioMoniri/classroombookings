@@ -299,9 +299,7 @@ async def _own_pending(
         held = bocc.setdefault((b.room_id, b.date), [])
         if all(h.ref_id != b.id for h in held):
             held.append(
-                bsvc.Held(
-                    "booking", b.room_id, b.date, b.start_period, b.end_period, b.notes or "", b.id, pending=True
-                )
+                bsvc.Held("booking", b.room_id, b.date, b.start_period, b.end_period, b.notes or "", b.id, pending=True)
             )
     return out
 
@@ -697,8 +695,8 @@ async def _alternatives(
                         "start_period": s,
                         "end_period": s + dur - 1,
                         "reason": _reason(
-                            f"{c.room.display_name} {p0.start:%H:%M}-{p1.end:%H:%M} boş ({shift:+d} ders saati)",
-                            f"{c.room.display_name} free {p0.start:%H:%M}-{p1.end:%H:%M} ({shift:+d} period)",
+                            f"{c.room.display_name} {p0.start:%H:%M}-{p1.end:%H:%M} boş ({shift_words(shift, 'tr')})",
+                            f"{c.room.display_name} free {p0.start:%H:%M}-{p1.end:%H:%M} ({shift_words(shift, 'en')})",
                         ),
                     }
                 )
@@ -728,8 +726,9 @@ async def _alternatives(
                             ),
                         }
                     )
-    # near misses: a little too small, or one feature missing
-    for c in cands:
+    # near misses: a little too small, then (T-R1-14, R1-A-07) the rooms lacking the one asked feature; the screen
+    # folds the latter away ("Özelliği eksik odalar (n)"); the English reason of those says "missing: <feature>"
+    for c in sorted(cands, key=lambda c: c.static != "too_small"):
         near = (c.static == "too_small" and c.short_pct <= 0.10) or (
             c.static == "feature_missing" and len(c.missing) == 1
         )
@@ -764,6 +763,14 @@ async def _alternatives(
             seen.add(key)
             unique.append(a)
     return unique[:20]
+
+
+def shift_words(shift: int, lang: str) -> str:
+    """``+1`` -> "1 ders saati geç başlar" / "starts 1 period later" (R1-A-07: "(-1 ders saati)" said nothing)."""
+    k = abs(shift)
+    if lang == "tr":
+        return f"{k} ders saati {'geç' if shift > 0 else 'erken'} başlar"
+    return f"starts {k} period{'s' if k != 1 else ''} {'later' if shift > 0 else 'earlier'}"
 
 
 def _echo(q: FindQuery) -> dict[str, Any]:
