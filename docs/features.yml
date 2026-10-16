@@ -60,7 +60,7 @@
   status: done
   phase: "19"
   evidence: smartsched/frontend/src/components/runs/relaxation.test.tsx
-  note: "per run in the run report's Re-solve dialog, per term in Ayarlar › Çözücü (write-only key); the studio Generate form waits for the backend (studio generate drops params.relaxation_policy)"
+  note: "per run in the run report's Re-solve dialog and the studio Generate form, per term in Ayarlar › Çözücü (GET/PUT /terms/{id}/relaxation-policy)"
 - feature: "Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff"
   area: planning
   status: done
@@ -109,13 +109,13 @@
   status: done
   phase: "P19 I5"
   evidence: smartsched/frontend/e2e/intake.spec.ts
-  note: "Fark names the term's baseline run, Kaydet shows its counts, the run report lists its source files and re-solves keeping it"
+  note: "Fark reads the dry run's baseline_run (run and counts), Kaydet can skip the map or write it into another run, the run report lists its source files and re-solves keeping it"
 - feature: "Intake memory: confirmed column mappings and lexicon additions remembered per file signature"
   area: intake
-  status: backend-only
+  status: done
   phase: "P19"
-  evidence: smartsched/backend/app/council/memory.py
-  note: "remembered decisions show in İnceleme (e2e/intake.spec.ts); a list / forget-per-signature view needs a backend API"
+  evidence: smartsched/frontend/e2e/intake.spec.ts
+  note: "remembered decisions show in İnceleme; Hatırlanan kararlar (onboarding, Ayarlar › Öğrenme) lists them by signature (GET /council/memory) and forgets one or a signature as an undoable reset (tests/council/test_intake_memory_api.py)"
 
 - feature: "Booking grid by day or by room; single, recurring and multi bookings, limits, holidays, timetable weeks; the published timetable blocks its slots"
   area: bookings

@@ -24,6 +24,7 @@ vi.mock("@/lib/api/client", async (orig) => ({
     api.calls.push({ path, method, body: opts.body });
     if (path === "/calendar/sync") return api.sync;
     if (path.endsWith("/connect")) return api.connect(path, opts.body);
+    if (path === "/me/consents/calendar_sync") return [{ purpose: "calendar_sync", label_tr: "Takvim", label_en: "Calendar", granted: true }];
     if (path === "/calendar/connectors/google/calendars") return [{ id: "primary", name: "ayse@uni.edu.tr", primary: true }, { id: "c2", name: "Dersler" }];
     if (method === "DELETE") return undefined;
     if (path.endsWith("/resync")) return { queued: 12 };
@@ -121,13 +122,22 @@ describe("CalendarConnectionsSection", () => {
     await waitFor(() => expect(api.calls.some((c) => c.method === "DELETE" && c.path === "/calendar/connectors/google")).toBe(true));
   });
 
-  it("asks for the calendar_sync consent first and hides Connect until it is given", async () => {
+  it("asks for the calendar_sync consent in an inline step before Connect, gives it, then connects", async () => {
+    const user = userEvent.setup();
     api.sync = { ...sync([google]), consent: { purpose: "calendar_sync", required: true, granted: false } };
+    api.connect.mockResolvedValue({ authorize_url: "https://login.example/authorize" });
     renderSection();
     const notice = await screen.findByTestId("calendar-connections-consent");
-    expect(notice).toHaveTextContent("first give your calendar sync consent");
+    expect(notice).toHaveTextContent("asks for your calendar sync consent first");
     expect(within(notice).getByRole("link", { name: "Go to Privacy" })).toHaveAttribute("href", "/profile#privacy");
-    expect(screen.queryByTestId("calendar-connect-google")).toBeNull();
+    await user.click(screen.getByTestId("calendar-connect-google"));
+    const step = await screen.findByTestId("calendar-consent-google");
+    expect(step).toHaveTextContent("Calendar sync needs your consent");
+    expect(api.connect).not.toHaveBeenCalled();
+    await user.click(within(step).getByTestId("calendar-consent-grant"));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("https://login.example/authorize"));
+    const order = api.calls.filter((c) => c.method === "POST").map((c) => c.path);
+    expect(order).toEqual(["/me/consents/calendar_sync", "/calendar/connectors/google/connect"]);
   });
 
   it("asks to reconnect when the provider revoked the grant", async () => {

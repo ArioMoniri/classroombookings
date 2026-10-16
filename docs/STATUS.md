@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `e40ccb3` (committed 2026-10-16 09:47 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `8dc60d4` (committed 2026-10-16 09:55 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 41 · Backend only 1 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 42 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -43,7 +43,7 @@ Done 41 · Backend only 1 · In progress 2 · Planned 0 (from [`docs/features.ym
 | Calendar with six views and an inspector; move with a server check, then undo | Done | 4, 10 | [`calendar.spec.ts`](../smartsched/frontend/e2e/calendar.spec.ts) |
 | Publish button with a scope confirmation; the publish guard refuses failed runs and keeps one active run per term | Done | P19-01, M-03 | [`studio-calendar-sweep.spec.ts`](../smartsched/frontend/e2e/studio-calendar-sweep.spec.ts) |
 | Exports to Excel, CSV and iCal | Done | 1 | [`services`](../smartsched/backend/app/services) |
-| Relaxation policy when not every class fits: lock_first (default) or most_classes_first, per run or per term | Done: per run in the run report's Re-solve dialog, per term in Ayarlar › Çözücü (write-only key); the studio Generate form waits for the backend (studio generate drops params.relaxation_policy) | 19 | [`relaxation.test.tsx`](../smartsched/frontend/src/components/runs/relaxation.test.tsx) |
+| Relaxation policy when not every class fits: lock_first (default) or most_classes_first, per run or per term | Done: per run in the run report's Re-solve dialog and the studio Generate form, per term in Ayarlar › Çözücü (GET/PUT /terms/{id}/relaxation-policy) | 19 | [`relaxation.test.tsx`](../smartsched/frontend/src/components/runs/relaxation.test.tsx) |
 | Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff | Done: person and programme priority, server changes list, diff baseline + chain, publish notices | P19 M1-M3, F1 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Academicians add their own room, building or time wishes for their classes; coordinators accept or reject them with a reason, never applied by themselves | Done: Tercih ekle sheet + Tercihlerim on /moderation/me, Tercihler › Akademisyen tercihleri, badges on Kişiler / Eşleşmeler; soft rule ranked after the department's ask | P19-T2 | [`followups-ui.spec.ts`](../smartsched/frontend/e2e/followups-ui.spec.ts) |
 | Learned suggestions from earlier terms, with a resettable memory (per person, per term or all) | Done: accept for the term or persistent (admin, confirmed), undo of any decision; never auto-applied | P19 L1-L4, F2 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
@@ -56,8 +56,8 @@ Done 41 · Backend only 1 · In progress 2 · Planned 0 (from [`docs/features.ym
 |---|---|---|---|
 | Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff | Done: readers, limits, dry-run API, the onboarding stepper with Fark keep / take; e2e on the real Bahar planning list and board | P19 I1-I5 | [`intake.spec.ts`](../smartsched/frontend/e2e/intake.spec.ts) |
 | AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default | In progress: council side done; review screen open | P19 A1-A4 | [`airows.py`](../smartsched/backend/app/council/airows.py) |
-| Schedule map to a baseline import run, so a re-solve keeps the published board | Done: Fark names the term's baseline run, Kaydet shows its counts, the run report lists its source files and re-solves keeping it | P19 I5 | [`intake.spec.ts`](../smartsched/frontend/e2e/intake.spec.ts) |
-| Intake memory: confirmed column mappings and lexicon additions remembered per file signature | Backend only: remembered decisions show in İnceleme (e2e/intake.spec.ts); a list / forget-per-signature view needs a backend API | P19 | [`memory.py`](../smartsched/backend/app/council/memory.py) |
+| Schedule map to a baseline import run, so a re-solve keeps the published board | Done: Fark reads the dry run's baseline_run (run and counts), Kaydet can skip the map or write it into another run, the run report lists its source files and re-solves keeping it | P19 I5 | [`intake.spec.ts`](../smartsched/frontend/e2e/intake.spec.ts) |
+| Intake memory: confirmed column mappings and lexicon additions remembered per file signature | Done: remembered decisions show in İnceleme; Hatırlanan kararlar (onboarding, Ayarlar › Öğrenme) lists them by signature (GET /council/memory) and forgets one or a signature as an undoable reset (tests/council/test_intake_memory_api.py) | P19 | [`intake.spec.ts`](../smartsched/frontend/e2e/intake.spec.ts) |
 
 **Bookings (the classroombookings side)**
 
