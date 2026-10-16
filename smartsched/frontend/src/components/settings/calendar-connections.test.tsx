@@ -121,6 +121,15 @@ describe("CalendarConnectionsSection", () => {
     await waitFor(() => expect(api.calls.some((c) => c.method === "DELETE" && c.path === "/calendar/connectors/google")).toBe(true));
   });
 
+  it("asks for the calendar_sync consent first and hides Connect until it is given", async () => {
+    api.sync = { ...sync([google]), consent: { purpose: "calendar_sync", required: true, granted: false } };
+    renderSection();
+    const notice = await screen.findByTestId("calendar-connections-consent");
+    expect(notice).toHaveTextContent("first give your calendar sync consent");
+    expect(within(notice).getByRole("link", { name: "Go to Privacy" })).toHaveAttribute("href", "#privacy");
+    expect(screen.queryByTestId("calendar-connect-google")).toBeNull();
+  });
+
   it("asks to reconnect when the provider revoked the grant", async () => {
     api.sync = sync([{ ...google, connected: true, status: "REAUTH", account_email: "ayse@uni.edu.tr" }]);
     renderSection();

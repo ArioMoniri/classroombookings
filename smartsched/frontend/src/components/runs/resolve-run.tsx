@@ -8,7 +8,7 @@
  */
 import { RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/approvals/responsive-dialog";
 import { Button } from "@/components/ui/button";
@@ -39,14 +39,12 @@ export function ResolveRunButton({ run, autoOpen = false }: { run: ScheduleRun; 
   const { t, locale } = useI18n();
   const router = useRouter();
   const create = useCreateRun();
-  const [open, setOpen] = useState(false);
+  // `/runs/{id}?resolve=1` (the onboarding Kaydet link) opens the dialog with the page
+  const [open, setOpen] = useState(autoOpen);
   const [choice, setChoice] = useState<PolicyChoice>("term");
   const [label, setLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const baseline = isBaselineRun(run);
-  useEffect(() => {
-    if (autoOpen) setOpen(true);
-  }, [autoOpen]);
 
   const start = () => {
     setError(null);
