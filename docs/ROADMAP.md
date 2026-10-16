@@ -1341,7 +1341,7 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
 - [ ] Backend asks from the follow-ups UI:
   - `POST /moderation/me/preferences?dry_run=1` returning `effective` and `items[].text` without storing anything.
   - A room list a linked academician can read (code, name, capacity, bookable). `/bookings/rooms` hides ungrouped rooms, so the room picker falls back to typed codes.
-- [ ] The flow loop (M-02) should check the Sheet close button. It is 36 px, and the Button primitive's coarse-pointer `::after` should extend its hit area to 44 × 44.
+- [x] The flow loop (M-02) should check the Sheet close button. It is 36 px, and the Button primitive's coarse-pointer `::after` should extend its hit area to 44 × 44. (ui-primitives-touch 2026-10-16: verified at 390 on touch, all four probe points hit the close button.)
 - The orchestrator mapped `preference.*` events to the Program group in Profil › Bildirimler.
 
 ### Design migration and phone sweep finished (2026-10-16)
@@ -1357,7 +1357,7 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - Audit undo of wizard programmes.
   - The import report's truncated-warnings line.
 - Agents launched:
-  - **ui primitives touch:**
+  - **ui primitives touch:** done 2026-10-16 (ui-primitives-touch; 1eda13b, 46dff7e). Caller asks are in docs/PROGRESS.md.
     - the Sheet full-width bottom sheet on phones (M-04)
     - 44 px hit areas for Switch, Chip, SegmentedControl and the DateField trigger
     - 16 px input text built into NativeSelect and DateField
