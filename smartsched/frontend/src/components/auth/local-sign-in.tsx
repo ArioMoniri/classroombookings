@@ -183,7 +183,7 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
               {t("signin.local.password")}
             </label>
             {resetLink ? (
-              <Link href="/reset-password" className="-my-3 inline-flex min-h-11 items-center type-callout text-tint-text underline-offset-4 outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) min-[600px]:min-h-0 min-[600px]:my-0" data-testid="forgot-password">
+              <Link href="/reset-password" className="-my-3 inline-flex min-h-11 items-center type-callout text-tint-text underline-offset-4 outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-fine:min-[600px]:min-h-0 pointer-fine:min-[600px]:my-0" data-testid="forgot-password">
                 {t("signin.local.forgot")}
               </Link>
             ) : null}

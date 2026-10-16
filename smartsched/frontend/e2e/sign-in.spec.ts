@@ -285,6 +285,8 @@ test.describe("SSO states", () => {
     await page.locator("#password").fill(process.env.E2E_ADMIN_PASSWORD ?? "Admin-2026!");
     await page.getByTestId("login-submit").click();
     await page.waitForURL((u) => u.pathname === "/timetable", { timeout: 30_000 });
+    // leave the app first: with the cookies gone the timetable would bounce to /login itself mid-navigation
+    await page.goto("about:blank");
     await page.context().clearCookies();
     await open(page, "/login?next=//evil.example");
     expect(await page.getByTestId("login-sso-microsoft").getAttribute("href")).toBe(START);

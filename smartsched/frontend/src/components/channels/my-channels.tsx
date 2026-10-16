@@ -23,7 +23,7 @@ import { channelKeys, channelLabel, channels, useChannelMutation, useMyChannels,
 import { apiProblem } from "@/lib/api/identity";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { deviceLabel, pushSupport, PushError, subscribeThisBrowser } from "./push";
+import { deviceLabel, notificationsBlocked, pushSupport, PushError, subscribeThisBrowser } from "./push";
 
 const ICON: Record<string, ReactNode> = {
   webpush: <BellRing aria-hidden />,
@@ -185,7 +185,17 @@ function ChannelLinker({ channel, linked }: { channel: AvailableChannel; linked:
 function PushLinker({ channel, onDone }: { channel: AvailableChannel; onDone: () => void }) {
   const { t, locale } = useI18n();
   const [error, setError] = useState<string | null>(null);
-  const [support] = useState(() => pushSupport());
+  const [support, setSupport] = useState(() => pushSupport());
+  useEffect(() => {
+    if (support !== "ok") return;
+    let live = true;
+    void notificationsBlocked().then((blocked) => {
+      if (live && blocked) setSupport("denied");
+    });
+    return () => {
+      live = false;
+    };
+  }, [support]);
   const add = useChannelMutation(async () => {
     if (!channel.vapid_public_key) throw new PushError("unsupported");
     const sub = await subscribeThisBrowser(channel.vapid_public_key);

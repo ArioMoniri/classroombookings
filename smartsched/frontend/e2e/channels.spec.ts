@@ -87,17 +87,24 @@ test("admin: WhatsApp Web bridge needs the risk acknowledgement; no bridge URL k
 });
 
 test("admin: a Teams target outside the vendor allowlist is refused with the reason", async ({ page }) => {
-  await login(page);
-  await openChannels(page);
-  await expand(page, "teams");
-  const target = page.getByTestId("targets-teams");
-  const select = target.locator("select");
-  const options = await select.locator("option").count();
-  test.skip(options < 2, "no department (program) in this database");
-  await select.selectOption({ index: 1 });
-  await target.locator("input").fill("https://example.com/hook");
-  await target.getByRole("button", { name: /Ekle|Add/ }).click();
-  await expect(target.getByRole("alert")).toBeVisible();
+  // the e2e database imports rooms and courses but no departments: make one for this check and remove it after
+  const existing = await admin.get<{ id: number }[]>("/departments");
+  const made = existing.length ? null : await admin.send<{ id: number }>("POST", "/departments", { name: `e2e bölüm ${randomUUID().slice(0, 6)}` });
+  if (made && made.status >= 400) throw new Error(`department: ${made.status}`);
+  try {
+    await login(page);
+    await openChannels(page);
+    await expand(page, "teams");
+    const target = page.getByTestId("targets-teams");
+    const select = target.locator("select");
+    await expect.poll(() => select.locator("option").count()).toBeGreaterThan(1);
+    await select.selectOption({ index: 1 });
+    await target.locator("input").fill("https://example.com/hook");
+    await target.getByRole("button", { name: /Ekle|Add/ }).click();
+    await expect(target.getByRole("alert")).toBeVisible();
+  } finally {
+    if (made) await admin.send("DELETE", `/departments/${made.body.id}`);
+  }
 });
 
 test("admin: the delivery log renders", async ({ page }) => {

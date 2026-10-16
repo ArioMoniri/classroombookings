@@ -16,8 +16,20 @@ export function pushSupport(): PushSupport {
   const standalone = window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
   if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return ios && !standalone ? "ios-install" : "unsupported";
   if (ios && !standalone) return "ios-install";
-  if (Notification.permission === "denied") return "denied";
   return "ok";
+}
+
+/**
+ * Whether the person has blocked notifications for this site. The Permissions API is asked first: headless and
+ * some embedded Chromium builds report `Notification.permission` as "denied" while the real state is "prompt".
+ */
+export async function notificationsBlocked(): Promise<boolean> {
+  try {
+    if (navigator.permissions?.query) return (await navigator.permissions.query({ name: "notifications" })).state === "denied";
+  } catch {
+    // an engine without the "notifications" permission name: fall through to the static value
+  }
+  return typeof Notification !== "undefined" && Notification.permission === "denied";
 }
 
 /** VAPID public key (base64url) → the bytes `applicationServerKey` wants. */
