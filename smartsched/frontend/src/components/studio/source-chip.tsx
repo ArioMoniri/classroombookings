@@ -5,7 +5,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
-/** `TEMPLATE` is display-only: the API stores such rules as ADMIN with `params._via === "template"` (T-R1-46). */
+/** `TEMPLATE` is display-only: the API stores such rules as ADMIN with `source_ref.via === "template"` (T-R1-46). */
 export type SourceKind = "FILE" | "ADMIN" | "AI" | "UPLOAD" | "BUILTIN" | "TEMPLATE";
 
 const ICON: Record<SourceKind, LucideIcon> = { FILE: FileSpreadsheet, ADMIN: UserRound, AI: BotMessageSquare, UPLOAD: FileUp, BUILTIN: Shield, TEMPLATE: LayoutTemplate };
@@ -18,9 +18,10 @@ const KEY: Record<SourceKind, MessageKey> = {
   TEMPLATE: "studio.source.TEMPLATE",
 };
 
-/** The chip to show: a rule the planner built from a template says "Şablon", not "Yönetici" (round-1 R1-S-08). */
-export function asSource(s: string | null | undefined, params?: Record<string, unknown> | null): SourceKind {
-  if (s === "ADMIN" && params?._via === "template") return "TEMPLATE";
+/** The chip to show: a rule the planner built from a template (`source_ref.via === "template"`, written by the
+ * builder as the `_source_ref` param) says "Şablon", not "Yönetici" (round-1 R1-S-08). */
+export function asSource(s: string | null | undefined, ref?: Record<string, unknown> | null): SourceKind {
+  if (s === "ADMIN" && ref?.via === "template") return "TEMPLATE";
   return s === "FILE" || s === "ADMIN" || s === "AI" || s === "UPLOAD" || s === "BUILTIN" ? s : "ADMIN";
 }
 

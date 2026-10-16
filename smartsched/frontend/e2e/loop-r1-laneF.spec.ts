@@ -196,7 +196,7 @@ test.describe("desktop 1440 · lane F2", () => {
     expect(m.match_rate!).toBeGreaterThan(0.5);
     expect(m.counts.satisfied).toBeGreaterThan(300);
     await page.goto("/moderation");
-    await expect(page.getByText(new RegExp(`Yayında: #${m.run_id} · taleplerin %[1-9]\\d*'[ıiuü] karşılandı`))).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(new RegExp(`Yayında: #${m.run_id} · taleplerin %[1-9]\\d*'[a-zçğıöşü]+ karşılandı`))).toBeVisible({ timeout: 30_000 });
   });
 });
 
@@ -315,7 +315,7 @@ test.describe("phone 390", () => {
     await useTerm(page, GUZ);
     await page.goto("/moderation");
     await expect(page.getByRole("heading", { level: 1, name: "Moderasyon" })).toBeVisible();
-    await expect(page.getByText(/taleplerin %[1-9]\d*'[ıiuü] karşılandı/)).toBeVisible();
+    await expect(page.getByText(/taleplerin %[1-9]\d*'[a-zçğıöşü]+ karşılandı/)).toBeVisible();
     await mobileChecks(page);
   });
 });

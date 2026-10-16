@@ -17,6 +17,7 @@ import { defaultParams, plainSentence, programDisplay, readAppliesTo, readField,
 import { relatedPrograms } from "./chip-prefill";
 import { SlotChip, SlotEditor } from "./slot-picker";
 import { useStudio } from "./studio-context";
+import { useStudioData } from "./studio-data";
 import { useRuleActions } from "./use-rule-actions";
 import { pairLang } from "@/lib/i18n";
 import { BareButton } from "@/components/shell/bare-button";
@@ -99,6 +100,7 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
 function Builder({ template, eventIds, prefill, onBack, onDone }: { template: RuleTemplate; eventIds?: number[]; prefill?: BuilderPrefill | null; onBack: () => void; onDone: () => void }) {
   const { t, n, locale } = useI18n();
   const { sentence, meta, termId, kind, advanced } = useStudio();
+  const { classes } = useStudioData();
   const actions = useRuleActions();
   const [params, setParams] = useState<Params>(() => {
     const base = { ...defaultParams(template), ...(prefill?.params ?? {}) };
@@ -139,7 +141,9 @@ function Builder({ template, eventIds, prefill, onBack, onDone }: { template: Ru
   };
   const appliesField = template.fields.find((f) => f.type === "applies_to");
   const who: AppliesTo = appliesField ? readAppliesTo(params) : { mode: "all" };
-  const related = who.mode === "programs" ? relatedPrograms(who.programs.map((p) => programDisplay(p, sentence)), sentence.programs) : [];
+  // programmes with classes in this term when the class list is in (the 146-programme catalogue otherwise)
+  const inTerm = useMemo(() => (classes?.length ? sentence.programs.filter((p) => classes.some((c) => c.program_name === p)) : sentence.programs), [classes, sentence.programs]);
+  const related = who.mode === "programs" ? relatedPrograms(who.programs.map((p) => programDisplay(p, sentence)), inTerm) : [];
   const addProgram = (p: string) => {
     if (who.mode !== "programs") return;
     setParams((prev) => writeAppliesTo(prev, { ...who, programs: [...who.programs.map((x) => programDisplay(x, sentence)), p] }));
@@ -149,9 +153,9 @@ function Builder({ template, eventIds, prefill, onBack, onDone }: { template: Ru
     if (issues.length) return;
     setSaving(true);
     try {
-      // `_via`: the rule came from a template, so the list says "Şablon", not "Yönetici" (round-1 R1-S-08); the
-      // backend keeps `_`-prefixed params as metadata (like `_source_ref`) and ignores them in the solver
-      await actions.create({ kind: template.kind, params: { ...params, _via: "template" }, hardness, weight, nl_text: plainSentence(tokens(template, params, sentence)), source: "ADMIN" });
+      // the rule came from a template, so the list says "Şablon", not "Yönetici" (round-1 R1-S-08): `_source_ref` is
+      // the metadata param the backend keeps out of the solver and returns as the rule's `source_ref`
+      await actions.create({ kind: template.kind, params: { ...params, _source_ref: { via: "template", template: template.id } }, hardness, weight, nl_text: plainSentence(tokens(template, params, sentence)), source: "ADMIN" });
       actions.undoToast(t("studio.builder.added"));
       onDone();
     } finally {

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { KbdHint, modKeyLabel } from "@/components/ui/kbd-hint";
-import { KeyboardClearance } from "@/components/ui/keyboard-clearance";
+import { KeyboardClearance, overlapWith } from "@/components/ui/keyboard-clearance";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { TOASTER_MOBILE_OFFSET } from "@/components/ui/sonner";
 import { I18nProvider } from "@/lib/i18n/provider";
@@ -124,6 +124,18 @@ describe("Sheet keyboard clearance (T-R1-02)", () => {
     act(() => void vi.advanceTimersByTime(100));
     expect(scrolled).toHaveLength(2);
     vi.useRealTimers();
+  });
+});
+
+describe("overlapWith: the scroll that clears a sticky footer or header (the wish sheet's two-button footer is 164 px)", () => {
+  const box = (top: number, bottom: number) => ({ top, bottom });
+  it("a field under the footer scrolls down by the overlap plus the gap; under the header, up; clear, not at all", () => {
+    // measured on the lane stack at 390 × 508: search 368–412, sticky footer from 344
+    expect(overlapWith(box(368, 412), null, box(344, 508))).toBe(412 + 8 - 344);
+    expect(overlapWith(box(40, 84), box(0, 60), null)).toBe(40 - 8 - 60);
+    expect(overlapWith(box(200, 244), box(0, 60), box(344, 508))).toBe(0);
+    // a footer that is not sticky lies below the scroller: nothing to do (the book sheet)
+    expect(overlapWith(box(286, 350), box(60, 133), box(388, 508))).toBe(0);
   });
 });
 
