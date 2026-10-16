@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `2496a3d` (committed 2026-10-16 00:52 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `4ccd0e7` (committed 2026-10-16 00:59 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -144,7 +144,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-118 agents in [`docs/agents/registry.json`](agents/registry.json): running 6 · finished 98 · stopped 7 · superseded 7.
+118 agents in [`docs/agents/registry.json`](agents/registry.json): running 5 · finished 99 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -152,7 +152,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `readme-media-2026-10-15` | general-purpose | 2026-10-15 20:41 |
 | `design-system-overhaul-2026-10-15` | frontend-engineer | 2026-10-15 21:48 |
 | `notify-channels-apprise-2026-10-15` | backend-engineer | 2026-10-15 22:43 |
-| `sso-entra-2026-10-15` | backend-engineer | 2026-10-15 22:43 |
 | `p19-backend-gaps-2026-10-15` | backend-engineer | 2026-10-15 22:58 |
 
 <!-- /AUTO:agents -->
@@ -220,7 +219,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **145 ticked · 250 open** checkboxes in 50 sections (47 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **146 ticked · 256 open** checkboxes in 51 sections (48 with open items).
 
 <details><summary>Per section</summary>
 
@@ -269,13 +268,14 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Approval-first bookings + user channels + credential-free login (owner request… | 10 | 3 |
 | Standing flow loop: test → suggest → build → re-test (owner request 2026-10-15 22:20) | 0 | 2 |
 | Devops agent finished: first full gate table (5d0e6c2) + seed profiles + per-branch pods | 0 | 1 |
-| Owner decisions 2026-10-15 ~22:45: channels + login (from… | 1 | 2 |
+| Owner decisions 2026-10-15 ~22:45: channels + login (from… | 2 | 4 |
 | Owner decisions 2026-10-15 ~22:50: identity and sign-up | 0 | 1 |
 | Docs update automatically (owner request 2026-10-15 ~22:55) | 1 | 1 |
 | Approval-first backend finished (0025_approval_first) | 1 | 1 |
 | Phase 19 UI finished (F1–F4; e2e/phase19.spec.ts 5/5 on the real backend) | 0 | 3 |
 | Flow scripts finished (2026-10-15): gaps to close before round 1 | 2 | 9 |
 | Approval and notification follow-ups finished (2026-10-16) | 0 | 6 |
+| Microsoft Entra ID sign-in backend finished (2026-10-16) | 0 | 4 |
 
 </details>
 

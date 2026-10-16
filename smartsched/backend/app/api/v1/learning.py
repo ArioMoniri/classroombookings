@@ -7,7 +7,9 @@ Route                                                           Permission      
 ``GET /learning/suggestions?term_id=&person_id=&course_id=``    planning.view    ``state`` open (default) / accepted /
                                                                                  dismissed / snoozed / hidden / all
 ``GET /learning/priors?term_id=&subject_type=&subject_id=``     planning.view    every prior with its evidence
-``POST /learning/suggestions/{id}/accept`` {weight?, kind?}     planning.edit    one soft targeted LEARNED rule
+``POST /learning/suggestions/{id}/accept`` {weight?, kind?,     planning.edit    one soft targeted LEARNED rule;
+scope: term | persistent}                                                        persistent needs planning.admin
+``POST /learning/suggestions/{id}/restore``                     planning.edit    undo reject / snooze / accept
 ``POST /learning/suggestions/{id}/reject`` {reason?}            planning.edit    -3 and hidden for the scope + term
 ``POST /learning/suggestions/{id}/snooze`` {until}              planning.edit    next_solve / P7D / next_term
 ``GET /learning/memory/summary?term_id=``                       planning.view    counts for Ayarlar › Öğrenme
@@ -99,7 +101,18 @@ async def list_priors(
 
 @router.post("/suggestions/{prior_id}/accept", status_code=201)
 async def accept(prior_id: int, body: AcceptIn, db: DB, user: Editor) -> dict[str, Any]:
-    return await _run(db, svc.accept(db, prior_id, user, weight=body.weight, kind=body.kind))
+    if body.scope == "persistent":
+        from app.services.bookings_perms import load_access
+
+        if "planning.admin" not in (await load_access(db, user)).perms:
+            raise HTTPException(403, "a persistent (Kalıcı) acceptance requires permission planning.admin")
+    return await _run(db, svc.accept(db, prior_id, user, weight=body.weight, kind=body.kind, scope=body.scope))
+
+
+@router.post("/suggestions/{prior_id}/restore")
+async def restore(prior_id: int, db: DB, user: Editor) -> dict[str, Any]:
+    """Undo the last decision: a dismissal or snooze, or an acceptance (its LEARNED rule is switched off)."""
+    return await _run(db, svc.restore(db, prior_id, user))
 
 
 @router.post("/suggestions/{prior_id}/reject")

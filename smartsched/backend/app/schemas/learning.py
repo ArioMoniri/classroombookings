@@ -14,6 +14,9 @@ class AcceptIn(BaseModel):
     #: optional other kind from the learned allowlist (``same_room_across_weeks`` for a room / building
     #: suggestion); anything else, structural kinds included, is refused with 422
     kind: str | None = Field(default=None, max_length=64)
+    #: term (default): this term's classes; persistent (planning.admin): also remembered as the person's preference,
+    #: so the same suggestion in a later term is marked ``persistent_accept`` (still accepted by a person)
+    scope: Literal["term", "persistent"] = "term"
 
 
 class RejectIn(BaseModel):

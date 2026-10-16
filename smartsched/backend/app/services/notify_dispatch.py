@@ -26,8 +26,10 @@ Events
 :mod:`app.services.approvals`; approvers get one ``approval.requested`` per submission and an
 ``approval.withdrawn`` when the requester withdraws) and the CRBS booking e-mails (``booking.created``,
 ``booking.cancelled``, ``room_owner.booking``, sent by :mod:`app.services.bookings_notify` with their translatable
-templates). The e-mail channel stores the event as the outbox ``kind`` with ``_`` for ``.`` (``booking_created``,
-``approval_requested``), so the outbox screen and its filters keep their names.
+templates) and the publish digest (``timetable.published``: one notice per academician whose classes changed when a
+timetable is published, sent by :func:`app.services.moderation.publish_digest`). The e-mail channel stores the event
+as the outbox ``kind`` with ``_`` for ``.`` (``booking_created``, ``approval_requested``, ``timetable_published``), so
+the outbox screen and its filters keep their names.
 
 Extension point: a third channel
 --------------------------------
@@ -86,6 +88,9 @@ EVENTS: dict[str, tuple[str, str]] = {
     "booking.created": ("Biri benim adıma rezervasyon yaptı", "Someone booked a room for me"),
     "booking.cancelled": ("Rezervasyonum iptal edildi", "My booking was cancelled"),
     "room_owner.booking": ("Sorumlu olduğum odaya rezervasyon yapıldı", "A room I look after was booked"),
+    # Phase 19 publish digest (owner decision: in-app + one e-mail digest per affected academician;
+    # app.services.moderation.publish_digest, POST /runs/{id}/activate {"notify_people": true})
+    "timetable.published": ("Yayınlanan planda derslerim değişti", "My classes changed in a published timetable"),
 }
 
 

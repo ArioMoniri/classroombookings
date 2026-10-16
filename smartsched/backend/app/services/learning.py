@@ -729,13 +729,18 @@ async def suggestions(
     rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
     labels = await _subject_labels(session, {(p.subject_type, p.subject_key) for p in priors})
     now = utcnow()
+    carried = await _persistent_accepts(session, term_id)
     out: list[dict[str, Any]] = []
-    for p in sorted(priors, key=lambda p: (-p.confidence, -p.score, p.id)):
+    order = sorted(priors, key=lambda p: (-p.confidence, -p.score, p.id))
+    order.sort(key=lambda p: (p.subject_type, p.subject_key, p.attribute, p.value) not in carried)
+    for p in order:
         item = _render(p, targets, rooms, labels)
+        item["persistent_accept"] = carried.get((p.subject_type, p.subject_key, p.attribute, p.value))
         fb = feedback.get((p.subject_type, p.subject_key, p.attribute, p.value))
         if fb is not None:
             if fb.action == "ACCEPT":
                 item["state"], item["constraint_id"] = "accepted", fb.constraint_id
+                item["scope"] = fb.scope or "term"
             elif fb.action == "REJECT":
                 item["state"] = "dismissed"
             elif fb.action == "SNOOZE" and await _snooze_active(session, fb, now):
@@ -748,6 +753,26 @@ async def suggestions(
         out.append(item)
         if len(out) >= limit:
             break
+    return out
+
+
+async def _persistent_accepts(session: AsyncSession, term_id: int) -> dict[tuple[str, str, str, str], dict[str, Any]]:
+    """Scopes accepted as ``persistent`` in another term (and not undone there): the later term's suggestion is
+    marked and listed first."""
+    rows = (
+        await session.execute(
+            select(SuggestionFeedback)
+            .where(SuggestionFeedback.term_id != term_id, SuggestionFeedback.reset_id.is_(None))
+            .order_by(SuggestionFeedback.id)
+        )
+    ).scalars()
+    latest: dict[tuple[int, str, str, str, str], SuggestionFeedback] = {}
+    for f in rows:
+        latest[(f.term_id, f.subject_type, f.subject_key, f.attribute, f.value)] = f
+    out: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for (tid, *key), f in latest.items():
+        if f.action == "ACCEPT" and f.scope == "persistent":
+            out[(key[0], key[1], key[2], key[3])] = {"term_id": tid, "accepted_at": f.created_at, "by": f.actor_id}
     return out
 
 
@@ -810,6 +835,7 @@ def _render(
         "constraint_id": None,
         "decided_at": None,
         "decided_by": None,
+        "scope": None,
     }
 
 
@@ -924,9 +950,21 @@ def _scope_of(p: LearnedPrior) -> dict[str, Any]:
 
 
 async def accept(
-    session: AsyncSession, prior_id: int, actor: User, *, weight: int | None = None, kind: str | None = None
+    session: AsyncSession,
+    prior_id: int,
+    actor: User,
+    *,
+    weight: int | None = None,
+    kind: str | None = None,
+    scope: str = "term",
 ) -> dict[str, Any]:
-    """One soft, targeted LEARNED rule for the term's classes the suggestion names (never anything else)."""
+    """One soft, targeted LEARNED rule for the term's classes the suggestion names (never anything else).
+
+    ``scope`` (P19-S-02): ``term`` (default) or ``persistent`` (the API asks ``planning.admin``): the acceptance is
+    remembered as the person's preference and the same suggestion in a later term is marked ``persistent_accept``
+    (shown first, still accepted by a person: learned suggestions are never applied by themselves)."""
+    if scope not in ("term", "persistent"):
+        raise LearningError(422, "scope must be term or persistent")
     p = await _prior(session, prior_id)
     w = LEARNED_WEIGHT if weight is None else int(weight)
     item = await _render_one(session, p, w)
@@ -967,6 +1005,7 @@ async def accept(
             "support": {"rows": p.support, "total": p.total, "seen_terms": p.terms_count},
             "confidence": p.confidence,
             "request_ids": (p.evidence or {}).get("request_ids", [])[:20],
+            "scope": scope,
         },
         nl_text=_fill(str(expl.get("claim_tr", "")), safe),
         enabled=True,
@@ -974,7 +1013,9 @@ async def accept(
     )
     session.add(row)
     await session.flush()
-    fb = SuggestionFeedback(**_scope_of(p), prior_id=p.id, action="ACCEPT", constraint_id=row.id, actor_id=actor.id)
+    fb = SuggestionFeedback(
+        **_scope_of(p), prior_id=p.id, action="ACCEPT", constraint_id=row.id, actor_id=actor.id, scope=scope
+    )
     session.add(fb)
     await session.flush()
     await _decision_obs(session, p, fb, "suggestion_accepted", actor)
@@ -988,12 +1029,58 @@ async def accept(
             "kind": rule_kind,
             "weight": w,
             "event_ids": params["event_ids"],
+            "scope": scope,
             **_scope_of(p),
         },
         actor=actor,
         term_id=p.term_id,
     )
-    return {"constraint_id": row.id, "kind": rule_kind, "params": params, "weight": w, "hardness": "soft"}
+    return {
+        "constraint_id": row.id,
+        "kind": rule_kind,
+        "params": params,
+        "weight": w,
+        "hardness": "soft",
+        "scope": scope,
+    }
+
+
+async def restore(session: AsyncSession, prior_id: int, actor: User) -> dict[str, Any]:
+    """P19-S-03 undo: the suggestion goes back to open. A dismissal's -3 evidence and an acceptance's +2 are taken
+    back (their decision observations are deleted, so the next prior recompute sees the memory as before), an
+    acceptance's LEARNED rule is switched off, a snooze ends. Audited ``suggestion.restore``; 409 when there is
+    nothing to undo."""
+    p = await _prior(session, prior_id)
+    fb = (await _feedback_state(session, p.term_id)).get((p.subject_type, p.subject_key, p.attribute, p.value))
+    if fb is None or fb.action == "RESTORE":
+        raise LearningError(409, "the suggestion is open; there is no decision to undo")
+    undone = {"ACCEPT": "accepted", "REJECT": "dismissed", "SNOOZE": "snoozed"}[fb.action]
+    disabled: int | None = None
+    if fb.action == "ACCEPT" and fb.constraint_id is not None:
+        rule = await session.get(ConstraintRow, fb.constraint_id)
+        if rule is not None and rule.enabled:
+            rule.enabled = False
+            disabled = rule.id
+    await session.execute(
+        delete(LearnedObservation).where(
+            LearnedObservation.source_table == "suggestion_feedback", LearnedObservation.source_id == fb.id
+        )
+    )
+    back = SuggestionFeedback(**_scope_of(p), prior_id=p.id, action="RESTORE", actor_id=actor.id)
+    session.add(back)
+    await session.flush()
+    await publish_event(
+        session,
+        "suggestion.restore",
+        "suggestion",
+        p.id,
+        before={"state": undone, "feedback_id": fb.id, "constraint_id": fb.constraint_id},
+        after={**_scope_of(p), "state": "open", "disabled_constraint_id": disabled},
+        actor=actor,
+        term_id=p.term_id,
+    )
+    _forget(p.term_id)
+    return {"id": p.id, "state": "open", "undone": undone, "disabled_constraint_id": disabled}
 
 
 async def reject(session: AsyncSession, prior_id: int, actor: User, *, reason: str | None = None) -> dict[str, Any]:

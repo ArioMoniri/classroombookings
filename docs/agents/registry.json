@@ -1170,7 +1170,8 @@
       "goal": "owner decision (2026-10-15): staff log in with their university Microsoft 365 account (Microsoft Entra ID), so SmartSched holds no password for them. Direct OIDC from the backend with Authlib (BSD-3-Clause), no broker. Local accounts + LDAP stay. The design and guard rules are in docs/product/2026-10-15-integrations-options.md (section B and the login guard rules); read them fully. Reuse the PKCE …",
       "ledger": "sso-entra-2026-10-15 SCOPE: NEW backend files only: - app/services/sso.py, app/a…",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 00:59"
     },
     {
       "id": "a6645642a3f84d3c9",

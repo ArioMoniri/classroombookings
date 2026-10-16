@@ -18,7 +18,7 @@ from typing import Any
 from app.core import db as dbmod
 from app.models import AuditEvent, Instructor, MeetingRequest, ScheduleRun, Section
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from tests.crbs_support import make_user
 from tests.test_p19_moderation import real, workdir  # noqa: F401  (shared real-data fixture)
@@ -220,3 +220,63 @@ async def test_me_and_the_current_term_for_teachers(real: dict[str, Any]) -> Non
     if r.json()["id"] == real["term_id"]:
         assert r.json()["published_run_id"] == real["run_id"]
     assert (await c.get(f"{API}/moderation/current-term")).status_code == 401
+
+
+# ------------------------------------------------------------------------------------------- 8. publish digest
+
+
+async def test_publish_notifies_each_affected_academician_once(real: dict[str, Any]) -> None:  # noqa: F811
+    from app.models import InAppNotification, NotificationOutbox
+
+    c, h, tid, base = real["client"], real["admin"], real["term_id"], real["run_id"]
+    loser = real["loser"]
+    uid_a, hoca_a = await make_user(c, h, "hoca.a@uni.edu.tr", role="TEACHER")
+    uid_b, hoca_b = await make_user(c, h, "hoca.b@uni.edu.tr", role="TEACHER")
+    async with dbmod.get_session_factory()() as s:
+        a = await s.get(Instructor, real["ins_loser"])
+        b = await s.get(Instructor, real["ins_phar240"])
+        assert a is not None and b is not None and a.id != b.id
+        a.user_id, b.user_id = uid_a, uid_b
+        await s.commit()
+    # B keeps the in-app bell but switches the e-mail digest off (per-user opt-out)
+    r = await c.put(
+        f"{API}/me/notification-preferences", json={"events": {"timetable.published": {"email": False}}}, headers=hoca_b
+    )
+    assert r.status_code == 200, r.text
+    assert (await c.put(f"{API}/moderation/requests/{loser}/priority", json={"priority": "high"}, headers=h)).is_success
+    d1 = await _resolve(c, h, tid, {"base_run_id": base, "changed_request_ids": [loser], "mode": "repair"})
+    affected = set(d1["affected_instructor_ids"])
+    assert real["ins_loser"] in affected
+    r = await c.post(f"{API}/runs/{d1['run_id']}/activate", json={"notify_people": True}, headers=h)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    expected_users = {uid_a} | ({uid_b} if real["ins_phar240"] in affected else set())
+    assert out["notified"] == len(expected_users) and out["notify"]["affected_people"] >= len(affected)
+    assert out["notify"]["unlinked_people"] == out["notify"]["affected_people"] - len(expected_users)
+    async with dbmod.get_session_factory()() as s:
+        bell = list((await s.execute(select(InAppNotification).where(InAppNotification.user_id == uid_a))).scalars())
+        assert len(bell) == 1 and bell[0].kind == "timetable.published"
+        classes = {x["request_id"]: x for x in bell[0].data["classes"]}
+        assert loser in classes and classes[loser]["change"] in ("new", "moved")
+        assert bell[0].title.startswith("2026-BAHAR planı yayınlandı")
+        mails = list((await s.execute(select(NotificationOutbox).where(NotificationOutbox.user_id == uid_a))).scalars())
+        assert [m.kind for m in mails] == ["timetable_published"] and "→" in mails[0].body
+        if uid_b in expected_users:
+            mails_b = (await s.execute(select(NotificationOutbox).where(NotificationOutbox.user_id == uid_b))).all()
+            assert mails_b == []  # e-mail off; the bell still gets it
+    # the teacher reads it on the bell
+    r = await c.get(f"{API}/me/notifications", headers=hoca_a)
+    assert r.status_code == 200 and "timetable.published" in r.text
+    # publishing the base again and the child once more never sends the child's digest twice (ledger key per run)
+    assert (await c.post(f"{API}/runs/{base}/activate", headers=h)).status_code == 200
+    r = await c.post(f"{API}/runs/{d1['run_id']}/activate", json={"notify_people": True}, headers=h)
+    assert r.json()["notified"] == 0
+    async with dbmod.get_session_factory()() as s:
+        n_bell = (
+            await s.execute(
+                select(func.count()).select_from(InAppNotification).where(InAppNotification.user_id == uid_a)
+            )
+        ).scalar_one()
+        assert n_bell == 1
+    # without the flag nobody is notified (the default)
+    assert (await c.post(f"{API}/runs/{base}/activate", headers=h)).json()["notified"] is None

@@ -385,6 +385,8 @@ def test_channel_registry_is_the_extension_point():
         "booking.created",
         "booking.cancelled",
         "room_owner.booking",
+        # the Phase 19 publish digest (app.services.moderation.publish_digest)
+        "timetable.published",
     }
 
     class Probe(nd.ChannelAdapter):

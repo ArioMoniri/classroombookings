@@ -996,10 +996,36 @@ The flow scripts are in `docs/testing/flows/`: F-01 to F-13, plus MOBILE.md and 
   - Booking created, cancelled and room-owner e-mails now go through `notify_dispatch`. Users also get the same text in the app, and they can switch it off.
   - Audit rows for `learning.refresh` and `learning.purge_run`.
 - Open, routed to the owners:
-  - [ ] audit DECISIONS for `/auth/sso/*` (SSO: done 2026-10-16), `/channels/*` and `/me/channels/*` (channels: done 2026-10-16), and the moderation priority routes (P19)
+  - [ ] audit DECISIONS for `/auth/sso/*` (SSO: done 2026-10-16), `/channels/*` and `/me/channels/*` (channels), and the moderation priority routes (P19)
   - [ ] a migration for `priority_overrides` (P19)
   - [ ] `make lint` and `make type` in those files
 - For the approval UI agent:
   - [ ] a TR/EN label for `bookings.skip_approval`
   - [ ] read `group=` from approver links and `data.request_ids`, so one click opens the whole submission
 - [ ] Optional: add `app/cli.py` to the `make type` path list.
+
+### Microsoft Entra ID sign-in backend finished (2026-10-16)
+
+- Done:
+  - Direct OIDC using Authlib 1.9.1 and joserfc 1.7.5 (both BSD-3). Identity is the Entra `oid`+`tid`, not the e-mail.
+  - Self sign-up as Teacher; the `sso_self_signup` setting is on by default.
+  - Invites that bind on the first sign-in.
+  - Bind on the next Microsoft sign-in for an existing account.
+  - Optional role and group mapping, with admin mapping off by default.
+  - A break-glass local admin, and a "Microsoft only for non-admins" switch.
+  - Errors that never reveal whether an account exists.
+  - Audit rows for every step.
+  - The F-05 instructor link: `PUT /admin/users/{id}/instructor`.
+  - Migration `0026_sso_entra`.
+  - The IT checklist, `docs/deploy/sso-entra.md`.
+  - Routes and error codes are in `docs/design/v2/sign-in.md` §14–§15. Tests: 43 against a fake Entra.
+- The orchestrator wired `sso.password_login_allowed` into `auth._login` and `sso.public_auth` into `GET /org/public`.
+- [ ] Owner and IT: register the single-tenant app and set **Assignment required = Yes**, with only staff groups assigned. Otherwise students in the tenant can sign themselves up. Enter the tenant ID, client ID and secret in admin settings or SSM, never in chat.
+- [ ] Devops: wire SSM into `SSO_ENTRA_TENANT_ID`, `SSO_ENTRA_CLIENT_ID` and `SSO_ENTRA_CLIENT_SECRET`.
+- [ ] Later:
+  - resend the invite e-mail
+  - certificate client credentials
+  - a shorter session lifetime for SSO users until SCIM exists
+  - SCIM deprovisioning
+  - a Google Workspace preset on the same service
+- [ ] A round trip against the real tenant (F-12 S18) once IT has provided the values.

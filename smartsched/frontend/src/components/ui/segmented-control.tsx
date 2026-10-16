@@ -7,9 +7,9 @@
 // Layout: `inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; white-space: nowrap;
 // min-width: max-content; padding: 3px` — segments share one width and never wrap. Height = --control-h-*.
 // When the container is narrower than the control's natural width it falls back to a NativeSelect
-// (CSS container query on the wrapper; the threshold is the measured natural width). The wrapper is
-// `width:100%; max-width:natural` — a percentage, so grid/flex parents can shrink it (an explicit px width would
-// count as its min-content and push the track over its neighbours, as on Generate at 1440).
+// (CSS container query on the wrapper; the threshold is the measured natural width). The wrapper has no explicit
+// width: `contain-intrinsic-inline-size: natural` sizes it in content-sized parents and `min-width:0` lets grid /
+// flex parents shrink it (an explicit px width counted as min-content and pushed the track over its neighbours).
 //
 // Motion (motion_designer pattern 2, motion.md §3): the thumb is ONE absolutely positioned element whose
 // resting place is pure CSS (translateX(index × 100%) inside equal columns), so it can never rest outside the
@@ -143,8 +143,15 @@ export function SegmentedControl<V extends string>({
     <div
       data-slot="segmented-control"
       data-seg={name}
-      className={cn("min-w-0 max-w-full shrink", fill ? "w-full" : "w-full max-w-(--seg-w)", className)}
-      style={{ "--seg-w": `${natural}px`, containerType: collapse ? "inline-size" : undefined, containerName: collapse ? name : undefined } as React.CSSProperties}
+      className={cn("min-w-0 max-w-full shrink", fill && "w-full", className)}
+      style={{
+        "--seg-w": `${natural}px`,
+        containerType: collapse ? "inline-size" : undefined,
+        containerName: collapse ? name : undefined,
+        // size containment hides the track from intrinsic sizing; this gives content-sized parents the natural width
+        // back, while min-width:0 still lets grid / flex parents shrink it (then the select fallback engages)
+        containIntrinsicInlineSize: collapse ? `${natural}px` : undefined,
+      } as React.CSSProperties}
     >
       <div
         ref={trackRef}

@@ -457,8 +457,8 @@ def validate_payload(payload: Mapping[str, Any], ctx: Context) -> list[Issue]:
     """Field and step checks (no solve); spec §4 per step."""
     out: list[Issue] = []
 
-    def add(step: str, level: str, code: str, path: str, tr: str, en: str, **vars_: Any) -> None:
-        out.append(Issue(step, level, code, path, tr, en, vars_))
+    def add(step: str, level: str, issue_code: str, path: str, tr: str, en: str, /, **vars_: Any) -> None:
+        out.append(Issue(step, level, issue_code, path, tr, en, vars_))
 
     p = _dict(payload.get("program"))
     name = n.clean_text(p.get("name"))
@@ -770,9 +770,9 @@ def validate_payload(payload: Mapping[str, Any], ctx: Context) -> list[Issue]:
                     code=label,
                 )
             ids_here: set[int] = set()
-            for k, ref in enumerate(refs):
+            for slot, ref in enumerate(refs):
                 ref = _dict(ref)
-                ipath = f"{spath}.instructors.{k}"
+                ipath = f"{spath}.instructors.{slot}"
                 iid = _int(ref.get("id"))
                 if iid is not None:
                     if iid not in ctx.instructors:
@@ -1003,8 +1003,8 @@ def validate_payload(payload: Mapping[str, Any], ctx: Context) -> list[Issue]:
 
     cohorts = [_dict(x) for x in _list(payload.get("cohorts"))]
     in_cohort: set[str] = set()
-    for k, co in enumerate(cohorts):
-        cpath = f"cohorts.{co.get('key') or k}"
+    for ci, co in enumerate(cohorts):
+        cpath = f"cohorts.{co.get('key') or ci}"
         members = [str(x) for x in _list(co.get("compulsory"))] + [
             str(x) for g in _list(co.get("elective_groups")) for x in _list(g)
         ]
@@ -1636,7 +1636,7 @@ async def materialise(session: AsyncSession, draft: ProgramDraft, actor: User) -
             for j, s in enumerate(_dict(x) for x in _list(c.get("sections"))):
                 path = f"{path}.sections.{s.get('key') or j}"
                 links: list[dict[str, Any]] = []
-                for k, ref in enumerate(r for r in _list(s.get("instructors")) if r):
+                for slot, ref in enumerate(r for r in _list(s.get("instructors")) if r):
                     ref = _dict(ref)
                     iid = _int(ref.get("id"))
                     if iid is None:
@@ -1656,7 +1656,7 @@ async def materialise(session: AsyncSession, draft: ProgramDraft, actor: User) -
                             iid = ins.id
                             made.instructors.append(iid)
                         people[parsed_p.canonical] = iid
-                    links.append({"instructor_id": iid, "role": "PRIMARY" if k == 0 else "SECONDARY"})
+                    links.append({"instructor_id": iid, "role": "PRIMARY" if slot == 0 else "SECONDARY"})
                 enrol = _int(s.get("enrolment"))
                 sec = await ca.create_section(
                     session,
@@ -2118,6 +2118,7 @@ async def undo(session: AsyncSession, draft: ProgramDraft, actor: User, *, dry: 
                 await ca.archive_section(session, actor, sec.id)
                 archived["sections"].append(sec.id)
         archived["requests"] = [int(x) for x in _list(made.get("requests"))]
+        model: Any
         for model, key in ((Course, "courses"), (Instructor, "people")):
             for oid in _list(made.get(key)):
                 obj = await session.get(model, int(oid))

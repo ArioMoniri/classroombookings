@@ -281,10 +281,20 @@ async def publish_blockers(db: AsyncSession, run: ScheduleRun) -> list[str]:
 class ActivateIn(BaseModel):
     #: admin persona M-04: publish a run that covers fewer weeks than the published one
     confirm_scope_reduction: bool = False
+    #: P19-M-09: one digest per affected academician (their changed classes) through notify_dispatch
+    notify_people: bool = False
 
 
-@router.post("/{run_id}/activate", response_model=RunOut)
-async def activate_run(run_id: int, db: DB, user: Planner, body: Annotated[ActivateIn | None, Body()] = None) -> RunOut:
+class ActivateOut(RunOut):
+    #: academicians that got the publish digest (``notify_people``; null when not asked)
+    notified: int | None = None
+    notify: dict[str, Any] | None = None
+
+
+@router.post("/{run_id}/activate", response_model=ActivateOut)
+async def activate_run(
+    run_id: int, db: DB, user: Planner, body: Annotated[ActivateIn | None, Body()] = None
+) -> ActivateOut:
     """Publish this run as the timetable of its term + kind (it drives the booking grid; also the undo of AI child
     runs). 409 unless the run finished with every hard rule held or explained (review D4, persona M-02), and 409
     ``scope_reduction`` when it covers fewer weeks than the published run unless ``confirm_scope_reduction``
@@ -301,7 +311,7 @@ async def activate_run(run_id: int, db: DB, user: Planner, body: Annotated[Activ
     if blockers:
         raise HTTPException(409, {"message": "run cannot be published", "issues": blockers})
     if run.is_active:
-        return (await runs_out(db, [run]))[0]
+        return ActivateOut(**(await runs_out(db, [run]))[0].model_dump())
     scope = (ScheduleRun.term_id == run.term_id, ScheduleRun.kind == run.kind)
     active = (
         (await db.execute(select(ScheduleRun).where(*scope, ScheduleRun.is_active.is_(True)).order_by(ScheduleRun.id)))
@@ -344,7 +354,15 @@ async def activate_run(run_id: int, db: DB, user: Planner, body: Annotated[Activ
         await db.rollback()
         raise HTTPException(409, "another run of this term was published at the same time; reload") from exc
     await db.refresh(run)
-    return (await runs_out(db, [run]))[0]
+    notify = None
+    if body is not None and body.notify_people and run.kind == "COURSE":
+        from app.services.moderation import publish_digest
+
+        notify = await publish_digest(db, run, previous)  # after the publish committed: a failed mail never undoes it
+        await db.commit()
+        await db.refresh(run)
+    out = (await runs_out(db, [run]))[0]
+    return ActivateOut(**out.model_dump(), notified=notify["notified"] if notify else None, notify=notify)
 
 
 @router.get("/{run_id}/events")

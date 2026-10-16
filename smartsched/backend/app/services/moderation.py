@@ -1454,12 +1454,12 @@ async def changes_since_publish(
     pattern_ids = [r.id for r in rows if r.action == "section.pattern"]
     children: dict[int, list[int]] = defaultdict(list)
     if pattern_ids:
-        for pid, eid in (
+        for pid, child_eid in (
             await session.execute(
                 select(AuditEvent.parent_id, AuditEvent.entity_id).where(AuditEvent.parent_id.in_(pattern_ids))
             )
         ).all():
-            if (v := _int_or_none(eid)) is not None:
+            if pid is not None and (v := _int_or_none(child_eid)) is not None:
                 children[int(pid)].append(v)
     section_ids = {v for r in rows if r.entity_type == "section" and (v := _int_or_none(r.entity_id)) is not None}
     by_section: dict[int, list[int]] = defaultdict(list)
@@ -1528,6 +1528,126 @@ async def changes_since_publish(
         "counts": counts,
         "changed_request_ids": [i for i in every if i in labels],
         "items": items[-limit:][::-1],  # newest first
+    }
+
+
+# ------------------------------------------------------------------------------------------- publish digest (P19-M-09)
+
+_DAY_TR = ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
+_DAY_EN = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def _cell_text(place: Place | None, rooms: Mapping[int, Room], lang: str) -> str:
+    if place is None:
+        return "yerleşmedi" if lang == "tr" else "not placed"
+    days = _DAY_TR if lang == "tr" else _DAY_EN
+    start = n.PERIODS[place.start - 1].start if 1 <= place.start <= len(n.PERIODS) else None
+    end = n.PERIODS[place.end - 1].end if 1 <= place.end <= len(n.PERIODS) else None
+    clock_ = f"{start:%H:%M}-{end:%H:%M}" if start and end else f"P{place.start}-P{place.end}"
+    day = days[place.day - 1] if 1 <= place.day <= 7 else str(place.day)
+    return f"{day} {clock_} {' + '.join(_room_codes(place.room_ids, rooms))}".strip()
+
+
+async def publish_changes(
+    session: AsyncSession, run: ScheduleRun, previous: ScheduleRun | None
+) -> dict[int, list[dict[str, Any]]]:
+    """Per instructor: the classes whose cell differs between the previously published run and ``run`` (moved,
+    newly placed, no longer placed). Without a previous run every placed class is new."""
+    term = await session.get(Term, run.term_id)
+    assert term is not None
+    rooms = await all_rooms(session)
+    after = await load_term(session, term, run, rooms=rooms)
+    before = await load_term(session, term, previous, rooms=rooms) if previous is not None else None
+    out: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for mr in after.meetings:
+        new_rows = after.rows_by_mr.get(mr.id, [])
+        old_rows = before.rows_by_mr.get(mr.id, []) if before is not None else []
+        if before is not None and _cell_set(new_rows) == _cell_set(old_rows):
+            continue
+        np_, op = place_of(new_rows), place_of(old_rows)
+        if np_ is None and op is None:
+            continue
+        change = "moved" if np_ is not None and op is not None else "new" if np_ is not None else "unplaced"
+        item = {"request_id": mr.id, "label": label_of(mr), "change": change, "from": op, "to": np_}
+        for si in mr.section.instructors:
+            out[si.instructor_id].append(item)
+    return out
+
+
+async def publish_digest(session: AsyncSession, run: ScheduleRun, previous_id: int | None) -> dict[str, Any]:
+    """``POST /runs/{id}/activate {"notify_people": true}``: one ``timetable.published`` notice per affected
+    academician (``Instructor.user_id``), listing only their changed classes, through ``notify_dispatch`` (the
+    user's channel switches; in-app + e-mail by default, e-mail opt-out per user). Idempotent per run and person
+    (``timetable:<run>:published``): publishing the same run again sends nothing twice. Unlinked instructors are
+    counted, never contacted."""
+    from app.services import notify_dispatch as nd
+    from app.services.bookings_notify import _language
+
+    previous = await session.get(ScheduleRun, previous_id) if previous_id else None
+    changes = await publish_changes(session, run, previous)
+    term = await session.get(Term, run.term_id)
+    rooms = await all_rooms(session)
+    linked = {
+        i.id: i
+        for i in (
+            await session.execute(
+                select(Instructor).where(Instructor.id.in_(list(changes)), Instructor.user_id.is_not(None))
+            )
+        ).scalars()
+    }
+    per_user: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for iid, items in changes.items():
+        ins = linked.get(iid)
+        if ins is not None and ins.user_id is not None:
+            per_user[int(ins.user_id)].extend(items)
+    notified, deliveries = 0, 0
+    for uid, items in sorted(per_user.items()):
+        user = await session.get(User, uid)
+        if user is None or not user.is_active:
+            continue
+        uniq = list({it["request_id"]: it for it in items}.values())
+        lang = "tr" if (await _language(session, user)) == "tr" else "en"
+        code = term.code if term else str(run.term_id)
+        if lang == "tr":
+            title = f"{code} planı yayınlandı: {len(uniq)} dersinizde değişiklik"
+        else:
+            title = f"{code} timetable published: {len(uniq)} of your classes changed"
+        lines = []
+        for it in sorted(uniq, key=lambda x: x["label"]):
+            lines.append(f"{it['label']}: {_cell_text(it['from'], rooms, lang)} → {_cell_text(it['to'], rooms, lang)}")
+        notice = nd.Notice(
+            event="timetable.published",
+            key=f"timetable:{run.id}:published",
+            title=title,
+            body="\n".join(lines),
+            link="/moderation",
+            data={
+                "run_id": run.id,
+                "term_id": run.term_id,
+                "previous_run_id": previous_id,
+                "classes": [
+                    {
+                        "request_id": it["request_id"],
+                        "label": it["label"],
+                        "change": it["change"],
+                        "from": _place_out(it["from"], rooms),
+                        "to": _place_out(it["to"], rooms),
+                    }
+                    for it in uniq
+                ],
+            },
+        )
+        res = await nd.dispatch(session, user, notice)
+        sent = [d for d in res if d.status in ("sent", "skipped")]
+        if sent:
+            notified += 1
+            deliveries += len(sent)
+    return {
+        "notified": notified,
+        "deliveries": deliveries,
+        "affected_people": len(changes),
+        "unlinked_people": len([i for i in changes if i not in linked]),
+        "changed_classes": len({it["request_id"] for items in changes.values() for it in items}),
     }
 
 

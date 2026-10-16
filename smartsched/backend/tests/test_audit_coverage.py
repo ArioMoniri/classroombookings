@@ -164,6 +164,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/learning/suggestions/{prior_id}/accept": (E, "app.services.learning"),
     "POST /api/v1/learning/suggestions/{prior_id}/reject": (E, "app.services.learning"),
     "POST /api/v1/learning/suggestions/{prior_id}/snooze": (E, "app.services.learning"),
+    "POST /api/v1/learning/suggestions/{prior_id}/restore": (E, "app.services.learning"),
     "POST /api/v1/learning/reset": (E, "app.services.learning"),
     "POST /api/v1/learning/resets/{reset_id}/undo": (E, "app.services.learning"),
     "POST /api/v1/learning/purge": (E, "app.api.v1.learning"),  # learning.purge_run + one learning.purge per reset
@@ -173,6 +174,18 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/moderation/requests/{request_id}/priority": (E, "app.services.moderation"),
     "POST /api/v1/terms/{term_id}/moderation/resolve": (E, "app.services.moderation"),
     "PUT /api/v1/moderation/matchings/{request_id}": (E, "app.services.moderation"),
+    # P19 backend gaps: person / programme priority (person.priority, program.priority with the term)
+    "PUT /api/v1/moderation/people/{instructor_id}/priority": (E, "app.services.moderation"),
+    "PUT /api/v1/moderation/programs/{program_id}/priority": (E, "app.services.moderation"),
+    # program wizard drafts (P19-W): the draft is wizard state, nothing live changes until the commit
+    "POST /api/v1/program-drafts": (N, "a wizard draft; nothing in the term changes until commit"),
+    "PATCH /api/v1/program-drafts/{draft_id}": (N, "autosave of a wizard draft (versioned on the draft row)"),
+    "DELETE /api/v1/program-drafts/{draft_id}": (N, "an uncommitted wizard draft; committed drafts are kept"),
+    "POST /api/v1/program-drafts/{draft_id}/validate": (N, "validation only"),
+    "POST /api/v1/program-drafts/{draft_id}/precheck": (N, "pre-check in a rolled-back session"),
+    "POST /api/v1/program-drafts/{draft_id}/paste": (N, "TSV preview, nothing stored"),
+    "POST /api/v1/program-drafts/{draft_id}/commit": (E, "app.services.program_drafts"),
+    "POST /api/v1/program-drafts/{draft_id}/undo": (E, "app.services.program_drafts"),
     # organisation
     "POST /api/v1/org/setup": (T, "User / Setting"),
     "PUT /api/v1/org/settings": (T, "Setting / Role"),
