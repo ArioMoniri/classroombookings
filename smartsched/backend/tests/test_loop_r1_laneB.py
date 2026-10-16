@@ -198,3 +198,65 @@ async def test_t_r1_14_own_pending_request_reads_talebiniz_bekliyor_and_shifts_a
         "period" in a["reason"]["en"] and ("later" in a["reason"]["en"] or "earlier" in a["reason"]["en"])
         for a in time_alts
     )
+
+
+# --------------------------------------------------------------------------------------------------
+# T-R1-15: requester notices in one language, Turkish states, no unread badge for the own withdrawal
+# --------------------------------------------------------------------------------------------------
+
+
+async def test_t_r1_15_rejection_notice_one_language_withdraw_read_and_turkish_state(env):  # noqa: F811
+    from app.core import db as dbmod
+    from app.models import InAppNotification, NotificationOutbox
+    from sqlalchemy import select
+
+    c = env.client
+    _, gozde, aid, ayse = await _people(env)
+    await _mode(env, "all")
+    r = await env.book(ayse, "A102", THU, "P1", notes="FZT 132 telafi")
+    assert r.status_code == 202, r.text
+    (req,) = (await c.get(f"{APPR}/mine", headers=ayse)).json()
+    body = {"decision": "reject", "reason_code": "room_unavailable", "reason": "Bu saatte bölüm sınavı var."}
+    r = await c.post(f"{APPR}/{req['id']}/decide", json=body, headers=gozde)
+    assert r.status_code == 200, r.text
+    async with dbmod.get_session_factory()() as s:
+        note = (
+            await s.execute(
+                select(InAppNotification).where(
+                    InAppNotification.user_id == aid, InAppNotification.kind == "approval.rejected"
+                )
+            )
+        ).scalar_one()
+        mail = (
+            await s.execute(
+                select(NotificationOutbox).where(
+                    NotificationOutbox.user_id == aid, NotificationOutbox.kind == "approval_rejected"
+                )
+            )
+        ).scalar_one()
+    for text in (note.body, mail.body):
+        assert "Öneri / suggestions" not in text and "suggest" not in text.lower()
+        assert "Önerilen derslikler (otomatik):" in text, text
+    # a second withdraw: 409 in words, never the enum
+    r2 = await env.book(ayse, "A102", date(2026, 2, 26), "P1")
+    assert r2.status_code == 202, r2.text
+    mine = (await c.get(f"{APPR}/mine", headers=ayse)).json()
+    rid = next(x["id"] for x in mine if x["status"] == "PENDING")
+    unread = (await c.get("/api/v1/me/notifications", params={"unread": 1}, headers=ayse)).json()
+    assert (await c.post(f"{APPR}/{rid}/withdraw", headers=ayse)).status_code == 200
+    again = await c.post(f"{APPR}/{rid}/withdraw", headers=ayse)
+    assert again.status_code == 409
+    d = again.json()["detail"]
+    assert d["message_tr"] == "Bu talep geri çekilmiş; geri çekilemez." and "WITHDRAWN" not in d["message_tr"]
+    # her own withdrawal is kept (both channels) but adds no unread badge
+    after = (await c.get("/api/v1/me/notifications", params={"unread": 1}, headers=ayse)).json()
+    assert len(after) == len(unread)
+    async with dbmod.get_session_factory()() as s:
+        wn = (
+            await s.execute(
+                select(InAppNotification).where(
+                    InAppNotification.user_id == aid, InAppNotification.kind == "approval.withdrawn"
+                )
+            )
+        ).scalar_one()
+    assert wn.read_at is not None

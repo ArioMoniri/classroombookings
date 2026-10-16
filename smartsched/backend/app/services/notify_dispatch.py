@@ -67,6 +67,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import InAppNotification, NotificationDelivery, User
+from app.models.base import utcnow
 from app.services import bookings_notify as mail
 from app.services.bookings_settings import get_user_value, set_user_value
 
@@ -130,6 +131,8 @@ class Notice:
     booking_id: int | None = None
     request_id: int | None = None
     data: Mapping[str, Any] = field(default_factory=dict)
+    #: in-app only: stored as already read (a record of the recipient's own action, e.g. their withdrawal: T-R1-15)
+    read: bool = False
 
 
 @dataclass(frozen=True)
@@ -177,6 +180,7 @@ class InAppChannel(ChannelAdapter):
             booking_id=notice.booking_id,
             request_id=notice.request_id,
             data=dict(notice.data) or None,
+            read_at=utcnow() if notice.read else None,
         )
         session.add(row)
         await session.flush()

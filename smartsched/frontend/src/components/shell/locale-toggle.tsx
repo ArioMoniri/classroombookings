@@ -35,7 +35,7 @@ export function LocaleToggle({ className }: { className?: string }) {
           data-testid={`locale-option-${l}`}
           className={cn(
             // the Button keeps a 44 px hit area on coarse pointers without changing the drawn pill (skill §8)
-            "h-full px-2.5 uppercase",
+            "h-full px-2.5 uppercase pointer-coarse:min-w-11",
             locale === l ? "bg-(--mat-thick) text-label-1 glass-edge hover:bg-(--mat-thick)" : "text-label-2 hover:bg-transparent hover:text-label-1",
           )}
         >

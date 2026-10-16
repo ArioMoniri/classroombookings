@@ -14,6 +14,10 @@
  *      shows its counts, and "Re-solve keeping this board" opens the run's dialog, where a relaxation policy is
  *      chosen and a child run of the baseline run is queued (then cancelled and removed again).
  *
+ *   5. round 1 blockers (lane C): with the AI policy off, rules_memo.docx alone reaches İnceleme with 36 direct rows
+ *      and no AI rows (T-R1-21); merge item ids are opaque and the intake memory names no person to a reader
+ *      (T-R1-22).
+ *
  * The AI rows path (pdf / docx / images through the model) needs an Anthropic API key and an administrator's AI
  * switch; it is skipped unless E2E_ANTHROPIC_KEY_CONFIGURED=1 says the backend has one.
  */
@@ -33,9 +37,13 @@ async function startJob(page: Page, file: string, opts: { general?: boolean } = 
   await expect(drop).toBeVisible();
   await page.getByTestId("onboarding-input").setInputFiles(file);
   await expect(drop).toContainText(path.basename(file));
-  // deterministic path: no file content to the model (no key is configured on the e2e backend anyway)
+  // deterministic path: no file content to the model (no key is configured on the e2e backend anyway). With the
+  // administrator's AI policy off the switch is unticked and disabled (T-R1-23)
   const ai = drop.getByRole("checkbox", { name: "Anahtar tanımlıysa yapay zekâ modelini kullan" });
-  await ai.uncheck();
+  if ((await ai.getAttribute("aria-disabled")) === "true") {
+    await expect(ai).not.toBeChecked();
+    await expect(drop.getByTestId("onboarding-ai-off")).toContainText("Yönetici kapattı");
+  } else await ai.uncheck();
   if (opts.general) await drop.getByRole("checkbox", { name: /Her dosyayı kurulla oku/ }).check();
   await page.getByTestId("onboarding-start").click();
   await expect(page.getByTestId("onboarding-review")).toBeVisible({ timeout: LONG });
@@ -45,7 +53,16 @@ async function startJob(page: Page, file: string, opts: { general?: boolean } = 
 const currentStep = (page: Page) => page.getByTestId("onboarding-steps").locator("[aria-current=step]");
 const jsonBody = (r: Request) => (r.postDataJSON() ?? {}) as Record<string, unknown>;
 const commitRequest = (page: Page, dry: boolean) =>
-  page.waitForRequest((r) => r.method() === "POST" && /\/council\/jobs\/\d+\/commit$/.test(r.url()) && jsonBody(r).dry_run === dry, { timeout: LONG });
+  page.waitForRequest((r) => r.method() === "POST" && /\/council\/jobs\/\d+\/commit(\?.*)?$/.test(r.url()) && jsonBody(r).dry_run === dry, { timeout: LONG });
+
+/** Kaydet: "Yaz" opens a confirm with the dry run's counts that says there is no undo; its own Yaz writes (T-R1-24). */
+async function confirmWrite(page: Page) {
+  const confirm = page.getByTestId("onboarding-commit-confirm");
+  await expect(confirm).toBeVisible({ timeout: LONG });
+  await expect(confirm).toContainText(/dönemine [\d.]+ yeni talep yazılacak/);
+  await expect(confirm.getByTestId("onboarding-commit-irreversible")).toContainText("Geri alınamaz");
+  await confirm.getByTestId("onboarding-commit-confirm-button").click();
+}
 
 async function fillTerm(page: Page) {
   const terms = await api<(Term & { name: string })[]>(page, "/terms");
@@ -75,7 +92,7 @@ test("Bahar planning list: Dosyalar › İnceleme › Fark (keep / take) › Kay
     const row = merges.nth(i);
     const decision = i === count - 1 ? "Reddet" : "Onayla";
     await row.getByRole("button", { name: decision }).click();
-    await expect(row.getByText(i === count - 1 ? "reject" : "accept", { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(row.getByText(i === count - 1 ? "reddedildi" : "onaylandı", { exact: true })).toBeVisible({ timeout: 30_000 });
   }
   await expect(page.getByTestId("blocking-count")).toHaveText(/^0/, { timeout: 30_000 });
   await expect(currentStep(page)).toHaveText(/Fark/);
@@ -89,7 +106,8 @@ test("Bahar planning list: Dosyalar › İnceleme › Fark (keep / take) › Kay
   expect(jsonBody(await req).on_conflict).toBe("keep");
   const diff = commit.getByTestId("onboarding-diff");
   await expect(diff).toBeVisible({ timeout: LONG });
-  await expect(diff.getByRole("row", { name: /meeting_requests/ })).toBeVisible();
+  await expect(diff.getByRole("row", { name: /Talepler/ })).toBeVisible();
+  await expect(diff).not.toContainText(/[a-z]+_[a-z]+/); // entity names in Turkish, no raw keys (T-R1-24)
   await pickSegment(page, "Dosyadakini al", commit);
   await expect(diff).toHaveCount(0); // a changed choice drops the old diff
   req = commitRequest(page, true);
@@ -101,8 +119,11 @@ test("Bahar planning list: Dosyalar › İnceleme › Fark (keep / take) › Kay
   await pickSegment(page, "Düzeltmeyi koru", commit);
   req = commitRequest(page, false);
   await commit.getByTestId("onboarding-commit-button").click();
+  await confirmWrite(page);
   expect(jsonBody(await req).on_conflict).toBe("keep");
-  await expect(commit.getByTestId("onboarding-result")).toContainText(`${TERM_CODE} dönemine yazıldı`, { timeout: LONG });
+  const result = commit.getByTestId("onboarding-result");
+  await expect(result).toContainText(`${TERM_CODE} dönemine yazıldı`, { timeout: LONG });
+  await expect(result).not.toContainText(/[a-z]+_[a-z]+/);
   await expect(currentStep(page)).toHaveText(/Kaydet/);
 });
 
@@ -121,7 +142,7 @@ test("re-upload of the planning list: the merge decisions come back remembered",
   // the suggestion is offered, never applied by itself: one click applies it
   const first = merges.first();
   await first.getByRole("button", { name: "Öneriyi uygula" }).click();
-  await expect(first.getByText("accept", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(first.getByText("onaylandı", { exact: true })).toBeVisible({ timeout: 30_000 });
 });
 
 test("forced general path: a column mapping decision is remembered for the same file signature", async ({ page }) => {
@@ -132,7 +153,7 @@ test("forced general path: a column mapping decision is remembered for the same 
   await expect(mapping).toBeVisible();
   // the column the analysis could not map (a yes / no flag) stays unused: accept it as it is
   await mapping.getByRole("button", { name: "Onayla" }).click();
-  await expect(mapping.getByText("accept", { exact: true })).toBeVisible({ timeout: 60_000 });
+  await expect(mapping.getByText("onaylandı", { exact: true })).toBeVisible({ timeout: 60_000 });
 
   await startJob(page, PLANNING_LIST, { general: true });
   const again = page.locator('[data-testid^="review-map:"]').first();
@@ -215,6 +236,7 @@ test("weekly board: the schedule map goes to the baseline run; a re-solve keeps 
   await pickSegment(page, "Temel çalıştırma", target);
   const req = commitRequest(page, false);
   await commit.getByTestId("onboarding-commit-button").click();
+  await page.getByTestId("onboarding-commit-confirm").getByTestId("onboarding-commit-confirm-button").click();
   expect(jsonBody(await req).baseline).toEqual({ mode: "auto" });
   const result = commit.getByTestId("onboarding-baseline-result");
   await expect(result).toBeVisible({ timeout: LONG });
@@ -253,6 +275,51 @@ test("weekly board: the schedule map goes to the baseline run; a re-solve keeps 
       { child: childId, base: baselineId, drop: created },
     );
   }
+});
+
+test("T-R1-21: with AI off a Word file's table is read directly and the review screen renders", async ({ page }) => {
+  test.setTimeout(4 * 60_000);
+  await login(page);
+  const policy = await api<{ intake_enabled: boolean }>(page, "/ai/policy");
+  test.skip(policy.intake_enabled, "needs the administrator's AI policy off (the e2e backend default)");
+  const errors: string[] = [];
+  page.on("console", (m) => (m.type() === "error" ? errors.push(m.text()) : undefined));
+  const memo = path.join(FIXTURES, "universal", "rules_memo.docx");
+  await page.goto("/onboarding");
+  await page.getByTestId("onboarding-input").setInputFiles(memo);
+  const drop = page.getByTestId("onboarding-drop");
+  await expect(drop.locator('[data-method="ai"]')).toHaveCount(0); // AI off: no "YZ" badge (T-R1-23)
+  await expect(page.getByTestId("onboarding-start")).toHaveText(/Başlat · 1 dosya/);
+  await page.getByTestId("onboarding-start").click();
+  const review = page.getByTestId("onboarding-review");
+  await expect(review).toBeVisible({ timeout: LONG });
+  await expect(page.getByTestId("onboarding-progress").locator('[data-method="ai"]')).toHaveCount(0);
+  await expect(review.getByRole("region", { name: "YZ ile okunan satırlar" })).toHaveCount(0);
+  await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Sunucuda bir sorun oluştu" })).toHaveCount(0);
+  const jobs = await api<{ id: number }[]>(page, "/council/jobs?limit=1");
+  const rows = await api<{ counts: { method: Record<string, number> } }>(page, `/council/jobs/${jobs[0]!.id}/rows?limit=1`);
+  expect(rows.counts.method).toEqual({ direct: 36 });
+  await expect(page.getByTestId("onboarding-commit")).toBeVisible();
+  expect(errors.filter((e) => /ZodError|Invalid option/.test(e))).toEqual([]);
+});
+
+test("T-R1-22: merge item ids are opaque and the intake memory keeps no person's name in an id", async ({ page }) => {
+  test.setTimeout(4 * 60_000);
+  await login(page);
+  await startJob(page, PLANNING_LIST);
+  const jobs = await api<{ id: number }[]>(page, "/council/jobs?limit=1");
+  type Item = { id: string; kind: string; current?: { kind?: string; a?: string; b?: string } };
+  const review = await api<{ items: Item[] }>(page, `/council/jobs/${jobs[0]!.id}/review`);
+  const merges = review.items.filter((it) => it.kind === "merge");
+  expect(merges.length).toBeGreaterThan(0);
+  for (const it of merges) {
+    expect(it.id).toMatch(/^merge:(instructor|room):[0-9a-f]{16}$/);
+    for (const name of [it.current?.a, it.current?.b]) if (name) expect(it.id).not.toContain(name);
+  }
+  // the remembered merge rows (from the first test's decisions): no item id, the kind only
+  type Mem = { items: { kind: string; context: Record<string, unknown>; description: { tr: string } }[] };
+  const mem = await api<Mem>(page, "/council/memory?kind=intake_merge");
+  for (const row of mem.items) expect(row.context).not.toHaveProperty("item");
 });
 
 test("AI rows: the exam sheet printed to PDF is read by the model and every row waits for a decision", async ({ page }) => {

@@ -28,6 +28,7 @@ and saved with :func:`app.ai.elicit.accept_proposals` (source ``UPLOAD``, file r
 from __future__ import annotations
 
 import hashlib
+import re
 from collections import Counter
 from datetime import date, time
 from typing import Any
@@ -45,7 +46,7 @@ from app.council.reconcile import rid, room_key
 from app.council.review import build_items, decisions, effective_plan
 from app.importers.catalog import Catalog
 from app.importers.identity import plain
-from app.importers.normalize import PERIODS, non_person_reason
+from app.importers.normalize import PERIODS, non_person_reason, parse_section_label
 from app.importers.planning_list import _META, _merge
 from app.importers.report import ImportReport
 from app.models import (
@@ -74,6 +75,15 @@ class CommitError(ValueError):
 
 def _t(s: str | None) -> time | None:
     return tx.from_hhmm(s)
+
+
+def _section(v: Any) -> str:
+    """A section label as the planning-list importer writes it: a spreadsheet's "1,2" saved as the number 1.2 by a
+    Turkish-locale export reads "1.2" in a CSV, and is "1,2" again here (T-R1-25: the same section, one key)."""
+    text = str(v or "").strip()
+    if re.fullmatch(r"\d+\.\d+", text):
+        return parse_section_label(float(text)) or ""
+    return parse_section_label(text) or ""
 
 
 async def _term(session: AsyncSession, spec: dict[str, Any]) -> tuple[Term, bool]:
@@ -268,10 +278,16 @@ class Writer:
         faculty = await self.cat.faculty(r.get("faculty"))
         program = await self.cat.program(r.get("program"), faculty)
         course = await self.cat.course(r["course_code"], name=r.get("course_name"))
-        skey = f"{r['course_code']}|{program.canonical_name if program else ''}|{r.get('section') or ''}"
-        section = (
-            await self.s.execute(select(Section).where(Section.term_id == self.term.id, Section.source_key == skey))
-        ).scalar_one_or_none()
+        label = _section(r.get("section")) or None
+        skey = f"{r['course_code']}|{program.canonical_name if program else ''}|{label or ''}"
+        raw_key = f"{r['course_code']}|{program.canonical_name if program else ''}|{r.get('section') or ''}"
+        section = None
+        for key in dict.fromkeys((skey, raw_key)):  # the raw label: sections committed before the label rule
+            section = (
+                await self.s.execute(select(Section).where(Section.term_id == self.term.id, Section.source_key == key))
+            ).scalar_one_or_none()
+            if section is not None:
+                break
         mode = r.get("mode") if r.get("mode") in SECTION_MODES else "F2F"
         years = r.get("class_years") or []
         if section is None:
@@ -279,7 +295,7 @@ class Writer:
                 term_id=self.term.id,
                 course_id=course.id,
                 program_id=program.id if program else None,
-                label=r.get("section"),
+                label=label,
                 class_year=years[0] if years else None,
                 class_years=years,
                 enrolment=r.get("enrolment"),
@@ -343,8 +359,17 @@ class Writer:
         mr = await self.find(MeetingRequest, fields["source_key"], self.key(fi, i))
         if mr is None:
             mr = await self.same_meeting(section.id, days, fields["start_time"])
-            if mr is not None:  # the row another file or importer committed: it keeps its own key
-                fields.pop("source_key")
+            if mr is not None:
+                # the row another reader committed (the planning-list importer, another file's format): the same
+                # request read differently (weeks, flags, notes); it keeps its key and its values, and the file only
+                # fills what the row lacks (T-R1-25: a re-uploaded export must not rewrite the term)
+                fields = {
+                    k: v
+                    for k, v in fields.items()
+                    if k not in ("source_key", "status", "section_id")
+                    and v not in (None, "", [], False)
+                    and getattr(mr, k) in (None, "", [])
+                }
         if mr is None:
             new = MeetingRequest(**fields)
             self.s.add(new)
@@ -353,7 +378,7 @@ class Writer:
             self.counts["meeting_requests"] += 1
         else:
             self.claimed.add(mr.id)
-            if mr.status == "LOCKED" and fields["status"] != "LOCKED":
+            if mr.status == "LOCKED" and fields.get("status", "LOCKED") != "LOCKED":
                 fields.pop("status")  # never downgrade a planner lock
             snap = await self.snapshot("meeting", mr.id)
             ctx = {"entity": "meeting", "id": mr.id, "row": r["source"].get("row"), "course": r["course_code"]}

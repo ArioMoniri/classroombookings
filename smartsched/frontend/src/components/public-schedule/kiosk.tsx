@@ -16,6 +16,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, MonitorOff } from "lucide-react";
 import { LocaleToggle } from "@/components/shell/locale-toggle";
 import { Button, IconButton } from "@/components/ui/button";
+import { coarseHitArea } from "@/components/ui/hit-area";
 import { DateField } from "@/components/ui/date-field";
 import { addDays, currentItem, isRateLimited, publicWindow, type PublicItem } from "@/lib/api/public-schedule";
 import { intlLocale } from "@/lib/i18n";
@@ -79,7 +80,7 @@ export function KioskFrame({ title, subtitle, back, today, date, onDate, updated
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           {back ? (
-            <Link href={back.href} className="type-callout font-medium text-tint-text underline-offset-4 hover:underline" data-testid="kiosk-back">
+            <Link href={back.href} className={cn("relative inline-block type-callout font-medium text-tint-text underline-offset-4 hover:underline", coarseHitArea)} data-testid="kiosk-back">
               {back.label}
             </Link>
           ) : (

@@ -73,49 +73,37 @@ async function noSideScroll(page: Page): Promise<void> {
   const m = await page.evaluate(() => ({ sw: document.scrollingElement!.scrollWidth, vw: document.documentElement.clientWidth }));
   expect(m.sw, `scrollWidth ${m.sw} > ${m.vw}`).toBeLessThanOrEqual(m.vw + 1);
 }
-/** MOBILE.md M-02 inside one container, scrolled through in steps */
+/** MOBILE.md M-02 inside one container: each control is scrolled to the middle of the screen first, so the bottom tab
+ *  bar or the top bar never sits over the hit-area probe */
 async function smallTargets(page: Page, scope: string): Promise<{ el: string; w: number; h: number }[]> {
-  const bad: { el: string; w: number; h: number }[] = [];
-  const steps = await page.evaluate((sel) => Math.ceil((document.querySelector(sel)?.getBoundingClientRect().height ?? 0) / (0.8 * document.documentElement.clientHeight)) + 1, scope);
-  for (let i = 0; i < steps; i++) {
-    await page.evaluate(([sel, k]) => {
-      const top = (document.querySelector(sel as string)?.getBoundingClientRect().top ?? 0) + window.scrollY;
-      window.scrollTo(0, top + Number(k) * 0.8 * document.documentElement.clientHeight - 80);
-    }, [scope, i] as const);
-    await page.waitForTimeout(120);
-    bad.push(
-      ...(await page.evaluate((sel) => {
-        const SEL = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=tab],[role=checkbox],[role=radio],[role=switch],[role=menuitem],[role=option],[role=slider],[tabindex]:not([tabindex="-1"])';
-        const root = document.querySelector(sel);
-        const hits = (el: Element, x: number, y: number) => {
-          const t = document.elementFromPoint(x, y);
-          return !!t && (t === el || el.contains(t));
-        };
-        const out: { el: string; w: number; h: number }[] = [];
-        const VW = document.documentElement.clientWidth, VH = document.documentElement.clientHeight;
-        for (const el of root ? [...root.querySelectorAll<HTMLElement>(SEL)] : []) {
-          const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
-          if (!r.width || !r.height || cs.visibility === "hidden" || el.closest('[aria-hidden="true"],[inert]')) continue;
-          if (r.bottom < 0 || r.top > VH) continue;
-          if (el.tagName === "A" && cs.display === "inline" && /^(P|LI|TD|SPAN|DD)$/.test(el.parentElement?.tagName ?? "")) continue;
-          let w = r.width, h = r.height;
-          const lab = (el as HTMLInputElement).labels?.[0];
-          if (lab) {
-            const l = lab.getBoundingClientRect();
-            w = Math.max(w, l.width);
-            h = Math.max(h, l.height);
-          }
-          if (w >= 44 && h >= 44) continue;
-          const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-          const inView = cy > 22 && cy < VH - 22 && cx > 22 && cx < VW - 22;
-          if (inView && [[cx - 22, cy], [cx + 21, cy], [cx, cy - 22], [cx, cy + 21]].every(([x, y]) => hits(el, x!, y!))) continue;
-          out.push({ el: (el.dataset.testid || el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 40), w: Math.round(w), h: Math.round(h) });
-        }
-        return out;
-      }, scope)),
-    );
-  }
-  return bad.filter((b, i) => bad.findIndex((x) => x.el === b.el) === i);
+  return page.evaluate((sel) => {
+    const SEL = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=tab],[role=checkbox],[role=radio],[role=switch],[role=menuitem],[role=option],[role=slider],[tabindex]:not([tabindex="-1"])';
+    const hits = (el: Element, x: number, y: number) => {
+      const t = document.elementFromPoint(x, y);
+      return !!t && (t === el || el.contains(t));
+    };
+    const out: { el: string; w: number; h: number }[] = [];
+    const VW = document.documentElement.clientWidth, VH = document.documentElement.clientHeight;
+    for (const el of [...(document.querySelector(sel)?.querySelectorAll<HTMLElement>(SEL) ?? [])]) {
+      el.scrollIntoView({ block: "center", inline: "center" });
+      const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+      if (!r.width || !r.height || cs.visibility === "hidden" || el.closest('[aria-hidden="true"],[inert]')) continue;
+      if (el.tagName === "A" && cs.display === "inline" && /^(P|LI|TD|SPAN|DD)$/.test(el.parentElement?.tagName ?? "")) continue;
+      let w = r.width, h = r.height;
+      const lab = (el as HTMLInputElement).labels?.[0];
+      if (lab) {
+        const l = lab.getBoundingClientRect();
+        w = Math.max(w, l.width);
+        h = Math.max(h, l.height);
+      }
+      if (w >= 44 && h >= 44) continue;
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const inView = cy > 22 && cy < VH - 22 && cx > 22 && cx < VW - 22;
+      if (inView && [[cx - 22, cy], [cx + 21, cy], [cx, cy - 22], [cx, cy + 21]].every(([x, y]) => hits(el, x!, y!))) continue;
+      out.push({ el: (el.dataset.testid || el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 40), w: Math.round(w), h: Math.round(h) });
+    }
+    return out;
+  }, scope);
 }
 
 test.beforeAll(async () => {

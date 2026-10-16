@@ -6,9 +6,11 @@
 export const fieldSurface =
   "t-input rounded-lg border border-transparent bg-fill-3 text-label-1 shadow-(--edge-control) transition-[background-color,border-color] duration-(--dur-fast) ease-out not-in-data-[slot=input-group]:focus-visible:outline-2 not-in-data-[slot=input-group]:focus-visible:outline-offset-0 not-in-data-[slot=input-group]:focus-visible:outline-(--focus) placeholder:text-label-3 hover:bg-fill-2 focus-visible:bg-(--mat-thick) focus-visible:shadow-[var(--edge-control),0_0_0_3px_color-mix(in_oklab,var(--focus)_22%,transparent)] disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:shadow-[inset_0_0_0_1px_var(--status-infeasible-border),0_0_0_3px_color-mix(in_oklab,var(--status-infeasible-solid)_16%,transparent)]"
 
-/** Height + horizontal padding + type of a single-line field at each control size. */
+/** Height + horizontal padding + type of a single-line field at each control size.
+ *  Touch (T-R1-01): a native field cannot carry a ::after hit area, so `sm` is the md height (44 px) on coarse
+ *  pointers instead of 36; on fine pointers it stays 28 (MOBILE.md M-02). */
 export const fieldSize = {
-  sm: "h-(--control-h-sm) px-2.5 type-footnote",
+  sm: "h-(--control-h-sm) pointer-coarse:h-(--control-h-md) px-2.5 type-footnote",
   md: "h-(--control-h-md) px-3 type-callout",
   lg: "h-(--control-h-lg) px-3.5 type-body",
 } as const

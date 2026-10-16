@@ -1766,7 +1766,8 @@
       "ledger": "Lane F: dashboard/learning fixes",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-16 14:00"
+      "finished_at": "2026-10-16 14:13",
+      "left_off": "That notice is a leftover timeout. It came from a monitor that was watching the backend test suites in my worktree. Those suites had already finished before it expired: 46 passed. My report has gone to the orchestrator, so there's nothing more to do on this run."
     },
     {
       "id": "a3ce73c6e642d0732",

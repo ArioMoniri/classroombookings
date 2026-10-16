@@ -28,6 +28,7 @@ Audited: ``preference.submit``, ``preference.accept`` (a solving change: it is i
 
 from __future__ import annotations
 
+import json
 import re
 import uuid
 from collections import defaultdict
@@ -116,7 +117,8 @@ def _now() -> str:
 def _label(mr: MeetingRequest) -> str:
     sec = mr.section
     code = sec.course.display_code if sec.course else f"#{sec.course_id}"
-    return f"{code}{f' §{sec.label}' if sec.label else ''}"
+    lab = (sec.label or "").strip(" \t§-—")
+    return f"{code} §{lab}" if lab else code  # T-R1-16: an empty section prints no "§"
 
 
 def _building_of(room: Room) -> str:
@@ -363,6 +365,14 @@ def _compose(kind: str, mrs: list[MeetingRequest], wish: dict[str, Any]) -> list
     return out
 
 
+def _same_key(params: Mapping[str, Any]) -> str:
+    """A wish's rule, order-free: the same classes and the same rooms / buildings / window compare equal."""
+    norm = {
+        k: (sorted(v, key=str) if isinstance(v, list) and k in ("event_ids", "days") else v) for k, v in params.items()
+    }
+    return json.dumps(norm, sort_keys=True, default=str)
+
+
 def _check_rule(kind: str, params: dict[str, Any]) -> None:
     from app.ai.catalog import validate_params
 
@@ -380,7 +390,16 @@ def _check_rule(kind: str, params: dict[str, Any]) -> None:
         )
 
 
+def class_order(labels: Iterable[str]) -> list[str]:
+    """T-R1-16 (R1-S-32): one order for every list of a wish's classes (each once, Turkish collation), so the
+    card title and its sentence agree ("PSI 213, PSY 213, PSY 277", not "PSY 277, PSY 277, PSI 213")."""
+    from app.services.bookings_collation import tr_sort_key
+
+    return sorted(set(labels), key=tr_sort_key)
+
+
 def _texts(kind: str, labels: list[str], wish: Mapping[str, Any], rooms: Mapping[int, Room]) -> dict[str, str]:
+    labels = class_order(labels)
     what = ", ".join(labels[:3]) + (" …" if len(labels) > 3 else "")
     if kind == "room_preference":
         names = ", ".join(rooms[r].display_name for r in wish.get("room_ids") or [] if r in rooms)
@@ -447,8 +466,8 @@ async def submit(
             "the department form already asks for this for these classes",
             "Bölüm formu bu dersler için bunu zaten istiyor",
         )
-    pending = sum(
-        1
+    waiting = [
+        r
         for r in (
             await session.execute(
                 select(ConstraintRow).where(
@@ -459,7 +478,17 @@ async def submit(
             )
         ).scalars()
         if status_of(r) == "pending"
-    )
+    ]
+    pending = len(waiting)
+    # T-R1-16 (R1-A-13): the same wish again while the first still waits is refused, not stored twice
+    seen = {(r.kind, _same_key(r.params or {})) for r in waiting}
+    if all((kind, _same_key(rule["params"])) in seen for rule in rules):
+        raise PreferenceError(
+            409,
+            "duplicate_pending",
+            "this preference was already sent and is waiting for the coordinator",
+            "Bu tercih zaten gönderildi ve koordinatörün kararını bekliyor.",
+        )
     if pending + len(rules) > MAX_PENDING:
         raise PreferenceError(
             409,
@@ -803,11 +832,12 @@ async def _notify(
         return False
     lang = "tr" if (await _language(session, user)) == "tr" else "en"
     items = await items_out(session, group)
-    labels = sorted({lab for it in items for lab in it["labels"]})
+    labels = class_order(lab for it in items for lab in it["labels"])
     what = ", ".join(labels[:3]) + (" …" if len(labels) > 3 else "")
     text = dict(ref.get("text") or {})
     term = await session.get(Term, row.term_id) if row.term_id else None
-    code = term.code if term else ""
+    # T-R1-15 (R1-A-12): the term's name ("Güz 2026-27"), not its code ("2026-GUZ")
+    code = (term.name or term.code) if term else ""
     if status == "rejected":
         title = f"{what}: tercihiniz kabul edilmedi" if lang == "tr" else f"{what}: your preference was not accepted"
         body = f"{text.get('tr', '')}\nGerekçe: {reason}" if lang == "tr" else f"{text.get('en', '')}\nReason: {reason}"

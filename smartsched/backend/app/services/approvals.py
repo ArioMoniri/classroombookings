@@ -627,6 +627,23 @@ TEXTS: dict[str, dict[str, tuple[str, str]]] = {
         "en": ("Your room request expired: {what}", "Your request was not approved before it started: {what}.{note}"),
     },
 }
+#: T-R1-15 (R1-A-09): a request's state in a sentence ("Bu talep geri çekilmiş"), never the enum ("WITHDRAWN")
+STATUS_TR = {
+    "PENDING": "onay bekliyor",
+    "APPROVED": "onaylanmış",
+    "REJECTED": "reddedilmiş",
+    "WITHDRAWN": "geri çekilmiş",
+    "EXPIRED": "süresi dolmuş",
+    "CANCELLED": "iptal edilmiş",
+}
+STATUS_EN = {
+    "PENDING": "waiting for approval",
+    "APPROVED": "approved",
+    "REJECTED": "declined",
+    "WITHDRAWN": "withdrawn",
+    "EXPIRED": "expired",
+    "CANCELLED": "cancelled",
+}
 DECISION_OF = {
     "approval.approved": "approved",
     "approval.rejected": "rejected",
@@ -856,7 +873,7 @@ async def notify_requester(
     req: ApprovalRequest,
     kind: str,
     actor: User | None,
-    alt: str = "",
+    alt: tuple[str, str] = ("", ""),
     *,
     group: list[ApprovalRequest] | None = None,
     group_id: int | None = None,
@@ -875,6 +892,7 @@ async def notify_requester(
         return
     what, base = await summary(session, room, rows)
     lang = await mail._language(session, user)
+    alt_s = alt[0] if lang == "tr" else alt[1]
     note = f" {'Not' if lang == 'tr' else 'Note'}: {req.note}" if req.note else ""
     reason = reason_text(req.reason_code, req.note, lang) if kind == "approval.rejected" else ""
     title, body, _lang = await _render(
@@ -884,7 +902,7 @@ async def notify_requester(
         who=audit.user_label(actor) or "SmartSched",
         what=what,
         note=note,
-        alt=alt,
+        alt=alt_s,
         reason=reason,
     )
     ids = sorted(r.id for r in reqs)
@@ -905,6 +923,8 @@ async def notify_requester(
             link=f"/bookings/mine?request={req.id}",
             booking_id=first.id,
             request_id=req.id,
+            # T-R1-15 (R1-A-18): the requester's own withdrawal is a record, not news: stored as read (no badge)
+            read=kind == "approval.withdrawn" and actor is not None and actor.id == req.requested_by,
             data={
                 **base,
                 "request_id": req.id,
@@ -916,7 +936,7 @@ async def notify_requester(
                 "reason": (req.note or reason_both(req.reason_code)) if kind == "approval.rejected" else None,
                 "reason_code": req.reason_code if kind == "approval.rejected" else None,
                 "note": req.note,
-                "suggestion": alt.strip() or None,
+                "suggestion": alt_s.strip() or None,
                 "decided_by": _person(actor),
             },
         ),
@@ -1264,7 +1284,12 @@ async def withdraw(session: AsyncSession, access: Access, request_id: int) -> Ap
             403, "not_requester", "only the requester can withdraw a request", "talebi yalnız sahibi geri çekebilir"
         )
     if req.status != PENDING:
-        raise _err(409, "not_pending", f"the request is {req.status}", f"talep {req.status} durumunda")
+        raise _err(
+            409,
+            "not_pending",
+            f"the request is {STATUS_EN.get(req.status, req.status.lower())}",
+            f"Bu talep {STATUS_TR.get(req.status, req.status.lower())}; geri çekilemez.",
+        )
     rows = await bookings_of(session, req)
     await _close(session, req, rows, WITHDRAWN, "withdrawn by the requester", access.user)
     await publish_event(
@@ -1322,7 +1347,12 @@ async def decide(
     await sweep(session)
     req, room = await _load(session, request_id)
     if req.status != PENDING:
-        raise _err(409, "not_pending", f"the request is already {req.status}", f"talep zaten {req.status}")
+        raise _err(
+            409,
+            "not_pending",
+            f"the request is already {STATUS_EN.get(req.status, req.status.lower())}",
+            f"Bu talep zaten {STATUS_TR.get(req.status, req.status.lower())}.",
+        )
     if not access.can(DECIDE):
         raise _err(403, DECIDE, "you may not decide on requests", "talepler hakkında karar veremezsiniz")
     snap = req.rule_snapshot or rule_snapshot(None)
@@ -1388,12 +1418,15 @@ async def decide(
             actor=access.user,
             reason=why,
         )
-        alt_txt = ""
+        # T-R1-15 (R1-A-09): one language per recipient, and the free rooms the service found say they are automatic
+        alt_txt: tuple[str, str] = ("", "")
         if alt_out:
             span = f"P{alt_out['start_period']}-P{alt_out['end_period']}"
-            alt_txt = f" Öneri / suggestion: {alt_out['room_name']} {alt_out['date']} {span}."
+            where = f"{alt_out['room_name']} {alt_out['date']} {span}"
+            alt_txt = (f"\nOnaylayıcının önerisi: {where}.", f"\nThe approver suggests: {where}.")
         elif suggestion:
-            alt_txt = " Öneri / suggestions: " + ", ".join(a["name"] for a in suggestion["alternatives"]) + "."
+            names = ", ".join(a["name"] for a in suggestion["alternatives"])
+            alt_txt = (f"\nÖnerilen derslikler (otomatik): {names}.", f"\nSuggested rooms (automatic): {names}.")
         if notify:
             await notify_requester(session, req, "approval.rejected", access.user, alt_txt)
         await session.commit()

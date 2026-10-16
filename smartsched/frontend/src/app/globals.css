@@ -634,6 +634,15 @@
      neighbour won the tap). Inline labels ignore min-height; utilities still override. */
   @media (pointer: coarse) {
     label:has(> [data-slot="switch"], > [data-slot="checkbox"]) { min-height: 2.75rem; }
+    /* Native checkboxes and radios (tables, sheets and forms that do not use ui/checkbox): the same invisible
+       44 × 44 ::after as ui/hit-area.ts coarseHitArea (Chromium and WebKit draw and hit-test pseudo-elements on
+       these inputs). Base layer, so `sr-only` / `absolute` utilities still win over `position: relative`. T-R1-01. */
+    input:is([type="checkbox"], [type="radio"]) { position: relative; }
+    input:is([type="checkbox"], [type="radio"])::after {
+      content: "";
+      position: absolute;
+      inset: min(0px, calc(50% - 22px));
+    }
   }
   html:has([data-app-shell]) {
     scroll-padding-top: calc(var(--shell-top-h) + 1.5rem);
