@@ -19,7 +19,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, DoorOpen, Inbox, Users, XCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
@@ -67,6 +67,8 @@ export function ApprovalsView() {
   const entries = groupInbox(rows);
   const asked = askedRequest;
   const [openId, setOpenId] = useState<number | null>(askedRequest);
+  // a shortcut pressed on a list row, run by the drawer once the request is loaded (T-R1-18)
+  const [pendingKey, setPendingKey] = useState<"a" | "d" | "r" | null>(null);
   // a later notification click on the same page changes ?request= / ?group=. A group link is resolved once the
   // inbox answered: the submission's first open period (the link's own request may be decided already).
   const linkKey = askedRequest !== null || askedGroup !== null ? `${askedRequest ?? ""}|${askedGroup ?? ""}` : null;
@@ -92,6 +94,7 @@ export function ApprovalsView() {
 
   const close = () => {
     setOpenId(null);
+    setPendingKey(null);
     if (params.get("request") || params.get("group")) router.replace(pathname);
   };
   const nextOpen = (id: number) => rows.find((r) => r.id !== id && isOpen(r))?.id ?? null;
@@ -133,6 +136,15 @@ export function ApprovalsView() {
                 <Button
                   variant="ghost" shape="rect" className="h-auto w-full rounded-none whitespace-normal font-normal active:not-aria-[haspopup]:scale-100 focus-visible:-outline-offset-2 flex-col items-stretch justify-start gap-1 px-4 py-3 text-left hover:bg-fill-3 sm:flex-row sm:items-center sm:gap-4"
                   onClick={() => setOpenId(r.id)}
+                  onKeyDown={(e) => {
+                    // T-R1-18 (R1-M-23): the legend's A / D / R work on a focused row too (they open the request)
+                    if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || !isOpen(r)) return;
+                    const k = e.key.toLowerCase();
+                    if (k !== "a" && k !== "d" && k !== "r") return;
+                    e.preventDefault();
+                    setPendingKey(k);
+                    setOpenId(r.id);
+                  }}
                   data-testid={`approval-${r.id}`}
                   aria-label={t("wave1.approvals.openRequest", { room: r.room_name ?? "", name: r.requester_name ?? "" })}
                 >
@@ -168,11 +180,13 @@ export function ApprovalsView() {
       <RequestDrawer
         id={openId}
         onClose={close}
-        onSwitch={setOpenId}
+        onSwitch={(next) => (setPendingKey(null), setOpenId(next))}
         group={groupOf(openId)}
+        pendingKey={pendingKey}
         onDone={(id) => {
           const next = box === "open" ? nextOpen(id) : null;
           if (next) {
+            setPendingKey(null);
             setOpenId(next);
             // T-R1-12 (R1-M-22): the drawer now shows the next request; its title takes the focus (never the bell)
             focusAfter(["[data-approval-title]"], 0);
@@ -196,7 +210,7 @@ function nextRowSelector(entries: { requests: ApprovalRequest[] }[], id: number)
 
 /* --------------------------------------------------------------------------------------- drawer */
 
-function RequestDrawer({ id, onClose, onSwitch, onDone, group }: { id: number | null; onClose: () => void; onSwitch: (id: number) => void; onDone: (id: number) => void; group: ApprovalRequest[] }) {
+function RequestDrawer({ id, onClose, onSwitch, onDone, group, pendingKey }: { id: number | null; onClose: () => void; onSwitch: (id: number) => void; onDone: (id: number) => void; group: ApprovalRequest[]; pendingKey: "a" | "d" | "r" | null }) {
   const phone = useIsPhone();
   // the app's reduced-motion switch or the OS setting: the drawer appears and leaves at once (no slide)
   const reduce = useReduce();
@@ -209,20 +223,21 @@ function RequestDrawer({ id, onClose, onSwitch, onDone, group }: { id: number | 
         data-testid="approval-drawer"
         data-reduced-motion={reduce || undefined}
       >
-        {id !== null ? <RequestDetail key={id} id={id} onSwitch={onSwitch} onDone={onDone} group={group} /> : null}
+        {id !== null ? <RequestDetail key={`${id}|${pendingKey ?? ""}`} id={id} onSwitch={onSwitch} onDone={onDone} group={group} pendingKey={pendingKey} /> : null}
       </SheetContent>
     </Sheet>
   );
 }
 
-function RequestDetail({ id, onSwitch, onDone, group }: { id: number; onSwitch: (id: number) => void; onDone: (id: number) => void; group: ApprovalRequest[] }) {
+function RequestDetail({ id, onSwitch, onDone, group, pendingKey }: { id: number; onSwitch: (id: number) => void; onDone: (id: number) => void; group: ApprovalRequest[]; pendingKey: "a" | "d" | "r" | null }) {
   const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const qc = useQueryClient();
   const req = useApprovalRequest(id);
   const r = req.data;
   const [note, setNote] = useState("");
-  const [picking, setPicking] = useState(false);
+  // a shortcut pressed on the list row (T-R1-18): D opens the reject dialog, R the other rooms; A opens the request
+  const [picking, setPicking] = useState(pendingKey === "r");
   const [busy, setBusy] = useState<"approve" | "reject" | null>(null);
   const [error, setError] = useState<{ text: string; alternatives: DecideAlternative[] } | null>(null);
   const pending = r ? openDates(r) : [];
@@ -233,7 +248,7 @@ function RequestDetail({ id, onSwitch, onDone, group }: { id: number; onSwitch: 
   const openSiblings = siblings.filter(isOpen);
   const [groupBusy, setGroupBusy] = useState<"approve" | "reject" | null>(null);
   // the reject dialog: this period, the whole submission, or "reject and suggest" another room
-  const [rejecting, setRejecting] = useState<{ scope: "one" | "group"; alternative?: NonNullable<DecideIn["alternative"]>; suggestion?: string } | null>(null);
+  const [rejecting, setRejecting] = useState<{ scope: "one" | "group"; alternative?: NonNullable<DecideIn["alternative"]>; suggestion?: string } | null>(pendingKey === "d" ? { scope: "one" } : null);
   const [rejectError, setRejectError] = useState<string | null>(null);
   const askReject = (scope: "one" | "group", alternative?: NonNullable<DecideIn["alternative"]>, suggestion?: string) => {
     setRejectError(null);
@@ -294,29 +309,34 @@ function RequestDetail({ id, onSwitch, onDone, group }: { id: number; onSwitch: 
     }
   };
 
-  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (!open || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
-    const tag = (e.target as HTMLElement).tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-    const k = e.key.toLowerCase();
-    if (k === "a") {
-      e.preventDefault();
-      void decide("approve");
-    } else if (k === "d") {
-      e.preventDefault();
-      askReject("one");
-    } else if (k === "r") {
-      e.preventDefault();
-      setPicking((p) => !p);
-    }
+  const run = (k: string): boolean => {
+    if (k === "a") void decide("approve");
+    else if (k === "d") askReject("one");
+    else if (k === "r") setPicking((p) => !p);
+    else return false;
+    return true;
   };
+  // T-R1-18 (R1-M-23): A / D / R act on the open request wherever the focus is in the drawer (its "Kapat" too) or
+  // still on the page behind it, except in a text field and while the reject dialog is open
+  const onKey = useEffectEvent((e: globalThis.KeyboardEvent) => {
+    if (!open || rejecting || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+    const el = e.target as HTMLElement | null;
+    if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
+    if (el?.closest('[role="alertdialog"], [data-testid="reject-dialog"]')) return;
+    if (run(e.key.toLowerCase())) e.preventDefault();
+  });
+  useEffect(() => {
+    const h = (e: globalThis.KeyboardEvent) => onKey(e);
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, []);
 
   if (req.isLoading) return <Loading className="px-5 pt-5" />;
   if (!r) return <Alert tone="error" className="m-5">{req.error ? errorText(wave1Error(req.error), locale) : t("crbs.errors.not_found")}</Alert>;
   const { dates, first } = requestSlots(r);
   const head = first?.headcount;
   return (
-    <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onKey}>
+    <div className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="px-5 pt-5 pb-3">
         <div className="flex items-center gap-2">
           <SheetTitle className="type-title-3 outline-hidden" tabIndex={-1} data-approval-title>{r.room_name}</SheetTitle>
