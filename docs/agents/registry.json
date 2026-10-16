@@ -1652,7 +1652,8 @@
       "goal": "You are the **admin persona tester** (round 1 of the flow loop) for SmartSched. Repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m (shared tree; you only write reports). Ledger id: flow-r1-admin-2026-10-16. ## Persona The institution's system administrator: sets up the system, use…",
       "ledger": "Persona tester: admin",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 12:16"
     },
     {
       "id": "ae9b3ffdef58b388b",
