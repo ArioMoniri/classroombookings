@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The REAL backend for the browser e2e stack: fresh SQLite, the real Bahar 2026 workbooks, the seeded
+# The REAL backend for the browser e2e stack: fresh SQLite, the real Bahar 2026 workbooks + room master, the seeded
 # admin, one full-term CP-SAT run, then serve with the booking clock inside the term (e2e-backend-serve.py).
 #
 # pod CI (e2e-real.sh): runs INSIDE the python CI container, cwd /w/src/smartsched/backend, gates at /ci.
@@ -37,6 +37,10 @@ fi
 alembic upgrade head
 "$PY" -m app.cli import weekly-grid tests/fixtures/bahar_derslikler_takvimi_2026.xlsx --term 2026-BAHAR --year 2026
 "$PY" -m app.cli import planning-list tests/fixtures/bahar_derslik_planlama_listesi_v5.xlsx --term 2026-BAHAR
+# the room master (capacities, exam capacities, buildings, features) like every real install: without it the grid's
+# rooms have no capacity, the full-term run is solved against none, and a spec applying room_master.csv
+# (shell-admin-sweep 2) changed the rooms under that run for every spec after it (e2e-stabilisation 2026-10-16)
+"$PY" -m app.cli import room-master tests/fixtures/room_master.csv
 "$PY" -m app.cli seed-admin
 # a solver run for the whole term (the calendar and motion specs need one besides the imported boards)
 "$PY" -m app.cli solve --term 2026-BAHAR --kind COURSE --horizon TERM --solver cpsat \
