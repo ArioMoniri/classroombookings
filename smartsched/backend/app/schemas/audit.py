@@ -27,6 +27,9 @@ class AuditEventOut(BaseModel):
     parent_id: int | None
     #: an undo event points at this one
     undone: bool = False
+    #: who undoes it when ``POST /audit/{id}/undo`` is offered: ``bookings`` (booking / series rows) or
+    #: ``program_draft`` (a programme created or reopened by the wizard commit; the drafts undo runs)
+    undo_via: str | None = None
     #: only with audit.view
     request_id: str | None = None
     ip_hash: str | None = None
@@ -43,3 +46,7 @@ class UndoOut(BaseModel):
     undone: int
     action: str
     booking_ids: list[int]
+    #: a wizard programme (``undo_via: program_draft``): the draft, the programme and what was archived
+    draft_id: int | None = None
+    program_id: int | None = None
+    archived: dict[str, list[int]] | None = None
